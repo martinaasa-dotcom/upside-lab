@@ -6,6 +6,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { useFeedback } from "@/components/FeedbackHost";
 import { AppStatusStrip, type AppStatusProps } from "@/components/AppStatusStrip";
 import { HeaderBrand } from "@/components/HeaderBrand";
+import { MobileTopBar } from "@/components/mobile/MobileTopBar";
 import { UpgradeNudge } from "@/components/billing/UpgradeNudge";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { cn } from "@/lib/format";
@@ -24,6 +25,17 @@ type Props = {
   showWorkspaceNav?: boolean;
   className?: string;
   status?: AppStatusProps;
+  /**
+   * The phone's own title, when it differs from the desktop one. The
+   * Dashboard hands over a sheet picker here and a plain string above;
+   * Fund reads "Upside Fund" wide and "Fund" narrow. Defaults to `title`,
+   * which is what most pages want.
+   */
+  mobileTitle?: ReactNode;
+  /** Page actions for the phone row, which has room for fewer of them. */
+  mobileEnd?: ReactNode;
+  alertCount?: number;
+  onAlerts?: () => void;
 };
 
 function FeedbackHeaderButton() {
@@ -58,6 +70,40 @@ function DefaultAccountEnd() {
 }
 
 /**
+ * The phone's row of the chrome, avatar and all.
+ *
+ * A child rather than inline in `AppHeader` so the auth subscription that
+ * resolves the avatar re-renders this row alone, and so the desktop row
+ * above it stays free of hooks it has no use for.
+ */
+function MobileBarRow({
+  title,
+  end,
+  alertCount,
+  onAlerts,
+}: {
+  title: ReactNode;
+  end?: ReactNode;
+  alertCount?: number;
+  onAlerts?: () => void;
+}) {
+  const { profile, user } = useAuth();
+  const initial = (profile?.display_name || user?.email || "?")
+    .trim()
+    .charAt(0)
+    .toUpperCase();
+  return (
+    <MobileTopBar
+      title={title}
+      avatar={{ url: profile?.avatar_url, initial }}
+      alertCount={alertCount}
+      onAlerts={onAlerts}
+      end={end}
+    />
+  );
+}
+
+/**
  * The one header every signed-in page uses.
  *
  * Fixed on desktop so Book → Fund → Communities does not move the bar.
@@ -73,20 +119,32 @@ export function AppHeader({
   showWorkspaceNav = true,
   className,
   status,
+  mobileTitle,
+  mobileEnd,
+  alertCount,
+  onAlerts,
 }: Props) {
   return (
     <>
       {/*
-       * One pane, not two: one fill, one blur, both rows inside it, and a
-       * hairline where they meet. As two sibling fixed elements each with
-       * its own fill and blur they sampled different slices of the backdrop
-       * and came out at visibly different tones with a seam between them.
+       * One pane, not two: one fill, one blur, every row inside it.
+       *
+       * A `backdrop-filter` opens its own sampling root, so two stacked
+       * elements each blurring 40px of what sits behind them average
+       * different slices and land at different tones — with a seam on the
+       * line where they meet. The desktop header row and the market strip
+       * were merged in here for that reason; the phone's top bar was still
+       * a sibling above this pane, with its own identical fill and blur,
+       * and had exactly the same seam. It renders inside now
+       * (`MobileBarRow`), so the phone chrome is one sheet of glass from
+       * the safe-area inset down to its bottom hairline. If another row
+       * ever joins the chrome, put it in here rather than beside it.
        *
        * One `<AppStatusStrip>` instance, deliberately — it holds a
        * one-second interval and polls quotes, so rendering it per
-       * breakpoint would run two of each. This wrapper changes behaviour at
-       * `md` instead: below it the header row is hidden and the wrapper is
-       * just the strip under the mobile top bar.
+       * breakpoint would run two of each. The pane changes behaviour at
+       * `md` instead: each row hides itself at the breakpoint it does not
+       * belong to.
        *
        * Do not put a breakpoint class on this wrapper. Every call site used
        * to pass `hidden md:block`, which hid the strip along with the
@@ -95,11 +153,17 @@ export function AppHeader({
        */}
       <div
         className={cn(
-          "sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-30 bg-background/35 backdrop-blur-2xl",
-          "md:fixed md:inset-x-0 md:top-0 md:z-40",
+          "chrome-pane sticky top-0 z-40 pt-[env(safe-area-inset-top)]",
+          "md:fixed md:inset-x-0 md:top-0 md:pt-0",
           className
         )}
       >
+        <MobileBarRow
+          title={mobileTitle ?? title}
+          end={mobileEnd}
+          alertCount={alertCount}
+          onAlerts={onAlerts}
+        />
         {/*
          * No `border-b` here. This wrapper is one sheet of glass, and a
          * rule between the two rows inside it is exactly what made the
@@ -148,22 +212,6 @@ export function AppHeader({
             </div>
           </div>
         </header>
-        {/*
-         * `--background` is pure black, so this fill is a black veil and
-         * its alpha is exactly how much of the ambient glow it eats. It
-         * started opaque, which ended the glow at a razor edge right under
-         * the chrome — measured as a 0 -> 45 luminance step across ~2 CSS
-         * px — and read as the glow being "clipped by the header". The
-         * glow is `position: fixed` and always did sit behind the chrome;
-         * it was this slab painting over it.
-         *
-         * The blur does the legibility work, not the opacity: anything
-         * scrolling under becomes a soft wash, and the field it sits on
-         * peaks at 43/255 in the warm corner, so header text measures far
-         * above AAA
-         * against it. Do not raise this back toward opaque to "fix"
-         * contrast without measuring it first.
-         */}
         <AppStatusStrip {...status} />
       </div>
       <div className={PAGE_CHROME_SPACER_CLASS} aria-hidden />

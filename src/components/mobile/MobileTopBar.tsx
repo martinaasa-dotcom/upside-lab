@@ -71,16 +71,19 @@ export function MobileTopBar({
   return (
     <header
       className={cn(
-        // Translucent glass, matching AppHeader on desktop. A fully opaque
-        // bar here made mobile the only surface with no translucent chrome
-        // at all, and clipped the page's ambient glow at a hard edge.
+        // A row, not a pane. No fill, no blur, no sticky of its own: this
+        // renders inside `AppHeader`'s `.chrome-pane`, which carries the
+        // glass for the whole band. It used to be a sibling above that
+        // pane with its own identical `bg-background/35 backdrop-blur-2xl`,
+        // and because a backdrop filter samples its own slice of what sits
+        // behind it, the two landed at different tones with a seam on the
+        // line between them — the phone's copy of the bug the desktop
+        // chrome fixed by merging its rows. Give this a background or a
+        // blur again and the seam comes straight back.
         //
-        // No `border-b` on the row inside: this bar and the market strip
-        // under it are one band of chrome, and a rule between them made it
-        // read as two stacked panes — the same complaint the desktop chrome
-        // had before its two rows were merged. The only edge the chrome
-        // carries is the one at its bottom, which the strip draws.
-        "sticky top-0 z-40 bg-background/35 backdrop-blur-2xl pt-[env(safe-area-inset-top)] md:hidden",
+        // No `border-b` either: the chrome carries exactly one edge, at
+        // the bottom of the pane, which the market strip draws.
+        "md:hidden",
         className
       )}
     >

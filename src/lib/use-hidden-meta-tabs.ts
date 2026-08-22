@@ -25,8 +25,8 @@ function hiddenForStoredTier(): string[] {
  * the moment you switch pages — the same failure the desktop dock had with
  * its add cell.
  *
- * `MobileChrome` took `hiddenModeIds` as an optional prop and not one of its
- * four call sites passed it, so Account, Circle, Fund and Admin all defaulted
+ * `MobileDock` (then `MobileChrome`) took `hiddenModeIds` as an optional
+ * prop and not one of its four call sites passed it, so Account, Circle, Fund and Admin all defaulted
  * to hiding nothing while the Dashboard hid whatever the tier said. That was
  * invisible only because `TIER_HIDDEN_META_TABS` is currently empty for every
  * tier; filling one entry back in would have made every one of those pages

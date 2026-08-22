@@ -957,13 +957,29 @@ export function Stat(props: ScoreProps) {
 
 /**
  * The item inside a `Segmented`. Off = quiet type on the track. Hover =
- * brighter type plus a faint wash. On = a lit pill: the `--selected` veil
- * with a top specular edge, the same "raised into the light" language the
- * glass cards use. No border — an outlined item inside a bordered track
- * stacks two strokes.
+ * brighter type plus a faint wash. On = the filled `--primary` pill, the
+ * same "you are here" the dock's active cell paints. No border — an
+ * outlined item inside a bordered track stacks two strokes.
+ *
+ * It was the `--selected` white veil with `--primary` text, and it read
+ * flat for a reason worth keeping written down: **the warm accent cannot
+ * be expressed as a dark tint.** Yellow only reads as yellow while it is
+ * light; at 26% white over a near-black field the pill lands on mid-grey,
+ * the ambient warm lobe pushes it to khaki, and dim yellow type on khaki
+ * is barely a contrast step at all. Rendered side by side, a warm veil at
+ * 18%, 30% and 45% were all muddier than the original, and a neutral veil
+ * with white type was clean but colourless. The accent either arrives at
+ * full lightness or it stays out of the fill.
+ *
+ * Filled primary is loud enough that it belongs to state, not decoration:
+ * a segmented item is framed by its own track, so it reads as the chosen
+ * one of a set rather than as a loose button. `WorkspaceSwitcher` is the
+ * one "selected" that deliberately does NOT fill — it sits in the header
+ * bar beside the page's real CTA, and two solid yellow controls there
+ * both shout "press me". See the note on it.
  */
 const SEGMENTED_ITEM =
-  "rounded-md border border-transparent text-muted-foreground shadow-none group-data-[spacing=0]/toggle-group:rounded-md group-data-horizontal/toggle-group:data-[spacing=0]:first:rounded-md group-data-horizontal/toggle-group:data-[spacing=0]:last:rounded-md hover:bg-hover hover:text-foreground data-[state=on]:card-sheen data-[state=on]:bg-selected data-[state=on]:text-primary data-[state=on]:shadow-sm data-[state=on]:hover:bg-selected";
+  "rounded-md border border-transparent text-muted-foreground shadow-none group-data-[spacing=0]/toggle-group:rounded-md group-data-horizontal/toggle-group:data-[spacing=0]:first:rounded-md group-data-horizontal/toggle-group:data-[spacing=0]:last:rounded-md hover:bg-hover hover:text-foreground data-[state=on]:card-sheen data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground";
 
 /**
  * The one segmented toggle. Overview's today/lifetime, the drawer's 3y/5y,
@@ -1061,18 +1077,23 @@ export function Segmented<T extends string>({
                 ? "touch-target min-h-9 rounded-lg border"
                 : "touch-target py-2.5 md:min-h-0 md:min-w-0",
               /*
-               * Selected reads as *raised into the light*, never as a hole.
-               * The grid's selected cell used to be `bg-background` — pure
+               * Same filled pill as the compact look — see `SEGMENTED_ITEM`
+               * for why the accent has to arrive at full lightness rather
+               * than as a veil. Before that it was `bg-background` — pure
                * black — sitting between grey cells, so on a black page the
                * chosen option looked like a gap punched through the
-               * control. Selected is now the lighter surface with a top
-               * specular edge, unselected the darker one, which is the
-               * same "lit surface" language the glass cards use.
+               * control.
+               *
+               * `border-transparent`, not `border-input`: the border box
+               * still paints the fill under a transparent border, so the
+               * cell keeps the unselected cells' 1px and does not shift,
+               * while a grey stroke around a yellow fill would read as a
+               * dropped shadow of the old outline.
                */
               on
                 ? buttons
-                  ? "card-sheen border-input bg-selected text-primary shadow-sm"
-                  : "card-sheen bg-selected text-primary"
+                  ? "card-sheen border-transparent bg-primary text-primary-foreground shadow-sm"
+                  : "card-sheen bg-primary text-primary-foreground"
                 : buttons
                   ? "glass border-input text-muted-foreground hover:text-foreground"
                   : "veil-hover glass text-muted-foreground hover:text-foreground"

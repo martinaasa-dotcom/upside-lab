@@ -541,6 +541,57 @@ body {
     margin-inline-start: calc(var(--chip-radius) * -0.2146018366);
   }
 
+  /*
+   * The app chrome — one pane, and the same material as a card.
+   *
+   * The chrome is a single sheet of glass that happens to hold two rows.
+   * It has to be one *element*, not two stacked ones sharing a fill: a
+   * `backdrop-filter` establishes its own sampling root, so two siblings
+   * each blurring 40px of whatever sits behind them land on different
+   * averages and come out at visibly different tones with a seam between
+   * them. Desktop was merged into one pane for exactly this reason; the
+   * phone kept a separate top bar and had the same seam until the mobile
+   * row moved inside this pane too. If a future row joins the chrome, put
+   * it inside this element rather than beside it.
+   *
+   * The refraction is a `background-image`, not the inset `box-shadow`
+   * that `.card-sheen.glass` uses, because the chrome is a band of
+   * arbitrary height — 85px on desktop, 92px plus the safe-area inset on a
+   * phone — and a shadow spread is a fixed pixel distance, so it would
+   * hug the top edge on one and wash half the band on the other. A
+   * percentage gradient is height-relative and glides across the whole
+   * band either way. Nothing here is `.veil-hover`, so there is no hover
+   * paint to wipe it (the reason cards use shadows instead).
+   *
+   * `saturate` matches `.glass`. Without it the chrome was the one
+   * translucent surface in the app that drained the ambient colour passing
+   * under it rather than carrying it.
+   *
+   * `--background` is pure black, so the fill is a black veil and its
+   * alpha is exactly how much of the ambient glow the chrome eats. It
+   * started opaque, which ended the glow at a razor edge right under the
+   * chrome — a 0 -> 45 luminance step across ~2 CSS px — and read as the
+   * glow being "clipped by the header". The glow is `position: fixed` and
+   * always did sit behind the chrome; it was this slab painting over it.
+   * The blur does the legibility work, not the opacity: anything scrolling
+   * under becomes a soft wash, and the field peaks at 43/255 in the warm
+   * corner, so header text measures far above AAA against it. Do not raise
+   * this back toward opaque to "fix" contrast without measuring first.
+   */
+  .chrome-pane {
+    background-color: color-mix(in oklch, var(--background), transparent 65%);
+    background-image: linear-gradient(
+      to bottom,
+      oklch(1 0 0 / 6.5%) 0%,
+      oklch(1 0 0 / 3.4%) 26%,
+      oklch(1 0 0 / 1.2%) 58%,
+      oklch(1 0 0 / 0%) 100%
+    );
+    /* Prefixed first, standard last — see the note on `.glass` above. */
+    -webkit-backdrop-filter: blur(40px) saturate(1.9);
+    backdrop-filter: blur(40px) saturate(1.9);
+  }
+
   .glass-well {
     background-color: color-mix(in oklch, var(--muted), transparent 64%);
     /* Prefixed first, standard last — see the note on `.glass` above. */
