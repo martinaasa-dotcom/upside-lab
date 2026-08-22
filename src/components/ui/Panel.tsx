@@ -131,8 +131,14 @@ export const PANEL_PAD = "p-4 sm:p-6";
 /** Nested card / score-cell padding. Same step as the panel. */
 export const NESTED_PAD = "p-4 sm:p-6";
 /** A Scoreboard cell. Separate card on the field, not a hairline slice. */
+/*
+ * `flex flex-col` so the note under the figure can bottom-align — see the
+ * note in `Score`. Grid stretches every cell in a row to the tallest, and
+ * without this the third line of each cell started wherever its own figure
+ * happened to end.
+ */
 export const SCORE_CELL =
-  "card-sheen glass min-w-0 rounded-xl p-4 ring-1 ring-foreground/20 sm:p-6";
+  "card-sheen glass flex min-w-0 flex-col rounded-xl p-4 ring-1 ring-foreground/20 sm:p-6";
 /** Member / row list on the field. */
 export const LIST =
   "glass divide-y divide-border overflow-hidden rounded-xl ring-1 ring-foreground/20";
@@ -897,8 +903,23 @@ export function Score({
   className,
 }: ScoreProps) {
   const reading = Boolean(bullets && bullets.length > 0);
+  /*
+   * `mt-auto` — the note sits on the cell's floor, not under its figure.
+   *
+   * A `Scoreboard` row stretches every cell to the tallest, so the third
+   * line of each one started wherever that cell's own figure happened to
+   * end: a one-line figure put its note higher than a wrapped one, and a
+   * `Pill` in the slot (28px) sat lower than a line of text (20px) beside
+   * it. Across a four-cell row that reads as four different baselines for
+   * what is one row of the same thing — the "things can't start from a
+   * different row" complaint the Circle scores had.
+   *
+   * `pt-*` rather than `mt-*` for the gap, because `mt-auto` is the
+   * margin-top and would swallow it.
+   */
   const noteClass = cn(
-    reading ? "mt-3 text-sm leading-relaxed" : "mt-2 text-sm leading-snug",
+    "mt-auto",
+    reading ? "pt-3 text-sm leading-relaxed" : "pt-2 text-sm leading-snug",
     subClassName ?? "text-muted-foreground"
   );
   return (

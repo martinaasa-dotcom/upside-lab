@@ -592,6 +592,40 @@ body {
     backdrop-filter: blur(40px) saturate(1.9);
   }
 
+  /*
+   * Overlay glass — menus, selects, popovers, dialogs, sheets, drawers.
+   *
+   * Everything under these is a refractive surface, and an opaque slab
+   * dropped on top of it was the last flat thing in the app: a menu read
+   * as a grey rectangle pasted over the page rather than a pane held above
+   * it. They are the one family that sits *over* content rather than in
+   * the field, so the fill is much heavier than a card's — 78% against a
+   * card's 45% — because a menu has to stay readable over a table, a
+   * chart, or a run of numbers, not just over the black field.
+   *
+   * Fill and blur only, no `box-shadow`: every call site already carries
+   * its own `border`, `ring-1` and `shadow-md`/`shadow-lg`, and
+   * `box-shadow` is atomic — a shadow here would race Tailwind's `shadow-*`
+   * inside the same layer and one of them would silently win. The top
+   * specular is a `background-image` for the same reason, as on
+   * `.chrome-pane`; none of these hover, so there is no veil to wipe it.
+   *
+   * Radix and Vaul portal their content to `<body>`, so nothing here is
+   * inside a clipped or transformed ancestor that would break the blur.
+   */
+  .glass-overlay {
+    background-color: color-mix(in oklch, var(--popover), transparent 12%);
+    background-image: linear-gradient(
+      to bottom,
+      oklch(1 0 0 / 5.5%) 0%,
+      oklch(1 0 0 / 2%) 20%,
+      oklch(1 0 0 / 0%) 48%
+    );
+    /* Prefixed first, standard last — see the note on `.glass` above. */
+    -webkit-backdrop-filter: blur(32px) saturate(1.8);
+    backdrop-filter: blur(32px) saturate(1.8);
+  }
+
   .glass-well {
     background-color: color-mix(in oklch, var(--muted), transparent 64%);
     /* Prefixed first, standard last — see the note on `.glass` above. */
