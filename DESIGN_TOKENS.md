@@ -637,6 +637,34 @@ The exceptions, which stay opaque on purpose: **meter tracks**
 **step indicators**, and `focus:bg-muted` on inline-edit cells, which needs
 an opaque fill to read as focused.
 
+### Overlays are glass too, at a much heavier fill
+
+Menus, selects, popovers, dialogs, sheets and drawers are `.glass-overlay`.
+They were the last flat family in the app: an opaque `bg-popover` slab
+dropped onto a page of refractive surfaces reads as a grey rectangle pasted
+over it rather than a pane held above it.
+
+They are also the one family that sits **over** content rather than in the
+field, so the fill is far heavier than a card's — `--popover` at **88%**,
+against a card's 45%. A menu has to stay readable over a table, a chart or a
+run of figures, and the blur alone does not get you there: an element with
+`backdrop-filter` does not smear content painted by *another* element that
+has one, so a menu opening under the chrome sees the market strip
+unblurred. Stepped through 70 / 78 / 88 / 96% against exactly that case,
+88% is where the ghost of the numbers behind stops competing with the menu's
+own labels while the pane still carries the ambient wash.
+
+Fill and blur only — no `box-shadow`. Every call site already carries its
+own `border`, `ring-1` and `shadow-md`/`shadow-lg`, and `box-shadow` is
+atomic, so a shadow in the utility would race Tailwind's `shadow-*` inside
+the same layer. The top specular is a `background-image` for the same
+reason it is on `.chrome-pane`; no overlay hovers, so there is no veil to
+wipe it.
+
+`Command` carries no fill of its own: it always renders inside a
+`CommandDialog`, and the `DialogContent` around it is the pane. An opaque
+fill there painted a grey slab across the inside of a translucent dialog.
+
 `Segmented` follows the same language as the glass cards: the track is a
 well and an unselected item is glass. The **selected** one is the filled
 `--primary` pill, the same "you are here" the dock's active cell paints.
