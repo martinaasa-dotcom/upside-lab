@@ -266,7 +266,7 @@ export function CommunitiesList() {
                 ))}
               </div>
             ) : (
-              <ul className="divide-y divide-border overflow-hidden rounded-lg bg-muted">
+              <ul className="card-sheen glass-well divide-y divide-border overflow-hidden rounded-lg">
                 {communities.length === 0 && (
                   <li className="flex flex-col items-center gap-2 px-4 py-10 text-center">
                     <Users className="h-6 w-6 text-muted-foreground" />
@@ -325,12 +325,12 @@ export function CommunitiesList() {
               icon={<Compass className="h-4 w-4" />}
             />
             {discover.length === 0 ? (
-              <p className="rounded-lg bg-muted px-4 py-6 text-sm leading-relaxed text-muted-foreground">
+              <p className="card-sheen glass-well rounded-lg px-4 py-6 text-sm leading-relaxed text-muted-foreground">
                 No public circles right now. If you start one, flip it to
                 Public so people can ask in.
               </p>
             ) : (
-              <ul className="divide-y divide-border overflow-hidden rounded-lg bg-muted">
+              <ul className="card-sheen glass-well divide-y divide-border overflow-hidden rounded-lg">
                 {discover.map((c) => (
                   <li
                     key={c.id}

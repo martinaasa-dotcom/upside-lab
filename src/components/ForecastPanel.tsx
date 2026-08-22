@@ -195,7 +195,7 @@ function PlaybookItem({
 
 export function ForecastOffStub({ onShow }: { onShow: () => void }) {
   return (
-    <div className={cn(SPLIT_ROW, NESTED_PAD, "sm:items-center rounded-lg bg-muted")}>
+    <div className={cn(SPLIT_ROW, NESTED_PAD, "card-sheen glass-well sm:items-center rounded-lg")}>
       <div className={SPLIT_COPY}>
         <p className="text-sm font-medium text-foreground">Forecast is off</p>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
@@ -1040,7 +1040,7 @@ export const ForecastPanel = memo(function ForecastPanel({
               </Card>
             ))}
 
-            <div className={cn("rounded-lg bg-muted", NESTED_PAD)}>
+            <div className={cn("card-sheen glass-well rounded-lg", NESTED_PAD)}>
               <p className="text-sm font-medium text-muted-foreground">
                 Whole portfolio
               </p>

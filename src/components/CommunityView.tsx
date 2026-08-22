@@ -1787,7 +1787,7 @@ export function CommunityView({ communityId }: Props) {
                     <section className="overview-fade order-3 rounded-xl glass ring-1 ring-foreground/20 p-6">
                       <div className="mb-4 flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2.5">
-                          <div className="rounded-xl bg-muted p-2 text-primary">
+                          <div className="card-sheen glass-well rounded-xl p-2 text-primary">
                             <Sparkles className="h-4 w-4" />
                           </div>
                           <div>
@@ -1834,7 +1834,7 @@ export function CommunityView({ communityId }: Props) {
                   {effectiveView === "play" && achievements.length > 0 && (
                     <section className="overview-fade order-2 rounded-xl glass ring-1 ring-foreground/20 p-6">
                       <div className="mb-4 flex items-center gap-2.5">
-                        <div className="rounded-lg bg-muted p-2 text-muted-foreground">
+                        <div className="card-sheen glass-well rounded-lg p-2 text-muted-foreground">
                           <Award className="size-4" />
                         </div>
                         <div>
@@ -1889,7 +1889,7 @@ export function CommunityView({ communityId }: Props) {
                     <section className="overview-fade order-1 rounded-xl glass ring-1 ring-foreground/20 p-6">
                       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                         <div className="flex items-center gap-2.5">
-                          <div className="rounded-xl bg-muted p-2 text-primary">
+                          <div className="card-sheen glass-well rounded-xl p-2 text-primary">
                             <Trophy className="h-4 w-4" />
                           </div>
                           <div>
@@ -2027,7 +2027,7 @@ export function CommunityView({ communityId }: Props) {
                   {effectiveView === "play" && communityThemeBreakdown.length > 0 && (
                     <section className="overview-fade order-5 rounded-xl glass ring-1 ring-foreground/20 p-6">
                       <div className="mb-4 flex items-center gap-2.5">
-                        <div className="rounded-xl bg-muted p-2 text-primary">
+                        <div className="card-sheen glass-well rounded-xl p-2 text-primary">
                           <PieChart className="h-4 w-4" />
                         </div>
                         <div>
@@ -2069,7 +2069,7 @@ export function CommunityView({ communityId }: Props) {
                   <section className="overview-fade order-6 rounded-xl glass ring-1 ring-foreground/20 p-6">
                     <div className="mb-4 flex items-center justify-between gap-2.5">
                       <div className="flex items-center gap-2.5">
-                        <div className="rounded-xl bg-muted p-2 text-primary">
+                        <div className="card-sheen glass-well rounded-xl p-2 text-primary">
                           <Lightbulb className="h-4 w-4" />
                         </div>
                         <div>
@@ -3304,7 +3304,7 @@ function ReadOnlyHoldings({
         <Score label="Cash" value={currency(cash)} />
       </Scoreboard>
       {holdings.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border bg-muted px-4 py-6 text-center text-sm text-muted-foreground">
+        <p className="glass-well rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
           No holdings in this portfolio.
         </p>
       ) : (

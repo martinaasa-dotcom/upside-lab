@@ -1098,7 +1098,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             */}
           <div className="mt-4">
             {upcomingMilestones.length > 0 ? (
-              <ul className="divide-y divide-border overflow-hidden rounded-lg bg-muted">
+              <ul className="card-sheen glass-well divide-y divide-border overflow-hidden rounded-lg">
                 {upcomingMilestones.map((row, i) => (
                   <MilestoneLadderRow
                     key={row.goal}
@@ -1113,7 +1113,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             {clearedMilestones.length > 0 ? (
               <details
                 className={cn(
-                  "rounded-lg bg-muted",
+                  "card-sheen glass-well rounded-lg",
                   upcomingMilestones.length > 0 && "mt-3"
                 )}
                 {...(upcomingMilestones.length === 0 ? { open: true } : {})}

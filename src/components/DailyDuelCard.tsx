@@ -191,7 +191,7 @@ export function DailyDuelCard({
         )}
       >
         <div className="mb-3 flex items-center gap-2.5">
-          <div className="rounded-xl bg-muted p-2 text-primary">
+          <div className="card-sheen glass-well rounded-xl p-2 text-primary">
             <Swords className="h-4 w-4" />
           </div>
           <div>
@@ -200,8 +200,8 @@ export function DailyDuelCard({
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="h-[5.5rem] rounded-lg bg-muted" />
-          <div className="h-[5.5rem] rounded-lg bg-muted" />
+          <div className="h-[5.5rem] glass-well rounded-lg" />
+          <div className="h-[5.5rem] glass-well rounded-lg" />
         </div>
       </section>
     );
@@ -286,7 +286,7 @@ export function DailyDuelCard({
     >
       <div className={cn("mb-3", SPLIT_ROW, "sm:items-center")}>
         <div className={cn(SPLIT_COPY, "flex items-center gap-2.5")}>
-          <div className="rounded-xl bg-muted p-2 text-primary">
+          <div className="card-sheen glass-well rounded-xl p-2 text-primary">
             <Swords className="h-4 w-4" />
           </div>
           <div>

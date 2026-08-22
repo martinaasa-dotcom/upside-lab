@@ -197,7 +197,7 @@ export function AdminPage() {
 
         <main id="main" className={PAGE_MAIN_CLASS}>
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-primary">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center card-sheen glass-well rounded-lg text-primary">
               <Shield className="h-5 w-5" />
             </div>
             <div>

@@ -479,7 +479,7 @@ export const PortfolioTable = memo(function PortfolioTable({
       {/* Mobile / tablet cards. The 13-col table needs the 1080px column. */}
       <div className="flex flex-col gap-3 p-6 lg:hidden">
         {holdings.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border bg-muted px-4 py-8 text-center">
+          <div className="glass-well rounded-xl border border-dashed border-border px-4 py-8 text-center">
             <p className="text-sm text-muted-foreground">No holdings in this portfolio yet.</p>
             {emptyCta}
           </div>
@@ -601,7 +601,7 @@ export const PortfolioTable = memo(function PortfolioTable({
         )}
 
         {holdings.length > 0 && (
-          <div className="rounded-lg bg-muted px-4 py-4 text-sm">
+          <div className="card-sheen glass-well rounded-lg px-4 py-4 text-sm">
             <div className="flex justify-between font-semibold">
               <span className="text-foreground">Portfolio</span>
               <span className={cn("tabular-nums", signedTone(totals.roiPct))}>

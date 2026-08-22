@@ -660,7 +660,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
       )}
 
       {loading && !model ? (
-        <div className="rounded-lg bg-muted px-4 py-12 text-center text-sm text-muted-foreground">
+        <div className="card-sheen glass-well rounded-lg px-4 py-12 text-center text-sm text-muted-foreground">
           Loading seasonality for {cashtag(ticker)}…
         </div>
       ) : null}
