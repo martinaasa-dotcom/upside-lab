@@ -9,8 +9,25 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        /*
+         * Disabled drops the accent entirely rather than dimming it.
+         *
+         * `disabled:opacity-50` from the base is right for every other
+         * variant, but on a `--primary` fill it is the mud described in
+         * `SEGMENTED_ITEM`: the app's yellow is a deliberately low-chroma
+         * warm one, and half of it over a near-black field is khaki, with
+         * the near-black label on top going to a washed brown. An empty
+         * form's "Check" or "Add these names" read as a yellow button that
+         * had gone wrong rather than as one that is not ready. A neutral
+         * surface with muted type says "not yet" and stays legible, and it
+         * follows the rule the rest of the app follows: the accent arrives
+         * at full lightness or it stays out.
+         *
+         * `disabled:opacity-100` undoes the base rather than compounding
+         * with it; without it the neutral fill would be dimmed again.
+         */
         default:
-          "bg-primary text-primary-foreground shadow-xs hover:bg-[color-mix(in_oklch,var(--primary),white_10%)]",
+          "bg-primary text-primary-foreground shadow-xs hover:bg-[color-mix(in_oklch,var(--primary),white_10%)] disabled:bg-secondary disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none",
         /*
          * Hover *lifts* the surface it is on; it never replaces it.
          *
