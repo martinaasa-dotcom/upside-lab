@@ -637,6 +637,33 @@ The exceptions, which stay opaque on purpose: **meter tracks**
 **step indicators**, and `focus:bg-muted` on inline-edit cells, which needs
 an opaque fill to read as focused.
 
+### A panel spaces its own children — call sites must not
+
+`Panel` is `flex flex-col gap-5 p-4 sm:gap-6 sm:p-6`. Every direct child is
+already 20/24px from the next one, so a child that also carries `mt-3`,
+`mt-4` or `mb-4` gets **both**: measured on Lab, a subtitle sat 30px under
+its own title and 40px above the bar it introduced, which is what the
+"huge dead gap" in that card was. Fifteen call sites across Lab, Growth and
+Fund did it.
+
+Two rules come out of it:
+
+- **A title and its subtitle are one child**, not two. As siblings the
+  panel gap pushes them a full step apart, and the call site then reaches
+  for a negative-feeling `mt-1.5` to pull them back. Wrap them, and let
+  `mt-1.5` hug inside the wrapper.
+- **A component never carries its own outer margin.** `SwatchLegend` had an
+  `mt-3` baked in, and every one of its three call sites added `mt-4` on
+  top because that still was not what the container wanted. Spacing is the
+  container's job: inside a `Panel` the panel gap does it; inside a
+  hand-spaced section the call site says `mt-4` and means it.
+
+Auditable at runtime: any element whose parent is a column (or grid) with a
+non-zero `row-gap` and which has a positive `margin-top`/`margin-bottom` is
+paying twice. Negative pull-ups and `margin: auto` (see `Score`) are the
+deliberate exceptions, along with a `Separator`, which wants more air than
+the gap around a rule.
+
 ### Overlays are glass too, at a much heavier fill
 
 Menus, selects, popovers, dialogs, sheets and drawers are `.glass-overlay`.

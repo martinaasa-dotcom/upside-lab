@@ -987,13 +987,13 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
 
           {/* Three numbers, and the sentence that ties them together. Anything
             * more here and the first thing a person sees is a wall. */}
-          <div className="mt-4">
+          <div>
             <MicroLabel>Ends up at</MicroLabel>
             <p className="mt-1 text-2xl font-bold tabular-nums text-gain">
               {show(result.futureValue)}
             </p>
           </div>
-          <Scoreboard className="mt-4" cols={2}>
+          <Scoreboard cols={2}>
             <Score
               label="Of that, growth"
               value={show(result.totalInterest)}
@@ -1007,7 +1007,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             />
           </Scoreboard>
 
-          <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+          <p className="text-sm leading-relaxed text-muted-foreground">
             You put in {show(result.principal + result.totalDeposited)} and end
             with {show(result.futureValue)}, so growth did{" "}
             {show(result.totalInterest)} of the work
@@ -1017,7 +1017,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             .
           </p>
 
-          <Scoreboard className="mt-4" cols={2}>
+          <Scoreboard cols={2}>
             <Score
               label="Total return"
               value={
@@ -1038,7 +1038,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
               }
             />
           </Scoreboard>
-          <Scoreboard className="mt-4" cols={1}>
+          <Scoreboard cols={1}>
             <Score
               label="When growth takes over"
               value={
@@ -1067,7 +1067,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
               ) : undefined
             }
           />
-          <div className="mt-4">
+          <div>
             <ComparePathsChart
               scenarios={compare}
               currency={currency}
@@ -1084,7 +1084,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             title="When you cross each round number"
           />
           {milestoneTakeaway && (
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               {milestoneTakeaway}
             </p>
           )}
@@ -1096,7 +1096,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             * auto-scrolled you into the middle of them. The phone reading is
             * the better one and is now the only one.
             */}
-          <div className="mt-4">
+          <div>
             {upcomingMilestones.length > 0 ? (
               <ul className="card-sheen glass-well divide-y divide-border overflow-hidden rounded-lg">
                 {upcomingMilestones.map((row, i) => (

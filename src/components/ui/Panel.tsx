@@ -798,6 +798,13 @@ export function HairlineGrid({
 /**
  * Chart / theme legend. Swatch, label, value. No filled chips, so it
  * does not read as a row of buttons.
+ *
+ * No margin of its own. It carried an `mt-3`, and every call site added
+ * another `mt-4` on top of that because three of the four containers it
+ * lands in are already gapped columns — so the legend sat 40px under its
+ * bar instead of 16. Outer spacing is the container's job: inside a
+ * `Panel` the panel gap does it, and inside a hand-spaced section the call
+ * site says `mt-4` and means it.
  */
 export function SwatchLegend({
   items,
@@ -812,7 +819,7 @@ export function SwatchLegend({
   className?: string;
 }) {
   return (
-    <ul className={cn("mt-3 flex flex-wrap items-center gap-4", className)}>
+    <ul className={cn("flex flex-wrap items-center gap-4", className)}>
       {items.map((item) => (
         <li key={item.key}>
           <Badge variant="outline" className="gap-2 font-normal">
