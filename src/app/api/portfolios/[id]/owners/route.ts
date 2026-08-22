@@ -107,7 +107,7 @@ async function handleDELETE(req: NextRequest, ctx: Ctx) {
     .eq("portfolio_id", id);
   if ((count ?? 0) <= 1) {
     return NextResponse.json(
-      { error: "Can't remove the last owner. A sheet needs at least one." },
+      { error: "Can't remove the last owner. A portfolio needs at least one." },
       { status: 400 }
     );
   }

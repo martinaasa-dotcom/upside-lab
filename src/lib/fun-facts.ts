@@ -44,9 +44,9 @@ const MAKERS: FactMaker[] = [
     if (!biggest || totals.totalValue <= 0) return null;
     const share = Math.round((biggest.totalValue / totals.totalValue) * 100);
     return pick(rng, [
-      `${biggest.portfolio.name} is the heavyweight book, ${share}% of everything together.`,
+      `${biggest.portfolio.name} is the heavyweight portfolio, ${share}% of everything together.`,
       `${biggest.portfolio.name} is carrying ${share}% of everything together. No pressure.`,
-      `If these sheets were a group, ${biggest.portfolio.name} would be the admin (${share}% of the pile).`,
+      `If these portfolios were a group, ${biggest.portfolio.name} would be the admin (${share}% of the pile).`,
       `${biggest.portfolio.name} ate ${share}% of the pie. The others are sharing crumbs politely.`,
     ]);
   },
@@ -55,7 +55,7 @@ const MAKERS: FactMaker[] = [
     const smallest = [...sheets].sort((a, b) => a.totalValue - b.totalValue)[0];
     if (!smallest) return null;
     return pick(rng, [
-      `${smallest.portfolio.name} is the scrappy underdog book at $${money(smallest.totalValue)}.`,
+      `${smallest.portfolio.name} is the scrappy underdog portfolio at $${money(smallest.totalValue)}.`,
       `Tiny but mighty? ${smallest.portfolio.name} clocks in at $${money(smallest.totalValue)}.`,
       `${smallest.portfolio.name} is running the guerrilla campaign, only $${money(smallest.totalValue)} on the board.`,
     ]);
@@ -95,10 +95,10 @@ const MAKERS: FactMaker[] = [
     )[0];
     if (!most || most.portfolios.length < 2) return null;
     return pick(rng, [
-      `${cashtag(most.ticker)} is the crowd favorite, in ${most.portfolios.length} books (${most.portfolios.join(", ")}).`,
+      `${cashtag(most.ticker)} is the crowd favorite, in ${most.portfolios.length} portfolios (${most.portfolios.join(", ")}).`,
       `Conspiracy board: ${cashtag(most.ticker)} shows up in ${most.portfolios.length} portfolios.`,
-      `${cashtag(most.ticker)} is in every book that matters here (${most.portfolios.join(", ")}).`,
-      `${cashtag(most.ticker)} shows up in ${most.portfolios.length} books (${most.portfolios.join(", ")}).`,
+      `${cashtag(most.ticker)} is in every portfolio that matters here (${most.portfolios.join(", ")}).`,
+      `${cashtag(most.ticker)} shows up in ${most.portfolios.length} portfolios (${most.portfolios.join(", ")}).`,
     ]);
   },
 
@@ -201,7 +201,7 @@ const MAKERS: FactMaker[] = [
     const best = [...sheets].sort((a, b) => b.roiPct - a.roiPct)[0];
     if (!best) return null;
     return pick(rng, [
-      `Best book ROI: ${best.portfolio.name} at ${pct1(best.roiPct)}.`,
+      `Best portfolio ROI: ${best.portfolio.name} at ${pct1(best.roiPct)}.`,
       `${best.portfolio.name} is winning the homework contest (${pct1(best.roiPct)} ROI).`,
       `Report card A: ${best.portfolio.name} · ${pct1(best.roiPct)}.`,
     ]);
@@ -213,7 +213,7 @@ const MAKERS: FactMaker[] = [
       .sort((a, b) => (b.todayPct ?? 0) - (a.todayPct ?? 0))[0];
     if (!day || (day.todayPct ?? 0) === 0) return null;
     return pick(rng, [
-      `${day.portfolio.name} is today's sheet MVP (${pct1(day.todayPct!)}, $${money(day.todayDollar)}).`,
+      `${day.portfolio.name} is today's top portfolio (${pct1(day.todayPct!)}, $${money(day.todayDollar)}).`,
       `Intraday crown: ${day.portfolio.name} at ${pct1(day.todayPct!)}.`,
       `${day.portfolio.name} moved $${money(day.todayDollar)} today. Main-character energy.`,
     ]);
@@ -270,7 +270,7 @@ const MAKERS: FactMaker[] = [
     if (spread <= 0) return null;
     return pick(rng, [
       `ROI gap between best and worst ticker: ${pct1(spread)}. Whiplash included.`,
-      `Best-vs-worst ROI spread is ${pct1(spread)}. One book, many vibes.`,
+      `Best-vs-worst ROI spread is ${pct1(spread)}. Same roof, many vibes.`,
       `The emotional range of your portfolio is ${pct1(spread)} of ROI. Method acting.`,
     ]);
   },
@@ -280,7 +280,7 @@ const MAKERS: FactMaker[] = [
     const cashShare = totals.cash / totals.totalValue;
     return pick(rng, [
       `Cash is ${pct1(cashShare)} of everything together: ${cashShare < 0 ? "levered chaos" : cashShare < 0.05 ? "fully invested energy" : "some cash sitting ready"}.`,
-      `Book vibe check: $${money(totals.totalValue)} total · cash share ${pct1(cashShare)}.`,
+      `Portfolio vibe check: $${money(totals.totalValue)} total · cash share ${pct1(cashShare)}.`,
       `Family total: $${money(totals.totalValue)}. Not a small group project.`,
     ]);
   },
@@ -290,9 +290,9 @@ const MAKERS: FactMaker[] = [
       totals.sheetCount > 0 ? totals.totalValue / totals.sheetCount : 0;
     if (perSheet <= 0) return null;
     return pick(rng, [
-      `Average book size: ~$${money(perSheet)} across ${plural(totals.sheetCount, "sheet")}.`,
-      `If you split the pie evenly: ~$${money(perSheet)} per book (you won’t).`,
-      `${plural(totals.sheetCount, "book")} · ~$${money(perSheet)} average. Inequality is the spice.`,
+      `Average portfolio size: ~$${money(perSheet)} across ${plural(totals.sheetCount, "portfolio")}.`,
+      `If you split the pie evenly: ~$${money(perSheet)} per portfolio (you won’t).`,
+      `${plural(totals.sheetCount, "portfolio")} · ~$${money(perSheet)} average. Inequality is the spice.`,
     ]);
   },
 
@@ -300,12 +300,12 @@ const MAKERS: FactMaker[] = [
     const multi = tickers.filter((t) => t.portfolios.length >= 2);
     if (!multi.length) {
       return pick(rng, [
-        "Zero overlapping tickers. Every book is on its own island.",
+        "Zero overlapping tickers. Every portfolio is on its own island.",
         "No shared names across portfolios. Parallel universes mode.",
       ]);
     }
     return pick(rng, [
-      `${plural(multi.length, "ticker")} shared across 2+ books. Family consensus (or copy-paste).`,
+      `${plural(multi.length, "ticker")} shared across 2+ portfolios. Family consensus (or copy-paste).`,
       `Overlap count: ${plural(multi.length, "name")} appearing in multiple portfolios.`,
       `Groupthink index: ${plural(multi.length, "multi-owned ticker")}.`,
     ]);
@@ -317,16 +317,16 @@ const MAKERS: FactMaker[] = [
       .sort((a, b) => a.roiPct - b.roiPct)[0];
     if (!dog) return null;
     return pick(rng, [
-      `${cashtag(dog.ticker)} is red (${pct1(dog.roiPct)}) yet still loved by ${dog.portfolios.length} books. Loyalty!`,
+      `${cashtag(dog.ticker)} is red (${pct1(dog.roiPct)}) yet still loved by ${dog.portfolios.length} portfolios. Loyalty!`,
       `Toxic fave: ${cashtag(dog.ticker)} at ${pct1(dog.roiPct)} but ${dog.portfolios.join(" + ")} won't quit.`,
-      `${dog.portfolios.length} books are bagholding ${cashtag(dog.ticker)} together. Bonding exercise.`,
+      `${dog.portfolios.length} portfolios are bagholding ${cashtag(dog.ticker)} together. Bonding exercise.`,
     ]);
   },
 
   ({ totals, rng }) => {
     const pizzas = Math.max(1, Math.round(totals.totalValue / 25));
     return pick(rng, [
-      `The combined book could fund ~${pizzas.toLocaleString("en-US")} very serious pizzas (do not).`,
+      `Everything together could fund ~${pizzas.toLocaleString("en-US")} very serious pizzas (do not).`,
       `In pizza units, your portfolios are worth ~${pizzas.toLocaleString("en-US")} larges. Hungry yet?`,
       `Fun conversion: your portfolio ÷ €25 ≈ ${pizzas.toLocaleString("en-US")} imaginary pizzas.`,
     ]);
@@ -336,7 +336,7 @@ const MAKERS: FactMaker[] = [
     const hours = Math.max(1, Math.round(totals.totalValue / 40));
     return pick(rng, [
       `At a fake €40/hr, your portfolios equal ~${hours.toLocaleString("en-US")} hours of labor. Touch grass accordingly.`,
-      `Roughly ${hours.toLocaleString("en-US")} “hourly wage units” of book value. Capitalism speedrun.`,
+      `Roughly ${hours.toLocaleString("en-US")} “hourly wage units” of portfolio value. Capitalism speedrun.`,
     ]);
   },
 
@@ -354,15 +354,15 @@ const MAKERS: FactMaker[] = [
     const s = pick(rng, sheets);
     return pick(rng, [
       `${s.portfolio.name} flashcard: $${money(s.totalValue)} · ${pct1(s.roiPct)} vs cost · ${plural(s.holdingCount, "holding")}.`,
-      `Sheet of the RNG: ${s.portfolio.name} is ${s.roiPct >= 0 ? "up" : "down"} ${pct1(Math.abs(s.roiPct))} lifetime.`,
+      `Portfolio of the RNG: ${s.portfolio.name} is ${s.roiPct >= 0 ? "up" : "down"} ${pct1(Math.abs(s.roiPct))} lifetime.`,
       `${s.portfolio.name} today: ${s.todayPct == null ? "quotes pending" : pct1(s.todayPct)} / $${money(s.todayDollar)}.`,
     ]);
   },
 
   ({ totals, rng }) => {
     return pick(rng, [
-      `Census: ${plural(totals.sheetCount, "book")} · ${plural(totals.uniqueTickers, "unique ticker")} · ${plural(totals.positionCount, "position")}.`,
-      `The empire counts ${plural(totals.positionCount, "line item")} across ${plural(totals.sheetCount, "sheet")}.`,
+      `Census: ${plural(totals.sheetCount, "portfolio")} · ${plural(totals.uniqueTickers, "unique ticker")} · ${plural(totals.positionCount, "position")}.`,
+      `The empire counts ${plural(totals.positionCount, "line item")} across ${plural(totals.sheetCount, "portfolio")}.`,
       `${plural(totals.uniqueTickers, "distinct ticker")} is either diversification or a snack drawer.`,
     ]);
   },
@@ -417,7 +417,7 @@ const FILLERS: FactMaker[] = [
     pick(rng, [
       `Daily seed ${dayKey}: the fun-fact machine ate its vitamins.`,
       `New batch unlocked for ${dayKey}. Yesterday’s jokes have left the building.`,
-      `${dayKey} edition, same books, different nonsense.`,
+      `${dayKey} edition, same portfolios, different nonsense.`,
     ]),
   ({ rng, hideOptions }) =>
     pick(rng, [

@@ -278,7 +278,7 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     emoji: "🦑",
     criteria: "Three or more kinds of stocks, and the mix itself runs hot",
     tagline: "Many kinds of stocks, and every one of them jumpy. Fast in every direction at once.",
-    vibe: "Not one wild bet, several. The spread doesn't calm this book down, it just gives the swings more places to come from.",
+    vibe: "Not one wild bet, several. The spread doesn't calm this portfolio down, it just gives the swings more places to come from.",
     strength: "A bad year in one pond does not empty the tank, and there's real upside in more than one place.",
     watchFor: "Several jumpy names can all have a bad week at the same time.",
   },

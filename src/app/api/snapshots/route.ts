@@ -100,7 +100,7 @@ async function handlePOST(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Whole-book snapshot/restore needs SUPABASE_SERVICE_ROLE_KEY configured. Without it, a signed-in session only sees its own portfolios, so this would silently save/restore a partial book. Use restore_sheet for a single sheet instead.",
+          "Whole-account snapshot/restore needs SUPABASE_SERVICE_ROLE_KEY configured. Without it, a signed-in session only sees its own portfolios, so this would silently save/restore a partial set. Use restore_sheet for a single portfolio instead.",
       },
       { status: 503 }
     );
@@ -166,7 +166,7 @@ async function handlePOST(req: NextRequest) {
       await saveBookSnapshot(
         supabase,
         "pre_delete",
-        "Before sheet restore",
+        "Before portfolio restore",
         safety
       );
       const counts = await restoreSheetFromSnapshot(

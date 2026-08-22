@@ -75,8 +75,8 @@ const MAKERS: FactMaker[] = [
     const top = ranked[0];
     if (!top || top.totalValue <= 0) return null;
     return pick(rng, [
-      `${top.name} is carrying the biggest book, $${money(top.totalValue)}.`,
-      `Largest book today: ${top.name} at $${money(top.totalValue)}.`,
+      `${top.name} is carrying the biggest portfolio, $${money(top.totalValue)}.`,
+      `Largest portfolio today: ${top.name} at $${money(top.totalValue)}.`,
       `${top.name} has the most on the board right now, $${money(top.totalValue)}.`,
     ]);
   },
@@ -91,7 +91,7 @@ const MAKERS: FactMaker[] = [
     return pick(rng, [
       `${top.name} has the jumpiest book: ${top.personality.riskScore}/100, ${top.personality.animalEmoji} ${top.personality.animal} energy.`,
       `Hottest mix in the circle: ${top.name} (${top.personality.riskScore}/100). Not for a quiet night.`,
-      `${top.name} runs the jumpiest book here (${top.personality.riskScore}/100).`,
+      `${top.name} runs the jumpiest portfolio here (${top.personality.riskScore}/100).`,
     ]);
   },
   // Most diversified.
@@ -106,7 +106,7 @@ const MAKERS: FactMaker[] = [
     if (!top?.personality) return null;
     return pick(rng, [
       `${top.name} is the most spread out, ${top.personality.diversificationScore}/100.`,
-      `Least concentrated book: ${top.name} (${top.personality.diversificationScore}/100). Nothing keeping all its eggs in one basket.`,
+      `Least concentrated portfolio: ${top.name} (${top.personality.diversificationScore}/100). Nothing keeping all its eggs in one basket.`,
     ]);
   },
   // Most concentrated.
@@ -121,7 +121,7 @@ const MAKERS: FactMaker[] = [
     if (!top?.personality || top.personality.diversificationScore >= 40) return null;
     return pick(rng, [
       `${top.name} is all-in on a few names, just ${top.personality.diversificationScore}/100 spread.`,
-      `${top.name} keeps it tight, the most concentrated book in the group.`,
+      `${top.name} keeps it tight, the most concentrated portfolio in the group.`,
     ]);
   },
   // Animal census.
@@ -151,7 +151,7 @@ const MAKERS: FactMaker[] = [
       // nothing at all for losses, so a red day read as a plain positive
       // dollar figure sitting next to "Rough one."
       `Combined movement today: ${total >= 0 ? "+" : "-"}$${money(Math.abs(total))}. ${total >= 0 ? "Nice." : "Rough one."}`,
-      `Add up every book's day and the circle is ${total >= 0 ? "up" : "down"} $${money(Math.abs(total))} today.`,
+      `Add up every portfolio's day and the circle is ${total >= 0 ? "up" : "down"} $${money(Math.abs(total))} today.`,
     ]);
   },
   // Value gap between biggest and smallest book.
@@ -164,7 +164,7 @@ const MAKERS: FactMaker[] = [
     const gap = biggest.totalValue - smallest.totalValue;
     if (gap <= 0) return null;
     return pick(rng, [
-      `${biggest.name}'s book is $${money(gap)} ahead of ${smallest.name}'s. Gap season.`,
+      `${biggest.name}'s portfolio is $${money(gap)} ahead of ${smallest.name}'s. Gap season.`,
       `Biggest-to-smallest spread in the group: $${money(gap)} (${biggest.name} vs ${smallest.name}).`,
     ]);
   },
@@ -174,7 +174,7 @@ const MAKERS: FactMaker[] = [
     if (total <= 0) return null;
     return pick(rng, [
       `The circle is sitting on $${money(total)} combined. Not a small group project.`,
-      `Circle total: $${money(total)} across ${members.length} book${members.length === 1 ? "" : "s"}.`,
+      `Circle total: $${money(total)} across ${members.length} portfolio${members.length === 1 ? "" : "s"}.`,
     ]);
   },
   // Falcon/small-book flex.
@@ -183,8 +183,8 @@ const MAKERS: FactMaker[] = [
     if (falcons.length === 0) return null;
     const f = pick(rng, falcons);
     return pick(rng, [
-      `${f.name} is a Falcon: small book, sharp aim.`,
-      `Don't underestimate ${f.name}'s Falcon book, few positions, big bets.`,
+      `${f.name} is a Falcon: small portfolio, sharp aim.`,
+      `Don't underestimate ${f.name}'s Falcon portfolio, few positions, big bets.`,
     ]);
   },
   // Most kinds of stocks (Octopus, Squid, or Crab — whichever this book landed on).
@@ -237,7 +237,7 @@ const MAKERS: FactMaker[] = [
     const s = pick(rng, specialists);
     const p = s.personality!;
     return pick(rng, [
-      `${s.name} is a ${p.animal}: ${p.specialistScore}% in one kind of business. When that group moves, the whole book moves.`,
+      `${s.name} is a ${p.animal}: ${p.specialistScore}% in one kind of business. When that group moves, the whole portfolio moves.`,
       `One-kind diet: ${s.name} the ${p.animal}, ${p.specialistScore}% in a single group.`,
     ]);
   },

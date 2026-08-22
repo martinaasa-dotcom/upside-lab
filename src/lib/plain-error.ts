@@ -18,9 +18,11 @@ const KNOWN: Record<string, string> = {
   "Invite code required": "Paste an invite code first.",
   "snapshotId required": "Pick a save first.",
   "snapshotId and portfolioId required": "Pick a save and a portfolio first.",
-  "This save has none of your sheets.":
-    "This save has none of your portfolios.",
   "This save has none of your portfolios.":
+    "This save has none of your portfolios.",
+  // Legacy wording from before portfolios stopped being called sheets. Kept
+  // so a response from an older deploy still resolves to plain English.
+  "This save has none of your sheets.":
     "This save has none of your portfolios.",
   "Unknown action": "That action isn't recognized.",
   "No pulse candidates supplied": "Nothing to check yet.",
@@ -48,10 +50,16 @@ const KNOWN: Record<string, string> = {
   "invalid visibility": "Pick private or public.",
   "Classes stay invite-only": "Classes stay invite-only.",
   "Not a class": "That isn't a class.",
+  "Class portfolios stay until the class ends.":
+    "Class portfolios stay until the class ends.",
   "Class sheets stay until the class ends.":
     "Class portfolios stay until the class ends.",
+  "This class only shows the paper portfolio you were given.":
+    "This class only shows the paper portfolio you were given.",
   "This class only shows the paper sheet you were given.":
     "This class only shows the paper portfolio you were given.",
+  "Your class portfolio stays in the circle.":
+    "Your class portfolio stays in the circle.",
   "Your class sheet stays in the circle.":
     "Your class portfolio stays in the circle.",
   "invalid starting cash":
@@ -61,13 +69,13 @@ const KNOWN: Record<string, string> = {
     "You can buy, sell, and move money.",
   "You can add names. You cannot sell yet.":
     "You can add names. You cannot sell yet.",
-  "The teacher closed the sheet. You can look, you cannot buy or sell.":
-    "The teacher closed the portfolio. You can look, you cannot buy or sell.",
   "The teacher closed the portfolio. You can look, you cannot buy or sell.":
     "The teacher closed the portfolio. You can look, you cannot buy or sell.",
-  "Couldn't make the paper sheet.":
-    "Couldn't make the paper portfolio.",
+  "The teacher closed the sheet. You can look, you cannot buy or sell.":
+    "The teacher closed the portfolio. You can look, you cannot buy or sell.",
   "Couldn't make the paper portfolio.":
+    "Couldn't make the paper portfolio.",
+  "Couldn't make the paper sheet.":
     "Couldn't make the paper portfolio.",
   "You can sell and move money. You cannot add new names.":
     "You can sell and move money. You cannot add new names.",

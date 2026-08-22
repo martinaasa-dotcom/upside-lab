@@ -86,7 +86,7 @@ export function isFallbackForecastPlan(
 export type StoredForecastPlans = Record<string, ForecastPlan>;
 
 /** Shared EOY paths, keyed by ticker, so Anu/MaryAnn reuse Aasad's reasoning
- * instead of calling the model every time a sheet is opened. */
+ * instead of calling the model every time a portfolio is opened. */
 export const FORECAST_TICKER_CACHE_KEY = "portfell-forecast-ticker-paths";
 
 export type CachedTickerPath = {
@@ -134,7 +134,7 @@ function tickerCacheIsFresh(
 ): boolean {
   if (!cached?.prices || Object.keys(cached.prices).length === 0) return false;
   const nowKey = tickerConvictionKey(ticker, convictions);
-  // Harvested pre-fingerprint entries stay usable so opening a sheet after
+  // Harvested pre-fingerprint entries stay usable so opening a portfolio after
   // this ships does not fire a model run. A later explicit regenerate stamps
   // a real key; thesis edits after that do trigger a refresh.
   if (!cached.convictionKey) return true;
@@ -248,7 +248,7 @@ export type ForecastAutoRefresh =
 /** Auto-run the model only when there is no reusable path yet: first visit
  * with nothing cached, or a newly added ticker with no shared path.
  * A saved plan, a shared ticker path, or a filled grid is enough. Opening
- * the sheet again, switching books, or convictions loading in late must
+ * the portfolio again, switching portfolios, or convictions loading in late must
  * not call the model. "Work it out again" is the user's override. */
 export function shouldAutoRefreshForecast(input: {
   plan: ForecastPlan | null;
@@ -331,7 +331,7 @@ export function saveForecastPlan(
     }
     parsed[cleaned.portfolioId] = cleaned;
     localStorage.setItem(FORECAST_PLAN_STORAGE_KEY, JSON.stringify(parsed));
-    // A shaped fallback is a safety net for this sheet, not a reasoned
+    // A shaped fallback is a safety net for this portfolio, not a reasoned
     // path to copy onto Anu/MaryAnn and skip their first real run.
     if (opts?.shareTickerPaths !== false) {
       upsertTickerPathsFromPlan(cleaned, convictions);
@@ -342,12 +342,12 @@ export function saveForecastPlan(
 }
 
 function stanceGuidance(): string {
-  return `BASE CASE (the only case; there is no cautious or bullish variant to hedge toward). Reason each ticker's path from its own fundamentals, sector cycle and how jumpy it is, against the long-term view and the magnitude calibration above. Do not drift back toward consensus 2-3x five-year targets for names that genuinely sit in the AI buildout: that would contradict the view you were given. A quiet year is shape, not a smaller destination. No per-ticker price target to match. Consistency: if the long-term view for the company or group is unchanged between runs, keep magnitudes in a similar neighborhood, and only reprice when that view meaningfully changes. Never lower a prior run's finish just to look more conservative.`;
+  return `Reason each ticker's path from its own fundamentals, its cycle and how jumpy it is, anchored on the baseline above. Do not paste one magnitude across the portfolio in either direction: a steady name landing near the market baseline and a jumpy name landing far above or far below it can both be right in the same run. A quiet year is shape, not automatically a smaller destination. No per-ticker price target to match. Consistency: if nothing about the company has meaningfully changed since a prior run, keep magnitudes in a similar neighborhood rather than reshuffling for no reason.`;
 }
 
 function isJunkRationale(text: string | undefined): boolean {
   if (!text?.trim()) return true;
-  return /too timid|sheet-aligned|overridden|rejected as|house baseline|calibrated \w+ \w+ path|thesis \w+ \w+ path from spot/i.test(
+  return /too timid|portfolio-aligned|sheet-aligned|overridden|rejected as|house baseline|calibrated \w+ \w+ path|thesis \w+ \w+ path from spot/i.test(
     text
   );
 }
@@ -453,7 +453,7 @@ export function ensureCompleteEoyTargets(
 
 /**
  * Complete plan from the generic theme shapes. Used when the model is
- * down, skipped, or still thinking, so the sheet is never a flat line
+ * down, skipped, or still thinking, so the portfolio is never a flat line
  * of today's price.
  */
 export function buildFallbackForecastPlan(input: {
@@ -475,7 +475,7 @@ export function buildFallbackForecastPlan(input: {
     generalAdvice:
       "Starting prices are on the grid from how each kind of company has tended to move. Margus still needs to write the why.",
     sectorRotation:
-      "Different groups of similar stocks will take turns leading. The finished writeup picks which group matters for this book.",
+      "Different groups of similar stocks will take turns leading. The finished writeup picks which group matters for this portfolio.",
     periods: [
       {
         label: `Next quarter (Q${nextQuarter.q} ${nextQuarter.y})`,
@@ -563,7 +563,7 @@ export function buildForecastPlanPrompt(input: {
     const convBit = conv
       ? `, HOW SURE THEY ARE=${conv.level}/5${conv.thesis?.trim() ? `, why they own it: "${conv.thesis.trim().slice(0, 400)}"` : ""}`
       : "";
-    return `${r.ticker} [${sector} · theme=${theme}]: shares=${r.shares}, spot=${r.currentPrice.toFixed(2)}, value=${r.currentValue.toFixed(0)}, weight=${weightPct}% of book, covered=${r.hasTargets ? "yes" : "NEED FULL PATH"}${convBit}`;
+    return `${r.ticker} [${sector} · theme=${theme}]: shares=${r.shares}, spot=${r.currentPrice.toFixed(2)}, value=${r.currentValue.toFixed(0)}, weight=${weightPct}% of portfolio, covered=${r.hasTargets ? "yes" : "NEED FULL PATH"}${convBit}`;
   });
 
   const anyConviction = lines.some((l) => l.includes("HOW SURE THEY ARE"));
@@ -581,7 +581,7 @@ ${FORECAST_CONVICTION_PROMPT}
 
 Build an actionable trim/add + theme plan AND a full EOY stock-price prognosis for Upside Lab portfolio "${input.portfolioName}".
 
-CRITICAL: Reason every price from why that company exists + the size bands above. Do NOT paste sell-side targets. Do NOT draw straight lines. Never leave a ticker or year empty. Never paste the same spot across all years unless cash-like (say so).
+CRITICAL: Reason every price from why that company exists and the anchoring above. Do NOT paste sell-side targets. Do NOT draw straight lines. Never leave a ticker or year empty. Never paste the same spot across all years unless cash-like (say so).
 
 Today (Europe/Tallinn): ${todayKeyInTz()} · next quarter ≈ Q${nextQuarter.q} ${nextQuarter.y} · next calendar year ${year + 1}.
 
@@ -607,10 +607,10 @@ Requirements:
    - Then 2-3 longer horizons aligned to the EOY path (e.g. 2028, 2029, 2030) if useful. Not more than 6 total.
 2. Themes should be memorable but practical (not marketing fluff).
 3. Add and Trim are SEPARATE bullet lists. Semicolon-separated. ONE name or group per item, never two tickers packed with a slash.
-   - Reference each name's CURRENT weight (given above) and state the size of the move: a target weight or a rough trim/add fraction (e.g. "trim $RKLB from 14% to ~9%", "add ~3-5% of the sheet into software"), not just a direction with no size.
+   - Reference each name's CURRENT weight (given above) and state the size of the move: a target weight or a rough trim/add fraction (e.g. "trim $RKLB from 14% to ~9%", "add ~3-5% of the portfolio into software"), not just a direction with no size.
    - Ground the "why" in something specific and falsifiable for THAT company (a metric, catalyst, or event with rough timing). Never a generic sector vibe that could be pasted onto any ticker in the theme.
    - Name the trigger/condition when it isn't "do this now": a price, an earnings date, a number that just came out. So it reads as a plan, not a headline.
-   - Each item: "TICKER (current% -> target%): specific why + trigger". Groups: "data-center power (~0% to 5%): why + size". Sheet tickers preferred; NEW tickers and sectors are welcome when the reason you own the sheet needs them.
+   - Each item: "TICKER (current% -> target%): specific why + trigger". Groups: "data-center power (~0% to 5%): why + size". Tickers already in the portfolio preferred; NEW tickers and sectors are welcome when the reason you own the portfolio needs them.
    - Plain English only. Never say sleeve, marks, conviction, digestion, beta, or rotation. Thesis is fine.
    - If nothing to do: "Hold, no add" / "Hold, no trim" (never leave blank)
    - Never use em dashes or en-dash clause breaks in add/trim lines.
@@ -619,8 +619,8 @@ Requirements:
 6. eoyTargets: REQUIRED for EVERY ticker listed above. Use the exact ticker strings (keep ".AS", ".L", ".DE", etc.).
    - Provide a positive price for EACH of years ${yearsList}. All five required, no omissions.
    - Year ${year} is December 31 ${year}, not today's spot. Do not paste today's price into that cell.
-   - NON-LINEAR only. Crypto: include a winter year. AI computers / data-center power: big multi-year upside. Space: a quiet year in the middle.
-   - rationale: one human sentence on why this company + how the path wiggles. FORBIDDEN words/phrases: overridden, rejected, too timid, sheet-aligned, calibrated path. No em dashes. Never say sleeve, marks, conviction, digestion, beta, or rotation. Thesis is fine.
+   - NON-LINEAR only, unless the holding is genuinely steady (a broad index fund, a cash-like holding), in which case say so. Crypto-linked: include a deep drop year. Jumpy growth names: a quiet year somewhere in the middle.
+   - rationale: one human sentence on why this company + how the path wiggles. FORBIDDEN words/phrases: overridden, rejected, too timid, portfolio-aligned, calibrated path. No em dashes. Never say sleeve, marks, conviction, digestion, beta, or rotation. Thesis is fine.
 7. Consistency: if the reason you own the names is unchanged from a prior run, keep year-end prices in a similar neighborhood. Do not randomly reshuffle for no reason.
 8. Do not invent fake share counts or claim trades already happened.
 9. Be concise.

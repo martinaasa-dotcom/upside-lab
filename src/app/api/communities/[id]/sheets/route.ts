@@ -101,7 +101,7 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
   }
   if (!(await userOwnsPortfolio(auth.user.id, portfolioId))) {
     return NextResponse.json(
-      { error: "You can only share a sheet you own" },
+      { error: "You can only share a portfolio you own" },
       { status: 403 }
     );
   }
@@ -129,13 +129,13 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
       ?.classroom_community_id;
     if (body.shared !== false && classId !== id) {
       return NextResponse.json(
-        { error: "This class only shows the paper sheet you were given." },
+        { error: "This class only shows the paper portfolio you were given." },
         { status: 403 }
       );
     }
     if (body.shared === false && classId === id) {
       return NextResponse.json(
-        { error: "Your class sheet stays in the circle." },
+        { error: "Your class portfolio stays in the circle." },
         { status: 400 }
       );
     }

@@ -32,7 +32,7 @@ export function CommandPalette({ open, onClose, items }: Props) {
         if (!next) onClose();
       }}
       title="Jump"
-      description="Jump to a sheet, ticker, or Lab tool"
+      description="Jump to a portfolio, ticker, or Lab tool"
     >
       <Command>
         <CommandInput placeholder="Jump to portfolio, ticker, unlock, Lab …" />

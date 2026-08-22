@@ -200,7 +200,7 @@ export function buildWeeklyRecapSystemPrompt(): string {
   return `${MARGUS_PERSONA}
 
 ## This specific job: your weekly step-back
-Once a week (Friday's close) you write a short recap of your paper book. Bullets only. What you did, what moved, what you are watching next week. No paragraphs, no throat-clearing. The numbers below are already computed and correct; don't recompute or contradict them.`;
+Once a week (Friday's close) you write a short recap of your paper portfolio. Bullets only. What you did, what moved, what you are watching next week. No paragraphs, no throat-clearing. The numbers below are already computed and correct; don't recompute or contradict them.`;
 }
 
 export function buildWeeklyRecapUserPrompt(input: {
@@ -280,7 +280,7 @@ export function buildFundUserPrompt(input: {
             return [
               `### ${h.ticker}`,
               `- Entry: ${h.entry_date} (${h.daysHeld}d ago) at $${h.cost_basis.toFixed(2)}, now $${h.price.toFixed(2)} (${h.unrealizedPnlPct >= 0 ? "+" : ""}${(h.unrealizedPnlPct * 100).toFixed(1)}%, ${money(h.unrealizedPnl)})`,
-              `- Position size: ${money(h.marketValue)} (${((h.marketValue / totalValue) * 100).toFixed(1)}% of book)`,
+              `- Position size: ${money(h.marketValue)} (${((h.marketValue / totalValue) * 100).toFixed(1)}% of the portfolio)`,
               `- Thesis: ${h.thesis}`,
               `- Target timeframe: ${h.target_timeframe ?? "not set"}`,
               `- Exit plan: ${h.exit_plan ?? "not set"}`,

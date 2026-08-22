@@ -3,7 +3,7 @@
 Nightly in-database saves (`portfell_book_snapshots`, 02:00 UTC) live in the
 same Postgres as the book. If that project is gone, those rows are gone.
 
-Cold copies are a second, encrypted JSON dump of every sheet's cash and
+Cold copies are a second, encrypted JSON dump of every portfolio's cash and
 holdings, stored in Cloudflare R2 (or AWS S3). A daily cron also checks that
 Supabase still has a fresh WAL / daily backup.
 
@@ -177,7 +177,7 @@ other crons):
 
 5. Delete any cold snapshot + manifest object older than
    `DR_COLD_RETENTION_DAYS` (default **30**, unset elsewhere). This is a
-   whole-book export — one encrypted blob per day, covering every sheet and
+   whole-account export — one encrypted blob per day, covering every portfolio and
    every owner — so there is no way to cut a single deleted account out of
    an already-written copy. Bounding the whole object's age is what the
    privacy policy promises instead: a deleted account's data can persist in
@@ -272,8 +272,8 @@ A drifted SUM exits 1.
 ## What this does not replace
 
 - Nightly `portfell_book_snapshots` (the 14-day spark, in-app restore of
-  your own sheets)
+  your own portfolios)
 - Auth users, storage objects, Edge Config, Vercel env
-- A one-click "put this file back onto live sheets" button. The validator
+- A one-click "put this file back onto live portfolios" button. The validator
   only proves the file is intact. Loading it onto production is a
   deliberate, owned action.

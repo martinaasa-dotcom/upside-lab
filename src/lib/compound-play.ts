@@ -239,7 +239,7 @@ const NARRATIVE_ANGLES: NarrativeAngle[] = [
     );
     if (!mid || mid.index <= 0) return null;
     return beat("Halfway", rng, [
-      `Year ${mid.index}: ${fmt(mid.balance)} already on the books. Pullbacks along the way are resets, not a reason to quit.`,
+      `Year ${mid.index}: ${fmt(mid.balance)} already there. Pullbacks along the way are resets, not a reason to quit.`,
       `By year ${mid.index} you're already sitting on ${fmt(mid.balance)}. The back half does the heavier lifting.`,
     ]);
   },

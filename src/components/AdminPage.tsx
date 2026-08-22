@@ -235,7 +235,7 @@ export function AdminPage() {
                   </p>
                   <Scoreboard cols={2}>
                     <Score label="Signed in" value={funnel.signedIn} />
-                    <Score label="Has a sheet" value={funnel.hasSheet} />
+                    <Score label="Has a portfolio" value={funnel.hasSheet} />
                     <Score label="Has holdings" value={funnel.hasHoldings} />
                     <Score
                       label="Used Margus or Pulse"
@@ -375,7 +375,7 @@ export function AdminPage() {
                     <Input
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search name, email, or sheet …"
+                      placeholder="Search name, email, or portfolio …"
                       className="pl-8"
                     />
                   </div>
@@ -411,7 +411,7 @@ export function AdminPage() {
                               {noPortfolios ? (
                                 <span
                                   className="inline-flex items-center gap-1 rounded-md bg-caution/15 px-1.5 py-0.5 text-sm font-medium text-caution"
-                                  title="Signed in but owns/co-owns no sheet. Possible broken seed claim or invite redemption"
+                                  title="Signed in but owns/co-owns no portfolio. Possible broken seed claim or invite redemption"
                                 >
                                   <AlertTriangle className="h-3 w-3" />
                                   0 portfolios

@@ -29,7 +29,7 @@ const extractSchema = z.object({
 
 const PROMPT = `This is a screenshot from a broker or bank.
 
-We need the person's result for the whole book this year, not one stock.
+We need the person's result for their whole portfolio this year, not one stock.
 
 Look for:
 1. The value at the start of this year, or at the start of the period shown

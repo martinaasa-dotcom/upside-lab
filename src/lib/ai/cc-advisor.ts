@@ -39,7 +39,7 @@ export type CcChatContext = {
     roiDollar: number;
     pctOfTotal: number;
     todayPct: number | null;
-    /** Sheet names owning this ticker (Overview aggregate) */
+    /** Portfolio names owning this ticker (Overview aggregate) */
     portfolios?: string[];
     marketState?: string | null;
     preMarketPrice?: number | null;
@@ -69,7 +69,7 @@ export type CcChatContext = {
     yield2wAvg: number;
     premiumTotal: number;
   };
-  /** Other sheets (read-only) — for copying Call % / targets / structure */
+  /** Other portfolios (read-only) — for copying Call % / targets / structure */
   otherPortfolios: Array<{
     name: string;
     cashBalance: number;
@@ -93,13 +93,13 @@ export type CcChatContext = {
   eurUsd?: number | null;
   /** USD per 1 GBP */
   gbpUsd?: number | null;
-  /** Not-owned-yet names Margus may discuss without sheet pollution */
+  /** Not-owned-yet names Margus may discuss without polluting the portfolio */
   watchlist?: string[];
-  /** Paper class sheet. Margus is the lab assistant, not a stock picker. */
+  /** Paper class portfolio. Margus is the lab assistant, not a stock picker. */
   classroom?: boolean;
   /** Live Yahoo calendar for the book + watchlist. Do not invent dates. */
   earnings?: EarningsCalendarRow[];
-  /** Per-ticker Lab notes + Pulse stamps already on this sheet. */
+  /** Per-ticker Lab notes + Pulse stamps already on this portfolio. */
   convictions?: Record<
     string,
     {
@@ -110,7 +110,7 @@ export type CcChatContext = {
   >;
   /** Latest saved Pulse read per ticker (local + server cache). */
   pulseByTicker?: Record<string, PulseCheck>;
-  /** Saved Forecast plan for this portfolio, when on a sheet tab. */
+  /** Saved Forecast plan for this portfolio, when on a portfolio tab. */
   forecastPlan?: ForecastPlan | null;
 };
 
@@ -244,7 +244,7 @@ export function buildCcAdvisorTools(
 
   setCash: tool({
     description:
-      "Set the portfolio cash balance in USD. Real books stay at zero or above. Only a classroom paper sheet can go below zero.",
+      "Set the portfolio cash balance in USD. A real portfolio stays at zero or above. Only a classroom paper portfolio can go below zero.",
     inputSchema: z.object({
       cash: z.number().describe("Cash balance in USD, e.g. 0 or 2500"),
     }),
@@ -257,7 +257,7 @@ export function buildCcAdvisorTools(
 
   addHolding: tool({
     description:
-      "Add or overwrite ONE holding. Use for single-ticker broker screens (Lightyear detail: Shares + Avg buy). For multi-row portfolio tables use importSheet instead.",
+      "Add or overwrite ONE holding. Use for single-ticker broker screens (Lightyear detail: Shares + Avg buy). For multi-row portfolio tables use importPortfolio instead.",
     inputSchema: z.object({
       ticker: z
         .string()
@@ -296,9 +296,9 @@ export function buildCcAdvisorTools(
     },
   }),
 
-  importSheet: tool({
+  importPortfolio: tool({
     description:
-      "Import an entire holdings book in ONE call from a spreadsheet OR broker portfolio screenshot (Lightyear, etc.). Include every investment row. Prefer markValue (position value) when average buy/cost is missing — never stall asking for cost basis. Fold multi-currency cash + tiny MMFs into cashUsd. Call once with the full list.",
+      "Import an entire portfolio in ONE call from a spreadsheet OR broker portfolio screenshot (Lightyear, etc.). Include every investment row. Prefer markValue (position value) when average buy/cost is missing — never stall asking for cost basis. Fold multi-currency cash + tiny MMFs into cashUsd. Call once with the full list.",
     inputSchema: z.object({
       cash: z
         .number()
@@ -324,7 +324,7 @@ export function buildCcAdvisorTools(
         .boolean()
         .optional()
         .describe(
-          "True for full broker portfolio screenshots — remove tickers on this sheet that are not in holdings. Default true for portfolio-breakdown imports."
+          "True for full broker portfolio screenshots — remove tickers in this portfolio that are not in holdings. Default true for portfolio-breakdown imports."
         ),
       holdings: z
         .array(
@@ -344,7 +344,7 @@ export function buildCcAdvisorTools(
               .positive()
               .optional()
               .describe(
-                "Average buy/cost per share in `currency` if shown. Omit when the sheet only has market Value."
+                "Average buy/cost per share in `currency` if shown. Omit when the portfolio only has market Value."
               ),
             markValue: z
               .number()
@@ -454,7 +454,7 @@ export function buildCcAdvisorTools(
       const replaceBook = replace !== false;
 
       return {
-        action: "import_sheet" as const,
+        action: "import_portfolio" as const,
         cash: resolvedCash,
         replace: replaceBook,
         holdings: rows,
@@ -462,7 +462,7 @@ export function buildCcAdvisorTools(
           resolvedCash != null
             ? ` + cash $${resolvedCash.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
             : ""
-        }${replaceBook ? " (replace sheet)" : ""}: ${tickers.join(", ")}${
+        }${replaceBook ? " (replace portfolio)" : ""}: ${tickers.join(", ")}${
           notes.length ? ` · ${notes.slice(0, 6).join("; ")}` : ""
         }`,
       };
@@ -471,7 +471,7 @@ export function buildCcAdvisorTools(
 
   reportScreenshotIssue: tool({
     description:
-      "Call this instead of addHolding/importSheet when the attached image is not a holdings screenshot you can import. Apple Stocks, a watchlist, prices + daily change only, news, a chart, a cropped/blurry shot, tickers with no share counts, or shares with no cost/value. Do not guess numbers. The tool writes the explanation the user will see.",
+      "Call this instead of addHolding/importPortfolio when the attached image is not a holdings screenshot you can import. Apple Stocks, a watchlist, prices + daily change only, news, a chart, a cropped/blurry shot, tickers with no share counts, or shares with no cost/value. Do not guess numbers. The tool writes the explanation the user will see.",
     inputSchema: z.object({
       reason: z
         .enum(SCREENSHOT_ISSUE_REASONS)
@@ -523,7 +523,7 @@ export function buildCcAdvisorTools(
 
   setStockTargetBulk: tool({
     description:
-      "Set Stock Target prices for several tickers at once. Use when picking write levels across the book.",
+      "Set Stock Target prices for several tickers at once. Use when picking write levels across the portfolio.",
     inputSchema: z.object({
       updates: z
         .array(
@@ -680,7 +680,7 @@ function margusMemoryBlock(ctx: CcChatContext): string {
   if (tickers.size === 0 && !plan) return "";
 
   const lines: string[] = [
-    "### Margus memory on this sheet (already saved in Upside Lab — answer from here; never say you have no take when this block has content)",
+    "### Margus memory on this portfolio (already saved in Upside Lab — answer from here; never say you have no take when this block has content)",
   ];
 
   for (const key of [...tickers].sort()) {
@@ -742,11 +742,11 @@ export function buildCcSystemPrompt(ctx: CcChatContext): string {
       ? "(no holdings)"
       : ctx.holdings
           .map((h) => {
-            const sheets =
+            const inPortfolios =
               h.portfolios && h.portfolios.length
-                ? ` sheets=[${h.portfolios.join(",")}]`
+                ? ` portfolios=[${h.portfolios.join(",")}]`
                 : "";
-            return `${h.ticker}${sheets}: shares=${h.shares}, buy=${h.buyPrice}, price=${h.price}, cost=${h.cost.toFixed(0)}, value=${h.value.toFixed(0)}, roi%=${(h.roiPct * 100).toFixed(1)}%, roi$=${h.roiDollar.toFixed(0)}, pctTotal=${(h.pctOfTotal * 100).toFixed(1)}%, today=${h.todayPct != null ? (h.todayPct * 100).toFixed(1) + "%" : "—"}${holdingExtendedHoursLine(h)}`;
+            return `${h.ticker}${inPortfolios}: shares=${h.shares}, buy=${h.buyPrice}, price=${h.price}, cost=${h.cost.toFixed(0)}, value=${h.value.toFixed(0)}, roi%=${(h.roiPct * 100).toFixed(1)}%, roi$=${h.roiDollar.toFixed(0)}, pctTotal=${(h.pctOfTotal * 100).toFixed(1)}%, today=${h.todayPct != null ? (h.todayPct * 100).toFixed(1) + "%" : "—"}${holdingExtendedHoursLine(h)}`;
           })
           .join("\n");
 
@@ -766,7 +766,7 @@ export function buildCcSystemPrompt(ctx: CcChatContext): string {
           })
           .join("\n");
 
-  const otherSheets =
+  const otherPortfolioBlock =
     (ctx.otherPortfolios ?? []).length === 0
       ? "(none)"
       : ctx.otherPortfolios
@@ -796,10 +796,10 @@ export function buildCcSystemPrompt(ctx: CcChatContext): string {
   const writeBlock = adviseOnly
     ? `This is OVERVIEW mode (advise-only).
 You can READ all portfolios below and discuss winners, losers, concentration${hideOptions ? "" : ", Call %"}, and strategy.
-You MUST NOT claim to change any sheet. There are NO write tools in this mode.
-If the user asks to edit holdings, cash${hideOptions ? "" : ", Call %, or targets"}: tell them to open that portfolio tab and ask again there.`
+You MUST NOT claim to change any portfolio. There are NO write tools in this mode.
+If the user asks to edit holdings, cash${hideOptions ? "" : ", Call %, or targets"}: tell them to open that portfolio and ask again there.`
     : `You can READ holdings${hideOptions ? "" : " + covered-call data"} below, and WRITE via tools:
-- Holdings: importSheet (preferred for screenshots / multi-ticker imports), updateHolding, addHolding, removeHolding, reportScreenshotIssue, setCash${
+- Holdings: importPortfolio (preferred for screenshots / multi-ticker imports), updateHolding, addHolding, removeHolding, reportScreenshotIssue, setCash${
         hideOptions
           ? ""
           : `
@@ -809,10 +809,10 @@ If the user asks to edit holdings, cash${hideOptions ? "" : ", Call %, or target
       }
 
 Tools ALWAYS apply to the ACTIVE portfolio (${ctx.portfolioName}) only.
-You can READ other sheets listed under "Other portfolios" (e.g. Aasad while chatting on MaryAnn) when the user asks about them or wants to copy.
-When the user asks to copy / mirror / adapt strategy from another sheet:
-1. Pull${hideOptions ? "" : " Call %, stock targets, and/or"} structure from that sheet.
-2. Apply to matching tickers on ${ctx.portfolioName} via tools — keep THIS sheet's share counts and cash unless they explicitly ask to copy size too.
+You can READ the user's other portfolios listed under "Other portfolios" when they ask about them or want to copy something across.
+When the user asks to copy / mirror / adapt an approach from another portfolio:
+1. Pull${hideOptions ? "" : " Call %, stock targets, and/or"} structure from that portfolio.
+2. Apply to matching tickers on ${ctx.portfolioName} via tools — keep THIS portfolio's share counts and cash unless they explicitly ask to copy size too.
 3. Skip tickers that don't exist here unless they ask to add them.
 4. Briefly summarize what you copied vs skipped.
 
@@ -826,19 +826,19 @@ When the user pastes or attaches a screenshot (spreadsheet, broker app, portfoli
 5. replace is NOT needed; upsert this one name only.
 
 **B) Multi-row portfolio / breakdown table**:
-1. Call importSheet ONCE with EVERY investment row — never stop after the first ticker, never chain addHolding instead.
+1. Call importPortfolio ONCE with EVERY investment row — never stop after the first ticker, never chain addHolding instead.
 2. If Quantity + Value but NO Avg buy: set markValue = Value and currency from €/$. buyPrice optional.
 3. Pass isin when visible (RHM + DE ISIN → RHM.DE). US ISINs stay bare.
 4. Cash: sum Cash-EUR/USD/GBP (cashNative+cashCurrency or cashUsd). Tiny MMFs → fold into cash.
 5. Skip headers/totals. replace=true for full books.
-6. Prefer importSheet over a chain of addHolding / setCash.
+6. Prefer importPortfolio over a chain of addHolding / setCash.
 
 **C) Not a holdings screenshot** (Apple Stocks, a watchlist, prices + daily % only, news, a chart, cropped/blurry, tickers with no share counts):
-1. Do NOT guess shares or invent a buy price. Do NOT call addHolding or importSheet.
+1. Do NOT guess shares or invent a buy price. Do NOT call addHolding or importPortfolio.
 2. Call reportScreenshotIssue once with the closest reason: not_holdings, unreadable, missing_shares, or missing_cost.
 3. Stop. The tool already wrote what is missing and what to send instead. Do not add a second explanation.
 
-After addHolding / importSheet: reply in 2–4 sentences confirming ticker, shares, USD cost — never go silent.
+After addHolding / importPortfolio: reply in 2–4 sentences confirming ticker, shares, USD cost — never go silent.
 
 FX for imports (USD per 1 unit): EURUSD=${ctx.eurUsd != null ? ctx.eurUsd.toFixed(4) : "unknown"} · GBPUSD=${ctx.gbpUsd != null ? ctx.gbpUsd.toFixed(4) : "unknown"}.`;
 
@@ -912,8 +912,8 @@ ${ccTable}`;
 
   const classroomBlock = ctx.classroom
     ? `
-### Classroom sheet
-This is a paper class book, not a real brokerage account. You are the lab assistant.
+### Classroom portfolio
+This is a paper class portfolio, not a real brokerage account. You are the lab assistant.
 Explain what a move means for their written why. Never tell them what to buy, sell, add, or skip.
 If they ask what they should buy, turn it back: what do they believe, over what time, and what would prove them wrong.
 Keep the educational disclaimer.
@@ -923,20 +923,26 @@ Keep the educational disclaimer.
   return `${MARGUS_PERSONA}
 ${classroomBlock}
 This chat thread is for Upside Lab portfolio "${ctx.portfolioName}" only.
-Do not assume prior talk about other sheets unless the user brings them up. Each sheet has its own conversation.
+Do not assume prior talk about their other portfolios unless the user brings them up. Each portfolio has its own conversation.
 
 ${writeBlock}
 ${ccGuidanceBlock}
 ### How you talk in this chat
-Same voice as the inbox note. You, your. Connected paragraphs. The question first, then the mix if it matters, then what you do not need to rush. Never a telegram. Never "this person".
+Same voice as the Sunday letter. You, your. Connected paragraphs. The question first, then the mix if it matters, then what does not need rushing. Never a telegram. Never "this person".
+
+Answer the question they asked, at the level they asked it. A short question gets a short answer. Do not turn "how is my portfolio doing" into a five-part review.
+
+Assume no background unless they show one. If you have to use a term from investing, define it in the same breath, in about six words, and then move on. Never stop to lecture, and never make them feel behind for asking.
+
+If a question is common and reasonable but rests on a wrong idea (that a stock going up means it is now safer, that a fall must be recovered by the same stock, that a fund and its biggest holding are different bets), say the true thing plainly and kindly, then answer what they meant.
 
 If they ask what a company is or how it makes money, then short bullets, one line each:
 
 - **What it is**: one plain line a grandma would understand. No jargon. Never say sleeve, marks, conviction, digestion, or beta. Thesis is fine.
 - **What moves it**: the one or two things that actually set the price.
-- **Bull case**: the specific thing that has to go right, not a vibe.
+- **What has to go right**: the specific thing, not a vibe.
 - **The risk**: the specific thing that breaks it. Name it.
-- **Your position**: only if they hold it. Weight, what they paid versus today's price, and what that means for them.
+- **Your position**: only if they hold it. How big a share of their portfolio it is, what they paid versus today's price, and what that means for them.
 
 No opening preamble ("Great question", "Let's break this down") and no
 closing summary paragraph.
@@ -945,7 +951,7 @@ Prefer tools over invented numbers. After tools, briefly confirm.
 None of this is personalized investment advice. You're reasoning about the numbers already on the portfolio, not recommending trades for the user's specific financial situation. Never write orders: do not add, sell some, look to add, buy this, trim 10%. Frame as a check. Always your call.${optionsGuard}
 
 Market session: ${ctx.marketState ?? "unknown"}
-Watchlist (not owned, discuss freely, do not invent sheet positions): ${(ctx.watchlist ?? []).join(", ") || "(none)"}
+Watchlist (not owned, discuss freely, never invent a position in the portfolio): ${(ctx.watchlist ?? []).join(", ") || "(none)"}
 ${formatEarningsCalendarBlock(ctx.earnings ?? [])}
 ${margusMemoryBlock(ctx)}
 ${insightsPromptBlock(
@@ -962,5 +968,5 @@ Holdings (includes preMarket / afterHours when available):
 ${holdingsTable}${ccRowsSection}
 
 Other portfolios (read-only — copy source):
-${otherSheets}`;
+${otherPortfolioBlock}`;
 }

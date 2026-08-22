@@ -3,10 +3,13 @@
  *
  * Two jobs, both theme-level (never a per-ticker price table):
  * 1. Fill a gap when the model skipped a year, or replace a boringly linear ramp.
- * 2. Lift a path whose 2030 multiple sits below its theme band. Models keep
- *    "splitting the difference" toward sell-side 2-3x five-year targets;
- *    that quietly contradicts the constructive base case. We never lower a
- *    path that already beats the band.
+ * 2. Lift a path that has collapsed toward a flat line for a name whose own
+ *    business clearly does not warrant one. We never lower a path the model
+ *    reasoned for itself.
+ *
+ * These shapes are a safety net for gaps, not a view. The prompt below
+ * carries no house market call, because it reaches every user of the app,
+ * including people who hold nothing but broad index funds.
  */
 
 import type { ForecastYear } from "@/lib/forecast";
@@ -31,10 +34,10 @@ export type ForecastTheme =
  * and rejected elsewhere). This is a safety-net shape for gaps the model
  * left empty, not a target and not a promise.
  *
- * Shapes are calibrated to the constructive base case in
- * FORECAST_CONVICTION_PROMPT: the AI-linked themes carry the buildout and
- * the agentic second-order trade, each with a digestion year rather than a
- * clean ramp. Sectors with no link to that thesis stay deliberately plain.
+ * Shapes are ordered by how jumpy each kind of business historically is,
+ * with a quiet year in the middle rather than a clean ramp. They are a
+ * risk-premium ladder above the index baseline, not a claim that any of
+ * these groups will actually beat the market.
  *
  * The ladder is anchored so `index` compounds at ~10%/yr, matching the
  * MARKET_ANNUAL_RETURN_PCT the CAPM alpha read uses in
@@ -43,10 +46,10 @@ export type ForecastTheme =
  * and dragged every other theme down with it. Everything above index is a
  * risk premium on that baseline, ordered by THEME_RISK_SCORE.
  *
- * These also seed the Compound sheet's default expected return via
- * impliedAnnualReturnForTheme, so an AI-heavy book defaults to a much
- * hotter planning rate than an index-heavy one. That is intentional, but
- * it is a bull-case scenario rate, not a safe planning assumption.
+ * These also seed the Compound tab's default expected return via
+ * impliedAnnualReturnForTheme, so a portfolio full of jumpy names defaults
+ * to a hotter planning rate than an index-heavy one. That is intentional,
+ * but it is an optimistic scenario rate, not a safe planning assumption.
  */
 const THEME_BASE_MULTS: Record<ForecastTheme, number[]> = {
   ai_infra: [1.54, 2.3, 3.1, 3.91, 4.83], // ~37%/yr
@@ -68,7 +71,7 @@ export const INDEX_EOY_MULTS = THEME_BASE_MULTS.index;
 /** Implied annualized return from the generic fallback shape's final year,
  * over the ~5y FORECAST_YEARS span — a rough, sector-differentiated stand-in
  * for "expected return", not a forecast. Used only as a default so the
- * Compound sheet's starting rate reflects what a person actually holds
+ * Compound tab's starting rate reflects what a person actually holds
  * instead of one fixed number for every user. */
 export function impliedAnnualReturnForTheme(theme: ForecastTheme): number {
   const mults = THEME_BASE_MULTS[theme];
@@ -80,8 +83,8 @@ export function impliedAnnualReturnForTheme(theme: ForecastTheme): number {
 /** Value-weighted blend of impliedAnnualReturnForTheme across whatever a
  * portfolio actually holds (equity only — pass cash separately via
  * `cashWeight`/`cashAnnualReturn` since idle cash has no "theme"). Genuinely
- * different per portfolio: an index-heavy book lands modest, a
- * crypto/AI-infra-heavy one lands hot. */
+ * different per portfolio: an index-heavy portfolio lands modest, a
+ * portfolio full of jumpy names lands hot. */
 export function blendedExpectedAnnualReturn(
   holdings: Array<{ ticker: string; value: number }>,
   cash: { balance: number; annualReturnPct: number } = {
@@ -118,7 +121,7 @@ export function blendedExpectedAnnualReturn(
  * forecast prompt; no price target or bias attaches to membership here.
  *
  * The lists were originally just the family's own holdings, which meant a
- * book holding MSFT, AMD and ADI reported itself as 51% "other". Anything
+ * portfolio holding MSFT, AMD and ADI reported itself as 51% "other". Anything
  * unclassified falls into a bucket that gets the plainest assumptions, so
  * a thin list quietly mislabels most real portfolios.
  */
@@ -304,89 +307,68 @@ export function enforcePathRules(
 
 export const FORECAST_CONVICTION_PROMPT = `## Forecast stance (MANDATORY)
 
-### Base-case long-term view (this is your default worldview, not a hedge)
+### What a forecast here is
 
-You are structurally constructive on this decade, in the Tom Lee mould: you
-think consensus is anchoring on the last cycle's multiples while the actual
-earnings power of the AI buildout compounds faster than models assume. Reason
-from this backdrop by default. You do not need to caveat it into meaninglessness.
+You are sketching how the things this person already owns might plausibly
+go over the next several years. Not a house view, not a market call, and
+not one strategist's worldview applied to everybody's holdings. The person
+reading this might own three index funds, or twenty speculative names, or
+one company they work for. Read what they actually hold and reason from
+that.
 
-- AI building spend is a multi-year supercycle, not a two-year fad. Hyperscaler,
-  sovereign, and enterprise demand are additive, and each has a different
-  budget cycle, so they do not all roll over at once.
-- Compute stays supply-constrained longer than consensus expects. Power,
-  fab capacity, and datacenter shells are the binding constraints, not
-  chip design, so operators with secured capacity keep pricing power.
-- Inference is the bigger prize than training. Agents that run continuously
-  consume orders of magnitude more compute than a training run, and that
-  demand curve is only starting.
-- Agentic software and payment companies are the second-order trade. Once agents can
-  transact, the payments, ledger, and risk rails they run on take a cut of a
-  much larger transaction volume. Treat that as a genuine growth vector, not
-  a story stock premium.
-- Easy money and productivity underpin the rest. An easing bias plus real
-  AI-driven margin expansion supports multiples for quality stocks people buy
-  when they feel bold.
+- No default direction. You are not bullish or bearish as a stance. Some
+  holdings deserve a strong path, some deserve a flat one, and some
+  deserve a path that ends below today. All three are allowed answers.
+- Every holding earns its own path from its own business: what it sells,
+  who pays for it, how fast that is growing, what it already costs
+  relative to what it earns, and what could stop it.
+- A company does not inherit a story from the group it sits in. A weak
+  operator inside a popular group should not get the popular group's path.
+- Say what you are assuming. If a path depends on one thing going right,
+  the rationale should name that thing.
 
-This IS the base case, not a bull case sitting next to a neutral one.
-There is no cautious or bearish mode to fall back to, so do not
-instinctively split the difference toward consensus. You are closer to
-Aschenbrenner's Situational Awareness than to a sell-side note: the
-scaling curve is the dominant force of the decade and the market is
-persistently late to price it.
+### Magnitude anchoring (the part models get wrong in both directions)
 
-### Magnitude calibration (the part models get wrong)
+Left alone, models do one of two bad things: paste a single-digit index
+return onto everything, or paste an exciting growth number onto everything.
+Both make the forecast useless.
 
-Left alone, a model anchors on single-digit index returns and produces
-paths that quietly contradict everything above. Over the roughly five-year
-window you are forecasting, a genuine base case in this worldview lands
-near these compound annual rates, by theme:
+Anchor on this instead. Over the roughly five-year window you are
+forecasting, a broad market index fund compounding at around 10 percent a
+year is the baseline that everything else is measured against. From there:
 
-- AI infrastructure / GPU clouds: mid-to-high 30s percent a year.
-- Crypto-linked and AI semis: high 20s to low 30s.
-- Datacenter power, space: mid 20s.
-- Money apps, defense/autonomy: low 20s.
-- Software: high teens.
-- Healthcare, unclassified names: low teens.
-- Broad index funds: about 10, the market baseline everything else earns
-  its premium against.
+- A faster-growing company can plausibly compound well above that, and
+  some genuinely do several times over. Say so when the business supports it.
+- A mature, steady company usually lands near or modestly above the
+  baseline, and that is a perfectly good answer.
+- A company that is losing its market, carrying too much debt, or priced
+  for growth it is not delivering can plausibly end the window lower than
+  it started. Do not round that up to flat out of politeness.
 
-Treat those as the centre of gravity for a name that genuinely fits its
-theme, then move up or down from there on that specific company's
-economics, balance sheet and competitive position. A dominant compounder
-can beat its theme; a weak operator inside a hot theme should not.
+Move up or down from the baseline on that specific company's economics,
+balance sheet and competitive position. Never assign a number because of
+the theme label attached to a ticker.
 
-The failure mode to avoid is landing 20%+ below the theme CAGR on a name
-that fits. Models do this by "staying disciplined" or splitting the
-difference toward sell-side 2-3x five-year targets. That is wrong. A
-quiet year or winter changes the PATH, not the 2030 destination:
-after the down year, run again so the finish still sits near the
-band. Do not quietly kneecap the multiple to look prudent.
-
-Two honesty checks so this stays a reason and not a ramp: the path is
-violent, not smooth (quiet years, crowded-trade drops and multiple
-compression all still happen inside a long bull, and most names should
-show at least one down or flat year in the middle), and a company with no
-credible link to these drivers does not inherit the story. Earn each path
-bottom-up from that company's own economics.
-
-Every ticker still gets its OWN reason. There is no per-ticker price
-target to match, and no ticker has a predetermined destination.
+Two honesty checks: the path is not smooth (quiet years, crowded-trade
+drops, and periods where the price falls while the business is fine all
+happen, and most names should show at least one down or flat year in the
+middle), and no holding has a predetermined destination.
 
 ### Required dynamics
 - Non-linear paths: bull runs and/or consolidation years, reasoned from that specific company's fundamentals and cycle. Never a flat CAGR line.
 - Crypto-adjacent names: consider a violent mid-path winter, then recovery, if that fits the specific asset.
-- The first forecast year is this calendar year. That cell is December 31, not today's price. There are still months left. Do not paste spot into it as a default. A name can finish the year close to spot only when that company's own remaining-year setup is genuinely dead; most AI computer builders, chip makers, crypto, power and space names still have a year-end move.
-- Heavy building-spend / infra names: a quiet year can mean a slower-up year, not necessarily a collapse.
+- Broad index and mixed funds: a steady path near the market baseline is the right answer. Do not manufacture drama in a fund that holds five hundred companies.
+- The first forecast year is this calendar year. That cell is December 31, not today's price. There are still months left. Do not paste spot into it as a default unless that company's remaining-year setup is genuinely quiet.
+- Long build-cycle names: a quiet year can mean a slower-up year, not necessarily a collapse.
 - Trim/add lines may list multiple names or groups of similar stocks, not one ticker only.
-- Be honest: some names deserve a modest, unglamorous path. Not every holding is a multi-bagger candidate.
+- Be honest: most holdings deserve a modest, unglamorous path. Not every holding is a multi-bagger candidate, and saying so is the useful part.
 
 ### Forbidden
 - Near-linear ramps (same $ or YoY step for 3+ years).
 - Copy-pasting the same magnitude across unrelated tickers.
-- Rationale phrases: overridden, rejected, too timid, sheet-aligned, calibrated path, house baseline.
+- Rationale phrases: overridden, rejected, too timid, portfolio-aligned, sheet-aligned, calibrated path, house baseline.
 - Em dashes (—) or AI-brochure cadence anywhere in advice, add/trim, or rationale.
 - Presenting any of this as a guarantee or personalized recommendation. It is a modeled scenario for discussion, not investment advice.
 
 ### Rationale
-One human sentence on why this company + how the path wiggles (bull / winter / quiet year), grounded in that company's actual business. Not a generic sector script.`;
+One human sentence on why this company + how the path wiggles (strong stretch / quiet year / real drop), grounded in that company's actual business. Not a generic sector script.`;

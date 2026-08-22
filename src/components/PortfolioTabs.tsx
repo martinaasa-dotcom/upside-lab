@@ -29,7 +29,7 @@ type Props = {
   hiddenModeIds?: string[];
   /** Hide New portfolio. Paper class accounts cannot open a real book. */
   hideAdd?: boolean;
-  /** Today's $ direction per portfolio id — glanceable dot per sheet cell. */
+  /** Today's $ direction per portfolio id — glanceable dot per portfolio cell. */
   sheetTodayTone?: Record<string, "up" | "down" | null>;
   className?: string;
 };
@@ -45,7 +45,7 @@ type OpenMenu = {
  * The bottom dock: one row, one well, one cell per place you can go.
  *
  * It used to be two controls side by side — a fixed pill group of app
- * sections, then a heading reading "Sheets" over a scrolling text rail of
+ * sections, then a heading reading "Portfolios" over a scrolling text rail of
  * portfolio tabs with an inline name field and a "New" button. Half the
  * bar was reserved for a list that is one item long for most people, and
  * the two halves shared no shape, height, or indicator. `BookModeDock`

@@ -26,12 +26,12 @@ export const forecastPlanSchema = z.object({
   generalAdvice: z
     .string()
     .describe(
-      "2-4 short sentences of book-level advice (risk, concentration, cash). Plain spoken English like a PM Slack note. No em dashes. No stacked jargon slogans."
+      "2-4 short sentences of portfolio-level advice (size, concentration, cash). Plain spoken English. No em dashes. No stacked jargon slogans."
     ),
   sectorRotation: z
     .string()
     .describe(
-      "Where money might move from one group of similar stocks to another over the next quarter and year, tied to this book. Plain speech, no em dashes."
+      "Where money might move from one group of similar stocks to another over the next quarter and year, tied to this portfolio. Plain speech, no em dashes."
     ),
   periods: z
     .array(
@@ -75,7 +75,7 @@ export const forecastPlanSchema = z.object({
           .string()
           .optional()
           .describe(
-            "One human sentence: why this company + how the path wiggles (bull run / winter / quiet year). No em dashes. Never say overridden, rejected, calibrated, or sheet-aligned."
+            "One human sentence: why this company + how the path wiggles (strong stretch / real drop / quiet year). No em dashes. Never say overridden, rejected, calibrated, or portfolio-aligned."
           ),
       })
     )

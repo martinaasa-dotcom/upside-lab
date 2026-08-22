@@ -75,7 +75,7 @@ export default function PrivacyPage() {
               <strong className="text-foreground">What you enter:</strong>{" "}
               holdings, cash, notes, targets, forecast overrides, chat with
               Assistant Margus, and any broker or bank screenshot you upload
-              so we can read the names onto a sheet.
+              so we can read the names onto a portfolio.
             </li>
             <li>
               <strong className="text-foreground">Feedback:</strong> if you
@@ -92,9 +92,9 @@ export default function PrivacyPage() {
         </Section>
 
         <Section title="3. How we use it">
-          To run the app: show your sheets, compute your numbers, remember
+          To run the app: show your portfolios, compute your numbers, remember
           your preferences, and (only if you opt into a community) show
-          today&apos;s prices, holdings, cash, and returns for the sheets you
+          today&apos;s prices, holdings, cash, and returns for the portfolios you
           linked. AI features send the relevant book context to a model
           provider. That includes chat with Margus, Pulse, weekday notes,
           Forecast, and screenshot import. It is not limited to times you
@@ -160,11 +160,11 @@ export default function PrivacyPage() {
         </Section>
 
         <Section title="5. Sharing between users">
-          If you invite a co-owner to a sheet, they get full edit access to
-          that sheet&apos;s data. If you join a circle, other members see
+          If you invite a co-owner to a portfolio, they get full edit access to
+          that portfolio&apos;s data. If you join a circle, other members see
           today&apos;s prices, the names you hold, cash, and returns for the
-          sheet(s) you linked. They do not see what you paid. You control
-          which sheets, if any, are linked. If two accounts are linked as a
+          portfolio(s) you linked. They do not see what you paid. You control
+          which portfolios, if any, are linked. If two accounts are linked as a
           household, Circle join, leave, and role copy to both. The other
           person does not have to click agree each time. Classroom stays per
           person.
@@ -187,7 +187,7 @@ export default function PrivacyPage() {
           other sites.
           {" "}
           The app also saves things on your own device (browser storage, not
-          cookies): your settings, which sheet you had open, your thesis
+          cookies): your settings, which portfolio you had open, your thesis
           notes and watchlist, and a cached copy of your portfolio so it
           still works offline. That never leaves your device on its own.
           Signing out, or switching accounts, clears all of it.
@@ -207,7 +207,7 @@ export default function PrivacyPage() {
           active use immediately, but it can remain in that day&apos;s
           backup copy until that copy&apos;s own 30-day expiry, the same as
           everyone else&apos;s in it. You can permanently delete your profile
-          and solely-owned sheets yourself at any time (see below). This
+          and solely-owned portfolios yourself at any time (see below). This
           removes them from active use immediately.
         </Section>
 
@@ -217,8 +217,8 @@ export default function PrivacyPage() {
             My account
           </Link>{" "}
           you can download a complete export of your data as JSON, or
-          permanently delete your account: your profile, any sheet you solely
-          own, and your sign-in credential itself (sheets you share with a
+          permanently delete your account: your profile, any portfolio you solely
+          own, and your sign-in credential itself (portfolios you share with a
           co-owner stay with them). If for any reason the sign-in credential
           can&apos;t be removed at the same time, your {PRODUCT_NAME} data is
           still fully wiped from active use immediately (see &ldquo;Data
@@ -233,7 +233,7 @@ export default function PrivacyPage() {
 
         <Section title="9. Security">
           Data is encrypted in transit (TLS) and access is scoped per-user at
-          the database level (row-level security), so one user&apos;s sheets
+          the database level (row-level security), so one user&apos;s portfolios
           aren&apos;t readable by another unless explicitly shared via invite
           or community. No system is perfectly secure. If we discover a
           breach affecting your data we&apos;ll notify affected users.
@@ -249,7 +249,7 @@ export default function PrivacyPage() {
           {PRODUCT_NAME} is not a brokerage and
           does not open a real trading account. Classroom is a private paper
           class: a teacher invites students, each student gets homework cash
-          and an empty sheet, and real books cannot be shared into the class.
+          and an empty portfolio, and real portfolios cannot be shared into the class.
           If your country needs a parent or guardian for someone your age to
           use an app like this, that person has to agree. The teacher is
           responsible for running the class under their school&apos;s rules.

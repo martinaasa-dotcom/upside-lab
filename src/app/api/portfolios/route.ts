@@ -43,7 +43,7 @@ async function handleGET(req: NextRequest) {
   const supabase = await getSupabaseDataClient();
 
   // A signed-in book is only sheets this user co-owns. Missing
-  // Supabase is an empty book, never someone else's sheets.
+  // Supabase is an empty portfolio, never someone else's portfolios.
   if (!supabase) {
     return NextResponse.json({
       source: "supabase",
@@ -347,7 +347,7 @@ async function handleDELETE(req: NextRequest) {
     if ((sheet as { classroom_community_id?: string | null } | null)
       ?.classroom_community_id) {
       return NextResponse.json(
-        { error: "Class sheets stay until the class ends." },
+        { error: "Class portfolios stay until the class ends." },
         { status: 400 }
       );
     }
