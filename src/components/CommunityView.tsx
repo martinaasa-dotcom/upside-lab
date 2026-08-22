@@ -11,7 +11,7 @@ import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { ShareSheets } from "@/components/ShareSheets";
 import { SignInGate } from "@/components/SignInGate";
 import { AppHeader } from "@/components/AppHeader";
-import { MobileChrome } from "@/components/mobile/MobileChrome";
+import { MobileDock } from "@/components/mobile/MobileDock";
 import { track } from "@vercel/analytics";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1515,10 +1515,10 @@ export function CommunityView({ communityId }: Props) {
   return (
     <SignInGate>
       <div className={PAGE_FRAME_CLASS}>
-        <MobileChrome
-          title={community?.name ?? "Community"}
-          active="circle"
-          end={
+        <MobileDock active="circle" />
+        <AppHeader
+          mobileTitle={community?.name ?? "Community"}
+          mobileEnd={
             /*
              * `ghost`/`icon-sm`, matching the feedback and account controls
              * beside it. As `outline`/`icon` this was the only boxed
@@ -1541,8 +1541,6 @@ export function CommunityView({ communityId }: Props) {
               </Button>
             ) : undefined
           }
-        />
-        <AppHeader
           title={
             <span className="flex min-w-0 items-center gap-1.5">
               <span className="truncate">{community?.name ?? "Community"}</span>

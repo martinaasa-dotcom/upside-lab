@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/components/AuthProvider";
 import { AppHeader } from "@/components/AppHeader";
-import { MobileChrome } from "@/components/mobile/MobileChrome";
+import { MobileDock } from "@/components/mobile/MobileDock";
 import { SignInGate } from "@/components/SignInGate";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { Score, Scoreboard } from "@/components/ui/Panel";
@@ -192,7 +192,7 @@ export function AdminPage() {
   return (
     <SignInGate>
       <div className={PAGE_FRAME_CLASS}>
-        <MobileChrome title="Admin" active={null} />
+        <MobileDock active={null} />
         <AppHeader title="Admin" />
 
         <main id="main" className={PAGE_MAIN_CLASS}>

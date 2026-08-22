@@ -2,7 +2,7 @@
 
 import { SignInGate } from "@/components/SignInGate";
 import { AppHeader } from "@/components/AppHeader";
-import { MobileChrome } from "@/components/mobile/MobileChrome";
+import { MobileDock } from "@/components/mobile/MobileDock";
 import { cn } from "@/lib/format";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import { plainError } from "@/lib/plain-error";
@@ -241,8 +241,8 @@ export function CommunitiesList() {
   return (
     <SignInGate>
       <div className={PAGE_FRAME_CLASS}>
-        <MobileChrome title="" active="circle" />
-        <AppHeader title="Circle" />
+        <MobileDock active="circle" />
+        <AppHeader title="Circle" mobileTitle="" />
         <main id="main" className={PAGE_MAIN_CLASS}>
           <div>
             <h1 className="text-2xl font-semibold text-foreground">

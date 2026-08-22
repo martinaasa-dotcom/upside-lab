@@ -1,7 +1,7 @@
 "use client";
 
 import { AppHeader } from "@/components/AppHeader";
-import { MobileChrome } from "@/components/mobile/MobileChrome";
+import { MobileDock } from "@/components/mobile/MobileDock";
 import { ComparisonChart, type ComparisonSeries } from "@/components/ComparisonChart";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import {
@@ -1219,8 +1219,8 @@ export function UpsidePortfolioPage() {
 
   return (
     <div className={PAGE_FRAME_CLASS}>
-      <MobileChrome title="Fund" active={null} />
-      <AppHeader title="Upside Fund">
+      <MobileDock active={null} />
+      <AppHeader title="Upside Fund" mobileTitle="Fund">
         <FundFreshness quotesAt={quotesAt} />
       </AppHeader>
 

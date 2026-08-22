@@ -178,7 +178,6 @@ import {
 import { InvitePartnerModal } from "@/components/InvitePartnerModal";
 import { DashboardLoading } from "@/components/DashboardLoading";
 import { MobileTabBar, type MobileTabId } from "@/components/mobile/MobileTabBar";
-import { MobileTopBar } from "@/components/mobile/MobileTopBar";
 import { SheetPicker } from "@/components/SheetPicker";
 import { useLabSync } from "@/components/use-lab-sync";
 import { FIRST_SHEET_NAME } from "@/lib/product";
@@ -3538,11 +3537,7 @@ export function Dashboard() {
     return (
       <>
       <div className={PAGE_FRAME_CLASS}>
-        <MobileTopBar
-          title="Overview"
-          avatar={headerAvatar}
-        />
-          <AppHeader
+        <AppHeader
           showWorkspaceNav={source === "supabase"}
           title="Overview"
           end={accountEnd}
@@ -3579,11 +3574,11 @@ export function Dashboard() {
         updatedAt={quotesUpdatedAt}
         missingTickers={missingQuoteTickers}
       />
-      <MobileTopBar
-        title={mobileSheetTitle}
-        avatar={headerAvatar}
+      <AppHeader
+        showWorkspaceNav={source === "supabase"}
+        mobileTitle={mobileSheetTitle}
         alertCount={activeAlerts.length}
-        end={
+        mobileEnd={
           <>
             {!isMetaTab && canClassBuy && (
               <Button
@@ -3604,9 +3599,6 @@ export function Dashboard() {
             />
           </>
         }
-      />
-      <AppHeader
-        showWorkspaceNav={source === "supabase"}
         title={
           isOverview
             ? "Overview"
