@@ -726,6 +726,14 @@ The switcher's type is white rather than `--primary` for the reason above —
 against siblings set in `--muted-foreground`, a raised surface plus
 full-strength type says "here" clearly and stays clean.
 
+The same rule decides **disabled**. `disabled:opacity-50` is right for every
+button variant except the filled primary, where half of the accent over a
+near-black field is khaki and the near-black label on top goes to a washed
+brown — an empty form's "Check" read as a yellow button that had gone wrong
+rather than one that is not ready yet. The `default` variant drops the
+accent entirely when disabled (`bg-secondary`, `--muted-foreground` type,
+`opacity-100` to undo the base) instead of dimming it.
+
 ## Label voice: mono caps, two tiers (2026-08-21)
 
 Taken from the counter-lobe study page, which Martin asked to have applied to
