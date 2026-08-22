@@ -4,7 +4,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { AppHeader } from "@/components/AppHeader";
 import { useFeedback } from "@/components/FeedbackHost";
 import { SignInGate } from "@/components/SignInGate";
-import { MobileChrome } from "@/components/mobile/MobileChrome";
+import { MobileDock } from "@/components/mobile/MobileDock";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -308,7 +308,7 @@ export function AccountPage() {
   return (
     <SignInGate>
       <div className={PAGE_FRAME_CLASS}>
-        <MobileChrome title="Account" active={null} />
+        <MobileDock active={null} />
         <AppHeader title="Account">
           <Button
             type="button"

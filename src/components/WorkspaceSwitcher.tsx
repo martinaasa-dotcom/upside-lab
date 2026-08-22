@@ -36,8 +36,17 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
      * put a second solid-yellow button in the header next to "Add
      * holding" — two things shouting "press me" when only one of them is
      * an action at all. The active room is a statement of where you are,
-     * so it now reads as a raised surface with primary text: visible at a
-     * glance, but it never competes with the one real CTA in the bar.
+     * so it reads as a raised surface instead: visible at a glance, but it
+     * never competes with the one real CTA in the bar. This is the one
+     * "selected" in the app that does not fill; `Segmented` and the dock
+     * both do, because neither sits beside a CTA.
+     *
+     * White type, not `--primary`. It was dim yellow on the `--selected`
+     * veil, and that pairing is the mud described in `SEGMENTED_ITEM`: a
+     * white veil over a near-black field lands on mid-grey, and a muted
+     * warm yellow on mid-grey is barely a contrast step. Against siblings
+     * that are `--muted-foreground`, a raised surface plus full-strength
+     * type says "here" perfectly clearly and stays clean.
      */
     <Button
       asChild
@@ -45,7 +54,7 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
       size="sm"
       className={cn(
         active &&
-          "card-sheen bg-selected text-primary hover:bg-selected hover:text-primary"
+          "card-sheen bg-selected text-foreground hover:bg-selected hover:text-foreground"
       )}
     >
       <Link

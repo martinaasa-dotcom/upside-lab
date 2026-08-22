@@ -472,19 +472,44 @@ landing mid-page genuinely cannot tell what section they are in.
 
 ## Chrome and field: the current numbers
 
-The chrome is **one pane** — one wrapper, one fill, one blur, both rows
-inside it. Two sibling `fixed` elements each with their own blur do not read
-as one sheet: each samples a different slice of what is behind it, so the
-bands come out at different tones with a seam. The only edge the chrome
-carries is the one at its bottom, where it meets the page.
+The chrome is **one pane** — `.chrome-pane` on a single wrapper in
+`AppHeader`, with every row inside it: the desktop header row, the phone top
+bar, and the market strip both share. A `backdrop-filter` opens its own
+sampling root, so two stacked elements each blurring 40px of what sits
+behind them average different slices and land at different tones, with a
+seam on the line where they meet. Desktop was merged for that reason; the
+phone kept its top bar as a sibling above the pane, with an identical fill
+and blur of its own, and carried the same seam until that row moved inside
+too (`MobileBarRow`). **If another row ever joins the chrome, put it inside
+the pane rather than beside it** — a row hides itself at the breakpoint it
+does not belong to, and the pane never does. `MobileTopBar` is now a bare
+row: give it a background or a blur again and the seam comes back.
 
-All four chrome surfaces (desktop header, desktop dock, phone top bar, phone
-tab bar) are `bg-background/35` with `backdrop-blur-2xl`. `--background` is
-pure black, so each is a black veil and its alpha is exactly how much of the
-field it eats — at `/95` the dock was effectively opaque and clipped the glow
-at a hard edge. **The blur carries legibility, not the opacity.** Header text
-measures 18.5 contrast against it, so do not raise these back toward opaque
-to "fix" contrast without measuring first.
+`.chrome-pane` is the same material as a card — `blur(40px) saturate(1.9)`,
+matching `.glass`. Without the saturation the chrome was the one translucent
+surface in the app that drained the ambient colour passing under it instead
+of carrying it.
+
+Its refraction is a **`background-image` gradient**, not the inset
+`box-shadow` that `.card-sheen.glass` uses, and this is the one place that
+inverts the usual rule. The chrome is a band of arbitrary height — 85px on
+desktop, 92px plus the safe-area inset on a phone — and a shadow spread is a
+fixed pixel distance, so it would hug the top edge on one and wash half the
+band on the other. A percentage gradient is height-relative and glides
+across the whole band either way. Cards use shadows because `.veil-hover`
+paints into `background-image` and would wipe a gradient; nothing in the
+chrome hovers, so there is no paint to lose.
+
+The fill is `--background` at 35%. `--background` is pure black, so it is a
+black veil and its alpha is exactly how much of the field the chrome eats —
+at `/95` the dock was effectively opaque and clipped the glow at a hard
+edge. **The blur carries legibility, not the opacity.** Header text measures
+18.5 contrast against it, so do not raise it back toward opaque to "fix"
+contrast without measuring first. The dock keeps its own `bg-background/35`
++ `backdrop-blur-2xl`, since it is a floating card rather than a band.
+
+The only edge the chrome carries is the one at its bottom, where it meets
+the page; the market strip draws it.
 
 There is one `<AppStatusStrip>` instance, deliberately: it holds a
 one-second interval and polls quotes, so rendering it per breakpoint would
@@ -613,8 +638,38 @@ The exceptions, which stay opaque on purpose: **meter tracks**
 an opaque fill to read as focused.
 
 `Segmented` follows the same language as the glass cards: the track is a
-well, an unselected item is glass, and the selected one is the `--selected`
-veil with a top specular edge — raised into the light, never a hole.
+well and an unselected item is glass. The **selected** one is the filled
+`--primary` pill, the same "you are here" the dock's active cell paints.
+
+### The accent cannot be a dark tint
+
+The selected item used to be the `--selected` white veil with `--primary`
+text, and it read flat. The reason is worth keeping, because it applies to
+anything tempted to tint a surface with the brand colour:
+
+**Yellow only reads as yellow while it is light.** A 26% white veil over a
+near-black field lands on mid-grey; the ambient warm lobe pushes that to
+khaki; and the app's `--primary` is a deliberately muted, low-chroma warm
+yellow, so as *type* on khaki it is barely a contrast step. Rendered side
+by side against the original, a warm veil at 18%, 30% and 45% were each
+muddier than what they replaced — a dark yellow is olive, not gold. A
+neutral veil with white type was clean but had no colour in it at all.
+
+So the accent either arrives at **full lightness** — a fill, with
+`--primary-foreground` type on it — or it stays out of the surface
+entirely. There is no low-alpha middle.
+
+### Where "selected" fills, and where it does not
+
+| | Selected reads as | Why |
+|---|---|---|
+| Dock cell | filled `--primary` | The one destination you are on. |
+| `Segmented` item | filled `--primary` | Framed by its own track, so it reads as the chosen one of a set, not as a loose button. |
+| `WorkspaceSwitcher` room | `--selected` veil, `--foreground` type | The only one that does not fill: it sits in the header bar beside the page's real CTA, and two solid yellow controls there both shout "press me". |
+
+The switcher's type is white rather than `--primary` for the reason above —
+against siblings set in `--muted-foreground`, a raised surface plus
+full-strength type says "here" clearly and stays clean.
 
 ## Label voice: mono caps, two tiers (2026-08-21)
 
