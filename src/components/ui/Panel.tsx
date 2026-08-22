@@ -318,9 +318,9 @@ export function PanelHeader({
 }
 
 const CARD_TONES = {
-  default: "bg-muted",
-  raised: "bg-accent",
-  brand: "bg-muted ring-1 ring-primary/20",
+  default: "card-sheen glass-well",
+  raised: "card-sheen glass-well",
+  brand: "card-sheen glass-well ring-1 ring-primary/20",
   good: "bg-gain/10",
   warn: "bg-warning/10",
   bad: "bg-destructive/10",
@@ -618,7 +618,7 @@ function ScanRow({
         <ItemMedia
           variant="icon"
           className={cn(
-            "size-8 rounded-lg border border-border bg-muted",
+            "size-8 card-sheen glass-well rounded-lg",
             movePct < 0 && "text-loss",
             movePct > 0 && "text-gain"
           )}
@@ -956,10 +956,11 @@ export function Stat(props: ScoreProps) {
 }
 
 /**
- * shadcn Tabs default trigger on a ToggleGroup. Muted track, no extra
- * border (outline items inside a bordered well stacked two strokes).
- * Off = muted type. Hover = brighter type + faint wash. On = lifted
- * pill (background, input border, shadow), same as TabsTrigger.
+ * The item inside a `Segmented`. Off = quiet type on the track. Hover =
+ * brighter type plus a faint wash. On = a lit pill: the `--selected` veil
+ * with a top specular edge, the same "raised into the light" language the
+ * glass cards use. No border — an outlined item inside a bordered track
+ * stacks two strokes.
  */
 const SEGMENTED_ITEM =
   "rounded-md border border-transparent text-muted-foreground shadow-none group-data-[spacing=0]/toggle-group:rounded-md group-data-horizontal/toggle-group:data-[spacing=0]:first:rounded-md group-data-horizontal/toggle-group:data-[spacing=0]:last:rounded-md hover:bg-hover hover:text-foreground data-[state=on]:card-sheen data-[state=on]:bg-selected data-[state=on]:text-primary data-[state=on]:shadow-sm data-[state=on]:hover:bg-selected";
@@ -1006,7 +1007,10 @@ export function Segmented<T extends string>({
         spacing={0}
         disabled={disabled}
         aria-label={ariaLabel}
-        className={cn("max-w-full min-w-0 bg-muted p-[3px]", className)}
+        className={cn(
+          "card-sheen glass-well max-w-full min-w-0 p-[3px]",
+          className
+        )}
       >
         {options.map((o) => (
           <ToggleGroupItem
@@ -1067,11 +1071,11 @@ export function Segmented<T extends string>({
                */
               on
                 ? buttons
-                  ? "border-input bg-secondary text-primary shadow-sm"
-                  : "card-sheen bg-secondary text-primary"
+                  ? "card-sheen border-input bg-selected text-primary shadow-sm"
+                  : "card-sheen bg-selected text-primary"
                 : buttons
-                  ? "border-input bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground"
-                  : "veil-hover bg-card text-muted-foreground hover:text-foreground"
+                  ? "glass border-input text-muted-foreground hover:text-foreground"
+                  : "veil-hover glass text-muted-foreground hover:text-foreground"
             )}
           >
             <span className="block max-w-full text-center leading-snug break-words">

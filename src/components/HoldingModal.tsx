@@ -354,7 +354,7 @@ export function HoldingModal({
         </div>
 
         {collapsed.length > 0 && (
-          <div className="mb-4 max-h-48 overflow-x-hidden overflow-y-auto rounded-lg border border-border bg-muted">
+          <div className="mb-4 max-h-48 overflow-x-hidden overflow-y-auto card-sheen glass-well rounded-lg">
             <div
               className="grid h-10 items-center whitespace-nowrap px-3 text-sm font-medium text-muted-foreground"
               style={rowStyle}

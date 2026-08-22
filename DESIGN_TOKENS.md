@@ -522,6 +522,57 @@ on those three. Brightness and coverage are separate dials and they fail the
 same way; the failure mode is *alpha* — 60%/34% once put the middle at 32
 and the corners at 111.
 
+### Balancing the two lobes: H-K, not luminance
+
+The two corners were matched by *measurement* for a long time and still
+read wrong — the warm corner looked muted next to the blue. The
+measurement was the problem, not the eye.
+
+Three metrics, three different answers for the same pair of corners:
+
+| | phone warm | phone cool | verdict |
+|---|---|---|---|
+| Brightest channel | 77 | 99 | cool much brighter |
+| Relative luminance Y | 5.89 | 5.59 | **near parity** |
+| CIE L\* | 29.14 | 28.35 | **near parity** |
+| L\*\* (H-K corrected) | 32.51 | **38.72** | cool **+19%** |
+
+Luminance and L\* both said the pair was balanced, which is why the old
+numbers looked right on paper. What they miss is the
+**Helmholtz–Kohlrausch effect**: a saturated colour appears brighter than
+an achromatic one of the same luminance, and the size of that lift depends
+on hue. It is near its *maximum* around blue and near its *minimum* around
+yellow — so the blue lobe punches well above its luminance and the warm
+one does not.
+
+The correction used here is Fairchild & Pirrotta (1991):
+
+    L** = L* + (2.5 − 0.025·L*) · (0.116·|sin((h_uv − 90°)/2)| + 0.085) · C*_uv
+
+The `|sin((h − 90)/2)|` term is exactly the hue asymmetry: zero at yellow
+(h = 90°), largest near blue. Our lobes sit at h_uv 68° and 245°, and the
+blue also carries far more chroma (C\*_uv 29.2 vs 17.7), so it wins twice.
+
+Both ramps were scaled to bring L\*\* to parity, with `k_warm · k_cool = 1`
+so the total light in the frame is unchanged and only the *split* moves:
+
+| | warm | cool |
+|---|---|---|
+| Desktop | 28% → **29.9%** | 31% → **29%** |
+| Phone | 60% → **65.5%** | 66% → **60.4%** |
+
+Measured after, field alone: phone warm `rgb(85,75,48)` L\*\* 35.87 against
+cool `rgb(35,61,87)` L\*\* 34.08 — the key light now sits **5% above** the
+bounce instead of 19% below it. Desktop lands at parity (−0.8%). The
+middle and the two opposite corners did not move: 1/255 and 2–4 on a
+phone, so the black between the corners is exactly as it was.
+
+Note the alphas now read *warm above cool*, inverting the old pair. That
+is not a mistake to "correct" later: the old ratio compensated for sRGB
+blue's low luminance, and H-K more than reverses that compensation.
+**Balance this on L\*\*. Brightest channel is meaningless here and
+luminance is not what the eye reports.**
+
 ### The Margus button clears the dock
 
 `CcAdvisorChat`'s FAB carried a flat `lg:bottom-8` while the dock is `fixed
@@ -531,6 +582,39 @@ clicks in that corner hit the dock, making Margus unreachable. Both were
 hidden while the dock was near-opaque. Anchor to `--dock-pad`, the live
 measured dock height — never a flat offset. The consent banner needs the
 same clearance.
+
+## Glass is three specular terms, and nothing in the app is flat
+
+The edge sells glass on a near-black field, far more than the blur does —
+but an edge alone gives you an evenly tinted rectangle with a bright line
+on top. Real glass has a gradient: light enters the top and dies out
+downward. So `.glass` and `.glass-well` carry three terms:
+
+1. a bright hairline along the top, where the pane catches the light;
+2. **a soft inset falloff hugging that top edge** — this is the refraction,
+   and it is what was missing;
+3. a fainter hairline along the bottom, where light wraps under.
+
+Term 2 is an inset `box-shadow`, not a `background-image` gradient, and
+that is deliberate: `.veil-hover` paints its hover into `background-image`,
+so a gradient there would be wiped out on hover. Shadows compose in one
+list and survive it.
+
+**Nothing that is a surface may be a flat fill.** `bg-muted` as a container
+background reads as a hole punched in the field next to a glass card beside
+it. Every one of those is now `card-sheen glass-well`, including the shared
+primitives that were quietly spreading it: `Card`'s tones, `TabsList`,
+`Item`'s muted variant, and the `Segmented` track.
+
+The exceptions, which stay opaque on purpose: **meter tracks**
+(`rounded-full bg-muted` — a translucent 4px progress bar is pointless),
+**data cells** (the seasonality heatmap, correlation grid), **skeletons**,
+**step indicators**, and `focus:bg-muted` on inline-edit cells, which needs
+an opaque fill to read as focused.
+
+`Segmented` follows the same language as the glass cards: the track is a
+well, an unselected item is glass, and the selected one is the `--selected`
+veil with a top specular edge — raised into the light, never a hole.
 
 ## Label voice: mono caps, two tiers (2026-08-21)
 

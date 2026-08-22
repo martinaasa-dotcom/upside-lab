@@ -266,9 +266,9 @@ export function CsvImportModal({
               {/* overflow-x too: an imported file can carry long tickers and
                   wide numbers, and on a phone the preview needs to scroll
                   sideways instead of pushing the modal past the viewport. */}
-              <div className="max-h-48 overflow-x-auto overflow-y-auto rounded-lg border border-border bg-muted">
+              <div className="max-h-48 overflow-x-auto overflow-y-auto card-sheen glass-well rounded-lg">
                 <table className={htmlTable}>
-                  <thead className="sticky top-0 bg-muted text-sm text-muted-foreground">
+                  <thead className="glass-well sticky top-0 text-sm text-muted-foreground">
                     <tr>
                       <th className={cn(tickerTd, "py-1.5 font-medium")}>Ticker</th>
                       <th className={cn(htmlCell, "py-1.5 font-medium")}>Shares</th>

@@ -74,11 +74,17 @@ export function MobileTopBar({
         // Translucent glass, matching AppHeader on desktop. A fully opaque
         // bar here made mobile the only surface with no translucent chrome
         // at all, and clipped the page's ambient glow at a hard edge.
+        //
+        // No `border-b` on the row inside: this bar and the market strip
+        // under it are one band of chrome, and a rule between them made it
+        // read as two stacked panes — the same complaint the desktop chrome
+        // had before its two rows were merged. The only edge the chrome
+        // carries is the one at its bottom, which the strip draws.
         "sticky top-0 z-40 bg-background/35 backdrop-blur-2xl pt-[env(safe-area-inset-top)] md:hidden",
         className
       )}
     >
-      <div className="flex h-14 items-center justify-between gap-2 border-b border-border px-4">
+      <div className="flex h-14 items-center justify-between gap-2 px-4">
         <div className="flex min-w-0 items-center gap-2.5">
           <HeaderBrand alwaysType />
           {hasVisibleTitle(title) ? (
