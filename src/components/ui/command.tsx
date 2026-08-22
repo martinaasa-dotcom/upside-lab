@@ -25,7 +25,13 @@ function Command({
     <CommandPrimitive
       data-slot="command"
       className={cn(
-        "flex size-full flex-col overflow-hidden rounded-xl! bg-popover p-1 text-popover-foreground ring-1 ring-foreground/20",
+        /*
+         * No fill of its own: this always renders inside a
+         * `CommandDialog`, whose `DialogContent` is the glass pane.
+         * An opaque `bg-popover` here painted a grey slab across the
+         * inside of a translucent dialog.
+         */
+        "flex size-full flex-col overflow-hidden rounded-xl! bg-transparent p-1 text-popover-foreground",
         className
       )}
       {...props}

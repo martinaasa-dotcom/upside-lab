@@ -442,7 +442,7 @@ export const LabSheet = memo(function LabSheet({
                   </div>
                 </div>
 
-                <div className="mt-3">
+                <div>
                   <Progress
                     value={Math.max(2, Math.min(100, personality.diversificationScore))}
                     className="h-3 bg-secondary"
@@ -453,10 +453,7 @@ export const LabSheet = memo(function LabSheet({
                   </div>
                 </div>
 
-                <Scoreboard
-                  className="mt-4"
-                  cols={concentration.positionCount > 3 ? 3 : 2}
-                >
+                <Scoreboard cols={concentration.positionCount > 3 ? 3 : 2}>
                   <Score
                     label="Behaves like"
                     value={`${concentration.effectivePositions.toFixed(1)} names`}
@@ -513,13 +510,23 @@ export const LabSheet = memo(function LabSheet({
 
               {themes.length > 0 && (
                 <Panel tone="plain">
-                  <h3 className="text-foreground">
-                    What you&apos;re actually betting on
-                  </h3>
-                  <p className="mt-1.5 mb-4 text-sm text-muted-foreground">
-                    Your holdings pooled by theme, which is usually a blunter
-                    read than the ticker list.
-                  </p>
+                  {/*
+                   * Title and subtitle are one child of the panel, not two.
+                   * `Panel` is a `gap-5 sm:gap-6` column, so as siblings the
+                   * subtitle sat a full panel gap under its own title —
+                   * plus whatever margin the call site added on top of it.
+                   * Grouped, the panel gap separates the header from the
+                   * bar and `mt-1.5` does the hugging inside.
+                   */}
+                  <div>
+                    <h3 className="text-foreground">
+                      What you&apos;re actually betting on
+                    </h3>
+                    <p className="mt-1.5 text-sm text-muted-foreground">
+                      Your holdings pooled by theme, which is usually a
+                      blunter read than the ticker list.
+                    </p>
+                  </div>
                   <div className="flex h-3 overflow-hidden rounded-full bg-muted">
                     {themes.map((t) => (
                       <div
@@ -533,7 +540,6 @@ export const LabSheet = memo(function LabSheet({
                     ))}
                   </div>
                   <SwatchLegend
-                    className="mt-4"
                     items={themes.map((t) => ({
                       key: t.theme,
                       label: t.label,
@@ -714,7 +720,7 @@ function AllocCard({
 }) {
   return (
     <Panel tone="plain">
-      <h3 className="mb-3 text-foreground">{title}</h3>
+      <h3 className="text-foreground">{title}</h3>
       <div className="flex flex-col gap-2">
         {slices.map((s) => (
           <div key={s.label}>

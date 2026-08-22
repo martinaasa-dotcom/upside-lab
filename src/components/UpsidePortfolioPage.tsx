@@ -1367,7 +1367,7 @@ export function UpsidePortfolioPage() {
             {bettingSlices.length > 0 && (
               <Panel>
                 <PanelHeader title="What he's betting on" />
-                <div className="mt-4">
+                <div>
                   <div className="flex h-3 overflow-hidden rounded-full bg-muted">
                     {bettingSlices.map((t) => (
                       <div

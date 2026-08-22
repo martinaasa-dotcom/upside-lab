@@ -637,6 +637,61 @@ The exceptions, which stay opaque on purpose: **meter tracks**
 **step indicators**, and `focus:bg-muted` on inline-edit cells, which needs
 an opaque fill to read as focused.
 
+### A panel spaces its own children — call sites must not
+
+`Panel` is `flex flex-col gap-5 p-4 sm:gap-6 sm:p-6`. Every direct child is
+already 20/24px from the next one, so a child that also carries `mt-3`,
+`mt-4` or `mb-4` gets **both**: measured on Lab, a subtitle sat 30px under
+its own title and 40px above the bar it introduced, which is what the
+"huge dead gap" in that card was. Fifteen call sites across Lab, Growth and
+Fund did it.
+
+Two rules come out of it:
+
+- **A title and its subtitle are one child**, not two. As siblings the
+  panel gap pushes them a full step apart, and the call site then reaches
+  for a negative-feeling `mt-1.5` to pull them back. Wrap them, and let
+  `mt-1.5` hug inside the wrapper.
+- **A component never carries its own outer margin.** `SwatchLegend` had an
+  `mt-3` baked in, and every one of its three call sites added `mt-4` on
+  top because that still was not what the container wanted. Spacing is the
+  container's job: inside a `Panel` the panel gap does it; inside a
+  hand-spaced section the call site says `mt-4` and means it.
+
+Auditable at runtime: any element whose parent is a column (or grid) with a
+non-zero `row-gap` and which has a positive `margin-top`/`margin-bottom` is
+paying twice. Negative pull-ups and `margin: auto` (see `Score`) are the
+deliberate exceptions, along with a `Separator`, which wants more air than
+the gap around a rule.
+
+### Overlays are glass too, at a much heavier fill
+
+Menus, selects, popovers, dialogs, sheets and drawers are `.glass-overlay`.
+They were the last flat family in the app: an opaque `bg-popover` slab
+dropped onto a page of refractive surfaces reads as a grey rectangle pasted
+over it rather than a pane held above it.
+
+They are also the one family that sits **over** content rather than in the
+field, so the fill is far heavier than a card's — `--popover` at **88%**,
+against a card's 45%. A menu has to stay readable over a table, a chart or a
+run of figures, and the blur alone does not get you there: an element with
+`backdrop-filter` does not smear content painted by *another* element that
+has one, so a menu opening under the chrome sees the market strip
+unblurred. Stepped through 70 / 78 / 88 / 96% against exactly that case,
+88% is where the ghost of the numbers behind stops competing with the menu's
+own labels while the pane still carries the ambient wash.
+
+Fill and blur only — no `box-shadow`. Every call site already carries its
+own `border`, `ring-1` and `shadow-md`/`shadow-lg`, and `box-shadow` is
+atomic, so a shadow in the utility would race Tailwind's `shadow-*` inside
+the same layer. The top specular is a `background-image` for the same
+reason it is on `.chrome-pane`; no overlay hovers, so there is no veil to
+wipe it.
+
+`Command` carries no fill of its own: it always renders inside a
+`CommandDialog`, and the `DialogContent` around it is the pane. An opaque
+fill there painted a grey slab across the inside of a translucent dialog.
+
 `Segmented` follows the same language as the glass cards: the track is a
 well and an unselected item is glass. The **selected** one is the filled
 `--primary` pill, the same "you are here" the dock's active cell paints.
@@ -670,6 +725,14 @@ entirely. There is no low-alpha middle.
 The switcher's type is white rather than `--primary` for the reason above —
 against siblings set in `--muted-foreground`, a raised surface plus
 full-strength type says "here" clearly and stays clean.
+
+The same rule decides **disabled**. `disabled:opacity-50` is right for every
+button variant except the filled primary, where half of the accent over a
+near-black field is khaki and the near-black label on top goes to a washed
+brown — an empty form's "Check" read as a yellow button that had gone wrong
+rather than one that is not ready yet. The `default` variant drops the
+accent entirely when disabled (`bg-secondary`, `--muted-foreground` type,
+`opacity-100` to undo the base) instead of dimming it.
 
 ## Label voice: mono caps, two tiers (2026-08-21)
 
