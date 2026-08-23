@@ -72,6 +72,12 @@ export const authMePatchSchema = z.looseObject({
 export const experienceTierPostSchema = z.looseObject({
   tier: z.enum(["novice", "investor", "advanced"]).optional(),
   knowsOptions: z.boolean().optional(),
+  /**
+   * Which walkthrough the reader has finished. Bounded rather than open so a
+   * hostile client cannot park the row on a number no future version reaches
+   * and opt itself out of every walkthrough there will ever be.
+   */
+  tourVersion: z.number().int().min(0).max(999).optional(),
 });
 
 export const weeklyNotePostSchema = z.looseObject({
