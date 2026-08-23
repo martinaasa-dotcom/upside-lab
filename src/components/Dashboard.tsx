@@ -22,7 +22,6 @@ import { RenameSheetModal } from "@/components/RenameSheetModal";
 import { ClassTradeBanner } from "@/components/ClassTradeBanner";
 import { sheetCashBalance, tracksTradeCash } from "@/lib/cash-balance";
 import { isPaperClassOnly, ownedBookPortfolios } from "@/lib/classroom";
-import { StaleQuotesBanner } from "@/components/StaleQuotesBanner";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { TickerDrawer } from "@/components/TickerDrawer";
 import { useAuth } from "@/components/AuthProvider";
@@ -3522,8 +3521,6 @@ export function Dashboard() {
       />
     ) : null;
 
-  const missingQuoteTickers = missingTickers;
-
   function selectDockTarget(id: string) {
     setActiveId(id);
     if (onBook) return;
@@ -3604,11 +3601,6 @@ export function Dashboard() {
   return (
     <>
     <div className={PAGE_FRAME_CLASS}>
-      <StaleQuotesBanner
-        delayed={quotesDelayed}
-        updatedAt={quotesUpdatedAt}
-        missingTickers={missingQuoteTickers}
-      />
       <AppHeader
         showWorkspaceNav={source === "supabase"}
         mobileTitle={mobileSheetTitle}
