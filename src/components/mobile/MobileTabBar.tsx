@@ -17,7 +17,7 @@ import {
   FlaskConical,
   LayoutDashboard,
 } from "lucide-react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { useRef } from "react";
 
 export type MobileTabId = "home" | "pulse" | "lab" | "compound" | "circle";
@@ -92,6 +92,35 @@ export function activeMobileTab(
   return "home";
 }
 
+/**
+ * A tap has to be answered on the frame it lands on.
+ *
+ * Every one of these goes to the server for its data, so until the answer
+ * arrives the URL has not changed and nothing in the bar looks any
+ * different — the tab you pressed carries on looking unpressed while a
+ * request is in flight, and the app reads as having ignored you rather than
+ * as having been asked something hard.
+ *
+ * Drawn as a fill *behind* the cell rather than as a change to the cell, so
+ * it costs no layout and cannot move the row under a thumb. Deliberately
+ * not the accent pill, and it does not touch `aria-current`: this says
+ * "heard you", not "you are here", and a navigation that is abandoned must
+ * not leave the dock claiming somewhere you never went.
+ */
+function PressedFill() {
+  const { pending } = useLinkStatus();
+
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute inset-0 rounded-lg bg-foreground/10 transition-opacity duration-150",
+        pending ? "opacity-100" : "opacity-0"
+      )}
+    />
+  );
+}
+
 export function MobileTabBar({
   active,
   alertCount = 0,
@@ -135,7 +164,16 @@ export function MobileTabBar({
         <div
           role="tablist"
           className={cn(
-            "card-sheen glass pointer-events-auto grid w-full gap-1 rounded-xl p-1 ring-1 ring-foreground/20",
+            /*
+             * `glass-dock` after `card-sheen glass`: the same pane with the
+             * chrome fill and a harder blur instead of the card veil. It is
+             * the one surface in the app sitting over the hottest part of
+             * the cool lobe, and at the card's 2% veil it was reading
+             * bluer than the field beside it rather than quieter. The rim,
+             * the ring and the lift shadow are untouched. Numbers in
+             * globals.css and DESIGN_TOKENS.md.
+             */
+            "card-sheen glass glass-dock pointer-events-auto grid w-full gap-1 rounded-xl p-1 ring-1 ring-foreground/20",
             cols === 3 && "grid-cols-3",
             cols === 4 && "grid-cols-4",
             cols === 5 && "grid-cols-5"
@@ -167,12 +205,14 @@ export function MobileTabBar({
                   if (onSelect(id)) e.preventDefault();
                 }}
                 className={cn(
-                  "flex h-12 min-h-0 min-w-0 appearance-none flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 text-xs font-medium transition-colors",
+                  "relative flex h-12 min-h-0 min-w-0 appearance-none flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 text-xs font-medium transition-colors",
+                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                   on
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
+                {on ? null : <PressedFill />}
                 <span className="relative">
                   <Icon
                     className={cn("h-4 w-4", id === "compound" && "scale-125")}
@@ -183,7 +223,7 @@ export function MobileTabBar({
                     <span className="absolute -right-1 -top-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
                   )}
                 </span>
-                <span className="max-w-full leading-none">
+                <span className="relative max-w-full leading-none">
                   {shortLabel}
                 </span>
               </Link>

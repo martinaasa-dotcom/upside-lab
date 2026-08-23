@@ -742,6 +742,62 @@ body {
       0 28px 62px -24px var(--glass-cast);
   }
 
+  /*
+   * The dock: the same pane as `.glass`, with the chrome fill in place of
+   * the card veil. Written after `card-sheen glass` in the class list, so
+   * it replaces the body and the blur and nothing else — the rim, the ring
+   * and the lift shadow stay the ones every other pane carries.
+   *
+   * A dock is not a card, and treating it as one is measurably wrong. A
+   * card sits IN the field and its job is to let the room through: a 2%
+   * white veil, a 6px blur, saturate 1.75. A dock sits OVER the bottom
+   * corner, which on a phone is the brightest part of the cool lobe, with
+   * content scrolling under it — and at the card's numbers it does not show
+   * that light, it amplifies it. Measured in Chromium on a 390 x 844 field,
+   * walking the whole bar and keeping the worst pixel: the field's own
+   * chroma there is C* 4.69, and through `.glass` the pane reads **8.82**,
+   * **1.88 times more coloured than the room it sits in**, carrying 9.3
+   * luminance levels from one end of the bar to the other. That is the "the
+   * blue bleeds into the nav bar" report, and the pane was the cause of it
+   * rather than the victim.
+   *
+   * Two constraints pick the 55%, and it is the smallest number meeting
+   * both. **Ceiling: a pane may carry the room's colour, never more of it
+   * than the room has**, which the fill reaches at 45%. **Floor: muted
+   * label text clears AAA over every pixel of the bar**, which it reaches
+   * at 55% (7.06:1 at 390px, 7.00:1 at 430px; 6.88 and 6.82 at 50%, and
+   * 4.62 through the card veil). Past it the pane starts draining the glow
+   * rather than attenuating it, which is the mistake the note on
+   * `.chrome-pane` records. Keyed to `--background`, which is true black,
+   * so the alpha is exactly how much of the glow the dock eats and it
+   * cannot leave a hue behind. Black lift at the page middle measures −0.1:
+   * the floor `--glass-veil` holds everywhere else is held here too.
+   *
+   * 20px, not the card's 6. The 6px ceiling is there because past roughly
+   * 7px a blur stops refracting and starts mixing adjacent hues into mud,
+   * which is a real risk for a pane in the middle of a field with two lobes
+   * reaching it. It is not a risk here: measured along the dock at both
+   * widths the warm lobe contributes under 0.25% alpha, so there is one hue
+   * under this pane and nothing for a wider radius to muddy. The radius is
+   * a lever in its own right, not only legibility — at the card's veil,
+   * widening 6px to 20px alone takes the pane from 1.88x the field's chroma
+   * to 1.43x, because what it averages out is the steep part of the
+   * gradient running under the bar. On top of that it buys what a floating
+   * tab bar is for: a table passing underneath as a soft wash instead of as
+   * legible rows competing with the labels. `.chrome-pane` blurs 40px at
+   * the other end of the screen for the same reason.
+   *
+   * Full account, with the tables, in DESIGN_TOKENS.md.
+   */
+  .glass-dock {
+    background-color: color-mix(in oklch, var(--background), transparent 45%);
+    /* Prefixed first, standard last — see the note on `.glass` above. */
+    -webkit-backdrop-filter: blur(20px) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+    backdrop-filter: blur(20px) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+  }
+
   .glass-well {
     background-color: var(--glass-veil-well);
     /* Prefixed first, standard last — see the note on `.glass` above. */

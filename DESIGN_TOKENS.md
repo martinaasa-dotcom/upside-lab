@@ -1266,3 +1266,157 @@ an overscroll bounce and `fixed`/`sticky` elements ride along with it.
 `overscroll-behavior-y: none` on `html, body` stops the document
 overscrolling at all, and both bars stay welded to the viewport edges.
 Scroll containers inside the page keep their own behaviour.
+
+## The dock is chrome, not a card (2026-08-23)
+
+> *"on mobile, the lab's bottom right blue bleeds very heavily and too
+> visibly into the bottom nav bar, i think it should be tweaked to make it
+> more subtle, only on mobile"*
+
+The report is exactly right and exactly localised. Measured in Chromium, at
+the dock's own position, walking the whole bar and keeping the worst pixel:
+
+| | across the bar | pane chroma vs the field |
+|---|---|---|
+| **Lab, phone 390 x 844** | **9.3 levels** | **1.88x** |
+| Lab, phone 430 x 932 | 9.7 | 1.89 |
+| Lab, desktop 1440 x 900 | 2.8 | 1.90 |
+| Arena, phone | 1.2 | — |
+| Arena, desktop | 0.9 | — |
+
+The phone carries three times the spread of anywhere else. But look at the
+right-hand column: the pane is nearly twice the room's colour at *every*
+width. The phone is where a field bright enough to see it made that visible.
+
+### The pane was the cause, not the victim
+
+The phone's cool lobe peaks at the bottom-right corner by design (see *The
+phone is its own room*), and the dock sits in it. But the dock was `.glass` —
+the **card** material — and a card is built to let the room through: a 2%
+white veil, a 6px blur, `saturate(1.75)`. Point that at a single strong hue
+and it does not show it, it multiplies it. On a 390px phone, at the worst
+pixel of the bar:
+
+| | own chroma C\* | rgb |
+|---|---|---|
+| the field itself | 4.69 | `rgb(27,48,69)` |
+| **through `.glass`** | **8.82** | `rgb(13,55,98)` |
+| through `.glass-dock` | 4.10 | `rgb(5,20,37)` |
+
+Not a blue lobe leaking onto the bar. A bar making more blue than the lobe
+has.
+
+### Two constraints, and 55% is the smallest number meeting both
+
+`.glass-dock` keeps everything else about the material and replaces two
+things: the body becomes `--background` (true black, so its alpha is exactly
+how much of the glow the dock eats and it cannot leave a hue behind), and the
+blur goes to 20px.
+
+**Ceiling — a pane may carry the room's colour, never more of it than the
+room has.** Reached at 45%.
+
+**Floor — muted label text clears AAA over every pixel of the bar.** Reached
+at 55%.
+
+Measured on a 390px phone (430px in brackets where it differs):
+
+| veil | C\* worst | vs the field | spread | muted text |
+|---|---|---|---|---|
+| `.glass`, white 2%, blur 6 | 8.82 | 1.88x | 9.3 | 4.62:1 |
+| field 40%, blur 20 | 5.06 | 1.08x | 3.1 | 6.55:1 |
+| field 45%, blur 20 | 4.75 | 1.01x | 2.6 | 6.75:1 |
+| field 50%, blur 20 | 4.35 | 0.93x | 2.3 | 6.88:1 [6.82] |
+| **field 55%, blur 20** | **4.10** | **0.87x** | **1.9** | **7.06:1 [7.00]** |
+
+Past 55% the pane starts *draining* the glow rather than attenuating it,
+which is the mistake the note on `.chrome-pane` was written to record. So
+55% is the one point in a narrow window, not a taste call.
+
+Black lift at the page middle measures **-0.1**: the floor `--glass-veil`
+holds everywhere else is held here too. This deepens the black, it does not
+grey it.
+
+### Why 20px of blur is allowed here
+
+The 6px ceiling exists because past roughly 7px a blur stops refracting and
+starts mixing adjacent hues into mud. That is a real risk for a pane in the
+middle of a field with two lobes reaching it. It is not a risk at the bottom
+of the screen: measured along the dock, the warm lobe contributes **0.00%
+alpha on a phone and 0.22% at its worst on desktop**. One hue under the pane,
+nothing for a wider radius to muddy.
+
+And the radius is a lever in its own right, not only a legibility one. Held
+at the card's 2% veil, widening 6px to 20px alone takes the pane from
+**1.88x to 1.43x** the field's chroma and the spread from 9.3 to 8.1 levels,
+because what it averages out is the steep part of the gradient running under
+the bar. The veil does most of the work on the spread, the blur does most of
+it on the chroma; the fix needs both.
+
+On top of that it buys what a floating tab bar is for: content passes under
+the dock, and at 6px a holdings table stays legible through it and competes
+with the labels. `.chrome-pane` blurs 40px at the other end of the screen for
+exactly this reason, and until now the two ends of the same chrome were made
+of different material.
+
+Both docks take it, at both widths. Desktop barely moves (2.8 levels to 0.8)
+because it was never the problem; it takes it so the dock is one pane
+everywhere rather than two.
+
+## One dock, two shapes, and the same two in both apps (2026-08-23)
+
+> *"I want both of the nav bars to look and feel the same way, but I want
+> you to be very, very critical and pick out the best solution that fits
+> within the design that we have."*
+
+Lab had a phone bar and a desktop dock. Arena had one dock at every width
+with its labels switched off below 544px. Taken apart, each app was right
+about one half of it.
+
+**Below `md`: full width, glyph over label, labels always on.** Lab's shape.
+That is the iPhone tab bar, and both halves matter. A content-hugging pill
+on a 390px screen leaves dead bands either side and reads as a control that
+happens to be near the bottom rather than as the floor of the app.
+
+**At `md` and up: content-hugging, centred, glyph beside label.** Arena's
+shape, and `BookModeDock`'s. Stretching five cells across a 1440px column
+leaves each label floating in the middle of a 230px chip and turns the
+active one into a slab of accent the width of a paragraph.
+
+### What each app gave up
+
+**Arena's `max-[544px]:sr-only` had to go.** It fired on every phone anybody
+owns, so five rooms arrived as five unlabelled glyphs. A trophy is not a
+word: nothing about it says Leagues rather than Season, and a tab bar is the
+one place in an app where a person has to be right the first time. The
+stacked cell is what makes labels affordable at 320px — the width a label
+needs *beside* a glyph is what forced the choice, and above `md` there is no
+width pressure to force it.
+
+**Lab's bar had no answer to a tap.** Every destination reads live data, so
+until the server answers the URL has not changed and nothing looks any
+different: the tab you pressed carries on looking unpressed. Arena solved
+this with `useLinkStatus` and a fill drawn *behind* the cell, so it costs no
+layout and cannot move the row under a thumb. It is deliberately not the
+accent pill and does not touch `aria-current` — it says "heard you", not
+"you are here". Ported to `MobileTabBar` unchanged. Lab's cells also had no
+`focus-visible` ring; Arena's did.
+
+### What both were already right about
+
+Concentric corners, both ways round: the pill is `rounded-xl` (12px) with
+`p-1` (4px), so the cells are `rounded-lg` (8px). 12 - 4 = 8. A cell with
+the same radius as the shell around it reads as a sticker on it.
+
+And the `nav` is a `pointer-events-none` centring container in both, with
+`pointer-events-auto` back on the pill. A fixed full-width element takes
+clicks across its whole box whether or not it paints anything.
+
+### The measurements that hold it
+
+Arena's `tests/e2e/dock.spec.ts` used to assert the label rule matched
+`max-[Npx]:sr-only`, which is a test of the wrong thing: it held the
+breakpoint steady while the breakpoint was the bug. It now asserts no label
+is ever hidden, and measures each label against **the padding box of its own
+cell** rather than against the viewport — a row that "fits the screen"
+tells you nothing about a word inside a 52px cell.
