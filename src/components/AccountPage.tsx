@@ -27,7 +27,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
-import { cn } from "@/lib/format";
+import { NO_VALUE, cn } from "@/lib/format";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import { PRODUCT_NAME, PRODUCT_SUPPORT_EMAIL } from "@/lib/product";
 import {
@@ -368,8 +368,8 @@ export function AccountPage() {
             />
             <p className="text-sm text-muted-foreground">
               The walkthrough is the same one you got on your first visit, and
-              you can leave it at any point. For anything it does not answer —
-              a question about the app, not a data request — mail{" "}
+              you can leave it at any point. If it does not answer something, and
+              it is a question about the app rather than a data request, mail{" "}
               <a
                 href={`mailto:${PRODUCT_SUPPORT_EMAIL}`}
                 className="underline hover:text-foreground"
@@ -468,7 +468,7 @@ export function AccountPage() {
             <PanelHeader
               icon={<UserRound className="h-4 w-4" />}
               title="Community profile"
-              subtitle={`Signed in as ${user?.email ?? "—"}`}
+              subtitle={`Signed in as ${user?.email ?? NO_VALUE}`}
             />
 
             <Item className="px-0">

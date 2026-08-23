@@ -25,7 +25,7 @@ import {
   type MilestoneActuals,
 } from "@/lib/compound-play";
 import { blendedExpectedAnnualReturn } from "@/lib/forecast-conviction";
-import { cn, percent } from "@/lib/format";
+import { NO_VALUE, cn, percent } from "@/lib/format";
 import { persistCompoundSnapshot } from "@/lib/offline/snapshots";
 import { PALETTE } from "@/lib/palette";
 import { safeDiv } from "@/lib/money";
@@ -1034,7 +1034,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
               value={
                 Number.isFinite(result.doubleYears)
                   ? `${result.doubleYears}y ${result.doubleMonths}m`
-                  : "—"
+                  : NO_VALUE
               }
             />
           </Scoreboard>

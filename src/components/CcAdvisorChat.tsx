@@ -493,18 +493,18 @@ const RULES = [
   },
   {
     title: "Contract duration",
-    rule: `${STRATEGY.minDaysPreferred}–${STRATEGY.maxDaysPreferred} days (~2–3 weeks)`,
+    rule: `${STRATEGY.minDaysPreferred} to ${STRATEGY.maxDaysPreferred} days (about 2 to 3 weeks)`,
     detail: `Can extend up to ~${STRATEGY.maxDaysExtended}d when earnings forces a longer dated.`,
   },
   {
     title: "Call %",
     rule: "Scaled to each ticker's own volatility",
-    detail: `Roughly ${(STRATEGY.callPctSafeMin * 100).toFixed(0)}–${(STRATEGY.callPctSafeMax * 100).toFixed(0)}% for calmer names up to ${(STRATEGY.callPctHighBeta * 100).toFixed(0)}%+ for jumpy ones, nudged for earnings / distance. Never one flat "safety" % for the whole book.`,
+    detail: `Roughly ${(STRATEGY.callPctSafeMin * 100).toFixed(0)} to ${(STRATEGY.callPctSafeMax * 100).toFixed(0)}% for calmer names up to ${(STRATEGY.callPctHighBeta * 100).toFixed(0)}%+ for jumpy ones, nudged for earnings / distance. Never one flat "safety" % for the whole book.`,
   },
   {
     title: "Earnings",
     rule: "Prefer expire before earnings",
-    detail: "If no clean pre-earnings 2–3w expiry, go past earnings and widen Call %.",
+    detail: "If no clean pre-earnings 2 to 3 week expiry, go past earnings and widen Call %.",
   },
   {
     title: "Yield",

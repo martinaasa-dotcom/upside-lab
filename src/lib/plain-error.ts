@@ -43,6 +43,16 @@ const KNOWN: Record<string, string> = {
   "Database unavailable": "The database is taking a break. Try again in a minute.",
   "nothing to update": "Nothing changed.",
   "Nothing to update": "Nothing changed.",
+  /*
+    The en dash in this key is load-bearing and must stay.
+
+    Keys in this map are matched against the string the server actually
+    sent, so the key is a fingerprint of somebody else's output rather than
+    copy of ours. Rewriting it to read the way the rest of the app reads
+    would simply stop it matching, and the reader would get the raw server
+    error instead of the plain line under it. Nothing renders the key: the
+    value is what a person sees, and it has no dash in it.
+  */
   "Display name must be 1–80 characters":
     "Display name has to be between 1 and 80 characters",
   "Avatar URL must start with http(s)://":

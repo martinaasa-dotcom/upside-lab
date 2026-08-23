@@ -39,6 +39,7 @@ import { generateObject } from "ai";
 import { observeRoute } from "@/lib/observe-route";
 import { pulsePostSchema } from "@/lib/api-schemas";
 import { parseJsonBody } from "@/lib/parse-json-body";
+import { NO_VALUE } from "@/lib/format";
 
 export const maxDuration = 90;
 export const runtime = "nodejs";
@@ -107,7 +108,7 @@ function buildPrompt(
 ): string {
   const fg =
     fearGreed?.score != null
-      ? `Market mood: CNN Fear & Greed ${Math.round(fearGreed.score)} (${fearGreed.rating ?? "—"}).`
+      ? `Market mood: CNN Fear & Greed ${Math.round(fearGreed.score)} (${fearGreed.rating ?? NO_VALUE}).`
       : "Market mood: unknown.";
 
   const lines = candidates.map((c) => {
@@ -189,7 +190,7 @@ ${insightsPromptBlock(
 - Use **sell** only when thesisStatus is broken. Never use **trim** for a broken reason. Never use **hold** for a broken reason either: that's what puts a Hold badge next to "Thesis broken".
 - On a screen with multiple intact dips, **most** names should be **add**, not all hold.
 
-### thesisStatus — start from intact. Watch and broken have to be earned
+### thesisStatus: start from intact. Watch and broken have to be earned
 - Write **thesisBreak** only if you can name a real, name-specific reason this holding would stop making sense. Otherwise leave it empty and still score intact / watch / broken from headlines.
 - Then look at today's headlines and the move. **intact** unless those facts actually match that reason (watch) or show it already happened (broken).
 - **intact**: the reason you own it hasn't changed. A normal red or green day, a name that ran, sector-wide noise, taking a little profit, or after-hours drift are NOT breaks. If you are trimming into strength, thesisStatus MUST be intact.

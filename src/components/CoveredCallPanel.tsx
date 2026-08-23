@@ -4,7 +4,7 @@ import { FluidRow, FluidTable, cellBase, cellTicker, tableCols } from "@/compone
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, Panel, PanelHeader } from "@/components/ui/Panel";
-import { cn, signedTone, currency, percent } from "@/lib/format";
+import { NO_VALUE, cn, currency, percent, signedTone } from "@/lib/format";
 import { isSafePositiveMoney } from "@/lib/input-guard";
 import {
   blockWheelChange,
@@ -100,7 +100,7 @@ function InlineStockTarget({
         type="text"
         inputMode="decimal"
         value={draft}
-        placeholder="—"
+        placeholder={NO_VALUE}
         onChange={(e) =>
           setDraft(e.target.value.replace(/,/g, ".").replace(/[^\d.]/g, ""))
         }
@@ -226,7 +226,7 @@ function writeProximity(distance: number | null): {
   className: string;
 } {
   if (distance == null || !Number.isFinite(distance)) {
-    return { label: "—", className: "text-muted-foreground" };
+    return { label: NO_VALUE, className: "text-muted-foreground" };
   }
   if (distance <= 0) {
     return { label: "At write level", className: "text-primary/60" };
@@ -324,7 +324,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                   >
                     {r.targetDistance != null
                       ? percent(r.targetDistance)
-                      : "—"}
+                      : NO_VALUE}
                   </p>
                 </div>
                 <div>
@@ -341,19 +341,19 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                 <div>
                   <p className="text-muted-foreground">Strike</p>
                   <p className="tabular-nums font-semibold text-primary/60">
-                    {r.nextStrike != null ? currency(r.nextStrike) : "—"}
+                    {r.nextStrike != null ? currency(r.nextStrike) : NO_VALUE}
                   </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">2-week %</p>
                   <p className="tabular-nums font-medium text-primary/60">
-                    {r.yield2w != null ? percent(r.yield2w) : "—"}
+                    {r.yield2w != null ? percent(r.yield2w) : NO_VALUE}
                   </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Premium</p>
                   <p className="tabular-nums text-foreground">
-                    {r.premium != null ? currency(r.premium) : "—"}
+                    {r.premium != null ? currency(r.premium) : NO_VALUE}
                   </p>
                 </div>
               </div>
@@ -449,7 +449,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                     : "text-muted-foreground"
                 )}
               >
-                {r.targetDistance != null ? percent(r.targetDistance) : "—"}
+                {r.targetDistance != null ? percent(r.targetDistance) : NO_VALUE}
               </div>
               <div
                 className={cn(
@@ -466,7 +466,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                   "tabular-nums font-semibold text-primary/60"
                 )}
               >
-                {r.nextStrike != null ? currency(r.nextStrike) : "—"}
+                {r.nextStrike != null ? currency(r.nextStrike) : NO_VALUE}
               </div>
               <div className={cn(cellBase, "text-muted-foreground")}>
                 <InlineExpiry
@@ -480,10 +480,10 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
               <div
                 className={cn(cellBase, "tabular-nums font-medium text-primary/60")}
               >
-                {r.yield2w != null ? percent(r.yield2w) : "—"}
+                {r.yield2w != null ? percent(r.yield2w) : NO_VALUE}
               </div>
               <div className={cn(cellBase, "tabular-nums text-foreground")}>
-                {r.premium != null ? currency(r.premium) : "—"}
+                {r.premium != null ? currency(r.premium) : NO_VALUE}
               </div>
             </FluidRow>
           ))}

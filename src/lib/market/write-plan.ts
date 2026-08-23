@@ -177,7 +177,7 @@ function pickExpiry(
   if (!expirations.length) {
     return {
       pick: null,
-      reason: "No listed expiries in the 1–6 week window.",
+      reason: "No listed expiries in the 1 to 6 week window.",
       writeNow: false,
     };
   }
@@ -218,7 +218,7 @@ function pickExpiry(
     const after = expirations.find((e) => e.days > daysToEarnings + 2);
     return {
       pick: after ?? preferred[0] ?? expirations[0],
-      reason: `No clean pre-earnings 2–3w expiry, use longer dated past earnings (${daysToEarnings}d).`,
+      reason: `No clean pre-earnings 2 to 3 week expiry, use longer dated past earnings (${daysToEarnings}d).`,
       writeNow: true,
     };
   }
@@ -232,7 +232,7 @@ function pickExpiry(
 
   return {
     pick: ideal,
-    reason: `Prefer ${STRATEGY.minDaysPreferred}–${STRATEGY.maxDaysPreferred}d tenor (~2–3 weeks).`,
+    reason: `Prefer ${STRATEGY.minDaysPreferred} to ${STRATEGY.maxDaysPreferred} day tenor (about 2 to 3 weeks).`,
     writeNow: true,
   };
 }

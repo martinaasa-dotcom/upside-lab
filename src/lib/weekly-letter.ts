@@ -456,7 +456,7 @@ const ACTION_WORD: Record<SuggestionKind, string> = {
 export function weeklyLetterText(r: WeeklyLetter): string {
   const names = r.nameCount === 1 ? "1 name" : `${r.nameCount} names`;
   const lines: string[] = [];
-  lines.push(weeklyPreview(r), "", `Your week — ${r.dateLine}`, "");
+  lines.push(weeklyPreview(r), "", `Your week: ${r.dateLine}`, "");
   lines.push(
     `Your portfolio  ${money(r.book)}`,
     names,

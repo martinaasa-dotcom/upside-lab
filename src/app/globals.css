@@ -157,6 +157,63 @@
    * `bg-ambient-cool` utility, because there is no second call site.
    */
   --ambient-cool: oklch(0.72 0.13 250);
+  /*
+   * The glass material, in one place.
+   *
+   * These used to be eleven `color-mix(in oklch, white, transparent NN%)`
+   * calls typed inline across four rules, which meant the material could
+   * only be changed by editing every rule and hoping they still agreed.
+   * Naming them is what makes the pane tunable, and it is what let the
+   * three numbers below be arrived at by measuring rather than by taste.
+   *
+   * THE RIM IS NOT ONE COLOUR, and that is the whole idea. The room has
+   * two lights: a warm lobe off the top-left and a blue counter-lobe off
+   * the bottom-right (see `.page-frame::before`). A pane sitting in that
+   * room and rendering a neutral grey edge on all four sides is a pane
+   * ignoring the light it is standing in, which is exactly what reads as
+   * flat no matter how bright the hairline gets. So the top edge takes the
+   * key light's warmth, the bottom edge takes the counter-lobe's blue as
+   * light wraps under it, and the two sides are quieter than either.
+   *
+   * Both rim colours are LIGHT, high-lightness and low-chroma. A warm tint
+   * only reads as warm while it is light: at low lightness the same hue
+   * lands on khaki, which DESIGN_TOKENS.md has a whole section about. This
+   * is a rim, not a fill, so it stays up at the top of the lightness range
+   * and carries barely any chroma.
+   *
+   * No new hue enters the palette here. 85 is `--primary`'s and 250 is
+   * `--ambient-cool`'s, so the panes pick up the two lights the room
+   * already has rather than introducing a third.
+   */
+  --glass-rim-top: oklch(0.99 0.035 85 / 56%);
+  --glass-rim-bottom: oklch(0.95 0.045 250 / 32%);
+  --glass-rim-left: oklch(1 0 0 / 19%);
+  --glass-rim-right: oklch(1 0 0 / 10%);
+  /*
+   * Thickness. Light entering the top of a pane and dying out downward is
+   * the gradient real glass has, and the reason a card with a bright line
+   * on top still reads as a flat rectangle is that the line has nothing
+   * under it. The reach matters as much as the strength: at 18px it died
+   * inside the padding and never touched the card's interior, so a probe
+   * measured no difference at all between the top third of a pane and the
+   * bottom third. 44px carries it into the body.
+   */
+  --glass-depth: oklch(1 0 0 / 21%);
+  --glass-depth-reach: 64px;
+  /* And a little of it wrapping back up off the bottom edge. */
+  --glass-underglow: oklch(1 0 0 / 11%);
+  --glass-underglow-reach: 34px;
+  /*
+   * Two shadows, not one. The soft one is the cast; the tight one is
+   * contact, and without it a pane hovers rather than sits.
+   */
+  --glass-contact: oklch(0 0 0 / 55%);
+  --glass-cast: oklch(0 0 0 / 80%);
+  /* The nested well is the same material, quieter on every term. */
+  --well-rim-top: oklch(0.99 0.03 85 / 28%);
+  --well-rim-bottom: oklch(0.95 0.04 250 / 16%);
+  --well-depth: oklch(1 0 0 / 11%);
+  --well-depth-reach: 40px;
   --surface: var(--card);
   --panel: var(--card);
   --inset-panel: 1.5rem;
@@ -437,12 +494,39 @@ body {
      * `background-image`, so a gradient there would be wiped on hover;
      * shadows compose in one list and survive it.
      */
+    /*
+     * The rim is four separate edges, and they disagree on purpose.
+     *
+     * A single `inset 0 0 0 1px` hairline is the same brightness the whole
+     * way round, which is the one thing a real pane never is: an edge tells
+     * you where the light is. Top takes the key lobe's warmth, bottom takes
+     * the counter-lobe's blue wrapping under, left is brighter than right
+     * because the key light is off the top-LEFT. The neutral
+     * `inset 0 0 0 1px var(--border)` still sits underneath all four and
+     * fills the corners, where a one-sided shadow tapers out.
+     *
+     * Then thickness, then contact. Order is load-bearing: in a box-shadow
+     * list the first entry paints on top, so the hairlines have to precede
+     * the falloff or the falloff washes over them.
+     *
+     * All of it is still `box-shadow` rather than `background-image`,
+     * because `.veil-hover` paints its hover into `background-image` and
+     * would wipe a gradient on hover. Shadows compose in one list and
+     * survive it.
+     */
     box-shadow:
-      inset 0 1px 0 0 color-mix(in oklch, white, transparent 70%),
-      inset 0 18px 18px -18px color-mix(in oklch, white, transparent 90%),
-      inset 0 -1px 0 0 color-mix(in oklch, white, transparent 88%),
+      inset 0 1px 0 0 var(--glass-rim-top),
+      inset 1px 0 0 0 var(--glass-rim-left),
+      inset -1px 0 0 0 var(--glass-rim-right),
+      inset 0 -1px 0 0 var(--glass-rim-bottom),
+      inset 0 var(--glass-depth-reach) var(--glass-depth-reach)
+        calc(var(--glass-depth-reach) * -1) var(--glass-depth),
+      inset 0 calc(var(--glass-underglow-reach) * -1)
+        var(--glass-underglow-reach) calc(var(--glass-underglow-reach) * -1)
+        var(--glass-underglow),
       inset 0 0 0 1px var(--border),
-      0 14px 36px -18px color-mix(in oklch, black, transparent 12%);
+      0 2px 5px -3px var(--glass-contact),
+      0 18px 44px -20px var(--glass-cast);
   }
   /*
    * Hover veil for anything that already has a surface — a glass card, a
@@ -632,13 +716,22 @@ body {
     -webkit-backdrop-filter: blur(24px) saturate(1.7);
     backdrop-filter: blur(24px) saturate(1.7);
     box-shadow:
-      inset 0 12px 12px -12px color-mix(in oklch, white, transparent 94%),
+      inset 0 var(--well-depth-reach) var(--well-depth-reach)
+        calc(var(--well-depth-reach) * -1) var(--well-depth),
       inset 0 0 0 1px color-mix(in oklch, var(--border), transparent 35%);
   }
+  /*
+   * The same rim as a top-level pane and quieter on every term, because a
+   * well sits inside something that is already doing the refraction. It
+   * still gets the warm top and the cool underside: a well that goes
+   * neutral inside a warm-topped panel reads as a hole cut in it.
+   */
   .card-sheen.glass-well {
     box-shadow:
-      inset 0 1px 0 0 color-mix(in oklch, white, transparent 80%),
-      inset 0 12px 12px -12px color-mix(in oklch, white, transparent 92%),
+      inset 0 1px 0 0 var(--well-rim-top),
+      inset 0 -1px 0 0 var(--well-rim-bottom),
+      inset 0 var(--well-depth-reach) var(--well-depth-reach)
+        calc(var(--well-depth-reach) * -1) var(--well-depth),
       inset 0 0 0 1px color-mix(in oklch, var(--border), transparent 35%);
   }
 
@@ -652,31 +745,43 @@ body {
    * full-strength border stroke and brighter top specular.
    */
   @media (max-width: 767px) {
+    /*
+     * The phone moves the TOKENS, not the shadow stacks.
+     *
+     * This block used to restate every `box-shadow` list in full, which
+     * meant the desktop rule and the phone rule were two copies of the
+     * same material that had to be kept in step by hand -- and they had
+     * already drifted. Overriding the variables instead leaves exactly one
+     * stack per material in this file, and a phone is then a lighting
+     * change rather than a second implementation.
+     *
+     * A thinner fill is a weaker edge, so the rim goes up to pay for it.
+     * The card is also gutter-to-gutter here, so the reach comes down: a
+     * 44px falloff on a short card covers most of it and stops reading as
+     * a top edge at all.
+     */
     .glass {
       background-color: color-mix(in oklch, var(--card), transparent 66%);
       -webkit-backdrop-filter: blur(30px) saturate(2.2);
       backdrop-filter: blur(30px) saturate(2.2);
     }
-    .card-sheen.glass {
-      box-shadow:
-        inset 0 1px 0 0 color-mix(in oklch, white, transparent 62%),
-        inset 0 18px 18px -18px color-mix(in oklch, white, transparent 88%),
-        inset 0 -1px 0 0 color-mix(in oklch, white, transparent 86%),
-        inset 0 0 0 1px var(--border),
-        0 14px 36px -18px color-mix(in oklch, black, transparent 12%);
-    }
     .glass-well {
       background-color: color-mix(in oklch, var(--muted), transparent 74%);
       -webkit-backdrop-filter: blur(20px) saturate(2);
       backdrop-filter: blur(20px) saturate(2);
-      box-shadow: inset 0 0 0 1px
-        color-mix(in oklch, var(--border), transparent 15%);
     }
+    .glass,
+    .glass-well,
+    .card-sheen.glass,
     .card-sheen.glass-well {
-      box-shadow:
-        inset 0 1px 0 0 color-mix(in oklch, white, transparent 74%),
-        inset 0 12px 12px -12px color-mix(in oklch, white, transparent 90%),
-        inset 0 0 0 1px color-mix(in oklch, var(--border), transparent 15%);
+      --glass-rim-top: oklch(0.99 0.035 85 / 64%);
+      --glass-rim-bottom: oklch(0.95 0.045 250 / 36%);
+      --glass-rim-left: oklch(1 0 0 / 22%);
+      --glass-rim-right: oklch(1 0 0 / 12%);
+      --glass-depth-reach: 42px;
+      --well-rim-top: oklch(0.99 0.03 85 / 34%);
+      --well-rim-bottom: oklch(0.95 0.04 250 / 20%);
+      --well-depth-reach: 28px;
     }
   }
 }
