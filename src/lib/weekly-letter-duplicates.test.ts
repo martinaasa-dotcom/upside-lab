@@ -249,3 +249,20 @@ describe("letterWeekKey", () => {
     );
   });
 });
+
+describe("a refused letter is not a burned week", () => {
+  it("leaves the marker empty when the numbers are not sound", async () => {
+    // No week data for the one holding, so `weeklyNumbersAreSound` refuses.
+    const yahoo = await import("@/lib/market/yahoo");
+    vi.spyOn(yahoo, "fetchWeekReturns").mockResolvedValueOnce({});
+    const result = await dispatchWeeklyLetters({});
+    expect(result.sent).toBe(0);
+    expect(sends).toHaveLength(0);
+    // The claim must not have been taken, or every later slot would skip
+    // this person too and they would lose the week entirely.
+    expect(profiles[0].note_sunday_sent_at).toBeNull();
+    // A later slot, with data, still reaches them.
+    const second = await dispatchWeeklyLetters({});
+    expect(second.sent).toBe(1);
+  });
+});

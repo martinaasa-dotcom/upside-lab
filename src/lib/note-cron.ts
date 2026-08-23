@@ -520,16 +520,6 @@ export async function dispatchWeeklyLetters(
       break;
     }
     const item = prepared[i];
-    const emails = connectedEmailsFor(item.to, aliasMap);
-    const claim = bypassMarker
-      ? ("unavailable" as const)
-      : await claimRecipient(emails);
-    if (claim === "taken") {
-      // Someone else -- an earlier slot, or a run still in flight -- has
-      // this person's letter this week.
-      skipped += 1;
-      continue;
-    }
     const letterNames = new Set([...item.tickers, ...item.watchlist]);
     const input: WeeklyLetterInput = {
       name: item.profile.display_name as string | null,
@@ -550,8 +540,12 @@ export async function dispatchWeeklyLetters(
      * A letter states a portfolio value and a week's move as fact, in the
      * subject line and in 38px type. If the market data behind either one
      * came back thin, this recipient is passed over rather than mailed a
-     * confident wrong number: they keep their empty marker, so the next
-     * Sunday slot retries with fresh data.
+     * confident wrong number.
+     *
+     * Before the claim, deliberately: a recipient this refuses must keep an
+     * empty marker so a later Sunday slot retries them with fresh data.
+     * Claiming first and checking after would stamp them and walk away,
+     * which costs them the week.
      */
     const trust = weeklyNumbersAreSound(input);
     if (!trust.ok) {
@@ -560,6 +554,17 @@ export async function dispatchWeeklyLetters(
         { reason: trust.reason },
         "warn"
       );
+      skipped += 1;
+      continue;
+    }
+
+    const emails = connectedEmailsFor(item.to, aliasMap);
+    const claim = bypassMarker
+      ? ("unavailable" as const)
+      : await claimRecipient(emails);
+    if (claim === "taken") {
+      // Someone else -- an earlier slot, or a run still in flight -- has
+      // this person's letter this week.
       skipped += 1;
       continue;
     }
