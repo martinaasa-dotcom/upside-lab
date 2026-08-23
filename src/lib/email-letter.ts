@@ -31,7 +31,7 @@ export const EMAIL = {
   cardLine: "#333333",
   sans: "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif",
   mono: "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace",
-  lockup: "https://upsidelab.app/icons/email-lockup.png?v=4",
+  lockup: "https://upsidelab.app/icons/email-lockup.png?v=5",
   origin: "https://upsidelab.app",
 } as const;
 

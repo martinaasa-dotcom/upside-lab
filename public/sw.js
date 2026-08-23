@@ -2,14 +2,17 @@
  * IndexedDB + localStorage; this file only keeps the JS/CSS/icons around
  * so a refresh while offline still hydrates the last painted page. */
 
-/* v10: the mark was redrawn (docs/BRAND_MARK.md), so every precached icon
+/* v11: the icons moved to the accent-on-field colourway, so every
+ * precached tile changed again.
+ *
+ * v10: the mark was redrawn (docs/BRAND_MARK.md), so every precached icon
  * changed and the old shell has to go rather than serving yesterday's logo
  * to anyone who already installed.
  *
  * v9: dropped /upside-mark.png from the precache. The header mark is inline
  * SVG now (UpsideLogo.tsx), so precaching a 260 KB PNG nothing requests
  * just cost every install a quarter-megabyte. */
-const CACHE = "upside-shell-v10";
+const CACHE = "upside-shell-v11";
 const PRECACHE = [
   "/manifest.webmanifest",
   "/upside-icon.png",

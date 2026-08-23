@@ -53,17 +53,41 @@ centred exactly on x = 64.
 `MARK_BOX`, `MARK_VIEWBOX` and `MARK_ASPECT` are all derived from the facet
 table, so there is no second place for them to drift.
 
-### The light
+### Two colourways
 
-One warm ramp, running top-right to bottom-left, which is where the light
-comes from (`LIGHT` in `mark.ts`). Four steps:
+The mark has two, and which one is right depends entirely on what it is
+sitting on. `COLOURWAYS` in `mark.ts`. Both run top-right to bottom-left,
+which is where the light comes from (`LIGHT`), and both have the same four
+steps: the facet the light lands on, the ones facing it, the ones turned
+away, the ones in shadow at the foot.
 
-| Step | From | To | Where |
-|---|---|---|---|
-| `lit` | `#ead6ab` | `#b29a6f` | the facet the light lands on |
-| `face` | `#dfc59a` | `#a6875d` | the ones facing it |
-| `edge` | `#caac7a` | `#8f6b3a` | the ones turned away |
-| `deep` | `#b38e62` | `#764b1f` | the ones in shadow at the foot |
+**`MARK`** is the app's: gold on the app's own true black. The header lockup,
+the splash, the email header, the OG card, `public/upside-mark.svg`.
+
+| Step | From | To |
+|---|---|---|
+| `lit` | `#ead6ab` | `#b29a6f` |
+| `face` | `#dfc59a` | `#a6875d` |
+| `edge` | `#caac7a` | `#8f6b3a` |
+| `deep` | `#b38e62` | `#764b1f` |
+
+**`ICON`** is the home screen's, and it is the reverse: the warm accent as the
+*field*, with the facets in a deep espresso ink.
+
+| | From | To |
+|---|---|---|
+| plate | `#f7e2b4` | `#b8822c` |
+| `lit` | `#4a3512` | `#2a1d08` |
+| `face` | `#3a2a0d` | `#1f1506` |
+| `edge` | `#2a1d07` | `#150e03` |
+| `deep` | `#1a1204` | `#0b0701` |
+
+The light still comes from the upper right in both. A dark object lit from the
+upper right has its upper-right facets *lighter*, so `lit` stays the brightest
+step in the ink ramp too; it just means less contrast against the plate rather
+than more against the field.
+
+Why the icon is not simply the app: see the plate below.
 
 ### The hairlines follow the size
 
@@ -98,16 +122,27 @@ where the Apple rules live. `PLATE` and `ICON_PRESETS` hold both.
 
 ### The plate
 
-Full-bleed, opaque, and lit the way the app is: a warm lobe behind the mark, a
-cool counter-lobe (`--ambient-cool`, hue 250) in the far corner, over a field
-that runs a warm near-black to true black.
+One linear gradient, top to bottom, full-bleed and opaque. Nothing else.
 
-**Both lobes are very faint, and that is the whole trick.** Gold sits at the
-warm end of a narrow band, so a warm wash behind it closes the gap between the
-mark and its ground: the field lifts toward khaki, the shadowed facets fall
-toward brown, and the two meet in the middle as mud. The first attempt ran the
-glow at 26 percent and did exactly that. Near-black is what lets gold read as
-gold.
+It used to be the app's own ambient lighting — a radial field with a warm lobe
+behind the mark and a cool counter-lobe in the far corner — moved onto a 128px
+tile, where all it did was read as a smudge. An icon plate is a flat colour
+with a gentle fall, the way every icon it will sit beside is.
+
+**And the field is the accent, not the app's black.** This is the correction
+that mattered most, and it only showed up when the icons were put in a grid
+next to the ones people actually have. A near-black tile among them does not
+read as premium and restrained; it reads as a hole where an app should be.
+Lab's chrome is true black and stays true black — the icon is the one place
+that rule deliberately does not reach, because an icon is not chrome, it is a
+thing on somebody's home screen competing with forty others.
+
+There is a second reason it had to be this way round for Lab specifically.
+Gold occupies a narrow band: it only reads as gold while it is light. So gold
+can be the *mark* on something very dark, or it can be the *field* — but the
+one thing it cannot be is a mark on a middling warm ground, which is where an
+earlier attempt landed when it ran a warm glow at 26 percent behind a gold
+mosaic and produced khaki on brown.
 
 What the plate deliberately does **not** carry:
 
@@ -130,13 +165,20 @@ about how close a foot lands to an edge.
 
 | Preset | Corner | Width | Where it goes |
 |---|---|---|---|
-| `app` | square | 0.80 | Apple touch icon, App Store master |
-| `tile` | 22.5% | 0.86 | favicons, bookmark tiles, PWA `any` |
+| `app` | square | 0.66 | Apple touch icon, App Store master |
+| `tile` | 22.5% | 0.70 | favicons, bookmark tiles, PWA `any` |
 | `maskable` | square | 0.55 | Android adaptive icons |
 | `avatar` | square | 0.58 | the social avatar, cropped to a circle |
 
 Each of them crops differently, which is why one safe area would be wrong for
 all of them.
+
+**0.66 is the register, not a compromise.** A centred symbol on an Apple icon
+runs between about half and two thirds of the tile — Music's note is near
+0.48, Messages' bubble near 0.64, Mail's envelope near 0.66 — and the margin
+around it is doing as much work as the symbol. This was 0.80 for one round
+because bigger sounded better; in a grid beside real icons it read as crowded
+rather than as confident.
 
 `src/lib/brand/mark-lockup.test.ts` checks two things the eye will not:
 
@@ -234,7 +276,8 @@ browser holds past a deploy:
 
 BIMI has its own function because it has its own profile: SVG Tiny 1.2
 Portable / Secure. Square, a `<title>`, `version` and `baseProfile` declared,
-nothing dynamic, and the facets take their flat tones rather than the ramp — a
-mail client draws it at about 40px inside a circle, where four gradients are
-invisible, and the narrower the feature set the fewer validators have an
-opinion about it.
+nothing dynamic, one flat fill per facet rather than the ramp — a mail client
+draws it at about 40px inside a circle, where four gradients are invisible,
+and the narrower the feature set the fewer validators have an opinion about
+it. It carries the **icon** colourway, not the app's: what a reader sees next
+to a verified sender should be the same thing they see on their home screen.

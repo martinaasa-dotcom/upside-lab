@@ -58,25 +58,67 @@ export const MARK_FACETS: Facet[] = [
 ];
 
 /*
-  Four steps of one warm ramp, running top-right to bottom-left, which is
-  where the light comes from.
+  Two colourways, four steps each, and which one is right depends entirely on
+  what the mark is sitting on.
 
-  The mark used to carry ten gradients, one per facet, no two of them quite
-  the same and several within a point or two of each other. That is not a
-  lighting model, it is ten hand-picked values. Four named steps say the same
-  thing and say it deliberately: the facet the light lands on, the ones facing
-  it, the ones turned away, and the ones in shadow at the foot.
+  `MARK` is the app's: gold on the app's own true black, for the header
+  lockup, the splash, the email header and the OG card. Four steps of one warm
+  ramp running top-right to bottom-left, which is where the light comes from.
+  The values are the original ten per-facet gradients, grouped -- no two of
+  those were quite the same and several were within a point or two of each
+  other, which is not a lighting model, it is ten hand-picked values.
 
-  The values are the original ones, grouped. Nothing got brighter or duller.
-  `flat` is the midpoint of each, for the two places that may not have a
-  gradient at all.
+  `ICON` is the home screen's, and it is the reverse. A near-black tile is the
+  wrong instinct for an app icon: put one in a grid beside the icons people
+  actually have and it reads as a hole rather than as an app. Every icon in
+  that register is a saturated field with a simple mark on it, so Lab's icon
+  is the warm accent as the *field*, with the facets in a deep espresso ink.
+  The mark did not change -- same ten facets, same hairlines, same light
+  direction -- the ground did.
+
+  The light still comes from the upper right in both. A dark object lit from
+  the upper right has its upper-right facets *lighter*, so `lit` stays the
+  brightest step in the ink ramp too; it just means less contrast against the
+  plate rather than more against the field.
 */
-export const TONES: Record<ToneKey, { from: string; to: string; flat: string }> = {
-  lit: { from: "#ead6ab", to: "#b29a6f", flat: "#d5bd8c" },
-  face: { from: "#dfc59a", to: "#a6875d", flat: "#c4a67a" },
-  edge: { from: "#caac7a", to: "#8f6b3a", flat: "#b08c58" },
-  deep: { from: "#b38e62", to: "#764b1f", flat: "#95683e" },
+export type Ramp = { from: string; to: string };
+export type Colourway = {
+  /** The plate under it, top to bottom. Null for the transparent mark. */
+  plate: [string, string] | null;
+  tones: Record<ToneKey, Ramp>;
 };
+
+export const COLOURWAYS: Record<"MARK" | "ICON", Colourway> = {
+  MARK: {
+    plate: null,
+    tones: {
+      lit: { from: "#ead6ab", to: "#b29a6f" },
+      face: { from: "#dfc59a", to: "#a6875d" },
+      edge: { from: "#caac7a", to: "#8f6b3a" },
+      deep: { from: "#b38e62", to: "#764b1f" },
+    },
+  },
+  ICON: {
+    plate: ["#f7e2b4", "#b8822c"],
+    tones: {
+      lit: { from: "#4a3512", to: "#2a1d08" },
+      face: { from: "#3a2a0d", to: "#1f1506" },
+      edge: { from: "#2a1d07", to: "#150e03" },
+      deep: { from: "#1a1204", to: "#0b0701" },
+    },
+  },
+};
+
+/** The flat midpoints of the app colourway, for a place with no gradients. */
+export const TONES_FLAT: Record<ToneKey, string> = {
+  lit: "#d5bd8c",
+  face: "#c4a67a",
+  edge: "#b08c58",
+  deep: "#95683e",
+};
+
+/** The app colourway's ramp, by tone. The name every caller already used. */
+export const TONES = COLOURWAYS.MARK.tones;
 
 export const TONE_KEYS = ["lit", "face", "edge", "deep"] as const;
 
@@ -147,9 +189,9 @@ export function facetPoints(facet: Facet): string {
   return facet.points.map(([x, y]) => `${x},${y}`).join(" ");
 }
 
-function gradientDefs(prefix: string): string {
+function gradientDefs(prefix: string, way: Colourway = COLOURWAYS.MARK): string {
   return TONE_KEYS.map((key) => {
-    const tone = TONES[key];
+    const tone = way.tones[key];
     return (
       `<linearGradient id="${prefix}${key}" x1="${LIGHT.x1}" y1="${LIGHT.y1}" x2="${LIGHT.x2}" y2="${LIGHT.y2}" gradientUnits="userSpaceOnUse">` +
       `<stop offset="0" stop-color="${tone.from}"/><stop offset="1" stop-color="${tone.to}"/></linearGradient>`
@@ -181,7 +223,7 @@ function facetsMarkup(size: number, fill: (tone: ToneKey) => string): string {
   around it -- a flex row in the lockup, a host's own tile padding -- and a
   drawing that is secretly off-centre would fight all of them.
 */
-const OPTICAL_LIFT = 0.025;
+const OPTICAL_LIFT = 0.02;
 
 /** Scale the drawing about its own centre, then sit it in the middle of `box`. */
 function place(scale: number, box: number, inner: string, lift = 0): string {
@@ -206,33 +248,10 @@ export function upsideMarkSvg({
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${MARK_VIEWBOX}" width="${width}" height="${height}" role="img" aria-label="Upside Lab">` +
     (flat ? "" : `<defs>${gradientDefs("t-")}</defs>`) +
-    facetsMarkup(height, (tone) => (flat ? TONES[tone].flat : `url(#t-${tone})`)) +
+    facetsMarkup(height, (tone) => (flat ? TONES_FLAT[tone] : `url(#t-${tone})`)) +
     `</svg>`
   );
 }
-
-/*
-  The plate the app icon is drawn on.
-
-  Full-bleed, opaque, and lit the way the app is: the warm lobe behind the
-  mark, the cool counter-lobe (`--ambient-cool`) in the far corner, over a
-  field that runs a warm near-black to true black. An icon lit like the
-  product is what makes the home screen and the app feel like one thing.
-
-  Both lobes are very faint, and that is the whole trick. Gold sits at the
-  warm end of a narrow band, so a warm wash behind it closes the gap between
-  the mark and its ground: the field lifts toward khaki, the mark's shadowed
-  facets fall toward brown, and the two meet in the middle as mud. The first
-  attempt ran the glow at 26 percent and did exactly that. Near-black is what
-  lets gold read as gold.
-*/
-export const PLATE = {
-  field: ["#100d08", "#000000"],
-  glow: "#d4bc79",
-  glowOpacity: 0.1,
-  counter: "#60aaf3",
-  counterOpacity: 0.08,
-} as const;
 
 /** The icon canvas: the same 128 grid the mark is drawn on. */
 export const ICON_BOX = 128;
@@ -246,6 +265,13 @@ export const ICON_BOX = 128;
   A fraction of the width rather than a raw scale factor, because the mark is
   a wide drawing and a scale factor says nothing about how close a foot lands
   to an edge.
+
+  0.66 is not a compromise, it is the register. A centred symbol on an Apple
+  icon runs between about half and two thirds of the tile -- Music's note is
+  near 0.48, Messages' bubble near 0.64, Mail's envelope near 0.66 -- and the
+  margin around it is doing as much work as the symbol. An earlier pass had
+  this at 0.80 because bigger sounded better; in a grid beside real icons it
+  read as crowded rather than as confident.
 */
 export const ICON_PRESETS = {
   /*
@@ -255,13 +281,13 @@ export const ICON_PRESETS = {
     baked in, so iOS rounded an already-rounded icon and left a thin dark
     crescent inside each corner.
   */
-  app: { radius: 0, glyph: 0.8 },
+  app: { radius: 0, glyph: 0.66 },
   /*
     Favicons, bookmark tiles and the PWA "any" icons. Nothing masks these, so
     the file carries its own rounded shape, and the mark can sit larger
     because nothing is going to crop it.
   */
-  tile: { radius: 0.225, glyph: 0.86 },
+  tile: { radius: 0.225, glyph: 0.7 },
   /*
     Android's adaptive icons. The launcher crops to a circle of 80 percent of
     the side, and on some it is closer to a squircle, so the mark is pulled
@@ -290,30 +316,28 @@ export function presetScale(preset: IconPreset): number {
  */
 export function upsideIconSvg(preset: IconPreset, size: number): string {
   const { radius, glyph } = ICON_PRESETS[preset];
+  const way = COLOURWAYS.ICON;
+  const plate = way.plate!;
   const rx = radius > 0 ? ` rx="${(ICON_BOX * radius).toFixed(2)}"` : "";
-  const plate = `width="${ICON_BOX}" height="${ICON_BOX}"${rx}`;
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${ICON_BOX} ${ICON_BOX}" width="${size}" height="${size}" role="img" aria-label="Upside Lab">` +
     `<defs>` +
-    `<radialGradient id="upside-field" cx="0.26" cy="0.14" r="1">` +
-    `<stop offset="0" stop-color="${PLATE.field[0]}"/><stop offset="1" stop-color="${PLATE.field[1]}"/>` +
-    `</radialGradient>` +
-    `<radialGradient id="upside-glow" cx="0.5" cy="0.5" r="0.52">` +
-    `<stop offset="0" stop-color="${PLATE.glow}" stop-opacity="${PLATE.glowOpacity}"/>` +
-    `<stop offset="1" stop-color="${PLATE.glow}" stop-opacity="0"/>` +
-    `</radialGradient>` +
-    `<radialGradient id="upside-counter" cx="0.9" cy="0.94" r="0.62">` +
-    `<stop offset="0" stop-color="${PLATE.counter}" stop-opacity="${PLATE.counterOpacity}"/>` +
-    `<stop offset="1" stop-color="${PLATE.counter}" stop-opacity="0"/>` +
-    `</radialGradient>` +
-    gradientDefs("t-") +
+    /*
+      One linear gradient, top to bottom, and nothing else. This used to be a
+      radial field with a warm lobe behind the mark and a cool counter-lobe in
+      the far corner -- the app's own ambient lighting, moved onto a 128px
+      tile where it read as a smudge. An icon plate is a flat colour with a
+      gentle fall, the way every icon it will sit beside is.
+    */
+    `<linearGradient id="upside-plate" x1="0" y1="0" x2="0" y2="${ICON_BOX}" gradientUnits="userSpaceOnUse">` +
+    `<stop offset="0" stop-color="${plate[0]}"/><stop offset="1" stop-color="${plate[1]}"/>` +
+    `</linearGradient>` +
+    gradientDefs("t-", way) +
     `</defs>` +
-    `<rect ${plate} fill="url(#upside-field)"/>` +
-    `<rect ${plate} fill="url(#upside-counter)"/>` +
-    `<rect ${plate} fill="url(#upside-glow)"/>` +
+    `<rect width="${ICON_BOX}" height="${ICON_BOX}"${rx} fill="url(#upside-plate)"/>` +
     /*
       The facets are swelled from the size the mark itself lands at, not from
-      the size of the file: a 512px maskable icon draws the mark 280px wide,
+      the size of the file: a 512px maskable icon draws the mark 282px wide,
       and asking it for a 512px cut would leave a hairline nobody can see.
     */
     place(
@@ -373,18 +397,29 @@ export function upsideLockupSvg({ plate = true }: { plate?: boolean } = {}): str
  *
  * Its own function because BIMI is its own profile — SVG Tiny 1.2 Portable /
  * Secure. Square, a `<title>`, `version` and `baseProfile` declared, and
- * nothing dynamic. The facets take their flat tones rather than the ramp: a
- * mail client draws this at about 40px inside a circle, where four gradients
- * are invisible, and the narrower the feature set the fewer validators have
- * an opinion about it.
+ * nothing dynamic. It carries the **icon** colourway rather than the app's,
+ * because what a reader sees next to a verified sender should be the same
+ * thing they see on their home screen. One flat fill per facet rather than
+ * the ramp: a mail client draws this at about 40px inside a circle, where
+ * four gradients are invisible, and the narrower the feature set the fewer
+ * validators have an opinion about it.
  */
 export function upsideBimiSvg(): string {
+  const way = COLOURWAYS.ICON;
+  const plate = way.plate!;
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n` +
     `<svg version="1.2" baseProfile="tiny-ps" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${ICON_BOX} ${ICON_BOX}" width="${ICON_BOX}" height="${ICON_BOX}">\n` +
     `  <title>Upside Lab</title>\n` +
-    `  <rect x="0" y="0" width="${ICON_BOX}" height="${ICON_BOX}" fill="#000000"/>\n  ` +
-    place(presetScale("avatar"), ICON_BOX, facetsMarkup(40, (tone) => TONES[tone].flat), OPTICAL_LIFT) +
+    `  <linearGradient id="p" x1="0" y1="0" x2="0" y2="${ICON_BOX}" gradientUnits="userSpaceOnUse">` +
+    `<stop offset="0" stop-color="${plate[0]}"/><stop offset="1" stop-color="${plate[1]}"/></linearGradient>\n` +
+    `  <rect x="0" y="0" width="${ICON_BOX}" height="${ICON_BOX}" fill="url(#p)"/>\n  ` +
+    place(
+      presetScale("avatar"),
+      ICON_BOX,
+      facetsMarkup(40, (tone) => way.tones[tone].to),
+      OPTICAL_LIFT
+    ) +
     `\n</svg>\n`
   );
 }

@@ -434,11 +434,14 @@ rule, the icon plate, the Apple rules the old icons broke, and how to
 regenerate every asset — is in [`docs/BRAND_MARK.md`](docs/BRAND_MARK.md).
 Three things worth knowing from here:
 
-- **The warm lobe behind the mark is faint on purpose (10%).** Gold occupies a
-  narrow band, so a warm wash closes the gap between the mark and its ground:
-  the field lifts toward khaki, the shadowed facets fall toward brown, and the
-  two meet as mud. This is the icon's version of "The warm accent cannot be a
-  dark tint" — near-black is what lets gold read as gold.
+- **The mark has two colourways.** `MARK` is gold on the app's true black —
+  header, splash, email, OG card. `ICON` is the reverse: the warm accent as
+  the *field*, facets in deep espresso ink, on one top-to-bottom linear
+  gradient. An icon is not chrome; a near-black tile reads as a hole beside
+  the icons people actually have, so the true-black rule stops at the icon.
+  It also follows from "The warm accent cannot be a dark tint": gold only
+  reads as gold while it is light, so it is either the mark on something very
+  dark or the field — never a mark on a middling warm ground.
 - **The hairlines follow the size.** Below 96px the facets swell about their
   own centroids until the gaps close and the mark resolves into a solid "A".
   A 3.1-unit cut on a 128 grid is three quarters of a pixel at 32px, which is
