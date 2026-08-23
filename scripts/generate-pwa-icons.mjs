@@ -1,170 +1,219 @@
-// Rasterizes Images/upside-fund-x-avatar-centered.png (the metallic A,
-// sitting in the square) into the PNGs Next.js file-convention icons, the
-// web manifest, OG card, and email lockup need. The circle-safe X avatar
-// stays at public/upside-fund-x-avatar.png. Re-run only if the source
-// mark changes. Outputs are committed, not built.
-import sharp from "sharp";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+/*
+  Renders the Upside Lab mark to every file the product ships: the favicons,
+  the Apple touch icon, the Next.js file-convention icons, the PWA manifest
+  icons, the App Store master, the BIMI mark, the social avatar, the email
+  lockup and the OG card.
+
+  Run with `npm run icons` after changing src/lib/brand/mark.ts.
+
+  It used to rasterise a 172 KB PNG of the mark out of `Images/`, trim it, and
+  scale it into place. That meant the icons could only ever be as good as a
+  bitmap somebody exported once, every output carried the trim's guesswork,
+  and the app's own inline logo was a separate drawing that had to be kept in
+  step by hand. This draws from the same geometry the app draws from -- Node
+  strips the types on import -- so there is exactly one mark.
+*/
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
+import sharp from "sharp";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const src = join(root, "Images", "upside-fund-x-avatar-centered.png");
-const BG = "#000000";
-const MARK_PAD = 0.16;
+import {
+  upsideBimiSvg,
+  upsideIconSvg,
+  upsideLockupSvg,
+  upsideMarkSvg,
+} from "../src/lib/brand/mark.ts";
+import { PRODUCT_NAME, PRODUCT_SENTENCE } from "../src/lib/product.ts";
 
-mkdirSync(join(root, "public", "icons"), { recursive: true });
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const pub = (...p) => path.join(root, "public", ...p);
+const app = (...p) => path.join(root, "src", "app", ...p);
 
-function radiusFor(size) {
-  return size * 0.225;
-}
+const written = [];
+const note = (file) => written.push(path.relative(root, file));
 
-function maskSvg(size) {
-  const r = radiusFor(size).toFixed(2);
-  return Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-      <rect width="${size}" height="${size}" rx="${r}" ry="${r}" fill="white"/>
-    </svg>`
-  );
-}
+/*
+  Each icon SVG declares its own width and height in pixels, so at the default
+  72 DPI the rasteriser draws it at exactly the target size. Asking for more
+  and scaling back down is supersampling, and it is what keeps the long
+  diagonals of the letter from stairstepping at favicon sizes.
 
-/** Trim the A and sit it in the square so the tip is not on the edge. */
-async function centeredMark(size) {
-  const inner = Math.max(1, Math.round(size * (1 - 2 * MARK_PAD)));
-  const trimmed = await sharp(src)
-    .flatten({ background: BG })
-    .trim({ threshold: 12 })
-    .png()
-    .toBuffer();
-  const fitted = await sharp(trimmed)
-    .resize(inner, inner, {
-      fit: "contain",
-      background: BG,
-      withoutEnlargement: false,
-    })
-    .png()
-    .toBuffer();
-  return sharp({
-    create: {
-      width: size,
-      height: size,
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 1 },
-    },
+  Four times over for the small icons, twice for the large ones: the App Store
+  master is 1024px, and four times that is a 16-megapixel intermediate for no
+  visible gain.
+*/
+const densityFor = (size) => 72 * (size <= 256 ? 4 : 2);
+
+/** An opaque icon: no alpha channel at all, which is what Apple requires. */
+async function opaque(preset, size, ...files) {
+  const buf = await sharp(Buffer.from(upsideIconSvg(preset, size)), {
+    density: densityFor(size),
   })
-    .composite([{ input: fitted, gravity: "centre" }])
+    .resize(size, size)
+    .removeAlpha()
     .png()
     .toBuffer();
-}
-
-async function framedPngBuffer(size) {
-  const base = await centeredMark(size);
-  return sharp(base)
-    .composite([{ input: maskSvg(size), blend: "dest-in" }])
-    .png()
-    .toBuffer();
-}
-
-async function framedPng(size, out) {
-  const buf = await framedPngBuffer(size);
-  writeFileSync(out, buf);
-  console.log(`wrote ${out} (${size}x${size} framed)`);
+  for (const file of files) {
+    await writeFile(file, buf);
+    note(file);
+  }
   return buf;
 }
 
-/** PNG-in-ICO so Chrome's default /favicon.ico request is the gold mark. */
-function packIco(pngs) {
+/** A shaped icon: keeps its alpha, because the rounded corners are its own. */
+async function shaped(preset, size, ...files) {
+  const buf = await sharp(Buffer.from(upsideIconSvg(preset, size)), {
+    density: densityFor(size),
+  })
+    .resize(size, size)
+    .png()
+    .toBuffer();
+  for (const file of files) {
+    await writeFile(file, buf);
+    note(file);
+  }
+  return buf;
+}
+
+async function text(file, contents) {
+  await writeFile(file, contents);
+  note(file);
+}
+
+/*
+  PNG-in-ICO, so Chrome's habitual /favicon.ico request gets the mark. Two
+  entries, 16 and 32: every browser in use picks the nearest, and the sizes
+  above that are served as PNG and SVG by the <link rel="icon"> list.
+*/
+function packIco(entries) {
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0);
   header.writeUInt16LE(1, 2);
-  header.writeUInt16LE(pngs.length, 4);
-  const entries = Buffer.alloc(16 * pngs.length);
-  let offset = 6 + 16 * pngs.length;
-  const blobs = [];
-  pngs.forEach((p, i) => {
-    const o = i * 16;
-    entries.writeUInt8(p.width >= 256 ? 0 : p.width, o);
-    entries.writeUInt8(p.height >= 256 ? 0 : p.height, o + 1);
-    entries.writeUInt16LE(1, o + 4);
-    entries.writeUInt16LE(32, o + 6);
-    entries.writeUInt32LE(p.data.length, o + 8);
-    entries.writeUInt32LE(offset, o + 12);
-    offset += p.data.length;
-    blobs.push(p.data);
+  header.writeUInt16LE(entries.length, 4);
+  const table = Buffer.alloc(16 * entries.length);
+  let offset = 6 + 16 * entries.length;
+  entries.forEach((entry, i) => {
+    const at = i * 16;
+    table.writeUInt8(entry.size >= 256 ? 0 : entry.size, at);
+    table.writeUInt8(entry.size >= 256 ? 0 : entry.size, at + 1);
+    table.writeUInt16LE(1, at + 4);
+    table.writeUInt16LE(32, at + 6);
+    table.writeUInt32LE(entry.data.length, at + 8);
+    table.writeUInt32LE(offset, at + 12);
+    offset += entry.data.length;
   });
-  return Buffer.concat([header, entries, ...blobs]);
+  return Buffer.concat([header, table, ...entries.map((e) => e.data)]);
 }
 
-async function squarePng(size, out) {
-  writeFileSync(out, await centeredMark(size));
-  console.log(`wrote ${out} (${size}x${size} square)`);
-}
+/*
+  The social card is product chrome rather than the mark, so it is composed
+  here. Its ambient field follows the app: the warm lobe top-left, the cool
+  counter-lobe bottom-right.
 
-async function writeOg() {
-  const logo = await centeredMark(440);
-  await sharp({
-    create: { width: 1200, height: 630, channels: 3, background: BG },
-  })
-    .composite([{ input: logo, gravity: "center" }])
-    .png()
-    .toFile(join(root, "public", "og.png"));
-  console.log("wrote public/og.png (1200x630)");
-}
+  Set in whatever grotesque the build host happens to have rather than in
+  Archivo. The card is rasterised outside the browser, so a webfont is not on
+  offer and the stack falls back honestly instead of pretending.
+*/
+const SANS =
+  "Archivo, Geist, ui-sans-serif, system-ui, -apple-system, Helvetica, Arial, sans-serif";
 
-async function writeEmailLockup() {
-  const mark = await centeredMark(80);
-  const plate = Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="540" height="100">
-      <rect width="540" height="100" fill="${BG}"/>
-      <text x="108" y="63" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="34" font-weight="700" fill="#f4f1ea">UPSIDE LAB</text>
-    </svg>`
-  );
-  await sharp(plate)
-    .composite([{ input: mark, left: 16, top: 10 }])
-    .png()
-    .toFile(join(root, "public", "icons", "email-lockup.png"));
-  console.log("wrote public/icons/email-lockup.png");
-}
+const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <radialGradient id="og-warm" cx="0" cy="0" r="1">
+      <stop offset="0%" stop-color="#d4bc79" stop-opacity="0.30"/>
+      <stop offset="66%" stop-color="#d4bc79" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="og-cool" cx="1" cy="1" r="1">
+      <stop offset="0%" stop-color="#60aaf3" stop-opacity="0.18"/>
+      <stop offset="72%" stop-color="#60aaf3" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#000000"/>
+  <rect width="1200" height="630" fill="url(#og-warm)"/>
+  <rect width="1200" height="630" fill="url(#og-cool)"/>
+  <g transform="translate(98 176)">${upsideMarkSvg({ height: 96 })}</g>
+  <text x="242" y="248" font-family="${SANS}" font-size="38" letter-spacing="2.5" fill="#fafafa">
+    <tspan font-weight="700">UPSIDE</tspan><tspan font-weight="400" dx="14">LAB</tspan>
+  </text>
+  <text x="98" y="392" font-family="${SANS}" font-size="50" font-weight="600" letter-spacing="-1.3" fill="#fafafa">
+    See what your portfolio did.
+  </text>
+  <text x="98" y="450" font-family="${SANS}" font-size="50" font-weight="600" letter-spacing="-1.3" fill="#fafafa">
+    Ask Margus if the thesis still holds.
+  </text>
+  <text x="98" y="512" font-family="${SANS}" font-size="28" fill="#a1a1a1">
+    ${PRODUCT_NAME} — educational scenarios, never financial advice.
+  </text>
+</svg>`;
 
-async function writeTransparentMark() {
-  const { data, info } = await sharp(src)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  for (let i = 0; i < data.length; i += 4) {
-    if (data[i] < 22 && data[i + 1] < 22 && data[i + 2] < 22) {
-      data[i + 3] = 0;
-    }
-  }
-  await sharp(data, { raw: info })
-    .trim({ threshold: 8 })
-    .png()
-    .toFile(join(root, "public", "upside-mark.png"));
-  console.log("wrote public/upside-mark.png (transparent)");
-}
+if (!PRODUCT_SENTENCE) throw new Error("the product sentence went missing");
 
-await framedPng(180, join(root, "src", "app", "apple-icon.png"));
-await framedPng(180, join(root, "public", "apple-touch-icon.png"));
-const png16 = await framedPngBuffer(16);
-const png32 = await framedPng(32, join(root, "public", "icons", "icon-32.png"));
-await framedPng(192, join(root, "public", "icons", "icon-192.png"));
-await framedPng(512, join(root, "public", "icons", "icon-512.png"));
-await framedPng(512, join(root, "src", "app", "icon.png"));
-await framedPng(128, join(root, "public", "upside-icon.png"));
-// Maskable must stay full-bleed square. The OS clips it.
-await squarePng(512, join(root, "public", "icons", "icon-512-maskable.png"));
-await writeOg();
-await writeEmailLockup();
-await writeTransparentMark();
+await mkdir(pub("icons"), { recursive: true });
+
+/* The bare mark, transparent, for anywhere that needs it without a plate. */
+await text(pub("upside-mark.svg"), upsideMarkSvg({ height: 512 }));
+await sharp(Buffer.from(upsideMarkSvg({ height: 512 })), { density: 144 })
+  .png()
+  .toFile(pub("upside-mark.png"));
+note(pub("upside-mark.png"));
+
+/*
+  Favicons, bookmark tiles and the PWA "any" icons. Nothing masks these, so
+  they carry their own rounded shape and the mark can sit larger.
+*/
+await text(pub("favicon.svg"), upsideIconSvg("tile", 128));
+await text(pub("upside-icon.svg"), upsideIconSvg("tile", 128));
+
+const ico16 = await shaped("favicon", 16, pub("icons", "icon-16.png"));
+const ico32 = await shaped("favicon", 32, pub("icons", "icon-32.png"));
+await shaped("favicon", 48, pub("icons", "icon-48.png"));
+await shaped("tile", 128, pub("upside-icon.png"));
+await shaped("tile", 192, pub("icons", "icon-192.png"));
+await shaped("tile", 512, pub("icons", "icon-512.png"), app("icon.png"));
+
+/* Android adaptive, at both densities the launcher asks for. */
+await opaque("maskable", 192, pub("icons", "icon-192-maskable.png"));
 
 const ico = packIco([
-  { width: 16, height: 16, data: png16 },
-  { width: 32, height: 32, data: png32 },
+  { size: 16, data: ico16 },
+  { size: 32, data: ico32 },
 ]);
-for (const out of [
-  join(root, "src", "app", "favicon.ico"),
-  join(root, "public", "favicon.ico"),
-]) {
-  writeFileSync(out, ico);
-  console.log(`wrote ${out} (ico)`);
-}
+await text(pub("favicon.ico"), ico);
+await text(app("favicon.ico"), ico);
+
+/*
+  The Apple touch icon and the App Store master. Square, full-bleed and with
+  no alpha: iOS draws the squircle itself, and an icon that arrives already
+  rounded gets rounded twice. Every icon in this repo used to.
+*/
+await opaque("app", 180, app("apple-icon.png"), pub("apple-touch-icon.png"));
+await opaque("app", 1024, pub("icons", "icon-1024.png"));
+
+await opaque("maskable", 512, pub("icons", "icon-512-maskable.png"));
+
+/* The social avatar, which every network crops to a circle. */
+await opaque("avatar", 1024, pub("upside-fund-x-avatar.png"));
+
+/* The lockups: one on the black plate, one transparent. */
+await text(pub("upside-badge.svg"), upsideLockupSvg({ plate: true }));
+await text(pub("upside-lockup.svg"), upsideLockupSvg({ plate: false }));
+
+await sharp(Buffer.from(upsideLockupSvg({ plate: true })), { density: 288 })
+  .resize(540, 100)
+  .removeAlpha()
+  .png()
+  .toFile(pub("icons", "email-lockup.png"));
+note(pub("icons", "email-lockup.png"));
+
+/* The mail client's verified-sender mark. */
+await text(pub("bimi.svg"), upsideBimiSvg());
+
+await sharp(Buffer.from(ogSvg), { density: 192 })
+  .resize(1200, 630)
+  .removeAlpha()
+  .png()
+  .toFile(pub("og.png"));
+note(pub("og.png"));
+
+console.log(written.map((f) => `wrote ${f}`).join("\n"));
