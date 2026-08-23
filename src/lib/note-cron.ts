@@ -1,9 +1,10 @@
 import { logEvent } from "@/lib/telemetry";
 import {
+  ACCOUNT_ALIAS_FALLBACK,
   collapseMailRecipients,
-  connectedEmailsFor,
   emailMatchesAllowlist,
   loadAliasMap,
+  primaryEmailFromMap,
 } from "@/lib/auth/identity";
 import { SUPERADMIN_NOTE_EMAIL } from "@/lib/auth/superadmin";
 import { sheetCashBalance } from "@/lib/cash-balance";
@@ -79,6 +80,41 @@ export function weeklyLetterAlreadySent(
   const at = new Date(sentAt).getTime();
   if (!Number.isFinite(at)) return false;
   return now.getTime() - at < RESEND_WINDOW_MS;
+}
+
+/**
+ * Every profile row that shares one mailbox, keyed by that mailbox.
+ *
+ * The sent-marker is what stops the 04:20 and 04:40 resume slots mailing
+ * somebody the 04:00 run already reached, so writing it has to be certain.
+ * It used to be written with `.in("email", connectedEmailsFor(...))`, which
+ * is a case-sensitive match on a column holding whatever the identity
+ * provider stored: a profile saved as `Martin.Aasa@upthink.ee` never
+ * matched the lower-cased address this code computes, so the update touched
+ * zero rows, wrote no marker, and reported no error. The letter went out,
+ * the run counted it as sent, and both resume slots sent it again -- three
+ * copies of the same letter in one morning.
+ *
+ * Ids are the key these rows were selected by, so they cannot miss. One
+ * mailbox can still cover several profiles (Martin's two Google logins),
+ * and every one of them has to be stamped or the untouched row is the one
+ * that mails again -- hence a list per mailbox rather than a single id.
+ */
+export function profileIdsByMailbox<
+  T extends { id: string; email?: string | null },
+>(
+  profiles: readonly T[],
+  aliasToPrimary: Record<string, string> = ACCOUNT_ALIAS_FALLBACK
+): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const profile of profiles) {
+    const to = primaryEmailFromMap(profile.email, aliasToPrimary);
+    if (!to || !profile.id) continue;
+    const ids = out.get(to);
+    if (ids) ids.push(profile.id);
+    else out.set(to, [profile.id]);
+  }
+  return out;
 }
 
 /** Group rows by a key, so one batched query replaces a query per recipient. */
@@ -246,10 +282,14 @@ export async function dispatchWeeklyLetters(
   const aliasMap = await loadAliasMap(supabase);
   const allow = (opts.onlyEmails ?? []).map((e) => e.trim().toLowerCase());
   const allowSet = new Set(allow.filter(Boolean));
-  const recipients = collapseMailRecipients(
-    (profiles ?? []).filter((profile) =>
-      emailMatchesAllowlist(profile.email, allowSet, aliasMap)
-    ),
+  const eligible = (profiles ?? []).filter((profile) =>
+    emailMatchesAllowlist(profile.email, allowSet, aliasMap)
+  );
+  const recipients = collapseMailRecipients(eligible, aliasMap);
+  // Collapsing keeps one profile per mailbox; the marker has to reach the
+  // rows it dropped too, so keep their ids before they go.
+  const idsByMailbox = profileIdsByMailbox(
+    eligible as { id: string; email?: string | null }[],
     aliasMap
   );
 
@@ -462,10 +502,29 @@ export async function dispatchWeeklyLetters(
     // Mark before counting: an unmarked send is one this run cannot prove,
     // and a resumed run would write to that person again.
     if (!isTestSend && markerAvailable) {
-      await supabase
-        .from(PORTFELL_TABLES.profiles)
-        .update({ note_sunday_sent_at: new Date().toISOString() })
-        .in("email", connectedEmailsFor(item.to, aliasMap));
+      const ids = idsByMailbox.get(item.to) ?? [];
+      const { data: stamped, error: stampError } = ids.length
+        ? await supabase
+            .from(PORTFELL_TABLES.profiles)
+            .update({ note_sunday_sent_at: new Date().toISOString() })
+            .in("id", ids)
+            .select("id")
+        : { data: [] as { id: string }[], error: null };
+      // A marker that did not land is exactly the state that mails this
+      // person again twenty minutes from now, so say so loudly rather than
+      // discarding the result. The letter is already delivered; all this
+      // run can do is leave a trace of why the duplicate is coming.
+      if (stampError || (stamped ?? []).length === 0) {
+        logEvent(
+          "sunday_letter_marker_write_failed",
+          {
+            to: item.to,
+            ids: ids.length,
+            message: stampError?.message ?? "no rows updated",
+          },
+          "error"
+        );
+      }
     }
     sent += 1;
   }
