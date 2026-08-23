@@ -54,6 +54,7 @@ function builder(table: string) {
     select: () => chain,
     eq: () => chain,
     in: () => chain,
+    or: () => chain,
     maybeSingle: () => {
       calls.push({ table, op });
       return Promise.resolve({ data: null, error: null });
@@ -65,7 +66,12 @@ function builder(table: string) {
     then: (resolve: (v: unknown) => unknown) => {
       calls.push({ table, op });
       return Promise.resolve(
-        resolve({ data: op === "update" ? [] : fixtureRows(table), error: null })
+        resolve({
+          // An update that comes back with a row is a won claim on that
+          // recipient -- see `claimRecipient` in note-cron.
+          data: op === "update" ? [{ id: "claimed" }] : fixtureRows(table),
+          error: null,
+        })
       );
     },
   };

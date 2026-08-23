@@ -22,41 +22,41 @@ import {
   buildAdvisorProviderChain,
   withAdvisorFallback,
 } from "@/lib/ai/model";
-import { cashtag } from "@/lib/format";
+import { cashtag, currency, signedCurrency, signedPercent } from "@/lib/format";
 import { looksLikePromptLeak } from "@/lib/ai/prompt-leak";
 import type { WeeklyLetter } from "@/lib/weekly-letter";
 
-function groupUs(n: number): string {
-  const neg = n < 0;
-  const grouped = String(Math.round(Math.abs(n))).replace(
-    /\B(?=(\d{3})+(?!\d))/g,
-    ","
-  );
-  return `${neg ? "-" : ""}${grouped}`;
+/*
+ * Same formatters as the letter itself, from `format.ts`. This file used
+ * to carry its own copy of the grouping regex, which is exactly how a
+ * figure ends up separated in one half of an email and bare in the other.
+ * The model reads these strings, so an ungrouped one here also teaches it
+ * to write `$129709` back.
+ */
+function money(n: number): string {
+  return currency(n, 0);
 }
 
 function signedMoney(n: number): string {
-  const sign = n > 0 ? "+" : n < 0 ? "-" : "";
-  return `${sign}$${groupUs(Math.abs(n))}`;
+  return signedCurrency(n, 0);
 }
 
 function signedPct(pct: number): string {
-  const sign = pct > 0 ? "+" : pct < 0 ? "-" : "";
-  return `${sign}${Math.abs(pct).toFixed(1)}%`;
+  return signedPercent(pct / 100, 1);
 }
 
 /** The facts the writer is allowed to use. Nothing else is true. */
 function facts(r: WeeklyLetter): string {
   const lines: string[] = [];
   lines.push(`Reader's first name: ${r.name?.split(/\s+/)[0] ?? "(unknown)"}`);
-  lines.push(`Portfolio value: $${groupUs(r.book)}`);
+  lines.push(`Portfolio value: ${money(r.book)}`);
   lines.push(`Names held: ${r.nameCount}`);
   lines.push(
     `Week change: ${signedMoney(r.weekDollar)}${
       r.weekPct != null ? ` (${signedPct(r.weekPct)})` : ""
     }`
   );
-  if (r.cash !== 0) lines.push(`Cash in the portfolio: $${groupUs(r.cash)}`);
+  if (r.cash !== 0) lines.push(`Cash in the portfolio: ${money(r.cash)}`);
   if (r.movers.length > 0) {
     lines.push("Moves this week:");
     for (const m of r.movers) {

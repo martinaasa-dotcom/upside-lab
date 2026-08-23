@@ -12,7 +12,8 @@
  * Margus writes the prose on top of these facts; he never sources them.
  */
 
-import { cashtag } from "@/lib/format";
+import { cashtag, currency, signedCurrency, signedPercent } from "@/lib/format";
+import { groupMoneyInText } from "@/lib/money-text";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { statusLabel } from "@/lib/thesis-pulse";
 import {
@@ -109,34 +110,40 @@ const BOOK_URL = `${EMAIL.origin}/`;
 
 /* ---------------------------------------------------------------- money */
 
-function groupUs(n: number): string {
-  const neg = n < 0;
-  const grouped = String(Math.round(Math.abs(n))).replace(
-    /\B(?=(\d{3})+(?!\d))/g,
-    ","
-  );
-  return `${neg ? "-" : ""}${grouped}`;
-}
-
+/*
+ * Money in the letter is the same money as everywhere else in the app:
+ * `format.ts` owns it, so a separator can never be right in one place and
+ * missing in another. `currency` also answers a dash for a non-finite
+ * number rather than rendering `$NaN` into someone's inbox.
+ */
 function money(n: number): string {
-  return `$${groupUs(n)}`;
+  return currency(n, 0);
 }
 
 function priceMoney(n: number): string {
-  const neg = n < 0;
-  const [whole, frac] = Math.abs(n).toFixed(2).split(".");
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `${neg ? "-" : ""}$${grouped}.${frac}`;
+  return currency(n, 2);
 }
 
 function signedMoney(n: number): string {
-  const sign = n > 0 ? "+" : n < 0 ? "-" : "";
-  return `${sign}$${groupUs(Math.abs(n))}`;
+  return signedCurrency(n, 0);
 }
 
 function signedPct(pct: number): string {
-  const sign = pct > 0 ? "+" : pct < 0 ? "-" : "";
-  return `${sign}${Math.abs(pct).toFixed(1)}%`;
+  return signedPercent(pct / 100, 1);
+}
+
+/**
+ * `fetchWeekReturns` reports a **fraction**: 0.3 is a 30% week. The letter
+ * reads percents everywhere else -- the portfolio's own week is already
+ * `(dollars / start) * 100` -- and the two were used interchangeably. So a
+ * name that had run 30% printed `+0.3%` in What moved, an ordinary week
+ * printed `-0.0%`, `quiet` was true unless something doubled, and a
+ * watchlist name had to fall 300% to clear the -3 dip threshold. One
+ * conversion, at the boundary, and every reader of `pct` agrees.
+ */
+function weekPctOf(wr: { pct: number } | undefined | null): number | null {
+  if (!wr || !Number.isFinite(wr.pct)) return null;
+  return wr.pct * 100;
 }
 
 function weightPct(weight: number): string {
@@ -206,7 +213,7 @@ function positionsFor(input: WeeklyLetterInput): {
     if (!(price > 0)) continue;
     const value = shares * price;
     const wr = input.weekReturns?.[ticker];
-    const weekPct = wr && Number.isFinite(wr.pct) ? wr.pct : null;
+    const weekPct = weekPctOf(wr);
     const weekDollar =
       wr && Number.isFinite(wr.start) && wr.start > 0
         ? shares * (wr.end - wr.start)
@@ -333,7 +340,7 @@ export function buildWatchBuys(input: WeeklyLetterInput): WeeklyWatchBuy[] {
     const price = Number(q?.price ?? 0);
     if (!(price > 0)) continue;
     const wr = input.watchWeekReturns?.[ticker];
-    const pct = wr && Number.isFinite(wr.pct) ? wr.pct : null;
+    const pct = weekPctOf(wr);
     if (pct == null || pct > WATCH_DIP_PCT) continue;
     out.push({
       ticker,
@@ -390,6 +397,13 @@ export function buildWeeklyLetter(input: WeeklyLetterInput): WeeklyLetter {
   const now = input.now ?? new Date();
   const { positions, book, weekDollar, weekPct } = positionsFor(input);
 
+  /*
+   * "What moved" means what moved, in either direction. Sorting by percent
+   * and taking the first five kept the five *most positive* names, so a
+   * portfolio's worst week could be missing the name that caused it: a -10%
+   * holding dropped off the bottom while a -1% one stayed. Pick by size of
+   * move, then read them down from best to worst.
+   */
   const movers: WeeklyMover[] = positions
     .filter((p) => p.weekPct != null)
     .map((p) => ({
@@ -398,8 +412,9 @@ export function buildWeeklyLetter(input: WeeklyLetterInput): WeeklyLetter {
       pct: p.weekPct as number,
       dollar: p.weekDollar,
     }))
-    .sort((a, b) => b.pct - a.pct)
-    .slice(0, 5);
+    .sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct))
+    .slice(0, 5)
+    .sort((a, b) => b.pct - a.pct);
 
   const quiet =
     movers.every((m) => Math.abs(m.pct) < 1) && Math.abs(weekPct ?? 0) < 1;
@@ -438,11 +453,11 @@ export function buildWeeklyLetter(input: WeeklyLetterInput): WeeklyLetter {
 }
 
 export function weeklySubject(r: WeeklyLetter): string {
-  return `Your week: ${r.subjectHook}, ${r.shortDate}`;
+  return groupMoneyInText(`Your week: ${r.subjectHook}, ${r.shortDate}`);
 }
 
 export function weeklyPreview(r: WeeklyLetter): string {
-  return `${signedMoney(r.weekDollar)} this week. ${r.opening}`;
+  return groupMoneyInText(`${signedMoney(r.weekDollar)} this week. ${r.opening}`);
 }
 
 /* ------------------------------------------------------------ plain text */
@@ -452,6 +467,34 @@ const ACTION_WORD: Record<SuggestionKind, string> = {
   trim: "Worth trimming",
   sell: "Worth a hard look",
 };
+
+/** Most consequential first, so "worth a hard look" is never buried under
+ * two adds. */
+const SUGGESTION_ORDER: SuggestionKind[] = ["sell", "trim", "add"];
+
+export type WeeklySuggestionGroup = {
+  kind: SuggestionKind;
+  title: string;
+  items: WeeklySuggestion[];
+};
+
+/**
+ * One section per kind, not one card per suggestion.
+ *
+ * The letter drew a card for every suggestion, so a reader with two adds
+ * and two trims got four cards and read the heading "Worth adding to"
+ * twice, interleaved. Same suggestions, in the same order within a kind,
+ * under one heading each.
+ */
+export function groupSuggestions(
+  items: WeeklySuggestion[]
+): WeeklySuggestionGroup[] {
+  return SUGGESTION_ORDER.map((kind) => ({
+    kind,
+    title: ACTION_WORD[kind],
+    items: items.filter((s) => s.kind === kind),
+  })).filter((group) => group.items.length > 0);
+}
 
 export function weeklyLetterText(r: WeeklyLetter): string {
   const names = r.nameCount === 1 ? "1 name" : `${r.nameCount} names`;
@@ -474,10 +517,10 @@ export function weeklyLetterText(r: WeeklyLetter): string {
       );
     }
   }
-  if (r.suggestions.length > 0) {
-    lines.push("", "Worth a look");
-    for (const s of r.suggestions) {
-      lines.push(`  ${ACTION_WORD[s.kind]}: ${s.line}`);
+  for (const group of groupSuggestions(r.suggestions)) {
+    lines.push("", group.title);
+    for (const s of group.items) {
+      lines.push(`  ${s.line}${s.status ? ` (${s.status})` : ""}`);
     }
   }
   if (r.watchBuys.length > 0) {
@@ -490,7 +533,7 @@ export function weeklyLetterText(r: WeeklyLetter): string {
   }
   lines.push("", ADVICE_DISCLAIMER_SHORT);
   lines.push("", "One email a week, on Sunday. Turn it off in Account.");
-  return lines.join("\n");
+  return groupMoneyInText(lines.join("\n"));
 }
 
 /* ------------------------------------------------------------------ HTML */
@@ -507,6 +550,14 @@ function kicker(text: string): string {
 
 function gap(px: number): string {
   return `<div style="height:${px}px;font-size:0;line-height:0">&nbsp;</div>`;
+}
+
+/** A hairline, and whatever sits under it. */
+function rule(inner: string): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:34px 0 0 0">
+  <tr><td style="height:1px;background:${EMAIL.line};font-size:0;line-height:0">&nbsp;</td></tr>
+  <tr><td style="padding:24px 0 0 0">${inner}</td></tr>
+</table>`;
 }
 
 /** A titled block on the black field, hairline above it. */
@@ -545,19 +596,27 @@ const SUGGESTION_TONE: Record<SuggestionKind, string> = {
   sell: EMAIL.loss,
 };
 
-function suggestionList(items: WeeklySuggestion[]): string {
-  return items
-    .map((s, i) => {
-      const tone = SUGGESTION_TONE[s.kind];
-      const top = i === 0 ? "0" : "12px";
-      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:${top} 0 0 0;background:${EMAIL.card};border:1px solid ${EMAIL.cardLine};border-left:3px solid ${tone};border-radius:10px">
-  <tr><td style="padding:16px 16px">
-    <p style="margin:0;font-family:${EMAIL.sans};font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${tone}">${escapeEmail(ACTION_WORD[s.kind])}</p>
-    <p style="margin:8px 0 0 0;font-family:${EMAIL.sans};font-size:15px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(s.line)}</p>${
+function suggestionGroupsHtml(groups: WeeklySuggestionGroup[]): string {
+  return groups
+    .map((group, gi) => {
+      const tone = SUGGESTION_TONE[group.kind];
+      const rows = group.items
+        .map((s, i) => {
+          const divider =
+            i === 0 ? "" : `border-top:1px solid ${EMAIL.cardLine};`;
+          return `<tr><td style="${divider}padding:${i === 0 ? "12px" : "14px"} 0 0 0">
+    <p style="margin:0;font-family:${EMAIL.sans};font-size:15px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(s.line)}</p>${
       s.status
-        ? `\n    <p style="margin:10px 0 0 0;font-family:${EMAIL.sans};font-size:12px;color:${EMAIL.muted}">${escapeEmail(s.status)}</p>`
+        ? `\n    <p style="margin:7px 0 0 0;font-family:${EMAIL.sans};font-size:12px;color:${EMAIL.muted}">${escapeEmail(s.status)}</p>`
         : ""
     }
+  </td></tr>`;
+        })
+        .join("");
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:${gi === 0 ? "0" : "14px"} 0 0 0;background:${EMAIL.card};border:1px solid ${EMAIL.cardLine};border-left:3px solid ${tone};border-radius:10px">
+  <tr><td style="padding:16px 18px 18px 18px">
+    <p style="margin:0;font-family:${EMAIL.sans};font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${tone}">${escapeEmail(group.title)}</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%">${rows}</table>
   </td></tr>
 </table>`;
     })
@@ -568,9 +627,19 @@ function watchList(items: WeeklyWatchBuy[]): string {
   const rows = items
     .map((w, i) => {
       const border = i === items.length - 1 ? "none" : `1px solid ${EMAIL.line}`;
+      const tone = toneColor(w.pct);
+      // Same two-column shape as What moved. The sentence used to carry the
+      // percent and the price itself, with the percent then repeated again
+      // in the right-hand column.
       return `<tr>
-  <td style="padding:13px 12px 13px 0;border-bottom:${border};vertical-align:middle;font-family:${EMAIL.sans};font-size:15px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(w.line)}</td>
-  <td style="padding:13px 0;border-bottom:${border};vertical-align:middle;text-align:right;font-family:${EMAIL.mono};font-size:15px;font-weight:600;color:${toneColor(w.pct)};white-space:nowrap">${escapeEmail(signedPct(w.pct))}</td>
+  <td style="padding:13px 12px 13px 0;border-bottom:${border};vertical-align:middle">
+    <p style="margin:0;font-family:${EMAIL.sans};font-size:15px;font-weight:600;color:${EMAIL.cream}">${escapeEmail(cashtag(w.ticker))}</p>
+    <p style="margin:3px 0 0 0;font-family:${EMAIL.sans};font-size:13px;color:${EMAIL.muted}">Cheaper than last Sunday.</p>
+  </td>
+  <td style="padding:13px 0;border-bottom:${border};vertical-align:middle;text-align:right;white-space:nowrap">
+    <p style="margin:0;font-family:${EMAIL.mono};font-size:15px;font-weight:600;color:${tone}">${escapeEmail(signedPct(w.pct))}</p>
+    <p style="margin:3px 0 0 0;font-family:${EMAIL.mono};font-size:13px;color:${EMAIL.muted}">${escapeEmail(priceMoney(w.price))}</p>
+  </td>
 </tr>`;
     })
     .join("");
@@ -599,32 +668,58 @@ function margusHtml(text: string): string {
         `<p style="margin:${i === 0 ? "0" : "14px"} 0 0 0;font-family:${EMAIL.sans};font-size:16px;line-height:1.6;color:${EMAIL.cream}">${escapeEmail(p)}</p>`
     )
     .join("");
-  return `${paras}
-<p style="margin:18px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">${escapeEmail(ADVICE_DISCLAIMER_SHORT)}</p>`;
+  return paras;
+}
+
+/** The week's figure, its percent, and what it is a percent of. */
+function heroFigure(r: WeeklyLetter, names: string): string {
+  const weekColor = toneColor(r.weekDollar);
+  return `${kicker("Your week")}${gap(14)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%">
+  <tr>
+    <td style="vertical-align:bottom">
+      <p style="margin:0;font-family:${EMAIL.mono};font-size:38px;line-height:1.05;font-weight:700;letter-spacing:-0.02em;color:${weekColor}">${escapeEmail(signedMoney(r.weekDollar))}</p>
+    </td>${
+      r.weekPct != null
+        ? `
+    <td style="vertical-align:bottom;text-align:right;white-space:nowrap">
+      <span style="display:inline-block;padding:5px 10px;border:1px solid ${weekColor};border-radius:999px;font-family:${EMAIL.mono};font-size:13px;font-weight:600;color:${weekColor}">${escapeEmail(signedPct(r.weekPct))}</span>
+    </td>`
+        : ""
+    }
+  </tr>
+</table>
+<p style="margin:16px 0 0 0;font-family:${EMAIL.sans};font-size:13px;letter-spacing:0.01em;color:${EMAIL.muted}">Your portfolio <span style="font-family:${EMAIL.mono};color:${EMAIL.cream}">${escapeEmail(money(r.book))}</span> &middot; ${escapeEmail(names)}</p>`;
 }
 
 export function weeklyLetterHtml(r: WeeklyLetter): string {
   const names = r.nameCount === 1 ? "1 name" : `${r.nameCount} names`;
-  const weekColor = toneColor(r.weekDollar);
 
-  const hero = emailCard(
-    `${kicker("Your week")}${gap(16)}
-<p style="margin:0;font-family:${EMAIL.mono};font-size:40px;line-height:1.05;font-weight:700;letter-spacing:-0.02em;color:${weekColor}">${escapeEmail(signedMoney(r.weekDollar))}</p>
-${
-  r.weekPct != null
-    ? `<p style="margin:12px 0 0 0;font-family:${EMAIL.mono};font-size:16px;font-weight:600;color:${weekColor}">${escapeEmail(signedPct(r.weekPct))}</p>`
-    : ""
-}
-<p style="margin:18px 0 0 0;font-family:${EMAIL.sans};font-size:13px;letter-spacing:0.01em;color:${EMAIL.muted}">Your portfolio <span style="font-family:${EMAIL.mono};color:${EMAIL.cream}">${escapeEmail(money(r.book))}</span> &middot; ${escapeEmail(names)}</p>`
+  /*
+   * The figure and the two paragraphs about it are one opening, not two.
+   * They used to be two cards of the same weight stacked on each other,
+   * which is what made the top of the letter read as blocks rather than as
+   * a letterhead: a hairline inside one card joins them the way the
+   * hairlines below join the sections.
+   */
+  const opening = emailCard(
+    `${heroFigure(r, names)}${
+      r.margus
+        ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:22px 0 0 0">
+  <tr><td style="height:1px;background:${EMAIL.cardLine};font-size:0;line-height:0">&nbsp;</td></tr>
+  <tr><td style="padding:20px 0 0 0">${margusHtml(r.margus)}</td></tr>
+</table>`
+        : ""
+    }`
   );
-
-  const margusBlock = r.margus ? emailCard(margusHtml(r.margus)) : "";
   const moversBlock =
     r.movers.length > 0 ? block("What moved", moversTable(r.movers)) : "";
+  const groups = groupSuggestions(r.suggestions);
+  // No section kicker: "Worth a look" over cards reading "Worth trimming"
+  // and "Worth a hard look" said the same word three times. Each group is
+  // its own heading now.
   const suggestionBlock =
-    r.suggestions.length > 0
-      ? block("Worth a look", suggestionList(r.suggestions))
-      : "";
+    groups.length > 0 ? rule(suggestionGroupsHtml(groups)) : "";
   const watchBlock =
     r.watchBuys.length > 0
       ? block("On your watchlist", watchList(r.watchBuys))
@@ -637,14 +732,19 @@ ${
     preview: weeklyPreview(r),
     dateLine: r.dateLine,
     hideOpener: true,
-    body: `${gap(28)}
-${hero}
-${margusBlock}
+    // The lockup and the date share one line, with a hairline under them,
+    // so the top of the letter is a masthead rather than two small things
+    // floating above a large card.
+    mastheadDate: true,
+    body: `${gap(4)}
+${opening}
 ${moversBlock}
 ${suggestionBlock}
 ${watchBlock}
 ${aheadBlock}
 ${emailButton(BOOK_URL, "Open your portfolio")}`,
-    footer: emailAccountFooter(),
+    // The disclaimer sits in the footer rather than inside Margus's card,
+    // so it is there whether or not the model wrote anything that week.
+    footer: `<p style="margin:34px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">${escapeEmail(ADVICE_DISCLAIMER_SHORT)}</p>${emailAccountFooter()}`,
   });
 }
