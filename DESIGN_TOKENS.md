@@ -636,81 +636,95 @@ hidden while the dock was near-opaque. Anchor to `--dock-pad`, the live
 measured dock height — never a flat offset. The consent banner needs the
 same clearance.
 
+## Float Glass: a 2% white veil, measured (2026-08-23)
+
+Third pass in a day. The first added a falloff and made things worse; the
+second removed every gradient; this one fixes the body, which was still a
+tinted card and was still wrong in two independent ways.
+
+### A tinted fill leaves a hue behind
+
+`--card` is `oklch(0.205 0 0)` nominally but reads as a bluish neutral, and
+thinned to 45% opacity over a warm field it lands on violet-grey. That is
+where the mauve cast on a holdings panel came from. Measured on an empty
+backdrop, so only the material contributes:
+
+| | own chroma C\* | hue |
+|---|---|---|
+| old (card at 55% transparent) | 1.11 | 309, violet |
+| **new (white at 2%)** | **0.00** | — |
+
+White has no hue to leave. The body cannot tint what is behind it.
+
+### The veil's alpha is the black floor
+
+| veil | black lift |
+|---|---|
+| 1.5% | −1.1 |
+| **2.0%** | **−0.1** |
+| 2.5% | +0.9 |
+| 5.5% | +9.0 |
+| 45% (old card fill) | +9.3 |
+
+Black lift is how many luminance levels a pane sits above the field beside
+it, measured where nothing is behind the glass. **A pane whose blacks are
+grey is a card, not glass**, and nine levels out of 255 is the difference
+between a slab and a window.
+
+### Contrast is the second lever, and it is not optional
+
+Contrast pivots on mid-grey, so it leaves *true* black alone. This field is
+not true black: it carries the two ambient lobes at about five levels, and
+a pane without a contrast term lifts those.
+
+| `--glass-contrast` | black lift |
+|---|---|
+| 1.00 | +6.1 |
+| 1.02 | +3.1 |
+| **1.05** | **+0.1** |
+| 1.08 | −0.1 |
+
+Both levers are needed. A 2% veil with no contrast term still reads +6.
+
+### Saturation is free
+
+1.75 and 2.40 measure identically on black lift. Richness costs nothing
+here, so a room can be as colourful as it likes without paying for it in
+depth.
+
+### Blur is 6px, not 40
+
+Past roughly 7px a blur stops refracting and starts mixing adjacent hues
+into mud. That is the same mechanism as the cast: a wide blur smears a blue
+chart bar sideways into a warm ground and the mix is grey-violet. At 6px
+what sits behind a pane stays recognisable, which is the whole point of
+transparency.
+
+### What each surface gets
+
+| Surface | Veil | Blur | Rim |
+|---|---|---|---|
+| `.glass` | 2% white | 6px | top 38%, bottom 22%, sides 15 / 7, ring 8.5% |
+| `.glass-well` | 3% white | 5px | top 15%, bottom 5%, ring 5.5% |
+| `.glass-overlay` | `--popover` at 22% transparent | 18px | full rim |
+
+A well is a pane in its own right, not a grey box sitting on one: enough
+veil to separate from the panel around it, translucent enough that what is
+behind reads through, and the softest rim in the system because forty
+holdings rows must not add up to a texture.
+
+An overlay is the one surface that keeps a heavy fill and a hard blur. It
+sits over real content, which is both why it has to hide it and the only
+place in this app where a heavy blur earns its keep — everywhere else the
+backdrop is a smooth field with nothing to soften.
+
+### The phone
+
+The veil does not change on a phone, because the veil is what holds the
+black. The rim goes up instead (top 46%, ring 11%), since a gutter-to-gutter
+panel leaves less bare field for the corner lights to show in.
+
 ## Glass is uniform, and its light is all on the rim (2026-08-23)
-
-Two passes on the same day. The first added a falloff term and made things
-worse; the second removed every gradient in the material. Both are recorded
-because the second only makes sense against the first.
-
-**Pass one** gave `.card-sheen.glass` an inset white shadow reaching 64px
-down from the top edge, to read as light entering thick glass. Measured, it
-did what it claimed: the difference between a card's top third and bottom
-third went from 0.0-2.3 levels out of 255 to 11.2.
-
-**And it was wrong.** That is the physics of a *large* pane. Almost nothing
-in this app is one: a table row is 40px, a chip is 24px, a score cell is a
-box of one number. At that size a 64px falloff is not depth, it is a bright
-band across the top and a dark smear through the middle, and it reads as
-exactly what it is, a gradient painted on a box. A small piece of glass has
-one uniform tint the whole way through, and all of its light at the edges,
-where it refracts.
-
-So the rule is now:
-
-> **The body of a glass surface is a flat translucent fill. Every specular
-> term is on the rim. No gradient in the material, at any size, anywhere.**
-
-Removed: `--glass-depth`, `--glass-underglow`, `--well-depth` and their
-reach values; the older `inset 0 16px 16px -16px` on plain `.glass`; and the
-`background-image` ramps on **`.glass-overlay`** (every dialog, menu,
-popover and the welcome walkthrough) and **`.chrome-pane`** (the header
-band), both of which had the same bright-top/dark-middle problem on a
-surface a reader looks straight at.
-
-Also removed from components: the `bg-gradient-to-b from-white/[0.06]`
-strip inside the sign-in card (Lab) and the hero card (Arena), and the two
-`bg-gradient-to-r from-card/85` scroll strips in `LabSheet`'s tab row. The
-last one was doubly wrong: it painted a `--card`-coloured ramp on a *glass*
-surface, so it only matched while the thing behind it was opaque. It is a
-`mask-image` on the scroller now, which fades the tab labels rather than
-painting over the material.
-
-### What stays, and why it is not the same thing
-
-Light **behind** the glass is the room and it stays: the `.page-frame`
-corner lobes, and the blurred `-z-10` glow behind the sign-in and hero
-cards. Without something lit behind it, glass has nothing to refract and
-goes genuinely flat. The rule is about ramps painted **into** the material,
-not about the light the material sits in.
-
-`.veil-hover` also stays. It is a `linear-gradient` only because a
-`background-image` composites over a fill where a `background-color`
-replaces it; both of its stops are the same value, so it is a flat wash.
-
-### The rim itself
-
-The rim is four separate edges and they disagree on purpose, because an
-edge is what tells you where the light is, and a hairline the same
-brightness the whole way round is the one thing a real pane never is. The
-room has two lights, warm off the top-left and blue off the bottom-right,
-and the panes were rendering neutral grey in the middle of it.
-
-- `--glass-rim-top` takes the key lobe's warmth (hue 85, `--primary`'s)
-- `--glass-rim-bottom` takes the counter-lobe's blue (hue 250,
-  `--ambient-cool`'s) as light wraps under
-- `--glass-rim-left` 19% against `--glass-rim-right` 10%, because the key
-  light is off the LEFT
-- the neutral `inset 0 0 0 1px var(--border)` sits under all four and fills
-  the corners, where a one-sided shadow tapers out
-
-**No new hue enters the palette**; both rim colours are high-lightness and
-low-chroma, because hue 85 at low lightness lands on khaki, which the
-accent section below has its own warning about. A rim is light, not paint.
-
-Everything is a custom property, and the `max-width: 767px` block overrides
-the **variables** rather than restating the shadow stacks. It used to
-restate them in full, which meant desktop and phone were two copies kept in
-step by hand, and they had already drifted.
 ## Glass is three specular terms, and nothing in the app is flat
 
 The edge sells glass on a near-black field, far more than the blur does —
