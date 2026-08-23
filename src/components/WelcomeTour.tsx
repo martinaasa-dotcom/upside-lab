@@ -708,8 +708,9 @@ export function WelcomeTour({
                 </Row>
               </ul>
               <p className="text-sm text-muted-foreground">
-                A minute from here and you will know the whole app. Skip it any
-                time — the button is bottom-left on every screen.
+                A minute from here and you will know the whole app.{" "}
+                <strong className="text-foreground">Skip the tour</strong> is in
+                the corner of every screen if you would rather get on with it.
               </p>
             </div>
           )}
