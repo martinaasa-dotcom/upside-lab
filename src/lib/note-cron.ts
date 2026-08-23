@@ -1,10 +1,11 @@
 import { requestIsScheduledCron } from "@/lib/cron-auth";
 import { logEvent } from "@/lib/telemetry";
 import {
+  ACCOUNT_ALIAS_FALLBACK,
   collapseMailRecipients,
-  connectedEmailsFor,
   emailMatchesAllowlist,
   loadAliasMap,
+  primaryEmailFromMap,
 } from "@/lib/auth/identity";
 import { SUPERADMIN_NOTE_EMAIL } from "@/lib/auth/superadmin";
 import { sheetCashBalance } from "@/lib/cash-balance";
@@ -84,6 +85,43 @@ export function letterWeekKey(now: Date = new Date()): string {
   );
   d.setUTCDate(d.getUTCDate() - d.getUTCDay());
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Every profile row that shares one mailbox, keyed by that mailbox.
+ *
+ * The marker is what stops the 04:20 and 04:40 slots mailing somebody the
+ * 04:00 run already reached, so the key it is written with has to be
+ * certain. `.in("email", connectedEmailsFor(...))` is not: it is a
+ * case-sensitive match on a column holding whatever the identity provider
+ * stored, and a profile saved as `Martin.Aasa@upthink.ee` never matches the
+ * lower-cased address this file computes. Written that way the update
+ * touched zero rows and returned no error, which is how one letter became
+ * three; used as a *claim*, the same miss is worse in the other direction,
+ * because zero rows updated reads as "somebody else has this one" and the
+ * reader is passed over every Sunday instead.
+ *
+ * Ids are the key these rows were selected by, so they cannot miss on
+ * spelling, casing or padding. One mailbox can still cover several profiles
+ * (two Google logins, one reader), and every one of them has to be stamped
+ * or the untouched row is the one that mails again, hence a list per
+ * mailbox rather than a single id.
+ */
+export function profileIdsByMailbox<
+  T extends { id: string; email?: string | null },
+>(
+  profiles: readonly T[],
+  aliasToPrimary: Record<string, string> = ACCOUNT_ALIAS_FALLBACK
+): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const profile of profiles) {
+    const to = primaryEmailFromMap(profile.email, aliasToPrimary);
+    if (!to || !profile.id) continue;
+    const ids = out.get(to);
+    if (ids) ids.push(profile.id);
+    else out.set(to, [profile.id]);
+  }
+  return out;
 }
 
 export function weeklyLetterAlreadySent(
@@ -292,12 +330,19 @@ export async function dispatchWeeklyLetters(
   const aliasMap = await loadAliasMap(supabase);
   const allow = (opts.onlyEmails ?? []).map((e) => e.trim().toLowerCase());
   const allowSet = new Set(allow.filter(Boolean));
-  const recipients = collapseMailRecipients(
-    (profiles ?? []).filter((profile) =>
-      emailMatchesAllowlist(profile.email, allowSet, aliasMap)
-    ),
+  const eligible = (profiles ?? []).filter((profile) =>
+    emailMatchesAllowlist(profile.email, allowSet, aliasMap)
+  );
+  /*
+   * Captured before the collapse, deliberately. `collapseMailRecipients`
+   * keeps one profile per mailbox and drops the rest, and an unstamped row
+   * is exactly the row that mails again twenty minutes later.
+   */
+  const idsByMailbox = profileIdsByMailbox(
+    eligible as { id: string; email?: string | null }[],
     aliasMap
   );
+  const recipients = collapseMailRecipients(eligible, aliasMap);
 
   const emailed = noteEmailConfigured();
   if (!emailed) {
@@ -482,13 +527,13 @@ export async function dispatchWeeklyLetters(
    * than dropping everybody's letter over one unexpected answer.
    */
   const claimRecipient = async (
-    emails: string[]
+    ids: string[]
   ): Promise<"claimed" | "taken" | "unavailable"> => {
-    if (!markerAvailable || emails.length === 0) return "unavailable";
+    if (!markerAvailable || ids.length === 0) return "unavailable";
     const { data, error } = await supabase
       .from(PORTFELL_TABLES.profiles)
       .update({ note_sunday_sent_at: new Date().toISOString() })
-      .in("email", emails)
+      .in("id", ids)
       .or(`note_sunday_sent_at.is.null,note_sunday_sent_at.lt.${staleBefore}`)
       .select("id");
     if (error) {
@@ -499,12 +544,12 @@ export async function dispatchWeeklyLetters(
   };
 
   /** The letter never left. Put the claim back so a later slot retries. */
-  const releaseRecipient = async (emails: string[]): Promise<void> => {
-    if (!markerAvailable || emails.length === 0) return;
+  const releaseRecipient = async (ids: string[]): Promise<void> => {
+    if (!markerAvailable || ids.length === 0) return;
     await supabase
       .from(PORTFELL_TABLES.profiles)
       .update({ note_sunday_sent_at: null })
-      .in("email", emails);
+      .in("id", ids);
   };
 
   const weekKey = letterWeekKey(now);
@@ -558,10 +603,10 @@ export async function dispatchWeeklyLetters(
       continue;
     }
 
-    const emails = connectedEmailsFor(item.to, aliasMap);
+    const markerIds = idsByMailbox.get(item.to) ?? [];
     const claim = bypassMarker
       ? ("unavailable" as const)
-      : await claimRecipient(emails);
+      : await claimRecipient(markerIds);
     if (claim === "taken") {
       // Someone else -- an earlier slot, or a run still in flight -- has
       // this person's letter this week.
@@ -584,7 +629,7 @@ export async function dispatchWeeklyLetters(
       idempotencyKey: bypassMarker ? undefined : `sunday-letter:${weekKey}:${item.to}`,
     });
     if (!ok) {
-      if (claim === "claimed") await releaseRecipient(emails);
+      if (claim === "claimed") await releaseRecipient(markerIds);
       skipped += 1;
       continue;
     }
@@ -595,7 +640,7 @@ export async function dispatchWeeklyLetters(
       await supabase
         .from(PORTFELL_TABLES.profiles)
         .update({ note_sunday_sent_at: new Date().toISOString() })
-        .in("email", emails);
+        .in("id", markerIds);
     }
     sent += 1;
   }

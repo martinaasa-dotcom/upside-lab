@@ -50,13 +50,21 @@ const OTHER_ROWS: Record<string, unknown[]> = {
 function builder(table: string) {
   let mode: "select" | "update" = "select";
   let patch: Record<string, unknown> = {};
-  let emails: string[] | null = null;
+  /*
+   * Column-aware on purpose. The marker is written by id rather than by
+   * email, because the column holds whatever the identity provider stored
+   * and PostgREST's `.in()` is a case-sensitive exact match. A mock that
+   * ignored the column would pass either way and hide exactly that.
+   */
+  let filterColumn: string | null = null;
+  let filterValues: string[] | null = null;
   let staleBefore: number | null = null;
   const chain: Record<string, unknown> = {
     select: () => chain,
     eq: () => chain,
-    in: (_col: string, values: string[]) => {
-      emails = values;
+    in: (col: string, values: string[]) => {
+      filterColumn = col;
+      filterValues = values;
       return chain;
     },
     or: (filter: string) => {
@@ -83,9 +91,12 @@ function builder(table: string) {
         staleBefore === null ||
         p.note_sunday_sent_at === null ||
         new Date(p.note_sunday_sent_at).getTime() < staleBefore;
-      const hit = profiles.filter(
-        (p) => (!emails || emails.includes(p.email)) && claimable(p)
-      );
+      const matches = (p: Profile) => {
+        if (!filterValues || !filterColumn) return true;
+        const cell = filterColumn === "id" ? p.id : (p as Record<string, unknown>)[filterColumn];
+        return typeof cell === "string" && filterValues.includes(cell);
+      };
+      const hit = profiles.filter((p) => matches(p) && claimable(p));
       for (const p of hit) {
         p.note_sunday_sent_at = patch.note_sunday_sent_at as string | null;
       }
@@ -192,6 +203,24 @@ describe("three Sunday slots, one letter", () => {
       await dispatchWeeklyLetters(noteTestAudience(new Request(url)));
     }
     expect(sends).toHaveLength(1);
+  });
+
+  it("still reaches a reader whose stored address is not lower-cased", async () => {
+    /*
+     * Google hands back whatever the account was created with, so this
+     * column holds `Martin.Aasa@upthink.ee` while every address this code
+     * computes is lower-cased. Claiming with `.in("email", ...)` matched
+     * zero rows for that reader, and zero rows updated reads as "somebody
+     * else already has this one": the letter was not sent twice, it was
+     * never sent at all, every Sunday, silently. Claiming by id cannot
+     * miss on spelling.
+     */
+    profiles[0]!.email = "Martin.Aasa@upthink.ee";
+    for (const url of [CRON_URL, `${CRON_URL}?resume=1`, `${CRON_URL}?resume=1`]) {
+      await dispatchWeeklyLetters(noteTestAudience(new Request(url)));
+    }
+    expect(sends).toHaveLength(1);
+    expect(profiles[0]!.note_sunday_sent_at).not.toBeNull();
   });
 
   it("sends once across the real schedule too", async () => {
