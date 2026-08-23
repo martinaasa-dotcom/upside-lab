@@ -74,10 +74,12 @@ export type WeeklySuggestion = {
   status: string | null;
 };
 
-export type WeeklyWatchBuy = {
+export type WeeklyWatchRow = {
   ticker: string;
   price: number;
   pct: number;
+  /** Fell far enough this week to be worth raising as an idea in the prose. */
+  dipped: boolean;
   line: string;
 };
 
@@ -101,7 +103,7 @@ export type WeeklyLetter = {
   movers: WeeklyMover[];
   weights: WeeklyWeight[];
   suggestions: WeeklySuggestion[];
-  watchBuys: WeeklyWatchBuy[];
+  watchRows: WeeklyWatchRow[];
   weekAhead: string[];
   margus: string | null;
 };
@@ -330,9 +332,20 @@ export function buildSuggestions(
   return out.slice(0, 4);
 }
 
-export function buildWatchBuys(input: WeeklyLetterInput): WeeklyWatchBuy[] {
+/**
+ * Every name on the reader's watchlist that has a live price, biggest move
+ * first, then read best to worst like What moved.
+ *
+ * This used to keep only names that had fallen past `WATCH_DIP_PCT`, which
+ * made a section headed "On your watchlist" show a part of the watchlist
+ * and never say so. A name you are waiting on running *away* from you is
+ * worth knowing too, and the move bar has a zero line precisely so a table
+ * can carry both directions. The dip test survives as `dipped`, because
+ * that is still the only kind of week worth raising as an idea in prose.
+ */
+export function buildWatchRows(input: WeeklyLetterInput): WeeklyWatchRow[] {
   const held = new Set(input.holdings.map((h) => h.ticker.toUpperCase()));
-  const out: WeeklyWatchBuy[] = [];
+  const out: WeeklyWatchRow[] = [];
   for (const raw of input.watchlist ?? []) {
     const ticker = raw.toUpperCase();
     if (held.has(ticker)) continue;
@@ -341,16 +354,17 @@ export function buildWatchBuys(input: WeeklyLetterInput): WeeklyWatchBuy[] {
     if (!(price > 0)) continue;
     const wr = input.watchWeekReturns?.[ticker];
     const pct = weekPctOf(wr);
-    if (pct == null || pct > WATCH_DIP_PCT) continue;
+    if (pct == null) continue;
     out.push({
       ticker,
       price,
       pct,
-      line: `${cashtag(ticker)} is ${signedPct(pct)} on the week, at ${priceMoney(price)}. You have been watching it.`,
+      dipped: pct <= WATCH_DIP_PCT,
+      line: `${cashtag(ticker)} is ${signedPct(pct)} on the week, at ${priceMoney(price)}.`,
     });
   }
-  out.sort((a, b) => a.pct - b.pct);
-  return out.slice(0, 3);
+  out.sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
+  return out.slice(0, 5).sort((a, b) => b.pct - a.pct);
 }
 
 function weekAheadFor(
@@ -446,7 +460,7 @@ export function buildWeeklyLetter(input: WeeklyLetterInput): WeeklyLetter {
       .slice(0, 5)
       .map((p) => ({ ticker: p.ticker, weight: p.weight })),
     suggestions: buildSuggestions(positions, input.conviction),
-    watchBuys: buildWatchBuys(input),
+    watchRows: buildWatchRows(input),
     weekAhead: weekAheadFor(earnings, interesting),
     margus: null,
   };
@@ -538,9 +552,9 @@ export function weeklyLetterText(r: WeeklyLetter): string {
       lines.push(`  ${s.line}${s.status ? ` (${s.status})` : ""}`);
     }
   }
-  if (r.watchBuys.length > 0) {
+  if (r.watchRows.length > 0) {
     lines.push("", "On your watchlist");
-    for (const w of r.watchBuys) lines.push(`  ${w.line}`);
+    for (const w of r.watchRows) lines.push(`  ${w.line}`);
   }
   if (r.weekAhead.length > 0) {
     lines.push("", "Next week");
@@ -695,16 +709,14 @@ function suggestionGroupsHtml(groups: WeeklySuggestionGroup[]): string {
     .join("");
 }
 
-function watchList(items: WeeklyWatchBuy[]): string {
+function watchList(items: WeeklyWatchRow[]): string {
   /*
-   * The same bar as What moved, on purpose, including its centre line.
-   *
-   * A name only reaches this section by falling past the dip threshold, so
-   * every bar here grows to the left and the right half of every track
-   * stays empty. That is the section's whole point said visually -- these
-   * all got cheaper -- and it rhymes with the table above it rather than
-   * inventing a second chart. Scale is this table's own worst dip, so the
-   * deepest one fills its half.
+   * The same bar as What moved, on purpose, including its centre line:
+   * a watchlist runs both ways, and the reader should see the name that
+   * got away from them as readily as the one that came to them. Scale is
+   * this table's own biggest move, not the one above it, because these are
+   * names the reader does not own and the two tables answer different
+   * questions.
    */
   const maxAbs = Math.max(...items.map((w) => Math.abs(w.pct)), 0);
   const rows = items
@@ -801,11 +813,8 @@ export function weeklyLetterHtml(r: WeeklyLetter): string {
   const suggestionBlock =
     groups.length > 0 ? rule(suggestionGroupsHtml(groups)) : "";
   const watchBlock =
-    r.watchBuys.length > 0
-      ? block(
-          "On your watchlist",
-          `<p style="margin:0 0 14px 0;font-family:${EMAIL.sans};font-size:13px;line-height:1.5;color:${EMAIL.muted}">Cheaper than last Sunday.</p>${watchList(r.watchBuys)}`
-        )
+    r.watchRows.length > 0
+      ? block("On your watchlist", watchList(r.watchRows))
       : "";
   const aheadBlock =
     r.weekAhead.length > 0 ? block("Next week", aheadList(r.weekAhead)) : "";

@@ -1488,8 +1488,9 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
     watchlist: ["ASTS", "NBIS"],
     watchQuotes: { ASTS: q("ASTS", 40), NBIS: q("NBIS", 120) },
     watchWeekReturns: {
-      ASTS: { start: 50, end: 40, pct: -20 },
-      NBIS: { start: 100, end: 120, pct: 20 },
+      // Fractions, the way `fetchWeekReturns` reports them: -0.2 is -20%.
+      ASTS: { start: 50, end: 40, pct: -0.2 },
+      NBIS: { start: 100, end: 120, pct: 0.2 },
     },
     earnings: [
       { ticker: "NBIS", date: "2026-08-25", days: 6 },
@@ -1516,11 +1517,15 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
   assert.ok(trim, "expected NBIS flagged as an outsized position");
   assert.equal(trim.source, "size");
 
-  // Watchlist: only names that are NOT held and that actually fell.
+  // Watchlist: every name the reader does not already hold, whichever way
+  // it went. NBIS is held, so it is not a watchlist row.
   assert.deepEqual(
-    letter.watchBuys.map((w) => w.ticker),
+    letter.watchRows.map((w) => w.ticker),
     ["ASTS"]
   );
+  // Only a real fall is an idea the prose may raise.
+  assert.equal(letter.watchRows[0].dipped, true);
+  assert.equal(Math.round(letter.watchRows[0].pct), -20);
 
   // The calendar only mentions names the reader owns or watches.
   assert.equal(letter.weekAhead.length, 1);
@@ -1528,7 +1533,17 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
 
   // The fallback voice ships a real letter when the model is unreachable.
   const take = fallbackWeeklyTake(letter);
-  assert.equal(take.split(/\n{2,}/).length, 2);
+  // Four or five short paragraphs, the same shape the model is asked for,
+  // so a reader cannot tell which one wrote their letter.
+  const paras = take.split(/\n{2,}/);
+  assert.ok(
+    paras.length >= 3 && paras.length <= 6,
+    `fallback should be 3-6 paragraphs, got ${paras.length}`
+  );
+  // The figure is defused in the very next sentence, in dollars per $100.
+  assert.match(paras[0], /out of every \$100/);
+  // And it ends by telling the reader nothing needs doing.
+  assert.match(paras[paras.length - 1], /nothing here needs you to do|stay exactly as it is/i);
   assert.match(take, /[.!?]$/);
   assert.doesNotMatch(take, /\bwe\b|\bour\b|\bus\b/i);
   // Banned market slang never reaches a reader (AGENTS.md).
@@ -1542,7 +1557,9 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
   // Every section the letter promises is actually rendered.
   assert.match(html, /Your week/);
   assert.match(html, /What moved/);
-  assert.match(html, /Worth a look/);
+  // One heading per kind of suggestion, and no outer kicker repeating the
+  // word over cards that already carry it.
+  assert.match(html, /Worth a hard look|Worth trimming|Worth adding to/);
   assert.match(html, /On your watchlist/);
   assert.match(html, /Next week/);
   // It is painted in the app's own palette, not the old brass letterhead.
@@ -1554,7 +1571,7 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
 
   const text = weeklyLetterText(letter);
   assert.match(text, /What moved/);
-  assert.match(text, /Worth a look/);
+  assert.match(text, /Worth a hard look|Worth trimming|Worth adding to/);
 
   assert.match(weeklySubject(letter), /Your week/);
 });

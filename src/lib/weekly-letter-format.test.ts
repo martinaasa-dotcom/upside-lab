@@ -67,10 +67,12 @@ describe("week percentages are percentages", () => {
     expect(letter().quiet).toBe(false);
   });
 
-  it("lets a watchlist name qualify on a real dip, not a 300% one", () => {
+  it("marks a real dip as a dip, rather than needing a 300% one", () => {
     // -5% clears the -3 threshold. Read as a fraction it was -0.05, which
-    // never did, so this section could not appear at all.
-    expect(letter().watchBuys.map((w) => w.ticker)).toEqual(["RKLB"]);
+    // never did, so no watchlist name could ever be raised in the prose.
+    const rows = letter().watchRows;
+    expect(rows.map((w) => w.ticker)).toEqual(["RKLB"]);
+    expect(rows[0].dipped).toBe(true);
   });
 });
 

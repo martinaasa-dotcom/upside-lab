@@ -80,9 +80,12 @@ function facts(r: WeeklyLetter): string {
       lines.push(`  ${s.kind.toUpperCase()} ${cashtag(s.ticker)}: ${s.line}`);
     }
   }
-  if (r.watchBuys.length > 0) {
+  const dips = r.watchRows.filter((w) => w.dipped);
+  if (dips.length > 0) {
+    // Only the fallers: a watchlist name that ran up is worth showing in
+    // the table, but it is not something to raise as an idea.
     lines.push("Watchlist names that fell this week:");
-    for (const w of r.watchBuys) {
+    for (const w of dips) {
       lines.push(`  ${cashtag(w.ticker)} ${signedPct(w.pct)}`);
     }
   }
@@ -184,7 +187,7 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
     );
   }
 
-  const watch = r.watchBuys[0];
+  const watch = r.watchRows.find((w) => w.dipped);
   if (watch) {
     paras.push(
       `${cashtag(watch.ticker)}, which you have been watching, is cheaper than it was last Sunday, if that is something you were waiting for.`
