@@ -179,6 +179,6 @@ export const STRATEGY = {
   dayWindow: 4,
   targetYield: 0.05,
   minYield: 0.03,
-  executionWindow: "16:45 – 18:00 EEST",
+  executionWindow: "16:45 to 18:00 EEST",
 } as const;
 

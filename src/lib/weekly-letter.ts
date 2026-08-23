@@ -13,7 +13,7 @@
  */
 
 import { cashtag, currency, signedCurrency, signedPercent } from "@/lib/format";
-import { groupMoneyInText } from "@/lib/money-text";
+import { groupMoneyInText, previewMoneySeparators } from "@/lib/money-text";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { statusLabel } from "@/lib/thesis-pulse";
 import {
@@ -457,7 +457,11 @@ export function weeklySubject(r: WeeklyLetter): string {
 }
 
 export function weeklyPreview(r: WeeklyLetter): string {
-  return groupMoneyInText(`${signedMoney(r.weekDollar)} this week. ${r.opening}`);
+  // This is the line under the subject in an inbox list, so it is the one
+  // string whose separators have to survive Gmail's snippet pass.
+  return previewMoneySeparators(
+    `${signedMoney(r.weekDollar)} this week. ${r.opening}`
+  );
 }
 
 /* ------------------------------------------------------------ plain text */
@@ -499,7 +503,7 @@ export function groupSuggestions(
 export function weeklyLetterText(r: WeeklyLetter): string {
   const names = r.nameCount === 1 ? "1 name" : `${r.nameCount} names`;
   const lines: string[] = [];
-  lines.push(weeklyPreview(r), "", `Your week — ${r.dateLine}`, "");
+  lines.push(weeklyPreview(r), "", `Your week: ${r.dateLine}`, "");
   lines.push(
     `Your portfolio  ${money(r.book)}`,
     names,
@@ -537,6 +541,19 @@ export function weeklyLetterText(r: WeeklyLetter): string {
 }
 
 /* ------------------------------------------------------------------ HTML */
+
+/**
+ * Air above and below a hairline, in every table in the letter.
+ *
+ * One number, because a divider with more room on one side than the other
+ * is the thing you notice: the suggestion rows used to pad only the top,
+ * so a line sat tight under the row above it and loose under the row
+ * below. Ten is also tighter than the thirteen What moved carried, which
+ * had the rows drifting apart down the page.
+ */
+const ROW_PAD = 10;
+/** The same idea inside a card, where the type is larger. */
+const CARD_ROW_PAD = 13;
 
 function toneColor(n: number): string {
   if (n > 0) return EMAIL.gain;
@@ -576,13 +593,13 @@ function moversTable(movers: WeeklyMover[]): string {
       const border =
         i === movers.length - 1 ? "none" : `1px solid ${EMAIL.line}`;
       return `<tr>
-  <td style="padding:13px 12px 13px 0;border-bottom:${border};vertical-align:middle">
-    <p style="margin:0;font-family:${EMAIL.sans};font-size:15px;font-weight:600;color:${EMAIL.cream}">${escapeEmail(cashtag(m.ticker))}</p>
-    <p style="margin:3px 0 0 0;font-family:${EMAIL.mono};font-size:13px;color:${EMAIL.muted}">${escapeEmail(priceMoney(m.price))}</p>
+  <td style="padding:${ROW_PAD}px 12px ${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle">
+    <p style="margin:0;font-family:${EMAIL.sans};font-size:15px;line-height:1.25;font-weight:600;color:${EMAIL.cream}">${escapeEmail(cashtag(m.ticker))}</p>
+    <p style="margin:2px 0 0 0;font-family:${EMAIL.mono};font-size:13px;line-height:1.25;color:${EMAIL.muted}">${escapeEmail(priceMoney(m.price))}</p>
   </td>
-  <td style="padding:13px 0;border-bottom:${border};vertical-align:middle;text-align:right">
-    <p style="margin:0;font-family:${EMAIL.mono};font-size:15px;font-weight:600;color:${c}">${escapeEmail(signedPct(m.pct))}</p>
-    <p style="margin:3px 0 0 0;font-family:${EMAIL.mono};font-size:13px;color:${c}">${escapeEmail(signedMoney(m.dollar))}</p>
+  <td style="padding:${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;text-align:right">
+    <p style="margin:0;font-family:${EMAIL.mono};font-size:15px;line-height:1.25;font-weight:600;color:${c}">${escapeEmail(signedPct(m.pct))}</p>
+    <p style="margin:2px 0 0 0;font-family:${EMAIL.mono};font-size:13px;line-height:1.25;color:${c}">${escapeEmail(signedMoney(m.dollar))}</p>
   </td>
 </tr>`;
     })
@@ -604,7 +621,11 @@ function suggestionGroupsHtml(groups: WeeklySuggestionGroup[]): string {
         .map((s, i) => {
           const divider =
             i === 0 ? "" : `border-top:1px solid ${EMAIL.cardLine};`;
-          return `<tr><td style="${divider}padding:${i === 0 ? "12px" : "14px"} 0 0 0">
+          // Equal air on both sides of that divider: this row's top pad and
+          // the previous row's bottom pad.
+          const top = i === 0 ? 12 : CARD_ROW_PAD;
+          const bottom = i === group.items.length - 1 ? 0 : CARD_ROW_PAD;
+          return `<tr><td style="${divider}padding:${top}px 0 ${bottom}px 0">
     <p style="margin:0;font-family:${EMAIL.sans};font-size:15px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(s.line)}</p>${
       s.status
         ? `\n    <p style="margin:7px 0 0 0;font-family:${EMAIL.sans};font-size:12px;color:${EMAIL.muted}">${escapeEmail(s.status)}</p>`
@@ -632,13 +653,13 @@ function watchList(items: WeeklyWatchBuy[]): string {
       // percent and the price itself, with the percent then repeated again
       // in the right-hand column.
       return `<tr>
-  <td style="padding:13px 12px 13px 0;border-bottom:${border};vertical-align:middle">
-    <p style="margin:0;font-family:${EMAIL.sans};font-size:15px;font-weight:600;color:${EMAIL.cream}">${escapeEmail(cashtag(w.ticker))}</p>
-    <p style="margin:3px 0 0 0;font-family:${EMAIL.sans};font-size:13px;color:${EMAIL.muted}">Cheaper than last Sunday.</p>
+  <td style="padding:${ROW_PAD}px 12px ${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle">
+    <p style="margin:0;font-family:${EMAIL.sans};font-size:15px;line-height:1.25;font-weight:600;color:${EMAIL.cream}">${escapeEmail(cashtag(w.ticker))}</p>
+    <p style="margin:2px 0 0 0;font-family:${EMAIL.sans};font-size:13px;line-height:1.25;color:${EMAIL.muted}">Cheaper than last Sunday.</p>
   </td>
-  <td style="padding:13px 0;border-bottom:${border};vertical-align:middle;text-align:right;white-space:nowrap">
-    <p style="margin:0;font-family:${EMAIL.mono};font-size:15px;font-weight:600;color:${tone}">${escapeEmail(signedPct(w.pct))}</p>
-    <p style="margin:3px 0 0 0;font-family:${EMAIL.mono};font-size:13px;color:${EMAIL.muted}">${escapeEmail(priceMoney(w.price))}</p>
+  <td style="padding:${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;text-align:right;white-space:nowrap">
+    <p style="margin:0;font-family:${EMAIL.mono};font-size:15px;line-height:1.25;font-weight:600;color:${tone}">${escapeEmail(signedPct(w.pct))}</p>
+    <p style="margin:2px 0 0 0;font-family:${EMAIL.mono};font-size:13px;line-height:1.25;color:${EMAIL.muted}">${escapeEmail(priceMoney(w.price))}</p>
   </td>
 </tr>`;
     })

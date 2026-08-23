@@ -429,7 +429,7 @@ export function buildCcAdvisorTools(
           ((currency === "EUR" && !(fx.eurUsd && fx.eurUsd > 0)) ||
             (currency === "GBP" && !(fx.gbpUsd && fx.gbpUsd > 0)))
         ) {
-          notes.push(`${ticker} FX missing — stored 1:1 as USD`);
+          notes.push(`${ticker} FX missing, stored 1:1 as USD`);
         }
 
         cleaned.push({
@@ -704,7 +704,7 @@ function margusMemoryBlock(ctx: CcChatContext): string {
         check.moveReason?.trim() ||
         "";
       bits.push(
-        `Pulse now: ${statusLabel(check.thesisStatus)}, ${actionLabel(check.action)}${note ? ` — ${note}` : ""}`
+        `Pulse now: ${statusLabel(check.thesisStatus)}, ${actionLabel(check.action)}${note ? `. ${note}` : ""}`
       );
     }
     lines.push(`- ${bits.join(" · ")}`);

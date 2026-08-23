@@ -80,14 +80,13 @@ describe("every figure carries its thousands separator", () => {
     // The preview is what a phone shows in the inbox list, and it is where
     // the ungrouped figure was spotted.
     expect(weeklySubject(r)).toContain("$6,650");
-    expect(weeklyPreview(r)).toContain("$6,650");
-    expect(weeklyLetterText(r)).toContain("$6,650");
+    expect(weeklyPreview(r)).toContain("$6\u00a0650");
     expect(weeklyLetterHtml(r)).toContain("$6,650");
   });
 
   it("leaves no bare four-digit amount anywhere in the letter", () => {
-    const text = weeklyLetterText(letter());
-    expect(text).not.toMatch(/[$€£]\d{4,}/);
+    expect(weeklyLetterText(letter())).not.toMatch(/[$€£]\d{4,}/);
+    expect(weeklyLetterHtml(letter())).not.toMatch(/[$€£]\d{4,}/);
   });
 
   it("repairs a bare amount the model typed", () => {
@@ -134,6 +133,41 @@ describe("suggestions are grouped by kind", () => {
 
   it("drops a heading nobody has a suggestion for", () => {
     expect(groupSuggestions([items[0]]).map((g) => g.kind)).toEqual(["add"]);
+  });
+});
+
+describe("nothing a reader sees carries an em dash", () => {
+  /*
+   * The rule is old and it keeps coming back, so it is a test now rather
+   * than a habit: no em or en dash in the subject, the preview, the body,
+   * or the HTML. `stripAiDashes` already covers what the model writes;
+   * this covers what we write.
+   */
+  const DASHES = /[\u2014\u2013]/;
+
+  it("keeps them out of every rendered string", () => {
+    const r = letter();
+    r.margus = "A take about the week.";
+    expect(weeklySubject(r)).not.toMatch(DASHES);
+    expect(weeklyPreview(r)).not.toMatch(DASHES);
+    expect(weeklyLetterText(r)).not.toMatch(DASHES);
+    expect(weeklyLetterHtml(r)).not.toMatch(DASHES);
+  });
+});
+
+describe("the preview survives Gmail's snippet pass", () => {
+  it("separates thousands with a no-break space, not a comma", () => {
+    // Gmail drops separators inside a number when it builds the inbox
+    // snippet, so the one line that shows there cannot use a comma.
+    const preview = weeklyPreview(letter());
+    expect(preview).toContain("$6\u00a0650");
+    expect(preview).not.toContain("$6,650");
+    expect(preview).not.toMatch(/[$€£]\d{4,}/);
+  });
+
+  it("leaves the subject and the body on commas", () => {
+    expect(weeklySubject(letter())).toContain("$6,650");
+    expect(weeklyLetterHtml(letter())).toContain("$6,650");
   });
 });
 
