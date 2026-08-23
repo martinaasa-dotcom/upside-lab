@@ -68,13 +68,13 @@ export function screenCopy(
       return {
         title: `This is ${PRODUCT_NAME}`,
         lede:
-          "You tell it what you already own — the ticker, how many shares, what you paid. From then on it prices everything for you and tries to answer one question: is the reason you bought this still true?",
+          "You tell it what you already own: the ticker, how many shares, what you paid. From then on it prices everything for you and tries to answer one question. Is the reason you bought this still true?",
       };
     case "map":
       return {
         title: "Where everything is",
         lede:
-          "The bar along the bottom of the screen is the navigation, and your own portfolios sit in it too — one cell each, and the + cell makes a new one. The only thing not on it is your account, which is the picture in the top corner.",
+          "The bar along the bottom of the screen is the navigation, and your own portfolios sit in it too, one cell each. The + cell makes a new one. The only thing not on that bar is your account, which is the picture in the top corner.",
       };
     case "helps":
       return {
@@ -97,13 +97,13 @@ export function screenCopy(
       return {
         title: "Have you used covered calls or other options?",
         lede:
-          "A separate question from the last one — plenty of very experienced investors have never touched an option. Also changeable in Account.",
+          "A separate question from the last one. Plenty of very experienced investors have never touched an option. Also changeable in Account.",
       };
     case "holdings":
       return {
         title: "Add what you own",
         lede:
-          "The ticker, how many shares, and roughly what you paid. One is enough to make Home worth opening. If you have a lot of them, skip this — Home has a CSV import that takes the whole lot at once.",
+          "The ticker, how many shares, and roughly what you paid. One is enough to make Home worth opening. If you have a lot of them, skip this. Home has a CSV import that takes the whole lot at once.",
       };
     case "watchlist":
       return {
@@ -115,7 +115,7 @@ export function screenCopy(
       return {
         title: "Want the Sunday email?",
         lede:
-          "One email a week and nothing else — there is no daily note, no alert, and no “come back”. It starts once there are names in a portfolio, and it is one switch in Account either way.",
+          "One email a week and nothing else. There is no daily note, no alert, and no “come back”. It starts once there are names in a portfolio, and it is one switch in Account either way.",
       };
     case "done":
       return {
