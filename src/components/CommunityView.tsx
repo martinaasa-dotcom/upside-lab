@@ -2657,8 +2657,8 @@ export function CommunityView({ communityId }: Props) {
                 </p>
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   This is their portfolio. You can look, you cannot edit. Nothing
-                  you tap here changes their holdings. Every sheet they own is
-                  pooled into one book here, so a name held in two of them shows
+                  you tap here changes their holdings. Every portfolio they own is
+                  pooled into one view here, so a name held in two of them shows
                   as a single line.
                 </p>
               </div>

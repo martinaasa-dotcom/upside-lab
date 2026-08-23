@@ -63,7 +63,7 @@ export default function GlobalError({
               color: "#a1a1a1",
             }}
           >
-            Your book is safe. This was a rendering error in the app shell,
+            Your portfolios are safe. This was a rendering error in the app shell,
             so reload to get back in.
           </p>
         </div>

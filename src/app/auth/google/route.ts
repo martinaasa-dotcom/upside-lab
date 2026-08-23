@@ -9,6 +9,7 @@ import {
   googleOAuthCookieOptions,
   googleRedirectOrigin,
   randomOAuthValue,
+  readGoogleIntent,
   shouldUseOwnGoogleOAuth,
 } from "@/lib/auth/google-oauth";
 import { isCanonicalAppHost, isLocalHost, safeInternalPath, siteUrl } from "@/lib/site-url";
@@ -19,6 +20,11 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const next = safeInternalPath(url.searchParams.get("next"));
+  /*
+    Written down here, before the browser leaves, because nothing coming back
+    from Google can say what the trip was for. See google-oauth.ts.
+  */
+  const intent = readGoogleIntent(url.searchParams.get("intent"));
   const hostname = url.hostname;
 
   if (
@@ -29,6 +35,7 @@ export async function GET(request: Request) {
   ) {
     const dest = new URL(GOOGLE_AUTH_PATH, siteUrl());
     dest.searchParams.set("next", next);
+    if (intent === "link") dest.searchParams.set("intent", intent);
     return NextResponse.redirect(dest);
   }
 
@@ -48,10 +55,21 @@ export async function GET(request: Request) {
     const res = NextResponse.redirect(authorize);
     res.cookies.set(
       GOOGLE_OAUTH_COOKIE,
-      encodeGoogleOAuthCookie({ state, next, origin }),
+      encodeGoogleOAuthCookie({ state, next, origin, intent }),
       googleOAuthCookieOptions(!isLocalHost(hostname))
     );
     return res;
+  }
+
+  /*
+    Preview deploys fall back to Supabase's own hosted handshake, which comes
+    back through /auth/callback with a session and no id token of ours to read
+    an address out of. Connecting a second Google account cannot be done that
+    way, so it says so rather than quietly signing the reader into the other
+    account and swapping which one they are looking at.
+  */
+  if (intent === "link") {
+    return NextResponse.redirect(new URL("/account?address=not-configured", url.origin));
   }
 
   const supabase = await createSupabaseServerAuth();

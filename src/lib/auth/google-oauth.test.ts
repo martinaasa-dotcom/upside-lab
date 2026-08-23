@@ -5,6 +5,7 @@ import {
   googleCallbackUrl,
   googleRedirectOrigin,
   parseGoogleOAuthCookie,
+  readGoogleIntent,
   shouldUseOwnGoogleOAuth,
 } from "@/lib/auth/google-oauth";
 import { isCanonicalAppHost } from "@/lib/site-url";
@@ -42,13 +43,38 @@ describe("google oauth branding", () => {
       state: "state-value-at-least-16",
       next: "/communities?x=1",
       origin: "https://upsidelab.app",
+      intent: "link",
     });
     expect(parseGoogleOAuthCookie(raw)).toEqual({
       state: "state-value-at-least-16",
       next: "/communities?x=1",
       origin: "https://upsidelab.app",
+      intent: "link",
     });
     expect(parseGoogleOAuthCookie("not-valid")).toBeNull();
+  });
+
+  /*
+    A cookie written before the intent existed has none in it, and every one
+    of those was a sign-in. Reading a missing field as anything else would
+    turn a handshake already in flight into an address claim.
+  */
+  it("reads a cookie with no intent in it as a sign-in", () => {
+    const legacy = Buffer.from(
+      JSON.stringify({
+        state: "state-value-at-least-16",
+        next: "/",
+        origin: "https://upsidelab.app",
+      }),
+      "utf8"
+    ).toString("base64url");
+    expect(parseGoogleOAuthCookie(legacy)?.intent).toBe("sign-in");
+  });
+
+  it("reads anything else in that field as a sign-in too", () => {
+    expect(readGoogleIntent("nonsense")).toBe("sign-in");
+    expect(readGoogleIntent(null)).toBe("sign-in");
+    expect(readGoogleIntent("link")).toBe("link");
   });
 
   it("uses own-domain Google only when credentials exist", () => {

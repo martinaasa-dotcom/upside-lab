@@ -11,6 +11,29 @@
   - **Public**: discoverable to any signed-in user (`GET /api/communities/discover`), who can ask to join (`POST /api/communities/:id/join-request`) — an admin still has to approve (`PATCH` same route) before the requester gets read access to anyone's book.
   - **Classroom** (`kind = classroom`, always private): teacher-run paper class. Students join with an invite. Redeeming the invite (or an approved join request) provisions one homework portfolio with the class `starting_cash` and pins it. Real portfolios cannot be shared into a class. Class portfolios cannot be deleted while the class exists. See migration `039`. Teacher sets `class_plan` (migration `040`): buy week, closed, sell-and-move, or anything goes. Empty plan means open. Purpose is the house note. Teachers can still edit a class portfolio; students cannot break the current rule. Leaving the class unpins the homework portfolio and drops the class lock so it becomes a normal portfolio they can delete.
 
+## One account, more than one address
+
+`portfell_account_emails` (migration `20260823170000`) is the list of other addresses that open **one** account. Sign-in here is Google, and Google hands back an address, so a second Google account used to mean a second Upside Lab account: new empty portfolios, no holdings, no circle, and a support email as the only way out.
+
+**No second auth user is ever made.** Supabase still holds exactly one, with one primary email. The extra addresses are checked before a Google identity is turned into a session: `/auth/google/callback` asks `accountForAddress` first, and when it answers, the session comes from a one-time token minted for the account that owns the address (`magicTokenFor`, spent by `verifyOtp`) rather than from Supabase's own idea of who that address is.
+
+Two ways to add one:
+
+- **Connect a Google account.** The same own-domain handshake, with `intent=link` written into the state cookie *before* the browser leaves, because nothing coming back from Google can say what the trip was for. Google proved the address a second ago, so it goes down confirmed with no mail. Preview deploys fall back to Supabase's hosted handshake and cannot do this; they answer `not-configured`.
+- **Send a link.** Anything else is mailed a confirmation carrying a token whose sha256 is all the table holds, good for one hour. `/auth/link` confirms the address and deliberately **signs nobody in**: a link sitting in an unconfirmed mailbox that opened somebody's account would be the thing this feature exists to prevent.
+
+Adding is the service role's work (the check is the whole job, and a client checking itself is not a check). The one write a client may make to that table is deleting a row of its own, and RLS says so. The account export carries the list, without the digest of a pending confirmation.
+
+**The one destructive case is narrow and the database decides it.** An address that already has an Upside Lab account can be taken only when `portfell_account_never_used` says that account has no name, no answers to the experience questions, nothing bought, no portfolio owned or co-owned, no circle, no join request, no saved conviction notes or watchlist, and no seed portfolio waiting on it. Two accounts that have both been used are refused and sent to support, because choosing which one loses its holdings is not a decision code gets to make.
+
+Every outcome is a word in `ADDRESS_MESSAGES` (`src/lib/auth/account-addresses.ts`) and the sentence lives beside it, because the Google leg comes back as a redirect and can only carry the word.
+
+**Supabase project setting:** the Email provider has to be enabled on the project for `generateLink({ type: "magiclink" })` to mint that token. No mail is ever sent through it; Upside Lab sends its own through Resend. With the provider off, `magicTokenFor` returns null and the callback refuses rather than signing the wrong person in.
+
+Do not replace any of this with Supabase's `linkIdentity`: it sends the browser to Supabase's own callback, which is the exact thing `src/lib/auth/google-oauth.ts` exists to avoid, and it would put a hostname nobody recognises on the consent screen.
+
+Not the same thing as the alias table below, which stays. That one maps address to address so two **separate** accounts read as one person on a member list. It is a display rule and it never fixed the second account's empty portfolios.
+
 ## Identity aliases
 
 Multiple Google emails can map to **one person** in communities (`portfell_account_aliases`):
@@ -96,6 +119,7 @@ Shows every Upside profile (Google sign-ins), every community, and each communit
 - `030` **critical fix**: `ensureProfileAndClaims`'s service-role path (`claimWithServiceRole`) auto-joined *every* signed-in user into Upside Circle unconditionally, regardless of any seed claim — meaning any stranger creating an account was silently added to the family's community and granted read access to their books (and vice versa). Confirmed live for two non-family test accounts before the fix. Removed the auto-join entirely from both the app-code path and `portfell_claim_seed_for_me()` (which had a narrower, seed-claim-gated version of the same auto-join) — see `031` for the invite/request model that replaced it
 - `031` `portfell_communities.visibility` (`public`/`private`, defaults to `private`), discovery `SELECT` policy for public communities, and `portfell_community_join_requests` (+ RLS) for the request-to-join flow
 - `039` classroom kind + starting cash on communities, `classroom_community_id` on portfolios (one paper portfolio per student per class)
+- `20260823170000` `portfell_account_emails` plus `portfell_account_for_login_email` and `portfell_account_never_used`. One account, however many mailboxes. See the section at the top of this file
 
 Writes require a signed-in **co-owner** only.
 

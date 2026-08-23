@@ -95,8 +95,8 @@ export default function PrivacyPage() {
           To run the app: show your portfolios, compute your numbers, remember
           your preferences, and (only if you opt into a community) show
           today&apos;s prices, holdings, cash, and returns for the portfolios you
-          linked. AI features send the relevant book context to a model
-          provider. That includes chat with Margus, Pulse, weekday notes,
+          linked. AI features send the relevant portfolio context to a model
+          provider. That includes chat with Margus, Pulse, the Sunday email,
           Forecast, and screenshot import. It is not limited to times you
           type a question. We don&apos;t sell or rent your data. We don&apos;t
           train our own models on it. Third-party model providers have their
@@ -116,13 +116,13 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong className="text-foreground">Resend</strong> sends
-              weekday notes, invites, and other mail from the app, including
+              the Sunday email, invites, and other mail from the app, including
               feedback you submit.
             </li>
             <li>
               <strong className="text-foreground">AI model providers</strong>{" "}
               (OpenRouter and fallbacks such as Groq, Gemini, and Cerebras). Chat,
-              Pulse, weekday notes, Forecast, and screenshot import send the
+              Pulse, the Sunday email, Forecast, and screenshot import send the
               relevant context, and for screenshots the image itself, to
               whichever provider answers. Some of those providers process
               data outside {LEGAL_COUNTRY} and the EEA, including the
@@ -195,7 +195,7 @@ export default function PrivacyPage() {
 
         <Section title="7. Data retention">
           We keep your data while your account is active. Nightly snapshots
-          of book data are kept for backup and recovery. Only the people who
+          of your portfolio data are kept for backup and recovery. Only the people who
           run the app can read a restore. That is a short list of operator
           accounts, not every signed-in user. We also keep a separate,
           encrypted backup copy outside our main database, used only to

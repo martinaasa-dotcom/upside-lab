@@ -32,6 +32,36 @@ export type Database = {
         }
         Relationships: []
       }
+      portfell_account_emails: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          token_expires_at: string | null
+          token_hash: string | null
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          token_expires_at?: string | null
+          token_hash?: string | null
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          token_expires_at?: string | null
+          token_hash?: string | null
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       portfell_book_snapshots: {
         Row: {
           created_at: string
@@ -989,6 +1019,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      portfell_account_for_login_email: {
+        Args: { p_email: string }
+        Returns: string
+      }
+      portfell_account_never_used: { Args: { p_user: string }; Returns: boolean }
       portfell_apply_cash_delta: {
         Args: { p_delta: number; p_portfolio_id: string }
         Returns: number

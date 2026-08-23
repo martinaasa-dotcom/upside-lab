@@ -11,11 +11,32 @@ export const GOOGLE_OAUTH_COOKIE = "ul-google-oauth";
 export const GOOGLE_AUTH_PATH = "/auth/google";
 export const GOOGLE_CALLBACK_PATH = "/auth/google/callback";
 
+/*
+  What the handshake is for.
+
+  The same button, the same redirect and the same token, put to two different
+  uses: signing somebody in, and adding the address on a second Google account
+  to the account they are already signed in to. Which one it is has to be
+  decided before the browser leaves, because by the time it comes back the
+  only thing that can say is what this server wrote down.
+
+  It travels in the cookie for the same reason the destination does. Anything
+  put in the state parameter comes back as input from whoever sent the browser
+  here, and a value that decides whether a session is created or an address is
+  claimed is not a value to read out of that.
+*/
+export type GoogleIntent = "sign-in" | "link";
+
 export type GoogleOAuthCookie = {
   state: string;
   next: string;
   origin: string;
+  intent: GoogleIntent;
 };
+
+export function readGoogleIntent(raw: string | null | undefined): GoogleIntent {
+  return raw === "link" ? "link" : "sign-in";
+}
 
 export function googleClientId(): string | undefined {
   return process.env.GOOGLE_CLIENT_ID?.trim() || undefined;
@@ -80,6 +101,9 @@ export function parseGoogleOAuthCookie(
       state: data.state,
       next: safeInternalPath(data.next),
       origin,
+      // A cookie written before this field existed carries no intent at all,
+      // and a sign-in is what every one of those meant.
+      intent: readGoogleIntent(data.intent),
     };
   } catch {
     return null;
