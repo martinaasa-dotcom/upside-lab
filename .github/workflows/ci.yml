@@ -89,6 +89,13 @@ jobs:
       # possible again. A failure is either a real regression or an
       # invariant that has outlived its rule, and both want a decision.
       - run: npm run test:invariants
+      # The same argument, and `check:edges` had already proved it: it spent
+      # the whole of the NO_VALUE change asserting that every formatter
+      # degrades to an em dash, long after they degraded to "n/a". A check
+      # nothing runs reports on the code it was written against, not the
+      # code you have. Both of these take about a second.
+      - run: npm run check:edges
+      - run: npm run validate
 
   build:
     name: Build
