@@ -1414,14 +1414,25 @@ button:disabled,
   animation: landing-nudge 2.4s ease-in-out infinite;
 }
 
+/*
+ * 0.45s and 10px, down from 0.7s and 18px.
+ *
+ * `Reveal` now starts a section most of a screen before the fold, so this
+ * is finished long before anybody looks at it and the duration is no longer
+ * carrying any of the effect. What a long one does carry is risk: a reader
+ * who flicks faster than the page expects catches a section mid-fade, and a
+ * half-drawn section reads as one that is still loading rather than one
+ * that is there. Short enough that the worst case is over before it can be
+ * read as waiting.
+ */
 [data-reveal] {
   transition:
-    opacity 0.7s ease-out,
-    transform 0.7s ease-out;
+    opacity 0.45s ease-out,
+    transform 0.45s ease-out;
 }
 [data-reveal="out"] {
   opacity: 0;
-  transform: translateY(18px);
+  transform: translateY(10px);
 }
 [data-reveal="in"] {
   opacity: 1;
