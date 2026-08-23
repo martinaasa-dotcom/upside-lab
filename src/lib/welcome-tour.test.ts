@@ -12,8 +12,12 @@ import {
   clearSeenTourVersion,
   loadSeenTourVersion,
   saveSeenTourVersion,
+  screenCopy,
+  STAGE_LABEL,
   tourIsDue,
+  tourStages,
   WELCOME_TOUR_VERSION,
+  type Stage,
 } from "@/lib/welcome-tour";
 
 describe("tourIsDue", () => {
@@ -82,5 +86,83 @@ describe("the browser's copy", () => {
     saveSeenTourVersion(WELCOME_TOUR_VERSION);
     clearSeenTourVersion();
     expect(tourIsDue(loadSeenTourVersion())).toBe(true);
+  });
+});
+
+/*
+  Which screens a reader gets.
+
+  The distinction this is protecting is the one the whole rewrite turns on:
+  holdings decide what is *in* the walkthrough, and never whether it is shown.
+  Wiring them back to the second question would silently restore the old
+  behaviour, where the only people who ever got told what the app is were the
+  ones with nothing in it.
+*/
+describe("tourStages", () => {
+  const both = { hasHoldings: false, classroomOnly: false };
+
+  it("asks an empty portfolio for holdings", () => {
+    expect(tourStages(both)).toContain("holdings");
+  });
+
+  it("does not ask somebody who already owns things to type them in again", () => {
+    expect(tourStages({ ...both, hasHoldings: true })).not.toContain("holdings");
+  });
+
+  it("does not ask a paper-class account either — the teacher provisions it", () => {
+    expect(tourStages({ ...both, classroomOnly: true })).not.toContain("holdings");
+  });
+
+  it("still explains the whole app to every one of them", () => {
+    const telling: Stage[] = ["what", "map", "helps", "rules"];
+    for (const input of [
+      both,
+      { ...both, hasHoldings: true },
+      { ...both, classroomOnly: true },
+    ]) {
+      const stages = tourStages(input);
+      for (const stage of telling) expect(stages, JSON.stringify(input)).toContain(stage);
+      // Explaining comes before asking, on every variant.
+      expect(stages.indexOf("rules")).toBeLessThan(stages.indexOf("q1"));
+      expect(stages.at(-1)).toBe("done");
+    }
+  });
+});
+
+describe("screenCopy", () => {
+  const stages = tourStages({ hasHoldings: false, classroomOnly: false });
+
+  it("has a heading and a sentence for every screen that can appear", () => {
+    for (const stage of stages) {
+      const copy = screenCopy(stage, null);
+      expect(copy.title, stage).toBeTruthy();
+      expect(copy.lede, stage).toBeTruthy();
+    }
+  });
+
+  it("has a short step label for every screen", () => {
+    for (const stage of stages) {
+      expect(STAGE_LABEL[stage], stage).toBeTruthy();
+      expect(STAGE_LABEL[stage].length, stage).toBeLessThanOrEqual(16);
+    }
+  });
+
+  it("names the product on the first screen rather than spelling it out", () => {
+    expect(screenCopy("what", null).title).toContain("Upside Lab");
+  });
+
+  it("only claims a view once a tier has actually been settled", () => {
+    expect(screenCopy("done", null).title).not.toContain("Showing you");
+    expect(screenCopy("done", "Comfortable investor").title).toContain(
+      "Comfortable investor"
+    );
+  });
+
+  it("says portfolio, never sheet or book", () => {
+    const everything = stages
+      .flatMap((s) => [screenCopy(s, null).title, screenCopy(s, null).lede])
+      .join(" ")
+      .toLowerCase();
+    expect(everything).not.toMatch(/\byour book\b|\bthe book\b|\bsheet\b/);
   });
 });

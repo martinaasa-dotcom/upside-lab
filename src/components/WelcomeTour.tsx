@@ -51,13 +51,20 @@ import { roundMoney, roundShares } from "@/lib/money";
 import { blockWheelChange, parseDecimal } from "@/lib/number-input";
 import { postJsonOrQueue } from "@/lib/offline/queued-fetch";
 import { FALLBACK_POPULAR_TICKERS } from "@/lib/popular-tickers";
-import { FIRST_SHEET_NAME, PRODUCT_NAME } from "@/lib/product";
+import { FIRST_SHEET_NAME } from "@/lib/product";
 import {
   isPlausibleTicker,
   normalizeYahooTicker,
 } from "@/lib/ticker";
 import { useTickerSearch } from "@/lib/use-ticker-search";
-import { WELCOME_TOUR_VERSION } from "@/lib/welcome-tour";
+import {
+  HEADING_ID,
+  screenCopy,
+  STAGE_LABEL,
+  tourStages,
+  WELCOME_TOUR_VERSION,
+  type Stage,
+} from "@/lib/welcome-tour";
 import {
   addWatchlistTicker,
   loadWatchlist,
@@ -75,7 +82,6 @@ import {
   Lock,
   Mail,
   MessageCircle,
-  Plus,
   ShieldCheck,
   Sparkles,
   TrendingUp,
@@ -140,32 +146,6 @@ type Props = {
 
 type Q1Answer = "new" | "comfortable" | "active";
 type Q2Answer = "never" | "know" | "regularly";
-
-type Stage =
-  | "what"
-  | "map"
-  | "helps"
-  | "rules"
-  | "q1"
-  | "q2"
-  | "holdings"
-  | "watchlist"
-  | "email"
-  | "done";
-
-/** The dot label under the progress bar. Short: it shares a line with a count. */
-const STAGE_LABEL: Record<Stage, string> = {
-  what: "What this is",
-  map: "Where things are",
-  helps: "What it does",
-  rules: "Ground rules",
-  q1: "About you",
-  q2: "Options",
-  holdings: "What you own",
-  watchlist: "Watching",
-  email: "Sunday email",
-  done: "Done",
-};
 
 const Q1_OPTIONS: {
   id: Q1Answer;
@@ -253,7 +233,7 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <li className={cn(CARD, "flex items-start gap-3 p-3.5")}>
+    <li className={cn(CARD, "flex items-start gap-3 p-4")}>
       {Icon ? (
         <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
       ) : null}
@@ -281,21 +261,10 @@ export function WelcomeTour({
     holdings is not asked to type them in. A paper-class account is not asked
     either — their portfolio comes from the teacher.
   */
-  const stages = useMemo<Stage[]>(() => {
-    const askForHoldings = !hasHoldings && !classroomOnly;
-    return [
-      "what",
-      "map",
-      "helps",
-      "rules",
-      "q1",
-      "q2",
-      ...(askForHoldings ? (["holdings"] as Stage[]) : []),
-      "watchlist",
-      "email",
-      "done",
-    ];
-  }, [hasHoldings, classroomOnly]);
+  const stages = useMemo<Stage[]>(
+    () => tourStages({ hasHoldings, classroomOnly }),
+    [hasHoldings, classroomOnly]
+  );
 
   const [index, setIndex] = useState(0);
   const stage = stages[Math.min(index, stages.length - 1)]!;
@@ -304,12 +273,19 @@ export function WelcomeTour({
   const [q1, setQ1] = useState<Q1Answer | null>(
     initialTier ? TIER_Q1[initialTier] : null
   );
+  /*
+    Only the answer we can actually reconstruct.
+
+    Q2 has three options and `knows_options` is a boolean, so "no, not
+    familiar" and "I understand them but rarely use them" both store `false`
+    and are indistinguishable coming back. Guessing between them would show
+    somebody a wrong statement about themselves on a screen whose whole
+    subject is them, which is worse than one extra tap. `true` is
+    unambiguous — only "yes, regularly" produces it — so that one is
+    pre-filled.
+  */
   const [q2, setQ2] = useState<Q2Answer | null>(
-    initialKnowsOptions === true
-      ? "regularly"
-      : initialKnowsOptions === false
-        ? "never"
-        : null
+    initialKnowsOptions === true ? "regularly" : null
   );
   const [noteSunday, setNoteSunday] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -603,8 +579,9 @@ export function WelcomeTour({
   }
 
   const tierLabel = finished
-    ? EXPERIENCE_TIERS.find((t) => t.id === finished.tier)?.label
+    ? (EXPERIENCE_TIERS.find((t) => t.id === finished.tier)?.label ?? null)
     : null;
+  const copy = screenCopy(stage, tierLabel);
   const buyCode = ticker.trim()
     ? listingCurrency(
         looksLikeTickerQuery(ticker)
@@ -622,20 +599,19 @@ export function WelcomeTour({
   */
   const nextDisabled =
     (stage === "q1" && !q1) || (stage === "q2" && !q2) || saving;
+  /*
+    "Next" on every screen but the last two, including the two that ask for
+    something.
+
+    It used to say "Skip for now" when the holdings and watchlist steps were
+    empty, which put "Skip for now" directly beside "Skip the tour" in the
+    same footer — two skips, a word apart, meaning entirely different things
+    (this step, or the whole walkthrough). Both ledes already say the step is
+    optional, so the button does not need to say it too, and the word "skip"
+    now means exactly one thing anywhere on screen.
+  */
   const nextLabel =
-    stage === "email"
-      ? saving
-        ? "Saving…"
-        : "Finish"
-      : stage === "holdings"
-        ? added.length
-          ? "Continue"
-          : "Skip for now"
-        : stage === "watchlist"
-          ? watching.length
-            ? "Continue"
-            : "Skip for now"
-          : "Next";
+    stage === "email" ? (saving ? "Saving…" : "Finish") : "Next";
 
   function onNext() {
     if (stage === "email") {
@@ -649,9 +625,26 @@ export function WelcomeTour({
   return (
     <ViewportOverlay
       className="z-[200] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-      ariaLabelledBy="welcome-tour-title"
+      ariaLabelledBy={HEADING_ID}
+      /*
+        Escape leaves, and leaving is the same as finishing: whatever was
+        answered is kept and the walkthrough does not come back. The overlay
+        is also what traps Tab, so the ring cannot wander onto the page
+        underneath while this is open.
+
+        Unless a ticker suggestion list is open, in which case Escape means
+        the list. Somebody half way through typing "Apple" who wants the
+        dropdown gone should not lose the walkthrough for it.
+      */
+      onClose={() => {
+        if (listOpen) {
+          setListOpen(false);
+          return;
+        }
+        void skipOut();
+      }}
     >
-      <div className="glass-overlay flex max-h-[min(100%,44rem)] w-full max-w-md flex-col overflow-hidden rounded-xl p-5 ring-1 ring-foreground/20 sm:max-w-lg sm:p-6">
+      <div className="glass-overlay flex max-h-[min(100%,44rem)] w-full max-w-md flex-col overflow-hidden rounded-xl p-4 ring-1 ring-foreground/20 sm:max-w-2xl sm:p-6">
         {/* Progress. Segments rather than labels: ten labels do not fit a phone. */}
         <div className="mb-5 shrink-0">
           <div className="flex gap-1" aria-hidden>
@@ -670,24 +663,36 @@ export function WelcomeTour({
           </p>
         </div>
 
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+        {/*
+          The one scroller, with the progress pinned above it and the footer
+          pinned below. A screen can be long — the map names six rooms — and
+          the way forward is still on screen at every width, which on a short
+          phone is the whole difference between a walkthrough and a trap.
+        */}
+        <div
+          ref={scrollRef}
+          className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
+        >
+          <div className="flex flex-col gap-2">
+            {stage === "done" && (
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-foreground">
+                <Check className="h-5 w-5" aria-hidden />
+              </div>
+            )}
+            <h2
+              id={HEADING_ID}
+              className="text-lg font-semibold text-foreground"
+            >
+              {copy.title}
+            </h2>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {copy.lede}
+            </p>
+          </div>
+
           {stage === "what" && (
             <div className="flex flex-col gap-4">
-              <div>
-                <h2
-                  id="welcome-tour-title"
-                  className="text-lg font-semibold text-foreground"
-                >
-                  This is {PRODUCT_NAME}
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  You tell it what you already own — the ticker, how many
-                  shares, what you paid. From then on it prices everything for
-                  you and tries to answer one question: is the reason you
-                  bought this still true?
-                </p>
-              </div>
-              <ul className="flex flex-col gap-2">
+              <ul className="grid gap-2 sm:grid-cols-2">
                 <Row icon={Wallet} term="It is not a brokerage">
                   Nothing here can buy or sell anything, and it is not
                   connected to any account you hold. Typing a holding in is
@@ -711,18 +716,7 @@ export function WelcomeTour({
 
           {stage === "map" && (
             <div className="flex flex-col gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">
-                  Where everything is
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  The bar along the bottom of the screen is the whole
-                  navigation. Your own portfolios sit in it too, one cell each,
-                  and the <Plus className="inline h-3.5 w-3.5 align-[-2px]" />{" "}
-                  cell makes a new one.
-                </p>
-              </div>
-              <ul className="flex flex-col gap-2">
+              <ul className="grid gap-2 sm:grid-cols-2">
                 <Row icon={LayoutDashboard} term="Home">
                   Today&apos;s briefing, every portfolio you own, and one row
                   per holding — what it cost, what it is worth, what it did
@@ -756,16 +750,7 @@ export function WelcomeTour({
 
           {stage === "helps" && (
             <div className="flex flex-col gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">
-                  The parts that do the thinking
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Three of them, and all three are about the names you already
-                  hold. None of them will ever tell you to buy something.
-                </p>
-              </div>
-              <ul className="flex flex-col gap-2">
+              <ul className="grid gap-2 sm:grid-cols-2">
                 <Row icon={MessageCircle} term="Margus">
                   An assistant that can read your portfolio and talk it through
                   in plain language. Ask why something moved, what a number
@@ -791,15 +776,7 @@ export function WelcomeTour({
 
           {stage === "rules" && (
             <div className="flex flex-col gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">
-                  Ground rules
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Four things worth knowing before you put anything in.
-                </p>
-              </div>
-              <ul className="flex flex-col gap-2">
+              <ul className="grid gap-2 sm:grid-cols-2">
                 <Row icon={Lock} term="Nothing is shared by default">
                   A portfolio is yours. A circle is opt-in and invite-only, and
                   you are never added to one by signing in. You can invite a
@@ -823,16 +800,6 @@ export function WelcomeTour({
 
           {stage === "q1" && (
             <div className="flex flex-col gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">
-                  How would you describe yourself?
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  This only changes how much is shown at once. Nothing is
-                  locked away, and you can change it whenever you like in
-                  Account.
-                </p>
-              </div>
               {Q1_OPTIONS.map((opt) => {
                 const Icon = opt.icon;
                 const on = q1 === opt.id;
@@ -844,7 +811,7 @@ export function WelcomeTour({
                     aria-pressed={on}
                     className={cn(
                       CARD,
-                      "flex w-full items-start gap-3 p-3.5 text-left transition hover:bg-hover",
+                      "flex w-full items-start gap-3 p-4 text-left transition hover:bg-hover",
                       on && "ring-1 ring-primary/40"
                     )}
                   >
@@ -877,16 +844,6 @@ export function WelcomeTour({
 
           {stage === "q2" && (
             <div className="flex flex-col gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">
-                  Have you used covered calls or other options?
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  A separate question from the last one — plenty of very
-                  experienced investors have never touched an option. Also
-                  changeable in Account.
-                </p>
-              </div>
               {Q2_OPTIONS.map((opt) => {
                 const on = q2 === opt.id;
                 return (
@@ -897,7 +854,7 @@ export function WelcomeTour({
                     aria-pressed={on}
                     className={cn(
                       CARD,
-                      "flex w-full items-start gap-3 p-3.5 text-left transition hover:bg-hover",
+                      "flex w-full items-start gap-3 p-4 text-left transition hover:bg-hover",
                       on && "ring-1 ring-primary/40"
                     )}
                   >
@@ -922,18 +879,20 @@ export function WelcomeTour({
           )}
 
           {stage === "holdings" && (
-            <div className="flex flex-col gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">
-                  Add what you own
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  The ticker, how many shares, and roughly what you paid. One
-                  is enough to make Home worth opening. If you have a lot of
-                  them, skip this — Home has a CSV import that takes the whole
-                  lot at once.
-                </p>
-              </div>
+            /*
+              A real form, so Enter in any of the three fields adds the
+              holding. It was three loose inputs and a button, which on a
+              phone means typing a price, dismissing the keyboard, and hunting
+              for a button — and on a desktop means Enter doing nothing at all
+              on a screen made of exactly the kind of fields Enter submits.
+            */
+            <form
+              className="flex flex-col gap-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void addHolding();
+              }}
+            >
               {added.length > 0 && (
                 <ItemGroup className="gap-0 has-data-[size=sm]:gap-0">
                   {added.map((row) => (
@@ -1053,29 +1012,18 @@ export function WelcomeTour({
                 <p className="text-sm text-destructive">{stockError}</p>
               )}
               <Button
-                type="button"
+                type="submit"
                 variant="outline"
                 className="w-full"
                 disabled={stockBusy}
-                onClick={() => void addHolding()}
               >
                 {stockBusy ? "Saving…" : added.length ? "Add another" : "Add holding"}
               </Button>
-            </div>
+            </form>
           )}
 
           {stage === "watchlist" && (
             <div className="flex flex-col gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">
-                  Names you are watching
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Ones you do not own but are curious about. Pulse keeps an eye
-                  on them too, and the Sunday email can bring them up. Skip if
-                  you have none in mind.
-                </p>
-              </div>
               <div className="flex flex-wrap gap-2">
                 {popular.map((t) => {
                   const on = watching.includes(t);
@@ -1133,17 +1081,6 @@ export function WelcomeTour({
 
           {stage === "email" && (
             <div className="flex flex-col gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">
-                  Want the Sunday email?
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  One email a week and nothing else — there is no daily note,
-                  no alert, and no &ldquo;come back&rdquo;. It starts once
-                  there are names in a portfolio, and it is one switch in
-                  Account either way.
-                </p>
-              </div>
               <FieldGroup>
                 <Field orientation="horizontal">
                   <Checkbox
@@ -1167,26 +1104,19 @@ export function WelcomeTour({
 
           {stage === "done" && (
             <div className="flex flex-col gap-4">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-foreground">
-                <Check className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">
-                  That is the whole app
-                  {tierLabel ? `. Showing you the ${tierLabel} view` : ""}
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Home is where you land. The bar along the bottom is
-                  everything else, and Account holds every switch this
-                  walkthrough set.
-                </p>
-              </div>
-              <ul className="flex flex-col gap-2">
-                <Row icon={LayoutDashboard} term="If you skipped the holdings">
-                  Home has <strong className="text-foreground">Add holding</strong>{" "}
-                  and a CSV import. Nothing else in the app has much to say
-                  until something is in there.
-                </Row>
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {/*
+                  Only for somebody who still has an empty portfolio. Telling a
+                  reader who just typed three holdings in where to add holdings
+                  is the app not having looked at them.
+                */}
+                {!hasHoldings && added.length === 0 && (
+                  <Row icon={LayoutDashboard} term="Nothing in there yet">
+                    Home has <strong className="text-foreground">Add holding</strong>{" "}
+                    and a CSV import. Not much else in the app has anything to
+                    say until something is in there.
+                  </Row>
+                )}
                 <Row icon={MessageCircle} term="If you get stuck">
                   Ask Margus. It knows what is in your portfolio and answers in
                   plain language.
@@ -1204,11 +1134,19 @@ export function WelcomeTour({
           One footer, the same on every screen.
 
           Back on the left where it is ignorable, the way forward on the right
-          where the thumb is, and the escape hatch as the quietest thing on
-          the row rather than a thing to hunt for. Nothing here moves between
-          steps except the words.
+          where the thumb is, and the way out in between as the quietest thing
+          on the row. Nothing here moves between steps except the words.
+
+          The way out is on every screen rather than only the first. It used
+          to be the left-hand button, which Back replaced from step two
+          onwards — so from the second screen on, the only exits were Escape
+          and finishing, and a phone has no Escape. A walkthrough with no door
+          after the first room is a wall.
+
+          `flex-wrap` with `ms-auto` on the link so a 320px phone drops it to
+          its own line rather than squeezing the two buttons.
         */}
-        <div className="mt-5 flex shrink-0 items-center justify-between gap-3 border-t border-border pt-4">
+        <div className="mt-5 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-border pt-4">
           {index > 0 ? (
             <Button
               type="button"
@@ -1218,16 +1156,23 @@ export function WelcomeTour({
             >
               Back
             </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => void skipOut()}
-              disabled={saving}
-            >
-              Skip the tour
-            </Button>
-          )}
+          ) : null}
+
+          {/*
+            A `Button`, not a bare `<button>` with link styling. The touch
+            target rule in globals.css keys off `data-slot="button"`, so a
+            hand-rolled one is a 20px tap target on the phone where it matters
+            most — and this is the only way out of the walkthrough.
+          */}
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => void skipOut()}
+            disabled={saving}
+            className="ms-auto font-normal text-muted-foreground"
+          >
+            Skip the tour
+          </Button>
 
           {stage === "done" ? (
             <Button
