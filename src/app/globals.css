@@ -1268,13 +1268,182 @@ button:disabled,
   animation: signin-live-pulse 2.2s ease-out infinite;
 }
 
+/*
+ * Sections of the signed-out page arriving as they are scrolled to.
+ *
+ * A transition rather than an animation, because the state is driven by an
+ * IntersectionObserver in `Reveal` and a class swap on an element that is
+ * already in the document. `signin-rise` above is the hero's one-shot on
+ * mount and stays an animation.
+ *
+ * The attribute is only ever written by script, so an element that has not
+ * been marked has no `data-reveal` at all and is simply visible. That is
+ * the safe direction to fail in: nothing can leave the page permanently
+ * blank because an observer never fired.
+ */
+/*
+ * The signed-out page's light, which travels with the page instead of with
+ * the window.
+ *
+ * `.page-frame::before` is `position: fixed`, and on every signed-in room
+ * that is right: the lobes are the room's lamps, they stay where the lamps
+ * are, and a room is about one viewport of content anyway. On a landing
+ * page four screens tall it is the wrong model. The field is pinned to the
+ * glass, so scrolling moves the content past a background that never
+ * changes, and the warm corner you arrived on is the same warm corner four
+ * screens later. What reads is not "a lit room" but "a colour that stopped".
+ *
+ * So the landing page swaps the fixed pair for one field as tall as the
+ * document, with lobes spaced down it, alternating warm and cool. Sizes
+ * stay in `vh` so a lobe is always about a screen tall; positions are in
+ * `%` of the element, which is now the whole page, so the lobes land at
+ * roughly one per section and scrolling actually passes through them.
+ *
+ * Total light is held near the fixed field's: peaks are a touch lower
+ * because there are five lobes rather than two and they overlap. The rule
+ * from DESIGN_TOKENS.md still governs. Judge this on the page middle and
+ * on how black the black between lobes stays, never on how much of the
+ * field is lit. Brightening is the easy mistake and it costs the true black
+ * the whole product is built on.
+ */
+.landing-field::before {
+  /* Kills the inherited fixed pair. The flowing field is on ::after. */
+  display: none;
+}
+.landing-field::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(
+      120vw 62vh at -10% 1%,
+      oklch(from var(--primary) l c h / 26%) 0%,
+      oklch(from var(--primary) l c h / 12%) 24%,
+      oklch(from var(--primary) l c h / 4.5%) 48%,
+      oklch(from var(--primary) l c h / 1.4%) 70%,
+      transparent 100%
+    ),
+    radial-gradient(
+      118vw 55vh at 112% 21%,
+      oklch(from var(--ambient-cool) l c h / 25%) 0%,
+      oklch(from var(--ambient-cool) l c h / 11.5%) 24%,
+      oklch(from var(--ambient-cool) l c h / 4.3%) 48%,
+      oklch(from var(--ambient-cool) l c h / 1.3%) 70%,
+      transparent 100%
+    ),
+    radial-gradient(
+      112vw 52vh at -8% 45%,
+      oklch(from var(--primary) l c h / 19%) 0%,
+      oklch(from var(--primary) l c h / 8.5%) 24%,
+      oklch(from var(--primary) l c h / 3.2%) 48%,
+      transparent 100%
+    ),
+    radial-gradient(
+      118vw 55vh at 110% 69%,
+      oklch(from var(--ambient-cool) l c h / 23%) 0%,
+      oklch(from var(--ambient-cool) l c h / 10.5%) 24%,
+      oklch(from var(--ambient-cool) l c h / 3.9%) 48%,
+      transparent 100%
+    ),
+    radial-gradient(
+      130vw 58vh at 45% 101%,
+      oklch(from var(--primary) l c h / 21%) 0%,
+      oklch(from var(--primary) l c h / 9.5%) 24%,
+      oklch(from var(--primary) l c h / 3.4%) 48%,
+      transparent 100%
+    );
+}
+
+/*
+ * Same trade the phone chrome makes: reach in, peak up. Two lobes at
+ * desktop proportions on a 390px screen wash the whole column and cancel
+ * each other, so the lobes narrow and brighten to stay readable as
+ * corners. See the note on `.page-frame::before`.
+ */
+@media (max-width: 767px) {
+  .landing-field::after {
+    background-image:
+      radial-gradient(
+        125vw 42vh at -12% 1%,
+        oklch(from var(--primary) l c h / 52%) 0%,
+        oklch(from var(--primary) l c h / 24%) 24%,
+        oklch(from var(--primary) l c h / 8%) 48%,
+        transparent 100%
+      ),
+      radial-gradient(
+        125vw 38vh at 114% 20%,
+        oklch(from var(--ambient-cool) l c h / 48%) 0%,
+        oklch(from var(--ambient-cool) l c h / 22%) 24%,
+        oklch(from var(--ambient-cool) l c h / 7.5%) 48%,
+        transparent 100%
+      ),
+      radial-gradient(
+        120vw 36vh at -10% 45%,
+        oklch(from var(--primary) l c h / 36%) 0%,
+        oklch(from var(--primary) l c h / 16%) 24%,
+        transparent 100%
+      ),
+      radial-gradient(
+        125vw 38vh at 112% 70%,
+        oklch(from var(--ambient-cool) l c h / 44%) 0%,
+        oklch(from var(--ambient-cool) l c h / 20%) 24%,
+        transparent 100%
+      ),
+      radial-gradient(
+        135vw 40vh at 45% 101%,
+        oklch(from var(--primary) l c h / 40%) 0%,
+        oklch(from var(--primary) l c h / 18%) 24%,
+        transparent 100%
+      );
+  }
+}
+
+/* The scroll cue under the hero. A hint that the page continues. */
+@keyframes landing-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+.landing-nudge {
+  animation: landing-nudge 2.4s ease-in-out infinite;
+}
+
+[data-reveal] {
+  transition:
+    opacity 0.7s ease-out,
+    transform 0.7s ease-out;
+}
+[data-reveal="out"] {
+  opacity: 0;
+  transform: translateY(18px);
+}
+[data-reveal="in"] {
+  opacity: 1;
+  transform: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .signin-rise-1,
   .signin-rise-2,
   .signin-rise-3,
   .signin-rise-4,
-  .signin-live-dot {
+  .signin-live-dot,
+  .landing-nudge {
     animation: none;
+  }
+  /* Show it where it is. No fade, no travel. */
+  [data-reveal] {
+    transition: none;
+  }
+  [data-reveal="out"] {
+    opacity: 1;
+    transform: none;
   }
 }
 

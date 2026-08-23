@@ -3,7 +3,13 @@
 import { useAuth } from "@/components/AuthProvider";
 import { DashboardLoading } from "@/components/DashboardLoading";
 import { UpsideLogo } from "@/components/UpsideLogo";
-import { InsightText, MicroLabel, Panel, Pill, Reading } from "@/components/ui/Panel";
+import {
+  InsightText,
+  MicroLabel,
+  Panel,
+  Pill,
+  Reading,
+} from "@/components/ui/Panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +28,7 @@ import {
   SIGNIN_POINTS,
   SIGNIN_WHO,
 } from "@/lib/product";
+import { SignedOutLanding } from "@/components/SignedOutLanding";
 import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
 import { supabaseIsConfigured } from "@/lib/supabase/env";
 import { useLoadingMessage } from "@/lib/use-loading-message";
@@ -143,7 +150,34 @@ export function SignInGate({ children }: Props) {
      * glow improved `.page-frame::before`, and this screen was not using
      * it. Nothing here should hand-roll ambient light again.
      */
-    <div className={cn(PAGE_FRAME_CLASS, "overflow-x-clip overflow-y-auto")}>
+    <div
+      className={cn(
+        PAGE_FRAME_CLASS,
+        // The page-length flowing field, but only for the landing. An
+        // invite is one screen, and there the fixed corner lobes are right.
+        !invite && "landing-field",
+        "overflow-x-clip overflow-y-auto"
+      )}
+    >
+      {!invite ? (
+        <SignedOutLanding
+          busy={busy}
+          err={err}
+          minAge={minAge}
+          onSignIn={() => void onSignIn()}
+          notice={
+            deletedNotice ? (
+              <Alert className="signin-rise-2 mt-8 max-w-md">
+                <AlertDescription>
+                  {deletedNotice === "full"
+                    ? "Account deleted. Your data and sign-in are both gone."
+                    : `Your ${PRODUCT_NAME} data has been deleted. Signing in again starts a brand-new account.`}
+                </AlertDescription>
+              </Alert>
+            ) : undefined
+          }
+        />
+      ) : (
       <main
         id="main"
         className="relative z-10 mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col justify-start px-6 py-[max(2.5rem,env(safe-area-inset-top))] pb-[max(3.5rem,env(safe-area-inset-bottom))] md:justify-center"
@@ -261,12 +295,31 @@ export function SignInGate({ children }: Props) {
 
           <BookStill />
         </div>
+
+        {/*
+          * Everything below the hero exists for one reader: somebody who
+          * followed a link, has never heard of this, and is deciding whether
+          * to hand over what they own.
+          *
+          * The hero answers "what is it" and stops. That was the whole page,
+          * so a stranger judged the product on two of the eight things it
+          * does, with no answer to what it costs or what happens to their
+          * holdings. Those are the next two questions in that order, every
+          * time, and leaving them unanswered reads as something being kept
+          * back rather than as brevity.
+          *
+          * An invite skips all of it. Somebody arriving on a named invite
+          * already knows why they are here, and the hero swaps to that
+          * story; a product tour underneath would talk over it.
+          */}
       </main>
+      )}
     </div>
   );
 }
 
 const SIGNIN_POINT_ICONS = [BellRing, MessageCircle] as const;
+
 
 const SAMPLE_MOVERS = [
   { ticker: "RKLB", pct: "+6.8%", dollar: "+$3,640", up: true },

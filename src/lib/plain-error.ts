@@ -16,6 +16,18 @@ const KNOWN: Record<string, string> = {
   "Keep it to 20 emails on one invite.":
     "Keep it to 20 emails on one invite.",
   "Invite code required": "Paste an invite code first.",
+  /*
+    What every API route returns once a session has quietly lapsed. It used
+    to reach the reader verbatim: the Fund room rendered it as six red words
+    on an otherwise black page, which reads as a crash rather than as the
+    one problem in the app a person can fix in a single click. The rule two
+    lines down catches anything else ending in "required"; this one is
+    spelled out because "sign in again" is a genuinely useful instruction
+    and the generic fallback would throw it away.
+  */
+  "Sign in required": "You're signed out. Sign in again to see this.",
+  "Sign in required to load your portfolio":
+    "You're signed out. Sign in again to see your portfolio.",
   "snapshotId required": "Pick a save first.",
   "snapshotId and portfolioId required": "Pick a save and a portfolio first.",
   "This save has none of your portfolios.":
@@ -157,7 +169,16 @@ export function plainError(raw: unknown, fallback: string): string {
     return "Couldn't save your Lab notes. They're still on this device.";
   }
   // Bare developer keys: portfolio_id required, foo_bar, HTTP 500 text.
+  //
+  // The second rule is the general form of the first. "X required" is how a
+  // route names a missing argument to another programmer, and the shape is
+  // never a sentence a person should read — but the original pattern only
+  // matched a single snake_case token, so anything with a space in it
+  // ("Sign in required", "userId and decision required") walked straight
+  // through to the reader. Whatever genuinely deserves its own wording is
+  // mapped in KNOWN above and has already returned by this point.
   if (/^[a-z][a-z0-9_]* required$/i.test(s)) return fallback;
+  if (/\brequired\.?$/i.test(s)) return fallback;
   if (/^[a-z]+_[a-z0-9_]+$/i.test(s)) return fallback;
   if (looksTechnical(s)) return fallback;
   return s;

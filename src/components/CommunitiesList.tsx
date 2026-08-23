@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Panel, PanelHeader, Segmented } from "@/components/ui/Panel";
 import {
   CLASS_TEMPLATES,
@@ -252,7 +253,21 @@ export function CommunitiesList() {
               People you invite, and public circles you can ask to join. You pick which portfolios they see. They see prices from today, not what you paid.
             </p>
           </div>
-          {error && <p className="text-sm text-loss">{error}</p>}
+          {/*
+            * A designed row rather than a loose red sentence.
+            *
+            * The circles below still render from cache when this fires, so
+            * it is a partial failure and must not take the page over the
+            * way `LoadError` does on a room with nothing else in it. What
+            * it must not stay is an unlabelled string in the loss colour
+            * floating between the heading and the first card, which reads
+            * as a stack trace that escaped.
+            */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           <Panel>
             <PanelHeader
               title="Your circles"

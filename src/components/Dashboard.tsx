@@ -2181,16 +2181,40 @@ export function Dashboard() {
     return true;
   }
 
+  /**
+   * `into` is the portfolio to write to when the caller already knows it and
+   * this render does not yet.
+   *
+   * Every write here used to read `activePortfolio` straight off the render
+   * closure and return silently when it was null. That is correct for the
+   * advisor tools, which only ever run on a portfolio the reader is looking
+   * at, and quietly wrong for the one path that matters most: the very
+   * first paste on an empty account.
+   *
+   * There, `onPasteHoldings` creates the first portfolio and then imports
+   * into it in the same tick. Creating it calls `setActiveId`, but React has
+   * not re-rendered by the time the import runs, so `activePortfolio` is
+   * still the `null` it was when the empty state was drawn. The import hit
+   * this guard and returned. The portfolio appeared, the page navigated to
+   * it, the holdings were dropped, and nothing anywhere said so: the button
+   * simply did nothing, on the first thing a new person ever asks the app to
+   * do.
+   *
+   * Passing the freshly created portfolio in removes the dependency on a
+   * render that has not happened yet. Callers that are already on a
+   * portfolio pass nothing and keep the old behaviour.
+   */
   const applyAdvisorActions = useCallback(
-    (actions: AdvisorAction[]) => {
-      if (!actions.length || !activePortfolio) return;
+    (actions: AdvisorAction[], into?: Portfolio) => {
+      const sheet = into ?? activePortfolio;
+      if (!actions.length || !sheet) return;
 
       setUndoStack((stack) =>
         pushUndoSnapshot(
           stack,
           captureSheetSnapshot({
             label: `Margus · ${actions.map((a) => a.action).slice(0, 3).join(", ")}`,
-            portfolio: activePortfolio,
+            portfolio: sheet,
             holdings,
             eoyOverrides,
           })
@@ -2200,7 +2224,7 @@ export function Dashboard() {
       const findHolding = (ticker: string, list: Holding[]) =>
         list.find(
           (h) =>
-            h.portfolio_id === activePortfolio.id &&
+            h.portfolio_id === sheet.id &&
             h.ticker.toUpperCase() === ticker.toUpperCase()
         );
 
@@ -2229,7 +2253,7 @@ export function Dashboard() {
             }
           } else if (action.action === "set_uniform_call_pct") {
             for (const h of nextHoldings.filter(
-              (x) => x.portfolio_id === activePortfolio.id
+              (x) => x.portfolio_id === sheet.id
             )) {
               store = patchHolding(store, h.id, {
                 target_call_pct: action.callPct,
@@ -2250,12 +2274,12 @@ export function Dashboard() {
               setOptions((opts) => ({ ...opts, [h.ticker]: null }));
             }
           } else if (action.action === "set_cash") {
-            store = updateCash(store, activePortfolio.id, action.cash);
+            store = updateCash(store, sheet.id, action.cash);
           } else if (action.action === "add_holding") {
             const existing = findHolding(action.ticker, nextHoldings);
             store = upsertHolding(store, {
               id: existing?.id,
-              portfolio_id: activePortfolio.id,
+              portfolio_id: sheet.id,
               ticker: action.ticker,
               shares: action.shares,
               buy_price: action.buyPrice,
@@ -2265,17 +2289,17 @@ export function Dashboard() {
               sort_order:
                 existing?.sort_order ??
                 nextHoldings.filter(
-                  (h) => h.portfolio_id === activePortfolio.id
+                  (h) => h.portfolio_id === sheet.id
                 ).length + 1,
             });
             nextHoldings = store.holdings;
             void refreshMarkets(
               [action.ticker],
-              nextHoldings.filter((h) => h.portfolio_id === activePortfolio.id)
+              nextHoldings.filter((h) => h.portfolio_id === sheet.id)
             );
           } else if (action.action === "import_portfolio") {
             let sortBase = nextHoldings.filter(
-              (h) => h.portfolio_id === activePortfolio.id
+              (h) => h.portfolio_id === sheet.id
             ).length;
             const imported = new Set<string>();
             for (const row of action.holdings) {
@@ -2283,7 +2307,7 @@ export function Dashboard() {
               if (!existing) sortBase += 1;
               store = upsertHolding(store, {
                 id: existing?.id,
-                portfolio_id: activePortfolio.id,
+                portfolio_id: sheet.id,
                 ticker: row.ticker,
                 shares: row.shares,
                 buy_price: row.buyPrice,
@@ -2297,7 +2321,7 @@ export function Dashboard() {
             }
             if (action.replace !== false) {
               for (const h of nextHoldings.filter(
-                (x) => x.portfolio_id === activePortfolio.id
+                (x) => x.portfolio_id === sheet.id
               )) {
                 if (imported.has(h.ticker.toUpperCase())) continue;
                 store = deleteHolding(store, h.id);
@@ -2312,7 +2336,7 @@ export function Dashboard() {
             const tickers = action.holdings.map((h) => h.ticker);
             void refreshMarkets(
               tickers,
-              nextHoldings.filter((h) => h.portfolio_id === activePortfolio.id)
+              nextHoldings.filter((h) => h.portfolio_id === sheet.id)
             );
             setCostBasisRows(
               action.holdings.map((row) => ({
@@ -2324,7 +2348,7 @@ export function Dashboard() {
             );
             setCostBasisOpen(true);
             if (action.cash != null) {
-              store = updateCash(store, activePortfolio.id, action.cash);
+              store = updateCash(store, sheet.id, action.cash);
             }
           } else if (action.action === "remove_holding") {
             const h = findHolding(action.ticker, nextHoldings);
@@ -2389,7 +2413,7 @@ export function Dashboard() {
         const findH = (ticker: string) =>
           working.find(
             (h) =>
-              h.portfolio_id === activePortfolio.id &&
+              h.portfolio_id === sheet.id &&
               h.ticker.toUpperCase() === ticker.toUpperCase()
           );
 
@@ -2409,7 +2433,7 @@ export function Dashboard() {
           const data = (await res.json().catch(() => ({}))) as {
             cash_balance?: number | null;
           };
-          applyCashBalance(activePortfolio.id, data.cash_balance);
+          applyCashBalance(sheet.id, data.cash_balance);
           working = working.map((x) =>
             x.id === id ? ({ ...x, ...fields } as Holding) : x
           );
@@ -2448,7 +2472,7 @@ export function Dashboard() {
             }
           } else if (action.action === "set_uniform_call_pct") {
             for (const h of working.filter(
-              (x) => x.portfolio_id === activePortfolio.id
+              (x) => x.portfolio_id === sheet.id
             )) {
               setOptions((opts) => ({ ...opts, [h.ticker]: null }));
               await patchHoldingApi(h.id, { target_call_pct: action.callPct });
@@ -2457,7 +2481,7 @@ export function Dashboard() {
             const res = await apiFetch("/api/portfolios", {
               method: "PATCH",
               body: JSON.stringify({
-                id: activePortfolio.id,
+                id: sheet.id,
                 cash_balance: action.cash,
               }),
             });
@@ -2465,7 +2489,7 @@ export function Dashboard() {
             else {
               setPortfolios((prev) =>
                 prev.map((p) =>
-                  p.id === activePortfolio.id
+                  p.id === sheet.id
                     ? { ...p, cash_balance: action.cash }
                     : p
                 )
@@ -2475,13 +2499,13 @@ export function Dashboard() {
             const res = await apiFetch("/api/holdings", {
               method: "POST",
               body: JSON.stringify({
-                portfolio_id: activePortfolio.id,
+                portfolio_id: sheet.id,
                 ticker: action.ticker,
                 shares: action.shares,
                 buy_price: action.buyPrice,
                 target_call_pct: action.callPct,
                 sort_order:
-                  working.filter((h) => h.portfolio_id === activePortfolio.id)
+                  working.filter((h) => h.portfolio_id === sheet.id)
                     .length + 1,
               }),
             });
@@ -2490,14 +2514,14 @@ export function Dashboard() {
               const data = (await res.json().catch(() => ({}))) as {
                 cash_balance?: number | null;
               };
-              applyCashBalance(activePortfolio.id, data.cash_balance);
+              applyCashBalance(sheet.id, data.cash_balance);
               await loadPortfolios({ silent: true });
             }
           } else if (action.action === "import_portfolio") {
             const res = await apiFetch("/api/holdings/import", {
               method: "POST",
               body: JSON.stringify({
-                portfolio_id: activePortfolio.id,
+                portfolio_id: sheet.id,
                 cash: action.cash ?? null,
                 replace: action.replace !== false,
                 holdings: action.holdings.map((row) => ({
@@ -2551,7 +2575,7 @@ export function Dashboard() {
               const data = (await res.json().catch(() => ({}))) as {
                 cash_balance?: number | null;
               };
-              applyCashBalance(activePortfolio.id, data.cash_balance);
+              applyCashBalance(sheet.id, data.cash_balance);
               working = working.filter((x) => x.id !== h.id);
               setHoldings((prev) => prev.filter((x) => x.id !== h.id));
             }
@@ -2650,23 +2674,31 @@ export function Dashboard() {
   );
 
   const handleCsvImport = useCallback(
-    (input: { rows: CsvHoldingRow[]; cash: number | null; replace: boolean }) => {
+    (
+      input: { rows: CsvHoldingRow[]; cash: number | null; replace: boolean },
+      // The portfolio to land in, for a caller that just created it. See the
+      // note on `applyAdvisorActions`.
+      into?: Portfolio
+    ) => {
       if (input.rows.length === 0 && input.cash == null) return;
       track("csv_import", { rows: input.rows.length, replace: input.replace });
-      applyAdvisorActions([
-        {
-          action: "import_portfolio",
-          cash: input.cash,
-          replace: input.replace,
-          holdings: input.rows.map((r) => ({
-            ticker: r.ticker,
-            shares: r.shares,
-            buyPrice: r.buyPrice,
-            callPct: r.callPct ?? STRATEGY.defaultCallPct,
-          })),
-        },
-      ]);
-      const sheetId = inviteSheet?.id ?? activePortfolio?.id;
+      applyAdvisorActions(
+        [
+          {
+            action: "import_portfolio",
+            cash: input.cash,
+            replace: input.replace,
+            holdings: input.rows.map((r) => ({
+              ticker: r.ticker,
+              shares: r.shares,
+              buyPrice: r.buyPrice,
+              callPct: r.callPct ?? STRATEGY.defaultCallPct,
+            })),
+          },
+        ],
+        into
+      );
+      const sheetId = into?.id ?? inviteSheet?.id ?? activePortfolio?.id;
       if (sheetId) markSheetImported(sheetId);
     },
     [applyAdvisorActions, inviteSheet?.id, activePortfolio?.id]
@@ -3338,8 +3370,11 @@ export function Dashboard() {
       void (async () => {
         try {
           const target = await ensureFirstSheet();
+          // `handleAddSheet` has already said why if this is undefined.
           if (!target) return;
-          handleCsvImport(input);
+          // Pass the portfolio explicitly: on a first run it was created a
+          // moment ago and this render still thinks there isn't one.
+          handleCsvImport(input, target);
           markSheetImported(target.id);
         } catch (err) {
           toast(
