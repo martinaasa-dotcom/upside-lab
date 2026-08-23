@@ -53,6 +53,12 @@ export type UserDataExport = {
    */
   portfolio_co_owners: unknown[];
   account_aliases: unknown[];
+  /**
+   * The other addresses that open this one account. The digest of a pending
+   * confirmation is deliberately not in here: it is a credential, and an
+   * export is a file people mail to themselves.
+   */
+  account_emails: unknown[];
 };
 
 const INVITE_SAFE_COLUMNS =
@@ -136,6 +142,7 @@ export function toExportCsv(payload: UserDataExport): string {
     // which button the person happened to press.
     csvSection("portfolio_co_owners", asRows(payload.portfolio_co_owners)),
     csvSection("account_aliases", asRows(payload.account_aliases)),
+    csvSection("account_emails", asRows(payload.account_emails)),
   ].join("\n\n");
 }
 
@@ -158,6 +165,7 @@ export async function collectUserExport(
     coOwnerRes,
     aliasAsAliasRes,
     aliasAsPrimaryRes,
+    accountEmailRes,
   ] = await Promise.all([
     supabase.from(PORTFELL_TABLES.profiles).select("*").eq("id", uid).maybeSingle(),
     supabase
@@ -224,6 +232,11 @@ export async function collectUserExport(
           .select("alias_email, primary_email, created_at")
           .eq("primary_email", email)
       : Promise.resolve({ data: [] as unknown[] }),
+    // Never token_hash. See the field note on the type above.
+    supabase
+      .from(PORTFELL_TABLES.accountEmails)
+      .select("id, email, verified_at, created_at")
+      .eq("user_id", uid),
   ]);
 
   let portfolios: unknown[] = [];
@@ -347,6 +360,7 @@ export async function collectUserExport(
       ...(aliasAsAliasRes.data ?? []),
       ...(aliasAsPrimaryRes.data ?? []),
     ]),
+    account_emails: accountEmailRes.data ?? [],
   };
 }
 
