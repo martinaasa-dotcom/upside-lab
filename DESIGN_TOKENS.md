@@ -423,6 +423,27 @@ muted text on glass in the hottest corner measures 8.19-8.81 across those
 sizes -- better than the 7.92 this had originally, and well clear of AAA.
 
 
+## The mark (2026-08-23)
+
+One solid gold **A** — a peak — drawn from `src/lib/brand/mark.ts` and nowhere
+else. It replaced a mosaic of ten bevelled facets, which was a late-2010s
+idiom and, more concretely, unreadable small: nine hairlines between ten
+triangles are a pixel of mud at 32px, so the favicon read as a gold smudge.
+
+The full account — geometry, the single warm ramp, the icon plate, the Apple
+rules the old icons broke, and how to regenerate every asset — is in
+[`docs/BRAND_MARK.md`](docs/BRAND_MARK.md). Two things worth knowing from
+here:
+
+- **The colour is the accent's own.** The ramp runs L 0.94 to L 0.66 at
+  `--primary`'s hue. It stops there because gold only reads as gold while it
+  is light; taken lower it lands on khaki, which is the same reason the warm
+  accent is never a dark tint (see "The warm accent cannot be a dark tint").
+- **Square icons carry no corner radius.** iOS draws its own squircle, so a
+  pre-rounded file gets rounded twice and shows a thin dark crescent inside
+  each corner. Only the shapes nothing masks — favicons, PWA `any` — keep
+  their own corners.
+
 ## Two typefaces, split by job (2026-08-21)
 
 `--font-sans`, `--font-heading` and `--font-logo` all pointed at Geist, which

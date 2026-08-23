@@ -20,7 +20,7 @@ describe("site metadata", () => {
     expect(HOME_METADATA.openGraph?.url).toBe("https://upsidelab.app");
     expect(LOGIN_METADATA.openGraph?.images).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ url: "/og.png?v=4", width: 1200, height: 630 }),
+        expect.objectContaining({ url: "/og.png?v=5", width: 1200, height: 630 }),
       ])
     );
     expect(COMMUNITIES_METADATA.robots).toMatchObject({

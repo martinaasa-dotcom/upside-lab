@@ -80,20 +80,32 @@ export const metadata: Metadata = {
     email: false,
     address: false,
   },
+  /*
+    Cache-busted on every icon change, because a favicon is one of the few
+    things a browser will hold on to past a deploy and a stale one outlives
+    the rebrand that replaced it.
+
+    The Apple entry is the 180 square and nothing else. iOS draws its own
+    squircle over whatever it is given, so the file it is given must be
+    full-bleed, opaque and not already rounded; the 192 that used to sit
+    alongside it is a PWA icon with its own rounded corners, and iOS picking
+    that one is how an icon ends up rounded twice. See docs/BRAND_MARK.md.
+  */
   icons: {
     icon: [
-      { url: "/favicon.svg?v=8", type: "image/svg+xml" },
-      { url: "/icons/icon-192.png?v=8", sizes: "192x192", type: "image/png" },
-      { url: "/favicon.ico?v=8", sizes: "16x16 32x32" },
+      { url: "/favicon.svg?v=9", type: "image/svg+xml" },
+      { url: "/icons/icon-32.png?v=9", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-48.png?v=9", sizes: "48x48", type: "image/png" },
+      { url: "/icons/icon-192.png?v=9", sizes: "192x192", type: "image/png" },
+      { url: "/favicon.ico?v=9", sizes: "16x16 32x32" },
     ],
-    shortcut: "/favicon.svg?v=8",
+    shortcut: "/favicon.svg?v=9",
     apple: [
       {
-        url: "/apple-touch-icon.png?v=8",
+        url: "/apple-touch-icon.png?v=9",
         sizes: "180x180",
         type: "image/png",
       },
-      { url: "/icons/icon-192.png?v=8", sizes: "192x192", type: "image/png" },
     ],
   },
   openGraph: {
