@@ -17,7 +17,9 @@ import {
   parseConviction,
   weeklyLetterHtml,
   weeklyLetterText,
+  weeklyNumbersAreSound,
   weeklySubject,
+  type WeeklyLetterInput,
 } from "@/lib/weekly-letter";
 import { sanitizeWatchlist } from "@/lib/lab-bundle";
 import { writeWeeklyTake } from "@/lib/weekly-margus";
@@ -529,7 +531,7 @@ export async function dispatchWeeklyLetters(
       continue;
     }
     const letterNames = new Set([...item.tickers, ...item.watchlist]);
-    const letter = buildWeeklyLetter({
+    const input: WeeklyLetterInput = {
       name: item.profile.display_name as string | null,
       cash: item.cash,
       holdings: item.holdings,
@@ -542,7 +544,27 @@ export async function dispatchWeeklyLetters(
       watchlist: item.watchlist,
       watchQuotes: pick(allQuotes, item.watchlist) ?? {},
       watchWeekReturns: pick(allWeekReturns, item.watchlist),
-    });
+    };
+
+    /*
+     * A letter states a portfolio value and a week's move as fact, in the
+     * subject line and in 38px type. If the market data behind either one
+     * came back thin, this recipient is passed over rather than mailed a
+     * confident wrong number: they keep their empty marker, so the next
+     * Sunday slot retries with fresh data.
+     */
+    const trust = weeklyNumbersAreSound(input);
+    if (!trust.ok) {
+      logEvent(
+        "sunday_letter_skipped_untrusted",
+        { reason: trust.reason },
+        "warn"
+      );
+      skipped += 1;
+      continue;
+    }
+
+    const letter = buildWeeklyLetter(input);
     letter.margus = await writeWeeklyTake(letter, {
       budgetMs: Math.min(LETTER_BUDGET_MS, left),
     });

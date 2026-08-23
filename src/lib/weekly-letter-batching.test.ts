@@ -97,7 +97,13 @@ vi.mock("@/lib/market/quotes", () => ({
 vi.mock("@/lib/market/yahoo", () => ({
   fetchWeekReturns: (t: string[]) => {
     marketCalls.push(`week:${t.join(",")}`);
-    return Promise.resolve(Object.fromEntries(t.map((x) => [x, 0.01])));
+    // The real shape: {start, end, pct}, pct a fraction. A bare number here
+    // is what `weeklyNumbersAreSound` now refuses to mail.
+    return Promise.resolve(
+      Object.fromEntries(
+        t.map((x) => [x, { start: 99, end: 100, pct: 0.0101 }])
+      )
+    );
   },
   fetchMarketEvents: (t: string[]) => {
     marketCalls.push(`events:${t.join(",")}`);

@@ -117,7 +117,10 @@ vi.mock("@/lib/market/quotes", () => ({
     }),
 }));
 vi.mock("@/lib/market/yahoo", () => ({
-  fetchWeekReturns: () => Promise.resolve({}),
+  // Real week data for the one holding, or the letter would (rightly)
+  // refuse to state a week it cannot back up.
+  fetchWeekReturns: () =>
+    Promise.resolve({ NVDA: { start: 96, end: 100, pct: 0.0417 } }),
   fetchMarketEvents: () => Promise.resolve({ earnings: [] }),
 }));
 vi.mock("@/lib/weekly-margus", () => ({

@@ -14,6 +14,7 @@ import {
   groupSuggestions,
   weeklyLetterHtml,
   weeklyLetterText,
+  weeklyNumbersAreSound,
   weeklyPreview,
   weeklySubject,
   type WeeklySuggestion,
@@ -182,5 +183,94 @@ describe("the letterhead", () => {
     expect(date).toBeGreaterThan(lockup);
     // Same hairline that separates every section below it.
     expect(html.slice(lockup, date + 400)).toContain("height:1px");
+  });
+});
+
+describe("a figure the letter cannot stand behind is not sent", () => {
+  /*
+   * The letter prints a portfolio value and a week's move as plain fact.
+   * Both used to degrade silently: a holding with no quote dropped out of
+   * the total, and `weekDollar` summed only the names that had a week
+   * return while the sentence around it still said "your week".
+   */
+  const base = {
+    name: "Martin",
+    cash: 0,
+    holdings: [
+      { ticker: "AAA", shares: 100, buy_price: 10 },
+      { ticker: "BBB", shares: 100, buy_price: 10 },
+    ],
+    quotes: { AAA: { price: 10 } as never, BBB: { price: 90 } as never },
+    conviction: {},
+    weekReturns: {
+      AAA: { start: 9, end: 10, pct: 0.111 },
+      BBB: { start: 88, end: 90, pct: 0.0227 },
+    },
+    now: NOW,
+  };
+
+  it("passes when every holding has a live price and a week move", () => {
+    expect(weeklyNumbersAreSound(base).ok).toBe(true);
+  });
+
+  it("refuses when a holding has no price at all", () => {
+    const trust = weeklyNumbersAreSound({
+      ...base,
+      quotes: { AAA: { price: 10 } as never },
+    });
+    expect(trust.ok).toBe(false);
+    expect(trust.ok === false && trust.reason).toContain("BBB");
+  });
+
+  it("refuses when most of the portfolio has no week move behind it", () => {
+    // BBB is 90% of the value and reported nothing, so "your week" would
+    // describe the other tenth.
+    const trust = weeklyNumbersAreSound({
+      ...base,
+      weekReturns: { AAA: base.weekReturns.AAA },
+    });
+    expect(trust.ok).toBe(false);
+    expect(trust.ok === false && trust.reason).toMatch(/10% of the portfolio/);
+  });
+
+  it("accepts Friday's close on a Sunday, and refuses last week's", () => {
+    const cached = (ageDays: number) =>
+      ({
+        price: 90,
+        stale: true,
+        quotedAt: NOW.getTime() - ageDays * 24 * 60 * 60 * 1000,
+      }) as never;
+    expect(
+      weeklyNumbersAreSound({
+        ...base,
+        quotes: { ...base.quotes, BBB: cached(2) },
+      }).ok
+    ).toBe(true);
+    const old = weeklyNumbersAreSound({
+      ...base,
+      quotes: { ...base.quotes, BBB: cached(9) },
+    });
+    expect(old.ok).toBe(false);
+    expect(old.ok === false && old.reason).toContain("old cached price");
+  });
+
+  it("drops one stale watchlist row rather than failing the letter", () => {
+    const r = buildWeeklyLetter({
+      ...base,
+      watchlist: ["CCC", "DDD"],
+      watchQuotes: {
+        CCC: { price: 50 } as never,
+        DDD: {
+          price: 50,
+          stale: true,
+          quotedAt: NOW.getTime() - 30 * 24 * 60 * 60 * 1000,
+        } as never,
+      },
+      watchWeekReturns: {
+        CCC: { start: 55, end: 50, pct: -0.09 },
+        DDD: { start: 55, end: 50, pct: -0.09 },
+      },
+    });
+    expect(r.watchRows.map((w) => w.ticker)).toEqual(["CCC"]);
   });
 });

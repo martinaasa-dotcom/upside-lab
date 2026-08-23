@@ -352,6 +352,13 @@ export function buildWatchRows(input: WeeklyLetterInput): WeeklyWatchRow[] {
     const q = input.watchQuotes?.[ticker];
     const price = Number(q?.price ?? 0);
     if (!(price > 0)) continue;
+    // One old price is not worth failing a whole letter over, but it is
+    // not worth printing either. The row just does not appear.
+    if (q?.stale) {
+      const quotedAt = Number(q.quotedAt ?? 0);
+      const now = (input.now ?? new Date()).getTime();
+      if (!(quotedAt > 0) || now - quotedAt > MAX_PRICE_AGE_MS) continue;
+    }
     const wr = input.watchWeekReturns?.[ticker];
     const pct = weekPctOf(wr);
     if (pct == null) continue;
@@ -403,6 +410,99 @@ function openingLine(input: {
   }
   if (bits.length === 0) return "A quiet week.";
   return `${bits.join(", and ")}.`;
+}
+
+/* ----------------------------------------------------------- truthfulness */
+
+/**
+ * How much of what someone owns must have a real week move behind it
+ * before the letter is willing to print "your week" as a fact.
+ */
+const WEEK_COVERAGE_FLOOR = 0.9;
+
+/**
+ * A cached print older than this is not this week's price.
+ *
+ * `stale` on a quote only means it came from our own cache rather than a
+ * live call, and on a Sunday morning that is usually Friday's close, which
+ * is exactly the right number. Age is what matters, not provenance: four
+ * days accepts Friday's close for a Sunday letter and rejects a print from
+ * before the week the letter is describing.
+ */
+const MAX_PRICE_AGE_MS = 4 * 24 * 60 * 60 * 1000;
+
+export type LetterTrust = { ok: true } | { ok: false; reason: string };
+
+/**
+ * Is every figure in this letter one we can stand behind?
+ *
+ * The letter states a portfolio value and a week's move as plain fact, in
+ * the subject line and in 38px type. Both are built from whatever market
+ * data came back, and both fail quietly when some of it did not:
+ *
+ *  - a holding with no quote is simply left out of the portfolio value, so
+ *    the total reads low and nothing says so;
+ *  - `weekDollar` sums only the names that have a week return, while the
+ *    sentence around it says "your week". Three names out of twelve
+ *    reporting would print a real-looking figure covering a quarter of the
+ *    portfolio.
+ *
+ * So a letter whose numbers cannot be trusted is not sent. The Sunday
+ * schedule already has two later slots, and a recipient this returns false
+ * for keeps their empty marker, so the next slot retries with fresh data
+ * and only a genuinely bad morning ends with no letter. Silence beats a
+ * confident wrong number in someone's inbox.
+ */
+export function weeklyNumbersAreSound(input: WeeklyLetterInput): LetterTrust {
+  const held = new Map<string, number>();
+  for (const h of input.holdings) {
+    const t = h.ticker.toUpperCase();
+    if (!t || !(h.shares > 0)) continue;
+    held.set(t, (held.get(t) ?? 0) + h.shares);
+  }
+  if (held.size === 0) return { ok: false, reason: "no live holdings" };
+
+  const now = (input.now ?? new Date()).getTime();
+  const unpriced: string[] = [];
+  const outdated: string[] = [];
+  let value = 0;
+  let covered = 0;
+
+  for (const [ticker, shares] of held) {
+    const quote = input.quotes[ticker];
+    const price = Number(quote?.price ?? 0);
+    if (!(price > 0)) {
+      unpriced.push(ticker);
+      continue;
+    }
+    if (quote?.stale) {
+      const quotedAt = Number(quote.quotedAt ?? 0);
+      if (!(quotedAt > 0) || now - quotedAt > MAX_PRICE_AGE_MS) {
+        outdated.push(ticker);
+        continue;
+      }
+    }
+    const positionValue = shares * price;
+    value += positionValue;
+    if (weekPctOf(input.weekReturns?.[ticker]) != null) covered += positionValue;
+  }
+
+  if (unpriced.length > 0) {
+    return { ok: false, reason: `no price for ${unpriced.join(", ")}` };
+  }
+  if (outdated.length > 0) {
+    return { ok: false, reason: `only an old cached price for ${outdated.join(", ")}` };
+  }
+  if (!(value > 0)) return { ok: false, reason: "nothing could be valued" };
+
+  const share = covered / value;
+  if (share < WEEK_COVERAGE_FLOOR) {
+    return {
+      ok: false,
+      reason: `week move covers ${Math.round(share * 100)}% of the portfolio`,
+    };
+  }
+  return { ok: true };
 }
 
 /* ----------------------------------------------------------------- build */
