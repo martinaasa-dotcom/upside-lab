@@ -331,7 +331,26 @@ export const LabSheet = memo(function LabSheet({
                 onScroll={syncTabOverflow}
                 role="tablist"
                 aria-label="Lab sections"
-                className="scrollbar-none flex min-h-[2rem] gap-1 overflow-x-auto"
+                /*
+                  The scroll edges fade the CONTENT with a mask, they do not
+                  paint a ramp over it. Two absolutely-positioned
+                  `bg-gradient-to-r from-card/85` strips used to sit on top
+                  of this row, which put a card-coloured smear on a glass
+                  surface and only matched while the surface behind it was
+                  exactly `--card`. A mask takes the tab labels to
+                  transparent instead, so the glass underneath is untouched
+                  and there is no gradient anywhere in the material.
+                */
+                className={cn(
+                  "scrollbar-none flex min-h-[2rem] gap-1 overflow-x-auto",
+                  tabOverflow.left && tabOverflow.right
+                    ? "[mask-image:linear-gradient(to_right,transparent,black_1.5rem,black_calc(100%-1.5rem),transparent)]"
+                    : tabOverflow.left
+                      ? "[mask-image:linear-gradient(to_right,transparent,black_1.5rem)]"
+                      : tabOverflow.right
+                        ? "[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]"
+                        : undefined
+                )}
               >
                 {visibleTabs.map((t) => (
                   <button
@@ -354,12 +373,6 @@ export const LabSheet = memo(function LabSheet({
                   </button>
                 ))}
               </div>
-              {tabOverflow.left && (
-                <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-card/85 to-card/0" />
-              )}
-              {tabOverflow.right && (
-                <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-card/85 to-card/0" />
-              )}
             </div>
           </div>
           {/*

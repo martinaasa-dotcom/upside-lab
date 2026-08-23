@@ -303,10 +303,6 @@ function BookStill() {
         className="signin-rise-3 h-auto gap-4 p-4 relative overflow-hidden shadow-2xl shadow-black/60 ring-1 ring-primary/15"
         aria-hidden
       >
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-24 bg-gradient-to-b from-white/[0.06] to-transparent"
-          aria-hidden
-        />
         <div className="flex items-center justify-between gap-3">
           <span className="flex items-center gap-2">
             <span className="signin-live-dot" aria-hidden />

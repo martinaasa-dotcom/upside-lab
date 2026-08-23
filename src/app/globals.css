@@ -190,19 +190,23 @@
   --glass-rim-left: oklch(1 0 0 / 19%);
   --glass-rim-right: oklch(1 0 0 / 10%);
   /*
-   * Thickness. Light entering the top of a pane and dying out downward is
-   * the gradient real glass has, and the reason a card with a bright line
-   * on top still reads as a flat rectangle is that the line has nothing
-   * under it. The reach matters as much as the strength: at 18px it died
-   * inside the padding and never touched the card's interior, so a probe
-   * measured no difference at all between the top third of a pane and the
-   * bottom third. 44px carries it into the body.
+   * There is no falloff term, and there must not be one.
+   *
+   * A pane used to carry an inset white shadow under its top edge, meant to
+   * read as light entering the glass and dying out downward. On a big panel
+   * that is what thick glass does. On everything else this app is made of,
+   * a 40px row, a chip, a score cell, it is a bright band across the top
+   * and a dark smear through the middle, and it reads as exactly what it
+   * is: a gradient painted on a box.
+   *
+   * A small piece of glass does not do that. Its body is one uniform tint
+   * the whole way through and all of the light lives at the edges, where it
+   * refracts. So the body here is a flat translucent fill and every
+   * specular term is on the rim.
+   *
+   * Do not reintroduce `--glass-depth`, an inset falloff, or a
+   * `background-image` ramp on any glass surface.
    */
-  --glass-depth: oklch(1 0 0 / 21%);
-  --glass-depth-reach: 64px;
-  /* And a little of it wrapping back up off the bottom edge. */
-  --glass-underglow: oklch(1 0 0 / 11%);
-  --glass-underglow-reach: 34px;
   /*
    * Two shadows, not one. The soft one is the cast; the tight one is
    * contact, and without it a pane hovers rather than sits.
@@ -212,8 +216,6 @@
   /* The nested well is the same material, quieter on every term. */
   --well-rim-top: oklch(0.99 0.03 85 / 28%);
   --well-rim-bottom: oklch(0.95 0.04 250 / 16%);
-  --well-depth: oklch(1 0 0 / 11%);
-  --well-depth-reach: 40px;
   --surface: var(--card);
   --panel: var(--card);
   --inset-panel: 1.5rem;
@@ -445,11 +447,14 @@ body {
    * plus the edge line and lift shadow that make it read as a distinct pane
    * rather than translucency fading into the field.
    *
+   * The body is a FLAT fill. Every specular term lives on the rim. See the
+   * note by the rim tokens for why there is no falloff.
+   *
    * The edge lives on `box-shadow`, never a real `border`: `border` is a
    * four-side shorthand, so a call site adding its own directional border
    * (PulseCard's `border-l-4`) would have it silently swallowed.
    *
-   * `.card-sheen.glass` layers all three shadows in one list, because
+   * `.card-sheen.glass` layers its shadows in one list, because
    * `box-shadow` is atomic and two classes each setting it would have the
    * later one replace the other.
    */
@@ -472,28 +477,10 @@ body {
     -webkit-backdrop-filter: blur(40px) saturate(1.9);
     backdrop-filter: blur(40px) saturate(1.9);
     box-shadow:
-      inset 0 16px 16px -16px color-mix(in oklch, white, transparent 93%),
       inset 0 0 0 1px var(--border),
       0 12px 32px -16px color-mix(in oklch, black, transparent 15%);
   }
   .card-sheen.glass {
-    /*
-     * Three specular terms, and the middle one is what makes it read as
-     * refractive rather than tinted.
-     *
-     * A hairline along the top where a pane catches the light, and a
-     * fainter one along the bottom where light wraps under it — on a
-     * near-black field the edge is what sells glass, far more than the
-     * blur does. Between them, a soft inset falloff hugging the top inside
-     * edge: light entering the top of a pane and dying out downward is the
-     * gradient real glass has, and without it a card is an evenly tinted
-     * rectangle with a bright line on top.
-     *
-     * It is an inset `box-shadow` rather than a `background-image`
-     * gradient on purpose. `.veil-hover` paints its hover into
-     * `background-image`, so a gradient there would be wiped on hover;
-     * shadows compose in one list and survive it.
-     */
     /*
      * The rim is four separate edges, and they disagree on purpose.
      *
@@ -502,28 +489,18 @@ body {
      * you where the light is. Top takes the key lobe's warmth, bottom takes
      * the counter-lobe's blue wrapping under, left is brighter than right
      * because the key light is off the top-LEFT. The neutral
-     * `inset 0 0 0 1px var(--border)` still sits underneath all four and
-     * fills the corners, where a one-sided shadow tapers out.
+     * `inset 0 0 0 1px var(--border)` sits underneath all four and fills
+     * the corners, where a one-sided shadow tapers out.
      *
-     * Then thickness, then contact. Order is load-bearing: in a box-shadow
-     * list the first entry paints on top, so the hairlines have to precede
-     * the falloff or the falloff washes over them.
-     *
-     * All of it is still `box-shadow` rather than `background-image`,
-     * because `.veil-hover` paints its hover into `background-image` and
-     * would wipe a gradient on hover. Shadows compose in one list and
-     * survive it.
+     * Then contact and cast. Nothing in this list touches the body of the
+     * pane: the body is one uniform tint, the way a small piece of glass
+     * actually is.
      */
     box-shadow:
       inset 0 1px 0 0 var(--glass-rim-top),
       inset 1px 0 0 0 var(--glass-rim-left),
       inset -1px 0 0 0 var(--glass-rim-right),
       inset 0 -1px 0 0 var(--glass-rim-bottom),
-      inset 0 var(--glass-depth-reach) var(--glass-depth-reach)
-        calc(var(--glass-depth-reach) * -1) var(--glass-depth),
-      inset 0 calc(var(--glass-underglow-reach) * -1)
-        var(--glass-underglow-reach) calc(var(--glass-underglow-reach) * -1)
-        var(--glass-underglow),
       inset 0 0 0 1px var(--border),
       0 2px 5px -3px var(--glass-contact),
       0 18px 44px -20px var(--glass-cast);
@@ -664,13 +641,6 @@ body {
    */
   .chrome-pane {
     background-color: color-mix(in oklch, var(--background), transparent 65%);
-    background-image: linear-gradient(
-      to bottom,
-      oklch(1 0 0 / 6.5%) 0%,
-      oklch(1 0 0 / 3.4%) 26%,
-      oklch(1 0 0 / 1.2%) 58%,
-      oklch(1 0 0 / 0%) 100%
-    );
     /* Prefixed first, standard last — see the note on `.glass` above. */
     -webkit-backdrop-filter: blur(40px) saturate(1.9);
     backdrop-filter: blur(40px) saturate(1.9);
@@ -697,14 +667,19 @@ body {
    * Radix and Vaul portal their content to `<body>`, so nothing here is
    * inside a clipped or transformed ancestor that would break the blur.
    */
+  /*
+   * Overlays: menus, selects, popovers, dialogs, sheets, drawers, and the
+   * welcome walkthrough. Same material as a card at a much heavier fill,
+   * because they sit OVER content and an element with `backdrop-filter`
+   * does not blur what another one painted.
+   *
+   * Flat fill, no ramp. This used to carry a top-to-bottom gradient and it
+   * is the same mistake the cards had: on a dialog it is a bright band
+   * across the top and a dark smear through the middle. The light belongs
+   * on the rim.
+   */
   .glass-overlay {
     background-color: color-mix(in oklch, var(--popover), transparent 12%);
-    background-image: linear-gradient(
-      to bottom,
-      oklch(1 0 0 / 5.5%) 0%,
-      oklch(1 0 0 / 2%) 20%,
-      oklch(1 0 0 / 0%) 48%
-    );
     /* Prefixed first, standard last — see the note on `.glass` above. */
     -webkit-backdrop-filter: blur(32px) saturate(1.8);
     backdrop-filter: blur(32px) saturate(1.8);
@@ -716,8 +691,6 @@ body {
     -webkit-backdrop-filter: blur(24px) saturate(1.7);
     backdrop-filter: blur(24px) saturate(1.7);
     box-shadow:
-      inset 0 var(--well-depth-reach) var(--well-depth-reach)
-        calc(var(--well-depth-reach) * -1) var(--well-depth),
       inset 0 0 0 1px color-mix(in oklch, var(--border), transparent 35%);
   }
   /*
@@ -730,8 +703,6 @@ body {
     box-shadow:
       inset 0 1px 0 0 var(--well-rim-top),
       inset 0 -1px 0 0 var(--well-rim-bottom),
-      inset 0 var(--well-depth-reach) var(--well-depth-reach)
-        calc(var(--well-depth-reach) * -1) var(--well-depth),
       inset 0 0 0 1px color-mix(in oklch, var(--border), transparent 35%);
   }
 
@@ -778,10 +749,8 @@ body {
       --glass-rim-bottom: oklch(0.95 0.045 250 / 36%);
       --glass-rim-left: oklch(1 0 0 / 22%);
       --glass-rim-right: oklch(1 0 0 / 12%);
-      --glass-depth-reach: 42px;
       --well-rim-top: oklch(0.99 0.03 85 / 34%);
       --well-rim-bottom: oklch(0.95 0.04 250 / 20%);
-      --well-depth-reach: 28px;
     }
   }
 }

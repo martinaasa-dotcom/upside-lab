@@ -636,78 +636,81 @@ hidden while the dock was near-opaque. Anchor to `--dock-pad`, the live
 measured dock height — never a flat offset. The consent banner needs the
 same clearance.
 
-## The rim is not one colour (2026-08-23)
+## Glass is uniform, and its light is all on the rim (2026-08-23)
 
-The material was three specular terms and a neutral hairline. Measured on a
-probe page rendering real `BOX`/`SCORE_CELL`/`CARD` surfaces on the real
-ambient field, at 1280px and device-scale 2:
+Two passes on the same day. The first added a falloff term and made things
+worse; the second removed every gradient in the material. Both are recorded
+because the second only makes sense against the first.
 
-| | before | after |
-|---|---|---|
-| top-edge lift over card body | 112 | 152 |
-| bottom-edge lift | 68 | 98 |
-| **interior vertical gradient** | **5.6** | **11.2** |
-| card body over the field beside it | 5.6 | 9.7 |
+**Pass one** gave `.card-sheen.glass` an inset white shadow reaching 64px
+down from the top edge, to read as light entering thick glass. Measured, it
+did what it claimed: the difference between a card's top third and bottom
+third went from 0.0-2.3 levels out of 255 to 11.2.
 
-All in luminance levels out of 255, medians rather than means, because a
-strip through a headline reports the headline.
+**And it was wrong.** That is the physics of a *large* pane. Almost nothing
+in this app is one: a table row is 40px, a chip is 24px, a score cell is a
+box of one number. At that size a 64px falloff is not depth, it is a bright
+band across the top and a dark smear through the middle, and it reads as
+exactly what it is, a gradient painted on a box. A small piece of glass has
+one uniform tint the whole way through, and all of its light at the edges,
+where it refracts.
 
-The middle row is the one that mattered. A pane whose top third and bottom
-third measure **0.0 to 2.3 levels apart** is an evenly tinted rectangle with
-a bright line on top, whatever the line is doing, and that is what "it looks
-flat" was. Two things fixed it:
+So the rule is now:
 
-**The falloff has to reach.** It was `inset 0 18px 18px -18px`, which dies
-inside the panel's own padding and never touches the body. `--glass-depth-reach`
-is 64px, which carries it into the card.
+> **The body of a glass surface is a flat translucent fill. Every specular
+> term is on the rim. No gradient in the material, at any size, anywhere.**
 
-**The rim is four edges and they disagree.** A hairline that is the same
-brightness the whole way round is the one thing a real pane never is: an edge
-is what tells you where the light is. The room already has two lights, warm
-off the top-left and blue off the bottom-right. So:
+Removed: `--glass-depth`, `--glass-underglow`, `--well-depth` and their
+reach values; the older `inset 0 16px 16px -16px` on plain `.glass`; and the
+`background-image` ramps on **`.glass-overlay`** (every dialog, menu,
+popover and the welcome walkthrough) and **`.chrome-pane`** (the header
+band), both of which had the same bright-top/dark-middle problem on a
+surface a reader looks straight at.
 
-- the top edge takes the key lobe's warmth (`--glass-rim-top`, hue 85),
-- the bottom edge takes the counter-lobe's blue as light wraps under
-  (`--glass-rim-bottom`, hue 250),
-- the left side is brighter than the right, because the key light is off the
-  LEFT (`--glass-rim-left` 19%, `--glass-rim-right` 10%),
-- the neutral `inset 0 0 0 1px var(--border)` stays under all four and fills
-  the corners, where a one-sided shadow tapers out.
+Also removed from components: the `bg-gradient-to-b from-white/[0.06]`
+strip inside the sign-in card (Lab) and the hero card (Arena), and the two
+`bg-gradient-to-r from-card/85` scroll strips in `LabSheet`'s tab row. The
+last one was doubly wrong: it painted a `--card`-coloured ramp on a *glass*
+surface, so it only matched while the thing behind it was opaque. It is a
+`mask-image` on the scroller now, which fades the tab labels rather than
+painting over the material.
 
-**No new hue enters the palette.** 85 is `--primary`'s and 250 is
-`--ambient-cool`'s. The panes pick up the two lights the room already has;
-the Accent Palette ceiling is untouched. Both rim colours are
-high-lightness and low-chroma, because a warm tint only reads as warm while
-it is light: at low lightness hue 85 lands on khaki, which the accent
-section below has its own warning about. A rim is not a fill.
+### What stays, and why it is not the same thing
 
-**Order in the `box-shadow` list is load-bearing.** The first entry paints on
-top, so the four hairlines must precede the falloff or the falloff washes
-over them. It is all still `box-shadow` rather than `background-image`, for
-the same reason as before: `.veil-hover` paints its hover into
-`background-image` and would wipe a gradient.
+Light **behind** the glass is the room and it stays: the `.page-frame`
+corner lobes, and the blurred `-z-10` glow behind the sign-in and hero
+cards. Without something lit behind it, glass has nothing to refract and
+goes genuinely flat. The rule is about ramps painted **into** the material,
+not about the light the material sits in.
 
-### It is tokens now, and the phone is a lighting change
+`.veil-hover` also stays. It is a `linear-gradient` only because a
+`background-image` composites over a fill where a `background-color`
+replaces it; both of its stops are the same value, so it is a flat wash.
 
-Every number above is a custom property on `:root`. Before this the material
-was eleven inline `color-mix(...)` calls across four rules, and the
-`max-width: 767px` block **restated every `box-shadow` list in full** -- so
-the desktop rule and the phone rule were two copies that had to be kept in
-step by hand, and they had already drifted. The phone block now overrides
-the *variables* (brighter rim, because a thinner fill is a weaker edge;
-shorter reach, because a gutter-to-gutter card is short and a 64px falloff
-covers most of it and stops reading as a top edge). There is exactly one
-shadow stack per material in the file.
+### The rim itself
 
-### What was tried and not taken
+The rim is four separate edges and they disagree on purpose, because an
+edge is what tells you where the light is, and a hairline the same
+brightness the whole way round is the one thing a real pane never is. The
+room has two lights, warm off the top-left and blue off the bottom-right,
+and the panes were rendering neutral grey in the middle of it.
 
-A fourth strength (`--glass-rim-top` at 70%, depth 26% / 72px) measured
-better on every number -- top lift 176, interior gradient 12.9 -- and was
-rejected on looking at it: on the score cells the rim stops reading as light
-caught on an edge and starts reading as a drawn outline. This material is on
-every card in the app including dense ones, and the strongest setting is the
-one most likely to turn a long table into noise.
+- `--glass-rim-top` takes the key lobe's warmth (hue 85, `--primary`'s)
+- `--glass-rim-bottom` takes the counter-lobe's blue (hue 250,
+  `--ambient-cool`'s) as light wraps under
+- `--glass-rim-left` 19% against `--glass-rim-right` 10%, because the key
+  light is off the LEFT
+- the neutral `inset 0 0 0 1px var(--border)` sits under all four and fills
+  the corners, where a one-sided shadow tapers out
 
+**No new hue enters the palette**; both rim colours are high-lightness and
+low-chroma, because hue 85 at low lightness lands on khaki, which the
+accent section below has its own warning about. A rim is light, not paint.
+
+Everything is a custom property, and the `max-width: 767px` block overrides
+the **variables** rather than restating the shadow stacks. It used to
+restate them in full, which meant desktop and phone were two copies kept in
+step by hand, and they had already drifted.
 ## Glass is three specular terms, and nothing in the app is flat
 
 The edge sells glass on a near-black field, far more than the blur does —
