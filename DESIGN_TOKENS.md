@@ -425,20 +425,24 @@ sizes -- better than the 7.92 this had originally, and well clear of AAA.
 
 ## The mark (2026-08-23)
 
-One solid gold **A** — a peak — drawn from `src/lib/brand/mark.ts` and nowhere
-else. It replaced a mosaic of ten bevelled facets, which was a late-2010s
-idiom and, more concretely, unreadable small: nine hairlines between ten
-triangles are a pixel of mud at 32px, so the favicon read as a gold smudge.
+A standing gold **A**, cut into ten flat facets and lit from the upper right,
+drawn from `src/lib/brand/mark.ts` and nowhere else. The mosaic is the
+identity and stays; what this round changed is the craft around it.
 
-The full account — geometry, the single warm ramp, the icon plate, the Apple
-rules the old icons broke, and how to regenerate every asset — is in
-[`docs/BRAND_MARK.md`](docs/BRAND_MARK.md). Two things worth knowing from
-here:
+The full account — the symmetry fix, the four-step ramp, the optical-size
+rule, the icon plate, the Apple rules the old icons broke, and how to
+regenerate every asset — is in [`docs/BRAND_MARK.md`](docs/BRAND_MARK.md).
+Three things worth knowing from here:
 
-- **The colour is the accent's own.** The ramp runs L 0.94 to L 0.66 at
-  `--primary`'s hue. It stops there because gold only reads as gold while it
-  is light; taken lower it lands on khaki, which is the same reason the warm
-  accent is never a dark tint (see "The warm accent cannot be a dark tint").
+- **The warm lobe behind the mark is faint on purpose (10%).** Gold occupies a
+  narrow band, so a warm wash closes the gap between the mark and its ground:
+  the field lifts toward khaki, the shadowed facets fall toward brown, and the
+  two meet as mud. This is the icon's version of "The warm accent cannot be a
+  dark tint" — near-black is what lets gold read as gold.
+- **The hairlines follow the size.** Below 96px the facets swell about their
+  own centroids until the gaps close and the mark resolves into a solid "A".
+  A 3.1-unit cut on a 128 grid is three quarters of a pixel at 32px, which is
+  grey mud rather than a cut.
 - **Square icons carry no corner radius.** iOS draws its own squircle, so a
   pre-rounded file gets rounded twice and shows a thin dark crescent inside
   each corner. Only the shapes nothing masks — favicons, PWA `any` — keep

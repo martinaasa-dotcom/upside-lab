@@ -7,120 +7,196 @@
   slightly different logos, and `scripts/generate-pwa-icons.mjs` imports this
   file directly rather than holding a second copy.
 
-  What the mark is, and why, is in docs/BRAND_MARK.md. In short: one solid
-  gold "A" — a peak. Your portfolio is a thing you hold on your own, so the
-  mark is a single object.
+  What the mark is, and why, is in docs/BRAND_MARK.md. In short: a standing
+  gold "A" cut into ten flat facets, lit from the upper right. Your portfolio
+  is a thing you hold on your own, so the mark is a single object.
 
   Related to Arena's mark by construction rather than by colour. Arena draws
   two peaks in aqua, because Arena is a game against people you know. Same
   family, different story.
 */
 
+export type ToneKey = "lit" | "face" | "edge" | "deep";
+
+export type Facet = {
+  /** Three points, in the 128 grid. */
+  points: [number, number][];
+  /** Which step of the light ramp it takes. */
+  tone: ToneKey;
+};
+
 /*
-  The letterform, on a 64 grid.
+  The facets, on the 128 grid the mark has always been drawn on.
 
-  A pointed apex, two feet on a shared baseline, and a crossbar. The bounds
-  are x 8..56 and y 4.75..59.25 — 48 by 54.5, centred on the grid, so a plated
-  composition can scale about (32, 32) without the drawing drifting off centre.
+  These are the original coordinates, **made exactly symmetric about x = 64**.
+  They were traced rather than constructed, and the trace was up to 0.75 units
+  out of true across a 105-unit-wide drawing — a visible lean at splash size,
+  and a set of near-duplicate edges (56.43 against 56.53, 84.27 against 84.37)
+  where one row of facets did not quite agree with itself about where it sat.
+  Every mirror pair is now one offset from the centre line, applied to both
+  sides, so the left and the right are the same drawing to the hundredth of a
+  unit and the row edges line up. `scripts/test-invariants.ts` fails if any
+  point loses its mirror.
 
-  This replaced a mosaic of ten bevelled facets on 2026-08-23. The facets were
-  a decade-old idiom, and they had a concrete failure as well as a dated one:
-  at 32px the hairlines between them were a pixel of mud and the whole mark
-  read as a smudge. One solid mass reads at 16.
+  Nothing else about the composition moved. The silhouette, the proportions,
+  the hairline gaps and which cells are filled are the mark as it was.
 */
-export const APEX: [number, number] = [32, 4.75];
-export const BASELINE = 59.25;
+export const MARK_FACETS: Facet[] = [
+  // The apex, split down the centre line: the right half catches the light.
+  { points: [[62.45, 20.27], [62.56, 56.43], [40.27, 56.53]], tone: "face" },
+  { points: [[65.55, 20.27], [87.73, 56.53], [65.44, 56.43]], tone: "lit" },
+  // Second band: two facets hanging either side of the counter, two standing.
+  { points: [[40.64, 59.58], [62.77, 59.52], [52.0, 78.99]], tone: "edge" },
+  { points: [[65.23, 59.52], [87.36, 59.58], [76.0, 78.99]], tone: "face" },
+  { points: [[90.19, 60.54], [101.87, 80.32], [79.04, 80.32]], tone: "face" },
+  { points: [[37.81, 60.54], [48.96, 80.32], [26.13, 80.32]], tone: "edge" },
+  // Third band, the widest, and the one furthest from the light.
+  { points: [[26.61, 83.41], [49.55, 83.41], [38.08, 103.2]], tone: "deep" },
+  { points: [[78.45, 83.41], [101.39, 83.41], [89.92, 103.2]], tone: "edge" },
+  { points: [[104.27, 84.32], [116.38, 104.64], [92.91, 104.64]], tone: "edge" },
+  { points: [[23.73, 84.32], [35.09, 104.64], [11.62, 104.64]], tone: "deep" },
+];
 
-/** Where the outer edge of each foot lands. */
-export const OUTER_FOOT = 24;
-/** Where the inner edge of each foot lands: the leg is 11.5 wide at the base. */
-export const INNER_FOOT = 12.5;
-/** Where the counter's apex sits. Lower means a longer, thinner apex. */
-export const INNER_APEX_Y = 24.75;
+/*
+  Four steps of one warm ramp, running top-right to bottom-left, which is
+  where the light comes from.
 
-/** The crossbar, as a plain rectangle. Both ends are buried inside the legs. */
-export const CROSSBAR = { x: 20.6, y: 34.75, width: 22.8, height: 8 } as const;
+  The mark used to carry ten gradients, one per facet, no two of them quite
+  the same and several within a point or two of each other. That is not a
+  lighting model, it is ten hand-picked values. Four named steps say the same
+  thing and say it deliberately: the facet the light lands on, the ones facing
+  it, the ones turned away, and the ones in shadow at the foot.
 
-/** The drawing's own box, for a viewBox tight to the letter. */
-export const MARK_BOX = {
-  x: APEX[0] - OUTER_FOOT,
-  y: APEX[1],
-  width: OUTER_FOOT * 2,
-  height: BASELINE - APEX[1],
-} as const;
+  The values are the original ones, grouped. Nothing got brighter or duller.
+  `flat` is the midpoint of each, for the two places that may not have a
+  gradient at all.
+*/
+export const TONES: Record<ToneKey, { from: string; to: string; flat: string }> = {
+  lit: { from: "#ead6ab", to: "#b29a6f", flat: "#d5bd8c" },
+  face: { from: "#dfc59a", to: "#a6875d", flat: "#c4a67a" },
+  edge: { from: "#caac7a", to: "#8f6b3a", flat: "#b08c58" },
+  deep: { from: "#b38e62", to: "#764b1f", flat: "#95683e" },
+};
+
+export const TONE_KEYS = ["lit", "face", "edge", "deep"] as const;
+
+/** Where the light comes from, in the 128 grid. Shared by every facet. */
+export const LIGHT = { x1: 78, y1: 18, x2: 28, y2: 108 } as const;
+
+/** The drawing's own box, for a viewBox tight to the mark. */
+export const MARK_BOX = (() => {
+  const xs = MARK_FACETS.flatMap((f) => f.points.map((p) => p[0]));
+  const ys = MARK_FACETS.flatMap((f) => f.points.map((p) => p[1]));
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
+})();
 
 /** The tight viewBox, as the attribute string. */
 export const MARK_VIEWBOX = `${MARK_BOX.x} ${MARK_BOX.y} ${MARK_BOX.width} ${MARK_BOX.height}`;
 
-/** The letter's aspect, width over height. Lockups size the mark from this. */
+/** The mark's aspect, width over height — about 1.24. Lockups size from it. */
 export const MARK_ASPECT = MARK_BOX.width / MARK_BOX.height;
 
-/** The outline: apex, right foot, back up the inside, down to the left foot. */
-export function letterPath(): string {
-  const [ax, ay] = APEX;
-  return [
-    `M ${ax} ${ay}`,
-    `L ${ax + OUTER_FOOT} ${BASELINE}`,
-    `L ${ax + INNER_FOOT} ${BASELINE}`,
-    `L ${ax} ${INNER_APEX_Y}`,
-    `L ${ax - INNER_FOOT} ${BASELINE}`,
-    `L ${ax - OUTER_FOOT} ${BASELINE}`,
-    "Z",
-  ].join(" ");
+/** The centre of the drawing, which is not the centre of the 128 grid. */
+export const MARK_CENTRE: [number, number] = [
+  MARK_BOX.x + MARK_BOX.width / 2,
+  MARK_BOX.y + MARK_BOX.height / 2,
+];
+
+function centroid(facet: Facet): [number, number] {
+  const [a, b, c] = facet.points;
+  return [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3];
 }
 
 /*
-  One warm ramp, top-left to bottom-right, and one only.
+  How much to swell each facet toward its own edges, given the size the mark
+  will actually be drawn at.
 
-  The mark used to carry ten of these, one per facet, all within a few points
-  of each other — which is a lot of machinery to produce something a single
-  gradient produces better. The stops are the accent's own hue: `--primary` is
-  oklch(0.8 0.09 90), and these are two steps either side of it, L 0.94 down
-  to L 0.66. Stated in sRGB because a raster pipeline and a mail client cannot
-  do oklch.
+  The hairlines between the facets are about 3.1 units on a 128 grid — a
+  little under two and a half percent of the drawing's width. At 512px that is
+  a crisp 12px cut and the whole point of the mark. At 32px it is three
+  quarters of one pixel: anti-aliasing turns it to grey mud, and ten gold
+  triangles read as one gold smudge. At 16px it is worse.
 
-  Gold has to stay light to read as gold. Taken much below L 0.66 it lands on
-  khaki, which is the same reason `--primary` is never used as a dark tint.
-  See DESIGN_TOKENS.md.
+  So below 96px the facets are swelled about their own centroids until the
+  gaps close, and the mark resolves into the solid standing "A" that was
+  underneath the mosaic all along. It is the same drawing either way; what
+  changes is how much of the cut a pixel can still carry.
+
+  This is the mirror of Arena's `cutForSize`, which widens a hairline as its
+  drawing shrinks, for exactly the same reason.
 */
-export const MARK_GRADIENT = {
-  id: "gold",
-  x1: "10",
-  y1: "4.75",
-  x2: "54",
-  y2: "59.25",
-  from: "#f5ecc6",
-  to: "#b58a41",
-} as const;
+export function facetScale(size: number): number {
+  if (size >= 96) return 1;
+  if (size >= 40) return 1.05;
+  return 1.13;
+}
 
-/** The one flat gold, for the places that may not have a gradient at all. */
-export const MARK_FLAT = "#d4bc79";
-
-function gradientDef(): string {
-  const g = MARK_GRADIENT;
+/** The transform that swells a facet about its own centroid. */
+export function facetTransform(facet: Facet, scale: number): string {
+  const [cx, cy] = centroid(facet);
   return (
-    `<linearGradient id="${g.id}" x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" gradientUnits="userSpaceOnUse">` +
-    `<stop offset="0" stop-color="${g.from}"/><stop offset="1" stop-color="${g.to}"/></linearGradient>`
+    `translate(${cx.toFixed(3)} ${cy.toFixed(3)}) scale(${scale}) ` +
+    `translate(${(-cx).toFixed(3)} ${(-cy).toFixed(3)})`
   );
 }
 
-function letterMarkup(fill: string): string {
-  const bar = CROSSBAR;
-  return (
-    `<path d="${letterPath()}" fill="${fill}"/>` +
-    `<rect x="${bar.x}" y="${bar.y}" width="${bar.width}" height="${bar.height}" fill="${fill}"/>`
-  );
+/** A facet's points, as the `points` attribute. */
+export function facetPoints(facet: Facet): string {
+  return facet.points.map(([x, y]) => `${x},${y}`).join(" ");
 }
 
-/** Scale the drawing about the centre of the 64 grid. */
-function zoom(scale: number, inner: string): string {
-  return `<g transform="translate(32 32) scale(${scale}) translate(-32 -32)">${inner}</g>`;
+function gradientDefs(prefix: string): string {
+  return TONE_KEYS.map((key) => {
+    const tone = TONES[key];
+    return (
+      `<linearGradient id="${prefix}${key}" x1="${LIGHT.x1}" y1="${LIGHT.y1}" x2="${LIGHT.x2}" y2="${LIGHT.y2}" gradientUnits="userSpaceOnUse">` +
+      `<stop offset="0" stop-color="${tone.from}"/><stop offset="1" stop-color="${tone.to}"/></linearGradient>`
+    );
+  }).join("");
+}
+
+function facetsMarkup(size: number, fill: (tone: ToneKey) => string): string {
+  const scale = facetScale(size);
+  return MARK_FACETS.map(
+    (facet) =>
+      `<polygon points="${facetPoints(facet)}" fill="${fill(facet.tone)}"` +
+      (scale === 1 ? "" : ` transform="${facetTransform(facet, scale)}"`) +
+      `/>`
+  ).join("");
+}
+
+/*
+  How far to lift the drawing above the geometric centre of its plate, as a
+  fraction of the plate.
+
+  The mark is a triangular mass: nearly all of its area sits along the
+  baseline and the apex is a point, so its perceived centre is well below the
+  middle of its bounding box. Centred by the numbers, it reads as having
+  sagged. Two and a half percent is enough to look centred and small enough
+  that nothing measures as off.
+
+  It applies to the plated icons only. The bare mark is placed by whatever is
+  around it -- a flex row in the lockup, a host's own tile padding -- and a
+  drawing that is secretly off-centre would fight all of them.
+*/
+const OPTICAL_LIFT = 0.025;
+
+/** Scale the drawing about its own centre, then sit it in the middle of `box`. */
+function place(scale: number, box: number, inner: string, lift = 0): string {
+  const [cx, cy] = MARK_CENTRE;
+  const dx = box / 2 - cx;
+  const dy = box / 2 - cy - box * lift;
+  return (
+    `<g transform="translate(${dx.toFixed(3)} ${dy.toFixed(3)}) ` +
+    `translate(${cx} ${cy}) scale(${scale.toFixed(5)}) translate(${-cx} ${-cy})">${inner}</g>`
+  );
 }
 
 /**
  * The bare mark as a standalone SVG document, transparent and tight to the
- * letter. For `public/upside-mark.svg` and anywhere the drawing is needed
- * without a plate.
+ * drawing. For `public/upside-mark.svg` and anywhere it is needed unplated.
  */
 export function upsideMarkSvg({
   height = 128,
@@ -129,8 +205,8 @@ export function upsideMarkSvg({
   const width = Math.round(height * MARK_ASPECT);
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${MARK_VIEWBOX}" width="${width}" height="${height}" role="img" aria-label="Upside Lab">` +
-    (flat ? "" : `<defs>${gradientDef()}</defs>`) +
-    letterMarkup(flat ? MARK_FLAT : `url(#${MARK_GRADIENT.id})`) +
+    (flat ? "" : `<defs>${gradientDefs("t-")}</defs>`) +
+    facetsMarkup(height, (tone) => (flat ? TONES[tone].flat : `url(#t-${tone})`)) +
     `</svg>`
   );
 }
@@ -142,20 +218,34 @@ export function upsideMarkSvg({
   mark, the cool counter-lobe (`--ambient-cool`) in the far corner, over a
   field that runs a warm near-black to true black. An icon lit like the
   product is what makes the home screen and the app feel like one thing.
+
+  Both lobes are very faint, and that is the whole trick. Gold sits at the
+  warm end of a narrow band, so a warm wash behind it closes the gap between
+  the mark and its ground: the field lifts toward khaki, the mark's shadowed
+  facets fall toward brown, and the two meet in the middle as mud. The first
+  attempt ran the glow at 26 percent and did exactly that. Near-black is what
+  lets gold read as gold.
 */
 export const PLATE = {
-  field: ["#191309", "#000000"],
+  field: ["#100d08", "#000000"],
   glow: "#d4bc79",
-  glowOpacity: 0.26,
+  glowOpacity: 0.1,
   counter: "#60aaf3",
-  counterOpacity: 0.1,
+  counterOpacity: 0.08,
 } as const;
 
+/** The icon canvas: the same 128 grid the mark is drawn on. */
+export const ICON_BOX = 128;
+
 /*
-  How big the mark is drawn inside its plate, and how hard the plate's own
-  corners are cut. One entry per place an icon is actually consumed, because
-  each of them crops differently and a single safe area would be wrong for all
-  of them.
+  How much of the canvas the mark's **width** takes, and how hard the plate's
+  own corners are cut. One entry per place an icon is actually consumed,
+  because each of them crops differently and a single safe area would be wrong
+  for all of them.
+
+  A fraction of the width rather than a raw scale factor, because the mark is
+  a wide drawing and a scale factor says nothing about how close a foot lands
+  to an edge.
 */
 export const ICON_PRESETS = {
   /*
@@ -165,39 +255,45 @@ export const ICON_PRESETS = {
     baked in, so iOS rounded an already-rounded icon and left a thin dark
     crescent inside each corner.
   */
-  app: { radius: 0, glyph: 0.74 },
+  app: { radius: 0, glyph: 0.8 },
   /*
     Favicons, bookmark tiles and the PWA "any" icons. Nothing masks these, so
     the file carries its own rounded shape, and the mark can sit larger
     because nothing is going to crop it.
   */
-  tile: { radius: 0.225, glyph: 0.82 },
+  tile: { radius: 0.225, glyph: 0.86 },
   /*
     Android's adaptive icons. The launcher crops to a circle of 80 percent of
     the side, and on some it is closer to a squircle, so the mark is pulled
     well inside that circle rather than to its edge.
   */
-  maskable: { radius: 0, glyph: 0.52 },
+  maskable: { radius: 0, glyph: 0.55 },
   /*
     The social avatar. Square file, and every network that shows it crops it
     to a circle, so it uses the same safe area as Android's.
   */
-  avatar: { radius: 0, glyph: 0.56 },
+  avatar: { radius: 0, glyph: 0.58 },
 } as const;
 
 export type IconPreset = keyof typeof ICON_PRESETS;
 
+/** A preset's scale factor: what `glyph` means once the mark's width is known. */
+export function presetScale(preset: IconPreset): number {
+  return (ICON_BOX * ICON_PRESETS[preset].glyph) / MARK_BOX.width;
+}
+
 /**
  * A plated icon as a standalone SVG document.
  *
- * The document stays on the 64 grid; `size` only sets its pixel dimensions,
- * and the rasteriser scales it.
+ * The document stays on the 128 grid; `size` sets its pixel dimensions and
+ * decides how hard the facets are swelled, and the rasteriser scales it.
  */
 export function upsideIconSvg(preset: IconPreset, size: number): string {
   const { radius, glyph } = ICON_PRESETS[preset];
-  const rx = radius > 0 ? ` rx="${(64 * radius).toFixed(2)}"` : "";
+  const rx = radius > 0 ? ` rx="${(ICON_BOX * radius).toFixed(2)}"` : "";
+  const plate = `width="${ICON_BOX}" height="${ICON_BOX}"${rx}`;
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="${size}" height="${size}" role="img" aria-label="Upside Lab">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${ICON_BOX} ${ICON_BOX}" width="${size}" height="${size}" role="img" aria-label="Upside Lab">` +
     `<defs>` +
     `<radialGradient id="upside-field" cx="0.26" cy="0.14" r="1">` +
     `<stop offset="0" stop-color="${PLATE.field[0]}"/><stop offset="1" stop-color="${PLATE.field[1]}"/>` +
@@ -210,12 +306,22 @@ export function upsideIconSvg(preset: IconPreset, size: number): string {
     `<stop offset="0" stop-color="${PLATE.counter}" stop-opacity="${PLATE.counterOpacity}"/>` +
     `<stop offset="1" stop-color="${PLATE.counter}" stop-opacity="0"/>` +
     `</radialGradient>` +
-    gradientDef() +
+    gradientDefs("t-") +
     `</defs>` +
-    `<rect width="64" height="64"${rx} fill="url(#upside-field)"/>` +
-    `<rect width="64" height="64"${rx} fill="url(#upside-counter)"/>` +
-    `<rect width="64" height="64"${rx} fill="url(#upside-glow)"/>` +
-    zoom(glyph, letterMarkup(`url(#${MARK_GRADIENT.id})`)) +
+    `<rect ${plate} fill="url(#upside-field)"/>` +
+    `<rect ${plate} fill="url(#upside-counter)"/>` +
+    `<rect ${plate} fill="url(#upside-glow)"/>` +
+    /*
+      The facets are swelled from the size the mark itself lands at, not from
+      the size of the file: a 512px maskable icon draws the mark 280px wide,
+      and asking it for a 512px cut would leave a hairline nobody can see.
+    */
+    place(
+      presetScale(preset),
+      ICON_BOX,
+      facetsMarkup(size * glyph, (tone) => `url(#t-${tone})`),
+      OPTICAL_LIFT
+    ) +
     `</svg>`
   );
 }
@@ -230,27 +336,30 @@ export function upsideIconSvg(preset: IconPreset, size: number): string {
  */
 export function upsideLockupSvg({ plate = true }: { plate?: boolean } = {}): string {
   /*
-    The mark sits on the type's baseline rather than centred on it. Both are
-    flat-footed, so aligning the feet is what makes them look like one object;
-    centring the boxes instead leaves the letter hanging below the words,
-    which reads as a mark that slipped rather than as a lockup.
+    The mark is centred on the type's cap band rather than stood on its
+    baseline. The drawing is a triangle: its feet are its widest part and its
+    apex is a point, so its optical centre sits well below its geometric one,
+    and standing it on the baseline leaves it looking like it is sliding off
+    the front of the words.
 
     Its height is roughly twice the type's cap height, the same ratio the
     in-app lockup uses (`MARK_SIZE` in UpsideLogo).
   */
-  const baseline = 71;
-  const height = 46;
+  const baseline = 68;
+  const capHeight = 24.5;
+  const height = 48;
   const width = height * MARK_ASPECT;
   const scale = height / MARK_BOX.height;
-  const left = 24;
+  const left = 26;
+  const top = baseline - capHeight / 2 - height / 2;
   const stack =
     "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 100" width="540" height="100" role="img" aria-label="Upside Lab">` +
-    `<defs>${gradientDef()}</defs>` +
+    `<defs>${gradientDefs("t-")}</defs>` +
     (plate ? `<rect width="540" height="100" fill="#000000"/>` : "") +
-    `<g transform="translate(${left} ${baseline - height}) scale(${scale.toFixed(4)}) translate(${-MARK_BOX.x} ${-MARK_BOX.y})">` +
-    letterMarkup(`url(#${MARK_GRADIENT.id})`) +
+    `<g transform="translate(${left} ${top.toFixed(2)}) scale(${scale.toFixed(4)}) translate(${-MARK_BOX.x} ${-MARK_BOX.y})">` +
+    facetsMarkup(height, (tone) => `url(#t-${tone})`) +
     `</g>` +
     `<text x="${(left + width + 26).toFixed(1)}" y="${baseline}" font-family="${stack}" font-size="34" fill="#f4f1ea">` +
     `<tspan font-weight="700">UPSIDE</tspan><tspan font-weight="400" dx="10">LAB</tspan>` +
@@ -264,18 +373,18 @@ export function upsideLockupSvg({ plate = true }: { plate?: boolean } = {}): str
  *
  * Its own function because BIMI is its own profile — SVG Tiny 1.2 Portable /
  * Secure. Square, a `<title>`, `version` and `baseProfile` declared, and
- * nothing dynamic. It is drawn flat rather than with the gradient: a mail
- * client renders it at about 40px inside a circle, where a ramp is invisible,
- * and the narrower the feature set the fewer validators have an opinion.
+ * nothing dynamic. The facets take their flat tones rather than the ramp: a
+ * mail client draws this at about 40px inside a circle, where four gradients
+ * are invisible, and the narrower the feature set the fewer validators have
+ * an opinion about it.
  */
 export function upsideBimiSvg(): string {
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n` +
-    `<svg version="1.2" baseProfile="tiny-ps" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">\n` +
+    `<svg version="1.2" baseProfile="tiny-ps" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${ICON_BOX} ${ICON_BOX}" width="${ICON_BOX}" height="${ICON_BOX}">\n` +
     `  <title>Upside Lab</title>\n` +
-    `  <rect x="0" y="0" width="64" height="64" fill="#000000"/>\n` +
-    `  ` +
-    zoom(ICON_PRESETS.avatar.glyph, letterMarkup(MARK_FLAT)) +
+    `  <rect x="0" y="0" width="${ICON_BOX}" height="${ICON_BOX}" fill="#000000"/>\n  ` +
+    place(presetScale("avatar"), ICON_BOX, facetsMarkup(40, (tone) => TONES[tone].flat), OPTICAL_LIFT) +
     `\n</svg>\n`
   );
 }

@@ -15,10 +15,9 @@ import {
 import { usdToDisplay, displayToUsd } from "../src/lib/display-currency";
 import { liveFundTodayMove, liveFundTotalValue } from "../src/lib/margus-fund-mark";
 import {
-  CROSSBAR,
   MARK_ASPECT,
+  MARK_FACETS,
   MARK_VIEWBOX,
-  letterPath,
 } from "../src/lib/brand/mark";
 import {
   fundCopyBullets,
@@ -6959,7 +6958,7 @@ run("the logo mark fills its box, and its lockups keep its aspect", () => {
    * This mark went missing from the app bar and nothing failed.
    *
    * It became inline SVG (to get a 260 KB PNG out of the LCP path) keeping
-   * the source's `0 0 128 128` box, with the drawing pushed inside it by a
+   * the source's `0 0 128 128` box, with the polygons pushed inside it by a
    * `translate(14 18) scale(0.78)`. That left about a third of the viewBox
    * as empty padding. Invisible at splash size; in a 1.4em app-bar box the
    * mark drew roughly 12 px and read as simply absent.
@@ -6968,25 +6967,20 @@ run("the logo mark fills its box, and its lockups keep its aspect", () => {
    * thing that catches it is measuring the artwork against the box it is
    * declared in. That is what this does.
    *
-   * The measurement now comes from `src/lib/brand/mark.ts` rather than from
-   * a table inside the component, because the letter, the favicon, the BIMI
-   * mark and the app icons are all one drawing since 2026-08-23.
+   * The facets come from `src/lib/brand/mark.ts` rather than from a table
+   * inside the component, because the letter, the favicon, the BIMI mark,
+   * the app icons and the OG card are all one drawing since 2026-08-23.
    */
   const src = readFileSync(
     join(process.cwd(), "src/components/UpsideLogo.tsx"),
     "utf8"
   );
 
-  const xs: number[] = [];
-  const ys: number[] = [];
-  for (const [, x, y] of letterPath().matchAll(/(-?[\d.]+) (-?[\d.]+)/g)) {
-    xs.push(Number(x));
-    ys.push(Number(y));
-  }
-  assert.ok(xs.length >= 6, `expected the letter's points, found ${xs.length}`);
-  // The crossbar is a rect rather than part of the path, and it counts.
-  xs.push(CROSSBAR.x, CROSSBAR.x + CROSSBAR.width);
-  ys.push(CROSSBAR.y, CROSSBAR.y + CROSSBAR.height);
+  assert.equal(MARK_FACETS.length, 10, "expected the ten facets");
+
+  const xs = MARK_FACETS.flatMap((f) => f.points.map((p) => p[0]));
+  const ys = MARK_FACETS.flatMap((f) => f.points.map((p) => p[1]));
+  for (const n of [...xs, ...ys]) assert.ok(Number.isFinite(n), `bad point ${n}`);
 
   const minX = Math.min(...xs);
   const minY = Math.min(...ys);
@@ -6999,9 +6993,15 @@ run("the logo mark fills its box, and its lockups keep its aspect", () => {
    * The component takes its viewBox from the geometry rather than repeating
    * it, so a drifted number is not a thing that can happen -- but a wrapping
    * transform is, and one of those makes the viewBox stop describing the
-   * artwork again.
+   * artwork again. The per-facet transforms are fine: they scale each facet
+   * about its own centroid to close the hairlines at small sizes, and cannot
+   * move the drawing as a whole.
    */
-  assert.match(src, /viewBox=\{MARK_VIEWBOX\}/, "the mark must take its viewBox from the geometry");
+  assert.match(
+    src,
+    /viewBox=\{MARK_VIEWBOX\}/,
+    "the mark must take its viewBox from the geometry"
+  );
   assert.doesNotMatch(
     src,
     /<g transform=/,
@@ -7015,9 +7015,9 @@ run("the logo mark fills its box, and its lockups keep its aspect", () => {
   assert.ok(close(vh!, artH), `viewBox height ${vh} should match the art height ${artH.toFixed(2)}`);
 
   /*
-   * The letter is about 0.88x as wide as it is tall. Every lockup that gives
-   * it an explicit box must use that ratio, or the browser letterboxes it and
-   * the mark silently loses height it could have had -- the same "still there,
+   * The mark is about 1.24x wider than tall. Every lockup that gives it an
+   * explicit box must use that ratio, or the browser letterboxes it and the
+   * mark silently loses height it could have had -- the same "still there,
    * just too small to see" failure in a different disguise.
    */
   const aspect = artW / artH;
@@ -7035,6 +7035,27 @@ run("the logo mark fills its box, and its lockups keep its aspect", () => {
       `${box[0]} has aspect ${(w / h).toFixed(3)}, but the mark is ${aspect.toFixed(3)} wide`
     );
   }
+
+  /*
+   * And the mark is exactly symmetric about the centre line. It was traced
+   * rather than constructed, and the trace leaned up to 0.75 units out of
+   * true across a 105-unit drawing -- which is nothing on a specimen sheet
+   * and a visibly crooked logo on a splash screen.
+   */
+  const AXIS = minX + artW / 2;
+  const key = (x: number, y: number) => `${Math.abs(x - AXIS).toFixed(2)}:${y.toFixed(2)}`;
+  const tally = new Map<string, number>();
+  for (const facet of MARK_FACETS) {
+    for (const [x, y] of facet.points) {
+      tally.set(key(x, y), (tally.get(key(x, y)) ?? 0) + 1);
+    }
+  }
+  const lonely = [...tally.entries()].filter(([, n]) => n % 2 !== 0);
+  assert.deepEqual(
+    lonely.map(([k]) => k),
+    [],
+    `these points have no mirror across the centre line, so the mark leans: ${lonely.map(([k]) => k).join(", ")}`
+  );
 });
 
 run("SVG paint servers get per-instance ids, never literals", () => {

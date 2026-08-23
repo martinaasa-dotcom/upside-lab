@@ -6,12 +6,12 @@
 
   Run with `npm run icons` after changing src/lib/brand/mark.ts.
 
-  It used to rasterise a 172 KB PNG of the old faceted mark out of `Images/`,
-  trim it, and scale it into place. That meant the icons could only ever be as
-  good as a bitmap somebody exported once, every output carried the trim's
-  guesswork, and the app's own inline logo was a separate drawing that had to
-  be kept in step by hand. This draws from the same geometry the app draws
-  from -- Node strips the types on import -- so there is exactly one mark.
+  It used to rasterise a 172 KB PNG of the mark out of `Images/`, trim it, and
+  scale it into place. That meant the icons could only ever be as good as a
+  bitmap somebody exported once, every output carried the trim's guesswork,
+  and the app's own inline logo was a separate drawing that had to be kept in
+  step by hand. This draws from the same geometry the app draws from -- Node
+  strips the types on import -- so there is exactly one mark.
 */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -132,8 +132,8 @@ const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" wi
   <rect width="1200" height="630" fill="#000000"/>
   <rect width="1200" height="630" fill="url(#og-warm)"/>
   <rect width="1200" height="630" fill="url(#og-cool)"/>
-  <g transform="translate(98 168)">${upsideMarkSvg({ height: 112 })}</g>
-  <text x="222" y="248" font-family="${SANS}" font-size="38" letter-spacing="2.5" fill="#fafafa">
+  <g transform="translate(98 176)">${upsideMarkSvg({ height: 96 })}</g>
+  <text x="242" y="248" font-family="${SANS}" font-size="38" letter-spacing="2.5" fill="#fafafa">
     <tspan font-weight="700">UPSIDE</tspan><tspan font-weight="400" dx="14">LAB</tspan>
   </text>
   <text x="98" y="392" font-family="${SANS}" font-size="50" font-weight="600" letter-spacing="-1.3" fill="#fafafa">

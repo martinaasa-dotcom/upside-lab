@@ -1,7 +1,8 @@
 # The Upside Lab mark
 
-Upside Lab's mark is one solid gold **A** — a peak. It ships in
-`src/components/UpsideLogo.tsx`, drawn from `src/lib/brand/mark.ts`.
+Upside Lab's mark is a standing gold **A**, cut into ten flat facets and lit
+from the upper right. It ships in `src/components/UpsideLogo.tsx`, drawn from
+`src/lib/brand/mark.ts`.
 
 This document records what was decided and why, so the next person does not
 have to reconstruct it from the branch history.
@@ -10,76 +11,83 @@ have to reconstruct it from the branch history.
 
 ## What it is
 
-A single letter: a pointed apex, two feet on a shared baseline, a crossbar.
-One mass, one warm ramp, no bevel and no mosaic.
+Ten triangles arranged as an "A": a two-facet apex, then two bands widening
+toward the feet, with the counter left open through the middle. Hairline gaps
+between the facets, a four-step warm ramp across them, all of it flat — no
+bevel, no stroke, no shadow.
 
 **One** peak, and the count is the point. Your portfolio is something you hold
-on your own — nobody else is in it — so the mark is a single object. Upside
-Arena, the sibling product, draws **two** peaks in aqua, because Arena is a
-game against people you know. Same construction, same grid, same light; the
-count and the metal carry the difference.
+on your own, so the mark is a single object. Upside Arena, the sibling
+product, draws **two** peaks in aqua, because Arena is a game against people
+you know.
 
-### What it replaced, and why
+### What changed, and what did not
 
-Ten bevelled facets in gold, arranged as an ascending mosaic. It went on
-2026-08-23, for two reasons that are worth keeping separate.
+The drawing did not change. There was a version of this branch that replaced
+the mosaic with one solid "A", and it was thrown out: the faceted mark is the
+identity, it was already good, and what it needed was polish rather than
+replacement.
 
-The dated one: a faceted, bevelled mosaic is a late-2010s idiom. Nothing Apple
-ships looks like that any more, and neither does anything else people put on a
-home screen next to it.
+What changed is everything around it, plus two things about the drawing itself
+that were never decisions — just artefacts of it having been traced from a
+raster rather than constructed:
 
-The concrete one: it did not work small. Ten facets meant nine hairlines, and
-at 32px each of those was a pixel of mud. The mark stopped being ten triangles
-and became a gold smudge — and 32px is a favicon, which is where most people
-meet a mark for the first time. One solid mass reads at 16.
+- **It leaned.** The trace was up to 0.75 units out of true across a
+  105-unit-wide drawing, and rows disagreed with themselves about where they
+  sat by a tenth of a unit (56.43 against 56.53, 84.27 against 84.37).
+  Every mirror pair is now one offset from the centre line applied to both
+  sides, so the left and the right are the same drawing to the hundredth of a
+  unit. `scripts/test-invariants.ts` fails if any point loses its mirror.
+- **It carried ten gradients.** One per facet, no two quite the same, several
+  within a point or two of each other. That is not a lighting model, it is ten
+  hand-picked values. There are four named steps now — `lit`, `face`, `edge`,
+  `deep` — and each facet takes one. The values are the original ones,
+  grouped. Nothing got brighter or duller.
 
 ### Geometry
 
-On a 64 grid, all of it in `src/lib/brand/mark.ts`.
+On the 128 grid the mark has always been drawn on. The drawing spans x
+11.62–116.38 and y 20.27–104.64: 104.75 by 84.37, an aspect of **1.2416**,
+centred exactly on x = 64.
 
-| | Value |
-|---|---|
-| Apex | `(32, 4.75)` |
-| Baseline | `59.25` |
-| Foot, outer edge | 24 either side of centre |
-| Foot, inner edge | 12.5 either side of centre — so a leg is 11.5 wide at the base |
-| Counter's apex | `y = 24.75` |
-| Crossbar | `x 20.6, y 34.75, 22.8 x 8` |
+`MARK_BOX`, `MARK_VIEWBOX` and `MARK_ASPECT` are all derived from the facet
+table, so there is no second place for them to drift.
 
-The drawing spans x 8–56 and y 4.75–59.25: 48 by 54.5, **centred on the
-grid**, so a plated composition can scale about `(32, 32)` without the letter
-drifting off centre.
+### The light
 
-The crossbar is a plain rectangle whose two ends are buried inside the legs.
-Only the part crossing the counter is ever visible, which is why it can be a
-rect rather than a trapezoid anybody has to maintain.
+One warm ramp, running top-right to bottom-left, which is where the light
+comes from (`LIGHT` in `mark.ts`). Four steps:
 
-`MARK_BOX` and `MARK_VIEWBOX` are derived from those numbers, and
-`MARK_ASPECT` (0.881) from the box. The lockups size the mark from the aspect
-rather than from typed-out widths — see below.
+| Step | From | To | Where |
+|---|---|---|---|
+| `lit` | `#ead6ab` | `#b29a6f` | the facet the light lands on |
+| `face` | `#dfc59a` | `#a6875d` | the ones facing it |
+| `edge` | `#caac7a` | `#8f6b3a` | the ones turned away |
+| `deep` | `#b38e62` | `#764b1f` | the ones in shadow at the foot |
 
-### The colour: one warm ramp
+### The hairlines follow the size
 
-| | From | To |
+`facetScale()` decides how hard the cuts read, and every drawing of the mark
+uses it: the React component from the size its lockup lands at, and each
+raster from the size the mark itself is drawn at inside its plate.
+
+| Drawn at | Facet scale | What you see |
 |---|---|---|
-| `MARK_GRADIENT` | `#f5ecc6` | `#b58a41` |
-| `MARK_FLAT` | `#d4bc79` | — |
+| 96px and up | 1 | the mosaic, hairlines and all |
+| 40 to 95px | 1.05 | cuts tightening |
+| under 40px | 1.13 | the gaps close; a solid "A" |
 
-Two steps either side of `--primary` (`oklch(0.8 0.09 90)`), running L 0.94 to
-L 0.66, top-left to bottom-right. Stated in sRGB because a raster pipeline and
-a mail client cannot do oklch.
+The gaps are about 3.1 units on a 128 grid — a little under two and a half
+percent of the width. At 512px that is a crisp 12px cut and the whole point of
+the mark. At 32px it is three quarters of one pixel: anti-aliasing turns it to
+grey mud and ten gold triangles read as one gold smudge. So below 96px the
+facets are swelled about their own centroids until the gaps close, and the
+mark resolves into the solid standing "A" that was underneath the mosaic all
+along. Same drawing either way; what changes is how much of the cut a pixel
+can still carry.
 
-The mark used to carry **ten** gradients, one per facet, all within a few
-points of each other — a lot of machinery to produce something one gradient
-produces better.
-
-The bottom stop does not go lower on purpose. Gold only reads as gold while it
-is light; much below L 0.66 it lands on khaki. That is the same rule
-`DESIGN_TOKENS.md` states for `--primary` never being used as a dark tint.
-
-`MARK_FLAT` exists for the two places a gradient is not worth having: the BIMI
-mark, which a mail client draws at about 40px inside a circle, and any future
-single-colour reproduction.
+This is the mirror of Arena's `cutForSize`, which widens a hairline as its
+drawing shrinks, for exactly the same reason.
 
 ---
 
@@ -90,13 +98,18 @@ where the Apple rules live. `PLATE` and `ICON_PRESETS` hold both.
 
 ### The plate
 
-Full-bleed, opaque, and lit the way the app is: the warm lobe behind the
-letter, the cool counter-lobe (`--ambient-cool`, hue 250) in the far corner,
-over a field that runs a warm near-black to true black. An icon lit like the
-product is what makes the home screen and the app feel like one thing rather
-than two.
+Full-bleed, opaque, and lit the way the app is: a warm lobe behind the mark, a
+cool counter-lobe (`--ambient-cool`, hue 250) in the far corner, over a field
+that runs a warm near-black to true black.
 
-What it deliberately does **not** carry:
+**Both lobes are very faint, and that is the whole trick.** Gold sits at the
+warm end of a narrow band, so a warm wash behind it closes the gap between the
+mark and its ground: the field lifts toward khaki, the shadowed facets fall
+toward brown, and the two meet in the middle as mud. The first attempt ran the
+glow at 26 percent and did exactly that. Near-black is what lets gold read as
+gold.
+
+What the plate deliberately does **not** carry:
 
 - **no baked corner radius** on the square shapes. This is the one that was
   actually wrong before: every icon in this repo shipped with a 22.5 percent
@@ -111,50 +124,63 @@ What it deliberately does **not** carry:
 
 ### The presets
 
-| Preset | Corner | Mark scale | Where it goes |
+`glyph` is the fraction of the canvas the mark's **width** takes, not a raw
+scale factor, because the mark is a wide drawing and a scale says nothing
+about how close a foot lands to an edge.
+
+| Preset | Corner | Width | Where it goes |
 |---|---|---|---|
-| `app` | square | 0.74 | Apple touch icon, App Store master |
-| `tile` | 22.5% | 0.82 | favicons, bookmark tiles, PWA `any` |
-| `maskable` | square | 0.52 | Android adaptive icons |
-| `avatar` | square | 0.56 | the social avatar, cropped to a circle |
+| `app` | square | 0.80 | Apple touch icon, App Store master |
+| `tile` | 22.5% | 0.86 | favicons, bookmark tiles, PWA `any` |
+| `maskable` | square | 0.55 | Android adaptive icons |
+| `avatar` | square | 0.58 | the social avatar, cropped to a circle |
 
 Each of them crops differently, which is why one safe area would be wrong for
 all of them.
 
-`src/lib/brand/mark-lockup.test.ts` fails if the drawing's **diagonal** leaves
-the 80-percent circle a `maskable` or `avatar` icon reserves. The diagonal is
-what matters and not the width: a letter that fits the circle across can still
-have a foot outside it on the corner.
+`src/lib/brand/mark-lockup.test.ts` checks two things the eye will not:
 
-The touch icon is also the **only** Apple entry in the metadata now. A 192 PWA
-icon used to sit alongside it, and that one carries its own rounded corners —
-iOS picking it is another way to end up rounded twice.
+- that the drawing's **diagonal** stays inside the 80-percent circle a
+  `maskable` or `avatar` icon reserves. The diagonal, not the width: a mark
+  that fits the circle across can still have a foot outside it on the corner.
+- that both feet clear the squircle the system cuts, measured against the
+  actual corner arc rather than a bounding box — a bounding-box check on a
+  triangle is far too pessimistic and would push the mark smaller than it
+  needs to be.
+
+### The optical lift
+
+The plated icons sit the mark 2.5 percent above the geometric centre of the
+plate. The mark is a triangular mass: nearly all of its area is along the
+baseline and the apex is a point, so its perceived centre is well below the
+middle of its bounding box, and centred by the numbers it reads as having
+sagged.
+
+It applies to the plated icons only. The bare mark is placed by whatever is
+around it — a flex row in the lockup, a host's own tile padding — and a
+drawing that is secretly off-centre would fight all of them.
 
 ---
 
 ## The lockup
 
-`MARK_SIZE` in `UpsideLogo.tsx` holds a height and a width for each place the
-lockup is drawn, as literal Tailwind classes. Literals, because Tailwind only
-emits arbitrary values it can read as literal strings at build time.
+`MARK_SIZE` in `UpsideLogo.tsx` holds, for each place the lockup is drawn, the
+box the mark gets and roughly how wide that lands in pixels.
 
-A literal cannot follow the geometry, so `src/lib/brand/mark-lockup.test.ts`
-makes it follow: move a foot in `mark.ts` and the test fails until the classes
-catch up. Without it the failure is silent and ugly — the mark keeps its box,
-the drawing letterboxes inside it, and the letter shrinks and drifts a couple
-of pixels off the lockup's optical centre. Enough to look wrong in the app
-bar; never enough to look like a bug.
-
-The old mark needed a `-translate-y-[0.1em]` nudge because it sat in a square
-viewBox with a third of the box as padding below it. The viewBox is tight to
-the letter now, so centring the two boxes lands the apex and the cap line
-together and the nudge is gone.
+The classes are literal because Tailwind only emits arbitrary values it can
+read as literal strings at build time, and the pair has to hold the mark's own
+1.2416 aspect or the browser letterboxes it and the mark silently loses height
+it could have had. `src/lib/brand/mark-lockup.test.ts` fails if one drifts, and
+also if a `drawnAt` stops matching the box it belongs to — that number is what
+decides how hard the hairlines are cut, and a stale one cuts the mark for the
+wrong size with no symptom but a logo that looks slightly off.
 
 In the standalone lockups (`upside-lockup.svg`, `upside-badge.svg`, the email
-header) the mark sits **on the type's baseline** rather than centred on it.
-Both are flat-footed, so aligning the feet is what makes them look like one
-object; centring the boxes leaves the letter hanging below the words, which
-reads as a mark that slipped.
+header) the mark is **centred on the type's cap band**, not stood on its
+baseline. It is a triangle: its feet are its widest part and its apex is a
+point, so its optical centre sits well below its geometric one, and standing
+it on the baseline leaves it looking like it is sliding off the front of the
+words.
 
 ---
 
@@ -175,7 +201,7 @@ That writes:
 
 | File | Use |
 |---|---|
-| `public/upside-mark.svg`, `.png` | The bare letter, transparent |
+| `public/upside-mark.svg`, `.png` | The bare mark, transparent |
 | `public/favicon.svg`, `public/upside-icon.svg` | Scalable tile |
 | `public/favicon.ico`, `src/app/favicon.ico` | 16 + 32 |
 | `public/icons/icon-{32,48,192,512}.png` | Favicons, bookmark tiles, PWA `any` |
@@ -190,14 +216,14 @@ That writes:
 | `public/og.png` | Social card, 1200x630 |
 
 Every raster is supersampled — four times over below 256px, twice above — and
-scaled back down, which is what keeps the long diagonals of the letter from
+scaled back down, which is what keeps the long diagonals of the facets from
 stairstepping at favicon sizes.
 
-`Images/` still holds the source PNGs the old pipeline read. Nothing reads
-them any more; they are the previous mark and are kept only as a record.
+`Images/` still holds the source PNGs the old pipeline read. Nothing reads them
+any more; they are kept only as a record.
 
-**After regenerating, bump the versions.** A favicon is one of the few things
-a browser holds past a deploy:
+**After regenerating, bump the versions.** A favicon is one of the few things a
+browser holds past a deploy:
 
 - `?v=` on every icon entry in `src/app/layout.tsx`
 - `OG_IMAGE_PATH` in `src/lib/seo-routes.ts` (and its expectation in
@@ -206,11 +232,9 @@ a browser holds past a deploy:
 - `CACHE` in `public/sw.js`, or an installed app keeps serving yesterday's
   logo out of its shell
 
-`scripts/test-invariants.ts` checks the mark's viewBox against the geometry,
-the lockup classes against the aspect, and that the generator has not gone
-back to compositing a rounded mask over every output.
-
 BIMI has its own function because it has its own profile: SVG Tiny 1.2
 Portable / Secure. Square, a `<title>`, `version` and `baseProfile` declared,
-flat fill, nothing dynamic. The narrower the feature set, the fewer validators
-have an opinion.
+nothing dynamic, and the facets take their flat tones rather than the ramp — a
+mail client draws it at about 40px inside a circle, where four gradients are
+invisible, and the narrower the feature set the fewer validators have an
+opinion about it.
