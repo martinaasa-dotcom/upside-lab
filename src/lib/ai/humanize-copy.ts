@@ -7,6 +7,8 @@
  * stock AI openers. Does not touch table pipes, cashtags, or code fences.
  */
 
+import { groupMoneyInText } from "@/lib/money-text";
+
 const EM = "\u2014"; // —
 const EN = "\u2013"; // –
 
@@ -363,8 +365,10 @@ function scrubTradeOrders(text: string): string {
 /** Full pass for a single Margus string. */
 export function humanizeMargusText(text: string): string {
   if (!text) return text;
-  return scrubAiPhrases(
-    stripAiDashes(scrubTradeOrders(scrubMarketJargon(text)))
+  // Grouping runs last, and on the model's own prose: the facts it is
+  // given are formatted, but nothing stops it from typing $129709 back.
+  return groupMoneyInText(
+    scrubAiPhrases(stripAiDashes(scrubTradeOrders(scrubMarketJargon(text))))
   );
 }
 

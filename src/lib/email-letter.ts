@@ -94,14 +94,36 @@ export function wrapEmailLetter(input: {
   body: string;
   footer?: string;
   hideOpener?: boolean;
+  /**
+   * Set the date on the lockup's own line, right-aligned, with a hairline
+   * under the pair. A stacked lockup, date and then a large card left the
+   * top of the letter reading as three unrelated things with air between
+   * them; as a masthead it is one band, and the hairline is the same rule
+   * that separates every section below it.
+   */
+  mastheadDate?: boolean;
 }): string {
+  const masthead = Boolean(input.mastheadDate && input.dateLine);
   const opener =
     input.hideOpener || !input.preview
       ? ""
       : `<p style="margin:20px 0 0 0;font-family:${EMAIL.sans};font-size:17px;line-height:1.45;color:${EMAIL.cream}">${escapeEmail(input.preview)}</p>`;
-  const date = input.dateLine
-    ? `<p style="margin:${opener ? "10px" : "14px"} 0 0 0;font-family:${EMAIL.sans};font-size:13px;line-height:1.4;letter-spacing:0.02em;color:${EMAIL.muted}">${escapeEmail(input.dateLine)}</p>`
-    : "";
+  const date =
+    input.dateLine && !masthead
+      ? `<p style="margin:${opener ? "10px" : "14px"} 0 0 0;font-family:${EMAIL.sans};font-size:13px;line-height:1.4;letter-spacing:0.02em;color:${EMAIL.muted}">${escapeEmail(input.dateLine)}</p>`
+      : "";
+  const lockup = `<img src="${EMAIL.lockup}" width="240" height="44" alt="Upside Lab" style="display:block;border:0" />`;
+  const head = masthead
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%">
+              <tr>
+                <td style="vertical-align:middle">${lockup}</td>
+                <td style="vertical-align:middle;text-align:right;font-family:${EMAIL.sans};font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:${EMAIL.muted}">${escapeEmail(input.dateLine ?? "")}</td>
+              </tr>
+            </table>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:18px 0 0 0">
+              <tr><td style="height:1px;background:${EMAIL.line};font-size:0;line-height:0">&nbsp;</td></tr>
+            </table>`
+    : lockup;
   const footer = input.footer ?? "";
   return `<!DOCTYPE html>
 <html lang="en">
@@ -126,8 +148,8 @@ ${emailPreheader(input.preview)}
           <td style="height:3px;background:${EMAIL.gold};font-size:0;line-height:0">&nbsp;</td>
         </tr>
         <tr>
-          <td style="padding:44px 28px 56px 28px;background:${EMAIL.app}">
-            <img src="${EMAIL.lockup}" width="156" height="29" alt="Upside Lab" style="display:block;border:0" />
+          <td style="padding:${masthead ? "34px" : "44px"} 28px 56px 28px;background:${EMAIL.app}">
+            ${head}
             ${opener}
             ${date}
             ${input.body}

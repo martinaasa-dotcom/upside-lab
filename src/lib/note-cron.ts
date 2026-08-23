@@ -1,9 +1,11 @@
+import { requestIsScheduledCron } from "@/lib/cron-auth";
 import { logEvent } from "@/lib/telemetry";
 import {
+  ACCOUNT_ALIAS_FALLBACK,
   collapseMailRecipients,
-  connectedEmailsFor,
   emailMatchesAllowlist,
   loadAliasMap,
+  primaryEmailFromMap,
 } from "@/lib/auth/identity";
 import { SUPERADMIN_NOTE_EMAIL } from "@/lib/auth/superadmin";
 import { sheetCashBalance } from "@/lib/cash-balance";
@@ -16,7 +18,9 @@ import {
   parseConviction,
   weeklyLetterHtml,
   weeklyLetterText,
+  weeklyNumbersAreSound,
   weeklySubject,
+  type WeeklyLetterInput,
 } from "@/lib/weekly-letter";
 import { sanitizeWatchlist } from "@/lib/lab-bundle";
 import { writeWeeklyTake } from "@/lib/weekly-margus";
@@ -71,6 +75,55 @@ type LabRow = {
  */
 const RESEND_WINDOW_MS = 3 * DAY_MS;
 
+/**
+ * One key for the whole Sunday-to-Saturday week, so every slot and every
+ * retry of one letter carries the same idempotency key.
+ */
+export function letterWeekKey(now: Date = new Date()): string {
+  const d = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  );
+  d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Every profile row that shares one mailbox, keyed by that mailbox.
+ *
+ * The marker is what stops the 04:20 and 04:40 slots mailing somebody the
+ * 04:00 run already reached, so the key it is written with has to be
+ * certain. `.in("email", connectedEmailsFor(...))` is not: it is a
+ * case-sensitive match on a column holding whatever the identity provider
+ * stored, and a profile saved as `Martin.Aasa@upthink.ee` never matches the
+ * lower-cased address this file computes. Written that way the update
+ * touched zero rows and returned no error, which is how one letter became
+ * three; used as a *claim*, the same miss is worse in the other direction,
+ * because zero rows updated reads as "somebody else has this one" and the
+ * reader is passed over every Sunday instead.
+ *
+ * Ids are the key these rows were selected by, so they cannot miss on
+ * spelling, casing or padding. One mailbox can still cover several profiles
+ * (two Google logins, one reader), and every one of them has to be stamped
+ * or the untouched row is the one that mails again, hence a list per
+ * mailbox rather than a single id.
+ */
+export function profileIdsByMailbox<
+  T extends { id: string; email?: string | null },
+>(
+  profiles: readonly T[],
+  aliasToPrimary: Record<string, string> = ACCOUNT_ALIAS_FALLBACK
+): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const profile of profiles) {
+    const to = primaryEmailFromMap(profile.email, aliasToPrimary);
+    if (!to || !profile.id) continue;
+    const ids = out.get(to);
+    if (ids) ids.push(profile.id);
+    else out.set(to, [profile.id]);
+  }
+  return out;
+}
+
 export function weeklyLetterAlreadySent(
   sentAt: string | Date | null | undefined,
   now: Date = new Date()
@@ -98,6 +151,12 @@ export type NoteDispatchOpts = {
   /** When set, only these addresses get a note. Scheduled cron leaves this off. */
   onlyEmails?: readonly string[];
   /**
+   * Deliberately re-send to someone the marker says already has this
+   * week's letter. Only an explicit `?only=` test or `?force=1` sets it --
+   * never anything inferred about the caller. See `noteTestAudience`.
+   */
+  forceResend?: boolean;
+  /**
    * One of the later Sunday slots, whose job is to pick up recipients an
    * earlier run did not reach. Only meaningful when the sent-marker column
    * exists: without it a resume run cannot tell who already has the letter,
@@ -106,15 +165,40 @@ export type NoteDispatchOpts = {
   isResumeRun?: boolean;
 };
 
-/** Vercel Cron still mails everyone opted in. A manual hit stays on Martin. */
+/**
+ * Vercel Cron still mails everyone opted in. A manual hit stays on Martin.
+ *
+ * **Who** a run mails is a guess about the caller, so nothing about not
+ * mailing someone twice is allowed to hang off it. It used to: the only
+ * test for "this is the scheduler" was an `x-vercel-cron: 1` header Vercel
+ * does not document and does not send, so all three Sunday slots fell
+ * through to the manual branch -- which skipped the already-sent marker
+ * *and* skipped writing one, on the reasoning that a targeted send is a
+ * test. Three identical letters, every Sunday, and no one but Martin ever
+ * received the letter at all.
+ *
+ * Now the marker is skipped only when the caller says so out loud
+ * (`?only=`, which is a person testing, or `?force=1`). If the platform
+ * changes its headers again the worst case is that the letter goes to
+ * Martin alone -- once.
+ */
 export function noteTestAudience(req: Request): NoteDispatchOpts {
   const url = new URL(req.url);
   const only = url.searchParams.get("only")?.trim().toLowerCase();
   // vercel.json marks the 04:20 and 04:40 slots with ?resume=1.
   const isResumeRun = url.searchParams.get("resume") === "1";
-  if (only === "me") return { onlyEmails: [SUPERADMIN_NOTE_EMAIL], isResumeRun };
-  if (req.headers.get("x-vercel-cron") === "1") return { isResumeRun };
-  return { onlyEmails: [SUPERADMIN_NOTE_EMAIL], isResumeRun };
+  const forceResend = url.searchParams.get("force") === "1";
+  if (only === "me") {
+    return {
+      onlyEmails: [SUPERADMIN_NOTE_EMAIL],
+      isResumeRun,
+      // A named test send is a test: it neither skips nor burns the marker,
+      // so testing on Saturday never eats Sunday's real letter.
+      forceResend: true,
+    };
+  }
+  if (requestIsScheduledCron(req)) return { isResumeRun, forceResend };
+  return { onlyEmails: [SUPERADMIN_NOTE_EMAIL], isResumeRun, forceResend };
 }
 
 /**
@@ -246,12 +330,19 @@ export async function dispatchWeeklyLetters(
   const aliasMap = await loadAliasMap(supabase);
   const allow = (opts.onlyEmails ?? []).map((e) => e.trim().toLowerCase());
   const allowSet = new Set(allow.filter(Boolean));
-  const recipients = collapseMailRecipients(
-    (profiles ?? []).filter((profile) =>
-      emailMatchesAllowlist(profile.email, allowSet, aliasMap)
-    ),
+  const eligible = (profiles ?? []).filter((profile) =>
+    emailMatchesAllowlist(profile.email, allowSet, aliasMap)
+  );
+  /*
+   * Captured before the collapse, deliberately. `collapseMailRecipients`
+   * keeps one profile per mailbox and drops the rest, and an unstamped row
+   * is exactly the row that mails again twenty minutes later.
+   */
+  const idsByMailbox = profileIdsByMailbox(
+    eligible as { id: string; email?: string | null }[],
     aliasMap
   );
+  const recipients = collapseMailRecipients(eligible, aliasMap);
 
   const emailed = noteEmailConfigured();
   if (!emailed) {
@@ -271,15 +362,17 @@ export async function dispatchWeeklyLetters(
   // that stopped at its deadline be resumed by the next one without
   // double-mailing.
   //
-  // A targeted send (`?only=me`, or any non-cron hit) is a test by
-  // definition, so it ignores the marker and does not stamp one -- otherwise
-  // testing the letter on Saturday would make Sunday's real run skip you.
-  const isTestSend = allowSet.size > 0;
+  // Only an explicit `?only=` test or `?force=1` re-sends. This used to be
+  // "any targeted send", i.e. anything the cron sniffer failed to
+  // recognise, which is how the same letter went out three times.
+  const bypassMarker = opts.forceResend === true;
   const now = new Date();
+  // A marker older than the window is last week's and may be claimed again.
+  const staleBefore = new Date(now.getTime() - RESEND_WINDOW_MS).toISOString();
   const pending = recipients.filter(
     ({ to, profile }) =>
       to &&
-      (isTestSend ||
+      (bypassMarker ||
         !weeklyLetterAlreadySent(
           (profile as { note_sunday_sent_at?: string | null })
             .note_sunday_sent_at,
@@ -420,6 +513,47 @@ export async function dispatchWeeklyLetters(
     return out;
   };
 
+  /*
+   * Take this week's letter for one person, atomically.
+   *
+   * `update ... where the marker is null or stale` is a single statement,
+   * so Postgres hands the row to exactly one caller. Two runs racing --
+   * the 04:20 slot starting while 04:00 is still working, or the platform
+   * invoking one schedule twice, which Vercel documents as possible --
+   * cannot both win it. Reading the marker up front and stamping after the
+   * send left that whole window open.
+   *
+   * "unavailable" falls back to the old order (send, then stamp) rather
+   * than dropping everybody's letter over one unexpected answer.
+   */
+  const claimRecipient = async (
+    ids: string[]
+  ): Promise<"claimed" | "taken" | "unavailable"> => {
+    if (!markerAvailable || ids.length === 0) return "unavailable";
+    const { data, error } = await supabase
+      .from(PORTFELL_TABLES.profiles)
+      .update({ note_sunday_sent_at: new Date().toISOString() })
+      .in("id", ids)
+      .or(`note_sunday_sent_at.is.null,note_sunday_sent_at.lt.${staleBefore}`)
+      .select("id");
+    if (error) {
+      logEvent("sunday_letter_claim_failed", { message: error.message }, "warn");
+      return "unavailable";
+    }
+    return (data ?? []).length > 0 ? "claimed" : "taken";
+  };
+
+  /** The letter never left. Put the claim back so a later slot retries. */
+  const releaseRecipient = async (ids: string[]): Promise<void> => {
+    if (!markerAvailable || ids.length === 0) return;
+    await supabase
+      .from(PORTFELL_TABLES.profiles)
+      .update({ note_sunday_sent_at: null })
+      .in("id", ids);
+  };
+
+  const weekKey = letterWeekKey(now);
+
   // ---- Write and send, stopping cleanly before the platform kills us. ----
   let remaining = 0;
   for (let i = 0; i < prepared.length; i++) {
@@ -432,7 +566,7 @@ export async function dispatchWeeklyLetters(
     }
     const item = prepared[i];
     const letterNames = new Set([...item.tickers, ...item.watchlist]);
-    const letter = buildWeeklyLetter({
+    const input: WeeklyLetterInput = {
       name: item.profile.display_name as string | null,
       cash: item.cash,
       holdings: item.holdings,
@@ -445,7 +579,42 @@ export async function dispatchWeeklyLetters(
       watchlist: item.watchlist,
       watchQuotes: pick(allQuotes, item.watchlist) ?? {},
       watchWeekReturns: pick(allWeekReturns, item.watchlist),
-    });
+    };
+
+    /*
+     * A letter states a portfolio value and a week's move as fact, in the
+     * subject line and in 38px type. If the market data behind either one
+     * came back thin, this recipient is passed over rather than mailed a
+     * confident wrong number.
+     *
+     * Before the claim, deliberately: a recipient this refuses must keep an
+     * empty marker so a later Sunday slot retries them with fresh data.
+     * Claiming first and checking after would stamp them and walk away,
+     * which costs them the week.
+     */
+    const trust = weeklyNumbersAreSound(input);
+    if (!trust.ok) {
+      logEvent(
+        "sunday_letter_skipped_untrusted",
+        { reason: trust.reason },
+        "warn"
+      );
+      skipped += 1;
+      continue;
+    }
+
+    const markerIds = idsByMailbox.get(item.to) ?? [];
+    const claim = bypassMarker
+      ? ("unavailable" as const)
+      : await claimRecipient(markerIds);
+    if (claim === "taken") {
+      // Someone else -- an earlier slot, or a run still in flight -- has
+      // this person's letter this week.
+      skipped += 1;
+      continue;
+    }
+
+    const letter = buildWeeklyLetter(input);
     letter.margus = await writeWeeklyTake(letter, {
       budgetMs: Math.min(LETTER_BUDGET_MS, left),
     });
@@ -454,18 +623,24 @@ export async function dispatchWeeklyLetters(
       subject: weeklySubject(letter),
       text: weeklyLetterText(letter),
       html: weeklyLetterHtml(letter),
+      // Last line of defence, and the only one outside this codebase: the
+      // provider refuses a second send under the same key for 24h, so even
+      // a bug on our side cannot put two Sunday letters in one inbox.
+      idempotencyKey: bypassMarker ? undefined : `sunday-letter:${weekKey}:${item.to}`,
     });
     if (!ok) {
+      if (claim === "claimed") await releaseRecipient(markerIds);
       skipped += 1;
       continue;
     }
-    // Mark before counting: an unmarked send is one this run cannot prove,
-    // and a resumed run would write to that person again.
-    if (!isTestSend && markerAvailable) {
+    if (!bypassMarker && markerAvailable && claim !== "claimed") {
+      // Claiming was unavailable, so stamp the old way: after the send, and
+      // before counting it, since an unmarked send is one a resumed run
+      // would make again.
       await supabase
         .from(PORTFELL_TABLES.profiles)
         .update({ note_sunday_sent_at: new Date().toISOString() })
-        .in("email", connectedEmailsFor(item.to, aliasMap));
+        .in("id", markerIds);
     }
     sent += 1;
   }
