@@ -24,7 +24,7 @@ import {
   correlationGrid,
   correlationMatrix,
 } from "@/lib/correlation";
-import { currency, cn, cashtag } from "@/lib/format";
+import { NO_VALUE, cashtag, cn, currency } from "@/lib/format";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import type { OverviewModel } from "@/lib/overview";
 import type { Holding, Portfolio, Quote } from "@/lib/types";
@@ -631,7 +631,7 @@ export const LabSheet = memo(function LabSheet({
                             key={`${row}-${j}`}
                             title={
                               c == null
-                                ? "—"
+                                ? NO_VALUE
                                 : `${row} ↔ ${corrHeat.tickers[j]}: ${c.toFixed(2)}`
                             }
                             className={cn(
@@ -646,7 +646,7 @@ export const LabSheet = memo(function LabSheet({
                                   }
                             }
                           >
-                            {c == null ? "—" : c.toFixed(1)}
+                            {c == null ? NO_VALUE : c.toFixed(1)}
                           </div>
                         ))}
                       </div>
@@ -677,7 +677,7 @@ export const LabSheet = memo(function LabSheet({
                                 : "text-muted-foreground"
                           )}
                         >
-                          {Number.isFinite(c.corr) ? c.corr.toFixed(2) : "—"}
+                          {Number.isFinite(c.corr) ? c.corr.toFixed(2) : NO_VALUE}
                         </span>
                       </li>
                     ))}

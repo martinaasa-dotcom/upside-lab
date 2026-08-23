@@ -7,7 +7,7 @@
  * it's the same story-building logic on server and client, and testable
  * without touching the network.
  */
-import { currency } from "@/lib/format";
+import { NO_VALUE, currency } from "@/lib/format";
 
 export type TrendRegime =
   | "strong-up"
@@ -207,19 +207,19 @@ function applySurge(
 }
 
 function rsiZone(rsi: number | null): { label: string; tone: Tone } {
-  if (rsi == null) return { label: "—", tone: "neutral" };
+  if (rsi == null) return { label: NO_VALUE, tone: "neutral" };
   if (rsi >= 70) return { label: "Overbought", tone: "warn" };
   if (rsi <= 30) return { label: "Oversold", tone: "gain" };
   return { label: "Neutral", tone: "neutral" };
 }
 
 function rsText(v: number | null): string {
-  if (v == null) return "—";
+  if (v == null) return NO_VALUE;
   return `${v > 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
 }
 
 function signedPct(v: number | null, digits = 1): string {
-  if (v == null || !Number.isFinite(v)) return "—";
+  if (v == null || !Number.isFinite(v)) return NO_VALUE;
   return `${v >= 0 ? "+" : ""}${(v * 100).toFixed(digits)}%`;
 }
 
@@ -293,7 +293,7 @@ export function buildTrendStory(row: TrendRowLike): TrendStory {
       key: "momentum",
       label: "Momentum",
       value:
-        row.macdBuilding == null ? "—" : row.macdBuilding ? "Building" : "Fading",
+        row.macdBuilding == null ? NO_VALUE : row.macdBuilding ? "Building" : "Fading",
       tone:
         row.macdBuilding == null
           ? "neutral"
@@ -309,7 +309,7 @@ export function buildTrendStory(row: TrendRowLike): TrendStory {
     {
       key: "rsi",
       label: "RSI",
-      value: row.rsi == null ? "—" : `${row.rsi.toFixed(0)} · ${zone.label}`,
+      value: row.rsi == null ? NO_VALUE : `${row.rsi.toFixed(0)} · ${zone.label}`,
       tone: zone.tone,
       detail:
         row.rsi == null

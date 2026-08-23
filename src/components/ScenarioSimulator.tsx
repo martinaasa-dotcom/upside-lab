@@ -8,7 +8,7 @@ import {
 import { FluidRow, FluidTable, cellBase, cellTicker, tableCols } from "@/components/FluidTable";
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { listingCurrenciesAreMixed } from "@/lib/listing-currency";
-import { cashtag, cn, currency, percent, signedCurrency, signedPercent, signedTone } from "@/lib/format";
+import { NO_VALUE, cashtag, cn, currency, percent, signedCurrency, signedPercent, signedTone } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -228,7 +228,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
             value={
               analysis.topVulnerability
                 ? cashtag(analysis.topVulnerability.ticker)
-                : "—"
+                : NO_VALUE
             }
             sub={
               analysis.topVulnerability
@@ -246,7 +246,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
             value={
               analysis.topShockAbsorber
                 ? cashtag(analysis.topShockAbsorber.ticker)
-                : "—"
+                : NO_VALUE
             }
             sub={
               analysis.topShockAbsorber

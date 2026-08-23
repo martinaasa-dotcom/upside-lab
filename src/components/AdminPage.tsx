@@ -26,6 +26,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isAbortError } from "@/lib/abort";
 import { useNetworkResume } from "@/lib/use-network-resume";
+import { NO_VALUE } from "@/lib/format";
 
 type AdminUser = {
   id: string;
@@ -77,7 +78,7 @@ type AdminErrorLog = {
 };
 
 function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return NO_VALUE;
   return formatDateTime(iso) || iso;
 }
 
@@ -313,7 +314,7 @@ export function AdminPage() {
                                   {e.source}
                                 </span>
                                 <span className="truncate text-muted-foreground">
-                                  {e.path || "—"}
+                                  {e.path || NO_VALUE}
                                 </span>
                               </p>
                               <p className="mt-1 truncate text-sm text-foreground">
@@ -397,7 +398,7 @@ export function AdminPage() {
                         >
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium text-foreground">
-                              {u.display_name || "—"}
+                              {u.display_name || NO_VALUE}
                             </p>
                             <p className="truncate text-sm text-muted-foreground">
                               {u.email || u.id}

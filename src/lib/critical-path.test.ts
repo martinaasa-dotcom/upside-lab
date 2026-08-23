@@ -23,6 +23,7 @@ import {
   type DemoStore,
 } from "@/lib/demo-store";
 import {
+  NO_VALUE,
   currency,
   number as formatNumber,
   percent,
@@ -242,7 +243,7 @@ function overviewPanelCopy(model: OverviewModel): string[] {
   return [
     currency(t.totalValue, 0),
     signedCurrency(t.todayDollar, 0),
-    t.todayPct != null ? percent(t.todayPct) : "—",
+    t.todayPct != null ? percent(t.todayPct) : NO_VALUE,
     signedCurrency(t.roiDollar, 0),
     percent(t.roiPct),
     currency(t.cash, 0),
@@ -257,7 +258,7 @@ function overviewPanelCopy(model: OverviewModel): string[] {
       percent(row.roiPct),
       signedCurrency(row.roiDollar, 0),
       signedCurrency(row.todayDollar, 0),
-      row.todayPct != null ? percent(row.todayPct, 2) : "—",
+      row.todayPct != null ? percent(row.todayPct, 2) : NO_VALUE,
     ]),
   ];
 }
@@ -281,10 +282,10 @@ function snapshotPanelCopy(snap: PortfolioSnapshot): string[] {
     ...snap.coveredCallRows.flatMap((r) => [
       currency(r.spot),
       currency(r.totalValue),
-      r.targetDistance != null ? percent(r.targetDistance) : "—",
-      r.nextStrike != null ? currency(r.nextStrike) : "—",
-      r.yield2w != null ? percent(r.yield2w) : "—",
-      r.premium != null ? currency(r.premium) : "—",
+      r.targetDistance != null ? percent(r.targetDistance) : NO_VALUE,
+      r.nextStrike != null ? currency(r.nextStrike) : NO_VALUE,
+      r.yield2w != null ? percent(r.yield2w) : NO_VALUE,
+      r.premium != null ? currency(r.premium) : NO_VALUE,
     ]),
   ];
 }
@@ -591,12 +592,12 @@ describe("holdings mutations", () => {
 });
 
 describe("math invariants: zero books and $0 cost never render NaN/Infinity", () => {
-  it("formatters paint a dash for junk and a real $0 for zero", () => {
-    expect(currency(Number.NaN)).toBe("—");
-    expect(currency(Number.POSITIVE_INFINITY)).toBe("—");
-    expect(percent(Number.POSITIVE_INFINITY)).toBe("—");
-    expect(signedPercent(1 / 0)).toBe("—");
-    expect(formatNumber(Number.NaN)).toBe("—");
+  it("formatters say n/a for junk and a real $0 for zero", () => {
+    expect(currency(Number.NaN)).toBe(NO_VALUE);
+    expect(currency(Number.POSITIVE_INFINITY)).toBe(NO_VALUE);
+    expect(percent(Number.POSITIVE_INFINITY)).toBe(NO_VALUE);
+    expect(signedPercent(1 / 0)).toBe(NO_VALUE);
+    expect(formatNumber(Number.NaN)).toBe(NO_VALUE);
     expect(currency(0)).toBe("$0.00");
     expect(percent(0)).toBe("0.0%");
   });
@@ -678,7 +679,7 @@ describe("math invariants: zero books and $0 cost never render NaN/Infinity", ()
     expect(rows[0]!.nextStrike).toBeNull();
     assertCleanDisplay([
       currency(rows[0]!.spot),
-      "—",
+      NO_VALUE,
     ]);
   });
 
@@ -716,7 +717,7 @@ describe("math invariants: zero books and $0 cost never render NaN/Infinity", ()
     expect(model.gainPct).toBeNull();
     assertCleanDisplay([
       currency(model.currentTotal),
-      "—",
+      NO_VALUE,
       ...Object.values(model.eoyTotals).map((v) => currency(v)),
     ]);
   });
@@ -740,7 +741,7 @@ describe("math invariants: zero books and $0 cost never render NaN/Infinity", ()
       percent(zero.allTimeRoR),
       Number.isFinite(zero.doubleYears)
         ? `${zero.doubleYears}y ${zero.doubleMonths}m`
-        : "—",
+        : NO_VALUE,
     ]);
     expect(Number.isFinite(effectiveAnnualRate(-0.05, "monthly"))).toBe(true);
     const huge = calculateCompound(

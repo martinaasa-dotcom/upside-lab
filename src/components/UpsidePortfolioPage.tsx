@@ -28,7 +28,7 @@ import {
 import { plainError } from "@/lib/plain-error";
 import { isAbortError, isNetworkError } from "@/lib/abort";
 import { useNetworkResume } from "@/lib/use-network-resume";
-import { currency, percent, signedCurrency, cn, signedTone, cashtag } from "@/lib/format";
+import { NO_VALUE, cashtag, cn, currency, percent, signedCurrency, signedTone } from "@/lib/format";
 import { PALETTE } from "@/lib/palette";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import { isWorkspaceRoomActive } from "@/lib/workspace-rooms";
@@ -1620,7 +1620,7 @@ export function UpsidePortfolioPage() {
                         </span>
                       </div>
                       <p className="mt-0.5 text-sm text-muted-foreground">
-                        {fmtDate(h.entry_date)} → {h.closed_at ? fmtDate(h.closed_at) : "—"}
+                        {fmtDate(h.entry_date)} → {h.closed_at ? fmtDate(h.closed_at) : NO_VALUE}
                         {h.exit_reasoning ? ` · ${h.exit_reasoning}` : ""}
                       </p>
                     </li>

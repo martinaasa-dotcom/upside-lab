@@ -4,6 +4,7 @@ import { MacroStrip } from "@/components/MacroStrip";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { cn } from "@/lib/format";
 import { PAGE_COLUMN_CLASS } from "@/lib/page-shell";
+import { NO_VALUE } from "@/lib/format";
 import { loadCachedQuotes } from "@/lib/quote-cache";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
 import { useEffect, useState } from "react";
@@ -64,7 +65,7 @@ export function AppStatusStrip({
       >
         <span className="flex shrink-0 items-center gap-2 whitespace-nowrap text-xs font-medium tabular-nums text-muted-foreground">
           {sec == null
-            ? "Prices —"
+            ? `Prices ${NO_VALUE}`
             : quotesDelayed && sec >= 60
               ? `Price as of ${formatAge(sec)}`
               : `Prices - ${formatAge(sec)}`}

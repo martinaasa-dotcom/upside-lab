@@ -28,7 +28,7 @@ import {
   type ClassroomTrade,
   type ThesisCoverage,
 } from "@/lib/classroom";
-import { currency, percent, signedCurrency, signedPercent, cn, cashtag, signedTone } from "@/lib/format";
+import { NO_VALUE, cashtag, cn, currency, percent, signedCurrency, signedPercent, signedTone } from "@/lib/format";
 import { listingCurrenciesAreMixed, listingCurrency, listingPriceDigits } from "@/lib/listing-currency";
 import {
   FluidRow,
@@ -283,7 +283,7 @@ function SharedNameRow({
             signedTone(todayPct, "text-muted-foreground")
           )}
         >
-          {todayPct != null ? signedPercent(todayPct) : "—"}
+          {todayPct != null ? signedPercent(todayPct) : NO_VALUE}
         </span>
       </ItemActions>
     </Item>
@@ -1671,7 +1671,7 @@ export function CommunityView({ communityId }: Props) {
                     value={
                       overview.totals.todayPct != null
                         ? signedPercent(overview.totals.todayPct)
-                        : "—"
+                        : NO_VALUE
                     }
                     sub={signedCurrency(overview.totals.todayDollar)}
                     tone={
@@ -1692,7 +1692,7 @@ export function CommunityView({ communityId }: Props) {
                       value={
                         classVsStartPct != null
                           ? signedPercent(classVsStartPct)
-                          : "—"
+                          : NO_VALUE
                       }
                       sub={`${signedCurrency(classVsStartDollar)} · ${currency(startingCash)} each`}
                       tone={
@@ -1968,7 +1968,7 @@ export function CommunityView({ communityId }: Props) {
                                           )
                                         )}
                                       >
-                                        {pct != null ? percent(pct) : "—"}
+                                        {pct != null ? percent(pct) : NO_VALUE}
                                       </span>
                                       <span
                                         className={cn(
@@ -2276,7 +2276,7 @@ export function CommunityView({ communityId }: Props) {
                                     >
                                       {sheetTodayPct != null
                                         ? signedPercent(sheetTodayPct)
-                                        : "—"}
+                                        : NO_VALUE}
                                     </span>
                                   </>
                                 )}
@@ -2388,7 +2388,7 @@ export function CommunityView({ communityId }: Props) {
                                     >
                                       {sheetTodayPct != null
                                         ? signedPercent(sheetTodayPct)
-                                        : "—"}
+                                        : NO_VALUE}
                                     </span>
                                   </>
                                 )}
@@ -2996,7 +2996,7 @@ function bookTodayPct(
 }
 
 function signedPctPoints(n: number): string {
-  if (!Number.isFinite(n)) return "—";
+  if (!Number.isFinite(n)) return NO_VALUE;
   const abs = Math.abs(n).toFixed(1);
   if (n > 0) return `+${abs}%`;
   if (n < 0) return `-${abs}%`;
@@ -3078,7 +3078,7 @@ function PowerAnimalCard({
                   signedTone(todayPct, "text-foreground")
                 )}
               >
-                {todayPct != null ? signedPercent(todayPct) : "—"}
+                {todayPct != null ? signedPercent(todayPct) : NO_VALUE}
               </span>
               <span className="mt-1 block text-sm tabular-nums text-muted-foreground">
                 {currency(totalValue, 0)}
@@ -3163,7 +3163,7 @@ function PowerAnimalCard({
               value={
                 Number.isFinite(personality.expectedAnnualReturnPct)
                   ? `${personality.expectedAnnualReturnPct.toFixed(1)}%`
-                  : "—"
+                  : NO_VALUE
               }
               sub={`A year, ${signedPctPoints(personality.modeledAlphaPct)} vs an index fund`}
               subClassName={signedTone(personality.modeledAlphaPct, "text-muted-foreground")}
@@ -3294,7 +3294,7 @@ function ReadOnlyHoldings({
       <Scoreboard cols={3}>
         <Score
           label="Today"
-          value={todayPct != null ? signedPercent(todayPct) : "—"}
+          value={todayPct != null ? signedPercent(todayPct) : NO_VALUE}
           sub={signedCurrency(todayDollar)}
           tone={todayDollar > 0 ? "up" : todayDollar < 0 ? "down" : undefined}
         />
@@ -3347,7 +3347,7 @@ function ReadOnlyHoldings({
                     >
                       {row.rowTodayPct != null
                         ? signedPercent(row.rowTodayPct)
-                        : "—"}
+                        : NO_VALUE}
                     </div>
                   </FluidRow>
                 );
@@ -3407,7 +3407,7 @@ function ReadOnlyHoldings({
                     >
                       {row.rowTodayPct != null
                         ? signedPercent(row.rowTodayPct)
-                        : "—"}
+                        : NO_VALUE}
                     </div>
                     <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
                       {percent(row.pctBook)}

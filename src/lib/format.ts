@@ -3,11 +3,31 @@ import { normalizeYahooTicker } from "@/lib/ticker";
 export { cn } from "@/lib/utils";
 
 /**
+ * What a cell says when there is no number to put in it.
+ *
+ * This used to be an em dash, which is the convention every annual report
+ * uses for nil and is also the single loudest tell that a sentence was
+ * generated rather than written. The rule in AGENTS.md is that a reader
+ * never sees one, and a reader sees these: they are in the value column of
+ * every table in the app.
+ *
+ * A bare hyphen was the obvious swap and is wrong. These sit in
+ * `tabular-nums` columns beside signed percentages, where `signedPercent`
+ * already renders a loss as `-2.4%`, so a lone `-` two rows down reads as a
+ * negative number whose digits failed to load rather than as "we do not
+ * have this". `n/a` cannot be misread as arithmetic, and it is what a
+ * person would actually write.
+ *
+ * One constant, so it is one edit if that call ever changes.
+ */
+export const NO_VALUE = "n/a";
+
+/**
  * Every formatter rejects non-finite input, not just NaN. Division by a
  * zero cost basis (a gifted share, a fully written-down position, a
  * ticker whose previous close came back as 0) yields Infinity rather than
  * NaN in JS, which Intl happily renders as "$∞" and toFixed renders as
- * "Infinity%". A dash is the honest answer in all of those cases.
+ * "Infinity%". NO_VALUE is the honest answer in all of those cases.
  */
 function isRenderable(value: number | null | undefined): value is number {
   return value !== null && value !== undefined && Number.isFinite(value);
@@ -18,7 +38,7 @@ export function currency(
   digits = 2,
   code: string = "USD"
 ): string {
-  if (!isRenderable(value)) return "—";
+  if (!isRenderable(value)) return NO_VALUE;
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: code,
@@ -29,7 +49,7 @@ export function currency(
 
 /** `value` is a fraction (0.123 → 12.3%). Default: 1 decimal place. */
 export function percent(value: number | null | undefined, digits = 1): string {
-  if (!isRenderable(value)) return "—";
+  if (!isRenderable(value)) return NO_VALUE;
   // Multiply-then-toFixed hits the 1.005 → "1.00" trap. Round the displayed
   // percent the same way money rounds, then format the already-clean number.
   return `${roundMoney(value * 100, digits).toFixed(digits)}%`;
@@ -40,7 +60,7 @@ export function signedPercent(
   value: number | null | undefined,
   digits = 1
 ): string {
-  if (!isRenderable(value)) return "—";
+  if (!isRenderable(value)) return NO_VALUE;
   const formatted = percent(Math.abs(value), digits);
   if (value > 0) return `+${formatted}`;
   if (value < 0) return `-${formatted}`;
@@ -49,7 +69,7 @@ export function signedPercent(
 
 /** Plain number. Default: 0 decimals (shares). */
 export function number(value: number | null | undefined, digits = 0): string {
-  if (!isRenderable(value)) return "—";
+  if (!isRenderable(value)) return NO_VALUE;
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
@@ -60,7 +80,7 @@ export function signedCurrency(
   value: number | null | undefined,
   digits = 2
 ): string {
-  if (!isRenderable(value)) return "—";
+  if (!isRenderable(value)) return NO_VALUE;
   const formatted = currency(Math.abs(value), digits);
   if (value > 0) return `+${formatted}`;
   if (value < 0) return `-${formatted}`;
@@ -84,7 +104,7 @@ export function stripTickerDecor(raw: string): string {
  */
 export function cashtag(ticker: string | null | undefined): string {
   const t = stripTickerDecor(ticker ?? "").toUpperCase();
-  if (!t) return "—";
+  if (!t) return NO_VALUE;
   const yahoo = normalizeYahooTicker(t) || t;
   if (/\.[A-Z]{1,3}$/.test(yahoo)) return yahoo;
   return `$${yahoo}`;

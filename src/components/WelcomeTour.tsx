@@ -17,7 +17,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { Input } from "@/components/ui/input";
-import { CARD, SUGGEST_MENU } from "@/components/ui/Panel";
+import { SUGGEST_MENU } from "@/components/ui/Panel";
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
 import { ownedBookPortfolios } from "@/lib/classroom";
@@ -50,7 +50,7 @@ import {
 import { roundMoney, roundShares } from "@/lib/money";
 import { blockWheelChange, parseDecimal } from "@/lib/number-input";
 import { postJsonOrQueue } from "@/lib/offline/queued-fetch";
-import { FALLBACK_POPULAR_TICKERS } from "@/lib/popular-tickers";
+import { sanitizePopularTickers } from "@/lib/popular-tickers";
 import { FIRST_SHEET_NAME } from "@/lib/product";
 import {
   isPlausibleTicker,
@@ -161,13 +161,13 @@ const Q1_OPTIONS: {
   },
   {
     id: "comfortable",
-    label: "Comfortable — I understand stocks and portfolios",
+    label: "Comfortable. I understand stocks and portfolios",
     detail: "The middle setting, and the one most people want.",
     icon: TrendingUp,
   },
   {
     id: "active",
-    label: "Very experienced — I follow markets closely",
+    label: "Very experienced. I follow markets closely",
     detail: "Everything on, nothing simplified away.",
     icon: Sparkles,
   },
@@ -212,7 +212,16 @@ const TIER_Q1: Record<ExperienceTier, Q1Answer> = {
   advanced: "active",
 };
 
-const POPULAR_PICKS = FALLBACK_POPULAR_TICKERS.slice(0, 12);
+/*
+  What the watchlist screen offers before the month's list arrives.
+
+  Not a slice. `sanitizePopularTickers` is what decides the offer everywhere
+  else in the app, so calling it here means this screen cannot drift from
+  that decision: the seven everybody can name first, the month's movers
+  after, topped up to thirty. Slicing it to twelve was how a reader ended up
+  being offered RIG and PLUG and no Apple.
+*/
+const POPULAR_PICKS = sanitizePopularTickers(null);
 
 type AddedHolding = { ticker: string; shares: number; buyPrice: number };
 
@@ -221,6 +230,19 @@ function blendTier(q1: Q1Answer, q2: Q2Answer): ExperienceTier {
     ? Q2_TIER[q2]
     : Q1_TIER[q1];
 }
+
+/*
+  The material every card inside the walkthrough is made of.
+
+  Top-level `.glass`, not the nested `.glass-well` a card inside a Panel
+  uses. A well is deliberately the quieter of the two: weaker top hairline,
+  no bottom hairline, no lift. That is right for something sitting inside a
+  page card that is already carrying the refraction, and wrong here, because
+  the walkthrough floats over an 80% scrim where there is nothing else doing
+  it. On a near-black field the edge is what sells glass rather than the
+  blur, so these need all three specular terms.
+*/
+const ROW_GLASS = "card-sheen glass rounded-lg";
 
 /** One explained thing on a telling screen. Icon, name, sentence. */
 function Row({
@@ -233,7 +255,7 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <li className={cn(CARD, "flex items-start gap-3 p-4")}>
+    <li className={cn(ROW_GLASS, "flex items-start gap-3 p-4")}>
       {Icon ? (
         <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
       ) : null}
@@ -329,10 +351,10 @@ export function WelcomeTour({
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { tickers?: string[] } | null) => {
         if (ctrl.signal.aborted) return;
-        if (data?.tickers?.length) setPopular(data.tickers.slice(0, 12));
+        if (data?.tickers?.length) setPopular(sanitizePopularTickers(data.tickers));
       })
       .catch(() => {
-        /* keep the fallback twelve */
+        /* the seeded list POPULAR_PICKS already holds stands */
       });
     return () => ctrl.abort();
   }, []);
@@ -675,7 +697,7 @@ export function WelcomeTour({
         >
           <div className="flex flex-col gap-2">
             {stage === "done" && (
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-foreground">
+              <div className="card-sheen glass-well flex h-11 w-11 items-center justify-center rounded-xl text-primary">
                 <Check className="h-5 w-5" aria-hidden />
               </div>
             )}
@@ -720,7 +742,7 @@ export function WelcomeTour({
               <ul className="grid gap-2 sm:grid-cols-2">
                 <Row icon={LayoutDashboard} term="Home">
                   Today&apos;s briefing, every portfolio you own, and one row
-                  per holding — what it cost, what it is worth, what it did
+                  per holding: what it cost, what it is worth, what it did
                   today.
                 </Row>
                 <Row icon={Activity} term="Pulse">
@@ -737,14 +759,14 @@ export function WelcomeTour({
                   adding at some rate for some years. Not a prediction.
                 </Row>
                 <Row icon={Users} term="Circle">
-                  Optional. People you choose to share a portfolio with — a
-                  partner, family, a class. Nothing is shared until you share
-                  it.
+                  Optional. People you choose to share a portfolio with, like
+                  a partner, family or a class. Nothing is shared until you
+                  share it.
                 </Row>
                 <Row icon={UserCog} term="Account">
                   Your picture in the top corner, not the bottom bar. The
-                  Sunday email, how much detail you want shown, and your data —
-                  export it or delete it, any time.
+                  Sunday email, how much detail you want shown, and your data.
+                  Export it or delete it, any time.
                 </Row>
               </ul>
             </div>
@@ -766,7 +788,7 @@ export function WelcomeTour({
                 <Row icon={Mail} term="The Sunday email">
                   One email a week. How the week went, what looks worth a
                   second look, and what to think about next. Its suggestions
-                  come from Pulse verdicts you have already seen — nothing in
+                  come from Pulse verdicts you have already seen. Nothing in
                   it is invented.
                 </Row>
               </ul>
@@ -812,8 +834,8 @@ export function WelcomeTour({
                     onClick={() => setQ1(opt.id)}
                     aria-pressed={on}
                     className={cn(
-                      CARD,
-                      "flex w-full items-start gap-3 p-4 text-left transition hover:bg-hover",
+                      ROW_GLASS,
+                      "veil-hover flex w-full items-start gap-3 p-4 text-left",
                       on && "ring-1 ring-primary/40"
                     )}
                   >
@@ -855,8 +877,8 @@ export function WelcomeTour({
                     onClick={() => setQ2(opt.id)}
                     aria-pressed={on}
                     className={cn(
-                      CARD,
-                      "flex w-full items-start gap-3 p-4 text-left transition hover:bg-hover",
+                      ROW_GLASS,
+                      "veil-hover flex w-full items-start gap-3 p-4 text-left",
                       on && "ring-1 ring-primary/40"
                     )}
                   >

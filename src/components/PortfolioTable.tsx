@@ -1,6 +1,6 @@
 "use client";
 
-import { cn, signedTone, currency, percent } from "@/lib/format";
+import { NO_VALUE, cn, currency, percent, signedTone } from "@/lib/format";
 import {
   usdToDisplay,
   formatEurUsdHint,
@@ -584,7 +584,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   >
                     {today.pct != null
                       ? `${percent(today.pct, 2)} · ${money(today.dollar, 0)}`
-                      : "—"}
+                      : NO_VALUE}
                   </p>
                 </div>
               </div>
@@ -762,7 +762,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                 >
                   {rowToday(h).pct != null
                     ? percent(rowToday(h).pct!, 2)
-                    : "—"}
+                    : NO_VALUE}
                 </div>
                 <div
                   className={cn(
@@ -775,7 +775,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                 >
                   {rowToday(h).pct != null
                     ? money(rowToday(h).dollar, 0)
-                    : "—"}
+                    : NO_VALUE}
                 </div>
                 {canSell ? (
                   <div className="flex h-full items-center justify-center">
@@ -833,7 +833,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   today.pct != null ? signedTone(today.pct) : "text-muted-foreground"
                 )}
               >
-                {today.pct != null ? percent(today.pct, 2) : "—"}
+                {today.pct != null ? percent(today.pct, 2) : NO_VALUE}
               </div>
               <div
                 className={cn(
@@ -842,7 +842,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   today.pct != null ? signedTone(today.dollar) : "text-muted-foreground"
                 )}
               >
-                {today.pct != null ? money(today.dollar, 0) : "—"}
+                {today.pct != null ? money(today.dollar, 0) : NO_VALUE}
               </div>
               {canSell ? <div /> : null}
             </FluidRow>
