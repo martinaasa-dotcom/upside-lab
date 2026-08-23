@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/format";
 import { PAGE_COLUMN_CLASS } from "@/lib/page-shell";
@@ -69,11 +69,14 @@ export function PortfolioTabs({
 }: Props) {
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
-  const dockRef = useRef<HTMLElement>(null);
+  /* A callback ref, not a `useRef`: this nav moves into a portal after the
+     first render, and the node it lands as is not the node a ref captured.
+     See `use-dock-pad.ts`. */
+  const [dockEl, setDockEl] = useState<HTMLElement | null>(null);
   useLayoutEffect(() => {
     setSlot(document.getElementById(WORKSPACE_DOCK_SLOT_ID));
   }, []);
-  useDockPad(dockRef);
+  useDockPad(dockEl);
 
   function openSheetMenu(x: number, y: number, id: string, name: string) {
     if (guest) return;
@@ -89,7 +92,7 @@ export function PortfolioTabs({
 
   const nav = (
     <nav
-      ref={dockRef}
+      ref={setDockEl}
       className={cn(
         /*
          * No band. The dock used to be a full-width bar -- a black veil, a

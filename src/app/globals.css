@@ -469,6 +469,58 @@ body {
  */
 @layer utilities {
   /*
+   * Anything anchored to the bottom of the window that is not the dock:
+   * the measurement question, the offline chip.
+   *
+   * Where it lands is decided by what is actually drawn down there, never
+   * by a number typed into the notice. The measurement question used to
+   * carry its own `bottom-[max(5.75rem,calc(var(--dock-pad,5.5rem)+5.5rem))]`,
+   * which is two guesses stacked: `--dock-pad` is only written when a dock
+   * renders, so on the sign-in page, /privacy and /terms -- the three
+   * places a stranger meets this app first -- it fell back to 5.5rem,
+   * added another 5.5rem for a Margus button that is not there either, and
+   * floated the notice 176px up an empty page.
+   *
+   * `data-dock`, `data-bottom-corner` and `--dock-clearance` are published
+   * on <html> by `use-dock-pad.ts` from a measurement, so the lift is the
+   * sum of what is really in that corner: nothing on a landing page, the
+   * dock in a room without Margus, both where both are. See the note there
+   * for why this is not a `:has()` selector.
+   */
+  .bottom-notice {
+    bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  @media (min-width: 640px) {
+    .bottom-notice {
+      bottom: max(1.5rem, env(safe-area-inset-bottom));
+    }
+  }
+
+  /*
+   * `--dock-clearance` is the dock's measured height plus its own gap, so
+   * this only adds the space between the two.
+   */
+  :root[data-dock] .bottom-notice {
+    bottom: calc(var(--dock-clearance, 5.5rem) + 0.5rem);
+  }
+
+  /*
+   * The bottom-right corner also holds Margus's round button, which
+   * anchors to the dock. A notice in that corner has to clear the button,
+   * not just the dock, or it lands on top of it and -- being `z-50` over
+   * the button's `z-40` -- blurs it into a smear. 5.5rem is the button
+   * plus a gap.
+   *
+   * Left-hand notices do not take this class, and stay on the dock line.
+   *
+   * Higher specificity than the dock rule, so order does not matter.
+   */
+  :root[data-bottom-corner] .bottom-notice.bottom-notice-corner {
+    bottom: calc(var(--dock-clearance, 1rem) + 5.5rem);
+  }
+
+  /*
    * Card sheen — a hairline top highlight, the way a pane of glass catches
    * light along its top edge rather than glowing all over. Some call sites
    * use it alone (no translucent fill under it), so it carries its own

@@ -38,6 +38,7 @@ import {
   Square,
   X,
 } from "lucide-react";
+import { useBottomCorner } from "@/lib/use-dock-pad";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -574,6 +575,10 @@ export function CcAdvisorChat({
   const panelRef = useRef<HTMLElement>(null);
   const rulesRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /* Tells the bottom notices that this corner is taken. See the note on
+     the element that carries it. */
+  const [cornerEl, setCornerEl] = useState<HTMLDivElement | null>(null);
+  useBottomCorner(cornerEl);
 
   useEffect(() => {
     if (!expandSignal) return;
@@ -909,6 +914,15 @@ export function CcAdvisorChat({
     // modal, which on a phone is exactly where both of them live: Add
     // holding, Cash, Rename sheet, Delete account, and every ConfirmModal.
     <div
+      /*
+       * Claims the bottom-right corner while this is actually drawn, so a
+       * notice anchored there clears the button instead of landing on it.
+       * See `useBottomCorner` and `.bottom-notice`. It has to be measured
+       * rather than assumed from the route: `WorkspaceShell` keeps the
+       * portfolio room mounted behind whatever room you are in, so the
+       * button is in the DOM long after it has left the screen.
+       */
+      ref={setCornerEl}
       className={
         open
           ? "pointer-events-none fixed z-40 flex flex-col items-end justify-end gap-3 p-3"
