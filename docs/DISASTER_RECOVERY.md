@@ -9,6 +9,10 @@ Supabase still has a fresh WAL / daily backup.
 
 Nothing here changes the app UI.
 
+The Vercel links below point at the project `upside`. That is the Vercel
+project's name, not the GitHub repository — the repo is
+`martinaasa-dotcom/upside-lab`, and renaming it did not rename the project.
+
 **Already on Vercel production:** `SNAPSHOT_ENCRYPTION_KEY`,
 `SUPABASE_PROJECT_REF`, `DR_S3_PREFIX`, `DR_S3_REGION`.
 
