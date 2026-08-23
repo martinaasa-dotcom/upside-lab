@@ -66,22 +66,48 @@ type HeroProps = {
 };
 
 /**
- * Fades a section in the first time it is scrolled to.
+ * How far below the window a section arrives, as a fraction of the window.
+ *
+ * This used to be `-12%`, a *negative* margin, which shrinks the observer's
+ * root instead of growing it: a section did not begin arriving until it was
+ * already 12% of a screen inside the window. Measured on the real page that
+ * came out at 113px to 188px of the section sitting in plain view as an
+ * empty box, and then 0.7s of fade on top of it. Somebody who flicks the
+ * page and looks is shown nothing where the next section is, and the
+ * reasonable thing to conclude is that the page has ended, so they flick
+ * back. That is the whole of the feedback this number answers.
+ *
+ * Grown instead of shrunk, and by more than a screen. Measured on the real
+ * page, every section that still fades now starts fading while it is
+ * between 1000px and 1130px below the fold, and the two under the hero
+ * never fade at all because they are already inside the lead when the page
+ * loads: they are simply drawn, finished, before anybody touches the
+ * wheel. Nothing on this page animates anywhere a reader can watch it.
+ */
+const REVEAL_LEAD = 1.25;
+
+/**
+ * Fades a section in before it is scrolled to.
  *
  * `data-reveal` is only ever set from script, so before hydration and in
  * any browser without an IntersectionObserver the element carries no
  * attribute and is plain visible. The observer disconnects on the first
  * intersection: this is an arrival, not a scrubbed animation, and a section
  * that faded out again when scrolled past would be a toy.
+ *
+ * A section already inside the lead zone when the page loads is never
+ * faded at all. It keeps no attribute, so it is simply drawn, and the
+ * screenful under the hero is finished before the first scroll rather than
+ * starting to arrive because of one. That also means no section can flash
+ * empty on mount, which is what arming an observer on something already in
+ * view would do.
  */
 function Reveal({
   children,
   className,
-  delayMs = 0,
 }: {
   children: ReactNode;
   className?: string;
-  delayMs?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<"none" | "out" | "in">("none");
@@ -89,8 +115,8 @@ function Reveal({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setState("in");
+    if (typeof IntersectionObserver === "undefined") return;
+    if (el.getBoundingClientRect().top <= window.innerHeight * (1 + REVEAL_LEAD)) {
       return;
     }
     setState("out");
@@ -102,9 +128,10 @@ function Reveal({
           io.disconnect();
         }
       },
-      // Fire a little before the section reaches the bottom edge, so it has
-      // finished arriving by the time it is actually being read.
-      { rootMargin: "0px 0px -12% 0px", threshold: 0.05 }
+      {
+        rootMargin: `0px 0px ${Math.round(REVEAL_LEAD * 100)}% 0px`,
+        threshold: 0,
+      }
     );
     io.observe(el);
     return () => io.disconnect();
@@ -114,7 +141,6 @@ function Reveal({
     <div
       ref={ref}
       data-reveal={state === "none" ? undefined : state}
-      style={delayMs ? { transitionDelay: `${delayMs}ms` } : undefined}
       className={className}
     >
       {children}
@@ -132,8 +158,9 @@ function Section({
 }) {
   return (
     /*
-     * 48px, 64px from `sm`, so two adjacent sections put 128px between
-     * them on a desktop. It started at 80/112, which is 224px.
+     * 40px, 48px from `sm`, so two adjacent sections put 96px between them
+     * on a desktop and 80px on a phone. It started at 80/112, which is
+     * 224px, and spent a pass at 48/64, which is 128px.
      *
      * Generous spacing is what makes a product page feel calm, and the
      * mistake is reading that as "more is better". What actually reads as
@@ -143,8 +170,15 @@ function Section({
      * 224px of gap the page was very nearly half emptiness and every
      * measured void between two rows of cards read as the page having run
      * out rather than breathing.
+     *
+     * 128px was still the tallest empty band on the page, measured, and it
+     * is the band a reader lands in when one flick of a wheel happens to
+     * stop on a boundary. A void that fills a seventh of the window with
+     * nothing is the second half of why this page read as finished when it
+     * was not. Against sections of 435px to 642px, 96px is comfortably the
+     * smaller number and the ratio the note above is about still holds.
      */
-    <section className={cn("px-6 py-12 sm:py-16", className)}>
+    <section className={cn("px-6 py-10 sm:py-12", className)}>
       <div className="mx-auto w-full min-w-0 max-w-5xl">{children}</div>
     </section>
   );
@@ -292,15 +326,23 @@ const WAYS_IN = [
 function WaysIn() {
   return (
     <Section>
+      {/*
+        * One `Reveal` around the whole section, heading and cards together.
+        *
+        * They used to be two, the cards on an 80ms delay, each with its own
+        * observer. A row of cards is what a heading is a heading *of*, and
+        * splitting them meant the commonest thing a reader saw at a
+        * boundary was a title with a hole under it where the row had not
+        * arrived yet. Anything that has to be read as one thing arrives as
+        * one thing.
+        */}
       <Reveal>
         <SectionHead
           eyebrow="Getting started"
           title="It starts with what you already own."
           detail="No brokerage login, no read-only keys, no waiting on a connection to sync. Three ways in, and the fastest one is typing."
         />
-      </Reveal>
-      <Reveal delayMs={80}>
-        <div className="mt-10 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {WAYS_IN.map((w) => (
             <div
               key={w.title}
@@ -450,9 +492,7 @@ function More() {
           eyebrow="And the rest"
           title="Three more rooms, once you are in."
         />
-      </Reveal>
-      <Reveal delayMs={80}>
-        <div className="mt-10 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {MORE.map((m) => (
             <div
               key={m.title}
@@ -726,9 +766,7 @@ function TrioShowcase() {
           eyebrow="What it does"
           title="Watches the names. Explains the moves. Writes on Sunday."
         />
-      </Reveal>
-      <Reveal delayMs={80}>
-        <div className="mt-10 grid gap-4 md:grid-cols-2">
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
           <PulseStill />
           <MargusStill />
         </div>
