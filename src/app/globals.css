@@ -1400,8 +1400,8 @@ button:disabled,
   }
 }
 
-/* The scroll cue under the hero. A hint that the page continues. */
-@keyframes landing-nudge {
+/* The scroll cue at the fold. A hint that the page continues. */
+@keyframes scroll-cue-nudge {
   0%,
   100% {
     transform: translateY(0);
@@ -1410,8 +1410,8 @@ button:disabled,
     transform: translateY(4px);
   }
 }
-.landing-nudge {
-  animation: landing-nudge 2.4s ease-in-out infinite;
+.scroll-cue-nudge {
+  animation: scroll-cue-nudge 2.4s ease-in-out infinite;
 }
 
 /*
@@ -1445,7 +1445,7 @@ button:disabled,
   .signin-rise-3,
   .signin-rise-4,
   .signin-live-dot,
-  .landing-nudge {
+  .scroll-cue-nudge {
     animation: none;
   }
   /* Show it where it is. No fade, no travel. */

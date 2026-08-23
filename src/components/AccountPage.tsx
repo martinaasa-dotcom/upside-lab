@@ -3,6 +3,7 @@
 import { useAuth } from "@/components/AuthProvider";
 import { AppHeader } from "@/components/AppHeader";
 import { useFeedback } from "@/components/FeedbackHost";
+import { SignInAddresses } from "@/components/SignInAddresses";
 import { SignInGate } from "@/components/SignInGate";
 import { MobileDock } from "@/components/mobile/MobileDock";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
@@ -558,6 +559,9 @@ export function AccountPage() {
             </form>
           </Panel>
 
+          {/* Every mailbox that reaches this one account. */}
+          <SignInAddresses />
+
           {/* Experience level */}
           <Panel>
             <PanelHeader
@@ -674,7 +678,7 @@ export function AccountPage() {
               <ItemContent>
                 <ItemTitle>Download everything</ItemTitle>
                 <ItemDescription>
-                  One JSON file: profile, sheets, holdings, Lab state.
+                  One JSON file: profile, portfolios, holdings, Lab state.
                 </ItemDescription>
               </ItemContent>
               <ItemActions>
@@ -720,7 +724,7 @@ export function AccountPage() {
                   Delete my account
                 </h2>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  Removes your profile, deletes sheets only you own, and steps
+                  Removes your profile, deletes portfolios only you own, and steps
                   you off any shared ones. Cannot be undone.
                 </p>
               </div>
@@ -760,8 +764,9 @@ export function AccountPage() {
               Delete your account?
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              This permanently deletes your profile and any sheet you&apos;re
-              the sole owner of (holdings included). Shared sheets stay for
+              This permanently deletes your profile and any portfolio
+              you&apos;re the sole owner of (holdings included). Shared
+              portfolios stay for
               your co-owner. Where possible this also removes your sign-in
               itself, so the account can&apos;t be used again; if it can&apos;t
               be removed from here, revoke Upside Lab&apos;s access from your

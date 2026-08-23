@@ -18,6 +18,7 @@ export const PORTFELL_TABLES = {
   portfolioOwners: "portfell_portfolio_owners",
   portfolioInvites: "portfell_portfolio_invites",
   accountAliases: "portfell_account_aliases",
+  accountEmails: "portfell_account_emails",
   communityPortfolios: "portfell_community_portfolios",
   communityJoinRequests: "portfell_community_join_requests",
   communityDuels: "portfell_community_duels",

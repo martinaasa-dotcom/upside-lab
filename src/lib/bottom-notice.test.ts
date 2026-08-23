@@ -26,6 +26,7 @@ const DOCK_PAD = readFileSync("src/lib/use-dock-pad.ts", "utf8");
 const NOTICES = [
   "src/components/AnalyticsConsentBanner.tsx",
   "src/components/OfflineBanner.tsx",
+  "src/components/ScrollCue.tsx",
 ];
 
 describe("bottom notices", () => {

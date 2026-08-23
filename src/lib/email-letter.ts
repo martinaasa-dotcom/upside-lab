@@ -218,6 +218,46 @@ ${emailButton(input.url, "Open the invite")}
   return { subject, text, html };
 }
 
+/**
+ * Sent to an address somebody has asked to add to their account.
+ *
+ * The one letter this app sends that can land in a mailbox whose owner has
+ * never heard of Upside Lab, so ignoring it has to be a real answer, and it
+ * is: nothing is joined until the link is opened.
+ *
+ * The account is named by the address it signs in with, never by the name on
+ * the profile. A name is typed by whoever asked and can be made to say
+ * anything, including something that sounds like it came from us. An address
+ * cannot: it is the one thing about the asking account that had to be proved.
+ */
+export function confirmAddressCopy(input: {
+  url: string;
+  requestedBy: string | null;
+}): { subject: string; text: string; html: string } {
+  const subject = "Confirm this address for Upside Lab";
+  const asker = input.requestedBy
+    ? `The Upside Lab account at ${input.requestedBy}`
+    : "An Upside Lab account";
+  const lead = `${asker} asked to sign in with this address as well. Confirm it and both addresses open that same account, with the same portfolios and the same circles.`;
+  const ignore =
+    "If you were not expecting this, ignore it. Nothing is joined unless the link is opened.";
+  const text = [lead, input.url, "The link lasts one hour and works once.", ignore].join(
+    "\n\n"
+  );
+  const html = wrapEmailLetter({
+    title: subject,
+    preview: lead,
+    hideOpener: true,
+    body: `${emailKicker("Your account")}
+<div style="height:18px;font-size:0;line-height:0">&nbsp;</div>
+<p style="margin:0;font-family:${EMAIL.sans};font-size:26px;line-height:1.25;font-weight:400;letter-spacing:-0.02em;color:${EMAIL.cream}">Confirm this address</p>
+<p style="margin:22px 0 0 0;font-family:${EMAIL.sans};font-size:17px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(lead)}</p>
+${emailButton(input.url, "Confirm this address")}
+<p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">The link lasts one hour and works once. ${escapeEmail(ignore)}</p>`,
+  });
+  return { subject, text, html };
+}
+
 export function emptyBookNudgeHtml(text: string): string {
   const blocks = text.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
   const preview = blocks[0] ?? "Your portfolio is still empty";
