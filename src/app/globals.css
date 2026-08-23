@@ -469,6 +469,58 @@ body {
  */
 @layer utilities {
   /*
+   * Anything anchored to the bottom of the window that is not the dock:
+   * the measurement question, the offline chip.
+   *
+   * Where it lands is decided by what is actually drawn down there, never
+   * by a number typed into the notice. The measurement question used to
+   * carry its own `bottom-[max(5.75rem,calc(var(--dock-pad,5.5rem)+5.5rem))]`,
+   * which is two guesses stacked: `--dock-pad` is only written when a dock
+   * renders, so on the sign-in page, /privacy and /terms -- the three
+   * places a stranger meets this app first -- it fell back to 5.5rem,
+   * added another 5.5rem for a Margus button that is not there either, and
+   * floated the notice 176px up an empty page.
+   *
+   * `data-dock`, `data-bottom-corner` and `--dock-clearance` are published
+   * on <html> by `use-dock-pad.ts` from a measurement, so the lift is the
+   * sum of what is really in that corner: nothing on a landing page, the
+   * dock in a room without Margus, both where both are. See the note there
+   * for why this is not a `:has()` selector.
+   */
+  .bottom-notice {
+    bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  @media (min-width: 640px) {
+    .bottom-notice {
+      bottom: max(1.5rem, env(safe-area-inset-bottom));
+    }
+  }
+
+  /*
+   * `--dock-clearance` is the dock's measured height plus its own gap, so
+   * this only adds the space between the two.
+   */
+  :root[data-dock] .bottom-notice {
+    bottom: calc(var(--dock-clearance, 5.5rem) + 0.5rem);
+  }
+
+  /*
+   * The bottom-right corner also holds Margus's round button, which
+   * anchors to the dock. A notice in that corner has to clear the button,
+   * not just the dock, or it lands on top of it and -- being `z-50` over
+   * the button's `z-40` -- blurs it into a smear. 5.5rem is the button
+   * plus a gap.
+   *
+   * Left-hand notices do not take this class, and stay on the dock line.
+   *
+   * Higher specificity than the dock rule, so order does not matter.
+   */
+  :root[data-bottom-corner] .bottom-notice.bottom-notice-corner {
+    bottom: calc(var(--dock-clearance, 1rem) + 5.5rem);
+  }
+
+  /*
    * Card sheen — a hairline top highlight, the way a pane of glass catches
    * light along its top edge rather than glowing all over. Some call sites
    * use it alone (no translucent fill under it), so it carries its own
@@ -740,6 +792,62 @@ body {
       inset 0 0 0 1px var(--glass-rim-ring),
       0 2px 6px -2px var(--glass-contact),
       0 28px 62px -24px var(--glass-cast);
+  }
+
+  /*
+   * The dock: the same pane as `.glass`, with the chrome fill in place of
+   * the card veil. Written after `card-sheen glass` in the class list, so
+   * it replaces the body and the blur and nothing else — the rim, the ring
+   * and the lift shadow stay the ones every other pane carries.
+   *
+   * A dock is not a card, and treating it as one is measurably wrong. A
+   * card sits IN the field and its job is to let the room through: a 2%
+   * white veil, a 6px blur, saturate 1.75. A dock sits OVER the bottom
+   * corner, which on a phone is the brightest part of the cool lobe, with
+   * content scrolling under it — and at the card's numbers it does not show
+   * that light, it amplifies it. Measured in Chromium on a 390 x 844 field,
+   * walking the whole bar and keeping the worst pixel: the field's own
+   * chroma there is C* 4.69, and through `.glass` the pane reads **8.82**,
+   * **1.88 times more coloured than the room it sits in**, carrying 9.3
+   * luminance levels from one end of the bar to the other. That is the "the
+   * blue bleeds into the nav bar" report, and the pane was the cause of it
+   * rather than the victim.
+   *
+   * Two constraints pick the 55%, and it is the smallest number meeting
+   * both. **Ceiling: a pane may carry the room's colour, never more of it
+   * than the room has**, which the fill reaches at 45%. **Floor: muted
+   * label text clears AAA over every pixel of the bar**, which it reaches
+   * at 55% (7.06:1 at 390px, 7.00:1 at 430px; 6.88 and 6.82 at 50%, and
+   * 4.62 through the card veil). Past it the pane starts draining the glow
+   * rather than attenuating it, which is the mistake the note on
+   * `.chrome-pane` records. Keyed to `--background`, which is true black,
+   * so the alpha is exactly how much of the glow the dock eats and it
+   * cannot leave a hue behind. Black lift at the page middle measures −0.1:
+   * the floor `--glass-veil` holds everywhere else is held here too.
+   *
+   * 20px, not the card's 6. The 6px ceiling is there because past roughly
+   * 7px a blur stops refracting and starts mixing adjacent hues into mud,
+   * which is a real risk for a pane in the middle of a field with two lobes
+   * reaching it. It is not a risk here: measured along the dock at both
+   * widths the warm lobe contributes under 0.25% alpha, so there is one hue
+   * under this pane and nothing for a wider radius to muddy. The radius is
+   * a lever in its own right, not only legibility — at the card's veil,
+   * widening 6px to 20px alone takes the pane from 1.88x the field's chroma
+   * to 1.43x, because what it averages out is the steep part of the
+   * gradient running under the bar. On top of that it buys what a floating
+   * tab bar is for: a table passing underneath as a soft wash instead of as
+   * legible rows competing with the labels. `.chrome-pane` blurs 40px at
+   * the other end of the screen for the same reason.
+   *
+   * Full account, with the tables, in DESIGN_TOKENS.md.
+   */
+  .glass-dock {
+    background-color: color-mix(in oklch, var(--background), transparent 45%);
+    /* Prefixed first, standard last — see the note on `.glass` above. */
+    -webkit-backdrop-filter: blur(20px) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+    backdrop-filter: blur(20px) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
   }
 
   .glass-well {
