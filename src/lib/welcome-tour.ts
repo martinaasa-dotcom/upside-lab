@@ -17,8 +17,23 @@ import { PRODUCT_NAME } from "@/lib/product";
  *     it replaces asked two questions about the reader and said four
  *     sentences about the product, and had been switched off since
  *     2026-08-18 besides.
+ * 2 — same screens, deliberately re-shown (2026-08-23). This one is the
+ *     exception to the rule above and it is worth writing down why, because
+ *     the diff on its own looks like exactly the mistake that rule forbids:
+ *     the walkthrough text did not change at all.
+ *
+ *     It was raised on Martin's explicit call, alongside the release that
+ *     rebuilt the signed-out page into a real landing page. The reasoning is
+ *     that the product a returning reader met on their first visit is not
+ *     the product now, so they are owed the tour again even though the tour
+ *     itself reads the same. He weighed the interruption against the size of
+ *     the active user base and judged it worth it.
+ *
+ *     That reasoning does not generalise. Do not take this entry as licence
+ *     to bump the number whenever something ships: the next raise still
+ *     needs the walkthrough to say something new.
  */
-export const WELCOME_TOUR_VERSION = 1;
+export const WELCOME_TOUR_VERSION = 2;
 
 export type Stage =
   | "what"
