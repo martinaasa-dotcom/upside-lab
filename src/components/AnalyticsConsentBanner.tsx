@@ -29,13 +29,28 @@ export function AnalyticsConsentBanner() {
       role="dialog"
       aria-label="Performance measurement"
       /*
-       * Bottom offset clears the dock *and* the Margus button above it.
-       * Both this and the button anchor to `--dock-pad`, so with the same
-       * offset they land on the same spot in the bottom-right corner and
-       * this one — being `z-50` — sits on the button and blurs it into a
-       * smear. `5rem` is the button (4rem at `lg`) plus a gap.
+       * Phone keeps the tall bottom offset, because a 390px screen has no
+       * free corner: the offset clears the dock *and* the Margus button
+       * above it. Both this and the button anchor to `--dock-pad`, so with
+       * the same offset they land on the same spot and this one, being
+       * `z-50`, sits on the button and blurs it into a smear. `5rem` is the
+       * button (4rem at `lg`) plus a gap.
+       *
+       * From `md` it moves to the bottom **left** and drops to the floor,
+       * and that is the whole fix. Riding the same `--dock-pad` on a wide
+       * screen lifted it about 272px, which put it squarely on the hero:
+       * the signed-out page's product sample is the right-hand column, and
+       * the banner landed on the "Worth noticing" card inside it. The most
+       * persuasive thing on the first screen a stranger sees was covered by
+       * a cookie notice.
+       *
+       * Bottom-left is empty on every screen in the app, which is why it is
+       * the right corner rather than merely a free one: the dock is centred
+       * and content-sized, and the Margus button is bottom-right. Nothing
+       * competes for it, so the banner no longer needs to be lifted clear
+       * of anything and can sit where a consent notice belongs.
        */
-      className="fixed z-50 left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))] bottom-[max(5.75rem,calc(var(--dock-pad,5.5rem)+5.5rem))] md:left-auto md:w-[22rem]"
+      className="fixed z-50 left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))] bottom-[max(5.75rem,calc(var(--dock-pad,5.5rem)+5.5rem))] md:bottom-6 md:left-6 md:right-auto md:w-[22rem]"
     >
       {/*
         * `glass-overlay`, not `glass`.
