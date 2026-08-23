@@ -7282,9 +7282,32 @@ run("SVG paint servers get per-instance ids, never literals", () => {
    * misbehaves when two copies are on screen at once -- so the only
    * defence is refusing the literal.
    */
-  const PAINT_SERVERS = /<(linearGradient|radialGradient|pattern|filter|mask|clipPath)\b[^>]*\bid=(?!\{)/;
+  /*
+   * The one shape a literal is allowed in, and it is not an exception so
+   * much as the other half of the same rule.
+   *
+   * A paint server referenced from a STYLESHEET cannot have a per-instance
+   * id: `filter: url(#ambient-dither)` in globals.css is static text, and
+   * there is nothing for `useId()` to reach. (Nor can it move to a file and
+   * be referenced as `url(/x.svg#id)`, which is why it is inline: Safari
+   * does not resolve a filter from an external document at all.)
+   *
+   * So for those the defence is not a unique id, it is proving the thing
+   * can only mount once. That is strictly stronger than what this check
+   * asks of everything else, which is only that two mounts would not
+   * collide. Below: every literal id must be referenced from globals.css,
+   * the component holding it must be rendered from exactly one place, and
+   * that place must be the root layout. Miss any of the three and it is an
+   * offender again.
+   */
+  const PAINT_SERVERS = /<(linearGradient|radialGradient|pattern|filter|mask|clipPath)\b[^>]*?\bid="([^"]+)"/g;
+  const CSS = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+  const LAYOUT = readFileSync(join(process.cwd(), "src/app/layout.tsx"), "utf8");
+  const styledFrom = (id: string) => CSS.includes(`url(#${id})`);
 
   const offenders: string[] = [];
+  /** rel path -> the literal ids in it that a stylesheet points at. */
+  const singletons = new Map<string, string[]>();
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name);
@@ -7296,7 +7319,10 @@ run("SVG paint servers get per-instance ids, never literals", () => {
       const src = readFileSync(full, "utf8");
       const rel = full.slice(full.indexOf("src/")).split(sep).join("/");
       // A literal id (id="...") rather than an interpolated one (id={...}).
-      if (PAINT_SERVERS.test(src)) offenders.push(rel);
+      const ids = [...src.matchAll(PAINT_SERVERS)].map((m) => m[2]!);
+      if (!ids.length) continue;
+      if (ids.every(styledFrom)) singletons.set(rel, ids);
+      else offenders.push(rel);
     }
   };
   walk(join(process.cwd(), "src"));
@@ -7306,6 +7332,35 @@ run("SVG paint servers get per-instance ids, never literals", () => {
     [],
     `these give an SVG paint server a fixed id, which collides when the component mounts twice and leaves the visible copy painting nothing: ${offenders.join(", ")}`
   );
+
+  // A stylesheet-referenced id buys its literal by being unmountable twice.
+  for (const [rel, ids] of singletons) {
+    const name = rel.split("/").pop()!.replace(/\.tsx$/, "");
+    const mounts: string[] = [];
+    const findMounts = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, e.name);
+        if (e.isDirectory()) { findMounts(full); continue; }
+        if (!e.name.endsWith(".tsx") || e.name.includes(".test.")) continue;
+        if (full.endsWith(rel.split("/").pop()!)) continue; // its own definition
+        if (readFileSync(full, "utf8").includes(`<${name} `) ||
+            readFileSync(full, "utf8").includes(`<${name}/>`)) {
+          mounts.push(full.slice(full.indexOf("src/")).split(sep).join("/"));
+        }
+      }
+    };
+    findMounts(join(process.cwd(), "src"));
+    assert.deepEqual(
+      mounts,
+      ["src/app/layout.tsx"],
+      `${rel} holds ${ids.join(", ")}, which globals.css points at by name, so it may only be rendered from the root layout. Rendered from: ${mounts.join(", ") || "nowhere"}`
+    );
+    assert.equal(
+      LAYOUT.split(`<${name} `).length - 1 + LAYOUT.split(`<${name}/>`).length - 1,
+      1,
+      `the root layout renders ${name} more than once, so its literal ids collide`
+    );
+  }
 
   // And the logo specifically must keep deriving its ids per instance.
   const logo = readFileSync(
