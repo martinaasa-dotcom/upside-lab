@@ -219,9 +219,17 @@ export function BookModeDock({
        * looks like a hole once there is nothing around it. Cells are inset
        * by `p-1` with `gap-1`, so the active pill floats inside the card
        * instead of running to its edges.
+       *
+       * `glass-dock` after `card-sheen glass` swaps the body and the blur
+       * for the chrome fill and nothing else: same rim, same ring, same
+       * lift shadow. A dock sits over the bottom corner with content
+       * scrolling under it, so the card veil was letting the cool lobe
+       * through at more chroma than the field beside it carries. The phone
+       * bar takes the same material, so both docks are one pane. Numbers
+       * in globals.css and DESIGN_TOKENS.md.
        */
       className={cn(
-        "card-sheen glass pointer-events-auto mx-auto grid w-fit max-w-full gap-1 rounded-xl p-1 ring-1 ring-foreground/20",
+        "card-sheen glass glass-dock pointer-events-auto mx-auto grid w-fit max-w-full gap-1 rounded-xl p-1 ring-1 ring-foreground/20",
         className
       )}
       style={{
