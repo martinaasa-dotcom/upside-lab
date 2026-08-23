@@ -380,6 +380,12 @@ body {
   z-index: -1;
   pointer-events: none;
   /*
+   * Dithered, because a ramp this dark has about thirty levels of 255 to
+   * spend and it spends them over most of a screen. See `AmbientDither`
+   * for the measurements and for why the noise is signed and clipped.
+   */
+  filter: url(#ambient-dither);
+  /*
    * Two corner lobes on a black field, warm off the top-left and blue off
    * the bottom-right. The dark middle between them is the design, not the
    * leftover: it is what keeps these reading as corners of a dark room
@@ -1306,6 +1312,47 @@ button:disabled,
  * field is lit. Brightening is the easy mistake and it costs the true black
  * the whole product is built on.
  */
+/*
+ * The warm lift behind a sample card, and the reason it is a class rather
+ * than four utilities.
+ *
+ * Every one of these was `bg-gradient-to-br from-primary/12 to-transparent
+ * opacity-70 blur-3xl`: one colour, one stop, straight to nothing. The note
+ * on `.page-frame::before` already says why that cannot work here ("five
+ * stops, not two, because a single colour-to-transparent ramp has an edge
+ * you can see"), and the card glow was the loudest example of it on the
+ * site. Measured on the real hero it peaked at rgb(27,23,14) seen through
+ * the pane and reached black over about 760px, so the whole thing had
+ * twenty-two levels to spend and spent them a level at a time roughly
+ * every thirty-five pixels. Thirty-five pixel steps of khaki, stacked on
+ * top of the field's own rings, is the blotching in the middle of the
+ * page.
+ *
+ * So it takes the same shape the room's own lamps take: a radial with a
+ * falloff curve rather than a straight line, anchored off the card's top
+ * left corner where the key light is, and dithered like everything else
+ * that has to ramp through the bottom of the range. No `blur` term: at
+ * four stops the gradient is already softer than a 64px blur made it, and
+ * a blur inside a filter region would only have to be clipped back to the
+ * element box anyway.
+ */
+.ambient-glow {
+  position: absolute;
+  inset: -1rem;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 3rem;
+  background-image: radial-gradient(
+    125% 120% at 10% 4%,
+    oklch(from var(--primary) l c h / 8.5%) 0%,
+    oklch(from var(--primary) l c h / 4.4%) 22%,
+    oklch(from var(--primary) l c h / 1.9%) 44%,
+    oklch(from var(--primary) l c h / 0.7%) 68%,
+    transparent 100%
+  );
+  filter: url(#ambient-dither);
+}
+
 .landing-field::before {
   /* Kills the inherited fixed pair. The flowing field is on ::after. */
   display: none;
@@ -1316,6 +1363,8 @@ button:disabled,
   inset: 0;
   z-index: -1;
   pointer-events: none;
+  /* Same dither as the fixed pair. See `AmbientDither`. */
+  filter: url(#ambient-dither);
   background-image:
     radial-gradient(
       120vw 62vh at -10% 1%,

@@ -201,6 +201,77 @@ the right against rgb(37,34,21) warm on the left. That was the
 "unexplained green glow" the design reviews kept flagging. Both are now
 `--primary`.
 
+### Eight bits are not enough for this field, so it is dithered (2026-08-23)
+
+Feedback: ugly colour banding around the corners of the landing page,
+worst in and behind the sample card. It is real, it was measurable, and it
+is not a shaping problem.
+
+The arithmetic. Every lobe here is a low-alpha wash on `oklch(0 0 0)`, so
+the entire ramp is spent in the bottom of the range. Measured on the real
+signed-out page at 1600x1400, the warm lobe covers **36 luminance levels
+of 255 across 840px** and the cool one 31. Thirty-odd levels over eight
+hundred pixels is a level change every **23px**, and a 1/255 step held
+flat for 23px is not a gradient, it is a contour line. Amplify the field
+7x and the two corners come out as clean concentric rings.
+
+No arrangement of stops fixes that, because the levels do not exist to be
+spent. Neither does a blur: blurring a staircase and re-quantising it
+returns the same staircase. The answer is the same one audio and print
+reached, a **dither** (`src/components/AmbientDither.tsx`), and the
+measurements that fixed its shape are these.
+
+| | black lift | notes |
+| --- | --- | --- |
+| `plus-lighter` grain tile | **+1.6 levels** | any positive-only grain has mean ≈ its own spread |
+| `overlay` grain | +2.3 | and proportional to the backdrop, so weakest in the dark |
+| signed grain, unclipped | +0.5 | the negative half clips at zero on true black |
+| **signed grain, clipped to `SourceAlpha`** | **0.000** | shipped |
+
+Every CSS blend mode that lays grain over a page *adds* light, and
+`--background` here is pure black, so any of the first three trades the
+banding for a grey floor. Inside a filter chain the noise can be added and
+half of it subtracted again, which is a mean of exactly zero, and masking
+both terms by `SourceAlpha` means a pixel the lobes never reach is
+returned untouched. Pure black pixels went from 0.98% of the frame to
+**1.37%**: the dither gives black back rather than taking it.
+
+**Amplitude is two levels**, measured. At one the rings were softened and
+still findable; at three the grain itself starts reading as texture. At
+two, a riser's edge measures **0.13 of the local pixel spread**, down from
+0.29, i.e. from the loudest thing in that part of the frame to well under
+the noise. Lit-patch spread goes 1.20 to 2.33 with the mean moving 0.10.
+
+It is one octave at `baseFrequency="0.8"`, so it is grain and not clouds,
+and it is defined **inline in the root layout**: Safari does not resolve a
+filter referenced from a data URI, so a data URI would leave every iPhone
+undithered with nothing failing. Scroll cost measured at 1600x1000: median
+frame 16.7ms without, 16.8ms with.
+
+What carries it: `.page-frame::before`, `.landing-field::after`,
+`.ambient-glow`. `src/lib/ambient-dither.test.ts` fails if the two
+amplitude numbers stop being exact double and half, if either term loses
+its clip, or if a surface drops the filter. **Judge a change here by
+measuring black lift and riser-to-noise, never by eyeballing.**
+
+### The glow behind a sample card is `.ambient-glow`, and it has a falloff
+
+The three sample cards across both apps each carried
+`bg-gradient-to-br from-primary/12 to-transparent opacity-70 blur-3xl`:
+one colour, one stop, straight to nothing. Seen through the pane it peaked
+at rgb(27,23,14) and reached black over about 760px, so it had **22 levels
+to spend and spent them every 35px** — coarser steps than the field's own,
+stacked on top of them, and in khaki. That is the blotching in the middle
+of the landing page.
+
+The note on `.page-frame::before` already said why ("five stops, not two,
+because a single colour-to-transparent ramp has an edge you can see"); the
+card glow was simply never held to it. It is one class now, with a
+four-stop falloff anchored off the card's top left where the key light is,
+and the same dither. No `blur` term: at four stops the gradient is already
+softer than a 64px blur made it, and a blur inside a filter region would
+only be clipped back to the element box.
+
 ## Why the glass is mostly *edge*, not blur (2026-08-20)
 
 Turning the standard `backdrop-filter` back on (it had been silently

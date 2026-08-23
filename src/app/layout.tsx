@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, Geist, Geist_Mono } from "next/font/google";
+import { AmbientDither } from "@/components/AmbientDither";
 import { ConsentedAnalytics } from "@/components/ConsentedAnalytics";
 import { Providers } from "@/components/Providers";
 import { WebVitals } from "@/components/WebVitals";
@@ -143,6 +144,7 @@ export default function RootLayout({
       data-timezone="Europe/Tallinn"
     >
       <body className="antialiased">
+        <AmbientDither />
         <Providers>{children}</Providers>
         <WebVitals />
         <ConsentedAnalytics />

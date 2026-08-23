@@ -692,10 +692,8 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
 function BookWide() {
   return (
     <div className="relative">
-      <div
-        className="pointer-events-none absolute -inset-4 -z-10 rounded-[3rem] bg-gradient-to-br from-primary/12 to-transparent opacity-70 blur-3xl"
-        aria-hidden
-      />
+      {/* One quiet warm lift behind the sample card. See `.ambient-glow`. */}
+      <div className="ambient-glow" aria-hidden />
       <Panel
         className="h-auto gap-5 p-5 shadow-2xl shadow-black/60 ring-1 ring-primary/15"
         aria-hidden

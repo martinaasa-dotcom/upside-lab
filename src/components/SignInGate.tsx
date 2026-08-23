@@ -332,26 +332,17 @@ function BookStill() {
   return (
     <div className="relative md:-rotate-1 md:transition-transform md:duration-700 md:hover:rotate-0">
       {/*
-       * One quiet warm lift behind the sample card, not a halo.
-       *
-       * This used to be `-inset-8 … from-primary/25 via-primary/5
-       * to-gain/10 opacity-90 blur-3xl` — a 395x666px element at
-       * blur(64px), which is the "large, saturated, blurry halo" the
-       * design review kept flagging, and the only effect of its size
-       * anywhere in the app (every signed-in page's loudest shadow is
-       * `0 12px 32px -16px`).
-       *
-       * The `to-gain/10` stop was also the source of the "unexplained
-       * green glow in the bottom-right": gain-green is a financial
-       * signal, so it means "this went up." Nothing here went up — it
-       * was decoration wearing a semantic colour. Measured rgb(1,15,9)
-       * bottom-right against rgb(37,34,21) top-left, i.e. visibly green
-       * where the rest of the app's ambient light is warm.
+       * One quiet warm lift behind the sample card, not a halo, and the
+       * same one the hero uses. It went through two rounds here before it
+       * moved into `.ambient-glow`: first it lost `-inset-8 ...
+       * from-primary/25 via-primary/5 to-gain/10 opacity-90 blur-3xl`, a
+       * 395x666px element at blur(64px) wearing gain green, which is a
+       * financial signal and meant nothing here. Then it lost the two
+       * stop ramp that replaced it, because a ramp with one stop in it
+       * cannot cross this much near-black without banding. The account of
+       * that is in `globals.css`.
        */}
-      <div
-        className="pointer-events-none absolute -inset-2 -z-10 rounded-[2.5rem] bg-gradient-to-br from-primary/12 to-transparent opacity-70 blur-2xl"
-        aria-hidden
-      />
+      <div className="ambient-glow" aria-hidden />
       <Panel
         className="signin-rise-3 h-auto gap-4 p-4 relative overflow-hidden shadow-2xl shadow-black/60 ring-1 ring-primary/15"
         aria-hidden
