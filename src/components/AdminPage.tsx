@@ -86,6 +86,37 @@ function fmtDate(iso: string | null | undefined): string {
 export function AdminPage() {
   const { user } = useAuth();
   /**
+   * Delete one portfolio belonging to somebody else.
+   *
+   * Takes the id off the row that was clicked rather than anything typed, so
+   * the operator is always acting on a portfolio they can see in front of
+   * them. The route takes a pre-delete snapshot first and refuses if the
+   * backup fails, so this is recoverable.
+   */
+  async function deletePortfolio(): Promise<void> {
+    const target = pendingDelete;
+    if (!target) return;
+    const res = await fetch("/api/admin/delete-portfolio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        portfolioId: target.portfolioId,
+        confirm: "delete this portfolio",
+      }),
+    });
+    const data: unknown = await res.json().catch(() => null);
+    const row =
+      data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+    if (!res.ok) {
+      throw new Error(
+        plainError(row.error, "Couldn't delete that portfolio. Try again.")
+      );
+    }
+    setPendingDelete(null);
+    await load(true);
+  }
+
+  /**
    * Revoke every refresh token, so everybody meets the signed-out page again.
    *
    * The confirmation phrase the route demands is sent from here rather than
@@ -136,6 +167,12 @@ export function AdminPage() {
   const [expandedError, setExpandedError] = useState<string | null>(null);
   const [confirmClearErrors, setConfirmClearErrors] = useState(false);
   const [confirmSignOutAll, setConfirmSignOutAll] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{
+    portfolioId: string;
+    portfolioName: string;
+    who: string;
+    holdings: number;
+  } | null>(null);
   const [signOutResult, setSignOutResult] = useState<string | null>(null);
 
   const loadAbortRef = useRef<AbortController | null>(null);
@@ -460,12 +497,30 @@ export function AdminPage() {
                                 </span>
                               ) : (
                                 u.portfolios!.map((p) => (
-                                  <span
+                                  /*
+                                    * The chip is the delete control, because
+                                    * the row is the only place an operator
+                                    * can be certain which portfolio belongs
+                                    * to which person. Nothing here is typed
+                                    * or matched by name.
+                                    */
+                                  <button
                                     key={p.id}
-                                    className="rounded-md bg-accent/90 px-1.5 py-0.5 text-sm text-muted-foreground"
+                                    type="button"
+                                    onClick={() =>
+                                      setPendingDelete({
+                                        portfolioId: p.id,
+                                        portfolioName: p.name,
+                                        who: u.display_name || u.email || u.id,
+                                        holdings: u.holding_count ?? 0,
+                                      })
+                                    }
+                                    title={`Delete "${p.name}"`}
+                                    className="group inline-flex items-center gap-1 rounded-md bg-accent/90 px-1.5 py-0.5 text-sm text-muted-foreground hover:bg-destructive/20 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                   >
                                     {p.name}
-                                  </span>
+                                    <Trash2 className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+                                  </button>
                                 ))
                               )}
                               {(u.holding_count ?? 0) > 0 && (
@@ -594,6 +649,20 @@ export function AdminPage() {
           )}
         </main>
       </div>
+
+      <ConfirmModal
+        open={pendingDelete != null}
+        title="Delete this portfolio?"
+        body={
+          pendingDelete
+            ? `Deletes "${pendingDelete.portfolioName}" belonging to ${pendingDelete.who}, along with ${pendingDelete.holdings} holding${pendingDelete.holdings === 1 ? "" : "s"} on that account. A snapshot is saved first, so it can be restored. They keep their account and can start again from an empty portfolio.`
+            : ""
+        }
+        confirmLabel="Delete portfolio"
+        destructive
+        onClose={() => setPendingDelete(null)}
+        onConfirm={deletePortfolio}
+      />
 
       <ConfirmModal
         open={confirmSignOutAll}
