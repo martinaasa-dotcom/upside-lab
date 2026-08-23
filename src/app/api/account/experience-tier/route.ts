@@ -61,8 +61,20 @@ async function handleGET() {
   return NextResponse.json({
     tier: data?.experience_tier ?? null,
     knowsOptions: data?.knows_options ?? null,
+    /*
+      `null` means the column is not there yet — a different answer from `0`,
+      which is a row that has it and has never finished a walkthrough.
+
+      Read as zero, a database without the migration would put the walkthrough
+      in front of everybody while the POST below silently drops the write, so
+      it would come back on the next device and never be recorded anywhere. A
+      feature whose migration has not been applied should be off, not stuck
+      on, so the gate treats `null` as "not yet" and shows nothing.
+    */
     tourVersion:
-      data && "welcome_tour_version" in data ? (data.welcome_tour_version ?? 0) : 0,
+      data && "welcome_tour_version" in data
+        ? (data.welcome_tour_version ?? 0)
+        : null,
   });
 }
 

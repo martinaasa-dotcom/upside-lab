@@ -158,6 +158,14 @@ export function WelcomeTourGate() {
         if (tier) saveStoredTier(tier);
         if (typeof knowsOptions === "boolean") saveStoredKnowsOptions(knowsOptions);
 
+        /*
+          `null` is the endpoint saying the column is not there yet, which is
+          a different thing from "never seen it". Nothing is shown and nothing
+          is written down: the walkthrough waits for the migration rather than
+          opening for everybody and never being able to record that it did.
+        */
+        if (tierData.tourVersion === null) return;
+
         if (!replaying && !tourIsDue(tierData.tourVersion)) {
           saveSeenTourVersion(WELCOME_TOUR_VERSION);
           return;
