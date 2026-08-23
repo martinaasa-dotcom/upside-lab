@@ -840,7 +840,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
       {inviteNudge && onInvitePartner && (
         <Panel className="overview-fade">
           <PanelHeader
-            title="Invite someone who shares this sheet"
+            title="Invite someone who shares this portfolio"
             subtitle="One prompt. You can always find Invite next to Add holding."
           />
           <div className="flex flex-wrap gap-2">

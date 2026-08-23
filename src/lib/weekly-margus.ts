@@ -56,7 +56,7 @@ function facts(r: WeeklyLetter): string {
       r.weekPct != null ? ` (${signedPct(r.weekPct)})` : ""
     }`
   );
-  if (r.cash !== 0) lines.push(`Cash on the sheet: $${groupUs(r.cash)}`);
+  if (r.cash !== 0) lines.push(`Cash in the portfolio: $${groupUs(r.cash)}`);
   if (r.movers.length > 0) {
     lines.push("Moves this week:");
     for (const m of r.movers) {

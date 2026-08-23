@@ -77,7 +77,7 @@ export function hrefForDockTarget(
   if (mode) return mode.href;
   const sheet = portfolios.find((p) => p.id === id);
   const token = sheet?.slug || id;
-  return `/?tab=book&portfolio=${encodeURIComponent(token)}`;
+  return `/?tab=portfolio&portfolio=${encodeURIComponent(token)}`;
 }
 
 export function stashDockTab(id: string) {
@@ -140,7 +140,7 @@ type Props = {
   guest?: boolean;
   /** Your portfolios, as cells in the same well as the sections. */
   sheets?: Portfolio[];
-  /** Today's direction per sheet id — the dot in that sheet's cell. */
+  /** Today's direction per portfolio id — the dot in that portfolio's cell. */
   sheetTodayTone?: Record<string, SheetTone>;
   /** Opens the New portfolio dialog. Omit to hide the add cell. */
   onAddSheet?: () => void;
@@ -340,13 +340,13 @@ export function BookModeDock({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              aria-label="Sheets"
+              aria-label="Portfolios"
               title="Your portfolios"
               className={cn(CELL, activeSheet ? ON : OFF)}
             >
               <Wallet className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
               <span className="min-w-0 truncate">
-                {activeSheet?.name ?? "Sheets"}
+                {activeSheet?.name ?? "Portfolios"}
               </span>
               <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden />
             </button>

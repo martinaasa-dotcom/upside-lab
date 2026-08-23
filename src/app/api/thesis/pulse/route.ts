@@ -125,10 +125,10 @@ function buildPrompt(
     const sharedAnswer = !conv?.thesis;
     const position =
       !c.inBook
-        ? " · (lookup, not in book)"
+        ? " · (lookup, not in the portfolio)"
         : sharedAnswer
           ? " · (in their portfolio)"
-          : ` · ${bookPct}% of book · lifetime ROI ${roiPct}%`;
+          : ` · ${bookPct}% of the portfolio · lifetime ROI ${roiPct}%`;
     const flag = isBigPulseMove(c.effectivePct)
       ? c.needsAttention
         ? " **NEEDS ATTENTION: down ≥5%**"

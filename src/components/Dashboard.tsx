@@ -284,13 +284,18 @@ function extendedHoursFromQuote(q: Quote | null | undefined) {
 }
 
 /**
- * Resolves the `?sheet=` URL param (meta-tab keyword, slug, id, or name) to
- * an active-sheet id. Pure and synchronous so it can run both in the
+ * Resolves the `?portfolio=` URL param (meta-tab keyword, slug, id, or name)
+ * to an active-portfolio id. Pure and synchronous so it can run both in the
  * `activeId` state initializer (first paint, before any network call) and
  * later in `pickInitialSheet` (popstate / portfolio-list changes) without
  * duplicating the matching rules in two places. Returns null when there's
- * no `sheet` param or it doesn't match anything, so callers can fall
- * through to their own next-best default (previous tab, localStorage, Overview).
+ * no param or it doesn't match anything, so callers can fall through to
+ * their own next-best default (previous tab, localStorage, Overview).
+ *
+ * `?sheet=` and `tab=book` are the old spellings. We stopped writing them
+ * when portfolios stopped being called sheets, but they are still read so
+ * that links and bookmarks people already have keep landing in the right
+ * place.
  */
 /**
  * Meta-tab ids that are still real top-level tabs. Pulse and Seasonality
@@ -346,17 +351,21 @@ function resolveSheetIdFromUrl(
     "";
   const portfolioParam = params.get("portfolio")?.trim().toLowerCase() || "";
   const sheetParam = params.get("sheet")?.trim().toLowerCase() || "";
-  // `tab=book` is a sheet view; the actual sheet is `portfolio` / `sheet`.
-  // `tab=forecast` is a panel on a sheet, not a meta tab.
+  // `tab=portfolio` (and legacy `tab=book`) is a portfolio view; which one
+  // comes from `portfolio` / legacy `sheet`. `tab=forecast` is a panel on a
+  // portfolio, not a meta tab.
   const tabToken =
-    tabParam && tabParam !== "book" && tabParam !== "forecast"
+    tabParam &&
+    tabParam !== "portfolio" &&
+    tabParam !== "book" &&
+    tabParam !== "forecast"
       ? tabParam
       : "";
   if (tabToken) {
     const meta = metaTabFromToken(tabToken);
     if (meta) return meta;
   }
-  // Legacy ?sheet=stats bookmarks, only when they are not a real sheet id.
+  // Legacy ?sheet=stats bookmarks, only when they are not a real portfolio id.
   if (!tabToken && !portfolioParam && sheetParam) {
     const meta = metaTabFromToken(sheetParam);
     if (meta) return meta;
@@ -370,8 +379,8 @@ function resolveSheetIdFromUrl(
       p.name.toLowerCase() === raw
   );
   if (bySlugOrId) return bySlugOrId.id;
-  // Hard refresh of ?tab=book&portfolio=… before the book is in memory:
-  // keep the URL token so we don't paint Overview for a frame.
+  // Hard refresh of ?tab=portfolio&portfolio=… before the portfolio is in
+  // memory: keep the URL token so we don't paint Overview for a frame.
   if (list.length === 0) return raw;
   return null;
 }
@@ -1572,9 +1581,8 @@ export function Dashboard() {
       url.searchParams.set("tab", "alerts");
     } else {
       const p = portfolios.find((x) => x.id === activeId);
-      url.searchParams.set("tab", "book");
+      url.searchParams.set("tab", "portfolio");
       url.searchParams.set("portfolio", p?.slug || activeId);
-      url.searchParams.set("sheet", p?.slug || activeId);
     }
     // Drop legacy guest/share query params if present.
     url.searchParams.delete("share");
@@ -2265,7 +2273,7 @@ export function Dashboard() {
               [action.ticker],
               nextHoldings.filter((h) => h.portfolio_id === activePortfolio.id)
             );
-          } else if (action.action === "import_sheet") {
+          } else if (action.action === "import_portfolio") {
             let sortBase = nextHoldings.filter(
               (h) => h.portfolio_id === activePortfolio.id
             ).length;
@@ -2485,7 +2493,7 @@ export function Dashboard() {
               applyCashBalance(activePortfolio.id, data.cash_balance);
               await loadPortfolios({ silent: true });
             }
-          } else if (action.action === "import_sheet") {
+          } else if (action.action === "import_portfolio") {
             const res = await apiFetch("/api/holdings/import", {
               method: "POST",
               body: JSON.stringify({
@@ -2647,7 +2655,7 @@ export function Dashboard() {
       track("csv_import", { rows: input.rows.length, replace: input.replace });
       applyAdvisorActions([
         {
-          action: "import_sheet",
+          action: "import_portfolio",
           cash: input.cash,
           replace: input.replace,
           holdings: input.rows.map((r) => ({
@@ -3155,7 +3163,7 @@ export function Dashboard() {
       items.push({
         id: `sheet-${p.id}`,
         label: p.name,
-        group: "Sheets",
+        group: "Portfolios",
         run: () => setActiveId(p.id),
       });
     }

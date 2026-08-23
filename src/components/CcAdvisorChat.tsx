@@ -64,7 +64,7 @@ export type AdvisorAction =
       callPct: number;
     }
   | {
-      action: "import_sheet";
+      action: "import_portfolio";
       cash: number | null;
       replace?: boolean;
       holdings: Array<{
@@ -92,7 +92,7 @@ export type AdvisorAction =
     };
 
 type Props = {
-  /** Active sheet — chat history is scoped to this id. */
+  /** Active portfolio — chat history is scoped to this id. */
   portfolioId: string;
   context: CcChatContext;
   onApplyActions: (actions: AdvisorAction[]) => void;
@@ -114,7 +114,7 @@ type Props = {
  * so the prompt itself has to make "call the tool, don't just narrate"
  * unambiguous. */
 const DEFAULT_SCREENSHOT_PROMPT =
-  "Read this screenshot carefully, then take action. Do not just describe it. If it is a broker holdings page or spreadsheet with ticker plus how many shares plus what they paid (avg buy) or the position value: call addHolding for a single ticker, or importSheet for every row. If it is NOT that (Apple Stocks, a watchlist, prices and daily change only, news, a chart, cropped, or no share counts), do not guess numbers. Call reportScreenshotIssue with the closest reason and stop. You must call one of these tools before replying.";
+  "Read this screenshot carefully, then take action. Do not just describe it. If it is a broker holdings page or spreadsheet with ticker plus how many shares plus what they paid (avg buy) or the position value: call addHolding for a single ticker, or importPortfolio for every row. If it is NOT that (Apple Stocks, a watchlist, prices and daily change only, news, a chart, cropped, or no share counts), do not guess numbers. Call reportScreenshotIssue with the closest reason and stop. You must call one of these tools before replying.";
 
 type ToolPart = {
   type: string;
@@ -467,6 +467,9 @@ const ACTION_TYPES = new Set([
   "tool-updateHolding",
   "tool-setCash",
   "tool-addHolding",
+  "tool-importPortfolio",
+  // Legacy name, kept so chat history saved before the rename still shows
+  // its import summary instead of a bare tool blob.
   "tool-importSheet",
   "tool-removeHolding",
   "tool-setStockTarget",
@@ -515,9 +518,9 @@ const RULES = [
   },
   {
     title: "What Margus can change",
-    rule: "Shares, cash, Call %, Stock Target, sheet imports, write plans",
+    rule: "Shares, cash, Call %, Stock Target, portfolio imports, write plans",
     detail:
-      "Paste a spreadsheet screenshot and Margus should import every equity row via importSheet. Critique uses your table values.",
+      "Paste a spreadsheet screenshot and Margus should import every row via importPortfolio. Critique uses your table values.",
   },
 ] as const;
 
@@ -855,26 +858,43 @@ export function CcAdvisorChat({
     });
   }
 
-  const suggestions = context.adviseOnly
-    ? [
-        "What’s moving in premarket / after hours?",
-        "Which names are the biggest overnight gaps?",
-        "Any concentration risk across sheets?",
-        "Which sheets are winning today?",
-      ]
-    : context.hideOptions
-      ? [
-          "What’s moving in premarket / after hours?",
-          "Which names are the biggest overnight gaps?",
-          "Any concentration risk across sheets?",
-          "What’s up most since I bought it?",
-        ]
-      : [
-          "Give me the updated CC write plan",
-          "Copy Call % and targets from another sheet",
-          "What’s moving in premarket / after hours?",
-          "Tighten Call % on the names with room",
-        ];
+  // Openers a first-time reader can actually use. Deliberately plain
+  // questions about what they already own, not power-user shortcuts: the
+  // old defaults led with the covered-call write plan, which is a blank
+  // stare for the large majority of people who never sell a call. The
+  // covered-call openers now surface only once there is real CC data to
+  // talk about, and they never take the whole row.
+  const suggestions = useMemo(() => {
+    if (context.adviseOnly) {
+      return [
+        "How is everything doing today?",
+        "Am I too heavy in any one company?",
+        "Which portfolio is carrying the rest?",
+        "Do my portfolios own the same things twice?",
+      ];
+    }
+    if (context.holdings.length === 0) {
+      return [
+        "How do I get my holdings in here?",
+        "What can you help me with?",
+        "Explain how this portfolio page works",
+      ];
+    }
+    const plain = [
+      "What moved today, and why?",
+      "Explain my biggest holding in plain English",
+      "Am I too heavy in any one company?",
+      "What should I keep an eye on this week?",
+      "What’s up most since I bought it?",
+    ];
+    if (context.hideOptions || context.rows.length === 0) return plain.slice(0, 4);
+    return [...plain.slice(0, 3), "Give me the updated covered-call plan"];
+  }, [
+    context.adviseOnly,
+    context.hideOptions,
+    context.holdings.length,
+    context.rows.length,
+  ]);
 
   const canSend = !busy && (Boolean(input.trim()) || pendingImages.length > 0);
   // Suppressed while the full panel is open — that already shows the same
@@ -1048,7 +1068,7 @@ export function CcAdvisorChat({
               </h2>
               <p className="text-sm leading-snug text-muted-foreground">
                 {context.adviseOnly
-                  ? "Advise-only. Open a sheet to apply changes."
+                  ? "Advise-only. Open a portfolio to apply changes."
                   : `Chat for ${context.portfolioName}`}
               </p>
             </div>

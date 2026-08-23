@@ -217,7 +217,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
         ) : (
           <p className="text-sm text-muted-foreground">
             {analysis.cash > 0
-              ? `Cash ${currency(analysis.cash, 0)} · ${analysis.margin.shockedCashPct.toFixed(1)}% of the book after this.`
+              ? `Cash ${currency(analysis.cash, 0)} · ${analysis.margin.shockedCashPct.toFixed(1)}% of the portfolio after this.`
               : "No cash sitting out as a buffer."}
           </p>
         )}

@@ -618,7 +618,7 @@ export function AccountPage() {
             <PanelHeader
               icon={<Link2 className="h-4 w-4" />}
               title="Invite a partner"
-              subtitle="That lives on the sheet now. Open a book, tap Invite next to Add holding."
+              subtitle="That lives on the portfolio now. Open a portfolio, tap Invite next to Add holding."
             />
             <p className="text-sm leading-relaxed text-muted-foreground">
               Redeem a code at{" "}

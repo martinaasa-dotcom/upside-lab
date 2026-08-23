@@ -783,7 +783,7 @@ itself from. Labels are plain language — "BREAKS IF", never "INVALIDATION".
 
 The desktop dock was two controls sharing a bar. On the left, a fixed
 `42rem` well of app sections — icon-and-label chips in a rounded group. On
-the right, taking every remaining pixel, a heading reading **Sheets** over a
+the right, taking every remaining pixel, a heading reading **Portfolios** over a
 scrolling text rail of portfolio tabs, each with a 2px underline indicator,
 an inline name field for creating one, and a `+ New` button.
 
@@ -798,7 +798,7 @@ happens. Measured on the running app at 1440px with an empty book:
 | Dock height | 95px | **73px** |
 | `--dock-pad` (page bottom clearance) | 127px | **105px** |
 | Wells in the bar | 2 (672px + 464px, plus a 16px gap = the whole 1152px column) | **1 (640px)** |
-| Width reserved for sheets, with zero sheets | **464px** (40% of the column) | **0** |
+| Width reserved for portfolios, with zero portfolios | **464px** (40% of the column) | **0** |
 
 Now every destination is the same cell in the same well: the sections, then
 one cell per portfolio, then Circle. One portfolio costs one cell. No
@@ -812,20 +812,20 @@ each label floating in the middle of a 230px chip and turned the active one
 into a slab of accent the width of a paragraph. Content-sized and centred,
 the dock grows by exactly one cell when you add a portfolio.
 
-**Sheets carry a dot where sections carry a glyph.** Same 16px slot, so the
+**Portfolios carry a dot where sections carry a glyph.** Same 16px slot, so the
 cells stay structurally identical, but a row of five identical wallet icons
-would have been noise. The dot is the sheet's direction today — emerald
+would have been noise. The dot is the portfolio's direction today — emerald
 `--gain`, rose `--loss`, `currentColor` at 40% when there is no quote yet —
 so the slot pays for itself.
 
 **Section labels are the phone's, not the desktop's.** Home, Pulse, Lab,
 Growth, Circle. Spelling out "Overview" and "Compound" cost ~30px a cell for
 no added meaning — the page header already names where you are — and it is
-what pushed a four-sheet row into truncating on a small laptop.
+what pushed a four-portfolio row into truncating on a small laptop.
 
-**`+` is a 2.5rem glyph cell, sitting with the sheets it makes**, second to
+**`+` is a 2.5rem glyph cell, sitting with the portfolios it makes**, second to
 last so Circle keeps the end. That replaces a labelled button *and* the
-"Sheets" heading *and* the inline name field: it now opens the same New
+"Portfolios" heading *and* the inline name field: it now opens the same New
 portfolio dialog the phone has always opened.
 
 **The well is `.glass-well`, not `bg-muted`.** The dock sits over the
@@ -879,7 +879,7 @@ label sliding sideways under the cursor mid-navigation.
 
 `hideAdd` was wired to `!onBook`, so the `+` cell vanished the moment you
 left the book and a nine-cell row became eight — visible as a jump every
-time you walked from a sheet to Circle. It is account-level now
+time you walked from a portfolio to Circle. It is account-level now
 (`paperClassOnly`); paper-class accounts cannot open a real book, and that
 is a fact about the account, not the route.
 
@@ -910,7 +910,7 @@ either limit the portfolios fold into one cell that opens a list, with
 Verified across viewports, with truncation checked per cell rather than by
 eye (`scrollWidth > clientWidth`):
 
-| Viewport | 1 sheet | 4 sheets | 6 sheets |
+| Viewport | 1 portfolio | 4 portfolios | 6 portfolios |
 |---|---|---|---|
 | 768 | inline, 111px | **folded** | folded |
 | 900 | inline, 120px | **folded** | folded |

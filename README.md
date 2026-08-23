@@ -15,11 +15,11 @@ Open [http://localhost:3000](http://localhost:3000). Without Supabase env vars i
 
 ## What you get
 
-- **My book** — sheets of holdings, cost basis, today's move
+- **My portfolio** — holdings, cost basis, today's move
 - **Pulse** — thesis check on your largest names, plus anything down 5%
 - **Lab** — allocation, risk shocks, weekly trends, seasonality
 - **Compound** — growth planner seeded from what you actually hold
-- **Margus** — chat that can read and edit the sheet (screenshot or CSV import too)
+- **Margus** — chat that can read and edit the portfolio (screenshot or CSV import too)
 - **Fund / Communities / Account** — side rooms in the header, not extra home-screen heroes
 
 Not financial advice. Pulse, Forecast, and Margus are educational scenario tools.

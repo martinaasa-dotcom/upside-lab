@@ -305,7 +305,7 @@ async function applySheetFromPayload(
     .select("id, slug, name")
     .eq("id", livePortfolioId)
     .single();
-  if (liveErr || !live) throw new Error(liveErr?.message ?? "Sheet not found");
+  if (liveErr || !live) throw new Error(liveErr?.message ?? "Portfolio not found");
 
   const portfolios = (Array.isArray(payload.portfolios)
     ? payload.portfolios
@@ -331,7 +331,7 @@ async function applySheetFromPayload(
 
   if (!match) {
     throw new Error(
-      `Snapshot has no sheet matching “${live.name}” (id/slug/name)`
+      `Snapshot has no portfolio matching “${live.name}” (id/slug/name)`
     );
   }
 

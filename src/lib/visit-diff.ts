@@ -159,7 +159,7 @@ export function diffSinceLastVisit(
   if (Math.abs(navDelta) >= 100) {
     lines.push({
       id: "nav",
-      text: `Book ${money(navDelta)} while you were away`,
+      text: `Portfolio ${money(navDelta)} while you were away`,
       tone: navDelta > 0 ? "up" : navDelta < 0 ? "down" : "neutral",
     });
   }

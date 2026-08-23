@@ -1,7 +1,7 @@
 # Zero-downtime schema migrations
 
 Live traffic hits `portfell_portfolios` and `portfell_holdings` on every
-sheet load. A migration that takes an exclusive lock for more than a
+portfolio load. A migration that takes an exclusive lock for more than a
 heartbeat will queue those queries. Follow this order every time.
 
 ---

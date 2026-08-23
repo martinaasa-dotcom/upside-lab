@@ -127,7 +127,7 @@ export function formatEarningsCalendarBlock(
 ): string {
   if (rows.length === 0) {
     return `### Earnings calendar
-No dates on file for this sheet. Do not invent a day. If they ask, say you do not have a date.`;
+No dates on file for this portfolio. Do not invent a day. If they ask, say you do not have a date.`;
   }
   const lines = rows.map((row) => {
     const bits: string[] = [];

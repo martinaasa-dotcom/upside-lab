@@ -5,11 +5,11 @@
 - **My book**: Google-signed-in users co-own portfolios via `portfell_portfolio_owners` (many users ↔ many portfolios). Full live read **and** write for every co-owner.
 - `portfell_portfolios.owner_id` remains as optional primary/creator hint; **authorization uses the junction table**.
 - **Communities**: members see each co-owner’s book live, **read-only**. Invite joins and existing members show every real portfolio unless the owner turns one off. A public join request lets them pick which portfolios the circle will see. Classrooms stay paper-only. Never share a real book into a class.
-- Sheet PIN/password and guest share links are **removed** — Google session + co-ownership is the only gate.
+- Portfolio PIN/password and guest share links are **removed** — Google session + co-ownership is the only gate.
 - Community membership is **always opt-in, never automatic**. Signing in never adds anyone to any community (fixed in `030`, see below). A community is either:
   - **Private** (default): invite-link only, exactly like portfolio co-ownership.
   - **Public**: discoverable to any signed-in user (`GET /api/communities/discover`), who can ask to join (`POST /api/communities/:id/join-request`) — an admin still has to approve (`PATCH` same route) before the requester gets read access to anyone's book.
-  - **Classroom** (`kind = classroom`, always private): teacher-run paper class. Students join with an invite. Redeeming the invite (or an approved join request) provisions one homework sheet with the class `starting_cash` and pins it. Real books cannot be shared into a class. Class sheets cannot be deleted while the class exists. See migration `039`. Teacher sets `class_plan` (migration `040`): buy week, closed, sell-and-move, or anything goes. Empty plan means open. Purpose is the house note. Teachers can still edit a class sheet; students cannot break the current rule. Leaving the class unpins the homework sheet and drops the class lock so it becomes a normal sheet they can delete.
+  - **Classroom** (`kind = classroom`, always private): teacher-run paper class. Students join with an invite. Redeeming the invite (or an approved join request) provisions one homework portfolio with the class `starting_cash` and pins it. Real portfolios cannot be shared into a class. Class portfolios cannot be deleted while the class exists. See migration `039`. Teacher sets `class_plan` (migration `040`): buy week, closed, sell-and-move, or anything goes. Empty plan means open. Purpose is the house note. Teachers can still edit a class portfolio; students cannot break the current rule. Leaving the class unpins the homework portfolio and drops the class lock so it becomes a normal portfolio they can delete.
 
 ## Identity aliases
 
@@ -19,13 +19,13 @@ Multiple Google emails can map to **one person** in communities (`portfell_accou
 |-------|---------|
 | `aasamartinaasa@gmail.com` | `martin.aasa@upthink.ee` |
 
-Martin's two Google logins stay one person. Rasmus and Karoliine are **two** people who share Karud, the same way Martin and Amanda share Aasad / Anu / MaryAnn. Leaderboards combine co-owners of the same sheets (`Rasmus and Karoliine`, `Martin and Amanda Aasa`). Co-ownership of the shared sheet is unchanged.
+Martin's two Google logins stay one person. Rasmus and Karoliine are **two** people who share Karud, the same way Martin and Amanda share Aasad / Anu / MaryAnn. Leaderboards combine co-owners of the same portfolios (`Rasmus and Karoliine`, `Martin and Amanda Aasa`). Co-ownership of the shared portfolio is unchanged.
 
 Circle membership still copies across those households (`portfell_household_groups`, migration `053`). If Karoliine joins Monki, Rasmus is added too, same role. Same for Martin and Amanda, including Martin's second Google login. Leave and role changes copy as well. Classrooms stay per person. This is not a sign-in auto-join for strangers: it only mirrors a circle someone in the household already opted into.
 
-## Community-pinned sheets
+## Community-pinned portfolios
 
-`portfell_community_portfolios` pins sheets into a community even before owners sign in. Upside Circle includes **Karud** and **Lap** (shown as “awaiting sign-in” until their seed emails claim).
+`portfell_community_portfolios` pins portfolios into a community even before owners sign in. Upside Circle includes **Karud** and **Lap** (shown as “awaiting sign-in” until their seed emails claim).
 
 ## Seed ownership (test circle)
 
@@ -80,10 +80,10 @@ Shows every Upside profile (Google sign-ins), every community, and each communit
 - `010` claim RPC (superseded claim body in `011`)  
 - `011` `portfell_portfolio_owners` + co-owner RLS  
 - `012` profile `bio` + `portfell_portfolio_invites`  
-- `013` drop sheet `access_secret_hash` + `portfell_share_links`  
+- `013` drop portfolio `access_secret_hash` + `portfell_share_links`  
 - `014` community members RLS recursion fix  
 - `015` superadmin overview RPC  
-- `016` account aliases + community-pinned sheets (Karud/Lap)  
+- `016` account aliases + community-pinned portfolios (Karud/Lap)  
 - `049` Karud seed claim so Karoliine co-owns Karud on first sign-in (the alias that folded her into Rasmus was dropped in `052`)
 - `052` drop the Karud account alias. Rasmus and Karoliine stay two Circle members on one book, like Martin and Amanda
 - `053` household circle membership. Martin/Amanda and Rasmus/Karoliine join, leave, and change roles together. Classrooms stay per person.
@@ -95,7 +95,7 @@ Shows every Upside profile (Google sign-ins), every community, and each communit
 - `029` community admin delete RLS policy (rename already had one from `008`)
 - `030` **critical fix**: `ensureProfileAndClaims`'s service-role path (`claimWithServiceRole`) auto-joined *every* signed-in user into Upside Circle unconditionally, regardless of any seed claim — meaning any stranger creating an account was silently added to the family's community and granted read access to their books (and vice versa). Confirmed live for two non-family test accounts before the fix. Removed the auto-join entirely from both the app-code path and `portfell_claim_seed_for_me()` (which had a narrower, seed-claim-gated version of the same auto-join) — see `031` for the invite/request model that replaced it
 - `031` `portfell_communities.visibility` (`public`/`private`, defaults to `private`), discovery `SELECT` policy for public communities, and `portfell_community_join_requests` (+ RLS) for the request-to-join flow
-- `039` classroom kind + starting cash on communities, `classroom_community_id` on portfolios (one paper sheet per student per class)
+- `039` classroom kind + starting cash on communities, `classroom_community_id` on portfolios (one paper portfolio per student per class)
 
 Writes require a signed-in **co-owner** only.
 

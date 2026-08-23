@@ -143,8 +143,9 @@ export function splitMoveTint(text: string): MoveTintSpan[] {
 }
 
 /**
- * "1 sheet" / "2 sheets". Pass an explicit plural for irregular words.
- * Counts here are small and human-scale (sheets, holdings, members), so
+ * "1 portfolio" / "2 portfolios". Pass an explicit plural for irregular
+ * words. Counts here are small and human-scale (portfolios, holdings,
+ * members), so
  * the naive s-suffix covers everything we actually label.
  */
 export function plural(

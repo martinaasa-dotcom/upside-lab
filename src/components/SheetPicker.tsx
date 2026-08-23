@@ -27,8 +27,8 @@ export function SheetPicker({ sheets, value, onChange, onAdd }: Props) {
 
   const current =
     value === "all"
-      ? "All sheets"
-      : sheets.find((s) => s.id === value)?.name ?? "All sheets";
+      ? "All portfolios"
+      : sheets.find((s) => s.id === value)?.name ?? "All portfolios";
 
   useEffect(() => {
     if (!open) return;
@@ -75,8 +75,8 @@ export function SheetPicker({ sheets, value, onChange, onAdd }: Props) {
           type="button"
           aria-haspopup="menu"
           aria-expanded={open}
-          aria-label={`Sheet, ${current}`}
-          title="Switch sheet"
+          aria-label={`Portfolio, ${current}`}
+          title="Switch portfolio"
           onClick={placeAndToggle}
           className="touch-target inline-flex max-w-full items-center gap-1 rounded-md text-sm font-medium leading-none text-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
@@ -97,12 +97,12 @@ export function SheetPicker({ sheets, value, onChange, onAdd }: Props) {
           <div
             data-sheet-picker={menuId}
             role="menu"
-            aria-label="Sheets"
+            aria-label="Portfolios"
             className="fixed z-[80] max-h-[min(24rem,70vh)] min-w-[13.5rem] overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-sm"
             style={{ top: pos.top, left: pos.left }}
           >
             <PickerRow
-              label="All sheets"
+              label="All portfolios"
               selected={value === "all"}
               onSelect={() => {
                 setOpen(false);

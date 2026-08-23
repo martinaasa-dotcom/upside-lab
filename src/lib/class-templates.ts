@@ -50,7 +50,7 @@ export const CLASS_TEMPLATES: ClassTemplate[] = [
     cash: 100_000,
     period: "open",
     assignment:
-      "Buy and sell as you like. Write a short note whenever you change the sheet.",
+      "Buy and sell as you like. Write a short note whenever you change the portfolio.",
   },
   {
     id: "same-group",
@@ -64,11 +64,11 @@ export const CLASS_TEMPLATES: ClassTemplate[] = [
   {
     id: "look-only",
     title: "Look only",
-    blurb: "Exam week or a demo. Sheets stay put.",
+    blurb: "Exam week or a demo. Portfolios stay put.",
     cash: 100_000,
     period: "closed",
     assignment:
-      "Sheets stay as they are. Look and write. Do not buy or sell.",
+      "Portfolios stay as they are. Look and write. Do not buy or sell.",
   },
   {
     id: "midterm-move",
