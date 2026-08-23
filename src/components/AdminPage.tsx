@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertTriangle,
   Bug,
+  LogOut,
   RefreshCw,
   Search,
   Shield,
@@ -84,6 +85,44 @@ function fmtDate(iso: string | null | undefined): string {
 
 export function AdminPage() {
   const { user } = useAuth();
+  /**
+   * Revoke every refresh token, so everybody meets the signed-out page again.
+   *
+   * The confirmation phrase the route demands is sent from here rather than
+   * typed by the operator: the dialog already made them say yes on purpose,
+   * and the phrase exists to stop a stray fetch or a re-sent request, not to
+   * quiz whoever is pressing the button.
+   */
+  async function signOutEveryone(): Promise<void> {
+    setSignOutResult(null);
+    const res = await fetch("/api/admin/sign-out-everyone", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm: "sign out everyone" }),
+    });
+    const data: unknown = await res.json().catch(() => null);
+    const row =
+      data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+    if (!res.ok) {
+      throw new Error(
+        plainError(row.error, "Couldn't sign everyone out. Try again.")
+      );
+    }
+    const revoked = typeof row.revoked === "number" ? row.revoked : 0;
+    const failed = typeof row.failed === "number" ? row.failed : 0;
+    const incomplete = row.incomplete === true;
+    setSignOutResult(
+      [
+        `Revoked ${revoked} ${revoked === 1 ? "session" : "sessions"}.`,
+        failed > 0 ? `${failed} could not be revoked.` : "",
+        incomplete ? "The run did not finish, so some were missed." : "",
+        "Anyone signed in right now keeps working until their token expires, so this lands over the next hour.",
+      ]
+        .filter(Boolean)
+        .join(" ")
+    );
+  }
+
   const allowed = isSuperadminEmail(user?.email);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [communities, setCommunities] = useState<AdminCommunity[]>([]);
@@ -96,6 +135,8 @@ export function AdminPage() {
   const [errorLogLoading, setErrorLogLoading] = useState(true);
   const [expandedError, setExpandedError] = useState<string | null>(null);
   const [confirmClearErrors, setConfirmClearErrors] = useState(false);
+  const [confirmSignOutAll, setConfirmSignOutAll] = useState(false);
+  const [signOutResult, setSignOutResult] = useState<string | null>(null);
 
   const loadAbortRef = useRef<AbortController | null>(null);
   const hasAdminDataRef = useRef(false);
@@ -518,11 +559,51 @@ export function AdminPage() {
                   )}
                 </div>
               </section>
+              <section className="flex flex-col gap-2">
+                <h2 className="font-semibold text-muted-foreground">
+                  Sessions
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Signs out every account, so the next thing anybody sees is
+                  the signed-out page. Nothing is deleted and no holdings are
+                  touched: people sign in again with Google.
+                </p>
+                <div className="card-sheen glass-well flex flex-col gap-3 rounded-lg p-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={() => setConfirmSignOutAll(true)}
+                    >
+                      <LogOut data-icon="inline-start" />
+                      Sign everyone out
+                    </Button>
+                    <p className="text-sm text-muted-foreground">
+                      Includes you.
+                    </p>
+                  </div>
+                  {signOutResult && (
+                    <Alert>
+                      <AlertDescription>{signOutResult}</AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              </section>
             </>
             </WidgetErrorBoundary>
           )}
         </main>
       </div>
+
+      <ConfirmModal
+        open={confirmSignOutAll}
+        title="Sign everyone out?"
+        body="Every account is signed out, including yours, and everybody lands on the signed-out page next time they open the app. Nothing is deleted. Anyone signed in right now keeps working until their token expires, so this lands over the next hour rather than at once."
+        confirmLabel="Sign everyone out"
+        destructive
+        onClose={() => setConfirmSignOutAll(false)}
+        onConfirm={signOutEveryone}
+      />
 
       <ConfirmModal
         open={confirmClearErrors}
