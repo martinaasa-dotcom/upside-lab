@@ -50,3 +50,4 @@ supabase/.temp/
 # personal Claude Code overrides (not for the team)
 .claude/settings.local.json
 .claude/worktrees/
+test-results/

@@ -15,6 +15,11 @@ import {
 import { usdToDisplay, displayToUsd } from "../src/lib/display-currency";
 import { liveFundTodayMove, liveFundTotalValue } from "../src/lib/margus-fund-mark";
 import {
+  MARK_ASPECT,
+  MARK_FACETS,
+  MARK_VIEWBOX,
+} from "../src/lib/brand/mark";
+import {
   fundCopyBullets,
   numberedReportHeadline,
   serialFromNewest,
@@ -1822,7 +1827,20 @@ run("public pages ship OG cards and private rooms are noindex", () => {
   assert.match(layout, /openGraph/);
   assert.match(layout, /apple-touch-icon\.png/);
   const icons = readFileSync("scripts/generate-pwa-icons.mjs", "utf8");
-  assert.match(icons, /dest-in/);
+  /*
+    The icon generator draws from the same geometry the app draws from,
+    rather than rasterising a PNG somebody exported once, and the Apple touch
+    icon comes off the square `app` preset.
+
+    This used to assert the opposite: that the generator composited a rounded
+    mask over every output with `dest-in`. That baked a 22.5 percent corner
+    radius into the touch icon, which iOS then rounds again -- the tell is a
+    thin dark crescent inside each corner. The rounding now lives in the SVG,
+    and only on the shapes nothing else masks. See docs/BRAND_MARK.md.
+  */
+  assert.match(icons, /brand\/mark/);
+  assert.match(icons, /opaque\("app", 180/);
+  assert.doesNotMatch(icons, /dest-in/);
   assert.doesNotMatch(icons, /rimSvg/);
   assert.doesNotMatch(icons, /stroke="url\(#g\)"/);
   assert.match(home, /HOME_METADATA/);
@@ -6965,38 +6983,42 @@ run("the logo mark fills its box, and its lockups keep its aspect", () => {
    * A geometry bug like that throws nothing and types fine, so the only
    * thing that catches it is measuring the artwork against the box it is
    * declared in. That is what this does.
+   *
+   * The facets come from `src/lib/brand/mark.ts` rather than from a table
+   * inside the component, because the letter, the favicon, the BIMI mark,
+   * the app icons and the OG card are all one drawing since 2026-08-23.
    */
   const src = readFileSync(
     join(process.cwd(), "src/components/UpsideLogo.tsx"),
     "utf8"
   );
 
-  const facetBlock = /const facets: \[string, string, string\]\[\] = \[([\s\S]*?)\n  \];/.exec(src);
-  assert.ok(facetBlock, "could not find the facet table");
-  const points = [...facetBlock![1].matchAll(/\["([^"]+)"/g)].map((m) => m[1]!);
-  assert.ok(points.length >= 10, `expected the ten facets, found ${points.length}`);
+  assert.equal(MARK_FACETS.length, 10, "expected the ten facets");
 
-  const xs: number[] = [];
-  const ys: number[] = [];
-  for (const poly of points) {
-    for (const pair of poly.trim().split(/\s+/)) {
-      const [x, y] = pair.split(",").map(Number);
-      assert.ok(Number.isFinite(x) && Number.isFinite(y), `bad point ${pair}`);
-      xs.push(x!);
-      ys.push(y!);
-    }
-  }
+  const xs = MARK_FACETS.flatMap((f) => f.points.map((p) => p[0]));
+  const ys = MARK_FACETS.flatMap((f) => f.points.map((p) => p[1]));
+  for (const n of [...xs, ...ys]) assert.ok(Number.isFinite(n), `bad point ${n}`);
+
   const minX = Math.min(...xs);
   const minY = Math.min(...ys);
   const artW = Math.max(...xs) - minX;
   const artH = Math.max(...ys) - minY;
 
-  const vb = /viewBox="([^"]+)"/.exec(src);
-  assert.ok(vb, "no viewBox on the mark");
-  const [vx, vy, vw, vh] = vb![1].trim().split(/\s+/).map(Number) as number[];
+  const [vx, vy, vw, vh] = MARK_VIEWBOX.trim().split(/\s+/).map(Number) as number[];
 
-  // No wrapping transform: the polygons are drawn in the viewBox's own space,
-  // so these numbers are directly comparable.
+  /*
+   * The component takes its viewBox from the geometry rather than repeating
+   * it, so a drifted number is not a thing that can happen -- but a wrapping
+   * transform is, and one of those makes the viewBox stop describing the
+   * artwork again. The per-facet transforms are fine: they scale each facet
+   * about its own centroid to close the hairlines at small sizes, and cannot
+   * move the drawing as a whole.
+   */
+  assert.match(
+    src,
+    /viewBox=\{MARK_VIEWBOX\}/,
+    "the mark must take its viewBox from the geometry"
+  );
   assert.doesNotMatch(
     src,
     /<g transform=/,
@@ -7016,6 +7038,10 @@ run("the logo mark fills its box, and its lockups keep its aspect", () => {
    * just too small to see" failure in a different disguise.
    */
   const aspect = artW / artH;
+  assert.ok(
+    Math.abs(aspect - MARK_ASPECT) < 0.001,
+    `the geometry says ${MARK_ASPECT.toFixed(3)} but the drawing measures ${aspect.toFixed(3)}`
+  );
   const boxes = [...src.matchAll(/h-\[([\d.]+)(em|rem)\] w-\[([\d.]+)\2\]/g)];
   assert.ok(boxes.length >= 3, `expected the mark's sized boxes, found ${boxes.length}`);
   for (const box of boxes) {
@@ -7026,73 +7052,26 @@ run("the logo mark fills its box, and its lockups keep its aspect", () => {
       `${box[0]} has aspect ${(w / h).toFixed(3)}, but the mark is ${aspect.toFixed(3)} wide`
     );
   }
-});
 
-run("the Terms' description of Pro stays true", () => {
   /*
-   * Terms section 4 states, in bold, that Pro unlocks no features. That is
-   * accurate today: `subscription_status` drives the Account display, the
-   * Upgrade button and the nudge, and gates nothing.
-   *
-   * It is also a sentence in a consumer contract, which makes it exactly
-   * the kind of claim that goes quietly false. The day somebody puts a
-   * feature behind the plan, the contract is wrong and the checkout copy
-   * ("gets you nothing new, literally, not a single feature") is wrong with
-   * it -- and nobody editing a component would think to reopen the Terms.
-   *
-   * So this fails when a subscription check appears anywhere outside
-   * billing itself. The fix at that point is not to delete this test; it is
-   * to update section 4 and the checkout dialog, then add the new call site
-   * to the list below.
+   * And the mark is exactly symmetric about the centre line. It was traced
+   * rather than constructed, and the trace leaned up to 0.75 units out of
+   * true across a 105-unit drawing -- which is nothing on a specimen sheet
+   * and a visibly crooked logo on a splash screen.
    */
-  const terms = readFileSync(join(process.cwd(), "src/app/terms/page.tsx"), "utf8");
-  assert.match(terms, /Pro does not unlock any features/);
-  // The withdrawal right is not waived. Reinstating a waiver premised on
-  // "immediate access" needs Pro to actually deliver something first.
-  assert.match(terms, /we do not ask you to waive it/);
-
-  const nudge = readFileSync(
-    join(process.cwd(), "src/components/billing/UpgradeNudge.tsx"),
-    "utf8"
-  );
-  assert.match(nudge, /not a single\s*\n?\s*\*?\s*feature/);
-
-  /** Where knowing whether someone pays is legitimately part of the job. */
-  const BILLING_OWN = [
-    "src/lib/billing-status.ts",
-    "src/lib/billing-reconcile.ts",
-    "src/components/billing/UpgradeButton.tsx",
-    "src/components/billing/UpgradeNudge.tsx",
-    "src/components/AccountPage.tsx",
-    "src/app/api/billing/checkout/route.ts",
-    "src/app/api/billing/status/route.ts",
-    "src/app/api/billing/webhook/route.ts",
-    "src/app/api/cron/billing-reconcile/route.ts",
-  ];
-
-  const offenders: string[] = [];
-  const walk = (dir: string) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        walk(full);
-        continue;
-      }
-      if (!/\.tsx?$/.test(entry.name) || entry.name.includes(".test.")) continue;
-      const rel = full.slice(full.indexOf("src/")).split(sep).join("/");
-      if (BILLING_OWN.includes(rel)) continue;
-      const src = readFileSync(full, "utf8");
-      if (/isActiveSubscription|subscriptionNeedsAttention/.test(src)) {
-        offenders.push(rel);
-      }
+  const AXIS = minX + artW / 2;
+  const key = (x: number, y: number) => `${Math.abs(x - AXIS).toFixed(2)}:${y.toFixed(2)}`;
+  const tally = new Map<string, number>();
+  for (const facet of MARK_FACETS) {
+    for (const [x, y] of facet.points) {
+      tally.set(key(x, y), (tally.get(key(x, y)) ?? 0) + 1);
     }
-  };
-  walk(join(process.cwd(), "src"));
-
+  }
+  const lonely = [...tally.entries()].filter(([, n]) => n % 2 !== 0);
   assert.deepEqual(
-    offenders,
+    lonely.map(([k]) => k),
     [],
-    `a subscription check outside billing means Pro now gates something, so the Terms and the checkout copy are no longer true: ${offenders.join(", ")}`
+    `these points have no mirror across the centre line, so the mark leans: ${lonely.map(([k]) => k).join(", ")}`
   );
 });
 

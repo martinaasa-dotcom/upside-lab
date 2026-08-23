@@ -19,7 +19,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { EmptyState, InfoTip, Panel, PanelHeader, Reading } from "@/components/ui/Panel";
-import { cashtag, cn } from "@/lib/format";
+import { NO_VALUE, cashtag, cn } from "@/lib/format";
 import { readJsonOrThrow } from "@/lib/http";
 import { buildTrendStory, type Signal, type Tone, type TrendRowLike } from "@/lib/market/trend-story";
 import {
@@ -176,7 +176,7 @@ function TickerStoryCard({
 }
 
 function rsText(v: number | null): string {
-  if (v == null) return "—";
+  if (v == null) return NO_VALUE;
   return `${v > 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
 }
 

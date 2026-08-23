@@ -1,3 +1,5 @@
+
+import { NO_VALUE } from "@/lib/format";
 /**
  * In-app feedback. The scheduled prompt walks one question at a time and
  * shows up once a month. Manual is a topic plus a rant.
@@ -114,7 +116,7 @@ export const MONTHLY_STEPS = [
 export type MonthlyStep = (typeof MONTHLY_STEPS)[number];
 
 /** Shown wherever a question has no answer yet. */
-export const NO_ANSWER = "—";
+export const NO_ANSWER = NO_VALUE;
 
 export type FeedbackSchedule = {
   firstSeenAt: string;

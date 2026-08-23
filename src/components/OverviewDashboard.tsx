@@ -29,16 +29,7 @@ import {
   Scoreboard,
   Segmented,
 } from "@/components/ui/Panel";
-import {
-  currency,
-  percent,
-  signedCurrency,
-  signedPercent,
-  cn,
-  plural,
-  signedTone,
-  cashtag,
-} from "@/lib/format";
+import { NO_VALUE, cashtag, cn, currency, percent, plural, signedCurrency, signedPercent, signedTone } from "@/lib/format";
 import { parseHoldingsPaste, type CsvHoldingRow } from "@/lib/csv-import";
 import { buildMorningRead } from "@/lib/morning-read";
 import type { UpsideAlert } from "@/lib/alerts";
@@ -553,7 +544,7 @@ function MoverTile({
           ) : (
             <TrendingDown className="hidden size-4 shrink-0 sm:block" />
           )}
-          {pct != null ? percent(pct, lifetime ? 1 : 2) : "—"}
+          {pct != null ? percent(pct, lifetime ? 1 : 2) : NO_VALUE}
         </span>
       </span>
       <span className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 font-mono text-sm tabular-nums">
@@ -908,7 +899,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
                 {percent(totals.todayPct)}
               </DeltaBadge>
             ) : (
-              "—"
+              NO_VALUE
             )
           }
           valueClassName={tone(totals.todayDollar)}

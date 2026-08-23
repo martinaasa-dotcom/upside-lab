@@ -6,6 +6,7 @@ import { ComparisonChart, type ComparisonSeries } from "@/components/ComparisonC
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import {
   BOX,
+  LoadError,
   MicroLabel,
   Panel,
   PanelHeader,
@@ -28,7 +29,7 @@ import {
 import { plainError } from "@/lib/plain-error";
 import { isAbortError, isNetworkError } from "@/lib/abort";
 import { useNetworkResume } from "@/lib/use-network-resume";
-import { currency, percent, signedCurrency, cn, signedTone, cashtag } from "@/lib/format";
+import { NO_VALUE, cashtag, cn, currency, percent, signedCurrency, signedTone } from "@/lib/format";
 import { PALETTE } from "@/lib/palette";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import { isWorkspaceRoomActive } from "@/lib/workspace-rooms";
@@ -461,8 +462,21 @@ function ViewMoreButton({
   );
 }
 
-function freshnessLabel(quotesAt: number | null, nowMs: number): string {
-  if (quotesAt == null) return "Loading prices …";
+/**
+ * `stalled` is the load having given up, not merely being slow.
+ *
+ * Without it the header said "Loading prices …" for as long as the tab
+ * stayed open: the label keyed off `quotesAt == null`, which is equally
+ * true a tick after mount and forever after a failed fetch. A page that
+ * claims to be loading something it has stopped trying to load is worse
+ * than one that admits it has no prices, because the reader waits.
+ */
+function freshnessLabel(
+  quotesAt: number | null,
+  nowMs: number,
+  stalled: boolean
+): string {
+  if (quotesAt == null) return stalled ? "No prices yet" : "Loading prices …";
   const secs = Math.max(0, Math.round((nowMs - quotesAt) / 1000));
   if (secs < 10) return "Live - just now";
   if (secs < 90) return `Live - ${secs}s ago`;
@@ -470,7 +484,13 @@ function freshnessLabel(quotesAt: number | null, nowMs: number): string {
   return `Prices ${mins}m old`;
 }
 
-function FundFreshness({ quotesAt }: { quotesAt: number | null }) {
+function FundFreshness({
+  quotesAt,
+  stalled = false,
+}: {
+  quotesAt: number | null;
+  stalled?: boolean;
+}) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -478,7 +498,7 @@ function FundFreshness({ quotesAt }: { quotesAt: number | null }) {
     }, 1000);
     return () => window.clearInterval(id);
   }, []);
-  const label = freshnessLabel(quotesAt, nowMs);
+  const label = freshnessLabel(quotesAt, nowMs, stalled);
   return (
     <span
       className="inline-flex items-center gap-1.5 text-sm tabular-nums text-muted-foreground"
@@ -577,7 +597,7 @@ function FundPosition({
             {cashtag(holding.ticker)}
           </Badge>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {shares} sh · entered {fmtDate(holding.entry_date)}
+            {shares} shares · bought {fmtDate(holding.entry_date)}
             {holdFor ? ` · Hold for ${holdFor}` : ""}
           </p>
         </div>
@@ -1221,7 +1241,7 @@ export function UpsidePortfolioPage() {
     <div className={PAGE_FRAME_CLASS}>
       <MobileDock active={null} />
       <AppHeader title="Upside Fund" mobileTitle="Fund">
-        <FundFreshness quotesAt={quotesAt} />
+        <FundFreshness quotesAt={quotesAt} stalled={error != null} />
       </AppHeader>
 
       <main id="main" className={PAGE_MAIN_CLASS}>
@@ -1230,7 +1250,7 @@ export function UpsidePortfolioPage() {
         {loading ? (
           <p className="text-sm text-muted-foreground">{loadingMessage}</p>
         ) : error ? (
-          <p className="text-sm text-loss">{error}</p>
+          <LoadError message={error} onRetry={() => void load("manual")} />
         ) : (
           <>
             <Panel>
@@ -1620,7 +1640,7 @@ export function UpsidePortfolioPage() {
                         </span>
                       </div>
                       <p className="mt-0.5 text-sm text-muted-foreground">
-                        {fmtDate(h.entry_date)} → {h.closed_at ? fmtDate(h.closed_at) : "—"}
+                        {fmtDate(h.entry_date)} → {h.closed_at ? fmtDate(h.closed_at) : NO_VALUE}
                         {h.exit_reasoning ? ` · ${h.exit_reasoning}` : ""}
                       </p>
                     </li>

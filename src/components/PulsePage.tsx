@@ -21,16 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { track } from "@vercel/analytics";
-import {
-  currency,
-  percent,
-  signedCurrency,
-  signedPercent,
-  cn,
-  plural,
-  signedTone,
-  cashtag,
-} from "@/lib/format";
+import { NO_VALUE, cashtag, cn, currency, percent, plural, signedCurrency, signedPercent, signedTone } from "@/lib/format";
 import {
   EmptyState,
   Metric,
@@ -557,7 +548,7 @@ function PulseActionSummary({
                       signedTone(row.pct)
                     )}
                   >
-                    {row.pct != null ? signedPercent(row.pct) : "—"}
+                    {row.pct != null ? signedPercent(row.pct) : NO_VALUE}
                   </TableCell>
                 </TableRow>
               ))

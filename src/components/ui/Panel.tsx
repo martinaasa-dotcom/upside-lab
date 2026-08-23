@@ -2,6 +2,7 @@
 
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card as SurfaceCard,
   CardAction,
@@ -35,7 +36,14 @@ import {
 import { listingCurrenciesAreMixed } from "@/lib/listing-currency";
 import { filledCardColumns, filledGridColumns } from "@/lib/filled-grid";
 import { cn, signedPercent, splitMoveTint } from "@/lib/format";
-import { ChevronRight, Info, Minus, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  ChevronRight,
+  Info,
+  Minus,
+  RotateCw,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import {
   Children,
   Fragment,
@@ -1206,6 +1214,52 @@ export function EmptyState({
       </EmptyHeader>
       {action ? <EmptyContent>{action}</EmptyContent> : null}
     </Empty>
+  );
+}
+
+/**
+ * What a room shows when the thing it exists to show would not load.
+ *
+ * Every room used to render a failed load as `<p class="text-sm
+ * text-loss">{error}</p>` and nothing else. On a page whose entire content
+ * is that one fetch — the Fund room, most of all — the result was a black
+ * screen with a short red phrase in the top-left corner and no way
+ * forward. That is indistinguishable from a crash, and the most common
+ * cause is the most recoverable one: a session that lapsed while the tab
+ * sat open.
+ *
+ * So this states the problem in the same voice as the rest of the app and
+ * always carries the action, because a dead end is the one thing a reader
+ * cannot be asked to solve. `EmptyState` rather than a new shape: a room
+ * with nothing in it and a room that could not load are the same silhouette
+ * to a reader, and the dashed border already reads as "not your data".
+ *
+ * `message` is expected to have been through `plainError`, which is what
+ * keeps a Postgres constraint or a bare "Sign in required" out of here.
+ */
+export function LoadError({
+  message,
+  onRetry,
+  className,
+}: {
+  message: string;
+  onRetry?: () => void;
+  className?: string;
+}) {
+  return (
+    <EmptyState
+      className={className}
+      title="That didn't load"
+      detail={message}
+      action={
+        onRetry ? (
+          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+            <RotateCw data-icon="inline-start" />
+            Try again
+          </Button>
+        ) : undefined
+      }
+    />
   );
 }
 

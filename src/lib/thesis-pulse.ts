@@ -1,5 +1,5 @@
 import { humanizeMargusText, humanizeMargusTree, pulseSuggestion } from "@/lib/ai/humanize-copy";
-import { cashtag } from "@/lib/format";
+import { NO_VALUE, cashtag } from "@/lib/format";
 import { TICKER_SECTORS } from "@/lib/forecast-plan";
 import type { OverviewModel, TickerScore } from "@/lib/overview";
 import type { Quote } from "@/lib/types";
@@ -465,7 +465,7 @@ export function sectorForTicker(ticker: string): string | null {
 }
 
 export function formatMovePct(pct: number | null): string {
-  if (pct == null || Number.isNaN(pct)) return "—";
+  if (pct == null || Number.isNaN(pct)) return NO_VALUE;
   return `${pct >= 0 ? "+" : ""}${(pct * 100).toFixed(1)}%`;
 }
 

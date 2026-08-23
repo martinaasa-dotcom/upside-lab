@@ -1,3 +1,5 @@
+
+import { NO_VALUE } from "@/lib/format";
 /** Human labels for Yahoo marketState + book day P&L strip. */
 
 export type SessionKind = "open" | "pre" | "ah" | "closed" | "unknown";
@@ -142,6 +144,6 @@ export function sessionShort(state: string | null | undefined): string {
     case "closed":
       return "Closed";
     default:
-      return "—";
+      return NO_VALUE;
   }
 }

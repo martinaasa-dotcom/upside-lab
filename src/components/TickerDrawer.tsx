@@ -9,7 +9,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { currency, percent, signedPercent, cn, cashtag } from "@/lib/format";
+import { NO_VALUE, cashtag, cn, currency, percent, signedPercent } from "@/lib/format";
 import {
   Metric,
   MicroLabel,
@@ -167,7 +167,7 @@ export function TickerDrawer({
               <Pill tone="neutral">{THEME_LABEL[theme] ?? "other businesses"}</Pill>
             </div>
             <p className="mt-1 text-sm tabular-nums text-muted-foreground">
-              {spot != null ? currency(spot) : "—"}
+              {spot != null ? currency(spot) : NO_VALUE}
               {todayChangePct != null && (
                 <span
                   className={cn(
@@ -256,7 +256,7 @@ export function TickerDrawer({
                     <span className="font-medium tabular-nums text-gain">
                       {Number.isFinite(targetCagrPct)
                         ? `${targetCagrPct >= 0 ? "+" : ""}${targetCagrPct.toFixed(1)}%`
-                        : "—"}
+                        : NO_VALUE}
                     </span>{" "}
                     a year.{" "}
                     <span
@@ -377,7 +377,7 @@ export function TickerDrawer({
                 <Metric label="Room above">
                   {coveredCallRow.targetDistance != null
                     ? percent(coveredCallRow.targetDistance)
-                    : "—"}
+                    : NO_VALUE}
                 </Metric>
                 <Metric label="Contracts">{coveredCallRow.contracts}</Metric>
               </div>

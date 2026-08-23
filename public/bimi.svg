@@ -1,15 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg version="1.2" baseProfile="tiny-ps" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <title>Upside Lab</title>
-  <rect x="0" y="0" width="128" height="128" fill="#0b0b0b"/>
-  <polygon points="62.61,20.27 62.72,56.43 40.43,56.53" fill="#C4A67A"/>
-  <polygon points="65.71,20.27 87.89,56.53 65.60,56.43" fill="#D0B68A"/>
-  <polygon points="40.75,59.52 62.93,59.52 52.37,78.93" fill="#B08C58"/>
-  <polygon points="65.39,59.52 87.47,59.63 76.37,79.04" fill="#C4A67A"/>
-  <polygon points="90.35,60.48 102.08,80.32 79.36,80.32" fill="#C4A67A"/>
-  <polygon points="37.97,60.59 49.28,80.32 26.35,80.32" fill="#B08C58"/>
-  <polygon points="26.77,83.41 49.81,83.41 38.40,103.25" fill="#95683E"/>
-  <polygon points="78.72,83.41 101.55,83.41 90.24,103.15" fill="#B08C58"/>
-  <polygon points="104.43,84.27 116.59,104.64 93.23,104.64" fill="#B08C58"/>
-  <polygon points="23.89,84.37 35.41,104.64 11.84,104.64" fill="#95683E"/>
+  <linearGradient id="p" x1="0" y1="0" x2="0" y2="128" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#f7e2b4"/><stop offset="1" stop-color="#b8822c"/></linearGradient>
+  <rect x="0" y="0" width="128" height="128" fill="url(#p)"/>
+  <g transform="translate(0.000 -1.015) translate(63.99999999999999 62.455) scale(0.70867) translate(-63.99999999999999 -62.455)"><polygon points="62.45,20.27 62.56,56.43 40.27,56.53" fill="#1f1506" transform="translate(55.093 44.410) scale(1.16) translate(-55.093 -44.410)"/><polygon points="65.55,20.27 87.73,56.53 65.44,56.43" fill="#2a1d08" transform="translate(72.907 44.410) scale(1.16) translate(-72.907 -44.410)"/><polygon points="40.64,59.58 62.77,59.52 52,78.99" fill="#150e03" transform="translate(51.803 66.030) scale(1.16) translate(-51.803 -66.030)"/><polygon points="65.23,59.52 87.36,59.58 76,78.99" fill="#1f1506" transform="translate(76.197 66.030) scale(1.16) translate(-76.197 -66.030)"/><polygon points="90.19,60.54 101.87,80.32 79.04,80.32" fill="#1f1506" transform="translate(90.367 73.727) scale(1.16) translate(-90.367 -73.727)"/><polygon points="37.81,60.54 48.96,80.32 26.13,80.32" fill="#150e03" transform="translate(37.633 73.727) scale(1.16) translate(-37.633 -73.727)"/><polygon points="26.61,83.41 49.55,83.41 38.08,103.2" fill="#0b0701" transform="translate(38.080 90.007) scale(1.16) translate(-38.080 -90.007)"/><polygon points="78.45,83.41 101.39,83.41 89.92,103.2" fill="#150e03" transform="translate(89.920 90.007) scale(1.16) translate(-89.920 -90.007)"/><polygon points="104.27,84.32 116.38,104.64 92.91,104.64" fill="#150e03" transform="translate(104.520 97.867) scale(1.16) translate(-104.520 -97.867)"/><polygon points="23.73,84.32 35.09,104.64 11.62,104.64" fill="#0b0701" transform="translate(23.480 97.867) scale(1.16) translate(-23.480 -97.867)"/></g>
 </svg>

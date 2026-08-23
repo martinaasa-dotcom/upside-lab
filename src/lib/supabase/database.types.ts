@@ -898,6 +898,7 @@ export type Database = {
           stripe_subscription_id: string | null
           subscription_status: string | null
           updated_at: string
+          welcome_tour_version: number
         }
         Insert: {
           avatar_url?: string | null
@@ -920,6 +921,7 @@ export type Database = {
           stripe_subscription_id?: string | null
           subscription_status?: string | null
           updated_at?: string
+          welcome_tour_version?: number
         }
         Update: {
           avatar_url?: string | null
@@ -942,6 +944,7 @@ export type Database = {
           stripe_subscription_id?: string | null
           subscription_status?: string | null
           updated_at?: string
+          welcome_tour_version?: number
         }
         Relationships: []
       }

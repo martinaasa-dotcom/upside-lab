@@ -22,13 +22,7 @@ import { listingCurrenciesAreMixed } from "@/lib/listing-currency";
 import { PALETTE } from "@/lib/palette";
 import { formatDateTime } from "@/lib/timezone";
 import { isAbortError } from "@/lib/abort";
-import {
-  cn,
-  signedTone,
-  currency,
-  percent,
-  signedCurrency,
-} from "@/lib/format";
+import { NO_VALUE, cn, currency, percent, signedCurrency, signedTone } from "@/lib/format";
 import { compactAxis, niceScale } from "@/components/mobile/BookNavChart";
 import { ChartXRail, ChartYAxis } from "@/components/ui/ChartAxis";
 import type { ForecastModel, ForecastYear } from "@/lib/forecast";
@@ -1012,7 +1006,7 @@ export const ForecastPanel = memo(function ForecastPanel({
                         : "text-muted-foreground"
                     )}
                   >
-                    {r.gainPct != null ? percent(r.gainPct) : "—"}
+                    {r.gainPct != null ? percent(r.gainPct) : NO_VALUE}
                   </p>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3">
@@ -1134,7 +1128,7 @@ export const ForecastPanel = memo(function ForecastPanel({
                         : "text-muted-foreground"
                     )}
                   >
-                    {r.gainPct != null ? percent(r.gainPct) : "—"}
+                    {r.gainPct != null ? percent(r.gainPct) : NO_VALUE}
                   </div>
                 </FluidRow>
               ))}
@@ -1159,7 +1153,7 @@ export const ForecastPanel = memo(function ForecastPanel({
                       : "text-muted-foreground"
                   )}
                 >
-                  {model.gainPct != null ? percent(model.gainPct) : "—"}
+                  {model.gainPct != null ? percent(model.gainPct) : NO_VALUE}
                 </div>
               </FluidRow>
             </FluidTable>

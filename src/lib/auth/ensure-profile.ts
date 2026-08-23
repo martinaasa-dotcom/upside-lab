@@ -42,7 +42,7 @@ async function claimWithRpc(user: User): Promise<{ claimedSlugs: string[] }> {
   // auth.uid() is present inside the security-definer claim RPC.
   const { data: sessionData } = await authClient.auth.getSession();
   if (!sessionData.session) {
-    console.error("portfell_claim_seed_for_me skipped — no server session");
+    console.error("portfell_claim_seed_for_me skipped, no server session");
     return { claimedSlugs: [] };
   }
 

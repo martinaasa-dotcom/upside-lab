@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { isAbortError } from "@/lib/abort";
 import type { FearGreedSnapshot } from "@/lib/market/fear-greed";
 import { fearGreedTone } from "@/lib/market/fear-greed";
-import { cn } from "@/lib/format";
+import { NO_VALUE, cn } from "@/lib/format";
 import { quotePollMs, quotesUrl } from "@/lib/market/session";
 import { macroFromQuotesPayload } from "@/lib/market/macro-numbers";
 import {
@@ -49,7 +49,7 @@ async function fetchFearGreed(signal?: AbortSignal): Promise<FearGreedSnapshot |
 }
 
 function fmt(n: number | null, digits = 2) {
-  if (n == null || !Number.isFinite(n)) return "—";
+  if (n == null || !Number.isFinite(n)) return NO_VALUE;
   return n.toLocaleString("en-US", {
     maximumFractionDigits: digits,
     minimumFractionDigits: digits,
@@ -131,7 +131,7 @@ export function MacroStrip() {
     { label: "BTC", value: fmt(macro.btc, 0), title: "Bitcoin", tone: null },
     {
       label: "10Y",
-      value: macro.tenYear != null ? `${fmt(macro.tenYear, 2)}%` : "—",
+      value: macro.tenYear != null ? `${fmt(macro.tenYear, 2)}%` : NO_VALUE,
       title: "US 10-year yield",
       tone: null,
     },

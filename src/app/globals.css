@@ -157,6 +157,101 @@
    * `bg-ambient-cool` utility, because there is no second call site.
    */
   --ambient-cool: oklch(0.72 0.13 250);
+  /*
+   * The glass material, in one place.
+   *
+   * These used to be eleven `color-mix(in oklch, white, transparent NN%)`
+   * calls typed inline across four rules, which meant the material could
+   * only be changed by editing every rule and hoping they still agreed.
+   * Naming them is what makes the pane tunable, and it is what let the
+   * three numbers below be arrived at by measuring rather than by taste.
+   *
+   * THE RIM IS NOT ONE COLOUR, and that is the whole idea. The room has
+   * two lights: a warm lobe off the top-left and a blue counter-lobe off
+   * the bottom-right (see `.page-frame::before`). A pane sitting in that
+   * room and rendering a neutral grey edge on all four sides is a pane
+   * ignoring the light it is standing in, which is exactly what reads as
+   * flat no matter how bright the hairline gets. So the top edge takes the
+   * key light's warmth, the bottom edge takes the counter-lobe's blue as
+   * light wraps under it, and the two sides are quieter than either.
+   *
+   * Both rim colours are LIGHT, high-lightness and low-chroma. A warm tint
+   * only reads as warm while it is light: at low lightness the same hue
+   * lands on khaki, which DESIGN_TOKENS.md has a whole section about. This
+   * is a rim, not a fill, so it stays up at the top of the lightness range
+   * and carries barely any chroma.
+   *
+   * No new hue enters the palette here. 85 is `--primary`'s and 250 is
+   * `--ambient-cool`'s, so the panes pick up the two lights the room
+   * already has rather than introducing a third.
+   */
+  --glass-rim-top: oklch(0.99 0.035 85 / 38%);
+  --glass-rim-bottom: oklch(0.95 0.045 250 / 22%);
+  --glass-rim-left: oklch(1 0 0 / 15%);
+  --glass-rim-right: oklch(1 0 0 / 7%);
+  --glass-rim-ring: oklch(1 0 0 / 8.5%);
+  /*
+   * The body is a WHITE VEIL, not a tinted card, and it is 2%.
+   *
+   * Two separate findings, both measured on real surfaces over the real
+   * field, both of which the old `color-mix(--card, transparent 55%)` got
+   * wrong.
+   *
+   * One: a tinted fill leaves a hue behind. `--card` is a bluish neutral,
+   * and thinned over a warm field it lands on violet-grey. That is the
+   * mauve cast that showed up on a holdings panel. White has no hue to
+   * leave, so the material can never tint what is behind it.
+   *
+   * Two: the veil's ALPHA is what sets the black floor, and 55% card was
+   * lifting a pane nine luminance levels out of 255 above the field beside
+   * it. A pane whose blacks are grey is a card, not glass. At 2% the lift
+   * measures -0.1: the black inside a pane is the black of the room.
+   *
+   * `--glass-contrast` is the second lever and is not optional. Contrast
+   * pivots on mid-grey, so it leaves true black alone, but this field is
+   * not true black: it carries the ambient lobes at about five levels, and
+   * without a contrast term those get lifted six levels by the pane.
+   * Measured: 1.00 -> +6.1, 1.02 -> +3.1, 1.05 -> +0.1.
+   *
+   * Saturation is free. 1.75 and 2.40 measure identically on black lift,
+   * so richness costs nothing here.
+   */
+  --glass-veil: oklch(1 0 0 / 2%);
+  --glass-veil-well: oklch(1 0 0 / 3%);
+  --glass-veil-chip: oklch(1 0 0 / 4.5%);
+  --glass-blur: 6px;
+  --glass-blur-well: 5px;
+  --glass-sat: 1.75;
+  --glass-bright: 1.13;
+  --glass-contrast: 1.05;
+  /*
+   * There is no falloff term, and there must not be one.
+   *
+   * A pane used to carry an inset white shadow under its top edge, meant to
+   * read as light entering the glass and dying out downward. On a big panel
+   * that is what thick glass does. On everything else this app is made of,
+   * a 40px row, a chip, a score cell, it is a bright band across the top
+   * and a dark smear through the middle, and it reads as exactly what it
+   * is: a gradient painted on a box.
+   *
+   * A small piece of glass does not do that. Its body is one uniform tint
+   * the whole way through and all of the light lives at the edges, where it
+   * refracts. So the body here is a flat translucent fill and every
+   * specular term is on the rim.
+   *
+   * Do not reintroduce `--glass-depth`, an inset falloff, or a
+   * `background-image` ramp on any glass surface.
+   */
+  /*
+   * Two shadows, not one. The soft one is the cast; the tight one is
+   * contact, and without it a pane hovers rather than sits.
+   */
+  --glass-contact: oklch(0 0 0 / 55%);
+  --glass-cast: oklch(0 0 0 / 80%);
+  /* The nested well is the same material, quieter on every term. */
+  --well-rim-top: oklch(0.99 0.03 85 / 15%);
+  --well-rim-bottom: oklch(1 0 0 / 5%);
+  --well-rim-ring: oklch(1 0 0 / 5.5%);
   --surface: var(--card);
   --panel: var(--card);
   --inset-panel: 1.5rem;
@@ -374,6 +469,58 @@ body {
  */
 @layer utilities {
   /*
+   * Anything anchored to the bottom of the window that is not the dock:
+   * the measurement question, the offline chip.
+   *
+   * Where it lands is decided by what is actually drawn down there, never
+   * by a number typed into the notice. The measurement question used to
+   * carry its own `bottom-[max(5.75rem,calc(var(--dock-pad,5.5rem)+5.5rem))]`,
+   * which is two guesses stacked: `--dock-pad` is only written when a dock
+   * renders, so on the sign-in page, /privacy and /terms -- the three
+   * places a stranger meets this app first -- it fell back to 5.5rem,
+   * added another 5.5rem for a Margus button that is not there either, and
+   * floated the notice 176px up an empty page.
+   *
+   * `data-dock`, `data-bottom-corner` and `--dock-clearance` are published
+   * on <html> by `use-dock-pad.ts` from a measurement, so the lift is the
+   * sum of what is really in that corner: nothing on a landing page, the
+   * dock in a room without Margus, both where both are. See the note there
+   * for why this is not a `:has()` selector.
+   */
+  .bottom-notice {
+    bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  @media (min-width: 640px) {
+    .bottom-notice {
+      bottom: max(1.5rem, env(safe-area-inset-bottom));
+    }
+  }
+
+  /*
+   * `--dock-clearance` is the dock's measured height plus its own gap, so
+   * this only adds the space between the two.
+   */
+  :root[data-dock] .bottom-notice {
+    bottom: calc(var(--dock-clearance, 5.5rem) + 0.5rem);
+  }
+
+  /*
+   * The bottom-right corner also holds Margus's round button, which
+   * anchors to the dock. A notice in that corner has to clear the button,
+   * not just the dock, or it lands on top of it and -- being `z-50` over
+   * the button's `z-40` -- blurs it into a smear. 5.5rem is the button
+   * plus a gap.
+   *
+   * Left-hand notices do not take this class, and stay on the dock line.
+   *
+   * Higher specificity than the dock rule, so order does not matter.
+   */
+  :root[data-bottom-corner] .bottom-notice.bottom-notice-corner {
+    bottom: calc(var(--dock-clearance, 1rem) + 5.5rem);
+  }
+
+  /*
    * Card sheen — a hairline top highlight, the way a pane of glass catches
    * light along its top edge rather than glowing all over. Some call sites
    * use it alone (no translucent fill under it), so it carries its own
@@ -388,19 +535,19 @@ body {
    * plus the edge line and lift shadow that make it read as a distinct pane
    * rather than translucency fading into the field.
    *
+   * The body is a FLAT fill. Every specular term lives on the rim. See the
+   * note by the rim tokens for why there is no falloff.
+   *
    * The edge lives on `box-shadow`, never a real `border`: `border` is a
    * four-side shorthand, so a call site adding its own directional border
    * (PulseCard's `border-l-4`) would have it silently swallowed.
    *
-   * `.card-sheen.glass` layers all three shadows in one list, because
+   * `.card-sheen.glass` layers its shadows in one list, because
    * `box-shadow` is atomic and two classes each setting it would have the
    * later one replace the other.
    */
   .glass {
-    /* 38%, not 48%. The old value was tuned to compensate for a blur that
-     * never ran on Blink; with the blur working and the field brighter, a
-     * touch more opacity keeps text off the light without hiding it. */
-    background-color: color-mix(in oklch, var(--card), transparent 55%);
+    background-color: var(--glass-veil);
     /*
      * Standard property LAST, prefixed first. Written the other way round,
      * the CSS transform collapsed the pair and emitted only
@@ -412,37 +559,38 @@ body {
      * Keep this order, and verify against the *compiled* bundle rather
      * than this file — the bug was invisible in source.
      */
-    -webkit-backdrop-filter: blur(40px) saturate(1.9);
-    backdrop-filter: blur(40px) saturate(1.9);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
     box-shadow:
-      inset 0 16px 16px -16px color-mix(in oklch, white, transparent 93%),
-      inset 0 0 0 1px var(--border),
+      inset 0 0 0 1px var(--glass-rim-ring),
       0 12px 32px -16px color-mix(in oklch, black, transparent 15%);
   }
   .card-sheen.glass {
     /*
-     * Three specular terms, and the middle one is what makes it read as
-     * refractive rather than tinted.
+     * The rim is four separate edges, and they disagree on purpose.
      *
-     * A hairline along the top where a pane catches the light, and a
-     * fainter one along the bottom where light wraps under it — on a
-     * near-black field the edge is what sells glass, far more than the
-     * blur does. Between them, a soft inset falloff hugging the top inside
-     * edge: light entering the top of a pane and dying out downward is the
-     * gradient real glass has, and without it a card is an evenly tinted
-     * rectangle with a bright line on top.
+     * A single `inset 0 0 0 1px` hairline is the same brightness the whole
+     * way round, which is the one thing a real pane never is: an edge tells
+     * you where the light is. Top takes the key lobe's warmth, bottom takes
+     * the counter-lobe's blue wrapping under, left is brighter than right
+     * because the key light is off the top-LEFT. The neutral
+     * `inset 0 0 0 1px var(--border)` sits underneath all four and fills
+     * the corners, where a one-sided shadow tapers out.
      *
-     * It is an inset `box-shadow` rather than a `background-image`
-     * gradient on purpose. `.veil-hover` paints its hover into
-     * `background-image`, so a gradient there would be wiped on hover;
-     * shadows compose in one list and survive it.
+     * Then contact and cast. Nothing in this list touches the body of the
+     * pane: the body is one uniform tint, the way a small piece of glass
+     * actually is.
      */
     box-shadow:
-      inset 0 1px 0 0 color-mix(in oklch, white, transparent 70%),
-      inset 0 18px 18px -18px color-mix(in oklch, white, transparent 90%),
-      inset 0 -1px 0 0 color-mix(in oklch, white, transparent 88%),
-      inset 0 0 0 1px var(--border),
-      0 14px 36px -18px color-mix(in oklch, black, transparent 12%);
+      inset 0 1px 0 0 var(--glass-rim-top),
+      inset 1px 0 0 0 var(--glass-rim-left),
+      inset -1px 0 0 0 var(--glass-rim-right),
+      inset 0 -1px 0 0 var(--glass-rim-bottom),
+      inset 0 0 0 1px var(--glass-rim-ring),
+      0 2px 5px -3px var(--glass-contact),
+      0 18px 44px -20px var(--glass-cast);
   }
   /*
    * Hover veil for anything that already has a surface — a glass card, a
@@ -580,13 +728,6 @@ body {
    */
   .chrome-pane {
     background-color: color-mix(in oklch, var(--background), transparent 65%);
-    background-image: linear-gradient(
-      to bottom,
-      oklch(1 0 0 / 6.5%) 0%,
-      oklch(1 0 0 / 3.4%) 26%,
-      oklch(1 0 0 / 1.2%) 58%,
-      oklch(1 0 0 / 0%) 100%
-    );
     /* Prefixed first, standard last — see the note on `.glass` above. */
     -webkit-backdrop-filter: blur(40px) saturate(1.9);
     backdrop-filter: blur(40px) saturate(1.9);
@@ -613,33 +754,130 @@ body {
    * Radix and Vaul portal their content to `<body>`, so nothing here is
    * inside a clipped or transformed ancestor that would break the blur.
    */
+  /*
+   * Overlays: menus, selects, popovers, dialogs, sheets, drawers, and the
+   * welcome walkthrough. Same material as a card at a much heavier fill,
+   * because they sit OVER content and an element with `backdrop-filter`
+   * does not blur what another one painted.
+   *
+   * Flat fill, no ramp. This used to carry a top-to-bottom gradient and it
+   * is the same mistake the cards had: on a dialog it is a bright band
+   * across the top and a dark smear through the middle. The light belongs
+   * on the rim.
+   */
+  /*
+   * An overlay is the one surface that keeps a heavy fill.
+   *
+   * Everywhere else the body is a 2% white veil, because there is only the
+   * ambient field behind it and the point is to let the black through. A
+   * dialog sits over *content*: a table of figures a person is trying not
+   * to read while they answer a question. So this stays mostly opaque and
+   * blurs far harder than a panel, which is also the one place in the app
+   * where a heavy blur earns its keep, because there is finally structure
+   * behind the glass to soften.
+   *
+   * It still takes the rim and the contrast lever, so it belongs to the
+   * same material rather than being a grey box that happens to float.
+   */
   .glass-overlay {
-    background-color: color-mix(in oklch, var(--popover), transparent 12%);
-    background-image: linear-gradient(
-      to bottom,
-      oklch(1 0 0 / 5.5%) 0%,
-      oklch(1 0 0 / 2%) 20%,
-      oklch(1 0 0 / 0%) 48%
-    );
+    background-color: color-mix(in oklch, var(--popover), transparent 22%);
     /* Prefixed first, standard last — see the note on `.glass` above. */
-    -webkit-backdrop-filter: blur(32px) saturate(1.8);
-    backdrop-filter: blur(32px) saturate(1.8);
+    -webkit-backdrop-filter: blur(18px) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+    backdrop-filter: blur(18px) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+    box-shadow:
+      inset 0 1px 0 0 var(--glass-rim-top),
+      inset 0 -1px 0 0 var(--glass-rim-bottom),
+      inset 0 0 0 1px var(--glass-rim-ring),
+      0 2px 6px -2px var(--glass-contact),
+      0 28px 62px -24px var(--glass-cast);
+  }
+
+  /*
+   * The dock: the same pane as `.glass`, with the chrome fill in place of
+   * the card veil. Written after `card-sheen glass` in the class list, so
+   * it replaces the body and the blur and nothing else — the rim, the ring
+   * and the lift shadow stay the ones every other pane carries.
+   *
+   * A dock is not a card, and treating it as one is measurably wrong. A
+   * card sits IN the field and its job is to let the room through: a 2%
+   * white veil, a 6px blur, saturate 1.75. A dock sits OVER the bottom
+   * corner, which on a phone is the brightest part of the cool lobe, with
+   * content scrolling under it — and at the card's numbers it does not show
+   * that light, it amplifies it. Measured in Chromium on a 390 x 844 field,
+   * walking the whole bar and keeping the worst pixel: the field's own
+   * chroma there is C* 4.69, and through `.glass` the pane reads **8.82**,
+   * **1.88 times more coloured than the room it sits in**, carrying 9.3
+   * luminance levels from one end of the bar to the other. That is the "the
+   * blue bleeds into the nav bar" report, and the pane was the cause of it
+   * rather than the victim.
+   *
+   * Two constraints pick the 55%, and it is the smallest number meeting
+   * both. **Ceiling: a pane may carry the room's colour, never more of it
+   * than the room has**, which the fill reaches at 45%. **Floor: muted
+   * label text clears AAA over every pixel of the bar**, which it reaches
+   * at 55% (7.06:1 at 390px, 7.00:1 at 430px; 6.88 and 6.82 at 50%, and
+   * 4.62 through the card veil). Past it the pane starts draining the glow
+   * rather than attenuating it, which is the mistake the note on
+   * `.chrome-pane` records. Keyed to `--background`, which is true black,
+   * so the alpha is exactly how much of the glow the dock eats and it
+   * cannot leave a hue behind. Black lift at the page middle measures −0.1:
+   * the floor `--glass-veil` holds everywhere else is held here too.
+   *
+   * 20px, not the card's 6. The 6px ceiling is there because past roughly
+   * 7px a blur stops refracting and starts mixing adjacent hues into mud,
+   * which is a real risk for a pane in the middle of a field with two lobes
+   * reaching it. It is not a risk here: measured along the dock at both
+   * widths the warm lobe contributes under 0.25% alpha, so there is one hue
+   * under this pane and nothing for a wider radius to muddy. The radius is
+   * a lever in its own right, not only legibility — at the card's veil,
+   * widening 6px to 20px alone takes the pane from 1.88x the field's chroma
+   * to 1.43x, because what it averages out is the steep part of the
+   * gradient running under the bar. On top of that it buys what a floating
+   * tab bar is for: a table passing underneath as a soft wash instead of as
+   * legible rows competing with the labels. `.chrome-pane` blurs 40px at
+   * the other end of the screen for the same reason.
+   *
+   * Full account, with the tables, in DESIGN_TOKENS.md.
+   */
+  .glass-dock {
+    background-color: color-mix(in oklch, var(--background), transparent 45%);
+    /* Prefixed first, standard last — see the note on `.glass` above. */
+    -webkit-backdrop-filter: blur(20px) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+    backdrop-filter: blur(20px) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
   }
 
   .glass-well {
-    background-color: color-mix(in oklch, var(--muted), transparent 64%);
+    background-color: var(--glass-veil-well);
     /* Prefixed first, standard last — see the note on `.glass` above. */
-    -webkit-backdrop-filter: blur(24px) saturate(1.7);
-    backdrop-filter: blur(24px) saturate(1.7);
-    box-shadow:
-      inset 0 12px 12px -12px color-mix(in oklch, white, transparent 94%),
-      inset 0 0 0 1px color-mix(in oklch, var(--border), transparent 35%);
+    -webkit-backdrop-filter: blur(var(--glass-blur-well)) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+    backdrop-filter: blur(var(--glass-blur-well)) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+    box-shadow: inset 0 0 0 1px var(--well-rim-ring);
   }
+  /*
+   * The same rim as a top-level pane and quieter on every term, because a
+   * well sits inside something that is already doing the refraction. It
+   * still gets the warm top and the cool underside: a well that goes
+   * neutral inside a warm-topped panel reads as a hole cut in it.
+   */
+  /*
+   * A well is a pane in its own right, not a grey box sitting on one. It
+   * takes a slightly heavier veil than the panel around it so it still
+   * separates, stays translucent enough that whatever is behind reads
+   * through it, and carries the softest rim in the system, because forty
+   * of these in a holdings table must not add up to a texture.
+   */
   .card-sheen.glass-well {
     box-shadow:
-      inset 0 1px 0 0 color-mix(in oklch, white, transparent 80%),
-      inset 0 12px 12px -12px color-mix(in oklch, white, transparent 92%),
-      inset 0 0 0 1px color-mix(in oklch, var(--border), transparent 35%);
+      inset 0 1px 0 0 var(--well-rim-top),
+      inset 0 -1px 0 0 var(--well-rim-bottom),
+      inset 0 0 0 1px var(--well-rim-ring),
+      0 1px 1px 0 oklch(0 0 0 / 34%);
   }
 
   /*
@@ -652,31 +890,37 @@ body {
    * full-strength border stroke and brighter top specular.
    */
   @media (max-width: 767px) {
-    .glass {
-      background-color: color-mix(in oklch, var(--card), transparent 66%);
-      -webkit-backdrop-filter: blur(30px) saturate(2.2);
-      backdrop-filter: blur(30px) saturate(2.2);
-    }
-    .card-sheen.glass {
-      box-shadow:
-        inset 0 1px 0 0 color-mix(in oklch, white, transparent 62%),
-        inset 0 18px 18px -18px color-mix(in oklch, white, transparent 88%),
-        inset 0 -1px 0 0 color-mix(in oklch, white, transparent 86%),
-        inset 0 0 0 1px var(--border),
-        0 14px 36px -18px color-mix(in oklch, black, transparent 12%);
-    }
-    .glass-well {
-      background-color: color-mix(in oklch, var(--muted), transparent 74%);
-      -webkit-backdrop-filter: blur(20px) saturate(2);
-      backdrop-filter: blur(20px) saturate(2);
-      box-shadow: inset 0 0 0 1px
-        color-mix(in oklch, var(--border), transparent 15%);
-    }
+    /*
+     * The phone moves the TOKENS, not the shadow stacks.
+     *
+     * This block used to restate every `box-shadow` list in full, which
+     * meant the desktop rule and the phone rule were two copies of the
+     * same material that had to be kept in step by hand -- and they had
+     * already drifted. Overriding the variables instead leaves exactly one
+     * stack per material in this file, and a phone is then a lighting
+     * change rather than a second implementation.
+     *
+     * A thinner fill is a weaker edge, so the rim goes up to pay for it.
+     * The card is also gutter-to-gutter here, so the reach comes down: a
+     * 44px falloff on a short card covers most of it and stops reading as
+     * a top edge at all.
+     */
+    /*
+     * A phone panel runs gutter to gutter, so there is far less bare field
+     * left for the corner lights to show in. The veil stays where it is,
+     * because the veil is what holds the black; the rim goes up instead.
+     */
+    .glass,
+    .glass-well,
+    .card-sheen.glass,
     .card-sheen.glass-well {
-      box-shadow:
-        inset 0 1px 0 0 color-mix(in oklch, white, transparent 74%),
-        inset 0 12px 12px -12px color-mix(in oklch, white, transparent 90%),
-        inset 0 0 0 1px color-mix(in oklch, var(--border), transparent 15%);
+      --glass-rim-top: oklch(0.99 0.035 85 / 46%);
+      --glass-rim-bottom: oklch(0.95 0.045 250 / 26%);
+      --glass-rim-left: oklch(1 0 0 / 18%);
+      --glass-rim-right: oklch(1 0 0 / 9%);
+      --glass-rim-ring: oklch(1 0 0 / 11%);
+      --well-rim-top: oklch(0.99 0.03 85 / 20%);
+      --well-rim-ring: oklch(1 0 0 / 7%);
     }
   }
 }
@@ -1024,13 +1268,193 @@ button:disabled,
   animation: signin-live-pulse 2.2s ease-out infinite;
 }
 
+/*
+ * Sections of the signed-out page arriving as they are scrolled to.
+ *
+ * A transition rather than an animation, because the state is driven by an
+ * IntersectionObserver in `Reveal` and a class swap on an element that is
+ * already in the document. `signin-rise` above is the hero's one-shot on
+ * mount and stays an animation.
+ *
+ * The attribute is only ever written by script, so an element that has not
+ * been marked has no `data-reveal` at all and is simply visible. That is
+ * the safe direction to fail in: nothing can leave the page permanently
+ * blank because an observer never fired.
+ */
+/*
+ * The signed-out page's light, which travels with the page instead of with
+ * the window.
+ *
+ * `.page-frame::before` is `position: fixed`, and on every signed-in room
+ * that is right: the lobes are the room's lamps, they stay where the lamps
+ * are, and a room is about one viewport of content anyway. On a landing
+ * page four screens tall it is the wrong model. The field is pinned to the
+ * glass, so scrolling moves the content past a background that never
+ * changes, and the warm corner you arrived on is the same warm corner four
+ * screens later. What reads is not "a lit room" but "a colour that stopped".
+ *
+ * So the landing page swaps the fixed pair for one field as tall as the
+ * document, with lobes spaced down it, alternating warm and cool. Sizes
+ * stay in `vh` so a lobe is always about a screen tall; positions are in
+ * `%` of the element, which is now the whole page, so the lobes land at
+ * roughly one per section and scrolling actually passes through them.
+ *
+ * Total light is held near the fixed field's: peaks are a touch lower
+ * because there are five lobes rather than two and they overlap. The rule
+ * from DESIGN_TOKENS.md still governs. Judge this on the page middle and
+ * on how black the black between lobes stays, never on how much of the
+ * field is lit. Brightening is the easy mistake and it costs the true black
+ * the whole product is built on.
+ */
+.landing-field::before {
+  /* Kills the inherited fixed pair. The flowing field is on ::after. */
+  display: none;
+}
+.landing-field::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(
+      120vw 62vh at -10% 1%,
+      oklch(from var(--primary) l c h / 26%) 0%,
+      oklch(from var(--primary) l c h / 12%) 24%,
+      oklch(from var(--primary) l c h / 4.5%) 48%,
+      oklch(from var(--primary) l c h / 1.4%) 70%,
+      transparent 100%
+    ),
+    radial-gradient(
+      118vw 55vh at 112% 21%,
+      oklch(from var(--ambient-cool) l c h / 25%) 0%,
+      oklch(from var(--ambient-cool) l c h / 11.5%) 24%,
+      oklch(from var(--ambient-cool) l c h / 4.3%) 48%,
+      oklch(from var(--ambient-cool) l c h / 1.3%) 70%,
+      transparent 100%
+    ),
+    radial-gradient(
+      112vw 52vh at -8% 45%,
+      oklch(from var(--primary) l c h / 19%) 0%,
+      oklch(from var(--primary) l c h / 8.5%) 24%,
+      oklch(from var(--primary) l c h / 3.2%) 48%,
+      transparent 100%
+    ),
+    radial-gradient(
+      118vw 55vh at 110% 69%,
+      oklch(from var(--ambient-cool) l c h / 23%) 0%,
+      oklch(from var(--ambient-cool) l c h / 10.5%) 24%,
+      oklch(from var(--ambient-cool) l c h / 3.9%) 48%,
+      transparent 100%
+    ),
+    radial-gradient(
+      130vw 58vh at 45% 101%,
+      oklch(from var(--primary) l c h / 21%) 0%,
+      oklch(from var(--primary) l c h / 9.5%) 24%,
+      oklch(from var(--primary) l c h / 3.4%) 48%,
+      transparent 100%
+    );
+}
+
+/*
+ * Same trade the phone chrome makes: reach in, peak up. Two lobes at
+ * desktop proportions on a 390px screen wash the whole column and cancel
+ * each other, so the lobes narrow and brighten to stay readable as
+ * corners. See the note on `.page-frame::before`.
+ */
+@media (max-width: 767px) {
+  .landing-field::after {
+    background-image:
+      radial-gradient(
+        125vw 42vh at -12% 1%,
+        oklch(from var(--primary) l c h / 52%) 0%,
+        oklch(from var(--primary) l c h / 24%) 24%,
+        oklch(from var(--primary) l c h / 8%) 48%,
+        transparent 100%
+      ),
+      radial-gradient(
+        125vw 38vh at 114% 20%,
+        oklch(from var(--ambient-cool) l c h / 48%) 0%,
+        oklch(from var(--ambient-cool) l c h / 22%) 24%,
+        oklch(from var(--ambient-cool) l c h / 7.5%) 48%,
+        transparent 100%
+      ),
+      radial-gradient(
+        120vw 36vh at -10% 45%,
+        oklch(from var(--primary) l c h / 36%) 0%,
+        oklch(from var(--primary) l c h / 16%) 24%,
+        transparent 100%
+      ),
+      radial-gradient(
+        125vw 38vh at 112% 70%,
+        oklch(from var(--ambient-cool) l c h / 44%) 0%,
+        oklch(from var(--ambient-cool) l c h / 20%) 24%,
+        transparent 100%
+      ),
+      radial-gradient(
+        135vw 40vh at 45% 101%,
+        oklch(from var(--primary) l c h / 40%) 0%,
+        oklch(from var(--primary) l c h / 18%) 24%,
+        transparent 100%
+      );
+  }
+}
+
+/* The scroll cue under the hero. A hint that the page continues. */
+@keyframes landing-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+.landing-nudge {
+  animation: landing-nudge 2.4s ease-in-out infinite;
+}
+
+/*
+ * 0.45s and 10px, down from 0.7s and 18px.
+ *
+ * `Reveal` now starts a section most of a screen before the fold, so this
+ * is finished long before anybody looks at it and the duration is no longer
+ * carrying any of the effect. What a long one does carry is risk: a reader
+ * who flicks faster than the page expects catches a section mid-fade, and a
+ * half-drawn section reads as one that is still loading rather than one
+ * that is there. Short enough that the worst case is over before it can be
+ * read as waiting.
+ */
+[data-reveal] {
+  transition:
+    opacity 0.45s ease-out,
+    transform 0.45s ease-out;
+}
+[data-reveal="out"] {
+  opacity: 0;
+  transform: translateY(10px);
+}
+[data-reveal="in"] {
+  opacity: 1;
+  transform: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .signin-rise-1,
   .signin-rise-2,
   .signin-rise-3,
   .signin-rise-4,
-  .signin-live-dot {
+  .signin-live-dot,
+  .landing-nudge {
     animation: none;
+  }
+  /* Show it where it is. No fade, no travel. */
+  [data-reveal] {
+    transition: none;
+  }
+  [data-reveal="out"] {
+    opacity: 1;
+    transform: none;
   }
 }
 

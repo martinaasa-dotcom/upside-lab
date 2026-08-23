@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/format";
+import { NO_VALUE, cn } from "@/lib/format";
 import { PALETTE } from "@/lib/palette";
 import { memo } from "react";
 
@@ -26,7 +26,7 @@ export const Sparkline = memo(function Sparkline({
         className={cn("text-sm text-muted-foreground", className)}
         style={fill ? { height } : { width, height }}
       >
-        —
+        {NO_VALUE}
       </div>
     );
   }

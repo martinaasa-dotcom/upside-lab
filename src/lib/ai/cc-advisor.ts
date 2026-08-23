@@ -23,6 +23,7 @@ import {
 import { resolveImportTicker } from "@/lib/ticker";
 import { tool } from "ai";
 import { z } from "zod";
+import { NO_VALUE } from "@/lib/format";
 
 /** Client context snapshot sent with each chat request */
 export type CcChatContext = {
@@ -69,7 +70,7 @@ export type CcChatContext = {
     yield2wAvg: number;
     premiumTotal: number;
   };
-  /** Other portfolios (read-only) — for copying Call % / targets / structure */
+  /** Other portfolios (read-only): for copying Call % / targets / structure */
   otherPortfolios: Array<{
     name: string;
     cashBalance: number;
@@ -81,15 +82,15 @@ export type CcChatContext = {
       stockTarget?: number | null;
     }>;
   }>;
-  /** Overview chat: advise only — no mutating tools */
+  /** Overview chat: advise only: no mutating tools */
   adviseOnly?: boolean;
-  /** Viewer has not opted into options — Margus should never bring up
+  /** Viewer has not opted into options: Margus should never bring up
    * covered calls, Call %, strikes, or targets unprompted. Callers already
    * omit `rows` in this case; this also softens the system prompt itself. */
   hideOptions?: boolean;
   /** Yahoo marketState snapshot (PRE / REGULAR / POST / …) */
   marketState?: string | null;
-  /** USD per 1 EUR (Yahoo EURUSD=X) — for broker EUR→USD imports */
+  /** USD per 1 EUR (Yahoo EURUSD=X): for broker EUR→USD imports */
   eurUsd?: number | null;
   /** USD per 1 GBP */
   gbpUsd?: number | null;
@@ -131,7 +132,7 @@ function toUsd(
   return amount;
 }
 
-/** Tool names that only exist to plan/adjust covered calls — omitted
+/** Tool names that only exist to plan/adjust covered calls: omitted
  * entirely (not just discouraged in the prompt) when the viewer told
  * onboarding they have no options experience. */
 const OPTIONS_ONLY_TOOLS = [
@@ -172,7 +173,7 @@ export function buildCcAdvisorTools(
 
   setCallPctBulk: tool({
     description:
-      "Set Call % for several tickers in one step with DIFFERENT percentages per name. Preferred when the user wants safety, risk buffers, or volatility-aware Call % — never flatten everything to one number.",
+      "Set Call % for several tickers in one step with DIFFERENT percentages per name. Preferred when the user wants safety, risk buffers, or volatility-aware Call %. Never flatten everything to one number.",
     inputSchema: z.object({
       updates: z
         .array(
@@ -196,7 +197,7 @@ export function buildCcAdvisorTools(
 
   setUniformCallPct: tool({
     description:
-      "Set the SAME Call % for every ticker. ONLY use when the user explicitly asks for one identical number on all names. NEVER use this for safety, risk, buffer, or volatility requests — those must be per-ticker via setCallPctBulk or proposeWritePlan/applyWritePlan.",
+      "Set the SAME Call % for every ticker. ONLY use when the user explicitly asks for one identical number on all names. NEVER use this for safety, risk, buffer, or volatility requests: those must be per-ticker via setCallPctBulk or proposeWritePlan/applyWritePlan.",
     inputSchema: z.object({
       callPct: z
         .number()
@@ -265,7 +266,7 @@ export function buildCcAdvisorTools(
           "Symbol as shown (€RHM → RHM). EU names become Yahoo e.g. RHM.DE when possible."
         ),
       isin: z.string().optional().describe("ISIN if visible"),
-      shares: z.number().positive().describe("Share count — keep full decimals"),
+      shares: z.number().positive().describe("Share count: keep full decimals"),
       buyPrice: z
         .number()
         .positive()
@@ -298,7 +299,7 @@ export function buildCcAdvisorTools(
 
   importPortfolio: tool({
     description:
-      "Import an entire portfolio in ONE call from a spreadsheet OR broker portfolio screenshot (Lightyear, etc.). Include every investment row. Prefer markValue (position value) when average buy/cost is missing — never stall asking for cost basis. Fold multi-currency cash + tiny MMFs into cashUsd. Call once with the full list.",
+      "Import an entire portfolio in ONE call from a spreadsheet OR broker portfolio screenshot (Lightyear, etc.). Include every investment row. Prefer markValue (position value) when average buy/cost is missing: never stall asking for cost basis. Fold multi-currency cash + tiny MMFs into cashUsd. Call once with the full list.",
     inputSchema: z.object({
       cash: z
         .number()
@@ -324,7 +325,7 @@ export function buildCcAdvisorTools(
         .boolean()
         .optional()
         .describe(
-          "True for full broker portfolio screenshots — remove tickers in this portfolio that are not in holdings. Default true for portfolio-breakdown imports."
+          "True for full broker portfolio screenshots: remove tickers in this portfolio that are not in holdings. Default true for portfolio-breakdown imports."
         ),
       holdings: z
         .array(
@@ -337,7 +338,7 @@ export function buildCcAdvisorTools(
             isin: z
               .string()
               .optional()
-              .describe("ISIN if visible — used to pick Yahoo suffix (.DE / .L)"),
+              .describe("ISIN if visible: used to pick Yahoo suffix (.DE / .L)"),
             shares: z.number().positive(),
             buyPrice: z
               .number()
@@ -351,7 +352,7 @@ export function buildCcAdvisorTools(
               .positive()
               .optional()
               .describe(
-                "Position market value in `currency` (Value column). Required when buyPrice is missing — implied cost = markValue / shares."
+                "Position market value in `currency` (Value column). Required when buyPrice is missing: implied cost = markValue / shares."
               ),
             currency: z
               .enum(["USD", "EUR", "GBP"])
@@ -572,7 +573,7 @@ export function buildCcAdvisorTools(
               .positive()
               .optional()
               .describe(
-                "Current table Stock Target — pass this when critiquing/analyzing the existing plan"
+                "Current table Stock Target: pass this when critiquing/analyzing the existing plan"
               ),
             callPct: z
               .number()
@@ -580,7 +581,7 @@ export function buildCcAdvisorTools(
               .max(40)
               .optional()
               .describe(
-                "Current table Call % as whole number e.g. 18 for 18% — pass when critiquing existing plan"
+                "Current table Call % as whole number e.g. 18 for 18%: pass when critiquing existing plan"
               ),
           })
         )
@@ -643,12 +644,12 @@ export const ccAdvisorTools = buildCcAdvisorTools();
 export type CcAdvisorTools = ReturnType<typeof buildCcAdvisorTools>;
 
 function fmtPctLabel(pct: number | null | undefined): string {
-  if (pct == null || Number.isNaN(pct)) return "—";
+  if (pct == null || Number.isNaN(pct)) return NO_VALUE;
   return `${(pct * 100).toFixed(2)}%`;
 }
 
 function fmtPriceLabel(price: number | null | undefined): string {
-  if (price == null || Number.isNaN(price)) return "—";
+  if (price == null || Number.isNaN(price)) return NO_VALUE;
   return String(price);
 }
 
@@ -680,7 +681,7 @@ function margusMemoryBlock(ctx: CcChatContext): string {
   if (tickers.size === 0 && !plan) return "";
 
   const lines: string[] = [
-    "### Margus memory on this portfolio (already saved in Upside Lab — answer from here; never say you have no take when this block has content)",
+    "### Margus memory on this portfolio (already saved in Upside Lab: answer from here; never say you have no take when this block has content)",
   ];
 
   for (const key of [...tickers].sort()) {
@@ -704,7 +705,7 @@ function margusMemoryBlock(ctx: CcChatContext): string {
         check.moveReason?.trim() ||
         "";
       bits.push(
-        `Pulse now: ${statusLabel(check.thesisStatus)}, ${actionLabel(check.action)}${note ? `. ${note}` : ""}`
+        `Pulse now: ${statusLabel(check.thesisStatus)}, ${actionLabel(check.action)}${note ? `: ${note}` : ""}`
       );
     }
     lines.push(`- ${bits.join(" · ")}`);
@@ -746,14 +747,14 @@ export function buildCcSystemPrompt(ctx: CcChatContext): string {
               h.portfolios && h.portfolios.length
                 ? ` portfolios=[${h.portfolios.join(",")}]`
                 : "";
-            return `${h.ticker}${inPortfolios}: shares=${h.shares}, buy=${h.buyPrice}, price=${h.price}, cost=${h.cost.toFixed(0)}, value=${h.value.toFixed(0)}, roi%=${(h.roiPct * 100).toFixed(1)}%, roi$=${h.roiDollar.toFixed(0)}, pctTotal=${(h.pctOfTotal * 100).toFixed(1)}%, today=${h.todayPct != null ? (h.todayPct * 100).toFixed(1) + "%" : "—"}${holdingExtendedHoursLine(h)}`;
+            return `${h.ticker}${inPortfolios}: shares=${h.shares}, buy=${h.buyPrice}, price=${h.price}, cost=${h.cost.toFixed(0)}, value=${h.value.toFixed(0)}, roi%=${(h.roiPct * 100).toFixed(1)}%, roi$=${h.roiDollar.toFixed(0)}, pctTotal=${(h.pctOfTotal * 100).toFixed(1)}%, today=${h.todayPct != null ? (h.todayPct * 100).toFixed(1) + "%" : NO_VALUE}${holdingExtendedHoursLine(h)}`;
           })
           .join("\n");
 
   const hideOptions = Boolean(ctx.hideOptions);
 
   const ccTable = hideOptions
-    ? "(not applicable — viewer has no options experience, covered calls are hidden for them)"
+    ? "(not applicable: viewer has no options experience, covered calls are hidden for them)"
     : ctx.rows.length === 0
       ? "(no CC rows)"
       : ctx.rows
@@ -762,7 +763,7 @@ export function buildCcSystemPrompt(ctx: CcChatContext): string {
               r.nextStrike != null && r.spot > 0
                 ? (r.nextStrike - r.spot) / r.spot
                 : null;
-            return `${r.ticker}: spot=${r.spot}, call%=${(r.callPct * 100).toFixed(0)}%, stockTarget=${r.stockTarget ?? "—"}, distanceToTarget=${r.distance != null ? (r.distance * 100).toFixed(1) + "%" : "—"}, nextStrike=${r.nextStrike ?? "—"}, strikeOtmFromSpot=${strikeOtm != null ? (strikeOtm * 100).toFixed(1) + "%" : "—"}, contracts=${r.contracts}, ccYield=${r.yield2w != null ? (r.yield2w * 100).toFixed(2) + "%" : "—"}, premium=${r.premium ?? "—"}, exp=${r.expiration ?? "—"}`;
+            return `${r.ticker}: spot=${r.spot}, call%=${(r.callPct * 100).toFixed(0)}%, stockTarget=${r.stockTarget ?? NO_VALUE}, distanceToTarget=${r.distance != null ? (r.distance * 100).toFixed(1) + "%" : NO_VALUE}, nextStrike=${r.nextStrike ?? NO_VALUE}, strikeOtmFromSpot=${strikeOtm != null ? (strikeOtm * 100).toFixed(1) + "%" : NO_VALUE}, contracts=${r.contracts}, ccYield=${r.yield2w != null ? (r.yield2w * 100).toFixed(2) + "%" : NO_VALUE}, premium=${r.premium ?? NO_VALUE}, exp=${r.expiration ?? NO_VALUE}`;
           })
           .join("\n");
 
@@ -778,7 +779,7 @@ export function buildCcSystemPrompt(ctx: CcChatContext): string {
                     .map((h) => {
                       const ccBits =
                         !hideOptions && h.callPct != null
-                          ? `, call%=${(h.callPct * 100).toFixed(0)}%, stockTarget=${h.stockTarget ?? "—"}`
+                          ? `, call%=${(h.callPct * 100).toFixed(0)}%, stockTarget=${h.stockTarget ?? NO_VALUE}`
                           : "";
                       return `  ${h.ticker}: shares=${h.shares}, buy=${h.buyPrice}${ccBits}`;
                     })
@@ -812,21 +813,21 @@ Tools ALWAYS apply to the ACTIVE portfolio (${ctx.portfolioName}) only.
 You can READ the user's other portfolios listed under "Other portfolios" when they ask about them or want to copy something across.
 When the user asks to copy / mirror / adapt an approach from another portfolio:
 1. Pull${hideOptions ? "" : " Call %, stock targets, and/or"} structure from that portfolio.
-2. Apply to matching tickers on ${ctx.portfolioName} via tools — keep THIS portfolio's share counts and cash unless they explicitly ask to copy size too.
+2. Apply to matching tickers on ${ctx.portfolioName} via tools. Keep THIS portfolio's share counts and cash unless they explicitly ask to copy size too.
 3. Skip tickers that don't exist here unless they ask to add them.
 4. Briefly summarize what you copied vs skipped.
 
 When the user pastes or attaches a screenshot (spreadsheet, broker app, portfolio table, OR single-ticker detail) or asks to import holdings:
 
-**A) Single-ticker broker detail screen** (Lightyear etc. — big symbol like €RHM, fields Shares / Avg buy / Invested / chart):
-1. Read ticker (strip €/$ prefix), Shares (full decimals), Avg buy (cost basis — NOT the live market price at the top).
+**A) Single-ticker broker detail screen** (Lightyear etc.: big symbol like €RHM, fields Shares / Avg buy / Invested / chart):
+1. Read ticker (strip €/$ prefix), Shares (full decimals), Avg buy (cost basis, NOT the live market price at the top).
 2. Currency from € → EUR, $ → USD.
 3. Call addHolding ONCE with ticker, shares, buyPrice=Avg buy, currency. Example: RHM, 2.889580565, buyPrice 1239.69, currency EUR → Yahoo RHM.DE.
-4. Do NOT use the live spot as buyPrice. Do NOT refuse. Do NOT ask clarifying questions first — tool first, then confirm.
+4. Do NOT use the live spot as buyPrice. Do NOT refuse. Do NOT ask clarifying questions first. Tool first, then confirm.
 5. replace is NOT needed; upsert this one name only.
 
 **B) Multi-row portfolio / breakdown table**:
-1. Call importPortfolio ONCE with EVERY investment row — never stop after the first ticker, never chain addHolding instead.
+1. Call importPortfolio ONCE with EVERY investment row: never stop after the first ticker, never chain addHolding instead.
 2. If Quantity + Value but NO Avg buy: set markValue = Value and currency from €/$. buyPrice optional.
 3. Pass isin when visible (RHM + DE ISIN → RHM.DE). US ISINs stay bare.
 4. Cash: sum Cash-EUR/USD/GBP (cashNative+cashCurrency or cashUsd). Tiny MMFs → fold into cash.
@@ -838,7 +839,7 @@ When the user pastes or attaches a screenshot (spreadsheet, broker app, portfoli
 2. Call reportScreenshotIssue once with the closest reason: not_holdings, unreadable, missing_shares, or missing_cost.
 3. Stop. The tool already wrote what is missing and what to send instead. Do not add a second explanation.
 
-After addHolding / importPortfolio: reply in 2–4 sentences confirming ticker, shares, USD cost — never go silent.
+After addHolding / importPortfolio: reply in 2 to 4 sentences confirming ticker, shares, USD cost, and never go silent.
 
 FX for imports (USD per 1 unit): EURUSD=${ctx.eurUsd != null ? ctx.eurUsd.toFixed(4) : "unknown"} · GBPUSD=${ctx.gbpUsd != null ? ctx.gbpUsd.toFixed(4) : "unknown"}.`;
 
@@ -847,7 +848,7 @@ FX for imports (USD per 1 unit): EURUSD=${ctx.eurUsd != null ? ctx.eurUsd.toFixe
     : `
 When the user asks to critique / review / advise on the CURRENT plan (or “current targets”):
 1. Use the Covered-call rows snapshot as ground truth (and/or proposeWritePlan WITH stockTarget+callPct passed through).
-2. Critique those exact levels — do NOT invent new Stock Targets or Call %.
+2. Critique those exact levels: do NOT invent new Stock Targets or Call %.
 3. Do NOT call applyWritePlan / setStockTarget unless they ask to change something.
 4. Speak using the column names correctly (see glossary). Never call Distance “OTM to strike”.
 
@@ -855,27 +856,27 @@ When the user asks to pick NEW stock targets, re-find local highs, or rebuild th
 1. Call proposeWritePlan with ticker + shares + spot only (omit stockTarget/callPct so resistance/vol can re-pick).
 2. Summarize recommendations; apply only if they ask.
 
-### Covered Call Targets — column glossary (memorize this)
+### Covered Call Targets: column glossary (memorize this)
 This table is the WRITE PLAN, not a generic options chain dump.
 
-1. **Spot / price** — regular-session last (or best available). For overnight / gap talk use preMarket* and afterHours* fields.
-2. **Stock Target** — the price level you are writing *toward* (resistance / local high / manual level). It is NOT the option strike.
-3. **Call %** — safety buffer ABOVE Stock Target. Volatility-scaled. Example: target $100 + Call 15% → Next Strike $115.
-4. **Distance** — how far Spot is from Stock Target = (Stock Target − Spot) / Spot.
+1. **Spot / price**: regular-session last (or best available). For overnight / gap talk use preMarket* and afterHours* fields.
+2. **Stock Target**: the price level you are writing *toward* (resistance / local high / manual level). It is NOT the option strike.
+3. **Call %**: safety buffer ABOVE Stock Target. Volatility-scaled. Example: target $100 + Call 15% → Next Strike $115.
+4. **Distance**: how far Spot is from Stock Target = (Stock Target − Spot) / Spot.
    - Positive = Spot still below target (room to run into the write level).
    - Negative = Spot already above / through the target (plan is stale or aggressive).
    - Distance is NOT option OTM % and NOT Call %.
-5. **Next Strike** — the actual call strike you aim to sell = Stock Target × (1 + Call %).
-6. **strikeOtmFromSpot** — how far Next Strike is above Spot = (Next Strike − Spot) / Spot. THIS is the true OTM % for premium talk.
-7. **Contracts** — floor(shares / 100).
-8. **CC yield / Premium** — live mid for that Next Strike & expiry ÷ Spot (and total $ for all contracts).
-9. **Expiration** — chosen ~2–3 week expiry (earnings-aware).
-10. **preMarket / afterHours** — extended-hours last price and % vs prior close when Yahoo has them. Use these when the user asks about premarket, after-hours, overnight gaps, or “what’s moving before the open”. Format as a real Markdown table (one row per line) or tight bullets — never a single jammed pipe paragraph.
-11. **session / marketState** — Yahoo session flag (PREPRE, PRE, REGULAR, POST, POSTPOST, CLOSED, …). When PRE/PREPRE lean on preMarket; when POST/POSTPOST lean on afterHours.
+5. **Next Strike**: the actual call strike you aim to sell = Stock Target × (1 + Call %).
+6. **strikeOtmFromSpot**: how far Next Strike is above Spot = (Next Strike − Spot) / Spot. THIS is the true OTM % for premium talk.
+7. **Contracts**: floor(shares / 100).
+8. **CC yield / Premium**: live mid for that Next Strike & expiry ÷ Spot (and total $ for all contracts).
+9. **Expiration**: chosen roughly 2 to 3 week expiry (earnings-aware).
+10. **preMarket / afterHours**: extended-hours last price and % vs prior close when Yahoo has them. Use these when the user asks about premarket, after-hours, overnight gaps, or “what’s moving before the open”. Format as a real Markdown table (one row per line) or tight bullets: never a single jammed pipe paragraph.
+11. **session / marketState**: Yahoo session flag (PREPRE, PRE, REGULAR, POST, POSTPOST, CLOSED, …). When PRE/PREPRE lean on preMarket; when POST/POSTPOST lean on afterHours.
 
 Example (do not confuse these):
 - Spot $188, Stock Target $205, Call 22% → Distance ≈ +9% (to target), Next Strike ≈ $250, strikeOtmFromSpot ≈ +33%.
-- Saying “9% OTM premium” is WRONG here — 9% is Distance to target; the strike is ~33% OTM.
+- Saying “9% OTM premium” is WRONG here: 9% is Distance to target; the strike is ~33% OTM.
 
 When critiquing, discuss:
 - Is Stock Target still a sensible write level vs Spot / local highs?
@@ -886,12 +887,12 @@ When critiquing, discuss:
 
 Covered-call strategy:
 - Prefer intraday green rebound to sell.
-- Expiry: ${STRATEGY.minDaysPreferred}–${STRATEGY.maxDaysPreferred} days (~2–3 weeks); up to ~${STRATEGY.maxDaysExtended}d if earnings forces a longer dated.
+- Expiry: ${STRATEGY.minDaysPreferred} to ${STRATEGY.maxDaysPreferred} days (about 2 to 3 weeks); up to ~${STRATEGY.maxDaysExtended}d if earnings forces a longer dated.
 - Prefer expire BEFORE earnings when possible; otherwise go past earnings and widen Call %.
 - Call % MUST always reflect each name's own realized volatility. Never a flat portfolio-wide default.
-  · Calmer / defensive names: about ${(STRATEGY.callPctSafeMin * 100).toFixed(0)}–${(STRATEGY.callPctSafeMax * 100).toFixed(0)}%.
-  · Typical growth names: around ${(STRATEGY.callPctSafeMax * 100).toFixed(0)}–${(STRATEGY.callPctMid * 100).toFixed(0)}%.
-  · Jumpy / speculative names: around ${(STRATEGY.callPctMid * 100).toFixed(0)}–${(STRATEGY.callPctHighBeta * 100).toFixed(0)}%.
+  · Calmer / defensive names: about ${(STRATEGY.callPctSafeMin * 100).toFixed(0)} to ${(STRATEGY.callPctSafeMax * 100).toFixed(0)}%.
+  · Typical growth names: around ${(STRATEGY.callPctSafeMax * 100).toFixed(0)} to ${(STRATEGY.callPctMid * 100).toFixed(0)}%.
+  · Jumpy / speculative names: around ${(STRATEGY.callPctMid * 100).toFixed(0)} to ${(STRATEGY.callPctHighBeta * 100).toFixed(0)}%.
   · "I want safety" means scale UP jumpy names and keep calm names near their own vol-implied level. NOT setUniformCallPct to one number for everything.
   · Prefer proposeWritePlan or setCallPctBulk with per-ticker values, each reasoned from that name's own realized volatility (higher vol → wider Call %). Explain the vol rationale briefly.
   · Still nudge Call % for earnings and distance to stock target after the vol baseline.
@@ -967,6 +968,6 @@ ${totalsLine}
 Holdings (includes preMarket / afterHours when available):
 ${holdingsTable}${ccRowsSection}
 
-Other portfolios (read-only — copy source):
+Other portfolios (read-only, copy source):
 ${otherPortfolioBlock}`;
 }

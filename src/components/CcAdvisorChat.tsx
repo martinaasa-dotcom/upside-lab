@@ -38,6 +38,7 @@ import {
   Square,
   X,
 } from "lucide-react";
+import { useBottomCorner } from "@/lib/use-dock-pad";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -493,18 +494,18 @@ const RULES = [
   },
   {
     title: "Contract duration",
-    rule: `${STRATEGY.minDaysPreferred}–${STRATEGY.maxDaysPreferred} days (~2–3 weeks)`,
+    rule: `${STRATEGY.minDaysPreferred} to ${STRATEGY.maxDaysPreferred} days (about 2 to 3 weeks)`,
     detail: `Can extend up to ~${STRATEGY.maxDaysExtended}d when earnings forces a longer dated.`,
   },
   {
     title: "Call %",
     rule: "Scaled to each ticker's own volatility",
-    detail: `Roughly ${(STRATEGY.callPctSafeMin * 100).toFixed(0)}–${(STRATEGY.callPctSafeMax * 100).toFixed(0)}% for calmer names up to ${(STRATEGY.callPctHighBeta * 100).toFixed(0)}%+ for jumpy ones, nudged for earnings / distance. Never one flat "safety" % for the whole book.`,
+    detail: `Roughly ${(STRATEGY.callPctSafeMin * 100).toFixed(0)} to ${(STRATEGY.callPctSafeMax * 100).toFixed(0)}% for calmer names up to ${(STRATEGY.callPctHighBeta * 100).toFixed(0)}%+ for jumpy ones, nudged for earnings / distance. Never one flat "safety" % for the whole book.`,
   },
   {
     title: "Earnings",
     rule: "Prefer expire before earnings",
-    detail: "If no clean pre-earnings 2–3w expiry, go past earnings and widen Call %.",
+    detail: "If no clean pre-earnings 2 to 3 week expiry, go past earnings and widen Call %.",
   },
   {
     title: "Yield",
@@ -574,6 +575,10 @@ export function CcAdvisorChat({
   const panelRef = useRef<HTMLElement>(null);
   const rulesRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /* Tells the bottom notices that this corner is taken. See the note on
+     the element that carries it. */
+  const [cornerEl, setCornerEl] = useState<HTMLDivElement | null>(null);
+  useBottomCorner(cornerEl);
 
   useEffect(() => {
     if (!expandSignal) return;
@@ -909,6 +914,15 @@ export function CcAdvisorChat({
     // modal, which on a phone is exactly where both of them live: Add
     // holding, Cash, Rename sheet, Delete account, and every ConfirmModal.
     <div
+      /*
+       * Claims the bottom-right corner while this is actually drawn, so a
+       * notice anchored there clears the button instead of landing on it.
+       * See `useBottomCorner` and `.bottom-notice`. It has to be measured
+       * rather than assumed from the route: `WorkspaceShell` keeps the
+       * portfolio room mounted behind whatever room you are in, so the
+       * button is in the DOM long after it has left the screen.
+       */
+      ref={setCornerEl}
       className={
         open
           ? "pointer-events-none fixed z-40 flex flex-col items-end justify-end gap-3 p-3"

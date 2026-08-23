@@ -1,4 +1,4 @@
-import { cashtag, currency, signedCurrency, signedPercent } from "@/lib/format";
+import { NO_VALUE, cashtag, currency, signedCurrency, signedPercent } from "@/lib/format";
 import type { FundAction } from "@/lib/margus-fund";
 import { FUND_X_HANDLE, FUND_X_URL } from "@/lib/product";
 
@@ -148,7 +148,7 @@ function thesisLine(
       actions
         .filter((a) => a.type === "exit" && a.ticker.trim())
         .map((a) => cashtag(a.ticker))
-        .filter((tag) => tag !== "—")
+        .filter((tag) => tag !== NO_VALUE)
     ),
   ];
   if (exits.length === 0) return null;
@@ -179,7 +179,7 @@ function composeFundXPost(
   const radarItems = (input.radar ?? [])
     .map((item) => {
       const tag = cashtag(item.ticker);
-      if (tag === "—") return null;
+      if (tag === NO_VALUE) return null;
       const wait = shortWait(item.waitFor ?? "");
       return { tag, wait, withWait: wait ? `${tag} ${wait}` : tag };
     })

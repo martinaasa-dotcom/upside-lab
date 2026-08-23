@@ -1,6 +1,6 @@
 "use client";
 
-import { cn, cashtag } from "@/lib/format";
+import { NO_VALUE, cashtag, cn } from "@/lib/format";
 import { plainError } from "@/lib/plain-error";
 import {
   MONTH_NAMES,
@@ -41,7 +41,7 @@ type Props = {
 };
 
 function fmtPct(v: number, digits = 1): string {
-  if (!Number.isFinite(v)) return "—";
+  if (!Number.isFinite(v)) return NO_VALUE;
   return `${v >= 0 ? "+" : ""}${v.toFixed(digits)}%`;
 }
 
@@ -430,7 +430,7 @@ function DayOfMonthChart({
                   empty ? "text-muted-foreground" : retText(v)
                 )}
               >
-                {empty ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(1)}`}
+                {empty ? NO_VALUE : `${v >= 0 ? "+" : ""}${v.toFixed(1)}`}
               </span>
             </button>
           );

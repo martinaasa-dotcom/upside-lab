@@ -1,7 +1,7 @@
 "use client";
 
 import { htmlCell, htmlTable } from "@/components/FluidTable";
-import { cashtag, cn, currency, signedPercent, signedTone } from "@/lib/format";
+import { NO_VALUE, cashtag, cn, currency, signedPercent, signedTone } from "@/lib/format";
 import { Card } from "@/components/ui/Panel";
 import type { ThesisCoverage } from "@/lib/classroom";
 import type { Holding, Quote } from "@/lib/types";
@@ -81,7 +81,7 @@ export function ClassroomRoster({
               : top;
             const why =
               !m.sheetCount
-                ? "—"
+                ? NO_VALUE
                 : !thesis || thesis.names === 0
                   ? "No names yet"
                   : thesis.withWhy === 0
@@ -99,7 +99,7 @@ export function ClassroomRoster({
                     ) : null}
                   </p>
                   <p className="text-sm tabular-nums text-foreground">
-                    {m.sheetCount ? currency(m.totalValue) : "—"}
+                    {m.sheetCount ? currency(m.totalValue) : NO_VALUE}
                   </p>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
@@ -110,7 +110,7 @@ export function ClassroomRoster({
                         vsStart == null ? "text-muted-foreground" : signedTone(vsStart)
                       }`}
                     >
-                      {vsStartPct == null ? "—" : signedPercent(vsStartPct)}
+                      {vsStartPct == null ? NO_VALUE : signedPercent(vsStartPct)}
                     </p>
                   </div>
                   <div>
@@ -122,7 +122,7 @@ export function ClassroomRoster({
                     >
                       {m.sheetCount && m.todayPct != null
                         ? signedPercent(m.todayPct)
-                        : "—"}
+                        : NO_VALUE}
                     </p>
                   </div>
                   <div>
@@ -138,7 +138,7 @@ export function ClassroomRoster({
                               ? ` · ${Math.round(biggest.weight)}%`
                               : ""
                           }`
-                        : "—"}
+                        : NO_VALUE}
                     </p>
                   </div>
                 </div>
@@ -228,7 +228,7 @@ export function ClassroomRoster({
                       )}
                     </td>
                     <td className={cn(htmlCell, "tabular-nums text-foreground")}>
-                      {m.sheetCount ? currency(m.totalValue) : "—"}
+                      {m.sheetCount ? currency(m.totalValue) : NO_VALUE}
                     </td>
                     <td
                       className={cn(
@@ -237,7 +237,7 @@ export function ClassroomRoster({
                         vsStart == null ? "text-muted-foreground" : signedTone(vsStart)
                       )}
                     >
-                      {vsStartPct == null ? "—" : signedPercent(vsStartPct)}
+                      {vsStartPct == null ? NO_VALUE : signedPercent(vsStartPct)}
                     </td>
                     <td
                       className={cn(
@@ -248,11 +248,11 @@ export function ClassroomRoster({
                     >
                       {m.sheetCount && m.todayPct != null
                         ? signedPercent(m.todayPct)
-                        : "—"}
+                        : NO_VALUE}
                     </td>
                     <td className={cn(htmlCell, "text-muted-foreground")}>
                       {!m.sheetCount
-                        ? "—"
+                        ? NO_VALUE
                         : !thesis || thesis.names === 0
                           ? "No names yet"
                           : thesis.withWhy === 0
@@ -266,7 +266,7 @@ export function ClassroomRoster({
                               ? ` · ${Math.round(biggest.weight)}%`
                               : ""
                           }`
-                        : "—"}
+                        : NO_VALUE}
                     </td>
                   </tr>
                 );
