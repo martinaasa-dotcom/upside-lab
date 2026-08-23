@@ -696,21 +696,29 @@ function suggestionGroupsHtml(groups: WeeklySuggestionGroup[]): string {
 }
 
 function watchList(items: WeeklyWatchBuy[]): string {
+  /*
+   * The same bar as What moved, on purpose, including its centre line.
+   *
+   * A name only reaches this section by falling past the dip threshold, so
+   * every bar here grows to the left and the right half of every track
+   * stays empty. That is the section's whole point said visually -- these
+   * all got cheaper -- and it rhymes with the table above it rather than
+   * inventing a second chart. Scale is this table's own worst dip, so the
+   * deepest one fills its half.
+   */
+  const maxAbs = Math.max(...items.map((w) => Math.abs(w.pct)), 0);
   const rows = items
     .map((w, i) => {
       const border = i === items.length - 1 ? "none" : `1px solid ${EMAIL.line}`;
       const tone = toneColor(w.pct);
-      // Same two-column shape as What moved. The sentence used to carry the
-      // percent and the price itself, with the percent then repeated again
-      // in the right-hand column.
       return `<tr>
-  <td style="padding:${ROW_PAD}px 12px ${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle">
+  <td style="padding:${ROW_PAD}px 10px ${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;white-space:nowrap">
     <p style="margin:0;font-family:${EMAIL.sans};font-size:15px;line-height:1.25;font-weight:600;color:${EMAIL.cream}">${escapeEmail(cashtag(w.ticker))}</p>
-    <p style="margin:2px 0 0 0;font-family:${EMAIL.sans};font-size:13px;line-height:1.25;color:${EMAIL.muted}">Cheaper than last Sunday.</p>
+    <p style="margin:2px 0 0 0;font-family:${EMAIL.mono};font-size:13px;line-height:1.25;color:${EMAIL.muted}">${escapeEmail(priceMoney(w.price))}</p>
   </td>
+  <td width="100%" style="padding:${ROW_PAD}px 14px;border-bottom:${border};vertical-align:middle">${moveBar(w.pct, maxAbs)}</td>
   <td style="padding:${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;text-align:right;white-space:nowrap">
     <p style="margin:0;font-family:${EMAIL.mono};font-size:15px;line-height:1.25;font-weight:600;color:${tone}">${escapeEmail(signedPct(w.pct))}</p>
-    <p style="margin:2px 0 0 0;font-family:${EMAIL.mono};font-size:13px;line-height:1.25;color:${EMAIL.muted}">${escapeEmail(priceMoney(w.price))}</p>
   </td>
 </tr>`;
     })
@@ -794,7 +802,10 @@ export function weeklyLetterHtml(r: WeeklyLetter): string {
     groups.length > 0 ? rule(suggestionGroupsHtml(groups)) : "";
   const watchBlock =
     r.watchBuys.length > 0
-      ? block("On your watchlist", watchList(r.watchBuys))
+      ? block(
+          "On your watchlist",
+          `<p style="margin:0 0 14px 0;font-family:${EMAIL.sans};font-size:13px;line-height:1.5;color:${EMAIL.muted}">Cheaper than last Sunday.</p>${watchList(r.watchBuys)}`
+        )
       : "";
   const aheadBlock =
     r.weekAhead.length > 0 ? block("Next week", aheadList(r.weekAhead)) : "";
