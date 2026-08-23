@@ -18,7 +18,7 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import Link from "next/link";
-import { useRef } from "react";
+import { useState } from "react";
 
 export type MobileTabId = "home" | "pulse" | "lab" | "compound" | "circle";
 
@@ -108,9 +108,10 @@ export function MobileTabBar({
   /** Return true to stay on this page (Dashboard SPA tabs). */
   onSelect?: (id: MobileTabId) => boolean | void;
 }) {
-  const dockRef = useRef<HTMLElement>(null);
+  /* A callback ref: see `use-dock-pad.ts` for why the hook takes the node. */
+  const [dockEl, setDockEl] = useState<HTMLElement | null>(null);
   const circleHref = useCircleHref();
-  useDockPad(dockRef);
+  useDockPad(dockEl);
   const tabs = TABS.filter(
     (t) => !t.metaId || !hiddenModeIds.includes(t.metaId)
   );
@@ -118,7 +119,7 @@ export function MobileTabBar({
 
   return (
     <nav
-      ref={dockRef}
+      ref={setDockEl}
       aria-label="App"
       className={cn(
         /*
