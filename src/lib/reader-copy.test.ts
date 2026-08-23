@@ -177,6 +177,70 @@ describe("copy reads as a person wrote it", () => {
   });
 
   /*
+    A portfolio is called a portfolio.
+
+    The rename was declared done and then drifted: "New sheet" sat in the
+    portfolio picker's own menu, the account screen offered to delete your
+    "sheets", the terms gave a class an empty "sheet", and two error
+    screens promised your "book" was safe. Every one of them was a string
+    somebody read on a screen.
+
+    This reads JSX text nodes only, which is a floor rather than a ceiling.
+    It does not see a label passed as a prop or a sentence built in a
+    variable, and widening it past that produced more noise than signal:
+    the tree is full of `sheet` identifiers the rename deliberately kept
+    (the `Sheet` slide-over primitive, `portfell_*` columns, the
+    `?sheet=` bookmark parameter, `restore_sheet`, `sheetCount`). What it
+    does catch is the case that actually recurred, which is somebody typing
+    the old word straight into the markup.
+  */
+  const CODE_ISH = /[;={}\[\]|]|=>|\.\w|\w\(/;
+
+  function jsxText(file: string): { line: number; text: string }[] {
+    const src = readFileSync(file, "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .split("\n")
+      .map((l) => (l.trim().startsWith("//") ? "" : l))
+      .join("\n");
+    const out: { line: number; text: string }[] = [];
+    for (const m of src.matchAll(/>([^<>{}]+)</g)) {
+      const text = m[1]!.replace(/\s+/g, " ").trim();
+      if (!text.includes(" ")) continue;
+      if (!/[A-Za-z]/.test(text)) continue;
+      if (CODE_ISH.test(text)) continue;
+      out.push({ line: src.slice(0, m.index).split("\n").length, text });
+    }
+    return out;
+  }
+
+  it("calls a portfolio a portfolio on screen, never a sheet or a book", () => {
+    const bad = files
+      .filter((f) => f.endsWith(".tsx") && f !== "src/components/ui/sheet.tsx")
+      .flatMap((f) =>
+        jsxText(f)
+          .filter((l) => /\b(sheets?|books?)\b/i.test(l.text))
+          .map((l) => `${f}:${l.line}: ${l.text}`)
+      );
+    expect(bad).toEqual([]);
+  });
+
+  /*
+    Same argument as the dash detector: a check that reads nothing passes
+    for the wrong reason. These are two sentences that are really in the
+    tree, and one that is really a type annotation rather than copy.
+  */
+  it("reads what a person sees, and not the code around it", () => {
+    const account = jsxText("src/components/AccountPage.tsx");
+    expect(account.some((l) => l.text.includes("Download everything"))).toBe(true);
+    expect(account.some((l) => /Record</.test(l.text))).toBe(false);
+    expect(
+      jsxText("src/components/SheetPicker.tsx").some((l) =>
+        l.text.includes("New portfolio")
+      )
+    ).toBe(true);
+  });
+
+  /*
     The detector has to actually detect. A test that passes because it is
     looking at nothing is the failure mode this whole file exists to avoid.
   */

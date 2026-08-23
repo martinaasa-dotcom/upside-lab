@@ -120,7 +120,7 @@ export function YtdAnchorModal({
         </div>
 
         <label className="grid gap-1 text-sm text-muted-foreground">
-          Book on January 1
+          Total on January 1
           <Input
             autoFocus
             type="text"

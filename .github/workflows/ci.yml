@@ -69,6 +69,27 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  invariants:
+    name: Invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      # Green as of 2026-08-23. It was not, for months, because nothing ran
+      # it: the suite drifted behind the portfolio rename, the design-token
+      # pass and the dock rework until it reported 23 failures and stopped
+      # meaning anything. Running it here is what keeps that from being
+      # possible again. A failure is either a real regression or an
+      # invariant that has outlived its rule, and both want a decision.
+      - run: npm run test:invariants
+
   build:
     name: Build
     runs-on: ubuntu-latest

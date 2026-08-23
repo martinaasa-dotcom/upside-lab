@@ -133,7 +133,7 @@ export function SheetPicker({ sheets, value, onChange, onAdd }: Props) {
                   className="flex w-full items-center gap-2 px-3 py-3 text-left text-sm text-foreground hover:bg-hover sm:py-2.5"
                 >
                   <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                  New sheet
+                  New portfolio
                 </button>
               </>
             )}

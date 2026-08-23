@@ -271,7 +271,7 @@ export function AdminPage() {
                     Activation
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Signed in, has a sheet, has holdings, used Margus or Pulse,
+                    Signed in, has a portfolio, has holdings, used Margus or Pulse,
                     signed in this week, and holdings plus a visit in the last
                     7 days.
                   </p>

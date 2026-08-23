@@ -111,9 +111,9 @@ export default function TermsPage() {
 
         <Section title="5. Classroom">
           A teacher can invite a class into a private paper Classroom. Each
-          student gets homework cash and an empty sheet. It is not a real
-          brokerage, not real money, and not a real book. Real sheets cannot
-          be shared into a class. The teacher sets when buying and selling
+          student gets homework cash and an empty portfolio. It is not a real
+          brokerage, not real money, and not a real account. A real portfolio
+          cannot be shared into a class. The teacher sets when buying and selling
           are allowed. If you are a student, you join only with that invite.
           If your country needs a parent or guardian for someone your age to
           use an app like this, that person has to agree. The teacher is
@@ -124,9 +124,9 @@ export default function TermsPage() {
           You keep ownership of the portfolio data you enter (holdings, cash,
           notes, thesis text). You&apos;re responsible for its accuracy; we
           don&apos;t verify anything you type in. If you invite a co-owner to
-          a sheet, they can read and edit everything on that sheet. If you
+          a portfolio, they can read and edit everything on it. If you
           join a circle, members can see today&apos;s prices, the names you
-          hold, cash, and returns for the sheets you linked. They do not see
+          hold, cash, and returns for the portfolios you linked. They do not see
           what you paid unless you also made them a co-owner. If two
           accounts are linked as a household, Circle join, leave, and role
           copy to both. Classroom stays per person. Don&apos;t enter data you
