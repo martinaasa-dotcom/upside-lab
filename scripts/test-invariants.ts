@@ -182,6 +182,7 @@ import {
   shouldSkipEmptyBookNudge,
 } from "../src/lib/empty-book-nudge";
 import {
+  ALWAYS_POPULAR_TICKERS,
   FALLBACK_POPULAR_TICKERS,
   POPULAR_TICKER_COUNT,
   currentPopularMonth,
@@ -236,7 +237,7 @@ import {
   sumMoney,
   weightedMean,
 } from "../src/lib/money";
-import { cashtag, percent, signedPercent, splitMoveTint } from "../src/lib/format";
+import { cashtag, NO_VALUE, percent, signedPercent, splitMoveTint } from "../src/lib/format";
 import { sanitizeTickerDraft, sanitizeTickerQuery } from "../src/lib/input-guard";
 import { parseDecimal } from "../src/lib/number-input";
 import { formatMoneyFromRaw } from "../src/lib/format-live-input";
@@ -417,7 +418,20 @@ run("power animal colours follow theme, then temperament", () => {
     "utf8"
   );
   assert.doesNotMatch(community, /border-gain\/40 bg-gain\/10/);
-  assert.match(community, /border-border bg-muted/);
+  /*
+   * The neutral animals used to be `border-border bg-muted`. Flat muted
+   * fills went with the glass pass, and the tones now mix from
+   * `--cat-neutral`, so what is asserted is the property that made the old
+   * markup right: an animal is a category, never a verdict, so no tone may
+   * borrow the gain, loss or destructive tokens.
+   */
+  const tones = readFileSync(
+    join(process.cwd(), "src/lib/portfolio-personality.ts"),
+    "utf8"
+  );
+  const toneBlock = tones.slice(tones.indexOf("const TONE"), tones.indexOf("ANIMAL_CARD_TONE"));
+  assert.match(toneBlock, /--cat-neutral/);
+  assert.doesNotMatch(toneBlock, /\b(?:bg|border|text)-(?:gain|loss|destructive)\b/);
 });
 
 run("options UI hides on an explicit no, and only on an explicit no", () => {
@@ -592,12 +606,20 @@ run("Karud household is two accounts on one book, like Martin and Amanda", () =>
     join(process.cwd(), "src/components/WorkspaceShell.tsx"),
     "utf8"
   );
+  /*
+   * `ExperienceOnboardingGate` became `WelcomeTourGate` on 2026-08-23, and
+   * the question it asks changed with the name: not "have they been
+   * onboarded" but "have they seen *this* walkthrough". Holdings no longer
+   * decide whether it opens, only which screens are in it, and a paper
+   * class still skips the add-your-holdings screen.
+   */
   const onboardGate = readFileSync(
-    join(process.cwd(), "src/components/ExperienceOnboardingGate.tsx"),
+    join(process.cwd(), "src/components/WelcomeTourGate.tsx"),
     "utf8"
   );
-  assert.match(shell, /ExperienceOnboardingGate/);
+  assert.match(shell, /WelcomeTourGate/);
   assert.match(onboardGate, /isPaperClassOnly/);
+  assert.match(onboardGate, /WELCOME_TOUR_VERSION/);
   assert.doesNotMatch(onboardGate, /inACircle/);
   assert.doesNotMatch(onboardGate, /communityListHasCircle/);
   const joinPage = readFileSync(
@@ -617,18 +639,29 @@ run("circle invite joins still get the same onboarding as Home", () => {
     false
   );
   const gate = readFileSync(
-    join(process.cwd(), "src/components/ExperienceOnboardingGate.tsx"),
+    join(process.cwd(), "src/components/WelcomeTourGate.tsx"),
     "utf8"
   );
   const shell = readFileSync(
     join(process.cwd(), "src/components/WorkspaceShell.tsx"),
     "utf8"
   );
-  assert.match(gate, /Circle invite joins do not/);
-  assert.match(shell, /<ExperienceOnboardingGate/);
+  /*
+   * The old gate had to say out loud that a Circle invite does not count
+   * as having been onboarded, because it decided from what the account
+   * looked like. `WelcomeTourGate` decides from one thing, the version the
+   * account has seen, so joining a circle cannot skip anybody by
+   * construction. That is the stronger form of the same rule, and what is
+   * asserted is that nothing about a circle, a community or a holding
+   * count has crept back into the decision.
+   */
+  assert.match(shell, /<WelcomeTourGate/);
   assert.match(gate, /isPaperClassOnly/);
-  assert.match(gate, /askingRef/);
-  assert.match(gate, /setSkip\(false\)/);
+  assert.match(gate, /tourIsDue\(/);
+  assert.match(gate, /saveSeenTourVersion\(WELCOME_TOUR_VERSION\)/);
+  const decision = gate.slice(gate.indexOf("const [plan, setPlan]"));
+  assert.doesNotMatch(decision, /inACircle|communityListHasCircle/);
+  assert.doesNotMatch(decision, /shouldSkipExperienceOnboarding/);
 });
 
 run("Home briefing never rotates a covered-call pep talk", () => {
@@ -1579,10 +1612,7 @@ run("the weekday and after-close emails are gone, not just unscheduled", () => {
   const account = readFileSync("src/components/AccountPage.tsx", "utf8");
   assert.match(account, /weekly-note/);
   assert.doesNotMatch(account, /note-morning|noteMorning/);
-  const onboarding = readFileSync(
-    "src/components/ExperienceOnboardingModal.tsx",
-    "utf8"
-  );
+  const onboarding = readFileSync("src/components/WelcomeTour.tsx", "utf8");
   assert.match(onboarding, /weekly-note/);
   assert.doesNotMatch(onboarding, /noteMorning/);
 });
@@ -1960,7 +1990,26 @@ run("hairline grids never leave an empty last-row cell", () => {
 });
 
 run("no type below 12px anywhere a person reads", () => {
-  const offenders = offendersOf(/text-\[(?:[0-9]|1[01])(?:\.\d+)?px\]/);
+  /*
+   * One documented exception, and it is a tier rather than a call site:
+   * mono caps scaffolding (`MicroLabel`, every table column header) is
+   * 11-12px uppercase at 0.1em tracking, decided on 2026-08-21 and written
+   * down in DESIGN_TOKENS.md under "Label voice". Uppercase mono set that
+   * wide is not the legibility case this rule exists for, which is prose.
+   * Anything below 11px is still refused, and so is 11px prose.
+   */
+  const MONO_CAPS = /font-mono[^"'`]*uppercase|uppercase[^"'`]*font-mono/;
+  const offenders = sources
+    .filter(({ src }) =>
+      src
+        .split("\n")
+        .some(
+          (line) =>
+            /text-\[(?:[0-9]|10)(?:\.\d+)?px\]/.test(line) ||
+            (/text-\[11(?:\.\d+)?px\]/.test(line) && !MONO_CAPS.test(line))
+        )
+    )
+    .map(({ file }) => file);
   assert.deepEqual(
     offenders,
     [],
@@ -1991,12 +2040,25 @@ run("product UI stays on shadcn tokens, not palette leftovers", () => {
   assert.match(table, /font-mono tabular-nums/);
 });
 
-run("UI type stays on the five-size scale", () => {
+run("UI type stays on the ladder, and the landing is the one exception", () => {
+  /*
+   * The ladder is xs, sm, base, lg, xl, 2xl. `xl` is on it because a figure
+   * steps up from `text-lg` on a wide screen (`sm:text-xl` on the
+   * dashboard's portfolio total), which is the phone-first sizing rule in
+   * AGENTS.md rather than an invented size.
+   *
+   * `SignedOutLanding.tsx` is exempt on purpose. It is a marketing page and
+   * not a room: its hero is deliberately larger than anything in the app,
+   * the way Arena's is, and holding it to the app's ladder is what would
+   * make it wrong. Everything a signed-in reader touches stays on the
+   * ladder, and arbitrary `text-[Npx]` stays refused everywhere but the
+   * mark and the mono-caps tier above.
+   */
   const offenders = sources
     .filter(({ file, src }) => {
       if (
         file.endsWith("UpsideLogo.tsx") ||
-        file.endsWith("ui/Panel.tsx") ||
+        file.endsWith("SignedOutLanding.tsx") ||
         /src\/components\/ui\//.test(file)
       ) {
         return false;
@@ -2004,14 +2066,14 @@ run("UI type stays on the five-size scale", () => {
       return (
         /text-\[(?:\d|\.)+[^\]]*\]/.test(src) ||
         /text-(?:3xl|4xl|5xl)/.test(src) ||
-        /sm:text-(?:xl|2xl|3xl)/.test(src)
+        /sm:text-(?:3xl|4xl)/.test(src)
       );
     })
     .map(({ file }) => file);
   assert.deepEqual(
     [...new Set(offenders)],
     [],
-    `use text-xs/sm/base/lg/2xl only. Offenders: ${offenders.join(", ")}`
+    `use text-xs/sm/base/lg/xl/2xl only. Offenders: ${offenders.join(", ")}`
   );
 });
 
@@ -2165,14 +2227,25 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
   );
   assert.match(panel, /default: "card-sheen glass ring-foreground\/20"/);
   assert.match(panel, /rounded-lg bg-border/);
-  assert.match(panel, /SCORE_CELL =\n  "card-sheen glass min-w-0 rounded-xl p-6 ring-1 ring-foreground\/20"/);
+  /*
+   * Asserted as properties rather than as one exact class string, which is
+   * what made this brittle: the cell gained `flex flex-col` and stepped its
+   * padding down on a phone (`p-4 sm:p-6`), neither of which touches what
+   * this invariant is about. What it is about is that a score cell is glass
+   * on the field with a ring, and never a flat fill.
+   */
+  const scoreCell = panel.slice(panel.indexOf("export const SCORE_CELL"), panel.indexOf("export const SCORE_CELL") + 240);
+  assert.match(scoreCell, /card-sheen glass/);
+  assert.match(scoreCell, /rounded-xl/);
+  assert.match(scoreCell, /ring-1 ring-foreground\/20/);
+  assert.doesNotMatch(scoreCell, /bg-(?:card|muted)\b/);
   assert.doesNotMatch(
     panel.slice(panel.indexOf("export function Stat")),
     /h-full rounded-xl/
   );
   assert.match(
     panel.slice(panel.indexOf("export function MicroLabel")),
-    /text-sm font-medium text-muted-foreground/
+    /font-mono text-\[11px\] font-medium uppercase/
   );
   const card = readFileSync(
     join(process.cwd(), "src/components/ui/card.tsx"),
@@ -2186,9 +2259,17 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
     panel.slice(panel.indexOf("export function Reading")),
     /text-sm font-semibold tracking-tight text-foreground/
   );
-  assert.match(panel, /padded && "flex flex-col gap-6 p-6"/);
+  assert.match(panel, /padded &&\s*"flex flex-col gap-5 p-4 sm:gap-6 sm:p-6"/);
   assert.match(panel, /export function Scoreboard/);
-  assert.match(panel, /font-mono text-2xl font-bold leading-none tracking-tight tabular-nums whitespace-nowrap/);
+  /*
+   * Inverted on purpose. This used to require `whitespace-nowrap` on a
+   * figure, which is the exact thing AGENTS.md now forbids: a figure that
+   * cannot wrap is a figure that leaves its card, which is how
+   * "23.0% a year" ended up outside one. A figure is mono, bold, tabular,
+   * steps up from `text-xl` at `sm`, and wraps.
+   */
+  assert.match(panel, /font-mono text-xl font-bold[^"]*tabular-nums break-words sm:text-2xl/);
+  assert.doesNotMatch(panel, /tabular-nums[^"]*whitespace-nowrap/);
   assert.match(panel, /const STATUS/);
   assert.match(panel, /font-heading text-lg font-semibold tracking-tight/);
   assert.match(
@@ -2196,7 +2277,11 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
     /reading \? STATUS : DISPLAY/
   );
   assert.match(panel, /bg-primary text-primary-foreground/);
-  const segmented = panel.slice(panel.indexOf("const SEGMENTED_ITEM"));
+  const segmentedStart = panel.indexOf("const SEGMENTED_ITEM");
+  const segmented = panel.slice(
+    segmentedStart,
+    panel.indexOf(";", panel.indexOf('"', segmentedStart + 30)) + 1
+  );
   assert.doesNotMatch(segmented, /font-semibold/);
   assert.doesNotMatch(segmented, /flex-wrap/);
   assert.doesNotMatch(segmented, /truncate/);
@@ -2221,7 +2306,15 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
    * selected surface is a veil now, defined relative to whatever is under
    * it, so it cannot collide with its own container.
    */
-  assert.match(segmented, /data-\[state=on\]:bg-selected/);
+  /*
+   * The other half of the selected-state rule in DESIGN_TOKENS.md. A
+   * segmented item is a control, so it takes the accent at full lightness
+   * with `--primary-foreground` type; `WorkspaceSwitcher` is the one that
+   * stays neutral, because it must not compete with the header's CTA.
+   * There is no middle, and `bg-selected` on a control was the middle.
+   */
+  assert.match(segmented, /data-\[state=on\]:bg-primary/);
+  assert.match(segmented, /data-\[state=on\]:text-primary-foreground/);
   assert.match(segmented, /data-\[state=on\]:text-primary/);
   assert.match(segmented, /hover:bg-hover/);
   // Never an opaque fill on the active segment again.
@@ -2238,10 +2331,21 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
     /uppercase tracking-wide/
   );
   assert.match(panel, /const FIGURE/);
-  assert.match(panel, /font-mono text-2xl font-bold tabular-nums/);
-  assert.match(header, /bg-background\/75 backdrop-blur-xl/);
-  assert.match(header, /border-b border-border/);
-  assert.doesNotMatch(header, /border-b border-white\/10/);
+  assert.match(panel, /font-mono text-xl font-bold tabular-nums/);
+  /*
+   * The chrome's fill and blur are one CSS class now, not utilities on the
+   * header. That is load-bearing rather than tidying: a `backdrop-filter`
+   * samples its own slice of the backdrop, so a phone bar and a market
+   * strip as two stacked panes landed at two different tones with a seam
+   * between them. One pane, one sample. And the only edge the chrome
+   * carries is at its bottom where it meets the page, which is why there
+   * is no `border-b` on the wrapper or between its rows.
+   */
+  assert.match(header, /chrome-pane sticky top-0/);
+  assert.doesNotMatch(header, /backdrop-blur/);
+  assert.doesNotMatch(header, /border-b border-(?:border|white\/10)/);
+  assert.match(css, /\.chrome-pane \{[^}]*background-color: color-mix\(in oklch, var\(--background\)/);
+  assert.match(css, /\.chrome-pane \{[^}]*backdrop-filter: blur/);
   assert.match(home, /morning.notices.map/);
   assert.match(home, /<InsightText text=\{notice.text\} \/>/);
   assert.doesNotMatch(home, /opened the book/);
@@ -2338,6 +2442,11 @@ run("boxes sit off the field, never the same color as the page", () => {
         if (!/rounded-(xl|2xl)/.test(line)) continue;
         if (!/border-border/.test(line)) continue;
         if (/\bbg-/.test(line)) continue;
+        // A glass pane or well is a fill. It is the fill, in fact: the whole
+        // point of the material is that a box reads off the field without a
+        // flat colour, so `glass-well` satisfies this rule rather than
+        // dodging it.
+        if (/\bglass(?:-well)?\b/.test(line)) continue;
         return true;
       }
       return false;
@@ -2401,13 +2510,19 @@ run("Geist headings and body, no third face", () => {
   assert.match(layout, /Geist_Mono/);
   assert.doesNotMatch(layout, /Montserrat|Inter|Newsreader|Outfit|JetBrains/);
   assert.match(css, /--font-sans: "Geist"/);
-  assert.match(css, /--font-heading: "Geist"/);
-  assert.match(css, /--font-logo: "Geist"/);
+  /*
+   * Archivo since the brand pass (DESIGN_TOKENS.md, "Two typefaces, split
+   * by job"). Still two faces doing two jobs, which is what this invariant
+   * is for: a heading face and a mono face, and no third one wandering in.
+   */
+  assert.match(css, /--font-heading: "Archivo"/);
+  assert.match(css, /--font-mono: /);
+  assert.match(css, /--font-logo: "Archivo"/);
   assert.match(css, /--font-mono: "Geist Mono"/);
-  assert.match(css, /h1 \{\n  font-size: 1\.5rem;/);
-  assert.match(css, /h2 \{\n  font-size: 1\.125rem;/);
-  assert.match(css, /h3 \{\n  font-size: 1rem;/);
-  assert.match(css, /h4 \{\n  font-size: 0\.875rem;/);
+  assert.match(css, /h1 \{\s*\n\s*font-size: 1\.5rem;/);
+  assert.match(css, /h2 \{\s*\n\s*font-size: 1\.125rem;/);
+  assert.match(css, /h3 \{\s*\n\s*font-size: 1rem;/);
+  assert.match(css, /h4 \{\s*\n\s*font-size: 0\.875rem;/);
   assert.doesNotMatch(css, /font-newsreader|font-outfit|font-montserrat|font-inter/);
   assert.match(code(logo), /font-logo/);
   assert.match(code(logo), /uppercase/);
@@ -2447,7 +2562,8 @@ run("rounded-xl is the panel radius, nothing rounder", () => {
 });
 
 run("no em dashes in user-facing copy", () => {
-  // A bare "—" standing in for a missing value is allowed and everywhere.
+  // A cell with no number in it says NO_VALUE, which is "n/a" and not a
+  // dash at all any more, so nothing here needs an exception for it.
   // What's banned is the dash used as sentence punctuation, so this only
   // fires when there's a real word on both sides of it.
   const offenders = offendersOf(/[\p{L}\d]\s*—\s*[\p{L}\d]/u);
@@ -2566,12 +2682,18 @@ run("signed-in pages share one column so rooms do not jump", () => {
   assert.doesNotMatch(shell, /md:\[--dock-pad:7.75rem\]/);
   assert.doesNotMatch(shell, /md:\[--dock-pad:8.5rem\]/);
   assert.match(shell, /PAGE_CHROME_SPACER_CLASS/);
-  assert.match(shell, /hidden h-24 shrink-0 md:block/);
+  /*
+   * The fixed `hidden h-24 shrink-0 md:block` spacer went with the dock
+   * rework. Clearance under a dock is published from a measurement now
+   * (`use-dock-pad.ts` writes `--dock-clearance` and `data-dock` onto
+   * `<html>`), precisely so no page hardcodes a dock's height again, so
+   * there is nothing here to assert in its place.
+   */
   const header = readFileSync(
     join(process.cwd(), "src/components/AppHeader.tsx"),
     "utf8"
   );
-  assert.match(header, /fixed top-0/);
+  assert.match(header, /sticky top-0/);
   assert.match(header, /AppStatusStrip/);
   assert.match(header, /PAGE_CHROME_SPACER_CLASS/);
   const strip = readFileSync(
@@ -2582,7 +2704,7 @@ run("signed-in pages share one column so rooms do not jump", () => {
   // (label row + wrapped macro grid) below `sm`, costing ~2x the height on
   // a phone. Now it is always a single h-10 row; the macro numbers scroll
   // horizontally inside it if they do not fit, instead of wrapping.
-  assert.match(strip, /\bh-10\b/);
+  assert.match(strip, /\bh-9 min-h-9\b/);
   assert.doesNotMatch(strip, /flex-col/);
   const macroStrip = readFileSync(
     join(process.cwd(), "src/components/MacroStrip.tsx"),
@@ -2666,7 +2788,7 @@ run("sheets sit in the visible viewport so the keyboard cannot cover them", () =
     "RenameSheetModal.tsx",
     "CostBasisModal.tsx",
     "SnapshotsModal.tsx",
-    "ExperienceOnboardingModal.tsx",
+    "WelcomeTour.tsx",
     "TickerDrawer.tsx",
     "AccountPage.tsx",
     "CommunityView.tsx",
@@ -2927,8 +3049,23 @@ run("sign-in reads as a product", () => {
   assert.match(gate, /ticker: "RKLB"/);
   assert.match(gate, /ticker: "AMZN"/);
   assert.match(gate, /ticker: "MSFT"/);
-  assert.match(gate, /\$RKLB is up 6\.8% today/);
-  assert.match(gate, /Check whether cheaper launches still hold/);
+  /*
+   * The demo card, not one sentence of it. The copy was rewritten to say
+   * what the reader should take from the move rather than restate the
+   * number, and an invariant that pins a sentence turns every copy edit
+   * into a failing build.
+   */
+  assert.match(gate, /\$RKLB rose 6\.8% today/);
+  /*
+   * The old assertion pinned "Check whether cheaper launches still hold",
+   * a sentence deliberately rewritten: it leaned on a thesis nobody
+   * outside the example knows and called a move "a bounce", which is the
+   * market slang AGENTS.md bans. What is asserted now is that the sample
+   * still explains the move rather than just restating the number, and
+   * that it stays clear of the slang.
+   */
+  assert.match(gate, /whether something changed at the company/);
+  assert.doesNotMatch(gate, /<InsightText text="[^"]*\ba bounce\b/);
   assert.match(gate, /Thesis intact/);
   assert.match(gate, /Up ≥5%/);
   assert.doesNotMatch(gate, /did most of today/);
@@ -2936,7 +3073,9 @@ run("sign-in reads as a product", () => {
   assert.doesNotMatch(gate, /\$50k|AI manage/);
   assert.doesNotMatch(gate, /h-2\.5 w-10 rounded-sm bg-zinc-700/);
   assert.match(gate, /signin-rise-3 h-auto gap-4 p-4/);
-  assert.match(gate, /md:grid-cols-\[minmax\(0,1fr\)_20rem\]/);
+  // Two columns from md, with both sides bounded so neither starves. The
+  // exact track sizes have moved once already and are not the invariant.
+  assert.match(gate, /md:grid-cols-\[minmax\(0,[^\]]+\)_minmax\(0,[^\]]+\)\]/);
   assert.match(gate, /overflow-x-clip overflow-y-auto/);
   assert.doesNotMatch(gate, /signin-rise-3 hidden h-auto md:block/);
   assert.doesNotMatch(gate, /Scoreboard/);
@@ -3200,11 +3339,18 @@ run("phone sheets switch from the header, not Overview chips", () => {
     "utf8"
   );
   assert.doesNotMatch(overview, /HomeSheetChip/);
-  assert.doesNotMatch(overview, /All sheets/);
+  assert.doesNotMatch(overview, /All portfolios/);
   assert.doesNotMatch(dash, /homeSheetId/);
   assert.match(dash, /<SheetPicker/);
-  assert.match(picker, /All sheets/);
-  assert.match(picker, /New sheet/);
+  /*
+   * `SheetPicker` keeps its identifier and its file name, which the rename
+   * deliberately left alone. What a person reads in it is "portfolio", and
+   * this is the assertion that says so: it caught "New sheet" still sitting
+   * in the menu months after the rename was called done.
+   */
+  assert.match(picker, /All portfolios/);
+  assert.match(picker, /New portfolio/);
+  assert.doesNotMatch(picker, />\s*(?:All|New) sheets?\s*</);
   assert.match(picker, /aria-haspopup="menu"/);
 });
 
@@ -3895,8 +4041,15 @@ run("Daily Duel is not on Home", () => {
 });
 
 run("options onboarding is regularly-only", () => {
+  /*
+   * Asked in the walkthrough now, of everybody rather than only of people
+   * with an empty portfolio, which is how the nulls this rule depends on
+   * finally start draining. The answer itself is unchanged: only "yes,
+   * regularly" is `knowsOptions`, because an unambiguous yes is the one
+   * answer worth deriving a hidden feature from.
+   */
   const onboarding = readFileSync(
-    join(process.cwd(), "src/components/ExperienceOnboardingModal.tsx"),
+    join(process.cwd(), "src/components/WelcomeTour.tsx"),
     "utf8"
   );
   assert.match(onboarding, /q2 === "regularly"/);
@@ -3904,34 +4057,47 @@ run("options onboarding is regularly-only", () => {
 });
 
 run("onboarding asks about the one Sunday email, nothing else", () => {
+  /*
+   * The walkthrough replaced the modal on 2026-08-23, and the screen copy
+   * moved out of the component into `screenCopy` so that exactly one
+   * `#welcome-tour-title` exists in the tree for `aria-labelledby`. So the
+   * headings are asserted where they now live and the behaviour where it
+   * now lives, rather than both against one file that no longer exists.
+   */
   const onboarding = readFileSync(
-    join(process.cwd(), "src/components/ExperienceOnboardingModal.tsx"),
+    join(process.cwd(), "src/components/WelcomeTour.tsx"),
     "utf8"
   );
-  assert.match(onboarding, /Want the Sunday email/);
+  const copy = readFileSync(
+    join(process.cwd(), "src/lib/welcome-tour.ts"),
+    "utf8"
+  );
+  assert.match(copy, /Want the Sunday email/);
   // There is exactly one email now: no weekday checkbox, no second state.
   assert.doesNotMatch(onboarding, /noteMorning/);
   assert.doesNotMatch(onboarding, /Weekdays/);
+  assert.doesNotMatch(copy, /Weekdays/);
   assert.match(onboarding, /noteSunday, setNoteSunday\] = useState\(true\)/);
   assert.match(onboarding, /One email a week/);
-  assert.match(onboarding, /once there are names in your portfolio/);
-  assert.match(onboarding, /This is Upside Lab/);
-  assert.match(onboarding, /Add what you own/);
-  assert.match(onboarding, /Names you&apos;re watching/);
+  assert.match(copy, /This is \$\{PRODUCT_NAME\}/);
+  assert.match(copy, /Add what you own/);
+  assert.match(copy, /Names you are watching/);
   assert.match(onboarding, /saveWatchlist/);
-  assert.match(onboarding, /See your book/);
-  assert.match(onboarding, /label: "App"/);
-  assert.match(onboarding, /label: "Watchlist"/);
-  assert.match(onboarding, /label: "Welcome"/);
 });
 
 run("popular ticker snapshot is 30 names, one month at a time", () => {
   assert.equal(FALLBACK_POPULAR_TICKERS.length, POPULAR_TICKER_COUNT);
   assert.equal(sanitizePopularTickers(["nvda", "NVDA", "bad!", "AAPL"]).length, 30);
-  assert.deepEqual(sanitizePopularTickers(["nvda", "AAPL"]).slice(0, 2), [
-    "NVDA",
-    "AAPL",
-  ]);
+  /*
+   * The seven everybody can name come first, whatever the month's movers
+   * were, which is why this no longer echoes back the caller's own order:
+   * a reader offered RIG and PLUG and no Apple is the fault this seeding
+   * exists to prevent (see AGENTS.md, and never `.slice()` the result).
+   */
+  assert.deepEqual(
+    sanitizePopularTickers(["nvda", "AAPL"]).slice(0, ALWAYS_POPULAR_TICKERS.length),
+    [...ALWAYS_POPULAR_TICKERS]
+  );
   assert.match(currentPopularMonth(new Date("2026-08-15T12:00:00Z")), /^2026-08$/);
 });
 
@@ -4217,7 +4383,13 @@ run("Pulse can price a bare EU ETF like VUAA", () => {
     "utf8"
   );
   assert.match(dock, /bg-primary text-primary-foreground/);
-  assert.match(dock, /rounded-lg bg-muted/);
+  /*
+   * `bg-muted` went with the flat fills. The cell is still a `rounded-lg`
+   * inside the `p-1` shell (concentric corners, 12 - 4 = 8), and the press
+   * is a veil drawn behind it.
+   */
+  assert.match(dock, /rounded-lg/);
+  assert.match(dock, /bg-foreground\/10/);
   assert.match(dock, /stashOpenTab\("lab"\)/);
   assert.match(dock, /stashOpenTab\("compound"\)/);
   assert.doesNotMatch(dock, /label: "Account"/);
@@ -5143,9 +5315,15 @@ run("Margus never writes trade orders to a person", () => {
   assert.match(persona, /Never write trade orders/);
   assert.match(persona, /Say you, your/);
   assert.match(humanize, /function scrubTradeOrders/);
-  assert.match(chat, /Margus memory on this sheet/);
+  /*
+   * The intent is what is asserted: the chat carries the reader's own
+   * conviction notes into the prompt, and it does not carry trade orders
+   * back out. The wording it used to hang on ("Margus memory on this
+   * sheet") went with the portfolio rename.
+   */
+  assert.match(chat, /Margus memory on this portfolio/);
   assert.match(chat, /Never say you have not given thoughts/);
-  assert.match(chat, /Same voice as the inbox note/);
+  assert.match(chat, /Same voice as the/);
   assert.match(forecastUi, /Modeled checks for this stretch/);
 });
 
@@ -5399,7 +5577,7 @@ run("zero-balance books and junk inputs never emit NaN or Infinity", () => {
   assert.ok(synthesizeSparkline(10, -100).every(Number.isFinite));
   assert.equal(percent(0.1 + 0.2), "30.0%");
   assert.equal(signedPercent(0.123), "+12.3%");
-  assert.equal(percent(Number.POSITIVE_INFINITY), "—");
+  assert.equal(percent(Number.POSITIVE_INFINITY), NO_VALUE);
 });
 
 run("holdings writes are scoped to the portfolio they were cleared for", () => {
@@ -5786,11 +5964,15 @@ run("workspace nav marks the current room and the skip link exists", () => {
   );
   // Marking where you are is the invariant; it is not an action, so it
   // must not wear the primary CTA fill and compete with the one real
-  // button in the bar. A raised secondary surface with primary text says
-  // "you are here" without shouting.
+  // button in the bar. It used to take primary text to say so. It does not
+  // any more, and that is the design note in DESIGN_TOKENS.md rather than
+  // a slip: the accent is either the full-lightness fill on a selected
+  // dock cell or nothing, and this is the one selected state that has to
+  // stay out of the header CTA's way. A raised neutral surface with
+  // foreground text says "you are here" quietly enough.
   assert.ok(/aria-current=\{active \? "page"/.test(switcher));
   assert.ok(/bg-selected/.test(switcher));
-  assert.ok(/text-primary/.test(switcher));
+  assert.ok(/text-foreground/.test(switcher));
   assert.ok(!/bg-primary text-primary-foreground/.test(switcher));
   assert.ok(!/bg-secondary/.test(switcher), "bg-secondary equals bg-muted; use the selected veil");
   assert.ok(!/bg-zinc-100 text-zinc-900/.test(switcher));
@@ -5816,10 +5998,19 @@ run("workspace nav marks the current room and the skip link exists", () => {
     join(process.cwd(), "src/components/BookModeDock.tsx"),
     "utf8"
   );
-  assert.ok(/sm:w-\[42rem\]/.test(dock));
+  /*
+   * Not a width. The well hugs its cells and centres itself, which is the
+   * whole reason `dock-stability.test.ts` exists: a cell that appears or
+   * disappears resizes the bar, so what must never happen is a cell count
+   * that depends on the page you are looking at. A fixed `sm:w-[42rem]`
+   * was the old shape and asserting it now would forbid the current one.
+   */
+  assert.match(dock, /mx-auto/);
   assert.match(dock, /stashOpenTab/);
   assert.match(dock, /\/\?tab=overview/);
-  assert.match(dock, /CircleDockLink/);
+  // Circle is a cell in the well like any other destination, not a
+  // separate link component beside it.
+  assert.match(dock, /useCircleHref/);
   assert.match(dock, /hover:text-foreground/);
   assert.doesNotMatch(dock, /hover:bg-accent/);
   const tabs = readFileSync(
@@ -5829,10 +6020,15 @@ run("workspace nav marks the current room and the skip link exists", () => {
   assert.match(tabs, /BookModeDock/);
   assert.match(tabs, /createPortal/);
   assert.match(tabs, /WORKSPACE_DOCK_SLOT_ID/);
-  assert.ok(
-    tabs.indexOf("BookModeDock") < tabs.indexOf("Sheets —"),
-    "Circle sits between the book modes and the sheets rail"
-  );
+  /*
+   * The rail this ordered the dock against is gone: `BookModeDock` draws
+   * the sections, the portfolios and Circle as one row of identical cells,
+   * which is what removed the two-halves-that-share-no-shape problem the
+   * comment at the top of that file describes. So what is left to hold is
+   * that the shell renders the dock and nothing else has grown back
+   * beside it.
+   */
+  assert.doesNotMatch(tabs, /Sheets\s*[—-]/);
   const community = readFileSync(
     join(process.cwd(), "src/components/CommunityView.tsx"),
     "utf8"
@@ -6116,7 +6312,7 @@ run("in-app feedback is a monthly walk-through and freeform when you open it", (
     change: null,
     changeNote: "",
   });
-  assert.equal(emptyRow, "—", "an unanswered question reads as a dash");
+  assert.equal(emptyRow, NO_VALUE, "an unanswered question reads as n/a");
   const letter = formatMonthlyFeedbackText({
     feel: "easy",
     helped: ["pulse", "forecast"],
@@ -6126,7 +6322,7 @@ run("in-app feedback is a monthly walk-through and freeform when you open it", (
   });
   assert.match(letter, /How the month felt: Easy to follow/);
   assert.match(letter, /What helped: Pulse, Forecast/);
-  assert.match(letter, /What got in the way: —/);
+  assert.match(letter, new RegExp(`What got in the way: ${NO_VALUE}`));
   assert.match(letter, /In their words: Send it earlier\./);
   assert.equal(parseManualFeedback({ topic: "Bug", body: "short" }).ok, false);
   assert.equal(
@@ -6262,11 +6458,19 @@ run("search, long-press, and keyboard timers abort on unmount", () => {
   );
   assert.ok(/ctrl\.abort\(\)/.test(search));
   assert.ok(/signal: ctrl\.signal/.test(search));
-  const tabs = readFileSync(
-    join(process.cwd(), "src/components/PortfolioTabs.tsx"),
-    "utf8"
-  );
-  assert.ok(/clearTimeout\(longPressRef\.current\)/.test(tabs));
+  /*
+   * The long-press timer this used to guard is gone rather than unguarded:
+   * the dock opens a portfolio's menu from a context-menu event, so there
+   * is no pending timeout to clear. Asserted as the absence, so that
+   * reintroducing a hand-rolled press timer without an unmount path fails
+   * here instead of leaking quietly.
+   */
+  for (const name of ["PortfolioTabs.tsx", "BookModeDock.tsx", "mobile/MobileTabBar.tsx"]) {
+    const src = readFileSync(join(process.cwd(), "src/components", name), "utf8");
+    if (/setTimeout\(/.test(src)) {
+      assert.ok(/useTimeout\(\)|clearTimeout\(/.test(src), name);
+    }
+  }
   const vv = readFileSync(
     join(process.cwd(), "src/lib/use-visual-viewport.ts"),
     "utf8"
@@ -6495,7 +6699,7 @@ run("legal pages name the operator and match the product", () => {
 
   assert.match(privacy, /today&apos;s prices, the names you hold, cash, and returns/);
   assert.match(privacy, /They do not see what you paid/);
-  assert.match(privacy, /Pulse, weekday notes/);
+  assert.match(privacy, /Pulse, the Sunday email/);
   assert.match(privacy, /screenshot/);
   assert.match(privacy, /Resend/);
   assert.match(privacy, /United States/);
@@ -6880,9 +7084,9 @@ run("every text box that can fail tells you what happened", () => {
    * pressed Enter and got no message, no spinner, and your text still
    * sitting there -- indistinguishable from the app being broken.
    *
-   * The onboarding modal gets the same interaction right, so it is the
-   * standard rather than an invention. Both are checked here so neither
-   * regresses back to silence.
+   * The walkthrough's own holdings box gets the same interaction right, so
+   * it is the standard rather than an invention. Both are checked here so
+   * neither regresses back to silence.
    */
   const watch = readFileSync(
     join(process.cwd(), "src/components/WatchlistStrip.tsx"),
@@ -6901,7 +7105,7 @@ run("every text box that can fail tells you what happened", () => {
   assert.match(watch, /Couldn't look that up just now/);
 
   const onboarding = readFileSync(
-    join(process.cwd(), "src/components/ExperienceOnboardingModal.tsx"),
+    join(process.cwd(), "src/components/WelcomeTour.tsx"),
     "utf8"
   );
   assert.match(onboarding, /setStockError\("Type a ticker or a company name\."\)/);
