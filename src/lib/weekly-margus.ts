@@ -56,6 +56,15 @@ function facts(r: WeeklyLetter): string {
       r.weekPct != null ? ` (${signedPct(r.weekPct)})` : ""
     }`
   );
+  if (r.weekPct != null) {
+    // The same fact in the unit a person actually feels. Given rather than
+    // asked for, so the letter never divides it wrong.
+    lines.push(
+      `Week change per $100 invested: ${currency(Math.abs(r.weekPct), 2)} ${
+        r.weekPct < 0 ? "lost" : "gained"
+      } out of every $100`
+    );
+  }
   if (r.cash !== 0) lines.push(`Cash in the portfolio: ${money(r.cash)}`);
   if (r.movers.length > 0) {
     lines.push("Moves this week:");
@@ -86,78 +95,109 @@ function facts(r: WeeklyLetter): string {
 
 const JOB = `This is the Sunday letter. It goes out once a week and it is the only email this person gets.
 
-Write exactly two short paragraphs, one blank line between them. No greeting, no sign-off, no subject line, no headings.
+Write four or five short paragraphs, one blank line between them. No greeting, no sign-off, no subject line, no headings.
 
-Paragraph one: how the week actually went. Lead with the dollar and percent. Name who did the work and who dragged, with cashtags. Name each cashtag at most once in the whole letter.
+Who is reading: someone who has never worked in finance and does not have the words for any of this. Picture a smart 75 year old with a cup of coffee. Every sentence has to land the first time it is read.
 
-Paragraph two: what to think about going into next week. If the facts list flagged something worth adding, trimming, or selling, say the thought behind it in your own words rather than repeating the flag. If the facts list has watchlist names that fell, you may mention one as something that got cheaper. If nothing needs doing, say so plainly and mean it: most weeks the right move is none.
+Paragraph one. What the week did, in money. Lead with the figure, then defuse it in the very next sentence by giving the same thing as dollars out of every $100 they had invested (the facts list has that number, use it as given). A big red figure left sitting on its own is the whole reason people dread this email.
 
-Keep it short. Eight sentences across both paragraphs is plenty. Write the way you would to a friend who is smart but does not work in finance: no jargon, no market slang, no words like sleeve, tape, conviction, dry powder, beta, drawdown, or rotation. Say the plain thing.
+Paragraph two. Where it came from. Name the one or two holdings that did most of the work, and the first time you name a company say what it actually does in three or four plain words: "Nvidia, which makes computer chips", "Rocket Lab, which builds rockets". Then give the honest reason it is or is not something to worry about. A name that had run a long way giving a little back is not the same thing as a name breaking.
 
-Never invent a number, a headline, or a name that is not in the facts. Never name a website or paste a link. Never say we, us, or our. Finish every sentence.`;
+Paragraph three. The other side of the week, if there is one: something that went the other way, what that company does, and whether it was big enough to change the total. If a small holding jumped, say plainly that a small holding jumping does not move much.
+
+Paragraph four. The one thing worth thinking about, if the facts list flagged one, and say out loud that it is the only one. Say the thought behind it in your own words, and say what deciding it would actually cost them, which is usually very little.
+
+Last paragraph. Permission to stop. Everything else can be left exactly as it is, and nothing needs doing. If the whole week needs nothing at all, say that plainly and end there.
+
+Rules, all of them non-negotiable:
+- Everyday company names, not cashtags: "Nvidia", not "$NVDA". If you do not know what a company does, use its name alone. If you do not know the name, use the ticker. Never invent a business or a fact about one.
+- Name each company at most once in the whole letter.
+- Short sentences. No word a grandmother would have to look up, and no market slang: no sleeve, tape, conviction, dry powder, beta, drawdown, rotation, exposure, allocation, volatility.
+- Never invent a number, a headline, or a name that is not in the facts. Never name a website or paste a link. Never say we, us, or our. Never write an instruction to buy or sell: say the thought, and leave the decision with the reader.
+- Finish every sentence.`;
 
 /** Two paragraphs from the numbers alone, when the model can't be reached. */
 export function fallbackWeeklyTake(r: WeeklyLetter): string {
   const best = r.movers.find((m) => m.pct > 0);
   const worst = [...r.movers].reverse().find((m) => m.pct < 0);
+  const paras: string[] = [];
 
-  const first: string[] = [];
+  /*
+   * Same shape as the prompt asks the model for: the figure, then the same
+   * figure as dollars per $100, then who did it, then the one decision,
+   * then permission to stop. This runs whenever the model is busy or down,
+   * and a reader should not be able to tell which one wrote their letter.
+   * It cannot name companies, only tickers, because nothing here knows
+   * what a company does and guessing is worse than a cashtag.
+   */
+  const per100 =
+    r.weekPct != null
+      ? ` That works out to about ${currency(Math.abs(r.weekPct), 2)} out of every $100 you had invested.`
+      : "";
+
   if (r.quiet) {
-    first.push(
-      `A quiet week. Your portfolio finished ${signedMoney(r.weekDollar)}${
-        r.weekPct != null ? `, ${signedPct(r.weekPct)}` : ""
-      }, which is close enough to flat that it barely counts as news.`
+    paras.push(
+      `This week your portfolio finished ${signedMoney(r.weekDollar)}, which is close enough to flat that it barely counts as news.${per100}`
+    );
+  } else if (r.weekDollar < 0) {
+    paras.push(
+      `This week your portfolio lost ${signedMoney(Math.abs(r.weekDollar)).replace("+", "")}.${per100}`
     );
   } else {
-    first.push(
-      `Your portfolio finished the week ${signedMoney(r.weekDollar)}${
-        r.weekPct != null ? `, ${signedPct(r.weekPct)}` : ""
-      }.`
+    paras.push(
+      `This week your portfolio gained ${signedMoney(Math.abs(r.weekDollar)).replace("+", "")}.${per100}`
     );
-    if (best) {
-      first.push(
-        `${cashtag(best.ticker)} did the most work, up ${signedPct(best.pct).replace("+", "")}.`
-      );
-    }
-    if (worst && worst.ticker !== best?.ticker) {
-      first.push(
-        `${cashtag(worst.ticker)} went the other way, down ${signedPct(worst.pct).replace("-", "")}.`
-      );
-    }
   }
 
-  const second: string[] = [];
+  const middle: string[] = [];
+  if (best) {
+    middle.push(
+      `${cashtag(best.ticker)} did the most work, up ${signedPct(best.pct).replace("+", "")}.`
+    );
+  }
+  if (worst && worst.ticker !== best?.ticker) {
+    middle.push(
+      `${cashtag(worst.ticker)} went the other way, down ${signedPct(worst.pct).replace("-", "")}.`
+    );
+  }
+  if (middle.length > 0) {
+    middle.push(
+      "A week either way is a week, not a change in why you own any of it."
+    );
+    paras.push(middle.join(" "));
+  }
+
   const sell = r.suggestions.find((s) => s.kind === "sell");
   const trim = r.suggestions.find((s) => s.kind === "trim");
   const add = r.suggestions.find((s) => s.kind === "add");
   if (sell) {
-    second.push(
-      `The one thing worth sitting with this week is ${cashtag(sell.ticker)}. The reason you bought it does not look like it still holds, and that is worth an honest answer rather than a shrug.`
+    paras.push(
+      `Looking ahead, there is really only one thing worth thinking about: ${cashtag(sell.ticker)}. You already decided the reason you bought it no longer holds, and it is small enough that settling it costs you very little either way.`
     );
   } else if (trim) {
-    second.push(
-      `${cashtag(trim.ticker)} has grown into a big share of what you own. That is a good problem, but it does mean one company is deciding a lot of your outcome.`
+    paras.push(
+      `Looking ahead, there is really only one thing worth thinking about: ${cashtag(trim.ticker)} has grown into a large share of what you own. That is a good problem, and it does mean one company now decides a lot of your result.`
     );
   } else if (add) {
-    second.push(
-      `${cashtag(add.ticker)} is still small in your portfolio and still doing what you hoped it would.`
+    paras.push(
+      `Looking ahead, there is really only one thing worth thinking about: ${cashtag(add.ticker)} is still a small part of what you own and still doing what you hoped it would.`
     );
-  }
-  const watch = r.watchBuys[0];
-  if (watch) {
-    second.push(
-      `${cashtag(watch.ticker)} on your watchlist is cheaper than it was on Monday, if you have been waiting for that.`
-    );
-  }
-  if (second.length === 0) {
-    second.push(
-      "Nothing here needs you to do anything. Most weeks are like that, and sitting still is a real decision, not a missed one."
-    );
-  } else {
-    second.push("Nothing here is urgent. Next Sunday is soon enough.");
   }
 
-  return `${first.join(" ")}\n\n${second.join(" ")}`;
+  const watch = r.watchBuys[0];
+  if (watch) {
+    paras.push(
+      `${cashtag(watch.ticker)}, which you have been watching, is cheaper than it was last Sunday, if that is something you were waiting for.`
+    );
+  }
+
+  paras.push(
+    paras.length > 1
+      ? "Everything else can stay exactly as it is. Nothing here needs you to do anything today."
+      : "Nothing here needs you to do anything. Most weeks are like that, and sitting still is a real decision, not a missed one."
+  );
+
+  return paras.join("\n\n");
 }
 
 function accept(text: string): string | null {
@@ -165,8 +205,9 @@ function accept(text: string): string | null {
   if (!clean) return null;
   if (looksLikePromptLeak(clean)) return null;
   const paras = clean.split(/\n{2,}/).filter(Boolean);
-  if (paras.length < 1 || paras.length > 3) return null;
-  if (clean.length < 80 || clean.length > 1600) return null;
+  // Four or five short paragraphs is the shape now, not two.
+  if (paras.length < 2 || paras.length > 6) return null;
+  if (clean.length < 80 || clean.length > 2200) return null;
   if (!/[.!?]["')\]]?$/.test(clean)) return null;
   return clean;
 }

@@ -80,7 +80,6 @@ describe("every figure carries its thousands separator", () => {
     // The preview is what a phone shows in the inbox list, and it is where
     // the ungrouped figure was spotted.
     expect(weeklySubject(r)).toContain("$6,650");
-    expect(weeklyPreview(r)).toContain("$6\u00a0650");
     expect(weeklyLetterHtml(r)).toContain("$6,650");
   });
 
@@ -156,18 +155,19 @@ describe("nothing a reader sees carries an em dash", () => {
 });
 
 describe("the preview survives Gmail's snippet pass", () => {
-  it("separates thousands with a no-break space, not a comma", () => {
-    // Gmail drops separators inside a number when it builds the inbox
-    // snippet, so the one line that shows there cannot use a comma.
+  it("leads with the percent, which has no separator to lose", () => {
+    // Gmail strips the separators inside a number when it builds the inbox
+    // snippet, and there is no way to stop it. So the line it rewrites does
+    // not carry a grouped figure at all.
     const preview = weeklyPreview(letter());
-    expect(preview).toContain("$6\u00a0650");
-    expect(preview).not.toContain("$6,650");
-    expect(preview).not.toMatch(/[$€£]\d{4,}/);
+    expect(preview).toMatch(/^[+-]\d+\.\d% this week\./);
+    expect(preview).not.toMatch(/\d{4,}/);
   });
 
-  it("leaves the subject and the body on commas", () => {
+  it("keeps the English comma in the subject and the body", () => {
     expect(weeklySubject(letter())).toContain("$6,650");
     expect(weeklyLetterHtml(letter())).toContain("$6,650");
+    expect(weeklyLetterText(letter())).toContain("$6,650");
   });
 });
 

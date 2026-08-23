@@ -13,7 +13,7 @@
  */
 
 import { cashtag, currency, signedCurrency, signedPercent } from "@/lib/format";
-import { groupMoneyInText, previewMoneySeparators } from "@/lib/money-text";
+import { groupMoneyInText } from "@/lib/money-text";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { statusLabel } from "@/lib/thesis-pulse";
 import {
@@ -456,12 +456,23 @@ export function weeklySubject(r: WeeklyLetter): string {
   return groupMoneyInText(`Your week: ${r.subjectHook}, ${r.shortDate}`);
 }
 
+/**
+ * The line under the subject in an inbox list.
+ *
+ * It leads with the percent, not the dollars, and that is deliberate:
+ * Gmail rebuilds this line with its own text pass which strips the
+ * separators inside a number, so mail that says `-$27,357 this week`
+ * appeared as `-$27357`. A percent has no separator to lose. The dollar
+ * figure is in the subject directly above it, where Gmail renders the
+ * comma correctly, so this reads as the second half of that sentence
+ * rather than a repeat of it.
+ */
 export function weeklyPreview(r: WeeklyLetter): string {
-  // This is the line under the subject in an inbox list, so it is the one
-  // string whose separators have to survive Gmail's snippet pass.
-  return previewMoneySeparators(
-    `${signedMoney(r.weekDollar)} this week. ${r.opening}`
-  );
+  const move =
+    r.weekPct != null
+      ? `${signedPct(r.weekPct)} this week.`
+      : `${signedMoney(r.weekDollar)} this week.`;
+  return groupMoneyInText(`${move} ${r.opening}`);
 }
 
 /* ------------------------------------------------------------ plain text */
@@ -586,18 +597,58 @@ function block(title: string, inner: string): string {
 </table>`;
 }
 
+/** Widest a single bar may grow, each side of the centre line. */
+const BAR_MAX = 116;
+/** Even the smallest move shows something, or the row reads as broken. */
+const BAR_MIN = 6;
+/** Bar and track height. */
+const BAR_H = 8;
+
+/**
+ * The week's move as a bar, growing out from a centre line: gains to the
+ * right, losses to the left, every bar scaled against the biggest move in
+ * the table.
+ *
+ * The two columns of figures left a wide empty channel down the middle of
+ * What moved, and the section is about magnitude, so the space is where
+ * the magnitude goes. Tables and background colours only: a `div` with a
+ * width is not something every mail client will draw.
+ */
+function moveBar(pct: number, maxAbs: number): string {
+  const share = maxAbs > 0 ? Math.abs(pct) / maxAbs : 0;
+  const width = Math.max(BAR_MIN, Math.round(BAR_MAX * share));
+  const color = toneColor(pct);
+  const fill = `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr><td width="${width}" height="${BAR_H}" bgcolor="${color}" style="width:${width}px;height:${BAR_H}px;background:${color};border-radius:${BAR_H / 2}px;font-size:0;line-height:0">&nbsp;</td></tr></table>`;
+  const empty = `<table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="1" height="${BAR_H}" style="height:${BAR_H}px;font-size:0;line-height:0">&nbsp;</td></tr></table>`;
+  /*
+   * The grey track runs the full width of the channel and the coloured
+   * fill paints over its own end of it. Two cells rather than a layer,
+   * because email has no z-order: the track is the cell's own background
+   * and the fill is a table sitting in it.
+   */
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">
+  <tr>
+    <td width="50%" align="right" bgcolor="${EMAIL.well}" style="width:50%;height:${BAR_H}px;background:${EMAIL.well};border-radius:${BAR_H / 2}px 0 0 ${BAR_H / 2}px">${pct < 0 ? fill : empty}</td>
+    <td width="2" height="${BAR_H + 8}" bgcolor="${EMAIL.muted}" style="width:2px;min-width:2px;height:${BAR_H + 8}px;background:${EMAIL.muted};font-size:0;line-height:0"><div style="width:2px;height:${BAR_H + 8}px;background:${EMAIL.muted};font-size:0;line-height:0">&nbsp;</div></td>
+    <td width="50%" align="left" bgcolor="${EMAIL.well}" style="width:50%;height:${BAR_H}px;background:${EMAIL.well};border-radius:0 ${BAR_H / 2}px ${BAR_H / 2}px 0">${pct > 0 ? fill : empty}</td>
+  </tr>
+</table>`;
+}
+
 function moversTable(movers: WeeklyMover[]): string {
+  const maxAbs = Math.max(...movers.map((m) => Math.abs(m.pct)), 0);
   const rows = movers
     .map((m, i) => {
       const c = toneColor(m.pct);
       const border =
         i === movers.length - 1 ? "none" : `1px solid ${EMAIL.line}`;
       return `<tr>
-  <td style="padding:${ROW_PAD}px 12px ${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle">
+  <td style="padding:${ROW_PAD}px 10px ${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle">
     <p style="margin:0;font-family:${EMAIL.sans};font-size:15px;line-height:1.25;font-weight:600;color:${EMAIL.cream}">${escapeEmail(cashtag(m.ticker))}</p>
     <p style="margin:2px 0 0 0;font-family:${EMAIL.mono};font-size:13px;line-height:1.25;color:${EMAIL.muted}">${escapeEmail(priceMoney(m.price))}</p>
   </td>
-  <td style="padding:${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;text-align:right">
+  <td width="100%" style="padding:${ROW_PAD}px 14px;border-bottom:${border};vertical-align:middle">${moveBar(m.pct, maxAbs)}</td>
+  <td style="padding:${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;text-align:right;white-space:nowrap">
     <p style="margin:0;font-family:${EMAIL.mono};font-size:15px;line-height:1.25;font-weight:600;color:${c}">${escapeEmail(signedPct(m.pct))}</p>
     <p style="margin:2px 0 0 0;font-family:${EMAIL.mono};font-size:13px;line-height:1.25;color:${c}">${escapeEmail(signedMoney(m.dollar))}</p>
   </td>
