@@ -711,10 +711,22 @@ function block(title: string, inner: string): string {
 </table>`;
 }
 
-/** Widest a single bar may grow, each side of the centre line. */
-const BAR_MAX = 116;
+/*
+ * The bar is a share of its own half of the channel, not a pixel width.
+ *
+ * It used to be a fixed 116px inside a track that is a percentage, which
+ * is fine at the 560px the letter is designed for -- 116 of a 173px half
+ * -- and wrong on a phone, where that half measures 81px and the biggest
+ * move ran edge to edge. A percentage scales with whatever width the
+ * client gives us.
+ *
+ * The ceiling is deliberately short of the full half so the biggest move
+ * in a table still stops before the end: a bar that touches the edge reads
+ * as clipped rather than as the largest one.
+ */
+const BAR_MAX_PCT = 88;
 /** Even the smallest move shows something, or the row reads as broken. */
-const BAR_MIN = 6;
+const BAR_MIN_PCT = 8;
 /** Bar and track height. */
 const BAR_H = 8;
 
@@ -730,9 +742,9 @@ const BAR_H = 8;
  */
 function moveBar(pct: number, maxAbs: number): string {
   const share = maxAbs > 0 ? Math.abs(pct) / maxAbs : 0;
-  const width = Math.max(BAR_MIN, Math.round(BAR_MAX * share));
+  const width = Math.max(BAR_MIN_PCT, Math.round(BAR_MAX_PCT * share));
   const color = toneColor(pct);
-  const fill = `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr><td width="${width}" height="${BAR_H}" bgcolor="${color}" style="width:${width}px;height:${BAR_H}px;background:${color};border-radius:${BAR_H / 2}px;font-size:0;line-height:0">&nbsp;</td></tr></table>`;
+  const fill = `<table role="presentation" width="${width}%" cellpadding="0" cellspacing="0" style="width:${width}%;border-collapse:collapse"><tr><td height="${BAR_H}" bgcolor="${color}" style="height:${BAR_H}px;min-width:6px;background:${color};border-radius:${BAR_H / 2}px;font-size:0;line-height:0">&nbsp;</td></tr></table>`;
   const empty = `<table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="1" height="${BAR_H}" style="height:${BAR_H}px;font-size:0;line-height:0">&nbsp;</td></tr></table>`;
   /*
    * The grey track runs the full width of the channel and the coloured

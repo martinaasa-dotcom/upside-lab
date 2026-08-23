@@ -274,3 +274,31 @@ describe("a figure the letter cannot stand behind is not sent", () => {
     expect(r.watchRows.map((w) => w.ticker)).toEqual(["CCC"]);
   });
 });
+
+describe("the move bar scales with the client's width", () => {
+  /*
+   * The fill was a fixed 116px inside a track that is a percentage. At the
+   * 560px the letter is designed for that is 116 of a 173px half; on a
+   * phone the same half measures 81px and the biggest move ran edge to
+   * edge, reading as clipped rather than as the largest bar.
+   */
+  const fillWidths = (html: string) =>
+    [
+      ...html.matchAll(
+        /width="(\d+)%"[^>]*><tr><td height="8" bgcolor="#(?:00bc7d|ff2056)"/g
+      ),
+    ].map((m) => Number(m[1]));
+
+  it("sizes every bar as a share of its own half, never in pixels", () => {
+    const fills = fillWidths(weeklyLetterHtml(letter()));
+    expect(fills.length).toBeGreaterThan(0);
+    for (const f of fills) {
+      expect(f).toBeGreaterThanOrEqual(8);
+      expect(f).toBeLessThanOrEqual(88);
+    }
+  });
+
+  it("gives the biggest move in the table the widest bar, short of the end", () => {
+    expect(Math.max(...fillWidths(weeklyLetterHtml(letter())))).toBe(88);
+  });
+});
