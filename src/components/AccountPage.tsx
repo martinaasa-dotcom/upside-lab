@@ -3,6 +3,7 @@
 import { useAuth } from "@/components/AuthProvider";
 import { AppHeader } from "@/components/AppHeader";
 import { useFeedback } from "@/components/FeedbackHost";
+import { SignInAddresses } from "@/components/SignInAddresses";
 import { SignInGate } from "@/components/SignInGate";
 import { MobileDock } from "@/components/mobile/MobileDock";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
@@ -557,6 +558,9 @@ export function AccountPage() {
               </Button>
             </form>
           </Panel>
+
+          {/* Every mailbox that reaches this one account. */}
+          <SignInAddresses />
 
           {/* Experience level */}
           <Panel>

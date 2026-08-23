@@ -80,6 +80,20 @@ export const experienceTierPostSchema = z.looseObject({
   tourVersion: z.number().int().min(0).max(999).optional(),
 });
 
+/**
+ * Adding another address that opens this account. `confirmed` is the reader
+ * answering a "did you mean" question, so the address they typed goes through
+ * as it stands rather than being corrected for them.
+ */
+export const accountAddressPostSchema = z.looseObject({
+  email: z.string().max(254),
+  confirmed: z.boolean().optional(),
+});
+
+export const accountAddressDeleteSchema = z.looseObject({
+  id: z.string().uuid(),
+});
+
 export const weeklyNotePostSchema = z.looseObject({
   enabled: z.boolean().optional(),
   sunday: z.boolean().optional(),

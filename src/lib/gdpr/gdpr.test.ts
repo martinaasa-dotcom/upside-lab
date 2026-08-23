@@ -68,6 +68,14 @@ function makeExport(): UserDataExport {
     community_invite_uses: [
       { invite_id: "inv1", used_at: "2026-08-01T00:00:00.000Z" },
     ],
+    account_emails: [
+      {
+        id: "ae1",
+        email: "second@gmail.com",
+        verified_at: "2026-08-02T00:00:00.000Z",
+        created_at: "2026-08-01T00:00:00.000Z",
+      },
+    ],
   };
 }
 
@@ -166,6 +174,20 @@ describe("session storage keep list", () => {
     const csv = toExportCsv(dump);
     expect(csv).toContain("portfolio_co_owners");
     expect(csv).toContain("account_aliases");
+  });
+
+  it("carries the other addresses that open the account, and no token digest", () => {
+    const dump = makeExport();
+    expect(dump.account_emails).toBeDefined();
+
+    const csv = toExportCsv(dump);
+    expect(csv).toContain("account_emails");
+    /*
+      A pending confirmation's digest is a credential, and an export is a file
+      people mail to themselves. The column is never selected; this fails if
+      somebody widens that select to `*`.
+    */
+    expect(JSON.stringify(dump.account_emails)).not.toContain("token_hash");
   });
 
 });
