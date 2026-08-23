@@ -185,10 +185,45 @@
    * `--ambient-cool`'s, so the panes pick up the two lights the room
    * already has rather than introducing a third.
    */
-  --glass-rim-top: oklch(0.99 0.035 85 / 56%);
-  --glass-rim-bottom: oklch(0.95 0.045 250 / 32%);
-  --glass-rim-left: oklch(1 0 0 / 19%);
-  --glass-rim-right: oklch(1 0 0 / 10%);
+  --glass-rim-top: oklch(0.99 0.035 85 / 38%);
+  --glass-rim-bottom: oklch(0.95 0.045 250 / 22%);
+  --glass-rim-left: oklch(1 0 0 / 15%);
+  --glass-rim-right: oklch(1 0 0 / 7%);
+  --glass-rim-ring: oklch(1 0 0 / 8.5%);
+  /*
+   * The body is a WHITE VEIL, not a tinted card, and it is 2%.
+   *
+   * Two separate findings, both measured on real surfaces over the real
+   * field, both of which the old `color-mix(--card, transparent 55%)` got
+   * wrong.
+   *
+   * One: a tinted fill leaves a hue behind. `--card` is a bluish neutral,
+   * and thinned over a warm field it lands on violet-grey. That is the
+   * mauve cast that showed up on a holdings panel. White has no hue to
+   * leave, so the material can never tint what is behind it.
+   *
+   * Two: the veil's ALPHA is what sets the black floor, and 55% card was
+   * lifting a pane nine luminance levels out of 255 above the field beside
+   * it. A pane whose blacks are grey is a card, not glass. At 2% the lift
+   * measures -0.1: the black inside a pane is the black of the room.
+   *
+   * `--glass-contrast` is the second lever and is not optional. Contrast
+   * pivots on mid-grey, so it leaves true black alone, but this field is
+   * not true black: it carries the ambient lobes at about five levels, and
+   * without a contrast term those get lifted six levels by the pane.
+   * Measured: 1.00 -> +6.1, 1.02 -> +3.1, 1.05 -> +0.1.
+   *
+   * Saturation is free. 1.75 and 2.40 measure identically on black lift,
+   * so richness costs nothing here.
+   */
+  --glass-veil: oklch(1 0 0 / 2%);
+  --glass-veil-well: oklch(1 0 0 / 3%);
+  --glass-veil-chip: oklch(1 0 0 / 4.5%);
+  --glass-blur: 6px;
+  --glass-blur-well: 5px;
+  --glass-sat: 1.75;
+  --glass-bright: 1.13;
+  --glass-contrast: 1.05;
   /*
    * There is no falloff term, and there must not be one.
    *
@@ -214,8 +249,9 @@
   --glass-contact: oklch(0 0 0 / 55%);
   --glass-cast: oklch(0 0 0 / 80%);
   /* The nested well is the same material, quieter on every term. */
-  --well-rim-top: oklch(0.99 0.03 85 / 28%);
-  --well-rim-bottom: oklch(0.95 0.04 250 / 16%);
+  --well-rim-top: oklch(0.99 0.03 85 / 15%);
+  --well-rim-bottom: oklch(1 0 0 / 5%);
+  --well-rim-ring: oklch(1 0 0 / 5.5%);
   --surface: var(--card);
   --panel: var(--card);
   --inset-panel: 1.5rem;
@@ -459,10 +495,7 @@ body {
    * later one replace the other.
    */
   .glass {
-    /* 38%, not 48%. The old value was tuned to compensate for a blur that
-     * never ran on Blink; with the blur working and the field brighter, a
-     * touch more opacity keeps text off the light without hiding it. */
-    background-color: color-mix(in oklch, var(--card), transparent 55%);
+    background-color: var(--glass-veil);
     /*
      * Standard property LAST, prefixed first. Written the other way round,
      * the CSS transform collapsed the pair and emitted only
@@ -474,10 +507,12 @@ body {
      * Keep this order, and verify against the *compiled* bundle rather
      * than this file — the bug was invisible in source.
      */
-    -webkit-backdrop-filter: blur(40px) saturate(1.9);
-    backdrop-filter: blur(40px) saturate(1.9);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
     box-shadow:
-      inset 0 0 0 1px var(--border),
+      inset 0 0 0 1px var(--glass-rim-ring),
       0 12px 32px -16px color-mix(in oklch, black, transparent 15%);
   }
   .card-sheen.glass {
@@ -501,7 +536,7 @@ body {
       inset 1px 0 0 0 var(--glass-rim-left),
       inset -1px 0 0 0 var(--glass-rim-right),
       inset 0 -1px 0 0 var(--glass-rim-bottom),
-      inset 0 0 0 1px var(--border),
+      inset 0 0 0 1px var(--glass-rim-ring),
       0 2px 5px -3px var(--glass-contact),
       0 18px 44px -20px var(--glass-cast);
   }
@@ -678,20 +713,43 @@ body {
    * across the top and a dark smear through the middle. The light belongs
    * on the rim.
    */
+  /*
+   * An overlay is the one surface that keeps a heavy fill.
+   *
+   * Everywhere else the body is a 2% white veil, because there is only the
+   * ambient field behind it and the point is to let the black through. A
+   * dialog sits over *content*: a table of figures a person is trying not
+   * to read while they answer a question. So this stays mostly opaque and
+   * blurs far harder than a panel, which is also the one place in the app
+   * where a heavy blur earns its keep, because there is finally structure
+   * behind the glass to soften.
+   *
+   * It still takes the rim and the contrast lever, so it belongs to the
+   * same material rather than being a grey box that happens to float.
+   */
   .glass-overlay {
-    background-color: color-mix(in oklch, var(--popover), transparent 12%);
+    background-color: color-mix(in oklch, var(--popover), transparent 22%);
     /* Prefixed first, standard last — see the note on `.glass` above. */
-    -webkit-backdrop-filter: blur(32px) saturate(1.8);
-    backdrop-filter: blur(32px) saturate(1.8);
+    -webkit-backdrop-filter: blur(18px) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+    backdrop-filter: blur(18px) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+    box-shadow:
+      inset 0 1px 0 0 var(--glass-rim-top),
+      inset 0 -1px 0 0 var(--glass-rim-bottom),
+      inset 0 0 0 1px var(--glass-rim-ring),
+      0 2px 6px -2px var(--glass-contact),
+      0 28px 62px -24px var(--glass-cast);
   }
 
   .glass-well {
-    background-color: color-mix(in oklch, var(--muted), transparent 64%);
+    background-color: var(--glass-veil-well);
     /* Prefixed first, standard last — see the note on `.glass` above. */
-    -webkit-backdrop-filter: blur(24px) saturate(1.7);
-    backdrop-filter: blur(24px) saturate(1.7);
-    box-shadow:
-      inset 0 0 0 1px color-mix(in oklch, var(--border), transparent 35%);
+    -webkit-backdrop-filter: blur(var(--glass-blur-well)) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+    backdrop-filter: blur(var(--glass-blur-well)) saturate(var(--glass-sat))
+      brightness(var(--glass-bright)) contrast(var(--glass-contrast));
+    box-shadow: inset 0 0 0 1px var(--well-rim-ring);
   }
   /*
    * The same rim as a top-level pane and quieter on every term, because a
@@ -699,11 +757,19 @@ body {
    * still gets the warm top and the cool underside: a well that goes
    * neutral inside a warm-topped panel reads as a hole cut in it.
    */
+  /*
+   * A well is a pane in its own right, not a grey box sitting on one. It
+   * takes a slightly heavier veil than the panel around it so it still
+   * separates, stays translucent enough that whatever is behind reads
+   * through it, and carries the softest rim in the system, because forty
+   * of these in a holdings table must not add up to a texture.
+   */
   .card-sheen.glass-well {
     box-shadow:
       inset 0 1px 0 0 var(--well-rim-top),
       inset 0 -1px 0 0 var(--well-rim-bottom),
-      inset 0 0 0 1px color-mix(in oklch, var(--border), transparent 35%);
+      inset 0 0 0 1px var(--well-rim-ring),
+      0 1px 1px 0 oklch(0 0 0 / 34%);
   }
 
   /*
@@ -731,26 +797,22 @@ body {
      * 44px falloff on a short card covers most of it and stops reading as
      * a top edge at all.
      */
-    .glass {
-      background-color: color-mix(in oklch, var(--card), transparent 66%);
-      -webkit-backdrop-filter: blur(30px) saturate(2.2);
-      backdrop-filter: blur(30px) saturate(2.2);
-    }
-    .glass-well {
-      background-color: color-mix(in oklch, var(--muted), transparent 74%);
-      -webkit-backdrop-filter: blur(20px) saturate(2);
-      backdrop-filter: blur(20px) saturate(2);
-    }
+    /*
+     * A phone panel runs gutter to gutter, so there is far less bare field
+     * left for the corner lights to show in. The veil stays where it is,
+     * because the veil is what holds the black; the rim goes up instead.
+     */
     .glass,
     .glass-well,
     .card-sheen.glass,
     .card-sheen.glass-well {
-      --glass-rim-top: oklch(0.99 0.035 85 / 64%);
-      --glass-rim-bottom: oklch(0.95 0.045 250 / 36%);
-      --glass-rim-left: oklch(1 0 0 / 22%);
-      --glass-rim-right: oklch(1 0 0 / 12%);
-      --well-rim-top: oklch(0.99 0.03 85 / 34%);
-      --well-rim-bottom: oklch(0.95 0.04 250 / 20%);
+      --glass-rim-top: oklch(0.99 0.035 85 / 46%);
+      --glass-rim-bottom: oklch(0.95 0.045 250 / 26%);
+      --glass-rim-left: oklch(1 0 0 / 18%);
+      --glass-rim-right: oklch(1 0 0 / 9%);
+      --glass-rim-ring: oklch(1 0 0 / 11%);
+      --well-rim-top: oklch(0.99 0.03 85 / 20%);
+      --well-rim-ring: oklch(1 0 0 / 7%);
     }
   }
 }
