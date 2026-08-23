@@ -29,7 +29,7 @@ import {
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
 import { cn } from "@/lib/format";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
-import { PRODUCT_SUPPORT_EMAIL } from "@/lib/product";
+import { PRODUCT_NAME, PRODUCT_SUPPORT_EMAIL } from "@/lib/product";
 import {
   ANALYTICS_CONSENT_EVENT,
   loadAnalyticsConsent,
@@ -51,11 +51,13 @@ import {
   saveStoredTier,
   type ExperienceTier,
 } from "@/lib/experience-tier";
+import { requestWelcomeTour } from "@/lib/welcome-tour";
 import { track } from "@vercel/analytics";
 import { postJsonOrQueue } from "@/lib/offline/queued-fetch";
 import {
   AlertTriangle,
   Check,
+  Compass,
   Download,
   Gauge,
   Link2,
@@ -347,9 +349,27 @@ export function AccountPage() {
           </Panel>
 
           <Panel>
-            <PanelHeader title="Help" />
+            <PanelHeader
+              icon={<Compass className="h-4 w-4" />}
+              title="Help"
+              subtitle={`What ${PRODUCT_NAME} is, where everything lives, and what none of it is.`}
+              actions={
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    track("welcome_tour_replayed");
+                    requestWelcomeTour();
+                  }}
+                >
+                  Show me around
+                </Button>
+              }
+            />
             <p className="text-sm text-muted-foreground">
-              A question about the app, not a data request. Mail{" "}
+              The walkthrough is the same one you got on your first visit, and
+              you can leave it at any point. For anything it does not answer —
+              a question about the app, not a data request — mail{" "}
               <a
                 href={`mailto:${PRODUCT_SUPPORT_EMAIL}`}
                 className="underline hover:text-foreground"

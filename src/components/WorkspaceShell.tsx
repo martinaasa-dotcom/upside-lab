@@ -4,7 +4,7 @@ import {
   loadCommunityListCache,
   prefetchCommunityList,
 } from "@/lib/community-cache";
-import { ExperienceOnboardingGate } from "@/components/ExperienceOnboardingGate";
+import { WelcomeTourGate } from "@/components/WelcomeTourGate";
 import {
   WORKSPACE_SHOW_EVENT,
   WORKSPACE_DOCK_SLOT_ID,
@@ -174,7 +174,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         </Room>
       )}
       <div id={WORKSPACE_DOCK_SLOT_ID} />
-      <ExperienceOnboardingGate />
+      <WelcomeTourGate />
     </>
   );
 }
