@@ -17,7 +17,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/format";
 import {
   CheckCircle2,
-  ChevronDown,
   ClipboardList,
   FileSpreadsheet,
   ImageUp,
@@ -26,12 +25,10 @@ import {
   Users,
 } from "lucide-react";
 import {
-  PRODUCT_SENTENCE,
   PRODUCT_SUPPORT_EMAIL,
   SIGNIN_PRICE,
   SIGNIN_PRICE_NOTE,
   SIGNIN_TRUST,
-  SIGNIN_WHO,
 } from "@/lib/product";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -135,17 +132,19 @@ function Section({
 }) {
   return (
     /*
-     * 56px, 80px from `sm`. Not the 80/112 this started at.
+     * 48px, 64px from `sm`, so two adjacent sections put 128px between
+     * them on a desktop. It started at 80/112, which is 224px.
      *
-     * Generous spacing is what makes a product page feel calm, but these
-     * sections are short: an eyebrow, a line, and a row of three cards.
-     * At the larger step the gap between one section's last card and the
-     * next section's eyebrow measured about 235px of unbroken black, which
-     * does not read as room to breathe. It reads as a page that has run
-     * out. The rule is that the space between sections should be smaller
-     * than the sections themselves, and at 112 it was not.
+     * Generous spacing is what makes a product page feel calm, and the
+     * mistake is reading that as "more is better". What actually reads as
+     * calm is the ratio: the space between sections has to be clearly
+     * smaller than the sections it separates. These sections are short, an
+     * eyebrow and a line and a row of three cards, roughly 250px tall. At
+     * 224px of gap the page was very nearly half emptiness and every
+     * measured void between two rows of cards read as the page having run
+     * out rather than breathing.
      */
-    <section className={cn("px-6 py-14 sm:py-20", className)}>
+    <section className={cn("px-6 py-12 sm:py-16", className)}>
       <div className="mx-auto w-full min-w-0 max-w-5xl">{children}</div>
     </section>
   );
@@ -262,145 +261,7 @@ function LegalLine({ minAge }: { minAge: number }) {
 
 /* ------------------------------------------------------------------ hero */
 
-/**
- * Sized so the next section's top edge is visible on a laptop.
- *
- * `min-h` on the content rather than `h-dvh` on the section: a hero that is
- * exactly one viewport tall reads as the whole page, and the single most
- * common way a landing page loses a reader is by looking finished. Leaving
- * roughly a section's shoulder showing under the fold is what a scroll
- * indicator is really for; the chevron underneath only names it.
- */
-function Hero({ busy, err, onSignIn, notice }: HeroProps) {
-  return (
-    <section className="px-6 pb-16 pt-[max(3rem,env(safe-area-inset-top))] sm:pb-20">
-      <div className="mx-auto w-full min-w-0 max-w-5xl">
-        <div className="signin-rise grid items-center gap-10 md:grid-cols-[minmax(0,30rem)_minmax(0,22rem)] md:gap-12 lg:gap-16">
-          <div className="flex flex-col items-center text-center md:items-start md:text-left">
-            <UpsideLogo variant="icon" className="signin-rise-1 text-lg" />
 
-            {notice}
-
-            <div className="flex flex-col signin-rise-2 mt-9 gap-5">
-              <h1>
-                {/*
-                  * The one place in the app that gets a display size. It is
-                  * the first sentence anybody reads and it has to carry the
-                  * page on its own, so it steps up from the `text-2xl` the
-                  * scale gives every other h1. On a child span, per the
-                  * heading-scale rule.
-                  */}
-                <span className="block max-w-lg text-balance font-heading text-3xl font-semibold leading-[1.12] tracking-[-0.035em] text-foreground sm:text-4xl">
-                  {PRODUCT_SENTENCE}
-                </span>
-              </h1>
-              <p className="max-w-md text-lg leading-relaxed text-muted-foreground">
-                {SIGNIN_WHO}
-              </p>
-            </div>
-
-            <div className="signin-rise-3 mt-9 flex w-full flex-col items-center gap-4 md:items-start">
-              <SignInButton busy={busy} onSignIn={onSignIn} />
-              <p className="text-sm text-muted-foreground">
-                {SIGNIN_PRICE}
-              </p>
-            </div>
-
-            {err && (
-              <p className="mt-4 text-sm text-loss" role="alert">
-                {err}
-              </p>
-            )}
-          </div>
-
-          <BookStill />
-        </div>
-
-        {/*
-          * A hint, not a control. It is `aria-hidden` and not focusable
-          * because it does nothing a scroll wheel or a Tab key does not
-          * already do, and a button that only scrolls is a keyboard trap
-          * with extra steps.
-          */}
-        <div
-          className="signin-rise-4 mt-14 flex justify-center sm:mt-16"
-          aria-hidden
-        >
-          <span className="flex flex-col items-center gap-1.5 text-muted-foreground">
-            <span className="font-mono text-[11px] uppercase tracking-[0.18em]">
-              What it does
-            </span>
-            <ChevronDown className="size-4 landing-nudge" />
-          </span>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/** Compact sample of a day that moved. Not a full-size Home panel. */
-function BookStill() {
-  return (
-    <div className="relative md:-rotate-1 md:transition-transform md:duration-700 md:hover:rotate-0">
-      <div
-        className="pointer-events-none absolute -inset-2 -z-10 rounded-[2.5rem] bg-gradient-to-br from-primary/12 to-transparent opacity-70 blur-2xl"
-        aria-hidden
-      />
-      <Panel
-        className="signin-rise-3 h-auto gap-4 p-4 relative overflow-hidden shadow-2xl shadow-black/60 ring-1 ring-primary/15"
-        aria-hidden
-      >
-        <div className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-2">
-            <span className="signin-live-dot" aria-hidden />
-            <MicroLabel>Today&apos;s briefing</MicroLabel>
-          </span>
-          <Pill tone="neutral">Sample</Pill>
-        </div>
-
-        <div>
-          <MicroLabel>Portfolio</MicroLabel>
-          <p className="mt-1 font-sans text-2xl font-bold tabular-nums text-foreground">
-            $91,400
-          </p>
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            <span className="rounded-md bg-gain/15 px-2 py-1 text-sm font-semibold tabular-nums text-gain">
-              Today +$4,180
-            </span>
-            <span className="rounded-md bg-muted px-2 py-1 text-sm font-semibold tabular-nums text-gain">
-              All time +18%
-            </span>
-          </div>
-        </div>
-
-        <div className="divide-y divide-border/60 overflow-hidden rounded-lg glass-well">
-          {SAMPLE_MOVERS.map((row) => (
-            <div key={row.ticker} className="flex h-10 items-center gap-3 px-3">
-              <span className="flex-1 font-heading text-sm font-semibold text-foreground">
-                ${row.ticker}
-              </span>
-              <span
-                className={cn(
-                  "w-14 text-right font-mono text-sm font-medium tabular-nums",
-                  row.up ? "text-gain" : "text-loss"
-                )}
-              >
-                {row.pct}
-              </span>
-              <span className="w-16 text-right font-mono text-sm tabular-nums text-muted-foreground">
-                {row.dollar}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <Reading nested label="Worth noticing">
-          <InsightText text="$RKLB rose 6.8% today while Amazon and Microsoft barely moved. When one name climbs on its own, the question is whether something changed at the company, or whether the price just ran ahead of itself." />
-        </Reading>
-      </Panel>
-    </div>
-  );
-}
 
 const SAMPLE_MOVERS = [
   { ticker: "RKLB", pct: "+6.8%", dollar: "+$3,640", up: true },
@@ -463,39 +324,6 @@ function WaysIn() {
   );
 }
 
-/**
- * Copy on one side, the real interface on the other, alternating.
- *
- * `flip` swaps the columns from `md` up. Below that both stack with the
- * copy first, always, because on a phone the picture explains nothing
- * until the sentence above it has said what it is.
- */
-function Feature({
-  eyebrow,
-  title,
-  detail,
-  visual,
-  flip = false,
-}: {
-  eyebrow: string;
-  title: string;
-  detail: string;
-  visual: ReactNode;
-  flip?: boolean;
-}) {
-  return (
-    <Section>
-      <div className="grid items-center gap-10 md:grid-cols-2 md:gap-14">
-        <Reveal className={cn(flip && "md:order-2")}>
-          <SectionHead eyebrow={eyebrow} title={title} detail={detail} />
-        </Reveal>
-        <Reveal delayMs={80} className={cn(flip && "md:order-1")}>
-          {visual}
-        </Reveal>
-      </div>
-    </Section>
-  );
-}
 
 /** A Pulse verdict, drawn the way the real one is. */
 function PulseStill() {
@@ -703,7 +531,17 @@ function Closing({
   onSignIn: () => void;
 }) {
   return (
-    <Section className="pb-[max(6rem,env(safe-area-inset-bottom))]">
+    /*
+     * Barely any top padding, and the section above keeps its own.
+     *
+     * Two full section pads met here and added up to about 160px of empty
+     * black between the last card and this headline, which stranded the
+     * closing ask out on its own rather than letting it land as the end of
+     * something. A coda sits close to what it concludes. The bottom pad
+     * stays generous, because that space is the page ending rather than a
+     * gap between two things.
+     */
+    <Section className="pt-2 pb-[max(6rem,env(safe-area-inset-bottom))] sm:pt-4">
       <Reveal>
         <div className="flex flex-col items-center gap-6 text-center">
           <h2>
@@ -712,10 +550,13 @@ function Closing({
             </span>
           </h2>
           <SignInButton busy={busy} onSignIn={onSignIn} />
-          <div className="flex flex-col items-center gap-4 text-center">
-            <p className="text-sm text-muted-foreground">{SIGNIN_PRICE}</p>
-            <LegalLine minAge={minAge} />
-          </div>
+          {/*
+            * The price is not repeated here. It is already stated under the
+            * hero button and again on its own card two sections up, and a
+            * third time in the same breath as the terms reads as insisting.
+            * Say it well, twice, and stop.
+            */}
+          <LegalLine minAge={minAge} />
         </div>
       </Reveal>
     </Section>
@@ -724,92 +565,7 @@ function Closing({
 
 /* -------------------------------------------------- alternate hero shapes */
 
-/**
- * B: headline first, then the product underneath at full column width.
- *
- * The split hero gives the sample card about 22rem and asks it to compete
- * with a headline for the same eye. This gives the sentence the whole
- * width, then hands the product the whole width under it, which is the
- * shape used when the interface is the argument.
- */
-function HeroCentered({ busy, err, onSignIn, notice }: HeroProps) {
-  return (
-    <section className="px-6 pb-16 pt-[max(3rem,env(safe-area-inset-top))] sm:pb-20">
-      <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col items-center text-center">
-        <UpsideLogo variant="icon" className="signin-rise-1 text-lg" />
-        {notice}
-        <h1 className="signin-rise-2 mt-10">
-          <span className="block text-balance font-heading text-3xl font-semibold leading-[1.12] tracking-[-0.035em] text-foreground sm:text-5xl">
-            {PRODUCT_SENTENCE}
-          </span>
-        </h1>
-        <p className="signin-rise-2 mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
-          {SIGNIN_WHO}
-        </p>
-        <div className="signin-rise-3 mt-9 flex flex-col items-center gap-4">
-          <SignInButton busy={busy} onSignIn={onSignIn} />
-          <p className="text-sm text-muted-foreground">{SIGNIN_PRICE}</p>
-        </div>
-        {err && (
-          <p className="mt-4 text-sm text-loss" role="alert">
-            {err}
-          </p>
-        )}
-      </div>
 
-      <div className="signin-rise-3 mx-auto mt-14 w-full min-w-0 max-w-3xl sm:mt-16">
-        <BookWide />
-      </div>
-    </section>
-  );
-}
-
-/**
- * C: says the problem before it says the product.
- *
- * The other two open by naming the thing. This opens by naming what is
- * wrong, in the plain voice the app itself uses, and lets the product
- * arrive as the answer to it. It is the most distinctive of the three and
- * the most dependent on the sentence being right.
- */
-function HeroEditorial({ busy, err, onSignIn, notice }: HeroProps) {
-  return (
-    <section className="px-6 pb-16 pt-[max(3rem,env(safe-area-inset-top))] sm:pb-20">
-      <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col items-center text-center">
-        <UpsideLogo variant="icon" className="signin-rise-1 text-lg" />
-        {notice}
-        <h1 className="signin-rise-2 mt-12">
-          <span className="block text-balance font-heading text-2xl font-semibold leading-[1.25] tracking-[-0.03em] text-foreground sm:text-4xl sm:leading-[1.2]">
-            Your broker tells you what you own.
-            <span className="block text-muted-foreground">
-              It never tells you whether the reason you bought it still holds.
-            </span>
-          </span>
-        </h1>
-        <p className="signin-rise-3 mt-8 max-w-xl text-lg leading-relaxed text-muted-foreground">
-          Upside Lab is the second half. Paste what you own, and it watches
-          the names, explains the moves in plain words, and writes to you
-          once a week about what actually changed.
-        </p>
-        <div className="signin-rise-3 mt-9 flex flex-col items-center gap-4">
-          <SignInButton busy={busy} onSignIn={onSignIn} />
-          <p className="text-sm text-muted-foreground">{SIGNIN_PRICE}</p>
-        </div>
-        {err && (
-          <p className="mt-4 text-sm text-loss" role="alert">
-            {err}
-          </p>
-        )}
-        <div
-          className="signin-rise-4 mt-16 flex justify-center text-muted-foreground"
-          aria-hidden
-        >
-          <ChevronDown className="size-4 landing-nudge" />
-        </div>
-      </div>
-    </section>
-  );
-}
 
 /**
  * The one that ships: the editorial opening on the product-first layout.
@@ -833,18 +589,37 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
       <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col items-center text-center">
         <UpsideLogo variant="icon" className="signin-rise-1 text-lg" />
         {notice}
+        {/*
+          * Two type steps, not two headlines.
+          *
+          * On a phone this ran to five lines, which pushed the button and
+          * the product down far enough that the fold stopped doing its job.
+          * The obvious fix is a shorter sentence on small screens, and it
+          * is the wrong one: the sentence is the entire hook, and keeping
+          * two versions of a hook in sync is a promise nobody keeps. So the
+          * copy is fixed and the type moves. 26px with tighter leading and
+          * tracking lands it in four lines on a 390px screen while staying
+          * comfortably the largest thing on the page; the desktop step is
+          * untouched.
+          */}
         <h1 className="signin-rise-2 mt-10">
-          <span className="block text-balance font-heading text-3xl font-semibold leading-[1.14] tracking-[-0.035em] text-foreground sm:text-[2.75rem]">
+          <span className="block text-balance font-heading text-[1.625rem] font-semibold leading-[1.12] tracking-[-0.04em] text-foreground sm:text-[2.75rem] sm:leading-[1.14] sm:tracking-[-0.035em]">
             Your broker tells you what you own.
             <span className="mt-1.5 block text-muted-foreground">
               It never tells you whether the reason you bought it still holds.
             </span>
           </span>
         </h1>
-        <p className="signin-rise-3 mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-          Upside Lab is the second half. Paste what you own, and it watches
-          the names, explains the moves in plain words, and writes to you
-          once a week about what actually changed.
+        {/*
+          * Cut from 32 words to 18. The old one restated the headline
+          * before adding anything, and a lede that has to be read twice to
+          * find the new information is a lede that is too long. This says
+          * only what the headline does not: what you do, and what comes
+          * back.
+          */}
+        <p className="signin-rise-3 mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
+          Paste what you own. Upside Lab watches the names, explains the
+          moves in plain words, and writes to you on Sunday.
         </p>
         <div className="signin-rise-3 mt-8 flex flex-col items-center gap-3.5">
           <SignInButton busy={busy} onSignIn={onSignIn} />
@@ -857,20 +632,17 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
         )}
       </div>
 
+      {/*
+        * The card runs past the bottom of the window, and that is the whole
+        * scroll affordance. A chevron used to sit under it, which was
+        * useless twice over: it lived *below* the card, so at the fold, the
+        * only moment the hint is needed, it was off-screen, and by the time
+        * anybody saw it they had already scrolled. Content visibly severed
+        * by the fold is the strongest continuation cue there is, and once
+        * it is doing the work an arrow is decoration that says nothing.
+        */}
       <div className="signin-rise-3 mx-auto mt-12 w-full min-w-0 max-w-3xl sm:mt-14">
         <BookWide />
-      </div>
-
-      <div
-        className="signin-rise-4 mt-10 flex justify-center sm:mt-12"
-        aria-hidden
-      >
-        <span className="flex flex-col items-center gap-1.5 text-muted-foreground">
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em]">
-            What it does
-          </span>
-          <ChevronDown className="size-4 landing-nudge" />
-        </span>
       </div>
     </section>
   );
@@ -967,91 +739,19 @@ function TrioShowcase() {
 
 /* ------------------------------------------------------------------ page */
 
-export type LandingVariant = "hybrid" | "tour" | "product" | "editorial";
-
-export function SignedOutLanding({
-  variant = "hybrid",
-  ...props
-}: HeroProps & { variant?: LandingVariant }) {
-  const closing = (
-    <Closing
-      busy={props.busy}
-      minAge={props.minAge}
-      onSignIn={props.onSignIn}
-    />
-  );
-
-  if (variant === "hybrid") {
-    return (
-      <main id="main" className="relative z-10 flex flex-1 flex-col">
-        <HeroHybrid {...props} />
-        <TrioShowcase />
-        <WaysIn />
-        <More />
-        <PriceAndTrust />
-        {closing}
-      </main>
-    );
-  }
-
-  if (variant === "product") {
-    return (
-      <main id="main" className="relative z-10 flex flex-1 flex-col">
-        <HeroCentered {...props} />
-        <TrioShowcase />
-        <WaysIn />
-        <More />
-        <PriceAndTrust />
-        {closing}
-      </main>
-    );
-  }
-
-  if (variant === "editorial") {
-    return (
-      <main id="main" className="relative z-10 flex flex-1 flex-col">
-        <HeroEditorial {...props} />
-        <Feature
-          eyebrow="Pulse"
-          title="A price moved. That is not the same as something changing."
-          detail="Pulse watches the names you hold and, when one of them jumps, says whether the reason you bought it moved with the price or stayed exactly where it was. Three verdicts, in plain words: intact, worth watching, or broken."
-          visual={<PulseStill />}
-        />
-        <Feature
-          eyebrow="Margus"
-          flip
-          title="An assistant that has already read your portfolio."
-          detail="Ask why something moved, what a result means, or whether you are leaning too hard on one name. It answers about what you actually hold, in sentences anybody can follow."
-          visual={<MargusStill />}
-        />
-        <WaysIn />
-        <More />
-        <PriceAndTrust />
-        {closing}
-      </main>
-    );
-  }
-
+export function SignedOutLanding(props: HeroProps) {
   return (
     <main id="main" className="relative z-10 flex flex-1 flex-col">
-      <Hero {...props} />
+      <HeroHybrid {...props} />
+      <TrioShowcase />
       <WaysIn />
-      <Feature
-        eyebrow="Pulse"
-        title="A price moved. That is not the same as something changing."
-        detail="Pulse watches the names you hold and, when one of them jumps, says whether the reason you bought it moved with the price or stayed exactly where it was. Three verdicts, in plain words: intact, worth watching, or broken."
-        visual={<PulseStill />}
-      />
-      <Feature
-        eyebrow="Margus"
-        flip
-        title="An assistant that has already read your portfolio."
-        detail="Ask why something moved, what a result means, or whether you are leaning too hard on one name. It answers about what you actually hold, in sentences anybody can follow, and it never pretends a scenario is a recommendation."
-        visual={<MargusStill />}
-      />
       <More />
       <PriceAndTrust />
-      {closing}
+      <Closing
+        busy={props.busy}
+        minAge={props.minAge}
+        onSignIn={props.onSignIn}
+      />
     </main>
   );
 }

@@ -4,10 +4,8 @@ import { useAuth } from "@/components/AuthProvider";
 import { DashboardLoading } from "@/components/DashboardLoading";
 import { UpsideLogo } from "@/components/UpsideLogo";
 import {
-  CARD,
   InsightText,
   MicroLabel,
-  NESTED_PAD,
   Panel,
   Pill,
   Reading,
@@ -27,13 +25,10 @@ import {
   PRODUCT_NAME,
   PRODUCT_SUPPORT_EMAIL,
   PRODUCT_SENTENCE,
-  SIGNIN_FEATURES,
   SIGNIN_POINTS,
-  SIGNIN_PRICE,
-  SIGNIN_PRICE_NOTE,
-  SIGNIN_TRUST,
   SIGNIN_WHO,
 } from "@/lib/product";
+import { SignedOutLanding } from "@/components/SignedOutLanding";
 import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
 import { supabaseIsConfigured } from "@/lib/supabase/env";
 import { useLoadingMessage } from "@/lib/use-loading-message";
@@ -155,7 +150,34 @@ export function SignInGate({ children }: Props) {
      * glow improved `.page-frame::before`, and this screen was not using
      * it. Nothing here should hand-roll ambient light again.
      */
-    <div className={cn(PAGE_FRAME_CLASS, "overflow-x-clip overflow-y-auto")}>
+    <div
+      className={cn(
+        PAGE_FRAME_CLASS,
+        // The page-length flowing field, but only for the landing. An
+        // invite is one screen, and there the fixed corner lobes are right.
+        !invite && "landing-field",
+        "overflow-x-clip overflow-y-auto"
+      )}
+    >
+      {!invite ? (
+        <SignedOutLanding
+          busy={busy}
+          err={err}
+          minAge={minAge}
+          onSignIn={() => void onSignIn()}
+          notice={
+            deletedNotice ? (
+              <Alert className="signin-rise-2 mt-8 max-w-md">
+                <AlertDescription>
+                  {deletedNotice === "full"
+                    ? "Account deleted. Your data and sign-in are both gone."
+                    : `Your ${PRODUCT_NAME} data has been deleted. Signing in again starts a brand-new account.`}
+                </AlertDescription>
+              </Alert>
+            ) : undefined
+          }
+        />
+      ) : (
       <main
         id="main"
         className="relative z-10 mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col justify-start px-6 py-[max(2.5rem,env(safe-area-inset-top))] pb-[max(3.5rem,env(safe-area-inset-bottom))] md:justify-center"
@@ -290,80 +312,14 @@ export function SignInGate({ children }: Props) {
           * already knows why they are here, and the hero swaps to that
           * story; a product tour underneath would talk over it.
           */}
-        {!invite && <SignedOutDetail />}
       </main>
+      )}
     </div>
   );
 }
 
 const SIGNIN_POINT_ICONS = [BellRing, MessageCircle] as const;
 
-/**
- * The rooms, the price, and why it is safe to put real holdings in.
- *
- * `CARD` (`glass-well`) rather than `BOX`: these sit on the page's own
- * field, and the softest surface in the system is the right weight for a
- * blurb. Six full glass cards under the hero would out-shout the sample
- * card that is meant to be the thing you look at.
- *
- * A plain `gap` grid, never `gap-px` on `bg-border`. Six items into three
- * columns leaves nothing over, but two columns at `sm` and one on a phone
- * do not, and a hairline grid would paint the empty tracks. See
- * `src/lib/filled-grid.ts`.
- */
-function SignedOutDetail() {
-  return (
-    <div className="signin-rise-4 mt-16 flex flex-col gap-10 border-t border-border pt-12 sm:mt-20">
-      <div className="flex flex-col gap-6">
-        <h2 className="text-foreground">What is inside</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {SIGNIN_FEATURES.map((f) => (
-            <div key={f.title} className={cn(CARD, NESTED_PAD, "flex flex-col gap-1.5")}>
-              <h3 className="text-foreground">{f.title}</h3>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {f.detail}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/*
-        * Price and safety in one row, because they are the same question
-        * asked twice: what is this going to cost me, in money and in risk.
-        */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className={cn(CARD, NESTED_PAD, "flex flex-col gap-1.5")}>
-          <h3 className="text-foreground">What it costs</h3>
-          <p className="text-sm leading-relaxed text-foreground">
-            {SIGNIN_PRICE}
-          </p>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            {SIGNIN_PRICE_NOTE}
-          </p>
-        </div>
-
-        <div className={cn(CARD, NESTED_PAD, "flex flex-col gap-1.5")}>
-          <h3 className="text-foreground">Your holdings stay yours</h3>
-          <ul className="flex flex-col gap-1.5">
-            {SIGNIN_TRUST.map((line) => (
-              <li
-                key={line}
-                className="flex items-start gap-2 text-sm leading-relaxed text-muted-foreground"
-              >
-                <CheckCircle2
-                  className="mt-0.5 size-4 shrink-0 text-primary"
-                  aria-hidden
-                />
-                <span>{line}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const SAMPLE_MOVERS = [
   { ticker: "RKLB", pct: "+6.8%", dollar: "+$3,640", up: true },
