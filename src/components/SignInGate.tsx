@@ -3,7 +3,15 @@
 import { useAuth } from "@/components/AuthProvider";
 import { DashboardLoading } from "@/components/DashboardLoading";
 import { UpsideLogo } from "@/components/UpsideLogo";
-import { InsightText, MicroLabel, Panel, Pill, Reading } from "@/components/ui/Panel";
+import {
+  CARD,
+  InsightText,
+  MicroLabel,
+  NESTED_PAD,
+  Panel,
+  Pill,
+  Reading,
+} from "@/components/ui/Panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +27,11 @@ import {
   PRODUCT_NAME,
   PRODUCT_SUPPORT_EMAIL,
   PRODUCT_SENTENCE,
+  SIGNIN_FEATURES,
   SIGNIN_POINTS,
+  SIGNIN_PRICE,
+  SIGNIN_PRICE_NOTE,
+  SIGNIN_TRUST,
   SIGNIN_WHO,
 } from "@/lib/product";
 import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
@@ -261,12 +273,97 @@ export function SignInGate({ children }: Props) {
 
           <BookStill />
         </div>
+
+        {/*
+          * Everything below the hero exists for one reader: somebody who
+          * followed a link, has never heard of this, and is deciding whether
+          * to hand over what they own.
+          *
+          * The hero answers "what is it" and stops. That was the whole page,
+          * so a stranger judged the product on two of the eight things it
+          * does, with no answer to what it costs or what happens to their
+          * holdings. Those are the next two questions in that order, every
+          * time, and leaving them unanswered reads as something being kept
+          * back rather than as brevity.
+          *
+          * An invite skips all of it. Somebody arriving on a named invite
+          * already knows why they are here, and the hero swaps to that
+          * story; a product tour underneath would talk over it.
+          */}
+        {!invite && <SignedOutDetail />}
       </main>
     </div>
   );
 }
 
 const SIGNIN_POINT_ICONS = [BellRing, MessageCircle] as const;
+
+/**
+ * The rooms, the price, and why it is safe to put real holdings in.
+ *
+ * `CARD` (`glass-well`) rather than `BOX`: these sit on the page's own
+ * field, and the softest surface in the system is the right weight for a
+ * blurb. Six full glass cards under the hero would out-shout the sample
+ * card that is meant to be the thing you look at.
+ *
+ * A plain `gap` grid, never `gap-px` on `bg-border`. Six items into three
+ * columns leaves nothing over, but two columns at `sm` and one on a phone
+ * do not, and a hairline grid would paint the empty tracks. See
+ * `src/lib/filled-grid.ts`.
+ */
+function SignedOutDetail() {
+  return (
+    <div className="signin-rise-4 mt-16 flex flex-col gap-10 border-t border-border pt-12 sm:mt-20">
+      <div className="flex flex-col gap-6">
+        <h2 className="text-foreground">What is inside</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {SIGNIN_FEATURES.map((f) => (
+            <div key={f.title} className={cn(CARD, NESTED_PAD, "flex flex-col gap-1.5")}>
+              <h3 className="text-foreground">{f.title}</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {f.detail}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/*
+        * Price and safety in one row, because they are the same question
+        * asked twice: what is this going to cost me, in money and in risk.
+        */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className={cn(CARD, NESTED_PAD, "flex flex-col gap-1.5")}>
+          <h3 className="text-foreground">What it costs</h3>
+          <p className="text-sm leading-relaxed text-foreground">
+            {SIGNIN_PRICE}
+          </p>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {SIGNIN_PRICE_NOTE}
+          </p>
+        </div>
+
+        <div className={cn(CARD, NESTED_PAD, "flex flex-col gap-1.5")}>
+          <h3 className="text-foreground">Your holdings stay yours</h3>
+          <ul className="flex flex-col gap-1.5">
+            {SIGNIN_TRUST.map((line) => (
+              <li
+                key={line}
+                className="flex items-start gap-2 text-sm leading-relaxed text-muted-foreground"
+              >
+                <CheckCircle2
+                  className="mt-0.5 size-4 shrink-0 text-primary"
+                  aria-hidden
+                />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const SAMPLE_MOVERS = [
   { ticker: "RKLB", pct: "+6.8%", dollar: "+$3,640", up: true },
