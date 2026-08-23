@@ -423,6 +423,34 @@ muted text on glass in the hottest corner measures 8.19-8.81 across those
 sizes -- better than the 7.92 this had originally, and well clear of AAA.
 
 
+## The mark (2026-08-23)
+
+A standing gold **A**, cut into ten flat facets and lit from the upper right,
+drawn from `src/lib/brand/mark.ts` and nowhere else. The mosaic is the
+identity and stays; what this round changed is the craft around it.
+
+The full account — the symmetry fix, the four-step ramp, the optical-size
+rule, the icon plate, the Apple rules the old icons broke, and how to
+regenerate every asset — is in [`docs/BRAND_MARK.md`](docs/BRAND_MARK.md).
+Three things worth knowing from here:
+
+- **The mark has two colourways.** `MARK` is gold on the app's true black —
+  header, splash, email, OG card. `ICON` is the reverse: the warm accent as
+  the *field*, facets in deep espresso ink, on one top-to-bottom linear
+  gradient. An icon is not chrome; a near-black tile reads as a hole beside
+  the icons people actually have, so the true-black rule stops at the icon.
+  It also follows from "The warm accent cannot be a dark tint": gold only
+  reads as gold while it is light, so it is either the mark on something very
+  dark or the field — never a mark on a middling warm ground.
+- **The hairlines follow the size.** Below 96px the facets swell about their
+  own centroids until the gaps close and the mark resolves into a solid "A".
+  A 3.1-unit cut on a 128 grid is three quarters of a pixel at 32px, which is
+  grey mud rather than a cut.
+- **Square icons carry no corner radius.** iOS draws its own squircle, so a
+  pre-rounded file gets rounded twice and shows a thin dark crescent inside
+  each corner. Only the shapes nothing masks — favicons, PWA `any` — keep
+  their own corners.
+
 ## Two typefaces, split by job (2026-08-21)
 
 `--font-sans`, `--font-heading` and `--font-logo` all pointed at Geist, which

@@ -3,6 +3,16 @@
 import { useId } from "react";
 import { cn } from "@/lib/format";
 import { PRODUCT_NAME } from "@/lib/product";
+import {
+  LIGHT,
+  MARK_FACETS,
+  MARK_VIEWBOX,
+  TONES,
+  TONE_KEYS,
+  facetPoints,
+  facetScale,
+  facetTransform,
+} from "@/lib/brand/mark";
 
 type Props = {
   className?: string;
@@ -28,16 +38,25 @@ export const UPSIDE_HEADER_WORDMARK_CLASS =
  * Inline SVG rather than `next/image` on purpose: the mark is flat
  * geometry, so this is about 2 KB, needs no network request at all (which
  * is what actually removes it from the LCP path), stays sharp at any size,
- * and cannot pop in after the text around it. The same polygons back the
- * favicon and the BIMI mark, so the three stay identical.
+ * and cannot pop in after the text around it.
  *
- * `gradientUnits="objectBoundingBox"` would be simpler, but the source
- * geometry is in user space and re-deriving the stops risks shifting the
- * bevel, so the original userSpaceOnUse coordinates are kept verbatim.
- * Gradient ids are prefixed to avoid colliding with any other inline SVG
- * on the page.
+ * The geometry lives in `src/lib/brand/mark.ts`, because the favicon, the
+ * BIMI mark, the app icons, the email lockup and the OG card draw the same
+ * ten facets through different renderers and a second copy would drift.
  */
-function UpsideMark({ className }: { className?: string }) {
+function UpsideMark({
+  className,
+  drawnAt,
+}: {
+  className?: string;
+  /*
+    Roughly how many pixels wide this instance lands at. It decides how hard
+    the hairlines between the facets are cut: they are about two and a half
+    percent of the drawing's width, which is a crisp cut at splash size and
+    three quarters of a pixel in the app bar. See `facetScale`.
+  */
+  drawnAt: number;
+}) {
   /*
    * Unique gradient ids per instance, and this is load-bearing rather than
    * tidiness.
@@ -51,74 +70,85 @@ function UpsideMark({ className }: { className?: string }) {
    * absolutely nothing, which is exactly what "the logo is missing" looks
    * like.
    *
-   * The old comment here said the prefix avoided colliding "with any other
-   * inline SVG on the page" -- true, and beside the point. It collided with
-   * a second copy of itself.
-   *
    * `useId` is stable across server and client render, so this does not
    * cause a hydration mismatch. The punctuation React puts in the value is
    * legal in an id but awkward in a URL fragment, so it is stripped.
+   *
+   * `scripts/test-invariants.ts` fails if any paint server in `src/` takes
+   * a literal id.
    */
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
-  const facets: [string, string, string][] = [
-    ["62.61,20.27 62.72,56.43 40.43,56.53", "#dfc59a", "#a6875d"],
-    ["65.71,20.27 87.89,56.53 65.60,56.43", "#ead6ab", "#b29a6f"],
-    ["40.75,59.52 62.93,59.52 52.37,78.93", "#caac7a", "#8f6b3a"],
-    ["65.39,59.52 87.47,59.63 76.37,79.04", "#dfc59b", "#a5875e"],
-    ["90.35,60.48 102.08,80.32 79.36,80.32", "#dec59b", "#a5875e"],
-    ["37.97,60.59 49.28,80.32 26.35,80.32", "#caaa77", "#8e6937"],
-    ["26.77,83.41 49.81,83.41 38.40,103.25", "#b38e62", "#764b1f"],
-    ["78.72,83.41 101.55,83.41 90.24,103.15", "#cbad7b", "#906d3b"],
-    ["104.43,84.27 116.59,104.64 93.23,104.64", "#caab79", "#8f6b39"],
-    ["23.89,84.37 35.41,104.64 11.84,104.64", "#b38e61", "#764b1e"],
-  ];
+  const scale = facetScale(drawnAt);
   return (
     <svg
       /*
-       * Tight to the artwork, which spans x 11.84..116.59 and
+       * Tight to the artwork, which spans x 11.63..116.38 and
        * y 20.27..104.64 -- 104.75 x 84.37, an aspect of 1.2416.
        *
        * This was `0 0 128 128` with the polygons pushed into it by a
        * `translate(14 18) scale(0.78)`, which left roughly a third of the
        * box as empty padding. Harmless at splash size and ruinous in the
        * app bar: inside a 1.4em square the mark drew about 12 px and read
-       * as missing. The PNG this replaced was a tight crop (878x713, the
-       * same 1.23 aspect), so it filled whatever box it was given -- the
-       * padding is what changed when it became inline geometry, not the
-       * drawing.
+       * as missing.
        */
-      viewBox="11.84 20.27 104.75 84.37"
+      viewBox={MARK_VIEWBOX}
       aria-hidden
       focusable="false"
       className={cn("block shrink-0", className)}
     >
       <defs>
-        {facets.map(([, from, to], i) => (
+        {TONE_KEYS.map((key) => (
           <linearGradient
-            key={i}
-            id={`upside-mark-${uid}-g${i}`}
-            x1="78"
-            y1="18"
-            x2="28"
-            y2="108"
+            key={key}
+            id={`upside-mark-${uid}-${key}`}
+            x1={LIGHT.x1}
+            y1={LIGHT.y1}
+            x2={LIGHT.x2}
+            y2={LIGHT.y2}
             gradientUnits="userSpaceOnUse"
           >
-            <stop offset="0" stopColor={from} />
-            <stop offset="1" stopColor={to} />
+            <stop offset="0" stopColor={TONES[key].from} />
+            <stop offset="1" stopColor={TONES[key].to} />
           </linearGradient>
         ))}
       </defs>
       {/*
-        * No wrapping transform. The polygon coordinates and the gradients'
-        * userSpaceOnUse coordinates were always in the same space, so
-        * dropping the group leaves the bevel exactly where it was.
-        */}
-      {facets.map(([points], i) => (
-        <polygon key={i} points={points} fill={`url(#upside-mark-${uid}-g${i})`} />
+        No wrapping transform: the polygon coordinates and the gradients'
+        userSpaceOnUse coordinates are in the same space, so the viewBox
+        keeps describing the artwork. The only transform is per facet, and
+        it swells each one about its own centroid so the hairlines close as
+        the drawing shrinks.
+      */}
+      {MARK_FACETS.map((facet, i) => (
+        <polygon
+          key={i}
+          points={facetPoints(facet)}
+          fill={`url(#upside-mark-${uid}-${facet.tone})`}
+          transform={scale === 1 ? undefined : facetTransform(facet, scale)}
+        />
       ))}
     </svg>
   );
 }
+
+/*
+  Every place the mark is drawn: the box it gets, and roughly how wide that
+  lands in pixels.
+
+  The classes are literal because Tailwind only emits arbitrary values it can
+  read as literal strings at build time, and the pair has to hold the mark's
+  own 1.2416 aspect or the browser letterboxes it inside its box and the mark
+  silently loses height it could have had.
+  `src/lib/brand/mark-lockup.test.ts` fails if one drifts.
+*/
+const MARK_SIZE = {
+  /** Splash. */
+  stack: { classes: "h-[10.5rem] w-[13rem]", drawnAt: 208 },
+  /** Large inline lockup, at the 1.75rem the `icon` variant sets. */
+  icon: { classes: "h-[1.35em] w-[1.68em]", drawnAt: 47 },
+  /** App bar, at the canonical 14px chrome size. */
+  wordmark: { classes: "h-[1.4em] w-[1.74em]", drawnAt: 24 },
+} as const;
 
 /**
  * Side-by-side lockup: the A is a triangle in a square viewBox, so its
@@ -151,7 +181,8 @@ export function UpsideLogo({
   if (variant === "mark") {
     return (
       <span className={cn("inline-flex", className)} role="img" aria-label={title}>
-        <UpsideMark className="h-full w-full" />
+        {/* The caller sizes this one, so take the app bar's cut as the floor. */}
+        <UpsideMark className="h-full w-full" drawnAt={40} />
       </span>
     );
   }
@@ -163,7 +194,10 @@ export function UpsideLogo({
         role="img"
         aria-label={title}
       >
-        <UpsideMark className="h-[10.5rem] w-[13rem]" />
+        <UpsideMark
+          className={MARK_SIZE.stack.classes}
+          drawnAt={MARK_SIZE.stack.drawnAt}
+        />
         <span className="mt-10 font-logo text-[2.75rem] font-bold uppercase leading-none tracking-wide text-foreground">
           Upside
         </span>
@@ -184,7 +218,10 @@ export function UpsideLogo({
         role="img"
         aria-label={title}
       >
-        <UpsideMark className={cn("h-[1.35em] w-[1.68em]", LOCKUP_MARK_NUDGE)} />
+        <UpsideMark
+          className={cn(MARK_SIZE.icon.classes, LOCKUP_MARK_NUDGE)}
+          drawnAt={MARK_SIZE.icon.drawnAt}
+        />
         <LogoType />
       </span>
     );
@@ -196,12 +233,15 @@ export function UpsideLogo({
       role="img"
       aria-label={title}
     >
-      <UpsideMark className={cn("h-[1.4em] w-[1.74em]", LOCKUP_MARK_NUDGE)} />
+      <UpsideMark
+        className={cn(MARK_SIZE.wordmark.classes, LOCKUP_MARK_NUDGE)}
+        drawnAt={MARK_SIZE.wordmark.drawnAt}
+      />
       <LogoType
-        className={
-          alwaysType ? "max-[22.5rem]:hidden" : "hidden xs:inline"
-        }
+        className={alwaysType ? "max-[22.5rem]:hidden" : "hidden xs:inline"}
       />
     </span>
   );
 }
+
+export { MARK_SIZE };
