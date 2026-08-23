@@ -4,6 +4,17 @@ Production data lives on the dedicated **Upside Lab** Supabase project (`uzrnyby
 
 This is not a Shopify app. There is no Partner Dashboard and no `shopify.app.toml`.
 
+## Repository
+
+The GitHub repository is [`martinaasa-dotcom/upside-lab`](https://github.com/martinaasa-dotcom/upside-lab), branch `main`. It was renamed to match the product name; GitHub keeps redirecting the old path, but write new links against `upside-lab`.
+
+The rename stops at GitHub. These keep their older names on purpose, because renaming them moves live infrastructure rather than a label:
+
+- The **Vercel project** is still `upside` — dashboard links stay `https://vercel.com/upthink-solutions/upside/...`.
+- Legacy deployment hosts (`portfolio-*.vercel.app`, `upside-*.vercel.app`) stay in the redirect allow-list in `src/lib/site-url.ts`.
+- The R2 bucket `upside-lab-backups` and prefix `upside-lab/book-snapshots` are storage paths (`src/lib/dr/config.ts`), not repository names.
+- `portfell_*` tables and `portfell-*`/`upside-*` localStorage keys are untouched, as everywhere else.
+
 ## Database isolation
 
 Vercel production and preview, plus local `.env.local`, point at:

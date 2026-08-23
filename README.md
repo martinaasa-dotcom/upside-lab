@@ -2,11 +2,14 @@
 
 See what your book did. Ask Margus if the thesis still holds. Live prices, Thesis Pulse, and an open paper fund (Upside Fund). Communities are optional.
 
-Production: [https://upsidelab.app](https://upsidelab.app)
+Production: [https://upsidelab.app](https://upsidelab.app)  
+Repository: [`martinaasa-dotcom/upside-lab`](https://github.com/martinaasa-dotcom/upside-lab), branch `main`
 
 ## Quick start
 
 ```bash
+git clone https://github.com/martinaasa-dotcom/upside-lab.git
+cd upside-lab
 npm install
 npm run dev
 ```
