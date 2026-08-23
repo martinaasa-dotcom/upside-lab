@@ -84,8 +84,15 @@ export function CostBasisModal({
                     showCurrency={mixedListings}
                   />
                 </span>
+                {/*
+                  * "mark" is on the banned list in AGENTS.md, and "sh" is an
+                  * abbreviation nobody outside a trading desk expands on
+                  * sight. Both sat on the one dialog every importing person
+                  * meets. The heading above already says the import used
+                  * today's prices, so the row only has to name the number.
+                  */}
                 <span className="ml-2 text-muted-foreground">
-                  {r.shares.toLocaleString("en-US")} sh · mark≈$
+                  {r.shares.toLocaleString("en-US")} shares · today $
                   {r.suggestedBuy.toFixed(2)}
                 </span>
               </span>

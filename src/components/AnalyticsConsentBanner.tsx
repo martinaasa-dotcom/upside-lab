@@ -37,7 +37,19 @@ export function AnalyticsConsentBanner() {
        */
       className="fixed z-50 left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))] bottom-[max(5.75rem,calc(var(--dock-pad,5.5rem)+5.5rem))] md:left-auto md:w-[22rem]"
     >
-      <div className="flex flex-col gap-3 rounded-xl glass ring-1 ring-foreground/20 p-4">
+      {/*
+        * `glass-overlay`, not `glass`.
+        *
+        * This is pinned over the page rather than laid out in it, and on a
+        * phone it lands squarely on top of a content card. `glass` is a 2%
+        * white veil built to sit over the ambient field, so the card
+        * underneath read straight through the panel and the two sets of
+        * words interleaved — which looks like a rendering fault, on the
+        * first screen a new person sees. DESIGN_TOKENS.md already draws
+        * this line: anything over real content is an overlay and takes the
+        * heavy fill, because hiding what is beneath it is the job.
+        */}
+      <div className="flex flex-col gap-3 rounded-xl glass-overlay ring-1 ring-foreground/20 p-4">
         <p className="text-sm leading-relaxed text-foreground">
           Page views and load times help keep the app fast. Sign-in cookies
           always run. Performance measurement is optional.
