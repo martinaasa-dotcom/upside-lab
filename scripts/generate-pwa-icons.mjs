@@ -165,17 +165,15 @@ note(pub("upside-mark.png"));
 await text(pub("favicon.svg"), upsideIconSvg("tile", 128));
 await text(pub("upside-icon.svg"), upsideIconSvg("tile", 128));
 
-const ico16 = await sharp(Buffer.from(upsideIconSvg("tile", 16)), {
-  density: densityFor(16),
-})
-  .resize(16, 16)
-  .png()
-  .toBuffer();
-const ico32 = await shaped("tile", 32, pub("icons", "icon-32.png"));
-await shaped("tile", 48, pub("icons", "icon-48.png"));
+const ico16 = await shaped("favicon", 16, pub("icons", "icon-16.png"));
+const ico32 = await shaped("favicon", 32, pub("icons", "icon-32.png"));
+await shaped("favicon", 48, pub("icons", "icon-48.png"));
 await shaped("tile", 128, pub("upside-icon.png"));
 await shaped("tile", 192, pub("icons", "icon-192.png"));
 await shaped("tile", 512, pub("icons", "icon-512.png"), app("icon.png"));
+
+/* Android adaptive, at both densities the launcher asks for. */
+await opaque("maskable", 192, pub("icons", "icon-192-maskable.png"));
 
 const ico = packIco([
   { size: 16, data: ico16 },
@@ -192,7 +190,6 @@ await text(app("favicon.ico"), ico);
 await opaque("app", 180, app("apple-icon.png"), pub("apple-touch-icon.png"));
 await opaque("app", 1024, pub("icons", "icon-1024.png"));
 
-/* Android adaptive: full-bleed, and the mark well inside the crop. */
 await opaque("maskable", 512, pub("icons", "icon-512-maskable.png"));
 
 /* The social avatar, which every network crops to a circle. */

@@ -98,8 +98,16 @@ raster from the size the mark itself is drawn at inside its plate.
 | Drawn at | Facet scale | What you see |
 |---|---|---|
 | 96px and up | 1 | the mosaic, hairlines and all |
-| 40 to 95px | 1.05 | cuts tightening |
-| under 40px | 1.13 | the gaps close; a solid "A" |
+| 64 to 95px | 1.06 | cuts tightening |
+| 40 to 63px | 1.16 | cuts nearly gone |
+| under 40px | 1.30 | the gaps close; a solid "A" |
+
+The numbers are measured rather than guessed. A facet's centroid sits about a
+third of its height from each edge, so a scale of 1.13 moves an edge by only
+0.9 units and closes barely half of a 3.1-unit gap — which is worse than
+either extreme, because a half-closed cut is exactly the grey mud this is
+trying to avoid. 1.30 is what actually closes it on the small facets; the
+large apex pair simply overlap, which at that size nobody can see.
 
 The gaps are about 3.1 units on a 128 grid — a little under two and a half
 percent of the width. At 512px that is a crisp 12px cut and the whole point of
@@ -166,12 +174,15 @@ about how close a foot lands to an edge.
 | Preset | Corner | Width | Where it goes |
 |---|---|---|---|
 | `app` | square | 0.66 | Apple touch icon, App Store master |
-| `tile` | 22.5% | 0.70 | favicons, bookmark tiles, PWA `any` |
+| `tile` | 22.5% | 0.70 | bookmark tiles, PWA `any` |
+| `favicon` | 22.5% | 0.80 | the 16, 32 and 48 favicons |
 | `maskable` | square | 0.55 | Android adaptive icons |
 | `avatar` | square | 0.58 | the social avatar, cropped to a circle |
 
 Each of them crops differently, which is why one safe area would be wrong for
-all of them.
+all of them. `favicon` is `tile` with more of the plate given to the mark,
+because a favicon is the one place the icon is smaller than the thing it has
+to say.
 
 **0.66 is the register, not a compromise.** A centred symbol on an Apple icon
 runs between about half and two thirds of the tile — Music's note is near
@@ -246,11 +257,12 @@ That writes:
 | `public/upside-mark.svg`, `.png` | The bare mark, transparent |
 | `public/favicon.svg`, `public/upside-icon.svg` | Scalable tile |
 | `public/favicon.ico`, `src/app/favicon.ico` | 16 + 32 |
-| `public/icons/icon-{32,48,192,512}.png` | Favicons, bookmark tiles, PWA `any` |
+| `public/icons/icon-{16,32,48}.png` | Favicons |
+| `public/icons/icon-{192,512}.png` | Bookmark tiles, PWA `any` |
 | `src/app/icon.png`, `public/upside-icon.png` | Next file-convention icon, 128px tile |
 | `src/app/apple-icon.png`, `public/apple-touch-icon.png` | Apple touch: square, opaque, full-bleed |
 | `public/icons/icon-1024.png` | App Store master |
-| `public/icons/icon-512-maskable.png` | PWA `maskable` |
+| `public/icons/icon-{192,512}-maskable.png` | PWA `maskable` |
 | `public/upside-fund-x-avatar.png` | Social avatar, 1024, circle-safe |
 | `public/upside-badge.svg`, `public/upside-lockup.svg` | Lockups, on black and transparent |
 | `public/icons/email-lockup.png` | The Sunday letter's header |

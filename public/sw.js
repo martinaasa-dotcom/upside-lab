@@ -12,7 +12,7 @@
  * v9: dropped /upside-mark.png from the precache. The header mark is inline
  * SVG now (UpsideLogo.tsx), so precaching a 260 KB PNG nothing requests
  * just cost every install a quarter-megabyte. */
-const CACHE = "upside-shell-v11";
+const CACHE = "upside-shell-v12";
 const PRECACHE = [
   "/manifest.webmanifest",
   "/upside-icon.png",
@@ -20,6 +20,7 @@ const PRECACHE = [
   "/icons/icon-512.png",
   "/icons/icon-512-maskable.png",
   "/icons/icon-32.png",
+  "/icons/icon-192-maskable.png",
 ];
 
 self.addEventListener("install", (event) => {

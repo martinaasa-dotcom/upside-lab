@@ -166,13 +166,21 @@ function centroid(facet: Facet): [number, number] {
   underneath the mosaic all along. It is the same drawing either way; what
   changes is how much of the cut a pixel can still carry.
 
+  The numbers are measured rather than guessed. A facet's centroid sits about
+  a third of its height from each edge, so a scale of 1.13 moves an edge by
+  only 0.9 units and closes barely half of a 3.1-unit gap -- which is worse
+  than either extreme, because a half-closed cut is exactly the grey mud this
+  is trying to avoid. 1.3 is what actually closes it on the small facets, and
+  the large apex pair simply overlap, which at that size nobody can see.
+
   This is the mirror of Arena's `cutForSize`, which widens a hairline as its
   drawing shrinks, for exactly the same reason.
 */
 export function facetScale(size: number): number {
   if (size >= 96) return 1;
-  if (size >= 40) return 1.05;
-  return 1.13;
+  if (size >= 64) return 1.06;
+  if (size >= 40) return 1.16;
+  return 1.3;
 }
 
 /** The transform that swells a facet about its own centroid. */
@@ -288,6 +296,14 @@ export const ICON_PRESETS = {
     because nothing is going to crop it.
   */
   tile: { radius: 0.225, glyph: 0.7 },
+  /*
+    The true favicons, 16 to 48. Same shape as `tile` and a fuller mark,
+    because these are the one place the icon is smaller than the thing it has
+    to say. At 16px the plate is 16 pixels and the mark inside it is eleven;
+    every one of them has to carry meaning, and the margin that makes a
+    home-screen icon look composed is just wasted room here.
+  */
+  favicon: { radius: 0.225, glyph: 0.8 },
   /*
     Android's adaptive icons. The launcher crops to a circle of 80 percent of
     the side, and on some it is closer to a squircle, so the mark is pulled
