@@ -742,8 +742,9 @@ export function WelcomeTour({
                   it.
                 </Row>
                 <Row icon={UserCog} term="Account">
-                  The Sunday email, how much detail you want shown, and your
-                  data — export it or delete it, any time.
+                  Your picture in the top corner, not the bottom bar. The
+                  Sunday email, how much detail you want shown, and your data —
+                  export it or delete it, any time.
                 </Row>
               </ul>
             </div>

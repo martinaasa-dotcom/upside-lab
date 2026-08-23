@@ -74,7 +74,7 @@ export function screenCopy(
       return {
         title: "Where everything is",
         lede:
-          "The bar along the bottom of the screen is the whole navigation. Your own portfolios sit in it too, one cell each, and the + cell makes a new one.",
+          "The bar along the bottom of the screen is the navigation, and your own portfolios sit in it too — one cell each, and the + cell makes a new one. The only thing not on it is your account, which is the picture in the top corner.",
       };
     case "helps":
       return {
