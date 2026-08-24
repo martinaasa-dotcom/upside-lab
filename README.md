@@ -53,7 +53,7 @@ npm run test
 npm run test:invariants
 npm run dr:export
 npm run dr:restore
-npm run migrate:online -- --lint supabase/migrations/20260821160000_example.sql
+npm run migrate:online -- --lint supabase/migrations/20260823170000_one_account_more_than_one_address.sql
 ```
 
 New migrations are timestamp-named (`YYYYMMDDHHMMSS_name.sql`). The numbered

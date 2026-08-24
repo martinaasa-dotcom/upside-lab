@@ -466,9 +466,16 @@ const baseCheck = {
 }
 
 // Every formatter is the last line of defence before a bad number reaches
-// the screen, so all of them must degrade to a dash rather than printing
+// the screen, so all of them must degrade to NO_VALUE rather than printing
 // "$∞", "Infinity%" or "$NaN".
-const { currency, percent, number, signedCurrency } = await import("@/lib/format");
+//
+// Compared against the exported constant, never against the string it
+// happens to hold today. This check spent the whole of the NO_VALUE change
+// asserting an em dash, because the answer was typed in here as well as
+// defined over there, and nothing tells you when two copies disagree.
+const { currency, percent, number, signedCurrency, NO_VALUE } = await import(
+  "@/lib/format"
+);
 const formatters: [string, (v: number | null | undefined) => string][] = [
   ["currency", currency],
   ["percent", percent],
@@ -480,8 +487,8 @@ for (const bad of [NaN, Infinity, -Infinity, null, undefined]) {
     check(
       `${fname}(${String(bad)})`,
       fn(bad),
-      (v) => v === "—",
-      "an em-dash placeholder"
+      (v) => v === NO_VALUE,
+      `NO_VALUE (${NO_VALUE})`
     );
   }
 }
