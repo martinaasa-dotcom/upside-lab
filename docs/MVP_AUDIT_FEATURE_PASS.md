@@ -5,12 +5,12 @@ Run on 2026-08-24, after the technical pass in
 because "this tracks real money, so treat every calculation bug as a
 trust-breaking incident, not a cosmetic one".
 
-Four bugs, and every one of them showed a reader a number that was wrong
+Five bugs, and every one of them showed a reader a number that was wrong
 rather than merely imprecise. The rest of this page is what was checked and
 found correct, with the working, because a checklist with no evidence is
 worth re-running from scratch next time.
 
-## The four
+## The five
 
 ### 1. A split made every number on a row wrong
 
@@ -81,6 +81,38 @@ cannot tell a one-line question from a megabyte of image, so 30 turns per 5
 minutes allowed 90 MB of input at the model from one account in that
 window. Turns are still counted and a second budget is charged in kilobytes
 by what the turn weighs.
+
+### 5. The seasonality card counted the month it was standing in
+
+The card says "Across 6 prior Augusts in the same presidential-cycle year",
+or "prior Augusts only", or "prior years only". It said one of those three
+every time it rendered, and it was counting the August in progress: the
+current year is always in the current cycle phase, by definition.
+
+On the 24th that is three weeks of trading averaged in as a whole month,
+and a cycle phase comes round every four years, so six or eight samples is
+the whole history. A flat partial August beside three 10% ones moves the
+average to 7.5% and the win rate from 100 to 75, which is the difference
+between the card saying deploy and the card saying hold. Only the month in
+progress is dropped, not the year: a January that has finished is a real
+January however recent it is.
+
+## One that looked like a bug and was not
+
+`realizedVolAnnual` annualizes by the square root of 252, which is right
+only if one step is one trading day. The sparkline sitting beside it is the
+same closes downsampled to at most 32 points, about 2.9 days a step, and it
+is already passed around as `price_history` through `/api/options/scan`.
+Feeding that in would overstate volatility by 1.69x, measured, which is
+enough to move a name across the 0.28 bucket boundary in
+`callPctFromVolatility` with nothing on screen looking wrong.
+
+It is not wired that way. The only caller is `pickCallPct`, reached only
+from `buildWritePlan`, which fetches its own chart and passes the full
+daily series. So no reader has ever seen a wrong Call % from this. The
+period between points is a named argument now rather than an assumption, so
+the obvious future simplification cannot make it wrong quietly, and the
+function has tests.
 
 ## Section 2.1, portfolio
 
