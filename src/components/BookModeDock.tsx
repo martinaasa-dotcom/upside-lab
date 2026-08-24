@@ -303,6 +303,12 @@ export function BookModeDock({
        * where the landmark belongs. The current destination is
        * `aria-current="page"`, which is what the Circle link already used
        * and what `MobileTabBar` uses, so the two docks now agree.
+       *
+       * Every cell that can be the current one says so, buttons and links
+       * alike. The link forms are what an off-book page draws, so leaving
+       * them out would have meant the bar announcing where you are on the
+       * book and going quiet everywhere else, which is the half of the
+       * problem a screen reader would actually notice.
        */
       aria-label="App"
       /*
@@ -378,6 +384,7 @@ export function BookModeDock({
             key={id}
             href={href}
             prefetch
+            aria-current={active ? "page" : undefined}
             data-on={active ? "" : undefined}
             title={title}
             onClick={() => stashOpenTab(tab)}
@@ -430,6 +437,7 @@ export function BookModeDock({
             key={sheet.id}
             href={hrefForDockTarget(sheet.id, sheets)}
             prefetch
+            aria-current={active ? "page" : undefined}
             data-on={active ? "" : undefined}
             title={title}
             className={look}
