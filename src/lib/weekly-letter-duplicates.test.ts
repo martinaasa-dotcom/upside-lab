@@ -59,9 +59,19 @@ function builder(table: string) {
   let filterColumn: string | null = null;
   let filterValues: string[] | null = null;
   let staleBefore: number | null = null;
+  let window: [number, number] | null = null;
+  const page = <T>(rows: T[]) =>
+    window ? rows.slice(window[0], window[1] + 1) : rows;
   const chain: Record<string, unknown> = {
     select: () => chain,
     eq: () => chain,
+    // Every batched read is paged now (lib/supabase/read-all), so the double
+    // has to answer a window. These fixtures are far shorter than one page,
+    // so the first window is the last.
+    range: (from: number, to: number) => {
+      window = [from, to];
+      return chain;
+    },
     in: (col: string, values: string[]) => {
       filterColumn = col;
       filterValues = values;
@@ -82,10 +92,12 @@ function builder(table: string) {
     },
     then: (resolve: (v: unknown) => unknown) => {
       if (table !== "portfell_profiles") {
-        return Promise.resolve(resolve({ data: OTHER_ROWS[table] ?? [], error: null }));
+        return Promise.resolve(
+          resolve({ data: page(OTHER_ROWS[table] ?? []), error: null })
+        );
       }
       if (mode === "select") {
-        return Promise.resolve(resolve({ data: profiles, error: null }));
+        return Promise.resolve(resolve({ data: page(profiles), error: null }));
       }
       const claimable = (p: Profile) =>
         staleBefore === null ||

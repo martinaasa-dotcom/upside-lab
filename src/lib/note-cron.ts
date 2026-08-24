@@ -1,4 +1,5 @@
 import { unsubscribeUrlFor } from "@/lib/unsubscribe-link";
+import { readAll } from "@/lib/supabase/read-all";
 import { requestIsScheduledCron } from "@/lib/cron-auth";
 import { logEvent } from "@/lib/telemetry";
 import {
@@ -391,52 +392,67 @@ export async function dispatchWeeklyLetters(
   // function's time budget stayed at 60s. The same data comes back in four
   // queries total.
   const userIds = pending.map(({ profile }) => profile.id as string);
-  const { data: ownRows } = userIds.length
-    ? await supabase
-        .from(PORTFELL_TABLES.portfolioOwners)
-        .select("portfolio_id, user_id")
-        .in("user_id", userIds)
-    : { data: [] as { portfolio_id: string; user_id: string }[] };
-  const ownsByUser = groupBy(
-    (ownRows ?? []) as { portfolio_id: string; user_id: string }[],
-    (r) => r.user_id
-  );
+  //
+  // A page at a time, all four of them. Batching turned four queries per
+  // recipient into four queries total, which is right, and it also made every
+  // one of them a read whose length grows with the mailing list. PostgREST
+  // answers with at most db-max-rows, which a Supabase project is set to
+  // 1,000, and it applies that silently.
+  //
+  // The holdings read is the one that matters. A hundred readers with four
+  // portfolios of twenty-five names is 10,000 rows, so most of them would
+  // come back with part of their holdings and no sign of it -- and
+  // weeklyNumbersAreSound cannot catch that, because it refuses on a holding
+  // with no quote and a truncated holding is not present to have one. The
+  // letter would state a portfolio value computed from a fraction of the
+  // portfolio, as a fact, in an inbox.
+  const ownRows = userIds.length
+    ? await readAll<{ portfolio_id: string; user_id: string }>(() =>
+        supabase
+          .from(PORTFELL_TABLES.portfolioOwners)
+          .select("portfolio_id, user_id")
+          .in("user_id", userIds)
+      )
+    : [];
+  const ownsByUser = groupBy(ownRows, (r) => r.user_id);
 
   const allPortfolioIds = [
-    ...new Set((ownRows ?? []).map((r) => r.portfolio_id as string)),
+    ...new Set(ownRows.map((r) => r.portfolio_id as string)),
   ];
-  const { data: bookRows } = allPortfolioIds.length
-    ? await supabase
-        .from(PORTFELL_TABLES.portfolios)
-        .select("id, cash_balance, classroom_community_id")
-        .in("id", allPortfolioIds)
-    : { data: [] as BookRow[] };
-  const bookById = new Map(
-    ((bookRows ?? []) as BookRow[]).map((b) => [b.id, b])
-  );
+  const bookRows = allPortfolioIds.length
+    ? await readAll<BookRow>(() =>
+        supabase
+          .from(PORTFELL_TABLES.portfolios)
+          .select("id, cash_balance, classroom_community_id")
+          .in("id", allPortfolioIds)
+      )
+    : [];
+  const bookById = new Map(bookRows.map((b) => [b.id, b]));
 
-  const { data: holdingRows } = allPortfolioIds.length
-    ? await supabase
-        .from(PORTFELL_TABLES.holdings)
-        // `updated_at` so `weeklyNumbersAreSound` can tell a share count
-        // that predates a split from one the reader has already fixed.
-        .select("ticker, shares, buy_price, portfolio_id, updated_at")
-        .in("portfolio_id", allPortfolioIds)
-    : { data: [] as HoldingRow[] };
+  const holdingRows = allPortfolioIds.length
+    ? await readAll<HoldingRow>(() =>
+        supabase
+          .from(PORTFELL_TABLES.holdings)
+          // `updated_at` so `weeklyNumbersAreSound` can tell a share count
+          // that predates a split from one the reader has already fixed.
+          .select("ticker, shares, buy_price, portfolio_id, updated_at")
+          .in("portfolio_id", allPortfolioIds)
+      )
+    : [];
   const holdingsByPortfolio = groupBy(
-    (holdingRows ?? []) as HoldingRow[],
+    holdingRows,
     (h) => (h.portfolio_id as string) ?? null
   );
 
-  const { data: labRows } = userIds.length
-    ? await supabase
-        .from(PORTFELL_TABLES.labState)
-        .select("conviction, watchlist, owner_id")
-        .in("owner_id", userIds)
-    : { data: [] as LabRow[] };
-  const labByOwner = new Map(
-    ((labRows ?? []) as LabRow[]).map((l) => [l.owner_id as string, l])
-  );
+  const labRows = userIds.length
+    ? await readAll<LabRow>(() =>
+        supabase
+          .from(PORTFELL_TABLES.labState)
+          .select("conviction, watchlist, owner_id")
+          .in("owner_id", userIds)
+      )
+    : [];
+  const labByOwner = new Map(labRows.map((l) => [l.owner_id as string, l]));
 
   // ---- Assemble every letter's inputs in memory, then quote once. --------
   type Prepared = {
