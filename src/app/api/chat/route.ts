@@ -41,6 +41,7 @@ import { observeRoute } from "@/lib/observe-route";
 import { chatPostSchema } from "@/lib/api-schemas";
 import { parseJsonBody } from "@/lib/parse-json-body";
 import { screenshotImportFallbackCopy } from "@/lib/screenshot-import-copy";
+import { peekUntilUseful } from "@/lib/ai/stream-leak";
 
 export const maxDuration = 120;
 
@@ -82,25 +83,6 @@ const USEFUL_PART = new Set([
   "tool-call-streaming-start",
   "tool-input-delta",
 ]);
-
-async function peekUntilUseful(stream: AsyncIterable<StreamPart>): Promise<
-  | { ok: true; prefix: StreamPart[]; iterator: AsyncIterator<StreamPart> }
-  | { ok: false }
-> {
-  const iterator = stream[Symbol.asyncIterator]();
-  const prefix: StreamPart[] = [];
-  for (let i = 0; i < 40; i++) {
-    const step = await iterator.next();
-    if (step.done) return { ok: false };
-    const part = step.value;
-    prefix.push(part);
-    if (part.type === "error") return { ok: false };
-    if (USEFUL_PART.has(part.type)) {
-      return { ok: true, prefix, iterator };
-    }
-  }
-  return { ok: true, prefix, iterator };
-}
 
 function replayParts(
   prefix: StreamPart[],
@@ -271,8 +253,20 @@ async function handlePOST(req: Request) {
           },
         });
 
-        const peeked = await peekUntilUseful(result.fullStream);
+        const peeked = await peekUntilUseful(result.fullStream, USEFUL_PART);
         if (!peeked.ok) {
+          if (peeked.reason === "leak") {
+            /*
+              Not an unhealthy provider, so it is not marked as one: the
+              model answered, it just narrated its own reasoning first, and
+              it will answer the next question perfectly well. Measured at
+              about one plain question in six on the free tier. Try the next
+              provider rather than showing somebody the inside of the prompt.
+            */
+            console.error(`[chat] provider "${provider.id}" leaked its reasoning`);
+            invalidateStreamingProvider(cacheKey);
+            continue;
+          }
           console.error(`[chat] provider "${provider.id}" died before the first token`);
           invalidateStreamingProvider(cacheKey);
           markProviderUnhealthy(provider.id);

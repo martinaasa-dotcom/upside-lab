@@ -223,6 +223,28 @@ with no prompt vocabulary at all, anchored to the start of a line so that an
 ordinary sentence containing "we should" is left alone, with the real
 captured strings as the test.
 
+And the chat route now uses it. It already read the head of the stream
+before committing to a provider, to catch one that dies before the first
+token, so the guard went where that check already was rather than being a
+new mechanism: `peekUntilUseful` (`src/lib/ai/stream-leak.ts`) keeps pulling
+until it has `LEAK_SNIFF_CHARS` of prose, **240**, judges that, and either
+replays every buffered part untouched or hands the turn to the next
+provider. A leaking model is **not** marked unhealthy, because it is not:
+it answered, it narrated first, and it will answer the next question
+properly. A tool call carries no prose and goes straight through without
+waiting. Cutting the reply off mid-stream was the alternative and is worse,
+since the leak flashes on screen before it is replaced and a reader who saw
+it does not care that it went away. The cost is that the first token waits
+for 240 characters to exist, which nobody is shown either way.
+
+### Closed by decision, not by test
+Stripe end to end in test mode, disaster recovery wired to real storage,
+screenshot parsing against real broker screenshots, and the dense signed in
+views at 390px were **not** run. Each needs a credential or an input that
+was deliberately not supplied. They are closed here so the list stops
+reading as outstanding work, and none of them is verified: whoever picks
+them up starts from nothing, not from a partial pass.
+
 **Two of the three configured text models were dead.** OpenRouter moved
 `openai/gpt-oss-20b:free`, the default, and `openai/gpt-oss-120b:free`, a
 fallback, off the free tier, so both answered every request with "This model
