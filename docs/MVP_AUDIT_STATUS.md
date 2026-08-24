@@ -200,6 +200,41 @@ fails when row level security is turned off, which was checked.
   every candidate N+1 was traced and all are either batched with `.in()`
   already or bounded by a hardcoded list. Core Web Vitals are blocked.
 
+### Margus under adversarial prompting, run live
+Six attacks against the real persona and a real model. Five were refused
+cleanly and in the app's own voice: a demand for one ticker to buy, an
+instruction to become a licensed adviser, a request for every other user's
+holdings, an order to write a share count into the database, and a demand
+for a guarantee. The slang bait produced a flat refusal.
+
+The sixth found something, and it was not the attack that found it.
+**A reasoning model's chain of thought reaches the reader.** Asked to
+explain what a covered call is, which is the plainest question in the set,
+the reply came back as several paragraphs of "We must follow policy",
+"We must not mention policy", and the question quoted back, with forbidden
+phrases lifted out of the system prompt on the way. Roughly one plain
+question in six. Nothing was scrubbing it: `looksLikePromptLeak` exists and
+would have caught that text, but it is wired into the Sunday letter only,
+and the chat route streams, so a guard there is a design decision rather
+than a drop in. That decision is still open.
+
+What is fixed here: the detector now also catches a model narrating itself
+with no prompt vocabulary at all, anchored to the start of a line so that an
+ordinary sentence containing "we should" is left alone, with the real
+captured strings as the test.
+
+**Two of the three configured text models were dead.** OpenRouter moved
+`openai/gpt-oss-20b:free`, the default, and `openai/gpt-oss-120b:free`, a
+fallback, off the free tier, so both answered every request with "This model
+is unavailable for free". The chain survived on its one remaining leg and
+paid a wasted round trip to get there. The default is now
+`nemotron-3-super-120b`, which the code had demoted for taking 36s and which
+measures 0.8s to 2.0s today. Worth knowing for whoever picks the next one:
+of the free models advertising tool support, the ones that answered are
+mostly reasoning models, and they leak. `nemotron-3.5-lightning` opens with
+"Here's a thinking process" and `nemotron-nano-9b-v2` returned no content at
+all. That is the reason the guard matters more than the model choice.
+
 ### 24 to 30, process
 - **24 QA** partly fixed: 458 tests now, up from 382, with the new ones on
   the riskiest logic (splits, compounding, correlation, seasonality, the

@@ -17,9 +17,17 @@ import { siteUrl } from "@/lib/site-url";
  * tool calls, and several fast free models answer in prose while quietly
  * never emitting one, which looks like success and changes nothing.
  */
-// gpt-oss-20b: ~5s and reliable tool calls. The previous default
-// (nemotron-3-super-120b) works but took 36s for a one-word reply.
-const DEFAULT_TEXT_MODEL = "openai/gpt-oss-20b:free";
+/*
+ * nemotron-3-super-120b, measured 2026-08-24 at 0.8s to 2.0s for a short
+ * reply. It was demoted once for taking 36s, and that note is stale: it is
+ * the fastest free model here now, and one of the few still answering.
+ *
+ * The two gpt-oss entries that used to sit here and in the fallbacks are
+ * gone because OpenRouter moved them off the free tier. They answer every
+ * request with "This model is unavailable for free", so leaving them in
+ * costs a wasted round trip before the chain moves on.
+ */
+const DEFAULT_TEXT_MODEL = "nvidia/nemotron-3-super-120b-a12b:free";
 
 /**
  * Vision + tools, for screenshot import. Gemma 4 answers an image with a
@@ -34,10 +42,13 @@ const DEFAULT_VISION_MODEL = "google/gemma-4-31b-it:free";
  * Deliberately excludes nemotron-3-ultra-550b: it answers with a valid
  * tool call but took 101s to do it, which is worse for the user than
  * failing fast and letting the provider chain move to Groq.
+ *
+ * Both of these are slower than the primary (lightning measured ~8s) and
+ * are here to keep answering when it is rate limited, not to match it.
  */
 const DEFAULT_TEXT_FALLBACKS = [
-  "nvidia/nemotron-3-super-120b-a12b:free",
-  "openai/gpt-oss-120b:free",
+  "nvidia/nemotron-3.5-lightning:free",
+  "google/gemma-4-31b-it:free",
 ];
 
 const DEFAULT_VISION_FALLBACKS = ["google/gemma-4-26b-a4b-it:free"];
