@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js";
+import { readAll } from "@/lib/supabase/read-all";
 import {
   sliceSnapshotPayload,
   type BookSnapshotPayload,
@@ -243,21 +244,34 @@ export async function collectUserExport(
   let holdings: unknown[] = [];
   let cashEvents: unknown[] = [];
   if (portfolioIds.length > 0) {
-    const [pRes, hRes, cRes] = await Promise.all([
-      supabase.from(PORTFELL_TABLES.portfolios).select("*").in("id", portfolioIds),
-      supabase
-        .from(PORTFELL_TABLES.holdings)
-        .select("*")
-        .in("portfolio_id", portfolioIds),
-      supabase
-        .from(PORTFELL_TABLES.cashEvents)
-        .select("id, portfolio_id, user_id, delta, balance_after, created_at")
-        .in("portfolio_id", portfolioIds)
-        .order("created_at", { ascending: true }),
+    /*
+      A page at a time. An export is a legal answer to "give me my data", so
+      it is complete or it is not an answer, and PostgREST returns at most
+      db-max-rows without saying it has. Cash events are the read that gets
+      there first: they accumulate for the life of a portfolio and nothing
+      prunes them.
+    */
+    const [pRows, hRows, cRows] = await Promise.all([
+      readAll<unknown>(() =>
+        supabase.from(PORTFELL_TABLES.portfolios).select("*").in("id", portfolioIds)
+      ),
+      readAll<unknown>(() =>
+        supabase
+          .from(PORTFELL_TABLES.holdings)
+          .select("*")
+          .in("portfolio_id", portfolioIds)
+      ),
+      readAll<unknown>(() =>
+        supabase
+          .from(PORTFELL_TABLES.cashEvents)
+          .select("id, portfolio_id, user_id, delta, balance_after, created_at")
+          .in("portfolio_id", portfolioIds)
+          .order("created_at", { ascending: true })
+      ),
     ]);
-    portfolios = pRes.data ?? [];
-    holdings = hRes.data ?? [];
-    cashEvents = cRes.error ? [] : (cRes.data ?? []);
+    portfolios = pRows;
+    holdings = hRows;
+    cashEvents = cRows;
   }
 
   const communityIds = [

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { readAll } from "@/lib/supabase/read-all";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
 
 export type BookSnapshotKind = "nightly" | "pre_delete" | "manual";
@@ -44,27 +45,37 @@ export async function captureBookPayload(
     return { portfolios: [], holdings: [] };
   }
 
-  let portQ = supabase
-    .from(PORTFELL_TABLES.portfolios)
-    .select("*")
-    .order("sort_order");
-  let holdQ = supabase
-    .from(PORTFELL_TABLES.holdings)
-    .select("*")
-    .order("sort_order");
-  if (ids?.length) {
-    portQ = portQ.in("id", ids);
-    holdQ = holdQ.in("portfolio_id", ids);
-  }
+  /*
+    A page at a time, because a snapshot is complete or it is not a snapshot.
 
-  const [{ data: portfolios, error: pErr }, { data: holdings, error: hErr }] =
-    await Promise.all([portQ, holdQ]);
-  if (pErr) throw new Error(pErr.message);
-  if (hErr) throw new Error(hErr.message);
-  return {
-    portfolios: portfolios ?? [],
-    holdings: holdings ?? [],
+    The nightly cron calls this with no ids at all, which is every portfolio
+    and every holding in the project. PostgREST answers with at most
+    db-max-rows -- a Supabase project is set to 1,000 -- and it does that
+    silently: no error, just a shorter list. A backup missing most of its rows
+    and looking exactly like a good one is worse than no backup, and
+    docs/DISASTER_RECOVERY.md rests on these.
+  */
+  const portQ = () => {
+    const q = supabase
+      .from(PORTFELL_TABLES.portfolios)
+      .select("*")
+      .order("sort_order");
+    return ids?.length ? q.in("id", ids) : q;
   };
+  const holdQ = () => {
+    const q = supabase
+      .from(PORTFELL_TABLES.holdings)
+      .select("*")
+      .order("sort_order");
+    return ids?.length ? q.in("portfolio_id", ids) : q;
+  };
+
+  const [portfolios, holdings] = await Promise.all([
+    readAll<unknown>(portQ, "throw"),
+    readAll<unknown>(holdQ, "throw"),
+  ]);
+
+  return { portfolios, holdings };
 }
 
 /** Snapshot sheet ids that this person actually owns. */
