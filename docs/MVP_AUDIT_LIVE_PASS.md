@@ -12,6 +12,26 @@ Two bugs, and one of them was in code the previous pass had just merged.
 
 ### A spinoff is not a split, and Yahoo reports it as one
 
+**Update, later the same day.** A second implementation of split handling
+landed on `main` from another session while this was in flight:
+`share-splits.ts`, a ledger, and a cron that applies splits automatically.
+It is the better design and it is the one that stays. Two consequences,
+both handled in the follow-up:
+
+- Its `fetchSplits` filtered only on "finite and positive", so the GE
+  adjustment factors below went straight through it and would have been
+  applied to **every** holder of that ticker at once, overnight, by the
+  cron, with a ledger row making it permanent. That is strictly worse than
+  the version below, where a person had to click. The whole-ratio guard
+  moved into `share-splits.ts` as `isRealSplitRatio`, with the GE feed as
+  its fixture.
+- The read-only detection described below was removed. Its apply button
+  wrote through `/api/holdings` without touching the ledger, and
+  `portfell_apply_split` is keyed on `(ticker, effective_on)` globally, so
+  a reader who clicked before the cron ran would have had the split applied
+  twice: shares multiplied by a hundred rather than ten. One system, and it
+  is theirs.
+
 The split detection merged in the feature pass was tested against its own
 fixtures. Asked for GE's splits, the live feed returns three events:
 
