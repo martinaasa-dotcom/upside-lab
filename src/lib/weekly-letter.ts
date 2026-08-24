@@ -27,11 +27,14 @@ import {
 import type { ConvictionEntry, ConvictionMap } from "@/lib/conviction";
 import type { EarningsEvent, WeekReturn } from "@/lib/market/yahoo";
 import type { Quote } from "@/lib/types";
+import { pendingSplitAdjustments } from "@/lib/market/corporate-actions";
 
 type HoldingRow = {
   ticker: string;
   shares: number;
   buy_price: number;
+  /** Needed only to tell a share count that predates a split from one that does not. */
+  updated_at?: string | null;
 };
 
 export type WeeklyLetterInput = {
@@ -485,6 +488,33 @@ export function weeklyNumbersAreSound(input: WeeklyLetterInput): LetterTrust {
     const positionValue = shares * price;
     value += positionValue;
     if (weekPctOf(input.weekReturns?.[ticker]) != null) covered += positionValue;
+  }
+
+  // A share count that predates a split values the position at a fraction
+  // of the truth, and the letter would state that fraction as this week's
+  // money. The app says so on the holdings table with a one-click fix, so
+  // this waits for the reader rather than mailing a confident wrong figure.
+  const preSplit = Object.values(
+    pendingSplitAdjustments(
+      input.holdings.map((h, i) => ({
+        id: String(i),
+        ticker: h.ticker,
+        shares: h.shares,
+        buy_price: h.buy_price,
+        updated_at: h.updated_at,
+      })),
+      Object.fromEntries(
+        Object.entries(input.quotes)
+          .filter(([, q]) => q?.splits?.length)
+          .map(([t, q]) => [t.toUpperCase(), q.splits!])
+      )
+    )
+  ).map((fix) => fix.ticker);
+  if (preSplit.length > 0) {
+    return {
+      ok: false,
+      reason: `share count predates a split for ${[...new Set(preSplit)].join(", ")}`,
+    };
   }
 
   if (unpriced.length > 0) {

@@ -59,6 +59,7 @@ type HoldingRow = {
   shares?: number | null;
   buy_price?: number | null;
   portfolio_id?: string | null;
+  updated_at?: string | null;
 };
 type LabRow = {
   conviction?: unknown;
@@ -416,7 +417,9 @@ export async function dispatchWeeklyLetters(
   const { data: holdingRows } = allPortfolioIds.length
     ? await supabase
         .from(PORTFELL_TABLES.holdings)
-        .select("ticker, shares, buy_price, portfolio_id")
+        // `updated_at` so `weeklyNumbersAreSound` can tell a share count
+        // that predates a split from one the reader has already fixed.
+        .select("ticker, shares, buy_price, portfolio_id, updated_at")
         .in("portfolio_id", allPortfolioIds)
     : { data: [] as HoldingRow[] };
   const holdingsByPortfolio = groupBy(
@@ -439,7 +442,12 @@ export async function dispatchWeeklyLetters(
     to: string;
     profile: (typeof pending)[number]["profile"];
     cash: number;
-    holdings: { ticker: string; shares: number; buy_price: number }[];
+    holdings: {
+      ticker: string;
+      shares: number;
+      buy_price: number;
+      updated_at?: string | null;
+    }[];
     tickers: string[];
     watchlist: string[];
     lab: LabRow | undefined;
@@ -463,6 +471,7 @@ export async function dispatchWeeklyLetters(
         ticker: String(h.ticker ?? "").toUpperCase(),
         shares: Number(h.shares ?? 0),
         buy_price: Number(h.buy_price ?? 0),
+        updated_at: h.updated_at ?? null,
       }));
     if (!hasLiveHoldings(holdings)) {
       skipped += 1;
