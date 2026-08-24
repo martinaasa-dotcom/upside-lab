@@ -106,9 +106,13 @@ and CSRF rested entirely on a dependency's cookie default.
 
 ### 14 to 19, technical
 All verified or fixed; see `MVP_AUDIT_TECHNICAL_PASS.md`. Headline: the
-repo's own tooling is green and now runs in CI in full, RLS was verified by
-replaying every migration and tracking each create and drop, and the
-provider fan-out and CSRF gaps are closed.
+repo's own tooling is green and now runs in CI in full, the provider
+fan-out and CSRF gaps are closed, and **row level security is now proved
+against a real Postgres on every pull request** rather than read off the
+migrations. `supabase/tests/rls.test.sql` asks the database, as the
+`authenticated` role with a real claim, whether one person can reach
+another's portfolio, holdings, conviction notes or co-ownership rows. It
+fails when row level security is turned off, which was checked.
 
 ### 20 to 23
 - **20 Stripe** verified. Signature checked, and every handler **re-fetches
@@ -151,9 +155,21 @@ provider fan-out and CSRF gaps are closed.
   fan-out bound, rate-limit bucketing).
 - **25 migrations** verified: the timestamp convention holds, the legacy
   numbered files are untouched, and no migration was added by this work.
-- **26 disaster recovery** blocked. `dr:export` and `dr:restore` need
-  credentials, and the audit is right that scripts existing is not the same
-  as a restore working.
+- **26 disaster recovery** fixed, and it was never as blocked as this page
+  first said. Running the real thing against production still needs
+  credentials, but the part that matters does not: every stage had a test of
+  its own (encryption round-trips, the checksum notices drift, the export
+  builds a snapshot, the restore reads one) and **nothing covered the
+  chain**, which is where a backup fails silently. A field dropped between
+  capture and restore, a checksum taken over a different shape, a manifest
+  pointing at a key nothing wrote: each passes every unit test and loses the
+  book. `restore-rehearsal.test.ts` runs capture, checksum, encrypt, sign,
+  upload, fetch back, decrypt, restore and compare in one go through the
+  real code, against an in-memory object store, and asserts the snapshot is
+  never in the clear and that a tampered one is refused. Upside Arena proves
+  the same thing in `scripts/restore-rehearsal.sh`, which is where the idea
+  came from: its backup is a `pg_dump` and this one is a JSON snapshot, so
+  it is the same rehearsal with different plumbing.
 - **27 devops** fixed: `bench:concurrency` and `npm audit` now run in CI
   beside typecheck, lint, test, invariants and build. Husky was observed
   blocking on every commit in this work.
@@ -166,8 +182,10 @@ If only three things are done next, these are the three:
 1. **A two-account session pass.** Sharing, communities, classroom
    permissions and concurrent edits are the largest untested surface, and
    the only thing standing in the way is credentials.
-2. **Restore from a backup, once, for real.** Section 26 exists because
-   scripts that have never been run are not a backup.
+2. **Restore from a backup, once, against production.** The chain itself is
+   rehearsed on every pull request now, so what is left is proving the
+   nightly job is pointed at the right database, which is the one part a
+   rehearsal cannot answer.
 3. **Watch the funnel once it is live.** It reaches revenue now, and
    **Payment failing** is the cell to look at first: it is the only number
    on the page that means somebody has to do something today.

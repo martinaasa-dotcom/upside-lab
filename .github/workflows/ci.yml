@@ -124,6 +124,44 @@ jobs:
       # of 2026-08-24: 0 vulnerabilities.
       - run: npm audit --omit=dev --audit-level=high
 
+  sql:
+    name: Migrations and row level security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        # Without this the job starts psql before the server is listening and
+        # fails on connection rather than on anything it was asked to check.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      # Reading a policy cannot tell you whether it holds. This builds the
+      # schema from `shim.sql` plus all 75 migrations, in order, then asks
+      # the database as the `authenticated` role with a real claim whether
+      # one person can reach another's portfolio, holdings or conviction
+      # notes. Section 15.3 of the audit asks for exactly this, and it was
+      # answered by reading the migrations until now.
+      - run: ./supabase/tests/run.sh
+
   build:
     name: Build
     runs-on: ubuntu-latest
