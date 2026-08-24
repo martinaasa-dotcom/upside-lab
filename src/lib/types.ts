@@ -1,3 +1,4 @@
+import type { SplitEvent } from "@/lib/market/corporate-actions";
 import type { ClassroomTrade } from "@/lib/classroom";
 
 export type Portfolio = {
@@ -30,6 +31,12 @@ export type Holding = {
   /** Manual Stock Target override; null = use resistance model */
   stock_target_override: number | null;
   sort_order: number;
+  /**
+   * When this row was last written. Optional because a snapshot restore and
+   * the demo seed both build holdings without one. Used to decide whether a
+   * share count predates a split.
+   */
+  updated_at?: string | null;
 };
 
 export type Quote = {
@@ -61,6 +68,15 @@ export type Quote = {
   stale?: boolean;
   /** Epoch ms when this print was actually fetched. */
   quotedAt?: number;
+  /**
+   * Splits inside the fetched history window, oldest first.
+   *
+   * The price a feed hands over is already split adjusted and a reader's
+   * stored share count is not, so a tracker with no idea a split happened
+   * reports a real position as down 90% and means it. This is the fact
+   * that lets `corporate-actions.ts` say so.
+   */
+  splits?: SplitEvent[];
 };
 
 export type OptionCandidate = {

@@ -1,4 +1,5 @@
 import type { Quote } from "@/lib/types";
+import type { SplitEvent } from "@/lib/market/corporate-actions";
 import { sessionMark } from "@/lib/market-session";
 import { synthesizeSparkline } from "@/lib/market/sparkline";
 import { yahooQuoteCandidates } from "@/lib/ticker";
@@ -215,6 +216,49 @@ export async function resolveYahooListedSymbol(
   return null;
 }
 
+/**
+ * Splits out of a chart response, in either shape the wrapper returns.
+ *
+ * `yahoo-finance2` is an unofficial wrapper over an undocumented endpoint,
+ * so `events.splits` arrives as a keyed object on one response and an array
+ * on another, and either can hold a row with a missing field. Everything
+ * that is not a usable split is dropped rather than reasoned about: a
+ * wrong split silently rewrites somebody's cost basis.
+ */
+function readSplitEvents(raw: unknown): SplitEvent[] {
+  if (!raw || typeof raw !== "object") return [];
+  const rows = Array.isArray(raw) ? raw : Object.values(raw);
+  const out: SplitEvent[] = [];
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const rec = row as {
+      date?: unknown;
+      numerator?: unknown;
+      denominator?: unknown;
+    };
+    const numerator = typeof rec.numerator === "number" ? rec.numerator : NaN;
+    const denominator =
+      typeof rec.denominator === "number" ? rec.denominator : NaN;
+    if (!(numerator > 0) || !(denominator > 0)) continue;
+    const rawDate = rec.date;
+    const when =
+      rawDate instanceof Date
+        ? rawDate
+        : typeof rawDate === "number"
+          ? new Date(rawDate < 1e12 ? rawDate * 1000 : rawDate)
+          : typeof rawDate === "string"
+            ? new Date(rawDate)
+            : null;
+    if (!when || Number.isNaN(when.getTime())) continue;
+    out.push({
+      date: dateKeyInTz(when, "America/New_York"),
+      numerator,
+      denominator,
+    });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 async function quoteOneSymbol(
   yf: YahooFinanceInstance,
   symbol: string,
@@ -223,7 +267,12 @@ async function quoteOneSymbol(
 ): Promise<Quote | null> {
   const [quoteRaw, chart] = await Promise.all([
     yahooCall(() => yf.quote(symbol)),
-    yf.chart(symbol, { period1, interval: "1d" }).catch(() => null),
+    yf
+      // `events: "split"` costs nothing extra: this is the same chart call
+      // the sparkline already needs, and without it a split is invisible to
+      // the app while being fully priced in by the feed.
+      .chart(symbol, { period1, interval: "1d", events: "split" })
+      .catch(() => null),
   ]);
   const parsed = yahooQuotePayloadSchema.safeParse(quoteRaw);
   if (!parsed.success) return null;
@@ -278,6 +327,8 @@ async function quoteOneSymbol(
           .filter((c): c is number => typeof c === "number" && isPlausiblePrice(c))
           .map((c) => priceToUsd(c, yahooCurrency, fx, symbol))
       : synthesizeSparkline(price, changePercent * 100);
+  const splits = readSplitEvents(chart?.events?.splits);
+
   const dailyCloses = (chart?.quotes ?? [])
     .map((row) => {
       const close = row.close;
@@ -350,6 +401,7 @@ async function quoteOneSymbol(
     nativePrice,
     stale: false,
     quotedAt: Date.now(),
+    ...(splits.length > 0 ? { splits } : {}),
   } satisfies Quote;
 }
 

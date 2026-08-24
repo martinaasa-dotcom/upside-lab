@@ -29,7 +29,8 @@ export async function parseJsonBody<S extends z.ZodType>(
   schema: S,
   opts?: { maxBytes?: number }
 ): Promise<
-  { ok: true; data: z.infer<S> } | { ok: false; response: NextResponse }
+  | { ok: true; data: z.infer<S>; bytes: number }
+  | { ok: false; response: NextResponse }
 > {
   const maxBytes = opts?.maxBytes ?? DEFAULT_MAX_BYTES;
   const declared = Number(req.headers.get("content-length"));
@@ -62,5 +63,8 @@ export async function parseJsonBody<S extends z.ZodType>(
       ),
     };
   }
-  return { ok: true, data: result.data };
+  // The size is handed back because a route whose cost scales with the
+  // body (a chat turn carrying a screenshot) has to charge its rate limiter
+  // by bytes, and reading the body twice is not an option.
+  return { ok: true, data: result.data, bytes: text.length };
 }

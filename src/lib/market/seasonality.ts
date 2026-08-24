@@ -105,16 +105,33 @@ function round(n: number, digits: number): number {
   return Math.round(n * p) / p;
 }
 
-/** Total month return per year-month, only for years in `phase`. */
+/**
+ * Total month return per year-month, only for years in `phase`.
+ *
+ * `inProgress` is the YYYY-MM the reader is standing in, and it is left
+ * out. The current year is always in the current cycle phase, by
+ * definition, so without this the month in progress was counted as a
+ * finished one: on the 24th, three weeks of August went into the average
+ * and the win rate as if it were a whole August. The card built on it says
+ * "prior Augusts" and "prior years only" three times over, and with six or
+ * eight samples in a phase the half-month it was quietly carrying was a
+ * sixth of the answer.
+ *
+ * Only the month in progress is dropped, not the year: a January that has
+ * finished is a real January however recent it is.
+ */
 export function computeCycleMonthlyReturns(
   bars: DailyBar[],
-  phase: PresidentialCyclePhase
+  phase: PresidentialCyclePhase,
+  opts?: { inProgress?: string | null }
 ): CycleMonthlyRow[] {
+  const inProgress = opts?.inProgress ?? null;
   const byYearMonth = new Map<string, DailyBar[]>();
   for (const bar of bars) {
     const year = Number(bar.date.slice(0, 4));
     if (cyclePhaseForYear(year) !== phase) continue;
     const ym = bar.date.slice(0, 7);
+    if (inProgress && ym === inProgress) continue;
     const list = byYearMonth.get(ym) ?? [];
     list.push(bar);
     byYearMonth.set(ym, list);
@@ -277,7 +294,9 @@ export function buildSeasonalityModel(input: {
   const daily = [...input.daily].sort((a, b) => a.date.localeCompare(b.date));
   const { year: asOfYear, month: asOfMonth } = marketNow();
   const phase = cyclePhaseForYear(asOfYear);
-  const cycleMonthly = computeCycleMonthlyReturns(daily, phase);
+  const cycleMonthly = computeCycleMonthlyReturns(daily, phase, {
+    inProgress: `${asOfYear}-${String(asOfMonth).padStart(2, "0")}`,
+  });
   const cycleDaysByMonth = computeCycleDaysByMonth(daily, phase);
 
   return {

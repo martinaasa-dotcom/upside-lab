@@ -15,7 +15,15 @@ import {
 import { fetchPulseContexts } from "@/lib/market/ticker-context";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { rateLimitJson } from "@/lib/rate-limit";
-import { takeDurableRateLimit } from "@/lib/rate-limit-durable";
+import {
+  takeDurableRateLimit,
+  takeDurableRateLimitWeighted,
+} from "@/lib/rate-limit-durable";
+import {
+  CHAT_BYTE_BUDGET_KB,
+  CHAT_BYTE_WINDOW_MS,
+  CHAT_MAX_BODY_BYTES,
+} from "@/lib/chat-limits";
 import { stampAdvisorUse } from "@/lib/advisor-use";
 import { isRecord } from "@/lib/unknown";
 import {
@@ -132,9 +140,30 @@ async function handlePOST(req: Request) {
   markChatActive();
 
   try {
-    const parsed = await parseJsonBody(req, chatPostSchema);
+    // A chat turn carries screenshots, so it needs its own body budget
+    // rather than the 1 MB every other route gets. The browser compresses
+    // to a smaller number still, so the two cannot drift: `chat-limits.ts`.
+    const parsed = await parseJsonBody(req, chatPostSchema, {
+      maxBytes: CHAT_MAX_BODY_BYTES,
+    });
     if (!parsed.ok) return parsed.response;
     const body = parsed.data;
+
+    // Charged by what the turn weighs, not by the fact that it happened.
+    // Counting turns cannot tell a one-line question from a megabyte of
+    // image, and the model is billed for the difference.
+    const weight = await takeDurableRateLimitWeighted(
+      `chat-kb:${auth.user.id}`,
+      CHAT_BYTE_BUDGET_KB,
+      CHAT_BYTE_WINDOW_MS,
+      Math.max(1, Math.ceil(parsed.bytes / 1024))
+    );
+    if (!weight.ok) {
+      return rateLimitJson(
+        weight,
+        "That is a lot of pictures at once. Give Margus a few minutes to catch up."
+      );
+    }
     const messages = Array.isArray(body.messages)
       ? (body.messages as UIMessage[])
       : [];

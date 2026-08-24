@@ -8,6 +8,7 @@ import { fetchNextEarningsDate, resolveYahooListedSymbol } from "@/lib/market/ya
 import { dateKeyInTz, daysUntilInTz } from "@/lib/timezone";
 import { isMarketCircuitOpen, withMarketCircuit } from "@/lib/market/circuit-breaker";
 import { isPlausiblePrice, yahooQuotePayloadSchema } from "@/lib/market/quote-sanitize";
+import { realizedVolAnnual } from "@/lib/market/volatility";
 
 type YahooFinanceInstance = InstanceType<
   typeof import("yahoo-finance2").default
@@ -257,23 +258,7 @@ function pickStockTarget(
   };
 }
 
-/** Annualized realized vol from close history (simple daily log returns). */
-export function realizedVolAnnual(prices: number[]): number | null {
-  if (prices.length < 8) return null;
-  const rets: number[] = [];
-  for (let i = 1; i < prices.length; i++) {
-    const a = prices[i - 1];
-    const b = prices[i];
-    if (Number.isFinite(a) && Number.isFinite(b) && a > 0 && b > 0) {
-      rets.push(Math.log(b / a));
-    }
-  }
-  if (rets.length < 5) return null;
-  const mean = rets.reduce((s, r) => s + r, 0) / rets.length;
-  const variance =
-    rets.reduce((s, r) => s + (r - mean) ** 2, 0) / (rets.length - 1);
-  return Math.sqrt(variance) * Math.sqrt(252);
-}
+export { realizedVolAnnual } from "@/lib/market/volatility";
 
 /** Map realized HV → Call % baseline (safety buffer scales with vol). */
 export function callPctFromVolatility(hvAnnual: number | null): {
