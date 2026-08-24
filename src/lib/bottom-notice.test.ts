@@ -22,11 +22,19 @@ import { describe, expect, it } from "vitest";
 const CSS = readFileSync("src/app/globals.css", "utf8");
 const DOCK_PAD = readFileSync("src/lib/use-dock-pad.ts", "utf8");
 
-/** Every notice that pins itself to the bottom of the window. */
+/**
+ * Every notice that pins itself to the bottom of the window.
+ *
+ * `ScrollCue` used to be on this list and deliberately is not any more. It
+ * is no longer pinned to anything: it is laid out inside the landing hero,
+ * at the bottom of the first screen, and scrolls away with the page. Being
+ * fixed over moving content is exactly what made it repaint the bottom band
+ * of the window on every frame of a scroll, so the rule it is held to now is
+ * the opposite one, in `src/lib/scroll-cue.test.ts`.
+ */
 const NOTICES = [
   "src/components/AnalyticsConsentBanner.tsx",
   "src/components/OfflineBanner.tsx",
-  "src/components/ScrollCue.tsx",
 ];
 
 describe("bottom notices", () => {
