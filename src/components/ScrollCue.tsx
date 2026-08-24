@@ -101,6 +101,47 @@ const RUNWAY = 240;
 /** Scrolled at all, so they have found out for themselves. */
 const ANSWERED = 24;
 
+/*
+ * Where a node sits in the page's own coordinates, measured from the top of
+ * the document, in pixels, ignoring any transform on it or above it.
+ *
+ * THIS IS WHY THE CUE WAS MISSING ON A RELOAD AND ARRIVED ON A FLICK. All
+ * of this used to be read off `getBoundingClientRect`, which reports where
+ * a thing is being *drawn*, and the first thing everything on this page
+ * does is arrive: the hero's own entrance animation holds the sample card
+ * 12px below where it lands, with `both` fill, from before the first frame
+ * until 0.85s in. The decision is made once, at hydration, well inside that
+ * window, so the card was measured 12px lower than it really is and the cue
+ * stood down as though the fold were cutting it. Nothing then re-measured
+ * for the rest of the animation, so the page sat there saying nothing, and
+ * the first thing that ran the measurement again was the reader scrolling,
+ * which is the one moment the answer no longer matters. Measured on the
+ * real page at 1440 wide: the cue was missing on every window between 950px
+ * and 961px tall, and appeared on a scroll of a single wheel notch.
+ *
+ * A layout position has no such state. `offsetTop` is where a box was laid
+ * out, not where an animation has it at this instant, so the answer at the
+ * first frame is the answer at the last one, and it is right before the
+ * page has finished arriving rather than after. Walking `offsetParent` up
+ * to the document is what turns it into one coordinate space, which every
+ * measurement here then shares with the scroll offset.
+ *
+ * So: nothing in this file may go back to reading a rect. Two things on the
+ * first screen animate their transform, the hero on mount and the section
+ * under it as it arrives, and both of them are things this measures.
+ */
+function pageTop(node: HTMLElement) {
+  let top = 0;
+  for (
+    let el: HTMLElement | null = node;
+    el;
+    el = el.offsetParent as HTMLElement | null
+  ) {
+    top += el.offsetTop;
+  }
+  return top;
+}
+
 export function ScrollCue({
   label = "More below",
   className,
@@ -119,25 +160,31 @@ export function ScrollCue({
     const read = () => {
       const doc = document.scrollingElement ?? document.documentElement;
       const vh = window.innerHeight;
+      const scrolled = doc.scrollTop;
 
       // Nowhere to go, or they have already gone.
       if (doc.scrollHeight - doc.clientHeight <= RUNWAY) return setShow(false);
-      if (doc.scrollTop > ANSWERED) return setShow(false);
+      if (scrolled > ANSWERED) return setShow(false);
+
+      /** The bottom of the window, in the page's own coordinates. */
+      const fold = scrolled + vh;
 
       /*
-       * Where this actually landed. The slot is positioned in CSS against
-       * the top of the document, which is where the hero starts, so reading
-       * its own rect back is what makes the whole thing fail safe: if it
-       * ever ends up somewhere other than the bottom of the first screen,
+       * Where this landed. The slot is positioned in CSS against the top of
+       * the document, which is where the hero starts, so reading its own
+       * position back is what makes the whole thing fail safe: if it ever
+       * ends up somewhere other than the bottom of the first screen,
        * nothing is drawn rather than something being drawn in the wrong
        * place.
        */
-      const rect = slot.getBoundingClientRect();
-      if (rect.top < 0 || rect.bottom > vh + 1) return setShow(false);
+      const bandTop = pageTop(slot);
+      if (bandTop < scrolled || bandTop + slot.offsetHeight > fold + 1) {
+        return setShow(false);
+      }
 
       // Case 1: the fold is already cutting the card, or is about to.
-      const still = document.querySelector(STILL);
-      if (still && still.getBoundingClientRect().bottom > rect.top) {
+      const still = document.querySelector<HTMLElement>(STILL);
+      if (still && pageTop(still) + still.offsetHeight > bandTop) {
         return setShow(false);
       }
 
@@ -155,7 +202,9 @@ export function ScrollCue({
        */
       const next =
         slot.closest("section")?.nextElementSibling?.firstElementChild;
-      if (next && next.getBoundingClientRect().top < vh) return setShow(false);
+      if (next instanceof HTMLElement && pageTop(next) < fold) {
+        return setShow(false);
+      }
 
       setShow(true);
     };
@@ -163,18 +212,19 @@ export function ScrollCue({
     /*
      * Read now, and again every time the page could have moved under it.
      *
-     * This decides on a few pixels of clearance, so a single measurement
-     * taken at hydration is a measurement of a page that is not finished:
-     * fonts land afterwards and shift every line on the screen, the sign-in
-     * button fills in where a space was, and any of that can move the sample
-     * card across the line this is testing. Measured here at 1440x960 the
-     * card sat 11px clear of the band, which is well inside what a font swap
-     * moves, and the cue stayed hidden on a window that wanted it.
+     * The first read is the one that counts, and measuring the layout
+     * rather than the paint is what makes it right: the answer at
+     * hydration is the answer the settled page has, so the cue is there on
+     * a reload rather than waiting for something to happen. See `pageTop`
+     * for what reading it the other way cost.
      *
-     * So: the resize the reader causes, the scroll that answers the
-     * question, the body growing for any reason at all, the fonts arriving,
-     * and load. Reading is a handful of rects and no writes, so re-running
-     * it costs nothing worth counting.
+     * The rest are for the page changing shape under it, which it still
+     * does. This decides on a few pixels of clearance, and a font swap
+     * moves more than that: measured here at 1440x960 the card sat 11px
+     * clear of the band. So: the resize the reader causes, the scroll that
+     * answers the question, the body growing for any reason at all, the
+     * fonts arriving, and load. Reading is a handful of offsets and no
+     * writes, so re-running it costs nothing worth counting.
      */
     read();
     window.addEventListener("scroll", read, { passive: true });
