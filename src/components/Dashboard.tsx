@@ -144,7 +144,12 @@ import {
   SlidersHorizontal,
   UserPlus,
 } from "lucide-react";
-import { quotePollMs, quotesUrl, isQuotePollFresh } from "@/lib/market/session";
+import {
+  quotePollMs,
+  quotesUrl,
+  isQuotePollFresh,
+  isQuoteFreshForView,
+} from "@/lib/market/session";
 import { useTimeout } from "@/lib/use-timeout";
 import { useStableCallback } from "@/lib/use-stable-callback";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -1729,7 +1734,7 @@ export function Dashboard() {
   // background. There is no header Refresh.
   useEffect(() => {
     if (holdings.length === 0) return;
-    const fresh = isQuotePollFresh(quotesPolledAtRef.current);
+    const fresh = isQuoteFreshForView(quotesPolledAtRef.current);
     const cachedQuotes =
       fresh && Object.keys(quotesRef.current).length > 0
         ? quotesRef.current
@@ -1777,10 +1782,18 @@ export function Dashboard() {
     let cancelled = false;
     let timer = 0;
 
-    const tick = () => {
+    // `background` is the timer: skip when the cadence says nothing is due.
+    // `view` is the reader arriving, where the bar is much lower, because a
+    // ten minute overnight cadence must not put a ten minute old price in
+    // front of somebody who just opened the app.
+    const tick = (reason: "background" | "view" = "background") => {
       if (cancelled || document.hidden) return;
       if (!isWorkspaceRoomActive("book")) return;
-      if (isQuotePollFresh(quotesPolledAtRef.current)) return;
+      const fresh =
+        reason === "view"
+          ? isQuoteFreshForView(quotesPolledAtRef.current)
+          : isQuotePollFresh(quotesPolledAtRef.current);
+      if (fresh) return;
       const { holdings: rowsAll, isMetaTab: meta, portfolioId } =
         pollRowsRef.current;
       const rows = meta
@@ -1803,7 +1816,7 @@ export function Dashboard() {
     schedule();
 
     const onVisibility = () => {
-      if (!document.hidden && isWorkspaceRoomActive("book")) tick();
+      if (!document.hidden && isWorkspaceRoomActive("book")) tick("view");
     };
     document.addEventListener("visibilitychange", onVisibility);
 

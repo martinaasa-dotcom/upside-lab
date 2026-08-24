@@ -134,7 +134,12 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import { quotePollMs, quotesUrl, isQuotePollFresh } from "@/lib/market/session";
+import {
+  quotePollMs,
+  quotesUrl,
+  isQuotePollFresh,
+  isQuoteFreshForView,
+} from "@/lib/market/session";
 import { quoteAsOfTitle } from "@/lib/market/quote-freshness";
 import { isAbortError, isNetworkError } from "@/lib/abort";
 import { useTimeout } from "@/lib/use-timeout";
@@ -601,10 +606,14 @@ export function CommunityView({ communityId }: Props) {
     if (quotesAtRef.current === 0) {
       quotesAtRef.current = loadCachedQuotes().savedAt ?? 0;
     }
-    const tick = async () => {
+    const tick = async (reason: "background" | "view" = "background") => {
       if (cancelled || document.hidden) return;
       if (!isWorkspaceRoomActive(`community:${communityId}`)) return;
-      if (isQuotePollFresh(quotesAtRef.current)) return;
+      const alreadyFresh =
+        reason === "view"
+          ? isQuoteFreshForView(quotesAtRef.current)
+          : isQuotePollFresh(quotesAtRef.current);
+      if (alreadyFresh) return;
       try {
         const res = await fetch(quotesUrl(tickers), { signal: ctrl.signal });
         if (!res.ok || cancelled) return;
@@ -633,10 +642,10 @@ export function CommunityView({ communityId }: Props) {
         });
       }, quotePollMs());
     };
-    void tick();
+    void tick("view");
     schedule();
     const onVisible = () => {
-      if (!document.hidden) void tick();
+      if (!document.hidden) void tick("view");
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {

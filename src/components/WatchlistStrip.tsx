@@ -9,7 +9,7 @@ import {
   signedTone,
 } from "@/lib/format";
 import { sanitizeTickerQuery } from "@/lib/input-guard";
-import { quotesUrl, isQuotePollFresh } from "@/lib/market/session";
+import { quotesUrl, isQuoteFreshForView } from "@/lib/market/session";
 import { quoteAsOfTitle } from "@/lib/market/quote-freshness";
 import {
   localTickerSuggestions,
@@ -291,7 +291,7 @@ export function WatchlistStrip({
   const fetchQuotes = useCallback(
     (tickers: string[], opts?: { force?: boolean }) => {
       if (tickers.length === 0) return;
-      if (!opts?.force && isQuotePollFresh(loadCachedQuotes().savedAt)) return;
+      if (!opts?.force && isQuoteFreshForView(loadCachedQuotes().savedAt)) return;
       for (const t of tickers) {
         setQuoteRetrying((prev) => ({ ...prev, [t.toUpperCase()]: true }));
       }
