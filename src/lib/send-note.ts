@@ -22,6 +22,15 @@ export async function sendNoteEmail(input: {
    * person triggered, where a second one is a second intention.
    */
   idempotencyKey?: string;
+  /*
+    A link that stops this mail by itself.
+
+    Optional, because most of what goes through here is a one-off somebody
+    asked for: an invite, a feedback reply, a confirmation. The Sunday letter
+    is the one that is bulk in the sense Gmail and Yahoo mean, and it passes
+    one.
+  */
+  unsubscribeUrl?: string;
 }): Promise<boolean> {
   const key = process.env.RESEND_API_KEY?.trim();
   const from = process.env.RESEND_FROM?.trim() || DEFAULT_FROM;
@@ -36,7 +45,20 @@ export async function sendNoteEmail(input: {
       html: input.html ?? fallbackNoteHtml(input.text),
       ...(input.replyTo ? { replyTo: input.replyTo } : {}),
       headers: {
-        "List-Unsubscribe": "<https://upsidelab.app/account>",
+        "List-Unsubscribe": `<${input.unsubscribeUrl ?? "https://upsidelab.app/account"}>`,
+        /*
+          And this is what makes the offer real. Without it a client that
+          shows an unsubscribe button opens the link in a browser, which is
+          the account page, which is behind a sign-in. With it the client
+          posts to the link itself and the reader is done.
+
+          Only beside a link we signed: posting to the account page would do
+          nothing at all, and a button that appears to work and does not is
+          worse than no button.
+        */
+        ...(input.unsubscribeUrl
+          ? { "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
+          : {}),
         // Gmail treats this as the message's identity. Random means every
         // send is its own entity -- which is right for mail a person asked
         // for, and is why three copies of one Sunday letter stacked up as
