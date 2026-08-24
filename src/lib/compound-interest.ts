@@ -215,13 +215,20 @@ export function calculateCompound(inputs: CompoundInputs): CompoundResult {
       // Apply compound events that fall in this month
       const eventsPerMonth = n / 12;
       if (eventsPerMonth >= 1) {
-        // e.g. monthly/daily: compound within the month
-        const steps = Math.max(1, Math.round(eventsPerMonth));
-        let b = balance;
-        for (let s = 0; s < steps; s++) {
-          b *= 1 + annualRate / n;
-        }
-        interest = b - balance;
+        /*
+         * A month's worth of compound events, and a month is not a whole
+         * number of them. Daily is 365/12 = 30.42, and rounding that to 30
+         * whole steps builds the year out of 360 days while
+         * `compoundsPerYear` reports 365 and the effective annual rate
+         * printed beside the chart is worked from 365. So the headline rate
+         * and the balance under it disagreed, and the balance was the one
+         * that was wrong: $10,000 at 10% for 10 years came out $369.73
+         * short of the closed form, 1.4% of the answer, growing with the
+         * horizon. The exponent is the honest way to say it, exact for any
+         * frequency, and over twelve months it multiplies out to exactly
+         * (1 + r/n)^n. Monthly is unchanged: n/12 is 1.
+         */
+        interest = balance * (Math.pow(1 + annualRate / n, eventsPerMonth) - 1);
       } else {
         // quarterly/annual/semi: only on compound months
         const monthsPerEvent = Math.round(12 / n);
