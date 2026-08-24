@@ -42,6 +42,22 @@ and CSRF rested entirely on a dependency's cookie default.
   ticker returns `missing` and no number, a delisted name in a batch of
   twenty comes back missing while the rest price. `fallbackQuotes` has
   zero call sites.
+- **16 the fallback chain, all three links, verified live.** Until now only
+  Yahoo had ever been exercised, so the second and third providers were a
+  design rather than a fact. With real keys in place: Twelve Data and
+  Finnhub each priced the same three names to within rounding of each
+  other. With Yahoo failed at the socket the chain reached Twelve Data and
+  nothing went unpriced; with Yahoo **and** Twelve Data failed it reached
+  Finnhub and nothing went unpriced, in 800ms. The circuit breaker is what
+  keeps an outage cheap: the first request spends one socket on the dead
+  provider and opens the breaker, and the two after it spend none. A cold
+  process pays a larger one-off burst, because `yahoo-finance2` retries its
+  own crumb fetch before the breaker has anything to go on, and that is
+  once per process rather than once per request.
+  Worth knowing for anyone testing this: Twelve Data's free tier rate
+  limits quickly under a tight loop and answers 429. The chain treats that
+  as a provider failure and carries on, which is correct, but it means a
+  burst of local probes will exhaust the day's credits.
 - **2.1 portfolio** fixed (splits, twice) and verified (cost basis, today's
   move, one lot per ticker, covered call math by hand).
 - **2.2 Pulse** verified: fires at exactly -5% on the effective move,
@@ -121,11 +137,28 @@ fails when row level security is turned off, which was checked.
   stronger idempotency guarantee than an event-id table. A write that
   matches no profile returns 500 so Stripe redelivers, rather than
   acknowledging a payment nobody was granted. End-to-end checkout in test
-  mode is blocked.
+  mode is still **blocked, and deliberately so**. A key was supplied for
+  this and it was an `sk_live_` one, which is the live secret key: it moves
+  real money, reads real customer records, and a checkout driven with it is
+  a real charge against a real card. Nothing in this pass used it. What
+  this needs is the `sk_test_` key from the same dashboard with the test
+  mode toggle on, and a `price_` id created in test mode, since a live
+  price id is not visible to a test key. A live key handed to an automated
+  pass should be treated as disclosed and rolled.
 - **21 notifications** verified in code (three independent guards against a
   double send, per-recipient claim, Resend idempotency key, and a letter
   that refuses to send on thin numbers, now including a pre-split share
-  count). Actual delivery and client rendering are blocked.
+  count), and the letter itself is now **rendered from live quotes** rather
+  than a fixture. Subject and preview came back comma grouped with the
+  preview leading on the percent, no em or en dash anywhere in the subject,
+  preview, text or HTML, the move bar drew as tables and `bgcolor` with the
+  biggest mover stopping at 88% of its half channel, and the unsubscribe
+  HMAC resolved for the reader it was made for while refusing an edited
+  signature, an empty one, and one person's signature pointed at another
+  person's id. The refusal path was exercised for real: a provider rate
+  limit left the holdings unpriced and `weeklyNumbersAreSound` returned
+  false with the names it could not price, so that letter would not have
+  been sent. Delivery into a real inbox is still untested.
 - **22 analytics** fixed. Fourteen client events and six server events are
   logged, covering import, Margus, Pulse, invites and the walkthrough, and
   the admin page already carried a real activation funnel: signed in, has a
@@ -181,7 +214,10 @@ If only three things are done next, these are the three:
 
 1. **A two-account session pass.** Sharing, communities, classroom
    permissions and concurrent edits are the largest untested surface, and
-   the only thing standing in the way is credentials.
+   the only thing standing in the way is credentials. It needs an Upside
+   **Lab** project: the one supplied carried Upside Arena's schema and had
+   rows in it, so pointing Lab's migrations at it would have written one
+   app's tables into the other app's database.
 2. **Restore from a backup, once, against production.** The chain itself is
    rehearsed on every pull request now, so what is left is proving the
    nightly job is pointed at the right database, which is the one part a
