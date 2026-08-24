@@ -6,7 +6,7 @@ Claude Code, since the repo already has purpose-built scripts that a coding
 agent can run and interpret directly". This is what those scripts said, what
 reading the code said, and what changed as a result.
 
-Three things changed. Everything else on this page is a box that was already
+Four things changed. Everything else on this page is a box that was already
 ticked, recorded here with the evidence, because a checklist with no evidence
 behind it is worth re-running from scratch next time.
 
@@ -177,10 +177,15 @@ come back with the same answer. Each instance learns once now.
   is a state change an attacker gains anything from triggering.
 - **CSRF.** Supabase's session cookies are `SameSite=Lax` (confirmed in
   `@supabase/ssr`'s own constants), so a cross-site POST, PATCH or DELETE
-  carries no session. Worth knowing that this is the whole of the defence:
-  there is no explicit `Origin` or `Sec-Fetch-Site` check in `src/proxy.ts`.
-  It holds today. It is one line of defence rather than two, and it is the
-  one thing on this page a future change could silently remove.
+  carries no session. That was the whole of the defence, and it is a default
+  owned by a dependency rather than a rule this app states, which is exactly
+  the kind of protection a later change removes without anything failing.
+  `src/proxy.ts` now refuses a mutating `/api/*` request that a browser has
+  labelled cross-site, reading `Sec-Fetch-Site` first (page script cannot
+  write it) and falling back to `Origin` against the request host. A caller
+  with neither header is not a browser and passes through, which is what
+  keeps Stripe's signed webhook working: forgery is a browser attack, so a
+  browser is what it checks.
 - **Body size.** `parseJsonBody` refuses over 1 MB, and checks what actually
   arrived rather than trusting `Content-Length`.
 - **Rate limiting.** Per-IP mutation and market limiters in `src/proxy.ts`, a
