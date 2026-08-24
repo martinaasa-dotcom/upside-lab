@@ -286,7 +286,24 @@ export function BookModeDock({
     <div ref={rowRef} className="w-full">
     <div
       ref={wellRef}
-      role="tablist"
+      /*
+       * Not a tablist, though it was one until axe said otherwise.
+       *
+       * `role="tablist"` promises children that are all `role="tab"`, and
+       * this bar holds a dropdown trigger, a "New portfolio" button that
+       * opens a dialog, and a Circle link. Three of its children were never
+       * tabs, which is a critical `aria-required-children` violation and,
+       * worse than the rule, a lie about what the thing is: a tablist
+       * switches panels inside one view, and these go to destinations. A
+       * screen reader given a tablist full of links may expose none of
+       * them.
+       *
+       * So it is what it always was, navigation, and it already sits inside
+       * the `<nav aria-label="Portfolio">` in `PortfolioTabs`, which is
+       * where the landmark belongs. The current destination is
+       * `aria-current="page"`, which is what the Circle link already used
+       * and what `MobileTabBar` uses, so the two docks now agree.
+       */
       aria-label="App"
       /*
        * A floating card, not a well sunk into a bar. The dock has no band
@@ -346,8 +363,7 @@ export function BookModeDock({
             <button
               key={id}
               type="button"
-              role="tab"
-              aria-selected={active}
+              aria-current={active ? "page" : undefined}
               data-on={active ? "" : undefined}
               title={title}
               onClick={() => onSelectMode(id)}
@@ -397,8 +413,7 @@ export function BookModeDock({
             <button
               key={sheet.id}
               type="button"
-              role="tab"
-              aria-selected={active}
+              aria-current={active ? "page" : undefined}
               data-on={active ? "" : undefined}
               title={title}
               onClick={() => goToSheet(sheet.id)}

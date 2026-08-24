@@ -173,7 +173,7 @@ export function MobileTabBar({
   const measure = useCallback(() => {
     const row = rowRef.current;
     if (!row) return;
-    const on = row.querySelector<HTMLElement>('[data-tab][aria-selected="true"]');
+    const on = row.querySelector<HTMLElement>('[data-tab][aria-current="page"]');
     /*
      * Same object, same state. `setMark` with a freshly built object on
      * every measurement makes every measurement a re-render, and a layout
@@ -247,7 +247,16 @@ export function MobileTabBar({
     >
       <div
         ref={rowRef}
-        role="tablist"
+        /*
+         * Not a tablist, and it never was one. `role="tablist"` promises
+         * children that are all `role="tab"`, and a tab switches panels
+         * inside one view; every cell here is a link to a destination, so a
+         * screen reader handed a tablist full of links may expose none of
+         * them. It already sits inside a `<nav aria-label="App">`, which is
+         * where the landmark belongs, and `aria-current="page"` is what says
+         * where you are. `BookModeDock` had the same lie and lost it for the
+         * same reason, so the two docks agree.
+         */
         className={cn(
           /*
            * `glass-dock` after `card-sheen glass`: the same pane with the
@@ -274,11 +283,9 @@ export function MobileTabBar({
               key={id}
               href={to}
               prefetch
-              role="tab"
               data-tab={id}
               aria-label={label}
               aria-current={on ? "page" : undefined}
-              aria-selected={on}
               onPointerDown={(e) => say(shortLabel, e.currentTarget)}
               /*
                * A keyboard never presses anything, so the name would never be

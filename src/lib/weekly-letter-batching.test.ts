@@ -50,11 +50,19 @@ let RECIPIENTS = 1;
 
 function builder(table: string) {
   let op = "select";
+  let window: [number, number] | null = null;
   const chain: Record<string, unknown> = {
     select: () => chain,
     eq: () => chain,
     in: () => chain,
     or: () => chain,
+    // Every batched read is paged now (lib/supabase/read-all), so the double
+    // has to answer a window. The fixtures are far shorter than one page, so
+    // the first window is the last.
+    range: (from: number, to: number) => {
+      window = [from, to];
+      return chain;
+    },
     maybeSingle: () => {
       calls.push({ table, op });
       return Promise.resolve({ data: null, error: null });
@@ -69,7 +77,12 @@ function builder(table: string) {
         resolve({
           // An update that comes back with a row is a won claim on that
           // recipient -- see `claimRecipient` in note-cron.
-          data: op === "update" ? [{ id: "claimed" }] : fixtureRows(table),
+          data:
+            op === "update"
+              ? [{ id: "claimed" }]
+              : window
+                ? fixtureRows(table).slice(window[0], window[1] + 1)
+                : fixtureRows(table),
           error: null,
         })
       );

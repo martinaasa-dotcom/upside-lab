@@ -26,7 +26,15 @@ import { MAX_SAFE_MONEY, MAX_SAFE_SHARES } from "@/lib/money";
 import { sheetCashBalance } from "@/lib/cash-balance";
 import type { EnrichedHolding, Portfolio } from "@/lib/types";
 import { todayDollarFor } from "@/lib/overview";
-import { ArrowDown, ArrowUp, FileUp, ImagePlus, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  FileUp,
+  ImagePlus,
+  Plus,
+  TriangleAlert,
+  Trash2,
+} from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Sparkline } from "./Sparkline";
 import { FluidRow, FluidTable, cellBase, cellTicker, tableCols } from "@/components/FluidTable";
@@ -371,6 +379,23 @@ export const PortfolioTable = memo(function PortfolioTable({
   const rowToday = (h: (typeof holdings)[number]) =>
     todayDollarFor(h.currentValue, h.quote?.changePercent);
 
+  /**
+   * Holdings nothing could price.
+   *
+   * `enrichHoldings` values one of these at the buy price, which keeps the
+   * book's total honest (dropping the position would understate it, and
+   * that is the failure the Sunday letter refuses to mail over) but leaves
+   * the row reading as a stock that has not moved: cost as value, no gain,
+   * no loss. A reader cannot tell that apart from a quiet week.
+   *
+   * The usual cause is not an outage. It is the company being renamed in a
+   * merger, delisted, or the symbol having been typed wrong in the first
+   * place, and all three are permanent until somebody edits the row, so the
+   * position sits there looking flat forever. Naming them is the whole fix:
+   * the arithmetic is fine, the silence was not.
+   */
+  const unpriced = holdings.filter((h) => !h.quote && h.shares > 0);
+
   const canAdd = !tradeLock || tradeLock.canBuy;
   const canSell = !tradeLock || tradeLock.canSell;
   // The action track only exists when a delete button can actually render,
@@ -475,6 +500,28 @@ export const PortfolioTable = memo(function PortfolioTable({
           </div>
         </div>
       </header>
+
+      {unpriced.length > 0 && (
+        <div className="flex items-start gap-3 border-b border-border bg-warning/10 px-6 py-4">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <div className="min-w-0 text-sm">
+            <p className="font-medium text-foreground">
+              {unpriced.length === 1
+                ? "One holding has no price"
+                : `${unpriced.length} holdings have no price`}
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              {unpriced.map((h) => h.ticker).join(", ")}
+              {unpriced.length === 1 ? " is" : " are"} shown at what you paid,
+              so {unpriced.length === 1 ? "it reads" : "they read"} as flat
+              rather than as missing. That usually means the company was
+              renamed or taken over, or the symbol needs correcting. Check the
+              symbol, and if the company was bought, replace the row with what
+              you hold now.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Mobile / tablet cards. The 13-col table needs the 1080px column. */}
       <div className="flex flex-col gap-3 p-6 lg:hidden">
