@@ -50,6 +50,31 @@ const LEAK = [
   /Section 3\./i,
   /Narrative Arc/i,
   /Institutional Portfolio/i,
+
+  /*
+    A reasoning model narrating itself, which is a different leak from a
+    model quoting the prompt back and needs its own patterns: these carry no
+    prompt vocabulary at all, so nothing above catches them.
+
+    Measured on the free tier 2026-08-24, this is the normal failure rather
+    than an odd one. nemotron-3-super-120b opened a reply to "explain what a
+    covered call is" with "The user asks:" and then several paragraphs of
+    "We must follow policy", quoting forbidden phrases out of the system
+    prompt on the way. nemotron-3.5-lightning opens with "Here's a thinking
+    process". Both are models a reader can be served by today.
+
+    Anchored to the start of a line, because a sentence may legitimately
+    contain "we should" in the middle of a thought.
+  */
+  /(^|\n)\s*we (must|should|need to|can|will|have to)\b/i,
+  /(^|\n)\s*the user (asks|wants|is asking)/i,
+  /(^|\n)\s*(okay|ok|so),? (let's|lets|we)\b/i,
+  /let'?s craft/i,
+  /here'?s (a|my) thinking process/i,
+  /\banalyze user request\b/i,
+  /according to the instruction/i,
+  /must (refuse|comply|not comply)/i,
+  /we must not mention/i,
 ];
 
 export function looksLikePromptLeak(text: string): boolean {
