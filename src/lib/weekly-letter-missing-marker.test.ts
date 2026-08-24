@@ -20,6 +20,23 @@ const PROFILES = [
   { id: "u2", email: "b@example.com", display_name: "B", note_sunday_sent_at: null },
 ];
 
+/*
+  The reads paginate now (readAll walks .range() a page at a time), so a stub
+  that answers only to await is no longer a builder. This one is both: await it
+  and you get the page, ask it for a range and you get the same page once and
+  nothing after it, which is what ends the walk.
+*/
+function page<T>(payload: T) {
+  const done = Promise.resolve(payload);
+  return {
+    range: (from: number) =>
+      from === 0 ? done : Promise.resolve({ data: [], error: null }),
+    then: (...a: Parameters<Promise<T>["then"]>) => done.then(...a),
+    catch: (...a: Parameters<Promise<T>["catch"]>) => done.catch(...a),
+    finally: (...a: Parameters<Promise<T>["finally"]>) => done.finally(...a),
+  };
+}
+
 vi.mock("@/lib/supabase/server", () => ({
   supabaseUsesServiceRole: () => true,
   getSupabaseServer: () => ({
@@ -29,7 +46,7 @@ vi.mock("@/lib/supabase/server", () => ({
         selects.push(cols);
         const asked = cols.includes("note_sunday_sent_at");
         q.eq = () =>
-          Promise.resolve(
+          page(
             asked && columnMissing
               ? {
                   data: null,
@@ -46,31 +63,8 @@ vi.mock("@/lib/supabase/server", () => ({
                   error: null,
                 }
           );
-        /*
-         * Both are awaitable and both answer a window, because the real
-         * builder is both and the caller decides which it uses.
-         *
-         * Every batched read is paged now (lib/supabase/read-all), and a
-         * page is asked for with `.range(from, to)`. This double returned a
-         * settled promise, which has no `range`, so the holdings read threw
-         * `build(...).range is not a function` the moment it was reached.
-         * `weekly-letter-batching.test.ts` and
-         * `weekly-letter-duplicates.test.ts` grew a `range` when paging
-         * landed; this file was missed, and it stayed green in CI only
-         * because CI has no mail key, so the run stopped before the paged
-         * read. The fixtures are far shorter than one page, so the first
-         * window is the last.
-         */
-        const answers = (rows: unknown[]) => {
-          const settled = () => Promise.resolve({ data: rows, error: null });
-          return {
-            range: settled,
-            then: (...args: Parameters<Promise<unknown>["then"]>) =>
-              settled().then(...args),
-          };
-        };
-        q.in = () => answers([]);
-        q.not = () => answers([]);
+        q.in = () => page({ data: [], error: null });
+        q.not = () => page({ data: [], error: null });
         return q;
       };
       q.update = (patch: Record<string, unknown>) => {
