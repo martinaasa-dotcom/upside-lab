@@ -36,12 +36,6 @@ export const UPSIDE_CIRCLE_ID = "a0000000-0000-4000-8000-000000000001";
 /** Live book columns. Snapshots still select * so a restore cannot drop a field. */
 export const PORTFOLIO_COLUMNS =
   "id, name, slug, sort_order, cash_balance, owner_id, classroom_community_id";
-/**
- * `updated_at` is here because a split correction needs it. Nothing but a
- * user edit or an import changes a share count, so a row last touched
- * before a split certainly still holds the pre-split count, and one touched
- * since cannot be judged. See `market/corporate-actions.ts`.
- */
 export const HOLDING_COLUMNS =
   "id, portfolio_id, ticker, shares, buy_price, eoy_target, target_call_pct, stock_target_override, sort_order, updated_at";
 

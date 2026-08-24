@@ -22,6 +22,8 @@ type OverviewUser = {
   bio: string | null;
   profile_created_at: string | null;
   profile_updated_at: string | null;
+  subscription_status: string | null;
+  current_period_end: string | null;
   last_sign_in_at: string | null;
   last_advisor_at: string | null;
   email_confirmed_at: string | null;
@@ -60,7 +62,11 @@ async function loadViaServiceRole(): Promise<{
 
   const { data: profiles, error: pErr } = await supabase
     .from(PORTFELL_TABLES.profiles)
-    .select("id, email, display_name, avatar_url, bio, created_at, updated_at, last_advisor_at")
+    // `subscription_status` so the funnel can reach revenue. The Stripe
+    // webhook is the only writer of it, so this is Stripe's own answer.
+    .select(
+      "id, email, display_name, avatar_url, bio, created_at, updated_at, last_advisor_at, subscription_status, current_period_end"
+    )
     .order("created_at", { ascending: false });
   if (pErr) throw new Error(pErr.message);
 
@@ -153,6 +159,8 @@ async function loadViaServiceRole(): Promise<{
     created_at: string | null;
     updated_at: string | null;
     last_advisor_at: string | null;
+    subscription_status: string | null;
+    current_period_end: string | null;
   }[]).map((p) => ({
     id: p.id,
     email: p.email,
@@ -161,6 +169,8 @@ async function loadViaServiceRole(): Promise<{
     bio: p.bio,
     profile_created_at: p.created_at,
     profile_updated_at: p.updated_at,
+    subscription_status: p.subscription_status,
+    current_period_end: p.current_period_end,
     last_sign_in_at: signInById.get(p.id) ?? null,
     last_advisor_at: p.last_advisor_at,
     email_confirmed_at: null,

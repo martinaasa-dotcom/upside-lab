@@ -122,16 +122,25 @@ provider fan-out and CSRF gaps are closed.
   double send, per-recipient claim, Resend idempotency key, and a letter
   that refuses to send on thin numbers, now including a pre-split share
   count). Actual delivery and client rendering are blocked.
-- **22 analytics** open, and this is the clearest remaining gap. Fourteen
-  client events and six server events are logged, covering import, Margus,
-  Pulse, invites and the walkthrough. **Neither end of the funnel is:**
-  there is no signup event and no subscription-started event, and
-  `/api/admin/overview` is a roster rather than a dashboard, with no
-  subscription state in it. Signups are derivable from
-  `portfell_profiles.created_at` and revenue from Stripe's own dashboard,
-  so nothing is lost, but nobody can see the funnel in one place. This is
-  a small piece of work and it is deliberately left rather than guessed at,
-  because what to count is a product decision.
+- **22 analytics** fixed. Fourteen client events and six server events are
+  logged, covering import, Margus, Pulse, invites and the walkthrough, and
+  the admin page already carried a real activation funnel: signed in, has a
+  portfolio, has holdings, used Margus or Pulse, visited this week, active
+  this week. What it did not carry was revenue. For an app taking real
+  money through Stripe that leaves out the two numbers the owner most needs
+  after launch, and one of them is urgent: a card that fails puts a
+  subscription into `past_due` and nothing on the page would have said so.
+  **Subscribed** and **Payment failing** are the last two steps now, read
+  off `portfell_profiles`, whose only writer is the Stripe webhook, so it
+  is Stripe's own answer rather than a second copy kept in sync by hand.
+  A signup event is still not logged and does not need to be:
+  `portfell_profiles.created_at` is the signup, exactly once, by
+  construction, and `signedIn` counts it.
+
+  `AdminPage` was restating the funnel's shape rather than importing it,
+  which is how the page would have gone on rendering six numbers while the
+  route computed eight. It imports the type now, and the module has tests,
+  which it did not.
 - **23 performance** verified on the part that is checkable statically:
   every candidate N+1 was traced and all are either batched with `.in()`
   already or bounded by a hardcoded list. Core Web Vitals are blocked.
@@ -159,6 +168,6 @@ If only three things are done next, these are the three:
    the only thing standing in the way is credentials.
 2. **Restore from a backup, once, for real.** Section 26 exists because
    scripts that have never been run are not a backup.
-3. **Signup and subscription events, and somewhere to look at them.** The
-   two ends of the funnel are the numbers that answer whether this MVP is
-   validated, and today neither is recorded.
+3. **Watch the funnel once it is live.** It reaches revenue now, and
+   **Payment failing** is the cell to look at first: it is the only number
+   on the page that means somebody has to do something today.

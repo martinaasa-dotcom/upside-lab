@@ -4609,6 +4609,19 @@ run("split rows stack on a phone so copy fills the card", () => {
 });
 
 run("assumed YTD NAV uses current size and forward-fills gaps", () => {
+  /*
+   * This used to assert `2 * 0 (BBB not listed yet)`, which is not what
+   * the name says and not what the chart is for. Forward-filling a gap
+   * means carrying a name's last close through a day it did not trade,
+   * and there is something to carry. Before a name's *first* close there
+   * is nothing, and pricing it at zero does not draw the book slightly
+   * low, it draws a rise that never happened: two flat holdings whose
+   * histories start three days apart came out at +50%.
+   *
+   * So the path starts on the first day the whole book can be priced, and
+   * both halves are asserted here: BBB's late start moves the beginning,
+   * and AAA's missing Jan 6 is carried forward from Jan 5.
+   */
   const points = reconstructAssumedNav(
     1000,
     [
@@ -4620,13 +4633,18 @@ run("assumed YTD NAV uses current size and forward-fills gaps", () => {
         { date: "2026-01-02", close: 10 },
         { date: "2026-01-05", close: 12 },
       ],
-      BBB: [{ date: "2026-01-05", close: 50 }],
+      BBB: [
+        { date: "2026-01-05", close: 50 },
+        { date: "2026-01-06", close: 50 },
+      ],
     }
   );
+  // Jan 2 is not drawn: BBB cannot be priced, so the book cannot be.
   assert.equal(points.length, 2);
-  // Jan 2: cash 1000 + 10*10 + 2*0 (BBB not listed yet)
-  assert.equal(points[0]!.nav, 1100);
+  assert.equal(points[0]!.date, "2026-01-05");
   // Jan 5: cash 1000 + 10*12 + 2*50
+  assert.equal(points[0]!.nav, 1220);
+  // Jan 6: AAA did not print, so its Jan 5 close is carried forward.
   assert.equal(points[1]!.nav, 1220);
   const weeks = downsampleToWeeks(points);
   assert.ok(weeks.length >= 1);

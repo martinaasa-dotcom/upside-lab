@@ -6,6 +6,10 @@ import { MobileDock } from "@/components/mobile/MobileDock";
 import { SignInGate } from "@/components/SignInGate";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { Score, Scoreboard } from "@/components/ui/Panel";
+// The shape is `admin-funnel.ts`'s, imported rather than restated: this
+// file used to carry its own copy of it, which is how the page would have
+// gone on rendering six numbers while the route computed eight.
+import type { AdminFunnel } from "@/lib/admin-funnel";
 import { isSuperadminEmail } from "@/lib/auth/superadmin";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import { plainError } from "@/lib/plain-error";
@@ -39,15 +43,6 @@ type AdminUser = {
   last_sign_in_at: string | null;
   portfolios?: { id: string; name: string }[];
   holding_count?: number;
-};
-
-type AdminFunnel = {
-  signedIn: number;
-  hasSheet: number;
-  hasHoldings: number;
-  usedAdvisor: number;
-  returned7d: number;
-  activated: number;
 };
 
 type AdminMember = {
@@ -309,8 +304,9 @@ export function AdminPage() {
                   </h2>
                   <p className="text-sm text-muted-foreground">
                     Signed in, has a portfolio, has holdings, used Margus or Pulse,
-                    signed in this week, and holdings plus a visit in the last
-                    7 days.
+                    signed in this week, holdings plus a visit in the last
+                    7 days, then paying or in a trial, then a charge that did
+                    not go through.
                   </p>
                   <Scoreboard cols={2}>
                     <Score label="Signed in" value={funnel.signedIn} />
@@ -322,6 +318,12 @@ export function AdminPage() {
                     />
                     <Score label="Visited 7d" value={funnel.returned7d} />
                     <Score label="Active 7d" value={funnel.activated} />
+                    <Score label="Subscribed" value={funnel.subscribed} />
+                    <Score
+                      label="Payment failing"
+                      value={funnel.paymentFailing}
+                      tone={funnel.paymentFailing > 0 ? "down" : undefined}
+                    />
                   </Scoreboard>
                 </section>
               )}

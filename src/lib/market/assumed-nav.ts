@@ -2,7 +2,32 @@ import { finiteNumber, roundMoney, safeDiv } from "@/lib/money";
 
 /** Reconstruct a book's NAV path from current size × historical closes.
  * Assumes the viewer held the same names and share counts, and that cash
- * sat still. An educated fill-in, not a trade blotter. */
+ * sat still. An educated fill-in, not a trade blotter.
+ *
+ * **The path starts on the first day the whole book can be priced**, and
+ * that is the point of the `startAt` below. Holdings do not all have the
+ * same amount of history: a recent listing, a name the provider only has
+ * partial data for, or a gap in one series leaves some names with closes
+ * on days the others do not have. A missing close mid-series is carried
+ * forward from the last one, which is right. There is nothing to carry
+ * forward from *before* a name's first close, and valuing it at zero there
+ * does not understate the book quietly, it invents a rise:
+ *
+ *     100 shares of a steady $100 name, all week
+ *     100 shares of a steady $50 name whose data starts on the 4th
+ *     nothing moves, and the chart drew +50%
+ *
+ * A wrong level is a chart drawn slightly high or low. A wrong shape is a
+ * chart that says the book did something it did not do, which is the only
+ * thing a NAV line is for.
+ *
+ * What this still does not fix, deliberately: a holding the provider has
+ * no closes for at all is dropped, so the whole line sits low by that
+ * position's worth. That is a level error, it is constant across the
+ * series, and `applyYtdAnchor` rescales it away when a real year start is
+ * known. Refusing to draw anything because one obscure name is unpriced
+ * would cost more than it buys.
+ */
 
 export type AssumedPosition = { ticker: string; shares: number };
 export type NavPoint = { date: string; nav: number };
@@ -42,9 +67,19 @@ export function reconstructAssumedNav(
   const allDates = [
     ...new Set(legs.flatMap((m) => m.dates)),
   ].sort();
+
+  // The first day every leg has something to be valued at. Each leg's own
+  // dates are already ascending, so its first is its earliest.
+  const startAt = legs.reduce((latest, leg) => {
+    const first = leg.dates[0];
+    if (!first) return latest;
+    return latest == null || first > latest ? first : latest;
+  }, null as string | null);
+  const dates = startAt == null ? allDates : allDates.filter((d) => d >= startAt);
+
   const lastClose = legs.map(() => 0);
   const out: NavPoint[] = [];
-  for (const date of allDates) {
+  for (const date of dates) {
     let nav = finiteNumber(cash);
     legs.forEach((leg, i) => {
       const close = leg.byDate.get(date);
