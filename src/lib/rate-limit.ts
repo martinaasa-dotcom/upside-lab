@@ -126,6 +126,67 @@ export function clientIp(req: Request): string {
   return vercel || forwarded || real || "unknown";
 }
 
+/**
+ * Who to charge a request to.
+ *
+ * The IP is the only thing an anonymous request carries, and it is the
+ * wrong unit the moment two people share one. This app has classrooms in
+ * it: twenty-five students on one school's network are one IP, and a page
+ * load makes two quote requests, so a class opening the app together spent
+ * the whole 120 a minute in the first few seconds and every one of them saw
+ * "Too many requests". A household behind one router is the same problem
+ * with smaller numbers.
+ *
+ * A signed-in request carries a session cookie, so it can be charged to the
+ * session instead, and the class gets twenty-five buckets rather than one.
+ * The cookie value is only ever used as a bucket key, so the hash is a
+ * cheap non-cryptographic one and no network call is involved: the point is
+ * to tell two people apart, not to authenticate either of them.
+ *
+ * Anonymous requests still fall back to the IP, which is what actually
+ * needs the cap: a scrape loop against the unauthenticated quote endpoint
+ * has no session to hide behind.
+ */
+function hashToBucket(value: string): string {
+  // FNV-1a, 32 bit. Fast, no allocation, and a bucket key needs nothing more.
+  let h = 0x811c9dc5;
+  for (let i = 0; i < value.length; i++) {
+    h ^= value.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
+/** The Supabase session cookie, whichever project ref and chunk it is. */
+function sessionCookieValue(req: Request): string | null {
+  const raw = req.headers.get("cookie");
+  if (!raw) return null;
+  const parts: string[] = [];
+  for (const piece of raw.split(";")) {
+    const eq = piece.indexOf("=");
+    if (eq < 1) continue;
+    const name = piece.slice(0, eq).trim();
+    if (/^sb-.+-auth-token(\.\d+)?$/.test(name)) {
+      parts.push(piece.slice(eq + 1).trim());
+    }
+  }
+  if (parts.length === 0) return null;
+  // Chunked cookies arrive in an order the browser chooses; sort so the
+  // same session always hashes to the same bucket.
+  return parts.sort().join("");
+}
+
+/**
+ * Bucket key for a request: the session when there is one, the IP
+ * otherwise. Prefixed so a session bucket and an IP bucket can never
+ * collide.
+ */
+export function clientBucket(req: Request): string {
+  const session = sessionCookieValue(req);
+  if (session) return `s:${hashToBucket(session)}`;
+  return `i:${clientIp(req)}`;
+}
+
 const MUTATION = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 const TIGHT_PATHS = [
@@ -174,7 +235,7 @@ export function limitMutationRequest(req: Request): RateLimitResult | null {
 
   const tight = joinPeek || exportGet || isTightPath(pathname);
   return checkRateLimit(
-    `api:${method}:${normalizeApiPath(pathname)}:${clientIp(req)}`,
+    `api:${method}:${normalizeApiPath(pathname)}:${clientBucket(req)}`,
     tight ? 20 : 120,
     60_000
   );
@@ -185,9 +246,12 @@ function isPublicMarketPath(pathname: string): boolean {
 }
 
 /**
- * GET quote and ticker-search endpoints are unauthenticated. Cap by IP so
- * a scrape loop cannot burn the Yahoo/Twelve Data fallbacks. Memory only;
- * the CDN still absorbs repeats of the same URL.
+ * GET quote and ticker-search endpoints are unauthenticated. Capped per
+ * caller so a scrape loop cannot burn the Yahoo/Twelve Data fallbacks. See
+ * `clientBucket`: a signed-in reader is charged to their session, an
+ * anonymous one to their IP, so a classroom on one network is twenty-five
+ * callers rather than one. Memory only; the CDN still absorbs repeats of
+ * the same URL.
  */
 export function limitPublicMarketRequest(req: Request): RateLimitResult | null {
   const method = req.method.toUpperCase();
@@ -199,7 +263,7 @@ export function limitPublicMarketRequest(req: Request): RateLimitResult | null {
     return null;
   }
   if (!isPublicMarketPath(pathname)) return null;
-  return checkRateLimit(`mkt:${clientIp(req)}`, 120, 60_000);
+  return checkRateLimit(`mkt:${clientBucket(req)}`, 120, 60_000);
 }
 
 export function rateLimitJson(
