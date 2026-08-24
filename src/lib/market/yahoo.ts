@@ -44,7 +44,7 @@ type YahooFinanceInstance = InstanceType<
 
 let yahoo: YahooFinanceInstance | null = null;
 
-async function getYahoo(): Promise<YahooFinanceInstance> {
+export async function getYahoo(): Promise<YahooFinanceInstance> {
   if (yahoo) return yahoo;
   const { default: YahooFinance } = await import("yahoo-finance2");
   yahoo = new YahooFinance({ suppressNotices: ["yahooSurvey"] });

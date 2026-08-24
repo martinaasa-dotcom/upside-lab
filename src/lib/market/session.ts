@@ -13,8 +13,12 @@ const US_TZ = "America/New_York";
 
 export type MarketSession = "open" | "extended" | "closed";
 
-/** Minutes since midnight in New York, plus the weekday there. */
-function nyClock(at: Date): { minutes: number; weekday: number } {
+/**
+ * Minutes since midnight in New York, plus the weekday there (0 = Sunday).
+ * Exported because the overnight indication keys off the same clock, and
+ * two copies of this would be two copies to get the DST handling right in.
+ */
+export function nyWallClock(at: Date): { minutes: number; weekday: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: US_TZ,
     hour: "2-digit",
@@ -35,7 +39,7 @@ function nyClock(at: Date): { minutes: number; weekday: number } {
 }
 
 export function marketSession(at: Date = new Date()): MarketSession {
-  const { minutes, weekday } = nyClock(at);
+  const { minutes, weekday } = nyWallClock(at);
   if (weekday === 0 || weekday === 6) return "closed";
   if (minutes >= 9 * 60 + 30 && minutes < 16 * 60) return "open";
   // Pre-market from 04:00, after-hours to 20:00. Holidays aren't tracked; a
@@ -85,7 +89,7 @@ function minutesToOpen(minutes: number, weekday: number): number {
  * the screen gets. See `quoteViewMaxAgeMs`.
  */
 export function quotePollMs(at: Date = new Date()): number {
-  const { minutes, weekday } = nyClock(at);
+  const { minutes, weekday } = nyWallClock(at);
   const weekend = weekday === 0 || weekday === 6;
 
   if (!weekend && minutes >= OPEN_MIN && minutes < CLOSE_MIN) {
@@ -204,7 +208,7 @@ export function usWeekMondayKey(sessionDate: string): string {
  * ended, not right on top of the close.
  */
 export function lastCompletedUsSessionKey(now: Date = new Date()): string {
-  const { minutes, weekday } = nyClock(now);
+  const { minutes, weekday } = nyWallClock(now);
   let key = dateKeyInTz(now, US_TZ);
   const closedToday =
     weekday !== 0 && weekday !== 6 && minutes >= 16 * 60;
