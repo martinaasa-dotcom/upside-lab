@@ -106,9 +106,13 @@ and CSRF rested entirely on a dependency's cookie default.
 
 ### 14 to 19, technical
 All verified or fixed; see `MVP_AUDIT_TECHNICAL_PASS.md`. Headline: the
-repo's own tooling is green and now runs in CI in full, RLS was verified by
-replaying every migration and tracking each create and drop, and the
-provider fan-out and CSRF gaps are closed.
+repo's own tooling is green and now runs in CI in full, the provider
+fan-out and CSRF gaps are closed, and **row level security is now proved
+against a real Postgres on every pull request** rather than read off the
+migrations. `supabase/tests/rls.test.sql` asks the database, as the
+`authenticated` role with a real claim, whether one person can reach
+another's portfolio, holdings, conviction notes or co-ownership rows. It
+fails when row level security is turned off, which was checked.
 
 ### 20 to 23
 - **20 Stripe** verified. Signature checked, and every handler **re-fetches
