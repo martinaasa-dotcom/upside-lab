@@ -78,8 +78,20 @@ export function emailButton(href: string, label: string): string {
 </table>`;
 }
 
-export function emailAccountFooter(): string {
-  return `<p style="margin:36px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.6;color:${EMAIL.muted}">One email a week, on Sunday. Turn it off any time in <a href="${EMAIL.origin}/account" style="color:${EMAIL.gold};text-decoration:underline">Account</a>.</p>`;
+/**
+ * The line at the foot of the letter.
+ *
+ * With a link that stops the letter by itself when there is one, and the
+ * account page otherwise. The difference matters to the reader who has
+ * stopped using Upside Lab: sending them to a sign-in to turn off mail they
+ * no longer want is how a message gets marked as spam instead.
+ */
+export function emailAccountFooter(unsubscribeUrl?: string): string {
+  const off = unsubscribeUrl
+    ? `<a href="${unsubscribeUrl}" style="color:${EMAIL.gold};text-decoration:underline">Stop it here</a>, or turn it off any time in <a href="${EMAIL.origin}/account" style="color:${EMAIL.gold};text-decoration:underline">Account</a>.`
+    : `Turn it off any time in <a href="${EMAIL.origin}/account" style="color:${EMAIL.gold};text-decoration:underline">Account</a>.`;
+
+  return `<p style="margin:36px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.6;color:${EMAIL.muted}">One email a week, on Sunday. ${off}</p>`;
 }
 
 export function emailPreheader(preview: string): string {

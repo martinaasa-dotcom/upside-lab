@@ -1,3 +1,4 @@
+import { unsubscribeUrlFor } from "@/lib/unsubscribe-link";
 import { requestIsScheduledCron } from "@/lib/cron-auth";
 import { logEvent } from "@/lib/telemetry";
 import {
@@ -627,11 +628,20 @@ export async function dispatchWeeklyLetters(
     letter.margus = await writeWeeklyTake(letter, {
       budgetMs: Math.min(LETTER_BUDGET_MS, left),
     });
+    /*
+      A link that stops the letter by itself, signed for the profile whose
+      letter this is. The mailbox can belong to more than one profile; the
+      endpoint turns it off for every profile with that address, so which of
+      them signed the link does not matter.
+    */
+    const unsubscribeUrl = unsubscribeUrlFor(markerIds[0] ?? "") ?? undefined;
+
     const ok = await sendNoteEmail({
       to: item.to,
       subject: weeklySubject(letter),
       text: weeklyLetterText(letter),
-      html: weeklyLetterHtml(letter),
+      html: weeklyLetterHtml(letter, unsubscribeUrl),
+      unsubscribeUrl,
       // Last line of defence, and the only one outside this codebase: the
       // provider refuses a second send under the same key for 24h, so even
       // a bug on our side cannot put two Sunday letters in one inbox.

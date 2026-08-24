@@ -492,6 +492,89 @@ export async function fetchQuotesYahoo(
   }
 }
 
+export type ShareSplit = {
+  ticker: string;
+  /** The market open at which the new share count is the real one. */
+  effectiveOn: string;
+  /** Ten for one is 10 and 1. One for ten, the reverse, is 1 and 10. */
+  numerator: number;
+  denominator: number;
+};
+
+/**
+ * The share splits a company has had in a window of days.
+ *
+ * The same chart endpoint the daily closes come from, asked for its events as
+ * well as its bars. Nothing else this app talks to reports a split, and a
+ * split nobody notices leaves a holding at the wrong number of shares: ten
+ * for one shows a holder apparently down ninety per cent, and a reverse split
+ * shows a windfall that nobody had.
+ *
+ * Null when the question could not be asked at all, which is a different
+ * answer from an empty list and the caller treats it as one. "Nothing split"
+ * and "the provider did not answer" look identical from outside and lead to
+ * opposite decisions.
+ */
+export async function fetchSplits(
+  ticker: string,
+  fromIso: string,
+  toIso: string
+): Promise<ShareSplit[] | null> {
+  const yf = await getYahoo();
+  const period1 = new Date(`${fromIso}T00:00:00Z`);
+  // A day past the end, because the window is inclusive and the bar for the
+  // last day has to be inside it.
+  const period2 = new Date(new Date(`${toIso}T00:00:00Z`).getTime() + 86_400_000);
+
+  let asked = false;
+
+  for (const symbol of yahooQuoteCandidates(ticker)) {
+    try {
+      const chart = await yahooCall(() =>
+        yf.chart(symbol, { period1, period2, interval: "1d", events: "split" })
+      );
+      asked = true;
+
+      const splits = (
+        chart as unknown as {
+          events?: {
+            splits?: Array<{ date?: Date; numerator?: number; denominator?: number }>;
+          };
+        }
+      ).events?.splits;
+
+      if (!splits?.length) continue;
+
+      return splits
+        .filter(
+          (split) =>
+            split.date instanceof Date &&
+            Number.isFinite(split.numerator) &&
+            Number.isFinite(split.denominator) &&
+            (split.numerator as number) > 0 &&
+            (split.denominator as number) > 0
+        )
+        .map((split) => ({
+          ticker: ticker.toUpperCase(),
+          /*
+            Yahoo timestamps a split at the opening bell, so the UTC date and
+            the exchange's date are the same day and slicing it is safe here
+            in a way it would not be for an evening timestamp.
+          */
+          effectiveOn: (split.date as Date).toISOString().slice(0, 10),
+          numerator: split.numerator as number,
+          denominator: split.denominator as number,
+        }));
+    } catch {
+      // Try the next listing of the same company before giving up on it.
+    }
+  }
+
+  // Asked and told nothing, versus never got an answer. The caller needs to
+  // tell those apart.
+  return asked ? [] : null;
+}
+
 export type DailyClose = { date: string; close: number };
 
 const YTD_CLOSE_TTL_MS = 6 * 60 * 60 * 1000;

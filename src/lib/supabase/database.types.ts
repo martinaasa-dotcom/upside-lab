@@ -753,6 +753,48 @@ export type Database = {
         }
         Relationships: []
       }
+      portfell_share_splits: {
+        Row: {
+          ticker: string
+          effective_on: string
+          numerator: number
+          denominator: number
+          holdings_adjusted: number
+          applied_at: string
+        }
+        Insert: {
+          ticker: string
+          effective_on: string
+          numerator: number
+          denominator: number
+          holdings_adjusted?: number
+          applied_at?: string
+        }
+        Update: {
+          ticker?: string
+          effective_on?: string
+          numerator?: number
+          denominator?: number
+          holdings_adjusted?: number
+          applied_at?: string
+        }
+        Relationships: []
+      }
+      portfell_split_checks: {
+        Row: {
+          day: string
+          claimed_at: string
+        }
+        Insert: {
+          day: string
+          claimed_at?: string
+        }
+        Update: {
+          day?: string
+          claimed_at?: string
+        }
+        Relationships: []
+      }
       portfell_popular_tickers: {
         Row: {
           month: string
@@ -1029,6 +1071,24 @@ export type Database = {
         Returns: number
       }
       portfell_can_read_portfolio: { Args: { pid: string }; Returns: boolean }
+      portfell_claim_split_check: { Args: { p_day: string }; Returns: boolean }
+      portfell_tickers_held: { Args: never; Returns: { ticker: string }[] }
+      portfell_apply_split: {
+        Args: {
+          p_ticker: string
+          p_effective_on: string
+          p_numerator: number
+          p_denominator: number
+        }
+        Returns: {
+          ticker: string
+          effective_on: string
+          numerator: number
+          denominator: number
+          holdings_adjusted: number
+          applied_at: string
+        }
+      }
       portfell_claim_seed_for_me: { Args: never; Returns: Json }
       portfell_create_portfolio_for_me: {
         Args: { p_name: string }
