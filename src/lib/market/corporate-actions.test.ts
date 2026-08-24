@@ -83,6 +83,55 @@ describe("adjustForSplits", () => {
   });
 });
 
+describe("a spinoff is not a split", () => {
+  // Checked against the live Yahoo feed: GE reports a real 1 for 8 reverse
+  // in August 2021, then 1281:1000 and 1253:1000, which are the GE
+  // HealthCare and Vernova spinoffs. A spinoff restates the price history
+  // and leaves the share count alone, so applying one would tell a holder
+  // their 100 shares had become 128.1.
+  const GE_FEED: SplitEvent[] = [
+    { date: "2021-08-02", numerator: 1, denominator: 8 },
+    { date: "2023-01-04", numerator: 1281, denominator: 1000 },
+    { date: "2024-04-02", numerator: 1253, denominator: 1000 },
+  ];
+
+  it("keeps the reverse split and drops both adjustment factors", () => {
+    const due = splitsAfter(GE_FEED, "2020-01-01T00:00:00Z");
+    expect(due).toEqual([{ date: "2021-08-02", numerator: 1, denominator: 8 }]);
+  });
+
+  it("does nothing at all when only the spinoffs are in range", () => {
+    expect(splitsAfter(GE_FEED, "2022-01-01T00:00:00Z")).toEqual([]);
+    expect(
+      adjustForSplits({ shares: 100, buyPrice: 80 }, GE_FEED.slice(1))
+    ).toBeNull();
+  });
+
+  it("still takes every ratio a real split is written as", () => {
+    const real: SplitEvent[] = [
+      { date: "2024-01-01", numerator: 2, denominator: 1 },
+      { date: "2024-01-02", numerator: 3, denominator: 2 },
+      { date: "2024-01-03", numerator: 5, denominator: 4 },
+      { date: "2024-01-04", numerator: 20, denominator: 1 },
+      { date: "2024-01-05", numerator: 1, denominator: 10 },
+    ];
+    expect(splitsAfter(real, "2023-01-01T00:00:00Z")).toHaveLength(5);
+  });
+
+  it("reduces the fraction before judging it", () => {
+    // 20:10 is 2 for 1 written oddly, and is a real split.
+    expect(
+      splitsAfter([{ date: "2024-01-01", numerator: 20, denominator: 10 }], "2023-01-01T00:00:00Z")
+    ).toHaveLength(1);
+  });
+
+  it("refuses a ratio that is not whole numbers of shares", () => {
+    expect(
+      splitsAfter([{ date: "2024-01-01", numerator: 1.5, denominator: 1 }], "2023-01-01T00:00:00Z")
+    ).toEqual([]);
+  });
+});
+
 describe("splitsAfter", () => {
   it("takes only splits later than the day the row was last touched", () => {
     const splits = [AAPL_4_FOR_1, NVDA_10_FOR_1];

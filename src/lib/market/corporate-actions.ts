@@ -45,14 +45,56 @@ export type SplitAdjustment = {
   buyPrice: number;
 };
 
+/**
+ * Biggest numerator or denominator a real split has once the fraction is
+ * reduced.
+ *
+ * Every genuine split is a small whole ratio: 2 for 1, 3 for 2, 10 for 1,
+ * 1 for 8. Yahoo's split feed also carries **spinoff adjustment factors**,
+ * which are not splits at all and do not look like them. GE, checked
+ * against the live feed, reports three events: a real 1 for 8 reverse in
+ * August 2021, then `1281:1000` in January 2023 and `1253:1000` in April
+ * 2024, which are the GE HealthCare and Vernova spinoffs.
+ *
+ * A spinoff restates the historical price series and leaves the share
+ * count alone: the holder still has the shares they had, plus shares in a
+ * new company. Treating one as a split would tell a GE holder their 100
+ * shares had become 128.1, which is a wrong correction to a real position,
+ * exactly what this file exists to avoid.
+ *
+ * 50 admits every split anyone actually does and rejects a ratio over
+ * 1000ths, which is what an adjustment factor is.
+ */
+const MAX_SPLIT_TERM = 50;
+
+function greatestCommonDivisor(a: number, b: number): number {
+  let x = Math.abs(Math.round(a));
+  let y = Math.abs(Math.round(b));
+  while (y > 0) {
+    const t = y;
+    y = x % y;
+    x = t;
+  }
+  return x || 1;
+}
+
 function isUsableSplit(split: SplitEvent): boolean {
+  if (!Number.isFinite(split.numerator) || !Number.isFinite(split.denominator)) {
+    return false;
+  }
+  if (!(split.numerator > 0) || !(split.denominator > 0)) return false;
+  if (split.numerator === split.denominator) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(split.date)) return false;
+
+  // Whole numbers, or it is not a share count anybody could hold.
+  if (!Number.isInteger(split.numerator) || !Number.isInteger(split.denominator)) {
+    return false;
+  }
+
+  const divisor = greatestCommonDivisor(split.numerator, split.denominator);
   return (
-    Number.isFinite(split.numerator) &&
-    Number.isFinite(split.denominator) &&
-    split.numerator > 0 &&
-    split.denominator > 0 &&
-    split.numerator !== split.denominator &&
-    /^\d{4}-\d{2}-\d{2}$/.test(split.date)
+    split.numerator / divisor <= MAX_SPLIT_TERM &&
+    split.denominator / divisor <= MAX_SPLIT_TERM
   );
 }
 
