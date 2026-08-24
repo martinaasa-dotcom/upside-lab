@@ -2377,7 +2377,17 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
   assert.doesNotMatch(frame, /#0d110f/);
   assert.doesNotMatch(frame, /#1a2820/);
   assert.doesNotMatch(frame, /#2d3d32/);
-  assert.match(modeDock, /bg-primary text-primary-foreground/);
+  /*
+   * The dock spends no accent at all now. Where you are is said by one
+   * neutral marker that slides behind the cells, because which room you are
+   * in is the least surprising fact on the screen and a slab of mustard the
+   * width of a cell was the loudest thing on the bar for the least reason.
+   * The rule that stands is the one this used to protect from the other
+   * side: a selected surface is either the accent at full lightness or a
+   * neutral veil with foreground type, never a dim tint in between.
+   */
+  assert.match(modeDock, /bg-foreground\/10/);
+  assert.doesNotMatch(modeDock, /bg-primary text-primary-foreground/);
   assert.doesNotMatch(tabs, /bg-white text-black/);
 
   const bland = [
@@ -4399,14 +4409,27 @@ run("Pulse can price a bare EU ETF like VUAA", () => {
     join(process.cwd(), "src/components/mobile/MobileTabBar.tsx"),
     "utf8"
   );
-  assert.match(dock, /bg-primary text-primary-foreground/);
   /*
-   * `bg-muted` went with the flat fills. The cell is still a `rounded-lg`
-   * inside the `p-1` shell (concentric corners, 12 - 4 = 8), and the press
-   * is a veil drawn behind it.
+   * A capsule that hugs its contents, carrying glyphs and no words, with
+   * one neutral marker sliding behind the cells. `rounded-full` on both the
+   * shell and the cells, which is the one radius pair that stays concentric
+   * at any size; the old `rounded-xl` / `rounded-lg` pair was arithmetic
+   * (12 - 4 = 8) and this needs none.
+   *
+   * The accent is spent on news rather than on where you are: the only
+   * saturated pixel left on the bar is the alert dot.
    */
-  assert.match(dock, /rounded-lg/);
+  assert.match(dock, /rounded-full/);
   assert.match(dock, /bg-foreground\/10/);
+  assert.doesNotMatch(dock, /bg-primary text-primary-foreground/);
+  /*
+   * The promise that makes a wordless bar safe: it says the name of every
+   * room you touch, on `pointerdown` rather than on `click`, because a name
+   * arriving after the tap it was meant to answer is a name nobody needed.
+   * `onFocus` fires it too, since a keyboard never presses anything.
+   */
+  assert.match(dock, /onPointerDown=\{\(e\) => say\(shortLabel, e\.currentTarget\)\}/);
+  assert.match(dock, /onFocus=\{\(e\) => say\(shortLabel, e\.currentTarget\)\}/);
   assert.match(dock, /stashOpenTab\("lab"\)/);
   assert.match(dock, /stashOpenTab\("compound"\)/);
   assert.doesNotMatch(dock, /label: "Account"/);
@@ -6001,10 +6024,10 @@ run("workspace nav marks the current room and the skip link exists", () => {
   // must not wear the primary CTA fill and compete with the one real
   // button in the bar. It used to take primary text to say so. It does not
   // any more, and that is the design note in DESIGN_TOKENS.md rather than
-  // a slip: the accent is either the full-lightness fill on a selected
-  // dock cell or nothing, and this is the one selected state that has to
-  // stay out of the header CTA's way. A raised neutral surface with
-  // foreground text says "you are here" quietly enough.
+  // a slip: a selected surface is either the accent at full lightness or a
+  // neutral veil with foreground type, never a dim tint in between. Both
+  // docks take the second of those now, so this is no longer the lone
+  // exception it was written as.
   assert.ok(/aria-current=\{active \? "page"/.test(switcher));
   assert.ok(/bg-selected/.test(switcher));
   assert.ok(/text-foreground/.test(switcher));
