@@ -195,6 +195,51 @@ begin
 end
 $$;
 
+/*
+  Ann is invited onto Bob's portfolio, which is the whole point of co-ownership,
+  and that must not hand her the power to throw him off it.
+
+  Migration 017 closed this on INSERT and left DELETE saying "any co-owner may
+  delete any row for this portfolio", so an invited partner could delete the
+  owner's row and be left the sole owner of somebody else's portfolio. Found
+  with two real accounts against a real database, which is the only way it
+  shows up: the app has no interface for it and never deletes this table.
+*/
+reset role;
+insert into public.portfell_portfolio_owners (portfolio_id, user_id) values
+  ('bbbb0000-0000-0000-0000-0000000000b1', 'aaaa0000-0000-0000-0000-000000000001');
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"aaaa0000-0000-0000-0000-000000000001","email":"ann@example.com"}';
+
+do $$
+declare n integer;
+begin
+  delete from public.portfell_portfolio_owners
+  where portfolio_id = 'bbbb0000-0000-0000-0000-0000000000b1'
+    and user_id = 'bbbb0000-0000-0000-0000-000000000002';
+
+  select count(*) into n from public.portfell_portfolio_owners
+  where portfolio_id = 'bbbb0000-0000-0000-0000-0000000000b1'
+    and user_id = 'bbbb0000-0000-0000-0000-000000000002';
+  if n <> 1 then
+    raise exception 'a co-owner removed the owner from his own portfolio';
+  end if;
+
+  -- And she may still let herself out, which is the one write she does have.
+  delete from public.portfell_portfolio_owners
+  where portfolio_id = 'bbbb0000-0000-0000-0000-0000000000b1'
+    and user_id = 'aaaa0000-0000-0000-0000-000000000001';
+
+  select count(*) into n from public.portfell_portfolio_owners
+  where portfolio_id = 'bbbb0000-0000-0000-0000-0000000000b1'
+    and user_id = 'aaaa0000-0000-0000-0000-000000000001';
+  if n <> 0 then
+    raise exception 'a co-owner could not give up her own access';
+  end if;
+end
+$$;
+
 rollback;
 
 \echo 'rls.test.sql: nobody reached anybody else''s book'

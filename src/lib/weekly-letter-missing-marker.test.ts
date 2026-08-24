@@ -20,6 +20,23 @@ const PROFILES = [
   { id: "u2", email: "b@example.com", display_name: "B", note_sunday_sent_at: null },
 ];
 
+/*
+  The reads paginate now (readAll walks .range() a page at a time), so a stub
+  that answers only to await is no longer a builder. This one is both: await it
+  and you get the page, ask it for a range and you get the same page once and
+  nothing after it, which is what ends the walk.
+*/
+function page<T>(payload: T) {
+  const done = Promise.resolve(payload);
+  return {
+    range: (from: number) =>
+      from === 0 ? done : Promise.resolve({ data: [], error: null }),
+    then: (...a: Parameters<Promise<T>["then"]>) => done.then(...a),
+    catch: (...a: Parameters<Promise<T>["catch"]>) => done.catch(...a),
+    finally: (...a: Parameters<Promise<T>["finally"]>) => done.finally(...a),
+  };
+}
+
 vi.mock("@/lib/supabase/server", () => ({
   supabaseUsesServiceRole: () => true,
   getSupabaseServer: () => ({
@@ -29,7 +46,7 @@ vi.mock("@/lib/supabase/server", () => ({
         selects.push(cols);
         const asked = cols.includes("note_sunday_sent_at");
         q.eq = () =>
-          Promise.resolve(
+          page(
             asked && columnMissing
               ? {
                   data: null,
@@ -46,8 +63,8 @@ vi.mock("@/lib/supabase/server", () => ({
                   error: null,
                 }
           );
-        q.in = () => Promise.resolve({ data: [], error: null });
-        q.not = () => Promise.resolve({ data: [], error: null });
+        q.in = () => page({ data: [], error: null });
+        q.not = () => page({ data: [], error: null });
         return q;
       };
       q.update = (patch: Record<string, unknown>) => {
