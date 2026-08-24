@@ -30,6 +30,32 @@ vi.mock("@/lib/supabase/server", () => ({
   supabaseUsesServiceRole: () => false,
 }));
 
+/*
+ * The other two providers, held down as well, or "every provider down" is a
+ * claim about the machine rather than about the code.
+ *
+ * Only Yahoo was mocked here. The chain in `quotes.ts` falls through to
+ * TwelveData and then Finnhub, and both are gated on nothing more than
+ * whether their key is in the environment. On a machine that has those keys,
+ * which is any developer with a real .env, the outage test fell straight
+ * through the mock into two live third-party APIs, got real prices for NVDA
+ * and MSFT, and failed on `missing` being empty. It passed in CI only
+ * because CI has no keys, so the chain stopped at the first leg by accident.
+ *
+ * Two costs, and the failing assertion is the smaller one: a unit test that
+ * reaches the network spends free-tier quota on every run and answers
+ * differently depending on who runs it. `configured` returning false is the
+ * state the outage is meant to describe, so it is what the double says.
+ */
+vi.mock("@/lib/market/providers/twelvedata", () => ({
+  twelveDataConfigured: () => false,
+  fetchQuotesTwelveData: async () => ({ quotes: {}, missing: [] }),
+}));
+vi.mock("@/lib/market/providers/finnhub", () => ({
+  finnhubConfigured: () => false,
+  fetchQuotesFinnhub: async () => ({ quotes: {}, missing: [] }),
+}));
+
 const { fetchQuotesWithFallback, MAX_TICKERS_PER_REQUEST } = await import(
   "@/lib/market/quotes"
 );

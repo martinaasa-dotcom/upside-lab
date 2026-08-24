@@ -46,8 +46,31 @@ vi.mock("@/lib/supabase/server", () => ({
                   error: null,
                 }
           );
-        q.in = () => Promise.resolve({ data: [], error: null });
-        q.not = () => Promise.resolve({ data: [], error: null });
+        /*
+         * Both are awaitable and both answer a window, because the real
+         * builder is both and the caller decides which it uses.
+         *
+         * Every batched read is paged now (lib/supabase/read-all), and a
+         * page is asked for with `.range(from, to)`. This double returned a
+         * settled promise, which has no `range`, so the holdings read threw
+         * `build(...).range is not a function` the moment it was reached.
+         * `weekly-letter-batching.test.ts` and
+         * `weekly-letter-duplicates.test.ts` grew a `range` when paging
+         * landed; this file was missed, and it stayed green in CI only
+         * because CI has no mail key, so the run stopped before the paged
+         * read. The fixtures are far shorter than one page, so the first
+         * window is the last.
+         */
+        const answers = (rows: unknown[]) => {
+          const settled = () => Promise.resolve({ data: rows, error: null });
+          return {
+            range: settled,
+            then: (...args: Parameters<Promise<unknown>["then"]>) =>
+              settled().then(...args),
+          };
+        };
+        q.in = () => answers([]);
+        q.not = () => answers([]);
         return q;
       };
       q.update = (patch: Record<string, unknown>) => {
