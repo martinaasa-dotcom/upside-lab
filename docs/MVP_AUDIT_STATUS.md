@@ -79,7 +79,25 @@ and CSRF rested entirely on a dependency's cookie default.
   tested here.
 
 ### 4 to 8, auth, sharing, communities, Fund, import
-- **4 / 5 / 6 / 7** blocked. Every flow needs two real sessions.
+- **4 / 5 / 6 / 7** run, against a real hosted Postgres with two real signed
+  in accounts, and **it found one bug that nothing else was going to**.
+  A co-owner could delete the owner's row from `portfell_portfolio_owners`
+  and be left the sole owner of a portfolio somebody else made. Invite your
+  partner and they can lock you out of it, with one request. Migration `017`
+  closed this exact hole on **insert**, with a note that the app writes the
+  table through the service role and so loses nothing by the narrower rule,
+  and it left **delete** as `011` wrote it: any co-owner may delete any row
+  for that portfolio. Fixed in `20260824130000`, which is the same narrowing
+  applied to delete, and nothing in `src/` deletes from that table so it
+  costs the app nothing. The regression test is in `rls.test.sql` and it was
+  checked the only way worth checking: it fails without the fix.
+  Thirteen other checks passed. One account cannot read, update or delete
+  another's portfolio or holdings, cannot write itself into the owners
+  table, cannot insert itself into a private circle and cannot read one it
+  is not in. Co-ownership grants read and write when the row is added and
+  takes both away when it goes, and a co-owner can still give up their own
+  access, which is the one write that table is meant to accept from a
+  client.
   Authorization was checked statically across all 63 route files and by
   probe on the public ones; the invariants suite independently asserts
   every community route checks membership in code.
