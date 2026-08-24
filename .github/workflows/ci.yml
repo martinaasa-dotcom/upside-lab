@@ -96,6 +96,33 @@ jobs:
       # code you have. Both of these take about a second.
       - run: npm run check:edges
       - run: npm run validate
+      # The concurrency bench is the same kind of check and had the same
+      # problem: it exists, it is documented as the way to test co-owner
+      # races, and nothing ran it. Without Supabase credentials it skips the
+      # live leg and runs the in-process sim, which is the part that catches
+      # a lost update or a reverse lock order, takes about a second, and
+      # needs no secrets. The live leg stays a local, deliberate run.
+      - run: npm run bench:concurrency
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      # Production dependencies only, and only a high or critical advisory
+      # stops a merge. A dev-only or moderate finding is worth reading and
+      # is not worth blocking on, which is the difference between a check
+      # people act on and one they learn to re-run until it passes. Clean as
+      # of 2026-08-24: 0 vulnerabilities.
+      - run: npm audit --omit=dev --audit-level=high
 
   build:
     name: Build

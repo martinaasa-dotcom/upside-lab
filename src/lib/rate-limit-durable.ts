@@ -30,10 +30,14 @@ export async function takeDurableRateLimit(
     if (error || data == null) return mem;
     if (!isRecord(data) || data.ok !== false) return mem;
     const retry = readFiniteNumber(data.retryAfterSec);
-    return {
-      ok: false,
-      retryAfterSec: retry != null && retry > 0 ? Math.ceil(retry) : 60,
-    };
+    const retryAfterSec = retry != null && retry > 0 ? Math.ceil(retry) : 60;
+    // Remember the shared verdict, the same way the weighted sibling does.
+    // Without it an instance that has never personally refused this caller
+    // pays a database round trip on every one of their requests to be told
+    // the same no, and the callers this path guards (Margus, forecast,
+    // Pulse, the full export) are exactly the ones a script hammers.
+    markRateLimited(key, retryAfterSec);
+    return { ok: false, retryAfterSec };
   } catch {
     return mem;
   }

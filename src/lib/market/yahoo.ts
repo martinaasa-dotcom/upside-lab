@@ -21,6 +21,21 @@ import {
   isPlausiblePrice,
   yahooQuotePayloadSchema,
 } from "@/lib/market/quote-sanitize";
+import { mapWithConcurrency } from "@/lib/market/pool";
+
+/**
+ * How many names one batch resolves at once.
+ *
+ * A name Yahoo knows costs one candidate; a name it does not walks the
+ * whole suffix list serially, so the expensive case is a miss. Starting
+ * every name in the same tick meant a request for the 120 the route allows
+ * opened 120 chains before any of them had reported, which is both a burst
+ * the provider sees as one client and a window where the breaker cannot
+ * help. 48 is above any real book, so a reader's own holdings still resolve
+ * in one wave and nothing about normal latency changes; past that the
+ * waves give the breaker somewhere to open.
+ */
+const MAX_IN_FLIGHT = 48;
 
 type YahooFinanceInstance = InstanceType<
   typeof import("yahoo-finance2").default
@@ -390,8 +405,10 @@ export async function fetchQuotesYahoo(
       return null;
     };
 
-    const results = await Promise.all(
-      unique.map((requested) => {
+    const results = await mapWithConcurrency(
+      unique,
+      MAX_IN_FLIGHT,
+      (requested) => {
         const pending = quoteInFlight.get(requested);
         if (pending) return pending;
         const started = resolveOne(requested).finally(() => {
@@ -399,7 +416,7 @@ export async function fetchQuotesYahoo(
         });
         quoteInFlight.set(requested, started);
         return started;
-      })
+      }
     );
 
     const map: Record<string, Quote> = {};

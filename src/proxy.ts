@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { buildContentSecurityPolicy } from "@/lib/security-headers";
 import { limitMutationRequest, limitPublicMarketRequest } from "@/lib/rate-limit";
+import { isMutatingRequest, isSameOriginMutation } from "@/lib/same-origin";
 import {
   isLegacyHost,
   isLocalHost,
@@ -43,6 +44,20 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isApi) {
+    // Second line behind the session cookie's `SameSite=Lax`. Refused only
+    // when a browser says out loud that the mutation came from another
+    // site; a caller with no browser behind it (Stripe's signed webhook,
+    // any server to server post) is not a forgery risk and passes through.
+    // See `same-origin.ts` for why each header is read in that order.
+    if (isMutatingRequest(request.method) && !isSameOriginMutation(request)) {
+      const denied = NextResponse.json(
+        { error: "That request did not come from this site." },
+        { status: 403 }
+      );
+      denied.headers.set("Content-Security-Policy", csp);
+      return denied;
+    }
+
     const limited =
       limitMutationRequest(request) ?? limitPublicMarketRequest(request);
     if (limited && !limited.ok) {
