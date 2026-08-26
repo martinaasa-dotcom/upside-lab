@@ -1,4 +1,10 @@
-import { cashtag, currency, percent } from "@/lib/format";
+import { cashtag, percent } from "@/lib/format";
+import {
+  marginCopy,
+  marginHealth,
+  marginTone,
+  type MarginToneName,
+} from "@/lib/margin-health";
 import { safeDiv } from "@/lib/money";
 /** Client alerts: earnings, strike breach, goal, decision cards. */
 
@@ -9,6 +15,15 @@ export type UpsideAlert = {
   detail: string;
   ticker?: string;
   at: number;
+  /**
+   * How loud the surface showing this should be. Most things worth saying
+   * are not emergencies, and a card that is red whatever the number says
+   * teaches the reader to stop reading it. Defaults to neutral; only the
+   * borrowed-money alert raises it, and only on its own arithmetic.
+   */
+  tone?: MarginToneName;
+  /** One short line a card can show under the title without the full detail. */
+  cushion?: string | null;
 };
 
 export function buildStrikeAlerts(
@@ -79,12 +94,23 @@ export function buildDecisionAlerts(input: {
   topTicker?: { ticker: string; value: number } | null;
 }): UpsideAlert[] {
   const out: UpsideAlert[] = [];
-  if (input.cash < -500) {
+  // Borrowed money is a size question, not a yes/no one. See
+  // `margin-health.ts`: the tone and every number in the sentence come
+  // from the loan measured against what the portfolio is actually worth,
+  // and from how far the stocks can fall before a broker sells them.
+  const margin = marginHealth({
+    cash: input.cash,
+    equityValue: input.equityValue,
+  });
+  const copy = marginCopy(margin);
+  if (copy) {
     out.push({
-      id: "decision-margin",
+      id: `decision-margin-${margin.tier}`,
       kind: "info",
-      title: "You're using borrowed money",
-      detail: `Cash is ${currency(input.cash, 0)}, so part of your portfolio is borrowed. Losses get larger the same way gains do. Check what a rough day does to that borrowed slice.`,
+      title: copy.title,
+      detail: copy.detail,
+      tone: marginTone(margin.tier),
+      cushion: copy.cushion,
       at: Date.now(),
     });
   }
