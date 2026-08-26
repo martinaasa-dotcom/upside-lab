@@ -56,11 +56,11 @@ export const SENTIMENT_COPY: Record<SentimentRegime, string> = {
   "low-zone":
     "Several gauges are at unusually low readings. Historically, a VIX of 32 or more together with a 14-day RSI of 32 or less has sat near a quiet stretch or a market low (2009, 2020, 2022).",
   stretched:
-    "Price has run far ahead of the 200-day average. In earlier cycles, a Fear & Greed reading this high together with a 14-day RSI this stretched often came before a pullback toward the average.",
+    "Price has run far ahead of its usual price. In earlier cycles, a Fear & Greed reading this high together with a 14-day RSI this stretched often came before a pullback toward usual.",
   elevated:
     "The VIX is running high, and the 14-day RSI and Fear & Greed have cooled together. In earlier cycles that pairing showed up when prices were jumpy, not as a clean turn.",
   trend:
-    "The S&P 500 is above its 200-day average, the 14-day RSI is in the middle of its range, and Fear & Greed is above 50. That pairing has often sat through a stretch of the same direction rather than a turn.",
+    "The S&P 500 is above its usual price, the 14-day RSI is in the middle of its range, and Fear & Greed is above 50.",
   mixed:
     "The gauges do not line up with one historical pattern right now. Readings are mixed.",
   unavailable:
@@ -68,7 +68,7 @@ export const SENTIMENT_COPY: Record<SentimentRegime, string> = {
 };
 
 export const SENTIMENT_SLIDE_COPY =
-  "The S&P 500 is below its 200-day average, the 14-day RSI is in the middle of its range, and Fear & Greed is below 50. That pairing has often sat through a stretch of the same direction rather than a turn.";
+  "The S&P 500 is below its usual price, the 14-day RSI is in the middle of its range, and Fear & Greed is below 50.";
 
 /** Some gauges arrived, not enough to place a regime. Same pill as waiting. */
 export const SENTIMENT_PARTIAL_COPY =
@@ -95,7 +95,7 @@ const PILL: Record<SentimentRegime, SentimentReading["pill"]> = {
   "low-zone": "good",
   stretched: "bad",
   elevated: "warn",
-  trend: "brand",
+  trend: "good",
   mixed: "neutral",
   unavailable: "neutral",
 };

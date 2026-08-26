@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { isAbortError } from "@/lib/abort";
 import {
-  MicroLabel,
   Panel,
   PanelHeader,
   Pill,
@@ -162,7 +161,11 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
     <div ref={rootRef}>
       <Panel
         tone={card.reading.panel}
-        className={cn("overview-fade", ringFor(card.reading.regime), className)}
+        className={cn(
+          "overview-fade gap-4 sm:gap-5",
+          ringFor(card.reading.regime),
+          className
+        )}
       >
         <PanelHeader
           title="Market reading"
@@ -172,32 +175,19 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
         <p className="text-sm leading-relaxed text-foreground" aria-live="polite">
           {card.lead}
         </p>
-        {card.history && (
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            {card.history}
-          </p>
-        )}
-        <div role="group" aria-label="Market gauges">
-          <Scoreboard cols={2} mobileCols={1}>
-            {card.gauges.map((gauge) => (
-              <Score
-                key={gauge.label}
-                label={gauge.label}
-                value={gauge.value}
-                sub={gauge.sub}
-                tone={gauge.tone}
-              />
-            ))}
-          </Scoreboard>
-        </div>
-        {card.fact && (
-          <div>
-            <MicroLabel>From the numbers</MicroLabel>
-            <p className="mt-1 text-sm leading-relaxed text-foreground">
-              {card.fact}
-            </p>
-          </div>
-        )}
+        <Scoreboard cols={4} mobileCols={2}>
+          {card.gauges.map((gauge) => (
+            <Score
+              key={gauge.label}
+              label={gauge.label}
+              value={gauge.value}
+              sub={gauge.sub}
+              explain={gauge.explain}
+              valueClassName={gauge.valueClassName}
+              className="p-3 sm:p-4"
+            />
+          ))}
+        </Scoreboard>
       </Panel>
     </div>
   );

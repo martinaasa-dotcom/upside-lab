@@ -138,7 +138,7 @@ describe("classifyMarketSentiment", () => {
     const out = classifyMarketSentiment(BASE);
     expect(out.regime).toBe("trend");
     expect(out.label).toBe(SENTIMENT_LABEL.trend);
-    expect(out.pill).toBe("brand");
+    expect(out.pill).toBe("good");
     expect(out.direction).toBe("up");
     expect(out.agreementPct).toBeGreaterThanOrEqual(8);
     expect(out.agreementPct).toBeLessThanOrEqual(92);
@@ -377,11 +377,11 @@ describe("sentiment copy", () => {
   });
 
   it("names the gauges a steady climb actually used", () => {
-    expect(SENTIMENT_COPY.trend).toContain("200-day");
+    expect(SENTIMENT_COPY.trend).toContain("usual price");
     expect(SENTIMENT_COPY.trend).toContain("14-day RSI");
     expect(SENTIMENT_COPY.trend).toContain("Fear & Greed");
     expect(SENTIMENT_COPY.trend).not.toMatch(/\bVIX\b/);
-    expect(SENTIMENT_SLIDE_COPY).toContain("below its 200-day");
+    expect(SENTIMENT_SLIDE_COPY).toContain("below its usual price");
     expect(SENTIMENT_SLIDE_COPY).not.toMatch(/\bVIX\b/);
   });
 });
