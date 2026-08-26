@@ -1,10 +1,11 @@
 /**
  * Snapshot behind GET /api/market/sentiment.
  *
- * One SPY daily chart (about 400 calendar days) yields the 14-day RSI and
- * the 200-day average. VIX is a live quote. CNN Fear & Greed is the S&P
- * reading used for classification; crypto Fear & Greed is shown beside it
- * and never substituted into the equity-cycle rules.
+ * One SPY daily chart (about ten years) yields the 14-day RSI, the
+ * 200-day average, and the sample of completed 200-day stretches. VIX is
+ * a live quote. CNN Fear & Greed is the S&P reading used for
+ * classification; crypto Fear & Greed is shown beside it and never
+ * substituted into the equity-cycle rules.
  */
 
 import {
@@ -23,12 +24,13 @@ import {
   sentimentGaugesReady,
   sentimentHasAnyGauge,
   spyMetricsFromCloses,
+  spyTrendHistory,
   type SentimentMetrics,
 } from "@/lib/market-sentiment";
 
 const SPY = "SPY";
 const VIX = "^VIX";
-const LOOKBACK_DAYS = 400;
+const LOOKBACK_DAYS = 3650;
 const CRYPTO_FNG_URL = "https://api.alternative.me/fng/?limit=1";
 
 const TTL_OPEN_MS = 120_000;
@@ -118,6 +120,7 @@ async function loadSnapshot(): Promise<SentimentMetrics> {
   ]);
 
   const spy = spyMetricsFromCloses(closes);
+  const history = spyTrendHistory(closes);
   const vix = liveNumber(quotes?.quotes[VIX]?.price);
   const fearGreed = score100(cnn?.score);
   const asOf = new Date().toISOString();
@@ -130,6 +133,9 @@ async function loadSnapshot(): Promise<SentimentMetrics> {
     spyPrice: spy.lastClose,
     sma200: spy.sma200,
     smaRatio: spy.smaRatio,
+    streakDays: history.streakDays,
+    typicalMoreDays: history.typicalMoreDays,
+    alreadyLong: history.alreadyLong,
     asOf,
   };
 }

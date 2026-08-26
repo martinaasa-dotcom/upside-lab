@@ -3,22 +3,20 @@
 import { useCallback, useEffect, useRef } from "react";
 import { isAbortError } from "@/lib/abort";
 import {
-  CARD,
   MicroLabel,
   Panel,
   PanelHeader,
   Pill,
+  Score,
+  Scoreboard,
 } from "@/components/ui/Panel";
-import { NO_VALUE, cn, number, signedPercent } from "@/lib/format";
+import { cn } from "@/lib/format";
 import {
-  SENTIMENT_DISCLAIMER,
-  classifyMarketSentiment,
-  fearGreedCaption,
   isSentimentMetrics,
   preferSentimentSnapshot,
   type SentimentMetrics,
-  type SentimentReading,
 } from "@/lib/market-sentiment";
+import { buildSentimentCard } from "@/lib/market-sentiment-story";
 import { quotePollMs } from "@/lib/market/session";
 import {
   loadSentimentPaint,
@@ -35,6 +33,9 @@ const EMPTY: SentimentMetrics = {
   spyPrice: null,
   sma200: null,
   smaRatio: null,
+  streakDays: null,
+  typicalMoreDays: null,
+  alreadyLong: false,
   asOf: null,
 };
 
@@ -45,33 +46,9 @@ function sentimentPollMs(): number {
   return Math.max(quotePollMs(), MIN_POLL_MS);
 }
 
-function fmtScore(n: number | null, digits: number) {
-  return n == null ? NO_VALUE : number(n, digits);
-}
-
-function ringFor(reading: SentimentReading): string {
-  if (reading.regime === "low-zone") return "ring-gain/30";
+function ringFor(regime: string): string {
+  if (regime === "low-zone") return "ring-gain/30";
   return "";
-}
-
-function Metric({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-}) {
-  return (
-    <div className={cn(CARD, "flex h-full min-w-0 flex-col gap-1 p-3 sm:p-4")}>
-      <MicroLabel>{label}</MicroLabel>
-      <p className="min-w-0 break-words font-mono text-lg font-semibold tabular-nums text-foreground sm:text-xl">
-        {value}
-      </p>
-      <p className="mt-auto pt-1 text-sm text-muted-foreground">{sub}</p>
-    </div>
-  );
 }
 
 export function MarketSentimentWidget({ className }: { className?: string }) {
@@ -179,48 +156,48 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
     [load]
   );
 
-  const reading = classifyMarketSentiment(metrics);
+  const card = buildSentimentCard(metrics);
 
   return (
     <div ref={rootRef}>
       <Panel
-        tone={reading.panel}
-        className={cn("overview-fade", ringFor(reading), className)}
+        tone={card.reading.panel}
+        className={cn("overview-fade", ringFor(card.reading.regime), className)}
       >
         <PanelHeader
           title="Market reading"
-          actions={<Pill tone={reading.pill}>{reading.label}</Pill>}
+          subtitle={card.fitLine ?? undefined}
+          actions={<Pill tone={card.reading.pill}>{card.reading.label}</Pill>}
         />
         <p className="text-sm leading-relaxed text-foreground" aria-live="polite">
-          {reading.copy}
+          {card.lead}
         </p>
-        <div
-          className="grid grid-cols-2 gap-4 sm:grid-cols-4"
-          role="group"
-          aria-label="Market gauges"
-        >
-          <Metric
-            label="VIX"
-            value={fmtScore(metrics.vix, 2)}
-            sub="Cboe volatility"
-          />
-          <Metric
-            label="RSI"
-            value={fmtScore(metrics.rsi, 1)}
-            sub="14-day SPY"
-          />
-          <Metric
-            label="Fear & Greed"
-            value={fmtScore(metrics.fearGreed, 0)}
-            sub={fearGreedCaption(metrics.fearGreed, metrics.cryptoFearGreed)}
-          />
-          <Metric
-            label="vs 200-day"
-            value={signedPercent(metrics.smaRatio)}
-            sub="SPY vs average"
-          />
+        {card.history && (
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {card.history}
+          </p>
+        )}
+        <div role="group" aria-label="Market gauges">
+          <Scoreboard cols={2} mobileCols={1}>
+            {card.gauges.map((gauge) => (
+              <Score
+                key={gauge.label}
+                label={gauge.label}
+                value={gauge.value}
+                sub={gauge.sub}
+                tone={gauge.tone}
+              />
+            ))}
+          </Scoreboard>
         </div>
-        <p className="text-sm text-muted-foreground">{SENTIMENT_DISCLAIMER}</p>
+        {card.fact && (
+          <div>
+            <MicroLabel>From the numbers</MicroLabel>
+            <p className="mt-1 text-sm leading-relaxed text-foreground">
+              {card.fact}
+            </p>
+          </div>
+        )}
       </Panel>
     </div>
   );

@@ -7,7 +7,6 @@
  * do with it.
  */
 
-import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { ratingForScore } from "@/lib/market/fear-greed";
 import { rsi, sma } from "@/lib/market/indicators";
 
@@ -23,6 +22,12 @@ export type SentimentMetrics = {
   sma200: number | null;
   /** (price / sma200) - 1. 0.12 is 12% above the average. */
   smaRatio: number | null;
+  /** Market days SPY has sat on this side of the 200-day average. */
+  streakDays: number | null;
+  /** Median leftover length of completed same-side runs in this sample. */
+  typicalMoreDays: number | null;
+  /** Current streak is longer than every completed same-side run. */
+  alreadyLong: boolean;
   asOf: string | null;
 };
 
@@ -34,16 +39,18 @@ export type SentimentRegime =
   | "mixed"
   | "unavailable";
 
+export type SentimentDirection = "up" | "down" | "none";
+
 export type SentimentReading = {
   regime: SentimentRegime;
   label: string;
   copy: string;
   pill: "good" | "warn" | "bad" | "brand" | "neutral";
   panel: "default" | "warn" | "danger";
+  direction: SentimentDirection;
+  /** How closely the gauges match this pattern, 8 to 92. Not a chance of profit. */
+  agreementPct: number | null;
 };
-
-export const SENTIMENT_DISCLAIMER =
-  `Historical gauges, not a market call. ${ADVICE_DISCLAIMER_SHORT}`;
 
 export const SENTIMENT_COPY: Record<SentimentRegime, string> = {
   "low-zone":
@@ -51,14 +58,17 @@ export const SENTIMENT_COPY: Record<SentimentRegime, string> = {
   stretched:
     "Price has run far ahead of the 200-day average. In earlier cycles, a Fear & Greed reading this high together with a 14-day RSI this stretched often came before a pullback toward the average.",
   elevated:
-    "The VIX is running high, and the 14-day RSI and Fear & Greed have cooled together. In earlier cycles that mix showed up when prices were jumpy, not as a clean turn.",
+    "The VIX is running high, and the 14-day RSI and Fear & Greed have cooled together. In earlier cycles that pairing showed up when prices were jumpy, not as a clean turn.",
   trend:
-    "The S&P 500 is above its 200-day average, the 14-day RSI is in the middle of its range, and Fear & Greed is above 50. That mix has often sat through a stretch of the same direction rather than a turn.",
+    "The S&P 500 is above its 200-day average, the 14-day RSI is in the middle of its range, and Fear & Greed is above 50. That pairing has often sat through a stretch of the same direction rather than a turn.",
   mixed:
     "The gauges do not line up with one historical pattern right now. Readings are mixed.",
   unavailable:
     "Not enough market numbers yet to place a reading.",
 };
+
+export const SENTIMENT_SLIDE_COPY =
+  "The S&P 500 is below its 200-day average, the 14-day RSI is in the middle of its range, and Fear & Greed is below 50. That pairing has often sat through a stretch of the same direction rather than a turn.";
 
 /** Some gauges arrived, not enough to place a regime. Same pill as waiting. */
 export const SENTIMENT_PARTIAL_COPY =
@@ -68,16 +78,18 @@ const ELEVATED_VIX_COPY =
   "The VIX is running high. In earlier cycles that showed up when prices were jumpy, not as a clean turn.";
 
 const ELEVATED_SOFT_COPY =
-  "The 14-day RSI and Fear & Greed have cooled together. In earlier cycles that mix showed up when prices were jumpy, not as a clean turn.";
+  "The 14-day RSI and Fear & Greed have cooled together. In earlier cycles that pairing showed up when prices were jumpy, not as a clean turn.";
 
 export const SENTIMENT_LABEL: Record<SentimentRegime, string> = {
   "low-zone": "Historical low zone",
   stretched: "Stretched higher",
   elevated: "Higher swings",
-  trend: "Steady trend",
+  trend: "Steady climb",
   mixed: "Mixed reading",
   unavailable: "Waiting",
 };
+
+export const SENTIMENT_SLIDE_LABEL = "Steady slide";
 
 const PILL: Record<SentimentRegime, SentimentReading["pill"]> = {
   "low-zone": "good",
@@ -194,16 +206,225 @@ export function preferSentimentSnapshot(
   return sentimentHasAnyGauge(next) ? next : prev;
 }
 
+function clamp01(n: number): number {
+  if (n < 0) return 0;
+  if (n > 1) return 1;
+  return n;
+}
+
+/** 0 at the edges of the band, 1 across the inner 60%. */
+function inBand(value: number, lo: number, hi: number): number {
+  const span = hi - lo;
+  if (!(span > 0)) return 0;
+  const t = (value - lo) / span;
+  if (t <= 0 || t >= 1) return 0;
+  const edge = 0.2;
+  if (t < edge) return t / edge;
+  if (t > 1 - edge) return (1 - t) / edge;
+  return 1;
+}
+
+function aboveComfort(value: number, gate: number, full: number): number {
+  if (value < gate) return 0;
+  if (value >= full) return 1;
+  return clamp01((value - gate) / (full - gate));
+}
+
+function belowComfort(value: number, gate: number, full: number): number {
+  if (value > gate) return 0;
+  if (value <= full) return 1;
+  return clamp01((gate - value) / (gate - full));
+}
+
+function mean(scores: number[]): number | null {
+  if (scores.length === 0) return null;
+  return scores.reduce((s, n) => s + n, 0) / scores.length;
+}
+
+function fitPct(scores: number[], cap = 92): number | null {
+  const avg = mean(scores);
+  if (avg == null) return null;
+  return Math.max(8, Math.min(cap, Math.round(avg * cap)));
+}
+
+function directionOf(
+  smaRatio: number | null,
+  regime: SentimentRegime,
+  trendDown: boolean
+): SentimentDirection {
+  if (regime === "trend") return trendDown ? "down" : "up";
+  if (smaRatio == null) return "none";
+  if (smaRatio > 0.002) return "up";
+  if (smaRatio < -0.002) return "down";
+  return "none";
+}
+
+type GaugeSet = {
+  vix: number | null;
+  rsiNow: number | null;
+  fg: number | null;
+  smaRatio: number | null;
+};
+
+function scoresFor(
+  kind: "low-zone" | "stretched" | "elevated" | "trend-up" | "trend-down",
+  g: GaugeSet
+): number[] {
+  const { vix, rsiNow, fg, smaRatio } = g;
+  if (kind === "low-zone") {
+    return [
+      ...(vix != null ? [aboveComfort(vix, 32, 40)] : []),
+      ...(rsiNow != null ? [belowComfort(rsiNow, 32, 20)] : []),
+      ...(fg != null ? [belowComfort(fg, 20, 10)] : []),
+    ];
+  }
+  if (kind === "stretched") {
+    return [
+      ...(rsiNow != null ? [aboveComfort(rsiNow, 74, 82)] : []),
+      ...(fg != null ? [aboveComfort(fg, 78, 88)] : []),
+      ...(smaRatio != null ? [aboveComfort(smaRatio, 0.12, 0.18)] : []),
+    ];
+  }
+  if (kind === "elevated") {
+    return [
+      ...(vix != null && vix >= 24 ? [aboveComfort(vix, 24, 32)] : []),
+      ...(rsiNow != null && rsiNow < 40 ? [belowComfort(rsiNow, 40, 28)] : []),
+      ...(fg != null && fg < 35 ? [belowComfort(fg, 35, 22)] : []),
+    ];
+  }
+  if (kind === "trend-down") {
+    return [
+      ...(rsiNow != null ? [inBand(rsiNow, 30, 50)] : []),
+      ...(fg != null ? [belowComfort(fg, 50, 35)] : []),
+      ...(smaRatio != null ? [inBand(smaRatio, -0.12, -0.005)] : []),
+      ...(vix != null ? [inBand(vix, 12, 23)] : []),
+    ];
+  }
+  return [
+    ...(rsiNow != null ? [inBand(rsiNow, 50, 70)] : []),
+    ...(fg != null ? [inBand(fg, 50, 75)] : []),
+    ...(smaRatio != null ? [inBand(smaRatio, 0.005, 0.12)] : []),
+    ...(vix != null ? [inBand(vix, 12, 23)] : []),
+  ];
+}
+
+function agreementFor(
+  regime: SentimentRegime,
+  g: GaugeSet,
+  trendDown: boolean
+): number | null {
+  if (regime === "unavailable") return null;
+
+  if (regime === "low-zone") return fitPct(scoresFor("low-zone", g));
+  if (regime === "stretched") return fitPct(scoresFor("stretched", g));
+  if (regime === "elevated") return fitPct(scoresFor("elevated", g));
+  if (regime === "trend") {
+    return fitPct(scoresFor(trendDown ? "trend-down" : "trend-up", g));
+  }
+
+  const near = (
+    [
+      "trend-up",
+      "trend-down",
+      "elevated",
+      "stretched",
+      "low-zone",
+    ] as const
+  )
+    .map((kind) => fitPct(scoresFor(kind, g)))
+    .filter((n): n is number => n != null);
+  if (near.length === 0) return 32;
+  return Math.min(49, Math.max(8, Math.round(Math.max(...near) * 0.55)));
+}
+
+function medianInt(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 1) return sorted[mid]!;
+  return Math.round((sorted[mid - 1]! + sorted[mid]!) / 2);
+}
+
+/**
+ * How long SPY has sat on one side of its 200-day average, and how much
+ * longer similar completed runs in this window typically had left.
+ */
+export function spyTrendHistory(closes: number[]): {
+  streakDays: number | null;
+  typicalMoreDays: number | null;
+  alreadyLong: boolean;
+} {
+  const empty = { streakDays: null, typicalMoreDays: null, alreadyLong: false };
+  const prices = closes.filter((n) => Number.isFinite(n) && n > 0);
+  const avgs = sma(prices, 200);
+  const sides: number[] = [];
+  for (let i = 0; i < prices.length; i++) {
+    const avg = avgs[i];
+    const price = prices[i]!;
+    if (avg == null || !(avg > 0)) {
+      sides.push(0);
+      continue;
+    }
+    if (price > avg) sides.push(1);
+    else if (price < avg) sides.push(-1);
+    else sides.push(sides[i - 1] ?? 0);
+  }
+
+  type Run = { side: 1 | -1; length: number };
+  const runs: Run[] = [];
+  let i = 0;
+  while (i < sides.length) {
+    while (i < sides.length && sides[i] === 0) i++;
+    if (i >= sides.length) break;
+    const side = sides[i] as 1 | -1;
+    let length = 0;
+    while (i < sides.length && sides[i] === side) {
+      length++;
+      i++;
+    }
+    if (length > 0) runs.push({ side, length });
+  }
+  if (runs.length === 0) return empty;
+
+  const current = runs[runs.length - 1]!;
+  const streakDays = current.length;
+  const prior = runs.slice(0, -1).filter((run) => run.side === current.side);
+  const remainders = prior
+    .filter((run) => run.length > streakDays)
+    .map((run) => run.length - streakDays);
+  const typicalMoreDays = medianInt(remainders);
+  const alreadyLong =
+    prior.length > 0 && prior.every((run) => run.length < streakDays);
+
+  return { streakDays, typicalMoreDays, alreadyLong };
+}
+
 function reading(
   regime: SentimentRegime,
-  copy: string = SENTIMENT_COPY[regime]
+  metrics: Pick<SentimentMetrics, "vix" | "rsi" | "fearGreed" | "smaRatio">,
+  copy: string = SENTIMENT_COPY[regime],
+  trendDown = false
 ): SentimentReading {
+  const g: GaugeSet = {
+    vix: finite(metrics.vix) ? metrics.vix : null,
+    rsiNow: finite(metrics.rsi) ? metrics.rsi : null,
+    fg: finite(metrics.fearGreed) ? metrics.fearGreed : null,
+    smaRatio: finite(metrics.smaRatio) ? metrics.smaRatio : null,
+  };
+  const direction = directionOf(g.smaRatio, regime, trendDown);
+  const pill = regime === "trend" && trendDown ? "warn" : PILL[regime];
+  const label =
+    regime === "trend" && trendDown
+      ? SENTIMENT_SLIDE_LABEL
+      : SENTIMENT_LABEL[regime];
   return {
     regime,
-    label: SENTIMENT_LABEL[regime],
+    label,
     copy,
-    pill: PILL[regime],
+    pill,
     panel: PANEL[regime],
+    direction,
+    agreementPct: agreementFor(regime, g, trendDown),
   };
 }
 
@@ -221,7 +442,7 @@ export function classifyMarketSentiment(
   const smaRatio = finite(metrics.smaRatio) ? metrics.smaRatio : null;
 
   if (vix == null && rsiNow == null && fg == null && smaRatio == null) {
-    return reading("unavailable");
+    return reading("unavailable", metrics);
   }
 
   if (
@@ -232,7 +453,7 @@ export function classifyMarketSentiment(
     rsiNow <= 32 &&
     fg <= 20
   ) {
-    return reading("low-zone");
+    return reading("low-zone", metrics);
   }
 
   if (
@@ -243,7 +464,7 @@ export function classifyMarketSentiment(
     fg >= 78 &&
     smaRatio > 0.12
   ) {
-    return reading("stretched");
+    return reading("stretched", metrics);
   }
 
   const highVix = vix != null && vix >= 24;
@@ -255,7 +476,7 @@ export function classifyMarketSentiment(
         : highVix
           ? ELEVATED_VIX_COPY
           : ELEVATED_SOFT_COPY;
-    return reading("elevated", copy);
+    return reading("elevated", metrics, copy);
   }
 
   if (
@@ -267,7 +488,19 @@ export function classifyMarketSentiment(
     fg > 50 &&
     smaRatio > 0
   ) {
-    return reading("trend");
+    return reading("trend", metrics);
+  }
+
+  if (
+    rsiNow != null &&
+    fg != null &&
+    smaRatio != null &&
+    rsiNow >= 30 &&
+    rsiNow <= 50 &&
+    fg < 50 &&
+    smaRatio < 0
+  ) {
+    return reading("trend", metrics, SENTIMENT_SLIDE_COPY, true);
   }
 
   // Mixed is "we had every gauge and they did not fit." Three numbers
@@ -280,9 +513,9 @@ export function classifyMarketSentiment(
       smaRatio,
     })
   ) {
-    return reading("mixed");
+    return reading("mixed", metrics);
   }
-  return reading("unavailable", SENTIMENT_PARTIAL_COPY);
+  return reading("unavailable", metrics, SENTIMENT_PARTIAL_COPY);
 }
 
 function numOrNull(n: unknown): boolean {
@@ -301,6 +534,9 @@ export function isSentimentMetrics(v: unknown): v is SentimentMetrics {
     numOrNull(o.spyPrice) &&
     numOrNull(o.sma200) &&
     numOrNull(o.smaRatio) &&
+    numOrNull(o.streakDays) &&
+    numOrNull(o.typicalMoreDays) &&
+    (o.alreadyLong == null || typeof o.alreadyLong === "boolean") &&
     (o.asOf == null || typeof o.asOf === "string")
   );
 }

@@ -2,16 +2,19 @@ import { describe, expect, it } from "vitest";
 import { rsi } from "@/lib/market/indicators";
 import {
   SENTIMENT_COPY,
-  SENTIMENT_DISCLAIMER,
   SENTIMENT_LABEL,
   SENTIMENT_PARTIAL_COPY,
+  SENTIMENT_SLIDE_COPY,
+  SENTIMENT_SLIDE_LABEL,
   classifyMarketSentiment,
   fearGreedCaption,
+  isSentimentMetrics,
   lastDefined,
   preferSentimentSnapshot,
   sentimentCopyIsDescriptive,
   smaRatioFrom,
   spyMetricsFromCloses,
+  spyTrendHistory,
   type SentimentMetrics,
   type SentimentRegime,
 } from "@/lib/market-sentiment";
@@ -131,10 +134,30 @@ describe("classifyMarketSentiment", () => {
     ).not.toBe("elevated");
   });
 
-  it("maps a quiet uptrend to steady trend", () => {
+  it("maps a quiet climb to steady climb, upward", () => {
     const out = classifyMarketSentiment(BASE);
     expect(out.regime).toBe("trend");
+    expect(out.label).toBe(SENTIMENT_LABEL.trend);
     expect(out.pill).toBe("brand");
+    expect(out.direction).toBe("up");
+    expect(out.agreementPct).toBeGreaterThanOrEqual(8);
+    expect(out.agreementPct).toBeLessThanOrEqual(92);
+  });
+
+  it("maps a quiet slide to steady slide, downward", () => {
+    const out = classifyMarketSentiment({
+      vix: 18,
+      rsi: 42,
+      fearGreed: 40,
+      smaRatio: -0.04,
+    });
+    expect(out.regime).toBe("trend");
+    expect(out.label).toBe(SENTIMENT_SLIDE_LABEL);
+    expect(out.copy).toBe(SENTIMENT_SLIDE_COPY);
+    expect(out.pill).toBe("warn");
+    expect(out.direction).toBe("down");
+    expect(out.agreementPct).toBeGreaterThanOrEqual(8);
+    expect(out.agreementPct).toBeLessThanOrEqual(92);
   });
 
   it("needs Fear & Greed strictly above 50 for a steady trend", () => {
@@ -252,6 +275,9 @@ describe("preferSentimentSnapshot", () => {
     spyPrice: 580,
     sma200: 540,
     smaRatio: 0.07,
+    streakDays: 40,
+    typicalMoreDays: 25,
+    alreadyLong: false,
     asOf: "2026-08-26T20:00:00.000Z",
   };
   const vixOnly: SentimentMetrics = {
@@ -331,8 +357,9 @@ describe("sentiment copy", () => {
       expect(sentimentCopyIsDescriptive(SENTIMENT_COPY[regime])).toBe(true);
       expect(sentimentCopyIsDescriptive(SENTIMENT_LABEL[regime])).toBe(true);
     }
-    expect(sentimentCopyIsDescriptive(SENTIMENT_DISCLAIMER)).toBe(true);
     expect(sentimentCopyIsDescriptive(SENTIMENT_PARTIAL_COPY)).toBe(true);
+    expect(sentimentCopyIsDescriptive(SENTIMENT_SLIDE_COPY)).toBe(true);
+    expect(sentimentCopyIsDescriptive(SENTIMENT_SLIDE_LABEL)).toBe(true);
   });
 
   it("names the historical years on the low-zone reading", () => {
@@ -349,15 +376,97 @@ describe("sentiment copy", () => {
     expect(SENTIMENT_COPY.elevated).not.toMatch(/^Either /);
   });
 
-  it("names the gauges a steady trend actually used", () => {
+  it("names the gauges a steady climb actually used", () => {
     expect(SENTIMENT_COPY.trend).toContain("200-day");
     expect(SENTIMENT_COPY.trend).toContain("14-day RSI");
     expect(SENTIMENT_COPY.trend).toContain("Fear & Greed");
     expect(SENTIMENT_COPY.trend).not.toMatch(/\bVIX\b/);
-  });
-
-  it("frames the footer as not personalized advice", () => {
-    expect(SENTIMENT_DISCLAIMER).toContain("Not personalized investment advice");
-    expect(SENTIMENT_DISCLAIMER).toContain("Not a recommendation to buy, sell, or hold");
+    expect(SENTIMENT_SLIDE_COPY).toContain("below its 200-day");
+    expect(SENTIMENT_SLIDE_COPY).not.toMatch(/\bVIX\b/);
   });
 });
+
+describe("agreementPct", () => {
+  it("is null when every gauge is missing", () => {
+    expect(
+      classifyMarketSentiment({
+        vix: null,
+        rsi: null,
+        fearGreed: null,
+        smaRatio: null,
+      }).agreementPct
+    ).toBeNull();
+  });
+
+  it("never claims 100, and a classic climb sits high in the band", () => {
+    const out = classifyMarketSentiment({
+      vix: 15.21,
+      rsi: 54.3,
+      fearGreed: 55,
+      smaRatio: 0.081,
+    });
+    expect(out.regime).toBe("trend");
+    expect(out.direction).toBe("up");
+    expect(out.agreementPct).toBeGreaterThanOrEqual(70);
+    expect(out.agreementPct).toBeLessThanOrEqual(92);
+  });
+});
+
+describe("isSentimentMetrics", () => {
+  it("accepts an older paint cache that has no streak fields", () => {
+    expect(
+      isSentimentMetrics({
+        vix: 15,
+        rsi: 58,
+        fearGreed: 55,
+        cryptoFearGreed: 60,
+        spyPrice: 580,
+        sma200: 540,
+        smaRatio: 0.07,
+        asOf: "2026-08-26T20:00:00.000Z",
+      })
+    ).toBe(true);
+  });
+});
+
+describe("spyTrendHistory", () => {
+  it("returns nothing on a short series", () => {
+    expect(spyTrendHistory([])).toEqual({
+      streakDays: null,
+      typicalMoreDays: null,
+      alreadyLong: false,
+    });
+    expect(spyTrendHistory(Array.from({ length: 50 }, () => 100))).toEqual({
+      streakDays: null,
+      typicalMoreDays: null,
+      alreadyLong: false,
+    });
+  });
+
+  it("reads leftover length from completed same-side runs", () => {
+    const closes = [
+      ...Array.from({ length: 200 }, () => 100),
+      ...Array.from({ length: 30 }, () => 110),
+      ...Array.from({ length: 10 }, () => 90),
+      ...Array.from({ length: 8 }, () => 110),
+    ];
+    const out = spyTrendHistory(closes);
+    expect(out.streakDays).toBe(8);
+    expect(out.alreadyLong).toBe(false);
+    expect(out.typicalMoreDays).toBe(22);
+  });
+
+  it("flags a streak already longer than every completed run", () => {
+    const closes = [
+      ...Array.from({ length: 200 }, () => 100),
+      ...Array.from({ length: 10 }, () => 110),
+      ...Array.from({ length: 10 }, () => 90),
+      ...Array.from({ length: 40 }, () => 110),
+    ];
+    const out = spyTrendHistory(closes);
+    expect(out.streakDays).toBe(40);
+    expect(out.alreadyLong).toBe(true);
+    expect(out.typicalMoreDays).toBeNull();
+  });
+});
+
