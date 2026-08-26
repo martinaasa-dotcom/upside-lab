@@ -15,6 +15,7 @@ import {
   classifyMarketSentiment,
   fearGreedCaption,
   isSentimentMetrics,
+  preferSentimentSnapshot,
   type SentimentMetrics,
   type SentimentReading,
 } from "@/lib/market-sentiment";
@@ -79,8 +80,11 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
     EMPTY
   );
   const rootRef = useRef<HTMLDivElement>(null);
+  const metricsRef = useRef(metrics);
+  metricsRef.current = metrics;
   const visibleRef = useRef(true);
   const fetchedAtRef = useRef(0);
+  const refreshCtrl = useRef<AbortController | null>(null);
 
   const load = useCallback(async (signal: AbortSignal) => {
     try {
@@ -88,8 +92,9 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
       if (!res.ok) return;
       const data: unknown = await res.json();
       if (signal.aborted || !isSentimentMetrics(data)) return;
-      setMetrics(data);
-      saveSentimentPaint(data);
+      const chosen = preferSentimentSnapshot(metricsRef.current, data);
+      setMetrics(chosen);
+      saveSentimentPaint(chosen);
       fetchedAtRef.current = Date.now();
     } catch (err) {
       if (isAbortError(err)) return;
@@ -158,13 +163,17 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
     };
   }, [load]);
 
+  useEffect(() => () => refreshCtrl.current?.abort(), []);
+
   useEffect(
     () =>
       onWorkspaceRefresh("book", async () => {
         const el = rootRef.current;
         if (document.hidden) return;
         if (el?.closest("[hidden]")) return;
+        refreshCtrl.current?.abort();
         const ctrl = new AbortController();
+        refreshCtrl.current = ctrl;
         await load(ctrl.signal);
       }),
     [load]

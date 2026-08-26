@@ -4,6 +4,7 @@ import {
   SENTIMENT_COPY,
   SENTIMENT_DISCLAIMER,
   SENTIMENT_LABEL,
+  SENTIMENT_PARTIAL_COPY,
   classifyMarketSentiment,
   fearGreedCaption,
   lastDefined,
@@ -196,14 +197,49 @@ describe("classifyMarketSentiment", () => {
   });
 
   it("can still flag higher swings from VIX alone", () => {
-    expect(
-      classifyMarketSentiment({
-        vix: 28,
-        rsi: null,
-        fearGreed: null,
-        smaRatio: null,
-      }).regime
-    ).toBe("elevated");
+    const out = classifyMarketSentiment({
+      vix: 28,
+      rsi: null,
+      fearGreed: null,
+      smaRatio: null,
+    });
+    expect(out.regime).toBe("elevated");
+    expect(out.copy).toContain("VIX is running high");
+    expect(out.copy).not.toMatch(/14-day RSI/i);
+  });
+
+  it("names the cooled RSI pair without claiming the VIX is high", () => {
+    const out = classifyMarketSentiment({
+      vix: 16,
+      rsi: 39.9,
+      fearGreed: 34.9,
+      smaRatio: 0.02,
+    });
+    expect(out.regime).toBe("elevated");
+    expect(out.copy).toContain("14-day RSI");
+    expect(out.copy).not.toMatch(/VIX is running high/i);
+  });
+
+  it("names both gauges when higher swings has both paths", () => {
+    const out = classifyMarketSentiment({
+      vix: 26,
+      rsi: 30,
+      fearGreed: 20,
+      smaRatio: 0.02,
+    });
+    expect(out.regime).toBe("elevated");
+    expect(out.copy).toBe(SENTIMENT_COPY.elevated);
+  });
+
+  it("says the rest of the gauges have not landed on a partial set", () => {
+    const out = classifyMarketSentiment({
+      vix: 18,
+      rsi: null,
+      fearGreed: null,
+      smaRatio: null,
+    });
+    expect(out.regime).toBe("unavailable");
+    expect(out.copy).toBe(SENTIMENT_PARTIAL_COPY);
   });
 });
 
@@ -296,17 +332,21 @@ describe("sentiment copy", () => {
       expect(sentimentCopyIsDescriptive(SENTIMENT_LABEL[regime])).toBe(true);
     }
     expect(sentimentCopyIsDescriptive(SENTIMENT_DISCLAIMER)).toBe(true);
+    expect(sentimentCopyIsDescriptive(SENTIMENT_PARTIAL_COPY)).toBe(true);
   });
 
   it("names the historical years on the low-zone reading", () => {
     expect(SENTIMENT_COPY["low-zone"]).toContain("2009");
     expect(SENTIMENT_COPY["low-zone"]).toContain("2020");
     expect(SENTIMENT_COPY["low-zone"]).toContain("2022");
+    expect(SENTIMENT_COPY["low-zone"]).toContain("32 or more");
+    expect(SENTIMENT_COPY["low-zone"]).toContain("32 or less");
   });
 
   it("does not claim the VIX is elevated on the higher-swings reading", () => {
     expect(SENTIMENT_COPY.elevated).not.toMatch(/VIX is elevated/i);
     expect(SENTIMENT_COPY.elevated).toMatch(/VIX is running high/i);
+    expect(SENTIMENT_COPY.elevated).not.toMatch(/^Either /);
   });
 
   it("names the gauges a steady trend actually used", () => {

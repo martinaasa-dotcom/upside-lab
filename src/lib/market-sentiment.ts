@@ -47,11 +47,11 @@ export const SENTIMENT_DISCLAIMER =
 
 export const SENTIMENT_COPY: Record<SentimentRegime, string> = {
   "low-zone":
-    "Several gauges are at unusually low readings. Historically, a VIX above 30 together with a 14-day RSI below 35 has sat near a quiet stretch or a market low (2009, 2020, 2022).",
+    "Several gauges are at unusually low readings. Historically, a VIX of 32 or more together with a 14-day RSI of 32 or less has sat near a quiet stretch or a market low (2009, 2020, 2022).",
   stretched:
     "Price has run far ahead of the 200-day average. In earlier cycles, a Fear & Greed reading this high together with a 14-day RSI this stretched often came before a pullback toward the average.",
   elevated:
-    "Either the VIX is running high, or the 14-day RSI and Fear & Greed have cooled together. In earlier cycles that mix showed up when prices were jumpy, not as a clean turn.",
+    "The VIX is running high, and the 14-day RSI and Fear & Greed have cooled together. In earlier cycles that mix showed up when prices were jumpy, not as a clean turn.",
   trend:
     "The S&P 500 is above its 200-day average, the 14-day RSI is in the middle of its range, and Fear & Greed is above 50. That mix has often sat through a stretch of the same direction rather than a turn.",
   mixed:
@@ -59,6 +59,16 @@ export const SENTIMENT_COPY: Record<SentimentRegime, string> = {
   unavailable:
     "Not enough market numbers yet to place a reading.",
 };
+
+/** Some gauges arrived, not enough to place a regime. Same pill as waiting. */
+export const SENTIMENT_PARTIAL_COPY =
+  "Some gauges are in. The rest have not landed, so this is not a full reading yet.";
+
+const ELEVATED_VIX_COPY =
+  "The VIX is running high. In earlier cycles that showed up when prices were jumpy, not as a clean turn.";
+
+const ELEVATED_SOFT_COPY =
+  "The 14-day RSI and Fear & Greed have cooled together. In earlier cycles that mix showed up when prices were jumpy, not as a clean turn.";
 
 export const SENTIMENT_LABEL: Record<SentimentRegime, string> = {
   "low-zone": "Historical low zone",
@@ -184,11 +194,14 @@ export function preferSentimentSnapshot(
   return sentimentHasAnyGauge(next) ? next : prev;
 }
 
-function reading(regime: SentimentRegime): SentimentReading {
+function reading(
+  regime: SentimentRegime,
+  copy: string = SENTIMENT_COPY[regime]
+): SentimentReading {
   return {
     regime,
     label: SENTIMENT_LABEL[regime],
-    copy: SENTIMENT_COPY[regime],
+    copy,
     pill: PILL[regime],
     panel: PANEL[regime],
   };
@@ -233,11 +246,16 @@ export function classifyMarketSentiment(
     return reading("stretched");
   }
 
-  if (
-    (vix != null && vix >= 24) ||
-    (rsiNow != null && fg != null && rsiNow < 40 && fg < 35)
-  ) {
-    return reading("elevated");
+  const highVix = vix != null && vix >= 24;
+  const softPair = rsiNow != null && fg != null && rsiNow < 40 && fg < 35;
+  if (highVix || softPair) {
+    const copy =
+      highVix && softPair
+        ? SENTIMENT_COPY.elevated
+        : highVix
+          ? ELEVATED_VIX_COPY
+          : ELEVATED_SOFT_COPY;
+    return reading("elevated", copy);
   }
 
   if (
@@ -264,7 +282,7 @@ export function classifyMarketSentiment(
   ) {
     return reading("mixed");
   }
-  return reading("unavailable");
+  return reading("unavailable", SENTIMENT_PARTIAL_COPY);
 }
 
 function numOrNull(n: unknown): boolean {
