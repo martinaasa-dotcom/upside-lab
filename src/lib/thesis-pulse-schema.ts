@@ -13,7 +13,7 @@ export const pulseReportSchema = z.object({
   summary: z
     .string()
     .describe(
-      "One short sentence on the portfolio as a whole. Name the names that moved 5% or more, up or down, and whether any call left Hold. Do not recap one ticker's news. That belongs on the card. Do not start with the sharp drop."
+      "One short sentence on the portfolio as a whole. Name the names that moved 5% or more, up or down, and whether any tag left In range. Do not recap one ticker's news. That belongs on the card. Do not start with the sharp drop."
     ),
   checks: z.array(
     z.object({
@@ -38,7 +38,7 @@ export const pulseReportSchema = z.object({
       action: z
         .enum(["add", "hold", "trim", "sell", "watch"])
         .describe(
-          "add = a dip-check on an intact reason. hold = no change, reason intact or watch, never broken. trim = a take-off check on a winner that ran. Pair with intact. A run-up is the story working, never Thesis watch. sell = the reason is broken, an exit check, not taking profit. watch = wait for clarity. Verdict and addLevel must read as checks, never orders like Add now or Trim about 10%."
+          "Internal tag, never an order. add = price down, intact reason. hold = in recent range, reason intact or watch, never broken. trim = price ran, intact reason. sell = the reason is broken. watch = picture unclear. Verdict and addLevel must describe price or thesis facts, never orders like Add now or Trim about 10%."
         ),
       trimPct: z
         .number()
@@ -61,7 +61,7 @@ export const pulseReportSchema = z.object({
       verdict: z
         .string()
         .describe(
-          "One sentence tying action + addLevel/trimPct to why they own THIS name, as a check, never an order. Must not match any other ticker's verdict in this report. Name the company, the headline, or a concrete number. Never reuse a stock phrase like 'looks like a chase, not a new story' or 'this is a dip to add, not a sell' on a second name. Never write do not add, sell some, look to add, or trim 10% as an instruction."
+          "One sentence tying action + addLevel/trimPct to why they own THIS name, as a price or thesis fact, never an order. Must not match any other ticker's verdict in this report. Name the company, the headline, or a concrete number. Never reuse a stock phrase like 'looks like a chase, not a new story' or 'this is a dip, not a break' on a second name. Never write do not add, sell some, look to add, or trim 10% as an instruction."
         ),
       thesisBreak: z
         .string()

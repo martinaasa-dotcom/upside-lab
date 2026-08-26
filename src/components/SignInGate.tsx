@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { cn } from "@/lib/format";
 import { BellRing, CheckCircle2, MessageCircle } from "lucide-react";
 import {
@@ -285,7 +286,7 @@ export function SignInGate({ children }: Props) {
               <Link href="/privacy" className="underline hover:text-muted-foreground">
                 Privacy policy
               </Link>
-              . Not financial advice. Help:{" "}
+              . {ADVICE_DISCLAIMER_SHORT} Help:{" "}
               <a
                 href={`mailto:${PRODUCT_SUPPORT_EMAIL}`}
                 className="underline hover:text-muted-foreground"

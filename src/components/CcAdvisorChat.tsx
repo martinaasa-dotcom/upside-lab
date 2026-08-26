@@ -899,11 +899,11 @@ export function CcAdvisorChat({
       "What moved today, and why?",
       "Explain my biggest holding in plain English",
       "Am I too heavy in any one company?",
-      "What should I keep an eye on this week?",
+      "Which names moved the most this week?",
       "What’s up most since I bought it?",
     ];
     if (context.hideOptions || context.rows.length === 0) return plain.slice(0, 4);
-    return [...plain.slice(0, 3), "Give me the updated covered-call plan"];
+    return [...plain.slice(0, 3), "How do my covered-call numbers look today?"];
   }, [context.hideOptions, context.holdings.length, context.rows.length]);
 
   const canSend = !busy && (Boolean(input.trim()) || pendingImages.length > 0);

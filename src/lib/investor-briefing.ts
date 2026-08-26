@@ -21,7 +21,7 @@ export type BriefingItem = {
 
 /** Plain-English labels. "action/watch/play" are codes, not UI. */
 export const BRIEFING_KIND_LABEL: Record<BriefingItem["kind"], string> = {
-  action: "Check this",
+  action: "Notice",
   watch: "Context",
   play: "What's missing",
 };
@@ -99,26 +99,26 @@ export function buildInvestorBriefing(input: {
         : swing! < 0.02
           ? "Normal day"
           : today$ >= 0
-            ? "Up day, big enough to check"
-            : "Down day, big enough to check";
+            ? "Up day, larger than usual"
+            : "Down day, larger than usual";
   const dayDetail =
     todayPct == null
       ? "Quotes are still settling. Give it a minute, or come back later."
       : swing! < 0.005
-        ? "Barely moved. Most days look like this. No decision needed."
+        ? "Barely moved. Most days look like this."
         : swing! < 0.02
           ? pick(dayRng, [
-              "A normal wobble. You do not need to do anything.",
-              "Small moves. Do not turn them into a decision.",
+              "A normal wobble relative to a typical session.",
+              "Small moves vs a typical day.",
             ])
           : hideOptions
             ? pick(dayRng, [
-                "Open Pulse and see which names moved the number. Then ask if the thesis moved with the price.",
-                "Big enough to check. Did the reason you own a name change, or just the price?",
+                "Open Pulse to see which names moved the number, and whether the stated reason still matches the price.",
+                "Larger than a typical session. The question is whether the reason you own a name changed, or just the price.",
               ])
             : pick(dayRng, [
-                "Open Pulse and see which names moved the number. Then ask if the thesis moved with the price.",
-                "Big enough to check. If a call plan needs adjusting, it would be today.",
+                "Open Pulse to see which names moved the number, and whether the stated reason still matches the price.",
+                "Larger than a typical session. Covered-call numbers also move on days like this.",
               ]);
 
   items.push({
@@ -152,8 +152,8 @@ export function buildInvestorBriefing(input: {
         kind: "watch",
         title: `About $${money(openPrem)} in call premium on paper`,
         detail: pick(rng, [
-          "From the strikes you set. Not in the account yet. Check whether those strikes still make sense at today's prices.",
-          "What those calls would be worth at expiry. On paper, not banked. Open covered calls if a strike needs a look.",
+          "From the strikes you set. Not in the account yet. Those strikes sit against today's prices.",
+          "What those calls would be worth at expiry. On paper, not banked.",
         ]),
         link: ccSheetId
           ? { type: "sheet", portfolioId: ccSheetId, focus: "covered-calls" }
@@ -170,14 +170,14 @@ export function buildInvestorBriefing(input: {
       kind: "watch",
       title: `$${money(model.totals.cash)} sitting in cash`,
       detail: pick(rng, [
-        "Fine sitting there until you have a name you actually want. Buying because the cash is there is how cash becomes a bad position.",
-        "Keep it until a name you already like is cheaper, or a new thesis shows up. Do not spend it to feel busy.",
-        "Ready when you are. If you did not mean to hold this much cash, that is the decision. The cash itself is not the problem.",
+        "Cash sitting in the portfolio. Whether that size still matches how you want to be invested depends on individual investment strategies and risk profiles.",
+        "That cash is undeployed. It is a fact about the mix, not a prompt to spend it.",
+        "Ready cash in this amount. The cash itself is not a problem or a signal.",
       ]),
       link: sheetMostCash(model)
         ? { type: "sheet", portfolioId: sheetMostCash(model)! }
         : { type: "compound" },
-      cta: sheetMostCash(model) ? "Open this portfolio" : "Open Compound",
+      cta: sheetMostCash(model) ? "Open your portfolio" : "Open Compound",
     });
   }
 

@@ -480,14 +480,14 @@ export function buildFallbackForecastPlan(input: {
       {
         label: `Next quarter (Q${nextQuarter.q} ${nextQuarter.y})`,
         theme: "Starting shape",
-        add: "Hold, no add",
-        trim: "Hold, no trim",
+        add: "No mix change",
+        trim: "No mix change",
       },
       {
         label: `${year + 1}`,
-        theme: "Let the names work",
-        add: "Hold, no add",
-        trim: "Hold, no trim",
+        theme: "Starting path",
+        add: "No mix change",
+        trim: "No mix change",
       },
     ],
     eoyTargets,
@@ -590,7 +590,7 @@ ${convictionGuidance}
 Cash: ${input.cashBalance}
 Current portfolio value (equity+cash): ${input.forecast.currentTotal.toFixed(0)}
 
-Holdings (share counts stay fixed unless you explicitly recommend trimming/adding size):
+Holdings (share counts stay fixed unless a modeled mix observation names a different weight):
 ${lines.length ? lines.join("\n") : "(no holdings)"}
 
 ${insightsPromptBlock(
@@ -606,16 +606,16 @@ Requirements:
    - Next year (label "${year + 1}" or "Next year (${year + 1})")
    - Then 2-3 longer horizons aligned to the EOY path (e.g. 2028, 2029, 2030) if useful. Not more than 6 total.
 2. Themes should be memorable but practical (not marketing fluff).
-3. Add and Trim are SEPARATE bullet lists. Semicolon-separated. ONE name or group per item, never two tickers packed with a slash.
-   - Reference each name's CURRENT weight (given above) and state the size of the move: a target weight or a rough trim/add fraction (e.g. "trim $RKLB from 14% to ~9%", "add ~3-5% of the portfolio into software"), not just a direction with no size.
-   - Ground the "why" in something specific and falsifiable for THAT company (a metric, catalyst, or event with rough timing). Never a generic sector vibe that could be pasted onto any ticker in the theme.
-   - Name the trigger/condition when it isn't "do this now": a price, an earnings date, a number that just came out. So it reads as a plan, not a headline.
-   - Each item: "TICKER (current% -> target%): specific why + trigger". Groups: "data-center power (~0% to 5%): why + size". Tickers already in the portfolio preferred; NEW tickers and sectors are welcome when the reason you own the portfolio needs them.
+3. Add and Trim are SEPARATE bullet lists of modeled mix observations. Semicolon-separated. ONE name or group per item, never two tickers packed with a slash.
+   - Reference each name's CURRENT weight (given above) and state the modeled weight: a target weight (e.g. "modeled weight $RKLB from 14% to about 9% if X", "modeled weight of software about 3-5% of the portfolio"), never an order to buy or sell.
+   - Ground the "why" in something specific and falsifiable for THAT company (a metric, a date, or an event with rough timing). Never a generic sector vibe that could be pasted onto any ticker in the theme.
+   - Name the condition when the modeled weight would apply: a price, an earnings date, a number that just came out. So it reads as a scenario, not a headline.
+   - Each item: "TICKER (current% -> target%): specific why + condition". Groups: "data-center power (~0% to 5%): why + size". Tickers already in the portfolio preferred; NEW tickers and sectors are welcome when describing a modeled mix, not as a shopping list.
    - Plain English only. Never say sleeve, marks, conviction, digestion, beta, or rotation. Thesis is fine.
-   - If nothing to do: "Hold, no add" / "Hold, no trim" (never leave blank)
+   - If the modeled mix is unchanged: "No mix change" (never leave blank)
    - Never use em dashes or en-dash clause breaks in add/trim lines.
 4. sectorRotation: talk through money moving between groups (AI computer builders, chip makers, data-center power, crypto, space, software, healthcare, drones, payments and finance, etc.). Chip makers and AI computer builders are different bets. Do not stay stuck in one box. Plain speech, no em dashes.
-5. generalAdvice: sizing, concentration, cash, and what NOT to do. 2-4 short spoken sentences in you/your. Sound like a note at a desk, not a generated briefing. Forbidden: em dashes, stacked jargon slogans, tidy wrap-up paragraphs, trade orders. Never we/us/our.
+5. generalAdvice: sizing, concentration, cash, described as facts about the mix. 2-4 short spoken sentences in you/your. Sound like a note at a desk, not a generated briefing. Forbidden: em dashes, stacked jargon slogans, tidy wrap-up paragraphs, trade orders. Never we/us/our.
 6. eoyTargets: REQUIRED for EVERY ticker listed above. Use the exact ticker strings (keep ".AS", ".L", ".DE", etc.).
    - Provide a positive price for EACH of years ${yearsList}. All five required, no omissions.
    - Year ${year} is December 31 ${year}, not today's spot. Do not paste today's price into that cell.
@@ -624,7 +624,7 @@ Requirements:
 7. Consistency: if the reason you own the names is unchanged from a prior run, keep year-end prices in a similar neighborhood. Do not randomly reshuffle for no reason.
 8. Do not invent fake share counts or claim trades already happened.
 9. Be concise.
-10. Frame everything as a modeled scenario for the user's own thinking, never as a personalized recommendation or a guarantee. Write checks, not orders. Never "trim $RKLB now" or "add software today". "A modeled take-off: $RKLB from 14% to about 9% if X" is the shape.`;
+10. Frame everything as a modeled scenario for the user's own thinking, never as a personalized recommendation or a guarantee. Describe modeled weights, never orders. Never "trim $RKLB now" or "add software today". "A modeled mix: $RKLB from 14% to about 9% if X" is the shape.`;
 }
 
 export function planEoyPaths(

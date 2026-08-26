@@ -453,11 +453,11 @@ export function statusLabel(status: ThesisStatus | string): string {
 
 export function actionLabel(action: PulseAction | string): string {
   const a = String(action ?? "").trim().toLowerCase();
-  if (a === "add") return "Add";
-  if (a === "trim") return "Trim";
-  if (a === "sell") return "Sell";
-  if (a === "watch") return "Wait";
-  return "Hold";
+  if (a === "add") return "Down vs range";
+  if (a === "trim") return "Up vs range";
+  if (a === "sell") return "Reason gone";
+  if (a === "watch") return "Unclear";
+  return "In range";
 }
 
 export function sectorForTicker(ticker: string): string | null {
@@ -915,7 +915,7 @@ export function verdictRepeatsTrim(
  * and they compound:
  *
  * 1. It is not a reason. `moveReason` answers "why did this move", and it
- *    is what the "What to do today" table prints in its *Why* column --
+ *    is what the "Today's price picture" table prints in its *Why* column --
  *    right beside a *Today* column already showing that same number. Two of
  *    these three branches used to return `${moveLabel} move is ${movePct}.`,
  *    so a reader asking why $AVGO was flagged got "Today move is -5.8%"
@@ -949,11 +949,11 @@ export function buildFallbackPulseCheck(candidate: PulseCandidate): PulseCheck {
     return {
       ticker: candidate.ticker,
       situation: [
-        "The story is working.",
         "Price ran ahead of a normal day.",
+        "The stated reason for owning it is unchanged.",
       ],
       moveReason:
-        "A strong day, well ahead of an ordinary one. Good news rather than a new worry.",
+        "A strong day, well ahead of an ordinary one.",
       thesisStatus: "intact",
       earningsNote: "",
       action: "trim",
@@ -969,11 +969,11 @@ export function buildFallbackPulseCheck(candidate: PulseCandidate): PulseCheck {
     return {
       ticker: candidate.ticker,
       situation: [
-        "Down hard enough to check why you own it.",
-        "Price alone doesn't mean the story broke.",
+        "Down vs a typical session.",
+        "Price alone does not mean the stated reason broke.",
       ],
       moveReason:
-        "It fell far enough to be worth a second look, and nothing about why you own it has changed.",
+        "It fell far enough vs a typical session that the stated reason is worth reading again.",
       thesisStatus: "intact",
       earningsNote: "",
       action: "add",
@@ -992,10 +992,10 @@ export function buildFallbackPulseCheck(candidate: PulseCandidate): PulseCheck {
     ticker: candidate.ticker,
     situation: [
       "Nothing unusual today.",
-      "No reason to change the position.",
+      "The price stayed inside a normal day's range.",
     ],
     moveReason:
-      "Nothing out of the ordinary happened, so there is nothing to do about it.",
+      "Nothing out of the ordinary happened relative to a typical session.",
     thesisStatus: "intact",
     earningsNote: "",
     action: "hold",

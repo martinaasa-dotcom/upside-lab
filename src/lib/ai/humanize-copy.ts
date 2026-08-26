@@ -7,6 +7,7 @@
  * stock AI openers. Does not touch table pipes, cashtags, or code fences.
  */
 
+import { RISK_PROFILE_FRAME } from "@/lib/disclaimer";
 import { groupMoneyInText } from "@/lib/money-text";
 
 const EM = "\u2014"; // —
@@ -139,6 +140,16 @@ function scrubMarketJargon(text: string): string {
   s = s.replace(/\bour whole portfolio\b/gi, "your whole portfolio");
   s = s.replace(/\bour portfolio\b/gi, "your portfolio");
   s = s.replace(/\bthis portfolio\b/gi, "your portfolio");
+  s = s.replace(/\bYour other portfolios\b/g, "Your portfolio");
+  s = s.replace(/\byour other portfolios\b/gi, "your portfolio");
+  s = s.replace(/\bacross your portfolios\b/gi, "in your portfolio");
+  s = s.replace(/\bin your portfolios\b/gi, "in your portfolio");
+  s = s.replace(/\bof your portfolios\b/gi, "of your portfolio");
+  s = s.replace(/\bYour portfolios\b/g, "Your portfolio");
+  s = s.replace(/\byour portfolios\b/gi, "your portfolio");
+  s = s.replace(/\bother portfolios\b/gi, "your portfolio");
+  s = s.replace(/\bWhich portfolio\b/g, "Your portfolio");
+  s = s.replace(/\bwhich portfolio\b/gi, "your portfolio");
   s = s.replace(/\bfor us this morning\b/gi, "this morning");
   s = s.replace(/\bwe barely\b/gi, "you barely");
   s = s.replace(/\bwe hold\b/gi, "you hold");
@@ -164,16 +175,12 @@ function firstDollar(text: string | null | undefined): string | null {
   return m ? m[0].replace(/\s+/g, "") : null;
 }
 
-/** Stable pick so the same ticker always shows the same phrasing, but two
- * different tickers on the same card rarely land on the same one. */
-function pickVariant<T>(variants: T[], seed?: string | null): T {
-  if (!seed) return variants[0];
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return variants[h % variants.length];
+function framedFact(fact: string): string {
+  const clean = fact.replace(/\.+$/, "");
+  return `${clean}. ${RISK_PROFILE_FRAME}`;
 }
 
-/** One short Pulse suggestion. A thought, never an order. */
+/** One short Pulse observation. A price or thesis fact, never an order. */
 export function pulseSuggestion(input: {
   action?: string | null;
   trimPct?: number | null;
@@ -181,111 +188,59 @@ export function pulseSuggestion(input: {
   ticker?: string | null;
 }): string {
   const action = String(input.action ?? "hold").trim().toLowerCase();
-  const seed = input.ticker;
   if (action === "trim") {
-    if (input.trimPct != null && Number.isFinite(input.trimPct)) {
-      const pct = Math.round(input.trimPct);
-      return pickVariant(
-        [
-          `Trim ${pct}% into the strength.`,
-          `Taking ${pct}% off the top after a jump like this is a common move.`,
-          `A ${pct}% trim here locks in some of the run.`,
-          `${pct}% off keeps most of the position while banking some of the gain.`,
-        ],
-        seed
-      );
-    }
-    return pickVariant(
-      [
-        "Trim a little into the strength.",
-        "Taking a small bite off the top after a jump like this is a common move.",
-        "A partial trim here locks in some of the run.",
-      ],
-      seed
-    );
+    return framedFact("The price ran ahead of its recent range");
   }
   if (action === "add") {
     const price = firstDollar(input.addLevel);
-    if (price) {
-      return pickVariant(
-        [
-          `Adding near ${price} builds on the position if the reason still holds.`,
-          `A small add around ${price} is in play while the story holds up.`,
-          `Layering in near ${price} keeps this growing on the same thesis.`,
-        ],
-        seed
-      );
-    }
-    return pickVariant(
-      [
-        "Adding here builds on the position if the reason still holds.",
-        "A small add is in play while the story holds up.",
-        "Layering in a bit keeps this growing on the same thesis.",
-      ],
-      seed
+    return framedFact(
+      price
+        ? `The price is below its recent range, near ${price}`
+        : "The price is below its recent range"
     );
   }
   if (action === "sell") {
-    return pickVariant(
-      [
-        "Selling here closes it out if the reason it was bought is gone.",
-        "Exiting makes sense once the original reason no longer holds.",
-        "Closing the position out fits once the thesis is broken.",
-      ],
-      seed
+    return framedFact(
+      "The stated reason for owning this name no longer matches the facts"
     );
   }
   if (action === "watch") {
-    return pickVariant(
-      [
-        "Waiting for more clarity is the safer read right now.",
-        "Sitting on hands until the story firms up.",
-        "Holding off until the picture is clearer fits here.",
-      ],
-      seed
-    );
+    return framedFact("The picture is unclear relative to the recent range");
   }
-  return pickVariant(
-    [
-      "Sitting tight fits here.",
-      "No change needed while the thesis holds.",
-      "Staying put is the straightforward read.",
-    ],
-    seed
-  );
+  return framedFact("The price is trading within its recent range");
 }
 
 /** Kill leftover buy/sell orders the model still emits. Ban lists may
- * name the phrases. Output must read as a check, never an instruction. */
+ * name the phrases. Output must read as a price or thesis fact. */
 function scrubTradeOrders(text: string): string {
   if (!text) return text;
   let s = text;
   s = s.replace(
     /\bIf it runs, sell some\.?/gi,
-    "If it runs, selling some is one way not to chase."
+    pulseSuggestion({ action: "trim" })
   );
   s = s.replace(
     /\bIf it ran too far, sell some\.?/gi,
-    "If it ran too far, selling some is one way to take heat off."
+    pulseSuggestion({ action: "trim" })
   );
-  s = s.replace(/\bDon'?t chase\.?/gi, "Chasing a run is how people overpay.");
-  s = s.replace(/\bDo not chase\.?/gi, "Chasing a run is how people overpay.");
+  s = s.replace(
+    /\bDon'?t chase\.?/gi,
+    "Chasing a run is how prices get paid above the recent range."
+  );
+  s = s.replace(
+    /\bDo not chase\.?/gi,
+    "Chasing a run is how prices get paid above the recent range."
+  );
   s = s.replace(
     /\bDo not add this week\.?/gi,
-    "Adding here would make a broken story bigger."
+    pulseSuggestion({ action: "sell" })
   );
   s = s.replace(
     /\bDo not add today\.?/gi,
-    "Adding today would make a broken story bigger."
+    pulseSuggestion({ action: "sell" })
   );
-  s = s.replace(
-    /\bDo not add\b/gi,
-    "Adding is how a broken story gets bigger"
-  );
-  s = s.replace(
-    /\bDon'?t add\b/gi,
-    "Adding is how a broken story gets bigger"
-  );
+  s = s.replace(/\bDo not add\b/gi, pulseSuggestion({ action: "sell" }));
+  s = s.replace(/\bDon'?t add\b/gi, pulseSuggestion({ action: "sell" }));
   s = s.replace(
     /\bLook to add this week on the dip\.?/gi,
     pulseSuggestion({ action: "add" })
@@ -294,22 +249,16 @@ function scrubTradeOrders(text: string): string {
     /\bLook to add if it dips\.?/gi,
     pulseSuggestion({ action: "add" })
   );
-  s = s.replace(
-    /\bLook to add\.?/gi,
-    pulseSuggestion({ action: "add" })
-  );
-  // Strip leftover "into this/the strength" padding from the raw model
-  // text before substitution -- pulseSuggestion() below may add its own
-  // "into the strength" phrasing, which must survive past this point.
+  s = s.replace(/\bLook to add\.?/gi, pulseSuggestion({ action: "add" }));
   s = s.replace(/\s+into this strength\.?/gi, ".");
   s = s.replace(/\s+into the strength\.?/gi, ".");
   s = s.replace(
     /\bOne check:\s*selling about (\d+)\s*%(?:\s+into (?:this|the) (?:strength|run(?:-up)?))?\.?/gi,
-    (_, n: string) => pulseSuggestion({ action: "trim", trimPct: Number(n) })
+    () => pulseSuggestion({ action: "trim" })
   );
   s = s.replace(
     /\bTrim about (\d+)\s*%(?:\s+into (?:this|the) (?:strength|run(?:-up)?))?\.?/gi,
-    (_, n: string) => pulseSuggestion({ action: "trim", trimPct: Number(n) })
+    () => pulseSuggestion({ action: "trim" })
   );
   s = s.replace(
     /\bOne check:\s*selling a little into the run\.?/gi,
@@ -320,33 +269,27 @@ function scrubTradeOrders(text: string): string {
     (_, price: string) =>
       pulseSuggestion({ action: "add", addLevel: price.replace(/\s+/g, "") })
   );
-  s = s.replace(/\bAdd now\s*~?\s*/gi, "Adding a bit around ");
+  s = s.replace(/\bAdd now\s*~?\s*/gi, "");
   s = s.replace(
     /\bdo not buy more(?: here)?(?: or chase it)?\.?/gi,
-    "Buying more here is how people chase a run."
+    "Chasing a run is how prices get paid above the recent range."
   );
   s = s.replace(
     /\bdon'?t buy more(?: here)?(?: or chase it)?\.?/gi,
-    "Buying more here is how people chase a run."
+    "Chasing a run is how prices get paid above the recent range."
   );
   s = s.replace(
     /\bno trades before the (?:open|bell)(?: today)?\.?/gi,
-    "Nothing you need to do before the open."
+    "Prices before the open are still forming."
   );
+  s = s.replace(/\bYou should not add\b/gi, pulseSuggestion({ action: "sell" }));
+  s = s.replace(/\bYou should sell\b/gi, pulseSuggestion({ action: "sell" }));
+  s = s.replace(/\bYou should buy\b/gi, pulseSuggestion({ action: "add" }));
+  s = s.replace(/\bYou should add\b/gi, pulseSuggestion({ action: "add" }));
+  s = s.replace(/\bSit tight\.?/gi, pulseSuggestion({ action: "hold" }));
+  s = s.replace(/\bSitting tight fits here\.?/gi, pulseSuggestion({ action: "hold" }));
   s = s.replace(
-    /\bYou should not add\b/gi,
-    "Adding here would make a broken story bigger"
-  );
-  s = s.replace(
-    /\bYou should sell\b/gi,
-    pulseSuggestion({ action: "sell" })
-  );
-  s = s.replace(
-    /\bYou should buy\b/gi,
-    pulseSuggestion({ action: "add" })
-  );
-  s = s.replace(
-    /\bYou should add\b/gi,
+    /\bStart small(?: only if you still like why you'd own it)?\.?/gi,
     pulseSuggestion({ action: "add" })
   );
   s = s.replace(

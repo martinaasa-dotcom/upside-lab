@@ -314,7 +314,7 @@ function PulseCard({
           )}
           {pinned ? <Pill tone="neutral">Your check</Pill> : null}
           {!c.inBook ? <Pill tone="neutral">Lookup</Pill> : null}
-          {leftHold ? <Pill tone="neutral">Was Hold</Pill> : null}
+          {leftHold ? <Pill tone="neutral">Was in range</Pill> : null}
           {c.isBigMove ? (
             <Pill tone={(c.effectivePct ?? 0) < 0 ? "bad" : "good"}>
               {(c.effectivePct ?? 0) < 0 ? "Down ≥5%" : "Up ≥5%"}
@@ -514,14 +514,14 @@ function PulseActionSummary({
   return (
     <Panel className="gap-4">
       <PanelHeader
-        title="What to do today"
-        subtitle="Every name you've checked, grouped by what it's asking for."
+        title="Today's price picture"
+        subtitle="Every name you've checked, grouped by how the price sits vs its recent range."
       />
       <div className="overflow-hidden rounded-lg border border-border">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead>Action</TableHead>
+              <TableHead>Reading</TableHead>
               <TableHead>Ticker</TableHead>
               <TableHead className="hidden sm:table-cell">Why</TableHead>
               <TableHead className="text-right">Today</TableHead>
@@ -1139,7 +1139,7 @@ export const PulsePage = memo(function PulsePage({
       <Panel className="gap-3">
         <PanelHeader
           icon={<Activity className="h-4 w-4" />}
-          title="Should you sell, or buy more?"
+          title="How the names you own are moving"
           subtitle={ADVICE_DISCLAIMER_SHORT}
           actions={
             <form
@@ -1273,7 +1273,7 @@ export const PulsePage = memo(function PulsePage({
 
       {candidates.length === 0 && !pinnedCandidate ? (
         <EmptyState
-          title="Nothing to check yet"
+          title="No names on this list yet"
           detail="Add a holding and Pulse starts watching it automatically. You can also type any ticker above for a one-off look."
         />
       ) : (

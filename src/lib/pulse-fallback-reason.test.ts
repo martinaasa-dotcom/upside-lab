@@ -1,6 +1,6 @@
 /**
  * The deterministic Pulse fallback fires whenever the model misses a ticker,
- * and whatever it writes into `moveReason` is what the "What to do today"
+ * and whatever it writes into `moveReason` is what the "Today's price picture"
  * table prints in its *Why* column -- directly beside a *Today* column
  * holding that name's live percentage.
  *

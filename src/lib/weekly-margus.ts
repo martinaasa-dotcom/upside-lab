@@ -4,7 +4,7 @@
  * The email already carries the numbers, the suggestions, and the calendar
  * as their own sections. This adds the two short paragraphs at the top that
  * make it read like someone sat down and wrote it: how the week actually
- * went, and what they'd think about going into the next one.
+ * went, and how the rest of the names compared.
  *
  * Fail open. If the model is busy or down, `fallbackWeeklyTake` writes the
  * same two paragraphs from the numbers alone, so the letter always ships.
@@ -108,15 +108,15 @@ Paragraph two. Where it came from. Name the one or two holdings that did most of
 
 Paragraph three. The other side of the week, if there is one: something that went the other way, what that company does, and whether it was big enough to change the total. If a small holding jumped, say plainly that a small holding jumping does not move much.
 
-Paragraph four. The one thing worth thinking about, if the facts list flagged one, and say out loud that it is the only one. Say the thought behind it in your own words, and say what deciding it would actually cost them, which is usually very little.
+Paragraph four. The one standout fact, if the facts list flagged one, and say out loud that it is the only one. Say it in your own words as a fact about the week, the size, or the stated reason. Do not tell them what to do with it.
 
-Last paragraph. Permission to stop. Everything else can be left exactly as it is, and nothing needs doing. If the whole week needs nothing at all, say that plainly and end there.
+Last paragraph. The rest of the names, in one or two sentences: steady, up, or down relative to last week. Stop there. Do not tell them to sit still, hold, or do nothing.
 
 Rules, all of them non-negotiable:
 - Everyday company names, not cashtags: "Nvidia", not "$NVDA". If you do not know what a company does, use its name alone. If you do not know the name, use the ticker. Never invent a business or a fact about one.
 - Name each company at most once in the whole letter.
 - Short sentences. No word a grandmother would have to look up, and no market slang: no sleeve, tape, conviction, dry powder, beta, drawdown, rotation, exposure, allocation, volatility.
-- Never invent a number, a headline, or a name that is not in the facts. Never name a website or paste a link. Never say we, us, or our. Never write an instruction to buy or sell: say the thought, and leave the decision with the reader.
+- Never invent a number, a headline, or a name that is not in the facts. Never name a website or paste a link. Never say we, us, or our. Never write an instruction to buy, sell, hold, add, trim, sit tight, or start small. Describe the price action. Leave every decision with the reader.
 - Finish every sentence.`;
 
 /** Two paragraphs from the numbers alone, when the model can't be reached. */
@@ -127,9 +127,10 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
 
   /*
    * Same shape as the prompt asks the model for: the figure, then the same
-   * figure as dollars per $100, then who did it, then the one decision,
-   * then permission to stop. This runs whenever the model is busy or down,
-   * and a reader should not be able to tell which one wrote their letter.
+   * figure as dollars per $100, then who did it, then the one standout
+   * fact, then how the rest of the week compared. This runs whenever the
+   * model is busy or down, and a reader should not be able to tell which
+   * one wrote their letter.
    * It cannot name companies, only tickers, because nothing here knows
    * what a company does and guessing is worse than a cashtag.
    */
@@ -175,30 +176,26 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
   const add = r.suggestions.find((s) => s.kind === "add");
   if (sell) {
     paras.push(
-      `Looking ahead, there is really only one thing worth thinking about: ${cashtag(sell.ticker)}. You already decided the reason you bought it no longer holds, and it is small enough that settling it costs you very little either way.`
+      `One standout fact: Pulse last said the stated reason for ${cashtag(sell.ticker)} no longer matches.`
     );
   } else if (trim) {
     paras.push(
-      `Looking ahead, there is really only one thing worth thinking about: ${cashtag(trim.ticker)} has grown into a large share of what you own. That is a good problem, and it does mean one company now decides a lot of your result.`
+      `One standout fact: ${cashtag(trim.ticker)} is now a large share of what you own, so one company decides a lot of the result.`
     );
   } else if (add) {
     paras.push(
-      `Looking ahead, there is really only one thing worth thinking about: ${cashtag(add.ticker)} is still a small part of what you own and still doing what you hoped it would.`
+      `One standout fact: ${cashtag(add.ticker)} is still a small part of what you own, and Pulse last noted it was down vs its recent range.`
     );
   }
 
   const watch = r.watchRows.find((w) => w.dipped);
   if (watch) {
     paras.push(
-      `${cashtag(watch.ticker)}, which you have been watching, is cheaper than it was last Sunday, if that is something you were waiting for.`
+      `${cashtag(watch.ticker)}, which is on your watchlist, finished cheaper than it was last Sunday.`
     );
   }
 
-  paras.push(
-    paras.length > 1
-      ? "Everything else can stay exactly as it is. Nothing here needs you to do anything today."
-      : "Nothing here needs you to do anything. Most weeks are like that, and sitting still is a real decision, not a missed one."
-  );
+  paras.push("The rest of the names were quiet relative to last week.");
 
   return paras.join("\n\n");
 }

@@ -25,6 +25,7 @@ import {
   Mail,
   Users,
 } from "lucide-react";
+import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import {
   PRODUCT_SUPPORT_EMAIL,
   SIGNIN_PRICE,
@@ -217,7 +218,7 @@ function LegalLine({ minAge }: { minAge: number }) {
       <Link href="/privacy" className="underline hover:text-foreground">
         Privacy policy
       </Link>
-      . Not financial advice. Help:{" "}
+      . {ADVICE_DISCLAIMER_SHORT} Help:{" "}
       <a
         href={`mailto:${PRODUCT_SUPPORT_EMAIL}`}
         className="underline hover:text-foreground"
@@ -409,7 +410,7 @@ const MORE = [
     icon: Mail,
     title: "A letter on Sunday",
     detail:
-      "One email a week. What moved, what is worth a second look, and the reasoning in full sentences.",
+      "One email a week. What moved, and the reasoning in full sentences.",
   },
   {
     icon: Users,

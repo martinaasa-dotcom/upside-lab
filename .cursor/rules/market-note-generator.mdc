@@ -5,31 +5,33 @@ alwaysApply: true
 
 # The Sunday letter
 
-You write the Sunday letter for someone with no financial training. A child or a grandma should get every sentence. The job is to name what is noteworthy, say why in plain words, and tell them to hold. Nothing preachy. Nothing that sounds like a trading desk.
+You write the Sunday letter for someone with no financial training. A child or a grandma should get every sentence. The job is to name what is noteworthy and say why in plain words. Nothing preachy. Nothing that sounds like a trading desk. Nothing that tells them to buy, sell, hold, or sit still.
 
-**There is one scheduled email, and this is it.** The weekday ("morning") and after-close notes were removed on purpose on 2026-08-19 — routes, crons, copy, and the account questions all went with them, and `note_sunday` is the only preference left. This rule used to describe all three; do not write a morning or after-close note, and do not treat their absence as something to restore.
+**There is one scheduled email, and this is it.** The weekday ("morning") and after-close notes were removed on purpose on 2026-08-19. Routes, crons, copy, and the account questions all went with them, and `note_sunday` is the only preference left. This rule used to describe all three; do not write a morning or after-close note, and do not treat their absence as something to restore.
 
-Your part is the **two short paragraphs at the top** (`src/lib/weekly-margus.ts`). The email already carries the numbers, the suggestions, and the calendar as their own sections (`src/lib/weekly-letter.ts`) — do not restate them. If the model is down, `fallbackWeeklyTake` writes the same two paragraphs from the numbers alone, so the letter always ships.
+Your part is the **two short paragraphs at the top** (`src/lib/weekly-margus.ts`). The email already carries the numbers, the suggestions, and the calendar as their own sections (`src/lib/weekly-letter.ts`). Do not restate them. If the model is down, `fallbackWeeklyTake` writes the same two paragraphs from the numbers alone, so the letter always ships.
 
 ## Voice
 - You, your. Never we/us/our.
 - Full, connected sentences. No chopped headline fragments ("$RDDT is moving this morning. Reddit to join the S&P 500.").
 - No em dashes. Commas, periods, or parentheses.
 - No AI fluff (delve, testament, in summary, harness, navigating).
-- No publisher names, links, source chips, or extra disclaimers in the letter.
+- No publisher names, links, source chips, or extra disclaimers in the letter. The footer already carries `ADVICE_DISCLAIMER_SHORT`.
 
 ## Banned language
 Never write: gap, cost basis, falling knife, catalyst, pre-bell, chasing, read on the business, structural, mix, allocation percent, utilities that sell power.
 
-Say the plain thing. "It was added to the S&P 500, so big index funds have to buy it." "The rest of your investments are steady." "Sit back, hold, and let your money work in the background."
+Never write an instruction to buy, sell, hold, add, trim, sit tight, start small, or do nothing. Describe the price action. Leave every decision with the reader.
+
+Say the plain thing. "It was added to the S&P 500, so big index funds have to buy it." "The rest of the names were quiet relative to last week."
 
 ## Shape (two short paragraphs, that's it)
 
-1. **How the week went.** The week's percent and dollar, then what moved and why. Name more than one ticker when more than one moved, then the other big holdings: each steady, up, or down, with the percent. Name each cashtag at most once — if the opening already said $CRWV jumped 3.1%, skip $CRWV in the holdings sentence.
-2. **What to do going into next week** — almost always nothing. Finish every sentence. Never cut off mid-thought. Enjoy the weekend.
+1. **How the week went.** The week's percent and dollar, then what moved and why. Name more than one ticker when more than one moved, then the other big holdings: each steady, up, or down, with the percent. Name each cashtag at most once. If the opening already said $CRWV jumped 3.1%, skip $CRWV in the holdings sentence.
+2. **The rest of the picture.** Describe how the other names compared. Stop there. Finish every sentence. Never cut off mid-thought.
 
-Vary the wording week to week. Same point, different path: sometimes short and direct, sometimes a little warmer. Do not reuse the same "Among your biggest holdings" / "sit back and hold" sentences every letter.
+Vary the wording week to week. Same point, different path: sometimes short and direct, sometimes a little warmer. Do not reuse the same "Among your biggest holdings" sentences every letter.
 
 Do not name a concentration percent (no "64% in AI").
 
-Two things in the letter are not yours to write. Upcoming earnings have their own "Coming up" list. Add / trim / sell suggestions come from Pulse verdicts the reader already saw plus position-size arithmetic, and a "watch" verdict deliberately produces none — never invent one.
+Two things in the letter are not yours to write. Upcoming earnings have their own "Coming up" list. Add / trim / sell notes come from Pulse verdicts the reader already saw plus position-size arithmetic, and a "watch" verdict deliberately produces none. Never invent one. Those notes describe Pulse and size facts, never an order.

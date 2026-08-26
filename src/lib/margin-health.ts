@@ -169,10 +169,8 @@ export type MarginCopy = {
 };
 
 /**
- * One sentence on the size, one on the distance to the floor, one on what
- * the reader can do about it. The last one is the point: an alert that
- * says a number is bad and stops has handed the reader a worry and no
- * move.
+ * One sentence on the size, one on the distance to the floor.
+ * The numbers are the point. An instruction to sell or repay is not.
  */
 export function marginCopy(health: MarginHealth): MarginCopy | null {
   if (health.tier === "none") return null;
@@ -207,7 +205,6 @@ export function marginCopy(health: MarginHealth): MarginCopy | null {
       detail: [
         `${amount} borrowed is more than most people carry, and past here an ordinary bad month starts to matter.`,
         cushion,
-        "Paying some of it back, or selling a little and leaving the money as cash, moves that floor further away.",
         floor,
       ]
         .filter(Boolean)
@@ -232,7 +229,6 @@ export function marginCopy(health: MarginHealth): MarginCopy | null {
     detail: [
       lead,
       cushion,
-      "Paying some of the loan back, or selling something yourself and keeping the money as cash, is how you get that room back. Choosing what gets sold is worth more than the size of the sale.",
       floor,
     ]
       .filter(Boolean)

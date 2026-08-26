@@ -48,7 +48,7 @@ function reportLook(
   return {
     kind: "report",
     headline: when,
-    detail: "Wait until after if you don't want a surprise move.",
+    detail: "Results days often move a price more than a typical session.",
     low,
     high,
   };
@@ -87,7 +87,7 @@ export function watchLook(
         kind: "look",
         headline: "Near its recent low",
         detail:
-          "A quieter price than it's been. Start small only if you still like why you'd own it.",
+          "The price is near the low of its recent range.",
         low,
         high,
       };
@@ -97,7 +97,7 @@ export function watchLook(
         kind: "wait",
         headline: "Near its recent high",
         detail:
-          "Wait for a cooler day. Buying at the recent high leaves less room if the price comes back down.",
+          "The price is near the high of its recent range.",
         low,
         high,
       };
@@ -109,7 +109,7 @@ export function watchLook(
       kind: "look",
       headline: "Down a lot today",
       detail:
-        "Only interesting if the reason you like it didn't change. Don't buy just because it's cheaper today.",
+        "The session is down vs a typical day. The stated reason for watching it is a separate fact.",
       low,
       high,
     };
@@ -119,7 +119,7 @@ export function watchLook(
       kind: "wait",
       headline: "Up a lot today",
       detail:
-        "Late to rush in. Let it sit unless you already planned to buy.",
+        "The session is up vs a typical day. The price is away from the quieter part of its recent range.",
       low,
       high,
     };
@@ -129,7 +129,7 @@ export function watchLook(
     return {
       kind: "quiet",
       headline: "Not enough recent history",
-      detail: "Watch the next few days. We'll have a clearer read once prices fill in.",
+      detail: "A few more sessions fill in a range. Until then the picture is thin.",
       low,
       high,
     };
@@ -138,7 +138,7 @@ export function watchLook(
   return {
     kind: "quiet",
     headline: "In the middle of where it's been lately",
-    detail: "No rush. Check again if the price jumps or drops hard.",
+    detail: "The price is in the middle of its recent range.",
     low,
     high,
   };

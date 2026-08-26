@@ -90,61 +90,61 @@ const NEXT_GROUP: Partial<
     {
       need: "ai_power",
       line: (share) =>
-        `${sharePct(share)} of this portfolio is AI computer companies. Those names need cheap, reliable power, and you barely own the utilities that sell it. If electricity stays tight, this group can stall even when demand is fine. Add up what you have in that one group. If it is most of the money, a power shortage is a portfolio problem.`,
+        `${sharePct(share)} of this portfolio is AI computer companies. Those names need cheap, reliable power, and you barely own the utilities that sell it. If electricity stays tight, this group can stall even when demand is fine. If that group is most of the money, a power shortage is a portfolio-wide problem.`,
     },
     {
       need: "semi",
       line: (share) =>
-        `${sharePct(share)} is the cloud and computer-rental layer. Chip makers are who those companies pay, and you barely own them. When chips are scarce, this mix feels the squeeze and has no one who sells the scarce thing. Check how much of your money sits in that one group.`,
+        `${sharePct(share)} is the cloud and computer-rental layer. Chip makers are who those companies pay, and you barely own them. When chips are scarce, this mix feels the squeeze and has no one who sells the scarce thing. That is how much of the money sits in that one group.`,
     },
   ],
   ai_power: [
     {
       need: "ai_infra",
       line: (share) =>
-        `${sharePct(share)} is the electricity side of the data-center build. You barely own the cloud companies that actually buy that power. If the build slows, power names can sit still while you wait. See whether the other half of that story is missing on purpose.`,
+        `${sharePct(share)} is the electricity side of the data-center build. You barely own the cloud companies that actually buy that power. If the build slows, power names can sit still while you wait. The other half of that story is not in this mix.`,
     },
   ],
   crypto: [
     {
       need: "index",
       line: (share) =>
-        `${sharePct(share)} is crypto. A bad year there is a bad year for the whole portfolio. A broad fund next to it is how people keep one crash from being the only story. If crypto is more than half, that is the risk. Either you meant that weight, or the mix is the thing to sit with.`,
+        `${sharePct(share)} is crypto. A bad year there is a bad year for the whole portfolio. A broad fund next to it is how some people keep one crash from being the only story. If crypto is more than half, that size is the risk in the mix.`,
     },
   ],
   space: [
     {
       need: "index",
       line: (share) =>
-        `${sharePct(share)} is space. Launch slips and one failed mission move this group hard. A calmer mix next to it keeps a delay from being the whole year. See how much sits in that one bet before the next slip.`,
+        `${sharePct(share)} is space. Launch slips and one failed mission move this group hard. A calmer mix next to it keeps a delay from being the whole year. That is how much sits in that one bet.`,
     },
   ],
   semi: [
     {
       need: "ai_infra",
       line: (share) =>
-        `${sharePct(share)} is chip makers. The cloud companies that buy those chips are barely here. When buyers pause, chip names fall first. Check whether this portfolio is only the factory and not the customer.`,
+        `${sharePct(share)} is chip makers. The cloud companies that buy those chips are barely here. When buyers pause, chip names fall first. This mix is mostly the factory, not the customer.`,
     },
   ],
   software: [
     {
       need: "semi",
       line: (share) =>
-        `${sharePct(share)} is software. The chips and computers those products run on are barely here. When hardware is scarce or expensive, this mix has no one who sells the scarce part. See that split before the next squeeze.`,
+        `${sharePct(share)} is software. The chips and computers those products run on are barely here. When hardware is scarce or expensive, this mix has no one who sells the scarce part. That split is in the mix today.`,
     },
   ],
   drones: [
     {
       need: "software",
       line: (share) =>
-        `${sharePct(share)} is defense and drones. After the hardware ships, software and sensors are often how that group keeps earning. You barely have that. Check the mix before this stays a one-industry bet.`,
+        `${sharePct(share)} is defense and drones. After the hardware ships, software and sensors are often how that group keeps earning. You barely have that. The mix is still a one-industry bet.`,
     },
   ],
   fintech: [
     {
       need: "index",
       line: (share) =>
-        `${sharePct(share)} is payment and finance companies. They move when interest rates move. A broader mix next to them keeps one rate cycle from being the whole portfolio. See the weight. If you did not mean to take that much rate risk, that is the fix.`,
+        `${sharePct(share)} is payment and finance companies. They move when interest rates move. A broader mix next to them keeps one rate cycle from being the whole portfolio. That is the weight sitting in rate-sensitive names.`,
     },
   ],
 };

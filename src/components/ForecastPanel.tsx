@@ -1534,7 +1534,7 @@ export const ForecastPanel = memo(function ForecastPanel({
             {activePeriod && (
               <div className="flex flex-col gap-4">
                 <div>
-                  <MicroLabel>Modeled checks for this stretch</MicroLabel>
+                  <MicroLabel>Modeled mix for this stretch</MicroLabel>
                   <p className="mt-2 text-sm font-semibold text-foreground">
                     {activePeriod.theme}
                   </p>
@@ -1559,20 +1559,20 @@ export const ForecastPanel = memo(function ForecastPanel({
                 )}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Card>
-                    <MicroLabel>Worth adding</MicroLabel>
+                    <MicroLabel>Modeled mix: larger share</MicroLabel>
                     <PlaybookList
                       text={activePeriod.add}
-                      empty="Nothing to add"
+                      empty="Unchanged in this stretch"
                       tone="add"
                     />
                   </Card>
                   <Card>
                     <MicroLabel className="text-loss">
-                      Worth selling some
+                      Modeled mix: smaller share
                     </MicroLabel>
                     <PlaybookList
                       text={activePeriod.trim}
-                      empty="Nothing to sell"
+                      empty="Unchanged in this stretch"
                       tone="trim"
                     />
                   </Card>

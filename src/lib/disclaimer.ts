@@ -17,17 +17,21 @@
  * Real investments go up and down, and no rate of return is guaranteed."
  */
 
-/** Compact, always-visible line for tight spaces (chat panel, cards). */
+/** Compact, always-visible line for tight spaces (chat panel, cards, letter). */
 export const ADVICE_DISCLAIMER_SHORT =
-  "Educational, not personalized investment advice. Always your call.";
+  "Informational content only. This does not constitute personalized investment advice or a recommendation to buy or sell securities.";
+
+/** Frame a price move as the reader's own decision, never a validation. */
+export const RISK_PROFILE_FRAME =
+  "Whether this movement represents an opportunity depends on individual investment strategies and risk profiles.";
 
 /** For forecast/scenario-modeling surfaces specifically. */
 export const FORECAST_DISCLAIMER =
-  "Modeled scenarios for your own thinking, not personalized investment advice or a guarantee of future performance.";
+  `Modeled scenarios for your own thinking, not a guarantee of future performance. ${ADVICE_DISCLAIMER_SHORT}`;
 
 /** Upside Fund, a fully simulated, paper-money portfolio managed
  * autonomously by Margus. Leads with WHO runs it (a common question for a
  * followable daily feed like this), then the same "not real, not advice"
  * emphasis used everywhere else. */
 export const UPSIDE_PORTFOLIO_DISCLAIMER =
-  "Managed autonomously by Margus, Upside Lab's AI strategist. 100% simulated with paper money. Not a real fund, not a track record, and not a signal to copy trade-for-trade. Margus doesn't know your situation, risk tolerance, or timeline. Educational entertainment only.";
+  `Managed autonomously by Margus, Upside Lab's AI strategist. 100% simulated with paper money. Not a real fund, not a track record, and not a signal to copy trade-for-trade. Margus doesn't know your situation, risk tolerance, or timeline. ${ADVICE_DISCLAIMER_SHORT}`;

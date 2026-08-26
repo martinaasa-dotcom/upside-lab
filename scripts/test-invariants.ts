@@ -81,7 +81,7 @@ import {
   weeklyLetterText,
   weeklySubject,
 } from "../src/lib/weekly-letter";
-import { ADVICE_DISCLAIMER_SHORT } from "../src/lib/disclaimer";
+import { ADVICE_DISCLAIMER_SHORT, RISK_PROFILE_FRAME } from "../src/lib/disclaimer";
 import {
   inviteEmailAllowlist,
   parseInviteEmails,
@@ -340,7 +340,7 @@ run("Pulse CTA is offered when Pulse is reachable, even if Lab is hidden", () =>
 });
 
 run("briefing kinds use plain-English labels", () => {
-  assert.equal(BRIEFING_KIND_LABEL.action, "Check this");
+  assert.equal(BRIEFING_KIND_LABEL.action, "Notice");
   assert.equal(BRIEFING_KIND_LABEL.watch, "Context");
   assert.equal(BRIEFING_KIND_LABEL.play, "What's missing");
 });
@@ -1228,6 +1228,7 @@ run("fund cron composes an X post but only sends it when switched on", () => {
 
 run("forecast add/trim lines split into bullets", () => {
   assert.deepEqual(playbookBullets("Hold, no add"), []);
+  assert.deepEqual(playbookBullets("No mix change"), []);
   assert.deepEqual(playbookBullets("Nothing, just hold"), []);
   const sleeve = playbookBullets(
     "AI power / $CEG or $VST (~0% to 5%): initiate on pullbacks to build exposure before next grid interconnect auctions."
@@ -1329,7 +1330,7 @@ run("trim on a run is Thesis intact", () => {
     "utf8"
   );
   assert.match(prompt, /Never mark Thesis watch just because the price went up/);
-  assert.match(fallback, /The story is working/);
+  assert.match(fallback, /Price ran ahead of a normal day/);
   assert.doesNotMatch(
     fallback,
     /euphoric[\s\S]{0,400}thesisStatus: "watch"/
@@ -1433,7 +1434,11 @@ run("humanize kills leftover market slang", () => {
   assert.doesNotMatch(humanizeMargusText("Do not add today."), /do not add/i);
   assert.match(
     humanizeMargusText("If it runs, sell some. Don't chase."),
-    /selling some is one way not to chase/i
+    /ran ahead of its recent range/i
+  );
+  assert.doesNotMatch(
+    humanizeMargusText("If it runs, sell some. Don't chase."),
+    /sell some/i
   );
   assert.doesNotMatch(
     humanizeMargusText("Look to add if it dips."),
@@ -1441,11 +1446,11 @@ run("humanize kills leftover market slang", () => {
   );
   assert.match(
     humanizeMargusText("Trim about 15% into this strength."),
-    /Trim 15% into the strength/i
+    /ran ahead of its recent range/i
   );
-  assert.match(
+  assert.doesNotMatch(
     humanizeMargusText("Trim about 15% into this strength."),
-    /15%/
+    /Trim 15%/i
   );
   assert.doesNotMatch(
     humanizeMargusText("Trim about 15% into this strength."),
@@ -1457,11 +1462,11 @@ run("humanize kills leftover market slang", () => {
   );
   assert.match(
     humanizeMargusText("Add now ~$80"),
-    /Adding near \$80 builds on the position/i
+    /below its recent range, near \$80/i
   );
   assert.match(
     humanizeMargusText("Let the move play out, but do not buy more here or chase it."),
-    /Buying more here is how people chase a run/i
+    /Chasing a run is how prices get paid above the recent range/i
   );
   assert.doesNotMatch(
     humanizeMargusText("No trades before the open today."),
@@ -1469,23 +1474,26 @@ run("humanize kills leftover market slang", () => {
   );
   assert.match(
     pulseSuggestion({ action: "trim", trimPct: 20 }),
-    /^Trim 20% into the strength\.$/
+    /The price ran ahead of its recent range/
+  );
+  assert.ok(
+    pulseSuggestion({ action: "trim", trimPct: 20 }).includes(RISK_PROFILE_FRAME)
   );
   assert.match(
     pulseSuggestion({ action: "add", addLevel: "around $80" }),
-    /^Adding near \$80 builds on the position if the reason still holds\.$/
+    /The price is below its recent range, near \$80/
   );
   assert.match(
     pulseSuggestion({ action: "sell" }),
-    /^Selling here closes it out if the reason it was bought is gone\.$/
+    /The stated reason for owning this name no longer matches the facts/
   );
   assert.match(
     pulseSuggestion({ action: "watch" }),
-    /^Waiting for more clarity is the safer read right now\.$/
+    /The picture is unclear relative to the recent range/
   );
   assert.match(
     pulseSuggestion({ action: "hold" }),
-    /^Sitting tight fits here\.$/
+    /The price is trading within its recent range/
   );
   assert.equal(
     pulseSuggestion({ action: "trim", trimPct: 20, ticker: "NBIS" }),
@@ -1618,7 +1626,7 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
   // The figure is defused in the very next sentence, in dollars per $100.
   assert.match(paras[0], /out of every \$100/);
   // And it ends by telling the reader nothing needs doing.
-  assert.match(paras[paras.length - 1], /nothing here needs you to do|stay exactly as it is/i);
+  assert.match(paras[paras.length - 1], /quiet relative to last week/i);
   assert.match(take, /[.!?]$/);
   assert.doesNotMatch(take, /\bwe\b|\bour\b|\bus\b/i);
   // Banned market slang never reaches a reader (AGENTS.md).
@@ -1634,7 +1642,7 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
   assert.match(html, /What moved/);
   // One heading per kind of suggestion, and no outer kicker repeating the
   // word over cards that already carry it.
-  assert.match(html, /Worth a hard look|Worth trimming|Worth adding to/);
+  assert.match(html, /Thesis no longer matches|Larger share of the portfolio|Quieter vs recent prices/);
   assert.match(html, /On your watchlist/);
   assert.match(html, /Next week/);
   // It is painted in the app's own palette, not the old brass letterhead.
@@ -1646,7 +1654,7 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
 
   const text = weeklyLetterText(letter);
   assert.match(text, /What moved/);
-  assert.match(text, /Worth a hard look|Worth trimming|Worth adding to/);
+  assert.match(text, /Thesis no longer matches|Larger share of the portfolio|Quieter vs recent prices/);
 
   assert.match(weeklySubject(letter), /Your week/);
 });
@@ -1809,7 +1817,7 @@ run("insight prose never greens the letters up inside group", () => {
       .map((span) => span.text);
   assert.deepEqual(
     none(
-      "If electricity stays tight, this group can stall. Add up what you have in that one group."
+      "If electricity stays tight, this group can stall. That group is most of the money."
     ),
     []
   );
@@ -2647,6 +2655,7 @@ run("live price polls back off when New York is closed", () => {
     "UpsidePortfolioPage.tsx",
     "MacroStrip.tsx",
     "CommunityView.tsx",
+    "MarketSentimentWidget.tsx",
   ];
   const offenders = pollers.filter((name) => {
     const found = sources.find(({ file }) => file.endsWith(name));
@@ -2777,6 +2786,8 @@ run("signed-in pages share one column so rooms do not jump", () => {
   assert.doesNotMatch(macroStrip, />\s*Markets\s*</);
   const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
   assert.match(css, /scrollbar-gutter:\s*stable/);
+  assert.match(css, /\.scroll-host\s*\{/);
+  assert.match(css, /padding-inline-end:\s*max\(1rem/);
   const dash = readFileSync(
     join(process.cwd(), "src/components/Dashboard.tsx"),
     "utf8"
@@ -2856,10 +2867,13 @@ run("sheets sit in the visible viewport so the keyboard cannot cover them", () =
     "TickerDrawer.tsx",
     "AccountPage.tsx",
     "CommunityView.tsx",
+    "FeedbackModal.tsx",
+    "CommunitiesList.tsx",
   ];
   for (const name of sheets) {
     const src = readFileSync(join(process.cwd(), "src/components", name), "utf8");
     assert.match(src, /ViewportOverlay/, name);
+    assert.match(src, /scroll-host/, name);
     assert.doesNotMatch(src, /fixed inset-0/, name);
   }
   const confirm = readFileSync(
@@ -3259,7 +3273,7 @@ run("the recent Pulse and briefing bugs stay gone", () => {
   assert.doesNotMatch(notes, /action === "watch"/);
 });
 
-run("gap thoughts name the weight and a next step", () => {
+run("gap thoughts name the weight and the mix", () => {
   const out = buildBookInsights([
     { ticker: "CRWV", value: 80_000 },
     { ticker: "NBIS", value: 20_000 },
@@ -3267,7 +3281,8 @@ run("gap thoughts name the weight and a next step", () => {
   const idea = out.idea ?? "";
   assert.match(idea, /\d+%/);
   assert.match(idea, /power|electric/i);
-  assert.match(idea, /Check |Add up |See /);
+  assert.match(idea, /power shortage is a portfolio/);
+  assert.doesNotMatch(idea, /Check |Add up |See /);
   assert.doesNotMatch(idea, /computer side/);
   assert.doesNotMatch(idea, /usual neighbor/);
   assert.doesNotMatch(idea, /sits next to that/);
@@ -4230,6 +4245,10 @@ run("earnings dates use the call when it already happened", () => {
   assert.match(prompt, /Do not invent/);
   assert.match(prompt, /\$NVDA/);
   assert.match(prompt, /2026-08-26/);
+  assert.doesNotMatch(prompt, /Other portfolios \(read-only/);
+  assert.doesNotMatch(prompt, /copy something across/);
+  assert.doesNotMatch(prompt, /open that portfolio and ask again/i);
+  assert.match(prompt, /Never ask the reader to pick a portfolio/);
 });
 
 run("watchlist look is a range read, not a made-up target", () => {
@@ -4678,6 +4697,38 @@ run("split rows stack on a phone so copy fills the card", () => {
   );
   assert.match(seasonality, /SPLIT_ROW/);
   assert.match(seasonality, /SPLIT_COPY/);
+});
+
+run("setting rows pin a single control on the right", () => {
+  const panel = readFileSync(
+    join(process.cwd(), "src/components/ui/Panel.tsx"),
+    "utf8"
+  );
+  assert.match(panel, /export const SETTING_ROW/);
+  assert.match(panel, /flex flex-row flex-nowrap items-center justify-between/);
+  assert.match(panel, /pinActions/);
+  const item = readFileSync(
+    join(process.cwd(), "src/components/ui/item.tsx"),
+    "utf8"
+  );
+  assert.match(item, /flex-nowrap items-center/);
+  assert.match(item, /ml-auto flex shrink-0/);
+  assert.doesNotMatch(
+    item,
+    /flex w-full flex-wrap items-center rounded-lg/,
+    "list rows must not wrap a single action under the label"
+  );
+  const account = readFileSync(
+    join(process.cwd(), "src/components/AccountPage.tsx"),
+    "utf8"
+  );
+  assert.match(account, /pinActions/);
+  assert.match(account, /SETTING_ROW/);
+  assert.doesNotMatch(
+    account,
+    /flex items-center gap-2 text-sm text-foreground[\s\S]{0,80}<Checkbox/,
+    "Account toggles sit on the right of their label, not the left"
+  );
 });
 
 run("assumed YTD NAV uses current size and forward-fills gaps", () => {
@@ -5435,7 +5486,7 @@ run("Margus never writes trade orders to a person", () => {
   assert.match(chat, /Margus memory on this portfolio/);
   assert.match(chat, /Never say you have not given thoughts/);
   assert.match(chat, /Same voice as the/);
-  assert.match(forecastUi, /Modeled checks for this stretch/);
+  assert.match(forecastUi, /Modeled mix for this stretch/);
 });
 
 run("prompts do not teach the model trader words as working vocab", () => {

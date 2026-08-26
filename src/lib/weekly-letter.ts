@@ -276,7 +276,7 @@ function pulseSuggestions(
         ticker: p.ticker,
         source: "pulse",
         status: badge,
-        line: `The last Pulse you ran on ${tag} said the reason you bought it no longer holds. Worth deciding whether you still want it.`,
+        line: `The last Pulse you ran on ${tag} said the stated reason no longer matches. It is ${weightPct(p.weight)} of what you own.`,
       });
       continue;
     }
@@ -286,7 +286,7 @@ function pulseSuggestions(
         ticker: p.ticker,
         source: "pulse",
         status: badge,
-        line: `Pulse flagged ${tag} as one to take something off. It is ${weightPct(p.weight)} of what you own.`,
+        line: `Pulse noted ${tag} ran vs its recent range. It is ${weightPct(p.weight)} of what you own.`,
       });
       continue;
     }
@@ -296,7 +296,7 @@ function pulseSuggestions(
         ticker: p.ticker,
         source: "pulse",
         status: badge,
-        line: `Pulse still likes ${tag}, and it is only ${weightPct(p.weight)} of what you own.`,
+        line: `Pulse noted ${tag} is down vs its recent range. It is ${weightPct(p.weight)} of what you own.`,
       });
     }
     // A "watch" / "wait" verdict deliberately produces nothing. The letter
@@ -594,13 +594,13 @@ export function weeklyPreview(r: WeeklyLetter): string {
 /* ------------------------------------------------------------ plain text */
 
 const ACTION_WORD: Record<SuggestionKind, string> = {
-  add: "Worth adding to",
-  trim: "Worth trimming",
-  sell: "Worth a hard look",
+  add: "Quieter vs recent prices",
+  trim: "Larger share of the portfolio",
+  sell: "Thesis no longer matches",
 };
 
-/** Most consequential first, so "worth a hard look" is never buried under
- * two adds. */
+/** Most consequential first, so a thesis mismatch is never buried under
+ * two quieter-price notes. */
 const SUGGESTION_ORDER: SuggestionKind[] = ["sell", "trim", "add"];
 
 export type WeeklySuggestionGroup = {
@@ -613,7 +613,7 @@ export type WeeklySuggestionGroup = {
  * One section per kind, not one card per suggestion.
  *
  * The letter drew a card for every suggestion, so a reader with two adds
- * and two trims got four cards and read the heading "Worth adding to"
+ * and two trims got four cards and read the heading "Quieter vs recent prices"
  * twice, interleaved. Same suggestions, in the same order within a kind,
  * under one heading each.
  */
@@ -929,8 +929,8 @@ export function weeklyLetterHtml(
   const moversBlock =
     r.movers.length > 0 ? block("What moved", moversTable(r.movers)) : "";
   const groups = groupSuggestions(r.suggestions);
-  // No section kicker: "Worth a look" over cards reading "Worth trimming"
-  // and "Worth a hard look" said the same word three times. Each group is
+  // No section kicker: a heading over cards that already name the same
+  // fact said the same thing twice. Each group is
   // its own heading now.
   const suggestionBlock =
     groups.length > 0 ? rule(suggestionGroupsHtml(groups)) : "";

@@ -64,7 +64,7 @@ export const SHOCKS: ShockDefinition[] = [
     driver: "Interest rates",
     headlinePct: -0.12,
     mechanism: "When interest rates jump, pricey growth companies usually fall. Power companies and cash tend to hold up better.",
-    tacticalAction: "Check what you pay on borrowed money. The priciest growth names usually fall most.",
+    tacticalAction: "Borrowed money gets more expensive. The priciest growth names usually fall most.",
   },
   {
     id: "tech_pullback10",
@@ -74,7 +74,7 @@ export const SHOCKS: ShockDefinition[] = [
     driver: "Tech prices",
     headlinePct: -0.10,
     mechanism: "Software, cloud, and chip companies fall together. Calmer businesses, energy, and cash usually hold up better.",
-    tacticalAction: "Cash sitting ready is useful here. You can add to names you still believe in.",
+    tacticalAction: "Cash sitting ready keeps its value in this picture.",
   },
   {
     id: "oil_shock25",
@@ -84,17 +84,17 @@ export const SHOCKS: ShockDefinition[] = [
     driver: "Oil and energy",
     headlinePct: 0.25,
     mechanism: "Oil and energy go up. Power companies often follow. Tech and shopping names often eat the extra cost.",
-    tacticalAction: "Energy and power can cushion this. Watch whether consumer tech still makes money.",
+    tacticalAction: "Energy and power often cushion this. Consumer tech often eats the extra cost.",
   },
   {
     id: "ai_down20",
     label: "AI −20%",
     shortLabel: "AI −20%",
-    tagline: "Chip makers and AI computer companies take the hit. A chip fund is not the whole market. Check how much of the portfolio sits in that one group.",
+    tagline: "Chip makers and AI computer companies take the hit. A chip fund is not the whole market. That group is the part of the mix that moves most in this picture.",
     driver: "AI computer builders",
     headlinePct: -0.20,
     mechanism: "Companies pause spending on AI computers. Cloud, chip makers, AI software, and data-center power all feel it.",
-    tacticalAction: "Check how much of your portfolio is chip makers and AI computer builders. Don't let one group become the whole portfolio.",
+    tacticalAction: "Chip makers and AI computer builders are the group that moves most in this picture.",
   },
   {
     id: "btc_winter35",
@@ -104,7 +104,7 @@ export const SHOCKS: ShockDefinition[] = [
     driver: "Crypto",
     headlinePct: -0.35,
     mechanism: "Bitcoin falls hard. Companies that hold crypto, mine it, or trade it get hit first. Payment and growth names often follow.",
-    tacticalAction: "Add up crypto-linked names. If they are a large slice, a winter is a portfolio problem, not a one-name dip. Check borrowed money too.",
+    tacticalAction: "Crypto-linked names take the first hit. If they are a large slice, a winter is a portfolio-wide problem.",
   },
   {
     id: "broad_down15",
@@ -114,7 +114,7 @@ export const SHOCKS: ShockDefinition[] = [
     driver: "Everyone selling",
     headlinePct: -0.15,
     mechanism: "Almost everything falls together. Jumpy names still fall further than calmer ones and the broad market.",
-    tacticalAction: "Cash keeps its value and lets you buy later if prices come back.",
+    tacticalAction: "Cash keeps its value in this picture.",
   },
   {
     id: "usd_surge7",
@@ -140,11 +140,11 @@ export const SHOCKS: ShockDefinition[] = [
     id: "soft_landing_rally",
     label: "Risk rally +12%",
     shortLabel: "Rally +12%",
-    tagline: "Growth, payments, space, and crypto usually lead. Check names that already ran far from what you paid.",
+    tagline: "Growth, payments, space, and crypto usually lead. Names that already ran far from what you paid tend to move most.",
     driver: "People buying",
     headlinePct: 0.12,
     mechanism: "Prices stop rising so fast and the economy stays ok. Money often flows into growth, tech, and the names that swing hardest.",
-    tacticalAction: "Names that swing hard usually lead. Watch ones that already ran a long way from what you paid.",
+    tacticalAction: "Names that swing hard usually lead. Those that already ran a long way from what you paid tend to move most.",
   },
 ];
 

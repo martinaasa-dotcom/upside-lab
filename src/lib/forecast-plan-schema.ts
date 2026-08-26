@@ -26,7 +26,7 @@ export const forecastPlanSchema = z.object({
   generalAdvice: z
     .string()
     .describe(
-      "2-4 short sentences of portfolio-level advice (size, concentration, cash). Plain spoken English. No em dashes. No stacked jargon slogans."
+      "2-4 short sentences on portfolio-level mix (size, concentration, cash). Facts only, never orders. Plain spoken English. No em dashes. No stacked jargon slogans."
     ),
   sectorRotation: z
     .string()
@@ -45,12 +45,12 @@ export const forecastPlanSchema = z.object({
         add: z
           .string()
           .describe(
-            'Bullet list, semicolon-separated. ONE name or group per item: "TICKER (current% -> target%): why + trigger" or "data-center power (~0% to 5%): why". Never pack two tickers with a slash into one item. Never empty; say "Hold, no add" if nothing. Never say sleeve.'
+            'Bullet list, semicolon-separated. ONE name or group per item: "TICKER (current% -> target%): why + condition" or "data-center power (~0% to 5%): why". Never pack two tickers with a slash into one item. Never empty; say "No mix change" if the modeled mix is unchanged. Never say sleeve. Never write buy, sell, add, or trim as an order.'
           ),
         trim: z
           .string()
           .describe(
-            'Bullet list, semicolon-separated. ONE ticker per item: "TICKER (current% -> target%): why + trigger". Never pack two tickers with a slash into one item. Never empty; say "Hold, no trim" if nothing.'
+            'Bullet list, semicolon-separated. ONE ticker per item: "TICKER (current% -> target%): why + condition". Never pack two tickers with a slash into one item. Never empty; say "No mix change" if the modeled mix is unchanged. Never write buy, sell, add, or trim as an order.'
           ),
         notes: z
           .string()

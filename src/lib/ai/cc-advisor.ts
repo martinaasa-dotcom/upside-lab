@@ -40,7 +40,7 @@ export type CcChatContext = {
     roiDollar: number;
     pctOfTotal: number;
     todayPct: number | null;
-    /** Portfolio names owning this ticker (Overview aggregate) */
+    /** Unused. Older clients still send this; do not mention it to the model. */
     portfolios?: string[];
     marketState?: string | null;
     preMarketPrice?: number | null;
@@ -70,8 +70,8 @@ export type CcChatContext = {
     yield2wAvg: number;
     premiumTotal: number;
   };
-  /** Other portfolios (read-only): for copying Call % / targets / structure */
-  otherPortfolios: Array<{
+  /** Unused. Older clients still send this; the prompt ignores it. */
+  otherPortfolios?: Array<{
     name: string;
     cashBalance: number;
     holdings: Array<{
@@ -745,11 +745,7 @@ export function buildCcSystemPrompt(ctx: CcChatContext): string {
       ? "(no holdings)"
       : ctx.holdings
           .map((h) => {
-            const inPortfolios =
-              h.portfolios && h.portfolios.length
-                ? ` portfolios=[${h.portfolios.join(",")}]`
-                : "";
-            return `${h.ticker}${inPortfolios}: shares=${h.shares}, buy=${h.buyPrice}, price=${h.price}, cost=${h.cost.toFixed(0)}, value=${h.value.toFixed(0)}, roi%=${(h.roiPct * 100).toFixed(1)}%, roi$=${h.roiDollar.toFixed(0)}, pctTotal=${(h.pctOfTotal * 100).toFixed(1)}%, today=${h.todayPct != null ? (h.todayPct * 100).toFixed(1) + "%" : NO_VALUE}${holdingExtendedHoursLine(h)}`;
+            return `${h.ticker}: shares=${h.shares}, buy=${h.buyPrice}, price=${h.price}, cost=${h.cost.toFixed(0)}, value=${h.value.toFixed(0)}, roi%=${(h.roiPct * 100).toFixed(1)}%, roi$=${h.roiDollar.toFixed(0)}, pctTotal=${(h.pctOfTotal * 100).toFixed(1)}%, today=${h.todayPct != null ? (h.todayPct * 100).toFixed(1) + "%" : NO_VALUE}${holdingExtendedHoursLine(h)}`;
           })
           .join("\n");
 
@@ -769,27 +765,6 @@ export function buildCcSystemPrompt(ctx: CcChatContext): string {
           })
           .join("\n");
 
-  const otherPortfolioBlock =
-    (ctx.otherPortfolios ?? []).length === 0
-      ? "(none)"
-      : ctx.otherPortfolios
-          .map((p) => {
-            const lines =
-              p.holdings.length === 0
-                ? "  (no holdings)"
-                : p.holdings
-                    .map((h) => {
-                      const ccBits =
-                        !hideOptions && h.callPct != null
-                          ? `, call%=${(h.callPct * 100).toFixed(0)}%, stockTarget=${h.stockTarget ?? NO_VALUE}`
-                          : "";
-                      return `  ${h.ticker}: shares=${h.shares}, buy=${h.buyPrice}${ccBits}`;
-                    })
-                    .join("\n");
-            return `${p.name} (cash=${p.cashBalance}):\n${lines}`;
-          })
-          .join("\n\n");
-
   const adviseOnly = Boolean(ctx.adviseOnly);
 
   const optionsGuard = hideOptions
@@ -797,10 +772,8 @@ export function buildCcSystemPrompt(ctx: CcChatContext): string {
     : "";
 
   const writeBlock = adviseOnly
-    ? `This is OVERVIEW mode (advise-only).
-You can READ all portfolios below and discuss winners, losers, concentration${hideOptions ? "" : ", Call %"}, and strategy.
-You MUST NOT claim to change any portfolio. There are NO write tools in this mode.
-If the user asks to edit holdings, cash${hideOptions ? "" : ", Call %, or targets"}: tell them to open that portfolio and ask again there.`
+    ? `This look is read-only. There is no portfolio to write to yet, and there are NO write tools.
+If they ask to add or edit holdings, tell them to add a holding on Home. Never ask them to pick a portfolio.`
     : `You can READ holdings${hideOptions ? "" : " + covered-call data"} below, and WRITE via tools:
 - Holdings: importPortfolio (preferred for screenshots / multi-ticker imports), updateHolding, addHolding, removeHolding, reportScreenshotIssue, setCash${
         hideOptions
@@ -811,13 +784,7 @@ If the user asks to edit holdings, cash${hideOptions ? "" : ", Call %, or target
 - Write planning: proposeWritePlan (analyze), applyWritePlan (commit targets + Call %)`
       }
 
-Tools ALWAYS apply to the ACTIVE portfolio (${ctx.portfolioName}) only.
-You can READ the user's other portfolios listed under "Other portfolios" when they ask about them or want to copy something across.
-When the user asks to copy / mirror / adapt an approach from another portfolio:
-1. Pull${hideOptions ? "" : " Call %, stock targets, and/or"} structure from that portfolio.
-2. Apply to matching tickers on ${ctx.portfolioName} via tools. Keep THIS portfolio's share counts and cash unless they explicitly ask to copy size too.
-3. Skip tickers that don't exist here unless they ask to add them.
-4. Briefly summarize what you copied vs skipped.
+Tools ALWAYS apply to this portfolio (${ctx.portfolioName}). Never ask the reader to pick a portfolio. Never mention other portfolios. Never offer to copy from another portfolio.
 
 When the user pastes or attaches a screenshot (spreadsheet, broker app, portfolio table, OR single-ticker detail) or asks to import holdings:
 
@@ -925,13 +892,12 @@ Keep the educational disclaimer.
 
   return `${MARGUS_PERSONA}
 ${classroomBlock}
-This chat thread is for Upside Lab portfolio "${ctx.portfolioName}" only.
-Do not assume prior talk about their other portfolios unless the user brings them up. Each portfolio has its own conversation.
+This chat is for your portfolio ("${ctx.portfolioName}"). Never ask the reader to pick a portfolio. Never say "your portfolios" or "your other portfolios".
 
 ${writeBlock}
 ${ccGuidanceBlock}
 ### How you talk in this chat
-Same voice as the Sunday letter. You, your. Connected paragraphs. The question first, then the mix if it matters, then what does not need rushing. Never a telegram. Never "this person".
+Same voice as the Sunday letter. You, your. Connected paragraphs. The question first, then the mix if it matters, then the facts. Never a telegram. Never "this person".
 
 Answer the question they asked, at the level they asked it. A short question gets a short answer. Do not turn "how is my portfolio doing" into a five-part review.
 
@@ -951,7 +917,7 @@ No opening preamble ("Great question", "Let's break this down") and no
 closing summary paragraph.
 
 Prefer tools over invented numbers. After tools, briefly confirm.
-None of this is personalized investment advice. You're reasoning about the numbers already on the portfolio, not recommending trades for the user's specific financial situation. Never write orders: do not add, sell some, look to add, buy this, trim 10%. Frame as a check. Always your call.${optionsGuard}
+None of this is personalized investment advice. You're reasoning about the numbers already on the portfolio, not recommending trades for the user's specific financial situation. Never write orders: do not add, sell some, look to add, buy this, trim 10%, sit tight, start small. Describe price action. Never confirm that a move fits the reader. Informational content only.${optionsGuard}
 
 Market session: ${ctx.marketState ?? "unknown"}
 Watchlist (not owned, discuss freely, never invent a position in the portfolio): ${(ctx.watchlist ?? []).join(", ") || "(none)"}
@@ -968,8 +934,5 @@ Cash: ${ctx.cashBalance}
 ${totalsLine}
 
 Holdings (includes preMarket / afterHours when available):
-${holdingsTable}${ccRowsSection}
-
-Other portfolios (read-only, copy source):
-${otherPortfolioBlock}`;
+${holdingsTable}${ccRowsSection}`;
 }

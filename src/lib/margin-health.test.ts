@@ -147,11 +147,11 @@ describe("what the reader is told", () => {
     expect(copy.detail).not.toMatch(/margin call/i);
   });
 
-  it("names the margin call, and the way out of it, only at the top", () => {
+  it("names the margin call only at the top", () => {
     const copy = marginCopy(health(100_000, 40_000))!;
     expect(copy.detail).toMatch(/margin call/i);
     expect(copy.detail).toMatch(/without asking you first/);
-    expect(copy.detail).toMatch(/[Pp]aying some of the loan back/);
+    expect(copy.detail).not.toMatch(/[Pp]aying some/);
     // And it says what floor it assumed, since 50% is stricter than a real
     // broker's and a reader checking the number deserves to find it.
     expect(copy.detail).toMatch(/50%/);
