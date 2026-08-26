@@ -6437,14 +6437,33 @@ run("in-app feedback is a monthly walk-through and freeform when you open it", (
   assert.doesNotMatch(
     host,
     /fixed right-4/,
-    "mobile feedback is a header icon, not a floating chip over Margus"
+    "mobile feedback lives in the header chrome, not a floating chip over Margus"
   );
   const topBar = readFileSync(
     join(process.cwd(), "src/components/mobile/MobileTopBar.tsx"),
     "utf8"
   );
-  assert.match(topBar, /FeedbackIconButton/);
-  assert.match(topBar, /aria-label="Feedback"/);
+  /*
+   * The rule is that the phone's chrome can open feedback on its own, not
+   * that it draws a particular component. This named `FeedbackIconButton`
+   * and an `aria-label`, and both went the day feedback stopped being its
+   * own 44px glyph out on the bar and became a row in the one overflow
+   * menu, which is a change the invariant should have survived.
+   */
+  assert.match(
+    topBar,
+    /useFeedback\(\)/,
+    "the phone chrome opens feedback itself, rather than sending a reader to Account to find it"
+  );
+  const phoneMenu = readFileSync(
+    join(process.cwd(), "src/lib/phone-menu.ts"),
+    "utf8"
+  );
+  assert.match(
+    topBar + phoneMenu,
+    /label: "Feedback"|aria-label="Feedback"/,
+    "and calls it Feedback, whether that is a button on the bar or a row in its menu"
+  );
   const account = readFileSync(
     join(process.cwd(), "src/components/AccountPage.tsx"),
     "utf8"

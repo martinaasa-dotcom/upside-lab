@@ -10,8 +10,6 @@ import Link from "next/link";
 
 type Props = {
   className?: string;
-  /** Keep UPSIDE LAB visible on the phone bar. Desktop already has the width. */
-  alwaysType?: boolean;
 };
 
 /**
@@ -30,14 +28,20 @@ const BRAND_INTERACTION_CLASS = cn(
   // the wordmark's own box is only 20px tall — under both platform
   // minimums on a phone. The 44px floor fits inside the 56px header, so
   // nothing about the chrome's height moves.
-  "touch-target inline-flex shrink-0 items-center rounded-md border-0 bg-transparent p-0",
+  //
+  // `justify-center` matters below `xs`, where the type is hidden and the
+  // content is a 24px mark inside a 44px floor. Left-aligned it would
+  // leave 20px of dead box between the mark and whatever follows it, and
+  // the phone bar corrects for the remaining 10px with a negative margin
+  // of its own so the mark still starts at the page gutter.
+  "touch-target inline-flex shrink-0 items-center justify-center rounded-md border-0 bg-transparent p-0",
   "outline-none transition duration-200 ease-out",
   "hover:brightness-110 active:brightness-95",
   "motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0",
-  "focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+  "focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
 );
 
-export function HeaderBrand({ className, alwaysType = false }: Props) {
+export function HeaderBrand({ className }: Props) {
   return (
     <Link
       href="/"
@@ -46,11 +50,7 @@ export function HeaderBrand({ className, alwaysType = false }: Props) {
       aria-label="Upside Lab home"
       onClick={() => requestGoHome()}
     >
-      <UpsideLogo
-        variant="wordmark"
-        alwaysType={alwaysType}
-        className={UPSIDE_HEADER_WORDMARK_CLASS}
-      />
+      <UpsideLogo variant="wordmark" className={UPSIDE_HEADER_WORDMARK_CLASS} />
     </Link>
   );
 }

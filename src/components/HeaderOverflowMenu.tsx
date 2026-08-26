@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, type LucideIcon } from "lucide-react";
+import { Fragment } from "react";
 
 export type HeaderMenuItem = {
   id: string;
@@ -19,6 +20,13 @@ export type HeaderMenuItem = {
   hint?: string;
   disabled?: boolean;
   danger?: boolean;
+  /**
+   * Draw a rule above this row. The phone's bar folds the chrome's own
+   * controls (Upgrade, Feedback) into the same menu as the page's, and
+   * without a rule between them "Show forecast" and "Feedback" read as
+   * one list of the same kind of thing.
+   */
+  separated?: boolean;
   onSelect: () => void;
 };
 
@@ -46,9 +54,9 @@ export function HeaderOverflowMenu({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           {/* Ghost, like every other secondary control in the header. An
-            * outlined box here made View read as a heavier control than
-            * Feedback next to it, for no reason — they do the same kind of
-            * job. */}
+           * outlined box here made View read as a heavier control than
+           * Feedback next to it, for no reason — they do the same kind of
+           * job. */}
           <Button
             type="button"
             variant="ghost"
@@ -87,23 +95,25 @@ export function HeaderOverflowMenu({
               <DropdownMenuSeparator />
             </>
           ) : null}
-          {items.map((item) => (
-            <DropdownMenuItem
-              key={item.id}
-              disabled={item.disabled}
-              variant={item.danger ? "destructive" : "default"}
-              onSelect={() => {
-                if (item.disabled) return;
-                item.onSelect();
-              }}
-            >
-              <span>{item.label}</span>
-              {item.hint ? (
-                <DropdownMenuShortcut className="text-sm tabular-nums">
-                  {item.hint}
-                </DropdownMenuShortcut>
-              ) : null}
-            </DropdownMenuItem>
+          {items.map((item, i) => (
+            <Fragment key={item.id}>
+              {item.separated && i > 0 ? <DropdownMenuSeparator /> : null}
+              <DropdownMenuItem
+                disabled={item.disabled}
+                variant={item.danger ? "destructive" : "default"}
+                onSelect={() => {
+                  if (item.disabled) return;
+                  item.onSelect();
+                }}
+              >
+                <span>{item.label}</span>
+                {item.hint ? (
+                  <DropdownMenuShortcut className="text-sm tabular-nums">
+                    {item.hint}
+                  </DropdownMenuShortcut>
+                ) : null}
+              </DropdownMenuItem>
+            </Fragment>
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
