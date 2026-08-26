@@ -1,11 +1,11 @@
 ---
-description: Listing-currency chips only on mixed books; native share/buy prices
+description: Listing-currency chips only on mixed portfolios; native share/buy prices
 alwaysApply: true
 ---
 
-# Listing money vs book money
+# Listing money vs portfolio money
 
-- Show a ticker currency chip (`TickerSymbol showCurrency`) only when `listingCurrenciesAreMixed` is true. USD-only and EUR-only books get no chip.
-- Share price and average buy stay in the listing's own money (kronor, euros, dollars). Cost, value, and gain follow the sheet USD/EUR toggle.
-- Table rows never wrap to two lines. Mixed books: left-align tickers and size that column to the cashtag+chip (`tableCols(n, true)` + `cellTicker`). Single-currency books: centered equal columns.
+- Show a ticker currency chip (`TickerSymbol showCurrency`) only when `listingCurrenciesAreMixed` is true. USD-only and EUR-only portfolios get no chip.
+- Share price and average buy stay in the listing's own money (kronor, euros, dollars). Cost, value, and gain follow the portfolio USD/EUR toggle.
+- Table rows never wrap to two lines. Mixed portfolios: left-align tickers and size that column to the cashtag+chip (`tableCols(n, true)` + `cellTicker`). Single-currency portfolios: centered equal columns.
 - Every table row is a fixed `h-10` (`FluidTable` / `htmlCell`). Do not add `min-h`, `py-2.5`, or a second line inside a row.

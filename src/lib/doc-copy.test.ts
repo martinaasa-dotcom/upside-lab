@@ -47,18 +47,10 @@ const CHECKED = [
     "sheets", and a passage about two literal "sheets of glass" stacked in
     the old dock. Neither is the portfolio sense, and neither may be
     rewritten: one is somebody's own words and the other is a material.
-  - Three of the MVP_AUDIT_*.md files are dated records of a pass run on a
-    given day rather than descriptions of the app today, and each quotes
-    the old wording while explaining something. The fourth, the live pass,
-    is already clean and so is checked: an exemption nothing needs is an
-    exemption that rots.
 */
 const NOT_CHECKED = [
   "AGENTS.md",
   "DESIGN_TOKENS.md",
-  "docs/MVP_AUDIT_STATUS.md",
-  "docs/MVP_AUDIT_FEATURE_PASS.md",
-  "docs/MVP_AUDIT_TECHNICAL_PASS.md",
 ];
 
 const BANNED = /\b(books?|sheets?)\b/i;

@@ -8,9 +8,9 @@ Policy (`src/app/privacy/page.tsx` §6) describes these at category level,
 which is what most DPAs accept for an app this size. If a per-cookie
 table ever needs publishing, build it from here rather than from memory.
 
-**Last verified: 2026-08-19**, by loading the app in a clean browser
-profile and dumping `document.cookie`, `localStorage` and `sessionStorage`
-before and after answering the consent banner.
+**Last verified: 2026-08-27**, by walking every `upside-` / `portfell-` key
+in `src`. The signed-out cookie dump (zero cookies before and after Allow)
+was 2026-08-19 and still matches: this app still sets none of its own.
 
 ## The headline: this app sets almost no cookies
 
@@ -90,15 +90,15 @@ stores.)*
 | Category | Examples | What it is |
 |---|---|---|
 | Consent | `upside-analytics-consent-v1` | The analytics answer itself. Must persist, or the banner cannot stop asking. |
-| Session-adjacent | `upside-last-user-v1`, `upside-active-sheet-id`, `upside-last-circle-id`, `upside-open-tab` | Which account/portfolio/tab you were last on, so the app reopens where you left it. |
+| Session-adjacent | `upside-last-user-v1`, `upside-active-sheet-id`, `upside-last-portfolio-id`, `upside-last-circle-id`, `upside-open-tab` | Which account/portfolio/tab you were last on, so the app reopens where you left it. Margus uses last-opened when you are on Home. |
 | Offline + sync queue | `upside-offline`, `upside-sync`, `upside-flush-sync`, `upside-book-cache-v1`, `upside-quotes-v1` | The offline-first engine: the cached portfolio and the queue of writes waiting for a connection. |
 | Your own working notes | `upside-conviction-v1`, `upside-watchlist-v1`, `upside-week-marks-v1`, `upside-pulse-history-v1`, `portfell-trends-watchlist` | Thesis notes and watchlist. Also synced server-side per owner (`portfell_lab_state`). |
 | Things you told us about yourself | `portfell-experience-tier`, `portfell-knows-options` | The two onboarding answers, which decide what the app shows you. Changeable in Account. |
 | Your conversation with Margus | `portfell-chat-by-portfolio` | Chat history per portfolio, so a thread survives a reload. Cleared with the rest on sign-out. |
-| View preferences | `upside-display-currency-v1`, `upside-compound-*`, `portfell-forecast-*`, `portfell-cc-visible-by-portfolio`, `upside-margus-wide`, `portfell-upside-portfolio-benchmark`, `upside-macro-paint-v1` | Toggles and per-portfolio view state. |
+| View preferences | `upside-display-currency-v1`, `upside-compound-*`, `portfell-forecast-*`, `portfell-cc-visible-by-portfolio`, `upside-margus-wide`, `portfell-upside-portfolio-benchmark`, `upside-macro-paint-v1`, `upside-sentiment-paint-v1`, `upside-trends-paint-v1:`, `upside-seasonality-paint-v1:` | Toggles and per-portfolio view state. |
 | Numbers you set | `portfell-ytd-anchor-v1`, `portfell-nav-assumed-ytd`, `portfell-nav-history-v1`, `upside-compound-milestone-actuals-v1` | Year-start anchors and planner inputs you typed. |
 | Read / dismissed markers | `upside-alerts-dismissed-v1`, `upside-invite-nudge-v1`, `upside-last-visit-v1`, `upside-last-visit-v2`, `upside-visit-streak-v1`, `portfell-sheet-imported-v1` | What you have already seen, so the app stops re-showing it. |
-| Read-through caches | `upside-communities-list-v1`, `upside-communities-discover-v1`, `upside-fund-v1`, `upside-fund-compare-v1`, `upside-pulse-summary-v1`, `upside-daily-duel-v2`, `upside-billing-status`, `upside-feedback-v1` | Copies of things the server already told us, so a page can paint before the network answers. Nothing here is the source of truth. |
+| Read-through caches | `upside-communities-list-v1`, `upside-communities-discover-v1`, `upside-fund-v1`, `upside-fund-compare-v1`, `upside-pulse-summary-v1`, `upside-pulse-ticker-v1:`, `upside-daily-duel-v2`, `upside-billing-status`, `upside-feedback-v1` | Copies of things the server already told us, so a page can paint before the network answers. Nothing here is the source of truth. |
 | Demo / local dev | `portfell-demo-v8`, `portfell-locked` | The seeded demo portfolio and its Save lock. Local only. |
 
 `purgeClientSession()` wipes this on sign-out and on account switch,

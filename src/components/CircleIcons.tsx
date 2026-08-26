@@ -6,8 +6,8 @@ import type { ReactNode, SVGProps } from "react";
  * Same 24px Lucide stroke as the rest of the bar. `r = 10` is Lucide's own
  * circle, so this cell is not a size smaller than Home or Growth. `pathLength`
  * keeps eight dashes even at 16px and 20px, so the leftover fraction in a
- * raw dasharray cannot pile up on one side. The filled discs in `People.tsx`
- * were the previous mark.
+ * raw dasharray cannot pile up on one side. The previous mark was three
+ * overlapping discs. Do not put those back in the dock.
  */
 export type CircleIconProps = SVGProps<SVGSVGElement> & {
   size?: number;

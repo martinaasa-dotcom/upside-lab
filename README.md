@@ -18,13 +18,13 @@ Open [http://localhost:3000](http://localhost:3000). Without Supabase env vars i
 
 ## What you get
 
-- **Home** — holdings, cost basis, today's move, and an overnight line when the US market is shut
-- **Pulse** — thesis check on your largest names, plus anything down 5%
-- **Lab** — allocation, risk shocks, weekly trends, seasonality
-- **Growth** — compounding planner seeded from what you actually hold
-- **Margus** — chat that can read and edit the portfolio (screenshot or CSV import too)
-- **Circle / Fund / Account** — Circle is the last dock cell; Upside Fund and Account are side rooms, not extra home-screen heroes
-- **The Sunday letter** — one scheduled email a week, opt-in, written from Pulse verdicts you already saw and refused outright when the numbers behind it are thin
+- **Home**: holdings, cost basis, today's move, a market reading on the open names, and an overnight line when the US market is shut
+- **Pulse**: thesis check on your largest names, plus anything down 5%
+- **Lab**: allocation, risk shocks, weekly trends, seasonality
+- **Growth**: compounding planner seeded from what you actually hold
+- **Margus**: chat that can read and edit the open portfolio (screenshot from a tap, or CSV)
+- **Circle / Fund / Account**: Circle is the last dock cell (dotted member ring). Upside Fund and Account are side rooms, not extra home-screen heroes
+- **The Sunday letter**: one scheduled email a week, opt-in, written from Pulse verdicts you already saw and refused outright when the numbers behind it are thin
 
 Not financial advice. Pulse, Forecast, and Margus are educational scenario tools.
 

@@ -1021,12 +1021,7 @@ last so Circle keeps the end. That replaces a labelled button *and* the
 "Portfolios" heading *and* the inline name field: it now opens the same New
 portfolio dialog the phone has always opened.
 
-**The well is `.glass-well`, not `bg-muted`.** The dock sits over the
-brightest part of the ambient field, and an opaque fill there was a hole
-punched in the glow. Measured on the running app the well surface reads
-`rgb(18,21,25)` — the blue lobe showing through — with foreground text at
-**17.54** and muted at **7.09**, both above AAA. The mobile bar's well moved
-to `.glass-well` with it, so both docks are the same material.
+**The well later became `.glass-dock`.** At this step it moved off `bg-muted` onto `.glass-well` so the glow showed through. That was still the card well, and the dock is chrome: the 2026-08-24 section below is the current material (`card-sheen glass glass-dock`, field at 55%). Do not put `.glass-well` back on the bar. Measured on the running app at that step the well surface read `rgb(18,21,25)` (the blue lobe showing through), with foreground text at **17.54** and muted at **7.09**, both above AAA. The mobile bar moved with it, so both docks stayed the same material.
 
 ### No band behind it (2026-08-22)
 
@@ -1497,11 +1492,12 @@ is what makes a row of glyphs read as one place with a marker in it instead
 of four buttons, and it is the cheapest continuity a tab bar can buy.
 
 It is **measured off the live cell**, never computed from a cell width: the
-face cell and the glyph cells are only the same width by agreement, the
-labelled cells at `md` are not, and Lab's row also carries a narrow add cell
-and a picker cell with a chevron. It re-measures on every render in
-`BookModeDock` (too many inputs for an honest dependency list) and through a
-`ResizeObserver` on the row and each cell in both. **Measuring is idempotent
+glyph cells are only the same width by agreement, the labelled cells at
+`md` are not, and Lab's row also carries a narrow add cell and a picker
+cell with a chevron. Both docks call `useDockMarker()`
+(`src/lib/use-dock-marker.ts`). The live cell carries `data-on`. The query
+is a descendant, not `:scope >`, because the laptop's folded picker puts
+the flag on a trigger nested inside a dropdown. **Measuring is idempotent
 by construction**: `setMark` returns the previous object when the numbers
 have not moved, which is what makes measuring that often safe. Without that
 guard, a freshly built object on every measurement makes every measurement a
@@ -1517,19 +1513,21 @@ the least surprising fact on the screen, and the old `bg-primary` cell was
 the loudest thing on the bar for the least reason. The one saturated pixel
 left is Lab's alert dot, which is news.
 
-### The last cell is a person
+### The last cell is Circle
 
 Arena ends on the player's own face, streamed into the dock by
 `(app)/layout` so the rest of the bar stays prerendered shell. It came out
 of `AppHeader` to get there: two pictures of the same player on one screen
 is one too many, and the one to keep is the one under the thumb.
 
-Lab ends on `People` (`src/components/People.tsx`), three overlapping discs
-in `bg-current` at three opacities. Not the accent, for two reasons: it
-follows the cell's own colour so the mark brightens when marked exactly as a
-line glyph would, and a gold disc there measured about as loud as the alert
-dot two cells along. It replaced a compass, which said "explore" and is not
-what a circle is.
+Lab ends on `CircleNavIcon` (`src/components/CircleIcons.tsx`): a
+Lucide-sized dotted ring (`r="10"`, `pathLength={8}`) with a solid node,
+the same 24px stroke as House and TrendingUp. Not the accent, for two
+reasons: it follows the cell's own colour so the mark brightens when marked
+exactly as a line glyph would, and a gold disc there measured about as loud
+as the alert dot two cells along. It replaced a compass, which said
+"explore" and is not what a circle is. Do not put overlapping discs back in
+that cell.
 
 ### What both were already right about
 

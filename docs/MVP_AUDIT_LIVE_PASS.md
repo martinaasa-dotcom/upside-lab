@@ -1,12 +1,10 @@
-# MVP audit, live pass
+# Live pass, 2026-08-24
 
-Run on 2026-08-24, after the technical pass and the feature accuracy pass.
-Everything here came from running the thing rather than reading it: the
-container can reach Yahoo and can serve a production build, so several
-items the earlier passes recorded as "reasoned about, not exercised" were
-finally exercised.
+Dated record of what running the app found that day: the container could
+reach Yahoo and serve a production build, so items that had only been
+reasoned about were finally exercised.
 
-Two bugs, and one of them was in code the previous pass had just merged.
+Two bugs, and one of them was in code that had just merged.
 
 ## What running it found
 

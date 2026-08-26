@@ -14,7 +14,8 @@ src/app/api/billing/checkout/route.ts                     starts a Checkout sess
 src/app/api/billing/portal/route.ts                        opens the Billing Portal
 src/app/api/billing/webhook/route.ts                       mirrors subscription state
 src/app/api/billing/status/route.ts                        subscription status for the signed-in user
-src/components/billing/UpgradeButton.tsx                   Upgrade / Manage billing button
+src/components/billing/UpgradeButton.tsx                   Upgrade / Manage billing on Account
+src/components/billing/UpgradeNudge.tsx                    header pill + phone-menu dialog
 src/lib/billing-reconcile.ts                                daily Stripe-vs-local backstop
 src/app/api/cron/billing-reconcile/route.ts                 cron entry point (vercel.json, 05:00 UTC)
 ```
@@ -66,11 +67,15 @@ src/app/api/cron/billing-reconcile/route.ts                 cron entry point (ve
 
 ## Wiring
 
-`UpgradeButton` is already wired into `/account` (Billing section in
+`UpgradeButton` is wired into `/account` (Billing section in
 `src/components/AccountPage.tsx`). It fetches `subscription_status` from
-`GET /api/billing/status` on mount, same pattern as the experience-tier
-fetch already on that page, then posts to `/api/billing/checkout` or
+`GET /api/billing/status` on mount, then posts to `/api/billing/checkout` or
 `/api/billing/portal` depending on whether a subscription is active.
+
+The phone bar and desktop header offer is `useUpgradeOffer` plus
+`UpgradeDialog` (`UpgradeNudge.tsx`). Upgrade and Feedback are rows in the
+phone overflow menu, not glyphs on the bar, because a Radix menu row cannot
+host a dialog trigger.
 
 ## Gating a premium feature
 
