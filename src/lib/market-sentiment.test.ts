@@ -5,9 +5,13 @@ import {
   SENTIMENT_DISCLAIMER,
   SENTIMENT_LABEL,
   classifyMarketSentiment,
+  fearGreedCaption,
   lastDefined,
+  preferSentimentSnapshot,
   sentimentCopyIsDescriptive,
+  smaRatioFrom,
   spyMetricsFromCloses,
+  type SentimentMetrics,
   type SentimentRegime,
 } from "@/lib/market-sentiment";
 
@@ -172,6 +176,25 @@ describe("classifyMarketSentiment", () => {
     expect(out.pill).toBe("neutral");
   });
 
+  it("does not call a partial set of gauges mixed", () => {
+    expect(
+      classifyMarketSentiment({
+        vix: 18,
+        rsi: null,
+        fearGreed: null,
+        smaRatio: null,
+      }).regime
+    ).toBe("unavailable");
+    expect(
+      classifyMarketSentiment({
+        vix: 18,
+        rsi: 58,
+        fearGreed: 55,
+        smaRatio: null,
+      }).regime
+    ).toBe("unavailable");
+  });
+
   it("can still flag higher swings from VIX alone", () => {
     expect(
       classifyMarketSentiment({
@@ -181,6 +204,40 @@ describe("classifyMarketSentiment", () => {
         smaRatio: null,
       }).regime
     ).toBe("elevated");
+  });
+});
+
+describe("preferSentimentSnapshot", () => {
+  const full: SentimentMetrics = {
+    vix: 15,
+    rsi: 58,
+    fearGreed: 55,
+    cryptoFearGreed: 60,
+    spyPrice: 580,
+    sma200: 540,
+    smaRatio: 0.07,
+    asOf: "2026-08-26T20:00:00.000Z",
+  };
+  const vixOnly: SentimentMetrics = {
+    ...full,
+    rsi: null,
+    fearGreed: null,
+    cryptoFearGreed: null,
+    spyPrice: null,
+    sma200: null,
+    smaRatio: null,
+  };
+
+  it("keeps a complete reading when the next fetch is VIX only", () => {
+    expect(preferSentimentSnapshot(full, vixOnly)).toBe(full);
+  });
+
+  it("takes a complete fetch over a previous partial", () => {
+    expect(preferSentimentSnapshot(vixOnly, full)).toBe(full);
+  });
+
+  it("uses the partial when that is all there has ever been", () => {
+    expect(preferSentimentSnapshot(null, vixOnly)).toBe(vixOnly);
   });
 });
 
@@ -214,6 +271,20 @@ describe("spyMetricsFromCloses", () => {
     expect(spyMetricsFromCloses(closes).sma200).toBe(100);
     expect(spyMetricsFromCloses(closes).smaRatio).toBe(0);
   });
+
+  it("returns a ratio of price over the 200-day, or nothing", () => {
+    expect(smaRatioFrom(112, 100)).toBeCloseTo(0.12);
+    expect(smaRatioFrom(null, 100)).toBeNull();
+    expect(smaRatioFrom(112, 0)).toBeNull();
+  });
+});
+
+describe("fearGreedCaption", () => {
+  it("names the CNN rating and the crypto score when both exist", () => {
+    expect(fearGreedCaption(55, 65)).toBe("neutral · crypto 65");
+    expect(fearGreedCaption(12, null)).toBe("extreme fear");
+    expect(fearGreedCaption(null, null)).toBe("CNN, 0 to 100");
+  });
 });
 
 describe("sentiment copy", () => {
@@ -233,7 +304,20 @@ describe("sentiment copy", () => {
     expect(SENTIMENT_COPY["low-zone"]).toContain("2022");
   });
 
+  it("does not claim the VIX is elevated on the higher-swings reading", () => {
+    expect(SENTIMENT_COPY.elevated).not.toMatch(/VIX is elevated/i);
+    expect(SENTIMENT_COPY.elevated).toMatch(/VIX is running high/i);
+  });
+
+  it("names the gauges a steady trend actually used", () => {
+    expect(SENTIMENT_COPY.trend).toContain("200-day");
+    expect(SENTIMENT_COPY.trend).toContain("14-day RSI");
+    expect(SENTIMENT_COPY.trend).toContain("Fear & Greed");
+    expect(SENTIMENT_COPY.trend).not.toMatch(/\bVIX\b/);
+  });
+
   it("frames the footer as not personalized advice", () => {
-    expect(SENTIMENT_DISCLAIMER).toContain("does not constitute personalized investment advice");
+    expect(SENTIMENT_DISCLAIMER).toContain("Not personalized investment advice");
+    expect(SENTIMENT_DISCLAIMER).toContain("Not a recommendation to buy or sell");
   });
 });

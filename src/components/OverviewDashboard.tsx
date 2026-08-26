@@ -813,6 +813,12 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   const yearDollar =
     startNav != null && endNav != null ? endNav - startNav : null;
 
+  const marketReading = (
+    <WidgetErrorBoundary name="Market reading">
+      <MarketSentimentWidget />
+    </WidgetErrorBoundary>
+  );
+
   if (bookIsEmpty) {
     return (
       <div className="flex flex-col gap-6">
@@ -824,6 +830,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
           homework={homework}
           homeworkCash={homeworkCash}
         />
+        {marketReading}
       </div>
     );
   }
@@ -886,9 +893,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         </div>
       </div>
 
-      <WidgetErrorBoundary name="Market reading">
-        <MarketSentimentWidget />
-      </WidgetErrorBoundary>
+      {marketReading}
 
       <Scoreboard className="overview-fade">
         <Score

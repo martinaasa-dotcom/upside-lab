@@ -14,7 +14,7 @@ async function handleGET() {
       { status: 502, headers: noStoreHeaders() }
     );
   }
-  const ttl = sentimentCacheTtlSec();
+  const ttl = sentimentCacheTtlSec(snapshot);
   return NextResponse.json(snapshot, {
     headers: publicCdnHeaders(ttl, ttl * 2),
   });

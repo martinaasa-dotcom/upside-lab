@@ -19,6 +19,9 @@ import { marketSession } from "@/lib/market/session";
 import { getYahoo } from "@/lib/market/yahoo";
 import { siteUrl } from "@/lib/site-url";
 import {
+  preferSentimentSnapshot,
+  sentimentGaugesReady,
+  sentimentHasAnyGauge,
   spyMetricsFromCloses,
   type SentimentMetrics,
 } from "@/lib/market-sentiment";
@@ -30,6 +33,8 @@ const CRYPTO_FNG_URL = "https://api.alternative.me/fng/?limit=1";
 
 const TTL_OPEN_MS = 120_000;
 const TTL_CLOSED_MS = 600_000;
+/** Incomplete snapshots expire fast so a Yahoo blip can recover. */
+const TTL_PARTIAL_MS = 30_000;
 
 let cached: { at: number; snap: SentimentMetrics } | null = null;
 let inflight: Promise<SentimentMetrics | null> | null = null;
@@ -129,27 +134,27 @@ async function loadSnapshot(): Promise<SentimentMetrics> {
   };
 }
 
-function snapshotHasAny(snap: SentimentMetrics): boolean {
-  return (
-    snap.vix != null ||
-    snap.rsi != null ||
-    snap.fearGreed != null ||
-    snap.smaRatio != null
-  );
+function cacheTtlMs(snap: SentimentMetrics): number {
+  return sentimentGaugesReady(snap) ? ttlMs() : TTL_PARTIAL_MS;
 }
 
 export async function fetchMarketSentimentSnapshot(): Promise<SentimentMetrics | null> {
-  if (cached && Date.now() - cached.at < ttlMs()) return cached.snap;
+  if (cached && Date.now() - cached.at < cacheTtlMs(cached.snap)) {
+    return cached.snap;
+  }
   if (inflight) return inflight;
 
   inflight = (async () => {
     try {
       const snap = await loadSnapshot();
-      if (snapshotHasAny(snap)) {
-        cached = { at: Date.now(), snap };
-        return snap;
+      const chosen = preferSentimentSnapshot(cached?.snap ?? null, snap);
+      if (
+        chosen === snap &&
+        (sentimentGaugesReady(snap) || sentimentHasAnyGauge(snap))
+      ) {
+        cached = { at: Date.now(), snap: chosen };
       }
-      return cached?.snap ?? snap;
+      return chosen;
     } catch (err) {
       console.error("Market sentiment snapshot failed", err);
       return cached?.snap ?? null;
@@ -161,6 +166,8 @@ export async function fetchMarketSentimentSnapshot(): Promise<SentimentMetrics |
   return inflight;
 }
 
-export function sentimentCacheTtlSec(): number {
-  return Math.round(ttlMs() / 1000);
+export function sentimentCacheTtlSec(snap?: SentimentMetrics): number {
+  const ms =
+    snap && !sentimentGaugesReady(snap) ? TTL_PARTIAL_MS : ttlMs();
+  return Math.round(ms / 1000);
 }

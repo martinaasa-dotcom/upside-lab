@@ -8,6 +8,7 @@
  */
 
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
+import { ratingForScore } from "@/lib/market/fear-greed";
 import { rsi, sma } from "@/lib/market/indicators";
 
 export type SentimentMetrics = {
@@ -42,17 +43,17 @@ export type SentimentReading = {
 };
 
 export const SENTIMENT_DISCLAIMER =
-  `Market sentiment reflects technical indicator logic and historical metrics. ${ADVICE_DISCLAIMER_SHORT}`;
+  `Historical gauges, not a market call. ${ADVICE_DISCLAIMER_SHORT}`;
 
 export const SENTIMENT_COPY: Record<SentimentRegime, string> = {
   "low-zone":
     "Several gauges are at unusually low readings. Historically, a VIX above 30 together with a 14-day RSI below 35 has sat near a quiet stretch or a market low (2009, 2020, 2022).",
   stretched:
-    "Buying has run far ahead of the 200-day average. In earlier cycles, a Fear & Greed reading this high together with a 14-day RSI this stretched often came before a pullback toward the average.",
+    "Price has run far ahead of the 200-day average. In earlier cycles, a Fear & Greed reading this high together with a 14-day RSI this stretched often came before a pullback toward the average.",
   elevated:
-    "Prices have cooled and the VIX is elevated. During broader uptrends, stretches like this have often been retested before things settled.",
+    "Either the VIX is running high, or the 14-day RSI and Fear & Greed have cooled together. In earlier cycles that mix showed up when prices were jumpy, not as a clean turn.",
   trend:
-    "The S&P 500 is trading above its 200-day average, with steady buying and a quieter VIX.",
+    "The S&P 500 is above its 200-day average, the 14-day RSI is in the middle of its range, and Fear & Greed is above 50. That mix has often sat through a stretch of the same direction rather than a turn.",
   mixed:
     "The gauges do not line up with one historical pattern right now. Readings are mixed.",
   unavailable:
@@ -94,25 +95,93 @@ export function lastDefined(values: (number | null)[]): number | null {
   return null;
 }
 
+export function smaRatioFrom(
+  price: number | null,
+  sma200: number | null
+): number | null {
+  if (price == null || sma200 == null) return null;
+  if (!Number.isFinite(price) || !Number.isFinite(sma200) || !(sma200 > 0)) {
+    return null;
+  }
+  return price / sma200 - 1;
+}
+
 export function spyMetricsFromCloses(closes: number[]): {
   rsi: number | null;
   sma200: number | null;
   lastClose: number | null;
   smaRatio: number | null;
 } {
-  const finite = closes.filter((n) => Number.isFinite(n) && n > 0);
-  const lastClose = finite.length > 0 ? finite[finite.length - 1]! : null;
-  const lastRsi = lastDefined(rsi(finite, 14));
-  const sma200 = lastDefined(sma(finite, 200));
-  const smaRatio =
-    lastClose != null && sma200 != null && sma200 > 0
-      ? lastClose / sma200 - 1
+  const finiteCloses = closes.filter((n) => Number.isFinite(n) && n > 0);
+  const lastClose =
+    finiteCloses.length > 0 ? finiteCloses[finiteCloses.length - 1]! : null;
+  const lastRsi = lastDefined(rsi(finiteCloses, 14));
+  const sma200 = lastDefined(sma(finiteCloses, 200));
+  return {
+    rsi: lastRsi,
+    sma200,
+    lastClose,
+    smaRatio: smaRatioFrom(lastClose, sma200),
+  };
+}
+
+/** Caption under the Fear & Greed figure. CNN rating, plus crypto when we have it. */
+export function fearGreedCaption(
+  fearGreed: number | null,
+  cryptoFearGreed: number | null
+): string {
+  const rating =
+    fearGreed != null && Number.isFinite(fearGreed)
+      ? ratingForScore(fearGreed)
       : null;
-  return { rsi: lastRsi, sma200, lastClose, smaRatio };
+  const crypto =
+    cryptoFearGreed != null && Number.isFinite(cryptoFearGreed)
+      ? `crypto ${Math.round(cryptoFearGreed)}`
+      : null;
+  if (rating && crypto) return `${rating} · ${crypto}`;
+  if (rating) return rating;
+  if (crypto) return crypto;
+  return "CNN, 0 to 100";
 }
 
 function finite(n: number | null | undefined): n is number {
   return n != null && Number.isFinite(n);
+}
+
+export function sentimentGaugesReady(
+  metrics: Pick<SentimentMetrics, "vix" | "rsi" | "fearGreed" | "smaRatio">
+): boolean {
+  return (
+    finite(metrics.vix) &&
+    finite(metrics.rsi) &&
+    finite(metrics.fearGreed) &&
+    finite(metrics.smaRatio)
+  );
+}
+
+export function sentimentHasAnyGauge(
+  metrics: Pick<SentimentMetrics, "vix" | "rsi" | "fearGreed" | "smaRatio">
+): boolean {
+  return (
+    finite(metrics.vix) ||
+    finite(metrics.rsi) ||
+    finite(metrics.fearGreed) ||
+    finite(metrics.smaRatio)
+  );
+}
+
+/**
+ * A Yahoo blip that returns VIX and nothing else must not wipe a full
+ * reading. Keep the last complete snapshot. Partial is only used when
+ * that is all we have ever had.
+ */
+export function preferSentimentSnapshot(
+  prev: SentimentMetrics | null,
+  next: SentimentMetrics
+): SentimentMetrics {
+  if (sentimentGaugesReady(next) || !prev) return next;
+  if (sentimentGaugesReady(prev)) return prev;
+  return sentimentHasAnyGauge(next) ? next : prev;
 }
 
 function reading(regime: SentimentRegime): SentimentReading {
@@ -183,13 +252,29 @@ export function classifyMarketSentiment(
     return reading("trend");
   }
 
-  return reading("mixed");
+  // Mixed is "we had every gauge and they did not fit." Three numbers
+  // and a hole is not a pattern. It is a waiting state.
+  if (
+    sentimentGaugesReady({
+      vix,
+      rsi: rsiNow,
+      fearGreed: fg,
+      smaRatio,
+    })
+  ) {
+    return reading("mixed");
+  }
+  return reading("unavailable");
+}
+
+function numOrNull(n: unknown): boolean {
+  if (n == null) return true;
+  return typeof n === "number" && Number.isFinite(n);
 }
 
 export function isSentimentMetrics(v: unknown): v is SentimentMetrics {
   if (!v || typeof v !== "object") return false;
   const o = v as SentimentMetrics;
-  const numOrNull = (n: unknown) => n == null || typeof n === "number";
   return (
     numOrNull(o.vix) &&
     numOrNull(o.rsi) &&
