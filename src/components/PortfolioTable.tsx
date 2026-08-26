@@ -449,7 +449,7 @@ export const PortfolioTable = memo(function PortfolioTable({
             <div
               title={
                 eurUsd && eurUsd > 0
-                  ? `Converted at ${formatEurUsdHint(eurUsd)}. Cost, value, and gain or loss follow this switch. Share prices stay in each listing's own money.`
+                  ? `Converted at ${formatEurUsdHint(eurUsd)}. Cost, value, and gain or loss follow this switch. Prices stay in each listing's own money.`
                   : "Waiting on the euro rate"
               }
             >
@@ -547,7 +547,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                     />
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {percent(h.pctOfTotal)} of book
+                    {percent(h.pctOfTotal)} of your portfolio
                   </p>
                 </div>
                 {canSell ? (

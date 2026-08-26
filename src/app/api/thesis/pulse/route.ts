@@ -39,7 +39,8 @@ import { generateObject } from "ai";
 import { observeRoute } from "@/lib/observe-route";
 import { pulsePostSchema } from "@/lib/api-schemas";
 import { parseJsonBody } from "@/lib/parse-json-body";
-import { NO_VALUE } from "@/lib/format";
+import { coinFromSymbol } from "@/lib/coins";
+import { NO_VALUE, cashtag } from "@/lib/format";
 
 export const maxDuration = 90;
 export const runtime = "nodejs";
@@ -135,8 +136,12 @@ function buildPrompt(
         ? " **NEEDS ATTENTION: down ≥5%**"
         : " **NEEDS ATTENTION: up ≥5%**"
       : "";
+    const shown = coinFromSymbol(c.ticker);
+    const name = shown
+      ? `${shown.name} (${cashtag(c.ticker)})`
+      : c.ticker;
     const parts = [
-      `- **${c.ticker}** · spot $${c.price.toFixed(2)} · ${c.moveLabel} ${move}${flag}${position}`,
+      `- **${name}** · spot $${c.price.toFixed(2)} · ${c.moveLabel} ${move}${flag}${position}`,
       conv?.thesis ? `  Thesis: ${conv.thesis}` : "",
       conv?.level ? `  How sure they are: ${conv.level}/5` : "",
       ctx?.sector ? `  Sector: ${ctx.sector}` : "",

@@ -19,7 +19,7 @@ import {
   pickTickerSuggestion,
   resolveTypedTicker,
 } from "@/lib/market/ticker-search";
-import { isCoinSymbol } from "@/lib/coins";
+import { isCoinSymbol, coinFromSymbol } from "@/lib/coins";
 import { normalizeYahooTicker } from "@/lib/ticker";
 import { useTickerSearch } from "@/lib/use-ticker-search";
 import { FALLBACK_POPULAR_TICKERS } from "@/lib/popular-tickers";
@@ -146,7 +146,7 @@ function WatchCard({
             variant="ghost"
             size="icon-sm"
             onClick={onRemove}
-            aria-label={`Remove ${ticker}`}
+            aria-label={`Remove ${coinFromSymbol(ticker)?.name ?? cashtag(ticker)}`}
           >
             <X />
           </Button>
@@ -158,16 +158,23 @@ function WatchCard({
   return (
     <div className="card-sheen glass-well flex h-full flex-col gap-4 rounded-lg border border-border p-4">
       <div className="flex items-start justify-between gap-3">
-        <Badge variant="secondary" className="chip-hang h-6 font-heading text-sm font-semibold">
-          {cashtag(ticker)}
-        </Badge>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <Badge variant="secondary" className="chip-hang h-6 w-fit font-heading text-sm font-semibold">
+            {cashtag(ticker)}
+          </Badge>
+          {coinFromSymbol(ticker) ? (
+            <span className="text-sm text-muted-foreground">
+              {coinFromSymbol(ticker)!.name}
+            </span>
+          ) : null}
+        </div>
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
           onClick={onRemove}
           className="touch-target -mr-1.5 -mt-1.5 shrink-0 text-muted-foreground lg:min-h-0 lg:min-w-0"
-          aria-label={`Remove ${ticker}`}
+          aria-label={`Remove ${coinFromSymbol(ticker)?.name ?? cashtag(ticker)}`}
         >
           <X />
         </Button>
@@ -428,7 +435,7 @@ export function WatchlistStrip({
       return;
     }
     if (list.some((w) => w.toUpperCase() === t)) {
-      setNote(`${t} is already on your watchlist.`);
+      setNote(`${cashtag(t)} is already on your watchlist.`);
       setDraft("");
       setOpen(false);
       return;

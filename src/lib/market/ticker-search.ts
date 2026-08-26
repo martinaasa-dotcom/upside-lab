@@ -91,8 +91,9 @@ export function resolveTypedTicker(
   if (coin) return coin.symbol;
   const picked = pickTickerSuggestion(trimmed, suggestions);
   if (picked?.symbol) return normalizeYahooTicker(picked.symbol);
-  const prefix = coinSuggestions(trimmed)[0];
-  if (prefix) return prefix.symbol;
+  const prefixHits = coinSuggestions(trimmed);
+  const keyLen = trimmed.replace(/\s+/g, "").length;
+  if (prefixHits.length === 1 && keyLen >= 3) return prefixHits[0]!.symbol;
   if (looksLikeTickerQuery(trimmed)) return normalizeYahooTicker(trimmed);
   return "";
 }

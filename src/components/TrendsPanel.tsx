@@ -316,7 +316,7 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
                       setDraft(e.target.value);
                       setAddError(null);
                     }}
-                    placeholder="BTC-USD, XLK, SPY …"
+                    placeholder="Bitcoin, XLK, SPY"
                     aria-label="Ticker to watch"
                     autoComplete="off"
                   />

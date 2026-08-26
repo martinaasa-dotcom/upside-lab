@@ -1,3 +1,4 @@
+import { isCoinSymbol } from "@/lib/coins";
 import { resolveYahooEarnings } from "@/lib/market/earnings-dates";
 import { resolveYahooListedSymbol } from "@/lib/market/yahoo";
 import { isMarketCircuitOpen, withMarketCircuit } from "@/lib/market/circuit-breaker";
@@ -79,6 +80,7 @@ async function fetchTickerPulseContextUncached(
 
   const [summaryResult, news] = await Promise.all([
     (async () => {
+      if (isCoinSymbol(ticker)) return null;
       try {
         const yf = await getYahoo();
         if (isMarketCircuitOpen("yahoo")) return null;

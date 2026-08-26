@@ -51,11 +51,11 @@ function coin(
  * under the 0.0001 sanity floor (SHIB, PEPE).
  */
 export const COINS: readonly Coin[] = [
-  coin("BTC-USD", "Bitcoin"),
-  coin("ETH-USD", "Ethereum"),
+  coin("BTC-USD", "Bitcoin", ["XBT"]),
+  coin("ETH-USD", "Ethereum", ["ETHER"]),
   coin("SOL-USD", "Solana"),
   coin("XRP-USD", "XRP", ["RIPPLE"]),
-  coin("BNB-USD", "BNB"),
+  coin("BNB-USD", "BNB", ["BINANCE"]),
   coin("DOGE-USD", "Dogecoin"),
   coin("ADA-USD", "Cardano"),
   coin("AVAX-USD", "Avalanche"),
@@ -120,4 +120,24 @@ export function coinSuggestions(
     out.push({ symbol: c.symbol, name: c.name });
   }
   return out;
+}
+
+/**
+ * What belongs in a ticker text field. English name for a coin, never
+ * the Yahoo pair. Save still stores BTC-USD via resolveTypedTicker.
+ */
+export function tickerFieldText(storedOrQuery: string): string {
+  const found = coinFromSymbol(storedOrQuery) ?? matchCoinQuery(storedOrQuery);
+  return found?.name ?? storedOrQuery.trim();
+}
+
+/** Coins have no covered-call yield. Heal any leftover 15% on those rows. */
+export function callPctForTicker(
+  ticker: string,
+  requested?: number | null
+): number {
+  const stored = matchCoinQuery(ticker)?.symbol ?? ticker;
+  if (isCoinSymbol(stored)) return 0;
+  if (requested == null || !Number.isFinite(Number(requested))) return 0.15;
+  return Number(requested);
 }

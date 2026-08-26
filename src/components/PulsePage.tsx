@@ -1157,8 +1157,8 @@ export const PulsePage = memo(function PulsePage({
                       void checkTicker(suggestions[0]!.symbol);
                     }
                   }}
-                  placeholder="NVDA, Apple, or SPY5"
-                  aria-label="Ticker or company name to check"
+                  placeholder="NVDA, Apple, or Bitcoin"
+                  aria-label="Ticker, company, or coin to check"
                   className="pl-8"
                   autoComplete="off"
                 />

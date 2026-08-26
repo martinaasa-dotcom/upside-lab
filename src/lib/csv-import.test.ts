@@ -176,3 +176,11 @@ describe("the template it hands people", () => {
     expect(r.cash).toBe(2500);
   });
 });
+
+describe("coins", () => {
+  it("reads a Coins column as how many", () => {
+    const r = parseHoldingsCsv("Ticker,Coins,Buy Price\nBTC,0.5,100000");
+    expect(r.rows[0]?.ticker).toBe("BTC-USD");
+    expect(r.rows[0]?.shares).toBe(0.5);
+  });
+});

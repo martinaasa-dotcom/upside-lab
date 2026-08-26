@@ -49,7 +49,7 @@ import {
   resolveTypedTicker,
 } from "@/lib/market/ticker-search";
 import { roundMoney, roundShares } from "@/lib/money";
-import { isCoinSymbol } from "@/lib/coins";
+import { isCoinSymbol, tickerFieldText } from "@/lib/coins";
 import { blockWheelChange, parseDecimal } from "@/lib/number-input";
 import { postJsonOrQueue } from "@/lib/offline/queued-fetch";
 import { sanitizePopularTickers } from "@/lib/popular-tickers";
@@ -938,11 +938,11 @@ export function WelcomeTour({
                 </ItemGroup>
               )}
               <Field>
-                <FieldLabel htmlFor="onboard-ticker">Ticker or company</FieldLabel>
+                <FieldLabel htmlFor="onboard-ticker">Ticker, company, or coin</FieldLabel>
                 <HouseholdCoinChips
                   active={holdingIsCoin && resolvedTicker ? [resolvedTicker] : []}
                   onPick={(symbol) => {
-                    setTicker(symbol);
+                    setTicker(tickerFieldText(symbol));
                     setListOpen(false);
                     setStockError(null);
                   }}
@@ -963,7 +963,7 @@ export function WelcomeTour({
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && suggestions[0] && listOpen) {
                         e.preventDefault();
-                        setTicker(suggestions[0]!.symbol);
+                        setTicker(tickerFieldText(suggestions[0]!.symbol));
                         setListOpen(false);
                       }
                     }}
@@ -979,7 +979,7 @@ export function WelcomeTour({
                             className="flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left text-sm text-foreground hover:bg-hover"
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => {
-                              setTicker(row.symbol);
+                              setTicker(tickerFieldText(row.symbol));
                               setListOpen(false);
                             }}
                           >

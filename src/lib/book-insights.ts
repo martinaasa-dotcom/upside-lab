@@ -16,7 +16,7 @@ import { THEME_LABEL } from "@/lib/portfolio-personality";
 const THEME_PLAIN: Record<ForecastTheme, string> = {
   ai_infra: "AI computer companies",
   ai_power: "data-center power companies",
-  crypto: "crypto companies",
+  crypto: "crypto",
   space: "space companies",
   semi: "chip makers",
   fintech: "payment and finance companies",

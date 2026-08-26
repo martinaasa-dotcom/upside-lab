@@ -29,7 +29,7 @@ import {
 import { useTickerSearch } from "@/lib/use-ticker-search";
 import { blockWheelChange, parseDecimal } from "@/lib/number-input";
 import { roundMoney, roundShares } from "@/lib/money";
-import { isCoinSymbol, matchCoinQuery } from "@/lib/coins";
+import { isCoinSymbol, matchCoinQuery, tickerFieldText, callPctForTicker } from "@/lib/coins";
 import {
   isPlausibleTicker,
   normalizeYahooTicker,
@@ -263,7 +263,7 @@ export function HoldingModal({
       setCollapsed((prev) =>
         prev.filter((r) => r.id !== row.id && r.ticker !== row.ticker)
       );
-      setTicker(row.ticker);
+      setTicker(tickerFieldText(row.ticker));
       setShares(String(row.shares));
       setBuyPrice(String(row.buyPrice));
       setTargetCall(String(row.targetCall));
@@ -297,7 +297,7 @@ export function HoldingModal({
           ticker: row.ticker,
           shares: row.shares,
           buy_price: row.buyUsd,
-          target_call_pct: row.targetCall / 100,
+          target_call_pct: callPctForTicker(row.ticker, row.targetCall / 100),
         }))
       );
     } catch {
@@ -369,7 +369,7 @@ export function HoldingModal({
               <span className={mixedListings ? "justify-self-start" : "justify-self-center"}>
                 Ticker
               </span>
-              <span className="justify-self-center">Shares</span>
+              <span className="justify-self-center">How many</span>
               <span className="justify-self-center">Avg buy</span>
               <span />
             </div>
@@ -413,11 +413,11 @@ export function HoldingModal({
 
         <FieldGroup className="gap-3">
           <Field>
-            <FieldLabel htmlFor="holding-ticker">Ticker or company</FieldLabel>
+            <FieldLabel htmlFor="holding-ticker">Ticker, company, or coin</FieldLabel>
             <HouseholdCoinChips
               active={holdingIsCoin && normalized ? [normalized] : []}
               onPick={(symbol) => {
-                setTicker(symbol);
+                setTicker(tickerFieldText(symbol));
                 setListOpen(false);
                 setError(null);
               }}
@@ -439,7 +439,7 @@ export function HoldingModal({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && suggestions[0] && listOpen) {
                     e.preventDefault();
-                    setTicker(suggestions[0]!.symbol);
+                    setTicker(tickerFieldText(suggestions[0]!.symbol));
                     setListOpen(false);
                   }
                 }}
@@ -456,7 +456,7 @@ export function HoldingModal({
                         className="flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left text-sm text-foreground hover:bg-hover"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => {
-                          setTicker(row.symbol);
+                          setTicker(tickerFieldText(row.symbol));
                           setListOpen(false);
                         }}
                       >

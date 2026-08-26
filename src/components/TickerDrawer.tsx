@@ -33,6 +33,7 @@ import {
   type ForecastYear,
 } from "@/lib/forecast";
 import type { PortfolioEoyOverrides } from "@/lib/forecast-overrides";
+import { coinFromSymbol, isCoinSymbol } from "@/lib/coins";
 import type { CoveredCallRow } from "@/lib/types";
 import { isSafePositiveMoney } from "@/lib/input-guard";
 import { Bot, X } from "lucide-react";
@@ -164,6 +165,11 @@ export function TickerDrawer({
               <h2 className="text-lg font-semibold text-foreground">
                 {cashtag(ticker)}
               </h2>
+              {coinFromSymbol(ticker) ? (
+                <span className="text-sm text-muted-foreground">
+                  {coinFromSymbol(ticker)!.name}
+                </span>
+              ) : null}
               <Pill tone="neutral">{THEME_LABEL[theme] ?? "other businesses"}</Pill>
             </div>
             <p className="mt-1 text-sm tabular-nums text-muted-foreground">
@@ -178,7 +184,11 @@ export function TickerDrawer({
                   ({signedPercent(todayChangePct)})
                 </span>
               )}
-              {shares != null ? ` · ${shares.toLocaleString("en-US")} shares` : ""}
+              {shares != null
+                ? isCoinSymbol(ticker)
+                  ? ` · ${shares.toLocaleString("en-US")}`
+                  : ` · ${shares.toLocaleString("en-US")} shares`
+                : ""}
               {roi != null ? ` · ${percent(roi)} vs cost` : ""}
             </p>
           </div>

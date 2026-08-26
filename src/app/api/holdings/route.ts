@@ -9,6 +9,7 @@ import { denyClassroomWrite } from "@/lib/classroom-guard";
 import { logError } from "@/lib/error-log";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
+import { callPctForTicker, isCoinSymbol, matchCoinQuery } from "@/lib/coins";
 import { isSafePositiveMoney, isSafeShares } from "@/lib/input-guard";
 import type { TablesUpdate } from "@/lib/supabase/database.types";
 import { HOLDING_COLUMNS, PORTFELL_TABLES } from "@/lib/supabase/tables";
@@ -158,7 +159,8 @@ async function handlePOST(req: NextRequest) {
   if (!parsedBody.ok) return parsedBody.response;
   const body = parsedBody.data;
   const portfolioId = body.portfolio_id;
-  const ticker = normalizeYahooTicker(body.ticker);
+  const ticker =
+    matchCoinQuery(body.ticker)?.symbol ?? normalizeYahooTicker(body.ticker);
   if (!portfolioId || !ticker) {
     return NextResponse.json(
       { error: "portfolio_id and ticker required" },
@@ -187,7 +189,14 @@ async function handlePOST(req: NextRequest) {
   const shares = roundShares(Number(body.shares));
   const buyPrice = roundMoney(Number(body.buy_price));
   if (!isSafeShares(shares)) {
-    return NextResponse.json({ error: "Shares must be a positive number" }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: isCoinSymbol(ticker)
+          ? "How many must be a positive number"
+          : "Shares must be a positive number",
+      },
+      { status: 400 }
+    );
   }
   if (!isSafePositiveMoney(buyPrice)) {
     return NextResponse.json({ error: "Buy price must be a positive number" }, { status: 400 });
@@ -199,7 +208,7 @@ async function handlePOST(req: NextRequest) {
     shares,
     buy_price: buyPrice,
     eoy_target: body.eoy_target != null ? Number(body.eoy_target) : null,
-    target_call_pct: Number(body.target_call_pct ?? 0.15),
+    target_call_pct: callPctForTicker(ticker, body.target_call_pct),
     stock_target_override:
       body.stock_target_override != null
         ? Number(body.stock_target_override)
@@ -426,8 +435,12 @@ async function handlePATCH(req: NextRequest) {
         : prevBuy;
     const nextTicker =
       body.ticker !== undefined
-        ? normalizeYahooTicker(String(body.ticker))
+        ? matchCoinQuery(String(body.ticker))?.symbol ??
+          normalizeYahooTicker(String(body.ticker))
         : prevTicker;
+    if (isCoinSymbol(nextTicker)) {
+      patch.target_call_pct = 0;
+    }
     const renamed =
       Boolean(prevTicker) &&
       Boolean(nextTicker) &&

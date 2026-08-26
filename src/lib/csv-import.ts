@@ -197,7 +197,15 @@ function parseNumber(
 }
 
 const TICKER_ALIASES = ["ticker", "symbol", "stock", "asset", "name"];
-const SHARES_ALIASES = ["shares", "quantity", "qty", "units", "amount"];
+const SHARES_ALIASES = [
+  "shares",
+  "quantity",
+  "qty",
+  "units",
+  "amount",
+  "coins",
+  "coin",
+];
 const BUY_PRICE_ALIASES = [
   "buyprice",
   "buy",

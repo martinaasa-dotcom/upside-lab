@@ -128,7 +128,7 @@ export function OvernightNote({ className }: { className?: string }) {
           </span>
         </span>
       ))}
-      .{resumes ? ` Your own prices resume at ${resumes}.` : ""}
+      .{resumes ? ` Stock prices resume at ${resumes}.` : ""}
     </p>
   );
 }

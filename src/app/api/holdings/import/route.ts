@@ -7,6 +7,7 @@ import {
   salePriceFor,
 } from "@/lib/cash-trade";
 import { classifyImportWrite } from "@/lib/classroom";
+import { callPctForTicker } from "@/lib/coins";
 import { isSafeSignedMoney } from "@/lib/input-guard";
 import { roundMoney } from "@/lib/money";
 import { denyClassroomWrite } from "@/lib/classroom-guard";
@@ -158,7 +159,7 @@ async function handlePOST(req: NextRequest) {
       if (!ticker) return;
       const shares = Number(row.shares);
       const buyPrice = Number(row.buy_price);
-      const callPct = Number(row.target_call_pct ?? 0.15);
+      const callPct = callPctForTicker(ticker, row.target_call_pct);
       if (!Number.isFinite(shares) || shares <= 0 || !Number.isFinite(buyPrice) || !(buyPrice > 0)) {
         failed.push(ticker || "?");
         return;

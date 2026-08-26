@@ -1,4 +1,5 @@
 import { humanizeMargusText, humanizeMargusTree, pulseSuggestion } from "@/lib/ai/humanize-copy";
+import { coinFromSymbol, isCoinSymbol, matchCoinQuery } from "@/lib/coins";
 import { NO_VALUE, cashtag } from "@/lib/format";
 import { TICKER_SECTORS } from "@/lib/forecast-plan";
 import type { OverviewModel, TickerScore } from "@/lib/overview";
@@ -461,7 +462,9 @@ export function actionLabel(action: PulseAction | string): string {
 }
 
 export function sectorForTicker(ticker: string): string | null {
-  return TICKER_SECTORS[ticker.toUpperCase()] ?? null;
+  const key = ticker.toUpperCase();
+  if (isCoinSymbol(key) || matchCoinQuery(key)) return "Coins";
+  return TICKER_SECTORS[key] ?? null;
 }
 
 export function formatMovePct(pct: number | null): string {
@@ -471,10 +474,12 @@ export function formatMovePct(pct: number | null): string {
 
 /** Match model output like `$AAPL` or ` aapl ` to the candidate key. */
 export function pulseTickerKey(raw: string): string {
-  return String(raw ?? "")
+  const t = String(raw ?? "")
     .trim()
     .toUpperCase()
     .replace(/^\$+/, "");
+  const coin = coinFromSymbol(t) ?? matchCoinQuery(t);
+  return coin?.symbol ?? t;
 }
 
 const THESIS_STATUSES: ThesisStatus[] = ["intact", "watch", "broken"];

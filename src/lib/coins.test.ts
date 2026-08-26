@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   COINS,
   HOUSEHOLD_COINS,
+  callPctForTicker,
   coinFromSymbol,
   coinSuggestions,
   isCoinSymbol,
   matchCoinQuery,
+  tickerFieldText,
 } from "@/lib/coins";
 import { cashtag } from "@/lib/format";
 import {
@@ -20,6 +22,7 @@ import {
   resolveImportTicker,
 } from "@/lib/ticker";
 import { forecastThemeForTicker } from "@/lib/forecast-conviction";
+import { pulseTickerKey, sectorForTicker } from "@/lib/thesis-pulse";
 
 describe("the household catalog", () => {
   it("offers Bitcoin, Ethereum, and Solana on the chips", () => {
@@ -47,6 +50,7 @@ describe("matchCoinQuery", () => {
     expect(matchCoinQuery("ethereum")?.symbol).toBe("ETH-USD");
     expect(matchCoinQuery("sol")?.symbol).toBe("SOL-USD");
     expect(matchCoinQuery("dogecoin")?.symbol).toBe("DOGE-USD");
+    expect(matchCoinQuery("xbt")?.symbol).toBe("BTC-USD");
   });
 
   it("does not treat NVDA as a coin", () => {
@@ -94,7 +98,12 @@ describe("search ranking", () => {
     expect(resolveTypedTicker("Bitcoin")).toBe("BTC-USD");
     expect(resolveTypedTicker("btc")).toBe("BTC-USD");
     expect(resolveTypedTicker("bit")).toBe("BTC-USD");
+    expect(resolveTypedTicker("xbt")).toBe("BTC-USD");
     expect(resolveTypedTicker("NVDA")).toBe("NVDA");
+  });
+
+  it("does not steal a two-letter stock on Enter", () => {
+    expect(resolveTypedTicker("so")).toBe("SO");
   });
 
   it("injects coins into local suggestions", () => {
@@ -119,5 +128,26 @@ describe("import and Lab theme", () => {
   it("lands a coin holding in the crypto bucket", () => {
     expect(forecastThemeForTicker("BTC-USD")).toBe("crypto");
     expect(forecastThemeForTicker("SOL-USD")).toBe("crypto");
+  });
+});
+
+describe("field text and call %", () => {
+  it("puts the English name in the ticker field, never the Yahoo pair", () => {
+    expect(tickerFieldText("BTC-USD")).toBe("Bitcoin");
+    expect(tickerFieldText("Bitcoin")).toBe("Bitcoin");
+    expect(tickerFieldText("NVDA")).toBe("NVDA");
+  });
+
+  it("stores no covered-call yield on a coin", () => {
+    expect(callPctForTicker("BTC-USD", 0.15)).toBe(0);
+    expect(callPctForTicker("Bitcoin", 0.2)).toBe(0);
+    expect(callPctForTicker("NVDA", 0.15)).toBe(0.15);
+    expect(callPctForTicker("NVDA")).toBe(0.15);
+  });
+
+  it("maps $BTC to the stored pair for Pulse", () => {
+    expect(pulseTickerKey("$BTC")).toBe("BTC-USD");
+    expect(sectorForTicker("BTC-USD")).toBe("Coins");
+    expect(sectorForTicker("BTC")).toBe("Coins");
   });
 });
