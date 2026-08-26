@@ -3605,27 +3605,28 @@ export function Dashboard() {
         showWorkspaceNav={source === "supabase"}
         mobileTitle={mobileSheetTitle}
         alertCount={activeAlerts.length}
+        /*
+         * One button, and it is the one thing a reader does on this
+         * screen. The View menu used to be a second glyph beside it, and
+         * the bar drew its own Upgrade and Feedback glyphs after that: four
+         * 44px controls and an avatar, which left the portfolio name a
+         * single letter. Everything that is not Add holding is a row in
+         * the bar's one overflow menu now.
+         */
         mobileEnd={
-          <>
-            {!isMetaTab && canClassBuy && (
-              <Button
-                type="button"
-                size="icon"
-                onClick={() => setModalOpen(true)}
-                aria-label="Add holding"
-                className="touch-target"
-              >
-                <Plus />
-              </Button>
-            )}
-            <HeaderOverflowMenu
-              items={viewMenuItems}
-              label="View"
-              icon={SlidersHorizontal}
-              showLabel={false}
-            />
-          </>
+          !isMetaTab && canClassBuy ? (
+            <Button
+              type="button"
+              size="icon"
+              onClick={() => setModalOpen(true)}
+              aria-label="Add holding"
+              className="touch-target"
+            >
+              <Plus />
+            </Button>
+          ) : undefined
         }
+        mobileMenuItems={viewMenuItems}
         title={
           isOverview
             ? "Overview"
