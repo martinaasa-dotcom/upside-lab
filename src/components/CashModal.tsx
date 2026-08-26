@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/Panel";
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
 import { isSafeSignedMoney } from "@/lib/input-guard";
 import { blockWheelChange, parseDecimal } from "@/lib/number-input";
@@ -13,27 +14,43 @@ type Props = {
   open: boolean;
   portfolioName: string;
   initialCash: number;
-  /** Paper class sheets can go below zero. Real books cannot. */
-  allowNegative?: boolean;
+  /** Classroom sheets spend and refill this on every buy and sell. */
+  paperCash?: boolean;
   onClose: () => void;
   onSave: (cash: number) => void;
 };
 
+type Sign = "have" | "owe";
+
+const SIGN_OPTIONS = [
+  { id: "have" as const, label: "Money there" },
+  { id: "owe" as const, label: "Money borrowed" },
+];
+
+/**
+ * The sign is a toggle rather than a minus you type, because on a phone
+ * there is no minus to type: `inputMode="decimal"` opens the number pad,
+ * and on iOS that pad is digits and a dot. Anybody holding borrowed money
+ * could see it named on the Cash card and still had no way to enter it.
+ * A pasted "-7000" is honoured too, by flipping the toggle.
+ */
 export function CashModal({
   open,
   portfolioName,
   initialCash,
-  allowNegative = false,
+  paperCash = false,
   onClose,
   onSave,
 }: Props) {
-  const [cash, setCash] = useState(String(initialCash));
+  const [amount, setAmount] = useState(() => String(Math.abs(initialCash)));
+  const [sign, setSign] = useState<Sign>(initialCash < 0 ? "owe" : "have");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setCash(String(initialCash));
+    setAmount(String(Math.abs(initialCash)));
+    setSign(initialCash < 0 ? "owe" : "have");
     setError(null);
     setBusy(false);
   }, [open, initialCash]);
@@ -43,13 +60,10 @@ export function CashModal({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
-    const n = parseDecimal(cash);
+    const typed = parseDecimal(amount);
+    const n = sign === "owe" && typed !== 0 ? -typed : typed;
     if (!isSafeSignedMoney(n)) {
       setError("That has to be a real dollar amount, not enormous.");
-      return;
-    }
-    if (!allowNegative && n < 0) {
-      setError("Cash on a real portfolio cannot go below zero.");
       return;
     }
     setBusy(true);
@@ -88,21 +102,32 @@ export function CashModal({
           </Button>
         </div>
 
-        <label className="grid gap-1 text-sm text-muted-foreground">
-          {allowNegative
-            ? "Paper cash. Buys spend it, sells add it back."
-            : "Money sitting ready, not yet in a stock."}
+        <Segmented
+          options={SIGN_OPTIONS}
+          value={sign}
+          onChange={(next) => {
+            setSign(next);
+            setError(null);
+          }}
+          columns={2}
+          ariaLabel="Is this money you have or money you borrowed?"
+        />
+
+        <label className="mt-4 grid gap-1 text-sm text-muted-foreground">
+          {sign === "owe"
+            ? "Money your broker lent you. It counts against your total."
+            : paperCash
+              ? "Paper cash. Buys spend it, sells add it back."
+              : "Money sitting ready, not yet in a stock."}
           <Input
             autoFocus
             type="text"
             inputMode="decimal"
-            value={cash}
+            value={amount}
             onChange={(e) => {
-              setCash(
-                e.target.value
-                  .replace(/,/g, ".")
-                  .replace(allowNegative ? /[^\d.-]/g : /[^\d.]/g, "")
-              );
+              const raw = e.target.value.replace(/,/g, ".");
+              if (raw.includes("-")) setSign((s) => (s === "owe" ? "have" : "owe"));
+              setAmount(raw.replace(/[^\d.]/g, ""));
               setError(null);
             }}
             onWheel={blockWheelChange}

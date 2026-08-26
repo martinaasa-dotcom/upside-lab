@@ -5098,9 +5098,10 @@ run("buying a name spends cash and selling adds it back", () => {
     ),
     820
   );
+  // Borrowed money is negative cash on any portfolio, paper or real.
   assert.equal(
     sheetCashBalance({ cash_balance: -1600 }),
-    0
+    -1600
   );
   assert.equal(
     sheetCashBalance({
@@ -5193,9 +5194,10 @@ run("buying a name spends cash and selling adds it back", () => {
       },
     }
   );
-  assert.equal(realNav.totals.cash, 0);
+  // The borrowed $1,600 counts against the total rather than vanishing.
+  assert.equal(realNav.totals.cash, -1600);
   assert.equal(realNav.totals.equityValue, 2000);
-  assert.equal(realNav.totals.totalValue, 2000);
+  assert.equal(realNav.totals.totalValue, 400);
   const holdingsApi = readFileSync(
     join(process.cwd(), "src/app/api/holdings/route.ts"),
     "utf8"
@@ -5206,13 +5208,15 @@ run("buying a name spends cash and selling adds it back", () => {
     join(process.cwd(), "src/components/CashModal.tsx"),
     "utf8"
   );
-  assert.match(cashModal, /allowNegative/);
-  assert.doesNotMatch(cashModal, /can be negative/);
+  // A phone number pad has no minus key, so the sign is a toggle.
+  assert.match(cashModal, /Money borrowed/);
+  assert.doesNotMatch(cashModal, /allowNegative/);
   const portfoliosApi = readFileSync(
     join(process.cwd(), "src/app/api/portfolios/route.ts"),
     "utf8"
   );
-  assert.match(portfoliosApi, /cannot go below zero/);
+  assert.doesNotMatch(portfoliosApi, /cannot go below zero/);
+  assert.match(portfoliosApi, /isSafeSignedMoney\(raw\)/);
 });
 
 run("saves list hides nightly rows", () => {

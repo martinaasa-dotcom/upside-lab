@@ -182,13 +182,23 @@ function assertFiniteTree(value: unknown, path = "root"): void {
   }
 }
 
+/** CashModal's field: the pad types no minus, so only digits and a dot land. */
+function cashKeystrokes(raw: string): { text: string; flipsSign: boolean } {
+  const cleaned = raw.replace(/,/g, ".");
+  return {
+    text: cleaned.replace(/[^\d.]/g, ""),
+    flipsSign: cleaned.includes("-"),
+  };
+}
+
+/** CashModal's submit: the amount as typed, with the sign from the toggle. */
 function cashFromInput(
   raw: string,
-  allowNegative: boolean
+  sign: "have" | "owe" = "have"
 ): { ok: true; cash: number } | { ok: false } {
-  const n = parseDecimal(raw);
+  const typed = parseDecimal(raw);
+  const n = sign === "owe" && typed !== 0 ? -typed : typed;
   if (!isSafeSignedMoney(n)) return { ok: false };
-  if (!allowNegative && n < 0) return { ok: false };
   return { ok: true, cash: roundMoney(n) };
 }
 
@@ -335,8 +345,8 @@ describe("cash operations", () => {
     }
   });
 
-  it("clamps real-book cash and keeps paper cash negative", () => {
-    expect(sheetCashBalance({ cash_balance: -1600 })).toBe(0);
+  it("keeps cash below zero on a real portfolio as well as a paper one", () => {
+    expect(sheetCashBalance({ cash_balance: -1600 })).toBe(-1600);
     expect(
       sheetCashBalance({
         cash_balance: -1600,
@@ -346,14 +356,25 @@ describe("cash operations", () => {
     expect(sheetCashBalance({ cash_balance: Number.NaN })).toBe(0);
   });
 
-  it("rejects negative cash on a real book and junk typed amounts", () => {
-    expect(cashFromInput("2500.5", false)).toEqual({ ok: true, cash: 2500.5 });
-    expect(cashFromInput("0", false)).toEqual({ ok: true, cash: 0 });
-    expect(cashFromInput("-100", false)).toEqual({ ok: false });
-    expect(cashFromInput("-100", true)).toEqual({ ok: true, cash: -100 });
-    expect(cashFromInput("Infinity", false)).toEqual({ ok: false });
-    expect(cashFromInput("NaN", false)).toEqual({ ok: false });
-    expect(cashFromInput("1e400", false)).toEqual({ ok: false });
+  it("takes borrowed cash from the sign toggle, on a real portfolio too", () => {
+    expect(cashFromInput("2500.5")).toEqual({ ok: true, cash: 2500.5 });
+    expect(cashFromInput("0")).toEqual({ ok: true, cash: 0 });
+    expect(cashFromInput("100", "owe")).toEqual({ ok: true, cash: -100 });
+    expect(cashFromInput("7000", "owe")).toEqual({ ok: true, cash: -7000 });
+    // Zero has no sign, so the toggle can never write -0.
+    const zeroOwed = cashFromInput("0", "owe");
+    expect(zeroOwed).toEqual({ ok: true, cash: 0 });
+    expect(zeroOwed.ok && Object.is(zeroOwed.cash, -0)).toBe(false);
+  });
+
+  it("keeps junk out of the amount field and enormous amounts out of the save", () => {
+    // A phone pad offers digits and a dot; a paste can still carry anything.
+    expect(cashKeystrokes("Infinity").text).toBe("");
+    expect(cashKeystrokes("1 234,50").text).toBe("1234.50");
+    // A pasted minus is the sign, so it flips the toggle instead of parsing.
+    expect(cashKeystrokes("-7000")).toEqual({ text: "7000", flipsSign: true });
+    expect(cashFromInput("999999999999999999", "owe")).toEqual({ ok: false });
+    expect(cashFromInput("999999999999999999")).toEqual({ ok: false });
   });
 
   it("writes absolute cash through the demo store, including zero and paper negative", () => {
@@ -780,13 +801,15 @@ describe("production cash paths stay on the atomic helpers", () => {
     expect(src).not.toMatch(/applyPortfolioCashDelta/);
   });
 
-  it("CashModal still blocks negative cash on a real book", () => {
+  it("CashModal carries a sign toggle, since a phone pad has no minus key", () => {
     const src = readFileSync(
       join(process.cwd(), "src/components/CashModal.tsx"),
       "utf8"
     );
-    expect(src).toMatch(/allowNegative/);
-    expect(src).toMatch(/cannot go below zero/);
+    expect(src).toMatch(/Segmented/);
+    expect(src).toMatch(/Money borrowed/);
+    expect(src).not.toMatch(/allowNegative/);
+    expect(src).not.toMatch(/below zero/);
   });
 });
 

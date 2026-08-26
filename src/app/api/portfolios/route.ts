@@ -10,10 +10,9 @@ import {
   resolveClassroomTrade,
   type ClassroomTrade,
 } from "@/lib/classroom";
-import { tracksTradeCash } from "@/lib/cash-balance";
 import { denyClassroomWrite } from "@/lib/classroom-guard";
 import { shareNewSheetIntoMemberCircles } from "@/lib/community-share";
-import { sanitizeSheetName } from "@/lib/input-guard";
+import { isSafeSignedMoney, sanitizeSheetName } from "@/lib/input-guard";
 import { roundMoney } from "@/lib/money";
 import { createSupabaseServerAuth, requireAuthUser } from "@/lib/supabase/server-auth";
 import type { TablesUpdate } from "@/lib/supabase/database.types";
@@ -77,26 +76,6 @@ async function handleGET(req: NextRequest) {
 
   if (pErr) {
     return NextResponse.json({ error: pErr.message }, { status: 500 });
-  }
-
-  const healIds = (
-    (portfolios ?? []) as {
-      id: string;
-      cash_balance?: number;
-      classroom_community_id?: string | null;
-    }[]
-  )
-    .filter((p) => !tracksTradeCash(p) && Number(p.cash_balance) < 0)
-    .map((p) => p.id);
-  if (healIds.length) {
-    await supabase
-      .from(PORTFELL_TABLES.portfolios)
-      .update({ cash_balance: 0, updated_at: new Date().toISOString() })
-      .in("id", healIds);
-    for (const p of portfolios ?? []) {
-      const row = p as { id: string; cash_balance?: number };
-      if (healIds.includes(row.id)) row.cash_balance = 0;
-    }
   }
 
   const portfolioIds = (portfolios ?? []).map(
@@ -268,25 +247,12 @@ async function handlePATCH(req: NextRequest) {
     });
     if (blocked) return blocked;
     const raw = Number(body.cash_balance);
-    if (!Number.isFinite(raw)) {
+    // Below zero is allowed on every portfolio: a broker that lent you the
+    // money to buy with carries the loan as negative cash. Only the size is
+    // capped, the same ceiling the modal enforces.
+    if (!isSafeSignedMoney(raw)) {
       return NextResponse.json(
         { error: "Cash has to be a real dollar amount." },
-        { status: 400 }
-      );
-    }
-    const { data: sheet } = await supabase
-      .from(PORTFELL_TABLES.portfolios)
-      .select("classroom_community_id")
-      .eq("id", id)
-      .maybeSingle();
-    if (
-      !tracksTradeCash(
-        (sheet ?? {}) as { classroom_community_id?: string | null }
-      ) &&
-      raw < 0
-    ) {
-      return NextResponse.json(
-        { error: "Cash on a real portfolio cannot go below zero." },
         { status: 400 }
       );
     }

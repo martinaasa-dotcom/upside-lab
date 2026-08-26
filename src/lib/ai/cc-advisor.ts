@@ -245,9 +245,11 @@ export function buildCcAdvisorTools(
 
   setCash: tool({
     description:
-      "Set the portfolio cash balance in USD. A real portfolio stays at zero or above. Only a classroom paper portfolio can go below zero.",
+      "Set the portfolio cash balance in USD. It may be negative on any portfolio: money the broker lent the reader is carried as cash below zero.",
     inputSchema: z.object({
-      cash: z.number().describe("Cash balance in USD, e.g. 0 or 2500"),
+      cash: z
+        .number()
+        .describe("Cash balance in USD, e.g. 0, 2500, or -7000 when borrowed"),
     }),
     execute: async ({ cash }) => ({
       action: "set_cash" as const,
