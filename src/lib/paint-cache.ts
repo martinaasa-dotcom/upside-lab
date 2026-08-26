@@ -7,6 +7,10 @@
 import type { FearGreedSnapshot } from "@/lib/market/fear-greed";
 import type { SeasonalityModel } from "@/lib/market/seasonality";
 import type { TrendRowLike } from "@/lib/market/trend-story";
+import {
+  isSentimentMetrics,
+  type SentimentMetrics,
+} from "@/lib/market-sentiment";
 import type { Quote } from "@/lib/types";
 
 const memory = new Map<string, unknown>();
@@ -40,6 +44,7 @@ function save<T>(key: string, value: T) {
 const TRENDS_PREFIX = "upside-trends-paint-v1:";
 const SEASONALITY_PREFIX = "upside-seasonality-paint-v1:";
 const MACRO_KEY = "upside-macro-paint-v1";
+const SENTIMENT_KEY = "upside-sentiment-paint-v1";
 const FUND_COMPARE_KEY = "upside-fund-compare-v1";
 
 function isTrendRows(v: unknown): v is TrendRowLike[] {
@@ -112,6 +117,14 @@ export function loadFearGreedPaint(): FearGreedSnapshot | null {
   const fg = loadMacroPaint()?.fearGreed;
   if (!fg || typeof fg.score !== "number") return null;
   return fg;
+}
+
+export function loadSentimentPaint(): SentimentMetrics | null {
+  return load(SENTIMENT_KEY, isSentimentMetrics);
+}
+
+export function saveSentimentPaint(next: SentimentMetrics) {
+  save(SENTIMENT_KEY, next);
 }
 
 export type FundComparePaint = {

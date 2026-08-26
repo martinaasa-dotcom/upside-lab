@@ -17,6 +17,7 @@ import {
   ItemDescription,
   ItemTitle,
 } from "@/components/ui/item";
+import { MarketSentimentWidget } from "@/components/MarketSentimentWidget";
 import { OvernightNote } from "@/components/OvernightNote";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import {
@@ -884,6 +885,10 @@ export const OverviewDashboard = memo(function OverviewDashboard({
           )}
         </div>
       </div>
+
+      <WidgetErrorBoundary name="Market reading">
+        <MarketSentimentWidget />
+      </WidgetErrorBoundary>
 
       <Scoreboard className="overview-fade">
         <Score
