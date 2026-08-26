@@ -10,9 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/format";
 import { isActiveSubscription } from "@/lib/billing-status";
 import { plainError } from "@/lib/plain-error";
 import { Sparkles } from "lucide-react";
@@ -42,20 +40,19 @@ function writeCachedStatus(status: string | null): void {
 }
 
 /**
- * Header-level "Upgrade" entry point. The Account page has always had the
- * real Billing card, but that only reaches someone who already went
- * looking for it — this is the same offer, surfaced where every
- * signed-in page can see it, without turning into a nagging banner: a
- * small pill, hidden entirely for anyone already subscribed.
+ * Whether this viewer should be offered Pro, resolved once for whoever
+ * asks.
+ *
+ * Split out of `UpgradeNudge` because the offer now has two shapes: the
+ * desktop header's pill, and a row in the phone's overflow menu. Both need
+ * the same answer and neither should run its own fetch.
+ *
+ * `pending` is the genuinely first-ever load, where there is no cached
+ * answer to render from. The pill holds its own space in that case rather
+ * than collapsing it; a menu row simply waits, because a menu that is
+ * closed cannot re-flow.
  */
-export function UpgradeNudge({
-  variant = "pill",
-}: {
-  /** pill = icon + "Upgrade" text (desktop header). icon = icon-only
-   * button, for the mobile top bar where a text pill would crowd the
-   * brand/title/avatar row. */
-  variant?: "pill" | "icon";
-}) {
+export function useUpgradeOffer(): { offer: boolean; pending: boolean } {
   const { user } = useAuth();
   /*
    * Seeded from the last known answer, not from `undefined`.
@@ -69,18 +66,15 @@ export function UpgradeNudge({
    * prediction of this one: a returning subscriber renders no pill from
    * the first frame, a returning free user renders it immediately, and
    * neither shifts when the fetch confirms it. Only a genuinely first-ever
-   * load has nothing to go on, and that case holds the pill's space with
-   * an invisible placeholder instead of collapsing it (see below).
+   * load has nothing to go on.
    *
    * The cache is a rendering hint only — every gate that actually matters
    * is enforced server-side, so a stale value here can never unlock
    * anything.
    */
   const [status, setStatus] = useState<string | null | undefined>(() =>
-    readCachedStatus()
+    readCachedStatus(),
   );
-  const [open, setOpen] = useState(false);
-  const [checkingOut, setCheckingOut] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -99,23 +93,26 @@ export function UpgradeNudge({
     return () => ctrl.abort();
   }, [user]);
 
-  if (!user) return null;
+  if (!user) return { offer: false, pending: false };
+  if (status === undefined) return { offer: false, pending: true };
+  return { offer: !isActiveSubscription(status), pending: false };
+}
 
-  // First-ever load: hold the space rather than collapsing it, so the
-  // header lands in its final geometry on the first paint either way.
-  if (status === undefined) {
-    return (
-      <span
-        aria-hidden
-        className={cn(
-          "pointer-events-none invisible shrink-0",
-          variant === "icon" ? "size-7" : "h-7 w-[6.5rem]"
-        )}
-      />
-    );
-  }
-
-  if (isActiveSubscription(status)) return null;
+/**
+ * The offer itself, with no trigger of its own.
+ *
+ * Controlled so it can be opened from a dropdown row as easily as from a
+ * button: a Radix menu item cannot host a dialog trigger, it can only ask
+ * for one to open.
+ */
+export function UpgradeDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [checkingOut, setCheckingOut] = useState(false);
 
   async function startCheckout() {
     setCheckingOut(true);
@@ -135,34 +132,7 @@ export function UpgradeNudge({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {variant === "icon" ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Upgrade to Pro"
-            title="Upgrade to Pro"
-            className="touch-target text-primary hover:text-primary"
-          >
-            <Sparkles />
-          </Button>
-        ) : (
-          /* Ghost like every other secondary control in the bar, with the
-           * accent carried by the icon and label rather than a filled
-           * tinted box. It is a nudge, not the header's main action. */
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={cn("gap-1.5 text-primary hover:text-primary")}
-          >
-            <Sparkles className="size-3.5" aria-hidden />
-            Upgrade
-          </Button>
-        )}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <span
@@ -192,5 +162,57 @@ export function UpgradeNudge({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Header-level "Upgrade" entry point, for the desktop bar.
+ *
+ * The Account page has always had the real Billing card, but that only
+ * reaches someone who already went looking for it. This is the same offer
+ * surfaced where every signed-in page can see it, without turning into a
+ * nagging banner: a small pill, hidden entirely for anyone already
+ * subscribed.
+ *
+ * There is no phone shape of this any more. It used to have an icon-only
+ * variant that sat in `MobileTopBar`, which is how that row ended up with
+ * four 44px glyphs and no room left for the portfolio name. Upgrade is a
+ * monthly-at-most decision, so on the phone it is a row in the overflow
+ * menu instead — see `MobileTopBar`.
+ */
+export function UpgradeNudge() {
+  const { offer, pending } = useUpgradeOffer();
+  const [open, setOpen] = useState(false);
+
+  // First-ever load: hold the space rather than collapsing it, so the
+  // header lands in its final geometry on the first paint either way.
+  if (pending) {
+    return (
+      <span
+        aria-hidden
+        className="pointer-events-none invisible h-7 w-[6.5rem] shrink-0"
+      />
+    );
+  }
+
+  if (!offer) return null;
+
+  return (
+    <>
+      {/* Ghost like every other secondary control in the bar, with the
+       * accent carried by the icon and label rather than a filled tinted
+       * box. It is a nudge, not the header's main action. */}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="gap-1.5 text-primary hover:text-primary"
+        onClick={() => setOpen(true)}
+      >
+        <Sparkles className="size-3.5" aria-hidden />
+        Upgrade
+      </Button>
+      <UpgradeDialog open={open} onOpenChange={setOpen} />
+    </>
   );
 }

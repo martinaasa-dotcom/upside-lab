@@ -7,6 +7,8 @@ import {
   salePriceFor,
 } from "@/lib/cash-trade";
 import { classifyImportWrite } from "@/lib/classroom";
+import { isSafeSignedMoney } from "@/lib/input-guard";
+import { roundMoney } from "@/lib/money";
 import { denyClassroomWrite } from "@/lib/classroom-guard";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
@@ -116,12 +118,13 @@ async function handlePOST(req: NextRequest) {
 
   const paperCash = await portfolioTracksTradeCash(supabase, portfolioId);
   let cashUpdated = false;
-  if (cash != null && Number.isFinite(cash)) {
-    const nextCash = paperCash ? cash : Math.max(0, cash);
+  // An imported cash line may be negative on any portfolio: a broker screen
+  // showing borrowed money is exactly the case worth carrying through.
+  if (cash != null && isSafeSignedMoney(cash)) {
     const { error } = await supabase
       .from(PORTFELL_TABLES.portfolios)
       .update({
-        cash_balance: nextCash,
+        cash_balance: roundMoney(cash),
         updated_at: new Date().toISOString(),
       })
       .eq("id", portfolioId);

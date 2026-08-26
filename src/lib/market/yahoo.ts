@@ -1,5 +1,4 @@
 import type { Quote } from "@/lib/types";
-import type { SplitEvent } from "@/lib/market/corporate-actions";
 import { sessionMark } from "@/lib/market-session";
 import { synthesizeSparkline } from "@/lib/market/sparkline";
 import { yahooQuoteCandidates } from "@/lib/ticker";
@@ -216,49 +215,6 @@ export async function resolveYahooListedSymbol(
   return null;
 }
 
-/**
- * Splits out of a chart response, in either shape the wrapper returns.
- *
- * `yahoo-finance2` is an unofficial wrapper over an undocumented endpoint,
- * so `events.splits` arrives as a keyed object on one response and an array
- * on another, and either can hold a row with a missing field. Everything
- * that is not a usable split is dropped rather than reasoned about: a
- * wrong split silently rewrites somebody's cost basis.
- */
-function readSplitEvents(raw: unknown): SplitEvent[] {
-  if (!raw || typeof raw !== "object") return [];
-  const rows = Array.isArray(raw) ? raw : Object.values(raw);
-  const out: SplitEvent[] = [];
-  for (const row of rows) {
-    if (!row || typeof row !== "object") continue;
-    const rec = row as {
-      date?: unknown;
-      numerator?: unknown;
-      denominator?: unknown;
-    };
-    const numerator = typeof rec.numerator === "number" ? rec.numerator : NaN;
-    const denominator =
-      typeof rec.denominator === "number" ? rec.denominator : NaN;
-    if (!(numerator > 0) || !(denominator > 0)) continue;
-    const rawDate = rec.date;
-    const when =
-      rawDate instanceof Date
-        ? rawDate
-        : typeof rawDate === "number"
-          ? new Date(rawDate < 1e12 ? rawDate * 1000 : rawDate)
-          : typeof rawDate === "string"
-            ? new Date(rawDate)
-            : null;
-    if (!when || Number.isNaN(when.getTime())) continue;
-    out.push({
-      date: dateKeyInTz(when, "America/New_York"),
-      numerator,
-      denominator,
-    });
-  }
-  return out.sort((a, b) => a.date.localeCompare(b.date));
-}
-
 async function quoteOneSymbol(
   yf: YahooFinanceInstance,
   symbol: string,
@@ -267,12 +223,7 @@ async function quoteOneSymbol(
 ): Promise<Quote | null> {
   const [quoteRaw, chart] = await Promise.all([
     yahooCall(() => yf.quote(symbol)),
-    yf
-      // `events: "split"` costs nothing extra: this is the same chart call
-      // the sparkline already needs, and without it a split is invisible to
-      // the app while being fully priced in by the feed.
-      .chart(symbol, { period1, interval: "1d", events: "split" })
-      .catch(() => null),
+    yf.chart(symbol, { period1, interval: "1d" }).catch(() => null),
   ]);
   const parsed = yahooQuotePayloadSchema.safeParse(quoteRaw);
   if (!parsed.success) return null;
@@ -327,8 +278,6 @@ async function quoteOneSymbol(
           .filter((c): c is number => typeof c === "number" && isPlausiblePrice(c))
           .map((c) => priceToUsd(c, yahooCurrency, fx, symbol))
       : synthesizeSparkline(price, changePercent * 100);
-  const splits = readSplitEvents(chart?.events?.splits);
-
   const dailyCloses = (chart?.quotes ?? [])
     .map((row) => {
       const close = row.close;
@@ -401,7 +350,6 @@ async function quoteOneSymbol(
     nativePrice,
     stale: false,
     quotedAt: Date.now(),
-    ...(splits.length > 0 ? { splits } : {}),
   } satisfies Quote;
 }
 
@@ -490,6 +438,89 @@ export async function fetchQuotesYahoo(
       failed: unique,
     };
   }
+}
+
+export type ShareSplit = {
+  ticker: string;
+  /** The market open at which the new share count is the real one. */
+  effectiveOn: string;
+  /** Ten for one is 10 and 1. One for ten, the reverse, is 1 and 10. */
+  numerator: number;
+  denominator: number;
+};
+
+/**
+ * The share splits a company has had in a window of days.
+ *
+ * The same chart endpoint the daily closes come from, asked for its events as
+ * well as its bars. Nothing else this app talks to reports a split, and a
+ * split nobody notices leaves a holding at the wrong number of shares: ten
+ * for one shows a holder apparently down ninety per cent, and a reverse split
+ * shows a windfall that nobody had.
+ *
+ * Null when the question could not be asked at all, which is a different
+ * answer from an empty list and the caller treats it as one. "Nothing split"
+ * and "the provider did not answer" look identical from outside and lead to
+ * opposite decisions.
+ */
+export async function fetchSplits(
+  ticker: string,
+  fromIso: string,
+  toIso: string
+): Promise<ShareSplit[] | null> {
+  const yf = await getYahoo();
+  const period1 = new Date(`${fromIso}T00:00:00Z`);
+  // A day past the end, because the window is inclusive and the bar for the
+  // last day has to be inside it.
+  const period2 = new Date(new Date(`${toIso}T00:00:00Z`).getTime() + 86_400_000);
+
+  let asked = false;
+
+  for (const symbol of yahooQuoteCandidates(ticker)) {
+    try {
+      const chart = await yahooCall(() =>
+        yf.chart(symbol, { period1, period2, interval: "1d", events: "split" })
+      );
+      asked = true;
+
+      const splits = (
+        chart as unknown as {
+          events?: {
+            splits?: Array<{ date?: Date; numerator?: number; denominator?: number }>;
+          };
+        }
+      ).events?.splits;
+
+      if (!splits?.length) continue;
+
+      return splits
+        .filter(
+          (split) =>
+            split.date instanceof Date &&
+            Number.isFinite(split.numerator) &&
+            Number.isFinite(split.denominator) &&
+            (split.numerator as number) > 0 &&
+            (split.denominator as number) > 0
+        )
+        .map((split) => ({
+          ticker: ticker.toUpperCase(),
+          /*
+            Yahoo timestamps a split at the opening bell, so the UTC date and
+            the exchange's date are the same day and slicing it is safe here
+            in a way it would not be for an evening timestamp.
+          */
+          effectiveOn: (split.date as Date).toISOString().slice(0, 10),
+          numerator: split.numerator as number,
+          denominator: split.denominator as number,
+        }));
+    } catch {
+      // Try the next listing of the same company before giving up on it.
+    }
+  }
+
+  // Asked and told nothing, versus never got an answer. The caller needs to
+  // tell those apart.
+  return asked ? [] : null;
 }
 
 export type DailyClose = { date: string; close: number };

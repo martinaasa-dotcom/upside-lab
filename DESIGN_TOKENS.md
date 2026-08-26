@@ -1434,60 +1434,124 @@ Both docks take it, at both widths. Desktop barely moves (2.8 levels to 0.8)
 because it was never the problem; it takes it so the dock is one pane
 everywhere rather than two.
 
-## One dock, two shapes, and the same two in both apps (2026-08-23)
+## One dock, two shapes, and it speaks on the press (2026-08-24)
 
-> *"I want both of the nav bars to look and feel the same way, but I want
-> you to be very, very critical and pick out the best solution that fits
-> within the design that we have."*
+> *"I would like this to be simplified, and I would like this to look
+> similar to Instagram's, but with our own design element attached to it
+> that fits within the design that we have currently going on."*
 
-Lab had a phone bar and a desktop dock. Arena had one dock at every width
-with its labels switched off below 544px. Taken apart, each app was right
-about one half of it.
+The bar is a capsule that hugs its own contents in both apps. On a phone it
+carries no words at all: glyphs, and a last cell that is a person. On a
+desktop the same capsule paints the label beside each glyph.
 
-**Below `md`: full width, glyph over label, labels always on.** Lab's shape.
-That is the iPhone tab bar, and both halves matter. A content-hugging pill
-on a 390px screen leaves dead bands either side and reads as a control that
-happens to be near the bottom rather than as the floor of the app.
+That asymmetry is the input device, not an inconsistency. A pointer has no
+press to speak on that anybody would wait through, a desktop dock is already
+floating in a metre of empty page so the words cost nothing, and Lab's
+`BookModeDock` carries one cell per portfolio, whose names are somebody's
+own words and can never be a glyph. **The material, the radius and the
+marker are identical across the breakpoint. Only the word count differs.**
 
-**At `md` and up: content-hugging, centred, glyph beside label.** Arena's
-shape, and `BookModeDock`'s. Stretching five cells across a 1440px column
-leaves each label floating in the middle of a 230px chip and turns the
-active one into a slab of accent the width of a paragraph.
+### The rule that made a wordless bar possible
 
-### What each app gave up
+Arena carried a rule that hid its labels below 544px, which fired on every
+phone anybody owns and left five rooms as five unlabelled glyphs. The rule
+written after it was **never hide a dock label at a breakpoint**, and that
+rule is now retired.
 
-**Arena's `max-[544px]:sr-only` had to go.** It fired on every phone anybody
-owns, so five rooms arrived as five unlabelled glyphs. A trophy is not a
-word: nothing about it says Leagues rather than Season, and a tab bar is the
-one place in an app where a person has to be right the first time. The
-stacked cell is what makes labels affordable at 320px — the width a label
-needs *beside* a glyph is what forced the choice, and above `md` there is no
-width pressure to force it.
+It was right about the failure and wrong about the fix, because it banned a
+symptom. What was ever being defended is a person's ability to find a room
+they have not been to, and a painted 11px word under a 16px glyph is a weak
+way to defend it: it is there for the thousandth visit as much as the first,
+and plenty of people never read it.
 
-**Lab's bar had no answer to a tap.** Every destination reads live data, so
-until the server answers the URL has not changed and nothing looks any
-different: the tab you pressed carries on looking unpressed. Arena solved
-this with `useLinkStatus` and a fill drawn *behind* the cell, so it costs no
-layout and cannot move the row under a thumb. It is deliberately not the
-accent pill and does not touch `aria-current` — it says "heard you", not
-"you are here". Ported to `MobileTabBar` unchanged. Lab's cells also had no
-`focus-visible` ring; Arena's did.
+**So the name is spoken instead of painted.** On `pointerdown`, before the
+tap has finished and long before the room answers, the pressed cell's name
+rises above the bar in the same glass and is gone inside 900ms. At rest
+there is not a word on screen. In use there is never a tap that does not
+name itself.
+
+Three things about it, all load-bearing:
+
+- **`pointerdown`, never `click`.** A name that arrives after the tap it was
+  meant to answer is a name nobody needed.
+- **`onFocus` fires it too**, because a keyboard never presses anything.
+- **The chip is `md:hidden`.** Above the breakpoint the label is painted
+  inside the cell and a chip would be the same word twice.
+
+It also replaced the `PressedFill` that used to answer a tap on the phone
+bar. Every destination in both apps reads live data, so the gap between the
+touch and the room was already there and was already being covered by a fill
+that said "heard you" and nothing else. Saying *which room* is the same
+reassurance plus the one thing somebody new is missing.
+
+### One marker, and it travels
+
+A single neutral pill (`bg-foreground/10`) sits behind the cells and slides,
+rather than a fill appearing on one cell and disappearing from another. That
+is what makes a row of glyphs read as one place with a marker in it instead
+of four buttons, and it is the cheapest continuity a tab bar can buy.
+
+It is **measured off the live cell**, never computed from a cell width: the
+face cell and the glyph cells are only the same width by agreement, the
+labelled cells at `md` are not, and Lab's row also carries a narrow add cell
+and a picker cell with a chevron. It re-measures on every render in
+`BookModeDock` (too many inputs for an honest dependency list) and through a
+`ResizeObserver` on the row and each cell in both. **Measuring is idempotent
+by construction**: `setMark` returns the previous object when the numbers
+have not moved, which is what makes measuring that often safe. Without that
+guard, a freshly built object on every measurement makes every measurement a
+re-render and the layout effect never settles. That is React error #185,
+"maximum update depth exceeded", and it is exactly what happened the first
+time this was written.
+
+It is held still until it has been placed once, or the first paint draws a
+marker sliding in across a bar nobody has touched.
+
+**The accent is not spent in the dock at all now.** Which room you are in is
+the least surprising fact on the screen, and the old `bg-primary` cell was
+the loudest thing on the bar for the least reason. The one saturated pixel
+left is Lab's alert dot, which is news.
+
+### The last cell is a person
+
+Arena ends on the player's own face, streamed into the dock by
+`(app)/layout` so the rest of the bar stays prerendered shell. It came out
+of `AppHeader` to get there: two pictures of the same player on one screen
+is one too many, and the one to keep is the one under the thumb.
+
+Lab ends on `People` (`src/components/People.tsx`), three overlapping discs
+in `bg-current` at three opacities. Not the accent, for two reasons: it
+follows the cell's own colour so the mark brightens when marked exactly as a
+line glyph would, and a gold disc there measured about as loud as the alert
+dot two cells along. It replaced a compass, which said "explore" and is not
+what a circle is.
 
 ### What both were already right about
 
-Concentric corners, both ways round: the pill is `rounded-xl` (12px) with
-`p-1` (4px), so the cells are `rounded-lg` (8px). 12 - 4 = 8. A cell with
-the same radius as the shell around it reads as a sticker on it.
+Concentric corners: `rounded-full` shell, `p-1`, `rounded-full` cells. That
+is the one radius pair that stays concentric at any size, so the old
+`rounded-xl` / `rounded-lg` arithmetic (12 - 4 = 8) has nothing left to get
+wrong.
 
 And the `nav` is a `pointer-events-none` centring container in both, with
-`pointer-events-auto` back on the pill. A fixed full-width element takes
-clicks across its whole box whether or not it paints anything.
+`pointer-events-auto` back on the capsule. A fixed full-width element takes
+clicks across its whole box whether or not it paints anything, and a hugging
+capsule leaves more empty band either side than the full-width bar ever did.
 
 ### The measurements that hold it
 
-Arena's `tests/e2e/dock.spec.ts` used to assert the label rule matched
-`max-[Npx]:sr-only`, which is a test of the wrong thing: it held the
-breakpoint steady while the breakpoint was the bug. It now asserts no label
-is ever hidden, and measures each label against **the padding box of its own
-cell** rather than against the viewport — a row that "fits the screen"
-tells you nothing about a word inside a 52px cell.
+Arena's `tests/e2e/dock.spec.ts` asserts the accessible name on every cell,
+both handlers, and the breakpoint the chip is hidden at. It still measures
+each painted label against **the padding box of its own cell** rather than
+against the viewport, because a row that "fits the screen" tells you nothing
+about a word inside a 52px cell. Lab's `scripts/test-invariants.ts` asserts
+the same promise against `MobileTabBar` and the marker in both docks.
+
+One incidental repair came with this section. The paragraph it replaced
+quoted a Tailwind class as an example, in backticks, with a placeholder
+where the pixel value goes. Tailwind v4 scans this file, found the class,
+and generated `@media (width < Npx)`, which is not a valid media query: the
+dev server refused to compile the stylesheet and every page rendered
+unstyled. A production build dropped the rule and survived, which is why it
+had not been noticed. **Do not write a Tailwind class with a placeholder
+inside it in any file Tailwind scans.**

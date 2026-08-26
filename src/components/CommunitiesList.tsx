@@ -37,6 +37,7 @@ import { isAbortError } from "@/lib/abort";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
 import { useNetworkResume } from "@/lib/use-network-resume";
 import { useEffect, useState } from "react";
+import { onWorkspaceRefresh } from "@/lib/workspace-rooms";
 
 type DiscoverRow = CommunityDiscoverRow;
 
@@ -134,6 +135,17 @@ export function CommunitiesList() {
     void load(ctrl.signal);
     void loadDiscover(ctrl.signal);
   });
+
+  /* A pull asks for the same pair the network coming back asks for. */
+  useEffect(
+    () =>
+      onWorkspaceRefresh("communities", () => {
+        const ctrl = new AbortController();
+        return Promise.all([load(ctrl.signal), loadDiscover(ctrl.signal)]);
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load/loadDiscover are stable per render and read current state
+    []
+  );
 
   async function sendJoinRequest(
     communityId: string,

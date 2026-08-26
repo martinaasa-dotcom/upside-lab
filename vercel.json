@@ -1,4 +1,10 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "claude/*": false
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/snapshot",
@@ -31,6 +37,10 @@
     {
       "path": "/api/cron/empty-book-nudge",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/splits",
+      "schedule": "0 15 * * 1-5"
     },
     {
       "path": "/api/cron/disaster-recovery",

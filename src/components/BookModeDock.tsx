@@ -23,15 +23,15 @@ import {
   Calculator,
   Check,
   ChevronDown,
-  Compass,
   FlaskConical,
   LayoutDashboard,
   Plus,
   Wallet,
 } from "lucide-react";
+import { People } from "@/components/People";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 const MODES = [
   {
@@ -101,10 +101,21 @@ export type SheetTone = "up" | "down" | null;
 const CELL_W = "7.5rem";
 
 const CELL =
-  "flex h-11 w-full min-h-0 min-w-0 appearance-none items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-medium transition-colors";
+  "relative z-[1] flex h-11 w-full min-h-0 min-w-0 appearance-none items-center justify-center gap-1.5 rounded-full px-2 text-sm font-medium transition-colors";
 
 const OFF = "text-muted-foreground hover:bg-hover hover:text-foreground";
-const ON = "bg-primary text-primary-foreground";
+
+/*
+ * Where you are is said by the marker that slides behind the cells, not by
+ * filling one of them with the accent. Which room you are in is the least
+ * surprising fact on the screen, and a slab of mustard the width of a cell
+ * was the loudest thing on the bar for the least reason. The phone bar says
+ * it exactly the same way, so both docks are one design.
+ */
+const ON = "text-foreground";
+
+/** The marker's travel. Overshoots slightly and settles, the way a marker does. */
+const SLIDE = "cubic-bezier(0.34,1.28,0.52,1)";
 
 /**
  * Sheets carry a dot where the sections carry a glyph, so every cell has
@@ -186,6 +197,71 @@ export function BookModeDock({
     return () => ro.disconnect();
   }, []);
 
+  /*
+   * The marker: one neutral pill behind the cells that slides to the one you
+   * picked, rather than a fill appearing on one cell and disappearing from
+   * another. It is measured off the live cell rather than computed from
+   * CELL_W, because the add cell is a narrow track and the folded portfolio
+   * picker carries a chevron the others do not.
+   */
+  const wellRef = useRef<HTMLDivElement>(null);
+  const [mark, setMark] = useState<{ left: number; width: number } | null>(null);
+  const [travels, setTravels] = useState(false);
+
+  const measure = useCallback(() => {
+    const well = wellRef.current;
+    if (!well) return;
+    const on = well.querySelector<HTMLElement>("[data-on]");
+    /*
+     * Same object, same state. `setMark` with a freshly built object on
+     * every measurement makes every measurement a re-render, and a layout
+     * effect that measures after every render then never settles: React
+     * error #185, "maximum update depth exceeded", which is exactly what
+     * this did the first time it was written. Returning the previous value
+     * when the numbers have not moved makes measuring idempotent, so it is
+     * safe to measure as often as it takes to be right.
+     */
+    setMark((was) => {
+      if (!was && !on) return was;
+      if (!on) return null;
+      const next = { left: on.offsetLeft, width: on.offsetWidth };
+      return was && was.left === next.left && was.width === next.width
+        ? was
+        : next;
+    });
+  }, []);
+
+  /*
+   * No dependency list on purpose. What moves the marker here is not one
+   * value but half a dozen: the active id, the viewer's tier, how many
+   * portfolios you own, whether they folded into the picker, whether the
+   * add cell is drawn, and how long the labels turned out to be. Listing
+   * them is a list that goes stale; measuring after every render is not,
+   * and the guard above makes it converge in one extra pass.
+   */
+  useLayoutEffect(() => {
+    measure();
+  });
+
+  useEffect(() => {
+    const well = wellRef.current;
+    if (!well || typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(() => measure());
+    watch.observe(well);
+    for (const cell of Array.from(well.children)) watch.observe(cell);
+    return () => watch.disconnect();
+  }, [measure]);
+
+  /*
+   * Held still until it has been placed once, or the first paint draws a
+   * marker sliding in from the left edge of a bar nobody has touched.
+   */
+  useEffect(() => {
+    if (!mark || travels) return;
+    const frame = requestAnimationFrame(() => setTravels(true));
+    return () => cancelAnimationFrame(frame);
+  }, [mark, travels]);
+
   // Sections + Circle are fixed; the sheets are what can overrun the row.
   const fixedCells = modes.length + 1;
   const folded = dockFoldsSheets(
@@ -209,7 +285,31 @@ export function BookModeDock({
   return (
     <div ref={rowRef} className="w-full">
     <div
-      role="tablist"
+      ref={wellRef}
+      /*
+       * Not a tablist, though it was one until axe said otherwise.
+       *
+       * `role="tablist"` promises children that are all `role="tab"`, and
+       * this bar holds a dropdown trigger, a "New portfolio" button that
+       * opens a dialog, and a Circle link. Three of its children were never
+       * tabs, which is a critical `aria-required-children` violation and,
+       * worse than the rule, a lie about what the thing is: a tablist
+       * switches panels inside one view, and these go to destinations. A
+       * screen reader given a tablist full of links may expose none of
+       * them.
+       *
+       * So it is what it always was, navigation, and it already sits inside
+       * the `<nav aria-label="Portfolio">` in `PortfolioTabs`, which is
+       * where the landmark belongs. The current destination is
+       * `aria-current="page"`, which is what the Circle link already used
+       * and what `MobileTabBar` uses, so the two docks now agree.
+       *
+       * Every cell that can be the current one says so, buttons and links
+       * alike. The link forms are what an off-book page draws, so leaving
+       * them out would have meant the bar announcing where you are on the
+       * book and going quiet everywhere else, which is the half of the
+       * problem a screen reader would actually notice.
+       */
       aria-label="App"
       /*
        * A floating card, not a well sunk into a bar. The dock has no band
@@ -229,7 +329,7 @@ export function BookModeDock({
        * in globals.css and DESIGN_TOKENS.md.
        */
       className={cn(
-        "card-sheen glass glass-dock pointer-events-auto mx-auto grid w-fit max-w-full gap-1 rounded-xl p-1 ring-1 ring-foreground/20",
+        "card-sheen glass glass-dock pointer-events-auto relative mx-auto grid w-fit max-w-full gap-1 rounded-full p-1 ring-1 ring-foreground/20",
         className
       )}
       style={{
@@ -269,8 +369,8 @@ export function BookModeDock({
             <button
               key={id}
               type="button"
-              role="tab"
-              aria-selected={active}
+              aria-current={active ? "page" : undefined}
+              data-on={active ? "" : undefined}
               title={title}
               onClick={() => onSelectMode(id)}
               className={look}
@@ -284,6 +384,8 @@ export function BookModeDock({
             key={id}
             href={href}
             prefetch
+            aria-current={active ? "page" : undefined}
+            data-on={active ? "" : undefined}
             title={title}
             onClick={() => stashOpenTab(tab)}
             className={look}
@@ -318,8 +420,8 @@ export function BookModeDock({
             <button
               key={sheet.id}
               type="button"
-              role="tab"
-              aria-selected={active}
+              aria-current={active ? "page" : undefined}
+              data-on={active ? "" : undefined}
               title={title}
               onClick={() => goToSheet(sheet.id)}
               onContextMenu={menu}
@@ -335,6 +437,8 @@ export function BookModeDock({
             key={sheet.id}
             href={hrefForDockTarget(sheet.id, sheets)}
             prefetch
+            aria-current={active ? "page" : undefined}
+            data-on={active ? "" : undefined}
             title={title}
             className={look}
           >
@@ -349,6 +453,7 @@ export function BookModeDock({
             <button
               type="button"
               aria-label="Portfolios"
+              data-on={activeSheet ? "" : undefined}
               title="Your portfolios"
               className={cn(CELL, activeSheet ? ON : OFF)}
             >
@@ -406,11 +511,33 @@ export function BookModeDock({
         prefetch
         title="Upside Circle"
         aria-current={onCircle ? "page" : undefined}
+        data-on={onCircle ? "" : undefined}
         className={cn(CELL, onCircle ? ON : OFF)}
       >
-        <Compass className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+        <People compact />
         <span className="min-w-0 truncate">Circle</span>
       </Link>
+
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute top-1 left-0 h-11 rounded-full bg-foreground/10",
+          mark ? "opacity-100" : "opacity-0",
+          travels
+            ? "transition-[transform,width,opacity] duration-300"
+            : "transition-none",
+          "motion-reduce:transition-none"
+        )}
+        style={
+          mark
+            ? {
+                width: `${mark.width}px`,
+                transform: `translateX(${mark.left}px)`,
+                transitionTimingFunction: SLIDE,
+              }
+            : undefined
+        }
+      />
     </div>
     </div>
   );

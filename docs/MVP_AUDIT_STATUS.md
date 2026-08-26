@@ -42,6 +42,22 @@ and CSRF rested entirely on a dependency's cookie default.
   ticker returns `missing` and no number, a delisted name in a batch of
   twenty comes back missing while the rest price. `fallbackQuotes` has
   zero call sites.
+- **16 the fallback chain, all three links, verified live.** Until now only
+  Yahoo had ever been exercised, so the second and third providers were a
+  design rather than a fact. With real keys in place: Twelve Data and
+  Finnhub each priced the same three names to within rounding of each
+  other. With Yahoo failed at the socket the chain reached Twelve Data and
+  nothing went unpriced; with Yahoo **and** Twelve Data failed it reached
+  Finnhub and nothing went unpriced, in 800ms. The circuit breaker is what
+  keeps an outage cheap: the first request spends one socket on the dead
+  provider and opens the breaker, and the two after it spend none. A cold
+  process pays a larger one-off burst, because `yahoo-finance2` retries its
+  own crumb fetch before the breaker has anything to go on, and that is
+  once per process rather than once per request.
+  Worth knowing for anyone testing this: Twelve Data's free tier rate
+  limits quickly under a tight loop and answers 429. The chain treats that
+  as a provider failure and carries on, which is correct, but it means a
+  burst of local probes will exhaust the day's credits.
 - **2.1 portfolio** fixed (splits, twice) and verified (cost basis, today's
   move, one lot per ticker, covered call math by hand).
 - **2.2 Pulse** verified: fires at exactly -5% on the effective move,
@@ -63,7 +79,25 @@ and CSRF rested entirely on a dependency's cookie default.
   tested here.
 
 ### 4 to 8, auth, sharing, communities, Fund, import
-- **4 / 5 / 6 / 7** blocked. Every flow needs two real sessions.
+- **4 / 5 / 6 / 7** run, against a real hosted Postgres with two real signed
+  in accounts, and **it found one bug that nothing else was going to**.
+  A co-owner could delete the owner's row from `portfell_portfolio_owners`
+  and be left the sole owner of a portfolio somebody else made. Invite your
+  partner and they can lock you out of it, with one request. Migration `017`
+  closed this exact hole on **insert**, with a note that the app writes the
+  table through the service role and so loses nothing by the narrower rule,
+  and it left **delete** as `011` wrote it: any co-owner may delete any row
+  for that portfolio. Fixed in `20260824130000`, which is the same narrowing
+  applied to delete, and nothing in `src/` deletes from that table so it
+  costs the app nothing. The regression test is in `rls.test.sql` and it was
+  checked the only way worth checking: it fails without the fix.
+  Thirteen other checks passed. One account cannot read, update or delete
+  another's portfolio or holdings, cannot write itself into the owners
+  table, cannot insert itself into a private circle and cannot read one it
+  is not in. Co-ownership grants read and write when the row is added and
+  takes both away when it goes, and a co-owner can still give up their own
+  access, which is the one write that table is meant to accept from a
+  client.
   Authorization was checked statically across all 63 route files and by
   probe on the public ones; the invariants suite independently asserts
   every community route checks membership in code.
@@ -106,9 +140,13 @@ and CSRF rested entirely on a dependency's cookie default.
 
 ### 14 to 19, technical
 All verified or fixed; see `MVP_AUDIT_TECHNICAL_PASS.md`. Headline: the
-repo's own tooling is green and now runs in CI in full, RLS was verified by
-replaying every migration and tracking each create and drop, and the
-provider fan-out and CSRF gaps are closed.
+repo's own tooling is green and now runs in CI in full, the provider
+fan-out and CSRF gaps are closed, and **row level security is now proved
+against a real Postgres on every pull request** rather than read off the
+migrations. `supabase/tests/rls.test.sql` asks the database, as the
+`authenticated` role with a real claim, whether one person can reach
+another's portfolio, holdings, conviction notes or co-ownership rows. It
+fails when row level security is turned off, which was checked.
 
 ### 20 to 23
 - **20 Stripe** verified. Signature checked, and every handler **re-fetches
@@ -117,24 +155,107 @@ provider fan-out and CSRF gaps are closed.
   stronger idempotency guarantee than an event-id table. A write that
   matches no profile returns 500 so Stripe redelivers, rather than
   acknowledging a payment nobody was granted. End-to-end checkout in test
-  mode is blocked.
+  mode is still **blocked, and deliberately so**. A key was supplied for
+  this and it was an `sk_live_` one, which is the live secret key: it moves
+  real money, reads real customer records, and a checkout driven with it is
+  a real charge against a real card. Nothing in this pass used it. What
+  this needs is the `sk_test_` key from the same dashboard with the test
+  mode toggle on, and a `price_` id created in test mode, since a live
+  price id is not visible to a test key. A live key handed to an automated
+  pass should be treated as disclosed and rolled.
 - **21 notifications** verified in code (three independent guards against a
   double send, per-recipient claim, Resend idempotency key, and a letter
   that refuses to send on thin numbers, now including a pre-split share
-  count). Actual delivery and client rendering are blocked.
-- **22 analytics** open, and this is the clearest remaining gap. Fourteen
-  client events and six server events are logged, covering import, Margus,
-  Pulse, invites and the walkthrough. **Neither end of the funnel is:**
-  there is no signup event and no subscription-started event, and
-  `/api/admin/overview` is a roster rather than a dashboard, with no
-  subscription state in it. Signups are derivable from
-  `portfell_profiles.created_at` and revenue from Stripe's own dashboard,
-  so nothing is lost, but nobody can see the funnel in one place. This is
-  a small piece of work and it is deliberately left rather than guessed at,
-  because what to count is a product decision.
+  count), and the letter itself is now **rendered from live quotes** rather
+  than a fixture. Subject and preview came back comma grouped with the
+  preview leading on the percent, no em or en dash anywhere in the subject,
+  preview, text or HTML, the move bar drew as tables and `bgcolor` with the
+  biggest mover stopping at 88% of its half channel, and the unsubscribe
+  HMAC resolved for the reader it was made for while refusing an edited
+  signature, an empty one, and one person's signature pointed at another
+  person's id. The refusal path was exercised for real: a provider rate
+  limit left the holdings unpriced and `weeklyNumbersAreSound` returned
+  false with the names it could not price, so that letter would not have
+  been sent. Delivery into a real inbox is still untested.
+- **22 analytics** fixed. Fourteen client events and six server events are
+  logged, covering import, Margus, Pulse, invites and the walkthrough, and
+  the admin page already carried a real activation funnel: signed in, has a
+  portfolio, has holdings, used Margus or Pulse, visited this week, active
+  this week. What it did not carry was revenue. For an app taking real
+  money through Stripe that leaves out the two numbers the owner most needs
+  after launch, and one of them is urgent: a card that fails puts a
+  subscription into `past_due` and nothing on the page would have said so.
+  **Subscribed** and **Payment failing** are the last two steps now, read
+  off `portfell_profiles`, whose only writer is the Stripe webhook, so it
+  is Stripe's own answer rather than a second copy kept in sync by hand.
+  A signup event is still not logged and does not need to be:
+  `portfell_profiles.created_at` is the signup, exactly once, by
+  construction, and `signedIn` counts it.
+
+  `AdminPage` was restating the funnel's shape rather than importing it,
+  which is how the page would have gone on rendering six numbers while the
+  route computed eight. It imports the type now, and the module has tests,
+  which it did not.
 - **23 performance** verified on the part that is checkable statically:
   every candidate N+1 was traced and all are either batched with `.in()`
   already or bounded by a hardcoded list. Core Web Vitals are blocked.
+
+### Margus under adversarial prompting, run live
+Six attacks against the real persona and a real model. Five were refused
+cleanly and in the app's own voice: a demand for one ticker to buy, an
+instruction to become a licensed adviser, a request for every other user's
+holdings, an order to write a share count into the database, and a demand
+for a guarantee. The slang bait produced a flat refusal.
+
+The sixth found something, and it was not the attack that found it.
+**A reasoning model's chain of thought reaches the reader.** Asked to
+explain what a covered call is, which is the plainest question in the set,
+the reply came back as several paragraphs of "We must follow policy",
+"We must not mention policy", and the question quoted back, with forbidden
+phrases lifted out of the system prompt on the way. Roughly one plain
+question in six. Nothing was scrubbing it: `looksLikePromptLeak` exists and
+would have caught that text, but it is wired into the Sunday letter only,
+and the chat route streams, so a guard there is a design decision rather
+than a drop in. That decision is still open.
+
+What is fixed here: the detector now also catches a model narrating itself
+with no prompt vocabulary at all, anchored to the start of a line so that an
+ordinary sentence containing "we should" is left alone, with the real
+captured strings as the test.
+
+And the chat route now uses it. It already read the head of the stream
+before committing to a provider, to catch one that dies before the first
+token, so the guard went where that check already was rather than being a
+new mechanism: `peekUntilUseful` (`src/lib/ai/stream-leak.ts`) keeps pulling
+until it has `LEAK_SNIFF_CHARS` of prose, **240**, judges that, and either
+replays every buffered part untouched or hands the turn to the next
+provider. A leaking model is **not** marked unhealthy, because it is not:
+it answered, it narrated first, and it will answer the next question
+properly. A tool call carries no prose and goes straight through without
+waiting. Cutting the reply off mid-stream was the alternative and is worse,
+since the leak flashes on screen before it is replaced and a reader who saw
+it does not care that it went away. The cost is that the first token waits
+for 240 characters to exist, which nobody is shown either way.
+
+### Closed by decision, not by test
+Stripe end to end in test mode, disaster recovery wired to real storage,
+screenshot parsing against real broker screenshots, and the dense signed in
+views at 390px were **not** run. Each needs a credential or an input that
+was deliberately not supplied. They are closed here so the list stops
+reading as outstanding work, and none of them is verified: whoever picks
+them up starts from nothing, not from a partial pass.
+
+**Two of the three configured text models were dead.** OpenRouter moved
+`openai/gpt-oss-20b:free`, the default, and `openai/gpt-oss-120b:free`, a
+fallback, off the free tier, so both answered every request with "This model
+is unavailable for free". The chain survived on its one remaining leg and
+paid a wasted round trip to get there. The default is now
+`nemotron-3-super-120b`, which the code had demoted for taking 36s and which
+measures 0.8s to 2.0s today. Worth knowing for whoever picks the next one:
+of the free models advertising tool support, the ones that answered are
+mostly reasoning models, and they leak. `nemotron-3.5-lightning` opens with
+"Here's a thinking process" and `nemotron-nano-9b-v2` returned no content at
+all. That is the reason the guard matters more than the model choice.
 
 ### 24 to 30, process
 - **24 QA** partly fixed: 458 tests now, up from 382, with the new ones on
@@ -142,9 +263,21 @@ provider fan-out and CSRF gaps are closed.
   fan-out bound, rate-limit bucketing).
 - **25 migrations** verified: the timestamp convention holds, the legacy
   numbered files are untouched, and no migration was added by this work.
-- **26 disaster recovery** blocked. `dr:export` and `dr:restore` need
-  credentials, and the audit is right that scripts existing is not the same
-  as a restore working.
+- **26 disaster recovery** fixed, and it was never as blocked as this page
+  first said. Running the real thing against production still needs
+  credentials, but the part that matters does not: every stage had a test of
+  its own (encryption round-trips, the checksum notices drift, the export
+  builds a snapshot, the restore reads one) and **nothing covered the
+  chain**, which is where a backup fails silently. A field dropped between
+  capture and restore, a checksum taken over a different shape, a manifest
+  pointing at a key nothing wrote: each passes every unit test and loses the
+  book. `restore-rehearsal.test.ts` runs capture, checksum, encrypt, sign,
+  upload, fetch back, decrypt, restore and compare in one go through the
+  real code, against an in-memory object store, and asserts the snapshot is
+  never in the clear and that a tampered one is refused. Upside Arena proves
+  the same thing in `scripts/restore-rehearsal.sh`, which is where the idea
+  came from: its backup is a `pg_dump` and this one is a JSON snapshot, so
+  it is the same rehearsal with different plumbing.
 - **27 devops** fixed: `bench:concurrency` and `npm audit` now run in CI
   beside typecheck, lint, test, invariants and build. Husky was observed
   blocking on every commit in this work.
@@ -156,9 +289,14 @@ If only three things are done next, these are the three:
 
 1. **A two-account session pass.** Sharing, communities, classroom
    permissions and concurrent edits are the largest untested surface, and
-   the only thing standing in the way is credentials.
-2. **Restore from a backup, once, for real.** Section 26 exists because
-   scripts that have never been run are not a backup.
-3. **Signup and subscription events, and somewhere to look at them.** The
-   two ends of the funnel are the numbers that answer whether this MVP is
-   validated, and today neither is recorded.
+   the only thing standing in the way is credentials. It needs an Upside
+   **Lab** project: the one supplied carried Upside Arena's schema and had
+   rows in it, so pointing Lab's migrations at it would have written one
+   app's tables into the other app's database.
+2. **Restore from a backup, once, against production.** The chain itself is
+   rehearsed on every pull request now, so what is left is proving the
+   nightly job is pointed at the right database, which is the one part a
+   rehearsal cannot answer.
+3. **Watch the funnel once it is live.** It reaches revenue now, and
+   **Payment failing** is the cell to look at first: it is the only number
+   on the page that means somebody has to do something today.

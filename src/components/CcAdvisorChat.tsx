@@ -967,7 +967,9 @@ export function CcAdvisorChat({
       {showSilentCard && (
         <div
           role="status"
-          className="pointer-events-auto w-[min(22rem,calc(100vw-1.5rem))] cursor-pointer overflow-hidden rounded-xl glass ring-1 ring-foreground/20"
+          /* Over the page in the same corner as the panel, so the same
+           * material: see the note on the panel below. */
+          className="pointer-events-auto w-[min(22rem,calc(100vw-1.5rem))] cursor-pointer overflow-hidden rounded-xl glass-overlay ring-1 ring-foreground/20"
           onClick={() => setOpen(true)}
         >
           <div className="flex items-start gap-2.5 px-3.5 py-3">
@@ -1057,9 +1059,24 @@ export function CcAdvisorChat({
       )}
 
       {open && (
+        /*
+         * `glass-overlay`, not `glass`.
+         *
+         * This panel is pinned over the page rather than laid out in it:
+         * on a phone it covers the forecast chart and the holdings table,
+         * and even on desktop the corner panel sits on top of a table of
+         * figures. `glass` is the card material, a 2% white veil at a 6px
+         * blur, built to sit over the ambient field and let the black
+         * through -- so what came through here was the page, and the two
+         * sets of words interleaved. Every other surface that sits over
+         * content already takes the heavy fill: Dialog, Sheet, Drawer,
+         * Popover, Select, the welcome tour, the cookie banner.
+         * DESIGN_TOKENS.md draws the line, and hiding what is beneath is
+         * the whole job of a surface like this one.
+         */
         <section
           ref={panelRef}
-          className={`pointer-events-auto flex flex-col overflow-hidden rounded-xl glass ring-1 ring-foreground/20 transition-[width,height] duration-200 ease-out ${
+          className={`pointer-events-auto flex flex-col overflow-hidden rounded-xl glass-overlay ring-1 ring-foreground/20 transition-[width,height] duration-200 ease-out ${
             wide
               ? "w-[min(56rem,calc(100vw-1.5rem))]"
               : "w-[min(26rem,calc(100vw-1.5rem))]"
@@ -1259,7 +1276,13 @@ export function CcAdvisorChat({
                   className={
                     message.role === "user"
                       ? "ml-0 max-w-[95%] rounded-lg bg-accent/80 px-3 py-2 text-sm text-foreground sm:ml-6"
-                      : "w-full min-w-0 rounded-xl glass ring-1 ring-foreground/20 px-4 py-3 text-base text-foreground"
+                      : /* A well inside the panel, never a second pane on
+                         * top of it: the panel is already doing the
+                         * refraction, and a `glass` bubble stacked on a
+                         * `glass-overlay` body is a second backdrop-filter
+                         * over a surface that has nothing left to show
+                         * through it. */
+                        "card-sheen glass-well w-full min-w-0 rounded-xl px-4 py-3 text-base text-foreground"
                   }
                 >
                   <p
@@ -1455,8 +1478,21 @@ export function CcAdvisorChat({
         </section>
       )}
 
+      {/*
+       * Gold means "open Margus", never "close him".
+       *
+       * This button kept the accent fill in both states and only swapped
+       * the glyph, so while the panel was open the loudest pixel on a
+       * phone was the close button -- sitting a thumb's width from a send
+       * button that is neutral until there is something to send. The
+       * accent read as the way to send a message and was the way to throw
+       * the message away. Open, it goes to the neutral surface every other
+       * dismiss in the app uses, which leaves the panel with exactly one
+       * accent in it and puts that accent on send.
+       */}
       <Button
         type="button"
+        variant={open ? "secondary" : "default"}
         size="icon-lg"
         className="pointer-events-auto size-14 rounded-full [&_svg:not([class*='size-'])]:size-6 lg:size-16"
         onClick={() => setOpen((o) => !o)}

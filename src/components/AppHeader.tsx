@@ -4,8 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/components/AuthProvider";
 import { useFeedback } from "@/components/FeedbackHost";
-import { AppStatusStrip, type AppStatusProps } from "@/components/AppStatusStrip";
+import {
+  AppStatusStrip,
+  type AppStatusProps,
+} from "@/components/AppStatusStrip";
 import { HeaderBrand } from "@/components/HeaderBrand";
+import type { HeaderMenuItem } from "@/components/HeaderOverflowMenu";
 import { MobileTopBar } from "@/components/mobile/MobileTopBar";
 import { UpgradeNudge } from "@/components/billing/UpgradeNudge";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
@@ -32,8 +36,18 @@ type Props = {
    * which is what most pages want.
    */
   mobileTitle?: ReactNode;
-  /** Page actions for the phone row, which has room for fewer of them. */
+  /**
+   * Page actions for the phone row, as real buttons. Room for about one:
+   * every icon button is 44px under `(pointer: coarse)` and the title is
+   * what pays for each of them. Everything else goes in `mobileMenuItems`.
+   */
   mobileEnd?: ReactNode;
+  /**
+   * The page's rows in the phone's one overflow menu. `MobileTopBar`
+   * appends the chrome's own (Upgrade, Feedback) below a rule, so a page
+   * never has to think about them.
+   */
+  mobileMenuItems?: HeaderMenuItem[];
   alertCount?: number;
   onAlerts?: () => void;
 };
@@ -79,11 +93,13 @@ function DefaultAccountEnd() {
 function MobileBarRow({
   title,
   end,
+  menuItems,
   alertCount,
   onAlerts,
 }: {
   title: ReactNode;
   end?: ReactNode;
+  menuItems?: HeaderMenuItem[];
   alertCount?: number;
   onAlerts?: () => void;
 }) {
@@ -99,6 +115,7 @@ function MobileBarRow({
       alertCount={alertCount}
       onAlerts={onAlerts}
       end={end}
+      menuItems={menuItems}
     />
   );
 }
@@ -121,6 +138,7 @@ export function AppHeader({
   status,
   mobileTitle,
   mobileEnd,
+  mobileMenuItems,
   alertCount,
   onAlerts,
 }: Props) {
@@ -155,12 +173,13 @@ export function AppHeader({
         className={cn(
           "chrome-pane sticky top-0 z-40 pt-[env(safe-area-inset-top)]",
           "md:fixed md:inset-x-0 md:top-0 md:pt-0",
-          className
+          className,
         )}
       >
         <MobileBarRow
           title={mobileTitle ?? title}
           end={mobileEnd}
+          menuItems={mobileMenuItems}
           alertCount={alertCount}
           onAlerts={onAlerts}
         />
@@ -177,7 +196,7 @@ export function AppHeader({
           <div
             className={cn(
               PAGE_COLUMN_CLASS,
-              "flex h-12 items-center justify-between gap-2 sm:gap-3"
+              "flex h-12 items-center justify-between gap-2 sm:gap-3",
             )}
           >
             <div className="flex min-w-0 items-center gap-2 text-sm leading-none sm:gap-3">
@@ -191,7 +210,7 @@ export function AppHeader({
                   <span
                     className={cn(
                       "min-w-0 truncate font-medium leading-none",
-                      "text-muted-foreground"
+                      "text-muted-foreground",
                     )}
                   >
                     {title}

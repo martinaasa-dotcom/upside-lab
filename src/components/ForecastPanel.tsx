@@ -22,10 +22,18 @@ import { listingCurrenciesAreMixed } from "@/lib/listing-currency";
 import { PALETTE } from "@/lib/palette";
 import { formatDateTime } from "@/lib/timezone";
 import { isAbortError } from "@/lib/abort";
-import { NO_VALUE, cn, currency, percent, signedCurrency, signedTone } from "@/lib/format";
+import {
+  NO_VALUE,
+  cn,
+  currency,
+  percent,
+  signedCurrency,
+  signedPercent,
+  signedTone,
+} from "@/lib/format";
 import { compactAxis, niceScale } from "@/components/mobile/BookNavChart";
 import { ChartXRail, ChartYAxis } from "@/components/ui/ChartAxis";
-import type { ForecastModel, ForecastYear } from "@/lib/forecast";
+import type { ForecastModel, ForecastRow, ForecastYear } from "@/lib/forecast";
 import {
   ensureCompleteEoyTargets,
   DEFAULT_FORECAST_STANCE,
@@ -50,7 +58,7 @@ import { isForecastFullyCovered } from "@/lib/forecast";
 import { playbookBullets, type PlaybookBullet } from "@/lib/forecast-playbook";
 import { isSafePositiveMoney } from "@/lib/input-guard";
 import { blockWheelChange } from "@/lib/number-input";
-import { Loader2, RotateCcw, Sparkles } from "lucide-react";
+import { ChevronDown, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -61,6 +69,7 @@ import {
   memo,
   type KeyboardEvent,
   type PointerEvent,
+  type ReactNode,
 } from "react";
 
 type Props = {
@@ -221,10 +230,16 @@ function formatGeneratedAt(iso: string) {
 function EoyPriceInput({
   value,
   targeted,
+  fill = false,
   onCommit,
 }: {
   value: number;
   targeted: boolean;
+  /** Fills its row and takes a real touch height. The table variant cannot:
+   * holdings rows are a fixed `h-10`, which is why `.inline-edit` is left out
+   * of the coarse-pointer rule in `globals.css`. A phone rail has the room,
+   * so it asks for the 44px back rather than leaving a 5.5rem target. */
+  fill?: boolean;
   onCommit: (n: number) => void;
 }) {
   const display = Number.isFinite(value) ? value.toFixed(2) : "";
@@ -265,7 +280,13 @@ function EoyPriceInput({
         }
       }}
       className={cn(
-        "inline-edit no-spinner mx-auto w-[5.5rem] max-w-full rounded-t px-1 py-0.5 text-center tabular-nums outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50",
+        "inline-edit no-spinner max-w-full rounded-t px-1 tabular-nums outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50",
+        // Bounded, not `w-full`. The cue is a dashed bottom border on the
+        // element itself, so a full-width field draws a rule across the row
+        // and reads as a separator rather than as digits you can tap.
+        fill
+          ? "ml-auto block w-24 py-1 text-right"
+          : "mx-auto w-[5.5rem] py-0.5 text-center",
         targeted ? "text-foreground" : "text-muted-foreground"
       )}
     />
@@ -531,6 +552,276 @@ function SheetPath({
   );
 }
 
+/**
+ * A holding's whole path in one glance: today on the left, the last
+ * forecast year on the right, and a dashed rule at today's price so above
+ * and below read without a number being involved.
+ *
+ * Deliberately not `SheetPathChart`. That one belongs to the portfolio and
+ * carries an axis, a drag readout and 224px of height; five of them stacked
+ * would be taller than the grid this replaced. This draws the shape and
+ * nothing else, so a card stays short enough that three fit on a phone and
+ * two holdings can finally be compared without scrolling between them.
+ */
+function TickerSpark({ values }: { values: number[] }) {
+  const gid = useId().replace(/:/g, "");
+  const geometry = useMemo(() => {
+    const usable = values.filter((v) => Number.isFinite(v) && v > 0);
+    if (usable.length < 2) return null;
+    const width = 240;
+    const height = 56;
+    const padL = 2;
+    const padR = 8;
+    const padT = 6;
+    const padB = 6;
+    const innerW = width - padL - padR;
+    const innerH = height - padT - padB;
+    const min = Math.min(...usable);
+    const max = Math.max(...usable);
+    const span = max - min;
+    const lastIdx = usable.length - 1;
+    const xAt = (i: number) => padL + (i / lastIdx) * innerW;
+    // A path with no movement in it has no top or bottom to scale to, so
+    // it is drawn down the middle rather than pinned to one edge.
+    const yAt = (v: number) =>
+      span === 0 ? padT + innerH / 2 : padT + (1 - (v - min) / span) * innerH;
+    const line = usable
+      .map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`)
+      .join(" ");
+    const floor = (padT + innerH).toFixed(1);
+    return {
+      width,
+      height,
+      padL,
+      padR,
+      line,
+      area: `${xAt(0).toFixed(1)},${floor} ${line} ${xAt(lastIdx).toFixed(1)},${floor}`,
+      baseY: yAt(usable[0]!),
+      // The dot is HTML, not a `<circle>`, because the viewBox is stretched
+      // to the card width and a circle under a non-uniform scale is an egg.
+      dotLeft: (xAt(lastIdx) / width) * 100,
+      dotTop: (yAt(usable[lastIdx]!) / height) * 100,
+    };
+  }, [values]);
+
+  if (!geometry) return null;
+  const { width, height, padL, padR, line, area, baseY, dotLeft, dotTop } =
+    geometry;
+
+  return (
+    <div className="relative mt-4">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        className="h-14 w-full"
+        aria-hidden
+      >
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={PALETTE.brand} stopOpacity="0.22" />
+            <stop offset="1" stopColor={PALETTE.brand} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <line
+          x1={padL}
+          x2={width - padR}
+          y1={baseY}
+          y2={baseY}
+          stroke="currentColor"
+          strokeOpacity={0.25}
+          strokeDasharray="3 3"
+          vectorEffect="non-scaling-stroke"
+        />
+        <polygon points={area} fill={`url(#${gid})`} />
+        <polyline
+          fill="none"
+          stroke={PALETTE.brand}
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+          points={line}
+        />
+      </svg>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-background"
+        style={{ left: `${dotLeft}%`, top: `${dotTop}%` }}
+      />
+    </div>
+  );
+}
+
+/**
+ * Years read down the card, one per row, in the order they happen.
+ *
+ * The grid this replaced was two columns, so the sequence ran 2026 top
+ * right, 2027 bottom left: time going rightwards and then back. Down the
+ * page there is only one direction to read.
+ */
+function YearRail({ children }: { children: ReactNode }) {
+  return <div className="mt-3 flex flex-col">{children}</div>;
+}
+
+/**
+ * The note cell is always drawn, empty or not, so the figures in it line up
+ * with the figures above and below rather than each row sizing itself.
+ */
+function YearRailRow({
+  label,
+  current,
+  value,
+  note,
+}: {
+  label: string;
+  current?: boolean;
+  value: ReactNode;
+  note?: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-12 items-center gap-3 border-t border-border/60 py-1 first:border-t-0">
+      <MicroLabel className="w-20 shrink-0">
+        <span className={cn(current && "text-foreground")}>{label}</span>
+      </MicroLabel>
+      <div className="min-w-0 flex-1 text-right">{value}</div>
+      <div className="w-16 shrink-0 text-right">{note}</div>
+    </div>
+  );
+}
+
+/**
+ * One holding on a phone: the shape first, the numbers on a tap.
+ *
+ * The card used to be a two-column grid of five editable prices with
+ * today's price sitting in it as a sixth peer, and it dropped the last
+ * forecast year to make the columns divide evenly — while the percentage in
+ * its own corner was measured to that dropped year, so the card could never
+ * add up to its own headline. Here the path runs to the last year, the
+ * summary names it, and the rail lists every one of them.
+ */
+function MobileForecastCard({
+  row,
+  years,
+  mixedListings,
+  onSetEoyPrice,
+}: {
+  row: ForecastRow;
+  years: readonly ForecastYear[];
+  mixedListings: boolean;
+  onSetEoyPrice: (ticker: string, year: ForecastYear, price: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const railId = useId();
+  const lastYear = years[years.length - 1]!;
+  const values = useMemo(
+    () => [row.currentPrice, ...years.map((y) => row.eoyPrices[y])],
+    [row, years]
+  );
+  const gainAt = (price: number) =>
+    row.currentPrice > 0 ? (price - row.currentPrice) / row.currentPrice : null;
+
+  return (
+    <Card>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-controls={railId}
+        className="block w-full text-left outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/50"
+      >
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="block">
+            <span className="block text-base font-semibold text-foreground">
+              <TickerSymbol ticker={row.ticker} showCurrency={mixedListings} />
+            </span>
+            <span className="mt-1 block text-sm text-muted-foreground">
+              {row.shares.toLocaleString("en-US")} shares
+              {!row.hasTargets && " - Margus is working on it"}
+            </span>
+          </span>
+          <span
+            className={cn(
+              "text-sm font-medium tabular-nums",
+              row.gainPct != null
+                ? signedTone(row.gainPct)
+                : "text-muted-foreground"
+            )}
+          >
+            {row.gainPct != null ? percent(row.gainPct) : NO_VALUE}
+          </span>
+        </span>
+
+        <TickerSpark values={values} />
+
+        {!open && (
+          <span className="mt-3 flex items-end justify-between gap-3">
+            <span className="block">
+              <MicroLabel>Now</MicroLabel>
+              <span className="mt-1 block text-base font-semibold tabular-nums text-foreground">
+                {currency(row.currentPrice)}
+              </span>
+            </span>
+            <span className="block text-right">
+              <MicroLabel>{yearLabel(lastYear)}</MicroLabel>
+              <span className="mt-1 block text-base font-semibold tabular-nums text-foreground">
+                {currency(row.eoyPrices[lastYear])}
+              </span>
+            </span>
+          </span>
+        )}
+
+        <span className="mt-3 flex items-center justify-center gap-1 text-sm text-muted-foreground">
+          {open ? "Show less" : "Show every year"}
+          <ChevronDown
+            aria-hidden
+            className={cn("size-4 transition-transform", open && "rotate-180")}
+          />
+        </span>
+      </button>
+
+      {open && (
+        <div id={railId}>
+          <YearRail>
+            <YearRailRow
+              label="Now"
+              value={
+                <span className="block px-1 py-1 text-sm tabular-nums text-foreground">
+                  {currency(row.currentPrice)}
+                </span>
+              }
+            />
+            {years.map((y) => {
+              const gain = gainAt(row.eoyPrices[y]);
+              return (
+                <YearRailRow
+                  key={y}
+                  label={yearLabel(y)}
+                  current={isCurrentYear(y)}
+                  value={
+                    <EoyPriceInput
+                      fill
+                      value={row.eoyPrices[y]}
+                      targeted={row.targetedYears[y]}
+                      onCommit={(n) => onSetEoyPrice(row.ticker, y, n)}
+                    />
+                  }
+                  note={
+                    <span
+                      className={cn("text-sm tabular-nums", signedTone(gain))}
+                    >
+                      {gain != null ? signedPercent(gain) : NO_VALUE}
+                    </span>
+                  }
+                />
+              );
+            })}
+          </YearRail>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export const ForecastPanel = memo(function ForecastPanel({
   model,
   portfolioId,
@@ -544,7 +835,6 @@ export const ForecastPanel = memo(function ForecastPanel({
   labReady = true,
 }: Props) {
   const yearCols = model.years;
-  const mobileYears = yearCols.filter((y) => y !== 2030);
   const mixedListings = listingCurrenciesAreMixed(
     model.rows.map((r) => ({ ticker: r.ticker }))
   );
@@ -984,54 +1274,13 @@ export const ForecastPanel = memo(function ForecastPanel({
           {/* Mobile */}
           <div className="flex flex-col gap-3 p-4 md:hidden">
             {model.rows.map((r) => (
-              <Card key={r.ticker}>
-                <div className="flex items-baseline justify-between gap-2">
-                  <div>
-                    <p className="text-base font-semibold text-foreground">
-                      <TickerSymbol
-                        ticker={r.ticker}
-                        showCurrency={mixedListings}
-                      />
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {r.shares.toLocaleString("en-US")} shares
-                      {!r.hasTargets && " - Margus is working on it"}
-                    </p>
-                  </div>
-                  <p
-                    className={cn(
-                      "text-sm font-medium tabular-nums",
-                      r.gainPct != null
-                        ? signedTone(r.gainPct)
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    {r.gainPct != null ? percent(r.gainPct) : NO_VALUE}
-                  </p>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div>
-                    <MicroLabel>Price now</MicroLabel>
-                    <p className="mt-1 text-base font-semibold tabular-nums text-foreground">
-                      {currency(r.currentPrice)}
-                    </p>
-                  </div>
-                  {mobileYears.map((y) => (
-                    <div key={y}>
-                      <MicroLabel>
-                        <span className={cn(isCurrentYear(y) && "text-foreground")}>
-                          <YearColHeader year={y} />
-                        </span>
-                      </MicroLabel>
-                      <EoyPriceInput
-                        value={r.eoyPrices[y]}
-                        targeted={r.targetedYears[y]}
-                        onCommit={(n) => onSetEoyPrice(r.ticker, y, n)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </Card>
+              <MobileForecastCard
+                key={r.ticker}
+                row={r}
+                years={yearCols}
+                mixedListings={mixedListings}
+                onSetEoyPrice={onSetEoyPrice}
+              />
             ))}
 
             <div className={cn("card-sheen glass-well rounded-lg", NESTED_PAD)}>
@@ -1041,33 +1290,37 @@ export const ForecastPanel = memo(function ForecastPanel({
               <p className="mt-1.5 font-sans text-lg font-semibold leading-none tabular-nums text-foreground">
                 {currency(model.currentTotal)}
               </p>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                {mobileYears.map((y) => (
-                  <div key={y}>
-                    <p
-                      className={cn(
-                        "text-muted-foreground",
-                        isCurrentYear(y) && "text-foreground"
-                      )}
-                    >
-                      <YearColHeader year={y} />
-                    </p>
-                    <p className="tabular-nums text-foreground">
-                      {currency(model.eoyTotals[y])}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              {model.gainPct != null && (
-                <p
-                  className={cn(
-                    "mt-3 hidden text-sm font-medium tabular-nums md:block",
-                    signedTone(model.gainPct)
-                  )}
-                >
-                  To {yearCols[yearCols.length - 1]} · {percent(model.gainPct)}
-                </p>
-              )}
+              <YearRail>
+                {yearCols.map((y) => {
+                  const gain =
+                    model.currentTotal > 0
+                      ? (model.eoyTotals[y] - model.currentTotal) /
+                        model.currentTotal
+                      : null;
+                  return (
+                    <YearRailRow
+                      key={y}
+                      label={yearLabel(y)}
+                      current={isCurrentYear(y)}
+                      value={
+                        <span className="text-sm tabular-nums text-foreground">
+                          {currency(model.eoyTotals[y], 0)}
+                        </span>
+                      }
+                      note={
+                        <span
+                          className={cn(
+                            "text-sm tabular-nums",
+                            signedTone(gain)
+                          )}
+                        >
+                          {gain != null ? signedPercent(gain) : NO_VALUE}
+                        </span>
+                      }
+                    />
+                  );
+                })}
+              </YearRail>
             </div>
           </div>
 

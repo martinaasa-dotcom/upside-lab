@@ -620,8 +620,14 @@ function Closing({
  *
  * The card is deliberately allowed to run past the bottom of the window,
  * because a page whose content is visibly cut off by the fold is one nobody
- * mistakes for finished. On a window taller than the hero there is no cut
- * to do that work, and `ScrollCue` says it in words instead.
+ * mistakes for finished, and on every phone and most laptops that is what
+ * happens. On a taller window there is no cut, so the height floor below
+ * keeps the next section in view instead. Between those two, on a window
+ * where the card clears the fold whole and nothing after it has started,
+ * `ScrollCue` says it in words. Which of the three a reader gets is measured
+ * on the real page rather than guessed at, and the cue is laid out inside
+ * this section so that it scrolls with the page rather than hovering over
+ * it.
  */
 function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
   return (
@@ -638,15 +644,20 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
      * than this and the sample card is cut instead, which says the same
      * thing more loudly.
      *
-     * 9rem and not less, because `ScrollCue` fades the bottom 5rem of the
-     * window into the field and a peek shorter than that would be faded
-     * out by the thing meant to be pointing at it.
+     * 9rem and not less, because what has to be in view is a heading rather
+     * than a section's own top padding: 48px of that peek is the pad, which
+     * leaves 96px of the heading showing. That is also what makes
+     * `ScrollCue` stand down on a tall window, since the page is already
+     * saying it.
      *
      * `svh` rather than `dvh`, so a phone that later retracts its address
      * bar does not find the hero taller than the window it was sized
      * against.
+     *
+     * `relative`, because the cue is laid out against the top of this
+     * section, which is the top of the document.
      */
-    <section className="min-h-[calc(100svh-9rem)] px-6 pb-10 pt-[max(2.5rem,env(safe-area-inset-top))] sm:pb-14">
+    <section className="relative min-h-[calc(100svh-9rem)] px-6 pb-10 pt-[max(2.5rem,env(safe-area-inset-top))] sm:pb-14">
       <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col items-center text-center">
         <UpsideLogo variant="icon" className="signin-rise-1 text-lg" />
         {notice}
@@ -696,20 +707,27 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
       {/*
         * On a phone and on most laptops the card runs past the bottom of
         * the window, and that cut is the strongest continuation cue there
-        * is. It is not, on its own, a scroll affordance, which is what this
-        * page assumed for a while: the cut only exists while the hero is
-        * taller than the window, and on a large desktop display the whole
-        * of it, sample card included, lands inside the fold with nothing
-        * severed and nothing else on the screen saying the page goes on.
+        * is. It is not, on its own, a scroll affordance: the cut only
+        * exists while the hero is taller than the window.
         *
-        * `ScrollCue` is the backstop for exactly that window, and it is
-        * pinned to the bottom of the *window* rather than laid out under
-        * the card, which is where the old chevron sat and why it was
-        * useless: below the fold, at the one moment the hint was needed.
+        * Marked, because `ScrollCue` measures this card against the fold. A
+        * card the fold cuts needs no words under it, and a card that clears
+        * the fold whole leaves nothing else on the screen saying the page
+        * continues.
         */}
-      <div className="signin-rise-3 mx-auto mt-12 w-full min-w-0 max-w-3xl sm:mt-14">
+      <div
+        data-scroll-cue-still
+        className="signin-rise-3 mx-auto mt-12 w-full min-w-0 max-w-3xl sm:mt-14"
+      >
         <BookWide />
       </div>
+
+      {/*
+        * In the page rather than over it: it draws in the band just above
+        * the first fold and scrolls away with the hero. See ScrollCue.tsx
+        * for what pinning it to the window cost.
+        */}
+      <ScrollCue />
     </section>
   );
 }
@@ -814,12 +832,6 @@ export function SignedOutLanding(props: HeroProps) {
         minAge={props.minAge}
         onSignIn={props.onSignIn}
       />
-      {/*
-       * Fixed to the window, so where it sits in the tree only decides what
-       * it stacks against: inside `main`, which is `z-10`, and under the
-       * cookie question at `z-50`.
-       */}
-      <ScrollCue />
     </main>
   );
 }

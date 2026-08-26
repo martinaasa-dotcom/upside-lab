@@ -32,7 +32,7 @@ import { useNetworkResume } from "@/lib/use-network-resume";
 import { NO_VALUE, cashtag, cn, currency, percent, signedCurrency, signedTone } from "@/lib/format";
 import { PALETTE } from "@/lib/palette";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
-import { isWorkspaceRoomActive } from "@/lib/workspace-rooms";
+import { isWorkspaceRoomActive, onWorkspaceRefresh } from "@/lib/workspace-rooms";
 import { UPSIDE_PORTFOLIO_DISCLAIMER } from "@/lib/disclaimer";
 import { FUND_X_URL } from "@/lib/product";
 import { useLoadingMessage } from "@/lib/use-loading-message";
@@ -1167,9 +1167,21 @@ export function UpsidePortfolioPage() {
       if (!document.hidden) tick("view");
     }
     document.addEventListener("visibilitychange", onVisible);
+    /*
+      A pull asks for the same two things this cycle asks for, minus the
+      freshness check: somebody who has just pulled the page down is asking
+      for the number now, whatever the cadence thinks.
+    */
+    const offPull = onWorkspaceRefresh("fund", () =>
+      Promise.all([
+        pollRef.current.load("background"),
+        pollRef.current.refreshBenchmarkValue(),
+      ])
+    );
     return () => {
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
+      offPull();
     };
   }, []);
 

@@ -341,7 +341,30 @@
 html {
   color-scheme: dark;
   -webkit-text-size-adjust: 100%;
-  overflow-x: clip;
+  /*
+   * Sideways overflow is clipped on `body` alone, never here as well.
+   *
+   * With nothing set on the root, `html` is `overflow: visible` in both
+   * axes, so the viewport takes its overflow from `body` instead: the page
+   * still cannot be dragged sideways, and `html` stops being a scroll
+   * container. That second half is the whole reason. Floating UI, which
+   * positions every Radix menu, select, popover and tooltip in the app,
+   * asks whether the root is an overflow element -- and `clip` counts --
+   * and when it is, it places a popper in document coordinates rather than
+   * viewport ones. For anything in the page those two agree, because a
+   * card at document y 500 really is at viewport y 500 minus the scroll.
+   * For the chrome they do not: the phone's top bar is `sticky` and the
+   * desktop header is `fixed`, so both sit at the top of the screen while
+   * their place in the document stays at the top of the page. Measured on
+   * a 390px phone scrolled 186px down, the header's overflow menu opened
+   * at viewport y -132: it was open, focused and off the top of the
+   * screen. A reader taps the three dots, sees nothing appear, taps again
+   * and closes it. Every menu hung off the chrome had it -- the phone's
+   * More menu, the desktop View and account menus, the dock's picker --
+   * and only while the page was scrolled, which is why it read as
+   * intermittent. `src/lib/root-overflow.test.ts` fails if this comes
+   * back.
+   */
   scrollbar-gutter: stable;
   scroll-padding-top: 6.5rem;
   scroll-padding-bottom: max(var(--dock-pad, 0px), var(--vv-keyboard, 0px));
@@ -1527,6 +1550,18 @@ button:disabled,
    * Root scroller only; containers inside the page keep their own
    * behaviour. Set on both elements because which one is the root scroller
    * differs between engines and the property does not inherit.
+   *
+   * THIS IS ALSO THE SWITCH THAT TAKES THE BROWSER'S OWN PULL TO REFRESH
+   * AWAY, and there is no setting that keeps one and not the other. Losing it
+   * mattered more than it looks: the app runs standalone, so there is no
+   * address bar and therefore no reload button anywhere in it, and the status
+   * strip reports how old the prices are to somebody who could do nothing at
+   * all about the answer. So the gesture is drawn by hand instead, in
+   * `components/PullToRefresh.tsx`, which moves the room's own `<main>` and
+   * leaves the chrome exactly where it is. That component needs this line
+   * rather than fighting it: with the bounce gone, a downward drag at the top
+   * of the page scrolls nothing, which is what lets every touch listener in
+   * it be passive.
    */
   html,
   body {
@@ -1548,5 +1583,91 @@ button:disabled,
     @apply placeholder:text-muted-foreground;
     @apply focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50;
     @apply disabled:cursor-not-allowed disabled:opacity-50;
+  }
+}
+
+/*
+  Pull to refresh: where the ring sits, and the only two things it animates.
+
+  `--ptr-top` is the bottom edge of the chrome, written out as the arithmetic
+  it is rather than as a rounded number, because the ring has to appear in the
+  gap the pull opens and that gap begins exactly where the chrome ends. On a
+  phone that is the top bar at 3.5rem, the status strip at 2.25rem, the
+  hairline under them, and the top safe area, which is a real term on a
+  notched phone running this as an installed app. From `md` the chrome is
+  fixed rather than sticky, drops the safe area and its header row is 3rem,
+  which is the same 5.25rem plus a hairline the page spacer already reserves.
+
+  IT IS FIXED, AND THAT IS SAFE HERE IN A WAY IT IS NOT ON THE LANDING PAGE.
+  The rule there is the pair rather than either half: nothing may be pinned
+  over the content AND filter its backdrop, because a backdrop-filter over
+  moving content re-filters what is behind it every frame. This has no
+  backdrop-filter and must never grow one. It is a ring on a transparent
+  ground, and a fixed element with nothing behind it to filter is free.
+
+  `will-change` is set from the component for the length of a gesture and
+  taken off again. Written into this file it would hold a compositor layer for
+  the whole session to serve a gesture nobody is making yet.
+*/
+:root {
+  --ptr-top: calc(5.75rem + 1px + env(safe-area-inset-top));
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --ptr-top: calc(5.25rem + 1px);
+  }
+}
+
+.ptr {
+  position: fixed;
+  top: var(--ptr-top);
+  right: 0;
+  left: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, 0, 0) scale(0.86);
+}
+
+/*
+  The arc starts at twelve o'clock, which is where a thumb dragging downward
+  expects a circle to begin filling. Its dash offset is the one thing here
+  that is a paint rather than a composite, and it is a 22px box once a frame.
+*/
+.ptr-arc {
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* A quarter of the circle, turning, for as long as the answer takes. */
+@keyframes ptr-working {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ptr-ring {
+  transform-origin: 50% 50%;
+}
+
+.ptr-ring[data-working] {
+  animation: ptr-working 720ms linear infinite;
+}
+
+/*
+  The ring does not turn for somebody who has asked for less motion.
+
+  The component never sets the attribute in that case; this is here so the
+  intent is written down beside the animation. What that reader gets instead
+  is the whole circle, drawn and held still, which is a state rather than a
+  performance. The pull itself is untouched: it is their own finger moving the
+  page, and direct manipulation is not the motion that setting is about.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .ptr-ring[data-working] {
+    animation: none;
   }
 }

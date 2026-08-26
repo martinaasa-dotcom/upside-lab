@@ -125,6 +125,22 @@ come back with the same answer. Each instance learns once now.
   of the API-exposed schema entirely by `20260821160000`. The fourth
   apparent survivor, `portfell_share_links_select`, belongs to a table
   dropped in `013`.
+
+  **That was a reading, and a reading cannot tell you whether a policy
+  holds.** It is asked of a database now. `supabase/tests/run.sh` builds the
+  schema from `shim.sql` plus all 75 migrations against a plain Postgres and
+  runs `rls.test.sql`, which acts as the `authenticated` role with a real
+  claim, exactly as PostgREST does with a user's token, and goes at the
+  tables directly. It asserts that one person cannot read another's
+  portfolio, holdings, conviction notes or the owners table that decides all
+  three; cannot update, delete or insert into any of them; cannot write
+  herself into `portfell_portfolio_owners`, which is the single insert that
+  would make every other check pass for the wrong person; and that a
+  signed-out request comes away with nothing. It fails when row level
+  security is off, which was checked rather than assumed: disabling it on
+  `portfell_holdings` produces "Ann sees 2 holdings, expected only her own".
+  No credentials and no Docker, so it runs on every pull request. This is
+  Upside Arena's harness, which Lab did not have.
 - **Environment isolation.** `src/lib/supabase/env.ts` resolves the URL and
   keys from env only, with no hardcoded project, and `check-ci-env.ts` runs
   in the build job specifically to reject a real secret leaking into the

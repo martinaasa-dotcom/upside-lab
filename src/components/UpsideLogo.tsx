@@ -20,7 +20,6 @@ type Props = {
   variant?: "mark" | "wordmark" | "icon" | "stack";
   title?: string;
   /** Keep UPSIDE LAB visible on narrow screens (mobile app bar). */
-  alwaysType?: boolean;
 };
 
 /** Canonical header chrome size — keep every app bar on the same lockup. */
@@ -163,7 +162,7 @@ function LogoType({ className }: { className?: string }) {
     <span
       className={cn(
         "font-logo uppercase leading-none tracking-wide text-foreground",
-        className
+        className,
       )}
     >
       <span className="font-bold">Upside</span>
@@ -176,11 +175,14 @@ export function UpsideLogo({
   className,
   variant = "wordmark",
   title = PRODUCT_NAME,
-  alwaysType = false,
 }: Props) {
   if (variant === "mark") {
     return (
-      <span className={cn("inline-flex", className)} role="img" aria-label={title}>
+      <span
+        className={cn("inline-flex", className)}
+        role="img"
+        aria-label={title}
+      >
         {/* The caller sizes this one, so take the app bar's cut as the floor. */}
         <UpsideMark className="h-full w-full" drawnAt={40} />
       </span>
@@ -213,7 +215,7 @@ export function UpsideLogo({
       <span
         className={cn(
           "inline-flex items-center gap-3.5 text-[1.75rem] leading-none",
-          className
+          className,
         )}
         role="img"
         aria-label={title}
@@ -237,9 +239,7 @@ export function UpsideLogo({
         className={cn(MARK_SIZE.wordmark.classes, LOCKUP_MARK_NUDGE)}
         drawnAt={MARK_SIZE.wordmark.drawnAt}
       />
-      <LogoType
-        className={alwaysType ? "max-[22.5rem]:hidden" : "hidden xs:inline"}
-      />
+      <LogoType className="hidden xs:inline" />
     </span>
   );
 }

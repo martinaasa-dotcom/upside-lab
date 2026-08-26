@@ -27,7 +27,6 @@ import {
 import type { ConvictionEntry, ConvictionMap } from "@/lib/conviction";
 import type { EarningsEvent, WeekReturn } from "@/lib/market/yahoo";
 import type { Quote } from "@/lib/types";
-import { pendingSplitAdjustments } from "@/lib/market/corporate-actions";
 
 type HoldingRow = {
   ticker: string;
@@ -490,33 +489,6 @@ export function weeklyNumbersAreSound(input: WeeklyLetterInput): LetterTrust {
     if (weekPctOf(input.weekReturns?.[ticker]) != null) covered += positionValue;
   }
 
-  // A share count that predates a split values the position at a fraction
-  // of the truth, and the letter would state that fraction as this week's
-  // money. The app says so on the holdings table with a one-click fix, so
-  // this waits for the reader rather than mailing a confident wrong figure.
-  const preSplit = Object.values(
-    pendingSplitAdjustments(
-      input.holdings.map((h, i) => ({
-        id: String(i),
-        ticker: h.ticker,
-        shares: h.shares,
-        buy_price: h.buy_price,
-        updated_at: h.updated_at,
-      })),
-      Object.fromEntries(
-        Object.entries(input.quotes)
-          .filter(([, q]) => q?.splits?.length)
-          .map(([t, q]) => [t.toUpperCase(), q.splits!])
-      )
-    )
-  ).map((fix) => fix.ticker);
-  if (preSplit.length > 0) {
-    return {
-      ok: false,
-      reason: `share count predates a split for ${[...new Set(preSplit)].join(", ")}`,
-    };
-  }
-
   if (unpriced.length > 0) {
     return { ok: false, reason: `no price for ${unpriced.join(", ")}` };
   }
@@ -926,7 +898,15 @@ function heroFigure(r: WeeklyLetter, names: string): string {
 <p style="margin:16px 0 0 0;font-family:${EMAIL.sans};font-size:13px;letter-spacing:0.01em;color:${EMAIL.muted}">Your portfolio <span style="font-family:${EMAIL.mono};color:${EMAIL.cream}">${escapeEmail(money(r.book))}</span> &middot; ${escapeEmail(names)}</p>`;
 }
 
-export function weeklyLetterHtml(r: WeeklyLetter): string {
+export function weeklyLetterHtml(
+  r: WeeklyLetter,
+  /*
+    A link that stops the letter by itself, when one can be signed. Optional
+    so that every caller that only wants to see what a letter looks like, the
+    tests and the preview among them, does not have to invent one.
+  */
+  unsubscribeUrl?: string
+): string {
   const names = r.nameCount === 1 ? "1 name" : `${r.nameCount} names`;
 
   /*
@@ -979,6 +959,6 @@ ${aheadBlock}
 ${emailButton(BOOK_URL, "Open your portfolio")}`,
     // The disclaimer sits in the footer rather than inside Margus's card,
     // so it is there whether or not the model wrote anything that week.
-    footer: `<p style="margin:34px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">${escapeEmail(ADVICE_DISCLAIMER_SHORT)}</p>${emailAccountFooter()}`,
+    footer: `<p style="margin:34px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">${escapeEmail(ADVICE_DISCLAIMER_SHORT)}</p>${emailAccountFooter(unsubscribeUrl)}`,
   });
 }

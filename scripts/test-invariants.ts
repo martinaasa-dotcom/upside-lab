@@ -2414,7 +2414,17 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
   assert.doesNotMatch(frame, /#0d110f/);
   assert.doesNotMatch(frame, /#1a2820/);
   assert.doesNotMatch(frame, /#2d3d32/);
-  assert.match(modeDock, /bg-primary text-primary-foreground/);
+  /*
+   * The dock spends no accent at all now. Where you are is said by one
+   * neutral marker that slides behind the cells, because which room you are
+   * in is the least surprising fact on the screen and a slab of mustard the
+   * width of a cell was the loudest thing on the bar for the least reason.
+   * The rule that stands is the one this used to protect from the other
+   * side: a selected surface is either the accent at full lightness or a
+   * neutral veil with foreground type, never a dim tint in between.
+   */
+  assert.match(modeDock, /bg-foreground\/10/);
+  assert.doesNotMatch(modeDock, /bg-primary text-primary-foreground/);
   assert.doesNotMatch(tabs, /bg-white text-black/);
 
   const bland = [
@@ -4436,14 +4446,27 @@ run("Pulse can price a bare EU ETF like VUAA", () => {
     join(process.cwd(), "src/components/mobile/MobileTabBar.tsx"),
     "utf8"
   );
-  assert.match(dock, /bg-primary text-primary-foreground/);
   /*
-   * `bg-muted` went with the flat fills. The cell is still a `rounded-lg`
-   * inside the `p-1` shell (concentric corners, 12 - 4 = 8), and the press
-   * is a veil drawn behind it.
+   * A capsule that hugs its contents, carrying glyphs and no words, with
+   * one neutral marker sliding behind the cells. `rounded-full` on both the
+   * shell and the cells, which is the one radius pair that stays concentric
+   * at any size; the old `rounded-xl` / `rounded-lg` pair was arithmetic
+   * (12 - 4 = 8) and this needs none.
+   *
+   * The accent is spent on news rather than on where you are: the only
+   * saturated pixel left on the bar is the alert dot.
    */
-  assert.match(dock, /rounded-lg/);
+  assert.match(dock, /rounded-full/);
   assert.match(dock, /bg-foreground\/10/);
+  assert.doesNotMatch(dock, /bg-primary text-primary-foreground/);
+  /*
+   * The promise that makes a wordless bar safe: it says the name of every
+   * room you touch, on `pointerdown` rather than on `click`, because a name
+   * arriving after the tap it was meant to answer is a name nobody needed.
+   * `onFocus` fires it too, since a keyboard never presses anything.
+   */
+  assert.match(dock, /onPointerDown=\{\(e\) => say\(shortLabel, e\.currentTarget\)\}/);
+  assert.match(dock, /onFocus=\{\(e\) => say\(shortLabel, e\.currentTarget\)\}/);
   assert.match(dock, /stashOpenTab\("lab"\)/);
   assert.match(dock, /stashOpenTab\("compound"\)/);
   assert.doesNotMatch(dock, /label: "Account"/);
@@ -4646,6 +4669,19 @@ run("split rows stack on a phone so copy fills the card", () => {
 });
 
 run("assumed YTD NAV uses current size and forward-fills gaps", () => {
+  /*
+   * This used to assert `2 * 0 (BBB not listed yet)`, which is not what
+   * the name says and not what the chart is for. Forward-filling a gap
+   * means carrying a name's last close through a day it did not trade,
+   * and there is something to carry. Before a name's *first* close there
+   * is nothing, and pricing it at zero does not draw the book slightly
+   * low, it draws a rise that never happened: two flat holdings whose
+   * histories start three days apart came out at +50%.
+   *
+   * So the path starts on the first day the whole book can be priced, and
+   * both halves are asserted here: BBB's late start moves the beginning,
+   * and AAA's missing Jan 6 is carried forward from Jan 5.
+   */
   const points = reconstructAssumedNav(
     1000,
     [
@@ -4657,13 +4693,18 @@ run("assumed YTD NAV uses current size and forward-fills gaps", () => {
         { date: "2026-01-02", close: 10 },
         { date: "2026-01-05", close: 12 },
       ],
-      BBB: [{ date: "2026-01-05", close: 50 }],
+      BBB: [
+        { date: "2026-01-05", close: 50 },
+        { date: "2026-01-06", close: 50 },
+      ],
     }
   );
+  // Jan 2 is not drawn: BBB cannot be priced, so the book cannot be.
   assert.equal(points.length, 2);
-  // Jan 2: cash 1000 + 10*10 + 2*0 (BBB not listed yet)
-  assert.equal(points[0]!.nav, 1100);
+  assert.equal(points[0]!.date, "2026-01-05");
   // Jan 5: cash 1000 + 10*12 + 2*50
+  assert.equal(points[0]!.nav, 1220);
+  // Jan 6: AAA did not print, so its Jan 5 close is carried forward.
   assert.equal(points[1]!.nav, 1220);
   const weeks = downsampleToWeeks(points);
   assert.ok(weeks.length >= 1);
@@ -5094,9 +5135,10 @@ run("buying a name spends cash and selling adds it back", () => {
     ),
     820
   );
+  // Borrowed money is negative cash on any portfolio, paper or real.
   assert.equal(
     sheetCashBalance({ cash_balance: -1600 }),
-    0
+    -1600
   );
   assert.equal(
     sheetCashBalance({
@@ -5189,9 +5231,10 @@ run("buying a name spends cash and selling adds it back", () => {
       },
     }
   );
-  assert.equal(realNav.totals.cash, 0);
+  // The borrowed $1,600 counts against the total rather than vanishing.
+  assert.equal(realNav.totals.cash, -1600);
   assert.equal(realNav.totals.equityValue, 2000);
-  assert.equal(realNav.totals.totalValue, 2000);
+  assert.equal(realNav.totals.totalValue, 400);
   const holdingsApi = readFileSync(
     join(process.cwd(), "src/app/api/holdings/route.ts"),
     "utf8"
@@ -5202,13 +5245,15 @@ run("buying a name spends cash and selling adds it back", () => {
     join(process.cwd(), "src/components/CashModal.tsx"),
     "utf8"
   );
-  assert.match(cashModal, /allowNegative/);
-  assert.doesNotMatch(cashModal, /can be negative/);
+  // A phone number pad has no minus key, so the sign is a toggle.
+  assert.match(cashModal, /Money borrowed/);
+  assert.doesNotMatch(cashModal, /allowNegative/);
   const portfoliosApi = readFileSync(
     join(process.cwd(), "src/app/api/portfolios/route.ts"),
     "utf8"
   );
-  assert.match(portfoliosApi, /cannot go below zero/);
+  assert.doesNotMatch(portfoliosApi, /cannot go below zero/);
+  assert.match(portfoliosApi, /isSafeSignedMoney\(raw\)/);
 });
 
 run("saves list hides nightly rows", () => {
@@ -6020,10 +6065,10 @@ run("workspace nav marks the current room and the skip link exists", () => {
   // must not wear the primary CTA fill and compete with the one real
   // button in the bar. It used to take primary text to say so. It does not
   // any more, and that is the design note in DESIGN_TOKENS.md rather than
-  // a slip: the accent is either the full-lightness fill on a selected
-  // dock cell or nothing, and this is the one selected state that has to
-  // stay out of the header CTA's way. A raised neutral surface with
-  // foreground text says "you are here" quietly enough.
+  // a slip: a selected surface is either the accent at full lightness or a
+  // neutral veil with foreground type, never a dim tint in between. Both
+  // docks take the second of those now, so this is no longer the lone
+  // exception it was written as.
   assert.ok(/aria-current=\{active \? "page"/.test(switcher));
   assert.ok(/bg-selected/.test(switcher));
   assert.ok(/text-foreground/.test(switcher));
@@ -6429,14 +6474,33 @@ run("in-app feedback is a monthly walk-through and freeform when you open it", (
   assert.doesNotMatch(
     host,
     /fixed right-4/,
-    "mobile feedback is a header icon, not a floating chip over Margus"
+    "mobile feedback lives in the header chrome, not a floating chip over Margus"
   );
   const topBar = readFileSync(
     join(process.cwd(), "src/components/mobile/MobileTopBar.tsx"),
     "utf8"
   );
-  assert.match(topBar, /FeedbackIconButton/);
-  assert.match(topBar, /aria-label="Feedback"/);
+  /*
+   * The rule is that the phone's chrome can open feedback on its own, not
+   * that it draws a particular component. This named `FeedbackIconButton`
+   * and an `aria-label`, and both went the day feedback stopped being its
+   * own 44px glyph out on the bar and became a row in the one overflow
+   * menu, which is a change the invariant should have survived.
+   */
+  assert.match(
+    topBar,
+    /useFeedback\(\)/,
+    "the phone chrome opens feedback itself, rather than sending a reader to Account to find it"
+  );
+  const phoneMenu = readFileSync(
+    join(process.cwd(), "src/lib/phone-menu.ts"),
+    "utf8"
+  );
+  assert.match(
+    topBar + phoneMenu,
+    /label: "Feedback"|aria-label="Feedback"/,
+    "and calls it Feedback, whether that is a button on the bar or a row in its menu"
+  );
   const account = readFileSync(
     join(process.cwd(), "src/components/AccountPage.tsx"),
     "utf8"

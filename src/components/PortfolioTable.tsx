@@ -27,26 +27,17 @@ import { sheetCashBalance } from "@/lib/cash-balance";
 import type { EnrichedHolding, Portfolio } from "@/lib/types";
 import { todayDollarFor } from "@/lib/overview";
 import {
-  pendingSplitAdjustments,
-  splitLabel,
-} from "@/lib/market/corporate-actions";
-import {
   ArrowDown,
   ArrowUp,
   FileUp,
   ImagePlus,
   Plus,
-  Split,
+  TriangleAlert,
   Trash2,
 } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Sparkline } from "./Sparkline";
 import { FluidRow, FluidTable, cellBase, cellTicker, tableCols } from "@/components/FluidTable";
-
-/** Share counts read as a person writes them: 2,000 and 12.5, never 2000.000000. */
-function shareCount(n: number): string {
-  return n.toLocaleString("en-US", { maximumFractionDigits: 6 });
-}
 
 export type HoldingPatch = {
   id: string;
@@ -389,39 +380,21 @@ export const PortfolioTable = memo(function PortfolioTable({
     todayDollarFor(h.currentValue, h.quote?.changePercent);
 
   /**
-   * Positions whose share count certainly predates a split.
+   * Holdings nothing could price.
    *
-   * The feed prices a split the day it happens and a stored share count
-   * does not move on its own, so without this the reader is shown a real
-   * position at a fraction of its worth, as a fact. The rule is narrow on
-   * purpose: only a row untouched since the split date is named, because a
-   * wrong correction to a real book is worse than none.
+   * `enrichHoldings` values one of these at the buy price, which keeps the
+   * book's total honest (dropping the position would understate it, and
+   * that is the failure the Sunday letter refuses to mail over) but leaves
+   * the row reading as a stock that has not moved: cost as value, no gain,
+   * no loss. A reader cannot tell that apart from a quiet week.
+   *
+   * The usual cause is not an outage. It is the company being renamed in a
+   * merger, delisted, or the symbol having been typed wrong in the first
+   * place, and all three are permanent until somebody edits the row, so the
+   * position sits there looking flat forever. Naming them is the whole fix:
+   * the arithmetic is fine, the silence was not.
    */
-  const splitFixes = useMemo(
-    () =>
-      pendingSplitAdjustments(
-        holdings.map((h) => ({
-          id: h.id,
-          ticker: h.ticker,
-          shares: h.shares,
-          buy_price: h.buy_price,
-          updated_at: h.updated_at,
-        })),
-        Object.fromEntries(
-          holdings
-            .filter((h) => h.quote?.splits?.length)
-            .map((h) => [h.ticker.trim().toUpperCase(), h.quote!.splits!])
-        )
-      ),
-    [holdings]
-  );
-  const splitRows = Object.entries(splitFixes);
-
-  async function applySplitFixes() {
-    for (const [id, fix] of splitRows) {
-      await onPatch({ id, shares: fix.shares, buy_price: fix.buyPrice });
-    }
-  }
+  const unpriced = holdings.filter((h) => !h.quote && h.shares > 0);
 
   const canAdd = !tradeLock || tradeLock.canBuy;
   const canSell = !tradeLock || tradeLock.canSell;
@@ -528,54 +501,25 @@ export const PortfolioTable = memo(function PortfolioTable({
         </div>
       </header>
 
-      {/*
-        * A split is the one event that makes every number on a row wrong at
-        * once, and it happens without anybody here doing anything. Say so
-        * where the wrong numbers are, name the arithmetic, and let one
-        * button fix it: the reader should never have to work out that 200
-        * shares at $1,096 became 2,000 at $109.60.
-        */}
-      {splitRows.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-warning/10 px-6 py-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <Split className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-            <div className="min-w-0 text-sm">
-              <p className="font-medium text-foreground">
-                {splitRows.length === 1 ? "A stock split" : "Stock splits"} changed
-                the share count here
-              </p>
-              <ul className="mt-1 space-y-0.5 text-muted-foreground">
-                {splitRows.map(([id, fix]) => {
-                  const row = holdings.find((h) => h.id === id);
-                  if (!row) return null;
-                  return (
-                    <li key={id} className="font-mono tabular-nums text-xs">
-                      {fix.ticker} split{" "}
-                      {fix.splits.map((sp) => splitLabel(sp)).join(", then ")}:{" "}
-                      {shareCount(row.shares)} at{" "}
-                      {currency(row.buy_price)} becomes{" "}
-                      {shareCount(fix.shares)} at {currency(fix.buyPrice)}.
-                    </li>
-                  );
-                })}
-              </ul>
-              <p className="mt-1 text-muted-foreground">
-                Your position is worth the same either way. Prices here are
-                already split adjusted, so until the share count catches up the
-                numbers on these rows are wrong.
-              </p>
-            </div>
+      {unpriced.length > 0 && (
+        <div className="flex items-start gap-3 border-b border-border bg-warning/10 px-6 py-4">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <div className="min-w-0 text-sm">
+            <p className="font-medium text-foreground">
+              {unpriced.length === 1
+                ? "One holding has no price"
+                : `${unpriced.length} holdings have no price`}
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              {unpriced.map((h) => h.ticker).join(", ")}
+              {unpriced.length === 1 ? " is" : " are"} shown at what you paid,
+              so {unpriced.length === 1 ? "it reads" : "they read"} as flat
+              rather than as missing. That usually means the company was
+              renamed or taken over, or the symbol needs correcting. Check the
+              symbol, and if the company was bought, replace the row with what
+              you hold now.
+            </p>
           </div>
-          {/*
-            * The notice is not gated on being able to edit. A locked
-            * classroom account is looking at the same wrong numbers and
-            * still deserves to know why; what it cannot do is the fix.
-            */}
-          {canAdd && (
-            <Button type="button" onClick={applySplitFixes}>
-              Update {splitRows.length === 1 ? "this holding" : "these holdings"}
-            </Button>
-          )}
         </div>
       )}
 

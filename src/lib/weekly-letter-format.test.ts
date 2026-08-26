@@ -213,57 +213,6 @@ describe("a figure the letter cannot stand behind is not sent", () => {
     expect(weeklyNumbersAreSound(base).ok).toBe(true);
   });
 
-  it("refuses while a share count still predates a split", () => {
-    // The feed already prices the split and the stored share count does
-    // not, so the letter would state a tenth of the position as this
-    // week's money. The reader has a one-click fix on the holdings table;
-    // this waits for them.
-    const trust = weeklyNumbersAreSound({
-      ...base,
-      holdings: [
-        { ticker: "AAA", shares: 100, buy_price: 10 },
-        {
-          ticker: "BBB",
-          shares: 100,
-          buy_price: 10,
-          updated_at: "2026-01-02T00:00:00Z",
-        },
-      ],
-      quotes: {
-        AAA: { price: 10 } as never,
-        BBB: {
-          price: 90,
-          splits: [{ date: "2026-06-01", numerator: 10, denominator: 1 }],
-        } as never,
-      },
-    });
-    expect(trust.ok).toBe(false);
-    expect(trust.ok === false && trust.reason).toContain("BBB");
-  });
-
-  it("mails as normal once the reader has applied the split", () => {
-    const trust = weeklyNumbersAreSound({
-      ...base,
-      holdings: [
-        { ticker: "AAA", shares: 100, buy_price: 10 },
-        {
-          ticker: "BBB",
-          shares: 1000,
-          buy_price: 1,
-          updated_at: "2026-06-02T00:00:00Z",
-        },
-      ],
-      quotes: {
-        AAA: { price: 10 } as never,
-        BBB: {
-          price: 90,
-          splits: [{ date: "2026-06-01", numerator: 10, denominator: 1 }],
-        } as never,
-      },
-    });
-    expect(trust.ok).toBe(true);
-  });
-
   it("refuses when a holding has no price at all", () => {
     const trust = weeklyNumbersAreSound({
       ...base,
