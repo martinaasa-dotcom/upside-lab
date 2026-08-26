@@ -25,6 +25,7 @@ import {
   sentimentHasAnyGauge,
   spyMetricsFromCloses,
   spyTrendHistory,
+  spySparkFromCloses,
   type SentimentMetrics,
 } from "@/lib/market-sentiment";
 
@@ -136,6 +137,7 @@ async function loadSnapshot(): Promise<SentimentMetrics> {
     streakDays: history.streakDays,
     typicalMoreDays: history.typicalMoreDays,
     alreadyLong: history.alreadyLong,
+    spark: spySparkFromCloses(closes),
     asOf,
   };
 }

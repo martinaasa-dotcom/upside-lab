@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import { isAbortError } from "@/lib/abort";
 import {
+  CARD,
   Panel,
   PanelHeader,
   Pill,
-  Score,
-  Scoreboard,
 } from "@/components/ui/Panel";
 import { cn } from "@/lib/format";
 import {
@@ -16,6 +15,11 @@ import {
   type SentimentMetrics,
 } from "@/lib/market-sentiment";
 import { buildSentimentCard } from "@/lib/market-sentiment-story";
+import {
+  SentimentGaugeRow,
+  SentimentSparkPlot,
+  SentimentStretchTrack,
+} from "@/components/MarketSentimentViz";
 import { quotePollMs } from "@/lib/market/session";
 import {
   loadSentimentPaint,
@@ -35,6 +39,7 @@ const EMPTY: SentimentMetrics = {
   streakDays: null,
   typicalMoreDays: null,
   alreadyLong: false,
+  spark: null,
   asOf: null,
 };
 
@@ -156,6 +161,7 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
   );
 
   const card = buildSentimentCard(metrics);
+  const hasPicture = Boolean(card.spark || card.stretch);
 
   return (
     <div ref={rootRef}>
@@ -167,27 +173,40 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
           className
         )}
       >
+        {hasPicture ? (
+          <p className="sr-only" aria-live="polite">
+            {card.lead}
+          </p>
+        ) : null}
         <PanelHeader
           title="Market reading"
           subtitle={card.fitLine ?? undefined}
           actions={<Pill tone={card.reading.pill}>{card.reading.label}</Pill>}
         />
-        <p className="text-sm leading-relaxed text-foreground" aria-live="polite">
-          {card.lead}
-        </p>
-        <Scoreboard cols={4} mobileCols={2}>
+        {hasPicture ? (
+          <div className={cn(CARD, "p-3 sm:p-4")}>
+            {card.spark ? <SentimentSparkPlot spark={card.spark} /> : null}
+            {card.stretch ? (
+              <SentimentStretchTrack
+                stretch={card.stretch}
+                className={card.spark ? "mt-3 border-t border-border/60 pt-3" : undefined}
+              />
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-sm leading-relaxed text-foreground" aria-live="polite">
+            {card.lead}
+          </p>
+        )}
+        <div
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-8 sm:gap-y-4"
+          role="group"
+          aria-label="Market gauges"
+        >
           {card.gauges.map((gauge) => (
-            <Score
-              key={gauge.label}
-              label={gauge.label}
-              value={gauge.value}
-              sub={gauge.sub}
-              explain={gauge.explain}
-              valueClassName={gauge.valueClassName}
-              className="p-3 sm:p-4"
-            />
+            <SentimentGaugeRow key={gauge.label} gauge={gauge} />
           ))}
-        </Scoreboard>
+        </div>
       </Panel>
     </div>
   );

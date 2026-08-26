@@ -20,6 +20,7 @@ const CLIMB: SentimentMetrics = {
   streakDays: 47,
   typicalMoreDays: 42,
   alreadyLong: false,
+  spark: null,
   asOf: "2026-08-26T20:00:00.000Z",
 };
 
@@ -48,15 +49,21 @@ describe("buildSentimentCard", () => {
     expect(card.lead).not.toContain("speedometer");
     expect(card.reading.label).toBe("Steady climb");
     expect(card.reading.pill).toBe("good");
-    expect(card.fitLine).toMatch(/^\d+% fit · 47 days above usual$/);
+    expect(card.fitLine).toMatch(/^\d+% fit$/);
     expect(card.gauges).toHaveLength(4);
     expect(card.gauges[0]!.sub).toBe("Quiet");
     expect(card.gauges[0]!.valueClassName).toBe("text-gain");
     expect(card.gauges[0]!.explain).toContain("How jumpy US stocks");
     expect(card.gauges[1]!.sub).toBe("Mid-range");
-    expect(card.gauges[2]!.sub).toContain("neutral");
+    expect(card.gauges[2]!.sub).toBe("Neutral");
     expect(card.gauges[3]!.label).toBe("Usual price");
-    expect(card.gauges[3]!.sub).toBe("Above, 47 days");
+    expect(card.gauges[3]!.sub).toBe("Above usual");
+    expect(card.gauges[3]!.kind).toBe("signed");
+    expect(card.gauges[0]!.markerPct).toBeGreaterThan(0);
+    expect(card.stretch).not.toBeNull();
+    expect(card.stretch!.inLabel).toContain("47 days above usual");
+    expect(card.stretch!.moreLabel).toContain("about 2 months more");
+    expect(card.stretch!.above).toBe(true);
     expect(card.gauges[3]!.explain).toContain("typical price over about the last year");
     expect(card).not.toHaveProperty("fact");
     expect(card).not.toHaveProperty("history");
@@ -67,8 +74,8 @@ describe("buildSentimentCard", () => {
     expect(card.lead.startsWith("Downward.")).toBe(true);
     expect(card.reading.label).toBe("Steady slide");
     expect(card.reading.pill).toBe("warn");
-    expect(card.fitLine).toContain("days below usual");
-    expect(card.gauges[3]!.sub).toContain("Below");
+    expect(card.fitLine).toMatch(/^\d+% fit$/);
+    expect(card.gauges[3]!.sub).toBe("Below usual");
     expect(card.gauges[3]!.valueClassName).toBe("text-loss");
   });
 
@@ -98,11 +105,22 @@ describe("buildSentimentCard", () => {
       streakDays: null,
       typicalMoreDays: null,
       alreadyLong: false,
+      spark: null,
       asOf: null,
     });
     expect(card.fitLine).toBeNull();
     expect(sentimentFitLine(null)).toBeNull();
     expect(sentimentLead(card.reading)).toBe(card.reading.copy);
+  });
+
+  it("keeps the day count in the header when there is no stretch track", () => {
+    const card = buildSentimentCard({
+      ...CLIMB,
+      typicalMoreDays: 2,
+      alreadyLong: false,
+    });
+    expect(card.stretch).toBeNull();
+    expect(card.fitLine).toMatch(/^\d+% fit · 47 days above usual$/);
   });
 });
 

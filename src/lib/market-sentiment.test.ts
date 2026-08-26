@@ -14,6 +14,7 @@ import {
   sentimentCopyIsDescriptive,
   smaRatioFrom,
   spyMetricsFromCloses,
+  spySparkFromCloses,
   spyTrendHistory,
   type SentimentMetrics,
   type SentimentRegime,
@@ -278,6 +279,7 @@ describe("preferSentimentSnapshot", () => {
     streakDays: 40,
     typicalMoreDays: 25,
     alreadyLong: false,
+    spark: null,
     asOf: "2026-08-26T20:00:00.000Z",
   };
   const vixOnly: SentimentMetrics = {
@@ -300,6 +302,16 @@ describe("preferSentimentSnapshot", () => {
 
   it("uses the partial when that is all there has ever been", () => {
     expect(preferSentimentSnapshot(null, vixOnly)).toBe(vixOnly);
+  });
+
+  it("keeps the last spark when a complete fetch has no picture", () => {
+    const pictured = {
+      ...full,
+      spark: { price: [100, 110], usual: [100, 102] },
+    };
+    const chosen = preferSentimentSnapshot(pictured, full);
+    expect(chosen.spark).toEqual(pictured.spark);
+    expect(chosen.vix).toBe(full.vix);
   });
 });
 
@@ -467,6 +479,25 @@ describe("spyTrendHistory", () => {
     expect(out.streakDays).toBe(40);
     expect(out.alreadyLong).toBe(true);
     expect(out.typicalMoreDays).toBeNull();
+  });
+});
+
+describe("spySparkFromCloses", () => {
+  it("returns nothing until the 200-day average exists", () => {
+    expect(spySparkFromCloses(Array.from({ length: 50 }, () => 100))).toBeNull();
+  });
+
+  it("keeps price and usual the same length, and ends on the last close", () => {
+    const closes = [
+      ...Array.from({ length: 200 }, () => 100),
+      ...Array.from({ length: 20 }, (_, i) => 100 + i),
+    ];
+    const spark = spySparkFromCloses(closes);
+    expect(spark).not.toBeNull();
+    expect(spark!.price.length).toBe(spark!.usual.length);
+    expect(spark!.price.length).toBeGreaterThanOrEqual(2);
+    expect(spark!.price[spark!.price.length - 1]).toBe(119);
+    expect(spark!.usual[spark!.usual.length - 1]).toBeLessThan(119);
   });
 });
 

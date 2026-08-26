@@ -7,10 +7,16 @@ import { number, signedPercent } from "@/lib/format";
 import { ratingForScore } from "@/lib/market/fear-greed";
 import {
   classifyMarketSentiment,
-  fearGreedCaption,
   type SentimentMetrics,
   type SentimentReading,
+  type SentimentSpark,
 } from "@/lib/market-sentiment";
+import {
+  bandRangePct,
+  linearMarkerPct,
+  signedTrackFill,
+  stretchFillPct,
+} from "@/lib/market-sentiment-viz";
 
 const MIN_HISTORY_DAYS = 5;
 
@@ -20,6 +26,19 @@ export type SentimentGaugeNote = {
   sub: string;
   explain: string;
   valueClassName?: string;
+  kind: "linear" | "signed";
+  markerPct: number | null;
+  band: { fromPct: number; toPct: number } | null;
+  bandClass?: string;
+  signedFillPct: number | null;
+  dotClass: string;
+};
+
+export type SentimentStretch = {
+  fillPct: number;
+  inLabel: string;
+  moreLabel: string;
+  above: boolean;
 };
 
 export type SentimentCard = {
@@ -27,6 +46,8 @@ export type SentimentCard = {
   lead: string;
   fitLine: string | null;
   gauges: SentimentGaugeNote[];
+  spark: SentimentSpark | null;
+  stretch: SentimentStretch | null;
 };
 
 export function marketDaysPhrase(days: number): string {
@@ -61,9 +82,11 @@ function sideWord(smaRatio: number | null): "above" | "below" {
 
 export function sentimentFitLine(
   pct: number | null,
-  metrics?: Pick<SentimentMetrics, "streakDays" | "smaRatio">
+  metrics?: Pick<SentimentMetrics, "streakDays" | "smaRatio">,
+  daysLiveOnStretch = false
 ): string | null {
   if (pct == null) return null;
+  if (daysLiveOnStretch) return `${pct}% fit`;
   const streak = metrics?.streakDays;
   if (!metrics || streak == null || streak < MIN_HISTORY_DAYS) {
     return `${pct}% fit to this pattern`;
@@ -94,11 +117,42 @@ export function sentimentBody(
   return history ? `${lead} ${history}` : lead;
 }
 
+function titleRating(rating: string): string {
+  return rating.charAt(0).toUpperCase() + rating.slice(1);
+}
+
 function glanceClass(kind: "up" | "down" | "warn" | "none"): string | undefined {
   if (kind === "up") return "text-gain";
   if (kind === "down") return "text-loss";
   if (kind === "warn") return "text-caution";
   return undefined;
+}
+
+function glanceDot(kind: "up" | "down" | "warn" | "none"): string {
+  if (kind === "up") return "bg-gain";
+  if (kind === "down") return "bg-loss";
+  if (kind === "warn") return "bg-caution";
+  return "bg-foreground";
+}
+
+export function sentimentStretch(metrics: SentimentMetrics): SentimentStretch | null {
+  const fillPct = stretchFillPct(
+    metrics.streakDays,
+    metrics.typicalMoreDays,
+    metrics.alreadyLong === true
+  );
+  if (fillPct == null || metrics.streakDays == null) return null;
+  const side = sideWord(metrics.smaRatio);
+  return {
+    fillPct,
+    inLabel: `${metrics.streakDays} days ${side} usual`,
+    moreLabel: metrics.alreadyLong
+      ? "Already the long one in this sample"
+      : metrics.typicalMoreDays != null
+        ? `Typically ${marketDaysPhrase(metrics.typicalMoreDays)} more`
+        : "",
+    above: side === "above",
+  };
 }
 
 function vixGlance(vix: number | null): {
@@ -189,26 +243,29 @@ function fearGlance(
 } {
   const explainBase =
     "CNN's 0 to 100 score for how fearful or greedy US stock investors look. Under 25 is panic. Over 75 is a party.";
-  const sub = fearGreedCaption(fearGreed, cryptoFearGreed);
   if (fearGreed == null) {
     const crypto =
       cryptoFearGreed != null
         ? ` Coins sit at ${Math.round(cryptoFearGreed)} on their own score.`
         : "";
-    return { sub, explain: `${explainBase}${crypto}`, glance: "none" };
+    return {
+      sub: "CNN, 0 to 100",
+      explain: `${explainBase}${crypto}`,
+      glance: "none",
+    };
   }
   const n = number(fearGreed, 0);
-  const rating = ratingForScore(fearGreed);
+  const rating = titleRating(ratingForScore(fearGreed));
   const crypto =
     cryptoFearGreed != null
       ? ` Coins sit at ${Math.round(cryptoFearGreed)} on their own score.`
       : "";
-  const explain = `${explainBase} ${n} is called ${rating}.${crypto}`;
-  if (fearGreed <= 25) return { sub, explain, glance: "down" };
-  if (fearGreed <= 45) return { sub, explain, glance: "warn" };
-  if (fearGreed <= 55) return { sub, explain, glance: "none" };
-  if (fearGreed <= 75) return { sub, explain, glance: "up" };
-  return { sub, explain, glance: "warn" };
+  const explain = `${explainBase} ${n} is called ${rating.toLowerCase()}.${crypto}`;
+  if (fearGreed <= 25) return { sub: rating, explain, glance: "down" };
+  if (fearGreed <= 45) return { sub: rating, explain, glance: "warn" };
+  if (fearGreed <= 55) return { sub: rating, explain, glance: "none" };
+  if (fearGreed <= 75) return { sub: rating, explain, glance: "up" };
+  return { sub: rating, explain, glance: "warn" };
 }
 
 function usualGlance(metrics: SentimentMetrics): {
@@ -218,9 +275,6 @@ function usualGlance(metrics: SentimentMetrics): {
 } {
   const explainBase =
     "How far the S&P 500 is from its typical price over about the last year. That typical price is the average of the last 200 days the market was open. Above means this year has mostly been a climb. Below means a slide.";
-  const streak = metrics.streakDays;
-  const streakBit =
-    streak != null && streak >= MIN_HISTORY_DAYS ? `${streak} days` : null;
   if (metrics.smaRatio == null) {
     return {
       sub: "Vs the last year",
@@ -231,21 +285,21 @@ function usualGlance(metrics: SentimentMetrics): {
   const n = signedPercent(metrics.smaRatio);
   if (metrics.smaRatio > 0.12) {
     return {
-      sub: streakBit ? `Stretched, ${streakBit}` : "Stretched",
+      sub: "Stretched",
       explain: `${explainBase} ${n} is that far stretch. Past 12% has often faded back toward usual.`,
       glance: "warn",
     };
   }
   if (metrics.smaRatio > 0.002) {
     return {
-      sub: streakBit ? `Above, ${streakBit}` : "Above usual",
+      sub: "Above usual",
       explain: `${explainBase} ${n} is a healthy lead, not the far stretch that starts past 12%.`,
       glance: "up",
     };
   }
   if (metrics.smaRatio < -0.002) {
     return {
-      sub: streakBit ? `Below, ${streakBit}` : "Below usual",
+      sub: "Below usual",
       explain: `${explainBase} ${n} means price is under that typical level.`,
       glance: "down",
     };
@@ -269,6 +323,12 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       sub: vix.sub,
       explain: vix.explain,
       valueClassName: glanceClass(vix.glance),
+      kind: "linear",
+      markerPct: linearMarkerPct(metrics.vix, 10, 40),
+      band: bandRangePct(12, 20, 10, 40),
+      bandClass: "bg-gain/20",
+      signedFillPct: null,
+      dotClass: glanceDot(vix.glance),
     },
     {
       label: "RSI",
@@ -276,6 +336,12 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       sub: rsiNow.sub,
       explain: rsiNow.explain,
       valueClassName: glanceClass(rsiNow.glance),
+      kind: "linear",
+      markerPct: linearMarkerPct(metrics.rsi, 0, 100),
+      band: bandRangePct(30, 70, 0, 100),
+      bandClass: "bg-foreground/20",
+      signedFillPct: null,
+      dotClass: glanceDot(rsiNow.glance),
     },
     {
       label: "Fear & Greed",
@@ -283,6 +349,11 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       sub: fear.sub,
       explain: fear.explain,
       valueClassName: glanceClass(fear.glance),
+      kind: "linear",
+      markerPct: linearMarkerPct(metrics.fearGreed, 0, 100),
+      band: null,
+      signedFillPct: null,
+      dotClass: glanceDot(fear.glance),
     },
     {
       label: "Usual price",
@@ -290,16 +361,24 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       sub: usual.sub,
       explain: usual.explain,
       valueClassName: glanceClass(usual.glance),
+      kind: "signed",
+      markerPct: null,
+      band: null,
+      signedFillPct: signedTrackFill(metrics.smaRatio),
+      dotClass: glanceDot(usual.glance),
     },
   ];
 }
 
 export function buildSentimentCard(metrics: SentimentMetrics): SentimentCard {
   const reading = classifyMarketSentiment(metrics);
+  const stretch = sentimentStretch(metrics);
   return {
     reading,
     lead: sentimentBody(reading, metrics),
-    fitLine: sentimentFitLine(reading.agreementPct, metrics),
+    fitLine: sentimentFitLine(reading.agreementPct, metrics, stretch != null),
     gauges: sentimentGaugeNotes(metrics),
+    spark: metrics.spark,
+    stretch,
   };
 }

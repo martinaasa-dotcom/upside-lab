@@ -7,8 +7,14 @@
  * do with it.
  */
 
+import { downsampleSeries, SPARK_POINTS, SPARK_WINDOW } from "@/lib/market-sentiment-viz";
 import { ratingForScore } from "@/lib/market/fear-greed";
 import { rsi, sma } from "@/lib/market/indicators";
+
+export type SentimentSpark = {
+  price: number[];
+  usual: number[];
+};
 
 export type SentimentMetrics = {
   vix: number | null;
@@ -28,6 +34,8 @@ export type SentimentMetrics = {
   typicalMoreDays: number | null;
   /** Current streak is longer than every completed same-side run. */
   alreadyLong: boolean;
+  /** Last year of SPY closes against the 200-day average, downsampled. */
+  spark: SentimentSpark | null;
   asOf: string | null;
 };
 
@@ -201,9 +209,16 @@ export function preferSentimentSnapshot(
   prev: SentimentMetrics | null,
   next: SentimentMetrics
 ): SentimentMetrics {
-  if (sentimentGaugesReady(next) || !prev) return next;
-  if (sentimentGaugesReady(prev)) return prev;
-  return sentimentHasAnyGauge(next) ? next : prev;
+  const chosen =
+    sentimentGaugesReady(next) || !prev
+      ? next
+      : sentimentGaugesReady(prev)
+        ? prev
+        : sentimentHasAnyGauge(next)
+          ? next
+          : prev;
+  if (chosen.spark || !prev?.spark) return chosen;
+  return { ...chosen, spark: prev.spark };
 }
 
 function clamp01(n: number): number {
@@ -399,6 +414,31 @@ export function spyTrendHistory(closes: number[]): {
   return { streakDays, typicalMoreDays, alreadyLong };
 }
 
+function roundSpark(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** Last year of SPY vs its 200-day average, small enough to paint and cache. */
+export function spySparkFromCloses(closes: number[]): SentimentSpark | null {
+  const prices = closes.filter((n) => Number.isFinite(n) && n > 0);
+  const avgs = sma(prices, 200);
+  const price: number[] = [];
+  const usual: number[] = [];
+  for (let i = 0; i < prices.length; i++) {
+    const avg = avgs[i];
+    if (avg == null || !(avg > 0)) continue;
+    price.push(prices[i]!);
+    usual.push(avg);
+  }
+  if (price.length < 2) return null;
+  const windowP = price.slice(-SPARK_WINDOW);
+  const windowU = usual.slice(-SPARK_WINDOW);
+  return {
+    price: downsampleSeries(windowP, SPARK_POINTS).map(roundSpark),
+    usual: downsampleSeries(windowU, SPARK_POINTS).map(roundSpark),
+  };
+}
+
 function reading(
   regime: SentimentRegime,
   metrics: Pick<SentimentMetrics, "vix" | "rsi" | "fearGreed" | "smaRatio">,
@@ -523,6 +563,17 @@ function numOrNull(n: unknown): boolean {
   return typeof n === "number" && Number.isFinite(n);
 }
 
+function isSpark(v: unknown): boolean {
+  if (v == null) return true;
+  if (!v || typeof v !== "object") return false;
+  const o = v as SentimentSpark;
+  if (!Array.isArray(o.price) || !Array.isArray(o.usual)) return false;
+  if (o.price.length !== o.usual.length) return false;
+  if (o.price.length < 2 || o.price.length > 128) return false;
+  const ok = (n: unknown) => typeof n === "number" && Number.isFinite(n) && n > 0;
+  return o.price.every(ok) && o.usual.every(ok);
+}
+
 export function isSentimentMetrics(v: unknown): v is SentimentMetrics {
   if (!v || typeof v !== "object") return false;
   const o = v as SentimentMetrics;
@@ -537,6 +588,7 @@ export function isSentimentMetrics(v: unknown): v is SentimentMetrics {
     numOrNull(o.streakDays) &&
     numOrNull(o.typicalMoreDays) &&
     (o.alreadyLong == null || typeof o.alreadyLong === "boolean") &&
+    isSpark(o.spark) &&
     (o.asOf == null || typeof o.asOf === "string")
   );
 }
