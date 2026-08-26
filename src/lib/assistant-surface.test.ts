@@ -1,6 +1,6 @@
 /**
  * Margus floats over the page, so he takes the overlay material, and the
- * accent in his corner means send rather than close.
+ * round launcher is gone while the panel is open.
  *
  * Two bugs, one screen, both reported off a phone. The panel carried
  * `glass`, which is the *card* material: a 2% white veil at a 6px blur,
@@ -10,12 +10,10 @@
  * the app that sits over content already takes the heavy fill, and
  * `AnalyticsConsentBanner` records the same fix being made once before.
  *
- * The second is what the gold was pointing at. The launcher kept the
- * accent fill in both states and only swapped its glyph, so with the panel
- * open the loudest pixel on the screen was *close* -- a thumb's width from
- * a send button that stays neutral until there is something to send. The
- * one saturated thing in reach did the opposite of what a thumb reaching
- * for it expected.
+ * The second is two dismisses in the same corner. The launcher stayed on
+ * screen and swapped its glyph to an X, so close lived twice: once on the
+ * header and once as the loudest pixel a thumb's width from send. Gold
+ * still means open. Dismiss is the header X alone.
  *
  * Asserted against the source: both are a class and a prop at a call site
  * rather than anything a render would show, and the material only differs
@@ -61,11 +59,22 @@ describe("assistant surfaces", () => {
     ).toBe(true);
   });
 
-  it("spends the accent on send, not on close", () => {
+  it("hides the launcher while the panel is open", () => {
     expect(
       SOURCE,
-      "the launcher drops the accent while the panel is open"
-    ).toMatch(/variant=\{open \? "(?:secondary|outline|ghost)" : "default"\}/);
+      "the round launcher is not in the tree while the panel is open"
+    ).toMatch(/\{!open && \(/);
+    expect(SOURCE).not.toMatch(
+      /aria-label=\{open \? "Close Assistant Margus"/
+    );
+    expect(SOURCE).toMatch(/aria-label="Close Margus"/);
+    expect(SOURCE).toMatch(/aria-label="Open Assistant Margus"/);
+  });
+
+  it("never asks which portfolio", () => {
+    expect(SOURCE).not.toMatch(/Which portfolio/);
+    expect(SOURCE).not.toMatch(/Do my portfolios/);
+    expect(SOURCE).not.toMatch(/Open a portfolio to apply/);
   });
 
   it("keeps the accent on send once there is something to send", () => {

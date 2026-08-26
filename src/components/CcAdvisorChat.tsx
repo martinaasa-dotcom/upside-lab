@@ -92,6 +92,13 @@ export type AdvisorAction =
       }>;
     };
 
+/** A screenshot picked from a holdings empty-state tap, not from this panel. */
+export type SilentScreenshotImport = {
+  id: number;
+  portfolioId: string;
+  files: File[];
+};
+
 type Props = {
   /** Active portfolio — chat history is scoped to this id. */
   portfolioId: string;
@@ -99,10 +106,13 @@ type Props = {
   onApplyActions: (actions: AdvisorAction[]) => void;
   /** Bump to open the floating Margus panel (empty-state / drawer CTAs). */
   expandSignal?: number;
-  /** Bump to trigger the image file picker and import silently — no chat
-   * panel opens; progress shows in a small status card instead. Picking a
-   * screenshot here sends straight away, it never stages in a compose box. */
-  imagePickSignal?: number;
+  /**
+   * Files chosen from a user tap on Import screenshot. The picker itself
+   * lives on the dashboard so a remount of this panel cannot open it.
+   * Sending happens here; the dashboard only hands the files across.
+   */
+  screenshotImport?: SilentScreenshotImport | null;
+  onScreenshotImportConsumed?: () => void;
   /** When a screenshot import fails, offer the CSV path instead. */
   onSuggestCsv?: () => void;
 };
@@ -530,7 +540,8 @@ export function CcAdvisorChat({
   context,
   onApplyActions,
   expandSignal = 0,
-  imagePickSignal = 0,
+  screenshotImport = null,
+  onScreenshotImportConsumed,
   onSuggestCsv,
 }: Props) {
   const [input, setInput] = useState("");
@@ -538,8 +549,8 @@ export function CcAdvisorChat({
   const [rulesOpen, setRulesOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [wide, setWide] = useState(false);
-  // Screenshot imports triggered via imagePickSignal never open the chat
-  // panel — they send immediately and report progress through this small
+  // Screenshot imports from the holdings empty-state never open the chat
+  // panel. They send immediately and report progress through this small
   // status card instead. "sending" while in flight, "result" once settled
   // (kept on screen briefly for ok/info, until dismissed for errors).
   const [silentPhase, setSilentPhase] = useState<"idle" | "sending" | "result">(
@@ -550,8 +561,8 @@ export function CcAdvisorChat({
     title?: string;
     lines: string[];
   } | null>(null);
-  const silentFileInputRef = useRef<HTMLInputElement>(null);
   const awaitingSilentSettleRef = useRef(false);
+  const seenExpandSignal = useRef(expandSignal);
 
   useLayoutEffect(() => {
     setWide(loadWidePref());
@@ -581,17 +592,13 @@ export function CcAdvisorChat({
   useBottomCorner(cornerEl);
 
   useEffect(() => {
-    if (!expandSignal) return;
-    setOpen(true);
+    // Only open on a fresh bump, never on mount. This panel remounts
+    // whenever the active portfolio changes (`key={portfolioId}`), and a
+    // leftover signal used to reopen it (and, with it, the file input).
+    if (expandSignal === seenExpandSignal.current) return;
+    seenExpandSignal.current = expandSignal;
+    if (expandSignal) setOpen(true);
   }, [expandSignal]);
-
-  useEffect(() => {
-    if (!imagePickSignal) return;
-    // Deliberately does NOT open the chat panel — this input is always
-    // mounted, so the OS picker opens immediately with no compose-box
-    // detour. Import proceeds silently once a file is chosen.
-    silentFileInputRef.current?.click();
-  }, [imagePickSignal]);
 
   // Close on Escape when the panel is open (rules popover handles its own Esc).
   useEffect(() => {
@@ -843,6 +850,17 @@ export function CcAdvisorChat({
     }
   }
 
+  useEffect(() => {
+    if (!screenshotImport) return;
+    if (screenshotImport.portfolioId !== portfolioId) return;
+    if (busy) return;
+    const files = screenshotImport.files;
+    onScreenshotImportConsumed?.();
+    void handleSilentFiles(files);
+    // handleSilentFiles is render-local; screenshotImport.id is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screenshotImport, portfolioId, busy]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const text = input.trim();
@@ -870,14 +888,6 @@ export function CcAdvisorChat({
   // covered-call openers now surface only once there is real CC data to
   // talk about, and they never take the whole row.
   const suggestions = useMemo(() => {
-    if (context.adviseOnly) {
-      return [
-        "How is everything doing today?",
-        "Am I too heavy in any one company?",
-        "Which portfolio is carrying the rest?",
-        "Do my portfolios own the same things twice?",
-      ];
-    }
     if (context.holdings.length === 0) {
       return [
         "How do I get my holdings in here?",
@@ -894,12 +904,7 @@ export function CcAdvisorChat({
     ];
     if (context.hideOptions || context.rows.length === 0) return plain.slice(0, 4);
     return [...plain.slice(0, 3), "Give me the updated covered-call plan"];
-  }, [
-    context.adviseOnly,
-    context.hideOptions,
-    context.holdings.length,
-    context.rows.length,
-  ]);
+  }, [context.hideOptions, context.holdings.length, context.rows.length]);
 
   const canSend = !busy && (Boolean(input.trim()) || pendingImages.length > 0);
   // Suppressed while the full panel is open — that already shows the same
@@ -952,18 +957,6 @@ export function CcAdvisorChat({
           : undefined
       }
     >
-      <input
-        ref={silentFileInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        className="hidden"
-        onChange={(e) => {
-          if (e.target.files?.length) void handleSilentFiles(e.target.files);
-          e.target.value = "";
-        }}
-      />
-
       {showSilentCard && (
         <div
           role="status"
@@ -1083,121 +1076,118 @@ export function CcAdvisorChat({
           }`}
           style={{
             height: wide
-              ? "min(46rem, calc(100% - 4.5rem))"
-              : "min(38rem, calc(100% - 4.5rem))",
+              ? "min(46rem, 100%)"
+              : "min(38rem, 100%)",
           }}
           role="dialog"
           aria-label="Assistant Margus"
         >
-          <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2.5">
-            <div className="rounded-lg bg-muted p-1.5 text-primary">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 flex-1">
+          <header className="flex shrink-0 items-start border-b border-border pb-3 pl-6 pr-1 pt-1">
+            <div className="min-w-0 flex-1 self-center pr-2">
               <h2 className="font-semibold text-foreground">
                 Assistant Margus
               </h2>
               <p className="text-sm leading-snug text-muted-foreground">
-                {context.adviseOnly
-                  ? "Advise-only. Open a portfolio to apply changes."
-                  : `Chat for ${context.portfolioName}`}
+                Chat for {context.portfolioName}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={toggleWide}
-              className="touch-target inline-flex items-center justify-center rounded-lg p-1.5 text-muted-foreground transition hover:bg-hover hover:text-foreground"
-              aria-label={wide ? "Shrink Margus" : "Widen Margus"}
-              title={wide ? "Shrink panel" : "Widen panel: more room for tables"}
-            >
-              {wide ? (
-                <Minimize2 className="h-4 w-4" />
-              ) : (
-                <Maximize2 className="h-4 w-4" />
-              )}
-            </button>
-            {/* `flex` on the wrapper, matching the header's other controls:
-             * a block wrapper puts this button in an inline formatting
-             * context and grows to a line box, which centres a few pixels
-             * off from its unwrapped siblings. */}
-            <div className="relative flex" ref={rulesRef}>
-              {!context.hideOptions && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setRulesOpen((o) => !o)}
-                    className={`touch-target inline-flex items-center justify-center rounded-lg p-1.5 transition ${
-                      rulesOpen
-                        ? "bg-muted text-primary"
-                        : "text-muted-foreground hover:bg-hover hover:text-foreground"
-                    }`}
-                    aria-label="Strategy rules"
-                    aria-expanded={rulesOpen}
-                  >
-                    <BookOpen className="h-4 w-4" />
-                  </button>
-                  {rulesOpen && (
-                    <div className="absolute right-0 top-full z-20 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-md ring-1 ring-foreground/20">
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-muted-foreground">
-                          Strategy rules
-                        </p>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={() => setRulesOpen(false)}
-                          aria-label="Close rules"
-                        >
-                          <X />
-                        </Button>
-                      </div>
-                      <ul className="flex flex-col max-h-72 gap-2.5 overflow-y-auto">
-                        {RULES.map((r) => (
-                          <li
-                            key={r.title}
-                            className="border-b border-border pb-2.5 last:border-0 last:pb-0"
+            <div className="flex shrink-0 items-center">
+              <button
+                type="button"
+                onClick={toggleWide}
+                className="touch-target inline-flex items-center justify-center rounded-lg p-1.5 text-muted-foreground transition hover:bg-hover hover:text-foreground"
+                aria-label={wide ? "Shrink Margus" : "Widen Margus"}
+                title={wide ? "Shrink panel" : "Widen panel: more room for tables"}
+              >
+                {wide ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+              </button>
+              {/* `flex` on the wrapper, matching the header's other controls:
+               * a block wrapper puts this button in an inline formatting
+               * context and grows to a line box, which centres a few pixels
+               * off from its unwrapped siblings. */}
+              <div className="relative flex" ref={rulesRef}>
+                {!context.hideOptions && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setRulesOpen((o) => !o)}
+                      className={`touch-target inline-flex items-center justify-center rounded-lg p-1.5 transition ${
+                        rulesOpen
+                          ? "bg-muted text-primary"
+                          : "text-muted-foreground hover:bg-hover hover:text-foreground"
+                      }`}
+                      aria-label="Strategy rules"
+                      aria-expanded={rulesOpen}
+                    >
+                      <BookOpen className="h-4 w-4" />
+                    </button>
+                    {rulesOpen && (
+                      <div className="absolute right-0 top-full z-20 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-md ring-1 ring-foreground/20">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-muted-foreground">
+                            Strategy rules
+                          </p>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => setRulesOpen(false)}
+                            aria-label="Close rules"
                           >
-                            <p className="text-sm font-medium text-muted-foreground">
-                              {r.title}
-                            </p>
-                            <p className="mt-0.5 text-sm font-semibold text-primary">
-                              {r.rule}
-                            </p>
-                            <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
-                              {r.detail}
-                            </p>
-                          </li>
-                        ))}
-                      </ul>
-                      <p className="mt-2.5 border-t border-border pt-2.5 text-sm leading-relaxed text-muted-foreground">
-                        {ADVICE_DISCLAIMER_SHORT}
-                      </p>
-                    </div>
-                  )}
-                </>
-              )}
+                            <X />
+                          </Button>
+                        </div>
+                        <ul className="flex flex-col max-h-72 gap-2.5 overflow-y-auto">
+                          {RULES.map((r) => (
+                            <li
+                              key={r.title}
+                              className="border-b border-border pb-2.5 last:border-0 last:pb-0"
+                            >
+                              <p className="text-sm font-medium text-muted-foreground">
+                                {r.title}
+                              </p>
+                              <p className="mt-0.5 text-sm font-semibold text-primary">
+                                {r.rule}
+                              </p>
+                              <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
+                                {r.detail}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="mt-2.5 border-t border-border pt-2.5 text-sm leading-relaxed text-muted-foreground">
+                          {ADVICE_DISCLAIMER_SHORT}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="touch-target inline-flex items-center justify-center rounded-lg p-1.5 text-muted-foreground transition hover:bg-hover hover:text-foreground"
+                aria-label="Close Margus"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="rounded-lg p-1.5 text-muted-foreground hover:bg-hover hover:text-foreground"
-              aria-label="Close Margus"
-            >
-              <X className="h-4 w-4" />
-            </button>
           </header>
 
-          <p className="shrink-0 border-b border-border px-3 py-1.5 text-center text-sm leading-snug text-muted-foreground">
+          <p className="shrink-0 border-b border-border px-6 py-2 text-center text-sm leading-snug text-muted-foreground">
             {ADVICE_DISCLAIMER_SHORT}
           </p>
 
           <div
             ref={scrollerRef}
-            className="min-h-0 flex-1 gap-3 overflow-y-auto px-3 py-3"
+            className="min-h-0 flex-1 gap-3 overflow-y-auto px-6 py-5"
           >
             {messages.length === 0 && (
-              <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted p-3">
+              <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted p-4">
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   {context.hideOptions
                     ? "I can read holdings and update shares, buy price, cash, or add/remove tickers."
@@ -1400,7 +1390,7 @@ export function CcAdvisorChat({
 
           <form
             onSubmit={onSubmit}
-            className="flex shrink-0 flex-col gap-2 border-t border-border p-3"
+            className="flex shrink-0 flex-col gap-2 border-t border-border px-6 py-4"
           >
             {pendingImages.length > 0 && (
               <div className="flex flex-wrap gap-2">
@@ -1434,17 +1424,6 @@ export function CcAdvisorChat({
               </div>
             )}
             <div className="flex gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files?.length) void addImageFiles(e.target.files);
-                  e.target.value = "";
-                }}
-              />
               <Button
                 type="button"
                 variant="outline"
@@ -1465,6 +1444,19 @@ export function CcAdvisorChat({
                 disabled={busy}
                 className="min-w-0 w-auto flex-1"
               />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                tabIndex={-1}
+                aria-hidden="true"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files?.length) void addImageFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
               <Button
                 type="submit"
                 size="icon"
@@ -1479,29 +1471,24 @@ export function CcAdvisorChat({
       )}
 
       {/*
-       * Gold means "open Margus", never "close him".
-       *
-       * This button kept the accent fill in both states and only swapped
-       * the glyph, so while the panel was open the loudest pixel on a
-       * phone was the close button -- sitting a thumb's width from a send
-       * button that is neutral until there is something to send. The
-       * accent read as the way to send a message and was the way to throw
-       * the message away. Open, it goes to the neutral surface every other
-       * dismiss in the app uses, which leaves the panel with exactly one
-       * accent in it and puts that accent on send.
+       * Gold means "open Margus". The launcher is gone while the panel is
+       * open, so close lives on the header X alone: two dismiss controls
+       * in the same corner fought each other, and the round button sat on
+       * top of send.
        */}
-      <Button
-        type="button"
-        variant={open ? "secondary" : "default"}
-        size="icon-lg"
-        className="pointer-events-auto size-14 rounded-full [&_svg:not([class*='size-'])]:size-6 lg:size-16"
-        onClick={() => setOpen((o) => !o)}
-        aria-label={open ? "Close Assistant Margus" : "Open Assistant Margus"}
-        aria-expanded={open}
-        title="Assistant Margus"
-      >
-        {open ? <X /> : <Sparkles />}
-      </Button>
+      {!open && (
+        <Button
+          type="button"
+          variant="default"
+          size="icon-lg"
+          className="pointer-events-auto size-14 rounded-full [&_svg:not([class*='size-'])]:size-6 lg:size-16"
+          onClick={() => setOpen(true)}
+          aria-label="Open Assistant Margus"
+          title="Assistant Margus"
+        >
+          <Sparkles />
+        </Button>
+      )}
     </div>
   );
 }
