@@ -39,7 +39,7 @@ const MODES = [
     href: "/?tab=overview",
     tab: "overview",
     label: "Home",
-    title: "Today's briefing and your portfolios",
+    title: "Today's briefing and your portfolio",
     Icon: LayoutDashboard,
   },
   {
@@ -78,6 +78,17 @@ export function hrefForDockTarget(
   const sheet = portfolios.find((p) => p.id === id);
   const token = sheet?.slug || id;
   return `/?tab=portfolio&portfolio=${encodeURIComponent(token)}`;
+}
+
+function sheetMatchesActive(
+  sheet: Pick<Portfolio, "id" | "slug">,
+  activeId: string | null | undefined
+): boolean {
+  if (!activeId) return false;
+  return (
+    sheet.id === activeId ||
+    sheet.slug?.toLowerCase() === activeId.toLowerCase()
+  );
 }
 
 export function stashDockTab(id: string) {
@@ -274,7 +285,7 @@ export function BookModeDock({
   const showAdd = Boolean(onAddSheet) && !folded;
   const cellCount = fixedCells + inlineSheets.length + (folded ? 1 : 0);
 
-  const activeSheet = sheets.find((p) => p.id === activeId) ?? null;
+  const activeSheet = sheets.find((p) => sheetMatchesActive(p, activeId)) ?? null;
   const circleTo = useCircleHref();
   const onCircle = usePathname().startsWith("/communities");
 
@@ -396,7 +407,7 @@ export function BookModeDock({
       })}
 
       {inlineSheets.map((sheet) => {
-        const active = sheet.id === activeId;
+        const active = sheetMatchesActive(sheet, activeId);
         const tone = sheetTodayTone?.[sheet.id] ?? null;
         const inner = (
           <>
@@ -476,7 +487,7 @@ export function BookModeDock({
               >
                 <ToneDot tone={sheetTodayTone?.[sheet.id] ?? null} />
                 <span className="min-w-0 flex-1 truncate">{sheet.name}</span>
-                {sheet.id === activeId ? (
+                {sheetMatchesActive(sheet, activeId) ? (
                   <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
                 ) : null}
               </DropdownMenuItem>

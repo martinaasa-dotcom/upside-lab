@@ -9,6 +9,7 @@ import {
   OVERVIEW_TAB_ID,
   PULSE_TAB_ID,
 } from "@/lib/overview";
+import { type MobileTabId } from "@/lib/mobile-tab";
 import { useDockPad } from "@/lib/use-dock-pad";
 import { People } from "@/components/People";
 import {
@@ -21,13 +22,8 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-export type MobileTabId =
-  | "home"
-  | "holdings"
-  | "pulse"
-  | "lab"
-  | "compound"
-  | "circle";
+export type { MobileTabId } from "@/lib/mobile-tab";
+export { activeMobileTab, mobileTabFromActiveId } from "@/lib/mobile-tab";
 
 /*
   The phone's dock.
@@ -145,35 +141,6 @@ const TABS: {
   },
 ];
 
-export function activeMobileTab(
-  pathname: string,
-  tabParam?: string | null
-): MobileTabId | null {
-  if (pathname.startsWith("/account") || pathname.startsWith("/admin")) {
-    return null;
-  }
-  if (pathname.startsWith("/upside-portfolio")) {
-    return null;
-  }
-  if (pathname.startsWith("/communities")) {
-    return "circle";
-  }
-  const tab = (tabParam ?? "").toLowerCase();
-  if (tab === "pulse") return "pulse";
-  if (tab === "lab") return "lab";
-  if (tab === "compound") return "compound";
-  /*
-    `book` is the old spelling of `portfolio` and `forecast` is a panel on a
-    portfolio rather than a room of its own, so all three are the holdings
-    table. Kept in step with `resolveSheetIdFromUrl`, which reads the same
-    three the same way.
-  */
-  if (tab === "portfolio" || tab === "book" || tab === "forecast") {
-    return "holdings";
-  }
-  return "home";
-}
-
 type Mark = { left: number; width: number };
 type Said = { label: string; left: number };
 
@@ -216,7 +183,15 @@ export function MobileTabBar({
   const measure = useCallback(() => {
     const row = rowRef.current;
     if (!row) return;
-    const on = row.querySelector<HTMLElement>('[data-tab][aria-current="page"]');
+    /*
+     * The marker follows the room you are in, via `data-on` on that cell.
+     * It used to read `aria-current="page"`, which is also set from `active`,
+     * but a missing current-page attribute (empty table, pending link, a
+     * parent `inert` while the book room is waking) left the pill with
+     * nothing to sit on. `data-on` is the same flag the desktop dock uses
+     * and it is only ever `active === id`.
+     */
+    const on = row.querySelector<HTMLElement>("[data-on]");
     /*
      * Same object, same state. `setMark` with a freshly built object on
      * every measurement makes every measurement a re-render, and a layout
@@ -227,6 +202,7 @@ export function MobileTabBar({
      * safe to measure as often as it takes to be right.
      */
     setMark((was) => {
+      if (!was && !on) return was;
       if (!on) return null;
       const next = { left: on.offsetLeft, width: on.offsetWidth };
       return was && was.left === next.left && was.width === next.width
@@ -235,9 +211,15 @@ export function MobileTabBar({
     });
   }, []);
 
+  /*
+   * No dependency list on purpose. Same reason as `BookModeDock`: the
+   * marker has to re-read after the active id, the viewer's tier, and
+   * label width, and listing those is a list that goes stale. Measuring
+   * after every render is safe because the guard above converges.
+   */
   useLayoutEffect(() => {
     measure();
-  }, [measure, active, tabs.length]);
+  });
 
   /*
     A viewer's tier can drop a cell, which moves every cell after it, and the
@@ -327,6 +309,7 @@ export function MobileTabBar({
               href={to}
               prefetch
               data-tab={id}
+              data-on={on ? "" : undefined}
               aria-label={label}
               aria-current={on ? "page" : undefined}
               onPointerDown={(e) => say(shortLabel, e.currentTarget)}

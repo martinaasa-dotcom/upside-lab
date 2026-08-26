@@ -3,7 +3,7 @@
 import { track } from "@vercel/analytics";
 import { AppHeader } from "@/components/AppHeader";
 import { CashModal } from "@/components/CashModal";
-import type { AdvisorAction } from "@/components/CcAdvisorChat";
+import type { AdvisorAction, SilentScreenshotImport } from "@/components/CcAdvisorChat";
 import { CommandPalette, type CommandItem } from "@/components/CommandPalette";
 import { CsvImportModal } from "@/components/CsvImportModal";
 import { CostBasisModal, type CostBasisRow } from "@/components/CostBasisModal";
@@ -187,7 +187,8 @@ import {
 } from "@/lib/experience-tier";
 import { InvitePartnerModal } from "@/components/InvitePartnerModal";
 import { DashboardLoading } from "@/components/DashboardLoading";
-import { MobileTabBar, type MobileTabId } from "@/components/mobile/MobileTabBar";
+import { MobileTabBar } from "@/components/mobile/MobileTabBar";
+import { mobileTabFromActiveId } from "@/lib/mobile-tab";
 import { SheetPicker } from "@/components/SheetPicker";
 import { useLabSync } from "@/components/use-lab-sync";
 import { FIRST_SHEET_NAME } from "@/lib/product";
@@ -208,9 +209,7 @@ import { addPulseStamp } from "@/lib/conviction";
  * Margus is a collapsed floating panel almost nobody opens on first paint,
  * but eagerly importing him put the AI SDK, react-markdown, remark-gfm and
  * zod on every dashboard load. Deferred here and warmed on idle below, so
- * the chunk is nearly always in cache before the first click (which
- * matters: the silent screenshot import clicks a file input, and browsers
- * only allow that close to a real user gesture).
+ * the chunk is nearly always in cache before the first click.
  */
 const CcAdvisorChat = dynamic(
   () => import("@/components/CcAdvisorChat").then((m) => m.CcAdvisorChat),
@@ -489,7 +488,10 @@ export function Dashboard() {
   >(null);
   const [snapshotsOpen, setSnapshotsOpen] = useState(false);
   const [margusExpandSignal, setMargusExpandSignal] = useState(0);
-  const [margusImagePickSignal, setMargusImagePickSignal] = useState(0);
+  const [silentScreenshot, setSilentScreenshot] =
+    useState<SilentScreenshotImport | null>(null);
+  const screenshotFileRef = useRef<HTMLInputElement>(null);
+  const silentScreenshotSeq = useRef(0);
   const [confirmResetForecast, setConfirmResetForecast] = useState(false);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -780,15 +782,7 @@ export function Dashboard() {
   const isPulse = activeId === PULSE_TAB_ID;
   const isAlerts = activeId === ALERTS_TAB_ID;
   const isMetaTab = isOverview || isCompound || isLab || isPulse || isAlerts;
-  const mobileTab: MobileTabId | null = isPulse
-    ? "pulse"
-    : isLab
-      ? "lab"
-      : isCompound
-        ? "compound"
-        : isOverview || isAlerts
-          ? "home"
-          : "holdings";
+  const mobileTab = mobileTabFromActiveId(activeId);
 
   const activePortfolio =
     isMetaTab
@@ -923,6 +917,27 @@ export function Dashboard() {
     return buildSnapshot(activePortfolio, portfolioHoldings, quotes, options);
   }, [activePortfolio, portfolioHoldings, quotes, options]);
 
+  /** Margus always talks to one portfolio: the open tab, or the last one opened. */
+  const margusPortfolio = useMemo(() => {
+    if (activePortfolio) return activePortfolio;
+    const id = resolveLastPortfolioId(portfolios);
+    if (!id) return null;
+    return portfolios.find((p) => p.id === id) ?? null;
+  }, [activePortfolio, portfolios]);
+
+  const margusHoldings = useMemo(
+    () =>
+      holdings
+        .filter((h) => h.portfolio_id === margusPortfolio?.id)
+        .sort((a, b) => a.sort_order - b.sort_order),
+    [holdings, margusPortfolio?.id]
+  );
+
+  const margusSnapshot = useMemo(() => {
+    if (!margusPortfolio) return null;
+    return buildSnapshot(margusPortfolio, margusHoldings, quotes, options);
+  }, [margusPortfolio, margusHoldings, quotes, options]);
+
   const realPortfolios = useMemo(
     () => ownedBookPortfolios(portfolios),
     [portfolios]
@@ -1030,17 +1045,12 @@ export function Dashboard() {
   }, [activePortfolio, portfolioHoldings, quotes, eoyOverrides]);
 
   const margusSheetTickersKey = useMemo(() => {
-    if (!isMetaTab && activePortfolio && snapshot) {
-      return snapshot.holdings
-        .map((h) => h.ticker.toUpperCase())
-        .sort()
-        .join("|");
-    }
-    return overview.tickers
-      .map((t) => t.ticker.toUpperCase())
+    if (!margusSnapshot) return "";
+    return margusSnapshot.holdings
+      .map((h) => h.ticker.toUpperCase())
       .sort()
       .join("|");
-  }, [isMetaTab, activePortfolio, snapshot, overview.tickers]);
+  }, [margusSnapshot]);
 
   const margusPulseByTicker = useMemo(() => {
     const out: Record<string, PulseCheck> = {};
@@ -1054,11 +1064,11 @@ export function Dashboard() {
   }, [margusSheetTickersKey]);
 
   const margusForecastPlan = useMemo(() => {
-    if (isMetaTab || !activePortfolio) return null;
-    return loadForecastPlan(activePortfolio.id);
+    if (!margusPortfolio) return null;
+    return loadForecastPlan(margusPortfolio.id);
     // id is the cache key; the portfolio object is a new reference every paint
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMetaTab, activePortfolio?.id]);
+  }, [margusPortfolio?.id]);
 
   const margusConvictionsForChat = useMemo(() => {
     const out: Record<
@@ -1133,6 +1143,7 @@ export function Dashboard() {
           wantsHoldingsRef.current = false;
           return target;
         }
+        return PORTFOLIO_TAB_PENDING;
       }
       return OVERVIEW_TAB_ID;
     },
@@ -1662,7 +1673,7 @@ export function Dashboard() {
     // its OVERVIEW_TAB_ID placeholder, stripping a deep-linked ?tab= from
     // the URL before it was ever actually read.
     if (!authReady || !initialSheetResolvedRef.current) return;
-    saveActiveSheetId(activeId);
+    if (activeId !== PORTFOLIO_TAB_PENDING) saveActiveSheetId(activeId);
     /*
      * Remembered separately from the tab above, which is holding a meta-tab
      * id most of the time and so cannot answer "which portfolio was I in".
@@ -1690,6 +1701,8 @@ export function Dashboard() {
       url.searchParams.set("tab", "pulse");
     } else if (activeId === ALERTS_TAB_ID) {
       url.searchParams.set("tab", "alerts");
+    } else if (activeId === PORTFOLIO_TAB_PENDING) {
+      url.searchParams.set("tab", "portfolio");
     } else {
       const p = portfolios.find((x) => x.id === activeId);
       url.searchParams.set("tab", "portfolio");
@@ -2768,14 +2781,17 @@ export function Dashboard() {
    */
   const startFirstRunAction = useCallback(
     (kind: "manual" | "csv" | "screenshot") => {
+      if (kind === "screenshot") {
+        openScreenshotPicker();
+        return;
+      }
       void (async () => {
         try {
           const target = await ensureFirstSheet();
           if (!target) return;
           if (activeId !== target.id) setActiveId(target.id);
           if (kind === "manual") setModalOpen(true);
-          else if (kind === "csv") setCsvImportOpen(true);
-          else setMargusImagePickSignal((n) => n + 1);
+          else setCsvImportOpen(true);
         } catch (err) {
           toast(
             plainError(
@@ -3007,6 +3023,38 @@ export function Dashboard() {
       return await pending;
     } finally {
       creatingFirstSheetRef.current = null;
+    }
+  }
+
+  function openScreenshotPicker() {
+    screenshotFileRef.current?.click();
+  }
+
+  async function beginSilentScreenshotImport(list: FileList) {
+    const files = Array.from(list).filter((f) => f.type.startsWith("image/"));
+    if (files.length === 0) return;
+    try {
+      let targetId = margusPortfolio?.id ?? activePortfolio?.id ?? null;
+      if (!targetId) {
+        const created = await ensureFirstSheet();
+        if (!created) return;
+        targetId = created.id;
+        if (activeId !== created.id) setActiveId(created.id);
+      }
+      silentScreenshotSeq.current += 1;
+      setSilentScreenshot({
+        id: silentScreenshotSeq.current,
+        portfolioId: targetId,
+        files,
+      });
+    } catch (err) {
+      toast(
+        plainError(
+          err instanceof Error ? err.message : null,
+          "Couldn't start that screenshot import. Try again."
+        ),
+        "error"
+      );
     }
   }
 
@@ -3521,9 +3569,7 @@ export function Dashboard() {
   const onAskMargus = useStableCallback(() =>
     setMargusExpandSignal((n) => n + 1)
   );
-  const onImportScreenshot = useStableCallback(() =>
-    setMargusImagePickSignal((n) => n + 1)
-  );
+  const onImportScreenshot = useStableCallback(() => openScreenshotPicker());
   const onImportCsv = useStableCallback(() => setCsvImportOpen(true));
   const onOpenTicker = useStableCallback((t: string) => setDrawerTicker(t));
   const onDisplayCurrencyChange = useStableCallback((code: DisplayCurrency) => {
@@ -3690,7 +3736,7 @@ export function Dashboard() {
       <div className={PAGE_FRAME_CLASS}>
         <AppHeader
           showWorkspaceNav={source === "supabase"}
-          title="Overview"
+          title={mobileTab === "holdings" ? "Holdings" : "Overview"}
           end={accountEnd}
         />
         {/*
@@ -3987,6 +4033,7 @@ export function Dashboard() {
         hiddenModeIds={hiddenMetaTabIds}
         onSelect={(id) => {
           if (id === "home") {
+            wantsHoldingsRef.current = false;
             setActiveId(OVERVIEW_TAB_ID);
             return true;
           }
@@ -3994,24 +4041,32 @@ export function Dashboard() {
             /*
              * Same answer the URL gets, resolved against the list already in
              * memory so the table is on screen without a round trip. With no
-             * portfolios at all there is nothing to open and Overview is where
-             * Add a holding lives, so that is where it goes.
+             * portfolios at all the pending sentinel keeps this cell lit:
+             * Overview is where Add a holding lives, but the room you asked
+             * for is still Holdings, empty table or not. `wantsHoldingsRef`
+             * is the note pickInitialSheet reads if a book load lands in the
+             * same tick and would otherwise send this cell back to Overview
+             * because the URL has not been rewritten yet.
              */
+            wantsHoldingsRef.current = true;
             const target = resolveLastPortfolioId(portfolios);
-            setActiveId(target ?? OVERVIEW_TAB_ID);
+            setActiveId(target ?? PORTFOLIO_TAB_PENDING);
             return true;
           }
           if (id === "pulse") {
             if (pulseHiddenForTier) return false;
+            wantsHoldingsRef.current = false;
             setActiveId(PULSE_TAB_ID);
             return true;
           }
           if (id === "lab") {
             if (labHiddenForTier) return false;
+            wantsHoldingsRef.current = false;
             setActiveId(LAB_TAB_ID);
             return true;
           }
           if (id === "compound") {
+            wantsHoldingsRef.current = false;
             setActiveId(COMPOUND_TAB_ID);
             return true;
           }
@@ -4236,33 +4291,36 @@ export function Dashboard() {
       </WidgetErrorBoundary>
 
       <WidgetErrorBoundary name="Margus">
+      <input
+        ref={screenshotFileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        tabIndex={-1}
+        aria-hidden="true"
+        className="hidden"
+        onChange={(e) => {
+          const list = e.target.files;
+          e.target.value = "";
+          if (list?.length) void beginSilentScreenshotImport(list);
+        }}
+      />
       <CcAdvisorChat
-        key={
-          !isMetaTab && activePortfolio && snapshot
-            ? activePortfolio.id
-            : OVERVIEW_TAB_ID
-        }
-        portfolioId={
-          !isMetaTab && activePortfolio && snapshot
-            ? activePortfolio.id
-            : OVERVIEW_TAB_ID
-        }
+        key={margusPortfolio?.id ?? OVERVIEW_TAB_ID}
+        portfolioId={margusPortfolio?.id ?? OVERVIEW_TAB_ID}
         expandSignal={margusExpandSignal}
-        imagePickSignal={margusImagePickSignal}
+        screenshotImport={silentScreenshot}
+        onScreenshotImportConsumed={() => setSilentScreenshot(null)}
         onSuggestCsv={() => setCsvImportOpen(true)}
-        onApplyActions={
-          !isMetaTab && activePortfolio && snapshot
-            ? applyAdvisorActions
-            : () => {
-                /* advise-only on Overview / Lab / Pulse / Compound */
-              }
-        }
+        onApplyActions={(actions) => {
+          if (margusPortfolio) applyAdvisorActions(actions, margusPortfolio);
+        }}
         context={
-          !isMetaTab && activePortfolio && snapshot
+          margusPortfolio && margusSnapshot
             ? {
-                portfolioName: activePortfolio.name,
-                cashBalance: activePortfolio.cash_balance,
-                classroom: Boolean(activePortfolio.classroom_community_id),
+                portfolioName: margusPortfolio.name,
+                cashBalance: margusPortfolio.cash_balance,
+                classroom: Boolean(margusPortfolio.classroom_community_id),
                 hideOptions: hideOptionsUI,
                 eurUsd,
                 gbpUsd,
@@ -4270,7 +4328,7 @@ export function Dashboard() {
                 convictions: margusConvictionsForChat,
                 pulseByTicker: margusPulseByTicker,
                 forecastPlan: margusForecastPlan,
-                holdings: snapshot.holdings.map((h) => ({
+                holdings: margusSnapshot.holdings.map((h) => ({
                   ticker: h.ticker,
                   shares: h.shares,
                   buyPrice: h.buy_price,
@@ -4285,7 +4343,7 @@ export function Dashboard() {
                 })),
                 rows: hideOptionsUI
                   ? []
-                  : snapshot.coveredCallRows.map((r) => ({
+                  : margusSnapshot.coveredCallRows.map((r) => ({
                       ticker: r.holding.ticker,
                       spot: r.spot,
                       callPct: r.targetCall,
@@ -4299,40 +4357,17 @@ export function Dashboard() {
                     })),
                 marketState,
                 totals: {
-                  cost: snapshot.totals.buyValue,
-                  value: snapshot.totals.currentValue,
-                  roiPct: snapshot.totals.roiPct,
-                  roiDollar: snapshot.totals.roiDollar,
-                  yield2wAvg: snapshot.totals.yield2wAvg,
-                  premiumTotal: snapshot.totals.premiumTotal,
+                  cost: margusSnapshot.totals.buyValue,
+                  value: margusSnapshot.totals.currentValue,
+                  roiPct: margusSnapshot.totals.roiPct,
+                  roiDollar: margusSnapshot.totals.roiDollar,
+                  yield2wAvg: margusSnapshot.totals.yield2wAvg,
+                  premiumTotal: margusSnapshot.totals.premiumTotal,
                 },
-                otherPortfolios: portfolios
-                  .filter((p) => p.id !== activePortfolio.id)
-                  .filter((p) =>
-                    activePortfolio.classroom_community_id
-                      ? p.classroom_community_id ===
-                        activePortfolio.classroom_community_id
-                      : !p.classroom_community_id
-                  )
-                  .map((p) => ({
-                    name: p.name,
-                    cashBalance: p.cash_balance,
-                    holdings: holdings
-                      .filter((h) => h.portfolio_id === p.id)
-                      .map((h) => ({
-                        ticker: h.ticker,
-                        shares: h.shares,
-                        buyPrice: h.buy_price,
-                        callPct: hideOptionsUI ? undefined : h.target_call_pct,
-                        stockTarget: hideOptionsUI
-                          ? undefined
-                          : h.stock_target_override,
-                      })),
-                  })),
               }
             : {
-                portfolioName: "Overview",
-                cashBalance: overview.totals.cash,
+                portfolioName: "Your portfolio",
+                cashBalance: 0,
                 adviseOnly: true,
                 hideOptions: hideOptionsUI,
                 eurUsd,
@@ -4341,48 +4376,17 @@ export function Dashboard() {
                 convictions: margusConvictionsForChat,
                 pulseByTicker: margusPulseByTicker,
                 forecastPlan: null,
-                holdings: overview.tickers.map((t) => ({
-                  ticker: t.ticker,
-                  shares: t.shares,
-                  buyPrice: t.shares > 0 ? t.buyValue / t.shares : 0,
-                  price: t.price,
-                  cost: t.buyValue,
-                  value: t.currentValue,
-                  roiPct: t.roiPct,
-                  roiDollar: t.roiDollar,
-                  pctOfTotal:
-                    overview.totals.equityValue > 0
-                      ? t.currentValue / overview.totals.equityValue
-                      : 0,
-                  todayPct: t.todayPct,
-                  portfolios: t.portfolios,
-                  ...extendedHoursFromQuote(quotes[t.ticker]),
-                })),
+                holdings: [],
                 rows: [],
                 marketState,
                 totals: {
-                  cost: overview.totals.buyValue,
-                  value: overview.totals.totalValue,
-                  roiPct: overview.totals.roiPct,
-                  roiDollar: overview.totals.roiDollar,
+                  cost: 0,
+                  value: 0,
+                  roiPct: 0,
+                  roiDollar: 0,
                   yield2wAvg: 0,
                   premiumTotal: 0,
                 },
-                otherPortfolios: realPortfolios.map((p) => ({
-                  name: p.name,
-                  cashBalance: p.cash_balance,
-                  holdings: holdings
-                    .filter((h) => h.portfolio_id === p.id)
-                    .map((h) => ({
-                      ticker: h.ticker,
-                      shares: h.shares,
-                      buyPrice: h.buy_price,
-                      callPct: hideOptionsUI ? undefined : h.target_call_pct,
-                      stockTarget: hideOptionsUI
-                        ? undefined
-                        : h.stock_target_override,
-                    })),
-                })),
               }
         }
       />

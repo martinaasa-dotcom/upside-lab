@@ -19,6 +19,7 @@ import {
 } from "@/lib/active-sheet";
 
 const BAR = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");
+const TAB = readFileSync("src/lib/mobile-tab.ts", "utf8");
 const DASHBOARD = readFileSync("src/components/Dashboard.tsx", "utf8");
 
 /** A localStorage the node test environment does not otherwise have. */
@@ -128,10 +129,25 @@ describe("the URL answers for it", () => {
   });
 
   it("marks the cell as the room you are in", () => {
-    expect(BAR).toMatch(
+    expect(TAB).toMatch(
       /tab === "portfolio" \|\| tab === "book" \|\| tab === "forecast"/
     );
-    expect(DASHBOARD).toMatch(/\? "home"\n\s+: "holdings";/);
+    expect(DASHBOARD).toMatch(/mobileTabFromActiveId\(activeId\)/);
+  });
+
+  it("lights the cell from the room id, not from whether the table has rows", () => {
+    /*
+     * The marker used to vanish on an empty holdings table because the
+     * pill was measured off aria-current, or because a book load in the
+     * same tick sent the tap back to Overview. The room is Holdings
+     * either way.
+     */
+    expect(BAR).toMatch(/data-on=\{on \? "" : undefined\}/);
+    expect(BAR).toMatch(/querySelector<HTMLElement>\("\[data-on\]"\)/);
+    expect(DASHBOARD).toMatch(/wantsHoldingsRef\.current = true/);
+    expect(DASHBOARD).toMatch(
+      /setActiveId\(target \?\? PORTFOLIO_TAB_PENDING\)/
+    );
   });
 });
 
