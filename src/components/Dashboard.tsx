@@ -3068,7 +3068,6 @@ export function Dashboard() {
     if (!activePortfolio) return;
     const portfolioId = activePortfolio.id;
     const previousCash = activePortfolio.cash_balance;
-    if (!tracksTradeCash(activePortfolio) && cash < 0) cash = 0;
     const cashSeq = (cashWriteSeqRef.current.get(portfolioId) ?? 0) + 1;
     cashWriteSeqRef.current.set(portfolioId, cashSeq);
 
@@ -4011,9 +4010,7 @@ export function Dashboard() {
         initialCash={
           activePortfolio ? sheetCashBalance(activePortfolio) : 0
         }
-        allowNegative={
-          activePortfolio ? tracksTradeCash(activePortfolio) : false
-        }
+        paperCash={activePortfolio ? tracksTradeCash(activePortfolio) : false}
         onClose={() => setCashModalOpen(false)}
         onSave={handleSaveCash}
       />
