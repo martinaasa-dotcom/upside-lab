@@ -63,7 +63,12 @@ import {
   milestoneToast,
   recordVisitToday,
 } from "@/lib/visit-streak";
-import { saveActiveSheetId, takeOpenTab } from "@/lib/active-sheet";
+import {
+  resolveLastPortfolioId,
+  saveActiveSheetId,
+  saveLastPortfolioId,
+  takeOpenTab,
+} from "@/lib/active-sheet";
 import { loadLastUser } from "@/lib/last-session";
 import { isAbortError, retryOnNetwork } from "@/lib/abort";
 import { isSafePositiveMoney, isSafeShares, sanitizeSheetName } from "@/lib/input-guard";
@@ -338,6 +343,15 @@ function metaTabFromToken(raw: string): string | null {
   return null;
 }
 
+/**
+ * `?tab=portfolio` with no portfolio named and no list to name one from.
+ *
+ * Distinct from `null`, which means the URL asked for nothing: this asked
+ * for the holdings table and could not be answered yet. Callers turn it into
+ * Overview for now and remember to ask again once the book has loaded.
+ */
+const PORTFOLIO_TAB_PENDING = "__portfolio_pending__";
+
 function resolveSheetIdFromUrl(
   list: Portfolio[],
   pendingTab?: string | null
@@ -370,7 +384,21 @@ function resolveSheetIdFromUrl(
     if (meta) return meta;
   }
   const raw = portfolioParam || sheetParam;
-  if (!raw) return null;
+  if (!raw) {
+    /*
+     * `?tab=portfolio` with nothing after it is the phone dock's Holdings
+     * cell, which cannot name a portfolio: it draws on every page, including
+     * the ones that never load a book, so it has no list to pick from and no
+     * way to tell a remembered id from one somebody has since deleted. This
+     * is the only place that does, so it answers here: the portfolio you were
+     * last in, else your first one. Falling through to Overview would send
+     * that cell straight back to the room the reader is trying to leave.
+     */
+    if (tabParam === "portfolio" || tabParam === "book") {
+      return resolveLastPortfolioId(list) ?? PORTFOLIO_TAB_PENDING;
+    }
+    return null;
+  }
   const bySlugOrId = list.find(
     (p) =>
       p.id === raw ||
@@ -504,6 +532,38 @@ export function Dashboard() {
   const reloadAfterWritesRef = useRef(false);
   const bookWriteChainRef = useRef(Promise.resolve());
   const addingSheetRef = useRef<Promise<Portfolio | undefined> | null>(null);
+  /*
+   * The phone dock's Holdings cell arriving before the book does.
+   *
+   * `/?tab=portfolio` names no portfolio, so it can only be answered against
+   * a list, and on a cold cache -- a first visit in this browser, or the
+   * first one after a sign-out -- there is no list at mount. Overview is
+   * where that lands, and by the time the book arrives the URL effect has
+   * already stripped the query, so nothing is left to say what was asked
+   * for. This is what is left: set when the question could not be answered,
+   * spent by the first `pickInitialSheet` that has portfolios to answer it
+   * with. Every other tab resolves from the token alone and never needs it.
+   */
+  const wantsHoldingsRef = useRef(false);
+
+  /**
+   * `resolveSheetIdFromUrl` with the pending case handled: it turns into
+   * Overview and leaves a note, so the next call that has a book to read can
+   * finish answering it. See `wantsHoldingsRef`.
+   */
+  const takeSheetIdFromUrl = useCallback(
+    (list: Portfolio[], pendingTab?: string | null) => {
+      const fromUrl = resolveSheetIdFromUrl(list, pendingTab);
+      if (fromUrl === PORTFOLIO_TAB_PENDING) {
+        wantsHoldingsRef.current = true;
+        return null;
+      }
+      if (fromUrl) wantsHoldingsRef.current = false;
+      return fromUrl;
+    },
+    []
+  );
+
   const [ccVisibleByPortfolio, setCcVisibleByPortfolio] =
     useState<VisibilityMap>({});
   const [forecastVisibleByPortfolio, setForecastVisibleByPortfolio] =
@@ -535,7 +595,7 @@ export function Dashboard() {
       setLocked(cached.locked);
       setLoading(false);
       bookFetchedAtRef.current = cached.fetchedAt;
-      const fromUrl = resolveSheetIdFromUrl(book.portfolios, takeOpenTab());
+      const fromUrl = takeSheetIdFromUrl(book.portfolios, takeOpenTab());
       setActiveId(fromUrl ?? OVERVIEW_TAB_ID);
       initialSheetResolvedRef.current = true;
     } else {
@@ -547,7 +607,7 @@ export function Dashboard() {
         bookFetchedAtRef.current = 0;
         setLoading(true);
       }
-      const fromUrl = resolveSheetIdFromUrl([], takeOpenTab());
+      const fromUrl = takeSheetIdFromUrl([], takeOpenTab());
       setActiveId(fromUrl ?? OVERVIEW_TAB_ID);
       initialSheetResolvedRef.current = true;
     }
@@ -571,7 +631,7 @@ export function Dashboard() {
     setForecastVisibleByPortfolio(loadVisibilityMap(FORECAST_VISIBLE_KEY));
     setExperienceTier(loadStoredTier());
     setKnowsOptions(loadStoredKnowsOptions());
-  }, [user?.id]);
+  }, [user?.id, takeSheetIdFromUrl]);
 
   useEffect(() => {
     const apply = () => {
@@ -722,7 +782,7 @@ export function Dashboard() {
         ? "compound"
         : isOverview || isAlerts
           ? "home"
-          : null;
+          : "holdings";
 
   const activePortfolio =
     isMetaTab
@@ -1054,11 +1114,23 @@ export function Dashboard() {
 
   const pickInitialSheet = useCallback(
     (list: Portfolio[]) => {
-      const fromUrl = resolveSheetIdFromUrl(list);
+      const fromUrl = takeSheetIdFromUrl(list);
       if (fromUrl) return fromUrl;
+      /*
+       * The Holdings cell was pressed before the book existed. Now it does,
+       * so the question it asked gets its answer rather than being dropped
+       * on the floor with the query string.
+       */
+      if (wantsHoldingsRef.current) {
+        const target = resolveLastPortfolioId(list);
+        if (target) {
+          wantsHoldingsRef.current = false;
+          return target;
+        }
+      }
       return OVERVIEW_TAB_ID;
     },
-    []
+    [takeSheetIdFromUrl]
   );
 
   const loadPortfolios = useCallback(async (opts?: { silent?: boolean; retry?: boolean }) => {
@@ -1560,6 +1632,15 @@ export function Dashboard() {
     // the URL before it was ever actually read.
     if (!authReady || !initialSheetResolvedRef.current) return;
     saveActiveSheetId(activeId);
+    /*
+     * Remembered separately from the tab above, which is holding a meta-tab
+     * id most of the time and so cannot answer "which portfolio was I in".
+     * The phone dock's Holdings cell asks exactly that from rooms that never
+     * load a book, so it needs its own note. Written only for a portfolio the
+     * account really has, since a token that resolves to nothing is worse
+     * than no memory at all.
+     */
+    if (activePortfolio) saveLastPortfolioId(activePortfolio.id);
     if (typeof window === "undefined") return;
     // Hidden keep-alive Dashboard still runs this. Do not rewrite Fund or
     // Circle while UPSIDE LAB is sending us home.
@@ -1609,7 +1690,7 @@ export function Dashboard() {
     }
 
     window.history.pushState(state, "", href);
-  }, [activeId, portfolios, authReady]);
+  }, [activeId, activePortfolio, portfolios, authReady]);
 
   useEffect(() => {
     function onPopState(e: PopStateEvent) {
@@ -1641,7 +1722,7 @@ export function Dashboard() {
       if (!isWorkspaceRoomActive("book")) return;
       setActiveId((prev) => {
         if (takeGoHomeRequest()) return OVERVIEW_TAB_ID;
-        const fromUrl = resolveSheetIdFromUrl(portfolios, takeOpenTab());
+        const fromUrl = takeSheetIdFromUrl(portfolios, takeOpenTab());
         return fromUrl ?? prev;
       });
       if (!isBookFetchFresh(bookFetchedAtRef.current)) {
@@ -1663,7 +1744,7 @@ export function Dashboard() {
       window.removeEventListener(GO_HOME_EVENT, onGoHome);
       window.removeEventListener(BOOK_REFRESH_EVENT, onBookRefresh);
     };
-  }, [portfolios, loadPortfolios]);
+  }, [portfolios, loadPortfolios, takeSheetIdFromUrl]);
 
   useEffect(() => {
     if (source !== "supabase") return;
@@ -3573,7 +3654,13 @@ export function Dashboard() {
           title="Overview"
           end={accountEnd}
         />
-        <MobileTabBar active="home" hiddenModeIds={hiddenMetaTabIds} />
+        {/*
+          The portfolio is named but not loaded yet, so the marker follows the
+          cell that asked for it. Hardcoding `home` here lit Overview while a
+          holdings table was on its way, which is the one moment a reader is
+          most likely to think the tap missed.
+        */}
+        <MobileTabBar active={mobileTab} hiddenModeIds={hiddenMetaTabIds} />
       </div>
       {dock}
       </>
@@ -3861,6 +3948,17 @@ export function Dashboard() {
         onSelect={(id) => {
           if (id === "home") {
             setActiveId(OVERVIEW_TAB_ID);
+            return true;
+          }
+          if (id === "holdings") {
+            /*
+             * Same answer the URL gets, resolved against the list already in
+             * memory so the table is on screen without a round trip. With no
+             * portfolios at all there is nothing to open and Overview is where
+             * Add a holding lives, so that is where it goes.
+             */
+            const target = resolveLastPortfolioId(portfolios);
+            setActiveId(target ?? OVERVIEW_TAB_ID);
             return true;
           }
           if (id === "pulse") {
