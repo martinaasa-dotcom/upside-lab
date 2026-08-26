@@ -1,7 +1,7 @@
 # Disaster recovery
 
 Nightly in-database saves (`portfell_book_snapshots`, 02:00 UTC) live in the
-same Postgres as the book. If that project is gone, those rows are gone.
+same Postgres as the portfolios. If that project is gone, those rows are gone.
 
 Cold copies are a second, encrypted JSON dump of every portfolio's cash and
 holdings, stored in Cloudflare R2 (or AWS S3). A daily cron also checks that
@@ -232,9 +232,9 @@ Local dry run (uses `.env.local`):
 npx tsx scripts/export-cold-snapshot.ts
 ```
 
-If R2 or the Supabase token is missing, the job still captures the book and
-returns warnings. A stale backup or a failed upload returns HTTP 503 so
-Vercel marks the cron red.
+If R2 or the Supabase token is missing, the job still captures the
+portfolios and returns warnings. A stale backup or a failed upload returns
+HTTP 503 so Vercel marks the cron red.
 
 ---
 

@@ -216,7 +216,7 @@ phrases lifted out of the system prompt on the way. Roughly one plain
 question in six. Nothing was scrubbing it: `looksLikePromptLeak` exists and
 would have caught that text, but it is wired into the Sunday letter only,
 and the chat route streams, so a guard there is a design decision rather
-than a drop in. That decision is still open.
+than a drop in. That decision has since been taken, below.
 
 What is fixed here: the detector now also catches a model narrating itself
 with no prompt vocabulary at all, anchored to the start of a line so that an

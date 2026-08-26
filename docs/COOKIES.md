@@ -91,7 +91,7 @@ stores.)*
 |---|---|---|
 | Consent | `upside-analytics-consent-v1` | The analytics answer itself. Must persist, or the banner cannot stop asking. |
 | Session-adjacent | `upside-last-user-v1`, `upside-active-sheet-id`, `upside-last-circle-id`, `upside-open-tab` | Which account/portfolio/tab you were last on, so the app reopens where you left it. |
-| Offline + sync queue | `upside-offline`, `upside-sync`, `upside-flush-sync`, `upside-book-cache-v1`, `upside-quotes-v1` | The offline-first engine: the cached book and the queue of writes waiting for a connection. |
+| Offline + sync queue | `upside-offline`, `upside-sync`, `upside-flush-sync`, `upside-book-cache-v1`, `upside-quotes-v1` | The offline-first engine: the cached portfolio and the queue of writes waiting for a connection. |
 | Your own working notes | `upside-conviction-v1`, `upside-watchlist-v1`, `upside-week-marks-v1`, `upside-pulse-history-v1`, `portfell-trends-watchlist` | Thesis notes and watchlist. Also synced server-side per owner (`portfell_lab_state`). |
 | Things you told us about yourself | `portfell-experience-tier`, `portfell-knows-options` | The two onboarding answers, which decide what the app shows you. Changeable in Account. |
 | Your conversation with Margus | `portfell-chat-by-portfolio` | Chat history per portfolio, so a thread survives a reload. Cleared with the rest on sign-out. |
@@ -99,7 +99,7 @@ stores.)*
 | Numbers you set | `portfell-ytd-anchor-v1`, `portfell-nav-assumed-ytd`, `portfell-nav-history-v1`, `upside-compound-milestone-actuals-v1` | Year-start anchors and planner inputs you typed. |
 | Read / dismissed markers | `upside-alerts-dismissed-v1`, `upside-invite-nudge-v1`, `upside-last-visit-v1`, `upside-last-visit-v2`, `upside-visit-streak-v1`, `portfell-sheet-imported-v1` | What you have already seen, so the app stops re-showing it. |
 | Read-through caches | `upside-communities-list-v1`, `upside-communities-discover-v1`, `upside-fund-v1`, `upside-fund-compare-v1`, `upside-pulse-summary-v1`, `upside-daily-duel-v2`, `upside-billing-status`, `upside-feedback-v1` | Copies of things the server already told us, so a page can paint before the network answers. Nothing here is the source of truth. |
-| Demo / local dev | `portfell-demo-v8`, `portfell-locked` | The seeded demo book and its Save lock. Local only. |
+| Demo / local dev | `portfell-demo-v8`, `portfell-locked` | The seeded demo portfolio and its Save lock. Local only. |
 
 `purgeClientSession()` wipes this on sign-out and on account switch,
 matching those same three prefixes plus IndexedDB and all of
@@ -110,7 +110,7 @@ Three things are kept on purpose, and they are kept because wiping them
 would be worse: `upside-analytics-consent-v1` (wiping it re-asks a question
 the person already answered, which is not consent), `portfell-locked` (the
 demo Save lock, which exists to be hard to lose), and `portfell-demo-v*`
-(the seeded local demo book). None of the three says anything about who
+(the seeded local demo portfolio). None of the three says anything about who
 you are. Everything else goes.
 
 ## When to revisit
