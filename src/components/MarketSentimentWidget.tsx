@@ -153,7 +153,6 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
     >
       <PanelHeader
         title="Market reading"
-        pinActions
         actions={<Pill tone={reading.pill}>{reading.label}</Pill>}
       />
       <p className="text-sm leading-relaxed text-foreground">{reading.copy}</p>
