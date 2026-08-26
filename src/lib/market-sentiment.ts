@@ -7,6 +7,7 @@
  * do with it.
  */
 
+import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { rsi, sma } from "@/lib/market/indicators";
 
 export type SentimentMetrics = {
@@ -41,7 +42,7 @@ export type SentimentReading = {
 };
 
 export const SENTIMENT_DISCLAIMER =
-  "Market sentiment reflects technical indicator logic and historical metrics. It does not constitute personalized investment advice.";
+  `Market sentiment reflects technical indicator logic and historical metrics. ${ADVICE_DISCLAIMER_SHORT}`;
 
 export const SENTIMENT_COPY: Record<SentimentRegime, string> = {
   "low-zone":

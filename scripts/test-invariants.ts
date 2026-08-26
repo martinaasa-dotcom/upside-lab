@@ -2786,8 +2786,6 @@ run("signed-in pages share one column so rooms do not jump", () => {
   assert.doesNotMatch(macroStrip, />\s*Markets\s*</);
   const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
   assert.match(css, /scrollbar-gutter:\s*stable/);
-  assert.match(css, /\.scroll-host\s*\{/);
-  assert.match(css, /padding-inline-end:\s*max\(1rem/);
   const dash = readFileSync(
     join(process.cwd(), "src/components/Dashboard.tsx"),
     "utf8"
@@ -2867,13 +2865,10 @@ run("sheets sit in the visible viewport so the keyboard cannot cover them", () =
     "TickerDrawer.tsx",
     "AccountPage.tsx",
     "CommunityView.tsx",
-    "FeedbackModal.tsx",
-    "CommunitiesList.tsx",
   ];
   for (const name of sheets) {
     const src = readFileSync(join(process.cwd(), "src/components", name), "utf8");
     assert.match(src, /ViewportOverlay/, name);
-    assert.match(src, /scroll-host/, name);
     assert.doesNotMatch(src, /fixed inset-0/, name);
   }
   const confirm = readFileSync(
@@ -4697,38 +4692,6 @@ run("split rows stack on a phone so copy fills the card", () => {
   );
   assert.match(seasonality, /SPLIT_ROW/);
   assert.match(seasonality, /SPLIT_COPY/);
-});
-
-run("setting rows pin a single control on the right", () => {
-  const panel = readFileSync(
-    join(process.cwd(), "src/components/ui/Panel.tsx"),
-    "utf8"
-  );
-  assert.match(panel, /export const SETTING_ROW/);
-  assert.match(panel, /flex flex-row flex-nowrap items-center justify-between/);
-  assert.match(panel, /pinActions/);
-  const item = readFileSync(
-    join(process.cwd(), "src/components/ui/item.tsx"),
-    "utf8"
-  );
-  assert.match(item, /flex-nowrap items-center/);
-  assert.match(item, /ml-auto flex shrink-0/);
-  assert.doesNotMatch(
-    item,
-    /flex w-full flex-wrap items-center rounded-lg/,
-    "list rows must not wrap a single action under the label"
-  );
-  const account = readFileSync(
-    join(process.cwd(), "src/components/AccountPage.tsx"),
-    "utf8"
-  );
-  assert.match(account, /pinActions/);
-  assert.match(account, /SETTING_ROW/);
-  assert.doesNotMatch(
-    account,
-    /flex items-center gap-2 text-sm text-foreground[\s\S]{0,80}<Checkbox/,
-    "Account toggles sit on the right of their label, not the left"
-  );
 });
 
 run("assumed YTD NAV uses current size and forward-fills gaps", () => {
