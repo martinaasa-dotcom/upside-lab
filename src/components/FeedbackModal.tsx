@@ -305,7 +305,7 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
 
             <StepBar index={step} answers={answers} />
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="scroll-host -mx-6 px-6 min-h-0 flex-1 overflow-y-auto">
               <fieldset className="flex flex-col gap-2">
                 <legend className="text-sm font-medium text-foreground">
                   {current.question}
@@ -353,7 +353,7 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
             <AnswerTable index={step} answers={answers} onJump={setStep} />
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+          <div className="scroll-host -mx-6 px-6 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
             <p className="text-sm leading-relaxed text-muted-foreground">
               What is this about, then dump the rest. A bug, a missing thing, or
               a rant. Upside reads these.

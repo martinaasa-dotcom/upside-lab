@@ -204,7 +204,7 @@ export function TickerDrawer({
           </Button>
         </div>
 
-        <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="scroll-host flex flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <Field>
             <FieldLabel htmlFor="ticker-thesis">Thesis</FieldLabel>
             <Textarea

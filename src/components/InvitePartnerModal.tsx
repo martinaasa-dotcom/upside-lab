@@ -149,7 +149,7 @@ export function InvitePartnerModal({
         aria-label="Close"
         onClick={onClose}
       />
-      <div className="relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-xl sm:pb-6">
+      <div className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-xl sm:pb-6">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-semibold text-foreground">

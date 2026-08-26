@@ -11,16 +11,18 @@ import {
 } from "@/lib/overview";
 import { type MobileTabId } from "@/lib/mobile-tab";
 import { useDockPad } from "@/lib/use-dock-pad";
-import { People } from "@/components/People";
+import { useDockMarker } from "@/lib/use-dock-marker";
+import { CircleNavIcon } from "@/components/CircleIcons";
 import {
   Activity,
-  Calculator,
   FlaskConical,
-  LayoutDashboard,
+  House,
+  TrendingUp,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ComponentType } from "react";
 
 export type { MobileTabId } from "@/lib/mobile-tab";
 export { activeMobileTab, mobileTabFromActiveId } from "@/lib/mobile-tab";
@@ -29,7 +31,7 @@ export { activeMobileTab, mobileTabFromActiveId } from "@/lib/mobile-tab";
   The phone's dock.
 
   A capsule that hugs its own contents, carrying glyphs and no words, and
-  ending on the people in your circle rather than on a glyph of a compass.
+  ending on Circle rather than on a glyph of a compass.
   Upside Arena's `BottomDock` is the same design below `md`, and the two apps
   are meant to stay one; the full account of why is in that file and in both
   AGENTS.md.
@@ -64,7 +66,7 @@ const TABS: {
   href: string;
   label: string;
   shortLabel: string;
-  Icon: typeof LayoutDashboard | null;
+  Icon: ComponentType<{ className?: string; strokeWidth?: number }>;
   metaId: string | null;
 }[] = [
   {
@@ -72,7 +74,7 @@ const TABS: {
     href: "/?tab=overview",
     label: "Overview",
     shortLabel: "Home",
-    Icon: LayoutDashboard,
+    Icon: House,
     metaId: OVERVIEW_TAB_ID,
   },
   /*
@@ -123,25 +125,26 @@ const TABS: {
     href: "/?tab=compound",
     label: "Compound",
     shortLabel: "Growth",
-    Icon: Calculator,
+    Icon: TrendingUp,
     metaId: COMPOUND_TAB_ID,
   },
   /*
-    Circle has no glyph. Arena's last cell is your own face and this is the
-    same cell doing the same job: the one destination that is people rather
-    than a room. A compass said "explore", which is not what a circle is.
+    Arena's last cell is your own face. This is the same cell doing the same
+    job: the one destination that is people rather than a room. A compass
+    said "explore", which is not what a circle is. Three overlapping discs
+    said people, but they were a different material from every other glyph.
+    The dotted member ring is the same 24px stroke as the rest of the bar.
   */
   {
     id: "circle",
     href: "/communities",
     label: "Circle",
     shortLabel: "Circle",
-    Icon: null,
+    Icon: CircleNavIcon,
     metaId: null,
   },
 ];
 
-type Mark = { left: number; width: number };
 type Said = { label: string; left: number };
 
 export function MobileTabBar({
@@ -169,77 +172,8 @@ export function MobileTabBar({
     (t) => !t.metaId || !hiddenModeIds.includes(t.metaId)
   );
 
-  const rowRef = useRef<HTMLDivElement>(null);
-  const [mark, setMark] = useState<Mark | null>(null);
+  const { ref: rowRef, mark, travels } = useDockMarker();
   const [said, setSaid] = useState<Said | null>(null);
-
-  /*
-    Placed before it is allowed to move. The marker's first position is
-    wherever the room you arrived on happens to be, and animating to it from
-    the left edge would draw a marker sliding across a bar nobody has touched.
-  */
-  const [travels, setTravels] = useState(false);
-
-  const measure = useCallback(() => {
-    const row = rowRef.current;
-    if (!row) return;
-    /*
-     * The marker follows the room you are in, via `data-on` on that cell.
-     * It used to read `aria-current="page"`, which is also set from `active`,
-     * but a missing current-page attribute (empty table, pending link, a
-     * parent `inert` while the book room is waking) left the pill with
-     * nothing to sit on. `data-on` is the same flag the desktop dock uses
-     * and it is only ever `active === id`.
-     */
-    const on = row.querySelector<HTMLElement>("[data-on]");
-    /*
-     * Same object, same state. `setMark` with a freshly built object on
-     * every measurement makes every measurement a re-render, and a layout
-     * effect that measures after every render then never settles: React
-     * error #185, "maximum update depth exceeded", which is exactly what
-     * this did the first time it was written. Returning the previous value
-     * when the numbers have not moved makes measuring idempotent, so it is
-     * safe to measure as often as it takes to be right.
-     */
-    setMark((was) => {
-      if (!was && !on) return was;
-      if (!on) return null;
-      const next = { left: on.offsetLeft, width: on.offsetWidth };
-      return was && was.left === next.left && was.width === next.width
-        ? was
-        : next;
-    });
-  }, []);
-
-  /*
-   * No dependency list on purpose. Same reason as `BookModeDock`: the
-   * marker has to re-read after the active id, the viewer's tier, and
-   * label width, and listing those is a list that goes stale. Measuring
-   * after every render is safe because the guard above converges.
-   */
-  useLayoutEffect(() => {
-    measure();
-  });
-
-  /*
-    A viewer's tier can drop a cell, which moves every cell after it, and the
-    bar is re-centred by the change. A marker measured once is a marker beside
-    the wrong cell after either.
-  */
-  useEffect(() => {
-    const row = rowRef.current;
-    if (!row || typeof ResizeObserver === "undefined") return;
-    const watch = new ResizeObserver(() => measure());
-    watch.observe(row);
-    for (const cell of Array.from(row.children)) watch.observe(cell);
-    return () => watch.disconnect();
-  }, [measure]);
-
-  useEffect(() => {
-    if (!mark || travels) return;
-    const frame = requestAnimationFrame(() => setTravels(true));
-    return () => cancelAnimationFrame(frame);
-  }, [mark, travels]);
 
   const hush = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -335,15 +269,7 @@ export function MobileTabBar({
               )}
             >
               <span className="relative flex">
-                {Icon ? (
-                  <Icon
-                    className={cn("h-5 w-5", id === "compound" && "scale-110")}
-                    strokeWidth={2}
-                    aria-hidden
-                  />
-                ) : (
-                  <People />
-                )}
+                <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
                 {/*
                   The one saturated pixel left on the bar. The accent is not
                   spent on which room you are in, because that is the least

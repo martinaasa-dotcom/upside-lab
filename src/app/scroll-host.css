@@ -1,0 +1,62 @@
+/*
+ * One designated track, `.scroll-host`. Overlay bars (macOS, iOS) paint on
+ * the content. Classic bars eat the box. Either way a field that runs to
+ * the scroller's edge ends up under the bar.
+ *
+ * A non-zero `::-webkit-scrollbar` width forces a classic track on WebKit
+ * and on Firefox 153+, which treats that width as "no overlay". Do not
+ * gate padding on `@supports selector(::-webkit-scrollbar)`: Firefox 153
+ * answers true for the selector without implementing thumb styling, so
+ * that query is a trap. `--scroll-clearance` (1rem) is the air between
+ * field and track. It lives in `@layer base` so a `p-6` / `px-6` on the
+ * same node still wins. Nested overflow wells are not hosts. Menus are
+ * not hosts. The page scroller is not a host.
+ */
+
+.scroll-host {
+  --scroll-track: 0.5rem;
+  --scroll-clearance: 1rem;
+  --scroll-thumb: color-mix(in oklch, var(--foreground) 22%, transparent);
+  --scroll-thumb-hover: color-mix(in oklch, var(--foreground) 38%, transparent);
+}
+.scroll-host::-webkit-scrollbar {
+  width: var(--scroll-track, 0.5rem);
+}
+.scroll-host::-webkit-scrollbar-track {
+  background: transparent;
+  margin-block: 0.25rem;
+}
+.scroll-host::-webkit-scrollbar-thumb {
+  background-clip: padding-box;
+  background-color: var(--scroll-thumb);
+  border: 2px solid transparent;
+  border-radius: 999px;
+}
+.scroll-host::-webkit-scrollbar-thumb:hover,
+.scroll-host::-webkit-scrollbar-thumb:active {
+  background-color: var(--scroll-thumb-hover);
+}
+
+@layer base {
+  [class*="overflow-y-auto"]:not(.scrollbar-none):not(.no-scrollbar),
+  [class*="overflow-y-scroll"]:not(.scrollbar-none):not(.no-scrollbar) {
+    scrollbar-gutter: stable;
+  }
+
+  .scroll-host {
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-inline-end: var(--scroll-clearance);
+    scrollbar-color: var(--scroll-thumb) transparent;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    touch-action: pan-y;
+  }
+}
+
+.scroll-host :is(input, textarea, select),
+.viewport-overlay :is(input, textarea, select) {
+  max-width: 100%;
+}

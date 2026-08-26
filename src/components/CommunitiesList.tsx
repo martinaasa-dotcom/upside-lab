@@ -548,7 +548,7 @@ export function CommunitiesList() {
             onClick={() => setJoinPick(null)}
           />
           <div
-            className="relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover p-6 ring-1 ring-foreground/20 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-xl sm:pb-6"
+            className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover p-6 ring-1 ring-foreground/20 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-xl sm:pb-6"
           >
             <h3
               id="join-share-title"

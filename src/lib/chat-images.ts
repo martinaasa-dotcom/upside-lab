@@ -2,6 +2,24 @@ import type { FileUIPart } from "ai";
 
 import { CHAT_MAX_IMAGE_CHARS } from "@/lib/chat-limits";
 
+/** iOS camera shots are often HEIC, and the `type` field is sometimes empty. */
+export const IMAGE_FILE_ACCEPT = "image/*,.heic,.heif";
+
+const IMAGE_EXT = /\.(?:avif|bmp|gif|heic|heif|jpe?g|png|webp)$/i;
+
+export function isLikelyImageFile(file: File): boolean {
+  if (file.type.startsWith("image/")) return true;
+  if (!IMAGE_EXT.test(file.name)) return false;
+  return !file.type || file.type === "application/octet-stream";
+}
+
+export function imageFilesFromList(
+  list: FileList | File[] | null | undefined
+): File[] {
+  if (!list) return [];
+  return Array.from(list).filter(isLikelyImageFile);
+}
+
 const MAX_EDGE = 2048;
 const JPEG_QUALITY = 0.9;
 /**
@@ -24,11 +42,18 @@ function readFileAsDataUrl(file: File): Promise<string> {
 
 /** Downscale + JPEG-compress for chat (keeps spreadsheets readable). */
 export async function fileToImagePart(file: File): Promise<FileUIPart> {
-  if (!file.type.startsWith("image/")) {
-    throw new Error("Only image files are supported");
+  if (!isLikelyImageFile(file)) {
+    throw new Error("Only pictures are supported");
   }
 
-  const bitmap = await createImageBitmap(file);
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    throw new Error(
+      "Couldn't read that picture. Try a PNG or JPEG screenshot."
+    );
+  }
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));
@@ -93,10 +118,9 @@ export async function clipboardImagesToParts(
   if (!items?.length) return [];
   const files: File[] = [];
   for (const item of Array.from(items)) {
-    if (item.kind === "file" && item.type.startsWith("image/")) {
-      const file = item.getAsFile();
-      if (file) files.push(file);
-    }
+    if (item.kind !== "file") continue;
+    const file = item.getAsFile();
+    if (file && isLikelyImageFile(file)) files.push(file);
   }
   return Promise.all(files.map(fileToImagePart));
 }

@@ -75,6 +75,7 @@ describe("assistant surfaces", () => {
     expect(SOURCE).not.toMatch(/Which portfolio/);
     expect(SOURCE).not.toMatch(/Do my portfolios/);
     expect(SOURCE).not.toMatch(/Open a portfolio to apply/);
+    expect(SOURCE).not.toMatch(/Chat for /);
   });
 
   it("keeps the accent on send once there is something to send", () => {
@@ -83,5 +84,22 @@ describe("assistant surfaces", () => {
       send.slice(0, 240),
       "the send button stays the default (accent) variant"
     ).not.toMatch(/variant="(?:secondary|outline|ghost)"/);
+  });
+});
+
+describe("screenshot picker", () => {
+  const DASH = readFileSync("src/components/Dashboard.tsx", "utf8");
+  const PICKER = readFileSync("src/lib/use-screenshot-picker.ts", "utf8");
+
+  it("never mounts a file input on the dashboard or inside Margus markup", () => {
+    expect(DASH).not.toMatch(/type="file"/);
+    expect(SOURCE).not.toMatch(/type="file"/);
+  });
+
+  it("only opens from a tap, never from a lifecycle hook", () => {
+    expect(PICKER).not.toMatch(/useEffect/);
+    expect(PICKER).toMatch(/tabIndex: -1/);
+    expect(SOURCE).not.toMatch(/useEffect\([\s\S]{0,400}?\.click\(\)/);
+    expect(DASH).not.toMatch(/useEffect\([\s\S]{0,400}?\.click\(\)/);
   });
 });

@@ -14,8 +14,10 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   LAST_PORTFOLIO_KEY,
+  pickChatPortfolio,
   resolveLastPortfolioId,
   saveLastPortfolioId,
+  sheetMatchesActive,
 } from "@/lib/active-sheet";
 
 const BAR = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");
@@ -106,7 +108,7 @@ describe("the URL answers for it", () => {
      * it has to be distinct from `null`, which means the URL asked for
      * nothing at all.
      */
-    expect(DASHBOARD).toMatch(/const PORTFOLIO_TAB_PENDING = /);
+    expect(DASHBOARD).toMatch(/PORTFOLIO_TAB_PENDING/);
     expect(DASHBOARD).toMatch(
       /resolveLastPortfolioId\(list\) \?\? PORTFOLIO_TAB_PENDING/
     );
@@ -143,7 +145,13 @@ describe("the URL answers for it", () => {
      * either way.
      */
     expect(BAR).toMatch(/data-on=\{on \? "" : undefined\}/);
-    expect(BAR).toMatch(/querySelector<HTMLElement>\("\[data-on\]"\)/);
+    expect(readFileSync("src/lib/use-dock-marker.ts", "utf8")).toMatch(
+      /querySelector<HTMLElement>\("\[data-on\]"\)/
+    );
+    expect(BAR).toMatch(/useDockMarker\(\)/);
+    expect(readFileSync("src/components/BookModeDock.tsx", "utf8")).toMatch(
+      /useDockMarker\(\)/
+    );
     expect(DASHBOARD).toMatch(/wantsHoldingsRef\.current = true/);
     expect(DASHBOARD).toMatch(
       /setActiveId\(target \?\? PORTFOLIO_TAB_PENDING\)/
@@ -178,6 +186,27 @@ describe("which portfolio it opens", () => {
   it("answers nothing when there are no portfolios", () => {
     withStorage({ [LAST_PORTFOLIO_KEY]: "b" });
     expect(resolveLastPortfolioId([])).toBeNull();
+  });
+
+  it("lets Margus use the open tab, else the last-opened one", () => {
+    const a = { id: "a" };
+    const b = { id: "b" };
+    withStorage({ [LAST_PORTFOLIO_KEY]: "b" });
+    expect(pickChatPortfolio([a, b], a)).toEqual(a);
+    expect(pickChatPortfolio([a, b], null)).toEqual(b);
+    expect(pickChatPortfolio([], null)).toBeNull();
+    expect(DASHBOARD).toMatch(
+      /pickChatPortfolio\(portfolios, activePortfolio\)/
+    );
+  });
+
+  it("matches a dock cell by id or slug", () => {
+    const sheet = { id: "uuid-1", slug: "aasad" };
+    expect(sheetMatchesActive(sheet, "uuid-1")).toBe(true);
+    expect(sheetMatchesActive(sheet, "aasad")).toBe(true);
+    expect(sheetMatchesActive(sheet, "Aasad")).toBe(true);
+    expect(sheetMatchesActive(sheet, "other")).toBe(false);
+    expect(sheetMatchesActive(sheet, null)).toBe(false);
   });
 
   it("remembers a portfolio, never a meta-tab", () => {

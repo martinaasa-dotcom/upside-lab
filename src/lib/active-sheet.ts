@@ -100,3 +100,37 @@ export function resolveLastPortfolioId<T extends { id: string }>(
     : undefined;
   return (match ?? list[0]).id;
 }
+
+/**
+ * A dock cell and the open tab are the same portfolio.
+ *
+ * The URL may hold a slug while `activeId` is the id (or the other way
+ * around). Matching only on id left the laptop cell dark after a slug
+ * write-back.
+ */
+export function sheetMatchesActive(
+  sheet: { id: string; slug?: string | null },
+  activeId: string | null | undefined
+): boolean {
+  if (!activeId) return false;
+  return (
+    sheet.id === activeId ||
+    sheet.slug?.toLowerCase() === activeId.toLowerCase()
+  );
+}
+
+/**
+ * The one portfolio Margus (and any other write that must not ask) talks to.
+ *
+ * The open tab wins. On Home / Pulse / Lab there is no open tab, so this is
+ * the same last-opened answer the phone's Holdings cell uses. Never Overview.
+ */
+export function pickChatPortfolio<T extends { id: string }>(
+  list: T[],
+  active: T | null
+): T | null {
+  if (active) return active;
+  const id = resolveLastPortfolioId(list);
+  if (!id) return null;
+  return list.find((p) => p.id === id) ?? null;
+}

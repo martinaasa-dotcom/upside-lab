@@ -5,6 +5,7 @@ import {
   screenshotImportFallbackCopy,
   screenshotIssueCopy,
 } from "./screenshot-import-copy";
+import { imageFilesFromList, isLikelyImageFile } from "./chat-images";
 
 describe("screenshot import copy", () => {
   it("names what is missing on a watchlist / Stocks app shot", () => {
@@ -36,5 +37,35 @@ describe("screenshot import copy", () => {
     );
     expect(isScreenshotIssueReason("not_holdings")).toBe(true);
     expect(isScreenshotIssueReason("watchlist")).toBe(false);
+  });
+});
+
+describe("holdings screenshot files", () => {
+  it("keeps iOS HEIC shots even when the type is empty", () => {
+    expect(
+      isLikelyImageFile(new File(["x"], "broker.heic", { type: "" }))
+    ).toBe(true);
+    expect(
+      isLikelyImageFile(
+        new File(["x"], "broker.heif", { type: "application/octet-stream" })
+      )
+    ).toBe(true);
+  });
+
+  it("rejects a real non-picture, even with an image-looking name", () => {
+    expect(
+      isLikelyImageFile(new File(["x"], "holdings.pdf", { type: "application/pdf" }))
+    ).toBe(false);
+    expect(
+      isLikelyImageFile(new File(["x"], "notes.txt", { type: "text/plain" }))
+    ).toBe(false);
+  });
+
+  it("drops non-pictures from a mixed picker list", () => {
+    const files = imageFilesFromList([
+      new File(["x"], "shot.png", { type: "image/png" }),
+      new File(["x"], "holdings.pdf", { type: "application/pdf" }),
+    ]);
+    expect(files.map((f) => f.name)).toEqual(["shot.png"]);
   });
 });

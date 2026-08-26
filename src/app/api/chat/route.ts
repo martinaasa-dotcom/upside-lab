@@ -165,7 +165,6 @@ async function handlePOST(req: Request) {
               yield2wAvg: 0,
               premiumTotal: 0,
             },
-            otherPortfolios: [],
           }
     ) as CcChatContext;
 

@@ -6,6 +6,15 @@ import {
   PULSE_TAB_ID,
 } from "@/lib/overview";
 
+/**
+ * `?tab=portfolio` before there is a portfolio to open.
+ *
+ * Distinct from `null`, which means nothing was asked for. This asked for
+ * the holdings table. It is a real room id: the Holdings cell stays lit
+ * even when the table is empty or the list has not loaded yet.
+ */
+export const PORTFOLIO_TAB_PENDING = "__portfolio_pending__";
+
 export type MobileTabId =
   | "home"
   | "holdings"
@@ -64,5 +73,6 @@ export function mobileTabFromActiveId(
   if (activeId === LAB_TAB_ID) return "lab";
   if (activeId === COMPOUND_TAB_ID) return "compound";
   if (activeId === OVERVIEW_TAB_ID || activeId === ALERTS_TAB_ID) return "home";
+  // Portfolio ids, slugs, and PORTFOLIO_TAB_PENDING. Rows do not matter.
   return "holdings";
 }

@@ -71,7 +71,7 @@ export function CostBasisModal({
             <X />
           </Button>
         </div>
-        <div className="min-h-0 flex-1 gap-2 overflow-y-auto px-6 py-6">
+        <div className="scroll-host min-h-0 flex-1 gap-2 overflow-y-auto px-6 py-6">
           {rows.map((r) => (
             <label
               key={r.ticker}

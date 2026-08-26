@@ -1,12 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Field,
-  FieldContent,
   FieldDescription,
-  FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
 import {
@@ -20,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { SUGGEST_MENU } from "@/components/ui/Panel";
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { HouseholdCoinChips } from "@/components/CoinChips";
+import { CircleNavIcon } from "@/components/CircleIcons";
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
 import { ownedBookPortfolios } from "@/lib/classroom";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
@@ -75,12 +74,11 @@ import {
 } from "@/lib/watchlist";
 import {
   Activity,
-  Calculator,
   Check,
   Download,
   FlaskConical,
   GraduationCap,
-  LayoutDashboard,
+  House,
   Lock,
   Mail,
   MessageCircle,
@@ -88,7 +86,6 @@ import {
   Sparkles,
   TrendingUp,
   UserCog,
-  Users,
   Wallet,
   X,
 } from "lucide-react";
@@ -696,7 +693,7 @@ export function WelcomeTour({
         */}
         <div
           ref={scrollRef}
-          className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
+          className="scroll-host -mx-4 px-4 sm:-mx-6 sm:px-6 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
         >
           <div className="flex flex-col gap-2">
             {stage === "done" && (
@@ -743,7 +740,7 @@ export function WelcomeTour({
           {stage === "map" && (
             <div className="flex flex-col gap-4">
               <ul className="grid gap-2 sm:grid-cols-2">
-                <Row icon={LayoutDashboard} term="Home">
+                <Row icon={House} term="Home">
                   Today&apos;s briefing, every portfolio you own, and one row
                   per holding: what it cost, what it is worth, what it did
                   today.
@@ -757,11 +754,11 @@ export function WelcomeTour({
                   Four views of the same portfolio: Allocation (what you are
                   actually concentrated in), Risk, Trends, and Seasonality.
                 </Row>
-                <Row icon={Calculator} term="Growth">
+                <Row icon={TrendingUp} term="Growth">
                   Arithmetic on what you have: what this becomes if you keep
                   adding at some rate for some years. Not a prediction.
                 </Row>
-                <Row icon={Users} term="Circle">
+                <Row icon={CircleNavIcon} term="Circle">
                   Optional. People you choose to share a portfolio with, like
                   a partner, family or a class. Nothing is shared until you
                   share it.
@@ -1121,24 +1118,20 @@ export function WelcomeTour({
 
           {stage === "email" && (
             <div className="flex flex-col gap-4">
-              <FieldGroup>
-                <Field orientation="horizontal">
-                  <Checkbox
-                    id="note-sunday"
-                    checked={noteSunday}
-                    onCheckedChange={(v) => setNoteSunday(v === true)}
-                  />
-                  <FieldContent>
-                    <FieldLabel htmlFor="note-sunday">
-                      Send me the Sunday email
-                    </FieldLabel>
-                    <FieldDescription>
-                      How your week went, what looks worth a second look, and
-                      what to think about for the week ahead.
-                    </FieldDescription>
-                  </FieldContent>
-                </Field>
-              </FieldGroup>
+              <Field orientation="horizontal">
+                <FieldLabel htmlFor="welcome-note-sunday" className="min-w-0 flex-1">
+                  Send me the Sunday email
+                </FieldLabel>
+                <Switch
+                  id="welcome-note-sunday"
+                  checked={noteSunday}
+                  onCheckedChange={setNoteSunday}
+                />
+              </Field>
+              <FieldDescription>
+                How your week went, what looks worth a second look, and
+                what to think about for the week ahead.
+              </FieldDescription>
             </div>
           )}
 
@@ -1151,7 +1144,7 @@ export function WelcomeTour({
                   is the app not having looked at them.
                 */}
                 {!hasHoldings && added.length === 0 && (
-                  <Row icon={LayoutDashboard} term="Nothing in there yet">
+                  <Row icon={House} term="Nothing in there yet">
                     Home has <strong className="text-foreground">Add holding</strong>{" "}
                     and a CSV import. Not much else in the app has anything to
                     say until something is in there.

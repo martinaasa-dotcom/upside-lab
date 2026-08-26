@@ -188,7 +188,7 @@ export function CsvImportModal({
           </Button>
         </div>
 
-        <div className="min-h-0 flex-1 gap-4 overflow-y-auto px-6 py-6">
+        <div className="scroll-host min-h-0 flex-1 gap-4 overflow-y-auto px-6 py-6">
           <p className="text-sm text-muted-foreground">
             Replace this portfolio, or paste lines like{" "}
             <span className="text-foreground">NBIS 500 85.10</span>. CSV columns:

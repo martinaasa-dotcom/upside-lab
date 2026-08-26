@@ -1000,7 +1000,7 @@ export function UpsidePortfolioPage() {
   }> => {
     const res = await fetch("/api/portfolios", { cache: "no-store" });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(plainError(data.error, "Couldn't load your portfolios."));
+    if (!res.ok) throw new Error(plainError(data.error, "Couldn't load your portfolio."));
     const portfolios: MyPortfolioMeta[] = (data.portfolios ?? []).map(
       (p: { id: string; name: string; cash_balance?: number }) => ({
         id: p.id,
@@ -1023,6 +1023,7 @@ export function UpsidePortfolioPage() {
     );
     setMyPortfolios(portfolios);
     setMyHoldings(holdingsList);
+    if (portfolios.length === 1) setPickerSelection(portfolios[0]!.id);
     patchFundComparePaint({ portfolios, holdings: holdingsList });
     return { portfolios, holdingsList };
   }, []);
@@ -1192,22 +1193,25 @@ export function UpsidePortfolioPage() {
       try {
         await fetchMyPortfolios();
       } catch (e) {
-        setBenchmarkError(e instanceof Error ? e.message : "Couldn't load your portfolios.");
+        setBenchmarkError(e instanceof Error ? e.message : "Couldn't load your portfolio.");
       }
     }
   }, [myPortfolios, fetchMyPortfolios]);
 
   const handleSetBenchmark = useCallback(async () => {
-    if (!pickerSelection || !myPortfolios) return;
+    if (!myPortfolios) return;
+    const selectedId =
+      myPortfolios.length === 1 ? myPortfolios[0]!.id : pickerSelection;
+    if (!selectedId) return;
     setBenchmarkBusy(true);
     setBenchmarkError(null);
     try {
       const { meta, live, quotes: liveQuotes } = await valueForPortfolio(
-        pickerSelection,
+        selectedId,
         myPortfolios,
         myHoldings
       );
-      const { sheet, spy } = await fetchRecordedPath(pickerSelection);
+      const { sheet, spy } = await fetchRecordedPath(selectedId);
       if (sheet.length < 2) {
         setBenchmarkError(
           "Need a few recorded nights on this portfolio first."
@@ -1217,12 +1221,12 @@ export function UpsidePortfolioPage() {
       setSheetYtd(sheet);
       setSpyYtd(spy.length >= 2 ? spy : null);
       patchFundComparePaint({
-        paths: { [pickerSelection]: { sheet, spy } },
-        live: { [pickerSelection]: { value: live, quotes: liveQuotes } },
+        paths: { [selectedId]: { sheet, spy } },
+        live: { [selectedId]: { value: live, quotes: liveQuotes } },
       });
       const first = sheet[0]!;
       const next: MyPortfolioBenchmark = {
-        portfolioId: pickerSelection,
+        portfolioId: selectedId,
         portfolioName: meta.name,
         baselineDate: first.date,
         userBaselineValue: first.nav > 0 ? first.nav : live,
@@ -1339,13 +1343,16 @@ export function UpsidePortfolioPage() {
               {!benchmark && pickerOpen && (
                 <div className="flex flex-col mt-3 gap-2">
                   {myPortfolios === null ? (
-                    <p className="text-sm text-muted-foreground">Loading your portfolios …</p>
+                    <p className="text-sm text-muted-foreground">Loading your portfolio …</p>
                   ) : myPortfolios.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      You don&apos;t have any portfolios to compare yet.
+                      You don&apos;t have a portfolio to compare yet.
                     </p>
                   ) : (
                     <div className="flex flex-wrap items-center gap-2">
+                      {myPortfolios.length === 1 ? (
+                        <p className="text-sm text-foreground">{myPortfolios[0]!.name}</p>
+                      ) : (
                       <NativeSelect
                         value={pickerSelection}
                         onChange={(e) => setPickerSelection(e.target.value)}
@@ -1360,11 +1367,16 @@ export function UpsidePortfolioPage() {
                           </NativeSelectOption>
                         ))}
                       </NativeSelect>
+                      )}
                       <Button
                         type="button"
                         size="sm"
                         onClick={() => void handleSetBenchmark()}
-                        disabled={!pickerSelection || benchmarkBusy}
+                        disabled={
+                          !(
+                            myPortfolios.length === 1 || pickerSelection
+                          ) || benchmarkBusy
+                        }
                       >
                         {benchmarkBusy ? "Adding …" : "Add"}
                       </Button>

@@ -33,6 +33,10 @@ import {
 } from "@/components/ui/Panel";
 import { NO_VALUE, cashtag, cn, currency, percent, plural, signedCurrency, signedPercent, signedTone } from "@/lib/format";
 import { parseHoldingsPaste, type CsvHoldingRow } from "@/lib/csv-import";
+import {
+  screenshotPickerInputProps,
+  useScreenshotPicker,
+} from "@/lib/use-screenshot-picker";
 import { buildMorningRead } from "@/lib/morning-read";
 import type { UpsideAlert } from "@/lib/alerts";
 import { sessionLabel, sessionKind } from "@/lib/market-session";
@@ -118,7 +122,7 @@ type Props = {
   hideOptions?: boolean;
   /** Add a holding. Shown on the empty first-run card and on Home. */
   onAddHolding?: () => void;
-  onImportScreenshot?: () => void;
+  onImportScreenshot?: (files: File[]) => void;
   onImportCsv?: () => void;
   onPasteHoldings?: (input: {
     rows: CsvHoldingRow[];
@@ -150,7 +154,7 @@ function EmptyBook({
   homeworkCash,
 }: {
   onAddHolding?: () => void;
-  onImportScreenshot?: () => void;
+  onImportScreenshot?: (files: File[]) => void;
   onImportCsv?: () => void;
   onPasteHoldings?: (input: {
     rows: CsvHoldingRow[];
@@ -162,6 +166,10 @@ function EmptyBook({
 }) {
   const [paste, setPaste] = useState("");
   const [pasteErr, setPasteErr] = useState<string | null>(null);
+  const screenshot = useScreenshotPicker({
+    onPick: (files) => onImportScreenshot?.(files),
+    disabled: !onImportScreenshot,
+  });
   const routes = (
     homework
       ? [
@@ -185,7 +193,7 @@ function EmptyBook({
             key: "screenshot",
             label: "Import a screenshot",
             hint: "Your broker holdings page, with shares and cost. Not Apple Stocks or a watchlist.",
-            onClick: onImportScreenshot,
+            onClick: onImportScreenshot ? screenshot.open : undefined,
             primary: false,
           },
           {
@@ -278,6 +286,9 @@ function EmptyBook({
           ))}
         </div>
       )}
+      {onImportScreenshot && !homework ? (
+        <input {...screenshotPickerInputProps(screenshot)} />
+      ) : null}
 
     </Panel>
   );

@@ -36,6 +36,10 @@ import {
   Trash2,
 } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import {
+  screenshotPickerInputProps,
+  useScreenshotPicker,
+} from "@/lib/use-screenshot-picker";
 import { Sparkline } from "./Sparkline";
 import { FluidRow, FluidTable, cellBase, cellTicker, tableCols } from "@/components/FluidTable";
 
@@ -62,8 +66,8 @@ type Props = {
   onEditCash: () => void;
   onAddHolding?: () => void;
   onAskMargus?: () => void;
-  /** Opens Margus AND immediately triggers the image file picker. */
-  onImportScreenshot?: () => void;
+  /** Hands chosen files to Margus. The picker lives next to this button. */
+  onImportScreenshot?: (files: File[]) => void;
   /** Opens the CSV import modal. */
   onImportCsv?: () => void;
   onOpenTicker?: (ticker: string) => void;
@@ -294,6 +298,10 @@ export const PortfolioTable = memo(function PortfolioTable({
   const mixedListings = listingCurrenciesAreMixed(
     holdings.map((h) => ({ ticker: h.ticker, currency: h.quote?.currency }))
   );
+  const screenshot = useScreenshotPicker({
+    onPick: (files) => onImportScreenshot?.(files),
+    disabled: !onImportScreenshot,
+  });
   const tickerCell = mixedListings ? cellTicker : cellBase;
   const money = (usd: number, digits = 2) =>
     currency(usdToDisplay(usd, displayCurrency, eurUsd), digits, displayCurrency);
@@ -410,7 +418,7 @@ export const PortfolioTable = memo(function PortfolioTable({
           <Button
             type="button"
             variant="outline"
-            onClick={onImportScreenshot ?? onAskMargus}
+            onClick={onImportScreenshot ? screenshot.open : onAskMargus}
           >
             <ImagePlus data-icon="inline-start" />
             Import screenshot
@@ -442,6 +450,9 @@ export const PortfolioTable = memo(function PortfolioTable({
 
   return (
     <section className="overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
+      {holdings.length === 0 && onImportScreenshot ? (
+        <input {...screenshotPickerInputProps(screenshot)} />
+      ) : null}
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-6">
         <div className="flex items-center gap-3">
           <h2 className="font-semibold text-foreground">Holdings</h2>

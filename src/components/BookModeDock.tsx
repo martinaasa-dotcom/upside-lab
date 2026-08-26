@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/format";
-import { stashOpenTab } from "@/lib/active-sheet";
+import { sheetMatchesActive, stashOpenTab } from "@/lib/active-sheet";
 import {
   COMPOUND_TAB_ID,
   LAB_TAB_ID,
@@ -18,20 +18,21 @@ import {
   PULSE_TAB_ID,
 } from "@/lib/overview";
 import type { Portfolio } from "@/lib/types";
+import { CircleNavIcon } from "@/components/CircleIcons";
 import {
   Activity,
-  Calculator,
   Check,
   ChevronDown,
   FlaskConical,
-  LayoutDashboard,
+  House,
   Plus,
+  TrendingUp,
   Wallet,
 } from "lucide-react";
-import { People } from "@/components/People";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { useDockMarker } from "@/lib/use-dock-marker";
 
 const MODES = [
   {
@@ -40,7 +41,7 @@ const MODES = [
     tab: "overview",
     label: "Home",
     title: "Today's briefing and your portfolio",
-    Icon: LayoutDashboard,
+    Icon: House,
   },
   {
     id: PULSE_TAB_ID,
@@ -64,7 +65,7 @@ const MODES = [
     tab: "compound",
     label: "Growth",
     title: "What your portfolio could become if you keep going",
-    Icon: Calculator,
+    Icon: TrendingUp,
   },
 ] as const;
 
@@ -78,17 +79,6 @@ export function hrefForDockTarget(
   const sheet = portfolios.find((p) => p.id === id);
   const token = sheet?.slug || id;
   return `/?tab=portfolio&portfolio=${encodeURIComponent(token)}`;
-}
-
-function sheetMatchesActive(
-  sheet: Pick<Portfolio, "id" | "slug">,
-  activeId: string | null | undefined
-): boolean {
-  if (!activeId) return false;
-  return (
-    sheet.id === activeId ||
-    sheet.slug?.toLowerCase() === activeId.toLowerCase()
-  );
 }
 
 export function stashDockTab(id: string) {
@@ -208,70 +198,7 @@ export function BookModeDock({
     return () => ro.disconnect();
   }, []);
 
-  /*
-   * The marker: one neutral pill behind the cells that slides to the one you
-   * picked, rather than a fill appearing on one cell and disappearing from
-   * another. It is measured off the live cell rather than computed from
-   * CELL_W, because the add cell is a narrow track and the folded portfolio
-   * picker carries a chevron the others do not.
-   */
-  const wellRef = useRef<HTMLDivElement>(null);
-  const [mark, setMark] = useState<{ left: number; width: number } | null>(null);
-  const [travels, setTravels] = useState(false);
-
-  const measure = useCallback(() => {
-    const well = wellRef.current;
-    if (!well) return;
-    const on = well.querySelector<HTMLElement>("[data-on]");
-    /*
-     * Same object, same state. `setMark` with a freshly built object on
-     * every measurement makes every measurement a re-render, and a layout
-     * effect that measures after every render then never settles: React
-     * error #185, "maximum update depth exceeded", which is exactly what
-     * this did the first time it was written. Returning the previous value
-     * when the numbers have not moved makes measuring idempotent, so it is
-     * safe to measure as often as it takes to be right.
-     */
-    setMark((was) => {
-      if (!was && !on) return was;
-      if (!on) return null;
-      const next = { left: on.offsetLeft, width: on.offsetWidth };
-      return was && was.left === next.left && was.width === next.width
-        ? was
-        : next;
-    });
-  }, []);
-
-  /*
-   * No dependency list on purpose. What moves the marker here is not one
-   * value but half a dozen: the active id, the viewer's tier, how many
-   * portfolios you own, whether they folded into the picker, whether the
-   * add cell is drawn, and how long the labels turned out to be. Listing
-   * them is a list that goes stale; measuring after every render is not,
-   * and the guard above makes it converge in one extra pass.
-   */
-  useLayoutEffect(() => {
-    measure();
-  });
-
-  useEffect(() => {
-    const well = wellRef.current;
-    if (!well || typeof ResizeObserver === "undefined") return;
-    const watch = new ResizeObserver(() => measure());
-    watch.observe(well);
-    for (const cell of Array.from(well.children)) watch.observe(cell);
-    return () => watch.disconnect();
-  }, [measure]);
-
-  /*
-   * Held still until it has been placed once, or the first paint draws a
-   * marker sliding in from the left edge of a bar nobody has touched.
-   */
-  useEffect(() => {
-    if (!mark || travels) return;
-    const frame = requestAnimationFrame(() => setTravels(true));
-    return () => cancelAnimationFrame(frame);
-  }, [mark, travels]);
+  const { ref: wellRef, mark, travels } = useDockMarker();
 
   // Sections + Circle are fixed; the sheets are what can overrun the row.
   const fixedCells = modes.length + 1;
@@ -364,10 +291,7 @@ export function BookModeDock({
         const inner = (
           <>
             <Icon
-              className={cn(
-                "h-4 w-4 shrink-0",
-                id === COMPOUND_TAB_ID && "scale-125"
-              )}
+              className="h-4 w-4 shrink-0"
               strokeWidth={2}
               aria-hidden
             />
@@ -525,7 +449,7 @@ export function BookModeDock({
         data-on={onCircle ? "" : undefined}
         className={cn(CELL, onCircle ? ON : OFF)}
       >
-        <People compact />
+        <CircleNavIcon className="h-4 w-4 shrink-0" strokeWidth={2} />
         <span className="min-w-0 truncate">Circle</span>
       </Link>
 

@@ -8,12 +8,16 @@ import { SignInGate } from "@/components/SignInGate";
 import { MobileDock } from "@/components/mobile/MobileDock";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { CARD, Panel, PanelHeader } from "@/components/ui/Panel";
+import {
+  PinnedHeader,
+  SETTING_STACK,
+  SettingBar,
+} from "@/components/ui/setting-row";
 import {
   Avatar,
   AvatarFallback,
@@ -21,7 +25,6 @@ import {
 } from "@/components/ui/avatar";
 import {
   Item,
-  ItemActions,
   ItemContent,
   ItemDescription,
   ItemMedia,
@@ -71,7 +74,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTimeout } from "@/lib/use-timeout";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
 import { UpgradeButton } from "@/components/billing/UpgradeButton";
 import { isActiveSubscription, subscriptionNeedsAttention } from "@/lib/billing-status";
@@ -110,6 +113,8 @@ export function AccountPage() {
   const { profile, user, signOut, refresh } = useAuth();
   const { openManual } = useFeedback();
   const later = useTimeout();
+  const sundaySwitchId = useId();
+  const analyticsSwitchId = useId();
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -337,7 +342,7 @@ export function AccountPage() {
 
           <WidgetErrorBoundary name="Account">
           <Panel>
-            <PanelHeader
+            <PinnedHeader
               icon={<MessageSquare className="h-4 w-4" />}
               title="Feedback"
               subtitle="A bug, a missing thing, or a rant. Upside reads these."
@@ -350,7 +355,7 @@ export function AccountPage() {
           </Panel>
 
           <Panel>
-            <PanelHeader
+            <PinnedHeader
               icon={<Compass className="h-4 w-4" />}
               title="Help"
               subtitle={`What ${PRODUCT_NAME} is, where everything lives, and what none of it is.`}
@@ -382,12 +387,10 @@ export function AccountPage() {
           </Panel>
 
           <Panel>
-            <PanelHeader
+            <PinnedHeader
               title="Billing"
               actions={
-                subscriptionNeedsAttention(subscriptionStatus) ? (
-                  <Badge variant="warning">Payment failed</Badge>
-                ) : undefined
+                <UpgradeButton subscriptionStatus={subscriptionStatus} />
               }
             />
             {subscriptionNeedsAttention(subscriptionStatus) ? (
@@ -412,55 +415,47 @@ export function AccountPage() {
                 </p>
               </div>
             )}
-            <div>
-              <UpgradeButton subscriptionStatus={subscriptionStatus} />
-            </div>
           </Panel>
 
           <VisitStreakCard />
 
           <Panel>
-            <PanelHeader
-              title="The Sunday email"
-              subtitle={
-                emailConfigured
-                  ? "One email a week, on Sunday. Nothing else lands in your inbox."
-                  : "Email is not set up on this server yet."
-              }
-            />
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-sm text-foreground">
-                <Checkbox
-                  id="note-sunday"
-                  checked={noteSunday}
-                  onCheckedChange={(v) => {
-                    const next = v === true;
-                    const prev = noteSunday;
-                    setNoteSunday(next);
-                    void postJsonOrQueue("/api/account/weekly-note", {
-                      sunday: next,
-                    })
-                      .then((r) => {
-                        if (r.ok) {
-                          setWeeklySaved(true);
-                          later(() => setWeeklySaved(false), 2000);
-                          return;
-                        }
-                        setNoteSunday(prev);
+            <div className={SETTING_STACK}>
+              <PinnedHeader
+                title="The Sunday email"
+                subtitle={
+                  emailConfigured
+                    ? "One email a week, on Sunday. Nothing else lands in your inbox."
+                    : "Email is not set up on this server yet."
+                }
+                controlId={sundaySwitchId}
+                actions={
+                  <Switch
+                    id={sundaySwitchId}
+                    checked={noteSunday}
+                    disabled={!emailConfigured}
+                    onCheckedChange={(next) => {
+                      const prev = noteSunday;
+                      setNoteSunday(next);
+                      void postJsonOrQueue("/api/account/weekly-note", {
+                        sunday: next,
                       })
-                      .catch(() => {
-                        setNoteSunday(prev);
-                      });
-                  }}
-                />
-                <label htmlFor="note-sunday">
-                  Send me the Sunday email: how the week went, and what to
-                  think about next week.
-                </label>
-              </div>
-              {weeklySaved && (
-                <p className="text-sm text-gain">Saved.</p>
-              )}
+                        .then((r) => {
+                          if (r.ok) {
+                            setWeeklySaved(true);
+                            later(() => setWeeklySaved(false), 2000);
+                            return;
+                          }
+                          setNoteSunday(prev);
+                        })
+                        .catch(() => {
+                          setNoteSunday(prev);
+                        });
+                    }}
+                  />
+                }
+              />
+              {weeklySaved ? <p className="text-sm text-gain">Saved.</p> : null}
             </div>
           </Panel>
 
@@ -661,27 +656,28 @@ export function AccountPage() {
               subtitle="Your data, your call. Export it or wipe it any time."
             />
 
-            <div className="flex items-start gap-2 text-sm text-foreground">
-              <Checkbox
-                id="analytics-consent"
-                checked={analyticsConsent === "allow"}
-                onCheckedChange={(v) =>
-                  saveAnalyticsConsent(v === true ? "allow" : "deny")
-                }
-              />
-              <label htmlFor="analytics-consent">
-                Measure page views and load times. Sign-in cookies always run.
+            <SettingBar
+              action={
+                <Switch
+                  id={analyticsSwitchId}
+                  checked={analyticsConsent === "allow"}
+                  onCheckedChange={(next) =>
+                    saveAnalyticsConsent(next ? "allow" : "deny")
+                  }
+                />
+              }
+              description="Measure page views and load times. Sign-in cookies always run."
+            >
+              <label
+                htmlFor={analyticsSwitchId}
+                className="block cursor-pointer truncate font-medium"
+              >
+                Analytics
               </label>
-            </div>
+            </SettingBar>
 
-            <Item className="px-0">
-              <ItemContent>
-                <ItemTitle>Download everything</ItemTitle>
-                <ItemDescription>
-                  One JSON file: profile, portfolios, holdings, Lab state.
-                </ItemDescription>
-              </ItemContent>
-              <ItemActions>
+            <SettingBar
+              action={
                 <Button
                   type="button"
                   variant="outline"
@@ -689,10 +685,13 @@ export function AccountPage() {
                   disabled={exporting}
                 >
                   <Download data-icon="inline-start" />
-                  {exporting ? "Preparing …" : "Export my data"}
+                  {exporting ? "Preparing …" : "Export"}
                 </Button>
-              </ItemActions>
-            </Item>
+              }
+              description="One JSON file: profile, portfolios, holdings, Lab state."
+            >
+              <span className="block truncate font-medium">Download everything</span>
+            </SettingBar>
             {exportErr && (
               <Alert variant="destructive">
                 <AlertDescription>{exportErr}</AlertDescription>
@@ -712,37 +711,27 @@ export function AccountPage() {
 
           {/* Danger zone */}
           <Panel tone="danger">
-            <div className="flex items-start gap-3">
-              <span
-                className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive/15 text-destructive"
-                aria-hidden
-              >
-                <AlertTriangle className="h-4 w-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <h2 className="font-heading text-lg font-semibold text-destructive">
-                  Delete my account
-                </h2>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  Removes your profile, deletes portfolios only you own, and steps
-                  you off any shared ones. Cannot be undone.
-                </p>
-              </div>
-            </div>
-            <div>
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() => {
-                  setDeleteErr(null);
-                  setDeleteText("");
-                  setDeleteOpen(true);
-                }}
-              >
-                <Trash2 data-icon="inline-start" />
-                Delete account
-              </Button>
-            </div>
+            <PinnedHeader
+              icon={<AlertTriangle className="h-4 w-4" />}
+              iconTone="danger"
+              title="Delete my account"
+              titleClassName="text-destructive"
+              subtitle="Removes your profile, deletes portfolios only you own, and steps you off any shared ones. Cannot be undone."
+              actions={
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => {
+                    setDeleteErr(null);
+                    setDeleteText("");
+                    setDeleteOpen(true);
+                  }}
+                >
+                  <Trash2 data-icon="inline-start" />
+                  Delete
+                </Button>
+              }
+            />
           </Panel>
           </WidgetErrorBoundary>
         </main>
@@ -759,7 +748,7 @@ export function AccountPage() {
             aria-label="Close"
             onClick={() => !deleting && setDeleteOpen(false)}
           />
-          <div className="relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover ring-1 ring-destructive/30 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-xl sm:pb-6">
+          <div className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover ring-1 ring-destructive/30 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-xl sm:pb-6">
             <h3 className="text-base font-semibold text-loss">
               Delete your account?
             </h3>

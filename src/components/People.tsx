@@ -1,28 +1,11 @@
 import { cn } from "@/lib/format";
 
 /**
- * The people in your circle, at the size a glyph would be.
+ * Retired Circle dock mark: three overlapping discs.
  *
- * Three discs rather than a picture of anybody: neither dock has a member
- * list to draw from, and inventing faces would be worse than saying "people"
- * plainly. It replaced a compass, which said "explore" and is not what a
- * circle is.
- *
- * It matters most on the phone, where the bar carries no words at all: it is
- * the one cell that is not a line drawing, which is what makes it findable
- * without a label under it. Upside Arena's last cell is the player's own
- * face doing the same job, and the two apps are meant to stay one design.
- *
- * The ring is the field's own black rather than a colour, so the discs read
- * as separated from each other rather than as outlined.
- *
- * `bg-current` at three opacities, never the accent. Two reasons, and both
- * matter. It follows the cell's own colour, so the mark brightens when the
- * cell is marked exactly as a line glyph would, instead of sitting at one
- * tone whatever the bar is doing. And the accent is spent on news: a gold
- * disc here measured about as loud as the alert dot two cells along, which
- * is the one saturated pixel on the bar that has to be the loudest thing
- * on it.
+ * The Circle cell is `CircleNavIcon` now, the same 24px stroke as the rest
+ * of the bar. This file stays so the discs can return in one import if a
+ * wordless phone bar ever needs a filled mark again.
  */
 export function People({ compact = false }: { compact?: boolean }) {
   const disc = cn(

@@ -24,7 +24,12 @@ import {
 import {
   clipboardImagesToParts,
   fileToImagePart,
+  imageFilesFromList,
 } from "@/lib/chat-images";
+import {
+  screenshotPickerInputProps,
+  useScreenshotPicker,
+} from "@/lib/use-screenshot-picker";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type FileUIPart } from "ai";
 import {
@@ -39,6 +44,7 @@ import {
   X,
 } from "lucide-react";
 import { useBottomCorner } from "@/lib/use-dock-pad";
+import { useToast } from "@/components/ui/Toast";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -107,12 +113,17 @@ type Props = {
   /** Bump to open the floating Margus panel (empty-state / drawer CTAs). */
   expandSignal?: number;
   /**
-   * Files chosen from a user tap on Import screenshot. The picker itself
-   * lives on the dashboard so a remount of this panel cannot open it.
+   * Files chosen from a user tap on Import screenshot. The picker lives
+   * next to that tap so a remount of this panel cannot open it.
    * Sending happens here; the dashboard only hands the files across.
    */
   screenshotImport?: SilentScreenshotImport | null;
-  onScreenshotImportConsumed?: () => void;
+  onScreenshotImportConsumed?: (id: number) => void;
+  /**
+   * True from the tap until this panel consumes the files. Covers the
+   * first-run wait while a portfolio is created and this panel remounts.
+   */
+  screenshotPending?: boolean;
   /** When a screenshot import fails, offer the CSV path instead. */
   onSuggestCsv?: () => void;
 };
@@ -535,12 +546,16 @@ const RULES = [
   },
 ] as const;
 
+/** Same import must not send twice: Strict Mode remounts, or busy flipping. */
+const startedSilentImports = new Set<number>();
+
 export function CcAdvisorChat({
   portfolioId,
   context,
   onApplyActions,
   expandSignal = 0,
   screenshotImport = null,
+  screenshotPending = false,
   onScreenshotImportConsumed,
   onSuggestCsv,
 }: Props) {
@@ -554,7 +569,7 @@ export function CcAdvisorChat({
   // status card instead. "sending" while in flight, "result" once settled
   // (kept on screen briefly for ok/info, until dismissed for errors).
   const [silentPhase, setSilentPhase] = useState<"idle" | "sending" | "result">(
-    "idle"
+    () => (screenshotImport ? "sending" : "idle")
   );
   const [silentSummary, setSilentSummary] = useState<{
     kind: "ok" | "info" | "empty" | "error";
@@ -585,7 +600,11 @@ export function CcAdvisorChat({
   const scrollerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const rulesRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { push: toast } = useToast();
+  const attach = useScreenshotPicker({
+    onPick: (files) => void addImageFiles(files),
+    multiple: true,
+  });
   /* Tells the bottom notices that this corner is taken. See the note on
      the element that carries it. */
   const [cornerEl, setCornerEl] = useState<HTMLDivElement | null>(null);
@@ -808,13 +827,16 @@ export function CcAdvisorChat({
   }, [rulesOpen]);
 
   async function addImageFiles(files: FileList | File[]) {
-    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    const list = imageFilesFromList(files);
     if (!list.length) return;
     try {
       const parts = await Promise.all(list.map(fileToImagePart));
       setPendingImages((prev) => [...prev, ...parts].slice(0, 6));
     } catch (err) {
-      console.error(err);
+      toast(
+        err instanceof Error ? err.message : "Couldn't read that picture.",
+        "error"
+      );
     }
   }
 
@@ -826,7 +848,7 @@ export function CcAdvisorChat({
   }
 
   async function handleSilentFiles(files: FileList | File[]) {
-    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    const list = imageFilesFromList(files);
     if (!list.length || busy) return;
     clearError();
     setSilentSummary(null);
@@ -844,7 +866,9 @@ export function CcAdvisorChat({
       awaitingSilentSettleRef.current = false;
       setSilentSummary({
         kind: "error",
-        lines: [err instanceof Error ? err.message : "Couldn't read that image."],
+        lines: [
+          err instanceof Error ? err.message : "Couldn't read that picture.",
+        ],
       });
       setSilentPhase("result");
     }
@@ -854,9 +878,25 @@ export function CcAdvisorChat({
     if (!screenshotImport) return;
     if (screenshotImport.portfolioId !== portfolioId) return;
     if (busy) return;
-    const files = screenshotImport.files;
-    onScreenshotImportConsumed?.();
-    void handleSilentFiles(files);
+    const { id, files } = screenshotImport;
+    setSilentPhase("sending");
+    let cancelled = false;
+    void (async () => {
+      // Strict Mode runs this effect twice. The tick lets the first
+      // instance's cleanup cancel before we claim the id.
+      await Promise.resolve();
+      if (cancelled) return;
+      if (startedSilentImports.has(id)) {
+        onScreenshotImportConsumed?.(id);
+        return;
+      }
+      startedSilentImports.add(id);
+      await handleSilentFiles(files);
+      onScreenshotImportConsumed?.(id);
+    })();
+    return () => {
+      cancelled = true;
+    };
     // handleSilentFiles is render-local; screenshotImport.id is the trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screenshotImport, portfolioId, busy]);
@@ -907,9 +947,12 @@ export function CcAdvisorChat({
   }, [context.hideOptions, context.holdings.length, context.rows.length]);
 
   const canSend = !busy && (Boolean(input.trim()) || pendingImages.length > 0);
+  const sendingSilent =
+    silentPhase === "sending" ||
+    (screenshotPending && silentPhase === "idle");
   // Suppressed while the full panel is open — that already shows the same
   // message live, so the compact card would just be a redundant echo.
-  const showSilentCard = silentPhase !== "idle" && !open;
+  const showSilentCard = (sendingSilent || silentPhase !== "idle") && !open;
 
   return (
     // z-40 is deliberate and load-bearing. Above the sticky mobile bottom
@@ -967,7 +1010,7 @@ export function CcAdvisorChat({
         >
           <div className="flex items-start gap-2.5 px-3.5 py-3">
             <div className="mt-0.5 rounded-lg bg-muted p-1.5 text-primary">
-              {silentPhase === "sending" ? (
+              {sendingSilent ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : silentSummary?.kind === "error" ||
                 silentSummary?.kind === "empty" ? (
@@ -978,7 +1021,7 @@ export function CcAdvisorChat({
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground">
-                {silentPhase === "sending"
+                {sendingSilent
                   ? "Margus is reading your screenshot …"
                   : silentSummary?.kind === "error"
                     ? "Import failed"
@@ -986,7 +1029,7 @@ export function CcAdvisorChat({
                       ? (silentSummary.title ?? "Couldn't import that screenshot")
                       : "Margus"}
               </p>
-              {silentPhase === "sending" ? (
+              {sendingSilent ? (
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   Usually takes a few seconds.
                 </p>
@@ -1087,9 +1130,11 @@ export function CcAdvisorChat({
               <h2 className="font-semibold text-foreground">
                 Assistant Margus
               </h2>
-              <p className="text-sm leading-snug text-muted-foreground">
-                Chat for {context.portfolioName}
-              </p>
+              {context.adviseOnly ? null : (
+                <p className="text-sm leading-snug text-muted-foreground">
+                  {context.portfolioName}
+                </p>
+              )}
             </div>
             <div className="flex shrink-0 items-center">
               <button
@@ -1184,7 +1229,7 @@ export function CcAdvisorChat({
 
           <div
             ref={scrollerRef}
-            className="min-h-0 flex-1 gap-3 overflow-y-auto px-6 py-5"
+            className="scroll-host flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-5"
           >
             {messages.length === 0 && (
               <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted p-4">
@@ -1429,7 +1474,7 @@ export function CcAdvisorChat({
                 variant="outline"
                 size="icon"
                 disabled={busy}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={attach.open}
                 aria-label="Attach image"
                 title="Attach screenshot"
               >
@@ -1444,19 +1489,7 @@ export function CcAdvisorChat({
                 disabled={busy}
                 className="min-w-0 w-auto flex-1"
               />
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                tabIndex={-1}
-                aria-hidden="true"
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files?.length) void addImageFiles(e.target.files);
-                  e.target.value = "";
-                }}
-              />
+              <input {...screenshotPickerInputProps(attach)} />
               <Button
                 type="submit"
                 size="icon"
