@@ -78,7 +78,11 @@ import {
   COMMUNITY_VISIBLE_REFRESH_MS,
   type CommunityDuelCache,
 } from "@/lib/community-cache";
-import { isWorkspaceRoomActive, saveLastCircleId } from "@/lib/workspace-rooms";
+import {
+  isWorkspaceRoomActive,
+  onWorkspaceRefresh,
+  saveLastCircleId,
+} from "@/lib/workspace-rooms";
 import { currentDuelSessionKey } from "@/lib/daily-duel";
 import {
   buildPortfolioPersonality,
@@ -505,7 +509,16 @@ export function CommunityView({ communityId }: Props) {
       void load();
     }
     document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    /*
+      A pull asks for the circle again with no freshness check in front of it.
+      Coming back to a tab may reasonably decide the cached answer is recent
+      enough; somebody who has just dragged the page down has said it is not.
+    */
+    const offPull = onWorkspaceRefresh(`community:${communityId}`, () => load());
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      offPull();
+    };
   }, [load, communityId]);
 
   // Drill-down (member -> their portfolio) mirrors into ?member=&portfolio=
@@ -639,11 +652,21 @@ export function CommunityView({ communityId }: Props) {
       if (!document.hidden) void tick();
     };
     document.addEventListener("visibilitychange", onVisible);
+    /*
+      Prices are registered separately from the circle itself because they are
+      owned by this effect and nothing outside it can reach `tick`. Both land
+      in the same pull and the ring waits on the pair of them.
+    */
+    const offPull = onWorkspaceRefresh(`community:${communityId}`, () => {
+      quotesAtRef.current = 0;
+      return tick();
+    });
     return () => {
       cancelled = true;
       ctrl.abort();
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
+      offPull();
     };
   }, [holdingsTickerKey, communityId]);
 

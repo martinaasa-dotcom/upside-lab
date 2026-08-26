@@ -124,6 +124,7 @@ import {
   GO_HOME_EVENT,
   WORKSPACE_SHOW_EVENT,
   isWorkspaceRoomActive,
+  onWorkspaceRefresh,
   takeGoHomeRequest,
   workspaceRoomId,
 } from "@/lib/workspace-rooms";
@@ -1518,6 +1519,31 @@ export function Dashboard() {
       quotesAbortRef.current?.abort();
     };
   }, []);
+
+  /*
+    A pull on this room asks for exactly what coming back to the app asks for:
+    the portfolios again and fresh prices for what is in them.
+
+    Silent, because the ring above the page is already the feedback and a
+    skeleton flashing under it would be the same news told twice. It is
+    awaited rather than fired and forgotten, so the ring turns for as long as
+    the answer really takes.
+  */
+  useEffect(
+    () =>
+      onWorkspaceRefresh("book", async () => {
+        await Promise.all([
+          loadPortfolios({ silent: true, retry: true }),
+          allTickers.length === 0
+            ? Promise.resolve()
+            : refreshMarkets(allTickers, holdings, undefined, {
+                quotesOnly: true,
+                silent: true,
+              }),
+        ]);
+      }),
+    [loadPortfolios, refreshMarkets, allTickers, holdings]
+  );
 
   useEffect(() => {
     const resume = () => {
