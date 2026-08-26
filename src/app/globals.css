@@ -341,7 +341,30 @@
 html {
   color-scheme: dark;
   -webkit-text-size-adjust: 100%;
-  overflow-x: clip;
+  /*
+   * Sideways overflow is clipped on `body` alone, never here as well.
+   *
+   * With nothing set on the root, `html` is `overflow: visible` in both
+   * axes, so the viewport takes its overflow from `body` instead: the page
+   * still cannot be dragged sideways, and `html` stops being a scroll
+   * container. That second half is the whole reason. Floating UI, which
+   * positions every Radix menu, select, popover and tooltip in the app,
+   * asks whether the root is an overflow element -- and `clip` counts --
+   * and when it is, it places a popper in document coordinates rather than
+   * viewport ones. For anything in the page those two agree, because a
+   * card at document y 500 really is at viewport y 500 minus the scroll.
+   * For the chrome they do not: the phone's top bar is `sticky` and the
+   * desktop header is `fixed`, so both sit at the top of the screen while
+   * their place in the document stays at the top of the page. Measured on
+   * a 390px phone scrolled 186px down, the header's overflow menu opened
+   * at viewport y -132: it was open, focused and off the top of the
+   * screen. A reader taps the three dots, sees nothing appear, taps again
+   * and closes it. Every menu hung off the chrome had it -- the phone's
+   * More menu, the desktop View and account menus, the dock's picker --
+   * and only while the page was scrolled, which is why it read as
+   * intermittent. `src/lib/root-overflow.test.ts` fails if this comes
+   * back.
+   */
   scrollbar-gutter: stable;
   scroll-padding-top: 6.5rem;
   scroll-padding-bottom: max(var(--dock-pad, 0px), var(--vv-keyboard, 0px));
