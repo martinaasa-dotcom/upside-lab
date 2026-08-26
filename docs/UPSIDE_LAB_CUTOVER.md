@@ -24,7 +24,7 @@ Vercel production and preview, plus local `.env.local`, point at:
 
 Do not rename `portfell_*` tables.
 
-RLS is enabled on every `portfell_*` table. Holdings and portfolios are scoped to co-owners; community members get read access to books pinned into a community they belong to. Writes to someone else's book stay denied.
+RLS is enabled on every `portfell_*` table. Holdings and portfolios are scoped to co-owners; community members get read access to portfolios pinned into a community they belong to. Writes to someone else's portfolio stay denied.
 
 ## Auth
 
@@ -38,7 +38,7 @@ Google provider credentials were copied from the old project. In Google Cloud, a
 
 Keep the old Upthink Platform callback until you are sure nobody still signs in there, then remove it.
 
-Existing Google users were copied with the same user ids, so books and community membership survive. Sessions do not: everyone signs in with Google once on the new project.
+Existing Google users were copied with the same user ids, so portfolios and community membership survive. Sessions do not: everyone signs in with Google once on the new project.
 
 ## Domain
 

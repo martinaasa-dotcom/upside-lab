@@ -114,7 +114,7 @@ things:
 - **The other eleven describe temperament**, which is a real three-step
   axis rather than eleven arbitrary points: steady (`--cat-neutral`),
   balanced (`--primary`), and runs hot (`--warning` — a jumpy,
-  concentrated book is a caution, which is exactly what that token means).
+  concentrated portfolio is a caution, which is exactly what that token means).
 
 Colour there now carries information. Identity was never the job: every
 archetype already ships an emoji and a name, which are far stronger cues
@@ -979,7 +979,7 @@ Nothing about the two halves matched: different heights (48 vs 44), different
 shapes (filled group vs bare rail), different active indicators (a filled
 chip vs an underline), and a section label printed into the chrome that no
 other control needed. And the split was sized for a case that almost never
-happens. Measured on the running app at 1440px with an empty book:
+happens. Measured on the running app at 1440px with an empty portfolio:
 
 | | Before | After |
 |---|---|---|
@@ -1066,9 +1066,9 @@ between pages: drop one cell and the whole bar resizes and re-centres, every
 label sliding sideways under the cursor mid-navigation.
 
 `hideAdd` was wired to `!onBook`, so the `+` cell vanished the moment you
-left the book and a nine-cell row became eight — visible as a jump every
+left the portfolio and a nine-cell row became eight — visible as a jump every
 time you walked from a portfolio to Circle. It is account-level now
-(`paperClassOnly`); paper-class accounts cannot open a real book, and that
+(`paperClassOnly`); paper-class accounts cannot open a real portfolio, and that
 is a fact about the account, not the route.
 
 Measured on the two prop sets the Dashboard actually passes: left `213`,
@@ -1110,7 +1110,7 @@ what guarantees it: `Growth` is the longest section label and measures ~90px
 with its glyph, the 6px gap, and `px-2` either side.
 
 **Before lowering `MAX_DOCK_CELLS` to make something fit, check it against a
-real book.** The seed household has four portfolios, so a cap of 8 would
+real portfolio.** The seed household has four portfolios, so a cap of 8 would
 fold the dock for the person who asked for this.
 
 ## The phone is its own room (2026-08-22)
