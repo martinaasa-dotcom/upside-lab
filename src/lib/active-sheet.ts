@@ -41,3 +41,62 @@ export function saveActiveSheetId(id: string) {
     /* ignore */
   }
 }
+
+/**
+ * The last portfolio you actually opened, as opposed to the last tab.
+ *
+ * `ACTIVE_SHEET_KEY` above stores whichever tab you were on, meta-tabs
+ * included, so most of the time it is holding `__overview__` and cannot
+ * answer "which portfolio was I in". The phone dock's Holdings cell needs
+ * that answer and nothing else: it is one cell that has to land somewhere
+ * sensible from any room in the app, including the rooms that never load a
+ * portfolio (Account, Circle, Admin).
+ *
+ * It stores an id rather than a slug. A slug moves when somebody renames a
+ * portfolio and a stale one resolves to nothing, which would drop the reader
+ * on Overview from the one cell whose whole job is not doing that.
+ */
+export const LAST_PORTFOLIO_KEY = "upside-last-portfolio-id";
+
+/** Fired on save so a dock already on screen re-points without a reload. */
+export const LAST_PORTFOLIO_EVENT = "upside:last-portfolio";
+
+export function saveLastPortfolioId(id: string) {
+  if (typeof window === "undefined" || !id) return;
+  try {
+    if (localStorage.getItem(LAST_PORTFOLIO_KEY) === id) return;
+    localStorage.setItem(LAST_PORTFOLIO_KEY, id);
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(LAST_PORTFOLIO_EVENT));
+}
+
+export function loadLastPortfolioId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(LAST_PORTFOLIO_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Which portfolio the Holdings cell should open, given the portfolios this
+ * account actually has.
+ *
+ * Both fallbacks are load-bearing. A remembered id that is no longer in the
+ * list is a portfolio somebody deleted, and a reader who has never opened one
+ * has no memory at all; in either case the first portfolio is a real answer
+ * and Overview is not, because Overview is the room they are trying to leave.
+ */
+export function resolveLastPortfolioId<T extends { id: string }>(
+  list: T[]
+): string | null {
+  if (list.length === 0) return null;
+  const remembered = loadLastPortfolioId();
+  const match = remembered
+    ? list.find((p) => p.id === remembered)
+    : undefined;
+  return (match ?? list[0]).id;
+}

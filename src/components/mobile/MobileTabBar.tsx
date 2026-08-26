@@ -16,11 +16,18 @@ import {
   Calculator,
   FlaskConical,
   LayoutDashboard,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-export type MobileTabId = "home" | "pulse" | "lab" | "compound" | "circle";
+export type MobileTabId =
+  | "home"
+  | "holdings"
+  | "pulse"
+  | "lab"
+  | "compound"
+  | "circle";
 
 /*
   The phone's dock.
@@ -71,6 +78,33 @@ const TABS: {
     shortLabel: "Home",
     Icon: LayoutDashboard,
     metaId: OVERVIEW_TAB_ID,
+  },
+  /*
+    The one cell that is not a section of the app but a place in your own
+    data, and the reason it exists: on a phone the holdings table had no
+    route at all. Home is the combined view of every portfolio, and the only
+    ways down to a real table were the picker in the header title, which
+    reads as a heading rather than a control, or a scroll to the bottom of
+    Today. The laptop never had that problem, because `BookModeDock` carries
+    one cell per portfolio.
+
+    It is one cell rather than one per portfolio because a phone bar has no
+    room for a name, and a portfolio's name is somebody's own word and can
+    never be a glyph. So it opens the portfolio you were last in, and the
+    header picker stays the way you move between them.
+
+    Its href carries no token on purpose. `resolveSheetIdFromUrl` in
+    `Dashboard` reads `?tab=portfolio` against the portfolios that account
+    really has, which is the only place that can tell a remembered id from a
+    deleted one, so the dock does not have to know.
+  */
+  {
+    id: "holdings",
+    href: "/?tab=portfolio",
+    label: "Holdings",
+    shortLabel: "Holdings",
+    Icon: Wallet,
+    metaId: null,
   },
   {
     id: "pulse",
@@ -128,6 +162,15 @@ export function activeMobileTab(
   if (tab === "pulse") return "pulse";
   if (tab === "lab") return "lab";
   if (tab === "compound") return "compound";
+  /*
+    `book` is the old spelling of `portfolio` and `forecast` is a panel on a
+    portfolio rather than a room of its own, so all three are the holdings
+    table. Kept in step with `resolveSheetIdFromUrl`, which reads the same
+    three the same way.
+  */
+  if (tab === "portfolio" || tab === "book" || tab === "forecast") {
+    return "holdings";
+  }
   return "home";
 }
 
@@ -295,6 +338,7 @@ export function MobileTabBar({
               onFocus={(e) => say(shortLabel, e.currentTarget)}
               onClick={(e) => {
                 if (id === "home") stashOpenTab("overview");
+                if (id === "holdings") stashOpenTab("portfolio");
                 if (id === "pulse") stashOpenTab("pulse");
                 if (id === "lab") stashOpenTab("lab");
                 if (id === "compound") stashOpenTab("compound");
@@ -358,7 +402,7 @@ export function MobileTabBar({
         <span
           aria-hidden
           className={cn(
-            "glass glass-dock pointer-events-none absolute bottom-full mb-2 -translate-x-1/2 rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap text-foreground ring-1 ring-foreground/20",
+            "glass glass-dock pointer-events-none absolute bottom-full mb-2 max-w-[60vw] -translate-x-1/2 truncate rounded-full px-3 py-1 text-xs font-medium text-foreground ring-1 ring-foreground/20",
             "transition-opacity duration-150 motion-reduce:transition-none",
             said ? "opacity-100" : "opacity-0"
           )}
