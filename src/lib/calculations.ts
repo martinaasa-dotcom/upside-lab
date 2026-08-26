@@ -1,4 +1,5 @@
 import { sheetCashBalance } from "@/lib/cash-balance";
+import { isCoinSymbol } from "@/lib/coins";
 import { nextStrikeFromTarget, resolveStockTarget } from "@/lib/market/resistance";
 import { finiteNumber, mean, roundMoney, safeDiv, sumMoney } from "@/lib/money";
 import type {
@@ -53,7 +54,9 @@ export function buildCoveredCallRows(
   quotes: Record<string, Quote>,
   optionsByTicker: Record<string, OptionCandidate | null>
 ): CoveredCallRow[] {
-  return holdings.map((holding) => {
+  return holdings
+    .filter((holding) => !isCoinSymbol(holding.ticker))
+    .map((holding) => {
     const quote = quotes[holding.ticker];
     const spot = finiteNumber(quote?.price ?? holding.buy_price);
     const totalValue = roundMoney(holding.shares * spot);

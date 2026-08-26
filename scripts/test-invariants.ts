@@ -4315,6 +4315,13 @@ run("watchlist typeahead matches names as you type", () => {
     ])?.symbol,
     "NVDA"
   );
+  assert.equal(
+    pickTickerSuggestion("BTC", [
+      { symbol: "BTC", name: "Grayscale Bitcoin Mini Trust" },
+      { symbol: "BTC-USD", name: "Bitcoin" },
+    ])?.symbol,
+    "BTC-USD"
+  );
   assert.equal(sanitizeTickerQuery("Apple Inc"), "Apple Inc");
   assert.equal(sanitizeTickerQuery("SPY5"), "SPY5");
   const strip = readFileSync(
@@ -4385,6 +4392,10 @@ run("Pulse can price a bare EU ETF like VUAA", () => {
   assert.equal(cashtag("LHV1T"), "LHV1T.TL");
   assert.equal(cashtag("NBIS"), "$NBIS");
   assert.equal(cashtag("NVDA"), "$NVDA");
+  assert.equal(cashtag("BTC-USD"), "$BTC");
+  assert.equal(normalizeYahooTicker("BTC"), "BTC");
+  assert.deepEqual(yahooQuoteCandidates("BTC-USD"), ["BTC-USD"]);
+  assert.equal(tickerStem("BTC-USD"), "BTC");
   const pulse = readFileSync(
     join(process.cwd(), "src/components/PulsePage.tsx"),
     "utf8"
@@ -4393,6 +4404,7 @@ run("Pulse can price a bare EU ETF like VUAA", () => {
   assert.match(pulse, /resolveListedTicker/);
   assert.match(pulse, /\/api\/market\/search/);
   assert.match(pulse, /sanitizeTickerQuery/);
+  assert.match(pulse, /resolveTypedTicker/);
   assert.match(pulse, /pickTickerSuggestion/);
   assert.match(pulse, /looksLikeTickerQuery/);
   const quotes = readFileSync(
@@ -7212,7 +7224,7 @@ run("every text box that can fail tells you what happened", () => {
   );
   assert.match(watch, /setNote\(/, "watchlist reports outcomes");
   assert.match(watch, /role="status"/, "and announces them to screen readers");
-  assert.match(watch, /No company found for/);
+  assert.match(watch, /Nothing found for/);
   assert.match(watch, /already own/);
   assert.match(watch, /already on your watchlist/);
   // A slow company-name lookup must show it is working.
@@ -7226,7 +7238,7 @@ run("every text box that can fail tells you what happened", () => {
     join(process.cwd(), "src/components/WelcomeTour.tsx"),
     "utf8"
   );
-  assert.match(onboarding, /setStockError\("Type a ticker or a company name\."\)/);
+  assert.match(onboarding, /setStockError\("Type a ticker, a company, or a coin\."\)/);
   assert.match(onboarding, /Couldn't open a portfolio/);
   assert.match(onboarding, /Couldn't save that holding/);
 });

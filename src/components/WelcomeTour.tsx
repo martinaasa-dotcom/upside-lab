@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { SUGGEST_MENU } from "@/components/ui/Panel";
 import { TickerSymbol } from "@/components/TickerSymbol";
+import { HouseholdCoinChips } from "@/components/CoinChips";
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
 import { ownedBookPortfolios } from "@/lib/classroom";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
@@ -43,11 +44,12 @@ import {
 } from "@/lib/listing-currency";
 import {
   localTickerSuggestions,
-  looksLikeTickerQuery,
   mergeAndRankTickerSuggestions,
   pickTickerSuggestion,
+  resolveTypedTicker,
 } from "@/lib/market/ticker-search";
 import { roundMoney, roundShares } from "@/lib/money";
+import { isCoinSymbol } from "@/lib/coins";
 import { blockWheelChange, parseDecimal } from "@/lib/number-input";
 import { postJsonOrQueue } from "@/lib/offline/queued-fetch";
 import { sanitizePopularTickers } from "@/lib/popular-tickers";
@@ -458,9 +460,8 @@ export function WelcomeTour({
   }
 
   async function resolveTicker(raw: string): Promise<string> {
-    const picked = pickTickerSuggestion(raw, suggestions);
-    if (picked?.symbol) return normalizeYahooTicker(picked.symbol);
-    if (looksLikeTickerQuery(raw)) return normalizeYahooTicker(raw);
+    const typed = resolveTypedTicker(raw, suggestions);
+    if (typed) return typed;
     try {
       const res = await fetch(
         `/api/market/search?q=${encodeURIComponent(raw)}`,
@@ -486,7 +487,7 @@ export function WelcomeTour({
       const buyN = parseDecimal(buyPrice);
       const normalizedTicker = await resolveTicker(ticker.trim());
       if (!normalizedTicker) {
-        setStockError("Type a ticker or a company name.");
+        setStockError("Type a ticker, a company, or a coin.");
         return;
       }
       if (!isPlausibleTicker(normalizedTicker)) {
@@ -494,7 +495,11 @@ export function WelcomeTour({
         return;
       }
       if (!isSafeShares(sharesN)) {
-        setStockError("Share count has to be bigger than 0 and not enormous.");
+        setStockError(
+          isCoinSymbol(normalizedTicker)
+            ? "How many has to be bigger than 0 and not enormous."
+            : "Share count has to be bigger than 0 and not enormous."
+        );
         return;
       }
       if (!isSafePositiveMoney(buyN)) {
@@ -579,7 +584,7 @@ export function WelcomeTour({
   async function addWatchDraft() {
     const raw = watchDraft.trim();
     if (!raw) return;
-    let t = looksLikeTickerQuery(raw) ? normalizeYahooTicker(raw) : "";
+    let t = resolveTypedTicker(raw, suggestions);
     if (!t) {
       try {
         const res = await fetch(
@@ -604,12 +609,10 @@ export function WelcomeTour({
     ? (EXPERIENCE_TIERS.find((t) => t.id === finished.tier)?.label ?? null)
     : null;
   const copy = screenCopy(stage, tierLabel);
-  const buyCode = ticker.trim()
-    ? listingCurrency(
-        looksLikeTickerQuery(ticker)
-          ? normalizeYahooTicker(ticker)
-          : ticker.trim().toUpperCase()
-      )
+  const resolvedTicker = resolveTypedTicker(ticker, suggestions);
+  const holdingIsCoin = Boolean(resolvedTicker && isCoinSymbol(resolvedTicker));
+  const buyCode = resolvedTicker
+    ? listingCurrency(resolvedTicker)
     : "USD";
 
   /*
@@ -786,10 +789,9 @@ export function WelcomeTour({
                   scenarios. Both are for thinking with, not answers.
                 </Row>
                 <Row icon={Mail} term="The Sunday email">
-                  One email a week. How the week went, what looks worth a
-                  second look, and what to think about next. Its suggestions
-                  come from Pulse verdicts you have already seen. Nothing in
-                  it is invented.
+                  One email a week. How the week went, and which names moved.
+                  Pulse readings you have already seen can show up as notes.
+                  Nothing in it is invented.
                 </Row>
               </ul>
               <p className="text-sm text-muted-foreground">
@@ -937,6 +939,14 @@ export function WelcomeTour({
               )}
               <Field>
                 <FieldLabel htmlFor="onboard-ticker">Ticker or company</FieldLabel>
+                <HouseholdCoinChips
+                  active={holdingIsCoin && resolvedTicker ? [resolvedTicker] : []}
+                  onPick={(symbol) => {
+                    setTicker(symbol);
+                    setListOpen(false);
+                    setStockError(null);
+                  }}
+                />
                 <div className="relative">
                   <Input
                     id="onboard-ticker"
@@ -957,7 +967,7 @@ export function WelcomeTour({
                         setListOpen(false);
                       }
                     }}
-                    placeholder="Apple, NVDA, or SPY5"
+                    placeholder="Apple, NVDA, or Bitcoin"
                     autoComplete="off"
                   />
                   {listOpen && suggestions.length > 0 && (
@@ -989,14 +999,16 @@ export function WelcomeTour({
                   )}
                 </div>
                 <FieldDescription>
-                  Type the ticker or the company. Average buy in this
-                  listing&apos;s money
-                  {buyCode !== "USD" ? ` (${buyCode})` : ""}.
+                  {holdingIsCoin
+                    ? "How many coins, and what you paid for each, in dollars."
+                    : `Type the ticker or the company. A coin is fine too. Average buy in this listing's money${buyCode !== "USD" ? ` (${buyCode})` : ""}.`}
                 </FieldDescription>
               </Field>
               <div className="flex gap-6">
                 <Field className="min-w-0 flex-1">
-                  <FieldLabel htmlFor="onboard-shares">Shares</FieldLabel>
+                  <FieldLabel htmlFor="onboard-shares">
+                    {holdingIsCoin ? "How many" : "Shares"}
+                  </FieldLabel>
                   <Input
                     id="onboard-shares"
                     type="text"
@@ -1048,6 +1060,10 @@ export function WelcomeTour({
 
           {stage === "watchlist" && (
             <div className="flex flex-col gap-4">
+              <HouseholdCoinChips
+                active={watching}
+                onPick={toggleWatch}
+              />
               <div className="flex flex-wrap gap-2">
                 {popular.map((t) => {
                   const on = watching.includes(t);
@@ -1076,7 +1092,7 @@ export function WelcomeTour({
                   onChange={(e) =>
                     setWatchDraft(sanitizeTickerQuery(e.target.value))
                   }
-                  placeholder="Apple or NVDA"
+                  placeholder="Apple or Bitcoin"
                   autoComplete="off"
                 />
                 <Button type="submit" variant="outline">

@@ -1,3 +1,4 @@
+import { isCoinSymbol } from "@/lib/coins";
 import { STRATEGY } from "@/lib/calculations";
 import {
   findLocalHighs,
@@ -561,6 +562,7 @@ export async function buildWritePlans(
 ): Promise<WritePlan[]> {
   const plans: WritePlan[] = [];
   for (const p of positions) {
+    if (isCoinSymbol(p.ticker)) continue;
     // Sequential to avoid Yahoo rate limits
     plans.push(await buildWritePlan(p));
   }

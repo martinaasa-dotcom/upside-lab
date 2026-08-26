@@ -1,3 +1,4 @@
+import { isCoinSymbol } from "@/lib/coins";
 import type { Quote } from "@/lib/types";
 import { sessionMark } from "@/lib/market-session";
 import { synthesizeSparkline } from "@/lib/market/sparkline";
@@ -771,6 +772,7 @@ function toDateKey(d: Date): string {
 export async function fetchNextEarningsDate(
   ticker: string
 ): Promise<Date | null> {
+  if (isCoinSymbol(ticker)) return null;
   try {
     const yf = await getYahoo();
     const symbol = (await resolveYahooListedSymbol(ticker)) ?? ticker;
@@ -807,6 +809,7 @@ export async function fetchMarketEvents(tickers: string[]): Promise<{
 
   await Promise.all(
     unique.map(async (ticker) => {
+      if (isCoinSymbol(ticker)) return;
       const date = await fetchNextEarningsDate(ticker);
       if (date) {
         const days = daysUntilInTz(date);

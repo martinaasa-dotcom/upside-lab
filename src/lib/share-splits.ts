@@ -1,3 +1,4 @@
+import { isCoinSymbol } from "@/lib/coins";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { fetchSplits, type ShareSplit } from "@/lib/market/yahoo";
 import { dateKeyInTz } from "@/lib/timezone";
@@ -152,7 +153,7 @@ export async function applyDueSplits(now = new Date()): Promise<SplitSweep> {
     ...new Set(
       ((held ?? []) as { ticker: string }[])
         .map((row) => row.ticker?.toUpperCase())
-        .filter(Boolean)
+        .filter((ticker): ticker is string => Boolean(ticker) && !isCoinSymbol(ticker))
     ),
   ];
 

@@ -12,6 +12,7 @@
  * including people who hold nothing but broad index funds.
  */
 
+import { isCoinSymbol } from "@/lib/coins";
 import type { ForecastYear } from "@/lib/forecast";
 import { FORECAST_YEARS } from "@/lib/forecast";
 
@@ -170,6 +171,7 @@ export function forecastThemeForTicker(ticker: string): ForecastTheme {
 
   const known = THEME_BY_TICKER.get(base);
   if (known) return known;
+  if (isCoinSymbol(ticker)) return "crypto";
 
   // FX pairs and anything else with an `=` are index-like for our purposes.
   if (ticker.includes("=")) return "index";
@@ -360,7 +362,7 @@ middle), and no holding has a predetermined destination.
 - Broad index and mixed funds: a steady path near the market baseline is the right answer. Do not manufacture drama in a fund that holds five hundred companies.
 - The first forecast year is this calendar year. That cell is December 31, not today's price. There are still months left. Do not paste spot into it as a default unless that company's remaining-year setup is genuinely quiet.
 - Long build-cycle names: a quiet year can mean a slower-up year, not necessarily a collapse.
-- Trim/add lines may list multiple names or groups of similar stocks, not one ticker only.
+- Trim/add lines may list multiple names or groups of similar stocks, not one ticker only. They are modeled mix observations, never orders.
 - Be honest: most holdings deserve a modest, unglamorous path. Not every holding is a multi-bagger candidate, and saying so is the useful part.
 
 ### Forbidden

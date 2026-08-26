@@ -1,3 +1,4 @@
+import { isCoinSymbol } from "@/lib/coins";
 import { shouldHideOptions } from "@/lib/experience-tier";
 import { scanCoveredCall } from "@/lib/market/covered-call";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
@@ -52,7 +53,9 @@ async function handlePOST(req: NextRequest) {
         const ticker = readString(row.ticker);
         const spot = readFiniteNumber(row.spot);
         const shares = readFiniteNumber(row.shares);
-        if (!ticker || spot == null || shares == null) return [];
+        if (!ticker || isCoinSymbol(ticker) || spot == null || shares == null) {
+          return [];
+        }
         const history = Array.isArray(row.price_history)
           ? row.price_history.filter(
               (n): n is number => typeof n === "number" && Number.isFinite(n)

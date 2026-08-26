@@ -1,6 +1,7 @@
 "use client";
 
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
+import { HouseholdCoinChips } from "@/components/CoinChips";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -21,13 +22,14 @@ import {
 } from "@/lib/input-guard";
 import {
   localTickerSuggestions,
-  looksLikeTickerQuery,
   mergeAndRankTickerSuggestions,
   pickTickerSuggestion,
+  resolveTypedTicker,
 } from "@/lib/market/ticker-search";
 import { useTickerSearch } from "@/lib/use-ticker-search";
 import { blockWheelChange, parseDecimal } from "@/lib/number-input";
 import { roundMoney, roundShares } from "@/lib/money";
+import { isCoinSymbol, matchCoinQuery } from "@/lib/coins";
 import {
   isPlausibleTicker,
   normalizeYahooTicker,
@@ -137,9 +139,8 @@ export function HoldingModal({
     !ticker.trim() && !shares.trim() && !buyPrice.trim();
 
   async function resolveHoldingTicker(raw: string): Promise<string> {
-    const picked = pickTickerSuggestion(raw, suggestions);
-    if (picked?.symbol) return normalizeYahooTicker(picked.symbol);
-    if (looksLikeTickerQuery(raw)) return normalizeYahooTicker(raw);
+    const typed = resolveTypedTicker(raw, suggestions);
+    if (typed) return typed;
     try {
       const res = await fetch(
         `/api/market/search?q=${encodeURIComponent(raw)}`,
@@ -162,7 +163,7 @@ export function HoldingModal({
     const callN = Math.round(parseDecimal(targetCall));
     const normalizedTicker = await resolveHoldingTicker(ticker.trim());
     if (!normalizedTicker) {
-      setError("Type a ticker or a company name.");
+      setError("Type a ticker, a company, or a coin.");
       return null;
     }
     if (!isPlausibleTicker(normalizedTicker)) {
@@ -170,7 +171,11 @@ export function HoldingModal({
       return null;
     }
     if (!isSafeShares(sharesN)) {
-      setError("Share count has to be bigger than 0 and not enormous.");
+      setError(
+        isCoinSymbol(normalizedTicker)
+          ? "How many has to be bigger than 0 and not enormous."
+          : "Share count has to be bigger than 0 and not enormous."
+      );
       return null;
     }
     if (!isSafePositiveMoney(buyN)) {
@@ -284,7 +289,7 @@ export function HoldingModal({
         rows = upsertDraft(rows, draft);
       }
       if (rows.length === 0) {
-        setError("Type a ticker or a company name.");
+        setError("Type a ticker, a company, or a coin.");
         return;
       }
       onSave(
@@ -302,9 +307,11 @@ export function HoldingModal({
     }
   }
 
-  const normalized = looksLikeTickerQuery(ticker)
-    ? normalizeYahooTicker(ticker)
-    : pickTickerSuggestion(ticker, suggestions)?.symbol ?? "";
+  const normalized = resolveTypedTicker(ticker, suggestions);
+  const holdingIsCoin = Boolean(
+    matchCoinQuery(ticker) || (normalized && isCoinSymbol(normalized))
+  );
+  const hideCall = hideCallPct || holdingIsCoin;
   const exchangeHint = normalized ? tickerExchangeHint(normalized) : null;
   const buyCode = normalized ? listingCurrency(normalized) : "USD";
   const mixedListings = listingCurrenciesAreMixed(
@@ -407,6 +414,14 @@ export function HoldingModal({
         <FieldGroup className="gap-3">
           <Field>
             <FieldLabel htmlFor="holding-ticker">Ticker or company</FieldLabel>
+            <HouseholdCoinChips
+              active={holdingIsCoin && normalized ? [normalized] : []}
+              onPick={(symbol) => {
+                setTicker(symbol);
+                setListOpen(false);
+                setError(null);
+              }}
+            />
             <div className="relative">
               <Input
                 id="holding-ticker"
@@ -428,7 +443,7 @@ export function HoldingModal({
                     setListOpen(false);
                   }
                 }}
-                placeholder="Apple, NVDA, or SPY5"
+                placeholder="Apple, NVDA, or Bitcoin"
                 autoComplete="off"
                 aria-invalid={Boolean(error)}
               />
@@ -461,18 +476,28 @@ export function HoldingModal({
               )}
             </div>
             <FieldDescription>
-              Type the ticker or the company. London: TICKER.L. Xetra: SPY5 or
-              TICKER.DE. Tallinn: LHV1T. Average buy in this listing&apos;s money
-              {buyCode !== "USD" ? ` (${buyCode})` : ""}.
-              {exchangeHint && normalized !== ticker.trim().toUpperCase() && (
-                <> → {normalized}</>
+              {holdingIsCoin ? (
+                "How many coins, and what you paid for each, in dollars."
+              ) : (
+                <>
+                  Type the ticker or the company. A coin is fine too. London:
+                  TICKER.L. Xetra: SPY5 or TICKER.DE. Tallinn: LHV1T. Average
+                  buy in this listing&apos;s money
+                  {buyCode !== "USD" ? ` (${buyCode})` : ""}.
+                  {exchangeHint &&
+                    normalized !== ticker.trim().toUpperCase() && (
+                      <> → {normalized}</>
+                    )}
+                  {exchangeHint && <> · {exchangeHint}</>}
+                </>
               )}
-              {exchangeHint && <> · {exchangeHint}</>}
             </FieldDescription>
           </Field>
           <div className="flex gap-6">
             <Field className="min-w-0 flex-1">
-              <FieldLabel htmlFor="holding-shares">Shares</FieldLabel>
+              <FieldLabel htmlFor="holding-shares">
+                {holdingIsCoin ? "How many" : "Shares"}
+              </FieldLabel>
               <Input
                 id="holding-shares"
                 type="text"
@@ -508,7 +533,7 @@ export function HoldingModal({
               />
             </Field>
           </div>
-          {!hideCallPct && (
+          {!hideCall && (
             <Field>
               <FieldLabel htmlFor="holding-call">
                 How far above your target to sell (%)

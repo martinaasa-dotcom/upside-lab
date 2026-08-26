@@ -1,9 +1,15 @@
+import { coinFromSymbol, isCoinSymbol, matchCoinQuery } from "@/lib/coins";
+
 /**
  * Normalize human/exchange tickers to Yahoo Finance symbols.
  * Keep US tickers bare; attach exchange suffixes for EU listings.
  *
  * Examples: LON:VOD → VOD.L · XETRA:VWCE → VWCE.DE · SAP.DE unchanged
  * LHV1T → LHV1T.TL (Nasdaq Tallinn share class)
+ *
+ * Bare BTC is not rewritten to BTC-USD here. That mapping is search /
+ * resolveTypedTicker / CSV import, so a US-listed Bitcoin fund ticker
+ * still quotes if someone picks it.
  */
 const PREFIX_TO_SUFFIX: Record<string, string> = {
   LON: ".L",
@@ -194,7 +200,7 @@ export function balticYahooSymbol(stem: string): string | null {
 export function yahooQuoteCandidates(raw: string): string[] {
   const normalized = normalizeYahooTicker(raw);
   if (!normalized) return [];
-  if (normalized.includes(".")) return [normalized];
+  if (isCoinSymbol(normalized) || normalized.includes(".")) return [normalized];
   const out = [normalized];
   for (const suffix of EU_QUOTE_SUFFIXES) {
     const next = `${normalized}${suffix}`;
@@ -241,6 +247,8 @@ export function normalizeYahooTicker(raw: string): string {
 /** Strip a known exchange suffix so VUAA matches VUAA.DE in search. */
 export function tickerStem(ticker: string): string {
   const t = ticker.trim().toUpperCase();
+  const coin = coinFromSymbol(t);
+  if (coin) return coin.short;
   const dot = t.lastIndexOf(".");
   if (dot > 0 && KNOWN_SUFFIXES.has(t.slice(dot))) return t.slice(0, dot);
   return t;
@@ -256,6 +264,8 @@ export function isPlausibleTicker(ticker: string): boolean {
  * Prefer explicit exchange suffixes; else map known EU names; else ISIN country.
  */
 export function resolveImportTicker(raw: string, isin?: string | null): string {
+  const coin = matchCoinQuery(raw);
+  if (coin) return coin.symbol;
   const base = normalizeYahooTicker(raw);
   if (!base) return base;
   if (base.includes(".")) return base;

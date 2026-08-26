@@ -43,9 +43,11 @@ import { readJsonOrThrow } from "@/lib/http";
 import type { OverviewModel } from "@/lib/overview";
 import { formatRelativeTime } from "@/lib/timezone";
 import {
+  localTickerSuggestions,
   looksLikeTickerQuery,
   mergeAndRankTickerSuggestions,
   pickTickerSuggestion,
+  resolveTypedTicker,
   type TickerSuggestion,
 } from "@/lib/market/ticker-search";
 import { sanitizeTickerQuery } from "@/lib/input-guard";
@@ -631,7 +633,8 @@ export const PulsePage = memo(function PulsePage({
           tickerStem(t).startsWith(stem)
       )
       .map((t) => ({ symbol: t, name: "in your portfolio" }));
-    return mergeAndRankTickerSuggestions(q, local, remoteSuggestions, new Set());
+    const coins = localTickerSuggestions(q, [], new Set());
+    return mergeAndRankTickerSuggestions(q, [...coins, ...local], remoteSuggestions, new Set());
   }, [bookTickers, remoteSuggestions, searchInput]);
 
   const candidates = useMemo(
@@ -1078,14 +1081,7 @@ export const PulsePage = memo(function PulsePage({
     setSearchInput("");
     setError(null);
 
-    const named = looksLikeTickerQuery(typed)
-      ? null
-      : pickTickerSuggestion(typed, suggestions);
-    let ticker = named?.symbol
-      ? normalizeYahooTicker(named.symbol)
-      : looksLikeTickerQuery(typed)
-        ? normalizeYahooTicker(typed)
-        : "";
+    let ticker = resolveTypedTicker(typed, suggestions);
     if (ticker) {
       setPinnedTicker(ticker);
       hydrateTicker(ticker);
@@ -1105,7 +1101,7 @@ export const PulsePage = memo(function PulsePage({
     }
     if (!q) {
       const label = looksLikeTickerQuery(typed) ? cashtag(typed) : typed;
-      setError(`Couldn't get a price for ${label}. Try the ticker or the company name.`);
+      setError(`Couldn't get a price for ${label}. Try the ticker, the company, or a coin.`);
       return;
     }
 

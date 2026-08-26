@@ -1,5 +1,6 @@
 "use client";
 
+import { HouseholdCoinChips } from "@/components/CoinChips";
 import {
   cashtag,
   cn,
@@ -16,7 +17,9 @@ import {
   looksLikeTickerQuery,
   mergeAndRankTickerSuggestions,
   pickTickerSuggestion,
+  resolveTypedTicker,
 } from "@/lib/market/ticker-search";
+import { isCoinSymbol } from "@/lib/coins";
 import { normalizeYahooTicker } from "@/lib/ticker";
 import { useTickerSearch } from "@/lib/use-ticker-search";
 import { FALLBACK_POPULAR_TICKERS } from "@/lib/popular-tickers";
@@ -332,12 +335,13 @@ export function WatchlistStrip({
   }, [namesKey, fetchQuotes]);
 
   useEffect(() => {
-    if (names.length === 0) {
+    const eventNames = names.filter((t) => !isCoinSymbol(t));
+    if (eventNames.length === 0) {
       setReportDays({});
       return;
     }
     const ctrl = new AbortController();
-    void fetch(`/api/market/events?tickers=${encodeURIComponent(names.join(","))}`, {
+    void fetch(`/api/market/events?tickers=${encodeURIComponent(eventNames.join(","))}`, {
       signal: ctrl.signal,
     })
       .then((r) => (r.ok ? r.json() : null))
@@ -383,10 +387,7 @@ export function WatchlistStrip({
     setNote(null);
     let t = (symbol ?? "").trim();
     if (t && !looksLikeTickerQuery(t)) t = "";
-    if (!t) {
-      const picked = pickTickerSuggestion(draft, suggestions);
-      t = picked?.symbol ?? "";
-    }
+    if (!t) t = resolveTypedTicker(draft, suggestions);
     let lookupFailed = false;
     if (!t && draft.trim()) {
       // The only slow step: turning a typed company name into a symbol.
@@ -415,13 +416,13 @@ export function WatchlistStrip({
       setNote(
         lookupFailed
           ? "Couldn't look that up just now. Try again in a second."
-          : `No company found for "${draft.trim()}". Try the ticker symbol.`
+          : `Nothing found for "${draft.trim()}". Try Apple, NVDA, or Bitcoin.`
       );
       return;
     }
     if (heldTickers.some((h) => h.toUpperCase() === t)) {
       // Not a failure. You already own it, which is why it is not here.
-      setNote(`You already own ${t}, so it's in your portfolio, not your watchlist.`);
+      setNote(`You already own ${cashtag(t)}, so it's in your portfolio, not your watchlist.`);
       setDraft("");
       setOpen(false);
       return;
@@ -488,7 +489,7 @@ export function WatchlistStrip({
                         setOpen(false);
                       }
                     }}
-                    placeholder="Apple or NVDA"
+                    placeholder="Apple or Bitcoin"
                     maxLength={48}
                     autoComplete="off"
                     role="combobox"
@@ -567,17 +568,27 @@ export function WatchlistStrip({
           </Popover>
         }
       />
+      <HouseholdCoinChips
+        hidden={exclude}
+        onPick={(symbol) => void add(symbol)}
+        disabled={adding}
+      />
       {names.length === 0 ? (
         <EmptyState
           title="Nothing on the list yet"
-          detail="Add a name you don't own. You'll see today's price, the recent range, and whether now looks quiet or rushed."
+          detail="Add a company or a coin you don't own. You'll see today's price and where it sits in its recent range."
         />
       ) : (
         <>
           <ul className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2">
             {names.map((ticker) => {
               const q = quotes[ticker];
-              const look = q ? watchLook(q, reportDays[ticker] ?? null) : null;
+              const look = q
+                ? watchLook(
+                    q,
+                    isCoinSymbol(ticker) ? null : reportDays[ticker] ?? null
+                  )
+                : null;
               return (
                 <li key={ticker}>
                   <WatchCard

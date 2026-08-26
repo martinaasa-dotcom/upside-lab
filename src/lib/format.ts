@@ -1,3 +1,4 @@
+import { coinFromSymbol } from "@/lib/coins";
 import { roundMoney } from "@/lib/money";
 import { normalizeYahooTicker } from "@/lib/ticker";
 export { cn } from "@/lib/utils";
@@ -106,6 +107,8 @@ export function cashtag(ticker: string | null | undefined): string {
   const t = stripTickerDecor(ticker ?? "").toUpperCase();
   if (!t) return NO_VALUE;
   const yahoo = normalizeYahooTicker(t) || t;
+  const coin = coinFromSymbol(yahoo) ?? coinFromSymbol(t);
+  if (coin) return `$${coin.short}`;
   if (/\.[A-Z]{1,3}$/.test(yahoo)) return yahoo;
   return `$${yahoo}`;
 }

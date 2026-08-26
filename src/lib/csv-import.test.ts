@@ -152,6 +152,13 @@ describe("cash", () => {
     expect(r.cash).toBe(2500);
   });
 
+  it("reads Bitcoin as the coin, including a Coinbase-style BTC row", () => {
+    const named = parseHoldingsCsv(`${HEAD}\nBitcoin,0.5,40000`);
+    expect(named.rows[0]?.ticker).toBe("BTC-USD");
+    const short = parseHoldingsCsv(`${HEAD}\nBTC,0.25,40000`);
+    expect(short.rows[0]?.ticker).toBe("BTC-USD");
+  });
+
   it("applies the same ceiling to pasted cash as to imported cash", () => {
     // The paste path had no guard at all, so it accepted a balance the rest
     // of the app treats as impossible.

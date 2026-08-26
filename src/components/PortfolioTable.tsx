@@ -199,7 +199,7 @@ const COLUMNS: { label: string; key?: SortKey; explain?: string }[] = [
   {
     label: "Shares",
     key: "shares",
-    explain: "How many shares (or fractional shares) you hold",
+    explain: "How many you hold (shares or coins)",
   },
   {
     label: "Buy",

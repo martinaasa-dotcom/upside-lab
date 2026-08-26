@@ -1,3 +1,8 @@
+import {
+  coinSuggestions,
+  isCoinSymbol,
+  matchCoinQuery,
+} from "@/lib/coins";
 import { normalizeYahooTicker, tickerStem } from "@/lib/ticker";
 
 export type TickerSuggestion = {
@@ -34,6 +39,15 @@ export function scoreTickerSuggestion(
   const name = (row.name ?? "").toUpperCase();
   const tokens = nameTokens(row.name ?? "");
 
+  // Coins beat an exact stock ticker of the same letters (BTC the fund)
+  // when the person typed the coin's name or alias. The fund stays in
+  // the list; it just is not the first Enter.
+  if (isCoinSymbol(symbol)) {
+    const coin = matchCoinQuery(query);
+    if (coin && coin.symbol === symbol) return 104;
+    if (stem === q || name === q) return 102;
+  }
+
   if (symbol === q) return 100;
   if (mapped && symbol === mapped) return 98;
   if (stem === q) return 96;
@@ -62,6 +76,27 @@ export function pickTickerSuggestion(
   return rankTickerSuggestions(query, rows)[0] ?? null;
 }
 
+/**
+ * What to store for what they typed. Coins first (Bitcoin, BTC → BTC-USD),
+ * then a ranked suggestion, then a bare Yahoo symbol. Does not call the
+ * network; callers still search if this comes back empty.
+ */
+export function resolveTypedTicker(
+  raw: string,
+  suggestions: TickerSuggestion[] = []
+): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const coin = matchCoinQuery(trimmed);
+  if (coin) return coin.symbol;
+  const picked = pickTickerSuggestion(trimmed, suggestions);
+  if (picked?.symbol) return normalizeYahooTicker(picked.symbol);
+  const prefix = coinSuggestions(trimmed)[0];
+  if (prefix) return prefix.symbol;
+  if (looksLikeTickerQuery(trimmed)) return normalizeYahooTicker(trimmed);
+  return "";
+}
+
 /** Popular-list matches while Yahoo is still thinking. */
 export function localTickerSuggestions(
   query: string,
@@ -73,12 +108,16 @@ export function localTickerSuggestions(
   const seen = new Set<string>();
   const out: TickerSuggestion[] = [];
 
-  const push = (symbol: string) => {
+  const push = (symbol: string, name: string | null = null) => {
     const s = symbol.trim().toUpperCase();
     if (!WATCH_SYMBOL.test(s) || exclude.has(s) || seen.has(s)) return;
     seen.add(s);
-    out.push({ symbol: s, name: null });
+    out.push({ symbol: s, name });
   };
+
+  for (const row of coinSuggestions(query, exclude)) {
+    push(row.symbol, row.name);
+  }
 
   if (looksLikeTickerQuery(query)) {
     const symbol = normalizeYahooTicker(query);
