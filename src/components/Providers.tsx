@@ -5,6 +5,7 @@ import { AnalyticsConsentBanner } from "@/components/AnalyticsConsentBanner";
 import { FeedbackHost } from "@/components/FeedbackHost";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { OfflineRuntime } from "@/components/OfflineRuntime";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import { WorkspaceShell } from "@/components/WorkspaceShell";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -42,6 +43,16 @@ export function Providers({ children }: { children: ReactNode }) {
         </a>
         <OfflineBanner />
         <AnalyticsConsentBanner />
+        {/*
+          Pull the page down for new numbers.
+
+          Mounted here rather than inside a room because it belongs to the
+          chrome: it is the same gesture everywhere, it moves whichever
+          `<main>` the finger is actually in, and its ring has to sit outside
+          that element's transform to stay put while the page travels under
+          it.
+        */}
+        <PullToRefresh />
         <FeedbackHost>
           <WorkspaceShell>{children}</WorkspaceShell>
         </FeedbackHost>
