@@ -106,6 +106,13 @@ describe("the ambient dither", () => {
     const rule = CSS.slice(start, CSS.indexOf("}", start));
     expect(rule).not.toContain("url(#ambient-dither)");
   });
+
+  it("does not dither the landing sample-card glow", () => {
+    const start = CSS.indexOf(".landing-field .ambient-glow {");
+    expect(start).toBeGreaterThan(-1);
+    const rule = CSS.slice(start, CSS.indexOf("}", start));
+    expect(rule).toMatch(/filter:\s*none/);
+  });
 });
 
 describe("surfaces that ramp through near-black", () => {

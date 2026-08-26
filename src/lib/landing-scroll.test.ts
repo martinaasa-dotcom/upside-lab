@@ -14,17 +14,13 @@ import { describe, expect, it } from "vitest";
 const LANDING = readFileSync("src/components/SignedOutLanding.tsx", "utf8");
 const CSS = readFileSync("src/app/globals.css", "utf8");
 
-/** Every `<Reveal …>…</Reveal>` block in the landing, body text included. */
-function revealBlocks(source: string): string[] {
-  const out: string[] = [];
-  const open = /<Reveal(\s[^>]*)?>/g;
-  let match: RegExpExecArray | null;
-  while ((match = open.exec(source))) {
-    const end = source.indexOf("</Reveal>", match.index);
-    if (end === -1) continue;
-    out.push(source.slice(match.index, end));
-  }
-  return out;
+/** Every `<SectionHead …/>` plus the markup until the next function. */
+function sectionAfterHead(source: string, title: string): string {
+  const head = source.indexOf(`title="${title}"`);
+  expect(head, `SectionHead "${title}" is missing`).toBeGreaterThan(-1);
+  const from = source.lastIndexOf("<SectionHead", head);
+  const next = source.slice(from + 1).search(/\n(?:export )?function /);
+  return source.slice(from, next === -1 ? undefined : from + 1 + next);
 }
 
 describe("the landing page is drawn, not revealed", () => {
@@ -35,16 +31,19 @@ describe("the landing page is drawn, not revealed", () => {
     expect(CSS).not.toContain("[data-reveal]");
   });
 
-  it("keeps a heading and the cards it heads in one block", () => {
-    const blocks = revealBlocks(LANDING);
-    expect(blocks.length).toBeGreaterThan(0);
+  it("keeps a heading and the cards it heads in one section", () => {
+    const headed = [
+      ["It starts with what you already own.", /<(div|PulseStill|MargusStill)/],
+      ["Watches the names. Explains the moves. Writes on Sunday.", /<(div|PulseStill|MargusStill)/],
+      ["Three more rooms, once you are in.", /<(div|PulseStill|MargusStill)/],
+    ] as const;
 
-    for (const block of blocks) {
-      if (!block.includes("<SectionHead")) continue;
+    for (const [title, cards] of headed) {
+      const block = sectionAfterHead(LANDING, title);
       expect(
         block,
         "a SectionHead that arrives without the row it is the heading of"
-      ).toMatch(/<(div|PulseStill|MargusStill)/);
+      ).toMatch(cards);
     }
   });
 

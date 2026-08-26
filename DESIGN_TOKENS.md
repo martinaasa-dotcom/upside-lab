@@ -252,10 +252,12 @@ What carries it: `.page-frame::before`, `.landing-field::before`,
 `.ambient-glow`. The landing's page-tall `::after` is the rest of the
 lobes and is deliberately undithered: an SVG filter on a document-tall
 layer is what made the second half of the hero pop in on scroll on older
-iPhones. `src/lib/ambient-dither.test.ts` fails if the two
-amplitude numbers stop being exact double and half, if either term loses
-its clip, or if a surface drops the filter. **Judge a change here by
-measuring black lift and riser-to-noise, never by eyeballing.**
+iPhones. The sample-card glow on that page is undithered for the same
+reason (the card hangs past the fold). `src/lib/ambient-dither.test.ts`
+fails if the two amplitude numbers stop being exact double and half, if
+either term loses its clip, or if a surface drops the filter. **Judge a
+change here by measuring black lift and riser-to-noise, never by
+eyeballing.**
 
 ### The glow behind a sample card is `.ambient-glow`, and it has a falloff
 

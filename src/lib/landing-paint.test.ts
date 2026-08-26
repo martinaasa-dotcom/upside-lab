@@ -28,6 +28,8 @@ describe("the landing hero lamps paint as one first-screen layer", () => {
     expect(rule).toContain("position: absolute");
     expect(rule).toContain("url(#ambient-dither)");
     expect(rule).toContain("translateZ(0)");
+    expect(rule).toContain("overflow: hidden");
+    expect(rule).toContain("contain: paint");
     expect(rule).not.toMatch(/^\s*display:\s*none/m);
   });
 
@@ -73,8 +75,24 @@ describe("the landing does not hide itself before paint", () => {
   it("asks WebKit to paint the sample card, not skip it", () => {
     expect(LANDING).toContain("landing-still");
     expect(LANDING).toContain("landing-hero");
+    const start = CSS.indexOf(".landing-hero,");
+    expect(start).toBeGreaterThan(-1);
+    const rule = CSS.slice(start, CSS.indexOf("}", start));
+    expect(rule).toContain("content-visibility: visible");
+    expect(rule).toMatch(/transform:\s*none/);
+    expect(rule).not.toMatch(/transform:\s*translateZ/);
+  });
+
+  it("does not SVG-filter the sample-card glow, which hangs past the fold", () => {
+    const start = CSS.indexOf(".landing-field .ambient-glow {");
+    expect(start).toBeGreaterThan(-1);
+    const rule = CSS.slice(start, CSS.indexOf("}", start));
+    expect(rule).toMatch(/filter:\s*none/);
+  });
+
+  it("does not pulse the live dot on the landing", () => {
     expect(CSS).toMatch(
-      /\.landing-hero,\s*\n\.landing-still \{\s*\n\s*content-visibility:\s*visible;/
+      /\.landing-field \.signin-live-dot[\s\S]*?animation:\s*none/
     );
   });
 

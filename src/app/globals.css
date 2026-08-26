@@ -1320,9 +1320,11 @@ button:disabled,
  * five-screen document, at or below the fold. Safari rasterizes an SVG
  * filter in tiles; the warm top painted, and the second half of the hero
  * popped in the moment the reader scrolled. That is the bug. A filter
- * region must stay about one viewport. `src/lib/landing-paint.test.ts`
- * fails if the tall layer takes the dither back, or if the first-screen
- * pair is split across two layers again.
+ * region must stay about one viewport, and nothing that hangs past the
+ * fold may carry `filter` or `transform`. `src/lib/landing-paint.test.ts`
+ * fails if the tall layer takes the dither back, if the first-screen
+ * pair is split across two layers again, or if the sample card's glow
+ * keeps the filter.
  *
  * Total light is held near the fixed field's: peaks on the lower lobes are
  * a touch lower because they overlap. The rule from DESIGN_TOKENS.md still
@@ -1382,6 +1384,12 @@ button:disabled,
    *
    * `translateZ(0)` asks WebKit for one compositing layer the size of the
    * box, so both lobes rasterize together rather than in scroll tiles.
+   * Safe here only because the box is one viewport: the same transform on
+   * a layer that hangs past the fold is what skipped the sample card.
+   *
+   * `overflow: hidden` and `contain: paint` pin the SVG filter region to
+   * that box. Without them WebKit can expand the filter to the gradient's
+   * painted overflow (the 170vw ellipses) and we are back to a tall tile.
    */
   display: block;
   position: absolute;
@@ -1389,7 +1397,12 @@ button:disabled,
   top: 0;
   right: 0;
   left: 0;
+  z-index: -1;
   height: 100svh;
+  overflow: hidden;
+  pointer-events: none;
+  contain: paint;
+  backface-visibility: hidden;
   filter: url(#ambient-dither);
   content-visibility: visible;
   transform: translateZ(0);
@@ -1444,18 +1457,21 @@ button:disabled,
         120vw 36vh at -10% 45%,
         oklch(from var(--primary) l c h / 36%) 0%,
         oklch(from var(--primary) l c h / 16%) 24%,
+        oklch(from var(--primary) l c h / 6%) 48%,
         transparent 100%
       ),
       radial-gradient(
         125vw 38vh at 112% 70%,
         oklch(from var(--ambient-cool) l c h / 44%) 0%,
         oklch(from var(--ambient-cool) l c h / 20%) 24%,
+        oklch(from var(--ambient-cool) l c h / 7.5%) 48%,
         transparent 100%
       ),
       radial-gradient(
         135vw 40vh at 45% 101%,
         oklch(from var(--primary) l c h / 40%) 0%,
         oklch(from var(--primary) l c h / 18%) 24%,
+        oklch(from var(--primary) l c h / 6.8%) 48%,
         transparent 100%
       );
   }
@@ -1477,6 +1493,24 @@ button:disabled,
 .landing-hero,
 .landing-still {
   content-visibility: visible;
+  /*
+   * No compositing transform. The sample card is meant to hang past the
+   * fold, and WebKit skips the off-screen half of a transformed layer
+   * until it scrolls on. `translateZ(0)` is correct on the 100svh lamp
+   * box above, and wrong on anything taller than the window.
+   */
+  transform: none;
+}
+
+/*
+ * The glow behind the sample card is a filtered layer the size of the
+ * card, and the card hangs off the fold. Same Safari tile as the old
+ * page-tall field: the visible half paints, the rest arrives on scroll.
+ * The first-screen lamps underneath are already dithered. Dropping the
+ * filter here is a slight coarsening of the khaki lift, not a pop-in.
+ */
+.landing-field .ambient-glow {
+  filter: none;
 }
 
 /*
@@ -1485,11 +1519,15 @@ button:disabled,
  * rasterize the below-fold half of a transformed layer until it scrolls
  * on-screen, which is the sample card popping in. An invite is one screen
  * and keeps the animation; the landing does not.
+ *
+ * The live dot is the same class of cost: an infinite box-shadow pulse on
+ * the first-screen card. A sample does not need to breathe. Static.
  */
 .landing-field .signin-rise-1,
 .landing-field .signin-rise-2,
 .landing-field .signin-rise-3,
-.landing-field .signin-rise-4 {
+.landing-field .signin-rise-4,
+.landing-field .signin-live-dot {
   animation: none;
 }
 
