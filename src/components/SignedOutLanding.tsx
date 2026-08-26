@@ -32,7 +32,7 @@ import {
   SIGNIN_TRUST,
 } from "@/lib/product";
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 /**
  * The page a stranger lands on.
@@ -67,41 +67,12 @@ type HeroProps = {
 };
 
 /**
- * How far below the window a section arrives, as a fraction of the window.
- *
- * This used to be `-12%`, a *negative* margin, which shrinks the observer's
- * root instead of growing it: a section did not begin arriving until it was
- * already 12% of a screen inside the window. Measured on the real page that
- * came out at 113px to 188px of the section sitting in plain view as an
- * empty box, and then 0.7s of fade on top of it. Somebody who flicks the
- * page and looks is shown nothing where the next section is, and the
- * reasonable thing to conclude is that the page has ended, so they flick
- * back. That is the whole of the feedback this number answers.
- *
- * Grown instead of shrunk, and by more than a screen. Measured on the real
- * page, every section that still fades now starts fading while it is
- * between 1000px and 1130px below the fold, and the two under the hero
- * never fade at all because they are already inside the lead when the page
- * loads: they are simply drawn, finished, before anybody touches the
- * wheel. Nothing on this page animates anywhere a reader can watch it.
- */
-const REVEAL_LEAD = 1.25;
-
-/**
- * Fades a section in before it is scrolled to.
- *
- * `data-reveal` is only ever set from script, so before hydration and in
- * any browser without an IntersectionObserver the element carries no
- * attribute and is plain visible. The observer disconnects on the first
- * intersection: this is an arrival, not a scrubbed animation, and a section
- * that faded out again when scrolled past would be a toy.
- *
- * A section already inside the lead zone when the page loads is never
- * faded at all. It keeps no attribute, so it is simply drawn, and the
- * screenful under the hero is finished before the first scroll rather than
- * starting to arrive because of one. That also means no section can flash
- * empty on mount, which is what arming an observer on something already in
- * view would do.
+ * Groups a heading with the cards it heads, so they stay one block in the
+ * markup. It used to fade the block in as it approached the fold, and that
+ * is exactly the pop-in this page cannot have: script would hide a section
+ * that HTML had already painted, then show it again on scroll. Older
+ * WebKit also skipped painting a translated layer until it scrolled
+ * on-screen. Everything here is drawn in the first HTML, finished.
  */
 function Reveal({
   children,
@@ -110,43 +81,7 @@ function Reveal({
   children: ReactNode;
   className?: string;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [state, setState] = useState<"none" | "out" | "in">("none");
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (typeof IntersectionObserver === "undefined") return;
-    if (el.getBoundingClientRect().top <= window.innerHeight * (1 + REVEAL_LEAD)) {
-      return;
-    }
-    setState("out");
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          setState("in");
-          io.disconnect();
-        }
-      },
-      {
-        rootMargin: `0px 0px ${Math.round(REVEAL_LEAD * 100)}% 0px`,
-        threshold: 0,
-      }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
-  return (
-    <div
-      ref={ref}
-      data-reveal={state === "none" ? undefined : state}
-      className={className}
-    >
-      {children}
-    </div>
-  );
+  return <div className={className}>{children}</div>;
 }
 
 /** One column, one measure, one rhythm. Every section sits in this. */
@@ -330,12 +265,11 @@ function WaysIn() {
       {/*
         * One `Reveal` around the whole section, heading and cards together.
         *
-        * They used to be two, the cards on an 80ms delay, each with its own
-        * observer. A row of cards is what a heading is a heading *of*, and
-        * splitting them meant the commonest thing a reader saw at a
-        * boundary was a title with a hole under it where the row had not
-        * arrived yet. Anything that has to be read as one thing arrives as
-        * one thing.
+        * They used to be two, the cards on an 80ms delay. A row of cards is
+        * what a heading is a heading *of*, and splitting them meant the
+        * commonest thing a reader saw at a boundary was a title with a hole
+        * under it where the row had not arrived yet. Anything that has to
+        * be read as one thing is marked as one thing.
         */}
       <Reveal>
         <SectionHead
@@ -657,9 +591,9 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
      * `relative`, because the cue is laid out against the top of this
      * section, which is the top of the document.
      */
-    <section className="relative min-h-[calc(100svh-9rem)] px-6 pb-10 pt-[max(2.5rem,env(safe-area-inset-top))] sm:pb-14">
+    <section className="relative min-h-[calc(100svh-9rem)] px-6 pb-10 pt-[max(2.5rem,env(safe-area-inset-top))] sm:pb-14 landing-hero">
       <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col items-center text-center">
-        <UpsideLogo variant="icon" className="signin-rise-1 text-lg" />
+        <UpsideLogo variant="icon" className="text-lg" />
         {notice}
         {/*
           * Two type steps, not two headlines.
@@ -674,7 +608,7 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
           * comfortably the largest thing on the page; the desktop step is
           * untouched.
           */}
-        <h1 className="signin-rise-2 mt-10">
+        <h1 className="mt-10">
           <span className="block text-balance font-heading text-[1.625rem] font-semibold leading-[1.12] tracking-[-0.04em] text-foreground sm:text-[2.75rem] sm:leading-[1.14] sm:tracking-[-0.035em]">
             Your broker tells you what you own.
             <span className="mt-1.5 block text-muted-foreground">
@@ -689,11 +623,11 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
           * only what the headline does not: what you do, and what comes
           * back.
           */}
-        <p className="signin-rise-3 mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
+        <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
           Paste what you own. Upside Lab watches the names, explains the
           moves in plain words, and writes to you on Sunday.
         </p>
-        <div className="signin-rise-3 mt-8 flex flex-col items-center gap-3.5">
+        <div className="mt-8 flex flex-col items-center gap-3.5">
           <SignInButton busy={busy} onSignIn={onSignIn} />
           <p className="text-sm text-muted-foreground">{SIGNIN_PRICE}</p>
         </div>
@@ -717,7 +651,7 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
         */}
       <div
         data-scroll-cue-still
-        className="signin-rise-3 mx-auto mt-12 w-full min-w-0 max-w-3xl sm:mt-14"
+        className="landing-still mx-auto mt-12 w-full min-w-0 max-w-3xl sm:mt-14"
       >
         <BookWide />
       </div>

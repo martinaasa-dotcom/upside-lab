@@ -4,19 +4,9 @@
  * The feedback this guards: somebody scrolls down the signed-out page, the
  * next section is not drawn yet, and the reasonable thing to conclude is
  * that the page has ended, so they scroll back up and never see the rest of
- * it. Two things caused it, and both are measurements rather than taste.
- *
- * One, `Reveal` armed its observer with `rootMargin: "0px 0px -12% 0px"`, a
- * negative margin, which shrinks the observer's root instead of growing it.
- * Measured against the real page, a section did not begin arriving until it
- * was already 113px to 188px inside the window, and then took 0.7s to get
- * there. Two, a section's heading and its row of cards were two separate
- * `Reveal` blocks with the cards on a delay, so the commonest thing a
- * reader saw at a boundary was a title with a hole under it.
- *
- * Asserted against the source, because both faults are numbers typed into
- * a component rather than anything a render would show: the page renders
- * identically once everything has arrived, which is the whole problem.
+ * it. That used to be an IntersectionObserver fade. It is gone. Everything
+ * the HTML carries is painted. These checks are against the source, because
+ * the settled page looks the same either way, which is the whole problem.
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -37,32 +27,12 @@ function revealBlocks(source: string): string[] {
   return out;
 }
 
-describe("the landing page reveals ahead of the fold", () => {
-  it("grows the observer's root rather than shrinking it", () => {
-    const lead = LANDING.match(/const REVEAL_LEAD = ([\d.]+);/);
-    expect(lead, "REVEAL_LEAD is gone").not.toBeNull();
-
-    // A whole screen at least. Below 1 a section can arrive while the reader
-    // is looking at the space it will occupy, which is the bug.
-    expect(Number(lead![1])).toBeGreaterThanOrEqual(1);
-
-    // And it has to reach the observer as a positive bottom margin.
-    expect(LANDING).toMatch(
-      /rootMargin: `0px 0px \$\{Math\.round\(REVEAL_LEAD \* 100\)\}% 0px`/
-    );
-    expect(LANDING, "a negative rootMargin is the old bug").not.toMatch(
-      /rootMargin:[^,\n]*-\d/
-    );
-  });
-
-  it("draws what is already within the lead instead of fading it", () => {
-    // The screenful under the hero is finished before the first scroll,
-    // rather than starting to arrive because of one. It also means nothing
-    // can flash empty on mount, and that a reload landing halfway down the
-    // page draws what is around it rather than animating it.
-    expect(LANDING).toContain(
-      "el.getBoundingClientRect().top <= window.innerHeight * (1 + REVEAL_LEAD)"
-    );
+describe("the landing page is drawn, not revealed", () => {
+  it("never writes a hide attribute, and never observes the fold", () => {
+    expect(LANDING).not.toContain("data-reveal");
+    expect(LANDING).not.toContain("IntersectionObserver");
+    expect(LANDING).not.toContain("REVEAL_LEAD");
+    expect(CSS).not.toContain("[data-reveal]");
   });
 
   it("keeps a heading and the cards it heads in one block", () => {
@@ -81,15 +51,6 @@ describe("the landing page reveals ahead of the fold", () => {
   it("staggers nothing, so no part of a section can lag another", () => {
     expect(LANDING).not.toContain("delayMs");
     expect(LANDING).not.toContain("transitionDelay");
-  });
-
-  it("finishes the fade quickly enough that a fast reader cannot read it as loading", () => {
-    const rule = CSS.match(
-      /\[data-reveal\] \{\s*transition:\s*opacity ([\d.]+)s ease-out,\s*transform ([\d.]+)s ease-out;/
-    );
-    expect(rule, "the [data-reveal] transition is gone").not.toBeNull();
-    expect(Number(rule![1])).toBeLessThanOrEqual(0.5);
-    expect(Number(rule![2])).toBeLessThanOrEqual(0.5);
   });
 });
 

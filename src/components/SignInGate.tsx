@@ -1,7 +1,6 @@
 "use client";
 
 import { useAuth } from "@/components/AuthProvider";
-import { DashboardLoading } from "@/components/DashboardLoading";
 import { UpsideLogo } from "@/components/UpsideLogo";
 import {
   InsightText,
@@ -31,7 +30,6 @@ import {
 import { SignedOutLanding } from "@/components/SignedOutLanding";
 import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
 import { supabaseIsConfigured } from "@/lib/supabase/env";
-import { useLoadingMessage } from "@/lib/use-loading-message";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -44,7 +42,7 @@ type Props = {
  * Demo / no-Supabase local mode renders children immediately.
  */
 export function SignInGate({ children }: Props) {
-  const { ready, user, signInWithGoogle } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   // Plain browser API instead of useSearchParams() — this page is statically
@@ -53,7 +51,6 @@ export function SignInGate({ children }: Props) {
   const [deletedNotice, setDeletedNotice] = useState<"full" | "data" | null>(
     null
   );
-  const loadingMessage = useLoadingMessage();
   const [invite, setInvite] = useState<InviteLanding | null>(null);
   /**
    * GDPR Article 8 lets each member state set the digital-consent age
@@ -123,7 +120,13 @@ export function SignInGate({ children }: Props) {
   }, []);
 
   if (!needsAuth) return <>{children}</>;
-  if (!ready) return <DashboardLoading message={loadingMessage} />;
+  /*
+   * A last-session stub is already `user` before paint (`useLayoutEffect`
+   * in AuthProvider), so returning visitors skip the landing. Everybody
+   * else used to wait on `getUser()` behind a spinner, which on a slow
+   * iPhone is a blank screen, then the whole hero popping in. Show the
+   * landing until a session is actually in hand.
+   */
   if (user) return <>{children}</>;
 
   async function onSignIn() {
@@ -167,7 +170,7 @@ export function SignInGate({ children }: Props) {
           onSignIn={() => void onSignIn()}
           notice={
             deletedNotice ? (
-              <Alert className="signin-rise-2 mt-8 max-w-md">
+              <Alert className="mt-8 max-w-md">
                 <AlertDescription>
                   {deletedNotice === "full"
                     ? "Account deleted. Your data and sign-in are both gone."

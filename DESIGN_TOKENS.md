@@ -248,8 +248,11 @@ filter referenced from a data URI, so a data URI would leave every iPhone
 undithered with nothing failing. Scroll cost measured at 1600x1000: median
 frame 16.7ms without, 16.8ms with.
 
-What carries it: `.page-frame::before`, `.landing-field::after`,
-`.ambient-glow`. `src/lib/ambient-dither.test.ts` fails if the two
+What carries it: `.page-frame::before`, `.landing-field::before`,
+`.ambient-glow`. The landing's page-tall `::after` is the rest of the
+lobes and is deliberately undithered: an SVG filter on a document-tall
+layer is what made the second half of the hero pop in on scroll on older
+iPhones. `src/lib/ambient-dither.test.ts` fails if the two
 amplitude numbers stop being exact double and half, if either term loses
 its clip, or if a surface drops the filter. **Judge a change here by
 measuring black lift and riser-to-noise, never by eyeballing.**

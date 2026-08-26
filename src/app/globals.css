@@ -1298,19 +1298,6 @@ button:disabled,
 }
 
 /*
- * Sections of the signed-out page arriving as they are scrolled to.
- *
- * A transition rather than an animation, because the state is driven by an
- * IntersectionObserver in `Reveal` and a class swap on an element that is
- * already in the document. `signin-rise` above is the hero's one-shot on
- * mount and stays an animation.
- *
- * The attribute is only ever written by script, so an element that has not
- * been marked has no `data-reveal` at all and is simply visible. That is
- * the safe direction to fail in: nothing can leave the page permanently
- * blank because an observer never fired.
- */
-/*
  * The signed-out page's light, which travels with the page instead of with
  * the window.
  *
@@ -1322,18 +1309,26 @@ button:disabled,
  * changes, and the warm corner you arrived on is the same warm corner four
  * screens later. What reads is not "a lit room" but "a colour that stopped".
  *
- * So the landing page swaps the fixed pair for one field as tall as the
- * document, with lobes spaced down it, alternating warm and cool. Sizes
- * stay in `vh` so a lobe is always about a screen tall; positions are in
- * `%` of the element, which is now the whole page, so the lobes land at
- * roughly one per section and scrolling actually passes through them.
+ * So the landing splits the field in two. `::before` is the first screen:
+ * the same two corner lamps the rest of the app uses, dithered, boxed to
+ * `100svh`. `::after` is the rest of the page: three more lobes, no SVG
+ * filter. Both halves of the hero therefore live in one layer that fits in
+ * a single WebKit filter tile.
  *
- * Total light is held near the fixed field's: peaks are a touch lower
- * because there are five lobes rather than two and they overlap. The rule
- * from DESIGN_TOKENS.md still governs. Judge this on the page middle and
- * on how black the black between lobes stays, never on how much of the
- * field is lit. Brightening is the easy mistake and it costs the true black
- * the whole product is built on.
+ * They used to be five gradients on one document-tall filtered `::after`.
+ * Positions were `%` of the page, so the cool hero lamp sat at 20% of a
+ * five-screen document, at or below the fold. Safari rasterizes an SVG
+ * filter in tiles; the warm top painted, and the second half of the hero
+ * popped in the moment the reader scrolled. That is the bug. A filter
+ * region must stay about one viewport. `src/lib/landing-paint.test.ts`
+ * fails if the tall layer takes the dither back, or if the first-screen
+ * pair is split across two layers again.
+ *
+ * Total light is held near the fixed field's: peaks on the lower lobes are
+ * a touch lower because they overlap. The rule from DESIGN_TOKENS.md still
+ * governs. Judge this on the page middle and on how black the black between
+ * lobes stays, never on how much of the field is lit. Brightening is the
+ * easy mistake and it costs the true black the whole product is built on.
  */
 /*
  * The warm lift behind a sample card, and the reason it is a class rather
@@ -1377,8 +1372,27 @@ button:disabled,
 }
 
 .landing-field::before {
-  /* Kills the inherited fixed pair. The flowing field is on ::after. */
-  display: none;
+  /*
+   * Undo the old display:none. The first-screen pair is the inherited
+   * `.page-frame::before` lamps (warm top-left, cool bottom-right, already
+   * dithered), re-boxed from `position: fixed; inset: 0` to one screen
+   * that scrolls with the page. `inset: auto` has to be set or `inset: 0`
+   * on the inherited rule stretches this to the whole document, which is
+   * the tall filter region we are leaving.
+   *
+   * `translateZ(0)` asks WebKit for one compositing layer the size of the
+   * box, so both lobes rasterize together rather than in scroll tiles.
+   */
+  display: block;
+  position: absolute;
+  inset: auto;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 100svh;
+  filter: url(#ambient-dither);
+  content-visibility: visible;
+  transform: translateZ(0);
 }
 .landing-field::after {
   content: "";
@@ -1386,25 +1400,11 @@ button:disabled,
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  /* Same dither as the fixed pair. See `AmbientDither`. */
-  filter: url(#ambient-dither);
+  /*
+   * No SVG filter. This layer is the height of the document. Putting the
+   * ambient dither back on it is the pop-in this split exists to stop.
+   */
   background-image:
-    radial-gradient(
-      120vw 62vh at -10% 1%,
-      oklch(from var(--primary) l c h / 26%) 0%,
-      oklch(from var(--primary) l c h / 12%) 24%,
-      oklch(from var(--primary) l c h / 4.5%) 48%,
-      oklch(from var(--primary) l c h / 1.4%) 70%,
-      transparent 100%
-    ),
-    radial-gradient(
-      118vw 55vh at 112% 21%,
-      oklch(from var(--ambient-cool) l c h / 25%) 0%,
-      oklch(from var(--ambient-cool) l c h / 11.5%) 24%,
-      oklch(from var(--ambient-cool) l c h / 4.3%) 48%,
-      oklch(from var(--ambient-cool) l c h / 1.3%) 70%,
-      transparent 100%
-    ),
     radial-gradient(
       112vw 52vh at -8% 45%,
       oklch(from var(--primary) l c h / 19%) 0%,
@@ -1433,24 +1433,13 @@ button:disabled,
  * desktop proportions on a 390px screen wash the whole column and cancel
  * each other, so the lobes narrow and brighten to stay readable as
  * corners. See the note on `.page-frame::before`.
+ *
+ * First-screen lamps stay on `::before` (inherited from `.page-frame`).
+ * Only the lower three live here.
  */
 @media (max-width: 767px) {
   .landing-field::after {
     background-image:
-      radial-gradient(
-        125vw 42vh at -12% 1%,
-        oklch(from var(--primary) l c h / 52%) 0%,
-        oklch(from var(--primary) l c h / 24%) 24%,
-        oklch(from var(--primary) l c h / 8%) 48%,
-        transparent 100%
-      ),
-      radial-gradient(
-        125vw 38vh at 114% 20%,
-        oklch(from var(--ambient-cool) l c h / 48%) 0%,
-        oklch(from var(--ambient-cool) l c h / 22%) 24%,
-        oklch(from var(--ambient-cool) l c h / 7.5%) 48%,
-        transparent 100%
-      ),
       radial-gradient(
         120vw 36vh at -10% 45%,
         oklch(from var(--primary) l c h / 36%) 0%,
@@ -1470,6 +1459,38 @@ button:disabled,
         transparent 100%
       );
   }
+
+  /*
+   * `backdrop-filter` on a card that hangs off the fold is the same
+   * fill-in the old scroll cue caused: WebKit re-samples the backdrop as
+   * new pixels arrive, and the lower half of the sample card appears
+   * late. The veil and the rim stay; only the blur goes, and only on the
+   * signed-out page, and only on a phone.
+   */
+  .landing-field .glass,
+  .landing-field .glass-well {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+.landing-hero,
+.landing-still {
+  content-visibility: visible;
+}
+
+/*
+ * The hero used to run `signin-rise` with `both` fill, which is opacity 0
+ * and 12px down from the first frame until 0.85s in. Safari does not
+ * rasterize the below-fold half of a transformed layer until it scrolls
+ * on-screen, which is the sample card popping in. An invite is one screen
+ * and keeps the animation; the landing does not.
+ */
+.landing-field .signin-rise-1,
+.landing-field .signin-rise-2,
+.landing-field .signin-rise-3,
+.landing-field .signin-rise-4 {
+  animation: none;
 }
 
 /* The scroll cue at the fold. A hint that the page continues. */
@@ -1486,31 +1507,6 @@ button:disabled,
   animation: scroll-cue-nudge 2.4s ease-in-out infinite;
 }
 
-/*
- * 0.45s and 10px, down from 0.7s and 18px.
- *
- * `Reveal` now starts a section most of a screen before the fold, so this
- * is finished long before anybody looks at it and the duration is no longer
- * carrying any of the effect. What a long one does carry is risk: a reader
- * who flicks faster than the page expects catches a section mid-fade, and a
- * half-drawn section reads as one that is still loading rather than one
- * that is there. Short enough that the worst case is over before it can be
- * read as waiting.
- */
-[data-reveal] {
-  transition:
-    opacity 0.45s ease-out,
-    transform 0.45s ease-out;
-}
-[data-reveal="out"] {
-  opacity: 0;
-  transform: translateY(10px);
-}
-[data-reveal="in"] {
-  opacity: 1;
-  transform: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .signin-rise-1,
   .signin-rise-2,
@@ -1519,14 +1515,6 @@ button:disabled,
   .signin-live-dot,
   .scroll-cue-nudge {
     animation: none;
-  }
-  /* Show it where it is. No fade, no travel. */
-  [data-reveal] {
-    transition: none;
-  }
-  [data-reveal="out"] {
-    opacity: 1;
-    transform: none;
   }
 }
 

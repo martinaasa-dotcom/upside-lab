@@ -114,15 +114,14 @@ describe("the cue stands down when the page is already saying it continues", () 
       The bug this closed, and the reason it is a rule rather than a fix.
 
       Every one of these measurements used to be a `getBoundingClientRect`,
-      which reports where a thing is being drawn. The first thing everything
-      on this page does is arrive: the hero's entrance animation holds the
-      sample card 12px below where it lands, with `both` fill, from before
-      the first frame until 0.85s in, and the section under the hero
-      translates as it arrives too. The decision is made once, at hydration,
-      inside that window, so the card measured 12px too low and the cue
-      stood down as though the fold were cutting it. Nothing re-measured for
-      the rest of the animation, so a reader on a reload got no cue at all,
-      and the first thing to run the measurement again was them scrolling.
+      which reports where a thing is being drawn. The landing hero used to
+      run an entrance animation that held the sample card 12px below where
+      it lands, with `both` fill, from the first frame until 0.85s in. That
+      animation is gone (it is what skipped painting the below-fold half of
+      the card on older WebKit), but a font swap still moves a few pixels,
+      so the cue still reads layout (`offsetTop`) rather than the screen.
+      A rect taken at hydration during a swap would stand the cue down as
+      though the fold were cutting the card.
 
       Measured on the real page at 1440 wide: no cue on any window between
       950px and 961px tall, appearing on one wheel notch. With the layout

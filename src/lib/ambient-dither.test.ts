@@ -41,7 +41,7 @@ const CSS = readFileSync("src/app/globals.css", "utf8");
 const LAYOUT = readFileSync("src/app/layout.tsx", "utf8");
 
 /** Every surface that has to ramp through the bottom of the range. */
-const DITHERED = [".page-frame::before", ".landing-field::after", ".ambient-glow"];
+const DITHERED = [".page-frame::before", ".landing-field::before", ".ambient-glow"];
 
 /** Decorative glows behind the sample cards, which all share one class. */
 const GLOW_CALL_SITES = [
@@ -98,6 +98,13 @@ describe("the ambient dither", () => {
     // Safari does not resolve a filter from a data URI, which would leave
     // every iPhone undithered and nothing here would fail.
     expect(CSS).not.toMatch(/filter:\s*url\("data:/);
+  });
+
+  it("does not dither the landing's page-tall layer", () => {
+    const start = CSS.indexOf(".landing-field::after {");
+    expect(start).toBeGreaterThan(-1);
+    const rule = CSS.slice(start, CSS.indexOf("}", start));
+    expect(rule).not.toContain("url(#ambient-dither)");
   });
 });
 
