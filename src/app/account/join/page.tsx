@@ -6,6 +6,7 @@ import { plainError } from "@/lib/plain-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SignInGate } from "@/components/SignInGate";
+import { JOIN_SHEET_INVITE } from "@/lib/invite-landing";
 import { UpsideLogo } from "@/components/UpsideLogo";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -58,7 +59,7 @@ function JoinInner() {
   }, [ready, user, code]);
 
   return (
-    <SignInGate>
+    <SignInGate invite={JOIN_SHEET_INVITE}>
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6 text-foreground">
         <UpsideLogo variant="icon" className="mb-2" />
         <div className="flex flex-col w-full max-w-sm gap-4 text-center">

@@ -2,6 +2,7 @@
 
 import { track } from "@vercel/analytics";
 import { SignInGate } from "@/components/SignInGate";
+import { JOIN_COMMUNITY_INVITE } from "@/lib/invite-landing";
 import { rememberJoinedCommunity } from "@/lib/community-cache";
 import { plainError } from "@/lib/plain-error";
 import { UpsideLogo } from "@/components/UpsideLogo";
@@ -81,7 +82,7 @@ function JoinInner() {
   }, [token, router]);
 
   return (
-    <SignInGate>
+    <SignInGate invite={JOIN_COMMUNITY_INVITE}>
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6 text-foreground">
         <UpsideLogo variant="mark" className="h-10 w-10" />
         <div className="flex flex-col w-full max-w-sm gap-2 text-center">

@@ -36,13 +36,20 @@ import { useEffect, useState } from "react";
 
 type Props = {
   children: React.ReactNode;
+  /**
+   * Invite routes pass this so the marketing landing never paints first.
+   * Without it the gate starts at `null` and only reads the URL after
+   * mount, which on `/communities/join` is a flash of the product page
+   * then a swap to the invite.
+   */
+  invite?: InviteLanding | null;
 };
 
 /**
  * Requires Google SSO when Supabase is configured.
  * Demo / no-Supabase local mode renders children immediately.
  */
-export function SignInGate({ children }: Props) {
+export function SignInGate({ children, invite: seededInvite = null }: Props) {
   const { user, signInWithGoogle } = useAuth();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -52,7 +59,7 @@ export function SignInGate({ children }: Props) {
   const [deletedNotice, setDeletedNotice] = useState<"full" | "data" | null>(
     null
   );
-  const [invite, setInvite] = useState<InviteLanding | null>(null);
+  const [invite, setInvite] = useState<InviteLanding | null>(seededInvite);
   /**
    * GDPR Article 8 lets each member state set the digital-consent age
    * anywhere from 13 to 16, and this app is EU-facing. Rather than pick one

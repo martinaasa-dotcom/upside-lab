@@ -1402,6 +1402,7 @@ button:disabled,
   overflow: hidden;
   pointer-events: none;
   contain: paint;
+  -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   filter: url(#ambient-dither);
   content-visibility: visible;

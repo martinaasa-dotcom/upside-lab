@@ -40,17 +40,25 @@ export function inviteLandingCopy(invite: InviteLanding): {
   };
 }
 
+/** First paint on `/communities/join`. Name arrives later from the token. */
+export const JOIN_COMMUNITY_INVITE: InviteLanding = {
+  kind: "community",
+  name: null,
+};
+
+/** First paint on `/account/join`. */
+export const JOIN_SHEET_INVITE: InviteLanding = {
+  kind: "sheet",
+  name: null,
+};
+
 export function inviteFromLocation(path: string, search: string): InviteLanding | null {
   const params = new URLSearchParams(
     search.startsWith("?") ? search.slice(1) : search
   );
   const token = (params.get("token") ?? params.get("code") ?? "").trim();
   if (!token) return null;
-  if (path.startsWith("/communities/join")) {
-    return { kind: "community", name: null };
-  }
-  if (path.startsWith("/account/join")) {
-    return { kind: "sheet", name: null };
-  }
+  if (path.startsWith("/communities/join")) return JOIN_COMMUNITY_INVITE;
+  if (path.startsWith("/account/join")) return JOIN_SHEET_INVITE;
   return null;
 }

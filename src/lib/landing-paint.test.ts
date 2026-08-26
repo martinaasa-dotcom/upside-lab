@@ -30,6 +30,7 @@ describe("the landing hero lamps paint as one first-screen layer", () => {
     expect(rule).toContain("translateZ(0)");
     expect(rule).toContain("overflow: hidden");
     expect(rule).toContain("contain: paint");
+    expect(rule).toContain("-webkit-backface-visibility");
     expect(rule).not.toMatch(/^\s*display:\s*none/m);
   });
 
@@ -100,5 +101,13 @@ describe("the landing does not hide itself before paint", () => {
     expect(CSS).toMatch(
       /@media \(max-width: 767px\) \{[\s\S]*?\.landing-field \.glass,[\s\S]*?backdrop-filter:\s*none/
     );
+  });
+
+  it("seeds invite routes so the marketing landing never paints first", () => {
+    const community = readFileSync("src/app/communities/join/page.tsx", "utf8");
+    const account = readFileSync("src/app/account/join/page.tsx", "utf8");
+    expect(GATE).toMatch(/useState<InviteLanding \| null>\(seededInvite\)/);
+    expect(community).toMatch(/<SignInGate invite=\{JOIN_COMMUNITY_INVITE\}>/);
+    expect(account).toMatch(/<SignInGate invite=\{JOIN_SHEET_INVITE\}>/);
   });
 });
