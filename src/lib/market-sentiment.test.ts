@@ -318,6 +318,6 @@ describe("sentiment copy", () => {
 
   it("frames the footer as not personalized advice", () => {
     expect(SENTIMENT_DISCLAIMER).toContain("Not personalized investment advice");
-    expect(SENTIMENT_DISCLAIMER).toContain("Not a recommendation to buy or sell");
+    expect(SENTIMENT_DISCLAIMER).toContain("Not a recommendation to buy, sell, or hold");
   });
 });

@@ -109,7 +109,7 @@ export function watchLook(
       kind: "look",
       headline: "Down a lot today",
       detail:
-        "The session is down vs a typical day. The stated reason for watching it is a separate fact.",
+        "Down more than a typical day. The reason you watch it is a separate fact.",
       low,
       high,
     };
@@ -119,7 +119,7 @@ export function watchLook(
       kind: "wait",
       headline: "Up a lot today",
       detail:
-        "The session is up vs a typical day. The price is away from the quieter part of its recent range.",
+        "Up more than a typical day.",
       low,
       high,
     };
@@ -129,7 +129,7 @@ export function watchLook(
     return {
       kind: "quiet",
       headline: "Not enough recent history",
-      detail: "A few more sessions fill in a range. Until then the picture is thin.",
+      detail: "Need more sessions before there is a range.",
       low,
       high,
     };
@@ -137,7 +137,7 @@ export function watchLook(
 
   return {
     kind: "quiet",
-    headline: "In the middle of where it's been lately",
+    headline: "Mid-range",
     detail: "The price is in the middle of its recent range.",
     low,
     high,

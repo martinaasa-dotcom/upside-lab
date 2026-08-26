@@ -7,7 +7,7 @@
  * stock AI openers. Does not touch table pipes, cashtags, or code fences.
  */
 
-import { RISK_PROFILE_FRAME } from "@/lib/disclaimer";
+import { COINS } from "@/lib/coins";
 import { groupMoneyInText } from "@/lib/money-text";
 
 const EM = "\u2014"; // —
@@ -82,6 +82,10 @@ export function scrubAiPhrases(text: string): string {
 function scrubMarketJargon(text: string): string {
   if (!text) return text;
   let s = text;
+  for (const coin of COINS) {
+    const escaped = coin.symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    s = s.replace(new RegExp(`\\$?${escaped}`, "gi"), `$${coin.short}`);
+  }
   s = s.replace(
     /\btape read from the move and the book(?:, no model in the loop)?(?: while the model was busy)?\.?/gi,
     ""
@@ -140,16 +144,26 @@ function scrubMarketJargon(text: string): string {
   s = s.replace(/\bour whole portfolio\b/gi, "your whole portfolio");
   s = s.replace(/\bour portfolio\b/gi, "your portfolio");
   s = s.replace(/\bthis portfolio\b/gi, "your portfolio");
-  s = s.replace(/\bYour other portfolios\b/g, "Your portfolio");
-  s = s.replace(/\byour other portfolios\b/gi, "your portfolio");
-  s = s.replace(/\bacross your portfolios\b/gi, "in your portfolio");
+  s = s.replace(
+    /\bwhich of your portfolios\b[^?.!]*(?:[?.!]|$)/gi,
+    "I'll use your portfolio."
+  );
+  s = s.replace(
+    /\bwhich portfolio (do you want|would you like|should I|shall I|to apply|is this for|are we (?:talking|looking))\b[^?.!]*(?:[?.!]|$)/gi,
+    "I'll use your portfolio."
+  );
+  s = s.replace(
+    /\b(?:pick|select|choose) a portfolio\b[^?.!]*(?:[?.!]|$)/gi,
+    "I'll use your portfolio."
+  );
+  s = s.replace(/\bacross (?:all )?your portfolios\b/gi, "in your portfolio");
+  s = s.replace(/\bin (?:both|all) (?:of )?your portfolios\b/gi, "in your portfolio");
+  s = s.replace(/\bYour other portfolios?\b/g, "Your portfolio");
+  s = s.replace(/\byour other portfolios?\b/gi, "your portfolio");
   s = s.replace(/\bin your portfolios\b/gi, "in your portfolio");
   s = s.replace(/\bof your portfolios\b/gi, "of your portfolio");
   s = s.replace(/\bYour portfolios\b/g, "Your portfolio");
   s = s.replace(/\byour portfolios\b/gi, "your portfolio");
-  s = s.replace(/\bother portfolios\b/gi, "your portfolio");
-  s = s.replace(/\bWhich portfolio\b/g, "Your portfolio");
-  s = s.replace(/\bwhich portfolio\b/gi, "your portfolio");
   s = s.replace(/\bfor us this morning\b/gi, "this morning");
   s = s.replace(/\bwe barely\b/gi, "you barely");
   s = s.replace(/\bwe hold\b/gi, "you hold");
@@ -175,11 +189,6 @@ function firstDollar(text: string | null | undefined): string | null {
   return m ? m[0].replace(/\s+/g, "") : null;
 }
 
-function framedFact(fact: string): string {
-  const clean = fact.replace(/\.+$/, "");
-  return `${clean}. ${RISK_PROFILE_FRAME}`;
-}
-
 /** One short Pulse observation. A price or thesis fact, never an order. */
 export function pulseSuggestion(input: {
   action?: string | null;
@@ -189,25 +198,21 @@ export function pulseSuggestion(input: {
 }): string {
   const action = String(input.action ?? "hold").trim().toLowerCase();
   if (action === "trim") {
-    return framedFact("The price ran ahead of its recent range");
+    return "Price is above its recent range.";
   }
   if (action === "add") {
     const price = firstDollar(input.addLevel);
-    return framedFact(
-      price
-        ? `The price is below its recent range, near ${price}`
-        : "The price is below its recent range"
-    );
+    return price
+      ? `Price is below its recent range, near ${price}.`
+      : "Price is below its recent range.";
   }
   if (action === "sell") {
-    return framedFact(
-      "The stated reason for owning this name no longer matches the facts"
-    );
+    return "The stated reason for owning this no longer matches the facts.";
   }
   if (action === "watch") {
-    return framedFact("The picture is unclear relative to the recent range");
+    return "Not enough history to place this vs its recent range.";
   }
-  return framedFact("The price is trading within its recent range");
+  return "Price is inside its recent range.";
 }
 
 /** Kill leftover buy/sell orders the model still emits. Ban lists may
@@ -225,11 +230,11 @@ function scrubTradeOrders(text: string): string {
   );
   s = s.replace(
     /\bDon'?t chase\.?/gi,
-    "Chasing a run is how prices get paid above the recent range."
+    "Price is above its recent range."
   );
   s = s.replace(
     /\bDo not chase\.?/gi,
-    "Chasing a run is how prices get paid above the recent range."
+    "Price is above its recent range."
   );
   s = s.replace(
     /\bDo not add this week\.?/gi,
@@ -272,11 +277,11 @@ function scrubTradeOrders(text: string): string {
   s = s.replace(/\bAdd now\s*~?\s*/gi, "");
   s = s.replace(
     /\bdo not buy more(?: here)?(?: or chase it)?\.?/gi,
-    "Chasing a run is how prices get paid above the recent range."
+    "Price is above its recent range."
   );
   s = s.replace(
     /\bdon'?t buy more(?: here)?(?: or chase it)?\.?/gi,
-    "Chasing a run is how prices get paid above the recent range."
+    "Price is above its recent range."
   );
   s = s.replace(
     /\bno trades before the (?:open|bell)(?: today)?\.?/gi,

@@ -351,7 +351,6 @@ function PulseStill() {
         </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
           Guidance for next year came in under what the market expected.
-          Worth reading before you decide anything.
         </p>
       </div>
     </Panel>
@@ -727,7 +726,7 @@ function BookWide() {
         </div>
 
         <Reading nested label="Worth noticing" className="text-left">
-          <InsightText text="$RKLB rose 6.8% today while Amazon and Microsoft barely moved. When one name climbs on its own, the question is whether something changed at the company, or whether the price just ran ahead of itself." />
+          <InsightText text="$RKLB rose 6.8% today while Amazon and Microsoft barely moved. When one name climbs on its own, the question is whether something changed at the company, or only the price." />
         </Reading>
       </Panel>
     </div>

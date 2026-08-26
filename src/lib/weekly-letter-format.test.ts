@@ -122,15 +122,15 @@ describe("suggestions are grouped by kind", () => {
     const r = letter();
     r.suggestions = items;
     const html = weeklyLetterHtml(r);
-    expect(html.match(/Quieter vs recent prices/g)).toHaveLength(1);
-    expect(html.match(/Larger share of the portfolio/g)).toHaveLength(1);
+    expect(html.match(/Below recent range/g)).toHaveLength(1);
+    expect(html.match(/Above recent range, or a large share/g)).toHaveLength(1);
   });
 
   it("names each heading once in the plain text too", () => {
     const r = letter();
     r.suggestions = items;
     const text = weeklyLetterText(r);
-    expect(text.match(/Quieter vs recent prices/g)).toHaveLength(1);
+    expect(text.match(/Below recent range/g)).toHaveLength(1);
   });
 
   it("drops a heading nobody has a suggestion for", () => {

@@ -453,11 +453,11 @@ export function statusLabel(status: ThesisStatus | string): string {
 
 export function actionLabel(action: PulseAction | string): string {
   const a = String(action ?? "").trim().toLowerCase();
-  if (a === "add") return "Down vs range";
-  if (a === "trim") return "Up vs range";
-  if (a === "sell") return "Reason gone";
-  if (a === "watch") return "Unclear";
-  return "In range";
+  if (a === "add") return "Below recent range";
+  if (a === "trim") return "Above recent range";
+  if (a === "sell") return "Reason no longer matches";
+  if (a === "watch") return "Not enough history";
+  return "Inside recent range";
 }
 
 export function sectorForTicker(ticker: string): string | null {
@@ -915,7 +915,7 @@ export function verdictRepeatsTrim(
  * and they compound:
  *
  * 1. It is not a reason. `moveReason` answers "why did this move", and it
- *    is what the "Today's price picture" table prints in its *Why* column --
+ *    is what the "Vs recent range" table prints in its *Why* column --
  *    right beside a *Today* column already showing that same number. Two of
  *    these three branches used to return `${moveLabel} move is ${movePct}.`,
  *    so a reader asking why $AVGO was flagged got "Today move is -5.8%"
@@ -949,11 +949,11 @@ export function buildFallbackPulseCheck(candidate: PulseCandidate): PulseCheck {
     return {
       ticker: candidate.ticker,
       situation: [
-        "Price ran ahead of a normal day.",
+        "Price is up more than a typical day.",
         "The stated reason for owning it is unchanged.",
       ],
       moveReason:
-        "A strong day, well ahead of an ordinary one.",
+        "Up more than a typical day. The stated reason is unchanged.",
       thesisStatus: "intact",
       earningsNote: "",
       action: "trim",
@@ -969,11 +969,11 @@ export function buildFallbackPulseCheck(candidate: PulseCandidate): PulseCheck {
     return {
       ticker: candidate.ticker,
       situation: [
-        "Down vs a typical session.",
+        "Down more than a typical day.",
         "Price alone does not mean the stated reason broke.",
       ],
       moveReason:
-        "It fell far enough vs a typical session that the stated reason is worth reading again.",
+        "Down more than a typical day. The stated reason is a separate fact.",
       thesisStatus: "intact",
       earningsNote: "",
       action: "add",
@@ -992,10 +992,10 @@ export function buildFallbackPulseCheck(candidate: PulseCandidate): PulseCheck {
     ticker: candidate.ticker,
     situation: [
       "Nothing unusual today.",
-      "The price stayed inside a normal day's range.",
+      "The price stayed inside a typical day's range.",
     ],
     moveReason:
-      "Nothing out of the ordinary happened relative to a typical session.",
+      "The price stayed inside a typical day's range.",
     thesisStatus: "intact",
     earningsNote: "",
     action: "hold",

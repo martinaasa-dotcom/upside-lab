@@ -11,7 +11,7 @@ export type PlaybookBullet = {
 };
 
 const HOLD_RE =
-  /^(hold,?\s*no\s*(add|trim)|nothing,?\s*just\s*hold|hold\.?|no mix change|unchanged in this stretch)$/i;
+  /^(hold,?\s*no\s*(add|trim)|nothing,?\s*just\s*hold|hold\.?|no mix change|unchanged in this stretch|same mix)$/i;
 
 function isTickerish(s: string): boolean {
   const t = s.trim();

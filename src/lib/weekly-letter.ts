@@ -2,7 +2,7 @@
  * The Sunday letter — the only scheduled email Upside Lab sends.
  *
  * It answers four questions, in this order, the way a person would write
- * them: how did your week go, what looks worth doing something about,
+ * them: how did your week go, which Pulse notes and size facts showed up,
  * what on your watchlist got cheaper, and what's on next week's calendar.
  *
  * The suggestions are not invented here. They come from Pulse verdicts the
@@ -276,7 +276,7 @@ function pulseSuggestions(
         ticker: p.ticker,
         source: "pulse",
         status: badge,
-        line: `The last Pulse you ran on ${tag} said the stated reason no longer matches. It is ${weightPct(p.weight)} of what you own.`,
+        line: `Pulse: the stated reason for owning ${tag} no longer matches. It is ${weightPct(p.weight)} of what you own.`,
       });
       continue;
     }
@@ -286,7 +286,7 @@ function pulseSuggestions(
         ticker: p.ticker,
         source: "pulse",
         status: badge,
-        line: `Pulse noted ${tag} ran vs its recent range. It is ${weightPct(p.weight)} of what you own.`,
+        line: `Pulse: ${tag} is above its recent range. It is ${weightPct(p.weight)} of what you own.`,
       });
       continue;
     }
@@ -296,7 +296,7 @@ function pulseSuggestions(
         ticker: p.ticker,
         source: "pulse",
         status: badge,
-        line: `Pulse noted ${tag} is down vs its recent range. It is ${weightPct(p.weight)} of what you own.`,
+        line: `Pulse: ${tag} is below its recent range. It is ${weightPct(p.weight)} of what you own.`,
       });
     }
     // A "watch" / "wait" verdict deliberately produces nothing. The letter
@@ -314,7 +314,7 @@ function sizeSuggestions(positions: Position[]): WeeklySuggestion[] {
       ticker: p.ticker,
       source: "size" as const,
       status: null,
-      line: `${cashtag(p.ticker)} is now ${weightPct(p.weight)} of everything you own. One company doing that much of the work cuts both ways.`,
+      line: `${cashtag(p.ticker)} is ${weightPct(p.weight)} of everything you own.`,
     }));
 }
 
@@ -594,9 +594,9 @@ export function weeklyPreview(r: WeeklyLetter): string {
 /* ------------------------------------------------------------ plain text */
 
 const ACTION_WORD: Record<SuggestionKind, string> = {
-  add: "Quieter vs recent prices",
-  trim: "Larger share of the portfolio",
-  sell: "Thesis no longer matches",
+  add: "Below recent range",
+  trim: "Above recent range, or a large share",
+  sell: "Reason no longer matches",
 };
 
 /** Most consequential first, so a thesis mismatch is never buried under
@@ -613,7 +613,7 @@ export type WeeklySuggestionGroup = {
  * One section per kind, not one card per suggestion.
  *
  * The letter drew a card for every suggestion, so a reader with two adds
- * and two trims got four cards and read the heading "Quieter vs recent prices"
+ * and two trims got four cards and read the heading "Below recent range"
  * twice, interleaved. Same suggestions, in the same order within a kind,
  * under one heading each.
  */

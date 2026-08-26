@@ -81,7 +81,7 @@ import {
   weeklyLetterText,
   weeklySubject,
 } from "../src/lib/weekly-letter";
-import { ADVICE_DISCLAIMER_SHORT, RISK_PROFILE_FRAME } from "../src/lib/disclaimer";
+import { ADVICE_DISCLAIMER_SHORT } from "../src/lib/disclaimer";
 import {
   inviteEmailAllowlist,
   parseInviteEmails,
@@ -340,7 +340,7 @@ run("Pulse CTA is offered when Pulse is reachable, even if Lab is hidden", () =>
 });
 
 run("briefing kinds use plain-English labels", () => {
-  assert.equal(BRIEFING_KIND_LABEL.action, "Notice");
+  assert.equal(BRIEFING_KIND_LABEL.action, "Alert");
   assert.equal(BRIEFING_KIND_LABEL.watch, "Context");
   assert.equal(BRIEFING_KIND_LABEL.play, "What's missing");
 });
@@ -1229,6 +1229,7 @@ run("fund cron composes an X post but only sends it when switched on", () => {
 run("forecast add/trim lines split into bullets", () => {
   assert.deepEqual(playbookBullets("Hold, no add"), []);
   assert.deepEqual(playbookBullets("No mix change"), []);
+  assert.deepEqual(playbookBullets("Same mix"), []);
   assert.deepEqual(playbookBullets("Nothing, just hold"), []);
   const sleeve = playbookBullets(
     "AI power / $CEG or $VST (~0% to 5%): initiate on pullbacks to build exposure before next grid interconnect auctions."
@@ -1330,7 +1331,7 @@ run("trim on a run is Thesis intact", () => {
     "utf8"
   );
   assert.match(prompt, /Never mark Thesis watch just because the price went up/);
-  assert.match(fallback, /Price ran ahead of a normal day/);
+  assert.match(fallback, /Price is up more than a typical day/);
   assert.doesNotMatch(
     fallback,
     /euphoric[\s\S]{0,400}thesisStatus: "watch"/
@@ -1434,7 +1435,7 @@ run("humanize kills leftover market slang", () => {
   assert.doesNotMatch(humanizeMargusText("Do not add today."), /do not add/i);
   assert.match(
     humanizeMargusText("If it runs, sell some. Don't chase."),
-    /ran ahead of its recent range/i
+    /above its recent range/i
   );
   assert.doesNotMatch(
     humanizeMargusText("If it runs, sell some. Don't chase."),
@@ -1446,7 +1447,7 @@ run("humanize kills leftover market slang", () => {
   );
   assert.match(
     humanizeMargusText("Trim about 15% into this strength."),
-    /ran ahead of its recent range/i
+    /above its recent range/i
   );
   assert.doesNotMatch(
     humanizeMargusText("Trim about 15% into this strength."),
@@ -1466,7 +1467,7 @@ run("humanize kills leftover market slang", () => {
   );
   assert.match(
     humanizeMargusText("Let the move play out, but do not buy more here or chase it."),
-    /Chasing a run is how prices get paid above the recent range/i
+    /above its recent range/i
   );
   assert.doesNotMatch(
     humanizeMargusText("No trades before the open today."),
@@ -1474,26 +1475,27 @@ run("humanize kills leftover market slang", () => {
   );
   assert.match(
     pulseSuggestion({ action: "trim", trimPct: 20 }),
-    /The price ran ahead of its recent range/
+    /Price is above its recent range/
   );
-  assert.ok(
-    pulseSuggestion({ action: "trim", trimPct: 20 }).includes(RISK_PROFILE_FRAME)
+  assert.doesNotMatch(
+    pulseSuggestion({ action: "trim", trimPct: 20 }),
+    /opportunity|risk profiles/i
   );
   assert.match(
     pulseSuggestion({ action: "add", addLevel: "around $80" }),
-    /The price is below its recent range, near \$80/
+    /Price is below its recent range, near \$80/
   );
   assert.match(
     pulseSuggestion({ action: "sell" }),
-    /The stated reason for owning this name no longer matches the facts/
+    /The stated reason for owning this no longer matches the facts/
   );
   assert.match(
     pulseSuggestion({ action: "watch" }),
-    /The picture is unclear relative to the recent range/
+    /Not enough history to place this vs its recent range/
   );
   assert.match(
     pulseSuggestion({ action: "hold" }),
-    /The price is trading within its recent range/
+    /Price is inside its recent range/
   );
   assert.equal(
     pulseSuggestion({ action: "trim", trimPct: 20, ticker: "NBIS" }),
@@ -1642,7 +1644,7 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
   assert.match(html, /What moved/);
   // One heading per kind of suggestion, and no outer kicker repeating the
   // word over cards that already carry it.
-  assert.match(html, /Thesis no longer matches|Larger share of the portfolio|Quieter vs recent prices/);
+  assert.match(html, /Reason no longer matches|Above recent range, or a large share|Below recent range/);
   assert.match(html, /On your watchlist/);
   assert.match(html, /Next week/);
   // It is painted in the app's own palette, not the old brass letterhead.
@@ -1654,7 +1656,7 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
 
   const text = weeklyLetterText(letter);
   assert.match(text, /What moved/);
-  assert.match(text, /Thesis no longer matches|Larger share of the portfolio|Quieter vs recent prices/);
+  assert.match(text, /Reason no longer matches|Above recent range, or a large share|Below recent range/);
 
   assert.match(weeklySubject(letter), /Your week/);
 });
@@ -4226,7 +4228,6 @@ run("earnings dates use the call when it already happened", () => {
       yield2wAvg: 0,
       premiumTotal: 0,
     },
-    otherPortfolios: [],
     earnings: [
       {
         ticker: "NVDA",
@@ -4278,7 +4279,7 @@ run("watchlist look is a range read, not a made-up target", () => {
   assert.match(strip, /Fetch price/);
   assert.match(strip, /cache: "no-store"/);
   assert.match(strip, /watchLook/);
-  assert.match(strip, /Check in Pulse/);
+  assert.match(strip, /Open Pulse/);
 });
 
 run("watchlist typeahead matches names as you type", () => {
@@ -5449,7 +5450,7 @@ run("Margus never writes trade orders to a person", () => {
   assert.match(chat, /Margus memory on this portfolio/);
   assert.match(chat, /Never say you have not given thoughts/);
   assert.match(chat, /Same voice as the/);
-  assert.match(forecastUi, /Modeled mix for this stretch/);
+  assert.match(forecastUi, /Modeled mix/);
 });
 
 run("prompts do not teach the model trader words as working vocab", () => {

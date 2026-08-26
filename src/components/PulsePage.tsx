@@ -314,7 +314,7 @@ function PulseCard({
           )}
           {pinned ? <Pill tone="neutral">Your check</Pill> : null}
           {!c.inBook ? <Pill tone="neutral">Lookup</Pill> : null}
-          {leftHold ? <Pill tone="neutral">Was in range</Pill> : null}
+          {leftHold ? <Pill tone="neutral">Was inside range</Pill> : null}
           {c.isBigMove ? (
             <Pill tone={(c.effectivePct ?? 0) < 0 ? "bad" : "good"}>
               {(c.effectivePct ?? 0) < 0 ? "Down ≥5%" : "Up ≥5%"}
@@ -514,14 +514,14 @@ function PulseActionSummary({
   return (
     <Panel className="gap-4">
       <PanelHeader
-        title="Today's price picture"
-        subtitle="Every name you've checked, grouped by how the price sits vs its recent range."
+        title="Vs recent range"
+        subtitle="Grouped by where the price sits vs its recent range."
       />
       <div className="overflow-hidden rounded-lg border border-border">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead>Reading</TableHead>
+              <TableHead>Vs range</TableHead>
               <TableHead>Ticker</TableHead>
               <TableHead className="hidden sm:table-cell">Why</TableHead>
               <TableHead className="text-right">Today</TableHead>
@@ -1139,7 +1139,7 @@ export const PulsePage = memo(function PulsePage({
       <Panel className="gap-3">
         <PanelHeader
           icon={<Activity className="h-4 w-4" />}
-          title="How the names you own are moving"
+          title="Today's moves"
           subtitle={ADVICE_DISCLAIMER_SHORT}
           actions={
             <form

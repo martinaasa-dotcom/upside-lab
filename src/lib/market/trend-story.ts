@@ -196,20 +196,20 @@ function applySurge(
     return {
       headline: "Sharp move higher",
       tone: "gain",
-      sentence: `TICKER is up ${pctText} over the last ${weeksText}, a move sharp enough that the slower trend read below hasn't caught up to it yet. Worth checking what drove it, a beat, a guidance raise, a re-rate, rather than trusting the lagging trend label on its own.`,
+      sentence: `TICKER is up ${pctText} over the last ${weeksText}. The slower trend read below has not caught up yet.`,
     };
   }
   return {
     headline: "Sharp move lower",
     tone: "loss",
-    sentence: `TICKER is down ${pctText} over the last ${weeksText}, a drop sharp enough that the slower trend read below hasn't caught up to it yet. Worth checking whether something actually broke before writing it off as noise.`,
+    sentence: `TICKER is down ${pctText} over the last ${weeksText}. The slower trend read below has not caught up yet.`,
   };
 }
 
 function rsiZone(rsi: number | null): { label: string; tone: Tone } {
   if (rsi == null) return { label: NO_VALUE, tone: "neutral" };
-  if (rsi >= 70) return { label: "Overbought", tone: "warn" };
-  if (rsi <= 30) return { label: "Oversold", tone: "gain" };
+  if (rsi >= 70) return { label: "RSI above 70", tone: "warn" };
+  if (rsi <= 30) return { label: "RSI below 30", tone: "gain" };
   return { label: "Neutral", tone: "neutral" };
 }
 

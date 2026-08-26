@@ -220,7 +220,7 @@ function WatchCard({
           onClick={() => onOpenPulse(ticker)}
           className="mt-auto w-full touch-target justify-between lg:min-h-0"
         >
-          Check in Pulse
+          Open Pulse
           <ChevronRight />
         </Button>
       )}

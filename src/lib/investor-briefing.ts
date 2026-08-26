@@ -21,7 +21,7 @@ export type BriefingItem = {
 
 /** Plain-English labels. "action/watch/play" are codes, not UI. */
 export const BRIEFING_KIND_LABEL: Record<BriefingItem["kind"], string> = {
-  action: "Notice",
+  action: "Alert",
   watch: "Context",
   play: "What's missing",
 };
@@ -113,11 +113,11 @@ export function buildInvestorBriefing(input: {
             ])
           : hideOptions
             ? pick(dayRng, [
-                "Open Pulse to see which names moved the number, and whether the stated reason still matches the price.",
+                "Larger than a typical session. Pulse lists which names moved, and whether the stated reason still matches.",
                 "Larger than a typical session. The question is whether the reason you own a name changed, or just the price.",
               ])
             : pick(dayRng, [
-                "Open Pulse to see which names moved the number, and whether the stated reason still matches the price.",
+                "Larger than a typical session. Pulse lists which names moved, and whether the stated reason still matches.",
                 "Larger than a typical session. Covered-call numbers also move on days like this.",
               ]);
 
@@ -170,9 +170,9 @@ export function buildInvestorBriefing(input: {
       kind: "watch",
       title: `$${money(model.totals.cash)} sitting in cash`,
       detail: pick(rng, [
-        "Cash sitting in the portfolio. Whether that size still matches how you want to be invested depends on individual investment strategies and risk profiles.",
-        "That cash is undeployed. It is a fact about the mix, not a prompt to spend it.",
-        "Ready cash in this amount. The cash itself is not a problem or a signal.",
+        "This is cash, not stocks.",
+        "Not invested in any name.",
+        "Unspent cash in this portfolio.",
       ]),
       link: sheetMostCash(model)
         ? { type: "sheet", portfolioId: sheetMostCash(model)! }

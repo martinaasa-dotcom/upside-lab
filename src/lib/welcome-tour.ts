@@ -89,13 +89,13 @@ export function screenCopy(
       return {
         title: "Where everything is",
         lede:
-          "The bar along the bottom of the screen is the navigation, and your own portfolios sit in it too, one cell each. The + cell makes a new one. The only thing not on that bar is your account, which is the picture in the top corner.",
+          "The bar along the bottom of the screen is the navigation, and your portfolio sits in it too. The + cell makes another one if you ever need it. The only thing not on that bar is your account, which is the picture in the top corner.",
       };
     case "helps":
       return {
         title: "The parts that do the thinking",
         lede:
-          "Three of them, and all three are about the names you already hold. None of them will ever tell you to buy something.",
+          "Three of them, and all three are about the names you already hold. None of them will tell you to buy, sell, or hold.",
       };
     case "rules":
       return {

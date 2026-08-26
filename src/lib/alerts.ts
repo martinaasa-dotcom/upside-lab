@@ -125,7 +125,7 @@ export function buildDecisionAlerts(input: {
       kind: "info",
       title: `${cashtag(input.topTicker.ticker)} is ${percent(share, 0)} of your stocks`,
       detail:
-        "One name this big means your year mostly rides on it. Whether that size still matches how you want to be invested depends on individual investment strategies and risk profiles.",
+        "One name this big means your year mostly rides on it.",
       ticker: input.topTicker.ticker,
       at: Date.now(),
     });
