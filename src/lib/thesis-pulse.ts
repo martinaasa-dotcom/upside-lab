@@ -920,7 +920,7 @@ export function verdictRepeatsTrim(
  * and they compound:
  *
  * 1. It is not a reason. `moveReason` answers "why did this move", and it
- *    is what the "Vs recent range" table prints in its *Why* column --
+ *    is what the "Recent range" table prints in its *Why* column --
  *    right beside a *Today* column already showing that same number. Two of
  *    these three branches used to return `${moveLabel} move is ${movePct}.`,
  *    so a reader asking why $AVGO was flagged got "Today move is -5.8%"

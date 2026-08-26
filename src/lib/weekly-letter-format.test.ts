@@ -123,7 +123,7 @@ describe("suggestions are grouped by kind", () => {
     r.suggestions = items;
     const html = weeklyLetterHtml(r);
     expect(html.match(/Below recent range/g)).toHaveLength(1);
-    expect(html.match(/Above recent range, or a large share/g)).toHaveLength(1);
+    expect(html.match(/Above recent range or a large share/g)).toHaveLength(1);
   });
 
   it("names each heading once in the plain text too", () => {

@@ -513,15 +513,12 @@ function PulseActionSummary({
   if (activeActions.length === 0) return null;
   return (
     <Panel className="gap-4">
-      <PanelHeader
-        title="Vs recent range"
-        subtitle="Grouped by where the price sits vs its recent range."
-      />
+      <PanelHeader title="Recent range" />
       <div className="overflow-hidden rounded-lg border border-border">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead>Vs range</TableHead>
+              <TableHead>Range</TableHead>
               <TableHead>Ticker</TableHead>
               <TableHead className="hidden sm:table-cell">Why</TableHead>
               <TableHead className="text-right">Today</TableHead>

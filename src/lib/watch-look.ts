@@ -119,7 +119,7 @@ export function watchLook(
       kind: "wait",
       headline: "Up a lot today",
       detail:
-        "Up more than a typical day.",
+        "Up more than a typical day. The reason you watch it is a separate fact.",
       low,
       high,
     };
@@ -128,8 +128,8 @@ export function watchLook(
   if (!band) {
     return {
       kind: "quiet",
-      headline: "Not enough recent history",
-      detail: "Need more sessions before there is a range.",
+      headline: "Not enough history",
+      detail: "Not enough sessions for a range reading.",
       low,
       high,
     };

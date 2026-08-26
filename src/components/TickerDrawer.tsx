@@ -245,7 +245,7 @@ export function TickerDrawer({
                   Price path
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  A modeled scenario, not a target. Same numbers as Forecast.
+                  Modeled prices, not a target. Same numbers as Forecast.
                 </p>
               </div>
               <Segmented

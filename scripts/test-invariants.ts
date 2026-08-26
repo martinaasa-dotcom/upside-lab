@@ -1491,7 +1491,7 @@ run("humanize kills leftover market slang", () => {
   );
   assert.match(
     pulseSuggestion({ action: "watch" }),
-    /Not enough history to place this vs its recent range/
+    /Not enough history for a range reading/
   );
   assert.match(
     pulseSuggestion({ action: "hold" }),
@@ -1644,7 +1644,7 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
   assert.match(html, /What moved/);
   // One heading per kind of suggestion, and no outer kicker repeating the
   // word over cards that already carry it.
-  assert.match(html, /Reason no longer matches|Above recent range, or a large share|Below recent range/);
+  assert.match(html, /Reason no longer matches|Above recent range or a large share|Below recent range/);
   assert.match(html, /On your watchlist/);
   assert.match(html, /Next week/);
   // It is painted in the app's own palette, not the old brass letterhead.
@@ -1656,7 +1656,7 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
 
   const text = weeklyLetterText(letter);
   assert.match(text, /What moved/);
-  assert.match(text, /Reason no longer matches|Above recent range, or a large share|Below recent range/);
+  assert.match(text, /Reason no longer matches|Above recent range or a large share|Below recent range/);
 
   assert.match(weeklySubject(letter), /Your week/);
 });

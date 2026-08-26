@@ -24,8 +24,8 @@ Rewrite with a period, comma, or colon instead, whatever reads most
 naturally for that sentence. This is the single biggest AI tell.
 
 ```
-BAD:  "Modeled scenario, not a target — Margus reasons this per ticker."
-GOOD: "Modeled scenario, not a target. Margus reasons this per ticker."
+BAD:  "Modeled prices, not a target — Margus reasons this per ticker."
+GOOD: "Modeled prices, not a target. Margus reasons this per ticker."
 ```
 
 ## Skip AI-tell phrases and structures

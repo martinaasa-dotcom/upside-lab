@@ -1,6 +1,6 @@
 /**
  * The deterministic Pulse fallback fires whenever the model misses a ticker,
- * and whatever it writes into `moveReason` is what the "Vs recent range"
+ * and whatever it writes into `moveReason` is what the "Recent range"
  * table prints in its *Why* column -- directly beside a *Today* column
  * holding that name's live percentage.
  *

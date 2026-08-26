@@ -15,7 +15,7 @@
 import { cashtag, currency, signedCurrency, signedPercent } from "@/lib/format";
 import { groupMoneyInText } from "@/lib/money-text";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
-import { statusLabel } from "@/lib/thesis-pulse";
+import { actionLabel, statusLabel } from "@/lib/thesis-pulse";
 import {
   EMAIL,
   emailAccountFooter,
@@ -300,8 +300,7 @@ function pulseSuggestions(
       });
     }
     // A "watch" / "wait" verdict deliberately produces nothing. The letter
-    // only ever suggests adding, trimming, or selling; "keep an eye on it"
-    // is not an action worth an inbox.
+    // only names a range or size fact; "not enough history" is not one.
   }
   return out;
 }
@@ -594,9 +593,9 @@ export function weeklyPreview(r: WeeklyLetter): string {
 /* ------------------------------------------------------------ plain text */
 
 const ACTION_WORD: Record<SuggestionKind, string> = {
-  add: "Below recent range",
-  trim: "Above recent range, or a large share",
-  sell: "Reason no longer matches",
+  add: actionLabel("add"),
+  trim: "Above recent range or a large share",
+  sell: actionLabel("sell"),
 };
 
 /** Most consequential first, so a thesis mismatch is never buried under

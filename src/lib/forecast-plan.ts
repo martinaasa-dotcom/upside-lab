@@ -394,7 +394,7 @@ function fallbackRationale(input: {
   }
   const y26 = input.prices[FORECAST_YEARS[0]!];
   const y30 = input.prices[FORECAST_YEARS[FORECAST_YEARS.length - 1]!];
-  return `${input.ticker}: ${themeDynamicsLabel(input.theme)}; illustrative path EOY’26 ~$${Math.round(y26)} → ’30 ~$${Math.round(y30)} (spot $${input.spot.toFixed(0)}). Modeled scenario, not a target.`;
+  return `${input.ticker}: ${themeDynamicsLabel(input.theme)}; illustrative path EOY’26 ~$${Math.round(y26)} → ’30 ~$${Math.round(y30)} (spot $${input.spot.toFixed(0)}). Modeled prices, not a target.`;
 }
 
 /**
@@ -624,7 +624,7 @@ Requirements:
 7. Consistency: if the reason you own the names is unchanged from a prior run, keep year-end prices in a similar neighborhood. Do not randomly reshuffle for no reason.
 8. Do not invent fake share counts or claim trades already happened.
 9. Be concise.
-10. Frame everything as a modeled scenario for the user's own thinking, never as a personalized recommendation or a guarantee. Describe modeled weights, never orders. Never "trim $RKLB now" or "add software today". "A modeled mix: $RKLB from 14% to about 9% if X" is the shape.`;
+10. Frame everything as modeled prices, never a prediction, never a personalized recommendation, never a guarantee. Describe modeled weights, never orders. Never "trim $RKLB now" or "add software today". "A modeled mix: $RKLB from 14% to about 9% if X" is the shape.`;
 }
 
 export function planEoyPaths(

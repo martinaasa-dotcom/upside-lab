@@ -210,7 +210,7 @@ export function pulseSuggestion(input: {
     return "The stated reason for owning this no longer matches the facts.";
   }
   if (action === "watch") {
-    return "Not enough history to place this vs its recent range.";
+    return "Not enough history for a range reading.";
   }
   return "Price is inside its recent range.";
 }

@@ -65,8 +65,8 @@ export default function TermsPage() {
           legal advice either. You are solely responsible for your own
           investment decisions. Markets carry real risk of loss, including
           total loss of principal. Options strategies (including covered calls)
-          carry extra, specific risks. Consult a licensed professional before
-          acting on anything you see here.
+          carry extra, specific risks. A licensed professional can advise on
+          your own situation.
         </Section>
 
         <Section title="3. Your account">

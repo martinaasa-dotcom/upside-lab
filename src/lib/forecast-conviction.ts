@@ -370,7 +370,7 @@ middle), and no holding has a predetermined destination.
 - Copy-pasting the same magnitude across unrelated tickers.
 - Rationale phrases: overridden, rejected, too timid, portfolio-aligned, sheet-aligned, calibrated path, house baseline.
 - Em dashes (—) or AI-brochure cadence anywhere in advice, add/trim, or rationale.
-- Presenting any of this as a guarantee or personalized recommendation. It is a modeled scenario for discussion, not investment advice.
+- Presenting any of this as a guarantee or personalized recommendation. Modeled prices, not a prediction. Not investment advice.
 
 ### Rationale
 One human sentence on why this company + how the path wiggles (strong stretch / quiet year / real drop), grounded in that company's actual business. Not a generic sector script.`;

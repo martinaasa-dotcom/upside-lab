@@ -114,7 +114,7 @@ export function buildInvestorBriefing(input: {
           : hideOptions
             ? pick(dayRng, [
                 "Larger than a typical session. Pulse lists which names moved, and whether the stated reason still matches.",
-                "Larger than a typical session. The question is whether the reason you own a name changed, or just the price.",
+                "Larger than a typical session. Either the stated reason changed, or only the price did.",
               ])
             : pick(dayRng, [
                 "Larger than a typical session. Pulse lists which names moved, and whether the stated reason still matches.",
@@ -172,7 +172,7 @@ export function buildInvestorBriefing(input: {
       detail: pick(rng, [
         "This is cash, not stocks.",
         "Not invested in any name.",
-        "Unspent cash in this portfolio.",
+        "Sitting as cash.",
       ]),
       link: sheetMostCash(model)
         ? { type: "sheet", portfolioId: sheetMostCash(model)! }
