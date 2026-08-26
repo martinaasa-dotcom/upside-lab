@@ -43,7 +43,6 @@ export async function GET(request: Request) {
       } else {
         console.info(
           "auth callback claimed",
-          data.user.email,
           (rpcData as { claimed?: string[] } | null)?.claimed
         );
       }

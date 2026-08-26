@@ -81,6 +81,26 @@ export function encodeGoogleOAuthCookie(value: GoogleOAuthCookie): string {
   return Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
 }
 
+/**
+ * Post-login redirects may only land on this app. The oauth cookie is
+ * unsigned base64 JSON, so a planted value with origin=https://evil.example
+ * would otherwise send the fail path (and the success path) off-site.
+ */
+export function isAllowedOAuthOrigin(origin: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false;
+  }
+  if (url.origin !== origin) return false;
+  const host = url.hostname;
+  if (isLocalHost(host)) {
+    return url.protocol === "http:" || url.protocol === "https:";
+  }
+  return url.protocol === "https:" && isCanonicalAppHost(host);
+}
+
 export function parseGoogleOAuthCookie(
   raw: string | undefined
 ): GoogleOAuthCookie | null {
@@ -97,6 +117,7 @@ export function parseGoogleOAuthCookie(
       return null;
     }
     const origin = new URL(data.origin).origin;
+    if (!isAllowedOAuthOrigin(origin)) return null;
     return {
       state: data.state,
       next: safeInternalPath(data.next),
@@ -152,6 +173,7 @@ export async function exchangeGoogleCode(args: {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
+    signal: AbortSignal.timeout(12_000),
   });
   const json = (await res.json()) as {
     id_token?: string;
@@ -165,5 +187,8 @@ export async function exchangeGoogleCode(args: {
 }
 
 export function signInFailedUrl(origin: string): URL {
-  return new URL("/login?signin=failed", origin || `https://${PRODUCT_DOMAIN}`);
+  const allowed = isAllowedOAuthOrigin(origin)
+    ? origin
+    : `https://${PRODUCT_DOMAIN}`;
+  return new URL("/login?signin=failed", allowed);
 }

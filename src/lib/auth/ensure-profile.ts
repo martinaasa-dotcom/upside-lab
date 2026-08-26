@@ -4,10 +4,8 @@ import {
   getSupabaseServer,
   supabaseUsesServiceRole,
 } from "@/lib/supabase/server";
-import {
-  PORTFELL_TABLES,
-  UPSIDE_CIRCLE_ID,
-} from "@/lib/supabase/tables";
+import { PORTFELL_TABLES, UPSIDE_CIRCLE_ID } from "@/lib/supabase/tables";
+import { safeHttpUrl } from "@/lib/safe-url";
 import type { User } from "@supabase/supabase-js";
 
 /** Seed slugs from code, plus optional Vercel extras for Karud/Lap. */
@@ -92,7 +90,9 @@ async function claimWithServiceRole(user: User): Promise<{
       id: user.id,
       email: email || null,
       display_name: displayName,
-      avatar_url: avatarUrl,
+      avatar_url: avatarUrl
+        ? safeHttpUrl(avatarUrl, { httpsOnly: true })
+        : null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "id" }

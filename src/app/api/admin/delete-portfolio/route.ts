@@ -5,6 +5,8 @@ import { getSupabaseDataClient, supabaseUsesServiceRole } from "@/lib/supabase/s
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
 import { NextRequest, NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
+import { adminDeletePortfolioSchema } from "@/lib/api-schemas";
+import { parseJsonBody } from "@/lib/parse-json-body";
 
 export const dynamic = "force-dynamic";
 
@@ -40,23 +42,15 @@ async function handlePOST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body: unknown = await req.json().catch(() => null);
-  const row =
-    body && typeof body === "object" ? (body as Record<string, unknown>) : {};
-  const portfolioId =
-    typeof row.portfolioId === "string" ? row.portfolioId.trim() : "";
-  if (!portfolioId) {
-    return NextResponse.json(
-      { error: "Pick a portfolio first." },
-      { status: 400 }
-    );
-  }
-  if (row.confirm !== CONFIRM) {
+  const parsed = await parseJsonBody(req, adminDeletePortfolioSchema);
+  if (!parsed.ok) {
+    if (parsed.response.status === 413) return parsed.response;
     return NextResponse.json(
       { error: `Send {"confirm":"${CONFIRM}"} to run this.` },
       { status: 400 }
     );
   }
+  const portfolioId = parsed.data.portfolioId;
 
   // Another person's portfolio is invisible under RLS, so without the
   // service role this would delete nothing and report success.

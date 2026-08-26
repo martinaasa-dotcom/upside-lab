@@ -1070,6 +1070,7 @@ html[data-keyboard="open"] .keyboard-chrome:focus-within {
     ):not(.inline-edit),
   select {
     min-height: 2.75rem;
+    touch-action: manipulation;
   }
   .touch-target,
   [data-slot="button"][data-size^="icon"] {

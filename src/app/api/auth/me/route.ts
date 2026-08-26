@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
 import { authMePatchSchema } from "@/lib/api-schemas";
 import { parseJsonBody } from "@/lib/parse-json-body";
+import { safeHttpUrl } from "@/lib/safe-url";
 
 export const dynamic = "force-dynamic";
 
@@ -78,13 +79,14 @@ async function handlePATCH(req: NextRequest) {
   }
 
   if (body.avatar_url !== undefined) {
-    const url =
+    const raw =
       body.avatar_url == null
         ? null
         : String(body.avatar_url).trim().slice(0, 500) || null;
-    if (url && !/^https?:\/\//i.test(url)) {
+    const url = raw ? safeHttpUrl(raw, { httpsOnly: true }) : null;
+    if (raw && !url) {
       return NextResponse.json(
-        { error: "Photo link has to start with http:// or https://" },
+        { error: "Photo link has to start with https://" },
         { status: 400 }
       );
     }

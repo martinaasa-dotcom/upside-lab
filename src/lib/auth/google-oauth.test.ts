@@ -4,9 +4,11 @@ import {
   encodeGoogleOAuthCookie,
   googleCallbackUrl,
   googleRedirectOrigin,
+  isAllowedOAuthOrigin,
   parseGoogleOAuthCookie,
   readGoogleIntent,
   shouldUseOwnGoogleOAuth,
+  signInFailedUrl,
 } from "@/lib/auth/google-oauth";
 import { isCanonicalAppHost } from "@/lib/site-url";
 
@@ -52,6 +54,29 @@ describe("google oauth branding", () => {
       intent: "link",
     });
     expect(parseGoogleOAuthCookie("not-valid")).toBeNull();
+  });
+
+  it("refuses a cookie whose origin is not this app", () => {
+    const planted = encodeGoogleOAuthCookie({
+      state: "state-value-at-least-16",
+      next: "/",
+      origin: "https://evil.example",
+      intent: "sign-in",
+    });
+    expect(parseGoogleOAuthCookie(planted)).toBeNull();
+    expect(isAllowedOAuthOrigin("https://evil.example")).toBe(false);
+    expect(isAllowedOAuthOrigin("https://upsidelab.app")).toBe(true);
+    expect(isAllowedOAuthOrigin("http://localhost:3000")).toBe(true);
+    const local = encodeGoogleOAuthCookie({
+      state: "state-value-at-least-16",
+      next: "/",
+      origin: "http://localhost:3000",
+      intent: "sign-in",
+    });
+    expect(parseGoogleOAuthCookie(local)?.origin).toBe("http://localhost:3000");
+    expect(signInFailedUrl("https://evil.example").origin).toBe(
+      "https://upsidelab.app"
+    );
   });
 
   /*

@@ -2,6 +2,7 @@ import { isCoinSymbol } from "@/lib/coins";
 import { resolveYahooEarnings } from "@/lib/market/earnings-dates";
 import { resolveYahooListedSymbol } from "@/lib/market/yahoo";
 import { isMarketCircuitOpen, withMarketCircuit } from "@/lib/market/circuit-breaker";
+import { safeHttpUrl } from "@/lib/safe-url";
 import { sectorForTicker, type PulseHeadline } from "@/lib/thesis-pulse";
 import { unstable_cache } from "next/cache";
 
@@ -47,7 +48,7 @@ async function fetchTickerNewsUncached(
     return items.slice(0, count).map((n) => ({
       title: String(n.title ?? "").trim(),
       publisher: String(n.publisher ?? "News").trim(),
-      link: String(n.link ?? "").trim(),
+      link: safeHttpUrl(String(n.link ?? "").trim()) ?? "",
       publishedAt:
         n.providerPublishTime instanceof Date
           ? n.providerPublishTime.toISOString()

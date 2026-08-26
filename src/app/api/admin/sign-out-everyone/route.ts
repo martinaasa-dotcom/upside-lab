@@ -4,6 +4,8 @@ import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
+import { adminSignOutEveryoneSchema } from "@/lib/api-schemas";
+import { parseJsonBody } from "@/lib/parse-json-body";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -36,12 +38,9 @@ async function handlePOST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body: unknown = await req.json().catch(() => null);
-  const confirm =
-    body && typeof body === "object"
-      ? (body as { confirm?: unknown }).confirm
-      : undefined;
-  if (confirm !== CONFIRM) {
+  const parsed = await parseJsonBody(req, adminSignOutEveryoneSchema);
+  if (!parsed.ok) {
+    if (parsed.response.status === 413) return parsed.response;
     return NextResponse.json(
       { error: `Send {"confirm":"${CONFIRM}"} to run this.` },
       { status: 400 }

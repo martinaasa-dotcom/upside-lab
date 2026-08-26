@@ -280,5 +280,14 @@ export const demoLockPostSchema = z.looseObject({
   holdings: z.array(z.unknown()).max(500),
 });
 
+export const adminDeletePortfolioSchema = z.looseObject({
+  portfolioId: id,
+  confirm: z.literal("delete this portfolio"),
+});
+
+export const adminSignOutEveryoneSchema = z.looseObject({
+  confirm: z.literal("sign out everyone"),
+});
+
 /** Catch-all for mutation bodies that are objects with unknown extra keys. */
 export const jsonObjectSchema = z.looseObject({});

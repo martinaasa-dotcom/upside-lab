@@ -209,6 +209,9 @@ export async function withMarketCircuit<T>(
   throw lastErr ?? new Error(`${provider} failed`);
 }
 
+/** Hung provider calls must not pin a Fluid isolate. */
+export const MARKET_FETCH_TIMEOUT_MS = 15_000;
+
 /** Fetch that trips the breaker on 429/502/503/504 and retries with backoff. */
 export async function marketFetch(
   provider: string,
@@ -216,7 +219,11 @@ export async function marketFetch(
   init?: RequestInit
 ): Promise<Response> {
   return withMarketCircuit(provider, async () => {
-    const res = await fetch(input, init);
+    const timeout = AbortSignal.timeout(MARKET_FETCH_TIMEOUT_MS);
+    const signal = init?.signal
+      ? AbortSignal.any([init.signal, timeout])
+      : timeout;
+    const res = await fetch(input, { ...init, signal });
     if (
       res.status === 408 ||
       res.status === 425 ||

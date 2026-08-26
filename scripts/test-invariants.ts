@@ -5821,6 +5821,12 @@ run("server supabase client is reused and every fetch has a timeout", () => {
   );
   assert.match(http, /AbortSignal\.timeout/);
   assert.match(http, /SUPABASE_FETCH_TIMEOUT_MS/);
+  const market = readFileSync(
+    join(process.cwd(), "src/lib/market/circuit-breaker.ts"),
+    "utf8"
+  );
+  assert.match(market, /AbortSignal\.timeout/);
+  assert.match(market, /MARKET_FETCH_TIMEOUT_MS/);
 });
 
 run("direct Postgres is not the serverless pooler", () => {

@@ -16,6 +16,7 @@ import {
 } from "@/lib/screenshot-import-copy";
 import { STRATEGY } from "@/lib/calculations";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
+import { safeHttpUrl } from "@/lib/safe-url";
 import {
   collectAppliedToolIds,
   loadChatHistory,
@@ -350,6 +351,7 @@ function ChatMarkdown({ children }: { children: string }) {
     <div className="w-full min-w-0">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        urlTransform={(url) => safeHttpUrl(url) ?? ""}
         components={{
           h1: ({ children: c }) => (
             <h3 className="mb-1.5 mt-3 text-base font-semibold text-foreground first:mt-0">
@@ -390,16 +392,21 @@ function ChatMarkdown({ children }: { children: string }) {
           em: ({ children: c }) => (
             <em className="italic text-muted-foreground">{c}</em>
           ),
-          a: ({ href, children: c }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer"
-              className="text-foreground underline underline-offset-2 hover:text-foreground"
-            >
-              {c}
-            </a>
-          ),
+          a: ({ href, children: c }) => {
+            const safe = safeHttpUrl(href);
+            if (!safe) return <span>{c}</span>;
+            return (
+              <a
+                href={safe}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                {c}
+              </a>
+            );
+          },
+          img: () => null,
           code: ({ children: c, className }) => {
             const block = Boolean(className);
             if (block) {

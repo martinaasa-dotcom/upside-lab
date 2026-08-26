@@ -23,7 +23,7 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4 text-center">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-4 text-center">
       <UpsideLogo variant="icon" />
       <div className="flex max-w-sm flex-col gap-2">
         <h1 className="text-foreground">

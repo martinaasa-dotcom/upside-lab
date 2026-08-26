@@ -39,6 +39,7 @@ import type { FearGreedSnapshot } from "@/lib/market/fear-greed";
 import { humanizeMargusText, pulseSuggestion } from "@/lib/ai/humanize-copy";
 import { isAbortError } from "@/lib/abort";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
+import { safeHttpUrl } from "@/lib/safe-url";
 import { readJsonOrThrow } from "@/lib/http";
 import type { OverviewModel } from "@/lib/overview";
 import { formatRelativeTime } from "@/lib/timezone";
@@ -438,18 +439,27 @@ function PulseCard({
         <div className="border-t border-border pt-4">
           <MicroLabel>In the news</MicroLabel>
           <ul className="mt-2 flex flex-col gap-2">
-            {headlines.slice(0, 2).map((h) => (
-              <li key={h.link || h.title}>
-                <a
-                  href={h.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm leading-snug text-muted-foreground hover:text-foreground"
-                >
-                  {h.title}
-                </a>
-              </li>
-            ))}
+            {headlines.slice(0, 2).map((h) => {
+              const href = safeHttpUrl(h.link);
+              return (
+                <li key={h.link || h.title}>
+                  {href ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm leading-snug text-muted-foreground hover:text-foreground"
+                    >
+                      {h.title}
+                    </a>
+                  ) : (
+                    <span className="text-sm leading-snug text-muted-foreground">
+                      {h.title}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
