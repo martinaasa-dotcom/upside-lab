@@ -17,6 +17,7 @@ import {
   ItemDescription,
   ItemTitle,
 } from "@/components/ui/item";
+import { OvernightNote } from "@/components/OvernightNote";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import {
   InsightText,
@@ -851,6 +852,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
           <h1 className="text-2xl font-semibold text-foreground">
             {morning.moveLabel}
           </h1>
+          <OvernightNote />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge

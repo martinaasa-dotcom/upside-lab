@@ -36,7 +36,12 @@ import { isWorkspaceRoomActive, onWorkspaceRefresh } from "@/lib/workspace-rooms
 import { UPSIDE_PORTFOLIO_DISCLAIMER } from "@/lib/disclaimer";
 import { FUND_X_URL } from "@/lib/product";
 import { useLoadingMessage } from "@/lib/use-loading-message";
-import { quotePollMs, quotesUrl, isQuotePollFresh } from "@/lib/market/session";
+import {
+  quotePollMs,
+  quotesUrl,
+  isQuotePollFresh,
+  isQuoteFreshForView,
+} from "@/lib/market/session";
 import { concentrationRead, themeBreakdown } from "@/lib/allocation";
 import {
   buildPortfolioPersonality,
@@ -1135,9 +1140,13 @@ export function UpsidePortfolioPage() {
   quotesAtRef.current = quotesAt;
 
   useEffect(() => {
-    function tick() {
+    function tick(reason: "background" | "view" = "background") {
       if (document.hidden || !isWorkspaceRoomActive("fund")) return;
-      if (isQuotePollFresh(quotesAtRef.current)) return;
+      const alreadyFresh =
+        reason === "view"
+          ? isQuoteFreshForView(quotesAtRef.current)
+          : isQuotePollFresh(quotesAtRef.current);
+      if (alreadyFresh) return;
       void pollRef.current.load("background");
       void pollRef.current.refreshBenchmarkValue();
     }
@@ -1155,7 +1164,7 @@ export function UpsidePortfolioPage() {
     };
     schedule();
     function onVisible() {
-      if (!document.hidden) tick();
+      if (!document.hidden) tick("view");
     }
     document.addEventListener("visibilitychange", onVisible);
     /*

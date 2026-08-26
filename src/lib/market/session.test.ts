@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { lastCompletedUsSessionKey, tradingDaysBetween } from "./session";
+import {
+  lastCompletedUsSessionKey,
+  quotePollMs,
+  quoteViewMaxAgeMs,
+  tradingDaysBetween,
+} from "./session";
 
 describe("lastCompletedUsSessionKey", () => {
   it("is today once the session has closed on a weekday", () => {
@@ -50,5 +55,72 @@ describe("tradingDaysBetween", () => {
       "2026-08-19",
       "2026-08-20",
     ]);
+  });
+});
+
+/**
+ * Cadence. Every case is written as a UTC instant with the New York wall
+ * clock in the comment, because that is the clock the curve is keyed to.
+ * August is EDT, so ET is UTC-4. 2026-08-24 is a Monday.
+ */
+describe("quotePollMs", () => {
+  const at = (iso: string) => new Date(iso);
+
+  it("is tightest at the bell and at the close", () => {
+    expect(quotePollMs(at("2026-08-24T13:45:00Z"))).toBe(20_000); // 09:45
+    expect(quotePollMs(at("2026-08-24T19:45:00Z"))).toBe(20_000); // 15:45
+    expect(quotePollMs(at("2026-08-24T13:15:00Z"))).toBe(20_000); // 09:15 pre
+  });
+
+  it("eases through the middle of the regular session", () => {
+    expect(quotePollMs(at("2026-08-24T15:00:00Z"))).toBe(30_000); // 11:00
+  });
+
+  it("thins out as after-hours goes on", () => {
+    expect(quotePollMs(at("2026-08-24T20:30:00Z"))).toBe(45_000); // 16:30
+    expect(quotePollMs(at("2026-08-24T22:00:00Z"))).toBe(120_000); // 18:00
+  });
+
+  it("ramps up through pre-market as the open approaches", () => {
+    expect(quotePollMs(at("2026-08-25T09:00:00Z"))).toBe(60_000); // 05:00
+    expect(quotePollMs(at("2026-08-25T12:00:00Z"))).toBe(30_000); // 08:00
+  });
+
+  it("goes slack overnight, when no US venue is printing at all", () => {
+    // 21:00 and 02:00. Yahoo carries pre and post market only inside 04:00
+    // to 20:00, so a tighter cadence here buys the same frozen close twice.
+    expect(quotePollMs(at("2026-08-25T01:00:00Z"))).toBe(10 * 60_000);
+    expect(quotePollMs(at("2026-08-25T06:00:00Z"))).toBe(10 * 60_000);
+  });
+
+  it("tightens again on the approach to the 04:00 pre-market open", () => {
+    // 03:30, so the first pre-market print lands within a poll of appearing
+    // rather than up to ten minutes after it.
+    expect(quotePollMs(at("2026-08-25T07:30:00Z"))).toBe(2 * 60_000);
+  });
+
+  it("drops to a trickle across the weekend", () => {
+    expect(quotePollMs(at("2026-08-22T16:00:00Z"))).toBe(30 * 60_000); // Sat
+    expect(quotePollMs(at("2026-08-23T16:00:00Z"))).toBe(30 * 60_000); // Sun
+    // Friday evening runs into the same trickle: nothing prints until Monday.
+    expect(quotePollMs(at("2026-08-22T01:00:00Z"))).toBe(30 * 60_000);
+  });
+
+  it("keeps the weekday evening on the overnight cadence, not the weekend one", () => {
+    // Monday 20:00, the moment after-hours ends.
+    expect(quotePollMs(at("2026-08-25T00:00:00Z"))).toBe(10 * 60_000);
+  });
+});
+
+describe("quoteViewMaxAgeMs", () => {
+  it("is far tighter than the background cadence overnight", () => {
+    const night = new Date("2026-08-25T06:00:00Z"); // 02:00
+    expect(quotePollMs(night)).toBe(10 * 60_000);
+    expect(quoteViewMaxAgeMs(night)).toBe(60_000);
+  });
+
+  it("is tightest while the market is open", () => {
+    expect(quoteViewMaxAgeMs(new Date("2026-08-24T15:00:00Z"))).toBe(15_000);
+    expect(quoteViewMaxAgeMs(new Date("2026-08-25T09:00:00Z"))).toBe(20_000);
   });
 });

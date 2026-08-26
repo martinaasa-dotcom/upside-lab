@@ -144,6 +144,7 @@ import {
   lastCompletedUsSessionKey,
   pinQuotesToSessionClose,
   quotePollMs,
+  quoteViewMaxAgeMs,
   usWeekMondayKey,
 } from "../src/lib/market/session";
 import {
@@ -894,12 +895,48 @@ run("flat overnight quotes keep the last real previous close", () => {
 });
 
 run("quote polls stay live through pre-market and after hours", () => {
-  // Friday 14 Aug 2026, America/New_York is EDT (UTC-4).
-  assert.equal(quotePollMs(new Date("2026-08-14T12:00:00Z")), 45_000); // 08:00 ET pre
-  assert.equal(quotePollMs(new Date("2026-08-14T15:00:00Z")), 45_000); // 11:00 ET open
-  assert.equal(quotePollMs(new Date("2026-08-14T21:00:00Z")), 45_000); // 17:00 ET AH
-  assert.equal(quotePollMs(new Date("2026-08-15T01:30:00Z")), 2 * 60_000); // 21:30 ET Fri
-  assert.equal(quotePollMs(new Date("2026-08-15T14:00:00Z")), 15 * 60_000); // 10:00 ET Sat
+  // Friday 14 Aug 2026, America/New_York is EDT (UTC-4). Asserted as a
+  // shape rather than as five constants: the cadence is a curve now, and an
+  // invariant pinned to today's numbers protects nothing and blocks every
+  // future tuning pass. What must stay true is the ordering.
+  const preMarket = quotePollMs(new Date("2026-08-14T12:00:00Z")); // 08:00 ET
+  const open = quotePollMs(new Date("2026-08-14T15:00:00Z")); // 11:00 ET
+  const afterHours = quotePollMs(new Date("2026-08-14T21:00:00Z")); // 17:00 ET
+  const overnight = quotePollMs(new Date("2026-08-18T06:00:00Z")); // 02:00 ET Tue
+  const weekend = quotePollMs(new Date("2026-08-15T14:00:00Z")); // 10:00 ET Sat
+
+  // Anything Yahoo carries a print for polls at least once a minute.
+  assert.ok(preMarket <= 60_000, `pre-market poll ${preMarket}ms`);
+  assert.ok(open <= 60_000, `open poll ${open}ms`);
+  assert.ok(afterHours <= 2 * 60_000, `after-hours poll ${afterHours}ms`);
+
+  // The regular session is never slower than the extended sessions around it.
+  assert.ok(open <= preMarket && open <= afterHours);
+
+  // The windows where no US venue prints back off, and the weekend, where
+  // nothing prints for two whole days, backs off furthest.
+  assert.ok(overnight > afterHours, `overnight ${overnight} <= AH ${afterHours}`);
+  assert.ok(weekend >= overnight, `weekend ${weekend} < overnight ${overnight}`);
+
+  // The cadence tightens again before 04:00 so the day's first pre-market
+  // print is not up to a full overnight cycle late.
+  const beforePre = quotePollMs(new Date("2026-08-18T07:30:00Z")); // 03:30 ET
+  assert.ok(beforePre < overnight, `03:30 ${beforePre} >= overnight ${overnight}`);
+
+  // A reader on the screen never waits on the background cadence. This is
+  // the whole reason the two numbers are allowed to diverge.
+  for (const t of [
+    "2026-08-14T15:00:00Z",
+    "2026-08-14T21:00:00Z",
+    "2026-08-18T06:00:00Z",
+    "2026-08-15T14:00:00Z",
+  ]) {
+    const when = new Date(t);
+    assert.ok(
+      quoteViewMaxAgeMs(when) <= quotePollMs(when),
+      `view age ${quoteViewMaxAgeMs(when)} > poll ${quotePollMs(when)} at ${t}`
+    );
+  }
 });
 
 run("fund reports date to the last closed US session, not Tallinn tomorrow", () => {
