@@ -37,8 +37,9 @@ import type { ConvictionMap } from "@/lib/conviction";
 import { formatDateTime } from "@/lib/timezone";
 import type { FearGreedSnapshot } from "@/lib/market/fear-greed";
 import { humanizeMargusText, pulseSuggestion } from "@/lib/ai/humanize-copy";
+import { WhyThis } from "@/components/ui/WhyThis";
+import { pulseProvenance } from "@/lib/provenance";
 import { isAbortError } from "@/lib/abort";
-import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { readJsonOrThrow } from "@/lib/http";
 import type { OverviewModel } from "@/lib/overview";
@@ -319,6 +320,16 @@ function PulseCard({
           ) : (
             cashtag(c.ticker)
           )}
+          {shown ? (
+            <WhyThis
+              provenance={pulseProvenance({
+                ticker: c.ticker,
+                hasOwnReason: Boolean(convictionThesis?.trim()),
+                headlineCount: headlines.length,
+                at: checkedAt,
+              })}
+            />
+          ) : null}
           {pinned ? <Pill tone="neutral">Your check</Pill> : null}
           {!c.inBook ? <Pill tone="neutral">Lookup</Pill> : null}
           {leftHold ? <Pill tone="neutral">Was inside range</Pill> : null}
@@ -1156,7 +1167,6 @@ export const PulsePage = memo(function PulsePage({
         <PanelHeader
           icon={<Activity className="h-4 w-4" />}
           title="Today's moves"
-          subtitle={ADVICE_DISCLAIMER_SHORT}
           actions={
             <form
               onSubmit={(e) => void submitSearch(e)}

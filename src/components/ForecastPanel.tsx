@@ -17,7 +17,12 @@ import {
   SPLIT_ROW,
 } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/button";
-import { FORECAST_DISCLAIMER } from "@/lib/disclaimer";
+import { WhyThis } from "@/components/ui/WhyThis";
+import {
+  forecastPathProvenance,
+  forecastRoomProvenance,
+  forecastTotalProvenance,
+} from "@/lib/provenance";
 import { listingCurrenciesAreMixed } from "@/lib/listing-currency";
 import { PALETTE } from "@/lib/palette";
 import { formatDateTime } from "@/lib/timezone";
@@ -48,6 +53,7 @@ import {
   bookConvictionKey,
   cachedEoyPathsFor,
   cachedTickersFor,
+  TICKER_SECTORS,
   type ForecastPlan,
 } from "@/lib/forecast-plan";
 import type { ConvictionMap } from "@/lib/conviction";
@@ -596,6 +602,7 @@ function ForecastCard({
   years,
   mixedListings,
   why,
+  provenance,
   onSetEoyPrice,
 }: {
   row: ForecastRow;
@@ -606,6 +613,7 @@ function ForecastCard({
    * for holding it. On the card rather than in a list under the grid.
    */
   why?: string;
+  provenance: ReturnType<typeof forecastPathProvenance>;
   onSetEoyPrice: (ticker: string, year: ForecastYear, price: number) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -616,7 +624,7 @@ function ForecastCard({
 
   return (
     <div className={SCORE_CELL}>
-      <div className="flex items-baseline justify-between gap-2">
+      <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-base font-semibold text-foreground">
             <TickerSymbol ticker={row.ticker} showCurrency={mixedListings} />
@@ -626,16 +634,19 @@ function ForecastCard({
             {!row.hasTargets && " - Margus is working on it"}
           </p>
         </div>
-        <p
-          className={cn(
-            "shrink-0 text-sm font-medium tabular-nums",
-            row.gainPct != null
-              ? signedTone(row.gainPct)
-              : "text-muted-foreground"
-          )}
-        >
-          {row.gainPct != null ? percent(row.gainPct) : NO_VALUE}
-        </p>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <p
+            className={cn(
+              "text-sm font-medium tabular-nums",
+              row.gainPct != null
+                ? signedTone(row.gainPct)
+                : "text-muted-foreground"
+            )}
+          >
+            {row.gainPct != null ? percent(row.gainPct) : NO_VALUE}
+          </p>
+          <WhyThis provenance={provenance} />
+        </div>
       </div>
 
       <div className="mt-4 flex items-end justify-between gap-3">
@@ -1123,8 +1134,18 @@ export const ForecastPanel = memo(function ForecastPanel({
     <Panel padded={false} className="overflow-hidden">
       <header className="border-b border-border p-6">
         <PanelHeader
-          title="Forecast"
-          subtitle={`A yearly price for each holding, to ${yearCols[yearCols.length - 1] ?? ""}. The chart is the whole portfolio. Each card is why that name is modeled to go from today to there. ${FORECAST_DISCLAIMER}`}
+          title={
+            <span className="inline-flex items-center gap-2">
+              Forecast
+              <WhyThis
+                provenance={forecastRoomProvenance({
+                  at: plan?.generatedAt,
+                  fallback: isFallbackForecastPlan(plan) || !plan,
+                })}
+              />
+            </span>
+          }
+          subtitle={`A yearly price for each holding, to ${yearCols[yearCols.length - 1] ?? ""}. The chart is the whole portfolio. Each card is why that name is modeled to go from today to there.`}
           actions={
             <>
               {overrideCount > 0 && (
@@ -1191,15 +1212,37 @@ export const ForecastPanel = memo(function ForecastPanel({
                 years={yearCols}
                 mixedListings={mixedListings}
                 why={whyByTicker.get(r.ticker.toUpperCase())}
+                provenance={forecastPathProvenance({
+                  ticker: r.ticker,
+                  spot: r.currentPrice,
+                  sector:
+                    TICKER_SECTORS[r.ticker] ??
+                    TICKER_SECTORS[r.ticker.split(".")[0]!] ??
+                    null,
+                  hasOwnReason: Boolean(
+                    convictions?.[r.ticker]?.thesis?.trim() ||
+                      convictions?.[r.ticker.toUpperCase()]?.thesis?.trim()
+                  ),
+                  fallback: isFallbackForecastPlan(plan) || !r.hasTargets,
+                  at: plan?.generatedAt,
+                })}
                 onSetEoyPrice={onSetEoyPrice}
               />
             ))}
           </div>
 
           <div className={cn("mx-4 mb-4 card-sheen glass-well rounded-lg", NESTED_PAD)}>
-            <p className="text-sm font-medium text-muted-foreground">
-              Whole portfolio
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-muted-foreground">
+                Whole portfolio
+              </p>
+              <WhyThis
+                provenance={forecastTotalProvenance({
+                  at: plan?.generatedAt,
+                  fallback: isFallbackForecastPlan(plan) || !plan,
+                })}
+              />
+            </div>
             <p className="mt-1.5 font-sans text-lg font-semibold leading-none tabular-nums text-foreground">
               {currency(model.currentTotal)}
             </p>

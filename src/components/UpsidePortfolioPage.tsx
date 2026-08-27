@@ -33,7 +33,8 @@ import { NO_VALUE, cashtag, cn, currency, percent, signedCurrency, signedTone } 
 import { PALETTE } from "@/lib/palette";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import { isWorkspaceRoomActive, onWorkspaceRefresh } from "@/lib/workspace-rooms";
-import { UPSIDE_PORTFOLIO_DISCLAIMER } from "@/lib/disclaimer";
+import { WhyThis } from "@/components/ui/WhyThis";
+import { upsideFundProvenance } from "@/lib/provenance";
 import { FUND_X_URL } from "@/lib/product";
 import { useLoadingMessage } from "@/lib/use-loading-message";
 import {
@@ -1281,9 +1282,12 @@ export function UpsidePortfolioPage() {
             <Panel>
               <PanelHeader
                 title={
-                  benchmark
-                    ? `${benchmark.portfolioName}, Margus, and SPY`
-                    : "Margus vs SPY"
+                  <span className="inline-flex items-center gap-2">
+                    {benchmark
+                      ? `${benchmark.portfolioName}, Margus, and SPY`
+                      : "Margus vs SPY"}
+                    <WhyThis provenance={upsideFundProvenance()} />
+                  </span>
                 }
                 subtitle={
                   fund
@@ -1404,7 +1408,6 @@ export function UpsidePortfolioPage() {
               />
               </WidgetErrorBoundary>
               <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                {UPSIDE_PORTFOLIO_DISCLAIMER}{" "}
                 <a
                   href={FUND_X_URL}
                   target="_blank"

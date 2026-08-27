@@ -37,6 +37,8 @@ import { coinFromSymbol, isCoinSymbol } from "@/lib/coins";
 import type { CoveredCallRow } from "@/lib/types";
 import { isSafePositiveMoney } from "@/lib/input-guard";
 import { Bot, X } from "lucide-react";
+import { WhyThis } from "@/components/ui/WhyThis";
+import { forecastPathProvenance } from "@/lib/provenance";
 import { useEffect, useMemo, useState } from "react";
 
 const CONVICTION_LABELS: Record<ConvictionLevel, string> = {
@@ -241,11 +243,20 @@ export function TickerDrawer({
           <section className="flex flex-col gap-4">
             <div className={SPLIT_ROW}>
               <div className={SPLIT_COPY}>
-                <h3 className="text-base text-foreground">
+                <h3 className="inline-flex items-center gap-2 text-base text-foreground">
                   Price path
+                  <WhyThis
+                    provenance={forecastPathProvenance({
+                      ticker,
+                      spot: liveSpot,
+                      sector: THEME_LABEL[forecastThemeForTicker(ticker)],
+                      hasOwnReason: Boolean(conviction?.thesis?.trim()),
+                      fallback: !forecastSummary.hasOverrides,
+                    })}
+                  />
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Modeled prices, not a target. Same numbers as Forecast.
+                  Same numbers as Forecast.
                 </p>
               </div>
               <Segmented

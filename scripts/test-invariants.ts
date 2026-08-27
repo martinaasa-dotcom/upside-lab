@@ -3816,16 +3816,11 @@ run("Pulse scan sits in its own card, not under the lookup bar", () => {
   assert.doesNotMatch(page, /Add yours/);
   assert.doesNotMatch(page, /<Reading/);
   assert.doesNotMatch(page, /Market mood/);
-  // Pass 9 (compliance): the top panel's disclaimer now reads from the
-  // shared ADVICE_DISCLAIMER_SHORT constant instead of a duplicated string
-  // literal, so it legitimately appears once (import + one render). Assert
-  // it's exactly once rather than absent, so the scan-list section below
-  // still can't grow its own duplicate copy.
-  assert.equal(
-    (page.match(/ADVICE_DISCLAIMER_SHORT/g) ?? []).length,
-    2,
-    "disclaimer constant should be imported once and rendered once, not duplicated"
-  );
+  // The legal line lives behind the eye on each check, not as a subtitle
+  // on the room. Wallpaper here taught people to skip it.
+  assert.doesNotMatch(page, /ADVICE_DISCLAIMER_SHORT/);
+  assert.match(page, /WhyThis/);
+  assert.match(page, /pulseProvenance/);
   assert.match(page, /actions=\{/);
   assert.doesNotMatch(
     page,

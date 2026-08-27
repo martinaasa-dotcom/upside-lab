@@ -20,7 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CARD, Card, EmptyState, Panel, PanelHeader, Pill, Score, Scoreboard, SPLIT_COPY, SPLIT_ROW, Stat } from "@/components/ui/Panel";
-import { FORECAST_DISCLAIMER } from "@/lib/disclaimer";
+import { WhyThis } from "@/components/ui/WhyThis";
+import { scenarioProvenance } from "@/lib/provenance";
 import {
   Activity,
   ChevronDown,
@@ -115,8 +116,12 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
       <Panel>
         <PanelHeader
           icon={<Shield className="h-4 w-4" />}
-          title="What a bad day costs you"
-          subtitle={FORECAST_DISCLAIMER}
+          title={
+            <span className="inline-flex items-center gap-2">
+              What a bad day costs you
+              <WhyThis provenance={scenarioProvenance()} />
+            </span>
+          }
         />
 
         <div className={cn(CARD, "overflow-hidden")}>

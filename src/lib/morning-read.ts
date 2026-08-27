@@ -44,20 +44,13 @@ export type SundayRecap = {
 /**
  * Where a Home notice came from.
  *
- * Exactly one of these is worth printing, and it is a byline rather than a
- * paragraph. A card saying it was worked out from your own holdings at
- * today's prices is saying the one thing a reader on a page called Today
- * already assumed, four times per screen, and a line everybody skips is a
- * line nobody reads the day it matters. A visit card says it in its own
- * label ("Since you looked"), so repeating it under the sentence was the
- * same words twice in one card. That leaves the Pulse cards, which quote a
- * reading taken somewhere else, and those carry two words in the header.
+ * The Pulse cards carry an eye (see `WhyThis`) rather than a caption,
+ * because a caption that says "from Pulse" is a label the reader already
+ * has on the card, and the skeptic's question is what went into that
+ * reading. Arithmetic cards print nothing. A visit card's own label is
+ * "Since you looked".
  */
 export type MorningSource = "holdings" | "pulse" | "visit";
-
-export function morningSourceNote(source: MorningSource): string | null {
-  return source === "pulse" ? "From Pulse" : null;
-}
 
 export type MorningNotice = {
   id: string;

@@ -16,6 +16,8 @@ import {
 } from "@/lib/screenshot-import-copy";
 import { STRATEGY } from "@/lib/calculations";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
+import { WhyThis } from "@/components/ui/WhyThis";
+import { margusChatProvenance } from "@/lib/provenance";
 import { safeHttpUrl } from "@/lib/safe-url";
 import {
   collectAppliedToolIds,
@@ -1142,8 +1144,9 @@ export function CcAdvisorChat({
         >
           <header className="flex shrink-0 items-start border-b border-border pb-3 pl-6 pr-1 pt-1">
             <div className="min-w-0 flex-1 self-center pr-2">
-              <h2 className="font-semibold text-foreground">
+              <h2 className="inline-flex items-center gap-2 font-semibold text-foreground">
                 Assistant Margus
+                <WhyThis provenance={margusChatProvenance()} />
               </h2>
               {context.adviseOnly ? null : (
                 <p className="text-sm leading-snug text-muted-foreground">
@@ -1237,10 +1240,6 @@ export function CcAdvisorChat({
               </button>
             </div>
           </header>
-
-          <p className="shrink-0 border-b border-border px-6 py-2 text-center text-sm leading-snug text-muted-foreground">
-            {ADVICE_DISCLAIMER_SHORT}
-          </p>
 
           <div
             ref={scrollerRef}

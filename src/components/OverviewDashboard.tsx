@@ -35,9 +35,11 @@ import {
 import {
   buildMorningRead,
   loadHomePulseNotes,
-  morningSourceNote,
   type HomePulseNote,
 } from "@/lib/morning-read";
+import { WhyThis } from "@/components/ui/WhyThis";
+import { pulseProvenance } from "@/lib/provenance";
+import { loadConvictionMap } from "@/lib/conviction";
 import {
   bumpInsightLook,
   loadShownInsights,
@@ -391,6 +393,7 @@ function MorningStack({
   className?: string;
 }) {
   const sunday = morning.sunday;
+  const convictions = loadConvictionMap();
   return (
     <div className={cn("flex flex-col gap-6", className)}>
       {sunday ? (
@@ -479,8 +482,8 @@ function MorningStack({
                * here and was the wrong mark by a long way: it is the
                * universal "a model wrote this" badge, and these cards are
                * arithmetic on the reader's own holdings. A Pulse card is
-               * the exception, and it takes Pulse's own icon so the glyph,
-               * the byline and the button all point at the same room.
+               * the exception, and it takes Pulse's own icon so the glyph
+               * and the eye both point at the same room.
                */
               icon={
                 notice.kind === "gap" ? (
@@ -491,7 +494,18 @@ function MorningStack({
                   <Calculator />
                 )
               }
-              note={morningSourceNote(notice.source)}
+              note={
+                notice.source === "pulse" && notice.ticker ? (
+                  <WhyThis
+                    provenance={pulseProvenance({
+                      ticker: notice.ticker,
+                      hasOwnReason: Boolean(
+                        convictions[notice.ticker.toUpperCase()]?.thesis?.trim()
+                      ),
+                    })}
+                  />
+                ) : null
+              }
             >
               <InsightText text={notice.text} />
               {notice.ticker && onOpenPulse ? (

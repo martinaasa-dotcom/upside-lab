@@ -420,7 +420,7 @@ export function MicroLabel({
      */
     <p
       className={cn(
-        "min-w-0 font-mono text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground [&>[data-slot=info-tip]]:ml-1.5",
+        "min-w-0 font-mono text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground [&>[data-slot=info-tip]]:ml-1.5 [&>[data-slot=why-this]]:ml-1.5",
         className
       )}
     >
@@ -494,7 +494,7 @@ export function Reading({
       )}
     >
       {hasLabel || hasNote ? (
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           {hasLabel ? (
             <div
               className={cn(
@@ -514,9 +514,13 @@ export function Reading({
             </div>
           ) : null}
           {hasNote ? (
-            <MicroLabel className="shrink-0 text-muted-foreground/70">
-              {note}
-            </MicroLabel>
+            typeof note === "string" ? (
+              <MicroLabel className="shrink-0 text-muted-foreground/70">
+                {note}
+              </MicroLabel>
+            ) : (
+              <span className="shrink-0">{note}</span>
+            )
           ) : null}
         </div>
       ) : null}
@@ -971,7 +975,7 @@ export function Score({
         * soon as the label needed two lines.
         */}
       {reading ? (
-        <p className="min-w-0 text-sm font-semibold tracking-tight text-foreground [&>[data-slot=info-tip]]:ml-1.5">
+        <p className="min-w-0 text-sm font-semibold tracking-tight text-foreground [&>[data-slot=info-tip]]:ml-1.5 [&>[data-slot=why-this]]:ml-1.5">
           {label}
           {explain && <InfoTip text={explain} />}
         </p>
