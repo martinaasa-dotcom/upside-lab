@@ -719,15 +719,19 @@ export function WelcomeTour({
           {stage === "what" && (
             <div className="flex flex-col gap-4">
               <ul className="grid gap-2 sm:grid-cols-2">
+                <Row icon={Activity} term="Pulse">
+                  When a name you own moves, it says whether the reason you
+                  bought it still holds. That is the extra. Your broker already
+                  has the percent.
+                </Row>
+                <Row icon={MessageCircle} term="Margus">
+                  Has read your portfolio. Ask why the week went the way it
+                  did, in words you can follow, not in market slang.
+                </Row>
                 <Row icon={Wallet} term="It is not a brokerage">
                   Nothing here can buy or sell anything, and it is not
                   connected to any account you hold. Typing a holding in is
                   bookkeeping, not a trade.
-                </Row>
-                <Row icon={Activity} term="It is a read, not a screener">
-                  There is no list of things to buy. Everything here is about
-                  what you already own and the handful of names you have said
-                  you are watching.
                 </Row>
                 <Row icon={ShieldCheck} term="It is educational">
                   {ADVICE_DISCLAIMER_SHORT}

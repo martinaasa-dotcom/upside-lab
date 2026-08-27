@@ -409,9 +409,9 @@ function More() {
 }
 
 const IS_FOR = [
-  "Seeing what your names are worth right now, wherever you bought them.",
-  "Writing down why you own each one, and being told when that reason stops fitting the price.",
-  "One email on a Sunday about how the week went, in plain words and no jargon.",
+  "Writing down why you own a name, and being told when that reason stops fitting the price.",
+  "Asking why your week went the way it did, not the market's.",
+  "One email on Sunday about the names you hold, not a newsletter about stocks in general.",
 ] as const;
 
 const IS_NOT = [
@@ -439,8 +439,8 @@ function Fit() {
       <Reveal>
         <SectionHead
           eyebrow="Before you start"
-          title="Worth knowing what this is not."
-          detail="Two minutes of typing buys you the rest. If that trade is wrong for you, better to find out here."
+          title="What this is for, and what it is not."
+          detail="Two minutes of typing buys you the rest. If the left column is not the job you wanted, better to find out here."
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className={cn(BOX, NESTED_PAD, "flex flex-col gap-4")}>
@@ -559,7 +559,7 @@ function Closing({
         <div className="flex flex-col items-center gap-6 text-center">
           <h2>
             <span className="block max-w-xl text-balance font-heading text-2xl font-semibold leading-[1.15] tracking-[-0.03em] text-foreground sm:text-3xl">
-              Paste what you own. See what it has been doing.
+              Paste what you own. The reason is the part your broker skips.
             </span>
           </h2>
           <SignInMethods googleBusy={busy} onGoogle={onSignIn} />
@@ -661,9 +661,18 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
           * only what the headline does not: what you do, and what comes
           * back.
           */}
+        {/*
+          * The headline names the hole. This names the thing that fills it.
+          * The old lede was the start mechanic, paste what you own, which
+          * is how you get in and not why you would. A friend looking at a
+          * screenshot asked, fairly, what this gives that a broker does
+          * not. Paste is three sections down. The first screen has to
+          * answer that question or the rest of the page is a feature list
+          * for a product they have already decided against.
+          */}
         <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
-          Paste what you own. Upside Lab watches the names, explains the
-          moves in plain words, and writes to you on Sunday.
+          Pulse is that second half, in words you can follow. A letter
+          lands on Sunday.
         </p>
         <div className="mt-8 flex flex-col items-center gap-3.5">
           <SignInMethods googleBusy={busy} onGoogle={onSignIn} />
@@ -711,10 +720,33 @@ function BookWide() {
       <div className="flex items-center justify-between gap-3">
         <span className="flex items-center gap-2">
           <span className="signin-live-dot" aria-hidden />
-          <MicroLabel>Today&apos;s briefing</MicroLabel>
+          <MicroLabel>Pulse on $RKLB</MicroLabel>
         </span>
         <Pill tone="neutral">Sample</Pill>
       </div>
+
+      {/*
+        * Pulse first, dollars second.
+        *
+        * The fold on a phone used to cut this card at the movers, so the
+        * first screen a stranger actually saw was a portfolio total and
+        * three percents, which is the first screen of every broker app.
+        * The sentence that is the product sat under the cut. A friend
+        * looking at that screenshot asked what this gives that the app
+        * they already have does not. So the thesis read is the thing that
+        * has to be on the first screen, and the numbers can be the part
+        * that continues below the fold.
+        */}
+      <Reading nested label="The reason" className="text-left">
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          <Pill>Inside recent range</Pill>
+          <Pill tone="good">
+            <CheckCircle2 data-icon="inline-start" />
+            Thesis intact
+          </Pill>
+        </div>
+        <InsightText text="Nothing came out of the company today. The move was the whole sector, so the reason you own this has not changed." />
+      </Reading>
 
       <div className="grid items-start gap-5 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
         <div className="text-left">
@@ -756,10 +788,6 @@ function BookWide() {
           ))}
         </div>
       </div>
-
-      <Reading nested label="Worth noticing" className="text-left">
-        <InsightText text="$RKLB rose 6.8% today while Amazon and Microsoft barely moved. When one name climbs on its own, the question is whether something changed at the company, or only the price." />
-      </Reading>
     </Panel>
   );
 }
@@ -771,7 +799,8 @@ function TrioShowcase() {
       <Reveal>
         <SectionHead
           eyebrow="What it does"
-          title="Watches the names. Explains the moves. Writes on Sunday."
+          title="The part your broker skips."
+          detail="A percent is easy. Whether the reason you own the name moved with it is the bit nothing else will sit down and do."
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <PulseStill />
@@ -789,8 +818,8 @@ export function SignedOutLanding(props: HeroProps) {
     <main id="main" className="relative z-10 flex flex-1 flex-col">
       <HeroHybrid {...props} />
       <TrioShowcase />
-      <WaysIn />
       <Fit />
+      <WaysIn />
       <More />
       <PriceAndTrust />
       <Closing

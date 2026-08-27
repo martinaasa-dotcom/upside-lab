@@ -35,13 +35,14 @@ export const OG_CARD_LINE =
   `${PRODUCT_NAME}. Educational scenarios. Never financial advice.`;
 
 export const PRODUCT_BLURB =
-  "A morning read of the names you own. Not another brokerage.";
+  "When a name you own moves, it asks whether the reason still holds.";
 
 /** Name used when a first-run import creates the sheet for you. */
 export const FIRST_SHEET_NAME = "My portfolio";
 
 /** Sign-in page: the one line under the headline. */
-export const SIGNIN_WHO = "Paste what you own. That's the whole start.";
+export const SIGNIN_WHO =
+  "Your broker has the prices. This asks whether the reason still holds.";
 
 export const SIGNIN_POINTS = [
   "Pulse watches a name when the price jumps, and whether the thesis moved with it.",

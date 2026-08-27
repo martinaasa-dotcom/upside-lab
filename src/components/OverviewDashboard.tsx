@@ -985,12 +985,23 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             * is the one that stops somebody hunting for a sync button, and
             * it is the same sentence the sign-in page makes.
             */}
+          {/*
+            * The job, not the disclaimer.
+            *
+            * The last version of this line said the names were typed in and
+            * that nothing is linked to a bank. Both true, and a friend who
+            * looked at a screenshot of this page asked what it gives that
+            * the broker they already have does not. A line that only names
+            * the limit is a line that makes the page look like a thinner
+            * copy of Lightyear. The bank sentence lives on the walkthrough
+            * and the signed-out page. This one has to be the extra.
+            */}
           <p className="text-sm text-muted-foreground">
             {totals.positionCount === 1
-              ? "The one holding"
-              : `The ${totals.positionCount} holdings`}{" "}
-            you typed in, at today&apos;s prices. Nothing is linked to a bank,
-            so nothing here buys or sells.
+              ? "One name, at today's prices."
+              : `${totals.positionCount} names, at today's prices.`}{" "}
+            The extra is whether the reason you own{" "}
+            {totals.positionCount === 1 ? "it" : "each one"} still holds.
           </p>
           <OvernightNote />
         </div>

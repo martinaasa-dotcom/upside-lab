@@ -83,7 +83,7 @@ export function screenCopy(
       return {
         title: `This is ${PRODUCT_NAME}`,
         lede:
-          "You tell it what you already own: the name, how many you hold, what you paid. From then on it prices everything for you and tries to answer one question. Is the reason you bought this still true?",
+          "You tell it what you already own: the name, how many you hold, what you paid. From then on it tries to answer one question your broker will not answer. Is the reason you bought this still true?",
       };
     case "map":
       return {

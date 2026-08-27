@@ -34,7 +34,7 @@ describe("the landing page is drawn, not revealed", () => {
   it("keeps a heading and the cards it heads in one section", () => {
     const headed = [
       ["It starts with what you already own.", /<(div|PulseStill|MargusStill)/],
-      ["Watches the names. Explains the moves. Writes on Sunday.", /<(div|PulseStill|MargusStill)/],
+      ["The part your broker skips.", /<(div|PulseStill|MargusStill)/],
       ["Three more rooms, once you are in.", /<(div|PulseStill|MargusStill)/],
     ] as const;
 
