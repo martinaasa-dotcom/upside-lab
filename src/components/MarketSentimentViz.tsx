@@ -5,7 +5,6 @@ import { cn, signedPercent, signedTone } from "@/lib/format";
 import type { SentimentSpark } from "@/lib/market-sentiment";
 import {
   linearProbeCopy,
-  signedProbeCopy,
   sparkProbeCopy,
   type SentimentGaugeNote,
   type SentimentScaleTick,
@@ -48,21 +47,15 @@ function TrackMarker({ pct, className }: { pct: number; className: string }) {
 function ScaleTicks({ ticks }: { ticks: SentimentScaleTick[] }) {
   return (
     <div className="pointer-events-none relative mt-1 h-4">
-      {ticks.map((tick, i) => {
-        const end = i === 0 || i === ticks.length - 1;
-        return (
-          <span
-            key={`${tick.pct}-${tick.label}`}
-            className={cn(
-              "absolute top-0 -translate-x-1/2 font-mono text-xs leading-4 text-muted-foreground first:translate-x-0 last:translate-x-[-100%]",
-              !end && "hidden md:block"
-            )}
-            style={{ left: `${tick.pct}%` }}
-          >
-            {tick.label}
-          </span>
-        );
-      })}
+      {ticks.map((tick) => (
+        <span
+          key={`${tick.pct}-${tick.label}`}
+          className="absolute top-0 -translate-x-1/2 font-mono text-xs leading-4 text-muted-foreground first:translate-x-0 last:translate-x-[-100%]"
+          style={{ left: `${tick.pct}%` }}
+        >
+          {tick.label}
+        </span>
+      ))}
     </div>
   );
 }
@@ -78,7 +71,7 @@ function SwapLayer({
   next: ReactNode;
 }) {
   return (
-    <div className="relative h-10 md:h-5">
+    <div className="relative h-12 md:h-6">
       <div className={cn("absolute inset-0", on && "invisible")}>{rest}</div>
       <div className={cn("absolute inset-0", !on && "invisible")}>{next}</div>
     </div>
@@ -87,7 +80,7 @@ function SwapLayer({
 
 function HeaderStack({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-10 w-full min-w-0 flex-col md:h-5 md:flex-row md:items-center md:justify-between md:gap-3">
+    <div className="flex h-12 w-full min-w-0 flex-col md:h-6 md:flex-row md:items-center md:justify-between md:gap-3">
       {children}
     </div>
   );
@@ -210,6 +203,14 @@ export function SentimentSparkPlot({
     active != null && active >= 0 ? Math.max(0, Math.min(lastIdx, active)) : null;
   const hoverPrice = hover != null ? spark.price[hover] : null;
   const hoverUsual = hover != null ? spark.usual[hover] : null;
+  const today =
+    lastIdx >= 0
+      ? sparkProbeCopy(
+          spark.price[lastIdx]!,
+          spark.usual[lastIdx]!,
+          spark.at?.[lastIdx]
+        )
+      : null;
   const probe =
     hoverPrice != null && hoverUsual != null
       ? sparkProbeCopy(hoverPrice, hoverUsual, spark.at?.[hover!])
@@ -269,51 +270,61 @@ export function SentimentSparkPlot({
         on={reading}
         rest={
           <HeaderStack>
-            <div className="flex h-5 min-w-0 items-center">
+            <div className="flex h-6 min-w-0 items-center">
               <MicroLabel className="truncate">
                 Last year
                 <InfoTip text="S&P 500 versus its typical price over about the last year. The dashed line is that typical price. The solid bracket is this run. The dashed bracket to the right is how much longer a typical run lasted. That empty stretch is not a guess at the next price. Drag across to read a day." />
               </MicroLabel>
             </div>
-            <span className="flex h-5 items-center gap-1.5 text-sm text-muted-foreground">
-              <span
-                aria-hidden
-                className="w-3.5 border-t border-dashed border-muted-foreground/80"
-              />
-              Usual
-            </span>
+            {today ? (
+              <p className="flex h-6 items-center justify-between gap-3 md:justify-end">
+                <span
+                  className={cn(
+                    "font-mono text-base font-semibold tabular-nums leading-6",
+                    signedTone(today.ratio)
+                  )}
+                >
+                  {signedPercent(today.ratio)}
+                </span>
+                <span className="text-sm text-muted-foreground">vs usual</span>
+              </p>
+            ) : (
+              <span className="flex h-6 items-center text-sm text-muted-foreground">
+                Usual
+              </span>
+            )}
           </HeaderStack>
         }
         next={
           onGhost && stretch ? (
             <HeaderStack>
-              <p className="flex h-5 items-center truncate text-sm text-foreground">
+              <p className="flex h-6 items-center truncate text-sm text-foreground">
                 Typical leftover
               </p>
-              <p className="flex h-5 items-center truncate text-sm text-muted-foreground md:justify-end">
+              <p className="flex h-6 items-center truncate text-sm text-muted-foreground md:justify-end">
                 {stretch.moreLabel}
               </p>
             </HeaderStack>
           ) : probe ? (
             <HeaderStack>
-              <p className="flex h-5 items-center justify-between gap-3 text-sm">
+              <p className="flex h-6 items-center justify-between gap-3 text-sm">
                 <span className="min-w-0 truncate text-foreground">
                   {probe.date || "Last year"}
                 </span>
                 <span
                   className={cn(
-                    "shrink-0 font-mono tabular-nums md:hidden",
+                    "shrink-0 font-mono text-base font-semibold tabular-nums leading-6 md:hidden",
                     signedTone(probe.ratio)
                   )}
                 >
                   {signedPercent(probe.ratio)}
                 </span>
               </p>
-              <p className="flex h-5 min-w-0 items-center truncate text-sm tabular-nums md:justify-end">
+              <p className="flex h-6 min-w-0 items-center truncate text-sm tabular-nums md:justify-end">
                 <span className="text-foreground">{probe.vs}</span>
                 <span
                   className={cn(
-                    "ml-1.5 hidden font-mono md:inline",
+                    "ml-1.5 hidden font-mono text-base font-semibold leading-6 md:inline",
                     signedTone(probe.ratio)
                   )}
                 >
@@ -323,8 +334,8 @@ export function SentimentSparkPlot({
             </HeaderStack>
           ) : (
             <HeaderStack>
-              <p className="flex h-5 items-center text-sm">Last year</p>
-              <p className="flex h-5 items-center text-sm">Usual</p>
+              <p className="flex h-6 items-center text-sm">Last year</p>
+              <p className="flex h-6 items-center text-sm">Usual</p>
             </HeaderStack>
           )
         }
@@ -354,13 +365,15 @@ export function SentimentSparkPlot({
           onKeyDown={onKeyDown}
         >
           {layout.ghost ? (
-            <rect
-              x={(layout.ghost.x0 / 100) * SPARK_W}
-              y={0}
-              width={((layout.ghost.x1 - layout.ghost.x0) / 100) * SPARK_W}
-              height={SPARK_H}
-              fill="currentColor"
-              fillOpacity={0.04}
+            <line
+              x1={(layout.nowX / 100) * SPARK_W}
+              x2={(layout.nowX / 100) * SPARK_W}
+              y1={4}
+              y2={SPARK_H - 4}
+              stroke="currentColor"
+              strokeOpacity={0.18}
+              strokeWidth={1}
+              vectorEffect="non-scaling-stroke"
             />
           ) : null}
           {layout.gain.map((pts, i) => (
@@ -398,18 +411,6 @@ export function SentimentSparkPlot({
             vectorEffect="non-scaling-stroke"
             points={layout.priceLine}
           />
-          {layout.ghost ? (
-            <line
-              x1={(layout.nowX / 100) * SPARK_W}
-              x2={(layout.nowX / 100) * SPARK_W}
-              y1={4}
-              y2={SPARK_H - 4}
-              stroke="currentColor"
-              strokeOpacity={0.28}
-              strokeWidth={1}
-              vectorEffect="non-scaling-stroke"
-            />
-          ) : null}
           {probePt ? (
             <line
               x1={(probePt.x / 100) * SPARK_W}
@@ -466,7 +467,7 @@ export function SentimentSparkPlot({
             ) : null}
             {layout.ghost ? (
               <div
-                className="absolute inset-y-0 border-x border-b border-dashed border-muted-foreground/45"
+                className="absolute inset-y-0 border-x border-b border-dashed border-muted-foreground/30"
                 style={{
                   left: `${layout.ghost.x0}%`,
                   width: `${Math.max(layout.ghost.x1 - layout.ghost.x0, 1)}%`,
@@ -528,17 +529,31 @@ function LinearTrack({
   markerPct,
   band,
   bandClass,
+  edges,
+  edgeClass,
   dotClass,
   probePct,
 }: {
   markerPct: number;
   band: { fromPct: number; toPct: number } | null;
   bandClass?: string;
+  edges: { fromPct: number; toPct: number }[];
+  edgeClass?: string;
   dotClass: string;
   probePct: number | null;
 }) {
   return (
     <div className={TRACK_BAR}>
+      {edges.map((edge) => (
+        <div
+          key={`${edge.fromPct}-${edge.toPct}`}
+          className={cn("absolute inset-y-0 rounded-full", edgeClass ?? "bg-loss/20")}
+          style={{
+            left: `${edge.fromPct}%`,
+            width: `${edge.toPct - edge.fromPct}%`,
+          }}
+        />
+      ))}
       {band && (
         <div
           className={cn(
@@ -559,53 +574,11 @@ function LinearTrack({
   );
 }
 
-function SignedTrack({
-  fillPct,
-  dotClass,
-  probePct,
-}: {
-  fillPct: number;
-  dotClass: string;
-  probePct: number | null;
-}) {
-  const right = fillPct > 0;
-  const width = Math.abs(fillPct);
-  const markerPct = Math.max(2, Math.min(98, 50 + fillPct));
-  return (
-    <div className={TRACK_BAR}>
-      <div
-        aria-hidden
-        className="absolute inset-y-[-4px] left-1/2 w-px -translate-x-1/2 bg-foreground/35"
-      />
-      {width > 0 && (
-        <div
-          className={cn(
-            "absolute inset-y-0 rounded-full",
-            right ? "left-1/2 bg-gain" : "right-1/2 bg-loss"
-          )}
-          style={{ width: `${width}%` }}
-        />
-      )}
-      <TrackMarker pct={markerPct} className={dotClass} />
-      {probePct != null ? (
-        <TrackMarker pct={probePct} className="bg-foreground" />
-      ) : null}
-    </div>
-  );
-}
-
 export function SentimentGaugeRow({ gauge }: { gauge: SentimentGaugeNote }) {
   const scrub = useScrubPct();
-  const live =
-    gauge.kind === "signed"
-      ? gauge.signedFillPct != null
-      : gauge.markerPct != null;
+  const live = gauge.markerPct != null;
   const probing = live && scrub.show;
-  const sub = probing
-    ? gauge.kind === "signed"
-      ? signedProbeCopy(gauge, scrub.pct!)
-      : linearProbeCopy(gauge, scrub.pct!)
-    : gauge.sub;
+  const sub = probing ? linearProbeCopy(gauge, scrub.pct!) : gauge.sub;
 
   return (
     <div
@@ -613,7 +586,7 @@ export function SentimentGaugeRow({ gauge }: { gauge: SentimentGaugeNote }) {
       role="group"
       aria-label={`${gauge.label} ${gauge.value}, ${gauge.sub}`}
     >
-      <div className="mb-1.5 flex h-5 items-center justify-between gap-3">
+      <div className="mb-1.5 flex h-6 items-center justify-between gap-3">
         <div className="min-w-0">
           <MicroLabel className="truncate">
             {gauge.label}
@@ -622,7 +595,7 @@ export function SentimentGaugeRow({ gauge }: { gauge: SentimentGaugeNote }) {
         </div>
         <p
           className={cn(
-            "shrink-0 font-mono text-sm font-semibold tabular-nums leading-5",
+            "shrink-0 font-mono text-base font-semibold tabular-nums leading-6",
             gauge.valueClassName ?? "text-foreground"
           )}
         >
@@ -642,21 +615,15 @@ export function SentimentGaugeRow({ gauge }: { gauge: SentimentGaugeNote }) {
           aria-valuetext={sub}
           {...scrub.handlers}
         >
-          {gauge.kind === "signed" && gauge.signedFillPct != null ? (
-            <SignedTrack
-              fillPct={gauge.signedFillPct}
-              dotClass={gauge.dotClass}
-              probePct={probing ? scrub.pct : null}
-            />
-          ) : (
-            <LinearTrack
-              markerPct={gauge.markerPct!}
-              band={gauge.band}
-              bandClass={gauge.bandClass}
-              dotClass={gauge.dotClass}
-              probePct={probing ? scrub.pct : null}
-            />
-          )}
+          <LinearTrack
+            markerPct={gauge.markerPct!}
+            band={gauge.band}
+            bandClass={gauge.bandClass}
+            edges={gauge.edges}
+            edgeClass={gauge.edgeClass}
+            dotClass={gauge.dotClass}
+            probePct={probing ? scrub.pct : null}
+          />
         </div>
       ) : (
         <div className="flex h-11 items-center md:h-8 [@media(pointer:coarse)]:h-11">

@@ -1,10 +1,10 @@
 /**
  * Market-wide technical reading for Overview.
  *
- * Four gauges (VIX, 14-day RSI of SPY, CNN Fear & Greed, SPY vs its
- * 200-day average) map onto regimes that showed up together in past
- * cycles. The copy names that history. It does not tell anyone what to
- * do with it.
+ * Three gauges (VIX, 14-day RSI of SPY, CNN Fear & Greed) plus the S&P 500
+ * versus its 200-day usual price map onto regimes that showed up together
+ * in past cycles. The copy names that history. It does not tell anyone
+ * what to do with it.
  */
 
 import { downsampleIndices, SPARK_POINTS, SPARK_WINDOW } from "@/lib/market-sentiment-viz";

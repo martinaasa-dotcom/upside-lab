@@ -11,6 +11,7 @@ import {
   sparkProbeCopy,
   stretchProbeCopy,
 } from "@/lib/market-sentiment-story";
+import { signedTrackFill } from "@/lib/market-sentiment-viz";
 import type { SentimentMetrics } from "@/lib/market-sentiment";
 
 const CLIMB: SentimentMetrics = {
@@ -53,16 +54,21 @@ describe("buildSentimentCard", () => {
     expect(card.lead).not.toContain("speedometer");
     expect(card.reading.label).toBe("Steady climb");
     expect(card.reading.pill).toBe("good");
-    expect(card.fitLine).toMatch(/^\d+% fit$/);
-    expect(card.gauges).toHaveLength(4);
+    expect(card.fitLine).toMatch(/^S&P 500 · \d+% match this reading$/);
+    expect(card.gauges).toHaveLength(3);
+    expect(card.gauges.map((g) => g.label)).toEqual(["VIX", "RSI", "Fear & Greed"]);
     expect(card.gauges[0]!.sub).toBe("Quiet");
     expect(card.gauges[0]!.valueClassName).toBe("text-gain");
     expect(card.gauges[0]!.explain).toContain("How jumpy US stocks");
+    expect(card.gauges[0]!.ticks.map((t) => t.label)).toEqual(["10", "40"]);
+    expect(card.gauges[0]!.edges.length).toBeGreaterThan(0);
     expect(card.gauges[1]!.sub).toBe("Mid-range");
+    expect(card.gauges[1]!.ticks.map((t) => t.label)).toEqual(["0", "100"]);
     expect(card.gauges[2]!.sub).toBe("Neutral");
-    expect(card.gauges[3]!.label).toBe("Usual price");
-    expect(card.gauges[3]!.sub).toBe("Above usual");
-    expect(card.gauges[3]!.kind).toBe("signed");
+    expect(card.gauges[2]!.ticks.map((t) => t.label)).toEqual(["0", "100"]);
+    expect(card.gauges[2]!.explain).toContain("extreme fear");
+    expect(card.gauges[2]!.explain).toContain("extreme greed");
+    expect(card.gauges[2]!.explain).not.toMatch(/panic|party/i);
     expect(card.gauges[0]!.markerPct).toBeGreaterThan(0);
     expect(card.gauges[0]!.bandClass).toBe("bg-foreground/20");
     expect(card.gauges[0]!.bandClass).not.toMatch(/gain/);
@@ -70,7 +76,6 @@ describe("buildSentimentCard", () => {
     expect(card.stretch!.inLabel).toContain("47 days above usual");
     expect(card.stretch!.moreLabel).toContain("about 2 months more");
     expect(card.stretch!.above).toBe(true);
-    expect(card.gauges[3]!.explain).toContain("typical price over about the last year");
     expect(card).not.toHaveProperty("fact");
     expect(card).not.toHaveProperty("history");
   });
@@ -80,9 +85,8 @@ describe("buildSentimentCard", () => {
     expect(card.lead.startsWith("Downward.")).toBe(true);
     expect(card.reading.label).toBe("Steady slide");
     expect(card.reading.pill).toBe("warn");
-    expect(card.fitLine).toMatch(/^\d+% fit$/);
-    expect(card.gauges[3]!.sub).toBe("Below usual");
-    expect(card.gauges[3]!.valueClassName).toBe("text-loss");
+    expect(card.fitLine).toMatch(/^S&P 500 · \d+% match this reading$/);
+    expect(card.gauges).toHaveLength(3);
   });
 
   it("keeps every sentence descriptive", () => {
@@ -90,7 +94,7 @@ describe("buildSentimentCard", () => {
     const slide = buildSentimentCard(SLIDE);
     for (const card of [climb, slide]) {
       expect(sentimentCopyIsDescriptive(card.lead)).toBe(true);
-      if (card.fitLine) expect(sentimentCopyIsDescriptive(card.fitLine)).toBe(true);
+      expect(sentimentCopyIsDescriptive(card.fitLine)).toBe(true);
       for (const gauge of card.gauges) {
         expect(sentimentCopyIsDescriptive(gauge.sub)).toBe(true);
         expect(sentimentCopyIsDescriptive(gauge.explain)).toBe(true);
@@ -99,7 +103,7 @@ describe("buildSentimentCard", () => {
     }
   });
 
-  it("does not write a fit line while waiting", () => {
+  it("names the S&P 500 while waiting", () => {
     const card = buildSentimentCard({
       vix: null,
       rsi: null,
@@ -114,8 +118,8 @@ describe("buildSentimentCard", () => {
       spark: null,
       asOf: null,
     });
-    expect(card.fitLine).toBeNull();
-    expect(sentimentFitLine(null)).toBeNull();
+    expect(card.fitLine).toBe("S&P 500");
+    expect(sentimentFitLine(null)).toBe("S&P 500");
     expect(sentimentLead(card.reading)).toBe(card.reading.copy);
   });
 
@@ -126,7 +130,9 @@ describe("buildSentimentCard", () => {
       alreadyLong: false,
     });
     expect(card.stretch).toBeNull();
-    expect(card.fitLine).toMatch(/^\d+% fit · 47 days above usual$/);
+    expect(card.fitLine).toMatch(
+      /^S&P 500 · \d+% match this reading · 47 days above usual$/
+    );
   });
 });
 
@@ -152,8 +158,10 @@ describe("probe copy", () => {
   });
 
   it("reads the usual-price bar at the live marker", () => {
-    const usual = buildSentimentCard(CLIMB).gauges[3]!;
-    const copy = signedProbeCopy(usual, 50 + (usual.signedFillPct ?? 0));
+    const vix = buildSentimentCard(CLIMB).gauges[0]!;
+    const fill = signedTrackFill(0.081);
+    expect(fill).not.toBeNull();
+    const copy = signedProbeCopy(vix, 50 + fill!);
     expect(copy).toContain("+8.1%");
     expect(copy).toContain("Above usual");
   });

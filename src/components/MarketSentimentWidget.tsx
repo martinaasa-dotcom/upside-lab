@@ -180,7 +180,7 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
         ) : null}
         <PanelHeader
           title="Market reading"
-          subtitle={card.fitLine ?? undefined}
+          subtitle={card.fitLine}
           actions={<Pill tone={card.reading.pill}>{card.reading.label}</Pill>}
         />
         {hasPicture ? (
@@ -197,7 +197,7 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
           </p>
         )}
         <div
-          className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-x-8 md:gap-y-5"
+          className="grid grid-cols-1 gap-5 md:grid-cols-3 md:gap-x-6 md:gap-y-5"
           role="group"
           aria-label="Market gauges"
         >

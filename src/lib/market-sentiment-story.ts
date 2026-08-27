@@ -15,9 +15,7 @@ import {
   bandRangePct,
   lerpScale,
   linearMarkerPct,
-  SIGNED_EDGE_PCT,
   signedRatioAtPct,
-  signedTrackFill,
   stretchFillPct,
 } from "@/lib/market-sentiment-viz";
 import { formatDateTime } from "@/lib/timezone";
@@ -34,6 +32,9 @@ export type SentimentGaugeNote = {
   markerPct: number | null;
   band: { fromPct: number; toPct: number } | null;
   bandClass?: string;
+  /** Scare / stretch ends of the scale. Always painted. */
+  edges: { fromPct: number; toPct: number }[];
+  edgeClass?: string;
   signedFillPct: number | null;
   dotClass: string;
   scaleLo: number | null;
@@ -60,7 +61,7 @@ export type SentimentStretch = {
 export type SentimentCard = {
   reading: SentimentReading;
   lead: string;
-  fitLine: string | null;
+  fitLine: string;
   gauges: SentimentGaugeNote[];
   spark: SentimentSpark | null;
   stretch: SentimentStretch | null;
@@ -100,14 +101,15 @@ export function sentimentFitLine(
   pct: number | null,
   metrics?: Pick<SentimentMetrics, "streakDays" | "smaRatio">,
   daysLiveOnStretch = false
-): string | null {
-  if (pct == null) return null;
-  if (daysLiveOnStretch) return `${pct}% fit`;
+): string {
+  if (pct == null) return "S&P 500";
+  const match = `${pct}% match this reading`;
+  if (daysLiveOnStretch) return `S&P 500 · ${match}`;
   const streak = metrics?.streakDays;
   if (!metrics || streak == null || streak < MIN_HISTORY_DAYS) {
-    return `${pct}% fit to this pattern`;
+    return `S&P 500 · ${match}`;
   }
-  return `${pct}% fit · ${streak} days ${sideWord(metrics.smaRatio)} usual`;
+  return `S&P 500 · ${match} · ${streak} days ${sideWord(metrics.smaRatio)} usual`;
 }
 
 /** What history did, not a repeat of how long this stretch already is. */
@@ -265,7 +267,7 @@ function fearGlance(
   glance: "up" | "down" | "warn" | "none";
 } {
   const explainBase =
-    "CNN's 0 to 100 score for how fearful or greedy US stock investors look. Under 25 is panic. Over 75 is a party.";
+    "CNN's 0 to 100 score for how fearful or greedy US stock investors look. Under 25 is extreme fear. Over 75 is extreme greed.";
   if (fearGreed == null) {
     const crypto =
       cryptoFearGreed != null
@@ -412,18 +414,16 @@ const FEAR_ZONES: SentimentZone[] = [
   { lo: 75, hi: Number.POSITIVE_INFINITY, label: "Extreme greed" },
 ];
 
-const USUAL_ZONES: SentimentZone[] = [
-  { lo: Number.NEGATIVE_INFINITY, hi: -0.002, label: "Below usual" },
-  { lo: -0.002, hi: 0.002, label: "Right on it" },
-  { lo: 0.002, hi: 0.12, label: "Above usual" },
-  { lo: 0.12, hi: Number.POSITIVE_INFINITY, label: "Stretched" },
-];
+function scaleEdges(
+  ...bands: Array<{ fromPct: number; toPct: number } | null>
+): { fromPct: number; toPct: number }[] {
+  return bands.filter((b): b is { fromPct: number; toPct: number } => b != null);
+}
 
 export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNote[] {
   const vix = vixGlance(metrics.vix);
   const rsiNow = rsiGlance(metrics.rsi);
   const fear = fearGlance(metrics.fearGreed, metrics.cryptoFearGreed);
-  const usual = usualGlance(metrics);
   return [
     {
       label: "VIX",
@@ -435,6 +435,8 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       markerPct: linearMarkerPct(metrics.vix, 10, 40),
       band: bandRangePct(12, 20, 10, 40),
       bandClass: "bg-foreground/20",
+      edges: scaleEdges(bandRangePct(30, 40, 10, 40)),
+      edgeClass: "bg-loss/20",
       signedFillPct: null,
       dotClass: glanceDot(vix.glance),
       scaleLo: 10,
@@ -443,7 +445,6 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       zones: VIX_ZONES,
       ticks: [
         { pct: 0, label: "10" },
-        { pct: linearMarkerPct(16, 10, 40) ?? 20, label: "Quiet" },
         { pct: 100, label: "40" },
       ],
     },
@@ -457,6 +458,11 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       markerPct: linearMarkerPct(metrics.rsi, 0, 100),
       band: bandRangePct(30, 70, 0, 100),
       bandClass: "bg-foreground/20",
+      edges: scaleEdges(
+        bandRangePct(0, 30, 0, 100),
+        bandRangePct(70, 100, 0, 100)
+      ),
+      edgeClass: "bg-loss/20",
       signedFillPct: null,
       dotClass: glanceDot(rsiNow.glance),
       scaleLo: 0,
@@ -465,7 +471,6 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       zones: RSI_ZONES,
       ticks: [
         { pct: 0, label: "0" },
-        { pct: 50, label: "Mid" },
         { pct: 100, label: "100" },
       ],
     },
@@ -478,6 +483,7 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       kind: "linear",
       markerPct: linearMarkerPct(metrics.fearGreed, 0, 100),
       band: null,
+      edges: [],
       signedFillPct: null,
       dotClass: glanceDot(fear.glance),
       scaleLo: 0,
@@ -485,30 +491,8 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       scaleDigits: 0,
       zones: FEAR_ZONES,
       ticks: [
-        { pct: 0, label: "Panic" },
-        { pct: 50, label: "50" },
-        { pct: 100, label: "Party" },
-      ],
-    },
-    {
-      label: "Usual price",
-      value: signedPercent(metrics.smaRatio),
-      sub: usual.sub,
-      explain: usual.explain,
-      valueClassName: glanceClass(usual.glance),
-      kind: "signed",
-      markerPct: null,
-      band: null,
-      signedFillPct: signedTrackFill(metrics.smaRatio),
-      dotClass: glanceDot(usual.glance),
-      scaleLo: -0.12,
-      scaleHi: 0.12,
-      scaleDigits: 1,
-      zones: USUAL_ZONES,
-      ticks: [
-        { pct: 50 - SIGNED_EDGE_PCT, label: "-12%" },
-        { pct: 50, label: "Usual" },
-        { pct: 50 + SIGNED_EDGE_PCT, label: "+12%" },
+        { pct: 0, label: "0" },
+        { pct: 100, label: "100" },
       ],
     },
   ];
