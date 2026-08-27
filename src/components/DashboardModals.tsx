@@ -55,8 +55,6 @@ export type DashboardModalsProps = {
       | null
     >
   >;
-  confirmResetForecast: boolean;
-  setConfirmResetForecast: Dispatch<SetStateAction<boolean>>;
   snapshotsOpen: boolean;
   setSnapshotsOpen: Dispatch<SetStateAction<boolean>>;
   cmdOpen: boolean;
@@ -101,7 +99,6 @@ export type DashboardModalsProps = {
   deleteHoldingById: (id: string) => boolean;
   handlePatch: (patch: HoldingPatch) => boolean;
   applyAdvisorActions: (actions: AdvisorAction[], into?: Portfolio) => void;
-  clearEoyOverrides: () => void;
   commitEoyPrice: (ticker: string, year: ForecastYear, price: number) => void;
   patchLab: (patch: Partial<LabBundle>) => void;
   loadPortfolios: (opts?: { silent?: boolean; retry?: boolean }) => Promise<void>;
@@ -123,8 +120,6 @@ export function DashboardModals({
   setRenameTarget,
   confirmDelete,
   setConfirmDelete,
-  confirmResetForecast,
-  setConfirmResetForecast,
   snapshotsOpen,
   setSnapshotsOpen,
   cmdOpen,
@@ -163,7 +158,6 @@ export function DashboardModals({
   deleteHoldingById,
   handlePatch,
   applyAdvisorActions,
-  clearEoyOverrides,
   commitEoyPrice,
   patchLab,
   loadPortfolios,
@@ -252,20 +246,6 @@ export function DashboardModals({
             return deleteSheetById(confirmDelete.id);
           }
           return deleteHoldingById(confirmDelete.id);
-        }}
-      />
-
-      <ConfirmModal
-        open={confirmResetForecast}
-        title="Reset forecast overrides?"
-        body={`Clears every manual and Margus-generated EOY price target on ${
-          activePortfolio?.name ?? "this portfolio"
-        }. Margus will need to re-reason the whole forecast from scratch on next visit. This can't be undone.`}
-        confirmLabel="Reset"
-        destructive
-        onClose={() => setConfirmResetForecast(false)}
-        onConfirm={() => {
-          clearEoyOverrides();
         }}
       />
 

@@ -85,10 +85,3 @@ export function mergeEoyTargetPaths(
   }
   return next;
 }
-
-export function countOverrides(overrides: PortfolioEoyOverrides): number {
-  return Object.values(overrides).reduce(
-    (n, row) => n + Object.keys(row).length,
-    0
-  );
-}

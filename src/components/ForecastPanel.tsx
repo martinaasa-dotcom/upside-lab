@@ -58,13 +58,12 @@ import {
 } from "@/lib/forecast-plan";
 import type { ConvictionMap } from "@/lib/conviction";
 import { readJsonOrThrow } from "@/lib/http";
-import { countOverrides } from "@/lib/forecast-overrides";
 import type { PortfolioEoyOverrides } from "@/lib/forecast-overrides";
 import { isForecastFullyCovered } from "@/lib/forecast";
 import { playbookBullets, type PlaybookBullet } from "@/lib/forecast-playbook";
 import { isSafePositiveMoney } from "@/lib/input-guard";
 import { blockWheelChange } from "@/lib/number-input";
-import { ChevronDown, Loader2, RotateCcw, Sparkles } from "lucide-react";
+import { ChevronDown, Loader2, Sparkles } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -88,7 +87,6 @@ type Props = {
   onApplyMargusPaths: (
     paths: { ticker: string; prices: Partial<Record<ForecastYear, number>> }[]
   ) => void;
-  onClearOverrides: () => void;
   /** Owner's per-ticker conviction, passed to Margus so a written thesis
    * actually influences the path instead of being ignored. */
   convictions?: ConvictionMap;
@@ -743,7 +741,6 @@ export const ForecastPanel = memo(function ForecastPanel({
   overrides,
   onSetEoyPrice,
   onApplyMargusPaths,
-  onClearOverrides,
   convictions,
   labReady = true,
 }: Props) {
@@ -757,7 +754,6 @@ export const ForecastPanel = memo(function ForecastPanel({
   const [error, setError] = useState<string | null>(null);
   const [appliedFlash, setAppliedFlash] = useState(false);
   const [planHydrated, setPlanHydrated] = useState(false);
-  const overrideCount = countOverrides(overrides);
   const flatCount = model.rows.filter((r) => !r.hasTargets).length;
   const rowTickers = useMemo(
     () => model.rows.map((r) => r.ticker),
@@ -1147,32 +1143,19 @@ export const ForecastPanel = memo(function ForecastPanel({
           }
           subtitle={`A yearly price for each holding, to ${yearCols[yearCols.length - 1] ?? ""}. The chart is the whole portfolio. Each card is why that name is modeled to go from today to there.`}
           actions={
-            <>
-              {overrideCount > 0 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onClearOverrides}
-                  title="Throw away every price you or Margus changed on this portfolio"
-                >
-                  <RotateCcw data-icon="inline-start" aria-hidden />
-                  Undo my changes ({overrideCount})
-                </Button>
+            <Button
+              type="button"
+              disabled={busy || model.rows.length === 0}
+              onClick={() => void askMargus()}
+              title="Work the whole forecast out again from scratch"
+            >
+              {busy ? (
+                <Loader2 data-icon="inline-start" className="animate-spin" aria-hidden />
+              ) : (
+                <Sparkles data-icon="inline-start" aria-hidden />
               )}
-              <Button
-                type="button"
-                disabled={busy || model.rows.length === 0}
-                onClick={() => void askMargus()}
-                title="Work the whole forecast out again from scratch"
-              >
-                {busy ? (
-                  <Loader2 data-icon="inline-start" className="animate-spin" aria-hidden />
-                ) : (
-                  <Sparkles data-icon="inline-start" aria-hidden />
-                )}
-                {busy ? "Thinking …" : plan ? "Work it out again" : "Ask Margus"}
-              </Button>
-            </>
+              {busy ? "Thinking …" : plan ? "Work it out again" : "Ask Margus"}
+            </Button>
           }
         />
         {statusHint && (

@@ -279,7 +279,6 @@ export function Dashboard() {
     useState<SilentScreenshotImport | null>(null);
   const [screenshotPending, setScreenshotPending] = useState(false);
   const silentScreenshotSeq = useRef(0);
-  const [confirmResetForecast, setConfirmResetForecast] = useState(false);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteNudgeOpen, setInviteNudgeOpen] = useState(false);
@@ -905,12 +904,6 @@ export function Dashboard() {
       saveEoyOverrides(activePortfolio.id, next);
       return next;
     });
-  }
-
-  function clearEoyOverrides() {
-    if (!activePortfolio) return;
-    setEoyOverrides({});
-    saveEoyOverrides(activePortfolio.id, {});
   }
 
   const marketState = useMemo(() => {
@@ -2133,9 +2126,6 @@ export function Dashboard() {
   const onDeleteHolding = useStableCallback(requestDeleteHolding);
   const onSetEoyPrice = useStableCallback(commitEoyPrice);
   const onApplyMargusPaths = useStableCallback(applyMargusEoyPaths);
-  const onClearForecastOverrides = useStableCallback(() =>
-    setConfirmResetForecast(true)
-  );
   const onAddHolding = useStableCallback(() => setModalOpen(true));
   const onEditCash = useStableCallback(() => {
     if (!canClassCash) return;
@@ -2589,7 +2579,6 @@ export function Dashboard() {
                   overrides={eoyOverrides}
                   onSetEoyPrice={onSetEoyPrice}
                   onApplyMargusPaths={onApplyMargusPaths}
-                  onClearOverrides={onClearForecastOverrides}
                   convictions={convictionMap}
                   labReady={labReady}
                 />
@@ -2666,8 +2655,6 @@ export function Dashboard() {
         setRenameTarget={setRenameTarget}
         confirmDelete={confirmDelete}
         setConfirmDelete={setConfirmDelete}
-        confirmResetForecast={confirmResetForecast}
-        setConfirmResetForecast={setConfirmResetForecast}
         snapshotsOpen={snapshotsOpen}
         setSnapshotsOpen={setSnapshotsOpen}
         cmdOpen={cmdOpen}
@@ -2706,7 +2693,6 @@ export function Dashboard() {
         deleteHoldingById={deleteHoldingById}
         handlePatch={handlePatch}
         applyAdvisorActions={applyAdvisorActions}
-        clearEoyOverrides={clearEoyOverrides}
         commitEoyPrice={commitEoyPrice}
         patchLab={patchLab}
         loadPortfolios={loadPortfolios}
