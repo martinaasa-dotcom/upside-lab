@@ -16,7 +16,7 @@ import {
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { quoteAsOfTitle } from "@/lib/market/quote-freshness";
 import { Button } from "@/components/ui/button";
-import { Card, MicroLabel, Segmented } from "@/components/ui/Panel";
+import { Card, MicroLabel, Panel, Segmented } from "@/components/ui/Panel";
 import {
   blockWheelChange,
   formatDecimal,
@@ -194,27 +194,11 @@ type SortKey =
   | "todayDollar";
 
 /**
- * Twelve numeric columns in one row, grouped so the eye gets four blocks
- * instead of a wall.
- *
- * A reader called this table busy and said the return was not visible in
- * it, and both halves were true of the old order: `ROI %` sat between
- * `Price` and `Cost`, which is to say between the two numbers that produce
- * it, with its partner `ROI $` three columns further right. Nothing marked
- * where one idea ended and the next began, so twelve columns read as twelve
- * unrelated figures and the one the reader came for was in the middle of
- * them.
- *
- * The order is now the question a person actually asks, left to right: what
- * you hold, what it cost and what it is worth, what that made you, what
- * happened today. `groupEdge` puts a hairline at each seam, and the two
- * return columns finally sit together.
+ * Twelve numeric columns in one row. Left to right: what you hold, what it
+ * cost and what it is worth, what that made you, what happened today.
+ * Vertical column rules are not used; Covered calls is the same table
+ * language, row hairlines only.
  */
-const GROUP_EDGE = "border-l border-border";
-
-/** Labels that open a group, so header, rows and footer cannot disagree. */
-const GROUP_STARTS = new Set(["Cost", "ROI %", "90d"]);
-
 const COLUMNS: { label: string; key?: SortKey; explain?: string }[] = [
   { label: "Ticker", key: "ticker" },
   {
@@ -471,7 +455,7 @@ export const PortfolioTable = memo(function PortfolioTable({
   );
 
   return (
-    <section className="overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
+    <Panel padded={false} className="overflow-hidden">
       {holdings.length === 0 && onImportScreenshot ? (
         <input {...screenshotPickerInputProps(screenshot)} />
       ) : null}
@@ -727,10 +711,7 @@ export const PortfolioTable = memo(function PortfolioTable({
               {COLUMNS.map((col, i) => (
                 <div
                   key={col.label}
-                  className={cn(
-                    i === 0 ? tickerCell : cellBase,
-                    GROUP_STARTS.has(col.label) && GROUP_EDGE
-                  )}
+                  className={i === 0 ? tickerCell : cellBase}
                 >
                   {col.key ? (
                     <button
@@ -805,13 +786,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                 >
                   {currency(listed.nativeSpot, listed.digits, listed.code)}
                 </div>
-                <div
-                  className={cn(
-                    cellBase,
-                    GROUP_EDGE,
-                    "tabular-nums text-muted-foreground"
-                  )}
-                >
+                <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
                   {money(h.buyValue, 0)}
                 </div>
                 <div className={cn(cellBase, "tabular-nums text-foreground")}>
@@ -820,7 +795,6 @@ export const PortfolioTable = memo(function PortfolioTable({
                 <div
                   className={cn(
                     cellBase,
-                    GROUP_EDGE,
                     "tabular-nums font-medium",
                     signedTone(h.roiPct)
                   )}
@@ -836,7 +810,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                 >
                   {money(h.roiDollar, 0)}
                 </div>
-                <div className={cn(cellBase, GROUP_EDGE)}>
+                <div className={cellBase}>
                   <Sparkline
                     points={h.quote?.sparkline ?? []}
                     width={56}
@@ -893,13 +867,7 @@ export const PortfolioTable = memo(function PortfolioTable({
               <div className={cellBase} />
               <div className={cellBase} />
               <div className={cellBase} />
-              <div
-                className={cn(
-                  cellBase,
-                  GROUP_EDGE,
-                  "tabular-nums text-muted-foreground"
-                )}
-              >
+              <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
                 {money(totals.buyValue, 0)}
               </div>
               <div className={cn(cellBase, "tabular-nums text-foreground")}>
@@ -908,7 +876,6 @@ export const PortfolioTable = memo(function PortfolioTable({
               <div
                 className={cn(
                   cellBase,
-                  GROUP_EDGE,
                   "tabular-nums",
                   signedTone(totals.roiPct)
                 )}
@@ -924,7 +891,7 @@ export const PortfolioTable = memo(function PortfolioTable({
               >
                 {money(totals.roiDollar, 0)}
               </div>
-              <div className={cn(cellBase, GROUP_EDGE)} />
+              <div className={cellBase} />
               <div
                 className={cn(
                   cellBase,
@@ -948,6 +915,6 @@ export const PortfolioTable = memo(function PortfolioTable({
           </FluidTable>
         )}
       </div>
-    </section>
+    </Panel>
   );
 });

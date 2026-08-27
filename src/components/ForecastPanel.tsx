@@ -8,8 +8,10 @@ import {
   InsightText,
   MicroLabel,
   NESTED_PAD,
+  Panel,
   PanelHeader,
   Reading,
+  SCORE_CELL,
   Segmented,
   SPLIT_COPY,
   SPLIT_ROW,
@@ -30,13 +32,6 @@ import {
   signedTone,
 } from "@/lib/format";
 import { compactAxis, niceScale } from "@/components/mobile/BookNavChart";
-import {
-  sharedSparkBounds,
-  sparkGeometry,
-  sparkSeries,
-  type SparkBounds,
-  type SparkBox,
-} from "@/lib/forecast-spark";
 import { ChartXRail, ChartYAxis } from "@/components/ui/ChartAxis";
 import type { ForecastModel, ForecastRow, ForecastYear } from "@/lib/forecast";
 import {
@@ -112,16 +107,6 @@ function calibratedPaths(plan: ForecastPlan, model: ForecastModel) {
 function yearLabel(year: number) {
   return `End ${year}`;
 }
-
-/** One box for every card spark, so the shared axis lands on shared pixels. */
-const SPARK_BOX: SparkBox = {
-  width: 240,
-  height: 56,
-  padL: 2,
-  padR: 8,
-  padT: 6,
-  padB: 6,
-};
 
 /** Current calendar year is still an EOY column (Dec 31), not "now". */
 function isCurrentYear(year: number) {
@@ -564,85 +549,6 @@ function SheetPath({
 }
 
 /**
- * A holding's whole path in one glance: today on the left, the last
- * forecast year on the right, and a dashed rule at today so above and below
- * read without a number being involved.
- *
- * Deliberately not `SheetPathChart`. That one belongs to the portfolio and
- * carries an axis, a drag readout and 224px of height; five of them stacked
- * would be taller than the grid this replaced. This draws the shape and
- * nothing else, so a card stays short enough that three fit on a phone and
- * two holdings can finally be compared without scrolling between them.
- *
- * The scale is not this card's own. It arrives from the grid, and the
- * reason is in `forecast-spark.ts`: a card scaled to itself drew the same
- * rise whether the path ended up 84% or 257%, so every holding looked
- * identical and the grid promised something it had not worked out.
- */
-function TickerSpark({
-  series,
-  bounds,
-}: {
-  series: number[];
-  bounds: SparkBounds;
-}) {
-  const gid = useId().replace(/:/g, "");
-  const geometry = useMemo(
-    () => sparkGeometry(series, bounds, SPARK_BOX),
-    [series, bounds]
-  );
-
-  if (!geometry) return null;
-  const { width, height, padL, padR } = SPARK_BOX;
-  // The dot is HTML, not a `<circle>`, because the viewBox is stretched to
-  // the card width and a circle under a non-uniform scale is an egg.
-  const { line, area, baseY, dotLeft, dotTop } = geometry;
-
-  return (
-    <div className="relative mt-4">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        preserveAspectRatio="none"
-        className="h-14 w-full"
-        aria-hidden
-      >
-        <defs>
-          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={PALETTE.brand} stopOpacity="0.22" />
-            <stop offset="1" stopColor={PALETTE.brand} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <line
-          x1={padL}
-          x2={width - padR}
-          y1={baseY}
-          y2={baseY}
-          stroke="currentColor"
-          strokeOpacity={0.25}
-          strokeDasharray="3 3"
-          vectorEffect="non-scaling-stroke"
-        />
-        <polygon points={area} fill={`url(#${gid})`} />
-        <polyline
-          fill="none"
-          stroke={PALETTE.brand}
-          strokeWidth={2}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          vectorEffect="non-scaling-stroke"
-          points={line}
-        />
-      </svg>
-      <span
-        aria-hidden
-        className="pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-background"
-        style={{ left: `${dotLeft}%`, top: `${dotTop}%` }}
-      />
-    </div>
-  );
-}
-
-/**
  * Years read down the card, one per row, in the order they happen.
  *
  * The grid this replaced was two columns, so the sequence ran 2026 top
@@ -680,34 +586,24 @@ function YearRailRow({
 }
 
 /**
- * One holding: the shape first, the numbers on a tap. Same card at every
- * width, so a laptop and a phone are reading the same forecast.
- *
- * The old layout was a two-column grid of five editable prices with
- * today's price sitting in it as a sixth peer, and it dropped the last
- * forecast year so the columns would divide evenly. The percentage in
- * its own corner was measured to that dropped year, so the card could
- * never add up to its own headline. Here the path runs to the last year,
- * the summary names it, and the rail lists every one of them.
+ * One holding: today, the last forecast year, and why the path goes
+ * there. Same card at every width. The portfolio chart above already
+ * shows the shape; a second gold line per name added nothing a person
+ * could not read from these two prices, and it crowded out the reason.
  */
 function ForecastCard({
   row,
   years,
   mixedListings,
-  bounds,
   why,
   onSetEoyPrice,
 }: {
   row: ForecastRow;
   years: readonly ForecastYear[];
   mixedListings: boolean;
-  /** The grid's shared axis. Never this card's own. */
-  bounds: SparkBounds;
   /**
    * Why this path, in Margus's own sentence or the owner's written reason
-   * for holding it. On the card rather than in a list under the grid: a
-   * number with its reasoning one scroll away is a number nobody trusts,
-   * and a reader told us as much about exactly this screen.
+   * for holding it. On the card rather than in a list under the grid.
    */
   why?: string;
   onSetEoyPrice: (ticker: string, year: ForecastYear, price: number) => void;
@@ -715,91 +611,74 @@ function ForecastCard({
   const [open, setOpen] = useState(false);
   const railId = useId();
   const lastYear = years[years.length - 1]!;
-  const series = useMemo(
-    () =>
-      sparkSeries([row.currentPrice, ...years.map((y) => row.eoyPrices[y])]),
-    [row, years]
-  );
   const gainAt = (price: number) =>
     row.currentPrice > 0 ? (price - row.currentPrice) / row.currentPrice : null;
 
   return (
-    <Card>
+    <div className={SCORE_CELL}>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-base font-semibold text-foreground">
+            <TickerSymbol ticker={row.ticker} showCurrency={mixedListings} />
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {row.shares.toLocaleString("en-US")} shares
+            {!row.hasTargets && " - Margus is working on it"}
+          </p>
+        </div>
+        <p
+          className={cn(
+            "shrink-0 text-sm font-medium tabular-nums",
+            row.gainPct != null
+              ? signedTone(row.gainPct)
+              : "text-muted-foreground"
+          )}
+        >
+          {row.gainPct != null ? percent(row.gainPct) : NO_VALUE}
+        </p>
+      </div>
+
+      <div className="mt-4 flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <MicroLabel>Now</MicroLabel>
+          <p className="mt-1 break-words font-mono text-base font-semibold tabular-nums text-foreground">
+            {currency(row.currentPrice)}
+          </p>
+        </div>
+        <div className="min-w-0 text-right">
+          <MicroLabel>{yearLabel(lastYear)}</MicroLabel>
+          <p className="mt-1 break-words font-mono text-base font-semibold tabular-nums text-foreground">
+            {currency(row.eoyPrices[lastYear])}
+          </p>
+        </div>
+      </div>
+
+      {why ? (
+        <p className="mt-4 text-sm leading-relaxed text-foreground">
+          <InsightText text={why} />
+        </p>
+      ) : row.hasTargets ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          No reason written for this one yet.
+        </p>
+      ) : (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Margus is still writing why this path looks like this.
+        </p>
+      )}
+
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={railId}
-        className="block w-full text-left outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/50"
+        className="mt-4 flex w-full items-center justify-center gap-1 text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/50"
       >
-        <span className="flex items-baseline justify-between gap-2">
-          <span className="block">
-            <span className="block text-base font-semibold text-foreground">
-              <TickerSymbol ticker={row.ticker} showCurrency={mixedListings} />
-            </span>
-            <span className="mt-1 block text-sm text-muted-foreground">
-              {row.shares.toLocaleString("en-US")} shares
-              {!row.hasTargets && " - Margus is working on it"}
-            </span>
-          </span>
-          <span
-            className={cn(
-              "text-sm font-medium tabular-nums",
-              row.gainPct != null
-                ? signedTone(row.gainPct)
-                : "text-muted-foreground"
-            )}
-          >
-            {row.gainPct != null ? percent(row.gainPct) : NO_VALUE}
-          </span>
-        </span>
-
-        {series && <TickerSpark series={series} bounds={bounds} />}
-
-        {!open && (
-          <span className="mt-3 flex items-end justify-between gap-3">
-            <span className="block">
-              <MicroLabel>Now</MicroLabel>
-              <span className="mt-1 block text-base font-semibold tabular-nums text-foreground">
-                {currency(row.currentPrice)}
-              </span>
-            </span>
-            <span className="block text-right">
-              <MicroLabel>{yearLabel(lastYear)}</MicroLabel>
-              <span className="mt-1 block text-base font-semibold tabular-nums text-foreground">
-                {currency(row.eoyPrices[lastYear])}
-              </span>
-            </span>
-          </span>
-        )}
-
-        {/*
-         * Clamped while the card is shut and whole once it is open, so the
-         * one control the card already has does both jobs. A reason cut off
-         * with no way to finish it is the same complaint as no reason.
-         */}
-        {why ? (
-          <span
-            className={cn(
-              "mt-3 block text-sm leading-relaxed text-muted-foreground",
-              !open && "line-clamp-2"
-            )}
-          >
-            <InsightText text={why} />
-          </span>
-        ) : row.hasTargets ? (
-          <span className="mt-3 block text-sm text-muted-foreground">
-            No reason written for this one yet.
-          </span>
-        ) : null}
-
-        <span className="mt-3 flex items-center justify-center gap-1 text-sm text-muted-foreground">
-          {open ? "Show less" : "Show every year"}
-          <ChevronDown
-            aria-hidden
-            className={cn("size-4 transition-transform", open && "rotate-180")}
-          />
-        </span>
+        {open ? "Show less" : "Show every year"}
+        <ChevronDown
+          aria-hidden
+          className={cn("size-4 transition-transform", open && "rotate-180")}
+        />
       </button>
 
       {open && (
@@ -841,7 +720,7 @@ function ForecastCard({
           </YearRail>
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -1196,13 +1075,10 @@ export const ForecastPanel = memo(function ForecastPanel({
       : null;
 
   /**
-   * Why each path, keyed by ticker, for the card that path is drawn on.
+   * Why each path, keyed by ticker, for the card that path belongs to.
    *
    * This used to be its own labelled list under the grid, which meant the
-   * reasoning sat a scroll away from the chart making the claim.
-   * A reader looked at the grid, saw five hockey sticks and no reasons, and
-   * stopped trusting the screen. Same sentences, moved to where the number
-   * is.
+   * reasoning sat a scroll away from the number making the claim.
    */
   const whyByTicker = useMemo(() => {
     const map = new Map<string, string>();
@@ -1221,22 +1097,6 @@ export const ForecastPanel = memo(function ForecastPanel({
     }
     return map;
   }, [plan, convictions]);
-
-  /**
-   * One axis for every card in the grid. See `forecast-spark.ts`: scaled to
-   * itself, a card drew the same rise at +84% as at +257%.
-   */
-  const sparkBounds = useMemo(
-    () =>
-      sharedSparkBounds(
-        model.rows
-          .map((r) =>
-            sparkSeries([r.currentPrice, ...yearCols.map((y) => r.eoyPrices[y])])
-          )
-          .filter((s): s is number[] => s !== null)
-      ),
-    [model.rows, yearCols]
-  );
 
   const statusHint = useMemo(() => {
     if (!labReady || !planHydrated || model.rows.length === 0 || busy) return null;
@@ -1260,11 +1120,11 @@ export const ForecastPanel = memo(function ForecastPanel({
   }, [labReady, planHydrated, model.rows, plan, fullyCovered, busy, cachedTickers, retryTick]);
 
   return (
-    <section className="overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
+    <Panel padded={false} className="overflow-hidden">
       <header className="border-b border-border p-6">
         <PanelHeader
           title="Forecast"
-          subtitle={`A yearly price for each holding, to ${yearCols[yearCols.length - 1] ?? ""}. Every card is drawn on the same scale, so a steady name looks steady next to a fast one. ${FORECAST_DISCLAIMER}`}
+          subtitle={`A yearly price for each holding, to ${yearCols[yearCols.length - 1] ?? ""}. The chart is the whole portfolio. Each card is why that name is modeled to go from today to there. ${FORECAST_DISCLAIMER}`}
           actions={
             <>
               {overrideCount > 0 && (
@@ -1330,7 +1190,6 @@ export const ForecastPanel = memo(function ForecastPanel({
                 row={r}
                 years={yearCols}
                 mixedListings={mixedListings}
-                bounds={sparkBounds}
                 why={whyByTicker.get(r.ticker.toUpperCase())}
                 onSetEoyPrice={onSetEoyPrice}
               />
@@ -1548,6 +1407,6 @@ export const ForecastPanel = memo(function ForecastPanel({
           </div>
         )}
       </div>
-    </section>
+    </Panel>
   );
 });

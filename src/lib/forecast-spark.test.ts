@@ -116,24 +116,16 @@ describe("forecast sparks share one axis", () => {
   });
 });
 
-describe("the panel does not scale a card to itself again", () => {
+describe("the panel puts the reason on the holding, not a mini chart", () => {
   const PANEL = readFileSync(
     join(process.cwd(), "src/components/ForecastPanel.tsx"),
     "utf8"
   );
 
-  it("takes its bounds from the whole grid", () => {
-    expect(PANEL).toMatch(/sharedSparkBounds/);
-    expect(PANEL).toMatch(/bounds=\{/);
-  });
-
-  it("keeps no per-card min and max", () => {
-    const spark = PANEL.slice(
-      PANEL.indexOf("function TickerSpark"),
-      PANEL.indexOf("function YearRail")
-    );
-    expect(spark).not.toMatch(/Math\.min\(\.\.\./);
-    expect(spark).not.toMatch(/Math\.max\(\.\.\./);
+  it("keeps the portfolio chart and drops the per-ticker spark", () => {
+    expect(PANEL).toMatch(/SheetPathChart/);
+    expect(PANEL).not.toMatch(/TickerSpark/);
+    expect(PANEL).not.toMatch(/sharedSparkBounds/);
   });
 
   it("puts the reason on the card, not only in a list below the grid", () => {
