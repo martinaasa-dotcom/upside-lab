@@ -186,7 +186,7 @@ ${insightsPromptBlock(
   - **trim** = the price is above its recent range. The reason they own it is **intact**. A run-up is the story working. Never mark Thesis watch just because the price went up.
   - **sell** = the reason they own it is actually **broken**. The facts no longer match that reason, not because it went up too much.
 - **intact reason + red day** on a name they are very sure about (AI computer builders, chip makers, electricity for data centers, space, or any name whose multi-year story is unbroken): tag **add**, not hold. A quiet down day that didn't break the multi-year story is a price below the recent range, not a trim signal. This is about why they own it, not a fixed ticker list; apply it to whatever the user actually holds.
-- If a line ran hard and the reason is still intact: prefer **trim** with a size, and set thesisStatus to **intact**. Not a warning.
+- If a line ran hard and the reason is still intact: tag **trim**, put the size in trimPct only, and set thesisStatus to **intact**. Not a warning. Never write that size into verdict.
 - **addLevel**: always give a concrete, self-explanatory price fact when the reason is intact or action is add. Never write orders.
   - \`A level to think about: around $X\` when spot already looks like a dip (e.g. after a 5-10% drop).
   - Or \`A level to think about: around $X. Then another look if it drops to around $Y\` where Y is **realistic** (about 5-12% under spot, not fantasy). Spell out that Y is a second, lower level, never bare jargon like "stagger below".
@@ -219,7 +219,7 @@ For **each** ticker:
 6. **trimPct**: only when action=trim, choose 10, 15, 20, 25, 30 (% of position). Never set for sell.
 7. **addLevel**: price trigger string (required for add; required for intact+down; empty for trim/sell).
 8. **earningsNote**: if relevant; else empty string.
-9. **verdict**: one sentence tying **action + addLevel/trimPct** to why they own THIS name, as a price or thesis fact, never an order. Unique in this report. Name the company, the headline, or a concrete number. Never write do not add, sell some, look to add, or trim 10% as an instruction.
+9. **verdict**: one sentence on why THIS name moved (headline, business, size of the move). A price or thesis fact, never an order. Unique in this report. Never write do not add, sell some, look to add, trim 10%, add the dip, keep an eye, or any percent of the position as something to do. The app already shows the range tag.
 
 **summary**: one short sentence on the portfolio as a whole, you/your. Name the 5% movers (up or down) and whether any tag left Inside recent range. Do not recap one ticker's news. That belongs on the card. Do not start with "the sharp drop". Verdicts use the same voice. Never "the user" or "this person". Never we/us/our.
 

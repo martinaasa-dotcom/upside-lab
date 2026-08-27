@@ -38,7 +38,7 @@ export const pulseReportSchema = z.object({
       action: z
         .enum(["add", "hold", "trim", "sell", "watch"])
         .describe(
-          "Internal tag, never an order. add = price down, intact reason. hold = in recent range, reason intact or watch, never broken. trim = price ran, intact reason. sell = the reason is broken. watch = picture unclear. Verdict and addLevel must describe price or thesis facts, never orders like Add now or Trim about 10%."
+          "Internal tag, never an order. add = price down, intact reason. hold = in recent range, reason intact or watch, never broken. trim = price ran, intact reason. sell = the reason is broken. watch = picture unclear. Verdict and addLevel must describe price or thesis facts, never orders like Add now, Add the dip, or Trim 15%."
         ),
       trimPct: z
         .number()
@@ -61,7 +61,7 @@ export const pulseReportSchema = z.object({
       verdict: z
         .string()
         .describe(
-          "One sentence tying action + addLevel/trimPct to why they own THIS name, as a price or thesis fact, never an order. Must not match any other ticker's verdict in this report. Name the company, the headline, or a concrete number. Never reuse a stock phrase like 'looks like a chase, not a new story' or 'this is a dip, not a break' on a second name. Never write do not add, sell some, look to add, or trim 10% as an instruction."
+          "One sentence on why THIS name moved (headline, business, size of the move). A price or thesis fact, never an order. Must not match any other ticker's verdict in this report. Name the company, the headline, or a concrete number. Never reuse a stock phrase like 'looks like a chase, not a new story' or 'this is a dip, not a break' on a second name. Never write do not add, sell some, look to add, trim 10%, add the dip, or any percent of the position as something to do."
         ),
       thesisBreak: z
         .string()

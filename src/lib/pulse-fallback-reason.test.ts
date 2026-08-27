@@ -17,7 +17,14 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { buildFallbackPulseCheck, type PulseCandidate } from "@/lib/thesis-pulse";
+import {
+  buildFallbackPulseCheck,
+  isMoveRestatement,
+  pulseScanLine,
+  shouldAutoPulseTicker,
+  type PulseCandidate,
+  type PulseCheck,
+} from "@/lib/thesis-pulse";
 
 function candidate(over: Partial<PulseCandidate> = {}): PulseCandidate {
   return {
@@ -82,5 +89,48 @@ describe("buildFallbackPulseCheck", () => {
       expect(check.verdict.trim(), `${action} branch`).not.toBe("");
       expect(check.situation.length, `${action} branch`).toBeGreaterThan(0);
     }
+  });
+});
+
+const avgoStale: PulseCheck = {
+  ticker: "AVGO",
+  situation: ["Down more than a typical day."],
+  moveReason: "Today move is -5.8%.",
+  thesisStatus: "intact",
+  earningsNote: "",
+  action: "add",
+  trimPct: null,
+  addLevel: "around $120",
+  verdict: "",
+  thesisBreak: "",
+};
+
+describe("stale move restatement", () => {
+  it("recognises the old fallback why", () => {
+    expect(isMoveRestatement("Today move is -5.8%.")).toBe(true);
+    expect(isMoveRestatement("Today move is +0.4%.")).toBe(true);
+    expect(isMoveRestatement("Down more than a typical day. The stated reason is a separate fact.")).toBe(false);
+  });
+
+  it("re-pulses a quiet name whose why is that leftover sentence", () => {
+    expect(
+      shouldAutoPulseTicker({
+        needsAttention: false,
+        cachedAt: "2026-01-01T00:00:00Z",
+        check: avgoStale,
+      })
+    ).toBe(true);
+  });
+
+  it("does not print the leftover percent next to a live today column", () => {
+    const line = pulseScanLine({
+      ticker: "AVGO",
+      effectivePct: 0.018,
+      moveLabel: "Today",
+      check: avgoStale,
+    });
+    expect(line).not.toMatch(/Today move is/i);
+    expect(line).not.toMatch(/-5\.8/);
+    expect(line).toMatch(/below its recent range/i);
   });
 });

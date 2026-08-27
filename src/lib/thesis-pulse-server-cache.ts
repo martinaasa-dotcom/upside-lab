@@ -5,6 +5,7 @@
 
 import {
   isEmptyPulseCheck,
+  isMoveRestatement,
   type PulseCheck,
   type PulseHeadline,
 } from "@/lib/thesis-pulse";
@@ -69,7 +70,7 @@ export function getCachedPulseCheck(
     return null;
   }
 
-  if (isEmptyPulseCheck(entry.check)) {
+  if (isEmptyPulseCheck(entry.check) || isMoveRestatement(entry.check.moveReason) || isMoveRestatement(entry.check.verdict)) {
     PULSE_SERVER_CACHE.delete(key);
     return null;
   }
@@ -87,7 +88,7 @@ export function setCachedPulseCheck(
   headlines: PulseHeadline[],
   effectivePct: number | null
 ) {
-  if (isEmptyPulseCheck(check)) return;
+  if (isEmptyPulseCheck(check) || isMoveRestatement(check.moveReason) || isMoveRestatement(check.verdict)) return;
   prunePulseCacheIfNeeded();
   PULSE_SERVER_CACHE.set(key, {
     check,

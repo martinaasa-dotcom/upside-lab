@@ -413,8 +413,9 @@ export function isPulseCacheFresh(
 
 /**
  * Auto Pulse may call the model only for a name that was never checked,
- * or a name that moved 5% or more (up or down) whose last check is stale.
- * Quiet names keep the last read until the person hits Check again.
+ * a 5% mover whose last check is stale, or a name whose cached Why is a
+ * leftover "Today move is -5.8%" restatement. Quiet names with a real
+ * reason keep the last read until the person hits Check again.
  */
 /** True when a cached Pulse row has no readable Margus body (bad save or
  * partial provider response). Those must not block auto-refresh or chat. */
@@ -434,12 +435,32 @@ export function isEmptyPulseCheck(check: PulseCheck | null | undefined): boolean
   );
 }
 
+/**
+ * Old fallback Why: "Today move is -5.8%." Cached per ticker with no
+ * expiry, so a quiet name keeps that sentence next to a live Today
+ * column that has since flipped sign. A restatement of the move is not
+ * a reason, and it must not block a new read.
+ */
+export function isMoveRestatement(text: string | null | undefined): boolean {
+  const s = (text ?? "").trim();
+  if (!s) return false;
+  return /\b(?:today|pre(?:-market)?|post(?:-market)?|after-hours|extended)\s+move is\b/i.test(
+    s
+  );
+}
+
 export function shouldAutoPulseTicker(input: {
   needsAttention: boolean;
   cachedAt?: string;
   check?: PulseCheck | null;
 }): boolean {
   if (isEmptyPulseCheck(input.check)) return true;
+  if (
+    isMoveRestatement(input.check?.moveReason) ||
+    isMoveRestatement(input.check?.verdict)
+  ) {
+    return true;
+  }
   if (!input.cachedAt) return true;
   if (!input.needsAttention) return false;
   return !isPulseCacheFresh({ cachedAt: input.cachedAt });
@@ -696,25 +717,15 @@ function composeDistinctScanLine(row: {
       ? `$${row.price.toFixed(2)}`
       : "";
   const lines: string[] = [];
+  const fact = pulseSuggestion(check ?? {}).replace(/\.+$/, "");
 
   if (headline) {
     lines.push(taggedScanLine(ticker, `${move} ${when} after ${headline}`));
   }
 
-  if (action === "trim") {
-    lines.push(
-      taggedScanLine(
-        ticker,
-        `${move} ${when}. ${pulseSuggestion(check ?? {}).replace(/\.+$/, "")}`
-      )
-    );
-  } else if (action === "add") {
-    lines.push(
-      taggedScanLine(
-        ticker,
-        `${move} ${when}. ${pulseSuggestion(check ?? {}).replace(/\.+$/, "")}`
-      )
-    );
+  if (action === "trim" || action === "add" || action === "watch") {
+    if (fact) lines.push(taggedScanLine(ticker, fact));
+    lines.push(taggedScanLine(ticker, `${move} ${when}. ${fact}`));
   } else if (action === "sell") {
     const brk = check?.thesisBreak?.trim();
     if (brk) {
@@ -725,19 +736,8 @@ function composeDistinctScanLine(row: {
         )
       );
     }
-    lines.push(
-      taggedScanLine(
-        ticker,
-        `${move} ${when}. ${pulseSuggestion(check ?? {}).replace(/\.+$/, "")}`
-      )
-    );
-  } else if (action === "watch") {
-    lines.push(
-      taggedScanLine(
-        ticker,
-        `${move} ${when}. ${pulseSuggestion(check ?? {}).replace(/\.+$/, "")}`
-      )
-    );
+    if (fact) lines.push(taggedScanLine(ticker, fact));
+    lines.push(taggedScanLine(ticker, `${move} ${when}. ${fact}`));
   }
 
   if (price) {
@@ -780,7 +780,7 @@ function pulseScanLineOptions(input: {
     trimRepeat = false
   ) => {
     const text = body?.trim();
-    if (!text || trimRepeat) return;
+    if (!text || trimRepeat || isMoveRestatement(text)) return;
     const line = taggedScanLine(ticker, text);
     if (isStockScanPhrase(text, ticker)) stock.push(line);
     else bucket.push(line);
@@ -870,7 +870,13 @@ export function verdictRepeatsSuggestion(
   const norm = (s: string) => s.replace(/[^a-z0-9]+/g, " ").trim();
   const nv = norm(v);
   const nl = norm(line);
-  if (nv === nl || nv.includes(nl) || nl.includes(nv)) return true;
+  if (!nv || !nl) return false;
+  if (nv === nl) return true;
+  if (nl.includes(nv)) return true;
+  if (nv.includes(nl)) {
+    const leftover = nv.replace(nl, " ").replace(/\s+/g, " ").trim();
+    if (leftover.length < 12) return true;
+  }
   return verdictRepeatsTrim(verdict, check.trimPct);
 }
 

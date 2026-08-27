@@ -56,6 +56,7 @@ import {
   sortPulseCandidates,
   statusLabel,
   verdictRepeatsTrim,
+  verdictRepeatsSuggestion,
   stripTrailingScanStop,
   buildFallbackPulseCheck,
   buildPulseScan,
@@ -1313,6 +1314,20 @@ run("trim verdict that restates the size line is dropped", () => {
     ),
     true
   );
+  assert.equal(
+    verdictRepeatsSuggestion("Price is above its recent range.", {
+      action: "trim",
+      trimPct: 15,
+    }),
+    true
+  );
+  assert.equal(
+    verdictRepeatsSuggestion(
+      "Price is above its recent range after its 6.3% jump tied to Burry.",
+      { action: "trim", trimPct: 15 }
+    ),
+    false
+  );
 });
 
 run("trim on a run is Thesis intact", () => {
@@ -1472,6 +1487,33 @@ run("humanize kills leftover market slang", () => {
   assert.doesNotMatch(
     humanizeMargusText("No trades before the open today."),
     /no trades/i
+  );
+  const trimWhy = humanizeMargusText(
+    "Trim 15% on NBIS after its 6.3% jump tied to Burry's NVDA call concerns and its AI GPU revenue."
+  );
+  assert.match(trimWhy, /above its recent range/i);
+  assert.match(trimWhy, /Burry/i);
+  assert.doesNotMatch(trimWhy, /\btrim(?:ming)?\s+\d/i);
+  const addWhy = humanizeMargusText(
+    "Add the dip on DRAM near $52, then revisit if the price drops to $48, because AI-driven memory demand is intact."
+  );
+  assert.match(addWhy, /below its recent range/i);
+  assert.match(addWhy, /\$52/);
+  assert.match(addWhy, /AI-driven memory/i);
+  assert.doesNotMatch(addWhy, /\badd the dip\b/i);
+  assert.doesNotMatch(addWhy, /\brevisit if\b/i);
+  const watchWhy = humanizeMargusText(
+    "Reddit's dip is a warning sign; keep an eye on user growth and ad revenue"
+  );
+  assert.match(watchWhy, /user growth/i);
+  assert.doesNotMatch(watchWhy, /keep an eye/i);
+  assert.match(
+    humanizeMargusText("Add an AI power sleeve next to the compute names."),
+    /electricity-for-AI names/i
+  );
+  assert.doesNotMatch(
+    humanizeMargusText("Add an AI power sleeve next to the compute names."),
+    /below its recent range/i
   );
   assert.match(
     pulseSuggestion({ action: "trim", trimPct: 20 }),
@@ -3999,6 +4041,41 @@ run("Pulse does not hourly-refresh the model", () => {
   );
   assert.equal(shouldAutoPulseTicker({ needsAttention: true }), true);
   assert.equal(shouldAutoPulseTicker({ needsAttention: false }), true);
+  assert.equal(
+    shouldAutoPulseTicker({
+      needsAttention: false,
+      cachedAt: "2026-01-01T00:00:00Z",
+      check: {
+        ticker: "AVGO",
+        situation: ["Down more than a typical day."],
+        moveReason: "Today move is -5.8%.",
+        thesisStatus: "intact",
+        earningsNote: "",
+        action: "add",
+        addLevel: "around $120",
+        verdict: "",
+      },
+    }),
+    true
+  );
+  assert.doesNotMatch(
+    pulseScanLine({
+      ticker: "AVGO",
+      effectivePct: 0.018,
+      moveLabel: "Today",
+      check: {
+        ticker: "AVGO",
+        situation: ["Down more than a typical day."],
+        moveReason: "Today move is -5.8%.",
+        thesisStatus: "intact",
+        earningsNote: "",
+        action: "add",
+        addLevel: "around $120",
+        verdict: "",
+      },
+    }),
+    /Today move is|-5\.8/
+  );
 });
 
 run("Pulse matches $AAPL to AAPL and keeps trimPct required for Groq", () => {

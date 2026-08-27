@@ -189,6 +189,54 @@ function firstDollar(text: string | null | undefined): string | null {
   return m ? m[0].replace(/\s+/g, "") : null;
 }
 
+/** Cashtag or bare symbol the model stuck onto an order. */
+const ORDER_SYM = "(?:\\$[A-Za-z]{1,6}|[A-Z]{2,6})";
+/** Rest of a sentence, including 5.2% (a `.` inside a figure is not a stop). */
+const SENTENCE_REST = "([^.!?]*(?:\\.\\d+[^.!?]*)*[.!]?)";
+
+/**
+ * Terms §2: not a recommendation to buy, sell, or hold. An order prefix
+ * is dropped. The news clause after it (after X, because Y, near $N) stays,
+ * so Why still says why the range tag fired.
+ */
+function joinFact(fact: string, rest: string): string {
+  let clause = rest
+    .replace(new RegExp(`^\\s*(?:on|of)\\s+${ORDER_SYM}\\b\\s*`, "i"), "")
+    .replace(/^\s*(?:of this (?:holding|position)|of the position)\s*/i, "")
+    .replace(/^\s*(?:into (?:this|the) (?:strength|run(?:-up)?))\s*/i, "")
+    .replace(
+      /,?\s*then\s+(?:revisit|look again|check again|add more|buy more)(?:\s+if)?\b[^,.]*?(?=[,.]|\bbecause\b|\bas\b|$)/gi,
+      ""
+    )
+    .replace(/,?\s*keeping the rest\b[^,]*/gi, "")
+    .replace(/,?\s*keeping the[^,.]*?upside\b/gi, "")
+    .replace(/^[\s,;:.-]+/, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+  const base = fact.replace(/\.+$/, "");
+  const dollar = firstDollar(clause);
+  if (dollar && base.includes(dollar)) {
+    clause = clause
+      .replace(
+        /^(near|around|at)\s*\$\s*[\d,]+(?:\.\d{1,2})?\s*,?\s*/i,
+        ""
+      )
+      .trim();
+  }
+  if (!clause) return `${base}.`;
+  if (
+    /^(after|because|tied to|as|following|from|on the back of|keeping)\b/i.test(
+      clause
+    )
+  ) {
+    return `${base} ${clause}`;
+  }
+  if (/^(near|around|at)\s*\$/.test(clause)) {
+    return `${base}, ${clause}`;
+  }
+  return `${base}. ${clause.charAt(0).toUpperCase()}${clause.slice(1)}`;
+}
+
 /** One short Pulse observation. A price or thesis fact, never an order. */
 export function pulseSuggestion(input: {
   action?: string | null;
@@ -262,12 +310,36 @@ function scrubTradeOrders(text: string): string {
     () => pulseSuggestion({ action: "trim" })
   );
   s = s.replace(
-    /\bTrim about (\d+)\s*%(?:\s+into (?:this|the) (?:strength|run(?:-up)?))?\.?/gi,
-    () => pulseSuggestion({ action: "trim" })
+    new RegExp(
+      `\\b(?:Trim(?:ming)?|Take off)\\s+(?:about\\s+)?\\d{1,2}(?:\\.\\d+)?\\s*%(?:\\s+(?:of|on)\\s+(?:this\\s+(?:holding|position)|the\\s+position|${ORDER_SYM}))?${SENTENCE_REST}`,
+      "gi"
+    ),
+    (_full, rest: string) =>
+      joinFact(pulseSuggestion({ action: "trim" }), rest ?? "")
   );
   s = s.replace(
     /\bOne check:\s*selling a little into the run\.?/gi,
     pulseSuggestion({ action: "trim" })
+  );
+  s = s.replace(
+    new RegExp(
+      `\\bTake (?:a little|some) off\\b${SENTENCE_REST}?`,
+      "gi"
+    ),
+    (_full, rest: string) =>
+      joinFact(pulseSuggestion({ action: "trim" }), rest ?? "")
+  );
+  s = s.replace(
+    /\s+with a \d{1,2}% modeled trim (?:level|fact)\b/gi,
+    ""
+  );
+  s = s.replace(
+    new RegExp(
+      `\\bA \\d{1,2}% modeled trim (?:level|fact) fits\\s+(?:${ORDER_SYM}\\s+)?${SENTENCE_REST}`,
+      "gi"
+    ),
+    (_full, rest: string) =>
+      joinFact(pulseSuggestion({ action: "trim" }), rest ?? "")
   );
   s = s.replace(
     /\bAdd now\s*~?\s*(\$\s*[\d,]+(?:\.\d{1,2})?)/gi,
@@ -275,6 +347,33 @@ function scrubTradeOrders(text: string): string {
       pulseSuggestion({ action: "add", addLevel: price.replace(/\s+/g, "") })
   );
   s = s.replace(/\bAdd now\s*~?\s*/gi, "");
+  s = s.replace(
+    new RegExp(
+      `\\b(?:Buy|Add)(?:ing)?(?:\\s+the)?\\s+dips?(?:\\s+(?:on|in)\\s+${ORDER_SYM})?\\b${SENTENCE_REST}`,
+      "gi"
+    ),
+    (_full, rest: string) => {
+      const clause = rest ?? "";
+      return joinFact(
+        pulseSuggestion({ action: "add", addLevel: firstDollar(clause) }),
+        clause
+      );
+    }
+  );
+  s = s.replace(
+    /,?\s*then\s+(?:revisit|look again|check again|add more|buy more)(?:\s+if)?\b[^,.]*?(?=[,.]|\bbecause\b|\bas\b|$)/gi,
+    ""
+  );
+  s = s.replace(
+    /[;,]?\s*(?:worth\s+)?keep(?:ing)? an eye on\s+([^.!?]+)/gi,
+    (_full, thing: string) => {
+      const t = String(thing ?? "")
+        .trim()
+        .replace(/[.,;]+$/, "");
+      if (!t) return "";
+      return `. ${t.charAt(0).toUpperCase()}${t.slice(1)} would change the picture`;
+    }
+  );
   s = s.replace(
     /\bdo not buy more(?: here)?(?: or chase it)?\.?/gi,
     "Price is above its recent range."
@@ -307,7 +406,11 @@ function scrubTradeOrders(text: string): string {
     }
   );
   s = s.replace(/[ \t]{2,}/g, " ");
-  return s;
+  s = s.replace(/,\s*,+/g, ", ");
+  s = s.replace(/\.\s*\.+/g, ". ");
+  s = s.replace(/ +([.,])/g, "$1");
+  s = s.replace(/\.\s+([a-z])/g, (_m, c: string) => `. ${c.toUpperCase()}`);
+  return s.trim();
 }
 
 /** Full pass for a single Margus string. */

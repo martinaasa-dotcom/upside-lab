@@ -72,6 +72,7 @@ import {
   statusLabel,
   actionLabel,
   isEmptyPulseCheck,
+  isMoveRestatement,
   normalizePulseSituation,
   verdictRepeatsSuggestion,
   type PulseAction,
@@ -215,9 +216,14 @@ function PulseCard({
   const action = shown?.action ?? "hold";
   const writtenThesis = thesisDisplayBullets(convictionThesis);
   const suggestion = shown ? pulseSuggestion(shown) : "";
+  const cleanedVerdict = shown?.verdict
+    ? humanizeMargusText(shown.verdict)
+    : "";
   const extraVerdict =
-    shown?.verdict && !verdictRepeatsSuggestion(shown.verdict, shown)
-      ? humanizeMargusText(shown.verdict)
+    cleanedVerdict &&
+    !verdictRepeatsSuggestion(cleanedVerdict, shown) &&
+    !isMoveRestatement(cleanedVerdict)
+      ? cleanedVerdict
       : "";
   const hasBody =
     writtenThesis.length > 0 ||
@@ -397,7 +403,7 @@ function PulseCard({
         * where it was always trying to be.
         */}
       {hasBody ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 glass-well rounded-lg p-4 sm:p-5">
           {suggestion ? (
             <p className="text-base font-medium leading-relaxed text-foreground">
               {suggestion}
@@ -505,10 +511,9 @@ type ActionSummaryRow = {
 };
 
 /**
- * Every checked name, grouped by what it's actually asking you to do —
- * sell/trim/add first, hold last — instead of making someone scroll the
- * whole scan to piece that together themselves. Sits above the scan so
- * it's the first thing on the page: a punch list, not another card.
+ * Every checked name, grouped by where the price sits vs its recent
+ * range (names that left the range first, names still inside it last)
+ * so a reader does not have to reconstruct that from the scan below.
  */
 function PulseActionSummary({
   groups,
@@ -904,8 +909,10 @@ export const PulsePage = memo(function PulsePage({
 
   /**
    * Checks a set of tickers in one request. Auto only covers a name that
-   * was never checked, or a 5% mover whose last read is stale.
-   * Tickers being refreshed keep showing their old result.
+   * was never checked, a 5% mover whose last read is stale, or a name
+   * whose cached Why is a leftover "Today move is -5.8%" restatement.
+   * Tickers being refreshed keep showing their old result until the new
+   * read lands.
    */
   const runPulse = useCallback(
     async (targets: PulseCandidate[], opts?: { force?: boolean; signal?: AbortSignal }) => {
