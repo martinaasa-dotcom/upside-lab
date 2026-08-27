@@ -181,9 +181,10 @@ describe("Home notices", () => {
     );
     expect(read.quiet).toBe(true);
     const notice = read.notices.find((n) => n.kind === "notice");
-    expect(notice?.text).toMatch(/\$CRWV rose about 5%/);
+    expect(notice?.text).toMatch(/\$CRWV (?:rose|is up) about 5%/);
     expect(notice?.text).not.toMatch(/Most of your portfolio is/);
-    expect(notice?.label).toMatch(/Worth noticing|Friday's close/);
+    expect(notice?.text).not.toMatch(/whether something changed at the company/);
+    expect(notice?.label).toMatch(/Update|Friday's close|Since you looked/);
   });
 
   it("rotates to the next true card on a later look", () => {
@@ -215,11 +216,16 @@ describe("Home notices", () => {
       0.011
     );
     const first = buildMorningRead(book, visit, "open", { lookIndex: 0 });
-    const second = buildMorningRead(book, visit, "open", { lookIndex: 1 });
+    const fp = first.notices.find((n) => n.kind === "notice")?.fingerprint;
+    expect(fp).toBeTruthy();
+    const second = buildMorningRead(book, visit, "open", {
+      lookIndex: 1,
+      shown: new Set([fp!]),
+    });
     const a = first.notices.find((n) => n.kind === "notice")?.text ?? "";
     const b = second.notices.find((n) => n.kind === "notice")?.text ?? "";
-    expect(a).toMatch(/While you were away/);
-    expect(b).toMatch(/\$CRWV rose about 5%/);
+    expect(a).toMatch(/Since you last looked|while you were away|New since you opened/i);
+    expect(b).toMatch(/\$CRWV/);
     expect(a).not.toBe(b);
   });
 
@@ -246,8 +252,13 @@ describe("Home notices", () => {
       { ticker: "NBIS", thesisStatus: "intact" as const, hasThesis: true },
     ];
     const first = buildMorningRead(book, null, "open", { lookIndex: 0, notes });
-    const second = buildMorningRead(book, null, "open", { lookIndex: 1, notes });
-    expect(first.notices.some((n) => /fell about 4%/.test(n.text))).toBe(true);
+    const fp = first.notices.find((n) => n.kind === "notice")?.fingerprint;
+    const second = buildMorningRead(book, null, "open", {
+      lookIndex: 1,
+      notes,
+      shown: new Set(fp ? [fp] : []),
+    });
+    expect(first.notices.some((n) => /about 4%/.test(n.text))).toBe(true);
     expect(second.notices.some((n) => /Thesis watch/.test(n.text))).toBe(true);
   });
 
@@ -277,7 +288,7 @@ describe("Home notices", () => {
       ],
     });
     const gap = read.notices.find((n) => n.kind === "gap");
-    expect(gap?.label).toBe("What's missing");
+    expect(gap?.label).toBe("Also");
     expect(gap?.text).toMatch(/\$CRWV fell about 4%/);
     expect(gap?.text).toMatch(/no thesis on file/);
   });
@@ -307,9 +318,63 @@ describe("insight look counter", () => {
   it("stays on 0 inside a sitting, then bumps", () => {
     withStorage();
     const t0 = Date.parse("2026-08-27T09:00:00+03:00");
-    expect(bumpInsightLook(t0)).toBe(0);
-    expect(bumpInsightLook(t0 + 60_000)).toBe(0);
-    expect(bumpInsightLook(t0 + INSIGHT_SITTING_MS + 1)).toBe(1);
-    expect(bumpInsightLook(t0 + INSIGHT_SITTING_MS + 2)).toBe(1);
+    expect(bumpInsightLook(t0).n).toBe(0);
+    expect(bumpInsightLook(t0 + 60_000).n).toBe(0);
+    expect(bumpInsightLook(t0 + INSIGHT_SITTING_MS + 1).n).toBe(1);
+    expect(bumpInsightLook(t0 + INSIGHT_SITTING_MS + 2).n).toBe(1);
+  });
+});
+
+describe("used notes stay off the desk", () => {
+  it("does not reprint the same fingerprint, and a bigger move is a new note", () => {
+    const quietRest = [
+      ticker({
+        ticker: "CRWV",
+        currentValue: 20_000,
+        todayPct: 0.05,
+        todayDollar: 950,
+      }),
+      ticker({
+        ticker: "AAPL",
+        currentValue: 80_000,
+        todayPct: 0.002,
+        todayDollar: 160,
+      }),
+    ];
+    const first = buildMorningRead(model(quietRest, 0.011), null, "open");
+    const notice = first.notices.find((n) => n.kind === "notice");
+    expect(notice?.fingerprint).toBeTruthy();
+    const again = buildMorningRead(model(quietRest, 0.011), null, "open", {
+      shown: new Set([notice!.fingerprint]),
+    });
+    expect(again.notices.find((n) => n.kind === "notice")?.fingerprint).not.toBe(
+      notice!.fingerprint
+    );
+
+    const louder = buildMorningRead(
+      model(
+        [
+          ticker({
+            ticker: "CRWV",
+            currentValue: 20_000,
+            todayPct: 0.09,
+            todayDollar: 1650,
+          }),
+          ticker({
+            ticker: "AAPL",
+            currentValue: 80_000,
+            todayPct: 0.002,
+            todayDollar: 160,
+          }),
+        ],
+        0.02
+      ),
+      null,
+      "open",
+      { shown: new Set([notice!.fingerprint]) }
+    );
+    expect(louder.notices.find((n) => n.kind === "notice")?.text).toMatch(
+      /\$CRWV/
+    );
   });
 });

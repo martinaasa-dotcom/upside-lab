@@ -33,7 +33,12 @@ import {
   useScreenshotPicker,
 } from "@/lib/use-screenshot-picker";
 import { buildMorningRead, loadHomePulseNotes, type HomePulseNote } from "@/lib/morning-read";
-import { bumpInsightLook } from "@/lib/insight-look";
+import {
+  bumpInsightLook,
+  loadShownInsights,
+  lockInsightLook,
+  rememberShownInsights,
+} from "@/lib/insight-look";
 import type { UpsideAlert } from "@/lib/alerts";
 import { sessionLabel, sessionKind } from "@/lib/market-session";
 import { sheetCashBalance } from "@/lib/cash-balance";
@@ -709,6 +714,11 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   const [visitDiff, setVisitDiff] = useState<VisitDiff | null>(null);
   const [lookIndex, setLookIndex] = useState(0);
   const [notes, setNotes] = useState<HomePulseNote[]>([]);
+  const [shown, setShown] = useState<Set<string>>(() => new Set());
+  const [sittingLock, setSittingLock] = useState<{
+    noticeId: string | null;
+    gapId: string | null;
+  }>({ noticeId: null, gapId: null });
   const [moverHorizon, setMoverHorizon] = useState<"today" | "lifetime">(
     "today"
   );
@@ -769,7 +779,10 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   }, [tickerKey, model.totals.totalValue, model.totals.cash]);
 
   useLayoutEffect(() => {
-    setLookIndex(bumpInsightLook());
+    const look = bumpInsightLook();
+    setLookIndex(look.n);
+    setSittingLock({ noticeId: look.noticeId, gapId: look.gapId });
+    setShown(loadShownInsights());
   }, []);
 
   useLayoutEffect(() => {
@@ -780,7 +793,10 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   useEffect(() => {
     function onVis() {
       if (document.visibilityState === "visible") {
-        setLookIndex(bumpInsightLook());
+        const look = bumpInsightLook();
+        setLookIndex(look.n);
+        setSittingLock({ noticeId: look.noticeId, gapId: look.gapId });
+        setShown(loadShownInsights());
       }
     }
     document.addEventListener("visibilitychange", onVis);
@@ -788,9 +804,26 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   }, []);
 
   const morning = useMemo(
-    () => buildMorningRead(model, visitDiff, kind, { lookIndex, notes }),
-    [model, visitDiff, kind, lookIndex, notes]
+    () =>
+      buildMorningRead(model, visitDiff, kind, {
+        lookIndex,
+        notes,
+        shown,
+        sittingLock,
+      }),
+    [model, visitDiff, kind, lookIndex, notes, shown, sittingLock]
   );
+
+  const noticeIds = morning.notices.map((n) => n.id).join(",");
+  useEffect(() => {
+    const noticeId =
+      morning.notices.find((n) => n.kind === "notice")?.id ?? null;
+    const gapId = morning.notices.find((n) => n.kind === "gap")?.id ?? null;
+    lockInsightLook(noticeId, gapId);
+    setSittingLock({ noticeId, gapId });
+    rememberShownInsights(morning.notices.map((n) => n.fingerprint));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lookIndex, noticeIds]);
 
   const nav = useBookNavHistory({
     liveNav: totals.totalValue,

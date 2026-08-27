@@ -44,6 +44,30 @@ export type InsightHolding = {
 export type NeighborGap = {
   id: string;
   text: string;
+  group: string;
+  share: number;
+  move: number;
+  closer: string;
+};
+
+export type LoneMoverFact = {
+  ticker: string;
+  pct: number;
+  restPct: number;
+  others: { ticker: string; pct: number }[];
+  othersQuiet: boolean;
+};
+
+export type GroupSplitFact = {
+  upTheme: ForecastTheme;
+  downTheme: ForecastTheme;
+  upLabel: string;
+  downLabel: string;
+  upPct: number;
+  downPct: number;
+  upTicker: string | null;
+  downTicker: string | null;
+  sameAiStory: boolean;
 };
 
 export type InsightWhen = "today" | "friday" | "this week";
@@ -269,11 +293,10 @@ function weightedPct(
   return dollar / value;
 }
 
-/** One name did the moving. The landing page's Worth noticing is this shape. */
-export function loneMoverLine(
-  holdings: InsightHolding[],
-  when: InsightWhen = "today"
-): string | null {
+/** One name did the moving. */
+export function loneMoverFact(
+  holdings: InsightHolding[]
+): LoneMoverFact | null {
   const rows = withMove(holdings);
   if (rows.length < 2) return null;
 
@@ -298,27 +321,46 @@ export function loneMoverLine(
   const others = [...rows]
     .filter((h) => h.ticker !== best.ticker)
     .sort((a, b) => b.value - a.value)
-    .slice(0, 2);
-  const othersQuiet = others.every((h) => Math.abs(h.todayPct) < 0.012);
-  const tail = whenCopy(when).tail;
-  const lead = `${cashtag(best.ticker)} ${riseOrFell(best.todayPct)} ${aboutMove(best.todayPct)} ${tail}`;
-  const vs =
-    othersQuiet && others.length >= 1
-      ? others.length === 2
-        ? `while ${cashtag(others[0]!.ticker)} and ${cashtag(others[1]!.ticker)} barely moved`
-        : `while ${cashtag(others[0]!.ticker)} barely moved`
-      : `while the rest of your portfolio ${when === "friday" ? "was" : "is"} ${aboutPct(bestRest)}`;
-  return `${lead} ${vs}. When one name moves on its own, the question is whether something changed at the company, or only the price.`;
+    .slice(0, 2)
+    .map((h) => ({ ticker: h.ticker, pct: h.todayPct }));
+  return {
+    ticker: best.ticker,
+    pct: best.todayPct,
+    restPct: bestRest,
+    others,
+    othersQuiet: others.every((h) => Math.abs(h.pct) < 0.012),
+  };
 }
 
-/**
- * Mix framed as today's P&L. Only when that group actually moved, so it
- * is not the same 55% lecture every morning.
- */
-export function concentrationDayLine(
+/** One name did the moving. The landing page's Worth noticing is this shape. */
+export function loneMoverLine(
   holdings: InsightHolding[],
   when: InsightWhen = "today"
 ): string | null {
+  const fact = loneMoverFact(holdings);
+  if (!fact) return null;
+  const tail = whenCopy(when).tail;
+  const lead = `${cashtag(fact.ticker)} ${riseOrFell(fact.pct)} ${aboutMove(fact.pct)} ${tail}`;
+  const vs =
+    fact.othersQuiet && fact.others.length >= 1
+      ? fact.others.length === 2
+        ? `while ${cashtag(fact.others[0]!.ticker)} and ${cashtag(fact.others[1]!.ticker)} barely moved`
+        : `while ${cashtag(fact.others[0]!.ticker)} barely moved`
+      : `while the rest of your portfolio ${when === "friday" ? "was" : "is"} ${aboutPct(fact.restPct)}`;
+  return `${lead} ${vs}. When one name moves on its own, the question is whether something changed at the company, or only the price.`;
+}
+
+export type MixDayFact = {
+  label: string;
+  plain: string;
+  share: number;
+  pct: number;
+  loud: string | null;
+};
+
+export function mixDayFact(
+  holdings: InsightHolding[]
+): MixDayFact | null {
   const slices = themeBreakdown(
     holdings.map((h) => ({ ticker: h.ticker, currentValue: h.value }))
   );
@@ -330,13 +372,30 @@ export function concentrationDayLine(
   if (inTheme.length < 2) return null;
   const pct = weightedPct(inTheme);
   if (pct == null || Math.abs(pct) < 0.02) return null;
-  const loud = loudestInTheme(inTheme, top.theme);
+  return {
+    label: THEME_LABEL[top.theme],
+    plain: THEME_PLAIN[top.theme],
+    share: top.pct,
+    pct,
+    loud: loudestInTheme(inTheme, top.theme),
+  };
+}
+
+/**
+ * Mix framed as today's P&L. Only when that group actually moved, so it
+ * is not the same 55% lecture every morning.
+ */
+export function concentrationDayLine(
+  holdings: InsightHolding[],
+  when: InsightWhen = "today"
+): string | null {
+  const fact = mixDayFact(holdings);
+  if (!fact) return null;
   const w = whenCopy(when);
-  const lead = loud
-    ? `${cashtag(loud)} and the other ${THEME_PLAIN[top.theme]}`
-    : THEME_PLAIN[top.theme].charAt(0).toUpperCase() +
-      THEME_PLAIN[top.theme].slice(1);
-  return `Most of your portfolio is ${THEME_LABEL[top.theme]} (${sharePct(top.pct)}). ${lead} ${w.verb} ${aboutPct(pct)} ${w.tail}. A day like this in that group is a day like this for you, not a dip in one name.`;
+  const lead = fact.loud
+    ? `${cashtag(fact.loud)} and the other ${fact.plain}`
+    : fact.plain.charAt(0).toUpperCase() + fact.plain.slice(1);
+  return `Most of your portfolio is ${fact.label} (${sharePct(fact.share)}). ${lead} ${w.verb} ${aboutPct(fact.pct)} ${w.tail}. A day like this in that group is a day like this for you, not a dip in one name.`;
 }
 
 /**
@@ -367,6 +426,10 @@ export function neighborGapsToday(
     out.push({
       id: `gap-${top.theme}-${opt.need}`,
       text: `${named} ${w.verb} ${aboutPct(move)} ${w.tail}, and they are ${sharePct(top.pct)} of this portfolio. ${opt.today}`,
+      group: named,
+      share: top.pct,
+      move,
+      closer: opt.today,
     });
   }
   return out;
@@ -377,18 +440,17 @@ function groupLead(ticker: string | null, group: string): string {
   return group.charAt(0).toUpperCase() + group.slice(1);
 }
 
-function dayRotation(
-  holdings: InsightHolding[],
-  when: InsightWhen
-): string | null {
-  const withMove = holdings.filter(
+export function groupSplitFact(
+  holdings: InsightHolding[]
+): GroupSplitFact | null {
+  const moving = holdings.filter(
     (h) => h.value > 0 && h.todayPct != null && Number.isFinite(h.todayPct)
   );
-  if (withMove.length < 2) return null;
+  if (moving.length < 2) return null;
 
   const byTheme = new Map<ForecastTheme, { value: number; dollar: number }>();
   let total = 0;
-  for (const h of withMove) {
+  for (const h of moving) {
     const theme = forecastThemeForTicker(h.ticker);
     const prev = byTheme.get(theme) ?? { value: 0, dollar: 0 };
     prev.value += h.value;
@@ -414,14 +476,33 @@ function dayRotation(
   if (best.pct - worst.pct < 0.03) return null;
   if (best.pct <= 0 && worst.pct >= 0) return null;
 
-  const down = groupLead(loudestInTheme(withMove, worst.theme), THEME_PLAIN[worst.theme]);
-  const up = groupLead(loudestInTheme(withMove, best.theme), THEME_PLAIN[best.theme]);
+  return {
+    upTheme: best.theme,
+    downTheme: worst.theme,
+    upLabel: THEME_PLAIN[best.theme],
+    downLabel: THEME_PLAIN[worst.theme],
+    upPct: best.pct,
+    downPct: worst.pct,
+    upTicker: loudestInTheme(moving, best.theme),
+    downTicker: loudestInTheme(moving, worst.theme),
+    sameAiStory:
+      AI_NEIGHBORS.has(best.theme) && AI_NEIGHBORS.has(worst.theme),
+  };
+}
+
+function dayRotation(
+  holdings: InsightHolding[],
+  when: InsightWhen
+): string | null {
+  const split = groupSplitFact(holdings);
+  if (!split) return null;
+  const down = groupLead(split.downTicker, split.downLabel);
+  const up = groupLead(split.upTicker, split.upLabel);
   const w = whenCopy(when);
-  const closer =
-    AI_NEIGHBORS.has(best.theme) && AI_NEIGHBORS.has(worst.theme)
-      ? "Both sit in the AI story, but they are not the same bet."
-      : `Those are two different parts of your portfolio. ${w.closer}`;
-  return `${down} ${w.verb} ${aboutPct(worst.pct)} ${w.tail}. ${up} ${w.verb} ${aboutPct(best.pct)} ${w.tail}. ${closer}`;
+  const closer = split.sameAiStory
+    ? "Both sit in the AI story, but they are not the same bet."
+    : `Those are two different parts of your portfolio. ${w.closer}`;
+  return `${down} ${w.verb} ${aboutPct(split.downPct)} ${w.tail}. ${up} ${w.verb} ${aboutPct(split.upPct)} ${w.tail}. ${closer}`;
 }
 
 export function buildBookInsights(

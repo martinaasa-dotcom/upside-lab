@@ -3340,14 +3340,16 @@ run("gap thoughts name the weight and the mix", () => {
     join(process.cwd(), "src/lib/morning-read.ts"),
     "utf8"
   );
-  assert.match(morning, /What's missing/);
+  assert.match(morning, /Also/);
   assert.doesNotMatch(morning, /A thought/);
   assert.doesNotMatch(morning, /A few names did the work/);
   assert.doesNotMatch(morning, /A few holdings moved the whole number/);
   assert.match(morning, /pickSwingSentence/);
   assert.match(morning, /pickHomeNotices/);
+  assert.match(morning, /Since you looked/);
   assert.doesNotMatch(morning, /!quiet && insights\.idea/);
   assert.doesNotMatch(morning, /!quiet && insights\.rotation/);
+  assert.doesNotMatch(morning, /whether something changed at the company/);
 });
 
 run("advice copy names a check, not a vibe", () => {
