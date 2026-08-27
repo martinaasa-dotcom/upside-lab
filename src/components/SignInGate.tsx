@@ -10,7 +10,6 @@ import {
   Reading,
 } from "@/components/ui/Panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { cn } from "@/lib/format";
 import { BellRing, CheckCircle2, MessageCircle } from "lucide-react";
@@ -435,12 +434,12 @@ function BookStill() {
         <div className="rounded-lg bg-muted p-3">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-foreground">$RKLB</span>
-            <Badge variant="secondary">Up ≥5%</Badge>
+            <Pill tone="good">Up ≥5%</Pill>
           </div>
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            <Pill>Hold</Pill>
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <Pill>Inside recent range</Pill>
             <Pill tone="good">
-              <CheckCircle2 className="size-3.5 text-gain" />
+              <CheckCircle2 data-icon="inline-start" />
               Thesis intact
             </Pill>
           </div>

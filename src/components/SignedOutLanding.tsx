@@ -12,16 +12,18 @@ import {
   Pill,
   Reading,
 } from "@/components/ui/Panel";
-import { Badge } from "@/components/ui/badge";
 import { SignInMethods } from "@/components/SignInMethods";
 import { cn } from "@/lib/format";
 import {
   CheckCircle2,
   ClipboardList,
+  Eye,
   FileSpreadsheet,
   ImageUp,
   LineChart,
   Mail,
+  TrendingDown,
+  TrendingUp,
   Users,
 } from "lucide-react";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
@@ -267,15 +269,16 @@ function PulseStill() {
           <span className="font-heading text-sm font-semibold text-foreground">
             $RKLB
           </span>
-          <Badge variant="secondary">Up ≥5%</Badge>
-          <span className="font-mono text-sm font-medium tabular-nums text-gain">
+          <Pill tone="good">Up ≥5%</Pill>
+          <span className="inline-flex items-center gap-1 font-medium tabular-nums text-gain">
+            <TrendingUp className="size-3.5" />
             +6.8%
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Pill>Hold</Pill>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Pill>Inside recent range</Pill>
           <Pill tone="good">
-            <CheckCircle2 className="size-3.5 text-gain" />
+            <CheckCircle2 data-icon="inline-start" />
             Thesis intact
           </Pill>
         </div>
@@ -290,14 +293,17 @@ function PulseStill() {
           <span className="font-heading text-sm font-semibold text-foreground">
             $MSFT
           </span>
-          <Badge variant="secondary">Down ≥3%</Badge>
-          <span className="font-mono text-sm font-medium tabular-nums text-loss">
+          <span className="inline-flex items-center gap-1 font-medium tabular-nums text-loss">
+            <TrendingDown className="size-3.5" />
             -3.4%
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Pill>Look</Pill>
-          <Pill tone="warn">Thesis watch</Pill>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Pill>Inside recent range</Pill>
+          <Pill tone="warn">
+            <Eye data-icon="inline-start" />
+            Thesis watch
+          </Pill>
         </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
           Guidance for next year came in under what the market expected.

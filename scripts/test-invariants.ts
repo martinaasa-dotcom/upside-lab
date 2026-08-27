@@ -50,6 +50,7 @@ import {
   isBigPulseMove,
   isGenericThesisBreak,
   pulseLeftHold,
+  actionLabel,
   reconcilePulseCheck,
   shouldAutoPulseTicker,
   pulseTickerKey,
@@ -2469,7 +2470,16 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
   assert.doesNotMatch(pulse, /border-brand\/30 bg-brand\/\[0\.07\]/);
   assert.doesNotMatch(pulse, /border-amber-500\/30 bg-amber-950\/15/);
   assert.match(gate, /<Reading nested label="Worth noticing">/);
-  assert.match(gate, /<Pill>Hold<\/Pill>/);
+  const landing = readFileSync(
+    join(process.cwd(), "src/components/SignedOutLanding.tsx"),
+    "utf8"
+  );
+  assert.equal(actionLabel("hold"), "Inside recent range");
+  assert.match(gate, /Inside recent range/);
+  assert.match(landing, /Inside recent range/);
+  assert.doesNotMatch(gate, /<Pill>Hold<\/Pill>/);
+  assert.doesNotMatch(landing, /<Pill>Hold<\/Pill>/);
+  assert.doesNotMatch(landing, /<Pill>Look<\/Pill>/);
   assert.match(frame, /bg-background text-foreground/);
   assert.doesNotMatch(frame, /#141614/);
   assert.doesNotMatch(frame, /#0d110f/);
