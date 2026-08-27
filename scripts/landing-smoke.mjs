@@ -23,11 +23,13 @@ const VIEWPORTS = [
 function waitForReady(child) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error("next start did not become ready in 60s"));
+      reject(new Error(`next start did not become ready in 60s\n${buf}`));
     }, 60_000);
     let buf = "";
     const onData = (chunk) => {
-      buf += chunk.toString();
+      const text = chunk.toString();
+      buf += text;
+      process.stderr.write(text);
       if (/Ready in|started server|Local:/i.test(buf)) {
         cleanup();
         resolve(undefined);
@@ -64,7 +66,7 @@ async function smoke(page, viewport) {
     width: viewport.width,
     height: viewport.height,
   });
-  await page.goto(`${BASE}/`, { waitUntil: "load", timeout: 45_000 });
+  await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded", timeout: 45_000 });
   await page.getByRole("heading", { level: 1 }).waitFor({ timeout: 20_000 });
   const heading = await page.getByRole("heading", { level: 1 }).innerText();
   if (!heading.includes("Your broker tells you what you own")) {
@@ -86,9 +88,21 @@ async function smoke(page, viewport) {
   }
 }
 
-const launchOpts = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH }
-  : {};
+const HARD_MS = 120_000;
+const hardTimer = setTimeout(() => {
+  console.error("landing smoke timed out after 120s");
+  process.exit(1);
+}, HARD_MS);
+
+const launchOpts = {
+  args:
+    process.env.CI || process.env.GITHUB_ACTIONS
+      ? ["--no-sandbox", "--disable-setuid-sandbox"]
+      : [],
+  ...(process.env.PLAYWRIGHT_CHROMIUM_PATH
+    ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH }
+    : {}),
+};
 
 let server = null;
 let browser = null;
@@ -100,12 +114,16 @@ try {
     await smoke(page, viewport);
     console.log(`ok ${viewport.name} ${viewport.width}x${viewport.height}`);
   }
-  await page.goto(`${BASE}/privacy`, { waitUntil: "load", timeout: 45_000 });
+  await page.goto(`${BASE}/privacy`, {
+    waitUntil: "domcontentloaded",
+    timeout: 45_000,
+  });
   await page.getByRole("heading", { name: "Privacy Policy" }).waitFor({
     timeout: 20_000,
   });
   console.log("ok privacy");
 } finally {
+  clearTimeout(hardTimer);
   await browser?.close();
   if (server) {
     server.kill("SIGTERM");
