@@ -44,45 +44,24 @@ export type SundayRecap = {
 /**
  * Where a Home notice came from.
  *
- * Not decoration. A reader looked at these cards and asked, in order, where
- * does this come from, who is saying it, and can I ask anything else. They
- * had read it as a sentence a language model made up, and the honest answer
- * is that almost none of it is: every card except the Pulse ones is
- * arithmetic on holdings they typed in and prices from today. The app knew
- * that and never said it, and a sparkle icon on the card was actively
- * arguing the other way.
- *
- * So each card carries its own origin and prints it. There is no case where
- * the answer is "a model wrote this and we do not know why".
+ * Only two of these are worth printing. A card that says a number was
+ * worked out from your own holdings at today's prices is saying the one
+ * thing the reader already assumed, on a page called Today, four times per
+ * screen, and a line everybody skips is a line nobody reads the day it
+ * matters. What is not obvious is a card quoting a Pulse reading or
+ * comparing against the last time you were here, so those two still say so
+ * and "holdings" prints nothing.
  */
 export type MorningSource = "holdings" | "pulse" | "visit";
 
-export const MORNING_SOURCE_LABEL: Record<MorningSource, string> = {
-  holdings: "Worked out from your holdings and today's prices.",
-  pulse: "From the Pulse reading you already have on this name.",
-  visit: "Your own numbers, against what they were last time you looked.",
-};
-
-/**
- * The stamp a card prints, with the price it really used named.
- *
- * A stamp that says "today's prices" on a Saturday is a stamp somebody
- * checks once, finds wrong, and stops believing, which costs more than
- * having printed nothing. Every other Sunday-or-Friday reading in this file
- * already knows which prices it read, so the label follows it.
- */
-export function morningSourceLabel(
-  source: MorningSource,
-  read: Pick<MorningRead, "sunday" | "moveLabel">
-): string {
-  if (source !== "holdings") return MORNING_SOURCE_LABEL[source];
-  if (read.sunday) {
-    return "Worked out from your holdings and last week's prices.";
+export function morningSourceLabel(source: MorningSource): string | null {
+  if (source === "pulse") {
+    return "From the Pulse reading you already have on this name.";
   }
-  if (read.moveLabel === "Friday") {
-    return "Worked out from your holdings and Friday's closing prices.";
+  if (source === "visit") {
+    return "Against what your numbers were last time you looked.";
   }
-  return MORNING_SOURCE_LABEL.holdings;
+  return null;
 }
 
 export type MorningNotice = {

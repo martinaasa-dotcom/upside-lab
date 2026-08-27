@@ -389,18 +389,6 @@ function MorningStack({
   className?: string;
 }) {
   const sunday = morning.sunday;
-  /*
-   * The headline reading is the sentence a reader circled in a screenshot
-   * and called invented text, so it is the one that most needs to say where
-   * it came from. The notice cards below already do; this one did not,
-   * which is exactly backwards, because this is the sentence somebody meets
-   * first and the only one they may ever read.
-   */
-  const stamp = (
-    <p className="mt-3 text-sm text-muted-foreground">
-      {morningSourceLabel("holdings", morning)}
-    </p>
-  );
   return (
     <div className={cn("flex flex-col gap-6", className)}>
       {sunday ? (
@@ -439,7 +427,6 @@ function MorningStack({
               )}
             </div>
           )}
-          {stamp}
         </Reading>
       ) : (
         <Reading>
@@ -471,7 +458,6 @@ function MorningStack({
               ))}
             </div>
           )}
-          {stamp}
         </Reading>
       )}
       {morning.notices.length > 0 && (
@@ -481,29 +467,29 @@ function MorningStack({
             morning.notices.length > 1 && "sm:grid-cols-2"
           )}
         >
-          {morning.notices.map((notice) => (
-            <Reading
-              key={notice.id}
-              label={notice.label}
-              tone={notice.kind === "gap" ? "warn" : "neutral"}
-              /*
-               * `Sparkles` used to sit on the notice card, and it was the
-               * wrong glyph by a long way: it is the universal "a model
-               * wrote this" mark, and these cards are arithmetic on the
-               * reader's own holdings. A reader duly read them as invented
-               * text and said so. `Calculator` is what the card actually
-               * is, and the line under it names the inputs.
-               */
-              icon={
-                notice.kind === "gap" ? <AlertTriangle /> : <Calculator />
-              }
-            >
-              <InsightText text={notice.text} />
-              <p className="mt-3 text-sm text-muted-foreground">
-                {morningSourceLabel(notice.source, morning)}
+          {morning.notices.map((notice) => {
+            const source = morningSourceLabel(notice.source);
+            return (
+              <Reading
+                key={notice.id}
+                label={notice.label}
+                tone={notice.kind === "gap" ? "warn" : "neutral"}
+                /*
+                 * `Sparkles` used to sit on the notice card, and it was the
+                 * wrong glyph by a long way: it is the universal "a model
+                 * wrote this" mark, and these cards are arithmetic on the
+                 * reader's own holdings. `Calculator` is what the card is.
+                 */
+                icon={
+                  notice.kind === "gap" ? <AlertTriangle /> : <Calculator />
+                }
+              >
+                <InsightText text={notice.text} />
+                {source ? (
+                  <p className="mt-3 text-sm text-muted-foreground">{source}</p>
+                ) : null}
                 {notice.ticker && onOpenPulse ? (
-                  <>
-                    {" "}
+                  <p className="mt-3 text-sm">
                     <button
                       type="button"
                       onClick={() => onOpenPulse(notice.ticker)}
@@ -511,11 +497,11 @@ function MorningStack({
                     >
                       Open Pulse on {cashtag(notice.ticker)}
                     </button>
-                  </>
+                  </p>
                 ) : null}
-              </p>
-            </Reading>
-          ))}
+              </Reading>
+            );
+          })}
         </div>
       )}
     </div>
@@ -973,35 +959,15 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             {morning.moveLabel}
           </h1>
           {/*
-            * What this page is, in one line, permanently.
-            *
-            * The headline was the word "Today" and nothing else, and a
-            * reader arriving on it asked what the page was supposed to be
-            * showing them. Every screen after this one answers a question
-            * the reader has already accepted; this is the only screen where
-            * the reader has not accepted anything yet, so it says both
-            * halves out loud: these are the names you typed in at today's
-            * prices, and nothing here is wired to a bank. The second half
-            * is the one that stops somebody hunting for a sync button, and
-            * it is the same sentence the sign-in page makes.
-            */}
-          {/*
-            * The job, not the disclaimer.
-            *
-            * The last version of this line said the names were typed in and
-            * that nothing is linked to a bank. Both true, and a friend who
-            * looked at a screenshot of this page asked what it gives that
-            * the broker they already have does not. A line that only names
-            * the limit is a line that makes the page look like a thinner
-            * copy of Lightyear. The bank sentence lives on the walkthrough
-            * and the signed-out page. This one has to be the extra.
+            * One line, and it is a reading rather than a pitch. It used to
+            * carry a second sentence about what the app gives you over your
+            * broker, which is a thing to say once on the way in, not on
+            * every visit forever.
             */}
           <p className="text-sm text-muted-foreground">
             {totals.positionCount === 1
               ? "One name, at today's prices."
-              : `${totals.positionCount} names, at today's prices.`}{" "}
-            The extra is whether the reason you own{" "}
-            {totals.positionCount === 1 ? "it" : "each one"} still holds.
+              : `${totals.positionCount} names, at today's prices.`}
           </p>
           <OvernightNote />
         </div>
