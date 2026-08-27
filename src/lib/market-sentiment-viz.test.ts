@@ -33,13 +33,13 @@ describe("stretchFillPct", () => {
 });
 
 describe("linearMarkerPct", () => {
-  it("places VIX 15.21 in the quiet third of a 10 to 40 track", () => {
+  it("places VIX 15.21 in the normal 15 to 25 band of a 10 to 40 track", () => {
     const pct = linearMarkerPct(15.21, 10, 40);
     expect(pct).toBeCloseTo(((15.21 - 10) / 30) * 100, 5);
-    const quiet = bandRangePct(12, 20, 10, 40);
-    expect(quiet).not.toBeNull();
-    expect(pct!).toBeGreaterThan(quiet!.fromPct);
-    expect(pct!).toBeLessThan(quiet!.toPct);
+    const normal = bandRangePct(15, 25, 10, 40);
+    expect(normal).not.toBeNull();
+    expect(pct!).toBeGreaterThan(normal!.fromPct);
+    expect(pct!).toBeLessThan(normal!.toPct);
   });
 });
 
@@ -62,7 +62,7 @@ describe("signedTrackFill", () => {
 });
 
 describe("lerpScale", () => {
-  it("puts the quiet VIX band on a 10 to 40 track", () => {
+  it("puts a VIX reading on a 10 to 40 track", () => {
     expect(lerpScale(0, 10, 40)).toBe(10);
     expect(lerpScale(100, 10, 40)).toBe(40);
     expect(lerpScale(((15.21 - 10) / 30) * 100, 10, 40)).toBeCloseTo(15.21, 5);

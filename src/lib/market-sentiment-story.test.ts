@@ -4,6 +4,7 @@ import {
   buildSentimentCard,
   linearProbeCopy,
   marketDaysPhrase,
+  rsiTrackScale,
   sentimentFitLine,
   sentimentHistoryLine,
   sentimentLead,
@@ -57,21 +58,31 @@ describe("buildSentimentCard", () => {
     expect(card.fitLine).toMatch(/^S&P 500 · \d+% match this reading$/);
     expect(card.gauges).toHaveLength(3);
     expect(card.gauges.map((g) => g.label)).toEqual(["VIX", "RSI", "Fear & Greed"]);
-    expect(card.gauges[0]!.sub).toBe("Quiet");
-    expect(card.gauges[0]!.valueClassName).toBe("text-gain");
-    expect(card.gauges[0]!.explain).toContain("How jumpy US stocks");
+    expect(card.gauges[0]!.sub).toBe("Normal");
+    expect(card.gauges[0]!.valueClassName).toBeUndefined();
+    expect(card.gauges[0]!.explain).toContain("Under 15 is unusually quiet");
+    expect(card.gauges[0]!.explain).toContain("15 to 25 is the normal range");
     expect(card.gauges[0]!.ticks.map((t) => t.label)).toEqual(["10", "40"]);
-    expect(card.gauges[0]!.edges.length).toBeGreaterThan(0);
+    expect(card.gauges[0]!.fills.some((f) => f.className === "bg-foreground/20")).toBe(
+      true
+    );
+    expect(card.gauges[0]!.fills.some((f) => f.className === "bg-gain/20")).toBe(true);
     expect(card.gauges[1]!.sub).toBe("Mid-range");
-    expect(card.gauges[1]!.ticks.map((t) => t.label)).toEqual(["0", "100"]);
+    expect(card.gauges[1]!.ticks.map((t) => t.label)).toEqual(["20", "80"]);
+    expect(card.gauges[1]!.scaleLo).toBe(20);
+    expect(card.gauges[1]!.scaleHi).toBe(80);
     expect(card.gauges[2]!.sub).toBe("Neutral");
     expect(card.gauges[2]!.ticks.map((t) => t.label)).toEqual(["0", "100"]);
+    expect(card.gauges[2]!.fills.filter((f) => f.className.includes("loss"))).toHaveLength(
+      2
+    );
+    expect(card.gauges[2]!.fills.filter((f) => f.className.includes("gain"))).toHaveLength(
+      2
+    );
     expect(card.gauges[2]!.explain).toContain("extreme fear");
     expect(card.gauges[2]!.explain).toContain("extreme greed");
     expect(card.gauges[2]!.explain).not.toMatch(/panic|party/i);
     expect(card.gauges[0]!.markerPct).toBeGreaterThan(0);
-    expect(card.gauges[0]!.bandClass).toBe("bg-foreground/20");
-    expect(card.gauges[0]!.bandClass).not.toMatch(/gain/);
     expect(card.stretch).not.toBeNull();
     expect(card.stretch!.inLabel).toContain("47 days above usual");
     expect(card.stretch!.moreLabel).toContain("about 2 months more");
@@ -150,11 +161,24 @@ describe("sentimentHistoryLine", () => {
   });
 });
 
+describe("rsiTrackScale", () => {
+  it("stays on 20 to 80 until a reading is actually outside", () => {
+    expect(rsiTrackScale(54.3)).toEqual({ lo: 20, hi: 80 });
+    expect(rsiTrackScale(20)).toEqual({ lo: 20, hi: 80 });
+    expect(rsiTrackScale(80)).toEqual({ lo: 20, hi: 80 });
+    expect(rsiTrackScale(12)).toEqual({ lo: 10, hi: 80 });
+    expect(rsiTrackScale(86)).toEqual({ lo: 20, hi: 90 });
+  });
+});
+
 describe("probe copy", () => {
-  it("names the quiet band when you sit on today's VIX", () => {
+  it("names the normal band when you sit on today's VIX", () => {
     const vix = buildSentimentCard(CLIMB).gauges[0]!;
-    expect(linearProbeCopy(vix, vix.markerPct!)).toContain("Quiet");
+    expect(linearProbeCopy(vix, vix.markerPct!)).toContain("Normal");
     expect(linearProbeCopy(vix, 90)).toContain("A scare");
+    expect(
+      linearProbeCopy(buildSentimentCard({ ...CLIMB, vix: 14 }).gauges[0]!, 0)
+    ).toContain("Unusually quiet");
   });
 
   it("reads the usual-price bar at the live marker", () => {

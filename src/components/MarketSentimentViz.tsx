@@ -217,7 +217,7 @@ export function SentimentSparkPlot({
       : null;
   const probePt = hover != null ? layout.probes[hover] : null;
   const stroke = layout.last.above ? PALETTE.gain : PALETTE.loss;
-  const reading = onGhost || probe != null;
+  const reading = probe != null;
 
   function indexAt(e: PointerEvent<SVGSVGElement>) {
     const idx = sparkIndexFromClientX(
@@ -296,16 +296,7 @@ export function SentimentSparkPlot({
           </HeaderStack>
         }
         next={
-          onGhost && stretch ? (
-            <HeaderStack>
-              <p className="flex h-6 items-center truncate text-sm text-foreground">
-                Typical leftover
-              </p>
-              <p className="flex h-6 items-center truncate text-sm text-muted-foreground md:justify-end">
-                {stretch.moreLabel}
-              </p>
-            </HeaderStack>
-          ) : probe ? (
+          probe ? (
             <HeaderStack>
               <p className="flex h-6 items-center justify-between gap-3 text-sm">
                 <span className="min-w-0 truncate text-foreground">
@@ -527,45 +518,27 @@ export function SentimentStretchTrack({
 
 function LinearTrack({
   markerPct,
-  band,
-  bandClass,
-  edges,
-  edgeClass,
+  fills,
   dotClass,
   probePct,
 }: {
   markerPct: number;
-  band: { fromPct: number; toPct: number } | null;
-  bandClass?: string;
-  edges: { fromPct: number; toPct: number }[];
-  edgeClass?: string;
+  fills: SentimentGaugeNote["fills"];
   dotClass: string;
   probePct: number | null;
 }) {
   return (
     <div className={TRACK_BAR}>
-      {edges.map((edge) => (
+      {fills.map((fill) => (
         <div
-          key={`${edge.fromPct}-${edge.toPct}`}
-          className={cn("absolute inset-y-0 rounded-full", edgeClass ?? "bg-loss/20")}
+          key={`${fill.fromPct}-${fill.toPct}-${fill.className}`}
+          className={cn("absolute inset-y-0 rounded-full", fill.className)}
           style={{
-            left: `${edge.fromPct}%`,
-            width: `${edge.toPct - edge.fromPct}%`,
+            left: `${fill.fromPct}%`,
+            width: `${fill.toPct - fill.fromPct}%`,
           }}
         />
       ))}
-      {band && (
-        <div
-          className={cn(
-            "absolute inset-y-0 rounded-full",
-            bandClass ?? "bg-foreground/15"
-          )}
-          style={{
-            left: `${band.fromPct}%`,
-            width: `${band.toPct - band.fromPct}%`,
-          }}
-        />
-      )}
       <TrackMarker pct={markerPct} className={dotClass} />
       {probePct != null ? (
         <TrackMarker pct={probePct} className="bg-foreground" />
@@ -617,10 +590,7 @@ export function SentimentGaugeRow({ gauge }: { gauge: SentimentGaugeNote }) {
         >
           <LinearTrack
             markerPct={gauge.markerPct!}
-            band={gauge.band}
-            bandClass={gauge.bandClass}
-            edges={gauge.edges}
-            edgeClass={gauge.edgeClass}
+            fills={gauge.fills}
             dotClass={gauge.dotClass}
             probePct={probing ? scrub.pct : null}
           />

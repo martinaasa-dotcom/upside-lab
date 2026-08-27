@@ -22,6 +22,14 @@ import { formatDateTime } from "@/lib/timezone";
 
 const MIN_HISTORY_DAYS = 5;
 
+export type SentimentScaleTick = { pct: number; label: string };
+export type SentimentZone = { lo: number; hi: number; label: string };
+export type SentimentTrackFill = {
+  fromPct: number;
+  toPct: number;
+  className: string;
+};
+
 export type SentimentGaugeNote = {
   label: string;
   value: string;
@@ -30,11 +38,7 @@ export type SentimentGaugeNote = {
   valueClassName?: string;
   kind: "linear" | "signed";
   markerPct: number | null;
-  band: { fromPct: number; toPct: number } | null;
-  bandClass?: string;
-  /** Scare / stretch ends of the scale. Always painted. */
-  edges: { fromPct: number; toPct: number }[];
-  edgeClass?: string;
+  fills: SentimentTrackFill[];
   signedFillPct: number | null;
   dotClass: string;
   scaleLo: number | null;
@@ -43,9 +47,6 @@ export type SentimentGaugeNote = {
   zones: SentimentZone[];
   ticks: SentimentScaleTick[];
 };
-
-export type SentimentScaleTick = { pct: number; label: string };
-export type SentimentZone = { lo: number; hi: number; label: string };
 
 export type SentimentStretch = {
   fillPct: number;
@@ -186,23 +187,23 @@ function vixGlance(vix: number | null): {
   glance: "up" | "down" | "warn" | "none";
 } {
   const explainBase =
-    "How jumpy US stocks have been lately. 12 to 20 is quiet. Around 30 is a scare.";
+    "How jumpy US stocks have been lately. Under 15 is unusually quiet. 15 to 25 is the normal range. Around 30 is a scare.";
   if (vix == null) {
     return { sub: "Cboe volatility", explain: explainBase, glance: "none" };
   }
   const n = number(vix, 2);
-  if (vix < 12) {
+  if (vix < 15) {
     return {
       sub: "Unusually quiet",
       explain: `${explainBase} This reading of ${n} is unusually quiet.`,
       glance: "up",
     };
   }
-  if (vix <= 20) {
+  if (vix <= 25) {
     return {
-      sub: "Quiet",
-      explain: `${explainBase} This reading of ${n} is quiet.`,
-      glance: "up",
+      sub: "Normal",
+      explain: `${explainBase} This reading of ${n} is in the normal range.`,
+      glance: "none",
     };
   }
   if (vix < 30) {
@@ -225,7 +226,7 @@ function rsiGlance(rsiNow: number | null): {
   glance: "up" | "down" | "warn" | "none";
 } {
   const explainBase =
-    "How fast SPY has moved over the last 14 days. Near 30 the recent drop has been hard. Near 70 the recent rise has been fast.";
+    "How fast SPY has moved over the last 14 days. Near 30 the recent drop has been hard. Near 70 the recent rise has been fast. The bar runs from 20 to 80, and only stretches if the reading is outside that.";
   if (rsiNow == null) {
     return { sub: "14-day SPY", explain: explainBase, glance: "none" };
   }
@@ -287,10 +288,10 @@ function fearGlance(
       : "";
   const explain = `${explainBase} ${n} is called ${rating.toLowerCase()}.${crypto}`;
   if (fearGreed <= 25) return { sub: rating, explain, glance: "down" };
-  if (fearGreed <= 45) return { sub: rating, explain, glance: "warn" };
+  if (fearGreed <= 45) return { sub: rating, explain, glance: "down" };
   if (fearGreed <= 55) return { sub: rating, explain, glance: "none" };
   if (fearGreed <= 75) return { sub: rating, explain, glance: "up" };
-  return { sub: rating, explain, glance: "warn" };
+  return { sub: rating, explain, glance: "up" };
 }
 
 function usualGlance(metrics: Pick<SentimentMetrics, "smaRatio">): {
@@ -393,9 +394,9 @@ export function sparkProbeCopy(
 }
 
 const VIX_ZONES: SentimentZone[] = [
-  { lo: 0, hi: 12, label: "Unusually quiet" },
-  { lo: 12, hi: 20, label: "Quiet" },
-  { lo: 20, hi: 30, label: "A bit jumpy" },
+  { lo: 0, hi: 15, label: "Unusually quiet" },
+  { lo: 15, hi: 25, label: "Normal" },
+  { lo: 25, hi: 30, label: "A bit jumpy" },
   { lo: 30, hi: Number.POSITIVE_INFINITY, label: "A scare" },
 ];
 
@@ -414,16 +415,37 @@ const FEAR_ZONES: SentimentZone[] = [
   { lo: 75, hi: Number.POSITIVE_INFINITY, label: "Extreme greed" },
 ];
 
-function scaleEdges(
-  ...bands: Array<{ fromPct: number; toPct: number } | null>
-): { fromPct: number; toPct: number }[] {
-  return bands.filter((b): b is { fromPct: number; toPct: number } => b != null);
+const VIX_SCALE = { lo: 10, hi: 40 } as const;
+const RSI_BASE = { lo: 20, hi: 80 };
+
+/** RSI sits on 20 to 80. The ends only open when the reading is outside. */
+export function rsiTrackScale(rsi: number | null): { lo: number; hi: number } {
+  if (rsi == null || !Number.isFinite(rsi)) return { lo: RSI_BASE.lo, hi: RSI_BASE.hi };
+  let lo = RSI_BASE.lo;
+  let hi = RSI_BASE.hi;
+  if (rsi < RSI_BASE.lo) lo = Math.max(0, Math.floor(rsi / 10) * 10);
+  if (rsi > RSI_BASE.hi) hi = Math.min(100, Math.ceil(rsi / 10) * 10);
+  if (rsi < lo) lo = Math.max(0, Math.floor(rsi));
+  if (rsi > hi) hi = Math.min(100, Math.ceil(rsi));
+  return { lo, hi };
+}
+
+function trackFills(
+  scaleLo: number,
+  scaleHi: number,
+  bands: Array<{ lo: number; hi: number; className: string }>
+): SentimentTrackFill[] {
+  return bands.flatMap((band) => {
+    const range = bandRangePct(band.lo, band.hi, scaleLo, scaleHi);
+    return range ? [{ ...range, className: band.className }] : [];
+  });
 }
 
 export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNote[] {
   const vix = vixGlance(metrics.vix);
   const rsiNow = rsiGlance(metrics.rsi);
   const fear = fearGlance(metrics.fearGreed, metrics.cryptoFearGreed);
+  const rsiScale = rsiTrackScale(metrics.rsi);
   return [
     {
       label: "VIX",
@@ -432,20 +454,22 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       explain: vix.explain,
       valueClassName: glanceClass(vix.glance),
       kind: "linear",
-      markerPct: linearMarkerPct(metrics.vix, 10, 40),
-      band: bandRangePct(12, 20, 10, 40),
-      bandClass: "bg-foreground/20",
-      edges: scaleEdges(bandRangePct(30, 40, 10, 40)),
-      edgeClass: "bg-loss/20",
+      markerPct: linearMarkerPct(metrics.vix, VIX_SCALE.lo, VIX_SCALE.hi),
+      fills: trackFills(VIX_SCALE.lo, VIX_SCALE.hi, [
+        { lo: VIX_SCALE.lo, hi: 15, className: "bg-gain/20" },
+        { lo: 15, hi: 25, className: "bg-foreground/20" },
+        { lo: 25, hi: 30, className: "bg-caution/20" },
+        { lo: 30, hi: VIX_SCALE.hi, className: "bg-loss/20" },
+      ]),
       signedFillPct: null,
       dotClass: glanceDot(vix.glance),
-      scaleLo: 10,
-      scaleHi: 40,
+      scaleLo: VIX_SCALE.lo,
+      scaleHi: VIX_SCALE.hi,
       scaleDigits: 2,
       zones: VIX_ZONES,
       ticks: [
-        { pct: 0, label: "10" },
-        { pct: 100, label: "40" },
+        { pct: 0, label: String(VIX_SCALE.lo) },
+        { pct: 100, label: String(VIX_SCALE.hi) },
       ],
     },
     {
@@ -455,23 +479,21 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       explain: rsiNow.explain,
       valueClassName: glanceClass(rsiNow.glance),
       kind: "linear",
-      markerPct: linearMarkerPct(metrics.rsi, 0, 100),
-      band: bandRangePct(30, 70, 0, 100),
-      bandClass: "bg-foreground/20",
-      edges: scaleEdges(
-        bandRangePct(0, 30, 0, 100),
-        bandRangePct(70, 100, 0, 100)
-      ),
-      edgeClass: "bg-loss/20",
+      markerPct: linearMarkerPct(metrics.rsi, rsiScale.lo, rsiScale.hi),
+      fills: trackFills(rsiScale.lo, rsiScale.hi, [
+        { lo: rsiScale.lo, hi: 30, className: "bg-loss/20" },
+        { lo: 30, hi: 70, className: "bg-foreground/20" },
+        { lo: 70, hi: rsiScale.hi, className: "bg-loss/20" },
+      ]),
       signedFillPct: null,
       dotClass: glanceDot(rsiNow.glance),
-      scaleLo: 0,
-      scaleHi: 100,
+      scaleLo: rsiScale.lo,
+      scaleHi: rsiScale.hi,
       scaleDigits: 1,
       zones: RSI_ZONES,
       ticks: [
-        { pct: 0, label: "0" },
-        { pct: 100, label: "100" },
+        { pct: 0, label: String(rsiScale.lo) },
+        { pct: 100, label: String(rsiScale.hi) },
       ],
     },
     {
@@ -482,8 +504,12 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       valueClassName: glanceClass(fear.glance),
       kind: "linear",
       markerPct: linearMarkerPct(metrics.fearGreed, 0, 100),
-      band: null,
-      edges: [],
+      fills: trackFills(0, 100, [
+        { lo: 0, hi: 25, className: "bg-loss/40" },
+        { lo: 25, hi: 45, className: "bg-loss/20" },
+        { lo: 55, hi: 75, className: "bg-gain/20" },
+        { lo: 75, hi: 100, className: "bg-gain/40" },
+      ]),
       signedFillPct: null,
       dotClass: glanceDot(fear.glance),
       scaleLo: 0,
