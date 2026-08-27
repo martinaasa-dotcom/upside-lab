@@ -460,6 +460,7 @@ export function Reading({
   nested = false,
   tone = "neutral",
   icon,
+  note,
 }: {
   label?: ReactNode;
   children: ReactNode;
@@ -468,7 +469,20 @@ export function Reading({
   nested?: boolean;
   tone?: ReadingTone;
   icon?: ReactNode;
+  /**
+   * Where the sentence came from, when that is not the obvious answer.
+   *
+   * It sits opposite the label as a byline rather than under the sentence
+   * as a second paragraph, which is the shape it wants: a reader looking
+   * for it finds it on the same line that already says what kind of card
+   * this is, and a reader who is not looking reads the sentence and stops.
+   * Two or three words, in the mono caps label voice. Anything needing a
+   * full sentence belongs in the body.
+   */
+  note?: ReactNode;
 }) {
+  const hasLabel = label != null && label !== "";
+  const hasNote = note != null && note !== "";
   return (
     <div
       className={cn(
@@ -479,24 +493,36 @@ export function Reading({
         className
       )}
     >
-      {label != null && label !== "" ? (
-        <div
-          className={cn(
-            "flex items-center gap-2 font-heading text-base font-semibold tracking-tight",
-            READING_LABEL_TONES[tone]
-          )}
-        >
-          {icon ? (
-            <span className="flex size-4 shrink-0 [&>svg]:size-4" aria-hidden>
-              {icon}
-            </span>
+      {hasLabel || hasNote ? (
+        <div className="flex items-baseline justify-between gap-3">
+          {hasLabel ? (
+            <div
+              className={cn(
+                "flex min-w-0 items-center gap-2 font-heading text-base font-semibold tracking-tight",
+                READING_LABEL_TONES[tone]
+              )}
+            >
+              {icon ? (
+                <span
+                  className="flex size-4 shrink-0 [&>svg]:size-4"
+                  aria-hidden
+                >
+                  {icon}
+                </span>
+              ) : null}
+              {label}
+            </div>
           ) : null}
-          {label}
+          {hasNote ? (
+            <MicroLabel className="shrink-0 text-muted-foreground/70">
+              {note}
+            </MicroLabel>
+          ) : null}
         </div>
       ) : null}
       <div
         className={cn(
-          label != null && label !== "" && "mt-2.5",
+          (hasLabel || hasNote) && "mt-2.5",
           "text-sm leading-relaxed text-foreground"
         )}
       >

@@ -44,24 +44,19 @@ export type SundayRecap = {
 /**
  * Where a Home notice came from.
  *
- * Only two of these are worth printing. A card that says a number was
- * worked out from your own holdings at today's prices is saying the one
- * thing the reader already assumed, on a page called Today, four times per
- * screen, and a line everybody skips is a line nobody reads the day it
- * matters. What is not obvious is a card quoting a Pulse reading or
- * comparing against the last time you were here, so those two still say so
- * and "holdings" prints nothing.
+ * Exactly one of these is worth printing, and it is a byline rather than a
+ * paragraph. A card saying it was worked out from your own holdings at
+ * today's prices is saying the one thing a reader on a page called Today
+ * already assumed, four times per screen, and a line everybody skips is a
+ * line nobody reads the day it matters. A visit card says it in its own
+ * label ("Since you looked"), so repeating it under the sentence was the
+ * same words twice in one card. That leaves the Pulse cards, which quote a
+ * reading taken somewhere else, and those carry two words in the header.
  */
 export type MorningSource = "holdings" | "pulse" | "visit";
 
-export function morningSourceLabel(source: MorningSource): string | null {
-  if (source === "pulse") {
-    return "From the Pulse reading you already have on this name.";
-  }
-  if (source === "visit") {
-    return "Against what your numbers were last time you looked.";
-  }
-  return null;
+export function morningSourceNote(source: MorningSource): string | null {
+  return source === "pulse" ? "From Pulse" : null;
 }
 
 export type MorningNotice = {

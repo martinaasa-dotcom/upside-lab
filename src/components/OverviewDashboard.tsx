@@ -35,7 +35,7 @@ import {
 import {
   buildMorningRead,
   loadHomePulseNotes,
-  morningSourceLabel,
+  morningSourceNote,
   type HomePulseNote,
 } from "@/lib/morning-read";
 import {
@@ -59,7 +59,9 @@ import {
 } from "@/lib/visit-diff";
 import { finiteNumber } from "@/lib/money";
 import {
+  Activity,
   AlertTriangle,
+  ArrowRight,
   Calculator,
   Plus,
   TrendingDown,
@@ -467,41 +469,44 @@ function MorningStack({
             morning.notices.length > 1 && "sm:grid-cols-2"
           )}
         >
-          {morning.notices.map((notice) => {
-            const source = morningSourceLabel(notice.source);
-            return (
-              <Reading
-                key={notice.id}
-                label={notice.label}
-                tone={notice.kind === "gap" ? "warn" : "neutral"}
-                /*
-                 * `Sparkles` used to sit on the notice card, and it was the
-                 * wrong glyph by a long way: it is the universal "a model
-                 * wrote this" mark, and these cards are arithmetic on the
-                 * reader's own holdings. `Calculator` is what the card is.
-                 */
-                icon={
-                  notice.kind === "gap" ? <AlertTriangle /> : <Calculator />
-                }
-              >
-                <InsightText text={notice.text} />
-                {source ? (
-                  <p className="mt-3 text-sm text-muted-foreground">{source}</p>
-                ) : null}
-                {notice.ticker && onOpenPulse ? (
-                  <p className="mt-3 text-sm">
-                    <button
-                      type="button"
-                      onClick={() => onOpenPulse(notice.ticker)}
-                      className="text-foreground underline underline-offset-4 hover:text-primary"
-                    >
-                      Open Pulse on {cashtag(notice.ticker)}
-                    </button>
-                  </p>
-                ) : null}
-              </Reading>
-            );
-          })}
+          {morning.notices.map((notice) => (
+            <Reading
+              key={notice.id}
+              label={notice.label}
+              tone={notice.kind === "gap" ? "warn" : "neutral"}
+              /*
+               * The glyph names what the card is. `Sparkles` used to sit
+               * here and was the wrong mark by a long way: it is the
+               * universal "a model wrote this" badge, and these cards are
+               * arithmetic on the reader's own holdings. A Pulse card is
+               * the exception, and it takes Pulse's own icon so the glyph,
+               * the byline and the button all point at the same room.
+               */
+              icon={
+                notice.kind === "gap" ? (
+                  <AlertTriangle />
+                ) : notice.source === "pulse" ? (
+                  <Activity />
+                ) : (
+                  <Calculator />
+                )
+              }
+              note={morningSourceNote(notice.source)}
+            >
+              <InsightText text={notice.text} />
+              {notice.ticker && onOpenPulse ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="-ml-2 mt-3 text-muted-foreground hover:text-foreground"
+                  onClick={() => onOpenPulse(notice.ticker)}
+                >
+                  Open Pulse on {cashtag(notice.ticker)}
+                  <ArrowRight data-icon="inline-end" />
+                </Button>
+              ) : null}
+            </Reading>
+          ))}
         </div>
       )}
     </div>
