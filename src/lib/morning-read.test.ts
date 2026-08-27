@@ -181,7 +181,11 @@ describe("Home notices", () => {
     );
     expect(read.quiet).toBe(true);
     const notice = read.notices.find((n) => n.kind === "notice");
-    expect(notice?.text).toMatch(/\$CRWV (?:rose|is up) about 5%/);
+    // loneCandidate's text is one of three seeded phrasings (say() in
+    // morning-read.ts picks by today's date), so this matches all three
+    // rather than pinning to whichever one happened to be seeded when the
+    // test was written.
+    expect(notice?.text).toMatch(/\$CRWV (?:is up|did|just moved) about 5%/);
     expect(notice?.text).not.toMatch(/Most of your portfolio is/);
     expect(notice?.text).not.toMatch(/whether something changed at the company/);
     expect(notice?.label).toMatch(/Update|Friday's close|Since you looked/);
@@ -225,7 +229,12 @@ describe("Home notices", () => {
     const a = first.notices.find((n) => n.kind === "notice")?.text ?? "";
     const b = second.notices.find((n) => n.kind === "notice")?.text ?? "";
     expect(a).toMatch(/Since you last looked|while you were away|New since you opened/i);
-    expect(b).toMatch(/\$CRWV/);
+    // $CRWV's subject was already shown in `a`, so the second look ranks
+    // the AI-computer-companies group candidate above the lone-mover one
+    // (see subjectSeen in morning-read.ts). Every one of its seeded
+    // phrasings names the group, but only some also carry the $CRWV
+    // cashtag, so match on the group name instead of pinning to one.
+    expect(b).toMatch(/\$CRWV|AI computer companies/);
     expect(a).not.toBe(b);
   });
 
