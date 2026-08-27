@@ -41,10 +41,10 @@ const CSS = readFileSync("src/app/globals.css", "utf8");
 const LAYOUT = readFileSync("src/app/layout.tsx", "utf8");
 
 /** Every surface that has to ramp through the bottom of the range. */
-const DITHERED = [".page-frame::before", ".ambient-glow"];
+const DITHERED = [".page-frame::before"];
 
-/** Decorative glows behind the sample cards, which all share one class. */
-const GLOW_CALL_SITES = [
+/** Sample cards that must sit on the page field, not a private glow. */
+const SAMPLE_SITES = [
   "src/components/SignedOutLanding.tsx",
   "src/components/SignInGate.tsx",
 ];
@@ -105,11 +105,9 @@ describe("the ambient dither", () => {
     expect(CSS).not.toContain(".landing-field::after {");
   });
 
-  it("does not dither the landing sample-card glow", () => {
-    const start = CSS.indexOf(".landing-field .ambient-glow {");
-    expect(start).toBeGreaterThan(-1);
-    const rule = CSS.slice(start, CSS.indexOf("}", start));
-    expect(rule).toMatch(/filter:\s*none/);
+  it("does not paint a second field behind the sample card", () => {
+    expect(CSS).not.toContain(".ambient-glow {");
+    expect(CSS).not.toContain(".landing-field .ambient-glow {");
   });
 });
 
@@ -123,21 +121,14 @@ describe("surfaces that ramp through near-black", () => {
     });
   }
 
-  it("gives .ambient-glow a falloff curve rather than two stops", () => {
-    const start = CSS.indexOf(".ambient-glow {");
-    const rule = CSS.slice(start, CSS.indexOf("}", start));
-    const stops = [...rule.matchAll(/oklch\(from var\(--primary\)/g)].length;
-    expect(stops, "a colour-to-transparent ramp has an edge you can see")
-      .toBeGreaterThanOrEqual(4);
-  });
-
-  for (const path of GLOW_CALL_SITES) {
-    it(`${path} uses .ambient-glow rather than its own ramp`, () => {
+  it("does not put a private glow behind the sample cards", () => {
+    expect(CSS).not.toContain(".ambient-glow {");
+    for (const path of SAMPLE_SITES) {
       const source = readFileSync(path, "utf8");
-      expect(source).toContain("ambient-glow");
+      expect(source, path).not.toMatch(/className="ambient-glow"/);
       expect(source, "a hand-rolled two stop glow").not.toMatch(
         /bg-gradient-to-\w+[^"]*to-transparent/
       );
-    });
-  }
+    }
+  });
 });

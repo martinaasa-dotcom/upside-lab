@@ -46,7 +46,7 @@
  * clouds. A low frequency noise would swap one visible pattern for
  * another.
  *
- * `filter` lives in CSS (`.page-frame::before`, `.ambient-glow`), and the
+ * `filter` lives in CSS (`.page-frame::before`), and the
  * filter itself has to live in the document:
  * Safari does not resolve a filter referenced from a data URI, so an
  * inline definition is the only form that works on an iPhone. It renders

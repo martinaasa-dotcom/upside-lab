@@ -47,12 +47,13 @@ describe("the landing hero lamps stay with the window", () => {
     expect(pair).toContain("--ambient-cool");
   });
 
-  it("does not draw a second box around the sample card", () => {
-    expect(LANDING).toContain('className="h-auto gap-5 p-5"');
-    expect(LANDING).not.toMatch(/shadow-2xl shadow-black\/60/);
-    expect(GATE).not.toMatch(/shadow-2xl shadow-black\/60/);
-    const glow = ruleOf(".ambient-glow");
-    expect(glow).not.toContain("border-radius");
+  it("does not draw a second field behind the sample card", () => {
+    expect(LANDING).not.toMatch(/className="ambient-glow"/);
+    expect(GATE).not.toMatch(/className="ambient-glow"/);
+    expect(LANDING).toContain("sample-still");
+    expect(LANDING).toContain('className="sample-still h-auto gap-5 p-5 ring-0"');
+    expect(CSS).toMatch(/\.landing-still \.glass,\s*\n\.sample-still \{[\s\S]*?box-shadow:\s*none/);
+    expect(CSS).not.toContain(".ambient-glow {");
   });
 });
 
@@ -88,11 +89,9 @@ describe("the landing does not hide itself before paint", () => {
     expect(rule).not.toMatch(/transform:\s*translateZ/);
   });
 
-  it("does not SVG-filter the sample-card glow, which hangs past the fold", () => {
-    const start = CSS.indexOf(".landing-field .ambient-glow {");
-    expect(start).toBeGreaterThan(-1);
-    const rule = CSS.slice(start, CSS.indexOf("}", start));
-    expect(rule).toMatch(/filter:\s*none/);
+  it("does not put a private glow behind the sample card", () => {
+    expect(CSS).not.toContain(".ambient-glow {");
+    expect(LANDING).not.toMatch(/className="ambient-glow"/);
   });
 
   it("does not pulse the live dot on the landing", () => {

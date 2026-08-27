@@ -1302,50 +1302,6 @@ button:disabled,
 }
 
 /*
- * The warm lift behind a sample card, and the reason it is a class rather
- * than four utilities.
- *
- * Every one of these was `bg-gradient-to-br from-primary/12 to-transparent
- * opacity-70 blur-3xl`: one colour, one stop, straight to nothing. The note
- * on `.page-frame::before` already says why that cannot work here ("five
- * stops, not two, because a single colour-to-transparent ramp has an edge
- * you can see"), and the card glow was the loudest example of it on the
- * site. Measured on the real hero it peaked at rgb(27,23,14) seen through
- * the pane and reached black over about 760px, so the whole thing had
- * twenty-two levels to spend and spent them a level at a time roughly
- * every thirty-five pixels. Thirty-five pixel steps of khaki, stacked on
- * top of the field's own rings, is the blotching in the middle of the
- * page.
- *
- * So it takes the same shape the room's own lamps take: a radial with a
- * falloff curve rather than a straight line, anchored off the card's top
- * left corner where the key light is, and dithered like everything else
- * that has to ramp through the bottom of the range. No `blur` term: at
- * four stops the gradient is already softer than a 64px blur made it, and
- * a blur inside a filter region would only have to be clipped back to the
- * element box anyway.
- *
- * The ellipse has to die inside this box. A 125% gradient plus
- * `border-radius: 3rem` on a box 1rem larger than the card was a second
- * rounded frame around the picture: the leftover colour at the clip edge.
- */
-.ambient-glow {
-  position: absolute;
-  inset: -4rem;
-  z-index: -1;
-  pointer-events: none;
-  background-image: radial-gradient(
-    70% 65% at 18% 8%,
-    oklch(from var(--primary) l c h / 8.5%) 0%,
-    oklch(from var(--primary) l c h / 4.4%) 22%,
-    oklch(from var(--primary) l c h / 1.9%) 44%,
-    oklch(from var(--primary) l c h / 0.7%) 68%,
-    transparent 100%
-  );
-  filter: url(#ambient-dither);
-}
-
-/*
  * The signed-out landing uses the same viewport-fixed lamps as every
  * signed-in room (`.page-frame::before`). Do not override them.
  *
@@ -1362,8 +1318,8 @@ button:disabled,
  * the paint-in-one-frame rules below.
  *
  * `src/lib/landing-paint.test.ts` fails if the lamps are clipped to one
- * screen again, if a page-tall layer takes the dither, or if the sample
- * card's glow keeps the filter.
+ * screen again, if a page-tall layer takes the dither, or if a second
+ * field is painted behind the briefing.
  */
 .landing-hero,
 .landing-still {
@@ -1375,6 +1331,16 @@ button:disabled,
    * lamp layer, and wrong on anything taller than the window.
    */
   transform: none;
+}
+
+/*
+ * The briefing is one pane on the page field. A glow behind it was a
+ * second rectangle of khaki with a hard clip. The glass rim is a drawn
+ * box around that pane. Neither belongs here.
+ */
+.landing-still .glass,
+.sample-still {
+  box-shadow: none;
 }
 
 @media (max-width: 767px) {
@@ -1390,18 +1356,6 @@ button:disabled,
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-}
-
-/*
- * The glow behind the sample card is a filtered layer the size of the
- * card, and the card hangs off the fold. An SVG filter on that box is the
- * same Safari tile as a document-tall field: the visible half paints, the
- * rest arrives on scroll. The page-frame lamps underneath are already
- * dithered. Dropping the filter here is a slight coarsening of the khaki
- * lift, not a pop-in.
- */
-.landing-field .ambient-glow {
-  filter: none;
 }
 
 /*

@@ -248,34 +248,24 @@ filter referenced from a data URI, so a data URI would leave every iPhone
 undithered with nothing failing. Scroll cost measured at 1600x1000: median
 frame 16.7ms without, 16.8ms with.
 
-What carries it: `.page-frame::before`, `.ambient-glow`. The landing uses
-those same viewport-fixed lamps. Do not clip them to `100svh` (that is a
-hard line at the fold) and do not put the dither on a document-tall layer
-(Safari tiles it and the sample card pops in). The sample-card glow on
-that page is undithered because the card hangs past the fold.
+What carries it: `.page-frame::before`. The landing uses those same
+viewport-fixed lamps. Do not clip them to `100svh` (that is a hard line
+at the fold), do not put the dither on a document-tall layer (Safari
+tiles it and the sample card pops in), and do not paint a second glow
+behind the briefing (that is a duplicate field with a clip edge).
 `src/lib/ambient-dither.test.ts`
 fails if the two amplitude numbers stop being exact double and half, if
 either term loses its clip, or if a surface drops the filter. **Judge a
 change here by measuring black lift and riser-to-noise, never by
 eyeballing.**
 
-### The glow behind a sample card is `.ambient-glow`, and it has a falloff
+### The briefing sits on the page field, with no private glow
 
-The three sample cards across both apps each carried
-`bg-gradient-to-br from-primary/12 to-transparent opacity-70 blur-3xl`:
-one colour, one stop, straight to nothing. Seen through the pane it peaked
-at rgb(27,23,14) and reached black over about 760px, so it had **22 levels
-to spend and spent them every 35px** — coarser steps than the field's own,
-stacked on top of them, and in khaki. That is the blotching in the middle
-of the landing page.
-
-The note on `.page-frame::before` already said why ("five stops, not two,
-because a single colour-to-transparent ramp has an edge you can see"); the
-card glow was simply never held to it. It is one class now, with a
-four-stop falloff anchored off the card's top left where the key light is,
-and the same dither. No `blur` term: at four stops the gradient is already
-softer than a 64px blur made it, and a blur inside a filter region would
-only be clipped back to the element box.
+A glow behind the sample card (`.ambient-glow`, or the older
+`bg-gradient-to-br from-primary/12 to-transparent opacity-70 blur-3xl`)
+is a second rectangle of khaki. Its element box clips, so you get a hard
+line around the briefing that is not the page lamp. The briefing is one
+glass pane on `.page-frame::before`. No extra field, no extra rim.
 
 ## Why the glass is mostly *edge*, not blur (2026-08-20)
 

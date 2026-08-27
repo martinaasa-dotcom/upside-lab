@@ -338,20 +338,8 @@ const SAMPLE_MOVERS = [
 function BookStill() {
   return (
     <div className="relative md:-rotate-1 md:transition-transform md:duration-700 md:hover:rotate-0">
-      {/*
-       * One quiet warm lift behind the sample card, not a halo, and the
-       * same one the hero uses. It went through two rounds here before it
-       * moved into `.ambient-glow`: first it lost `-inset-8 ...
-       * from-primary/25 via-primary/5 to-gain/10 opacity-90 blur-3xl`, a
-       * 395x666px element at blur(64px) wearing gain green, which is a
-       * financial signal and meant nothing here. Then it lost the two
-       * stop ramp that replaced it, because a ramp with one stop in it
-       * cannot cross this much near-black without banding. The account of
-       * that is in `globals.css`.
-       */}
-      <div className="ambient-glow" aria-hidden />
       <Panel
-        className="signin-rise-3 h-auto gap-4 p-4 relative overflow-hidden"
+        className="sample-still signin-rise-3 h-auto gap-4 p-4 relative overflow-hidden ring-0"
         aria-hidden
       >
         <div className="flex items-center justify-between gap-3">

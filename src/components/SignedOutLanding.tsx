@@ -625,67 +625,60 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
 /** The briefing at full column width, for the centred hero. */
 function BookWide() {
   return (
-    <div className="relative">
-      {/* One quiet warm lift behind the sample card. See `.ambient-glow`. */}
-      <div className="ambient-glow" aria-hidden />
-      <Panel
-        className="h-auto gap-5 p-5"
-        aria-hidden
-      >
-        <div className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-2">
-            <span className="signin-live-dot" aria-hidden />
-            <MicroLabel>Today&apos;s briefing</MicroLabel>
-          </span>
-          <Pill tone="neutral">Sample</Pill>
+    <Panel className="sample-still h-auto gap-5 p-5 ring-0" aria-hidden>
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2">
+          <span className="signin-live-dot" aria-hidden />
+          <MicroLabel>Today&apos;s briefing</MicroLabel>
+        </span>
+        <Pill tone="neutral">Sample</Pill>
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+        <div className="text-left">
+          <MicroLabel>Portfolio</MicroLabel>
+          <p className="mt-1 font-sans text-3xl font-bold tabular-nums text-foreground">
+            $91,400
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-md bg-gain/15 px-2 py-1 text-sm font-semibold tabular-nums text-gain">
+              Today +$4,180
+            </span>
+            <span className="rounded-md bg-muted px-2 py-1 text-sm font-semibold tabular-nums text-gain">
+              All time +18%
+            </span>
+          </div>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
-          <div className="text-left">
-            <MicroLabel>Portfolio</MicroLabel>
-            <p className="mt-1 font-sans text-3xl font-bold tabular-nums text-foreground">
-              $91,400
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="rounded-md bg-gain/15 px-2 py-1 text-sm font-semibold tabular-nums text-gain">
-                Today +$4,180
+        <div className="divide-y divide-border/60 overflow-hidden rounded-lg glass-well">
+          {SAMPLE_MOVERS.map((row) => (
+            <div
+              key={row.ticker}
+              className="flex h-10 items-center gap-3 px-3"
+            >
+              <span className="flex-1 text-left font-heading text-sm font-semibold text-foreground">
+                ${row.ticker}
               </span>
-              <span className="rounded-md bg-muted px-2 py-1 text-sm font-semibold tabular-nums text-gain">
-                All time +18%
+              <span
+                className={cn(
+                  "w-14 text-right font-mono text-sm font-medium tabular-nums",
+                  row.up ? "text-gain" : "text-loss"
+                )}
+              >
+                {row.pct}
+              </span>
+              <span className="w-16 text-right font-mono text-sm tabular-nums text-muted-foreground">
+                {row.dollar}
               </span>
             </div>
-          </div>
-
-          <div className="divide-y divide-border/60 overflow-hidden rounded-lg glass-well">
-            {SAMPLE_MOVERS.map((row) => (
-              <div
-                key={row.ticker}
-                className="flex h-10 items-center gap-3 px-3"
-              >
-                <span className="flex-1 text-left font-heading text-sm font-semibold text-foreground">
-                  ${row.ticker}
-                </span>
-                <span
-                  className={cn(
-                    "w-14 text-right font-mono text-sm font-medium tabular-nums",
-                    row.up ? "text-gain" : "text-loss"
-                  )}
-                >
-                  {row.pct}
-                </span>
-                <span className="w-16 text-right font-mono text-sm tabular-nums text-muted-foreground">
-                  {row.dollar}
-                </span>
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
+      </div>
 
-        <Reading nested label="Worth noticing" className="text-left">
-          <InsightText text="$RKLB rose 6.8% today while Amazon and Microsoft barely moved. When one name climbs on its own, the question is whether something changed at the company, or only the price." />
-        </Reading>
-      </Panel>
-    </div>
+      <Reading nested label="Worth noticing" className="text-left">
+        <InsightText text="$RKLB rose 6.8% today while Amazon and Microsoft barely moved. When one name climbs on its own, the question is whether something changed at the company, or only the price." />
+      </Reading>
+    </Panel>
   );
 }
 
