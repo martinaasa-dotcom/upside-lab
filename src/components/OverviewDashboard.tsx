@@ -32,7 +32,8 @@ import {
   screenshotPickerInputProps,
   useScreenshotPicker,
 } from "@/lib/use-screenshot-picker";
-import { buildMorningRead } from "@/lib/morning-read";
+import { buildMorningRead, loadHomePulseNotes, type HomePulseNote } from "@/lib/morning-read";
+import { bumpInsightLook } from "@/lib/insight-look";
 import type { UpsideAlert } from "@/lib/alerts";
 import { sessionLabel, sessionKind } from "@/lib/market-session";
 import { sheetCashBalance } from "@/lib/cash-balance";
@@ -458,7 +459,7 @@ function MorningStack({
         >
           {morning.notices.map((notice) => (
             <Reading
-              key={notice.label}
+              key={notice.id}
               label={notice.label}
               tone={notice.kind === "gap" ? "warn" : "neutral"}
               icon={
@@ -706,6 +707,8 @@ export const OverviewDashboard = memo(function OverviewDashboard({
     ...sheets.map((s) => finiteNumber(s.totalValue))
   );
   const [visitDiff, setVisitDiff] = useState<VisitDiff | null>(null);
+  const [lookIndex, setLookIndex] = useState(0);
+  const [notes, setNotes] = useState<HomePulseNote[]>([]);
   const [moverHorizon, setMoverHorizon] = useState<"today" | "lifetime">(
     "today"
   );
@@ -765,9 +768,28 @@ export const OverviewDashboard = memo(function OverviewDashboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tickerKey, model.totals.totalValue, model.totals.cash]);
 
+  useLayoutEffect(() => {
+    setLookIndex(bumpInsightLook());
+  }, []);
+
+  useLayoutEffect(() => {
+    setNotes(loadHomePulseNotes(tickers.map((t) => t.ticker)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tickerKey]);
+
+  useEffect(() => {
+    function onVis() {
+      if (document.visibilityState === "visible") {
+        setLookIndex(bumpInsightLook());
+      }
+    }
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
   const morning = useMemo(
-    () => buildMorningRead(model, visitDiff, kind),
-    [model, visitDiff, kind]
+    () => buildMorningRead(model, visitDiff, kind, { lookIndex, notes }),
+    [model, visitDiff, kind, lookIndex, notes]
   );
 
   const nav = useBookNavHistory({

@@ -1,14 +1,22 @@
-import { buildBookInsights } from "@/lib/book-insights";
-import { signedCurrency } from "@/lib/format";
+import {
+  buildBookInsights,
+  concentrationDayLine,
+  neighborGapsToday,
+  type InsightHolding,
+} from "@/lib/book-insights";
+import { loadConvictionMap } from "@/lib/conviction";
+import { cashtag, signedCurrency } from "@/lib/format";
 import {
   insightWhen,
   isUsAfterCashClose,
   isUsWeekend,
   type SessionKind,
 } from "@/lib/market-session";
+import { loadPulseTickerCache } from "@/lib/thesis-pulse";
 import type { OverviewModel } from "@/lib/overview";
 import type { VisitDiff } from "@/lib/visit-diff";
 import { loadWeekMarks } from "@/lib/week-marks";
+import { todayKeyInTz } from "@/lib/timezone";
 
 export type MorningDriver = {
   ticker: string;
@@ -27,6 +35,7 @@ export type SundayRecap = {
 };
 
 export type MorningNotice = {
+  id: string;
   label: string;
   text: string;
   /** notice = an observation. gap = something missing worth acting on.
@@ -45,6 +54,42 @@ export type MorningRead = {
   sunday: SundayRecap | null;
   moveLabel: "Today" | "Friday";
 };
+
+export type HomePulseNote = {
+  ticker: string;
+  thesisStatus?: string | null;
+  hasThesis: boolean;
+};
+
+export type MorningReadExtras = {
+  /** Which sitting this is today. 0 is the first look. */
+  lookIndex?: number;
+  notes?: HomePulseNote[];
+};
+
+type Candidate = {
+  id: string;
+  kind: "notice" | "gap";
+  rank: number;
+  text: string;
+};
+
+function holdingsFrom(model: OverviewModel): InsightHolding[] {
+  return model.tickers.map((t) => ({
+    ticker: t.ticker,
+    value: t.currentValue,
+    todayPct: t.todayPct,
+    todayDollar: t.todayDollar,
+  }));
+}
+
+function aboutMove(pct: number): string {
+  return `about ${Math.max(1, Math.round(Math.abs(pct) * 100))}%`;
+}
+
+function riseOrFell(pct: number): "rose" | "fell" {
+  return pct >= 0 ? "rose" : "fell";
+}
 
 function daySentence(
   model: OverviewModel,
@@ -150,11 +195,189 @@ function isSundayTallinn(now = new Date()): boolean {
   return wd === "Sun";
 }
 
+function awayCandidate(visitDiff: VisitDiff | null): Candidate | null {
+  if (!visitDiff) return null;
+  const tickerLine = visitDiff.lines.find((l) => l.id.startsWith("t-"));
+  if (tickerLine) {
+    return {
+      id: `away-${tickerLine.id}`,
+      kind: "notice",
+      rank: 95,
+      text: `While you were away, ${tickerLine.text}. That is the name that changed the most since you last looked.`,
+    };
+  }
+  const nav = visitDiff.lines.find((l) => l.id === "nav");
+  if (!nav) return null;
+  return {
+    id: "away-nav",
+    kind: "notice",
+    rank: 88,
+    text: `${nav.text}. That is since you last opened this, not just today's open.`,
+  };
+}
+
+function weekReversal(
+  model: OverviewModel,
+  when: "today" | "friday"
+): Candidate | null {
+  if (when === "friday") return null;
+  const week = loadWeekMarks();
+  const dayKey = todayKeyInTz();
+  const prior = week.days.filter(
+    (d) => d.dayKey !== dayKey && d.bestTicker && d.bestPct != null
+  );
+  if (prior.length === 0) return null;
+  const best = [...prior].sort(
+    (a, b) => (b.bestPct ?? 0) - (a.bestPct ?? 0)
+  )[0];
+  if (!best?.bestTicker) return null;
+  const t = model.tickers.find((x) => x.ticker === best.bestTicker);
+  if (!t || t.todayPct == null || t.todayPct > -0.02) return null;
+  return {
+    id: `reversal-${t.ticker}`,
+    kind: "notice",
+    rank: 68,
+    text: `${cashtag(t.ticker)} led your week, and it fell ${aboutMove(t.todayPct)} today. A strong week can still have a down day.`,
+  };
+}
+
+function pulseCandidates(
+  model: OverviewModel,
+  notes: HomePulseNote[] | undefined,
+  when: "today" | "friday"
+): Candidate[] {
+  if (!notes || notes.length === 0) return [];
+  const tail = when === "friday" ? "on Friday" : "today";
+  const equity = model.totals.equityValue;
+  const byTicker = new Map(
+    model.tickers.map((t) => [t.ticker.toUpperCase(), t])
+  );
+  const out: Candidate[] = [];
+  for (const n of notes) {
+    const t = byTicker.get(n.ticker.toUpperCase());
+    if (!t || t.todayPct == null) continue;
+    const status = String(n.thesisStatus ?? "").toLowerCase();
+    const big =
+      equity > 0 ? t.currentValue / equity >= 0.1 : false;
+    if (status === "watch" || status === "broken") {
+      if (Math.abs(t.todayPct) < 0.015 && !big) continue;
+      const label = status === "broken" ? "Thesis broken" : "Thesis watch";
+      out.push({
+        id: `pulse-${t.ticker}`,
+        kind: "notice",
+        rank: 72,
+        text: `${cashtag(t.ticker)} is on ${label}, and it ${riseOrFell(t.todayPct)} ${aboutMove(t.todayPct)} ${tail}.`,
+      });
+    }
+    if (
+      !n.hasThesis &&
+      Math.abs(t.todayPct) >= 0.02 &&
+      equity > 0 &&
+      t.currentValue / equity >= 0.08
+    ) {
+      out.push({
+        id: `thesis-${t.ticker}`,
+        kind: "gap",
+        rank: 62,
+        text: `${cashtag(t.ticker)} ${riseOrFell(t.todayPct)} ${aboutMove(t.todayPct)} ${tail}, and there is no thesis on file for it.`,
+      });
+    }
+  }
+  return out;
+}
+
+function liveCandidates(
+  model: OverviewModel,
+  visitDiff: VisitDiff | null,
+  when: "today" | "friday",
+  notes: HomePulseNote[] | undefined
+): Candidate[] {
+  const holdings = holdingsFrom(model);
+  const insights = buildBookInsights(holdings, when);
+  const out: Candidate[] = [];
+
+  const away = awayCandidate(visitDiff);
+  if (away) out.push(away);
+
+  if (insights.loneMove) {
+    const tag = insights.loneMove.match(/\$[A-Z][A-Z0-9.]{0,11}/)?.[0] ?? "lone";
+    out.push({
+      id: `lone-${tag}`,
+      kind: "notice",
+      rank: 82,
+      text: insights.loneMove,
+    });
+  }
+
+  if (insights.dayMove) {
+    out.push({
+      id: "groups",
+      kind: "notice",
+      rank: 78,
+      text: insights.dayMove,
+    });
+  } else {
+    const conc = concentrationDayLine(holdings, when);
+    if (conc) {
+      out.push({ id: "mix-today", kind: "notice", rank: 50, text: conc });
+    }
+  }
+
+  const reversal = weekReversal(model, when);
+  if (reversal) out.push(reversal);
+
+  for (const gap of neighborGapsToday(holdings, when)) {
+    out.push({
+      id: gap.id,
+      kind: "gap",
+      rank: 55,
+      text: gap.text,
+    });
+  }
+
+  out.push(...pulseCandidates(model, notes, when));
+  return out;
+}
+
+function byRank(a: Candidate, b: Candidate): number {
+  return b.rank - a.rank || a.id.localeCompare(b.id);
+}
+
+export function pickHomeNotices(
+  candidates: Candidate[],
+  lookIndex: number,
+  noticeLabel: string
+): MorningNotice[] {
+  const notices = candidates.filter((c) => c.kind === "notice").sort(byRank);
+  const gaps = candidates.filter((c) => c.kind === "gap").sort(byRank);
+  const out: MorningNotice[] = [];
+  if (notices.length > 0) {
+    const n = notices[lookIndex % notices.length]!;
+    out.push({
+      id: n.id,
+      label: noticeLabel,
+      text: n.text,
+      kind: "notice",
+    });
+  }
+  if (gaps.length > 0) {
+    const g = gaps[lookIndex % gaps.length]!;
+    out.push({
+      id: g.id,
+      label: "What's missing",
+      text: g.text,
+      kind: "gap",
+    });
+  }
+  return out;
+}
+
 /** One screen of Today, no new model call. Uses live book + cached Pulse. */
 export function buildMorningRead(
   model: OverviewModel,
   visitDiff: VisitDiff | null,
-  session: SessionKind = "unknown"
+  session: SessionKind = "unknown",
+  extras: MorningReadExtras = {}
 ): MorningRead {
   const weekend = isUsWeekend();
   const when = insightWhen(session);
@@ -162,31 +385,13 @@ export function buildMorningRead(
   const awayLines = visitDiff?.lines.slice(0, 3) ?? [];
   const sunday = isSundayTallinn() ? buildSundayRecap(model) : null;
   const afterClose = isUsAfterCashClose(session);
-  const insights = buildBookInsights(
-    model.tickers.map((t) => ({
-      ticker: t.ticker,
-      value: t.currentValue,
-      todayPct: t.todayPct,
-    })),
-    when
+  const lookIndex = extras.lookIndex ?? 0;
+  const noticeLabel = when === "friday" ? "Friday's close" : "Worth noticing";
+  const notices = pickHomeNotices(
+    liveCandidates(model, visitDiff, when, extras.notes),
+    lookIndex,
+    noticeLabel
   );
-  const notices: MorningNotice[] = [];
-  if (insights.dayMove) {
-    notices.push({
-      label: when === "friday" ? "Friday's close" : "Worth noticing",
-      text: insights.dayMove,
-      kind: "notice",
-    });
-  } else if (!quiet && insights.rotation) {
-    notices.push({
-      label: when === "friday" ? "Friday's close" : "Worth noticing",
-      text: insights.rotation,
-      kind: "notice",
-    });
-  }
-  if (!quiet && insights.idea) {
-    notices.push({ label: "What's missing", text: insights.idea, kind: "gap" });
-  }
   return {
     quiet: quiet && awayLines.length === 0,
     sentence,
@@ -198,3 +403,19 @@ export function buildMorningRead(
     moveLabel: when === "friday" ? "Friday" : "Today",
   };
 }
+
+export function loadHomePulseNotes(tickers: string[]): HomePulseNote[] {
+  if (typeof window === "undefined") return [];
+  const conv = loadConvictionMap();
+  return tickers.map((ticker) => {
+    const key = ticker.toUpperCase();
+    const pulse = loadPulseTickerCache(key);
+    const thesis = conv[key]?.thesis?.trim() ?? "";
+    return {
+      ticker: key,
+      thesisStatus: pulse?.check.thesisStatus ?? null,
+      hasThesis: thesis.length > 0,
+    };
+  });
+}
+
