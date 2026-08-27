@@ -9,8 +9,9 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "@/components/ui/item";
+import { RankMedal } from "@/components/RankMedal";
 import { cn, NO_VALUE, percent, signedCurrency, signedTone } from "@/lib/format";
-import { Medal, Trophy } from "lucide-react";
+import { Trophy } from "lucide-react";
 import { Fragment } from "react";
 import type { MemberStat } from "@/components/community-types";
 
@@ -52,24 +53,11 @@ export function CommunityTodayBoard({
                     }}
                     className="cursor-pointer text-left"
                   >
-                    <ItemMedia>
-                      {/* Gold/silver/bronze is not a
-                        * palette this app has. The three
-                        * medals are one accent stepping
-                        * down in strength instead, so
-                        * rank still reads at a glance
-                        * without borrowing the warning
-                        * orange for third place -- an
-                        * alert colour on a leaderboard
-                        * row that is not an alert. */}
-                      {i === 0 ? (
-                        <Medal className="size-4 text-primary" />
-                      ) : i === 1 ? (
-                        <Medal className="size-4 text-primary/65" />
-                      ) : i === 2 ? (
-                        <Medal className="size-4 text-primary/40" />
+                    <ItemMedia className="w-6 justify-center">
+                      {i < 3 ? (
+                        <RankMedal place={(i + 1) as 1 | 2 | 3} />
                       ) : (
-                        <span className="w-4 text-center text-sm tabular-nums text-muted-foreground">
+                        <span className="w-6 text-center text-sm tabular-nums text-muted-foreground">
                           {i + 1}
                         </span>
                       )}

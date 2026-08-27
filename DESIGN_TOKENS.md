@@ -365,16 +365,18 @@ than widening the selector back out to a variant name.
 
 ### Same pass: the leaderboard medals
 
-Rank 3 in the community "Today" list was drawing its medal in
-`text-caution` — i.e. `--warning`, the true orange this file reserves for
-"caution/warning states only … don't reach for it decoratively." A
-leaderboard row is not an alert, and third place lit up louder than first.
-Gold/silver/bronze is not a palette this app has, so the three medals are
-now one accent stepping down in strength — `text-primary`,
-`text-primary/65`, `text-primary/40` — which reads as rank without
-borrowing a semantic colour. (Rank 2's medal was previously
-`text-muted-foreground`, so it was also a casualty of the selector bug
-above and rendered near-black.)
+Rank 3 in the community "Today" list used to draw in `text-caution`
+(`--warning`). A leaderboard row is not an alert, and third place lit up
+louder than first. The next pass used Lucide's `Medal` in `text-primary`,
+`text-primary/65`, `text-primary/40`. That icon is a line drawing with a
+"1" baked into the path, so every podium row looked like the same faded
+gold first-place glyph.
+
+Podium is gold, silver and bronze. `RankMedal` draws filled metal discs:
+gold is the mark's own ramp (`TONES` in `mark.ts`), silver is grey, bronze
+is copper (darker and redder than gold, about half the chroma of
+`--warning`). Do not put `--warning` on third place, and do not go back to
+opacity-stepped Lucide `Medal`.
 
 
 ## Ambient counter-lobe (`--ambient-cool`, 2026-08-21)
