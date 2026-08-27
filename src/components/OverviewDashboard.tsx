@@ -893,8 +893,6 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         </div>
       </div>
 
-      {marketReading}
-
       <Scoreboard className="overview-fade">
         <Score
           label="Portfolio"
@@ -936,12 +934,14 @@ export const OverviewDashboard = memo(function OverviewDashboard({
       </Scoreboard>
 
       <MorningStack
-        className="overview-fade hidden md:flex"
+        className="overview-fade"
         morning={morning}
         onOpenPulse={onOpenPulse}
       />
 
-      <Panel className="hidden md:block">
+      {marketReading}
+
+      <Panel className="overview-fade">
         <PanelHeader
           title="This year"
           actions={
@@ -966,38 +966,6 @@ export const OverviewDashboard = memo(function OverviewDashboard({
           liveNav={totals.totalValue}
         />
       </Panel>
-
-      <Panel className="overview-fade md:hidden">
-        <PanelHeader
-          title="This year"
-          actions={
-            yearPct != null && yearDollar != null ? (
-              <p
-                className={cn(
-                  "text-sm font-semibold tabular-nums",
-                  tone(yearPct)
-                )}
-              >
-                {signedPercent(yearPct)}
-                <span className="font-medium text-muted-foreground">
-                  {" "}
-                  · {signedCurrency(yearDollar, 0)}
-                </span>
-              </p>
-            ) : null
-          }
-        />
-        <OverviewYearChart
-          nav={nav}
-          liveNav={totals.totalValue}
-        />
-      </Panel>
-
-      <MorningStack
-        className="overview-fade md:hidden"
-        morning={morning}
-        onOpenPulse={onOpenPulse}
-      />
 
       <CashAlertCard
         className="md:hidden"
