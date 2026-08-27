@@ -93,9 +93,9 @@ export function screenCopy(
       };
     case "helps":
       return {
-        title: "The parts that do the thinking",
+        title: "Pulse, Margus, and the Sunday letter",
         lede:
-          "Three of them, and all three are about the names you already hold. None of them will tell you to buy, sell, or hold.",
+          "All three are about the names you already hold. None of them will tell you to buy, sell, or hold.",
       };
     case "rules":
       return {

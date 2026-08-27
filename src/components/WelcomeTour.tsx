@@ -776,9 +776,9 @@ export function WelcomeTour({
             <div className="flex flex-col gap-4">
               <ul className="grid gap-2 sm:grid-cols-2">
                 <Row icon={MessageCircle} term="Margus">
-                  An assistant that can read your portfolio and talk it through
-                  in plain language. Ask why something moved, what a number
-                  means, or what you would be left with if one name halved.
+                  Has read your portfolio. Ask why something moved, what a
+                  number means, or what you would be left with if one name
+                  halved.
                 </Row>
                 <Row icon={Activity} term="Thesis Pulse and Forecast">
                   Pulse checks whether the story behind a holding still stands.
@@ -1152,7 +1152,7 @@ export function WelcomeTour({
                 )}
                 <Row icon={MessageCircle} term="If you get stuck">
                   Ask Margus. It knows what is in your portfolio and answers in
-                  plain language.
+                  plain words.
                 </Row>
                 <Row icon={UserCog} term="If you want this again">
                   Account &rsaquo; Help has a button that replays this

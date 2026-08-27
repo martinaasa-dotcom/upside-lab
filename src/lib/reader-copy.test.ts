@@ -1,6 +1,11 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  OG_CARD_LINE,
+  PRODUCT_HEADLINE,
+  PRODUCT_SENTENCE,
+} from "@/lib/product";
 
 /*
   Nothing a reader sees may contain an em dash or an en dash.
@@ -132,10 +137,19 @@ function sourceFiles(dir: string): string[] {
 describe("copy reads as a person wrote it", () => {
   const files = sourceFiles("src");
 
+  /*
+    The social card is painted from a Node script, not from src/, and the
+    GitHub README is the other page a stranger reads before the app. Both
+    were outside the walk that used to live here, which is how an em dash
+    sat on og.png while every screen in src/ was clean.
+  */
+  const EXTRA = ["scripts/generate-pwa-icons.mjs", "README.md"];
+
   it("finds the source tree it is supposed to be checking", () => {
     expect(files.length).toBeGreaterThan(100);
     expect(files).toContain("src/lib/welcome-tour.ts");
     expect(files).toContain("src/components/WelcomeTour.tsx");
+    expect(files).toContain("src/lib/product.ts");
   });
 
   it("has no em dash a reader could see, anywhere in src", () => {
@@ -157,6 +171,54 @@ describe("copy reads as a person wrote it", () => {
           .filter((l) => l.text.includes(EN))
           .map((l) => `${f}:${l.line}: ${l.text.trim()}`)
       );
+    expect(bad).toEqual([]);
+  });
+
+  it("has no em or en dash on the social card, or in the README", () => {
+    const bad = EXTRA.flatMap((f) =>
+      readerFacingLines(f)
+        .filter((l) => l.text.includes(EM) || l.text.includes(EN))
+        .map((l) => `${f}:${l.line}: ${l.text.trim()}`)
+    );
+    expect(bad).toEqual([]);
+  });
+
+  it("paints the social card from product copy, never a hardcoded line", () => {
+    const src = readFileSync("scripts/generate-pwa-icons.mjs", "utf8");
+    expect(src).toContain("${PRODUCT_HEADLINE[0]}");
+    expect(src).toContain("${PRODUCT_HEADLINE[1]}");
+    expect(src).toContain("${OG_CARD_LINE}");
+    expect(src).not.toMatch(/[\u2014\u2013]/);
+    expect(PRODUCT_HEADLINE).toHaveLength(2);
+    expect(PRODUCT_SENTENCE).toBe(PRODUCT_HEADLINE.join(" "));
+    expect(OG_CARD_LINE).not.toMatch(/[\u2014\u2013]/);
+    expect(OG_CARD_LINE.startsWith("Upside Lab.")).toBe(true);
+  });
+
+  /*
+    Same argument as the dash: a brochure word on a public surface is how
+    the product starts sounding generated. The sanitizer already strips
+    these out of Margus. This is the hand-written side.
+  */
+  it("does not use brochure words on public surfaces", () => {
+    const brochure =
+      /\b(delve|testament|groundbreaking|seamless|cutting-edge|harness|navigating|empower)\b/i;
+    const publicCopy = [
+      "src/lib/product.ts",
+      "src/lib/welcome-tour.ts",
+      "src/lib/disclaimer.ts",
+      "src/lib/email-letter.ts",
+      "src/components/SignedOutLanding.tsx",
+      "src/components/SignInGate.tsx",
+      "src/components/WelcomeTour.tsx",
+      "README.md",
+      "scripts/generate-pwa-icons.mjs",
+    ];
+    const bad = publicCopy.flatMap((f) =>
+      readerFacingLines(f)
+        .filter((l) => brochure.test(l.text))
+        .map((l) => `${f}:${l.line}: ${l.text.trim()}`)
+    );
     expect(bad).toEqual([]);
   });
 

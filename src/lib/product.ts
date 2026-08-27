@@ -11,8 +11,28 @@ export const PRODUCT_DOMAIN = "upsidelab.app";
 
 export const PRODUCT_ORIGIN = `https://${PRODUCT_DOMAIN}`;
 
-export const PRODUCT_SENTENCE =
-  "See what your portfolio did. Ask Margus if the thesis still holds.";
+/**
+ * The two lines on the social card, and the one sentence everywhere else.
+ *
+ * Split here so the PNG cannot drift from the metadata. The card paints
+ * these as two lines; join them for titles and descriptions.
+ */
+export const PRODUCT_HEADLINE = [
+  "See what your portfolio did.",
+  "Ask Margus if the thesis still holds.",
+] as const;
+
+export const PRODUCT_SENTENCE = PRODUCT_HEADLINE.join(" ");
+
+/**
+ * The small line under the headline on the social card.
+ *
+ * Periods, never a dash. This is the first sentence a stranger reads when
+ * the link is pasted into Slack or a browser tab, so it has to sound like
+ * a person wrote it.
+ */
+export const OG_CARD_LINE =
+  `${PRODUCT_NAME}. Educational scenarios. Never financial advice.`;
 
 export const PRODUCT_BLURB =
   "A morning read of the names you own. Not another brokerage.";
@@ -52,7 +72,7 @@ export const SIGNIN_FEATURES = [
   {
     title: "Margus",
     detail:
-      "An assistant that has read your portfolio. Ask it why something moved, in plain words.",
+      "Has read your portfolio. Ask why something moved, in plain words.",
   },
   {
     title: "Forecast",

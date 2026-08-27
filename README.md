@@ -61,7 +61,7 @@ npm run migrate:online -- --lint supabase/migrations/20260823170000_one_account_
 ```
 
 New migrations are timestamp-named (`YYYYMMDDHHMMSS_name.sql`). The numbered
-`001_`–`054_` files are the earlier convention and stay as they are.
+`001_` to `054_` files are the earlier convention and stay as they are.
 
 CI runs typecheck, lint, `npm test`, the invariants suite (`test:invariants`,
 `check:edges`, `validate`, `bench:concurrency`), `npm audit`, the row level

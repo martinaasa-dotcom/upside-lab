@@ -37,6 +37,6 @@ export const BOOK_ROOM_PATHS = [
   "/margus",
 ] as const;
 
-export const OG_IMAGE_PATH = "/og.png?v=6";
+export const OG_IMAGE_PATH = "/og.png?v=7";
 export const OG_IMAGE_WIDTH = 1200;
 export const OG_IMAGE_HEIGHT = 630;

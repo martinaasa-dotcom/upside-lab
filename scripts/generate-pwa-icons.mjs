@@ -24,7 +24,10 @@ import {
   upsideLockupSvg,
   upsideMarkSvg,
 } from "../src/lib/brand/mark.ts";
-import { PRODUCT_NAME, PRODUCT_SENTENCE } from "../src/lib/product.ts";
+import {
+  OG_CARD_LINE,
+  PRODUCT_HEADLINE,
+} from "../src/lib/product.ts";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const pub = (...p) => path.join(root, "public", ...p);
@@ -137,17 +140,20 @@ const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" wi
     <tspan font-weight="700">UPSIDE</tspan><tspan font-weight="400" dx="14">LAB</tspan>
   </text>
   <text x="98" y="392" font-family="${SANS}" font-size="50" font-weight="600" letter-spacing="-1.3" fill="#fafafa">
-    See what your portfolio did.
+    ${PRODUCT_HEADLINE[0]}
   </text>
   <text x="98" y="450" font-family="${SANS}" font-size="50" font-weight="600" letter-spacing="-1.3" fill="#fafafa">
-    Ask Margus if the thesis still holds.
+    ${PRODUCT_HEADLINE[1]}
   </text>
   <text x="98" y="512" font-family="${SANS}" font-size="28" fill="#a1a1a1">
-    ${PRODUCT_NAME} — educational scenarios, never financial advice.
+    ${OG_CARD_LINE}
   </text>
 </svg>`;
 
-if (!PRODUCT_SENTENCE) throw new Error("the product sentence went missing");
+if (PRODUCT_HEADLINE.length !== 2) {
+  throw new Error("the OG card is two lines");
+}
+if (!OG_CARD_LINE) throw new Error("the OG card line went missing");
 
 await mkdir(pub("icons"), { recursive: true });
 
