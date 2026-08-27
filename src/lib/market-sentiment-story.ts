@@ -3,7 +3,7 @@
  * explainers. Classification stays in market-sentiment.ts.
  */
 
-import { number, signedPercent } from "@/lib/format";
+import { currency, number, signedPercent } from "@/lib/format";
 import { ratingForScore } from "@/lib/market/fear-greed";
 import {
   classifyMarketSentiment,
@@ -13,10 +13,14 @@ import {
 } from "@/lib/market-sentiment";
 import {
   bandRangePct,
+  lerpScale,
   linearMarkerPct,
+  SIGNED_EDGE_PCT,
+  signedRatioAtPct,
   signedTrackFill,
   stretchFillPct,
 } from "@/lib/market-sentiment-viz";
+import { formatDateTime } from "@/lib/timezone";
 
 const MIN_HISTORY_DAYS = 5;
 
@@ -32,13 +36,25 @@ export type SentimentGaugeNote = {
   bandClass?: string;
   signedFillPct: number | null;
   dotClass: string;
+  scaleLo: number | null;
+  scaleHi: number | null;
+  scaleDigits: number;
+  zones: SentimentZone[];
+  ticks: SentimentScaleTick[];
 };
+
+export type SentimentScaleTick = { pct: number; label: string };
+export type SentimentZone = { lo: number; hi: number; label: string };
 
 export type SentimentStretch = {
   fillPct: number;
   inLabel: string;
   moreLabel: string;
   above: boolean;
+  streakDays: number;
+  typicalMoreDays: number | null;
+  alreadyLong: boolean;
+  typicalTotalDays: number | null;
 };
 
 export type SentimentCard = {
@@ -152,6 +168,13 @@ export function sentimentStretch(metrics: SentimentMetrics): SentimentStretch | 
         ? `Typically ${marketDaysPhrase(metrics.typicalMoreDays)} more`
         : "",
     above: side === "above",
+    streakDays: metrics.streakDays,
+    typicalMoreDays: metrics.typicalMoreDays,
+    alreadyLong: metrics.alreadyLong === true,
+    typicalTotalDays:
+      metrics.alreadyLong || metrics.typicalMoreDays == null
+        ? null
+        : metrics.streakDays + metrics.typicalMoreDays,
   };
 }
 
@@ -268,7 +291,7 @@ function fearGlance(
   return { sub: rating, explain, glance: "warn" };
 }
 
-function usualGlance(metrics: SentimentMetrics): {
+function usualGlance(metrics: Pick<SentimentMetrics, "smaRatio">): {
   sub: string;
   explain: string;
   glance: "up" | "down" | "warn" | "none";
@@ -311,6 +334,91 @@ function usualGlance(metrics: SentimentMetrics): {
   };
 }
 
+export function zoneLabel(
+  value: number,
+  zones: SentimentZone[]
+): string | null {
+  for (const zone of zones) {
+    if (value >= zone.lo && value < zone.hi) return zone.label;
+  }
+  const last = zones[zones.length - 1];
+  if (last && value >= last.lo && value <= last.hi) return last.label;
+  return null;
+}
+
+export function linearProbeCopy(gauge: SentimentGaugeNote, pct: number): string {
+  if (gauge.scaleLo == null || gauge.scaleHi == null) return gauge.sub;
+  const value = lerpScale(pct, gauge.scaleLo, gauge.scaleHi);
+  const formatted = number(value, gauge.scaleDigits);
+  const zone =
+    gauge.label === "VIX"
+      ? vixGlance(value).sub
+      : gauge.label === "RSI"
+        ? rsiGlance(value).sub
+        : gauge.label === "Fear & Greed"
+          ? fearGlance(value, null).sub
+          : zoneLabel(value, gauge.zones);
+  return zone ? `${formatted} · ${zone}` : formatted;
+}
+
+export function signedProbeCopy(gauge: SentimentGaugeNote, pct: number): string {
+  const ratio = signedRatioAtPct(pct);
+  const formatted = signedPercent(ratio);
+  const zone = usualGlance({ smaRatio: ratio }).sub;
+  return `${formatted} · ${zone}`;
+}
+
+export function stretchProbeCopy(stretch: SentimentStretch, pct: number): string {
+  if (stretch.alreadyLong) return stretch.moreLabel;
+  const total = stretch.typicalTotalDays;
+  if (total == null || !(total > 0)) return stretch.inLabel;
+  const days = Math.round((Math.max(0, Math.min(100, pct)) / 100) * total);
+  return `${days} days of a typical ${marketDaysPhrase(total)}`;
+}
+
+export function sparkProbeCopy(
+  price: number,
+  usual: number,
+  at?: string | null
+): { date: string; vs: string; ratio: number } {
+  const ratio = usual > 0 ? price / usual - 1 : 0;
+  const date = at ? formatDateTime(at, { month: "short", day: "numeric" }) : "";
+  return {
+    date,
+    vs: `${currency(price, 0)} vs usual ${currency(usual, 0)}`,
+    ratio,
+  };
+}
+
+const VIX_ZONES: SentimentZone[] = [
+  { lo: 0, hi: 12, label: "Unusually quiet" },
+  { lo: 12, hi: 20, label: "Quiet" },
+  { lo: 20, hi: 30, label: "A bit jumpy" },
+  { lo: 30, hi: Number.POSITIVE_INFINITY, label: "A scare" },
+];
+
+const RSI_ZONES: SentimentZone[] = [
+  { lo: 0, hi: 32, label: "A hard drop" },
+  { lo: 32, hi: 50, label: "On the low side" },
+  { lo: 50, hi: 70, label: "Mid-range" },
+  { lo: 70, hi: Number.POSITIVE_INFINITY, label: "A fast rise" },
+];
+
+const FEAR_ZONES: SentimentZone[] = [
+  { lo: 0, hi: 25, label: "Extreme fear" },
+  { lo: 25, hi: 45, label: "Fear" },
+  { lo: 45, hi: 55, label: "Neutral" },
+  { lo: 55, hi: 75, label: "Greed" },
+  { lo: 75, hi: Number.POSITIVE_INFINITY, label: "Extreme greed" },
+];
+
+const USUAL_ZONES: SentimentZone[] = [
+  { lo: Number.NEGATIVE_INFINITY, hi: -0.002, label: "Below usual" },
+  { lo: -0.002, hi: 0.002, label: "Right on it" },
+  { lo: 0.002, hi: 0.12, label: "Above usual" },
+  { lo: 0.12, hi: Number.POSITIVE_INFINITY, label: "Stretched" },
+];
+
 export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNote[] {
   const vix = vixGlance(metrics.vix);
   const rsiNow = rsiGlance(metrics.rsi);
@@ -326,9 +434,18 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       kind: "linear",
       markerPct: linearMarkerPct(metrics.vix, 10, 40),
       band: bandRangePct(12, 20, 10, 40),
-      bandClass: "bg-gain/20",
+      bandClass: "bg-foreground/20",
       signedFillPct: null,
       dotClass: glanceDot(vix.glance),
+      scaleLo: 10,
+      scaleHi: 40,
+      scaleDigits: 2,
+      zones: VIX_ZONES,
+      ticks: [
+        { pct: 0, label: "10" },
+        { pct: linearMarkerPct(16, 10, 40) ?? 20, label: "Quiet" },
+        { pct: 100, label: "40" },
+      ],
     },
     {
       label: "RSI",
@@ -342,6 +459,15 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       bandClass: "bg-foreground/20",
       signedFillPct: null,
       dotClass: glanceDot(rsiNow.glance),
+      scaleLo: 0,
+      scaleHi: 100,
+      scaleDigits: 1,
+      zones: RSI_ZONES,
+      ticks: [
+        { pct: 0, label: "0" },
+        { pct: 50, label: "Mid" },
+        { pct: 100, label: "100" },
+      ],
     },
     {
       label: "Fear & Greed",
@@ -354,6 +480,15 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       band: null,
       signedFillPct: null,
       dotClass: glanceDot(fear.glance),
+      scaleLo: 0,
+      scaleHi: 100,
+      scaleDigits: 0,
+      zones: FEAR_ZONES,
+      ticks: [
+        { pct: 0, label: "Panic" },
+        { pct: 50, label: "50" },
+        { pct: 100, label: "Party" },
+      ],
     },
     {
       label: "Usual price",
@@ -366,6 +501,15 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       band: null,
       signedFillPct: signedTrackFill(metrics.smaRatio),
       dotClass: glanceDot(usual.glance),
+      scaleLo: -0.12,
+      scaleHi: 0.12,
+      scaleDigits: 1,
+      zones: USUAL_ZONES,
+      ticks: [
+        { pct: 50 - SIGNED_EDGE_PCT, label: "-12%" },
+        { pct: 50, label: "Usual" },
+        { pct: 50 + SIGNED_EDGE_PCT, label: "+12%" },
+      ],
     },
   ];
 }

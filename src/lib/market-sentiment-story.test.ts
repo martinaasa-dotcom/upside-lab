@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import { sentimentCopyIsDescriptive } from "@/lib/market-sentiment";
 import {
   buildSentimentCard,
+  linearProbeCopy,
   marketDaysPhrase,
   sentimentFitLine,
   sentimentHistoryLine,
   sentimentLead,
+  signedProbeCopy,
+  sparkProbeCopy,
+  stretchProbeCopy,
 } from "@/lib/market-sentiment-story";
 import type { SentimentMetrics } from "@/lib/market-sentiment";
 
@@ -60,6 +64,8 @@ describe("buildSentimentCard", () => {
     expect(card.gauges[3]!.sub).toBe("Above usual");
     expect(card.gauges[3]!.kind).toBe("signed");
     expect(card.gauges[0]!.markerPct).toBeGreaterThan(0);
+    expect(card.gauges[0]!.bandClass).toBe("bg-foreground/20");
+    expect(card.gauges[0]!.bandClass).not.toMatch(/gain/);
     expect(card.stretch).not.toBeNull();
     expect(card.stretch!.inLabel).toContain("47 days above usual");
     expect(card.stretch!.moreLabel).toContain("about 2 months more");
@@ -135,5 +141,35 @@ describe("sentimentHistoryLine", () => {
     expect(line).toContain("already longer than every completed stretch");
     expect(line).not.toContain("typically ran");
     expect(line).not.toContain("180");
+  });
+});
+
+describe("probe copy", () => {
+  it("names the quiet band when you sit on today's VIX", () => {
+    const vix = buildSentimentCard(CLIMB).gauges[0]!;
+    expect(linearProbeCopy(vix, vix.markerPct!)).toContain("Quiet");
+    expect(linearProbeCopy(vix, 90)).toContain("A scare");
+  });
+
+  it("reads the usual-price bar at the live marker", () => {
+    const usual = buildSentimentCard(CLIMB).gauges[3]!;
+    const copy = signedProbeCopy(usual, 50 + (usual.signedFillPct ?? 0));
+    expect(copy).toContain("+8.1%");
+    expect(copy).toContain("Above usual");
+  });
+
+  it("counts days along a typical stretch", () => {
+    const stretch = buildSentimentCard(CLIMB).stretch!;
+    expect(stretchProbeCopy(stretch, 0)).toMatch(/^0 days of a typical/);
+    expect(stretchProbeCopy(stretch, 100)).toContain("89 days");
+  });
+
+  it("says price versus usual, with the day when we have one", () => {
+    const copy = sparkProbeCopy(766, 709, "2026-08-26");
+    expect(copy.vs).toContain("766");
+    expect(copy.vs).toContain("709");
+    expect(copy.ratio).toBeCloseTo(766 / 709 - 1, 5);
+    expect(copy.date).toMatch(/26/);
+    expect(copy.vs).not.toMatch(/[\u2014\u2013]/);
   });
 });

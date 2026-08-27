@@ -8,19 +8,39 @@ export const SPARK_POINTS = 64;
 /** 12% above usual is the stretched-higher gate. Scale the signed bar to that. */
 const SIGNED_FULL = 0.12;
 const HALF_CAP = 0.88;
+/** Distance from centre, in % of the track, where ±12% lands. */
+export const SIGNED_EDGE_PCT = HALF_CAP * 50;
 const FILL_FLOOR = 8;
 const FILL_CEILING = 92;
 
-export function downsampleSeries(values: number[], n: number): number[] {
-  if (n <= 1) return values.slice(-1);
-  if (values.length <= n) return values;
-  const last = values.length - 1;
+export function downsampleIndices(length: number, n: number): number[] {
+  if (length <= 0) return [];
+  if (n <= 1) return [length - 1];
+  if (length <= n) return Array.from({ length }, (_, i) => i);
+  const last = length - 1;
   const out: number[] = [];
   for (let i = 0; i < n; i++) {
-    const idx = Math.round((i / (n - 1)) * last);
-    out.push(values[idx]!);
+    out.push(Math.round((i / (n - 1)) * last));
   }
   return out;
+}
+
+export function downsampleSeries(values: number[], n: number): number[] {
+  return downsampleIndices(values.length, n).map((i) => values[i]!);
+}
+
+export function lerpScale(pct: number, lo: number, hi: number): number {
+  const t = Math.max(0, Math.min(100, pct)) / 100;
+  return lo + t * (hi - lo);
+}
+
+/** Inverse of the signed usual-price bar, so a probe on the marker reads the live %. */
+export function signedRatioAtPct(pct: number): number {
+  const offset = Math.max(-50, Math.min(50, pct - 50));
+  if (offset === 0) return 0;
+  const mag = Math.min(1, Math.abs(offset) / SIGNED_EDGE_PCT);
+  const ratio = mag * SIGNED_FULL;
+  return offset < 0 ? -ratio : ratio;
 }
 
 export function stretchFillPct(
@@ -82,13 +102,16 @@ export function sentimentSparkLayout(
   price: number[],
   usual: number[],
   width = 240,
-  height = 56
+  height = 56,
+  streakFrom: number | null = null
 ): {
   priceLine: string;
   usualLine: string;
   gain: string[];
   loss: string[];
   last: { x: number; y: number; above: boolean };
+  probes: { x: number; yPrice: number; yUsual: number }[];
+  streak: { x0: number; x1: number } | null;
 } | null {
   if (price.length < 2 || price.length !== usual.length) return null;
   const padL = 2;
@@ -132,15 +155,49 @@ export function sentimentSparkLayout(
   }
   const lastP = price[lastIdx]!;
   const lastU = usual[lastIdx]!;
+  const probes = xs.map((x, i) => ({
+    x: (x / width) * 100,
+    yPrice: (ysP[i]! / height) * 100,
+    yUsual: (ysU[i]! / height) * 100,
+  }));
+  const from =
+    streakFrom != null && streakFrom >= 0 && streakFrom < lastIdx
+      ? Math.floor(streakFrom)
+      : null;
   return {
     priceLine,
     usualLine,
     gain,
     loss,
     last: {
-      x: (xs[lastIdx]! / width) * 100,
-      y: (ysP[lastIdx]! / height) * 100,
+      x: probes[lastIdx]!.x,
+      y: probes[lastIdx]!.yPrice,
       above: lastP >= lastU,
     },
+    probes,
+    streak:
+      from != null
+        ? { x0: probes[from]!.x, x1: probes[lastIdx]!.x }
+        : null,
   };
+}
+
+export function sparkIndexFromClientX(
+  clientX: number,
+  rect: DOMRect,
+  lastIdx: number,
+  width = 240
+): number {
+  if (rect.width <= 0 || lastIdx <= 0) return 0;
+  const padL = 2;
+  const padR = 8;
+  const innerW = width - padL - padR;
+  const x = ((clientX - rect.left) / rect.width) * width;
+  const t = (x - padL) / innerW;
+  return Math.max(0, Math.min(lastIdx, Math.round(t * lastIdx)));
+}
+
+export function pctFromClientX(clientX: number, rect: DOMRect): number {
+  if (rect.width <= 0) return 0;
+  return Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
 }

@@ -61,26 +61,41 @@ function score100(n: unknown): number | null {
   return null;
 }
 
-function chartCloses(rows: unknown): number[] {
+function barDate(raw: unknown): string | null {
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+    return raw.toISOString().slice(0, 10);
+  }
+  if (typeof raw === "string" && raw.length >= 8) return raw.slice(0, 10);
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    const d = new Date(raw);
+    if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  }
+  return null;
+}
+
+function chartBars(rows: unknown): { close: number; at: string | null }[] {
   if (!Array.isArray(rows)) return [];
-  const out: number[] = [];
+  const out: { close: number; at: string | null }[] = [];
   for (const row of rows) {
     const close = (row as { close?: unknown }).close;
     if (typeof close === "number" && Number.isFinite(close) && close > 0) {
-      out.push(close);
+      out.push({
+        close,
+        at: barDate((row as { date?: unknown }).date),
+      });
     }
   }
   return out;
 }
 
-async function fetchSpyCloses(): Promise<number[]> {
+async function fetchSpyBars(): Promise<{ close: number; at: string | null }[]> {
   if (isMarketCircuitOpen("yahoo")) return [];
   const yf = await getYahoo();
   const period1 = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
   const chart = await withMarketCircuit("yahoo", () =>
     yf.chart(SPY, { period1, interval: "1d" })
   );
-  return chartCloses(chart?.quotes);
+  return chartBars(chart?.quotes);
 }
 
 async function fetchCryptoFearGreed(): Promise<number | null> {
@@ -108,18 +123,19 @@ async function fetchCryptoFearGreed(): Promise<number | null> {
 }
 
 async function loadSnapshot(): Promise<SentimentMetrics> {
-  const [quotes, closes, cnn, crypto] = await Promise.all([
+  const [quotes, bars, cnn, crypto] = await Promise.all([
     fetchQuotesWithFallback([VIX]).catch(() => null),
-    fetchSpyCloses().catch((err) => {
+    fetchSpyBars().catch((err) => {
       if (!isCircuitOpenError(err)) {
         console.error("SPY history for sentiment failed", err);
       }
-      return [] as number[];
+      return [] as { close: number; at: string | null }[];
     }),
     fetchFearGreedIndex().catch(() => null),
     fetchCryptoFearGreed(),
   ]);
 
+  const closes = bars.map((b) => b.close);
   const spy = spyMetricsFromCloses(closes);
   const history = spyTrendHistory(closes);
   const vix = liveNumber(quotes?.quotes[VIX]?.price);
@@ -137,7 +153,11 @@ async function loadSnapshot(): Promise<SentimentMetrics> {
     streakDays: history.streakDays,
     typicalMoreDays: history.typicalMoreDays,
     alreadyLong: history.alreadyLong,
-    spark: spySparkFromCloses(closes),
+    spark: spySparkFromCloses(
+      closes,
+      bars.map((b) => b.at),
+      history.streakDays
+    ),
     asOf,
   };
 }

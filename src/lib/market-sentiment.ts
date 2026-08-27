@@ -7,13 +7,17 @@
  * do with it.
  */
 
-import { downsampleSeries, SPARK_POINTS, SPARK_WINDOW } from "@/lib/market-sentiment-viz";
+import { downsampleIndices, SPARK_POINTS, SPARK_WINDOW } from "@/lib/market-sentiment-viz";
 import { ratingForScore } from "@/lib/market/fear-greed";
 import { rsi, sma } from "@/lib/market/indicators";
 
 export type SentimentSpark = {
   price: number[];
   usual: number[];
+  /** Session days aligned with price, ISO `YYYY-MM-DD` when we have them. */
+  at?: string[];
+  /** Downsampled index where the current stretch above/below usual begins. */
+  streakFrom?: number | null;
 };
 
 export type SentimentMetrics = {
@@ -419,24 +423,53 @@ function roundSpark(n: number): number {
 }
 
 /** Last year of SPY vs its 200-day average, small enough to paint and cache. */
-export function spySparkFromCloses(closes: number[]): SentimentSpark | null {
-  const prices = closes.filter((n) => Number.isFinite(n) && n > 0);
+export function spySparkFromCloses(
+  closes: number[],
+  dates?: (string | null | undefined)[],
+  streakDays?: number | null
+): SentimentSpark | null {
+  const dated = dates != null && dates.length === closes.length;
+  const prices: number[] = [];
+  const keptAt: (string | null)[] = [];
+  for (let i = 0; i < closes.length; i++) {
+    const n = closes[i]!;
+    if (!Number.isFinite(n) || !(n > 0)) continue;
+    prices.push(n);
+    if (dated) keptAt.push(dates[i] ?? null);
+  }
   const avgs = sma(prices, 200);
   const price: number[] = [];
   const usual: number[] = [];
+  const at: (string | null)[] = [];
   for (let i = 0; i < prices.length; i++) {
     const avg = avgs[i];
     if (avg == null || !(avg > 0)) continue;
     price.push(prices[i]!);
     usual.push(avg);
+    if (dated) at.push(keptAt[i] ?? null);
   }
   if (price.length < 2) return null;
   const windowP = price.slice(-SPARK_WINDOW);
   const windowU = usual.slice(-SPARK_WINDOW);
-  return {
-    price: downsampleSeries(windowP, SPARK_POINTS).map(roundSpark),
-    usual: downsampleSeries(windowU, SPARK_POINTS).map(roundSpark),
+  const windowA = at.slice(-SPARK_WINDOW);
+  const idx = downsampleIndices(windowP.length, SPARK_POINTS);
+  const spark: SentimentSpark = {
+    price: idx.map((i) => roundSpark(windowP[i]!)),
+    usual: idx.map((i) => roundSpark(windowU[i]!)),
   };
+  if (dated && windowA.length === windowP.length) {
+    const days = idx.map((i) => windowA[i] ?? null);
+    if (days.every((d): d is string => typeof d === "string" && d.length >= 8)) {
+      spark.at = days;
+    }
+  }
+  if (streakDays != null && streakDays >= 5 && windowP.length > 1) {
+    const span = Math.min(streakDays, windowP.length);
+    const startWin = windowP.length - span;
+    const from = idx.findIndex((i) => i >= startWin);
+    spark.streakFrom = from < 0 ? 0 : from;
+  }
+  return spark;
 }
 
 function reading(
@@ -571,7 +604,17 @@ function isSpark(v: unknown): boolean {
   if (o.price.length !== o.usual.length) return false;
   if (o.price.length < 2 || o.price.length > 128) return false;
   const ok = (n: unknown) => typeof n === "number" && Number.isFinite(n) && n > 0;
-  return o.price.every(ok) && o.usual.every(ok);
+  if (!o.price.every(ok) || !o.usual.every(ok)) return false;
+  if (o.at != null) {
+    if (!Array.isArray(o.at) || o.at.length !== o.price.length) return false;
+    if (!o.at.every((d) => typeof d === "string" && d.length >= 8)) return false;
+  }
+  if (o.streakFrom != null) {
+    if (!Number.isFinite(o.streakFrom) || o.streakFrom < 0 || o.streakFrom >= o.price.length) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function isSentimentMetrics(v: unknown): v is SentimentMetrics {

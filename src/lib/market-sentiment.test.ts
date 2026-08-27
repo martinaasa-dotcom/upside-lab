@@ -499,5 +499,21 @@ describe("spySparkFromCloses", () => {
     expect(spark!.price[spark!.price.length - 1]).toBe(119);
     expect(spark!.usual[spark!.usual.length - 1]).toBeLessThan(119);
   });
+
+  it("keeps session days aligned with the downsampled points", () => {
+    const closes = [
+      ...Array.from({ length: 200 }, () => 100),
+      ...Array.from({ length: 20 }, (_, i) => 100 + i),
+    ];
+    const dates = closes.map((_, i) => {
+      const d = new Date(Date.UTC(2025, 10, 1 + i));
+      return d.toISOString().slice(0, 10);
+    });
+    const spark = spySparkFromCloses(closes, dates, 8);
+    expect(spark!.at).toHaveLength(spark!.price.length);
+    expect(spark!.at![spark!.at!.length - 1]).toBe(dates[dates.length - 1]);
+    expect(spark!.streakFrom).not.toBeNull();
+    expect(spark!.streakFrom!).toBeLessThan(spark!.price.length);
+  });
 });
 

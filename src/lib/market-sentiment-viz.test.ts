@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   bandRangePct,
   downsampleSeries,
+  lerpScale,
   linearMarkerPct,
   sentimentSparkLayout,
+  signedRatioAtPct,
   signedTrackFill,
   stretchFillPct,
 } from "@/lib/market-sentiment-viz";
@@ -49,6 +51,21 @@ describe("signedTrackFill", () => {
     expect(mid!).toBeLessThan(full!);
     expect(signedTrackFill(-0.04)).toBeLessThan(0);
   });
+
+  it("round-trips a probe on the live marker back to the ratio", () => {
+    const fill = signedTrackFill(0.081)!;
+    expect(signedRatioAtPct(50 + fill)).toBeCloseTo(0.081, 5);
+    expect(signedRatioAtPct(50)).toBe(0);
+    expect(signedRatioAtPct(50 + signedTrackFill(0.12)!)).toBeCloseTo(0.12, 5);
+  });
+});
+
+describe("lerpScale", () => {
+  it("puts the quiet VIX band on a 10 to 40 track", () => {
+    expect(lerpScale(0, 10, 40)).toBe(10);
+    expect(lerpScale(100, 10, 40)).toBe(40);
+    expect(lerpScale(((15.21 - 10) / 30) * 100, 10, 40)).toBeCloseTo(15.21, 5);
+  });
 });
 
 describe("sentimentSparkLayout", () => {
@@ -60,5 +77,20 @@ describe("sentimentSparkLayout", () => {
     expect(layout!.last.above).toBe(true);
     expect(layout!.gain.length).toBeGreaterThan(0);
     expect(layout!.priceLine.split(" ")).toHaveLength(3);
+    expect(layout!.probes).toHaveLength(3);
+    expect(layout!.streak).toBeNull();
+  });
+
+  it("marks the current stretch on the right of the year", () => {
+    const layout = sentimentSparkLayout(
+      [100, 102, 104, 110],
+      [100, 100, 100, 100],
+      240,
+      56,
+      2
+    );
+    expect(layout!.streak).not.toBeNull();
+    expect(layout!.streak!.x0).toBe(layout!.probes[2]!.x);
+    expect(layout!.streak!.x1).toBe(layout!.last.x);
   });
 });
