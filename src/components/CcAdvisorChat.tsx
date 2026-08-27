@@ -980,7 +980,15 @@ export function CcAdvisorChat({
       ref={setCornerEl}
       className={
         open
-          ? "pointer-events-none fixed z-40 flex flex-col items-end justify-end gap-3 p-3"
+          ? // Fills the visual viewport, then lifts the panel by the
+            // measured dock (`--dock-clearance` from `useDockPad`). A
+            // flat `p-3` sat the composer in the dock's band: same
+            // stacking context as the phone bar, and on desktop the
+            // dock portals into a later sibling so it painted over the
+            // input at every width. The keyboard rule in globals.css
+            // drops the lift while the keys are up (the dock is hidden
+            // then, and `--vv-height` is already the band above them).
+            "margus-open pointer-events-none fixed z-40 flex flex-col items-end justify-end gap-3 px-3 pt-3 pb-[max(0.75rem,var(--dock-clearance,var(--dock-pad,0.75rem)))]"
           : // `lg:bottom-8` is gone on purpose. The bottom dock is
             // `fixed inset-x-0 bottom-0` at every width, so a flat 2rem
             // offset put this button *underneath* it on desktop: the dock
@@ -1119,7 +1127,7 @@ export function CcAdvisorChat({
          */
         <section
           ref={panelRef}
-          className={`pointer-events-auto flex flex-col overflow-hidden rounded-xl glass-overlay ring-1 ring-foreground/20 transition-[width,height] duration-200 ease-out ${
+          className={`pointer-events-auto flex max-h-full min-h-0 flex-col overflow-hidden rounded-xl glass-overlay ring-1 ring-foreground/20 transition-[width,height] duration-200 ease-out ${
             wide
               ? "w-[min(56rem,calc(100vw-1.5rem))]"
               : "w-[min(26rem,calc(100vw-1.5rem))]"

@@ -78,6 +78,20 @@ describe("assistant surfaces", () => {
     expect(SOURCE).not.toMatch(/Chat for /);
   });
 
+  it("lifts the open panel by the measured dock, at every width", () => {
+    expect(
+      SOURCE,
+      "the open overlay reads --dock-clearance so it sits above the bar"
+    ).toMatch(/margus-open[\s\S]{0,400}--dock-clearance/);
+    expect(SOURCE, "no leftover lg:bottom override on the open overlay").not.toMatch(
+      /open[\s\S]{0,80}lg:bottom/
+    );
+    const css = readFileSync("src/app/globals.css", "utf8");
+    expect(css, "keyboard drops the dock lift").toMatch(
+      /html\[data-keyboard="open"\] \.margus-open/
+    );
+  });
+
   it("keeps the accent on send once there is something to send", () => {
     const send = SOURCE.slice(SOURCE.indexOf('aria-label="Send"') - 240);
     expect(

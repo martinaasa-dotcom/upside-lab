@@ -1038,6 +1038,17 @@ html[data-keyboard="open"] .keyboard-chrome:focus-within {
   padding-bottom: 0.25rem;
 }
 
+/*
+ * Open Margus is a visual-viewport overlay, not `keyboard-chrome`: it
+ * has to stay on screen while you type. Its bottom padding is the
+ * measured dock, so the panel never sits in that bar. While the keys
+ * are up the dock is hidden and `--vv-height` is already the band
+ * above the keyboard, so the extra lift would be a hole.
+ */
+html[data-keyboard="open"] .margus-open {
+  padding-bottom: 0.75rem;
+}
+
 /* Everything you tap is at least 44px on a touch pointer.
  *
  * Gated on the pointer, not the viewport: a width query misses touch

@@ -2915,6 +2915,9 @@ run("sheets sit in the visible viewport so the keyboard cannot cover them", () =
     "utf8"
   );
   assert.match(chat, /--vv-height/);
+  assert.match(chat, /margus-open/);
+  assert.match(chat, /--dock-clearance/);
+  assert.match(css, /html\[data-keyboard="open"\] \.margus-open/);
   const sheets = [
     "HoldingModal.tsx",
     "CashModal.tsx",
