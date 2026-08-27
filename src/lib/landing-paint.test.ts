@@ -50,10 +50,12 @@ describe("the landing hero lamps stay with the window", () => {
   it("does not draw a second field behind the sample card", () => {
     expect(LANDING).not.toMatch(/className="ambient-glow"/);
     expect(GATE).not.toMatch(/className="ambient-glow"/);
-    expect(LANDING).toContain("sample-still");
-    expect(LANDING).toContain('className="sample-still h-auto gap-5 p-5 ring-0"');
-    expect(CSS).toMatch(/\.landing-still \.glass,\s*\n\.sample-still \{[\s\S]*?box-shadow:\s*none/);
     expect(CSS).not.toContain(".ambient-glow {");
+    expect(CSS).not.toContain(".sample-still");
+    expect(LANDING).not.toMatch(/ring-0/);
+    // Same glass shell as Pulse: the rim stays, only the private glow goes.
+    expect(LANDING).toContain('className="h-auto gap-5 p-5"');
+    expect(LANDING).toContain("items-start");
   });
 });
 

@@ -1333,16 +1333,6 @@ button:disabled,
   transform: none;
 }
 
-/*
- * The briefing is one pane on the page field. A glow behind it was a
- * second rectangle of khaki with a hard clip. The glass rim is a drawn
- * box around that pane. Neither belongs here.
- */
-.landing-still .glass,
-.sample-still {
-  box-shadow: none;
-}
-
 @media (max-width: 767px) {
   /*
    * `backdrop-filter` on a card that hangs off the fold is the same

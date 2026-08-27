@@ -625,7 +625,7 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
 /** The briefing at full column width, for the centred hero. */
 function BookWide() {
   return (
-    <Panel className="sample-still h-auto gap-5 p-5 ring-0" aria-hidden>
+    <Panel className="h-auto gap-5 p-5" aria-hidden>
       <div className="flex items-center justify-between gap-3">
         <span className="flex items-center gap-2">
           <span className="signin-live-dot" aria-hidden />
@@ -634,7 +634,7 @@ function BookWide() {
         <Pill tone="neutral">Sample</Pill>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+      <div className="grid items-start gap-5 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
         <div className="text-left">
           <MicroLabel>Portfolio</MicroLabel>
           <p className="mt-1 font-sans text-3xl font-bold tabular-nums text-foreground">
@@ -650,7 +650,7 @@ function BookWide() {
           </div>
         </div>
 
-        <div className="divide-y divide-border/60 overflow-hidden rounded-lg glass-well">
+          <div className={cn(CARD, "divide-y divide-border overflow-hidden")}>
           {SAMPLE_MOVERS.map((row) => (
             <div
               key={row.ticker}

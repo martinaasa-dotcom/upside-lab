@@ -265,7 +265,8 @@ A glow behind the sample card (`.ambient-glow`, or the older
 `bg-gradient-to-br from-primary/12 to-transparent opacity-70 blur-3xl`)
 is a second rectangle of khaki. Its element box clips, so you get a hard
 line around the briefing that is not the page lamp. The briefing is one
-glass pane on `.page-frame::before`. No extra field, no extra rim.
+glass pane on `.page-frame::before`. No extra field. The glass rim stays;
+it is the same edge Pulse uses.
 
 ## Why the glass is mostly *edge*, not blur (2026-08-20)
 

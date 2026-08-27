@@ -3,6 +3,7 @@
 import { useAuth } from "@/components/AuthProvider";
 import { UpsideLogo } from "@/components/UpsideLogo";
 import {
+  CARD,
   InsightText,
   MicroLabel,
   Panel,
@@ -339,7 +340,7 @@ function BookStill() {
   return (
     <div className="relative md:-rotate-1 md:transition-transform md:duration-700 md:hover:rotate-0">
       <Panel
-        className="sample-still signin-rise-3 h-auto gap-4 p-4 relative overflow-hidden ring-0"
+        className="signin-rise-3 h-auto gap-4 p-4 relative overflow-hidden"
         aria-hidden
       >
         <div className="flex items-center justify-between gap-3">
@@ -382,7 +383,7 @@ function BookStill() {
          * ambient field reads through the sample the way it does through
          * every real well in the app.
          */}
-        <div className="divide-y divide-border/60 overflow-hidden rounded-lg glass-well">
+        <div className={cn(CARD, "divide-y divide-border overflow-hidden")}>
           {SAMPLE_MOVERS.map((row) => (
             <div
               key={row.ticker}
