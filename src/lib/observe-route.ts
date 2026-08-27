@@ -1,3 +1,4 @@
+import { isRequestAbort } from "@/lib/abort";
 import { logEvent, routeMeta, SLOW_ROUTE_MS } from "@/lib/telemetry";
 
 /**
@@ -17,14 +18,16 @@ export function observeRoute<Args extends unknown[], Result>(
       if (result instanceof Response) status = result.status;
       return result;
     } catch (err) {
-      logEvent(
-        "route_throw",
-        {
-          ...meta,
-          message: err instanceof Error ? err.message : String(err),
-        },
-        "error"
-      );
+      if (!isRequestAbort(err)) {
+        logEvent(
+          "route_throw",
+          {
+            ...meta,
+            message: err instanceof Error ? err.message : String(err),
+          },
+          "error"
+        );
+      }
       throw err;
     } finally {
       const ms = Math.round(performance.now() - started);

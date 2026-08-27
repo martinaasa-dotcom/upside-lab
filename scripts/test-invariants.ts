@@ -6980,6 +6980,20 @@ run("production telemetry covers crashes, slow routes, and vitals", () => {
     "utf8"
   );
   assert.ok(/installSlowRouteLogger/.test(inst));
+  assert.match(
+    inst,
+    /if \(isRequestAbort\(err\)\) return;/,
+    "onRequestError must skip client disconnects, not log them as crashes"
+  );
+  const observe = readFileSync(
+    join(process.cwd(), "src/lib/observe-route.ts"),
+    "utf8"
+  );
+  assert.match(
+    observe,
+    /isRequestAbort/,
+    "observeRoute must not log a hung-up client as route_throw"
+  );
   const logError = readFileSync(
     join(process.cwd(), "src/app/api/internal/log-error/route.ts"),
     "utf8"
