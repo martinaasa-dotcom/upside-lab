@@ -5,6 +5,7 @@ import {
 } from "@/lib/ai/model";
 import { humanizeMargusTree } from "@/lib/ai/humanize-copy";
 import {
+  buildCachedForecastPlan,
   buildFallbackForecastPlan,
   buildForecastPlanPrompt,
   ensureCompleteEoyTargets,
@@ -16,6 +17,10 @@ import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { rateLimitJson } from "@/lib/rate-limit";
 import { takeDurableRateLimit } from "@/lib/rate-limit-durable";
 import { stampAdvisorUse } from "@/lib/advisor-use";
+import {
+  loadServerTickerCache,
+  persistServerTickerCache,
+} from "@/lib/forecast-ticker-cache-store";
 import { generateObject } from "ai";
 import { observeRoute } from "@/lib/observe-route";
 import { forecastPostSchema } from "@/lib/api-schemas";
@@ -72,6 +77,22 @@ async function handlePOST(req: Request) {
       portfolioName,
     });
 
+  // Shared, cross-portfolio: once any portfolio has priced a ticker, every
+  // other portfolio holding it reuses that path/rationale instead of paying
+  // for another model run. See src/lib/forecast-ticker-cache-store.ts.
+  const heldTickers = [...new Set(forecast.rows.map((r) => r.ticker.toUpperCase()))];
+  const cacheHits = await loadServerTickerCache(heldTickers, convictions);
+  if (heldTickers.length > 0 && heldTickers.every((t) => cacheHits[t])) {
+    return Response.json({
+      plan: buildCachedForecastPlan({
+        forecast,
+        portfolioId,
+        portfolioName,
+        cacheHits,
+      }),
+    });
+  }
+
   const providerChain = buildAdvisorProviderChain({ reasoning: true });
   if (providerChain.length === 0) {
     return Response.json({ plan: fallbackPlan(), fallback: true });
@@ -99,10 +120,21 @@ async function handlePOST(req: Request) {
       { deadlineAt: startedAt + LLM_BUDGET_MS, signal: req.signal }
     );
 
-    const eoyTargets = ensureCompleteEoyTargets(
-      forecast,
-      object.eoyTargets ?? []
-    );
+    // Cached tickers keep their reused path/rationale rather than drifting
+    // on every run; only tickers with no fresh cache take the model's fresh
+    // answer.
+    const mergedTargets = (object.eoyTargets ?? []).map((t) => {
+      const hit = cacheHits[t.ticker.toUpperCase()];
+      return hit
+        ? {
+            ticker: t.ticker,
+            prices: hit.prices as typeof t.prices,
+            rationale: hit.rationale ?? t.rationale,
+          }
+        : t;
+    });
+
+    const eoyTargets = ensureCompleteEoyTargets(forecast, mergedTargets);
 
     const plan = humanizeMargusTree({
       ...object,
@@ -112,6 +144,8 @@ async function handlePOST(req: Request) {
       portfolioName,
       stance: DEFAULT_FORECAST_STANCE,
     });
+
+    void persistServerTickerCache(plan, convictions);
 
     return Response.json({ plan });
   } catch (err) {

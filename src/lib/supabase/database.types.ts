@@ -1044,6 +1044,33 @@ export type Database = {
         }
         Relationships: []
       }
+      portfell_forecast_ticker_cache: {
+        Row: {
+          conviction_key: string
+          generated_at: string
+          prices: Json
+          rationale: string | null
+          ticker: string
+          updated_at: string
+        }
+        Insert: {
+          conviction_key?: string
+          generated_at: string
+          prices: Json
+          rationale?: string | null
+          ticker: string
+          updated_at?: string
+        }
+        Update: {
+          conviction_key?: string
+          generated_at?: string
+          prices?: Json
+          rationale?: string | null
+          ticker?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       portfell_quote_cache: {
         Row: {
           quote: Json
