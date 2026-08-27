@@ -117,26 +117,32 @@ export function forecastPathProvenance(input: {
     headline: `A language model wrote this path for ${tag}. Nobody here picked the numbers, and no analyst was asked.`,
     inputs: [
       {
-        what: "Today's price, which every year is measured from",
-        detail: input.spot > 0 ? currency(input.spot) : NO_VALUE,
+        what: "Today's price",
+        detail:
+          (input.spot > 0 ? currency(input.spot) : NO_VALUE) +
+          ", the number every later year in the path is measured from",
       },
       {
         what: "The kind of business it is",
         detail: input.sector?.trim() || "worked out from the ticker",
       },
-      { what: "How much you own of it, next to everything else you own" },
+      {
+        what: "Your position size",
+        detail: "how much of your total portfolio this holding is",
+      },
       input.hasOwnReason
         ? {
             what: "Your own reason for holding it",
-            detail: "your written thesis and how sure you said you were",
+            detail: "your written thesis, and how sure you said you were",
           }
         : {
             what: "Your own reason for holding it",
-            detail: "you have not written one, so it worked without it",
+            detail: "not written down, so the model reasoned without it",
           },
       {
-        what: "A whole market yardstick",
-        detail: "a path is allowed to land above it or below it",
+        what: "The whole-market baseline",
+        detail:
+          "about 10% a year, what a broad index fund is assumed to return. This path can land above it or below it.",
       },
       TRAINING_INPUT,
     ],
@@ -187,8 +193,9 @@ export function forecastRoomProvenance(input: {
       { what: "How much of the portfolio each one is" },
       { what: "Your written reason for holding a name, when you have one" },
       {
-        what: "A whole market yardstick",
-        detail: "about 10 percent a year for a broad fund, which a path may land above or below",
+        what: "The whole-market baseline",
+        detail:
+          "about 10% a year, what a broad index fund is assumed to return. Each path can land above it or below it.",
       },
       TRAINING_INPUT,
     ],
