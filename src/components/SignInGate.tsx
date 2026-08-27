@@ -162,10 +162,12 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
     <div
       className={cn(
         PAGE_FRAME_CLASS,
-        // The page-length flowing field, but only for the landing. An
-        // invite is one screen, and there the fixed corner lobes are right.
-        !invite && "landing-field",
-        "overflow-x-clip overflow-y-auto"
+        // Paint-in-one-frame rules (no entrance animation, no phone
+        // backdrop-filter on cards that hang off the fold). The lamps stay
+        // the page-frame ones, fixed to the window. Do not make this a
+        // scroll container: a y-auto overflow here either clips those lamps
+        // to the first screen or stretches the SVG filter to the document.
+        !invite && "landing-field"
       )}
     >
       {!invite ? (
@@ -349,7 +351,7 @@ function BookStill() {
        */}
       <div className="ambient-glow" aria-hidden />
       <Panel
-        className="signin-rise-3 h-auto gap-4 p-4 relative overflow-hidden shadow-2xl shadow-black/60 ring-1 ring-primary/15"
+        className="signin-rise-3 h-auto gap-4 p-4 relative overflow-hidden"
         aria-hidden
       >
         <div className="flex items-center justify-between gap-3">

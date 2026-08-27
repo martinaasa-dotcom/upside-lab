@@ -1302,41 +1302,6 @@ button:disabled,
 }
 
 /*
- * The signed-out page's light, which travels with the page instead of with
- * the window.
- *
- * `.page-frame::before` is `position: fixed`, and on every signed-in room
- * that is right: the lobes are the room's lamps, they stay where the lamps
- * are, and a room is about one viewport of content anyway. On a landing
- * page four screens tall it is the wrong model. The field is pinned to the
- * glass, so scrolling moves the content past a background that never
- * changes, and the warm corner you arrived on is the same warm corner four
- * screens later. What reads is not "a lit room" but "a colour that stopped".
- *
- * So the landing splits the field in two. `::before` is the first screen:
- * the same two corner lamps the rest of the app uses, dithered, boxed to
- * `100svh`. `::after` is the rest of the page: three more lobes, no SVG
- * filter. Both halves of the hero therefore live in one layer that fits in
- * a single WebKit filter tile.
- *
- * They used to be five gradients on one document-tall filtered `::after`.
- * Positions were `%` of the page, so the cool hero lamp sat at 20% of a
- * five-screen document, at or below the fold. Safari rasterizes an SVG
- * filter in tiles; the warm top painted, and the second half of the hero
- * popped in the moment the reader scrolled. That is the bug. A filter
- * region must stay about one viewport, and nothing that hangs past the
- * fold may carry `filter` or `transform`. `src/lib/landing-paint.test.ts`
- * fails if the tall layer takes the dither back, if the first-screen
- * pair is split across two layers again, or if the sample card's glow
- * keeps the filter.
- *
- * Total light is held near the fixed field's: peaks on the lower lobes are
- * a touch lower because they overlap. The rule from DESIGN_TOKENS.md still
- * governs. Judge this on the page middle and on how black the black between
- * lobes stays, never on how much of the field is lit. Brightening is the
- * easy mistake and it costs the true black the whole product is built on.
- */
-/*
  * The warm lift behind a sample card, and the reason it is a class rather
  * than four utilities.
  *
@@ -1359,15 +1324,18 @@ button:disabled,
  * four stops the gradient is already softer than a 64px blur made it, and
  * a blur inside a filter region would only have to be clipped back to the
  * element box anyway.
+ *
+ * The ellipse has to die inside this box. A 125% gradient plus
+ * `border-radius: 3rem` on a box 1rem larger than the card was a second
+ * rounded frame around the picture: the leftover colour at the clip edge.
  */
 .ambient-glow {
   position: absolute;
-  inset: -1rem;
+  inset: -4rem;
   z-index: -1;
   pointer-events: none;
-  border-radius: 3rem;
   background-image: radial-gradient(
-    125% 120% at 10% 4%,
+    70% 65% at 18% 8%,
     oklch(from var(--primary) l c h / 8.5%) 0%,
     oklch(from var(--primary) l c h / 4.4%) 22%,
     oklch(from var(--primary) l c h / 1.9%) 44%,
@@ -1377,110 +1345,39 @@ button:disabled,
   filter: url(#ambient-dither);
 }
 
-.landing-field::before {
-  /*
-   * Undo the old display:none. The first-screen pair is the inherited
-   * `.page-frame::before` lamps (warm top-left, cool bottom-right, already
-   * dithered), re-boxed from `position: fixed; inset: 0` to one screen
-   * that scrolls with the page. `inset: auto` has to be set or `inset: 0`
-   * on the inherited rule stretches this to the whole document, which is
-   * the tall filter region we are leaving.
-   *
-   * `translateZ(0)` asks WebKit for one compositing layer the size of the
-   * box, so both lobes rasterize together rather than in scroll tiles.
-   * Safe here only because the box is one viewport: the same transform on
-   * a layer that hangs past the fold is what skipped the sample card.
-   *
-   * `overflow: hidden` and `contain: paint` pin the SVG filter region to
-   * that box. Without them WebKit can expand the filter to the gradient's
-   * painted overflow (the 170vw ellipses) and we are back to a tall tile.
-   */
-  display: block;
-  position: absolute;
-  inset: auto;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: -1;
-  height: 100svh;
-  overflow: hidden;
-  pointer-events: none;
-  contain: paint;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  filter: url(#ambient-dither);
-  content-visibility: visible;
-  transform: translateZ(0);
-}
-.landing-field::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  /*
-   * No SVG filter. This layer is the height of the document. Putting the
-   * ambient dither back on it is the pop-in this split exists to stop.
-   */
-  background-image:
-    radial-gradient(
-      112vw 52vh at -8% 45%,
-      oklch(from var(--primary) l c h / 19%) 0%,
-      oklch(from var(--primary) l c h / 8.5%) 24%,
-      oklch(from var(--primary) l c h / 3.2%) 48%,
-      transparent 100%
-    ),
-    radial-gradient(
-      118vw 55vh at 110% 69%,
-      oklch(from var(--ambient-cool) l c h / 23%) 0%,
-      oklch(from var(--ambient-cool) l c h / 10.5%) 24%,
-      oklch(from var(--ambient-cool) l c h / 3.9%) 48%,
-      transparent 100%
-    ),
-    radial-gradient(
-      130vw 58vh at 45% 101%,
-      oklch(from var(--primary) l c h / 21%) 0%,
-      oklch(from var(--primary) l c h / 9.5%) 24%,
-      oklch(from var(--primary) l c h / 3.4%) 48%,
-      transparent 100%
-    );
-}
-
 /*
- * Same trade the phone chrome makes: reach in, peak up. Two lobes at
- * desktop proportions on a 390px screen wash the whole column and cancel
- * each other, so the lobes narrow and brighten to stay readable as
- * corners. See the note on `.page-frame::before`.
+ * The signed-out landing uses the same viewport-fixed lamps as every
+ * signed-in room (`.page-frame::before`). Do not override them.
  *
- * First-screen lamps stay on `::before` (inherited from `.page-frame`).
- * Only the lower three live here.
+ * A previous pass boxed that pair to `100svh` and put three more lobes on
+ * a page-tall `::after`, so a filter region would stay one WebKit tile.
+ * The side effect is a hard line at the fold: the first-screen lamps
+ * scroll away and the lower lobes sit at 45% / 69% / 101% of a long page,
+ * which leaves a black band right under the hero. The colour stopping at
+ * the original window is worse than lamps that travel with the window.
+ *
+ * The filter stays on the viewport-sized `.page-frame::before`. Nothing
+ * document-tall may take `filter` or `transform`; that is still what made
+ * the sample card pop in on older iPhones. `.landing-field` only carries
+ * the paint-in-one-frame rules below.
+ *
+ * `src/lib/landing-paint.test.ts` fails if the lamps are clipped to one
+ * screen again, if a page-tall layer takes the dither, or if the sample
+ * card's glow keeps the filter.
  */
-@media (max-width: 767px) {
-  .landing-field::after {
-    background-image:
-      radial-gradient(
-        120vw 36vh at -10% 45%,
-        oklch(from var(--primary) l c h / 36%) 0%,
-        oklch(from var(--primary) l c h / 16%) 24%,
-        oklch(from var(--primary) l c h / 6%) 48%,
-        transparent 100%
-      ),
-      radial-gradient(
-        125vw 38vh at 112% 70%,
-        oklch(from var(--ambient-cool) l c h / 44%) 0%,
-        oklch(from var(--ambient-cool) l c h / 20%) 24%,
-        oklch(from var(--ambient-cool) l c h / 7.5%) 48%,
-        transparent 100%
-      ),
-      radial-gradient(
-        135vw 40vh at 45% 101%,
-        oklch(from var(--primary) l c h / 40%) 0%,
-        oklch(from var(--primary) l c h / 18%) 24%,
-        oklch(from var(--primary) l c h / 6.8%) 48%,
-        transparent 100%
-      );
-  }
+.landing-hero,
+.landing-still {
+  content-visibility: visible;
+  /*
+   * No compositing transform. The sample card is meant to hang past the
+   * fold, and WebKit skips the off-screen half of a transformed layer
+   * until it scrolls on. `translateZ(0)` is correct on the viewport-fixed
+   * lamp layer, and wrong on anything taller than the window.
+   */
+  transform: none;
+}
 
+@media (max-width: 767px) {
   /*
    * `backdrop-filter` on a card that hangs off the fold is the same
    * fill-in the old scroll cue caused: WebKit re-samples the backdrop as
@@ -1495,24 +1392,13 @@ button:disabled,
   }
 }
 
-.landing-hero,
-.landing-still {
-  content-visibility: visible;
-  /*
-   * No compositing transform. The sample card is meant to hang past the
-   * fold, and WebKit skips the off-screen half of a transformed layer
-   * until it scrolls on. `translateZ(0)` is correct on the 100svh lamp
-   * box above, and wrong on anything taller than the window.
-   */
-  transform: none;
-}
-
 /*
  * The glow behind the sample card is a filtered layer the size of the
- * card, and the card hangs off the fold. Same Safari tile as the old
- * page-tall field: the visible half paints, the rest arrives on scroll.
- * The first-screen lamps underneath are already dithered. Dropping the
- * filter here is a slight coarsening of the khaki lift, not a pop-in.
+ * card, and the card hangs off the fold. An SVG filter on that box is the
+ * same Safari tile as a document-tall field: the visible half paints, the
+ * rest arrives on scroll. The page-frame lamps underneath are already
+ * dithered. Dropping the filter here is a slight coarsening of the khaki
+ * lift, not a pop-in.
  */
 .landing-field .ambient-glow {
   filter: none;

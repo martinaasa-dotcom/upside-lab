@@ -629,7 +629,7 @@ function BookWide() {
       {/* One quiet warm lift behind the sample card. See `.ambient-glow`. */}
       <div className="ambient-glow" aria-hidden />
       <Panel
-        className="h-auto gap-5 p-5 shadow-2xl shadow-black/60 ring-1 ring-primary/15"
+        className="h-auto gap-5 p-5"
         aria-hidden
       >
         <div className="flex items-center justify-between gap-3">

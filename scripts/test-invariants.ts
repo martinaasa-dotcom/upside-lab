@@ -3214,7 +3214,9 @@ run("sign-in reads as a product", () => {
   // Two columns from md, with both sides bounded so neither starves. The
   // exact track sizes have moved once already and are not the invariant.
   assert.match(gate, /md:grid-cols-\[minmax\(0,[^\]]+\)_minmax\(0,[^\]]+\)\]/);
-  assert.match(gate, /overflow-x-clip overflow-y-auto/);
+  // The landing must scroll with the document, not inside the frame.
+  // A y-auto overflow here is the hard colour cutoff at the fold.
+  assert.doesNotMatch(gate, /overflow-y-auto/);
   assert.doesNotMatch(gate, /signin-rise-3 hidden h-auto md:block/);
   assert.doesNotMatch(gate, /Scoreboard/);
   assert.doesNotMatch(gate, /Communities stay read-only/);

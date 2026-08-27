@@ -41,7 +41,7 @@ const CSS = readFileSync("src/app/globals.css", "utf8");
 const LAYOUT = readFileSync("src/app/layout.tsx", "utf8");
 
 /** Every surface that has to ramp through the bottom of the range. */
-const DITHERED = [".page-frame::before", ".landing-field::before", ".ambient-glow"];
+const DITHERED = [".page-frame::before", ".ambient-glow"];
 
 /** Decorative glows behind the sample cards, which all share one class. */
 const GLOW_CALL_SITES = [
@@ -100,11 +100,9 @@ describe("the ambient dither", () => {
     expect(CSS).not.toMatch(/filter:\s*url\("data:/);
   });
 
-  it("does not dither the landing's page-tall layer", () => {
-    const start = CSS.indexOf(".landing-field::after {");
-    expect(start).toBeGreaterThan(-1);
-    const rule = CSS.slice(start, CSS.indexOf("}", start));
-    expect(rule).not.toContain("url(#ambient-dither)");
+  it("does not put the dither on a landing-only page-tall layer", () => {
+    expect(CSS).not.toContain(".landing-field::before {");
+    expect(CSS).not.toContain(".landing-field::after {");
   });
 
   it("does not dither the landing sample-card glow", () => {

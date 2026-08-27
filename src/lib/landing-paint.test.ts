@@ -1,12 +1,14 @@
 /**
- * The signed-out hero must paint in one frame, both lamps together.
+ * The signed-out hero must paint in one frame, both lamps together, and
+ * those lamps must stay as the reader scrolls.
  *
- * There is no bitmap to preload. The "two halves" of the hero are two
- * radial gradients, and they used to live on a document-tall SVG-filtered
- * layer. WebKit tiles that filter; the warm top painted and the cool half
- * only rasterized once the reader scrolled. These checks are against the
- * source because the failure is a CSS shape, not a render of the settled
- * page.
+ * There is no bitmap to preload. The two lobes are radial gradients on
+ * `.page-frame::before`, `position: fixed`, same as every signed-in room.
+ * They used to be re-boxed to `100svh` so a filter region would stay one
+ * WebKit tile; that is the hard cutoff at the fold. A document-tall
+ * filtered layer is the other failure: Safari tiles it and the sample
+ * card pops in. These checks are against the source because the failure
+ * is a CSS shape, not a render of the settled page.
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -21,34 +23,36 @@ function ruleOf(selector: string): string {
   return CSS.slice(start, CSS.indexOf("}", start));
 }
 
-describe("the landing hero lamps paint as one first-screen layer", () => {
-  it("boxes the dithered pair to one screen, not the document", () => {
-    const rule = ruleOf(".landing-field::before");
-    expect(rule).toContain("height: 100svh");
-    expect(rule).toContain("position: absolute");
+describe("the landing hero lamps stay with the window", () => {
+  it("does not clip the lamps to the first screen", () => {
+    // A 100svh absolute ::before is the hard cutoff at the fold.
+    expect(CSS).not.toContain(".landing-field::before {");
+    expect(CSS).not.toContain(".landing-field::after {");
+  });
+
+  it("does not turn the gate into a scroll container", () => {
+    // overflow-y-auto on the frame either pins the lamps to the first
+    // screen of content or, in Safari, stretches the SVG filter to the
+    // document. Body already clips sideways.
+    expect(GATE).not.toMatch(/overflow-y-auto/);
+  });
+
+  it("keeps both lamps on the viewport-fixed page-frame pair", () => {
+    const rule = ruleOf(".page-frame::before");
+    expect(rule).toContain("position: fixed");
     expect(rule).toContain("url(#ambient-dither)");
-    expect(rule).toContain("translateZ(0)");
-    expect(rule).toContain("overflow: hidden");
-    expect(rule).toContain("contain: paint");
-    expect(rule).toContain("-webkit-backface-visibility");
-    expect(rule).not.toMatch(/^\s*display:\s*none/m);
-  });
-
-  it("does not SVG-filter the page-tall layer", () => {
-    const start = CSS.indexOf(".landing-field::after {");
-    expect(start).toBeGreaterThan(-1);
-    const rule = CSS.slice(start, CSS.indexOf("}", start));
-    expect(rule).not.toContain("url(#ambient-dither)");
-    expect(rule).not.toMatch(/^\s*filter:/m);
-  });
-
-  it("keeps both first-screen lamps on the inherited page-frame pair", () => {
-    // Warm and cool on .page-frame::before, which landing-field::before
-    // reuses. Two background-images in that one rule is the combined asset.
     const start = CSS.indexOf(".page-frame::before {");
-    const rule = CSS.slice(start, CSS.indexOf("transparent 100%", start) + 20);
-    expect(rule).toContain("--primary");
-    expect(rule).toContain("--ambient-cool");
+    const pair = CSS.slice(start, CSS.indexOf("transparent 100%", start) + 20);
+    expect(pair).toContain("--primary");
+    expect(pair).toContain("--ambient-cool");
+  });
+
+  it("does not draw a second box around the sample card", () => {
+    expect(LANDING).toContain('className="h-auto gap-5 p-5"');
+    expect(LANDING).not.toMatch(/shadow-2xl shadow-black\/60/);
+    expect(GATE).not.toMatch(/shadow-2xl shadow-black\/60/);
+    const glow = ruleOf(".ambient-glow");
+    expect(glow).not.toContain("border-radius");
   });
 });
 
