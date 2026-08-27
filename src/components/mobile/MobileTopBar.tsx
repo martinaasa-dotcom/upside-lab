@@ -7,16 +7,12 @@ import {
   HeaderOverflowMenu,
   type HeaderMenuItem,
 } from "@/components/HeaderOverflowMenu";
-import {
-  UpgradeDialog,
-  useUpgradeOffer,
-} from "@/components/billing/UpgradeNudge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/format";
 import { phoneMenuRows } from "@/lib/phone-menu";
 import Link from "next/link";
 import { Bell } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 type Props = {
   title: ReactNode;
@@ -34,7 +30,7 @@ type Props = {
   end?: ReactNode;
   /**
    * Everything else the page offers, as rows in the one overflow menu.
-   * The bar appends its own chrome rows (Upgrade, Feedback) below a rule.
+   * The bar appends Feedback below a rule. Upgrade lives on Account.
    */
   menuItems?: HeaderMenuItem[];
   /** Status row, same as desktop. Stays stuck with the bar. */
@@ -61,26 +57,28 @@ export function MobileTopBar({
 }: Props) {
   const { user } = useAuth();
   const { openManual } = useFeedback();
-  const { offer } = useUpgradeOffer();
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   /*
-   * One menu, page rows first, then the bar's own.
+   * One menu, page rows first, then Feedback.
    *
    * Upgrade and Feedback used to be two more 44px glyphs out here. On a
    * 390px phone the row had four of those plus the avatar, which measured
    * 224px of a 358px line, and with the lockup and its divider in front of
    * them the portfolio name was left with nothing: it truncated to a single
-   * letter. Neither control is touched more than about once a month, and an
-   * overflow menu is exactly where a monthly control belongs.
+   * letter. Neither control is touched more than about once a month.
+   *
+   * Upgrade then moved into this menu, which still asked for money from
+   * every signed-in page while Pro unlocks nothing. It lives on Account
+   * now. Feedback stays, because reporting a broken screen is not a
+   * billing decision.
    *
    * The ordering and the rule live in `phoneMenuRows`, which is pure and
    * tested.
    */
   const items = phoneMenuRows(menuItems ?? [], {
     signedIn: Boolean(user),
-    offerUpgrade: offer,
-    onUpgrade: () => setUpgradeOpen(true),
+    offerUpgrade: false,
+    onUpgrade: () => {},
     onFeedback: openManual,
   });
 
@@ -221,7 +219,6 @@ export function MobileTopBar({
         </div>
       </div>
       {children}
-      <UpgradeDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
     </header>
   );
 }

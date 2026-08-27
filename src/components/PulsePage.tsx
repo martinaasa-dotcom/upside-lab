@@ -386,9 +386,11 @@ function PulseCard({
           </Metric>
         </div>
       ) : (
-        <p className="text-sm tabular-nums text-muted-foreground">
-          {currency(c.price)} - not in your portfolio
-        </p>
+        <div className="glass-well rounded-lg px-4 py-3">
+          <p className="text-sm tabular-nums text-muted-foreground">
+            {currency(c.price)}. Not in your portfolio.
+          </p>
+        </div>
       )}
 
       {/*

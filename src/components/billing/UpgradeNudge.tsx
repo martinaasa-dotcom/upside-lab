@@ -43,9 +43,10 @@ function writeCachedStatus(status: string | null): void {
  * Whether this viewer should be offered Pro, resolved once for whoever
  * asks.
  *
- * Split out of `UpgradeNudge` because the offer now has two shapes: the
- * desktop header's pill, and a row in the phone's overflow menu. Both need
- * the same answer and neither should run its own fetch.
+ * Whether this viewer should be offered Pro. Account uses UpgradeButton
+ * directly. Chrome does not ask: Pro unlocks nothing, and a pill in the
+ * header reads as a catch. Kept here so a screen that wants the ask can
+ * still share one fetch and one cache.
  *
  * `pending` is the genuinely first-ever load, where there is no cached
  * answer to render from. The pill holds its own space in that case rather
@@ -162,57 +163,5 @@ export function UpgradeDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/**
- * Header-level "Upgrade" entry point, for the desktop bar.
- *
- * The Account page has always had the real Billing card, but that only
- * reaches someone who already went looking for it. This is the same offer
- * surfaced where every signed-in page can see it, without turning into a
- * nagging banner: a small pill, hidden entirely for anyone already
- * subscribed.
- *
- * There is no phone shape of this any more. It used to have an icon-only
- * variant that sat in `MobileTopBar`, which is how that row ended up with
- * four 44px glyphs and no room left for the portfolio name. Upgrade is a
- * monthly-at-most decision, so on the phone it is a row in the overflow
- * menu instead — see `MobileTopBar`.
- */
-export function UpgradeNudge() {
-  const { offer, pending } = useUpgradeOffer();
-  const [open, setOpen] = useState(false);
-
-  // First-ever load: hold the space rather than collapsing it, so the
-  // header lands in its final geometry on the first paint either way.
-  if (pending) {
-    return (
-      <span
-        aria-hidden
-        className="pointer-events-none invisible h-7 w-[6.5rem] shrink-0"
-      />
-    );
-  }
-
-  if (!offer) return null;
-
-  return (
-    <>
-      {/* Ghost like every other secondary control in the bar, with the
-       * accent carried by the icon and label rather than a filled tinted
-       * box. It is a nudge, not the header's main action. */}
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="gap-1.5 text-primary hover:text-primary"
-        onClick={() => setOpen(true)}
-      >
-        <Sparkles className="size-3.5" aria-hidden />
-        Upgrade
-      </Button>
-      <UpgradeDialog open={open} onOpenChange={setOpen} />
-    </>
   );
 }

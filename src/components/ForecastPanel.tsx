@@ -1,7 +1,6 @@
 "use client";
 
 import { track } from "@vercel/analytics";
-import { FluidRow, FluidTable, cellBase, cellTicker, tableCols } from "@/components/FluidTable";
 import { TickerSymbol } from "@/components/TickerSymbol";
 import {
   Card,
@@ -111,10 +110,6 @@ function yearLabel(year: number) {
 /** Current calendar year is still an EOY column (Dec 31), not "now". */
 function isCurrentYear(year: number) {
   return year === new Date().getFullYear();
-}
-
-function YearColHeader({ year }: { year: number }) {
-  return yearLabel(year);
 }
 
 function mergeEoyPaths(
@@ -690,16 +685,17 @@ function YearRailRow({
 }
 
 /**
- * One holding on a phone: the shape first, the numbers on a tap.
+ * One holding: the shape first, the numbers on a tap. Same card at every
+ * width, so a laptop and a phone are reading the same forecast.
  *
- * The card used to be a two-column grid of five editable prices with
+ * The old layout was a two-column grid of five editable prices with
  * today's price sitting in it as a sixth peer, and it dropped the last
- * forecast year to make the columns divide evenly — while the percentage in
- * its own corner was measured to that dropped year, so the card could never
- * add up to its own headline. Here the path runs to the last year, the
- * summary names it, and the rail lists every one of them.
+ * forecast year so the columns would divide evenly. The percentage in
+ * its own corner was measured to that dropped year, so the card could
+ * never add up to its own headline. Here the path runs to the last year,
+ * the summary names it, and the rail lists every one of them.
  */
-function MobileForecastCard({
+function ForecastCard({
   row,
   years,
   mixedListings,
@@ -838,10 +834,6 @@ export const ForecastPanel = memo(function ForecastPanel({
   const mixedListings = listingCurrenciesAreMixed(
     model.rows.map((r) => ({ ticker: r.ticker }))
   );
-  const tickerCell = mixedListings ? cellTicker : cellBase;
-  // Ticker | Price now | End-year cols | Change. Numbers only in the grid.
-  // Rationale lives under the table so a sentence cannot blow a row open.
-  const template = tableCols(yearCols.length + 3, mixedListings);
 
   const [plan, setPlan] = useState<ForecastPlan | null>(null);
   const [busy, setBusy] = useState(false);
@@ -1266,15 +1258,17 @@ export const ForecastPanel = memo(function ForecastPanel({
       </header>
 
       {model.rows.length === 0 ? (
-        <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-          Add a holding and Margus will work out where it could go.
+        <div className="p-4 sm:p-6">
+          <EmptyState
+            title="No holdings yet"
+            detail="Add a name and Margus will work out where it could go."
+          />
         </div>
       ) : (
         <>
-          {/* Mobile */}
-          <div className="flex flex-col gap-3 p-4 md:hidden">
+          <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
             {model.rows.map((r) => (
-              <MobileForecastCard
+              <ForecastCard
                 key={r.ticker}
                 row={r}
                 years={yearCols}
@@ -1282,134 +1276,46 @@ export const ForecastPanel = memo(function ForecastPanel({
                 onSetEoyPrice={onSetEoyPrice}
               />
             ))}
-
-            <div className={cn("card-sheen glass-well rounded-lg", NESTED_PAD)}>
-              <p className="text-sm font-medium text-muted-foreground">
-                Whole portfolio
-              </p>
-              <p className="mt-1.5 font-sans text-lg font-semibold leading-none tabular-nums text-foreground">
-                {currency(model.currentTotal)}
-              </p>
-              <YearRail>
-                {yearCols.map((y) => {
-                  const gain =
-                    model.currentTotal > 0
-                      ? (model.eoyTotals[y] - model.currentTotal) /
-                        model.currentTotal
-                      : null;
-                  return (
-                    <YearRailRow
-                      key={y}
-                      label={yearLabel(y)}
-                      current={isCurrentYear(y)}
-                      value={
-                        <span className="text-sm tabular-nums text-foreground">
-                          {currency(model.eoyTotals[y], 0)}
-                        </span>
-                      }
-                      note={
-                        <span
-                          className={cn(
-                            "text-sm tabular-nums",
-                            signedTone(gain)
-                          )}
-                        >
-                          {gain != null ? signedPercent(gain) : NO_VALUE}
-                        </span>
-                      }
-                    />
-                  );
-                })}
-              </YearRail>
-            </div>
           </div>
 
-          {/* Desktop */}
-          <div className="hidden md:block">
-            <FluidTable template={template}>
-              <FluidRow className="text-sm font-medium text-muted-foreground">
-                <div className={tickerCell}>Ticker</div>
-                <div className={cn(cellBase, "tabular-nums")}>Price now</div>
-                {yearCols.map((y) => (
-                  <div
+          <div className={cn("mx-4 mb-4 card-sheen glass-well rounded-lg", NESTED_PAD)}>
+            <p className="text-sm font-medium text-muted-foreground">
+              Whole portfolio
+            </p>
+            <p className="mt-1.5 font-sans text-lg font-semibold leading-none tabular-nums text-foreground">
+              {currency(model.currentTotal)}
+            </p>
+            <YearRail>
+              {yearCols.map((y) => {
+                const gain =
+                  model.currentTotal > 0
+                    ? (model.eoyTotals[y] - model.currentTotal) /
+                      model.currentTotal
+                    : null;
+                return (
+                  <YearRailRow
                     key={y}
-                    className={cn(
-                      cellBase,
-                      "tabular-nums",
-                      isCurrentYear(y) && "text-foreground"
-                    )}
-                    title={isCurrentYear(y) ? "Year-end, not today's price" : undefined}
-                  >
-                    <YearColHeader year={y} />
-                  </div>
-                ))}
-                <div className={cn(cellBase, "tabular-nums")}>Change</div>
-              </FluidRow>
-
-              {model.rows.map((r) => (
-                <FluidRow key={r.ticker} className="hover:bg-muted/50">
-                  <div
-                    className={cn(
-                      tickerCell,
-                      "font-semibold tracking-wide text-foreground"
-                    )}
-                    title={!r.hasTargets ? "Margus is still working out this path" : undefined}
-                  >
-                    <TickerSymbol
-                      ticker={r.ticker}
-                      showCurrency={mixedListings}
-                    />
-                  </div>
-                  <div className={cn(cellBase, "tabular-nums text-foreground")}>
-                    {currency(r.currentPrice)}
-                  </div>
-                  {yearCols.map((y) => (
-                    <div key={y} className={cn(cellBase, "tabular-nums")}>
-                      <EoyPriceInput
-                        value={r.eoyPrices[y]}
-                        targeted={r.targetedYears[y]}
-                        onCommit={(n) => onSetEoyPrice(r.ticker, y, n)}
-                      />
-                    </div>
-                  ))}
-                  <div
-                    className={cn(
-                      cellBase,
-                      "font-medium",
-                      r.gainPct != null
-                        ? signedTone(r.gainPct)
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    {r.gainPct != null ? percent(r.gainPct) : NO_VALUE}
-                  </div>
-                </FluidRow>
-              ))}
-
-              <FluidRow footer className="border-t border-border font-semibold">
-                <div className={cn(tickerCell, "text-foreground")}>
-                  Portfolio
-                </div>
-                <div className={cn(cellBase, "tabular-nums text-foreground")}>
-                  {currency(model.currentTotal)}
-                </div>
-                {yearCols.map((y) => (
-                  <div key={y} className={cn(cellBase, "tabular-nums text-foreground")}>
-                    {currency(model.eoyTotals[y])}
-                  </div>
-                ))}
-                <div
-                  className={cn(
-                    cellBase,
-                    model.gainPct != null
-                      ? signedTone(model.gainPct)
-                      : "text-muted-foreground"
-                  )}
-                >
-                  {model.gainPct != null ? percent(model.gainPct) : NO_VALUE}
-                </div>
-              </FluidRow>
-            </FluidTable>
+                    label={yearLabel(y)}
+                    current={isCurrentYear(y)}
+                    value={
+                      <span className="text-sm tabular-nums text-foreground">
+                        {currency(model.eoyTotals[y], 0)}
+                      </span>
+                    }
+                    note={
+                      <span
+                        className={cn(
+                          "text-sm tabular-nums",
+                          signedTone(gain)
+                        )}
+                      >
+                        {gain != null ? signedPercent(gain) : NO_VALUE}
+                      </span>
+                    }
+                  />
+                );
+              })}
+            </YearRail>
           </div>
         </>
       )}
@@ -1437,7 +1343,7 @@ export const ForecastPanel = memo(function ForecastPanel({
           <EmptyState
             className="mt-3"
             title="Margus is still working on this one"
-            detail="Starting prices may already be on the grid above. He writes the why here as soon as a run lands."
+            detail="Starting prices may already be on the cards above. He writes the why here as soon as a run lands."
             action={
               <Button
                 type="button"

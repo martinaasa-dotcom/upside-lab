@@ -37,7 +37,7 @@ function TrackMarker({ pct, className }: { pct: number; className: string }) {
     <div
       aria-hidden
       className={cn(
-        "pointer-events-none absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-background",
+        "pointer-events-none absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-background md:size-2",
         className
       )}
       style={{ left: `${pct}%` }}
@@ -48,15 +48,21 @@ function TrackMarker({ pct, className }: { pct: number; className: string }) {
 function ScaleTicks({ ticks }: { ticks: SentimentScaleTick[] }) {
   return (
     <div className="pointer-events-none relative mt-1 h-4">
-      {ticks.map((tick) => (
-        <span
-          key={`${tick.pct}-${tick.label}`}
-          className="absolute top-0 -translate-x-1/2 font-mono text-xs leading-4 text-muted-foreground first:translate-x-0 last:translate-x-[-100%]"
-          style={{ left: `${tick.pct}%` }}
-        >
-          {tick.label}
-        </span>
-      ))}
+      {ticks.map((tick, i) => {
+        const end = i === 0 || i === ticks.length - 1;
+        return (
+          <span
+            key={`${tick.pct}-${tick.label}`}
+            className={cn(
+              "absolute top-0 -translate-x-1/2 font-mono text-xs leading-4 text-muted-foreground first:translate-x-0 last:translate-x-[-100%]",
+              !end && "hidden md:block"
+            )}
+            style={{ left: `${tick.pct}%` }}
+          >
+            {tick.label}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -72,26 +78,25 @@ function SwapLayer({
   next: ReactNode;
 }) {
   return (
-    <div className="relative h-5">
-      <div
-        className={cn(
-          "absolute inset-0 flex items-center justify-between gap-3",
-          on && "invisible"
-        )}
-      >
-        {rest}
-      </div>
-      <div
-        className={cn(
-          "absolute inset-0 flex items-center justify-between gap-3",
-          !on && "invisible"
-        )}
-      >
-        {next}
-      </div>
+    <div className="relative h-10 md:h-5">
+      <div className={cn("absolute inset-0", on && "invisible")}>{rest}</div>
+      <div className={cn("absolute inset-0", !on && "invisible")}>{next}</div>
     </div>
   );
 }
+
+function HeaderStack({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex h-10 w-full min-w-0 flex-col md:h-5 md:flex-row md:items-center md:justify-between md:gap-3">
+      {children}
+    </div>
+  );
+}
+
+const TRACK_HIT =
+  "relative flex h-11 cursor-ew-resize touch-none items-center outline-none select-none focus-visible:ring-1 focus-visible:ring-ring/50 md:h-8 [@media(pointer:coarse)]:h-11";
+const TRACK_BAR =
+  "relative h-2 w-full rounded-full bg-foreground/10 md:h-1.5 [@media(pointer:coarse)]:h-2";
 
 function useScrubPct() {
   const [pct, setPct] = useState<number | null>(null);
@@ -263,45 +268,64 @@ export function SentimentSparkPlot({
       <SwapLayer
         on={reading}
         rest={
-          <>
-            <MicroLabel className="truncate">
-              Last year
-              <InfoTip text="S&P 500 versus its typical price over about the last year. The dashed line is that typical price. The solid bracket is this run. The dashed bracket to the right is how much longer a typical run lasted. That empty stretch is not a guess at the next price. Drag across to read a day." />
-            </MicroLabel>
-            <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <HeaderStack>
+            <div className="flex h-5 min-w-0 items-center">
+              <MicroLabel className="truncate">
+                Last year
+                <InfoTip text="S&P 500 versus its typical price over about the last year. The dashed line is that typical price. The solid bracket is this run. The dashed bracket to the right is how much longer a typical run lasted. That empty stretch is not a guess at the next price. Drag across to read a day." />
+              </MicroLabel>
+            </div>
+            <span className="flex h-5 items-center gap-1.5 text-sm text-muted-foreground">
               <span
                 aria-hidden
                 className="w-3.5 border-t border-dashed border-muted-foreground/80"
               />
               Usual
             </span>
-          </>
+          </HeaderStack>
         }
         next={
           onGhost && stretch ? (
-            <>
-              <p className="min-w-0 truncate text-sm text-foreground">Typical leftover</p>
-              <p className="min-w-0 truncate text-right text-sm text-muted-foreground">
+            <HeaderStack>
+              <p className="flex h-5 items-center truncate text-sm text-foreground">
+                Typical leftover
+              </p>
+              <p className="flex h-5 items-center truncate text-sm text-muted-foreground md:justify-end">
                 {stretch.moreLabel}
               </p>
-            </>
+            </HeaderStack>
           ) : probe ? (
-            <>
-              <p className="min-w-0 truncate text-sm text-foreground">
-                {probe.date || "Last year"}
-              </p>
-              <p className="min-w-0 truncate text-right text-sm tabular-nums">
-                <span className="text-foreground">{probe.vs}</span>
-                <span className={cn("ml-1.5", signedTone(probe.ratio))}>
+            <HeaderStack>
+              <p className="flex h-5 items-center justify-between gap-3 text-sm">
+                <span className="min-w-0 truncate text-foreground">
+                  {probe.date || "Last year"}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 font-mono tabular-nums md:hidden",
+                    signedTone(probe.ratio)
+                  )}
+                >
                   {signedPercent(probe.ratio)}
                 </span>
               </p>
-            </>
+              <p className="flex h-5 min-w-0 items-center truncate text-sm tabular-nums md:justify-end">
+                <span className="text-foreground">{probe.vs}</span>
+                <span
+                  className={cn(
+                    "ml-1.5 hidden font-mono md:inline",
+                    signedTone(probe.ratio)
+                  )}
+                >
+                  {signedPercent(probe.ratio)}
+                </span>
+              </p>
+            </HeaderStack>
           ) : (
-            <>
-              <p className="text-sm">Last year</p>
-              <p className="text-sm">Usual</p>
-            </>
+            <HeaderStack>
+              <p className="flex h-5 items-center text-sm">Last year</p>
+              <p className="flex h-5 items-center text-sm">Usual</p>
+            </HeaderStack>
           )
         }
       />
@@ -310,7 +334,7 @@ export function SentimentSparkPlot({
           ref={svgRef}
           viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
           preserveAspectRatio="none"
-          className="h-16 w-full cursor-crosshair touch-none outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+          className="h-20 w-full cursor-crosshair touch-none outline-none select-none focus-visible:ring-1 focus-visible:ring-ring/50 md:h-16 [@media(pointer:coarse)]:h-20"
           role="slider"
           tabIndex={0}
           aria-label="S&P 500 over the last year versus its usual price. Drag or use arrows to read a day."
@@ -402,7 +426,7 @@ export function SentimentSparkPlot({
         <span
           aria-hidden
           className={cn(
-            "pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-background",
+            "pointer-events-none absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-background md:size-1.5 [@media(pointer:coarse)]:size-2",
             layout.last.above ? "bg-gain" : "bg-loss"
           )}
           style={{ left: `${layout.last.x}%`, top: `${layout.last.y}%` }}
@@ -411,13 +435,13 @@ export function SentimentSparkPlot({
           <>
             <span
               aria-hidden
-              className="pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground ring-2 ring-background"
+              className="pointer-events-none absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground ring-2 ring-background md:size-1.5 [@media(pointer:coarse)]:size-2"
               style={{ left: `${probePt.x}%`, top: `${probePt.yUsual}%` }}
             />
             <span
               aria-hidden
               className={cn(
-                "pointer-events-none absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-background",
+                "pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-background md:size-2 [@media(pointer:coarse)]:size-2.5",
                 probe.ratio >= 0 ? "bg-gain" : "bg-loss"
               )}
               style={{ left: `${probePt.x}%`, top: `${probePt.yPrice}%` }}
@@ -427,7 +451,7 @@ export function SentimentSparkPlot({
       </div>
       {stretch ? (
         <>
-          <div className="relative mt-1 h-2.5">
+          <div className="relative mt-1 h-3 md:h-2.5">
             {layout.streak ? (
               <div
                 className={cn(
@@ -450,19 +474,13 @@ export function SentimentSparkPlot({
               />
             ) : null}
           </div>
-          <div className="mt-1 flex h-5 items-baseline justify-between gap-3">
-            <p className="min-w-0 truncate text-sm text-foreground">
+          <div className="mt-1 flex h-10 flex-col justify-center md:h-5 md:flex-row md:items-baseline md:justify-between md:gap-3">
+            <p className="h-5 truncate text-sm leading-5 text-foreground">
               {stretch.inLabel}
             </p>
-            {stretch.moreLabel ? (
-              <p className="min-w-0 truncate text-right text-sm text-muted-foreground">
-                {stretch.moreLabel}
-              </p>
-            ) : (
-              <p className="min-w-0 truncate text-right text-sm text-muted-foreground">
-                {" "}
-              </p>
-            )}
+            <p className="h-5 truncate text-sm leading-5 text-muted-foreground md:text-right">
+              {stretch.moreLabel || "\u00a0"}
+            </p>
           </div>
         </>
       ) : null}
@@ -479,16 +497,16 @@ export function SentimentStretchTrack({
 }) {
   return (
     <div className={className}>
-      <div className="mb-2 flex h-5 items-baseline justify-between gap-3">
-        <p className="min-w-0 truncate text-sm text-foreground">{stretch.inLabel}</p>
-        {stretch.moreLabel ? (
-          <p className="min-w-0 truncate text-right text-sm text-muted-foreground">
-            {stretch.moreLabel}
-          </p>
-        ) : null}
+      <div className="mb-2 flex h-10 flex-col justify-center md:h-5 md:flex-row md:items-baseline md:justify-between md:gap-3">
+        <p className="h-5 truncate text-sm leading-5 text-foreground">
+          {stretch.inLabel}
+        </p>
+        <p className="h-5 truncate text-sm leading-5 text-muted-foreground md:text-right">
+          {stretch.moreLabel || "\u00a0"}
+        </p>
       </div>
-      <div className="relative flex h-8 items-center">
-        <div className="relative h-1.5 w-full rounded-full bg-foreground/10">
+      <div className={cn(TRACK_HIT, "cursor-default")}>
+        <div className={TRACK_BAR}>
           <div
             className={cn(
               "absolute inset-y-0 left-0 rounded-full",
@@ -520,7 +538,7 @@ function LinearTrack({
   probePct: number | null;
 }) {
   return (
-    <div className="relative h-1.5 w-full rounded-full bg-foreground/10">
+    <div className={TRACK_BAR}>
       {band && (
         <div
           className={cn(
@@ -554,10 +572,10 @@ function SignedTrack({
   const width = Math.abs(fillPct);
   const markerPct = Math.max(2, Math.min(98, 50 + fillPct));
   return (
-    <div className="relative h-1.5 w-full rounded-full bg-foreground/10">
+    <div className={TRACK_BAR}>
       <div
         aria-hidden
-        className="absolute inset-y-[-3px] left-1/2 w-px -translate-x-1/2 bg-foreground/35"
+        className="absolute inset-y-[-4px] left-1/2 w-px -translate-x-1/2 bg-foreground/35"
       />
       {width > 0 && (
         <div
@@ -596,10 +614,12 @@ export function SentimentGaugeRow({ gauge }: { gauge: SentimentGaugeNote }) {
       aria-label={`${gauge.label} ${gauge.value}, ${gauge.sub}`}
     >
       <div className="mb-1.5 flex h-5 items-center justify-between gap-3">
-        <MicroLabel className="truncate">
-          {gauge.label}
-          <InfoTip text={gauge.explain} />
-        </MicroLabel>
+        <div className="min-w-0">
+          <MicroLabel className="truncate">
+            {gauge.label}
+            <InfoTip text={gauge.explain} />
+          </MicroLabel>
+        </div>
         <p
           className={cn(
             "shrink-0 font-mono text-sm font-semibold tabular-nums leading-5",
@@ -612,7 +632,7 @@ export function SentimentGaugeRow({ gauge }: { gauge: SentimentGaugeNote }) {
       {live ? (
         <div
           ref={scrub.ref}
-          className="relative flex h-8 cursor-ew-resize touch-none items-center outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+          className={TRACK_HIT}
           role="slider"
           tabIndex={0}
           aria-label={`${gauge.label} scale. ${gauge.explain}`}
@@ -639,12 +659,12 @@ export function SentimentGaugeRow({ gauge }: { gauge: SentimentGaugeNote }) {
           )}
         </div>
       ) : (
-        <div className="flex h-8 items-center">
-          <div className="h-1.5 w-full rounded-full bg-foreground/10" />
+        <div className="flex h-11 items-center md:h-8 [@media(pointer:coarse)]:h-11">
+          <div className={TRACK_BAR} />
         </div>
       )}
       <ScaleTicks ticks={gauge.ticks} />
-      <p className="mt-0.5 h-5 truncate text-sm leading-5 text-muted-foreground">
+      <p className="mt-0.5 h-10 text-sm leading-5 text-muted-foreground max-md:line-clamp-2 md:h-5 md:truncate">
         {sub}
       </p>
     </div>

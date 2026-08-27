@@ -20,6 +20,8 @@
     "bench:concurrency": "npx tsx scripts/bench-concurrency.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:landing": "node scripts/landing-smoke.mjs",
+    "probe:models": "npx tsx scripts/probe-free-models.ts",
     "dr:export": "npx tsx scripts/export-cold-snapshot.ts",
     "dr:restore": "npx tsx scripts/restore-snapshot.ts",
     "migrate:online": "npx tsx scripts/migrate-online.ts",

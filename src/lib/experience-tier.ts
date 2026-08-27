@@ -58,31 +58,29 @@ export function saveStoredTier(tier: ExperienceTier) {
 }
 
 /**
- * Meta-tab ids hidden per tier — must be the actual `__xxx__` tab id
- * constants from lib/overview (matches PortfolioTabs' MODES[i].id), not
- * plain labels.
+ * Meta-tab ids hidden per tier. Must be the `__xxx__` constants from
+ * `lib/overview` (same ids `PortfolioTabs` uses), not labels.
  *
- * Temporarily disabled (2026-08-18, per product call): every tier sees
- * every meta-tab regardless of what they picked, until tier-based
- * hiding is fully thought through. Do not delete the tier system —
- * flip these back to real per-tier lists (novice used to hide
- * `LAB_TAB_ID` from `@/lib/overview`) to re-enable.
+ * Pulse and Growth stay on every tier: Pulse is the thesis check the
+ * product is for, and Growth is the compounding explainer the newest
+ * readers need most. Lab is the analysis suite (allocation, shocks,
+ * trends, seasonality). It waits until someone says they are comfortable.
  */
 export const TIER_HIDDEN_META_TABS: Record<ExperienceTier, string[]> = {
-  novice: [],
+  novice: ["__lab__"], // LAB_TAB_ID. Pulse and Growth stay.
   investor: [],
   advanced: [],
 };
 
 /**
- * LabSheet sub-tab ids hidden per tier.
- *
- * Temporarily disabled (2026-08-18, per product call) — see
- * `TIER_HIDDEN_META_TABS` above. Investor used to hide "risk".
+ * LabSheet sub-tab ids hidden per tier (`alloc` | `risk` | `trends` |
+ * `seasonality`). Novice never reaches Lab, so this list is for someone
+ * who later opens it. Risk (book-wide shocks) is the one that reads as a
+ * toy until you already know the names.
  */
 export const TIER_HIDDEN_LAB_TABS: Record<ExperienceTier, string[]> = {
-  novice: [],
-  investor: [],
+  novice: ["risk"],
+  investor: ["risk"],
   advanced: [],
 };
 

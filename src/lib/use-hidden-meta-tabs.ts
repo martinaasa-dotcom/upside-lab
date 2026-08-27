@@ -27,11 +27,10 @@ function hiddenForStoredTier(): string[] {
  *
  * `MobileDock` (then `MobileChrome`) took `hiddenModeIds` as an optional
  * prop and not one of its four call sites passed it, so Account, Circle, Fund and Admin all defaulted
- * to hiding nothing while the Dashboard hid whatever the tier said. That was
- * invisible only because `TIER_HIDDEN_META_TABS` is currently empty for every
- * tier; filling one entry back in would have made every one of those pages
- * disagree with the book. Deriving it here instead of passing it means a new
- * page cannot forget.
+ * to hiding nothing while the Dashboard hid whatever the tier said. Novice
+ * hides Lab; if a page forgot this hook the dock would grow a cell on
+ * Circle and shrink it on Home. Deriving it here means a new page cannot
+ * forget.
  *
  * Reads the same stored tier the Dashboard mirrors on every load, and follows
  * `EXPERIENCE_TIER_EVENT` so answering the question in Account updates the bar

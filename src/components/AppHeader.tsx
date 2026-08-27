@@ -11,7 +11,6 @@ import {
 import { HeaderBrand } from "@/components/HeaderBrand";
 import type { HeaderMenuItem } from "@/components/HeaderOverflowMenu";
 import { MobileTopBar } from "@/components/mobile/MobileTopBar";
-import { UpgradeNudge } from "@/components/billing/UpgradeNudge";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { cn } from "@/lib/format";
 import { PAGE_CHROME_SPACER_CLASS, PAGE_COLUMN_CLASS } from "@/lib/page-shell";
@@ -44,8 +43,7 @@ type Props = {
   mobileEnd?: ReactNode;
   /**
    * The page's rows in the phone's one overflow menu. `MobileTopBar`
-   * appends the chrome's own (Upgrade, Feedback) below a rule, so a page
-   * never has to think about them.
+   * appends Feedback below a rule. Upgrade lives on Account, not here.
    */
   mobileMenuItems?: HeaderMenuItem[];
   alertCount?: number;
@@ -220,7 +218,6 @@ export function AppHeader({
             </div>
             <div className="flex min-w-0 shrink items-center justify-end gap-2">
               {children}
-              <UpgradeNudge />
               <FeedbackHeaderButton />
               {showWorkspaceNav && (
                 <span className="h-5 w-px shrink-0 bg-border" aria-hidden />

@@ -50,7 +50,6 @@ import {
 import { buildSnapshot, STRATEGY } from "@/lib/calculations";
 import type { CsvHoldingRow } from "@/lib/csv-import";
 import { clearChatHistory } from "@/lib/chat-history";
-import { loadWatchlist } from "@/lib/watchlist";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import {
   loadDismissedAlertIds,
@@ -58,19 +57,14 @@ import {
 } from "@/lib/alert-dismiss";
 import { setConviction } from "@/lib/conviction";
 import { PULSE_REFRESH_MS, effectiveMove, isEmptyPulseCheck, loadPulseTickerCache, type PulseCheck } from "@/lib/thesis-pulse";
-import { loadForecastPlan, type ForecastPlan } from "@/lib/forecast-plan";
+import { loadForecastPlan } from "@/lib/forecast-plan";
 import {
   milestoneToast,
   recordVisitToday,
 } from "@/lib/visit-streak";
-import {
-  pickChatPortfolio,
-  resolveLastPortfolioId,
-  saveActiveSheetId,
-  saveLastPortfolioId,
-  takeOpenTab,
-} from "@/lib/active-sheet";
-import type { CcChatContext } from "@/lib/ai/cc-advisor";
+import { resolveLastPortfolioId, saveActiveSheetId, saveLastPortfolioId, takeOpenTab, pickChatPortfolio } from "@/lib/active-sheet";
+import { bookFingerprint, margusChatContext } from "@/lib/dashboard-chat";
+import { normalizeMetaTabId, resolveSheetIdFromUrl } from "@/lib/dashboard-tab";
 import { loadLastUser } from "@/lib/last-session";
 import { isAbortError, retryOnNetwork } from "@/lib/abort";
 import { isSafePositiveMoney, isSafeShares, sanitizeSheetName } from "@/lib/input-guard";
@@ -136,7 +130,6 @@ import {
   LAB_TAB_ID,
   OVERVIEW_TAB_ID,
   PULSE_TAB_ID,
-  SEASONALITY_TAB_ID,
   ALERTS_TAB_ID,
   buildOverview,
   todayDollarFor,
@@ -145,7 +138,6 @@ import type {
   Holding,
   OptionCandidate,
   Portfolio,
-  PortfolioSnapshot,
   Quote,
 } from "@/lib/types";
 import {
@@ -258,262 +250,6 @@ const CoveredCallPanel = dynamic(
 type DataSource = "demo" | "supabase";
 
 const EMPTY_HIDDEN_TABS: string[] = [];
-
-function bookFingerprint(ps: Portfolio[], hs: Holding[]) {
-  return JSON.stringify([
-    ps.map((p) => [p.id, p.cash_balance, p.name]),
-    hs.map((h) => [
-      h.id,
-      h.ticker,
-      h.shares,
-      h.buy_price,
-      h.target_call_pct,
-      h.stock_target_override,
-    ]),
-  ]);
-}
-
-function extendedHoursFromQuote(q: Quote | null | undefined) {
-  if (!q) {
-    return {
-      marketState: null as string | null,
-      preMarketPrice: null as number | null,
-      preMarketChange: null as number | null,
-      preMarketChangePercent: null as number | null,
-      postMarketPrice: null as number | null,
-      postMarketChange: null as number | null,
-      postMarketChangePercent: null as number | null,
-    };
-  }
-  return {
-    marketState: q.marketState,
-    preMarketPrice: q.preMarketPrice,
-    preMarketChange: q.preMarketChange,
-    preMarketChangePercent: q.preMarketChangePercent,
-    postMarketPrice: q.postMarketPrice,
-    postMarketChange: q.postMarketChange,
-    postMarketChangePercent: q.postMarketChangePercent,
-  };
-}
-
-function margusChatContext(input: {
-  portfolio: Portfolio | null;
-  snapshot: PortfolioSnapshot | null;
-  hideOptions: boolean;
-  marketState: string | null;
-  eurUsd: number | null;
-  gbpUsd: number | null;
-  convictions: CcChatContext["convictions"];
-  pulseByTicker: Record<string, PulseCheck>;
-  forecastPlan: ForecastPlan | null;
-}): CcChatContext {
-  const watchlist = loadWatchlist();
-  const {
-    portfolio,
-    snapshot,
-    hideOptions,
-    marketState,
-    eurUsd,
-    gbpUsd,
-    convictions,
-    pulseByTicker,
-    forecastPlan,
-  } = input;
-  if (!portfolio || !snapshot) {
-    return {
-      portfolioName: "Your portfolio",
-      cashBalance: 0,
-      adviseOnly: true,
-      hideOptions,
-      eurUsd,
-      gbpUsd,
-      watchlist,
-      convictions,
-      pulseByTicker,
-      forecastPlan: null,
-      holdings: [],
-      rows: [],
-      marketState,
-      totals: {
-        cost: 0,
-        value: 0,
-        roiPct: 0,
-        roiDollar: 0,
-        yield2wAvg: 0,
-        premiumTotal: 0,
-      },
-    };
-  }
-  return {
-    portfolioName: portfolio.name,
-    cashBalance: portfolio.cash_balance,
-    classroom: Boolean(portfolio.classroom_community_id),
-    hideOptions,
-    eurUsd,
-    gbpUsd,
-    watchlist,
-    convictions,
-    pulseByTicker,
-    forecastPlan,
-    holdings: snapshot.holdings.map((h) => ({
-      ticker: h.ticker,
-      shares: h.shares,
-      buyPrice: h.buy_price,
-      price: h.quote?.price ?? h.buy_price,
-      cost: h.buyValue,
-      value: h.currentValue,
-      roiPct: h.roiPct,
-      roiDollar: h.roiDollar,
-      pctOfTotal: h.pctOfTotal,
-      todayPct: h.quote?.changePercent ?? null,
-      ...extendedHoursFromQuote(h.quote),
-    })),
-    rows: hideOptions
-      ? []
-      : snapshot.coveredCallRows.map((r) => ({
-          ticker: r.holding.ticker,
-          spot: r.spot,
-          callPct: r.targetCall,
-          stockTarget: r.stockTarget,
-          distance: r.targetDistance,
-          nextStrike: r.nextStrike,
-          contracts: r.contracts,
-          yield2w: r.yield2w,
-          premium: r.premium,
-          expiration: r.expiration,
-        })),
-    marketState,
-    totals: {
-      cost: snapshot.totals.buyValue,
-      value: snapshot.totals.currentValue,
-      roiPct: snapshot.totals.roiPct,
-      roiDollar: snapshot.totals.roiDollar,
-      yield2wAvg: snapshot.totals.yield2wAvg,
-      premiumTotal: snapshot.totals.premiumTotal,
-    },
-  };
-}
-
-/**
- * Resolves the `?portfolio=` URL param (meta-tab keyword, slug, id, or name)
- * to an active-portfolio id. Pure and synchronous so it can run both in the
- * `activeId` state initializer (first paint, before any network call) and
- * later in `pickInitialSheet` (popstate / portfolio-list changes) without
- * duplicating the matching rules in two places. Returns null when there's
- * no param or it doesn't match anything, so callers can fall through to
- * their own next-best default (previous tab, localStorage, Overview).
- *
- * `?sheet=` and `tab=book` are the old spellings. We stopped writing them
- * when portfolios stopped being called sheets, but they are still read so
- * that links and bookmarks people already have keep landing in the right
- * place.
- */
-/**
- * Meta-tab ids that are still real top-level tabs. Pulse and Seasonality
- * moved inside Lab, so anything persisted (localStorage, history state)
- * from before that move has to fold onto Lab rather than resolving to a
- * tab that no longer renders and leaving the user on a blank page.
- */
-function normalizeMetaTabId(id: string): string | null {
-  if (
-    id === OVERVIEW_TAB_ID ||
-    id === COMPOUND_TAB_ID ||
-    id === LAB_TAB_ID ||
-    id === PULSE_TAB_ID
-  ) {
-    return id;
-  }
-  if (id === ALERTS_TAB_ID) return ALERTS_TAB_ID;
-  // Seasonality is a Lab sub-tab, so a persisted id from when it was
-  // top-level folds onto Lab rather than resolving to a tab that no
-  // longer renders and leaving the user on a blank page.
-  if (id === SEASONALITY_TAB_ID) return LAB_TAB_ID;
-  return null;
-}
-
-function metaTabFromToken(raw: string): string | null {
-  if (raw === "compound" || raw === COMPOUND_TAB_ID) return COMPOUND_TAB_ID;
-  if (raw === "lab" || raw === LAB_TAB_ID) return LAB_TAB_ID;
-  if (raw === "pulse" || raw === PULSE_TAB_ID) return PULSE_TAB_ID;
-  if (raw === "alerts" || raw === ALERTS_TAB_ID) return ALERTS_TAB_ID;
-  if (raw === "overview" || raw === OVERVIEW_TAB_ID) return OVERVIEW_TAB_ID;
-  // Seasonality is a Lab sub-tab. Old links still resolve, they just land
-  // on Lab with the right sub-tab selected via ?labtab=.
-  if (
-    raw === "statistics" ||
-    raw === "stats" ||
-    raw === "seasonality" ||
-    raw === SEASONALITY_TAB_ID
-  ) {
-    return LAB_TAB_ID;
-  }
-  return null;
-}
-
-/**
- * `?tab=portfolio` with no portfolio named and no list to name one from
- * is `PORTFOLIO_TAB_PENDING`: a real room id, distinct from `null`.
- */
-
-function resolveSheetIdFromUrl(
-  list: Portfolio[],
-  pendingTab?: string | null
-): string | null {
-  if (typeof window === "undefined") return null;
-  const params = new URLSearchParams(window.location.search);
-  const tabParam =
-    pendingTab?.trim().toLowerCase() ||
-    params.get("tab")?.trim().toLowerCase() ||
-    "";
-  const portfolioParam = params.get("portfolio")?.trim().toLowerCase() || "";
-  const sheetParam = params.get("sheet")?.trim().toLowerCase() || "";
-  // `tab=portfolio` (and legacy `tab=book`) is a portfolio view; which one
-  // comes from `portfolio` / legacy `sheet`. `tab=forecast` is a panel on a
-  // portfolio, not a meta tab.
-  const tabToken =
-    tabParam &&
-    tabParam !== "portfolio" &&
-    tabParam !== "book" &&
-    tabParam !== "forecast"
-      ? tabParam
-      : "";
-  if (tabToken) {
-    const meta = metaTabFromToken(tabToken);
-    if (meta) return meta;
-  }
-  // Legacy ?sheet=stats bookmarks, only when they are not a real portfolio id.
-  if (!tabToken && !portfolioParam && sheetParam) {
-    const meta = metaTabFromToken(sheetParam);
-    if (meta) return meta;
-  }
-  const raw = portfolioParam || sheetParam;
-  if (!raw) {
-    /*
-     * `?tab=portfolio` with nothing after it is the phone dock's Holdings
-     * cell, which cannot name a portfolio: it draws on every page, including
-     * the ones that never load a book, so it has no list to pick from and no
-     * way to tell a remembered id from one somebody has since deleted. This
-     * is the only place that does, so it answers here: the portfolio you were
-     * last in, else your first one. Falling through to Overview would send
-     * that cell straight back to the room the reader is trying to leave.
-     */
-    if (tabParam === "portfolio" || tabParam === "book") {
-      return resolveLastPortfolioId(list) ?? PORTFOLIO_TAB_PENDING;
-    }
-    return null;
-  }
-  const bySlugOrId = list.find(
-    (p) =>
-      p.id === raw ||
-      p.slug?.toLowerCase() === raw ||
-      p.name.toLowerCase() === raw
-  );
-  if (bySlugOrId) return bySlugOrId.id;
-  // Hard refresh of ?tab=portfolio&portfolio=… before the portfolio is in
-  // memory: keep the URL token so we don't paint Overview for a frame.
-  if (list.length === 0) return raw;
-  return null;
-}
 
 export function Dashboard() {
   const { push: toast } = useToast();
@@ -3453,7 +3189,9 @@ export function Dashboard() {
         hint: "Big movers",
         run: () => setActiveId(PULSE_TAB_ID),
       },
-      {
+    ];
+    if (!labHiddenForTier) {
+      items.push({
         id: "statistics",
         label: "Seasonality",
         group: "Go",
@@ -3462,15 +3200,15 @@ export function Dashboard() {
           setLabIntent("seasonality");
           setActiveId(LAB_TAB_ID);
         },
-      },
-    ];
-    items.push({
-      id: "lab",
-      label: "Lab",
-      group: "Go",
-      hint: "Analysis tools",
-      run: () => setActiveId(LAB_TAB_ID),
-    });
+      });
+      items.push({
+        id: "lab",
+        label: "Lab",
+        group: "Go",
+        hint: "Analysis tools",
+        run: () => setActiveId(LAB_TAB_ID),
+      });
+    }
     items.push({
       id: "undo",
       label: "Undo last Margus write",
@@ -3506,7 +3244,7 @@ export function Dashboard() {
     }
     return items;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
-  }, [portfolios, overview.tickers, undoStack.length]);
+  }, [portfolios, overview.tickers, undoStack.length, labHiddenForTier]);
 
   // Page-level view toggles for the current sheet — kept separate from
   // account actions below so one menu isn't a junk drawer of unrelated

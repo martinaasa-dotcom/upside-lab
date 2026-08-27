@@ -50,13 +50,11 @@ describe("the phone shows every forecast year", () => {
     }
   });
 
-  it("hands the phone the same list the table gets", () => {
-    const mobile = PANEL.slice(
-      PANEL.indexOf("{/* Mobile */}"),
-      PANEL.indexOf("{/* Desktop */}")
-    );
-    expect(mobile).toMatch(/years=\{yearCols\}/);
-    expect(mobile).toMatch(/yearCols\.map\(/);
+  it("hands every holding the same year list", () => {
+    expect(PANEL).toMatch(/years=\{yearCols\}/);
+    expect(PANEL).toMatch(/yearCols\.map\(/);
+    expect(PANEL).not.toMatch(/\{\/\* Mobile \*\/\}/);
+    expect(PANEL).not.toMatch(/\{\/\* Desktop \*\/\}/);
   });
 
   it("measures the headline against the year the card ends on", () => {

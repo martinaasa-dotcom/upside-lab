@@ -6,7 +6,10 @@ import { describe, expect, it } from "vitest";
 import {
   shouldHideOptions,
   shouldSkipExperienceOnboarding,
+  TIER_HIDDEN_LAB_TABS,
+  TIER_HIDDEN_META_TABS,
 } from "@/lib/experience-tier";
+import { COMPOUND_TAB_ID, LAB_TAB_ID, PULSE_TAB_ID } from "@/lib/overview";
 
 describe("shouldHideOptions", () => {
   it("hides for someone who said they do not know options", () => {
@@ -42,5 +45,24 @@ describe("shouldHideOptions", () => {
     // The protection is reachable for existing holders too -- it just has
     // to be chosen rather than assumed.
     expect(shouldHideOptions(false)).toBe(true);
+  });
+});
+
+describe("experience-tier rooms", () => {
+  it("hides Lab for someone new, and never Pulse or Growth", () => {
+    expect(TIER_HIDDEN_META_TABS.novice).toEqual([LAB_TAB_ID]);
+    expect(TIER_HIDDEN_META_TABS.novice).not.toContain(PULSE_TAB_ID);
+    expect(TIER_HIDDEN_META_TABS.novice).not.toContain(COMPOUND_TAB_ID);
+  });
+
+  it("leaves every top-level room on for investor and advanced", () => {
+    expect(TIER_HIDDEN_META_TABS.investor).toEqual([]);
+    expect(TIER_HIDDEN_META_TABS.advanced).toEqual([]);
+  });
+
+  it("keeps the shock lab off until advanced", () => {
+    expect(TIER_HIDDEN_LAB_TABS.novice).toEqual(["risk"]);
+    expect(TIER_HIDDEN_LAB_TABS.investor).toEqual(["risk"]);
+    expect(TIER_HIDDEN_LAB_TABS.advanced).toEqual([]);
   });
 });

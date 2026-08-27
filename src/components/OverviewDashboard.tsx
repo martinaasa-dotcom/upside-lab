@@ -11,12 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemTitle,
-} from "@/components/ui/item";
 import { MarketSentimentWidget } from "@/components/MarketSentimentWidget";
 import { OvernightNote } from "@/components/OvernightNote";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
@@ -30,6 +24,7 @@ import {
   Score,
   Scoreboard,
   Segmented,
+  MicroLabel,
 } from "@/components/ui/Panel";
 import { NO_VALUE, cashtag, cn, currency, percent, plural, signedCurrency, signedPercent, signedTone } from "@/lib/format";
 import { parseHoldingsPaste, type CsvHoldingRow } from "@/lib/csv-import";
@@ -54,7 +49,6 @@ import {
 import { finiteNumber } from "@/lib/money";
 import {
   AlertTriangle,
-  ArrowRight,
   Plus,
   Sparkles,
   TrendingDown,
@@ -233,7 +227,7 @@ function EmptyBook({
     : "Paste what you own. One name per line: ticker, shares, cost. This portfolio is only yours until you invite someone.";
 
   return (
-    <Panel tone="brand" className="overview-fade">
+    <Panel className="overview-fade">
       <PanelHeader hero title={emptyTitle} subtitle={emptySubtitle} />
 
       {!homework && onPasteHoldings && (
@@ -257,39 +251,34 @@ function EmptyBook({
         </div>
       )}
 
-      {routes.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          {routes.map((r) => (
-            <Item
-              key={r.key}
-              variant={r.primary ? "default" : "muted"}
-              asChild
-              className={cn("group h-full items-start", r.primary && "bg-accent")}
-            >
-              <button type="button" onClick={r.onClick}>
-                <ItemContent>
-                  <ItemTitle className="text-base font-semibold">
-                    {r.label}
-                    <ArrowRight
-                      className="h-3.5 w-3.5 opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100"
-                      aria-hidden
-                    />
-                  </ItemTitle>
-                  {"hint" in r && r.hint ? (
-                    <ItemDescription className="line-clamp-3">
-                      {r.hint}
-                    </ItemDescription>
-                  ) : null}
-                </ItemContent>
-              </button>
-            </Item>
-          ))}
+      {homework && routes[0] ? (
+        <Button type="button" onClick={routes[0].onClick}>
+          {routes[0].label}
+        </Button>
+      ) : null}
+
+      {!homework && routes.length > 0 ? (
+        <div className="flex flex-col gap-2 border-t border-border pt-4">
+          <MicroLabel>Or add another way</MicroLabel>
+          <div className="flex flex-wrap gap-2">
+            {routes.map((r) => (
+              <Button
+                key={r.key}
+                type="button"
+                variant="outline"
+                size="sm"
+                title={"hint" in r ? r.hint : undefined}
+                onClick={r.onClick}
+              >
+                {r.label}
+              </Button>
+            ))}
+          </div>
         </div>
-      )}
+      ) : null}
       {onImportScreenshot && !homework ? (
         <input {...screenshotPickerInputProps(screenshot)} />
       ) : null}
-
     </Panel>
   );
 }

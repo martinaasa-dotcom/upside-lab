@@ -17,9 +17,9 @@ import {
   PAD_PX,
 } from "@/lib/dock-cells";
 
-/** Every section showing: Home, Pulse, Lab, Growth. */
+/** The everyday book in the row: Home, Pulse, Lab, Growth. */
 const ALL_MODES = 4;
-/** Investor tier hides Lab. */
+/** Novice hides Lab. Pulse and Growth stay. */
 const TIER_MODES = 3;
 /** The page column at 1280px and up: 1200 max, less `px-6` either side. */
 const WIDE = 1152;

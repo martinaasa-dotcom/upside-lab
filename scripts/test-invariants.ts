@@ -108,10 +108,11 @@ import {
   inviteFromLocation,
   inviteLandingCopy,
 } from "../src/lib/invite-landing";
-import { LAB_TAB_ID, PULSE_TAB_ID, todayDollarFor, buildOverview } from "../src/lib/overview";
+import { COMPOUND_TAB_ID, LAB_TAB_ID, PULSE_TAB_ID, todayDollarFor, buildOverview } from "../src/lib/overview";
 import {
   shouldHideOptions,
   shouldSkipExperienceOnboarding,
+  TIER_HIDDEN_LAB_TABS,
   TIER_HIDDEN_META_TABS,
 } from "../src/lib/experience-tier";
 import {
@@ -1787,9 +1788,15 @@ run("connected emails send notes to the first address only", () => {
   assert.match(nudge, /connectedEmailsFor/);
 });
 
-run("tier-based meta-tab hiding is temporarily disabled", () => {
-  assert.ok(!TIER_HIDDEN_META_TABS.novice.includes(LAB_TAB_ID));
+run("novice hides Lab, never Pulse or Growth", () => {
+  assert.deepEqual(TIER_HIDDEN_META_TABS.novice, [LAB_TAB_ID]);
   assert.ok(!TIER_HIDDEN_META_TABS.novice.includes(PULSE_TAB_ID));
+  assert.ok(!TIER_HIDDEN_META_TABS.novice.includes(COMPOUND_TAB_ID));
+  assert.deepEqual(TIER_HIDDEN_META_TABS.investor, []);
+  assert.deepEqual(TIER_HIDDEN_META_TABS.advanced, []);
+  assert.deepEqual(TIER_HIDDEN_LAB_TABS.novice, ["risk"]);
+  assert.deepEqual(TIER_HIDDEN_LAB_TABS.investor, ["risk"]);
+  assert.deepEqual(TIER_HIDDEN_LAB_TABS.advanced, []);
 });
 
 run("FX conversion falls back to 1:1 and rounds to cents", () => {
@@ -1819,7 +1826,11 @@ run("community books lead with today's percent, not dollar size", () => {
     join(process.cwd(), "src/components/ClassroomRoster.tsx"),
     "utf8"
   );
-  const readOnly = community.slice(community.indexOf("function ReadOnlyHoldings"));
+  const cards = readFileSync(
+    join(process.cwd(), "src/components/CircleCards.tsx"),
+    "utf8"
+  );
+  const readOnly = cards.slice(cards.indexOf("export function ReadOnlyHoldings"));
   assert.match(readOnly, /label="Today"/);
   assert.match(readOnly, /signedPercent\(todayPct\)/);
   assert.match(readOnly, /sub=\{signedCurrency\(todayDollar\)\}/);

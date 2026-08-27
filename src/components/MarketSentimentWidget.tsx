@@ -168,7 +168,7 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
       <Panel
         tone={card.reading.panel}
         className={cn(
-          "overview-fade gap-4 sm:gap-5",
+          "overview-fade gap-5",
           ringFor(card.reading.regime),
           className
         )}
@@ -184,7 +184,7 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
           actions={<Pill tone={card.reading.pill}>{card.reading.label}</Pill>}
         />
         {hasPicture ? (
-          <div className={cn(CARD, "p-3 sm:p-4")}>
+          <div className={cn(CARD, "p-4")}>
             {card.spark ? (
               <SentimentSparkPlot spark={card.spark} stretch={card.stretch} />
             ) : card.stretch ? (
@@ -197,7 +197,7 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
           </p>
         )}
         <div
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-8 sm:gap-y-4"
+          className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-x-8 md:gap-y-5"
           role="group"
           aria-label="Market gauges"
         >

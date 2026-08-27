@@ -6,7 +6,7 @@ const noop = () => {};
 function chrome(over: Partial<Parameters<typeof phoneMenuRows>[1]> = {}) {
   return {
     signedIn: true,
-    offerUpgrade: true,
+    offerUpgrade: false,
     onUpgrade: noop,
     onFeedback: noop,
     ...over,
@@ -33,7 +33,6 @@ describe("the phone bar's one overflow menu", () => {
     expect(rows.map((r) => r.id)).toEqual([
       "invite",
       "cc",
-      "upgrade",
       "feedback",
     ]);
   });
@@ -43,21 +42,21 @@ describe("the phone bar's one overflow menu", () => {
       { id: "cc", label: "Show covered calls", onSelect: noop },
     ];
     const withPage = phoneMenuRows(page, chrome());
-    expect(withPage.find((r) => r.id === "upgrade")?.separated).toBe(true);
-    expect(withPage.find((r) => r.id === "feedback")?.separated).toBeFalsy();
+    expect(withPage.find((r) => r.id === "feedback")?.separated).toBe(true);
 
     const alone = phoneMenuRows<PhoneMenuRow>([], chrome());
-    expect(alone[0]?.id).toBe("upgrade");
+    expect(alone[0]?.id).toBe("feedback");
     expect(alone[0]?.separated).toBe(false);
   });
 
-  it("drops Upgrade for a subscriber, and Feedback takes the rule", () => {
+  it("can still put Upgrade in the menu when a screen asks", () => {
     const rows = phoneMenuRows<PhoneMenuRow>(
       [{ id: "cc", label: "Show covered calls", onSelect: noop }],
-      chrome({ offerUpgrade: false }),
+      chrome({ offerUpgrade: true }),
     );
-    expect(rows.map((r) => r.id)).toEqual(["cc", "feedback"]);
-    expect(rows[1]?.separated).toBe(true);
+    expect(rows.map((r) => r.id)).toEqual(["cc", "upgrade", "feedback"]);
+    expect(rows.find((r) => r.id === "upgrade")?.separated).toBe(true);
+    expect(rows.find((r) => r.id === "feedback")?.separated).toBeFalsy();
   });
 
   it("carries the page row through untouched, extras and all", () => {
@@ -94,7 +93,18 @@ describe("the phone bar's one overflow menu", () => {
     );
     rows.find((r) => r.id === "upgrade")?.onSelect();
     rows.find((r) => r.id === "feedback")?.onSelect();
-    expect(onUpgrade).toHaveBeenCalledOnce();
+    expect(onUpgrade).not.toHaveBeenCalled();
     expect(onFeedback).toHaveBeenCalledOnce();
+  });
+
+  it("wires Upgrade when a screen opts in", () => {
+    const onUpgrade = vi.fn();
+    const onFeedback = vi.fn();
+    const rows = phoneMenuRows<PhoneMenuRow>(
+      [],
+      chrome({ offerUpgrade: true, onUpgrade, onFeedback }),
+    );
+    rows.find((r) => r.id === "upgrade")?.onSelect();
+    expect(onUpgrade).toHaveBeenCalledOnce();
   });
 });

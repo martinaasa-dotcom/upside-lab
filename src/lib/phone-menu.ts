@@ -10,8 +10,9 @@
  * to a single letter.
  *
  * So everything that is not the page's one action is a row in here. The
- * page supplies its own rows and the bar appends the chrome's, below a
- * rule, so a page never has to remember that Upgrade and Feedback exist.
+ * page supplies its own rows and the bar appends Feedback below a rule,
+ * so a page never has to remember it exists. Upgrade lives on Account:
+ * Pro unlocks nothing, and asking from every screen reads as a catch.
  *
  * Pure, and separate from the bar, because the ordering and the rule are
  * the part worth testing.
@@ -25,9 +26,12 @@ export type PhoneMenuRow = {
 };
 
 export type PhoneChrome = {
-  /** No rows at all for a signed-out reader: neither one does anything. */
+  /** No rows at all for a signed-out reader: Feedback does nothing there. */
   signedIn: boolean;
-  /** False for a subscriber, and while billing status is still unknown. */
+  /**
+   * Kept so a screen that really wants the ask (Account) can still pass
+   * it. The phone bar always sends false.
+   */
   offerUpgrade: boolean;
   onUpgrade: () => void;
   onFeedback: () => void;

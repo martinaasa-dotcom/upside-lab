@@ -391,6 +391,11 @@ export async function withAdvisorFallback<T>(
       lastErr = err;
     }
   }
+  const tried = order.map((c) => c.id).join(", ");
+  console.error(
+    `[ai] advisor chain exhausted after ${order.length} provider(s): ${tried}`,
+    lastErr
+  );
   throw lastErr ?? new Error("AI request timed out before any provider replied");
 }
 

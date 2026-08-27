@@ -23,6 +23,7 @@ import {
 const BAR = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");
 const TAB = readFileSync("src/lib/mobile-tab.ts", "utf8");
 const DASHBOARD = readFileSync("src/components/Dashboard.tsx", "utf8");
+const TAB_URL = readFileSync("src/lib/dashboard-tab.ts", "utf8");
 
 /** A localStorage the node test environment does not otherwise have. */
 function withStorage(seed: Record<string, string> = {}) {
@@ -87,15 +88,13 @@ describe("the URL answers for it", () => {
   it("resolves a bare ?tab=portfolio instead of falling to Overview", () => {
     /*
      * Falling through to `return null` sends the caller to Overview, which
-     * is the room this cell exists to get out of. Asserted against the
-     * source because the resolver reads `window.location` and is not
-     * exported.
+     * is the room this cell exists to get out of. The matching rules live
+     * in dashboard-tab.ts so they can run in tests without `window`.
      */
-    const start = DASHBOARD.indexOf("function resolveSheetIdFromUrl");
-    expect(start, "the resolver is still here").toBeGreaterThan(-1);
-    const fn = DASHBOARD.slice(start, DASHBOARD.indexOf("\n}\n", start));
-    expect(fn).toMatch(/tabParam === "portfolio" \|\| tabParam === "book"/);
-    expect(fn).toMatch(/resolveLastPortfolioId\(list\)/);
+    expect(TAB_URL).toMatch(/tabParam === "portfolio" \|\| tabParam === "book"/);
+    expect(TAB_URL).toMatch(
+      /resolveLastPortfolioId\(list\) \?\? PORTFOLIO_TAB_PENDING/
+    );
   });
 
   it("survives arriving before the book does", () => {
@@ -109,7 +108,7 @@ describe("the URL answers for it", () => {
      * nothing at all.
      */
     expect(DASHBOARD).toMatch(/PORTFOLIO_TAB_PENDING/);
-    expect(DASHBOARD).toMatch(
+    expect(TAB_URL).toMatch(
       /resolveLastPortfolioId\(list\) \?\? PORTFOLIO_TAB_PENDING/
     );
     expect(DASHBOARD).toMatch(/wantsHoldingsRef\.current = true/);
@@ -126,8 +125,9 @@ describe("the URL answers for it", () => {
      * reader would get an empty room rather than their holdings.
      */
     const raw = DASHBOARD.match(/resolveSheetIdFromUrl\(/g) ?? [];
-    /* The declaration, and the single call inside `takeSheetIdFromUrl`. */
-    expect(raw.length).toBe(2);
+    /* The single call inside `takeSheetIdFromUrl`. The helper itself lives
+     * in dashboard-tab.ts. */
+    expect(raw.length).toBe(1);
   });
 
   it("marks the cell as the room you are in", () => {
