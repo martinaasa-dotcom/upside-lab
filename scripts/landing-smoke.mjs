@@ -20,35 +20,18 @@ const VIEWPORTS = [
   { name: "laptop", width: 1280, height: 800 },
 ];
 
-function waitForReady(child) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(`next start did not become ready in 60s\n${buf}`));
-    }, 60_000);
-    let buf = "";
-    const onData = (chunk) => {
-      const text = chunk.toString();
-      buf += text;
-      process.stderr.write(text);
-      if (/Ready in|started server|Local:/i.test(buf)) {
-        cleanup();
-        resolve(undefined);
-      }
-    };
-    const onExit = (code) => {
-      cleanup();
-      reject(new Error(`next start exited ${code} before ready\n${buf}`));
-    };
-    function cleanup() {
-      clearTimeout(timer);
-      child.stdout?.off("data", onData);
-      child.stderr?.off("data", onData);
-      child.off("exit", onExit);
+async function waitUntilListening() {
+  const deadline = Date.now() + 45_000;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(BASE, { redirect: "manual" });
+      if (res.status > 0) return;
+    } catch {
+      /* still booting */
     }
-    child.stdout?.on("data", onData);
-    child.stderr?.on("data", onData);
-    child.once("exit", onExit);
-  });
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error(`next start never answered at ${BASE}`);
 }
 
 async function startServer() {
@@ -57,7 +40,14 @@ async function startServer() {
     stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, PORT: String(PORT) },
   });
-  await waitForReady(child);
+  child.stdout?.on("data", (chunk) => process.stderr.write(chunk));
+  child.stderr?.on("data", (chunk) => process.stderr.write(chunk));
+  child.once("exit", (code) => {
+    if (code && code !== 0) {
+      console.error(`next start exited ${code}`);
+    }
+  });
+  await waitUntilListening();
   return child;
 }
 
@@ -88,9 +78,21 @@ async function smoke(page, viewport) {
   }
 }
 
-const HARD_MS = 120_000;
+const HARD_MS = 90_000;
 const hardTimer = setTimeout(() => {
-  console.error("landing smoke timed out after 120s");
+  console.error("landing smoke timed out after 90s");
+  try {
+    browser?.close();
+  } catch {
+    /* already gone */
+  }
+  if (server?.pid) {
+    try {
+      process.kill(server.pid, "SIGKILL");
+    } catch {
+      /* already gone */
+    }
+  }
   process.exit(1);
 }, HARD_MS);
 

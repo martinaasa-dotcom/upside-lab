@@ -181,4 +181,4 @@ jobs:
       - name: Install Chromium for landing smoke
         run: npx playwright install --with-deps chromium
       - name: Landing smoke
-        run: npm run test:landing
+        run: timeout --kill-after=5s 90s npm run test:landing
