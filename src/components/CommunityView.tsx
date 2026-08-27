@@ -1,20 +1,15 @@
 "use client";
 
-import { ClassroomRoster } from "@/components/ClassroomRoster";
-import { ClassTradeBanner } from "@/components/ClassTradeBanner";
 import {
   ClassroomPlanEditor,
   planFromCommunity,
 } from "@/components/ClassroomPlanEditor";
-import { DailyDuelCard } from "@/components/DailyDuelCard";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
-import { ShareSheets } from "@/components/ShareSheets";
 import { SignInGate } from "@/components/SignInGate";
 import { AppHeader } from "@/components/AppHeader";
 import { MobileDock } from "@/components/mobile/MobileDock";
 import { track } from "@vercel/analytics";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,39 +20,27 @@ import {
   parseStartingCash,
   type ClassPeriodKind,
   type ClassPlan,
-  type ClassroomTrade,
   type ThesisCoverage,
 } from "@/lib/classroom";
-import { NO_VALUE, cashtag, cn, currency, percent, signedCurrency, signedPercent, signedTone } from "@/lib/format";
-import {
-  PowerAnimalCard,
-  ReadOnlyHoldings,
-  bookTodayPct,
-} from "@/components/CircleCards";
+import { cashtag, cn, currency } from "@/lib/format";
+import { CircleHome } from "@/components/CircleHome";
+import { ClassroomHome } from "@/components/ClassroomHome";
+import { CommunityMembersPanel } from "@/components/CommunityMembersPanel";
+import type {
+  CommunityAchievement,
+  CommunityJoinRequest as JoinRequest,
+  CommunityMember as Member,
+  CommunityMeta,
+  CommunityPendingMember as PendingMember,
+  CommunityProfile as Profile,
+  MemberStat,
+  OwnedPortfolio,
+  PersonMilestone,
+} from "@/components/community-types";
+import { ReadOnlyHoldings } from "@/components/CircleCards";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import {
-  Score,
-  Scoreboard,
-  Segmented,
-  SwatchLegend,
-} from "@/components/ui/Panel";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarGroup,
-  AvatarImage,
-} from "@/components/ui/avatar";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemMedia,
-  ItemSeparator,
-  ItemTitle,
-} from "@/components/ui/item";
+import { Segmented } from "@/components/ui/Panel";
 import { combineHouseholdNames } from "@/lib/auth/identity";
 import { copyText } from "@/lib/copy-text";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
@@ -83,10 +66,8 @@ import { currentDuelSessionKey } from "@/lib/daily-duel";
 import {
   buildPortfolioPersonality,
   ANIMAL_BESTIARY,
-  THEME_COLOR,
   THEME_LABEL,
   animalCardTone,
-  type PortfolioPersonality,
 } from "@/lib/portfolio-personality";
 import {
   forecastThemeForTicker,
@@ -96,36 +77,19 @@ import { buildCommunityFunFacts } from "@/lib/community-fun-facts";
 import { loadCachedQuotes, mergeQuotes, saveCachedQuotes, quotesUnchanged } from "@/lib/quote-cache";
 import { COMPOUND_MILESTONE_GOALS } from "@/lib/compound-play";
 import { todayKeyInTz } from "@/lib/timezone";
-import type { Holding, Portfolio, Quote } from "@/lib/types";
+import type { Holding, Quote } from "@/lib/types";
 import {
-  Award,
   AlertTriangle,
   ArrowLeft,
-  Check,
-  Copy,
   Globe,
   GraduationCap,
-  HelpCircle,
-  Lightbulb,
-  Link2,
   Lock,
-  LogOut,
-  Medal,
-  Layers,
-  PieChart,
   Settings,
   Shield,
-  Shuffle,
-  Sparkles,
   Trash2,
-  Trophy,
-  UserCheck,
-  UserMinus,
-  Users,
   X,
 } from "lucide-react";
 import {
-  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -144,62 +108,8 @@ import { isAbortError, isNetworkError } from "@/lib/abort";
 import { useTimeout } from "@/lib/use-timeout";
 import { useNetworkResume } from "@/lib/use-network-resume";
 import {
-  inviteDayLabel,
-  inviteLockLabel,
-  inviteUsesLabel,
   type InviteAdminRow,
 } from "@/lib/community-invite-admin";
-
-type Profile = {
-  id: string;
-  email: string | null;
-  display_name: string | null;
-  avatar_url: string | null;
-  bio?: string | null;
-};
-
-type Member = {
-  user_id: string;
-  user_ids?: string[];
-  emails?: string[];
-  role: string;
-  joined_at: string;
-  profile: Profile | null;
-  is_you?: boolean;
-};
-
-type PendingMember = {
-  key: string;
-  label: string;
-  portfolio_ids: string[];
-  emails: string[];
-};
-
-type CommunityMeta = {
-  id: string;
-  name: string;
-  visibility?: "public" | "private";
-  kind?: "circle" | "classroom";
-  starting_cash?: number;
-  house_note?: string | null;
-  class_plan?: unknown;
-  classTrade?: ClassroomTrade | null;
-  created_by: string | null;
-};
-
-type JoinRequest = {
-  id: string;
-  user_id: string;
-  message: string | null;
-  requested_at: string;
-  profile: {
-    display_name: string | null;
-    email: string | null;
-    avatar_url: string | null;
-  } | null;
-};
-
-type OwnedPortfolio = Portfolio & { owner_id?: string };
 
 type Props = {
   communityId: string;
@@ -237,61 +147,6 @@ function readCommunityCache(communityId: string): CommunityCache {
     meta: (cached.meta as CommunityMetaResponse) ?? null,
     book: (cached.book as CommunityBookResponse) ?? null,
   };
-}
-
-function initialsFromName(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  const first = parts[0]![0] ?? "";
-  const last = parts[parts.length - 1]![0] ?? "";
-  return `${first}${last}`.toUpperCase();
-}
-
-function SharedNameRow({
-  ticker,
-  people,
-  todayPct,
-  avatarByName,
-}: {
-  ticker: string;
-  people: string[];
-  todayPct: number | null;
-  avatarByName: Map<string, string>;
-}) {
-  return (
-    <Item size="sm" className="px-0">
-      <ItemMedia className="w-20">
-        <AvatarGroup>
-          {people.map((name) => {
-            const src = avatarByName.get(name);
-            return (
-              <Avatar key={name} size="sm">
-                {src ? <AvatarImage src={src} alt="" /> : null}
-                <AvatarFallback>{initialsFromName(name)}</AvatarFallback>
-              </Avatar>
-            );
-          })}
-        </AvatarGroup>
-      </ItemMedia>
-      <ItemContent>
-        <ItemTitle>{cashtag(ticker)}</ItemTitle>
-        <ItemDescription className="line-clamp-none">
-          {people.join(" · ")}
-        </ItemDescription>
-      </ItemContent>
-      <ItemActions>
-        <span
-          className={cn(
-            "text-sm font-semibold tabular-nums",
-            signedTone(todayPct, "text-muted-foreground")
-          )}
-        >
-          {todayPct != null ? signedPercent(todayPct) : NO_VALUE}
-        </span>
-      </ItemActions>
-    </Item>
-  );
 }
 
 export function CommunityView({ communityId }: Props) {
@@ -710,34 +565,9 @@ export function CommunityView({ communityId }: Props) {
   );
 
   // One combined per-person stat, computed once and reused by the power
-  // animals grid, leaderboard, risk comparison, and fun facts — instead of
+  // animals grid, leaderboard, risk comparison, and fun facts, instead of
   // each section re-deriving its own copy of "which sheets does this
   // person own".
-  type PersonMilestone = {
-    total: number;
-    hitCount: number;
-    goalCount: number;
-    next: number | null;
-    remaining: number;
-    progress: number;
-    lastGoal: number;
-  };
-  type MemberStat = {
-    id: string;
-    name: string;
-    isYou: boolean;
-    isPending: boolean;
-    sheetCount: number;
-    sheetKey: string;
-    totalValue: number;
-    todayDollar: number;
-    todayPct: number | null;
-    /** Always 0 in community. Cost is not shared. */
-    roiPct: number;
-    personality: PortfolioPersonality | null;
-    milestone: PersonMilestone;
-  };
-
   const memberStats = useMemo<MemberStat[]>(() => {
     const milestoneFor = (total: number): PersonMilestone => {
       const hitCount = COMPOUND_MILESTONE_GOALS.filter((g) => total >= g).length;
@@ -932,19 +762,10 @@ export function CommunityView({ communityId }: Props) {
   // already shows (today's move, lifetime return); these highlight the
   // axes only Power Animals surfaces, so nothing here is a duplicate view
   // of another section's data.
-  type Achievement = {
-    id: string;
-    emoji: string;
-    title: string;
-    winner: string;
-    winnerId: string;
-    stat: string;
-    description: string;
-  };
-  const achievements = useMemo<Achievement[]>(() => {
+  const achievements = useMemo<CommunityAchievement[]>(() => {
     const withPersonality = membersWithBooks.filter((m) => m.personality);
     if (withPersonality.length === 0) return [];
-    const out: Achievement[] = [];
+    const out: CommunityAchievement[] = [];
 
     const mostDiversified = [...withPersonality].sort(
       (a, b) => b.personality!.diversificationScore - a.personality!.diversificationScore
@@ -1539,6 +1360,43 @@ export function CommunityView({ communityId }: Props) {
     return true;
   }
 
+  const membersPanel = (
+    <CommunityMembersPanel
+      isClassroom={Boolean(isClassroom)}
+      isAdmin={isAdmin}
+      members={members}
+      pendingMembers={pendingMembers}
+      joinRequests={joinRequests}
+      joinDecisionBusyId={joinDecisionBusyId}
+      portfolios={portfolios}
+      holdings={holdings}
+      quotes={quotes}
+      ownership={ownership}
+      overview={overview}
+      profileName={profileName}
+      memberEmails={memberEmails}
+      busy={busy}
+      inviteEmail={inviteEmail}
+      setInviteEmail={setInviteEmail}
+      inviteDays={inviteDays}
+      setInviteDays={setInviteDays}
+      inviteNeverExpires={inviteNeverExpires}
+      setInviteNeverExpires={setInviteNeverExpires}
+      inviteUrl={inviteUrl}
+      inviteEmailed={inviteEmailed}
+      invites={invites}
+      copiedInviteId={copiedInviteId}
+      createInvite={createInvite}
+      copyInviteLink={copyInviteLink}
+      setRole={setRole}
+      decideJoinRequest={decideJoinRequest}
+      setRemoveTarget={setRemoveTarget}
+      setLeaveOpen={setLeaveOpen}
+      setRetireTarget={setRetireTarget}
+      setSelectedOwnerId={setSelectedOwnerId}
+    />
+  );
+
   return (
     <SignInGate>
       <div className={PAGE_FRAME_CLASS}>
@@ -1626,1034 +1484,55 @@ export function CommunityView({ communityId }: Props) {
           )}
 
           {!loading && !selectedOwnerId && (
-            <>
-              <section className="flex flex-col gap-3">
-                <h1 className="text-2xl font-semibold text-foreground">
-                  {community?.name ?? "Community"}
-                </h1>
-                {isClassroom &&
-                community?.classTrade &&
-                (community.classTrade.kind !== "open" ||
-                  community.classTrade.until) ? (
-                  <ClassTradeBanner
-                    trade={community.classTrade}
-                    teacherNote={
-                      isAdmin
-                        ? "You can still edit. Students cannot."
-                        : undefined
-                    }
-                  />
-                ) : community?.house_note?.trim() ? (
-                  <p className="text-sm leading-relaxed text-foreground">
-                    {community.house_note.trim()}
-                  </p>
-                ) : null}
-                {isClassroom && !myClassSheet ? (
-                  <div className="flex flex-wrap items-center gap-2 rounded-xl glass ring-1 ring-foreground/20 px-6 py-4">
-                    <p className="min-w-0 flex-1 text-sm text-foreground">
-                      {isAdmin
-                        ? "You are watching the class. Get a paper portfolio if you want to trade alongside them."
-                        : "Your paper portfolio is not ready yet. Same starting cash as everyone else."}
-                    </p>
-                    <Button
-                      type="button"
-                      className="shrink-0"
-                      disabled={claimBusy}
-                      onClick={() => void claimClassSheet()}
-                    >
-                      {claimBusy ? "Making portfolio …" : "Get paper portfolio"}
-                    </Button>
-                  </div>
-                ) : null}
-                {isClassroom && myClassSheet ? (
-                  <p className="text-sm text-muted-foreground">
-                    Open your paper portfolio to buy names. Sunday note is
-                    the weekly recap.
-                  </p>
-                ) : null}
-              </section>
-
-              <Segmented
-                ariaLabel="Community view"
-                value={view}
-                onChange={setView}
-                options={
-                  isClassroom
-                    ? [
-                        { id: "overview" as const, label: "Roster" },
-                        { id: "members" as const, label: "Members" },
-                      ]
-                    : [
-                        { id: "overview" as const, label: "Overview" },
-                        { id: "play" as const, label: "League" },
-                        { id: "members" as const, label: "Members" },
-                      ]
-                }
+            isClassroom ? (
+              <ClassroomHome
+                name={community?.name ?? "Community"}
+                houseNote={community?.house_note?.trim() || null}
+                classTrade={community?.classTrade}
+                isAdmin={isAdmin}
+                myClassSheet={myClassSheet}
+                claimBusy={claimBusy}
+                onClaim={() => void claimClassSheet()}
+                view={view}
+                setView={setView}
+                contentView={effectiveView}
+                overview={overview}
+                membersWithBooks={membersWithBooks}
+                memberStats={memberStats}
+                startingCash={startingCash}
+                classVsStartPct={classVsStartPct}
+                classVsStartDollar={classVsStartDollar}
+                holdings={holdings}
+                quotes={quotes}
+                ownership={ownership}
+                thesisCoverage={thesisCoverage}
+                communityId={communityId}
+                onOpenMember={setSelectedOwnerId}
+                members={membersPanel}
               />
-
-              <WidgetErrorBoundary name="Community totals">
-                <Scoreboard cols={3}>
-                  <Score
-                    label="Today"
-                    value={
-                      overview.totals.todayPct != null
-                        ? signedPercent(overview.totals.todayPct)
-                        : NO_VALUE
-                    }
-                    sub={signedCurrency(overview.totals.todayDollar)}
-                    tone={
-                      (overview.totals.todayPct ?? 0) > 0
-                        ? "up"
-                        : (overview.totals.todayPct ?? 0) < 0
-                          ? "down"
-                          : undefined
-                    }
-                  />
-                  <Score
-                    label="Total value"
-                    value={currency(overview.totals.totalValue)}
-                  />
-                  {isClassroom ? (
-                    <Score
-                      label="vs start"
-                      value={
-                        classVsStartPct != null
-                          ? signedPercent(classVsStartPct)
-                          : NO_VALUE
-                      }
-                      sub={`${signedCurrency(classVsStartDollar)} · ${currency(startingCash)} each`}
-                      tone={
-                        (classVsStartPct ?? 0) > 0
-                          ? "up"
-                          : (classVsStartPct ?? 0) < 0
-                            ? "down"
-                            : undefined
-                      }
-                    />
-                  ) : (
-                    <Score
-                      label="Cash"
-                      value={currency(overview.totals.cash)}
-                      tone={overview.totals.cash < 0 ? "down" : undefined}
-                    />
-                  )}
-                </Scoreboard>
-              </WidgetErrorBoundary>
-
-              {(effectiveView === "overview" || effectiveView === "play") && (
-                <div className="flex flex-col gap-3">
-                  {effectiveView === "overview" && isClassroom && (
-                    <WidgetErrorBoundary name="Class roster" resetKey={communityId}>
-                    <ClassroomRoster
-                      members={memberStats.map((m) => ({
-                        id: m.id,
-                        name: m.name,
-                        isYou: m.isYou,
-                        sheetCount: m.sheetCount,
-                        totalValue: m.totalValue,
-                        todayDollar: m.todayDollar,
-                        todayPct: m.todayPct,
-                        topTicker: m.personality?.topTicker ?? null,
-                        topWeight: m.personality?.convictionScore ?? null,
-                      }))}
-                      startingCash={startingCash}
-                      holdings={holdings}
-                      quotes={quotes}
-                      ownership={ownership}
-                      thesisCoverage={thesisCoverage}
-                      onOpen={(id) => {
-                        setSelectedOwnerId(id);
-                      }}
-                    />
-                    </WidgetErrorBoundary>
-                  )}
-                  {effectiveView === "overview" &&
-                    !isClassroom &&
-                    membersWithBooks.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      Nobody has shared a portfolio here yet. Pick which of
-                      yours belong in this circle.
-                    </p>
-                  )}
-                  {effectiveView === "overview" &&
-                    isClassroom &&
-                    membersWithBooks.length === 0 &&
-                    isAdmin && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm text-muted-foreground">
-                        Send the invite. Each student gets the same starting
-                        cash and an empty portfolio.
-                      </p>
-                      <Button
-                        type="button"
-                        variant="link"
-                        onClick={() => setView("members")}
-                      >
-                        Invite students
-                      </Button>
-                    </div>
-                  )}
-                  {effectiveView === "overview" &&
-                    !isClassroom &&
-                    membersWithBooks.length > 0 && (
-                    <WidgetErrorBoundary name="Daily Duel" resetKey={communityId}>
-                    <DailyDuelCard
-                      compact
-                      communityId={communityId}
-                      initialDuel={duelCache}
-                      tickers={overview.tickers.map((t) => ({
-                        ticker: t.ticker,
-                        todayPct: t.todayPct,
-                      }))}
-                    />
-                    </WidgetErrorBoundary>
-                  )}
-                  {effectiveView === "play" && membersWithBooks.length > 0 && (
-                    <section className="overview-fade order-3 rounded-xl glass ring-1 ring-foreground/20 p-6">
-                      <div className="mb-4 flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="card-sheen glass-well rounded-xl p-2 text-primary">
-                            <Sparkles className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <h3 className="text-foreground">
-                              Power animals
-                            </h3>
-                            <p className="mt-0.5 text-sm text-muted-foreground">
-                              How each portfolio is built. Tap someone to open their
-                              portfolios.
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          aria-label="Field guide"
-                          onClick={() => setBestiaryOpen(true)}
-                        >
-                          <HelpCircle data-icon="inline-start" />
-                          <span className="hidden sm:inline">Field guide</span>
-                        </Button>
-                      </div>
-                      <div className="grid gap-6 lg:grid-cols-2 lg:gap-y-5">
-                        {membersWithBooks.map((m) => (
-                          <PowerAnimalCard
-                            key={m.id}
-                            name={m.name}
-                            isYou={m.isYou}
-                            isPending={m.isPending}
-                            totalValue={m.totalValue}
-                            todayPct={m.todayPct}
-                            personality={m.personality}
-                            milestone={m.milestone}
-                            onOpen={() => {
-                              setSelectedOwnerId(m.id);
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {effectiveView === "play" && achievements.length > 0 && (
-                    <section className="overview-fade order-2 rounded-xl glass ring-1 ring-foreground/20 p-6">
-                      <div className="mb-4 flex items-center gap-2.5">
-                        <div className="card-sheen glass-well rounded-lg p-2 text-muted-foreground">
-                          <Award className="size-4" />
-                        </div>
-                        <div>
-                          <h3 className="text-foreground">
-                            Community superlatives
-                          </h3>
-                          <p className="mt-0.5 text-sm text-muted-foreground">
-                            Fun awards pulled from the numbers above
-                          </p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {achievements.map((a) => (
-                          <button
-                            key={a.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedOwnerId(a.winnerId);
-                            }}
-                            className="veil-hover card-sheen glass-well flex w-full flex-col gap-1.5 rounded-lg p-3 text-left ring-1 ring-foreground/20 transition hover:scale-[1.01] hover:ring-primary/25"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/15 text-sm leading-none"
-                                aria-hidden
-                              >
-                                {a.emoji}
-                              </span>
-                              <p className="text-sm font-medium tracking-tight text-foreground">
-                                {a.title}
-                              </p>
-                            </div>
-                            <p className="text-sm">
-                              <span className="font-semibold text-foreground">
-                                {a.winner}
-                              </span>
-                              <span className="text-muted-foreground">
-                                {" · "}
-                                {a.stat}
-                              </span>
-                            </p>
-                            <p className="text-sm leading-relaxed text-muted-foreground">
-                              {a.description}
-                            </p>
-                          </button>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {effectiveView === "overview" && membersWithBooks.length > 0 && (
-                    <section className="overview-fade order-1 rounded-xl glass ring-1 ring-foreground/20 p-6">
-                      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="card-sheen glass-well rounded-xl p-2 text-primary">
-                            <Trophy className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <h3 className="text-foreground">
-                              Today
-                            </h3>
-                            <p className="mt-0.5 text-sm text-muted-foreground">
-                              Ranked by today&apos;s percent, not dollar size
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <ItemGroup className="gap-0 has-data-[size=sm]:gap-0">
-                        {[...membersWithBooks]
-                          .sort(
-                            (a, b) => (b.todayPct ?? -1) - (a.todayPct ?? -1)
-                          )
-                          .map((m, i) => {
-                            const pct = m.todayPct;
-                            return (
-                              <Fragment key={m.id}>
-                                {i > 0 ? (
-                                  <ItemSeparator className="my-0" />
-                                ) : null}
-                                <Item
-                                  asChild
-                                  size="sm"
-                                  className="px-0 hover:bg-muted"
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedOwnerId(m.id);
-                                    }}
-                                    className="cursor-pointer text-left"
-                                  >
-                                    <ItemMedia>
-                                      {/* Gold/silver/bronze is not a
-                                        * palette this app has. The three
-                                        * medals are one accent stepping
-                                        * down in strength instead, so
-                                        * rank still reads at a glance
-                                        * without borrowing the warning
-                                        * orange for third place -- an
-                                        * alert colour on a leaderboard
-                                        * row that is not an alert. */}
-                                      {i === 0 ? (
-                                        <Medal className="size-4 text-primary" />
-                                      ) : i === 1 ? (
-                                        <Medal className="size-4 text-primary/65" />
-                                      ) : i === 2 ? (
-                                        <Medal className="size-4 text-primary/40" />
-                                      ) : (
-                                        <span className="w-4 text-center text-sm tabular-nums text-muted-foreground">
-                                          {i + 1}
-                                        </span>
-                                      )}
-                                    </ItemMedia>
-                                    <ItemContent>
-                                      <ItemTitle>
-                                        {m.name}
-                                        {m.isYou ? (
-                                          <span className="font-normal text-muted-foreground">
-                                            (you)
-                                          </span>
-                                        ) : null}
-                                      </ItemTitle>
-                                    </ItemContent>
-                                    {/* Fixed-width so a wide dollar figure
-                                      * cannot shove the percent column. */}
-                                    <ItemActions className="shrink-0">
-                                      <span
-                                        className={cn(
-                                          "w-16 text-right text-sm font-semibold tabular-nums",
-                                          signedTone(
-                                            pct,
-                                            "text-muted-foreground"
-                                          )
-                                        )}
-                                      >
-                                        {pct != null ? percent(pct) : NO_VALUE}
-                                      </span>
-                                      <span
-                                        className={cn(
-                                          "hidden w-24 text-right text-sm tabular-nums sm:inline-block",
-                                          signedTone(
-                                            m.todayDollar,
-                                            "text-muted-foreground"
-                                          )
-                                        )}
-                                      >
-                                        {signedCurrency(m.todayDollar, 0)}
-                                      </span>
-                                    </ItemActions>
-                                  </button>
-                                </Item>
-                              </Fragment>
-                            );
-                          })}
-                      </ItemGroup>
-                    </section>
-                  )}
-
-                  {effectiveView === "overview" && !isClassroom && sharedNames.length > 0 && (
-                    <section className="overview-fade order-4 rounded-xl glass ring-1 ring-foreground/20 p-6">
-                      <div className="mb-4 flex items-center gap-2.5">
-                        <div className="rounded-xl bg-gain/15 p-2 text-gain">
-                          <Layers className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <h3 className="text-foreground">
-                            Shared names
-                          </h3>
-                          <p className="mt-0.5 text-sm text-muted-foreground">
-                            Who else is in the same name today
-                          </p>
-                        </div>
-                      </div>
-                      <ItemGroup className="gap-0 has-data-[size=sm]:gap-0">
-                        {sharedNames.map((row, i) => (
-                          <Fragment key={row.ticker}>
-                            {i > 0 ? <ItemSeparator className="my-0" /> : null}
-                            <SharedNameRow
-                              ticker={row.ticker}
-                              people={row.people}
-                              todayPct={row.todayPct}
-                              avatarByName={avatarByName}
-                            />
-                          </Fragment>
-                        ))}
-                      </ItemGroup>
-                    </section>
-                  )}
-
-                  {effectiveView === "play" && communityThemeBreakdown.length > 0 && (
-                    <section className="overview-fade order-5 rounded-xl glass ring-1 ring-foreground/20 p-6">
-                      <div className="mb-4 flex items-center gap-2.5">
-                        <div className="card-sheen glass-well rounded-xl p-2 text-primary">
-                          <PieChart className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <h3 className="text-foreground">
-                            What the circle owns
-                          </h3>
-                          <p className="mt-0.5 text-sm text-muted-foreground">
-                            Everyone&apos;s holdings pooled by kind of
-                            business. How the circle is built, not a
-                            recommendation.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex h-3 overflow-hidden rounded-full bg-muted">
-                        {communityThemeBreakdown.map((t) => (
-                          <div
-                            key={t.theme}
-                            style={{
-                              width: `${Math.max(1.5, t.pct * 100)}%`,
-                              backgroundColor: THEME_COLOR[t.theme],
-                            }}
-                            title={`${t.label}: ${Math.round(t.pct * 100)}%`}
-                          />
-                        ))}
-                      </div>
-                      <SwatchLegend
-                        className="mt-4"
-                        items={communityThemeBreakdown.map((t) => ({
-                          key: t.theme,
-                          label: t.label,
-                          color: THEME_COLOR[t.theme],
-                          value: `${Math.round(t.pct * 100)}%`,
-                        }))}
-                      />
-                    </section>
-                  )}
-
-                  {effectiveView === "play" && (
-                  <section className="overview-fade order-6 rounded-xl glass ring-1 ring-foreground/20 p-6">
-                    <div className="mb-4 flex items-center justify-between gap-2.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="card-sheen glass-well rounded-xl p-2 text-primary">
-                          <Lightbulb className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <h3 className="text-foreground">
-                            Community fun facts
-                          </h3>
-                          <p className="mt-0.5 text-sm text-muted-foreground">
-                            {funFactsShuffle > 0
-                              ? "Shuffled, reload for the daily batch"
-                              : "New batch every day"}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="touch-target"
-                        onClick={() => setFunFactsShuffle((n) => n + 1)}
-                        title="Get a fresh random batch"
-                      >
-                        <Shuffle data-icon="inline-start" />
-                        Shuffle
-                      </Button>
-                    </div>
-                    {communityFunFacts.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        Not enough data yet. Check back once portfolios load.
-                      </p>
-                    ) : (
-                      <ItemGroup className="gap-0 has-data-[size=sm]:gap-0">
-                        {communityFunFacts.map((fact, i) => (
-                          <Fragment key={`${i}-${fact.slice(0, 24)}`}>
-                            {i > 0 ? (
-                              <ItemSeparator className="my-0" />
-                            ) : null}
-                            {/* The number and the sentence sit on one
-                              * baseline, which takes both halves of this.
-                              *
-                              * A plain `<p>`, not `ItemDescription`: that
-                              * primitive is a two-line clamp in muted grey
-                              * at `leading-normal`, and this call site was
-                              * already overriding all three. Keeping it
-                              * only bought `ItemMedia`'s
-                              * `group-has-data-[slot=item-description]`
-                              * rules -- a `translate-y-0.5` nudge and a
-                              * `self-start` -- which exist to drop an
-                              * *icon* level with a title above a
-                              * description. There is no title here, so the
-                              * nudge just pushed the numeral off the
-                              * sentence's baseline.
-                              *
-                              * `leading-relaxed` on the media then matches
-                              * the two line boxes exactly, so the numeral
-                              * and the first line share a half-leading and
-                              * land on the same baseline by construction
-                              * rather than by a hand-tuned offset. */}
-                            <Item className="items-start px-0">
-                              <ItemMedia
-                                className="w-4 justify-start self-start text-sm leading-relaxed tabular-nums text-muted-foreground"
-                                aria-hidden
-                              >
-                                {i + 1}
-                              </ItemMedia>
-                              <ItemContent>
-                                <p className="text-sm leading-relaxed text-foreground">
-                                  {fact}
-                                </p>
-                              </ItemContent>
-                            </Item>
-                          </Fragment>
-                        ))}
-                      </ItemGroup>
-                    )}
-                  </section>
-                  )}
-                </div>
-              )}
-
-              {!isClassroom && (
-                <div
-                  className={
-                    effectiveView === "members" ||
-                    (effectiveView === "overview" &&
-                      membersWithBooks.length === 0)
-                      ? undefined
-                      : "hidden"
-                  }
-                >
-                  <ShareSheets
-                    communityId={communityId}
-                    onChanged={() => void load()}
-                  />
-                </div>
-              )}
-
-              {effectiveView === "members" && (
-                <>
-                  <section className="flex flex-col gap-3">
-                    <h2 className="flex items-center gap-2 text-foreground">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      Members
-                    </h2>
-                    <ul className="divide-y divide-border overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
-                      {members.map((m) => {
-                        const sheetIds = new Set(
-                          ownership
-                            .filter((o) => o.user_id === m.user_id)
-                            .map((o) => o.portfolio_id)
-                        );
-                        const sheets = portfolios.filter((p) => sheetIds.has(p.id));
-                        const sheetValue = sheets.reduce((sum, p) => {
-                          const score = overview.sheets.find(
-                            (s) => s.portfolio.id === p.id
-                          );
-                          return sum + (score?.totalValue ?? 0);
-                        }, 0);
-                        const sheetToday = sheets.reduce((sum, p) => {
-                          const score = overview.sheets.find(
-                            (s) => s.portfolio.id === p.id
-                          );
-                          return sum + (score?.todayDollar ?? 0);
-                        }, 0);
-                        const sheetTodayPct = bookTodayPct(sheetValue, sheetToday);
-                        const memberCash = sheets.reduce(
-                          (sum, p) => sum + sheetCashBalance(p),
-                          0
-                        );
-                        const memberTickerValues = holdings
-                          .filter((h) => sheetIds.has(h.portfolio_id))
-                          .map((h) => ({
-                            ticker: h.ticker,
-                            value:
-                              h.shares * (quotes[h.ticker]?.price ?? 0),
-                          }));
-                        const personality =
-                          memberTickerValues.length > 0
-                            ? buildPortfolioPersonality(
-                                memberTickerValues,
-                                memberCash
-                              )
-                            : null;
-                        const emails = memberEmails(m);
-                        const animalTone = personality
-                          ? animalCardTone(personality.archetype.id)
-                          : null;
-                        return (
-                          <li
-                            key={m.user_id}
-                            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedOwnerId(m.user_id);
-                              }}
-                              className="text-left"
-                            >
-                              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                                {profileName(m.user_id)}
-                                {m.is_you && (
-                                  <span className="text-sm text-muted-foreground">
-                                    (you)
-                                  </span>
-                                )}
-                                {personality && animalTone && (
-                                  <span
-                                    className={cn(
-                                      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-sm font-medium",
-                                      animalTone.border,
-                                      animalTone.wash,
-                                      animalTone.name
-                                    )}
-                                    title={personality.whyThisAnimal}
-                                  >
-                                    <span aria-hidden>
-                                      {personality.animalEmoji}
-                                    </span>
-                                    {personality.animal}
-                                  </span>
-                                )}
-                              </div>
-                              {m.profile?.bio ? (
-                                <div className="text-sm text-muted-foreground">
-                                  {m.profile.bio}
-                                </div>
-                              ) : null}
-                              {emails.length > 1 ? (
-                                <div className="text-sm text-muted-foreground">
-                                  {emails.join(" · ")}
-                                </div>
-                              ) : null}
-                              <div className="text-sm text-muted-foreground">
-                                {m.role}
-                                {" · "}
-                                {sheets.length} portfolio
-                                {sheets.length === 1 ? "" : "s"}
-                                {sheets.length > 0 && (
-                                  <>
-                                    {" - today "}
-                                    <span
-                                      className={signedTone(
-                                        sheetTodayPct,
-                                        "text-muted-foreground"
-                                      )}
-                                    >
-                                      {sheetTodayPct != null
-                                        ? signedPercent(sheetTodayPct)
-                                        : NO_VALUE}
-                                    </span>
-                                  </>
-                                )}
-                                {" · "}
-                                {currency(sheetValue)}
-                              </div>
-                            </button>
-                            {isAdmin && !m.is_you && (
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={busy}
-                                  onClick={() =>
-                                    void setRole(
-                                      m.user_id,
-                                      m.role === "admin" ? "member" : "admin"
-                                    )
-                                  }
-                                >
-                                  <Shield data-icon="inline-start" />
-                                  {m.role === "admin" ? "Demote" : "Make admin"}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="destructive"
-                                  size="sm"
-                                  disabled={busy}
-                                  onClick={() =>
-                                    setRemoveTarget({
-                                      userId: m.user_id,
-                                      name: profileName(m.user_id),
-                                    })
-                                  }
-                                >
-                                  <UserMinus data-icon="inline-start" />
-                                  Remove
-                                </Button>
-                              </div>
-                            )}
-                            {m.is_you && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                disabled={busy}
-                                onClick={() => setLeaveOpen(true)}
-                              >
-                                <LogOut data-icon="inline-start" />
-                                Leave
-                              </Button>
-                            )}
-                          </li>
-                        );
-                      })}
-                      {pendingMembers.map((p) => {
-                        const sheets = portfolios.filter((x) =>
-                          p.portfolio_ids.includes(x.id)
-                        );
-                        const sheetValue = sheets.reduce((sum, sheet) => {
-                          const score = overview.sheets.find(
-                            (s) => s.portfolio.id === sheet.id
-                          );
-                          return sum + (score?.totalValue ?? 0);
-                        }, 0);
-                        const sheetToday = sheets.reduce((sum, sheet) => {
-                          const score = overview.sheets.find(
-                            (s) => s.portfolio.id === sheet.id
-                          );
-                          return sum + (score?.todayDollar ?? 0);
-                        }, 0);
-                        const sheetTodayPct = bookTodayPct(sheetValue, sheetToday);
-                        const ownerKey = `pending:${p.key}`;
-                        return (
-                          <li
-                            key={ownerKey}
-                            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedOwnerId(ownerKey);
-                              }}
-                              className="text-left"
-                            >
-                              <div className="text-sm font-medium text-foreground">
-                                {p.label}
-                                <span className="ml-2 text-sm font-normal text-caution">
-                                  awaiting sign-in
-                                </span>
-                              </div>
-                              {p.emails.length ? (
-                                <div className="text-sm text-muted-foreground">
-                                  {p.emails.join(" · ")}
-                                </div>
-                              ) : null}
-                              <div className="text-sm text-muted-foreground">
-                                {sheets.length} portfolio
-                                {sheets.length === 1 ? "" : "s"}
-                                {sheets.length > 0 && (
-                                  <>
-                                    {" - today "}
-                                    <span
-                                      className={signedTone(
-                                        sheetTodayPct,
-                                        "text-muted-foreground"
-                                      )}
-                                    >
-                                      {sheetTodayPct != null
-                                        ? signedPercent(sheetTodayPct)
-                                        : NO_VALUE}
-                                    </span>
-                                  </>
-                                )}
-                                {" · "}
-                                {currency(sheetValue)}
-                              </div>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </section>
-
-                  {isAdmin && joinRequests.length > 0 && (
-                    <section className="card-sheen glass flex flex-col gap-3 rounded-xl p-4 ring-1 ring-foreground/20 sm:p-6">
-                      <h2 className="flex items-center gap-2 text-foreground">
-                        <UserCheck className="size-4 text-muted-foreground" />
-                        Join requests
-                        <Badge variant="secondary">{joinRequests.length}</Badge>
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        This community is public, so anyone can ask to join,
-                        but nothing happens until you approve them here.
-                      </p>
-                      <ItemGroup>
-                        {joinRequests.map((r) => (
-                          <Item key={r.id} className="px-0">
-                            <ItemContent>
-                              <ItemTitle>
-                                {r.profile?.display_name ??
-                                  r.profile?.email ??
-                                  "Unknown"}
-                              </ItemTitle>
-                              <ItemDescription>
-                                {r.profile?.email}
-                              </ItemDescription>
-                            </ItemContent>
-                            <ItemActions>
-                              <Button
-                                type="button"
-                                size="xs"
-                                disabled={joinDecisionBusyId === r.user_id}
-                                onClick={() =>
-                                  void decideJoinRequest(r.user_id, "approve")
-                                }
-                              >
-                                Approve
-                              </Button>
-                              <Button
-                                type="button"
-                                size="xs"
-                                variant="outline"
-                                disabled={joinDecisionBusyId === r.user_id}
-                                onClick={() =>
-                                  void decideJoinRequest(r.user_id, "reject")
-                                }
-                              >
-                                Decline
-                              </Button>
-                            </ItemActions>
-                          </Item>
-                        ))}
-                      </ItemGroup>
-                    </section>
-                  )}
-
-                  {isAdmin && (
-                    <section className="card-sheen glass flex flex-col gap-3 rounded-xl p-4 ring-1 ring-foreground/20 sm:p-6">
-                      <h2 className="text-foreground">
-                        Admin - invite
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        {isClassroom
-                          ? "This link works for 30 days. Students join with it. Each one gets the same paper cash and an empty portfolio. Put emails if you want us to send the link, and to lock it to those people. Separate them with a comma. Change the number of days if 30 is wrong for you."
-                          : "This link works for 30 days. Anyone with it can join. Their portfolios show up here. They can turn one off later. Today's prices only. Put emails if you want us to send the link, and to lock it to those people. Separate them with a comma. Change the number of days if 30 is wrong for you."}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        <Input
-                          type="text"
-                          inputMode="email"
-                          autoComplete="off"
-                          value={inviteEmail}
-                          onChange={(e) => setInviteEmail(e.target.value)}
-                          placeholder="Emails (optional, comma between)"
-                          className="min-w-[12rem] w-auto flex-1"
-                        />
-                        <Input
-                          type="number"
-                          min={1}
-                          max={365}
-                          inputMode="numeric"
-                          value={inviteDays}
-                          onChange={(e) => setInviteDays(e.target.value)}
-                          disabled={inviteNeverExpires}
-                          placeholder="Days live (30 by default)"
-                          className="no-spinner w-[14rem] min-w-[14rem] shrink-0"
-                        />
-                        <Button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void createInvite()}
-                        >
-                          <Link2 data-icon="inline-start" />
-                          Create invite link
-                        </Button>
-                      </div>
-                      <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Checkbox
-                          checked={inviteNeverExpires}
-                          onCheckedChange={(v) =>
-                            setInviteNeverExpires(v === true)
-                          }
-                          aria-label="Link never expires"
-                        />
-                        Never expires. Anyone who ever sees this link can
-                        join, so only use it somewhere private.
-                      </label>
-                      {inviteUrl && (
-                        <Item className="items-start px-0">
-                          <ItemContent>
-                            {inviteEmailed > 0 ? (
-                              <ItemTitle>
-                                {inviteEmailed === 1
-                                  ? "Sent the link to 1 person."
-                                  : `Sent the link to ${inviteEmailed} people.`}
-                              </ItemTitle>
-                            ) : null}
-                            <ItemDescription className="line-clamp-none break-all text-foreground">
-                              {inviteUrl}
-                            </ItemDescription>
-                          </ItemContent>
-                          <ItemActions>
-                            <Button
-                              type="button"
-                              size="xs"
-                              variant="outline"
-                              onClick={() =>
-                                void copyInviteLink(inviteUrl, "fresh")
-                              }
-                            >
-                              {copiedInviteId === "fresh" ? (
-                                <Check data-icon="inline-start" />
-                              ) : (
-                                <Copy data-icon="inline-start" />
-                              )}
-                              {copiedInviteId === "fresh" ? "Copied" : "Copy"}
-                            </Button>
-                          </ItemActions>
-                        </Item>
-                      )}
-                      {invites.length > 0 && (
-                        <ItemGroup className="gap-2">
-                          {invites.map((inv) => {
-                            const you = members.find((m) => m.is_you);
-                            const youIds = you?.user_ids ?? (you ? [you.user_id] : []);
-                            const creatorName =
-                              inv.created_by && youIds.includes(inv.created_by.id)
-                                ? "You"
-                                : inv.created_by?.name ?? "Someone";
-                            const usedNames = inv.used_by.map((u) => u.name);
-                            const usedLine =
-                              usedNames.length === 0
-                                ? null
-                                : usedNames.length <= 4
-                                  ? usedNames.join(", ")
-                                  : `${usedNames.slice(0, 4).join(", ")} and ${usedNames.length - 4} more`;
-                            const statusLabel =
-                              inv.status === "retired"
-                                ? "Retired"
-                                : inv.status === "expired"
-                                  ? "Expired"
-                                  : "Live";
-                            const live = inv.status === "live";
-                            const url = inv.path
-                              ? `${window.location.origin}${inv.path}`
-                              : null;
-                            const copied = copiedInviteId === inv.id;
-                            return (
-                              <Item key={inv.id} variant="outline">
-                                <ItemContent>
-                                  <ItemTitle>
-                                    {creatorName}
-                                  </ItemTitle>
-                                  <ItemDescription>
-                                    {inviteLockLabel(inv.email)}
-                                    {" · "}
-                                    {inviteDayLabel(inv.created_at)}
-                                    {" · "}
-                                    {inviteUsesLabel(inv.uses)}
-                                    {" · "}
-                                    {statusLabel}
-                                  </ItemDescription>
-                                  {usedLine ? (
-                                    <ItemDescription>
-                                      {usedLine}
-                                    </ItemDescription>
-                                  ) : null}
-                                </ItemContent>
-                                <ItemActions>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={!live}
-                                    title="Copy invite link"
-                                    onClick={() =>
-                                      void copyInviteLink(url, inv.id)
-                                    }
-                                  >
-                                    {copied ? (
-                                      <Check data-icon="inline-start" />
-                                    ) : (
-                                      <Copy data-icon="inline-start" />
-                                    )}
-                                    {copied ? "Copied" : "Copy link"}
-                                  </Button>
-                                  {live ? (
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      disabled={busy}
-                                      onClick={() => setRetireTarget(inv)}
-                                    >
-                                      Retire this link
-                                    </Button>
-                                  ) : null}
-                                </ItemActions>
-                              </Item>
-                            );
-                          })}
-                        </ItemGroup>
-                      )}
-                    </section>
-                  )}
-                </>
-              )}
-            </>
+            ) : (
+              <CircleHome
+                name={community?.name ?? "Community"}
+                houseNote={community?.house_note?.trim() || null}
+                view={view}
+                setView={setView}
+                overview={overview}
+                membersWithBooks={membersWithBooks}
+                achievements={achievements}
+                sharedNames={sharedNames}
+                avatarByName={avatarByName}
+                communityThemeBreakdown={communityThemeBreakdown}
+                communityFunFacts={communityFunFacts}
+                funFactsShuffle={funFactsShuffle}
+                setFunFactsShuffle={setFunFactsShuffle}
+                communityId={communityId}
+                duelCache={duelCache}
+                onOpenMember={setSelectedOwnerId}
+                onOpenBestiary={() => setBestiaryOpen(true)}
+                onShareChanged={() => void load()}
+                members={membersPanel}
+              />
+            )
           )}
 
           {/* One view, not two. Opening a member used to land on a list of

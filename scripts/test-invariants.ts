@@ -1819,7 +1819,7 @@ run("home keeps Fund and Communities in view", () => {
 
 run("community books lead with today's percent, not dollar size", () => {
   const community = readFileSync(
-    join(process.cwd(), "src/components/CommunityView.tsx"),
+    join(process.cwd(), "src/components/CommunityTodayBoard.tsx"),
     "utf8"
   );
   const roster = readFileSync(
@@ -1841,13 +1841,11 @@ run("community books lead with today's percent, not dollar size", () => {
 
 run("circle awards are a grid of cards, not a flat divided list", () => {
   const community = readFileSync(
-    join(process.cwd(), "src/components/CommunityView.tsx"),
+    join(process.cwd(), "src/components/CircleHome.tsx"),
     "utf8"
   );
   const awardsStart = community.indexOf("Community superlatives");
-  const awardsEnd = community.indexOf(
-    "effectiveView === \"overview\" && membersWithBooks.length > 0"
-  );
+  const awardsEnd = community.indexOf("<CommunityTodayBoard", awardsStart);
   const awards = community.slice(awardsStart, awardsEnd);
   assert.match(awards, /grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3/);
   // Each award is a glass-well card, not a divided list row. Asserted by
@@ -2533,7 +2531,7 @@ run("boxes sit off the field, never the same color as the page", () => {
     "utf8"
   );
   const members = readFileSync(
-    join(process.cwd(), "src/components/CommunityView.tsx"),
+    join(process.cwd(), "src/components/CommunityMembersPanel.tsx"),
     "utf8"
   );
   const share = readFileSync(
@@ -3097,10 +3095,12 @@ run("fund page names cash purpose and the watchlist", () => {
 });
 
 run("first-run is import, not an empty named sheet", () => {
-  const dash = readFileSync(
-    join(process.cwd(), "src/components/Dashboard.tsx"),
-    "utf8"
-  );
+  const dash =
+    readFileSync(join(process.cwd(), "src/components/Dashboard.tsx"), "utf8") +
+    readFileSync(
+      join(process.cwd(), "src/lib/use-dashboard-book-writes.ts"),
+      "utf8"
+    );
   assert.doesNotMatch(dash, /DashboardWelcome/);
   assert.match(dash, /FIRST_SHEET_NAME/);
   assert.match(dash, /ensureFirstSheet/);
@@ -4121,7 +4121,7 @@ run("Daily Duel paints the last pick before the network returns", () => {
     "utf8"
   );
   const view = readFileSync(
-    join(process.cwd(), "src/components/CommunityView.tsx"),
+    join(process.cwd(), "src/components/CircleHome.tsx"),
     "utf8"
   );
   const route = readFileSync(
@@ -5985,10 +5985,12 @@ run("holdings writes retry when a concurrent update wins", () => {
 });
 
 run("dashboard book writes are queued and do not clobber in-flight saves", () => {
-  const dash = readFileSync(
-    join(process.cwd(), "src/components/Dashboard.tsx"),
-    "utf8"
-  );
+  const dash =
+    readFileSync(join(process.cwd(), "src/components/Dashboard.tsx"), "utf8") +
+    readFileSync(
+      join(process.cwd(), "src/lib/use-dashboard-book-writes.ts"),
+      "utf8"
+    );
   assert.ok(
     /pendingBookWritesRef/.test(dash),
     "a book reload while a save is in flight must wait, not overwrite the optimistic row"
@@ -6096,10 +6098,12 @@ run("membership checks do not run one query per community", () => {
 });
 
 run("dashboard modules sit behind an error boundary", () => {
-  const dash = readFileSync(
-    join(process.cwd(), "src/components/Dashboard.tsx"),
-    "utf8"
-  );
+  const dash =
+    readFileSync(join(process.cwd(), "src/components/Dashboard.tsx"), "utf8") +
+    readFileSync(
+      join(process.cwd(), "src/components/DashboardModals.tsx"),
+      "utf8"
+    );
   for (const name of ["Pulse", "Lab", "Overview", "Holdings", "Forecast", "Margus", "Alerts", "Ticker"]) {
     assert.ok(
       dash.includes(`<WidgetErrorBoundary name="${name}">`),
@@ -6117,10 +6121,16 @@ run("dashboard modules sit behind an error boundary", () => {
     /reportClientError/.test(boundary),
     "a widget crash must report with session context, not only console.error"
   );
-  const community = readFileSync(
-    join(process.cwd(), "src/components/CommunityView.tsx"),
-    "utf8"
-  );
+  const community =
+    readFileSync(
+      join(process.cwd(), "src/components/CommunityView.tsx"),
+      "utf8"
+    ) +
+    readFileSync(join(process.cwd(), "src/components/CircleHome.tsx"), "utf8") +
+    readFileSync(
+      join(process.cwd(), "src/components/ClassroomHome.tsx"),
+      "utf8"
+    );
   assert.ok(community.includes(`<WidgetErrorBoundary name="Daily Duel"`));
   assert.ok(/WidgetErrorBoundary[\s\S]{0,80}name="Member portfolio"/.test(community));
   assert.ok(community.includes(`<WidgetErrorBoundary name="Community totals">`));
@@ -6386,10 +6396,15 @@ run("email and admin RPCs are not callable with a user JWT", () => {
   );
   assert.match(retire, /revoked_at/);
   assert.match(retire, /communityInvitePatchSchema/);
-  const communityView = readFileSync(
-    join(process.cwd(), "src/components/CommunityView.tsx"),
-    "utf8"
-  );
+  const communityView =
+    readFileSync(
+      join(process.cwd(), "src/components/CommunityView.tsx"),
+      "utf8"
+    ) +
+    readFileSync(
+      join(process.cwd(), "src/components/CommunityMembersPanel.tsx"),
+      "utf8"
+    );
   assert.doesNotMatch(communityView, /daysValid: community\?\.kind === "classroom" \? 90 : 14/);
   assert.match(communityView, /This link works for 30 days/);
   assert.doesNotMatch(communityView, /This link stays live/);
@@ -7119,15 +7134,19 @@ run("signed-in users only see sheets they co-own", () => {
   assert.match(dash, /keepLiveSheetsOnly/);
   assert.match(dash, /isLiveSheetId/);
   assert.match(dash, /user \? "supabase" : "demo"/);
-  const addSheet = dash.slice(
-    dash.indexOf("async function handleAddSheet"),
-    dash.indexOf("async function ensureFirstSheet")
+  const writes = readFileSync(
+    join(process.cwd(), "src/lib/use-dashboard-book-writes.ts"),
+    "utf8"
+  );
+  const addSheet = writes.slice(
+    writes.indexOf("async function handleAddSheet"),
+    writes.indexOf("async function ensureFirstSheet")
   );
   assert.match(addSheet, /if \(user\) \{/);
   assert.doesNotMatch(addSheet, /if \(source === "supabase"\)/);
   const load = dash.slice(
     dash.indexOf("const loadPortfolios"),
-    dash.indexOf("function beginBookWrite")
+    dash.indexOf("const applyFxPayload")
   );
   assert.match(load, /sourceName === "supabase" \|\| userId/);
   assert.doesNotMatch(load, /source: "demo"/);
