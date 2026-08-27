@@ -10,7 +10,6 @@ import {
   NESTED_PAD,
   PanelHeader,
   Reading,
-  ScanList,
   Segmented,
   SPLIT_COPY,
   SPLIT_ROW,
@@ -31,6 +30,13 @@ import {
   signedTone,
 } from "@/lib/format";
 import { compactAxis, niceScale } from "@/components/mobile/BookNavChart";
+import {
+  sharedSparkBounds,
+  sparkGeometry,
+  sparkSeries,
+  type SparkBounds,
+  type SparkBox,
+} from "@/lib/forecast-spark";
 import { ChartXRail, ChartYAxis } from "@/components/ui/ChartAxis";
 import type { ForecastModel, ForecastRow, ForecastYear } from "@/lib/forecast";
 import {
@@ -106,6 +112,16 @@ function calibratedPaths(plan: ForecastPlan, model: ForecastModel) {
 function yearLabel(year: number) {
   return `End ${year}`;
 }
+
+/** One box for every card spark, so the shared axis lands on shared pixels. */
+const SPARK_BOX: SparkBox = {
+  width: 240,
+  height: 56,
+  padL: 2,
+  padR: 8,
+  padT: 6,
+  padB: 6,
+};
 
 /** Current calendar year is still an EOY column (Dec 31), not "now". */
 function isCurrentYear(year: number) {
@@ -549,59 +565,38 @@ function SheetPath({
 
 /**
  * A holding's whole path in one glance: today on the left, the last
- * forecast year on the right, and a dashed rule at today's price so above
- * and below read without a number being involved.
+ * forecast year on the right, and a dashed rule at today so above and below
+ * read without a number being involved.
  *
  * Deliberately not `SheetPathChart`. That one belongs to the portfolio and
  * carries an axis, a drag readout and 224px of height; five of them stacked
  * would be taller than the grid this replaced. This draws the shape and
  * nothing else, so a card stays short enough that three fit on a phone and
  * two holdings can finally be compared without scrolling between them.
+ *
+ * The scale is not this card's own. It arrives from the grid, and the
+ * reason is in `forecast-spark.ts`: a card scaled to itself drew the same
+ * rise whether the path ended up 84% or 257%, so every holding looked
+ * identical and the grid promised something it had not worked out.
  */
-function TickerSpark({ values }: { values: number[] }) {
+function TickerSpark({
+  series,
+  bounds,
+}: {
+  series: number[];
+  bounds: SparkBounds;
+}) {
   const gid = useId().replace(/:/g, "");
-  const geometry = useMemo(() => {
-    const usable = values.filter((v) => Number.isFinite(v) && v > 0);
-    if (usable.length < 2) return null;
-    const width = 240;
-    const height = 56;
-    const padL = 2;
-    const padR = 8;
-    const padT = 6;
-    const padB = 6;
-    const innerW = width - padL - padR;
-    const innerH = height - padT - padB;
-    const min = Math.min(...usable);
-    const max = Math.max(...usable);
-    const span = max - min;
-    const lastIdx = usable.length - 1;
-    const xAt = (i: number) => padL + (i / lastIdx) * innerW;
-    // A path with no movement in it has no top or bottom to scale to, so
-    // it is drawn down the middle rather than pinned to one edge.
-    const yAt = (v: number) =>
-      span === 0 ? padT + innerH / 2 : padT + (1 - (v - min) / span) * innerH;
-    const line = usable
-      .map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`)
-      .join(" ");
-    const floor = (padT + innerH).toFixed(1);
-    return {
-      width,
-      height,
-      padL,
-      padR,
-      line,
-      area: `${xAt(0).toFixed(1)},${floor} ${line} ${xAt(lastIdx).toFixed(1)},${floor}`,
-      baseY: yAt(usable[0]!),
-      // The dot is HTML, not a `<circle>`, because the viewBox is stretched
-      // to the card width and a circle under a non-uniform scale is an egg.
-      dotLeft: (xAt(lastIdx) / width) * 100,
-      dotTop: (yAt(usable[lastIdx]!) / height) * 100,
-    };
-  }, [values]);
+  const geometry = useMemo(
+    () => sparkGeometry(series, bounds, SPARK_BOX),
+    [series, bounds]
+  );
 
   if (!geometry) return null;
-  const { width, height, padL, padR, line, area, baseY, dotLeft, dotTop } =
-    geometry;
+  const { width, height, padL, padR } = SPARK_BOX;
+  // The dot is HTML, not a `<circle>`, because the viewBox is stretched to
+  // the card width and a circle under a non-uniform scale is an egg.
+  const { line, area, baseY, dotLeft, dotTop } = geometry;
 
   return (
     <div className="relative mt-4">
@@ -699,18 +694,30 @@ function ForecastCard({
   row,
   years,
   mixedListings,
+  bounds,
+  why,
   onSetEoyPrice,
 }: {
   row: ForecastRow;
   years: readonly ForecastYear[];
   mixedListings: boolean;
+  /** The grid's shared axis. Never this card's own. */
+  bounds: SparkBounds;
+  /**
+   * Why this path, in Margus's own sentence or the owner's written reason
+   * for holding it. On the card rather than in a list under the grid: a
+   * number with its reasoning one scroll away is a number nobody trusts,
+   * and a reader told us as much about exactly this screen.
+   */
+  why?: string;
   onSetEoyPrice: (ticker: string, year: ForecastYear, price: number) => void;
 }) {
   const [open, setOpen] = useState(false);
   const railId = useId();
   const lastYear = years[years.length - 1]!;
-  const values = useMemo(
-    () => [row.currentPrice, ...years.map((y) => row.eoyPrices[y])],
+  const series = useMemo(
+    () =>
+      sparkSeries([row.currentPrice, ...years.map((y) => row.eoyPrices[y])]),
     [row, years]
   );
   const gainAt = (price: number) =>
@@ -747,7 +754,7 @@ function ForecastCard({
           </span>
         </span>
 
-        <TickerSpark values={values} />
+        {series && <TickerSpark series={series} bounds={bounds} />}
 
         {!open && (
           <span className="mt-3 flex items-end justify-between gap-3">
@@ -765,6 +772,26 @@ function ForecastCard({
             </span>
           </span>
         )}
+
+        {/*
+         * Clamped while the card is shut and whole once it is open, so the
+         * one control the card already has does both jobs. A reason cut off
+         * with no way to finish it is the same complaint as no reason.
+         */}
+        {why ? (
+          <span
+            className={cn(
+              "mt-3 block text-sm leading-relaxed text-muted-foreground",
+              !open && "line-clamp-2"
+            )}
+          >
+            <InsightText text={why} />
+          </span>
+        ) : row.hasTargets ? (
+          <span className="mt-3 block text-sm text-muted-foreground">
+            No reason written for this one yet.
+          </span>
+        ) : null}
 
         <span className="mt-3 flex items-center justify-center gap-1 text-sm text-muted-foreground">
           {open ? "Show less" : "Show every year"}
@@ -1168,18 +1195,48 @@ export const ForecastPanel = memo(function ForecastPanel({
       ? plan.periods[Math.min(horizon, plan.periods.length - 1)]
       : null;
 
-  const whyRows = useMemo(() => {
-    if (!plan?.eoyTargets) return [];
-    return plan.eoyTargets
-      .map((t) => ({
-        ticker: t.ticker,
-        text:
-          t.rationale?.trim() ||
-          convictions?.[t.ticker]?.thesis?.trim() ||
-          "",
-      }))
-      .filter((row) => row.text);
+  /**
+   * Why each path, keyed by ticker, for the card that path is drawn on.
+   *
+   * This used to be its own labelled list under the grid, which meant the
+   * reasoning sat a scroll away from the chart making the claim.
+   * A reader looked at the grid, saw five hockey sticks and no reasons, and
+   * stopped trusting the screen. Same sentences, moved to where the number
+   * is.
+   */
+  const whyByTicker = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of plan?.eoyTargets ?? []) {
+      const text =
+        t.rationale?.trim() || convictions?.[t.ticker]?.thesis?.trim() || "";
+      if (text) map.set(t.ticker.toUpperCase(), text);
+    }
+    // A holding the model has not reached yet can still carry the owner's
+    // own written reason, and that is a better answer than silence.
+    for (const [ticker, c] of Object.entries(convictions ?? {})) {
+      const key = ticker.toUpperCase();
+      if (map.has(key)) continue;
+      const thesis = c?.thesis?.trim();
+      if (thesis) map.set(key, thesis);
+    }
+    return map;
   }, [plan, convictions]);
+
+  /**
+   * One axis for every card in the grid. See `forecast-spark.ts`: scaled to
+   * itself, a card drew the same rise at +84% as at +257%.
+   */
+  const sparkBounds = useMemo(
+    () =>
+      sharedSparkBounds(
+        model.rows
+          .map((r) =>
+            sparkSeries([r.currentPrice, ...yearCols.map((y) => r.eoyPrices[y])])
+          )
+          .filter((s): s is number[] => s !== null)
+      ),
+    [model.rows, yearCols]
+  );
 
   const statusHint = useMemo(() => {
     if (!labReady || !planHydrated || model.rows.length === 0 || busy) return null;
@@ -1207,7 +1264,7 @@ export const ForecastPanel = memo(function ForecastPanel({
       <header className="border-b border-border p-6">
         <PanelHeader
           title="Forecast"
-          subtitle={`A yearly price for each holding, to 2030. ${FORECAST_DISCLAIMER}`}
+          subtitle={`A yearly price for each holding, to ${yearCols[yearCols.length - 1] ?? ""}. Every card is drawn on the same scale, so a steady name looks steady next to a fast one. ${FORECAST_DISCLAIMER}`}
           actions={
             <>
               {overrideCount > 0 && (
@@ -1273,6 +1330,8 @@ export const ForecastPanel = memo(function ForecastPanel({
                 row={r}
                 years={yearCols}
                 mixedListings={mixedListings}
+                bounds={sparkBounds}
+                why={whyByTicker.get(r.ticker.toUpperCase())}
                 onSetEoyPrice={onSetEoyPrice}
               />
             ))}
@@ -1378,10 +1437,6 @@ export const ForecastPanel = memo(function ForecastPanel({
                   </p>
                 )}
               </Reading>
-            )}
-
-            {whyRows.length > 0 && (
-              <ScanList nested label="Why each number" rows={whyRows} />
             )}
 
             {lastPlanDiffs.length > 0 && (

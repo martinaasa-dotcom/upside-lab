@@ -41,6 +41,50 @@ export type SundayRecap = {
   worst: SundayName | null;
 };
 
+/**
+ * Where a Home notice came from.
+ *
+ * Not decoration. A reader looked at these cards and asked, in order, where
+ * does this come from, who is saying it, and can I ask anything else. They
+ * had read it as a sentence a language model made up, and the honest answer
+ * is that almost none of it is: every card except the Pulse ones is
+ * arithmetic on holdings they typed in and prices from today. The app knew
+ * that and never said it, and a sparkle icon on the card was actively
+ * arguing the other way.
+ *
+ * So each card carries its own origin and prints it. There is no case where
+ * the answer is "a model wrote this and we do not know why".
+ */
+export type MorningSource = "holdings" | "pulse" | "visit";
+
+export const MORNING_SOURCE_LABEL: Record<MorningSource, string> = {
+  holdings: "Worked out from your holdings and today's prices.",
+  pulse: "From the Pulse reading you already have on this name.",
+  visit: "Your own numbers, against what they were last time you looked.",
+};
+
+/**
+ * The stamp a card prints, with the price it really used named.
+ *
+ * A stamp that says "today's prices" on a Saturday is a stamp somebody
+ * checks once, finds wrong, and stops believing, which costs more than
+ * having printed nothing. Every other Sunday-or-Friday reading in this file
+ * already knows which prices it read, so the label follows it.
+ */
+export function morningSourceLabel(
+  source: MorningSource,
+  read: Pick<MorningRead, "sunday" | "moveLabel">
+): string {
+  if (source !== "holdings") return MORNING_SOURCE_LABEL[source];
+  if (read.sunday) {
+    return "Worked out from your holdings and last week's prices.";
+  }
+  if (read.moveLabel === "Friday") {
+    return "Worked out from your holdings and Friday's closing prices.";
+  }
+  return MORNING_SOURCE_LABEL.holdings;
+}
+
 export type MorningNotice = {
   id: string;
   fingerprint: string;
@@ -50,6 +94,9 @@ export type MorningNotice = {
    * Lets the two render as visibly different kinds of read, not just
    * different labels on the same box. */
   kind: "notice" | "gap";
+  source: MorningSource;
+  /** Set only when the card is about one company, so it can offer Pulse. */
+  ticker?: string;
 };
 
 export type MorningRead = {
@@ -85,6 +132,9 @@ type Candidate = {
   rank: number;
   label?: string;
   text: string;
+  /** Defaults to "holdings", which is what all but a handful of these are. */
+  source?: MorningSource;
+  ticker?: string;
 };
 
 function holdingsFrom(model: OverviewModel): InsightHolding[] {
@@ -247,6 +297,8 @@ function awayCandidate(visitDiff: VisitDiff | null): Candidate | null {
       ),
       kind: "notice",
       rank: 95,
+      source: "visit",
+      ticker: subject,
       label: "Since you looked",
       text: say(`away|${visitDiff.previousAt}`, [
         `Since you last looked, ${tickerLine.text}. That is the first thing to know.`,
@@ -267,6 +319,7 @@ function awayCandidate(visitDiff: VisitDiff | null): Candidate | null {
     ),
     kind: "notice",
     rank: 88,
+    source: "visit",
     label: "Since you looked",
     text: `${nav.text}. That is since you last opened this, not just today's open.`,
   };
@@ -297,6 +350,7 @@ function loneCandidate(
     fingerprint: insightFingerprint("lone", fact.ticker, fact.pct),
     kind: "notice",
     rank: 82,
+    ticker: fact.ticker,
     text: say(seedFor(lookIndex, id), [
       `${t} is ${up ? "up" : "down"} ${move} ${whenTail}. ${vs}.`,
       `Quick note: ${t} did ${move} ${whenTail} on its own. ${vs}.`,
@@ -398,6 +452,7 @@ function weekReversal(
     fingerprint: insightFingerprint("reversal", t.ticker, t.todayPct),
     kind: "notice",
     rank: 68,
+    ticker: t.ticker,
     text: say(seedFor(lookIndex, id), [
       `${cashtag(t.ticker)} led earlier this week, and it is down ${aboutMove(t.todayPct)} today.`,
       `${cashtag(t.ticker)} was the week's winner. Today it fell ${aboutMove(t.todayPct)}.`,
@@ -437,6 +492,7 @@ function sparkCandidates(
       fingerprint: insightFingerprint(`spark-${ext}`, t.ticker, t.todayPct),
       kind: "notice",
       rank: 76,
+      ticker: t.ticker,
       text:
         ext === "high"
           ? say(seedFor(lookIndex, id), [
@@ -480,6 +536,7 @@ function dollarCandidate(
     ),
     kind: "notice",
     rank: 74,
+    ticker: top.ticker,
     text: say(seedFor(lookIndex, id), [
       `${cashtag(top.ticker)} is ${money} of today's move, most of it. ${whenTail === "today" ? "That is the day." : "That was Friday."}`,
       `The dollar move is ${cashtag(top.ticker)} (${money}). Everything else is small next to that.`,
@@ -593,6 +650,8 @@ function pulseCandidates(
         fingerprint: insightFingerprint("why", t.ticker, t.todayPct),
         kind: "notice",
         rank: 88,
+        source: "pulse",
+        ticker: t.ticker,
         text: say(seedFor(lookIndex, id), [
           `${cashtag(t.ticker)} is ${t.todayPct >= 0 ? "up" : "down"} ${aboutMove(t.todayPct)} ${whenTail}. Last Pulse read: ${why}`,
           `${cashtag(t.ticker)} moved ${aboutMove(t.todayPct)} ${whenTail}. ${why}`,
@@ -609,6 +668,8 @@ function pulseCandidates(
         fingerprint: insightFingerprint(`pulse-${status}`, t.ticker, t.todayPct),
         kind: "notice",
         rank: status === "broken" ? 86 : 72,
+        source: "pulse",
+        ticker: t.ticker,
         text: `${cashtag(t.ticker)} is on ${label}, and it ${t.todayPct >= 0 ? "rose" : "fell"} ${aboutMove(t.todayPct)} ${whenTail}.`,
       });
     }
@@ -625,6 +686,7 @@ function pulseCandidates(
         fingerprint: insightFingerprint("thesis", t.ticker, t.todayPct),
         kind: "gap",
         rank: 62,
+        ticker: t.ticker,
         text: `${cashtag(t.ticker)} ${t.todayPct >= 0 ? "rose" : "fell"} ${aboutMove(t.todayPct)} ${whenTail}, and there is no thesis on file for it.`,
       });
     }
@@ -739,6 +801,8 @@ export function pickHomeNotices(
       label: n.label ?? opts.noticeLabel,
       text: n.text,
       kind: "notice",
+      source: n.source ?? "holdings",
+      ticker: n.ticker,
     });
   }
   const g = pickKind(gaps, opts.sittingLock?.gapId, shown);
@@ -749,6 +813,8 @@ export function pickHomeNotices(
       label: g.label ?? "Also",
       text: g.text,
       kind: "gap",
+      source: g.source ?? "holdings",
+      ticker: g.ticker,
     });
   }
   return out;

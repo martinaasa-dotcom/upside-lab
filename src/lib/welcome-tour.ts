@@ -99,8 +99,9 @@ export function screenCopy(
       };
     case "rules":
       return {
-        title: "Ground rules",
-        lede: "Four things worth knowing before you put anything in.",
+        title: "What this does and does not do",
+        lede:
+          "The first two are the ones people wish they had known. Better to be disappointed now than after you have typed everything in.",
       };
     case "q1":
       return {

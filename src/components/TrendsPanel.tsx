@@ -23,6 +23,11 @@ import { NO_VALUE, cashtag, cn } from "@/lib/format";
 import { readJsonOrThrow } from "@/lib/http";
 import { buildTrendStory, type Signal, type Tone, type TrendRowLike } from "@/lib/market/trend-story";
 import {
+  indexProxyName,
+  indexProxyNote,
+  isIndexProxy,
+} from "@/lib/market/index-proxy";
+import {
   addWatchlistTicker,
   loadWatchlist,
   removeWatchlistTicker,
@@ -135,13 +140,23 @@ function TickerStoryCard({
   const story = useMemo(() => buildTrendStory(row), [row]);
   const trend = story.signals.find((s) => s.key === "trend");
   const rest = story.signals.filter((s) => s.key !== "trend");
+  const proxyName = indexProxyName(row.ticker);
 
   return (
     <Card className="gap-0 border border-border shadow-lg shadow-black/40">
       <CardHeader className="border-b">
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex flex-wrap items-center gap-2">
           {cashtag(row.ticker)}
           {!isHolding ? <Badge variant="secondary">watching</Badge> : null}
+          {/*
+            * Says it on the card too, because this card carries a "vs S&P"
+            * cell that reads 0.0% and will keep reading 0.0% forever. With
+            * the badge that is an obvious tautology; without it, it looks
+            * like a number that failed to load.
+            */}
+          {proxyName ? (
+            <Badge variant="outline">this is the {proxyName}</Badge>
+          ) : null}
         </CardTitle>
         <CardDescription>{story.sentence}</CardDescription>
         <CardAction>
@@ -291,9 +306,17 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
 
   const attentionCount = stories.filter((s) => s.story.attention).length;
 
+  /*
+   * The ranking is against the S&P 500, so a holding that *is* the S&P 500
+   * cannot be in it. See `index-proxy.ts`: a reader watched their S&P
+   * tracker ranked against the S&P and printed at 0.0%, and asked why the
+   * index was being compared with itself. It is the baseline, and it is
+   * named as the baseline under the chart instead.
+   */
   const leaders = [...(rows ?? [])]
-    .filter((r) => r.rs13 != null)
+    .filter((r) => r.rs13 != null && !isIndexProxy(r.ticker))
     .sort((a, b) => (b.rs13 ?? 0) - (a.rs13 ?? 0));
+  const proxyNote = indexProxyNote((rows ?? []).map((r) => r.ticker));
 
   return (
     <div className="flex flex-col gap-6">
@@ -412,11 +435,25 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
 
           {leaders.length > 1 && (
             <Panel>
-              <PanelHeader title="Who's leading, who's fading" />
+              <PanelHeader
+                title="Who's leading, who's fading"
+                subtitle="The last 13 weeks, about three months. The same window for every name."
+              />
+              {/*
+                * The window is named in the heading now, not only in a
+                * footnote on the right. A reader who had owned their names
+                * for six months read "13 weeks" as a measurement of their
+                * own holding and asked what the 13 weeks were, which is
+                * fair: nothing said the window was the app's and not
+                * theirs. So it says both, and points at the figure that
+                * really is theirs.
+                */}
               <p className="mt-3 mb-4 text-sm leading-relaxed text-muted-foreground">
-                The same names, ranked by how they did against the S&amp;P over
-                the last quarter. This is money moving from one group to
-                another, not just prices going up with everything else.
+                Ranked by how each name did against the S&amp;P 500 over those
+                13 weeks. This is money moving from one group to another, not
+                just prices going up with everything else. It is not measured
+                from the day you bought; that figure is All time on Home.
+                {proxyNote ? ` ${proxyNote}` : ""}
               </p>
               <div className="flex flex-col gap-1.5">
                 {leaders.map((r) => {
@@ -450,7 +487,7 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
                 })}
               </div>
               <p className="mt-4 text-right text-sm text-muted-foreground">
-                vs S&amp;P, last 13 weeks
+                The middle line is the S&amp;P 500
               </p>
             </Panel>
           )}

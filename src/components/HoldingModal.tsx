@@ -28,6 +28,7 @@ import {
 } from "@/lib/market/ticker-search";
 import { useTickerSearch } from "@/lib/use-ticker-search";
 import { blockWheelChange, parseDecimal } from "@/lib/number-input";
+import { holdingCostPreview } from "@/lib/holding-cost-preview";
 import { roundMoney, roundShares } from "@/lib/money";
 import { isCoinSymbol, matchCoinQuery, tickerFieldText, callPctForTicker } from "@/lib/coins";
 import {
@@ -101,6 +102,17 @@ export function HoldingModal({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [listOpen, setListOpen] = useState(false);
+  /*
+   * The exchange suffixes, folded away.
+   *
+   * They used to be the permanent hint under this box: three exchanges and
+   * four made-up symbols, sitting where the answer to "what do I type here"
+   * should be. Almost nobody needs them, because the box searches as you
+   * type and the list under it is how a name actually gets picked, and the
+   * people who do need them are asking one specific question. So the hint
+   * is the plain sentence and the trivia is behind that question.
+   */
+  const [suffixOpen, setSuffixOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<Draft[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const tickerRef = useRef<HTMLInputElement>(null);
@@ -311,6 +323,11 @@ export function HoldingModal({
   const holdingIsCoin = Boolean(
     matchCoinQuery(ticker) || (normalized && isCoinSymbol(normalized))
   );
+  const costPreview = holdingCostPreview(
+    shares,
+    buyPrice,
+    normalized ? listingCurrency(normalized) : "USD"
+  );
   const hideCall = hideCallPct || holdingIsCoin;
   const exchangeHint = normalized ? tickerExchangeHint(normalized) : null;
   const buyCode = normalized ? listingCurrency(normalized) : "USD";
@@ -370,7 +387,7 @@ export function HoldingModal({
                 Ticker
               </span>
               <span className="justify-self-center">How many</span>
-              <span className="justify-self-center">Avg buy</span>
+              <span className="justify-self-center">Paid each</span>
               <span />
             </div>
             {collapsed.map((row) => {
@@ -475,20 +492,42 @@ export function HoldingModal({
                 </ul>
               )}
             </div>
+            {/*
+              * The suffix guide is help for a name that has not resolved
+              * yet, so it goes away once one has. It used to sit here
+              * permanently with "Average buy in this listing's money" tacked
+              * on the end, which named a field that already exists below and
+              * buried the answer in exchange trivia. A reader told us they
+              * could not tell whether the second box wanted a price or a
+              * date, and this sentence is where that came from.
+              */}
             <FieldDescription>
               {holdingIsCoin ? (
-                "How many coins, and what you paid for each, in dollars."
+                "Which coin, and how many of it you hold."
+              ) : normalized ? (
+                <>
+                  {normalized !== ticker.trim().toUpperCase() && (
+                    <>{normalized} </>
+                  )}
+                  {exchangeHint}
+                </>
               ) : (
                 <>
-                  Type the ticker or the company. A coin is fine too. London:
-                  TICKER.L. Xetra: SPY5 or TICKER.DE. Tallinn: LHV1T. Average
-                  buy in this listing&apos;s money
-                  {buyCode !== "USD" ? ` (${buyCode})` : ""}.
-                  {exchangeHint &&
-                    normalized !== ticker.trim().toUpperCase() && (
-                      <> → {normalized}</>
-                    )}
-                  {exchangeHint && <> · {exchangeHint}</>}
+                  Type a few letters and pick it from the list.{" "}
+                  <button
+                    type="button"
+                    onClick={() => setSuffixOpen((v) => !v)}
+                    aria-expanded={suffixOpen}
+                    className="underline underline-offset-4 hover:text-foreground"
+                  >
+                    Bought outside the US?
+                  </button>
+                  {suffixOpen && (
+                    <span className="mt-2 block">
+                      London listings end in .L, so TICKER.L. Frankfurt ends
+                      in .DE. Tallinn names look like LHV1T.
+                    </span>
+                  )}
                 </>
               )}
             </FieldDescription>
@@ -496,7 +535,7 @@ export function HoldingModal({
           <div className="flex gap-6">
             <Field className="min-w-0 flex-1">
               <FieldLabel htmlFor="holding-shares">
-                {holdingIsCoin ? "How many" : "Shares"}
+                {holdingIsCoin ? "How many coins" : "How many shares"}
               </FieldLabel>
               <Input
                 id="holding-shares"
@@ -514,8 +553,16 @@ export function HoldingModal({
               />
             </Field>
             <Field className="min-w-0 flex-1">
+              {/*
+                * "Average buy" is a phrase this app taught the reader, not
+                * one they arrived with, and on its own beside another
+                * numeric box it reads as anything numeric, a date included.
+                * Naming the unit ("for one share") cannot be misread, and
+                * the arithmetic line under the pair proves it.
+                */}
               <FieldLabel htmlFor="holding-buy">
-                Average buy{buyCode !== "USD" ? ` (${buyCode})` : ""}
+                {holdingIsCoin ? "Paid for one coin" : "Paid for one share"}
+                {buyCode !== "USD" ? ` (${buyCode})` : ""}
               </FieldLabel>
               <Input
                 id="holding-buy"
@@ -533,6 +580,27 @@ export function HoldingModal({
               />
             </Field>
           </div>
+          {/*
+            * The two boxes, read back as a sentence.
+            *
+            * This is the part a label cannot do. A reader who has just typed
+            * two numbers wants to know the app understood which was which,
+            * and no wording is as convincing as the app doing the sum out
+            * loud. It also catches the swap: 110 shares at $37 reads
+            * obviously wrong to somebody who meant the other way round.
+            */}
+          {costPreview && (
+            <p className="text-sm text-muted-foreground">
+              <span className="font-mono tabular-nums text-foreground">
+                {costPreview.shares} × {costPreview.each}
+              </span>{" "}
+              is{" "}
+              <span className="font-mono tabular-nums text-foreground">
+                {costPreview.total}
+              </span>{" "}
+              put into {holdingIsCoin ? "this coin" : "this name"}.
+            </p>
+          )}
           {!hideCall && (
             <Field>
               <FieldLabel htmlFor="holding-call">

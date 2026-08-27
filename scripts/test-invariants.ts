@@ -3588,7 +3588,15 @@ run("Forecast is always the base case", () => {
   assert.doesNotMatch(panel, /SPY/);
   assert.match(panel, /Drag across to read a year/);
   assert.doesNotMatch(panel, /mustBeTrue/);
-  assert.match(panel, /<ScanList/);
+  /*
+   * The rule is that every number carries its reason, not that the reason
+   * is rendered by one particular component. It used to be a `ScanList`
+   * under the grid, and a reader read the grid, saw five paths and no
+   * reasoning, and called the whole panel a guess. The reason is on the
+   * card it belongs to now, so assert that it reaches the card.
+   */
+  assert.match(panel, /why=\{whyByTicker/);
+  assert.match(panel, /<InsightText text=\{why\}/);
   assert.match(panel, /<Reading/);
   assert.doesNotMatch(route, /requestedStance/);
   assert.doesNotMatch(route, /body\.stance/);

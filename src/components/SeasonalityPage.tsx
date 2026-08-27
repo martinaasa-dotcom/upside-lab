@@ -403,7 +403,7 @@ function DayOfMonthChart({
               type="button"
               onClick={() => onSelectDay(day)}
               aria-pressed={isSelected}
-              title={`Day ${day}: ${fmtPct(v, 3)} avg · ${row.winRate}% up · n=${row.samples}`}
+              title={`Day ${day}: ${fmtPct(v, 3)} on average, up in ${row.winRate}% of ${row.samples} ${row.samples === 1 ? "year" : "years"}`}
               className={cn(
                 "flex min-h-11 w-full flex-col items-center justify-center rounded-lg px-0.5 py-1.5 transition",
                 dayCellBg(v, mag, empty),
@@ -604,18 +604,37 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
     setSelectedDay(marketToday.day);
   }
 
+  /** How many matching years this month's average rests on. */
+  const thisMonthSamples =
+    model?.cycleMonthly.find((r) => r.month === model.asOfMonth)?.samples ??
+    null;
+
   return (
     <div className="flex flex-col gap-4">
       <Panel>
         <div className={SPLIT_ROW}>
           <div className={SPLIT_COPY}>
             {model ? (
+              /*
+                * The sample size is the whole difference between a statistic
+                * and a horoscope, and a reader said this screen read as the
+                * second one. They were reacting to a page full of confident
+                * monthly averages that never said how many years each
+                * average came from, and the answer is often a handful,
+                * because filtering to one phase of the four year cycle
+                * throws away three quarters of the history. So the count
+                * leads, and the sentence after it refuses to forecast.
+                */
               <p className="text-sm leading-relaxed text-muted-foreground">
                 {model.asOfYear} · {model.currentCycleLabel} year ·{" "}
-                {cashtag(model.ticker)} since {model.from.slice(0, 4)}. Months
-                and days that have historically been kind, and those that
-                have not. Only prior {model.currentCycleLabel.toLowerCase()}{" "}
-                years. Nothing about your own holdings.
+                {cashtag(model.ticker)} since {model.from.slice(0, 4)}. This
+                month is an average of{" "}
+                {thisMonthSamples != null
+                  ? `${thisMonthSamples} ${thisMonthSamples === 1 ? "year" : "years"}`
+                  : "the matching years"}
+                , the prior {model.currentCycleLabel.toLowerCase()} years only.
+                That describes what happened, not what will. Nothing here
+                looks at what you own.
               </p>
             ) : (
               <p className="text-sm leading-relaxed text-muted-foreground">
@@ -702,7 +721,10 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
           </Panel>
 
           <Panel>
-            <PanelHeader title="Daily rhythm within the month" />
+            <PanelHeader
+              title="Daily rhythm within the month"
+              subtitle="One calendar day, averaged across the matching years. How many years that is sits under the chart."
+            />
             <div className="mt-4">
               <div className="mb-4 flex items-center justify-between gap-2">
                 <Button

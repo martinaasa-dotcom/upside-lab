@@ -64,6 +64,21 @@ const TrendsPanel = dynamic(
   () => import("@/components/TrendsPanel").then((m) => m.TrendsPanel),
   { ssr: true }
 );
+/*
+ * It used to sit on Home, between the briefing and the year chart, and it
+ * was the only panel there that is the same for every reader rather than
+ * about the names they typed in. Trends is where the market is already the
+ * subject: the panel under it ranks your names against the S&P, so how the
+ * market itself has been reading is the context for that ranking rather
+ * than an interruption to your portfolio.
+ */
+const MarketSentimentWidget = dynamic(
+  () =>
+    import("@/components/MarketSentimentWidget").then(
+      (m) => m.MarketSentimentWidget
+    ),
+  { ssr: true }
+);
 
 const EMPTY_HIDDEN_TABS: string[] = [];
 
@@ -574,9 +589,14 @@ export const LabSheet = memo(function LabSheet({
       )}
 
       {tab === "trends" && !hiddenTabs.includes("trends") && (
-        <WidgetErrorBoundary name="Trends">
-          <TrendsPanel tickers={scopedTickers.map((t) => t.ticker)} />
-        </WidgetErrorBoundary>
+        <div className="flex flex-col gap-4">
+          <WidgetErrorBoundary name="Market reading">
+            <MarketSentimentWidget />
+          </WidgetErrorBoundary>
+          <WidgetErrorBoundary name="Trends">
+            <TrendsPanel tickers={scopedTickers.map((t) => t.ticker)} />
+          </WidgetErrorBoundary>
+        </div>
       )}
 
       {tab === "seasonality" && !hiddenTabs.includes("seasonality") && (

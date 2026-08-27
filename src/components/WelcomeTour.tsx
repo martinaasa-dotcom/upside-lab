@@ -50,6 +50,7 @@ import {
 import { roundMoney, roundShares } from "@/lib/money";
 import { isCoinSymbol, tickerFieldText } from "@/lib/coins";
 import { blockWheelChange, parseDecimal } from "@/lib/number-input";
+import { holdingCostPreview } from "@/lib/holding-cost-preview";
 import { postJsonOrQueue } from "@/lib/offline/queued-fetch";
 import { sanitizePopularTickers } from "@/lib/popular-tickers";
 import { FIRST_SHEET_NAME } from "@/lib/product";
@@ -74,6 +75,7 @@ import {
 } from "@/lib/watchlist";
 import {
   Activity,
+  CalendarOff,
   Check,
   Download,
   FlaskConical,
@@ -85,6 +87,7 @@ import {
   ShieldCheck,
   Sparkles,
   TrendingUp,
+  Unplug,
   UserCog,
   Wallet,
   X,
@@ -611,6 +614,7 @@ export function WelcomeTour({
   const buyCode = resolvedTicker
     ? listingCurrency(resolvedTicker)
     : "USD";
+  const costPreview = holdingCostPreview(shares, buyPrice, buyCode);
 
   /*
     The one button that changes shape.
@@ -798,8 +802,33 @@ export function WelcomeTour({
           )}
 
           {stage === "rules" && (
+            /*
+              The first two rows are the ones that stop somebody being
+              disappointed later, and they were not here.
+
+              A reader who already used a broker app and a bank app arrived
+              expecting this to be a better version of those, went looking
+              for the connection to their account, and could not find the
+              thing this app does not do. Nothing had told them. The rest of
+              their session read as "more work for less information", which
+              is exactly what this app is if you thought it was going to sync
+              your broker. So the screen leads with the two facts that set
+              the expectation, and the four it already had follow.
+            */
             <div className="flex flex-col gap-4">
               <ul className="grid gap-2 sm:grid-cols-2">
+                <Row icon={Unplug} term="Nothing connects to your bank">
+                  You type what you own, or paste a screenshot of your broker
+                  screen and let it read the numbers off. That is the trade:
+                  a minute of setup, and then it works the same whoever you
+                  bank with.
+                </Row>
+                <Row icon={CalendarOff} term="No buy dates, on purpose">
+                  Your return is measured against the average price you paid,
+                  not a dated list of every trade. So there is no chart that
+                  starts on the day you bought. If you want that, your broker
+                  already has it.
+                </Row>
                 <Row icon={Lock} term="Nothing is shared by default">
                   A portfolio is yours. A circle is opt-in and invite-only, and
                   you are never added to one by signing in. You can invite a
@@ -997,14 +1026,14 @@ export function WelcomeTour({
                 </div>
                 <FieldDescription>
                   {holdingIsCoin
-                    ? "How many coins, and what you paid for each, in dollars."
-                    : `Type the ticker or the company. A coin is fine too. Average buy in this listing's money${buyCode !== "USD" ? ` (${buyCode})` : ""}.`}
+                    ? "Which coin, and how many of it you hold."
+                    : "The ticker or the company name. A coin is fine too."}
                 </FieldDescription>
               </Field>
               <div className="flex gap-6">
                 <Field className="min-w-0 flex-1">
                   <FieldLabel htmlFor="onboard-shares">
-                    {holdingIsCoin ? "How many" : "Shares"}
+                    {holdingIsCoin ? "How many coins" : "How many shares"}
                   </FieldLabel>
                   <Input
                     id="onboard-shares"
@@ -1023,7 +1052,8 @@ export function WelcomeTour({
                 </Field>
                 <Field className="min-w-0 flex-1">
                   <FieldLabel htmlFor="onboard-buy">
-                    Average buy{buyCode !== "USD" ? ` (${buyCode})` : ""}
+                    {holdingIsCoin ? "Paid for one coin" : "Paid for one share"}
+                    {buyCode !== "USD" ? ` (${buyCode})` : ""}
                   </FieldLabel>
                   <Input
                     id="onboard-buy"
@@ -1041,6 +1071,20 @@ export function WelcomeTour({
                   />
                 </Field>
               </div>
+              {/* Same read-back as the Add holding modal. See
+                  `holding-cost-preview.ts` for why a label was not enough. */}
+              {costPreview && (
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-mono tabular-nums text-foreground">
+                    {costPreview.shares} × {costPreview.each}
+                  </span>{" "}
+                  is{" "}
+                  <span className="font-mono tabular-nums text-foreground">
+                    {costPreview.total}
+                  </span>{" "}
+                  put into {holdingIsCoin ? "this coin" : "this name"}.
+                </p>
+              )}
               {stockError && (
                 <p className="text-sm text-destructive">{stockError}</p>
               )}
@@ -1139,15 +1183,32 @@ export function WelcomeTour({
             <div className="flex flex-col gap-4">
               <ul className="grid gap-2 sm:grid-cols-2">
                 {/*
-                  Only for somebody who still has an empty portfolio. Telling a
-                  reader who just typed three holdings in where to add holdings
-                  is the app not having looked at them.
+                  Everybody gets an answer here, and it is a different answer.
+
+                  This used to be shown only to somebody who had added
+                  nothing, on the reasoning that telling a reader who just
+                  typed three holdings in where to add holdings is the app
+                  not having looked at them. That reasoning was wrong in a
+                  way a reader found for us: the person who just typed three
+                  holdings is exactly the person about to want a fourth, and
+                  with nothing said, one of them assumed another name meant
+                  another portfolio. So the empty case is told where to
+                  start, and the case that just typed something is told where
+                  the next one goes and, out loud, what the plus in the bar
+                  is not for.
                 */}
-                {!hasHoldings && added.length === 0 && (
+                {!hasHoldings && added.length === 0 ? (
                   <Row icon={House} term="Nothing in there yet">
                     Home has <strong className="text-foreground">Add holding</strong>{" "}
                     and a CSV import. Not much else in the app has anything to
                     say until something is in there.
+                  </Row>
+                ) : (
+                  <Row icon={House} term="Adding more names later">
+                    Same <strong className="text-foreground">Add holding</strong>{" "}
+                    button on Home, however many you end up with. The plus in
+                    the bottom bar is for a whole second portfolio, which is
+                    not what you want for one more name.
                   </Row>
                 )}
                 <Row icon={MessageCircle} term="If you get stuck">

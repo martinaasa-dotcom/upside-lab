@@ -32,7 +32,12 @@ import {
   screenshotPickerInputProps,
   useScreenshotPicker,
 } from "@/lib/use-screenshot-picker";
-import { buildMorningRead, loadHomePulseNotes, type HomePulseNote } from "@/lib/morning-read";
+import {
+  buildMorningRead,
+  loadHomePulseNotes,
+  morningSourceLabel,
+  type HomePulseNote,
+} from "@/lib/morning-read";
 import {
   bumpInsightLook,
   loadShownInsights,
@@ -55,8 +60,8 @@ import {
 import { finiteNumber } from "@/lib/money";
 import {
   AlertTriangle,
+  Calculator,
   Plus,
-  Sparkles,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
@@ -384,6 +389,18 @@ function MorningStack({
   className?: string;
 }) {
   const sunday = morning.sunday;
+  /*
+   * The headline reading is the sentence a reader circled in a screenshot
+   * and called invented text, so it is the one that most needs to say where
+   * it came from. The notice cards below already do; this one did not,
+   * which is exactly backwards, because this is the sentence somebody meets
+   * first and the only one they may ever read.
+   */
+  const stamp = (
+    <p className="mt-3 text-sm text-muted-foreground">
+      {morningSourceLabel("holdings", morning)}
+    </p>
+  );
   return (
     <div className={cn("flex flex-col gap-6", className)}>
       {sunday ? (
@@ -422,6 +439,7 @@ function MorningStack({
               )}
             </div>
           )}
+          {stamp}
         </Reading>
       ) : (
         <Reading>
@@ -453,6 +471,7 @@ function MorningStack({
               ))}
             </div>
           )}
+          {stamp}
         </Reading>
       )}
       {morning.notices.length > 0 && (
@@ -467,15 +486,34 @@ function MorningStack({
               key={notice.id}
               label={notice.label}
               tone={notice.kind === "gap" ? "warn" : "neutral"}
+              /*
+               * `Sparkles` used to sit on the notice card, and it was the
+               * wrong glyph by a long way: it is the universal "a model
+               * wrote this" mark, and these cards are arithmetic on the
+               * reader's own holdings. A reader duly read them as invented
+               * text and said so. `Calculator` is what the card actually
+               * is, and the line under it names the inputs.
+               */
               icon={
-                notice.kind === "gap" ? (
-                  <AlertTriangle />
-                ) : (
-                  <Sparkles />
-                )
+                notice.kind === "gap" ? <AlertTriangle /> : <Calculator />
               }
             >
               <InsightText text={notice.text} />
+              <p className="mt-3 text-sm text-muted-foreground">
+                {morningSourceLabel(notice.source, morning)}
+                {notice.ticker && onOpenPulse ? (
+                  <>
+                    {" "}
+                    <button
+                      type="button"
+                      onClick={() => onOpenPulse(notice.ticker)}
+                      className="text-foreground underline underline-offset-4 hover:text-primary"
+                    >
+                      Open Pulse on {cashtag(notice.ticker)}
+                    </button>
+                  </>
+                ) : null}
+              </p>
             </Reading>
           ))}
         </div>
@@ -868,6 +906,25 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   const yearDollar =
     startNav != null && endNav != null ? endNav - startNav : null;
 
+  /*
+   * On an empty portfolio only. It moved to Lab's Trends tab for a
+   * populated one.
+   *
+   * Home answers one question, which is how the names you typed in are
+   * doing, and every panel on it earns its place by being about those
+   * names. The market reading is not: it is the same three gauges for
+   * everybody who signs in, so on a page about your portfolio it reads as
+   * a widget that happened to be available. A reader with holdings met a
+   * scoreboard, a briefing, a market reading, a year chart and a movers
+   * grid, and said they could not tell what the page wanted from them.
+   * Removing the one panel that is not about their money did more for that
+   * than any label would have.
+   *
+   * An empty portfolio is the opposite case. There are no names to be
+   * about, so it is the only thing on the screen with a number in it, and
+   * it gives somebody who has not typed anything in yet a reason to look
+   * at the page at all.
+   */
   const marketReading = (
     <WidgetErrorBoundary name="Market reading">
       <MarketSentimentWidget />
@@ -915,6 +972,26 @@ export const OverviewDashboard = memo(function OverviewDashboard({
           <h1 className="text-2xl font-semibold text-foreground">
             {morning.moveLabel}
           </h1>
+          {/*
+            * What this page is, in one line, permanently.
+            *
+            * The headline was the word "Today" and nothing else, and a
+            * reader arriving on it asked what the page was supposed to be
+            * showing them. Every screen after this one answers a question
+            * the reader has already accepted; this is the only screen where
+            * the reader has not accepted anything yet, so it says both
+            * halves out loud: these are the names you typed in at today's
+            * prices, and nothing here is wired to a bank. The second half
+            * is the one that stops somebody hunting for a sync button, and
+            * it is the same sentence the sign-in page makes.
+            */}
+          <p className="text-sm text-muted-foreground">
+            {totals.positionCount === 1
+              ? "The one holding"
+              : `The ${totals.positionCount} holdings`}{" "}
+            you typed in, at today&apos;s prices. Nothing is linked to a bank,
+            so nothing here buys or sells.
+          </p>
           <OvernightNote />
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -969,8 +1046,18 @@ export const OverviewDashboard = memo(function OverviewDashboard({
           }
           valueClassName={tone(totals.todayDollar)}
         />
+        {/*
+          * The explainer is on this cell because this is the cell people go
+          * looking for when they want "since I bought", and it is already
+          * the answer: it is measured against the average price you paid,
+          * which is your own buy price blended. What it is not is a period
+          * starting on a date, and a reader spent a whole session hunting
+          * for a period picker that is never going to exist. Saying so here
+          * costs one info dot on the figure they were already reading.
+          */}
         <Score
           label="All time"
+          explain="Your value today against what you paid for these shares on average. There is no date in it: Upside Lab does not keep the day you bought, so nothing here can draw a line starting from that day."
           value={signedCurrency(totals.roiDollar, 0)}
           sub={
             <DeltaBadge value={totals.roiDollar}>
@@ -993,8 +1080,6 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         morning={morning}
         onOpenPulse={onOpenPulse}
       />
-
-      {marketReading}
 
       <Panel className="overview-fade">
         <PanelHeader

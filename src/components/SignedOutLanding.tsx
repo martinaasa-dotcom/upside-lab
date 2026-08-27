@@ -22,6 +22,7 @@ import {
   ImageUp,
   LineChart,
   Mail,
+  MinusCircle,
   TrendingDown,
   TrendingUp,
   Users,
@@ -407,6 +408,87 @@ function More() {
   );
 }
 
+const IS_FOR = [
+  "Seeing what your names are worth right now, wherever you bought them.",
+  "Writing down why you own each one, and being told when that reason stops fitting the price.",
+  "One email on a Sunday about how the week went, in plain words and no jargon.",
+] as const;
+
+const IS_NOT = [
+  "It does not connect to a bank or a broker. Holdings come in the three ways above, and when you buy something new you add it yourself. Prices do update on their own.",
+  "It does not know when you bought. Returns are against your average price, so there is no chart starting on your buy date.",
+  "It cannot buy or sell anything, and it will never tell you to. Prices are free and delayed by a few minutes.",
+] as const;
+
+/**
+ * What this is for, and what it is not, side by side and before the feature
+ * tour rather than after it.
+ *
+ * A reader arrived expecting a better version of the broker app they
+ * already use, spent their first session looking for the connection to
+ * their account, and left with "more work, less information". Every word of
+ * that is fair if that is what you came for, and nothing on the way in had
+ * said otherwise. A page that only lists what a product does is a page that
+ * recruits the wrong people, and the wrong people are the ones who write
+ * the worst reviews. So the limits sit next to the point, in the same
+ * weight of type, where somebody deciding can read both.
+ */
+function Fit() {
+  return (
+    <Section>
+      <Reveal>
+        <SectionHead
+          eyebrow="Before you start"
+          title="Worth knowing what this is not."
+          detail="Two minutes of typing buys you the rest. If that trade is wrong for you, better to find out here."
+        />
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          <div className={cn(BOX, NESTED_PAD, "flex flex-col gap-4")}>
+            <MicroLabel className="text-primary">What it is for</MicroLabel>
+            <ul className="flex flex-col gap-3">
+              {IS_FOR.map((line) => (
+                <li
+                  key={line}
+                  className="flex items-start gap-2.5 text-sm leading-relaxed text-muted-foreground"
+                >
+                  <CheckCircle2
+                    className="mt-0.5 size-4 shrink-0 text-primary"
+                    aria-hidden
+                  />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className={cn(BOX, NESTED_PAD, "flex flex-col gap-4")}>
+            <MicroLabel className="text-primary">What it is not</MicroLabel>
+            <ul className="flex flex-col gap-3">
+              {IS_NOT.map((line) => (
+                <li
+                  key={line}
+                  className="flex items-start gap-2.5 text-sm leading-relaxed text-muted-foreground"
+                >
+                  {/*
+                   * Muted, never a red cross. These are the shape of the
+                   * thing rather than faults, and drawing them as warnings
+                   * would be its own kind of dishonesty.
+                   */}
+                  <MinusCircle
+                    className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </Reveal>
+    </Section>
+  );
+}
+
 /**
  * Price and safety together, because they are one question asked twice:
  * what is this going to cost me, in money and in risk.
@@ -708,6 +790,7 @@ export function SignedOutLanding(props: HeroProps) {
       <HeroHybrid {...props} />
       <TrioShowcase />
       <WaysIn />
+      <Fit />
       <More />
       <PriceAndTrust />
       <Closing

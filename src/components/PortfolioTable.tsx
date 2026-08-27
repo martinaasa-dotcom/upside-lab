@@ -193,6 +193,28 @@ type SortKey =
   | "today"
   | "todayDollar";
 
+/**
+ * Twelve numeric columns in one row, grouped so the eye gets four blocks
+ * instead of a wall.
+ *
+ * A reader called this table busy and said the return was not visible in
+ * it, and both halves were true of the old order: `ROI %` sat between
+ * `Price` and `Cost`, which is to say between the two numbers that produce
+ * it, with its partner `ROI $` three columns further right. Nothing marked
+ * where one idea ended and the next began, so twelve columns read as twelve
+ * unrelated figures and the one the reader came for was in the middle of
+ * them.
+ *
+ * The order is now the question a person actually asks, left to right: what
+ * you hold, what it cost and what it is worth, what that made you, what
+ * happened today. `groupEdge` puts a hairline at each seam, and the two
+ * return columns finally sit together.
+ */
+const GROUP_EDGE = "border-l border-border";
+
+/** Labels that open a group, so header, rows and footer cannot disagree. */
+const GROUP_STARTS = new Set(["Cost", "ROI %", "90d"]);
+
 const COLUMNS: { label: string; key?: SortKey; explain?: string }[] = [
   { label: "Ticker", key: "ticker" },
   {
@@ -212,11 +234,6 @@ const COLUMNS: { label: string; key?: SortKey; explain?: string }[] = [
   },
   { label: "Price", key: "price", explain: "Current share price, in this listing's money" },
   {
-    label: "ROI %",
-    key: "roiPct",
-    explain: "Gain or loss vs. what you paid, as a percentage: (Value − Cost) ÷ Cost",
-  },
-  {
     label: "Cost",
     key: "cost",
     explain: "Total dollars you put in: shares × buy price",
@@ -225,6 +242,11 @@ const COLUMNS: { label: string; key?: SortKey; explain?: string }[] = [
     label: "Value",
     key: "value",
     explain: "What that position is worth right now: shares × current price",
+  },
+  {
+    label: "ROI %",
+    key: "roiPct",
+    explain: "Gain or loss vs. what you paid, as a percentage: (Value − Cost) ÷ Cost",
   },
   {
     label: "ROI $",
@@ -603,12 +625,8 @@ export const PortfolioTable = memo(function PortfolioTable({
                     {currency(listed.nativeSpot, listed.digits, listed.code)}
                   </p>
                 </div>
-                <div>
-                  <MicroLabel>ROI %</MicroLabel>
-                  <p className={cn("mt-1 text-base font-semibold tabular-nums", signedTone(h.roiPct))}>
-                    {percent(h.roiPct)}
-                  </p>
-                </div>
+                {/* Same grouping as the desktop columns: cost and value,
+                    then what they made, then today. */}
                 <div>
                   <MicroLabel>Cost</MicroLabel>
                   <p className="mt-1 text-sm tabular-nums text-muted-foreground">
@@ -622,10 +640,16 @@ export const PortfolioTable = memo(function PortfolioTable({
                   </p>
                 </div>
                 <div>
+                  <MicroLabel>ROI %</MicroLabel>
+                  <p className={cn("mt-1 text-base font-semibold tabular-nums", signedTone(h.roiPct))}>
+                    {percent(h.roiPct)}
+                  </p>
+                </div>
+                <div>
                   <MicroLabel>ROI $</MicroLabel>
                   <p
                     className={cn(
-                      "mt-1 text-sm font-medium tabular-nums",
+                      "mt-1 text-base font-semibold tabular-nums",
                       signedTone(h.roiDollar)
                     )}
                   >
@@ -703,7 +727,10 @@ export const PortfolioTable = memo(function PortfolioTable({
               {COLUMNS.map((col, i) => (
                 <div
                   key={col.label}
-                  className={i === 0 ? tickerCell : cellBase}
+                  className={cn(
+                    i === 0 ? tickerCell : cellBase,
+                    GROUP_STARTS.has(col.label) && GROUP_EDGE
+                  )}
                 >
                   {col.key ? (
                     <button
@@ -781,17 +808,24 @@ export const PortfolioTable = memo(function PortfolioTable({
                 <div
                   className={cn(
                     cellBase,
+                    GROUP_EDGE,
+                    "tabular-nums text-muted-foreground"
+                  )}
+                >
+                  {money(h.buyValue, 0)}
+                </div>
+                <div className={cn(cellBase, "tabular-nums text-foreground")}>
+                  {money(h.currentValue, 0)}
+                </div>
+                <div
+                  className={cn(
+                    cellBase,
+                    GROUP_EDGE,
                     "tabular-nums font-medium",
                     signedTone(h.roiPct)
                   )}
                 >
                   {percent(h.roiPct)}
-                </div>
-                <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
-                  {money(h.buyValue, 0)}
-                </div>
-                <div className={cn(cellBase, "tabular-nums text-foreground")}>
-                  {money(h.currentValue, 0)}
                 </div>
                 <div
                   className={cn(
@@ -802,7 +836,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                 >
                   {money(h.roiDollar, 0)}
                 </div>
-                <div className={cellBase}>
+                <div className={cn(cellBase, GROUP_EDGE)}>
                   <Sparkline
                     points={h.quote?.sparkline ?? []}
                     width={56}
@@ -862,17 +896,24 @@ export const PortfolioTable = memo(function PortfolioTable({
               <div
                 className={cn(
                   cellBase,
+                  GROUP_EDGE,
+                  "tabular-nums text-muted-foreground"
+                )}
+              >
+                {money(totals.buyValue, 0)}
+              </div>
+              <div className={cn(cellBase, "tabular-nums text-foreground")}>
+                {money(totals.currentValue, 0)}
+              </div>
+              <div
+                className={cn(
+                  cellBase,
+                  GROUP_EDGE,
                   "tabular-nums",
                   signedTone(totals.roiPct)
                 )}
               >
                 {percent(totals.roiPct)}
-              </div>
-              <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
-                {money(totals.buyValue, 0)}
-              </div>
-              <div className={cn(cellBase, "tabular-nums text-foreground")}>
-                {money(totals.currentValue, 0)}
               </div>
               <div
                 className={cn(
@@ -883,7 +924,7 @@ export const PortfolioTable = memo(function PortfolioTable({
               >
                 {money(totals.roiDollar, 0)}
               </div>
-              <div className={cellBase} />
+              <div className={cn(cellBase, GROUP_EDGE)} />
               <div
                 className={cn(
                   cellBase,
