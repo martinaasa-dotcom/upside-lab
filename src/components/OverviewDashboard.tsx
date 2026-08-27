@@ -507,7 +507,9 @@ function MorningStack({
                 ) : null
               }
             >
-              <InsightText text={notice.text} />
+              <p>
+                <InsightText text={notice.text} />
+              </p>
               {notice.ticker && onOpenPulse ? (
                 <Button
                   variant="ghost"
