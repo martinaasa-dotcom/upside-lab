@@ -7,7 +7,6 @@ import {
   linearProbeCopy,
   signedProbeCopy,
   sparkProbeCopy,
-  stretchProbeCopy,
   type SentimentGaugeNote,
   type SentimentScaleTick,
   type SentimentStretch,
@@ -15,6 +14,8 @@ import {
 import {
   pctFromClientX,
   sentimentSparkLayout,
+  SPARK_WINDOW,
+  sparkGhostDays,
   sparkIndexFromClientX,
 } from "@/lib/market-sentiment-viz";
 import { PALETTE } from "@/lib/palette";
@@ -25,10 +26,11 @@ import {
   useState,
   type KeyboardEvent,
   type PointerEvent,
+  type ReactNode,
 } from "react";
 
 const SPARK_W = 240;
-const SPARK_H = 56;
+const SPARK_H = 64;
 
 function TrackMarker({ pct, className }: { pct: number; className: string }) {
   return (
@@ -43,19 +45,50 @@ function TrackMarker({ pct, className }: { pct: number; className: string }) {
   );
 }
 
-function ScaleTicks({ ticks, show }: { ticks: SentimentScaleTick[]; show: boolean }) {
-  if (!show || ticks.length === 0) return null;
+function ScaleTicks({ ticks }: { ticks: SentimentScaleTick[] }) {
   return (
     <div className="pointer-events-none relative mt-1 h-4">
       {ticks.map((tick) => (
         <span
           key={`${tick.pct}-${tick.label}`}
-          className="absolute top-0 -translate-x-1/2 font-mono text-xs text-muted-foreground first:translate-x-0 last:translate-x-[-100%]"
+          className="absolute top-0 -translate-x-1/2 font-mono text-xs leading-4 text-muted-foreground first:translate-x-0 last:translate-x-[-100%]"
           style={{ left: `${tick.pct}%` }}
         >
           {tick.label}
         </span>
       ))}
+    </div>
+  );
+}
+
+/** Two layers, one box. Hover only toggles visibility, never height. */
+function SwapLayer({
+  on,
+  rest,
+  next,
+}: {
+  on: boolean;
+  rest: ReactNode;
+  next: ReactNode;
+}) {
+  return (
+    <div className="relative h-5">
+      <div
+        className={cn(
+          "absolute inset-0 flex items-center justify-between gap-3",
+          on && "invisible"
+        )}
+      >
+        {rest}
+      </div>
+      <div
+        className={cn(
+          "absolute inset-0 flex items-center justify-between gap-3",
+          !on && "invisible"
+        )}
+      >
+        {next}
+      </div>
     </div>
   );
 }
@@ -122,14 +155,22 @@ function useScrubPct() {
 
 export function SentimentSparkPlot({
   spark,
+  stretch,
   className,
 }: {
   spark: SentimentSpark;
+  stretch: SentimentStretch | null;
   className?: string;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [active, setActive] = useState<number | null>(null);
   const [pinned, setPinned] = useState(false);
+  const windowDays = spark.windowDays ?? SPARK_WINDOW;
+  const ghostDays = sparkGhostDays(
+    windowDays,
+    stretch?.typicalMoreDays ?? null,
+    stretch?.alreadyLong === true
+  );
   const layout = useMemo(
     () =>
       sentimentSparkLayout(
@@ -137,9 +178,11 @@ export function SentimentSparkPlot({
         spark.usual,
         SPARK_W,
         SPARK_H,
-        spark.streakFrom ?? null
+        spark.streakFrom ?? null,
+        ghostDays,
+        windowDays
       ),
-    [spark.price, spark.usual, spark.streakFrom]
+    [spark.price, spark.usual, spark.streakFrom, ghostDays, windowDays]
   );
 
   useEffect(() => {
@@ -155,7 +198,11 @@ export function SentimentSparkPlot({
 
   if (!layout) return null;
   const lastIdx = spark.price.length - 1;
-  const hover = active != null ? Math.max(0, Math.min(lastIdx, active)) : null;
+  const histEndX = (layout.nowX / 100) * SPARK_W;
+  const hasGhost = layout.ghost != null;
+  const onGhost = active === -1;
+  const hover =
+    active != null && active >= 0 ? Math.max(0, Math.min(lastIdx, active)) : null;
   const hoverPrice = hover != null ? spark.price[hover] : null;
   const hoverUsual = hover != null ? spark.usual[hover] : null;
   const probe =
@@ -164,21 +211,29 @@ export function SentimentSparkPlot({
       : null;
   const probePt = hover != null ? layout.probes[hover] : null;
   const stroke = layout.last.above ? PALETTE.gain : PALETTE.loss;
-  const streakFill = layout.last.above ? PALETTE.gain : PALETTE.loss;
+  const reading = onGhost || probe != null;
+
+  function indexAt(e: PointerEvent<SVGSVGElement>) {
+    const idx = sparkIndexFromClientX(
+      e.clientX,
+      e.currentTarget.getBoundingClientRect(),
+      lastIdx,
+      SPARK_W,
+      histEndX
+    );
+    if (idx < 0) return hasGhost ? -1 : lastIdx;
+    return idx;
+  }
 
   function onPointerDown(e: PointerEvent<SVGSVGElement>) {
     e.currentTarget.setPointerCapture(e.pointerId);
-    setActive(
-      sparkIndexFromClientX(e.clientX, e.currentTarget.getBoundingClientRect(), lastIdx)
-    );
+    setActive(indexAt(e));
     if (e.pointerType !== "mouse") setPinned(true);
   }
 
   function onPointerMove(e: PointerEvent<SVGSVGElement>) {
     if (e.pointerType === "mouse" || e.currentTarget.hasPointerCapture(e.pointerId)) {
-      setActive(
-        sparkIndexFromClientX(e.clientX, e.currentTarget.getBoundingClientRect(), lastIdx)
-      );
+      setActive(indexAt(e));
     }
   }
 
@@ -193,32 +248,25 @@ export function SentimentSparkPlot({
     setPinned(true);
     setActive((prev) => {
       const cur = prev ?? lastIdx;
-      return e.key === "ArrowLeft"
-        ? Math.max(0, cur - 1)
-        : Math.min(lastIdx, cur + 1);
+      if (e.key === "ArrowRight") {
+        if (cur === lastIdx && hasGhost) return -1;
+        if (cur === -1) return -1;
+        return Math.min(lastIdx, cur + 1);
+      }
+      if (cur === -1) return lastIdx;
+      return Math.max(0, cur - 1);
     });
   }
 
   return (
     <div className={cn("text-muted-foreground", className)}>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        {probe ? (
+      <SwapLayer
+        on={reading}
+        rest={
           <>
-            <p className="min-w-0 truncate text-sm text-foreground">
-              {probe.date || "Last year"}
-            </p>
-            <p className="shrink-0 text-right text-sm tabular-nums">
-              <span className="text-foreground">{probe.vs}</span>
-              <span className={cn("ml-1.5", signedTone(probe.ratio))}>
-                {signedPercent(probe.ratio)}
-              </span>
-            </p>
-          </>
-        ) : (
-          <>
-            <MicroLabel>
+            <MicroLabel className="truncate">
               Last year
-              <InfoTip text="S&P 500 versus its typical price over about the last year. The dashed line is that typical price. Above it is a climb. Below it is a slide. Drag across to read a day." />
+              <InfoTip text="S&P 500 versus its typical price over about the last year. The dashed line is that typical price. The solid bracket is this run. The dashed bracket to the right is how much longer a typical run lasted. That empty stretch is not a guess at the next price. Drag across to read a day." />
             </MicroLabel>
             <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <span
@@ -228,39 +276,67 @@ export function SentimentSparkPlot({
               Usual
             </span>
           </>
-        )}
-      </div>
-      <div className="relative">
+        }
+        next={
+          onGhost && stretch ? (
+            <>
+              <p className="min-w-0 truncate text-sm text-foreground">Typical leftover</p>
+              <p className="min-w-0 truncate text-right text-sm text-muted-foreground">
+                {stretch.moreLabel}
+              </p>
+            </>
+          ) : probe ? (
+            <>
+              <p className="min-w-0 truncate text-sm text-foreground">
+                {probe.date || "Last year"}
+              </p>
+              <p className="min-w-0 truncate text-right text-sm tabular-nums">
+                <span className="text-foreground">{probe.vs}</span>
+                <span className={cn("ml-1.5", signedTone(probe.ratio))}>
+                  {signedPercent(probe.ratio)}
+                </span>
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm">Last year</p>
+              <p className="text-sm">Usual</p>
+            </>
+          )
+        }
+      />
+      <div className="relative mt-2">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
           preserveAspectRatio="none"
-          className="h-14 w-full cursor-crosshair touch-none outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/50"
+          className="h-16 w-full cursor-crosshair touch-none outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
           role="slider"
           tabIndex={0}
           aria-label="S&P 500 over the last year versus its usual price. Drag or use arrows to read a day."
           aria-valuemin={0}
           aria-valuemax={lastIdx}
-          aria-valuenow={hover ?? lastIdx}
+          aria-valuenow={onGhost ? lastIdx : (hover ?? lastIdx)}
           aria-valuetext={
-            probe
-              ? `${probe.date ? `${probe.date}, ` : ""}${probe.vs}, ${signedPercent(probe.ratio)}`
-              : undefined
+            onGhost && stretch
+              ? stretch.moreLabel
+              : probe
+                ? `${probe.date ? `${probe.date}, ` : ""}${probe.vs}, ${signedPercent(probe.ratio)}`
+                : undefined
           }
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerLeave={onPointerLeave}
           onKeyDown={onKeyDown}
         >
-          {layout.streak ? (
+          {layout.ghost ? (
             <rect
-              x={(layout.streak.x0 / 100) * SPARK_W}
-              y={SPARK_H - 5}
-              width={((layout.streak.x1 - layout.streak.x0) / 100) * SPARK_W}
-              height={3}
-              rx={1.5}
-              fill={streakFill}
-              fillOpacity={0.45}
+              x={(layout.ghost.x0 / 100) * SPARK_W}
+              y={0}
+              width={((layout.ghost.x1 - layout.ghost.x0) / 100) * SPARK_W}
+              height={SPARK_H}
+              fill="currentColor"
+              fillOpacity={0.04}
             />
           ) : null}
           {layout.gain.map((pts, i) => (
@@ -298,6 +374,18 @@ export function SentimentSparkPlot({
             vectorEffect="non-scaling-stroke"
             points={layout.priceLine}
           />
+          {layout.ghost ? (
+            <line
+              x1={(layout.nowX / 100) * SPARK_W}
+              x2={(layout.nowX / 100) * SPARK_W}
+              y1={4}
+              y2={SPARK_H - 4}
+              stroke="currentColor"
+              strokeOpacity={0.28}
+              strokeWidth={1}
+              vectorEffect="non-scaling-stroke"
+            />
+          ) : null}
           {probePt ? (
             <line
               x1={(probePt.x / 100) * SPARK_W}
@@ -337,6 +425,47 @@ export function SentimentSparkPlot({
           </>
         ) : null}
       </div>
+      {stretch ? (
+        <>
+          <div className="relative mt-1 h-2.5">
+            {layout.streak ? (
+              <div
+                className={cn(
+                  "absolute inset-y-0 border-x border-b",
+                  stretch.above ? "border-gain/70" : "border-loss/70"
+                )}
+                style={{
+                  left: `${layout.streak.x0}%`,
+                  width: `${Math.max(layout.streak.x1 - layout.streak.x0, 1)}%`,
+                }}
+              />
+            ) : null}
+            {layout.ghost ? (
+              <div
+                className="absolute inset-y-0 border-x border-b border-dashed border-muted-foreground/45"
+                style={{
+                  left: `${layout.ghost.x0}%`,
+                  width: `${Math.max(layout.ghost.x1 - layout.ghost.x0, 1)}%`,
+                }}
+              />
+            ) : null}
+          </div>
+          <div className="mt-1 flex h-5 items-baseline justify-between gap-3">
+            <p className="min-w-0 truncate text-sm text-foreground">
+              {stretch.inLabel}
+            </p>
+            {stretch.moreLabel ? (
+              <p className="min-w-0 truncate text-right text-sm text-muted-foreground">
+                {stretch.moreLabel}
+              </p>
+            ) : (
+              <p className="min-w-0 truncate text-right text-sm text-muted-foreground">
+                {" "}
+              </p>
+            )}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -348,32 +477,17 @@ export function SentimentStretchTrack({
   stretch: SentimentStretch;
   className?: string;
 }) {
-  const scrub = useScrubPct();
-  const probing = scrub.show;
-  const more = probing
-    ? stretchProbeCopy(stretch, scrub.pct!)
-    : stretch.moreLabel;
-
   return (
     <div className={className}>
-      <div className="mb-2 flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-        <p className="text-sm text-foreground">{stretch.inLabel}</p>
-        {more ? (
-          <p className="text-sm text-muted-foreground sm:text-right">{more}</p>
+      <div className="mb-2 flex h-5 items-baseline justify-between gap-3">
+        <p className="min-w-0 truncate text-sm text-foreground">{stretch.inLabel}</p>
+        {stretch.moreLabel ? (
+          <p className="min-w-0 truncate text-right text-sm text-muted-foreground">
+            {stretch.moreLabel}
+          </p>
         ) : null}
       </div>
-      <div
-        ref={scrub.ref}
-        className="relative flex min-h-8 cursor-ew-resize touch-none items-center outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/50"
-        role="slider"
-        tabIndex={0}
-        aria-label={`${stretch.inLabel}. ${stretch.moreLabel}. Drag to read a typical run.`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(scrub.pct ?? stretch.fillPct)}
-        aria-valuetext={more}
-        {...scrub.handlers}
-      >
+      <div className="relative flex h-8 items-center">
         <div className="relative h-1.5 w-full rounded-full bg-foreground/10">
           <div
             className={cn(
@@ -386,9 +500,6 @@ export function SentimentStretchTrack({
             pct={stretch.fillPct}
             className={stretch.above ? "bg-gain" : "bg-loss"}
           />
-          {probing ? (
-            <TrackMarker pct={scrub.pct!} className="bg-foreground" />
-          ) : null}
         </div>
       </div>
     </div>
@@ -484,14 +595,14 @@ export function SentimentGaugeRow({ gauge }: { gauge: SentimentGaugeNote }) {
       role="group"
       aria-label={`${gauge.label} ${gauge.value}, ${gauge.sub}`}
     >
-      <div className="mb-1.5 flex items-baseline justify-between gap-3">
-        <MicroLabel>
+      <div className="mb-1.5 flex h-5 items-center justify-between gap-3">
+        <MicroLabel className="truncate">
           {gauge.label}
           <InfoTip text={gauge.explain} />
         </MicroLabel>
         <p
           className={cn(
-            "shrink-0 font-mono text-sm font-semibold tabular-nums",
+            "shrink-0 font-mono text-sm font-semibold tabular-nums leading-5",
             gauge.valueClassName ?? "text-foreground"
           )}
         >
@@ -501,7 +612,7 @@ export function SentimentGaugeRow({ gauge }: { gauge: SentimentGaugeNote }) {
       {live ? (
         <div
           ref={scrub.ref}
-          className="relative flex min-h-8 cursor-ew-resize touch-none items-center outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/50"
+          className="relative flex h-8 cursor-ew-resize touch-none items-center outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
           role="slider"
           tabIndex={0}
           aria-label={`${gauge.label} scale. ${gauge.explain}`}
@@ -528,18 +639,14 @@ export function SentimentGaugeRow({ gauge }: { gauge: SentimentGaugeNote }) {
           )}
         </div>
       ) : (
-        <div className="flex min-h-8 items-center">
+        <div className="flex h-8 items-center">
           <div className="h-1.5 w-full rounded-full bg-foreground/10" />
         </div>
       )}
-      {probing ? (
-        <>
-          <ScaleTicks ticks={gauge.ticks} show />
-          <p className="mt-0.5 text-sm text-muted-foreground">{sub}</p>
-        </>
-      ) : (
-        <p className="mt-1 text-sm text-muted-foreground">{gauge.sub}</p>
-      )}
+      <ScaleTicks ticks={gauge.ticks} />
+      <p className="mt-0.5 h-5 truncate text-sm leading-5 text-muted-foreground">
+        {sub}
+      </p>
     </div>
   );
 }

@@ -185,12 +185,10 @@ export function MarketSentimentWidget({ className }: { className?: string }) {
         />
         {hasPicture ? (
           <div className={cn(CARD, "p-3 sm:p-4")}>
-            {card.spark ? <SentimentSparkPlot spark={card.spark} /> : null}
-            {card.stretch ? (
-              <SentimentStretchTrack
-                stretch={card.stretch}
-                className={card.spark ? "mt-3 border-t border-border/60 pt-3" : undefined}
-              />
+            {card.spark ? (
+              <SentimentSparkPlot spark={card.spark} stretch={card.stretch} />
+            ) : card.stretch ? (
+              <SentimentStretchTrack stretch={card.stretch} />
             ) : null}
           </div>
         ) : (

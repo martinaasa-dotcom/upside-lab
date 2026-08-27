@@ -7,6 +7,7 @@ import {
   sentimentSparkLayout,
   signedRatioAtPct,
   signedTrackFill,
+  sparkGhostDays,
   stretchFillPct,
 } from "@/lib/market-sentiment-viz";
 
@@ -79,6 +80,7 @@ describe("sentimentSparkLayout", () => {
     expect(layout!.priceLine.split(" ")).toHaveLength(3);
     expect(layout!.probes).toHaveLength(3);
     expect(layout!.streak).toBeNull();
+    expect(layout!.ghost).toBeNull();
   });
 
   it("marks the current stretch on the right of the year", () => {
@@ -92,5 +94,37 @@ describe("sentimentSparkLayout", () => {
     expect(layout!.streak).not.toBeNull();
     expect(layout!.streak!.x0).toBe(layout!.probes[2]!.x);
     expect(layout!.streak!.x1).toBe(layout!.last.x);
+    expect(layout!.ghost).toBeNull();
+  });
+
+  it("leaves empty time after today, not a modelled price", () => {
+    const layout = sentimentSparkLayout(
+      [100, 102, 104, 110],
+      [100, 100, 100, 100],
+      240,
+      56,
+      2,
+      80,
+      252
+    );
+    expect(layout!.ghost).not.toBeNull();
+    expect(layout!.ghost!.x0).toBeCloseTo(layout!.nowX, 5);
+    expect(layout!.ghost!.x1).toBeGreaterThan(layout!.ghost!.x0);
+    expect(layout!.last.x).toBeCloseTo(layout!.nowX, 5);
+  });
+});
+
+describe("sparkGhostDays", () => {
+  it("draws leftover days to the right of today", () => {
+    expect(sparkGhostDays(252, 97, false)).toBe(97);
+  });
+
+  it("draws nothing when the run is already the long one", () => {
+    expect(sparkGhostDays(252, null, true)).toBe(0);
+  });
+
+  it("never shrinks the year below the floor", () => {
+    const ghost = sparkGhostDays(252, 400, false);
+    expect(252 / (252 + ghost)).toBeGreaterThanOrEqual(0.62);
   });
 });

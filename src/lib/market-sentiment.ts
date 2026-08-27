@@ -18,6 +18,8 @@ export type SentimentSpark = {
   at?: string[];
   /** Downsampled index where the current stretch above/below usual begins. */
   streakFrom?: number | null;
+  /** Market days in the spark window, before downsampling. */
+  windowDays?: number;
 };
 
 export type SentimentMetrics = {
@@ -456,6 +458,7 @@ export function spySparkFromCloses(
   const spark: SentimentSpark = {
     price: idx.map((i) => roundSpark(windowP[i]!)),
     usual: idx.map((i) => roundSpark(windowU[i]!)),
+    windowDays: windowP.length,
   };
   if (dated && windowA.length === windowP.length) {
     const days = idx.map((i) => windowA[i] ?? null);
@@ -613,6 +616,9 @@ function isSpark(v: unknown): boolean {
     if (!Number.isFinite(o.streakFrom) || o.streakFrom < 0 || o.streakFrom >= o.price.length) {
       return false;
     }
+  }
+  if (o.windowDays != null && !(typeof o.windowDays === "number" && Number.isFinite(o.windowDays) && o.windowDays > 0)) {
+    return false;
   }
   return true;
 }

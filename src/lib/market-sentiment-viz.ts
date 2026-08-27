@@ -12,6 +12,8 @@ const HALF_CAP = 0.88;
 export const SIGNED_EDGE_PCT = HALF_CAP * 50;
 const FILL_FLOOR = 8;
 const FILL_CEILING = 92;
+/** History keeps at least this share of the spark when a leftover run is drawn. */
+const HIST_MIN_FRAC = 0.62;
 
 export function downsampleIndices(length: number, n: number): number[] {
   if (length <= 0) return [];
@@ -54,6 +56,23 @@ export function stretchFillPct(
   const total = streakDays + typicalMoreDays;
   if (!(total > 0)) return null;
   return Math.max(FILL_FLOOR, Math.min(FILL_CEILING, (streakDays / total) * 100));
+}
+
+/**
+ * How many leftover days to draw to the right of today, on the same
+ * day-scale as the year spark. Zero when the run is already the long one,
+ * or when leftover history is too thin. Caps so the year never shrinks
+ * below HIST_MIN_FRAC. Empty space only: never a modelled price.
+ */
+export function sparkGhostDays(
+  windowDays: number,
+  typicalMoreDays: number | null,
+  alreadyLong: boolean
+): number {
+  if (alreadyLong || typicalMoreDays == null || typicalMoreDays < 5) return 0;
+  if (!(windowDays > 0)) return 0;
+  const maxGhost = windowDays * (1 / HIST_MIN_FRAC - 1);
+  return Math.min(typicalMoreDays, Math.floor(maxGhost));
 }
 
 export function linearMarkerPct(
@@ -103,7 +122,9 @@ export function sentimentSparkLayout(
   usual: number[],
   width = 240,
   height = 56,
-  streakFrom: number | null = null
+  streakFrom: number | null = null,
+  ghostDays = 0,
+  windowDays = SPARK_WINDOW
 ): {
   priceLine: string;
   usualLine: string;
@@ -112,6 +133,8 @@ export function sentimentSparkLayout(
   last: { x: number; y: number; above: boolean };
   probes: { x: number; yPrice: number; yUsual: number }[];
   streak: { x0: number; x1: number } | null;
+  ghost: { x0: number; x1: number } | null;
+  nowX: number;
 } | null {
   if (price.length < 2 || price.length !== usual.length) return null;
   const padL = 2;
@@ -120,6 +143,9 @@ export function sentimentSparkLayout(
   const padB = 6;
   const innerW = width - padL - padR;
   const innerH = height - padT - padB;
+  const ghost = ghostDays > 0 && windowDays > 0 ? ghostDays : 0;
+  const histW =
+    ghost > 0 ? innerW * (windowDays / (windowDays + ghost)) : innerW;
   let min = Infinity;
   let max = -Infinity;
   for (let i = 0; i < price.length; i++) {
@@ -132,7 +158,7 @@ export function sentimentSparkLayout(
   }
   const span = max - min;
   const lastIdx = price.length - 1;
-  const xAt = (i: number) => padL + (i / lastIdx) * innerW;
+  const xAt = (i: number) => padL + (i / lastIdx) * histW;
   const ysP: number[] = [];
   const ysU: number[] = [];
   const xs: number[] = [];
@@ -164,6 +190,8 @@ export function sentimentSparkLayout(
     streakFrom != null && streakFrom >= 0 && streakFrom < lastIdx
       ? Math.floor(streakFrom)
       : null;
+  const nowX = ((padL + histW) / width) * 100;
+  const ghostEnd = ((padL + innerW) / width) * 100;
   return {
     priceLine,
     usualLine,
@@ -179,6 +207,8 @@ export function sentimentSparkLayout(
       from != null
         ? { x0: probes[from]!.x, x1: probes[lastIdx]!.x }
         : null,
+    ghost: ghost > 0 ? { x0: nowX, x1: ghostEnd } : null,
+    nowX,
   };
 }
 
@@ -186,14 +216,18 @@ export function sparkIndexFromClientX(
   clientX: number,
   rect: DOMRect,
   lastIdx: number,
-  width = 240
+  width = 240,
+  histEndX?: number
 ): number {
   if (rect.width <= 0 || lastIdx <= 0) return 0;
   const padL = 2;
   const padR = 8;
   const innerW = width - padL - padR;
+  const histW =
+    histEndX != null && histEndX > padL ? histEndX - padL : innerW;
   const x = ((clientX - rect.left) / rect.width) * width;
-  const t = (x - padL) / innerW;
+  if (x > padL + histW) return -1;
+  const t = (x - padL) / histW;
   return Math.max(0, Math.min(lastIdx, Math.round(t * lastIdx)));
 }
 
