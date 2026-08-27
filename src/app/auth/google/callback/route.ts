@@ -15,6 +15,7 @@ import { googleEmailFromIdToken } from "@/lib/auth/id-token";
 import {
   accountForAddress,
   connectGoogleAddress,
+  hashedSessionTokenForAddress,
   magicTokenFor,
 } from "@/lib/auth/linked-addresses";
 import { isLocalHost } from "@/lib/site-url";
@@ -143,6 +144,30 @@ export async function GET(request: Request) {
     access_token: tokens.accessToken,
   });
   if (error || !data.user) {
+    /*
+      An account that was opened with an email link, then later uses Google
+      with the same address. The identity token would try to make a second
+      user. The session comes from the account that already has that email.
+    */
+    const existing = await hashedSessionTokenForAddress(googleEmail);
+    if (existing) {
+      const { data: linkedData, error: linkedError } = await supabase.auth.verifyOtp({
+        type: "magiclink",
+        token_hash: existing,
+      });
+      if (!linkedError && linkedData.user) {
+        try {
+          await ensureProfileAndClaims(linkedData.user);
+        } catch (err) {
+          console.error(
+            "google sign-in claim failed",
+            err instanceof Error ? err.message : err
+          );
+        }
+        clearOAuthCookie(res, secure);
+        return res;
+      }
+    }
     console.error("google id token sign-in failed", error?.message);
     return fail();
   }

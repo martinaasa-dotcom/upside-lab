@@ -70,8 +70,9 @@ export default function TermsPage() {
         </Section>
 
         <Section title="3. Your account">
-          You sign in with Google. You&apos;re responsible for keeping that
-          Google account secure. Anyone with access to it can access your{" "}
+          You sign in with Google, or with a link we send to your email.
+          You&apos;re responsible for keeping that Google account or mailbox
+          secure. Anyone with access to it can access your{" "}
           {PRODUCT_NAME} data. Under 13 is never allowed. If you sign up on
           your own, you confirm you are 16 or older when you sign in. If a
           teacher invited you into a Classroom, the age is 13, because a

@@ -93,12 +93,12 @@ export const SIGNIN_PRICE_NOTE =
  * Why it is safe to put real holdings in.
  *
  * Every line is a fact about the product, checkable from the app itself:
- * sign-in really is Google only, a portfolio really is private until an
- * invite is accepted, and Account really does have both an export and a
- * delete. Do not add a line here that the app cannot back up.
+ * sign-in is Google or a link we send to your email, a portfolio really is
+ * private until an invite is accepted, and Account really does have both an
+ * export and a delete. Do not add a line here that the app cannot back up.
  */
 export const SIGNIN_TRUST = [
-  "Google sign-in, so there is no password to lose.",
+  "Sign in with Google, or a link we send to your email. There is no password to lose.",
   "Your portfolio is private until you invite someone into it.",
   "Export everything, or delete all of it, from your account page.",
 ] as const;

@@ -72,6 +72,11 @@ export default function PrivacyPage() {
               choose to interact with.
             </li>
             <li>
+              <strong className="text-foreground">From email sign-in:</strong>{" "}
+              the address we send the link to, used to create your account
+              and identify you the same way.
+            </li>
+            <li>
               <strong className="text-foreground">What you enter:</strong>{" "}
               holdings, cash, notes, targets, forecast overrides, chat with
               Assistant Margus, and any broker or bank screenshot you upload

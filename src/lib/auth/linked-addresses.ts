@@ -116,8 +116,8 @@ export async function accountForAddress(
  * account, and no second auth user is ever made.
  *
  * The project needs the email provider switched on for this, even though no
- * mail is ever sent through it. That is the one setting this feature adds to
- * a Google-only project, and if it is off, `generateLink` fails and the
+ * mail is ever sent through it. That is the setting this feature adds, and
+ * if it is off, `generateLink` fails and the
  * caller falls back to refusing rather than signing the wrong person in.
  */
 export async function magicTokenFor(primaryEmail: string): Promise<string | null> {
@@ -135,6 +135,37 @@ export async function magicTokenFor(primaryEmail: string): Promise<string | null
   }
 
   return data?.properties?.hashed_token ?? null;
+}
+
+/**
+ * A one-time token for whichever account this address already reaches.
+ *
+ * Extra addresses go to the account they were added to. An address that is
+ * already the login on an auth user goes to that user. Null means there is
+ * nobody yet, which is how a first email sign-in knows to make one.
+ */
+export async function hashedSessionTokenForAddress(
+  rawEmail: string
+): Promise<string | null> {
+  const linked = await accountForAddress(rawEmail);
+  if (linked) return magicTokenFor(linked.primaryEmail);
+
+  const admin = getSupabaseServer();
+  if (!admin || !supabaseUsesServiceRole()) return null;
+
+  const email = normalizeAddress(rawEmail);
+  if (!email) return null;
+
+  const { data } = await admin.rpc("portfell_account_for_login_email", {
+    p_email: email,
+  });
+  const userId = (data as string | null) ?? null;
+  if (!userId) return null;
+
+  const { data: found, error } = await admin.auth.admin.getUserById(userId);
+  if (error || !found?.user?.email) return null;
+
+  return magicTokenFor(found.user.email);
 }
 
 /*

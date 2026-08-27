@@ -446,6 +446,30 @@ export type Database = {
           },
         ]
       }
+      portfell_email_logins: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          next_path: string
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          next_path?: string
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          next_path?: string
+          token_hash?: string
+        }
+        Relationships: []
+      }
       portfell_error_log: {
         Row: {
           context: Json | null

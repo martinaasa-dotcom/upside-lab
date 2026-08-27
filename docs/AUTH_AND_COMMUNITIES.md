@@ -2,10 +2,10 @@
 
 ## Product model
 
-- **My portfolio**: Google-signed-in users co-own portfolios via `portfell_portfolio_owners` (many users ↔ many portfolios). Full live read **and** write for every co-owner.
+- **My portfolio**: Signed-in users co-own portfolios via `portfell_portfolio_owners` (many users ↔ many portfolios). Full live read **and** write for every co-owner.
 - `portfell_portfolios.owner_id` remains as optional primary/creator hint; **authorization uses the junction table**.
 - **Communities**: members see each co-owner’s portfolios live, **read-only**. Invite joins and existing members show every real portfolio unless the owner turns one off. A public join request lets them pick which portfolios the circle will see. Classrooms stay paper-only. Never share a real portfolio into a class.
-- Portfolio PIN/password and guest share links are **removed** — Google session + co-ownership is the only gate.
+- Portfolio PIN/password and guest share links are **removed**. A signed-in session (Google or email link) plus co-ownership is the only gate.
 - Community membership is **always opt-in, never automatic**. Signing in never adds anyone to any community (fixed in `030`, see below). A community is either:
   - **Private** (default): invite-link only, exactly like portfolio co-ownership.
   - **Public**: discoverable to any signed-in user (`GET /api/communities/discover`), who can ask to join (`POST /api/communities/:id/join-request`) — an admin still has to approve (`PATCH` same route) before the requester gets read access to anyone's portfolios.
@@ -13,9 +13,9 @@
 
 ## One account, more than one address
 
-`portfell_account_emails` (migration `20260823170000`) is the list of other addresses that open **one** account. Sign-in here is Google, and Google hands back an address, so a second Google account used to mean a second Upside Lab account: new empty portfolios, no holdings, no circle, and a support email as the only way out.
+`portfell_account_emails` (migration `20260823170000`) is the list of other addresses that open **one** account. Google sign-in hands back an address, so a second Google account used to mean a second Upside Lab account: new empty portfolios, no holdings, no circle, and a support email as the only way out.
 
-**No second auth user is ever made.** Supabase still holds exactly one, with one primary email. The extra addresses are checked before a Google identity is turned into a session: `/auth/google/callback` asks `accountForAddress` first, and when it answers, the session comes from a one-time token minted for the account that owns the address (`magicTokenFor`, spent by `verifyOtp`) rather than from Supabase's own idea of who that address is.
+**No second auth user is ever made.** Supabase still holds exactly one, with one primary email. The extra addresses are checked before a Google identity is turned into a session: `/auth/google/callback` asks `accountForAddress` first, and when it answers, the session comes from a one-time token minted for the account that owns the address (`magicTokenFor`, spent by `verifyOtp`) rather than from Supabase's own idea of who that address is. Email sign-in uses the same lookup (`hashedSessionTokenForAddress`).
 
 Two ways to add one:
 
@@ -33,6 +33,15 @@ Every outcome is a word in `ADDRESS_MESSAGES` (`src/lib/auth/account-addresses.t
 Do not replace any of this with Supabase's `linkIdentity`: it sends the browser to Supabase's own callback, which is the exact thing `src/lib/auth/google-oauth.ts` exists to avoid, and it would put a hostname nobody recognises on the consent screen.
 
 Not the same thing as the alias table below, which stays. That one maps address to address so two **separate** accounts read as one person on a member list. It is a display rule and it never fixed the second account's empty portfolios.
+
+## Email sign-in
+
+People who will not use Google get a link mailed to their address. There is no password.
+
+- `POST /api/auth/email` with `{ email }` (optional `next`, `confirmed`). Same "did you mean" and MX check as adding an address. Success always returns the same sentence, so it cannot say whether the address already has an account.
+- Mail goes through Resend. The token's sha256 sits in `portfell_email_logins` for one hour. Service role only. Asking again replaces the row.
+- `GET /auth/email?token=` shows a button and changes nothing. Mail scanners fetch every URL. `POST /auth/email/complete` spends the token, mints a session with `verifyOtp`, and runs `ensureProfileAndClaims`.
+- If the address already reaches an account, that account is opened. Otherwise `createUser` (already confirmed, because the button is the proof) then `magicTokenFor`.
 
 ## Identity aliases
 

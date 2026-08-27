@@ -209,8 +209,8 @@ export function communityInviteCopy(input: {
   const name = input.name.trim() || (input.classroom ? "a class" : "a Circle");
   const subject = `Join ${name}`;
   const lead = input.classroom
-    ? `You've been invited into ${name}. Sign in with Google and you get a paper portfolio to work from.`
-    : `You've been invited into ${name}. Sign in with Google and pick which portfolios to share. Today's prices only.`;
+    ? `You've been invited into ${name}. Sign in and you get a paper portfolio to work from.`
+    : `You've been invited into ${name}. Sign in and pick which portfolios to share. Today's prices only.`;
   const text = [
     lead,
     input.url,
@@ -265,6 +265,40 @@ export function confirmAddressCopy(input: {
 <p style="margin:0;font-family:${EMAIL.sans};font-size:26px;line-height:1.25;font-weight:400;letter-spacing:-0.02em;color:${EMAIL.cream}">Confirm this address</p>
 <p style="margin:22px 0 0 0;font-family:${EMAIL.sans};font-size:17px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(lead)}</p>
 ${emailButton(input.url, "Confirm this address")}
+<p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">The link lasts one hour and works once. ${escapeEmail(ignore)}</p>`,
+  });
+  return { subject, text, html };
+}
+
+/**
+ * Sent when somebody asks to sign in without Google.
+ *
+ * The link opens a page. It does not sign them in on its own, because mail
+ * scanners fetch every URL they see and a fetch is not a decision. The
+ * button on that page is.
+ */
+export function signInLinkCopy(input: { url: string }): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const subject = "Sign in to Upside Lab";
+  const lead =
+    "Here is your sign-in link for Upside Lab. Open it, then press Sign in on the page. That is the step that actually opens the account.";
+  const ignore =
+    "If you did not ask for this, ignore it. Nobody is signed in unless that button is pressed.";
+  const text = [lead, input.url, "The link lasts one hour and works once.", ignore].join(
+    "\n\n"
+  );
+  const html = wrapEmailLetter({
+    title: subject,
+    preview: lead,
+    hideOpener: true,
+    body: `${emailKicker("Your account")}
+<div style="height:18px;font-size:0;line-height:0">&nbsp;</div>
+<p style="margin:0;font-family:${EMAIL.sans};font-size:26px;line-height:1.25;font-weight:400;letter-spacing:-0.02em;color:${EMAIL.cream}">Sign in to Upside Lab</p>
+<p style="margin:22px 0 0 0;font-family:${EMAIL.sans};font-size:17px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(lead)}</p>
+${emailButton(input.url, "Open the sign-in page")}
 <p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">The link lasts one hour and works once. ${escapeEmail(ignore)}</p>`,
   });
   return { subject, text, html };

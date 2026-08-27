@@ -90,6 +90,13 @@ export const accountAddressPostSchema = z.looseObject({
   confirmed: z.boolean().optional(),
 });
 
+/** Asking for a sign-in link. `confirmed` answers a "did you mean" question. */
+export const emailLoginPostSchema = z.looseObject({
+  email: z.string().max(254),
+  confirmed: z.boolean().optional(),
+  next: z.string().max(500).optional(),
+});
+
 export const accountAddressDeleteSchema = z.looseObject({
   id: z.string().uuid(),
 });

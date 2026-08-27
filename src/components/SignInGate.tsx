@@ -11,8 +11,6 @@ import {
 } from "@/components/ui/Panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { cn } from "@/lib/format";
 import { BellRing, CheckCircle2, MessageCircle } from "lucide-react";
@@ -29,6 +27,7 @@ import {
   SIGNIN_WHO,
 } from "@/lib/product";
 import { SignedOutLanding } from "@/components/SignedOutLanding";
+import { SignInMethods } from "@/components/SignInMethods";
 import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
 import { supabaseIsConfigured } from "@/lib/supabase/env";
 import Link from "next/link";
@@ -46,7 +45,7 @@ type Props = {
 };
 
 /**
- * Requires Google SSO when Supabase is configured.
+ * Requires a session when Supabase is configured.
  * Demo / no-Supabase local mode renders children immediately.
  */
 export function SignInGate({ children, invite: seededInvite = null }: Props) {
@@ -82,7 +81,7 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("signin") === "failed") {
-      setErr("Google sign-in didn't finish. Try again.");
+      setErr("Sign-in didn't finish. Try again.");
       url.searchParams.delete("signin");
       window.history.replaceState(
         window.history.state,
@@ -255,16 +254,12 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
             </ul>
 
             <div className="signin-rise-3 mt-10 flex max-w-sm flex-col gap-2.5">
-              <Button
-                type="button"
-                size="lg"
-                disabled={busy}
-                onClick={() => void onSignIn()}
-                className="h-11 w-full gap-2.5 rounded-full text-base md:w-auto md:min-w-[17rem]"
-              >
-                {busy ? <Spinner data-icon="inline-start" /> : <GoogleMark />}
-                {busy ? "Redirecting …" : "Continue with Google"}
-              </Button>
+              <SignInMethods
+                googleBusy={busy}
+                onGoogle={() => void onSignIn()}
+                startWithEmail
+                align="start"
+              />
             </div>
 
             {err && (
@@ -452,28 +447,5 @@ function BookStill() {
         </div>
       </Panel>
     </div>
-  );
-}
-
-function GoogleMark() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
-      <path
-        fill="#EA4335"
-        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-      />
-      <path
-        fill="#4285F4"
-        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M10.53 28.59c-0.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-      />
-      <path
-        fill="#34A853"
-        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-      />
-    </svg>
   );
 }

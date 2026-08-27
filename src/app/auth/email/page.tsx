@@ -1,0 +1,80 @@
+import Link from "next/link";
+
+import { HeaderBrand } from "@/components/HeaderBrand";
+import { Button } from "@/components/ui/button";
+import { PRODUCT_NAME, PRODUCT_SUPPORT_EMAIL } from "@/lib/product";
+import { privatePageMetadata } from "@/lib/site-metadata";
+
+export const metadata = privatePageMetadata();
+
+export const dynamic = "force-dynamic";
+
+/*
+  The far end of an email sign-in link.
+
+  GET shows this page and changes nothing. Mail scanners, previewers and
+  corporate gateways fetch every URL in a message before anybody reads it,
+  and a sign-in that fires on a fetch is one that happens to a scanner, then
+  fails for the person who actually opened the mail.
+
+  The button posts to /auth/email/complete, which is the only method that
+  spends the token.
+*/
+
+const PROBLEMS: Record<string, string> = {
+  expired:
+    "That link has already been used, or it has run out. Ask for a new one from the sign-in page and open it within the hour.",
+  "missing-token": "That link is missing the part that signs you in.",
+  failed: `Something went wrong at our end. Ask for a new link and try once more. If it keeps happening, mail ${PRODUCT_SUPPORT_EMAIL}.`,
+  "not-configured": "Email sign-in is not switched on here yet.",
+};
+
+export default async function EmailSignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ token?: string; problem?: string }>;
+}) {
+  const { token, problem } = await searchParams;
+  const failed = problem ? (PROBLEMS[problem] ?? PROBLEMS.failed) : null;
+  const ready = Boolean(token?.trim()) && !failed;
+
+  return (
+    <div className="min-h-dvh bg-background text-foreground">
+      <header className="border-b border-border bg-background/90 backdrop-blur">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
+          <HeaderBrand />
+          <Button asChild variant="outline" size="sm">
+            <Link href="/">Back</Link>
+          </Button>
+        </div>
+      </header>
+
+      <main
+        id="main"
+        className="mx-auto flex min-w-0 max-w-lg flex-col gap-4 px-6 py-16 text-sm leading-relaxed"
+      >
+        <h1 className="text-2xl font-semibold">
+          {failed ? "That link did not work" : `Sign in to ${PRODUCT_NAME}`}
+        </h1>
+
+        <p className="text-muted-foreground">
+          {failed ??
+            "Press the button to open your account. Opening this page is not enough on purpose: a mail app often loads the link before you do."}
+        </p>
+
+        {ready ? (
+          <form method="post" action="/auth/email/complete" className="mt-2">
+            <input type="hidden" name="token" value={token} />
+            <Button type="submit">Sign in</Button>
+          </form>
+        ) : (
+          <div className="mt-2">
+            <Button asChild>
+              <Link href="/">Back to {PRODUCT_NAME}</Link>
+            </Button>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

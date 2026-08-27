@@ -21,7 +21,7 @@ export function inviteLandingCopy(invite: InviteLanding): {
       title: name
         ? `You've been invited to edit ${name}.`
         : "You've been invited to edit a portfolio together.",
-      detail: "Sign in with Google to accept. Then you share the portfolio.",
+      detail: "Sign in to accept. Then you share the portfolio.",
     };
   }
   if (invite.kind === "classroom") {
@@ -29,14 +29,14 @@ export function inviteLandingCopy(invite: InviteLanding): {
       title: name
         ? `You've been invited to join ${name}.`
         : "You've been invited to a class.",
-      detail: "Sign in with Google to accept. You'll get a paper portfolio for the class.",
+      detail: "Sign in to accept. You'll get a paper portfolio for the class.",
     };
   }
   return {
     title: name
       ? `You've been invited to join ${name}.`
       : "You've been invited to join a group.",
-    detail: "Sign in with Google to accept. Then the group opens.",
+    detail: "Sign in to accept. Then the group opens.",
   };
 }
 

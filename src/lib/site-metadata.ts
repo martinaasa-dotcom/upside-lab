@@ -14,7 +14,7 @@ import { siteUrl } from "@/lib/site-url";
 
 export const SITE_DESCRIPTION = `${PRODUCT_SENTENCE} ${PRODUCT_BLURB}`;
 
-export const LOGIN_DESCRIPTION = `Sign in with Google. ${SIGNIN_WHO}`;
+export const LOGIN_DESCRIPTION = `Sign in with Google, or a link we send to your email. ${SIGNIN_WHO}`;
 
 export const COMMUNITIES_DESCRIPTION =
   "Compare portfolios with people you know. Join a circle, or start one.";
