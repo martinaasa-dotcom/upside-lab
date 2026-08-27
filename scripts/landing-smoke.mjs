@@ -108,6 +108,7 @@ const launchOpts = {
 
 let server = null;
 let browser = null;
+let failed = null;
 try {
   server = await startServer();
   browser = await chromium.launch(launchOpts);
@@ -124,10 +125,29 @@ try {
     timeout: 20_000,
   });
   console.log("ok privacy");
+} catch (err) {
+  failed = err;
 } finally {
   clearTimeout(hardTimer);
-  await browser?.close();
-  if (server) {
-    server.kill("SIGTERM");
+  if (server?.pid) {
+    try {
+      process.kill(server.pid, "SIGKILL");
+    } catch {
+      /* already gone */
+    }
+  }
+  try {
+    await Promise.race([
+      browser?.close() ?? Promise.resolve(),
+      new Promise((resolve) => setTimeout(resolve, 2000)),
+    ]);
+  } catch {
+    /* close hung; we already killed next start */
   }
 }
+
+if (failed) {
+  console.error(failed);
+  process.exit(1);
+}
+process.exit(0);
