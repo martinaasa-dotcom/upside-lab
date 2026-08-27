@@ -499,6 +499,68 @@ export function buildFallbackForecastPlan(input: {
   });
 }
 
+/**
+ * Assemble a plan straight from the shared server-side ticker cache
+ * (src/lib/forecast-ticker-cache-store.ts), with no model call at all. Used
+ * when every holding in the portfolio already has a fresh cached path from
+ * some other portfolio's run, so a person never waits on Margus to re-derive
+ * a name that has already been reasoned out.
+ */
+export function buildCachedForecastPlan(input: {
+  forecast: ForecastModel;
+  portfolioId: string;
+  portfolioName: string;
+  cacheHits: Record<
+    string,
+    { prices: Partial<Record<ForecastYear, number>>; rationale?: string }
+  >;
+  now?: Date;
+}): ForecastPlan {
+  const now = input.now ?? new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const quarter = Math.floor(month / 3) + 1;
+  const nextQuarter =
+    quarter === 4
+      ? { q: 1, y: year + 1 }
+      : { q: quarter + 1, y: year };
+  const seeded = input.forecast.rows.map((r) => {
+    const hit = input.cacheHits[r.ticker.toUpperCase()];
+    return {
+      ticker: r.ticker,
+      prices: (hit?.prices ?? {}) as ForecastPlan["eoyTargets"][number]["prices"],
+      rationale: hit?.rationale,
+    };
+  });
+  const eoyTargets = ensureCompleteEoyTargets(input.forecast, seeded);
+  return humanizeMargusTree({
+    generalAdvice:
+      "Every holding here already had a modeled price path worked out somewhere else in Upside Lab, so this loaded from that shared work instead of asking the model again.",
+    sectorRotation:
+      "Reused from an earlier run on these same holdings. Ask Margus to work it out again for a fresh rotation call.",
+    periods: [
+      {
+        label: `Next quarter (Q${nextQuarter.q} ${nextQuarter.y})`,
+        theme: "Reused from a shared run",
+        add: "No mix change",
+        trim: "No mix change",
+      },
+      {
+        label: `${year + 1}`,
+        theme: "Reused from a shared run",
+        add: "No mix change",
+        trim: "No mix change",
+      },
+    ],
+    eoyTargets,
+    generatedAt: now.toISOString(),
+    portfolioId: input.portfolioId,
+    portfolioName: input.portfolioName,
+    stance: DEFAULT_FORECAST_STANCE,
+    fallback: false,
+  });
+}
+
 /** Detect boring equal-step / near-constant YoY ramps the model sometimes emits. */
 function isNearLinear(
   prices: Record<ForecastYear, number>,
