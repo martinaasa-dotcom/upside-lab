@@ -55,7 +55,17 @@ export function CommunityTodayBoard({
                   >
                     <ItemMedia className="w-6 justify-center">
                       {i < 3 ? (
-                        <RankMedal place={(i + 1) as 1 | 2 | 3} />
+                        <>
+                          <RankMedal place={(i + 1) as 1 | 2 | 3} />
+                          {/*
+                            The medal is the only place the top three carry
+                            their position, and it is drawn `aria-hidden`, so
+                            without this a screen reader heard "4", "5", "6"
+                            down the board and nothing at all for the three
+                            rows that matter most.
+                          */}
+                          <span className="sr-only">{i + 1}</span>
+                        </>
                       ) : (
                         <span className="w-6 text-center text-sm tabular-nums text-muted-foreground">
                           {i + 1}
