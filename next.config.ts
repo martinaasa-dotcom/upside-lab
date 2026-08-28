@@ -40,11 +40,6 @@ const nextConfig: NextConfig = {
         source: "/communities/:path+",
         headers: [ROBOTS_NOINDEX_HEADER],
       },
-      {
-        source: "/",
-        has: [{ type: "query", key: "tab" }],
-        headers: [ROBOTS_NOINDEX_HEADER],
-      },
     ];
   },
 };

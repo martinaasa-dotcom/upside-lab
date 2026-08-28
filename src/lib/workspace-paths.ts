@@ -16,7 +16,13 @@ export function workspaceRoomId(pathname: string): string | null {
   if (path.startsWith("/communities/join")) return null;
   if (path.startsWith("/account/join")) return null;
   if ((BOOK_ROOM_PATHS as readonly string[]).includes(path)) return "book";
+  /*
+    Before `/portfolio`, and anchored on the slash. `/upside-portfolio` is
+    the Fund, a different room entirely, and a prefix test loose enough to
+    claim it would move the Fund into the book without anything failing.
+  */
   if (path.startsWith("/upside-portfolio")) return "fund";
+  if (path.startsWith("/portfolio/")) return "book";
   if (path === "/communities") return "communities";
   const community = /^\/communities\/([^/]+)$/.exec(path);
   if (community?.[1]) return `community:${community[1]}`;

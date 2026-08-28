@@ -65,7 +65,13 @@ export type DashboardBookWritesArgs = {
   margusPortfolio: Portfolio | null;
   inviteSheet: Portfolio | null;
   activeId: string;
-  setActiveId: Dispatch<SetStateAction<string>>;
+  /**
+   * Opens a tab. A navigation rather than a state write since every room
+   * has a path of its own; the `SetStateAction` shape is kept so callers
+   * that reach for the previous value ("close this sheet if it is the one
+   * open") read as they did. See `hrefForTabId`.
+   */
+  goToTab: Dispatch<SetStateAction<string>>;
   eoyOverrides: PortfolioEoyOverrides;
   setEoyOverrides: Dispatch<SetStateAction<PortfolioEoyOverrides>>;
   undoStack: BookUndoSnapshot[];
@@ -123,7 +129,7 @@ export function useDashboardBookWrites(args: DashboardBookWritesArgs) {
     margusPortfolio,
     inviteSheet,
     activeId,
-    setActiveId,
+    goToTab,
     eoyOverrides,
     setEoyOverrides,
     undoStack,
@@ -546,7 +552,7 @@ export function useDashboardBookWrites(args: DashboardBookWritesArgs) {
    * first paste on an empty account.
    *
    * There, `onPasteHoldings` creates the first portfolio and then imports
-   * into it in the same tick. Creating it calls `setActiveId`, but React has
+   * into it in the same tick. Creating it calls `goToTab`, but React has
    * not re-rendered by the time the import runs, so `activePortfolio` is
    * still the `null` it was when the empty state was drawn. The import hit
    * this guard and returned. The portfolio appeared, the page navigated to
@@ -1007,7 +1013,7 @@ export function useDashboardBookWrites(args: DashboardBookWritesArgs) {
         try {
           const target = await ensureFirstSheet();
           if (!target) return;
-          if (activeId !== target.id) setActiveId(target.id);
+          if (activeId !== target.id) goToTab(target.id);
           if (kind === "manual") setModalOpen(true);
           else setCsvImportOpen(true);
         } catch (err) {
@@ -1209,7 +1215,7 @@ export function useDashboardBookWrites(args: DashboardBookWritesArgs) {
       });
       setHoldings((prev) => prev.filter((h) => isLiveSheetId(h.portfolio_id)));
       seedNewSheetPanelDefaults(created);
-      setActiveId(created.id);
+      goToTab(created.id);
       track("sheet_created", { first_sheet: isFirstSheet });
       if (!opts?.silent) toast("Portfolio added", "success");
       return created;
@@ -1218,7 +1224,7 @@ export function useDashboardBookWrites(args: DashboardBookWritesArgs) {
     setPortfolios(next.portfolios);
     const created = next.portfolios[next.portfolios.length - 1];
     seedNewSheetPanelDefaults(created);
-    setActiveId(created.id);
+    goToTab(created.id);
     track("sheet_created", { first_sheet: isFirstSheet });
     if (!opts?.silent) toast("Portfolio added", "success");
     return created;
@@ -1257,7 +1263,7 @@ export function useDashboardBookWrites(args: DashboardBookWritesArgs) {
           return;
         }
         targetId = created.id;
-        if (activeId !== created.id) setActiveId(created.id);
+        if (activeId !== created.id) goToTab(created.id);
       }
       silentScreenshotSeq.current += 1;
       setSilentScreenshot({
@@ -1348,13 +1354,13 @@ export function useDashboardBookWrites(args: DashboardBookWritesArgs) {
       clearChatHistory(id);
       setPortfolios((prev) => prev.filter((p) => p.id !== id));
       setHoldings((prev) => prev.filter((h) => h.portfolio_id !== id));
-      setActiveId((prev) => (prev === id ? OVERVIEW_TAB_ID : prev));
+      goToTab((prev) => (prev === id ? OVERVIEW_TAB_ID : prev));
     } else {
       const next = deletePortfolio(loadDemoStore(), id);
       clearChatHistory(id);
       setPortfolios(next.portfolios);
       setHoldings(next.holdings);
-      if (activeId === id) setActiveId(OVERVIEW_TAB_ID);
+      if (activeId === id) goToTab(OVERVIEW_TAB_ID);
     }
     toast("Portfolio deleted", "success");
     return true;
@@ -1440,7 +1446,7 @@ export function useDashboardBookWrites(args: DashboardBookWritesArgs) {
     const demo = resetDemoStore();
     setPortfolios(demo.portfolios);
     setHoldings(demo.holdings);
-    setActiveId(OVERVIEW_TAB_ID);
+    goToTab(OVERVIEW_TAB_ID);
     setLocked(hasLockedSave());
   }
 
