@@ -146,23 +146,6 @@ function SectionHead({
   detail?: string;
   className?: string;
 }) {
-  /*
-    Eyebrow, heading and paragraph share one column.
-
-    They used to have three different widths: the eyebrow and the heading
-    ran the full width of the section, and only the paragraph was capped, at
-    `max-w-xl`. On a wide screen that put a half-width paragraph under a
-    heading crossing the whole page, above cards that also crossed the whole
-    page, so the one small piece of text looked like it had been cut short
-    while everything around it kept going.
-
-    A cap on the paragraph alone was the right instinct for the wrong
-    element: prose needs a readable measure, and a heading at 30px reaches
-    that measure much sooner. Capping the group gives both the same edge, so
-    the heading wraps where the paragraph does and the block reads as one
-    column of text rather than two things that disagree. The grids below are
-    unaffected and still span the section, which is what a grid should do.
-  */
   return (
     <div className={cn("flex max-w-3xl flex-col gap-4", className)}>
       <MicroLabel className="text-primary">{eyebrow}</MicroLabel>
@@ -236,12 +219,12 @@ const WAYS_IN = [
   {
     icon: FileSpreadsheet,
     title: "Upload a CSV",
-    detail: "Almost every broker can export one for you in a couple of clicks.",
+    detail: "The file almost every broker will already export for you.",
   },
   {
     icon: ImageUp,
     title: "Drop in a screenshot",
-    detail: "A photo of your broker's holdings page. It reads the rows for you.",
+    detail: "A picture of your holdings page. It reads the rows out of it.",
   },
 ] as const;
 
@@ -374,17 +357,48 @@ function MargusStill() {
           )}
         >
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Seven of your eight companies are down and there was no news
+            Seven of your eight companies are down, and there was no news
             about any of them today, so this looks like the whole market
-            rather than your companies. You are down $3,630, which is 4% of what you hold, and
+            rather than something at your companies. You are down $3,630, which is 4% of what you hold, and
             you have had eleven days like it since you started.
           </p>
         </div>
       </div>
 
+      <div className="flex justify-end">
+        <p className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3.5 py-2.5 text-sm leading-relaxed text-primary-foreground">
+          Which one did put out news?
+        </p>
+      </div>
+
+      <div className="flex justify-start">
+        <div
+          className={cn(
+            CARD,
+            "max-w-[92%] rounded-2xl rounded-bl-sm px-3.5 py-2.5"
+          )}
+        >
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            $MSFT. It told investors to expect less next year than they had
+            been counting on. It is 9% of what you hold, and it is the one
+            name here worth reading about tonight.
+          </p>
+        </div>
+      </div>
+
+      {/*
+        * Two exchanges, not one.
+        *
+        * With a single question this card was about half the height of the
+        * Pulse card beside it and the bottom of its pane was empty, which
+        * on a two-column row reads as a panel that failed to load rather
+        * than as a short conversation. The second turn is also the more
+        * useful half of the demonstration: the first answer says the fall
+        * was the market, and this one says which single name it was not.
+        */}
       <div className="flex flex-wrap gap-2">
         <Pill>Has this happened before?</Pill>
-        <Pill>Which one did put out news?</Pill>
+        <Pill>How much of my portfolio is that?</Pill>
       </div>
     </Panel>
   );
@@ -395,13 +409,13 @@ const MORE = [
     icon: LineChart,
     title: "Forecast",
     detail:
-      "A year by year price path for every holding out to 2030, worked out one company at a time. Scenarios to think about, never a promise.",
+      "A yearly price path for every holding out to 2030, reasoned name by name. Scenarios to think with, never a promise.",
   },
   {
     icon: Mail,
     title: "A letter on Sunday",
     detail:
-      "One email a week: what moved in your portfolio, and why, written out in full sentences.",
+      "One email a week. What moved, and the reasoning in full sentences.",
   },
   {
     icon: LayoutGrid,
@@ -417,8 +431,8 @@ function More() {
       <Reveal>
         <SectionHead
           eyebrow="And the rest"
-          title="Three more parts of the app, once you are in."
-          detail="None of them tell you what to do. They put the facts in front of you, so the decision stays yours."
+          title="Three more rooms, once you are in."
+          detail="None of them will tell you what to do. They are there so the decision is yours with the facts in front of you."
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {MORE.map((m) => (
@@ -443,6 +457,28 @@ function More() {
     </Section>
   );
 }
+
+/*
+  The three facts that stop somebody being disappointed later.
+
+  A reader who already used a broker app arrived expecting this to be a
+  better version of it, went looking for the connection to their account,
+  and could not find the thing this app does not do, because nothing had
+  told them. Their whole session read as "more work for less information",
+  which is exactly what this is if you thought it would sync your broker.
+  Every one of these is checkable from the app itself.
+
+  They used to be the right-hand column of a separate "what this is for,
+  and what it is not" section, which was two problems at once: it asked the
+  same question the broker comparison asks, so a reader got the answer
+  twice, and it was drawn as the same pair of bordered columns, so the page
+  carried two near-identical panels saying overlapping things.
+*/
+const WILL_NOT = [
+  "Connect to your bank or broker. You add what you own once, and from then on the prices update on their own.",
+  "Know the day you bought. Returns are against your average price, so there is no chart starting on your buy date.",
+  "Buy or sell anything, or tell you to. Prices are free and delayed by a few minutes.",
+] as const;
 
 /**
  * The question the page exists to answer, asked in the reader's own words
@@ -516,8 +552,104 @@ function NotYourBroker() {
             </p>
           </div>
         </div>
+
+        {/*
+          * The limits, in the same breath as the comparison rather than in
+          * a section of their own three screens down. This is where
+          * somebody weighing one tool against another is actually looking.
+          *
+          * A plain row under a hairline rather than more cards: it is the
+          * fine print and should read like it, and a third bordered panel
+          * is what made the lower half of this page monotonous.
+          */}
+        <div className="mt-8 border-t border-border pt-6">
+          <MicroLabel>What it will not do</MicroLabel>
+          <ul className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-3">
+            {WILL_NOT.map((line) => (
+              <li
+                key={line}
+                className="flex items-start gap-2.5 text-sm leading-relaxed text-muted-foreground"
+              >
+                <MinusCircle
+                  className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                  aria-hidden
+                />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </Reveal>
     </Section>
+  );
+}
+
+/**
+ * A circle's board, drawn the way the real one is.
+ *
+ * Circle used to be three cards of prose here, while Pulse and Margus each
+ * had a picture of themselves. That is the section arguing that seeing
+ * other people's week is worth more than being told about it, making its
+ * case in words alone, and it read as the least real thing on the page.
+ *
+ * Everyone in the sample is down, because that is the point being made:
+ * the reassurance is not a sentence somebody wrote, it is four names in a
+ * column all having the same day. Percentages only. A circle shows how a
+ * member's day went and never what anything is worth, which is the whole
+ * reason people are willing to be in one.
+ */
+/*
+  Ordinary given names, and deliberately not the ones in AGENTS.md.
+
+  The first draft of this board used Martin's own household, because those
+  names were to hand. They are real people who never agreed to appear on a
+  public marketing page, and a sample is not a place to spend somebody
+  else's privacy. Anything generic makes the same point.
+*/
+const CIRCLE_BOARD = [
+  { name: "You", pct: "-4.0%" },
+  { name: "Anna", pct: "-3.6%" },
+  { name: "Mark", pct: "-4.4%" },
+  { name: "Priya", pct: "-2.9%" },
+] as const;
+
+function CircleStill() {
+  return (
+    <Panel className="h-auto gap-4 p-4" aria-hidden>
+      <div className="flex items-center justify-between gap-3">
+        <MicroLabel>Today in your circle</MicroLabel>
+        <Pill tone="neutral">Sample</Pill>
+      </div>
+
+      <div className={cn(CARD, "divide-y divide-border overflow-hidden")}>
+        {CIRCLE_BOARD.map((row) => (
+          <div key={row.name} className="flex h-11 items-center gap-3 px-3">
+            <span
+              className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/15 font-heading text-xs font-semibold text-primary"
+              aria-hidden
+            >
+              {row.name.slice(0, 1)}
+            </span>
+            <span className="flex-1 truncate text-left text-sm text-foreground">
+              {row.name}
+            </span>
+            <span
+              className={cn(
+                "font-mono text-sm font-medium tabular-nums",
+                row.pct.startsWith("-") ? "text-loss" : "text-gain"
+              )}
+            >
+              {row.pct}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        Everybody had the same day. Nobody in here can see what anybody paid,
+        or what anything is worth.
+      </p>
+    </Panel>
   );
 }
 
@@ -526,19 +658,13 @@ const CIRCLE_POINTS = [
     icon: Users,
     title: "Share a portfolio",
     detail:
-      "Invite a partner, a parent or a friend and you both own it. They see today's prices, and never what you paid.",
-  },
-  {
-    icon: LayoutGrid,
-    title: "See everyone's day",
-    detail:
-      "A circle has a board with each member's day on it. When the whole board is red, that is the market, and seeing it is worth more than being told it.",
+      "Invite a partner, a parent or a friend and you both own it. They see today's prices and never what you paid.",
   },
   {
     icon: MessagesSquare,
-    title: "Somewhere to say it out loud",
+    title: "Nobody is added for you",
     detail:
-      "The reason you own something is easier to defend to a person than to yourself. Circles are private by default, and you are never added to one.",
+      "A circle is invite-only and private by default. Signing in never puts you in one, and nothing you own is shared until you share it.",
   },
 ] as const;
 
@@ -552,7 +678,7 @@ const CIRCLE_POINTS = [
  * the number in front of you. Everybody who has held anything for more
  * than a year knows this, and no product built around a single reader can
  * do anything about it. So it goes next to the features rather than after
- * them.
+ * them, and it gets a picture like they do.
  */
 function CircleSection() {
   return (
@@ -561,106 +687,28 @@ function CircleSection() {
         <SectionHead
           eyebrow="Circle"
           title="A bad week is easier with someone you know."
-          detail="It helps to hear that nothing really changed. It helps more when it comes from someone you know, looking at the same week."
+          detail="It helps to hear that nothing really changed. It helps more when it comes from someone you know who is looking at the same week."
         />
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          {CIRCLE_POINTS.map((c) => (
-            <div
-              key={c.title}
-              className={cn(BOX, NESTED_PAD, "flex flex-col gap-3")}
-            >
-              <span
-                className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15"
-                aria-hidden
+        <div className="mt-8 grid items-start gap-4 md:grid-cols-2">
+          <CircleStill />
+          <div className="grid gap-4">
+            {CIRCLE_POINTS.map((c) => (
+              <div
+                key={c.title}
+                className={cn(BOX, NESTED_PAD, "flex flex-col gap-3")}
               >
-                <c.icon className="size-4" />
-              </span>
-              <h3 className="text-foreground">{c.title}</h3>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {c.detail}
-              </p>
-            </div>
-          ))}
-        </div>
-      </Reveal>
-    </Section>
-  );
-}
-
-const IS_FOR = [
-  "Seeing everything you own in one place, explained in plain sentences instead of a wall of numbers.",
-  "Finding out, on the day your portfolio falls, whether anything actually happened at the companies you own.",
-  "Asking why your week went the way it did, and talking it through with people you invite in.",
-] as const;
-
-const IS_NOT = [
-  "It does not connect to your bank or your broker. You put in what you own yourself, and you add anything new you buy the same way. Prices update on their own after that.",
-  "It does not know the date you bought. Gains are measured against your average buy price, so there is no chart that starts on the day you bought.",
-  "It cannot buy or sell anything, and it will never tell you to. Whether to add, sell or sit still is yours, every time. Prices come from a free source and run a few minutes behind.",
-] as const;
-
-/**
- * What this is for, and what it is not, side by side and before the feature
- * tour rather than after it.
- *
- * A reader arrived expecting a better version of the broker app they
- * already use, spent their first session looking for the connection to
- * their account, and left with "more work, less information". Every word of
- * that is fair if that is what you came for, and nothing on the way in had
- * said otherwise. A page that only lists what a product does is a page that
- * recruits the wrong people, and the wrong people are the ones who write
- * the worst reviews. So the limits sit next to the point, in the same
- * weight of type, where somebody deciding can read both.
- */
-function Fit() {
-  return (
-    <Section>
-      <Reveal>
-        <SectionHead
-          eyebrow="Before you start"
-          title="What this is for, and what it is not."
-          detail="Here is what Upside Lab does, and what it does not do. Both lists are worth reading before you spend any time putting your portfolio in. If the first one is not what you were hoping for, it is better to find that out now than later."
-        />
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
-          <div className={cn(BOX, NESTED_PAD, "flex flex-col gap-4")}>
-            <MicroLabel className="text-primary">What it is for</MicroLabel>
-            <ul className="flex flex-col gap-3">
-              {IS_FOR.map((line) => (
-                <li
-                  key={line}
-                  className="flex items-start gap-2.5 text-sm leading-relaxed text-muted-foreground"
+                <span
+                  className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15"
+                  aria-hidden
                 >
-                  <CheckCircle2
-                    className="mt-0.5 size-4 shrink-0 text-primary"
-                    aria-hidden
-                  />
-                  <span>{line}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className={cn(BOX, NESTED_PAD, "flex flex-col gap-4")}>
-            <MicroLabel className="text-primary">What it is not</MicroLabel>
-            <ul className="flex flex-col gap-3">
-              {IS_NOT.map((line) => (
-                <li
-                  key={line}
-                  className="flex items-start gap-2.5 text-sm leading-relaxed text-muted-foreground"
-                >
-                  {/*
-                   * Muted, never a red cross. These are the shape of the
-                   * thing rather than faults, and drawing them as warnings
-                   * would be its own kind of dishonesty.
-                   */}
-                  <MinusCircle
-                    className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                    aria-hidden
-                  />
-                  <span>{line}</span>
-                </li>
-              ))}
-            </ul>
+                  <c.icon className="size-4" />
+                </span>
+                <h3 className="text-foreground">{c.title}</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {c.detail}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </Reveal>
@@ -738,7 +786,7 @@ function Closing({
         <div className="flex flex-col items-center gap-6 text-center">
           <h2>
             <span className="block max-w-xl text-balance font-heading text-2xl font-semibold leading-[1.15] tracking-[-0.03em] text-foreground sm:text-3xl">
-              Paste what you own. The next bad week will make a lot more
+              Paste what you own. The next red evening will make a lot more
               sense.
             </span>
           </h2>
@@ -828,9 +876,9 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
           */}
         <h1 className="mt-10">
           <span className="block text-balance font-heading text-[1.625rem] font-semibold leading-[1.12] tracking-[-0.04em] text-foreground sm:text-[2.75rem] sm:leading-[1.14] sm:tracking-[-0.035em]">
-            On a bad day, every app shows you the damage.
+            Everyone shows you the number.
             <span className="mt-1.5 block text-muted-foreground">
-              This one shows you what actually changed.
+              Nobody tells you what happened.
             </span>
           </span>
         </h1>
@@ -849,18 +897,12 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
           * not. Paste is three sections down. The first screen has to
           * answer that question or the rest of the page is a feature list
           * for a product they have already decided against.
-          *
-          * `max-w-xl`, not `lg`: at 32rem this broke into three short lines
-          * under a headline running much wider, which read as a column of
-          * text stuck to the middle of an empty page.
-          *
-          * It also used to end "in ordinary sentences", which is the page
-          * telling the reader that its writing is plain instead of being
-          * plain. The sentences are right there to be judged.
           */}
         <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-          Usually the whole market fell and there is no news about your
-          companies. Upside Lab checks each one and tells you which it is.
+          Upside Lab looks at everything you own, every day. On the days when
+          your whole portfolio is red, it tells you which of your companies
+          actually had news, and which ones simply fell along with everything
+          else.
         </p>
         <div className="mt-8 flex flex-col items-center gap-3.5">
           <SignInMethods googleBusy={busy} onGoogle={onSignIn} />
@@ -986,8 +1028,8 @@ function TrioShowcase() {
     <Section>
       <Reveal>
         <SectionHead
-          eyebrow="On a bad day"
-          title="A fall and bad news look exactly the same in a list of red numbers."
+          eyebrow="The whole point"
+          title="A fall and real news look exactly the same in a list of red numbers."
           detail="One of them is worth your evening and the other is not. Telling you which is which is the whole point of Upside Lab."
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
@@ -1008,7 +1050,6 @@ export function SignedOutLanding(props: HeroProps) {
       <NotYourBroker />
       <TrioShowcase />
       <CircleSection />
-      <Fit />
       <WaysIn />
       <More />
       <PriceAndTrust />

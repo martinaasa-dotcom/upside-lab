@@ -13,7 +13,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { cn } from "@/lib/format";
-import { BellRing, CheckCircle2, MessageCircle } from "lucide-react";
+import { Activity, CheckCircle2, MessageCircle, Users } from "lucide-react";
 import {
   inviteFromLocation,
   inviteLandingCopy,
@@ -22,9 +22,7 @@ import {
 import {
   PRODUCT_NAME,
   PRODUCT_SUPPORT_EMAIL,
-  PRODUCT_SENTENCE,
   SIGNIN_POINTS,
-  SIGNIN_WHO,
 } from "@/lib/product";
 import { SignedOutLanding } from "@/components/SignedOutLanding";
 import { SignInMethods } from "@/components/SignInMethods";
@@ -230,17 +228,32 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
                 * flagged. It measured 19.26:1 -> 14.73:1 contrast, so it
                 * was never actually illegible — it just reads as a hedge on
                 * the one sentence that has to sound certain. */}
+              {/*
+                * The invite's own words, with no fallback, because there is
+                * no case here without an invite.
+                *
+                * These two were `invite ? inviteLandingCopy(invite).x :
+                * PRODUCT_SENTENCE` and `: SIGNIN_WHO`. This whole block is
+                * the else of `{!invite ? <SignedOutLanding/> : ...}`, so
+                * `invite` is always truthy by the time either ternary is
+                * read and neither fallback could ever draw. Left in, they
+                * are worse than dead: somebody rewriting `SIGNIN_WHO` would
+                * reasonably believe they were changing what a person sees
+                * on the sign-in page, and they were not. Both constants are
+                * still live in `site-metadata.ts`, which is where they do
+                * their work.
+                */}
               <h1 className="text-balance font-heading text-2xl font-semibold text-foreground">
-                {invite ? inviteLandingCopy(invite).title : PRODUCT_SENTENCE}
+                {inviteLandingCopy(invite).title}
               </h1>
               <p className="text-base leading-relaxed text-muted-foreground">
-                {invite ? inviteLandingCopy(invite).detail : SIGNIN_WHO}
+                {inviteLandingCopy(invite).detail}
               </p>
             </div>
 
             <ul className="flex flex-col signin-rise-2 mt-9 max-w-md gap-4 text-left text-sm leading-relaxed text-muted-foreground">
               {SIGNIN_POINTS.map((line, i) => {
-                const Icon = SIGNIN_POINT_ICONS[i] ?? BellRing;
+                const Icon = SIGNIN_POINT_ICONS[i] ?? Activity;
                 return (
                   <li key={line} className="flex items-start gap-3.5">
                     <span
@@ -326,7 +339,19 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
   );
 }
 
-const SIGNIN_POINT_ICONS = [BellRing, MessageCircle] as const;
+/*
+  One icon per point, and the pairing is checked by a test.
+
+  This was `[BellRing, MessageCircle]` against two points, and then a third
+  point about Circle was added to `product.ts` without anybody touching
+  this line. The lookup below falls back rather than failing, so what
+  shipped was a bell beside a sentence about the people you share a
+  portfolio with: wrong, and silent, which is the worse half. The fallback
+  stays, because a missing icon should never blank the page, and
+  `signin-points.test.ts` now fails when the two lists disagree so the
+  fallback cannot be what a reader actually gets.
+*/
+const SIGNIN_POINT_ICONS = [Activity, MessageCircle, Users] as const;
 
 
 const SAMPLE_MOVERS = [
