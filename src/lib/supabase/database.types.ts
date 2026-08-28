@@ -1046,6 +1046,7 @@ export type Database = {
       }
       portfell_forecast_ticker_cache: {
         Row: {
+          anchor_price: number | null
           conviction_key: string
           generated_at: string
           prices: Json
@@ -1054,6 +1055,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          anchor_price?: number | null
           conviction_key?: string
           generated_at: string
           prices: Json
@@ -1062,6 +1064,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          anchor_price?: number | null
           conviction_key?: string
           generated_at?: string
           prices?: Json

@@ -79,9 +79,18 @@ async function handlePOST(req: Request) {
 
   // Shared, cross-portfolio: once any portfolio has priced a ticker, every
   // other portfolio holding it reuses that path/rationale instead of paying
-  // for another model run. See src/lib/forecast-ticker-cache-store.ts.
+  // for another model run. A row is only reused while it is inside the age
+  // bound and the stock is still near the price it was reasoned from, so
+  // today's prices go in with the lookup. See forecast-ticker-cache-store.ts.
   const heldTickers = [...new Set(forecast.rows.map((r) => r.ticker.toUpperCase()))];
-  const cacheHits = await loadServerTickerCache(heldTickers, convictions);
+  const spots: Record<string, number> = {};
+  for (const row of forecast.rows) {
+    if (row.currentPrice > 0) spots[row.ticker.toUpperCase()] = row.currentPrice;
+  }
+  const cacheHits = await loadServerTickerCache(heldTickers, {
+    convictions,
+    spots,
+  });
   if (heldTickers.length > 0 && heldTickers.every((t) => cacheHits[t])) {
     return Response.json({
       plan: buildCachedForecastPlan({
@@ -136,16 +145,44 @@ async function handlePOST(req: Request) {
 
     const eoyTargets = ensureCompleteEoyTargets(forecast, mergedTargets);
 
+    const generatedAt = new Date().toISOString();
     const plan = humanizeMargusTree({
       ...object,
       eoyTargets,
-      generatedAt: new Date().toISOString(),
+      generatedAt,
       portfolioId,
       portfolioName,
       stance: DEFAULT_FORECAST_STANCE,
     });
 
-    void persistServerTickerCache(plan, convictions);
+    /*
+      Only what the model actually reasoned this run goes into the shared
+      table. ensureCompleteEoyTargets hands back a row for every holding,
+      filling the names the model never mentioned from the generic shaper,
+      and writing those would publish a shape to every other reader holding
+      the name as though it had been reasoned, and stop the model ever being
+      asked about it again. A ticker served from the cache is left alone too,
+      so its age keeps running rather than resetting on every reader.
+    */
+    const reasonedTickers = new Set(
+      (object.eoyTargets ?? [])
+        .filter((t) => t.prices && Object.keys(t.prices).length > 0)
+        .map((t) => t.ticker.toUpperCase())
+    );
+    const reasoned = eoyTargets
+      .filter(
+        (t) =>
+          reasonedTickers.has(t.ticker.toUpperCase()) &&
+          !cacheHits[t.ticker.toUpperCase()]
+      )
+      .map((t) => ({
+        ticker: t.ticker,
+        prices: t.prices,
+        rationale: t.rationale,
+        anchorPrice: spots[t.ticker.toUpperCase()],
+      }));
+
+    void persistServerTickerCache(reasoned, { convictions, generatedAt });
 
     return Response.json({ plan });
   } catch (err) {

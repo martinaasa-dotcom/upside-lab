@@ -512,7 +512,11 @@ export function buildCachedForecastPlan(input: {
   portfolioName: string;
   cacheHits: Record<
     string,
-    { prices: Partial<Record<ForecastYear, number>>; rationale?: string }
+    {
+      prices: Partial<Record<ForecastYear, number>>;
+      rationale?: string;
+      generatedAt?: string;
+    }
   >;
   now?: Date;
 }): ForecastPlan {
@@ -533,11 +537,24 @@ export function buildCachedForecastPlan(input: {
     };
   });
   const eoyTargets = ensureCompleteEoyTargets(input.forecast, seeded);
+
+  /*
+    Nothing here was worked out just now, so the plan must not say it was.
+    "Worked out ..." is printed under the grid and handed to Margus, and the
+    oldest path in it is the honest answer for the whole plan: it is the one
+    the reader would most want to know the age of.
+  */
+  const reused = input.forecast.rows
+    .map((r) => input.cacheHits[r.ticker.toUpperCase()]?.generatedAt)
+    .filter((at): at is string => Boolean(at) && Number.isFinite(Date.parse(at!)));
+  const oldest = reused.length
+    ? reused.reduce((a, b) => (Date.parse(a) <= Date.parse(b) ? a : b))
+    : null;
   return humanizeMargusTree({
     generalAdvice:
-      "Every holding here already had a modeled price path worked out somewhere else in Upside Lab, so this loaded from that shared work instead of asking the model again.",
+      "Every holding here already had a modeled price path worked out, so this loaded that earlier work instead of asking the model again. Press Work it out again for a fresh one.",
     sectorRotation:
-      "Reused from an earlier run on these same holdings. Ask Margus to work it out again for a fresh rotation call.",
+      "Reused from an earlier run on these same holdings. Ask Margus to work it out again for a fresh reading.",
     periods: [
       {
         label: `Next quarter (Q${nextQuarter.q} ${nextQuarter.y})`,
@@ -553,7 +570,7 @@ export function buildCachedForecastPlan(input: {
       },
     ],
     eoyTargets,
-    generatedAt: now.toISOString(),
+    generatedAt: oldest ?? now.toISOString(),
     portfolioId: input.portfolioId,
     portfolioName: input.portfolioName,
     stance: DEFAULT_FORECAST_STANCE,
