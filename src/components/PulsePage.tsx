@@ -439,7 +439,7 @@ function PulseCard({
       {needsMargusRun && onRefresh ? (
         <div className="flex flex-col gap-3 glass-well rounded-lg border border-dashed border-border px-4 py-4">
           <p className="text-sm text-muted-foreground">
-            Margus has not finished a read on this one yet.
+            Margus has not finished looking at this one yet.
           </p>
           <Button
             type="button"

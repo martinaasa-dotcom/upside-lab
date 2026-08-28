@@ -292,7 +292,7 @@ describe("Home notices", () => {
     expect(second.notices.some((n) => /Thesis watch/.test(n.text))).toBe(true);
   });
 
-  it("says there is no thesis on file when a large name moved", () => {
+  it("says the reason has not been written down when a large name moved", () => {
     const book = model(
       [
         ticker({
@@ -320,7 +320,7 @@ describe("Home notices", () => {
     const gap = read.notices.find((n) => n.kind === "gap");
     expect(gap?.label).toBe("Also");
     expect(gap?.text).toMatch(/\$CRWV fell about 4%/);
-    expect(gap?.text).toMatch(/no thesis on file/);
+    expect(gap?.text).toMatch(/why you own it/);
   });
 });
 

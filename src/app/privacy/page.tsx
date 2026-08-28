@@ -16,7 +16,7 @@ import type { ReactNode } from "react";
 
 export const metadata = publicPageMetadata({
   title: "Privacy Policy",
-  description: "How Upside Lab handles your account and the names you hold.",
+  description: "How Upside Lab handles your account and the holdings you put in it.",
   path: "/privacy",
 });
 
@@ -157,7 +157,7 @@ export default function PrivacyPage() {
               <strong className="text-foreground">Stripe</strong> handles
               payment for {PRODUCT_NAME} Pro. If you subscribe, your name,
               email, billing address, and card details go directly to
-              Stripe -- we never see or store your card number. We keep only
+              Stripe. We never see or store your card number, and we keep only
               your Stripe customer/subscription IDs and subscription status
               so the app knows what you&apos;re on.
             </li>
@@ -167,12 +167,13 @@ export default function PrivacyPage() {
         <Section title="5. Sharing between users">
           If you invite a co-owner to a portfolio, they get full edit access to
           that portfolio&apos;s data. If you join a circle, other members see
-          today&apos;s prices, the names you hold, cash, and returns for the
-          portfolio(s) you linked. They do not see what you paid. You control
-          which portfolios, if any, are linked. If two accounts are linked as a
-          household, Circle join, leave, and role copy to both. The other
-          person does not have to click agree each time. Classroom stays per
-          person.
+          today&apos;s prices, the companies you hold, your cash, and your
+          gains and losses for the portfolios you linked.
+          They do not see what you paid.
+          You control which portfolios, if any, are linked. If two
+          accounts are linked as a household, joining a circle, leaving one, and
+          any change of role copy across to both, so the other person does not
+          have to agree to each one. A classroom stays with one person only.
         </Section>
 
         <Section title="6. Cookies and what we keep on your device">

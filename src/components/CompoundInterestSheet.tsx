@@ -675,13 +675,20 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
   }
 
   async function copyPostcard() {
+    /*
+      * Somebody pastes this into a chat, so it is read by people who have
+      * never opened the app. It used to be five abbreviations in three
+      * lines (RoR, YoY, /mo, 20y, an arrow), which is a note to yourself
+      * rather than a message to anybody else. Full sentences now.
+      */
+    const yearWord = liveInputs.years === 1 ? "year" : "years";
     const text = [
-      `Upside compound postcard`,
-      `${show(result.principal)} → ${show(result.futureValue)} in ${liveInputs.years}y`,
-      `Interest ${show(result.totalInterest)} · RoR ${(result.allTimeRoR * 100).toFixed(0)}%`,
+      `Upside Lab compound postcard`,
+      `${show(result.principal)} grows to ${show(result.futureValue)} over ${liveInputs.years} ${yearWord}.`,
+      `Growth adds ${show(result.totalInterest)}, which is ${(result.allTimeRoR * 100).toFixed(0)}% on top of what went in.`,
       liveInputs.depositAmount > 0
-        ? `+${show(liveInputs.depositAmount)}/mo deposits @ ${liveInputs.annualIncrease}% YoY`
-        : `No deposits - pure compound`,
+        ? `Paying in ${show(liveInputs.depositAmount)} a month, rising ${liveInputs.annualIncrease}% each year.`
+        : `Nothing paid in along the way, just growth on what is already there.`,
     ]
       .filter(Boolean)
       .join("\n");

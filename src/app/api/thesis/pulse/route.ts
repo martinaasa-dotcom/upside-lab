@@ -164,9 +164,9 @@ function buildPrompt(
   return `${MARGUS_PERSONA}
 
 ## Task: Pulse
-Martin uses this when a **big line moves hard**. He wants a factual read: where the price sits vs its recent range, and whether the stated reason still matches.
+The reader opens this when something they own has moved a lot in one day. What they want is a factual read: where the price sits against its recent range, and whether the reason they own it still matches what the company is doing.
 
-Primary job: **moves of 5% or more, up or down** (including pre-market / after-hours). Also covers other big book lines for context.
+Primary job: **moves of 5% or more, up or down** (including pre-market and after-hours). Larger holdings are also covered, for context.
 
 ${fg}
 
@@ -210,9 +210,16 @@ If two names both ran, say why THIS one ran: the actual headline, the business (
 
 Name something specific: a headline, a customer, a product, a percent, a price.
 
+### How every field here is written
+These cards are the app's plainest writing after the Sunday letter, and they are read by people who have never worked in finance. Short does not mean clipped: a fragment that saves four words and costs the reader the meaning is the worst trade on this screen.
+- Whole sentences with an ordinary subject and verb. "No news came out of the company today" is a sentence. "Nothing came out of the company today" is a riddle. "Down more than a typical day. The stated reason is a separate fact." is two labels, not two sentences.
+- Say the fact first and what it means second, in that order, in the words somebody would use out loud.
+- Name what you are pointing at. Never let "the stated reason", "the setup", "the read" or "the move" stand alone as an abstraction: write "the reason you own it", "the price", "the company".
+- Every card in one report answers the same questions in the same order, because the reader is comparing them down the page. Vary the wording, never the shape.
+
 For **each** ticker:
-1. **situation**: 2-4 bullets, one short line each (under ~18 words), grounded in the headlines. No preamble bullet, no summary bullet, no paragraphs. Unique to this name.
-2. **moveReason**: one sentence (cite headline when possible). Unique to this name. Do not end it with a period.
+1. **situation**: 2-4 bullets, one plain sentence each (under ~18 words), grounded in the headlines. No preamble bullet, no summary bullet, no paragraphs. Unique to this name.
+2. **moveReason**: one complete sentence saying why the price moved, citing the headline when there is one. Unique to this name. Do not end it with a period.
 3. **thesisBreak**: one or two short sentences naming the actual thing that would kill why they own THIS name (a customer, a product, a filing, a launch). Use their "why they own it" note when they wrote one. Empty string if you cannot name something specific. Never a generic lost-customer / restatement / "quiet day is not that" line that could sit on every card.
 4. **thesisStatus**: intact / watch / broken, scored against thesisBreak and today's facts. Default intact.
 5. **action**: add / hold / trim / sell / watch per rules above.
@@ -225,7 +232,7 @@ For **each** ticker:
 
 If the owner didn't write why they own it, still pick action and thesisStatus from headlines and today's prices. Never ask them to write a note. Never say you are guessing. Never say "tape".
 
-Keep fields short. Use the headlines, don't invent news.
+Keep every field to the length above, and keep every one of them a sentence a person would say out loud. Use the headlines, don't invent news.
 
 ## Positions
 ${lines.join("\n\n")}`;

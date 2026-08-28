@@ -320,7 +320,7 @@ export function CommunityView({ communityId }: Props) {
       if (!isBackgroundRefresh) {
         setError(
           isNetworkError(e)
-            ? "You look offline. Showing this circle when the connection is back."
+            ? "You appear to be offline. This circle will load as soon as the connection is back."
             : e instanceof Error
               ? e.message
               : "Couldn't load this circle."
@@ -790,7 +790,7 @@ export function CommunityView({ communityId }: Props) {
       winner: mostRisk.name,
       winnerId: mostRisk.id,
       stat: `${mostRisk.personality!.riskScore}/100`,
-      description: "The jumpiest mix of companies in the circle.",
+      description: "The jumpiest mix of holdings in the circle.",
     });
 
     const steadiest = [...withPersonality].sort(
@@ -821,7 +821,7 @@ export function CommunityView({ communityId }: Props) {
             ? ` ${cashtag(mostConviction.personality!.topTicker)}`
             : ""
         }`,
-        description: "Biggest single name relative to the rest of the portfolio.",
+        description: "The biggest single holding, measured against the rest of the portfolio.",
       });
     }
 
@@ -851,7 +851,7 @@ export function CommunityView({ communityId }: Props) {
         winner: mostCash.name,
         winnerId: mostCash.id,
         stat: `${mostCash.personality!.cashPct}% cash`,
-        description: "Largest cash stash relative to the portfolio.",
+        description: "The most cash, measured against the size of the portfolio.",
       });
     }
 
@@ -868,7 +868,7 @@ export function CommunityView({ communityId }: Props) {
         winner: mostSpecialist.name,
         winnerId: mostSpecialist.id,
         stat: `${mostSpecialist.personality!.specialistScore}%`,
-        description: "Heaviest bet on one kind of business.",
+        description: "The most weight in one kind of business.",
       });
     }
     const biggestBook = [...membersWithBooks].sort(
@@ -1557,7 +1557,7 @@ export function CommunityView({ communityId }: Props) {
               </Button>
               <div className="card-sheen glass sticky top-24 z-20 flex flex-col gap-3 rounded-xl p-4 shadow-sm ring-1 ring-foreground/20 sm:p-6">
                 <p className="text-sm font-semibold text-foreground">
-                  Read-only - owned by{" "}
+                  You can look but not edit. Owned by{" "}
                   {memberStats.find((m) => m.id === selectedOwnerId)?.name ??
                     profileName(selectedOwnerId)}
                 </p>

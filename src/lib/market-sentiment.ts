@@ -70,7 +70,7 @@ export const SENTIMENT_COPY: Record<SentimentRegime, string> = {
   "low-zone":
     "Several gauges are at unusually low readings. Historically, a VIX of 32 or more together with a 14-day RSI of 32 or less has sat near a quiet stretch or a market low (2009, 2020, 2022).",
   stretched:
-    "Price has run far ahead of its usual price. In earlier cycles, a Fear & Greed reading this high together with a 14-day RSI this stretched often came before a pullback toward usual.",
+    "The S&P 500 has run a long way above its usual price. In earlier cycles, a Fear and Greed reading this high alongside a 14-day RSI stretched this far often came before a fall back towards that usual price.",
   elevated:
     "The VIX is running high, and the 14-day RSI and Fear & Greed have cooled together. In earlier cycles that pairing showed up when prices were jumpy, not as a clean turn.",
   trend:

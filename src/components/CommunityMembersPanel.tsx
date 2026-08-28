@@ -417,12 +417,12 @@ export function CommunityMembersPanel({
                   {isAdmin && (
                     <section className="card-sheen glass flex flex-col gap-3 rounded-xl p-4 ring-1 ring-foreground/20 sm:p-6">
                       <h2 className="text-foreground">
-                        Admin - invite
+                        Invite people
                       </h2>
                       <p className="text-sm text-muted-foreground">
                         {isClassroom
-                          ? "This link works for 30 days. Students join with it. Each one gets the same paper cash and an empty portfolio. Put emails if you want us to send the link, and to lock it to those people. Separate them with a comma. Change the number of days if 30 is wrong for you."
-                          : "This link works for 30 days. Anyone with it can join. Their portfolios show up here. They can turn one off later. Today's prices only. Put emails if you want us to send the link, and to lock it to those people. Separate them with a comma. Change the number of days if 30 is wrong for you."}
+                          ? "This link works for 30 days. Students join with it, and each one starts with the same paper cash and an empty portfolio. Add email addresses if you want the link sent for you, which also locks it to those people. Separate the addresses with a comma. Change the number of days if 30 is not what you want."
+                          : "This link works for 30 days, and anyone who has it can join. Their portfolios then show up here, and they can hide one again later. Everyone sees today's prices only. Add email addresses if you want the link sent for you, which also locks it to those people. Separate the addresses with a comma. Change the number of days if 30 is not what you want."}
                       </p>
                       <div className="flex flex-wrap gap-2">
                         <Input
@@ -431,7 +431,7 @@ export function CommunityMembersPanel({
                           autoComplete="off"
                           value={inviteEmail}
                           onChange={(e) => setInviteEmail(e.target.value)}
-                          placeholder="Emails (optional, comma between)"
+                          placeholder="Email addresses, separated by commas (optional)"
                           className="min-w-[12rem] w-auto flex-1"
                         />
                         <Input
@@ -442,7 +442,7 @@ export function CommunityMembersPanel({
                           value={inviteDays}
                           onChange={(e) => setInviteDays(e.target.value)}
                           disabled={inviteNeverExpires}
-                          placeholder="Days live (30 by default)"
+                          placeholder="How many days the link works (30 by default)"
                           className="no-spinner w-[14rem] min-w-[14rem] shrink-0"
                         />
                         <Button

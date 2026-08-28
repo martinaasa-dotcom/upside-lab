@@ -332,9 +332,9 @@ export function SignInAddresses() {
       ) : null}
 
       <p className="text-xs text-muted-foreground">
-        Sign-in is Google, so an address here is one you can sign in to Google
-        with. Removing one takes that way in away and changes nothing else
-        about your {PRODUCT_NAME} account.
+        You sign in with Google, so every address here is one you can use to
+        sign in to Google. Removing an address closes that way in and changes
+        nothing else about your {PRODUCT_NAME} account.
       </p>
     </Panel>
   );

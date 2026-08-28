@@ -236,12 +236,12 @@ const WAYS_IN = [
   {
     icon: FileSpreadsheet,
     title: "Upload a CSV",
-    detail: "The file almost every broker will already export for you.",
+    detail: "Almost every broker can export one for you in a couple of clicks.",
   },
   {
     icon: ImageUp,
     title: "Drop in a screenshot",
-    detail: "A picture of your holdings page. It reads the rows out of it.",
+    detail: "A photo of your broker's holdings page. It reads the rows for you.",
   },
 ] as const;
 
@@ -261,7 +261,7 @@ function WaysIn() {
         <SectionHead
           eyebrow="Getting started"
           title="It starts with what you already own."
-          detail="No brokerage login, and nothing to connect and wait for. There are three ways in, and typing is the quickest."
+          detail="There is no broker login and nothing to connect. You put in what you own yourself, in whichever of these three ways is quickest."
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {WAYS_IN.map((w) => (
@@ -315,9 +315,9 @@ function PulseStill() {
           </Pill>
         </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          There was no news about the company today, and it is still inside
-          the range it has traded in for months. Every similar business fell
-          about as much.
+          There was no news about the company today, and the price is still
+          inside the range it has traded in for months. Every similar
+          business fell about as much.
         </p>
       </div>
 
@@ -395,13 +395,13 @@ const MORE = [
     icon: LineChart,
     title: "Forecast",
     detail:
-      "A yearly price path for every holding out to 2030, reasoned name by name. Scenarios to think with, never a promise.",
+      "A year by year price path for every holding out to 2030, worked out one company at a time. Scenarios to think about, never a promise.",
   },
   {
     icon: Mail,
     title: "A letter on Sunday",
     detail:
-      "One email a week. What moved, and the reasoning in full sentences.",
+      "One email a week: what moved in your portfolio, and why, written out in full sentences.",
   },
   {
     icon: LayoutGrid,
@@ -417,7 +417,7 @@ function More() {
       <Reveal>
         <SectionHead
           eyebrow="And the rest"
-          title="Three more things, once you are in."
+          title="Three more parts of the app, once you are in."
           detail="None of them tell you what to do. They put the facts in front of you, so the decision stays yours."
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -526,7 +526,7 @@ const CIRCLE_POINTS = [
     icon: Users,
     title: "Share a portfolio",
     detail:
-      "Invite a partner, a parent or a friend and you both own it. They see today's prices and never what you paid for anything.",
+      "Invite a partner, a parent or a friend and you both own it. They see today's prices, and never what you paid.",
   },
   {
     icon: LayoutGrid,
@@ -594,9 +594,9 @@ const IS_FOR = [
 ] as const;
 
 const IS_NOT = [
-  "It does not connect to your bank or your broker. You put in what you own yourself, and you add anything new you buy. Prices update on their own after that.",
+  "It does not connect to your bank or your broker. You put in what you own yourself, and you add anything new you buy the same way. Prices update on their own after that.",
   "It does not know the date you bought. Gains are measured against your average buy price, so there is no chart that starts on the day you bought.",
-  "It cannot buy or sell anything, and it will never tell you to. What you do with your money stays your decision. Prices come from a free source and run a few minutes behind.",
+  "It cannot buy or sell anything, and it will never tell you to. Whether to add, sell or sit still is yours, every time. Prices come from a free source and run a few minutes behind.",
 ] as const;
 
 /**
@@ -619,7 +619,7 @@ function Fit() {
         <SectionHead
           eyebrow="Before you start"
           title="What this is for, and what it is not."
-          detail="Here is what Upside Lab does, and what it does not do. It is worth reading before you spend any time putting your portfolio in. If the first list is not what you were hoping for, it is better to find that out now than later."
+          detail="Here is what Upside Lab does, and what it does not do. Both lists are worth reading before you spend any time putting your portfolio in. If the first one is not what you were hoping for, it is better to find that out now than later."
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className={cn(BOX, NESTED_PAD, "flex flex-col gap-4")}>

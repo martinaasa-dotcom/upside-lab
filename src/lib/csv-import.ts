@@ -331,7 +331,7 @@ export function parseHoldingsCsv(text: string): CsvImportResult {
 
     const ticker = resolveImportTicker(tickerRaw);
     if (!ticker) {
-      result.skipped.push({ line: i + 1, raw, reason: "Don't recognize that ticker" });
+      result.skipped.push({ line: i + 1, raw, reason: "That ticker is not one we recognize" });
       continue;
     }
 
@@ -340,7 +340,7 @@ export function parseHoldingsCsv(text: string): CsvImportResult {
       result.skipped.push({
         line: i + 1,
         raw,
-        reason: "Share count is missing, isn't a number, or is enormous",
+        reason: "The share count is missing, is not a number, or is impossibly large",
       });
       continue;
     }
@@ -351,7 +351,7 @@ export function parseHoldingsCsv(text: string): CsvImportResult {
         line: i + 1,
         raw,
         reason:
-          "Buy price is missing, isn't a number, or is enormous. Put the price you paid per share in that column, like 85.10",
+          "The buy price is missing, is not a number, or is impossibly large. Put the price you paid for one share in that column, like 85.10",
       });
       continue;
     }
@@ -422,7 +422,7 @@ export function parseHoldingsPaste(text: string): CsvImportResult {
     }
     const ticker = resolveImportTicker(tickerRaw);
     if (!ticker) {
-      result.skipped.push({ line: i + 1, raw, reason: "Don't recognize that ticker" });
+      result.skipped.push({ line: i + 1, raw, reason: "That ticker is not one we recognize" });
       return;
     }
     const shares = parseNumber(cells[1]);
@@ -431,7 +431,7 @@ export function parseHoldingsPaste(text: string): CsvImportResult {
         line: i + 1,
         raw,
         reason:
-          "Need how many shares you own, right after the ticker. Like: NBIS 500 85.10",
+          "This line needs the number of shares straight after the ticker, like NBIS 500 85.10",
       });
       return;
     }
@@ -441,7 +441,7 @@ export function parseHoldingsPaste(text: string): CsvImportResult {
         line: i + 1,
         raw,
         reason:
-          "Need the price you paid per share, after the share count. Like: NBIS 500 85.10",
+          "This line needs the price you paid for one share, after the share count, like NBIS 500 85.10",
       });
       return;
     }

@@ -1004,7 +1004,7 @@ export function Dashboard() {
       }
       return readJsonOrThrow<unknown>(
         res,
-        "Couldn't load your portfolios. Try again."
+        "Could not load your portfolios. Try again."
       );
     };
 
@@ -1095,12 +1095,12 @@ export function Dashboard() {
       if (showSplash) {
         setLoadError(
           timedOut
-            ? "Timed out loading your portfolio. Check the connection and retry."
+            ? "Loading your portfolio took too long. Check your connection and try again."
             : err instanceof Error
               ? err.message
               : userId
-                ? "Couldn't load your portfolio. Retry when ready."
-                : "Couldn't load the shared portfolio. Showing local demo, retry when ready."
+                ? "Could not load your portfolio. Try again whenever you are ready."
+                : "Could not load the shared portfolio, so this is the sample one instead. Try again whenever you are ready."
         );
         if (!timedOut && !(err instanceof Error && /Sign in/i.test(err.message))) {
           if (userId) {
@@ -1526,7 +1526,7 @@ export function Dashboard() {
             fetchedAt: Date.now(),
           });
         }
-        toast("This portfolio changed on another device. We pulled in the latest.", "info");
+        toast("This portfolio was changed on another device, so the newest version is showing here now.", "info");
       } catch (err) {
         if (isAbortError(err)) return;
         /* ignore */
@@ -1805,7 +1805,7 @@ export function Dashboard() {
         id: "statistics",
         label: "Seasonality",
         group: "Go",
-        hint: "In Lab - year & calendar patterns",
+        hint: "In Lab: patterns by year and by calendar month",
         run: () => {
           setLabIntent("seasonality");
           goToTab(LAB_TAB_ID);
@@ -2020,7 +2020,7 @@ export function Dashboard() {
           toast(
             plainError(
               err instanceof Error ? err.message : null,
-              "Couldn't import those holdings. Try again."
+              "Could not import those holdings. Try again."
             ),
             "error"
           );
@@ -2336,7 +2336,7 @@ export function Dashboard() {
           <div className="flex flex-col gap-4">
             {activeAlerts.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">
-                Nothing waiting. That&apos;s a good hour.
+                Nothing needs your attention right now.
               </p>
             ) : (
               activeAlerts.map((a) => (

@@ -52,7 +52,9 @@ export function ClassroomRoster({
       <div className="border-b border-border px-6 py-6">
         <h2 className="font-semibold text-foreground">Roster</h2>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          Same start. Ranked by percent vs start. Who wrote a why, who is all-in on one name.
+          Everyone started with the same cash. This is ranked by how far each
+          student is up or down since then, and it shows who has written down a
+          reason for what they own and who is holding just one company.
         </p>
       </div>
       <div className="flex flex-col gap-3 p-6 md:hidden">
@@ -83,9 +85,9 @@ export function ClassroomRoster({
               !m.sheetCount
                 ? NO_VALUE
                 : !thesis || thesis.names === 0
-                  ? "No names yet"
+                  ? "Nothing bought yet"
                   : thesis.withWhy === 0
-                    ? "No why yet"
+                    ? "No reasons written yet"
                     : `${thesis.withWhy} of ${thesis.names}`;
             const body = (
               <Card>
@@ -254,9 +256,9 @@ export function ClassroomRoster({
                       {!m.sheetCount
                         ? NO_VALUE
                         : !thesis || thesis.names === 0
-                          ? "No names yet"
+                          ? "Nothing bought yet"
                           : thesis.withWhy === 0
-                            ? "No why yet"
+                            ? "No reasons written yet"
                             : `${thesis.withWhy} of ${thesis.names}`}
                     </td>
                     <td className={cn(htmlCell, "text-muted-foreground")}>

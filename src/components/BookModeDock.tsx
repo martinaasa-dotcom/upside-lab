@@ -52,7 +52,7 @@ const MODES = [
     id: PULSE_TAB_ID,
     href: PULSE_PATH,
     label: "Pulse",
-    title: "Pulse for names you hold",
+    title: "Pulse, for the companies you hold",
     Icon: Activity,
   },
   {

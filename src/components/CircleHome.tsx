@@ -250,8 +250,8 @@ export function CircleHome({
                               Power animals
                             </h3>
                             <p className="mt-0.5 text-sm text-muted-foreground">
-                              How each portfolio is built. Tap someone to open their
-                              portfolios.
+                              How each portfolio is put together. Tap someone to
+                              open theirs.
                             </p>
                           </div>
                         </div>
@@ -353,10 +353,10 @@ export function CircleHome({
                         </div>
                         <div>
                           <h3 className="text-foreground">
-                            Shared holdings
+                            Holdings you share
                           </h3>
                           <p className="mt-0.5 text-sm text-muted-foreground">
-                            Who else is in the same name today
+                            Who else in the circle owns the same companies
                           </p>
                         </div>
                       </div>
@@ -387,9 +387,9 @@ export function CircleHome({
                             What the circle owns
                           </h3>
                           <p className="mt-0.5 text-sm text-muted-foreground">
-                            Everyone&apos;s holdings pooled by kind of
-                            business. How the circle is built, not a
-                            recommendation.
+                            Everyone&apos;s holdings added together and grouped
+                            by kind of business. This shows how the circle is put
+                            together, and is not a recommendation.
                           </p>
                         </div>
                       </div>
@@ -430,8 +430,8 @@ export function CircleHome({
                           </h3>
                           <p className="mt-0.5 text-sm text-muted-foreground">
                             {funFactsShuffle > 0
-                              ? "Shuffled, reload for the daily batch"
-                              : "New batch every day"}
+                              ? "These are shuffled. Reload the page for today's own set."
+                              : "A new set every day"}
                           </p>
                         </div>
                       </div>
@@ -441,7 +441,7 @@ export function CircleHome({
                         size="sm"
                         className="touch-target"
                         onClick={() => setFunFactsShuffle((n) => n + 1)}
-                        title="Get a fresh random batch"
+                        title="Show a different set of these"
                       >
                         <Shuffle data-icon="inline-start" />
                         Shuffle

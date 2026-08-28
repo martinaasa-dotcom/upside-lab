@@ -333,7 +333,7 @@ export function margusChatProvenance(): Provenance {
       { what: "Today's prices" },
       { what: "What you typed, and any screenshot you attached" },
       {
-        what: "Pulse and Forecast already on file",
+        what: "Any Pulse and Forecast readings this portfolio already has",
         detail: "only when the reply is about those",
       },
       TRAINING_INPUT,

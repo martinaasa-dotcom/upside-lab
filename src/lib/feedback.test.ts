@@ -118,7 +118,7 @@ describe("the questions and what they read as", () => {
       [
         "How the month felt: Mixed",
         "What helped: Seeing what I own and today's prices",
-        "What got in the way: Too much on screen, Couldn't find a thing",
+        "What got in the way: Too much on screen, Could not find something",
         "One thing to change: Pulse",
         "In their words: Fewer numbers on Home.",
       ].join("\n")

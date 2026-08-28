@@ -230,12 +230,12 @@ const COLUMNS: { label: string; key?: SortKey; explain?: string }[] = [
   {
     label: "ROI %",
     key: "roiPct",
-    explain: "Gain or loss vs. what you paid, as a percentage: (Value − Cost) ÷ Cost",
+    explain: "Gain or loss against what you paid, as a percentage: (Value − Cost) ÷ Cost",
   },
   {
     label: "ROI $",
     key: "roiDollar",
-    explain: "Gain or loss vs. what you paid, in dollars: Value − Cost",
+    explain: "Gain or loss against what you paid, in dollars: Value − Cost",
   },
   { label: "90d", explain: "Price trend over the last ~90 days" },
   {
@@ -444,8 +444,8 @@ export const PortfolioTable = memo(function PortfolioTable({
         )}
       </div>
       <p className="text-sm text-muted-foreground">
-        Screenshot or CSV drops every row in at once. Pick whichever&apos;s
-        easier to get your hands on.
+        A screenshot or a CSV file brings every row in at once. Use whichever
+        is easier for you to get hold of.
       </p>
     </div>
   ) : (

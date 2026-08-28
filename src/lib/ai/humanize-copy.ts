@@ -184,6 +184,65 @@ function scrubMarketJargon(text: string): string {
   return s;
 }
 
+/**
+ * Two failures the word bans above cannot catch, because both are made of
+ * ordinary words.
+ *
+ * The first is the empty trailing clause: "RKLB slipped a bit after last
+ * week's earnings miss, keeping its valuation in play." Everything before
+ * the comma is a fact. Everything after it is a shape where a thought goes.
+ * A reader cannot act on it, cannot disagree with it, and cannot even say
+ * what it claims, which is precisely why a model reaches for it: it ends
+ * the sentence without committing to anything. Cutting it costs nothing.
+ *
+ * The second is the small pile of trade-desk nouns that read as English to
+ * anybody who has worked in this and as nothing at all to everybody else.
+ * "Valuation", "an earnings miss", "guidance", "a catalyst", "a headwind".
+ * The rule in AGENTS.md is that a grandmother gets every sentence, and none
+ * of these clears that.
+ *
+ * Order matters: the empty clauses go first, so a clause about to be cut is
+ * not first rewritten word by word and then cut anyway.
+ */
+const EMPTY_CLAUSES: RegExp[] = [
+  /,\s*(?:which is\s+)?(?:keep|keeping|leav|leaving|put|putting|set|setting)\w*\s+[^,.!?]*?\b(?:in play|on the table|in focus|in the frame|front and cent(?:er|re)|in question|interesting|worth watching)\b/gi,
+  /,\s*(?:which\s+)?(?:keeps|leaves|puts|sets)\s+[^,.!?]*?\b(?:in play|on the table|in focus|in question)\b/gi,
+];
+
+const PLAIN_WORDS: Array<[RegExp, string]> = [
+  [/\bearnings misses\b/gi, "results below what people expected"],
+  [/\bearnings miss\b/gi, "results below what people expected"],
+  [/\bearnings beats\b/gi, "results above what people expected"],
+  [/\bearnings beat\b/gi, "results above what people expected"],
+  [/\bguidance cut\b/gi, "cut to the company's own forecast"],
+  [/\bcut guidance\b/gi, "cut its own forecast"],
+  [/\braised guidance\b/gi, "raised its own forecast"],
+  [/\bguidance\b/gi, "the company's own forecast"],
+  [/\bvaluations\b/gi, "prices"],
+  [/\bvaluation\b/gi, "price"],
+  [/\bcatalysts\b/gi, "events"],
+  [/\bcatalyst\b/gi, "event"],
+  [/\bheadwinds\b/gi, "pressures"],
+  [/\bheadwind\b/gi, "pressure"],
+  [/\btailwinds\b/gi, "things helping it"],
+  [/\btailwind\b/gi, "something helping it"],
+  [/\bde-?risked\b/gi, "made safer"],
+  [/\bde-?risking\b/gi, "making it safer"],
+  [/\bmultiple expansion\b/gi, "people paying more for the same earnings"],
+  [/\bre-?rating\b/gi, "a change in what people will pay for it"],
+  [/\bin play\b/gi, "an open question"],
+];
+
+function scrubVagueEndings(text: string): string {
+  if (!text) return text;
+  let s = text;
+  for (const re of EMPTY_CLAUSES) s = s.replace(re, "");
+  for (const [re, rep] of PLAIN_WORDS) s = s.replace(re, rep);
+  // A cut clause can leave " ." or a doubled space behind it.
+  s = s.replace(/\s+([.,;:!?])/g, "$1").replace(/[ \t]{2,}/g, " ");
+  return s;
+}
+
 function firstDollar(text: string | null | undefined): string | null {
   const m = (text ?? "").match(/\$\s*[\d,]+(?:\.\d{1,2})?/);
   return m ? m[0].replace(/\s+/g, "") : null;
@@ -262,10 +321,10 @@ export function pulseSuggestion(input: {
       : "Price is below its recent range.";
   }
   if (action === "sell") {
-    return "The stated reason for owning this no longer matches the facts.";
+    return "The reason you own this no longer matches what the company is doing.";
   }
   if (action === "watch") {
-    return "Not enough history for a range reading.";
+    return "There is not enough price history yet to say where this sits in its range.";
   }
   return "Price is inside its recent range.";
 }
@@ -426,7 +485,9 @@ export function humanizeMargusText(text: string): string {
   // Grouping runs last, and on the model's own prose: the facts it is
   // given are formatted, but nothing stops it from typing $129709 back.
   return groupMoneyInText(
-    scrubAiPhrases(stripAiDashes(scrubTradeOrders(scrubMarketJargon(text))))
+    scrubAiPhrases(
+      stripAiDashes(scrubTradeOrders(scrubVagueEndings(scrubMarketJargon(text))))
+    )
   );
 }
 

@@ -764,9 +764,19 @@ run("earnings note flags a stretched run-in without sounding like a slogan", () 
     printCount: 4,
     typicalAbsMovePct: 0.05,
   });
-  assert.match(note, /Up 18%/);
+  /*
+    Both figures have to be in the sentence: how far it has already run, and
+    how far it usually moves on the day. That is the whole point of the note.
+
+    This used to also assert the word "lighten", from a clause that read
+    "this is when people lighten a bit before the print". That is a trade
+    instruction, which the guardrails in MARGUS_PERSONA forbid on every
+    surface, and "the print" is desk vocabulary besides. So the assertion is
+    inverted: the note states the two facts and leaves the decision alone.
+  */
+  assert.match(note, /18%/);
   assert.match(note, /±7%/);
-  assert.match(note, /lighten/);
+  assert.doesNotMatch(note, /lighten|trim|add here|sell some/i);
   assert.doesNotMatch(note, /—/);
 });
 
@@ -1348,7 +1358,7 @@ run("trim on a run is Thesis intact", () => {
     "utf8"
   );
   assert.match(prompt, /Never mark Thesis watch just because the price went up/);
-  assert.match(fallback, /Price is up more than a typical day/);
+  assert.match(fallback, /price is up more than it usually moves in a day/i);
   assert.doesNotMatch(
     fallback,
     /euphoric[\s\S]{0,400}thesisStatus: "watch"/
@@ -1531,11 +1541,11 @@ run("humanize kills leftover market slang", () => {
   );
   assert.match(
     pulseSuggestion({ action: "sell" }),
-    /The stated reason for owning this no longer matches the facts/
+    /reason you own this no longer matches/i
   );
   assert.match(
     pulseSuggestion({ action: "watch" }),
-    /Not enough history for a range reading/
+    /not enough price history/i
   );
   assert.match(
     pulseSuggestion({ action: "hold" }),
@@ -2245,7 +2255,7 @@ run("chart ticks stay HTML text-xs, never SVG text", () => {
   assert.match(nav, /h-64 w-full/);
   assert.match(nav, /min-h-9/);
   assert.match(nav, /plotMax = scale.max \+ span \* 0\.18/);
-  assert.match(nav, /Held these names all year/);
+  assert.match(nav, /held these same companies all year/i);
   assert.match(nav, /Fill in an assumed year/);
   assert.doesNotMatch(nav, /!assumed && !loading && onRestoreAssumed/);
   const home = readFileSync(
@@ -3240,7 +3250,7 @@ run("sign-in reads as a product", () => {
    * still explains the move rather than just restating the number, and
    * that it stays clear of the slang.
    */
-  assert.match(gate, /whether something changed at the company/);
+  assert.match(gate, /whether something changed at the/);
   assert.doesNotMatch(gate, /<InsightText text="[^"]*\ba bounce\b/);
   assert.match(gate, /Thesis intact/);
   assert.match(gate, /Up ≥5%/);
@@ -4244,9 +4254,10 @@ run("Communities list does not blank a cached circle while it refreshes", () => 
   assert.match(src, /loadCommunityListCache/);
   assert.match(src, /communities\.length === 0 && loading/);
   assert.match(src, /Public circles/);
-  assert.match(src, /Requested - pending/);
+  // The rule is that a pending request says so, not the words it uses.
+  assert.match(src, /Waiting for approval/);
   assert.doesNotMatch(src, /Requested · pending/);
-  assert.match(src, /No public circles right now/);
+  assert.match(src, /no public circles right now/i);
   assert.doesNotMatch(src, /discover\.length > 0 &&/);
   assert.match(src, /<PanelHeader/);
   assert.match(src, /flex flex-col gap-4/);
@@ -6522,7 +6533,9 @@ run("email and admin RPCs are not callable with a user JWT", () => {
   assert.match(communityView, /This link works for 30 days/);
   assert.doesNotMatch(communityView, /This link stays live/);
   assert.match(communityView, /inviteNeverExpires/);
-  assert.match(communityView, /Emails \(optional, comma between\)/);
+  // The rule is that the invite form takes optional email addresses, not
+  // the exact placeholder it says that in.
+  assert.match(communityView, /Email addresses[^"]*optional/i);
   assert.match(communityView, /Retire this link/);
   assert.match(communityView, /copyInviteLink/);
   assert.match(communityView, /inv\.path/);
@@ -6568,7 +6581,8 @@ run("circle portfolios show unless you turn one off", () => {
     join(process.cwd(), "src/components/ShareSheets.tsx"),
     "utf8"
   );
-  assert.match(sheetsUi, /These are on unless you turn one off/);
+  // The rule is opt-out sharing, not the sentence that states it.
+  assert.match(sheetsUi, /unless you turn (?:it|one) off/i);
   const list = readFileSync(
     join(process.cwd(), "src/components/CommunitiesList.tsx"),
     "utf8"
@@ -6970,7 +6984,7 @@ run("empty books skip holdings emails and get one week-later nudge", () => {
   const text = emptyBookNudgeText("Martin Aasa");
   assert.equal(emptyBookNudgeSubject(), "Your portfolio is still empty");
   assert.match(text, /Hi Martin\./);
-  assert.match(text, /Import the names you already own/);
+  assert.match(text, /add what you already own/i);
   assert.match(text, /upsidelab\.app/);
   assert.match(text, /one-time note/);
   assert.doesNotMatch(text, /\u2014/);
@@ -7064,7 +7078,7 @@ run("legal pages name the operator and match the product", () => {
   assert.match(terms, /Courts in/);
   assert.match(terms, /what you paid/);
 
-  assert.match(privacy, /today&apos;s prices, the names you hold, cash, and returns/);
+  assert.match(privacy, /today&apos;s prices, the companies you hold/);
   assert.match(privacy, /They do not see what you paid/);
   assert.match(privacy, /Pulse, the Sunday email/);
   assert.match(privacy, /screenshot/);

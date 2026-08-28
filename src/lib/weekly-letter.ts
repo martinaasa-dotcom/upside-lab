@@ -276,7 +276,7 @@ function pulseSuggestions(
         ticker: p.ticker,
         source: "pulse",
         status: badge,
-        line: `Pulse: the stated reason for owning ${tag} no longer matches. It is ${weightPct(p.weight)} of what you own.`,
+        line: `Pulse: the reason you own ${tag} no longer matches what the company is doing. It is ${weightPct(p.weight)} of what you own.`,
       });
       continue;
     }
@@ -405,9 +405,9 @@ function openingLine(input: {
   const best = input.movers.find((m) => m.pct > 0);
   const worst = [...input.movers].reverse().find((m) => m.pct < 0);
   const bits: string[] = [];
-  if (best) bits.push(`${cashtag(best.ticker)} did the lifting`);
+  if (best) bits.push(`${cashtag(best.ticker)} did most of the work`);
   if (worst && worst.ticker !== best?.ticker) {
-    bits.push(`${cashtag(worst.ticker)} pulled the other way`);
+    bits.push(`${cashtag(worst.ticker)} went the other way`);
   }
   if (bits.length === 0) return "A quiet week.";
   return `${bits.join(", and ")}.`;

@@ -179,7 +179,7 @@ const Q2_OPTIONS: { id: Q2Answer; label: string; detail: string }[] = [
   {
     id: "never",
     label: "No, not familiar with them",
-    detail: "We hide covered calls, strike alerts and Call % everywhere.",
+    detail: "Covered calls, strike alerts and Call % stay hidden everywhere.",
   },
   {
     id: "know",
@@ -505,13 +505,13 @@ export function WelcomeTour({
       if (!isSafeShares(sharesN)) {
         setStockError(
           isCoinSymbol(normalizedTicker)
-            ? "How many has to be bigger than 0 and not enormous."
-            : "Share count has to be bigger than 0 and not enormous."
+            ? "How many you hold has to be more than 0, and a believable number."
+            : "The number of shares has to be more than 0, and a believable number."
         );
         return;
       }
       if (!isSafePositiveMoney(buyN)) {
-        setStockError("Buy price has to be bigger than 0 and not enormous.");
+        setStockError("The buy price has to be more than 0, and a believable number.");
         return;
       }
 
@@ -523,7 +523,7 @@ export function WelcomeTour({
           { cache: "no-store" }
         );
         if (!fxRes.ok) {
-          setStockError("Couldn't convert that buy price. Try again in a second.");
+          setStockError("That buy price could not be converted into dollars. Try again in a moment.");
           return;
         }
         const fxJson = (await fxRes.json()) as {
@@ -535,7 +535,7 @@ export function WelcomeTour({
         };
         const rates = usdPerMapFromFx(fxJson.fx);
         if (!(rates[buyCode] > 0)) {
-          setStockError("Couldn't convert that buy price. Try again in a second.");
+          setStockError("That buy price could not be converted into dollars. Try again in a moment.");
           return;
         }
         buyUsd = listingAmountToUsd(buyN, buyCode, rates);
@@ -730,7 +730,7 @@ export function WelcomeTour({
               <ul className="grid gap-2 sm:grid-cols-2">
                 <Row icon={Activity} term="On a bad day">
                   A fall and real bad news look exactly the same in a list of
-                  red numbers. Pulse reads the day on each name you own and
+                  red numbers. Pulse reads the day on each company you own and
                   says which one this is. Most days it is the whole market
                   and nothing about your companies changed at all.
                 </Row>
@@ -813,9 +813,10 @@ export function WelcomeTour({
                   today.
                 </Row>
                 <Row icon={Activity} term="Pulse">
-                  When a name moves, a plain read of what happened and whether
-                  your reason for owning it moved with it. Each name gets a
-                  badge: thesis intact, thesis watch, or thesis broken.
+                  When a holding moves, this says in plain words what
+                  happened and whether your reason for owning it changed with
+                  it. Each one gets a badge: thesis intact, thesis watch, or
+                  thesis broken.
                 </Row>
                 <Row icon={FlaskConical} term="Lab">
                   Four views of the same portfolio: Allocation (what you are
@@ -844,15 +845,15 @@ export function WelcomeTour({
               <ul className="grid gap-2 sm:grid-cols-2">
                 <Row icon={MessageCircle} term="Margus">
                   Has read your portfolio. Ask why something moved, what a
-                  number means, or what you would be left with if one name
-                  halved.
+                  number means, or what you would be left with if one holding
+                  halved in value.
                 </Row>
                 <Row icon={Activity} term="Pulse and Forecast">
-                  Pulse reads the day on each name you own and says whether
-                  anything really changed at that company or whether the
-                  price moved with everything else. Forecast walks a name
-                  forward under a few different scenarios. Both are for
-                  thinking with, not answers.
+                  Pulse reads the day on each company you own and says whether
+                  anything really changed there, or whether the price moved
+                  with everything else. Forecast walks a holding forward under
+                  a few different scenarios. Both are there to think with,
+                  rather than to answer for you.
                 </Row>
                 <Row icon={CircleNavIcon} term="Circle">
                   Share a portfolio with people you invite and see how their
@@ -860,7 +861,8 @@ export function WelcomeTour({
                   what you paid. Nothing is shared until you share it.
                 </Row>
                 <Row icon={Mail} term="The Sunday email">
-                  One email a week. How the week went, and which names moved.
+                  One email a week. How the week went, and which of your
+                  holdings moved.
                   Pulse readings you have already seen can show up as notes.
                   Nothing in it is invented.
                 </Row>
@@ -915,7 +917,7 @@ export function WelcomeTour({
                   Export everything or delete the account outright from
                   Account. Deleting means deleting.
                 </Row>
-                <Row icon={Wallet} term="Prices are free-tier and delayed">
+                <Row icon={Wallet} term="Prices are free, and a few minutes behind">
                   Good enough to see how a week went. Not good enough to trade
                   on, which is fine, because you cannot trade here.
                 </Row>
@@ -1281,11 +1283,12 @@ export function WelcomeTour({
                     say until something is in there.
                   </Row>
                 ) : (
-                  <Row icon={House} term="Adding more names later">
-                    Same <strong className="text-foreground">Add holding</strong>{" "}
+                  <Row icon={House} term="Adding more holdings later">
+                    The same{" "}
+                    <strong className="text-foreground">Add holding</strong>{" "}
                     button on Home, however many you end up with. The plus in
-                    the bottom bar is for a whole second portfolio, which is
-                    not what you want for one more name.
+                    the bottom bar makes a whole second portfolio, which is not
+                    what you want for one more company.
                   </Row>
                 )}
                 <Row icon={MessageCircle} term="If you get stuck">

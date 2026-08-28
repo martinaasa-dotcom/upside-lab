@@ -36,8 +36,8 @@ const KNOWN: Record<string, string> = {
   // so a response from an older deploy still resolves to plain English.
   "This save has none of your sheets.":
     "This save has none of your portfolios.",
-  "Unknown action": "That action isn't recognized.",
-  "No pulse candidates supplied": "No names on this list yet.",
+  "Unknown action": "That action is not one we recognize.",
+  "No pulse candidates supplied": "Nothing on this list yet.",
   "sunday required": "Pick whether you want the Sunday email.",
   "userId required": "Pick a person first.",
   "userId and decision required": "Pick approve or decline.",
@@ -52,7 +52,7 @@ const KNOWN: Record<string, string> = {
   "No pending request": "There's no request waiting.",
   "Join failed": "Couldn't join. Try the link again.",
   "Forbidden": "You don't have access to that.",
-  "Database unavailable": "The database is taking a break. Try again in a minute.",
+  "Database unavailable": "The database is not responding. Try again in a minute.",
   "nothing to update": "Nothing changed.",
   "Nothing to update": "Nothing changed.",
   /*
@@ -89,8 +89,11 @@ const KNOWN: Record<string, string> = {
   "Pick what students can do.": "Pick what students can do.",
   "You can buy, sell, and move money.":
     "You can buy, sell, and move money.",
+  "You can add companies. You cannot sell yet.":
+    "You can add companies. You cannot sell yet.",
+  // Older deploys still send the wording this replaced.
   "You can add names. You cannot sell yet.":
-    "You can add names. You cannot sell yet.",
+    "You can add companies. You cannot sell yet.",
   "The teacher closed the portfolio. You can look, you cannot buy or sell.":
     "The teacher closed the portfolio. You can look, you cannot buy or sell.",
   "The teacher closed the sheet. You can look, you cannot buy or sell.":
@@ -99,12 +102,15 @@ const KNOWN: Record<string, string> = {
     "Couldn't make the paper portfolio.",
   "Couldn't make the paper sheet.":
     "Couldn't make the paper portfolio.",
+  "You can sell and move money. You cannot add new companies.":
+    "You can sell and move money. You cannot add new companies.",
+  // Older deploys still send the wording this replaced.
   "You can sell and move money. You cannot add new names.":
-    "You can sell and move money. You cannot add new names.",
+    "You can sell and move money. You cannot add new companies.",
   "Invalid ticker": "That ticker doesn't look right.",
   "Invalid tier": "That experience level isn't valid.",
   "Invalid knowsOptions": "That options answer isn't valid.",
-  "Unrecognized ticker": "Don't recognize that ticker.",
+  "Unrecognized ticker": "That ticker is not one we recognize.",
   "Use community book endpoint for peer portfolios":
     "Open that portfolio from the circle, not here.",
   "Supabase not configured": "Cloud save isn't available right now.",

@@ -102,8 +102,8 @@ export function ClassroomHome({
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Open your paper portfolio to buy stocks. Sunday note is
-            the weekly recap.
+            Open your paper portfolio to buy companies with the paper
+            money. The Sunday note is your weekly summary.
           </p>
         )}
       </section>

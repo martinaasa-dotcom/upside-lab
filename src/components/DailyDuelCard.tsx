@@ -268,13 +268,15 @@ export function DailyDuelCard({
     !communityId && record && decided ? duelResultLine(record) : null;
   const waitingOnClose = myPick != null && !decided;
   const closeWhen =
-    sessionWhen === "today" ? "today's US close (4pm ET)" : `${sessionWhen}'s US close (4pm ET)`;
+    sessionWhen === "today"
+      ? "the US close today, at 16:00 New York time"
+      : `the US close ${sessionWhen}, at 16:00 New York time`;
 
   const communityLine = communityId
     ? myPick == null
       ? "Same matchup for everyone here. One tap locks it."
       : waitingOnClose
-        ? `${community?.pickCount ?? 1} pick${(community?.pickCount ?? 1) === 1 ? "" : "s"} in. Results after ${closeWhen}.`
+        ? `${community?.pickCount ?? 1} ${(community?.pickCount ?? 1) === 1 ? "person has" : "people have"} picked. Results come after ${closeWhen}.`
         : communityVoteLine(community, pair)
     : null;
 
@@ -411,9 +413,9 @@ export function DailyDuelCard({
         {communityId
           ? communityLine
           : myPick == null
-            ? "One tap locks it. No take-backs, and no live percent until the US close."
+            ? "One tap locks your pick in. You cannot change it afterwards, and there is no running percentage until the US market closes."
             : waitingOnClose
-              ? `Locked in. Results unlock after ${closeWhen}.`
+              ? `Your pick is locked in. Results come after ${closeWhen}.`
               : resultLine}
       </p>
     </section>
