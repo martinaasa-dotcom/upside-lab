@@ -6,8 +6,10 @@ import {
 import {
   STRUCTURED_PROVIDER_OPTIONS,
   buildAdvisorProviderChain,
+  modelIdFor,
   withAdvisorFallback,
 } from "@/lib/ai/model";
+import type { ModelRun } from "@/lib/ai/model-label";
 import { humanizeMargusTree, humanizeMargusText } from "@/lib/ai/humanize-copy";
 import { MARGUS_PERSONA } from "@/lib/ai/margus-persona";
 import { insightsPromptBlock } from "@/lib/book-insights";
@@ -308,17 +310,27 @@ async function handlePOST(req: Request) {
       body.fearGreed ?? null
     );
 
+    // The chain walks past a rate-limited provider, so the model that
+    // answers is often not the one at its head. Recorded here as it
+    // answers, because the eye on each card names it.
+    let answeredBy: ModelRun | null = null;
+
     const { object } = await withAdvisorFallback(
       providerChain,
-      (model, _providerId, signal) =>
-        generateObject({
+      (model, providerId, signal) => {
+        answeredBy = {
+          provider: providerId,
+          model: modelIdFor(providerChain, providerId),
+        };
+        return generateObject({
           model,
           schema: pulseReportSchema,
           prompt,
           maxRetries: 1,
           abortSignal: signal ?? req.signal,
           providerOptions: STRUCTURED_PROVIDER_OPTIONS,
-        }),
+        });
+      },
       { deadlineAt: startedAt + LLM_BUDGET_MS, signal: req.signal }
     );
 
@@ -366,6 +378,7 @@ async function handlePOST(req: Request) {
       summary: object.summary || getCachedPulseSummary(auth.user.id) || "",
       checks,
       generatedAt: new Date().toISOString(),
+      writtenBy: answeredBy,
     });
 
     return Response.json(

@@ -25,6 +25,8 @@ import {
   type MilestoneActuals,
 } from "@/lib/compound-play";
 import { blendedExpectedAnnualReturn } from "@/lib/forecast-conviction";
+import { WhyThis } from "@/components/ui/WhyThis";
+import { growthRateProvenance } from "@/lib/provenance";
 import { NO_VALUE, cn, percent } from "@/lib/format";
 import { persistCompoundSnapshot } from "@/lib/offline/snapshots";
 import { PALETTE } from "@/lib/palette";
@@ -814,8 +816,24 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         </section>
 
         <section className={cn(FIELD_STACK, "py-4")}>
-          <label htmlFor="compound-rate-input" className="text-sm font-semibold text-foreground">
+          <label
+            htmlFor="compound-rate-input"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-foreground"
+          >
             Growing at
+            {/*
+              Every figure on this page is this one number compounded for
+              decades, and where it comes from is not guessable from the
+              screen. It is not a model, but it is very much an assumption,
+              so it answers the same question in the same place as the rest.
+            */}
+            <WhyThis
+              provenance={growthRateProvenance({
+                ratePct: annualRateInput,
+                edited: !isRateMatchedToPortfolio,
+              })}
+              align="start"
+            />
           </label>
           <div className="relative">
             <FormattedNumberInput

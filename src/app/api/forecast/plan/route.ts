@@ -1,8 +1,10 @@
 import {
   STRUCTURED_PROVIDER_OPTIONS,
   buildAdvisorProviderChain,
+  modelIdFor,
   withAdvisorFallback,
 } from "@/lib/ai/model";
+import type { ModelRun } from "@/lib/ai/model-label";
 import { humanizeMargusTree } from "@/lib/ai/humanize-copy";
 import {
   buildCachedForecastPlan,
@@ -82,14 +84,27 @@ async function handlePOST(req: Request) {
   // for another model run. See src/lib/forecast-ticker-cache-store.ts.
   const heldTickers = [...new Set(forecast.rows.map((r) => r.ticker.toUpperCase()))];
   const cacheHits = await loadServerTickerCache(heldTickers, convictions);
+  // Which names were answered out of the shared cache rather than written
+  // fresh, and when that earlier run happened. The eye beside a price says
+  // so: a reused path was reasoned from the company, not from this
+  // portfolio, and a reader comparing two portfolios deserves to know the
+  // identical path is the same run and not two models agreeing.
+  const reused: Record<string, string> = {};
+  for (const [ticker, hit] of Object.entries(cacheHits)) {
+    if (hit?.generatedAt) reused[ticker] = hit.generatedAt;
+  }
+
   if (heldTickers.length > 0 && heldTickers.every((t) => cacheHits[t])) {
     return Response.json({
-      plan: buildCachedForecastPlan({
-        forecast,
-        portfolioId,
-        portfolioName,
-        cacheHits,
-      }),
+      plan: {
+        ...buildCachedForecastPlan({
+          forecast,
+          portfolioId,
+          portfolioName,
+          cacheHits,
+        }),
+        reused,
+      },
     });
   }
 
@@ -106,17 +121,28 @@ async function handlePOST(req: Request) {
       convictions,
     });
 
+    // Recorded as the call happens, so the plan can name the model that
+    // really answered rather than the one at the head of the chain. The
+    // chain walks on a rate limit, so those two differ often enough that
+    // guessing would make the eye a liar.
+    let answeredBy: ModelRun | null = null;
+
     const { object } = await withAdvisorFallback(
       providerChain,
-      (model, _providerId, signal) =>
-        generateObject({
+      (model, providerId, signal) => {
+        answeredBy = {
+          provider: providerId,
+          model: modelIdFor(providerChain, providerId),
+        };
+        return generateObject({
           model,
           schema: forecastPlanSchema,
           prompt,
           maxRetries: 1,
           abortSignal: signal ?? req.signal,
           providerOptions: STRUCTURED_PROVIDER_OPTIONS,
-        }),
+        });
+      },
       { deadlineAt: startedAt + LLM_BUDGET_MS, signal: req.signal }
     );
 
@@ -143,6 +169,8 @@ async function handlePOST(req: Request) {
       portfolioId,
       portfolioName,
       stance: DEFAULT_FORECAST_STANCE,
+      writtenBy: answeredBy,
+      reused,
     });
 
     void persistServerTickerCache(plan, convictions);

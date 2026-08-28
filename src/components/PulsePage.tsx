@@ -38,7 +38,8 @@ import { formatDateTime } from "@/lib/timezone";
 import type { FearGreedSnapshot } from "@/lib/market/fear-greed";
 import { humanizeMargusText, pulseSuggestion } from "@/lib/ai/humanize-copy";
 import { WhyThis } from "@/components/ui/WhyThis";
-import { pulseProvenance } from "@/lib/provenance";
+import { pulseProvenance, pulseRoomProvenance } from "@/lib/provenance";
+import type { ModelRun } from "@/lib/ai/model-label";
 import { isAbortError } from "@/lib/abort";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { readJsonOrThrow } from "@/lib/http";
@@ -187,6 +188,7 @@ function PulseCard({
   loading,
   convictionThesis,
   checkedAt,
+  writtenBy,
   onRefresh,
   onWriteThesis,
   pinned = false,
@@ -199,6 +201,8 @@ function PulseCard({
   loading: boolean;
   convictionThesis?: string;
   checkedAt?: string;
+  /** The model that answered the last live run, when one has run here. */
+  writtenBy?: ModelRun | null;
   onRefresh?: () => void;
   onWriteThesis?: () => void;
   pinned?: boolean;
@@ -326,7 +330,9 @@ function PulseCard({
                 ticker: c.ticker,
                 hasOwnReason: Boolean(convictionThesis?.trim()),
                 headlineCount: headlines.length,
+                publishers: headlines.map((h) => h.publisher),
                 at: checkedAt,
+                model: writtenBy,
               })}
             />
           ) : null}
@@ -700,6 +706,15 @@ export const PulsePage = memo(function PulsePage({
     }
     return out;
   });
+  /*
+   * Which model answered the most recent live run, straight from the route
+   * that made the call. Not stored per ticker and not persisted: a reading
+   * that came back from cache was written by whichever model ran then, and
+   * this app did not record that, so the eye says nothing rather than
+   * naming the model that happens to be answering today.
+   */
+  const [writtenBy, setWrittenBy] = useState<ModelRun | null>(null);
+
   const [checkedAtByTicker, setCheckedAtByTicker] = useState<
     Record<string, string>
   >(() => {
@@ -983,6 +998,9 @@ export const PulsePage = memo(function PulsePage({
           headlines?: Record<string, PulseHeadline[]>;
           reused?: boolean;
         }>(res, "Pulse check failed");
+        if (data.report?.writtenBy?.model) {
+          setWrittenBy(data.report.writtenBy);
+        }
         if (opts?.signal?.aborted) return;
         const newReport = data.report as PulseReport;
         const newHeadlines =
@@ -1166,7 +1184,19 @@ export const PulsePage = memo(function PulsePage({
       <Panel className="gap-3">
         <PanelHeader
           icon={<Activity className="h-4 w-4" />}
-          title="Today's moves"
+          title={
+            <span className="inline-flex items-center gap-2">
+              Today&apos;s moves
+              <WhyThis
+                provenance={pulseRoomProvenance({
+                  model: writtenBy,
+                  checkedCount: Object.keys(checksByTicker).length,
+                  at: Object.values(checkedAtByTicker).sort().at(-1) ?? null,
+                })}
+                align="start"
+              />
+            </span>
+          }
           actions={
             <form
               onSubmit={(e) => void submitSearch(e)}
@@ -1282,6 +1312,7 @@ export const PulsePage = memo(function PulsePage({
                 convictions[pinnedCandidate.ticker.toUpperCase()]?.thesis
               }
               checkedAt={checkedAtByTicker[pinnedCandidate.ticker.toUpperCase()]}
+              writtenBy={writtenBy}
               onRefresh={() => void runPulse([pinnedCandidate], { force: true })}
               onWriteThesis={
                 onWriteThesis
@@ -1325,6 +1356,7 @@ export const PulsePage = memo(function PulsePage({
                       convictions[c.ticker.toUpperCase()]?.thesis
                     }
                     checkedAt={checkedAtByTicker[c.ticker.toUpperCase()]}
+                    writtenBy={writtenBy}
                     onRefresh={() => void runPulse([c], { force: true })}
                     onWriteThesis={
                       onWriteThesis ? () => onWriteThesis(c.ticker) : undefined
@@ -1356,6 +1388,7 @@ export const PulsePage = memo(function PulsePage({
                       convictions[c.ticker.toUpperCase()]?.thesis
                     }
                     checkedAt={checkedAtByTicker[c.ticker.toUpperCase()]}
+                    writtenBy={writtenBy}
                     onRefresh={() => void runPulse([c], { force: true })}
                     onWriteThesis={
                       onWriteThesis ? () => onWriteThesis(c.ticker) : undefined

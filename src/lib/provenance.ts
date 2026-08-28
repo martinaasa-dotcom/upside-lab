@@ -1,5 +1,7 @@
 import { NO_VALUE, cashtag, currency } from "@/lib/format";
 import { formatDateTime } from "@/lib/timezone";
+import type { ModelRun } from "@/lib/ai/model-label";
+import type { ForecastPathAdjustment } from "@/lib/forecast-plan";
 
 /**
  * Where a number on screen came from, in the reader's own language.
@@ -7,18 +9,33 @@ import { formatDateTime } from "@/lib/timezone";
  * The one question this product keeps being asked is where a figure comes
  * from, and the honest answer differs sharply from one card to the next:
  * most of the app is arithmetic on holdings somebody typed in, and a
- * handful of surfaces are a language model reasoning about a company. Those
- * two deserve very different amounts of trust, and until now the screen
- * looked identical either way, so a reader with any suspicion of generated
- * text had no way to tell them apart and reasonably assumed the worst about
- * all of it.
+ * handful of surfaces are a language model reasoning about a company.
+ * Those deserve very different amounts of trust, and the screen looks
+ * identical either way, so a reader with any suspicion of generated text
+ * has no way to tell them apart and reasonably assumes the worst of all
+ * of it.
  *
- * So anything a model touched carries an eye, and behind the eye is this:
- * what made the number, every input it was given, and what it cannot know.
- * The rule for writing one is that it must be checkable. Name the real
- * inputs, in the order the prompt gives them, and name the real gaps. A
- * reassuring paragraph that does not survive somebody reading the code is
- * worse than nothing, because it is the second thing they stop believing.
+ * So anything a model touched carries an eye, and behind the eye is the
+ * whole account: which model answered, what it was handed, where each of
+ * those things came from, what this app then did to its answer before the
+ * reader saw it, and what it cannot know.
+ *
+ * Two rules for writing one, and they are the reason this file is long.
+ *
+ * **It has to be checkable.** Name the real model, the real inputs in the
+ * order the prompt sends them, the real feeds by name, and the real gaps.
+ * A reassuring paragraph that does not survive somebody reading the code
+ * is worse than nothing, because it is the second thing they stop
+ * believing.
+ *
+ * **It has to admit what we do to the answer.** The forecast path on
+ * screen is not always the path the model wrote: a skipped year gets
+ * filled from a table, a straight line gets reshaped, and a path landing
+ * below the shape kept for that kind of business gets scaled up to it. A
+ * Pulse badge that contradicted its own suggestion gets settled the calm
+ * way. Every sentence the model writes is rewritten to strip market
+ * jargon. None of that is a secret, and a reader who found it out for
+ * themselves would be right to distrust everything else here.
  */
 export type ProvenanceMaker = "model" | "arithmetic" | "market";
 
@@ -29,14 +46,33 @@ export type ProvenanceInput = {
   detail?: string;
 };
 
+/** A named place a fact came from. Linked when there is a real page. */
+export type ProvenanceSource = {
+  /** Who supplied it: Yahoo Finance, you, the model's training. */
+  name: string;
+  /** What they supplied, in a few words. */
+  what: string;
+  /** Opens the actual page, for the sources that have one. */
+  href?: string;
+};
+
 export type Provenance = {
   maker: ProvenanceMaker;
   /** Two or three words on the trigger's tooltip and the popover's heading. */
   title: string;
   /** One sentence saying who made the number. Blunt, never reassuring. */
   headline: string;
+  /** Which model answered, when the run recorded it. Never guessed. */
+  model?: ModelRun | null;
   /** Everything that went in. Empty is not an acceptable answer. */
   inputs: ProvenanceInput[];
+  /** Named feeds and people behind those inputs. */
+  sources?: ProvenanceSource[];
+  /**
+   * How the number on screen was actually worked out, in order, including
+   * anything this app changed after the model answered.
+   */
+  steps?: string[];
   /** What it cannot know. A model number always has some. */
   blindSpots: string[];
   /** When the number was worked out, ISO. */
@@ -45,9 +81,14 @@ export type Provenance = {
   yours?: string;
 };
 
+/* ---------------------------------------------------------------------- *
+ * Sentences used in more than one place. Written once so the answer to
+ * the same question is the same answer everywhere in the app.
+ * ---------------------------------------------------------------------- */
+
 /**
- * The model's own knowledge is an input like any other, and it is the one a
- * skeptic is actually asking about, so it is never left implicit.
+ * The model's own knowledge is an input like any other, and it is the one
+ * a skeptic is actually asking about, so it is never left implicit.
  */
 const TRAINING_INPUT: ProvenanceInput = {
   what: "What the model already knows about the company",
@@ -55,23 +96,106 @@ const TRAINING_INPUT: ProvenanceInput = {
     "from its training, which stopped at some point in the past and does not include this morning",
 };
 
-const NO_NEWS: string =
-  "Anything in the news. No article, filing or analyst note is fetched or read.";
+const NO_NEWS =
+  "Anything in the news. No article, filing or analyst note is fetched or read for this.";
 
-const NOT_A_TARGET: string =
+const NOT_A_TARGET =
   "It is not a price target, and it is nobody telling you to buy or sell.";
 
-const NOT_THE_FUTURE: string =
-  "Anything that has not happened yet. An earnings miss, a rate move, a competitor, a bad year.";
+const NOT_THE_FUTURE =
+  "What actually happens. An earnings miss, a rate move, a competitor, a bad year.";
 
-const TRAINING_IS_STALE: string =
+const TRAINING_IS_STALE =
   "Anything that happened after the model last learned. This morning is not in there.";
+
+const NOT_YOUR_BROKER =
+  "Anything you hold somewhere else. Nothing here is connected to a bank or a broker.";
+
+/**
+ * What naming the model is actually for. A reader who has just been told
+ * the name needs one clause telling them what kind of thing it is, or the
+ * name is trivia. Kept short: the useful facts are that it is ordinary,
+ * that it is free, and that nobody here is paid for its opinion.
+ */
+export const MODEL_CALIBRATION =
+  "A general-purpose model on a free plan. Not a research desk, and nobody here is paid for what it says.";
+
+/** The rewriting pass every model sentence goes through before a reader
+ * sees it. Real, and not obvious from the screen, so it is always said. */
+const REWRITTEN_STEP =
+  "Every sentence the model wrote is run through a plain-English pass before you see it, which swaps market jargon for ordinary words. The numbers are untouched by it.";
+
+const YAHOO_PRICES: ProvenanceSource = {
+  name: "Yahoo Finance",
+  what: "share prices, and the recent high and low",
+  href: "https://finance.yahoo.com",
+};
+
+const YAHOO_NEWS: ProvenanceSource = {
+  name: "Yahoo Finance news search",
+  what: "the headlines, with the publisher and time on each",
+};
+
+const YOUR_HOLDINGS: ProvenanceSource = {
+  name: "You",
+  what: "share counts, buy prices and cash, as you typed or imported them",
+};
+
+const YOUR_WORDS: ProvenanceSource = {
+  name: "You",
+  what: "the reason you wrote down for owning it, in your own words",
+};
+
+/** The model is a source in its own right, and the least checkable one. */
+const MODEL_ITSELF: ProvenanceSource = {
+  name: "The model itself",
+  what: "everything else, out of its training. Nothing was looked up for it.",
+};
+
+/** The one line about the market baseline, so its number is stated once. */
+const BASELINE_INPUT: ProvenanceInput = {
+  what: "The whole-market baseline",
+  detail:
+    "about 10% a year, which is what a broad index fund is assumed to return. The model reasons up or down from there, but this app will not show a path that finishes below the shape it keeps for that kind of business, so the floor is ours and not the model's.",
+};
+
+/* ---------------------------------------------------------------------- *
+ * Forecast
+ * ---------------------------------------------------------------------- */
+
+/** What this app changed about a modeled path, named one change at a time. */
+function adjustmentSteps(adjust?: ForecastPathAdjustment): string[] {
+  const out: string[] = [];
+  if (!adjust) return out;
+  if (adjust.missing) {
+    out.push(
+      "The model gave no path for this name in the last run, so every year here is the plain shape for its kind of business."
+    );
+    return out;
+  }
+  if (adjust.filled) {
+    out.push(
+      "It skipped at least one year, and this app filled that year from a table of typical shapes rather than leaving a gap."
+    );
+  }
+  if (adjust.reshaped) {
+    out.push(
+      "It answered with an even ramp, the same rise every year, which no share price does. This app replaced it with a shape that has quiet years and fast years in it."
+    );
+  }
+  if (adjust.lifted) {
+    out.push(
+      "It landed below the shape this app keeps for that kind of business, so the whole path was scaled up to meet it. This only ever goes one way: a path above that shape is left exactly as the model wrote it."
+    );
+  }
+  return out;
+}
 
 /**
  * A single holding's modeled path.
  *
- * Every input here is one the prompt really sends (`buildForecastPrompt`).
- * If that list changes, this changes with it.
+ * Every input named here is one the prompt really sends
+ * (`buildForecastPlanPrompt`). If that list changes, this changes with it.
  */
 export function forecastPathProvenance(input: {
   ticker: string;
@@ -81,29 +205,43 @@ export function forecastPathProvenance(input: {
   edited?: boolean;
   fallback?: boolean;
   at?: string | null;
+  /** Which model answered the run this path came out of. */
+  model?: ModelRun | null;
+  /** What this app changed about the model's answer for this name. */
+  adjust?: ForecastPathAdjustment;
+  /** When this path was reused from a run done earlier, elsewhere. */
+  reusedAt?: string | null;
+  /** Last year in the path, for spelling out the percent on the card. */
+  lastYear?: number;
 }): Provenance {
   const tag = cashtag(input.ticker);
+  const spot = input.spot > 0 ? currency(input.spot) : NO_VALUE;
+  const last = input.lastYear ? String(input.lastYear) : "the last year";
+
   if (input.fallback) {
     return {
       maker: "arithmetic",
       title: "Where this came from",
-      headline: `No model run has landed for ${tag} yet, so this path is a plain shape for its kind of business. It is not reasoning about this company.`,
+      headline: `No model has written a path for ${tag} yet. What you are looking at is a plain shape for its kind of business, and it is not reasoning about this company.`,
       inputs: [
-        {
-          what: "Today's price",
-          detail: input.spot > 0 ? currency(input.spot) : NO_VALUE,
-        },
+        { what: "Today's price", detail: spot },
         {
           what: "The kind of business it is",
           detail: input.sector?.trim() || "worked out from the ticker",
         },
         {
           what: "A typical shape for that kind of business",
-          detail: "quiet years and fast years, rather than a straight line",
+          detail:
+            "a table written into this app: quiet years and fast years, rather than a straight line",
         },
       ],
+      sources: [YAHOO_PRICES, { name: "This app", what: "the table of shapes" }],
+      steps: [
+        `Today's price is multiplied by the shape for that kind of business, one multiple per year out to ${last}.`,
+        "The percent on the card is that last price against today's price, and nothing else.",
+      ],
       blindSpots: [
-        "Anything specific to this company. It is a shape, not a view.",
+        "Anything at all about this company. It is a shape for a category, not a view on a name.",
         NOT_THE_FUTURE,
         NOT_A_TARGET,
       ],
@@ -111,42 +249,60 @@ export function forecastPathProvenance(input: {
       yours: "Ask Margus to work it out, or type your own price over any year.",
     };
   }
+
+  const steps = [
+    `The model answered with one price per year out to ${last}.`,
+    ...adjustmentSteps(input.adjust),
+    `The percent on the card is the ${last} price against today's price: (${last} price minus today's price) divided by today's price. Nothing rounds or smooths it after that.`,
+  ];
+  if (input.reusedAt) {
+    steps.unshift(
+      `This path was not written for your portfolio. It was worked out for ${tag} in an earlier run, ${provenanceWhen(input.reusedAt) ?? "before now"}, and reused here rather than asking again. That run reasoned about the company, so your position size and your own reason did not reach it.`
+    );
+  }
+  if (input.edited) {
+    steps.push(
+      "You have typed over at least one year here. Your number is used exactly as you typed it."
+    );
+  }
+
   return {
     maker: "model",
     title: "Where this came from",
-    headline: `A language model wrote this path for ${tag}. Nobody here picked the numbers, and no analyst was asked.`,
+    headline: `A language model wrote this path for ${tag}. Nobody here picked the numbers, no analyst was asked, and no research was bought.`,
+    model: input.model,
     inputs: [
       {
         what: "Today's price",
-        detail:
-          (input.spot > 0 ? currency(input.spot) : NO_VALUE) +
-          ", the number every later year in the path is measured from",
+        detail: `${spot}, the number every later year is measured from`,
       },
       {
         what: "The kind of business it is",
         detail: input.sector?.trim() || "worked out from the ticker",
       },
       {
-        what: "Your position size",
-        detail: "how much of your total portfolio this holding is",
+        what: "How big this holding is for you",
+        detail: "as a share of everything in this portfolio",
       },
       input.hasOwnReason
         ? {
             what: "Your own reason for holding it",
-            detail: "your written thesis, and how sure you said you were",
+            detail: "your written reason, and how sure you said you were",
           }
         : {
             what: "Your own reason for holding it",
-            detail: "not written down, so the model reasoned without it",
+            detail: "you have not written one, so the model worked without it",
           },
-      {
-        what: "The whole-market baseline",
-        detail:
-          "about 10% a year, what a broad index fund is assumed to return. This path can land above it or below it.",
-      },
+      BASELINE_INPUT,
       TRAINING_INPUT,
     ],
-    blindSpots: [NOT_THE_FUTURE, NO_NEWS, NOT_A_TARGET],
+    sources: [
+      YAHOO_PRICES,
+      input.hasOwnReason ? YOUR_WORDS : YOUR_HOLDINGS,
+      MODEL_ITSELF,
+    ],
+    steps,
+    blindSpots: [NOT_THE_FUTURE, NO_NEWS, TRAINING_IS_STALE, NOT_A_TARGET],
     at: input.at,
     yours: input.edited
       ? "You have typed over at least one year here, and your number wins."
@@ -158,47 +314,81 @@ export function forecastPathProvenance(input: {
 export function forecastRoomProvenance(input: {
   at?: string | null;
   fallback?: boolean;
+  model?: ModelRun | null;
+  /** How many of the names on screen this app adjusted after the model. */
+  adjustedCount?: number;
+  /** How many were reused from a run done for a different portfolio. */
+  reusedCount?: number;
 }): Provenance {
   if (input.fallback) {
     return {
       maker: "arithmetic",
       title: "Where this came from",
       headline:
-        "No model run has landed yet, so each path is a plain shape for that kind of business. The chart is those shapes added up.",
+        "No model has run for this portfolio yet. Each path is a plain shape for that kind of business, and the chart is those shapes added up.",
       inputs: [
         { what: "Your share counts" },
-        { what: "Today's prices, from the market data feed" },
+        { what: "Today's prices" },
         {
-          what: "A typical shape for each kind of business",
-          detail: "quiet years and fast years, rather than a straight line",
+          what: "A typical shape per kind of business",
+          detail:
+            "a table written into this app: quiet years and fast years, rather than a straight line",
         },
       ],
+      sources: [YOUR_HOLDINGS, YAHOO_PRICES],
+      steps: [
+        "Each name's shape is applied to its own price, then multiplied by your share count.",
+        "The chart is those added together, one column per year.",
+      ],
       blindSpots: [
-        "Anything specific to a company. These are shapes, not a view.",
+        "Anything about a particular company. These are shapes for categories, not views on names.",
         NOT_THE_FUTURE,
         NOT_A_TARGET,
       ],
       at: input.at,
-      yours: "Ask Margus to work each name out, or type your own price over any year.",
+      yours:
+        "Ask Margus to work each name out, or type your own price over any year.",
     };
   }
+
+  const steps = [
+    "Each holding goes to the model on its own, and comes back with one price per year.",
+  ];
+  if (input.adjustedCount && input.adjustedCount > 0) {
+    steps.push(
+      input.adjustedCount === 1
+        ? "One of those paths was changed by this app afterwards, because the model skipped a year, drew a straight line, or landed under the shape kept for that kind of business. Open that name's own eye to see which."
+        : `${input.adjustedCount} of those paths were changed by this app afterwards, because the model skipped a year, drew a straight line, or landed under the shape kept for that kind of business. Open a name's own eye to see which.`
+    );
+  }
+  if (input.reusedCount && input.reusedCount > 0) {
+    steps.push(
+      input.reusedCount === 1
+        ? "One name was not worked out for this portfolio at all. Its path was written in an earlier run and reused here."
+        : `${input.reusedCount} names were not worked out for this portfolio at all. Their paths were written in earlier runs and reused here.`
+    );
+  }
+  steps.push(
+    "The chart multiplies each year's price by your share count and adds them up. Today's column is the market. Every column after it is modeled."
+  );
+  steps.push(REWRITTEN_STEP);
+
   return {
     maker: "model",
     title: "Where this came from",
     headline:
-      "A language model writes a yearly price for each holding from what that company does, how much of it you own, and what you wrote down as the reason. The chart is those prices times your share counts. Today's column is the market. Every year after that is modeled.",
+      "A language model writes a yearly price for every holding, from what the company does, how much of it you own and what you wrote down as your reason. Today's column is the real market price. Every year after it is modeled.",
+    model: input.model,
     inputs: [
       { what: "Today's price of each holding" },
       { what: "The kind of business each one is" },
-      { what: "How much of the portfolio each one is" },
-      { what: "Your written reason for holding a name, when you have one" },
-      {
-        what: "The whole-market baseline",
-        detail:
-          "about 10% a year, what a broad index fund is assumed to return. Each path can land above it or below it.",
-      },
+      { what: "How big each holding is in this portfolio" },
+      { what: "Your written reason for a name, where you have written one" },
+      BASELINE_INPUT,
       TRAINING_INPUT,
     ],
+    sources: [YAHOO_PRICES, YOUR_HOLDINGS, MODEL_ITSELF],
+    steps,
     blindSpots: [NOT_THE_FUTURE, NO_NEWS, TRAINING_IS_STALE, NOT_A_TARGET],
     at: input.at,
     yours: "Open any card's eye for that name. Type over a year and yours wins.",
@@ -209,24 +399,32 @@ export function forecastRoomProvenance(input: {
 export function forecastTotalProvenance(input: {
   at?: string | null;
   fallback?: boolean;
+  model?: ModelRun | null;
 }): Provenance {
   return {
     maker: "arithmetic",
     title: "Where this came from",
     headline:
-      "This line is your share counts times the modeled price of each holding, added up. The addition is plain arithmetic. The prices in it are the modeled ones.",
+      "The adding up is plain arithmetic and you can check it by hand. The prices being added are the modeled ones, so this line is only as good as those.",
+    model: input.model,
     inputs: [
       { what: "Your share count for each holding" },
       {
-        what: "Each holding's modeled path",
+        what: "Each holding's path for that year",
         detail: input.fallback
-          ? "a plain shape per kind of business, since no model run has landed"
+          ? "a plain shape per kind of business, since no model has run yet"
           : "written by a language model, one name at a time",
       },
-      { what: "Any price you typed over yourself" },
+      { what: "Any price you typed over yourself", detail: "yours wins" },
+    ],
+    sources: [YOUR_HOLDINGS],
+    steps: [
+      "For each year: every holding's price for that year, times your shares in it.",
+      "Those are added together. That is the whole calculation.",
+      "It assumes you hold exactly what you hold today, every year, and never buy or sell.",
     ],
     blindSpots: [
-      "Anything you buy or sell later. It assumes you hold exactly what you hold today.",
+      "Anything you buy or sell later, and any dividend, fee or tax.",
       NOT_THE_FUTURE,
       NOT_A_TARGET,
     ],
@@ -235,47 +433,71 @@ export function forecastTotalProvenance(input: {
   };
 }
 
+/* ---------------------------------------------------------------------- *
+ * Pulse
+ * ---------------------------------------------------------------------- */
+
 /** A Thesis Pulse verdict on one name. */
 export function pulseProvenance(input: {
   ticker: string;
   hasOwnReason: boolean;
   headlineCount?: number;
+  /** The publishers behind those headlines, so the reader can go and read them. */
+  publishers?: string[];
   at?: string | null;
+  model?: ModelRun | null;
 }): Provenance {
   const tag = cashtag(input.ticker);
   const n = input.headlineCount ?? 0;
+  const publishers = [...new Set((input.publishers ?? []).filter(Boolean))];
+
   return {
     maker: "model",
     title: "Where this came from",
-    headline: `A language model read your own reason for owning ${tag} against how the price has moved, and said whether the two still agree.`,
+    headline: `A language model read your own reason for owning ${tag} against how the price has moved and what was in the news, then said whether the two still agree.`,
+    model: input.model,
     inputs: [
       input.hasOwnReason
         ? { what: "Your written reason for owning it", detail: "in your words" }
         : {
             what: "Your written reason for owning it",
-            detail: "you have not written one, which is why the reading is thin",
+            detail:
+              "you have not written one. The model still answers, but it is judging the price against nothing, which is why the reading is thin.",
           },
-      { what: "Today's price and how it has moved recently" },
-      { what: "Where it sits against its recent high and low" },
+      { what: "Today's price and how it has moved" },
+      { what: "Where the price sits against its recent high and low" },
       n > 0
         ? {
             what: "Recent headlines, fetched for this check",
             detail:
-              n === 1
-                ? "one headline, listed on the card"
-                : `${n} headlines, listed on the card`,
+              publishers.length > 0
+                ? `${n === 1 ? "one headline" : `${n} headlines`}, from ${publishers.join(", ")}. They are listed on the card and each one opens.`
+                : `${n === 1 ? "one headline" : `${n} headlines`}, listed on the card`,
           }
         : {
             what: "Recent headlines",
-            detail: "none came back for this check, so it worked without them",
+            detail:
+              "none came back for this check, so the reading is the price and your reason only",
           },
       { what: "Last and next earnings dates, when the feed has them" },
       TRAINING_INPUT,
     ],
+    sources: [
+      input.hasOwnReason ? YOUR_WORDS : YOUR_HOLDINGS,
+      YAHOO_PRICES,
+      ...(n > 0 ? [YAHOO_NEWS] : []),
+      MODEL_ITSELF,
+    ],
+    steps: [
+      "All of that goes to the model in one request, and it answers with a status of intact, watch or broken, plus a short reason.",
+      "Nothing reads the status back off the price afterwards. The model chose it.",
+      "One thing is settled by this app: if its badge and its suggestion contradicted each other, the calmer of the two wins. A broken badge next to a suggestion to trim becomes a sell, and an intact badge next to a suggestion to sell becomes a hold.",
+      REWRITTEN_STEP,
+    ],
     blindSpots: [
-      "Headlines it did not get. The fetch misses things, and a missed story is not in the reading.",
+      "Headlines it did not get. The search misses things, and a story it never saw is not in the reading.",
       TRAINING_IS_STALE,
-      "Whether you are right. It checks whether your reason and the price still fit, not whether the reason was good.",
+      "Whether you are right. It checks whether your reason and the price still fit each other, not whether the reason was any good.",
       NOT_A_TARGET,
     ],
     at: input.at,
@@ -283,24 +505,79 @@ export function pulseProvenance(input: {
   };
 }
 
+/** The Pulse room as a whole. */
+export function pulseRoomProvenance(input: {
+  at?: string | null;
+  model?: ModelRun | null;
+  checkedCount?: number;
+}): Provenance {
+  const n = input.checkedCount ?? 0;
+  return {
+    maker: "model",
+    title: "Where this came from",
+    headline:
+      "Which names appear here is arithmetic on your own holdings. What each card says about them is a language model.",
+    model: input.model,
+    inputs: [
+      {
+        what: "Your holdings and how each one moved",
+        detail: "which is what picks the names on this page",
+      },
+      { what: "Your written reason for each name, where you have one" },
+      { what: "Recent headlines for each name" },
+      TRAINING_INPUT,
+    ],
+    sources: [YOUR_HOLDINGS, YAHOO_PRICES, YAHOO_NEWS, MODEL_ITSELF],
+    steps: [
+      "The page picks names by size and by how far they moved. No model is involved in choosing them.",
+      n > 0
+        ? `Those ${n === 1 ? "name is" : `${n} names are`} then sent to the model, and it writes one reading each.`
+        : "Those names are then sent to the model, and it writes one reading each.",
+      "A reading is kept and reused until the price moves or you change your reason, so two visits on a quiet day show the same words rather than a new opinion.",
+      REWRITTEN_STEP,
+    ],
+    blindSpots: [
+      "Headlines the search missed.",
+      TRAINING_IS_STALE,
+      NOT_A_TARGET,
+    ],
+    at: input.at,
+    yours: "Open any card's eye for what went into that one name.",
+  };
+}
+
+/* ---------------------------------------------------------------------- *
+ * Everything else
+ * ---------------------------------------------------------------------- */
+
 /** The made-up bad days in Lab. Arithmetic, not a model. */
 export function scenarioProvenance(): Provenance {
   return {
     maker: "arithmetic",
     title: "Where this came from",
     headline:
-      "Nobody asked a model. Each day is a made-up move, written into the app, applied to your share counts at today's prices.",
+      "Nobody asked a model. Each day is a made-up move, written into this app by hand, applied to the shares you hold at today's prices.",
     inputs: [
       { what: "Your share counts" },
       { what: "Today's prices" },
       {
         what: "The move this day assumes for each kind of business",
-        detail: "a percentage written into the app, not something the market did",
+        detail:
+          "a percentage typed into this app, not something the market did and not something measured",
       },
     ],
+    sources: [
+      YOUR_HOLDINGS,
+      YAHOO_PRICES,
+      { name: "This app", what: "the made-up percentages for each day" },
+    ],
+    steps: [
+      "Each holding is grouped by what kind of business it is.",
+      "That group's made-up percentage is applied to its value, and the results are added up.",
+    ],
     blindSpots: [
-      "Whether that day would actually happen.",
-      "Whether you would sell, buy more, or sit through it. The numbers assume you hold exactly what you hold today.",
+      "Whether a day like that would actually happen, or how likely it is.",
+      "What you would do in it. The numbers assume you sit still and hold exactly what you hold today.",
       NOT_A_TARGET,
     ],
     yours: "Pick a different day from the row above.",
@@ -308,44 +585,59 @@ export function scenarioProvenance(): Provenance {
 }
 
 /** Margus in the corner. Every reply is a model. */
-export function margusChatProvenance(): Provenance {
+export function margusChatProvenance(model?: ModelRun | null): Provenance {
   return {
     maker: "model",
     title: "Where this came from",
     headline:
-      "Margus is a language model. Replies are reasoned from the holdings on this portfolio, what you just asked, and what the model already knows. Not a person, and not a recommendation.",
+      "Margus is a language model, not a person. Replies are written from the holdings on this portfolio, what you just asked, and what the model already knows.",
+    model,
     inputs: [
       { what: "The holdings and cash on this portfolio" },
       { what: "Today's prices" },
       { what: "What you typed, and any screenshot you attached" },
       {
         what: "Pulse and Forecast already on file",
-        detail: "only when the reply is about those",
+        detail: "only when your question is about those",
       },
       TRAINING_INPUT,
+    ],
+    sources: [YOUR_HOLDINGS, YAHOO_PRICES, MODEL_ITSELF],
+    steps: [
+      "Your question and that context go in one request. The reply comes back as it is written, a few words at a time.",
+      "It can change numbers in this app when you ask it to, and those changes are saved to your portfolio like any edit you make yourself.",
+      REWRITTEN_STEP,
     ],
     blindSpots: [
       NO_NEWS,
       TRAINING_IS_STALE,
-      "Your taxes, your timing, anything sitting at a broker this app cannot see.",
+      "Your taxes, your timing, and anything sitting at a broker this app cannot see.",
       NOT_A_TARGET,
     ],
-    yours: "It can edit the numbers in this app if you ask. It cannot buy or sell anything real.",
+    yours:
+      "It can edit the numbers in this app if you ask. It cannot buy or sell anything real.",
   };
 }
 
 /** The paper portfolio Margus runs in public. */
-export function upsideFundProvenance(): Provenance {
+export function upsideFundProvenance(model?: ModelRun | null): Provenance {
   return {
     maker: "model",
     title: "Where this came from",
     headline:
-      "Paper money. A language model named Margus picks one move a day in a pretend portfolio. It is not a real fund and not a signal to copy.",
+      "Paper money. A language model makes one pretend move a day in a pretend portfolio. It is not a real fund, nobody's money is in it, and it is not a signal to copy.",
+    model,
     inputs: [
-      { what: "The fund's own pretend holdings" },
-      { what: "Yesterday's prices" },
-      { what: "The rule that it makes one decision a day, in public" },
+      { what: "The fund's own pretend holdings and pretend cash" },
+      { what: "Yesterday's closing prices" },
+      { what: "The rule that it makes exactly one decision a day, in public" },
       TRAINING_INPUT,
+    ],
+    sources: [YAHOO_PRICES, MODEL_ITSELF],
+    steps: [
+      "Once a day the model is shown the pretend portfolio and asked for one move.",
+      "The move is written down whether it works or not, and the record is never edited afterwards.",
+      REWRITTEN_STEP,
     ],
     blindSpots: [
       "Anything the market did after the day's decision.",
@@ -353,27 +645,74 @@ export function upsideFundProvenance(): Provenance {
       TRAINING_IS_STALE,
       NOT_A_TARGET,
     ],
-    yours: "Watch it like a diary, not like a manager.",
+    yours: "Read it like a diary, not like a manager.",
   };
 }
 
 /** The line under a Home card, and anything else that is pure arithmetic. */
-export function holdingsProvenance(input: {
-  at?: string | null;
-}): Provenance {
+export function holdingsProvenance(input: { at?: string | null }): Provenance {
   return {
     maker: "arithmetic",
     title: "Where this came from",
     headline:
-      "No model wrote this. It is your own share counts times today's prices, and nothing else.",
+      "No model wrote this. It is the shares you typed in, times today's prices, and nothing else.",
     inputs: [
-      { what: "The holdings you typed in" },
-      { what: "Today's prices, from the market data feed" },
+      { what: "The holdings you typed in or imported" },
+      { what: "Today's prices" },
+    ],
+    sources: [YOUR_HOLDINGS, YAHOO_PRICES],
+    steps: [
+      "Shares times price, per holding, added up, plus your cash.",
+      "You can check any line of it against your broker.",
+    ],
+    blindSpots: [NOT_YOUR_BROKER],
+    at: input.at,
+  };
+}
+
+/**
+ * The Growth room's yearly rate. Not a model, but very much an assumption,
+ * and it is compounded for decades, so it needs saying plainly.
+ */
+export function growthRateProvenance(input: {
+  ratePct?: number | null;
+  edited?: boolean;
+}): Provenance {
+  const rate =
+    input.ratePct != null && Number.isFinite(input.ratePct)
+      ? `${input.ratePct}% a year`
+      : "the rate in the box";
+  return {
+    maker: "arithmetic",
+    title: "Where this came from",
+    headline: input.edited
+      ? "This is the rate you typed. Everything on this page is that number compounded, and nothing on this page knows whether it is realistic."
+      : `Nobody measured your portfolio's future. ${rate} is a starting guess: a table of typical rates per kind of business, written into this app, weighted by how much of each kind you hold.`,
+    inputs: [
+      { what: "What you hold, and how much of each" },
+      {
+        what: "A typical yearly rate per kind of business",
+        detail:
+          "a table written into this app. A broad index fund sits at about 10% a year, and jumpier kinds of business sit above it.",
+      },
+      { what: "Your cash, at whatever rate you set for it" },
+      { what: "Anything you typed into the boxes", detail: "yours wins" },
+    ],
+    sources: [
+      YOUR_HOLDINGS,
+      { name: "This app", what: "the table of typical rates" },
+    ],
+    steps: [
+      "Each holding is grouped by what kind of business it is and given that group's rate.",
+      "Those are blended by how much of your money is in each, which is where the starting rate comes from.",
+      "Then it is straight compound interest on that one rate, month by month.",
     ],
     blindSpots: [
-      "Anything you own somewhere else. Nothing here is connected to a bank or a broker.",
+      "Whether any of it happens. A single rate held for decades is not how markets behave, and the table is optimistic rather than safe.",
+      "Tax, fees, inflation and dividends. None of them are in these numbers.",
+      NOT_A_TARGET,
     ],
-    at: input.at,
+    yours: "Type any rate you like over it. Try a low one as well as a high one.",
   };
 }
 

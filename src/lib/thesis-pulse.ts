@@ -3,6 +3,7 @@ import { coinFromSymbol, isCoinSymbol, matchCoinQuery } from "@/lib/coins";
 import { NO_VALUE, cashtag } from "@/lib/format";
 import { TICKER_SECTORS } from "@/lib/forecast-plan";
 import type { OverviewModel, TickerScore } from "@/lib/overview";
+import type { ModelRun } from "@/lib/ai/model-label";
 import type { Quote } from "@/lib/types";
 
 /** Fraction — 0.05 = 5% */
@@ -100,6 +101,13 @@ export type PulseReport = {
   generatedAt: string;
   summary: string;
   checks: PulseCheck[];
+  /**
+   * Which model answered this run, recorded as it answered. The eye on a
+   * Pulse card names it, because "a language model read your reason" is a
+   * claim a reader cannot check and a model's name is one they can.
+   * Absent when nothing fresh ran and every check came back from cache.
+   */
+  writtenBy?: ModelRun | null;
 };
 
 /** Per-ticker cache — the unit every Pulse check is retained under. */

@@ -280,6 +280,18 @@ async function handlePOST(req: Request) {
             onError: () =>
               vision ? FALLBACK_SCREENSHOT_TEXT : FALLBACK_CHAT_TEXT,
           }),
+          /*
+           * Which model is about to write the reply, named on the response
+           * that carries it. The eye beside Margus reads these back, so it
+           * can say who answered rather than "a language model". It has to
+           * be a header: the chain picks a provider per request and walks
+           * past a rate-limited one, so the client cannot know from a
+           * config which model it is really talking to.
+           */
+          headers: {
+            "x-model-provider": provider.id,
+            "x-model-id": provider.modelId,
+          },
         });
       } catch (err) {
         console.error(`[chat] provider "${provider.id}" failed to start`, err);

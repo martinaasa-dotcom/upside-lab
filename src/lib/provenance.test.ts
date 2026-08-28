@@ -2,9 +2,32 @@ import { describe, expect, it } from "vitest";
 import {
   forecastPathProvenance,
   forecastRoomProvenance,
+  forecastTotalProvenance,
+  growthRateProvenance,
+  holdingsProvenance,
+  margusChatProvenance,
   pulseProvenance,
+  pulseRoomProvenance,
   scenarioProvenance,
+  type Provenance,
 } from "@/lib/provenance";
+import { describeModelRun, shortModelName } from "@/lib/ai/model-label";
+
+const EVERY: Array<[string, Provenance]> = [
+  ["forecast path", forecastPathProvenance({ ticker: "NBIS", spot: 211.11 })],
+  [
+    "forecast path fallback",
+    forecastPathProvenance({ ticker: "NBIS", spot: 211.11, fallback: true }),
+  ],
+  ["forecast room", forecastRoomProvenance({})],
+  ["forecast total", forecastTotalProvenance({})],
+  ["pulse", pulseProvenance({ ticker: "CRWV", hasOwnReason: true })],
+  ["pulse room", pulseRoomProvenance({})],
+  ["scenario", scenarioProvenance()],
+  ["margus", margusChatProvenance()],
+  ["holdings", holdingsProvenance({})],
+  ["growth rate", growthRateProvenance({ ratePct: 23 })],
+];
 
 describe("provenance", () => {
   it("names the model and today's price on a reasoned forecast path", () => {
@@ -69,5 +92,158 @@ describe("provenance", () => {
     expect(p.maker).toBe("model");
     expect(p.headline).toMatch(/modeled/i);
     expect(p.headline).toMatch(/today/i);
+  });
+
+  /*
+   * The three below are the whole point of this surface. A panel that lists
+   * inputs but hides what this app did to the model's answer afterwards is
+   * the more convincing kind of dishonest, because it reads like candour.
+   */
+  it("admits when the app scaled a path up to its own floor", () => {
+    const p = forecastPathProvenance({
+      ticker: "NBIS",
+      spot: 211.11,
+      adjust: { missing: false, filled: false, reshaped: false, lifted: true },
+    });
+    const steps = (p.steps ?? []).join(" ");
+    expect(steps).toMatch(/scaled up/i);
+    // And that the scaling only ever runs one way, which is the part a
+    // reader would otherwise have to find in the source to know.
+    expect(steps).toMatch(/one way/i);
+  });
+
+  it("admits a filled year and a reshaped straight line, separately", () => {
+    const p = forecastPathProvenance({
+      ticker: "NBIS",
+      spot: 211.11,
+      adjust: { missing: false, filled: true, reshaped: true, lifted: false },
+    });
+    const steps = (p.steps ?? []).join(" ");
+    expect(steps).toMatch(/skipped at least one year/i);
+    expect(steps).toMatch(/even ramp/i);
+  });
+
+  it("says out loud when a path was reused from a different run", () => {
+    const p = forecastPathProvenance({
+      ticker: "NBIS",
+      spot: 211.11,
+      reusedAt: "2026-08-24T09:12:00.000Z",
+    });
+    const steps = (p.steps ?? []).join(" ");
+    expect(steps).toMatch(/not written for your portfolio/i);
+    expect(steps).toMatch(/your position size and your own reason did not reach it/i);
+  });
+
+  it("leaves the steps alone when the app changed nothing", () => {
+    const p = forecastPathProvenance({
+      ticker: "NBIS",
+      spot: 211.11,
+      adjust: { missing: false, filled: false, reshaped: false, lifted: false },
+    });
+    const steps = (p.steps ?? []).join(" ");
+    expect(steps).not.toMatch(/scaled up|even ramp|skipped/i);
+  });
+
+  it("names the publishers behind the headlines a Pulse card read", () => {
+    const p = pulseProvenance({
+      ticker: "CRWV",
+      hasOwnReason: true,
+      headlineCount: 2,
+      publishers: ["Reuters", "Barron's", "Reuters"],
+    });
+    const detail = p.inputs.map((i) => i.detail ?? "").join(" ");
+    expect(detail).toMatch(/Reuters/);
+    expect(detail).toMatch(/Barron's/);
+    // Named once each, not once per headline.
+    expect(detail.match(/Reuters/g)?.length).toBe(1);
+  });
+
+  it("carries the model through only when a run recorded one", () => {
+    const named = forecastPathProvenance({
+      ticker: "NBIS",
+      spot: 211.11,
+      model: { provider: "groq", model: "openai/gpt-oss-20b" },
+    });
+    expect(describeModelRun(named.model)).toMatch(/gpt-oss-20b/);
+    expect(describeModelRun(named.model)).toMatch(/Groq/);
+
+    const unnamed = forecastPathProvenance({ ticker: "NBIS", spot: 211.11 });
+    expect(describeModelRun(unnamed.model)).toBeNull();
+  });
+
+  it("calls the Growth rate a table rather than a measurement", () => {
+    const p = growthRateProvenance({ ratePct: 23 });
+    expect(p.maker).toBe("arithmetic");
+    expect(p.headline).toMatch(/nobody measured/i);
+    expect(p.blindSpots.some((s) => /tax|fee/i.test(s))).toBe(true);
+
+    const typed = growthRateProvenance({ ratePct: 40, edited: true });
+    expect(typed.headline).toMatch(/rate you typed/i);
+  });
+
+  it("states the floor this app puts under a modeled path, whether or not it fired", () => {
+    for (const p of [
+      forecastPathProvenance({ ticker: "NBIS", spot: 211.11 }),
+      forecastRoomProvenance({}),
+    ]) {
+      const detail = p.inputs.map((i) => i.detail ?? "").join(" ");
+      expect(detail).toMatch(/will not show a path that finishes below/i);
+      expect(detail).toMatch(/the floor is ours and not the model's/i);
+    }
+  });
+
+  it("tells a Pulse reader that picking the names is not the model's doing", () => {
+    const steps = (pulseRoomProvenance({}).steps ?? []).join(" ");
+    expect(steps).toMatch(/no model is involved in choosing them/i);
+  });
+
+  /*
+   * A blanket rule rather than a per-surface assertion, so a surface added
+   * later cannot ship half an answer. Every panel has to say who made the
+   * number, what went in, where it came from and what it cannot know.
+   */
+  it.each(EVERY)("%s answers all four questions", (_name, p) => {
+    expect(p.headline.length).toBeGreaterThan(20);
+    expect(p.inputs.length).toBeGreaterThan(0);
+    expect(p.sources?.length ?? 0).toBeGreaterThan(0);
+    expect(p.blindSpots.length).toBeGreaterThan(0);
+  });
+
+  it.each(EVERY)("%s says a model wrote it, or says nothing did", (_name, p) => {
+    // Arithmetic surfaces are the ones a skeptic most needs to be able to
+    // rule out, so they have to deny a model rather than just omit one.
+    if (p.maker !== "model") {
+      const said = `${p.headline} ${(p.steps ?? []).join(" ")}`;
+      expect(said).toMatch(
+        /no model|nobody asked a model|not a model|nobody measured|rate you typed|written into this app|plain arithmetic|table/i
+      );
+    }
+  });
+});
+
+describe("describeModelRun", () => {
+  it("names the maker and the host when they differ", () => {
+    expect(
+      describeModelRun({ provider: "groq", model: "openai/gpt-oss-120b" })
+    ).toBe("gpt-oss-120b, built by OpenAI and run by Groq");
+  });
+
+  it("does not say a thing twice when the maker is the host", () => {
+    expect(
+      describeModelRun({ provider: "gemini", model: "gemini-flash-latest" })
+    ).toBe("gemini-flash-latest, run by Google");
+  });
+
+  it("refuses to invent a name for a run that recorded none", () => {
+    expect(describeModelRun(null)).toBeNull();
+    expect(describeModelRun({ provider: "groq" })).toBeNull();
+    expect(describeModelRun({ provider: "groq", model: "  " })).toBeNull();
+  });
+
+  it("strips the vendor prefix and the free tier suffix", () => {
+    expect(shortModelName("nvidia/nemotron-3-super-120b-a12b:free")).toBe(
+      "nemotron-3-super-120b-a12b"
+    );
+    expect(shortModelName("gpt-oss-120b")).toBe("gpt-oss-120b");
   });
 });

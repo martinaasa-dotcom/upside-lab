@@ -17,6 +17,7 @@ import {
 import { STRATEGY } from "@/lib/calculations";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { WhyThis } from "@/components/ui/WhyThis";
+import type { ModelRun } from "@/lib/ai/model-label";
 import { margusChatProvenance } from "@/lib/provenance";
 import { safeHttpUrl } from "@/lib/safe-url";
 import {
@@ -638,10 +639,30 @@ export function CcAdvisorChat({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, rulesOpen]);
 
+  /*
+   * Which model actually wrote the last reply, read off the response that
+   * carried it. The chain picks a provider per request and steps past a
+   * rate-limited one, so this is the only place the truth exists. A ref
+   * rather than state on the send path, with one setState after it, so a
+   * streaming reply is not re-rendered by its own bookkeeping.
+   */
+  const [writtenBy, setWrittenBy] = useState<ModelRun | null>(null);
+
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
+        fetch: async (input, init) => {
+          const res = await fetch(input, init);
+          const model = res.headers.get("x-model-id");
+          if (model) {
+            setWrittenBy({
+              provider: res.headers.get("x-model-provider"),
+              model,
+            });
+          }
+          return res;
+        },
         prepareSendMessagesRequest: ({ messages, id, trigger, messageId }) => ({
           body: {
             messages,
@@ -1146,7 +1167,7 @@ export function CcAdvisorChat({
             <div className="min-w-0 flex-1 self-center pr-2">
               <h2 className="inline-flex items-center gap-2 font-semibold text-foreground">
                 Assistant Margus
-                <WhyThis provenance={margusChatProvenance()} />
+                <WhyThis provenance={margusChatProvenance(writtenBy)} />
               </h2>
               {context.adviseOnly ? null : (
                 <p className="text-sm leading-snug text-muted-foreground">
