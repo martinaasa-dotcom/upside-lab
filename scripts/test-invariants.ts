@@ -1922,6 +1922,21 @@ run("product is Upside Lab on upsidelab.app", () => {
   assert.match(proxy, /Content-Security-Policy/);
   assert.match(proxy, /limitMutationRequest/);
   assert.match(proxy, /limitPublicMarketRequest/);
+  /*
+    The forged-request gate covers every mutation, not only `/api/*`. It sat
+    inside the `isApi` branch, which left `/auth/email/complete` (a POST on a
+    page path that mints a session) as the one mutating route in the app with
+    nothing in front of it. Assert the check runs before that branch opens,
+    so the next POST added outside `/api/` is covered without anybody
+    remembering this.
+  */
+  const gateAt = proxy.indexOf("isSameOriginMutation(request)");
+  const apiBranchAt = proxy.indexOf("if (isApi) {");
+  assert.ok(gateAt > 0, "the proxy still gates forged mutations");
+  assert.ok(
+    apiBranchAt < 0 || gateAt < apiBranchAt,
+    "the forged-request gate must run for every mutation, not just /api/*"
+  );
   const rateLimit = readFileSync("src/lib/rate-limit.ts", "utf8");
   assert.match(rateLimit, /limitMutationRequest/);
   assert.match(rateLimit, /limitPublicMarketRequest/);

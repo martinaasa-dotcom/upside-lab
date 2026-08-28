@@ -25,6 +25,7 @@ const PROBLEMS: Record<string, string> = {
   expired:
     "That link has already been used, or it has run out. Ask for a new one from the sign-in page and open it within the hour.",
   "missing-token": "That link is missing the part that signs you in.",
+  busy: "That is a lot of tries from here in a short time. Wait a few minutes, then open the link again.",
   failed: `Something went wrong at our end. Ask for a new link and try once more. If it keeps happening, mail ${PRODUCT_SUPPORT_EMAIL}.`,
   "not-configured": "Email sign-in is not switched on here yet.",
 };
