@@ -239,7 +239,7 @@ function EmptyBook({
     ? homeworkCash != null && homeworkCash > 0
       ? `This is paper class. Everyone started with the same cash. Buy names with that paper money. Do not paste a real portfolio in here. You have ${currency(homeworkCash, 0)} sitting ready.`
       : "This is paper class. Everyone started with the same cash. Buy names with that paper money. Do not paste a real portfolio in here."
-    : "Paste what you own. One name per line: ticker, shares, cost. This portfolio is only yours until you invite someone.";
+    : "Paste what you own. One name per line: ticker, shares, cost. From then on you get it back in plain sentences, and on the days it falls you find out whether anything actually changed at those companies. This portfolio is only yours until you invite someone.";
 
   return (
     <Panel className="overview-fade">
