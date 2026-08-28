@@ -391,25 +391,45 @@ export function spyTrendHistory(closes: number[]): {
     else sides.push(sides[i - 1] ?? 0);
   }
 
-  type Run = { side: 1 | -1; length: number };
+  type Run = { side: 1 | -1; length: number; from: number };
   const runs: Run[] = [];
   let i = 0;
   while (i < sides.length) {
     while (i < sides.length && sides[i] === 0) i++;
     if (i >= sides.length) break;
     const side = sides[i] as 1 | -1;
+    const from = i;
     let length = 0;
     while (i < sides.length && sides[i] === side) {
       length++;
       i++;
     }
-    if (length > 0) runs.push({ side, length });
+    if (length > 0) runs.push({ side, length, from });
   }
   if (runs.length === 0) return empty;
 
+  /*
+    The 200-day average does not exist for the first 199 closes, so a run
+    that is already under way on the first day we can evaluate has a start
+    we cannot see: its measured length is a floor, not a length. The copy
+    around this calls the sample "completed stretches", and counting a
+    truncated one drags the typical leftover down and makes "already the
+    long one" fire on a run that was only the first one in view.
+
+    A run beginning one day later is a different matter, even when the day
+    before it sat exactly on the average: that day was evaluable, so the
+    run really did start where it looks like it started.
+  */
+  const firstEvaluable = avgs.findIndex((avg) => avg != null && avg > 0);
+  const observed = runs.filter(
+    (run) => firstEvaluable < 0 || run.from > firstEvaluable
+  );
+
   const current = runs[runs.length - 1]!;
   const streakDays = current.length;
-  const prior = runs.slice(0, -1).filter((run) => run.side === current.side);
+  const prior = observed
+    .filter((run) => run !== current)
+    .filter((run) => run.side === current.side);
   const remainders = prior
     .filter((run) => run.length > streakDays)
     .map((run) => run.length - streakDays);

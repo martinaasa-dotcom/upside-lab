@@ -456,6 +456,9 @@ describe("spyTrendHistory", () => {
   });
 
   it("reads leftover length from completed same-side runs", () => {
+    // Flat, then a step up: the day before the first run was evaluable and
+    // sat exactly on the average, so that run started where it looks like it
+    // started and stays in the sample.
     const closes = [
       ...Array.from({ length: 200 }, () => 100),
       ...Array.from({ length: 30 }, () => 110),
@@ -466,6 +469,24 @@ describe("spyTrendHistory", () => {
     expect(out.streakDays).toBe(8);
     expect(out.alreadyLong).toBe(false);
     expect(out.typicalMoreDays).toBe(22);
+  });
+
+  it("leaves out the run already under way on the first day it can measure", () => {
+    /*
+      Prices climb from the start, so on the first close where a 200-day
+      average exists price is already above it. That run began before the
+      data did: counting its visible tail as a completed stretch would say
+      a 30-day streak is already longer than anything in the sample.
+    */
+    const closes = [
+      ...Array.from({ length: 260 }, (_, i) => 100 + i),
+      ...Array.from({ length: 40 }, () => 50),
+      ...Array.from({ length: 30 }, () => 400),
+    ];
+    const out = spyTrendHistory(closes);
+    expect(out.streakDays).toBe(30);
+    expect(out.alreadyLong).toBe(false);
+    expect(out.typicalMoreDays).toBeNull();
   });
 
   it("flags a streak already longer than every completed run", () => {
