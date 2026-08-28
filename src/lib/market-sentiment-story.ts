@@ -418,16 +418,51 @@ const FEAR_ZONES: SentimentZone[] = [
 const VIX_SCALE = { lo: 10, hi: 40 } as const;
 const RSI_BASE = { lo: 20, hi: 80 };
 
-/** RSI sits on 20 to 80. The ends only open when the reading is outside. */
-export function rsiTrackScale(rsi: number | null): { lo: number; hi: number } {
-  if (rsi == null || !Number.isFinite(rsi)) return { lo: RSI_BASE.lo, hi: RSI_BASE.hi };
-  let lo = RSI_BASE.lo;
-  let hi = RSI_BASE.hi;
-  if (rsi < RSI_BASE.lo) lo = Math.max(0, Math.floor(rsi / 10) * 10);
-  if (rsi > RSI_BASE.hi) hi = Math.min(100, Math.ceil(rsi / 10) * 10);
-  if (rsi < lo) lo = Math.max(0, Math.floor(rsi));
-  if (rsi > hi) hi = Math.min(100, Math.ceil(rsi));
+/**
+ * A track whose ends open rather than pinning the marker.
+ *
+ * The base range is where a reading normally sits and where the coloured
+ * bands are drawn. `linearMarkerPct` clamps to the track, so a reading past
+ * an end parks the marker on the edge and stops moving: two very different
+ * readings then draw the same picture, next to a number that says otherwise.
+ *
+ * One rule for both gauges, because VIX had a fixed 10 to 40 while RSI
+ * opened, and the day that difference shows is a day the VIX is at 60 and
+ * the reader has opened this panel to find out how bad it is.
+ */
+function openTrackScale(
+  value: number | null,
+  base: { lo: number; hi: number },
+  bounds: { min?: number; max?: number } = {}
+): { lo: number; hi: number } {
+  if (value == null || !Number.isFinite(value)) {
+    return { lo: base.lo, hi: base.hi };
+  }
+  const floorAt = (n: number) =>
+    bounds.min == null ? n : Math.max(bounds.min, n);
+  const ceilAt = (n: number) => (bounds.max == null ? n : Math.min(bounds.max, n));
+  let lo = base.lo;
+  let hi = base.hi;
+  // Out to the next round ten, so the axis labels stay readable.
+  if (value < base.lo) lo = floorAt(Math.floor(value / 10) * 10);
+  if (value > base.hi) hi = ceilAt(Math.ceil(value / 10) * 10);
+  // And to the reading itself if a bound clipped the round number short.
+  if (value < lo) lo = floorAt(Math.floor(value));
+  if (value > hi) hi = ceilAt(Math.ceil(value));
   return { lo, hi };
+}
+
+/** RSI sits on 20 to 80, and cannot leave 0 to 100. */
+export function rsiTrackScale(rsi: number | null): { lo: number; hi: number } {
+  return openTrackScale(rsi, RSI_BASE, { min: 0, max: 100 });
+}
+
+/**
+ * The VIX sits on 10 to 40. Unlike RSI it has no ceiling: it printed above
+ * 80 in March 2020 and above 60 in August 2024, so the top end is left open.
+ */
+export function vixTrackScale(vix: number | null): { lo: number; hi: number } {
+  return openTrackScale(vix, VIX_SCALE, { min: 0 });
 }
 
 function trackFills(
@@ -446,6 +481,7 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
   const rsiNow = rsiGlance(metrics.rsi);
   const fear = fearGlance(metrics.fearGreed, metrics.cryptoFearGreed);
   const rsiScale = rsiTrackScale(metrics.rsi);
+  const vixScale = vixTrackScale(metrics.vix);
   return [
     {
       label: "VIX",
@@ -454,22 +490,22 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       explain: vix.explain,
       valueClassName: glanceClass(vix.glance),
       kind: "linear",
-      markerPct: linearMarkerPct(metrics.vix, VIX_SCALE.lo, VIX_SCALE.hi),
-      fills: trackFills(VIX_SCALE.lo, VIX_SCALE.hi, [
-        { lo: VIX_SCALE.lo, hi: 15, className: "bg-gain/20" },
+      markerPct: linearMarkerPct(metrics.vix, vixScale.lo, vixScale.hi),
+      fills: trackFills(vixScale.lo, vixScale.hi, [
+        { lo: vixScale.lo, hi: 15, className: "bg-gain/20" },
         { lo: 15, hi: 25, className: "bg-foreground/20" },
         { lo: 25, hi: 30, className: "bg-caution/20" },
-        { lo: 30, hi: VIX_SCALE.hi, className: "bg-loss/20" },
+        { lo: 30, hi: vixScale.hi, className: "bg-loss/20" },
       ]),
       signedFillPct: null,
       dotClass: glanceDot(vix.glance),
-      scaleLo: VIX_SCALE.lo,
-      scaleHi: VIX_SCALE.hi,
+      scaleLo: vixScale.lo,
+      scaleHi: vixScale.hi,
       scaleDigits: 2,
       zones: VIX_ZONES,
       ticks: [
-        { pct: 0, label: String(VIX_SCALE.lo) },
-        { pct: 100, label: String(VIX_SCALE.hi) },
+        { pct: 0, label: String(vixScale.lo) },
+        { pct: 100, label: String(vixScale.hi) },
       ],
     },
     {

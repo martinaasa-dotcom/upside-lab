@@ -156,7 +156,7 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     id: "hatchling",
     animal: "Hatchling",
     emoji: "🥚",
-    criteria: "No names yet",
+    criteria: "Nothing added yet",
     tagline: "Nothing held yet. Every portfolio starts here.",
     vibe: "Nothing picked. Every other animal on this list started right here, deciding what to hatch into.",
     strength: "Nothing to lose, and no bad habits yet.",
@@ -632,7 +632,7 @@ function riskBandFor(score: number): ScoreBand {
     return { label: "Balanced", description: "A mix of steady and speculative." };
   if (score < 75)
     return { label: "Aggressive", description: "Leans towards holdings that swing hard." };
-  return { label: "High-octane", description: "Most of the money sits in names that swing hard." };
+  return { label: "High-octane", description: "Most of the money sits in companies whose prices swing hard." };
 }
 
 function convictionBandFor(score: number): ScoreBand {

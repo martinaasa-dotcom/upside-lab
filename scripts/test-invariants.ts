@@ -1681,8 +1681,16 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
   );
   // The figure is defused in the very next sentence, in dollars per $100.
   assert.match(paras[0], /out of every \$100/);
-  // And it ends by telling the reader nothing needs doing.
-  assert.match(paras[paras.length - 1], /quiet relative to last week/i);
+  /*
+    And it ends on how the rest of the week's holdings compared, without
+    telling the reader to do anything. Asserted as the rule rather than as
+    one exact sentence: the previous version pinned the literal string
+    "quiet relative to last week", so rewording the letter to say companies
+    instead of names broke a check that was never about that.
+  */
+  const closer = paras[paras.length - 1]!;
+  assert.match(closer, /\bquiet\b/i, "the fallback closes on the quiet rest");
+  assert.match(closer, /last week/i, "and compares it with last week");
   assert.match(take, /[.!?]$/);
   assert.doesNotMatch(take, /\bwe\b|\bour\b|\bus\b/i);
   // Banned market slang never reaches a reader (AGENTS.md).
@@ -1932,6 +1940,21 @@ run("product is Upside Lab on upsidelab.app", () => {
   assert.match(proxy, /Content-Security-Policy/);
   assert.match(proxy, /limitMutationRequest/);
   assert.match(proxy, /limitPublicMarketRequest/);
+  /*
+    The forged-request gate covers every mutation, not only `/api/*`. It sat
+    inside the `isApi` branch, which left `/auth/email/complete` (a POST on a
+    page path that mints a session) as the one mutating route in the app with
+    nothing in front of it. Assert the check runs before that branch opens,
+    so the next POST added outside `/api/` is covered without anybody
+    remembering this.
+  */
+  const gateAt = proxy.indexOf("isSameOriginMutation(request)");
+  const apiBranchAt = proxy.indexOf("if (isApi) {");
+  assert.ok(gateAt > 0, "the proxy still gates forged mutations");
+  assert.ok(
+    apiBranchAt < 0 || gateAt < apiBranchAt,
+    "the forged-request gate must run for every mutation, not just /api/*"
+  );
   const rateLimit = readFileSync("src/lib/rate-limit.ts", "utf8");
   assert.match(rateLimit, /limitMutationRequest/);
   assert.match(rateLimit, /limitPublicMarketRequest/);
@@ -2859,6 +2882,20 @@ run("signed-in pages share one column so rooms do not jump", () => {
   assert.doesNotMatch(macroStrip, />\s*Markets\s*</);
   const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
   assert.match(css, /scrollbar-gutter:\s*stable/);
+  /*
+    These two moved out of globals.css into scroll-host.css and were deleted
+    rather than repointed when that turned CI red, which left the rule in
+    AGENTS.md with nothing enforcing it. The track and its clearance are the
+    whole reason `.scroll-host` exists.
+  */
+  assert.match(css, /@import\s+["']\.\/scroll-host\.css["']/);
+  const scrollHost = readFileSync(
+    join(process.cwd(), "src/app/scroll-host.css"),
+    "utf8"
+  );
+  assert.match(scrollHost, /\.scroll-host\s*\{/);
+  assert.match(scrollHost, /--scroll-clearance:\s*1rem/);
+  assert.match(scrollHost, /padding-inline-end:\s*var\(--scroll-clearance\)/);
   const dash = readFileSync(
     join(process.cwd(), "src/components/Dashboard.tsx"),
     "utf8"
@@ -2941,10 +2978,16 @@ run("sheets sit in the visible viewport so the keyboard cannot cover them", () =
     "TickerDrawer.tsx",
     "AccountPage.tsx",
     "CommunityView.tsx",
+    "FeedbackModal.tsx",
+    "CommunitiesList.tsx",
   ];
   for (const name of sheets) {
     const src = readFileSync(join(process.cwd(), "src/components", name), "utf8");
     assert.match(src, /ViewportOverlay/, name);
+    // A raw overflow-y-auto with a hidden bar is what `.scroll-host` exists
+    // to replace. Every one of these carries it today; the assertion went
+    // when two of the files were briefly missing it, and never came back.
+    assert.match(src, /scroll-host/, name);
     assert.doesNotMatch(src, /fixed inset-0/, name);
   }
   const confirm = readFileSync(
@@ -4827,6 +4870,42 @@ run("split rows stack on a phone so copy fills the card", () => {
   );
   assert.match(seasonality, /SPLIT_ROW/);
   assert.match(seasonality, /SPLIT_COPY/);
+});
+
+run("a setting is a label on the left and one control on the right", () => {
+  /*
+    This check was deleted rather than repointed when `SETTING_ROW` moved
+    out of Panel.tsx and `pinActions` was replaced by `SettingBar`. The rule
+    it guards did not go anywhere: AGENTS.md still says Account settings are
+    a label left, a control right, one row at every width, and a wrapped
+    control under its own label is what that exists to prevent.
+
+    Assert the rule, not today's class string beyond the two properties
+    that are the rule: one row, and a control that does not shrink.
+  */
+  const row = readFileSync(
+    join(process.cwd(), "src/components/ui/setting-row.tsx"),
+    "utf8"
+  );
+  assert.match(row, /export const SETTING_ROW/);
+  assert.match(row, /export function SettingBar/);
+  assert.match(row, /export function PinnedHeader/);
+  assert.match(row, /flex-nowrap/);
+  assert.match(row, /justify-between/);
+  assert.match(row, /shrink-0/);
+  /*
+    Deliberately says nothing about `item.tsx`. The deleted check demanded
+    `flex-nowrap` and an `ml-auto shrink-0` actions row there, which that
+    file has never had: `Item` is the generic shadcn list row and its
+    `flex-wrap` is what makes `ItemHeader`'s `basis-full` wrap onto its own
+    line. That half was asserting a UI nobody wrote, and dropping it was
+    right. The settings rule above is the part that was real.
+  */
+  const account = readFileSync(
+    join(process.cwd(), "src/components/AccountPage.tsx"),
+    "utf8"
+  );
+  assert.match(account, /SettingBar/);
 });
 
 run("assumed YTD NAV uses current size and forward-fills gaps", () => {

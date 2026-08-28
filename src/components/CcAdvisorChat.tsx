@@ -531,7 +531,7 @@ const RULES = [
   {
     title: "Call %",
     rule: "Set from how much each stock swings on its own",
-    detail: `Roughly ${(STRATEGY.callPctSafeMin * 100).toFixed(0)} to ${(STRATEGY.callPctSafeMax * 100).toFixed(0)}% on calmer names, and ${(STRATEGY.callPctHighBeta * 100).toFixed(0)}% or more on jumpy ones, adjusted for results dates and distance. Never one flat safety percentage across the whole portfolio.`,
+    detail: `Roughly ${(STRATEGY.callPctSafeMin * 100).toFixed(0)} to ${(STRATEGY.callPctSafeMax * 100).toFixed(0)}% on calmer companies, and ${(STRATEGY.callPctHighBeta * 100).toFixed(0)}% or more on jumpy ones, adjusted for results dates and distance. Never one flat safety percentage across the whole portfolio.`,
   },
   {
     title: "Earnings",

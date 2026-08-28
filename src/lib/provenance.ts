@@ -195,8 +195,9 @@ function adjustmentSteps(adjust?: ForecastPathAdjustment): string[] {
 /**
  * A single holding's modeled path.
  *
- * Every input named here is one the prompt really sends
- * (`buildForecastPlanPrompt`). If that list changes, this changes with it.
+ * Every input here is one the prompt really sends (`buildForecastPlanPrompt`
+ * in forecast-plan.ts, which also carries `FORECAST_CONVICTION_PROMPT` and
+ * the portfolio insight lines). If that list changes, this changes with it.
  */
 export function forecastPathProvenance(input: {
   ticker: string;
@@ -294,6 +295,15 @@ export function forecastPathProvenance(input: {
             what: "Your own reason for holding it",
             detail: "you have not written one, so the model worked without it",
           },
+      {
+        what: "The rest of your portfolio",
+        detail:
+          "your cash, your total, and which of your holdings are the same kind of business, so a company is priced as part of what you hold rather than on its own",
+      },
+      {
+        what: "Today's date",
+        detail: "so the first year is the rest of this year, not a whole one",
+      },
       BASELINE_INPUT,
       TRAINING_INPUT,
     ],
@@ -342,7 +352,7 @@ export function forecastRoomProvenance(input: {
         "The chart is those added together, one column per year.",
       ],
       blindSpots: [
-        "Anything about a particular company. These are shapes for categories, not views on names.",
+        "Anything about a particular company. These are shapes for a kind of business, not a view on the company itself.",
         NOT_THE_FUTURE,
         NOT_A_TARGET,
       ],
@@ -366,7 +376,7 @@ export function forecastRoomProvenance(input: {
     steps.push(
       input.reusedCount === 1
         ? "One name was not worked out for this portfolio at all. Its path was written in an earlier run and reused here."
-        : `${input.reusedCount} names were not worked out for this portfolio at all. Their paths were written in earlier runs and reused here.`
+        : `${input.reusedCount} of these companies were not worked out for this portfolio at all. Their paths were written in earlier runs and reused here.`
     );
   }
   steps.push(
@@ -384,7 +394,11 @@ export function forecastRoomProvenance(input: {
       { what: "Today's price of each holding" },
       { what: "The kind of business each one is" },
       { what: "How big each holding is in this portfolio" },
-      { what: "Your written reason for a name, where you have written one" },
+      { what: "Your written reason for a company, where you have written one" },
+      {
+        what: "Your cash, your total, and which holdings are the same kind of business",
+      },
+      { what: "Today's date, so the first year is the rest of this one" },
       BASELINE_INPUT,
       TRAINING_INPUT,
     ],
@@ -517,12 +531,12 @@ export function pulseRoomProvenance(input: {
     maker: "model",
     title: "Where this came from",
     headline:
-      "Which names appear here is arithmetic on your own holdings. What each card says about them is a language model.",
+      "Which companies appear here is arithmetic on your own holdings. What each card says about them is a language model.",
     model: input.model,
     inputs: [
       {
         what: "Your holdings and how each one moved",
-        detail: "which is what picks the names on this page",
+        detail: "which is what picks the companies on this page",
       },
       { what: "Your written reason for each name, where you have one" },
       { what: "Recent headlines for each name" },
@@ -530,10 +544,10 @@ export function pulseRoomProvenance(input: {
     ],
     sources: [YOUR_HOLDINGS, YAHOO_PRICES, YAHOO_NEWS, MODEL_ITSELF],
     steps: [
-      "The page picks names by size and by how far they moved. No model is involved in choosing them.",
+      "The page picks companies by size and by how far they moved. No model is involved in choosing them.",
       n > 0
         ? `Those ${n === 1 ? "name is" : `${n} names are`} then sent to the model, and it writes one reading each.`
-        : "Those names are then sent to the model, and it writes one reading each.",
+        : "Those companies are then sent to the model, and it writes one reading each.",
       "A reading is kept and reused until the price moves or you change your reason, so two visits on a quiet day show the same words rather than a new opinion.",
       REWRITTEN_STEP,
     ],
@@ -598,8 +612,8 @@ export function margusChatProvenance(model?: ModelRun | null): Provenance {
       { what: "Today's prices" },
       { what: "What you typed, and any screenshot you attached" },
       {
-        what: "Any Pulse and Forecast readings this portfolio already has",
-        detail: "only when the reply is about those",
+        what: "Pulse and Forecast already on file",
+        detail: "only when your question is about those",
       },
       TRAINING_INPUT,
     ],

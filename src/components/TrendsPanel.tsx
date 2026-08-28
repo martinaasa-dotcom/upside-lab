@@ -281,7 +281,7 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
       return;
     }
     if (combined.length >= MAX_TICKERS) {
-      setAddError(`That's the limit, ${MAX_TICKERS} names at once.`);
+      setAddError(`That's the limit, ${MAX_TICKERS} companies at once.`);
       return;
     }
     const next = addWatchlistTicker(watchlist, symbol);

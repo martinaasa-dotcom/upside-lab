@@ -484,7 +484,7 @@ export const LabSheet = memo(function LabSheet({
                 <Scoreboard cols={concentration.positionCount > 3 ? 3 : 2}>
                   <Score
                     label="Behaves like"
-                    value={`${concentration.effectivePositions.toFixed(1)} names`}
+                    value={`${concentration.effectivePositions.toFixed(1)} holdings`}
                     sub={
                       concentration.positionCount === 1
                         ? "Your only position."
@@ -620,7 +620,7 @@ export const LabSheet = memo(function LabSheet({
             </h3>
             <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
               How closely each pair has tracked each other over the last 90
-              days, up to 8 names. Near <span className="tabular-nums">+1</span> means they
+              days, up to 8 companies. Near <span className="tabular-nums">+1</span> means they
               rise and fall as one, so holding both spreads your money without
               spreading your risk. Near{" "}
               <span className="tabular-nums">0</span> means they drift

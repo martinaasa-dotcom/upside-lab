@@ -71,8 +71,16 @@ export function isOvernightGap(at: Date = new Date()): boolean {
 /**
  * Epoch ms of the last moment US stocks were printing: 20:00 New York on
  * the most recent weekday. This is the anchor the futures move is measured
- * from, so the number answers the reader's actual question, which is
- * "which way has it gone since the last price I saw".
+ * from, so on an ordinary night the number answers the reader's actual
+ * question, which is "which way has it gone since the last price I saw".
+ *
+ * Weekdays only, not trading days: there is no holiday calendar here, the
+ * same tradeoff `marketSession` documents. On the morning after a market
+ * holiday the anchor is the previous evening, when stocks were shut, so the
+ * move excludes the session futures spent digesting whatever happened while
+ * the exchange was closed and the line understates it. Roughly nine
+ * mornings a year, on a figure that is already labelled an indication
+ * rather than a price.
  *
  * Walked in wall-clock minutes rather than by building a date in the New
  * York zone, so it is off by an hour on the two nights a year the clocks

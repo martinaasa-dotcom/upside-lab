@@ -50,6 +50,22 @@ describe("provenance", () => {
     expect(p.blindSpots.some((s) => /price target/i.test(s))).toBe(true);
   });
 
+  it("names the rest of the portfolio, which the prompt really sends", () => {
+    /*
+      buildForecastPlanPrompt carries the cash balance, the portfolio total
+      and the insight lines about which holdings are the same kind of
+      business, on top of the per-name figures. The eye's own rule is that
+      its list survives somebody reading the prompt, so a reader checking
+      finds them named rather than three inputs it never mentioned.
+    */
+    const p = forecastPathProvenance({ ticker: "RKLB", spot: 68.65 });
+    const inputs = p.inputs.map((i) => `${i.what} ${i.detail ?? ""}`).join(" | ");
+    expect(inputs).toMatch(/rest of your portfolio/i);
+    expect(inputs).toMatch(/cash/i);
+    expect(inputs).toMatch(/same kind of business/i);
+    expect(inputs).toMatch(/date/i);
+  });
+
   it("does not pretend a fallback shape is reasoning about the company", () => {
     const p = forecastPathProvenance({
       ticker: "NBIS",

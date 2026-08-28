@@ -171,7 +171,7 @@ const MAKERS: FactMaker[] = [
       (top3.reduce((s, t) => s + t.currentValue, 0) / totals.equityValue) * 100
     );
     return pick(rng, [
-      `Top 3 names (${top3.map((t) => t.ticker).join(", ")}) are ${share}% of equity.`,
+      `Your three biggest holdings (${top3.map((t) => t.ticker).join(", ")}) are ${share}% of what you own in stocks.`,
       `The podium (${top3.map((t) => t.ticker).join(" / ")}) owns ${share}% of the stack.`,
       `${share}% of equity lives in just three tickers. Minimalism, but make it finance.`,
     ]);

@@ -3,7 +3,7 @@
  * every morning. These pin that a live move wins, a quiet mix prints
  * nothing, and a later look in the day can pick the next true card.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildBookInsights,
   concentrationDayLine,
@@ -85,6 +85,26 @@ function clearStorage() {
 }
 
 afterEach(clearStorage);
+
+/*
+  `say()` picks one of several phrasings from a seed that carries today's
+  Tallinn date, so on the real clock these tests assert whichever wording
+  the calendar happened to hand them. That was papered over once by
+  widening the regexes to accept every phrasing, which makes the assertion
+  agree with a wrong answer as readily as a right one. Hold the clock still
+  instead and pin the exact sentence. A Thursday, so no Friday or Sunday
+  branch is in play.
+*/
+const FROZEN = new Date("2026-08-27T09:00:00.000Z");
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(FROZEN);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("lone mover", () => {
   it("names the name that moved while the rest barely did", () => {
@@ -181,11 +201,9 @@ describe("Home notices", () => {
     );
     expect(read.quiet).toBe(true);
     const notice = read.notices.find((n) => n.kind === "notice");
-    // loneCandidate's text is one of three seeded phrasings (say() in
-    // morning-read.ts picks by today's date), so this matches all three
-    // rather than pinning to whichever one happened to be seeded when the
-    // test was written.
-    expect(notice?.text).toMatch(/\$CRWV (?:is up|did|just moved) about 5%/);
+    expect(notice?.text).toBe(
+      "$CRWV is up about 5% today. $AAPL has barely moved."
+    );
     expect(notice?.text).not.toMatch(/Most of your portfolio is/);
     expect(notice?.text).not.toMatch(/whether something changed at the company/);
     expect(notice?.label).toMatch(/Update|Friday's close|Since you looked/);
@@ -229,12 +247,15 @@ describe("Home notices", () => {
     const a = first.notices.find((n) => n.kind === "notice")?.text ?? "";
     const b = second.notices.find((n) => n.kind === "notice")?.text ?? "";
     expect(a).toMatch(/Since you last looked|while you were away|New since you opened/i);
-    // $CRWV's subject was already shown in `a`, so the second look ranks
-    // the AI-computer-companies group candidate above the lone-mover one
-    // (see subjectSeen in morning-read.ts). Every one of its seeded
-    // phrasings names the group, but only some also carry the $CRWV
-    // cashtag, so match on the group name instead of pinning to one.
-    expect(b).toMatch(/\$CRWV|AI computer companies/);
+    // The lone mover led the first look, so its subject is spent and the
+    // groups candidate wins the second (subjectSeen, in morning-read.ts).
+    // $AAPL moved two tenths of a percent here, and says so. It used to
+    // read "up about 1%", which was the Math.max(1, ...) floor stating a
+    // figure five times the one it measured.
+    expect(b).toBe(
+      "$AAPL and the other software companies are up less than 1% today. " +
+        "$CRWV and the other AI computer companies are up about 5%."
+    );
     expect(a).not.toBe(b);
   });
 
@@ -320,6 +341,47 @@ describe("concentration as today's story", () => {
     expect(line).toMatch(/Most of your portfolio is AI computer builders \(75%\)/);
     expect(line).toMatch(/down about 3% today/);
     expect(line).not.toMatch(/If you did not mean to take that much/);
+  });
+});
+
+describe("a move too small to round to a percent says so", () => {
+  /*
+    `aboutMove` and `aboutPct` floored the rounded figure at 1, so two
+    tenths of a percent printed as "about 1%". Nothing upstream stopped it
+    reaching a reader: the group split only asks that the gap between the
+    best and worst group be three percent, so the quiet side of that gap
+    lands here routinely, in a sentence that states the number as fact.
+  */
+  const quiet = model(
+    [
+      ticker({
+        ticker: "CRWV",
+        currentValue: 20_000,
+        todayPct: 0.05,
+        todayDollar: 950,
+      }),
+      ticker({
+        ticker: "AAPL",
+        currentValue: 80_000,
+        todayPct: 0.002,
+        todayDollar: 160,
+      }),
+    ],
+    0.011
+  );
+
+  it("never prints a whole percent it did not measure", () => {
+    const read = buildMorningRead(quiet, null, "open", { lookIndex: 1 });
+    const text = read.notices.map((n) => n.text).join(" ");
+    expect(text).not.toMatch(/\$AAPL[^.]*about 1%/);
+  });
+
+  it("still says the figure when there is a whole percent to say", () => {
+    const line = loneMoverLine([
+      { ticker: "CRWV", value: 20_000, todayPct: 0.05, todayDollar: 950 },
+      { ticker: "AAPL", value: 80_000, todayPct: 0.002, todayDollar: 160 },
+    ]);
+    expect(line).toMatch(/\$CRWV rose about 5%/);
   });
 });
 

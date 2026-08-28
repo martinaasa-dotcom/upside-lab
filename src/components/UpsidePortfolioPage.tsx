@@ -1449,7 +1449,7 @@ export function UpsidePortfolioPage() {
                     <Score
                       label="Spread"
                       value={fundPersonality.diversificationBand.label}
-                      sub={`Behaves like ${fundConcentration.effectivePositions.toFixed(1)} names`}
+                      sub={`Behaves like ${fundConcentration.effectivePositions.toFixed(1)} holdings`}
                     />
                     <Score
                       label="Biggest bet"

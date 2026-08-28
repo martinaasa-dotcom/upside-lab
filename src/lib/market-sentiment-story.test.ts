@@ -5,6 +5,7 @@ import {
   linearProbeCopy,
   marketDaysPhrase,
   rsiTrackScale,
+  vixTrackScale,
   sentimentFitLine,
   sentimentHistoryLine,
   sentimentLead,
@@ -168,6 +169,40 @@ describe("rsiTrackScale", () => {
     expect(rsiTrackScale(80)).toEqual({ lo: 20, hi: 80 });
     expect(rsiTrackScale(12)).toEqual({ lo: 10, hi: 80 });
     expect(rsiTrackScale(86)).toEqual({ lo: 20, hi: 90 });
+  });
+
+  it("cannot leave 0 to 100, which is the whole range RSI has", () => {
+    expect(rsiTrackScale(3)).toEqual({ lo: 0, hi: 80 });
+    expect(rsiTrackScale(99)).toEqual({ lo: 20, hi: 100 });
+  });
+});
+
+describe("vixTrackScale", () => {
+  /*
+    The VIX gauge was a fixed 10 to 40 while RSI opened its ends, and
+    `linearMarkerPct` clamps, so every reading above 40 parked the marker on
+    the right edge: VIX 45 and VIX 80 drew the same bar, beside a number
+    saying otherwise. The VIX printed above 80 in March 2020 and above 60 in
+    August 2024, and those are the days somebody opens this panel.
+  */
+  it("stays on 10 to 40 for an ordinary reading", () => {
+    expect(vixTrackScale(15.21)).toEqual({ lo: 10, hi: 40 });
+    expect(vixTrackScale(10)).toEqual({ lo: 10, hi: 40 });
+    expect(vixTrackScale(40)).toEqual({ lo: 10, hi: 40 });
+  });
+
+  it("opens the top rather than pinning the marker in a scare", () => {
+    expect(vixTrackScale(45)).toEqual({ lo: 10, hi: 50 });
+    expect(vixTrackScale(65.4)).toEqual({ lo: 10, hi: 70 });
+    expect(vixTrackScale(82.7)).toEqual({ lo: 10, hi: 90 });
+  });
+
+  it("opens the bottom on the quietest readings, and never below zero", () => {
+    expect(vixTrackScale(9.1)).toEqual({ lo: 0, hi: 40 });
+  });
+
+  it("has no reading at all when the gauge is missing", () => {
+    expect(vixTrackScale(null)).toEqual({ lo: 10, hi: 40 });
   });
 });
 

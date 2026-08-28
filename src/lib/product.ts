@@ -71,8 +71,8 @@ export const SIGNIN_WHO =
   "Your broker shows you the number. This shows you what happened at the companies behind it, and whether anything really changed.";
 
 export const SIGNIN_POINTS = [
-  "When a price falls, it says whether news came out of the company or the whole market moved together.",
-  "Margus has read your portfolio. Ask why your week went the way it did, in ordinary words.",
+  "When a price falls, it says whether there was news about the company or the whole market moved together.",
+  "Margus has read your portfolio. Ask him why your week went the way it did.",
   "A circle is the people you already talk to about this. Share a portfolio and see how everyone's day went.",
 ] as const;
 
@@ -99,14 +99,21 @@ export const BROKER_ALREADY_DOES = [
 ] as const;
 
 export const THIS_DOES_INSTEAD = [
-  "Says what happened at each company you own today, in a sentence.",
-  "Separates a whole market having a bad week from real news about one of your names.",
-  "Answers questions about your portfolio, and puts the week in one email on Sunday.",
+  "Tells you what happened at each company you own today.",
+  "Tells you whether the whole market had a bad week, or something happened at a company you own.",
+  "Answers questions about your portfolio, and every Sunday emails you how the week went.",
 ] as const;
 
-/** The sentence that heads that pair. Keep it short enough to be a title. */
+/**
+ * The sentence that heads that pair. Keep it short enough to be a title.
+ *
+ * Not "the part it was never trying to do". A broker a reader chose and
+ * trusts is not something to be smug about, and plenty of them do show
+ * news. Saying they never have is both unkind and easy to disprove, which
+ * is a poor way to open the section where you ask somebody to trust you.
+ */
 export const BROKER_ANSWER =
-  "Keep your broker. This is the part it was never trying to do.";
+  "Keep your broker. This is for a different question.";
 
 /**
  * The rest of the product, for somebody who arrived from a link and has

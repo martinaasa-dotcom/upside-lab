@@ -33,7 +33,10 @@ async function handlePOST(request: Request) {
     30,
     60 * 60_000
   );
-  if (!limit.ok) return fail(origin, "failed");
+  // Not "something went wrong at our end": nothing did, and that message
+  // sends them off to ask for another link, which is the one thing that
+  // cannot help.
+  if (!limit.ok) return fail(origin, "busy");
 
   const form = await request.formData().catch(() => null);
   const token = String(form?.get("token") ?? "");

@@ -45,6 +45,35 @@ export async function proxy(request: NextRequest) {
   }
 
   /*
+    Second line behind the session cookie's `SameSite=Lax`. Refused only
+    when a browser says out loud that the mutation came from another site; a
+    caller with no browser behind it (Stripe's signed webhook, Gmail's
+    one-click unsubscribe post, any server to server post) is not a forgery
+    risk and passes through. See `same-origin.ts` for why each header is
+    read in that order.
+
+    Every mutation, not only `/api/*`. `/auth/email/complete` is a POST on a
+    page path that mints a session, and it was the one mutating route in the
+    app this gate did not cover. `SameSite=Lax` does not help there either:
+    the danger is not the victim's cookie being sent, it is a forged post
+    setting one, so a stranger's sign-in token could be posted through a
+    victim's browser and land them inside the stranger's account.
+  */
+  if (isMutatingRequest(request.method) && !isSameOriginMutation(request)) {
+    const denied = isApi
+      ? NextResponse.json(
+          { error: "That request did not come from this site." },
+          { status: 403 }
+        )
+      : new NextResponse("That request did not come from this site.", {
+          status: 403,
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        });
+    denied.headers.set("Content-Security-Policy", csp);
+    return denied;
+  }
+
+  /*
     The old `?tab=` URLs, answered permanently and without their query.
 
     Home, Pulse, Lab, Growth, Alerts and each portfolio were `?tab=` on the
@@ -57,6 +86,10 @@ export async function proxy(request: NextRequest) {
     and `?tab=overview`, whose room is the root that query is already on,
     would redirect to itself forever. The table is `legacyRedirectPath`,
     which is pure and tested on its own.
+
+    After the forged-request gate, not before it. A 308 keeps the method and
+    the body, so redirecting a forged mutation would hand it on to be
+    refused one request later instead of refusing it here.
   */
   if (!isApi) {
     const legacy = legacyRedirectPath(path, request.nextUrl.searchParams);
@@ -71,20 +104,6 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isApi) {
-    // Second line behind the session cookie's `SameSite=Lax`. Refused only
-    // when a browser says out loud that the mutation came from another
-    // site; a caller with no browser behind it (Stripe's signed webhook,
-    // any server to server post) is not a forgery risk and passes through.
-    // See `same-origin.ts` for why each header is read in that order.
-    if (isMutatingRequest(request.method) && !isSameOriginMutation(request)) {
-      const denied = NextResponse.json(
-        { error: "That request did not come from this site." },
-        { status: 403 }
-      );
-      denied.headers.set("Content-Security-Policy", csp);
-      return denied;
-    }
-
     const limited =
       limitMutationRequest(request) ?? limitPublicMarketRequest(request);
     if (limited && !limited.ok) {

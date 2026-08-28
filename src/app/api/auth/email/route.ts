@@ -43,16 +43,16 @@ async function handlePOST(req: NextRequest) {
   const email = verdict.email;
   const domain = email.slice(email.lastIndexOf("@") + 1);
 
-  if (!(await domainAcceptsMail(domain))) {
-    return NextResponse.json(
-      {
-        error: `We could not find a mail server for ${domain}, so a link sent there would not arrive. Check the spelling.`,
-        typed: email,
-      },
-      { status: 400 }
-    );
-  }
-
+  /*
+    Ration before the lookup, unlike /api/account/addresses, which counts
+    after it because a signed-in reader is already known and it is the letter
+    being rationed. Nobody is signed in here. The spelling rules above are
+    pure and cost nothing, but the mail-server lookup leaves the building and
+    waits up to 2.5s, and its cache cannot help against a caller feeding it a
+    fresh domain every time. Behind the ration that is a handful of lookups
+    an hour; in front of it, it is a stranger holding functions open for
+    free.
+  */
   const ip = clientIp(req);
   const [byIp, byAddr] = await Promise.all([
     takeDurableRateLimit(`email-login-ip:${ip}`, 8, 60 * 60_000),
@@ -69,6 +69,16 @@ async function handlePOST(req: NextRequest) {
     return rateLimitJson(
       byAddr,
       "That is a lot of sign-in links to that address. Give it a few minutes and try again."
+    );
+  }
+
+  if (!(await domainAcceptsMail(domain))) {
+    return NextResponse.json(
+      {
+        error: `We could not find a mail server for ${domain}, so a link sent there would not arrive. Check the spelling.`,
+        typed: email,
+      },
+      { status: 400 }
     );
   }
 
