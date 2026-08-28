@@ -353,8 +353,8 @@ export function CommunitiesList() {
             />
             {discover.length === 0 ? (
               <p className="card-sheen glass-well rounded-lg px-4 py-6 text-sm leading-relaxed text-muted-foreground">
-                No public circles right now. If you start one, flip it to
-                Public so people can ask in.
+                There are no public circles right now. If you start one, set
+                it to Public so that people can ask to join it.
               </p>
             ) : (
               <ul className="card-sheen glass-well divide-y divide-border overflow-hidden rounded-lg">
@@ -382,7 +382,7 @@ export function CommunitiesList() {
                     </span>
                     {c.requestStatus === "pending" ? (
                       <span className="shrink-0 text-sm font-medium text-caution">
-                        Requested - pending
+                        Waiting for approval
                       </span>
                     ) : (
                       <Button
@@ -557,8 +557,8 @@ export function CommunitiesList() {
               What should {joinPick.name} see?
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Everything is on. Turn one off if you want it private. You can
-              change this later.
+              Every portfolio is shared to start with. Turn one off to keep it
+              private. You can change this later.
             </p>
             <ul className="flex flex-col mt-4 gap-2">
               {joinPick.sheets.map((s) => {

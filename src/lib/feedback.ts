@@ -22,13 +22,13 @@ export const MONTHLY_HELPED = [
   { id: "forecast", label: "Forecast" },
   { id: "circle", label: "Circle or a class" },
   { id: "emails", label: "The emails" },
-  { id: "editing", label: "Adding or changing names" },
+  { id: "editing", label: "Adding or changing holdings" },
   { id: "nothing", label: "Nothing yet" },
 ] as const;
 
 export const MONTHLY_BLOCKED = [
   { id: "crowded", label: "Too much on screen" },
-  { id: "lost", label: "Couldn't find a thing" },
+  { id: "lost", label: "Could not find something" },
   { id: "next", label: "Didn't know what to do next" },
   { id: "trust", label: "Didn't trust a number" },
   { id: "none", label: "Nothing got in the way" },

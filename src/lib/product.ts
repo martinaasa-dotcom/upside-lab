@@ -34,6 +34,14 @@ export const PRODUCT_ORIGIN = `https://${PRODUCT_DOMAIN}`;
  * portfolio said back to you in ordinary sentences, and on the day it
  * falls you find out whether anything actually happened at the companies
  * you own. Pulse is how that gets answered. It is not the reason.
+ *
+ * This deliberately does not match the landing page's own headline, which
+ * is "Everyone shows you the number. Nobody tells you what happened." Do
+ * not "fix" the two to agree: they are read in different places. That one
+ * is a hook with a whole page underneath it to make good on it. This one
+ * is read cold, in a Slack paste or a browser tab, by somebody with
+ * nothing else to go on, so it says what the product is rather than
+ * setting up a question. The claim underneath both is the same.
  */
 export const PRODUCT_HEADLINE = [
   "Your whole portfolio, in plain words.",

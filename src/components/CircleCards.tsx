@@ -213,7 +213,7 @@ export function PowerAnimalCard({
             <Score
               label="A rough year"
               value={`-${personality.maxDrawdownPct}%`}
-              sub="How far names like these have fallen before. Illustrative, not a forecast."
+              sub="How far holdings like these have fallen in the past. An illustration, not a forecast."
               valueClassName="text-loss"
             />
           </Scoreboard>

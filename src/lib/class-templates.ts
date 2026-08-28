@@ -20,7 +20,7 @@ export const CLASS_TEMPLATES: ClassTemplate[] = [
   {
     id: "first-picks",
     title: "First picks",
-    blurb: "Buy week. Up to 5 names. Write why on each.",
+    blurb: "Buying week. Up to 5 companies. Write down why for each one.",
     cash: 100_000,
     period: "buy",
     assignment: DEFAULT_CLASS_ASSIGNMENT,
@@ -32,7 +32,7 @@ export const CLASS_TEMPLATES: ClassTemplate[] = [
     cash: 25_000,
     period: "buy",
     assignment:
-      "Pick one name. Write why you own it. Hold it unless I say you can change.",
+      "Pick one company. Write down why you own it. Hold it unless I say you can change.",
   },
   {
     id: "term-hold",
@@ -59,7 +59,7 @@ export const CLASS_TEMPLATES: ClassTemplate[] = [
     cash: 50_000,
     period: "buy",
     assignment:
-      "Everyone picks from the group I name in class. Write why that name, not another in the group.",
+      "Everyone picks from the group I name in class. Write down why that company, and not another one in the group.",
   },
   {
     id: "look-only",
@@ -73,11 +73,11 @@ export const CLASS_TEMPLATES: ClassTemplate[] = [
   {
     id: "midterm-move",
     title: "Sell and move",
-    blurb: "Midterm clean-up. No new names yet.",
+    blurb: "Midterm tidy-up. No new companies yet.",
     cash: 100_000,
     period: "fix",
     assignment:
-      "Sell what is not working. Move the money. No new names until I open buying again.",
+      "Sell what is not working and move the money. No new companies until I open buying again.",
   },
 ];
 

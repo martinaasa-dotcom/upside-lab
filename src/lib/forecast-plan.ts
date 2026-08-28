@@ -26,42 +26,52 @@ export type ForecastStance = "bearish" | "base" | "bullish";
 /** Default (and only) stance. Cautious/optimistic toggles are gone. */
 export const DEFAULT_FORECAST_STANCE: ForecastStance = "base";
 
-/** Rough sector tags so Margus can talk rotation without inventing holdings. */
+/**
+ * What kind of business each ticker is, in words a reader gets.
+ *
+ * These are not an internal tag. They are printed on the Forecast cards and
+ * they are what the allocation breakdown groups by, so somebody who has
+ * never worked in finance reads them. They used to be written for somebody
+ * who has: "AI infra / neo-cloud", "Cloud SaaS / observability",
+ * "Semiconductors / lithography", "US large-cap index (UCITS)". Four of
+ * those are not English outside a trading floor, and one of them is a fund
+ * regulation. Say what the company actually does instead.
+ */
 export const TICKER_SECTORS: Record<string, string> = {
-  NBIS: "AI infra / GPU cloud",
-  CRWV: "AI infra / neo-cloud",
-  RKLB: "Space / aerospace",
-  BMNR: "Crypto / BTC treasury",
-  VST: "AI power / generation",
-  SOFI: "Fintech / consumer finance",
-  HOOD: "Fintech / brokerage",
-  PLTR: "AI software / data platforms",
-  NOW: "Enterprise SaaS / AI software",
-  CRM: "Enterprise SaaS",
-  DDOG: "Cloud SaaS / observability",
-  SNOW: "Data SaaS",
-  NVDA: "Semiconductors / AI chips",
-  AVGO: "Semiconductors / AI interconnect",
-  RDDT: "Consumer internet / social",
-  PWR: "AI power / grid infrastructure",
-  ASML: "Semiconductors / lithography",
-  "ASML.AS": "Semiconductors / lithography",
-  GOOGL: "Big tech / AI spend",
-  AAPL: "Consumer tech / software",
-  NFLX: "Consumer internet / streaming",
-  UNH: "Healthcare / managed care",
-  LLY: "Healthcare / biopharma",
-  ISRG: "Healthcare / medtech",
-  AVAV: "Defense / drones",
-  KTOS: "Defense / drones",
-  SPY: "US large-cap index",
-  "CSPX.L": "US large-cap index (UCITS)",
-  "VWCE.DE": "Global equity ETF",
-  "SMH.L": "Semiconductor ETF",
-  "ABEA.DE": "Big tech / AI spend (EU listing)",
-  "JEDI.L": "Thematic ETF",
-  "ANX.PA": "European equity",
-  "EX13.VI": "European equity ETF",
+  NBIS: "Rents out computers for AI",
+  CRWV: "Rents out computers for AI",
+  RKLB: "Rockets and spacecraft",
+  BMNR: "Holds Bitcoin",
+  VST: "Generates electricity",
+  SOFI: "Online banking and loans",
+  HOOD: "An app for buying shares",
+  PLTR: "Software for handling data",
+  NOW: "Business software",
+  CRM: "Business software",
+  DDOG: "Software that watches other software",
+  SNOW: "Software for storing data",
+  NVDA: "Makes computer chips",
+  AVGO: "Makes computer chips",
+  RDDT: "A social network",
+  PWR: "Builds power lines and grids",
+  ASML: "Makes the machines that make chips",
+  "ASML.AS": "Makes the machines that make chips",
+  GOOGL: "Search, ads and AI",
+  AAPL: "Phones, computers and software",
+  NFLX: "Film and television streaming",
+  UNH: "Health insurance",
+  LLY: "Makes medicines",
+  ISRG: "Makes surgical robots",
+  AVAV: "Defence and drones",
+  KTOS: "Defence and drones",
+  SPY: "A fund of large US companies",
+  "CSPX.L": "A fund of large US companies",
+  "VWCE.DE": "A fund of companies worldwide",
+  "SMH.L": "A fund of chip makers",
+  "ABEA.DE": "Search, ads and AI",
+  "JEDI.L": "A fund built around one theme",
+  "ANX.PA": "A European company",
+  "EX13.VI": "A fund of European companies",
 };
 
 export type ForecastPlan = z.infer<typeof forecastPlanSchema> & {
@@ -535,7 +545,7 @@ export function buildFallbackForecastPlan(input: {
   const eoyTargets = ensureCompleteEoyTargets(input.forecast, []);
   return humanizeMargusTree({
     generalAdvice:
-      "Starting prices are on the grid from how each kind of company has tended to move. Margus still needs to write the why.",
+      "The starting prices in the table come from how each kind of company has tended to move. Margus still has to write the reasoning.",
     sectorRotation:
       "Different groups of similar stocks will take turns leading. The finished writeup picks which group matters for this portfolio.",
     periods: [
@@ -599,7 +609,7 @@ export function buildCachedForecastPlan(input: {
     generalAdvice:
       "Every holding here already had a modeled price path worked out somewhere else in Upside Lab, so this loaded from that shared work instead of asking the model again.",
     sectorRotation:
-      "Reused from an earlier run on these same holdings. Ask Margus to work it out again for a fresh rotation call.",
+      "This was reused from an earlier run on these same holdings. Ask Margus to work it out again if you want a fresh read on which groups are leading.",
     periods: [
       {
         label: `Next quarter (Q${nextQuarter.q} ${nextQuarter.y})`,

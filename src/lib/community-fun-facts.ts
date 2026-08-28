@@ -89,7 +89,7 @@ const MAKERS: FactMaker[] = [
     const top = ranked[0];
     if (!top?.personality) return null;
     return pick(rng, [
-      `${top.name} has the jumpiest book: ${top.personality.riskScore}/100, ${top.personality.animalEmoji} ${top.personality.animal} energy.`,
+      `${top.name} has the jumpiest mix in the circle, ${top.personality.riskScore} out of 100. Pure ${top.personality.animalEmoji} ${top.personality.animal} energy.`,
       `Hottest mix in the circle: ${top.name} (${top.personality.riskScore}/100). Not for a quiet night.`,
       `${top.name} runs the jumpiest portfolio here (${top.personality.riskScore}/100).`,
     ]);
@@ -105,7 +105,7 @@ const MAKERS: FactMaker[] = [
     const top = ranked[0];
     if (!top?.personality) return null;
     return pick(rng, [
-      `${top.name} is the most spread out, ${top.personality.diversificationScore}/100.`,
+      `${top.name} is the most spread out, at ${top.personality.diversificationScore} out of 100.`,
       `Least concentrated portfolio: ${top.name} (${top.personality.diversificationScore}/100). Nothing keeping all its eggs in one basket.`,
     ]);
   },
@@ -120,7 +120,7 @@ const MAKERS: FactMaker[] = [
     const top = ranked[0];
     if (!top?.personality || top.personality.diversificationScore >= 40) return null;
     return pick(rng, [
-      `${top.name} is all-in on a few names, just ${top.personality.diversificationScore}/100 spread.`,
+      `${top.name} is concentrated in a handful of holdings, scoring just ${top.personality.diversificationScore} out of 100 for spread.`,
       `${top.name} keeps it tight, the most concentrated portfolio in the group.`,
     ]);
   },

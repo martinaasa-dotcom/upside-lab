@@ -105,7 +105,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
   if (holdings.length === 0) {
     return (
       <EmptyState
-        title="Nothing to stress yet"
+        title="Nothing to test yet"
         detail="Add a holding and this shows what a rough day would do to your portfolio."
       />
     );
@@ -223,7 +223,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
           <p className="text-sm text-muted-foreground">
             {analysis.cash > 0
               ? `Cash ${currency(analysis.cash, 0)} · ${analysis.margin.shockedCashPct.toFixed(1)}% of the portfolio after this.`
-              : "No cash sitting out as a buffer."}
+              : "There is no cash set aside as a cushion."}
           </p>
         )}
 
@@ -273,7 +273,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
             Where the damage lands
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Your holdings pooled by what they actually bet on.
+            Your holdings grouped by what they actually depend on.
           </p>
           <Table className="mt-3">
             <TableHeader>
@@ -323,7 +323,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
         <div className="mt-3 flex flex-col gap-3 md:hidden">
           {sortedRows.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
-              Nothing held in this scope yet.
+              Nothing held here yet.
             </p>
           ) : (
             sortedRows.map((r) => (
@@ -384,7 +384,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
         <div className="mt-3 hidden md:block">
           {sortedRows.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
-              Nothing held in this scope yet.
+              Nothing held here yet.
             </p>
           ) : (
             <FluidTable template={template}>

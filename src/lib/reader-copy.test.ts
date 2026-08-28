@@ -223,6 +223,66 @@ describe("copy reads as a person wrote it", () => {
   });
 
   /*
+    Desk vocabulary, on any surface a reader meets.
+
+    Same argument as the dash and the brochure words, one level down: those
+    two catch a sentence that reads as generated, and this catches one that
+    reads as overheard. A copy pass in 2026-08 found "Rates +75 bps",
+    "Semis / lithography", "US large-cap index (UCITS)", "called away",
+    "at write level", "no take-backs" and "a chunk of that run is in play"
+    sitting on ordinary screens, several of them on the labels a reader
+    meets most often, because they had been written by somebody who knows
+    what they mean for somebody who does not.
+
+    Every word here is one a reader would have to look up, and every one of
+    them has a plain replacement that fits in the same space. The rule in
+    AGENTS.md is that a grandmother gets every sentence.
+
+    `NAMES_THE_WORD` is the exception list and it is short on purpose: a
+    prompt has to be able to tell the model which words are banned, and a
+    sanitizer has to be able to match them. Those two jobs are the only
+    reason to write one of these down. A new entry means arguing that
+    nothing on a screen renders it, exactly as with the dash list above.
+  */
+  const DESK_JARGON =
+    /\b(bps|HYSA|UCITS|DXY|neo-cloud|observability|desynced|take-backs|word vomit|dry powder|sleeves?|risk-on|risk-off|drawdowns?|called away|write level|read-only|moves the needle|in play|large-cap|small-cap)\b/i;
+
+  const NAMES_THE_WORD = new Set([
+    // Prompts: the model is told which words it may not use.
+    "src/lib/ai/margus-persona.ts",
+    "src/lib/ai/cc-advisor.ts",
+    "src/lib/weekly-margus.ts",
+    "src/lib/forecast-plan.ts",
+    "src/lib/forecast-plan-schema.ts",
+    "src/lib/book-insights.ts",
+    // Sanitizer: it matches these to rewrite them out of model output.
+    "src/lib/ai/humanize-copy.ts",
+  ]);
+
+  it("does not use desk vocabulary on a screen", () => {
+    const bad = files
+      .filter((f) => !NAMES_THE_WORD.has(f))
+      .flatMap((f) =>
+        readerFacingLines(f)
+          .filter((l) => DESK_JARGON.test(l.text))
+          .map((l) => `${f}:${l.line}: ${l.text.trim()}`)
+      );
+    expect(bad).toEqual([]);
+  });
+
+  it("keeps the desk-vocabulary exception list honest", () => {
+    for (const file of NAMES_THE_WORD) {
+      expect(files, `${file} is in NAMES_THE_WORD but not in src`).toContain(
+        file
+      );
+      expect(
+        readerFacingLines(file).some((l) => DESK_JARGON.test(l.text)),
+        `${file} no longer names one of these words, so drop it from the list`
+      ).toBe(true);
+    }
+  });
+
+  /*
     An exception that no longer contains a dash is an exception somebody can
     delete, and one that names a file that has moved is a hole in the rule
     nobody can see. Both are worth failing over.

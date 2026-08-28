@@ -525,6 +525,12 @@ function asEnum<T extends string>(
   return (allowed as readonly string[]).includes(key) ? (key as T) : fallback;
 }
 
+/*
+  Never rendered. This is the exact line the model used to paste onto every
+  card, kept verbatim so `isGenericThesisBreak` can still recognise it and
+  throw it away. Rewriting it to read better stops it matching, which puts
+  the generic line back on the cards. It is data, like a `plain-error` key.
+*/
 const GENERIC_THESIS_BREAK =
   "This breaks if the reason you own it disappears. Lost the customer, a restatement, or guidance that kills the multi-year case. A quiet day is not that.";
 
@@ -968,11 +974,11 @@ export function buildFallbackPulseCheck(candidate: PulseCandidate): PulseCheck {
     return {
       ticker: candidate.ticker,
       situation: [
-        "Price is up more than a typical day.",
-        "The stated reason for owning it is unchanged.",
+        "The price is up more than it usually moves in a day.",
+        "Nothing has changed in the reason you own it.",
       ],
       moveReason:
-        "Up more than a typical day. The stated reason is unchanged.",
+        "The price rose more than it usually does in a day, and the reason you own it has not changed.",
       thesisStatus: "intact",
       earningsNote: "",
       action: "trim",
@@ -988,11 +994,11 @@ export function buildFallbackPulseCheck(candidate: PulseCandidate): PulseCheck {
     return {
       ticker: candidate.ticker,
       situation: [
-        "Down more than a typical day.",
-        "Price alone does not mean the stated reason broke.",
+        "The price is down more than it usually moves in a day.",
+        "A fall in the price on its own does not mean the reason you own it has changed.",
       ],
       moveReason:
-        "Down more than a typical day. The stated reason is a separate fact.",
+        "The price fell more than it usually does in a day, which on its own says nothing about the company.",
       thesisStatus: "intact",
       earningsNote: "",
       action: "add",
@@ -1010,11 +1016,11 @@ export function buildFallbackPulseCheck(candidate: PulseCandidate): PulseCheck {
   return {
     ticker: candidate.ticker,
     situation: [
-      "Nothing unusual today.",
-      "The price stayed inside a typical day's range.",
+      "Nothing unusual happened today.",
+      "The price stayed inside its normal daily range.",
     ],
     moveReason:
-      "The price stayed inside a typical day's range.",
+      "The price stayed inside the range it normally moves in on a day.",
     thesisStatus: "intact",
     earningsNote: "",
     action: "hold",

@@ -135,24 +135,24 @@ export function buildEarningsNote(input: {
     Math.abs(run) >= Math.max(0.12, swing * 1.4);
 
   if (stretched && run! > 0 && swingLabel) {
-    return `Up ${Math.round(run! * 100)}% into this. Typical swing is ${swingLabel}, so a chunk of that run is in play. If you wouldn't add here, this is when people lighten a bit before the print.`;
+    return `The price has already risen ${Math.round(run! * 100)}% in the run up to this. It usually moves ${swingLabel} on the day, so a good part of that rise could go either way.`;
   }
   if (stretched && run! < 0 && swingLabel) {
-    return `Sold off ${Math.round(Math.abs(run!) * 100)}% into this. Typical swing is ${swingLabel}.`;
+    return `The price has already fallen ${Math.round(Math.abs(run!) * 100)}% in the run up to this. It usually moves ${swingLabel} on the day.`;
   }
   if (input.printCount >= 3 && input.beatCount === input.printCount && swingLabel) {
-    return `Beat the last ${input.printCount} reports. The day still goes both ways, ${swingLabel}.`;
+    return `The company beat expectations at its last ${input.printCount} reports. The day can still go either way, usually ${swingLabel}.`;
   }
   if (input.printCount >= 3 && input.beatCount === 0 && swingLabel) {
-    return `Missed the last ${input.printCount} reports. Typical swing is ${swingLabel}.`;
+    return `The company came in under expectations at its last ${input.printCount} reports. The price usually moves ${swingLabel} on the day.`;
   }
   if (input.printCount >= 3 && swingLabel) {
-    return `Last ${input.printCount} mixed, ${input.beatCount} beat. Typical swing is ${swingLabel}.`;
+    return `The last ${input.printCount} reports were mixed, with ${input.beatCount} beating expectations. The price usually moves ${swingLabel} on the day.`;
   }
   if (swingLabel) {
-    return `${swingLabel} is what's priced in. That's the range, not a direction.`;
+    return `Investors are expecting a move of ${swingLabel}. That is how far, not which way.`;
   }
-  return "Results days tend to move more than usual, in either direction.";
+  return "A price usually moves more than usual on the day a company reports, in either direction.";
 }
 
 function runupFromBars(bars: Bar[], lookback = 20): number | null {

@@ -103,7 +103,7 @@ export function YtdAnchorModal({
               Your real year
             </h3>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              The chart still uses today&apos;s names for the shape. This
+              The chart still draws its shape from what you hold today. This
               number sets how big the year actually was.
             </p>
           </div>

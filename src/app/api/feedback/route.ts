@@ -25,7 +25,7 @@ async function handlePOST(req: NextRequest) {
   );
   if (!limit.ok) {
     return NextResponse.json(
-      { error: "Give it a minute. You already sent a few." },
+      { error: "You have already sent a few. Give it a minute." },
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSec ?? 60) } }
     );
   }

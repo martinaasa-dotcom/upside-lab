@@ -240,9 +240,9 @@ function describeChatUiError(message: string): string {
     return "The connection dropped before Margus finished. Check your signal and try again.";
   }
   if (isQuietChatFailure(message)) {
-    return "Didn't land that time. Send it again.";
+    return "That message did not go through. Send it again.";
   }
-  return "Couldn't get a reply just then. Send it again.";
+  return "No reply came back that time. Send it again.";
 }
 
 function isMdSepCell(cell: string): boolean {
@@ -514,45 +514,45 @@ const ACTION_TYPES = new Set([
 const RULES = [
   {
     title: "Table meaning",
-    rule: "Stock Target ≠ strike",
+    rule: "The Stock Target is not the strike",
     detail:
-      "Stock Target = write level. Call % = buffer above that. Next Strike = Target × (1+Call%). Distance = Spot to Target, not the strike gap. Premium uses Next Strike.",
+      "Stock Target is the price you are writing towards. Call % is how far above it the strike sits, so Next Strike is the target plus that percentage. Distance measures today's price to the target, not to the strike. Premium is quoted on the Next Strike.",
   },
   {
     title: "Market condition",
-    rule: "Intraday green rebound",
-    detail: "Prefer selling calls when the name is green. Avoid dumping strikes on red days.",
+    rule: "Sell on a day the price is up",
+    detail: "Calls are usually worth more when the price is up on the day, so a green day tends to be a better time to sell them than a red one.",
   },
   {
     title: "Contract duration",
     rule: `${STRATEGY.minDaysPreferred} to ${STRATEGY.maxDaysPreferred} days (about 2 to 3 weeks)`,
-    detail: `Can extend up to ~${STRATEGY.maxDaysExtended}d when earnings forces a longer dated.`,
+    detail: `Up to about ${STRATEGY.maxDaysExtended} days when results are due and a longer contract is the only way past them.`,
   },
   {
     title: "Call %",
-    rule: "Scaled to each ticker's own volatility",
-    detail: `Roughly ${(STRATEGY.callPctSafeMin * 100).toFixed(0)} to ${(STRATEGY.callPctSafeMax * 100).toFixed(0)}% for calmer names up to ${(STRATEGY.callPctHighBeta * 100).toFixed(0)}%+ for jumpy ones, nudged for earnings / distance. Never one flat "safety" % for the whole book.`,
+    rule: "Set from how much each stock swings on its own",
+    detail: `Roughly ${(STRATEGY.callPctSafeMin * 100).toFixed(0)} to ${(STRATEGY.callPctSafeMax * 100).toFixed(0)}% on calmer names, and ${(STRATEGY.callPctHighBeta * 100).toFixed(0)}% or more on jumpy ones, adjusted for results dates and distance. Never one flat safety percentage across the whole portfolio.`,
   },
   {
     title: "Earnings",
-    rule: "Prefer expire before earnings",
-    detail: "If no clean pre-earnings 2 to 3 week expiry, go past earnings and widen Call %.",
+    rule: "Pick an expiry before the results date",
+    detail: "If no 2 to 3 week contract expires before the results date, pick one that runs past it and widen the Call % to match the extra risk.",
   },
   {
     title: "Yield",
     rule: `Target ~${(STRATEGY.targetYield * 100).toFixed(0)}% (floor ${(STRATEGY.minYield * 100).toFixed(0)}%)`,
-    detail: "Margus estimates from live option mid/spot for the chosen Next Strike & expiry when available.",
+    detail: "Margus estimates this from the live option price and today's share price, for the Next Strike and expiry you have chosen, whenever those are available.",
   },
   {
     title: "Execution window",
     rule: STRATEGY.executionWindow,
-    detail: "Skip the first ~15 min after the US open; fill when spreads are tighter.",
+    detail: "Skip the first 15 minutes or so after the US market opens. Buying and selling prices are usually closer together after that.",
   },
   {
     title: "What Margus can change",
     rule: "Shares, cash, Call %, Stock Target, portfolio imports, write plans",
     detail:
-      "Paste a spreadsheet screenshot and Margus should import every row via importPortfolio. Critique uses your table values.",
+      "Paste a screenshot of a spreadsheet and Margus imports every row from it. When he reviews a plan, he uses the numbers already in your table.",
   },
 ] as const;
 
@@ -969,7 +969,7 @@ export function CcAdvisorChat({
       "What moved today, and why?",
       "Explain my biggest holding in plain English",
       "Am I too heavy in any one company?",
-      "Which names moved the most this week?",
+      "Which of my holdings moved the most this week?",
       "What’s up most since I bought it?",
     ];
     if (context.hideOptions || context.rows.length === 0) return plain.slice(0, 4);
@@ -1270,8 +1270,8 @@ export function CcAdvisorChat({
               <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted p-4">
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   {context.hideOptions
-                    ? "I can read holdings and update shares, buy price, cash, or add/remove tickers."
-                    : "I can read holdings and covered calls, and update shares, buy price, cash, Call %, or add/remove tickers. Open the book icon for the strategy rules."}
+                    ? "I can read your holdings, and I can change the number of shares, the buy price or the cash, and add or remove holdings for you."
+                    : "I can read your holdings and your covered calls, and I can change shares, buy price, cash and Call %, and add or remove holdings for you. The Strategy rules button above spells out how the covered-call numbers are picked."}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {suggestions.map((s) => (
@@ -1436,7 +1436,7 @@ export function CcAdvisorChat({
             {error && isQuietChatFailure(error.message) && chatRetryRef.current ? (
               <Alert>
                 <AlertDescription>
-                  Didn&apos;t land that time. Send it again.
+                  That message did not go through. Send it again.
                 </AlertDescription>
               </Alert>
             ) : screenshotTurn && !busy && (lastIsEmptyAssistant || error) ? (
@@ -1462,7 +1462,7 @@ export function CcAdvisorChat({
             ) : lastIsEmptyAssistant && !error ? (
               <Alert>
                 <AlertDescription>
-                  Didn&apos;t land that time. Send it again.
+                  That message did not go through. Send it again.
                 </AlertDescription>
               </Alert>
             ) : null}

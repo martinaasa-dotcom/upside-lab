@@ -15,7 +15,7 @@ async function handlePOST(req: NextRequest) {
 
   const limit = checkRateLimit(`trends:${auth.user.id}`, 30, 5 * 60_000);
   if (!limit.ok) {
-    return rateLimitJson(limit, "Trend requests are limited. Try again in a bit.");
+    return rateLimitJson(limit, "Too many trend requests at once. Try again in a few minutes.");
   }
 
   const parsed = await parseJsonBody(req, trendsPostSchema);

@@ -78,7 +78,7 @@ function stanceStyles(stance: ActionStance): string {
 function stanceLabel(stance: ActionStance): string {
   if (stance === "deploy") return "Historically strong months";
   if (stance === "raise_cash") return "Historically soft months";
-  return "Mixed / no seasonal edge";
+  return "Mixed, with no clear pattern";
 }
 
 function CycleMonthlyChart({
@@ -714,7 +714,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
                 />
               ) : (
                 <p className="mt-4 text-sm text-muted-foreground">
-                  No prior sessions for this month.
+                  No earlier years to compare for this month.
                 </p>
               )}
             </div>

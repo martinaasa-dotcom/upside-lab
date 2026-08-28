@@ -48,7 +48,7 @@ function reportLook(
   return {
     kind: "report",
     headline: when,
-    detail: "Results days often move a price more than a typical session.",
+    detail: "A price usually moves more than usual on the day a company reports its results.",
     low,
     high,
   };
@@ -109,7 +109,7 @@ export function watchLook(
       kind: "look",
       headline: "Down a lot today",
       detail:
-        "Down more than a typical day. The reason you watch it is a separate fact.",
+        "The price fell more than it usually does in a day. That on its own says nothing about the company.",
       low,
       high,
     };
@@ -119,7 +119,7 @@ export function watchLook(
       kind: "wait",
       headline: "Up a lot today",
       detail:
-        "Up more than a typical day. The reason you watch it is a separate fact.",
+        "The price rose more than it usually does in a day. That on its own says nothing about the company.",
       low,
       high,
     };
@@ -129,7 +129,7 @@ export function watchLook(
     return {
       kind: "quiet",
       headline: "Not enough history",
-      detail: "Not enough sessions for a range reading.",
+      detail: "There are not enough days of prices yet to say where this sits in its range.",
       low,
       high,
     };
