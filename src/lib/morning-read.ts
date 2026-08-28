@@ -505,8 +505,8 @@ function dollarCandidate(
     rank: 74,
     ticker: top.ticker,
     text: say(seedFor(lookIndex, id), [
-      `${cashtag(top.ticker)} is ${money} of today's move, most of it. ${whenTail === "today" ? "That is the day." : "That was Friday."}`,
-      `The dollar move is ${cashtag(top.ticker)} (${money}). Everything else is small next to that.`,
+      `${cashtag(top.ticker)} accounts for ${money} of what your portfolio did ${whenTail}, which is most of it.`,
+      `Almost all of ${whenTail === "today" ? "today's" : "Friday's"} change in value came from ${cashtag(top.ticker)}, at ${money}. Everything else was small beside it.`,
     ]),
   };
 }

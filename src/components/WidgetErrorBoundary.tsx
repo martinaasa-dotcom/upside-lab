@@ -56,7 +56,7 @@ export class WidgetErrorBoundary extends Component<Props, State> {
             {this.props.name} hit a snag
           </p>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Your portfolios are fine. This panel failed to render.
+            Your portfolios are fine. This one panel could not be shown.
           </p>
           <Button
             type="button"

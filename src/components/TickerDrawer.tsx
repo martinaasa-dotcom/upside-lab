@@ -42,11 +42,11 @@ import { forecastPathProvenance } from "@/lib/provenance";
 import { useEffect, useMemo, useState } from "react";
 
 const CONVICTION_LABELS: Record<ConvictionLevel, string> = {
-  1: "Weak, watching the reason",
-  2: "Below average, the size may be big",
-  3: "Neutral, holding as-is",
-  4: "Strong, still believe the reason",
-  5: "Max, you're sure why you own it",
+  1: "Weak, and I am watching whether the reason holds",
+  2: "Below average, and this may be more than I want to own",
+  3: "Neutral, holding it as it is",
+  4: "Strong, and I still believe the reason",
+  5: "Highest, and I am sure why I own it",
 };
 
 const HORIZONS = [
@@ -215,7 +215,7 @@ export function TickerDrawer({
               rows={2}
               onChange={(e) => setThesisDraft(e.target.value)}
               onBlur={() => onConviction(level, thesisDraft)}
-              placeholder="Two sentences. What has to stay true for you to keep holding?"
+              placeholder="Two sentences. What has to stay true for you to keep holding this?"
               className="min-h-16 leading-relaxed"
             />
             <FieldDescription>

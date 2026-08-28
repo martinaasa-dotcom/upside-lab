@@ -185,13 +185,13 @@ export function HoldingModal({
     if (!isSafeShares(sharesN)) {
       setError(
         isCoinSymbol(normalizedTicker)
-          ? "How many has to be bigger than 0 and not enormous."
-          : "Share count has to be bigger than 0 and not enormous."
+          ? "How many you hold has to be more than 0, and a believable number."
+          : "The number of shares has to be more than 0, and a believable number."
       );
       return null;
     }
     if (!isSafePositiveMoney(buyN)) {
-      setError("Buy price has to be bigger than 0 and not enormous.");
+      setError("The buy price has to be more than 0, and a believable number.");
       return null;
     }
     if (!Number.isFinite(callN) || callN < 0 || callN > 100) {
@@ -208,7 +208,7 @@ export function HoldingModal({
           { cache: "no-store" }
         );
         if (!fxRes.ok) {
-          setError("Couldn't convert that buy price. Try again in a second.");
+          setError("That buy price could not be converted into dollars. Try again in a moment.");
           return null;
         }
         const fxJson = (await fxRes.json()) as {
@@ -220,12 +220,12 @@ export function HoldingModal({
         };
         const rates = usdPerMapFromFx(fxJson.fx);
         if (!(rates[buyCode] > 0)) {
-          setError("Couldn't convert that buy price. Try again in a second.");
+          setError("That buy price could not be converted into dollars. Try again in a moment.");
           return null;
         }
         buyUsd = listingAmountToUsd(buyN, buyCode, rates);
       } catch {
-        setError("Couldn't convert that buy price. Try again in a second.");
+        setError("That buy price could not be converted into dollars. Try again in a moment.");
         return null;
       }
     }

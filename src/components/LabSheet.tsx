@@ -520,7 +520,7 @@ export const LabSheet = memo(function LabSheet({
                         (concentration.positionCount > 5
                           ? concentration.topFivePct
                           : concentration.topThreePct) >= 0.8
-                          ? "The rest barely moves the needle."
+                          ? "The rest of your portfolio barely changes the total."
                           : "The rest of your portfolio carries real weight."
                       }
                       /* --warning, not --loss — see the note above. */
@@ -551,8 +551,8 @@ export const LabSheet = memo(function LabSheet({
                       What you&apos;re actually betting on
                     </h3>
                     <p className="mt-1.5 text-sm text-muted-foreground">
-                      Your holdings pooled by theme, which is usually a
-                      blunter read than the ticker list.
+                      Your holdings grouped by kind of business, which usually
+                      tells you more than the list of tickers does.
                     </p>
                   </div>
                   <div className="flex h-3 overflow-hidden rounded-full bg-muted">
@@ -629,7 +629,8 @@ export const LabSheet = memo(function LabSheet({
           </div>
           {corrHeat.tickers.length < 2 ? (
             <p className="text-sm text-muted-foreground">
-              Need at least two names with price history to compare.
+              You need at least two holdings with enough price history to
+              compare.
             </p>
           ) : (
             /* Header row is one shared 2rem band: column labels sit on the

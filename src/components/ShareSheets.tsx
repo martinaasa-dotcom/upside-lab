@@ -118,8 +118,8 @@ export function ShareSheets({
           Portfolios this circle can see
         </h2>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          These are on unless you turn one off. Today&apos;s prices only. What
-          you paid stays with you.
+          Every portfolio here is shared unless you turn it off. The circle
+          sees today&apos;s prices only, never what you paid.
         </p>
       </div>
       {error && <p className="text-sm text-loss">{error}</p>}

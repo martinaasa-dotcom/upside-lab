@@ -410,8 +410,8 @@ export function AccountPage() {
                   pillow, and a small army of imaginary puppies.
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  On a serious note, it&apos;s twelve euros a month to
-                  directly support Upside making this. Pretty solid deal.
+                  Seriously though: it is twelve euros a month, and it goes
+                  straight towards building this.
                 </p>
               </div>
             )}
@@ -505,7 +505,7 @@ export function AccountPage() {
               <label className="flex flex-col gap-1">
                 <span className="flex items-baseline justify-between">
                   <span className="text-sm text-muted-foreground">
-                    Bio - communities
+                    Bio for communities
                   </span>
                   <span className="text-sm tabular-nums text-muted-foreground">
                     {bio.length}/280
@@ -591,8 +591,9 @@ export function AccountPage() {
             <div className="border-t border-border pt-4">
               <p className="text-sm font-medium text-foreground">Options experience</p>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                Controls covered calls, strike alerts, and Call % everywhere.
-                Separate from the level above.
+                This controls whether covered calls, strike alerts and Call %
+                appear anywhere in the app. It is a separate question from the
+                one above.
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button

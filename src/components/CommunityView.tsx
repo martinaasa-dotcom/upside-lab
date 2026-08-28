@@ -790,7 +790,7 @@ export function CommunityView({ communityId }: Props) {
       winner: mostRisk.name,
       winnerId: mostRisk.id,
       stat: `${mostRisk.personality!.riskScore}/100`,
-      description: "The jumpiest mix of names in the circle.",
+      description: "The jumpiest mix of holdings in the circle.",
     });
 
     const steadiest = [...withPersonality].sort(
@@ -821,7 +821,7 @@ export function CommunityView({ communityId }: Props) {
             ? ` ${cashtag(mostConviction.personality!.topTicker)}`
             : ""
         }`,
-        description: "Biggest single name relative to the rest of the portfolio.",
+        description: "The biggest single holding, measured against the rest of the portfolio.",
       });
     }
 
@@ -851,7 +851,7 @@ export function CommunityView({ communityId }: Props) {
         winner: mostCash.name,
         winnerId: mostCash.id,
         stat: `${mostCash.personality!.cashPct}% cash`,
-        description: "Largest cash stash relative to the portfolio.",
+        description: "The most cash, measured against the size of the portfolio.",
       });
     }
 
@@ -868,7 +868,7 @@ export function CommunityView({ communityId }: Props) {
         winner: mostSpecialist.name,
         winnerId: mostSpecialist.id,
         stat: `${mostSpecialist.personality!.specialistScore}%`,
-        description: "Heaviest bet on one kind of business.",
+        description: "The most weight in one kind of business.",
       });
     }
     const biggestBook = [...membersWithBooks].sort(

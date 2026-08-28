@@ -290,7 +290,7 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
 
         {sent ? (
           <p className="text-sm leading-relaxed text-foreground">
-            Got it. Upside reads these.
+            Got it. Every one of these gets read.
           </p>
         ) : mode === "monthly" ? (
           <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -343,7 +343,7 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
                         }))
                       }
                       maxLength={400}
-                      placeholder="Name the screen or the moment."
+                      placeholder="Which screen, or what you were doing at the time."
                     />
                   </label>
                 )}
@@ -355,8 +355,9 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
         ) : (
           <div className="scroll-host -mx-6 px-6 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
             <p className="text-sm leading-relaxed text-muted-foreground">
-              What is this about, then dump the rest. A bug, a missing thing, or
-              a rant. Upside reads these.
+              Tell us what this is about, then say the rest in your own words.
+              A bug, something missing, or something that annoyed you. Every one
+              of these gets read.
             </p>
             <label className="flex flex-col gap-1">
               <span className="text-sm text-muted-foreground">What is this about?</span>
@@ -364,7 +365,7 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 maxLength={120}
-                placeholder="A bug, a missing thing, a rant"
+                placeholder="A bug, something missing, something annoying"
               />
             </label>
             <label className="flex flex-col gap-1">
@@ -374,7 +375,7 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
                 onChange={(e) => setBody(e.target.value)}
                 maxLength={8000}
                 rows={8}
-                placeholder="Word vomit is fine. What happened, what you wanted, what would be better."
+                placeholder="As long as you like. What happened, what you expected instead, and what would be better."
                 className="min-h-40 resize-y"
               />
             </label>

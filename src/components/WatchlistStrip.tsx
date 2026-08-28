@@ -85,7 +85,7 @@ function RangeMeter({
           aria-valuemin={low}
           aria-valuemax={high}
           aria-valuenow={price}
-          aria-label="Where today's price sits in the recent range, from the low (rose) to the high (green)"
+          aria-label="Where today's price sits between its recent low and its recent high"
         >
           <span
             className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-background"
@@ -453,7 +453,7 @@ export function WatchlistStrip({
         subtitle={
           names.length === 0
             ? undefined
-            : "Today's price and a plain read of the last few weeks. Not a buy order."
+            : "Today's price for each one, and how it has moved over the last few weeks."
         }
         actions={
           <Popover

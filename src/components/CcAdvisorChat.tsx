@@ -239,9 +239,9 @@ function describeChatUiError(message: string): string {
     return "The connection dropped before Margus finished. Check your signal and try again.";
   }
   if (isQuietChatFailure(message)) {
-    return "Didn't land that time. Send it again.";
+    return "That message did not go through. Send it again.";
   }
-  return "Couldn't get a reply just then. Send it again.";
+  return "No reply came back that time. Send it again.";
 }
 
 function isMdSepCell(cell: string): boolean {
@@ -513,13 +513,13 @@ const ACTION_TYPES = new Set([
 const RULES = [
   {
     title: "Table meaning",
-    rule: "Stock Target ≠ strike",
+    rule: "The Stock Target is not the strike",
     detail:
       "Stock Target is the price you are writing towards. Call % is how far above it the strike sits, so Next Strike is the target plus that percentage. Distance measures today's price to the target, not to the strike. Premium is quoted on the Next Strike.",
   },
   {
     title: "Market condition",
-    rule: "Intraday green rebound",
+    rule: "Sell on a day the price is up",
     detail: "Calls are usually worth more when the price is up on the day, so a green day tends to be a better time to sell them than a red one.",
   },
   {
@@ -529,12 +529,12 @@ const RULES = [
   },
   {
     title: "Call %",
-    rule: "Scaled to each ticker's own volatility",
+    rule: "Set from how much each stock swings on its own",
     detail: `Roughly ${(STRATEGY.callPctSafeMin * 100).toFixed(0)} to ${(STRATEGY.callPctSafeMax * 100).toFixed(0)}% on calmer names, and ${(STRATEGY.callPctHighBeta * 100).toFixed(0)}% or more on jumpy ones, adjusted for results dates and distance. Never one flat safety percentage across the whole portfolio.`,
   },
   {
     title: "Earnings",
-    rule: "Prefer expire before earnings",
+    rule: "Pick an expiry before the results date",
     detail: "If no 2 to 3 week contract expires before the results date, pick one that runs past it and widen the Call % to match the extra risk.",
   },
   {
@@ -948,7 +948,7 @@ export function CcAdvisorChat({
       "What moved today, and why?",
       "Explain my biggest holding in plain English",
       "Am I too heavy in any one company?",
-      "Which names moved the most this week?",
+      "Which of my holdings moved the most this week?",
       "What’s up most since I bought it?",
     ];
     if (context.hideOptions || context.rows.length === 0) return plain.slice(0, 4);
@@ -1249,8 +1249,8 @@ export function CcAdvisorChat({
               <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted p-4">
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   {context.hideOptions
-                    ? "I can read your holdings, and I can change the number of shares, the buy price or the cash, and add or remove names for you."
-                    : "I can read your holdings and your covered calls, and I can change shares, buy price, cash and Call %, and add or remove names for you. The Strategy rules button above spells out how the covered-call numbers are picked."}
+                    ? "I can read your holdings, and I can change the number of shares, the buy price or the cash, and add or remove holdings for you."
+                    : "I can read your holdings and your covered calls, and I can change shares, buy price, cash and Call %, and add or remove holdings for you. The Strategy rules button above spells out how the covered-call numbers are picked."}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {suggestions.map((s) => (
@@ -1415,7 +1415,7 @@ export function CcAdvisorChat({
             {error && isQuietChatFailure(error.message) && chatRetryRef.current ? (
               <Alert>
                 <AlertDescription>
-                  Didn&apos;t land that time. Send it again.
+                  That message did not go through. Send it again.
                 </AlertDescription>
               </Alert>
             ) : screenshotTurn && !busy && (lastIsEmptyAssistant || error) ? (
@@ -1441,7 +1441,7 @@ export function CcAdvisorChat({
             ) : lastIsEmptyAssistant && !error ? (
               <Alert>
                 <AlertDescription>
-                  Didn&apos;t land that time. Send it again.
+                  That message did not go through. Send it again.
                 </AlertDescription>
               </Alert>
             ) : null}

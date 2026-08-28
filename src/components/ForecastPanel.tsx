@@ -629,7 +629,7 @@ function ForecastCard({
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {row.shares.toLocaleString("en-US")} shares
-            {!row.hasTargets && " - Margus is working on it"}
+            {!row.hasTargets && ", and Margus is still working this one out"}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -1182,7 +1182,7 @@ export const ForecastPanel = memo(function ForecastPanel({
         <div className="p-4 sm:p-6">
           <EmptyState
             title="No holdings yet"
-            detail="Add a name and Margus will work out where it could go."
+            detail="Add a holding and Margus will work out where it could go."
           />
         </div>
       ) : (
@@ -1272,7 +1272,7 @@ export const ForecastPanel = memo(function ForecastPanel({
           {plan?.generatedAt && (
             <p className="mt-1.5 text-sm text-muted-foreground">
               Worked out {formatGeneratedAt(plan.generatedAt)}
-              {appliedFlash ? " - prices updated" : ""}
+              {appliedFlash ? ". The prices have just been updated." : ""}
             </p>
           )}
         </div>

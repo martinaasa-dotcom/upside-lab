@@ -2438,7 +2438,7 @@ export function Dashboard() {
           <div className="flex flex-col gap-4">
             {activeAlerts.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">
-                Nothing waiting. That&apos;s a good hour.
+                Nothing needs your attention right now.
               </p>
             ) : (
               activeAlerts.map((a) => (

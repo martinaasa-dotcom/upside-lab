@@ -211,13 +211,13 @@ const HEADERS = [
 
 const HEADER_HINTS: Partial<Record<(typeof HEADERS)[number], string>> = {
   Spot: "What one share costs right now",
-  "Call %": "How far above your target you set the strike. Further out pays less but is less likely to be called away",
+  "Call %": "How far above your target you set the strike. A strike further away pays you less, but your shares are less likely to be sold",
   "Stock target": "The price you would be happy to sell at",
   Distance: "How far the price still has to travel to reach your target. Negative means it is already there",
-  Write: "How close the stock is to the price you would write the call at",
+  Write: "How close the share price is to the price you would sell the call at",
   "Next strike": "The strike this plan points at, rounded to one you can actually trade",
   Contracts: "One contract covers 100 shares",
-  "2-week %": "Premium as a percent of the shares tied up, over roughly two weeks",
+  "2-week %": "What you collect, as a percentage of the shares this ties up, over roughly two weeks",
   Premium: "The cash you would collect for selling these calls",
 };
 
@@ -229,7 +229,7 @@ function writeProximity(distance: number | null): {
     return { label: NO_VALUE, className: "text-muted-foreground" };
   }
   if (distance <= 0) {
-    return { label: "At write level", className: "text-primary/60" };
+    return { label: "At your target", className: "text-primary/60" };
   }
   if (distance < 0.04) {
     return { label: "Close", className: "text-caution" };
@@ -237,7 +237,7 @@ function writeProximity(distance: number | null): {
   if (distance < 0.12) {
     return { label: "Getting near", className: "text-foreground" };
   }
-  return { label: "Far from write", className: "text-muted-foreground" };
+  return { label: "Far from your target", className: "text-muted-foreground" };
 }
 
 /** Anchor Home uses to land on this table from "Open covered calls". */

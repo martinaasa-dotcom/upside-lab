@@ -3205,7 +3205,7 @@ run("sign-in reads as a product", () => {
    * still explains the move rather than just restating the number, and
    * that it stays clear of the slang.
    */
-  assert.match(gate, /whether something changed at the company/);
+  assert.match(gate, /whether something changed at the/);
   assert.doesNotMatch(gate, /<InsightText text="[^"]*\ba bounce\b/);
   assert.match(gate, /Thesis intact/);
   assert.match(gate, /Up ≥5%/);
@@ -6432,7 +6432,9 @@ run("email and admin RPCs are not callable with a user JWT", () => {
   assert.match(communityView, /This link works for 30 days/);
   assert.doesNotMatch(communityView, /This link stays live/);
   assert.match(communityView, /inviteNeverExpires/);
-  assert.match(communityView, /Emails \(optional, comma between\)/);
+  // The rule is that the invite form takes optional email addresses, not
+  // the exact placeholder it says that in.
+  assert.match(communityView, /Email addresses[^"]*optional/i);
   assert.match(communityView, /Retire this link/);
   assert.match(communityView, /copyInviteLink/);
   assert.match(communityView, /inv\.path/);
@@ -6478,7 +6480,8 @@ run("circle portfolios show unless you turn one off", () => {
     join(process.cwd(), "src/components/ShareSheets.tsx"),
     "utf8"
   );
-  assert.match(sheetsUi, /These are on unless you turn one off/);
+  // The rule is opt-out sharing, not the sentence that states it.
+  assert.match(sheetsUi, /unless you turn (?:it|one) off/i);
   const list = readFileSync(
     join(process.cwd(), "src/components/CommunitiesList.tsx"),
     "utf8"

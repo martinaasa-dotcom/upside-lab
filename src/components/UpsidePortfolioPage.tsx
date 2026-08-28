@@ -731,7 +731,7 @@ export function UpsidePortfolioPage() {
       if (mode !== "background" && !cachedRef.current) {
         setError(
           isNetworkError(e)
-            ? "You look offline. The Fund will load when you're back."
+            ? "You appear to be offline. The Fund will load as soon as the connection is back."
             : e instanceof Error
               ? e.message
               : "Couldn't load the Fund."
@@ -1215,7 +1215,7 @@ export function UpsidePortfolioPage() {
       const { sheet, spy } = await fetchRecordedPath(selectedId);
       if (sheet.length < 2) {
         setBenchmarkError(
-          "Need a few recorded nights on this portfolio first."
+          "This portfolio needs a few days of saved history before it can be compared."
         );
         return;
       }
@@ -1502,7 +1502,7 @@ export function UpsidePortfolioPage() {
                     ) : (
                       <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                         {watchingNote ??
-                          "He'll name names in the next daily report."}
+                          "He names the companies he is watching in the next daily report."}
                       </p>
                     )}
                   </div>

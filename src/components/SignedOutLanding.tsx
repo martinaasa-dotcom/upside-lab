@@ -341,7 +341,7 @@ function MargusStill() {
           )}
         >
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Almost all of it is one name. $BMNR is down 11% since Monday and
+            Almost all of it comes from one company. $BMNR is down 11% since Monday and
             it is a fifth of what you hold, so it outweighs the six names
             that went up. The rest of your portfolio is up 0.9% on the week.
           </p>
@@ -412,7 +412,7 @@ function More() {
 const IS_FOR = [
   "Writing down why you own something, and hearing about it when that reason stops matching the price.",
   "Asking why your own week went the way it did, rather than reading about the market in general.",
-  "One email on Sunday about the names you hold, rather than a newsletter about stocks in general.",
+  "One email on Sunday about the companies you hold, rather than a newsletter about stocks in general.",
 ] as const;
 
 const IS_NOT = [
@@ -672,7 +672,7 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
           * for a product they have already decided against.
           */}
         <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
-          Pulse answers that question for each name you hold, in plain
+          Pulse answers that question for each company you hold, in plain
           words. A summary of your week arrives by email every Sunday.
         </p>
         <div className="mt-8 flex flex-col items-center gap-3.5">

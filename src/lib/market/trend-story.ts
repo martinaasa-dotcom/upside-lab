@@ -80,7 +80,7 @@ const REGIME_BASE: Record<
   weakening: {
     headline: "Trend rolling over",
     tone: "warn",
-    sentence: "TICKER is still above its long-term average, but that average has started turning down, often the first sign a trend is running out of road.",
+    sentence: "TICKER is still above its long-term average, but that average has started to turn down. That is often the first sign a rise is losing its direction.",
   },
   "strong-down": {
     headline: "Downtrend",
@@ -287,7 +287,7 @@ export function buildTrendStory(row: TrendRowLike): TrendStory {
         row.chg2w == null && row.chg4w == null
           ? ["Not enough weekly closes yet."]
           : [`2w ${signedPct(row.chg2w)}`, `4w ${signedPct(row.chg4w)}`],
-      help: "Raw price change over the last two weekly closes, and the four-week change next to it. Usually the first place a real catalyst shows up.",
+      help: "The plain price change over the last two weekly closes, with the four-week change beside it. This is usually where real news shows up in the price first.",
     },
     {
       key: "momentum",

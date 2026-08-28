@@ -198,7 +198,7 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     emoji: "🦫",
     criteria: "Two thirds or more in AI computer builders",
     tagline: "Builds the same structure over and over. Every log goes into one dam.",
-    vibe: "Convinced the dam is worth it. When the water (the demand for compute) keeps coming, the dam pays for itself many times over.",
+    vibe: "Convinced the dam is worth building. As long as the water keeps coming, which here means companies keep buying AI computers, the dam pays for itself many times over.",
     strength: "Gets the full ride when that one group is right.",
     watchFor: "A dam holds until it doesn't. All the effort sits behind one wall.",
   },
@@ -208,7 +208,7 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     emoji: "🦏",
     criteria: "Two thirds or more in data-center power stocks",
     tagline: "Heavy, armored, and built for one job: keeping the lights on for everyone else.",
-    vibe: "Not flashy. The unglamorous, physically heavy side of a bet everyone else is also making, just further downstream.",
+    vibe: "Not flashy. This is the heavy, unglamorous end of the same AI story everyone else is buying: the companies that supply the electricity it runs on.",
     strength: "Gets the full ride when that one group is right.",
     watchFor: "Armor is heavy. It doesn't move fast if the story changes.",
   },
@@ -257,7 +257,7 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     animal: "Flamingo",
     emoji: "🦩",
     criteria: "Two thirds or more in healthcare stocks",
-    tagline: "Stands in one spot for a long time, on purpose, waiting for something slower than a quarter.",
+    tagline: "Stands in one spot for a long time on purpose, waiting for results that take years rather than months.",
     vibe: "Healthcare moves on a different clock than the rest of the market. A flamingo is comfortable with that.",
     strength: "Gets the full ride when that one group is right, on its own timeline.",
     watchFor: "Patience only pays off if the underlying story was actually right.",
@@ -338,7 +338,7 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     emoji: "🦉",
     criteria: "Calm names, and actually spread out",
     tagline: "Watchful and calm, and actually spread out.",
-    vibe: "Sees what's coming, and is not all-in on one perch. Calm plus breadth, not calm plus a single name.",
+    vibe: "Sees what is coming, and is not sitting on one perch. Calm and spread out, rather than calm and holding a single name.",
     strength: "Rarely surprised, rarely rattled. A genuinely calm portfolio.",
     watchFor: "All that watching can turn into missed chances. Calm is not the same as asleep.",
   },
@@ -357,8 +357,8 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     animal: "Fox",
     emoji: "🦊",
     criteria: "The flexible middle. Not extreme on cash, diet, heat, or spread",
-    tagline: "Clever and adaptable. Some offense, some defense. No dogma.",
-    vibe: "Some offense, some defense. Doesn't need a label.",
+    tagline: "Clever and adaptable. A bit of everything, and no rule it has to follow.",
+    vibe: "Some names here to grow, some here to steady things. This portfolio does not need a label to be doing its job.",
     strength: "Can lean either way when prices shift.",
     watchFor: "Flexible can turn into unfocused. Know what this portfolio is actually for.",
   },
@@ -729,8 +729,25 @@ function pickAnimal(opts: {
     cashPct,
     positionCount,
   } = opts;
-  const names = positionCount === 1 ? "1 name" : `${positionCount} names`;
-  const top = `largest position ${conviction}%`;
+  /*
+    Every sentence below is built from these, so they have to be phrases
+    that survive being dropped into one.
+
+    They did not. The two scores were relabelled on the cards ("How jumpy",
+    "How spread out") and the new label was pasted into the prose where the
+    old noun had been, which produced "4 kinds of stocks across 18 names,
+    and how jumpy 81/100 is hot" on a real member card. A label is not a
+    noun phrase. Each sentence now says the reading out loud, the way a
+    person reading the card aloud would.
+
+    "Names" is gone with them. It is what a trading desk calls a company,
+    and this card is read by somebody's mother.
+  */
+  const holdings =
+    positionCount === 1 ? "1 holding" : `${positionCount} holdings`;
+  const swings = `${risk} out of 100 for how much it swings`;
+  const spread = `${diversification} out of 100 for how evenly it is spread`;
+  const biggest = `the largest holding is ${conviction}% of it`;
 
   if (positionCount === 0) {
     return {
@@ -741,13 +758,13 @@ function pickAnimal(opts: {
   if (cashPct >= 28) {
     return {
       archetype: archetype("squirrel"),
-      why: `Cash is ${cashPct}% of your portfolio. That stash is doing more work than any single ticker right now.`,
+      why: `Cash is ${cashPct}% of your portfolio. That cash is doing more work right now than any single holding in it.`,
     };
   }
   if (theme === "crypto" && specialistScore >= 35) {
     return {
       archetype: archetype("dragon"),
-      why: `Crypto is ${specialistScore}% of the stocks, and how jumpy is ${risk}/100. Nothing else in the field guide moves like that.`,
+      why: `Crypto is ${specialistScore}% of what you hold, and this portfolio scores ${swings}. Nothing else in the field guide moves like that.`,
     };
   }
   if (
@@ -758,25 +775,25 @@ function pickAnimal(opts: {
     const id = CONCENTRATED_ANIMAL_BY_THEME[theme] ?? "panda";
     return {
       archetype: archetype(id),
-      why: `${specialistScore}% of your portfolio sits in ${THEME_LABEL[theme]}. One diet, on purpose.`,
+      why: `${specialistScore}% of your portfolio sits in ${THEME_LABEL[theme]}. One kind of business, chosen on purpose.`,
     };
   }
   if (themeCount >= 3) {
     if (risk >= 65) {
       return {
         archetype: archetype("squid"),
-        why: `${themeCount} kinds of stocks across ${names}, and how jumpy ${risk}/100 is hot. Spread out and still fast-moving at the same time.`,
+        why: `${themeCount} kinds of business across ${holdings}, and it scores ${swings}. Spread out and fast-moving at the same time.`,
       };
     }
     if (diversification < 40) {
       return {
         archetype: archetype("crab"),
-        why: `${themeCount} kinds of stocks across ${names}, but how spread out only ${diversification}/100. ${top} still carries most of it.`,
+        why: `${themeCount} kinds of business across ${holdings}, but it scores only ${spread}, because ${biggest} and that one carries most of the year.`,
       };
     }
     return {
       archetype: archetype("octopus"),
-      why: `${themeCount} kinds of stocks across ${names}. This is not one kind of business. It is a handful running side by side.`,
+      why: `${themeCount} kinds of business across ${holdings}. This is not one story. It is a handful of them running side by side.`,
     };
   }
   if (
@@ -785,42 +802,42 @@ function pickAnimal(opts: {
   ) {
     return {
       archetype: archetype("shark"),
-      why: `How jumpy ${risk}/100 with ${top}. Across ${names}, a couple of hot names decide almost everything.`,
+      why: `It scores ${swings}, and ${biggest}. Across ${holdings}, one or two of them decide almost everything.`,
     };
   }
   if (risk >= 72) {
     return {
       archetype: archetype("wolf"),
-      why: `How jumpy ${risk}/100 is hot, but how spread out ${diversification}/100 across ${names} means no single name gets to decide the year.`,
+      why: `It scores ${swings}, which is high, but also ${spread} across ${holdings}. No single holding gets to decide the year.`,
     };
   }
   if (positionCount <= 3) {
     return {
       archetype: archetype("falcon"),
-      why: `Just ${names}. At that count every single one matters enormously, whichever way it goes.`,
+      why: `Just ${holdings}. At that count every single one matters enormously, whichever way it goes.`,
     };
   }
   if (risk < 38 && (conviction >= 40 || diversification < 35)) {
     return {
       archetype: archetype("turtle"),
-      why: `How jumpy only ${risk}/100 and a short list (${top}). A few genuinely calm names.`,
+      why: `It scores only ${swings}, and ${biggest}. A short list of genuinely calm companies.`,
     };
   }
   if (risk < 42 && diversification >= 40) {
     return {
       archetype: archetype("owl"),
-      why: `How jumpy ${risk}/100 sits at the calm end, and how spread out ${diversification}/100 means the watching actually has breadth behind it.`,
+      why: `It scores ${swings}, which is at the calm end, and ${spread}. Calm and genuinely spread out, rather than calm and holding one thing.`,
     };
   }
   if (diversification >= 68 || (theme === "index" && specialistScore >= 50)) {
     return {
       archetype: archetype("elephant"),
-      why: `How spread out ${diversification}/100 across ${names}. Spread this wide is hard to knock over.`,
+      why: `It scores ${spread}, across ${holdings}. A portfolio spread this wide is hard to knock over.`,
     };
   }
   return {
     archetype: archetype("fox"),
-    why: `How jumpy ${risk}/100, how spread out ${diversification}/100, ${themeCount} kinds of stocks, ${top}. Mid-table on every axis, which is its own kind of choice.`,
+    why: `It scores ${swings} and ${spread}, across ${themeCount} kinds of business, and ${biggest}. Middling on every measure, which is its own kind of choice.`,
   };
 }
 

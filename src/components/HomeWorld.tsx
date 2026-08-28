@@ -151,7 +151,7 @@ export function HomeWorld({
       : primary.name
     : "Start a circle";
   const communityDetail = primary
-    ? "Live portfolios, read-only."
+    ? "See their portfolios as they are today. You can look, not edit."
     : "Invite people you trust.";
 
   return (
@@ -193,7 +193,7 @@ export function HomeWorld({
                 </p>
                 <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
                   {fund.headline ??
-                    "Paper money. One decision a day."}
+                    "Paper money, and one decision a day."}
                 </p>
               </>
             ) : (

@@ -184,7 +184,7 @@ function EmptyBook({
       ? [
           {
             key: "manual",
-            label: "Buy a name with paper money",
+            label: "Buy a company with paper money",
             hint: "Same starting cash as the rest of the class.",
             onClick: onAddHolding,
             primary: true,
@@ -237,9 +237,9 @@ function EmptyBook({
     : "Your portfolio is empty.";
   const emptySubtitle = homework
     ? homeworkCash != null && homeworkCash > 0
-      ? `This is paper class. Everyone started with the same cash. Buy names with that paper money. Do not paste a real portfolio in here. You have ${currency(homeworkCash, 0)} sitting ready.`
-      : "This is paper class. Everyone started with the same cash. Buy names with that paper money. Do not paste a real portfolio in here."
-    : "Paste what you own. One name per line: ticker, shares, cost. This portfolio is only yours until you invite someone.";
+      ? `This is paper class. Everyone started with the same cash. Buy companies with that paper money. Do not paste a real portfolio in here. You have ${currency(homeworkCash, 0)} sitting ready.`
+      : "This is paper class. Everyone started with the same cash. Buy companies with that paper money. Do not paste a real portfolio in here."
+    : "Paste what you own, one holding per line: ticker, shares, cost. This portfolio is only yours until you invite someone.";
 
   return (
     <Panel className="overview-fade">
@@ -261,7 +261,7 @@ function EmptyBook({
             onClick={submitPaste}
             disabled={!paste.trim()}
           >
-            Add these names
+            Add these holdings
           </Button>
         </div>
       )}
@@ -987,8 +987,8 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             */}
           <p className="text-sm text-muted-foreground">
             {totals.positionCount === 1
-              ? "One name, at today's prices."
-              : `${totals.positionCount} names, at today's prices.`}
+              ? "One holding, at today's prices."
+              : `${totals.positionCount} holdings, at today's prices.`}
           </p>
           <OvernightNote />
         </div>

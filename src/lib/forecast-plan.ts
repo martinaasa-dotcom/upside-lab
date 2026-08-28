@@ -473,7 +473,7 @@ export function buildFallbackForecastPlan(input: {
   const eoyTargets = ensureCompleteEoyTargets(input.forecast, []);
   return humanizeMargusTree({
     generalAdvice:
-      "Starting prices are on the grid from how each kind of company has tended to move. Margus still needs to write the why.",
+      "The starting prices in the table come from how each kind of company has tended to move. Margus still has to write the reasoning.",
     sectorRotation:
       "Different groups of similar stocks will take turns leading. The finished writeup picks which group matters for this portfolio.",
     periods: [
@@ -537,7 +537,7 @@ export function buildCachedForecastPlan(input: {
     generalAdvice:
       "Every holding here already had a modeled price path worked out somewhere else in Upside Lab, so this loaded from that shared work instead of asking the model again.",
     sectorRotation:
-      "Reused from an earlier run on these same holdings. Ask Margus to work it out again for a fresh rotation call.",
+      "This was reused from an earlier run on these same holdings. Ask Margus to work it out again if you want a fresh read on which groups are leading.",
     periods: [
       {
         label: `Next quarter (Q${nextQuarter.q} ${nextQuarter.y})`,

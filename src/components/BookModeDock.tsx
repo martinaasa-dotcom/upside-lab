@@ -48,7 +48,7 @@ const MODES = [
     href: "/?tab=pulse",
     tab: "pulse",
     label: "Pulse",
-    title: "Pulse for names you hold",
+    title: "Pulse, for the companies you hold",
     Icon: Activity,
   },
   {

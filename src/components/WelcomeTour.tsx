@@ -720,9 +720,9 @@ export function WelcomeTour({
             <div className="flex flex-col gap-4">
               <ul className="grid gap-2 sm:grid-cols-2">
                 <Row icon={Activity} term="Pulse">
-                  When a name you own moves, it says whether the reason you
-                  bought it still holds. That is the extra. Your broker already
-                  has the percent.
+                  When something you own moves, it says whether the reason you
+                  bought it still holds. That is the part your broker leaves
+                  out. It already has the percentage.
                 </Row>
                 <Row icon={MessageCircle} term="Margus">
                   Has read your portfolio. Ask why the week went the way it
@@ -754,9 +754,10 @@ export function WelcomeTour({
                   today.
                 </Row>
                 <Row icon={Activity} term="Pulse">
-                  When a name moves, a plain read of what happened and whether
-                  your reason for owning it moved with it. Each name gets a
-                  badge: thesis intact, thesis watch, or thesis broken.
+                  When a holding moves, this says in plain words what
+                  happened and whether your reason for owning it changed with
+                  it. Each one gets a badge: thesis intact, thesis watch, or
+                  thesis broken.
                 </Row>
                 <Row icon={FlaskConical} term="Lab">
                   Four views of the same portfolio: Allocation (what you are
@@ -785,16 +786,18 @@ export function WelcomeTour({
               <ul className="grid gap-2 sm:grid-cols-2">
                 <Row icon={MessageCircle} term="Margus">
                   Has read your portfolio. Ask why something moved, what a
-                  number means, or what you would be left with if one name
-                  halved.
+                  number means, or what you would be left with if one holding
+                  halved in value.
                 </Row>
                 <Row icon={Activity} term="Thesis Pulse and Forecast">
                   Pulse checks whether the story behind a holding still stands.
-                  Forecast walks a name forward under a few different
-                  scenarios. Both are for thinking with, not answers.
+                  Forecast walks a holding forward under a few different
+                  scenarios. Both are there to think with, not to answer for
+                  you.
                 </Row>
                 <Row icon={Mail} term="The Sunday email">
-                  One email a week. How the week went, and which names moved.
+                  One email a week. How the week went, and which of your
+                  holdings moved.
                   Pulse readings you have already seen can show up as notes.
                   Nothing in it is invented.
                 </Row>
@@ -1208,11 +1211,12 @@ export function WelcomeTour({
                     say until something is in there.
                   </Row>
                 ) : (
-                  <Row icon={House} term="Adding more names later">
-                    Same <strong className="text-foreground">Add holding</strong>{" "}
+                  <Row icon={House} term="Adding more holdings later">
+                    The same{" "}
+                    <strong className="text-foreground">Add holding</strong>{" "}
                     button on Home, however many you end up with. The plus in
-                    the bottom bar is for a whole second portfolio, which is
-                    not what you want for one more name.
+                    the bottom bar makes a whole second portfolio, which is not
+                    what you want for one more company.
                   </Row>
                 )}
                 <Row icon={MessageCircle} term="If you get stuck">
