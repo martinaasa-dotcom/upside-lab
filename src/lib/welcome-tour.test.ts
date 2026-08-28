@@ -7,6 +7,7 @@
  * finished the last one. "Reset everyone" is implemented as that raise and
  * nothing else — no migration, no script — and a boolean cannot express it.
  */
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   clearSeenTourVersion,
@@ -125,6 +126,59 @@ describe("tourStages", () => {
       // Explaining comes before asking, on every variant.
       expect(stages.indexOf("rules")).toBeLessThan(stages.indexOf("q1"));
       expect(stages.at(-1)).toBe("done");
+    }
+  });
+});
+
+/**
+ * Every screen the walkthrough can reach draws something.
+ *
+ * `tourStages` decides the running order and `WelcomeTour.tsx` renders one
+ * `stage === "..."` block per screen. Two lists, in two files, kept in
+ * step by nothing, which is the shape of drift this repo keeps paying for:
+ * a stage added to the order with no block behind it does not crash and
+ * does not fail anything. It draws the heading and the sentence the shell
+ * supplies, then nothing at all, under a counter cheerfully reading "Step
+ * 4 of 11".
+ *
+ * The copy checks below would pass through that happily, because the copy
+ * would be there. This reads the component's source rather than rendering
+ * it: the repo's tests run without a DOM, and the question here is whether
+ * a branch was written, which source answers exactly.
+ */
+describe("every screen in the walkthrough is actually built", () => {
+  const rendered = new Set(
+    [
+      ...readFileSync("src/components/WelcomeTour.tsx", "utf8").matchAll(
+        /stage === "([a-z0-9]+)"/g
+      ),
+    ].map((m) => m[1])
+  );
+
+  it("renders a block for every stage that can appear", () => {
+    for (const variant of [
+      tourStages({ hasHoldings: false, classroomOnly: false }),
+      tourStages({ hasHoldings: true, classroomOnly: false }),
+      tourStages({ hasHoldings: false, classroomOnly: true }),
+    ]) {
+      for (const stage of variant) {
+        expect(rendered.has(stage), `${stage} has no block in WelcomeTour`).toBe(
+          true
+        );
+      }
+    }
+  });
+
+  it("does not carry a block for a screen nothing can reach", () => {
+    const reachable = new Set([
+      ...tourStages({ hasHoldings: false, classroomOnly: false }),
+      ...tourStages({ hasHoldings: true, classroomOnly: false }),
+      ...tourStages({ hasHoldings: false, classroomOnly: true }),
+    ]);
+    for (const stage of rendered) {
+      expect(reachable.has(stage as never), `${stage} is drawn but unreachable`).toBe(
+        true
+      );
     }
   });
 });
