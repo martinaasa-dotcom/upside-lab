@@ -7,6 +7,7 @@ import { MARGUS_PERSONA } from "@/lib/ai/margus-persona";
 import { insightsPromptBlock } from "@/lib/book-insights";
 import { humanizeMargusTree } from "@/lib/ai/humanize-copy";
 import type { ForecastModel, ForecastYear } from "@/lib/forecast";
+import type { ModelRun } from "@/lib/ai/model-label";
 import { FORECAST_YEARS } from "@/lib/forecast";
 import {
   FORECAST_CONVICTION_PROMPT,
@@ -85,6 +86,19 @@ export type ForecastPlan = z.infer<typeof forecastPlanSchema> & {
   convictionKey?: string;
   /** Generic theme-shaped prices when Margus never finished a run. */
   fallback?: boolean;
+  /**
+   * Which model actually answered, recorded at the moment it did. The eye
+   * beside a modeled price names it, so a reader can look it up rather than
+   * take "a language model" on faith. Absent on a plan that no model ran.
+   */
+  writtenBy?: ModelRun | null;
+  /**
+   * Tickers whose path was reused from an earlier run somewhere else in
+   * Upside Lab rather than written fresh, mapped to when that run happened.
+   * A reused path was reasoned from the company, not from this portfolio,
+   * and the reader is told which of their names that applies to.
+   */
+  reused?: Record<string, string>;
 };
 
 export function isFallbackForecastPlan(
@@ -415,9 +429,42 @@ function fallbackRationale(input: {
  * current calendar year is hugging today's spot, that cell is rewritten as
  * the remaining-year move, not a restatement of now.
  */
+/**
+ * What this app did to the model's answer before you saw it.
+ *
+ * The path on screen is not always the path the model wrote. A year it
+ * left empty gets filled from a table of typical shapes, a straight line
+ * gets replaced with a shaped one, and a path finishing below the shape
+ * kept for that kind of business gets scaled up to it. Every one of those
+ * is defensible and none of them is the reader's assumption, so the eye
+ * beside the price says which of them happened to this name.
+ */
+export type ForecastPathAdjustment = {
+  /** The model gave no path for this name at all. */
+  missing: boolean;
+  /** It skipped at least one year, and the app filled that year in. */
+  filled: boolean;
+  /** It came out as an even ramp, so the app replaced it with a shaped path. */
+  reshaped: boolean;
+  /** It finished below the shape kept for this kind of business, so the app
+   * scaled it up to that shape. Paths above it are never scaled down. */
+  lifted: boolean;
+};
+
+export function forecastPathWasAdjusted(
+  adjust: ForecastPathAdjustment | undefined
+): boolean {
+  return Boolean(
+    adjust && (adjust.missing || adjust.filled || adjust.reshaped || adjust.lifted)
+  );
+}
+
 export function ensureCompleteEoyTargets(
   forecast: ForecastModel,
-  eoyTargets: ForecastPlan["eoyTargets"]
+  eoyTargets: ForecastPlan["eoyTargets"],
+  /** Told, per ticker, what the app changed. Optional: only the surfaces
+   * that show a reader where a number came from need to hear it. */
+  onAdjust?: (ticker: string, adjust: ForecastPathAdjustment) => void
 ): ForecastPlan["eoyTargets"] {
   const byTicker = new Map<string, ForecastPlan["eoyTargets"][number]>();
   for (const t of eoyTargets ?? []) {
@@ -444,6 +491,16 @@ export function ensureCompleteEoyTargets(
 
     const lifted = liftPathToThemeMagnitude(prices, shaped, spot);
     prices = restoreCurrentYearDestination(lifted.prices, shaped, spot);
+
+    onAdjust?.(row.ticker.toUpperCase(), {
+      missing: !existing?.prices,
+      filled: FORECAST_YEARS.some((y) => {
+        const given = existing?.prices?.[y];
+        return !(typeof given === "number" && given > 0);
+      }),
+      reshaped: reshape,
+      lifted: lifted.lifted,
+    });
 
     out.push({
       ticker: row.ticker,

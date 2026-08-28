@@ -10,8 +10,8 @@ describe("withAdvisorFallback", () => {
     await expect(
       withAdvisorFallback(
         [
-          { id: "groq", model: dummy },
-          { id: "gemini", model: dummy },
+          { id: "groq", model: dummy, modelId: "openai/gpt-oss-20b" },
+          { id: "gemini", model: dummy, modelId: "gemini-flash-latest" },
         ],
         async () => {
           throw new Error("provider down");
