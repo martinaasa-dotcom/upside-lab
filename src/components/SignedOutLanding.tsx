@@ -431,8 +431,8 @@ function More() {
       <Reveal>
         <SectionHead
           eyebrow="And the rest"
-          title="Three more rooms, once you are in."
-          detail="None of them will tell you what to do. They are there so the decision is yours with the facts in front of you."
+          title="Three more parts of the app, once you are in."
+          detail="None of them tell you what to do. They put the facts in front of you, so the decision stays yours."
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {MORE.map((m) => (
@@ -1030,7 +1030,7 @@ function TrioShowcase() {
         <SectionHead
           eyebrow="The whole point"
           title="A fall and real news look exactly the same in a list of red numbers."
-          detail="One of them is worth your evening and the other is not. Telling you which is which is the whole point of Upside Lab."
+          detail="One of them is worth your evening and the other is not. Telling you which one you are looking at is what Upside Lab is for."
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <PulseStill />

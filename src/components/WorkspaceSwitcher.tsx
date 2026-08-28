@@ -72,7 +72,7 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
 
   return (
     <nav
-      aria-label="Upside Lab rooms"
+      aria-label="Upside Lab sections"
       className={cn("inline-flex max-w-full items-center gap-2", className)}
     >
       {item(onBook, "/", "Portfolio", "Your portfolios and daily briefing", BookOpen)}
