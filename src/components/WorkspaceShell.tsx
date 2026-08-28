@@ -95,17 +95,39 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 
   const mounted = mountedRef.current;
 
+  /*
+    WHICH ROOM IS LIVE IS A QUESTION EVERY PATH ANSWERS. BEING SHOWN AGAIN
+    IS NOT, AND THE TWO USED TO SHARE AN EFFECT.
+
+    The book is many paths and one room now: `/`, `/pulse`, `/lab`,
+    `/growth`, `/alerts` and every `/portfolio/<slug>`. Walking between
+    them changes `pathname` and does not change `room`, and the room is
+    never hidden in between, so there is nothing to restore and nothing to
+    tell. Saying it anyway would restore the offset saved the last time the
+    book was left, dropping a reader who tapped Pulse somewhere down the
+    middle of it, and would fire WORKSPACE_SHOW_EVENT, whose handler
+    re-reads the URL and reloads the book when its cache is not fresh --
+    turning every tap on the dock into a fetch.
+
+    None of that could happen while the Dashboard wrote its own URLs with
+    `history.pushState`, which `usePathname` does not observe, so this
+    effect only ever ran on a real room change and looked correct. It stays
+    correct only while the guard below is here. `workspace-shell.test.ts`
+    fails if it goes.
+  */
+  useLayoutEffect(() => {
+    setActiveWorkspaceRoom(room);
+  }, [pathname, room]);
+
   useLayoutEffect(() => {
     const prev = prevRoomRef.current;
-    if (prev && prev !== room) {
-      scrollRef.current.set(prev, window.scrollY);
-    }
+    if (prev === room) return;
+    if (prev) scrollRef.current.set(prev, window.scrollY);
     prevRoomRef.current = room;
-    setActiveWorkspaceRoom(room);
     if (!room) return;
     window.scrollTo(0, scrollRef.current.get(room) ?? 0);
     window.dispatchEvent(new Event(WORKSPACE_SHOW_EVENT));
-  }, [pathname, room]);
+  }, [room]);
 
   useEffect(() => {
     const warm = () => {
