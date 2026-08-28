@@ -157,7 +157,7 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     animal: "Hatchling",
     emoji: "🥚",
     criteria: "No names yet",
-    tagline: "No names yet. Every portfolio starts here.",
+    tagline: "Nothing held yet. Every portfolio starts here.",
     vibe: "Nothing picked. Every other animal on this list started right here, deciding what to hatch into.",
     strength: "Nothing to lose, and no bad habits yet.",
     watchFor: "Cash sitting forever is just a savings account. Hatch when you're ready.",
@@ -168,7 +168,7 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     emoji: "🐿️",
     criteria: "Cash is at least about 28% of your portfolio",
     tagline: "Keeps a fat cash stash so a quiet stretch doesn't starve your portfolio.",
-    vibe: "There are names, but the cash pile is the real personality. Ready to pounce, or just nervously hoarding.",
+    vibe: "There are holdings here, but the pile of cash is the real personality. Ready to pounce, or just nervously hoarding.",
     strength: "Can buy when prices drop without selling something else first.",
     watchFor: "Cash that never gets used is just a savings account with extra steps.",
   },
@@ -179,7 +179,7 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     criteria: "Crypto is the heaviest group, and a real slice of your portfolio",
     tagline: "Sits on jumpy treasure. Up fast, down fast.",
     vibe: "Lives and dies by crypto, and likes it that way. When the pile is up, nothing moves faster.",
-    strength: "First in line when those names run.",
+    strength: "First in line when crypto runs.",
     watchFor: "The pile can lose half its value by morning.",
   },
   {
@@ -188,7 +188,7 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     emoji: "🐼",
     criteria: "Two thirds or more in one kind of stock that doesn't have its own animal yet",
     tagline: "Eats one thing. When that group moves, the whole portfolio moves.",
-    vibe: "Not random. A chosen diet, just not one of the groups with its own name yet.",
+    vibe: "Not random. A chosen diet, just not one of the groups that has its own animal yet.",
     strength: "Gets the full ride when that one group is right.",
     watchFor: "A panda with no bamboo left has nothing else to eat.",
   },
@@ -280,14 +280,14 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     tagline: "Many kinds of stocks, and every one of them jumpy. Fast in every direction at once.",
     vibe: "Not one wild bet, several. The spread doesn't calm this portfolio down, it just gives the swings more places to come from.",
     strength: "A bad year in one pond does not empty the tank, and there's real upside in more than one place.",
-    watchFor: "Several jumpy names can all have a bad week at the same time.",
+    watchFor: "Several jumpy holdings can all have a bad week at the same time.",
   },
   {
     id: "crab",
     animal: "Crab",
     emoji: "🦀",
-    criteria: "Three or more kinds of stocks, but a couple of names still carry most of the weight",
-    tagline: "Sideways on purpose. A few different groups, but the weight still sits on a couple of names.",
+    criteria: "Three or more kinds of stocks, but a couple of holdings still carry most of the weight",
+    tagline: "Sideways on purpose. A few different groups, but the weight still sits on a couple of holdings.",
     vibe: "Not a single bet, and not really spread out either. A few different stories, one or two of them doing most of the carrying.",
     strength: "More than one place for good news to come from.",
     watchFor: "The mix looks varied on the label, less so once you weigh it.",
@@ -296,39 +296,39 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     id: "shark",
     animal: "Shark",
     emoji: "🦈",
-    criteria: "Jumpy names and one really big position",
+    criteria: "Jumpy holdings, and one really big one",
     tagline: "A few big bets, hunted with total focus.",
-    vibe: "No wasted motion and no safety net. Every name is there because you meant it.",
-    strength: "Gets the full ride when those few names are right.",
+    vibe: "No wasted motion and no safety net. Every holding is there because you meant it.",
+    strength: "Gets the full benefit when those few are right.",
     watchFor: "One bad call and there's no net underneath.",
   },
   {
     id: "wolf",
     animal: "Wolf",
     emoji: "🐺",
-    criteria: "Jumpy names, spread across a pack",
-    tagline: "Runs with a pack of jumpy names, not just one.",
+    criteria: "Jumpy holdings, spread across a pack",
+    tagline: "Runs with a pack of jumpy holdings, not just one.",
     vibe: "Bold, but never betting the whole den on one hunt. Jumpy and spread at once is the rare mix.",
-    strength: "Chases the fast names on more than one front.",
-    watchFor: "A pack of jumpy names can all fall together if they move as one.",
+    strength: "Chases the fast movers on more than one front.",
+    watchFor: "A pack of jumpy holdings can all fall together if they move as one.",
   },
   {
     id: "falcon",
     animal: "Falcon",
     emoji: "🦅",
-    criteria: "Three names or fewer",
+    criteria: "Three holdings or fewer",
     tagline: "Small, sharp-eyed, and diving hard on very few targets.",
-    vibe: "Every name was picked, not just added. Nowhere for a bad call to hide.",
-    strength: "Focus on the names you're surest about. No clutter.",
+    vibe: "Every holding was picked, not just added. Nowhere for a bad call to hide.",
+    strength: "Everything here is what you are surest about. No clutter.",
     watchFor: "A falcon with a bad target has nowhere else to turn.",
   },
   {
     id: "turtle",
     animal: "Turtle",
     emoji: "🐢",
-    criteria: "Calm names, still a short list",
+    criteria: "Calm holdings, still a short list",
     tagline: "A small, well-armored shell, slow and steady on purpose.",
-    vibe: "A short list on purpose, in names calm enough that the shell rarely needs to close.",
+    vibe: "A short list on purpose, in companies calm enough that the shell rarely needs to close.",
     strength: "Quiet growth, calm under pressure, on purpose.",
     watchFor: "Short-and-calm only works while those few picks stay calm too.",
   },
@@ -336,9 +336,9 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     id: "owl",
     animal: "Owl",
     emoji: "🦉",
-    criteria: "Calm names, and actually spread out",
+    criteria: "Calm holdings, and genuinely spread out",
     tagline: "Watchful and calm, and actually spread out.",
-    vibe: "Sees what is coming, and is not sitting on one perch. Calm and spread out, rather than calm and holding a single name.",
+    vibe: "Sees what is coming, and is not sitting on one perch. Calm and spread out, rather than calm and holding a single company.",
     strength: "Rarely surprised, rarely rattled. A genuinely calm portfolio.",
     watchFor: "All that watching can turn into missed chances. Calm is not the same as asleep.",
   },
@@ -348,7 +348,7 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     emoji: "🐘",
     criteria: "Index-broad, or an index fund doing the spreading",
     tagline: "Broad, steady, and hard to spook. Never one bad day away from trouble.",
-    vibe: "Built to survive any single name's worst day. Slow to startle, and remembers every cycle it's lived through.",
+    vibe: "Built to survive any single holding's worst day. Slow to startle, and it remembers every cycle it has lived through.",
     strength: "No single ticker can sink this portfolio on its own.",
     watchFor: "Broad can drift into bland. Check the spread is on purpose, not just default.",
   },
@@ -358,7 +358,7 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     emoji: "🦊",
     criteria: "The flexible middle. Not extreme on cash, diet, heat, or spread",
     tagline: "Clever and adaptable. A bit of everything, and no rule it has to follow.",
-    vibe: "Some names here to grow, some here to steady things. This portfolio does not need a label to be doing its job.",
+    vibe: "Some holdings here to grow, some here to steady things. This portfolio does not need a label to be doing its job.",
     strength: "Can lean either way when prices shift.",
     watchFor: "Flexible can turn into unfocused. Know what this portfolio is actually for.",
   },
@@ -607,31 +607,31 @@ function diversificationBandFor(score: number): ScoreBand {
   if (score < 25)
     return {
       label: "Concentrated",
-      description: "A handful of names carry most of your portfolio.",
+      description: "A handful of holdings carry most of your portfolio.",
     };
   if (score < 50)
     return {
       label: "Moderate",
-      description: "Some spread, but a few names still dominate.",
+      description: "Somewhat spread out, but a few holdings still dominate.",
     };
   if (score < 75)
     return {
       label: "Spread out",
-      description: "Broad enough that no single name can sink it.",
+      description: "Broad enough that no single holding can sink it.",
     };
   return {
     label: "Broad",
-    description: "Index-fund-broad. No one name can wreck it.",
+    description: "As broad as an index fund. No single holding can wreck it.",
   };
 }
 
 function riskBandFor(score: number): ScoreBand {
   if (score < 30)
-    return { label: "Conservative", description: "Calm mix. The names don't jump around much." };
+    return { label: "Conservative", description: "A calm mix. Nothing in it jumps around much." };
   if (score < 55)
     return { label: "Balanced", description: "A mix of steady and speculative." };
   if (score < 75)
-    return { label: "Aggressive", description: "Leans into names that swing hard." };
+    return { label: "Aggressive", description: "Leans towards holdings that swing hard." };
   return { label: "High-octane", description: "Most of the money sits in names that swing hard." };
 }
 

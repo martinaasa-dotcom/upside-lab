@@ -10,7 +10,7 @@ export const MIN_STARTING_CASH = 1_000;
 export const MAX_STARTING_CASH = 10_000_000;
 
 export const DEFAULT_CLASS_ASSIGNMENT =
-  "Week 1: pick up to 5 names and write why on each. The Sunday note is the recap you turn in.";
+  "Week 1: pick up to 5 companies and write down why for each one. The Sunday note is the summary you hand in.";
 
 export const CLASS_PERIOD_KINDS = ["open", "buy", "closed", "fix"] as const;
 export type ClassPeriodKind = (typeof CLASS_PERIOD_KINDS)[number];
@@ -50,9 +50,9 @@ const KIND_LABEL: Record<ClassPeriodKind, string> = {
 
 const KIND_MESSAGE: Record<ClassPeriodKind, string> = {
   open: "You can buy, sell, and move money.",
-  buy: "You can add names. You cannot sell yet.",
+  buy: "You can add companies. You cannot sell yet.",
   closed: "The teacher closed the portfolio. You can look, you cannot buy or sell.",
-  fix: "You can sell and move money. You cannot add new names.",
+  fix: "You can sell and move money. You cannot add new companies.",
 };
 
 export function classPeriodLabel(kind: ClassPeriodKind): string {

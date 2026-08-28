@@ -733,7 +733,7 @@ export const LabSheet = memo(function LabSheet({
                   />
                   Move opposite
                 </span>
-                <span>Stronger colour = tighter link</span>
+                <span>The stronger the colour, the closer the link</span>
               </div>
             </div>
           )}

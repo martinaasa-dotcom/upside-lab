@@ -301,7 +301,7 @@ const MAKERS: FactMaker[] = [
     if (!multi.length) {
       return pick(rng, [
         "Zero overlapping tickers. Every portfolio is on its own island.",
-        "No shared names across portfolios. Parallel universes mode.",
+        "No two portfolios here hold the same company. Parallel universes.",
       ]);
     }
     return pick(rng, [

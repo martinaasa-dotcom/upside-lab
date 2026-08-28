@@ -2230,7 +2230,7 @@ run("chart ticks stay HTML text-xs, never SVG text", () => {
   assert.match(nav, /h-64 w-full/);
   assert.match(nav, /min-h-9/);
   assert.match(nav, /plotMax = scale.max \+ span \* 0\.18/);
-  assert.match(nav, /Held these names all year/);
+  assert.match(nav, /held these same companies all year/i);
   assert.match(nav, /Fill in an assumed year/);
   assert.doesNotMatch(nav, /!assumed && !loading && onRestoreAssumed/);
   const home = readFileSync(
@@ -6883,7 +6883,7 @@ run("empty books skip holdings emails and get one week-later nudge", () => {
   const text = emptyBookNudgeText("Martin Aasa");
   assert.equal(emptyBookNudgeSubject(), "Your portfolio is still empty");
   assert.match(text, /Hi Martin\./);
-  assert.match(text, /Import the names you already own/);
+  assert.match(text, /add what you already own/i);
   assert.match(text, /upsidelab\.app/);
   assert.match(text, /one-time note/);
   assert.doesNotMatch(text, /\u2014/);
@@ -6977,7 +6977,7 @@ run("legal pages name the operator and match the product", () => {
   assert.match(terms, /Courts in/);
   assert.match(terms, /what you paid/);
 
-  assert.match(privacy, /today&apos;s prices, the names you hold, cash, and returns/);
+  assert.match(privacy, /today&apos;s prices, the companies you hold/);
   assert.match(privacy, /They do not see what you paid/);
   assert.match(privacy, /Pulse, the Sunday email/);
   assert.match(privacy, /screenshot/);

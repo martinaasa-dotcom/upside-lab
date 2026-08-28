@@ -158,12 +158,15 @@ function daySentence(
   const dollars = signedCurrency(model.totals.todayDollar, 0);
   const swing = Math.abs(pct);
   if (swing < 0.005) {
-    return { quiet: true, sentence: "Quiet day. Your portfolio barely moved." };
+    return {
+      quiet: true,
+      sentence: "It was a quiet day, and your portfolio barely moved.",
+    };
   }
   if (swing < 0.02) {
     return {
       quiet: true,
-      sentence: `Small move, ${dollars}. Nothing you have to do.`,
+      sentence: `Your portfolio moved ${dollars} today, which is a small move.`,
     };
   }
   return {
@@ -180,7 +183,7 @@ function pickSwingSentence(dollars: string): string {
     "Your portfolio's value moved mostly because of the holdings below.",
     "A few holdings did most of the moving today. They're listed below.",
     "Here's what moved your total today.",
-    `${dollars} today, mostly from the holdings below.`,
+    `Your portfolio moved ${dollars} today, mostly because of the holdings below.`,
     "These holdings moved your total the most today.",
   ];
   const dayOfYear = Math.floor(

@@ -60,7 +60,7 @@ async function handlePOST(req: Request) {
   if (!limit.ok) {
     return rateLimitJson(
       limit,
-      "That's enough screenshots for now. Try again in a bit."
+      "That is enough screenshots for now. Try again in a few minutes."
     );
   }
 
@@ -133,7 +133,7 @@ async function handlePOST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "That's a list of names, not the year number. Upload the performance screen, or type the year-to-date your broker shows.",
+            "That is a list of holdings, not the figure for the year. Upload the performance screen instead, or type in the year-to-date your broker shows.",
         },
         { status: 422 }
       );
@@ -156,7 +156,7 @@ async function handlePOST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Couldn't read a year-to-date from that. Type the number instead.",
+            "No year-to-date figure could be read from that. Type the number in instead.",
         },
         { status: 422 }
       );

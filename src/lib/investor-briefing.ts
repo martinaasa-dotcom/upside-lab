@@ -108,16 +108,16 @@ export function buildInvestorBriefing(input: {
         ? "Barely moved. Most days look like this."
         : swing! < 0.02
           ? pick(dayRng, [
-              "The names you own moved about as much as they do on an ordinary day.",
+              "What you own moved about as much as it does on an ordinary day.",
               "Small moves, no bigger than a normal day.",
             ])
           : hideOptions
             ? pick(dayRng, [
-                "A bigger move than an ordinary day. Pulse lists which names moved, and whether the reason you own them has changed.",
+                "A bigger move than an ordinary day. Pulse lists which of your holdings moved, and whether the reason you own them has changed.",
                 "A bigger move than an ordinary day. Either something changed at the companies, or only the price did.",
               ])
             : pick(dayRng, [
-                "A bigger move than an ordinary day. Pulse lists which names moved, and whether the reason you own them has changed.",
+                "A bigger move than an ordinary day. Pulse lists which of your holdings moved, and whether the reason you own them has changed.",
                 "A bigger move than an ordinary day. Your covered-call numbers move on days like this too.",
               ]);
 

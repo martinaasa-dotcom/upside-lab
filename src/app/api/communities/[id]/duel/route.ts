@@ -183,7 +183,7 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
   }
   if (!pair) {
     return NextResponse.json(
-      { error: "Need two names in the circle to duel" },
+      { error: "Two holdings are needed in the circle before a duel can run" },
       { status: 400 }
     );
   }

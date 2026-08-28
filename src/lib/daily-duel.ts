@@ -99,7 +99,7 @@ export function duelSessionCopy(
 ): string {
   const when = duelSessionLabel(sessionKey, now);
   return when === "today"
-    ? "Who finishes today's US session higher."
+    ? "Which one finishes higher when the US market closes today."
     : `Who finishes ${when}'s US session higher.`;
 }
 
@@ -356,7 +356,7 @@ const LOSS_LINES = [
   (t: string) => `Rough beat. ${t} took it.`,
   (t: string) => `${t} said "not today". Try again tomorrow.`,
 ];
-const PUSH_LINE = "Dead heat, exact tie. Nobody wins, nobody cries.";
+const PUSH_LINE = "An exact tie. Nobody wins this one.";
 
 function pick<T>(seed: string, items: T[]): T {
   const rng = mulberry32(hashSeed(seed));

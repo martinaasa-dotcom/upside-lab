@@ -769,7 +769,7 @@ export function BookNavChart({
           <p className="text-sm text-muted-foreground">
             {anchored
               ? "Using the year you gave us."
-              : "Held these names all year."}
+              : "This assumes you held these same companies all year."}
           </p>
           {readError && <p className="text-sm text-loss">{readError}</p>}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -825,7 +825,7 @@ export function BookNavChart({
                 variant="link"
                 onClick={onClearAnchor}
               >
-                Back to assumed names
+                Go back to assuming you held these all year
               </Button>
             )}
             {onDiscardAssumed && (
