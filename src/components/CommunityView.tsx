@@ -320,7 +320,7 @@ export function CommunityView({ communityId }: Props) {
       if (!isBackgroundRefresh) {
         setError(
           isNetworkError(e)
-            ? "You look offline. Showing this circle when the connection is back."
+            ? "You appear to be offline. This circle will load as soon as the connection is back."
             : e instanceof Error
               ? e.message
               : "Couldn't load this circle."

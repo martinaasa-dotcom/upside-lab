@@ -345,7 +345,7 @@ export function AccountPage() {
             <PinnedHeader
               icon={<MessageSquare className="h-4 w-4" />}
               title="Feedback"
-              subtitle="A bug, a missing thing, or a rant. Upside reads these."
+              subtitle="A bug, something missing, or something you just want to complain about. Every one of these gets read."
               actions={
                 <Button type="button" onClick={openManual}>
                   Tell Upside
@@ -562,7 +562,7 @@ export function AccountPage() {
             <PanelHeader
               icon={<Gauge className="h-4 w-4" />}
               title="Experience level"
-              subtitle="Simplifies what's shown. Nothing is locked, change it anytime."
+              subtitle="This only changes how much is shown at once. Nothing is locked away, and you can change it whenever you like."
             />
             <div className="flex flex-col gap-2">
               {EXPERIENCE_TIERS.map((t) => (
@@ -637,7 +637,7 @@ export function AccountPage() {
             <PanelHeader
               icon={<Link2 className="h-4 w-4" />}
               title="Invite a partner"
-              subtitle="That lives on the portfolio now. Open a portfolio, tap Invite next to Add holding."
+              subtitle="Inviting someone happens on the portfolio itself. Open one, then tap Invite next to Add holding."
             />
             <p className="text-sm leading-relaxed text-muted-foreground">
               Redeem a code at{" "}
@@ -653,7 +653,7 @@ export function AccountPage() {
             <PanelHeader
               icon={<ShieldCheck className="h-4 w-4" />}
               title="Data & privacy"
-              subtitle="Your data, your call. Export it or wipe it any time."
+              subtitle="It is your data. Export it or delete it whenever you like."
             />
 
             <SettingBar
@@ -666,7 +666,7 @@ export function AccountPage() {
                   }
                 />
               }
-              description="Measure page views and load times. Sign-in cookies always run."
+              description="Measures page views and how long pages take to load. The cookies that keep you signed in always run."
             >
               <label
                 htmlFor={analyticsSwitchId}
@@ -716,7 +716,7 @@ export function AccountPage() {
               iconTone="danger"
               title="Delete my account"
               titleClassName="text-destructive"
-              subtitle="Removes your profile, deletes portfolios only you own, and steps you off any shared ones. Cannot be undone."
+              subtitle="Removes your profile, deletes the portfolios only you own, and takes you off any you share with someone else. This cannot be undone."
               actions={
                 <Button
                   type="button"

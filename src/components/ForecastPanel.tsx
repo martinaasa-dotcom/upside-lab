@@ -255,7 +255,7 @@ function EoyPriceInput({
       type="text"
       inputMode="decimal"
       value={draft}
-      title={targeted ? "Edit EOY target" : "Awaiting Margus path, or type a price"}
+      title={targeted ? "Edit the end of year target" : "Waiting for Margus to work this one out, or type a price yourself"}
       onChange={(e) => {
         setDraft(e.target.value.replace(/,/g, ".").replace(/[^\d.-]/g, ""));
       }}
@@ -888,7 +888,7 @@ export const ForecastPanel = memo(function ForecastPanel({
         pendingModelRef.current = true;
         if (!opts?.silent) {
           setError(
-            "Margus couldn't finish this run. Starting prices are on the grid. Tap Ask Margus to try again."
+            "Margus could not finish this one. The starting prices are already in the table. Tap Ask Margus to try again."
           );
         }
         return "fail";
@@ -1027,7 +1027,7 @@ export const ForecastPanel = memo(function ForecastPanel({
       retryCountRef.current += 1;
       if (retryCountRef.current >= MAX_AUTO_TRIES) {
         setError(
-          "Couldn't reach Margus after several tries. Starting prices are on your portfolio. Tap Ask Margus when you want him to try again."
+          "Margus could not be reached after several tries. The starting prices are already on your portfolio. Tap Ask Margus whenever you want him to try again."
         );
         return;
       }
@@ -1115,13 +1115,13 @@ export const ForecastPanel = memo(function ForecastPanel({
     });
     if (retryCountRef.current >= MAX_AUTO_TRIES && retryTick >= 0) return null;
     if (decision.run && decision.reason === "first-run") {
-      return "First time on this portfolio, Margus is working out the prices …";
+      return "This is the first run on this portfolio, so Margus is working out the prices …";
     }
     if (decision.run && decision.reason === "new-holding") {
-      return "New holding, Margus is working out a path …";
+      return "There is a new holding here, so Margus is working out a path for it …";
     }
     if (pendingModelRef.current && !plan) {
-      return "Starting prices are on your portfolio. Margus is still writing the why …";
+      return "The starting prices are already on your portfolio. Margus is still writing the reasoning …";
     }
     return null;
   }, [labReady, planHydrated, model.rows, plan, fullyCovered, busy, cachedTickers, retryTick]);
@@ -1287,7 +1287,7 @@ export const ForecastPanel = memo(function ForecastPanel({
           <EmptyState
             className="mt-3"
             title="Margus is still working on this one"
-            detail="Starting prices may already be on the cards above. He writes the why here as soon as a run lands."
+            detail="The starting prices may already be on the cards above. His reasoning appears here as soon as the run finishes."
             action={
               <Button
                 type="button"

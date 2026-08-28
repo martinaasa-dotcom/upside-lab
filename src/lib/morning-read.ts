@@ -463,12 +463,12 @@ function sparkCandidates(
       text:
         ext === "high"
           ? say(seedFor(lookIndex, id), [
-              `${cashtag(t.ticker)} is at the high of its recent stretch, up ${aboutMove(t.todayPct)} ${whenTail}.`,
-              `${cashtag(t.ticker)} just tagged the top of the recent path. Up ${aboutMove(t.todayPct)} ${whenTail}.`,
+              `${cashtag(t.ticker)} is at the top of its recent range, up ${aboutMove(t.todayPct)} ${whenTail}.`,
+              `${cashtag(t.ticker)} reached the top of its recent range, up ${aboutMove(t.todayPct)} ${whenTail}.`,
             ])
           : say(seedFor(lookIndex, id), [
-              `${cashtag(t.ticker)} is at the low of its recent stretch, down ${aboutMove(t.todayPct)} ${whenTail}.`,
-              `${cashtag(t.ticker)} just tagged the bottom of the recent path. Down ${aboutMove(t.todayPct)} ${whenTail}.`,
+              `${cashtag(t.ticker)} is at the bottom of its recent range, down ${aboutMove(t.todayPct)} ${whenTail}.`,
+              `${cashtag(t.ticker)} reached the bottom of its recent range, down ${aboutMove(t.todayPct)} ${whenTail}.`,
             ]),
     });
   }
@@ -533,11 +533,11 @@ function breadthCandidate(
     rank: 64,
     text: say(seedFor(lookIndex, id), wideDown
       ? [
-          `${down} of ${n} names are down ${tail(when)}. This is a wide day, not one ticker.`,
+          `${down} of your ${n} names are down ${tail(when)}. That is nearly everything moving together, not one company.`,
           `Almost everything you own is red ${tail(when)} (${down} of ${n}).`,
         ]
       : [
-          `${up} of ${n} names are up ${tail(when)}. This is a wide day, not one ticker.`,
+          `${up} of your ${n} names are up ${tail(when)}. That is nearly everything moving together, not one company.`,
           `Almost everything you own is green ${tail(when)} (${up} of ${n}).`,
         ]),
   };
@@ -654,7 +654,7 @@ function pulseCandidates(
         kind: "gap",
         rank: 62,
         ticker: t.ticker,
-        text: `${cashtag(t.ticker)} ${t.todayPct >= 0 ? "rose" : "fell"} ${aboutMove(t.todayPct)} ${whenTail}, and there is no thesis on file for it.`,
+        text: `${cashtag(t.ticker)} ${t.todayPct >= 0 ? "rose" : "fell"} ${aboutMove(t.todayPct)} ${whenTail}, and you have not written down why you own it.`,
       });
     }
   }

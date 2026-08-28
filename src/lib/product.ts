@@ -18,8 +18,8 @@ export const PRODUCT_ORIGIN = `https://${PRODUCT_DOMAIN}`;
  * these as two lines; join them for titles and descriptions.
  */
 export const PRODUCT_HEADLINE = [
-  "See what your portfolio did.",
-  "Ask Margus if the thesis still holds.",
+  "See what your portfolio did today.",
+  "Then ask whether the reason still holds.",
 ] as const;
 
 export const PRODUCT_SENTENCE = PRODUCT_HEADLINE.join(" ");
@@ -45,8 +45,8 @@ export const SIGNIN_WHO =
   "Your broker has the prices. This asks whether the reason still holds.";
 
 export const SIGNIN_POINTS = [
-  "Pulse watches a name when the price jumps, and whether the thesis moved with it.",
-  "Margus can read your portfolio and talk it through with you.",
+  "Pulse looks at a holding whenever its price jumps, and tells you whether anything actually changed at the company.",
+  "Margus has read your portfolio and can talk any part of it through with you, in plain words.",
 ] as const;
 
 /**
@@ -68,17 +68,17 @@ export const SIGNIN_FEATURES = [
   {
     title: "Pulse",
     detail:
-      "When a price moves, it says whether the reason you own the name moved with it.",
+      "When a price moves, it tells you whether the reason you own the stock has changed with it.",
   },
   {
     title: "Margus",
     detail:
-      "Has read your portfolio. Ask why something moved, in plain words.",
+      "Has read your portfolio. Ask why something moved, and get the answer in plain words.",
   },
   {
     title: "Forecast",
     detail:
-      "A yearly price path for each holding out to 2030. Scenarios to think with, not advice.",
+      "A year by year price path for each holding out to 2030. Scenarios to think about, not advice.",
   },
   {
     title: "A letter on Sunday",

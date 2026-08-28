@@ -14,13 +14,28 @@ import { describe, expect, it } from "vitest";
 const LANDING = readFileSync("src/components/SignedOutLanding.tsx", "utf8");
 const CSS = readFileSync("src/app/globals.css", "utf8");
 
-/** Every `<SectionHead …/>` plus the markup until the next function. */
-function sectionAfterHead(source: string, title: string): string {
-  const head = source.indexOf(`title="${title}"`);
-  expect(head, `SectionHead "${title}" is missing`).toBeGreaterThan(-1);
-  const from = source.lastIndexOf("<SectionHead", head);
-  const next = source.slice(from + 1).search(/\n(?:export )?function /);
-  return source.slice(from, next === -1 ? undefined : from + 1 + next);
+/**
+ * Every `<SectionHead …/>` in the file, each paired with the markup that
+ * runs from it to the end of the function it sits in.
+ *
+ * This used to take a list of section titles typed out here and look each
+ * one up. That made a copy pass fail a layout test: rewording a heading on
+ * the page broke a check that has nothing to say about wording. The rule
+ * being defended is "a heading arrives with the row it heads", so the
+ * headings are read out of the source instead of restated here.
+ */
+function sectionsAfterHeads(source: string): { title: string; block: string }[] {
+  const out: { title: string; block: string }[] = [];
+  const head = /<SectionHead\b/g;
+  let m: RegExpExecArray | null;
+  while ((m = head.exec(source))) {
+    const from = m.index;
+    const next = source.slice(from + 1).search(/\n(?:export )?function /);
+    const block = source.slice(from, next === -1 ? undefined : from + 1 + next);
+    const title = /title="([^"]+)"/.exec(block)?.[1] ?? "";
+    out.push({ title, block });
+  }
+  return out;
 }
 
 describe("the landing page is drawn, not revealed", () => {
@@ -32,18 +47,15 @@ describe("the landing page is drawn, not revealed", () => {
   });
 
   it("keeps a heading and the cards it heads in one section", () => {
-    const headed = [
-      ["It starts with what you already own.", /<(div|PulseStill|MargusStill)/],
-      ["The part your broker skips.", /<(div|PulseStill|MargusStill)/],
-      ["Three more rooms, once you are in.", /<(div|PulseStill|MargusStill)/],
-    ] as const;
+    const sections = sectionsAfterHeads(LANDING);
+    expect(sections.length).toBeGreaterThanOrEqual(3);
 
-    for (const [title, cards] of headed) {
-      const block = sectionAfterHead(LANDING, title);
+    for (const { title, block } of sections) {
+      expect(title, "a SectionHead with no title").not.toBe("");
       expect(
         block,
-        "a SectionHead that arrives without the row it is the heading of"
-      ).toMatch(cards);
+        `"${title}" is a SectionHead that arrives without the row it heads`
+      ).toMatch(/<(div|PulseStill|MargusStill)/);
     }
   });
 

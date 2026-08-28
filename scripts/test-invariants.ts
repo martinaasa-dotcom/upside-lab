@@ -1348,7 +1348,7 @@ run("trim on a run is Thesis intact", () => {
     "utf8"
   );
   assert.match(prompt, /Never mark Thesis watch just because the price went up/);
-  assert.match(fallback, /Price is up more than a typical day/);
+  assert.match(fallback, /price is up more than it usually moves in a day/i);
   assert.doesNotMatch(
     fallback,
     /euphoric[\s\S]{0,400}thesisStatus: "watch"/
@@ -1531,11 +1531,11 @@ run("humanize kills leftover market slang", () => {
   );
   assert.match(
     pulseSuggestion({ action: "sell" }),
-    /The stated reason for owning this no longer matches the facts/
+    /reason you own this no longer matches/i
   );
   assert.match(
     pulseSuggestion({ action: "watch" }),
-    /Not enough history for a range reading/
+    /not enough price history/i
   );
   assert.match(
     pulseSuggestion({ action: "hold" }),

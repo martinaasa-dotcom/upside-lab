@@ -108,17 +108,17 @@ export function buildInvestorBriefing(input: {
         ? "Barely moved. Most days look like this."
         : swing! < 0.02
           ? pick(dayRng, [
-              "A normal wobble relative to a typical session.",
-              "Small moves vs a typical day.",
+              "The names you own moved about as much as they do on an ordinary day.",
+              "Small moves, no bigger than a normal day.",
             ])
           : hideOptions
             ? pick(dayRng, [
-                "Larger than a typical session. Pulse lists which names moved, and whether the stated reason still matches.",
-                "Larger than a typical session. Either the stated reason changed, or only the price did.",
+                "A bigger move than an ordinary day. Pulse lists which names moved, and whether the reason you own them has changed.",
+                "A bigger move than an ordinary day. Either something changed at the companies, or only the price did.",
               ])
             : pick(dayRng, [
-                "Larger than a typical session. Pulse lists which names moved, and whether the stated reason still matches.",
-                "Larger than a typical session. Covered-call numbers also move on days like this.",
+                "A bigger move than an ordinary day. Pulse lists which names moved, and whether the reason you own them has changed.",
+                "A bigger move than an ordinary day. Your covered-call numbers move on days like this too.",
               ]);
 
   items.push({
@@ -152,8 +152,8 @@ export function buildInvestorBriefing(input: {
         kind: "watch",
         title: `About $${money(openPrem)} in call premium on paper`,
         detail: pick(rng, [
-          "From the strikes you set. Not in the account yet. Those strikes sit against today's prices.",
-          "What those calls would be worth at expiry. On paper, not banked.",
+          "This comes from the strike prices you set, measured against today's prices. It is not money in your account yet.",
+          "That is what those calls would be worth if they ran to expiry. On paper only, not paid out.",
         ]),
         link: ccSheetId
           ? { type: "sheet", portfolioId: ccSheetId, focus: "covered-calls" }

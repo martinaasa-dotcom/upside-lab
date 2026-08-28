@@ -204,12 +204,12 @@ const WAYS_IN = [
   {
     icon: FileSpreadsheet,
     title: "Upload a CSV",
-    detail: "The file almost every broker will already export for you.",
+    detail: "Almost every broker can export one for you in a couple of clicks.",
   },
   {
     icon: ImageUp,
     title: "Drop in a screenshot",
-    detail: "A picture of your holdings page. It reads the rows out of it.",
+    detail: "A photo of your broker's holdings page. It reads the rows for you.",
   },
 ] as const;
 
@@ -229,7 +229,7 @@ function WaysIn() {
         <SectionHead
           eyebrow="Getting started"
           title="It starts with what you already own."
-          detail="No brokerage login, no read-only keys, no waiting on a connection to sync. Three ways in, and the fastest one is typing."
+          detail="There is no broker login and nothing to connect. You enter your holdings yourself, whichever of these three ways is quickest."
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {WAYS_IN.map((w) => (
@@ -284,8 +284,8 @@ function PulseStill() {
           </Pill>
         </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Nothing came out of the company today. The move was the whole
-          sector, so the reason you own this has not changed.
+          No news from the company itself today. The whole sector moved
+          together, so the reason you own this one still holds.
         </p>
       </div>
 
@@ -307,7 +307,8 @@ function PulseStill() {
           </Pill>
         </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Guidance for next year came in under what the market expected.
+          The company&apos;s own forecast for next year came in below what
+          investors were expecting.
         </p>
       </div>
     </Panel>
@@ -360,19 +361,19 @@ const MORE = [
     icon: LineChart,
     title: "Forecast",
     detail:
-      "A yearly price path for every holding out to 2030, reasoned name by name. Scenarios to think with, never a promise.",
+      "A year by year price path for every holding out to 2030, worked out one company at a time. Scenarios to think about, never a promise.",
   },
   {
     icon: Mail,
     title: "A letter on Sunday",
     detail:
-      "One email a week. What moved, and the reasoning in full sentences.",
+      "One email a week: what moved in your portfolio, and why, written out in full sentences.",
   },
   {
     icon: Users,
     title: "Circle",
     detail:
-      "Share a portfolio with people you invite. They see today's prices and never what you paid for anything.",
+      "Share a portfolio with people you invite. They see today's prices, and never what you paid.",
   },
 ] as const;
 
@@ -382,7 +383,7 @@ function More() {
       <Reveal>
         <SectionHead
           eyebrow="And the rest"
-          title="Three more rooms, once you are in."
+          title="Three more things, once you are in."
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {MORE.map((m) => (
@@ -409,15 +410,15 @@ function More() {
 }
 
 const IS_FOR = [
-  "Writing down why you own a name, and being told when that reason stops fitting the price.",
-  "Asking why your week went the way it did, not the market's.",
-  "One email on Sunday about the names you hold, not a newsletter about stocks in general.",
+  "Writing down why you own something, and hearing about it when that reason stops matching the price.",
+  "Asking why your own week went the way it did, rather than reading about the market in general.",
+  "One email on Sunday about the names you hold, rather than a newsletter about stocks in general.",
 ] as const;
 
 const IS_NOT = [
-  "It does not connect to a bank or a broker. Holdings come in the three ways above, and when you buy something new you add it yourself. Prices do update on their own.",
-  "It does not know when you bought. Returns are against your average price, so there is no chart starting on your buy date.",
-  "It cannot buy or sell anything, and it will never tell you to. Prices are free and delayed by a few minutes.",
+  "It does not connect to a bank or a broker. You enter your holdings yourself, and you add anything you buy later the same way. Prices do update on their own.",
+  "It does not know the date you bought. Gains are measured against your average price, so there is no chart that starts on the day you bought.",
+  "It cannot buy or sell anything, and it will never tell you to. Prices come from free sources and can be a few minutes behind.",
 ] as const;
 
 /**
@@ -440,7 +441,7 @@ function Fit() {
         <SectionHead
           eyebrow="Before you start"
           title="What this is for, and what it is not."
-          detail="Two minutes of typing buys you the rest. If the left column is not the job you wanted, better to find out here."
+          detail="Setting it up takes about two minutes. Read both lists first, so you know what you are getting and what you are not."
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className={cn(BOX, NESTED_PAD, "flex flex-col gap-4")}>
@@ -559,7 +560,7 @@ function Closing({
         <div className="flex flex-col items-center gap-6 text-center">
           <h2>
             <span className="block max-w-xl text-balance font-heading text-2xl font-semibold leading-[1.15] tracking-[-0.03em] text-foreground sm:text-3xl">
-              Paste what you own. The reason is the part your broker skips.
+              Add what you own, and see whether the reasons still hold.
             </span>
           </h2>
           <SignInMethods googleBusy={busy} onGoogle={onSignIn} />
@@ -671,8 +672,8 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
           * for a product they have already decided against.
           */}
         <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
-          Pulse is that second half, in words you can follow. A letter
-          lands on Sunday.
+          Pulse answers that question for each name you hold, in plain
+          words. A summary of your week arrives by email every Sunday.
         </p>
         <div className="mt-8 flex flex-col items-center gap-3.5">
           <SignInMethods googleBusy={busy} onGoogle={onSignIn} />
@@ -745,7 +746,7 @@ function BookWide() {
             Thesis intact
           </Pill>
         </div>
-        <InsightText text="Nothing came out of the company today. The move was the whole sector, so the reason you own this has not changed." />
+        <InsightText text="No news from the company itself today. The whole sector moved together, so the reason you own this one still holds." />
       </Reading>
 
       <div className="grid items-start gap-5 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
@@ -799,8 +800,8 @@ function TrioShowcase() {
       <Reveal>
         <SectionHead
           eyebrow="What it does"
-          title="The part your broker skips."
-          detail="A percent is easy. Whether the reason you own the name moved with it is the bit nothing else will sit down and do."
+          title="The part your broker leaves out."
+          detail="Any app can show you a percent. The harder question is whether the reason you bought the stock has changed, and that is the one this answers."
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <PulseStill />

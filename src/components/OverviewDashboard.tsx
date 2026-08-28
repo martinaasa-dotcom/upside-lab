@@ -220,7 +220,7 @@ function EmptyBook({
     if (parsed.rows.length === 0) {
       setPasteErr(
         parsed.skipped[0]?.reason ??
-          "Need lines like NBIS 500 85.10"
+          "Each line needs to look like NBIS 500 85.10"
       );
       return;
     }
@@ -960,7 +960,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         <Panel className="overview-fade">
           <PanelHeader
             title="Invite someone who shares this portfolio"
-            subtitle="One prompt. You can always find Invite next to Add holding."
+            subtitle="You will be asked once. Invite is always there, next to Add holding."
           />
           <div className="flex flex-wrap gap-2">
             <Button type="button" onClick={onInvitePartner}>

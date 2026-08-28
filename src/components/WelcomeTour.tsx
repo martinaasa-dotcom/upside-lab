@@ -179,7 +179,7 @@ const Q2_OPTIONS: { id: Q2Answer; label: string; detail: string }[] = [
   {
     id: "never",
     label: "No, not familiar with them",
-    detail: "We hide covered calls, strike alerts and Call % everywhere.",
+    detail: "Covered calls, strike alerts and Call % stay hidden everywhere.",
   },
   {
     id: "know",
@@ -497,13 +497,13 @@ export function WelcomeTour({
       if (!isSafeShares(sharesN)) {
         setStockError(
           isCoinSymbol(normalizedTicker)
-            ? "How many has to be bigger than 0 and not enormous."
-            : "Share count has to be bigger than 0 and not enormous."
+            ? "How many you hold has to be more than 0, and a believable number."
+            : "The number of shares has to be more than 0, and a believable number."
         );
         return;
       }
       if (!isSafePositiveMoney(buyN)) {
-        setStockError("Buy price has to be bigger than 0 and not enormous.");
+        setStockError("The buy price has to be more than 0, and a believable number.");
         return;
       }
 
@@ -515,7 +515,7 @@ export function WelcomeTour({
           { cache: "no-store" }
         );
         if (!fxRes.ok) {
-          setStockError("Couldn't convert that buy price. Try again in a second.");
+          setStockError("That buy price could not be converted into dollars. Try again in a moment.");
           return;
         }
         const fxJson = (await fxRes.json()) as {
@@ -527,7 +527,7 @@ export function WelcomeTour({
         };
         const rates = usdPerMapFromFx(fxJson.fx);
         if (!(rates[buyCode] > 0)) {
-          setStockError("Couldn't convert that buy price. Try again in a second.");
+          setStockError("That buy price could not be converted into dollars. Try again in a moment.");
           return;
         }
         buyUsd = listingAmountToUsd(buyN, buyCode, rates);
@@ -846,7 +846,7 @@ export function WelcomeTour({
                   Export everything or delete the account outright from
                   Account. Deleting means deleting.
                 </Row>
-                <Row icon={Wallet} term="Prices are free-tier and delayed">
+                <Row icon={Wallet} term="Prices are free, and a few minutes behind">
                   Good enough to see how a week went. Not good enough to trade
                   on, which is fine, because you cannot trade here.
                 </Row>

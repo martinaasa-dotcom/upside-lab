@@ -83,13 +83,13 @@ export function screenCopy(
       return {
         title: `This is ${PRODUCT_NAME}`,
         lede:
-          "You tell it what you already own: the name, how many you hold, what you paid. From then on it tries to answer one question your broker will not answer. Is the reason you bought this still true?",
+          "You tell it what you already own: the name, how many you hold, and what you paid. From then on it works on the one question your broker never touches. Is the reason you bought this still true?",
       };
     case "map":
       return {
         title: "Where everything is",
         lede:
-          "The bar along the bottom of the screen is the navigation, and your portfolio sits in it too. The + cell makes another one if you ever need it. The only thing not on that bar is your account, which is the picture in the top corner.",
+          "The bar along the bottom of the screen is how you move around, and your portfolio sits in it too. The + button makes another portfolio if you ever need one. The only thing not on that bar is your account, which is the picture in the top corner.",
       };
     case "helps":
       return {
@@ -101,7 +101,7 @@ export function screenCopy(
       return {
         title: "What this does and does not do",
         lede:
-          "The first two are the ones people wish they had known. Better to be disappointed now than after you have typed everything in.",
+          "The first two are the ones people say they wish they had known. Better to find out now than after you have typed everything in.",
       };
     case "q1":
       return {
