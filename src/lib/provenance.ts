@@ -351,7 +351,7 @@ export function forecastRoomProvenance(input: {
         "The chart is those added together, one column per year.",
       ],
       blindSpots: [
-        "Anything about a particular company. These are shapes for categories, not views on names.",
+        "Anything about a particular company. These are shapes for a kind of business, not a view on the company itself.",
         NOT_THE_FUTURE,
         NOT_A_TARGET,
       ],
@@ -375,7 +375,7 @@ export function forecastRoomProvenance(input: {
     steps.push(
       input.reusedCount === 1
         ? "One name was not worked out for this portfolio at all. Its path was written in an earlier run and reused here."
-        : `${input.reusedCount} names were not worked out for this portfolio at all. Their paths were written in earlier runs and reused here.`
+        : `${input.reusedCount} of these companies were not worked out for this portfolio at all. Their paths were written in earlier runs and reused here.`
     );
   }
   steps.push(
@@ -530,12 +530,12 @@ export function pulseRoomProvenance(input: {
     maker: "model",
     title: "Where this came from",
     headline:
-      "Which names appear here is arithmetic on your own holdings. What each card says about them is a language model.",
+      "Which companies appear here is arithmetic on your own holdings. What each card says about them is a language model.",
     model: input.model,
     inputs: [
       {
         what: "Your holdings and how each one moved",
-        detail: "which is what picks the names on this page",
+        detail: "which is what picks the companies on this page",
       },
       { what: "Your written reason for each name, where you have one" },
       { what: "Recent headlines for each name" },
@@ -543,10 +543,10 @@ export function pulseRoomProvenance(input: {
     ],
     sources: [YOUR_HOLDINGS, YAHOO_PRICES, YAHOO_NEWS, MODEL_ITSELF],
     steps: [
-      "The page picks names by size and by how far they moved. No model is involved in choosing them.",
+      "The page picks companies by size and by how far they moved. No model is involved in choosing them.",
       n > 0
         ? `Those ${n === 1 ? "name is" : `${n} names are`} then sent to the model, and it writes one reading each.`
-        : "Those names are then sent to the model, and it writes one reading each.",
+        : "Those companies are then sent to the model, and it writes one reading each.",
       "A reading is kept and reused until the price moves or you change your reason, so two visits on a quiet day show the same words rather than a new opinion.",
       REWRITTEN_STEP,
     ],

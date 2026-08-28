@@ -247,6 +247,20 @@ describe("copy reads as a person wrote it", () => {
   const DESK_JARGON =
     /\b(bps|HYSA|UCITS|DXY|neo-cloud|observability|desynced|take-backs|word vomit|dry powder|sleeves?|risk-on|risk-off|drawdowns?|called away|write level|read-only|moves the needle|in play|large-cap|small-cap)\b/i;
 
+  /*
+    "Names" for the things somebody owns is desk shorthand, and on a screen
+    it is genuinely ambiguous: a reader looking at a list of companies has
+    no reason to read "8 names" as anything but eight words. They are
+    companies, or stocks, or holdings, and all three are shorter to
+    understand than they are to explain.
+
+    Deliberately narrow. It matches the plural noun only where a possessive
+    or a count makes it mean holdings, so a person's actual name, a column
+    that names a thing, and "he names the companies" all stay legal.
+  */
+  const NAMES_AS_HOLDINGS =
+    /\b(your|their|these|those|of the|\d+)\s+names\b|\bnames\s+(you|they)\s+(own|hold)\b/i;
+
   const NAMES_THE_WORD = new Set([
     // Prompts: the model is told which words it may not use.
     "src/lib/ai/margus-persona.ts",
@@ -268,6 +282,40 @@ describe("copy reads as a person wrote it", () => {
           .map((l) => `${f}:${l.line}: ${l.text.trim()}`)
       );
     expect(bad).toEqual([]);
+  });
+
+  /*
+    Its own list rather than a share of NAMES_THE_WORD, because the two
+    rules do not have the same exceptions: a file may legitimately write
+    "names" to the model without ever writing a banned desk word, and a
+    shared list makes each rule's honesty check fail on the other's entries.
+  */
+  const NAMES_IN_PROMPTS = new Set([
+    "src/lib/margus-fund.ts",
+    "src/app/api/cron/margus-fund/route.ts",
+  ]);
+
+  it("calls them companies, stocks or holdings, never names", () => {
+    const bad = files
+      .filter((f) => !NAMES_IN_PROMPTS.has(f))
+      .flatMap((f) =>
+        readerFacingLines(f)
+          .filter((l) => NAMES_AS_HOLDINGS.test(l.text))
+          .map((l) => `${f}:${l.line}: ${l.text.trim()}`)
+      );
+    expect(bad).toEqual([]);
+  });
+
+  it("keeps the holdings-word exception list honest", () => {
+    for (const file of NAMES_IN_PROMPTS) {
+      expect(files, `${file} is in NAMES_IN_PROMPTS but not in src`).toContain(
+        file
+      );
+      expect(
+        readerFacingLines(file).some((l) => NAMES_AS_HOLDINGS.test(l.text)),
+        `${file} no longer says "names" for holdings, so drop it from the list`
+      ).toBe(true);
+    }
   });
 
   it("keeps the desk-vocabulary exception list honest", () => {

@@ -317,7 +317,7 @@ function loneCandidate(
       ? `${otherNames[0]} and ${otherNames[1]} have barely moved`
       : fact.othersQuiet && otherNames.length === 1
         ? `${otherNames[0]} has barely moved`
-        : `the rest of your names are roughly ${fact.restPct >= 0 ? "flat to slightly up" : "flat to slightly down"}`;
+        : `the rest of your holdings are roughly ${fact.restPct >= 0 ? "flat to slightly up" : "flat to slightly down"}`;
   const up = fact.pct >= 0;
   const id = `lone-${fact.ticker}`;
   return {

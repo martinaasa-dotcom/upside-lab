@@ -1681,8 +1681,16 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
   );
   // The figure is defused in the very next sentence, in dollars per $100.
   assert.match(paras[0], /out of every \$100/);
-  // And it ends by telling the reader nothing needs doing.
-  assert.match(paras[paras.length - 1], /quiet relative to last week/i);
+  /*
+    And it ends on how the rest of the week's holdings compared, without
+    telling the reader to do anything. Asserted as the rule rather than as
+    one exact sentence: the previous version pinned the literal string
+    "quiet relative to last week", so rewording the letter to say companies
+    instead of names broke a check that was never about that.
+  */
+  const closer = paras[paras.length - 1]!;
+  assert.match(closer, /\bquiet\b/i, "the fallback closes on the quiet rest");
+  assert.match(closer, /last week/i, "and compares it with last week");
   assert.match(take, /[.!?]$/);
   assert.doesNotMatch(take, /\bwe\b|\bour\b|\bus\b/i);
   // Banned market slang never reaches a reader (AGENTS.md).

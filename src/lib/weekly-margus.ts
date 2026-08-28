@@ -110,7 +110,7 @@ Paragraph three. The other side of the week, if there is one: something that wen
 
 Paragraph four. The one standout fact, if the facts list flagged one, and say out loud that it is the only one. Say it in your own words as a fact about the week, the size, or the stated reason. Do not tell them what to do with it.
 
-Last paragraph. The rest of the names, in one or two sentences: steady, up, or down relative to last week. Stop there. Do not tell them to sit still, hold, or do nothing.
+Last paragraph. The rest of the companies, in one or two sentences: steady, up, or down relative to last week. Stop there. Do not tell them to sit still, hold, or do nothing.
 
 Rules, all of them non-negotiable:
 - Everyday company names, not cashtags: "Nvidia", not "$NVDA". If you do not know what a company does, use its name alone. If you do not know the name, use the ticker. Never invent a business or a fact about one.
@@ -195,7 +195,7 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
     );
   }
 
-  paras.push("The rest of the names were quiet relative to last week.");
+  paras.push("The rest of your companies were quiet compared with last week.");
 
   return paras.join("\n\n");
 }
