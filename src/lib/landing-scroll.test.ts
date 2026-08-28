@@ -14,13 +14,26 @@ import { describe, expect, it } from "vitest";
 const LANDING = readFileSync("src/components/SignedOutLanding.tsx", "utf8");
 const CSS = readFileSync("src/app/globals.css", "utf8");
 
-/** Every `<SectionHead …/>` plus the markup until the next function. */
-function sectionAfterHead(source: string, title: string): string {
-  const head = source.indexOf(`title="${title}"`);
-  expect(head, `SectionHead "${title}" is missing`).toBeGreaterThan(-1);
-  const from = source.lastIndexOf("<SectionHead", head);
-  const next = source.slice(from + 1).search(/\n(?:export )?function /);
-  return source.slice(from, next === -1 ? undefined : from + 1 + next);
+/**
+ * Every `<SectionHead …/>` on the page, with the markup that follows it up
+ * to the next function.
+ *
+ * This used to take a list of three exact headline strings, which meant a
+ * copy pass on the landing page broke a test about layout. Worse, it only
+ * ever covered the three sections somebody happened to type in: a new
+ * section arriving without its cards was exactly the case it was written
+ * for and exactly the case it could not see. Walking every head is both
+ * the rule the test is actually about and strictly more coverage, and it
+ * survives the headline being rewritten, which on a landing page it will
+ * be.
+ */
+function sectionsAfterHeads(source: string): string[] {
+  const out: string[] = [];
+  for (let i = source.indexOf("<SectionHead"); i !== -1; i = source.indexOf("<SectionHead", i + 1)) {
+    const next = source.slice(i + 1).search(/\n(?:export )?function /);
+    out.push(source.slice(i, next === -1 ? undefined : i + 1 + next));
+  }
+  return out;
 }
 
 describe("the landing page is drawn, not revealed", () => {
@@ -32,18 +45,15 @@ describe("the landing page is drawn, not revealed", () => {
   });
 
   it("keeps a heading and the cards it heads in one section", () => {
-    const headed = [
-      ["It starts with what you already own.", /<(div|PulseStill|MargusStill)/],
-      ["The part your broker skips.", /<(div|PulseStill|MargusStill)/],
-      ["Three more rooms, once you are in.", /<(div|PulseStill|MargusStill)/],
-    ] as const;
-
-    for (const [title, cards] of headed) {
-      const block = sectionAfterHead(LANDING, title);
+    const blocks = sectionsAfterHeads(LANDING);
+    expect(blocks.length, "the landing page has no SectionHead").toBeGreaterThan(
+      2
+    );
+    for (const block of blocks) {
       expect(
         block,
         "a SectionHead that arrives without the row it is the heading of"
-      ).toMatch(cards);
+      ).toMatch(/<(div|PulseStill|MargusStill)/);
     }
   });
 

@@ -20,19 +20,23 @@ import {
   Eye,
   FileSpreadsheet,
   ImageUp,
+  LayoutGrid,
   LineChart,
   Mail,
+  MessagesSquare,
   MinusCircle,
   TrendingDown,
-  TrendingUp,
   Users,
 } from "lucide-react";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import {
+  BROKER_ALREADY_DOES,
+  BROKER_ANSWER,
   PRODUCT_SUPPORT_EMAIL,
   SIGNIN_PRICE,
   SIGNIN_PRICE_NOTE,
   SIGNIN_TRUST,
+  THIS_DOES_INSTEAD,
 } from "@/lib/product";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -187,10 +191,21 @@ function LegalLine({ minAge }: { minAge: number }) {
 
 
 
+/*
+  A bad day, on purpose.
+
+  This used to be a green day: three risers and a portfolio up $4,180. It
+  was the wrong day to show. The headline above it is about the evening
+  your portfolio falls and you want to know whether that means anything,
+  and a card full of gains underneath it is a card demonstrating nothing.
+  Anybody can hand you a good day. The whole claim of this product is what
+  it says to you on a bad one, so the sample is a bad one and the sentence
+  above the numbers is the answer.
+*/
 const SAMPLE_MOVERS = [
-  { ticker: "RKLB", pct: "+6.8%", dollar: "+$3,640", up: true },
-  { ticker: "AMZN", pct: "+1.4%", dollar: "+$720", up: true },
-  { ticker: "MSFT", pct: "-0.6%", dollar: "-$180", up: false },
+  { ticker: "RKLB", pct: "-4.1%", dollar: "-$1,540", up: false },
+  { ticker: "NVDA", pct: "-3.6%", dollar: "-$2,180", up: false },
+  { ticker: "AMZN", pct: "+0.2%", dollar: "+$90", up: true },
 ] as const;
 
 /* -------------------------------------------------------------- sections */
@@ -270,10 +285,9 @@ function PulseStill() {
           <span className="font-heading text-sm font-semibold text-foreground">
             $RKLB
           </span>
-          <Pill tone="good">Up ≥5%</Pill>
-          <span className="inline-flex items-center gap-1 font-medium tabular-nums text-gain">
-            <TrendingUp className="size-3.5" />
-            +6.8%
+          <span className="inline-flex items-center gap-1 font-medium tabular-nums text-loss">
+            <TrendingDown className="size-3.5" />
+            -4.1%
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -284,8 +298,9 @@ function PulseStill() {
           </Pill>
         </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Nothing came out of the company today. The move was the whole
-          sector, so the reason you own this has not changed.
+          Nothing came out of the company today, and it is still inside the
+          range it has traded in for months. Every similar business fell
+          about as much.
         </p>
       </div>
 
@@ -307,7 +322,9 @@ function PulseStill() {
           </Pill>
         </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Guidance for next year came in under what the market expected.
+          This one is different. The company told investors to expect less
+          next year than they had been counting on. That is worth reading
+          about rather than ignoring.
         </p>
       </div>
     </Panel>
@@ -328,7 +345,7 @@ function MargusStill() {
 
       <div className="flex justify-end">
         <p className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3.5 py-2.5 text-sm leading-relaxed text-primary-foreground">
-          Why is my portfolio down this week when the market is up?
+          Everything is red today. Should I be worried?
         </p>
       </div>
 
@@ -340,16 +357,17 @@ function MargusStill() {
           )}
         >
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Almost all of it is one name. $BMNR is down 11% since Monday and
-            it is a fifth of what you hold, so it outweighs the six names
-            that went up. The rest of your portfolio is up 0.9% on the week.
+            Seven of your eight names are down and none of them put out any
+            news today, so this looks like the whole market rather than your
+            companies. You are down $3,630, which is 4% of what you hold, and
+            you have had eleven days like it since you started.
           </p>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Pill>What changed at the company?</Pill>
-        <Pill>Is that too much in one name?</Pill>
+        <Pill>Has this happened before?</Pill>
+        <Pill>Which one did put out news?</Pill>
       </div>
     </Panel>
   );
@@ -369,10 +387,10 @@ const MORE = [
       "One email a week. What moved, and the reasoning in full sentences.",
   },
   {
-    icon: Users,
-    title: "Circle",
+    icon: LayoutGrid,
+    title: "Lab",
     detail:
-      "Share a portfolio with people you invite. They see today's prices and never what you paid for anything.",
+      "What you are actually concentrated in, what a bad month would do to it, and how the last few weeks have gone.",
   },
 ] as const;
 
@@ -383,6 +401,7 @@ function More() {
         <SectionHead
           eyebrow="And the rest"
           title="Three more rooms, once you are in."
+          detail="None of them will tell you what to do. They are there so the decision is yours with the facts in front of you."
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {MORE.map((m) => (
@@ -408,16 +427,159 @@ function More() {
   );
 }
 
+/**
+ * The question the page exists to answer, asked in the reader's own words
+ * and answered before any feature is named.
+ *
+ * Nearly everybody who tried this asked some version of "what is it for"
+ * and "how is this different from the app I already have". Those are the
+ * same question. A landing page that answers it three sections down, by
+ * implication, in a feature list, has not answered it: the reader has
+ * already decided they own something like this and left.
+ *
+ * The left column is deliberately generous about the tool they already
+ * use, and every line in it is true. A comparison that opens by running
+ * down something the reader likes is one they stop reading, and it is also
+ * the wrong claim: a broker really is better at being a broker than this
+ * will ever be. The point is that the two columns are not the same job.
+ */
+function NotYourBroker() {
+  return (
+    <Section>
+      <Reveal>
+        <SectionHead
+          eyebrow="Why another one of these"
+          title={BROKER_ANSWER}
+          detail="Everyone asks this, so here it is before anything else. Your broker holds the money and adds it up. It has never once told you what happened."
+        />
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          <div className={cn(BOX, NESTED_PAD, "flex flex-col gap-4")}>
+            <MicroLabel>What your broker already does well</MicroLabel>
+            <ul className="flex flex-col gap-3">
+              {BROKER_ALREADY_DOES.map((line) => (
+                <li
+                  key={line}
+                  className="flex items-start gap-2.5 text-sm leading-relaxed text-muted-foreground"
+                >
+                  <CheckCircle2
+                    className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Keep using it. Nothing here replaces it, and nothing here can
+              buy or sell anything for you.
+            </p>
+          </div>
+
+          <div className={cn(BOX, NESTED_PAD, "flex flex-col gap-4")}>
+            <MicroLabel className="text-primary">
+              What this does instead
+            </MicroLabel>
+            <ul className="flex flex-col gap-3">
+              {THIS_DOES_INSTEAD.map((line) => (
+                <li
+                  key={line}
+                  className="flex items-start gap-2.5 text-sm leading-relaxed text-muted-foreground"
+                >
+                  <CheckCircle2
+                    className="mt-0.5 size-4 shrink-0 text-primary"
+                    aria-hidden
+                  />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              You still decide everything. It never tells you to buy, sell,
+              or hold.
+            </p>
+          </div>
+        </div>
+      </Reveal>
+    </Section>
+  );
+}
+
+const CIRCLE_POINTS = [
+  {
+    icon: Users,
+    title: "Share a portfolio",
+    detail:
+      "Invite a partner, a parent or a friend and you both own it. They see today's prices and never what you paid for anything.",
+  },
+  {
+    icon: LayoutGrid,
+    title: "See everyone's day",
+    detail:
+      "A circle has a board with each member's day on it. When the whole board is red, that is the market, and seeing it is worth more than being told it.",
+  },
+  {
+    icon: MessagesSquare,
+    title: "Somewhere to say it out loud",
+    detail:
+      "The reason you own something is easier to defend to a person than to yourself. Circles are private by default, and you are never added to one.",
+  },
+] as const;
+
+/**
+ * Circle, given a section of its own rather than a card in the "and the
+ * rest" row it used to share with two emails.
+ *
+ * It was filed as a nice extra, which is the wrong weight. The hardest
+ * part of a market falling is not knowing what happened, which the rest of
+ * this page is about. It is sitting on your own at eleven at night with
+ * the number in front of you. Everybody who has held anything for more
+ * than a year knows this, and no product built around a single reader can
+ * do anything about it. So it goes next to the features rather than after
+ * them.
+ */
+function CircleSection() {
+  return (
+    <Section>
+      <Reveal>
+        <SectionHead
+          eyebrow="Circle"
+          title="Nobody talks themselves down from a bad week alone."
+          detail="Knowing that nothing changed is half of it. The other half is somebody you know looking at the same week and saying so."
+        />
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          {CIRCLE_POINTS.map((c) => (
+            <div
+              key={c.title}
+              className={cn(BOX, NESTED_PAD, "flex flex-col gap-3")}
+            >
+              <span
+                className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15"
+                aria-hidden
+              >
+                <c.icon className="size-4" />
+              </span>
+              <h3 className="text-foreground">{c.title}</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {c.detail}
+              </p>
+            </div>
+          ))}
+        </div>
+      </Reveal>
+    </Section>
+  );
+}
+
 const IS_FOR = [
-  "Writing down why you own a name, and being told when that reason stops fitting the price.",
-  "Asking why your week went the way it did, not the market's.",
-  "One email on Sunday about the names you hold, not a newsletter about stocks in general.",
+  "Seeing your whole portfolio in one place, said back to you in sentences instead of a wall of numbers.",
+  "Finding out, on the day it falls, whether anything actually happened at the companies you own.",
+  "Asking why your week went the way it did, not the market's, and going through it with people you invite.",
 ] as const;
 
 const IS_NOT = [
-  "It does not connect to a bank or a broker. Holdings come in the three ways above, and when you buy something new you add it yourself. Prices do update on their own.",
+  "It does not connect to a bank or a broker. Holdings come in the three ways below, and when you buy something new you add it yourself. Prices do update on their own.",
   "It does not know when you bought. Returns are against your average price, so there is no chart starting on your buy date.",
-  "It cannot buy or sell anything, and it will never tell you to. Prices are free and delayed by a few minutes.",
+  "It cannot buy or sell anything, and it will never tell you to. Whether to add, sell or sit still is yours, every time. Prices are free and delayed by a few minutes.",
 ] as const;
 
 /**
@@ -440,7 +602,7 @@ function Fit() {
         <SectionHead
           eyebrow="Before you start"
           title="What this is for, and what it is not."
-          detail="Two minutes of typing buys you the rest. If the left column is not the job you wanted, better to find out here."
+          detail="Two minutes of typing buys you the rest. If the left column is not the job you wanted, better to find out here than after you have typed everything in."
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className={cn(BOX, NESTED_PAD, "flex flex-col gap-4")}>
@@ -559,7 +721,8 @@ function Closing({
         <div className="flex flex-col items-center gap-6 text-center">
           <h2>
             <span className="block max-w-xl text-balance font-heading text-2xl font-semibold leading-[1.15] tracking-[-0.03em] text-foreground sm:text-3xl">
-              Paste what you own. The reason is the part your broker skips.
+              Paste what you own. The next bad week will make a lot more
+              sense.
             </span>
           </h2>
           <SignInMethods googleBusy={busy} onGoogle={onSignIn} />
@@ -648,9 +811,9 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
           */}
         <h1 className="mt-10">
           <span className="block text-balance font-heading text-[1.625rem] font-semibold leading-[1.12] tracking-[-0.04em] text-foreground sm:text-[2.75rem] sm:leading-[1.14] sm:tracking-[-0.035em]">
-            Your broker tells you what you own.
+            On a bad day, every app shows you the damage.
             <span className="mt-1.5 block text-muted-foreground">
-              It never tells you whether the reason you bought it still holds.
+              This one shows you what actually changed.
             </span>
           </span>
         </h1>
@@ -671,8 +834,9 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
           * for a product they have already decided against.
           */}
         <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
-          Pulse is that second half, in words you can follow. A letter
-          lands on Sunday.
+          Most of the time the whole market fell and nothing happened at
+          your companies at all. Upside Lab reads them one by one and tells
+          you which kind of day this is, in ordinary sentences.
         </p>
         <div className="mt-8 flex flex-col items-center gap-3.5">
           <SignInMethods googleBusy={busy} onGoogle={onSignIn} />
@@ -720,7 +884,7 @@ function BookWide() {
       <div className="flex items-center justify-between gap-3">
         <span className="flex items-center gap-2">
           <span className="signin-live-dot" aria-hidden />
-          <MicroLabel>Pulse on $RKLB</MicroLabel>
+          <MicroLabel>Pulse on $RKLB, down 4.1%</MicroLabel>
         </span>
         <Pill tone="neutral">Sample</Pill>
       </div>
@@ -737,7 +901,7 @@ function BookWide() {
         * has to be on the first screen, and the numbers can be the part
         * that continues below the fold.
         */}
-      <Reading nested label="The reason" className="text-left">
+      <Reading nested label="What actually happened" className="text-left">
         <div className="mb-2 flex flex-wrap items-center gap-1.5">
           <Pill>Inside recent range</Pill>
           <Pill tone="good">
@@ -745,18 +909,18 @@ function BookWide() {
             Thesis intact
           </Pill>
         </div>
-        <InsightText text="Nothing came out of the company today. The move was the whole sector, so the reason you own this has not changed." />
+        <InsightText text="Nothing came out of the company today. Every similar business fell about the same amount, so this is the market having a bad day rather than news about what you own." />
       </Reading>
 
       <div className="grid items-start gap-5 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
         <div className="text-left">
           <MicroLabel>Portfolio</MicroLabel>
           <p className="mt-1 font-sans text-3xl font-bold tabular-nums text-foreground">
-            $91,400
+            $87,770
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="rounded-md bg-gain/15 px-2 py-1 text-sm font-semibold tabular-nums text-gain">
-              Today +$4,180
+            <span className="rounded-md bg-loss/15 px-2 py-1 text-sm font-semibold tabular-nums text-loss">
+              Today -$3,630
             </span>
             <span className="rounded-md bg-muted px-2 py-1 text-sm font-semibold tabular-nums text-gain">
               All time +18%
@@ -798,9 +962,9 @@ function TrioShowcase() {
     <Section>
       <Reveal>
         <SectionHead
-          eyebrow="What it does"
-          title="The part your broker skips."
-          detail="A percent is easy. Whether the reason you own the name moved with it is the bit nothing else will sit down and do."
+          eyebrow="On a bad day"
+          title="A fall and bad news look exactly the same in a list of red numbers."
+          detail="One of them is worth your evening and the other is not, and nothing you already use will sit down and tell you which is which. That is the whole job here."
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <PulseStill />
@@ -817,7 +981,9 @@ export function SignedOutLanding(props: HeroProps) {
   return (
     <main id="main" className="relative z-10 flex flex-1 flex-col">
       <HeroHybrid {...props} />
+      <NotYourBroker />
       <TrioShowcase />
+      <CircleSection />
       <Fit />
       <WaysIn />
       <More />
