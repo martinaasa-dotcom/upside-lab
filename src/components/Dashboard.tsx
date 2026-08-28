@@ -10,7 +10,6 @@ import { HeaderOverflowMenu, type HeaderMenuItem } from "@/components/HeaderOver
 import { OverviewDashboard, type LabDeepLink } from "@/components/OverviewDashboard";
 import { PortfolioTable } from "@/components/PortfolioTable";
 import { PortfolioTabs } from "@/components/PortfolioTabs";
-import { hrefForDockTarget, stashDockTab } from "@/components/BookModeDock";
 import { ClassTradeBanner } from "@/components/ClassTradeBanner";
 import { isPaperClassOnly, ownedBookPortfolios } from "@/lib/classroom";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
@@ -43,11 +42,15 @@ import {
   milestoneToast,
   recordVisitToday,
 } from "@/lib/visit-streak";
-import { resolveLastPortfolioId, saveActiveSheetId, saveLastPortfolioId, takeOpenTab, pickChatPortfolio } from "@/lib/active-sheet";
+import { saveActiveSheetId, saveLastPortfolioId, pickChatPortfolio } from "@/lib/active-sheet";
 import { bookFingerprint, margusChatContext } from "@/lib/dashboard-chat";
 import { DashboardModals } from "@/components/DashboardModals";
 import { useDashboardBookWrites } from "@/lib/use-dashboard-book-writes";
-import { normalizeMetaTabId, resolveSheetIdFromUrl } from "@/lib/dashboard-tab";
+import {
+  PORTFOLIO_PATH,
+  hrefForTabId,
+  tabIdFromPath,
+} from "@/lib/book-routes";
 import { loadLastUser } from "@/lib/last-session";
 import { isAbortError, retryOnNetwork } from "@/lib/abort";
 import { buildForecast, type ForecastYear } from "@/lib/forecast";
@@ -84,11 +87,9 @@ import {
   keepLiveSheetsOnly,
 } from "@/lib/book-isolation";
 import {
-  GO_HOME_EVENT,
   WORKSPACE_SHOW_EVENT,
   isWorkspaceRoomActive,
   onWorkspaceRefresh,
-  takeGoHomeRequest,
   workspaceRoomId,
 } from "@/lib/workspace-rooms";
 import {
@@ -120,7 +121,15 @@ import {
 } from "@/lib/market/session";
 import { useTimeout } from "@/lib/use-timeout";
 import { useStableCallback } from "@/lib/use-stable-callback";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type SetStateAction,
+} from "react";
 import dynamic from "next/dynamic";
 
 import {
@@ -220,14 +229,58 @@ export function Dashboard() {
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [saveFlash, setSaveFlash] = useState(false);
   const [locked, setLocked] = useState(false);
-  const [activeId, setActiveId] = useState<string>(OVERVIEW_TAB_ID);
-  // The mount layout effect below resolves the real starting tab from the
-  // URL/cache and calls setActiveId — but the URL write-back effect (which
-  // depends on activeId) can run its first pass against the OVERVIEW_TAB_ID
-  // placeholder before that update lands, stripping ?tab=pulse (etc.) from
-  // the URL before it was ever read. This ref keeps the write-back effect
-  // from touching the URL until the real initial tab has been resolved.
-  const initialSheetResolvedRef = useRef(false);
+  /*
+    WHICH ROOM YOU ARE IN IS THE PATH, AND NOTHING ELSE REMEMBERS IT.
+
+    This was `useState` with `?tab=` written after it by `history.pushState`,
+    which meant the address bar reported on the app rather than driving it,
+    and Back had to be reconstructed from a private history stack. Now the
+    link is the navigation and this is a reading of `usePathname`.
+
+    Two things fall out of that and are worth naming, because each replaced
+    a ref that existed to paper over the old direction. A path that names a
+    portfolio the book has not loaded yet resolves to the token itself and
+    then to the real id the moment the list lands, so a deep link no longer
+    needs `wantsHoldingsRef` to survive a cold cache. And `/portfolio` with
+    no name answers from `resolveLastPortfolioId` on every render, so it
+    stops being the pending sentinel by itself.
+
+    `lastBookTabRef` is only for the hidden copy of this room. Walk to
+    Circle and `pathname` is no longer a book path, but this Dashboard
+    stays mounted behind `hidden`; without the memory it would fall back to
+    Overview and quietly unmount whatever panel was open, to rebuild it on
+    the way back.
+  */
+  const lastBookTabRef = useRef<string>(OVERVIEW_TAB_ID);
+  const routeTab = tabIdFromPath(pathname, portfolios);
+  if (onBook && typeof routeTab === "string") {
+    lastBookTabRef.current = routeTab;
+  }
+  const activeId =
+    onBook && typeof routeTab === "string"
+      ? routeTab
+      : lastBookTabRef.current;
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
+
+  /*
+    Every "open this tab" in the app, as one navigation.
+
+    Kept to the `Dispatch<SetStateAction<string>>` shape the state setter
+    had, so the callers that reach for the previous value ("close this
+    sheet if it is the one open") read exactly as they did. The guard is
+    the point: pushing the path already showing would put a duplicate on
+    the history stack and cost the reader two Backs to leave one room.
+  */
+  const goToTab = useCallback(
+    (next: SetStateAction<string>) => {
+      const target =
+        typeof next === "function" ? next(activeIdRef.current) : next;
+      if (target === activeIdRef.current) return;
+      router.push(hrefForTabId(target, portfolios));
+    },
+    [router, portfolios]
+  );
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const [options, setOptions] = useState<Record<string, OptionCandidate | null>>(
     {}
@@ -293,11 +346,6 @@ export function Dashboard() {
   /** Home "Open covered calls" should land on the options table, not holdings. */
   const sheetFocusRef = useRef<"covered-calls" | null>(null);
   const { labBundle, labReady, patchLab } = useLabSync();
-  /** Browser Back/Forward: sync sheet from history without pushing again. */
-  const historyFromPopRef = useRef(false);
-  /** Until first book load settles, only replaceState (no fake history stack). */
-  const historyBootstrappingRef = useRef(true);
-  const lastHistorySheetRef = useRef<string | null>(null);
   const [costBasisOpen, setCostBasisOpen] = useState(false);
   const [costBasisRows, setCostBasisRows] = useState<CostBasisRow[]>([]);
   const [drawerTicker, setDrawerTicker] = useState<string | null>(null);
@@ -326,37 +374,21 @@ export function Dashboard() {
   const reloadAfterWritesRef = useRef(false);
   const bookWriteChainRef = useRef(Promise.resolve());
   const addingSheetRef = useRef<Promise<Portfolio | undefined> | null>(null);
-  /*
-   * The phone dock's Holdings cell arriving before the book does.
-   *
-   * `/?tab=portfolio` names no portfolio, so it can only be answered against
-   * a list, and on a cold cache -- a first visit in this browser, or the
-   * first one after a sign-out -- there is no list at mount. Overview is
-   * where that lands, and by the time the book arrives the URL effect has
-   * already stripped the query, so nothing is left to say what was asked
-   * for. This is what is left: set when the question could not be answered,
-   * spent by the first `pickInitialSheet` that has portfolios to answer it
-   * with. Every other tab resolves from the token alone and never needs it.
-   */
-  const wantsHoldingsRef = useRef(false);
 
-  /**
-   * `resolveSheetIdFromUrl` with the pending case handled: the sentinel
-   * stays a room id so Holdings stays lit, and a note is left so the next
-   * call that has a book can finish answering it. See `wantsHoldingsRef`.
-   */
-  const takeSheetIdFromUrl = useCallback(
-    (list: Portfolio[], pendingTab?: string | null) => {
-      const fromUrl = resolveSheetIdFromUrl(list, pendingTab);
-      if (fromUrl === PORTFOLIO_TAB_PENDING) {
-        wantsHoldingsRef.current = true;
-        return fromUrl;
-      }
-      if (fromUrl) wantsHoldingsRef.current = false;
-      return fromUrl;
-    },
-    []
-  );
+  /*
+    A path naming a portfolio this account does not have.
+
+    Not a 404: the dynamic segment always matches and the book room always
+    paints, so what a stale bookmark or a deleted portfolio deserves is the
+    holdings table it asked for, on a portfolio that exists. Held until the
+    book has actually loaded, because "no such portfolio" and "no book yet"
+    look identical from here and only one of them is worth redirecting.
+  */
+  useEffect(() => {
+    if (!onBook) return;
+    if (routeTab !== undefined) return;
+    router.replace(PORTFOLIO_PATH);
+  }, [onBook, routeTab, router]);
 
   const [ccVisibleByPortfolio, setCcVisibleByPortfolio] =
     useState<VisibilityMap>({});
@@ -389,9 +421,6 @@ export function Dashboard() {
       setLocked(cached.locked);
       setLoading(false);
       bookFetchedAtRef.current = cached.fetchedAt;
-      const fromUrl = takeSheetIdFromUrl(book.portfolios, takeOpenTab());
-      setActiveId(fromUrl ?? OVERVIEW_TAB_ID);
-      initialSheetResolvedRef.current = true;
     } else {
       if (signedIn) {
         setSource("supabase");
@@ -401,9 +430,6 @@ export function Dashboard() {
         bookFetchedAtRef.current = 0;
         setLoading(true);
       }
-      const fromUrl = takeSheetIdFromUrl([], takeOpenTab());
-      setActiveId(fromUrl ?? OVERVIEW_TAB_ID);
-      initialSheetResolvedRef.current = true;
     }
     const cachedQuotes = loadCachedQuotes();
     setQuotes(cachedQuotes.quotes);
@@ -425,7 +451,7 @@ export function Dashboard() {
     setForecastVisibleByPortfolio(loadVisibilityMap(FORECAST_VISIBLE_KEY));
     setExperienceTier(loadStoredTier());
     setKnowsOptions(loadStoredKnowsOptions());
-  }, [user?.id, takeSheetIdFromUrl]);
+  }, [user?.id]);
 
   useEffect(() => {
     const apply = () => {
@@ -551,7 +577,9 @@ export function Dashboard() {
   useEffect(() => {
     if (!experienceTier) return;
     if (TIER_HIDDEN_META_TABS[experienceTier].includes(activeId)) {
-      setActiveId(OVERVIEW_TAB_ID);
+      // Replace, not push: a tab this reader cannot reach is not somewhere
+      // Back should return them to.
+      router.replace("/");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [experienceTier]);
@@ -674,7 +702,7 @@ export function Dashboard() {
     } else {
       sheetFocusRef.current = null;
     }
-    setActiveId(id);
+    goToTab(id);
   }
 
   function toggleForecastVisible() {
@@ -939,28 +967,6 @@ export function Dashboard() {
     ]
   );
 
-  const pickInitialSheet = useCallback(
-    (list: Portfolio[]) => {
-      const fromUrl = takeSheetIdFromUrl(list);
-      if (fromUrl && fromUrl !== PORTFOLIO_TAB_PENDING) return fromUrl;
-      /*
-       * The Holdings cell was pressed before the book existed. Now it does,
-       * so the question it asked gets its answer rather than being dropped
-       * on the floor with the query string.
-       */
-      if (fromUrl === PORTFOLIO_TAB_PENDING || wantsHoldingsRef.current) {
-        const target = resolveLastPortfolioId(list);
-        if (target) {
-          wantsHoldingsRef.current = false;
-          return target;
-        }
-        return PORTFOLIO_TAB_PENDING;
-      }
-      return OVERVIEW_TAB_ID;
-    },
-    [takeSheetIdFromUrl]
-  );
-
   const loadPortfolios = useCallback(async (opts?: { silent?: boolean; retry?: boolean }) => {
     const userId = user?.id ?? null;
     const hasCache = Boolean(readBookCache(userId));
@@ -1061,7 +1067,6 @@ export function Dashboard() {
           setSource("supabase");
           setPortfolios(nextPortfolios);
           setHoldings(nextHoldings);
-          setActiveId(() => pickInitialSheet(nextPortfolios));
         } else {
           setSource("supabase");
         }
@@ -1080,7 +1085,6 @@ export function Dashboard() {
         setSource("demo");
         setPortfolios(demo.portfolios);
         setHoldings(demo.holdings);
-        setActiveId(() => pickInitialSheet(demo.portfolios));
         const isLocked = hasLockedSave();
         setLocked(isLocked);
       }
@@ -1117,7 +1121,6 @@ export function Dashboard() {
             setSource("demo");
             setPortfolios(demo.portfolios);
             setHoldings(demo.holdings);
-            setActiveId(() => pickInitialSheet(demo.portfolios));
             setLocked(hasLockedSave());
           }
         } else if (!hasCache) {
@@ -1130,7 +1133,6 @@ export function Dashboard() {
             setSource("demo");
             setPortfolios(demo.portfolios);
             setHoldings(demo.holdings);
-            setActiveId(() => pickInitialSheet(demo.portfolios));
             setLocked(hasLockedSave());
           }
         }
@@ -1139,7 +1141,7 @@ export function Dashboard() {
       window.clearTimeout(timeout);
       if (bookAbortRef.current === ctrl) setLoading(false);
     }
-  }, [pickInitialSheet, refresh, user?.id]);
+  }, [refresh, user?.id]);
 
 
   const applyFxPayload = useCallback((fx: {
@@ -1415,36 +1417,15 @@ export function Dashboard() {
     return () => window.clearTimeout(id);
   }, []);
 
-  // After initial load, sheet switches push history so Back stays in-app.
-  useEffect(() => {
-    if (loading) {
-      historyBootstrappingRef.current = true;
-      return;
-    }
-    const t = window.setTimeout(() => {
-      historyBootstrappingRef.current = false;
-    }, 0);
-    return () => window.clearTimeout(t);
-  }, [loading]);
-
-  /**
-   * A new tab starts at the top. Switching tabs swaps the whole page body
-   * but leaves the window scrolled wherever the previous tab was, so going
-   * from halfway down Overview to Compound dropped you into the middle of
-   * it. Skipped on back/forward, where the browser restores the position
-   * you actually left.
-   */
-  const scrollResetSkipRef = useRef(true);
-  useEffect(() => {
-    if (scrollResetSkipRef.current) {
-      scrollResetSkipRef.current = false;
-      return;
-    }
-    if (historyFromPopRef.current) return;
-    if (sheetFocusRef.current) return;
-    window.scrollTo({ top: 0 });
-  }, [activeId]);
-
+  /*
+    A new tab starting at the top, and Back landing where you left, are the
+    router's now. This used to be a hand-rolled pair: scroll to the top on
+    every `activeId` change unless a private ref said the change came from
+    a `popstate`, because the tab was state and the browser had no idea a
+    room had changed. Each of these is a real navigation, so App Router
+    scrolls a push to the top and restores the offset on back and forward,
+    and doing it again here would fight it on every Back.
+  */
   useEffect(() => {
     if (sheetFocusRef.current !== "covered-calls") return;
     if (!ccVisible) return;
@@ -1457,15 +1438,17 @@ export function Dashboard() {
     return () => window.clearTimeout(t);
   }, [activeId, ccVisible]);
 
+  /*
+    What is remembered, now that the URL is no longer written from here.
+
+    The tab is telemetry's, and the portfolio is the phone dock's: its
+    Holdings cell asks "which portfolio was I in" from rooms that never
+    load a book, and `/portfolio` with no name is answered from this note.
+    Written only for a portfolio the account really has, since a token that
+    resolves to nothing is worse than no memory at all.
+  */
   useEffect(() => {
-    // Skip until auth has actually settled and the mount layout effect has
-    // resolved the real starting tab. The layout effect's dependency on
-    // `user?.id` means it runs once with that value still undefined (auth
-    // resolving) and again once it settles to its final id/null — and this
-    // effect's own first pass can land in between, with activeId still on
-    // its OVERVIEW_TAB_ID placeholder, stripping a deep-linked ?tab= from
-    // the URL before it was ever actually read.
-    if (!authReady || !initialSheetResolvedRef.current) return;
+    if (!authReady) return;
     if (activeId !== PORTFOLIO_TAB_PENDING) saveActiveSheetId(activeId);
     /*
      * Remembered separately from the tab above, which is holding a meta-tab
@@ -1476,112 +1459,35 @@ export function Dashboard() {
      * than no memory at all.
      */
     if (activePortfolio) saveLastPortfolioId(activePortfolio.id);
-    if (typeof window === "undefined") return;
-    // Hidden keep-alive Dashboard still runs this. Do not rewrite Fund or
-    // Circle while UPSIDE LAB is sending us home.
-    if (window.location.pathname !== "/") return;
-    const url = new URL(window.location.href);
-    url.searchParams.delete("sheet");
-    url.searchParams.delete("tab");
-    url.searchParams.delete("portfolio");
-    if (activeId === OVERVIEW_TAB_ID) {
-      /* overview is the default; keep the URL clean */
-    } else if (activeId === COMPOUND_TAB_ID) {
-      url.searchParams.set("tab", "compound");
-    } else if (activeId === LAB_TAB_ID) {
-      url.searchParams.set("tab", "lab");
-    } else if (activeId === PULSE_TAB_ID) {
-      url.searchParams.set("tab", "pulse");
-    } else if (activeId === ALERTS_TAB_ID) {
-      url.searchParams.set("tab", "alerts");
-    } else if (activeId === PORTFOLIO_TAB_PENDING) {
-      url.searchParams.set("tab", "portfolio");
-    } else {
-      const p = portfolios.find((x) => x.id === activeId);
-      url.searchParams.set("tab", "portfolio");
-      url.searchParams.set("portfolio", p?.slug || activeId);
-    }
-    // Drop legacy guest/share query params if present.
-    url.searchParams.delete("share");
-    url.searchParams.delete("view");
-    const href = `${url.pathname}${url.search}`;
-    const state = { upsideSheet: activeId };
+  }, [activeId, activePortfolio, authReady]);
 
-    if (historyFromPopRef.current) {
-      historyFromPopRef.current = false;
-      lastHistorySheetRef.current = activeId;
-      window.history.replaceState(state, "", href);
-      return;
-    }
+  /*
+    Being shown again is only about the numbers now.
 
-    const prev = lastHistorySheetRef.current;
-    lastHistorySheetRef.current = activeId;
-
-    if (
-      historyBootstrappingRef.current ||
-      prev === null ||
-      prev === activeId
-    ) {
-      window.history.replaceState(state, "", href);
-      return;
-    }
-
-    window.history.pushState(state, "", href);
-  }, [activeId, activePortfolio, portfolios, authReady]);
-
-  useEffect(() => {
-    function onPopState(e: PopStateEvent) {
-      historyFromPopRef.current = true;
-      const fromState =
-        e.state &&
-        typeof e.state === "object" &&
-        "upsideSheet" in e.state &&
-        typeof (e.state as { upsideSheet?: unknown }).upsideSheet === "string"
-          ? (e.state as { upsideSheet: string }).upsideSheet
-          : null;
-
-      if (fromState) {
-        const meta = normalizeMetaTabId(fromState);
-        if (meta || portfolios.some((p) => p.id === fromState)) {
-          setActiveId(meta ?? fromState);
-          return;
-        }
-      }
-
-      setActiveId(() => pickInitialSheet(portfolios));
-    }
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [portfolios, pickInitialSheet]);
-
+    It used to re-read the URL and pick a tab as well, because the room had
+    been hidden while the address bar moved underneath it. The path is the
+    tab, so there is nothing left to reconcile: what is worth doing on the
+    way back in is asking whether the book went stale while nobody was
+    looking. The shell fires this on a room change, never on a walk between
+    book pages, so a tap on the dock does not cost a fetch.
+  */
   useEffect(() => {
     const onShow = () => {
       if (!isWorkspaceRoomActive("book")) return;
-      setActiveId((prev) => {
-        if (takeGoHomeRequest()) return OVERVIEW_TAB_ID;
-        const fromUrl = takeSheetIdFromUrl(portfolios, takeOpenTab());
-        return fromUrl ?? prev;
-      });
       if (!isBookFetchFresh(bookFetchedAtRef.current)) {
         void loadPortfolios({ silent: true });
       }
-    };
-    const onGoHome = () => {
-      setActiveId(OVERVIEW_TAB_ID);
-      if (isWorkspaceRoomActive("book")) takeGoHomeRequest();
     };
     const onBookRefresh = () => {
       void loadPortfolios({ silent: true });
     };
     window.addEventListener(WORKSPACE_SHOW_EVENT, onShow);
-    window.addEventListener(GO_HOME_EVENT, onGoHome);
     window.addEventListener(BOOK_REFRESH_EVENT, onBookRefresh);
     return () => {
       window.removeEventListener(WORKSPACE_SHOW_EVENT, onShow);
-      window.removeEventListener(GO_HOME_EVENT, onGoHome);
       window.removeEventListener(BOOK_REFRESH_EVENT, onBookRefresh);
     };
-  }, [portfolios, loadPortfolios, takeSheetIdFromUrl]);
+  }, [loadPortfolios]);
 
   useEffect(() => {
     if (source !== "supabase") return;
@@ -1776,7 +1682,7 @@ export function Dashboard() {
     margusPortfolio,
     inviteSheet,
     activeId,
-    setActiveId,
+    goToTab,
     eoyOverrides,
     setEoyOverrides,
     undoStack,
@@ -1878,20 +1784,20 @@ export function Dashboard() {
         id: "overview",
         label: "Overview",
         group: "Go",
-        run: () => setActiveId(OVERVIEW_TAB_ID),
+        run: () => goToTab(OVERVIEW_TAB_ID),
       },
       {
         id: "compound",
         label: "Compound",
         group: "Go",
-        run: () => setActiveId(COMPOUND_TAB_ID),
+        run: () => goToTab(COMPOUND_TAB_ID),
       },
       {
         id: "pulse",
         label: "Pulse: check why you own it",
         group: "Go",
         hint: "Big movers",
-        run: () => setActiveId(PULSE_TAB_ID),
+        run: () => goToTab(PULSE_TAB_ID),
       },
     ];
     if (!labHiddenForTier) {
@@ -1902,7 +1808,7 @@ export function Dashboard() {
         hint: "In Lab - year & calendar patterns",
         run: () => {
           setLabIntent("seasonality");
-          setActiveId(LAB_TAB_ID);
+          goToTab(LAB_TAB_ID);
         },
       });
       items.push({
@@ -1910,7 +1816,7 @@ export function Dashboard() {
         label: "Lab",
         group: "Go",
         hint: "Analysis tools",
-        run: () => setActiveId(LAB_TAB_ID),
+        run: () => goToTab(LAB_TAB_ID),
       });
     }
     items.push({
@@ -1930,7 +1836,7 @@ export function Dashboard() {
         id: `sheet-${p.id}`,
         label: p.name,
         group: "Portfolios",
-        run: () => setActiveId(p.id),
+        run: () => goToTab(p.id),
       });
     }
     for (const t of overview.tickers.slice(0, 30)) {
@@ -1941,7 +1847,7 @@ export function Dashboard() {
         hint: t.portfolios[0],
         run: () => {
           const sheet = portfolios.find((p) => t.portfolios.includes(p.name));
-          if (sheet) setActiveId(sheet.id);
+          if (sheet) goToTab(sheet.id);
           setDrawerTicker(t.ticker);
         },
       });
@@ -2068,23 +1974,23 @@ export function Dashboard() {
       });
     }
   );
-  const onOpenCompound = useStableCallback(() => setActiveId(COMPOUND_TAB_ID));
-  const onOpenAlerts = useStableCallback(() => setActiveId(ALERTS_TAB_ID));
+  const onOpenCompound = useStableCallback(() => goToTab(COMPOUND_TAB_ID));
+  const onOpenAlerts = useStableCallback(() => goToTab(ALERTS_TAB_ID));
   const onOpenCash = useStableCallback(() => {
     const target = [...portfolios].sort(
       (a, b) => a.cash_balance - b.cash_balance
     )[0];
     if (!target) return;
-    setActiveId(target.id);
+    goToTab(target.id);
     setCashModalOpen(true);
   });
   const onOpenLab = useStableCallback((tab?: LabDeepLink) => {
     if (tab) setLabIntent(tab);
-    setActiveId(LAB_TAB_ID);
+    goToTab(LAB_TAB_ID);
   });
   const onOpenPulse = useStableCallback((ticker?: string) => {
     if (ticker) setPulseIntent(ticker);
-    setActiveId(PULSE_TAB_ID);
+    goToTab(PULSE_TAB_ID);
   });
   const onOverviewAddHolding = useStableCallback(() =>
     startFirstRunAction("manual")
@@ -2253,19 +2159,11 @@ export function Dashboard() {
       />
     ) : null;
 
-  function selectDockTarget(id: string) {
-    setActiveId(id);
-    if (onBook) return;
-    stashDockTab(id);
-    router.push(hrefForDockTarget(id, portfolios));
-  }
-
   const dock = (
     <PortfolioTabs
       className="hidden md:block"
       portfolios={portfolios}
       activeId={onBook ? activeId : null}
-      onChange={selectDockTarget}
       onAdd={() => setCreatingSheet(true)}
       sheetTodayTone={sheetTodayTone}
       hiddenModeIds={hiddenMetaTabIds}
@@ -2329,7 +2227,7 @@ export function Dashboard() {
             sheets={sheetPickerSheets}
             value={isOverview ? "all" : activeId}
             onChange={(id) =>
-              setActiveId(id === "all" ? OVERVIEW_TAB_ID : id)
+              goToTab(id === "all" ? OVERVIEW_TAB_ID : id)
             }
             onAdd={() => setCreatingSheet(true)}
           />
@@ -2445,7 +2343,7 @@ export function Dashboard() {
                 <button
                   key={a.id}
                   type="button"
-                  onClick={() => setActiveId(OVERVIEW_TAB_ID)}
+                  onClick={() => goToTab(OVERVIEW_TAB_ID)}
                   className="w-full rounded-xl glass ring-1 ring-foreground/20 p-6 text-left"
                 >
                   <p className="text-sm font-semibold text-foreground">{a.title}</p>
@@ -2592,52 +2490,19 @@ export function Dashboard() {
       </main>
 
       {dock}
+      {/*
+        No onSelect. Every cell is the link it always drew: the bar used to
+        cancel its own navigation with preventDefault and set state instead,
+        which is how the address bar ended up reporting on the app a beat
+        after the fact. `/portfolio` answers the Holdings cell against the
+        list this room already has, so the table is on screen without a
+        round trip, and keeps that cell lit when there is no list to answer
+        with. See `hrefForTabId`.
+      */}
       <MobileTabBar
         active={mobileTab}
         alertCount={activeAlerts.length}
-        pulseHref={pulseHiddenForTier ? "/" : "/?tab=pulse"}
         hiddenModeIds={hiddenMetaTabIds}
-        onSelect={(id) => {
-          if (id === "home") {
-            wantsHoldingsRef.current = false;
-            setActiveId(OVERVIEW_TAB_ID);
-            return true;
-          }
-          if (id === "holdings") {
-            /*
-             * Same answer the URL gets, resolved against the list already in
-             * memory so the table is on screen without a round trip. With no
-             * portfolios at all the pending sentinel keeps this cell lit:
-             * Overview is where Add a holding lives, but the room you asked
-             * for is still Holdings, empty table or not. `wantsHoldingsRef`
-             * is the note pickInitialSheet reads if a book load lands in the
-             * same tick and would otherwise send this cell back to Overview
-             * because the URL has not been rewritten yet.
-             */
-            wantsHoldingsRef.current = true;
-            const target = resolveLastPortfolioId(portfolios);
-            setActiveId(target ?? PORTFOLIO_TAB_PENDING);
-            return true;
-          }
-          if (id === "pulse") {
-            if (pulseHiddenForTier) return false;
-            wantsHoldingsRef.current = false;
-            setActiveId(PULSE_TAB_ID);
-            return true;
-          }
-          if (id === "lab") {
-            if (labHiddenForTier) return false;
-            wantsHoldingsRef.current = false;
-            setActiveId(LAB_TAB_ID);
-            return true;
-          }
-          if (id === "compound") {
-            wantsHoldingsRef.current = false;
-            setActiveId(COMPOUND_TAB_ID);
-            return true;
-          }
-          return false;
-        }}
       />
 
       <DashboardModals
@@ -2700,8 +2565,7 @@ export function Dashboard() {
           onBook
             ? undefined
             : (created) => {
-                stashDockTab(created.id);
-                router.push(hrefForDockTarget(created.id, [created]));
+                router.push(hrefForTabId(created.id, [created]));
               }
         }
       />

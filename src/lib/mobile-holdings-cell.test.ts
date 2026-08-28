@@ -23,7 +23,7 @@ import {
 const BAR = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");
 const TAB = readFileSync("src/lib/mobile-tab.ts", "utf8");
 const DASHBOARD = readFileSync("src/components/Dashboard.tsx", "utf8");
-const TAB_URL = readFileSync("src/lib/dashboard-tab.ts", "utf8");
+const ROUTES = readFileSync("src/lib/book-routes.ts", "utf8");
 
 /** A localStorage the node test environment does not otherwise have. */
 function withStorage(seed: Record<string, string> = {}) {
@@ -79,58 +79,60 @@ describe("the Holdings cell exists", () => {
      * portfolios the account still has.
      */
     const cell = BAR.slice(BAR.indexOf('id: "holdings"'));
-    const href = cell.slice(0, cell.indexOf("},")).match(/href: "([^"]*)"/);
-    expect(href?.[1]).toBe("/?tab=portfolio");
+    expect(cell.slice(0, cell.indexOf("},"))).toMatch(/href: PORTFOLIO_PATH/);
+    expect(ROUTES).toMatch(/PORTFOLIO_PATH = "\/portfolio"/);
   });
 });
 
 describe("the URL answers for it", () => {
-  it("resolves a bare ?tab=portfolio instead of falling to Overview", () => {
+  it("resolves a bare /portfolio instead of falling to Overview", () => {
     /*
-     * Falling through to `return null` sends the caller to Overview, which
-     * is the room this cell exists to get out of. The matching rules live
-     * in dashboard-tab.ts so they can run in tests without `window`.
+     * Falling through to Overview is the room this cell exists to get out
+     * of. The matching rules live in book-routes.ts so they can run in
+     * tests without `window`; `book-routes.test.ts` runs them.
      */
-    expect(TAB_URL).toMatch(/tabParam === "portfolio" \|\| tabParam === "book"/);
-    expect(TAB_URL).toMatch(
-      /resolveLastPortfolioId\(list\) \?\? PORTFOLIO_TAB_PENDING/
+    expect(ROUTES).toMatch(
+      /resolveLastPortfolioId\(portfolios\) \?\? PORTFOLIO_TAB_PENDING/
     );
   });
 
   it("survives arriving before the book does", () => {
     /*
      * A cold cache -- a first visit in this browser, or the first one after
-     * a sign-out -- has no portfolios at mount, so `?tab=portfolio` cannot be
-     * answered then. The URL effect strips the query moments later, so
-     * without a note nothing is left to say what was asked for and the reader
-     * is quietly left on Overview. `PORTFOLIO_TAB_PENDING` is that note, and
-     * it has to be distinct from `null`, which means the URL asked for
-     * nothing at all.
+     * a sign-out -- has no portfolios at mount, so `/portfolio` cannot be
+     * answered then. `PORTFOLIO_TAB_PENDING` is what is shown meanwhile,
+     * and it has to be distinct from `null`, which means nothing was asked
+     * for at all.
+     *
+     * What used to be needed here and is not any more: a ref carrying the
+     * unanswered question forward, because the URL effect stripped the
+     * query moments later and nothing was left to say what was asked for.
+     * The path is not stripped, so the answer is simply recomputed against
+     * the list the moment it lands.
      */
     expect(DASHBOARD).toMatch(/PORTFOLIO_TAB_PENDING/);
-    expect(TAB_URL).toMatch(
-      /resolveLastPortfolioId\(list\) \?\? PORTFOLIO_TAB_PENDING/
+    expect(DASHBOARD).toMatch(/tabIdFromPath\(pathname, portfolios\)/);
+    expect(ROUTES).toMatch(
+      /resolveLastPortfolioId\(portfolios\) \?\? PORTFOLIO_TAB_PENDING/
     );
-    expect(DASHBOARD).toMatch(/wantsHoldingsRef\.current = true/);
-    /* And spent by the first pick that has a book to answer with. */
-    const pick = DASHBOARD.slice(DASHBOARD.indexOf("const pickInitialSheet"));
-    expect(pick.slice(0, 900)).toMatch(/wantsHoldingsRef\.current/);
   });
 
-  it("never leaves the sentinel where a portfolio id belongs", () => {
+  it("reads the room from the path in exactly one place", () => {
     /*
-     * Every read of the raw resolver has to go through `takeSheetIdFromUrl`,
-     * which is what turns the sentinel back into a real answer. One that does
-     * not would set the active tab to a string no portfolio matches, and the
-     * reader would get an empty room rather than their holdings.
+     * Two readers of the URL is how the dock and the page came to disagree
+     * about which room was open. `tabIdFromPath` is the only one, and the
+     * tab it answers with is what both the panel and the dock marker use.
      */
-    const raw = DASHBOARD.match(/resolveSheetIdFromUrl\(/g) ?? [];
-    /* The single call inside `takeSheetIdFromUrl`. The helper itself lives
-     * in dashboard-tab.ts. */
+    const raw = DASHBOARD.match(/tabIdFromPath\(/g) ?? [];
     expect(raw.length).toBe(1);
   });
 
   it("marks the cell as the room you are in", () => {
+    /*
+     * `activeMobileTab` still reads the old query spellings, because a
+     * redirect answers those URLs and the two have to agree about what
+     * `?tab=book` meant while it does.
+     */
     expect(TAB).toMatch(
       /tab === "portfolio" \|\| tab === "book" \|\| tab === "forecast"/
     );
@@ -152,10 +154,7 @@ describe("the URL answers for it", () => {
     expect(readFileSync("src/components/BookModeDock.tsx", "utf8")).toMatch(
       /useDockMarker\(\)/
     );
-    expect(DASHBOARD).toMatch(/wantsHoldingsRef\.current = true/);
-    expect(DASHBOARD).toMatch(
-      /setActiveId\(target \?\? PORTFOLIO_TAB_PENDING\)/
-    );
+    expect(DASHBOARD).toMatch(/mobileTabFromActiveId\(activeId\)/);
   });
 });
 
