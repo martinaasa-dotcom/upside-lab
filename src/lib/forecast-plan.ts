@@ -7,13 +7,13 @@ import { MARGUS_PERSONA } from "@/lib/ai/margus-persona";
 import { insightsPromptBlock } from "@/lib/book-insights";
 import { humanizeMargusTree } from "@/lib/ai/humanize-copy";
 import type { ForecastModel, ForecastYear } from "@/lib/forecast";
+import type { ModelRun } from "@/lib/ai/model-label";
 import { FORECAST_YEARS } from "@/lib/forecast";
 import {
   FORECAST_CONVICTION_PROMPT,
   fillMissingForecastYears,
   forecastThemeForTicker,
-  liftPathToThemeMagnitude,
-  restoreCurrentYearDestination,
+  reshapeToThemeRhythm,
   shapedFallbackPath,
 } from "@/lib/forecast-conviction";
 import { todayKeyInTz } from "@/lib/timezone";
@@ -85,6 +85,19 @@ export type ForecastPlan = z.infer<typeof forecastPlanSchema> & {
   convictionKey?: string;
   /** Generic theme-shaped prices when Margus never finished a run. */
   fallback?: boolean;
+  /**
+   * Which model actually answered, recorded at the moment it did. The eye
+   * beside a modeled price names it, so a reader can look it up rather than
+   * take "a language model" on faith. Absent on a plan that no model ran.
+   */
+  writtenBy?: ModelRun | null;
+  /**
+   * Tickers whose path was reused from an earlier run somewhere else in
+   * Upside Lab rather than written fresh, mapped to when that run happened.
+   * A reused path was reasoned from the company, not from this portfolio,
+   * and the reader is told which of their names that applies to.
+   */
+  reused?: Record<string, string>;
 };
 
 export function isFallbackForecastPlan(
@@ -408,16 +421,52 @@ function fallbackRationale(input: {
 }
 
 /**
- * Guarantee every holding has every FORECAST_YEAR filled. Gaps and
- * boringly-linear ramps use the theme shape. A non-linear path whose 2030
- * multiple still sits below the theme band is lifted (shape kept, destination
- * restored). A path already at or above the band is never lowered. If the
- * current calendar year is hugging today's spot, that cell is rewritten as
- * the remaining-year move, not a restatement of now.
+ * Guarantee every holding has every FORECAST_YEAR filled. A gap is filled
+ * from the theme shape, and an even ramp is re-timed onto that shape's
+ * rhythm while keeping the destination the model chose. Nothing here moves
+ * a path up or down.
  */
+/**
+ * What this app did to the model's answer before you saw it.
+ *
+ * The path on screen is not always the path the model wrote: a year it
+ * left empty gets filled from a table of typical shapes, and an even ramp
+ * gets re-timed onto that shape's rhythm. Neither is the reader's
+ * assumption, so the eye beside the price says which of them happened.
+ *
+ * What is deliberately not in this list any more is a magnitude floor.
+ * Until 2026-08-28 a path whose last year came in under the theme shape
+ * was scaled up to meet it, and a path ending below today's price was
+ * thrown away and replaced outright, which meant the app could not show a
+ * flat or falling forecast at all. The prompt has always said a path
+ * ending below today is an allowed answer and told the model not to round
+ * one up "out of politeness"; the post-processing then rounded it up
+ * anyway. The prompt won.
+ */
+export type ForecastPathAdjustment = {
+  /** The model gave no path for this name at all. */
+  missing: boolean;
+  /** It skipped at least one year, and the app filled that year in. */
+  filled: boolean;
+  /**
+   * It came out as an even ramp, so the app re-timed it onto the shape for
+   * that kind of business. Where it ends is still the model's own number.
+   */
+  reshaped: boolean;
+};
+
+export function forecastPathWasAdjusted(
+  adjust: ForecastPathAdjustment | undefined
+): boolean {
+  return Boolean(adjust && (adjust.missing || adjust.filled || adjust.reshaped));
+}
+
 export function ensureCompleteEoyTargets(
   forecast: ForecastModel,
-  eoyTargets: ForecastPlan["eoyTargets"]
+  eoyTargets: ForecastPlan["eoyTargets"],
+  /** Told, per ticker, what the app changed. Optional: only the surfaces
+   * that show a reader where a number came from need to hear it. */
+  onAdjust?: (ticker: string, adjust: ForecastPathAdjustment) => void
 ): ForecastPlan["eoyTargets"] {
   const byTicker = new Map<string, ForecastPlan["eoyTargets"][number]>();
   for (const t of eoyTargets ?? []) {
@@ -437,13 +486,26 @@ export function ensureCompleteEoyTargets(
     const shaped = shapedFallbackPath(spot, theme);
     let prices = fillMissingForecastYears(existing?.prices, shaped);
 
+    /*
+      An even ramp is re-timed onto the theme's rhythm and keeps its own
+      destination. It used to be replaced by the theme path outright, which
+      was a second magnitude floor hiding inside a shape rule: a model that
+      answered with a steady decline got a straight line detected and an
+      upward theme path substituted for it.
+    */
     const reshape = isNearLinear(prices, spot) && theme !== "index";
     if (reshape) {
-      prices = { ...shaped };
+      prices = reshapeToThemeRhythm(prices, shaped, spot);
     }
 
-    const lifted = liftPathToThemeMagnitude(prices, shaped, spot);
-    prices = restoreCurrentYearDestination(lifted.prices, shaped, spot);
+    onAdjust?.(row.ticker.toUpperCase(), {
+      missing: !existing?.prices,
+      filled: FORECAST_YEARS.some((y) => {
+        const given = existing?.prices?.[y];
+        return !(typeof given === "number" && given > 0);
+      }),
+      reshaped: reshape,
+    });
 
     out.push({
       ticker: row.ticker,

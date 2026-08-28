@@ -41,6 +41,8 @@ import { ChartXRail, ChartYAxis } from "@/components/ui/ChartAxis";
 import type { ForecastModel, ForecastRow, ForecastYear } from "@/lib/forecast";
 import {
   ensureCompleteEoyTargets,
+  forecastPathWasAdjusted,
+  type ForecastPathAdjustment,
   DEFAULT_FORECAST_STANCE,
   buildFallbackForecastPlan,
   loadForecastPlan,
@@ -1105,6 +1107,29 @@ export const ForecastPanel = memo(function ForecastPanel({
     return map;
   }, [plan, convictions]);
 
+  /*
+   * What this app changed about each path after the model answered, worked
+   * out by running the same calibration the grid runs and listening to what
+   * it reports. Derived here rather than sent from the API on purpose: the
+   * client re-calibrates a saved plan on every load, so this is what the
+   * reader is actually looking at rather than what the last run produced.
+   */
+  const adjustByTicker = useMemo(() => {
+    const map = new Map<string, ForecastPathAdjustment>();
+    if (!plan) return map;
+    ensureCompleteEoyTargets(model, plan.eoyTargets ?? [], (ticker, adjust) => {
+      map.set(ticker, adjust);
+    });
+    return map;
+  }, [plan, model]);
+
+  const adjustedCount = useMemo(
+    () =>
+      [...adjustByTicker.values()].filter((a) => forecastPathWasAdjusted(a))
+        .length,
+    [adjustByTicker]
+  );
+
   const statusHint = useMemo(() => {
     if (!labReady || !planHydrated || model.rows.length === 0 || busy) return null;
     const decision = shouldAutoRefreshForecast({
@@ -1137,6 +1162,9 @@ export const ForecastPanel = memo(function ForecastPanel({
                 provenance={forecastRoomProvenance({
                   at: plan?.generatedAt,
                   fallback: isFallbackForecastPlan(plan) || !plan,
+                  model: plan?.writtenBy,
+                  adjustedCount,
+                  reusedCount: Object.keys(plan?.reused ?? {}).length,
                 })}
               />
             </span>
@@ -1208,6 +1236,10 @@ export const ForecastPanel = memo(function ForecastPanel({
                   ),
                   fallback: isFallbackForecastPlan(plan) || !r.hasTargets,
                   at: plan?.generatedAt,
+                  model: plan?.writtenBy,
+                  adjust: adjustByTicker.get(r.ticker.toUpperCase()),
+                  reusedAt: plan?.reused?.[r.ticker.toUpperCase()] ?? null,
+                  lastYear: yearCols[yearCols.length - 1],
                 })}
                 onSetEoyPrice={onSetEoyPrice}
               />
@@ -1223,6 +1255,7 @@ export const ForecastPanel = memo(function ForecastPanel({
                 provenance={forecastTotalProvenance({
                   at: plan?.generatedAt,
                   fallback: isFallbackForecastPlan(plan) || !plan,
+                  model: plan?.writtenBy,
                 })}
               />
             </div>

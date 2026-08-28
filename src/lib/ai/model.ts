@@ -149,6 +149,13 @@ export type AdvisorProviderId = "openrouter" | "groq" | "gemini" | "cerebras";
 export type AdvisorProviderCandidate = {
   id: AdvisorProviderId;
   model: LanguageModel;
+  /**
+   * The provider's own name for the model, exactly as it is sent on the
+   * wire. Carried because the reader is owed it: the eye beside a modeled
+   * number says which model wrote it, and `LanguageModel` does not hand
+   * that string back in a form worth showing anybody.
+   */
+  modelId: string;
 };
 
 /**
@@ -185,7 +192,7 @@ export function buildAdvisorProviderChain(options?: {
     const groqModel = speaking
       ? (process.env.GROQ_CHAT_MODEL ?? process.env.GROQ_MODEL ?? "openai/gpt-oss-20b")
       : (process.env.GROQ_MODEL ?? "openai/gpt-oss-20b");
-    chain.push({ id: "groq", model: groq.chat(groqModel) });
+    chain.push({ id: "groq", model: groq.chat(groqModel), modelId: groqModel });
   }
 
   if (hasKey("OPENROUTER_API_KEY")) {
@@ -202,7 +209,11 @@ export function buildAdvisorProviderChain(options?: {
       },
       fetch: openRouterFetchWithFallbacks(fallbacks),
     });
-    chain.push({ id: "openrouter", model: openrouter.chat(modelId) });
+    chain.push({
+      id: "openrouter",
+      model: openrouter.chat(modelId),
+      modelId,
+    });
   }
 
   if (hasKey("GEMINI_API_KEY")) {
@@ -215,7 +226,7 @@ export function buildAdvisorProviderChain(options?: {
     // -latest keeps pointing at whatever's current without needing a
     // code change every time Google ships a new generation.
     const geminiModel = process.env.GEMINI_MODEL ?? "gemini-flash-latest";
-    chain.push({ id: "gemini", model: gemini.chat(geminiModel) });
+    chain.push({ id: "gemini", model: gemini.chat(geminiModel), modelId: geminiModel });
   }
 
   if (hasKey("CEREBRAS_API_KEY") && !vision) {
@@ -229,10 +240,29 @@ export function buildAdvisorProviderChain(options?: {
     const cerebrasModel = speaking
       ? (process.env.CEREBRAS_CHAT_MODEL ?? process.env.CEREBRAS_MODEL ?? "gpt-oss-120b")
       : (process.env.CEREBRAS_MODEL ?? "gpt-oss-120b");
-    chain.push({ id: "cerebras", model: cerebras.chat(cerebrasModel) });
+    chain.push({
+      id: "cerebras",
+      model: cerebras.chat(cerebrasModel),
+      modelId: cerebrasModel,
+    });
   }
 
   return chain;
+}
+
+/**
+ * The model id a given provider in this chain would send. A chain holds at
+ * most one candidate per provider, so the id is enough to find it.
+ *
+ * Exists because `withAdvisorFallback` hands its callback a provider id and
+ * a `LanguageModel`, and the second of those will not tell you its own name
+ * in a form worth showing a reader.
+ */
+export function modelIdFor(
+  chain: AdvisorProviderCandidate[],
+  providerId: AdvisorProviderId
+): string | null {
+  return chain.find((c) => c.id === providerId)?.modelId ?? null;
 }
 
 /** Low thinking, short budget. Used by Forecast, Pulse, and the Fund cron
