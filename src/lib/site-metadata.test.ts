@@ -8,6 +8,7 @@ import {
   canonicalUrl,
   privatePageMetadata,
 } from "@/lib/site-metadata";
+import { OG_IMAGE_PATH } from "@/lib/seo-routes";
 import { isCanonicalAppHost, isNonPublicHost } from "@/lib/site-url";
 
 describe("site metadata", () => {
@@ -18,9 +19,22 @@ describe("site metadata", () => {
       "https://upsidelab.app/communities"
     );
     expect(HOME_METADATA.openGraph?.url).toBe("https://upsidelab.app");
+    /*
+      The card is the shared constant at the size the platforms want, not
+      today's cache-bust number. `?v=` is bumped every time the PNG is
+      redrawn, which is a copy change rather than a metadata change, and
+      pinning the digit here meant a headline rewrite failed a test about
+      which host the share card points at. The rule is that every public
+      page paints the same card and that the card is 1200 by 630.
+    */
+    expect(OG_IMAGE_PATH).toMatch(/^\/og\.png\?v=\d+$/);
     expect(LOGIN_METADATA.openGraph?.images).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ url: "/og.png?v=7", width: 1200, height: 630 }),
+        expect.objectContaining({
+          url: OG_IMAGE_PATH,
+          width: 1200,
+          height: 630,
+        }),
       ])
     );
     expect(COMMUNITIES_METADATA.robots).toMatchObject({

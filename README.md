@@ -1,6 +1,6 @@
 # Upside Lab
 
-See what your portfolio did. Ask Margus if the thesis still holds. Live prices, Thesis Pulse, and an open paper fund (Upside Fund). Communities are optional.
+Your whole portfolio, in plain words. And when it falls, what actually changed. Live prices, a plain read on every name you own, circles you share a portfolio with, and an open paper fund (Upside Fund).
 
 Production: [https://upsidelab.app](https://upsidelab.app)  
 Repository: [`martinaasa-dotcom/upside-lab`](https://github.com/martinaasa-dotcom/upside-lab), branch `main`
@@ -19,7 +19,7 @@ Open [http://localhost:3000](http://localhost:3000). Without Supabase env vars i
 ## What you get
 
 - **Home**: holdings, cost basis, today's move, a market reading on the open names, and an overnight line when the US market is shut
-- **Pulse**: thesis check on your largest names, plus anything down 5%
+- **Pulse**: on a fall, whether news came out of the company or the whole market moved together. Largest names, plus anything down 5%
 - **Lab**: allocation, risk shocks, weekly trends, seasonality
 - **Growth**: compounding planner seeded from what you actually hold
 - **Margus**: chat that can read and edit the open portfolio (screenshot from a tap, or CSV)

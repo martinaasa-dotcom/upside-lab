@@ -58,10 +58,32 @@ async function smoke(page, viewport) {
   });
   await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded", timeout: 45_000 });
   await page.getByRole("heading", { level: 1 }).waitFor({ timeout: 20_000 });
+
+  /*
+    The hero is there and it is the hero, rather than one exact sentence.
+
+    This used to require the h1 to contain "Your broker tells you what you
+    own". That is a landing page headline: it is rewritten whenever the
+    pitch is, and every rewrite failed a smoke test whose own comment says
+    it is checking that the page paints. Worse, it failed here, after a
+    build, in the one job a copy change does not otherwise touch, so the
+    signal read as something being broken.
+
+    What a smoke test is for is the page having rendered at all instead of
+    an error boundary or an empty shell, so that is what it asks: a real
+    headline with real words in it, the sample card the hero is built
+    around, and the ask. Any of those missing is the failure this job
+    exists to catch, and none of them moves when the copy does.
+  */
   const heading = await page.getByRole("heading", { level: 1 }).innerText();
-  if (!heading.includes("Your broker tells you what you own")) {
-    throw new Error(`${viewport.name}: unexpected h1 ${JSON.stringify(heading)}`);
+  if (heading.trim().split(/\s+/).length < 6) {
+    throw new Error(
+      `${viewport.name}: h1 is too thin to be the hero ${JSON.stringify(heading)}`
+    );
   }
+  await page.locator("[data-scroll-cue-still]").first().waitFor({
+    timeout: 20_000,
+  });
   await page.getByRole("button", { name: "Continue with Google" }).first().waitFor();
 
   const overflow = await page.evaluate(() => {
