@@ -1,10 +1,9 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { HairlineGrid } from "@/components/ui/Panel";
+import { Segmented } from "@/components/ui/Panel";
 import { CLASS_CASH_PRESETS, formatCashDigits, parseCashDigits } from "@/lib/class-templates";
 import { MAX_STARTING_CASH, MIN_STARTING_CASH } from "@/lib/classroom";
-import { cn } from "@/lib/format";
 import { useEffect, useState } from "react";
 
 export function StartingCashField({
@@ -29,24 +28,26 @@ export function StartingCashField({
         Every student gets this on a paper portfolio. Same number for the whole
         class.
       </p>
-      <HairlineGrid className="mt-4" preferred={3}>
-        {CLASS_CASH_PRESETS.map((n) => (
-          <button
-            key={n}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange(n)}
-            className={cn(
-              "bg-muted px-2 py-2.5 text-sm tabular-nums transition disabled:opacity-50",
-              value === n
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-hover hover:text-foreground"
-            )}
-          >
-            ${formatCashDigits(n)}
-          </button>
-        ))}
-      </HairlineGrid>
+      {/*
+        The app's one segmented control rather than a hand-rolled row of
+        `bg-muted` cells. These are the same thing the forecast horizon
+        picker is, a choice with one answer showing, and a flat grey fill
+        reads as a hole beside the glass around it.
+      */}
+      <Segmented
+        className="mt-4"
+        ariaLabel="Starting cash preset"
+        columns={3}
+        disabled={disabled}
+        options={CLASS_CASH_PRESETS.map((n) => ({
+          id: String(n),
+          label: `$${formatCashDigits(n)}`,
+        }))}
+        value={
+          CLASS_CASH_PRESETS.some((n) => n === value) ? String(value) : null
+        }
+        onChange={(id) => onChange(Number(id))}
+      />
       <label className="mt-4 block">
         <span className="text-sm font-medium text-muted-foreground">Or type another amount</span>
         <Input

@@ -1119,9 +1119,20 @@ export function Segmented<T extends string>({
       aria-label={ariaLabel}
       className={cn(
         "grid w-full min-w-0 max-w-full",
-        buttons
-          ? "gap-2"
-          : "gap-px overflow-hidden rounded-lg bg-border",
+        /*
+         * The same tray as the compact toggle above: a well with the cells
+         * floating in it, never a `gap-px bg-border` hairline grid. That
+         * pattern paints every track, which works only while the cells on
+         * top of it are opaque. These are glass, so the tray's own
+         * `--border` fill (white at 16% on a black page) came through every
+         * unselected cell and the control read as a row of solid grey slabs
+         * beside the near-black cards around it. Measured on the forecast
+         * horizon picker at 1440: an unselected cell painted 86 of 255 on a
+         * page whose panels sit in the twenties, and 17 once the tray fill
+         * went. The selected cell was never the problem, because the accent
+         * is opaque and covered it.
+         */
+        buttons ? "gap-2" : "card-sheen glass-well gap-1 rounded-lg p-[3px]",
         className
       )}
       style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
@@ -1141,7 +1152,7 @@ export function Segmented<T extends string>({
               "flex min-w-0 items-center justify-center px-2 text-sm font-medium transition-all disabled:opacity-40",
               buttons
                 ? "touch-target min-h-9 rounded-lg border"
-                : "touch-target py-2.5 md:min-h-0 md:min-w-0",
+                : "touch-target rounded-md border border-transparent py-2.5 md:min-h-0 md:min-w-0",
               /*
                * Same filled pill as the compact look — see `SEGMENTED_ITEM`
                * for why the accent has to arrive at full lightness rather
@@ -1159,10 +1170,10 @@ export function Segmented<T extends string>({
               on
                 ? buttons
                   ? "card-sheen border-transparent bg-primary text-primary-foreground shadow-sm"
-                  : "card-sheen bg-primary text-primary-foreground"
+                  : "card-sheen bg-primary text-primary-foreground shadow-sm"
                 : buttons
                   ? "glass border-input text-muted-foreground hover:text-foreground"
-                  : "veil-hover glass text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:bg-hover hover:text-foreground"
             )}
           >
             <span className="block max-w-full text-center leading-snug break-words">

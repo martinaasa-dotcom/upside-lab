@@ -1,9 +1,23 @@
 import { cn } from "@/lib/format";
 import type { ReactNode } from "react";
 
-/** Equal tracks. Every column gets the same share of leftover width. */
+/**
+ * Equal tracks. Every column gets the same share of leftover width, and no
+ * column is ever narrower than what is written in it.
+ *
+ * The floor is `min-content`, not 0, and that is the whole rule. Cells are
+ * `whitespace-nowrap` (a price broken over two lines is not a price), so a
+ * track thinner than its content does not clip and does not wrap: it spills,
+ * silently, over the columns either side. Measured on the covered calls
+ * table at 1440, "Far from your target" painted 168px inside a 104px track
+ * and landed on the distance to its left and the strike to its right, so a
+ * reader saw `29.6%Far from your target$330.00`. At 820 every header in that
+ * table did it at once. With the floor the row is as wide as its widest
+ * cells and `FluidTable` scrolls sideways instead, which is the one answer
+ * that neither hides a figure nor prints it over another one.
+ */
 export function equalCols(count: number): string {
-  return `repeat(${count}, minmax(0, 1fr))`;
+  return `repeat(${count}, minmax(min-content, 1fr))`;
 }
 
 /**
@@ -23,7 +37,7 @@ export function tableCols(
   action = false
 ): string {
   const base = tickerFit
-    ? `max-content repeat(${Math.max(0, count - 1)}, minmax(0, 1fr))`
+    ? `max-content repeat(${Math.max(0, count - 1)}, minmax(min-content, 1fr))`
     : equalCols(count);
   return action ? `${base} ${ACTION_COL}` : base;
 }
@@ -91,11 +105,24 @@ export const cellTicker =
   "flex h-full w-max max-w-full items-center justify-start whitespace-nowrap px-1.5 py-1.5 text-left";
 export const cellLast = cellBase;
 
-export const htmlTable = "w-full table-fixed border-collapse text-sm tabular-nums";
+/**
+ * The `<table>` twin of `FluidTable`, and `table-auto` for the same reason
+ * its tracks floor at `min-content`. `table-fixed` hands every column the
+ * same width whatever is written in it, and these cells are
+ * `whitespace-nowrap`, so a column too narrow for its content spills over
+ * the column beside it rather than wrapping. Measured on the classroom
+ * roster: the "Why" cell paints 185px of text, which overflowed its column
+ * at every width tried, by 89px at 900 and by 1px even at 1440, and a
+ * student's name overflowed from 900 down.
+ * Auto layout sizes each column to what it holds, `w-full` still spends
+ * any room left over, and the wrapper scrolls sideways when there is none.
+ */
+export const htmlTable = "w-full table-auto border-collapse text-sm tabular-nums";
 export const htmlCell =
   "h-10 whitespace-nowrap px-1.5 py-1.5 text-center align-middle font-mono tabular-nums first:pl-3 last:pr-3";
 /** Shrink-wrap the ticker column when a listing chip is showing.
- * `min-w-max` keeps table-fixed from crushing the cashtag into the next cell. */
+ * `w-[1%]` plus `min-w-max` is the auto-layout way of saying "as narrow as
+ * the cashtag and no narrower". */
 export const htmlCellTicker =
   "h-10 w-[1%] min-w-max whitespace-nowrap py-1.5 pl-3 pr-3 text-left align-middle";
 export const htmlCellFirst = htmlCell;
