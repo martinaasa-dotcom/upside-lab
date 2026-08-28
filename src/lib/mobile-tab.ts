@@ -49,8 +49,8 @@ export function activeMobileTab(
   /*
     `book` is the old spelling of `portfolio` and `forecast` is a panel on a
     portfolio rather than a room of its own, so all three are the holdings
-    table. Kept in step with `resolveSheetIdFromUrl`, which reads the same
-    three the same way.
+    table. Kept in step with `legacyRedirectPath`, which retires all three
+    onto `/portfolio` and has to agree about what they meant.
   */
   if (tab === "portfolio" || tab === "book" || tab === "forecast") {
     return "holdings";
