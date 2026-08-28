@@ -313,9 +313,18 @@ export function WhyThis({
       <PopoverContent
         side={side}
         align={align}
-        className="w-[21rem] max-w-[min(21rem,calc(100vw-1.5rem))] gap-0 p-0 font-normal normal-case tracking-normal"
+        className="w-[21rem] max-w-[min(21rem,calc(100vw-1.5rem))] gap-0 overflow-y-hidden p-0 font-normal normal-case tracking-normal"
       >
-        <div className="scroll-host max-h-[min(38rem,72svh)] p-4">
+        {/*
+          Bounded by the room the placement actually found, not by the
+          window: a popover the height of 72svh still hangs off the top of
+          a short window, and the reader cannot scroll to a first paragraph
+          that is above the screen. `PopoverContent` carries the same
+          ceiling, so the scroller inside it exactly fills the panel and
+          there is never a second scrollbar. The `svh` value is the
+          fallback for the frame before Radix has measured.
+        */}
+        <div className="scroll-host max-h-[min(38rem,var(--radix-popover-content-available-height,72svh))] p-4">
           <WhyThisBody provenance={provenance} />
         </div>
       </PopoverContent>

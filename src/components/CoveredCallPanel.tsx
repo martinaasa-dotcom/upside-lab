@@ -221,6 +221,16 @@ const HEADER_HINTS: Partial<Record<(typeof HEADERS)[number], string>> = {
   Premium: "The cash you would collect for selling these calls",
 };
 
+/**
+ * How close the share price is to the price the reader said they would sell
+ * at, in words rather than a second percentage.
+ *
+ * The words are short on purpose. This sits in a column of a table whose
+ * every other cell is a figure, so the longest label sets the width of the
+ * track: "Far from your target" was 168px of a 104px column and printed
+ * itself over the distance and the strike either side of it. "Far away"
+ * says the same thing to the same reader in a third of the room.
+ */
 function writeProximity(distance: number | null): {
   label: string;
   className: string;
@@ -237,7 +247,7 @@ function writeProximity(distance: number | null): {
   if (distance < 0.12) {
     return { label: "Getting near", className: "text-foreground" };
   }
-  return { label: "Far from your target", className: "text-muted-foreground" };
+  return { label: "Far away", className: "text-muted-foreground" };
 }
 
 /** Anchor Home uses to land on this table from "Open covered calls". */
