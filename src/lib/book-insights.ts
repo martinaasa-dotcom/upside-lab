@@ -256,15 +256,31 @@ function loudestInTheme(
   return best?.ticker ?? null;
 }
 
+/*
+  A move that rounds to no whole percent is said in words, never floored up
+  to one.
+
+  These used to read `Math.max(1, ...)`, so a group that moved two tenths of
+  a percent was printed as "up about 1%", five times what happened, in a
+  sentence that states it as fact. Nothing upstream prevented it: the group
+  split only asks that the gap between the best and worst group be three
+  percent, so a quiet side of that gap reaches here all the time. "Less than
+  1%" is both shorter and true.
+*/
+function wholePct(pct: number): number {
+  return Math.round(Math.abs(pct) * 100);
+}
+
 function aboutPct(pct: number): string {
-  const n = Math.max(1, Math.round(Math.abs(pct) * 100));
-  if (pct > 0) return `up about ${n}%`;
-  if (pct < 0) return `down about ${n}%`;
-  return "about flat";
+  if (pct === 0) return "about flat";
+  const n = wholePct(pct);
+  const size = n === 0 ? "less than 1%" : `about ${n}%`;
+  return pct > 0 ? `up ${size}` : `down ${size}`;
 }
 
 function aboutMove(pct: number): string {
-  return `about ${Math.max(1, Math.round(Math.abs(pct) * 100))}%`;
+  const n = wholePct(pct);
+  return n === 0 ? "less than 1%" : `about ${n}%`;
 }
 
 function riseOrFell(pct: number): "rose" | "fell" {

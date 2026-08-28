@@ -249,8 +249,11 @@ describe("Home notices", () => {
     expect(a).toMatch(/Since you last looked|while you were away|New since you opened/i);
     // The lone mover led the first look, so its subject is spent and the
     // groups candidate wins the second (subjectSeen, in morning-read.ts).
+    // $AAPL moved two tenths of a percent here, and says so. It used to
+    // read "up about 1%", which was the Math.max(1, ...) floor stating a
+    // figure five times the one it measured.
     expect(b).toBe(
-      "$AAPL and the other software companies are up about 1% today. " +
+      "$AAPL and the other software companies are up less than 1% today. " +
         "$CRWV and the other AI computer companies are up about 5%."
     );
     expect(a).not.toBe(b);
@@ -338,6 +341,47 @@ describe("concentration as today's story", () => {
     expect(line).toMatch(/Most of your portfolio is AI computer builders \(75%\)/);
     expect(line).toMatch(/down about 3% today/);
     expect(line).not.toMatch(/If you did not mean to take that much/);
+  });
+});
+
+describe("a move too small to round to a percent says so", () => {
+  /*
+    `aboutMove` and `aboutPct` floored the rounded figure at 1, so two
+    tenths of a percent printed as "about 1%". Nothing upstream stopped it
+    reaching a reader: the group split only asks that the gap between the
+    best and worst group be three percent, so the quiet side of that gap
+    lands here routinely, in a sentence that states the number as fact.
+  */
+  const quiet = model(
+    [
+      ticker({
+        ticker: "CRWV",
+        currentValue: 20_000,
+        todayPct: 0.05,
+        todayDollar: 950,
+      }),
+      ticker({
+        ticker: "AAPL",
+        currentValue: 80_000,
+        todayPct: 0.002,
+        todayDollar: 160,
+      }),
+    ],
+    0.011
+  );
+
+  it("never prints a whole percent it did not measure", () => {
+    const read = buildMorningRead(quiet, null, "open", { lookIndex: 1 });
+    const text = read.notices.map((n) => n.text).join(" ");
+    expect(text).not.toMatch(/\$AAPL[^.]*about 1%/);
+  });
+
+  it("still says the figure when there is a whole percent to say", () => {
+    const line = loneMoverLine([
+      { ticker: "CRWV", value: 20_000, todayPct: 0.05, todayDollar: 950 },
+      { ticker: "AAPL", value: 80_000, todayPct: 0.002, todayDollar: 160 },
+    ]);
+    expect(line).toMatch(/\$CRWV rose about 5%/);
   });
 });
 

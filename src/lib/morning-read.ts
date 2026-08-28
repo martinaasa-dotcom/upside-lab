@@ -113,8 +113,14 @@ function holdingsFrom(model: OverviewModel): InsightHolding[] {
   }));
 }
 
+/*
+  See book-insights.ts: a move that rounds to no whole percent is said in
+  words rather than floored up to one, because "up about 1%" for two tenths
+  of a percent is a figure this app stated as fact and did not measure.
+*/
 function aboutMove(pct: number): string {
-  return `about ${Math.max(1, Math.round(Math.abs(pct) * 100))}%`;
+  const n = Math.round(Math.abs(pct) * 100);
+  return n === 0 ? "less than 1%" : `about ${n}%`;
 }
 
 function sharePct(pct: number): string {
