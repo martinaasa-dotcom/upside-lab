@@ -4,24 +4,6 @@ import { loadCommunityListCache } from "@/lib/community-cache";
 export const WORKSPACE_SHOW_EVENT = "upside:workspace-show";
 /** Somebody pulled the page down and asked for new numbers. */
 export const WORKSPACE_REFRESH_EVENT = "upside:workspace-refresh";
-/** UPSIDE LAB was clicked. The book room must show Overview, not the last tab. */
-export const GO_HOME_EVENT = "upside:go-home";
-
-let goHomePending = false;
-
-export function requestGoHome() {
-  if (typeof window === "undefined") return;
-  goHomePending = true;
-  window.dispatchEvent(new Event(GO_HOME_EVENT));
-}
-
-/** True if UPSIDE LAB was clicked before this room became visible again. */
-export function takeGoHomeRequest(): boolean {
-  const hit = goHomePending;
-  goHomePending = false;
-  return hit;
-}
-
 /** Fixed slot for the book dock. PortfolioTabs portals here so Circle
  * (and every other room) keeps the same bottom chrome, including sheets. */
 export const WORKSPACE_DOCK_SLOT_ID = "workspace-dock";
