@@ -71,7 +71,7 @@ export function AppStatusStrip({
               : `Prices - ${formatAge(sec)}`}
           {quotedCount != null && totalCount != null ? (
             <span className="hidden sm:inline">
-              {` · ${quotedCount}/${totalCount} names`}
+              {` · ${quotedCount}/${totalCount} holdings`}
             </span>
           ) : null}
           {quotesDelayed && sec != null && sec >= 30 * 60 ? " - delayed" : ""}

@@ -1449,7 +1449,7 @@ export function UpsidePortfolioPage() {
                     <Score
                       label="Spread"
                       value={fundPersonality.diversificationBand.label}
-                      sub={`Behaves like ${fundConcentration.effectivePositions.toFixed(1)} names`}
+                      sub={`Behaves like ${fundConcentration.effectivePositions.toFixed(1)} holdings`}
                     />
                     <Score
                       label="Biggest bet"
@@ -1502,7 +1502,7 @@ export function UpsidePortfolioPage() {
                     ) : (
                       <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                         {watchingNote ??
-                          "He'll name names in the next daily report."}
+                          "He'll say which companies in the next daily report."}
                       </p>
                     )}
                   </div>

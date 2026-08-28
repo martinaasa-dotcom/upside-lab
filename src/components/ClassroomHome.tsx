@@ -102,7 +102,7 @@ export function ClassroomHome({
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Open your paper portfolio to buy names. Sunday note is
+            Open your paper portfolio to buy stocks. Sunday note is
             the weekly recap.
           </p>
         )}

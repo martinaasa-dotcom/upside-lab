@@ -1299,7 +1299,7 @@ export const PulsePage = memo(function PulsePage({
 
       {candidates.length === 0 && !pinnedCandidate ? (
         <EmptyState
-          title="No names on this list yet"
+          title="Nothing on this list yet"
           detail="Add a holding and Pulse starts watching it automatically. You can also type any ticker above for a one-off look."
         />
       ) : (

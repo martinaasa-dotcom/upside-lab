@@ -146,8 +146,25 @@ function SectionHead({
   detail?: string;
   className?: string;
 }) {
+  /*
+    Eyebrow, heading and paragraph share one column.
+
+    They used to have three different widths: the eyebrow and the heading
+    ran the full width of the section, and only the paragraph was capped, at
+    `max-w-xl`. On a wide screen that put a half-width paragraph under a
+    heading crossing the whole page, above cards that also crossed the whole
+    page, so the one small piece of text looked like it had been cut short
+    while everything around it kept going.
+
+    A cap on the paragraph alone was the right instinct for the wrong
+    element: prose needs a readable measure, and a heading at 30px reaches
+    that measure much sooner. Capping the group gives both the same edge, so
+    the heading wraps where the paragraph does and the block reads as one
+    column of text rather than two things that disagree. The grids below are
+    unaffected and still span the section, which is what a grid should do.
+  */
   return (
-    <div className={cn("flex flex-col gap-4", className)}>
+    <div className={cn("flex max-w-3xl flex-col gap-4", className)}>
       <MicroLabel className="text-primary">{eyebrow}</MicroLabel>
       <h2>
         <span className="block text-balance font-heading text-2xl font-semibold leading-[1.15] tracking-[-0.03em] text-foreground sm:text-3xl">
@@ -155,7 +172,7 @@ function SectionHead({
         </span>
       </h2>
       {detail ? (
-        <p className="max-w-xl text-base leading-relaxed text-muted-foreground">
+        <p className="text-base leading-relaxed text-muted-foreground">
           {detail}
         </p>
       ) : null}
@@ -244,7 +261,7 @@ function WaysIn() {
         <SectionHead
           eyebrow="Getting started"
           title="It starts with what you already own."
-          detail="No brokerage login, no read-only keys, no waiting on a connection to sync. Three ways in, and the fastest one is typing."
+          detail="No brokerage login, and nothing to connect and wait for. There are three ways in, and typing is the quickest."
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {WAYS_IN.map((w) => (
@@ -298,8 +315,8 @@ function PulseStill() {
           </Pill>
         </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Nothing came out of the company today, and it is still inside the
-          range it has traded in for months. Every similar business fell
+          There was no news about the company today, and it is still inside
+          the range it has traded in for months. Every similar business fell
           about as much.
         </p>
       </div>
@@ -357,9 +374,9 @@ function MargusStill() {
           )}
         >
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Seven of your eight names are down and none of them put out any
-            news today, so this looks like the whole market rather than your
-            companies. You are down $3,630, which is 4% of what you hold, and
+            Seven of your eight companies are down and there was no news
+            about any of them today, so this looks like the whole market
+            rather than your companies. You are down $3,630, which is 4% of what you hold, and
             you have had eleven days like it since you started.
           </p>
         </div>
@@ -400,8 +417,8 @@ function More() {
       <Reveal>
         <SectionHead
           eyebrow="And the rest"
-          title="Three more rooms, once you are in."
-          detail="None of them will tell you what to do. They are there so the decision is yours with the facts in front of you."
+          title="Three more things, once you are in."
+          detail="None of them tell you what to do. They put the facts in front of you, so the decision stays yours."
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {MORE.map((m) => (
@@ -450,7 +467,7 @@ function NotYourBroker() {
         <SectionHead
           eyebrow="Why another one of these"
           title={BROKER_ANSWER}
-          detail="Everyone asks this, so here it is before anything else. Your broker holds the money and adds it up. It has never once told you what happened."
+          detail="It is a fair thing to ask, so here it is first. Your broker holds your money and adds it up, and it is good at that. Working out why the number moved is usually left to you, and that is the part this helps with."
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className={cn(BOX, NESTED_PAD, "flex flex-col gap-4")}>
@@ -543,8 +560,8 @@ function CircleSection() {
       <Reveal>
         <SectionHead
           eyebrow="Circle"
-          title="Nobody talks themselves down from a bad week alone."
-          detail="Knowing that nothing changed is half of it. The other half is somebody you know looking at the same week and saying so."
+          title="A bad week is easier with someone you know."
+          detail="It helps to hear that nothing really changed. It helps more when it comes from someone you know, looking at the same week."
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {CIRCLE_POINTS.map((c) => (
@@ -571,15 +588,15 @@ function CircleSection() {
 }
 
 const IS_FOR = [
-  "Seeing your whole portfolio in one place, said back to you in sentences instead of a wall of numbers.",
-  "Finding out, on the day it falls, whether anything actually happened at the companies you own.",
-  "Asking why your week went the way it did, not the market's, and going through it with people you invite.",
+  "Seeing everything you own in one place, explained in plain sentences instead of a wall of numbers.",
+  "Finding out, on the day your portfolio falls, whether anything actually happened at the companies you own.",
+  "Asking why your week went the way it did, and talking it through with people you invite in.",
 ] as const;
 
 const IS_NOT = [
-  "It does not connect to a bank or a broker. Holdings come in the three ways below, and when you buy something new you add it yourself. Prices do update on their own.",
-  "It does not know when you bought. Returns are against your average price, so there is no chart starting on your buy date.",
-  "It cannot buy or sell anything, and it will never tell you to. Whether to add, sell or sit still is yours, every time. Prices are free and delayed by a few minutes.",
+  "It does not connect to your bank or your broker. You put in what you own yourself, and you add anything new you buy. Prices update on their own after that.",
+  "It does not know the date you bought. Gains are measured against your average buy price, so there is no chart that starts on the day you bought.",
+  "It cannot buy or sell anything, and it will never tell you to. What you do with your money stays your decision. Prices come from a free source and run a few minutes behind.",
 ] as const;
 
 /**
@@ -602,7 +619,7 @@ function Fit() {
         <SectionHead
           eyebrow="Before you start"
           title="What this is for, and what it is not."
-          detail="Two minutes of typing buys you the rest. If the left column is not the job you wanted, better to find out here than after you have typed everything in."
+          detail="Here is what Upside Lab does, and what it does not do. It is worth reading before you spend any time putting your portfolio in. If the first list is not what you were hoping for, it is better to find that out now than later."
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className={cn(BOX, NESTED_PAD, "flex flex-col gap-4")}>
@@ -832,11 +849,18 @@ function HeroHybrid({ busy, err, onSignIn, notice }: HeroProps) {
           * not. Paste is three sections down. The first screen has to
           * answer that question or the rest of the page is a feature list
           * for a product they have already decided against.
+          *
+          * `max-w-xl`, not `lg`: at 32rem this broke into three short lines
+          * under a headline running much wider, which read as a column of
+          * text stuck to the middle of an empty page.
+          *
+          * It also used to end "in ordinary sentences", which is the page
+          * telling the reader that its writing is plain instead of being
+          * plain. The sentences are right there to be judged.
           */}
-        <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
-          Most of the time the whole market fell and nothing happened at
-          your companies at all. Upside Lab reads them one by one and tells
-          you which kind of day this is, in ordinary sentences.
+        <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
+          Usually the whole market fell and there is no news about your
+          companies. Upside Lab checks each one and tells you which it is.
         </p>
         <div className="mt-8 flex flex-col items-center gap-3.5">
           <SignInMethods googleBusy={busy} onGoogle={onSignIn} />
@@ -909,7 +933,7 @@ function BookWide() {
             Thesis intact
           </Pill>
         </div>
-        <InsightText text="Nothing came out of the company today. Every similar business fell about the same amount, so this is the market having a bad day rather than news about what you own." />
+        <InsightText text="There was no news about the company today. Every similar business fell about the same amount, so this is the market having a bad day rather than anything to do with what you own." />
       </Reading>
 
       <div className="grid items-start gap-5 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
@@ -964,7 +988,7 @@ function TrioShowcase() {
         <SectionHead
           eyebrow="On a bad day"
           title="A fall and bad news look exactly the same in a list of red numbers."
-          detail="One of them is worth your evening and the other is not, and nothing you already use will sit down and tell you which is which. That is the whole job here."
+          detail="One of them is worth your evening and the other is not. Telling you which is which is the whole point of Upside Lab."
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <PulseStill />

@@ -353,7 +353,7 @@ export function CircleHome({
                         </div>
                         <div>
                           <h3 className="text-foreground">
-                            Shared names
+                            Shared holdings
                           </h3>
                           <p className="mt-0.5 text-sm text-muted-foreground">
                             Who else is in the same name today

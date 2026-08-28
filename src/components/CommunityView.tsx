@@ -790,7 +790,7 @@ export function CommunityView({ communityId }: Props) {
       winner: mostRisk.name,
       winnerId: mostRisk.id,
       stat: `${mostRisk.personality!.riskScore}/100`,
-      description: "The jumpiest mix of names in the circle.",
+      description: "The jumpiest mix of companies in the circle.",
     });
 
     const steadiest = [...withPersonality].sort(
@@ -1825,7 +1825,7 @@ export function CommunityView({ communityId }: Props) {
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Every portfolio gets scored on how spread out it is, how jumpy
-                  the names are, and how big the largest name is. Then it
+                  the companies are, and how big the largest holding is. Then it
                   gets the animal that fits. A fun lens, not a grade.
                 </p>
               </div>
