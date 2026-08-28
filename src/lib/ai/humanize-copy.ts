@@ -237,7 +237,14 @@ function joinFact(fact: string, rest: string): string {
   return `${base}. ${clause.charAt(0).toUpperCase()}${clause.slice(1)}`;
 }
 
-/** One short Pulse observation. A price or thesis fact, never an order. */
+/**
+ * One short Pulse observation. A price or thesis fact, never an order.
+ *
+ * With an `addLevel` the result carries a dollar figure, which makes it
+ * unsafe as a bare `String.replace` replacement: `$1` in "$150" is read as
+ * a capture group. Every site below that passes one uses a function
+ * replacement, where the return value is taken literally. Keep it that way.
+ */
 export function pulseSuggestion(input: {
   action?: string | null;
   trimPct?: number | null;
