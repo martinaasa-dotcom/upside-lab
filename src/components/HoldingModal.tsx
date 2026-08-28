@@ -96,6 +96,15 @@ export function HoldingModal({
   hideCallPct = false,
 }: Props) {
   const [ticker, setTicker] = useState("");
+  /*
+    The exact symbol the reader picked, when they picked one rather than
+    typed. A pick cannot survive a round trip through the text field: BTC,
+    SOL and LINK are listed symbols as well as coin aliases, so choosing the
+    Grayscale trust or Emeren Group out of the list and letting the field
+    text decide again would store the coin. Cleared the moment they type,
+    because then the text is what they meant.
+  */
+  const [picked, setPicked] = useState<string | null>(null);
   const [shares, setShares] = useState("");
   const [buyPrice, setBuyPrice] = useState("");
   const [targetCall, setTargetCall] = useState("15");
@@ -130,6 +139,7 @@ export function HoldingModal({
 
   function resetForm() {
     setTicker("");
+    setPicked(null);
     setShares("");
     setBuyPrice("");
     setTargetCall("15");
@@ -143,6 +153,7 @@ export function HoldingModal({
     if (!open) return;
     resetForm();
     setCollapsed([]);
+    setPicked(null);
   }, [open]);
 
   if (!open) return null;
@@ -151,6 +162,7 @@ export function HoldingModal({
     !ticker.trim() && !shares.trim() && !buyPrice.trim();
 
   async function resolveHoldingTicker(raw: string): Promise<string> {
+    if (picked) return picked;
     const typed = resolveTypedTicker(raw, suggestions);
     if (typed) return typed;
     try {
@@ -276,6 +288,7 @@ export function HoldingModal({
         prev.filter((r) => r.id !== row.id && r.ticker !== row.ticker)
       );
       setTicker(tickerFieldText(row.ticker));
+      setPicked(row.ticker);
       setShares(String(row.shares));
       setBuyPrice(String(row.buyPrice));
       setTargetCall(String(row.targetCall));
@@ -319,7 +332,7 @@ export function HoldingModal({
     }
   }
 
-  const normalized = resolveTypedTicker(ticker, suggestions);
+  const normalized = picked ?? resolveTypedTicker(ticker, suggestions);
   const holdingIsCoin = Boolean(
     matchCoinQuery(ticker) || (normalized && isCoinSymbol(normalized))
   );
@@ -435,6 +448,7 @@ export function HoldingModal({
               active={holdingIsCoin && normalized ? [normalized] : []}
               onPick={(symbol) => {
                 setTicker(tickerFieldText(symbol));
+                setPicked(symbol);
                 setListOpen(false);
                 setError(null);
               }}
@@ -447,6 +461,7 @@ export function HoldingModal({
                 value={ticker}
                 onChange={(e) => {
                   setTicker(sanitizeTickerQuery(e.target.value));
+                  setPicked(null);
                   setListOpen(true);
                   setError(null);
                 }}
@@ -457,6 +472,7 @@ export function HoldingModal({
                   if (e.key === "Enter" && suggestions[0] && listOpen) {
                     e.preventDefault();
                     setTicker(tickerFieldText(suggestions[0]!.symbol));
+                    setPicked(suggestions[0]!.symbol);
                     setListOpen(false);
                   }
                 }}
@@ -474,6 +490,7 @@ export function HoldingModal({
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => {
                           setTicker(tickerFieldText(row.symbol));
+                          setPicked(row.symbol);
                           setListOpen(false);
                         }}
                       >

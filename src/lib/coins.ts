@@ -123,12 +123,18 @@ export function coinSuggestions(
 }
 
 /**
- * What belongs in a ticker text field. English name for a coin, never
- * the Yahoo pair. Save still stores BTC-USD via resolveTypedTicker.
+ * What belongs in a ticker text field. English name for a coin, never the
+ * Yahoo pair. Save still stores BTC-USD via resolveTypedTicker.
+ *
+ * A stored coin symbol only, never a bare alias. `BTC`, `SOL` and `LINK`
+ * are all listed symbols in their own right, so running an alias match here
+ * meant picking the Grayscale trust or Emeren Group out of the suggestion
+ * list wrote "Bitcoin" or "Solana" into the field, and the save then stored
+ * the coin. Somebody who owns a solar company would have had it priced as
+ * Solana, in their portfolio value, in Pulse and in the Sunday letter.
  */
 export function tickerFieldText(storedOrQuery: string): string {
-  const found = coinFromSymbol(storedOrQuery) ?? matchCoinQuery(storedOrQuery);
-  return found?.name ?? storedOrQuery.trim();
+  return coinFromSymbol(storedOrQuery)?.name ?? storedOrQuery.trim();
 }
 
 /** Coins have no covered-call yield. Heal any leftover 15% on those rows. */

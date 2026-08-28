@@ -319,6 +319,13 @@ export function WelcomeTour({
   } | null>(null);
 
   const [ticker, setTicker] = useState("");
+  /*
+    The exact symbol they picked, when they picked rather than typed. See
+    HoldingModal: BTC, SOL and LINK are listed symbols as well as coin
+    aliases, so a pick that has to survive as field text would come back as
+    the coin. Cleared as soon as they type.
+  */
+  const [pickedTicker, setPickedTicker] = useState<string | null>(null);
   const [shares, setShares] = useState("");
   const [buyPrice, setBuyPrice] = useState("");
   const [stockError, setStockError] = useState<string | null>(null);
@@ -460,6 +467,7 @@ export function WelcomeTour({
   }
 
   async function resolveTicker(raw: string): Promise<string> {
+    if (pickedTicker) return pickedTicker;
     const typed = resolveTypedTicker(raw, suggestions);
     if (typed) return typed;
     try {
@@ -561,6 +569,7 @@ export function WelcomeTour({
         },
       ]);
       setTicker("");
+      setPickedTicker(null);
       setShares("");
       setBuyPrice("");
       setListOpen(false);
@@ -609,7 +618,7 @@ export function WelcomeTour({
     ? (EXPERIENCE_TIERS.find((t) => t.id === finished.tier)?.label ?? null)
     : null;
   const copy = screenCopy(stage, tierLabel);
-  const resolvedTicker = resolveTypedTicker(ticker, suggestions);
+  const resolvedTicker = pickedTicker ?? resolveTypedTicker(ticker, suggestions);
   const holdingIsCoin = Boolean(resolvedTicker && isCoinSymbol(resolvedTicker));
   const buyCode = resolvedTicker
     ? listingCurrency(resolvedTicker)
@@ -973,6 +982,7 @@ export function WelcomeTour({
                   active={holdingIsCoin && resolvedTicker ? [resolvedTicker] : []}
                   onPick={(symbol) => {
                     setTicker(tickerFieldText(symbol));
+                    setPickedTicker(symbol);
                     setListOpen(false);
                     setStockError(null);
                   }}
@@ -984,6 +994,7 @@ export function WelcomeTour({
                     value={ticker}
                     onChange={(e) => {
                       setTicker(sanitizeTickerQuery(e.target.value));
+                      setPickedTicker(null);
                       setListOpen(true);
                       setStockError(null);
                     }}
@@ -994,6 +1005,7 @@ export function WelcomeTour({
                       if (e.key === "Enter" && suggestions[0] && listOpen) {
                         e.preventDefault();
                         setTicker(tickerFieldText(suggestions[0]!.symbol));
+                        setPickedTicker(suggestions[0]!.symbol);
                         setListOpen(false);
                       }
                     }}
@@ -1010,6 +1022,7 @@ export function WelcomeTour({
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => {
                               setTicker(tickerFieldText(row.symbol));
+                              setPickedTicker(row.symbol);
                               setListOpen(false);
                             }}
                           >

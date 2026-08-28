@@ -151,3 +151,33 @@ describe("field text and call %", () => {
     expect(sectorForTicker("BTC")).toBe("Coins");
   });
 });
+
+describe("a coin alias is also a listed symbol", () => {
+  /*
+    BTC is a Grayscale trust, SOL is Emeren Group, LINK is Interlink
+    Electronics. `tickerFieldText` used to run an alias match, so choosing
+    one of those companies out of the suggestion list wrote the coin's name
+    into the field and the save stored the coin. Somebody who owns a solar
+    company would have had it priced as Solana, in their portfolio value, in
+    Pulse and in the Sunday letter.
+
+    The field text now prettifies a stored coin symbol only. Which one the
+    reader meant is settled by whether they picked it, which the two entry
+    forms remember as a symbol rather than as text.
+  */
+  it("shows the coin's name for a stored coin symbol", () => {
+    expect(tickerFieldText("BTC-USD")).toBe("Bitcoin");
+    expect(tickerFieldText("SOL-USD")).toBe("Solana");
+  });
+
+  it("leaves a listed symbol alone, even when a coin shares its letters", () => {
+    expect(tickerFieldText("BTC")).toBe("BTC");
+    expect(tickerFieldText("SOL")).toBe("SOL");
+    expect(tickerFieldText("LINK")).toBe("LINK");
+  });
+
+  it("leaves an ordinary ticker alone", () => {
+    expect(tickerFieldText("NVDA")).toBe("NVDA");
+    expect(tickerFieldText(" aapl ")).toBe("aapl");
+  });
+});
