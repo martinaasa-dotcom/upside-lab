@@ -70,8 +70,9 @@ const TRAINING_IS_STALE: string =
 /**
  * A single holding's modeled path.
  *
- * Every input here is one the prompt really sends (`buildForecastPrompt`).
- * If that list changes, this changes with it.
+ * Every input here is one the prompt really sends (`buildForecastPlanPrompt`
+ * in forecast-plan.ts, which also carries `FORECAST_CONVICTION_PROMPT` and
+ * the portfolio insight lines). If that list changes, this changes with it.
  */
 export function forecastPathProvenance(input: {
   ticker: string;
@@ -140,6 +141,15 @@ export function forecastPathProvenance(input: {
             detail: "not written down, so the model reasoned without it",
           },
       {
+        what: "The rest of your portfolio",
+        detail:
+          "your cash, your total, and which of your holdings are the same kind of business, so a name is priced as part of what you hold rather than on its own",
+      },
+      {
+        what: "Today's date",
+        detail: "so the first year is the rest of this year, not a whole one",
+      },
+      {
         what: "The whole-market baseline",
         detail:
           "about 10% a year, what a broad index fund is assumed to return. This path can land above it or below it.",
@@ -192,6 +202,10 @@ export function forecastRoomProvenance(input: {
       { what: "The kind of business each one is" },
       { what: "How much of the portfolio each one is" },
       { what: "Your written reason for holding a name, when you have one" },
+      {
+        what: "Your cash, your total, and which holdings are the same kind of business",
+      },
+      { what: "Today's date, so the first year is the rest of this one" },
       {
         what: "The whole-market baseline",
         detail:
