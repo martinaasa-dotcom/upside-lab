@@ -476,7 +476,7 @@ function More() {
 */
 const WILL_NOT = [
   "Connect to your bank or broker. You add what you own once, and from then on the prices update on their own.",
-  "Know the day you bought. Returns are against your average price, so there is no chart starting on your buy date.",
+  "Know the day you bought. Gains are measured against your average price, so there is no chart that starts on the day you bought.",
   "Buy or sell anything, or tell you to. Prices are free and delayed by a few minutes.",
 ] as const;
 
