@@ -2864,6 +2864,20 @@ run("signed-in pages share one column so rooms do not jump", () => {
   assert.doesNotMatch(macroStrip, />\s*Markets\s*</);
   const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
   assert.match(css, /scrollbar-gutter:\s*stable/);
+  /*
+    These two moved out of globals.css into scroll-host.css and were deleted
+    rather than repointed when that turned CI red, which left the rule in
+    AGENTS.md with nothing enforcing it. The track and its clearance are the
+    whole reason `.scroll-host` exists.
+  */
+  assert.match(css, /@import\s+["']\.\/scroll-host\.css["']/);
+  const scrollHost = readFileSync(
+    join(process.cwd(), "src/app/scroll-host.css"),
+    "utf8"
+  );
+  assert.match(scrollHost, /\.scroll-host\s*\{/);
+  assert.match(scrollHost, /--scroll-clearance:\s*1rem/);
+  assert.match(scrollHost, /padding-inline-end:\s*var\(--scroll-clearance\)/);
   const dash = readFileSync(
     join(process.cwd(), "src/components/Dashboard.tsx"),
     "utf8"
@@ -2946,10 +2960,16 @@ run("sheets sit in the visible viewport so the keyboard cannot cover them", () =
     "TickerDrawer.tsx",
     "AccountPage.tsx",
     "CommunityView.tsx",
+    "FeedbackModal.tsx",
+    "CommunitiesList.tsx",
   ];
   for (const name of sheets) {
     const src = readFileSync(join(process.cwd(), "src/components", name), "utf8");
     assert.match(src, /ViewportOverlay/, name);
+    // A raw overflow-y-auto with a hidden bar is what `.scroll-host` exists
+    // to replace. Every one of these carries it today; the assertion went
+    // when two of the files were briefly missing it, and never came back.
+    assert.match(src, /scroll-host/, name);
     assert.doesNotMatch(src, /fixed inset-0/, name);
   }
   const confirm = readFileSync(
@@ -4819,6 +4839,42 @@ run("split rows stack on a phone so copy fills the card", () => {
   );
   assert.match(seasonality, /SPLIT_ROW/);
   assert.match(seasonality, /SPLIT_COPY/);
+});
+
+run("a setting is a label on the left and one control on the right", () => {
+  /*
+    This check was deleted rather than repointed when `SETTING_ROW` moved
+    out of Panel.tsx and `pinActions` was replaced by `SettingBar`. The rule
+    it guards did not go anywhere: AGENTS.md still says Account settings are
+    a label left, a control right, one row at every width, and a wrapped
+    control under its own label is what that exists to prevent.
+
+    Assert the rule, not today's class string beyond the two properties
+    that are the rule: one row, and a control that does not shrink.
+  */
+  const row = readFileSync(
+    join(process.cwd(), "src/components/ui/setting-row.tsx"),
+    "utf8"
+  );
+  assert.match(row, /export const SETTING_ROW/);
+  assert.match(row, /export function SettingBar/);
+  assert.match(row, /export function PinnedHeader/);
+  assert.match(row, /flex-nowrap/);
+  assert.match(row, /justify-between/);
+  assert.match(row, /shrink-0/);
+  /*
+    Deliberately says nothing about `item.tsx`. The deleted check demanded
+    `flex-nowrap` and an `ml-auto shrink-0` actions row there, which that
+    file has never had: `Item` is the generic shadcn list row and its
+    `flex-wrap` is what makes `ItemHeader`'s `basis-full` wrap onto its own
+    line. That half was asserting a UI nobody wrote, and dropping it was
+    right. The settings rule above is the part that was real.
+  */
+  const account = readFileSync(
+    join(process.cwd(), "src/components/AccountPage.tsx"),
+    "utf8"
+  );
+  assert.match(account, /SettingBar/);
 });
 
 run("assumed YTD NAV uses current size and forward-fills gaps", () => {
