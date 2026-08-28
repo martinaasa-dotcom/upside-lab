@@ -7,10 +7,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/format";
 import { PAGE_COLUMN_CLASS } from "@/lib/page-shell";
+import { usePathname } from "next/navigation";
 import { useDockPad } from "@/lib/use-dock-pad";
 import type { Portfolio } from "@/lib/types";
 import { WORKSPACE_DOCK_SLOT_ID } from "@/lib/workspace-rooms";
@@ -18,7 +19,6 @@ import { WORKSPACE_DOCK_SLOT_ID } from "@/lib/workspace-rooms";
 type Props = {
   portfolios: Portfolio[];
   activeId: string | null;
-  onChange: (id: string) => void;
   /** Opens the New portfolio dialog — the same one the phone opens. */
   onAdd: () => void;
   onRenameRequest?: (id: string, name: string) => void;
@@ -57,7 +57,6 @@ type OpenMenu = {
 export function PortfolioTabs({
   portfolios,
   activeId,
-  onChange,
   onAdd,
   onRenameRequest,
   onDeleteRequest,
@@ -68,6 +67,17 @@ export function PortfolioTabs({
   className,
 }: Props) {
   const [menu, setMenu] = useState<OpenMenu | null>(null);
+  const pathname = usePathname();
+
+  /*
+    The rename/delete menu belongs to the cell it was opened on, and the
+    cells are links now: leaving the page with it open would float it over
+    the room you just arrived in, still naming the portfolio you left. The
+    dock used to close it in the select handler it no longer has.
+  */
+  useEffect(() => {
+    setMenu(null);
+  }, [pathname]);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   /* A callback ref, not a `useRef`: this nav moves into a portal after the
      first render, and the node it lands as is not the node a ref captured.
@@ -115,10 +125,6 @@ export function PortfolioTabs({
       <div className={cn(PAGE_COLUMN_CLASS, "flex justify-center")}>
         <BookModeDock
           activeId={activeId}
-          onSelectMode={(id) => {
-            setMenu(null);
-            onChange(id);
-          }}
           hiddenModeIds={hiddenModeIds}
           guest={guest}
           sheets={portfolios}
