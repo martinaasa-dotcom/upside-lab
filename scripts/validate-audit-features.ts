@@ -18,10 +18,6 @@ import { correlationMatrix, pearson } from "../src/lib/correlation";
 import { estimateGreenStreak } from "../src/lib/streaks";
 import { isForecastFullyCovered, FORECAST_YEARS } from "../src/lib/forecast";
 import { ensureCompleteEoyTargets } from "../src/lib/forecast-plan";
-import {
-  restoreCurrentYearDestination,
-  shapedFallbackPath,
-} from "../src/lib/forecast-conviction";
 import type { ForecastModel } from "../src/lib/forecast";
 import { roundMoney, safeDiv } from "../src/lib/money";
 import { enrichHoldings } from "../src/lib/calculations";
@@ -212,8 +208,18 @@ assert(
   (timidRejected[0]?.prices?.[2026] ?? 0) > 100 * 1.2,
   "hot AI infra path is not lowered"
 );
-// Classic undershoot: ~3.6x by 2030 vs ~4.8x theme band. Lift, don't keep.
-const timidLifted = ensureCompleteEoyTargets(forecastStub, [
+/*
+  A path landing well under the shape for its kind of business is kept.
+
+  This block used to assert the opposite: that ~3.6x by 2030 against a
+  ~4.8x theme band was "lifted to the theme band". That lift is gone
+  (2026-08-28), along with the outright replacement of a falling path and
+  the current-year rewrite, because between them they meant a forecast
+  could never point down. Measured before the removal: a model answering
+  92, 78, 84, 70, 61 off a $100 spot reached the reader as
+  139, 203, 182, 275, 357.
+*/
+const modestKept = ensureCompleteEoyTargets(forecastStub, [
   {
     ticker: "NBIS",
     prices: {
@@ -223,31 +229,44 @@ const timidLifted = ensureCompleteEoyTargets(forecastStub, [
       2029: 267,
       2030: 364,
     },
-    rationale: "gpu cloud compounding with a digestion year in 2028",
+    rationale: "gpu cloud compounding with a quiet year in 2028",
   },
 ]);
 assert(
-  (timidLifted[0]?.prices?.[2030] ?? 0) >= 100 * 4.5,
-  "undershoot AI infra terminal is lifted to the theme band"
+  modestKept[0]?.prices?.[2030] === 364,
+  "a modest path under the theme band is kept, not lifted"
 );
 assert(
-  /gpu cloud/i.test(timidLifted[0]?.rationale ?? ""),
-  "lift keeps the model's rationale"
+  /gpu cloud/i.test(modestKept[0]?.rationale ?? ""),
+  "keeping a path keeps the model's rationale"
 );
-const hugNow = restoreCurrentYearDestination(
+
+// A forecast may end below where it started, and may sit flat this year.
+const falling = ensureCompleteEoyTargets(forecastStub, [
   {
-    2026: 100.4,
-    2027: 230,
-    2028: 310,
-    2029: 391,
-    2030: 483,
+    ticker: "NBIS",
+    prices: { 2026: 92, 2027: 78, 2028: 84, 2029: 70, 2030: 61 },
+    rationale: "losing share to cheaper capacity",
   },
-  shapedFallbackPath(100, "ai_infra"),
-  100,
-  new Date("2026-08-14T12:00:00Z")
+]);
+assert(
+  FORECAST_YEARS.every((y) => (falling[0]?.prices?.[y] ?? 0) < 100),
+  "a path ending below today's price reaches the reader intact"
 );
-assert(hugNow[2026]! > 110 && hugNow[2026]! < 140, "current-year hug is a remaining-year move, not spot");
-assert(hugNow[2030] === 483, "current-year restore leaves later years alone");
+assert(falling[0]?.prices?.[2030] === 61, "the falling destination is untouched");
+
+const flatNow = ensureCompleteEoyTargets(forecastStub, [
+  {
+    ticker: "NBIS",
+    prices: { 2026: 100.4, 2027: 230, 2028: 310, 2029: 391, 2030: 483 },
+    rationale: "quiet rest of year, then the build lands",
+  },
+]);
+assert(
+  Math.abs((flatNow[0]?.prices?.[2026] ?? 0) - 100.4) < 1,
+  "a flat current year is left flat rather than rewritten upward"
+);
+assert(flatNow[0]?.prices?.[2030] === 483, "later years are left alone");
 const cryptoFill = ensureCompleteEoyTargets(
   {
     ...forecastStub,

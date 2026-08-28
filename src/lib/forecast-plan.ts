@@ -13,8 +13,7 @@ import {
   FORECAST_CONVICTION_PROMPT,
   fillMissingForecastYears,
   forecastThemeForTicker,
-  liftPathToThemeMagnitude,
-  restoreCurrentYearDestination,
+  reshapeToThemeRhythm,
   shapedFallbackPath,
 } from "@/lib/forecast-conviction";
 import { todayKeyInTz } from "@/lib/timezone";
@@ -412,41 +411,44 @@ function fallbackRationale(input: {
 }
 
 /**
- * Guarantee every holding has every FORECAST_YEAR filled. Gaps and
- * boringly-linear ramps use the theme shape. A non-linear path whose 2030
- * multiple still sits below the theme band is lifted (shape kept, destination
- * restored). A path already at or above the band is never lowered. If the
- * current calendar year is hugging today's spot, that cell is rewritten as
- * the remaining-year move, not a restatement of now.
+ * Guarantee every holding has every FORECAST_YEAR filled. A gap is filled
+ * from the theme shape, and an even ramp is re-timed onto that shape's
+ * rhythm while keeping the destination the model chose. Nothing here moves
+ * a path up or down.
  */
 /**
  * What this app did to the model's answer before you saw it.
  *
- * The path on screen is not always the path the model wrote. A year it
- * left empty gets filled from a table of typical shapes, a straight line
- * gets replaced with a shaped one, and a path finishing below the shape
- * kept for that kind of business gets scaled up to it. Every one of those
- * is defensible and none of them is the reader's assumption, so the eye
- * beside the price says which of them happened to this name.
+ * The path on screen is not always the path the model wrote: a year it
+ * left empty gets filled from a table of typical shapes, and an even ramp
+ * gets re-timed onto that shape's rhythm. Neither is the reader's
+ * assumption, so the eye beside the price says which of them happened.
+ *
+ * What is deliberately not in this list any more is a magnitude floor.
+ * Until 2026-08-28 a path whose last year came in under the theme shape
+ * was scaled up to meet it, and a path ending below today's price was
+ * thrown away and replaced outright, which meant the app could not show a
+ * flat or falling forecast at all. The prompt has always said a path
+ * ending below today is an allowed answer and told the model not to round
+ * one up "out of politeness"; the post-processing then rounded it up
+ * anyway. The prompt won.
  */
 export type ForecastPathAdjustment = {
   /** The model gave no path for this name at all. */
   missing: boolean;
   /** It skipped at least one year, and the app filled that year in. */
   filled: boolean;
-  /** It came out as an even ramp, so the app replaced it with a shaped path. */
+  /**
+   * It came out as an even ramp, so the app re-timed it onto the shape for
+   * that kind of business. Where it ends is still the model's own number.
+   */
   reshaped: boolean;
-  /** It finished below the shape kept for this kind of business, so the app
-   * scaled it up to that shape. Paths above it are never scaled down. */
-  lifted: boolean;
 };
 
 export function forecastPathWasAdjusted(
   adjust: ForecastPathAdjustment | undefined
 ): boolean {
-  return Boolean(
-    adjust && (adjust.missing || adjust.filled || adjust.reshaped || adjust.lifted)
-  );
+  return Boolean(adjust && (adjust.missing || adjust.filled || adjust.reshaped));
 }
 
 export function ensureCompleteEoyTargets(
@@ -474,13 +476,17 @@ export function ensureCompleteEoyTargets(
     const shaped = shapedFallbackPath(spot, theme);
     let prices = fillMissingForecastYears(existing?.prices, shaped);
 
+    /*
+      An even ramp is re-timed onto the theme's rhythm and keeps its own
+      destination. It used to be replaced by the theme path outright, which
+      was a second magnitude floor hiding inside a shape rule: a model that
+      answered with a steady decline got a straight line detected and an
+      upward theme path substituted for it.
+    */
     const reshape = isNearLinear(prices, spot) && theme !== "index";
     if (reshape) {
-      prices = { ...shaped };
+      prices = reshapeToThemeRhythm(prices, shaped, spot);
     }
-
-    const lifted = liftPathToThemeMagnitude(prices, shaped, spot);
-    prices = restoreCurrentYearDestination(lifted.prices, shaped, spot);
 
     onAdjust?.(row.ticker.toUpperCase(), {
       missing: !existing?.prices,
@@ -489,7 +495,6 @@ export function ensureCompleteEoyTargets(
         return !(typeof given === "number" && given > 0);
       }),
       reshaped: reshape,
-      lifted: lifted.lifted,
     });
 
     out.push({
