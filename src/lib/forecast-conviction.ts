@@ -214,8 +214,8 @@ export function shapedFallbackPath(
 
 /**
  * Fill any year the model left empty/invalid with the generic fallback
- * shape. Valid model prices are kept here; magnitude lift happens in
- * `liftPathToThemeMagnitude`.
+ * shape. Every valid model price is kept exactly as written: this closes
+ * gaps and never moves a number the model did supply.
  */
 export function fillMissingForecastYears(
   prices: Partial<Record<ForecastYear, number>> | undefined,
@@ -236,64 +236,54 @@ export function fillMissingForecastYears(
  * whole path up so 2030 matches. Winter / digestion years keep their shape.
  * Paths already at or above the band are left alone (never lowered).
  */
-export function liftPathToThemeMagnitude(
+/**
+ * Re-time a path onto the theme's rhythm without touching where it ends.
+ *
+ * This is what is left of the reshaping once the magnitude floor is gone,
+ * and the split is the whole point: the theme table knows what a plausible
+ * five years *looks* like for a kind of business (a fast stretch, a quiet
+ * year, sometimes a real drop in the middle), and the model knows where
+ * this particular company is going. Taking the shape from one and the
+ * destination from the other keeps the anti-straight-line rule without
+ * putting the app's opinion back into the number.
+ *
+ * The arithmetic is a log interpolation. `w` is the fraction of the theme's
+ * total move completed by that year, so the output lands exactly on the
+ * model's own final multiple no matter what that multiple is. A destination
+ * below today's price is simply a negative log move spread over the same
+ * rhythm, which is how a declining path comes out declining rather than
+ * being quietly turned around.
+ */
+export function reshapeToThemeRhythm(
   prices: Record<ForecastYear, number>,
-  fallback: Record<ForecastYear, number>,
+  shaped: Record<ForecastYear, number>,
   spot: number
-): { prices: Record<ForecastYear, number>; lifted: boolean } {
+): Record<ForecastYear, number> {
   const last = FORECAST_YEARS[FORECAST_YEARS.length - 1]!;
-  const modelTerm = prices[last];
-  const themeTerm = fallback[last];
-  if (!(spot > 0) || !(modelTerm > 0) || !(themeTerm > 0)) {
-    return { prices, lifted: false };
+  const target = prices[last];
+  const shapedTerm = shaped[last];
+  if (!(spot > 0) || !(target > 0) || !(shapedTerm > 0)) return prices;
+
+  const totalShapeMove = Math.log(shapedTerm / spot);
+  // A theme whose five years go nowhere has no rhythm to lend.
+  if (!Number.isFinite(totalShapeMove) || Math.abs(totalShapeMove) < 1e-9) {
+    return prices;
   }
-  if (modelTerm < spot) {
-    return { prices: { ...fallback }, lifted: true };
-  }
-  const modelMult = modelTerm / spot;
-  const themeMult = themeTerm / spot;
-  if (modelMult >= themeMult * 0.98) {
-    return { prices, lifted: false };
-  }
-  const scale = themeMult / modelMult;
+  const totalMove = Math.log(target / spot);
+  if (!Number.isFinite(totalMove)) return prices;
+
   const out = { ...prices };
   for (const y of FORECAST_YEARS) {
-    out[y] = roundPx(Math.max(0.01, prices[y]! * scale));
+    const step = shaped[y];
+    if (!(step > 0)) continue;
+    const w = Math.log(step / spot) / totalShapeMove;
+    if (!Number.isFinite(w)) continue;
+    out[y] = roundPx(Math.max(0.01, spot * Math.exp(w * totalMove)));
   }
-  return { prices: enforcePathRules(out, spot), lifted: true };
+  out[last] = roundPx(Math.max(0.01, target));
+  return enforcePathRules(out, spot);
 }
 
-/**
- * The first forecast year is often the calendar year we are already in.
- * Models paste today's spot into that cell because "2026" feels like now.
- * That column is still December 31. If the printed EOY hugs spot while the
- * theme still has a real remaining-year move, replace just that year with
- * the leftover fraction of the theme's first-year multiple. Later years
- * are untouched.
- */
-export function restoreCurrentYearDestination(
-  prices: Record<ForecastYear, number>,
-  fallback: Record<ForecastYear, number>,
-  spot: number,
-  now: Date = new Date()
-): Record<ForecastYear, number> {
-  const y = now.getFullYear();
-  if (!(FORECAST_YEARS as readonly number[]).includes(y)) return prices;
-  const year = y as ForecastYear;
-  const eoy = prices[year];
-  const themeEoy = fallback[year];
-  if (!(spot > 0) || !(eoy > 0) || !(themeEoy > 0)) return prices;
-  const themeMult = themeEoy / spot;
-  if (themeMult < 1.08) return prices;
-  if (Math.abs(eoy / spot - 1) >= 0.02) return prices;
-
-  const start = Date.UTC(y, 0, 1);
-  const end = Date.UTC(y, 11, 31);
-  const elapsed = (now.getTime() - start) / (end - start);
-  const remaining = Math.max(0.15, Math.min(1, 1 - elapsed));
-  const remainingMult = Math.pow(themeMult, remaining);
-  return { ...prices, [year]: roundPx(spot * remainingMult) };
-}
 
 /** Light sanity net — only guarantees every year is a positive number. */
 export function enforcePathRules(

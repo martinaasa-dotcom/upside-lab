@@ -30,12 +30,18 @@ import type { ForecastPathAdjustment } from "@/lib/forecast-plan";
  *
  * **It has to admit what we do to the answer.** The forecast path on
  * screen is not always the path the model wrote: a skipped year gets
- * filled from a table, a straight line gets reshaped, and a path landing
- * below the shape kept for that kind of business gets scaled up to it. A
- * Pulse badge that contradicted its own suggestion gets settled the calm
- * way. Every sentence the model writes is rewritten to strip market
- * jargon. None of that is a secret, and a reader who found it out for
- * themselves would be right to distrust everything else here.
+ * filled from a table, and an even ramp gets re-timed onto a typical
+ * rhythm. A Pulse badge that contradicted its own suggestion gets settled
+ * the calm way. Every sentence the model writes is rewritten to strip
+ * market jargon. None of that is a secret, and a reader who found it out
+ * for themselves would be right to distrust everything else here.
+ *
+ * Writing this surface is what surfaced the one adjustment that could not
+ * be honestly disclosed: a magnitude floor that scaled any path finishing
+ * below its sector shape up to meet it, and replaced a falling path
+ * outright. It is gone (2026-08-28). Nothing here moves a number up or
+ * down any more, which is why no sentence in this file promises that it
+ * might.
  */
 export type ProvenanceMaker = "model" | "arithmetic" | "market";
 
@@ -156,7 +162,7 @@ const MODEL_ITSELF: ProvenanceSource = {
 const BASELINE_INPUT: ProvenanceInput = {
   what: "The whole-market baseline",
   detail:
-    "about 10% a year, which is what a broad index fund is assumed to return. The model reasons up or down from there, but this app will not show a path that finishes below the shape it keeps for that kind of business, so the floor is ours and not the model's.",
+    "about 10% a year, which is what a broad index fund is assumed to return. The model reasons up or down from there, and nothing in this app moves its answer afterwards. A path that ends flat, or below today's price, is shown as it was written.",
 };
 
 /* ---------------------------------------------------------------------- *
@@ -180,12 +186,7 @@ function adjustmentSteps(adjust?: ForecastPathAdjustment): string[] {
   }
   if (adjust.reshaped) {
     out.push(
-      "It answered with an even ramp, the same rise every year, which no share price does. This app replaced it with a shape that has quiet years and fast years in it."
-    );
-  }
-  if (adjust.lifted) {
-    out.push(
-      "It landed below the shape this app keeps for that kind of business, so the whole path was scaled up to meet it. This only ever goes one way: a path above that shape is left exactly as the model wrote it."
+      "It answered with an even ramp, the same rise every year, which no share price does. This app spread the same move across the years in the rhythm typical of that kind of business, with quiet years and fast ones. Where the path ends is still the model's own number."
     );
   }
   return out;

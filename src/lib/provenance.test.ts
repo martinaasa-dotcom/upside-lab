@@ -111,32 +111,30 @@ describe("provenance", () => {
   });
 
   /*
-   * The three below are the whole point of this surface. A panel that lists
+   * The two below are the whole point of this surface. A panel that lists
    * inputs but hides what this app did to the model's answer afterwards is
    * the more convincing kind of dishonest, because it reads like candour.
    */
-  it("admits when the app scaled a path up to its own floor", () => {
-    const p = forecastPathProvenance({
-      ticker: "NBIS",
-      spot: 211.11,
-      adjust: { missing: false, filled: false, reshaped: false, lifted: true },
-    });
-    const steps = (p.steps ?? []).join(" ");
-    expect(steps).toMatch(/scaled up/i);
-    // And that the scaling only ever runs one way, which is the part a
-    // reader would otherwise have to find in the source to know.
-    expect(steps).toMatch(/one way/i);
-  });
-
   it("admits a filled year and a reshaped straight line, separately", () => {
     const p = forecastPathProvenance({
       ticker: "NBIS",
       spot: 211.11,
-      adjust: { missing: false, filled: true, reshaped: true, lifted: false },
+      adjust: { missing: false, filled: true, reshaped: true },
     });
     const steps = (p.steps ?? []).join(" ");
     expect(steps).toMatch(/skipped at least one year/i);
     expect(steps).toMatch(/even ramp/i);
+  });
+
+  it("does not claim the reshaping moved where the path ends", () => {
+    const p = forecastPathProvenance({
+      ticker: "NBIS",
+      spot: 211.11,
+      adjust: { missing: false, filled: false, reshaped: true },
+    });
+    const steps = (p.steps ?? []).join(" ");
+    expect(steps).toMatch(/still the model's own number/i);
+    expect(steps).not.toMatch(/scaled up/i);
   });
 
   it("says out loud when a path was reused from a different run", () => {
@@ -154,7 +152,7 @@ describe("provenance", () => {
     const p = forecastPathProvenance({
       ticker: "NBIS",
       spot: 211.11,
-      adjust: { missing: false, filled: false, reshaped: false, lifted: false },
+      adjust: { missing: false, filled: false, reshaped: false },
     });
     const steps = (p.steps ?? []).join(" ");
     expect(steps).not.toMatch(/scaled up|even ramp|skipped/i);
@@ -197,15 +195,32 @@ describe("provenance", () => {
     expect(typed.headline).toMatch(/rate you typed/i);
   });
 
-  it("states the floor this app puts under a modeled path, whether or not it fired", () => {
+  /*
+   * The inverse of the assertion that used to sit here. While the floor
+   * existed this file made the panel disclose it; now that it is gone, the
+   * job is to stop any copy quietly promising a floor that is not there.
+   * A reader told the app has a safety net under every forecast, when it
+   * does not, is worse off than one told nothing.
+   */
+  it("promises no floor under a modeled path, because there is none", () => {
     for (const p of [
       forecastPathProvenance({ ticker: "NBIS", spot: 211.11 }),
       forecastRoomProvenance({}),
     ]) {
-      const detail = p.inputs.map((i) => i.detail ?? "").join(" ");
-      expect(detail).toMatch(/will not show a path that finishes below/i);
-      expect(detail).toMatch(/the floor is ours and not the model's/i);
+      const said = [
+        p.headline,
+        ...p.inputs.map((i) => `${i.what} ${i.detail ?? ""}`),
+        ...(p.steps ?? []),
+      ].join(" ");
+      expect(said).not.toMatch(/will not show a path that finishes below/i);
+      expect(said).not.toMatch(/floor is ours/i);
+      expect(said).not.toMatch(/scaled up to meet it/i);
     }
+    const detail = forecastPathProvenance({ ticker: "NBIS", spot: 211.11 })
+      .inputs.map((i) => i.detail ?? "")
+      .join(" ");
+    expect(detail).toMatch(/nothing in this app moves its answer afterwards/i);
+    expect(detail).toMatch(/below today's price, is shown as it was written/i);
   });
 
   it("tells a Pulse reader that picking the names is not the model's doing", () => {
