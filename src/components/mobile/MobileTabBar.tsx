@@ -1,7 +1,6 @@
 "use client";
 
 import { useCircleHref } from "@/lib/use-circle-href";
-import { stashOpenTab } from "@/lib/active-sheet";
 import { cn } from "@/lib/format";
 import {
   COMPOUND_TAB_ID,
@@ -9,6 +8,12 @@ import {
   OVERVIEW_TAB_ID,
   PULSE_TAB_ID,
 } from "@/lib/overview";
+import {
+  GROWTH_PATH,
+  LAB_PATH,
+  PORTFOLIO_PATH,
+  PULSE_PATH,
+} from "@/lib/book-routes";
 import { type MobileTabId } from "@/lib/mobile-tab";
 import { useDockPad } from "@/lib/use-dock-pad";
 import { useDockMarker } from "@/lib/use-dock-marker";
@@ -71,7 +76,7 @@ const TABS: {
 }[] = [
   {
     id: "home",
-    href: "/?tab=overview",
+    href: "/",
     label: "Overview",
     shortLabel: "Home",
     Icon: House,
@@ -91,14 +96,14 @@ const TABS: {
     never be a glyph. So it opens the portfolio you were last in, and the
     header picker stays the way you move between them.
 
-    Its href carries no token on purpose. `resolveSheetIdFromUrl` in
-    `Dashboard` reads `?tab=portfolio` against the portfolios that account
-    really has, which is the only place that can tell a remembered id from a
-    deleted one, so the dock does not have to know.
+    Its href carries no token on purpose. `/portfolio` is read against the
+    portfolios that account really has, which is the only place that can
+    tell a remembered id from a deleted one, so the dock does not have to
+    know. See `tabIdFromPath`.
   */
   {
     id: "holdings",
-    href: "/?tab=portfolio",
+    href: PORTFOLIO_PATH,
     label: "Holdings",
     shortLabel: "Holdings",
     Icon: Wallet,
@@ -106,7 +111,7 @@ const TABS: {
   },
   {
     id: "pulse",
-    href: "/?tab=pulse",
+    href: PULSE_PATH,
     label: "Pulse",
     shortLabel: "Pulse",
     Icon: Activity,
@@ -114,7 +119,7 @@ const TABS: {
   },
   {
     id: "lab",
-    href: "/?tab=lab",
+    href: LAB_PATH,
     label: "Lab",
     shortLabel: "Lab",
     Icon: FlaskConical,
@@ -122,7 +127,7 @@ const TABS: {
   },
   {
     id: "compound",
-    href: "/?tab=compound",
+    href: GROWTH_PATH,
     label: "Compound",
     shortLabel: "Growth",
     Icon: TrendingUp,
@@ -151,17 +156,12 @@ export function MobileTabBar({
   active,
   alertCount = 0,
   className,
-  pulseHref,
   hiddenModeIds = [],
-  onSelect,
 }: {
   active: MobileTabId | null;
   alertCount?: number;
   className?: string;
-  pulseHref?: string;
   hiddenModeIds?: string[];
-  /** Return true to stay on this page (Dashboard SPA tabs). */
-  onSelect?: (id: MobileTabId) => boolean | void;
 }) {
   /* A callback ref: see `use-dock-pad.ts` for why the hook takes the node. */
   const [dockEl, setDockEl] = useState<HTMLElement | null>(null);
@@ -232,11 +232,7 @@ export function MobileTabBar({
         {tabs.map(({ id, href, label, shortLabel, Icon }) => {
           const on = active === id;
           const to =
-            id === "circle"
-              ? circleHref
-              : id === "pulse" && pulseHref
-                ? pulseHref
-                : href;
+            id === "circle" ? circleHref : href;
           return (
             <Link
               key={id}
@@ -253,15 +249,6 @@ export function MobileTabBar({
                * person's press.
                */
               onFocus={(e) => say(shortLabel, e.currentTarget)}
-              onClick={(e) => {
-                if (id === "home") stashOpenTab("overview");
-                if (id === "holdings") stashOpenTab("portfolio");
-                if (id === "pulse") stashOpenTab("pulse");
-                if (id === "lab") stashOpenTab("lab");
-                if (id === "compound") stashOpenTab("compound");
-                if (!onSelect) return;
-                if (onSelect(id)) e.preventDefault();
-              }}
               className={cn(
                 "relative z-[1] flex size-12 shrink-0 appearance-none items-center justify-center rounded-full transition-colors",
                 "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",

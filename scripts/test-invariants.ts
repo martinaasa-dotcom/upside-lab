@@ -3570,17 +3570,22 @@ run("UPSIDE LAB always goes to Overview at /", () => {
     join(process.cwd(), "src/lib/workspace-rooms.ts"),
     "utf8"
   );
+  /*
+   * A link and nothing else. The lockup used to fire a GO_HOME event
+   * alongside its href, because the book remembered its tab in state while
+   * the URL said `/`, so arriving at `/` was not enough to mean Overview.
+   * Overview *is* `/` now, so the href says the whole thing and the event
+   * is gone. Anything that grows back here is the old shape returning.
+   */
   assert.match(brand, /href="\/"/);
-  assert.match(brand, /requestGoHome\(\)/);
   assert.match(brand, /<Link/);
   assert.doesNotMatch(brand, /<button[\s>]/);
+  assert.doesNotMatch(brand, /onClick/);
   assert.match(header, /<HeaderBrand \/>/);
   assert.doesNotMatch(header, /onBrandClick|brandTitle/);
   assert.doesNotMatch(dash, /onBrandClick/);
-  assert.match(dash, /GO_HOME_EVENT/);
-  assert.match(dash, /takeGoHomeRequest\(\)/);
-  assert.match(rooms, /export function requestGoHome/);
-  assert.match(rooms, /export function takeGoHomeRequest/);
+  assert.doesNotMatch(dash, /GO_HOME_EVENT|takeGoHomeRequest/);
+  assert.doesNotMatch(rooms, /requestGoHome|takeGoHomeRequest/);
 });
 
 run("Forecast is always the base case", () => {
@@ -4616,8 +4621,15 @@ run("Pulse can price a bare EU ETF like VUAA", () => {
    */
   assert.match(dock, /onPointerDown=\{\(e\) => say\(shortLabel, e\.currentTarget\)\}/);
   assert.match(dock, /onFocus=\{\(e\) => say\(shortLabel, e\.currentTarget\)\}/);
-  assert.match(dock, /stashOpenTab\("lab"\)/);
-  assert.match(dock, /stashOpenTab\("compound"\)/);
+  /*
+   * Every cell is the link it draws. The bar used to cancel its own
+   * navigation with `preventDefault` and set state instead, stashing the
+   * tab token because a client navigation dropped the query string it
+   * depended on. A path is not dropped, so both are gone.
+   */
+  assert.match(dock, /href: LAB_PATH/);
+  assert.match(dock, /href: GROWTH_PATH/);
+  assert.doesNotMatch(dock, /stashOpenTab|onSelect\b/);
   assert.doesNotMatch(dock, /label: "Account"/);
   const frame = readFileSync(
     join(process.cwd(), "src/lib/page-shell.ts"),
@@ -6270,8 +6282,14 @@ run("workspace nav marks the current room and the skip link exists", () => {
    * was the old shape and asserting it now would forbid the current one.
    */
   assert.match(dock, /mx-auto/);
-  assert.match(dock, /stashOpenTab/);
-  assert.match(dock, /\/\?tab=overview/);
+  /*
+   * Real destinations, not query strings the dock then cancels. Home is
+   * the root; the rest are the paths `book-routes.ts` names.
+   */
+  assert.match(dock, /href: "\/"/);
+  assert.match(dock, /href: PULSE_PATH/);
+  assert.doesNotMatch(dock, /\?tab=/);
+  assert.doesNotMatch(dock, /onSelectMode/);
   // Circle is a cell in the well like any other destination, not a
   // separate link component beside it.
   assert.match(dock, /useCircleHref/);
@@ -6305,8 +6323,9 @@ run("workspace nav marks the current room and the skip link exists", () => {
     join(process.cwd(), "src/components/mobile/MobileTabBar.tsx"),
     "utf8"
   );
-  assert.match(mobile, /stashOpenTab\("overview"\)/);
-  assert.match(mobile, /stashOpenTab\("pulse"\)/);
+  assert.match(mobile, /href: PULSE_PATH/);
+  assert.match(mobile, /href: PORTFOLIO_PATH/);
+  assert.doesNotMatch(mobile, /\?tab=|stashOpenTab/);
 });
 
 run("holding and cash saves cannot double-fire", () => {

@@ -10,13 +10,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/format";
-import { sheetMatchesActive, stashOpenTab } from "@/lib/active-sheet";
+import { sheetMatchesActive } from "@/lib/active-sheet";
 import {
   COMPOUND_TAB_ID,
   LAB_TAB_ID,
   OVERVIEW_TAB_ID,
   PULSE_TAB_ID,
 } from "@/lib/overview";
+import {
+  GROWTH_PATH,
+  LAB_PATH,
+  PULSE_PATH,
+  hrefForTabId,
+} from "@/lib/book-routes";
 import type { Portfolio } from "@/lib/types";
 import { CircleNavIcon } from "@/components/CircleIcons";
 import {
@@ -37,54 +43,33 @@ import { useDockMarker } from "@/lib/use-dock-marker";
 const MODES = [
   {
     id: OVERVIEW_TAB_ID,
-    href: "/?tab=overview",
-    tab: "overview",
+    href: "/",
     label: "Home",
     title: "Today's briefing and your portfolio",
     Icon: House,
   },
   {
     id: PULSE_TAB_ID,
-    href: "/?tab=pulse",
-    tab: "pulse",
+    href: PULSE_PATH,
     label: "Pulse",
     title: "Pulse, for the companies you hold",
     Icon: Activity,
   },
   {
     id: LAB_TAB_ID,
-    href: "/?tab=lab",
-    tab: "lab",
+    href: LAB_PATH,
     label: "Lab",
     title: "Allocation, risk, trends, seasonality",
     Icon: FlaskConical,
   },
   {
     id: COMPOUND_TAB_ID,
-    href: "/?tab=compound",
-    tab: "compound",
+    href: GROWTH_PATH,
     label: "Growth",
     title: "What your portfolio could become if you keep going",
     Icon: TrendingUp,
   },
 ] as const;
-
-/** Book URL for a dock target. Used when the dock is showing on Circle. */
-export function hrefForDockTarget(
-  id: string,
-  portfolios: Pick<Portfolio, "id" | "slug">[]
-): string {
-  const mode = MODES.find((m) => m.id === id);
-  if (mode) return mode.href;
-  const sheet = portfolios.find((p) => p.id === id);
-  const token = sheet?.slug || id;
-  return `/?tab=portfolio&portfolio=${encodeURIComponent(token)}`;
-}
-
-export function stashDockTab(id: string) {
-  const mode = MODES.find((m) => m.id === id);
-  if (mode) stashOpenTab(mode.tab);
-}
 
 export type SheetTone = "up" | "down" | null;
 
@@ -146,8 +131,6 @@ function ToneDot({ tone }: { tone: SheetTone }) {
 type Props = {
   /** Book tab that is on. Empty on Circle pages so only Circle lights up. */
   activeId?: string | null;
-  /** Book dock: switch tabs in place. Off-book pages use links. */
-  onSelectMode?: (id: string) => void;
   hiddenModeIds?: string[];
   guest?: boolean;
   /** Your portfolios, as cells in the same well as the sections. */
@@ -164,7 +147,6 @@ type Props = {
 
 export function BookModeDock({
   activeId,
-  onSelectMode,
   hiddenModeIds = [],
   guest = false,
   sheets = [],
@@ -215,10 +197,6 @@ export function BookModeDock({
   const activeSheet = sheets.find((p) => sheetMatchesActive(p, activeId)) ?? null;
   const circleTo = useCircleHref();
   const onCircle = usePathname().startsWith("/communities");
-
-  function goToSheet(id: string) {
-    onSelectMode?.(id);
-  }
 
   return (
     <div ref={rowRef} className="w-full">
@@ -286,7 +264,7 @@ export function BookModeDock({
           : `repeat(${cellCount}, minmax(0, ${CELL_W}))`,
       }}
     >
-      {modes.map(({ id, href, tab, label, title, Icon }) => {
+      {modes.map(({ id, href, label, title, Icon }) => {
         const active = activeId === id;
         const inner = (
           <>
@@ -299,21 +277,6 @@ export function BookModeDock({
           </>
         );
         const look = cn(CELL, active ? ON : OFF);
-        if (onSelectMode) {
-          return (
-            <button
-              key={id}
-              type="button"
-              aria-current={active ? "page" : undefined}
-              data-on={active ? "" : undefined}
-              title={title}
-              onClick={() => onSelectMode(id)}
-              className={look}
-            >
-              {inner}
-            </button>
-          );
-        }
         return (
           <Link
             key={id}
@@ -322,7 +285,6 @@ export function BookModeDock({
             aria-current={active ? "page" : undefined}
             data-on={active ? "" : undefined}
             title={title}
-            onClick={() => stashOpenTab(tab)}
             className={look}
           >
             {inner}
@@ -350,31 +312,16 @@ export function BookModeDock({
         const title = guest
           ? sheet.name
           : `${sheet.name} - right-click to rename or delete`;
-        if (onSelectMode) {
-          return (
-            <button
-              key={sheet.id}
-              type="button"
-              aria-current={active ? "page" : undefined}
-              data-on={active ? "" : undefined}
-              title={title}
-              onClick={() => goToSheet(sheet.id)}
-              onContextMenu={menu}
-              onDoubleClick={() => onSheetRename?.(sheet.id, sheet.name)}
-              className={look}
-            >
-              {inner}
-            </button>
-          );
-        }
         return (
           <Link
             key={sheet.id}
-            href={hrefForDockTarget(sheet.id, sheets)}
+            href={hrefForTabId(sheet.id, sheets)}
             prefetch
             aria-current={active ? "page" : undefined}
             data-on={active ? "" : undefined}
             title={title}
+            onContextMenu={menu}
+            onDoubleClick={() => onSheetRename?.(sheet.id, sheet.name)}
             className={look}
           >
             {inner}
@@ -405,15 +352,17 @@ export function BookModeDock({
             className="max-h-[min(24rem,60vh)] min-w-52 overflow-y-auto"
           >
             {sheets.map((sheet) => (
-              <DropdownMenuItem
-                key={sheet.id}
-                onSelect={() => goToSheet(sheet.id)}
-              >
-                <ToneDot tone={sheetTodayTone?.[sheet.id] ?? null} />
-                <span className="min-w-0 flex-1 truncate">{sheet.name}</span>
-                {sheetMatchesActive(sheet, activeId) ? (
-                  <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-                ) : null}
+              <DropdownMenuItem key={sheet.id} asChild>
+                <Link href={hrefForTabId(sheet.id, sheets)} prefetch>
+                  <ToneDot tone={sheetTodayTone?.[sheet.id] ?? null} />
+                  <span className="min-w-0 flex-1 truncate">{sheet.name}</span>
+                  {sheetMatchesActive(sheet, activeId) ? (
+                    <Check
+                      className="h-3.5 w-3.5 shrink-0 text-primary"
+                      aria-hidden
+                    />
+                  ) : null}
+                </Link>
               </DropdownMenuItem>
             ))}
             {onAddSheet ? (

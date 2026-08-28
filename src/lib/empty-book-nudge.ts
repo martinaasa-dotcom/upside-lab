@@ -72,7 +72,7 @@ export function emptyBookNudgeText(
     "Your portfolio is still empty.",
     greeting,
     "You signed up about a week ago, and there is still nothing in your portfolio.",
-    `${PRODUCT_NAME} watches the names you already own. Paste what you hold. When a price jumps, it asks whether the reason you own it still holds, and you can talk the week through with Margus.`,
+    `${PRODUCT_NAME} watches the companies you already own. Paste what you hold. On the days a price falls it reads what happened at that company and tells you whether anything really changed, which most of the time it has not. Margus will talk the week through with you, and a circle lets you go through it with people you know.`,
     "Getting started is one step: add what you already own. Upload a CSV file, drop in a screenshot of your broker page, or type them in. That is the whole thing.",
     PRODUCT_ORIGIN,
     "This is a one-time note. The Sunday email starts once there is something in your portfolio. You can turn it off in Account: https://upsidelab.app/account",

@@ -719,14 +719,21 @@ export function WelcomeTour({
           {stage === "what" && (
             <div className="flex flex-col gap-4">
               <ul className="grid gap-2 sm:grid-cols-2">
-                <Row icon={Activity} term="Pulse">
-                  When something you own moves, it says whether the reason you
-                  bought it still holds. That is the part your broker leaves
-                  out. It already has the percentage.
+                <Row icon={Activity} term="On a bad day">
+                  A fall and real bad news look exactly the same in a list of
+                  red numbers. Pulse reads the day on each company you own and
+                  says which one this is. Most days it is the whole market
+                  and nothing about your companies changed at all.
                 </Row>
                 <Row icon={MessageCircle} term="Margus">
                   Has read your portfolio. Ask why the week went the way it
                   did, in words you can follow, not in market slang.
+                </Row>
+                <Row icon={CircleNavIcon} term="And not on your own">
+                  A circle is the people you already talk to about this: a
+                  partner, your family, a few friends. They see how your day
+                  went and you see theirs. When everyone is red, that is the
+                  market, and seeing it beats being told it.
                 </Row>
                 <Row icon={Wallet} term="It is not a brokerage">
                   Nothing here can buy or sell anything, and it is not
@@ -742,6 +749,49 @@ export function WelcomeTour({
                 <strong className="text-foreground">Skip the tour</strong> is in
                 the corner of every screen if you would rather get on with it.
               </p>
+            </div>
+          )}
+
+          {stage === "why" && (
+            /*
+              The screen that was missing, and the reason the walkthrough
+              was raised a version.
+
+              People signed up, looked around, and asked what this was for
+              and how it was different from the app they already had. That
+              is not a copy problem on one screen. It is the walkthrough
+              never having answered the question at all: it opened by
+              naming a feature, which only lands on somebody who has
+              already accepted the premise. So the premise gets a screen,
+              and it is generous about the broker on purpose. A comparison
+              that opens by running down a tool the reader likes is one
+              they stop reading, and a broker really is better at being a
+              broker than this will ever be.
+            */
+            <div className="flex flex-col gap-4">
+              <ul className="grid gap-2 sm:grid-cols-2">
+                <Row icon={Wallet} term="Your broker holds the money">
+                  It puts your orders through, shows what everything is
+                  worth to the cent, and draws the line since you started.
+                  All of that is done well already and none of it is
+                  repeated here.
+                </Row>
+                <Row icon={Activity} term="This says what happened">
+                  A price on its own does not tell you whether to care. The
+                  same 5% fall can be a whole market having a bad week or a
+                  company you own losing something real, and no list of red
+                  numbers anywhere will separate those two for you.
+                </Row>
+                <Row icon={MessageCircle} term="In words, not charts">
+                  Every reading here is a sentence a person can follow. No
+                  market slang, no jargon you have to look up.
+                </Row>
+                <Row icon={ShieldCheck} term="The decision stays yours">
+                  It will never say buy, sell, or hold. What it does is put
+                  the facts in front of you so a red evening is something
+                  you understand rather than something you react to.
+                </Row>
+              </ul>
             </div>
           )}
 
@@ -789,11 +839,17 @@ export function WelcomeTour({
                   number means, or what you would be left with if one holding
                   halved in value.
                 </Row>
-                <Row icon={Activity} term="Thesis Pulse and Forecast">
-                  Pulse checks whether the story behind a holding still stands.
-                  Forecast walks a holding forward under a few different
-                  scenarios. Both are there to think with, not to answer for
-                  you.
+                <Row icon={Activity} term="Pulse and Forecast">
+                  Pulse reads the day on each company you own and says whether
+                  anything really changed there, or whether the price moved
+                  with everything else. Forecast walks a holding forward under
+                  a few different scenarios. Both are there to think with,
+                  rather than to answer for you.
+                </Row>
+                <Row icon={CircleNavIcon} term="Circle">
+                  Share a portfolio with people you invite and see how their
+                  day went next to yours. They see today&apos;s prices and never
+                  what you paid. Nothing is shared until you share it.
                 </Row>
                 <Row icon={Mail} term="The Sunday email">
                   One email a week. How the week went, and which of your
@@ -841,9 +897,12 @@ export function WelcomeTour({
                   you are never added to one by signing in. You can invite a
                   co-owner from the portfolio itself.
                 </Row>
-                <Row icon={ShieldCheck} term="Not advice">
-                  {ADVICE_DISCLAIMER_SHORT} Nothing here knows your situation,
-                  your timeline, or what else you have.
+                <Row icon={ShieldCheck} term="Not advice, ever">
+                  {ADVICE_DISCLAIMER_SHORT} No screen here will tell you to
+                  add to something or get out of it, however loud a day
+                  gets. Nothing here knows your situation, your timeline, or
+                  what else you have. It tells you what happened. What to do
+                  about it is yours.
                 </Row>
                 <Row icon={Download} term="Your data is yours">
                   Export everything or delete the account outright from

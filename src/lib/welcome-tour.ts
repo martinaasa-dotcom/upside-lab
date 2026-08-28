@@ -32,11 +32,25 @@ import { PRODUCT_NAME } from "@/lib/product";
  *     That reasoning does not generalise. Do not take this entry as licence
  *     to bump the number whenever something ships: the next raise still
  *     needs the walkthrough to say something new.
+ * 3 - the walkthrough stops opening on a feature and opens on what the app
+ *     is for (2026-08-28). Martin kept being asked, by people who had
+ *     already signed up, what the point of this was and how it differed
+ *     from the broker app they had. Screen one used to answer that with
+ *     "is the reason you bought this still true", which is one feature
+ *     wearing the whole product's clothes and uses a word nobody says
+ *     about their own money. It now says the plain thing: your portfolio
+ *     in ordinary sentences, and on the day it falls, whether anything
+ *     actually happened. A "why this and not your broker" screen is new,
+ *     Circle is named on the way in rather than as a footnote, and the
+ *     ground rules say out loud that no screen here will tell you to buy
+ *     or sell. That is materially different copy, which is the bar this
+ *     number is meant to clear.
  */
-export const WELCOME_TOUR_VERSION = 2;
+export const WELCOME_TOUR_VERSION = 3;
 
 export type Stage =
   | "what"
+  | "why"
   | "map"
   | "helps"
   | "rules"
@@ -50,6 +64,7 @@ export type Stage =
 /** The dot label under the progress bar. Short: it shares a line with a count. */
 export const STAGE_LABEL: Record<Stage, string> = {
   what: "What this is",
+  why: "Why this one",
   map: "Where things are",
   helps: "What it does",
   rules: "Ground rules",
@@ -83,7 +98,13 @@ export function screenCopy(
       return {
         title: `This is ${PRODUCT_NAME}`,
         lede:
-          "You tell it what you already own: the name, how many you hold, and what you paid. From then on it works on the one question your broker never touches. Is the reason you bought this still true?",
+          "You tell it what you already own: the name, how many you hold, what you paid. From then on you get your whole portfolio said back to you in ordinary sentences, and on the days it falls you find out whether anything actually happened at those companies or whether the whole market simply had a bad day.",
+      };
+    case "why":
+      return {
+        title: "Why this, when you already have a broker",
+        lede:
+          "This is the question everybody asks, so it is worth two minutes now. Keep your broker. Nothing here is trying to replace it, and nothing here can buy or sell anything.",
       };
     case "map":
       return {
@@ -93,9 +114,9 @@ export function screenCopy(
       };
     case "helps":
       return {
-        title: "Pulse, Margus, and the Sunday letter",
+        title: "Pulse, Margus, Circle, and the Sunday letter",
         lede:
-          "All three are about the names you already hold. None of them will tell you to buy, sell, or hold.",
+          "All four are about the names you already hold and the people you choose to share them with. None of them will tell you to buy, sell, or hold. That decision stays yours every single time.",
       };
     case "rules":
       return {
@@ -139,7 +160,7 @@ export function screenCopy(
           ? `That is the whole app. Showing you the ${tierLabel} view`
           : "That is the whole app",
         lede:
-          "Home is where you land. The bar along the bottom is everything else, and Account holds every switch this walkthrough set.",
+          "Home is where you land. The bar along the bottom is everything else, and Account holds every switch this walkthrough set. The day the market falls and you want to know what it means, this is the app to open.",
       };
   }
 }
@@ -163,6 +184,7 @@ export function tourStages(input: {
   const askForHoldings = !input.hasHoldings && !input.classroomOnly;
   return [
     "what",
+    "why",
     "map",
     "helps",
     "rules",

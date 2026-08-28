@@ -372,6 +372,26 @@ export function AccountPage() {
                 </Button>
               }
             />
+            {/*
+              The one sentence, in the one place a signed-in reader goes
+              looking for it.
+
+              People who had been using this for weeks were still asking
+              what it was for and how it differed from their broker. The
+              landing page and the walkthrough both answer that now, but
+              neither is somewhere you can get back to easily once you are
+              inside, and Help is. So the answer sits above the button that
+              replays the walkthrough rather than only inside it.
+            */}
+            <p className="text-sm leading-relaxed text-foreground">
+              {PRODUCT_NAME} gives you your whole portfolio in ordinary
+              sentences, and on the days it falls it tells you whether
+              anything actually changed at the companies you own. Most of
+              the time nothing has, and the fall was the whole market having
+              a bad week. Your broker holds the money and adds it up. This
+              is the part that says what happened. It will never tell you to
+              buy, sell, or hold.
+            </p>
             <p className="text-sm text-muted-foreground">
               The walkthrough is the same one you got on your first visit, and
               you can leave it at any point. If it does not answer something, and

@@ -5,7 +5,6 @@ import {
   UPSIDE_HEADER_WORDMARK_CLASS,
 } from "@/components/UpsideLogo";
 import { cn } from "@/lib/format";
-import { requestGoHome } from "@/lib/workspace-rooms";
 import Link from "next/link";
 
 type Props = {
@@ -48,7 +47,6 @@ export function HeaderBrand({ className }: Props) {
       className={cn(BRAND_INTERACTION_CLASS, className)}
       title="Upside Lab home"
       aria-label="Upside Lab home"
-      onClick={() => requestGoHome()}
     >
       <UpsideLogo variant="wordmark" className={UPSIDE_HEADER_WORDMARK_CLASS} />
     </Link>

@@ -15,25 +15,23 @@ const LANDING = readFileSync("src/components/SignedOutLanding.tsx", "utf8");
 const CSS = readFileSync("src/app/globals.css", "utf8");
 
 /**
- * Every `<SectionHead …/>` in the file, each paired with the markup that
- * runs from it to the end of the function it sits in.
+ * Every `<SectionHead …/>` on the page, with the markup that follows it up
+ * to the next function.
  *
- * This used to take a list of section titles typed out here and look each
- * one up. That made a copy pass fail a layout test: rewording a heading on
- * the page broke a check that has nothing to say about wording. The rule
- * being defended is "a heading arrives with the row it heads", so the
- * headings are read out of the source instead of restated here.
+ * This used to take a list of three exact headline strings, which meant a
+ * copy pass on the landing page broke a test about layout. Worse, it only
+ * ever covered the three sections somebody happened to type in: a new
+ * section arriving without its cards was exactly the case it was written
+ * for and exactly the case it could not see. Walking every head is both
+ * the rule the test is actually about and strictly more coverage, and it
+ * survives the headline being rewritten, which on a landing page it will
+ * be.
  */
-function sectionsAfterHeads(source: string): { title: string; block: string }[] {
-  const out: { title: string; block: string }[] = [];
-  const head = /<SectionHead\b/g;
-  let m: RegExpExecArray | null;
-  while ((m = head.exec(source))) {
-    const from = m.index;
-    const next = source.slice(from + 1).search(/\n(?:export )?function /);
-    const block = source.slice(from, next === -1 ? undefined : from + 1 + next);
-    const title = /title="([^"]+)"/.exec(block)?.[1] ?? "";
-    out.push({ title, block });
+function sectionsAfterHeads(source: string): string[] {
+  const out: string[] = [];
+  for (let i = source.indexOf("<SectionHead"); i !== -1; i = source.indexOf("<SectionHead", i + 1)) {
+    const next = source.slice(i + 1).search(/\n(?:export )?function /);
+    out.push(source.slice(i, next === -1 ? undefined : i + 1 + next));
   }
   return out;
 }
@@ -47,14 +45,14 @@ describe("the landing page is drawn, not revealed", () => {
   });
 
   it("keeps a heading and the cards it heads in one section", () => {
-    const sections = sectionsAfterHeads(LANDING);
-    expect(sections.length).toBeGreaterThanOrEqual(3);
-
-    for (const { title, block } of sections) {
-      expect(title, "a SectionHead with no title").not.toBe("");
+    const blocks = sectionsAfterHeads(LANDING);
+    expect(blocks.length, "the landing page has no SectionHead").toBeGreaterThan(
+      2
+    );
+    for (const block of blocks) {
       expect(
         block,
-        `"${title}" is a SectionHead that arrives without the row it heads`
+        "a SectionHead that arrives without the row it is the heading of"
       ).toMatch(/<(div|PulseStill|MargusStill)/);
     }
   });

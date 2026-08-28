@@ -2,7 +2,11 @@
  * The one sentence every room should agree with. Sign-in, empty book,
  * metadata, and README all import this so the story cannot drift.
  *
- * Fund and Communities are rooms you can visit. They are not the product.
+ * Upside Fund is a room you can visit and is not the product. Circle is
+ * different and was under-sold for a long time: doing nothing on a bad day
+ * is far easier with people you know looking at the same week, so it sits
+ * beside Pulse and Margus in this file rather than in a footnote after
+ * them.
  */
 
 export const PRODUCT_NAME = "Upside Lab";
@@ -16,10 +20,24 @@ export const PRODUCT_ORIGIN = `https://${PRODUCT_DOMAIN}`;
  *
  * Split here so the PNG cannot drift from the metadata. The card paints
  * these as two lines; join them for titles and descriptions.
+ *
+ * This used to be "See what your portfolio did. Ask Margus if the thesis
+ * still holds." Both halves were a problem and the second one was the
+ * bigger. "Thesis" is a word an ordinary person does not use about their
+ * own money, so the sentence that was supposed to say what this is for
+ * asked the reader to learn a term first. Worse, it made one feature the
+ * whole product: people who tried it kept asking what the point was and
+ * how it differed from the broker app they already had, which is the
+ * question a headline exists to answer.
+ *
+ * What it is for is plainer than that and bigger. You get your whole
+ * portfolio said back to you in ordinary sentences, and on the day it
+ * falls you find out whether anything actually happened at the companies
+ * you own. Pulse is how that gets answered. It is not the reason.
  */
 export const PRODUCT_HEADLINE = [
-  "See what your portfolio did today.",
-  "Then ask whether the reason still holds.",
+  "Your whole portfolio, in plain words.",
+  "And when it falls, what actually changed.",
 ] as const;
 
 export const PRODUCT_SENTENCE = PRODUCT_HEADLINE.join(" ");
@@ -35,25 +53,58 @@ export const OG_CARD_LINE =
   `${PRODUCT_NAME}. Educational scenarios. Never financial advice.`;
 
 export const PRODUCT_BLURB =
-  "When a name you own moves, it asks whether the reason still holds.";
+  "Most falls are the whole market having a bad week. This tells you when it is something else.";
 
 /** Name used when a first-run import creates the sheet for you. */
 export const FIRST_SHEET_NAME = "My portfolio";
 
 /** Sign-in page: the one line under the headline. */
 export const SIGNIN_WHO =
-  "Your broker has the prices. This asks whether the reason still holds.";
+  "Your broker shows you the number. This shows you what happened at the companies behind it, and whether anything really changed.";
 
 export const SIGNIN_POINTS = [
-  "Pulse looks at a holding whenever its price jumps, and tells you whether anything actually changed at the company.",
-  "Margus has read your portfolio and can talk any part of it through with you, in plain words.",
+  "When a price falls, it says whether news came out of the company or the whole market moved together.",
+  "Margus has read your portfolio. Ask why your week went the way it did, in ordinary words.",
+  "A circle is the people you already talk to about this. Share a portfolio and see how everyone's day went.",
 ] as const;
+
+/**
+ * The question every visitor actually arrives with, answered in one place
+ * so the landing page, the walkthrough and the in-app help cannot give
+ * three different answers to it.
+ *
+ * People kept asking what this is for and how it differs from the broker
+ * app or the tracker they already use. The honest answer is that it is not
+ * competing with either: a broker holds the money and a tracker adds the
+ * prices up, and both of those are done well already. Neither of them will
+ * tell you what happened, and "what happened" is the only thing anybody
+ * wants at nine in the evening on a day their portfolio fell 6%.
+ *
+ * Say what the other thing does well before saying what this does. A
+ * comparison that opens by running down a tool the reader likes is a
+ * comparison they stop reading.
+ */
+export const BROKER_ALREADY_DOES = [
+  "Holds your money and puts your orders through.",
+  "Shows what everything is worth right now, to the cent.",
+  "Draws the line going up or down since you started.",
+] as const;
+
+export const THIS_DOES_INSTEAD = [
+  "Says what happened at each company you own today, in a sentence.",
+  "Separates a whole market having a bad week from real news about one of your names.",
+  "Answers questions about your portfolio, and puts the week in one email on Sunday.",
+] as const;
+
+/** The sentence that heads that pair. Keep it short enough to be a title. */
+export const BROKER_ANSWER =
+  "Keep your broker. This is the part it was never trying to do.";
 
 /**
  * The rest of the product, for somebody who arrived from a link and has
  * never heard of any of this.
  *
- * The two points above are the hook and stay the hook. But they name two of
+ * The points above are the hook and stay the hook. But they name three of
  * the eight things the app does, so a stranger was deciding whether to hand
  * over their holdings on a quarter of the picture. Everything here is a
  * room that exists and works today. Nothing aspirational goes in this list:
@@ -68,27 +119,27 @@ export const SIGNIN_FEATURES = [
   {
     title: "Pulse",
     detail:
-      "When a price moves, it tells you whether the reason you own the stock has changed with it.",
+      "When a price moves, it reads the day's news on that company and says whether anything really changed.",
   },
   {
     title: "Margus",
     detail:
-      "Has read your portfolio. Ask why something moved, and get the answer in plain words.",
+      "Has read your portfolio. Ask why something moved, in plain words.",
+  },
+  {
+    title: "Circle",
+    detail:
+      "Share a portfolio with a partner, your family or friends. They see today's prices, never what you paid.",
   },
   {
     title: "Forecast",
     detail:
-      "A year by year price path for each holding out to 2030. Scenarios to think about, not advice.",
+      "A yearly price path for each holding out to 2030. Scenarios to think with, not advice.",
   },
   {
     title: "A letter on Sunday",
     detail:
       "One email a week: what moved, what is worth a second look, and why.",
-  },
-  {
-    title: "Circle",
-    detail:
-      "Share a portfolio with people you invite. They see today's prices, never what you paid.",
   },
 ] as const;
 
