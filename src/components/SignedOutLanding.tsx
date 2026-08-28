@@ -219,12 +219,12 @@ const WAYS_IN = [
   {
     icon: FileSpreadsheet,
     title: "Upload a CSV",
-    detail: "The file almost every broker will already export for you.",
+    detail: "Almost every broker can export one for you in a couple of clicks.",
   },
   {
     icon: ImageUp,
     title: "Drop in a screenshot",
-    detail: "A picture of your holdings page. It reads the rows out of it.",
+    detail: "A photo of your broker's holdings page. It reads the rows for you.",
   },
 ] as const;
 
@@ -244,7 +244,7 @@ function WaysIn() {
         <SectionHead
           eyebrow="Getting started"
           title="It starts with what you already own."
-          detail="No brokerage login, no read-only keys, no waiting on a connection to sync. Three ways in, and the fastest one is typing."
+          detail="There is no broker login and nothing to connect. You enter your holdings yourself, whichever of these three ways is quickest."
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {WAYS_IN.map((w) => (
@@ -378,13 +378,13 @@ const MORE = [
     icon: LineChart,
     title: "Forecast",
     detail:
-      "A yearly price path for every holding out to 2030, reasoned name by name. Scenarios to think with, never a promise.",
+      "A year by year price path for every holding out to 2030, worked out one company at a time. Scenarios to think about, never a promise.",
   },
   {
     icon: Mail,
     title: "A letter on Sunday",
     detail:
-      "One email a week. What moved, and the reasoning in full sentences.",
+      "One email a week: what moved in your portfolio, and why, written out in full sentences.",
   },
   {
     icon: LayoutGrid,
@@ -509,7 +509,7 @@ const CIRCLE_POINTS = [
     icon: Users,
     title: "Share a portfolio",
     detail:
-      "Invite a partner, a parent or a friend and you both own it. They see today's prices and never what you paid for anything.",
+      "Invite a partner, a parent or a friend and you both own it. They see today's prices, and never what you paid.",
   },
   {
     icon: LayoutGrid,
@@ -577,7 +577,7 @@ const IS_FOR = [
 ] as const;
 
 const IS_NOT = [
-  "It does not connect to a bank or a broker. Holdings come in the three ways below, and when you buy something new you add it yourself. Prices do update on their own.",
+  "It does not connect to a bank or a broker. You enter your holdings yourself, in one of the three ways below, and you add anything you buy later the same way. Prices do update on their own.",
   "It does not know the date you bought. Gains are measured against your average price, so there is no chart that starts on the day you bought.",
   "It cannot buy or sell anything, and it will never tell you to. Whether to add, sell or sit still is yours, every time. Prices are free and delayed by a few minutes.",
 ] as const;
@@ -964,7 +964,7 @@ function TrioShowcase() {
         <SectionHead
           eyebrow="On a bad day"
           title="A fall and bad news look exactly the same in a list of red numbers."
-          detail="One of them is worth your evening and the other is not, and nothing you already use will sit down and tell you which is which. That is the whole job here."
+          detail="One of them is worth your evening and the other is not. Nothing else you use will tell you which of the two you are looking at, and that is the whole job here."
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <PulseStill />

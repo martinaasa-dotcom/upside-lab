@@ -245,7 +245,7 @@ describe("copy reads as a person wrote it", () => {
     nothing on a screen renders it, exactly as with the dash list above.
   */
   const DESK_JARGON =
-    /\b(bps|HYSA|UCITS|DXY|neo-cloud|observability|desynced|take-backs|word vomit|dry powder|sleeves?|risk-on|risk-off|drawdowns?|called away|write level|moves the needle|in play|large-cap|small-cap)\b/i;
+    /\b(bps|HYSA|UCITS|DXY|neo-cloud|observability|desynced|take-backs|word vomit|dry powder|sleeves?|risk-on|risk-off|drawdowns?|called away|write level|read-only|moves the needle|in play|large-cap|small-cap)\b/i;
 
   const NAMES_THE_WORD = new Set([
     // Prompts: the model is told which words it may not use.
