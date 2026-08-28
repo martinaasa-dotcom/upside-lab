@@ -219,12 +219,12 @@ const WAYS_IN = [
   {
     icon: FileSpreadsheet,
     title: "Upload a CSV",
-    detail: "The file almost every broker will already export for you.",
+    detail: "Almost every broker can export one for you in a couple of clicks.",
   },
   {
     icon: ImageUp,
     title: "Drop in a screenshot",
-    detail: "A picture of your holdings page. It reads the rows out of it.",
+    detail: "A photo of your broker's holdings page. It reads the rows for you.",
   },
 ] as const;
 
@@ -244,7 +244,7 @@ function WaysIn() {
         <SectionHead
           eyebrow="Getting started"
           title="It starts with what you already own."
-          detail="No brokerage login, no read-only keys, no waiting on a connection to sync. Three ways in, and the fastest one is typing."
+          detail="There is no broker login and nothing to connect. You enter your holdings yourself, whichever of these three ways is quickest."
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {WAYS_IN.map((w) => (
@@ -298,7 +298,7 @@ function PulseStill() {
           </Pill>
         </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Nothing came out of the company today, and it is still inside the
+          No news came out of the company today, and the price is still
           range it has traded in for months. Every similar business fell
           about as much.
         </p>
@@ -357,7 +357,7 @@ function MargusStill() {
           )}
         >
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Seven of your eight names are down and none of them put out any
+            Seven of your eight holdings are down and none of them put out any
             news today, so this looks like the whole market rather than your
             companies. You are down $3,630, which is 4% of what you hold, and
             you have had eleven days like it since you started.
@@ -409,13 +409,13 @@ const MORE = [
     icon: LineChart,
     title: "Forecast",
     detail:
-      "A yearly price path for every holding out to 2030, reasoned name by name. Scenarios to think with, never a promise.",
+      "A year by year price path for every holding out to 2030, worked out one company at a time. Scenarios to think about, never a promise.",
   },
   {
     icon: Mail,
     title: "A letter on Sunday",
     detail:
-      "One email a week. What moved, and the reasoning in full sentences.",
+      "One email a week: what moved in your portfolio, and why, written out in full sentences.",
   },
   {
     icon: LayoutGrid,
@@ -431,7 +431,7 @@ function More() {
       <Reveal>
         <SectionHead
           eyebrow="And the rest"
-          title="Three more rooms, once you are in."
+          title="Three more parts of the app, once you are in."
           detail="None of them will tell you what to do. They are there so the decision is yours with the facts in front of you."
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -476,7 +476,7 @@ function More() {
 */
 const WILL_NOT = [
   "Connect to your bank or broker. You add what you own once, and from then on the prices update on their own.",
-  "Know the day you bought. Returns are against your average price, so there is no chart starting on your buy date.",
+  "Know the day you bought. Gains are measured against your average price, so there is no chart that starts on the day you bought.",
   "Buy or sell anything, or tell you to. Prices are free and delayed by a few minutes.",
 ] as const;
 
@@ -975,7 +975,7 @@ function BookWide() {
             Thesis intact
           </Pill>
         </div>
-        <InsightText text="Nothing came out of the company today. Every similar business fell about the same amount, so this is the market having a bad day rather than news about what you own." />
+        <InsightText text="No news came out of the company today. Every similar business fell about the same amount, so this is the market having a bad day rather than anything about what you own." />
       </Reading>
 
       <div className="grid items-start gap-5 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
@@ -1030,7 +1030,7 @@ function TrioShowcase() {
         <SectionHead
           eyebrow="The whole point"
           title="A fall and real news look exactly the same in a list of red numbers."
-          detail="One of them is worth your evening and the other is not, and nothing you already use will sit down and tell you which is which. That is the whole job here."
+          detail="One of them is worth your evening and the other is not. Nothing else you use will tell you which of the two you are looking at, and that is the whole job here."
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <PulseStill />

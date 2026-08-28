@@ -138,8 +138,8 @@ export default function TermsPage() {
           stats come from third-party data providers on a best-effort,
           &ldquo;as available&rdquo; basis. We do not run a licensed
           exchange feed. Data can be delayed, incomplete, estimated when a
-          live feed is unavailable, or wrong. We flag desynced or estimated
-          data where we can detect it, but we make no accuracy or
+          live feed is unavailable, or wrong. We mark data as out of date or
+          estimated where we can tell, but we make no accuracy or
           availability guarantee. AI features call third-party model
           providers. Some of those providers process data outside{" "}
           {LEGAL_COUNTRY}, including the United States. If every provider is

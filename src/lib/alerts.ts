@@ -1,4 +1,4 @@
-import { cashtag, percent } from "@/lib/format";
+import { cashtag, currency, percent } from "@/lib/format";
 import {
   marginCopy,
   marginHealth,
@@ -41,7 +41,7 @@ export function buildStrikeAlerts(
         id: `strike-target-${cashtag(r.ticker)}`,
         kind: "strike",
         title: `${cashtag(r.ticker)} passed the price you were aiming for`,
-        detail: `Spot is ${r.spot.toFixed(2)}, above the ${r.stockTarget.toFixed(2)} you set.`,
+        detail: `The price is now ${currency(r.spot, 2)}, above the ${currency(r.stockTarget, 2)} you set.`,
         ticker: r.ticker,
         at: Date.now(),
       });
@@ -51,7 +51,7 @@ export function buildStrikeAlerts(
         id: `strike-near-${cashtag(r.ticker)}`,
         kind: "strike",
         title: `${cashtag(r.ticker)} is closing in on your strike`,
-        detail: `Within about 2% of ${r.nextStrike.toFixed(2)}. This is your planned level, not a call you have already sold.`,
+        detail: `The price is within about 2% of ${currency(r.nextStrike, 2)}. That is the level you planned, not a call you have already sold.`,
         ticker: r.ticker,
         at: Date.now(),
       });
@@ -80,8 +80,8 @@ export function buildEarningsAlerts(
           ? `${cashtag(e.ticker)} reports today`
           : `${cashtag(e.ticker)} reports in ${e.days} ${e.days === 1 ? "day" : "days"}`,
       detail: hideOptions
-        ? `Set for ${e.date}. Results days move a stock more than usual, either way.`
-        : `Set for ${e.date}. Prices swing harder around results, which makes options pricier and the range wider than a typical session.`,
+        ? `The date is set for ${e.date}. A stock usually moves more than usual on the day it reports, in either direction.`
+        : `The date is set for ${e.date}. Prices swing further around results, which makes options more expensive and widens the range compared with an ordinary day.`,
       ticker: e.ticker,
       at: Date.now(),
     }));
@@ -125,7 +125,7 @@ export function buildDecisionAlerts(input: {
       kind: "info",
       title: `${cashtag(input.topTicker.ticker)} is ${percent(share, 0)} of your stocks`,
       detail:
-        "One name this big means your year mostly rides on it.",
+        "When one holding is this large, most of how your year goes depends on this single company.",
       ticker: input.topTicker.ticker,
       at: Date.now(),
     });

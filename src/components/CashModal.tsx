@@ -63,7 +63,7 @@ export function CashModal({
     const typed = parseDecimal(amount);
     const n = sign === "owe" && typed !== 0 ? -typed : typed;
     if (!isSafeSignedMoney(n)) {
-      setError("That has to be a real dollar amount, not enormous.");
+      setError("That has to be a real dollar amount, and not an impossible one.");
       return;
     }
     setBusy(true);
@@ -117,7 +117,7 @@ export function CashModal({
           {sign === "owe"
             ? "Money your broker lent you. It counts against your total."
             : paperCash
-              ? "Paper cash. Buys spend it, sells add it back."
+              ? "This is paper money. Buying spends it, and selling adds it back."
               : "Money sitting ready, not yet in a stock."}
           <Input
             autoFocus

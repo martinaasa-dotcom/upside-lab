@@ -444,7 +444,7 @@ function BookStill() {
            * This says the observation, then the reason it is worth a
            * second look, in words a grandmother gets.
            */}
-          <InsightText text="$RKLB rose 6.8% today while Amazon and Microsoft barely moved. When one name climbs on its own, the question is whether something changed at the company, or only the price." />
+          <InsightText text="$RKLB rose 6.8% today while Amazon and Microsoft barely moved. When one company climbs on its own, the question is whether something changed at the business, or only the price." />
         </Reading>
 
         <div className="rounded-lg bg-muted p-3">

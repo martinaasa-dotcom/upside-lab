@@ -400,13 +400,13 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
       )}
 
       {rows == null && !error && (
-        <EmptyState title="Reading four years of weekly bars …" />
+        <EmptyState title="Reading four years of weekly closing prices …" />
       )}
 
       {rows != null && rows.length === 0 && !error && (
         <EmptyState
           title="Nothing to read yet"
-          detail="Add a holding, or watch a ticker above, and its trend read shows up here."
+          detail="Add a holding, or watch a ticker above, and its trend appears here."
         />
       )}
 
@@ -417,7 +417,7 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
               <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
               <span>
                 {attentionCount === 0
-                  ? "Nothing below is diverging or rolling over right now. Sorted by who is beating the S&P."
+                  ? "None of these has changed direction or started to slow right now. They are sorted by how far each one is ahead of the S&P 500."
                   : `${attentionCount} name${attentionCount === 1 ? "" : "s"} below ${attentionCount === 1 ? "has" : "have"} something actually changing. Those come first.`}
               </span>
             </span>
@@ -437,7 +437,7 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
             <Panel>
               <PanelHeader
                 title="Who's leading, who's fading"
-                subtitle="The last 13 weeks, about three months. The same window for every name."
+                subtitle="The last 13 weeks, about three months. The same period for every holding."
               />
               {/*
                 * The window is named in the heading now, not only in a
@@ -449,7 +449,7 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
                 * really is theirs.
                 */}
               <p className="mt-3 mb-4 text-sm leading-relaxed text-muted-foreground">
-                Ranked by how each name did against the S&amp;P 500 over those
+                Ranked by how each holding did against the S&amp;P 500 over those
                 13 weeks. This is money moving from one group to another, not
                 just prices going up with everything else. It is not measured
                 from the day you bought; that figure is All time on Home.
@@ -493,9 +493,9 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
           )}
 
           <p className="text-sm text-muted-foreground">
-            Technical readings on past prices, not a forecast and not advice.
-            Divergences can persist for months before anything happens, or
-            resolve with no break at all.
+            These readings are worked out from prices that have already
+            happened. A reading can sit unchanged for months, or fade away
+            without anything coming of it at all.
           </p>
         </>
       )}

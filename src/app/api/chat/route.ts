@@ -45,7 +45,7 @@ import { peekUntilUseful } from "@/lib/ai/stream-leak";
 
 export const maxDuration = 120;
 
-const FALLBACK_CHAT_TEXT = "Didn't land. Send it again.";
+const FALLBACK_CHAT_TEXT = "That did not go through. Send it again.";
 const FALLBACK_SCREENSHOT_TEXT = screenshotImportFallbackCopy().lines.join("\n");
 
 type StreamPart = { type: string };

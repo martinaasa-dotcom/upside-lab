@@ -156,8 +156,8 @@ export function InvitePartnerModal({
               Invite a partner
             </h2>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              They get live edit access to {portfolioName}, not a read-only
-              peek.
+              They can edit {portfolioName} just as you can, rather than only
+              look at it.
             </p>
           </div>
           <Button

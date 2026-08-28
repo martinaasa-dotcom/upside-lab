@@ -345,7 +345,7 @@ export function AccountPage() {
             <PinnedHeader
               icon={<MessageSquare className="h-4 w-4" />}
               title="Feedback"
-              subtitle="A bug, a missing thing, or a rant. Upside reads these."
+              subtitle="A bug, something missing, or something you just want to complain about. Every one of these gets read."
               actions={
                 <Button type="button" onClick={openManual}>
                   Tell Upside
@@ -430,8 +430,8 @@ export function AccountPage() {
                   pillow, and a small army of imaginary puppies.
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  On a serious note, it&apos;s twelve euros a month to
-                  directly support Upside making this. Pretty solid deal.
+                  Seriously though: it is twelve euros a month, and it goes
+                  straight towards building this.
                 </p>
               </div>
             )}
@@ -525,7 +525,7 @@ export function AccountPage() {
               <label className="flex flex-col gap-1">
                 <span className="flex items-baseline justify-between">
                   <span className="text-sm text-muted-foreground">
-                    Bio - communities
+                    Bio for communities
                   </span>
                   <span className="text-sm tabular-nums text-muted-foreground">
                     {bio.length}/280
@@ -582,7 +582,7 @@ export function AccountPage() {
             <PanelHeader
               icon={<Gauge className="h-4 w-4" />}
               title="Experience level"
-              subtitle="Simplifies what's shown. Nothing is locked, change it anytime."
+              subtitle="This only changes how much is shown at once. Nothing is locked away, and you can change it whenever you like."
             />
             <div className="flex flex-col gap-2">
               {EXPERIENCE_TIERS.map((t) => (
@@ -611,8 +611,9 @@ export function AccountPage() {
             <div className="border-t border-border pt-4">
               <p className="text-sm font-medium text-foreground">Options experience</p>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                Controls covered calls, strike alerts, and Call % everywhere.
-                Separate from the level above.
+                This controls whether covered calls, strike alerts and Call %
+                appear anywhere in the app. It is a separate question from the
+                one above.
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
@@ -657,7 +658,7 @@ export function AccountPage() {
             <PanelHeader
               icon={<Link2 className="h-4 w-4" />}
               title="Invite a partner"
-              subtitle="That lives on the portfolio now. Open a portfolio, tap Invite next to Add holding."
+              subtitle="Inviting someone happens on the portfolio itself. Open one, then tap Invite next to Add holding."
             />
             <p className="text-sm leading-relaxed text-muted-foreground">
               Redeem a code at{" "}
@@ -673,7 +674,7 @@ export function AccountPage() {
             <PanelHeader
               icon={<ShieldCheck className="h-4 w-4" />}
               title="Data & privacy"
-              subtitle="Your data, your call. Export it or wipe it any time."
+              subtitle="It is your data. Export it or delete it whenever you like."
             />
 
             <SettingBar
@@ -686,7 +687,7 @@ export function AccountPage() {
                   }
                 />
               }
-              description="Measure page views and load times. Sign-in cookies always run."
+              description="Measures page views and how long pages take to load. The cookies that keep you signed in always run."
             >
               <label
                 htmlFor={analyticsSwitchId}
@@ -736,7 +737,7 @@ export function AccountPage() {
               iconTone="danger"
               title="Delete my account"
               titleClassName="text-destructive"
-              subtitle="Removes your profile, deletes portfolios only you own, and steps you off any shared ones. Cannot be undone."
+              subtitle="Removes your profile, deletes the portfolios only you own, and takes you off any you share with someone else. This cannot be undone."
               actions={
                 <Button
                   type="button"

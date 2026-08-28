@@ -158,12 +158,15 @@ function daySentence(
   const dollars = signedCurrency(model.totals.todayDollar, 0);
   const swing = Math.abs(pct);
   if (swing < 0.005) {
-    return { quiet: true, sentence: "Quiet day. Your portfolio barely moved." };
+    return {
+      quiet: true,
+      sentence: "It was a quiet day, and your portfolio barely moved.",
+    };
   }
   if (swing < 0.02) {
     return {
       quiet: true,
-      sentence: `Small move, ${dollars}. Nothing you have to do.`,
+      sentence: `Your portfolio moved ${dollars} today, which is a small move.`,
     };
   }
   return {
@@ -180,7 +183,7 @@ function pickSwingSentence(dollars: string): string {
     "Your portfolio's value moved mostly because of the holdings below.",
     "A few holdings did most of the moving today. They're listed below.",
     "Here's what moved your total today.",
-    `${dollars} today, mostly from the holdings below.`,
+    `Your portfolio moved ${dollars} today, mostly because of the holdings below.`,
     "These holdings moved your total the most today.",
   ];
   const dayOfYear = Math.floor(
@@ -463,12 +466,12 @@ function sparkCandidates(
       text:
         ext === "high"
           ? say(seedFor(lookIndex, id), [
-              `${cashtag(t.ticker)} is at the high of its recent stretch, up ${aboutMove(t.todayPct)} ${whenTail}.`,
-              `${cashtag(t.ticker)} just tagged the top of the recent path. Up ${aboutMove(t.todayPct)} ${whenTail}.`,
+              `${cashtag(t.ticker)} is at the top of its recent range, up ${aboutMove(t.todayPct)} ${whenTail}.`,
+              `${cashtag(t.ticker)} reached the top of its recent range, up ${aboutMove(t.todayPct)} ${whenTail}.`,
             ])
           : say(seedFor(lookIndex, id), [
-              `${cashtag(t.ticker)} is at the low of its recent stretch, down ${aboutMove(t.todayPct)} ${whenTail}.`,
-              `${cashtag(t.ticker)} just tagged the bottom of the recent path. Down ${aboutMove(t.todayPct)} ${whenTail}.`,
+              `${cashtag(t.ticker)} is at the bottom of its recent range, down ${aboutMove(t.todayPct)} ${whenTail}.`,
+              `${cashtag(t.ticker)} reached the bottom of its recent range, down ${aboutMove(t.todayPct)} ${whenTail}.`,
             ]),
     });
   }
@@ -505,8 +508,8 @@ function dollarCandidate(
     rank: 74,
     ticker: top.ticker,
     text: say(seedFor(lookIndex, id), [
-      `${cashtag(top.ticker)} is ${money} of today's move, most of it. ${whenTail === "today" ? "That is the day." : "That was Friday."}`,
-      `The dollar move is ${cashtag(top.ticker)} (${money}). Everything else is small next to that.`,
+      `${cashtag(top.ticker)} accounts for ${money} of what your portfolio did ${whenTail}, which is most of it.`,
+      `Almost all of ${whenTail === "today" ? "today's" : "Friday's"} change in value came from ${cashtag(top.ticker)}, at ${money}. Everything else was small beside it.`,
     ]),
   };
 }
@@ -533,11 +536,11 @@ function breadthCandidate(
     rank: 64,
     text: say(seedFor(lookIndex, id), wideDown
       ? [
-          `${down} of ${n} names are down ${tail(when)}. This is a wide day, not one ticker.`,
+          `${down} of your ${n} names are down ${tail(when)}. That is nearly everything moving together, not one company.`,
           `Almost everything you own is red ${tail(when)} (${down} of ${n}).`,
         ]
       : [
-          `${up} of ${n} names are up ${tail(when)}. This is a wide day, not one ticker.`,
+          `${up} of your ${n} names are up ${tail(when)}. That is nearly everything moving together, not one company.`,
           `Almost everything you own is green ${tail(when)} (${up} of ${n}).`,
         ]),
   };
@@ -654,7 +657,7 @@ function pulseCandidates(
         kind: "gap",
         rank: 62,
         ticker: t.ticker,
-        text: `${cashtag(t.ticker)} ${t.todayPct >= 0 ? "rose" : "fell"} ${aboutMove(t.todayPct)} ${whenTail}, and there is no thesis on file for it.`,
+        text: `${cashtag(t.ticker)} ${t.todayPct >= 0 ? "rose" : "fell"} ${aboutMove(t.todayPct)} ${whenTail}, and you have not written down why you own it.`,
       });
     }
   }
