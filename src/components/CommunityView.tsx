@@ -1557,7 +1557,7 @@ export function CommunityView({ communityId }: Props) {
               </Button>
               <div className="card-sheen glass sticky top-24 z-20 flex flex-col gap-3 rounded-xl p-4 shadow-sm ring-1 ring-foreground/20 sm:p-6">
                 <p className="text-sm font-semibold text-foreground">
-                  Read-only - owned by{" "}
+                  You can look but not edit. Owned by{" "}
                   {memberStats.find((m) => m.id === selectedOwnerId)?.name ??
                     profileName(selectedOwnerId)}
                 </p>

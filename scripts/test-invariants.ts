@@ -764,9 +764,19 @@ run("earnings note flags a stretched run-in without sounding like a slogan", () 
     printCount: 4,
     typicalAbsMovePct: 0.05,
   });
-  assert.match(note, /Up 18%/);
+  /*
+    Both figures have to be in the sentence: how far it has already run, and
+    how far it usually moves on the day. That is the whole point of the note.
+
+    This used to also assert the word "lighten", from a clause that read
+    "this is when people lighten a bit before the print". That is a trade
+    instruction, which the guardrails in MARGUS_PERSONA forbid on every
+    surface, and "the print" is desk vocabulary besides. So the assertion is
+    inverted: the note states the two facts and leaves the decision alone.
+  */
+  assert.match(note, /18%/);
   assert.match(note, /±7%/);
-  assert.match(note, /lighten/);
+  assert.doesNotMatch(note, /lighten|trim|add here|sell some/i);
   assert.doesNotMatch(note, /—/);
 });
 
@@ -4204,9 +4214,10 @@ run("Communities list does not blank a cached circle while it refreshes", () => 
   assert.match(src, /loadCommunityListCache/);
   assert.match(src, /communities\.length === 0 && loading/);
   assert.match(src, /Public circles/);
-  assert.match(src, /Requested - pending/);
+  // The rule is that a pending request says so, not the words it uses.
+  assert.match(src, /Waiting for approval/);
   assert.doesNotMatch(src, /Requested · pending/);
-  assert.match(src, /No public circles right now/);
+  assert.match(src, /no public circles right now/i);
   assert.doesNotMatch(src, /discover\.length > 0 &&/);
   assert.match(src, /<PanelHeader/);
   assert.match(src, /flex flex-col gap-4/);
