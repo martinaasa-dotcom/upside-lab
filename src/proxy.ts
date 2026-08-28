@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { legacyRedirectPath } from "@/lib/legacy-urls";
 import { buildContentSecurityPolicy } from "@/lib/security-headers";
 import { limitMutationRequest, limitPublicMarketRequest } from "@/lib/rate-limit";
 import { isMutatingRequest, isSameOriginMutation } from "@/lib/same-origin";
@@ -41,6 +42,32 @@ export async function proxy(request: NextRequest) {
     const redirect = NextResponse.redirect(url, 301);
     redirect.headers.set("Content-Security-Policy", csp);
     return redirect;
+  }
+
+  /*
+    The old `?tab=` URLs, answered permanently and without their query.
+
+    Home, Pulse, Lab, Growth, Alerts and each portfolio were `?tab=` on the
+    root for the whole life of the app so far, so those URLs are in browser
+    histories, in bookmarks and in mail already delivered. Dropping the
+    query is the part that has to happen here rather than in `redirects()`
+    in `next.config.ts`: a config redirect appends the source's query to its
+    destination with no setting to say otherwise, so `?tab=pulse` would land
+    on `/pulse?tab=pulse`, leaving two spellings of one room in circulation,
+    and `?tab=overview`, whose room is the root that query is already on,
+    would redirect to itself forever. The table is `legacyRedirectPath`,
+    which is pure and tested on its own.
+  */
+  if (!isApi) {
+    const legacy = legacyRedirectPath(path, request.nextUrl.searchParams);
+    if (legacy) {
+      const url = request.nextUrl.clone();
+      url.pathname = legacy;
+      url.search = "";
+      const redirect = NextResponse.redirect(url, 308);
+      redirect.headers.set("Content-Security-Policy", csp);
+      return redirect;
+    }
   }
 
   if (isApi) {
