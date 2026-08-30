@@ -54,6 +54,7 @@ switch watches the work, the work never waits on the switch.
    | `disaster-recovery` | `0 3 * * *`             | 30 min          |
    | `sunday-note`       | `0 4 * * 0`             | 2 h (resume slots ping the same check) |
    | `billing-reconcile` | `0 5 * * *`             | 30 min          |
+   | `error-digest`      | `30 5 * * *`            | 30 min          |
    | `popular-tickers`   | `0 7 1 * *`             | 6 h             |
    | `margus-fund`       | `0 11 * * 1-6`          | 2 h (the 23:30 weekday slot pings it too) |
    | `empty-book-nudge`  | `0 14 * * *`            | 30 min          |

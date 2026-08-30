@@ -222,6 +222,47 @@ async function scanA11y(page, label) {
   console.log(`ok a11y ${label}`);
 }
 
+/*
+  Nothing pinned to the window may refilter the page scrolling under it.
+
+  A `position: fixed` element carrying a `backdrop-filter` re-filters its
+  backdrop on every frame of a scroll, and the measured cost on this very
+  page was 42 repainted frames with the bottom eighth of the screen
+  lagging where the page actually was (the old ScrollCue pill; the full
+  account is in AGENTS.md). The unit tests pin the components that were
+  fixed then; this walks the rendered page so the *next* pinned banner or
+  floating CTA cannot reintroduce the fault without failing here. The
+  signed-in chrome (the docks) deliberately carries fixed glass and is
+  not rendered on these signed-out pages, so a hit here is never that.
+*/
+async function scanFixedBlur(page, label) {
+  const offenders = await page.evaluate(() => {
+    const found = [];
+    for (const el of document.querySelectorAll("*")) {
+      const cs = getComputedStyle(el);
+      if (cs.position !== "fixed") continue;
+      const filter = cs.backdropFilter || cs.webkitBackdropFilter || "none";
+      if (filter === "none") continue;
+      const classes = String(el.className?.baseVal ?? el.className ?? "")
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 4)
+        .join(".");
+      found.push(
+        `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}${classes ? `.${classes}` : ""} (${filter})`
+      );
+    }
+    return found;
+  });
+  if (offenders.length > 0) {
+    throw new Error(
+      `${label}: position:fixed with a backdrop-filter over page content ` +
+        `(the 42-repainted-frames fault): ${offenders.join(", ")}`
+    );
+  }
+  console.log(`ok fixed-blur ${label}`);
+}
+
 const HARD_MS = 120_000;
 const hardTimer = setTimeout(() => {
   console.error("landing smoke timed out after 120s");
@@ -255,6 +296,7 @@ try {
     await smoke(page, viewport);
     console.log(`ok ${viewport.name} ${viewport.width}x${viewport.height}`);
     await scanA11y(page, `landing ${viewport.name}`);
+    await scanFixedBlur(page, `landing ${viewport.name}`);
   }
   await page.goto(`${BASE}/privacy`, {
     waitUntil: "domcontentloaded",
@@ -265,6 +307,7 @@ try {
   });
   console.log("ok privacy");
   await scanA11y(page, "privacy");
+  await scanFixedBlur(page, "privacy");
 } catch (err) {
   failed = err;
 } finally {
