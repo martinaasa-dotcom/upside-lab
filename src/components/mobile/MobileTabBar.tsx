@@ -17,6 +17,7 @@ import {
 import { type MobileTabId } from "@/lib/mobile-tab";
 import { useDockPad } from "@/lib/use-dock-pad";
 import { useDockMarker } from "@/lib/use-dock-marker";
+import { DockMarker } from "@/components/DockMarker";
 import { CircleNavIcon } from "@/components/CircleIcons";
 import {
   Activity,
@@ -62,9 +63,6 @@ export { activeMobileTab, mobileTabFromActiveId } from "@/lib/mobile-tab";
 
 /** How long the name stays up after a press. */
 const SAY_MS = 900;
-
-/** The marker's travel. Overshoots slightly and settles, the way a marker does. */
-const SLIDE = "cubic-bezier(0.34,1.28,0.52,1)";
 
 const TABS: {
   id: MobileTabId;
@@ -172,7 +170,8 @@ export function MobileTabBar({
     (t) => !t.metaId || !hiddenModeIds.includes(t.metaId)
   );
 
-  const { ref: rowRef, mark, travels } = useDockMarker();
+  const marker = useDockMarker();
+  const rowRef = marker.ref;
   const [said, setSaid] = useState<Said | null>(null);
 
   const hush = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -239,6 +238,8 @@ export function MobileTabBar({
               href={to}
               prefetch
               data-tab={id}
+              data-dock-cell
+              data-dock-goes
               data-on={on ? "" : undefined}
               aria-label={label}
               aria-current={on ? "page" : undefined}
@@ -250,12 +251,12 @@ export function MobileTabBar({
                */
               onFocus={(e) => say(shortLabel, e.currentTarget)}
               className={cn(
-                "relative z-[1] flex size-12 shrink-0 appearance-none items-center justify-center rounded-full transition-colors",
+                "dock-cell relative z-[1] flex size-12 shrink-0 appearance-none items-center justify-center rounded-full",
                 "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                 on ? "text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <span className="relative flex">
+              <span className="dock-glyph relative flex">
                 <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
                 {/*
                   The one saturated pixel left on the bar. The accent is not
@@ -271,37 +272,18 @@ export function MobileTabBar({
         })}
 
         {/*
-          The marker. One element, behind the cells, measured off the live cell
-          and moved with a transform so it costs no layout and cannot shift the
-          row under a thumb.
+          The marker, and the pointer's own pane behind it. Both are
+          `DockMarker`, which the laptop dock draws too: the two bars are
+          one design and the marker is the part of it a reader watches
+          most, so it is one component rather than two that agree today.
         */}
-        <span
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute top-1 left-0 h-12 rounded-full bg-foreground/10",
-            mark ? "opacity-100" : "opacity-0",
-            travels ? "transition-[transform,width,opacity] duration-300" : "transition-none",
-            "motion-reduce:transition-none"
-          )}
-          style={
-            mark
-              ? {
-                  width: `${mark.width}px`,
-                  transform: `translateX(${mark.left}px)`,
-                  transitionTimingFunction: SLIDE,
-                }
-              : undefined
-          }
-        />
+        <DockMarker state={marker} shape="top-1 h-12" />
 
         {/* The name, spoken on the press. */}
         <span
           aria-hidden
-          className={cn(
-            "glass glass-dock pointer-events-none absolute bottom-full mb-2 max-w-[60vw] -translate-x-1/2 truncate rounded-full px-3 py-1 text-xs font-medium text-foreground ring-1 ring-foreground/20",
-            "transition-opacity duration-150 motion-reduce:transition-none",
-            said ? "opacity-100" : "opacity-0"
-          )}
+          data-said={said ? "" : undefined}
+          className="dock-say glass glass-dock pointer-events-none absolute bottom-full mb-2 max-w-[60vw] truncate rounded-full px-3 py-1 text-xs font-medium text-foreground ring-1 ring-foreground/20"
           style={{ left: `${said?.left ?? 0}px` }}
         >
           {said?.label ?? " "}

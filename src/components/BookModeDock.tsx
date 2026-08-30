@@ -39,34 +39,51 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useDockMarker } from "@/lib/use-dock-marker";
+import { DockMarker } from "@/components/DockMarker";
 
+/*
+ * No `title` on these any more, and none anywhere else on this bar that
+ * only restated what the cell already says.
+ *
+ * A `title` draws the browser's own tooltip: unstyled OS chrome, about a
+ * second after the pointer settles, over the most carefully made surface
+ * in the app. It was tolerable while hovering had no answer of its own.
+ * It is not now: the pointer already drags a pane with it the instant it
+ * arrives, so a grey box appearing a second later is a second answer to
+ * one gesture, and the slower and uglier of the two.
+ *
+ * Nothing accessible was lost. Every cell here carries a visible label or
+ * an `aria-label`, so each one still has a name; what the titles added was
+ * a longer description of a room whose name was already on the cell.
+ *
+ * The one that stays is on the portfolio cells, and the line is worth
+ * remembering: A TITLE THAT RESTATES THE LABEL GOES, A TITLE THAT TEACHES
+ * AN INTERACTION STAYS UNTIL IT HAS A BETTER HOME. "Right-click to rename
+ * or delete" is the only hint that menu exists.
+ */
 const MODES = [
   {
     id: OVERVIEW_TAB_ID,
     href: "/",
     label: "Home",
-    title: "Today's briefing and your portfolio",
     Icon: House,
   },
   {
     id: PULSE_TAB_ID,
     href: PULSE_PATH,
     label: "Pulse",
-    title: "Pulse, for the companies you hold",
     Icon: Activity,
   },
   {
     id: LAB_TAB_ID,
     href: LAB_PATH,
     label: "Lab",
-    title: "Allocation, risk, trends, seasonality",
     Icon: FlaskConical,
   },
   {
     id: COMPOUND_TAB_ID,
     href: GROWTH_PATH,
     label: "Growth",
-    title: "What your portfolio could become if you keep going",
     Icon: TrendingUp,
   },
 ] as const;
@@ -87,9 +104,17 @@ export type SheetTone = "up" | "down" | null;
 const CELL_W = "7.5rem";
 
 const CELL =
-  "relative z-[1] flex h-11 w-full min-h-0 min-w-0 appearance-none items-center justify-center gap-1.5 rounded-full px-2 text-sm font-medium transition-colors";
+  "dock-cell relative z-[1] flex h-11 w-full min-h-0 min-w-0 appearance-none items-center justify-center gap-1.5 rounded-full px-2 text-sm font-medium";
 
-const OFF = "text-muted-foreground hover:bg-hover hover:text-foreground";
+/*
+ * No `hover:bg-hover` any more. A cell lighting up on its own is a
+ * different object from the marker that says where you are, and two
+ * different objects doing the same job on one bar is what made hovering
+ * along it read as a row of things blinking. The pointer now drags one
+ * fainter pane with it, on the marker's own physics, so reaching and
+ * arriving are the same object at two weights. See `DockMarker`.
+ */
+const OFF = "text-muted-foreground hover:text-foreground";
 
 /*
  * Where you are is said by the marker that slides behind the cells, not by
@@ -100,9 +125,6 @@ const OFF = "text-muted-foreground hover:bg-hover hover:text-foreground";
  */
 const ON = "text-foreground";
 
-/** The marker's travel. Overshoots slightly and settles, the way a marker does. */
-const SLIDE = "cubic-bezier(0.34,1.28,0.52,1)";
-
 /**
  * Sheets carry a dot where the sections carry a glyph, so every cell has
  * the same shape. A row of identical wallet icons would be noise; the dot
@@ -111,7 +133,7 @@ const SLIDE = "cubic-bezier(0.34,1.28,0.52,1)";
 function ToneDot({ tone }: { tone: SheetTone }) {
   return (
     <span
-      className="flex h-4 w-4 shrink-0 items-center justify-center"
+      className="dock-glyph flex h-4 w-4 shrink-0 items-center justify-center"
       aria-hidden
     >
       <span
@@ -137,6 +159,16 @@ type Props = {
   sheets?: Portfolio[];
   /** Today's direction per portfolio id — the dot in that portfolio's cell. */
   sheetTodayTone?: Record<string, SheetTone>;
+  /**
+   * Alerts waiting on Home, as the one saturated pixel on this bar.
+   *
+   * The phone has drawn this dot since the dock was built and the laptop
+   * drew nothing, which was an accident rather than a decision: the two
+   * docks are one design, and the rule that survives every other pass here
+   * is that the accent is spent on news and nothing else. A reader on a
+   * laptop had no way to know something was waiting.
+   */
+  alertCount?: number;
   /** Opens the New portfolio dialog. Omit to hide the add cell. */
   onAddSheet?: () => void;
   /** Right-click or long-press on a sheet cell. */
@@ -151,6 +183,7 @@ export function BookModeDock({
   guest = false,
   sheets = [],
   sheetTodayTone,
+  alertCount = 0,
   onAddSheet,
   onSheetMenu,
   onSheetRename,
@@ -180,7 +213,8 @@ export function BookModeDock({
     return () => ro.disconnect();
   }, []);
 
-  const { ref: wellRef, mark, travels } = useDockMarker();
+  const marker = useDockMarker();
+  const wellRef = marker.ref;
 
   // Sections + Circle are fixed; the sheets are what can overrun the row.
   const fixedCells = modes.length + 1;
@@ -264,15 +298,22 @@ export function BookModeDock({
           : `repeat(${cellCount}, minmax(0, ${CELL_W}))`,
       }}
     >
-      {modes.map(({ id, href, label, title, Icon }) => {
+      {modes.map(({ id, href, label, Icon }) => {
         const active = activeId === id;
         const inner = (
           <>
-            <Icon
-              className="h-4 w-4 shrink-0"
-              strokeWidth={2}
-              aria-hidden
-            />
+            <span className="dock-glyph relative flex shrink-0">
+              <Icon className="h-4 w-4" strokeWidth={2} aria-hidden />
+              {/*
+                The one saturated pixel left on the bar, and the phone draws
+                it in the same place for the same reason: the accent is not
+                spent on which room you are in, which is the least
+                surprising fact on the screen. It is spent on news.
+              */}
+              {id === OVERVIEW_TAB_ID && alertCount > 0 && !active ? (
+                <span className="absolute -top-0.5 -right-1 h-1.5 w-1.5 rounded-full bg-primary" />
+              ) : null}
+            </span>
             <span className="min-w-0 truncate">{label}</span>
           </>
         );
@@ -282,9 +323,10 @@ export function BookModeDock({
             key={id}
             href={href}
             prefetch
+            data-dock-cell
+            data-dock-goes
             aria-current={active ? "page" : undefined}
             data-on={active ? "" : undefined}
-            title={title}
             className={look}
           >
             {inner}
@@ -317,6 +359,8 @@ export function BookModeDock({
             key={sheet.id}
             href={hrefForTabId(sheet.id, sheets)}
             prefetch
+            data-dock-cell
+            data-dock-goes
             aria-current={active ? "page" : undefined}
             data-on={active ? "" : undefined}
             title={title}
@@ -335,11 +379,15 @@ export function BookModeDock({
             <button
               type="button"
               aria-label="Portfolios"
+              data-dock-cell
               data-on={activeSheet ? "" : undefined}
-              title="Your portfolios"
               className={cn(CELL, activeSheet ? ON : OFF)}
             >
-              <Wallet className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+              <Wallet
+                className="dock-glyph h-4 w-4 shrink-0"
+                strokeWidth={2}
+                aria-hidden
+              />
               <span className="min-w-0 truncate">
                 {activeSheet?.name ?? "Portfolios"}
               </span>
@@ -382,46 +430,32 @@ export function BookModeDock({
         <button
           type="button"
           onClick={() => onAddSheet?.()}
+          data-dock-cell
           aria-label="New portfolio"
-          title="New portfolio"
           className={cn(CELL, OFF, "px-0")}
         >
-          <Plus className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+          <Plus
+            className="dock-glyph h-4 w-4 shrink-0"
+            strokeWidth={2}
+            aria-hidden
+          />
         </button>
       ) : null}
 
       <Link
         href={circleTo}
         prefetch
-        title="Upside Circle"
+        data-dock-cell
+        data-dock-goes
         aria-current={onCircle ? "page" : undefined}
         data-on={onCircle ? "" : undefined}
         className={cn(CELL, onCircle ? ON : OFF)}
       >
-        <CircleNavIcon className="h-4 w-4 shrink-0" strokeWidth={2} />
+        <CircleNavIcon className="dock-glyph h-4 w-4 shrink-0" strokeWidth={2} />
         <span className="min-w-0 truncate">Circle</span>
       </Link>
 
-      <span
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute top-1 left-0 h-11 rounded-full bg-foreground/10",
-          mark ? "opacity-100" : "opacity-0",
-          travels
-            ? "transition-[transform,width,opacity] duration-300"
-            : "transition-none",
-          "motion-reduce:transition-none"
-        )}
-        style={
-          mark
-            ? {
-                width: `${mark.width}px`,
-                transform: `translateX(${mark.left}px)`,
-                transitionTimingFunction: SLIDE,
-              }
-            : undefined
-        }
-      />
+      <DockMarker state={marker} shape="top-1 h-11" />
     </div>
     </div>
   );
