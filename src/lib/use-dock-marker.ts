@@ -4,11 +4,17 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import {
   type DockDir,
   type DockMark,
+  GHOST_LAG_MS,
+  GHOST_MS,
+  MARKER_LAG_MS,
+  MARKER_MS,
   SWELL_MS,
   markGeometry,
+  restingStyle,
   sameMark,
   swellFrames,
   travelDirection,
+  travelKeyframes,
 } from "@/lib/dock-motion";
 
 export type { DockDir, DockMark } from "@/lib/dock-motion";
@@ -34,8 +40,34 @@ export type DockMarkerState = {
  */
 const AIM_GIVES_UP_MS = 4000;
 
-function markOf(host: HTMLElement, cell: HTMLElement): DockMark {
-  return markGeometry(host.clientWidth, cell.offsetLeft, cell.offsetWidth);
+function markOf(cell: HTMLElement): DockMark {
+  return markGeometry(cell.offsetLeft, cell.offsetWidth);
+}
+
+/**
+ * Move a pane to a cell on the compositor.
+ *
+ * The resting width and transform go on the element first, so it is
+ * correct the instant the animation ends and `scaleX` is exactly 1 while
+ * it stands still. Then the travel is played over the top from where the
+ * pane actually was. `fill` is left alone deliberately: the element's own
+ * style is already the destination.
+ */
+function glide(
+  el: HTMLElement | null,
+  from: DockMark | null,
+  to: DockMark,
+  running: { current: Animation | null },
+  opts: { durationMs: number; lagMs: number }
+) {
+  if (!el) return;
+  Object.assign(el.style, restingStyle(to));
+  if (!from || typeof el.animate !== "function" || stillMotion()) return;
+  if (from.left === to.left && from.width === to.width) return;
+  running.current?.cancel();
+  running.current = el.animate(travelKeyframes(from, to, opts), {
+    duration: opts.durationMs,
+  });
 }
 
 function stillMotion(): boolean {
@@ -122,6 +154,9 @@ export function useDockMarker(): DockMarkerState {
   const hoverCell = useRef<HTMLElement | null>(null);
   /** The capsule's breath, so a second travel replaces it rather than stacking. */
   const breathing = useRef<Animation | null>(null);
+  /** The two panes' travels, so a second one replaces rather than stacks. */
+  const gliding = useRef<Animation | null>(null);
+  const ghosting = useRef<Animation | null>(null);
   /** The cell a press is betting on, until the router agrees or the bet is off. */
   const aimed = useRef<HTMLElement | null>(null);
   const aimTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -135,6 +170,7 @@ export function useDockMarker(): DockMarkerState {
      * well. A direct-child query would leave that cell unlit.
      */
     const on = host.querySelector<HTMLElement>("[data-on]");
+    const pane = host.querySelector<HTMLElement>(".dock-marker");
     /*
      * A press outstanding, so the marker is already where the reader aimed
      * it and the router has not caught up yet. The bet is settled when the
@@ -148,23 +184,34 @@ export function useDockMarker(): DockMarkerState {
       aimed.current = null;
     }
     const target = aimed.current ?? on;
-    const next = target ? markOf(host, target) : null;
+    const next = target ? markOf(target) : null;
     if (!sameMark(lastMark.current, next)) {
       if (lastMark.current && next) {
         const heading = travelDirection(lastMark.current, next);
         setDir(heading);
         swell(host, heading, breathing);
       }
+      if (next) glide(pane, lastMark.current, next, gliding, {
+        durationMs: MARKER_MS,
+        lagMs: MARKER_LAG_MS,
+      });
       lastMark.current = next;
       setMark(next);
     }
 
     const cell = hoverCell.current;
-    const overIt = cell && host.contains(cell) ? markOf(host, cell) : null;
+    const overIt = cell && host.contains(cell) ? markOf(cell) : null;
     if (overIt && !sameMark(lastHover.current, overIt)) {
       if (lastHover.current) {
         setHoverDir(travelDirection(lastHover.current, overIt));
       }
+      glide(
+        host.querySelector<HTMLElement>(".dock-ghost"),
+        lastHover.current,
+        overIt,
+        ghosting,
+        { durationMs: GHOST_MS, lagMs: GHOST_LAG_MS }
+      );
       lastHover.current = overIt;
       setHover(overIt);
     }
@@ -234,8 +281,15 @@ export function useDockMarker(): DockMarkerState {
         return;
       }
       hoverCell.current = cell;
-      const next = markOf(host, cell);
+      const next = markOf(cell);
       if (lastHover.current) setHoverDir(travelDirection(lastHover.current, next));
+      glide(
+        host.querySelector<HTMLElement>(".dock-ghost"),
+        lastHover.current,
+        next,
+        ghosting,
+        { durationMs: GHOST_MS, lagMs: GHOST_LAG_MS }
+      );
       lastHover.current = next;
       setHover(next);
       setHovering(true);
