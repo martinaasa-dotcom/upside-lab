@@ -6,6 +6,7 @@ import { useFeedback } from "@/components/FeedbackHost";
 import { SignInAddresses } from "@/components/SignInAddresses";
 import { SignInGate } from "@/components/SignInGate";
 import { MobileDock } from "@/components/mobile/MobileDock";
+import { AutoFold } from "@/components/AutoFold";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,8 @@ import {
 } from "@/components/ui/item";
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
 import { NO_VALUE, cn } from "@/lib/format";
-import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
+import { PageMain } from "@/components/PageMain";
+import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
 import { PRODUCT_NAME, PRODUCT_SUPPORT_EMAIL } from "@/lib/product";
 import {
   ANALYTICS_CONSENT_EVENT,
@@ -74,7 +76,6 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTimeout } from "@/lib/use-timeout";
-import { BelowFold } from "@/components/BelowFold";
 import { useCallback, useEffect, useId, useState } from "react";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
 import { UpgradeButton } from "@/components/billing/UpgradeButton";
@@ -333,7 +334,7 @@ export function AccountPage() {
           </Button>
         </AppHeader>
 
-        <main id="main" className={PAGE_MAIN_CLASS}>
+        <PageMain>
           <div>
             <h1 className="text-2xl font-semibold">My account</h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -342,6 +343,21 @@ export function AccountPage() {
           </div>
 
           <WidgetErrorBoundary name="Account">
+          {/*
+            ACCOUNT'S SECTIONS, INSIDE THE ERROR BOUNDARY RATHER THAN
+            OUTSIDE IT.
+
+            `PageMain` folds its own children, and this page hands it one:
+            the boundary. So the fold has to sit in here, where the
+            sections actually are. Measured at 390x800 this room is the
+            most lopsided in the app -- 196 elements over 4.3 screens with
+            82.7% of them starting below the fold.
+
+            This replaces a hand-placed `BelowFold` around everything from
+            the profile down, with a 1,980px reserve typed in from one
+            measurement on one device.
+          */}
+          <AutoFold>
           <Panel>
             <PinnedHeader
               icon={<MessageSquare className="h-4 w-4" />}
@@ -480,22 +496,6 @@ export function AccountPage() {
             </div>
           </Panel>
 
-          {/*
-            * FOUR FIFTHS OF ACCOUNT IS BELOW THE FOLD, SO THE TAIL WAITS.
-            *
-            * Measured at 390x800: 196 elements over 4.3 screens, the most
-            * lopsided room in the app at 82.7% starting below the fold,
-            * and the joint-slowest press at 320ms. Everything from here
-            * down -- the profile, the experience questions, the invite,
-            * privacy and the danger zone -- is 123 of those 196 and none
-            * of it starts above 1,400px.
-            *
-            * Safe to withhold the mount here because the page has no
-            * section anchors (one `id`, on `main`) and every fetch lives
-            * in this component's own effects rather than in a section, so
-            * nothing loads later than it did.
-            */}
-          <BelowFold reserve={1980}>
           {/* Profile / community appearance */}
           <Panel>
             <PanelHeader
@@ -771,9 +771,9 @@ export function AccountPage() {
               }
             />
           </Panel>
-          </BelowFold>
+          </AutoFold>
           </WidgetErrorBoundary>
-        </main>
+        </PageMain>
       </div>
 
       {deleteOpen && (

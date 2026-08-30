@@ -11,7 +11,8 @@ import { Score, Scoreboard } from "@/components/ui/Panel";
 // gone on rendering six numbers while the route computed eight.
 import type { AdminFunnel } from "@/lib/admin-funnel";
 import { isSuperadminEmail } from "@/lib/auth/superadmin";
-import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
+import { PageMain } from "@/components/PageMain";
+import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
 import { plainError } from "@/lib/plain-error";
 import { formatDateTime } from "@/lib/timezone";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
@@ -269,7 +270,7 @@ export function AdminPage() {
         <MobileDock active={null} />
         <AppHeader title="Admin" />
 
-        <main id="main" className={PAGE_MAIN_CLASS}>
+        <PageMain>
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center card-sheen glass-well rounded-lg text-primary">
               <Shield className="h-5 w-5" />
@@ -649,7 +650,7 @@ export function AdminPage() {
             </>
             </WidgetErrorBoundary>
           )}
-        </main>
+        </PageMain>
       </div>
 
       <ConfirmModal
