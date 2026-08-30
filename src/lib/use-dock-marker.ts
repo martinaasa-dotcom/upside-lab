@@ -163,6 +163,15 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
   /** The cell a press is betting on, until the router agrees or the bet is off. */
   const aimed = useRef<HTMLElement | null>(null);
   const aimTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /*
+   * Whether the press has already become a click, which is to say a
+   * navigation is under way. See the press effect: a bet the router is
+   * about to confirm must not be called off, or the marker walks all the
+   * way home and all the way back for nothing.
+   */
+  const going = useRef(false);
+  /** A bet being reverted arrives rather than travels. See `callOff`. */
+  const reverting = useRef(false);
 
   const measure = useCallback(() => {
     const host = ref.current;
@@ -189,12 +198,18 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
     const target = aimed.current ?? on;
     const next = target ? markOf(target) : null;
     if (!sameMark(lastMark.current, next)) {
-      if (lastMark.current && next) {
+      if (lastMark.current && next && !reverting.current) {
         const heading = travelDirection(lastMark.current, next);
         setDir(heading);
         swell(host, heading, breathing, tune);
       }
-      if (next) glide(pane, lastMark.current, next, gliding, {
+      /*
+       * A reverted bet ARRIVES, it does not travel. Reverting is a
+       * correction, not a journey: animating it draws a second full trip
+       * across the bar for a room the reader never went to, which is
+       * exactly the thing they would report as a glitch.
+       */
+      if (next) glide(pane, reverting.current ? null : lastMark.current, next, gliding, {
         durationMs: tune.travelMs,
         lagMs: tune.lagMs,
       });
@@ -384,7 +399,13 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
       }
       if (!aimed.current) return;
       aimed.current = null;
-      measure();
+      going.current = false;
+      reverting.current = true;
+      try {
+        measure();
+      } finally {
+        reverting.current = false;
+      }
     };
 
     const aim = (cell: HTMLElement) => {
@@ -416,6 +437,7 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
         }
       }
       aimed.current = cell;
+      going.current = false;
       if (aimTimer.current) clearTimeout(aimTimer.current);
       aimTimer.current = setTimeout(callOff, AIM_GIVES_UP_MS);
       measure();
@@ -444,12 +466,39 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
      * the finger that wandered off has usually left the bar entirely.
      */
     const release = (e: PointerEvent) => {
-      if (!aimed.current) return;
+      if (!aimed.current || going.current) return;
       const over =
         e.target instanceof Element
           ? e.target.closest<HTMLElement>("[data-dock-goes]")
           : null;
       if (over !== aimed.current) callOff();
+    };
+
+    /*
+     * ONCE THE PRESS HAS BECOME A CLICK IT IS NO LONGER A BET.
+     *
+     * A navigation is under way and the only things allowed to settle the
+     * marker are the room answering and the timeout. Without this, any
+     * later pointer event that lands off the cell -- a second tap, a
+     * `pointercancel` from the browser taking the gesture, a press anywhere
+     * on the page while the room is still rendering -- calls the bet off,
+     * and `callOff` repositions to whatever is still lit, which during a
+     * navigation is the cell you are LEAVING.
+     *
+     * Measured on a recording of the real app, that is exactly what the
+     * reader was seeing: the marker completed its travel, sat on the new
+     * cell for ~350ms, then teleported back to the old one and replayed
+     * the whole journey the moment the room arrived. Reproduced against
+     * the real component with a 350ms commit, it logged two travels 7ms
+     * apart -- `312 -> 4` then `4 -> 312`.
+     */
+    const went = (e: MouseEvent) => {
+      if (!aimed.current) return;
+      const cell =
+        e.target instanceof Element
+          ? e.target.closest<HTMLElement>("[data-dock-goes]")
+          : null;
+      if (cell === aimed.current) going.current = true;
     };
 
     /* A keyboard never presses, and Enter is how it opens a link. */
@@ -462,15 +511,23 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
       if (cell) aim(cell);
     };
 
+    /* A cancel before the click is a genuinely abandoned press. */
+    const abandon = () => {
+      if (going.current) return;
+      callOff();
+    };
+
     host.addEventListener("pointerdown", press);
+    host.addEventListener("click", went);
     host.addEventListener("keydown", key);
     document.addEventListener("pointerup", release);
-    document.addEventListener("pointercancel", callOff);
+    document.addEventListener("pointercancel", abandon);
     return () => {
       host.removeEventListener("pointerdown", press);
+      host.removeEventListener("click", went);
       host.removeEventListener("keydown", key);
       document.removeEventListener("pointerup", release);
-      document.removeEventListener("pointercancel", callOff);
+      document.removeEventListener("pointercancel", abandon);
       if (aimTimer.current) clearTimeout(aimTimer.current);
     };
   }, [measure, router]);

@@ -121,6 +121,7 @@ describe("the dock's motion is optional", () => {
     expect(reduced).toContain(".dock-ghost");
     expect(reduced).toContain(".dock-cell");
     expect(reduced).toContain(".dock-glyph");
+    expect(reduced).toContain(".dock-say");
     expect(reduced).toContain(".dock-breathe");
     expect(reduced).toMatch(/animation:\s*none/);
   });
@@ -397,54 +398,47 @@ describe("each bar breathes at the moment its input gives it", () => {
   });
 });
 
-describe("the phone bar carries its names, and both bars weight the active glyph", () => {
+describe("the phone bar stays wordless, and both bars weight the active glyph", () => {
   const PHONE = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");
   const WIDE = readFileSync("src/components/BookModeDock.tsx", "utf8");
   const CSSFILE = readFileSync("src/app/globals.css", "utf8");
 
-  it("paints a name under every glyph, and no longer speaks one on the press", () => {
+  it("says the pressed room's name rather than painting six of them", () => {
     /*
-     * A transient label only ever named the room you had already chosen.
-     * What somebody new needs named is the room they have NOT been to,
-     * which is exactly what a label that appears on press can never reach.
+     * PAINTED NAMES WERE TRIED AND TAKEN BACK OUT, and the arithmetic is
+     * why: the reference bar carries four destinations across ~380px, about
+     * 95px each, and this one carries six across 374px, about 57px each --
+     * 60% of the room for the same icon-over-word cell. Built and measured,
+     * nothing truncated and the bar came down to 52px, and it still read as
+     * a wall of text, because six words at 12px in 374px is one however it
+     * is set. The name is spoken on the press instead, on `pointerdown`
+     * rather than `click`, because a name arriving after the tap it was
+     * meant to answer is a name nobody needed.
      */
-    expect(PHONE).toContain("{shortLabel}");
-    expect(PHONE).not.toMatch(/dock-say|SAY_MS|setSaid/);
-    expect(CSS).not.toContain("dock-say");
+    expect(PHONE).toContain("dock-say");
+    expect(PHONE).toMatch(/onPointerDown=\{\(e\) => say\(shortLabel/);
+    // A keyboard never presses anything, so focus is that person's press.
+    expect(PHONE).toMatch(/onFocus=\{\(e\) => say\(shortLabel/);
+    expect(CSS).toContain(".dock-say");
   });
 
-  it("keeps the press handler off React state", () => {
-    // The spoken name was state set from `onPointerDown`, so every tap
-    // re-rendered the bar before the browser could dispatch the click that
-    // navigates. Nothing on the press path may set state again.
-    expect(PHONE).not.toMatch(/onPointerDown=/);
-  });
-
-  it("stretches the bar rather than hugging six names", () => {
-    // A bar that hugs six glyphs is 316 of a 390px screen; six names need
-    // all of it, and equal tracks keep the marker one shape on every cell.
-    expect(PHONE).toContain("w-full");
-    expect(PHONE).not.toMatch(/relative flex w-fit/);
-    expect(PHONE).toContain("minmax(0, 1fr)");
-    // A grid item's default minimum is its content, so without this the
-    // longest name sets its track and the cells stop being equal.
-    expect(PHONE).toContain("min-w-0");
+  it("keeps the capsule hugging its glyphs", () => {
+    // Six names need the whole page; six glyphs do not, and a bar that hugs
+    // is the thing that reads as a floating capsule rather than a slab.
+    expect(PHONE).toContain("w-fit");
+    expect(PHONE).not.toContain("{shortLabel}</span>");
   });
 
   it("says which room you are in with weight, on both bars", () => {
+    /*
+     * The one thing kept from the labelled round. Filled against outline is
+     * the read the reference uses and it does not survive this icon set,
+     * half of which is open paths (a line chart, a trend arrow) that fill
+     * into a blot. Weight reads the same and reads on all six.
+     */
     expect(PHONE).toMatch(/strokeWidth=\{on \? 2\.5 : 1\.75\}/);
     expect(WIDE).toMatch(/strokeWidth=\{active \? 2\.5 : 1\.75\}/);
     expect(WIDE).toMatch(/strokeWidth=\{onCircle \? 2\.5 : 1\.75\}/);
-  });
-
-  it("never drops a name below the 12px floor", () => {
-    // The cell width is sized to the label, not the other way round.
-    expect(PHONE).toContain("text-xs");
-    expect(PHONE).not.toMatch(/text-\[(?:[0-9]|10|11)(?:\.\d+)?px\]/);
-  });
-
-  it("keeps the full name for a screen reader when the short one is drawn", () => {
-    expect(PHONE).toMatch(/className="sr-only">\{label\}/);
   });
 
   it("holds the dock fill above the colour-step threshold", () => {
@@ -477,6 +471,63 @@ describe("the phone bar carries its names, and both bars weight the active glyph
     const aim = hook.slice(hook.indexOf("const aim ="), hook.indexOf("const press ="));
     expect(aim).toContain("router.prefetch");
     expect(aim).toContain('getAttribute("href")');
+  });
+});
+
+describe("a bet the router is about to confirm is not called off", () => {
+  const HOOK = readFileSync("src/lib/use-dock-marker.ts", "utf8");
+
+  it("treats a click on the aimed cell as a commitment, not a bet", () => {
+    /*
+     * THE GLITCH THIS EXISTS TO STOP. `callOff` repositions the marker to
+     * whatever is still lit, and during a navigation that is the cell you
+     * are LEAVING -- so any pointer event landing off the cell while the
+     * room renders sent the marker all the way home and all the way back.
+     *
+     * Measured off a recording of the real app: the marker completed its
+     * travel, sat on the new cell for about 350ms, then teleported back
+     * and replayed the journey the moment the room arrived. Reproduced
+     * against the real component with a 350ms commit, it logged two
+     * travels 7ms apart, `312 -> 4` then `4 -> 312`.
+     */
+    expect(HOOK).toContain("going.current = true");
+    // The release guard stands down once the click has landed.
+    expect(HOOK).toMatch(/if \(!aimed\.current \|\| going\.current\) return;/);
+    // A cancel BEFORE the click is still a genuinely abandoned press.
+    expect(HOOK).toMatch(/const abandon[\s\S]{0,120}going\.current/);
+    expect(HOOK).toContain('addEventListener("pointercancel", abandon)');
+  });
+
+  it("makes a reverted bet arrive rather than travel", () => {
+    // Reverting is a correction, not a journey: animating it draws a
+    // second full trip across the bar for a room nobody went to.
+    expect(HOOK).toContain("reverting.current = true");
+    expect(HOOK).toMatch(/glide\(pane, reverting\.current \? null : lastMark\.current/);
+    // ...and it must not breathe for a journey that is not happening.
+    expect(HOOK).toMatch(/lastMark\.current && next && !reverting\.current/);
+  });
+
+  it("solves the travel curve once rather than on every press", () => {
+    /*
+     * `travelKeyframes` runs synchronously inside `pointerdown`, before the
+     * browser can dispatch the click that navigates. Binary-searching the
+     * bezier twice per sample is about 2,100 solver iterations per tap for
+     * a curve that never changes.
+     */
+    const src = readFileSync("src/lib/dock-motion.ts", "utf8");
+    expect(src).toContain("easeTable");
+    // It takes no curve: a table keyed to nothing would answer for the
+    // wrong one if a second curve were ever passed in.
+    expect(src).toMatch(/function eased\(t: number\)/);
+    const table = travelKeyframes(markGeometry(0, 120), markGeometry(120, 120), {
+      durationMs: 340,
+      lagMs: 18,
+    });
+    // Still the same curve: monotonic, starts where it was, ends on the mark.
+    const xs = table.map((f) => Number(String(f.transform).match(/translateX\(([-\d.]+)px\)/)![1]));
+    expect(xs[0]).toBeCloseTo(0, 4);
+    expect(xs[xs.length - 1]).toBeCloseTo(120, 4);
+    for (let i = 1; i < xs.length; i += 1) expect(xs[i]).toBeGreaterThanOrEqual(xs[i - 1] - 1e-6);
   });
 });
 

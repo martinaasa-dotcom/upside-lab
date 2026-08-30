@@ -1788,7 +1788,102 @@ Reproduced against the same numbers: peak **+4.51%** at 33ms, +3.46% at
 133ms, +1.31% at 233ms, home at 300ms, with the left end out 11.1px against
 the right end's 22.6px — 1:2, and the height unchanged at 52px.
 
-### The names came back, and the bar changed colour to pay for them (2026-08-30)
+### The marker's round trip, and what the page is really waiting for (2026-08-30)
+
+> *"There's very weird glitching that happens when I select Circle and
+> Growth, it moves and then jumps again briefly."*
+
+**Found by tracking the pill frame by frame through a 20s recording.**
+Sampling a clean row inside the bar's top padding, above the glyphs, the
+marker's centre settled at x=1184 and held for ~350ms — then moved 55px
+left in **one frame**, on the exact frame the page behind it changed, and
+travelled back. It happened on every navigation in the recording.
+
+Reproduced against the real component with a harness that commits the
+route 350ms after the tap, logging every WAAPI animation the dock starts:
+
+```
++  7ms  dock-marker  340ms  translateX(4px)   -> translateX(312px)
++421ms  dock-marker  340ms  translateX(312px) -> translateX(4px)     <- home
++426ms  dock-marker  340ms  translateX(4px)   -> translateX(312px)   <- and back
+```
+
+**The cause is `callOff`.** It repositions the marker to whatever still
+carries `data-on`, and during a navigation that is the cell you are
+*leaving*. Any pointer event landing off the aimed cell while the room
+rendered — a second tap, a `pointercancel` from the browser taking the
+gesture, a press anywhere on the page — called the bet off and sent the
+marker on a full round trip for a room nobody visited.
+
+Two changes, and both are about what a bet means:
+
+- **A click on the aimed cell commits it** (`going`). After that a
+  navigation is under way, and only the room answering or the 4s timeout
+  settles the marker. A `pointercancel` *before* the click is still a
+  genuinely abandoned press and still calls off.
+- **A bet that does lose arrives rather than travels** (`reverting`), with
+  no swell. Reverting is a correction, not a journey.
+
+**The travel curve is now solved once.** `travelKeyframes` runs
+synchronously inside `pointerdown`, before the browser can dispatch the
+click that navigates, and it was binary-searching the bezier twice per
+sample — 44 samples at 8ms over a 340ms travel is about **2,100 solver
+iterations per tap**, for a curve that never changes. A 1,024-point table
+built on first use, read with a linear interpolation, is exact to ~1e-6,
+far finer than a sub-pixel position on a 120px cell. `eased()` takes no
+curve on purpose: a table keyed to nothing would silently answer for the
+wrong one if a second curve were ever passed in.
+
+### What the page is actually waiting for
+
+> *"The website still loads almost exactly when the animation finishes, not
+> immediately."*
+
+Measured, and it is **not** the animation. A harness with two real routes,
+each rendering 220 glass cards, driven by real `<Link>` navigation, timing
+press → the new room actually painted:
+
+| | 1x CPU | 4x CPU | 6x CPU |
+| --- | --- | --- | --- |
+| everything as shipped | 90-116ms | median 360ms | median 532ms |
+| dock motion off (reduced-motion) | 94-103ms | median 304ms | — |
+| motion on, no `backdrop-filter` on the dock | — | median 323ms | median 511ms |
+
+So at desktop speed the dock's whole contribution is **5-10ms**. Under
+throttling it is **~40ms of ~360**, about a tenth, and nearly all of that
+is one thing: scaling a `backdrop-filter` element forces the filter to
+re-run over its backdrop every frame. The rest — 300ms at 4x, and ~750ms
+measured on the real app from the recording — is the room rendering.
+
+That is the honest answer: the marker leaves on the press and the
+navigation begins ~2ms later (measured previously), but the page cannot
+paint before it renders, and the render is the app's cost, not the bar's.
+A bar animation that happens to finish around the same time reads as the
+cause. If this needs to be faster the work is in the room, not the dock.
+
+### The bar was crowded, and the arithmetic says why
+
+The reference bar carries **four** destinations across ~380px, about 95px
+each. This one carries **six** across 374px, about 57px each — 60% of the
+room, for the same icon-over-word cell. That is the whole of the
+crowding, and no amount of tuning inside a 57px cell removes it.
+
+What tuning does buy, and was taken: the glyph down to 18px, the gap
+between glyph and word to 2px, the cell padding to 6px, and `tracking-tight`
+on the label. The bar goes **60px to 52px**, with the cell landing at
+exactly the 44px touch-target floor, and no label truncating at 360, 390
+or 430. The `max-w` cap came in from `lg` (512px) to 26rem (416px) so a
+large phone gets a capsule rather than a slab.
+
+Past that the choice is structural — fewer destinations, or shorter words.
+Three densities were rendered side by side at 390px (every label at 52px,
+the active label alone at 60px, no labels at 50px) and **the wordless one
+was chosen**: it is markedly calmer, and the spoken name on the press
+already covers what the labels were brought back for. The tightening
+measured here is what survives the revert only as a record of how far the
+labelled version could be pushed — which was not far enough.
+
+### The names came back for an afternoon, and the bar changed colour to pay for them (2026-08-30)
 
 > *"When it jumps from circle to home and the animation of the navbar
 > finishes, it drastically changes its color."* — and, of the reference:
@@ -1834,23 +1929,33 @@ own legibility than one carrying six glyphs, and over the brightest room a
 dock can sit on, muted label text measures **2.11:1 at 55% and 3.51:1 at
 72%**.
 
-**What the labels replaced.** The bar used to speak the pressed cell's name
-over itself for 900ms on `pointerdown` (`SAY_MS`, `.dock-say`). That was a
-real answer to a real problem and the wrong shape of one: *a transient
+**The labels lasted an afternoon, and the arithmetic is why.** The
+argument for them is real and still stands as an argument: *a transient
 label only ever names the room you have already chosen, and the room
-somebody new needs named is the one they have not been to.* Painted names
-answer that; the transient one cannot, at any duration. It also cost a
-render on the press path — the spoken name was React state set from
-`onPointerDown`, so every tap re-rendered the bar before the browser could
-dispatch the click that navigates.
+somebody new needs named is the one they have not been to.* What it runs
+into is width. The reference bar carries **four** destinations across
+~380px, about 95px each; this one carries **six** across 374px, about
+**57px each** — 60% of the room for the same icon-over-word cell.
 
-The bar stretches now (`w-full`, `repeat(n, minmax(0, 1fr))`) where it used
-to hug: six glyphs fit in 316px of a 390px screen and six names do not.
-`minmax(0, 1fr)` and `min-w-0` on the cell are both load-bearing, since a
-grid item's default minimum is its content and the longest name would
-otherwise set its track. Measured at 360, 390 and 430: no name truncates,
-no page overflow. `text-xs` is the floor for anything a person reads, so
-the cell width is sized to the label rather than the other way round.
+Built and measured before being taken out: `w-full` with `repeat(n,
+minmax(0, 1fr))` tracks, `min-w-0` on the cell (a grid item's default
+minimum is its content, so the longest name would otherwise set its track),
+glyph at 18px, gap at 2px, cell padding at 6px, `tracking-tight`, bar down
+from 60px to **52px** with the cell landing at exactly the 44px touch-target
+floor. Nothing truncated at 360, 390 or 430 and the page never overflowed.
+It still read as a wall of text, because six words at 12px in 374px is one
+however it is set — and it is the reader who said so, having asked for the
+labels in the first place.
+
+So the bar is wordless again and the name is spoken on the press. What is
+left past that is structural, fewer rooms or shorter words, and neither is
+worth what the labels buy over the spoken name. **Do not reach for painted
+labels a third time without changing one of those two numbers.**
+
+**One thing was kept: which room you are in is a weight.** The active glyph
+is `strokeWidth` 2.5 in full `--foreground` against 1.75 in muted, on both
+bars. Filled against outline is the reference's own read and it does not
+survive this icon set — half of it is open paths that fill into a blot.
 
 **Which room you are in is a weight.** The reference draws the active glyph
 filled and the rest as outlines; that read does not survive this icon set,
