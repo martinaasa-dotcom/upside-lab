@@ -19,12 +19,12 @@ import {
   startPeriodNow,
   type ClassPeriodKind,
 } from "@/lib/classroom";
-import { roundMoney } from "@/lib/money";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
 import type { TablesUpdate } from "@/lib/supabase/database.types";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
 import { readAll } from "@/lib/supabase/read-all";
+import { applyPortfolioCashDelta } from "@/lib/cash-trade";
 import { NextRequest, NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
 import { communityPatchSchema } from "@/lib/api-schemas";
@@ -464,33 +464,43 @@ async function handlePATCH(req: NextRequest, ctx: Ctx) {
   }
   if (startingCashDelta !== 0) {
     /*
-      Paged, because this one moves money. A short read does not fail
-      loudly: the students past the cap simply keep the old starting cash
-      while the teacher is told the change went through, and the class is
-      then playing on two different sets of rules.
+      The delta is applied by the database, one row at a time, and never
+      read into Node and written back.
+
+      This used to select every class sheet's `cash_balance`, add the delta
+      here, and write the absolute result. That is the lost update that
+      migration 041 and `portfell_apply_cash_delta` were written to remove
+      from the trade path, and it was still here: a student who buys
+      something between the teacher's read and the teacher's write has that
+      trade silently erased, because the write does not know it happened.
+      A class is exactly where those overlap, since changing starting cash
+      is a thing a teacher does while thirty students are trading.
+
+      The comment this replaces said PostgREST cannot express a
+      column-relative delta. That is true of a batch update and not of the
+      RPC, which does one row atomically and is what the trade path already
+      calls. The round trips are unchanged: one read for the ids, then one
+      call per sheet, still concurrent.
+
+      The read is paged because it decides which sheets move at all: a
+      short one leaves the students past the cap on the old figure while
+      the teacher is told the change went through.
+
+      Permission is unchanged in both directions. The RPC skips its
+      co-ownership check for the service-role connection these routes use,
+      and demands exactly `portfell_is_portfolio_co_owner` otherwise, which
+      is the same predicate the table's own update policy applies to the
+      write this replaces.
     */
-    const sheets = await readAll<{ id: string; cash_balance: number }>(() =>
+    const sheets = await readAll<{ id: string }>(() =>
       supabase
         .from(PORTFELL_TABLES.portfolios)
-        .select("id, cash_balance")
+        .select("id")
         .eq("classroom_community_id", id)
     );
-    // PostgREST can't express a column-relative delta across a batch, so
-    // this is still one write per student sheet — but they go out together
-    // instead of one round trip after another. A 30-student class was ~30
-    // sequential waits on an action a teacher expects to feel instant.
-    const now = new Date().toISOString();
     await Promise.all(
       sheets.map((sheet) =>
-        supabase
-          .from(PORTFELL_TABLES.portfolios)
-          .update({
-            cash_balance: roundMoney(
-              Number(sheet.cash_balance) + startingCashDelta
-            ),
-            updated_at: now,
-          })
-          .eq("id", sheet.id)
+        applyPortfolioCashDelta(supabase, sheet.id, startingCashDelta)
       )
     );
   }
