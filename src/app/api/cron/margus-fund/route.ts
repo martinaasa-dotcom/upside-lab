@@ -371,6 +371,37 @@ async function handleGET(req: Request) {
       }
     }
 
+    /*
+      The day is claimed before anything is traded.
+
+      The report check above answers "has this day finished", which is the
+      right question for a re-trigger and the wrong one for a second worker
+      that is awake right now: both read no report, both trade, and both
+      try to write one. The unique constraint on `report_date` then lets
+      exactly one report through, so a double run looks from the outside
+      like an ordinary day standing over a portfolio that bought twice.
+
+      The window between those two reads is not an instant either, because
+      the run holds an LLM call in the middle. The schedule fires several
+      times a day and Vercel documents that a schedule can fire twice.
+
+      `portfell_claim_fund_run` settles it on the primary key rather than on
+      anything read first, and hands the day back after its stale window so
+      a run that died half way is still retried by the backlog above.
+    */
+    const { data: claimedRun } = await supabase.rpc(
+      "portfell_claim_fund_run",
+      { p_day: today }
+    );
+    if (claimedRun !== true) {
+      logEvent("fund_cron_claimed_elsewhere", { session: today });
+      return NextResponse.json({
+        ok: true,
+        skipped: "another worker has today",
+        session: today,
+      });
+    }
+
     const { data: fundRow, error: fundErr } = await supabase
       .from(PORTFELL_TABLES.margusFund)
       .select(MARGUS_FUND_COLUMNS)

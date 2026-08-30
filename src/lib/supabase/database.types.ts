@@ -1126,6 +1126,10 @@ export type Database = {
       }
       portfell_can_read_portfolio: { Args: { pid: string }; Returns: boolean }
       portfell_claim_split_check: { Args: { p_day: string }; Returns: boolean }
+      portfell_claim_fund_run: {
+        Args: { p_day: string; p_stale_after?: string }
+        Returns: boolean
+      }
       portfell_tickers_held: { Args: never; Returns: { ticker: string }[] }
       portfell_apply_split: {
         Args: {
