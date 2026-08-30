@@ -273,27 +273,6 @@ export const STRUCTURED_PROVIDER_OPTIONS = {
 };
 
 /**
- * CC Advisor model via OpenAI-compatible providers — single-model resolve,
- * kept for callers that just need "the primary model" (e.g. a pre-flight
- * key check). Prefer `buildAdvisorProviderChain` + `withProviderFallback` /
- * `pickStreamingProvider` for actual requests so a rate-limited/expired
- * provider doesn't take Margus down entirely.
- */
-export function resolveAdvisorModel(options?: {
-  vision?: boolean;
-  reasoning?: boolean;
-}): LanguageModel {
-  const chain = buildAdvisorProviderChain(options);
-  const primary = chain[0];
-  if (!primary) {
-    throw new Error(
-      "No LLM key configured. Set OPENROUTER_API_KEY (or GROQ_API_KEY / GEMINI_API_KEY / CEREBRAS_API_KEY) in .env.local."
-    );
-  }
-  return primary.model;
-}
-
-/**
  * Try a non-streaming call (generateText / generateObject) against each
  * configured provider in order, moving to the next on any failure —
  * OpenRouter's account-wide daily quota running out no longer means Margus
@@ -584,16 +563,4 @@ export function isTransientAdvisorFailure(err: unknown): boolean {
     return false;
   }
   return status === 429 || status === 503 || status === 504;
-}
-
-export function advisorProviderLabel(): string {
-  const chain = buildAdvisorProviderChain();
-  if (chain.length === 0) return "none";
-  const labels: Record<AdvisorProviderId, string> = {
-    openrouter: "OpenRouter",
-    groq: "Groq",
-    gemini: "Gemini",
-    cerebras: "Cerebras",
-  };
-  return chain.map((c) => labels[c.id]).join(" → ");
 }

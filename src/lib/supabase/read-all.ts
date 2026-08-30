@@ -55,6 +55,43 @@ export type OnPageError = "stop" | "throw";
  * Supabase's builders are single-use once awaited, so the caller passes a
  * function that makes a fresh one.
  */
+/*
+  Throwing without losing what the driver said.
+
+  PostgREST errors arrive as plain objects, not `Error` instances:
+  `{ message, details, hint, code }`. Wrapping one in `new Error(message)`
+  therefore keeps the sentence and silently drops `code`, which is the
+  field callers actually branch on -- `note-cron` reads `42703` to tell a
+  column that has not been migrated yet from a real failure, and degrades
+  instead of dropping everybody's letter. That branch is unreachable if
+  the code does not survive the throw, and nothing would have failed to
+  say so: the message-matching fallback beside it would quietly carry the
+  case until the day a message was worded differently.
+
+  So the properties come with it.
+*/
+function asError(error: unknown): Error {
+  if (error instanceof Error) return error;
+
+  const source = (error ?? {}) as Record<string, unknown>;
+  const message =
+    typeof source.message === "string" && source.message
+      ? source.message
+      : "read failed part way";
+  const err = new Error(message);
+
+  for (const [key, value] of Object.entries(source)) {
+    if (key === "message") continue;
+    Object.defineProperty(err, key, {
+      value,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  }
+  return err;
+}
+
 export async function readAll<T>(
   build: () => Ranged<T>,
   onError: OnPageError = "stop"
@@ -67,11 +104,7 @@ export async function readAll<T>(
 
     if (error) {
       if (onError === "throw") {
-        throw error instanceof Error
-          ? error
-          : new Error(
-              (error as { message?: string })?.message ?? "read failed part way"
-            );
+        throw asError(error);
       }
       break;
     }

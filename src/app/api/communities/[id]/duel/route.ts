@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { userIsCommunityMember } from "@/lib/auth/ownership";
 import {
   currentDuelSessionKey,
@@ -102,7 +103,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
     .eq("day_key", dayKey);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]/duel") }, { status: 500 });
   }
 
   const list = (rows ?? []) as DuelRow[];
@@ -201,7 +202,7 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
     if (error.code === "23505") {
       return NextResponse.json({ ok: true, already: true, pick });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]/duel") }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, pick, pair, dayKey });

@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import {
   addCoOwnerToPortfolio,
   requirePortfolioOwner,
@@ -34,7 +35,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
     .eq("portfolio_id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/portfolios/[id]/owners") }, { status: 500 });
   }
 
   const userIds = ((rows ?? []) as { user_id: string }[]).map((r) => r.user_id);
@@ -118,7 +119,7 @@ async function handleDELETE(req: NextRequest, ctx: Ctx) {
     .eq("portfolio_id", id)
     .eq("user_id", userId);
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/portfolios/[id]/owners") }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

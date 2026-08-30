@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { createHash } from "crypto";
 import { ensureProfileAndClaims } from "@/lib/auth/ensure-profile";
 import { createSupabaseServerAuth, requireAuthUser } from "@/lib/supabase/server-auth";
@@ -80,7 +81,7 @@ async function handlePOST(req: NextRequest) {
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/portfolios/join") }, { status: 500 });
   }
 
   const result = data as { ok: boolean; error?: string; portfolio_id?: string };

@@ -1,5 +1,4 @@
 
-import { NO_VALUE } from "@/lib/format";
 /** Human labels for Yahoo marketState + book day P&L strip. */
 
 export type SessionKind = "open" | "pre" | "ah" | "closed" | "unknown";
@@ -75,11 +74,6 @@ export function nyClock(now = new Date()): { weekday: string; hour: number } {
   return { weekday, hour };
 }
 
-export function isNyWeekday(now = new Date()): boolean {
-  const { weekday } = nyClock(now);
-  return weekday !== "Sat" && weekday !== "Sun";
-}
-
 export function isUsWeekend(now = new Date()): boolean {
   const { weekday } = nyClock(now);
   return weekday === "Sat" || weekday === "Sun";
@@ -130,20 +124,5 @@ export function sessionLabel(state: string | null | undefined): string {
       return "Market closed";
     default:
       return "Session unknown";
-  }
-}
-
-export function sessionShort(state: string | null | undefined): string {
-  switch (sessionKind(state)) {
-    case "open":
-      return "Open";
-    case "pre":
-      return "Pre";
-    case "ah":
-      return "AH";
-    case "closed":
-      return "Closed";
-    default:
-      return NO_VALUE;
   }
 }

@@ -20,18 +20,6 @@ export type EurUsdQuote = {
   last: number | null;
 };
 
-/** Pick conversion rate from Yahoo EURUSD open / close / last. */
-export function pickEurUsdRate(parts: {
-  last?: number | null;
-  open?: number | null;
-  previousClose?: number | null;
-}): number | null {
-  const candidates = [parts.last, parts.previousClose, parts.open].filter(
-    (n): n is number => typeof n === "number" && n > 0
-  );
-  return candidates[0] ?? null;
-}
-
 export function loadDisplayCurrencyMap(): Record<string, DisplayCurrency> {
   if (typeof window === "undefined") return {};
   try {

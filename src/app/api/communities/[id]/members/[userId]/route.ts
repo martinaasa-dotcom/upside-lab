@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import {
   collapseMembersByAlias,
   expandHouseholdUserIds,
@@ -146,7 +147,7 @@ async function handlePATCH(req: NextRequest, ctx: Ctx) {
     .in("user_id", targetIds);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]/members/[userId]") }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }
@@ -230,7 +231,7 @@ async function handleDELETE(_req: NextRequest, ctx: Ctx) {
     .in("user_id", targetIds);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]/members/[userId]") }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

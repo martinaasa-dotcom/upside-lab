@@ -1,8 +1,6 @@
 import {
   DEFAULT_CLASS_ASSIGNMENT,
   DEFAULT_STARTING_CASH,
-  MAX_STARTING_CASH,
-  MIN_STARTING_CASH,
   type ClassPeriodKind,
 } from "@/lib/classroom";
 
@@ -103,10 +101,6 @@ export function parseCashDigits(raw: string): number | null {
   const n = Number(digits);
   if (!Number.isFinite(n)) return null;
   return n;
-}
-
-export function clampStartingCash(n: number): number {
-  return Math.min(MAX_STARTING_CASH, Math.max(MIN_STARTING_CASH, Math.round(n)));
 }
 
 export function defaultClassSetup() {

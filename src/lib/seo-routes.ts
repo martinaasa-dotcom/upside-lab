@@ -13,6 +13,8 @@ export const PUBLIC_INDEX_PATHS = [
   "/privacy",
 ] as const;
 
+export type PublicIndexPath = (typeof PUBLIC_INDEX_PATHS)[number];
+
 /**
  * Authenticated rooms. Crawlers get noindex. Share cards still show the
  * generic product image, never a user's book.

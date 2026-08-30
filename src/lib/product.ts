@@ -116,49 +116,6 @@ export const BROKER_ANSWER =
   "Keep your broker. This is for a different question.";
 
 /**
- * The rest of the product, for somebody who arrived from a link and has
- * never heard of any of this.
- *
- * The points above are the hook and stay the hook. But they name three of
- * the eight things the app does, so a stranger was deciding whether to hand
- * over their holdings on a quarter of the picture. Everything here is a
- * room that exists and works today. Nothing aspirational goes in this list:
- * it is read by people who will click straight through and check.
- */
-export const SIGNIN_FEATURES = [
-  {
-    title: "Start in a minute",
-    detail:
-      "Paste what you own, upload a CSV, or drop in a screenshot of your broker page.",
-  },
-  {
-    title: "Pulse",
-    detail:
-      "When a price moves, it reads the day's news on that company and says whether anything really changed.",
-  },
-  {
-    title: "Margus",
-    detail:
-      "Has read your portfolio. Ask why something moved, in plain words.",
-  },
-  {
-    title: "Circle",
-    detail:
-      "Share a portfolio with a partner, your family or friends. They see today's prices, never what you paid.",
-  },
-  {
-    title: "Forecast",
-    detail:
-      "A yearly price path for each holding out to 2030. Scenarios to think with, not advice.",
-  },
-  {
-    title: "A letter on Sunday",
-    detail:
-      "One email a week: what moved, what is worth a second look, and why.",
-  },
-] as const;
-
-/**
  * Answered on the page rather than after signing up.
  *
  * "What does it cost" is the second question every visitor has and the old

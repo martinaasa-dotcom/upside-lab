@@ -281,6 +281,22 @@ async function requireCronOrSuperadmin(req: Request) {
   return cronDenied;
 }
 
+/**
+ * Has `portfell_claim_fund_run` not landed on this database yet?
+ *
+ * `42883` is Postgres for an undefined function; PostgREST answers a call
+ * it cannot resolve from its own schema cache instead, so both spellings
+ * are checked. Anything else is a real failure and is treated as one.
+ */
+function missingClaimFunction(err: { code?: string; message?: string }): boolean {
+  if (err?.code === "42883" || err?.code === "PGRST202") return true;
+  const message = String(err?.message ?? "");
+  return (
+    /portfell_claim_fund_run/.test(message) &&
+    /(does not exist|could not find|schema cache)/i.test(message)
+  );
+}
+
 async function handleGET(req: Request) {
   const denied = await requireCronOrSuperadmin(req);
   if (denied) return denied;
@@ -369,6 +385,69 @@ async function handleGET(req: Request) {
           filledIntent: false,
         });
       }
+    }
+
+    /*
+      The day is claimed before anything is traded.
+
+      The report check above answers "has this day finished", which is the
+      right question for a re-trigger and the wrong one for a second worker
+      that is awake right now: both read no report, both trade, and both
+      try to write one. The unique constraint on `report_date` then lets
+      exactly one report through, so a double run looks from the outside
+      like an ordinary day standing over a portfolio that bought twice.
+
+      The window between those two reads is not an instant either, because
+      the run holds an LLM call in the middle. The schedule fires several
+      times a day and Vercel documents that a schedule can fire twice.
+
+      `portfell_claim_fund_run` settles it on the primary key rather than on
+      anything read first, and hands the day back after its stale window so
+      a run that died half way is still retried by the backlog above.
+    */
+    const { data: claimedRun, error: claimErr } = await supabase.rpc(
+      "portfell_claim_fund_run",
+      { p_day: today }
+    );
+
+    /*
+      A missing function is not a lost race, and telling them apart is the
+      whole of this branch.
+
+      Code reaches production before a migration does. If that gap is read
+      as "somebody else has today" the Fund simply stops trading, and it
+      stops quietly: the stand-down below answers `ok: true`, so nothing
+      alerts and the only symptom is a feed that has not moved. That is a
+      worse failure than the double run the claim exists to prevent, and it
+      would last until somebody noticed by eye.
+
+      So an absent function falls through to the old behaviour, which is the
+      behaviour that shipped for months: trade, and rely on the report check
+      above for a sequential re-trigger. `note-cron` does the same thing for
+      the same reason when its marker column has not landed yet.
+    */
+    if (claimErr && !missingClaimFunction(claimErr)) {
+      logEvent(
+        "fund_cron_claim_failed",
+        { session: today, message: claimErr.message },
+        "warn"
+      );
+      return NextResponse.json({
+        ok: true,
+        skipped: "could not claim today",
+        session: today,
+      });
+    }
+
+    if (claimErr) {
+      logEvent("fund_cron_claim_not_migrated", { session: today }, "warn");
+    } else if (claimedRun !== true) {
+      logEvent("fund_cron_claimed_elsewhere", { session: today });
+      return NextResponse.json({
+        ok: true,
+        skipped: "another worker has today",
+        session: today,
+      });
     }
 
     const { data: fundRow, error: fundErr } = await supabase

@@ -159,11 +159,3 @@ export function saveStoredKnowsOptions(value: boolean) {
   }
   emitExperienceChanged();
 }
-
-/**
- * Lab has no options-specific sub-tabs left to hide. `shouldHideOptions`
- * is enforced on the covered-call panel, strike alerts, the Target-call%
- * field, briefing copy, and Margus's tool set. Kept as an empty list so
- * the gating call site stays obvious if an options-only Lab tab comes back.
- */
-export const NO_OPTIONS_HIDDEN_LAB_TABS: string[] = [];

@@ -10,8 +10,6 @@
  */
 
 const CACHE_KEY = "upside-fund-v1";
-/** Past this, paint the cache but treat it as clearly worth refreshing. */
-const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
 export type UpsidePortfolioCacheEntry = {
   payload: unknown;
@@ -41,12 +39,4 @@ export function saveUpsidePortfolioCache(payload: unknown) {
   } catch {
     /* ignore quota / private mode */
   }
-}
-
-export function isUpsidePortfolioCacheFresh(
-  entry: UpsidePortfolioCacheEntry | null
-): boolean {
-  if (!entry?.cachedAt) return false;
-  const ts = new Date(entry.cachedAt).getTime();
-  return Number.isFinite(ts) && Date.now() - ts < CACHE_MAX_AGE_MS;
 }

@@ -1,3 +1,5 @@
+import { DB_ERROR_MESSAGE } from "@/lib/db-error";
+
 /**
  * Turn an API or thrown error into a sentence a person would say.
  * Snake_case keys and "X required" never reach a toast or banner.
@@ -186,6 +188,13 @@ export function plainError(raw: unknown, fallback: string): string {
   if (/^[a-z][a-z0-9_]* required$/i.test(s)) return fallback;
   if (/\brequired\.?$/i.test(s)) return fallback;
   if (/^[a-z]+_[a-z0-9_]+$/i.test(s)) return fallback;
+  /*
+    What a failed database call now sends instead of the driver's own
+    sentence (see `db-error.ts`). It is routed to the caller's fallback
+    for the same reason the raw text was: the fallback is contextual
+    ("Couldn't save your holding.") and this is not.
+  */
+  if (s === DB_ERROR_MESSAGE) return fallback;
   if (looksTechnical(s)) return fallback;
   return s;
 }

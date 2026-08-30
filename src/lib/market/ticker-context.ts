@@ -137,14 +137,6 @@ const fetchTickerPulseContextCached = unstable_cache(
   { revalidate: 60 * 60 }
 );
 
-export async function fetchTickerNews(
-  ticker: string,
-  count = 5
-): Promise<PulseHeadline[]> {
-  const context = await fetchTickerPulseContext(ticker);
-  return context.news.slice(0, count);
-}
-
 export async function fetchTickerPulseContext(
   ticker: string,
   opts?: { force?: boolean }

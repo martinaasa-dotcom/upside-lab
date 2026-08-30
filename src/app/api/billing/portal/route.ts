@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { NextResponse } from "next/server";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
@@ -38,7 +39,7 @@ async function handlePOST(req: Request) {
     .maybeSingle();
 
   if (profileError) {
-    return NextResponse.json({ error: profileError.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(profileError, "/api/billing/portal") }, { status: 500 });
   }
   if (!profile?.stripe_customer_id) {
     return NextResponse.json({ error: "No subscription on file" }, { status: 400 });

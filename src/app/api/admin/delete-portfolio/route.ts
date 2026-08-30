@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { isSuperadminEmail } from "@/lib/auth/superadmin";
 import { captureBookPayload, saveBookSnapshot } from "@/lib/book-snapshot";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
@@ -114,7 +115,7 @@ async function handlePOST(req: NextRequest) {
     .delete()
     .eq("id", portfolioId);
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/admin/delete-portfolio") }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, name });

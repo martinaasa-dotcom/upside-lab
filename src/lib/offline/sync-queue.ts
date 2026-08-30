@@ -1,6 +1,5 @@
 import { isAbortError, isNetworkError } from "@/lib/abort";
 import {
-  idbQueueClear,
   idbQueueDelete,
   idbQueueGetAll,
   idbQueuePut,
@@ -166,10 +165,6 @@ export async function flushSyncQueue(): Promise<number> {
     flushing = false;
   }
   return sent;
-}
-
-export async function dropSyncQueue(): Promise<void> {
-  await idbQueueClear();
 }
 
 let listening = false;

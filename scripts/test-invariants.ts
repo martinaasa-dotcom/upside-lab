@@ -7,11 +7,6 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, sep } from "node:path";
 import { buildBookInsights } from "../src/lib/book-insights";
 import { forecastThemeForTicker } from "../src/lib/forecast-conviction";
-import {
-  BRIEFING_KIND_LABEL,
-  BRIEFING_PULSE_CTA,
-  buildInvestorBriefing,
-} from "../src/lib/investor-briefing";
 import { usdToDisplay, displayToUsd } from "../src/lib/display-currency";
 import { liveFundTodayMove, liveFundTotalValue } from "../src/lib/margus-fund-mark";
 import {
@@ -222,8 +217,6 @@ import {
 } from "../src/lib/market/earnings-dates";
 import { buildCcSystemPrompt, type CcChatContext } from "../src/lib/ai/cc-advisor";
 import { buildTrendStory } from "../src/lib/market/trend-story";
-import type { OverviewModel } from "../src/lib/overview";
-import type { UpsideAlert } from "../src/lib/alerts";
 import {
   NIGHTLY_SNAPSHOT_WINDOW,
   snapshotSheetsForOwner,
@@ -274,32 +267,6 @@ import {
   parseCashDigits,
 } from "../src/lib/class-templates";
 
-function emptyModel(): OverviewModel {
-  return {
-    sheets: [],
-    tickers: [],
-    winners: [],
-    losers: [],
-    todayWinners: [],
-    todayLosers: [],
-    topHoldings: [],
-    funFacts: [],
-    totals: {
-      totalValue: 10_000,
-      equityValue: 8_000,
-      cash: 2_000,
-      buyValue: 9_000,
-      roiDollar: 1_000,
-      roiPct: 0.11,
-      todayDollar: 120,
-      todayPct: 0.012,
-      sheetCount: 1,
-      positionCount: 0,
-      uniqueTickers: 0,
-    },
-  } as OverviewModel;
-}
-
 function check(partial: Partial<PulseCheck>): PulseCheck {
   return {
     ticker: "TEST",
@@ -326,27 +293,6 @@ function run(name: string, fn: () => void) {
     console.error(err);
   }
 }
-
-run("Pulse CTA is offered when Pulse is reachable, even if Lab is hidden", () => {
-  const items = buildInvestorBriefing({
-    model: emptyModel(),
-    activeAlerts: [],
-    coveredCallRows: [],
-    hideOptions: true,
-    canReachPulse: true,
-    dayKey: "2026-08-14",
-  });
-  const day = items.find((i) => i.id.startsWith("day-"));
-  assert.ok(day, "day card exists");
-  assert.equal(day?.link?.type, "pulse");
-  assert.equal(day?.cta, BRIEFING_PULSE_CTA);
-});
-
-run("briefing kinds use plain-English labels", () => {
-  assert.equal(BRIEFING_KIND_LABEL.action, "Alert");
-  assert.equal(BRIEFING_KIND_LABEL.watch, "Context");
-  assert.equal(BRIEFING_KIND_LABEL.play, "What's missing");
-});
 
 /*
  * Rewritten. The old rule was "every animal gets a colour nobody else has",
@@ -666,69 +612,6 @@ run("circle invite joins still get the same onboarding as Home", () => {
   const decision = gate.slice(gate.indexOf("const [plan, setPlan]"));
   assert.doesNotMatch(decision, /inACircle|communityListHasCircle/);
   assert.doesNotMatch(decision, /shouldSkipExperienceOnboarding/);
-});
-
-run("Home briefing never rotates a covered-call pep talk", () => {
-  const withOptions = buildInvestorBriefing({
-    model: emptyModel(),
-    activeAlerts: [],
-    coveredCallRows: [],
-    hideOptions: false,
-    canReachPulse: true,
-    dayKey: "2026-08-14",
-  });
-  const hidden = buildInvestorBriefing({
-    model: emptyModel(),
-    activeAlerts: [],
-    coveredCallRows: [],
-    hideOptions: true,
-    canReachPulse: true,
-    dayKey: "2026-08-14",
-  });
-  for (const items of [withOptions, hidden]) {
-    assert.ok(!items.some((i) => /write when|sell a call|call premium/i.test(`${i.title} ${i.detail}`)));
-  }
-});
-
-run("covered-call briefing opens the options table, not just the sheet", () => {
-  const items = buildInvestorBriefing({
-    model: emptyModel(),
-    activeAlerts: [],
-    coveredCallRows: [
-      {
-        holding: {
-          id: "h1",
-          portfolio_id: "sheet-a",
-          ticker: "NBIS",
-          shares: 100,
-          buy_price: 10,
-          eoy_target: null,
-          target_call_pct: 0.15,
-          stock_target_override: null,
-          sort_order: 0,
-        },
-        spot: 100,
-        totalValue: 10_000,
-        yield2w: 0.01,
-        premium: 18_404,
-        targetCall: 0.15,
-        stockTarget: 120,
-        targetDistance: 0.2,
-        nextStrike: 138,
-        expiration: "2026-09-01",
-        contracts: 1,
-        option: null,
-      },
-    ],
-    hideOptions: false,
-    canReachPulse: true,
-    dayKey: "2026-08-14",
-  });
-  const cc = items.find((i) => i.id.startsWith("cc-season-"));
-  assert.ok(cc, "premium card exists when options are on");
-  assert.equal(cc?.link?.type, "sheet");
-  assert.equal(cc?.link && cc.link.type === "sheet" ? cc.link.portfolioId : null, "sheet-a");
-  assert.equal(cc?.link && cc.link.type === "sheet" ? cc.link.focus : null, "covered-calls");
 });
 
 run("earnings surprise parses both fractions and percent points", () => {
@@ -1265,49 +1148,6 @@ run("forecast add/trim lines split into bullets", () => {
   assert.equal(listed.length, 2);
   assert.equal(listed[0]?.head, "$RKLB · 14% → 9%");
   assert.equal(listed[1]?.head, "SaaS sleeve (~3%)");
-});
-
-run("Pulse CTA is omitted when Pulse is not reachable", () => {
-  const items = buildInvestorBriefing({
-    model: emptyModel(),
-    activeAlerts: [],
-    coveredCallRows: [],
-    canReachPulse: false,
-    dayKey: "2026-08-14",
-  });
-  const day = items.find((i) => i.id.startsWith("day-"));
-  assert.equal(day?.link, undefined);
-});
-
-run("Each alert becomes its own briefing card", () => {
-  const alerts: UpsideAlert[] = [
-    {
-      id: "a1",
-      kind: "earnings",
-      title: "NBIS reports soon",
-      detail: "Three days out.",
-      ticker: "NBIS",
-      at: 1,
-    },
-    {
-      id: "a2",
-      kind: "info",
-      title: "One name is most of the book",
-      detail: "CRWV is 40%.",
-      ticker: "CRWV",
-      at: 2,
-    },
-  ];
-  const items = buildInvestorBriefing({
-    model: emptyModel(),
-    activeAlerts: alerts,
-    coveredCallRows: [],
-    canReachPulse: true,
-    dayKey: "2026-08-14",
-  });
-  assert.ok(items.some((i) => i.id === "alert-a1"));
-  assert.ok(items.some((i) => i.id === "alert-a2"));
-  assert.ok(!items.some((i) => i.title.includes("things need a look")));
 });
 
 run("trim verdict that restates the size line is dropped", () => {
@@ -2018,10 +1858,22 @@ run("public pages ship OG cards and private rooms are noindex", () => {
   assert.match(seo, /\/lab/);
   assert.match(seo, /\/forecast/);
   assert.match(seo, /\/margus/);
+  /*
+    Both halves of robots.txt are derived from `seo-routes.ts`, and the
+    sitemap is keyed off the same list.
+
+    This used to assert that the literal `/communities$` appeared in
+    `robots.ts`. It did, because the five public paths were written out by
+    hand there and again in the sitemap, which is the duplication
+    `seo-routes.ts` exists to prevent; the assertion was holding that
+    duplication in place. What matters is that neither file can name a
+    path the list does not, so that is what is asserted here, and the
+    generated output (the `/communities$` anchor included) is checked
+    against the real rules in `src/lib/seo-consistency.test.ts`.
+  */
   assert.match(robots, /PRIVATE_NOINDEX_PATHS/);
-  assert.match(robots, /\/communities\$/);
-  assert.match(sitemap, /\/login/);
-  assert.match(sitemap, /\/communities/);
+  assert.match(robots, /PUBLIC_INDEX_PATHS/);
+  assert.match(sitemap, /PUBLIC_INDEX_PATHS/);
   assert.match(nextCfg, /X-Robots-Tag/);
   assert.match(nextCfg, /PRIVATE_NOINDEX_PATHS/);
   assert.match(manifest, /icon-192\.png/);
@@ -3362,10 +3214,6 @@ run("the recent Pulse and briefing bugs stay gone", () => {
     join(process.cwd(), "src/lib/weekly-letter.ts"),
     "utf8"
   );
-  const briefing = readFileSync(
-    join(process.cwd(), "src/lib/investor-briefing.ts"),
-    "utf8"
-  );
   const shock = readFileSync(
     join(process.cwd(), "src/lib/book-shock.ts"),
     "utf8"
@@ -3388,7 +3236,6 @@ run("the recent Pulse and briefing bugs stay gone", () => {
   );
   assert.doesNotMatch(morning, /did most of today's move/);
   assert.doesNotMatch(notes, /did most of the move/);
-  assert.doesNotMatch(briefing, /usually one name/);
   assert.doesNotMatch(shock, /driver: "AI computers"/);
   assert.doesNotMatch(sim, /"AI computers":/);
   assert.match(drawer, /THEME_LABEL\[theme\]/);
@@ -3401,6 +3248,31 @@ run("the recent Pulse and briefing bugs stay gone", () => {
   // verdict deliberately produces no suggestion at all, so trim can no
   // longer lose to watch the way it once did.
   assert.doesNotMatch(notes, /action === "watch"/);
+});
+
+/*
+  The rule outlived the module that used to carry it.
+
+  `investor-briefing.ts` built Home's cards and was guarded by five
+  invariants, one of which said Home never rotates a covered-call pep
+  talk. That module stopped shipping when `morning-read.ts` took the
+  surface over, and the guard went on passing against code no reader
+  could reach, which is the same drift that once had the suite asserting
+  the privacy page still described weekday notes.
+
+  Home is `buildMorningRead` now, so the rule is asserted there. It is
+  worth keeping on its own terms: covered-call copy is gated on an
+  explicit `knows_options`, and Home is read by every tier including
+  people who have never heard of an option.
+*/
+run("Home copy never rotates a covered-call pep talk", () => {
+  const home = [
+    readFileSync(join(process.cwd(), "src/lib/morning-read.ts"), "utf8"),
+    readFileSync(join(process.cwd(), "src/lib/book-insights.ts"), "utf8"),
+  ].join("\n");
+  for (const pep of [/write when/i, /sell a call/i, /call premium/i]) {
+    assert.doesNotMatch(home, pep);
+  }
 });
 
 run("gap thoughts name the weight and the mix", () => {
@@ -3433,10 +3305,6 @@ run("gap thoughts name the weight and the mix", () => {
 });
 
 run("advice copy names a check, not a vibe", () => {
-  const briefing = readFileSync(
-    join(process.cwd(), "src/lib/investor-briefing.ts"),
-    "utf8"
-  );
   const shock = readFileSync(join(process.cwd(), "src/lib/book-shock.ts"), "utf8");
   const themes = readFileSync(
     join(process.cwd(), "src/lib/portfolio-personality.ts"),
@@ -3446,7 +3314,6 @@ run("advice copy names a check, not a vibe", () => {
     join(process.cwd(), "src/lib/book-insights.ts"),
     "utf8"
   );
-  assert.doesNotMatch(briefing, /Look at this/);
   assert.doesNotMatch(shock, /money-app|money apps/);
   assert.doesNotMatch(themes, /money apps/);
   assert.doesNotMatch(themes, /a bit of everything/);

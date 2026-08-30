@@ -273,11 +273,59 @@ export async function dispatchWeeklyLetters(
    * column, ask again without it. Everything else about the run is
    * unchanged; only the resume bookkeeping is unavailable.
    */
+  /*
+   * The mailing list itself is paged.
+   *
+   * Everything downstream of this read was made to page when the letter
+   * was batched, and this line was not, which left the one read that
+   * decides *who gets a letter at all* stopping at db-max-rows. Past a
+   * thousand subscribers the readers beyond the cap would simply not be
+   * in the list: no error, no warning, no letter, and nothing anywhere
+   * that could notice, because a person who is never fetched is never
+   * skipped either.
+   *
+   * `"throw"` rather than `"stop"`, because the missing-column fallback
+   * below needs the error to recognise it, and because a partial mailing
+   * list is the failure this is fixing.
+   */
+  type SundayProfile = {
+    id: string;
+    email: string | null;
+    display_name: string | null;
+    note_sunday_sent_at: string | null;
+  };
+
+  // Two literal selects rather than one with a ternary: the typed client
+  // parses the column list at compile time and cannot read a conditional.
+  const readWithMarker = () =>
+    readAll<SundayProfile>(
+      () =>
+        supabase
+          .from(PORTFELL_TABLES.profiles)
+          .select("id, email, display_name, note_sunday_sent_at")
+          .eq("note_sunday", true),
+      "throw"
+    );
+
+  const readWithoutMarker = () =>
+    readAll<Omit<SundayProfile, "note_sunday_sent_at">>(
+      () =>
+        supabase
+          .from(PORTFELL_TABLES.profiles)
+          .select("id, email, display_name")
+          .eq("note_sunday", true),
+      "throw"
+    );
+
   let markerAvailable = true;
-  let { data: profiles, error } = await supabase
-    .from(PORTFELL_TABLES.profiles)
-    .select("id, email, display_name, note_sunday_sent_at")
-    .eq("note_sunday", true);
+  let profiles: SundayProfile[] = [];
+  let error: { code?: string; message?: string } | null = null;
+
+  try {
+    profiles = await readWithMarker();
+  } catch (err) {
+    error = err as { code?: string; message?: string };
+  }
 
   if (error && missingMarkerColumn(error)) {
     markerAvailable = false;
@@ -286,16 +334,17 @@ export async function dispatchWeeklyLetters(
       { message: error.message },
       "warn"
     );
-    const retry = await supabase
-      .from(PORTFELL_TABLES.profiles)
-      .select("id, email, display_name")
-      .eq("note_sunday", true);
-    error = retry.error;
-    profiles = (retry.data ?? []).map((row) => ({
-      ...row,
-      // No column, so nobody has a recorded send. Everyone is pending.
-      note_sunday_sent_at: null,
-    }));
+    try {
+      const retry = await readWithoutMarker();
+      error = null;
+      profiles = retry.map((row) => ({
+        ...row,
+        // No column, so nobody has a recorded send. Everyone is pending.
+        note_sunday_sent_at: null,
+      }));
+    } catch (err) {
+      error = err as { code?: string; message?: string };
+    }
   }
 
   /*
@@ -325,7 +374,7 @@ export async function dispatchWeeklyLetters(
       optedIn: 0,
       remaining: 0,
       emailed: false,
-      error: error.message,
+      error: error.message ?? "read failed",
       status: 500,
     };
   }

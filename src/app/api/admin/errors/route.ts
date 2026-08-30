@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { isSuperadminEmail } from "@/lib/auth/superadmin";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
@@ -26,7 +27,7 @@ async function handleGET() {
     .limit(150);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/admin/errors") }, { status: 500 });
   }
   return NextResponse.json({ errors: data ?? [] });
 }
@@ -51,7 +52,7 @@ async function handleDELETE(req: NextRequest) {
     : await query.gte("created_at", "1970-01-01");
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/admin/errors") }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

@@ -39,14 +39,6 @@ export function daysUntilInTz(
   return calendarDaysBetweenKeys(todayKeyInTz(timeZone), target);
 }
 
-export function formatRelativeDays(days: number): string {
-  if (days === 0) return "Today";
-  if (days === 1) return "Tomorrow";
-  if (days === -1) return "Yesterday";
-  if (days > 1) return `In ${days} days`;
-  return `${Math.abs(days)} days ago`;
-}
-
 /** Sub-day relative time — "just now", "12m ago", "3h ago", falling back to a date. */
 export function formatRelativeTime(
   input: Date | string | number,

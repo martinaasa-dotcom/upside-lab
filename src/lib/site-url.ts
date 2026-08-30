@@ -100,10 +100,6 @@ function host(): string {
   return redirectTarget() ?? PRODUCT_DOMAIN;
 }
 
-export function siteHost(): string {
-  return host();
-}
-
 export function siteUrl(): string {
   return `https://${host()}`;
 }

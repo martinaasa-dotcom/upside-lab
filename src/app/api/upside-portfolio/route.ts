@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
 import {
@@ -50,10 +51,10 @@ async function handleGET() {
       .limit(20),
   ]);
 
-  if (fundErr) return NextResponse.json({ error: fundErr.message }, { status: 500 });
-  if (holdingsErr) return NextResponse.json({ error: holdingsErr.message }, { status: 500 });
-  if (reportsErr) return NextResponse.json({ error: reportsErr.message }, { status: 500 });
-  if (weeklyErr) return NextResponse.json({ error: weeklyErr.message }, { status: 500 });
+  if (fundErr) return NextResponse.json({ error: dbError(fundErr, "/api/upside-portfolio") }, { status: 500 });
+  if (holdingsErr) return NextResponse.json({ error: dbError(holdingsErr, "/api/upside-portfolio") }, { status: 500 });
+  if (reportsErr) return NextResponse.json({ error: dbError(reportsErr, "/api/upside-portfolio") }, { status: 500 });
+  if (weeklyErr) return NextResponse.json({ error: dbError(weeklyErr, "/api/upside-portfolio") }, { status: 500 });
 
   const openHoldings = (holdings ?? []).filter(
     (h: { status: string }) => h.status === "open"

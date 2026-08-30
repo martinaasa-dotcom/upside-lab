@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import {
   captureBookPayload,
   pruneOldSnapshots,
@@ -45,7 +46,7 @@ async function handleGET() {
     .limit(80);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/snapshots") }, { status: 500 });
   }
   const snapshots = ((data ?? []) as {
     id: string;

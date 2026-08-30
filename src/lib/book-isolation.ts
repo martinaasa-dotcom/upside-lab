@@ -1,5 +1,3 @@
-import type { Holding, Portfolio } from "@/lib/types";
-
 /** Live sheet ids are postgres UUIDs. Local unsigned seed uses ids like `p-aasad`. */
 const LIVE_SHEET_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -30,11 +28,4 @@ export function keepLiveSheetsOnly<
     portfolios: nextPortfolios,
     holdings: holdings.filter((h) => keep.has(h.portfolio_id)),
   };
-}
-
-export function ownSheetsOnly(
-  portfolios: Portfolio[],
-  holdings: Holding[]
-): { portfolios: Portfolio[]; holdings: Holding[] } {
-  return keepLiveSheetsOnly(portfolios, holdings);
 }

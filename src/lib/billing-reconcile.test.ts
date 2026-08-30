@@ -59,9 +59,27 @@ vi.mock("@/lib/supabase/server", () => ({
   supabaseUsesServiceRole: () => true,
   getSupabaseServer: () => ({
     from: () => {
+      // The reconcile read is paged (lib/supabase/read-all), because it is
+      // every paying account rather than one, so the double has to answer a
+      // window. The fixtures are far shorter than one page, so the first
+      // window is the last.
       const q: Record<string, unknown> = {};
+      let window: [number, number] | null = null;
       q.select = () => q;
-      q.not = () => Promise.resolve({ data: profileRows, error: null });
+      q.not = () => q;
+      q.range = (from: number, to: number) => {
+        window = [from, to];
+        return q;
+      };
+      q.then = (resolve: (v: unknown) => unknown) =>
+        Promise.resolve(
+          resolve({
+            data: window
+              ? profileRows.slice(window[0], window[1] + 1)
+              : profileRows,
+            error: null,
+          })
+        );
       q.update = (patch: Record<string, unknown>) => {
         writes.push(patch);
         return { eq: () => Promise.resolve({ error: null }) };

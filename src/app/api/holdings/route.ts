@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { requirePortfolioOwner } from "@/lib/auth/ownership";
 import {
   applyTradeCashDelta,
@@ -277,7 +278,7 @@ async function handlePOST(req: NextRequest) {
           message: error.message,
           code: error.code ?? null,
         });
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: dbError(error, "/api/holdings") }, { status: 500 });
       }
       const cash = await applyTradeCashDelta(
         supabase,
@@ -304,7 +305,7 @@ async function handlePOST(req: NextRequest) {
         message: error.message,
         code: error.code ?? null,
       });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: dbError(error, "/api/holdings") }, { status: 500 });
     }
     if (!data) {
       logHoldingRetry({
@@ -482,7 +483,7 @@ async function handlePATCH(req: NextRequest) {
         message: error.message,
         code: error.code ?? null,
       });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: dbError(error, "/api/holdings") }, { status: 500 });
     }
     if (!data) {
       if (casOnShares) {
@@ -577,7 +578,7 @@ async function handleDELETE(req: NextRequest) {
       message: error.message,
       code: error.code ?? null,
     });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/holdings") }, { status: 500 });
   }
   // Only the delete that actually removed the row may move cash. A second
   // overlapping DELETE would otherwise credit the sale twice.

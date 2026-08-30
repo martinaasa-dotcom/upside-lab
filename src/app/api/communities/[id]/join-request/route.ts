@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import {
   userIsCommunityAdmin,
   userIsCommunityMember,
@@ -74,7 +75,7 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]/join-request") }, { status: 500 });
   }
   return NextResponse.json({ request: data });
 }
@@ -97,7 +98,7 @@ async function handleDELETE(_req: NextRequest, ctx: Ctx) {
     .eq("user_id", auth.user.id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]/join-request") }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }
@@ -137,7 +138,7 @@ async function handlePATCH(req: NextRequest, ctx: Ctx) {
       .from(PORTFELL_TABLES.communityMembers)
       .insert({ community_id: id, user_id: targetUserId, role: "member" });
     if (memberErr) {
-      return NextResponse.json({ error: memberErr.message }, { status: 500 });
+      return NextResponse.json({ error: dbError(memberErr, "/api/communities/[id]/join-request") }, { status: 500 });
     }
     await provisionClassroomSheet(supabase, {
       communityId: id,
@@ -163,7 +164,7 @@ async function handlePATCH(req: NextRequest, ctx: Ctx) {
     .eq("user_id", targetUserId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]/join-request") }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }
