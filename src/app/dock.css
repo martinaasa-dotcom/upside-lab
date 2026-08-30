@@ -134,6 +134,43 @@
   }
 
   /*
+   * THE LAPTOP BAR BREATHES ON THE POINTER, NOT ON THE CLICK.
+   *
+   * It used to swell on every travel, which is a bar arguing with a
+   * decision the reader has already made: you know you pressed, the marker
+   * is already saying where you are going, and a capsule lurching on top of
+   * that is a third voice on a settled question. Worse, it is the one part
+   * of the dock that cannot leave the main thread, because scaling nine
+   * cells of 14px type re-rasterises them and Chrome will not composite
+   * that -- so the loudest motion in the bar was also the only one being
+   * paid for on every single navigation.
+   *
+   * A pointer arriving is the moment a laptop has and a phone does not, and
+   * it is the same gesture the Margus button makes (`hover:scale-[1.015]`),
+   * so the bar and the app's other round accent surface now answer a
+   * pointer the same way. A transition rather than an animation, because
+   * this is a STATE: it grows to meet the pointer, holds there for as long
+   * as it is being pointed at, and settles back when the pointer leaves.
+   * Nothing about pressing it changes the scale -- the cells have their own
+   * press, and the capsule staying exactly where it is under the finger is
+   * what makes the press read as landing on something solid.
+   *
+   * `(hover: hover) and (pointer: fine)` so a touch screen never latches it
+   * on after a tap, and `--dock-breathe-*` come off `DOCK_MOTION.wide` so
+   * the numbers stay in one file with the rest of the dock's motion.
+   */
+  @media (hover: hover) and (pointer: fine) {
+    .dock-breathe {
+      transition: transform var(--dock-breathe-ms, 300ms)
+        cubic-bezier(0.22, 0.61, 0.36, 1);
+    }
+
+    .dock-breathe:hover {
+      transform: scale(var(--dock-breathe-peak, 1.015));
+    }
+  }
+
+  /*
    * The phone bar's spoken name. It rises into place rather than fading in
    * where it will be: a label that arrives already at rest reads as a
    * tooltip, and this is meant to read as the press itself carrying the
@@ -165,13 +202,15 @@
   .dock-ghost,
   .dock-cell,
   .dock-glyph,
-  .dock-say {
+  .dock-say,
+  .dock-breathe {
     transition: none;
   }
 
   .dock-cell:active,
   .dock-cell:active .dock-glyph,
-  .dock-cell:hover .dock-glyph {
+  .dock-cell:hover .dock-glyph,
+  .dock-breathe:hover {
     transform: none;
   }
 

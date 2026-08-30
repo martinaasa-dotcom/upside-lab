@@ -1697,8 +1697,12 @@ The glyph-only phone bar is **free at every throttle** — the difference at
 6x and 10x is noise, and at 6x the "off" run was worse. All of the cost is
 the laptop bar's nine labels, and it only appears from 6x, which is well
 below what a machine showing a desktop dock is. `will-change: transform`
-does not recover it (21 against 30 at 6x, 84 against 78 at 10x). The 500ms
-duration is the dial if this ever stops being the right trade.
+does not recover it (21 against 30 at 6x, 84 against 78 at 10x).
+
+**This table is now history for the laptop bar**, which does not swell on a
+travel at all — see *Each bar breathes at the moment its own input gives
+it* below. It is still live for the phone, and it is the reason the phone
+could be given the louder breath rather than the quieter one.
 
 ### The capsule breathes, and that is the half a moving pill cannot carry
 
@@ -1783,6 +1787,80 @@ cheaper version would be a different animation.
 Reproduced against the same numbers: peak **+4.51%** at 33ms, +3.46% at
 133ms, +1.31% at 233ms, home at 300ms, with the left end out 11.1px against
 the right end's 22.6px — 1:2, and the height unchanged at 52px.
+
+### Each bar breathes at the moment its own input gives it (2026-08-30)
+
+> *"Make the navbar expand slowly like the Margus button only when hovered
+> over and then not expand at all when clicked."* — and, of the phone:
+> *"way too fast and too subtle, it needs to have more movement."*
+
+One set of numbers had been serving two bars that do not have the same
+input, and the same swell was wrong on both for opposite reasons.
+
+**The laptop bar stopped breathing on the travel** (`swellPeak: 1`, which
+`swellFrames` answers with **null** rather than sixteen keyframes of
+`scale(1)` — frames of nothing still hand the compositor an animation to
+run and the type under it to re-raster, so the off switch has to be the
+absence of an animation). A capsule that lurches every time you press it is
+arguing with a decision you have already made: you know you pressed, and
+the marker is already saying where you are going. It was also the only
+motion in the bar being paid for on every single navigation, because
+scaling nine cells of 14px type re-rasterises them and Chrome will not
+composite that.
+
+**What replaced it is the pointer**, which is the one moment a laptop has
+and a phone does not, and it is the gesture the Margus button already makes
+(`hover:scale-[1.015]`). `.dock-breathe` is a **transition, not an
+animation**: a state the bar grows into and holds for as long as it is
+being pointed at, rather than a flash with a clock. Measured on the real
+bar at 1440:
+
+| | measured |
+| --- | --- |
+| hover peak | **+1.50% wide, +1.50% tall** |
+| axis disagreement | **0.0000 points** (uniform) |
+| full size at | ~313ms (the transition is 300ms) |
+| back on leave | exactly 1164.0px, the resting width |
+| **swing across a whole press** | **0.000px** |
+
+That last row is the ask, held as a test: there is deliberately **no
+`.dock-breathe:active` rule**. The cells have their own press (0.955), and
+the capsule holding perfectly still under the finger is what makes that
+press read as landing on something solid. `(hover: hover) and (pointer:
+fine)` gates it, or a touch screen latches `:hover` after a tap and leaves
+the bar permanently 1.5% larger.
+
+**The phone bar went the other way**, because the travel is now all the
+motion it has and it is the surface the reference recording was traced off
+— six glyphs, no letterform to distort, measured free at every CPU
+throttle. So its magnitude is free to sit near the reference's own rather
+than at half of it: **3% over 460ms** against the reference's 4% over
+500ms, with the travel at 340ms and the lag at 18ms.
+
+| | measured | reference |
+| --- | --- | --- |
+| swell peak | **+3.00% / +3.00%** | +3.99% / +3.95% |
+| peak at | 234ms (40% of its life) | 40% of its life |
+| undershoot | -0.10% | -0.035 normalised |
+| settled by | 484ms | ~500ms |
+| one-cell pill stretch | 1.22x | 1.29x |
+| painted frames on that travel | 21, worst step 8.6px | — |
+
+**Frame cost, eight cycles of each.** At 1x — which is what a machine
+showing either of these bars actually is — **every one of them is zero**:
+
+| | 1x | 4x | 6x |
+| --- | --- | --- | --- |
+| laptop hover swell | **0 of 313** | 2 of 311 | 13 of 298 |
+| laptop marker travel | **0 of 182** | 6 of 173 | 7 of 165 |
+| phone travel + swell | **0 of 254** | 2 of 252 | 11 of 239 |
+
+Worst frame at 1x is 16.8ms on all three, which is one frame. The hover
+swell's own share, measured on against off, is **1 frame at 4x and 7 at
+6x** across eight hover-in/out cycles; everything else at those throttles
+is the throttle. `hoverPeak` and `hoverMs` live in `DOCK_MOTION.wide` and
+reach the CSS as custom properties, so every number either bar moves by is
+still in one file.
 
 ### The marker leaves on the press, and the route only confirms it (2026-08-30)
 

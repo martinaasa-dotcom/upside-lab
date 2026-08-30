@@ -13,6 +13,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  DOCK_MOTION,
   MARKER_MS,
   SAMPLE_MS,
   SWELL_PEAK,
@@ -190,9 +191,23 @@ describe("the capsule breathes with the travel", () => {
     expect(scaleOf(frames[0])).toBe(1);
     expect(scaleOf(frames[frames.length - 1])).toBe(1);
     expect(Math.max(...frames.map(scaleOf))).toBeCloseTo(SWELL_PEAK, 5);
-    // The reference peaked at +3.99% on the frame this was traced from.
-    expect(SWELL_PEAK).toBeGreaterThan(1.01);
-    expect(SWELL_PEAK).toBeLessThan(1.03);
+    // The reference peaked at +3.99% on the frame this was traced from, and
+    // the phone bar is the surface it was traced off, so it may sit near
+    // that rather than at half of it.
+    expect(SWELL_PEAK).toBeGreaterThan(1.02);
+    expect(SWELL_PEAK).toBeLessThanOrEqual(1.04);
+  });
+
+  it("is off outright at a peak of 1, rather than sixteen frames of nothing", () => {
+    /*
+     * The laptop bar's off switch. Frames of `scale(1)` would draw the same
+     * picture and still hand the compositor an animation to run and the
+     * type under it to re-raster, so the switch has to be the absence of
+     * an animation and not a scale of one.
+     */
+    expect(swellFrames("right", 1)).toBe(null);
+    expect(swellFrames("left", 1)).toBe(null);
+    expect(swellFrames("right", DOCK_MOTION.wide.swellPeak)).toBe(null);
   });
 
   it("swells rather than snapping, and comes home through an undershoot", () => {
@@ -297,6 +312,88 @@ describe("the marker leaves on the press, not on the route", () => {
     // Snapping home mid-wait looks more broken than standing still.
     const ms = Number(HOOK.match(/AIM_GIVES_UP_MS = (\d+)/)?.[1]);
     expect(ms).toBeGreaterThanOrEqual(2000);
+  });
+});
+
+describe("each bar breathes at the moment its input gives it", () => {
+  const WIDE = readFileSync("src/components/BookModeDock.tsx", "utf8");
+  const PHONE = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");
+
+  it("never lurches the laptop bar on a click", () => {
+    /*
+     * A bar that swells every time you press it is arguing with a decision
+     * you have already made, and it is the one part of the dock that has to
+     * re-raster nine cells of type to do it. The marker says where you are
+     * going; the capsule has nothing to add.
+     */
+    expect(DOCK_MOTION.wide.swellPeak).toBe(1);
+    expect(swellFrames("right", DOCK_MOTION.wide.swellPeak)).toBe(null);
+  });
+
+  it("gives the laptop bar the pointer instead, held for as long as it is pointed at", () => {
+    // A transition, not an animation: this is a state the bar sits in while
+    // the pointer is on it, the same gesture the Margus button makes.
+    expect(DOCK_MOTION.wide.hoverPeak).toBeGreaterThan(1);
+    expect(WIDE).toContain("dock-breathe");
+    expect(WIDE).toContain("--dock-breathe-peak");
+    expect(WIDE).toContain("--dock-breathe-ms");
+
+    const at = CSS.indexOf(".dock-breathe:hover");
+    expect(at, "the hover swell is in the stylesheet").toBeGreaterThan(-1);
+    expect(CSS.slice(at, at + 200)).toMatch(/transform:\s*scale\(/);
+    expect(CSS.slice(at, at + 200)).not.toMatch(/animation:/);
+  });
+
+  it("keeps the pointer swell off a screen that has no pointer", () => {
+    // A touch screen latches `:hover` after a tap, which would leave the
+    // phone's bar permanently 1.5% larger than it is.
+    const at = CSS.indexOf(".dock-breathe");
+    const gate = CSS.lastIndexOf("@media (hover: hover)", at);
+    expect(gate).toBeGreaterThan(-1);
+    expect(CSS.slice(gate, at)).toContain("pointer: fine");
+    expect(PHONE).not.toContain("dock-breathe");
+  });
+
+  it("does not change the scale when a cell is pressed", () => {
+    /*
+     * The cells have their own press (0.955) and the capsule holding still
+     * under the finger is what makes that press read as landing on
+     * something solid. A second scale on the bar itself would be the
+     * lurch this change exists to remove, arriving through `:active`.
+     */
+    expect(CSS).not.toMatch(/\.dock-breathe:active/);
+  });
+
+  it("gives the phone bar the fuller breath, since the travel is all it has", () => {
+    /*
+     * No pointer, so the travel carries every bit of this bar's motion, and
+     * it is the surface the reference recording was traced off: six glyphs,
+     * no letterform to distort, measured free at every CPU throttle. It
+     * should read louder and run longer than it did when both bars shared
+     * one set of numbers.
+     */
+    expect(DOCK_MOTION.phone.swellPeak).toBeGreaterThan(1.02);
+    expect(DOCK_MOTION.phone.swellMs).toBeGreaterThan(400);
+    expect(DOCK_MOTION.phone.travelMs).toBeGreaterThan(DOCK_MOTION.wide.travelMs);
+    // A longer lag is a longer smear: the trailing edge falls further
+    // behind the leading one, which is the whole of what reads as liquid.
+    expect(DOCK_MOTION.phone.lagMs).toBeGreaterThan(DOCK_MOTION.wide.lagMs);
+  });
+
+  it("still lands the phone's stretch short of an egg", () => {
+    // The pill's caps are circles at rest and go oval only in flight. A
+    // one-cell move on a 120px cell is the common case and must stay well
+    // under the reference's own 1.29x.
+    const from = markGeometry(0, 120);
+    const to = markGeometry(120, 120);
+    const widest = Math.max(
+      ...travelKeyframes(from, to, {
+        durationMs: DOCK_MOTION.phone.travelMs,
+        lagMs: DOCK_MOTION.phone.lagMs,
+      }).map((f) => Number(String(f.transform).match(/scaleX\(([\d.]+)\)/)![1]))
+    );
+    expect(widest).toBeGreaterThan(1.05);
+    expect(widest).toBeLessThan(1.3);
   });
 });
 
