@@ -170,26 +170,6 @@
     }
   }
 
-  /*
-   * The phone bar's spoken name. It rises into place rather than fading in
-   * where it will be: a label that arrives already at rest reads as a
-   * tooltip, and this is meant to read as the press itself carrying the
-   * name up.
-   */
-  .dock-say {
-    opacity: 0;
-    transform: translateX(-50%) translateY(var(--dock-say-y, 6px))
-      scale(var(--dock-say-scale, 0.94));
-    transition:
-      transform 260ms cubic-bezier(0.32, 0.72, 0, 1),
-      opacity 170ms ease-out;
-  }
-
-  .dock-say[data-said] {
-    opacity: 1;
-    --dock-say-y: 0px;
-    --dock-say-scale: 1;
-  }
 }
 
 /*
@@ -202,7 +182,6 @@
   .dock-ghost,
   .dock-cell,
   .dock-glyph,
-  .dock-say,
   .dock-breathe {
     transition: none;
   }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   type DockDir,
@@ -134,6 +135,7 @@ function swell(
  */
 export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
   const tune = DOCK_MOTION[variant];
+  const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
   const [mark, setMark] = useState<DockMark | null>(null);
   const [dir, setDir] = useState<DockDir>(null);
@@ -389,6 +391,30 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
       const host2 = ref.current;
       if (!host2 || !host2.contains(cell)) return;
       if (cell === host2.querySelector("[data-on]")) return;
+      /*
+       * WARM THE ROOM ON THE PRESS, NOT ON THE COMMIT.
+       *
+       * Measured on the real bar, a tap dispatches its click about 2ms
+       * after `pointerdown`, so nothing about the navigation is waiting on
+       * the motion above -- what a reader reads as the animation gating the
+       * page is the two simply finishing together. Every cell here is a
+       * `<Link prefetch>` and the dock is never out of the viewport, so
+       * most of these are already warm; this covers the ones that are not.
+       * The Circle cell's href is resolved in the browser (`useCircleHref`)
+       * and changes after mount, so the payload Link warmed can be for the
+       * wrong address, and a portfolio cell added while the page is open
+       * has never had its turn. `router.prefetch` on an address already in
+       * the cache is a no-op, so the cost of asking is nothing and the
+       * saving on a cold one is the whole round trip.
+       */
+      const href = cell.getAttribute("href");
+      if (href) {
+        try {
+          router.prefetch(href);
+        } catch {
+          /* A dialog cell or a menu trigger has no address to warm. */
+        }
+      }
       aimed.current = cell;
       if (aimTimer.current) clearTimeout(aimTimer.current);
       aimTimer.current = setTimeout(callOff, AIM_GIVES_UP_MS);
@@ -447,7 +473,7 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
       document.removeEventListener("pointercancel", callOff);
       if (aimTimer.current) clearTimeout(aimTimer.current);
     };
-  }, [measure]);
+  }, [measure, router]);
 
   /*
    * Held still until it has been placed once, or the first paint draws a

@@ -1788,6 +1788,89 @@ Reproduced against the same numbers: peak **+4.51%** at 33ms, +3.46% at
 133ms, +1.31% at 233ms, home at 300ms, with the left end out 11.1px against
 the right end's 22.6px — 1:2, and the height unchanged at 52px.
 
+### The names came back, and the bar changed colour to pay for them (2026-08-30)
+
+> *"When it jumps from circle to home and the animation of the navbar
+> finishes, it drastically changes its color."* — and, of the reference:
+> *"I want labels back under the navbar."*
+
+**The colour step is real and it is not the animation.** Sampled frame by
+frame off the recording, on a patch of bare bar between two cells, the bar
+stepped from `(17.8, 18.7, 22.2)` to `(10.5, 15.3, 22.0)` **between two
+consecutive frames** — a third of its own value, on a surface whose mean is
+in the teens, and as much a hue swing as a luminance one.
+
+Two hypotheses were tested and both were wrong, which is worth recording so
+nobody spends the afternoon again. It is **not** a `backdrop-filter`
+snapshot pinned by the compositor transform: measured directly, Chromium
+resamples the backdrop every frame of a running transform animation, and an
+identical step lands with the animation off. And it is **not** the filter
+chain amplifying the room's colour: `saturate(1.75) brightness(1.13)` moves
+the reading by **at most one level** at these luminances, so desaturating
+what the dock samples buys nothing.
+
+What it is: the dock is a 55% tint of whatever room is under it, and a room
+changes in one frame. Nothing can ease that, because what changed is the
+page. The only lever is how much of it reaches through:
+
+| dock fill | luminance step | red-minus-blue swing |
+| --- | --- | --- |
+| 55% (was) | 5.15 | 9.8 |
+| **72% (is)** | **3.14** | **6.0** |
+| 78% | 2.21 | 5.0 |
+| 86% | 1.35 | 3.0 |
+
+It keeps shrinking all the way up, so the bound is the other end: shot over
+the real ambient field at each fill, past roughly 78% the pane is darker
+than the field beside it and reads as a hole cut in the page rather than a
+pane laid on it — the mistake the note on `.chrome-pane` records. 72% cuts
+both terms by 39% and still carries a visible trace of the lobe.
+
+**The labels are the other half, and they are why 55% was never really a
+ceiling.** Both constraints that picked it are floors (chroma at 45%, muted
+label AAA at 55%); the "do not raise it" clause was protecting the glow
+alone. A bar that now carries six permanent names has more riding on its
+own legibility than one carrying six glyphs, and over the brightest room a
+dock can sit on, muted label text measures **2.11:1 at 55% and 3.51:1 at
+72%**.
+
+**What the labels replaced.** The bar used to speak the pressed cell's name
+over itself for 900ms on `pointerdown` (`SAY_MS`, `.dock-say`). That was a
+real answer to a real problem and the wrong shape of one: *a transient
+label only ever names the room you have already chosen, and the room
+somebody new needs named is the one they have not been to.* Painted names
+answer that; the transient one cannot, at any duration. It also cost a
+render on the press path — the spoken name was React state set from
+`onPointerDown`, so every tap re-rendered the bar before the browser could
+dispatch the click that navigates.
+
+The bar stretches now (`w-full`, `repeat(n, minmax(0, 1fr))`) where it used
+to hug: six glyphs fit in 316px of a 390px screen and six names do not.
+`minmax(0, 1fr)` and `min-w-0` on the cell are both load-bearing, since a
+grid item's default minimum is its content and the longest name would
+otherwise set its track. Measured at 360, 390 and 430: no name truncates,
+no page overflow. `text-xs` is the floor for anything a person reads, so
+the cell width is sized to the label rather than the other way round.
+
+**Which room you are in is a weight.** The reference draws the active glyph
+filled and the rest as outlines; that read does not survive this icon set,
+half of which is open paths — a line chart and a trend arrow fill into a
+blot. `strokeWidth` 2.5 in full `--foreground` against 1.75 in muted is the
+same step and works on all six. Both bars do it, because they are one
+design. The accent stays spent only on news.
+
+**And the page was never waiting on the animation.** Measured on the real
+bar, a tap dispatches its `click` about **2ms** after `pointerdown` — there
+is no click-synthesis delay to reclaim — and the book room stays mounted
+behind `WorkspaceShell`, so walking back into it is an unhide rather than a
+load. What reads as the animation gating the page is the two simply
+finishing at about the same time. The one genuine gap found was an address
+`<Link prefetch>` never warmed: Circle's href is resolved in the browser
+(`useCircleHref`) and changes after mount, so the payload Link warmed can
+be for the wrong address. `useDockMarker` now calls `router.prefetch` on
+the aimed cell's own `href` at press time; it is a no-op on an address
+already cached, so asking costs nothing.
+
 ### Each bar breathes at the moment its own input gives it (2026-08-30)
 
 > *"Make the navbar expand slowly like the Margus button only when hovered

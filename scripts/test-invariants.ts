@@ -4542,13 +4542,26 @@ run("Pulse can price a bare EU ETF like VUAA", () => {
   );
   assert.doesNotMatch(dock, /bg-primary text-primary-foreground/);
   /*
-   * The promise that makes a wordless bar safe: it says the name of every
-   * room you touch, on `pointerdown` rather than on `click`, because a name
-   * arriving after the tap it was meant to answer is a name nobody needed.
-   * `onFocus` fires it too, since a keyboard never presses anything.
+   * THE NAMES ARE PAINTED, AND THAT IS WHAT REPLACED SAYING THEM.
+   *
+   * This bar used to be glyphs alone, with the pressed cell's name rising
+   * above it for 900ms on `pointerdown`. That was a real answer to a real
+   * problem and the wrong shape of it: a transient label only ever names
+   * the room you have already chosen, and what somebody new needs named is
+   * the room they have not been to. So every cell carries its own name
+   * under its glyph, always, and the transient one is gone -- along with
+   * the React state it set from the press handler, which made every tap
+   * re-render the bar before the browser could dispatch the click.
+   *
+   * Which room you are in is a WEIGHT, not a colour: the active glyph is a
+   * heavier stroke in full foreground and every other is a light stroke in
+   * muted. Filled against outline is the reference's read and it does not
+   * survive this icon set, half of which is open paths.
    */
-  assert.match(dock, /onPointerDown=\{\(e\) => say\(shortLabel, e\.currentTarget\)\}/);
-  assert.match(dock, /onFocus=\{\(e\) => say\(shortLabel, e\.currentTarget\)\}/);
+  assert.match(dock, /\{shortLabel\}/);
+  assert.doesNotMatch(dock, /dock-say|SAY_MS|setSaid/);
+  assert.match(dock, /strokeWidth=\{on \? 2\.5 : 1\.75\}/);
+  assert.match(dock, /className="sr-only">\{label\}/);
   /*
    * Every cell is the link it draws. The bar used to cancel its own
    * navigation with `preventDefault` and set state instead, stashing the

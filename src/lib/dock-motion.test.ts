@@ -121,7 +121,7 @@ describe("the dock's motion is optional", () => {
     expect(reduced).toContain(".dock-ghost");
     expect(reduced).toContain(".dock-cell");
     expect(reduced).toContain(".dock-glyph");
-    expect(reduced).toContain(".dock-say");
+    expect(reduced).toContain(".dock-breathe");
     expect(reduced).toMatch(/animation:\s*none/);
   });
 
@@ -394,6 +394,89 @@ describe("each bar breathes at the moment its input gives it", () => {
     );
     expect(widest).toBeGreaterThan(1.05);
     expect(widest).toBeLessThan(1.3);
+  });
+});
+
+describe("the phone bar carries its names, and both bars weight the active glyph", () => {
+  const PHONE = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");
+  const WIDE = readFileSync("src/components/BookModeDock.tsx", "utf8");
+  const CSSFILE = readFileSync("src/app/globals.css", "utf8");
+
+  it("paints a name under every glyph, and no longer speaks one on the press", () => {
+    /*
+     * A transient label only ever named the room you had already chosen.
+     * What somebody new needs named is the room they have NOT been to,
+     * which is exactly what a label that appears on press can never reach.
+     */
+    expect(PHONE).toContain("{shortLabel}");
+    expect(PHONE).not.toMatch(/dock-say|SAY_MS|setSaid/);
+    expect(CSS).not.toContain("dock-say");
+  });
+
+  it("keeps the press handler off React state", () => {
+    // The spoken name was state set from `onPointerDown`, so every tap
+    // re-rendered the bar before the browser could dispatch the click that
+    // navigates. Nothing on the press path may set state again.
+    expect(PHONE).not.toMatch(/onPointerDown=/);
+  });
+
+  it("stretches the bar rather than hugging six names", () => {
+    // A bar that hugs six glyphs is 316 of a 390px screen; six names need
+    // all of it, and equal tracks keep the marker one shape on every cell.
+    expect(PHONE).toContain("w-full");
+    expect(PHONE).not.toMatch(/relative flex w-fit/);
+    expect(PHONE).toContain("minmax(0, 1fr)");
+    // A grid item's default minimum is its content, so without this the
+    // longest name sets its track and the cells stop being equal.
+    expect(PHONE).toContain("min-w-0");
+  });
+
+  it("says which room you are in with weight, on both bars", () => {
+    expect(PHONE).toMatch(/strokeWidth=\{on \? 2\.5 : 1\.75\}/);
+    expect(WIDE).toMatch(/strokeWidth=\{active \? 2\.5 : 1\.75\}/);
+    expect(WIDE).toMatch(/strokeWidth=\{onCircle \? 2\.5 : 1\.75\}/);
+  });
+
+  it("never drops a name below the 12px floor", () => {
+    // The cell width is sized to the label, not the other way round.
+    expect(PHONE).toContain("text-xs");
+    expect(PHONE).not.toMatch(/text-\[(?:[0-9]|10|11)(?:\.\d+)?px\]/);
+  });
+
+  it("keeps the full name for a screen reader when the short one is drawn", () => {
+    expect(PHONE).toMatch(/className="sr-only">\{label\}/);
+  });
+
+  it("holds the dock fill above the colour-step threshold", () => {
+    /*
+     * The bar is a tint of whatever room is under it, so when the room
+     * changes the bar changes in one frame. Measured off a recording of the
+     * real app between Circle and Home it stepped 5.15 in luminance and 9.8
+     * in red-minus-blue at the old 45%-through fill, on a surface whose own
+     * mean is in the teens. At 28% through it steps 3.14 and 6.0. Nothing
+     * can ease it -- what changed is the page -- so the fill is the only
+     * lever, and past roughly 22% the pane goes darker than the field and
+     * reads as a hole cut in the page.
+     */
+    const at = CSSFILE.indexOf(".glass-dock {");
+    expect(at).toBeGreaterThan(-1);
+    const rule = CSSFILE.slice(at, at + 200);
+    const through = Number(rule.match(/transparent (\d+)%/)![1]);
+    expect(through).toBeLessThanOrEqual(30);
+    expect(through).toBeGreaterThanOrEqual(20);
+  });
+
+  it("warms the room on the press rather than on the commit", () => {
+    /*
+     * Measured on the real bar, a tap dispatches its click about 2ms after
+     * `pointerdown`, so nothing about the navigation waits on the motion.
+     * What this covers is the address Link never warmed: Circle's href is
+     * resolved in the browser and changes after mount.
+     */
+    const hook = readFileSync("src/lib/use-dock-marker.ts", "utf8");
+    const aim = hook.slice(hook.indexOf("const aim ="), hook.indexOf("const press ="));
+    expect(aim).toContain("router.prefetch");
+    expect(aim).toContain('getAttribute("href")');
   });
 });
 

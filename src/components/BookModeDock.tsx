@@ -312,7 +312,17 @@ export function BookModeDock({
         const inner = (
           <>
             <span className="dock-glyph relative flex shrink-0">
-              <Icon className="h-4 w-4" strokeWidth={2} aria-hidden />
+              {/*
+                The weight says which room you are in, and both bars say it
+                the same way: see the note in `MobileTabBar`. Filled against
+                outline is the read the reference uses and it does not
+                survive this icon set, half of which is open paths.
+              */}
+              <Icon
+                className="h-4 w-4"
+                strokeWidth={active ? 2.5 : 1.75}
+                aria-hidden
+              />
               {/*
                 The one saturated pixel left on the bar, and the phone draws
                 it in the same place for the same reason: the accent is not
@@ -394,7 +404,7 @@ export function BookModeDock({
             >
               <Wallet
                 className="dock-glyph h-4 w-4 shrink-0"
-                strokeWidth={2}
+                strokeWidth={activeSheet ? 2.5 : 1.75}
                 aria-hidden
               />
               <span className="min-w-0 truncate">
@@ -443,9 +453,10 @@ export function BookModeDock({
           aria-label="New portfolio"
           className={cn(CELL, OFF, "px-0")}
         >
+          {/* Never the room you are in: it opens a dialog. Light stroke. */}
           <Plus
             className="dock-glyph h-4 w-4 shrink-0"
-            strokeWidth={2}
+            strokeWidth={1.75}
             aria-hidden
           />
         </button>
@@ -460,7 +471,10 @@ export function BookModeDock({
         data-on={onCircle ? "" : undefined}
         className={cn(CELL, onCircle ? ON : OFF)}
       >
-        <CircleNavIcon className="dock-glyph h-4 w-4 shrink-0" strokeWidth={2} />
+        <CircleNavIcon
+          className="dock-glyph h-4 w-4 shrink-0"
+          strokeWidth={onCircle ? 2.5 : 1.75}
+        />
         <span className="min-w-0 truncate">Circle</span>
       </Link>
 
