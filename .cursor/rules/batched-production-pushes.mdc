@@ -10,7 +10,6 @@ Hobby Vercel allows 100 deploys per rolling 24 hours. Every `git push origin mai
 - Finish the work, then **commit locally**. Do not push after every feature, fix, or tweak.
 - Push to `main` at most about **once every 30 minutes**, bundling whatever landed since the last push.
 - Push immediately only when Martin asks for live, or the change is a production-down hotfix.
-- After a push, still verify live SHA matches (see `vercel-live-matches-push.mdc`).
 - Be honest when local HEAD is ahead of production. Do not claim it is live.
 
 The cap is real and has been hit (2026-08-21). It shows up as a red **Vercel**
