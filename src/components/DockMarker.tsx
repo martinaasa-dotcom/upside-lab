@@ -53,3 +53,40 @@ export function DockMarker({
     </>
   );
 }
+
+/**
+ * The capsule's material, drawn as its own layer behind the cells.
+ *
+ * IT IS A SEPARATE ELEMENT SO THE BAR CAN BREATHE WITHOUT MOVING A SINGLE
+ * WORD WRITTEN ON IT, and that is not a refinement, it is the whole reason
+ * this exists. The swell used to scale the capsule itself, which scales
+ * everything inside it: measured on the laptop dock at 1440, walking one
+ * cell from Home to Pulse slid the label "Circle" **28 pixels sideways**
+ * and stretched every label's letterforms by **4.5%**, on every
+ * navigation. A reader moving between two neighbouring rooms watched the
+ * far end of the bar lurch.
+ *
+ * This repo had already decided that. `dock-stability.test.ts` exists
+ * because a dropped cell made "the whole bar resize and re-centre under
+ * the cursor, every label sliding sideways mid-click" -- the same failure,
+ * arrived at from the other direction and written down as a rule. The
+ * animation had been reintroducing it several times a minute.
+ *
+ * So the material scales and the contents do not. The reference does move
+ * its labels, by about 11px on a 1181px bar, and that is a phone bar of
+ * glyphs with 11px captions under them where the shift is invisible; on a
+ * floating capsule of 14px labels it is the loudest thing on the screen.
+ * Fidelity to the recording is not the goal, the feel is.
+ *
+ * It costs nothing to give up, either: scaling a subtree of text is what
+ * made the swell measurable at all, because text has to be re-rasterised
+ * at every scale factor while a plain pane does not.
+ */
+export function DockPane() {
+  return (
+    <span
+      aria-hidden
+      className="dock-pane card-sheen glass glass-dock pointer-events-none absolute inset-0 rounded-full ring-1 ring-foreground/20"
+    />
+  );
+}

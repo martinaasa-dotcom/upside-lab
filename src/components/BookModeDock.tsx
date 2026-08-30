@@ -39,7 +39,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useDockMarker } from "@/lib/use-dock-marker";
-import { DockMarker } from "@/components/DockMarker";
+import { DockMarker, DockPane } from "@/components/DockMarker";
 
 /*
  * No `title` on these any more, and none anywhere else on this bar that
@@ -279,7 +279,7 @@ export function BookModeDock({
        * in globals.css and DESIGN_TOKENS.md.
        */
       className={cn(
-        "card-sheen glass glass-dock pointer-events-auto relative mx-auto grid w-fit max-w-full gap-1 rounded-full p-1 ring-1 ring-foreground/20",
+        "pointer-events-auto relative mx-auto grid w-fit max-w-full gap-1 rounded-full p-1",
         className
       )}
       style={{
@@ -298,6 +298,12 @@ export function BookModeDock({
           : `repeat(${cellCount}, minmax(0, ${CELL_W}))`,
       }}
     >
+      {/*
+        The capsule's material, on its own layer so it can breathe without
+        moving anything written on it. See `DockPane`.
+      */}
+      <DockPane />
+
       {modes.map(({ id, href, label, Icon }) => {
         const active = activeId === id;
         const inner = (

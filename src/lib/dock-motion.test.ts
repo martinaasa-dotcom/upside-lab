@@ -173,9 +173,16 @@ describe("the capsule breathes with the travel", () => {
     expect(scaleOf(frames[0])).toBe(1);
     expect(scaleOf(frames[frames.length - 1])).toBe(1);
     expect(Math.max(...frames.map(scaleOf))).toBeCloseTo(SWELL_PEAK, 5);
-    // The reference peaked at +3.6%, +4.7% and +4.8% across three travels.
-    expect(SWELL_PEAK).toBeGreaterThan(1.03);
-    expect(SWELL_PEAK).toBeLessThan(1.06);
+    /*
+     * The reference peaked at +3.6%, +4.7% and +4.8%, and this is
+     * deliberately well under that. The recording is a phone bar of glyphs
+     * spanning nearly the whole screen; matching its number on a floating
+     * capsule of 14px labels put 22px of movement on an end the reader is
+     * looking straight at. Only the pane moves now, so a much smaller
+     * number reads as the same thing. It still has to be a real breath.
+     */
+    expect(SWELL_PEAK).toBeGreaterThan(1.005);
+    expect(SWELL_PEAK).toBeLessThan(1.03);
   });
 
   it("snaps out and eases back, never the other way round", () => {
@@ -327,5 +334,44 @@ describe("both docks spend the accent on news", () => {
     const titles = [...WIDE.matchAll(/title=\{?["']?([^"'}\n]*)/g)].map((m) => m[1]);
     expect(titles.length, "only the portfolio cells keep a title").toBe(1);
     expect(WIDE).toMatch(/right-click to rename or delete/);
+  });
+});
+
+
+describe("the bar breathes without moving what is written on it", () => {
+  const HOOK = readFileSync("src/lib/use-dock-marker.ts", "utf8");
+  const MARKER = readFileSync("src/components/DockMarker.tsx", "utf8");
+  const WIDE = readFileSync("src/components/BookModeDock.tsx", "utf8");
+  const PHONE = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");
+
+  it("scales the pane, never the capsule", () => {
+    /*
+     * Scaling the capsule scales every label inside it. Measured on the
+     * laptop dock at 1440, one cell of travel slid the far label 28px and
+     * stretched every letterform 4.5% -- which is the failure
+     * `dock-stability.test.ts` was written about, arrived at from the other
+     * direction. With the pane on its own layer the same walk moves every
+     * label 0.0px.
+     */
+    expect(HOOK).toContain('querySelector<HTMLElement>(".dock-pane")');
+    expect(HOOK).toMatch(/pane\.animate\(frames/);
+    expect(HOOK, "the capsule itself must never be the thing scaled").not.toMatch(
+      /host\.animate\(frames/
+    );
+  });
+
+  it("draws the material as its own layer in both docks", () => {
+    expect(MARKER).toMatch(/class[Nn]ame="dock-pane/);
+    for (const src of [WIDE, PHONE]) {
+      expect(src).toMatch(/<DockPane \/>/);
+      // The glass belongs to the pane now, not to the grid that holds cells.
+      expect(src).not.toMatch(/card-sheen glass glass-dock pointer-events-auto/);
+    }
+  });
+
+  it("keeps the pane out of the way of taps", () => {
+    // It covers the whole capsule, so without this it eats every press.
+    const pane = MARKER.slice(MARKER.indexOf("dock-pane"));
+    expect(pane.slice(0, 300)).toContain("pointer-events-none");
   });
 });

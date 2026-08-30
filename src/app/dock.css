@@ -87,7 +87,26 @@
 
   .dock-marker {
     --dock-lead-ms: 260ms;
-    --dock-trail-ms: 460ms;
+    /*
+     * 320ms, not the 460 this started at. The stretch scales with the
+     * distance, which is right, and on the laptop dock the distance can be
+     * eight cells: at 460 a walk from Home to Circle put a pill **2.7 cells
+     * wide** across three labels, which reads as a swipe rather than as a
+     * marker moving. Measured at 1440 with 120px cells, trailing against
+     * peak stretch:
+     *
+     *   460ms  1 cell 1.36x   4 cells 2.37x   5 cells 2.71x
+     *   400ms  1 cell 1.27x   4 cells 2.10x   5 cells 2.38x
+     *   360ms  1 cell 1.22x   4 cells 1.89x   5 cells 2.11x
+     *   320ms  1 cell 1.16x   4 cells 1.66x   5 cells 1.82x
+     *   290ms  1 cell 1.12x   4 cells 1.48x   5 cells 1.60x
+     *
+     * The number to judge it by is the **one-cell** row, because that is
+     * what a reader does over and over; the long haul is rare and only has
+     * to stay believable. 320 puts the everyday move at a sixteenth of a
+     * cell of give and keeps the worst case under two cells wide.
+     */
+    --dock-trail-ms: 320ms;
 
     /*
      * Its own edge, so it reads as a second pane inside the dock's pane
@@ -110,7 +129,9 @@
    */
   .dock-ghost {
     --dock-lead-ms: 170ms;
-    --dock-trail-ms: 300ms;
+    /* Kept in proportion to the marker's, or the hint out-stretches the
+     * thing it is hinting at. */
+    --dock-trail-ms: 230ms;
   }
 
   /*
