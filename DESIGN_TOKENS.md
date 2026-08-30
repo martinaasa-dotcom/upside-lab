@@ -1559,6 +1559,70 @@ dock's pane as a second pane rather than as a grey swatch painted on one.
 Neutral rather than the room's two hues from `--glass-rim-*`, because at
 44px that repeat lands as a coloured outline instead of as light.
 
+### The capsule breathes, and that is the half a moving pill cannot carry
+
+A marker sliding inside a rigid tray reads as two materials. In the
+reference the **whole bar swells while the pill travels** and settles
+behind it, which is what makes it one soft object. Measured off the
+recording at 30fps, tracking the capsule's own outer edges rather than
+anything inside it:
+
+| | width | vs rest | left end | right end |
+| --- | --- | --- | --- | --- |
+| rest | 1181px | — | 61 | 1242 |
+| +33ms | 1237px | +4.7% | 39 | 1240 |
+| +67ms | 1235px | +4.6% | 41 | 1262 |
+| +133ms | 1210px | +2.5% | 54 | 1264 |
+| +200ms | 1196px | +1.3% | 61 | 1257 |
+| +300ms | 1181px | settled | 61 | 1242 |
+
+Three separate travels peaked at **+3.6%, +4.7% and +4.8%**, so
+`SWELL_PEAK` is the middle of that at 4.5%. Two things it does not do.
+**Its height never moves** (234px in every frame of every travel), so this
+is `scaleX` and nothing else: a bar that also grew taller would move
+`--dock-clearance`, which every notice on the screen sits clear of. And it
+is **not centred** — the end the marker was heading for pushed out 28px
+against the other end's 14px, exactly two to one, so the anchor sits a
+third of the way in from the trailing end. A centred swell is the same
+amount of motion saying nothing about direction.
+
+An earlier reading of the same frames showed the bar *contracting* by 5%
+just before it grew, which would have been a lovely anticipation and was
+not real: the edge detector had locked onto the arriving pill's own rim,
+which carries heavy chromatic fringing, rather than onto the capsule. It
+was caught by cropping the right end and looking at it. Do not add an
+anticipation squash on the strength of the trace alone.
+
+**The Web Animations API, not a CSS class.** This has to restart on every
+travel, and two journeys in the same direction change no attribute between
+them, so nothing in the markup would tell CSS to run it again. One call per
+navigation, `scaleX` alone so it stays on the compositor, and the one in
+flight is cancelled rather than stacked on — two animations of the same
+property both apply with the newer winning, so when the newer finishes and
+drops off, an older one still running takes the bar back and it jumps.
+Tapping quickly along the dock is exactly how somebody would find that.
+
+The transform is on the capsule, so the marker inside it stretches with the
+bar rather than against it. The marker's own geometry comes from
+`offsetLeft` and `clientWidth`, which are layout and untouched by a
+transform, so the measurement stays still while the picture moves.
+
+**Measured against the fear, not around it.** A transform on a
+`backdrop-filter` element is the landing page's fault on paper, so it was
+measured: eight navigations with the CPU throttled ten times, over a real
+20px-blur capsule sitting on the ambient field, swell on and swell off,
+twice each. Median frame **16.7ms** either way, p95 16.8ms either way,
+worst 16.8ms either way, zero frames over 33ms in any of the four runs.
+The landing page's case is a filtered element pinned over content that is
+*moving underneath it*, which forces the backdrop to be re-sampled every
+frame; the dock's backdrop is still, so the capsule stays composited and
+the scale is free. Re-measure if the dock ever sits over something that
+scrolls.
+
+Reproduced against the same numbers: peak **+4.51%** at 33ms, +3.46% at
+133ms, +1.31% at 233ms, home at 300ms, with the left end out 11.1px against
+the right end's 22.6px — 1:2, and the height unchanged at 52px.
+
 ### Hovering is the same object, and a press is answered before the room is
 
 A pointer moving along the bar now drags **one fainter pane** with it

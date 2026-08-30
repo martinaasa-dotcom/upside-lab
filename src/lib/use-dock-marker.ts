@@ -4,8 +4,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import {
   type DockDir,
   type DockMark,
+  SWELL_MS,
   markGeometry,
   sameMark,
+  swellFrames,
   travelDirection,
 } from "@/lib/dock-motion";
 
@@ -28,6 +30,49 @@ export type DockMarkerState = {
 
 function markOf(host: HTMLElement, cell: HTMLElement): DockMark {
   return markGeometry(host.clientWidth, cell.offsetLeft, cell.offsetWidth);
+}
+
+function stillMotion(): boolean {
+  return (
+    typeof matchMedia === "function" &&
+    matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+/**
+ * The capsule's own breath, run on the well itself for the length of one
+ * travel. See `swellFrames` for where the numbers come from.
+ *
+ * The Web Animations API rather than a class the CSS animates, because
+ * this has to restart on every travel and two journeys in the same
+ * direction do not change a single attribute between them, so nothing in
+ * the markup would tell CSS to run it again. One call per navigation, no
+ * per-frame work, and `scaleX` alone so the browser can keep it on the
+ * compositor.
+ *
+ * It transforms the capsule and everything in it together, which is the
+ * point: a marker that stretched inside a rigid tray would read as two
+ * materials. The marker's own geometry is measured from `offsetLeft` and
+ * `clientWidth`, which are layout and untouched by a transform, so the
+ * measurement stays still while the picture stretches.
+ */
+function swell(
+  host: HTMLElement,
+  dir: DockDir,
+  running: { current: Animation | null }
+) {
+  if (typeof host.animate !== "function" || stillMotion()) return;
+  const frames = swellFrames(dir);
+  if (!frames) return;
+  /*
+   * Cancel the one in flight rather than stacking on it. Two animations of
+   * the same property both apply, the newer one winning, so when the newer
+   * finishes and drops off, an older one still running takes the bar back
+   * over and it jumps. Tapping along the dock quickly is exactly how
+   * somebody would find that.
+   */
+  running.current?.cancel();
+  running.current = host.animate(frames, { duration: SWELL_MS });
 }
 
 /**
@@ -65,6 +110,8 @@ export function useDockMarker(): DockMarkerState {
   const lastHover = useRef<DockMark | null>(null);
   /** The cell the pointer or the keyboard is on, so a resize can re-measure it. */
   const hoverCell = useRef<HTMLElement | null>(null);
+  /** The capsule's breath, so a second travel replaces it rather than stacking. */
+  const breathing = useRef<Animation | null>(null);
 
   const measure = useCallback(() => {
     const host = ref.current;
@@ -78,7 +125,9 @@ export function useDockMarker(): DockMarkerState {
     const next = on ? markOf(host, on) : null;
     if (!sameMark(lastMark.current, next)) {
       if (lastMark.current && next) {
-        setDir(travelDirection(lastMark.current, next));
+        const heading = travelDirection(lastMark.current, next);
+        setDir(heading);
+        swell(host, heading, breathing);
       }
       lastMark.current = next;
       setMark(next);

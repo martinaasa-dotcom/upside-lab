@@ -12,7 +12,13 @@
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { markGeometry, sameMark, travelDirection } from "@/lib/dock-motion";
+import {
+  SWELL_PEAK,
+  markGeometry,
+  sameMark,
+  swellFrames,
+  travelDirection,
+} from "@/lib/dock-motion";
 
 const CSS = readFileSync("src/app/dock.css", "utf8");
 
@@ -149,5 +155,74 @@ describe("measuring stays cheap", () => {
     expect(effect, "every child includes the panes").not.toContain(
       "host.children"
     );
+  });
+});
+
+describe("the capsule breathes with the travel", () => {
+  const scaleOf = (frame: Keyframe) =>
+    Number(String(frame.transform).replace(/[^\d.]/g, ""));
+
+  it("does nothing without a direction to lean toward", () => {
+    // A cell that resized under a still marker is not a journey, and a bar
+    // that breathes at nothing is a bar with a twitch.
+    expect(swellFrames(null)).toBe(null);
+  });
+
+  it("starts and ends at rest, and peaks where it was measured", () => {
+    const frames = swellFrames("right")!;
+    expect(scaleOf(frames[0])).toBe(1);
+    expect(scaleOf(frames[frames.length - 1])).toBe(1);
+    expect(Math.max(...frames.map(scaleOf))).toBeCloseTo(SWELL_PEAK, 5);
+    // The reference peaked at +3.6%, +4.7% and +4.8% across three travels.
+    expect(SWELL_PEAK).toBeGreaterThan(1.03);
+    expect(SWELL_PEAK).toBeLessThan(1.06);
+  });
+
+  it("snaps out and eases back, never the other way round", () => {
+    const frames = swellFrames("right")!;
+    const peak = frames.findIndex((f) => scaleOf(f) === Math.max(...frames.map(scaleOf)));
+    // Most of the growth is spent early: the reference was at its widest
+    // within about a tenth of the travel and took the rest coming home.
+    expect(frames[peak].offset).toBeLessThan(0.2);
+    const after = frames.slice(peak).map(scaleOf);
+    for (let i = 1; i < after.length; i += 1) {
+      expect(after[i], "the return never grows again").toBeLessThanOrEqual(after[i - 1]);
+    }
+  });
+
+  it("leans toward where the marker is heading", () => {
+    // Measured on the reference: the end the pill was heading for pushed
+    // out 28px against the other end's 14px, which is exactly two to one.
+    const right = swellFrames("right")!;
+    const left = swellFrames("left")!;
+    expect(String(right[1].transformOrigin)).toBe("33% center");
+    expect(String(left[1].transformOrigin)).toBe("67% center");
+    for (const frames of [right, left]) {
+      const origins = new Set(frames.map((f) => String(f.transformOrigin)));
+      expect(origins.size, "the anchor cannot move mid-breath").toBe(1);
+    }
+  });
+
+  it("never touches the capsule's height", () => {
+    /*
+     * The reference held 234px in every frame of every travel, and a dock
+     * that grew taller would move `--dock-clearance`, which every notice on
+     * the screen sits clear of. `scaleX` only.
+     */
+    for (const dir of ["left", "right"] as const) {
+      for (const frame of swellFrames(dir)!) {
+        expect(String(frame.transform)).toMatch(/^scaleX\(/);
+      }
+    }
+  });
+
+  it("is skipped under reduced motion, and cannot stack on itself", () => {
+    const hook = readFileSync("src/lib/use-dock-marker.ts", "utf8");
+    const fn = hook.slice(hook.indexOf("function swell("));
+    expect(fn.slice(0, fn.indexOf("\n}"))).toContain("stillMotion()");
+    expect(
+      fn.slice(0, fn.indexOf("\n}")),
+      "two breaths on one property jump when the newer one drops off"
+    ).toContain("running.current?.cancel()");
   });
 });
