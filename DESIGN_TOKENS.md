@@ -1788,6 +1788,67 @@ Reproduced against the same numbers: peak **+4.51%** at 33ms, +3.46% at
 133ms, +1.31% at 233ms, home at 300ms, with the left end out 11.1px against
 the right end's 22.6px — 1:2, and the height unchanged at 52px.
 
+### Where a tap actually spends its time (2026-08-30)
+
+> *"I want pages to tap and load instantly."*
+
+Measured on the real app in demo mode with the canonical seed, driven by
+the real dock, at 4x CPU. **Two things were found and fixed, and the third
+— the largest — is named here rather than fixed, because nothing in this
+session's reach moves it.**
+
+**1. Every first tap fetched a JS chunk.** Recording the network per hop:
+the first Pulse tap pulled one chunk, the first Lab tap two, the first
+Circle tap one; the second visit to the same room fetched nothing and
+arrived immediately. `WorkspaceShell` already warms its rooms on idle and
+simply never covered `Dashboard`'s own tab panels, which are all
+`next/dynamic`.
+
+Adding a warm was not enough on its own, and the reason is worth keeping:
+**warming only works if the module the warm asks for is the module
+`dynamic` will ask for.** Written as two separate `import()` expressions
+the bundler is free to give them different chunk groups, and on the real
+build it did — the idle warm ran (a marker proved it), 44 chunks came down
+in the first 400ms, and the first Pulse tap still fetched a 22KB chunk that
+mentions `PulsePage`. One **named loader** per panel and per room,
+referenced from both places, removes the question. Measured after: **4
+chunks fetched during taps → 0.**
+
+**2. The dock forced a synchronous layout on every render.** `measure`
+runs in a layout effect with no dependency list, so it runs after every
+render of the bar, and a route change renders it many times; the
+`getClientRects()` visibility check added with the hidden-room fix was
+therefore forcing a document layout once per render per mounted dock, of
+which there are up to three. Profiled on one Pulse hop: **323ms of 942ms,
+16% of the navigation.** The ResizeObserver already watching the host
+hands the size over for free (a hidden element reports 0x0), so the check
+is a ref read now and the layout is forced once, at mount.
+
+**3. The rest is the router, and it is most of it.** Timing the two halves
+separately — when `location.pathname` changes, and when the new room first
+mutates the DOM:
+
+| hop | url changes at | new room paints at |
+| --- | --- | --- |
+| pulse | 590ms | 657ms |
+| compound | 555ms | 791ms |
+| home | 534ms | — |
+| pulse (warm) | 472ms | 539ms |
+
+**The URL takes 400-600ms to change and the room paints 70-240ms after
+that.** The commit is the cost, and it happens before any of our rendering.
+Neither fix above moved it, and neither did wrapping the mounted rooms in
+`memo` so a navigation stops re-rendering the rooms you are not in — tried,
+measured, no benefit beyond the noise, reverted rather than shipped.
+
+**Two cautions for whoever picks this up.** Run-to-run variance on these
+hops is about **±150ms**, so no single pair of numbers means anything;
+take medians over several runs. And the probe matters: an earlier version
+of this measurement polled `document.querySelector("#main").innerHTML.length`
+every animation frame, which serializes the whole subtree — it inflated
+both the timings and its own line in the profile. Watch `location.pathname`
+and a `MutationObserver` instead.
+
 ### More than one dock is alive at once, and that is what broke it (2026-08-30)
 
 > *"Clicking on Circle completely breaks the whole thing."*

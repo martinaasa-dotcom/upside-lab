@@ -184,30 +184,37 @@ import { addPulseStamp } from "@/lib/conviction";
  * link or refresh on a non-Overview tab (e.g. "/?tab=pulse") server-
  * rendered instead of flashing a loading state.
  */
-const PulsePage = dynamic(
-  () => import("@/components/PulsePage").then((m) => m.PulsePage),
-  { ssr: true }
-);
-const LabSheet = dynamic(
-  () => import("@/components/LabSheet").then((m) => m.LabSheet),
-  { ssr: true }
-);
-const CompoundInterestSheet = dynamic(
-  () =>
-    import("@/components/CompoundInterestSheet").then(
-      (m) => m.CompoundInterestSheet
-    ),
-  { ssr: true }
-);
-const ForecastPanel = dynamic(
-  () => import("@/components/ForecastPanel").then((m) => m.ForecastPanel),
-  { ssr: true }
-);
-const CoveredCallPanel = dynamic(
-  () =>
-    import("@/components/CoveredCallPanel").then((m) => m.CoveredCallPanel),
-  { ssr: true }
-);
+/*
+ * THE LOADER IS NAMED SO THAT WARMING IT AND RENDERING IT ARE THE SAME
+ * IMPORT SITE, AND THAT IS NOT a tidiness point.
+ *
+ * Warming these on idle only works if the module the warm asks for is the
+ * module `dynamic` will ask for. Written as two separate `import()`
+ * expressions the bundler is free to give them different chunk groups, and
+ * measured on the real build it did exactly that: the idle warm ran (a
+ * marker proved it), 44 chunks came down in the first 400ms, and the first
+ * tap on Pulse STILL fetched a 22KB chunk that mentions `PulsePage`. One
+ * named loader per panel, referenced from both places, removes the
+ * question.
+ */
+const loadPulsePage = () =>
+  import("@/components/PulsePage").then((m) => m.PulsePage);
+const loadLabSheet = () =>
+  import("@/components/LabSheet").then((m) => m.LabSheet);
+const loadCompoundInterestSheet = () =>
+  import("@/components/CompoundInterestSheet").then(
+    (m) => m.CompoundInterestSheet
+  );
+const loadForecastPanel = () =>
+  import("@/components/ForecastPanel").then((m) => m.ForecastPanel);
+const loadCoveredCallPanel = () =>
+  import("@/components/CoveredCallPanel").then((m) => m.CoveredCallPanel);
+
+const PulsePage = dynamic(loadPulsePage, { ssr: true });
+const LabSheet = dynamic(loadLabSheet, { ssr: true });
+const CompoundInterestSheet = dynamic(loadCompoundInterestSheet, { ssr: true });
+const ForecastPanel = dynamic(loadForecastPanel, { ssr: true });
+const CoveredCallPanel = dynamic(loadCoveredCallPanel, { ssr: true });
 
 type DataSource = "demo" | "supabase";
 
@@ -1471,6 +1478,50 @@ export function Dashboard() {
     looking. The shell fires this on a room change, never on a walk between
     book pages, so a tap on the dock does not cost a fetch.
   */
+  /*
+   * THE PANELS THE DOCK CAN REACH ARE WARMED WHILE NOBODY IS WAITING.
+   *
+   * Every tab above is `next/dynamic`, which is right -- a reader who never
+   * opens Lab should not download Seasonality, Trends and the scenario
+   * simulator. What it also means is that the FIRST tap on a tab pays a
+   * chunk fetch and a parse before anything can render, on the tap, which
+   * is the whole of why a room does not arrive instantly.
+   *
+   * Measured on the real app with the network recorded per hop: the first
+   * Pulse tap fetched one chunk, the first Lab tap two, the first Circle
+   * tap one; the SECOND visit to the same room fetched nothing at all and
+   * arrived immediately. `WorkspaceShell` already warms the rooms this way
+   * and simply never covered the book's own tabs.
+   *
+   * On idle, so it never competes with the first paint, and `void` because
+   * a failed warm is a slower tap and nothing worse. Cheap to repeat: the
+   * module cache makes every call after the first a no-op.
+   */
+  useEffect(() => {
+    const warm = () => {
+      void loadPulsePage();
+      void loadCompoundInterestSheet();
+      void loadForecastPanel();
+      /*
+       * Lab is the heaviest of them and the one a novice cannot reach, so
+       * it waits for a reader who has it. Covered calls go with the same
+       * question, since `hideOptionsUI` is what draws that panel at all.
+       */
+      if (!hiddenMetaTabIds.includes(LAB_TAB_ID)) void loadLabSheet();
+      if (!hideOptionsUI) void loadCoveredCallPanel();
+    };
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(warm, { timeout: 3000 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(warm, 1200);
+    return () => window.clearTimeout(id);
+  }, [hiddenMetaTabIds, hideOptionsUI]);
+
   useEffect(() => {
     const onShow = () => {
       if (!isWorkspaceRoomActive("book")) return;

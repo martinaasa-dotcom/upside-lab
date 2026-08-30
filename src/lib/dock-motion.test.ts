@@ -580,9 +580,14 @@ describe("a bar in a hidden room does not measure itself", () => {
      */
     expect(HOOK).toMatch(/function onScreen\(el: HTMLElement\)/);
     expect(HOOK).toContain("getClientRects().length > 0");
-    expect(HOOK).toMatch(/if \(!onScreen\(host\)\) \{/);
+    expect(HOOK).toMatch(/if \(!visible\.current\) \{/);
+    // ...and the answer is cached off the render path: asking for it in a
+    // layout effect that runs after every render forces a synchronous
+    // layout per render per mounted dock. Profiled on one hop at 4x CPU
+    // that was 323ms of 942ms. The ResizeObserver hands it over for free.
+    expect(HOOK).toContain("entry.contentRect.width > 0");
     // the bet dies with the room
-    const guard = HOOK.slice(HOOK.indexOf("if (!onScreen(host))"), HOOK.indexOf("const arriving"));
+    const guard = HOOK.slice(HOOK.indexOf("if (!visible.current)"), HOOK.indexOf("const arriving"));
     expect(guard).toContain("wasHidden.current = true");
     expect(guard).toContain("aimed.current = null");
     expect(guard).toContain("return;");

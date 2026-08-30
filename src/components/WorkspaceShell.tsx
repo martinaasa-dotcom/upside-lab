@@ -6,6 +6,12 @@ import {
 } from "@/lib/community-cache";
 import { WelcomeTourGate } from "@/components/WelcomeTourGate";
 import {
+  GROWTH_PATH,
+  LAB_PATH,
+  PORTFOLIO_PATH,
+  PULSE_PATH,
+} from "@/lib/book-routes";
+import {
   WORKSPACE_SHOW_EVENT,
   WORKSPACE_DOCK_SLOT_ID,
   setActiveWorkspaceRoom,
@@ -22,31 +28,36 @@ import {
 
 const MAX_COMMUNITY_ROOMS = 4;
 
-const BookRoom = dynamic(
-  () => import("@/components/workspace-rooms").then((m) => m.BookRoom),
-  { ssr: true }
-);
-const FundRoom = dynamic(
-  () => import("@/components/workspace-rooms").then((m) => m.FundRoom),
-  { ssr: true }
-);
-const CommunitiesList = dynamic(
-  () =>
-    import("@/components/CommunitiesList").then((m) => m.CommunitiesList),
-  { ssr: true }
-);
-const CommunityView = dynamic(
-  () => import("@/components/CommunityView").then((m) => m.CommunityView),
-  { ssr: true }
-);
-const AccountPage = dynamic(
-  () => import("@/components/AccountPage").then((m) => m.AccountPage),
-  { ssr: true }
-);
-const AdminPage = dynamic(
-  () => import("@/components/AdminPage").then((m) => m.AdminPage),
-  { ssr: true }
-);
+/*
+ * ONE NAMED LOADER PER ROOM, USED BOTH TO RENDER IT AND TO WARM IT.
+ *
+ * The warm below only works if the module it asks for is the module
+ * `dynamic` will ask for. Written as two separate `import()` expressions
+ * the bundler is free to give them different chunk groups, and measured on
+ * the real build it did: the idle warm ran and the first tap on a room
+ * still fetched that room's chunk. Referencing one loader from both places
+ * removes the question. Dashboard's tab panels have the same pattern for
+ * the same reason.
+ */
+const loadBookRoom = () =>
+  import("@/components/workspace-rooms").then((m) => m.BookRoom);
+const loadFundRoom = () =>
+  import("@/components/workspace-rooms").then((m) => m.FundRoom);
+const loadCommunitiesList = () =>
+  import("@/components/CommunitiesList").then((m) => m.CommunitiesList);
+const loadCommunityView = () =>
+  import("@/components/CommunityView").then((m) => m.CommunityView);
+const loadAccountPage = () =>
+  import("@/components/AccountPage").then((m) => m.AccountPage);
+const loadAdminPage = () =>
+  import("@/components/AdminPage").then((m) => m.AdminPage);
+
+const BookRoom = dynamic(loadBookRoom, { ssr: true });
+const FundRoom = dynamic(loadFundRoom, { ssr: true });
+const CommunitiesList = dynamic(loadCommunitiesList, { ssr: true });
+const CommunityView = dynamic(loadCommunityView, { ssr: true });
+const AccountPage = dynamic(loadAccountPage, { ssr: true });
+const AdminPage = dynamic(loadAdminPage, { ssr: true });
 
 function pruneCommunityRooms(mounted: Set<string>, keep: string) {
   const keys = [...mounted].filter((k) => k.startsWith("community:"));
@@ -131,15 +142,27 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const warm = () => {
+      /*
+       * The book's own paths were never in this list. They are separate
+       * routes -- `/pulse`, `/lab`, `/growth`, `/portfolio` -- and the dock
+       * links them, so `<Link prefetch>` covers them once the dock is on
+       * screen; asking again here is free (an address already in the cache
+       * is a no-op) and covers the window before the dock has rendered.
+       */
+      for (const path of ["/", PULSE_PATH, LAB_PATH, GROWTH_PATH, PORTFOLIO_PATH]) {
+        router.prefetch(path);
+      }
       router.prefetch("/communities");
       router.prefetch("/upside-portfolio");
       router.prefetch("/account");
       const list = loadCommunityListCache();
       if (list?.[0]) router.prefetch(`/communities/${list[0].id}`);
       if (list?.length) prefetchCommunityList(list);
-      void import("@/components/workspace-rooms");
-      void import("@/components/CommunitiesList");
-      void import("@/components/CommunityView");
+      void loadBookRoom();
+      void loadFundRoom();
+      void loadCommunitiesList();
+      void loadCommunityView();
+      void loadAccountPage();
     };
     const w = window as Window & {
       requestIdleCallback?: (
