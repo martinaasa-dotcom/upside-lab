@@ -1788,6 +1788,64 @@ Reproduced against the same numbers: peak **+4.51%** at 33ms, +3.46% at
 133ms, +1.31% at 233ms, home at 300ms, with the left end out 11.1px against
 the right end's 22.6px — 1:2, and the height unchanged at 52px.
 
+### Why a page select felt slow, seen in painted frames (2026-08-30)
+
+> *"Why do the page selects still feel slow? Find the root cause."*
+
+Because every measurement before this one asked the DOM or the profiler,
+and neither of them is what a reader looks at. **Screencast, frame by
+frame, tapping Growth at 4x CPU, each frame diffed against a reference
+taken before the tap:**
+
+```
+109-607ms   ~2.2% of pixels changed     <- the dock marker, and nothing else
+624ms       23.1% changed in ONE frame  <- the whole page, at once
+```
+
+**The page does not change at all for six hundred milliseconds, and then
+changes completely.** That is the slowness. It is not the total, which at
+1x is 70-180ms of ordinary work; it is that a tap buys **no answer
+whatsoever** until the very end, and then arrives as a jump.
+
+**The cause is `startTransition`.** Next's `<Link>` navigates inside one,
+and the defining behaviour of a transition is that the old screen stays up
+until the new one is completely built. React is doing exactly what it
+promises; it is the wrong promise for a bottom dock, where the reader has
+already committed and is waiting on a room they chose.
+
+**So the press says where it is going and the book shows it.** `route-aim.ts`
+is a two-function publisher: the dock's press handler, which already aims
+the marker and prefetches the address, also publishes it; `Dashboard`
+listens, and when the address is a book path it renders that tab
+immediately with an **ordinary state update rather than a transition**, so
+it lands on the next frame. `pathname` is still the source of truth and
+still settles it. The bet loses the same three ways the marker's does, and
+losing is cheap: the reader sees the room they asked for and then the room
+they got, which is what they would have seen anyway.
+
+Measured, press to the page visibly changing (>10% of pixels), against a
+pre-tap reference:
+
+| | before | after |
+| --- | --- | --- |
+| 1x CPU | 173ms, 242ms | **149ms** |
+| 4x CPU | 624ms, 717ms | **539ms** |
+
+**Honest about the size of it:** about a quarter off at 4x and rather less
+at 1x, where the runs overlap. What the change really does is start the
+work at the press instead of after the click and the transition setup, and
+it does not make the render itself cheaper -- so the shape improves more
+than the number. The rest is still per-panel render weight, which is the
+lever the previous section names.
+
+**And the lesson about measuring.** Three earlier rounds measured the DOM
+mutating, the path changing, and main-thread work, and all three said the
+navigation was fine. Only the painted frames showed a reader six hundred
+milliseconds of nothing. **When the complaint is about feel, diff the
+frames** -- and diff them against a reference taken *before* the
+interaction, not against the first captured frame, which on a fast run is
+already the new page and reports no change at all.
+
 ### Chasing the router commit, and what it turned out to be (2026-08-30)
 
 > *"The next real lever is the App Router commit itself" — do it.*

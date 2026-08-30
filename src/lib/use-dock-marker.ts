@@ -1,5 +1,6 @@
 "use client";
 
+import { aimRoute } from "@/lib/route-aim";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
@@ -527,6 +528,7 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
       if (!aimed.current) return;
       aimed.current = null;
       going.current = false;
+      aimRoute(null);
       reverting.current = true;
       try {
         measure();
@@ -562,6 +564,12 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
         } catch {
           /* A dialog cell or a menu trigger has no address to warm. */
         }
+        /*
+         * And tell whoever owns that address that it is coming, so the
+         * page can change on the press rather than when the router
+         * finishes. See `route-aim.ts` for the measurement behind it.
+         */
+        aimRoute(href);
       }
       aimed.current = cell;
       going.current = false;

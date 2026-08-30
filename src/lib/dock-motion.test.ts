@@ -606,6 +606,45 @@ describe("a bar in a hidden room does not measure itself", () => {
   });
 });
 
+describe("a press says where it is going, so the page can answer it", () => {
+  const HOOK = readFileSync("src/lib/use-dock-marker.ts", "utf8");
+  const BOOK = readFileSync("src/components/Dashboard.tsx", "utf8");
+
+  it("publishes the aimed cell's address on the press", () => {
+    /*
+     * THE MEASUREMENT THIS EXISTS FOR. Screencast frame by frame at 4x CPU,
+     * tapping Growth: for 600ms only about 2% of the pixels changed -- the
+     * dock marker, and nothing else -- and then 21% of the screen swapped
+     * in a single frame. `<Link>` navigates inside `startTransition`, and a
+     * transition keeps the old screen up until the new one is completely
+     * built, so a tap buys no answer at all until the very end. That gap,
+     * not the total, is what a slow tap is.
+     */
+    const aim = HOOK.slice(HOOK.indexOf("const aim ="), HOOK.indexOf("const press ="));
+    expect(aim).toContain("aimRoute(href)");
+    // a bet that loses withdraws the page's aim with the marker's
+    expect(HOOK).toMatch(/aimed\.current = null;[\s\S]{0,80}aimRoute\(null\)/);
+  });
+
+  it("shows the aimed tab now, and lets the path settle it", () => {
+    expect(BOOK).toContain("onRouteAim");
+    // an ordinary state update, never a transition: it has to render on the
+    // next frame, which is the whole point.
+    expect(BOOK).toContain("setAimedPath");
+    expect(BOOK).toContain("const shownPath = aimedPath ?? pathname");
+    // the room answering is the truth from there on
+    expect(BOOK).toMatch(/setAimedPath\(null\);\s*\}, \[pathname\]\)/);
+  });
+
+  it("refuses to bet on a room the book cannot draw", () => {
+    // Circle and the Fund are other rooms; this component cannot show them
+    // early, and pretending would draw the wrong screen.
+    expect(BOOK).toMatch(/workspaceRoomId\(path\) !== "book"/);
+    // and it gives up rather than sitting on a bet nothing answered
+    expect(BOOK).toContain("AIM_GIVES_UP_MS");
+  });
+});
+
 describe("both docks spend the accent on news", () => {
   const WIDE = readFileSync("src/components/BookModeDock.tsx", "utf8");
   const PHONE = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");

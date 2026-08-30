@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/Toast";
+import { AIM_GIVES_UP_MS, onRouteAim } from "@/lib/route-aim";
 import { usePathname, useRouter } from "next/navigation";
 import {
   buildDecisionAlerts,
@@ -259,12 +260,56 @@ export function Dashboard() {
     the way back.
   */
   const lastBookTabRef = useRef<string>(OVERVIEW_TAB_ID);
-  const routeTab = tabIdFromPath(pathname, portfolios);
-  if (onBook && typeof routeTab === "string") {
+
+  /*
+   * THE TAB CHANGES ON THE PRESS, NOT WHEN THE ROUTER FINISHES.
+   *
+   * `<Link>` navigates inside `startTransition`, and a transition keeps the
+   * old screen up until the new one is completely built. Screencast frame
+   * by frame at 4x CPU, tapping Growth: for 600ms only about 2% of the
+   * pixels moved -- the dock marker alone -- and then 21% of the screen
+   * swapped in one frame. That gap, not the total, is what a slow tap is.
+   *
+   * So a dock press publishes where it is going (`route-aim.ts`), and the
+   * book shows that tab now, with an ordinary state update rather than a
+   * transition, so it renders on the next frame. `pathname` is still the
+   * source of truth and still settles it -- this only fills the gap.
+   *
+   * The bet is refused for anything that is not a book path, because those
+   * are other rooms and this component cannot show them; and it is dropped
+   * the moment the path answers, or after `AIM_GIVES_UP_MS` if nothing
+   * does.
+   */
+  const [aimedPath, setAimedPath] = useState<string | null>(null);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const stop = onRouteAim((path) => {
+      if (timer) clearTimeout(timer);
+      if (path === null) {
+        setAimedPath(null);
+        return;
+      }
+      if (workspaceRoomId(path) !== "book") return;
+      setAimedPath(path);
+      timer = setTimeout(() => setAimedPath(null), AIM_GIVES_UP_MS);
+    });
+    return () => {
+      stop();
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+  /* The room answered. Whatever it answered with is the truth from here. */
+  useEffect(() => {
+    setAimedPath(null);
+  }, [pathname]);
+
+  const shownPath = aimedPath ?? pathname;
+  const routeTab = tabIdFromPath(shownPath, portfolios);
+  if ((onBook || aimedPath !== null) && typeof routeTab === "string") {
     lastBookTabRef.current = routeTab;
   }
   const activeId =
-    onBook && typeof routeTab === "string"
+    (onBook || aimedPath !== null) && typeof routeTab === "string"
       ? routeTab
       : lastBookTabRef.current;
   const activeIdRef = useRef(activeId);
