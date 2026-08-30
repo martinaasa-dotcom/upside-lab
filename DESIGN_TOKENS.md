@@ -1559,6 +1559,57 @@ dock's pane as a second pane rather than as a grey swatch painted on one.
 Neutral rather than the room's two hues from `--glass-rim-*`, because at
 44px that repeat lands as a coloured outline instead of as light.
 
+### The marker moves on the compositor (2026-08-30)
+
+> *"On mobile it stutters real bad when the page actually changes."*
+
+The marker was a CSS transition on `left` and `right`. Those are layout
+properties: every frame is laid out and painted on the main thread, and the
+main thread is exactly what a route change is busy with.
+
+**Measured off a recording of the real app on a phone**, tracking the
+pill's centre frame by frame through four travels:
+
+```
+travel 1:  +5  +12  +50 | +2.5 +3 +3 +2 | +77.5
+travel 2: +24  +10      | (stalled)     | +106
+travel 3: +13  +57 +5 +6| (stalled)     | +75
+```
+
+Two or three frames of motion, a stall of four to six frames while the new
+room rendered, then a teleport. Not a slow animation, a frozen one.
+
+Reproduced and fixed, read off **painted** frames rather than the DOM — a
+main-thread probe cannot observe this by construction, so it is a CDP
+screencast with the marker recoloured to make it findable, under a 180ms
+main-thread block at 4x CPU:
+
+| | old build | new build |
+| --- | --- | --- |
+| mid-travel stalls | 1, 5, 1, 2 frames | 1 frame |
+| biggest single step | **166px** | 39px (peak velocity) |
+| shape | freeze, teleport, settle | accelerate, decelerate |
+
+`transform` is the only way out. What it cannot do is ease two edges
+independently the way two transitions could, so `travelKeyframes` samples
+the two eased edges at **8ms** and hands them over as keyframes. That
+sampling is what "more frames" means: the browser has a value for every
+frame it could possibly draw, and the curve between them is the curve
+rather than an approximation of it.
+
+**The pill's width is set to its destination before the animation starts**,
+so `scaleX` is exactly 1 at rest and the round caps are true circles
+whenever the marker is standing still. They go slightly oval only in
+flight, and that is the reason the lag is small — 12ms, putting a one-cell
+move at 1.16x where the reference's own pill reached 1.29x. A big lag on a
+48px circle reads as an egg. If a bigger stretch is ever wanted, the pill
+has to become three pieces (two circular caps that only translate, one
+middle that scales); do not simply raise the lag.
+
+Turned down at the same time, as asked: the swell from 4% to **2%** over
+380ms rather than 500, and the marker from 350ms to **300ms**. Desktop now
+measures +1.99% / +1.92% on the capsule and 1.16x on a one-cell move.
+
 ### The bar breathes as one object, and it took three tries (2026-08-30)
 
 > *"The whole navbar expands as a whole, sides and top and bottom,

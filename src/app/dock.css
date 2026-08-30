@@ -37,106 +37,28 @@
   .dock-marker,
   .dock-ghost {
     position: absolute;
+    left: 0;
     pointer-events: none;
     /*
-     * The two edges are `left` and `right`, never a transform and a width.
-     * A transform cannot stretch a pill without stretching its round ends
-     * into ellipses, and the ends are most of what makes it a pill. This
-     * is a single absolutely positioned element, so laying it out again
-     * lays nothing else out: the cells above it do not move, which is the
-     * property that mattered when the marker was a transform and still
-     * does.
-     */
-    transition-property: left, right, opacity;
-
-    --dock-lead-ease: cubic-bezier(0.32, 0.72, 0, 1);
-    --dock-trail-ease: cubic-bezier(0.34, 1.12, 0.44, 1);
-
-    /*
-     * No direction yet — a first placement, or a cell that resized under a
-     * still marker. Both edges move together, because there is no journey
-     * to stretch across.
-     */
-    --dock-left-ms: var(--dock-lead-ms);
-    --dock-right-ms: var(--dock-lead-ms);
-    --dock-left-ease: var(--dock-lead-ease);
-    --dock-right-ease: var(--dock-lead-ease);
-
-    transition-duration: var(--dock-left-ms), var(--dock-right-ms), 200ms;
-    transition-timing-function: var(--dock-left-ease), var(--dock-right-ease),
-      linear;
-    transition-delay: var(--dock-left-delay, 0ms), var(--dock-right-delay, 0ms),
-      0ms;
-  }
-
-  /* Going right: the right edge leads and the left edge trails. */
-  .dock-marker[data-dir="right"],
-  .dock-ghost[data-dir="right"] {
-    --dock-left-ms: var(--dock-trail-ms);
-    --dock-left-ease: var(--dock-trail-ease);
-    --dock-left-delay: var(--dock-trail-delay);
-    --dock-right-ms: var(--dock-lead-ms);
-    --dock-right-ease: var(--dock-lead-ease);
-  }
-
-  /* Going left: the mirror of it. */
-  .dock-marker[data-dir="left"],
-  .dock-ghost[data-dir="left"] {
-    --dock-left-ms: var(--dock-lead-ms);
-    --dock-left-ease: var(--dock-lead-ease);
-    --dock-right-ms: var(--dock-trail-ms);
-    --dock-right-ease: var(--dock-trail-ease);
-    --dock-right-delay: var(--dock-trail-delay);
-  }
-
-  .dock-marker {
-    /*
-     * Both edges take the same time and the same curve; the trailing one
-     * simply sets off later. Traced off the reference's own pill, whose
-     * leading edge runs 0 -> 0.15 -> 0.41 -> 0.68 -> 0.85 of the journey
-     * over the first 170ms and then creeps to 1 by about 450ms, with the
-     * trailing edge holding a roughly constant 0.22 of the journey behind
-     * it the whole way. A constant lag is a different thing from two
-     * different durations: it is the back of a blob following the front at
-     * a fixed distance, which is what a lag reads as, and it is why the
-     * reference's pill looks like one object rather than a rectangle being
-     * stretched.
+     * TRANSFORMS, NOT `left` AND `right`, AND THIS IS THE WHOLE POINT.
      *
-     * Measured on the reference, a one-cell move peaks at **1.29x**. These
-     * numbers put ours at 1.27x, which is the row that matters because it
-     * is the move a reader makes over and over.
+     * Those are layout properties: every frame is laid out and painted on
+     * the main thread, and the main thread is exactly what a route change
+     * is busy with. Measured off a recording of the real app on a phone,
+     * every travel ran two or three frames, stalled for four to six while
+     * the new room rendered, then teleported the rest of the way in a
+     * single frame. A transform animation is handed to the compositor and
+     * keeps its own clock, so it glides through a blocked main thread.
+     *
+     * The travel itself is keyframes computed in `travelKeyframes` and
+     * played with the Web Animations API, because a transform cannot ease
+     * its two edges independently the way two transitions could. Nothing
+     * here transitions the geometry, so nothing here says how it moves;
+     * this rule only makes the element something a transform can move.
      */
-    --dock-lead-ms: 350ms;
-    --dock-trail-ms: 350ms;
-    --dock-trail-delay: 28ms;
-    --dock-lead-ease: cubic-bezier(0.5, 0.2, 0.05, 0.95);
-    --dock-trail-ease: cubic-bezier(0.5, 0.2, 0.05, 0.95);
-
-    /*
-     * Its own edge, so it reads as a second pane inside the dock's pane
-     * rather than as a grey swatch painted on one. Two neutral hairlines
-     * and nothing else: the dock's own rim takes the room's two hues, and
-     * a lozenge this size repeating that lands as a coloured outline
-     * rather than as light.
-     */
-    box-shadow:
-      inset 0 1px 0 0 oklch(1 0 0 / 10%),
-      inset 0 -1px 0 0 oklch(1 0 0 / 4%);
-  }
-
-  /*
-   * The pointer's own pane is quicker than the marker and stretches less.
-   * It is following a hand rather than announcing a decision, and a hand
-   * that has already arrived should not be waited for.
-   */
-  .dock-ghost {
-    /* The pointer's pane follows a hand rather than announcing a decision,
-     * so it is quicker and lags less than the marker. */
-    --dock-lead-ms: 220ms;
-    --dock-trail-ms: 220ms;
-    --dock-trail-delay: 16ms;
-    --dock-lead-ease: cubic-bezier(0.5, 0.2, 0.05, 0.95);
-    --dock-trail-ease: cubic-bezier(0.5, 0.2, 0.05, 0.95);
+    transform-origin: 0 50%;
+    will-change: transform;
+    transition: opacity 200ms linear;
   }
 
   /*
