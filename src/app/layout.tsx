@@ -11,6 +11,7 @@ import {
   SITE_DESCRIPTION,
 } from "@/lib/site-metadata";
 import { OG_IMAGE_PATH } from "@/lib/seo-routes";
+import { SESSION_HINT_SCRIPT } from "@/lib/session-hint";
 import { siteUrl } from "@/lib/site-url";
 import { cn } from "@/lib/utils";
 import "./globals.css";
@@ -133,8 +134,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    /*
+      `suppressHydrationWarning`: the inline script below writes
+      `data-session` onto this element before React sees it, so the
+      attribute the server rendered and the one the browser has do not
+      match. That is the point of it, and it is the arrangement every
+      script that prevents a flash before hydration uses.
+    */
     <html
       lang="en"
+      suppressHydrationWarning
       className={cn(
         "dark font-sans",
         geist.variable,
@@ -143,6 +152,23 @@ export default function RootLayout({
       )}
       data-timezone="Europe/Tallinn"
     >
+      <head>
+        {/*
+          In the head and synchronous, so it has run before the body is
+          parsed and nothing of the wrong page is ever painted.
+
+          It marks the root element with what this browser last knew about
+          the session, which is how a reader who is signed in stops being
+          shown the signed-out landing for the length of a cold bundle
+          download. `globals.css` spends the mark, and
+          `src/lib/session-hint.ts` explains why the answer comes from the
+          browser rather than from the session cookie, which would make
+          every route in the product dynamic. The app's CSP keeps
+          `'unsafe-inline'` in `script-src` for Next's own Flight scripts,
+          so this one runs too.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: SESSION_HINT_SCRIPT }} />
+      </head>
       <body className="antialiased">
         <AmbientDither />
         <Providers>{children}</Providers>

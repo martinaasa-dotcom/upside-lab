@@ -1,6 +1,6 @@
 /** Last signed-in user, so the gate can skip "Checking sign-in" on refresh. */
 
-const KEY = "upside-last-user-v1";
+import { LAST_USER_KEY as KEY, markSessionHint } from "@/lib/session-hint";
 
 export type LastUser = { id: string; email: string | null };
 
@@ -22,6 +22,13 @@ export function loadLastUser(): LastUser | null {
 
 export function saveLastUser(user: LastUser | null) {
   if (typeof window === "undefined") return;
+  /*
+   * The root element carries the same answer, because the next first paint
+   * is decided by CSS before any of this runs again (see session-hint.ts).
+   * It is marked here rather than at each call site so a resolved session,
+   * a resolved absence, a sign-out and an account switch all keep it true.
+   */
+  markSessionHint(Boolean(user));
   try {
     if (!user) window.localStorage.removeItem(KEY);
     else window.localStorage.setItem(KEY, JSON.stringify(user));
