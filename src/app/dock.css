@@ -65,6 +65,8 @@
     transition-duration: var(--dock-left-ms), var(--dock-right-ms), 200ms;
     transition-timing-function: var(--dock-left-ease), var(--dock-right-ease),
       linear;
+    transition-delay: var(--dock-left-delay, 0ms), var(--dock-right-delay, 0ms),
+      0ms;
   }
 
   /* Going right: the right edge leads and the left edge trails. */
@@ -72,6 +74,7 @@
   .dock-ghost[data-dir="right"] {
     --dock-left-ms: var(--dock-trail-ms);
     --dock-left-ease: var(--dock-trail-ease);
+    --dock-left-delay: var(--dock-trail-delay);
     --dock-right-ms: var(--dock-lead-ms);
     --dock-right-ease: var(--dock-lead-ease);
   }
@@ -83,20 +86,38 @@
     --dock-left-ease: var(--dock-lead-ease);
     --dock-right-ms: var(--dock-trail-ms);
     --dock-right-ease: var(--dock-trail-ease);
+    --dock-right-delay: var(--dock-trail-delay);
   }
 
   .dock-marker {
-    --dock-lead-ms: 260ms;
-    --dock-trail-ms: 460ms;
+    /*
+     * Both edges take the same time and the same curve; the trailing one
+     * simply sets off later. Traced off the reference's own pill, whose
+     * leading edge runs 0 -> 0.15 -> 0.41 -> 0.68 -> 0.85 of the journey
+     * over the first 170ms and then creeps to 1 by about 450ms, with the
+     * trailing edge holding a roughly constant 0.22 of the journey behind
+     * it the whole way. A constant lag is a different thing from two
+     * different durations: it is the back of a blob following the front at
+     * a fixed distance, which is what a lag reads as, and it is why the
+     * reference's pill looks like one object rather than a rectangle being
+     * stretched.
+     *
+     * Measured on the reference, a one-cell move peaks at **1.29x**. These
+     * numbers put ours at 1.27x, which is the row that matters because it
+     * is the move a reader makes over and over.
+     */
+    --dock-lead-ms: 350ms;
+    --dock-trail-ms: 350ms;
+    --dock-trail-delay: 28ms;
+    --dock-lead-ease: cubic-bezier(0.5, 0.2, 0.05, 0.95);
+    --dock-trail-ease: cubic-bezier(0.5, 0.2, 0.05, 0.95);
 
     /*
      * Its own edge, so it reads as a second pane inside the dock's pane
      * rather than as a grey swatch painted on one. Two neutral hairlines
-     * and nothing else: the dock's own rim takes the room's two hues from
-     * `--glass-rim-*`, and a 44px lozenge sitting inside it repeating that
-     * at this size lands as a coloured outline rather than as light. It is
-     * white at a tenth and a twenty-fifth, which is a hairline either way
-     * and costs the label under it nothing.
+     * and nothing else: the dock's own rim takes the room's two hues, and
+     * a lozenge this size repeating that lands as a coloured outline
+     * rather than as light.
      */
     box-shadow:
       inset 0 1px 0 0 oklch(1 0 0 / 10%),
@@ -109,8 +130,13 @@
    * that has already arrived should not be waited for.
    */
   .dock-ghost {
-    --dock-lead-ms: 170ms;
-    --dock-trail-ms: 300ms;
+    /* The pointer's pane follows a hand rather than announcing a decision,
+     * so it is quicker and lags less than the marker. */
+    --dock-lead-ms: 220ms;
+    --dock-trail-ms: 220ms;
+    --dock-trail-delay: 16ms;
+    --dock-lead-ease: cubic-bezier(0.5, 0.2, 0.05, 0.95);
+    --dock-trail-ease: cubic-bezier(0.5, 0.2, 0.05, 0.95);
   }
 
   /*

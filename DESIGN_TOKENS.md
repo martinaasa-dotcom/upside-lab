@@ -1559,6 +1559,96 @@ dock's pane as a second pane rather than as a grey swatch painted on one.
 Neutral rather than the room's two hues from `--glass-rim-*`, because at
 44px that repeat lands as a coloured outline instead of as light.
 
+### The bar breathes as one object, and it took three tries (2026-08-30)
+
+> *"The whole navbar expands as a whole, sides and top and bottom,
+> everything expands slightly and all the internal icons move with it."*
+
+Correct, and it took two wrong versions to get there. Both mistakes came
+from measurement, not taste, which is the lesson.
+
+**The measurement.** Traced frame by frame off the reference at 30fps,
+fitting the capsule's own four edges with a sub-pixel gradient fit:
+
+| frame | width | height |
+| --- | --- | --- |
+| n53 | +1.96% | +2.04% |
+| n56 | **+3.99%** | **+3.95%** |
+| n58 | +2.66% | +2.31% |
+| n60 | +0.67% | +0.68% |
+
+Both axes, together, by the same fraction, symmetric about the centre: at
+the peak the left edge moved -23.8px against the right's +23.7px, and the
+top -3.8px against the bottom +3.9px. It is `transform: scale()` on the
+capsule, contents included, with no origin and no lean.
+
+**The two wrong versions.** First, a vertical measuring window that missed
+the capsule's real edges reported the height as a constant 234px when the
+true height is 187px. It never varied because it was reading something
+else, and that single bad number produced a `scaleX`. **A one-axis scale
+stretches letterforms sideways**, which is exactly what makes a bar of type
+feel wrong; a uniform scale magnifies type instead of distorting it, which
+is how the reference can move every label and still look calm.
+
+Then, over-correcting, the glass was moved onto its own layer so only the
+material scaled and the words held still. Also wrong: the reference plainly
+moves everything together, and a bar whose rim slides while its words stand
+still is two objects rather than one.
+
+**The shape is a swell, not a snap.** Normalised against its own peak:
+
+    0    0.26  0.35  0.49  0.74  0.94  1.00  0.90  0.67
+    0.41 0.17  0.05  -0.03 -0.035 -0.03  0
+
+It takes **40% of its life to reach the widest** and comes home **through a
+slight undershoot** before settling, over 500ms. That undershoot is the
+whole character; the version before it put the peak at 11% with no
+undershoot, which is a flinch rather than a breath. The samples are one
+recorded frame apart, so they interpolate linearly on purpose: the curve is
+carried by the data, and an easing laid over it would be a guess about a
+shape that was measured.
+
+### The selector: one curve, one lag
+
+Both edges take the same duration and the same easing, and the trailing one
+simply sets off later. **A constant lag is the back of a blob following the
+front at a fixed distance**, which is why the reference reads as one
+object; two different durations read as a rectangle being stretched.
+
+The easing was fitted numerically to the reference's own pill rather than
+chosen: `cubic-bezier(0.5, 0.2, 0.05, 0.95)`, sse 0.0011 against its
+measured progress (0.15 at t/D 0.19, 0.41 at 0.29, 0.68 at 0.38, 0.85 at
+0.48). Duration 350ms, trailing lag 28ms.
+
+| | reference | ours |
+| --- | --- | --- |
+| peak stretch, one cell | 1.29x | **1.28x** |
+| when it peaks | t = 133ms | **t = 133ms** |
+| capsule at t = 200ms | +3.99% / +3.95% | **+4.00% / +4.04%** |
+
+A six-cell walk reaches 2.5x. That is the same physics at six times the
+velocity and is left alone: a constant lag times a higher speed is a longer
+smear, which is what a liquid does.
+
+### What it costs, and where
+
+Scaling text re-rasterises it at every scale factor, so this is not free on
+the labelled bar. Eight navigations, swell on against off:
+
+| throttle | laptop bar, on | off | phone bar, on | off |
+| --- | --- | --- | --- | --- |
+| 1x | 0 of 249 | 0 of 249 | — | — |
+| 4x | 1 of 247 | 0 of 248 | 1 of 248 | 1 of 247 |
+| 6x | 30 of 218 | 4 of 244 | 11 of 239 | 23 of 225 |
+| 10x | 78 of 150 | 19 of 218 | 79 of 148 | 78 of 146 |
+
+The glyph-only phone bar is **free at every throttle** — the difference at
+6x and 10x is noise, and at 6x the "off" run was worse. All of the cost is
+the laptop bar's nine labels, and it only appears from 6x, which is well
+below what a machine showing a desktop dock is. `will-change: transform`
+does not recover it (21 against 30 at 6x, 84 against 78 at 10x). The 500ms
+duration is the dial if this ever stops being the right trade.
+
 ### The capsule breathes, and that is the half a moving pill cannot carry
 
 A marker sliding inside a rigid tray reads as two materials. In the

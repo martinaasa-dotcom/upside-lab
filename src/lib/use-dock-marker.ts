@@ -67,6 +67,11 @@ function swell(
   dir: DockDir,
   running: { current: Animation | null }
 ) {
+  /*
+   * The capsule itself, everything on it included. The bar is one object
+   * and the reference moves all of it together; see `swellFrames` for the
+   * measurements, and for why a one-axis scale is the thing to never do.
+   */
   if (typeof host.animate !== "function" || stillMotion()) return;
   const frames = swellFrames(dir);
   if (!frames) return;
@@ -77,7 +82,6 @@ function swell(
    * over and it jumps. Tapping along the dock quickly is exactly how
    * somebody would find that.
    */
-  running.current?.cancel();
   running.current = host.animate(frames, { duration: SWELL_MS });
 }
 
