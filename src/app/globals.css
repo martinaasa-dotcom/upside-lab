@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "./scroll-host.css";
+@import "./dock.css";
 
 @custom-variant dark (&:is(.dark *));
 

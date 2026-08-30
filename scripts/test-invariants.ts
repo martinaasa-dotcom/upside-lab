@@ -2519,6 +2519,16 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
   assert.doesNotMatch(frame, /#1a2820/);
   assert.doesNotMatch(frame, /#2d3d32/);
   /*
+   * The marker itself moved into `DockMarker`, which both docks draw, so
+   * the fill is asserted there and each bar is asserted to be drawing it.
+   * A dock that stopped rendering the marker would otherwise pass a rule
+   * about what colour the marker is by having no marker.
+   */
+  const dockMarker = readFileSync(
+    join(process.cwd(), "src/components/DockMarker.tsx"),
+    "utf8"
+  );
+  /*
    * The dock spends no accent at all now. Where you are is said by one
    * neutral marker that slides behind the cells, because which room you are
    * in is the least surprising fact on the screen and a slab of mustard the
@@ -2527,7 +2537,9 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
    * side: a selected surface is either the accent at full lightness or a
    * neutral veil with foreground type, never a dim tint in between.
    */
-  assert.match(modeDock, /bg-foreground\/10/);
+  assert.match(modeDock, /<DockMarker /);
+  assert.match(dockMarker, /bg-foreground\/10/);
+  assert.doesNotMatch(dockMarker, /bg-primary/);
   assert.doesNotMatch(modeDock, /bg-primary text-primary-foreground/);
   assert.doesNotMatch(tabs, /bg-white text-black/);
 
@@ -4654,7 +4666,13 @@ run("Pulse can price a bare EU ETF like VUAA", () => {
    * saturated pixel left on the bar is the alert dot.
    */
   assert.match(dock, /rounded-full/);
-  assert.match(dock, /bg-foreground\/10/);
+  // The marker is `DockMarker`, shared with the laptop bar; its fill is
+  // asserted where it is written.
+  assert.match(dock, /<DockMarker /);
+  assert.match(
+    readFileSync(join(process.cwd(), "src/components/DockMarker.tsx"), "utf8"),
+    /bg-foreground\/10/
+  );
   assert.doesNotMatch(dock, /bg-primary text-primary-foreground/);
   /*
    * The promise that makes a wordless bar safe: it says the name of every

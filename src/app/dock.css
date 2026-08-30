@@ -1,0 +1,233 @@
+/*
+ * The dock's motion. Both docks, one file, because they are one design.
+ *
+ * Everything here is about the same idea: a dock made of glass should
+ * behave like glass with something alive under it. Three moments carry it,
+ * and each is a rule rather than a flourish.
+ *
+ * 1. THE MARKER STRETCHES. Its leading edge sets off before its trailing
+ *    edge catches up, so it smears across the ground it covers and
+ *    gathers itself back up on arrival. That is why the marker is two
+ *    insets with two durations rather than one transform: the stretch is
+ *    the transition, not a keyframe laid over it, so it scales with the
+ *    distance and a four-cell jump reads as a longer reach than a
+ *    one-cell nudge without anybody choosing that.
+ *
+ * 2. THE HOVER IS THE SAME OBJECT. A pointer moving along the bar drags a
+ *    second, fainter pane with it on the same physics, rather than
+ *    lighting one cell and unlighting another. One thing following you
+ *    beats a row of things blinking.
+ *
+ * 3. A PRESS IS ANSWERED BEFORE THE ROOM IS. Every cell here goes to the
+ *    server for its data, so the gap between the tap and the answer is
+ *    real. The cell gives under the finger and the glyph gives a little
+ *    more, which is the whole of it: no colour, no ring, nothing that
+ *    competes with the marker for saying where you are.
+ *
+ * Curves. `--dock-lead-ease` is the flat-out-then-glide curve Apple uses
+ * for anything that travels: almost all of the distance is spent early,
+ * so the leading edge is decisive and the tail is long enough for the
+ * trailing edge to still be visible behind it. `--dock-trail-ease`
+ * overshoots by a hair, so the trailing edge arrives a touch past its mark
+ * and settles back: the pill pinches in at the end of the journey, which
+ * is the thing that reads as liquid rather than as a rectangle that moved.
+ */
+
+@layer components {
+  .dock-marker,
+  .dock-ghost {
+    position: absolute;
+    pointer-events: none;
+    /*
+     * The two edges are `left` and `right`, never a transform and a width.
+     * A transform cannot stretch a pill without stretching its round ends
+     * into ellipses, and the ends are most of what makes it a pill. This
+     * is a single absolutely positioned element, so laying it out again
+     * lays nothing else out: the cells above it do not move, which is the
+     * property that mattered when the marker was a transform and still
+     * does.
+     */
+    transition-property: left, right, opacity;
+
+    --dock-lead-ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --dock-trail-ease: cubic-bezier(0.34, 1.12, 0.44, 1);
+
+    /*
+     * No direction yet — a first placement, or a cell that resized under a
+     * still marker. Both edges move together, because there is no journey
+     * to stretch across.
+     */
+    --dock-left-ms: var(--dock-lead-ms);
+    --dock-right-ms: var(--dock-lead-ms);
+    --dock-left-ease: var(--dock-lead-ease);
+    --dock-right-ease: var(--dock-lead-ease);
+
+    transition-duration: var(--dock-left-ms), var(--dock-right-ms), 200ms;
+    transition-timing-function: var(--dock-left-ease), var(--dock-right-ease),
+      linear;
+  }
+
+  /* Going right: the right edge leads and the left edge trails. */
+  .dock-marker[data-dir="right"],
+  .dock-ghost[data-dir="right"] {
+    --dock-left-ms: var(--dock-trail-ms);
+    --dock-left-ease: var(--dock-trail-ease);
+    --dock-right-ms: var(--dock-lead-ms);
+    --dock-right-ease: var(--dock-lead-ease);
+  }
+
+  /* Going left: the mirror of it. */
+  .dock-marker[data-dir="left"],
+  .dock-ghost[data-dir="left"] {
+    --dock-left-ms: var(--dock-lead-ms);
+    --dock-left-ease: var(--dock-lead-ease);
+    --dock-right-ms: var(--dock-trail-ms);
+    --dock-right-ease: var(--dock-trail-ease);
+  }
+
+  .dock-marker {
+    --dock-lead-ms: 260ms;
+    --dock-trail-ms: 460ms;
+
+    /*
+     * Its own edge, so it reads as a second pane inside the dock's pane
+     * rather than as a grey swatch painted on one. Two neutral hairlines
+     * and nothing else: the dock's own rim takes the room's two hues from
+     * `--glass-rim-*`, and a 44px lozenge sitting inside it repeating that
+     * at this size lands as a coloured outline rather than as light. It is
+     * white at a tenth and a twenty-fifth, which is a hairline either way
+     * and costs the label under it nothing.
+     */
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 10%),
+      inset 0 -1px 0 0 oklch(1 0 0 / 4%);
+  }
+
+  /*
+   * The pointer's own pane is quicker than the marker and stretches less.
+   * It is following a hand rather than announcing a decision, and a hand
+   * that has already arrived should not be waited for.
+   */
+  .dock-ghost {
+    --dock-lead-ms: 170ms;
+    --dock-trail-ms: 300ms;
+  }
+
+  /*
+   * Held still until it has been placed once, or the first paint draws a
+   * marker sliding in from the left edge of a bar nobody has touched.
+   */
+  .dock-marker:not([data-travels]) {
+    transition: none;
+  }
+}
+
+@layer components {
+  .dock-cell {
+    transition:
+      transform 280ms var(--dock-press-ease, cubic-bezier(0.32, 0.72, 0, 1)),
+      color 180ms ease-out;
+  }
+
+  /*
+   * Down fast, back slow. A press that gives instantly and returns at its
+   * leisure feels like a physical thing; the same duration both ways feels
+   * like a checkbox.
+   */
+  .dock-cell:active {
+    transform: scale(0.955);
+    transition-duration: 90ms, 90ms;
+  }
+
+  .dock-glyph {
+    transition: transform 280ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .dock-cell:active .dock-glyph {
+    transform: scale(0.9);
+    transition-duration: 90ms;
+  }
+
+  /*
+   * Only where there is a pointer to hover with. On a touch screen the
+   * hover state sticks after a tap, which would leave one glyph
+   * permanently larger than the rest of the bar.
+   */
+  @media (hover: hover) {
+    .dock-cell:hover .dock-glyph {
+      transform: scale(1.1);
+    }
+
+    .dock-cell:active .dock-glyph {
+      transform: scale(0.9);
+    }
+  }
+
+  /*
+   * The glyph of the room you have just arrived in. It runs when the
+   * selector starts matching, which is the moment `data-on` lands, so
+   * arriving is the only thing that fires it — a re-render with the same
+   * cell on does not.
+   */
+  .dock-cell[data-on] .dock-glyph {
+    animation: dock-pop 460ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  @keyframes dock-pop {
+    0% {
+      transform: scale(0.82);
+    }
+    55% {
+      transform: scale(1.08);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  /*
+   * The phone bar's spoken name. It rises into place rather than fading in
+   * where it will be: a label that arrives already at rest reads as a
+   * tooltip, and this is meant to read as the press itself carrying the
+   * name up.
+   */
+  .dock-say {
+    opacity: 0;
+    transform: translateX(-50%) translateY(var(--dock-say-y, 6px))
+      scale(var(--dock-say-scale, 0.94));
+    transition:
+      transform 260ms cubic-bezier(0.32, 0.72, 0, 1),
+      opacity 170ms ease-out;
+  }
+
+  .dock-say[data-said] {
+    opacity: 1;
+    --dock-say-y: 0px;
+    --dock-say-scale: 1;
+  }
+}
+
+/*
+ * Reduced motion takes all of it. Every one of these is decoration on top
+ * of a state change the reader can already see: the marker still moves, it
+ * simply arrives rather than travels.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .dock-marker,
+  .dock-ghost,
+  .dock-cell,
+  .dock-glyph,
+  .dock-say {
+    transition: none;
+  }
+
+  .dock-cell:active,
+  .dock-cell:active .dock-glyph,
+  .dock-cell:hover .dock-glyph {
+    transform: none;
+  }
+
+  .dock-cell[data-on] .dock-glyph {
+    animation: none;
+  }
+}

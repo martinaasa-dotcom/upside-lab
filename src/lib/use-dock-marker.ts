@@ -1,21 +1,70 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  type DockDir,
+  type DockMark,
+  markGeometry,
+  sameMark,
+  travelDirection,
+} from "@/lib/dock-motion";
 
-type Mark = { left: number; width: number };
+export type { DockDir, DockMark } from "@/lib/dock-motion";
+
+export type DockMarkerState = {
+  ref: React.RefObject<HTMLDivElement | null>;
+  /** The current room's cell, as two insets. Null when no cell is on. */
+  mark: DockMark | null;
+  /** Which way the marker last went, so the leading edge can lead. */
+  dir: DockDir;
+  /** The cell under the pointer or the keyboard, as two insets. */
+  hover: DockMark | null;
+  hoverDir: DockDir;
+  /** Whether anything is under the pointer right now. */
+  hovering: boolean;
+  /** False until the marker has been placed once, so it does not fly in. */
+  travels: boolean;
+};
+
+function markOf(host: HTMLElement, cell: HTMLElement): DockMark {
+  return markGeometry(host.clientWidth, cell.offsetLeft, cell.offsetWidth);
+}
 
 /**
- * The sliding pill behind a dock cell.
+ * The two panes behind a dock's cells: the marker that says which room you
+ * are in, and the fainter one that follows your pointer.
  *
  * Both docks mark the current cell with `data-on` from the room id, never
- * from whether that room has rows. This hook is the only reader of that
- * flag, so the phone bar and the laptop bar cannot drift apart on how the
- * pill is found or when it is allowed to move.
+ * from whether that room has rows, and every cell carries `data-dock-cell`
+ * so the pointer can find the one under it. This hook is the only reader
+ * of either flag, so the phone bar and the laptop bar cannot drift apart
+ * on how a pane is found or when it is allowed to move.
+ *
+ * The hover pane is wired here rather than passed in as props on purpose:
+ * it listens on the well itself, so a dock that grows a cell gets it with
+ * nothing to remember. See `dock-motion.ts` for why a pane is two insets
+ * rather than a position and a width.
  */
-export function useDockMarker() {
+export function useDockMarker(): DockMarkerState {
   const ref = useRef<HTMLDivElement>(null);
-  const [mark, setMark] = useState<Mark | null>(null);
+  const [mark, setMark] = useState<DockMark | null>(null);
+  const [dir, setDir] = useState<DockDir>(null);
+  const [hover, setHover] = useState<DockMark | null>(null);
+  const [hoverDir, setHoverDir] = useState<DockDir>(null);
+  const [hovering, setHovering] = useState(false);
   const [travels, setTravels] = useState(false);
+
+  /*
+   * The last measurement, kept beside the state rather than read out of
+   * it. Measuring runs after every render, so the comparison that decides
+   * whether anything moved has to be readable without waiting for a
+   * render, and a state updater is the wrong place to work out a direction
+   * — React may call one twice.
+   */
+  const lastMark = useRef<DockMark | null>(null);
+  const lastHover = useRef<DockMark | null>(null);
+  /** The cell the pointer or the keyboard is on, so a resize can re-measure it. */
+  const hoverCell = useRef<HTMLElement | null>(null);
 
   const measure = useCallback(() => {
     const host = ref.current;
@@ -26,21 +75,24 @@ export function useDockMarker() {
      * well. A direct-child query would leave that cell unlit.
      */
     const on = host.querySelector<HTMLElement>("[data-on]");
-    /*
-     * Same object, same state. A freshly built object on every measurement
-     * makes every measurement a re-render, and a layout effect that
-     * measures after every render then never settles: React error #185.
-     * Returning the previous value when the numbers have not moved makes
-     * measuring idempotent.
-     */
-    setMark((was) => {
-      if (!was && !on) return was;
-      if (!on) return null;
-      const next = { left: on.offsetLeft, width: on.offsetWidth };
-      return was && was.left === next.left && was.width === next.width
-        ? was
-        : next;
-    });
+    const next = on ? markOf(host, on) : null;
+    if (!sameMark(lastMark.current, next)) {
+      if (lastMark.current && next) {
+        setDir(travelDirection(lastMark.current, next));
+      }
+      lastMark.current = next;
+      setMark(next);
+    }
+
+    const cell = hoverCell.current;
+    const overIt = cell && host.contains(cell) ? markOf(host, cell) : null;
+    if (overIt && !sameMark(lastHover.current, overIt)) {
+      if (lastHover.current) {
+        setHoverDir(travelDirection(lastHover.current, overIt));
+      }
+      lastHover.current = overIt;
+      setHover(overIt);
+    }
   }, []);
 
   /*
@@ -59,9 +111,78 @@ export function useDockMarker() {
     if (!host || typeof ResizeObserver === "undefined") return;
     const watch = new ResizeObserver(() => measure());
     watch.observe(host);
-    for (const cell of Array.from(host.children)) watch.observe(cell);
+    /*
+     * The cells, never every child. The two panes are children too, and
+     * both of them change width continuously for the length of a travel
+     * now that a pane is two insets — so observing them would put a
+     * measurement, and the layout read inside it, on every frame of every
+     * transition, to answer a question about cells that have not moved.
+     */
+    for (const cell of Array.from(
+      host.querySelectorAll<HTMLElement>("[data-dock-cell]")
+    )) {
+      watch.observe(cell);
+    }
     return () => watch.disconnect();
   }, [measure]);
+
+  /*
+   * The pointer's pane. On leaving, the geometry is kept and only the flag
+   * drops, so the pane fades out where it was rather than snapping to the
+   * left edge of the bar on its way to nothing.
+   */
+  useEffect(() => {
+    const host = ref.current;
+    if (!host) return;
+
+    const cellUnder = (target: EventTarget | null): HTMLElement | null =>
+      target instanceof Element
+        ? target.closest<HTMLElement>("[data-dock-cell]")
+        : null;
+
+    const settle = (cell: HTMLElement) => {
+      hoverCell.current = cell;
+      const next = markOf(host, cell);
+      if (lastHover.current) setHoverDir(travelDirection(lastHover.current, next));
+      lastHover.current = next;
+      setHover(next);
+      setHovering(true);
+    };
+
+    const over = (e: PointerEvent) => {
+      /*
+       * A finger does not hover. Without this the pane is left sitting
+       * under the last cell tapped, which on a phone is every cell the
+       * reader has ever pressed, one at a time, forever.
+       */
+      if (e.pointerType === "touch") return;
+      const cell = cellUnder(e.target);
+      if (cell && host.contains(cell)) settle(cell);
+    };
+
+    const focus = (e: FocusEvent) => {
+      const cell = cellUnder(e.target);
+      if (cell && host.contains(cell)) settle(cell);
+    };
+
+    const leave = () => {
+      hoverCell.current = null;
+      setHovering(false);
+    };
+
+    host.addEventListener("pointerover", over);
+    host.addEventListener("pointerleave", leave);
+    host.addEventListener("pointercancel", leave);
+    host.addEventListener("focusin", focus);
+    host.addEventListener("focusout", leave);
+    return () => {
+      host.removeEventListener("pointerover", over);
+      host.removeEventListener("pointerleave", leave);
+      host.removeEventListener("pointercancel", leave);
+      host.removeEventListener("focusin", focus);
+      host.removeEventListener("focusout", leave);
+    };
+  }, []);
 
   /*
    * Held still until it has been placed once, or the first paint draws a
@@ -73,5 +194,5 @@ export function useDockMarker() {
     return () => cancelAnimationFrame(frame);
   }, [mark, travels]);
 
-  return { ref, mark, travels };
+  return { ref, mark, dir, hover, hoverDir, hovering, travels };
 }

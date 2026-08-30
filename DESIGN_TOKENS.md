@@ -1501,6 +1501,96 @@ time this was written.
 It is held still until it has been placed once, or the first paint draws a
 marker sliding in across a bar nobody has touched.
 
+### The marker stretches, because a rectangle that moved is not a marker (2026-08-30)
+
+> *"Can you re-work the navbar to be more animated when hovering, when
+> tapping and when the indicator moves from page to page? I really like the
+> way it works in iOS."*
+
+What iOS does that a CSS slide does not is send the pill's **leading edge
+off before its trailing edge follows**. The pill smears across the ground it
+is covering and gathers itself back up on arrival, which says where it came
+from, for exactly as long as the eye needs to follow it. A rigid slide
+leaves as a rectangle and arrives as the same rectangle, and the only thing
+that happened in between is that it was somewhere else.
+
+So the marker is **two edges, not a position and a size**: `left` and
+`right` insets from the well, each with its own duration
+(`src/app/dock.css`). Give the leading edge the short one (260ms) and the
+trailing edge the long one (460ms) and the stretch falls out of the
+transition itself: no animation loop, no per-frame JavaScript, and a stretch
+that **scales with the distance travelled**, which is the thing a fixed
+keyframe cannot do. Measured on the real stylesheet at a 120px cell:
+
+| Journey | Widest in flight | Stretch | Settled |
+| --- | --- | --- | --- |
+| one cell (Home to Pulse) | 163px | 1.36x | 120px |
+| four cells (Home to Aasad) | 285px | 2.38x | 120px |
+| five cells (Circle to Home) | 326px | 2.72x | 120px |
+
+A nudge reads as a nudge and a reach across the bar reads as a reach, and
+nobody chose either number. The trailing edge's curve overshoots by a hair
+(`cubic-bezier(0.34, 1.12, 0.44, 1)`), so it arrives a touch past its mark
+and settles back: measured, the pill pinches to **118px** against a 120px
+cell before resting. That 2px is what reads as liquid rather than as a
+rectangle that stopped.
+
+**Edges, never a transform**, and this is the one place the dock spends
+layout on purpose. A transform cannot stretch a pill without stretching its
+round ends into ellipses, and the ends are most of what makes it a pill.
+Both panes are absolutely positioned, so laying one out again lays nothing
+else out: the cells above them do not move, which is the property that
+mattered when the marker was a transform and still does. What it did cost is
+the resize observer, which used to watch every child of the well: a pane is
+two insets now, so its width changes on every frame of every travel, and
+observing it put a measurement and a layout read on each of them to answer
+a question about cells that had not moved. It watches `[data-dock-cell]`
+now, and `dock-motion.test.ts` fails if that widens again.
+
+**No `backdrop-filter` on either pane, and that is a decision rather than an
+omission.** iOS refracts the glyphs the pill passes over, with chromatic
+fringing at its edges; that is a native shader, and the web translation
+would be a filtered element moving over content inside an already-filtered
+fixed bar, which is the exact pattern measured at 42 repainted frames on the
+landing page. It would also blur the label of the room you are navigating
+to. What carries the same read for nothing is the marker's own specular
+edge: two neutral hairlines (white at 10% and 4%) so it sits inside the
+dock's pane as a second pane rather than as a grey swatch painted on one.
+Neutral rather than the room's two hues from `--glass-rim-*`, because at
+44px that repeat lands as a coloured outline instead of as light.
+
+### Hovering is the same object, and a press is answered before the room is
+
+A pointer moving along the bar now drags **one fainter pane** with it
+(`bg-foreground/[0.055]`), on the marker's own physics, instead of lighting
+one cell and unlighting another. `hover:bg-hover` is gone from both docks
+for that reason: a cell that lights on its own is a different object from
+the marker, and two objects doing one job is what made hovering along the
+bar read as a row of things blinking. One thing following you beats a row of
+things flickering, and reaching and arriving are now the same object at two
+weights. The ghost is quicker and stretches less (170ms / 300ms) because it
+follows a hand rather than announcing a decision. It **fades out where it
+was** rather than snapping home, and a finger never summons it at all
+(`pointerType === "touch"` is refused, or it is left sitting under the last
+cell tapped forever). A keyboard does summon it, on `focusin`, since a
+keyboard never hovers anything.
+
+Pressing gives: the cell to `0.955` and the glyph to `0.9` inside it, so the
+glyph lands at about `0.86`. **Down in 90ms, back over 280ms** -- a press
+that gives instantly and returns at its leisure feels like a physical thing;
+the same duration both ways feels like a checkbox. Arriving pops the glyph
+of the room you landed in once (`dock-pop`, 460ms), which fires when
+`data-on` starts matching, so a re-render with the same cell on does not
+re-run it. Nothing here spends colour: the marker still says where you are,
+and the accent is still only on news.
+
+All of it is off under `prefers-reduced-motion`, including the pull of the
+press and the pop. The marker still moves; it arrives rather than travels.
+Both docks draw the panes from one component (`src/components/DockMarker.tsx`)
+and one stylesheet, because the marker is the part of the design a reader
+watches most and two bars that agree today are two bars that can disagree
+tomorrow.
+
 **The accent is not spent in the dock at all now.** Which room you are in is
 the least surprising fact on the screen, and the old `bg-primary` cell was
 the loudest thing on the bar for the least reason. The one saturated pixel
