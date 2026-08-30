@@ -480,6 +480,63 @@ describe("the phone bar carries its names, and both bars weight the active glyph
   });
 });
 
+describe("a bet the router is about to confirm is not called off", () => {
+  const HOOK = readFileSync("src/lib/use-dock-marker.ts", "utf8");
+
+  it("treats a click on the aimed cell as a commitment, not a bet", () => {
+    /*
+     * THE GLITCH THIS EXISTS TO STOP. `callOff` repositions the marker to
+     * whatever is still lit, and during a navigation that is the cell you
+     * are LEAVING -- so any pointer event landing off the cell while the
+     * room renders sent the marker all the way home and all the way back.
+     *
+     * Measured off a recording of the real app: the marker completed its
+     * travel, sat on the new cell for about 350ms, then teleported back
+     * and replayed the journey the moment the room arrived. Reproduced
+     * against the real component with a 350ms commit, it logged two
+     * travels 7ms apart, `312 -> 4` then `4 -> 312`.
+     */
+    expect(HOOK).toContain("going.current = true");
+    // The release guard stands down once the click has landed.
+    expect(HOOK).toMatch(/if \(!aimed\.current \|\| going\.current\) return;/);
+    // A cancel BEFORE the click is still a genuinely abandoned press.
+    expect(HOOK).toMatch(/const abandon[\s\S]{0,120}going\.current/);
+    expect(HOOK).toContain('addEventListener("pointercancel", abandon)');
+  });
+
+  it("makes a reverted bet arrive rather than travel", () => {
+    // Reverting is a correction, not a journey: animating it draws a
+    // second full trip across the bar for a room nobody went to.
+    expect(HOOK).toContain("reverting.current = true");
+    expect(HOOK).toMatch(/glide\(pane, reverting\.current \? null : lastMark\.current/);
+    // ...and it must not breathe for a journey that is not happening.
+    expect(HOOK).toMatch(/lastMark\.current && next && !reverting\.current/);
+  });
+
+  it("solves the travel curve once rather than on every press", () => {
+    /*
+     * `travelKeyframes` runs synchronously inside `pointerdown`, before the
+     * browser can dispatch the click that navigates. Binary-searching the
+     * bezier twice per sample is about 2,100 solver iterations per tap for
+     * a curve that never changes.
+     */
+    const src = readFileSync("src/lib/dock-motion.ts", "utf8");
+    expect(src).toContain("easeTable");
+    // It takes no curve: a table keyed to nothing would answer for the
+    // wrong one if a second curve were ever passed in.
+    expect(src).toMatch(/function eased\(t: number\)/);
+    const table = travelKeyframes(markGeometry(0, 120), markGeometry(120, 120), {
+      durationMs: 340,
+      lagMs: 18,
+    });
+    // Still the same curve: monotonic, starts where it was, ends on the mark.
+    const xs = table.map((f) => Number(String(f.transform).match(/translateX\(([-\d.]+)px\)/)![1]));
+    expect(xs[0]).toBeCloseTo(0, 4);
+    expect(xs[xs.length - 1]).toBeCloseTo(120, 4);
+    for (let i = 1; i < xs.length; i += 1) expect(xs[i]).toBeGreaterThanOrEqual(xs[i - 1] - 1e-6);
+  });
+});
+
 describe("both docks spend the accent on news", () => {
   const WIDE = readFileSync("src/components/BookModeDock.tsx", "utf8");
   const PHONE = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");

@@ -231,7 +231,7 @@ export function MobileTabBar({
            * the ring and the lift shadow are untouched. Numbers in
            * globals.css and DESIGN_TOKENS.md.
            */
-          "card-sheen glass glass-dock pointer-events-auto relative grid w-full max-w-lg items-center gap-1 rounded-full p-1 ring-1 ring-foreground/20"
+          "card-sheen glass glass-dock pointer-events-auto relative grid w-full max-w-[26rem] items-center gap-1 rounded-full p-1 ring-1 ring-foreground/20"
         )}
         style={{
           gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`,
@@ -260,7 +260,7 @@ export function MobileTabBar({
                  * stadium, and stays concentric with the shell's own
                  * `rounded-full` at `p-1` -- the one radius pair that does.
                  */
-                "dock-cell relative z-[1] flex min-w-0 flex-col items-center justify-center gap-1 rounded-full py-2",
+                "dock-cell relative z-[1] flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-full py-1.5",
                 "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                 on ? "text-foreground" : "text-muted-foreground"
               )}
@@ -275,7 +275,7 @@ export function MobileTabBar({
                   six.
                 */}
                 <Icon
-                  className="h-5 w-5"
+                  className="size-[1.125rem]"
                   strokeWidth={on ? 2.5 : 1.75}
                   aria-hidden
                 />
@@ -294,7 +294,7 @@ export function MobileTabBar({
                 `truncate` is the backstop for a narrow phone, and the full
                 name is still on the link for a screen reader.
               */}
-              <span className="max-w-full truncate text-xs leading-none font-medium">
+              <span className="max-w-full truncate text-xs leading-none font-medium tracking-tight">
                 {shortLabel}
               </span>
               <span className="sr-only">{label}</span>
