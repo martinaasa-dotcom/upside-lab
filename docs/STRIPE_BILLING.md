@@ -15,7 +15,6 @@ src/app/api/billing/portal/route.ts                        opens the Billing Por
 src/app/api/billing/webhook/route.ts                       mirrors subscription state
 src/app/api/billing/status/route.ts                        subscription status for the signed-in user
 src/components/billing/UpgradeButton.tsx                   Upgrade / Manage billing on Account
-src/components/billing/UpgradeNudge.tsx                    header pill + phone-menu dialog
 src/lib/billing-reconcile.ts                                daily Stripe-vs-local backstop
 src/app/api/cron/billing-reconcile/route.ts                 cron entry point (vercel.json, 05:00 UTC)
 ```
@@ -72,10 +71,13 @@ src/app/api/cron/billing-reconcile/route.ts                 cron entry point (ve
 `GET /api/billing/status` on mount, then posts to `/api/billing/checkout` or
 `/api/billing/portal` depending on whether a subscription is active.
 
-The phone bar and desktop header offer is `useUpgradeOffer` plus
-`UpgradeDialog` (`UpgradeNudge.tsx`). Upgrade and Feedback are rows in the
-phone overflow menu, not glyphs on the bar, because a Radix menu row cannot
-host a dialog trigger.
+**Nothing in the chrome asks.** There was a header pill and a phone-menu
+dialog (`useUpgradeOffer` / `UpgradeDialog`); both stopped rendering when
+Pro stopped unlocking anything, and the file they lived in was deleted once
+it had gone a while with no importer. The Account Billing block is the whole
+offer, and a control on the phone bar costs 44px of somebody's portfolio
+name, so putting one back needs a reason and a measurement rather than a
+preference.
 
 ## Gating a premium feature
 
