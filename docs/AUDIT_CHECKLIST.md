@@ -294,10 +294,13 @@ figure somebody acts on.
   curve, or hover swell — the numbers in `AGENTS.md`'s dock bullets are the
   budget to stay under, not a one-time measurement.
 - **The brand mark has one source and no baked-in corner radius on square
-  icons.** `src/lib/brand/mark.ts` is the only facet table; after any
-  geometry change, run `npm run icons` and bump every `?v=` (layout icons,
-  `OG_IMAGE_PATH`, the email lockup) plus `CACHE` in `public/sw.js` — see
-  the improvement opportunity below about making this non-manual.
+  icons.** `src/lib/brand/mark.ts` is the only facet table. The bump is no
+  longer manual: every `?v=` imports `MARK_ASSET_VERSION`
+  (`src/lib/brand/mark-version.ts`, the mark's source hash), `npm run
+  icons` writes the hash it drew from into `public/icons/mark-source.json`,
+  and `public/sw.js` embeds it in its cache name;
+  `mark-version.test.ts` fails on a geometry change until all three agree,
+  printing the value to paste.
 - **Ambient dither stays signed and clipped.** `src/lib/ambient-dither.test.ts`
   — the two amplitude terms stay exact double/half of each other, and
   black-level lift stays at 0.000 (an unsigned or unclipped dither greys
@@ -408,8 +411,11 @@ figure somebody acts on.
   pull-to-refresh ring, or any new animated surface adds motion; confirm
   the state changes still happen (a marker under reduced motion arrives,
   it does not freeze).
-- **No automated accessibility scan runs in CI today** — see improvement
-  opportunities below.
+- **The general scan runs in CI now**: the landing smoke drives axe-core
+  (WCAG A + AA) over the whole signed-out surface — the landing at both
+  viewports, `/privacy` and `/terms` — failing on serious or critical
+  violations. Signed-in surfaces still rely on the hand-picked suites, so
+  a new signed-in control keeps needing the manual pass above.
 
 ## 13. Security
 
@@ -433,6 +439,11 @@ Gaps found while assembling the checklist above, not bugs — things nothing
 currently catches, or manual steps a future session could plausibly forget.
 Ordered roughly by how much a miss would cost.
 
+Status, 2026-08-30: the PR that followed this checklist (#175) implemented
+the list — each item below carries a note saying what landed and, where a
+human's hands are still needed, what remains. The reasoning above each
+note is kept as written: it is why the mechanism exists.
+
 1. **A cron that stops firing is invisible.** Every scheduling guarantee in
    §4 and §9 (claim tables, idempotency keys, `weeklyNumbersAreSound`)
    protects against a cron firing *twice* or firing with *bad data*.
@@ -444,6 +455,8 @@ Ordered roughly by how much a miss would cost.
    on the cost of, and there is currently no way to learn about it except a
    reader noticing their holdings look wrong.
 
+   Landed: every cron route exports through `cronRoute` (`src/lib/cron-heartbeat.ts`), which pings a dead-man's-switch per run; `cron-heartbeat.test.ts` fails on an unwrapped route or vercel.json drift. Setup in `docs/CRON_MONITORING.md`. The switch itself still needs the Healthchecks project created and `CRON_HEARTBEAT_BASE` set in Vercel.
+
 2. **Cron and route failures have no aggregated visibility.** The stack has
    `@vercel/analytics` and `@vercel/speed-insights` (traffic and web
    vitals) but nothing that captures and aggregates server-side exceptions
@@ -452,6 +465,8 @@ Ordered roughly by how much a miss would cost.
    sink with even a minimal "email/Slack on new error class" rule would
    catch a regression in hours instead of whenever someone reads the logs
    or a support email arrives.
+
+   Landed as the daily error digest (`src/lib/error-digest.ts`, `/api/cron/error-digest`): new error classes and volume jumps mail the operator, a quiet day sends nothing, and `error-log-reach.test.ts` keeps every human-summoning alarm writing the row the digest reads. Deliberately not a Sentry: no new provider.
 
 3. **The brand mark's cache-busting is a manual discipline, and the note
    admits it.** `AGENTS.md`: "run `npm run icons` and bump every `?v=`
@@ -463,6 +478,8 @@ Ordered roughly by how much a miss would cost.
    would turn a step that is easy to forget into one that cannot be
    forgotten.
 
+   Landed: see the brand-mark entry in section 7 — one hash constant, a generated receipt, and `mark-version.test.ts` printing the value to paste.
+
 4. **Screenshot import has no regression fixture set.** `MVP_AUDIT_LIVE_PASS.md`
    flagged broker-screenshot parsing as "still not reachable" in that pass,
    and nothing since has closed the gap with fixtures. This is the primary
@@ -472,6 +489,8 @@ Ordered roughly by how much a miss would cost.
    through the parser in CI would catch a regression before a real user's
    first import silently mis-reads their holdings.
 
+   Landed at the deterministic seam: `src/lib/ai/screenshot-import.test.ts` pins the layer the vision model hands off to (implied cost, FX, skip rows, dedupe, ISIN suffixing) with broker-shaped tool calls. The model's own reading stays out of CI on purpose.
+
 5. **No automated accessibility scan.** `heading-scale.test.ts` and
    `reader-copy.test.ts` catch specific, hand-picked rules, but nothing
    runs a general scan (axe-core via Playwright, reusing the Chromium
@@ -479,6 +498,8 @@ Ordered roughly by how much a miss would cost.
    a couple of representative signed-in ones. Cheap to add given the
    landing-smoke harness already exists; would catch contrast, label, and
    landmark regressions the hand-picked tests were never written to find.
+
+   Landed: see section 12 — axe-core over the whole signed-out surface in the landing smoke.
 
 6. **No visual regression harness for the pixel-measured design work.**
    A large share of the dock, glass, and dither work in `AGENTS.md` was
@@ -490,6 +511,8 @@ Ordered roughly by how much a miss would cost.
    silently reverting one of these measured values without anyone reading
    the CSS closely enough to notice.
 
+   Landed in the measured spirit: the landing smoke walks the rendered DOM for any `position: fixed` element carrying a `backdrop-filter`, which is the fault class the pixel measurements caught. A screenshot-diff baseline harness was considered and deliberately not built: baseline diffs are the flaky kind of red.
+
 7. **Account-deletion completeness is unverified.** The GDPR export path
    (`src/lib/gdpr/user-export.ts`) is paged and tested for completeness,
    but there is no equivalent for account *deletion* — a test asserting
@@ -499,6 +522,8 @@ Ordered roughly by how much a miss would cost.
    deletion path fails silently in the best-case (an orphaned row) and as
    a compliance gap in the worst case.
 
+   Landed: `supabase/tests/account-deletion.test.sql` asks the catalog (FK delete rules, keyless identity columns purged or allowlisted with reasons) and then deletes seeded people through both doors and sweeps every identity column. It found a real gap on arrival — a pending email sign-in link outliving its account — fixed in migration `20260830130000`.
+
 8. **Fund-run claim backlog has no staleness alarm.** `portfell_claim_fund_run`
    deliberately allows a claim older than its window to be retaken, which
    is the right design for recovering from a dead worker — but nothing
@@ -506,6 +531,8 @@ Ordered roughly by how much a miss would cost.
    never catches up across several days). A simple "oldest unresolved
    claim age" metric surfaced somewhere would turn a silent multi-day
    backlog into a page.
+
+   Landed: `fund_cron_backlog_stale` writes an error-log row once the missed-day list reaches three trading days, so /admin and the digest see it the day it happens; the run's response already carried `stillBehind`.
 
 9. **`sunday_letter_skipped_untrusted` is a log line, not a metric.** A
    systematic data-quality regression (a stale-quote bug, a provider
@@ -515,6 +542,8 @@ Ordered roughly by how much a miss would cost.
    weekly skip rate would catch the regression the same week it starts
    rather than whenever someone goes looking.
 
+   Landed: the dispatch counts `untrusted` apart from ordinary skips and returns it, and a quarter of a run refused (on two or more people) writes an error-log row (`sunday_letter_untrusted_rate`); smaller rates stay a warning event.
+
 10. **Load behavior under classroom-scale concurrent use is untested.**
     The session-keyed rate limiter fix (§ live-pass history: IP-keyed
     limits punishing a whole school network) was found by hand, once. There
@@ -522,6 +551,8 @@ Ordered roughly by how much a miss would cost.
     polling quotes together, so a future regression in the limiter or the
     market fan-out (`src/lib/market/fanout.ts`) would need to be
     rediscovered the same way — by a real classroom hitting it.
+
+   Landed in-process: `rate-limit-bucket.test.ts` already held the limiter half, and `classroom-herd.test.ts` counts provider batches for the single-flight now in `fetchQuotesWithFallback` (one class arriving together costs one walk). A live multi-instance load run stays a deliberate manual exercise, the same split `bench:concurrency` makes.
 
 11. **No documented secret-rotation cadence.** `docs/DISASTER_RECOVERY.md`
     covers backup and restore; nothing parallel documents how or how often
@@ -531,6 +562,8 @@ Ordered roughly by how much a miss would cost.
     current answer is "rotate manually, here is the order that avoids
     downtime."
 
+   Landed: `docs/SECRET_ROTATION.md`, including the two rotations with teeth (the unsubscribe link silently signs with the service-role key when `UNSUBSCRIBE_SECRET` is unset, and a rotated `SNAPSHOT_ENCRYPTION_KEY` cannot open old cold copies).
+
 12. **Household-circle and classroom edge cases (mid-year teacher removal,
     a class archived while `class_plan` has an open buy period, a household
     pair partially unlinking) don't have obvious dedicated test coverage**
@@ -538,10 +571,14 @@ Ordered roughly by how much a miss would cost.
     through the state-transition cases rather than the create/join cases
     that are already well covered.
 
+   Landed: `supabase/tests/household-classroom.test.sql` (mirroring, partial unlink, classrooms never mirror, the last-admin guard and its promote-first remedy, a class deleted mid-term freeing student work) and `src/lib/classroom-plan.test.ts` (exact period boundaries, overlaps, mid-period flips).
+
 13. **No periodic real restore rehearsal recorded.** `dr/restore-rehearsal.test.ts`
     exercises the mechanism in unit form; `docs/DISASTER_RECOVERY.md` should
     (if it does not already) carry a dated log of the last time a real
     restore was performed against a scratch Supabase project, the way
     `MVP_AUDIT_LIVE_PASS.md` logs live-app passes — a mechanism that has
     only ever been unit-tested is unverified in the one way that matters.
+
+   The log landed in `docs/DISASTER_RECOVERY.md` with its first row honestly empty; the first real rehearsal against a scratch project still needs a human with production DR credentials to run it and write the row.
 
