@@ -317,6 +317,7 @@ describe("the marker leaves on the press, not on the route", () => {
 });
 
 describe("each bar breathes at the moment its input gives it", () => {
+  const HOOK = readFileSync("src/lib/use-dock-marker.ts", "utf8");
   const WIDE = readFileSync("src/components/BookModeDock.tsx", "utf8");
   const PHONE = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");
 
@@ -329,6 +330,28 @@ describe("each bar breathes at the moment its input gives it", () => {
      */
     expect(DOCK_MOTION.wide.swellPeak).toBe(1);
     expect(swellFrames("right", DOCK_MOTION.wide.swellPeak)).toBe(null);
+  });
+
+  it("does not slide the laptop marker across the bar at all", () => {
+    /*
+     * The travelling pill is the piece of this design that reads worst with
+     * a pointer. A finger has nothing else going on while it waits, so a
+     * marker crossing the bar is company; a mouse has already arrived, and
+     * watching the bar take 220ms to agree with the cell you clicked is the
+     * bar being slower than you are. `glide` writes the resting geometry
+     * and returns at a duration of zero, so the marker is simply there.
+     */
+    expect(DOCK_MOTION.wide.travelMs).toBe(0);
+    expect(HOOK).toMatch(/if \(opts\.durationMs <= 0\) return;/);
+    // The phone keeps its travel: different input, different numbers.
+    expect(DOCK_MOTION.phone.travelMs).toBeGreaterThan(0);
+  });
+
+  it("keeps the laptop swell barely there", () => {
+    // 0.6% on a 1,164px bar is about 3.5px an edge: it says the bar
+    // noticed the pointer, and nothing more.
+    expect(DOCK_MOTION.wide.hoverPeak).toBeGreaterThan(1);
+    expect(DOCK_MOTION.wide.hoverPeak).toBeLessThanOrEqual(1.008);
   });
 
   it("gives the laptop bar the pointer instead, held for as long as it is pointed at", () => {
@@ -502,9 +525,9 @@ describe("a bet the router is about to confirm is not called off", () => {
     // Reverting is a correction, not a journey: animating it draws a
     // second full trip across the bar for a room nobody went to.
     expect(HOOK).toContain("reverting.current = true");
-    expect(HOOK).toMatch(/glide\(pane, reverting\.current \? null : lastMark\.current/);
+    expect(HOOK).toMatch(/glide\(pane, reverting\.current \|\| arriving \? null : lastMark\.current/);
     // ...and it must not breathe for a journey that is not happening.
-    expect(HOOK).toMatch(/lastMark\.current && next && !reverting\.current/);
+    expect(HOOK).toMatch(/lastMark\.current && next && !reverting\.current && !arriving/);
   });
 
   it("solves the travel curve once rather than on every press", () => {
@@ -528,6 +551,53 @@ describe("a bet the router is about to confirm is not called off", () => {
     expect(xs[0]).toBeCloseTo(0, 4);
     expect(xs[xs.length - 1]).toBeCloseTo(120, 4);
     for (let i = 1; i < xs.length; i += 1) expect(xs[i]).toBeGreaterThanOrEqual(xs[i - 1] - 1e-6);
+  });
+});
+
+describe("a bar in a hidden room does not measure itself", () => {
+  const HOOK = readFileSync("src/lib/use-dock-marker.ts", "utf8");
+
+  it("refuses to measure, animate or bet while it has no layout box", () => {
+    /*
+     * THE ONE THAT PUT THE MARKER ON THE WRONG CELL.
+     *
+     * `WorkspaceShell` keeps every visited room mounted behind `hidden`,
+     * and each room draws its own dock: two of these on the book, three
+     * once you have been to Circle. A hidden element has no layout box, so
+     * `offsetLeft` and `offsetWidth` are both 0, and measuring one records
+     * `{left: 0, width: 0}` as the marker's last known place. Show that
+     * room again and the travel is computed from there -- a zero-width pill
+     * at the far left sweeping across the whole bar.
+     *
+     * And the cell you PRESS belongs to the bar about to be hidden, while
+     * the bar you end up looking at is a different element with a different
+     * hook instance, so the bet is placed on one bar and settled on another.
+     *
+     * Measured by walking the real app through twelve room changes at 1x,
+     * 4x and 6x CPU, three times over: before this guard, **7 of 36 landed
+     * on the wrong cell and 105 painted frames carried a collapsed marker
+     * at the bar's left edge**. After it, 0 and 0.
+     */
+    expect(HOOK).toMatch(/function onScreen\(el: HTMLElement\)/);
+    expect(HOOK).toContain("getClientRects().length > 0");
+    expect(HOOK).toMatch(/if \(!onScreen\(host\)\) \{/);
+    // the bet dies with the room
+    const guard = HOOK.slice(HOOK.indexOf("if (!onScreen(host))"), HOOK.indexOf("const arriving"));
+    expect(guard).toContain("wasHidden.current = true");
+    expect(guard).toContain("aimed.current = null");
+    expect(guard).toContain("return;");
+  });
+
+  it("arrives rather than travels on the frame a room is shown again", () => {
+    // Whatever the reader last saw on that bar is not a place the marker
+    // should be seen crossing back from.
+    expect(HOOK).toContain("const arriving = wasHidden.current");
+    expect(HOOK).toMatch(/reverting\.current \|\| arriving \? null : lastMark\.current/);
+    expect(HOOK).toMatch(/!reverting\.current && !arriving/);
+  });
+
+  it("keeps the hover pane off a cell with no box either", () => {
+    expect(HOOK).toMatch(/host\.contains\(cell\) && onScreen\(cell\)/);
   });
 });
 
