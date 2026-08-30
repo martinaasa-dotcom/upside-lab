@@ -110,9 +110,28 @@ export const DOCK_MOTION = {
   wide: {
     swellPeak: 1,
     swellMs: 0,
-    travelMs: 220,
+    /*
+     * ZERO, AND THAT IS THE WHOLE OF THE LAPTOP BAR'S ANSWER TO A CLICK.
+     *
+     * The travelling marker is the piece of this design that reads worst
+     * with a pointer. A finger has nothing else going on while it waits, so
+     * a pill sliding across the bar is company; a mouse has already arrived,
+     * you clicked a specific cell, and watching a marker take 220ms to
+     * agree with you is the bar being slower than you are. `glide` skips
+     * the animation at zero and writes the resting geometry, so the marker
+     * is simply *there* on the cell you pressed, on `pointerdown`.
+     *
+     * The phone keeps its travel. The two bars have different input and
+     * that is the whole reason they are allowed different numbers -- the
+     * same argument that moved the swell off the click and onto the pointer.
+     */
+    travelMs: 0,
     lagMs: 10,
-    hoverPeak: 1.015,
+    /*
+     * Very subtle on purpose: 0.6%, which on a 1,164px bar is about 3.5px
+     * on each edge. It says the bar noticed the pointer and nothing more.
+     */
+    hoverPeak: 1.006,
     hoverMs: 300,
   },
   phone: {

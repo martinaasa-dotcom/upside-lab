@@ -1788,6 +1788,105 @@ Reproduced against the same numbers: peak **+4.51%** at 33ms, +3.46% at
 133ms, +1.31% at 233ms, home at 300ms, with the left end out 11.1px against
 the right end's 22.6px — 1:2, and the height unchanged at 52px.
 
+### More than one dock is alive at once, and that is what broke it (2026-08-30)
+
+> *"Clicking on Circle completely breaks the whole thing."*
+
+Correct, and the previous two fixes did not touch the cause. **There is not
+one dock in the document; there are two on the book and three once you have
+been to Circle.** `WorkspaceShell` keeps every visited room mounted behind
+`hidden`, and each room draws its own `MobileTabBar` with its own
+`useDockMarker`. Dumping them on `/communities`:
+
+```
+bar#0 hidden   on=home     marker x=0   w=0  styleW=0px  translateX(0px)
+bar#1 VISIBLE  on=circle   marker x=301 w=48 styleW=48px translateX(264px)
+bar#2 hidden   on=null     marker x=0   w=0  styleW=0px  translateX(0px)
+```
+
+**A hidden element has no layout box**, so `offsetLeft` and `offsetWidth`
+are both 0 — and measuring one records `{left: 0, width: 0}` as that bar's
+last known marker position. Show the room again and the travel is computed
+from there: a zero-width pill at the far left sweeping across the whole bar
+to reach the cell you are actually on.
+
+And it is worse than a bad animation. **The cell you press belongs to the
+bar that is about to be hidden; the bar you end up looking at is a
+different element with a different hook instance.** A bet placed on one bar
+and settled on another is incoherent by construction, which is how the
+marker ended up sitting on Circle while Growth was the lit cell.
+
+`onScreen` gates all of it: no layout box, no measuring, no animating, no
+state written, and the outstanding bet dies with the room. The first
+measure after a room is shown again arrives rather than travels — whatever
+the reader last saw on that bar is not a place the marker should be seen
+crossing back from.
+
+**Measured on the real app**, demo mode with the canonical seed, driven by
+the real dock through twelve room changes at 1x, 4x and 6x CPU, checking
+after every hop that the marker sits on the lit cell and watching every
+painted frame for a collapsed pill:
+
+| | wrong cell | frames with a collapsed marker |
+| --- | --- | --- |
+| before | **7 of 36** | **105** |
+| after | **0 of 36** | **0** |
+
+**This is the check to run on any change to this hook.** A unit test cannot
+see it: it only happens when more than one dock is alive at once, which
+takes the real `WorkspaceShell` and a real room change. Two earlier rounds
+of fixes were verified against a single-bar harness and were therefore
+blind to it — that is the lesson, not the guard.
+
+### The laptop marker stops travelling, and what profiling the Dashboard found (2026-08-30)
+
+> *"I think I actually hate the new nav bar on desktop, the moving slider
+> makes it feel terrible. Let's just revert back to the instant click,
+> hover and expand can stay, but the expand should be very subtle."*
+
+**`DOCK_MOTION.wide.travelMs` is 0.** `glide` writes the resting geometry
+and returns at a duration of zero, so the marker is simply *there* on the
+cell you pressed, on `pointerdown`. The travelling pill is the piece of
+this design that reads worst with a pointer, and the reason is the input:
+a finger has nothing else going on while it waits, so a marker crossing the
+bar is company; a mouse has already arrived, you clicked a specific cell,
+and watching the bar take 220ms to agree with you is the bar being slower
+than you are. **The phone keeps its travel** — the same argument that moved
+the swell off the click and onto the pointer.
+
+The hover pane still follows the pointer (that is hover, not the click),
+and the capsule still breathes on hover, at **0.6%** rather than 1.5% —
+about 3.5px an edge on a 1,164px bar, enough to say the bar noticed the
+pointer and no more.
+
+### Profiling the Dashboard: it is not compute (2026-08-30)
+
+Run against the real `Dashboard`, in demo mode with the canonical seed (4
+portfolios, 28 holdings), driven by the real dock, every external request
+blocked so nothing hangs.
+
+**Press → the room actually changing:**
+
+| | hops |
+| --- | --- |
+| 1x CPU | 117, 151, 163, 179ms |
+| 4x CPU | 364, 563, 576, 680ms |
+
+The 4x column matches the ~750ms measured off the phone recording, so the
+harness is reproducing the real thing.
+
+**And a CPU profile across five hops says the main thread is not the
+problem: 85.6% idle.** The largest single app function accounts for 104ms
+of 6.3 seconds; nothing else clears 25ms. There is no expensive component
+to memoise and no hot loop to fix — the time is spent *waiting*, on React's
+transition scheduling and the router, not on rendering work.
+
+That is worth writing down because it closes off the obvious next move.
+Making a room change feel faster here is about the navigation mechanism
+(what renders eagerly, what the transition is allowed to interrupt), not
+about making the render cheaper. The dock's own contribution was measured
+separately at 5-10ms at 1x.
+
 ### The marker's round trip, and what the page is really waiting for (2026-08-30)
 
 > *"There's very weird glitching that happens when I select Circle and

@@ -62,12 +62,46 @@ function glide(
 ) {
   if (!el) return;
   Object.assign(el.style, restingStyle(to));
+  /*
+   * A duration of zero is a dock saying it does not travel: the resting
+   * geometry above is already the whole answer, and the marker arrives on
+   * the cell rather than crossing the bar to reach it. The laptop dock
+   * asks for this; see `DOCK_MOTION.wide.travelMs`.
+   */
+  if (opts.durationMs <= 0) return;
   if (!from || typeof el.animate !== "function" || stillMotion()) return;
   if (from.left === to.left && from.width === to.width) return;
   running.current?.cancel();
   running.current = el.animate(travelKeyframes(from, to, opts), {
     duration: opts.durationMs,
   });
+}
+
+/**
+ * A BAR IN A HIDDEN ROOM MUST NOT MEASURE ITSELF, AND THIS IS THE WHOLE
+ * REASON THE MARKER COULD END UP ON THE WRONG CELL.
+ *
+ * `WorkspaceShell` keeps every room you have visited mounted behind
+ * `hidden`, and each room draws its own dock, so there are two of these on
+ * the book and three once you have been to Circle. A hidden element has no
+ * layout box, so `offsetLeft` and `offsetWidth` are both **0** -- and
+ * measuring one records `{left: 0, width: 0}` as the marker's last known
+ * place. The next time that room is shown, the travel is computed from
+ * there, which is a zero-width pill at the far left sweeping across the
+ * whole bar to reach the cell you are actually on.
+ *
+ * Worse, the cell you PRESS belongs to the bar that is about to be hidden,
+ * while the bar you end up looking at is a different element with a
+ * different hook instance. A bet placed on one bar and settled on another
+ * is incoherent by construction.
+ *
+ * So: no layout box, no measuring, no animating, no state written. And the
+ * first measure after a room is shown again ARRIVES rather than travels,
+ * because whatever the reader last saw on that bar is not a place the
+ * marker should be seen crossing back from.
+ */
+function onScreen(el: HTMLElement): boolean {
+  return el.getClientRects().length > 0;
 }
 
 function stillMotion(): boolean {
@@ -172,10 +206,25 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
   const going = useRef(false);
   /** A bet being reverted arrives rather than travels. See `callOff`. */
   const reverting = useRef(false);
+  /** Whether this bar's room was hidden when it was last looked at. */
+  const wasHidden = useRef(false);
 
   const measure = useCallback(() => {
     const host = ref.current;
     if (!host) return;
+    if (!onScreen(host)) {
+      /*
+       * A hidden room's bar. Measuring here writes zeroes; see `onScreen`.
+       * The outstanding bet goes with it, because the press that placed it
+       * was on a bar the reader is no longer looking at.
+       */
+      wasHidden.current = true;
+      aimed.current = null;
+      return;
+    }
+    /* Shown again: arrive on the cell, never travel across the bar to it. */
+    const arriving = wasHidden.current;
+    wasHidden.current = false;
     /*
      * Descendant, not `:scope >`. The laptop's folded picker puts `data-on`
      * on a trigger nested inside a dropdown, not on a direct child of the
@@ -198,7 +247,7 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
     const target = aimed.current ?? on;
     const next = target ? markOf(target) : null;
     if (!sameMark(lastMark.current, next)) {
-      if (lastMark.current && next && !reverting.current) {
+      if (lastMark.current && next && !reverting.current && !arriving) {
         const heading = travelDirection(lastMark.current, next);
         setDir(heading);
         swell(host, heading, breathing, tune);
@@ -209,7 +258,7 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
        * across the bar for a room the reader never went to, which is
        * exactly the thing they would report as a glitch.
        */
-      if (next) glide(pane, reverting.current ? null : lastMark.current, next, gliding, {
+      if (next) glide(pane, reverting.current || arriving ? null : lastMark.current, next, gliding, {
         durationMs: tune.travelMs,
         lagMs: tune.lagMs,
       });
@@ -218,7 +267,8 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
     }
 
     const cell = hoverCell.current;
-    const overIt = cell && host.contains(cell) ? markOf(cell) : null;
+    const overIt =
+      cell && host.contains(cell) && onScreen(cell) ? markOf(cell) : null;
     if (overIt && !sameMark(lastHover.current, overIt)) {
       if (lastHover.current) {
         setHoverDir(travelDirection(lastHover.current, overIt));
