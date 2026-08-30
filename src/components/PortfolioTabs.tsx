@@ -31,6 +31,8 @@ type Props = {
   hideAdd?: boolean;
   /** Today's $ direction per portfolio id — glanceable dot per portfolio cell. */
   sheetTodayTone?: Record<string, "up" | "down" | null>;
+  /** Alerts waiting, drawn on Home exactly as the phone bar draws them. */
+  alertCount?: number;
   className?: string;
 };
 
@@ -64,6 +66,7 @@ export function PortfolioTabs({
   hiddenModeIds = [],
   hideAdd = false,
   sheetTodayTone,
+  alertCount = 0,
   className,
 }: Props) {
   const [menu, setMenu] = useState<OpenMenu | null>(null);
@@ -129,6 +132,7 @@ export function PortfolioTabs({
           guest={guest}
           sheets={portfolios}
           sheetTodayTone={sheetTodayTone}
+          alertCount={alertCount}
           onAddSheet={!guest && !hideAdd ? onAdd : undefined}
           onSheetMenu={!guest ? openSheetMenu : undefined}
           onSheetRename={!guest ? onRenameRequest : undefined}

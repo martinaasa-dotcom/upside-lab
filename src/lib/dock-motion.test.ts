@@ -264,3 +264,68 @@ describe("the pointer's pane answers the right inputs", () => {
     );
   });
 });
+
+describe("the marker leaves on the press, not on the route", () => {
+  const HOOK = readFileSync("src/lib/use-dock-marker.ts", "utf8");
+
+  it("aims at the pressed cell before the room answers", () => {
+    /*
+     * `activeId` is read from `usePathname()`, so without this the marker
+     * cannot begin moving until the App Router commits. That ties the whole
+     * bar to the network rather than to the finger.
+     */
+    expect(HOOK).toMatch(/const target = aimed\.current \?\? on/);
+  });
+
+  it("only bets on a cell that goes somewhere in this tab", () => {
+    const press = HOOK.slice(HOOK.indexOf("const press = "), HOOK.indexOf("const release = "));
+    // The add cell opens a dialog and the picker opens a menu: neither is a
+    // destination, so neither may move the marker.
+    expect(press).toContain("[data-dock-goes]");
+    // A middle click or a held modifier opens the room in another tab.
+    expect(press).toMatch(/e\.button !== 0/);
+    expect(press).toMatch(/e\.metaKey/);
+    expect(press).toMatch(/e\.ctrlKey/);
+  });
+
+  it("calls the bet off three ways, so the marker cannot lie", () => {
+    // Released somewhere other than the cell it started on.
+    expect(HOOK).toMatch(/if \(over !== aimed\.current\) callOff\(\)/);
+    // The room answered with a different cell, or the cell is gone.
+    expect(HOOK).toMatch(/on === aimed\.current \|\| !host\.contains\(aimed\.current\)/);
+    // Nothing answered at all.
+    expect(HOOK).toMatch(/setTimeout\(callOff, AIM_GIVES_UP_MS\)/);
+  });
+
+  it("gives up late rather than early", () => {
+    // Snapping home mid-wait looks more broken than standing still.
+    const ms = Number(HOOK.match(/AIM_GIVES_UP_MS = (\d+)/)?.[1]);
+    expect(ms).toBeGreaterThanOrEqual(2000);
+  });
+});
+
+describe("both docks spend the accent on news", () => {
+  const WIDE = readFileSync("src/components/BookModeDock.tsx", "utf8");
+  const PHONE = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");
+
+  it("draws the dot on Home in both bars, not just the phone", () => {
+    // The laptop dock drew nothing for months, which was an accident: the
+    // two docks are one design and the accent is spent on news.
+    for (const src of [WIDE, PHONE]) {
+      expect(src).toMatch(/alertCount > 0 && !on|alertCount > 0 && !active/);
+      expect(src).toContain("rounded-full bg-primary");
+    }
+  });
+
+  it("keeps no tooltip that only restates a visible label", () => {
+    /*
+     * A `title` draws the browser's own unstyled tooltip a second after the
+     * pointer settles, which is now a second answer to a gesture the hover
+     * pane already answered. The one that stays teaches an interaction that
+     * has no other home: right-click to rename or delete.
+     */
+    const titles = [...WIDE.matchAll(/title=\{?["']?([^"'}\n]*)/g)].map((m) => m[1]);
+    expect(titles.length, "only the portfolio cells keep a title").toBe(1);
+    expect(WIDE).toMatch(/right-click to rename or delete/);
+  });
+});

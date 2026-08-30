@@ -28,6 +28,12 @@ export type DockMarkerState = {
   travels: boolean;
 };
 
+/**
+ * How long the marker will stand where a press put it with no answer from
+ * the room. Long on purpose: see the press effect below.
+ */
+const AIM_GIVES_UP_MS = 4000;
+
 function markOf(host: HTMLElement, cell: HTMLElement): DockMark {
   return markGeometry(host.clientWidth, cell.offsetLeft, cell.offsetWidth);
 }
@@ -112,6 +118,9 @@ export function useDockMarker(): DockMarkerState {
   const hoverCell = useRef<HTMLElement | null>(null);
   /** The capsule's breath, so a second travel replaces it rather than stacking. */
   const breathing = useRef<Animation | null>(null);
+  /** The cell a press is betting on, until the router agrees or the bet is off. */
+  const aimed = useRef<HTMLElement | null>(null);
+  const aimTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const measure = useCallback(() => {
     const host = ref.current;
@@ -122,7 +131,20 @@ export function useDockMarker(): DockMarkerState {
      * well. A direct-child query would leave that cell unlit.
      */
     const on = host.querySelector<HTMLElement>("[data-on]");
-    const next = on ? markOf(host, on) : null;
+    /*
+     * A press outstanding, so the marker is already where the reader aimed
+     * it and the router has not caught up yet. The bet is settled when the
+     * room answers with that same cell, when it answers with a different
+     * one (a redirect), or when the cell stops existing.
+     */
+    if (
+      aimed.current &&
+      (on === aimed.current || !host.contains(aimed.current))
+    ) {
+      aimed.current = null;
+    }
+    const target = aimed.current ?? on;
+    const next = target ? markOf(host, target) : null;
     if (!sameMark(lastMark.current, next)) {
       if (lastMark.current && next) {
         const heading = travelDirection(lastMark.current, next);
@@ -270,6 +292,103 @@ export function useDockMarker(): DockMarkerState {
       host.removeEventListener("focusout", blur);
     };
   }, []);
+
+  /*
+   * THE MARKER LEAVES ON THE PRESS, NOT ON THE ROUTE.
+   *
+   * `activeId` is read from `usePathname()`, so without this the marker
+   * cannot begin moving until the App Router commits the new route. Every
+   * bit of the motion above is downstream of that, which means the whole
+   * bar is tied to the network rather than to the finger. Prefetching
+   * makes the wait short on a good connection; short and attached are
+   * different feelings, and the gap widens exactly when the connection is
+   * worst. iOS moves its indicator on touch-down, and this is that.
+   *
+   * It is a bet, so it has to be able to lose. Three ways it is called off:
+   * the release landed somewhere other than the cell (a press dragged off
+   * is not a tap), the room answered with a different cell than the one
+   * predicted, or nothing happened at all inside `AIM_GIVES_UP_MS`. The
+   * last is the backstop for a navigation that is silently refused, and it
+   * is long on purpose: snapping the marker home mid-wait would look far
+   * more broken than letting it sit where the reader put it.
+   */
+  useEffect(() => {
+    const host = ref.current;
+    if (!host) return;
+
+    const callOff = () => {
+      if (aimTimer.current) {
+        clearTimeout(aimTimer.current);
+        aimTimer.current = null;
+      }
+      if (!aimed.current) return;
+      aimed.current = null;
+      measure();
+    };
+
+    const aim = (cell: HTMLElement) => {
+      const host2 = ref.current;
+      if (!host2 || !host2.contains(cell)) return;
+      if (cell === host2.querySelector("[data-on]")) return;
+      aimed.current = cell;
+      if (aimTimer.current) clearTimeout(aimTimer.current);
+      aimTimer.current = setTimeout(callOff, AIM_GIVES_UP_MS);
+      measure();
+    };
+
+    const press = (e: PointerEvent) => {
+      /*
+       * Only a plain primary press goes anywhere in this tab. A middle
+       * click or a held modifier opens the room in a new one, and the
+       * marker moving for a room the reader is still not in is the one
+       * way this can be worse than waiting.
+       */
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+        return;
+      }
+      const cell =
+        e.target instanceof Element
+          ? e.target.closest<HTMLElement>("[data-dock-goes]")
+          : null;
+      if (cell) aim(cell);
+    };
+
+    /*
+     * A release anywhere but on the cell it started on is not a tap, and
+     * no navigation follows it. `document` rather than the well, because
+     * the finger that wandered off has usually left the bar entirely.
+     */
+    const release = (e: PointerEvent) => {
+      if (!aimed.current) return;
+      const over =
+        e.target instanceof Element
+          ? e.target.closest<HTMLElement>("[data-dock-goes]")
+          : null;
+      if (over !== aimed.current) callOff();
+    };
+
+    /* A keyboard never presses, and Enter is how it opens a link. */
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || e.metaKey || e.ctrlKey) return;
+      const cell =
+        e.target instanceof Element
+          ? e.target.closest<HTMLElement>("[data-dock-goes]")
+          : null;
+      if (cell) aim(cell);
+    };
+
+    host.addEventListener("pointerdown", press);
+    host.addEventListener("keydown", key);
+    document.addEventListener("pointerup", release);
+    document.addEventListener("pointercancel", callOff);
+    return () => {
+      host.removeEventListener("pointerdown", press);
+      host.removeEventListener("keydown", key);
+      document.removeEventListener("pointerup", release);
+      document.removeEventListener("pointercancel", callOff);
+      if (aimTimer.current) clearTimeout(aimTimer.current);
+    };
+  }, [measure]);
 
   /*
    * Held still until it has been placed once, or the first paint draws a

@@ -239,6 +239,7 @@ export function MobileTabBar({
               prefetch
               data-tab={id}
               data-dock-cell
+              data-dock-goes
               data-on={on ? "" : undefined}
               aria-label={label}
               aria-current={on ? "page" : undefined}

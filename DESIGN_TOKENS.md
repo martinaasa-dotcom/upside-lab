@@ -1643,6 +1643,75 @@ Reproduced against the same numbers: peak **+4.51%** at 33ms, +3.46% at
 133ms, +1.31% at 233ms, home at 300ms, with the left end out 11.1px against
 the right end's 22.6px — 1:2, and the height unchanged at 52px.
 
+### The marker leaves on the press, and the route only confirms it (2026-08-30)
+
+`activeId` is read from `usePathname()`, so every bit of the motion above
+used to be downstream of the App Router committing a route. That ties the
+whole bar to the network rather than to the finger. Prefetching makes the
+wait short on a good connection; **short and attached are different
+feelings**, and the gap widens exactly when the connection is worst. iOS
+moves its indicator on touch-down.
+
+So `useDockMarker` places a bet. A `pointerdown` on a cell sets `aimed`,
+`measure` positions the marker at `aimed.current ?? on`, and the router
+arriving on that same cell clears the bet with the marker already there.
+
+**A bet has to be able to lose, and this one loses three ways:**
+
+1. The release landed somewhere other than the cell it started on. A press
+   dragged off is not a tap and no navigation follows it.
+2. The room answered with a different cell (a redirect), or the cell
+   stopped existing (a portfolio deleted mid-press).
+3. Nothing answered at all inside `AIM_GIVES_UP_MS`.
+
+That last number is **4000ms and is deliberately long**. It is the backstop
+for a navigation silently refused, not a timeout on slowness: snapping the
+marker home mid-wait looks far more broken than letting it stand where the
+reader put it.
+
+**Only a plain primary press bets.** A middle click or a held modifier
+opens the room in *another tab*, and a marker moving for a room this tab is
+not in is the one way this can be worse than waiting. And only
+`[data-dock-goes]` cells bet, so the add cell (which opens a dialog) and
+the folded picker (which opens a menu) never move it -- `data-dock-cell`
+still marks every cell for measuring and hovering, because those are
+different questions.
+
+Measured against a harness with a 600ms simulated router: the marker is at
+242.9px **16ms after `pointerdown`** on its way to 692.5, still travelling
+at 300ms, and lands exactly on the cell. A press dragged off moves it
+optimistically and returns it on release. A refused navigation leaves it
+standing at 2.3s and returns it at 4s.
+
+### The laptop dock says when there is news
+
+`alertCount` reached `MobileTabBar` and nothing else, so the phone drew the
+gold dot on Home and the laptop drew nothing. That was an accident rather
+than a decision: the two docks are one design, and the rule that survives
+every other pass here is that the accent is spent on news and nothing else.
+It is wired through `PortfolioTabs` now and drawn in the same place, at the
+same size, under the same condition -- only while Home is not the room you
+are in.
+
+### No tooltip that only restates the label
+
+A `title` draws the browser's own tooltip: unstyled OS chrome, about a
+second after the pointer settles, over the most carefully made surface in
+the app. That was tolerable while hovering had no answer of its own. It is
+not now -- the pointer drags a pane with it the instant it arrives, so a
+grey box a second later is a second answer to one gesture, and the slower
+and uglier of the two.
+
+Four went: the section cells' longer descriptions, "Your portfolios" on the
+picker, "New portfolio" on the add cell, and "Upside Circle". Nothing
+accessible was lost, because every cell carries a visible label or an
+`aria-label` and still has a name.
+
+**The line to remember: a title that restates the label goes, a title that
+teaches an interaction stays until it has a better home.** The portfolio
+cells keep theirs, because "right-click to rename or delete" is the only
+hint that menu exists anywhere in the product.
+
 ### Hovering is the same object, and a press is answered before the room is
 
 A pointer moving along the bar now drags **one fainter pane** with it

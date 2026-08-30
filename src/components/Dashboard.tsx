@@ -2166,6 +2166,7 @@ export function Dashboard() {
       activeId={onBook ? activeId : null}
       onAdd={() => setCreatingSheet(true)}
       sheetTodayTone={sheetTodayTone}
+      alertCount={activeAlerts.length}
       hiddenModeIds={hiddenMetaTabIds}
       /*
        * Account-level, never route-level. This used to be `!onBook`, which
