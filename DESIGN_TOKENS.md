@@ -1788,6 +1788,65 @@ Reproduced against the same numbers: peak **+4.51%** at 33ms, +3.46% at
 133ms, +1.31% at 233ms, home at 300ms, with the left end out 11.1px against
 the right end's 22.6px — 1:2, and the height unchanged at 52px.
 
+### Chasing the router commit, and what it turned out to be (2026-08-30)
+
+> *"The next real lever is the App Router commit itself" — do it.*
+
+Done, and the answer is that **there is no lever there**, which took five
+hypotheses to establish. Recorded here so nobody spends the evening again.
+Everything below is a Chrome trace of the real app in demo mode with the
+canonical seed, driven by the real dock, with a **baseline** taken over the
+same window with no tap at all.
+
+**The baseline matters more than any of it.** Idle, over 2.2 seconds, the
+app costs `style 0ms, layout 1ms, js 2ms` at 1x and `7ms / 6ms / 22ms` at
+4x. So the app is genuinely quiet between taps and every number below is
+the hop.
+
+**Per hop, at 4x CPU:** style recalc **134-261ms**, JS **284-586ms**,
+layout 15-87ms, over a document of **591-1054 elements**. At 1x the same
+hops are style **17-55ms**, JS **51-109ms**, layout 3-20ms.
+
+**What it is not.** Five hypotheses, each measured and each wrong:
+
+1. *The main thread is idle, waiting on React's scheduler.* No — a full
+   trace is **81% busy with zero gaps over 8ms**. The earlier "85.6% idle"
+   reading came from a truncated trace and a probe that polled
+   `innerHTML.length` every frame.
+2. *A dynamic chunk is fetched on the tap.* True, and fixed (see above),
+   and it moved nothing: the chunk is not on the critical path.
+3. *`useDockPad` writes a custom property on `<html>`, invalidating the
+   document.* Instrumented the root element's `setProperty`/`setAttribute`
+   directly: **zero writes during a hop.**
+4. *The mounted rooms re-render on every navigation.* Wrapped them in
+   `memo`; no benefit past the noise, reverted.
+5. *The dock forces layout on every render.* It did, and that is worth
+   fixing on its own terms (below), but removing it moved the style figure
+   by less than the run-to-run noise.
+
+**What it is: the app rendering the destination panel.** JS tracks the size
+of the room being built — Circle at 1048 nodes costs 284ms, Lab at 591
+costs 293ms, Growth at 1054 costs 520ms — and the style recalc follows the
+DOM churn, which is up to 460 elements created or destroyed per hop. That
+is the actual work of showing a different page, and at 1x it lands at
+**70-180ms of main-thread work per hop**, which is an ordinary transition.
+
+So the remaining lever is not the router and not the dock: it is **how much
+each panel renders**. Overview and Growth are the heavy ones at about a
+thousand elements. Making a tap feel instant from here is per-panel product
+work, not a framework trick.
+
+**The dock's own share was still worth taking out**, because it is pure
+waste rather than the price of a page: `measure` runs in a layout effect
+with no dependency list, so it runs after every render of the bar, and
+`markOf` reads `offsetLeft`/`offsetWidth`, each of which forces the browser
+to recompute style and layout before it can answer. Three bars are mounted
+at once and a route change renders each many times. What actually moves the
+marker is the active cell changing or the pointer moving, both of which are
+**element identity** and cost nothing to compare; geometry changing under a
+still marker is the ResizeObserver's job and always was. An ordinary
+re-render is now two pointer comparisons and a return.
+
 ### Where a tap actually spends its time (2026-08-30)
 
 > *"I want pages to tap and load instantly."*
