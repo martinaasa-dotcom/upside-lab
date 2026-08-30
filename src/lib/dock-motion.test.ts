@@ -13,31 +13,30 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  MARKER_MS,
+  SAMPLE_MS,
   SWELL_PEAK,
   markGeometry,
   sameMark,
   swellFrames,
   travelDirection,
+  travelKeyframes,
 } from "@/lib/dock-motion";
 
 const CSS = readFileSync("src/app/dock.css", "utf8");
 
 describe("dock marker geometry", () => {
-  it("gives two insets that add up to the well", () => {
-    const mark = markGeometry(600, 120, 96);
-    expect(mark).toEqual({ left: 120, right: 384 });
-    expect(mark.left + 96 + mark.right).toBe(600);
+  it("is a cell's left edge and its width", () => {
+    expect(markGeometry(120, 96)).toEqual({ left: 120, width: 96 });
   });
 
-  it("never reports a negative inset for a cell wider than the well", () => {
-    // A row mid-resize can measure a cell that has not been re-laid out
-    // yet. A negative `right` would push the pane off the far edge.
-    expect(markGeometry(100, 0, 400).right).toBe(0);
+  it("never reports a negative width", () => {
+    expect(markGeometry(0, -5).width).toBe(0);
   });
 
   it("is idempotent, so measuring cannot re-render forever", () => {
-    const a = markGeometry(600, 120, 96);
-    const b = markGeometry(600, 120, 96);
+    const a = markGeometry(120, 96);
+    const b = markGeometry(120, 96);
     expect(sameMark(a, b)).toBe(true);
     expect(sameMark(a, null)).toBe(false);
     expect(sameMark(null, null)).toBe(true);
@@ -46,8 +45,8 @@ describe("dock marker geometry", () => {
 
 describe("dock marker direction", () => {
   it("reads the way it is going off the left edge", () => {
-    const home = markGeometry(600, 0, 96);
-    const away = markGeometry(600, 300, 96);
+    const home = markGeometry(0, 96);
+    const away = markGeometry(300, 96);
     expect(travelDirection(home, away)).toBe("right");
     expect(travelDirection(away, home)).toBe("left");
   });
@@ -56,50 +55,61 @@ describe("dock marker direction", () => {
     // The cell grew or shrank under a still marker. There is no journey,
     // so neither edge leads and both settle together.
     expect(
-      travelDirection(markGeometry(600, 120, 96), markGeometry(620, 120, 110))
+      travelDirection(markGeometry(120, 96), markGeometry(120, 110))
     ).toBe(null);
   });
 });
 
-describe("the marker stretches", () => {
-  it("lags the trailing edge behind the leading one", () => {
+describe("the marker travels on the compositor", () => {
+  const from = markGeometry(0, 120);
+  const to = markGeometry(124, 120);
+  const frames = travelKeyframes(from, to);
+  const px = (f: Keyframe) =>
+    Number(String(f.transform).match(/translateX\((-?[\d.]+)px\)/)![1]);
+  const sx = (f: Keyframe) =>
+    Number(String(f.transform).match(/scaleX\(([\d.]+)\)/)![1]);
+
+  it("moves with a transform, never with a layout property", () => {
     /*
-     * Both edges take the same time and the same curve; the trailing one
-     * sets off later. Traced off the reference's own pill, whose trailing
-     * edge holds a roughly constant fifth of the journey behind the
-     * leading one the whole way. A constant lag is the back of a blob
-     * following the front at a fixed distance, which is why the reference
-     * reads as one object rather than a stretched rectangle.
+     * `left` and `right` are laid out on the main thread, which is exactly
+     * what a route change is busy with: measured on a phone recording,
+     * every travel stalled four to six frames mid-flight and then jumped.
      */
-    const delay = Number(CSS.match(/--dock-trail-delay:\s*(\d+)ms/)?.[1]);
-    expect(delay, "no lag, no stretch").toBeGreaterThan(0);
-    expect(delay, "a lag this long tears the pill in two").toBeLessThan(80);
-  });
-
-  it("puts the lag on the trailing side, both ways", () => {
-    // Going right, the left edge is the one that trails. Swap these and
-    // the pill stretches backwards, away from where it is going.
-    const right = CSS.slice(CSS.indexOf('[data-dir="right"]'));
-    expect(right.slice(0, right.indexOf("}"))).toMatch(
-      /--dock-left-delay:\s*var\(--dock-trail-delay\)/
-    );
-    const left = CSS.slice(CSS.indexOf('[data-dir="left"]'));
-    expect(left.slice(0, left.indexOf("}"))).toMatch(
-      /--dock-right-delay:\s*var\(--dock-trail-delay\)/
+    for (const f of frames) expect(String(f.transform)).toMatch(/^translateX\(/);
+    expect(CSS).toMatch(/transform-origin:\s*0 50%/);
+    expect(CSS, "geometry must not transition").not.toMatch(
+      /transition-property:\s*left/
     );
   });
 
-  it("moves the edges themselves, never a transform", () => {
-    // A transform cannot stretch a pill without stretching its round ends
-    // into ellipses, and the ends are most of what makes it a pill.
-    expect(CSS).toMatch(/transition-property:\s*left,\s*right,\s*opacity/);
-    expect(CSS).toMatch(/transition-delay:/);
+  it("starts where it was and lands exactly on the cell", () => {
+    expect(px(frames[0])).toBeCloseTo(0, 3);
+    expect(sx(frames[0])).toBeCloseTo(1, 3);
+    const last = frames[frames.length - 1];
+    expect(px(last)).toBeCloseTo(124, 3);
+    expect(sx(last), "at rest the caps must be circles").toBeCloseTo(1, 6);
   });
 
-  it("holds still until it has been placed once", () => {
-    expect(CSS).toMatch(
-      /\.dock-marker:not\(\[data-travels\]\)\s*\{\s*transition:\s*none/
-    );
+  it("stretches, gently, and never runs backwards", () => {
+    const peak = Math.max(...frames.map(sx));
+    expect(peak, "no lag, no stretch").toBeGreaterThan(1.02);
+    expect(peak, "a big lag on a round cap reads as an egg").toBeLessThan(1.2);
+    for (let i = 1; i < frames.length; i += 1) {
+      expect(px(frames[i])).toBeGreaterThanOrEqual(px(frames[i - 1]) - 0.001);
+    }
+  });
+
+  it("has a value for every frame the browser could draw", () => {
+    // "More frames" is the sampling: at 8ms the curve is the curve rather
+    // than an approximation of it.
+    expect(SAMPLE_MS).toBeLessThanOrEqual(8);
+    expect(frames.length).toBeGreaterThan(MARKER_MS / SAMPLE_MS);
+  });
+
+  it("leans the stretch toward where it is going", () => {
+    const back = travelKeyframes(to, from);
+    const mid = back[Math.floor(back.length / 3)];
+    expect(px(mid)).toBeLessThan(124);
   });
 });
 
@@ -181,8 +191,8 @@ describe("the capsule breathes with the travel", () => {
     expect(scaleOf(frames[frames.length - 1])).toBe(1);
     expect(Math.max(...frames.map(scaleOf))).toBeCloseTo(SWELL_PEAK, 5);
     // The reference peaked at +3.99% on the frame this was traced from.
-    expect(SWELL_PEAK).toBeGreaterThan(1.03);
-    expect(SWELL_PEAK).toBeLessThan(1.05);
+    expect(SWELL_PEAK).toBeGreaterThan(1.01);
+    expect(SWELL_PEAK).toBeLessThan(1.03);
   });
 
   it("swells rather than snapping, and comes home through an undershoot", () => {

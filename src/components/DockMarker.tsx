@@ -37,7 +37,8 @@ export function DockMarker({
           shape,
           hover && hovering ? "opacity-100" : "opacity-0"
         )}
-        style={hover ? { left: hover.left, right: hover.right } : undefined}
+        /* Geometry is written by `useDockMarker` on the element itself, so
+           the resting state and the travel are one story. See `glide`. */
       />
       <span
         aria-hidden
@@ -48,7 +49,7 @@ export function DockMarker({
           shape,
           mark ? "opacity-100" : "opacity-0"
         )}
-        style={mark ? { left: mark.left, right: mark.right } : undefined}
+
       />
     </>
   );
