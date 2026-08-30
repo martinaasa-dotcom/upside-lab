@@ -184,3 +184,24 @@ describe("coins", () => {
     expect(r.rows[0]?.shares).toBe(0.5);
   });
 });
+
+describe("an ISIN column settles the coin ambiguity", () => {
+  it("SOL with Emeren Group's ISIN is the company, not Solana", () => {
+    const r = parseHoldingsCsv(
+      "Ticker,Shares,Buy Price,ISIN\nSOL,300,1.90,US29103Y1010\nBTC,0.5,100000,"
+    );
+    expect(r.rows.map((x) => x.ticker)).toEqual(["SOL", "BTC-USD"]);
+  });
+
+  it("an EU ISIN still lands the row on its listed line", () => {
+    const r = parseHoldingsCsv(
+      "Ticker,Shares,Buy Price,ISIN\nRHM,2,1540,DE0007030009"
+    );
+    expect(r.rows[0]?.ticker).toBe("RHM.DE");
+  });
+
+  it("a file with no ISIN column reads the alias as the coin, as typing does", () => {
+    const r = parseHoldingsCsv("Ticker,Shares,Buy Price\nSOL,10,150");
+    expect(r.rows[0]?.ticker).toBe("SOL-USD");
+  });
+});

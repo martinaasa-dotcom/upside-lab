@@ -17,7 +17,10 @@ describe("DR wiring", () => {
     expect(vercel).toMatch(/\/api\/cron\/disaster-recovery/);
     expect(vercel).toMatch(/0 3 \* \* \*/);
     expect(cron).toMatch(/runDisasterRecoveryJob/);
-    expect(cron).toMatch(/observeRoute/);
+    // cronRoute carries observeRoute's timing plus the heartbeat ping
+    // (docs/CRON_MONITORING.md); cron-heartbeat.test.ts enforces it for
+    // every cron route, this just keeps the DR one's wiring readable here.
+    expect(cron).toMatch(/cronRoute/);
     expect(pkg).toMatch(/"dr:export"/);
     expect(pkg).toMatch(/"dr:restore"/);
     expect(pkg).toMatch(/"migrate:online"/);

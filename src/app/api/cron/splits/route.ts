@@ -1,7 +1,7 @@
 import { requireCronAuth } from "@/lib/cron-auth";
 import { applyDueSplits } from "@/lib/share-splits";
 import { NextResponse } from "next/server";
-import { observeRoute } from "@/lib/observe-route";
+import { cronRoute } from "@/lib/cron-heartbeat";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -25,4 +25,4 @@ async function handleGET(req: Request) {
   return NextResponse.json(result);
 }
 
-export const GET = observeRoute(handleGET, "/api/cron/splits");
+export const GET = cronRoute(handleGET, "/api/cron/splits");

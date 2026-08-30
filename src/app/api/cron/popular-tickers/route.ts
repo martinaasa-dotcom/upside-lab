@@ -2,7 +2,7 @@ import { requireCronAuth } from "@/lib/cron-auth";
 import { refreshPopularTickers } from "@/lib/popular-tickers-store";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import { observeRoute } from "@/lib/observe-route";
+import { cronRoute } from "@/lib/cron-heartbeat";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -42,4 +42,4 @@ async function handleGET(req: Request) {
   }
 }
 
-export const GET = observeRoute(handleGET, '/api/cron/popular-tickers');
+export const GET = cronRoute(handleGET, '/api/cron/popular-tickers');

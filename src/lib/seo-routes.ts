@@ -3,6 +3,10 @@
  * the book-room aliases all import this so a new authenticated path
  * cannot be indexed by accident.
  */
+// Relative on purpose: next.config.ts imports this file, and the config
+// transpiler follows relative imports only -- an `@/` alias here makes
+// `next start` fail to load the config at boot.
+import { MARK_ASSET_VERSION } from "./brand/mark-version";
 
 /** URLs that may be indexed and used as share cards. */
 export const PUBLIC_INDEX_PATHS = [
@@ -55,6 +59,6 @@ export const BOOK_ROOM_PATHS = [
   "/margus",
 ] as const;
 
-export const OG_IMAGE_PATH = "/og.png?v=8";
+export const OG_IMAGE_PATH = `/og.png?v=${MARK_ASSET_VERSION}`;
 export const OG_IMAGE_WIDTH = 1200;
 export const OG_IMAGE_HEIGHT = 630;

@@ -3,14 +3,21 @@
  * Signed-out landing smoke. No Google, no book, two viewports.
  *
  * The landing is the one page a stranger can reach, so this is the floor:
- * it paints, the ask is on screen, and the page does not scroll sideways
- * at phone or laptop width.
+ * it paints, the ask is on screen, the page does not scroll sideways at
+ * phone or laptop width, and an automated accessibility scan (axe-core,
+ * WCAG A + AA) finds nothing serious. The hand-picked suites
+ * (heading-scale, reader-copy) each hold one rule; the scan is the general
+ * pass that catches the label, landmark, name and contrast regressions
+ * none of them were written to find.
  *
  * Usage: after `npm run build`, `npm run test:landing`.
  * Starts `next start` on 4173 unless LANDING_SMOKE_URL is set.
  */
 import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
 import { chromium } from "playwright";
+
+const AXE_PATH = createRequire(import.meta.url).resolve("axe-core/axe.min.js");
 
 const PORT = Number(process.env.LANDING_SMOKE_PORT ?? 4173);
 const EXTERNAL = process.env.LANDING_SMOKE_URL?.replace(/\/$/, "") ?? "";
@@ -174,9 +181,91 @@ async function smoke(page, viewport) {
   }
 }
 
-const HARD_MS = 90_000;
+/*
+  The general accessibility pass, on whatever page is currently loaded.
+
+  Serious and critical violations fail the run; moderate and minor ones are
+  printed and tolerated, because a floor people trust is one that only goes
+  red for findings worth stopping a merge over. The scan runs per viewport
+  on purpose -- the phone and laptop layouts show different chrome, and a
+  control that only exists below `md` is invisible to a scan at 1280.
+*/
+async function scanA11y(page, label) {
+  await page.addScriptTag({ path: AXE_PATH });
+  const violations = await page.evaluate(async () => {
+    const result = await window.axe.run(document, {
+      resultTypes: ["violations"],
+      runOnly: { type: "tag", values: ["wcag2a", "wcag2aa"] },
+    });
+    return result.violations.map((v) => ({
+      id: v.id,
+      impact: v.impact,
+      help: v.help,
+      nodes: v.nodes.slice(0, 5).map((n) => n.target.join(" ")),
+    }));
+  });
+  const blocking = violations.filter(
+    (v) => v.impact === "serious" || v.impact === "critical"
+  );
+  const advisory = violations.filter((v) => !blocking.includes(v));
+  for (const v of advisory) {
+    console.warn(
+      `a11y advisory ${label}: ${v.id} (${v.impact}) ${v.help} -> ${v.nodes.join(", ")}`
+    );
+  }
+  if (blocking.length > 0) {
+    const detail = blocking
+      .map((v) => `${v.id} (${v.impact}) ${v.help} -> ${v.nodes.join(", ")}`)
+      .join("\n  ");
+    throw new Error(`${label}: axe found blocking violations:\n  ${detail}`);
+  }
+  console.log(`ok a11y ${label}`);
+}
+
+/*
+  Nothing pinned to the window may refilter the page scrolling under it.
+
+  A `position: fixed` element carrying a `backdrop-filter` re-filters its
+  backdrop on every frame of a scroll, and the measured cost on this very
+  page was 42 repainted frames with the bottom eighth of the screen
+  lagging where the page actually was (the old ScrollCue pill; the full
+  account is in AGENTS.md). The unit tests pin the components that were
+  fixed then; this walks the rendered page so the *next* pinned banner or
+  floating CTA cannot reintroduce the fault without failing here. The
+  signed-in chrome (the docks) deliberately carries fixed glass and is
+  not rendered on these signed-out pages, so a hit here is never that.
+*/
+async function scanFixedBlur(page, label) {
+  const offenders = await page.evaluate(() => {
+    const found = [];
+    for (const el of document.querySelectorAll("*")) {
+      const cs = getComputedStyle(el);
+      if (cs.position !== "fixed") continue;
+      const filter = cs.backdropFilter || cs.webkitBackdropFilter || "none";
+      if (filter === "none") continue;
+      const classes = String(el.className?.baseVal ?? el.className ?? "")
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 4)
+        .join(".");
+      found.push(
+        `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}${classes ? `.${classes}` : ""} (${filter})`
+      );
+    }
+    return found;
+  });
+  if (offenders.length > 0) {
+    throw new Error(
+      `${label}: position:fixed with a backdrop-filter over page content ` +
+        `(the 42-repainted-frames fault): ${offenders.join(", ")}`
+    );
+  }
+  console.log(`ok fixed-blur ${label}`);
+}
+
+const HARD_MS = 120_000;
 const hardTimer = setTimeout(() => {
-  console.error("landing smoke timed out after 90s");
+  console.error("landing smoke timed out after 120s");
   try {
     browser?.close();
   } catch {
@@ -206,6 +295,8 @@ try {
   for (const viewport of VIEWPORTS) {
     await smoke(page, viewport);
     console.log(`ok ${viewport.name} ${viewport.width}x${viewport.height}`);
+    await scanA11y(page, `landing ${viewport.name}`);
+    await scanFixedBlur(page, `landing ${viewport.name}`);
   }
   await page.goto(`${BASE}/privacy`, {
     waitUntil: "domcontentloaded",
@@ -215,6 +306,25 @@ try {
     timeout: 20_000,
   });
   console.log("ok privacy");
+  await scanA11y(page, "privacy");
+  await scanFixedBlur(page, "privacy");
+
+  /*
+    The other legal page a stranger can reach. /login and /communities are
+    deliberately not visited: their page components render null and the
+    signed-out gate paints the same surface the landing checks already
+    cover, so scanning them re-scans the hero.
+  */
+  await page.goto(`${BASE}/terms`, {
+    waitUntil: "domcontentloaded",
+    timeout: 45_000,
+  });
+  await page.getByRole("heading", { name: "Terms of Service" }).waitFor({
+    timeout: 20_000,
+  });
+  console.log("ok terms");
+  await scanA11y(page, "terms");
+  await scanFixedBlur(page, "terms");
 } catch (err) {
   failed = err;
 } finally {

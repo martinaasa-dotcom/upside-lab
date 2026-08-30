@@ -181,4 +181,6 @@ jobs:
       - name: Install Chromium for landing smoke
         run: npx playwright install --with-deps chromium
       - name: Landing smoke
-        run: timeout --kill-after=5s 90s npm run test:landing
+        # The extra 60s over the script's own 120s hard timer is head room
+        # for the axe passes, which run after the paint checks.
+        run: timeout --kill-after=5s 150s npm run test:landing

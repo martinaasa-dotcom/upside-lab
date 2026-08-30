@@ -67,6 +67,7 @@ vi.mock("@/lib/supabase/server", () => ({
       let window: [number, number] | null = null;
       q.select = () => q;
       q.not = () => q;
+      q.order = () => q;
       q.range = (from: number, to: number) => {
         window = [from, to];
         return q;
@@ -89,7 +90,12 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-vi.mock("@/lib/telemetry", () => ({ logEvent: () => {} }));
+// logError (which the reconcile's failure paths now go through) pulls in
+// sanitizeContext, so the double carries both.
+vi.mock("@/lib/telemetry", () => ({
+  logEvent: () => {},
+  sanitizeContext: () => null,
+}));
 
 import { reconcileBillingSubscriptions } from "@/lib/billing-reconcile";
 

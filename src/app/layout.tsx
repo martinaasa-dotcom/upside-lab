@@ -4,6 +4,7 @@ import { AmbientDither } from "@/components/AmbientDither";
 import { ConsentedAnalytics } from "@/components/ConsentedAnalytics";
 import { Providers } from "@/components/Providers";
 import { WebVitals } from "@/components/WebVitals";
+import { MARK_ASSET_VERSION } from "@/lib/brand/mark-version";
 import { PRODUCT_NAME } from "@/lib/product";
 import {
   OG_IMAGE,
@@ -95,17 +96,33 @@ export const metadata: Metadata = {
   */
   icons: {
     icon: [
-      { url: "/favicon.svg?v=10", type: "image/svg+xml" },
-      { url: "/icons/icon-16.png?v=10", sizes: "16x16", type: "image/png" },
-      { url: "/icons/icon-32.png?v=10", sizes: "32x32", type: "image/png" },
-      { url: "/icons/icon-48.png?v=10", sizes: "48x48", type: "image/png" },
-      { url: "/icons/icon-192.png?v=10", sizes: "192x192", type: "image/png" },
-      { url: "/favicon.ico?v=10", sizes: "16x16 32x32" },
+      { url: `/favicon.svg?v=${MARK_ASSET_VERSION}`, type: "image/svg+xml" },
+      {
+        url: `/icons/icon-16.png?v=${MARK_ASSET_VERSION}`,
+        sizes: "16x16",
+        type: "image/png",
+      },
+      {
+        url: `/icons/icon-32.png?v=${MARK_ASSET_VERSION}`,
+        sizes: "32x32",
+        type: "image/png",
+      },
+      {
+        url: `/icons/icon-48.png?v=${MARK_ASSET_VERSION}`,
+        sizes: "48x48",
+        type: "image/png",
+      },
+      {
+        url: `/icons/icon-192.png?v=${MARK_ASSET_VERSION}`,
+        sizes: "192x192",
+        type: "image/png",
+      },
+      { url: `/favicon.ico?v=${MARK_ASSET_VERSION}`, sizes: "16x16 32x32" },
     ],
-    shortcut: "/favicon.svg?v=10",
+    shortcut: `/favicon.svg?v=${MARK_ASSET_VERSION}`,
     apple: [
       {
-        url: "/apple-touch-icon.png?v=10",
+        url: `/apple-touch-icon.png?v=${MARK_ASSET_VERSION}`,
         sizes: "180x180",
         type: "image/png",
       },

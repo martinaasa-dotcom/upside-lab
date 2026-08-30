@@ -1,7 +1,7 @@
 import { requireCronAuth } from "@/lib/cron-auth";
 import { dispatchEmptyBookNudges } from "@/lib/empty-book-nudge";
 import { NextResponse } from "next/server";
-import { observeRoute } from "@/lib/observe-route";
+import { cronRoute } from "@/lib/cron-heartbeat";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -14,4 +14,4 @@ async function handleGET(req: Request) {
   return NextResponse.json(result, { status: result.status ?? 200 });
 }
 
-export const GET = observeRoute(handleGET, '/api/cron/empty-book-nudge');
+export const GET = cronRoute(handleGET, '/api/cron/empty-book-nudge');

@@ -194,6 +194,7 @@ export async function loadAliasMap(
       supabase
         .from(PORTFELL_TABLES.accountAliases)
         .select("alias_email, primary_email")
+        .order("alias_email")
     );
     for (const row of data) {
       const a = normalizeEmail(row.alias_email);

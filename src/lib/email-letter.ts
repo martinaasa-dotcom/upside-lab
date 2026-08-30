@@ -18,6 +18,8 @@
  * stack so columns of numbers line up the way they do in the app.
  */
 
+import { MARK_ASSET_VERSION } from "@/lib/brand/mark-version";
+
 export const EMAIL = {
   app: "#000000",
   card: "#171717",
@@ -31,7 +33,7 @@ export const EMAIL = {
   cardLine: "#333333",
   sans: "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif",
   mono: "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace",
-  lockup: "https://upsidelab.app/icons/email-lockup.png?v=5",
+  lockup: `https://upsidelab.app/icons/email-lockup.png?v=${MARK_ASSET_VERSION}`,
   origin: "https://upsidelab.app",
 } as const;
 

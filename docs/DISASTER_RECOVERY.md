@@ -196,6 +196,14 @@ other crons):
    gain. `src/lib/dr/config.test.ts` pins the default so it can't drift
    away from the number published in `src/app/privacy/page.tsx` §7.
 
+Where trouble lands: a failed run answers 503 (which pings the heartbeat's
+`/fail`, see `docs/CRON_MONITORING.md`), and a run that succeeded *with
+warnings* -- the quiet case, since "cold copy skipped, key not configured"
+still counts as ok -- writes a `portfell_error_log` row, so it shows in
+/admin and the daily error digest mails the day the state starts. A green
+heartbeat therefore means "the run completed", never "a backup exists";
+the error log is where that second question is answered.
+
 ## Retention backstop (do this once, in Cloudflare)
 
 The purge above runs *inside the cron*. If the cron stops running —
@@ -270,6 +278,33 @@ A drifted SUM exits 1.
    `payload.holdings` with the service role, or ask an agent to write that
    one-off load. Then point Vercel at the new URL + keys. Isolation is env,
    not a table rename.
+
+---
+
+## Restore rehearsal log
+
+`dr/restore-rehearsal.test.ts` exercises the mechanism in unit form on
+every pull request; that proves the code, not the practice. A backup
+strategy that has only ever been unit-tested is unverified in the one way
+that matters, so a real rehearsal -- decrypt the latest R2 object and run
+the restore validator against a scratch Supabase project, end to end,
+with real credentials -- gets a dated row here when it happens, the same
+way `MVP_AUDIT_LIVE_PASS.md` logs live-app passes. Aim for one row a
+quarter; the row is the proof, so no row means it has not happened.
+
+What a rehearsal is:
+
+1. `npx tsx scripts/restore-snapshot.ts --latest --require-sql` with real
+   `DR_S3_*` keys and `SNAPSHOT_ENCRYPTION_KEY`, pointed (via
+   `DATABASE_URL`) at a scratch project or a local Postgres, never at
+   production.
+2. Confirm the SUM check passes and note the snapshot's age.
+3. Add the row below, including anything that surprised you -- a surprise
+   during a rehearsal is the cheapest place to ever have it.
+
+| Date | Who | Snapshot restored | Outcome |
+| ---- | --- | ----------------- | ------- |
+| (none yet) | | | No live rehearsal recorded since this log was added. The next person to run one writes the first row. |
 
 ---
 

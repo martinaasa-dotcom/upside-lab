@@ -59,14 +59,16 @@ export async function captureBookPayload(
     const q = supabase
       .from(PORTFELL_TABLES.portfolios)
       .select("*")
-      .order("sort_order");
+      .order("sort_order")
+      .order("id");
     return ids?.length ? q.in("id", ids) : q;
   };
   const holdQ = () => {
     const q = supabase
       .from(PORTFELL_TABLES.holdings)
       .select("*")
-      .order("sort_order");
+      .order("sort_order")
+      .order("id");
     return ids?.length ? q.in("portfolio_id", ids) : q;
   };
 
