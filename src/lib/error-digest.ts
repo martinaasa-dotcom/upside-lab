@@ -211,7 +211,8 @@ export async function runErrorDigest(now = new Date()): Promise<{
       supabase
         .from(PORTFELL_TABLES.errorLog)
         .select("source, message, path, created_at")
-        .gte("created_at", windowStart),
+        .gte("created_at", windowStart)
+        .order("id"),
     "throw"
   );
   const priorRows = await readAll<ErrorRow>(
@@ -220,7 +221,8 @@ export async function runErrorDigest(now = new Date()): Promise<{
         .from(PORTFELL_TABLES.errorLog)
         .select("source, message, path, created_at")
         .gte("created_at", priorStart)
-        .lt("created_at", windowStart),
+        .lt("created_at", windowStart)
+        .order("id"),
     "throw"
   );
 

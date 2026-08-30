@@ -253,12 +253,17 @@ export async function collectUserExport(
     */
     const [pRows, hRows, cRows] = await Promise.all([
       readAll<unknown>(() =>
-        supabase.from(PORTFELL_TABLES.portfolios).select("*").in("id", portfolioIds)
+        supabase
+          .from(PORTFELL_TABLES.portfolios)
+          .select("*")
+          .in("id", portfolioIds)
+          .order("id")
       ),
       readAll<unknown>(() =>
         supabase
           .from(PORTFELL_TABLES.holdings)
           .select("*")
+          .order("id")
           .in("portfolio_id", portfolioIds)
       ),
       readAll<unknown>(() =>
@@ -267,6 +272,7 @@ export async function collectUserExport(
           .select("id, portfolio_id, user_id, delta, balance_after, created_at")
           .in("portfolio_id", portfolioIds)
           .order("created_at", { ascending: true })
+          .order("id")
       ),
     ]);
     portfolios = pRows;

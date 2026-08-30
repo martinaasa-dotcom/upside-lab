@@ -18,6 +18,16 @@
   The page size is deliberately below the default cap rather than at it. A
   loop that asks for exactly as many rows as it is allowed cannot tell a full
   page from a truncated one.
+
+  The builder MUST carry a deterministic, unique order (`.order(...)` ending
+  on a primary-key column). Each page is its own statement, and Postgres
+  makes no promise about the order of an unordered scan between statements:
+  synchronized and parallel sequential scans genuinely start at different
+  points run to run, so two unordered pages can overlap or gap and the walk
+  returns duplicated or missing rows with nothing failing. A non-unique
+  order (`sort_order`, `created_at`) has the same hole at every tie that
+  straddles a page boundary, which is why the call sites order by the key
+  as the final term. `read-all-ordering.test.ts` is the floor.
 */
 
 const PAGE = 500;

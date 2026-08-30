@@ -53,7 +53,8 @@ export async function reconcileBillingSubscriptions(): Promise<BillingReconcileR
           .select(
             "id, stripe_customer_id, stripe_subscription_id, subscription_status"
           )
-          .not("stripe_customer_id", "is", null),
+          .not("stripe_customer_id", "is", null)
+          .order("id"),
       "throw"
     );
   } catch (err) {

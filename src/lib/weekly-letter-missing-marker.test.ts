@@ -28,13 +28,17 @@ const PROFILES = [
 */
 function page<T>(payload: T) {
   const done = Promise.resolve(payload);
-  return {
+  const builder = {
+    // The real builder's .order() returns itself; the fake's data is
+    // already deterministic, so this is just the chain link.
+    order: () => builder,
     range: (from: number) =>
       from === 0 ? done : Promise.resolve({ data: [], error: null }),
     then: (...a: Parameters<Promise<T>["then"]>) => done.then(...a),
     catch: (...a: Parameters<Promise<T>["catch"]>) => done.catch(...a),
     finally: (...a: Parameters<Promise<T>["finally"]>) => done.finally(...a),
   };
+  return builder;
 }
 
 vi.mock("@/lib/supabase/server", () => ({

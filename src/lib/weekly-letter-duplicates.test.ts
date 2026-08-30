@@ -64,6 +64,7 @@ function builder(table: string) {
     window ? rows.slice(window[0], window[1] + 1) : rows;
   const chain: Record<string, unknown> = {
     select: () => chain,
+    order: () => chain,
     eq: () => chain,
     // Every batched read is paged now (lib/supabase/read-all), so the double
     // has to answer a window. These fixtures are far shorter than one page,

@@ -53,12 +53,16 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
         supabase
           .from(PORTFELL_TABLES.communityMembers)
           .select("user_id, role, joined_at")
+          .order("community_id")
+          .order("user_id")
           .eq("community_id", id)
       ),
       readAll<{ portfolio_id: string; label: string | null }>(() =>
         supabase
           .from(PORTFELL_TABLES.communityPortfolios)
           .select("portfolio_id, label")
+          .order("community_id")
+          .order("portfolio_id")
           .eq("community_id", id)
       ),
       supabase
@@ -85,6 +89,7 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
         supabase
           .from(PORTFELL_TABLES.profiles)
           .select("id, email, display_name, avatar_url, bio")
+          .order("id")
           .in("id", memberIds)
       )
     : [];
@@ -115,6 +120,7 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
         supabase
           .from(PORTFELL_TABLES.portfolios)
           .select("id, slug")
+          .order("id")
           .in("id", pinnedIds)
       );
       pinnedOnlyIds = sheets
@@ -145,6 +151,8 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
           supabase
             .from(PORTFELL_TABLES.portfolioOwners)
             .select("portfolio_id, user_id")
+            .order("portfolio_id")
+            .order("user_id")
             .in("user_id", userIds)
         )
       : [];
@@ -166,6 +174,8 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
         supabase
           .from(PORTFELL_TABLES.portfolioOwners)
           .select("portfolio_id, user_id")
+          .order("portfolio_id")
+          .order("user_id")
           .in("portfolio_id", portfolioIds)
       )
     : [];
@@ -195,6 +205,7 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
           )
           .in("id", portfolioIds)
           .order("sort_order")
+          .order("id")
       ),
       readAll<unknown>(() =>
         supabase
@@ -204,6 +215,7 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
           )
           .in("portfolio_id", portfolioIds)
           .order("sort_order")
+          .order("id")
       ),
     ]);
     portfolios = p;
@@ -277,6 +289,7 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
       supabase
         .from(PORTFELL_TABLES.labState)
         .select("owner_id, conviction")
+        .order("id")
         .in("owner_id", memberIds)
     );
     const convictionByOwner = new Map<

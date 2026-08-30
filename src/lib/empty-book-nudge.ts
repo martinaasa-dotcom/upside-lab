@@ -171,6 +171,8 @@ export async function dispatchEmptyBookNudges(): Promise<{
         supabase
           .from(PORTFELL_TABLES.portfolioOwners)
           .select("portfolio_id, user_id")
+          .order("portfolio_id")
+          .order("user_id")
           .in("user_id", dueUserIds)
       )
     : [];
@@ -187,6 +189,7 @@ export async function dispatchEmptyBookNudges(): Promise<{
         supabase
           .from(PORTFELL_TABLES.portfolios)
           .select("id, classroom_community_id")
+          .order("id")
           .in("id", allIds)
       )
     : [];
@@ -214,6 +217,7 @@ export async function dispatchEmptyBookNudges(): Promise<{
         supabase
           .from(PORTFELL_TABLES.holdings)
           .select("ticker, shares, portfolio_id")
+          .order("id")
           .in("portfolio_id", allIds)
       )
     : [];

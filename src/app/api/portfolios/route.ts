@@ -78,7 +78,8 @@ async function handleGET(req: NextRequest) {
           .from(PORTFELL_TABLES.portfolios)
           .select(PORTFOLIO_COLUMNS)
           .in("id", ownedIds)
-          .order("sort_order"),
+          .order("sort_order")
+          .order("id"),
       "throw"
     );
   } catch (err) {
@@ -108,7 +109,8 @@ async function handleGET(req: NextRequest) {
             .from(PORTFELL_TABLES.holdings)
             .select(HOLDING_COLUMNS)
             .in("portfolio_id", portfolioIds)
-            .order("sort_order"),
+            .order("sort_order")
+            .order("id"),
         "throw"
       );
     } catch (err) {
@@ -132,6 +134,7 @@ async function handleGET(req: NextRequest) {
       supabase
         .from(PORTFELL_TABLES.communities)
         .select("id, class_plan, house_note")
+        .order("id")
         .in("id", classIds)
     );
     const classRows = classes as {

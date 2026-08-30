@@ -312,7 +312,8 @@ export async function dispatchWeeklyLetters(
         supabase
           .from(PORTFELL_TABLES.profiles)
           .select("id, email, display_name, note_sunday_sent_at")
-          .eq("note_sunday", true),
+          .eq("note_sunday", true)
+          .order("id"),
       "throw"
     );
 
@@ -322,7 +323,8 @@ export async function dispatchWeeklyLetters(
         supabase
           .from(PORTFELL_TABLES.profiles)
           .select("id, email, display_name")
-          .eq("note_sunday", true),
+          .eq("note_sunday", true)
+          .order("id"),
       "throw"
     );
 
@@ -471,6 +473,8 @@ export async function dispatchWeeklyLetters(
           .from(PORTFELL_TABLES.portfolioOwners)
           .select("portfolio_id, user_id")
           .in("user_id", userIds)
+          .order("portfolio_id")
+          .order("user_id")
       )
     : [];
   const ownsByUser = groupBy(ownRows, (r) => r.user_id);
@@ -484,6 +488,7 @@ export async function dispatchWeeklyLetters(
           .from(PORTFELL_TABLES.portfolios)
           .select("id, cash_balance, classroom_community_id")
           .in("id", allPortfolioIds)
+          .order("id")
       )
     : [];
   const bookById = new Map(bookRows.map((b) => [b.id, b]));
@@ -496,6 +501,7 @@ export async function dispatchWeeklyLetters(
           // that predates a split from one the reader has already fixed.
           .select("ticker, shares, buy_price, portfolio_id, updated_at")
           .in("portfolio_id", allPortfolioIds)
+          .order("id")
       )
     : [];
   const holdingsByPortfolio = groupBy(
@@ -509,6 +515,7 @@ export async function dispatchWeeklyLetters(
           .from(PORTFELL_TABLES.labState)
           .select("conviction, watchlist, owner_id")
           .in("owner_id", userIds)
+          .order("id")
       )
     : [];
   const labByOwner = new Map(labRows.map((l) => [l.owner_id as string, l]));
