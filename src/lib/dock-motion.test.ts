@@ -226,3 +226,41 @@ describe("the capsule breathes with the travel", () => {
     ).toContain("running.current?.cancel()");
   });
 });
+
+describe("the pointer's pane answers the right inputs", () => {
+  const HOOK = readFileSync("src/lib/use-dock-marker.ts", "utf8");
+  const listeners = HOOK.slice(
+    HOOK.indexOf("const cellUnder"),
+    HOOK.indexOf("removeEventListener")
+  );
+
+  it("refuses a finger", () => {
+    // Or the pane is left under the last cell tapped, which on a phone is
+    // every cell the reader has ever pressed, one at a time, forever.
+    expect(listeners).toContain('e.pointerType === "touch"');
+  });
+
+  it("takes focus only when the browser calls it keyboard focus", () => {
+    /*
+     * Tapping a link focuses it, so a bare `focusin` handler brings the
+     * pane back on a phone through the other door. `:focus-visible` is the
+     * browser's own answer to "was this a keyboard?", which is the line we
+     * want and not one worth re-deriving from key events.
+     */
+    expect(listeners).toContain(':focus-visible');
+  });
+
+  it("tracks the pointer and the keyboard apart", () => {
+    /*
+     * One shared flag fails immediately: pressing a cell moves focus to it,
+     * firing `focusout` on whatever held focus before, and a single flag
+     * cleared there takes the pane out from under the cursor still sitting
+     * on the cell.
+     */
+    expect(listeners).toMatch(/let pointerOn/);
+    expect(listeners).toMatch(/let focusOn/);
+    expect(listeners, "the pointer is the more immediate of the two").toContain(
+      "pointerOn ?? focusOn"
+    );
+  });
+});

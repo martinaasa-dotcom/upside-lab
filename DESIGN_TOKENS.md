@@ -1607,17 +1607,37 @@ bar rather than against it. The marker's own geometry comes from
 `offsetLeft` and `clientWidth`, which are layout and untouched by a
 transform, so the measurement stays still while the picture moves.
 
-**Measured against the fear, not around it.** A transform on a
-`backdrop-filter` element is the landing page's fault on paper, so it was
-measured: eight navigations with the CPU throttled ten times, over a real
-20px-blur capsule sitting on the ambient field, swell on and swell off,
-twice each. Median frame **16.7ms** either way, p95 16.8ms either way,
-worst 16.8ms either way, zero frames over 33ms in any of the four runs.
-The landing page's case is a filtered element pinned over content that is
-*moving underneath it*, which forces the backdrop to be re-sampled every
-frame; the dock's backdrop is still, so the capsule stays composited and
-the scale is free. Re-measure if the dock ever sits over something that
-scrolls.
+**Measured against the fear, and the first measurement was wrong.** A
+transform on a `backdrop-filter` element is the landing page's fault on
+paper, so it was measured: eight navigations with the CPU throttled ten
+times, swell on and off, twice each. The first run said the swell was
+free, median 16.7ms either way and no frame over 33ms, and that number was
+taken on a **hand-built harness whose backdrop was a plain CSS gradient**.
+Re-run against the real docks on the real page it is not free:
+
+| CPU throttle | swell on, frames >33ms | swell off | p95 on | p95 off |
+| --- | --- | --- | --- | --- |
+| 1x | 0 of 162 | 0 of 162 | 16.8ms | 16.8ms |
+| 4x | 0 of 162 | 0 of 162 | 16.8ms | 16.7ms |
+| 6x | 0 of 162 | 0 of 162 | 16.7ms | 16.8ms |
+| 10x | 11 of 150 | 4 of 157 | 33.3ms | 16.8ms |
+
+So it is free up to about six times slower than this machine and costs
+roughly **one dropped frame per navigation at ten**, which is the stress
+setting rather than a device anybody is holding. It degrades by dropping a
+frame, not by tearing.
+
+**And it is not the backdrop filter**, which is worth writing down because
+that was the whole of the fear. Removing `backdrop-filter` from the dock
+took the ten-times case from 16 long frames to 11; turning the ambient
+dither's own filter off changed nothing; `will-change: transform` changed
+nothing. What costs is scaling a subtree of text and chrome, which has to
+be re-rasterised at each scale factor because a cached texture would be
+blurred. Reducing that means not scaling the contents, and the contents do
+scale in the reference: its leftmost label's ink grows **+3.8%** against the
+capsule's +3.6%, and that label's displacement of -11px matches a uniform
+scale about a 33% origin to within 0.7px. So the cost buys fidelity, and a
+cheaper version would be a different animation.
 
 Reproduced against the same numbers: peak **+4.51%** at 33ms, +3.46% at
 133ms, +1.31% at 233ms, home at 300ms, with the left end out 11.1px against

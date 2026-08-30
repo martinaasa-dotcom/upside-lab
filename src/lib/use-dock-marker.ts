@@ -176,9 +176,18 @@ export function useDockMarker(): DockMarkerState {
   }, [measure]);
 
   /*
-   * The pointer's pane. On leaving, the geometry is kept and only the flag
-   * drops, so the pane fades out where it was rather than snapping to the
-   * left edge of the bar on its way to nothing.
+   * The pointer's pane. Two sources, tracked apart: where the pointer is
+   * and where the keyboard is. They have to be separate, because they come
+   * and go independently and either one alone is reason to draw the pane.
+   * One shared flag gets this wrong in a way you find immediately:
+   * pressing a cell moves focus to it, which fires `focusout` on whatever
+   * held focus before, and a single flag cleared there takes the pane away
+   * from under the cursor that is still sitting on the cell.
+   *
+   * The pointer wins when both are on something, because it is the more
+   * immediate of the two. On leaving, the geometry is kept and only the
+   * flag drops, so the pane fades out where it was rather than snapping to
+   * the left edge of the bar on its way to nothing.
    */
   useEffect(() => {
     const host = ref.current;
@@ -189,7 +198,15 @@ export function useDockMarker(): DockMarkerState {
         ? target.closest<HTMLElement>("[data-dock-cell]")
         : null;
 
-    const settle = (cell: HTMLElement) => {
+    let pointerOn: HTMLElement | null = null;
+    let focusOn: HTMLElement | null = null;
+
+    const settle = () => {
+      const cell = pointerOn ?? focusOn;
+      if (!cell) {
+        setHovering(false);
+        return;
+      }
       hoverCell.current = cell;
       const next = markOf(host, cell);
       if (lastHover.current) setHoverDir(travelDirection(lastHover.current, next));
@@ -206,30 +223,51 @@ export function useDockMarker(): DockMarkerState {
        */
       if (e.pointerType === "touch") return;
       const cell = cellUnder(e.target);
-      if (cell && host.contains(cell)) settle(cell);
+      if (!cell || !host.contains(cell)) return;
+      pointerOn = cell;
+      settle();
+    };
+
+    const out = () => {
+      pointerOn = null;
+      settle();
     };
 
     const focus = (e: FocusEvent) => {
       const cell = cellUnder(e.target);
-      if (cell && host.contains(cell)) settle(cell);
+      if (!cell || !host.contains(cell)) return;
+      /*
+       * `:focus-visible`, not plain focus. Tapping a link focuses it, so a
+       * bare `focusin` handler shows the pane on a phone and leaves it
+       * under the last cell tapped, which is the exact failure the touch
+       * guard above exists to prevent, arriving through the other door. The
+       * browser already decides this question: it sets focus-visible for a
+       * keyboard and withholds it for a pointer or a finger, which is the
+       * same line we want.
+       */
+      if (typeof cell.matches === "function" && !cell.matches(":focus-visible")) {
+        return;
+      }
+      focusOn = cell;
+      settle();
     };
 
-    const leave = () => {
-      hoverCell.current = null;
-      setHovering(false);
+    const blur = () => {
+      focusOn = null;
+      settle();
     };
 
     host.addEventListener("pointerover", over);
-    host.addEventListener("pointerleave", leave);
-    host.addEventListener("pointercancel", leave);
+    host.addEventListener("pointerleave", out);
+    host.addEventListener("pointercancel", out);
     host.addEventListener("focusin", focus);
-    host.addEventListener("focusout", leave);
+    host.addEventListener("focusout", blur);
     return () => {
       host.removeEventListener("pointerover", over);
-      host.removeEventListener("pointerleave", leave);
-      host.removeEventListener("pointercancel", leave);
+      host.removeEventListener("pointerleave", out);
+      host.removeEventListener("pointercancel", out);
       host.removeEventListener("focusin", focus);
-      host.removeEventListener("focusout", leave);
+      host.removeEventListener("focusout", blur);
     };
   }, []);
 
