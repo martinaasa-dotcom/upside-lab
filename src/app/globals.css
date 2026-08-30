@@ -1378,6 +1378,33 @@ button:disabled,
   animation: none;
 }
 
+/*
+ * WHICH OF THE TWO PAGES THE FIRST FRAME IS.
+ *
+ * Every gated route is statically rendered with no user, so the HTML in
+ * the cache is the signed-out landing, and a signed-in reader refreshing
+ * used to watch it until React hydrated and put their session back. The
+ * blocking script in the root layout marks the root element from what this
+ * browser last knew (`src/lib/session-hint.ts`), and these three rules
+ * spend that mark before anything paints.
+ *
+ * Unlayered on purpose: an unlayered rule beats every Tailwind utility
+ * whatever the specificity, so a `flex` on the signed-out frame cannot win
+ * the display back.
+ *
+ * With no script, no mark and no localStorage the landing is what draws,
+ * which is the right answer for anybody who has never signed in.
+ */
+[data-session-resume] {
+  display: none;
+}
+html[data-session="in"] [data-session-resume] {
+  display: block;
+}
+html[data-session="in"] [data-signed-out-view] {
+  display: none;
+}
+
 /* The scroll cue at the fold. A hint that the page continues. */
 @keyframes scroll-cue-nudge {
   0%,

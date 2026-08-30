@@ -16,6 +16,7 @@ import { createSupabaseBrowser } from "@/lib/supabase/browser";
 import { purgeClientSession } from "@/lib/auth/purge-session";
 import { clearBookCache } from "@/lib/book-cache";
 import { loadLastUser, saveLastUser } from "@/lib/last-session";
+import { markSessionHint } from "@/lib/session-hint";
 import { currentInternalNext } from "@/lib/site-url";
 
 export type AuthProfile = {
@@ -55,6 +56,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useLayoutEffect(() => {
     const last = loadLastUser();
+    /*
+     * Re-stamp the root element. The inline script in the root layout put
+     * the mark there before the first paint, and React's Strict Mode
+     * remount in development resets `<html>` to the attributes it manages
+     * from JSX, which drops it. A no-op in production, and it costs one
+     * attribute write. See `src/lib/session-hint.ts`.
+     */
+    markSessionHint(Boolean(last));
     if (!last) return;
     setUser(stubUser(last.id, last.email));
     setReady(true);

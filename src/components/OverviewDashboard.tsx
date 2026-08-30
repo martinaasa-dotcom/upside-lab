@@ -914,23 +914,27 @@ export const OverviewDashboard = memo(function OverviewDashboard({
     startNav != null && endNav != null ? endNav - startNav : null;
 
   /*
-   * On an empty portfolio only. It moved to Lab's Trends tab for a
-   * populated one.
+   * Home leads with your own numbers and then says what the market they
+   * sit in is doing.
    *
-   * Home answers one question, which is how the names you typed in are
-   * doing, and every panel on it earns its place by being about those
-   * names. The market reading is not: it is the same three gauges for
-   * everybody who signs in, so on a page about your portfolio it reads as
-   * a widget that happened to be available. A reader with holdings met a
-   * scoreboard, a briefing, a market reading, a year chart and a movers
-   * grid, and said they could not tell what the page wanted from them.
-   * Removing the one panel that is not about their money did more for that
-   * than any label would have.
+   * This panel used to be here, then moved to Lab's Trends tab on the
+   * argument that every panel on Home should be about the names you typed
+   * in, and the market reading is the same three gauges for everybody who
+   * signs in. That is true and it is not the whole of it. The first
+   * question a reader has after "my portfolio is down $2,000" is whether
+   * that is their names or the whole market, and Home had no answer to it
+   * anywhere on the page. So it sits directly under the scoreboard, where
+   * it reads as context for the figure above it rather than as a widget
+   * that happened to be available, and above the briefing, which is about
+   * the names.
    *
-   * An empty portfolio is the opposite case. There are no names to be
-   * about, so it is the only thing on the screen with a number in it, and
-   * it gives somebody who has not typed anything in yet a reason to look
-   * at the page at all.
+   * It is drawn once, not twice: Lab's Trends tab keeps the trend lines
+   * for the names in the portfolio and no longer repeats this card.
+   *
+   * An empty portfolio keeps it for the older reason. There are no names
+   * to be about, so it is the only thing on the screen with a number in
+   * it, and it gives somebody who has not typed anything in yet a reason
+   * to look at the page at all.
    */
   const marketReading = (
     <WidgetErrorBoundary name="Market reading">
@@ -1072,6 +1076,8 @@ export const OverviewDashboard = memo(function OverviewDashboard({
           subClassName={totals.cash < 0 ? "text-loss" : undefined}
         />
       </Scoreboard>
+
+      {marketReading}
 
       <MorningStack
         className="overview-fade"

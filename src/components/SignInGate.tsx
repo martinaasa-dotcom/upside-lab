@@ -24,6 +24,7 @@ import {
   PRODUCT_SUPPORT_EMAIL,
   SIGNIN_POINTS,
 } from "@/lib/product";
+import { SessionResumeShell } from "@/components/SessionResumeShell";
 import { SignedOutLanding } from "@/components/SignedOutLanding";
 import { SignInMethods } from "@/components/SignInMethods";
 import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
@@ -145,7 +146,14 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
     }
   }
 
-  return (
+  /*
+   * Held in a variable rather than returned directly, because it is now
+   * one of two things this can paint and the other one has to be its
+   * sibling: `SessionResumeShell` is what a returning reader sees while
+   * the bundle hydrates, and it cannot sit inside a subtree that CSS is
+   * about to switch off. See `src/lib/session-hint.ts`.
+   */
+  const signedOutView = (
     /*
      * `page-frame`, the same class every signed-in page uses, so this gets
      * the app's real ambient field: warm `--primary` off the top-left, blue
@@ -159,6 +167,7 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
      * it. Nothing here should hand-roll ambient light again.
      */
     <div
+      data-signed-out-view
       className={cn(
         PAGE_FRAME_CLASS,
         // Paint-in-one-frame rules (no entrance animation, no phone
@@ -336,6 +345,22 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
       </main>
       )}
     </div>
+  );
+
+  return (
+    <>
+      {/*
+       * Every route behind this gate is statically rendered with no user,
+       * so the HTML a browser paints before hydration is the landing
+       * below. For a reader who is already signed in that is the wrong
+       * page, and on a cold bundle it is on screen long enough to read.
+       * This shell is the same loading state `Dashboard` shows a moment
+       * later, and CSS picks between the two from a mark the root element
+       * is already carrying by then.
+       */}
+      <SessionResumeShell />
+      {signedOutView}
+    </>
   );
 }
 
