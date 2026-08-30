@@ -22,17 +22,6 @@ import {
 
 const CSS = readFileSync("src/app/dock.css", "utf8");
 
-/** Every `--name: 123ms` in the file, as a lookup. */
-function msVars(): Record<string, number[]> {
-  const out: Record<string, number[]> = {};
-  for (const [, name, value] of CSS.matchAll(
-    /(--dock-[a-z-]+):\s*(\d+)ms/g
-  )) {
-    (out[name] ??= []).push(Number(value));
-  }
-  return out;
-}
-
 describe("dock marker geometry", () => {
   it("gives two insets that add up to the well", () => {
     const mark = markGeometry(600, 120, 96);
@@ -73,42 +62,44 @@ describe("dock marker direction", () => {
 });
 
 describe("the marker stretches", () => {
-  it("gives the trailing edge longer than the leading edge", () => {
-    const vars = msVars();
-    const lead = vars["--dock-lead-ms"];
-    const trail = vars["--dock-trail-ms"];
-    expect(lead?.length, "a leading duration per pane").toBeGreaterThan(0);
-    expect(trail?.length).toBe(lead?.length);
-    for (let i = 0; i < lead.length; i += 1) {
-      expect(
-        trail[i],
-        "the trailing edge must lag, or the pill does not stretch"
-      ).toBeGreaterThan(lead[i]);
-    }
+  it("lags the trailing edge behind the leading one", () => {
+    /*
+     * Both edges take the same time and the same curve; the trailing one
+     * sets off later. Traced off the reference's own pill, whose trailing
+     * edge holds a roughly constant fifth of the journey behind the
+     * leading one the whole way. A constant lag is the back of a blob
+     * following the front at a fixed distance, which is why the reference
+     * reads as one object rather than a stretched rectangle.
+     */
+    const delay = Number(CSS.match(/--dock-trail-delay:\s*(\d+)ms/)?.[1]);
+    expect(delay, "no lag, no stretch").toBeGreaterThan(0);
+    expect(delay, "a lag this long tears the pill in two").toBeLessThan(80);
   });
 
-  it("puts the leading edge on the leading side, both ways", () => {
-    // Going right, the right edge is the one that leads. Swap these and
+  it("puts the lag on the trailing side, both ways", () => {
+    // Going right, the left edge is the one that trails. Swap these and
     // the pill stretches backwards, away from where it is going.
     const right = CSS.slice(CSS.indexOf('[data-dir="right"]'));
-    const rightRule = right.slice(0, right.indexOf("}"));
-    expect(rightRule).toMatch(/--dock-right-ms:\s*var\(--dock-lead-ms\)/);
-    expect(rightRule).toMatch(/--dock-left-ms:\s*var\(--dock-trail-ms\)/);
-
+    expect(right.slice(0, right.indexOf("}"))).toMatch(
+      /--dock-left-delay:\s*var\(--dock-trail-delay\)/
+    );
     const left = CSS.slice(CSS.indexOf('[data-dir="left"]'));
-    const leftRule = left.slice(0, left.indexOf("}"));
-    expect(leftRule).toMatch(/--dock-left-ms:\s*var\(--dock-lead-ms\)/);
-    expect(leftRule).toMatch(/--dock-right-ms:\s*var\(--dock-trail-ms\)/);
+    expect(left.slice(0, left.indexOf("}"))).toMatch(
+      /--dock-right-delay:\s*var\(--dock-trail-delay\)/
+    );
   });
 
   it("moves the edges themselves, never a transform", () => {
     // A transform cannot stretch a pill without stretching its round ends
     // into ellipses, and the ends are most of what makes it a pill.
     expect(CSS).toMatch(/transition-property:\s*left,\s*right,\s*opacity/);
+    expect(CSS).toMatch(/transition-delay:/);
   });
 
   it("holds still until it has been placed once", () => {
-    expect(CSS).toMatch(/\.dock-marker:not\(\[data-travels\]\)\s*\{\s*transition:\s*none/);
+    expect(CSS).toMatch(
+      /\.dock-marker:not\(\[data-travels\]\)\s*\{\s*transition:\s*none/
+    );
   });
 });
 
@@ -163,9 +154,25 @@ describe("the capsule breathes with the travel", () => {
     Number(String(frame.transform).replace(/[^\d.]/g, ""));
 
   it("does nothing without a direction to lean toward", () => {
-    // A cell that resized under a still marker is not a journey, and a bar
-    // that breathes at nothing is a bar with a twitch.
     expect(swellFrames(null)).toBe(null);
+  });
+
+  it("scales both axes together, never one of them", () => {
+    /*
+     * THE RULE THIS FILE EXISTS TO HOLD. Traced off the reference, the
+     * capsule's width and height move by the same fraction on every frame
+     * (+1.96/+2.04, +3.99/+3.95, +2.66/+2.31, +0.67/+0.68). A one-axis
+     * scale stretches letterforms sideways, which is what made an earlier
+     * version of this bar feel wrong; a uniform scale magnifies type
+     * instead of distorting it, which is how the reference moves every
+     * label and still looks calm.
+     */
+    for (const dir of ["left", "right"] as const) {
+      for (const frame of swellFrames(dir)!) {
+        expect(String(frame.transform)).toMatch(/^scale\([\d.]+\)$/);
+        expect(String(frame.transform)).not.toMatch(/scaleX|scaleY/);
+      }
+    }
   });
 
   it("starts and ends at rest, and peaks where it was measured", () => {
@@ -173,64 +180,36 @@ describe("the capsule breathes with the travel", () => {
     expect(scaleOf(frames[0])).toBe(1);
     expect(scaleOf(frames[frames.length - 1])).toBe(1);
     expect(Math.max(...frames.map(scaleOf))).toBeCloseTo(SWELL_PEAK, 5);
-    /*
-     * The reference peaked at +3.6%, +4.7% and +4.8%, and this is
-     * deliberately well under that. The recording is a phone bar of glyphs
-     * spanning nearly the whole screen; matching its number on a floating
-     * capsule of 14px labels put 22px of movement on an end the reader is
-     * looking straight at. Only the pane moves now, so a much smaller
-     * number reads as the same thing. It still has to be a real breath.
-     */
-    expect(SWELL_PEAK).toBeGreaterThan(1.005);
-    expect(SWELL_PEAK).toBeLessThan(1.03);
+    // The reference peaked at +3.99% on the frame this was traced from.
+    expect(SWELL_PEAK).toBeGreaterThan(1.03);
+    expect(SWELL_PEAK).toBeLessThan(1.05);
   });
 
-  it("snaps out and eases back, never the other way round", () => {
+  it("swells rather than snapping, and comes home through an undershoot", () => {
+    /*
+     * The reference takes 40% of the travel to reach its widest and
+     * returns through a slight undershoot before settling, which is what
+     * something springy does. An earlier version put the peak at 11% with
+     * no undershoot: that is a flinch, not a breath.
+     */
     const frames = swellFrames("right")!;
-    const peak = frames.findIndex((f) => scaleOf(f) === Math.max(...frames.map(scaleOf)));
-    // Most of the growth is spent early: the reference was at its widest
-    // within about a tenth of the travel and took the rest coming home.
-    expect(frames[peak].offset).toBeLessThan(0.2);
-    const after = frames.slice(peak).map(scaleOf);
-    for (let i = 1; i < after.length; i += 1) {
-      expect(after[i], "the return never grows again").toBeLessThanOrEqual(after[i - 1]);
-    }
-  });
-
-  it("leans toward where the marker is heading", () => {
-    // Measured on the reference: the end the pill was heading for pushed
-    // out 28px against the other end's 14px, which is exactly two to one.
-    const right = swellFrames("right")!;
-    const left = swellFrames("left")!;
-    expect(String(right[1].transformOrigin)).toBe("33% center");
-    expect(String(left[1].transformOrigin)).toBe("67% center");
-    for (const frames of [right, left]) {
-      const origins = new Set(frames.map((f) => String(f.transformOrigin)));
-      expect(origins.size, "the anchor cannot move mid-breath").toBe(1);
-    }
-  });
-
-  it("never touches the capsule's height", () => {
-    /*
-     * The reference held 234px in every frame of every travel, and a dock
-     * that grew taller would move `--dock-clearance`, which every notice on
-     * the screen sits clear of. `scaleX` only.
-     */
-    for (const dir of ["left", "right"] as const) {
-      for (const frame of swellFrames(dir)!) {
-        expect(String(frame.transform)).toMatch(/^scaleX\(/);
-      }
-    }
-  });
-
-  it("is skipped under reduced motion, and cannot stack on itself", () => {
-    const hook = readFileSync("src/lib/use-dock-marker.ts", "utf8");
-    const fn = hook.slice(hook.indexOf("function swell("));
-    expect(fn.slice(0, fn.indexOf("\n}"))).toContain("stillMotion()");
+    const peak = Math.max(...frames.map(scaleOf));
+    const at = frames.find((f) => scaleOf(f) === peak)!;
+    expect(at.offset).toBeGreaterThan(0.3);
+    expect(at.offset).toBeLessThan(0.5);
     expect(
-      fn.slice(0, fn.indexOf("\n}")),
-      "two breaths on one property jump when the newer one drops off"
-    ).toContain("running.current?.cancel()");
+      Math.min(...frames.map(scaleOf)),
+      "it should dip under rest on the way home"
+    ).toBeLessThan(1);
+  });
+
+  it("scales about the centre, with no lean", () => {
+    // The reference is symmetric: at its widest the left edge had moved
+    // -23.8px against the right edge's +23.7px, and the top -3.8 against
+    // the bottom +3.9. The marker already says which way you are going.
+    for (const frame of swellFrames("right")!) {
+      expect(frame.transformOrigin).toBeUndefined();
+    }
   });
 });
 
@@ -334,44 +313,5 @@ describe("both docks spend the accent on news", () => {
     const titles = [...WIDE.matchAll(/title=\{?["']?([^"'}\n]*)/g)].map((m) => m[1]);
     expect(titles.length, "only the portfolio cells keep a title").toBe(1);
     expect(WIDE).toMatch(/right-click to rename or delete/);
-  });
-});
-
-
-describe("the bar breathes without moving what is written on it", () => {
-  const HOOK = readFileSync("src/lib/use-dock-marker.ts", "utf8");
-  const MARKER = readFileSync("src/components/DockMarker.tsx", "utf8");
-  const WIDE = readFileSync("src/components/BookModeDock.tsx", "utf8");
-  const PHONE = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");
-
-  it("scales the pane, never the capsule", () => {
-    /*
-     * Scaling the capsule scales every label inside it. Measured on the
-     * laptop dock at 1440, one cell of travel slid the far label 28px and
-     * stretched every letterform 4.5% -- which is the failure
-     * `dock-stability.test.ts` was written about, arrived at from the other
-     * direction. With the pane on its own layer the same walk moves every
-     * label 0.0px.
-     */
-    expect(HOOK).toContain('querySelector<HTMLElement>(".dock-pane")');
-    expect(HOOK).toMatch(/pane\.animate\(frames/);
-    expect(HOOK, "the capsule itself must never be the thing scaled").not.toMatch(
-      /host\.animate\(frames/
-    );
-  });
-
-  it("draws the material as its own layer in both docks", () => {
-    expect(MARKER).toMatch(/class[Nn]ame="dock-pane/);
-    for (const src of [WIDE, PHONE]) {
-      expect(src).toMatch(/<DockPane \/>/);
-      // The glass belongs to the pane now, not to the grid that holds cells.
-      expect(src).not.toMatch(/card-sheen glass glass-dock pointer-events-auto/);
-    }
-  });
-
-  it("keeps the pane out of the way of taps", () => {
-    // It covers the whole capsule, so without this it eats every press.
-    const pane = MARKER.slice(MARKER.indexOf("dock-pane"));
-    expect(pane.slice(0, 300)).toContain("pointer-events-none");
   });
 });

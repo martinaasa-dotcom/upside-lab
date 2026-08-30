@@ -17,7 +17,7 @@ import {
 import { type MobileTabId } from "@/lib/mobile-tab";
 import { useDockPad } from "@/lib/use-dock-pad";
 import { useDockMarker } from "@/lib/use-dock-marker";
-import { DockMarker, DockPane } from "@/components/DockMarker";
+import { DockMarker } from "@/components/DockMarker";
 import { CircleNavIcon } from "@/components/CircleIcons";
 import {
   Activity,
@@ -225,12 +225,9 @@ export function MobileTabBar({
            * the ring and the lift shadow are untouched. Numbers in
            * globals.css and DESIGN_TOKENS.md.
            */
-          "pointer-events-auto relative flex w-fit items-center gap-1 rounded-full p-1"
+          "card-sheen glass glass-dock pointer-events-auto relative flex w-fit items-center gap-1 rounded-full p-1 ring-1 ring-foreground/20"
         )}
       >
-        {/* The capsule's material, on its own layer. See `DockPane`. */}
-        <DockPane />
-
         {tabs.map(({ id, href, label, shortLabel, Icon }) => {
           const on = active === id;
           const to =
