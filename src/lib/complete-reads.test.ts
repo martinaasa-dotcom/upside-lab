@@ -21,6 +21,12 @@ import { describe, expect, it } from "vitest";
   This is a floor, not a ceiling. It covers the tables listed here in the
   files listed here; a completeness-critical read of some other table
   somewhere else is still on whoever writes it.
+
+  Two paged reads are deliberately not listed, because this guard reads
+  text and they do not look like the others: `note-cron.ts` builds its
+  mailing-list query inside a named helper, and `auth/identity.ts` builds
+  the alias map inside a try. Both are covered by behaviour instead --
+  `weekly-letter-mailing-list.test.ts` fails if the list stops at the cap.
 */
 
 /** Tables whose rows are the answer rather than a sample of it. */
@@ -36,9 +42,11 @@ const MUST_BE_COMPLETE = [
 ];
 
 const GUARDED_FILES = [
+  "src/app/api/admin/overview/route.ts",
   "src/app/api/communities/[id]/book/route.ts",
   "src/app/api/communities/discover/route.ts",
   "src/app/api/portfolios/route.ts",
+  "src/lib/billing-reconcile.ts",
   "src/lib/empty-book-nudge.ts",
 ];
 

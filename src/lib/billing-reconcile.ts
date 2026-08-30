@@ -2,6 +2,7 @@ import { getStripe, stripeSubscriptionFields, CLEARED_BILLING_PATCH } from "@/li
 import { ACTIVE_STATUSES, isActiveSubscription } from "@/lib/billing-status";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
+import { readAll } from "@/lib/supabase/read-all";
 import { logEvent } from "@/lib/telemetry";
 
 export type BillingReconcileResult = {
@@ -32,17 +33,35 @@ export async function reconcileBillingSubscriptions(): Promise<BillingReconcileR
     return { status: 500, checked: 0, corrected: 0, error: "Supabase not configured" };
   }
 
-  const { data: profiles, error } = await supabase
-    .from(PORTFELL_TABLES.profiles)
-    .select("id, stripe_customer_id, stripe_subscription_id, subscription_status")
-    .not("stripe_customer_id", "is", null);
+  /*
+    Every paying account, so it is paged.
 
-  if (error) {
-    logEvent("billing_reconcile_query_failed", { message: error.message }, "error");
-    return { status: 500, checked: 0, corrected: 0, error: error.message };
+    A reconcile that silently sees the first thousand customers leaves the
+    rest on whatever status the last webhook happened to set: somebody who
+    cancelled keeps Pro, somebody whose payment recovered stays locked out,
+    and the run reports a clean pass either way. `"throw"` rather than
+    `"stop"`, because reconciling part of the list and calling it done is
+    worse than saying the read failed.
+  */
+  let profiles: unknown[];
+  try {
+    profiles = await readAll<unknown>(
+      () =>
+        supabase
+          .from(PORTFELL_TABLES.profiles)
+          .select(
+            "id, stripe_customer_id, stripe_subscription_id, subscription_status"
+          )
+          .not("stripe_customer_id", "is", null),
+      "throw"
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "read failed";
+    logEvent("billing_reconcile_query_failed", { message }, "error");
+    return { status: 500, checked: 0, corrected: 0, error: message };
   }
 
-  const rows = (profiles ?? []) as {
+  const rows = profiles as {
     id: string;
     stripe_customer_id: string;
     stripe_subscription_id: string | null;

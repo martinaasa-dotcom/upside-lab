@@ -1,4 +1,5 @@
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
+import { readAll } from "@/lib/supabase/read-all";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const KARUD_PRIMARY_EMAIL = "rasmusmarjapuu@gmail.com";
@@ -177,13 +178,24 @@ export async function loadAliasMap(
   const map = { ...ACCOUNT_ALIAS_FALLBACK };
   if (!supabase) return map;
   try {
-    const { data } = await supabase
-      .from(PORTFELL_TABLES.accountAliases)
-      .select("alias_email, primary_email");
-    for (const row of (data ?? []) as {
+    /*
+      Paged, because this is every alias in the project rather than one
+      person's. The map is what collapses two mailboxes belonging to one
+      reader into a single recipient, so a short read does not lose a
+      feature quietly: it puts two copies of the Sunday letter in the same
+      person's inboxes, which is the exact thing the collapsing exists to
+      prevent. "stop" keeps the tolerance this read already had, since the
+      table may not exist yet on a local checkout.
+    */
+    const data = await readAll<{
       alias_email: string;
       primary_email: string;
-    }[]) {
+    }>(() =>
+      supabase
+        .from(PORTFELL_TABLES.accountAliases)
+        .select("alias_email, primary_email")
+    );
+    for (const row of data) {
       const a = normalizeEmail(row.alias_email);
       const p = normalizeEmail(row.primary_email);
       if (a && p) map[a] = p;
