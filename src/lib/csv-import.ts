@@ -219,6 +219,10 @@ const BUY_PRICE_ALIASES = [
 ];
 const CALL_PCT_ALIASES = ["callpct", "call%", "targetcallpct", "targetcall%"];
 const CASH_COL_ALIASES = ["cash", "cashbalance"];
+// Broker exports often carry one, and it settles the BTC/SOL/LINK coin
+// ambiguity the same way it does on the screenshot path: SOL beside a US
+// ISIN is Emeren Group, not Solana.
+const ISIN_ALIASES = ["isin"];
 
 /**
  * Fold a second lot of a ticker into the first instead of replacing it.
@@ -251,7 +255,8 @@ function mergeLot(existing: CsvHoldingRow, incoming: CsvHoldingRow): CsvHoldingR
 /**
  * Parse CSV text into holdings rows. Header row is required; column order
  * and exact naming are flexible (Ticker/Symbol, Shares/Quantity,
- * "Buy Price"/"Avg Cost"/"Cost Basis", optional "Call %", optional "Cash").
+ * "Buy Price"/"Avg Cost"/"Cost Basis", optional "Call %", optional "Cash",
+ * optional "ISIN", which also settles ticker/coin ambiguity).
  * A row whose ticker is literally CASH is treated as a cash balance instead
  * of a holding, same convention as the screenshot-import path.
  */
@@ -272,6 +277,7 @@ export function parseHoldingsCsv(text: string): CsvImportResult {
   const buyCol = findColumn(header, BUY_PRICE_ALIASES);
   const callCol = findColumn(header, CALL_PCT_ALIASES);
   const cashCol = findColumn(header, CASH_COL_ALIASES);
+  const isinCol = findColumn(header, ISIN_ALIASES);
 
   if (tickerCol === -1 || sharesCol === -1 || buyCol === -1) {
     result.skipped.push({
@@ -329,7 +335,10 @@ export function parseHoldingsCsv(text: string): CsvImportResult {
       continue;
     }
 
-    const ticker = resolveImportTicker(tickerRaw);
+    const ticker = resolveImportTicker(
+      tickerRaw,
+      isinCol >= 0 ? (cells[isinCol] ?? "").trim() : null
+    );
     if (!ticker) {
       result.skipped.push({ line: i + 1, raw, reason: "That ticker is not one we recognize" });
       continue;
