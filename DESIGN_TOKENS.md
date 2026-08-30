@@ -1559,6 +1559,81 @@ dock's pane as a second pane rather than as a grey swatch painted on one.
 Neutral rather than the room's two hues from `--glass-rim-*`, because at
 44px that repeat lands as a coloured outline instead of as light.
 
+### The material moves, the words hold still (2026-08-30)
+
+> *"On desktop the nav bar feels genuinely horrible, the expansion should
+> feel super subtle."*
+
+Right, and the measurement is worse than the complaint. The swell scaled
+the capsule, and scaling a capsule scales everything written on it.
+Measured on the laptop dock at 1440, walking **one cell** from Home to
+Pulse:
+
+| label | moves | letterforms |
+| --- | --- | --- |
+| Home | -13.0px | +4.4% |
+| Growth | +3.6px | +4.6% |
+| MaryAnn | +20.1px | +4.5% |
+| Circle | **+28.2px** | +4.4% |
+
+Clicking Pulse moved the word "Circle" 28 pixels. On every navigation.
+
+**This repo had already ruled on it.** `dock-stability.test.ts` was written
+because a dropped cell made "the whole bar resize and re-centre under the
+cursor, every label sliding sideways mid-click." That is the same failure
+arrived at from the other direction, and the animation was performing it
+several times a minute.
+
+So the glass, the rim and the ring moved onto their own layer,
+`DockPane`, and that is what scales. The same walk now moves every label
+**0.0px** and stretches nothing. The reference does move its labels, about
+11px on a 1181px bar, and that is a phone bar of glyphs with 11px captions
+where the shift is invisible; on a floating capsule of 14px labels it is
+the loudest thing on the screen. **Fidelity to the recording is not the
+goal, the feel is** -- and the recording is a different object.
+
+It also made the animation free. Scaling a subtree of text is what cost
+anything, because text must be re-rasterised at each scale factor while a
+plain pane is not. At 10x CPU throttle, eight navigations:
+
+| | frames >33ms | p95 |
+| --- | --- | --- |
+| old, whole capsule | 11 of 150 | 33.3ms |
+| pane only, swell on | 5 of 156 | 16.8ms |
+| pane only, swell off | 5 of 155 | 16.8ms |
+
+Identical to baseline. The earlier note that the cost was re-rasterised
+text rather than the backdrop filter was right, and this is what follows
+from it.
+
+**`SWELL_PEAK` is 1.8%**, against the reference's 3.6-4.8%, for the same
+reason the labels do not move: a percentage that reads as a breath on a
+near-full-width phone bar reads as a lurch on a floating capsule. At 1.8%
+the far edge travels 12.5px and the near edge 6.2px, still leaning two to
+one toward the travel, with the height untouched.
+
+**The marker's own stretch came down with it.** It scales with distance,
+which is right, but this bar is up to nine cells wide and at a 460ms
+trailing edge a walk to Circle drew a pill 2.7 cells wide across three
+labels. Measured at 120px cells:
+
+| trailing | one cell | four cells | five cells |
+| --- | --- | --- | --- |
+| 460ms | 1.36x | 2.37x | 2.71x |
+| 400ms | 1.27x | 2.10x | 2.38x |
+| 360ms | 1.22x | 1.89x | 2.11x |
+| **320ms** | **1.16x** | **1.66x** | **1.82x** |
+| 290ms | 1.12x | 1.48x | 1.60x |
+
+Judge it on the **one-cell** row: that is what a reader does over and over,
+and the long haul only has to stay believable. 320ms puts the everyday move
+at a sixth of a cell of give and keeps the worst case under two cells wide.
+
+**The rule that generalises: never tune this bar by matching the
+recording's numbers.** It is a phone bar of glyphs and this one carries
+words, so every magnitude has to be re-judged against text that must not
+move.
+
 ### The capsule breathes, and that is the half a moving pill cannot carry
 
 A marker sliding inside a rigid tray reads as two materials. In the

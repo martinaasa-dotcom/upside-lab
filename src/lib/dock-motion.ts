@@ -85,8 +85,17 @@ export function travelDirection(was: DockMark, next: DockMark): DockDir {
  *   +200ms      1196px   +1.3%
  *   +300ms      1181px   settled
  *
- * The three travels peaked at +3.6%, +4.7% and +4.8%, so `SWELL_PEAK` is
- * the middle of that. **Its height never moved** (234px in every frame of
+ * The three travels peaked at +3.6%, +4.7% and +4.8%. **`SWELL_PEAK` is
+ * deliberately far below that**, and the reason is that the recording is a
+ * phone bar: glyphs with 11px captions, spanning nearly the whole screen,
+ * where the ends moving 25px is a breath you feel rather than see. Our
+ * laptop dock is a floating capsule of 14px labels, and matching the
+ * recording's number there put 22px of movement on the end of a bar a
+ * reader is looking straight at. Only the pane moves now (see `DockPane`),
+ * which removes the labels from the question entirely, and with the
+ * contents held still a much smaller number reads as the same thing: at
+ * 1.8% the capsule's far edge travels about 9px on the laptop and 4px on
+ * the phone, which is a rim easing outward rather than a bar lurching. **Its height never moved** (234px in every frame of
  * every travel), so this is horizontal and nothing else: a bar that also
  * grew taller would push the page's bottom padding around, and `useDockPad`
  * publishes that height for every notice on the screen to sit clear of.
@@ -101,7 +110,7 @@ export function travelDirection(was: DockMark, next: DockMark): DockDir {
  * first tenth and the return is four times longer, which is the press's
  * rule (`dock.css`) at the scale of the whole bar.
  */
-export const SWELL_PEAK = 1.045;
+export const SWELL_PEAK = 1.018;
 export const SWELL_MS = 300;
 /** How far in from the trailing end the swell is anchored. */
 export const SWELL_ORIGIN = "33%";
