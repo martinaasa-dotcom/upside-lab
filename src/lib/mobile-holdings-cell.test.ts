@@ -150,9 +150,11 @@ describe("the URL answers for it", () => {
     expect(readFileSync("src/lib/use-dock-marker.ts", "utf8")).toMatch(
       /querySelector<HTMLElement>\("\[data-on\]"\)/
     );
-    expect(BAR).toMatch(/useDockMarker\(\)/);
+    expect(BAR).toMatch(/useDockMarker\("phone"\)/);
+    // Both docks read `data-on` through the same hook; they differ only in
+    // how far and how long they move, which is the variant they ask for.
     expect(readFileSync("src/components/BookModeDock.tsx", "utf8")).toMatch(
-      /useDockMarker\(\)/
+      /useDockMarker\("wide"\)/
     );
     expect(DASHBOARD).toMatch(/mobileTabFromActiveId\(activeId\)/);
   });

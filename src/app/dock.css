@@ -179,3 +179,55 @@
     animation: none;
   }
 }
+
+/*
+ * THE GLASS HAS THICKNESS, AND THE EDGE IS WHERE THAT READS.
+ *
+ * The dock had a blur, a fill and a hairline rim, which is frosted glass:
+ * light passes through and is softened, but nothing about it says the pane
+ * is a physical object with a near face and a far one. iOS reads as glass
+ * mostly at its edges, where a real lens gathers light on the top surface,
+ * goes momentarily dark just inside it, and bounces a little back up along
+ * the bottom inner wall.
+ *
+ * That is three inset shadows and it costs nothing: it paints once with
+ * the capsule and never animates, so it cannot drop a frame. It is added
+ * on a pseudo-element rather than to `.glass-dock` itself, because
+ * `.card-sheen.glass` already owns that element's `box-shadow` and
+ * restating its whole list here to append to it is how the two drift
+ * apart. Absolutely positioned, so it is out of the grid's flow and does
+ * not become a cell.
+ *
+ * What this deliberately is NOT is refraction. Real liquid glass bends the
+ * backdrop, which on the web needs `backdrop-filter: url(#…)` and a
+ * displacement map. That does work in Chromium -- verified -- and WebKit
+ * does not support a `url()` filter in `backdrop-filter`, so on the iPhone
+ * this app is judged by it would do nothing at all. It is also a filter
+ * recomputed every frame on a fixed element, which is the landing page's
+ * own repaint fault and the exact opposite of the compositor work the rest
+ * of this file exists for.
+ */
+@layer components {
+  .glass-dock {
+    position: relative;
+  }
+
+  .glass-dock::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow:
+      /* the near face, gathering light along the top */
+      inset 0 1px 0 0 oklch(1 0 0 / 22%),
+      /* the thickness of the pane, just inside that highlight */
+      inset 0 2px 3px -2px oklch(0 0 0 / 38%),
+      /* light bouncing back up off the inner bottom wall */
+      inset 0 -7px 10px -9px oklch(1 0 0 / 12%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Nothing here animates, so nothing here needs turning off. */
+}
