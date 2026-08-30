@@ -82,23 +82,47 @@ export function travelDirection(was: DockMark, next: DockMark): DockDir {
  * an egg.
  */
 /**
- * THE TWO DOCKS DO NOT MOVE BY THE SAME NUMBERS, AND THAT IS THE POINT.
+ * THE TWO DOCKS DO NOT MOVE BY THE SAME NUMBERS, AND THEY NO LONGER MOVE
+ * AT THE SAME MOMENTS EITHER.
  *
  * The phone bar is six glyphs. Scaling it costs nothing (measured: free at
- * every CPU throttle, on against off), and it is the surface the reference
- * recording actually is, so it keeps the fuller breath.
+ * every CPU throttle, on against off), a finger has no hover to spend the
+ * motion on, and it is the surface the reference recording actually is --
+ * so the travel is where all of its motion goes, and it takes the fuller
+ * breath and the longer run.
  *
- * The laptop bar is nine cells of 14px type. Scaling type re-rasterises
- * it, Chrome will not composite that, and neither `will-change` nor
- * dropping the backdrop filter recovers it -- so the bill is one raster
- * per frame of the animation, and **the duration is the only dial that
- * changes it.** Magnitude is free; time is not. That makes "barely
- * noticeable and very quick" the same request as "cheaper", which is why
- * the laptop's numbers are small and short rather than one or the other.
+ * The laptop bar breathes on the POINTER instead, and not on the travel at
+ * all (`swellPeak: 1`, which `swellFrames` answers with null). Two reasons,
+ * and they point the same way. A bar that lurches every time you click it
+ * is a bar arguing with the click: you already know you pressed, and the
+ * marker is already saying where you are going, so the swell was a third
+ * voice on a settled question. And scaling nine cells of 14px type
+ * re-rasterises them, which Chrome will not composite, so paying that on
+ * every navigation bought the loudest motion at the highest price. A hover
+ * scale is the same gesture the Margus button makes and is the one moment
+ * a laptop has that a phone does not: the pointer arrives, the bar swells
+ * to meet it, and it holds there for as long as you are pointing at it
+ * rather than flashing and going. `hoverPeak` / `hoverMs` are spent as CSS
+ * custom properties on the capsule (see `.dock-breathe` in dock.css), so
+ * the hold is a state rather than an animation with a clock.
  */
 export const DOCK_MOTION = {
-  wide: { swellPeak: 1.008, swellMs: 180, travelMs: 220, lagMs: 10 },
-  phone: { swellPeak: 1.012, swellMs: 200, travelMs: 240, lagMs: 10 },
+  wide: {
+    swellPeak: 1,
+    swellMs: 0,
+    travelMs: 220,
+    lagMs: 10,
+    hoverPeak: 1.015,
+    hoverMs: 300,
+  },
+  phone: {
+    swellPeak: 1.03,
+    swellMs: 460,
+    travelMs: 340,
+    lagMs: 18,
+    hoverPeak: 1,
+    hoverMs: 0,
+  },
 } as const;
 
 export type DockVariant = keyof typeof DOCK_MOTION;
@@ -211,25 +235,22 @@ export function restingStyle(mark: DockMark) {
  * the reference can move everything and still look calm. **Never scale
  * this bar on one axis.**
  *
- * The magnitude is half what the reference measures, on purpose. The
- * recording is a phone bar of glyphs spanning nearly the whole screen,
- * where 4% is a breath; on a laptop capsule of labels the same number
- * reads as the bar lurching, and it is also the one part of this that
- * cannot leave the main thread, because scaling type re-rasterises it.
- * Half the scale over a shorter run is half the work and most of the read.
+ * THIS IS THE PHONE BAR'S MOTION, AND ONLY THE PHONE BAR'S. The laptop
+ * passes `swellPeak: 1` and gets null back, because it breathes on the
+ * pointer instead; see `DOCK_MOTION`. That is also what makes the
+ * magnitude here free to be near the reference's own rather than half of
+ * it: the surface it runs on is the surface it was traced from, six
+ * glyphs and not one letterform, and it is measured free at every CPU
+ * throttle. 3% over 460ms against the reference's 4% over 500ms.
  *
- * **The duration is the only dial that changes what this costs.** Scaling
- * type re-rasterises it, so the bill is per frame of the animation and is
- * indifferent to how big the scale is: 260ms is fewer frames than 380 and
- * therefore cheaper by the same fraction. Measured over eight navigations
- * on the nine-cell labelled bar, the swell is free at 1x and costs one
- * frame at 4x; it is the 6x and 10x stress settings where it shows, and
+ * **The duration is the only dial that changes what this costs**, on any
+ * bar that carries type. Scaling type re-rasterises it, so the bill is per
+ * frame of the animation and is indifferent to how big the scale is, and
  * neither `will-change` nor dropping the backdrop filter recovers it,
- * because Chrome will not composite a scale over a subtree of text.
- * **The glyph-only phone bar is free at every throttle**, which is the
- * surface the reference actually is. If this ever has to cost nothing on
- * a labelled bar, the only lever left is `SWELL_PEAK = 1`, which turns the
- * breath off without touching anything else.
+ * because Chrome will not composite a scale over a subtree of text. That
+ * is the whole argument for the laptop bar not paying it on every
+ * navigation, and for `swellPeak: 1` being a real off switch rather than a
+ * scale of 1 animated sixteen times for nothing.
  *
  * The shape is a swell, not a snap. Normalised against its own peak, with
  * t measured from the start of the travel:
@@ -244,14 +265,25 @@ export function restingStyle(mark: DockMark) {
  * and had no undershoot: that is a flinch, and it is the other half of why
  * the bar read as jumpy.
  */
-export const SWELL_PEAK = 1.02;
-export const SWELL_MS = 260;
+/**
+ * The traced default, which is the phone's: the reference recording is a
+ * phone bar, so the numbers belong to the surface they came off rather
+ * than to a constant the two docks share.
+ */
+export const SWELL_PEAK = DOCK_MOTION.phone.swellPeak;
+export const SWELL_MS = DOCK_MOTION.phone.swellMs;
 
 /**
  * The capsule's keyframes for one travel, traced from the measurements
  * above. Returns null when there is no direction, because a cell that
  * resized under a still marker is not a journey and a bar that breathes at
  * nothing is a bar with a twitch.
+ *
+ * It also returns null at a peak of 1, which is the laptop bar saying it
+ * does not breathe on a travel at all. Sixteen keyframes of `scale(1)`
+ * would be the same picture and would still hand the compositor an
+ * animation to run and the raster to redo, so the off switch has to be
+ * here rather than in the numbers alone.
  *
  * The direction does not change the shape: the reference scales about the
  * centre whichever way the marker is going, and a lean would be a second
@@ -263,6 +295,7 @@ export function swellFrames(
 ): Keyframe[] | null {
   if (!dir) return null;
   const grown = peak - 1;
+  if (grown <= 0) return null;
   /* Normalised samples, one per recorded frame of the reference. */
   const shape = [
     0, 0.26, 0.35, 0.49, 0.74, 0.94, 1, 0.9, 0.67, 0.41, 0.17, 0.05, -0.03,

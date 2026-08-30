@@ -38,6 +38,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef, useState } from "react";
+import { DOCK_MOTION } from "@/lib/dock-motion";
 import { useDockMarker } from "@/lib/use-dock-marker";
 import { DockMarker } from "@/components/DockMarker";
 
@@ -279,10 +280,18 @@ export function BookModeDock({
        * in globals.css and DESIGN_TOKENS.md.
        */
       className={cn(
-        "card-sheen glass glass-dock pointer-events-auto relative mx-auto grid w-fit max-w-full gap-1 rounded-full p-1 ring-1 ring-foreground/20",
+        /*
+         * `dock-breathe` is the pointer swell, and it is this bar's alone:
+         * the phone has no pointer to spend it on, and it breathes on the
+         * travel instead. See dock.css for why it is a hover state rather
+         * than an animation on the click.
+         */
+        "card-sheen glass glass-dock dock-breathe pointer-events-auto relative mx-auto grid w-fit max-w-full gap-1 rounded-full p-1 ring-1 ring-foreground/20",
         className
       )}
       style={{
+        "--dock-breathe-peak": DOCK_MOTION.wide.hoverPeak,
+        "--dock-breathe-ms": `${DOCK_MOTION.wide.hoverMs}ms`,
         /*
          * Equal cells at a fixed width, and the well sized to however many
          * there are — so the dock grows by exactly one cell when you add a
@@ -296,7 +305,7 @@ export function BookModeDock({
             // track goes second to last -- Circle keeps the end.
             `repeat(${cellCount - 1}, minmax(0, ${CELL_W})) 2.5rem minmax(0, ${CELL_W})`
           : `repeat(${cellCount}, minmax(0, ${CELL_W}))`,
-      }}
+      } as React.CSSProperties}
     >
       {modes.map(({ id, href, label, Icon }) => {
         const active = activeId === id;
