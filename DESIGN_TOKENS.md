@@ -1815,12 +1815,27 @@ the forecast at 4,081px of an 8.1-screen page, well past the lead time, and
 together they are **532 of the room's 957 elements**. Verified after: both
 report zero rendered elements until reached.
 
-**Growth was tried with it and taken back out, and that is the instructive
-half.** Its projection section starts at 1,218px with the fold at about
-917: below the fold, but **less than one screen below it**, so the observer
-fired immediately and all 619 elements still rendered. `BelowFold` saves
-nothing for anything within a screen of the fold. Growth takes
-`defer-paint` instead.
+**Growth is the instructive one, and it took two goes.** Wrapping its whole
+projection section did nothing: the section starts at **1,218px** with the
+fold at 800, so it sits inside the 1,600px the lead reaches, the observer
+fired immediately and all 619 elements still rendered. **The test is the
+offset, not the size.** Mapping the panels inside it settled it — the hero
+("Where 10 years of this gets you") starts at 1,218 and has to stay, but
+every panel after it starts at **1,907px or lower**, and together they are
+555 of the section's 618 elements:
+
+| panel | top | elements | |
+| --- | --- | --- | --- |
+| Where 10 years of this gets you | 1,218 | 57 | too close |
+| Same money, four paths | 1,907 | 48 | deferred |
+| When you cross each round number | 2,499 | 169 | deferred |
+| Any single year, in words | 2,787 | 265 | deferred |
+| The same money, invested differently | 3,075 | 44 | deferred |
+| What this actually tells you | 3,363 | 29 | deferred |
+
+Wrapped one level in, Growth went from **713 rendered elements to 154**.
+They keep `defer-paint` as well, which skips style and paint for whichever
+of them is still off screen once they have mounted.
 
 **`defer-paint` (`content-visibility: auto`) withholds the work, not the
 mount**, which is the case that cannot be sectioned: a long list of cards,
@@ -1840,15 +1855,33 @@ so a sticky header would stick to the card rather than the page.
 | after | **572** | **199, 204ms** | **37, 37ms** | **384, 395ms** | **25, 28ms** |
 
 And what the reader actually feels — press to the page visibly changing,
-Holdings at 4x, three runs each:
+at 4x:
 
-| | runs | median |
+| room | before | after |
 | --- | --- | --- |
-| before | 651, 685, 673ms | 673ms |
-| after | **301, 345, 351ms** | **345ms** |
+| Holdings | 651, 685, 673ms | **310, 320, 343ms** |
+| Growth | 502, 545ms | **400, 440ms** |
+| Pulse | — | 405, 421ms |
+| Lab | — | 359, 363ms |
 
-**About half.** The tight spread on both sides is what makes it
-believable, against the ±150ms this session has seen elsewhere.
+**Holdings roughly halved.** The tight spread on both sides is what makes
+it believable, against the ±150ms this work has seen elsewhere.
+
+Rendered elements per room, before and after everything:
+
+| room | before | after |
+| --- | --- | --- |
+| Home | 485 | 406 |
+| Pulse | 548 | 548 (paint skipped, 7.9 screens to 6.0) |
+| Lab | 250 | 250 (untouched) |
+| Growth | 713 | **154** |
+| Holdings | 957 | **425** |
+
+**Verified by scrolling, which is the half that matters.** Walking each
+room top to bottom in quarters: Growth goes 154 to 714 elements with every
+section's heading present, Holdings 425 to 959, Home 406 to 487, and at no
+point is there an empty block of more than 200px on screen. A deferral
+that saves work and shows a hole is worse than no deferral.
 
 ### Why a page select felt slow, seen in painted frames (2026-08-30)
 

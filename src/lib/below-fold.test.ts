@@ -40,19 +40,32 @@ describe("a section nobody can see is built when they come to it", () => {
 
   it("is spent only where the content is more than a screen down", () => {
     /*
-     * Measured at 390x800. Holdings: covered calls start at 2,277px and
-     * the forecast at 4,081px of an 8.1-screen page, well past the one
-     * screen of lead time, and they are 532 of the room's 957 elements.
-     * Verified after: both report zero rendered elements until reached.
+     * THE TEST IS THE OFFSET, NOT THE SIZE, and Growth is why that is
+     * worth a test rather than a habit.
      *
-     * Growth was tried and taken back out, and that is the instructive
-     * half: its projection section starts at 1,218px with the fold at
-     * about 917, so it is below the fold but LESS THAN ONE SCREEN below
-     * it -- the observer fired immediately and 619 elements still
-     * rendered. It carries `defer-paint` instead.
+     * Measured at 390x800 with the fold at 800, so the lead reaches
+     * 1,600. Holdings is the easy case: covered calls start at 2,277px
+     * and the forecast at 4,081px, 532 of the room's 957 elements, and
+     * both report zero rendered elements until reached.
+     *
+     * Growth's projection section starts at **1,218px** -- below the fold
+     * but inside the lead -- so wrapping the section did nothing at all
+     * and all 619 elements still rendered. Wrapping it one level in works:
+     * the hero panel stays (1,218), and every panel after it starts at
+     * **1,907px or lower**, together 555 of the section's 618 elements.
+     * Verified: the room went from 713 rendered elements to 154.
      */
     expect(HOLDINGS).toContain("<BelowFold reserve={420}>");
-    expect(GROWTH).not.toContain("<BelowFold");
+    expect(GROWTH).toContain("<BelowFold");
+    /*
+     * ...but never around the whole section, which is the shape that was
+     * measured to save nothing. The hero panel must stay outside it.
+     */
+    const section = GROWTH.slice(GROWTH.indexOf("Results & Projections"));
+    const hero = section.indexOf("<Panel className={SHEET_PANEL}>");
+    const defer = section.indexOf("<BelowFold");
+    expect(hero, "the hero panel is still rendered up front").toBeGreaterThan(-1);
+    expect(defer, "and the deferral starts after it").toBeGreaterThan(hero);
   });
 });
 
@@ -67,10 +80,11 @@ describe("a card in a long list is painted when it comes into view", () => {
 
   it("goes on the long lists, which is what it is for", () => {
     // Pulse is 498 elements in one block 5,812px tall: seven screens of
-    // cards a reader sees one of.
+    // cards a reader sees one of, and they cannot be sectioned.
     expect(PULSE).toContain("defer-paint");
-    // Growth's projection panels, which are below the fold but too close
-    // for BelowFold to help.
+    // Growth's projection panels wear both: `BelowFold` keeps them out of
+    // the render until the reader is near, and this skips the style and
+    // paint for whichever of them is still off screen once they are in.
     expect(GROWTH).toContain("defer-paint");
   });
 

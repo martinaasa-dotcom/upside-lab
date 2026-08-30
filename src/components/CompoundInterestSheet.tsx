@@ -1,5 +1,6 @@
 "use client";
 
+import { BelowFold } from "@/components/BelowFold";
 import {
   COMPOUND_STORAGE_KEY,
   DEFAULT_COMPOUND_INPUTS,
@@ -1094,6 +1095,17 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         </Panel>
 
         {/* Dual Path Chart */}
+        {/*
+          EVERYTHING AFTER THE HERO PANEL, AND THE OFFSETS ARE WHY.
+          Measured at 390x800: the hero starts at 1,218px, which is inside
+          the one screen of lead `BelowFold` gives (the fold is 800, so its
+          reach is 1,600) and cannot be deferred. Every panel after it
+          starts at 1,907px or lower and together they are 555 of this
+          section's 618 elements. `defer-paint` on each of them skips the
+          style, layout and paint; this skips building them at all until
+          the reader comes near.
+        */}
+        <BelowFold reserve={560}>
         <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
             title="Same money, four paths"
@@ -1381,6 +1393,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           </ItemGroup>
         </Panel>
 
+        </BelowFold>
       </section>
     </div>
   );
