@@ -123,3 +123,73 @@ describe("readAll", () => {
     ).rejects.toThrow("no such column");
   });
 });
+
+/*
+  What the driver said has to survive the throw.
+
+  PostgREST errors are plain objects, not `Error` instances, so wrapping
+  one in `new Error(message)` keeps the sentence and drops `code`. That is
+  the field callers branch on: `note-cron` reads `42703` to tell a column
+  that has not been migrated yet from a real failure, and degrades rather
+  than dropping everybody's Sunday letter. Nothing would have reported the
+  loss, because the message-matching fallback beside it carries the case
+  until the day a message is worded differently.
+*/
+describe("readAll, when a page fails", () => {
+  function failsWith(error: unknown) {
+    return () => ({
+      range: async () => ({ data: null, error }),
+    });
+  }
+
+  it("keeps the driver's code, not just its sentence", async () => {
+    const raw = {
+      message: 'column portfell_profiles.note_sunday_sent_at does not exist',
+      code: "42703",
+      hint: null,
+      details: "some detail",
+    };
+
+    await expect(readAll(failsWith(raw), "throw")).rejects.toMatchObject({
+      message: raw.message,
+      code: "42703",
+      details: "some detail",
+    });
+  });
+
+  it("throws a real Error, so a caller can still catch it as one", async () => {
+    await expect(
+      readAll(failsWith({ message: "boom", code: "500" }), "throw")
+    ).rejects.toBeInstanceOf(Error);
+  });
+
+  it("passes an Error straight through when the driver already threw one", async () => {
+    const original = new Error("already an error");
+    await expect(readAll(failsWith(original), "throw")).rejects.toBe(original);
+  });
+
+  /*
+    An error object with nothing readable in it. `null` is deliberately not
+    this case: `{ data: null, error: null }` is PostgREST saying the read
+    succeeded and matched nothing, and treating that as a failure would
+    turn every empty table into a thrown error.
+  */
+  it("says something when the driver said nothing useful", async () => {
+    await expect(readAll(failsWith({}), "throw")).rejects.toThrow(
+      "read failed part way"
+    );
+  });
+
+  it("treats a null error as an empty read, not a failure", async () => {
+    const rows = await readAll(
+      () => ({ range: async () => ({ data: null, error: null }) }),
+      "throw"
+    );
+    expect(rows).toEqual([]);
+  });
+
+  it("hands back what it read rather than throwing, when asked to stop", async () => {
+    const rows = await readAll(failsWith({ message: "boom" }));
+    expect(rows).toEqual([]);
+  });
+});
