@@ -125,8 +125,3 @@ export async function domainAcceptsMail(domain: string): Promise<boolean> {
   remember(domain, false);
   return false;
 }
-
-/** For tests, and for anything that needs a fresh answer about a domain. */
-export function forgetDomainAnswers() {
-  answers.clear();
-}

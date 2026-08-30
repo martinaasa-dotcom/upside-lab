@@ -1,7 +1,5 @@
 /** When a sheet was last replaced from CSV or paste. Local only. */
 
-import { APP_TIMEZONE, formatDateTime } from "@/lib/timezone";
-
 const KEY = "portfell-sheet-imported-v1";
 
 function loadMap(): Record<string, string> {
@@ -24,19 +22,4 @@ export function markSheetImported(portfolioId: string) {
   } catch {
     /* ignore */
   }
-}
-
-export function loadSheetImportedAt(portfolioId: string): string | null {
-  const at = loadMap()[portfolioId];
-  return at ?? null;
-}
-
-export function formatImportedAt(iso: string): string {
-  return (
-    formatDateTime(
-      iso,
-      { timeZone: APP_TIMEZONE, dateStyle: "medium", timeStyle: "short" },
-      "en-GB"
-    ) || iso
-  );
 }

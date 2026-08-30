@@ -295,6 +295,3 @@ export const adminDeletePortfolioSchema = z.looseObject({
 export const adminSignOutEveryoneSchema = z.looseObject({
   confirm: z.literal("sign out everyone"),
 });
-
-/** Catch-all for mutation bodies that are objects with unknown extra keys. */
-export const jsonObjectSchema = z.looseObject({});

@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { ensureProfileAndClaims } from "@/lib/auth/ensure-profile";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
@@ -108,7 +109,7 @@ async function handlePATCH(req: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/auth/me") }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, profile: data });

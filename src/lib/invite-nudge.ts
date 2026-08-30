@@ -81,7 +81,3 @@ export function markInviteOffered(portfolioId: string) {
 export function dismissInviteNudge() {
   saveState({ ...loadState(), dismissed: true });
 }
-
-export function inviteNudgeIsDismissed(): boolean {
-  return loadState().dismissed;
-}

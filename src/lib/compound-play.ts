@@ -31,26 +31,6 @@ export function findTippingYear(yearly: PeriodRow[]): number | null {
   return null;
 }
 
-/** Earliest year balance crosses goal (inclusive). */
-export function yearsToGoal(
-  yearly: PeriodRow[],
-  goal: number
-): number | null {
-  if (goal <= 0) return null;
-  for (const row of yearly) {
-    if (row.balance >= goal) return row.index;
-  }
-  return null;
-}
-
-/** Fraction of goal reached (0–1+). */
-export function goalProgress(balance: number, goal: number): number {
-  if (!(goal > 0) || !Number.isFinite(goal) || !Number.isFinite(balance)) {
-    return 0;
-  }
-  return Math.max(0, balance / goal);
-}
-
 /** Long-run US CPI-ish assumption — illustrative only, for the "real
  * value" mattress contrast, not a forecast. */
 export const COMPOUND_INFLATION_ANNUAL_PCT = 3;
@@ -173,16 +153,6 @@ function toAnnualPct(inputs: CompoundInputs): number {
     case "daily":
       return r * 365;
   }
-}
-
-export function stayTheCourseInputs(inputs: CompoundInputs): CompoundInputs {
-  return {
-    ...inputs,
-    contributionMode: "none",
-    depositAmount: 0,
-    withdrawalAmount: 0,
-    compound: "monthly",
-  };
 }
 
 export function storyYears(horizon: number): number[] {
@@ -509,28 +479,6 @@ export function buildYearStories(
   return out;
 }
 
-/** Solve roughly how many years to hit goal at rate + optional monthly deposit. */
-export function estimateYearsToGoal(opts: {
-  principal: number;
-  goal: number;
-  annualRatePct: number;
-  monthlyDeposit: number;
-}): number | null {
-  const { principal, goal, annualRatePct, monthlyDeposit } = opts;
-  if (goal <= principal) return 0;
-  if (annualRatePct <= 0 && monthlyDeposit <= 0) return null;
-
-  let balance = principal;
-  let deposit = monthlyDeposit;
-  const r = annualRatePct / 100 / 12;
-  for (let m = 1; m <= 600; m++) {
-    balance = balance * (1 + r) + deposit;
-    if (m % 12 === 0) deposit *= 1.02; // match default 2% YoY bump
-    if (balance >= goal) return Math.ceil(m / 12);
-  }
-  return null;
-}
-
 /**
  * Net-worth ladder. Tight steps while the number is still small, then
  * round millions from $1M, then $7.5M and $10M after $5M.
@@ -623,25 +571,6 @@ export function saveMilestoneActuals(actuals: MilestoneActuals) {
   } catch {
     /* ignore */
   }
-}
-
-/** Months until balance >= goal under the live compounder path (extends horizon). */
-export function monthsToGoal(
-  inputs: CompoundInputs,
-  goal: number,
-  maxYears = 50
-): number | null {
-  if (!(goal >= 0)) return null;
-  if (goal <= inputs.principal) return 0;
-  const sim = calculateCompound({
-    ...inputs,
-    years: maxYears,
-    months: 0,
-  });
-  for (const row of sim.monthly) {
-    if (row.index > 0 && row.balance >= goal) return row.index;
-  }
-  return null;
 }
 
 function addMonths(date: Date, months: number): Date {

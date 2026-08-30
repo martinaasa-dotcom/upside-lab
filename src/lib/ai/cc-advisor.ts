@@ -641,8 +641,6 @@ export function buildCcAdvisorTools(
   return filtered;
 }
 
-export const ccAdvisorTools = buildCcAdvisorTools();
-
 export type CcAdvisorTools = ReturnType<typeof buildCcAdvisorTools>;
 
 function fmtPctLabel(pct: number | null | undefined): string {

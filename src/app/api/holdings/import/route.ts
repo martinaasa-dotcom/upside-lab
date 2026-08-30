@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { NextRequest, NextResponse } from "next/server";
 import { requirePortfolioOwner } from "@/lib/auth/ownership";
 import {
@@ -90,7 +91,7 @@ async function handlePOST(req: NextRequest) {
     .select("id, ticker, shares, buy_price, sort_order")
     .eq("portfolio_id", portfolioId);
   if (exErr) {
-    return NextResponse.json({ error: exErr.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(exErr, "/api/holdings/import") }, { status: 500 });
   }
 
   const replacing = body.replace !== false && rows.length > 0;
@@ -130,7 +131,7 @@ async function handlePOST(req: NextRequest) {
       })
       .eq("id", portfolioId);
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: dbError(error, "/api/holdings/import") }, { status: 500 });
     }
     cashUpdated = true;
   }

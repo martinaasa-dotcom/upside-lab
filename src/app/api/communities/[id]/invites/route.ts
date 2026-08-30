@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { createHash, randomBytes } from "crypto";
 import { userIsCommunityAdmin } from "@/lib/auth/ownership";
 import {
@@ -102,7 +103,7 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]/invites") }, { status: 500 });
   }
 
   const path = inviteJoinPath(token);
@@ -190,7 +191,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]/invites") }, { status: 500 });
   }
 
   const rows = (data ?? []) as InviteRow[];

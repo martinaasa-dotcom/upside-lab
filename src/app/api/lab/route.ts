@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { NextRequest, NextResponse } from "next/server";
 import {
   emptyLabBundle,
@@ -79,7 +80,7 @@ async function handleGET() {
   }
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/lab") }, { status: 500 });
   }
 
   return NextResponse.json({
@@ -159,7 +160,7 @@ async function handlePUT(req: NextRequest) {
   }
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/lab") }, { status: 500 });
   }
 
   return NextResponse.json({

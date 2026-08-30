@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
 import type { TablesUpdate } from "@/lib/supabase/database.types";
@@ -47,7 +48,7 @@ async function handleGET() {
         .maybeSingle()
     : full;
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: dbError(error, "/api/account/experience-tier") }, { status: 500 });
   /*
     `tourVersion` rides along on the call the first-run gate was already
     making. It is a third column on a row that was being read anyway, and
@@ -122,7 +123,7 @@ async function handlePOST(req: NextRequest) {
         .eq("id", auth.user.id)
     : first;
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: dbError(error, "/api/account/experience-tier") }, { status: 500 });
   return NextResponse.json({
     ok: true,
     tier,

@@ -78,10 +78,6 @@ export function getCachedPulseCheck(
   return entry;
 }
 
-export function isPulseEntryFresh(entry: PulseServerCacheEntry): boolean {
-  return Date.now() - entry.cachedAt < PULSE_SERVER_FRESH_TTL_MS;
-}
-
 export function setCachedPulseCheck(
   key: string,
   check: PulseCheck,
@@ -122,15 +118,6 @@ export function setCachedPulseSummary(userId: string, summary: string) {
     summary: summary.trim(),
     cachedAt: Date.now(),
   });
-}
-
-export function clearPulseCacheForTicker(ticker: string) {
-  const symbol = ticker.toUpperCase();
-  for (const [k] of PULSE_SERVER_CACHE.entries()) {
-    if (k.startsWith(`${symbol}:`)) {
-      PULSE_SERVER_CACHE.delete(k);
-    }
-  }
 }
 
 function prunePulseCacheIfNeeded() {

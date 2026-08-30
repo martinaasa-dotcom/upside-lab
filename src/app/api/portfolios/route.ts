@@ -1,3 +1,5 @@
+import { dbError } from "@/lib/db-error";
+import { readAll } from "@/lib/supabase/read-all";
 import { captureBookPayload, saveBookSnapshot } from "@/lib/book-snapshot";
 import { ensureProfileAndClaims } from "@/lib/auth/ensure-profile";
 import {
@@ -68,14 +70,22 @@ async function handleGET(req: NextRequest) {
     });
   }
 
-  const { data: portfolios, error: pErr } = await supabase
-    .from(PORTFELL_TABLES.portfolios)
-    .select(PORTFOLIO_COLUMNS)
-    .in("id", ownedIds)
-    .order("sort_order");
-
-  if (pErr) {
-    return NextResponse.json({ error: pErr.message }, { status: 500 });
+  let portfolios: unknown[];
+  try {
+    portfolios = await readAll<unknown>(
+      () =>
+        supabase
+          .from(PORTFELL_TABLES.portfolios)
+          .select(PORTFOLIO_COLUMNS)
+          .in("id", ownedIds)
+          .order("sort_order"),
+      "throw"
+    );
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "read failed" },
+      { status: 500 }
+    );
   }
 
   const portfolioIds = (portfolios ?? []).map(
@@ -83,31 +93,48 @@ async function handleGET(req: NextRequest) {
   );
   let holdings: unknown[] = [];
   if (portfolioIds.length) {
-    const { data: h, error: hErr } = await supabase
-      .from(PORTFELL_TABLES.holdings)
-      .select(HOLDING_COLUMNS)
-      .in("portfolio_id", portfolioIds)
-      .order("sort_order");
-    if (hErr) {
-      return NextResponse.json({ error: hErr.message }, { status: 500 });
+    /*
+      Paged. This is one person's holdings across their own portfolios, so
+      it is the least likely of these reads to reach PostgREST's silent
+      1,000-row cap, and it is the one whose truncation is worst: the
+      portfolio it draws is the reader's own, and holdings missing from it
+      are missing from the value, the gain and everything computed
+      downstream, with nothing on screen saying so.
+    */
+    try {
+      holdings = await readAll<unknown>(
+        () =>
+          supabase
+            .from(PORTFELL_TABLES.holdings)
+            .select(HOLDING_COLUMNS)
+            .in("portfolio_id", portfolioIds)
+            .order("sort_order"),
+        "throw"
+      );
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "read failed" },
+        { status: 500 }
+      );
     }
-    holdings = h ?? [];
   }
 
   const classIds = [
     ...new Set(
-      ((portfolios ?? []) as { classroom_community_id?: string | null }[])
+      (portfolios as { classroom_community_id?: string | null }[])
         .map((p) => p.classroom_community_id)
         .filter((id): id is string => Boolean(id))
     ),
   ];
   const tradeByClass = new Map<string, ClassroomTrade>();
   if (classIds.length) {
-    const { data: classes } = await supabase
-      .from(PORTFELL_TABLES.communities)
-      .select("id, class_plan, house_note")
-      .in("id", classIds);
-    const classRows = (classes ?? []) as {
+    const classes = await readAll<unknown>(() =>
+      supabase
+        .from(PORTFELL_TABLES.communities)
+        .select("id, class_plan, house_note")
+        .in("id", classIds)
+    );
+    const classRows = classes as {
       id: string;
       class_plan?: unknown;
       house_note?: string | null;
@@ -195,7 +222,7 @@ async function handlePOST(req: NextRequest) {
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/portfolios") }, { status: 500 });
   }
 
   const created = data as { id?: string; name?: string } | null;
@@ -276,7 +303,7 @@ async function handlePATCH(req: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/portfolios") }, { status: 500 });
   }
   return NextResponse.json({
     portfolio: mapPortfolio(data as Record<string, unknown>),
@@ -332,7 +359,7 @@ async function handleDELETE(req: NextRequest) {
       .delete()
       .eq("id", id);
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: dbError(error, "/api/portfolios") }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   } catch (err) {

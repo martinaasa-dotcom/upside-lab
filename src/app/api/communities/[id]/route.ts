@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import {
   collapseMembersByAlias,
   HOUSEHOLD_PENDING_EMAILS,
@@ -18,11 +19,12 @@ import {
   startPeriodNow,
   type ClassPeriodKind,
 } from "@/lib/classroom";
-import { roundMoney } from "@/lib/money";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
 import type { TablesUpdate } from "@/lib/supabase/database.types";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
+import { readAll } from "@/lib/supabase/read-all";
+import { applyPortfolioCashDelta } from "@/lib/cash-trade";
 import { NextRequest, NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
 import { communityPatchSchema } from "@/lib/api-schemas";
@@ -49,7 +51,16 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
   // None of these depend on each other, and isAdmin is only consumed much
   // further down, so fetching it here costs nothing extra instead of an
   // extra serial round-trip later.
-  const [aliasMap, isAdmin, { data: community }, { data: members }, { data: pinned }] =
+  /*
+    The roster is paged, so this screen and the community book agree.
+
+    Permissions here do not come from it (`isAdmin` is its own call), so a
+    short read would not have let anybody through a door. It would have
+    done something quieter and stranger: the same class showing a
+    different set of members depending on which of the two screens you
+    opened it from.
+  */
+  const [aliasMap, isAdmin, { data: community }, members, pinned] =
     await Promise.all([
       loadAliasMap(supabase),
       userIsCommunityAdmin(auth.user.id, id),
@@ -58,37 +69,37 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
         .select("id, name, visibility, kind, starting_cash, house_note, class_plan, created_by, created_at, updated_at")
         .eq("id", id)
         .single(),
-      supabase
-        .from(PORTFELL_TABLES.communityMembers)
-        .select("user_id, role, joined_at")
-        .eq("community_id", id),
-      supabase
-        .from(PORTFELL_TABLES.communityPortfolios)
-        .select("portfolio_id, label")
-        .eq("community_id", id),
+      readAll<{ user_id: string; role: string; joined_at: string }>(() =>
+        supabase
+          .from(PORTFELL_TABLES.communityMembers)
+          .select("user_id, role, joined_at")
+          .eq("community_id", id)
+      ),
+      readAll<{ portfolio_id: string; label: string | null }>(() =>
+        supabase
+          .from(PORTFELL_TABLES.communityPortfolios)
+          .select("portfolio_id, label")
+          .eq("community_id", id)
+      ),
     ]);
 
   if (!community) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const userIds = ((members ?? []) as { user_id: string }[]).map(
-    (m) => m.user_id
-  );
-  const { data: profiles } = userIds.length
-    ? await supabase
-        .from(PORTFELL_TABLES.profiles)
-        .select("id, email, display_name, avatar_url, bio")
-        .in("id", userIds)
-    : { data: [] };
+  const userIds = members.map((m) => m.user_id);
+  const profiles = userIds.length
+    ? await readAll<{ id: string }>(() =>
+        supabase
+          .from(PORTFELL_TABLES.profiles)
+          .select("id, email, display_name, avatar_url, bio")
+          .in("id", userIds)
+      )
+    : [];
 
-  const profileById = new Map(
-    ((profiles ?? []) as { id: string }[]).map((p) => [p.id, p])
-  );
+  const profileById = new Map(profiles.map((p) => [p.id, p]));
 
-  const rawMembers: RawMember[] = (
-    (members ?? []) as { user_id: string; role: string; joined_at: string }[]
-  ).map((m) => ({
+  const rawMembers: RawMember[] = members.map((m) => ({
     ...m,
     profile: (profileById.get(m.user_id) as RawMember["profile"]) ?? null,
   }));
@@ -99,45 +110,46 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
     aliasMap
   );
 
-  const pinnedRows = (pinned ?? []) as {
-    portfolio_id: string;
-    label: string | null;
-  }[];
+  const pinnedRows = pinned;
   const pinnedIds = pinnedRows.map((p) => p.portfolio_id);
 
-  const { data: ownership } = pinnedIds.length
-    ? await supabase
-        .from(PORTFELL_TABLES.portfolioOwners)
-        .select("portfolio_id, user_id")
-        .in("portfolio_id", pinnedIds)
-    : { data: [] };
+  const ownership = pinnedIds.length
+    ? await readAll<{ portfolio_id: string; user_id: string }>(() =>
+        supabase
+          .from(PORTFELL_TABLES.portfolioOwners)
+          .select("portfolio_id, user_id")
+          .in("portfolio_id", pinnedIds)
+      )
+    : [];
 
   const ownedIds = [
     ...new Set(
-      ((ownership ?? []) as { portfolio_id: string; user_id: string }[])
+      ownership
         .filter((o) => userIds.includes(o.user_id))
         .map((o) => o.portfolio_id)
     ),
   ];
   const portfolioIds = [...new Set(pinnedIds)];
 
-  const { data: portfolios } = portfolioIds.length
-    ? await supabase
-        .from(PORTFELL_TABLES.portfolios)
-        .select("id, name, slug, sort_order, cash_balance, owner_id, classroom_community_id")
-        .in("id", portfolioIds)
-        .order("sort_order")
-    : { data: [] };
+  const portfolios = portfolioIds.length
+    ? await readAll<{
+        id: string;
+        name: string;
+        slug: string;
+        owner_id?: string | null;
+      }>(() =>
+        supabase
+          .from(PORTFELL_TABLES.portfolios)
+          .select("id, name, slug, sort_order, cash_balance, owner_id, classroom_community_id")
+          .in("id", portfolioIds)
+          .order("sort_order")
+      )
+    : [];
 
   // Pending households: pinned sheets not yet owned by any signed-in member.
   const ownedSet = new Set(ownedIds);
   const memberUserIds = new Set(userIds);
-  const portfolioRows = (portfolios ?? []) as {
-    id: string;
-    name: string;
-    slug: string;
-    owner_id?: string | null;
-  }[];
+  const portfolioRows = portfolios;
 
   const isOwnedByMember = (portfolioId: string) => {
     if (ownedSet.has(portfolioId)) return true;
@@ -193,21 +205,28 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
     profile: { display_name: string | null; email: string | null; avatar_url: string | null } | null;
   }[] = [];
   if (isAdmin) {
-    const { data: pendingRequests } = await supabase
-      .from(PORTFELL_TABLES.communityJoinRequests)
-      .select("id, user_id, message, requested_at")
-      .eq("community_id", id)
-      .eq("status", "pending")
-      .order("requested_at", { ascending: true });
-    const reqUserIds = ((pendingRequests ?? []) as { user_id: string }[]).map(
-      (r) => r.user_id
+    const pendingRequests = await readAll<{
+      id: string;
+      user_id: string;
+      message: string | null;
+      requested_at: string;
+    }>(() =>
+      supabase
+        .from(PORTFELL_TABLES.communityJoinRequests)
+        .select("id, user_id, message, requested_at")
+        .eq("community_id", id)
+        .eq("status", "pending")
+        .order("requested_at", { ascending: true })
     );
-    const { data: reqProfiles } = reqUserIds.length
-      ? await supabase
-          .from(PORTFELL_TABLES.profiles)
-          .select("id, email, display_name, avatar_url")
-          .in("id", reqUserIds)
-      : { data: [] };
+    const reqUserIds = pendingRequests.map((r) => r.user_id);
+    const reqProfiles = reqUserIds.length
+      ? await readAll<{ id: string }>(() =>
+          supabase
+            .from(PORTFELL_TABLES.profiles)
+            .select("id, email, display_name, avatar_url")
+            .in("id", reqUserIds)
+        )
+      : [];
     const reqProfileById = new Map(
       (
         (reqProfiles ?? []) as {
@@ -441,29 +460,47 @@ async function handlePATCH(req: NextRequest, ctx: Ctx) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]") }, { status: 500 });
   }
   if (startingCashDelta !== 0) {
-    const { data: sheets } = await supabase
-      .from(PORTFELL_TABLES.portfolios)
-      .select("id, cash_balance")
-      .eq("classroom_community_id", id);
-    // PostgREST can't express a column-relative delta across a batch, so
-    // this is still one write per student sheet — but they go out together
-    // instead of one round trip after another. A 30-student class was ~30
-    // sequential waits on an action a teacher expects to feel instant.
-    const now = new Date().toISOString();
+    /*
+      The delta is applied by the database, one row at a time, and never
+      read into Node and written back.
+
+      This used to select every class sheet's `cash_balance`, add the delta
+      here, and write the absolute result. That is the lost update that
+      migration 041 and `portfell_apply_cash_delta` were written to remove
+      from the trade path, and it was still here: a student who buys
+      something between the teacher's read and the teacher's write has that
+      trade silently erased, because the write does not know it happened.
+      A class is exactly where those overlap, since changing starting cash
+      is a thing a teacher does while thirty students are trading.
+
+      The comment this replaces said PostgREST cannot express a
+      column-relative delta. That is true of a batch update and not of the
+      RPC, which does one row atomically and is what the trade path already
+      calls. The round trips are unchanged: one read for the ids, then one
+      call per sheet, still concurrent.
+
+      The read is paged because it decides which sheets move at all: a
+      short one leaves the students past the cap on the old figure while
+      the teacher is told the change went through.
+
+      Permission is unchanged in both directions. The RPC skips its
+      co-ownership check for the service-role connection these routes use,
+      and demands exactly `portfell_is_portfolio_co_owner` otherwise, which
+      is the same predicate the table's own update policy applies to the
+      write this replaces.
+    */
+    const sheets = await readAll<{ id: string }>(() =>
+      supabase
+        .from(PORTFELL_TABLES.portfolios)
+        .select("id")
+        .eq("classroom_community_id", id)
+    );
     await Promise.all(
-      ((sheets ?? []) as { id: string; cash_balance: number }[]).map((sheet) =>
-        supabase
-          .from(PORTFELL_TABLES.portfolios)
-          .update({
-            cash_balance: roundMoney(
-              Number(sheet.cash_balance) + startingCashDelta
-            ),
-            updated_at: now,
-          })
-          .eq("id", sheet.id)
+      sheets.map((sheet) =>
+        applyPortfolioCashDelta(supabase, sheet.id, startingCashDelta)
       )
     );
   }
@@ -509,7 +546,7 @@ async function handleDELETE(_req: NextRequest, ctx: Ctx) {
     .eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]") }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

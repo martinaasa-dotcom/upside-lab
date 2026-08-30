@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 
 /**
  * Read a browser-only cache (localStorage, sessionStorage) into React state
@@ -42,29 +42,4 @@ export function useHydratedCache<T>(
   }, []);
 
   return [value, setValue];
-}
-
-/**
- * Whether the first client render has happened yet.
- *
- * For the "do I need a spinner" decision, which can't be derived from the
- * cached value alone: on the server there is no cache, so `false` there and
- * `true` on the client is itself a mismatch. Render the server-safe branch
- * until this flips.
- */
-export function useHydrated(): boolean {
-  const [hydrated, setHydrated] = useState(false);
-  useLayoutEffect(() => setHydrated(true), []);
-  return hydrated;
-}
-
-/** Read a URL search param without desyncing server and client renders. */
-export function useSearchParamState(
-  key: string
-): [string | null, React.Dispatch<React.SetStateAction<string | null>>] {
-  const read = useCallback(() => {
-    if (typeof window === "undefined") return null;
-    return new URLSearchParams(window.location.search).get(key);
-  }, [key]);
-  return useHydratedCache<string | null>(read, null);
 }

@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { NextResponse } from "next/server";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
@@ -22,7 +23,7 @@ async function handleGET() {
     .eq("id", auth.user.id)
     .maybeSingle();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: dbError(error, "/api/billing/status") }, { status: 500 });
   return NextResponse.json({
     subscriptionStatus: data?.subscription_status ?? null,
     plan: data?.plan ?? null,

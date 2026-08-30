@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import {
   userIsCommunityMember,
   userOwnsPortfolio,
@@ -154,7 +155,7 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
       label: (sheet as { name?: string } | null)?.name ?? null,
     });
     if (error && !/duplicate|unique/i.test(error.message)) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: dbError(error, "/api/communities/[id]/sheets") }, { status: 500 });
     }
   } else {
     const { error } = await supabase
@@ -163,7 +164,7 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
       .eq("community_id", id)
       .eq("portfolio_id", portfolioId);
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: dbError(error, "/api/communities/[id]/sheets") }, { status: 500 });
     }
   }
 

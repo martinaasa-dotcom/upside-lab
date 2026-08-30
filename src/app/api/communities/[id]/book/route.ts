@@ -9,6 +9,7 @@ import { countTheses, isClassroomKind } from "@/lib/classroom";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
+import { readAll } from "@/lib/supabase/read-all";
 import { NextRequest, NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
 
@@ -38,17 +39,28 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
 
   // The alias map doesn't depend on members/pinned, so it rides along
   // instead of costing its own serial round-trip before them.
-  const [aliasMap, { data: members }, { data: pinned }, { data: communityRow }] =
+  /*
+    The member list is paged because everything on this page is derived
+    from it: the profiles, the ownership, the thesis coverage, and
+    `viewerIsAdmin`. A silently short read is not a shorter roster, it is
+    an admin who stops being one part way down a large class, and in a
+    classroom that is what decides whether cost basis is visible.
+  */
+  const [aliasMap, members, pinned, { data: communityRow }] =
     await Promise.all([
       loadAliasMap(supabase),
-      supabase
-        .from(PORTFELL_TABLES.communityMembers)
-        .select("user_id, role, joined_at")
-        .eq("community_id", id),
-      supabase
-        .from(PORTFELL_TABLES.communityPortfolios)
-        .select("portfolio_id, label")
-        .eq("community_id", id),
+      readAll<{ user_id: string; role?: string; joined_at?: string }>(() =>
+        supabase
+          .from(PORTFELL_TABLES.communityMembers)
+          .select("user_id, role, joined_at")
+          .eq("community_id", id)
+      ),
+      readAll<{ portfolio_id: string; label: string | null }>(() =>
+        supabase
+          .from(PORTFELL_TABLES.communityPortfolios)
+          .select("portfolio_id, label")
+          .eq("community_id", id)
+      ),
       supabase
         .from(PORTFELL_TABLES.communities)
         .select("kind")
@@ -60,27 +72,29 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
   );
   // Derived from the members rows already fetched above, so this costs no
   // extra round trip.
-  const viewerIsAdmin = ((members ?? []) as { user_id: string; role?: string }[]).some(
+  const viewerIsAdmin = (members as { user_id: string; role?: string }[]).some(
     (m) => m.user_id === auth.user.id && m.role === "admin"
   );
 
-  const memberIds = ((members ?? []) as { user_id: string }[]).map(
+  const memberIds = (members as { user_id: string }[]).map(
     (m) => m.user_id
   );
 
-  const { data: profiles } = memberIds.length
-    ? await supabase
-        .from(PORTFELL_TABLES.profiles)
-        .select("id, email, display_name, avatar_url, bio")
-        .in("id", memberIds)
-    : { data: [] };
+  const profiles = memberIds.length
+    ? await readAll<{ id: string }>(() =>
+        supabase
+          .from(PORTFELL_TABLES.profiles)
+          .select("id, email, display_name, avatar_url, bio")
+          .in("id", memberIds)
+      )
+    : [];
 
   const profileById = new Map(
-    ((profiles ?? []) as { id: string }[]).map((p) => [p.id, p])
+    (profiles as { id: string }[]).map((p) => [p.id, p])
   );
 
   const rawMembers: RawMember[] = (
-    (members ?? []) as { user_id: string; role: string; joined_at: string }[]
+    members as { user_id: string; role: string; joined_at: string }[]
   ).map((m) => ({
     ...m,
     profile: (profileById.get(m.user_id) as RawMember["profile"]) ?? null,
@@ -93,15 +107,17 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
 
   if (pendingKey) {
     userIds = [];
-    const pinnedIds = ((pinned ?? []) as { portfolio_id: string }[]).map(
+    const pinnedIds = (pinned as { portfolio_id: string }[]).map(
       (p) => p.portfolio_id
     );
     if (pinnedIds.length) {
-      const { data: sheets } = await supabase
-        .from(PORTFELL_TABLES.portfolios)
-        .select("id, slug")
-        .in("id", pinnedIds);
-      pinnedOnlyIds = ((sheets ?? []) as { id: string; slug: string }[])
+      const sheets = await readAll<{ id: string; slug: string }>(() =>
+        supabase
+          .from(PORTFELL_TABLES.portfolios)
+          .select("id, slug")
+          .in("id", pinnedIds)
+      );
+      pinnedOnlyIds = sheets
         .filter((s) => s.slug === pendingKey)
         .map((s) => s.id);
     } else {
@@ -115,7 +131,7 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
     userIds = expanded;
   }
 
-  const sharedIds = ((pinned ?? []) as { portfolio_id: string }[]).map(
+  const sharedIds = (pinned as { portfolio_id: string }[]).map(
     (p) => p.portfolio_id
   );
   const pinnedIdsAll = sharedIds;
@@ -124,16 +140,19 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
   if (pinnedOnlyIds) {
     portfolioIds = pinnedOnlyIds;
   } else if (ownerFilter) {
-    const { data: owned } = userIds.length
-      ? await supabase
-          .from(PORTFELL_TABLES.portfolioOwners)
-          .select("portfolio_id, user_id")
-          .in("user_id", userIds)
-      : { data: [] as { portfolio_id: string; user_id: string }[] };
+    const owned0 = userIds.length
+      ? await readAll<{ portfolio_id: string; user_id: string }>(() =>
+          supabase
+            .from(PORTFELL_TABLES.portfolioOwners)
+            .select("portfolio_id, user_id")
+            .in("user_id", userIds)
+        )
+      : [];
+    const owned = owned0;
     const shared = new Set(sharedIds);
     portfolioIds = [
       ...new Set(
-        ((owned ?? []) as { portfolio_id: string }[])
+        (owned as { portfolio_id: string }[])
           .map((o) => o.portfolio_id)
           .filter((id) => shared.has(id))
       ),
@@ -142,35 +161,52 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
     portfolioIds = [...new Set(sharedIds)];
   }
 
-  const { data: ownership } = portfolioIds.length
-    ? await supabase
-        .from(PORTFELL_TABLES.portfolioOwners)
-        .select("portfolio_id, user_id")
-        .in("portfolio_id", portfolioIds)
-    : { data: [] as { portfolio_id: string; user_id: string }[] };
+  const ownership = portfolioIds.length
+    ? await readAll<{ portfolio_id: string; user_id: string }>(() =>
+        supabase
+          .from(PORTFELL_TABLES.portfolioOwners)
+          .select("portfolio_id, user_id")
+          .in("portfolio_id", portfolioIds)
+      )
+    : [];
 
   // Sheets and their holdings both key off portfolioIds and don't depend
   // on each other, so they go out together rather than back to back.
   let portfolios: unknown[] = [];
   let holdings: unknown[] = [];
   if (portfolioIds.length) {
-    const [{ data: p }, { data: h }] = await Promise.all([
-      supabase
-        .from(PORTFELL_TABLES.portfolios)
-        .select(
-          "id, name, slug, sort_order, cash_balance, owner_id, classroom_community_id"
-        )
-        .in("id", portfolioIds)
-        .order("sort_order"),
-      supabase
-        .from(PORTFELL_TABLES.holdings)
-        .select(
-          "id, portfolio_id, ticker, shares, buy_price, eoy_target, target_call_pct, stock_target_override, sort_order"
-        )
-        .in("portfolio_id", portfolioIds)
-        .order("sort_order"),
+    /*
+      Both are paged. A community's holdings are every shared portfolio's
+      holdings at once, and PostgREST stops at db-max-rows (1,000 by
+      default) without saying so. A class of thirty students at twenty-five
+      names each is already 750 rows; forty is past the cap. What a
+      truncated read produces is not an obviously broken page, it is a
+      leaderboard whose values were computed from part of somebody's
+      portfolio and are printed as fact beside their name. The `.order`
+      makes it worse rather than better: the cut falls across every
+      portfolio at once rather than dropping the last one whole.
+    */
+    const [p, h] = await Promise.all([
+      readAll<unknown>(() =>
+        supabase
+          .from(PORTFELL_TABLES.portfolios)
+          .select(
+            "id, name, slug, sort_order, cash_balance, owner_id, classroom_community_id"
+          )
+          .in("id", portfolioIds)
+          .order("sort_order")
+      ),
+      readAll<unknown>(() =>
+        supabase
+          .from(PORTFELL_TABLES.holdings)
+          .select(
+            "id, portfolio_id, ticker, shares, buy_price, eoy_target, target_call_pct, stock_target_override, sort_order"
+          )
+          .in("portfolio_id", portfolioIds)
+          .order("sort_order")
+      ),
     ]);
-    portfolios = p ?? [];
+    portfolios = p;
     // Circles hide cost outright. A class shows it to the **teacher**, and
     // to each student on their own sheet. That was the stated intent ("so
     // the teacher can see what students actually paid"), but the check was
@@ -178,12 +214,12 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
     // basis. Comparing picks is the teaching goal and that works on
     // returns, which stay visible to everyone; what someone paid is theirs.
     const ownIds = new Set(
-      ((ownership ?? []) as { portfolio_id: string; user_id: string }[])
+      (ownership as { portfolio_id: string; user_id: string }[])
         .filter((o) => o.user_id === auth.user.id)
         .map((o) => o.portfolio_id)
     );
     const showAllCost = classroom && viewerIsAdmin;
-    holdings = ((h ?? []) as Array<Record<string, unknown>>).map((row) => {
+    holdings = (h as Array<Record<string, unknown>>).map((row) => {
       const own = ownIds.has(String(row.portfolio_id));
       return {
         ...row,
@@ -201,7 +237,7 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
 
   const memberSet = new Set(memberIds);
   const ownershipOut = (
-    (ownership ?? []) as { portfolio_id: string; user_id: string }[]
+    ownership as { portfolio_id: string; user_id: string }[]
   )
     .filter((o) => memberSet.has(o.user_id))
     .map((o) => ({
@@ -234,18 +270,20 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
 
   const thesisCoverage: Record<string, { names: number; withWhy: number }> = {};
   if (classroom && memberIds.length) {
-    const { data: labRows } = await supabase
-      .from(PORTFELL_TABLES.labState)
-      .select("owner_id, conviction")
-      .in("owner_id", memberIds);
+    const labRows = await readAll<{
+      owner_id: string | null;
+      conviction: unknown;
+    }>(() =>
+      supabase
+        .from(PORTFELL_TABLES.labState)
+        .select("owner_id, conviction")
+        .in("owner_id", memberIds)
+    );
     const convictionByOwner = new Map<
       string,
       Record<string, { thesis?: string } | undefined>
     >();
-    for (const row of (labRows ?? []) as {
-      owner_id: string | null;
-      conviction: unknown;
-    }[]) {
+    for (const row of labRows) {
       if (!row.owner_id) continue;
       convictionByOwner.set(
         row.owner_id,
