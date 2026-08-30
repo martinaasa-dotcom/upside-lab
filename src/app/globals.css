@@ -36,7 +36,7 @@
   --input: oklch(1 0 0 / 18%);
   --ring: oklch(0.8 0.09 90);
   --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.63 0.22 45);
+  --chart-3: oklch(0.7 0.19 45);
   --chart-5: oklch(0.645 0.21 16.439);
   --radius: 0.625rem;
   --sidebar: oklch(0.205 0 0);
@@ -48,7 +48,7 @@
   --sidebar-border: oklch(1 0 0 / 16%);
   --sidebar-ring: oklch(0.8 0.09 90);
   /* True orange, not gold/amber — see DESIGN_TOKENS.md "Warning/caution". */
-  --warning: oklch(0.63 0.22 45);
+  --warning: oklch(0.7 0.19 45);
   --gain: oklch(0.696 0.17 162.48);
   /*
    * Chroma 0.21, not 0.246. At 0.246 this hue/lightness is outside sRGB,

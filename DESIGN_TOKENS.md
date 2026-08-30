@@ -19,7 +19,30 @@ Moved to a true orange, hue 45° — clearly on the red/orange side of the
 wheel, not the yellow/gold side, so it doesn't quietly reintroduce the
 banned hue under a different name.
 
-New: `--warning` / `--chart-3`: `oklch(0.63 0.22 45)`.
+New: `--warning` / `--chart-3`: `oklch(0.7 0.19 45)`.
+
+**Lightened from `oklch(0.63 0.22 45)` on 2026-08-30, because at that
+value it did not meet AA and had no margin to lose.** The `warn` Pill is
+`text-caution` on `bg-caution/20`, and measured with axe against the
+landing's own painted background -- the pill's tint over a glass panel
+over the warm ambient lobe, which composites to `#39190a` rather than to
+black -- it scored **4.21:1 against the 4.5 required**. Against pure
+black it scored 4.65, so the design had **3% of headroom** and the
+ambient glow ate all of it. That is why it read as passing for months
+and then failed: nothing about the pill changed, the ground under it
+did.
+
+At `0.7 0.19 45` the same pairing measures **5.56:1 on that ground and
+5.84 on black**, which is 23% of margin. The hue does not move: 45 is
+the whole point of this token (see above), and the lightness change
+keeps it a true orange (`#fa6e1d`) rather than drifting toward the
+banned gold at 70. The sibling tones were measured at the same time and
+were never at risk -- `gain` 6.62 and `destructive` 5.80 on their own
+20% tints.
+
+**Judge any change to this token against a painted background, not
+against `--background`.** Every semantic colour in this app is read over
+the ambient field, and the field is what closed the gap.
 
 ## Accent Palette (the ceiling — nothing outside this list without updating this file first)
 
