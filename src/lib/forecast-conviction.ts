@@ -66,9 +66,6 @@ const THEME_BASE_MULTS: Record<ForecastTheme, number[]> = {
   index: [1.1, 1.23, 1.35, 1.48, 1.61], // ~10%/yr, the market baseline
 };
 
-/** EOY 2026…2030 multiples of today's value for a plain index / SPY path. */
-export const INDEX_EOY_MULTS = THEME_BASE_MULTS.index;
-
 /** Implied annualized return from the generic fallback shape's final year,
  * over the ~5y FORECAST_YEARS span — a rough, sector-differentiated stand-in
  * for "expected return", not a forecast. Used only as a default so the

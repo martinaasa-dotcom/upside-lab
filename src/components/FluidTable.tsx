@@ -103,7 +103,6 @@ export const cellBase =
 /** Left-aligned ticker + chip. Pair with `tableCols(n, true)` so leftover does not sit after the chip. */
 export const cellTicker =
   "flex h-full w-max max-w-full items-center justify-start whitespace-nowrap px-1.5 py-1.5 text-left";
-export const cellLast = cellBase;
 
 /**
  * The `<table>` twin of `FluidTable`, and `table-auto` for the same reason
@@ -125,5 +124,3 @@ export const htmlCell =
  * the cashtag and no narrower". */
 export const htmlCellTicker =
   "h-10 w-[1%] min-w-max whitespace-nowrap py-1.5 pl-3 pr-3 text-left align-middle";
-export const htmlCellFirst = htmlCell;
-export const htmlCellLast = htmlCell;

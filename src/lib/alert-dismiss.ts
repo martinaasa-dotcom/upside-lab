@@ -22,10 +22,3 @@ export function saveDismissedAlertIds(ids: Set<string>) {
     /* ignore */
   }
 }
-
-export function dismissAlert(id: string, existing: Set<string>): Set<string> {
-  const next = new Set(existing);
-  next.add(id);
-  saveDismissedAlertIds(next);
-  return next;
-}

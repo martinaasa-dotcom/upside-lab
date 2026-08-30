@@ -55,17 +55,6 @@ export const US_PRESIDENCIES: PresidencyTerm[] = [
   },
 ];
 
-/** Which president was in office for most of a calendar year (Dec 31). */
-export function presidentForYear(year: number): PresidencyTerm | null {
-  const probe = `${year}-12-31`;
-  for (const term of US_PRESIDENCIES) {
-    if (probe >= term.start && (term.end == null || probe < term.end)) {
-      return term;
-    }
-  }
-  return null;
-}
-
 export type PresidentialCyclePhase =
   | "post_election"
   | "midterm"

@@ -138,14 +138,6 @@ export function formatPercentFromRaw(
   };
 }
 
-export function parseLiveMoney(raw: string, fractionDigits = 0): number {
-  return formatMoneyFromRaw(raw, "USD", fractionDigits).value;
-}
-
-export function parseLivePercent(raw: string, fractionDigits = 2): number {
-  return formatPercentFromRaw(raw, fractionDigits).value;
-}
-
 /** Count digit characters before `caret` (ignores $, commas, %). */
 export function digitCountBefore(value: string, caret: number): number {
   let n = 0;

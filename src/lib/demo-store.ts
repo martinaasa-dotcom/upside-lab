@@ -1,7 +1,6 @@
 import type { Holding, Portfolio } from "./types";
 import { tracksTradeCash } from "@/lib/cash-balance";
 import { tradeCashDelta } from "@/lib/cash-delta";
-import { supabaseIsConfigured } from "@/lib/supabase/env";
 
 /** Yahoo-friendly symbols for non-US listings */
 function yf(ticker: string) {
@@ -392,8 +391,4 @@ export function resetDemoStore(): DemoStore {
   const next = defaultStore();
   saveDemoStore(next);
   return next;
-}
-
-export function isSupabaseConfigured() {
-  return supabaseIsConfigured();
 }

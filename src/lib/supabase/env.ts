@@ -71,14 +71,6 @@ export function isDirectPostgresUrl(raw: string | undefined): boolean {
   return !isSupabasePoolerUrl(raw);
 }
 
-export function supabasePoolerDatabaseUrl(): string | undefined {
-  const pooler = process.env.DATABASE_POOLER_URL?.trim();
-  if (pooler) return pooler;
-  const db = supabaseDatabaseUrl();
-  if (db && isSupabasePoolerUrl(db)) return db;
-  return undefined;
-}
-
 /** Project ref for Management API calls (`uzrnybyggznpvgxgrvgl`). */
 export function supabaseProjectRef(): string | undefined {
   const explicit = process.env.SUPABASE_PROJECT_REF?.trim();

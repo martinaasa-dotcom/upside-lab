@@ -53,14 +53,6 @@ export function emailHairline(): string {
 </table>`;
 }
 
-export function emailSection(title: string, inner: string): string {
-  return `${emailHairline()}
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:16px 0 0 0">
-  <tr><td>${emailKicker(title)}</td></tr>
-  <tr><td style="padding:14px 0 0 0">${inner}</td></tr>
-</table>`;
-}
-
 /** A raised box so the week hero, Margus, and each notice sit apart. */
 export function emailCard(inner: string): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:20px 0 0 0;background:${EMAIL.card};border:1px solid ${EMAIL.cardLine};border-radius:14px">

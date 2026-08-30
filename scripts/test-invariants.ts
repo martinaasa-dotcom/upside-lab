@@ -1858,10 +1858,22 @@ run("public pages ship OG cards and private rooms are noindex", () => {
   assert.match(seo, /\/lab/);
   assert.match(seo, /\/forecast/);
   assert.match(seo, /\/margus/);
+  /*
+    Both halves of robots.txt are derived from `seo-routes.ts`, and the
+    sitemap is keyed off the same list.
+
+    This used to assert that the literal `/communities$` appeared in
+    `robots.ts`. It did, because the five public paths were written out by
+    hand there and again in the sitemap, which is the duplication
+    `seo-routes.ts` exists to prevent; the assertion was holding that
+    duplication in place. What matters is that neither file can name a
+    path the list does not, so that is what is asserted here, and the
+    generated output (the `/communities$` anchor included) is checked
+    against the real rules in `src/lib/seo-consistency.test.ts`.
+  */
   assert.match(robots, /PRIVATE_NOINDEX_PATHS/);
-  assert.match(robots, /\/communities\$/);
-  assert.match(sitemap, /\/login/);
-  assert.match(sitemap, /\/communities/);
+  assert.match(robots, /PUBLIC_INDEX_PATHS/);
+  assert.match(sitemap, /PUBLIC_INDEX_PATHS/);
   assert.match(nextCfg, /X-Robots-Tag/);
   assert.match(nextCfg, /PRIVATE_NOINDEX_PATHS/);
   assert.match(manifest, /icon-192\.png/);
