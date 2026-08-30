@@ -349,19 +349,23 @@ async function handleGET(req: Request) {
     means the catch-up itself has been failing across runs -- a provider
     outage that outlasts the retries, or a bug in the run -- and that used
     to be visible only by reading the feed and noticing it had stopped.
-    An error-level event always prints, so a multi-day backlog surfaces the
-    day it becomes one instead of whenever somebody looks.
+    Through logError rather than a bare event on purpose: an event lands
+    only in the platform's log stream, which is searchable and never read,
+    while a row in portfell_error_log reaches /admin and the daily error
+    digest, which mails the day this class of trouble starts.
   */
   if (missing.length >= 3) {
-    logEvent(
-      "fund_cron_backlog_stale",
-      {
+    await logError({
+      source: "server",
+      message: `Upside Portfolio backlog is ${missing.length} trading days deep; oldest missing day is ${missing[0]}.`,
+      path: "/api/cron/margus-fund",
+      event: "fund_cron_backlog_stale",
+      context: {
         backlog: missing.length,
         oldestMissing: missing[0],
         latestSession,
       },
-      "error"
-    );
+    });
   }
 
   try {

@@ -1,6 +1,7 @@
 import { unsubscribeUrlFor } from "@/lib/unsubscribe-link";
 import { readAll } from "@/lib/supabase/read-all";
 import { requestIsScheduledCron } from "@/lib/cron-auth";
+import { logError } from "@/lib/error-log";
 import { logEvent } from "@/lib/telemetry";
 import {
   ACCOUNT_ALIAS_FALLBACK,
@@ -745,18 +746,28 @@ export async function dispatchWeeklyLetters(
    * stale-quote bug, a provider outage across the Sunday window) shows up
    * as an unusually high untrusted share, and buried in per-person log
    * lines it stays invisible until a reader asks where their letter went.
-   * A quarter of the run refused, on more than one person, is treated as
-   * an incident (errors always print); anything smaller stays a warning.
+   * A quarter of the run refused, on more than one person, is an incident
+   * and goes through logError, so it lands in portfell_error_log, /admin
+   * and the daily error digest rather than only in a log stream nobody
+   * reads; anything smaller stays a warning event.
    */
   if (untrusted > 0) {
     const attempted = pending.length;
-    logEvent(
-      "sunday_letter_untrusted_rate",
-      { untrusted, attempted, sent, remaining },
-      untrusted >= 2 && untrusted / Math.max(1, attempted) >= 0.25
-        ? "error"
-        : "warn"
-    );
+    if (untrusted >= 2 && untrusted / Math.max(1, attempted) >= 0.25) {
+      await logError({
+        source: "server",
+        message: `Sunday letter refused ${untrusted} of ${attempted} recipients for thin market data in one run.`,
+        path: "/api/cron/sunday-note",
+        event: "sunday_letter_untrusted_rate",
+        context: { untrusted, attempted, sent, remaining },
+      });
+    } else {
+      logEvent(
+        "sunday_letter_untrusted_rate",
+        { untrusted, attempted, sent, remaining },
+        "warn"
+      );
+    }
   }
 
   return {
