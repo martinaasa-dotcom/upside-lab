@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { isSuperadminEmail } from "@/lib/auth/superadmin";
 import { funnelFromUsers, type AdminFunnel } from "@/lib/admin-funnel";
 import {
@@ -261,7 +262,7 @@ async function handleGET() {
 
     const { data, error } = await supabase.rpc("portfell_superadmin_overview");
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: dbError(error, "/api/admin/overview") }, { status: 500 });
     }
 
     const payload = (data ?? {}) as {

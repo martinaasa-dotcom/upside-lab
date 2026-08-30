@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { NextResponse } from "next/server";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
@@ -52,7 +53,7 @@ async function handlePOST(req: Request) {
     .maybeSingle();
 
   if (profileError) {
-    return NextResponse.json({ error: profileError.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(profileError, "/api/billing/checkout") }, { status: 500 });
   }
 
   let customerId = profile?.stripe_customer_id ?? undefined;
@@ -76,7 +77,7 @@ async function handlePOST(req: Request) {
         .update({ stripe_customer_id: customerId, updated_at: new Date().toISOString() })
         .eq("id", auth.user.id);
       if (saveError) {
-        return NextResponse.json({ error: saveError.message }, { status: 500 });
+        return NextResponse.json({ error: dbError(saveError, "/api/billing/checkout") }, { status: 500 });
       }
     } else {
       // The local subscription_status can lag Stripe's (a webhook that

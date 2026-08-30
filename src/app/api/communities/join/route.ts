@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { createHash } from "crypto";
 import { provisionClassroomSheet } from "@/lib/classroom";
 import { shareOwnedSheetsIntoCommunity } from "@/lib/community-share";
@@ -117,7 +118,7 @@ async function handlePOST(req: NextRequest) {
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/join") }, { status: 500 });
   }
 
   const result = data as { ok: boolean; error?: string; community_id?: string };

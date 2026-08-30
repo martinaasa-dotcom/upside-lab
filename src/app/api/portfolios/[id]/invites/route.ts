@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { createHash, randomBytes } from "crypto";
 import { requirePortfolioOwner } from "@/lib/auth/ownership";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
@@ -35,7 +36,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/portfolios/[id]/invites") }, { status: 500 });
   }
 
   return NextResponse.json({ invites: data ?? [] });
@@ -83,7 +84,7 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/portfolios/[id]/invites") }, { status: 500 });
   }
 
   return NextResponse.json({

@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
@@ -164,7 +165,7 @@ async function handleDELETE(req: NextRequest) {
     .eq("id", parsed.data.id)
     .eq("user_id", auth.user.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: dbError(error, "/api/account/addresses") }, { status: 500 });
 
   return NextResponse.json({ ok: true });
 }

@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { createSupabaseServerAuth, requireAuthUser } from "@/lib/supabase/server-auth";
 import {
   getSupabaseServer,
@@ -135,7 +136,7 @@ async function handlePOST() {
 
   const { data, error } = await supabase.rpc("portfell_delete_my_account");
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/account/delete") }, { status: 500 });
   }
 
   let authDeleted = false;

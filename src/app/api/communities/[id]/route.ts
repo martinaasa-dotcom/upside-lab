@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import {
   collapseMembersByAlias,
   HOUSEHOLD_PENDING_EMAILS,
@@ -441,7 +442,7 @@ async function handlePATCH(req: NextRequest, ctx: Ctx) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]") }, { status: 500 });
   }
   if (startingCashDelta !== 0) {
     const { data: sheets } = await supabase
@@ -509,7 +510,7 @@ async function handleDELETE(_req: NextRequest, ctx: Ctx) {
     .eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]") }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

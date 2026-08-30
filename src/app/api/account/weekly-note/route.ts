@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { noteEmailConfigured } from "@/lib/send-note";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
@@ -31,7 +32,7 @@ async function handleGET() {
     .select("note_sunday, morning_note")
     .eq("id", auth.user.id)
     .maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: dbError(error, "/api/account/weekly-note") }, { status: 500 });
   const sunday = Boolean(data?.note_sunday ?? data?.morning_note);
   return NextResponse.json({
     sunday,
@@ -65,7 +66,7 @@ async function handlePOST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", auth.user.id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: dbError(error, "/api/account/weekly-note") }, { status: 500 });
   return NextResponse.json({
     ok: true,
     sunday: next,

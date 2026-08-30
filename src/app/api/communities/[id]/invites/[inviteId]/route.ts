@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { createHash, randomBytes } from "crypto";
 import { userIsCommunityAdmin } from "@/lib/auth/ownership";
 import {
@@ -51,7 +52,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]/invites/[inviteId]") }, { status: 500 });
   }
   if (!data) {
     return NextResponse.json({ error: "Invite not found" }, { status: 404 });
@@ -82,7 +83,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
     .is("revoked_at", null);
 
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(updateError, "/api/communities/[id]/invites/[inviteId]") }, { status: 500 });
   }
 
   return NextResponse.json({ path: inviteJoinPath(token) });
@@ -116,7 +117,7 @@ async function handlePATCH(req: NextRequest, ctx: Ctx) {
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities/[id]/invites/[inviteId]") }, { status: 500 });
   }
 
   if (!data) {

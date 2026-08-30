@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import { readAll } from "@/lib/supabase/read-all";
 import { captureBookPayload, saveBookSnapshot } from "@/lib/book-snapshot";
 import { ensureProfileAndClaims } from "@/lib/auth/ensure-profile";
@@ -221,7 +222,7 @@ async function handlePOST(req: NextRequest) {
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/portfolios") }, { status: 500 });
   }
 
   const created = data as { id?: string; name?: string } | null;
@@ -302,7 +303,7 @@ async function handlePATCH(req: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/portfolios") }, { status: 500 });
   }
   return NextResponse.json({
     portfolio: mapPortfolio(data as Record<string, unknown>),
@@ -358,7 +359,7 @@ async function handleDELETE(req: NextRequest) {
       .delete()
       .eq("id", id);
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: dbError(error, "/api/portfolios") }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   } catch (err) {

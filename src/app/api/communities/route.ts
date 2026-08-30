@@ -1,3 +1,4 @@
+import { dbError } from "@/lib/db-error";
 import {
   CLASSROOM_KIND,
   CIRCLE_KIND,
@@ -36,7 +37,7 @@ async function handleGET() {
     .eq("user_id", auth.user.id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities") }, { status: 500 });
   }
 
   const ids = ((memberships ?? []) as { community_id: string }[]).map(
@@ -53,7 +54,7 @@ async function handleGET() {
     .order("name");
 
   if (cErr) {
-    return NextResponse.json({ error: cErr.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(cErr, "/api/communities") }, { status: 500 });
   }
 
   const roleById = new Map(
@@ -133,7 +134,7 @@ async function handlePOST(req: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(error, "/api/communities") }, { status: 500 });
   }
 
   const { error: mErr } = await supabase
@@ -145,7 +146,7 @@ async function handlePOST(req: NextRequest) {
     });
 
   if (mErr) {
-    return NextResponse.json({ error: mErr.message }, { status: 500 });
+    return NextResponse.json({ error: dbError(mErr, "/api/communities") }, { status: 500 });
   }
 
   await shareOwnedSheetsIntoCommunity(supabase, {
