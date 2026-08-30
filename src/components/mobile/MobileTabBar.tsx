@@ -27,7 +27,7 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { ComponentType } from "react";
 
 export type { MobileTabId } from "@/lib/mobile-tab";
@@ -36,33 +36,41 @@ export { activeMobileTab, mobileTabFromActiveId } from "@/lib/mobile-tab";
 /*
   The phone's dock.
 
-  A capsule that hugs its own contents, carrying glyphs and no words, and
-  ending on Circle rather than on a glyph of a compass.
+  A capsule of equal cells across the width of the screen, each an icon over
+  its own name, ending on Circle rather than on a glyph of a compass.
   Upside Arena's `BottomDock` is the same design below `md`, and the two apps
-  are meant to stay one; the full account of why is in that file and in both
-  AGENTS.md.
+  are meant to stay one.
 
-  The short version, because it is the thing that makes a wordless bar safe:
-  IT SAYS THE NAME OF EVERY ROOM YOU TOUCH, AT THE MOMENT YOU TOUCH IT. On
-  `pointerdown`, before the tap has finished and before the room answers, the
-  pressed cell's name rises above the bar in the same glass and is gone inside
-  a second. At rest there is not a word on screen. In use there is never a tap
-  that does not name itself.
+  THE NAMES ARE PAINTED NOW, AND THAT REPLACED SAYING THEM.
 
-  That is deliberately spent on a wait we already had. Every one of these goes
-  to the server for its data, and the gap used to be covered by a fill behind
-  the cell that said "heard you" and nothing else. Saying which room is the
-  same reassurance plus the one thing somebody new is missing, so the fill is
-  gone and this replaced it.
+  This bar used to be glyphs and no words, with the pressed cell's name
+  rising above it for 900ms on `pointerdown` -- a real answer to a real
+  problem (a wordless bar cannot be read by somebody who has not learnt it)
+  and the wrong shape of answer, because it only ever named the room you had
+  already chosen. What somebody new needs named is the room they have NOT
+  been to, which is the one a transient label can never reach.
 
-  The desktop dock is `BookModeDock`, and it keeps its labels. That is the
-  input device rather than an inconsistency: it also carries one cell per
-  portfolio, and a portfolio's name is somebody's own word and can never be a
-  glyph.
+  So the label is under the glyph, always, the way the reference bar this
+  design is judged against does it, and the bar widened to pay for it: it
+  stretches the page rather than hugging its contents, and the cells are
+  equal fractions of that. Two things fell out of the change and both are
+  worth keeping. The bar no longer re-renders on `pointerdown` -- the spoken
+  name was React state set from the press handler, so every tap did a render
+  before the browser could even dispatch the click that navigates. And the
+  press no longer has to say anything at all, which leaves the marker as the
+  only thing that answers it.
+
+  WHICH ROOM YOU ARE IN IS A WEIGHT, NOT A COLOUR. The active glyph is drawn
+  at a heavier stroke in full `--foreground` and its name goes with it; every
+  other cell is a light stroke in muted. That is the reference's filled-
+  against-outline read, in the one form that survives our icon set: half of
+  these glyphs are open paths (a line chart, a trend arrow) and filling one
+  is a blot rather than a solid icon. Weight reads the same and reads on all
+  six. The accent is still spent only on news.
+
+  The desktop dock is `BookModeDock`. It carries one cell per portfolio, and
+  a portfolio's name is somebody's own word and can never be a glyph.
 */
-
-/** How long the name stays up after a press. */
-const SAY_MS = 900;
 
 const TABS: {
   id: MobileTabId;
@@ -148,8 +156,6 @@ const TABS: {
   },
 ];
 
-type Said = { label: string; left: number };
-
 export function MobileTabBar({
   active,
   alertCount = 0,
@@ -172,21 +178,6 @@ export function MobileTabBar({
 
   const marker = useDockMarker("phone");
   const rowRef = marker.ref;
-  const [said, setSaid] = useState<Said | null>(null);
-
-  const hush = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const say = useCallback((label: string, cell: HTMLElement) => {
-    setSaid({ label, left: cell.offsetLeft + cell.offsetWidth / 2 });
-    if (hush.current) clearTimeout(hush.current);
-    hush.current = setTimeout(() => setSaid(null), SAY_MS);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (hush.current) clearTimeout(hush.current);
-    };
-  }, []);
 
   return (
     <nav
@@ -199,7 +190,15 @@ export function MobileTabBar({
          * itself, or this full-width element eats every tap along the
          * bottom of the page even though nothing is drawn there.
          */
-        "keyboard-chrome pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden",
+        /*
+         * `px-2`, not `px-4`. The bar carries six names now, and every
+         * pixel of gutter is a pixel off the widest of them: at 390 the
+         * old gutter left 59px a cell and "Holdings" needs 53 of it, with
+         * nothing left at 360. This is still a centring container with
+         * `pointer-events-none`, and the bar itself takes the taps, or a
+         * full-width element eats every one along the bottom of the page.
+         */
+        "keyboard-chrome pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden",
         className
       )}
     >
@@ -217,6 +216,13 @@ export function MobileTabBar({
          */
         className={cn(
           /*
+           * `w-full` and a grid of equal fractions, where this used to be
+           * `w-fit` and a flex row. A bar that hugs six glyphs is 316px of
+           * a 390px screen; a bar that carries six names needs all of it,
+           * and equal tracks are what keep the marker the same shape
+           * whichever cell it is on. `minmax(0, 1fr)` rather than `1fr`, or
+           * a long name sets the track width and the six stop being equal.
+           *
            * `glass-dock` after `card-sheen glass`: the same pane with the
            * chrome fill and a harder blur instead of the card veil. It is
            * the one surface in the app sitting over the hottest part of
@@ -225,8 +231,11 @@ export function MobileTabBar({
            * the ring and the lift shadow are untouched. Numbers in
            * globals.css and DESIGN_TOKENS.md.
            */
-          "card-sheen glass glass-dock pointer-events-auto relative flex w-fit items-center gap-1 rounded-full p-1 ring-1 ring-foreground/20"
+          "card-sheen glass glass-dock pointer-events-auto relative grid w-full max-w-lg items-center gap-1 rounded-full p-1 ring-1 ring-foreground/20"
         )}
+        style={{
+          gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`,
+        }}
       >
         {tabs.map(({ id, href, label, shortLabel, Icon }) => {
           const on = active === id;
@@ -241,23 +250,35 @@ export function MobileTabBar({
               data-dock-cell
               data-dock-goes
               data-on={on ? "" : undefined}
-              aria-label={label}
               aria-current={on ? "page" : undefined}
-              onPointerDown={(e) => say(shortLabel, e.currentTarget)}
-              /*
-               * A keyboard never presses anything, so the name would never be
-               * spoken to somebody tabbing along the bar. Focus is that
-               * person's press.
-               */
-              onFocus={(e) => say(shortLabel, e.currentTarget)}
               className={cn(
-                "dock-cell relative z-[1] flex size-12 shrink-0 appearance-none items-center justify-center rounded-full",
+                /*
+                 * `min-w-0` is load-bearing: a grid item's default minimum
+                 * is its content, so without it the longest name sets the
+                 * track and the six cells stop being equal fractions.
+                 * `rounded-full` on a cell wider than it is tall is a
+                 * stadium, and stays concentric with the shell's own
+                 * `rounded-full` at `p-1` -- the one radius pair that does.
+                 */
+                "dock-cell relative z-[1] flex min-w-0 flex-col items-center justify-center gap-1 rounded-full py-2",
                 "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                on ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                on ? "text-foreground" : "text-muted-foreground"
               )}
             >
               <span className="dock-glyph relative flex">
-                <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
+                {/*
+                  The weight is what says which room you are in. Filled
+                  against outline is the read the reference uses and it does
+                  not survive this icon set -- a line chart and a trend
+                  arrow are open paths, and filling one is a blot. A heavier
+                  stroke in full foreground reads the same and reads on all
+                  six.
+                */}
+                <Icon
+                  className="h-5 w-5"
+                  strokeWidth={on ? 2.5 : 1.75}
+                  aria-hidden
+                />
                 {/*
                   The one saturated pixel left on the bar. The accent is not
                   spent on which room you are in, because that is the least
@@ -267,6 +288,16 @@ export function MobileTabBar({
                   <span className="absolute -top-0.5 -right-1 h-1.5 w-1.5 rounded-full bg-primary" />
                 )}
               </span>
+              {/*
+                `text-xs` is the floor for anything a person reads, so the
+                cell width is sized to this rather than the other way round.
+                `truncate` is the backstop for a narrow phone, and the full
+                name is still on the link for a screen reader.
+              */}
+              <span className="max-w-full truncate text-xs leading-none font-medium">
+                {shortLabel}
+              </span>
+              <span className="sr-only">{label}</span>
             </Link>
           );
         })}
@@ -277,17 +308,8 @@ export function MobileTabBar({
           one design and the marker is the part of it a reader watches
           most, so it is one component rather than two that agree today.
         */}
-        <DockMarker state={marker} shape="top-1 h-12" />
+        <DockMarker state={marker} shape="top-1 bottom-1" />
 
-        {/* The name, spoken on the press. */}
-        <span
-          aria-hidden
-          data-said={said ? "" : undefined}
-          className="dock-say glass glass-dock pointer-events-none absolute bottom-full mb-2 max-w-[60vw] truncate rounded-full px-3 py-1 text-xs font-medium text-foreground ring-1 ring-foreground/20"
-          style={{ left: `${said?.left ?? 0}px` }}
-        >
-          {said?.label ?? " "}
-        </span>
       </div>
     </nav>
   );

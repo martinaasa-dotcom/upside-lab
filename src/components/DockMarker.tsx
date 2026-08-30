@@ -14,16 +14,17 @@ import type { DockMarkerState } from "@/lib/use-dock-marker";
  * reaching for, and it should look like both.
  *
  * How they move is in `dock.css`; where they are is in `use-dock-marker`.
- * `shape` is the caller's, because the phone's cells are 48px squares and
- * the laptop's are 44px tall: the height is the only thing the two docks
- * do not share.
+ * `shape` is the caller's, because the height is the only thing the two
+ * docks do not share: the laptop's cells are a fixed 44px, and the phone's
+ * are however tall an icon over its own name comes out, so that one is
+ * `top-1 bottom-1` and lets the row decide.
  */
 export function DockMarker({
   state,
   shape,
 }: {
   state: DockMarkerState;
-  /** Vertical placement and radius of both panes, e.g. `top-1 h-12`. */
+  /** Vertical placement of both panes, e.g. `top-1 h-11` or `top-1 bottom-1`. */
   shape: string;
 }) {
   const { mark, dir, hover, hoverDir, hovering, travels } = state;

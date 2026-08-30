@@ -844,17 +844,38 @@ body {
    * blue bleeds into the nav bar" report, and the pane was the cause of it
    * rather than the victim.
    *
-   * Two constraints pick the 55%, and it is the smallest number meeting
-   * both. **Ceiling: a pane may carry the room's colour, never more of it
-   * than the room has**, which the fill reaches at 45%. **Floor: muted
-   * label text clears AAA over every pixel of the bar**, which it reaches
-   * at 55% (7.06:1 at 390px, 7.00:1 at 430px; 6.88 and 6.82 at 50%, and
-   * 4.62 through the card veil). Past it the pane starts draining the glow
-   * rather than attenuating it, which is the mistake the note on
-   * `.chrome-pane` records. Keyed to `--background`, which is true black,
-   * so the alpha is exactly how much of the glow the dock eats and it
-   * cannot leave a hue behind. Black lift at the page middle measures −0.1:
-   * the floor `--glass-veil` holds everywhere else is held here too.
+   * Two constraints picked the original 55% and both are floors, not
+   * ceilings. **A pane may carry the room's colour, never more of it than
+   * the room has**, reached at 45%. **Muted label text clears AAA over
+   * every pixel of the bar**, reached at 55% (7.06:1 at 390px, 7.00:1 at
+   * 430px; 6.88 and 6.82 at 50%, and 4.62 through the card veil).
+   *
+   * IT IS 72% NOW, AND A THIRD CONSTRAINT IS WHY. What 45% of the room
+   * reaching through means on a page that changes is that THE BAR CHANGES
+   * COLOUR IN ONE FRAME whenever the room under it does. Measured off a
+   * screen recording of the real app, walking between Circle and Home:
+   * the bar stepped from (17.8, 18.7, 22.2) to (10.5, 15.3, 22.0) between
+   * two frames, so a surface whose own mean is in the teens moved about a
+   * third of its own value with nothing easing it. Nothing can ease it,
+   * either: what changed is the page, and a page changes at once. The only
+   * lever is how much of it reaches through.
+   *
+   * Measured against the two rooms above, per fill: 55% gives a luminance
+   * step of 5.15 and a red-minus-blue swing of 9.8; 72% gives 3.14 and
+   * 6.0; 78% gives 2.21 and 5.0; 86% gives 1.35 and 3.0. The step keeps
+   * shrinking all the way up, so what stops it is the other end: past
+   * roughly 78% the pane is darker than the field beside it and reads as a
+   * hole cut in the page rather than a pane laid on it, which is the
+   * mistake the note on `.chrome-pane` records. 72% cuts the step by 39%
+   * on both terms and still carries a visible trace of the lobe.
+   *
+   * `saturate` and `brightness` were tried first and do nothing here:
+   * at these luminances the whole filter chain moves the reading by at
+   * most one level, so the fill is the only dial. Keyed to `--background`,
+   * which is true black, so the alpha is exactly how much of the glow the
+   * dock eats and it cannot leave a hue behind. Black lift at the page
+   * middle measures −0.1: the floor `--glass-veil` holds everywhere else
+   * is held here too.
    *
    * 20px, not the card's 6. The 6px ceiling is there because past roughly
    * 7px a blur stops refracting and starts mixing adjacent hues into mud,
@@ -873,7 +894,7 @@ body {
    * Full account, with the tables, in DESIGN_TOKENS.md.
    */
   .glass-dock {
-    background-color: color-mix(in oklch, var(--background), transparent 45%);
+    background-color: color-mix(in oklch, var(--background), transparent 28%);
     /* Prefixed first, standard last — see the note on `.glass` above. */
     -webkit-backdrop-filter: blur(20px) saturate(var(--glass-sat))
       brightness(var(--glass-bright)) contrast(var(--glass-contrast));
