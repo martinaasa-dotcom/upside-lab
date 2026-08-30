@@ -7034,7 +7034,9 @@ run("production telemetry covers crashes, slow routes, and vitals", () => {
       if (ent.isDirectory()) walk(full);
       else if (ent.name === "route.ts") {
         const src = readFileSync(full, "utf8");
-        if (!/observeRoute\(/.test(src)) missing.push(full);
+        // cronRoute is observeRoute plus the dead-man's-switch ping
+        // (src/lib/cron-heartbeat.ts); a route wrapped in it is observed.
+        if (!/(observeRoute|cronRoute)\(/.test(src)) missing.push(full);
       }
     }
   };
@@ -7046,8 +7048,10 @@ run("offline-first engine caches the book and queues safe writes", () => {
   const sw = readFileSync(join(process.cwd(), "public/sw.js"), "utf8");
   // Pin that the shell cache *is* versioned, not which version it is on.
   // Pinning the literal made every legitimate bump a red invariant, which
-  // is how this sat failing after the favicon work moved it to v8.
-  assert.match(sw, /const CACHE = "upside-shell-v\d+"/);
+  // is how this sat failing after the favicon work moved it to v8. The
+  // name now also carries the mark-source hash (mark-version.test.ts
+  // owns that half), so the shape is v<n>-<hash8>.
+  assert.match(sw, /const CACHE = "upside-shell-v\d+-[0-9a-f]{8}"/);
   assert.match(sw, /skipWaiting/);
   assert.match(sw, /clients\.claim/);
   assert.match(sw, /path\.startsWith\("\/api\/"\)/);

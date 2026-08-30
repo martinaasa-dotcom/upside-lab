@@ -25,9 +25,10 @@ describe("site metadata", () => {
       redrawn, which is a copy change rather than a metadata change, and
       pinning the digit here meant a headline rewrite failed a test about
       which host the share card points at. The rule is that every public
-      page paints the same card and that the card is 1200 by 630.
+      page paints the same card and that the card is 1200 by 630. The
+      version is the mark-source hash now (mark-version.test.ts owns it).
     */
-    expect(OG_IMAGE_PATH).toMatch(/^\/og\.png\?v=\d+$/);
+    expect(OG_IMAGE_PATH).toMatch(/^\/og\.png\?v=[0-9a-f]{8}$/);
     expect(LOGIN_METADATA.openGraph?.images).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

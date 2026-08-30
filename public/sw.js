@@ -2,7 +2,18 @@
  * IndexedDB + localStorage; this file only keeps the JS/CSS/icons around
  * so a refresh while offline still hydrates the last painted page. */
 
-/* v11: the icons moved to the accent-on-field colourway, so every
+/* The cache name carries two parts and they move for different reasons.
+ * The `v<n>` half is bumped by hand for shell-only changes, exactly as it
+ * always was. The hex half is the mark-source hash from
+ * src/lib/brand/mark-version.ts: this worker serves /icons/ cache-first,
+ * so only a renamed cache makes an installed app drop yesterday's logo,
+ * and mark-version.test.ts fails until the hash here matches the mark the
+ * icons were drawn from. That turns the "remember to bump CACHE" step of
+ * docs/BRAND_MARK.md into one that cannot be forgotten.
+ *
+ * v13: the mark-source hash joined the name (no visual change).
+ *
+ * v11: the icons moved to the accent-on-field colourway, so every
  * precached tile changed again.
  *
  * v10: the mark was redrawn (docs/BRAND_MARK.md), so every precached icon
@@ -12,7 +23,7 @@
  * v9: dropped /upside-mark.png from the precache. The header mark is inline
  * SVG now (UpsideLogo.tsx), so precaching a 260 KB PNG nothing requests
  * just cost every install a quarter-megabyte. */
-const CACHE = "upside-shell-v12";
+const CACHE = "upside-shell-v13-f93cf950";
 const PRECACHE = [
   "/manifest.webmanifest",
   "/upside-icon.png",

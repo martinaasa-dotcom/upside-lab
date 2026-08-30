@@ -1,6 +1,6 @@
 import { runDisasterRecoveryJob } from "@/lib/dr/export-book";
 import { requireCronAuth } from "@/lib/cron-auth";
-import { observeRoute } from "@/lib/observe-route";
+import { cronRoute } from "@/lib/cron-heartbeat";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -59,4 +59,4 @@ async function handleGET(req: Request) {
   }
 }
 
-export const GET = observeRoute(handleGET, "/api/cron/disaster-recovery");
+export const GET = cronRoute(handleGET, "/api/cron/disaster-recovery");

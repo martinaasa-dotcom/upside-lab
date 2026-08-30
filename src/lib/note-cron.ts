@@ -224,6 +224,14 @@ export async function dispatchWeeklyLetters(
   ok: boolean;
   sent: number;
   skipped: number;
+  /**
+   * How many of `skipped` were passed over because their numbers were too
+   * thin to state as fact (`weeklyNumbersAreSound`). Counted apart so a
+   * data-quality regression reads as a rate in one place instead of as
+   * scattered per-person warnings; `sunday_letter_untrusted_rate` logs the
+   * same figure. They keep their empty marker, so a later slot retries.
+   */
+  untrusted?: number;
   optedIn: number;
   /** Recipients the run did not reach before its deadline. A later run takes them. */
   remaining: number;
@@ -433,6 +441,7 @@ export async function dispatchWeeklyLetters(
   );
   let skipped = optedIn - pending.length;
   let sent = 0;
+  let untrusted = 0;
 
   // ---- One batched read per table, not one per recipient. ----------------
   //
@@ -675,6 +684,7 @@ export async function dispatchWeeklyLetters(
         "warn"
       );
       skipped += 1;
+      untrusted += 1;
       continue;
     }
 
@@ -729,10 +739,31 @@ export async function dispatchWeeklyLetters(
     sent += 1;
   }
 
+  /*
+   * The per-recipient skip above is a scattered warning; this is the same
+   * fact as a rate, once per run. A systematic data-quality regression (a
+   * stale-quote bug, a provider outage across the Sunday window) shows up
+   * as an unusually high untrusted share, and buried in per-person log
+   * lines it stays invisible until a reader asks where their letter went.
+   * A quarter of the run refused, on more than one person, is treated as
+   * an incident (errors always print); anything smaller stays a warning.
+   */
+  if (untrusted > 0) {
+    const attempted = pending.length;
+    logEvent(
+      "sunday_letter_untrusted_rate",
+      { untrusted, attempted, sent, remaining },
+      untrusted >= 2 && untrusted / Math.max(1, attempted) >= 0.25
+        ? "error"
+        : "warn"
+    );
+  }
+
   return {
     ok: true,
     sent,
     skipped,
+    untrusted,
     optedIn,
     remaining,
     emailed,

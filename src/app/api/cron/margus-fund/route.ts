@@ -45,7 +45,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { logError } from "@/lib/error-log";
 import { generateObject } from "ai";
 import { NextResponse } from "next/server";
-import { observeRoute } from "@/lib/observe-route";
+import { cronRoute } from "@/lib/cron-heartbeat";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -340,6 +340,29 @@ async function handleGET(req: Request) {
     session: today,
     backlog: missing.length,
   });
+
+  /*
+    The claim's stale window recovers a worker that died mid-run; nothing
+    reported a backlog that keeps failing to drain. This cron fires several
+    times a day, so one bad day is caught up within hours and a `missing`
+    list of one is just "today has not run yet". Three or more trading days
+    means the catch-up itself has been failing across runs -- a provider
+    outage that outlasts the retries, or a bug in the run -- and that used
+    to be visible only by reading the feed and noticing it had stopped.
+    An error-level event always prints, so a multi-day backlog surfaces the
+    day it becomes one instead of whenever somebody looks.
+  */
+  if (missing.length >= 3) {
+    logEvent(
+      "fund_cron_backlog_stale",
+      {
+        backlog: missing.length,
+        oldestMissing: missing[0],
+        latestSession,
+      },
+      "error"
+    );
+  }
 
   try {
     // Idempotent — a manual re-trigger on a day the cron already ran just
@@ -915,4 +938,4 @@ async function handleGET(req: Request) {
   }
 }
 
-export const GET = observeRoute(handleGET, '/api/cron/margus-fund');
+export const GET = cronRoute(handleGET, '/api/cron/margus-fund');

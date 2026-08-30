@@ -276,15 +276,24 @@ stairstepping at favicon sizes.
 `Images/` still holds the source PNGs the old pipeline read. Nothing reads them
 any more; they are kept only as a record.
 
-**After regenerating, bump the versions.** A favicon is one of the few things a
-browser holds past a deploy:
+**After regenerating, bump the version — and the test suite refuses to let
+you forget.** A favicon is one of the few things a browser holds past a
+deploy. This used to be four separate hand edits with nothing failing when
+one was missed; now every `?v=` (layout icons, `OG_IMAGE_PATH`, the email
+lockup) imports `MARK_ASSET_VERSION` from `src/lib/brand/mark-version.ts`,
+which is the first 8 hex characters of the sha256 of `mark.ts`.
+`src/lib/brand/mark-version.test.ts` fails on a mark change until:
 
-- `?v=` on every icon entry in `src/app/layout.tsx`
-- `OG_IMAGE_PATH` in `src/lib/seo-routes.ts` (and its expectation in
-  `src/lib/site-metadata.test.ts`)
-- the `lockup` URL in `src/lib/email-letter.ts`
-- `CACHE` in `public/sw.js`, or an installed app keeps serving yesterday's
-  logo out of its shell
+- `MARK_ASSET_VERSION` is updated to the new hash (the failure prints it),
+- `npm run icons` has been re-run (it writes the hash it drew from into
+  `public/icons/mark-source.json`, and the test compares),
+- `CACHE` in `public/sw.js` embeds the same hash
+  (`upside-shell-v<n>-<hash>` — the `v<n>` half still moves on its own for
+  shell-only changes), or an installed app keeps serving yesterday's logo
+  out of its shell.
+
+A hand-typed `?v=<number>` anywhere under `src/` fails the same test, so a
+new icon URL cannot opt out of the mechanism by accident.
 
 BIMI has its own function because it has its own profile: SVG Tiny 1.2
 Portable / Secure. Square, a `<title>`, `version` and `baseProfile` declared,
