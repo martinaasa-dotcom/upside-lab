@@ -1501,6 +1501,249 @@ time this was written.
 It is held still until it has been placed once, or the first paint draws a
 marker sliding in across a bar nobody has touched.
 
+### The marker stretches, because a rectangle that moved is not a marker (2026-08-30)
+
+> *"Can you re-work the navbar to be more animated when hovering, when
+> tapping and when the indicator moves from page to page? I really like the
+> way it works in iOS."*
+
+What iOS does that a CSS slide does not is send the pill's **leading edge
+off before its trailing edge follows**. The pill smears across the ground it
+is covering and gathers itself back up on arrival, which says where it came
+from, for exactly as long as the eye needs to follow it. A rigid slide
+leaves as a rectangle and arrives as the same rectangle, and the only thing
+that happened in between is that it was somewhere else.
+
+So the marker is **two edges, not a position and a size**: `left` and
+`right` insets from the well, each with its own duration
+(`src/app/dock.css`). Give the leading edge the short one (260ms) and the
+trailing edge the long one (460ms) and the stretch falls out of the
+transition itself: no animation loop, no per-frame JavaScript, and a stretch
+that **scales with the distance travelled**, which is the thing a fixed
+keyframe cannot do. Measured on the real stylesheet at a 120px cell:
+
+| Journey | Widest in flight | Stretch | Settled |
+| --- | --- | --- | --- |
+| one cell (Home to Pulse) | 163px | 1.36x | 120px |
+| four cells (Home to Aasad) | 285px | 2.38x | 120px |
+| five cells (Circle to Home) | 326px | 2.72x | 120px |
+
+A nudge reads as a nudge and a reach across the bar reads as a reach, and
+nobody chose either number. The trailing edge's curve overshoots by a hair
+(`cubic-bezier(0.34, 1.12, 0.44, 1)`), so it arrives a touch past its mark
+and settles back: measured, the pill pinches to **118px** against a 120px
+cell before resting. That 2px is what reads as liquid rather than as a
+rectangle that stopped.
+
+**Edges, never a transform**, and this is the one place the dock spends
+layout on purpose. A transform cannot stretch a pill without stretching its
+round ends into ellipses, and the ends are most of what makes it a pill.
+Both panes are absolutely positioned, so laying one out again lays nothing
+else out: the cells above them do not move, which is the property that
+mattered when the marker was a transform and still does. What it did cost is
+the resize observer, which used to watch every child of the well: a pane is
+two insets now, so its width changes on every frame of every travel, and
+observing it put a measurement and a layout read on each of them to answer
+a question about cells that had not moved. It watches `[data-dock-cell]`
+now, and `dock-motion.test.ts` fails if that widens again.
+
+**No `backdrop-filter` on either pane, and that is a decision rather than an
+omission.** iOS refracts the glyphs the pill passes over, with chromatic
+fringing at its edges; that is a native shader, and the web translation
+would be a filtered element moving over content inside an already-filtered
+fixed bar, which is the exact pattern measured at 42 repainted frames on the
+landing page. It would also blur the label of the room you are navigating
+to. What carries the same read for nothing is the marker's own specular
+edge: two neutral hairlines (white at 10% and 4%) so it sits inside the
+dock's pane as a second pane rather than as a grey swatch painted on one.
+Neutral rather than the room's two hues from `--glass-rim-*`, because at
+44px that repeat lands as a coloured outline instead of as light.
+
+### The capsule breathes, and that is the half a moving pill cannot carry
+
+A marker sliding inside a rigid tray reads as two materials. In the
+reference the **whole bar swells while the pill travels** and settles
+behind it, which is what makes it one soft object. Measured off the
+recording at 30fps, tracking the capsule's own outer edges rather than
+anything inside it:
+
+| | width | vs rest | left end | right end |
+| --- | --- | --- | --- | --- |
+| rest | 1181px | — | 61 | 1242 |
+| +33ms | 1237px | +4.7% | 39 | 1240 |
+| +67ms | 1235px | +4.6% | 41 | 1262 |
+| +133ms | 1210px | +2.5% | 54 | 1264 |
+| +200ms | 1196px | +1.3% | 61 | 1257 |
+| +300ms | 1181px | settled | 61 | 1242 |
+
+Three separate travels peaked at **+3.6%, +4.7% and +4.8%**, so
+`SWELL_PEAK` is the middle of that at 4.5%. Two things it does not do.
+**Its height never moves** (234px in every frame of every travel), so this
+is `scaleX` and nothing else: a bar that also grew taller would move
+`--dock-clearance`, which every notice on the screen sits clear of. And it
+is **not centred** — the end the marker was heading for pushed out 28px
+against the other end's 14px, exactly two to one, so the anchor sits a
+third of the way in from the trailing end. A centred swell is the same
+amount of motion saying nothing about direction.
+
+An earlier reading of the same frames showed the bar *contracting* by 5%
+just before it grew, which would have been a lovely anticipation and was
+not real: the edge detector had locked onto the arriving pill's own rim,
+which carries heavy chromatic fringing, rather than onto the capsule. It
+was caught by cropping the right end and looking at it. Do not add an
+anticipation squash on the strength of the trace alone.
+
+**The Web Animations API, not a CSS class.** This has to restart on every
+travel, and two journeys in the same direction change no attribute between
+them, so nothing in the markup would tell CSS to run it again. One call per
+navigation, `scaleX` alone so it stays on the compositor, and the one in
+flight is cancelled rather than stacked on — two animations of the same
+property both apply with the newer winning, so when the newer finishes and
+drops off, an older one still running takes the bar back and it jumps.
+Tapping quickly along the dock is exactly how somebody would find that.
+
+The transform is on the capsule, so the marker inside it stretches with the
+bar rather than against it. The marker's own geometry comes from
+`offsetLeft` and `clientWidth`, which are layout and untouched by a
+transform, so the measurement stays still while the picture moves.
+
+**Measured against the fear, and the first measurement was wrong.** A
+transform on a `backdrop-filter` element is the landing page's fault on
+paper, so it was measured: eight navigations with the CPU throttled ten
+times, swell on and off, twice each. The first run said the swell was
+free, median 16.7ms either way and no frame over 33ms, and that number was
+taken on a **hand-built harness whose backdrop was a plain CSS gradient**.
+Re-run against the real docks on the real page it is not free:
+
+| CPU throttle | swell on, frames >33ms | swell off | p95 on | p95 off |
+| --- | --- | --- | --- | --- |
+| 1x | 0 of 162 | 0 of 162 | 16.8ms | 16.8ms |
+| 4x | 0 of 162 | 0 of 162 | 16.8ms | 16.7ms |
+| 6x | 0 of 162 | 0 of 162 | 16.7ms | 16.8ms |
+| 10x | 11 of 150 | 4 of 157 | 33.3ms | 16.8ms |
+
+So it is free up to about six times slower than this machine and costs
+roughly **one dropped frame per navigation at ten**, which is the stress
+setting rather than a device anybody is holding. It degrades by dropping a
+frame, not by tearing.
+
+**And it is not the backdrop filter**, which is worth writing down because
+that was the whole of the fear. Removing `backdrop-filter` from the dock
+took the ten-times case from 16 long frames to 11; turning the ambient
+dither's own filter off changed nothing; `will-change: transform` changed
+nothing. What costs is scaling a subtree of text and chrome, which has to
+be re-rasterised at each scale factor because a cached texture would be
+blurred. Reducing that means not scaling the contents, and the contents do
+scale in the reference: its leftmost label's ink grows **+3.8%** against the
+capsule's +3.6%, and that label's displacement of -11px matches a uniform
+scale about a 33% origin to within 0.7px. So the cost buys fidelity, and a
+cheaper version would be a different animation.
+
+Reproduced against the same numbers: peak **+4.51%** at 33ms, +3.46% at
+133ms, +1.31% at 233ms, home at 300ms, with the left end out 11.1px against
+the right end's 22.6px — 1:2, and the height unchanged at 52px.
+
+### The marker leaves on the press, and the route only confirms it (2026-08-30)
+
+`activeId` is read from `usePathname()`, so every bit of the motion above
+used to be downstream of the App Router committing a route. That ties the
+whole bar to the network rather than to the finger. Prefetching makes the
+wait short on a good connection; **short and attached are different
+feelings**, and the gap widens exactly when the connection is worst. iOS
+moves its indicator on touch-down.
+
+So `useDockMarker` places a bet. A `pointerdown` on a cell sets `aimed`,
+`measure` positions the marker at `aimed.current ?? on`, and the router
+arriving on that same cell clears the bet with the marker already there.
+
+**A bet has to be able to lose, and this one loses three ways:**
+
+1. The release landed somewhere other than the cell it started on. A press
+   dragged off is not a tap and no navigation follows it.
+2. The room answered with a different cell (a redirect), or the cell
+   stopped existing (a portfolio deleted mid-press).
+3. Nothing answered at all inside `AIM_GIVES_UP_MS`.
+
+That last number is **4000ms and is deliberately long**. It is the backstop
+for a navigation silently refused, not a timeout on slowness: snapping the
+marker home mid-wait looks far more broken than letting it stand where the
+reader put it.
+
+**Only a plain primary press bets.** A middle click or a held modifier
+opens the room in *another tab*, and a marker moving for a room this tab is
+not in is the one way this can be worse than waiting. And only
+`[data-dock-goes]` cells bet, so the add cell (which opens a dialog) and
+the folded picker (which opens a menu) never move it -- `data-dock-cell`
+still marks every cell for measuring and hovering, because those are
+different questions.
+
+Measured against a harness with a 600ms simulated router: the marker is at
+242.9px **16ms after `pointerdown`** on its way to 692.5, still travelling
+at 300ms, and lands exactly on the cell. A press dragged off moves it
+optimistically and returns it on release. A refused navigation leaves it
+standing at 2.3s and returns it at 4s.
+
+### The laptop dock says when there is news
+
+`alertCount` reached `MobileTabBar` and nothing else, so the phone drew the
+gold dot on Home and the laptop drew nothing. That was an accident rather
+than a decision: the two docks are one design, and the rule that survives
+every other pass here is that the accent is spent on news and nothing else.
+It is wired through `PortfolioTabs` now and drawn in the same place, at the
+same size, under the same condition -- only while Home is not the room you
+are in.
+
+### No tooltip that only restates the label
+
+A `title` draws the browser's own tooltip: unstyled OS chrome, about a
+second after the pointer settles, over the most carefully made surface in
+the app. That was tolerable while hovering had no answer of its own. It is
+not now -- the pointer drags a pane with it the instant it arrives, so a
+grey box a second later is a second answer to one gesture, and the slower
+and uglier of the two.
+
+Four went: the section cells' longer descriptions, "Your portfolios" on the
+picker, "New portfolio" on the add cell, and "Upside Circle". Nothing
+accessible was lost, because every cell carries a visible label or an
+`aria-label` and still has a name.
+
+**The line to remember: a title that restates the label goes, a title that
+teaches an interaction stays until it has a better home.** The portfolio
+cells keep theirs, because "right-click to rename or delete" is the only
+hint that menu exists anywhere in the product.
+
+### Hovering is the same object, and a press is answered before the room is
+
+A pointer moving along the bar now drags **one fainter pane** with it
+(`bg-foreground/[0.055]`), on the marker's own physics, instead of lighting
+one cell and unlighting another. `hover:bg-hover` is gone from both docks
+for that reason: a cell that lights on its own is a different object from
+the marker, and two objects doing one job is what made hovering along the
+bar read as a row of things blinking. One thing following you beats a row of
+things flickering, and reaching and arriving are now the same object at two
+weights. The ghost is quicker and stretches less (170ms / 300ms) because it
+follows a hand rather than announcing a decision. It **fades out where it
+was** rather than snapping home, and a finger never summons it at all
+(`pointerType === "touch"` is refused, or it is left sitting under the last
+cell tapped forever). A keyboard does summon it, on `focusin`, since a
+keyboard never hovers anything.
+
+Pressing gives: the cell to `0.955` and the glyph to `0.9` inside it, so the
+glyph lands at about `0.86`. **Down in 90ms, back over 280ms** -- a press
+that gives instantly and returns at its leisure feels like a physical thing;
+the same duration both ways feels like a checkbox. Arriving pops the glyph
+of the room you landed in once (`dock-pop`, 460ms), which fires when
+`data-on` starts matching, so a re-render with the same cell on does not
+re-run it. Nothing here spends colour: the marker still says where you are,
+and the accent is still only on news.
+
+All of it is off under `prefers-reduced-motion`, including the pull of the
+press and the pop. The marker still moves; it arrives rather than travels.
+Both docks draw the panes from one component (`src/components/DockMarker.tsx`)
+and one stylesheet, because the marker is the part of the design a reader
+watches most and two bars that agree today are two bars that can disagree
+tomorrow.
+
 **The accent is not spent in the dock at all now.** Which room you are in is
 the least surprising fact on the screen, and the old `bg-primary` cell was
 the loudest thing on the bar for the least reason. The one saturated pixel
