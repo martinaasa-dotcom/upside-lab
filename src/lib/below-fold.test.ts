@@ -12,6 +12,7 @@ const CSS = readFileSync("src/app/globals.css", "utf8");
 const HOLDINGS = readFileSync("src/components/Dashboard.tsx", "utf8");
 const GROWTH = readFileSync("src/components/CompoundInterestSheet.tsx", "utf8");
 const PULSE = readFileSync("src/components/PulsePage.tsx", "utf8");
+const CIRCLE = readFileSync("src/components/CircleHome.tsx", "utf8");
 
 describe("a section nobody can see is built when they come to it", () => {
   it("fires a whole screen early, in units of the reader's own screen", () => {
@@ -36,6 +37,42 @@ describe("a section nobody can see is built when they come to it", () => {
 
   it("holds a height until it opens, so the page does not lurch", () => {
     expect(BELOW).toMatch(/minHeight: reserve/);
+  });
+
+  it("is closed on the first render, whatever its lead says", () => {
+    /*
+     * The lead decides whether a reader ever sees a section arrive. What
+     * splits the work is this: the children are absent from the first
+     * render even when the observer will open them on the very next task,
+     * so a room's first commit costs only what is on screen. A `useState`
+     * seeded `true` would keep the lead and quietly lose the saving.
+     */
+    expect(BELOW).toMatch(/useState\(false\)/);
+    expect(BELOW).toMatch(/\{open \? children : null\}/);
+  });
+
+  it("carries the wrapper classes a parent's layout reads", () => {
+    /*
+     * A wrapped child is no longer a child of the original parent, so a
+     * flex `order` or a grid placement left on the inner element stops
+     * applying. `CircleHome` orders its sections in a flex column, and
+     * without this both of its wrapped sections jump to the top.
+     */
+    expect(BELOW).toMatch(/className=\{className\}/);
+    for (const m of CIRCLE.matchAll(/<BelowFold([^>]*)>/g)) {
+      expect(m[1], "a wrapped ordered section keeps its order").toMatch(
+        /className="order-\d+"/
+      );
+    }
+  });
+
+  it("Circle's two big sections are the ones deferred", () => {
+    // 264 of a circle's 308 elements, both starting below an 800px fold.
+    expect(CIRCLE).toMatch(/<BelowFold[^>]*>\s*<CommunityTodayBoard/);
+    expect(
+      CIRCLE.match(/<BelowFold/g)?.length,
+      "the two overview sections, and not the League ones a tab already hides"
+    ).toBe(2);
   });
 
   it("is spent only where the content is more than a screen down", () => {

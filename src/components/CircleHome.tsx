@@ -2,6 +2,7 @@
 
 import { DailyDuelCard } from "@/components/DailyDuelCard";
 import { PowerAnimalCard } from "@/components/CircleCards";
+import { BelowFold } from "@/components/BelowFold";
 import { CommunityTodayBoard } from "@/components/CommunityTodayBoard";
 import { ShareSheets } from "@/components/ShareSheets";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
@@ -339,41 +340,68 @@ export function CircleHome({
                     </section>
                   )}
 
+                  {/*
+                    * THE TWO BIGGEST SECTIONS OF A CIRCLE ARE BOTH BELOW
+                    * THE FOLD, SO NEITHER IS IN THE FIRST COMMIT.
+                    *
+                    * Measured at 390x800 with eight members: the room is
+                    * 308 elements over 2.65 screens, and 75.6% of it starts
+                    * below the fold. The board begins at 870px and this
+                    * section at 1,347px, and between them they are 264 of
+                    * those 308 -- so opening a circle laid out and painted
+                    * six times more than the reader could see.
+                    *
+                    * `BelowFold` starts closed, which is the part that
+                    * matters here rather than its lead: its children are
+                    * absent from the first render whatever the lead says,
+                    * and the observer opens them on the next task. The
+                    * first paint costs the heading, the tabs, the totals
+                    * and the duel; the rest arrives a frame later, off
+                    * screen, where nobody is looking at it.
+                    *
+                    * The `order-*` moves out to the wrapper, or the flex
+                    * parent stops seeing it and both sections jump to the
+                    * top of the column.
+                    */}
                   {view === "overview" && membersWithBooks.length > 0 && (
-                    <CommunityTodayBoard
-                      members={membersWithBooks}
-                      onOpen={onOpenMember}
-                    />
+                    <BelowFold className="order-1" reserve={465}>
+                      <CommunityTodayBoard
+                        members={membersWithBooks}
+                        onOpen={onOpenMember}
+                      />
+                    </BelowFold>
                   )}
                   {view === "overview" && sharedNames.length > 0 && (
-                    <section className="overview-fade order-4 rounded-xl glass ring-1 ring-foreground/20 p-6">
-                      <div className="mb-4 flex items-center gap-2.5">
-                        <div className="rounded-xl bg-gain/15 p-2 text-gain">
-                          <Layers className="h-4 w-4" />
+                    <BelowFold className="order-4" reserve={640}>
+                      <section className="overview-fade rounded-xl glass ring-1 ring-foreground/20 p-6">
+                        <div className="mb-4 flex items-center gap-2.5">
+                          <div className="rounded-xl bg-gain/15 p-2 text-gain">
+                            <Layers className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-foreground">
+                              Holdings you share
+                            </h3>
+                            <p className="mt-0.5 text-sm text-muted-foreground">
+                              Who else in the circle owns the same companies
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="text-foreground">
-                            Holdings you share
-                          </h3>
-                          <p className="mt-0.5 text-sm text-muted-foreground">
-                            Who else in the circle owns the same companies
-                          </p>
-                        </div>
-                      </div>
-                      <ItemGroup className="gap-0 has-data-[size=sm]:gap-0">
-                        {sharedNames.map((row, i) => (
-                          <Fragment key={row.ticker}>
-                            {i > 0 ? <ItemSeparator className="my-0" /> : null}
-                            <SharedNameRow
-                              ticker={row.ticker}
-                              people={row.people}
-                              todayPct={row.todayPct}
-                              avatarByName={avatarByName}
-                            />
-                          </Fragment>
-                        ))}
-                      </ItemGroup>
-                    </section>
+                        <ItemGroup className="gap-0 has-data-[size=sm]:gap-0">
+                          {sharedNames.map((row, i) => (
+                            <Fragment key={row.ticker}>
+                              {i > 0 ? <ItemSeparator className="my-0" /> : null}
+                              <SharedNameRow
+                                ticker={row.ticker}
+                                people={row.people}
+                                todayPct={row.todayPct}
+                                avatarByName={avatarByName}
+                              />
+                            </Fragment>
+                          ))}
+                        </ItemGroup>
+                      </section>
+                    </BelowFold>
                   )}
 
                   {view === "play" && communityThemeBreakdown.length > 0 && (

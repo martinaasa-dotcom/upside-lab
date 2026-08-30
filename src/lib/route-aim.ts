@@ -45,3 +45,74 @@ export function onRouteAim(listener: RouteAimListener) {
     listeners.delete(listener);
   };
 }
+
+/**
+ * AIM A LINK ON THE PRESS, AND CALL IT OFF IF THE PRESS WAS A SCROLL.
+ *
+ * The dock does this itself, in `use-dock-marker`, because it has a marker
+ * to move on the same press. Anything else that wants the room to change
+ * on touch-down uses this.
+ *
+ * **It has to be `pointerdown`, and that was measured rather than
+ * assumed.** Publishing from `onClick` reads as the safe choice -- the
+ * browser only fires a click when the press and the release land on the
+ * same element, so a drag can never be mistaken for a tap -- but it buys
+ * nothing: a click handler runs in the same event as the navigation it is
+ * attached to, React batches the aim with the transition, and the aim gets
+ * no head start. Measured opening a circle at 4x CPU, the room appeared at
+ * 514ms from a click and 457ms from the press.
+ *
+ * So the drag has to be ruled out afterwards instead. A row in a scrolling
+ * list is not a hard target the way a dock cell is: a finger that lands on
+ * one and then moves is starting a scroll, and flashing up a room nobody
+ * asked for is worse than the 57ms. The release decides. `pointerup`
+ * outside the element, `pointercancel` (which is what a scroll actually
+ * fires once the browser claims the gesture), and the same
+ * `AIM_GIVES_UP_MS` backstop the dock uses all call it off.
+ */
+export function aimOnPress(event: PointerEvent | MouseEvent, path: string) {
+  /*
+   * Duck-typed rather than `instanceof Node`, so the release rule can be
+   * tested. `Node` is a browser global and this repo's tests run in node.
+   */
+  const el = event.currentTarget as { contains?: (n: unknown) => boolean } | null;
+  /*
+   * A middle click or a held modifier opens the address in another tab,
+   * and moving this tab to a room it is not going to is the one way this
+   * is worse than waiting.
+   */
+  if (event.button !== 0) return;
+  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  if (typeof window === "undefined") return;
+
+  aimRoute(path);
+
+  let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+    timer = null;
+    standDown();
+  }, AIM_GIVES_UP_MS);
+
+  function standDown() {
+    window.removeEventListener("pointerup", onUp, true);
+    window.removeEventListener("pointercancel", onCancel, true);
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  }
+
+  function onCancel() {
+    standDown();
+    aimRoute(null);
+  }
+
+  function onUp(e: Event) {
+    standDown();
+    /* A press dragged off the row is not a tap. */
+    const landed = el?.contains?.(e.target) ?? false;
+    if (!landed) aimRoute(null);
+  }
+
+  window.addEventListener("pointerup", onUp, true);
+  window.addEventListener("pointercancel", onCancel, true);
+}

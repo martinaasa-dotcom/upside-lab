@@ -66,11 +66,33 @@ describe("WorkspaceShell room effects", () => {
 
   it("still tracks the live room on every path", () => {
     // The gate every hidden room's poller reads. This one *must* see a
-    // pathname change, so it is the effect that keeps that dependency.
+    // path change, so it is the effect that keeps that dependency.
+    //
+    // It may watch `pathname` directly or the path the shell actually
+    // draws, which is `pathname` until a press aims somewhere else. What
+    // it may not do is drop the path and watch the room alone: the book
+    // is many paths in one room, and a poller gated on the live room
+    // would then never hear about a walk between them.
     const roomEffect = layoutEffects().find((e) =>
       e.body.includes("setActiveWorkspaceRoom")
     );
     expect(roomEffect, "the shell still sets the active room").toBeTruthy();
-    expect(roomEffect?.deps).toMatch(/pathname/);
+    expect(roomEffect?.deps).toMatch(/pathname|shownPath/);
+  });
+
+  it("the drawn path falls back to the router's own", () => {
+    // `shownPath` is what the effect above is allowed to watch instead of
+    // `pathname`, and that is only sound while an unaimed shell draws the
+    // pathname itself. Written the other way round -- a shown path that
+    // can outlive the navigation that cleared it -- the active room would
+    // stick on a room the reader has already left.
+    if (!/shownPath/.test(SHELL)) return;
+    expect(SHELL, "shownPath is the aim or the pathname").toMatch(
+      /const shownPath = aimedPath \?\? pathname;/
+    );
+    expect(
+      SHELL,
+      "a committed navigation drops the aim"
+    ).toMatch(/setAimedPath\(null\);\s*\n\s*\}, \[pathname\]\);/);
   });
 });

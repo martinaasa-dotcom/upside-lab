@@ -36,10 +36,18 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 export function BelowFold({
   children,
   reserve = 320,
+  className,
 }: {
   children: ReactNode;
   /** Height held while the section is still folded away, in pixels. */
   reserve?: number;
+  /**
+   * Classes for the wrapper. A wrapped child is no longer a child of the
+   * original parent, so anything that parent's layout reads off it -- a
+   * flex `order`, a grid placement -- has to move out here or it stops
+   * applying. `CircleHome` orders its sections that way.
+   */
+  className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -71,7 +79,11 @@ export function BelowFold({
   }, [open]);
 
   return (
-    <div ref={ref} style={open ? undefined : { minHeight: reserve }}>
+    <div
+      ref={ref}
+      className={className}
+      style={open ? undefined : { minHeight: reserve }}
+    >
       {open ? children : null}
     </div>
   );
