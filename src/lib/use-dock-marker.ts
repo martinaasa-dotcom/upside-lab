@@ -4,11 +4,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import {
   type DockDir,
   type DockMark,
+  DOCK_MOTION,
+  type DockVariant,
   GHOST_LAG_MS,
   GHOST_MS,
-  MARKER_LAG_MS,
-  MARKER_MS,
-  SWELL_MS,
   markGeometry,
   restingStyle,
   sameMark,
@@ -97,7 +96,8 @@ function stillMotion(): boolean {
 function swell(
   host: HTMLElement,
   dir: DockDir,
-  running: { current: Animation | null }
+  running: { current: Animation | null },
+  tune: (typeof DOCK_MOTION)[DockVariant]
 ) {
   /*
    * The capsule itself, everything on it included. The bar is one object
@@ -105,7 +105,7 @@ function swell(
    * measurements, and for why a one-axis scale is the thing to never do.
    */
   if (typeof host.animate !== "function" || stillMotion()) return;
-  const frames = swellFrames(dir);
+  const frames = swellFrames(dir, tune.swellPeak);
   if (!frames) return;
   /*
    * Cancel the one in flight rather than stacking on it. Two animations of
@@ -114,7 +114,7 @@ function swell(
    * over and it jumps. Tapping along the dock quickly is exactly how
    * somebody would find that.
    */
-  running.current = host.animate(frames, { duration: SWELL_MS });
+  running.current = host.animate(frames, { duration: tune.swellMs });
 }
 
 /**
@@ -132,7 +132,8 @@ function swell(
  * nothing to remember. See `dock-motion.ts` for why a pane is two insets
  * rather than a position and a width.
  */
-export function useDockMarker(): DockMarkerState {
+export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
+  const tune = DOCK_MOTION[variant];
   const ref = useRef<HTMLDivElement>(null);
   const [mark, setMark] = useState<DockMark | null>(null);
   const [dir, setDir] = useState<DockDir>(null);
@@ -189,11 +190,11 @@ export function useDockMarker(): DockMarkerState {
       if (lastMark.current && next) {
         const heading = travelDirection(lastMark.current, next);
         setDir(heading);
-        swell(host, heading, breathing);
+        swell(host, heading, breathing, tune);
       }
       if (next) glide(pane, lastMark.current, next, gliding, {
-        durationMs: MARKER_MS,
-        lagMs: MARKER_LAG_MS,
+        durationMs: tune.travelMs,
+        lagMs: tune.lagMs,
       });
       lastMark.current = next;
       setMark(next);
@@ -215,7 +216,7 @@ export function useDockMarker(): DockMarkerState {
       lastHover.current = overIt;
       setHover(overIt);
     }
-  }, []);
+  }, [tune]);
 
   /*
    * No dependency list on purpose. What moves the marker is not one value

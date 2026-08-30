@@ -170,7 +170,7 @@ export function MobileTabBar({
     (t) => !t.metaId || !hiddenModeIds.includes(t.metaId)
   );
 
-  const marker = useDockMarker();
+  const marker = useDockMarker("phone");
   const rowRef = marker.ref;
   const [said, setSaid] = useState<Said | null>(null);
 

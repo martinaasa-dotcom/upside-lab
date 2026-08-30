@@ -213,7 +213,7 @@ export function BookModeDock({
     return () => ro.disconnect();
   }, []);
 
-  const marker = useDockMarker();
+  const marker = useDockMarker("wide");
   const wellRef = marker.ref;
 
   // Sections + Circle are fixed; the sheets are what can overrun the row.

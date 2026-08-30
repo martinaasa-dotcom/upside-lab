@@ -81,7 +81,29 @@ export function travelDirection(was: DockMark, next: DockMark): DockDir {
  * reason the lag below is small: a big lag on a 48px circle would read as
  * an egg.
  */
-export const MARKER_MS = 300;
+/**
+ * THE TWO DOCKS DO NOT MOVE BY THE SAME NUMBERS, AND THAT IS THE POINT.
+ *
+ * The phone bar is six glyphs. Scaling it costs nothing (measured: free at
+ * every CPU throttle, on against off), and it is the surface the reference
+ * recording actually is, so it keeps the fuller breath.
+ *
+ * The laptop bar is nine cells of 14px type. Scaling type re-rasterises
+ * it, Chrome will not composite that, and neither `will-change` nor
+ * dropping the backdrop filter recovers it -- so the bill is one raster
+ * per frame of the animation, and **the duration is the only dial that
+ * changes it.** Magnitude is free; time is not. That makes "barely
+ * noticeable and very quick" the same request as "cheaper", which is why
+ * the laptop's numbers are small and short rather than one or the other.
+ */
+export const DOCK_MOTION = {
+  wide: { swellPeak: 1.008, swellMs: 180, travelMs: 220, lagMs: 10 },
+  phone: { swellPeak: 1.012, swellMs: 200, travelMs: 240, lagMs: 10 },
+} as const;
+
+export type DockVariant = keyof typeof DOCK_MOTION;
+
+export const MARKER_MS = DOCK_MOTION.phone.travelMs;
 export const GHOST_MS = 200;
 /**
  * How far the trailing edge follows behind, in time. A constant lag is the
@@ -91,7 +113,7 @@ export const GHOST_MS = 200;
  * 1.29x -- deliberately gentler, because the reference is a phone bar of
  * glyphs and stretching a labelled cell reads much louder.
  */
-export const MARKER_LAG_MS = 12;
+export const MARKER_LAG_MS = DOCK_MOTION.phone.lagMs;
 export const GHOST_LAG_MS = 6;
 /** Fitted numerically to the reference pill's own progress (sse 0.0011). */
 export const TRAVEL_EASE = [0.5, 0.2, 0.05, 0.95] as const;
@@ -196,6 +218,19 @@ export function restingStyle(mark: DockMark) {
  * cannot leave the main thread, because scaling type re-rasterises it.
  * Half the scale over a shorter run is half the work and most of the read.
  *
+ * **The duration is the only dial that changes what this costs.** Scaling
+ * type re-rasterises it, so the bill is per frame of the animation and is
+ * indifferent to how big the scale is: 260ms is fewer frames than 380 and
+ * therefore cheaper by the same fraction. Measured over eight navigations
+ * on the nine-cell labelled bar, the swell is free at 1x and costs one
+ * frame at 4x; it is the 6x and 10x stress settings where it shows, and
+ * neither `will-change` nor dropping the backdrop filter recovers it,
+ * because Chrome will not composite a scale over a subtree of text.
+ * **The glyph-only phone bar is free at every throttle**, which is the
+ * surface the reference actually is. If this ever has to cost nothing on
+ * a labelled bar, the only lever left is `SWELL_PEAK = 1`, which turns the
+ * breath off without touching anything else.
+ *
  * The shape is a swell, not a snap. Normalised against its own peak, with
  * t measured from the start of the travel:
  *
@@ -210,7 +245,7 @@ export function restingStyle(mark: DockMark) {
  * the bar read as jumpy.
  */
 export const SWELL_PEAK = 1.02;
-export const SWELL_MS = 380;
+export const SWELL_MS = 260;
 
 /**
  * The capsule's keyframes for one travel, traced from the measurements
@@ -222,9 +257,12 @@ export const SWELL_MS = 380;
  * centre whichever way the marker is going, and a lean would be a second
  * opinion about direction that the marker already gives.
  */
-export function swellFrames(dir: DockDir): Keyframe[] | null {
+export function swellFrames(
+  dir: DockDir,
+  peak: number = SWELL_PEAK
+): Keyframe[] | null {
   if (!dir) return null;
-  const grown = SWELL_PEAK - 1;
+  const grown = peak - 1;
   /* Normalised samples, one per recorded frame of the reference. */
   const shape = [
     0, 0.26, 0.35, 0.49, 0.74, 0.94, 1, 0.9, 0.67, 0.41, 0.17, 0.05, -0.03,
