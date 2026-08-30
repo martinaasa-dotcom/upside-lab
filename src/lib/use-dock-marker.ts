@@ -68,13 +68,11 @@ function swell(
   running: { current: Animation | null }
 ) {
   /*
-   * The pane, never the capsule. Scaling the capsule scales every label
-   * inside it: measured at 1440, one cell of travel slid the far label 28px
-   * and stretched every letterform 4.5%, which is the failure
-   * `dock-stability.test.ts` was written about. See `DockPane`.
+   * The capsule itself, everything on it included. The bar is one object
+   * and the reference moves all of it together; see `swellFrames` for the
+   * measurements, and for why a one-axis scale is the thing to never do.
    */
-  const pane = host.querySelector<HTMLElement>(".dock-pane");
-  if (!pane || typeof pane.animate !== "function" || stillMotion()) return;
+  if (typeof host.animate !== "function" || stillMotion()) return;
   const frames = swellFrames(dir);
   if (!frames) return;
   /*
@@ -84,8 +82,7 @@ function swell(
    * over and it jumps. Tapping along the dock quickly is exactly how
    * somebody would find that.
    */
-  running.current?.cancel();
-  running.current = pane.animate(frames, { duration: SWELL_MS });
+  running.current = host.animate(frames, { duration: SWELL_MS });
 }
 
 /**

@@ -1559,80 +1559,95 @@ dock's pane as a second pane rather than as a grey swatch painted on one.
 Neutral rather than the room's two hues from `--glass-rim-*`, because at
 44px that repeat lands as a coloured outline instead of as light.
 
-### The material moves, the words hold still (2026-08-30)
+### The bar breathes as one object, and it took three tries (2026-08-30)
 
-> *"On desktop the nav bar feels genuinely horrible, the expansion should
-> feel super subtle."*
+> *"The whole navbar expands as a whole, sides and top and bottom,
+> everything expands slightly and all the internal icons move with it."*
 
-Right, and the measurement is worse than the complaint. The swell scaled
-the capsule, and scaling a capsule scales everything written on it.
-Measured on the laptop dock at 1440, walking **one cell** from Home to
-Pulse:
+Correct, and it took two wrong versions to get there. Both mistakes came
+from measurement, not taste, which is the lesson.
 
-| label | moves | letterforms |
+**The measurement.** Traced frame by frame off the reference at 30fps,
+fitting the capsule's own four edges with a sub-pixel gradient fit:
+
+| frame | width | height |
 | --- | --- | --- |
-| Home | -13.0px | +4.4% |
-| Growth | +3.6px | +4.6% |
-| MaryAnn | +20.1px | +4.5% |
-| Circle | **+28.2px** | +4.4% |
+| n53 | +1.96% | +2.04% |
+| n56 | **+3.99%** | **+3.95%** |
+| n58 | +2.66% | +2.31% |
+| n60 | +0.67% | +0.68% |
 
-Clicking Pulse moved the word "Circle" 28 pixels. On every navigation.
+Both axes, together, by the same fraction, symmetric about the centre: at
+the peak the left edge moved -23.8px against the right's +23.7px, and the
+top -3.8px against the bottom +3.9px. It is `transform: scale()` on the
+capsule, contents included, with no origin and no lean.
 
-**This repo had already ruled on it.** `dock-stability.test.ts` was written
-because a dropped cell made "the whole bar resize and re-centre under the
-cursor, every label sliding sideways mid-click." That is the same failure
-arrived at from the other direction, and the animation was performing it
-several times a minute.
+**The two wrong versions.** First, a vertical measuring window that missed
+the capsule's real edges reported the height as a constant 234px when the
+true height is 187px. It never varied because it was reading something
+else, and that single bad number produced a `scaleX`. **A one-axis scale
+stretches letterforms sideways**, which is exactly what makes a bar of type
+feel wrong; a uniform scale magnifies type instead of distorting it, which
+is how the reference can move every label and still look calm.
 
-So the glass, the rim and the ring moved onto their own layer,
-`DockPane`, and that is what scales. The same walk now moves every label
-**0.0px** and stretches nothing. The reference does move its labels, about
-11px on a 1181px bar, and that is a phone bar of glyphs with 11px captions
-where the shift is invisible; on a floating capsule of 14px labels it is
-the loudest thing on the screen. **Fidelity to the recording is not the
-goal, the feel is** -- and the recording is a different object.
+Then, over-correcting, the glass was moved onto its own layer so only the
+material scaled and the words held still. Also wrong: the reference plainly
+moves everything together, and a bar whose rim slides while its words stand
+still is two objects rather than one.
 
-It also made the animation free. Scaling a subtree of text is what cost
-anything, because text must be re-rasterised at each scale factor while a
-plain pane is not. At 10x CPU throttle, eight navigations:
+**The shape is a swell, not a snap.** Normalised against its own peak:
 
-| | frames >33ms | p95 |
+    0    0.26  0.35  0.49  0.74  0.94  1.00  0.90  0.67
+    0.41 0.17  0.05  -0.03 -0.035 -0.03  0
+
+It takes **40% of its life to reach the widest** and comes home **through a
+slight undershoot** before settling, over 500ms. That undershoot is the
+whole character; the version before it put the peak at 11% with no
+undershoot, which is a flinch rather than a breath. The samples are one
+recorded frame apart, so they interpolate linearly on purpose: the curve is
+carried by the data, and an easing laid over it would be a guess about a
+shape that was measured.
+
+### The selector: one curve, one lag
+
+Both edges take the same duration and the same easing, and the trailing one
+simply sets off later. **A constant lag is the back of a blob following the
+front at a fixed distance**, which is why the reference reads as one
+object; two different durations read as a rectangle being stretched.
+
+The easing was fitted numerically to the reference's own pill rather than
+chosen: `cubic-bezier(0.5, 0.2, 0.05, 0.95)`, sse 0.0011 against its
+measured progress (0.15 at t/D 0.19, 0.41 at 0.29, 0.68 at 0.38, 0.85 at
+0.48). Duration 350ms, trailing lag 28ms.
+
+| | reference | ours |
 | --- | --- | --- |
-| old, whole capsule | 11 of 150 | 33.3ms |
-| pane only, swell on | 5 of 156 | 16.8ms |
-| pane only, swell off | 5 of 155 | 16.8ms |
+| peak stretch, one cell | 1.29x | **1.28x** |
+| when it peaks | t = 133ms | **t = 133ms** |
+| capsule at t = 200ms | +3.99% / +3.95% | **+4.00% / +4.04%** |
 
-Identical to baseline. The earlier note that the cost was re-rasterised
-text rather than the backdrop filter was right, and this is what follows
-from it.
+A six-cell walk reaches 2.5x. That is the same physics at six times the
+velocity and is left alone: a constant lag times a higher speed is a longer
+smear, which is what a liquid does.
 
-**`SWELL_PEAK` is 1.8%**, against the reference's 3.6-4.8%, for the same
-reason the labels do not move: a percentage that reads as a breath on a
-near-full-width phone bar reads as a lurch on a floating capsule. At 1.8%
-the far edge travels 12.5px and the near edge 6.2px, still leaning two to
-one toward the travel, with the height untouched.
+### What it costs, and where
 
-**The marker's own stretch came down with it.** It scales with distance,
-which is right, but this bar is up to nine cells wide and at a 460ms
-trailing edge a walk to Circle drew a pill 2.7 cells wide across three
-labels. Measured at 120px cells:
+Scaling text re-rasterises it at every scale factor, so this is not free on
+the labelled bar. Eight navigations, swell on against off:
 
-| trailing | one cell | four cells | five cells |
-| --- | --- | --- | --- |
-| 460ms | 1.36x | 2.37x | 2.71x |
-| 400ms | 1.27x | 2.10x | 2.38x |
-| 360ms | 1.22x | 1.89x | 2.11x |
-| **320ms** | **1.16x** | **1.66x** | **1.82x** |
-| 290ms | 1.12x | 1.48x | 1.60x |
+| throttle | laptop bar, on | off | phone bar, on | off |
+| --- | --- | --- | --- | --- |
+| 1x | 0 of 249 | 0 of 249 | — | — |
+| 4x | 1 of 247 | 0 of 248 | 1 of 248 | 1 of 247 |
+| 6x | 30 of 218 | 4 of 244 | 11 of 239 | 23 of 225 |
+| 10x | 78 of 150 | 19 of 218 | 79 of 148 | 78 of 146 |
 
-Judge it on the **one-cell** row: that is what a reader does over and over,
-and the long haul only has to stay believable. 320ms puts the everyday move
-at a sixth of a cell of give and keeps the worst case under two cells wide.
-
-**The rule that generalises: never tune this bar by matching the
-recording's numbers.** It is a phone bar of glyphs and this one carries
-words, so every magnitude has to be re-judged against text that must not
-move.
+The glyph-only phone bar is **free at every throttle** — the difference at
+6x and 10x is noise, and at 6x the "off" run was worse. All of the cost is
+the laptop bar's nine labels, and it only appears from 6x, which is well
+below what a machine showing a desktop dock is. `will-change: transform`
+does not recover it (21 against 30 at 6x, 84 against 78 at 10x). The 500ms
+duration is the dial if this ever stops being the right trade.
 
 ### The capsule breathes, and that is the half a moving pill cannot carry
 

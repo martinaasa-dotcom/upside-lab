@@ -70,82 +70,75 @@ export function travelDirection(was: DockMark, next: DockMark): DockDir {
 }
 
 /**
- * The capsule breathes while the marker travels.
+ * The capsule breathes, and the WHOLE bar breathes as one object.
  *
- * This is the half of the reference that a moving pill alone does not
- * carry, and it is what makes the bar read as one soft object rather than
- * as a marker sliding inside a rigid tray. Measured off the reference
- * recording frame by frame at 30fps, tracking the capsule's own outer
- * edges rather than anything inside it, across three separate travels:
+ * Traced frame by frame off the reference recording at 30fps, tracking the
+ * capsule's own four edges with a sub-pixel gradient fit. Both axes move
+ * together and by the same fraction:
  *
- *   rest        1181px
- *   +33ms       1237px   +4.7%
- *   +67ms       1235px   +4.6%
- *   +133ms      1210px   +2.5%
- *   +200ms      1196px   +1.3%
- *   +300ms      1181px   settled
+ *     frame   width    height
+ *     n53     +1.96%   +2.04%
+ *     n56     +3.99%   +3.95%     <- peak
+ *     n58     +2.66%   +2.31%
+ *     n60     +0.67%   +0.68%
  *
- * The three travels peaked at +3.6%, +4.7% and +4.8%. **`SWELL_PEAK` is
- * deliberately far below that**, and the reason is that the recording is a
- * phone bar: glyphs with 11px captions, spanning nearly the whole screen,
- * where the ends moving 25px is a breath you feel rather than see. Our
- * laptop dock is a floating capsule of 14px labels, and matching the
- * recording's number there put 22px of movement on the end of a bar a
- * reader is looking straight at. Only the pane moves now (see `DockPane`),
- * which removes the labels from the question entirely, and with the
- * contents held still a much smaller number reads as the same thing: at
- * 1.8% the capsule's far edge travels about 9px on the laptop and 4px on
- * the phone, which is a rim easing outward rather than a bar lurching. **Its height never moved** (234px in every frame of
- * every travel), so this is horizontal and nothing else: a bar that also
- * grew taller would push the page's bottom padding around, and `useDockPad`
- * publishes that height for every notice on the screen to sit clear of.
+ * So it is a **uniform `scale()` about the centre**, not a horizontal one:
+ * at the peak the left edge moved -23.8px while the right moved +23.7px,
+ * and the top -3.8px against the bottom +3.9px. Symmetric on both axes.
  *
- * **It leans toward where the pill is going.** In the same frames the end
- * the marker was heading for pushed out 28px while the other end pushed out
- * 14px, which is exactly two to one, so the origin sits a third of the way
- * in from the trailing end rather than at the centre. A centred swell is
- * the same amount of motion saying nothing about direction.
+ * THIS FILE PREVIOUSLY SAID THE HEIGHT NEVER MOVED, AND THAT WAS WRONG.
+ * The measurement behind it used a vertical window that missed the
+ * capsule's real edges: it reported a height of 234px when the true height
+ * is 187px, and never varied because it was reading something else. That
+ * one bad number produced a `scaleX`, and a horizontal-only scale is what
+ * stretches letterforms sideways, which is what made the bar feel wrong.
+ * A uniform scale magnifies type instead of distorting it, which is why
+ * the reference can move everything and still look calm. **Never scale
+ * this bar on one axis.**
  *
- * The shape is snap out, ease back: most of the growth is spent in the
- * first tenth and the return is four times longer, which is the press's
- * rule (`dock.css`) at the scale of the whole bar.
+ * The shape is a swell, not a snap. Normalised against its own peak, with
+ * t measured from the start of the travel:
+ *
+ *     0ms 0.05  67ms 0.26  100ms 0.35  133ms 0.49  167ms 0.74
+ *     200ms 0.94  233ms 1.00  267ms 0.90  300ms 0.67  333ms 0.41
+ *     367ms 0.17  400ms 0.05  433ms -0.03  467ms -0.035  500ms 0
+ *
+ * It takes **40% of its life to reach the peak** and comes back through a
+ * slight undershoot before settling, which is the impulse response of
+ * something springy rather than an ease. The old curve put the peak at 11%
+ * and had no undershoot: that is a flinch, and it is the other half of why
+ * the bar read as jumpy.
  */
-export const SWELL_PEAK = 1.018;
-export const SWELL_MS = 300;
-/** How far in from the trailing end the swell is anchored. */
-export const SWELL_ORIGIN = "33%";
+export const SWELL_PEAK = 1.04;
+export const SWELL_MS = 500;
 
 /**
  * The capsule's keyframes for one travel, traced from the measurements
- * above. Returns null when there is no direction to lean toward, because a
- * cell that resized under a still marker is not a journey and a bar that
- * breathes at nothing is a bar with a twitch.
+ * above. Returns null when there is no direction, because a cell that
+ * resized under a still marker is not a journey and a bar that breathes at
+ * nothing is a bar with a twitch.
+ *
+ * The direction does not change the shape: the reference scales about the
+ * centre whichever way the marker is going, and a lean would be a second
+ * opinion about direction that the marker already gives.
  */
 export function swellFrames(dir: DockDir): Keyframe[] | null {
   if (!dir) return null;
-  const origin =
-    dir === "right"
-      ? `${SWELL_ORIGIN} center`
-      : `${100 - parseFloat(SWELL_ORIGIN)}% center`;
   const grown = SWELL_PEAK - 1;
-  const at = (offset: number, of: number, easing: string): Keyframe => ({
-    offset,
-    transform: `scaleX(${1 + grown * of})`,
-    transformOrigin: origin,
-    easing,
-  });
-  /*
-   * The easing on a keyframe is the segment that starts at it, so the first
-   * one carries the snap and the rest carry the settle. Without them the
-   * traced points are joined by straight lines and the bar changes speed at
-   * each of them, which is visible as a flicker at this duration.
-   */
-  return [
-    at(0, 0, "cubic-bezier(0.32, 0.72, 0, 1)"),
-    at(0.11, 1, "cubic-bezier(0.4, 0, 0.6, 1)"),
-    at(0.33, 0.98, "cubic-bezier(0.4, 0, 0.6, 1)"),
-    at(0.56, 0.55, "cubic-bezier(0.4, 0, 0.6, 1)"),
-    at(0.78, 0.29, "cubic-bezier(0.4, 0, 0.4, 1)"),
-    at(1, 0, "linear"),
+  /* Normalised samples, one per recorded frame of the reference. */
+  const shape = [
+    0, 0.26, 0.35, 0.49, 0.74, 0.94, 1, 0.9, 0.67, 0.41, 0.17, 0.05, -0.03,
+    -0.035, -0.03, 0,
   ];
+  return shape.map((v, i) => ({
+    offset: i / (shape.length - 1),
+    transform: `scale(${1 + grown * v})`,
+    /*
+     * Linear between samples on purpose. They are 33ms apart, which is one
+     * frame of the recording, so the curve is already carried by the data
+     * and any easing laid on top would be a second guess about a shape that
+     * was measured.
+     */
+    easing: "linear",
+  }));
 }
