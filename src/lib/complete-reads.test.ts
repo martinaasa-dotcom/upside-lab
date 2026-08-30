@@ -44,6 +44,7 @@ const MUST_BE_COMPLETE = [
 const GUARDED_FILES = [
   "src/app/api/admin/overview/route.ts",
   "src/app/api/communities/[id]/book/route.ts",
+  "src/app/api/communities/[id]/route.ts",
   "src/app/api/communities/discover/route.ts",
   "src/app/api/portfolios/route.ts",
   "src/lib/billing-reconcile.ts",
