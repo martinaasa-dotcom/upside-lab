@@ -1,5 +1,6 @@
 /** One-time nudge when someone signs up and never imports a name. */
 
+import { readAll } from "@/lib/supabase/read-all";
 import { isClassroomSheet } from "@/lib/classroom";
 import {
   collapseMailRecipients,
@@ -162,15 +163,17 @@ export async function dispatchEmptyBookNudges(): Promise<{
   let skipped = recipients.length - due.length;
 
   // Three batched reads for the whole batch, not two per candidate. At the
-  // 40-candidate cap that is 3 round trips where it used to be up to 80.
+  // 40-candidate cap that is 3 reads where it used to be up to 80. Each is
+  // paged, so "batched" never quietly means "the first 1,000 rows".
   const dueUserIds = due.map(({ profile }) => profile.id as string);
-  const { data: ownRows } = dueUserIds.length
-    ? await supabase
-        .from(PORTFELL_TABLES.portfolioOwners)
-        .select("portfolio_id, user_id")
-        .in("user_id", dueUserIds)
-    : { data: [] as { portfolio_id: string; user_id: string }[] };
-  const owned = (ownRows ?? []) as { portfolio_id: string; user_id: string }[];
+  const owned = dueUserIds.length
+    ? await readAll<{ portfolio_id: string; user_id: string }>(() =>
+        supabase
+          .from(PORTFELL_TABLES.portfolioOwners)
+          .select("portfolio_id, user_id")
+          .in("user_id", dueUserIds)
+      )
+    : [];
   const idsByUser = new Map<string, string[]>();
   for (const row of owned) {
     const bucket = idsByUser.get(row.user_id);
@@ -179,28 +182,43 @@ export async function dispatchEmptyBookNudges(): Promise<{
   }
   const allIds = [...new Set(owned.map((r) => r.portfolio_id))];
 
-  const { data: bookRows } = allIds.length
-    ? await supabase
-        .from(PORTFELL_TABLES.portfolios)
-        .select("id, classroom_community_id")
-        .in("id", allIds)
-    : { data: [] as { id: string; classroom_community_id: string | null }[] };
+  const bookRows = allIds.length
+    ? await readAll<{ id: string; classroom_community_id: string | null }>(() =>
+        supabase
+          .from(PORTFELL_TABLES.portfolios)
+          .select("id, classroom_community_id")
+          .in("id", allIds)
+      )
+    : [];
   const classroomIds = new Set(
-    ((bookRows ?? []) as { id: string; classroom_community_id: string | null }[])
+    bookRows
       .filter((p) =>
         isClassroomSheet({ classroom_community_id: p.classroom_community_id })
       )
       .map((p) => p.id)
   );
 
-  const { data: holdingRows } = allIds.length
-    ? await supabase
-        .from(PORTFELL_TABLES.holdings)
-        .select("ticker, shares, portfolio_id")
-        .in("portfolio_id", allIds)
-    : { data: [] as HoldingRow[] };
+  /*
+    Paged, because this read is what decides the email. It covers every
+    portfolio of up to `EMPTY_BOOK_NUDGE_BATCH` people at once, which at
+    forty candidates holding a couple of portfolios each is already past
+    PostgREST's silent 1,000-row cap. A truncated read does not fail: the
+    holdings it dropped simply are not there, so `hasLiveHoldings` answers
+    false and somebody who has been buying all week is told their
+    portfolio is still empty. The marker is written straight after, so
+    that letter is the only one they ever get and the mistake is never
+    corrected.
+  */
+  const holdingRows = allIds.length
+    ? await readAll<HoldingRow>(() =>
+        supabase
+          .from(PORTFELL_TABLES.holdings)
+          .select("ticker, shares, portfolio_id")
+          .in("portfolio_id", allIds)
+      )
+    : [];
   const holdingsByPortfolio = new Map<string, HoldingRow[]>();
-  for (const row of (holdingRows ?? []) as HoldingRow[]) {
+  for (const row of holdingRows) {
     const key = String(row.portfolio_id ?? "");
     if (!key) continue;
     const bucket = holdingsByPortfolio.get(key);
