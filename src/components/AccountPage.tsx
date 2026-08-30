@@ -74,6 +74,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTimeout } from "@/lib/use-timeout";
+import { BelowFold } from "@/components/BelowFold";
 import { useCallback, useEffect, useId, useState } from "react";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
 import { UpgradeButton } from "@/components/billing/UpgradeButton";
@@ -479,6 +480,22 @@ export function AccountPage() {
             </div>
           </Panel>
 
+          {/*
+            * FOUR FIFTHS OF ACCOUNT IS BELOW THE FOLD, SO THE TAIL WAITS.
+            *
+            * Measured at 390x800: 196 elements over 4.3 screens, the most
+            * lopsided room in the app at 82.7% starting below the fold,
+            * and the joint-slowest press at 320ms. Everything from here
+            * down -- the profile, the experience questions, the invite,
+            * privacy and the danger zone -- is 123 of those 196 and none
+            * of it starts above 1,400px.
+            *
+            * Safe to withhold the mount here because the page has no
+            * section anchors (one `id`, on `main`) and every fetch lives
+            * in this component's own effects rather than in a section, so
+            * nothing loads later than it did.
+            */}
+          <BelowFold reserve={1980}>
           {/* Profile / community appearance */}
           <Panel>
             <PanelHeader
@@ -754,6 +771,7 @@ export function AccountPage() {
               }
             />
           </Panel>
+          </BelowFold>
           </WidgetErrorBoundary>
         </main>
       </div>
