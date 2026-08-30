@@ -1,6 +1,7 @@
 import { unsubscribeUrlFor } from "@/lib/unsubscribe-link";
 import { readAll } from "@/lib/supabase/read-all";
 import { requestIsScheduledCron } from "@/lib/cron-auth";
+import { logError } from "@/lib/error-log";
 import { logEvent } from "@/lib/telemetry";
 import {
   ACCOUNT_ALIAS_FALLBACK,
@@ -224,6 +225,14 @@ export async function dispatchWeeklyLetters(
   ok: boolean;
   sent: number;
   skipped: number;
+  /**
+   * How many of `skipped` were passed over because their numbers were too
+   * thin to state as fact (`weeklyNumbersAreSound`). Counted apart so a
+   * data-quality regression reads as a rate in one place instead of as
+   * scattered per-person warnings; `sunday_letter_untrusted_rate` logs the
+   * same figure. They keep their empty marker, so a later slot retries.
+   */
+  untrusted?: number;
   optedIn: number;
   /** Recipients the run did not reach before its deadline. A later run takes them. */
   remaining: number;
@@ -303,7 +312,8 @@ export async function dispatchWeeklyLetters(
         supabase
           .from(PORTFELL_TABLES.profiles)
           .select("id, email, display_name, note_sunday_sent_at")
-          .eq("note_sunday", true),
+          .eq("note_sunday", true)
+          .order("id"),
       "throw"
     );
 
@@ -313,7 +323,8 @@ export async function dispatchWeeklyLetters(
         supabase
           .from(PORTFELL_TABLES.profiles)
           .select("id, email, display_name")
-          .eq("note_sunday", true),
+          .eq("note_sunday", true)
+          .order("id"),
       "throw"
     );
 
@@ -433,6 +444,7 @@ export async function dispatchWeeklyLetters(
   );
   let skipped = optedIn - pending.length;
   let sent = 0;
+  let untrusted = 0;
 
   // ---- One batched read per table, not one per recipient. ----------------
   //
@@ -461,6 +473,8 @@ export async function dispatchWeeklyLetters(
           .from(PORTFELL_TABLES.portfolioOwners)
           .select("portfolio_id, user_id")
           .in("user_id", userIds)
+          .order("portfolio_id")
+          .order("user_id")
       )
     : [];
   const ownsByUser = groupBy(ownRows, (r) => r.user_id);
@@ -474,6 +488,7 @@ export async function dispatchWeeklyLetters(
           .from(PORTFELL_TABLES.portfolios)
           .select("id, cash_balance, classroom_community_id")
           .in("id", allPortfolioIds)
+          .order("id")
       )
     : [];
   const bookById = new Map(bookRows.map((b) => [b.id, b]));
@@ -486,6 +501,7 @@ export async function dispatchWeeklyLetters(
           // that predates a split from one the reader has already fixed.
           .select("ticker, shares, buy_price, portfolio_id, updated_at")
           .in("portfolio_id", allPortfolioIds)
+          .order("id")
       )
     : [];
   const holdingsByPortfolio = groupBy(
@@ -499,6 +515,7 @@ export async function dispatchWeeklyLetters(
           .from(PORTFELL_TABLES.labState)
           .select("conviction, watchlist, owner_id")
           .in("owner_id", userIds)
+          .order("id")
       )
     : [];
   const labByOwner = new Map(labRows.map((l) => [l.owner_id as string, l]));
@@ -675,6 +692,7 @@ export async function dispatchWeeklyLetters(
         "warn"
       );
       skipped += 1;
+      untrusted += 1;
       continue;
     }
 
@@ -729,10 +747,41 @@ export async function dispatchWeeklyLetters(
     sent += 1;
   }
 
+  /*
+   * The per-recipient skip above is a scattered warning; this is the same
+   * fact as a rate, once per run. A systematic data-quality regression (a
+   * stale-quote bug, a provider outage across the Sunday window) shows up
+   * as an unusually high untrusted share, and buried in per-person log
+   * lines it stays invisible until a reader asks where their letter went.
+   * A quarter of the run refused, on more than one person, is an incident
+   * and goes through logError, so it lands in portfell_error_log, /admin
+   * and the daily error digest rather than only in a log stream nobody
+   * reads; anything smaller stays a warning event.
+   */
+  if (untrusted > 0) {
+    const attempted = pending.length;
+    if (untrusted >= 2 && untrusted / Math.max(1, attempted) >= 0.25) {
+      await logError({
+        source: "server",
+        message: `Sunday letter refused ${untrusted} of ${attempted} recipients for thin market data in one run.`,
+        path: "/api/cron/sunday-note",
+        event: "sunday_letter_untrusted_rate",
+        context: { untrusted, attempted, sent, remaining },
+      });
+    } else {
+      logEvent(
+        "sunday_letter_untrusted_rate",
+        { untrusted, attempted, sent, remaining },
+        "warn"
+      );
+    }
+  }
+
   return {
     ok: true,
     sent,
     skipped,
+    untrusted,
     optedIn,
     remaining,
     emailed,

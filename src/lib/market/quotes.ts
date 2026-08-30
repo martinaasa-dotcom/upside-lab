@@ -142,7 +142,45 @@ export async function fetchFxOnly(): Promise<FxRates> {
   return cached?.rates ?? live ?? EMPTY_FX;
 }
 
-export async function fetchQuotesWithFallback(
+/*
+  One classroom, one provider round.
+
+  Twenty-five students opening the same homework portfolio in the same
+  minute used to make twenty-five identical provider batches: the quote
+  cache only helps once the first has finished writing, so simultaneous
+  cold-cache calls all walked the chain, and free-tier quota is the one
+  resource in this app that a burst genuinely spends. Now concurrent calls
+  for the same set of names share one in-flight walk, per warm instance
+  (the same accepted scope as the in-memory rate limiter): the map only
+  ever holds promises that have not settled, so nothing here is a cache
+  and nothing can go stale.
+
+  Sharing is by exact set on purpose. Subset-sharing would hand a caller
+  a result that answers less than it asked, and the classroom case that
+  motivates this is exact: every student's provisioned portfolio holds
+  the same names. Each caller gets its own copy of the answer, so nobody
+  can mutate a result another request is still reading.
+*/
+const inFlightQuotes = new Map<string, Promise<QuotesResultWithSource>>();
+
+export function fetchQuotesWithFallback(
+  tickers: string[]
+): Promise<QuotesResultWithSource> {
+  const key = [
+    ...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean)),
+  ]
+    .sort()
+    .join(",");
+  const existing = inFlightQuotes.get(key);
+  if (existing) return existing.then((result) => structuredClone(result));
+  const run = fetchQuotesWithFallbackUnshared(tickers);
+  inFlightQuotes.set(key, run);
+  const clear = () => inFlightQuotes.delete(key);
+  run.then(clear, clear);
+  return run.then((result) => structuredClone(result));
+}
+
+async function fetchQuotesWithFallbackUnshared(
   tickers: string[]
 ): Promise<QuotesResultWithSource> {
   const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))];

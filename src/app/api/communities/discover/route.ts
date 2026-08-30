@@ -61,6 +61,8 @@ async function handleGET() {
       supabase
         .from(PORTFELL_TABLES.communityMembers)
         .select("community_id")
+        .order("community_id")
+        .order("user_id")
         .eq("user_id", auth.user.id)
     ),
     readAll<{
@@ -74,6 +76,7 @@ async function handleGET() {
         .select("id, name, house_note, created_at")
         .eq("visibility", "public")
         .order("name")
+        .order("id")
     ),
   ]);
 

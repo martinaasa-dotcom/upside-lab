@@ -13,7 +13,8 @@
   step by hand. This draws from the same geometry the app draws from -- Node
   strips the types on import -- so there is exactly one mark.
 */
-import { mkdir, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
@@ -221,5 +222,24 @@ await sharp(Buffer.from(ogSvg), { density: 192 })
   .png()
   .toFile(pub("og.png"));
 note(pub("og.png"));
+
+/*
+  A receipt saying which mark these files were drawn from.
+
+  mark-version.test.ts compares this hash against the current mark.ts, so
+  a mark change with stale generated icons fails CI by name instead of
+  shipping. Line endings are normalized before hashing so a checkout that
+  rewrites them does not read as a redesign.
+*/
+const markSource = await readFile(
+  path.join(root, "src", "lib", "brand", "mark.ts"),
+  "utf8"
+);
+const markSha256 = createHash("sha256")
+  .update(markSource.replace(/\r\n/g, "\n"))
+  .digest("hex");
+const receipt = pub("icons", "mark-source.json");
+await writeFile(receipt, `${JSON.stringify({ markSha256 }, null, 2)}\n`);
+note(receipt);
 
 console.log(written.map((f) => `wrote ${f}`).join("\n"));

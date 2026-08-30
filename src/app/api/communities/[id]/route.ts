@@ -73,12 +73,16 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
         supabase
           .from(PORTFELL_TABLES.communityMembers)
           .select("user_id, role, joined_at")
+          .order("community_id")
+          .order("user_id")
           .eq("community_id", id)
       ),
       readAll<{ portfolio_id: string; label: string | null }>(() =>
         supabase
           .from(PORTFELL_TABLES.communityPortfolios)
           .select("portfolio_id, label")
+          .order("community_id")
+          .order("portfolio_id")
           .eq("community_id", id)
       ),
     ]);
@@ -93,6 +97,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
         supabase
           .from(PORTFELL_TABLES.profiles)
           .select("id, email, display_name, avatar_url, bio")
+          .order("id")
           .in("id", userIds)
       )
     : [];
@@ -118,6 +123,8 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
         supabase
           .from(PORTFELL_TABLES.portfolioOwners)
           .select("portfolio_id, user_id")
+          .order("portfolio_id")
+          .order("user_id")
           .in("portfolio_id", pinnedIds)
       )
     : [];
@@ -143,6 +150,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
           .select("id, name, slug, sort_order, cash_balance, owner_id, classroom_community_id")
           .in("id", portfolioIds)
           .order("sort_order")
+          .order("id")
       )
     : [];
 
@@ -217,6 +225,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
         .eq("community_id", id)
         .eq("status", "pending")
         .order("requested_at", { ascending: true })
+        .order("id")
     );
     const reqUserIds = pendingRequests.map((r) => r.user_id);
     const reqProfiles = reqUserIds.length
@@ -224,6 +233,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
           supabase
             .from(PORTFELL_TABLES.profiles)
             .select("id, email, display_name, avatar_url")
+            .order("id")
             .in("id", reqUserIds)
         )
       : [];
@@ -496,6 +506,7 @@ async function handlePATCH(req: NextRequest, ctx: Ctx) {
       supabase
         .from(PORTFELL_TABLES.portfolios)
         .select("id")
+        .order("id")
         .eq("classroom_community_id", id)
     );
     await Promise.all(

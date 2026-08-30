@@ -264,14 +264,28 @@ export function isPlausibleTicker(ticker: string): boolean {
  * Prefer explicit exchange suffixes; else map known EU names; else ISIN country.
  */
 export function resolveImportTicker(raw: string, isin?: string | null): string {
-  const coin = matchCoinQuery(raw);
-  if (coin) return coin.symbol;
+  const code = (isin ?? "").trim().toUpperCase();
+  /*
+    An ISIN settles the coin ambiguity before the alias match can take the
+    row. SOL is Solana when typed and Emeren Group when it arrives with
+    US29103Y1010 beside it: a crypto row in a broker screenshot never
+    carries an ISIN, so a row that does is a listed security whatever its
+    symbol collides with, and importing a solar company as a coin would
+    misprice it in the portfolio value, Pulse, the forecast and the Sunday
+    letter. Only a code shaped like a real ISIN gets that authority; the
+    model filling the field with a dash or a note must not strip a real
+    BTC row of its coin meaning.
+  */
+  const isinShaped = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(code);
+  if (!isinShaped) {
+    const coin = matchCoinQuery(raw);
+    if (coin) return coin.symbol;
+  }
   const base = normalizeYahooTicker(raw);
   if (!base) return base;
   if (base.includes(".")) return base;
   if (BROKER_BARE_TO_YAHOO[base]) return BROKER_BARE_TO_YAHOO[base];
 
-  const code = (isin ?? "").trim().toUpperCase();
   if (code.startsWith("US") || code.startsWith("KY")) return base;
   const country = code.slice(0, 2);
   const suffix = ISIN_PREFIX_TO_SUFFIX[country];

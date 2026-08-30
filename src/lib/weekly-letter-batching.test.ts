@@ -53,6 +53,7 @@ function builder(table: string) {
   let window: [number, number] | null = null;
   const chain: Record<string, unknown> = {
     select: () => chain,
+    order: () => chain,
     eq: () => chain,
     in: () => chain,
     or: () => chain,

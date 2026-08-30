@@ -3,6 +3,7 @@ import { ACTIVE_STATUSES, isActiveSubscription } from "@/lib/billing-status";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
 import { readAll } from "@/lib/supabase/read-all";
+import { logError } from "@/lib/error-log";
 import { logEvent } from "@/lib/telemetry";
 
 export type BillingReconcileResult = {
@@ -52,12 +53,19 @@ export async function reconcileBillingSubscriptions(): Promise<BillingReconcileR
           .select(
             "id, stripe_customer_id, stripe_subscription_id, subscription_status"
           )
-          .not("stripe_customer_id", "is", null),
+          .not("stripe_customer_id", "is", null)
+          .order("id"),
       "throw"
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "read failed";
-    logEvent("billing_reconcile_query_failed", { message }, "error");
+    // The whole backstop did nothing this run; that is a row, not a line.
+    await logError({
+      source: "server",
+      message: `Billing reconcile could not read the subscribed profiles: ${message}`,
+      path: "/api/cron/billing-reconcile",
+      event: "billing_reconcile_query_failed",
+    });
     return { status: 500, checked: 0, corrected: 0, error: message };
   }
 
@@ -130,11 +138,19 @@ export async function reconcileBillingSubscriptions(): Promise<BillingReconcileR
             .update(CLEARED_BILLING_PATCH)
             .eq("id", row.id);
           if (clearErr) {
-            logEvent(
-              "billing_reconcile_write_failed",
-              { profileId: row.id, message: clearErr.message },
-              "error"
-            );
+            // The reconcile is the backstop behind the webhook; a failure
+            // here has nothing behind it, so it goes to the error log
+            // (/admin and the daily digest), not only the log stream. The
+            // profile id rides in context, never the user_id column, so
+            // the row survives an account deletion while there may still
+            // be a live subscription to chase.
+            await logError({
+              source: "server",
+              message: "Billing reconcile could not clear a stale subscription state.",
+              path: "/api/cron/billing-reconcile",
+              event: "billing_reconcile_write_failed",
+              context: { profileId: row.id, detail: clearErr.message },
+            });
             continue;
           }
           corrected += 1;
@@ -158,11 +174,13 @@ export async function reconcileBillingSubscriptions(): Promise<BillingReconcileR
           .update(fields)
           .eq("id", row.id);
         if (writeErr) {
-          logEvent(
-            "billing_reconcile_write_failed",
-            { profileId: row.id, message: writeErr.message },
-            "error"
-          );
+          await logError({
+            source: "server",
+            message: "Billing reconcile could not write a drifted subscription state.",
+            path: "/api/cron/billing-reconcile",
+            event: "billing_reconcile_write_failed",
+            context: { profileId: row.id, detail: writeErr.message },
+          });
           continue;
         }
         corrected += 1;
@@ -173,14 +191,16 @@ export async function reconcileBillingSubscriptions(): Promise<BillingReconcileR
         });
       }
     } catch (err) {
-      logEvent(
-        "billing_reconcile_stripe_error",
-        {
+      await logError({
+        source: "server",
+        message: "Billing reconcile could not ask Stripe about a subscribed profile.",
+        path: "/api/cron/billing-reconcile",
+        event: "billing_reconcile_stripe_error",
+        context: {
           profileId: row.id,
-          message: err instanceof Error ? err.message : String(err),
+          detail: err instanceof Error ? err.message : String(err),
         },
-        "error"
-      );
+      });
     }
   }
 

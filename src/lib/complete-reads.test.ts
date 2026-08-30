@@ -39,6 +39,9 @@ const MUST_BE_COMPLETE = [
   "profiles",
   "labState",
   "communities",
+  // The error digest compares a whole day against the day before; a
+  // truncated window reports calm over rows it never read.
+  "errorLog",
 ];
 
 const GUARDED_FILES = [
@@ -49,6 +52,7 @@ const GUARDED_FILES = [
   "src/app/api/portfolios/route.ts",
   "src/lib/billing-reconcile.ts",
   "src/lib/empty-book-nudge.ts",
+  "src/lib/error-digest.ts",
 ];
 
 /**

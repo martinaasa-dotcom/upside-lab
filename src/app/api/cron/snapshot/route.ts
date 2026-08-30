@@ -9,7 +9,7 @@ import { fetchQuotesWithFallback } from "@/lib/market/quotes";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { todayKeyInTz } from "@/lib/timezone";
 import { NextResponse } from "next/server";
-import { observeRoute } from "@/lib/observe-route";
+import { cronRoute } from "@/lib/cron-heartbeat";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -85,4 +85,4 @@ async function handleGET(req: Request) {
   }
 }
 
-export const GET = observeRoute(handleGET, '/api/cron/snapshot');
+export const GET = cronRoute(handleGET, '/api/cron/snapshot');

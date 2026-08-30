@@ -84,7 +84,8 @@ async function loadViaServiceRole(): Promise<{
         .select(
           "id, email, display_name, avatar_url, bio, created_at, updated_at, last_advisor_at, subscription_status, current_period_end"
         )
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .order("id"),
     "throw"
   );
 
@@ -93,7 +94,8 @@ async function loadViaServiceRole(): Promise<{
       supabase
         .from(PORTFELL_TABLES.communities)
         .select("id, name, created_by, created_at, updated_at")
-        .order("name"),
+        .order("name")
+        .order("id"),
     "throw"
   );
 
@@ -101,7 +103,9 @@ async function loadViaServiceRole(): Promise<{
     () =>
       supabase
         .from(PORTFELL_TABLES.communityMembers)
-        .select("community_id, user_id, role, joined_at"),
+        .select("community_id, user_id, role, joined_at")
+        .order("community_id")
+        .order("user_id"),
     "throw"
   );
 
@@ -112,17 +116,21 @@ async function loadViaServiceRole(): Promise<{
     () =>
       supabase
         .from(PORTFELL_TABLES.portfolioOwners)
-        .select("user_id, portfolio_id"),
+        .select("user_id, portfolio_id")
+        .order("portfolio_id")
+        .order("user_id"),
     "throw"
   );
 
   const portfolioRows = await readAll<unknown>(
-    () => supabase.from(PORTFELL_TABLES.portfolios).select("id, name"),
+    () => supabase.from(PORTFELL_TABLES.portfolios).select("id, name")
+    .order("id"),
     "throw"
   );
 
   const holdingRows = await readAll<{ portfolio_id: string }>(
-    () => supabase.from(PORTFELL_TABLES.holdings).select("portfolio_id"),
+    () => supabase.from(PORTFELL_TABLES.holdings).select("portfolio_id")
+    .order("id"),
     "throw"
   );
 

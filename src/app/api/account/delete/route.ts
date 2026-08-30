@@ -10,7 +10,7 @@ import { getStripe } from "@/lib/stripe";
 import { ACTIVE_STATUSES } from "@/lib/billing-status";
 import { NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
-import { logEvent } from "@/lib/telemetry";
+import { logError } from "@/lib/error-log";
 
 export const dynamic = "force-dynamic";
 
@@ -99,14 +99,27 @@ async function handlePOST() {
           for (const s of page.data) toCancel.add(s.id);
         }
       } catch (err) {
-        logEvent(
-          "account_delete_stripe_list_failed",
-          {
-            userId: auth.user.id,
-            message: err instanceof Error ? err.message : String(err),
+        /*
+         * Through logError so this reaches /admin and the daily error
+         * digest: "deleted but still being billed" is the worst possible
+         * pairing and a console line is not an alarm. Deliberately no
+         * userId or email on the row -- the purge this route is about to
+         * run deletes error-log rows keyed to the person, so an alarm
+         * carrying their id would delete itself seconds after it fired.
+         * The Stripe customer id is what the operator needs to finish the
+         * cancellation by hand, and it survives.
+         */
+        await logError({
+          source: "server",
+          message:
+            "Stripe subscription lookup failed during an account deletion; anything still live on the customer was not cancelled.",
+          path: "/api/account/delete",
+          event: "account_delete_stripe_list_failed",
+          context: {
+            customerId,
+            detail: err instanceof Error ? err.message : String(err),
           },
-          "error"
-        );
+        });
       }
     }
     if (billingProfile?.stripe_subscription_id) {
@@ -118,18 +131,21 @@ async function handlePOST() {
         await stripe.subscriptions.cancel(subscriptionId);
       } catch (err) {
         // Already canceled, already past_due-and-auto-canceled, etc. are
-        // fine -- the goal (no further charges) is already met. Log
-        // anything else so a genuine failure (bad API key, network) doesn't
-        // vanish silently while the account still gets deleted.
-        logEvent(
-          "account_delete_stripe_cancel_failed",
-          {
-            userId: auth.user.id,
+        // fine -- the goal (no further charges) is already met. A genuine
+        // failure (bad API key, network) goes to the error log so /admin
+        // and the daily digest see it; no userId on the row, or the purge
+        // below would delete the alarm with the account (see above).
+        await logError({
+          source: "server",
+          message:
+            "Stripe cancel failed during an account deletion; the subscription may still be charging.",
+          path: "/api/account/delete",
+          event: "account_delete_stripe_cancel_failed",
+          context: {
             subscriptionId,
-            message: err instanceof Error ? err.message : String(err),
+            detail: err instanceof Error ? err.message : String(err),
           },
-          "error"
-        );
+        });
       }
     }
   }
