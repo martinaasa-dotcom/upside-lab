@@ -1876,11 +1876,14 @@ or 430. The `max-w` cap came in from `lg` (512px) to 26rem (416px) so a
 large phone gets a capsule rather than a slab.
 
 Past that the choice is structural — fewer destinations, or shorter words.
-"Holdings" is the only label over six characters and is what makes the row
-read as text; every other option (labels on the active cell alone, no
-labels) trades away the thing the labels were brought back for.
+Three densities were rendered side by side at 390px (every label at 52px,
+the active label alone at 60px, no labels at 50px) and **the wordless one
+was chosen**: it is markedly calmer, and the spoken name on the press
+already covers what the labels were brought back for. The tightening
+measured here is what survives the revert only as a record of how far the
+labelled version could be pushed — which was not far enough.
 
-### The names came back, and the bar changed colour to pay for them (2026-08-30)
+### The names came back for an afternoon, and the bar changed colour to pay for them (2026-08-30)
 
 > *"When it jumps from circle to home and the animation of the navbar
 > finishes, it drastically changes its color."* — and, of the reference:
@@ -1926,23 +1929,33 @@ own legibility than one carrying six glyphs, and over the brightest room a
 dock can sit on, muted label text measures **2.11:1 at 55% and 3.51:1 at
 72%**.
 
-**What the labels replaced.** The bar used to speak the pressed cell's name
-over itself for 900ms on `pointerdown` (`SAY_MS`, `.dock-say`). That was a
-real answer to a real problem and the wrong shape of one: *a transient
+**The labels lasted an afternoon, and the arithmetic is why.** The
+argument for them is real and still stands as an argument: *a transient
 label only ever names the room you have already chosen, and the room
-somebody new needs named is the one they have not been to.* Painted names
-answer that; the transient one cannot, at any duration. It also cost a
-render on the press path — the spoken name was React state set from
-`onPointerDown`, so every tap re-rendered the bar before the browser could
-dispatch the click that navigates.
+somebody new needs named is the one they have not been to.* What it runs
+into is width. The reference bar carries **four** destinations across
+~380px, about 95px each; this one carries **six** across 374px, about
+**57px each** — 60% of the room for the same icon-over-word cell.
 
-The bar stretches now (`w-full`, `repeat(n, minmax(0, 1fr))`) where it used
-to hug: six glyphs fit in 316px of a 390px screen and six names do not.
-`minmax(0, 1fr)` and `min-w-0` on the cell are both load-bearing, since a
-grid item's default minimum is its content and the longest name would
-otherwise set its track. Measured at 360, 390 and 430: no name truncates,
-no page overflow. `text-xs` is the floor for anything a person reads, so
-the cell width is sized to the label rather than the other way round.
+Built and measured before being taken out: `w-full` with `repeat(n,
+minmax(0, 1fr))` tracks, `min-w-0` on the cell (a grid item's default
+minimum is its content, so the longest name would otherwise set its track),
+glyph at 18px, gap at 2px, cell padding at 6px, `tracking-tight`, bar down
+from 60px to **52px** with the cell landing at exactly the 44px touch-target
+floor. Nothing truncated at 360, 390 or 430 and the page never overflowed.
+It still read as a wall of text, because six words at 12px in 374px is one
+however it is set — and it is the reader who said so, having asked for the
+labels in the first place.
+
+So the bar is wordless again and the name is spoken on the press. What is
+left past that is structural, fewer rooms or shorter words, and neither is
+worth what the labels buy over the spoken name. **Do not reach for painted
+labels a third time without changing one of those two numbers.**
+
+**One thing was kept: which room you are in is a weight.** The active glyph
+is `strokeWidth` 2.5 in full `--foreground` against 1.75 in muted, on both
+bars. Filled against outline is the reference's own read and it does not
+survive this icon set — half of it is open paths that fill into a blot.
 
 **Which room you are in is a weight.** The reference draws the active glyph
 filled and the rest as outlines; that read does not survive this icon set,
