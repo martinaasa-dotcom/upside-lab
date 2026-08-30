@@ -308,6 +308,23 @@ try {
   console.log("ok privacy");
   await scanA11y(page, "privacy");
   await scanFixedBlur(page, "privacy");
+
+  /*
+    The other legal page a stranger can reach. /login and /communities are
+    deliberately not visited: their page components render null and the
+    signed-out gate paints the same surface the landing checks already
+    cover, so scanning them re-scans the hero.
+  */
+  await page.goto(`${BASE}/terms`, {
+    waitUntil: "domcontentloaded",
+    timeout: 45_000,
+  });
+  await page.getByRole("heading", { name: "Terms of Service" }).waitFor({
+    timeout: 20_000,
+  });
+  console.log("ok terms");
+  await scanA11y(page, "terms");
+  await scanFixedBlur(page, "terms");
 } catch (err) {
   failed = err;
 } finally {

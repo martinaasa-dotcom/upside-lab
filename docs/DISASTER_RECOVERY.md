@@ -196,6 +196,14 @@ other crons):
    gain. `src/lib/dr/config.test.ts` pins the default so it can't drift
    away from the number published in `src/app/privacy/page.tsx` §7.
 
+Where trouble lands: a failed run answers 503 (which pings the heartbeat's
+`/fail`, see `docs/CRON_MONITORING.md`), and a run that succeeded *with
+warnings* -- the quiet case, since "cold copy skipped, key not configured"
+still counts as ok -- writes a `portfell_error_log` row, so it shows in
+/admin and the daily error digest mails the day the state starts. A green
+heartbeat therefore means "the run completed", never "a backup exists";
+the error log is where that second question is answered.
+
 ## Retention backstop (do this once, in Cloudflare)
 
 The purge above runs *inside the cron*. If the cron stops running —
