@@ -4,6 +4,7 @@ import { AppHeader } from "@/components/AppHeader";
 import type { SilentScreenshotImport } from "@/components/CcAdvisorChat";
 import { type CommandItem } from "@/components/CommandPalette";
 import { type CostBasisRow } from "@/components/CostBasisModal";
+import { BelowFold } from "@/components/BelowFold";
 import { ForecastOffStub } from "@/components/ForecastPanel";
 import { useFeedback } from "@/components/FeedbackHost";
 import { HeaderOverflowMenu, type HeaderMenuItem } from "@/components/HeaderOverflowMenu";
@@ -2548,7 +2549,14 @@ export function Dashboard() {
             />
             </WidgetErrorBoundary>
 
+            {/*
+              Both of these are entirely below the fold on a phone --
+              measured, covered calls starts at 2,277px and the forecast at
+              4,081px of an 8.1-screen page -- and together they are 532 of
+              the room's 957 elements. See `BelowFold`.
+            */}
             {ccVisible && (
+              <BelowFold reserve={420}>
               <WidgetErrorBoundary name="Covered calls">
               <CoveredCallPanel
                 rows={snapshot!.coveredCallRows}
@@ -2560,11 +2568,13 @@ export function Dashboard() {
                 onAddHolding={canClassBuy ? onAddHolding : undefined}
               />
               </WidgetErrorBoundary>
+              </BelowFold>
             )}
 
             {forecastVisible ? (
               forecast &&
               activePortfolio && (
+                <BelowFold reserve={420}>
                 <WidgetErrorBoundary name="Forecast">
                 <ForecastPanel
                   model={forecast}
@@ -2578,6 +2588,7 @@ export function Dashboard() {
                   labReady={labReady}
                 />
                 </WidgetErrorBoundary>
+                </BelowFold>
               )
             ) : (
               <ForecastOffStub onShow={onShowForecast} />

@@ -986,7 +986,20 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         </Panel>
       </div>
 
-      {/* Results & Projections Section */}
+      {/*
+        Results & Projections, and it is `defer-paint` rather than
+        `BelowFold` for a reason worth writing down. Measured on a 390x800
+        phone this section starts at 1,218px with the fold at about 917:
+        it is below the fold but **less than one screen below it**, and
+        `BelowFold` fires a whole screen early, so wrapping it mounted the
+        section immediately and saved exactly nothing. Verified -- 619
+        elements still rendered.
+
+        What it is is 3,687px tall, so most of it is off screen even once
+        mounted, which is the case `content-visibility` is for. The rule
+        goes on the panels inside rather than the section, since a
+        contained ancestor would trap anything sticky within it.
+      */}
       <section className="flex flex-col min-w-0 w-full max-w-full gap-4">
         {/* Hero KPI Summary */}
         <Panel className={SHEET_PANEL}>
@@ -1081,7 +1094,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         </Panel>
 
         {/* Dual Path Chart */}
-        <Panel className={SHEET_PANEL}>
+        <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
             title="Same money, four paths"
             actions={
@@ -1103,7 +1116,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         </Panel>
 
         {/* Milestone Tracker */}
-        <Panel className={SHEET_PANEL}>
+        <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
             icon={<Target className="h-4 w-4" />}
             title="When you cross each round number"
@@ -1161,7 +1174,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           </div>
         </Panel>
 
-        <Panel className={SHEET_PANEL}>
+        <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
             title="Any single year, in words"
           />
@@ -1297,7 +1310,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           </details>
         </Panel>
 
-        <Panel className={SHEET_PANEL}>
+        <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
             icon={<Zap className="h-4 w-4" />}
             title="The same money, invested differently"
@@ -1347,7 +1360,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           </Scoreboard>
         </Panel>
 
-        <Panel className={SHEET_PANEL}>
+        <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader title="What this actually tells you" />
           <ItemGroup>
             {narrative.map((beat, i) => (

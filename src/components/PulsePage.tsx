@@ -284,7 +284,18 @@ function PulseCard({
   );
 
   return (
-    <li id={`pulse-card-${c.ticker}`} className="scroll-mt-28">
+    /*
+      `defer-paint`: Pulse is a single block of 498 elements 5,812px tall,
+      which is seven screens of cards a reader sees one of. The browser
+      skips style, layout and paint for the ones off screen and picks each
+      up as it comes near, remembering its real height once measured. The
+      card carries no sticky child, which is the one thing that rule
+      forbids -- see the note in globals.css.
+    */
+    <li
+      id={`pulse-card-${c.ticker}`}
+      className="defer-paint scroll-mt-28"
+    >
       <Card
         className={pulseCardChrome({
           pinned,

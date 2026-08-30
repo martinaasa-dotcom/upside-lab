@@ -1788,6 +1788,68 @@ Reproduced against the same numbers: peak **+4.51%** at 33ms, +3.46% at
 133ms, +1.31% at 233ms, home at 300ms, with the left end out 11.1px against
 the right end's 22.6px — 1:2, and the height unchanged at 52px.
 
+### Most of a room is below the fold, so most of it waits (2026-08-30)
+
+Measured on the real app at 390x800, counting elements whose box begins
+below the viewport:
+
+| room | elements | entirely below the fold | page height |
+| --- | --- | --- | --- |
+| Home | 485 | 326 (67%) | 5.7 screens |
+| Pulse | 548 | 396 (72%) | 7.9 screens |
+| Lab | 250 | 202 (81%) | 2.9 screens |
+| Growth | 713 | 565 (79%) | 6.1 screens |
+| Holdings | 957 | 563 (59%) | 8.1 screens |
+
+**Every tap laid out and painted three quarters of a page nobody could
+see.** Two tools, and which one applies is decided by *how far down* the
+content is, not by how big it is.
+
+**`BelowFold` withholds the mount**, so the children do not exist until the
+reader comes near: their effects, their fetches and their render cost all
+wait with them. It fires **one whole screen early**, and `rootMargin` in
+percent is a percentage of the root, so that is one screen of *whatever
+device is reading* — a taller phone gets a bigger margin with nothing to
+configure. Holdings is the case for it: covered calls start at 2,277px and
+the forecast at 4,081px of an 8.1-screen page, well past the lead time, and
+together they are **532 of the room's 957 elements**. Verified after: both
+report zero rendered elements until reached.
+
+**Growth was tried with it and taken back out, and that is the instructive
+half.** Its projection section starts at 1,218px with the fold at about
+917: below the fold, but **less than one screen below it**, so the observer
+fired immediately and all 619 elements still rendered. `BelowFold` saves
+nothing for anything within a screen of the fold. Growth takes
+`defer-paint` instead.
+
+**`defer-paint` (`content-visibility: auto`) withholds the work, not the
+mount**, which is the case that cannot be sectioned: a long list of cards,
+all the same kind, most off screen. Pulse is 498 elements in one block
+5,812px tall. `contain-intrinsic-size: auto <h>` is the half that makes it
+usable — `auto` tells the browser to remember each card's real height once
+measured, so the guess is only ever wrong the first time a card is reached
+and the scrollbar settles instead of lurching. **Never on anything with a
+`sticky` child**: containment makes the element its own containing block,
+so a sticky header would stick to the card rather than the page.
+
+**Measured, both applied, six hops at 4x CPU, two runs of each:**
+
+| | elements | style | layout | JS | paint |
+| --- | --- | --- | --- | --- | --- |
+| before | 661 | 229, 234ms | 55, 56ms | 495, 469ms | 33, 33ms |
+| after | **572** | **199, 204ms** | **37, 37ms** | **384, 395ms** | **25, 28ms** |
+
+And what the reader actually feels — press to the page visibly changing,
+Holdings at 4x, three runs each:
+
+| | runs | median |
+| --- | --- | --- |
+| before | 651, 685, 673ms | 673ms |
+| after | **301, 345, 351ms** | **345ms** |
+
+**About half.** The tight spread on both sides is what makes it
+believable, against the ±150ms this session has seen elsewhere.
+
 ### Why a page select felt slow, seen in painted frames (2026-08-30)
 
 > *"Why do the page selects still feel slow? Find the root cause."*

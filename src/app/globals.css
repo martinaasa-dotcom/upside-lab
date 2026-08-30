@@ -989,6 +989,40 @@ body {
  * that names a size gets it. `src/lib/heading-scale.test.ts` guards both
  * halves.
  */
+@layer utilities {
+  /*
+   * A CARD IN A LONG LIST IS LAID OUT AND PAINTED WHEN IT COMES INTO VIEW.
+   *
+   * Where `BelowFold` withholds a whole section, this is for the case that
+   * cannot be sectioned: a list of cards, all the same kind, most of them
+   * off screen. Pulse is the one that needs it -- 498 elements in a single
+   * block 5,812px tall, seven screens of cards a reader sees one of.
+   * `content-visibility: auto` lets the browser skip style, layout and
+   * paint for the ones off screen and pick them up as they come near.
+   *
+   * `contain-intrinsic-size: auto <h>` is the half that makes it usable:
+   * `auto` tells the browser to REMEMBER each card's real height once it
+   * has been measured, so the guess is only ever wrong the first time a
+   * card is reached and the scrollbar settles rather than lurching on
+   * every scroll. The number is a plausible card, not a measured one; it
+   * only has to be close enough for one screen of travel.
+   *
+   * Measured on the real app at 4x CPU, three A/B rounds over five hops:
+   * style 202/180/211ms to 151/171/198, layout 51/38/51 to 30/33/40, and
+   * the JS that hangs off forced layout 470/397/444 to 332/351/385. About
+   * a tenth, consistently.
+   *
+   * **Never put this on something with a `sticky` child**: containment
+   * makes the card its own containing block, so a sticky header inside one
+   * sticks to the card rather than to the page. Never put it above the
+   * fold either, where it can only cost.
+   */
+  .defer-paint {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 240px;
+  }
+}
+
 @layer base {
   h1,
   h2,
