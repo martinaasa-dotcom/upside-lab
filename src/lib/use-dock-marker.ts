@@ -81,6 +81,35 @@ function markOf(cell: HTMLElement): DockMark {
 }
 
 /**
+ * THE PRESSED CELL IS AN ADDRESS, NEVER A NODE.
+ *
+ * A press is answered by events that arrive later, and between them the
+ * bar re-renders -- the aim itself is what makes it re-render. React is
+ * free to hand back a different element for the same cell whenever the
+ * shape of the tree around it changes, and it does: `Dashboard` renders
+ * its dock from three different returns, so pressing Holdings while the
+ * portfolio is still loading swaps the whole subtree, and a panel whose
+ * chunk has not warmed yet suspends and does the same. Measured on the
+ * real build at 390x844, the anchor under the finger was gone from the
+ * document two frames after `pointerdown` on Holdings, every time.
+ *
+ * Comparing nodes there judges the reader's finger by React's
+ * reconciliation, which is nothing to do with each other: the release
+ * lands on the cell, the cell is a different object, and the press is
+ * thrown away. The href is the same before and after, so that is what
+ * identifies it.
+ */
+function cellByHref(host: HTMLElement, href: string | null): HTMLElement | null {
+  if (!href) return null;
+  for (const cell of Array.from(
+    host.querySelectorAll<HTMLElement>("[data-dock-goes]")
+  )) {
+    if (cell.getAttribute("href") === href) return cell;
+  }
+  return null;
+}
+
+/**
  * Move a pane to a cell on the compositor.
  *
  * The resting width and transform go on the element first, so it is
@@ -416,7 +445,8 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
     if (aimed.current && pathRef.current !== aimedFrom.current) {
       forgetAim();
     } else if (aimed.current && !host.contains(aimed.current)) {
-      aimed.current = null;
+      /* Re-rendered out from under the press. Same cell, new element. */
+      aimed.current = cellByHref(host, aimedHref.current);
     }
     const target = aimed.current ?? on;
 
@@ -852,12 +882,17 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
      * the finger that wandered off has usually left the bar entirely.
      */
     const release = (e: PointerEvent) => {
-      if (!aimed.current || going.current) return;
+      /*
+       * The address, not the element. This bar's own cell can be gone by
+       * now -- pressing Circle hides the book and the bar the finger is on
+       * -- and the press is still this bar's to settle.
+       */
+      if (!aimedHref.current || going.current) return;
       const over =
         e.target instanceof Element
           ? e.target.closest<HTMLElement>("[data-dock-goes]")
           : null;
-      if (over !== aimed.current) {
+      if (!over || over.getAttribute("href") !== aimedHref.current) {
         callOff();
         return;
       }
@@ -903,12 +938,12 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
      * apart -- `312 -> 4` then `4 -> 312`.
      */
     const went = (e: MouseEvent) => {
-      if (!aimed.current) return;
+      if (!aimedHref.current) return;
       const cell =
         e.target instanceof Element
           ? e.target.closest<HTMLElement>("[data-dock-goes]")
           : null;
-      if (cell !== aimed.current) return;
+      if (!cell || cell.getAttribute("href") !== aimedHref.current) return;
       /*
        * The bar already took this press. Next's `<Link>` stands down on a
        * click whose default is prevented, and this listener is on the well

@@ -301,8 +301,11 @@ describe("the marker leaves on the press, not on the route", () => {
   });
 
   it("calls the bet off when the press was not a tap, and only then", () => {
-    // Released somewhere other than the cell it started on.
-    expect(HOOK).toMatch(/if \(over !== aimed\.current\) \{\s*callOff\(\);/);
+    // Released somewhere other than the cell it started on. Read by
+    // address, never by element -- see the test below on why.
+    expect(HOOK).toMatch(
+      /if \(!over \|\| over\.getAttribute\("href"\) !== aimedHref\.current\) \{\s*callOff\(\);/
+    );
     // Nothing answered at all.
     expect(HOOK).toMatch(/setTimeout\(callOff, AIM_GIVES_UP_MS\)/);
     // The bet is over when the address moves, which is the room answering
@@ -522,8 +525,10 @@ describe("a bet the router is about to confirm is not called off", () => {
      * travels 7ms apart, `312 -> 4` then `4 -> 312`.
      */
     expect(HOOK).toContain("going.current = true");
-    // The release guard stands down once the click has landed.
-    expect(HOOK).toMatch(/if \(!aimed\.current \|\| going\.current\) return;/);
+    // The release guard stands down once the click has landed. Gated on
+    // the address rather than the element, because a cross-room press
+    // hides the bar the finger is on before the press has finished.
+    expect(HOOK).toMatch(/if \(!aimedHref\.current \|\| going\.current\) return;/);
     // A cancel BEFORE the click is still a genuinely abandoned press.
     expect(HOOK).toMatch(/const abandon[\s\S]{0,120}going\.current/);
     expect(HOOK).toContain('addEventListener("pointercancel", abandon)');
@@ -732,6 +737,44 @@ describe("a press says where it is going, so the page can answer it", () => {
     expect(HOOK).not.toContain("Date.now() - pressedAt.current");
     expect(HOOK).toContain("pressedAt.current = e.timeStamp");
     expect(HOOK).toMatch(/heldMs\.current = e\.timeStamp - pressedAt\.current/);
+  });
+
+  it("knows the pressed cell by its address, not by the element", () => {
+    /*
+     * A press is answered by events that arrive later, and between them
+     * the bar re-renders -- the aim is what makes it re-render. React is
+     * free to hand back a different element for the same cell, and it
+     * does: `Dashboard` draws its dock from more than one return, and a
+     * panel whose chunk has not warmed suspends and rebuilds the tree.
+     * Measured on the real build at 390x844, the anchor under the finger
+     * was gone two frames after `pointerdown` on Holdings, every time.
+     * Comparing elements there judges the reader's finger by React's
+     * reconciliation, which has nothing to do with it.
+     */
+    expect(HOOK).toContain("function cellByHref");
+    const release = HOOK.slice(HOOK.indexOf("const release ="), HOOK.indexOf("const went ="));
+    expect(release).toContain('over.getAttribute("href") !== aimedHref.current');
+    expect(release).not.toMatch(/over !== aimed\.current/);
+    const went = HOOK.slice(HOOK.indexOf("const went ="), HOOK.indexOf("/* A keyboard never presses"));
+    expect(went).toContain('cell.getAttribute("href") !== aimedHref.current');
+    // and a cell rebuilt under the press is found again rather than dropped
+    expect(HOOK).toContain("aimed.current = cellByHref(host, aimedHref.current)");
+  });
+
+  it("keeps the phone dock one element across every return Dashboard has", () => {
+    /*
+     * The other half of the same failure, and the half no amount of care
+     * in the hook can cover: when the bar is REBUILT the hook instance
+     * goes with it, and every ref recording the press the finger is in the
+     * middle of goes too. React matches children by position unless they
+     * carry a key, and the loading-portfolio return puts the bar at a
+     * different position inside the frame from the full one. Pressing
+     * Holdings is exactly the press that lands there.
+     */
+    const bars = BOOK.match(/<MobileTabBar\b/g) ?? [];
+    expect(bars.length).toBeGreaterThan(1);
+    expect(BOOK.match(/key="phone-dock"/g)?.length).toBe(bars.length);
+    expect(BOOK).toContain('key="wide-dock"');
   });
 
   it("still refuses a press that panned or was held", () => {
