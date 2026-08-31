@@ -4,8 +4,7 @@ import { SignInGate } from "@/components/SignInGate";
 import { AppHeader } from "@/components/AppHeader";
 import { MobileDock } from "@/components/mobile/MobileDock";
 import { cn } from "@/lib/format";
-import { PageMain } from "@/components/PageMain";
-import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
+import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import { plainError } from "@/lib/plain-error";
 import {
   loadCommunityDiscoverCache,
@@ -258,7 +257,7 @@ export function CommunitiesList() {
       <div className={PAGE_FRAME_CLASS}>
         <MobileDock active="circle" />
         <AppHeader title="Circle" mobileTitle="" />
-        <PageMain>
+        <main id="main" className={PAGE_MAIN_CLASS}>
           <div>
             <h1 className="text-2xl font-semibold text-foreground">
               Circle
@@ -550,7 +549,7 @@ export function CommunitiesList() {
               </div>
             </Panel>
           </form>
-        </PageMain>
+        </main>
       </div>
 
       {joinPick && (

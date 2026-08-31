@@ -1,6 +1,6 @@
 "use client";
 
-import { AutoFold } from "@/components/AutoFold";
+import { BelowFold } from "@/components/BelowFold";
 import { HomeWorld } from "@/components/HomeWorld";
 import { CashAlertCard } from "@/components/mobile/CashAlertCard";
 import { WatchlistStrip } from "@/components/WatchlistStrip";
@@ -961,22 +961,6 @@ export const OverviewDashboard = memo(function OverviewDashboard({
 
   return (
     <div className="flex flex-col gap-6">
-      {/*
-        HOME'S SECTIONS, HANDED TO THE SHELL'S FOLD RATHER THAN PICKED BY
-        HAND.
-
-        Two of these used to be wrapped in `BelowFold` individually, with
-        a reserve height typed in from a measurement -- "Your portfolios"
-        at 380px and the watchlist at 280. That works and does not keep
-        working: the offsets were read on one device, the reserves were a
-        guess for every other one, and a section added here later gets
-        nothing until somebody remembers to measure again.
-
-        `AutoFold` asks the same question from the memory of where these
-        actually landed on this reader's screen, so the answer follows the
-        room as it changes. See `auto-fold.ts`.
-      */}
-      <AutoFold>
       {inviteNudge && onInvitePartner && (
         <Panel className="overview-fade">
           <PanelHeader
@@ -1190,7 +1174,17 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         )}
       </Panel>
 
+      {/*
+        The last two panels on Home. Measured at 390x800 with everything
+        above them already in place, "Your portfolios" starts at 2,141px
+        and the watchlist at 2,949px, against a fold at about 917 -- both
+        well past the one screen of lead time `BelowFold` gives, which is
+        the test for whether it can help at all (see the note in that
+        file, and Growth, where it could not). Together they are about 75
+        of Home's 485 elements, and Home is the room a reader lands in.
+      */}
       {multiSheet && (
+        <BelowFold reserve={380}>
         <Panel className="overview-fade">
           <PanelHeader title="Your portfolios" />
           <div className="flex flex-col gap-6">
@@ -1204,8 +1198,10 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             ))}
           </div>
         </Panel>
+        </BelowFold>
       )}
 
+      <BelowFold reserve={280}>
       <WidgetErrorBoundary name="Watchlist">
       <Panel className="overview-fade">
         <WatchlistStrip
@@ -1214,13 +1210,13 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         />
       </Panel>
       </WidgetErrorBoundary>
+      </BelowFold>
 
       {showCommunities ? (
         <WidgetErrorBoundary name="Around Upside Lab">
           <HomeWorld />
         </WidgetErrorBoundary>
       ) : null}
-      </AutoFold>
     </div>
   );
 });
