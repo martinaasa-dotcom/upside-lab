@@ -1,7 +1,7 @@
 "use client";
 
 import { aimRoute } from "@/lib/route-aim";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   type DockDir,
@@ -40,6 +40,21 @@ export type DockMarkerState = {
  * the room. Long on purpose: see the press effect below.
  */
 const AIM_GIVES_UP_MS = 4000;
+
+/**
+ * How long after the finger comes up a click has to arrive before the
+ * press is judged not to have been a tap at all.
+ *
+ * A tap dispatches its click about 2ms after `pointerdown` (measured on
+ * the real bar), so any number here is generous; what it must not be is
+ * the four seconds above. On a phone a press on the dock very often does
+ * not become a click: a touch that lands while the page is still flinging
+ * is spent stopping the fling, and a thumb that drifts a couple of pixels
+ * starts a pan. Both leave `pointerup` on the cell and no navigation
+ * behind it, which is the one way out of the three that neither the
+ * release rule nor `pointercancel` can see.
+ */
+const CLICK_FOLLOWS_MS = 300;
 
 function markOf(cell: HTMLElement): DockMark {
   return markGeometry(cell.offsetLeft, cell.offsetWidth);
@@ -182,6 +197,7 @@ function swell(
 export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
   const tune = DOCK_MOTION[variant];
   const router = useRouter();
+  const pathname = usePathname();
   const ref = useRef<HTMLDivElement>(null);
   const [mark, setMark] = useState<DockMark | null>(null);
   const [dir, setDir] = useState<DockDir>(null);
@@ -208,7 +224,27 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
   const ghosting = useRef<Animation | null>(null);
   /** The cell a press is betting on, until the router agrees or the bet is off. */
   const aimed = useRef<HTMLElement | null>(null);
+  /*
+   * The address the bar was showing when the bet was placed, which is what
+   * "the router answered" is read against. See the settle rule in
+   * `measure`: it cannot be read off `[data-on]`, because the bet moves
+   * `[data-on]` itself.
+   */
+  const aimedFrom = useRef<string | null>(null);
+  /*
+   * Whether the rest of the app has been told where this press is going.
+   * Kept apart from `aimed`, which is only the marker's own geometry: the
+   * bar can stop betting for reasons of its own (its room was hidden, the
+   * cell went) while the page is still drawing the room that was aimed
+   * for, and the page has to be told either way.
+   */
+  const published = useRef(false);
   const aimTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Waiting to see whether the release becomes a click. */
+  const clickWatch = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The address on screen, readable from a layout effect with no deps. */
+  const pathRef = useRef(pathname);
+  pathRef.current = pathname;
   /*
    * Whether the press has already become a click, which is to say a
    * navigation is under way. See the press effect: a bet the router is
@@ -235,6 +271,27 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
   const lastTarget = useRef<HTMLElement | null>(null);
   const lastHoverEl = useRef<HTMLElement | null>(null);
 
+  /*
+   * Everything a bet leaves behind, dropped in one place. Deliberately
+   * silent: it is called both when the router has answered (the page has
+   * already settled on the new address by itself) and from `callOff`,
+   * which is the one that speaks.
+   */
+  const forgetAim = useCallback(() => {
+    aimed.current = null;
+    aimedFrom.current = null;
+    published.current = false;
+    going.current = false;
+    if (aimTimer.current) {
+      clearTimeout(aimTimer.current);
+      aimTimer.current = null;
+    }
+    if (clickWatch.current) {
+      clearTimeout(clickWatch.current);
+      clickWatch.current = null;
+    }
+  }, []);
+
   const measure = useCallback(() => {
     const host = ref.current;
     if (!host) return;
@@ -242,11 +299,21 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
     if (!visible.current) {
       /*
        * A hidden room's bar. Measuring here writes zeroes; see `onScreen`.
-       * The outstanding bet goes with it, because the press that placed it
-       * was on a bar the reader is no longer looking at.
+       * The marker's own bet goes with it, because the press that placed
+       * it was on a bar the reader is no longer looking at.
+       *
+       * What the bet said to the PAGE outlives that, and has to, since
+       * hiding this bar is usually the aim itself working: a press on
+       * Circle mounts Circle's room on the press, which hides the book and
+       * this bar with it, and a cancelled press still has to put the
+       * reader back. So the backstop stays armed unless the address has
+       * moved on -- and once it has, the bet is finished and the timer
+       * must go, or it fires four seconds later and withdraws somebody
+       * else's aim.
        */
       wasHidden.current = true;
-      aimed.current = null;
+      if (aimed.current && pathRef.current !== aimedFrom.current) forgetAim();
+      else aimed.current = null;
       return;
     }
     /* Shown again: arrive on the cell, never travel across the bar to it. */
@@ -261,14 +328,38 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
     const pane = host.querySelector<HTMLElement>(".dock-marker");
     /*
      * A press outstanding, so the marker is already where the reader aimed
-     * it and the router has not caught up yet. The bet is settled when the
-     * room answers with that same cell, when it answers with a different
-     * one (a redirect), or when the cell stops existing.
+     * it and the router has not caught up yet.
+     *
+     * THE ROUTER SETTLES THE BET, AND `[data-on]` CANNOT, BECAUSE THE BET
+     * IS WHAT MOVES `[data-on]`. This used to read `on === aimed.current`,
+     * which was true while the lit cell came from `pathname` alone. It
+     * stopped being true the moment the page started answering the press
+     * too (`route-aim.ts`): the aim reaches `Dashboard` in the same event,
+     * the room it names renders, and that render lights the pressed cell
+     * -- so the very next `measure` declared the bet won, about two frames
+     * after it was placed and long before the finger came up.
+     *
+     * That is not a cosmetic mistake, because every way this bar has of
+     * standing down begins `if (!aimed.current) return`. With the bet
+     * already cleared, a release that landed off the cell, a
+     * `pointercancel`, and the four-second backstop all became no-ops, so
+     * `aimRoute(null)` was never published and nothing told the page its
+     * bet had lost. A press that never became a navigation left the whole
+     * app showing a room it had not gone to for the full
+     * `AIM_GIVES_UP_MS`, and then dropped the reader back where they
+     * started with no explanation. Measured against the real app at
+     * 390x844: press Home on `/lab`, cancel the press as a scroll does,
+     * and Home is on screen for 4000ms before Lab returns.
+     *
+     * So the bet is over when the address changes -- to this cell's room
+     * or, on a redirect, to another one, which is the same "the room
+     * answered" either way -- and the marker stops betting on a cell that
+     * has stopped existing. The timer stays armed in that second case,
+     * since the page still has to be told.
      */
-    if (
-      aimed.current &&
-      (on === aimed.current || !host.contains(aimed.current))
-    ) {
+    if (aimed.current && pathRef.current !== aimedFrom.current) {
+      forgetAim();
+    } else if (aimed.current && !host.contains(aimed.current)) {
       aimed.current = null;
     }
     const target = aimed.current ?? on;
@@ -344,7 +435,7 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
       lastHover.current = overIt;
       setHover(overIt);
     }
-  }, [tune]);
+  }, [tune, forgetAim]);
 
   /*
    * No dependency list on purpose. What moves the marker is not one value
@@ -520,15 +611,32 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
     const host = ref.current;
     if (!host) return;
 
+    /*
+     * The bet lost. Withdraw it from the page as well as from the bar.
+     *
+     * `published` rather than `aimed` decides whether there is anything to
+     * say, because the two come apart: this bar stops betting the moment
+     * its room is hidden or its cell goes, and the page is still drawing
+     * the room the press asked for until somebody tells it otherwise.
+     */
     const callOff = () => {
+      const cell = aimed.current;
+      const told = published.current;
+      if (!cell && !told) return;
+      aimed.current = null;
+      if (told) aimRoute(null);
+      aimedFrom.current = null;
+      published.current = false;
+      going.current = false;
       if (aimTimer.current) {
         clearTimeout(aimTimer.current);
         aimTimer.current = null;
       }
-      if (!aimed.current) return;
-      aimed.current = null;
-      going.current = false;
-      aimRoute(null);
+      if (clickWatch.current) {
+        clearTimeout(clickWatch.current);
+        clickWatch.current = null;
+      }
+      if (!cell) return;
       reverting.current = true;
       try {
         measure();
@@ -570,10 +678,16 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
          * finishes. See `route-aim.ts` for the measurement behind it.
          */
         aimRoute(href);
+        published.current = true;
       }
       aimed.current = cell;
+      aimedFrom.current = pathRef.current;
       going.current = false;
       if (aimTimer.current) clearTimeout(aimTimer.current);
+      if (clickWatch.current) {
+        clearTimeout(clickWatch.current);
+        clickWatch.current = null;
+      }
       aimTimer.current = setTimeout(callOff, AIM_GIVES_UP_MS);
       measure();
     };
@@ -606,7 +720,30 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
         e.target instanceof Element
           ? e.target.closest<HTMLElement>("[data-dock-goes]")
           : null;
-      if (over !== aimed.current) callOff();
+      if (over !== aimed.current) {
+        callOff();
+        return;
+      }
+      /*
+       * A RELEASE ON THE CELL IS NOT YET A NAVIGATION, AND ON A PHONE IT
+       * OFTEN IS NOT ONE AT ALL.
+       *
+       * A press becomes a navigation by becoming a click, and a browser
+       * has several reasons to withhold one from a press that looked like
+       * a tap: a touch that lands while the page is still flinging is
+       * spent stopping the fling, and a thumb that drifts a couple of
+       * pixels has started a pan. Some of those arrive as
+       * `pointercancel`, which `abandon` already hears; the rest leave an
+       * ordinary `pointerup` on the cell and simply never fire a click,
+       * and that one is invisible to both of the rules above.
+       *
+       * So the click gets a deadline. Missing it means the press was not
+       * a tap, and the room the reader was shown has to be taken back
+       * now rather than left standing for the four seconds the backstop
+       * allows a navigation that is merely slow.
+       */
+      if (clickWatch.current) clearTimeout(clickWatch.current);
+      clickWatch.current = setTimeout(callOff, CLICK_FOLLOWS_MS);
     };
 
     /*
@@ -633,7 +770,12 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
         e.target instanceof Element
           ? e.target.closest<HTMLElement>("[data-dock-goes]")
           : null;
-      if (cell === aimed.current) going.current = true;
+      if (cell !== aimed.current) return;
+      going.current = true;
+      if (clickWatch.current) {
+        clearTimeout(clickWatch.current);
+        clickWatch.current = null;
+      }
     };
 
     /* A keyboard never presses, and Enter is how it opens a link. */
@@ -664,6 +806,7 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
       document.removeEventListener("pointerup", release);
       document.removeEventListener("pointercancel", abandon);
       if (aimTimer.current) clearTimeout(aimTimer.current);
+      if (clickWatch.current) clearTimeout(clickWatch.current);
     };
   }, [measure, router]);
 
