@@ -300,13 +300,18 @@ describe("the marker leaves on the press, not on the route", () => {
     expect(press).toMatch(/e\.ctrlKey/);
   });
 
-  it("calls the bet off three ways, so the marker cannot lie", () => {
+  it("calls the bet off four ways, so the marker cannot lie", () => {
     // Released somewhere other than the cell it started on.
-    expect(HOOK).toMatch(/if \(over !== aimed\.current\) callOff\(\)/);
-    // The room answered with a different cell, or the cell is gone.
-    expect(HOOK).toMatch(/on === aimed\.current \|\| !host\.contains\(aimed\.current\)/);
+    expect(HOOK).toMatch(/if \(over !== aimed\.current\) \{\s*callOff\(\);/);
+    // Released on the cell and no click followed, so it was never a tap.
+    expect(HOOK).toMatch(/setTimeout\(callOff, CLICK_FOLLOWS_MS\)/);
+    // The browser took the gesture for itself.
+    expect(HOOK).toMatch(/pointercancel", abandon/);
     // Nothing answered at all.
     expect(HOOK).toMatch(/setTimeout\(callOff, AIM_GIVES_UP_MS\)/);
+    // And the bet is over when the address moves, which is the room
+    // answering -- with this cell or, on a redirect, another one.
+    expect(HOOK).toMatch(/pathRef\.current !== aimedFrom\.current/);
   });
 
   it("gives up late rather than early", () => {
@@ -609,6 +614,13 @@ describe("a bar in a hidden room does not measure itself", () => {
 describe("a press says where it is going, so the page can answer it", () => {
   const HOOK = readFileSync("src/lib/use-dock-marker.ts", "utf8");
   const BOOK = readFileSync("src/components/Dashboard.tsx", "utf8");
+  /*
+   * Prose names the code it replaced, which is most of the value of the
+   * note above `measure`. An assertion that a line is GONE has to read the
+   * code alone, or the explanation of why it went puts it back.
+   */
+  const codeOf = (src: string) =>
+    src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
   it("publishes the aimed cell's address on the press", () => {
     /*
@@ -624,6 +636,60 @@ describe("a press says where it is going, so the page can answer it", () => {
     expect(aim).toContain("aimRoute(href)");
     // a bet that loses withdraws the page's aim with the marker's
     expect(HOOK).toMatch(/aimed\.current = null;[\s\S]{0,80}aimRoute\(null\)/);
+  });
+
+  it("lets the router settle the bet, never the cell the bet itself lights", () => {
+    /*
+     * THE REGRESSION THIS EXISTS FOR, AND IT COST A READER FOUR SECONDS OF
+     * THE WRONG ROOM EVERY TIME.
+     *
+     * The settle test used to be `on === aimed.current`, which was sound
+     * while the lit cell came from `pathname` alone. It stopped being
+     * sound the moment the page began answering the press as well: the aim
+     * reaches `Dashboard` in the same event, the room it names renders,
+     * and that render lights the pressed cell -- so the bet was declared
+     * won about two frames after it was placed, before the finger had even
+     * come up.
+     *
+     * Everything this bar does to stand down begins `if (!aimed.current)`,
+     * so all three routes went with it: a release off the cell, a
+     * `pointercancel`, and the four-second backstop all became no-ops, and
+     * `aimRoute(null)` was never published. Measured on the real app at
+     * 390x844: press Home on `/lab`, cancel the press the way a scroll
+     * does, and Home stood on screen for 4000ms before Lab came back with
+     * the address never having changed. With the route settling it, 140ms.
+     */
+    expect(codeOf(HOOK)).not.toMatch(/on === aimed\.current/);
+    expect(HOOK).toContain("pathRef.current !== aimedFrom.current");
+    expect(HOOK).toContain("aimedFrom.current = pathRef.current");
+  });
+
+  it("withdraws the page's aim even once the marker has stopped betting", () => {
+    // The two come apart: a press on Circle mounts Circle's room on the
+    // press, which hides the book and the bar the finger is on, while the
+    // page is still drawing the room that press asked for. `published`
+    // rather than `aimed` is what decides there is something to say.
+    const callOff = HOOK.slice(HOOK.indexOf("const callOff ="), HOOK.indexOf("const aim ="));
+    expect(callOff).toContain("const told = published.current");
+    expect(callOff).toMatch(/if \(!cell && !told\) return;/);
+    expect(callOff).toContain("if (told) aimRoute(null);");
+  });
+
+  it("gives the click a deadline, because a press is not always a tap", () => {
+    /*
+     * A press becomes a navigation by becoming a click, and a phone has
+     * reasons to withhold one from a press that looked like a tap: a touch
+     * that lands while the page is still flinging is spent stopping the
+     * fling. Some of those arrive as `pointercancel`; the rest leave an
+     * ordinary `pointerup` on the cell and simply never fire a click,
+     * which neither the release rule nor `pointercancel` can see.
+     */
+    expect(HOOK).toContain("const CLICK_FOLLOWS_MS");
+    expect(HOOK).toMatch(/clickWatch\.current = setTimeout\(callOff, CLICK_FOLLOWS_MS\)/);
+    // and the click that does arrive calls it off
+    const went = HOOK.slice(HOOK.indexOf("const went ="), HOOK.indexOf("/* A keyboard never presses"));
+    expect(went).toContain("going.current = true");
+    expect(went).toContain("clearTimeout(clickWatch.current)");
   });
 
   it("shows the aimed tab now, and lets the path settle it", () => {
