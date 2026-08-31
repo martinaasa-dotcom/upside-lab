@@ -33,8 +33,7 @@ import {
 import { type BookUndoSnapshot } from "@/lib/book-undo";
 import { buildSnapshot } from "@/lib/calculations";
 import type { CsvHoldingRow } from "@/lib/csv-import";
-import { PageMain } from "@/components/PageMain";
-import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
+import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import {
   loadDismissedAlertIds,
   saveDismissedAlertIds,
@@ -2406,7 +2405,7 @@ export function Dashboard() {
             />
       </AppHeader>
 
-      <PageMain>
+      <main id="main" className={PAGE_MAIN_CLASS}>
         {!isMetaTab &&
         classTrade &&
         (classTrade.kind !== "open" || classTrade.until) ? (
@@ -2596,7 +2595,7 @@ export function Dashboard() {
             )}
           </>
         )}
-      </PageMain>
+      </main>
 
       {dock}
       {/*
