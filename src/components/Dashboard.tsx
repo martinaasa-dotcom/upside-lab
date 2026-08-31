@@ -4,6 +4,7 @@ import { AppHeader } from "@/components/AppHeader";
 import type { SilentScreenshotImport } from "@/components/CcAdvisorChat";
 import { type CommandItem } from "@/components/CommandPalette";
 import { type CostBasisRow } from "@/components/CostBasisModal";
+import { BelowFold } from "@/components/BelowFold";
 import { ForecastOffStub } from "@/components/ForecastPanel";
 import { useFeedback } from "@/components/FeedbackHost";
 import { HeaderOverflowMenu, type HeaderMenuItem } from "@/components/HeaderOverflowMenu";
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/Toast";
+import { AIM_GIVES_UP_MS, onRouteAim } from "@/lib/route-aim";
 import { usePathname, useRouter } from "next/navigation";
 import {
   buildDecisionAlerts,
@@ -31,7 +33,8 @@ import {
 import { type BookUndoSnapshot } from "@/lib/book-undo";
 import { buildSnapshot } from "@/lib/calculations";
 import type { CsvHoldingRow } from "@/lib/csv-import";
-import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
+import { PageMain } from "@/components/PageMain";
+import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
 import {
   loadDismissedAlertIds,
   saveDismissedAlertIds,
@@ -184,30 +187,37 @@ import { addPulseStamp } from "@/lib/conviction";
  * link or refresh on a non-Overview tab (e.g. "/?tab=pulse") server-
  * rendered instead of flashing a loading state.
  */
-const PulsePage = dynamic(
-  () => import("@/components/PulsePage").then((m) => m.PulsePage),
-  { ssr: true }
-);
-const LabSheet = dynamic(
-  () => import("@/components/LabSheet").then((m) => m.LabSheet),
-  { ssr: true }
-);
-const CompoundInterestSheet = dynamic(
-  () =>
-    import("@/components/CompoundInterestSheet").then(
-      (m) => m.CompoundInterestSheet
-    ),
-  { ssr: true }
-);
-const ForecastPanel = dynamic(
-  () => import("@/components/ForecastPanel").then((m) => m.ForecastPanel),
-  { ssr: true }
-);
-const CoveredCallPanel = dynamic(
-  () =>
-    import("@/components/CoveredCallPanel").then((m) => m.CoveredCallPanel),
-  { ssr: true }
-);
+/*
+ * THE LOADER IS NAMED SO THAT WARMING IT AND RENDERING IT ARE THE SAME
+ * IMPORT SITE, AND THAT IS NOT a tidiness point.
+ *
+ * Warming these on idle only works if the module the warm asks for is the
+ * module `dynamic` will ask for. Written as two separate `import()`
+ * expressions the bundler is free to give them different chunk groups, and
+ * measured on the real build it did exactly that: the idle warm ran (a
+ * marker proved it), 44 chunks came down in the first 400ms, and the first
+ * tap on Pulse STILL fetched a 22KB chunk that mentions `PulsePage`. One
+ * named loader per panel, referenced from both places, removes the
+ * question.
+ */
+const loadPulsePage = () =>
+  import("@/components/PulsePage").then((m) => m.PulsePage);
+const loadLabSheet = () =>
+  import("@/components/LabSheet").then((m) => m.LabSheet);
+const loadCompoundInterestSheet = () =>
+  import("@/components/CompoundInterestSheet").then(
+    (m) => m.CompoundInterestSheet
+  );
+const loadForecastPanel = () =>
+  import("@/components/ForecastPanel").then((m) => m.ForecastPanel);
+const loadCoveredCallPanel = () =>
+  import("@/components/CoveredCallPanel").then((m) => m.CoveredCallPanel);
+
+const PulsePage = dynamic(loadPulsePage, { ssr: true });
+const LabSheet = dynamic(loadLabSheet, { ssr: true });
+const CompoundInterestSheet = dynamic(loadCompoundInterestSheet, { ssr: true });
+const ForecastPanel = dynamic(loadForecastPanel, { ssr: true });
+const CoveredCallPanel = dynamic(loadCoveredCallPanel, { ssr: true });
 
 type DataSource = "demo" | "supabase";
 
@@ -252,12 +262,56 @@ export function Dashboard() {
     the way back.
   */
   const lastBookTabRef = useRef<string>(OVERVIEW_TAB_ID);
-  const routeTab = tabIdFromPath(pathname, portfolios);
-  if (onBook && typeof routeTab === "string") {
+
+  /*
+   * THE TAB CHANGES ON THE PRESS, NOT WHEN THE ROUTER FINISHES.
+   *
+   * `<Link>` navigates inside `startTransition`, and a transition keeps the
+   * old screen up until the new one is completely built. Screencast frame
+   * by frame at 4x CPU, tapping Growth: for 600ms only about 2% of the
+   * pixels moved -- the dock marker alone -- and then 21% of the screen
+   * swapped in one frame. That gap, not the total, is what a slow tap is.
+   *
+   * So a dock press publishes where it is going (`route-aim.ts`), and the
+   * book shows that tab now, with an ordinary state update rather than a
+   * transition, so it renders on the next frame. `pathname` is still the
+   * source of truth and still settles it -- this only fills the gap.
+   *
+   * The bet is refused for anything that is not a book path, because those
+   * are other rooms and this component cannot show them; and it is dropped
+   * the moment the path answers, or after `AIM_GIVES_UP_MS` if nothing
+   * does.
+   */
+  const [aimedPath, setAimedPath] = useState<string | null>(null);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const stop = onRouteAim((path) => {
+      if (timer) clearTimeout(timer);
+      if (path === null) {
+        setAimedPath(null);
+        return;
+      }
+      if (workspaceRoomId(path) !== "book") return;
+      setAimedPath(path);
+      timer = setTimeout(() => setAimedPath(null), AIM_GIVES_UP_MS);
+    });
+    return () => {
+      stop();
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+  /* The room answered. Whatever it answered with is the truth from here. */
+  useEffect(() => {
+    setAimedPath(null);
+  }, [pathname]);
+
+  const shownPath = aimedPath ?? pathname;
+  const routeTab = tabIdFromPath(shownPath, portfolios);
+  if ((onBook || aimedPath !== null) && typeof routeTab === "string") {
     lastBookTabRef.current = routeTab;
   }
   const activeId =
-    onBook && typeof routeTab === "string"
+    (onBook || aimedPath !== null) && typeof routeTab === "string"
       ? routeTab
       : lastBookTabRef.current;
   const activeIdRef = useRef(activeId);
@@ -1471,6 +1525,50 @@ export function Dashboard() {
     looking. The shell fires this on a room change, never on a walk between
     book pages, so a tap on the dock does not cost a fetch.
   */
+  /*
+   * THE PANELS THE DOCK CAN REACH ARE WARMED WHILE NOBODY IS WAITING.
+   *
+   * Every tab above is `next/dynamic`, which is right -- a reader who never
+   * opens Lab should not download Seasonality, Trends and the scenario
+   * simulator. What it also means is that the FIRST tap on a tab pays a
+   * chunk fetch and a parse before anything can render, on the tap, which
+   * is the whole of why a room does not arrive instantly.
+   *
+   * Measured on the real app with the network recorded per hop: the first
+   * Pulse tap fetched one chunk, the first Lab tap two, the first Circle
+   * tap one; the SECOND visit to the same room fetched nothing at all and
+   * arrived immediately. `WorkspaceShell` already warms the rooms this way
+   * and simply never covered the book's own tabs.
+   *
+   * On idle, so it never competes with the first paint, and `void` because
+   * a failed warm is a slower tap and nothing worse. Cheap to repeat: the
+   * module cache makes every call after the first a no-op.
+   */
+  useEffect(() => {
+    const warm = () => {
+      void loadPulsePage();
+      void loadCompoundInterestSheet();
+      void loadForecastPanel();
+      /*
+       * Lab is the heaviest of them and the one a novice cannot reach, so
+       * it waits for a reader who has it. Covered calls go with the same
+       * question, since `hideOptionsUI` is what draws that panel at all.
+       */
+      if (!hiddenMetaTabIds.includes(LAB_TAB_ID)) void loadLabSheet();
+      if (!hideOptionsUI) void loadCoveredCallPanel();
+    };
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(warm, { timeout: 3000 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(warm, 1200);
+    return () => window.clearTimeout(id);
+  }, [hiddenMetaTabIds, hideOptionsUI]);
+
   useEffect(() => {
     const onShow = () => {
       if (!isWorkspaceRoomActive("book")) return;
@@ -2308,7 +2406,7 @@ export function Dashboard() {
             />
       </AppHeader>
 
-      <main id="main" className={PAGE_MAIN_CLASS}>
+      <PageMain>
         {!isMetaTab &&
         classTrade &&
         (classTrade.kind !== "open" || classTrade.until) ? (
@@ -2452,7 +2550,14 @@ export function Dashboard() {
             />
             </WidgetErrorBoundary>
 
+            {/*
+              Both of these are entirely below the fold on a phone --
+              measured, covered calls starts at 2,277px and the forecast at
+              4,081px of an 8.1-screen page -- and together they are 532 of
+              the room's 957 elements. See `BelowFold`.
+            */}
             {ccVisible && (
+              <BelowFold reserve={420}>
               <WidgetErrorBoundary name="Covered calls">
               <CoveredCallPanel
                 rows={snapshot!.coveredCallRows}
@@ -2464,11 +2569,13 @@ export function Dashboard() {
                 onAddHolding={canClassBuy ? onAddHolding : undefined}
               />
               </WidgetErrorBoundary>
+              </BelowFold>
             )}
 
             {forecastVisible ? (
               forecast &&
               activePortfolio && (
+                <BelowFold reserve={420}>
                 <WidgetErrorBoundary name="Forecast">
                 <ForecastPanel
                   model={forecast}
@@ -2482,13 +2589,14 @@ export function Dashboard() {
                   labReady={labReady}
                 />
                 </WidgetErrorBoundary>
+                </BelowFold>
               )
             ) : (
               <ForecastOffStub onShow={onShowForecast} />
             )}
           </>
         )}
-      </main>
+      </PageMain>
 
       {dock}
       {/*

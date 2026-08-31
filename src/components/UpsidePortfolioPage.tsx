@@ -31,7 +31,8 @@ import { isAbortError, isNetworkError } from "@/lib/abort";
 import { useNetworkResume } from "@/lib/use-network-resume";
 import { NO_VALUE, cashtag, cn, currency, percent, signedCurrency, signedTone } from "@/lib/format";
 import { PALETTE } from "@/lib/palette";
-import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
+import { PageMain } from "@/components/PageMain";
+import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
 import { isWorkspaceRoomActive, onWorkspaceRefresh } from "@/lib/workspace-rooms";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { upsideFundProvenance } from "@/lib/provenance";
@@ -1270,7 +1271,7 @@ export function UpsidePortfolioPage() {
         <FundFreshness quotesAt={quotesAt} stalled={error != null} />
       </AppHeader>
 
-      <main id="main" className={PAGE_MAIN_CLASS}>
+      <PageMain>
         <h1 className="sr-only">Upside Fund</h1>
 
         {loading ? (
@@ -1686,7 +1687,7 @@ export function UpsidePortfolioPage() {
             )}
           </>
         )}
-      </main>
+      </PageMain>
     </div>
   );
 }

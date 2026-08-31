@@ -111,7 +111,15 @@ describe("the URL answers for it", () => {
      * the list the moment it lands.
      */
     expect(DASHBOARD).toMatch(/PORTFOLIO_TAB_PENDING/);
-    expect(DASHBOARD).toMatch(/tabIdFromPath\(pathname, portfolios\)/);
+    /*
+     * `shownPath`, not `pathname`: a dock press publishes where it is
+     * going and the book shows that tab before the router commits, because
+     * a transition keeps the old screen up until the new one is finished
+     * (see `route-aim.ts`). `shownPath` is `aimedPath ?? pathname`, so the
+     * path is still what settles it.
+     */
+    expect(DASHBOARD).toMatch(/tabIdFromPath\(shownPath, portfolios\)/);
+    expect(DASHBOARD).toMatch(/const shownPath = aimedPath \?\? pathname/);
     expect(ROUTES).toMatch(
       /resolveLastPortfolioId\(portfolios\) \?\? PORTFOLIO_TAB_PENDING/
     );

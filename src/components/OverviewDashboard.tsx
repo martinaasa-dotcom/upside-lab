@@ -1,5 +1,6 @@
 "use client";
 
+import { AutoFold } from "@/components/AutoFold";
 import { HomeWorld } from "@/components/HomeWorld";
 import { CashAlertCard } from "@/components/mobile/CashAlertCard";
 import { WatchlistStrip } from "@/components/WatchlistStrip";
@@ -960,6 +961,22 @@ export const OverviewDashboard = memo(function OverviewDashboard({
 
   return (
     <div className="flex flex-col gap-6">
+      {/*
+        HOME'S SECTIONS, HANDED TO THE SHELL'S FOLD RATHER THAN PICKED BY
+        HAND.
+
+        Two of these used to be wrapped in `BelowFold` individually, with
+        a reserve height typed in from a measurement -- "Your portfolios"
+        at 380px and the watchlist at 280. That works and does not keep
+        working: the offsets were read on one device, the reserves were a
+        guess for every other one, and a section added here later gets
+        nothing until somebody remembers to measure again.
+
+        `AutoFold` asks the same question from the memory of where these
+        actually landed on this reader's screen, so the answer follows the
+        room as it changes. See `auto-fold.ts`.
+      */}
+      <AutoFold>
       {inviteNudge && onInvitePartner && (
         <Panel className="overview-fade">
           <PanelHeader
@@ -1203,6 +1220,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
           <HomeWorld />
         </WidgetErrorBoundary>
       ) : null}
+      </AutoFold>
     </div>
   );
 });

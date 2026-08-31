@@ -19,7 +19,30 @@ Moved to a true orange, hue 45° — clearly on the red/orange side of the
 wheel, not the yellow/gold side, so it doesn't quietly reintroduce the
 banned hue under a different name.
 
-New: `--warning` / `--chart-3`: `oklch(0.63 0.22 45)`.
+New: `--warning` / `--chart-3`: `oklch(0.7 0.19 45)`.
+
+**Lightened from `oklch(0.63 0.22 45)` on 2026-08-30, because at that
+value it did not meet AA and had no margin to lose.** The `warn` Pill is
+`text-caution` on `bg-caution/20`, and measured with axe against the
+landing's own painted background -- the pill's tint over a glass panel
+over the warm ambient lobe, which composites to `#39190a` rather than to
+black -- it scored **4.21:1 against the 4.5 required**. Against pure
+black it scored 4.65, so the design had **3% of headroom** and the
+ambient glow ate all of it. That is why it read as passing for months
+and then failed: nothing about the pill changed, the ground under it
+did.
+
+At `0.7 0.19 45` the same pairing measures **5.56:1 on that ground and
+5.84 on black**, which is 23% of margin. The hue does not move: 45 is
+the whole point of this token (see above), and the lightness change
+keeps it a true orange (`#fa6e1d`) rather than drifting toward the
+banned gold at 70. The sibling tones were measured at the same time and
+were never at risk -- `gain` 6.62 and `destructive` 5.80 on their own
+20% tints.
+
+**Judge any change to this token against a painted background, not
+against `--background`.** Every semantic colour in this app is read over
+the ambient field, and the field is what closed the gap.
 
 ## Accent Palette (the ceiling — nothing outside this list without updating this file first)
 
@@ -1787,6 +1810,279 @@ cheaper version would be a different animation.
 Reproduced against the same numbers: peak **+4.51%** at 33ms, +3.46% at
 133ms, +1.31% at 233ms, home at 300ms, with the left end out 11.1px against
 the right end's 22.6px — 1:2, and the height unchanged at 52px.
+
+### Most of a room is below the fold, so most of it waits (2026-08-30)
+
+Measured on the real app at 390x800, counting elements whose box begins
+below the viewport:
+
+| room | elements | entirely below the fold | page height |
+| --- | --- | --- | --- |
+| Home | 485 | 326 (67%) | 5.7 screens |
+| Pulse | 548 | 396 (72%) | 7.9 screens |
+| Lab | 250 | 202 (81%) | 2.9 screens |
+| Growth | 713 | 565 (79%) | 6.1 screens |
+| Holdings | 957 | 563 (59%) | 8.1 screens |
+
+**Every tap laid out and painted three quarters of a page nobody could
+see.** Two tools, and which one applies is decided by *how far down* the
+content is, not by how big it is.
+
+**`BelowFold` withholds the mount**, so the children do not exist until the
+reader comes near: their effects, their fetches and their render cost all
+wait with them. It fires **one whole screen early**, and `rootMargin` in
+percent is a percentage of the root, so that is one screen of *whatever
+device is reading* — a taller phone gets a bigger margin with nothing to
+configure. Holdings is the case for it: covered calls start at 2,277px and
+the forecast at 4,081px of an 8.1-screen page, well past the lead time, and
+together they are **532 of the room's 957 elements**. Verified after: both
+report zero rendered elements until reached.
+
+**Growth is the instructive one, and it took two goes.** Wrapping its whole
+projection section did nothing: the section starts at **1,218px** with the
+fold at 800, so it sits inside the 1,600px the lead reaches, the observer
+fired immediately and all 619 elements still rendered. **The test is the
+offset, not the size.** Mapping the panels inside it settled it — the hero
+("Where 10 years of this gets you") starts at 1,218 and has to stay, but
+every panel after it starts at **1,907px or lower**, and together they are
+555 of the section's 618 elements:
+
+| panel | top | elements | |
+| --- | --- | --- | --- |
+| Where 10 years of this gets you | 1,218 | 57 | too close |
+| Same money, four paths | 1,907 | 48 | deferred |
+| When you cross each round number | 2,499 | 169 | deferred |
+| Any single year, in words | 2,787 | 265 | deferred |
+| The same money, invested differently | 3,075 | 44 | deferred |
+| What this actually tells you | 3,363 | 29 | deferred |
+
+Wrapped one level in, Growth went from **713 rendered elements to 154**.
+They keep `defer-paint` as well, which skips style and paint for whichever
+of them is still off screen once they have mounted.
+
+**`defer-paint` (`content-visibility: auto`) withholds the work, not the
+mount**, which is the case that cannot be sectioned: a long list of cards,
+all the same kind, most off screen. Pulse is 498 elements in one block
+5,812px tall. `contain-intrinsic-size: auto <h>` is the half that makes it
+usable — `auto` tells the browser to remember each card's real height once
+measured, so the guess is only ever wrong the first time a card is reached
+and the scrollbar settles instead of lurching. **Never on anything with a
+`sticky` child**: containment makes the element its own containing block,
+so a sticky header would stick to the card rather than the page.
+
+**Measured, both applied, six hops at 4x CPU, two runs of each:**
+
+| | elements | style | layout | JS | paint |
+| --- | --- | --- | --- | --- | --- |
+| before | 661 | 229, 234ms | 55, 56ms | 495, 469ms | 33, 33ms |
+| after | **572** | **199, 204ms** | **37, 37ms** | **384, 395ms** | **25, 28ms** |
+
+And what the reader actually feels — press to the page visibly changing,
+at 4x:
+
+| room | before | after |
+| --- | --- | --- |
+| Holdings | 651, 685, 673ms | **310, 320, 343ms** |
+| Growth | 502, 545ms | **400, 440ms** |
+| Pulse | — | 405, 421ms |
+| Lab | — | 359, 363ms |
+
+**Holdings roughly halved.** The tight spread on both sides is what makes
+it believable, against the ±150ms this work has seen elsewhere.
+
+Rendered elements per room, before and after everything:
+
+| room | before | after |
+| --- | --- | --- |
+| Home | 485 | 406 |
+| Pulse | 548 | 548 (paint skipped, 7.9 screens to 6.0) |
+| Lab | 250 | 250 (untouched) |
+| Growth | 713 | **154** |
+| Holdings | 957 | **425** |
+
+**Verified by scrolling, which is the half that matters.** Walking each
+room top to bottom in quarters: Growth goes 154 to 714 elements with every
+section's heading present, Holdings 425 to 959, Home 406 to 487, and at no
+point is there an empty block of more than 200px on screen. A deferral
+that saves work and shows a hole is worse than no deferral.
+
+### Why a page select felt slow, seen in painted frames (2026-08-30)
+
+> *"Why do the page selects still feel slow? Find the root cause."*
+
+Because every measurement before this one asked the DOM or the profiler,
+and neither of them is what a reader looks at. **Screencast, frame by
+frame, tapping Growth at 4x CPU, each frame diffed against a reference
+taken before the tap:**
+
+```
+109-607ms   ~2.2% of pixels changed     <- the dock marker, and nothing else
+624ms       23.1% changed in ONE frame  <- the whole page, at once
+```
+
+**The page does not change at all for six hundred milliseconds, and then
+changes completely.** That is the slowness. It is not the total, which at
+1x is 70-180ms of ordinary work; it is that a tap buys **no answer
+whatsoever** until the very end, and then arrives as a jump.
+
+**The cause is `startTransition`.** Next's `<Link>` navigates inside one,
+and the defining behaviour of a transition is that the old screen stays up
+until the new one is completely built. React is doing exactly what it
+promises; it is the wrong promise for a bottom dock, where the reader has
+already committed and is waiting on a room they chose.
+
+**So the press says where it is going and the book shows it.** `route-aim.ts`
+is a two-function publisher: the dock's press handler, which already aims
+the marker and prefetches the address, also publishes it; `Dashboard`
+listens, and when the address is a book path it renders that tab
+immediately with an **ordinary state update rather than a transition**, so
+it lands on the next frame. `pathname` is still the source of truth and
+still settles it. The bet loses the same three ways the marker's does, and
+losing is cheap: the reader sees the room they asked for and then the room
+they got, which is what they would have seen anyway.
+
+Measured, press to the page visibly changing (>10% of pixels), against a
+pre-tap reference:
+
+| | before | after |
+| --- | --- | --- |
+| 1x CPU | 173ms, 242ms | **149ms** |
+| 4x CPU | 624ms, 717ms | **539ms** |
+
+**Honest about the size of it:** about a quarter off at 4x and rather less
+at 1x, where the runs overlap. What the change really does is start the
+work at the press instead of after the click and the transition setup, and
+it does not make the render itself cheaper -- so the shape improves more
+than the number. The rest is still per-panel render weight, which is the
+lever the previous section names.
+
+**And the lesson about measuring.** Three earlier rounds measured the DOM
+mutating, the path changing, and main-thread work, and all three said the
+navigation was fine. Only the painted frames showed a reader six hundred
+milliseconds of nothing. **When the complaint is about feel, diff the
+frames** -- and diff them against a reference taken *before* the
+interaction, not against the first captured frame, which on a fast run is
+already the new page and reports no change at all.
+
+### Chasing the router commit, and what it turned out to be (2026-08-30)
+
+> *"The next real lever is the App Router commit itself" — do it.*
+
+Done, and the answer is that **there is no lever there**, which took five
+hypotheses to establish. Recorded here so nobody spends the evening again.
+Everything below is a Chrome trace of the real app in demo mode with the
+canonical seed, driven by the real dock, with a **baseline** taken over the
+same window with no tap at all.
+
+**The baseline matters more than any of it.** Idle, over 2.2 seconds, the
+app costs `style 0ms, layout 1ms, js 2ms` at 1x and `7ms / 6ms / 22ms` at
+4x. So the app is genuinely quiet between taps and every number below is
+the hop.
+
+**Per hop, at 4x CPU:** style recalc **134-261ms**, JS **284-586ms**,
+layout 15-87ms, over a document of **591-1054 elements**. At 1x the same
+hops are style **17-55ms**, JS **51-109ms**, layout 3-20ms.
+
+**What it is not.** Five hypotheses, each measured and each wrong:
+
+1. *The main thread is idle, waiting on React's scheduler.* No — a full
+   trace is **81% busy with zero gaps over 8ms**. The earlier "85.6% idle"
+   reading came from a truncated trace and a probe that polled
+   `innerHTML.length` every frame.
+2. *A dynamic chunk is fetched on the tap.* True, and fixed (see above),
+   and it moved nothing: the chunk is not on the critical path.
+3. *`useDockPad` writes a custom property on `<html>`, invalidating the
+   document.* Instrumented the root element's `setProperty`/`setAttribute`
+   directly: **zero writes during a hop.**
+4. *The mounted rooms re-render on every navigation.* Wrapped them in
+   `memo`; no benefit past the noise, reverted.
+5. *The dock forces layout on every render.* It did, and that is worth
+   fixing on its own terms (below), but removing it moved the style figure
+   by less than the run-to-run noise.
+
+**What it is: the app rendering the destination panel.** JS tracks the size
+of the room being built — Circle at 1048 nodes costs 284ms, Lab at 591
+costs 293ms, Growth at 1054 costs 520ms — and the style recalc follows the
+DOM churn, which is up to 460 elements created or destroyed per hop. That
+is the actual work of showing a different page, and at 1x it lands at
+**70-180ms of main-thread work per hop**, which is an ordinary transition.
+
+So the remaining lever is not the router and not the dock: it is **how much
+each panel renders**. Overview and Growth are the heavy ones at about a
+thousand elements. Making a tap feel instant from here is per-panel product
+work, not a framework trick.
+
+**The dock's own share was still worth taking out**, because it is pure
+waste rather than the price of a page: `measure` runs in a layout effect
+with no dependency list, so it runs after every render of the bar, and
+`markOf` reads `offsetLeft`/`offsetWidth`, each of which forces the browser
+to recompute style and layout before it can answer. Three bars are mounted
+at once and a route change renders each many times. What actually moves the
+marker is the active cell changing or the pointer moving, both of which are
+**element identity** and cost nothing to compare; geometry changing under a
+still marker is the ResizeObserver's job and always was. An ordinary
+re-render is now two pointer comparisons and a return.
+
+### Where a tap actually spends its time (2026-08-30)
+
+> *"I want pages to tap and load instantly."*
+
+Measured on the real app in demo mode with the canonical seed, driven by
+the real dock, at 4x CPU. **Two things were found and fixed, and the third
+— the largest — is named here rather than fixed, because nothing in this
+session's reach moves it.**
+
+**1. Every first tap fetched a JS chunk.** Recording the network per hop:
+the first Pulse tap pulled one chunk, the first Lab tap two, the first
+Circle tap one; the second visit to the same room fetched nothing and
+arrived immediately. `WorkspaceShell` already warms its rooms on idle and
+simply never covered `Dashboard`'s own tab panels, which are all
+`next/dynamic`.
+
+Adding a warm was not enough on its own, and the reason is worth keeping:
+**warming only works if the module the warm asks for is the module
+`dynamic` will ask for.** Written as two separate `import()` expressions
+the bundler is free to give them different chunk groups, and on the real
+build it did — the idle warm ran (a marker proved it), 44 chunks came down
+in the first 400ms, and the first Pulse tap still fetched a 22KB chunk that
+mentions `PulsePage`. One **named loader** per panel and per room,
+referenced from both places, removes the question. Measured after: **4
+chunks fetched during taps → 0.**
+
+**2. The dock forced a synchronous layout on every render.** `measure`
+runs in a layout effect with no dependency list, so it runs after every
+render of the bar, and a route change renders it many times; the
+`getClientRects()` visibility check added with the hidden-room fix was
+therefore forcing a document layout once per render per mounted dock, of
+which there are up to three. Profiled on one Pulse hop: **323ms of 942ms,
+16% of the navigation.** The ResizeObserver already watching the host
+hands the size over for free (a hidden element reports 0x0), so the check
+is a ref read now and the layout is forced once, at mount.
+
+**3. The rest is the router, and it is most of it.** Timing the two halves
+separately — when `location.pathname` changes, and when the new room first
+mutates the DOM:
+
+| hop | url changes at | new room paints at |
+| --- | --- | --- |
+| pulse | 590ms | 657ms |
+| compound | 555ms | 791ms |
+| home | 534ms | — |
+| pulse (warm) | 472ms | 539ms |
+
+**The URL takes 400-600ms to change and the room paints 70-240ms after
+that.** The commit is the cost, and it happens before any of our rendering.
+Neither fix above moved it, and neither did wrapping the mounted rooms in
+`memo` so a navigation stops re-rendering the rooms you are not in — tried,
+measured, no benefit beyond the noise, reverted rather than shipped.
+
+**Two cautions for whoever picks this up.** Run-to-run variance on these
+hops is about **±150ms**, so no single pair of numbers means anything;
+take medians over several runs. And the probe matters: an earlier version
+of this measurement polled `document.querySelector("#main").innerHTML.length`
+every animation frame, which serializes the whole subtree — it inflated
+both the timings and its own line in the profile. Watch `location.pathname`
+and a `MutationObserver` instead.
 
 ### More than one dock is alive at once, and that is what broke it (2026-08-30)
 

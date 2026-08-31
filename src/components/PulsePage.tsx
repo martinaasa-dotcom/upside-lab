@@ -1,5 +1,6 @@
 "use client";
 
+import { AutoFold } from "@/components/AutoFold";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -284,7 +285,18 @@ function PulseCard({
   );
 
   return (
-    <li id={`pulse-card-${c.ticker}`} className="scroll-mt-28">
+    /*
+      `defer-paint`: Pulse is a single block of 498 elements 5,812px tall,
+      which is seven screens of cards a reader sees one of. The browser
+      skips style, layout and paint for the ones off screen and picks each
+      up as it comes near, remembering its real height once measured. The
+      card carries no sticky child, which is the one thing that rule
+      forbids -- see the note in globals.css.
+    */
+    <li
+      id={`pulse-card-${c.ticker}`}
+      className="defer-paint scroll-mt-28"
+    >
       <Card
         className={pulseCardChrome({
           pinned,
@@ -1181,6 +1193,14 @@ export const PulsePage = memo(function PulsePage({
 
   return (
     <div className="flex flex-col gap-6">
+      {/*
+        Pulse is three sections and the third is the whole list -- 498 of
+        its 548 elements in one 5,812px block, starting below the fold.
+        The cards inside it keep `defer-paint`, which is what makes the
+        list itself affordable to scroll; this stops the block being built
+        at all until the reader is coming to it.
+      */}
+      <AutoFold>
       <Panel className="gap-3">
         <PanelHeader
           icon={<Activity className="h-4 w-4" />}
@@ -1408,6 +1428,7 @@ export const PulsePage = memo(function PulsePage({
           {formatDateTime(lastGeneratedAt)}
         </p>
       )}
+      </AutoFold>
     </div>
   );
 });

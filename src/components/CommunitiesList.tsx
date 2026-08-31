@@ -4,7 +4,8 @@ import { SignInGate } from "@/components/SignInGate";
 import { AppHeader } from "@/components/AppHeader";
 import { MobileDock } from "@/components/mobile/MobileDock";
 import { cn } from "@/lib/format";
-import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
+import { PageMain } from "@/components/PageMain";
+import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
 import { plainError } from "@/lib/plain-error";
 import {
   loadCommunityDiscoverCache,
@@ -23,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { aimOnPress } from "@/lib/route-aim";
 import { Panel, PanelHeader, Segmented } from "@/components/ui/Panel";
 import {
   CLASS_TEMPLATES,
@@ -256,7 +258,7 @@ export function CommunitiesList() {
       <div className={PAGE_FRAME_CLASS}>
         <MobileDock active="circle" />
         <AppHeader title="Circle" mobileTitle="" />
-        <main id="main" className={PAGE_MAIN_CLASS}>
+        <PageMain>
           <div>
             <h1 className="text-2xl font-semibold text-foreground">
               Circle
@@ -313,6 +315,22 @@ export function CommunitiesList() {
                       href={`/communities/${c.id}`}
                       onPointerEnter={() => void prefetchCommunity(c.id)}
                       onFocus={() => void prefetchCommunity(c.id)}
+                      /*
+                       * Say where this is going, so the shell mounts the
+                       * circle on the press instead of when the router
+                       * finishes building it. See `route-aim.ts`.
+                       *
+                       * On `pointerdown`, and `click` was measured and is
+                       * not good enough: a click handler runs in the same
+                       * event as the navigation, so React batches the two
+                       * and the aim gets no head start at all. Measured
+                       * opening a circle at 4x CPU, the room appeared at
+                       * 514ms either way with `onClick`, and at 457ms on
+                       * the press.
+                       */
+                      onPointerDown={(e) => {
+                        aimOnPress(e.nativeEvent, `/communities/${c.id}`);
+                      }}
                       className="flex items-center justify-between gap-3 px-4 py-4 transition hover:bg-muted"
                     >
                       <span className="flex min-w-0 items-center gap-2">
@@ -532,7 +550,7 @@ export function CommunitiesList() {
               </div>
             </Panel>
           </form>
-        </main>
+        </PageMain>
       </div>
 
       {joinPick && (

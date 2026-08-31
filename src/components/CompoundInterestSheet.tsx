@@ -1,5 +1,6 @@
 "use client";
 
+import { BelowFold } from "@/components/BelowFold";
 import {
   COMPOUND_STORAGE_KEY,
   DEFAULT_COMPOUND_INPUTS,
@@ -986,7 +987,20 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         </Panel>
       </div>
 
-      {/* Results & Projections Section */}
+      {/*
+        Results & Projections, and it is `defer-paint` rather than
+        `BelowFold` for a reason worth writing down. Measured on a 390x800
+        phone this section starts at 1,218px with the fold at about 917:
+        it is below the fold but **less than one screen below it**, and
+        `BelowFold` fires a whole screen early, so wrapping it mounted the
+        section immediately and saved exactly nothing. Verified -- 619
+        elements still rendered.
+
+        What it is is 3,687px tall, so most of it is off screen even once
+        mounted, which is the case `content-visibility` is for. The rule
+        goes on the panels inside rather than the section, since a
+        contained ancestor would trap anything sticky within it.
+      */}
       <section className="flex flex-col min-w-0 w-full max-w-full gap-4">
         {/* Hero KPI Summary */}
         <Panel className={SHEET_PANEL}>
@@ -1081,7 +1095,18 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         </Panel>
 
         {/* Dual Path Chart */}
-        <Panel className={SHEET_PANEL}>
+        {/*
+          EVERYTHING AFTER THE HERO PANEL, AND THE OFFSETS ARE WHY.
+          Measured at 390x800: the hero starts at 1,218px, which is inside
+          the one screen of lead `BelowFold` gives (the fold is 800, so its
+          reach is 1,600) and cannot be deferred. Every panel after it
+          starts at 1,907px or lower and together they are 555 of this
+          section's 618 elements. `defer-paint` on each of them skips the
+          style, layout and paint; this skips building them at all until
+          the reader comes near.
+        */}
+        <BelowFold reserve={560}>
+        <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
             title="Same money, four paths"
             actions={
@@ -1103,7 +1128,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         </Panel>
 
         {/* Milestone Tracker */}
-        <Panel className={SHEET_PANEL}>
+        <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
             icon={<Target className="h-4 w-4" />}
             title="When you cross each round number"
@@ -1161,7 +1186,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           </div>
         </Panel>
 
-        <Panel className={SHEET_PANEL}>
+        <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
             title="Any single year, in words"
           />
@@ -1297,7 +1322,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           </details>
         </Panel>
 
-        <Panel className={SHEET_PANEL}>
+        <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
             icon={<Zap className="h-4 w-4" />}
             title="The same money, invested differently"
@@ -1347,7 +1372,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           </Scoreboard>
         </Panel>
 
-        <Panel className={SHEET_PANEL}>
+        <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader title="What this actually tells you" />
           <ItemGroup>
             {narrative.map((beat, i) => (
@@ -1368,6 +1393,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           </ItemGroup>
         </Panel>
 
+        </BelowFold>
       </section>
     </div>
   );

@@ -43,7 +43,8 @@ import { Badge } from "@/components/ui/badge";
 import { Segmented } from "@/components/ui/Panel";
 import { combineHouseholdNames } from "@/lib/auth/identity";
 import { copyText } from "@/lib/copy-text";
-import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
+import { PageMain } from "@/components/PageMain";
+import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
 import { plainError } from "@/lib/plain-error";
 import { overlapRows } from "@/lib/circle-overlap";
 import { sheetCashBalance } from "@/lib/cash-balance";
@@ -1473,7 +1474,7 @@ export function CommunityView({ communityId }: Props) {
           )}
         </AppHeader>
 
-        <main id="main" className={PAGE_MAIN_CLASS}>
+        <PageMain>
           {loading && (
             <p className="text-sm text-muted-foreground">Loading community …</p>
           )}
@@ -1581,7 +1582,7 @@ export function CommunityView({ communityId }: Props) {
               </WidgetErrorBoundary>
             </section>
           )}
-        </main>
+        </PageMain>
       </div>
 
       <ConfirmModal

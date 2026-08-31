@@ -6,47 +6,60 @@ import {
 } from "@/lib/community-cache";
 import { WelcomeTourGate } from "@/components/WelcomeTourGate";
 import {
+  GROWTH_PATH,
+  LAB_PATH,
+  PORTFOLIO_PATH,
+  PULSE_PATH,
+} from "@/lib/book-routes";
+import {
   WORKSPACE_SHOW_EVENT,
   WORKSPACE_DOCK_SLOT_ID,
   setActiveWorkspaceRoom,
   workspaceRoomId,
 } from "@/lib/workspace-rooms";
+import { AIM_GIVES_UP_MS, onRouteAim } from "@/lib/route-aim";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import {
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 
 const MAX_COMMUNITY_ROOMS = 4;
 
-const BookRoom = dynamic(
-  () => import("@/components/workspace-rooms").then((m) => m.BookRoom),
-  { ssr: true }
-);
-const FundRoom = dynamic(
-  () => import("@/components/workspace-rooms").then((m) => m.FundRoom),
-  { ssr: true }
-);
-const CommunitiesList = dynamic(
-  () =>
-    import("@/components/CommunitiesList").then((m) => m.CommunitiesList),
-  { ssr: true }
-);
-const CommunityView = dynamic(
-  () => import("@/components/CommunityView").then((m) => m.CommunityView),
-  { ssr: true }
-);
-const AccountPage = dynamic(
-  () => import("@/components/AccountPage").then((m) => m.AccountPage),
-  { ssr: true }
-);
-const AdminPage = dynamic(
-  () => import("@/components/AdminPage").then((m) => m.AdminPage),
-  { ssr: true }
-);
+/*
+ * ONE NAMED LOADER PER ROOM, USED BOTH TO RENDER IT AND TO WARM IT.
+ *
+ * The warm below only works if the module it asks for is the module
+ * `dynamic` will ask for. Written as two separate `import()` expressions
+ * the bundler is free to give them different chunk groups, and measured on
+ * the real build it did: the idle warm ran and the first tap on a room
+ * still fetched that room's chunk. Referencing one loader from both places
+ * removes the question. Dashboard's tab panels have the same pattern for
+ * the same reason.
+ */
+const loadBookRoom = () =>
+  import("@/components/workspace-rooms").then((m) => m.BookRoom);
+const loadFundRoom = () =>
+  import("@/components/workspace-rooms").then((m) => m.FundRoom);
+const loadCommunitiesList = () =>
+  import("@/components/CommunitiesList").then((m) => m.CommunitiesList);
+const loadCommunityView = () =>
+  import("@/components/CommunityView").then((m) => m.CommunityView);
+const loadAccountPage = () =>
+  import("@/components/AccountPage").then((m) => m.AccountPage);
+const loadAdminPage = () =>
+  import("@/components/AdminPage").then((m) => m.AdminPage);
+
+const BookRoom = dynamic(loadBookRoom, { ssr: true });
+const FundRoom = dynamic(loadFundRoom, { ssr: true });
+const CommunitiesList = dynamic(loadCommunitiesList, { ssr: true });
+const CommunityView = dynamic(loadCommunityView, { ssr: true });
+const AccountPage = dynamic(loadAccountPage, { ssr: true });
+const AdminPage = dynamic(loadAdminPage, { ssr: true });
 
 function pruneCommunityRooms(mounted: Set<string>, keep: string) {
   const keys = [...mounted].filter((k) => k.startsWith("community:"));
@@ -80,7 +93,60 @@ function Room({
 export function WorkspaceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const room = workspaceRoomId(pathname);
+  /*
+    THE ROOM CHANGES ON THE PRESS, FOR THE SAME REASON THE BOOK'S TABS DO.
+
+    `Dashboard` already refuses to wait for the router before showing the
+    tab a press asked for, because `<Link>` navigates inside a transition
+    and a transition holds the old screen until the new one is completely
+    built. It only ever accepted a bet on a book path, though, since a
+    book path is all it can draw -- so every press that leaves the book
+    (Circle, the Fund, Account) still waited out the whole commit.
+
+    Measured on the real app at 4x CPU, diffing painted frames above the
+    dock so the marker's own movement cannot be mistaken for the page
+    answering: tapping a book tab changed the content in 111-275ms, and
+    tapping Circle changed nothing for 274-441ms. The gap is the part of
+    the commit the book skips and the shell did not.
+
+    Reading the aim here mounts the room on the press and lets it show its
+    own loading state, which is the answer the reader asked for. The
+    router's URL is still what settles it. The bet loses the same three
+    ways it loses in the book -- the room answers with somewhere else,
+    nothing answers within `AIM_GIVES_UP_MS`, or the press never became a
+    navigation -- and losing costs a room the reader is about to leave.
+  */
+  const [aimedPath, setAimedPath] = useState<string | null>(null);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const stop = onRouteAim((path) => {
+      if (timer) clearTimeout(timer);
+      if (path === null) {
+        setAimedPath(null);
+        return;
+      }
+      /*
+       * Only a path this shell can actually draw. A press heading for a
+       * page with no room of its own (`/privacy`, a join link) would
+       * otherwise blank whichever room is on screen and put `children`
+       * there, which is a worse answer than waiting.
+       */
+      if (!workspaceRoomId(path)) return;
+      setAimedPath(path);
+      timer = setTimeout(() => setAimedPath(null), AIM_GIVES_UP_MS);
+    });
+    return () => {
+      stop();
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+  /* The router answered. Whatever it answered with is the truth from here. */
+  useEffect(() => {
+    setAimedPath(null);
+  }, [pathname]);
+
+  const shownPath = aimedPath ?? pathname;
+  const room = workspaceRoomId(shownPath);
   const mountedRef = useRef<Set<string>>(new Set());
   const prevRoomRef = useRef<string | null>(null);
   const scrollRef = useRef(new Map<string, number>());
@@ -117,7 +183,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   */
   useLayoutEffect(() => {
     setActiveWorkspaceRoom(room);
-  }, [pathname, room]);
+  }, [shownPath, room]);
 
   useLayoutEffect(() => {
     const prev = prevRoomRef.current;
@@ -131,21 +197,36 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const warm = () => {
+      /*
+       * The book's own paths were never in this list. They are separate
+       * routes -- `/pulse`, `/lab`, `/growth`, `/portfolio` -- and the dock
+       * links them, so `<Link prefetch>` covers them once the dock is on
+       * screen; asking again here is free (an address already in the cache
+       * is a no-op) and covers the window before the dock has rendered.
+       */
+      for (const path of [
+        "/",
+        PULSE_PATH,
+        LAB_PATH,
+        GROWTH_PATH,
+        PORTFOLIO_PATH,
+      ]) {
+        router.prefetch(path);
+      }
       router.prefetch("/communities");
       router.prefetch("/upside-portfolio");
       router.prefetch("/account");
       const list = loadCommunityListCache();
       if (list?.[0]) router.prefetch(`/communities/${list[0].id}`);
       if (list?.length) prefetchCommunityList(list);
-      void import("@/components/workspace-rooms");
-      void import("@/components/CommunitiesList");
-      void import("@/components/CommunityView");
+      void loadBookRoom();
+      void loadFundRoom();
+      void loadCommunitiesList();
+      void loadCommunityView();
+      void loadAccountPage();
     };
     const w = window as Window & {
-      requestIdleCallback?: (
-        cb: () => void,
-        o?: { timeout: number }
-      ) => number;
+      requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number;
       cancelIdleCallback?: (id: number) => void;
     };
     if (w.requestIdleCallback) {
