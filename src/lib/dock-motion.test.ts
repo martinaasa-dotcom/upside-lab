@@ -300,18 +300,21 @@ describe("the marker leaves on the press, not on the route", () => {
     expect(press).toMatch(/e\.ctrlKey/);
   });
 
-  it("calls the bet off four ways, so the marker cannot lie", () => {
+  it("calls the bet off when the press was not a tap, and only then", () => {
     // Released somewhere other than the cell it started on.
     expect(HOOK).toMatch(/if \(over !== aimed\.current\) \{\s*callOff\(\);/);
-    // Released on the cell and no click followed, so it was never a tap.
-    expect(HOOK).toMatch(/setTimeout\(callOff, CLICK_FOLLOWS_MS\)/);
-    // The browser took the gesture for itself.
-    expect(HOOK).toMatch(/pointercancel", abandon/);
     // Nothing answered at all.
     expect(HOOK).toMatch(/setTimeout\(callOff, AIM_GIVES_UP_MS\)/);
-    // And the bet is over when the address moves, which is the room
-    // answering -- with this cell or, on a redirect, another one.
+    // The bet is over when the address moves, which is the room answering
+    // -- with this cell or, on a redirect, another one.
     expect(HOOK).toMatch(/pathRef\.current !== aimedFrom\.current/);
+    // A press that ended with no click asks one question, on both roads to
+    // it, and standing down is only one of the two answers.
+    expect(HOOK).toMatch(/setTimeout\(endPress, CLICK_FOLLOWS_MS\)/);
+    const endPress = HOOK.slice(HOOK.indexOf("const endPress ="), HOOK.indexOf("function wander"));
+    expect(endPress).toMatch(/strayed\.current \|\| heldMs\.current > TAP_HOLD_MS/);
+    expect(endPress).toContain("callOff();");
+    expect(endPress).toContain("go();");
   });
 
   it("gives up late rather than early", () => {
@@ -685,11 +688,60 @@ describe("a press says where it is going, so the page can answer it", () => {
      * which neither the release rule nor `pointercancel` can see.
      */
     expect(HOOK).toContain("const CLICK_FOLLOWS_MS");
-    expect(HOOK).toMatch(/clickWatch\.current = setTimeout\(callOff, CLICK_FOLLOWS_MS\)/);
+    expect(HOOK).toMatch(/clickWatch\.current = setTimeout\(endPress, CLICK_FOLLOWS_MS\)/);
     // and the click that does arrive calls it off
     const went = HOOK.slice(HOOK.indexOf("const went ="), HOOK.indexOf("/* A keyboard never presses"));
     expect(went).toContain("going.current = true");
     expect(went).toContain("clearTimeout(clickWatch.current)");
+  });
+
+  it("takes the press itself when the browser will not turn it into a click", () => {
+    /*
+     * THE PART THAT MAKES A TAP A TAP.
+     *
+     * Standing down promptly is still the app admitting the press did
+     * nothing, and a tab bar that needs pressing twice is not acceptable.
+     * A tab bar is not page content: it is the one control that has to
+     * work while everything else is still moving, and on a phone that is
+     * exactly when the browser withholds the click. So the bar judges the
+     * tap on its own evidence and navigates. Measured against the real
+     * build at 390x844, a cancelled press reaches the room in a median of
+     * 14ms where it used to reach nothing at all.
+     */
+    const go = HOOK.slice(HOOK.indexOf("const go ="), HOOK.indexOf("const endPress ="));
+    expect(go).toContain("router.push(href)");
+    // the address is kept beside the cell, because a cross-room press
+    // hides the bar the finger is on before the press has finished
+    expect(go).toContain("aimedHref.current");
+    expect(HOOK).toContain("aimedHref.current = href");
+    // and a click arriving after that must not enter the room twice
+    expect(HOOK).toMatch(/navigated\.current\) \{\s*e\.preventDefault\(\)/);
+  });
+
+  it("reads how long the finger was down off the browser's clock, not ours", () => {
+    /*
+     * `Event.timeStamp` is set when the browser makes the event, not when
+     * it manages to hand it over, and the difference is the whole point:
+     * the press this exists for is a press on a phone whose main thread is
+     * busy, and the render the aim itself starts is part of what is
+     * keeping it busy. Measured in WebKit, a cancelled press on Circle
+     * reached its handler 750ms after `pointerdown` while the room was
+     * being built -- read on a wall clock that is a long press, and the
+     * tap was thrown away. The events were 100ms apart.
+     */
+    expect(HOOK).not.toContain("Date.now() - pressedAt.current");
+    expect(HOOK).toContain("pressedAt.current = e.timeStamp");
+    expect(HOOK).toMatch(/heldMs\.current = e\.timeStamp - pressedAt\.current/);
+  });
+
+  it("still refuses a press that panned or was held", () => {
+    // A cancel after real movement is the page being dragged, and a long
+    // press on a link is the browser's own preview being asked for.
+    expect(HOOK).toContain("const TAP_SLOP");
+    expect(HOOK).toContain("const TAP_HOLD_MS");
+    const wander = HOOK.slice(HOOK.indexOf("function wander"));
+    expect(wander).toMatch(/Math\.hypot\([\s\S]{0,80}> TAP_SLOP/);
+    expect(wander).toContain("strayed.current = true");
   });
 
   it("shows the aimed tab now, and lets the path settle it", () => {

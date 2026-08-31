@@ -72,6 +72,15 @@
 
 @layer components {
   .dock-cell {
+    /*
+     * The same declaration `globals.css` puts on every button and input,
+     * which a dock cell misses because it is an anchor. It takes the
+     * double-tap-to-zoom handling off the cell, which is one of the
+     * reasons a browser holds a click back or withholds it entirely.
+     * `manipulation` rather than `none`: a drag that begins here should
+     * still be allowed to scroll the page.
+     */
+    touch-action: manipulation;
     transition:
       transform 280ms var(--dock-press-ease, cubic-bezier(0.32, 0.72, 0, 1)),
       color 180ms ease-out;
