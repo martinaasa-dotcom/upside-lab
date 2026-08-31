@@ -56,8 +56,57 @@ const AIM_GIVES_UP_MS = 4000;
  */
 const CLICK_FOLLOWS_MS = 300;
 
+/**
+ * How far a finger may wander and still have meant the cell it landed on.
+ *
+ * Only the abandoned-press paths read it: a `pointercancel` after real
+ * movement is the page being panned, and a `pointercancel` from a finger
+ * that never moved is the browser taking a tap for itself. Ten pixels is
+ * what a platform calls a tap, and the cells are 48.
+ */
+const TAP_SLOP = 10;
+
+/**
+ * How long a press may be held and still be a tap.
+ *
+ * A long press on a link opens the browser's own preview, and that arrives
+ * as a `pointercancel` from a finger that has not moved, which is the same
+ * shape as the case above. The reader asked for the preview, not the room,
+ * so past this the press is somebody else's.
+ */
+const TAP_HOLD_MS = 700;
+
 function markOf(cell: HTMLElement): DockMark {
   return markGeometry(cell.offsetLeft, cell.offsetWidth);
+}
+
+/**
+ * THE PRESSED CELL IS AN ADDRESS, NEVER A NODE.
+ *
+ * A press is answered by events that arrive later, and between them the
+ * bar re-renders -- the aim itself is what makes it re-render. React is
+ * free to hand back a different element for the same cell whenever the
+ * shape of the tree around it changes, and it does: `Dashboard` renders
+ * its dock from three different returns, so pressing Holdings while the
+ * portfolio is still loading swaps the whole subtree, and a panel whose
+ * chunk has not warmed yet suspends and does the same. Measured on the
+ * real build at 390x844, the anchor under the finger was gone from the
+ * document two frames after `pointerdown` on Holdings, every time.
+ *
+ * Comparing nodes there judges the reader's finger by React's
+ * reconciliation, which is nothing to do with each other: the release
+ * lands on the cell, the cell is a different object, and the press is
+ * thrown away. The href is the same before and after, so that is what
+ * identifies it.
+ */
+function cellByHref(host: HTMLElement, href: string | null): HTMLElement | null {
+  if (!href) return null;
+  for (const cell of Array.from(
+    host.querySelectorAll<HTMLElement>("[data-dock-goes]")
+  )) {
+    if (cell.getAttribute("href") === href) return cell;
+  }
+  return null;
 }
 
 /**
@@ -232,6 +281,38 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
    */
   const aimedFrom = useRef<string | null>(null);
   /*
+   * The address the press is going to, kept beside the cell rather than
+   * read back off it. The cell can be gone while the press is still live:
+   * pressing Circle mounts Circle's room on the press, which hides the
+   * book and the bar the finger is on, and taking that press where it was
+   * going has to work from there too.
+   */
+  const aimedHref = useRef<string | null>(null);
+  /** Where the finger landed, and whether it has wandered since. */
+  const pressPoint = useRef<{ x: number; y: number } | null>(null);
+  const strayed = useRef(false);
+  /*
+   * How long the finger was down, in the browser's own clock rather than
+   * ours.
+   *
+   * `Event.timeStamp` is set when the browser makes the event, not when it
+   * gets to hand it over, and the difference is the whole point here: the
+   * press this repair exists for is a press on a phone whose main thread
+   * is busy, and the render the aim itself kicks off is part of what is
+   * keeping it busy. Measured in WebKit, a cancelled press on Circle
+   * reached its handler **750ms** after `pointerdown` while the room was
+   * being built, which read as a long press and stood the bet down. The
+   * events themselves were 100ms apart.
+   *
+   * It is written at the release rather than read at the deadline for the
+   * same reason: how long the finger was down is known the moment it comes
+   * up, and a timer firing later knows nothing about it.
+   */
+  const pressedAt = useRef(0);
+  const heldMs = useRef(0);
+  /** This bar took the press itself, so a late click must not go again. */
+  const navigated = useRef(false);
+  /*
    * Whether the rest of the app has been told where this press is going.
    * Kept apart from `aimed`, which is only the marker's own geometry: the
    * bar can stop betting for reasons of its own (its room was hidden, the
@@ -280,6 +361,10 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
   const forgetAim = useCallback(() => {
     aimed.current = null;
     aimedFrom.current = null;
+    aimedHref.current = null;
+    pressPoint.current = null;
+    strayed.current = false;
+    navigated.current = false;
     published.current = false;
     going.current = false;
     if (aimTimer.current) {
@@ -360,7 +445,8 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
     if (aimed.current && pathRef.current !== aimedFrom.current) {
       forgetAim();
     } else if (aimed.current && !host.contains(aimed.current)) {
-      aimed.current = null;
+      /* Re-rendered out from under the press. Same cell, new element. */
+      aimed.current = cellByHref(host, aimedHref.current);
     }
     const target = aimed.current ?? on;
 
@@ -626,8 +712,13 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
       aimed.current = null;
       if (told) aimRoute(null);
       aimedFrom.current = null;
+      aimedHref.current = null;
+      pressPoint.current = null;
+      strayed.current = false;
+      navigated.current = false;
       published.current = false;
       going.current = false;
+      document.removeEventListener("pointermove", wander);
       if (aimTimer.current) {
         clearTimeout(aimTimer.current);
         aimTimer.current = null;
@@ -644,6 +735,69 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
         reverting.current = false;
       }
     };
+
+    /*
+     * THE PRESS WAS A TAP, SO TAKE IT WHERE IT WAS GOING.
+     *
+     * A press becomes a navigation by becoming a click, and the browser
+     * decides whether to synthesise one. On a phone it often decides not
+     * to, for reasons that have nothing to do with what the reader meant:
+     * a touch landing while the page is still flinging is spent stopping
+     * the fling, and a drag that begins on this bar pans the document
+     * because a fixed element is still a pan target. Both take the press
+     * and leave no click behind.
+     *
+     * A tab bar is not page content, and on a phone it is the one control
+     * that has to work while everything else is still moving. So the bar
+     * judges the tap itself -- landed on a cell, released on that cell or
+     * taken from it without ever having wandered, and not held long enough
+     * to be somebody's long press -- and navigates, rather than waiting on
+     * a click that is not coming and then quietly undoing the room it had
+     * already shown. This is additive: when the click does arrive it does
+     * the work exactly as before and `went` cancels the wait.
+     */
+    const go = () => {
+      const href = aimedHref.current;
+      if (!href) {
+        callOff();
+        return;
+      }
+      if (clickWatch.current) {
+        clearTimeout(clickWatch.current);
+        clickWatch.current = null;
+      }
+      /*
+       * `going` before the push, not after: it is what stops a second
+       * pointer event settling a navigation that is already under way.
+       */
+      going.current = true;
+      navigated.current = true;
+      document.removeEventListener("pointermove", wander);
+      router.push(href);
+    };
+
+    /*
+     * A press that ended with no click. Whether it was a tap is the only
+     * question, and the answer is the same on both roads to here: released
+     * on its own cell and never having wandered, inside the time a tap
+     * takes.
+     */
+    const endPress = () => {
+      if (strayed.current || heldMs.current > TAP_HOLD_MS) {
+        callOff();
+        return;
+      }
+      go();
+    };
+
+    /* A finger that has moved this far is panning, not pressing. */
+    function wander(e: PointerEvent) {
+      const from = pressPoint.current;
+      if (!from) return;
+      if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > TAP_SLOP) {
+        strayed.current = true;
+      }
+    }
 
     const aim = (cell: HTMLElement) => {
       const host2 = ref.current;
@@ -682,7 +836,9 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
       }
       aimed.current = cell;
       aimedFrom.current = pathRef.current;
+      aimedHref.current = href;
       going.current = false;
+      navigated.current = false;
       if (aimTimer.current) clearTimeout(aimTimer.current);
       if (clickWatch.current) {
         clearTimeout(clickWatch.current);
@@ -706,7 +862,18 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
         e.target instanceof Element
           ? e.target.closest<HTMLElement>("[data-dock-goes]")
           : null;
-      if (cell) aim(cell);
+      if (!cell) return;
+      pressPoint.current = { x: e.clientX, y: e.clientY };
+      strayed.current = false;
+      pressedAt.current = e.timeStamp;
+      heldMs.current = 0;
+      /*
+       * Only for the length of a press, and adding the same function twice
+       * is a no-op, so a listener left behind by a bet the layout effect
+       * settled costs the next press nothing.
+       */
+      document.addEventListener("pointermove", wander, { passive: true });
+      aim(cell);
     };
 
     /*
@@ -715,15 +882,21 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
      * the finger that wandered off has usually left the bar entirely.
      */
     const release = (e: PointerEvent) => {
-      if (!aimed.current || going.current) return;
+      /*
+       * The address, not the element. This bar's own cell can be gone by
+       * now -- pressing Circle hides the book and the bar the finger is on
+       * -- and the press is still this bar's to settle.
+       */
+      if (!aimedHref.current || going.current) return;
       const over =
         e.target instanceof Element
           ? e.target.closest<HTMLElement>("[data-dock-goes]")
           : null;
-      if (over !== aimed.current) {
+      if (!over || over.getAttribute("href") !== aimedHref.current) {
         callOff();
         return;
       }
+      heldMs.current = e.timeStamp - pressedAt.current;
       /*
        * A RELEASE ON THE CELL IS NOT YET A NAVIGATION, AND ON A PHONE IT
        * OFTEN IS NOT ONE AT ALL.
@@ -743,7 +916,7 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
        * allows a navigation that is merely slow.
        */
       if (clickWatch.current) clearTimeout(clickWatch.current);
-      clickWatch.current = setTimeout(callOff, CLICK_FOLLOWS_MS);
+      clickWatch.current = setTimeout(endPress, CLICK_FOLLOWS_MS);
     };
 
     /*
@@ -765,17 +938,28 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
      * apart -- `312 -> 4` then `4 -> 312`.
      */
     const went = (e: MouseEvent) => {
-      if (!aimed.current) return;
+      if (!aimedHref.current) return;
       const cell =
         e.target instanceof Element
           ? e.target.closest<HTMLElement>("[data-dock-goes]")
           : null;
-      if (cell !== aimed.current) return;
+      if (!cell || cell.getAttribute("href") !== aimedHref.current) return;
+      /*
+       * The bar already took this press. Next's `<Link>` stands down on a
+       * click whose default is prevented, and this listener is on the well
+       * rather than the anchor, so it runs first and the room is not
+       * entered twice.
+       */
+      if (navigated.current) {
+        e.preventDefault();
+        return;
+      }
       going.current = true;
       if (clickWatch.current) {
         clearTimeout(clickWatch.current);
         clickWatch.current = null;
       }
+      document.removeEventListener("pointermove", wander);
     };
 
     /* A keyboard never presses, and Enter is how it opens a link. */
@@ -788,10 +972,23 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
       if (cell) aim(cell);
     };
 
-    /* A cancel before the click is a genuinely abandoned press. */
-    const abandon = () => {
+    /*
+     * A cancel before the click.
+     *
+     * It used to mean the press was abandoned, and for a row in a
+     * scrolling list it still does. Not on a fixed bar: the browser fires
+     * this at a finger that has done nothing at all, because it has taken
+     * the touch to stop the page's momentum. `endPress` is what tells the
+     * two apart, and it is the same question the click deadline asks.
+     */
+    const abandon = (e: PointerEvent) => {
       if (going.current) return;
-      callOff();
+      if (!aimedHref.current) {
+        callOff();
+        return;
+      }
+      heldMs.current = e.timeStamp - pressedAt.current;
+      endPress();
     };
 
     host.addEventListener("pointerdown", press);
@@ -805,6 +1002,7 @@ export function useDockMarker(variant: DockVariant = "wide"): DockMarkerState {
       host.removeEventListener("keydown", key);
       document.removeEventListener("pointerup", release);
       document.removeEventListener("pointercancel", abandon);
+      document.removeEventListener("pointermove", wander);
       if (aimTimer.current) clearTimeout(aimTimer.current);
       if (clickWatch.current) clearTimeout(clickWatch.current);
     };

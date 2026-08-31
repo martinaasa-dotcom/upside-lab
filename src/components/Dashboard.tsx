@@ -2258,6 +2258,7 @@ export function Dashboard() {
 
   const dock = (
     <PortfolioTabs
+      key="wide-dock"
       className="hidden md:block"
       portfolios={portfolios}
       activeId={onBook ? activeId : null}
@@ -2302,15 +2303,33 @@ export function Dashboard() {
           title={mobileTab === "holdings" ? "Holdings" : "Overview"}
           end={accountEnd}
         />
+        {dock}
         {/*
-          The portfolio is named but not loaded yet, so the marker follows the
-          cell that asked for it. Hardcoding `home` here lit Overview while a
-          holdings table was on its way, which is the one moment a reader is
+          THE DOCK IS KEYED, AND IT IS IN THE SAME PARENT AS THE ONE BELOW,
+          BECAUSE A BAR THAT IS REBUILT LOSES THE PRESS IT IS IN THE MIDDLE
+          OF.
+
+          React matches children by position unless they carry a key, and
+          this branch and the full one below put the bar at different
+          positions inside the frame, so entering or leaving this branch
+          destroyed the element under the reader's finger and with it the
+          whole of `useDockMarker`'s memory of the press. Measured on the
+          real build at 390x844: pressing Holdings, which is exactly the
+          press that lands here, destroyed the anchor two frames after
+          `pointerdown` and the tap went nowhere. A key on both, in one
+          parent, is what makes it the same bar.
+
+          The marker follows the cell that asked for the portfolio, rather
+          than Overview: hardcoding `home` lit the wrong cell while a
+          holdings table was on its way, which is the moment a reader is
           most likely to think the tap missed.
         */}
-        <MobileTabBar active={mobileTab} hiddenModeIds={hiddenMetaTabIds} />
+        <MobileTabBar
+          key="phone-dock"
+          active={mobileTab}
+          hiddenModeIds={hiddenMetaTabIds}
+        />
       </div>
-      {dock}
       </>
     );
   }
@@ -2608,6 +2627,7 @@ export function Dashboard() {
         with. See `hrefForTabId`.
       */}
       <MobileTabBar
+        key="phone-dock"
         active={mobileTab}
         alertCount={activeAlerts.length}
         hiddenModeIds={hiddenMetaTabIds}
