@@ -51,3 +51,6 @@ supabase/.temp/
 .claude/settings.local.json
 .claude/worktrees/
 test-results/
+
+# Throwaway Playwright scripts written by audit agents while they measure the app
+scripts/_tmp_*
