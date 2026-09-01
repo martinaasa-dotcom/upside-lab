@@ -19,6 +19,11 @@ async function handleGET() {
   const auth = await requireAuthUser();
   if ("error" in auth) return auth.error;
 
+  // This is where a session begins: AuthProvider calls it once per session
+  // and Dashboard awaits it before its first book read. The profile row,
+  // the seed claims and the lab state row are made here rather than on
+  // GET /api/portfolios, which is polled every 45 seconds and on every room
+  // shown and must read the book and nothing else.
   await ensureProfileAndClaims(auth.user);
 
   const admin = await getSupabaseDataClient();
