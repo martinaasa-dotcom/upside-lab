@@ -22,36 +22,36 @@ before acting on it, and write the reasoning down beside the change.
 
 ## 1. Security
 
-- [ ] Snapshot restore lets a signed-in reader restore another account's portfolio by name (`restore_sheet`). Verify and close.
-- [ ] `/api/book/ytd-from-image` computes the 401 and throws it away.
-- [ ] Chat `ccContext` and `messages` reach the system prompt unshaped.
-- [ ] Holdings import skips the money and share ceilings the single-holding route enforces.
+- [~] Snapshot restore lets a signed-in reader restore another account's portfolio by name (`restore_sheet`). Verify and close.
+- [~] `/api/book/ytd-from-image` computes the 401 and throws it away.
+- [~] Chat `ccContext` and `messages` reach the system prompt unshaped.
+- [~] Holdings import skips the money and share ceilings the single-holding route enforces.
 - [ ] CSP `'unsafe-inline'` on scripts: measure a report-only nonce policy.
-- [ ] Unsubscribe matches email with `ilike` (LIKE wildcards).
-- [ ] `/auth/link` acts on GET (mail scanners confirm an address).
-- [ ] Raw error strings in three responses.
-- [ ] `/api/trends` on the per-instance limiter only.
-- [ ] Circle invite tokens stored in plaintext beside their hash.
-- [ ] Unshaped `conviction` and `forecast.rows` bodies; a malformed row is a 500.
-- [ ] `/api/book/nav-history` serves anonymous callers.
-- [ ] Second-pass finders: authorization and IDOR; input validation and injection; auth flows, cookies and crypto; abuse and rate limits; supply chain (`npm audit`, lockfile).
+- [~] Unsubscribe matches email with `ilike` (LIKE wildcards).
+- [~] `/auth/link` acts on GET (mail scanners confirm an address).
+- [~] Raw error strings in three responses.
+- [~] `/api/trends` on the per-instance limiter only.
+- [~] Circle invite tokens stored in plaintext beside their hash.
+- [~] Unshaped `conviction` and `forecast.rows` bodies; a malformed row is a 500.
+- [~] `/api/book/nav-history` serves anonymous callers.
+- [~] Second-pass finders: authorization and IDOR; input validation and injection; auth flows, cookies and crypto; abuse and rate limits; supply chain (`npm audit`, lockfile).
 
 ## 2. Performance, caching, page speed
 
-- [ ] Two remote auth round trips per API call (proxy plus route handler).
-- [ ] `GET /api/portfolios` writes on every read and is polled every 45 seconds.
-- [ ] `/api/upside-portfolio` recomputed per viewer.
-- [ ] Client fetch dedupe for quotes, fear and greed, portfolios, experience tier, market events.
-- [ ] Redundant FX-only quote poll.
+- [~] Two remote auth round trips per API call (proxy plus route handler).
+- [~] `GET /api/portfolios` writes on every read and is polled every 45 seconds.
+- [~] `/api/upside-portfolio` recomputed per viewer.
+- [~] Client fetch dedupe for quotes, fear and greed, portfolios, experience tier, market events.
+- [~] Redundant FX-only quote poll.
 - [ ] `cache: "no-store"` on CDN-public routes.
-- [ ] Two 1 Hz timers re-rendering rooms; fund freshness ticking while hidden.
-- [ ] Fear and greed refetched on every macro tick.
-- [ ] `radix-ui` barrel not in `optimizePackageImports`.
-- [ ] Margus chat chunk warmed by a different `import()` than the one that renders it.
-- [ ] `OverviewDashboard` memo defeated by two inline callbacks.
+- [~] Two 1 Hz timers re-rendering rooms; fund freshness ticking while hidden.
+- [~] Fear and greed refetched on every macro tick.
+- [~] `radix-ui` barrel not in `optimizePackageImports`.
+- [~] Margus chat chunk warmed by a different `import()` than the one that renders it.
+- [~] `OverviewDashboard` memo defeated by two inline callbacks.
 - [ ] Options scan on the book's critical path.
 - [ ] Service worker offline fallback on a shared device.
-- [ ] Second-pass finders: server latency, client waterfalls and polling, bundle and render cost, CDN and browser caching, measured before and after.
+- [~] Second-pass finders: server latency, client waterfalls and polling, bundle and render cost, CDN and browser caching, measured before and after.
 
 ## 3. Copy, voice, accuracy
 
@@ -63,7 +63,7 @@ before acting on it, and write the reasoning down beside the change.
 - [ ] Walls: the walkthrough's 62-word opening sentence, the terms' 200-word payment paragraph.
 - [ ] Empty states and error messages that do not say what to do next.
 - [ ] Every historical or market claim checked for accuracy.
-- [ ] Second-pass finders per screen, plus a claims checker with web verification.
+- [~] Second-pass finders per screen, plus a claims checker with web verification.
 
 ## 4. Margus
 
@@ -73,7 +73,7 @@ before acting on it, and write the reasoning down beside the change.
 - [ ] Tool descriptions say "cost basis" and "books".
 - [ ] Response speed: streaming, first-token time, chunk warm.
 - [ ] Openers, empty portfolio behaviour, what he can and cannot write.
-- [ ] Second-pass: an adversarial reader tries to make Margus give advice, use slang, or invent a number.
+- [~] Second-pass: an adversarial reader tries to make Margus give advice, use slang, or invent a number.
 
 ## 5. Onboarding
 
@@ -86,39 +86,39 @@ before acting on it, and write the reasoning down beside the change.
 
 - [ ] There is no glossary, no lesson, no quiz, no "why did this move" explainer beyond Pulse and Margus. Design a learning layer that is short, in context, and earned by looking at your own portfolio rather than a course.
 - [ ] Ideas to critique: plain-word glossary on tap for every term; one-minute reads triggered by what happened in your portfolio today; a paper portfolio to practise with; a weekly reflection; streaks that reward looking rather than trading; a "what would you have to believe" prompt per holding.
-- [ ] Judge panel on the ideas, then build the ones that survive.
+- [~] Judge panel on the ideas, then build the ones that survive.
 
 ## 7. Community (Circle)
 
 - [ ] What a circle does today: today board, shared holdings, league, members, daily duel, superlatives, power animals.
 - [ ] Ideas to critique: shared watchlist, a weekly circle letter, "explain this to me" requests, predictions with a scoreboard, reading a member's thesis.
-- [ ] Judge panel, then build.
+- [~] Judge panel, then build.
 
 ## 8. UI and UX per screen
 
-- [ ] Landing, Home, Portfolio, Pulse, Lab (mix, risk, trends, seasonality), Growth, Alerts, Circle list, Circle, Account, Upside Fund, Margus, every modal. Each judged on hierarchy, breathing room, purposeful placement, dead UI, mobile and laptop parity, empty, loading and error states.
+- [~] Landing, Home, Portfolio, Pulse, Lab (mix, risk, trends, seasonality), Growth, Alerts, Circle list, Circle, Account, Upside Fund, Margus, every modal. Each judged on hierarchy, breathing room, purposeful placement, dead UI, mobile and laptop parity, empty, loading and error states.
 - [ ] Interactive and animated elements where they teach something (a number counting to its value, a bar growing to its share, a path drawing itself).
-- [ ] Accessibility: keyboard, focus, labels, contrast, reduced motion, axe on every room.
+- [~] Accessibility: keyboard, focus, labels, contrast, reduced motion, axe on every room.
 
 ## 9. Integrations, links, consistency
 
-- [ ] Dead pages: `/dashboard`, `/forecast`, `/margus` deep link paints Home, `/api/user/export` orphan, `activeMobileTab` dead.
-- [ ] `/auth/*` missing from the noindex list.
-- [ ] Circle room titled "Communities" in metadata and Admin.
-- [ ] Forecast described as a room in three places.
-- [ ] README's room list.
+- [~] Dead pages: `/dashboard`, `/forecast`, `/margus` deep link paints Home, `/api/user/export` orphan, `activeMobileTab` dead.
+- [~] `/auth/*` missing from the noindex list.
+- [~] Circle room titled "Communities" in metadata and Admin.
+- [~] Forecast described as a room in three places.
+- [~] README's room list.
 
 ## 10. Documentation and rules
 
-- [ ] Read every rule in `AGENTS.md`, `DESIGN_TOKENS.md` and `docs/` against the goal. Loosen the ones that cost more than they protect, correct the ones that are wrong, and record why.
+- [~] Read every rule in `AGENTS.md`, `DESIGN_TOKENS.md` and `docs/` against the goal. Loosen the ones that cost more than they protect, correct the ones that are wrong, and record why.
 
 ## 11. Bloat and removal
 
-- [ ] Unused exports, unreachable routes, unused dependencies, features nobody can reach.
+- [~] Unused exports, unreachable routes, unused dependencies, features nobody can reach.
 
 ## 12. Tests and CI
 
-- [ ] A test per fix above. Invariants suite still green. CI runtime.
+- [~] A test per fix above. Invariants suite still green. CI runtime.
 
 ## 13. Merge and the live pass
 
