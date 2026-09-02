@@ -97,6 +97,10 @@ describe("a paper trade prices at the market", () => {
 
 describe("a class portfolio cannot spend money it has not got", () => {
   const holdings = read("src/app/api/holdings/route.ts");
+  // The sentence itself lives beside the RPC it stands in front of, so both
+  // routes and the import path say the same thing.
+  const cashTrade = read("src/lib/cash-trade.ts");
+  const refusalSentence = (phrase: string) => cashTrade.includes(phrase);
   const migration = read(
     "supabase/migrations/20260902140000_a_class_portfolio_cannot_spend_money_it_has_not_got.sql"
   );
@@ -127,15 +131,49 @@ describe("a class portfolio cannot spend money it has not got", () => {
       "not enough cash in this class portfolio" raised out of a Postgres
       function is not something to put in front of a fourteen-year-old, and
       the floor firing after the insert would leave shares nobody paid for.
+
+      This asserts the rule rather than the expression that carried it. The
+      first version pinned `const wouldCost = context.tracksTradeCash` and
+      the literal sentence, and both had to change when the guard was fixed
+      to charge the increase in a position rather than the whole of it, so
+      the test failed on an improvement, which is the one thing a guard must
+      not do.
     */
-    expect(holdings).toContain("const wouldCost = context.tracksTradeCash");
-    expect(holdings).toContain("Try fewer shares.");
-    const refusal = holdings.indexOf("Try fewer shares.");
+    expect(holdings).toContain("classCashRefusal(");
+    const refusal = holdings.indexOf("classCashRefusal(");
     expect(refusal).toBeLessThan(holdings.indexOf(".insert(row)"));
   });
 
   it("says the two figures rather than just refusing", () => {
-    expect(holdings).toContain("That costs ${currency(wouldCost)}");
-    expect(holdings).toContain("you have ${currency(context.cashBalance)}");
+    expect(refusalSentence("Try fewer shares.")).toBe(true);
+    expect(cashTrade).toContain("${currency(cost)}");
+    expect(cashTrade).toContain("${currency(known.cashBalance)}");
+  });
+
+  it("charges the increase in a position, never the whole of it", () => {
+    /*
+      The holding modal saves the new total even when it is editing a row,
+      so a guard reading that total as a purchase refused a student who was
+      SELLING: reducing fifty shares to twenty-five was charged as a
+      twenty-five share buy they could not afford.
+    */
+    expect(holdings).toMatch(
+      /const added = Math\.max\(0, shares - \(existingRow \? existingRow\.shares : 0\)\);/
+    );
+  });
+
+  it("does not leave shares behind when the floor refuses the debit", () => {
+    /*
+      The write and the debit are two transactions. The floor rolls its own
+      back and cannot touch this one, so a route that wrote the holding
+      first and answered 200 left a student holding shares nobody paid for.
+      Every one of the three write paths has to put the row back.
+    */
+    const reverts = holdings.split("NOT_ENOUGH_LEFT").length - 1;
+    expect(
+      reverts,
+      `Each of POST-insert, POST-update and PATCH has to undo its write ` +
+        `when applyTradeCashDelta answers null, and say so.`
+    ).toBeGreaterThanOrEqual(4);
   });
 });

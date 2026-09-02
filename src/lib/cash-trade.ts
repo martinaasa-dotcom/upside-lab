@@ -4,6 +4,7 @@ import { logError } from "@/lib/error-log";
 import { fetchQuotesWithFallback } from "@/lib/market/quotes";
 import { roundMoney } from "@/lib/money";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
+import { currency } from "@/lib/format";
 
 export { importCashDelta, tradeCashDelta } from "@/lib/cash-delta";
 
@@ -60,6 +61,31 @@ export async function portfolioTracksTradeCash(
  * read or moved by the database, because there the write really does change
  * it and a stale echo would be a wrong number.
  */
+/**
+ * The sentence a student reads instead of the database's own error.
+ *
+ * The floor lives in `portfell_apply_cash_delta` and has to: a check in Node
+ * is a read and then an act, and two overlapping buys both read the same
+ * balance and both pass. What this adds is the wording, said before anything
+ * is written, because "not enough cash in this class portfolio" raised out
+ * of a Postgres function is not a thing to show a fourteen-year-old.
+ *
+ * `cost` is what the trade takes OUT, so a sale or a reduction passes it a
+ * number at or below zero and is never refused. Charging the whole position
+ * rather than the increment is the mistake this exists to prevent: a student
+ * who has spent most of their cash could not sell half a holding, because
+ * the modal saves the new total and the guard read that total as a purchase.
+ */
+export function classCashRefusal(
+  known: { tracksTradeCash: boolean; cashBalance: number | null },
+  cost: number
+): string | null {
+  if (!known.tracksTradeCash) return null;
+  if (known.cashBalance == null) return null;
+  if (!(cost > known.cashBalance)) return null;
+  return `That costs ${currency(cost)} and you have ${currency(known.cashBalance)} to spend. Try fewer shares.`;
+}
+
 export async function applyTradeCashDelta(
   supabase: SupabaseClient,
   portfolioId: string,
