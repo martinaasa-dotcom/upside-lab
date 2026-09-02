@@ -73,10 +73,20 @@ describe("nothing reads a year by typing it out", () => {
   });
 
   it("keeps the drawer's horizons and the year they read on one list", () => {
+    /*
+      The rule is that no year is typed here and both horizons come from
+      the one list. This used to name the exact expression the drawer used
+      at the time, and the portfolio pass replaced it with the named
+      constants the same list now exports, which is an improvement that
+      failed the check. An assertion pinned to today's spelling teaches
+      the next person to weaken it.
+    */
     expect(code("src/components/TickerDrawer.tsx")).not.toMatch(YEAR);
-    expect(read("src/components/TickerDrawer.tsx")).toContain(
-      "FORECAST_YEARS[THREE_YEAR_INDEX]"
-    );
+    const drawer = read("src/components/TickerDrawer.tsx");
+    expect(drawer).toMatch(/THREE_YEAR|FORECAST_YEARS/);
+    expect(drawer).toMatch(/FIVE_YEAR|FORECAST_YEARS/);
+    // And they come from the module that owns the range, not from here.
+    expect(drawer).toMatch(/from "@\/lib\/forecast"/);
   });
 
   it("keeps the last year Margus is handed derived from the list", () => {
