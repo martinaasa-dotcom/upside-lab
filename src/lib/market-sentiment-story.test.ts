@@ -51,7 +51,7 @@ describe("marketDaysPhrase", () => {
 describe("buildSentimentCard", () => {
   it("leads with upward, stitches history into one body, and keeps gauges short", () => {
     const card = buildSentimentCard(CLIMB);
-    expect(card.lead.startsWith("Upward.")).toBe(true);
+    expect(card.lead.startsWith("The market is trending up.")).toBe(true);
     expect(card.lead).toContain("about 2 months more");
     expect(card.lead).not.toContain("speedometer");
     expect(card.reading.label).toBe("Steady climb");
@@ -68,25 +68,34 @@ describe("buildSentimentCard", () => {
       true
     );
     expect(card.gauges[0]!.fills.some((f) => f.className === "bg-gain/20")).toBe(true);
-    expect(card.gauges[1]!.sub).toBe("Mid-range");
+    expect(card.gauges[1]!.sub).toBe("Middle of its range");
     expect(card.gauges[1]!.ticks.map((t) => t.label)).toEqual(["20", "80"]);
     expect(card.gauges[1]!.scaleLo).toBe(20);
     expect(card.gauges[1]!.scaleHi).toBe(80);
     expect(card.gauges[2]!.sub).toBe("Neutral");
     expect(card.gauges[2]!.ticks.map((t) => t.label)).toEqual(["0", "100"]);
-    expect(card.gauges[2]!.fills.filter((f) => f.className.includes("loss"))).toHaveLength(
-      2
-    );
-    expect(card.gauges[2]!.fills.filter((f) => f.className.includes("gain"))).toHaveLength(
-      2
-    );
+    // Both ends of Fear & Greed are caution, never a gain on one side and a
+    // loss on the other: unusual either way, and neither is good or bad for
+    // somebody who holds their companies for years.
+    expect(
+      card.gauges[2]!.fills.filter((f) => f.className.includes("warning"))
+    ).toHaveLength(4);
+    expect(
+      card.gauges[2]!.fills.filter(
+        (f) => f.className.includes("loss") || f.className.includes("gain")
+      )
+    ).toHaveLength(0);
     expect(card.gauges[2]!.explain).toContain("extreme fear");
     expect(card.gauges[2]!.explain).toContain("extreme greed");
     expect(card.gauges[2]!.explain).not.toMatch(/panic|party/i);
     expect(card.gauges[0]!.markerPct).toBeGreaterThan(0);
     expect(card.stretch).not.toBeNull();
     expect(card.stretch!.inLabel).toContain("47 days above usual");
-    expect(card.stretch!.moreLabel).toContain("about 2 months more");
+    // Past tense: the fragment is what everybody reads, so it must not
+    // read as a promise that the run has two more months left in it.
+    expect(card.stretch!.moreLabel).toContain(
+      "Past runs lasted about 2 months longer"
+    );
     expect(card.stretch!.above).toBe(true);
     expect(card).not.toHaveProperty("fact");
     expect(card).not.toHaveProperty("history");
@@ -94,7 +103,7 @@ describe("buildSentimentCard", () => {
 
   it("leads with downward on a slide", () => {
     const card = buildSentimentCard(SLIDE);
-    expect(card.lead.startsWith("Downward.")).toBe(true);
+    expect(card.lead.startsWith("The market is trending down.")).toBe(true);
     expect(card.reading.label).toBe("Steady slide");
     expect(card.reading.pill).toBe("warn");
     expect(card.fitLine).toMatch(/^S&P 500 · \d+% match this reading$/);

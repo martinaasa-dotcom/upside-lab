@@ -1,6 +1,6 @@
 "use client";
 
-import { HouseholdCoinChips } from "@/components/CoinChips";
+import { HouseholdCoinChips, WatchSuggestionChips } from "@/components/CoinChips";
 import {
   cashtag,
   cn,
@@ -19,7 +19,7 @@ import {
   pickTickerSuggestion,
   resolveTypedTicker,
 } from "@/lib/market/ticker-search";
-import { isCoinSymbol, coinFromSymbol } from "@/lib/coins";
+import { HOUSEHOLD_COINS, isCoinSymbol, coinFromSymbol } from "@/lib/coins";
 import { normalizeYahooTicker } from "@/lib/ticker";
 import { useTickerSearch } from "@/lib/use-ticker-search";
 import { FALLBACK_POPULAR_TICKERS } from "@/lib/popular-tickers";
@@ -33,7 +33,6 @@ import {
 import { loadCachedQuotes, mergeQuotes, saveCachedQuotes } from "@/lib/quote-cache";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
 import {
-  EmptyState,
   MicroLabel,
   PanelHeader,
   Pill,
@@ -284,6 +283,29 @@ export function WatchlistStrip({
     for (const t of list) next.add(t.toUpperCase());
     return next;
   }, [heldTickers, list]);
+
+  /*
+   * Chips for somebody with an empty list: companies from the month's
+   * popular list that they do not already hold or watch, plus one coin so
+   * the coin path is still one tap away. Capped at five, because this is a
+   * nudge rather than a menu.
+   */
+  const holdsACoin = useMemo(
+    () => heldTickers.some((t) => isCoinSymbol(t)),
+    [heldTickers]
+  );
+  const chipTickers = useMemo(() => {
+    const out: string[] = [];
+    for (const t of popular) {
+      if (out.length >= 4) break;
+      if (exclude.has(t.toUpperCase())) continue;
+      if (isCoinSymbol(t)) continue;
+      out.push(t);
+    }
+    const coin = HOUSEHOLD_COINS.find((c) => !exclude.has(c.symbol));
+    if (coin) out.push(coin.symbol);
+    return out.slice(0, 5);
+  }, [popular, exclude]);
 
   const suggestions = useMemo(
     () =>
@@ -575,17 +597,27 @@ export function WatchlistStrip({
           </Popover>
         }
       />
-      <HouseholdCoinChips
-        hidden={exclude}
-        onPick={(symbol) => void add(symbol)}
-        disabled={adding}
-      />
-      {names.length === 0 ? (
-        <EmptyState
-          title="Nothing on the list yet"
-          detail="Add a company or a coin you don't own. You'll see today's price and where it sits in its recent range."
+      {/*
+        * Coin chips only for somebody who already holds a coin. Everybody
+        * else gets companies. And until the first name goes on the list
+        * there is no dashed box under this: the header and the input above
+        * already say what the panel is for, and a 300px placeholder
+        * restating it is 300px at the bottom of a long page.
+        */}
+      {holdsACoin ? (
+        <HouseholdCoinChips
+          hidden={exclude}
+          onPick={(symbol) => void add(symbol)}
+          disabled={adding}
         />
       ) : (
+        <WatchSuggestionChips
+          tickers={chipTickers}
+          onPick={(symbol) => void add(symbol)}
+          disabled={adding}
+        />
+      )}
+      {names.length === 0 ? null : (
         <>
           <ul className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2">
             {names.map((ticker) => {

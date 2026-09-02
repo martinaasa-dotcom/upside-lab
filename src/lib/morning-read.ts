@@ -39,6 +39,15 @@ export type SundayName = {
 export type SundayRecap = {
   best: SundayName | null;
   worst: SundayName | null;
+  /**
+   * True only when the week's own marks supplied these figures.
+   *
+   * On a new device, or after storage is cleared, there are no marks and
+   * this falls back to the live day, which is Friday. Labelling one
+   * Friday's move "biggest week move" states a week's result the app never
+   * saw, so the caller says "on Friday" instead.
+   */
+  fromWeek: boolean;
 };
 
 /**
@@ -64,6 +73,14 @@ export type MorningNotice = {
   source: MorningSource;
   /** Set only when the card is about one company, so it can offer Pulse. */
   ticker?: string;
+  /**
+   * What the card is asking for, when it asks for anything.
+   *
+   * "write-thesis" is a note the reader has not written yet, which is a
+   * to-do rather than a hazard: it takes a pencil and a calm ring, never
+   * the warning triangle this app keeps for money at risk.
+   */
+  ask?: "write-thesis";
 };
 
 export type MorningRead = {
@@ -102,6 +119,7 @@ type Candidate = {
   /** Defaults to "holdings", which is what all but a handful of these are. */
   source?: MorningSource;
   ticker?: string;
+  ask?: "write-thesis";
 };
 
 function holdingsFrom(model: OverviewModel): InsightHolding[] {
@@ -121,6 +139,23 @@ function holdingsFrom(model: OverviewModel): InsightHolding[] {
 function aboutMove(pct: number): string {
   const n = Math.round(Math.abs(pct) * 100);
   return n === 0 ? "less than 1%" : `about ${n}%`;
+}
+
+/** The size of a move with the direction still attached to it. */
+function wayAndMove(pct: number): string {
+  if (Math.round(Math.abs(pct) * 100) === 0) return "barely moved";
+  return `${pct >= 0 ? "up" : "down"} ${aboutMove(pct)}`;
+}
+
+/**
+ * A sentence that follows a full stop starts with a capital letter.
+ *
+ * These clauses are built to sit either mid-sentence or as a sentence of
+ * their own, and the templates that put one after a full stop were printing
+ * "the rest of your holdings are ..." on the first card a reader reads.
+ */
+function sentenceCase(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function sharePct(pct: number): string {
@@ -243,6 +278,7 @@ export function buildSundayRecap(model: OverviewModel): SundayRecap | null {
   return {
     best,
     worst,
+    fromWeek: Boolean(weekBest || weekWorst),
   };
 }
 
@@ -263,6 +299,27 @@ function awayCandidate(visitDiff: VisitDiff | null): Candidate | null {
   const tickerLine = visitDiff.lines.find((l) => l.id.startsWith("t-"));
   if (tickerLine) {
     const subject = tickerLine.id.replace(/^t-/, "").replace(/^\$/, "");
+    /*
+     * A sentence, not a line of a table. The visit line reads
+     * "$NVDA +2.3% (+$1,234)", which is fine in a list and is not
+     * something a person says out loud, so the numbers are taken off it
+     * and written into English here.
+     */
+    const way = (tickerLine.deltaPct ?? 0) >= 0 ? "up" : "down";
+    const sizePct =
+      tickerLine.deltaPct != null
+        ? aboutMove(tickerLine.deltaPct)
+        : null;
+    const sizeMoney =
+      tickerLine.deltaValue != null
+        ? signedCurrency(Math.abs(tickerLine.deltaValue), 0)
+        : null;
+    const said =
+      sizePct && sizeMoney
+        ? `${cashtag(subject)} is ${way} ${sizePct}, which is ${sizeMoney} on what you hold`
+        : sizePct
+          ? `${cashtag(subject)} is ${way} ${sizePct}`
+          : tickerLine.text;
     return {
       id: `away-${visitDiff.previousAt}`,
       subject,
@@ -277,9 +334,9 @@ function awayCandidate(visitDiff: VisitDiff | null): Candidate | null {
       ticker: subject,
       label: "Since you looked",
       text: say(`away|${visitDiff.previousAt}`, [
-        `Since you last looked, ${tickerLine.text}. That is the first thing to know.`,
-        `${tickerLine.text} while you were away. The rest can wait.`,
-        `New since you opened this last: ${tickerLine.text}.`,
+        `Since you last looked, ${said}. That is the first thing to know.`,
+        `${sentenceCase(said)} while you were away. The rest can wait.`,
+        `New since you opened this last: ${said}.`,
       ]),
     };
   }
@@ -312,12 +369,19 @@ function loneCandidate(
   const move = aboutMove(fact.pct);
   const whenTail = tail(when);
   const otherNames = fact.others.map((o) => cashtag(o.ticker));
+  /*
+   * The rest of the portfolio is described by its real size, not by the
+   * sign of it. This used to read "roughly flat to slightly down" off
+   * `restPct >= 0` alone, so a portfolio whose other holdings had fallen
+   * five per cent was told they were roughly flat: a figure this app
+   * states as fact and had not measured.
+   */
   const vs =
     fact.othersQuiet && otherNames.length === 2
       ? `${otherNames[0]} and ${otherNames[1]} have barely moved`
       : fact.othersQuiet && otherNames.length === 1
         ? `${otherNames[0]} has barely moved`
-        : `the rest of your holdings are roughly ${fact.restPct >= 0 ? "flat to slightly up" : "flat to slightly down"}`;
+        : `the rest of your holdings are ${wayAndMove(fact.restPct)}`;
   const up = fact.pct >= 0;
   const id = `lone-${fact.ticker}`;
   return {
@@ -328,9 +392,9 @@ function loneCandidate(
     rank: 82,
     ticker: fact.ticker,
     text: say(seedFor(lookIndex, id), [
-      `${t} is ${up ? "up" : "down"} ${move} ${whenTail}. ${vs}.`,
-      `Quick note: ${t} did ${move} ${whenTail} on its own. ${vs}.`,
-      `${t} just moved ${move}. Nothing else in the portfolio is doing that.`,
+      `${t} is ${up ? "up" : "down"} ${move} ${whenTail}. ${sentenceCase(vs)}.`,
+      `Quick note: ${t} is ${up ? "up" : "down"} ${move} ${whenTail} on its own. ${sentenceCase(vs)}.`,
+      `${t} just moved ${up ? "up" : "down"} ${move}. Nothing else in the portfolio is doing that.`,
     ]),
   };
 }
@@ -398,7 +462,7 @@ function mixCandidate(
     rank: 50,
     text: say(seedFor(lookIndex, id), [
       `${lead} ${when === "friday" ? "were" : "are"} ${fact.pct >= 0 ? "up" : "down"} ${aboutMove(fact.pct)} ${whenTail}. That group is ${sharePct(fact.share)} of the portfolio, so this is a ${fact.plain} day for you.`,
-      `Most of the portfolio is ${fact.label} (${sharePct(fact.share)}). They moved ${aboutMove(fact.pct)} ${whenTail}.`,
+      `Most of the portfolio is ${fact.label} (${sharePct(fact.share)}). They are ${wayAndMove(fact.pct)} ${whenTail}.`,
     ]),
   };
 }
@@ -542,11 +606,11 @@ function breadthCandidate(
     rank: 64,
     text: say(seedFor(lookIndex, id), wideDown
       ? [
-          `${down} of your ${n} names are down ${tail(when)}. That is nearly everything moving together, not one company.`,
+          `${down} of your ${n} holdings are down ${tail(when)}. That is nearly everything moving together, not one company.`,
           `Almost everything you own is red ${tail(when)} (${down} of ${n}).`,
         ]
       : [
-          `${up} of your ${n} names are up ${tail(when)}. That is nearly everything moving together, not one company.`,
+          `${up} of your ${n} holdings are up ${tail(when)}. That is nearly everything moving together, not one company.`,
           `Almost everything you own is green ${tail(when)} (${up} of ${n}).`,
         ]),
   };
@@ -663,7 +727,9 @@ function pulseCandidates(
         kind: "gap",
         rank: 62,
         ticker: t.ticker,
-        text: `${cashtag(t.ticker)} ${t.todayPct >= 0 ? "rose" : "fell"} ${aboutMove(t.todayPct)} ${whenTail}, and you have not written down why you own it.`,
+        label: "Worth writing down",
+        ask: "write-thesis",
+        text: `${cashtag(t.ticker)} ${t.todayPct >= 0 ? "rose" : "fell"} ${aboutMove(t.todayPct)} ${whenTail}, and you have not written down why you own it. A line now is what tells you, on a bad week, whether anything has actually changed.`,
       });
     }
   }
@@ -735,10 +801,22 @@ function subjectSeen(subject: string, shown: Set<string>): boolean {
   return false;
 }
 
+/**
+ * How hard a repeated subject is pushed down the list.
+ *
+ * The same penalty is charged whether the subject was read in an earlier
+ * sitting or is already standing in the card beside this one, because a
+ * reader cannot tell those apart and both read as the app repeating
+ * itself. Big enough to lose to any other candidate on the list, small
+ * enough that one repeated subject still beats an empty card.
+ */
+const REPEAT_PENALTY = 25;
+
 function pickKind(
   list: Candidate[],
   lockId: string | null | undefined,
-  shown: Set<string>
+  shown: Set<string>,
+  avoidSubject?: string | null
 ): Candidate | null {
   if (lockId) {
     const locked = list.find((c) => c.id === lockId);
@@ -750,7 +828,8 @@ function pickKind(
       score:
         c.rank -
         (shown.has(c.fingerprint) ? 1000 : 0) -
-        (subjectSeen(c.subject, shown) ? 25 : 0),
+        (subjectSeen(c.subject, shown) ? REPEAT_PENALTY : 0) -
+        (avoidSubject && c.subject === avoidSubject ? REPEAT_PENALTY : 0),
     }))
     .filter((x) => x.score > -400)
     .sort((a, b) => b.score - a.score || a.c.id.localeCompare(b.c.id));
@@ -779,18 +858,27 @@ export function pickHomeNotices(
       kind: "notice",
       source: n.source ?? "holdings",
       ticker: n.ticker,
+      ask: n.ask,
     });
   }
-  const g = pickKind(gaps, opts.sittingLock?.gapId, shown);
+  /*
+   * The gap card avoids the subject the notice beside it already used.
+   *
+   * Both cards are picked from the same day's facts, so left alone they
+   * land on the loudest holding together: two cards, one company, two
+   * identical buttons, which reads as the page padding itself out.
+   */
+  const g = pickKind(gaps, opts.sittingLock?.gapId, shown, n?.subject ?? null);
   if (g) {
     out.push({
       id: g.id,
       fingerprint: g.fingerprint,
-      label: g.label ?? "Also",
+      label: g.label ?? "Worth a look",
       text: g.text,
       kind: "gap",
       source: g.source ?? "holdings",
       ticker: g.ticker,
+      ask: g.ask,
     });
   }
   return out;
@@ -810,7 +898,7 @@ export function buildMorningRead(
   const sunday = isSundayTallinn() ? buildSundayRecap(model) : null;
   const afterClose = isUsAfterCashClose(session);
   const lookIndex = extras.lookIndex ?? 0;
-  const noticeLabel = when === "friday" ? "Friday's close" : "Update";
+  const noticeLabel = when === "friday" ? "Friday's close" : "One thing today";
   const notices = pickHomeNotices(
     liveCandidates(model, visitDiff, when, extras.notes, lookIndex),
     {

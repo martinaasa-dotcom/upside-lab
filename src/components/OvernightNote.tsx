@@ -98,9 +98,9 @@ export function OvernightNote({ className }: { className?: string }) {
   return (
     <p
       className={cn("text-sm text-muted-foreground", className)}
-      title="US stocks do not trade between 20:00 and 04:00 in New York. Index futures do, so this is where the market is heading, not a price for anything you own."
+      title="US stocks do not trade between 20:00 and 04:00 in New York. Index futures do, so this says which way the market has moved since the close, not a price for anything you own."
     >
-      Overnight futures:{" "}
+      Overnight, index futures:{" "}
       {indication.legs.map((leg, i) => (
         <span key={leg.symbol}>
           {i > 0 ? ", " : ""}

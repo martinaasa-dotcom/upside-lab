@@ -2160,7 +2160,15 @@ run("chart ticks stay HTML text-xs, never SVG text", () => {
   assert.match(nav, /h-64 w-full/);
   assert.match(nav, /min-h-9/);
   assert.match(nav, /plotMax = scale.max \+ span \* 0\.18/);
-  assert.match(nav, /held these same companies all year/i);
+  /*
+   * The caption says the stretch is an estimate, and the assumed part of
+   * the line is drawn dashed rather than in the same solid gold as the days
+   * Upside Lab actually recorded. "This assumes you held these same
+   * companies all year" was true and said nothing about what a reader was
+   * looking at, which was a modelled curve painted exactly like history.
+   */
+  assert.match(nav, /An estimate\. It assumes you held these same companies/i);
+  assert.match(nav, /strokeDasharray/);
   assert.match(nav, /Fill in an assumed year/);
   assert.doesNotMatch(nav, /!assumed && !loading && onRestoreAssumed/);
   const home = readFileSync(
@@ -2621,7 +2629,10 @@ run("movers are compact tiles, not a stretched table or sparkline", () => {
   assert.doesNotMatch(src, /MOVER_GRID/);
   assert.doesNotMatch(row, /8\.5rem/);
   assert.match(row, /percent\(pct/);
-  assert.match(row, /signedCurrency\(dollars/);
+  // `tileMoney` is `signedCurrency` with one case in front of it: a move
+  // that rounds away says "Under $1" rather than "$0", which on a tile
+  // reads as a figure that failed to load.
+  assert.match(row, /tileMoney\(dollars/);
   assert.match(row, /min-w-0/);
   assert.match(row, /shrink-0/);
   assert.match(src, /sm:grid-cols-2/);
@@ -3095,9 +3106,15 @@ run("first-run is import, not an empty named sheet", () => {
     join(process.cwd(), "src/components/OverviewDashboard.tsx"),
     "utf8"
   );
+  /*
+   * Three equal ways in, each with its hint visible. The wording moved off
+   * broker jargon ("Import a screenshot") onto what the reader actually
+   * does, and the hints are on the screen instead of in `title` attributes
+   * a phone never shows.
+   */
   assert.match(overview, /Upload a CSV/);
-  assert.match(overview, /Import a screenshot/);
-  assert.match(overview, /Not Apple Stocks or a watchlist/);
+  assert.match(overview, /Photo of your broker screen/);
+  assert.match(overview, /Not a watchlist/);
   assert.doesNotMatch(overview, /watch the Upside Fund or start a circle below/);
   assert.doesNotMatch(dash, /Invite someone onto this sheet/);
   assert.doesNotMatch(dash, /wasEmpty && !pulseHiddenForTier/);
@@ -3359,7 +3376,15 @@ run("gap thoughts name the weight and the mix", () => {
     join(process.cwd(), "src/lib/morning-read.ts"),
     "utf8"
   );
-  assert.match(morning, /Also/);
+  /*
+   * The two Home cards say what kind of card they are. "Update" is the
+   * label of a system message and "Also" is not a label at all, so they are
+   * "One thing today" and "Worth a look"; a note the reader has not written
+   * yet gets its own calmer "Worth writing down".
+   */
+  assert.match(morning, /One thing today/);
+  assert.match(morning, /Worth a look/);
+  assert.match(morning, /Worth writing down/);
   assert.doesNotMatch(morning, /A thought/);
   assert.doesNotMatch(morning, /A few names did the work/);
   assert.doesNotMatch(morning, /A few holdings moved the whole number/);

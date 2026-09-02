@@ -394,9 +394,19 @@ function monthTicks(
  */
 export function MobileBookNavChart({
   points,
+  assumedAll = false,
+  assumedUntil = null,
   className,
 }: {
   points: NavPoint[];
+  /** Nothing was recorded, so the whole path is worked out. */
+  assumedAll?: boolean;
+  /**
+   * The first day Upside Lab actually recorded, when the stretch before it
+   * is worked out rather than remembered. Everything up to it draws dashed
+   * and half lit, so a reader cannot mistake an estimate for their history.
+   */
+  assumedUntil?: string | null;
   className?: string;
 }) {
   const gid = useId().replace(/:/g, "");
@@ -443,8 +453,45 @@ export function MobileBookNavChart({
       .map((p, i) => `${xAt(i).toFixed(1)},${yAt(p.nav).toFixed(1)}`)
       .join(" ");
     const area = `${xAt(0).toFixed(1)},${(padT + innerH).toFixed(1)} ${line} ${xAt(lastIdx).toFixed(1)},${(padT + innerH).toFixed(1)}`;
-    return { ...scale, innerW, innerH, lastIdx, xAt, yAt, line, area };
-  }, [usable]);
+    /*
+     * Two polylines, not one, when part of the year is worked out.
+     *
+     * The split index is the first recorded day, and it belongs to BOTH
+     * halves so the estimate and the record meet rather than leaving a gap
+     * of one day between them.
+     */
+    const splitAt =
+      assumedUntil == null
+        ? -1
+        : usable.findIndex((p) => p.date >= assumedUntil);
+    const hasSplit = splitAt > 0 && splitAt < lastIdx;
+    const pointsFor = (from: number, to: number) =>
+      usable
+        .slice(from, to + 1)
+        .map((p, k) => `${xAt(from + k).toFixed(1)},${yAt(p.nav).toFixed(1)}`)
+        .join(" ");
+    // Nothing recorded at all is the whole path dashed, with no second half
+    // to compare it against and no legend to draw.
+    const estimated = assumedAll
+      ? line
+      : hasSplit
+        ? pointsFor(0, splitAt)
+        : null;
+    const recordedLine =
+      assumedAll || !hasSplit ? null : pointsFor(splitAt, lastIdx);
+    return {
+      ...scale,
+      innerW,
+      innerH,
+      lastIdx,
+      xAt,
+      yAt,
+      line,
+      area,
+      estimated,
+      recordedLine,
+    };
+  }, [usable, assumedAll, assumedUntil]);
 
   if (!geometry) {
     return (
@@ -460,7 +507,18 @@ export function MobileBookNavChart({
     );
   }
 
-  const { ticks, innerW, innerH, lastIdx, xAt, yAt, line, area } = geometry;
+  const {
+    ticks,
+    innerW,
+    innerH,
+    lastIdx,
+    xAt,
+    yAt,
+    line,
+    area,
+    estimated,
+    recordedLine,
+  } = geometry;
   const startNav = usable[0]!.nav;
   const xLabels = monthTicks(usable);
   const hover =
@@ -553,13 +611,22 @@ export function MobileBookNavChart({
           ) : null}
         </div>
 
-        <div className="relative">
+        {/*
+          * The value labels sit in a gutter, not on the plot.
+          *
+          * Drawn as an overlay they were painted inside the plot area at
+          * the left edge, and on a phone "20K" sat directly on top of the
+          * gold path. A halo behind the glyphs kept them readable and did
+          * nothing about a number with a line through it. 36px is enough
+          * for the widest label this axis prints.
+          */}
+        <div className="relative flex">
           <ChartYAxis
-            overlay
             ticks={ticks}
             yAt={yAt}
             height={height}
             format={compactAxis}
+            className="w-9 pr-1.5"
           />
           <svg
             ref={svgRef}
@@ -604,14 +671,39 @@ export function MobileBookNavChart({
               />
             ))}
             <polygon points={area} fill={`url(#${gid})`} />
-            <polyline
-              fill="none"
-              stroke={PALETTE.brand}
-              strokeWidth={1.5}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              points={line}
-            />
+            {estimated ? (
+              <>
+                <polyline
+                  fill="none"
+                  stroke={PALETTE.brand}
+                  strokeOpacity={0.5}
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  points={estimated}
+                />
+                {recordedLine ? (
+                  <polyline
+                    fill="none"
+                    stroke={PALETTE.brand}
+                    strokeWidth={1.5}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    points={recordedLine}
+                  />
+                ) : null}
+              </>
+            ) : (
+              <polyline
+                fill="none"
+                stroke={PALETTE.brand}
+                strokeWidth={1.5}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                points={line}
+              />
+            )}
             {hover != null && hoverPoint && (
               <g pointerEvents="none">
                 <line
@@ -635,7 +727,8 @@ export function MobileBookNavChart({
           </svg>
         </div>
       </div>
-      <ChartXRail inset className="mt-3">
+      {/* Same 36px gutter as the value axis, so the months line up. */}
+      <ChartXRail className="mt-3" railClassName="w-9">
           {xMarks.map((tick, i) => {
             const isFirst = i === 0;
             const isLast = i === xMarks.length - 1;
@@ -657,6 +750,38 @@ export function MobileBookNavChart({
             );
           })}
       </ChartXRail>
+      {estimated && recordedLine ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 pl-9 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <svg width="18" height="2" aria-hidden className="shrink-0">
+              <line
+                x1="0"
+                y1="1"
+                x2="18"
+                y2="1"
+                stroke={PALETTE.brand}
+                strokeOpacity={0.5}
+                strokeWidth={2}
+                strokeDasharray="4 4"
+              />
+            </svg>
+            Worked out
+          </span>
+          <span className="flex items-center gap-1.5">
+            <svg width="18" height="2" aria-hidden className="shrink-0">
+              <line
+                x1="0"
+                y1="1"
+                x2="18"
+                y2="1"
+                stroke={PALETTE.brand}
+                strokeWidth={2}
+              />
+            </svg>
+            Recorded
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -735,7 +860,7 @@ export function BookNavChart({
       if (ctrl.signal.aborted) return;
       if (!res.ok || !(data.startNav != null && data.startNav > 0)) {
         setReadError(
-          data.error || "Couldn't read a year-to-date from that. Type the number instead."
+          data.error || "Couldn't read a year-to-date from that. Type it in instead."
         );
         setFixOpen(true);
         return;
@@ -748,7 +873,7 @@ export function BookNavChart({
       });
     } catch (err) {
       if (isAbortError(err) || ctrl.signal.aborted) return;
-      setReadError("Couldn't read that screenshot. Type the number instead.");
+      setReadError("Couldn't read that screenshot. Type it in instead.");
     } finally {
       if (!ctrl.signal.aborted) setReading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -762,14 +887,24 @@ export function BookNavChart({
           Working out this year’s path …
         </p>
       ) : (
-        <MobileBookNavChart points={points} />
+        <MobileBookNavChart
+          points={points}
+          assumedAll={assumed && !firstRealDate}
+          assumedUntil={assumed ? firstRealDate : null}
+        />
       )}
       {assumed && hasChart && (
         <div className="flex flex-col mt-4 gap-3">
+          {/*
+            * The estimate says it is one, in the caption and in the line
+            * itself. "Fix the year" implied something was broken, and
+            * "Only recorded nights" is the nightly snapshot, a phrase no
+            * reader has met.
+            */}
           <p className="text-sm text-muted-foreground">
             {anchored
-              ? "Using the year you gave us."
-              : "This assumes you held these same companies all year."}
+              ? "Using the value you gave us for 1 January."
+              : "An estimate. It assumes you held these same companies since January."}
           </p>
           {readError && <p className="text-sm text-loss">{readError}</p>}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -782,7 +917,7 @@ export function BookNavChart({
                   setFixOpen((open) => !open);
                 }}
               >
-                {fixOpen ? "Hide" : "Fix the year"}
+                {fixOpen ? "Hide" : "Know what it was worth on 1 January? Enter it"}
               </Button>
             )}
             {fixOpen && onApplyAnchor && !anchored && (
@@ -793,7 +928,7 @@ export function BookNavChart({
                   disabled={reading}
                   onClick={() => fileRef.current?.click()}
                 >
-                  {reading ? "Reading screenshot…" : "Upload screenshot"}
+                  {reading ? "Reading screenshot …" : "Upload a screenshot of it"}
                 </Button>
                 <Button
                   type="button"
@@ -803,7 +938,7 @@ export function BookNavChart({
                     setManualOpen(true);
                   }}
                 >
-                  Type the number
+                  Type it in
                 </Button>
               </>
             )}
@@ -825,7 +960,7 @@ export function BookNavChart({
                 variant="link"
                 onClick={onClearAnchor}
               >
-                Go back to assuming you held these all year
+                Go back to the estimate
               </Button>
             )}
             {onDiscardAssumed && (
@@ -834,7 +969,9 @@ export function BookNavChart({
                 variant="link"
                 onClick={onDiscardAssumed}
               >
-                {recorded ? `Start from ${recorded}` : "Only recorded nights"}
+                {recorded
+                  ? `Show only days Upside Lab recorded, from ${recorded}`
+                  : "Show only days Upside Lab recorded"}
               </Button>
             )}
           </div>
