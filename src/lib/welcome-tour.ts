@@ -45,35 +45,52 @@ import { PRODUCT_NAME } from "@/lib/product";
  *     ground rules say out loud that no screen here will tell you to buy
  *     or sell. That is materially different copy, which is the bar this
  *     number is meant to clear.
+ * 4 - the walkthrough stops being a document and starts being the app
+ *     (2026-09-02). Eleven screens of prose became seven screens that each
+ *     want a tap before they want a read, which is a different thing
+ *     rather than the same thing reworded, and it is the bar this number
+ *     exists for.
+ *
+ *     Screen one is a made-up portfolio having a bad day with one company
+ *     in it that had news, and the reader is asked which. That question
+ *     IS the product, and being told the answer in a sentence had never
+ *     worked: people signed up, read "Pulse tells you whether it was the
+ *     company or the market", and still could not say what the app was
+ *     for. The ground rules are sorted rather than listed, the bar along
+ *     the bottom is a working miniature you press, and the two experience
+ *     questions sit beside a small Home that visibly loses the Lab glyph
+ *     and the covered calls row as the answers change, so a promise about
+ *     what the app will look like is shown instead of made.
+ *
+ *     Several things it used to say were also not true, and a reader could
+ *     find that out on their own. It pointed at a plus button the phone
+ *     bar does not have; it promised "no come back email" while a cron
+ *     mailed an empty portfolio a reminder every week; it told the reader
+ *     to "skip this" on a screen whose only skip button leaves the whole
+ *     walkthrough; and it described the Sunday email three different ways
+ *     across three surfaces. Those are fixed, and the email is now one
+ *     sentence that the landing page and Account print word for word.
  */
-export const WELCOME_TOUR_VERSION = 3;
+export const WELCOME_TOUR_VERSION = 4;
 
 export type Stage =
-  | "what"
-  | "why"
-  | "map"
-  | "helps"
+  | "day"
   | "rules"
-  | "q1"
-  | "q2"
+  | "rooms"
+  | "you"
   | "holdings"
   | "watchlist"
-  | "email"
-  | "done";
+  | "week";
 
 /** The dot label under the progress bar. Short: it shares a line with a count. */
 export const STAGE_LABEL: Record<Stage, string> = {
-  what: "What this is",
-  why: "Why this one",
-  map: "Where things are",
-  helps: "What it does",
+  day: "A red day",
   rules: "Ground rules",
-  q1: "About you",
-  q2: "Options",
+  rooms: "The bar",
+  you: "About you",
   holdings: "What you own",
   watchlist: "Watching",
-  email: "Sunday email",
-  done: "Done",
+  week: "Your first week",
 };
 
 /** The one element `aria-labelledby` points at, on every screen. */
@@ -94,73 +111,49 @@ export function screenCopy(
   tierLabel: string | null
 ): { title: string; lede: string } {
   switch (stage) {
-    case "what":
+    case "day":
       return {
-        title: `This is ${PRODUCT_NAME}`,
+        title: `A bad day, in ${PRODUCT_NAME}`,
         lede:
-          "You tell it what you already own: the name, how many you hold, what you paid. From then on you get your whole portfolio said back to you in ordinary sentences, and on the days it falls you find out whether anything actually happened at those companies or whether the whole market simply had a bad day.",
-      };
-    case "why":
-      return {
-        title: "Why this, when you already have a broker",
-        lede:
-          "This is the question everybody asks, so it is worth two minutes now. Keep your broker. Nothing here is trying to replace it, and nothing here can buy or sell anything.",
-      };
-    case "map":
-      return {
-        title: "Where everything is",
-        lede:
-          "The bar along the bottom of the screen is how you move around, and your portfolio sits in it too. The + button makes another portfolio if you ever need one. The only thing not on that bar is your account, which is the picture in the top corner.",
-      };
-    case "helps":
-      return {
-        title: "Pulse, Margus, Circle, and the Sunday letter",
-        lede:
-          "All four are about the names you already hold and the people you choose to share them with. None of them will tell you to buy, sell, or hold. That decision stays yours every single time.",
+          "Everything below is made up: a portfolio nobody owns, on a day that never happened. Seven of these eight companies fell because the whole market fell. One fell because of something that happened at the company. In a list of red numbers those look exactly the same, which is the problem this app exists for.",
       };
     case "rules":
       return {
         title: "What this does and does not do",
         lede:
-          "The first two are the ones people say they wish they had known. Better to find out now than after you have typed everything in.",
+          "Six things people believe about this app before they use it. Two of them are true. Better to find out which now than after you have typed everything in.",
       };
-    case "q1":
+    case "rooms":
       return {
-        title: "How would you describe yourself?",
+        title: "Where everything is",
         lede:
-          "This only changes how much is shown at once. Nothing is locked away, and you can change it whenever you like in Account.",
+          "The bar along the bottom of the screen is how you move around, and your own portfolio sits in it too.",
       };
-    case "q2":
+    case "you":
       return {
-        title: "Have you used covered calls or other options?",
+        title: "Two questions about you",
         lede:
-          "A separate question from the last one. Plenty of very experienced investors have never touched an option. Also changeable in Account.",
+          "These only change how much is shown at once. Nothing is locked away, both are changeable in Account whenever you like, and you can watch the app change underneath as you answer.",
       };
     case "holdings":
       return {
         title: "Add what you own",
         lede:
-          "The ticker or the coin, how many you hold, and roughly what you paid. One is enough to make Home worth opening. If you have a lot of them, skip this. Home has a CSV import that takes the whole lot at once.",
+          "The ticker or the coin, how many you hold, and roughly what you paid. One company is enough to make Home worth opening, and there are four ways in so you can use whichever is least work.",
       };
     case "watchlist":
       return {
-        title: "Names you are watching",
+        title: "Anything you are watching?",
         lede:
-          "Ones you do not own but are curious about. Pulse keeps an eye on them too, and the Sunday email can bring them up. Skip if you have none in mind.",
+          "Companies you do not own but are curious about. Pulse keeps an eye on them too, and the Sunday email can bring them up. Press Next if you have none in mind.",
       };
-    case "email":
-      return {
-        title: "Want the Sunday email?",
-        lede:
-          "One email a week and nothing else. There is no daily note, no alert, and no “come back”. It starts once there are names in a portfolio, and it is one switch in Account either way.",
-      };
-    case "done":
+    case "week":
       return {
         title: tierLabel
-          ? `That is the whole app. Showing you the ${tierLabel} view`
+          ? `That is the whole app. It is set to "${tierLabel}"`
           : "That is the whole app",
         lede:
-          "Home is where you land. The bar along the bottom is everything else, and Account holds every switch this walkthrough set. The day the market falls and you want to know what it means, this is the app to open.",
+          "Home is where you land, the bar along the bottom is everything else, and Account holds every switch this walkthrough set. The day the market falls and you want to know what it means, this is the app to open.",
       };
   }
 }
@@ -168,11 +161,12 @@ export function screenCopy(
 /**
  * Which screens this reader gets, in order.
  *
- * Two of them are conditional, and both for the same reason: a screen that
- * asks for something the reader has already given, or that their account
- * cannot act on, reads as an app that has not looked at them. Somebody who
- * already owns things is not asked to type them in, and a paper-class account
- * is not asked either — their portfolio comes from the teacher.
+ * One of them is conditional, for the reason a screen is ever conditional:
+ * a screen that asks for something the reader has already given, or that
+ * their account cannot act on, reads as an app that has not looked at them.
+ * Somebody who already owns things is not asked to type them in, and a
+ * paper-class account is not asked either, because their portfolio comes
+ * from the teacher.
  *
  * Whether the walkthrough shows at all is a different question entirely, and
  * holdings have nothing to do with it. See `tourIsDue`.
@@ -183,18 +177,49 @@ export function tourStages(input: {
 }): Stage[] {
   const askForHoldings = !input.hasHoldings && !input.classroomOnly;
   return [
-    "what",
-    "why",
-    "map",
-    "helps",
+    "day",
     "rules",
-    "q1",
-    "q2",
+    "rooms",
+    "you",
     ...(askForHoldings ? (["holdings"] as Stage[]) : []),
     "watchlist",
-    "email",
-    "done",
+    "week",
   ];
+}
+
+/*
+  The one picture the walkthrough takes and cannot read itself.
+
+  Reading a broker screenshot is Margus's job: it is a vision model call
+  with a tool at the end of it, and Margus lives in the app rather than in
+  this overlay. So the walkthrough holds the file, and hands it over the
+  moment it closes, which is when the app underneath is there to take it.
+  `Dashboard` listens for the event and runs the same import the empty
+  Overview screen runs.
+
+  A module-level box rather than storage, because a `File` is a handle to
+  something on the reader's device and does not survive being written down.
+  It is dropped on the way out, so a picture can only ever be imported once.
+*/
+export const TOUR_SCREENSHOT_EVENT = "upside:tour-screenshot";
+
+let stashedScreenshot: File[] = [];
+
+export function stashTourScreenshot(files: File[]) {
+  stashedScreenshot = files.slice(0, 1);
+}
+
+export function takeTourScreenshot(): File[] {
+  const files = stashedScreenshot;
+  stashedScreenshot = [];
+  return files;
+}
+
+/** Called once the walkthrough is closing, so the app can read the picture. */
+export function handOverTourScreenshot() {
+  if (typeof window === "undefined") return;
+  if (stashedScreenshot.length === 0) return;
+  window.dispatchEvent(new Event(TOUR_SCREENSHOT_EVENT));
 }
 
 

@@ -4197,16 +4197,31 @@ run("onboarding asks about the one Sunday email, nothing else", () => {
     join(process.cwd(), "src/lib/welcome-tour.ts"),
     "utf8"
   );
-  assert.match(copy, /Want the Sunday email/);
+  const week = readFileSync(
+    join(process.cwd(), "src/components/tour/FirstWeekScreen.tsx"),
+    "utf8"
+  );
   // There is exactly one email now: no weekday checkbox, no second state.
   assert.doesNotMatch(onboarding, /noteMorning/);
   assert.doesNotMatch(onboarding, /Weekdays/);
   assert.doesNotMatch(copy, /Weekdays/);
+  assert.doesNotMatch(week, /Weekdays/);
   assert.match(onboarding, /noteSunday, setNoteSunday\] = useState\(true\)/);
-  assert.match(onboarding, /One email a week/);
-  assert.match(copy, /This is \$\{PRODUCT_NAME\}/);
+  /*
+   * The email is described by the one shared sentence rather than by a
+   * paragraph typed here, because it used to be described three different
+   * ways across the walkthrough, the landing page and Account, and one of
+   * the three promised a section the letter does not have.
+   */
+  assert.match(week, /SUNDAY_EMAIL_LINE/);
+  /*
+   * And the one other mail this app can send is admitted out loud. A cron
+   * mails an empty portfolio a single reminder about a week in, and the
+   * walkthrough used to deny it in as many words.
+   */
+  assert.match(week, /still empty a week from now/);
+  assert.match(copy, /\$\{PRODUCT_NAME\}/);
   assert.match(copy, /Add what you own/);
-  assert.match(copy, /Names you are watching/);
   assert.match(onboarding, /saveWatchlist/);
 });
 
@@ -7412,8 +7427,13 @@ run("every text box that can fail tells you what happened", () => {
   // because only one of the two is worth retrying.
   assert.match(watch, /Couldn't look that up just now/);
 
+  /*
+   * The walkthrough's holdings box moved into `src/components/tour/` when
+   * the walkthrough became seven doing screens rather than eleven reading
+   * ones. Same rule, same three messages, read where they now live.
+   */
   const onboarding = readFileSync(
-    join(process.cwd(), "src/components/WelcomeTour.tsx"),
+    join(process.cwd(), "src/components/tour/AddHoldingsScreen.tsx"),
     "utf8"
   );
   assert.match(onboarding, /setStockError\("Type a ticker, a company, or a coin\."\)/);
