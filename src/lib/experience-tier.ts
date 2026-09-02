@@ -70,26 +70,58 @@ export function saveStoredTier(tier: ExperienceTier) {
  * Meta-tab ids hidden per tier. Must be the `__xxx__` constants from
  * `lib/overview` (same ids `PortfolioTabs` uses), not labels.
  *
- * Pulse and Growth stay on every tier: Pulse is the thesis check the
- * product is for, and Growth is the compounding explainer the newest
- * readers need most. Lab is the analysis suite (allocation, shocks,
- * trends, seasonality). It waits until someone says they are comfortable.
+ * **Empty on every tier, and that is the decision rather than an oversight.**
+ *
+ * Lab used to be hidden from a novice, on the reasoning that the analysis
+ * suite waits until somebody says they are comfortable. Read against what
+ * this product is for, that is backwards: Lab is where a beginner finds out
+ * that three of their holdings are most of their money, what a rough week
+ * would do to it, and which of the companies they own move together. It is
+ * the teaching room, and it was being withheld from the one reader who had
+ * said out loud that they are new.
+ *
+ * The tier answer is still honoured, and "show me the essentials" is still
+ * a real request. What a novice asked for is fewer *unexplained* things,
+ * and the way to give them that is to explain, not to hide: every Lab tab
+ * now opens with a sentence in the reader's own figures saying what the
+ * view is for and one thing to notice in it. The tier still decides which
+ * panels are visible by default (`isPanelVisible`), which is the part of
+ * "this looks simpler" that costs a beginner nothing.
+ *
+ * There is also no way back in. Nothing surfaces a hidden room later, so
+ * "I'll grow into the rest" meant "never", unless the reader thought to go
+ * and change an answer in Account, which nobody does.
+ *
+ * Kept as records rather than deleted so the next person who wants to hide
+ * a room has to come past this argument first, and so the two flags stay
+ * visibly separate from `knows_options` below, which does still hide things
+ * and for a different reason.
  */
 export const TIER_HIDDEN_META_TABS: Record<ExperienceTier, string[]> = {
-  novice: ["__lab__"], // LAB_TAB_ID. Pulse and Growth stay.
+  novice: [],
   investor: [],
   advanced: [],
 };
 
 /**
  * LabSheet sub-tab ids hidden per tier (`alloc` | `risk` | `trends` |
- * `seasonality`). Novice never reaches Lab, so this list is for someone
- * who later opens it. Risk (book-wide shocks) is the one that reads as a
- * toy until you already know the names.
+ * `seasonality`).
+ *
+ * Risk was hidden from a novice and from an investor, on the reasoning that
+ * a portfolio-wide shock test reads as a toy until you already know the
+ * companies. Two things are wrong with that. Somebody who has said they are
+ * comfortable with stocks and portfolios being refused a shock test is hard
+ * to argue for at all, and "what would a rough week do to this" is the
+ * question a beginner most needs a safe way to ask, because the alternative
+ * is finding out during the rough week.
+ *
+ * The tab now opens by naming the reader's own largest holding and its
+ * share, which is the sentence that makes the rest of the panel mean
+ * something.
  */
 export const TIER_HIDDEN_LAB_TABS: Record<ExperienceTier, string[]> = {
-  novice: ["risk"],
-  investor: ["risk"],
+  novice: [],
+  investor: [],
   advanced: [],
 };
 

@@ -49,20 +49,54 @@ describe("shouldHideOptions", () => {
 });
 
 describe("experience-tier rooms", () => {
-  it("hides Lab for someone new, and never Pulse or Growth", () => {
-    expect(TIER_HIDDEN_META_TABS.novice).toEqual([LAB_TAB_ID]);
-    expect(TIER_HIDDEN_META_TABS.novice).not.toContain(PULSE_TAB_ID);
-    expect(TIER_HIDDEN_META_TABS.novice).not.toContain(COMPOUND_TAB_ID);
+  /*
+    These two used to assert the opposite, and the assertions were right
+    about the code and wrong about the product. Lab was hidden from a
+    novice, and Risk from a novice and an investor, on the reasoning that
+    the analysis room waits until somebody says they are comfortable.
+
+    Lab is where a beginner finds out that three of their holdings are most
+    of their money, what a rough week would do to it, and which of their
+    companies move together. It was being withheld from the one reader who
+    had said out loud that they are new, with no way back in, since nothing
+    surfaces a hidden room later. "I'll grow into the rest" meant never.
+
+    What a novice asked for is fewer unexplained things, and the answer to
+    that is to explain: every Lab tab now opens with a sentence in the
+    reader's own figures. The tier still decides which panels are open by
+    default, which is the part of "this looks simpler" that costs a
+    beginner nothing.
+  */
+  it("hides no room from anybody", () => {
+    for (const tier of ["novice", "investor", "advanced"] as const) {
+      expect(TIER_HIDDEN_META_TABS[tier], tier).toEqual([]);
+      expect(TIER_HIDDEN_LAB_TABS[tier], tier).toEqual([]);
+    }
   });
 
-  it("leaves every top-level room on for investor and advanced", () => {
-    expect(TIER_HIDDEN_META_TABS.investor).toEqual([]);
-    expect(TIER_HIDDEN_META_TABS.advanced).toEqual([]);
+  it("least of all the three rooms a beginner is here for", () => {
+    // Pulse is the thesis check the product exists for, Growth is the
+    // compounding explainer, and Lab is where the reader's own numbers get
+    // taken apart. None of them is an advanced feature.
+    for (const id of [LAB_TAB_ID, PULSE_TAB_ID, COMPOUND_TAB_ID]) {
+      expect(TIER_HIDDEN_META_TABS.novice).not.toContain(id);
+    }
+    expect(TIER_HIDDEN_LAB_TABS.novice).not.toContain("risk");
+    expect(TIER_HIDDEN_LAB_TABS.investor).not.toContain("risk");
   });
 
-  it("keeps the shock lab off until advanced", () => {
-    expect(TIER_HIDDEN_LAB_TABS.novice).toEqual(["risk"]);
-    expect(TIER_HIDDEN_LAB_TABS.investor).toEqual(["risk"]);
-    expect(TIER_HIDDEN_LAB_TABS.advanced).toEqual([]);
+  it("keeps the mechanism, so hiding a room again has to be argued for", () => {
+    // Deleting the records would let the next person reintroduce hiding
+    // without meeting the reasoning above. Both still exist and are read.
+    expect(Object.keys(TIER_HIDDEN_META_TABS).sort()).toEqual([
+      "advanced",
+      "investor",
+      "novice",
+    ]);
+    expect(Object.keys(TIER_HIDDEN_LAB_TABS).sort()).toEqual([
+      "advanced",
+      "investor",
+      "novice",
+    ]);
   });
 });

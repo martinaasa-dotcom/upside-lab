@@ -1673,15 +1673,28 @@ run("connected emails send notes to the first address only", () => {
   assert.match(nudge, /connectedEmailsFor/);
 });
 
-run("novice hides Lab, never Pulse or Growth", () => {
-  assert.deepEqual(TIER_HIDDEN_META_TABS.novice, [LAB_TAB_ID]);
-  assert.ok(!TIER_HIDDEN_META_TABS.novice.includes(PULSE_TAB_ID));
-  assert.ok(!TIER_HIDDEN_META_TABS.novice.includes(COMPOUND_TAB_ID));
-  assert.deepEqual(TIER_HIDDEN_META_TABS.investor, []);
-  assert.deepEqual(TIER_HIDDEN_META_TABS.advanced, []);
-  assert.deepEqual(TIER_HIDDEN_LAB_TABS.novice, ["risk"]);
-  assert.deepEqual(TIER_HIDDEN_LAB_TABS.investor, ["risk"]);
-  assert.deepEqual(TIER_HIDDEN_LAB_TABS.advanced, []);
+run("no tier hides a room, least of all from a beginner", () => {
+  /*
+    This asserted the opposite until 2026-09-02, and it was right about the
+    code and wrong about the product. Lab was hidden from a novice and Risk
+    from a novice and an investor, so the room where a beginner finds out
+    that three holdings are most of their money, what a rough week would do
+    to it, and which of their companies move together was withheld from the
+    one reader who had said out loud that they are new. Nothing surfaces a
+    hidden room later, so "I'll grow into the rest" meant never.
+
+    What a novice asked for is fewer unexplained things, and every Lab tab
+    now opens with a sentence in that reader's own figures. The tier still
+    decides which panels start open, which is the part of "this looks
+    simpler" that costs a beginner nothing.
+  */
+  for (const tier of ["novice", "investor", "advanced"] as const) {
+    assert.deepEqual(TIER_HIDDEN_META_TABS[tier], []);
+    assert.deepEqual(TIER_HIDDEN_LAB_TABS[tier], []);
+  }
+  for (const id of [LAB_TAB_ID, PULSE_TAB_ID, COMPOUND_TAB_ID]) {
+    assert.ok(!TIER_HIDDEN_META_TABS.novice.includes(id));
+  }
 });
 
 run("FX conversion falls back to 1:1 and rounds to cents", () => {

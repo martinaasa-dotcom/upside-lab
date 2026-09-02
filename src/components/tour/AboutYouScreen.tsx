@@ -199,6 +199,18 @@ function MiniHome({
         {!hideOptions && (
           <li className="card-sheen glass-well rounded-md px-3 py-2 text-sm text-muted-foreground">
             Covered calls, with a target price per holding
+            {/*
+              Read from the same rule Home uses, so this cannot drift: the
+              covered-call panel starts open for everybody except somebody
+              who has said they are new, and it is a tap away either way.
+              This is what the first answer still decides now that no room
+              is hidden from anybody. See TIER_HIDDEN_META_TABS.
+            */}
+            {tier === "novice" ? (
+              <span className="text-muted-foreground/70">
+                , folded away until you want it
+              </span>
+            ) : null}
           </li>
         )}
       </ul>
