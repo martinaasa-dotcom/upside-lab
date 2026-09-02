@@ -8,9 +8,13 @@ import {
   salePriceFor,
 } from "@/lib/cash-trade";
 import { classifyImportWrite } from "@/lib/classroom";
-import { callPctForTicker } from "@/lib/coins";
-import { isSafeSignedMoney } from "@/lib/input-guard";
-import { roundMoney } from "@/lib/money";
+import { callPctForTicker, isCoinSymbol } from "@/lib/coins";
+import {
+  isSafePositiveMoney,
+  isSafeShares,
+  isSafeSignedMoney,
+} from "@/lib/input-guard";
+import { roundMoney, roundShares } from "@/lib/money";
 import { denyClassroomWrite } from "@/lib/classroom-guard";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
@@ -30,6 +34,37 @@ type ImportRow = {
   target_call_pct?: number;
   isin?: string;
 };
+
+/**
+ * The guards are the single-holding route's, so a figure the form would
+ * refuse cannot arrive through a CSV instead. The raw value is judged as
+ * well as the rounded one because `roundShares` and `roundMoney` clamp at
+ * the ceiling rather than refusing: 1e300 shares would otherwise round to
+ * the largest legal count and pass, and a trillion shares of anything is a
+ * portfolio value nobody typed. The sentence names the row the way the
+ * reader counts them, from one, and says the whole import was refused.
+ */
+function importRowFault(
+  index: number,
+  ticker: string,
+  shares: number,
+  buyPrice: number,
+  isin: string | undefined
+): string | null {
+  const label = `Row ${index + 1} (${ticker.trim().toUpperCase()})`;
+  if (!isSafeShares(shares) || !isSafeShares(roundShares(shares))) {
+    const resolved = resolveImportTicker(ticker, isin) || ticker;
+    const what = isCoinSymbol(resolved) ? "how many" : "shares";
+    return `${label}: ${what} must be a positive number the app can hold, so nothing was imported.`;
+  }
+  if (
+    !isSafePositiveMoney(buyPrice) ||
+    !isSafePositiveMoney(roundMoney(buyPrice))
+  ) {
+    return `${label}: buy price must be a positive number the app can hold, so nothing was imported.`;
+  }
+  return null;
+}
 
 /**
  * Atomic-ish sheet import: set cash (optional) + upsert all equity rows.
@@ -59,29 +94,47 @@ async function handlePOST(req: NextRequest) {
   const notOwner = await requirePortfolioOwner(auth.user.id, portfolioId);
   if (notOwner) return notOwner;
 
-  const rows: ImportRow[] = Array.isArray(body.holdings)
-    ? body.holdings.flatMap((row) => {
-        if (!isRecord(row)) return [];
-        const ticker = readString(row.ticker) ?? "";
-        const shares = readFiniteNumber(row.shares);
-        const buy = readFiniteNumber(row.buy_price);
-        if (!ticker || shares == null || buy == null) return [];
-        return [
-          {
-            ticker,
-            shares,
-            buy_price: buy,
-            target_call_pct: readFiniteNumber(row.target_call_pct),
-            isin: readString(row.isin),
-          },
-        ];
-      })
-    : [];
+  // Every row is checked before anything is written, because a half-applied
+  // import is worse than none: a reader whose third row was refused would
+  // have two names landed, the rest missing, and nothing on screen saying
+  // which. The values stored on the row are the rounded ones, so the writes
+  // below carry exactly what the single-holding route would have stored.
+  const rows: ImportRow[] = [];
+  const holdings = Array.isArray(body.holdings) ? body.holdings : [];
+  for (const [index, row] of holdings.entries()) {
+    if (!isRecord(row)) continue;
+    const ticker = readString(row.ticker) ?? "";
+    const shares = readFiniteNumber(row.shares);
+    const buy = readFiniteNumber(row.buy_price);
+    if (!ticker || shares == null || buy == null) continue;
+    const isin = readString(row.isin);
+    const fault = importRowFault(index, ticker, shares, buy, isin);
+    if (fault) return NextResponse.json({ error: fault }, { status: 400 });
+    rows.push({
+      ticker,
+      shares: roundShares(shares),
+      buy_price: roundMoney(buy),
+      target_call_pct: readFiniteNumber(row.target_call_pct),
+      isin,
+    });
+  }
   const cash =
     body.cash === null ? null : readFiniteNumber(body.cash) ?? null;
   if (rows.length === 0 && cash == null) {
     return NextResponse.json(
       { error: "cash or holdings required" },
+      { status: 400 }
+    );
+  }
+  // A cash figure past the ceiling used to be dropped on the floor while the
+  // holdings landed, and the response said so only in a field no import
+  // screen reads. Saying no out loud is the only honest answer.
+  if (cash != null && !isSafeSignedMoney(cash)) {
+    return NextResponse.json(
+      {
+        error:
+          "That cash figure is bigger than the app can hold, so nothing was imported.",
+      },
       { status: 400 }
     );
   }
@@ -122,7 +175,7 @@ async function handlePOST(req: NextRequest) {
   let cashUpdated = false;
   // An imported cash line may be negative on any portfolio: a broker screen
   // showing borrowed money is exactly the case worth carrying through.
-  if (cash != null && isSafeSignedMoney(cash)) {
+  if (cash != null) {
     const { error } = await supabase
       .from(PORTFELL_TABLES.portfolios)
       .update({
@@ -158,13 +211,11 @@ async function handlePOST(req: NextRequest) {
         row.isin
       ) || normalizeYahooTicker(String(row.ticker ?? ""));
       if (!ticker) return;
-      const shares = Number(row.shares);
-      const buyPrice = Number(row.buy_price);
+      // Already rounded and bounded above; a row failing either check
+      // refused the whole import before this point.
+      const shares = row.shares;
+      const buyPrice = row.buy_price;
       const callPct = callPctForTicker(ticker, row.target_call_pct);
-      if (!Number.isFinite(shares) || shares <= 0 || !Number.isFinite(buyPrice) || !(buyPrice > 0)) {
-        failed.push(ticker || "?");
-        return;
-      }
 
       keep.add(ticker.toUpperCase());
       const prev = byTicker.get(ticker.toUpperCase());
@@ -248,18 +299,8 @@ async function handlePOST(req: NextRequest) {
         const ticker =
           resolveImportTicker(String(row.ticker ?? ""), row.isin) ||
           normalizeYahooTicker(String(row.ticker ?? ""));
-        const shares = Number(row.shares);
-        const buyPrice = Number(row.buy_price);
-        if (
-          !ticker ||
-          !Number.isFinite(shares) ||
-          shares <= 0 ||
-          !Number.isFinite(buyPrice) ||
-          !(buyPrice > 0)
-        ) {
-          return null;
-        }
-        return { ticker, shares, buy_price: buyPrice };
+        if (!ticker) return null;
+        return { ticker, shares: row.shares, buy_price: row.buy_price };
       })
       .filter((row): row is { ticker: string; shares: number; buy_price: number } =>
         Boolean(row)
