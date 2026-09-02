@@ -1,3 +1,5 @@
+import { keepingRealBooks } from "@/lib/fund-copy";
+
 export type FundWatchItem = {
   ticker: string;
   waitFor: string;
@@ -22,7 +24,16 @@ export function sanitizeFundWatchlist(
       .replace(/^\$/, "");
     if (!/^[A-Z][A-Z0-9.]{0,9}$/.test(ticker)) continue;
     if (held.has(ticker) || seen.has(ticker)) continue;
-    const waitFor = String(item.waitFor ?? "").replace(/\s+/g, " ").trim();
+    /*
+      This line is printed straight onto the page under a company's name,
+      and it is a sentence a model wrote. Everything else the fund writes
+      goes through the same pass before a reader sees it, so an em dash or a
+      piece of market slang cannot arrive here just because this one string
+      is short.
+    */
+    const waitFor = keepingRealBooks(
+      String(item.waitFor ?? "").replace(/\s+/g, " ").trim()
+    ).trim();
     if (!waitFor) continue;
     seen.add(ticker);
     out.push({ ticker, waitFor });

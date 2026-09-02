@@ -945,13 +945,23 @@ run("fund today move is live NAV minus last snapshot", () => {
   assert.equal(missing.todayPct, null);
 });
 
+/*
+  Changed on purpose, 2026-09-02, along with `tidy` in `src/lib/fund-copy.ts`.
+
+  This used to assert that "remaining performance obligations (RPO)" was
+  shortened to "RPO", and that YoY and FCF reached the reader as an acronym
+  each. That is backwards for a room a beginner reads: the shortening took a
+  phrase somebody could at least puzzle at and handed them an acronym nothing
+  on the page explains. The splitting behaviour this invariant is really
+  about is unchanged; only the words inside the bullets are plainer.
+*/
 run("fund thesis and exit plans split into short bullets", () => {
   const thesis = fundCopyBullets(
     "Data cloud consumption accelerating with GenAI workloads; remaining performance obligations (RPO) up >50% YoY, signaling durable multi-year expansion as enterprises unify analytics and AI pipelines."
   );
   assert.deepEqual(thesis, [
     "Data cloud consumption accelerating with GenAI workloads",
-    "RPO up >50% YoY",
+    "Signed orders not yet billed up >50% compared with a year earlier",
     "Durable multi-year expansion",
     "Enterprises unify analytics and AI pipelines",
   ]);
@@ -959,8 +969,8 @@ run("fund thesis and exit plans split into short bullets", () => {
     "Sell if product revenue growth decelerates below 25% YoY for two quarters or if adjusted FCF margin fails to exceed 20% by FY28."
   );
   assert.deepEqual(exit, [
-    "Product revenue growth below 25% YoY for two quarters",
-    "Adjusted FCF margin below 20% by FY28",
+    "Product revenue growth below 25% compared with a year earlier for two quarters",
+    "Adjusted free cash flow margin below 20% by FY28",
   ]);
 });
 
