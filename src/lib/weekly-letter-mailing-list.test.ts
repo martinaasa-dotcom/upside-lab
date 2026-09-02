@@ -124,13 +124,23 @@ beforeEach(() => {
   sentTo.length = 0;
 });
 
+/*
+  A generous timeout, and not because the code is slow. Each case writes
+  1,200 letters through the real batching path, which is the whole point of
+  the fixture: a stub small enough to finish inside the 5s default could not
+  cross `DB_MAX_ROWS` and so could not fail the way this exists to catch. It
+  takes about three seconds on an idle machine and longer on a busy one, so
+  the default was a coin flip on shared CI.
+*/
+const SLOW = 30_000;
+
 describe("the Sunday letter's mailing list", () => {
   it("writes to every opted-in reader, not the first thousand", async () => {
     const result = await dispatchWeeklyLetters();
 
     expect(result.optedIn).toBe(RECIPIENTS);
     expect(sentTo).toHaveLength(RECIPIENTS);
-  });
+  }, SLOW);
 
   /*
     Naming the person who would have been dropped. `p1199@example.com` sits
@@ -142,5 +152,5 @@ describe("the Sunday letter's mailing list", () => {
 
     expect(sentTo).toContain("p1199@example.com");
     expect(sentTo).toContain(`p${DB_MAX_ROWS}@example.com`);
-  });
+  }, SLOW);
 });

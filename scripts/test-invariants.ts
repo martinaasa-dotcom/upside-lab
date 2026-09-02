@@ -2,6 +2,24 @@
  * Product invariants from the Aug 2026 review.
  * Run: npx tsx scripts/test-invariants.ts
  */
+
+/*
+  Said before anything is called, and it matters. This container and every
+  machine that can run the app carry SUPABASE_SERVICE_ROLE_KEY for the
+  production project, and app code that builds its own client from the
+  environment will use it: `logError` did, from inside a function this file
+  exercises, and three "boom" rows from a stub reached the live error table
+  and mailed the superadmin. `getSupabaseServer` refuses to build a client
+  under this flag. Set here rather than in a wrapper script so running the
+  file directly, which is how it is documented above, is also safe.
+
+  Assigning after the imports is correct: the flag is read when a client is
+  asked for, never at module load. Its own variable rather than NODE_ENV,
+  which Next types as read-only, correctly, since app code has no business
+  rewriting it.
+*/
+process.env.UPSIDE_TEST_RUNNER = "1";
+
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, sep } from "node:path";
