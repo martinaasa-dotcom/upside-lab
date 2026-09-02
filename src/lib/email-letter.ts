@@ -265,6 +265,72 @@ ${emailButton(input.url, "Confirm this address")}
 }
 
 /**
+ * Sent to the address an account already signs in with, once a second address
+ * has been confirmed on it.
+ *
+ * The whole feature turns on somebody proving they hold a mailbox, and that
+ * proof happens in the mailbox being added, which the owner of the account may
+ * never look at. So the account's own address is told afterwards. If it was
+ * not them who asked, this letter is the only thing that would ever say so,
+ * and it names the one step that takes it back again.
+ */
+export function addressConnectedCopy(input: {
+  address: string;
+  accountUrl: string;
+}): { subject: string; text: string; html: string } {
+  const subject = "A second address now opens your Upside Lab account";
+  const lead = `${input.address} was confirmed a moment ago, so it signs in to this account as well. Both addresses land in the same place, with the same portfolios and the same circles.`;
+  const undo =
+    "If that was not you, open My account, take the address off under your sign-in addresses, and it stops working straight away.";
+  const text = [lead, input.accountUrl, undo].join("\n\n");
+  const html = wrapEmailLetter({
+    title: subject,
+    preview: lead,
+    hideOpener: true,
+    body: `${emailKicker("Your account")}
+<div style="height:18px;font-size:0;line-height:0">&nbsp;</div>
+<p style="margin:0;font-family:${EMAIL.sans};font-size:26px;line-height:1.25;font-weight:400;letter-spacing:-0.02em;color:${EMAIL.cream}">A second address was connected</p>
+<p style="margin:22px 0 0 0;font-family:${EMAIL.sans};font-size:17px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(lead)}</p>
+${emailButton(input.accountUrl, "Open my account")}
+<p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">${escapeEmail(undo)}</p>`,
+  });
+  return { subject, text, html };
+}
+
+/**
+ * Sent to an address somebody asked for and could not have.
+ *
+ * The screen they asked from is told the same thing whether an address is free
+ * or already spoken for, because a signed-in reader who can type any address
+ * in the world and be told which ones have accounts here has been handed a way
+ * of asking about strangers. The refusal still has to go somewhere, so it goes
+ * to the mailbox it is actually about, which is also the one place it is news.
+ */
+export function addressNotConnectedCopy(input: {
+  requestedBy: string | null;
+  support: string;
+}): { subject: string; text: string; html: string } {
+  const subject = "Somebody asked to connect this address to Upside Lab";
+  const asker = input.requestedBy
+    ? `The Upside Lab account at ${input.requestedBy}`
+    : "An Upside Lab account";
+  const lead = `${asker} asked to sign in with this address as well. It was not connected, because this address already reaches an Upside Lab account of its own. Nothing about either account changed and nobody was let in.`;
+  const nothing = `There is nothing for you to do. If you were expecting this and want the two joined, write to ${input.support} and a person will look at it.`;
+  const text = [lead, nothing].join("\n\n");
+  const html = wrapEmailLetter({
+    title: subject,
+    preview: lead,
+    hideOpener: true,
+    body: `${emailKicker("Your account")}
+<div style="height:18px;font-size:0;line-height:0">&nbsp;</div>
+<p style="margin:0;font-family:${EMAIL.sans};font-size:26px;line-height:1.25;font-weight:400;letter-spacing:-0.02em;color:${EMAIL.cream}">This address was not connected</p>
+<p style="margin:22px 0 0 0;font-family:${EMAIL.sans};font-size:17px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(lead)}</p>
+<p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">${escapeEmail(nothing)}</p>`,
+  });
+  return { subject, text, html };
+}
+
+/**
  * Sent when somebody asks to sign in without Google.
  *
  * The link opens a page. It does not sign them in on its own, because mail

@@ -195,8 +195,9 @@ export async function proxy(request: NextRequest) {
   matched it too, and a request the proxy never sees gets no CSP header, no
   forged-request gate and no mutation limit. So the exclusion names the
   extensions a static file actually has, at the end of the path, and
-  everything else comes through. `src/proxy.test.ts` compiles this exactly
-  as the build does and walks both lists.
+  everything else comes through, `/auth/link` and `/auth/continue`
+  included. `src/proxy.test.ts` compiles this exactly as the build does and
+  walks both lists.
 */
 export const config = {
   matcher: [

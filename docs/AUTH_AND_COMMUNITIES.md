@@ -28,6 +28,18 @@ Adding is the service role's work (the check is the whole job, and a client chec
 
 Every outcome is a word in `ADDRESS_MESSAGES` (`src/lib/auth/account-addresses.ts`) and the sentence lives beside it, because the Google leg comes back as a redirect and can only carry the word.
 
+### Four things the first version of this got wrong
+
+**An address that has never signed up here is the dangerous one.** The confirmation refused an address whose account had things in it and adopted one whose account was empty, and said yes to an address with no account at all. That last case is the only one whose owner has never heard of Upside Lab, so nothing ever warned them and nothing ever would: bound to somebody else's account on the strength of one branded letter, their first Google sign-in landed there. `confirmAddressLink` takes the signed-in user now and refuses that case (`sign-in-first`) unless the browser pressing the button is signed in to the account that asked. The other cases are unchanged: holding the mailbox is the whole proof, and the link is often read on a phone that has never been signed in here.
+
+**A page that asks you to agree to something has to say what it is.** `/auth/link` and `/auth/email` both showed a button and named neither the address nor the account. `pendingAddressLink` and `emailLoginTarget` read a token without spending it so both pages can, with the mailbox masked (`maskAddress`) because neither page is behind a session.
+
+**A session is not swapped in silence.** Two roads used to mint one: a Google sign-in with a linked address opened an account named by a different address with nothing on screen saying whose, and `/auth/email/complete` wrote fresh cookies over whatever session was already in the browser. Both stop and ask. `/auth/continue` is that question, carrying its decision in a signed short-lived cookie (`src/lib/auth/continue-session.ts`), GET asking and POST minting; the email road peeks rather than spends, so somebody who answers no keeps a working link. `/auth/email/complete` refuses outright when another account is signed in here, unless the form says `switch=1`.
+
+**The account screen does not say which addresses have accounts here.** A signed-in reader can type any address in the world into that field, so `has-data` and `linked-elsewhere` are answered with the same "check that inbox" sentence as a real send, and the refusal is mailed to the address it is about (`addressNotConnectedCopy`). Truthful words stay for anything about the caller's own account. Three limits sit under it: the existing six an hour per account, one every ten minutes for the same account and address, and three a day to one address whoever asks. A pending row nobody confirmed is superseded by a newer request rather than holding the address for an hour at a time.
+
+And a confirmed link mails the account's own address (`addressConnectedCopy`), because the proof happens in the mailbox being added and that letter is the only thing that would ever say a new way in had appeared.
+
 **Supabase project setting:** the Email provider has to be enabled on the project for `generateLink({ type: "magiclink" })` to mint that token. No mail is ever sent through it; Upside Lab sends its own through Resend. With the provider off, `magicTokenFor` returns null and the callback refuses rather than signing the wrong person in.
 
 Do not replace any of this with Supabase's `linkIdentity`: it sends the browser to Supabase's own callback, which is the exact thing `src/lib/auth/google-oauth.ts` exists to avoid, and it would put a hostname nobody recognises on the consent screen.

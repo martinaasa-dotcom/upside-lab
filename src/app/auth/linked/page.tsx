@@ -21,6 +21,13 @@ const PROBLEMS: Record<string, string> = {
   expired:
     "That link has already been used, or it has run out. Ask for a new one from the account screen and open it within the hour.",
   "address-taken": `That address has an ${PRODUCT_NAME} account of its own with things in it, so it cannot be moved onto another one here. Mail ${PRODUCT_SUPPORT_EMAIL} and a person will sort it out.`,
+  /*
+    The address has no account of its own, so holding the mailbox is not the
+    whole proof. Somebody has to be signed in to the account that asked for it,
+    which is the one thing a person who was sent this link out of the blue
+    cannot do.
+  */
+  "sign-in-first": `Open this link again in a browser that is signed in to the ${PRODUCT_NAME} account you want the address on. Sign in there first, then press the button. This is the one case where the link on its own is not enough, because this address has no ${PRODUCT_NAME} account yet and nobody else would ever be told it had been connected.`,
   "missing-token": "That link is missing the part that says which address it is for.",
   "link-failed": "Something went wrong at our end. Ask for a new link and try once more.",
   "not-configured": "Adding an address is not switched on here yet.",
