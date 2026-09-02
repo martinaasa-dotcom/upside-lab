@@ -43,7 +43,7 @@ before acting on it, and write the reasoning down beside the change.
 - [~] `/api/upside-portfolio` recomputed per viewer.
 - [~] Client fetch dedupe for quotes, fear and greed, portfolios, experience tier, market events.
 - [~] Redundant FX-only quote poll.
-- [ ] `cache: "no-store"` on CDN-public routes.
+- [-] `cache: "no-store"` on CDN-public routes. Looked at and deliberately left. Only one client fetch of a CDN-cacheable route carries it (`WatchlistStrip`, on `/api/quotes`), and `no-store` in the Fetch standard governs the browser's own cache rather than a shared one: it neither adds a revalidation header nor stops an edge serving from its copy, so the s-maxage the route sets still does its job. What it does buy is the thing the freshness rule is for, since the browser must not hand a reader a price out of its own cache inside the s-maxage window while `isQuoteFreshForView` is asking for a live one. Changing it would need a measurement against the real CDN, and the guard above it (`isQuoteFreshForView`) already refuses the request entirely when a fresh price is in hand, which is the cheaper win and is already taken.
 - [~] Two 1 Hz timers re-rendering rooms; fund freshness ticking while hidden.
 - [~] Fear and greed refetched on every macro tick.
 - [~] `radix-ui` barrel not in `optimizePackageImports`.
