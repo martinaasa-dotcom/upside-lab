@@ -181,10 +181,10 @@ own worktree with a test, reviewed adversarially, then merged.
 
 ### Screens (UX and copy together, one package per room)
 
-- [~] Growth and Lab: honest default rate, presets named, chart that draws and can be scrubbed, Lab tabs that say what to notice, all jargon out.
-- [~] Welcome tour: seven screens, each interactive (the red day you tap open, sort the rules, the bar you can press, two questions on a live Home, add what you own with something said back, pick one to watch, your first week).
-- [~] Margus: prompts, scrubber, tier voice, teaching block, follow-up question.
-- [~] Emails and legal: terms and privacy checked against the code, loading lines, error pages, invite and reminder mail.
+- [x] Growth and Lab: the rate opens on the broad-market baseline with the mix as a named preset beside it, the hidden six-point covered-call boost on one comparison path is gone, and a measurement found the hero counting the starting amount twice ($75,354 printed against a true $83,677). New path chart, draggable and arrow-walkable. Every Lab tab opens with a sentence in the reader's own figures, and the Scenario panel names the 30% floor it assumes and says the Cash card plans against a stricter one.
+- [x] Welcome tour rebuilt so every screen wants a tap before it wants a read, including the red day you turn over one row at a time. `sample-portfolio.ts` stores only shares, a price and a percent, and derives every total, so the screen cannot drift from its own arithmetic.
+- [x] Margus: the scrubber catches a bare banned word rather than only a phrase, the prompts stopped teaching him the words he is banned from using, and the voice follows the tier the reader already answered.
+- [x] Emails and legal: the legal pages checked against the code, the mail greets before it repeats itself, errors say what happened without introducing the company, and the loading screen stopped joking about the reader's money.
 - [ ] Home: hero that leads with the value, market card that answers "me or the market", one briefing card, no duplicate notices, honest chart caption, watchlist suggestions that are not three coins, "less than 1%" everywhere, status strip in words.
 - [ ] Portfolio room: fractional shares, Gain instead of ROI, phone card with a lead figure, tap-to-open drawer, drawer that matches the row, totals up top, covered calls hidden below 100 shares, placeholder forecast drawn as a placeholder, modal copy.
 - [ ] Pulse: the day's story first, the market's move beside yours, company names on cards, a real measured range, fallback cards that say so, headlines with source and age, no forced model call from Home.
@@ -210,3 +210,12 @@ own worktree with a test, reviewed adversarially, then merged.
 - [x] `portfell_apply_cash_delta failed: boom`, three rows, mailed to the superadmin. A test fixture. `logError` builds its own client from the environment, and any machine that can run this app carries the production service-role key, so every `npx vitest run` wrote to the live error table, silently in both directions. Guarded at the one place a client is made, so the whole class goes rather than the one row.
 - [x] `/navlag`, `_not-found` client reference manifest, three rows on 30 August. Checked against production directly: `/navlag` and a random path both 404 cleanly now. Transient, already gone, nothing to fix.
 - [ ] The three fixture rows are still in `portfell_error_log` and are displacing real errors from the admin console's recent window. One button at `/admin`, and clearing resets the digest's comparison window by design. Left for Martin rather than reaching into production data.
+
+### Documentation and configuration
+
+- [x] `AGENTS.md` opens with what the product is for and a map of a file whose weight follows where the debugging went.
+- [x] The slang ban amended: one field in one module may name the outside word, because refusing to ever print it teaches the idea and leaves the reader unable to recognise it in their own broker's screens.
+- [x] `TIER_HIDDEN_META_TABS` and `TIER_HIDDEN_LAB_TABS` are empty on every tier. Lab was hidden from a novice and Risk from a novice and an investor, so the teaching room was withheld from the reader the product is for, with no way back in.
+- [x] `docs/AUDIT_CHECKLIST.md` brought back into line, since two documents describing one rule and disagreeing is worse than one.
+- [x] The README: sign-in is not Google only, Home's line said "cost basis", the learning layer had no entry, and two of ten docs were linked.
+- [x] `.env.example` said Cerebras was skipped while the code implements a Cerebras leg, had the provider order backwards, and omitted seven settings. `env-documented.test.ts` reads the order out of `model.ts` rather than trusting a second copy.
