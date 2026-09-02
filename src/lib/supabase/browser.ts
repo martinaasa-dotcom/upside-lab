@@ -1,6 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { AppSupabaseClient } from "@/lib/supabase/client-types";
 import type { Database } from "@/lib/supabase/database.types";
+import { sessionCookieOptions } from "@/lib/supabase/cookie-options";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase/env";
 
 let browserClient: AppSupabaseClient | null = null;
@@ -11,7 +12,11 @@ export function createSupabaseBrowser(): AppSupabaseClient | null {
   const key = supabaseAnonKey();
   if (!url || !key) return null;
   if (!browserClient) {
-    browserClient = createBrowserClient<Database>(url, key);
+    const hostname =
+      typeof window === "undefined" ? null : window.location.hostname;
+    browserClient = createBrowserClient<Database>(url, key, {
+      cookieOptions: sessionCookieOptions(hostname),
+    });
   }
   return browserClient;
 }

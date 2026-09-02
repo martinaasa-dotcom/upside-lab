@@ -138,10 +138,26 @@ export function clientIp(req: Request): string {
  * with smaller numbers.
  *
  * A signed-in request carries a session cookie, so it can be charged to the
- * session instead, and the class gets twenty-five buckets rather than one.
- * The cookie value is only ever used as a bucket key, so the hash is a
- * cheap non-cryptographic one and no network call is involved: the point is
- * to tell two people apart, not to authenticate either of them.
+ * account instead, and the class gets twenty-five buckets rather than one.
+ * The account is the `sub` of the access token inside that cookie, and it
+ * is only ever used as a bucket key, so the hash is a cheap
+ * non-cryptographic one and no network call is involved: the point is to
+ * tell two people apart, not to authenticate either of them.
+ *
+ * What the cookie is not allowed to be is a free pass. The bucket used to
+ * be keyed on whatever value arrived under a cookie named like the session,
+ * and a bucket per value is no limit at all: a scrape loop that sent a new
+ * random string each time got a fresh bucket each time and the cap never
+ * tripped, on the quote endpoint and on every mutation route. So the cookie
+ * has to look like a session before it earns a bucket of its own: the
+ * shape `@supabase/ssr` writes, carrying an access token with a subject
+ * and an expiry still in the future. Nothing here checks the signature,
+ * so this is a shape check and not authentication: it turns "send a
+ * different string" into "mint a token", which is the whole of what a
+ * bucket key needs, and a random value buckets on the IP with everybody
+ * else who sent junk. Verifying the signature would need the project's
+ * signing key at the edge and is the door to close if minting ever shows
+ * up in the logs.
  *
  * Anonymous requests still fall back to the IP, which is what actually
  * needs the cap: a scrape loop against the unauthenticated quote endpoint
@@ -157,33 +173,124 @@ function hashToBucket(value: string): string {
   return (h >>> 0).toString(36);
 }
 
-/** The Supabase session cookie, whichever project ref and chunk it is. */
-function sessionCookieValue(req: Request): string | null {
-  const raw = req.headers.get("cookie");
-  if (!raw) return null;
-  const parts: string[] = [];
-  for (const piece of raw.split(";")) {
-    const eq = piece.indexOf("=");
-    if (eq < 1) continue;
-    const name = piece.slice(0, eq).trim();
-    if (/^sb-.+-auth-token(\.\d+)?$/.test(name)) {
-      parts.push(piece.slice(eq + 1).trim());
-    }
+/** Base64url, as a JWT and `@supabase/ssr` both write it. Null when it is not. */
+function fromBase64Url(value: string): string | null {
+  if (!/^[A-Za-z0-9_-]*$/.test(value)) return null;
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/");
+  try {
+    const binary = atob(padded + "=".repeat((4 - (padded.length % 4)) % 4));
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return null;
   }
-  if (parts.length === 0) return null;
-  // Chunked cookies arrive in an order the browser chooses; sort so the
-  // same session always hashes to the same bucket.
-  return parts.sort().join("");
 }
 
 /**
- * Bucket key for a request: the session when there is one, the IP
- * otherwise. Prefixed so a session bucket and an IP bucket can never
+ * The subject of an access token that is shaped like one and has not
+ * expired. Three parts, a JSON payload, a `sub` short enough to be an id
+ * and an `exp` in the future; nothing about the signature.
+ */
+function unexpiredSubject(token: unknown, now: number): string | null {
+  if (typeof token !== "string") return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const json = fromBase64Url(parts[1]);
+  if (!json) return null;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  if (!payload || typeof payload !== "object") return null;
+  const { sub, exp } = payload as { sub?: unknown; exp?: unknown };
+  if (typeof sub !== "string" || sub.length === 0 || sub.length > 128) return null;
+  if (typeof exp !== "number" || !Number.isFinite(exp)) return null;
+  if (exp * 1000 <= now) return null;
+  return sub;
+}
+
+/**
+ * The account behind a session cookie value, or null when the value is
+ * not one. `@supabase/ssr` writes `base64-` and then base64url of the
+ * session JSON, whose `access_token` is the JWT; older versions wrote the
+ * JSON bare, and a raw token is accepted for the same reason.
+ */
+function subjectOfSessionValue(value: string, now: number): string | null {
+  let decoded = value;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+  if (decoded.startsWith("base64-")) {
+    const json = fromBase64Url(decoded.slice("base64-".length));
+    if (!json) return null;
+    decoded = json;
+  }
+  if (decoded.startsWith("{")) {
+    try {
+      const session = JSON.parse(decoded) as { access_token?: unknown };
+      return unexpiredSubject(session?.access_token, now);
+    } catch {
+      return null;
+    }
+  }
+  return unexpiredSubject(decoded, now);
+}
+
+const SESSION_COOKIE = /^(sb-.+-auth-token)(?:\.(\d+))?$/;
+
+/**
+ * The account a request's session cookie belongs to, whichever project ref
+ * it carries and however many chunks the browser split it into. Chunks
+ * arrive in an order the browser chooses, so they are put back in the
+ * order they were written before the value is read.
+ */
+function sessionSubject(req: Request): string | null {
+  const raw = req.headers.get("cookie");
+  if (!raw) return null;
+  const whole = new Map<string, string>();
+  const chunks = new Map<string, { index: number; value: string }[]>();
+  for (const piece of raw.split(";")) {
+    const eq = piece.indexOf("=");
+    if (eq < 1) continue;
+    const match = SESSION_COOKIE.exec(piece.slice(0, eq).trim());
+    if (!match) continue;
+    const value = piece.slice(eq + 1).trim();
+    if (match[2] === undefined) {
+      whole.set(match[1], value);
+    } else {
+      const list = chunks.get(match[1]) ?? [];
+      list.push({ index: Number(match[2]), value });
+      chunks.set(match[1], list);
+    }
+  }
+  const now = Date.now();
+  for (const value of whole.values()) {
+    const sub = subjectOfSessionValue(value, now);
+    if (sub) return sub;
+  }
+  for (const list of chunks.values()) {
+    const joined = list
+      .sort((a, b) => a.index - b.index)
+      .map((c) => c.value)
+      .join("");
+    const sub = subjectOfSessionValue(joined, now);
+    if (sub) return sub;
+  }
+  return null;
+}
+
+/**
+ * Bucket key for a request: the account when a session cookie names one,
+ * the IP otherwise. Prefixed so a session bucket and an IP bucket can never
  * collide.
  */
 export function clientBucket(req: Request): string {
-  const session = sessionCookieValue(req);
-  if (session) return `s:${hashToBucket(session)}`;
+  const subject = sessionSubject(req);
+  if (subject) return `s:${hashToBucket(subject)}`;
   return `i:${clientIp(req)}`;
 }
 
