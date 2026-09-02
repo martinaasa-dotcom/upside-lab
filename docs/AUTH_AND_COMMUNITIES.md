@@ -3,7 +3,9 @@
 ## Product model
 
 - **My portfolio**: Signed-in users co-own portfolios via `portfell_portfolio_owners` (many users ↔ many portfolios). Full live read **and** write for every co-owner.
-- `portfell_portfolios.owner_id` remains as optional primary/creator hint; **authorization uses the junction table**.
+- `portfell_portfolios.owner_id` names the person who made the portfolio, and **two things are theirs alone**: deleting it, and removing another co-owner. Everything else, including inviting somebody and leaving yourself, is any co-owner's, and that authorization comes from the junction table. The creator can never be removed, by anybody; a creator who wants out deletes the portfolio.
+  - `portfolioCreatorId` (`src/lib/auth/ownership.ts`) reads `owner_id` and falls back to the earliest ownership row, for portfolios made before the column was filled in.
+  - Both checks live in code, because the routes run on the service role. Migration `20260824130000` narrowed the table's own DELETE policy and its note said nothing in `src/` deletes from `portfell_portfolio_owners`, which was not true: the owners route always did, and until 2026-09-02 somebody who redeemed an invite could remove the person who sent it. `owners.test.ts` and `portfolios-delete.test.ts` hold the rule now.
 - **Communities**: members see each co-owner’s portfolios live, **read-only**. Invite joins and existing members show every real portfolio unless the owner turns one off. A public join request lets them pick which portfolios the circle will see. Classrooms stay paper-only. Never share a real portfolio into a class.
 - Portfolio PIN/password and guest share links are **removed**. A signed-in session (Google or email link) plus co-ownership is the only gate.
 - Community membership is **always opt-in, never automatic**. Signing in never adds anyone to any community (fixed in `030`, see below). A community is either:
