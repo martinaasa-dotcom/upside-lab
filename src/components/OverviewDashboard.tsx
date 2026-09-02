@@ -28,6 +28,11 @@ import {
   MicroLabel,
 } from "@/components/ui/Panel";
 import { NO_VALUE, cashtag, cn, currency, percent, plural, signedCurrency, signedPercent, signedTone } from "@/lib/format";
+import {
+  portfolioDayLine,
+  typicalMoveForPortfolio,
+} from "@/lib/typical-move";
+import { RecallCardPanel } from "@/components/RecallCardPanel";
 import { parseHoldingsPaste, type CsvHoldingRow } from "@/lib/csv-import";
 import {
   screenshotPickerInputProps,
@@ -66,7 +71,11 @@ import {
   AlertTriangle,
   ArrowRight,
   Calculator,
+  Camera,
+  FileUp,
+  PencilLine,
   Plus,
+  Search,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
@@ -180,6 +189,17 @@ function EmptyBook({
     onPick: (files) => onImportScreenshot?.(files),
     disabled: !onImportScreenshot,
   });
+  /*
+   * Three equal ways in, each with its hint on the screen.
+   *
+   * The paste box used to be the primary path, five lines of prose then a
+   * monospace textarea whose example was two tickers nobody outside this
+   * family has heard of, with the three routes a beginner can actually use
+   * demoted to small outline buttons under a micro-label and their
+   * explanations hidden in `title` attributes, which a phone never shows.
+   * Typing a company name comes first now, and the paste box is a quiet
+   * fourth row for somebody who already has a list.
+   */
   const routes = (
     homework
       ? [
@@ -188,30 +208,30 @@ function EmptyBook({
             label: "Buy a company with paper money",
             hint: "Same starting cash as the rest of the class.",
             onClick: onAddHolding,
-            primary: true,
+            icon: <Plus />,
           },
         ]
       : [
+          {
+            key: "manual",
+            label: "Type a company name",
+            hint: "Search for it, then say how many shares and what you paid.",
+            onClick: onAddHolding,
+            icon: <Search />,
+          },
+          {
+            key: "screenshot",
+            label: "Photo of your broker screen",
+            hint: "The holdings page, showing shares and cost. Not a watchlist.",
+            onClick: onImportScreenshot ? screenshot.open : undefined,
+            icon: <Camera />,
+          },
           {
             key: "csv",
             label: "Upload a CSV",
             hint: "Ticker, shares, buy price. Most brokers export one.",
             onClick: onImportCsv,
-            primary: false,
-          },
-          {
-            key: "screenshot",
-            label: "Import a screenshot",
-            hint: "Your broker holdings page, with shares and cost. Not Apple Stocks or a watchlist.",
-            onClick: onImportScreenshot ? screenshot.open : undefined,
-            primary: false,
-          },
-          {
-            key: "manual",
-            label: "Add one by hand",
-            hint: "Ticker, shares, and what you paid.",
-            onClick: onAddHolding,
-            primary: false,
+            icon: <FileUp />,
           },
         ]
   ).filter((r) => r.onClick);
@@ -221,7 +241,7 @@ function EmptyBook({
     if (parsed.rows.length === 0) {
       setPasteErr(
         parsed.skipped[0]?.reason ??
-          "Each line needs to look like NBIS 500 85.10"
+          "Each line needs to look like AAPL 10 150.00"
       );
       return;
     }
@@ -240,32 +260,11 @@ function EmptyBook({
     ? homeworkCash != null && homeworkCash > 0
       ? `This is paper class. Everyone started with the same cash. Buy companies with that paper money. Do not paste a real portfolio in here. You have ${currency(homeworkCash, 0)} sitting ready.`
       : "This is paper class. Everyone started with the same cash. Buy companies with that paper money. Do not paste a real portfolio in here."
-    : "Paste what you own, one holding per line: ticker, shares, cost. From then on you get it back in plain sentences, and on the days it falls you find out whether anything actually changed at those companies. This portfolio is only yours until you invite someone.";
+    : "Add what you own and Upside Lab tells you, in plain words, what it did each day and whether anything actually changed at those companies. Nobody else sees this unless you invite them.";
 
   return (
     <Panel className="overview-fade">
       <PanelHeader hero title={emptyTitle} subtitle={emptySubtitle} />
-
-      {!homework && onPasteHoldings && (
-        <div className="flex flex-col gap-3">
-          <Textarea
-            aria-label="Paste what you own, one holding per line"
-            value={paste}
-            onChange={(e) => setPaste(e.target.value)}
-            rows={5}
-            placeholder={"NBIS 500 85.10\nCRWV 1100 64.45"}
-            className="min-h-28 font-mono"
-          />
-          {pasteErr && <p className="text-sm text-loss">{pasteErr}</p>}
-          <Button
-            type="button"
-            onClick={submitPaste}
-            disabled={!paste.trim()}
-          >
-            Add these holdings
-          </Button>
-        </div>
-      )}
 
       {homework && routes[0] ? (
         <Button type="button" onClick={routes[0].onClick}>
@@ -274,29 +273,77 @@ function EmptyBook({
       ) : null}
 
       {!homework && routes.length > 0 ? (
-        <div className="flex flex-col gap-2 border-t border-border pt-4">
-          <MicroLabel>Or add another way</MicroLabel>
-          <div className="flex flex-wrap gap-2">
-            {routes.map((r) => (
-              <Button
-                key={r.key}
-                type="button"
-                variant="outline"
-                size="sm"
-                title={"hint" in r ? r.hint : undefined}
-                onClick={r.onClick}
+        <div className="grid gap-3 sm:grid-cols-3">
+          {routes.map((r) => (
+            <button
+              key={r.key}
+              type="button"
+              onClick={r.onClick}
+              className={cn(
+                "veil-hover card-sheen glass-well flex min-w-0 flex-col gap-2 rounded-lg p-4 text-left ring-1 ring-foreground/12 transition hover:scale-[1.01] hover:ring-primary/25"
+              )}
+            >
+              <span
+                className="flex size-5 text-primary [&>svg]:size-5"
+                aria-hidden
               >
+                {r.icon}
+              </span>
+              <span className="font-heading text-base font-semibold text-foreground">
                 {r.label}
-              </Button>
-            ))}
-          </div>
+              </span>
+              <span className="text-sm leading-relaxed text-muted-foreground">
+                {r.hint}
+              </span>
+            </button>
+          ))}
         </div>
       ) : null}
+
+      {!homework && onPasteHoldings && (
+        <details className="group border-t border-border pt-4">
+          <summary className="cursor-pointer list-none text-sm text-muted-foreground hover:text-foreground">
+            Or paste a list you already have
+          </summary>
+          <div className="mt-3 flex flex-col gap-3">
+            <Textarea
+              aria-label="Paste what you own, one holding per line"
+              value={paste}
+              onChange={(e) => setPaste(e.target.value)}
+              rows={4}
+              placeholder={"AAPL 10 150.00\nVOO 5 400.00"}
+              className="min-h-24 font-mono"
+            />
+            {pasteErr && <p className="text-sm text-loss">{pasteErr}</p>}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={submitPaste}
+              disabled={!paste.trim()}
+            >
+              Add these holdings
+            </Button>
+          </div>
+        </details>
+      )}
       {onImportScreenshot && !homework ? (
         <input {...screenshotPickerInputProps(screenshot)} />
       ) : null}
     </Panel>
   );
+}
+
+/**
+ * A move too small to print as a whole dollar, said in words.
+ *
+ * `signedCurrency` answers "$0" for anything that rounds away, which is
+ * true and reads on a tile as a figure that failed to arrive. "Under $1"
+ * says the same thing in the app's own voice, and the percentage on the
+ * line above already carries the direction.
+ */
+function tileMoney(dollars: number): string {
+  if (Math.abs(dollars) < 0.5) return "Under $1";
+  return signedCurrency(dollars, 0);
 }
 
 function signedMovePct(pct: number): string {
@@ -395,6 +442,91 @@ function MorningStack({
 }) {
   const sunday = morning.sunday;
   const convictions = loadConvictionMap();
+  /*
+   * Friday's numbers are captioned as Friday's.
+   *
+   * On a Saturday the headline already reads "Friday" and the sentence says
+   * "These are Friday's numbers", while every driver tile under it still
+   * said "of today's move" about a market that has been shut for a day.
+   */
+  const moveWord = morning.moveLabel === "Friday" ? "Friday's move" : "today's move";
+  /*
+   * "Biggest rise this week" only when the week's own marks supplied the
+   * figure. On a new device there are no marks, the recap falls back to the
+   * live day, and that day is Friday: one Friday's move labelled as the
+   * week's result is a figure this app states as fact and never measured.
+   */
+  const weekWord = sunday?.fromWeek ? "this week" : "on Friday";
+  const noticeList =
+    morning.notices.length === 0 ? null : (
+      <ul className="flex flex-col gap-4">
+        {morning.notices.map((notice) => (
+          <li
+            key={notice.id}
+            className="flex gap-3 border-t border-border pt-4"
+          >
+            {/*
+              * The glyph names what the note is. `Sparkles` used to
+              * sit here and was the wrong mark by a long way: it is
+              * the universal "a model wrote this" badge, and these
+              * are arithmetic on the reader's own holdings. A Pulse
+              * note takes Pulse's own icon so the glyph and the eye
+              * point at the same room, and a note the reader has not
+              * written yet takes a pencil: it is a to-do, not a
+              * hazard, and the warning triangle is kept for money at
+              * risk.
+              */}
+            <span
+              className="mt-0.5 flex size-4 shrink-0 text-muted-foreground [&>svg]:size-4"
+              aria-hidden
+            >
+              {notice.ask === "write-thesis" ? (
+                <PencilLine />
+              ) : notice.kind === "gap" ? (
+                <AlertTriangle />
+              ) : notice.source === "pulse" ? (
+                <Activity />
+              ) : (
+                <Calculator />
+              )}
+            </span>
+            <div className="flex min-w-0 flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <MicroLabel>{notice.label}</MicroLabel>
+                {notice.source === "pulse" && notice.ticker ? (
+                  <WhyThis
+                    provenance={pulseProvenance({
+                      ticker: notice.ticker,
+                      hasOwnReason: Boolean(
+                        convictions[
+                          notice.ticker.toUpperCase()
+                        ]?.thesis?.trim()
+                      ),
+                    })}
+                  />
+                ) : null}
+              </div>
+              <p className="text-sm leading-relaxed">
+                <InsightText text={notice.text} />
+              </p>
+              {notice.ticker && onOpenPulse ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="-ml-2 mt-1 self-start text-muted-foreground hover:text-foreground"
+                  onClick={() => onOpenPulse(notice.ticker)}
+                >
+                  {notice.ask === "write-thesis"
+                    ? `Write why you own ${cashtag(notice.ticker)}`
+                    : `Open Pulse on ${cashtag(notice.ticker)}`}
+                  <ArrowRight data-icon="inline-end" />
+                </Button>
+              ) : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+    );
   return (
     <div className={cn("flex flex-col gap-6", className)}>
       {sunday ? (
@@ -412,7 +544,7 @@ function MorningStack({
                   nested
                   ticker={sunday.best.ticker}
                   primary={signedMovePct(sunday.best.pct)}
-                  secondary="Biggest week move"
+                  secondary={`Biggest rise ${weekWord}`}
                   isUp={sunday.best.pct >= 0}
                   onOpen={
                     onOpenPulse ? () => onOpenPulse(sunday.best!.ticker) : undefined
@@ -424,7 +556,7 @@ function MorningStack({
                   nested
                   ticker={sunday.worst.ticker}
                   primary={signedMovePct(sunday.worst.pct)}
-                  secondary="Biggest drop"
+                  secondary={`Biggest drop ${weekWord}`}
                   isUp={sunday.worst.pct >= 0}
                   onOpen={
                     onOpenPulse ? () => onOpenPulse(sunday.worst!.ticker) : undefined
@@ -433,16 +565,28 @@ function MorningStack({
               )}
             </div>
           )}
+          {noticeList}
         </Reading>
       ) : (
-        <Reading>
+        /*
+         * One Reading, not three.
+         *
+         * The briefing used to be a card holding the day's sentence and,
+         * under it, a two-column grid of two more cards, each with its own
+         * ring, glyph and label. On a laptop the first was 1,150px wide
+         * with nine words in it; on a phone the three cost about 600px for
+         * forty words. It read as three widgets rather than as one person
+         * talking, so it is one card now: the day's sentence leads, and the
+         * notes are a short list under it with an inline link each.
+         */
+        <Reading className="flex flex-col gap-4">
           <p className="text-base font-medium leading-relaxed text-foreground">
             {morning.sentence}
           </p>
           {!morning.quiet && morning.drivers.length > 0 && (
             <div
               className={cn(
-                "mt-4 grid grid-cols-1 gap-3",
+                "grid grid-cols-1 gap-3",
                 morning.drivers.length > 1 && "sm:grid-cols-2",
                 morning.drivers.length > 2 && "lg:grid-cols-3"
               )}
@@ -455,7 +599,7 @@ function MorningStack({
                   primary={signedCurrency(d.dollar, 0)}
                   secondary={
                     d.share != null
-                      ? `${Math.round(d.share * 100)}% of today's move`
+                      ? `${Math.round(d.share * 100)}% of ${moveWord}`
                       : undefined
                   }
                   isUp={d.dollar >= 0}
@@ -464,67 +608,8 @@ function MorningStack({
               ))}
             </div>
           )}
+          {noticeList}
         </Reading>
-      )}
-      {morning.notices.length > 0 && (
-        <div
-          className={cn(
-            "grid gap-4",
-            morning.notices.length > 1 && "sm:grid-cols-2"
-          )}
-        >
-          {morning.notices.map((notice) => (
-            <Reading
-              key={notice.id}
-              label={notice.label}
-              tone={notice.kind === "gap" ? "warn" : "neutral"}
-              /*
-               * The glyph names what the card is. `Sparkles` used to sit
-               * here and was the wrong mark by a long way: it is the
-               * universal "a model wrote this" badge, and these cards are
-               * arithmetic on the reader's own holdings. A Pulse card is
-               * the exception, and it takes Pulse's own icon so the glyph
-               * and the eye both point at the same room.
-               */
-              icon={
-                notice.kind === "gap" ? (
-                  <AlertTriangle />
-                ) : notice.source === "pulse" ? (
-                  <Activity />
-                ) : (
-                  <Calculator />
-                )
-              }
-              note={
-                notice.source === "pulse" && notice.ticker ? (
-                  <WhyThis
-                    provenance={pulseProvenance({
-                      ticker: notice.ticker,
-                      hasOwnReason: Boolean(
-                        convictions[notice.ticker.toUpperCase()]?.thesis?.trim()
-                      ),
-                    })}
-                  />
-                ) : null
-              }
-            >
-              <p>
-                <InsightText text={notice.text} />
-              </p>
-              {notice.ticker && onOpenPulse ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="-ml-2 mt-3 text-muted-foreground hover:text-foreground"
-                  onClick={() => onOpenPulse(notice.ticker)}
-                >
-                  Open Pulse on {cashtag(notice.ticker)}
-                  <ArrowRight data-icon="inline-end" />
-                </Button>
-              ) : null}
-            </Reading>
-          ))}
-        </div>
       )}
     </div>
   );
@@ -603,7 +688,7 @@ function MoverTile({
       </span>
       <span className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 font-mono text-sm tabular-nums">
         <span className="text-muted-foreground">{currency(ticker.price)}</span>
-        <span className={cn(tone(dollars))}>{signedCurrency(dollars, 0)}</span>
+        <span className={cn(tone(dollars))}>{tileMoney(dollars)}</span>
       </span>
     </button>
   );
@@ -612,15 +697,24 @@ function MoverTile({
 function PortfolioLane({
   sheet,
   maxValue,
+  allValue,
   onOpen,
 }: {
   sheet: SheetScore;
   maxValue: number;
+  /** Everything the reader owns, so the bar can say what share this is. */
+  allValue: number;
   onOpen: () => void;
 }) {
   const width =
     maxValue > 0 ? Math.max(10, (sheet.totalValue / maxValue) * 100) : 10;
-  const hot = sheet.roiPct >= 0;
+  const share = allValue > 0 ? sheet.totalValue / allValue : null;
+  const shareOfAll =
+    share == null
+      ? null
+      : share < 0.005
+        ? "Less than 1%"
+        : percent(share, 0);
   const initial = sheet.portfolio.name.trim().charAt(0).toUpperCase() || "?";
 
   return (
@@ -665,19 +759,33 @@ function PortfolioLane({
         </p>
       </div>
 
-      <Progress
-        value={width}
-        className={cn(
-          // bg-secondary matches this card's own bg-muted exactly, so the
-          // track would be invisible against its own container — use the
-          // darker bg-card token instead so the fill reads as "X% of a
-          // whole," not a floating bar.
-          "h-2 bg-card [&_[data-slot=progress-indicator]]:bg-primary",
-          hot
-            ? "[&_[data-slot=progress-indicator]]:bg-gain"
-            : "[&_[data-slot=progress-indicator]]:bg-loss"
-        )}
-      />
+      {/*
+        * The bar is size, and it says so.
+        *
+        * It used to be green or red by gain, sitting directly above a pill
+        * reading "70.8% all time", so the smallest portfolio in the
+        * household wore the shortest bar over the biggest percentage and
+        * the two contradicted each other. The length is a share of the
+        * largest portfolio, the fill is neutral, and the caption under it
+        * says which. Gain and loss colour belongs to the pills.
+        */}
+      <div className="flex flex-col gap-1.5">
+        <Progress
+          value={width}
+          className={cn(
+            // bg-secondary matches this card's own bg-muted exactly, so the
+            // track would be invisible against its own container — use the
+            // darker bg-card token instead so the fill reads as "X% of a
+            // whole," not a floating bar.
+            "h-2 bg-card [&_[data-slot=progress-indicator]]:bg-foreground/40"
+          )}
+        />
+        <p className="text-sm text-muted-foreground">
+          {shareOfAll != null
+            ? `${shareOfAll} of everything you own`
+            : "Size against your largest portfolio"}
+        </p>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <Pill tone={sheet.roiPct >= 0 ? "good" : "bad"} className="font-mono">
@@ -877,12 +985,33 @@ export const OverviewDashboard = memo(function OverviewDashboard({
     positions: navPositions,
   });
 
+  /*
+   * The briefing's own tiles are not repeated here.
+   *
+   * On a day with a real move the briefing draws up to three tiles naming
+   * the companies that did it, and Movers 200px below drew the same
+   * companies again in the same order. So the day list drops whatever the
+   * briefing already showed. All time is a different question and keeps
+   * every holding.
+   */
+  const driverTickers = useMemo(
+    () =>
+      new Set(
+        // Only the tiles the briefing actually drew. On a quiet day it
+        // renders none, and hiding them here would take companies off the
+        // page that nothing else had named.
+        morning.quiet ? [] : morning.drivers.map((d) => d.ticker)
+      ),
+    [morning.drivers, morning.quiet]
+  );
+
   const movers = useMemo(() => {
     if (moverHorizon === "today") {
       return [
         ...todayWinners.map((t) => ({ t, mode: "today-win" as const })),
         ...todayLosers.map((t) => ({ t, mode: "today-loss" as const })),
       ]
+        .filter((x) => !driverTickers.has(x.t.ticker))
         .sort(
           (a, b) => Math.abs(b.t.todayPct ?? 0) - Math.abs(a.t.todayPct ?? 0)
         )
@@ -894,7 +1023,19 @@ export const OverviewDashboard = memo(function OverviewDashboard({
     ]
       .sort((a, b) => Math.abs(b.t.roiPct) - Math.abs(a.t.roiPct))
       .slice(0, MOVERS_SHOWN);
-  }, [moverHorizon, todayWinners, todayLosers, winners, losers]);
+  }, [moverHorizon, todayWinners, todayLosers, winners, losers, driverTickers]);
+
+  /*
+   * A heading that promises a selection has to be one. Six tiles for a
+   * six-company portfolio is every holding, sorted, and calling that
+   * "Movers" is the panel overstating what it did.
+   */
+  const moversTitle =
+    movers.length > 0 && movers.length >= tickers.length
+      ? moverHorizon === "today"
+        ? `Every holding ${morning.moveLabel === "Friday" ? "on Friday" : "today"}`
+        : "Every holding, all time"
+      : "Movers";
 
   const multiSheet = sheets.length > 1;
 
@@ -904,6 +1045,96 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   }
 
   const bookIsEmpty = model.tickers.length === 0;
+
+  /*
+   * An ordinary day for this reader, from the price history each quote
+   * already carries. `typicalMoveForPortfolio` rebuilds the portfolio's own
+   * value day by day from the shares held today, so the answer describes
+   * this portfolio through the past rather than the portfolio as it was;
+   * that is the same assumption the year chart states out loud. It returns
+   * null when the history is too short, and a null says nothing at all
+   * rather than something vague.
+   *
+   * The dollars come off the stocks, never the total: cash does not move,
+   * and `todayPct` is already the value-weighted move of the holdings, so
+   * pairing it with the total would print a bigger ordinary day than any
+   * that ever happened.
+   */
+  const typical = useMemo(
+    () =>
+      typicalMoveForPortfolio(
+        tickers.map((t) => ({ shares: t.shares, closes: t.sparkline }))
+      ),
+    [tickers]
+  );
+  const ordinaryDayLine = portfolioDayLine(
+    totals.todayDollar,
+    totals.todayPct,
+    totals.equityValue,
+    typical,
+    (n) => currency(n, 0)
+  );
+
+  /*
+   * Cash says what share of everything it is, because a cash figure with
+   * nothing beside it teaches nobody whether it is a lot. Borrowed money
+   * says so first: the size of it, and what it means, is the Cash card's
+   * own job further down the page.
+   */
+  const cashShare =
+    totals.totalValue > 0 ? Math.abs(totals.cash) / totals.totalValue : null;
+  const cashShareWords =
+    cashShare == null
+      ? null
+      : cashShare < 0.005
+        ? "less than 1% of everything"
+        : `${percent(cashShare, 0)} of everything`;
+  const cashNote =
+    totals.cash < 0
+      ? cashShareWords
+        ? `Borrowed, ${cashShareWords}`
+        : "Borrowed"
+      : cashShareWords;
+
+  /** Friday's prices are captioned as Friday's, on a Saturday. */
+  const priceWord = morning.moveLabel === "Friday" ? "Friday's" : "today's";
+
+  const marketHoldings = useMemo(
+    () =>
+      tickers.map((t) => ({ ticker: cashtag(t.ticker), todayPct: t.todayPct })),
+    [tickers]
+  );
+
+  /*
+   * One question a day, built from what this reader actually holds. It only
+   * appears once there is enough to ask an honest question about.
+   */
+  const recallInput = useMemo(() => {
+    if (tickers.length < 2 || totals.equityValue <= 0) return null;
+    return {
+      holdings: tickers.map((t) => ({
+        ticker: t.ticker,
+        label: cashtag(t.ticker),
+        shares: t.shares,
+        buyPrice: t.shares > 0 ? t.buyValue / t.shares : 0,
+        price: t.price,
+        value: t.currentValue,
+        todayPct: t.todayPct,
+      })),
+      totalValue: totals.equityValue,
+      cash: totals.cash,
+      todayPct: totals.todayPct,
+      typical,
+      money: (n: number) => currency(n, 0),
+      percent: (n: number) => percent(n, 0),
+    };
+  }, [
+    tickers,
+    totals.equityValue,
+    totals.cash,
+    totals.todayPct,
+    typical,
+  ]);
   const painted = nav.points.filter((p) => Number.isFinite(p.nav));
   const startNav = painted[0]?.nav;
   const endNav = painted[painted.length - 1]?.nav;
@@ -939,7 +1170,10 @@ export const OverviewDashboard = memo(function OverviewDashboard({
    */
   const marketReading = (
     <WidgetErrorBoundary name="Market reading">
-      <MarketSentimentWidget />
+      <MarketSentimentWidget
+        yoursPct={totals.todayPct}
+        holdings={marketHoldings}
+      />
     </WidgetErrorBoundary>
   );
 
@@ -992,99 +1226,146 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             */}
           <p className="text-sm text-muted-foreground">
             {totals.positionCount === 1
-              ? "One holding, at today's prices."
-              : `${totals.positionCount} holdings, at today's prices.`}
+              ? `One holding, at ${priceWord} prices.`
+              : `${totals.positionCount} holdings, at ${priceWord} prices.`}
           </p>
           <OvernightNote />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge
-            variant="outline"
-            title={sessionLabel(marketState)}
-            className="h-8 gap-1.5 px-2.5"
-          >
-            <span
-              className={cn(
-                "size-1.5 shrink-0 rounded-full",
-                kind === "open"
-                  ? "bg-gain"
-                  : kind === "pre" || kind === "ah"
-                    ? "bg-primary"
-                    : "bg-muted-foreground"
-              )}
-              aria-hidden
-            />
-            {sessionLabel(marketState)}
-          </Badge>
-          {onAddHolding && (
-            <Button
-              type="button"
-              onClick={onAddHolding}
+          {/*
+            * No badge until the market has answered.
+            *
+            * `sessionLabel` falls back to a word for an unknown state, and
+            * a dotted chip reading "Session unknown" beside a reader's own
+            * money reads as an error about their account rather than as
+            * "the exchange has not said yet". Nothing is the honest shape
+            * for a fact we do not have.
+            */}
+          {kind !== "unknown" && (
+            <Badge
+              variant="outline"
+              title={sessionLabel(marketState)}
+              className="h-8 gap-1.5 px-2.5"
             >
+              <span
+                className={cn(
+                  "size-1.5 shrink-0 rounded-full",
+                  kind === "open"
+                    ? "bg-gain"
+                    : kind === "pre" || kind === "ah"
+                      ? "bg-primary"
+                      : "bg-muted-foreground"
+                )}
+                aria-hidden
+              />
+              {sessionLabel(marketState)}
+            </Badge>
+          )}
+          {/*
+            * One spelling of this button, everywhere, and it is `outline`
+            * on Home.
+            *
+            * A reader with eight holdings adds one a few times a year; what
+            * they do every day is read what happened and open Pulse. The
+            * page's one accent colour was being spent on the rarest task on
+            * the screen.
+            */}
+          {onAddHolding && (
+            <Button type="button" variant="outline" onClick={onAddHolding}>
               <Plus data-icon="inline-start" />
-              Add a holding
+              Add holding
             </Button>
           )}
         </div>
       </div>
 
-      <Scoreboard className="overview-fade">
-        <Score
-          label="Portfolio"
-          value={currency(totals.totalValue, 0)}
-          sub={plural(totals.sheetCount, "portfolio")}
-          valueClassName="text-primary"
-        />
-        <Score
-          label={morning.moveLabel}
-          value={signedCurrency(totals.todayDollar, 0)}
-          sub={
-            totals.todayPct != null ? (
-              <DeltaBadge value={totals.todayDollar}>
-                {percent(totals.todayPct)}
-              </DeltaBadge>
-            ) : (
-              NO_VALUE
-            )
-          }
-          valueClassName={tone(totals.todayDollar)}
-        />
-        {/*
-          * The explainer is on this cell because this is the cell people go
-          * looking for when they want "since I bought", and it is already
-          * the answer: it is measured against the average price you paid,
-          * which is your own buy price blended. What it is not is a period
-          * starting on a date, and a reader spent a whole session hunting
-          * for a period picker that is never going to exist. Saying so here
-          * costs one info dot on the figure they were already reading.
-          */}
-        <Score
-          label="All time"
-          explain="Your value today against what you paid for these shares on average. There is no date in it: Upside Lab does not keep the day you bought, so nothing here can draw a line starting from that day."
-          value={signedCurrency(totals.roiDollar, 0)}
-          sub={
-            <DeltaBadge value={totals.roiDollar}>
-              {percent(totals.roiPct)}
+      {/*
+        * The value is the hero, and the two cells under it are not its
+        * equals.
+        *
+        * This was four identical tiles, which gave the cash figure exactly
+        * the same weight as what everything is worth and put the label
+        * "Portfolio" over the sub-line "2 portfolios", a contradiction on
+        * the first thing a returning reader looks at. The one number they
+        * came for now spans the row with the day's move on the same line,
+        * and All time and Cash sit under it as a pair.
+        */}
+      <div className="overview-fade flex flex-col gap-4">
+        <div className="card-sheen glass flex min-w-0 flex-col rounded-xl p-4 ring-1 ring-foreground/20 sm:p-6">
+          <MicroLabel>Everything you own</MicroLabel>
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-2">
+            {/*
+              * `text-2xl` is the top of the ladder and the hero stays on
+              * it. What gives this figure its weight is that it is alone on
+              * a full-width card in the accent colour with the day's move
+              * beside it, rather than one of four identical tiles; the size
+              * step above the two cells under it is on the phone, where the
+              * cells drop to `text-xl`.
+              */}
+            <p className="min-w-0 break-words font-mono text-2xl font-bold leading-tight tracking-tight tabular-nums text-primary">
+              {currency(totals.totalValue, 0)}
+            </p>
+            <DeltaBadge value={totals.todayDollar}>
+              {signedCurrency(totals.todayDollar, 0)}
+              {totals.todayPct != null ? ` · ${percent(totals.todayPct)}` : ""}
             </DeltaBadge>
-          }
-          valueClassName={tone(totals.roiDollar)}
-        />
-        <Score
-          label="Cash"
-          value={currency(totals.cash, 0)}
-          sub={totals.cash < 0 ? "Borrowed" : undefined}
-          valueClassName={totals.cash < 0 ? "text-loss" : undefined}
-          subClassName={totals.cash < 0 ? "text-loss" : undefined}
-        />
-      </Scoreboard>
-
-      {marketReading}
+            <span className="text-sm text-muted-foreground">
+              {morning.moveLabel === "Friday" ? "on Friday" : "today"}
+            </span>
+          </div>
+          {/*
+            * What an ordinary day is for this reader, in their own money.
+            * A red number means nothing on its own: somebody whose
+            * portfolio swings two hundred dollars most days learns nothing
+            * from "down $180", and somebody whose barely moves should sit
+            * up at the same figure.
+            */}
+          {ordinaryDayLine ? (
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              {ordinaryDayLine}
+            </p>
+          ) : null}
+        </div>
+        <Scoreboard cols={2}>
+          {/*
+            * The explainer is on this cell because this is the cell people go
+            * looking for when they want "since I bought", and it is already
+            * the answer: it is measured against the average price you paid,
+            * which is your own buy price blended. What it is not is a period
+            * starting on a date, and a reader spent a whole session hunting
+            * for a period picker that is never going to exist. Saying so here
+            * costs one info dot on the figure they were already reading.
+            */}
+          <Score
+            label="All time"
+            explain="Your value today against what you paid for these shares on average. There is no date in it: Upside Lab does not keep the day you bought, so nothing here can draw a line starting from that day."
+            value={signedCurrency(totals.roiDollar, 0)}
+            sub={
+              <DeltaBadge value={totals.roiDollar}>
+                {percent(totals.roiPct)}
+              </DeltaBadge>
+            }
+            valueClassName={tone(totals.roiDollar)}
+          />
+          <Score
+            label="Cash"
+            value={currency(totals.cash, 0)}
+            sub={cashNote}
+            valueClassName={totals.cash < 0 ? "text-loss" : undefined}
+            subClassName={totals.cash < 0 ? "text-loss" : undefined}
+          />
+        </Scoreboard>
+      </div>
 
       <MorningStack
         className="overview-fade"
         morning={morning}
         onOpenPulse={onOpenPulse}
       />
+
+      {marketReading}
+
+      {recallInput ? <RecallCardPanel input={recallInput} /> : null}
 
       <Panel className="overview-fade">
         <PanelHeader
@@ -1122,7 +1403,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
 
       <Panel className="overview-fade">
         <PanelHeader
-          title="Movers"
+          title={moversTitle}
           actions={
             <Segmented
               options={[
@@ -1158,16 +1439,33 @@ export const OverviewDashboard = memo(function OverviewDashboard({
           */}
         {movers.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Waiting on prices.
+            {moverHorizon === "today" && driverTickers.size > 0
+              ? "Everything that moved is named above."
+              : "Waiting on prices."}
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          /*
+           * Three across from `lg`. At 1280 two columns made each tile
+           * 570px wide holding four short tokens with 400px of glass
+           * between them; six still divides evenly across three.
+           */
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
             {movers.map(({ t, mode }) => (
               <MoverTile
                 key={`${mode}-${t.ticker}`}
                 ticker={t}
                 mode={mode}
-                onOpen={() => openFirstPortfolio(t)}
+                /*
+                 * Pulse, the same room the briefing's own chips open.
+                 * The same chip on the same screen used to land in two
+                 * different places, and the plain-words room is the one a
+                 * beginner wants after "who moved".
+                 */
+                onOpen={() =>
+                  onOpenPulse
+                    ? onOpenPulse(t.ticker)
+                    : openFirstPortfolio(t)
+                }
               />
             ))}
           </div>
@@ -1193,6 +1491,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
                 key={sheet.portfolio.id}
                 sheet={sheet}
                 maxValue={maxSheet}
+                allValue={totals.totalValue}
                 onOpen={() => onOpenSheet(sheet.portfolio.id)}
               />
             ))}

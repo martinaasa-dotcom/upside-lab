@@ -117,22 +117,45 @@ export function MacroStrip() {
     };
   }, [setFearGreed, setMacro]);
 
+  /*
+   * The labels are spelled out, because the glosses were hover-only.
+   *
+   * "F&G 45 VIX 16.34 EURUSD 1.1596 BTC 77,255 10Y 4.80%" is five
+   * abbreviations a beginner cannot read, and their explanations lived in
+   * `title` attributes, which a phone never shows. There is nothing to
+   * abbreviate for on a laptop: the row hugs the right of a wide bar.
+   */
   const items = [
     fearGreed
       ? {
-          label: "F&G",
+          label: "Fear & Greed",
           value: String(fearGreed.score),
           title: `CNN Fear & Greed: ${fearGreed.rating}`,
           tone: fearGreedTone(fearGreed.score),
         }
       : null,
-    { label: "VIX", value: fmt(macro.vix, 2), title: "VIX", tone: null },
-    { label: "EURUSD", value: fmt(macro.eurusd, 4), title: "EURUSD", tone: null },
-    { label: "BTC", value: fmt(macro.btc, 0), title: "Bitcoin", tone: null },
     {
-      label: "10Y",
+      label: "VIX",
+      value: fmt(macro.vix, 2),
+      title: "How big a swing the market expects over the next month",
+      tone: null,
+    },
+    {
+      label: "EUR/USD",
+      value: fmt(macro.eurusd, 4),
+      title: "Dollars for one euro",
+      tone: null,
+    },
+    {
+      label: "Bitcoin",
+      value: macro.btc != null ? `$${fmt(macro.btc, 0)}` : NO_VALUE,
+      title: "Bitcoin, in dollars",
+      tone: null,
+    },
+    {
+      label: "US 10-year",
       value: macro.tenYear != null ? `${fmt(macro.tenYear, 2)}%` : NO_VALUE,
-      title: "US 10-year yield",
+      title: "What the US government pays to borrow for ten years",
       tone: null,
     },
   ].filter(Boolean) as Array<{
@@ -159,18 +182,21 @@ export function MacroStrip() {
 
   return (
     /*
-     * On a phone this row is wider than the screen and scrolls, so a short
-     * mask fades its last number instead of hard-cutting it. The pill chrome
-     * goes with it below `sm`: boxed and filled, four market numbers looked
-     * like a control you could press, inside a chrome row that is already a
-     * bounded band of its own.
+     * Not on a phone at all.
+     *
+     * At 390 this was a masked, sideways-scrolling row of five
+     * abbreviations about things the reader does not own, sitting above a
+     * Market reading card that says the same two numbers in words with an
+     * explanation beside each. What the strip is for on a phone is the one
+     * line to its left: how old the prices are. From `sm` up there is room
+     * for the numbers and they are spelled out.
      */
     <div
-      className="scrollbar-none min-w-0 flex-1 overflow-x-auto [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] sm:ml-auto sm:w-fit sm:flex-none sm:[mask-image:none]"
+      className="ml-auto hidden w-fit min-w-0 sm:block"
       role="group"
       aria-label="Market snapshot"
     >
-      <div className="flex w-fit items-center gap-3 whitespace-nowrap rounded-md px-0 py-1 font-mono text-xs tabular-nums sm:border sm:border-border sm:bg-muted/50 sm:px-3">
+      <div className="flex w-fit items-center gap-3 whitespace-nowrap rounded-md border border-border bg-muted/50 px-3 py-1 font-mono text-xs tabular-nums">
         {itemNodes}
       </div>
     </div>

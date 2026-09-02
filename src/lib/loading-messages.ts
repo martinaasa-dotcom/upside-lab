@@ -1,52 +1,29 @@
 /**
- * Witty loading-screen lines — genuinely random (Math.random, not seeded)
- * so repeat visits feel fresh rather than "today's line." Keep each one
- * short enough to sit on one line under the logo, and keep the mix wide
- * (money jokes, everyday-delay jokes, self-aware app jokes) so it doesn't
- * read as one repetitive bit. A space before the trailing ellipsis reads
- * cleaner than jamming it right against the last word.
+ * What the app says while it is opening.
+ *
+ * These are quiet on purpose. This is the room a reader waits in before
+ * they find out whether they lost money today, and it used to show one of
+ * forty jokes about exactly that: "Checking if you're rich yet", "Reassuring
+ * your losses", "Recalculating how rich you feel", "Bribing the server with
+ * imaginary money", plus market slang the persona bans outright. On the
+ * morning somebody opens this after a bad week, a gag about their money is
+ * the app laughing at them.
+ *
+ * They also have to match what came before. The session-resume shell says
+ * "Opening your portfolio ..." so the app arrives underneath something that
+ * never moved (see AGENTS.md); replacing that with a joke one frame later
+ * undoes the whole point of it.
+ *
+ * So: a handful of true lines saying what is actually happening. Humour, if
+ * any, belongs in Margus's own voice, where a person is talking to you.
+ * A space before the trailing ellipsis reads cleaner than jamming it
+ * against the last word.
  */
 const LOADING_MESSAGES = [
   "Opening your portfolio …",
-  "Finding your keys …",
-  "Looking under the couch cushions …",
-  "Checking your pockets one more time …",
-  "It was juuust here a second ago …",
-  "Retracing your steps …",
-  "Turning the house upside down …",
-  "Asking the dog if he's seen it …",
-  "Counting your money (again) …",
-  "Convincing your stocks to cooperate …",
-  "Waking up your portfolio …",
-  "Negotiating with the market gods …",
-  "Making sure your cash didn't wander off …",
-  "Polishing your gains …",
-  "Reassuring your losses …",
-  "Untangling your holdings …",
-  "Checking if you're rich yet …",
-  "Summoning your portfolio from the cloud …",
-  "Dusting off the spreadsheet …",
-  "Warming up the calculator …",
-  "Consulting the financial oracles …",
-  "Recalculating how rich you feel …",
-  "Buffering your financial destiny …",
-  "Doing math so you don't have to …",
-  "Pretending this is instant …",
-  "Shuffling numbers into place …",
-  "Assembling your empire …",
-  "Making it look easy …",
-  "Fetching the good stuff …",
-  "One sec, just flexing …",
-  "Bribing the server with imaginary money …",
-  "Herding your tickers into one place …",
-  "Reading the fine print (there isn't any) …",
-  "Asking Margus to hurry up …",
-  "Double-checking you didn't buy the dip by accident …",
-  "Loading, and unlike your portfolio, this won't take forever …",
-  "Rehearsing your excuse for that one ticker …",
-  "Giving your cash a pep talk …",
-  "Waiting for the numbers to feel ready …",
-  "Tidying up before you walk in …",
+  "Getting today's prices …",
+  "Adding up what you own …",
+  "Nearly there …",
 ];
 
 /** Stable SSR + first paint. Random line swaps in after mount. */
