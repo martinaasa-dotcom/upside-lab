@@ -182,6 +182,22 @@ export const STRATEGY = {
   dayWindow: 4,
   targetYield: 0.05,
   minYield: 0.03,
-  executionWindow: "16:45 to 18:00 EEST",
+  /*
+    A fact about the venue, in the venue's own time.
+
+    This used to read "16:45 to 18:00 EEST", which is one reader's clock and
+    wrong for most of the year even for him: Estonia is on EET from late
+    October to late March, and for the three or four weeks a year when the
+    EU and the US change clocks on different weekends the instant is wrong
+    too, because the New York open moves under it. It is printed to every
+    reader and handed to the model as a rule, and a reader in London or
+    Chicago was being told to place an order at a time that means nothing
+    where they are.
+
+    New York time is the honest form: the window is defined by the opening
+    bell, so it is fixed against the exchange and only ever needs converting
+    once, by whoever is reading it.
+  */
+  executionWindow: "09:45 to 11:00 in New York",
 } as const;
 

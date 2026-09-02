@@ -31,11 +31,7 @@ import {
   PAGE_FRAME_CLASS,
   PAGE_MAIN_CLASS,
 } from "@/lib/page-shell";
-import {
-  LEGAL_OPERATOR,
-  PRODUCT_NAME,
-  PRODUCT_SUPPORT_EMAIL,
-} from "@/lib/product";
+import { LEGAL_OPERATOR, PRODUCT_NAME, PRODUCT_SUPPORT_EMAIL, SUNDAY_EMAIL_LINE } from "@/lib/product";
 import {
   SUPPORTER_ASIDE,
   SUPPORTER_OFFER,
@@ -963,7 +959,7 @@ export function AccountPage() {
                     <PinnedHeader
                       icon={<Mail className="h-4 w-4" />}
                       title="The Sunday email"
-                      subtitle="One email a week. What your week did in money, what moved and why, and nothing else lands in your inbox."
+                      subtitle={`${SUNDAY_EMAIL_LINE} The switch turns it off, and the only other mail is one reminder if you sign up and add nothing.`}
                       controlId={sundaySwitchId}
                       actions={
                         <Switch

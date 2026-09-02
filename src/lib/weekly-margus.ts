@@ -190,8 +190,19 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
         `One standout fact: Pulse last said why you own ${tag} no longer matches what the company is doing.`
       );
     } else if (standout.kind === "trim") {
+      /*
+        Only a suggestion that came from position size may say a name is a
+        large share of anything. A Pulse trim says the price is above its
+        recent range and nothing whatever about size, so this sentence used
+        to state a made-up fact about a holding that might be one and a half
+        per cent of the portfolio, in an inbox, in a letter whose whole
+        promise is that its numbers are real. `standout.line` is built from
+        the reader's actual weight by whichever of the two produced it.
+      */
       paras.push(
-        `One standout fact: ${tag} is now a large share of what you own, so one company decides a lot of the result.`
+        standout.source === "size"
+          ? `One standout fact: ${tag} is now a large share of what you own, so one company decides a lot of the result.`
+          : `One standout fact: ${standout.line}`
       );
     } else {
       paras.push(

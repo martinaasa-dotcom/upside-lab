@@ -5,7 +5,6 @@ import {
   roundMoney,
   safeDiv,
   sumMoney,
-  weightedMean,
 } from "@/lib/money";
 import type { Holding, Portfolio, Quote } from "@/lib/types";
 
@@ -113,6 +112,40 @@ export function todayDollarFor(
   return { dollar: roundMoney(currentValue - priorValue), pct: changePercent };
 }
 
+/**
+ * Today's move as a percentage of what the holdings were worth yesterday.
+ *
+ * `todayDollarFor` is careful to back out yesterday's close before measuring
+ * a dollar move, and the percent printed beside it was not: it averaged each
+ * name's percent weighted by that name's value *after* today's move, which
+ * is the prior value times (1 + pct), so every gainer was over-weighted by
+ * exactly its own gain and every faller under-weighted by its own fall. The
+ * bias is always upward, and it is largest on the days a reader looks
+ * hardest, because that is when the moves are big.
+ *
+ * The dollars are already right, so the percent is derived from them rather
+ * than averaged separately: the two figures sit next to each other on Home
+ * and have to be the same statement. Names with no quote are left out of
+ * both halves, which is why the prior value is summed here rather than taken
+ * from the portfolio total.
+ */
+function todayPctFrom(
+  moves: { dollar: number; pct: number | null }[],
+  values: number[]
+): number | null {
+  let dollar = 0;
+  let prior = 0;
+  for (let i = 0; i < moves.length; i += 1) {
+    const move = moves[i]!;
+    if (move.pct === null) continue;
+    const value = values[i] ?? 0;
+    dollar += move.dollar;
+    prior += value - move.dollar;
+  }
+  if (prior <= 0) return null;
+  return dollar / prior;
+}
+
 export function buildOverview(
   portfolios: Portfolio[],
   holdings: Holding[],
@@ -129,12 +162,9 @@ export function buildOverview(
       todayDollarFor(h.currentValue, h.quote?.changePercent)
     );
     const todayDollar = sumMoney(todayMoves.map((t) => t.dollar));
-    const todayPct = weightedMean(
-      enriched.flatMap((h, i) => {
-        const pct = todayMoves[i]!.pct;
-        if (pct === null) return [];
-        return [{ value: pct, weight: h.currentValue }];
-      })
+    const todayPct = todayPctFrom(
+      todayMoves,
+      enriched.map((h) => h.currentValue)
     );
     return {
       portfolio,
@@ -225,10 +255,9 @@ export function buildOverview(
   const cash = sumMoney(portfolios.map((p) => sheetCashBalance(p)));
   const roiDollar = sumMoney(sheets.map((x) => x.roiDollar));
   const todayDollar = sumMoney(sheets.map((x) => x.todayDollar));
-  const todayPct = weightedMean(
-    tickers.flatMap((t) =>
-      t.todayPct !== null ? [{ value: t.todayPct, weight: t.currentValue }] : []
-    )
+  const todayPct = todayPctFrom(
+    tickers.map((t) => ({ dollar: t.todayDollar, pct: t.todayPct })),
+    tickers.map((t) => t.currentValue)
   );
 
   const totals = {
