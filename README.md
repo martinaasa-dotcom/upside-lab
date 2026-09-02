@@ -18,19 +18,20 @@ Open [http://localhost:3000](http://localhost:3000). Without Supabase env vars i
 
 ## What you get
 
-- **Home**: holdings, cost basis, today's move, a market reading on the open names, and an overnight line when the US market is shut
+- **Home**: holdings, what you paid, today's move, whether the market or your own companies moved it, and an overnight line when the US market is shut
 - **Pulse**: on a fall, whether news came out of the company or the whole market moved together. Largest names, plus anything down 5%
-- **Lab**: allocation, risk shocks, weekly trends, seasonality
+- **Lab**: where your money sits, what a rough week would do to it, weekly trends, seasonality. Every tab opens with a sentence in your own figures saying what to notice
 - **Growth**: compounding planner seeded from what you actually hold
 - **Margus**: chat that can read and edit the open portfolio (screenshot from a tap, or CSV)
 - **Circle / Fund / Account**: Circle is the last dock cell (dotted member ring). Upside Fund and Account are side rooms, not extra home-screen heroes
+- **Learning as you go**: what an ordinary day looks like for your own portfolio, so a red number means something; a plain-English glossary you can open from any word the app prints; what a price target is actually asking a company to do; one question a day about what you hold, on a spacing schedule
 - **The Sunday letter**: one scheduled email a week, opt-in, written from Pulse verdicts you already saw and refused outright when the numbers behind it are thin
 
 Not financial advice. Pulse, Forecast, and Margus are educational scenario tools.
 
 ## Auth and data
 
-Google SSO. Shared portfolios use co-ownership (`portfell_portfolio_owners`). Communities are opt-in only: invite or an admin-approved join request. Never auto-join on sign-in.
+Google sign-in, or a one-time link mailed to any address. No passwords. One account can open from more than one mailbox (`portfell_account_emails`), so signing in with a work address on one device and a personal one on another lands in the same portfolios rather than an empty second account. Shared portfolios use co-ownership (`portfell_portfolio_owners`), and a co-owner sees the whole portfolio, what each of you paid included; sharing a portfolio into a circle is a different thing and shows what you hold without what you paid. Communities are opt-in only: invite or an admin-approved join request. Never auto-join on sign-in.
 
 Production data belongs on the dedicated Upside Lab Supabase project (`uzrnybyggznpvgxgrvgl`, `portfell_*` tables). Isolation is env (URL + keys), not a table rename. See `docs/UPSIDE_LAB_CUTOVER.md` and `scripts/export-upside-schema.sql`.
 
@@ -68,4 +69,27 @@ CI runs typecheck, lint, `npm test`, the invariants suite (`test:invariants`,
 security tests against a real Postgres, and the build. All of it gates a pull
 request.
 
-Ops: `docs/DISASTER_RECOVERY.md`, `docs/ZERO_DOWNTIME_MIGRATIONS.md`.
+The SQL suite needs nothing but a local Postgres:
+
+```bash
+PGUSER=postgres PGHOST=localhost PGPASSWORD=postgres ./supabase/tests/run.sh
+```
+
+It builds the schema from the migrations in order and then asks the
+database the questions a policy cannot answer by being read: whether one
+person can reach another's portfolio, whether a deleted account leaves
+anything behind, whether a class portfolio can spend money it has not got.
+
+## The documentation
+
+- `AGENTS.md` is the law of this repo: the voice rules, the design system,
+  and a long list of decisions with the measurement that produced each one.
+  It opens with what the product is for and a map of how to read it.
+- `docs/POLISH_PASS.md` and `docs/AUDIT_CHECKLIST.md` are the standing
+  audit: the second is the list of passes worth running before trusting a
+  change, and the first is the live state of the current one.
+- `docs/AUTH_AND_COMMUNITIES.md`, `docs/COOKIES.md`, `docs/STRIPE_BILLING.md`
+  for the flows.
+- `docs/DISASTER_RECOVERY.md`, `docs/ZERO_DOWNTIME_MIGRATIONS.md`,
+  `docs/CRON_MONITORING.md`, `docs/SECRET_ROTATION.md` for running it.
+- `docs/BRAND_MARK.md` and `DESIGN_TOKENS.md` for how it looks, and why.
