@@ -44,8 +44,13 @@ export default async function EmailSignInPage({
       <header className="border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
           <HeaderBrand />
+          {/*
+            Not "Back". A reader arrives here from their mail app, so there
+            is nowhere behind them to go, and on the linked page the main
+            button below already says the same thing this one links to.
+          */}
           <Button asChild variant="outline" size="sm">
-            <Link href="/">Back</Link>
+            <Link href="/">Open {PRODUCT_NAME}</Link>
           </Button>
         </div>
       </header>
