@@ -57,20 +57,17 @@ async function handlePOST(req: Request) {
   }
   stampAdvisorUse(auth.user.id);
 
-  const portfolioId = String(body.portfolioId ?? "");
-  const portfolioName = String(body.portfolioName ?? "Portfolio");
-  const cashBalance = Number(body.cashBalance ?? 0);
+  const portfolioId = body.portfolioId;
+  const portfolioName = body.portfolioName ?? "Portfolio";
+  const cashBalance = body.cashBalance ?? 0;
+  // Every row has a ticker, a share count, a price and a value by the time
+  // the body has parsed: `forecastPostSchema` shapes them, so a row that
+  // is missing one is a 400 from `parseJsonBody` rather than a throw from
+  // `r.ticker.toUpperCase()` below, which used to come back as a 500.
   const forecast = body.forecast as ForecastModel;
   const convictions = body.convictions as
     | Record<string, { level: number; thesis: string }>
     | undefined;
-
-  if (!portfolioId || !forecast?.rows) {
-    return Response.json(
-      { error: "portfolioId and forecast snapshot required" },
-      { status: 400 }
-    );
-  }
 
   const fallbackPlan = () =>
     buildFallbackForecastPlan({

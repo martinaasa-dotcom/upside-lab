@@ -13,6 +13,17 @@ export function isLikelyImageFile(file: File): boolean {
   return !file.type || file.type === "application/octet-stream";
 }
 
+/**
+ * What to call this picture when it goes out. A phone hands over a HEIC
+ * with no type at all, or with the browser's catch-all binary type, and
+ * `isLikelyImageFile` above lets it through on the strength of its name.
+ * The chat route only accepts an image media type, so saying the true
+ * "not an image" there would refuse the turn the reader just sent.
+ */
+function imageMediaType(file: File): string {
+  return file.type.startsWith("image/") ? file.type : "image/png";
+}
+
 export function imageFilesFromList(
   list: FileList | File[] | null | undefined
 ): File[] {
@@ -75,7 +86,7 @@ export async function fileToImagePart(file: File): Promise<FileUIPart> {
     }
     return {
       type: "file",
-      mediaType: file.type || "image/png",
+      mediaType: imageMediaType(file),
       filename: file.name || "image.png",
       url,
     };

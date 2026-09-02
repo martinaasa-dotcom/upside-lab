@@ -3,6 +3,15 @@ import { persistLabSnapshot } from "@/lib/offline/snapshots";
 
 export type ConvictionLevel = 1 | 2 | 3 | 4 | 5;
 
+/**
+ * Most a thesis note may be, in characters. The editor and the Lab save
+ * route read the same number, because a note the editor accepts and the
+ * server refuses is a note that quietly never syncs. Margus is only ever
+ * shown the first 400 characters of one, so nothing past there reaches
+ * the model whatever the note says.
+ */
+export const CONVICTION_THESIS_MAX_CHARS = 2000;
+
 export type PulseStamp = {
   at: string;
   verdict: string;
