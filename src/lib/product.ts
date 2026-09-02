@@ -111,11 +111,15 @@ export const SIGNIN_POINTS = [
 export const SUNDAY_EMAIL_LINE =
   "One email a week: how the week went, which of your holdings moved, and any note Pulse already showed you.";
 
-export const BROKER_ALREADY_DOES = [
-  "Holds your money and puts your orders through.",
-  "Shows what everything is worth right now, to the cent.",
-  "Draws the line going up or down since you started.",
-] as const;
+/*
+  What the broker already does well used to be a three-line list drawn as
+  its own column beside `THIS_DOES_INSTEAD`. It went when the comparison
+  section was cut back to one screen: a reader who has just watched the
+  product separate a market day from a news day does not need two columns
+  of argument, and the generous sentence about their own broker now opens
+  the section instead, where everybody reads it rather than only the people
+  who read lists.
+*/
 
 export const THIS_DOES_INSTEAD = [
   "Tells you what happened at each company you own today.",
@@ -146,11 +150,19 @@ export const BROKER_ANSWER =
  * thing a stranger from a forum is scanning for is the catch. Keep this in
  * step with the Billing panel in `AccountPage`; two different accounts of
  * the same twelve euros is worse than either.
+ *
+ * The price used to open "Free while it is in early access. Every feature,
+ * no paid tiers." and then the very next line named a twelve euro a month
+ * subscription, which on first pass reads as a contradiction. "While"
+ * promised a price was coming and said nothing about what happens to
+ * somebody's holdings when it does, which is the question a cautious
+ * person actually has. Nothing about the deal is changing, so the word is
+ * gone rather than hedged.
  */
-export const SIGNIN_PRICE = "Free while it is in early access. Every feature, no paid tiers.";
+export const SIGNIN_PRICE = "Free. Every feature, nothing held back.";
 
 export const SIGNIN_PRICE_NOTE =
-  "There is a supporter subscription at €12 a month. It unlocks nothing at all. It just helps pay for building this.";
+  "There is an optional supporter plan at €12 a month, and it adds nothing: the app is the same either way. It just helps pay for building this.";
 
 /**
  * Why it is safe to put real holdings in.
@@ -164,6 +176,7 @@ export const SIGNIN_TRUST = [
   "Sign in with Google, or a link we send to your email. There is no password to lose.",
   "Your portfolio is private until you invite someone into it.",
   "Export everything, or delete all of it, from your account page.",
+  "Everything you enter is stored in the European Union.",
 ] as const;
 
 /** Live inbox. Named on /terms and /privacy. */
@@ -180,6 +193,10 @@ export const FUND_X_URL = `https://x.com/${FUND_X_HANDLE}`;
 export const LEGAL_OPERATOR = "Upthink Solutions OÜ";
 
 export const LEGAL_COUNTRY = "Estonia";
+
+/** The city in `LEGAL_ADDRESS`, on its own, for a footer that has no room
+ *  for a registry code and a VAT number. */
+export const LEGAL_CITY = "Tallinn";
 
 export const LEGAL_REGISTRY_CODE = "16683946";
 

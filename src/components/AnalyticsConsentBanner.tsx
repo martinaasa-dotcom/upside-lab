@@ -16,10 +16,41 @@ export function AnalyticsConsentBanner() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const sync = () => setOpen(loadAnalyticsConsent() == null);
+    /*
+      Never on the signed-out landing.
+
+      Measured at 390x844 with the answer still unknown, which is every
+      stranger by definition: the sample card starts at 662px and this
+      banner covered 672 to 830, so what was left of the product on a first
+      visitor's first screen was ten pixels of card rim above it and
+      fourteen pixels of a pill below. The first interaction with a product
+      about staying calm was a dialog about performance measurement, and the
+      continuation cue the whole hero is built around stood down while it
+      was open.
+
+      The question is deferred rather than dropped: the welcome walkthrough
+      already has a switch for it, and Account keeps it after that. Nothing
+      is measured in the meantime, which is the safe direction to be wrong
+      in. `SignInGate` puts the mark on the root element while the landing
+      is what it is drawing, and takes it off again the moment a session or
+      a look-around reader replaces it.
+    */
+    const sync = () =>
+      setOpen(
+        loadAnalyticsConsent() == null &&
+          !document.documentElement.hasAttribute("data-signed-out")
+      );
     sync();
     window.addEventListener(ANALYTICS_CONSENT_EVENT, sync);
-    return () => window.removeEventListener(ANALYTICS_CONSENT_EVENT, sync);
+    const watch = new MutationObserver(sync);
+    watch.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-signed-out"],
+    });
+    return () => {
+      watch.disconnect();
+      window.removeEventListener(ANALYTICS_CONSENT_EVENT, sync);
+    };
   }, []);
 
   if (!open) return null;

@@ -2452,13 +2452,20 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
   assert.doesNotMatch(home, /border-amber-500\/25 bg-amber-950\/20/);
   assert.doesNotMatch(pulse, /border-brand\/30 bg-brand\/\[0\.07\]/);
   assert.doesNotMatch(pulse, /border-amber-500\/30 bg-amber-950\/15/);
-  assert.match(gate, /<Reading nested label="Worth noticing">/);
   const landing = readFileSync(
     join(process.cwd(), "src/components/SignedOutLanding.tsx"),
     "utf8"
   );
+  /*
+    The sign-in screen used to draw its own sample card, so these two
+    assertions read the gate. There is one sample now, `SampleBriefing`,
+    and both screens draw it, so what the card says is asserted where the
+    card lives. The rule is unchanged: prose on a sample sits in a dark
+    box, and a verdict pill says the words the app itself says.
+  */
+  assert.match(landing, /<Reading nested label="What actually happened"/);
   assert.equal(actionLabel("hold"), "Inside recent range");
-  assert.match(gate, /Inside recent range/);
+  assert.match(gate, /SampleBriefing/);
   assert.match(landing, /Inside recent range/);
   assert.doesNotMatch(gate, /<Pill>Hold<\/Pill>/);
   assert.doesNotMatch(landing, /<Pill>Hold<\/Pill>/);
@@ -3207,37 +3214,47 @@ run("sign-in reads as a product", () => {
     join(process.cwd(), "src/components/SignInGate.tsx"),
     "utf8"
   );
-  assert.match(gate, /PRODUCT_SENTENCE/);
-  assert.match(gate, /SIGNIN_WHO/);
   assert.match(gate, /SIGNIN_POINTS/);
   assert.match(gate, /Sample/);
-  assert.match(gate, /ticker: "RKLB"/);
-  assert.match(gate, /ticker: "AMZN"/);
-  assert.match(gate, /ticker: "MSFT"/);
+  const landing = readFileSync(
+    join(process.cwd(), "src/components/SignedOutLanding.tsx"),
+    "utf8"
+  );
+  const sample = readFileSync(
+    join(process.cwd(), "src/lib/sample-portfolio.ts"),
+    "utf8"
+  );
   /*
-   * The demo card, not one sentence of it. The copy was rewritten to say
-   * what the reader should take from the move rather than restate the
-   * number, and an invariant that pins a sentence turns every copy edit
-   * into a failing build.
+   * ONE SAMPLE, IN ONE PLACE, AND NOTHING RESTATES ITS NUMBERS.
+   *
+   * This used to assert `ticker: "RKLB"` and a sentence about it in the
+   * gate, because the gate held a second sample of its own: a different
+   * day, a different portfolio total, and arithmetic that did not hold in
+   * either file. Two samples in two files drift the moment one is edited,
+   * and both of these had. The holdings are a single list now and every
+   * figure on both screens is derived from it, so the invariant is that
+   * neither screen types a holding of its own.
    */
-  assert.match(gate, /\$RKLB rose 6\.8% today/);
+  assert.match(gate, /SampleBriefing/);
+  assert.match(landing, /export function SampleBriefing/);
+  assert.doesNotMatch(gate, /ticker: "/);
+  assert.doesNotMatch(landing, /ticker: "/);
+  assert.match(sample, /ticker: "MSFT"/);
+  assert.match(sample, /ticker: "AMZN"/);
+  assert.match(landing, /Thesis intact/);
   /*
-   * The old assertion pinned "Check whether cheaper launches still hold",
-   * a sentence deliberately rewritten: it leaned on a thesis nobody
-   * outside the example knows and called a move "a bounce", which is the
-   * market slang AGENTS.md bans. What is asserted now is that the sample
-   * still explains the move rather than just restating the number, and
-   * that it stays clear of the slang.
+   * The covered-call symbol pill is a mark from inside the app that no
+   * stranger has been introduced to, and the tilt was a flourish the
+   * landing had already dropped from the thing it most wants believed.
    */
-  assert.match(gate, /whether something changed at the/);
-  assert.doesNotMatch(gate, /<InsightText text="[^"]*\ba bounce\b/);
-  assert.match(gate, /Thesis intact/);
-  assert.match(gate, /Up ≥5%/);
+  assert.doesNotMatch(gate, /Up .5%/);
+  assert.doesNotMatch(gate, /md:-rotate-1/);
+  assert.doesNotMatch(landing, /\ba bounce\b/);
   assert.doesNotMatch(gate, /did most of today/);
   assert.doesNotMatch(gate, /quiet down day/);
   assert.doesNotMatch(gate, /\$50k|AI manage/);
   assert.doesNotMatch(gate, /h-2\.5 w-10 rounded-sm bg-zinc-700/);
-  assert.match(gate, /signin-rise-3 h-auto gap-4 p-4/);
+  assert.match(gate, /signin-rise-3/);
   // Two columns from md, with both sides bounded so neither starves. The
   // exact track sizes have moved once already and are not the invariant.
   assert.match(gate, /md:grid-cols-\[minmax\(0,[^\]]+\)_minmax\(0,[^\]]+\)\]/);
@@ -3256,13 +3273,19 @@ run("community invite landing names the circle", () => {
     name: null,
   });
   assert.equal(inviteFromLocation("/", "?token=abc"), null);
+  /*
+    A circle, because that is what the product calls it on every other
+    screen, including the sign-in points printed beside this sentence.
+    "Group" was the first named thing on an invite page and a word the app
+    then never used again.
+  */
   assert.equal(
     inviteLandingCopy({ kind: "community", name: null }).title,
-    "You've been invited to join a group."
+    "You've been invited into a circle."
   );
   assert.equal(
     inviteLandingCopy({ kind: "community", name: "Upside Circle" }).title,
-    "You've been invited to join Upside Circle."
+    "You've been invited into Upside Circle."
   );
   assert.equal(
     inviteLandingCopy({ kind: "classroom", name: null }).title,

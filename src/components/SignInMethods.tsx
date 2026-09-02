@@ -38,12 +38,21 @@ function GoogleMark() {
   );
 }
 
-const GOOGLE_BTN =
+const DOOR_BTN =
   "h-11 w-full gap-2.5 rounded-full text-base md:w-auto md:min-w-[17rem]";
 
 type Props = {
   googleBusy: boolean;
   onGoogle: () => void;
+  /**
+   * Whatever went wrong with the Google handshake, drawn under the button
+   * it belongs to.
+   *
+   * It used to be printed by the page instead, which put it about 140px
+   * below the button, under two unrelated grey captions. A red sentence
+   * that far from the thing it is about is one a reader has to work out.
+   */
+  error?: string | null;
   /** Invite screens start with the field open. The marketing page does not. */
   startWithEmail?: boolean;
   align?: "center" | "start";
@@ -53,13 +62,22 @@ type Props = {
 /**
  * Google first, email as the other door.
  *
+ * Both doors look like doors. The email one used to be a ghost button in
+ * 14px muted text, the same size and colour as the price caption 10px
+ * under it, so somebody without a Google account scanned two grey lines
+ * and saw one button. Plenty of the older beginners this product is for do
+ * not have Google. It is an outline button on the same shape as the Google
+ * one now, and once it opens there is a way back to Google, which there
+ * was not.
+ *
  * The marketing hero cannot grow by a form: the sample card has to stay
- * cut by the fold. So the field stays behind "Use your email" there, and
+ * cut by the fold. So the field stays behind the second button there, and
  * only an invite (where the whole point is to act) opens it at once.
  */
 export function SignInMethods({
   googleBusy,
   onGoogle,
+  error = null,
   startWithEmail = false,
   align = "center",
   className,
@@ -69,6 +87,17 @@ export function SignInMethods({
   const [typed, setTyped] = useState("");
   const [pending, setPending] = useState(false);
   const [answer, setAnswer] = useState<Answer>({});
+  /**
+   * The address the link actually went to, kept here rather than read back
+   * off the server's answer.
+   *
+   * The sent message used to say "Check that inbox", which names no inbox.
+   * A person who has just typed an address wants to see the address, both
+   * because they may have mistyped it and because "that inbox" is the
+   * vaguest possible way to end a flow whose next step happens somewhere
+   * else entirely.
+   */
+  const [sentTo, setSentTo] = useState<string | null>(null);
 
   const asked =
     answer.suggestion && answer.typed
@@ -90,6 +119,7 @@ export function SignInMethods({
       });
       const data = (await res.json().catch(() => ({}))) as Answer;
       setAnswer(data);
+      if (data.sent) setSentTo(email);
       if (data.typed) setTyped(data.typed);
     } catch {
       setAnswer({ error: "We could not send that. Try once more." });
@@ -114,99 +144,129 @@ export function SignInMethods({
         size="lg"
         disabled={busy}
         onClick={onGoogle}
-        className={GOOGLE_BTN}
+        className={DOOR_BTN}
       >
         {googleBusy ? <Spinner data-icon="inline-start" /> : <GoogleMark />}
         {googleBusy ? "Redirecting …" : "Continue with Google"}
       </Button>
 
+      {error ? (
+        <p
+          className={cn(
+            "max-w-sm text-sm text-loss",
+            !start && "text-center"
+          )}
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
+
       {answer.sent ? (
         <p
           className={cn(
-            "max-w-sm text-sm text-muted-foreground",
+            "max-w-sm text-sm leading-relaxed text-muted-foreground",
             !start && "text-center"
           )}
           role="status"
         >
-          {answer.sent}
+          {sentTo
+            ? `We sent a sign-in link to ${sentTo}. It lasts one hour and works once.`
+            : answer.sent}
         </p>
       ) : open ? (
-        <form
+        <div
           className={cn(
             "flex w-full flex-col gap-2",
             start ? "max-w-sm" : "max-w-sm md:max-w-[17rem]"
           )}
-          onSubmit={(e) => {
-            e.preventDefault();
-            void send(typed, false);
-          }}
         >
-          {asked ? (
-            <div className="flex flex-col gap-2">
-              <p className="text-sm text-muted-foreground">
-                You typed {asked.typed}. Did you mean {asked.suggestion}?
-              </p>
+          <form
+            className="flex w-full flex-col gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void send(typed, false);
+            }}
+          >
+            {asked ? (
               <div className="flex flex-col gap-2">
-                <Button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void send(asked.suggestion, true)}
-                >
-                  Use {asked.suggestion}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => void send(asked.typed, true)}
-                >
-                  Keep {asked.typed}
-                </Button>
+                <p className="text-sm text-muted-foreground">
+                  You typed {asked.typed}. Did you mean {asked.suggestion}?
+                </p>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void send(asked.suggestion, true)}
+                  >
+                    Use {asked.suggestion}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void send(asked.typed, true)}
+                  >
+                    Keep {asked.typed}
+                  </Button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <>
-              <Label htmlFor={fieldId} className="sr-only">
-                Email
-              </Label>
-              <Input
-                id={fieldId}
-                type="email"
-                autoComplete="email"
-                inputMode="email"
-                placeholder="Email"
-                value={typed}
-                disabled={busy}
-                onChange={(e) => setTyped(e.target.value)}
-                className="h-11 rounded-full px-4"
-              />
-              <Button
-                type="submit"
-                variant="outline"
-                size="lg"
-                disabled={busy || !typed.trim()}
-                className="h-11 w-full rounded-full text-base"
-              >
-                {pending ? <Spinner data-icon="inline-start" /> : null}
-                {pending ? "Sending …" : "Email me a link"}
-              </Button>
-            </>
+            ) : (
+              <>
+                <Label htmlFor={fieldId} className="sr-only">
+                  Email
+                </Label>
+                <Input
+                  id={fieldId}
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  placeholder="Email"
+                  value={typed}
+                  disabled={busy}
+                  onChange={(e) => setTyped(e.target.value)}
+                  className="h-11 rounded-full px-4"
+                />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  size="lg"
+                  disabled={busy || !typed.trim()}
+                  className="h-11 w-full rounded-full text-base"
+                >
+                  {pending ? <Spinner data-icon="inline-start" /> : null}
+                  {pending ? "Sending …" : "Send me a sign-in link"}
+                </Button>
+              </>
+            )}
+            {answer.error ? (
+              <p className="text-sm text-loss" role="alert">
+                {answer.error}
+              </p>
+            ) : null}
+          </form>
+          {startWithEmail ? null : (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => setOpen(false)}
+              className="h-auto self-center px-2 py-1 text-sm font-normal text-muted-foreground hover:text-foreground"
+            >
+              Use Google instead
+            </Button>
           )}
-          {answer.error ? (
-            <p className="text-sm text-loss" role="alert">
-              {answer.error}
-            </p>
-          ) : null}
-        </form>
+        </div>
       ) : (
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
+          size="lg"
           disabled={busy}
           onClick={() => setOpen(true)}
-          className="h-auto px-2 py-1 text-sm font-normal text-muted-foreground hover:text-foreground"
+          className={DOOR_BTN}
         >
-          No Google? Use your email.
+          Sign in with email
         </Button>
       )}
     </div>

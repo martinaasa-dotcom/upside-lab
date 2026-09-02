@@ -32,11 +32,17 @@ export function inviteLandingCopy(invite: InviteLanding): {
       detail: "Sign in to accept. You'll get a paper portfolio for the class.",
     };
   }
+  /*
+    A circle, because that is what the product calls it everywhere else,
+    including the eyebrow on the landing and the sign-in points printed on
+    this very screen. "Group" was the first named thing on the invite page
+    and a word the app then never used again.
+  */
   return {
     title: name
-      ? `You've been invited to join ${name}.`
-      : "You've been invited to join a group.",
-    detail: "Sign in to accept. Then the group opens.",
+      ? `You've been invited into ${name}.`
+      : "You've been invited into a circle.",
+    detail: "Sign in to accept, and it opens.",
   };
 }
 

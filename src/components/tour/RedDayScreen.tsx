@@ -8,7 +8,7 @@ import {
   sampleDayDollar,
   sampleTotals,
   type SampleHolding,
-} from "@/lib/sample-portfolio";
+} from "@/lib/tour-sample-day";
 import { Activity } from "lucide-react";
 import { useMemo, useState } from "react";
 

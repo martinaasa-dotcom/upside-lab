@@ -55,6 +55,58 @@ describe("what the page promises about who sees what", () => {
     expect(circle).toMatch(/sees what you hold/i);
   });
 
+  it("only promises real prices because the quote path answers a stranger", () => {
+    /*
+      The landing and the look-around strip both say, in as many words,
+      that the holdings are invented and the prices are not. That is a
+      claim about `/api/quotes`, which has to answer a caller with no
+      session for it to be true, and about the sample, which must hand the
+      rooms shares and a buy price and never a price of its own. If either
+      moved, the honest sentence would quietly become a lie on the one
+      screen whose whole job is to be believed.
+    */
+    const quotes = read("src/app/api/quotes/route.ts");
+    expect(quotes).not.toMatch(/requireAuthUser|getAuthUser/);
+    const sample = read("src/lib/sample-portfolio.ts");
+    const store = sample.slice(sample.indexOf("export function sampleDemoStore"));
+    expect(store).not.toMatch(/\bprice\b(?!Price)/);
+    expect(landing).toMatch(/holdings on this card are made up/i);
+    expect(landing).toMatch(/prices are real/i);
+    expect(read("src/components/SignInGate.tsx")).toMatch(
+      /holdings are made up and the prices\s*\n?\s*are real/i
+    );
+  });
+
+  it("keeps looking around off the network and out of anybody's account", () => {
+    /*
+      "Session-free, local, no writes" is what the button offers. The
+      module behind it may talk to `localStorage` and nothing else: a fetch
+      here would be a stranger's browser writing somewhere on the strength
+      of a page they have not signed in to.
+    */
+    const sample = read("src/lib/sample-portfolio.ts");
+    expect(sample).not.toMatch(/\bfetch\(/);
+    expect(sample).not.toMatch(/from "@\/lib\/supabase/);
+    expect(sample).not.toMatch(/XMLHttpRequest|navigator\.sendBeacon/);
+  });
+
+  it("says the data is in the EU only while the privacy page does", () => {
+    /*
+      The footer and the fourth trust line both state it as a fact a
+      cautious reader can check, and the privacy page is where it is backed
+      up. Asserted as the two things that have to be said rather than as
+      the markup saying them: this matched "(EU-hosted)" inside a <strong>,
+      and the legal pass rewrote the sentence to "on servers in the
+      European Union", which is better prose and failed the check. An
+      assertion pinned to today's markup fails on an improvement.
+    */
+    const privacy = read("src/app/privacy/page.tsx");
+    expect(privacy).toMatch(/Supabase/);
+    expect(privacy).toMatch(/European Union/);
+    expect(read("src/lib/product.ts")).toMatch(/stored in the European Union/);
+    expect(landing).toMatch(/stored\s*\n?\s*in the European Union/);
+  });
+
   it("still says a session never joins anybody to anything", () => {
     // The rule migration 030 exists for. Cheap to restate, expensive to lose.
     expect(landing).toMatch(/Signing in never puts you in one/i);
