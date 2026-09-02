@@ -205,7 +205,9 @@ describe("Home notices", () => {
     );
     expect(notice?.text).not.toMatch(/Most of your portfolio is/);
     expect(notice?.text).not.toMatch(/whether something changed at the company/);
-    expect(notice?.label).toMatch(/Update|Friday's close|Since you looked/);
+    expect(notice?.label).toMatch(
+      /One thing today|Friday's close|Since you looked/
+    );
   });
 
   it("rotates to the next true card on a later look", () => {
@@ -317,7 +319,10 @@ describe("Home notices", () => {
       ],
     });
     const gap = read.notices.find((n) => n.kind === "gap");
-    expect(gap?.label).toBe("Also");
+    // A note nobody has written is a to-do, not a hazard, so it carries its
+    // own calm label rather than the generic one.
+    expect(gap?.label).toBe("Worth writing down");
+    expect(gap?.ask).toBe("write-thesis");
     expect(gap?.text).toMatch(/\$CRWV fell about 4%/);
     expect(gap?.text).toMatch(/why you own it/);
   });

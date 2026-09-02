@@ -1,4 +1,4 @@
-import { cashtag } from "@/lib/format";
+import { cashtag, signedCurrency, signedPercent } from "@/lib/format";
 import type { OverviewModel } from "@/lib/overview";
 import { todayKeyInTz } from "@/lib/timezone";
 
@@ -27,6 +27,12 @@ export type VisitDiffLine = {
   id: string;
   text: string;
   tone: "up" | "down" | "neutral";
+  /**
+   * The move behind the line, for a caller that wants to write its own
+   * sentence rather than drop this one into the middle of theirs.
+   */
+  deltaPct?: number;
+  deltaValue?: number;
 };
 
 export type VisitDiff = {
@@ -34,14 +40,18 @@ export type VisitDiff = {
   lines: VisitDiffLine[];
 };
 
+/*
+ * Money and percentages come from format.ts, like every other figure a
+ * reader sees. These two used to be local, with U+2212 as the sign, so the
+ * "Since you looked" card printed a minus one glyph wider than the one on
+ * the tile directly above it.
+ */
 function money(n: number): string {
-  const sign = n > 0 ? "+" : n < 0 ? "−" : "";
-  return `${sign}$${Math.round(Math.abs(n)).toLocaleString("en-US")}`;
+  return signedCurrency(n, 0);
 }
 
 function pct1(n: number): string {
-  const sign = n > 0 ? "+" : n < 0 ? "−" : "";
-  return `${sign}${Math.round(Math.abs(n) * 1000) / 10}%`;
+  return signedPercent(n);
 }
 
 /** Fraction of tickers that look live-quoted (have a today %). */
@@ -190,6 +200,8 @@ export function diffSinceLastVisit(
       id: `t-${cashtag(m.ticker)}`,
       text: `${cashtag(m.ticker)} ${pct1(m.deltaPct)} (${money(m.deltaValue)})`,
       tone: m.deltaPct >= 0 ? "up" : "down",
+      deltaPct: m.deltaPct,
+      deltaValue: m.deltaValue,
     });
   }
 
@@ -199,7 +211,7 @@ export function diffSinceLastVisit(
     if (!prevSet.has(t)) {
       lines.push({
         id: `new-${t}`,
-        text: `New name: ${t}`,
+        text: `New in your portfolio: ${cashtag(t)}`,
         tone: "neutral",
       });
     }
@@ -208,7 +220,7 @@ export function diffSinceLastVisit(
     if (!nowSet.has(t)) {
       lines.push({
         id: `gone-${t}`,
-        text: `Gone: ${t}`,
+        text: `No longer held: ${cashtag(t)}`,
         tone: "neutral",
       });
     }

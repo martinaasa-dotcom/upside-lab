@@ -57,14 +57,23 @@ export function percent(value: number | null | undefined, digits = 1): string {
 }
 
 /** Same as percent, with an explicit + on gains so a row of P&L lines up. */
+/*
+ * The sign comes off the rounded figure, never the raw one.
+ *
+ * Reading the sign first and rounding afterwards prints "-$0" and "-0.0%":
+ * a minus in front of nothing, which is a figure this app states as fact
+ * that says less than nothing. Round to the digits actually shown, then ask
+ * which way it went, so anything that rounds away is simply "$0" or "0.0%".
+ */
 export function signedPercent(
   value: number | null | undefined,
   digits = 1
 ): string {
   if (!isRenderable(value)) return NO_VALUE;
+  const shown = roundMoney(value * 100, digits);
   const formatted = percent(Math.abs(value), digits);
-  if (value > 0) return `+${formatted}`;
-  if (value < 0) return `-${formatted}`;
+  if (shown > 0) return `+${formatted}`;
+  if (shown < 0) return `-${formatted}`;
   return formatted;
 }
 
@@ -82,9 +91,10 @@ export function signedCurrency(
   digits = 2
 ): string {
   if (!isRenderable(value)) return NO_VALUE;
+  const shown = roundMoney(value, digits);
   const formatted = currency(Math.abs(value), digits);
-  if (value > 0) return `+${formatted}`;
-  if (value < 0) return `-${formatted}`;
+  if (shown > 0) return `+${formatted}`;
+  if (shown < 0) return `-${formatted}`;
   return formatted;
 }
 
