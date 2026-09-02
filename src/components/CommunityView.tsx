@@ -1048,44 +1048,55 @@ export function CommunityView({ communityId }: Props) {
     }
   }
 
+  /**
+   * The link is only ever the one the server just handed back. The database
+   * holds a hash of the token and nothing else, so there is no call that
+   * fetches an existing invite's link; an admin who needs one again makes a
+   * new link (`renewInvite`).
+   */
   async function copyInviteLink(url: string | null, key: string) {
-    let resolved = url;
-    if (!resolved && key !== "fresh") {
-      try {
-        const res = await fetch(
-          `/api/communities/${communityId}/invites/${key}`
-        );
-        const data = (await res.json().catch(() => ({}))) as {
-          error?: string;
-          path?: string;
-        };
-        if (!res.ok) {
-          throw new Error(plainError(data.error, "Couldn't copy that link."));
-        }
-        const path = typeof data.path === "string" ? data.path : "";
-        if (!path) throw new Error("Couldn't copy that link.");
-        resolved = `${window.location.origin}${path}`;
-        setInvites((rows) =>
-          rows.map((inv) => (inv.id === key ? { ...inv, path } : inv))
-        );
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Couldn't copy that link.");
-        return;
-      }
-    }
-    if (!resolved) {
+    if (!url) {
       setError("Couldn't copy that link.");
       return;
     }
-    const ok = await copyText(resolved);
+    const ok = await copyText(url);
     if (!ok) {
       setError("Couldn't copy that link. Select it and copy by hand.");
-      setInviteUrl(resolved);
+      setInviteUrl(url);
       return;
     }
     setError(null);
     setCopiedInviteId(key);
     later(() => setCopiedInviteId((id) => (id === key ? null : id)), 1500);
+  }
+
+  /** A fresh link in place of an existing one. The old link stops working. */
+  async function renewInvite(inviteId: string) {
+    setBusy(true);
+    setInviteUrl(null);
+    setInviteEmailed(0);
+    try {
+      const res = await fetch(
+        `/api/communities/${communityId}/invites/${inviteId}`,
+        { method: "POST" }
+      );
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        path?: string;
+      };
+      if (!res.ok || typeof data.path !== "string") {
+        throw new Error(plainError(data.error, "Couldn't make a new link."));
+      }
+      track("community_invite_created");
+      const url = `${window.location.origin}${data.path}`;
+      setInviteUrl(url);
+      await copyInviteLink(url, "fresh");
+      await loadInvites();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't make a new link.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function retireInvite(inviteId: string) {
@@ -1388,6 +1399,7 @@ export function CommunityView({ communityId }: Props) {
       copiedInviteId={copiedInviteId}
       createInvite={createInvite}
       copyInviteLink={copyInviteLink}
+      renewInvite={renewInvite}
       setRole={setRole}
       decideJoinRequest={decideJoinRequest}
       setRemoveTarget={setRemoveTarget}

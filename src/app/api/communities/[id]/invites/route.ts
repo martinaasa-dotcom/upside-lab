@@ -2,6 +2,7 @@ import { dbError } from "@/lib/db-error";
 import { createHash, randomBytes } from "crypto";
 import { userIsCommunityAdmin } from "@/lib/auth/ownership";
 import {
+  DEFAULT_INVITE_DAYS,
   inviteAdminStatus,
   profileLabel,
   tokenHintFromToken,
@@ -23,9 +24,6 @@ import { observeRoute } from "@/lib/observe-route";
 import { communityInvitePostSchema } from "@/lib/api-schemas";
 import { parseJsonBody } from "@/lib/parse-json-body";
 
-/** How long a community invite link lives when nobody says otherwise. */
-const DEFAULT_INVITE_DAYS = 30;
-
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -35,7 +33,12 @@ function hashToken(token: string) {
 }
 
 /** Admin: create invite link. Optional emails lock it to those people
- * and get the link in their inbox. The link stays reusable. */
+ * and get the link in their inbox. The link stays reusable.
+ *
+ * The full link is in this response and nowhere else. Only its hash is
+ * stored, the same as a portfolio invite, so a read of the table cannot
+ * hand out a credential; the last six characters are kept as a hint so an
+ * admin can tell two links apart. Losing the link means making a new one. */
 async function handlePOST(req: NextRequest, ctx: Ctx) {
   const auth = await requireAuthUser();
   if ("error" in auth) return auth.error;
@@ -94,7 +97,6 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
       email: storeInviteEmails(allow.emails),
       token_hash: hashToken(token),
       token_hint: tokenHintFromToken(token),
-      token,
       role: body.role === "admin" ? "admin" : "member",
       created_by: auth.user.id,
       expires_at: expiresAt,
@@ -152,7 +154,6 @@ type InviteRow = {
   created_at: string;
   created_by: string | null;
   token_hint: string | null;
-  token: string | null;
 };
 
 type UseRow = {
@@ -185,7 +186,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
   const { data, error } = await supabase
     .from(PORTFELL_TABLES.communityInvites)
     .select(
-      "id, email, role, expires_at, accepted_at, revoked_at, created_at, created_by, token_hint, token"
+      "id, email, role, expires_at, accepted_at, revoked_at, created_at, created_by, token_hint"
     )
     .eq("community_id", id)
     .order("created_at", { ascending: false });
@@ -237,7 +238,6 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
     return {
       id: row.id,
       hint: row.token_hint,
-      path: row.token ? inviteJoinPath(row.token) : null,
       email: row.email,
       role: row.role,
       expires_at: row.expires_at,

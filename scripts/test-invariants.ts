@@ -6386,15 +6386,26 @@ run("email and admin RPCs are not callable with a user JWT", () => {
   assert.doesNotMatch(mint, /daysValid \?\? 14/);
   // An open invite link is a bearer credential, so "no days given" must
   // mean a bounded default, not "forever". Never-expiring has to be asked
-  // for explicitly.
-  assert.match(mint, /const DEFAULT_INVITE_DAYS = 30/);
+  // for explicitly. The bound is shared with the route that replaces a
+  // link, so it lives beside the other invite helpers.
+  const inviteAdmin = readFileSync(
+    join(process.cwd(), "src/lib/community-invite-admin.ts"),
+    "utf8"
+  );
+  assert.match(inviteAdmin, /const DEFAULT_INVITE_DAYS = 30/);
+  assert.match(mint, /DEFAULT_INVITE_DAYS/);
   assert.match(mint, /body\.neverExpires === true/);
   assert.doesNotMatch(mint, /expiresAt: string \| null = null/);
   assert.match(mint, /inviteEmailAllowlist/);
   assert.match(mint, /sendNoteEmail/);
   assert.match(mint, /token_hint/);
   assert.match(mint, /inviteJoinPath/);
+  // The link is in the create response and nowhere else. Storing the raw
+  // token beside its hash made the hash decorative: one read of the table
+  // handed out every live link in it.
   assert.match(mint, /token,/);
+  assert.doesNotMatch(mint, /token_hint: tokenHintFromToken\(token\),\s*\n\s*token,/);
+  assert.doesNotMatch(mint, /created_by, token_hint, token/);
   assert.match(mint, /communityInviteUses/);
   assert.match(mint, /created_by/);
   const usesMig = readFileSync(
@@ -6413,6 +6424,9 @@ run("email and admin RPCs are not callable with a user JWT", () => {
   );
   assert.match(retire, /revoked_at/);
   assert.match(retire, /communityInvitePatchSchema/);
+  // No GET here. A route that reads an invite's link back out of the table
+  // is the thing that made the stored hash pointless.
+  assert.doesNotMatch(retire, /export const GET/);
   const communityView =
     readFileSync(
       join(process.cwd(), "src/components/CommunityView.tsx"),
@@ -6431,7 +6445,10 @@ run("email and admin RPCs are not callable with a user JWT", () => {
   assert.match(communityView, /Email addresses[^"]*optional/i);
   assert.match(communityView, /Retire this link/);
   assert.match(communityView, /copyInviteLink/);
-  assert.match(communityView, /inv\.path/);
+  // An invite already in the list cannot be shown again, because only its
+  // hash was kept. Sharing it again means minting a fresh link.
+  assert.doesNotMatch(communityView, /inv\.path/);
+  assert.match(communityView, /Make a new link/);
   assert.match(communityView, /inviteUsesLabel/);
   const joinPeek = readFileSync(
     join(process.cwd(), "src/app/api/communities/join/route.ts"),

@@ -234,7 +234,6 @@ export type Database = {
           id: string
           revoked_at: string | null
           role: string
-          token: string | null
           token_hash: string
           token_hint: string | null
         }
@@ -248,7 +247,6 @@ export type Database = {
           id?: string
           revoked_at?: string | null
           role?: string
-          token?: string | null
           token_hash: string
           token_hint?: string | null
         }
@@ -262,7 +260,6 @@ export type Database = {
           id?: string
           revoked_at?: string | null
           role?: string
-          token?: string | null
           token_hash?: string
           token_hint?: string | null
         }
