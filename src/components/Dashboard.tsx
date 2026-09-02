@@ -67,6 +67,7 @@ import { parseHoldingList, parsePortfolioList } from "@/lib/parse-book";
 import { readJsonOrThrow } from "@/lib/http";
 import { isRecord } from "@/lib/unknown";
 import { hasLockedSave, loadDemoStore } from "@/lib/demo-store";
+import { isLookingAround, lookAroundStore } from "@/lib/sample-portfolio";
 import {
   getDisplayCurrency,
   loadDisplayCurrencyMap,
@@ -217,6 +218,17 @@ const LabSheet = dynamic(loadLabSheet, { ssr: true });
 const CompoundInterestSheet = dynamic(loadCompoundInterestSheet, { ssr: true });
 const ForecastPanel = dynamic(loadForecastPanel, { ssr: true });
 const CoveredCallPanel = dynamic(loadCoveredCallPanel, { ssr: true });
+
+/*
+  Where a signed-out reader's portfolios come from.
+
+  Two cases share one branch. A local run with no Supabase configured is
+  the demo store, which is what it has always been. A stranger who pressed
+  "look around" on the landing gets the sample portfolio instead, built
+  fresh every time so nothing they change while looking survives a reload.
+  See `src/lib/sample-portfolio.ts`.
+*/
+const readSignedOutBook = () => lookAroundStore() ?? loadDemoStore();
 
 type DataSource = "demo" | "supabase";
 
@@ -1134,7 +1146,7 @@ export function Dashboard() {
           });
         }
       } else {
-        const demo = loadDemoStore();
+        const demo = readSignedOutBook();
         setSource("demo");
         setPortfolios(demo.portfolios);
         setHoldings(demo.holdings);
@@ -1170,7 +1182,7 @@ export function Dashboard() {
               fetchedAt: Date.now(),
             });
           } else {
-            const demo = loadDemoStore();
+            const demo = readSignedOutBook();
             setSource("demo");
             setPortfolios(demo.portfolios);
             setHoldings(demo.holdings);
@@ -1182,7 +1194,7 @@ export function Dashboard() {
             setPortfolios([]);
             setHoldings([]);
           } else {
-            const demo = loadDemoStore();
+            const demo = readSignedOutBook();
             setSource("demo");
             setPortfolios(demo.portfolios);
             setHoldings(demo.holdings);
@@ -1990,7 +2002,9 @@ export function Dashboard() {
         onSelect: () => toggleForecastVisible(),
       });
     }
-    if (source === "demo") {
+    /* The demo save lock is a local development tool. A stranger looking
+       around the sample has no save to lock and no demo to reset. */
+    if (source === "demo" && !isLookingAround()) {
       items.push({
         id: "save",
         label: saveFlash ? "Saved" : "Save demo lock",
