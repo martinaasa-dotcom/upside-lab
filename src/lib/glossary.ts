@@ -17,9 +17,21 @@
  * here fetches anything and nothing here can be stale.
  *
  * What belongs here: a word the app itself prints. What does not: anything
- * this app has decided not to say at all (sleeve, tape, drawdown), which
+ * this app has decided not to say at all (sleeve, tape, dry powder), which
  * belongs in the ban list rather than in a dictionary, and anything that
  * would amount to telling somebody what to do with their money.
+ *
+ * `alsoCalled` is the one place in the whole product where a banned word may
+ * be printed, and it earns that because of what the ban was quietly costing.
+ * A reader who learns here that "how much of everything you own sits in one
+ * company" matters, and then opens their broker or reads one article about
+ * their own holdings, meets the word concentration and does not know it is
+ * the same idea. An app that refuses to ever print the outside word protects
+ * nobody: it teaches the thing and then leaves the reader unable to recognise
+ * it anywhere else, which is the opposite of the point. So the plain phrase
+ * is always the entry, always first, and always carries the meaning on its
+ * own; the outside word arrives afterwards, named as somebody else's word,
+ * and a reader who stops reading before it has lost nothing.
  */
 
 export type GlossaryExample = {
@@ -38,6 +50,12 @@ export type GlossaryEntry = {
   also?: string[];
   /** Two sentences. The first says what it is, the second why it matters. */
   meaning: string;
+  /**
+   * What the rest of the world calls this, for the reader who is about to
+   * meet the word somewhere that will not explain it. Never load-bearing:
+   * the entry has to read correctly with this clause deleted.
+   */
+  alsoCalled?: string;
   /**
    * The same idea with the reader's own numbers in it, or null when the
    * caller has nothing to put in. Never invents a figure.
@@ -63,6 +81,7 @@ const ENTRIES: GlossaryEntry[] = [
     also: ["average buy", "buy price", "cost basis", "what you paid"],
     meaning:
       "The average price you paid for one share, across every share of that company you own. It is the number your gain is measured against, so it matters more than the price on the day you bought.",
+    alsoCalled: "cost basis",
     example: ({ ticker, amount }) =>
       ticker && amount
         ? `On ${ticker} that average is ${amount} a share.`
@@ -82,6 +101,7 @@ const ENTRIES: GlossaryEntry[] = [
     also: ["worth now"],
     meaning:
       "What a holding would be worth if you sold it at today's price: the shares you own times the price right now. It moves every day the market is open, whether you do anything or not.",
+    alsoCalled: "market value",
     example: ({ ticker, amount }) =>
       ticker && amount ? `${ticker} is worth ${amount} today.` : null,
   },
@@ -91,6 +111,7 @@ const ENTRIES: GlossaryEntry[] = [
     also: ["roi", "gain %", "gain $", "return"],
     meaning:
       "The difference between what a holding is worth now and what you paid for it. It is on paper until you sell, which means it can change back.",
+    alsoCalled: "your return, or an unrealised gain while you still hold it",
     example: ({ ticker, amount, second }) =>
       ticker && amount
         ? `On ${ticker} that is ${amount}${second ? `, or ${second} of what you paid` : ""}.`
@@ -111,6 +132,7 @@ const ENTRIES: GlossaryEntry[] = [
     also: ["% of portfolio", "% total", "concentration"],
     meaning:
       "How much of everything you own sits in one company. The larger it is, the more that one company decides how your year goes.",
+    alsoCalled: "concentration, or position size",
     example: ({ ticker, second }) =>
       ticker && second ? `${ticker} is ${second} of what you own.` : null,
   },
@@ -127,6 +149,7 @@ const ENTRIES: GlossaryEntry[] = [
     also: ["margin", "negative cash"],
     meaning:
       "Money your broker lent you, so what you hold is worth more than the money you put in. If it falls far enough, the broker can sell part of it without asking you first.",
+    alsoCalled: "margin, or buying on margin",
     example: ({ amount }) => (amount ? `You have borrowed ${amount}.` : null),
   },
   {
@@ -135,6 +158,7 @@ const ENTRIES: GlossaryEntry[] = [
     also: ["why you own it"],
     meaning:
       "Your own reason for owning a company, written down in a sentence. Writing it is what lets you tell later whether something actually changed or the price simply moved.",
+    alsoCalled: "an investment thesis",
     example: ({ ticker }) =>
       ticker ? `Yours for ${ticker} is in the holding's own panel.` : null,
   },
@@ -143,6 +167,7 @@ const ENTRIES: GlossaryEntry[] = [
     term: "Recent range",
     meaning:
       "The lowest and highest a price has been over the last stretch of weeks. Knowing where today sits inside it says whether a move is unusual for that company.",
+    alsoCalled: "the 52-week range, and how far a price usually travels is called volatility",
     example: ({ ticker, amount, second }) =>
       ticker && amount && second
         ? `${ticker} has been between ${amount} and ${second}.`
@@ -154,6 +179,7 @@ const ENTRIES: GlossaryEntry[] = [
     also: ["earnings", "reports"],
     meaning:
       "The day a company tells everybody how much it sold and earned in the last three months. Prices often move more than usual that day, in either direction.",
+    alsoCalled: "earnings, or an earnings report",
     example: ({ ticker, second }) =>
       ticker && second ? `${ticker} reports ${second}.` : null,
   },
@@ -169,6 +195,7 @@ const ENTRIES: GlossaryEntry[] = [
     also: ["fund", "etf"],
     meaning:
       "One holding that quietly owns hundreds of companies at once, in the same proportions as a published list. Buying one is how a person owns a whole market without picking anything.",
+    alsoCalled: "an ETF, or a tracker",
     example: ({ ticker }) =>
       ticker ? `${ticker} is one of these.` : null,
   },
@@ -189,6 +216,7 @@ const ENTRIES: GlossaryEntry[] = [
     term: "Share split",
     meaning:
       "A company turning each share into several smaller ones, so the price per share falls and you hold more of them. Nothing you own changed in value on the day it happened.",
+    alsoCalled: "a stock split",
   },
   {
     id: "covered-call",
@@ -233,12 +261,33 @@ export function glossaryEntry(key: string): GlossaryEntry | null {
 export function explainTerm(
   key: string,
   input: GlossaryExample = {}
-): { term: string; meaning: string; example: string | null } | null {
+): {
+  term: string;
+  meaning: string;
+  alsoCalled: string | null;
+  outsideWord: string | null;
+  example: string | null;
+} | null {
   const entry = glossaryEntry(key);
   if (!entry) return null;
   return {
     term: entry.term,
     meaning: entry.meaning,
+    alsoCalled: entry.alsoCalled ?? null,
+    outsideWord: outsideWordLine(entry),
     example: entry.example?.(input) ?? null,
   };
+}
+
+/**
+ * The outside word as a sentence, or null where there is nothing to say.
+ *
+ * Deliberately a whole sentence rather than a label, because a bare
+ * "concentration" under a definition reads as a synonym the reader is now
+ * expected to use. The point is the opposite: this app will go on saying the
+ * plain thing, and the reader is only being told what to expect elsewhere.
+ */
+export function outsideWordLine(entry: GlossaryEntry | null): string | null {
+  if (!entry?.alsoCalled) return null;
+  return `Elsewhere you will see this called ${entry.alsoCalled}.`;
 }

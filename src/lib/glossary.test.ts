@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { GLOSSARY, explainTerm, glossaryEntry } from "@/lib/glossary";
+import {
+  GLOSSARY,
+  explainTerm,
+  glossaryEntry,
+  outsideWordLine,
+} from "@/lib/glossary";
 
 /*
   A dictionary that explains one hard word with another is worse than no
@@ -27,6 +32,40 @@ describe("the writing", () => {
       // can be looked up; it is never how anything is explained.
       expect(entry.meaning, entry.id).not.toMatch(SLANG);
       expect(entry.term, entry.id).not.toMatch(SLANG);
+    }
+  });
+
+  it("keeps every outside word out of the sentence that has to carry it", () => {
+    /*
+      `alsoCalled` is the one field allowed to print a banned word, and the
+      whole of what makes that safe is that deleting it changes nothing. So
+      the check is not that the word is absent, it is that the definition
+      standing on its own never needed it.
+    */
+    for (const entry of GLOSSARY) {
+      if (!entry.alsoCalled) continue;
+      const bare = entry.alsoCalled.replace(/^(a|an|the|your) /, "");
+      const first = bare.split(/, | and /)[0]!.toLowerCase();
+      expect(entry.meaning.toLowerCase(), entry.id).not.toContain(first);
+      expect(entry.term.toLowerCase(), entry.id).not.toContain(first);
+    }
+  });
+
+  it("names the outside word as somebody else's, never as the app's own", () => {
+    const entry = glossaryEntry("share of your portfolio")!;
+    expect(outsideWordLine(entry)).toBe(
+      "Elsewhere you will see this called concentration, or position size."
+    );
+    expect(outsideWordLine(glossaryEntry("cash"))).toBeNull();
+    expect(outsideWordLine(null)).toBeNull();
+  });
+
+  it("teaches the words a reader will actually walk into", () => {
+    // The point of the field is the four or five that a broker's own screen
+    // prints and this app deliberately does not.
+    const all = GLOSSARY.map((e) => e.alsoCalled ?? "").join(" ");
+    for (const word of ["cost basis", "margin", "concentration", "volatility"]) {
+      expect(all, word).toContain(word);
     }
   });
 
