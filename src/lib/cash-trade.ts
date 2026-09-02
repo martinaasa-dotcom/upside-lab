@@ -49,14 +49,28 @@ export async function portfolioTracksTradeCash(
   return tracksTradeCash(data as { classroom_community_id?: string | null });
 }
 
-/** Buy/sell cash only moves on a classroom paper sheet. */
+/**
+ * Buy/sell cash only moves on a classroom paper sheet.
+ *
+ * `known` is what the caller already read off the portfolio row. Without it
+ * this asks twice more on every write to an ordinary portfolio: once whether
+ * the portfolio keeps a cash ledger, then once again for a balance that
+ * nothing in the request moved, only to echo it back. A caller holding both
+ * answers spends neither round trip. On a paper sheet the balance is still
+ * read or moved by the database, because there the write really does change
+ * it and a stale echo would be a wrong number.
+ */
 export async function applyTradeCashDelta(
   supabase: SupabaseClient,
   portfolioId: string,
-  delta: number
+  delta: number,
+  known?: { tracksTradeCash: boolean; cashBalance: number | null }
 ): Promise<number | null> {
-  if (!(await portfolioTracksTradeCash(supabase, portfolioId))) {
-    return readCashBalance(supabase, portfolioId);
+  const tracks = known
+    ? known.tracksTradeCash
+    : await portfolioTracksTradeCash(supabase, portfolioId);
+  if (!tracks) {
+    return known ? known.cashBalance : readCashBalance(supabase, portfolioId);
   }
   return applyPortfolioCashDelta(supabase, portfolioId, delta);
 }

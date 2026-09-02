@@ -1,5 +1,8 @@
 import { dbError } from "@/lib/db-error";
-import { requirePortfolioOwner } from "@/lib/auth/ownership";
+import {
+  loadPortfolioWriteContext,
+  type PortfolioWriteContext,
+} from "@/lib/portfolio-write-context";
 import {
   applyTradeCashDelta,
   salePriceFor,
@@ -129,7 +132,10 @@ async function loadWritableHolding(
   supabase: SupabaseClient,
   userId: string,
   holdingId: string
-): Promise<{ row: HoldingRow; portfolioId: string } | { error: NextResponse }> {
+): Promise<
+  | { row: HoldingRow; portfolioId: string; context: PortfolioWriteContext }
+  | { error: NextResponse }
+> {
   const { data, error } = await supabase
     .from(PORTFELL_TABLES.holdings)
     .select("portfolio_id, shares, ticker, buy_price")
@@ -151,10 +157,14 @@ async function loadWritableHolding(
     };
   }
 
-  const notOwner = await requirePortfolioOwner(userId, row.portfolio_id);
-  if (notOwner) return { error: notOwner };
+  const ctx = await loadPortfolioWriteContext(supabase, userId, row.portfolio_id);
+  if (!ctx.ok) {
+    return {
+      error: NextResponse.json({ error: ctx.error }, { status: ctx.status }),
+    };
+  }
 
-  return { row, portfolioId: row.portfolio_id };
+  return { row, portfolioId: row.portfolio_id, context: ctx.context };
 }
 
 async function handlePOST(req: NextRequest) {
@@ -180,9 +190,6 @@ async function handlePOST(req: NextRequest) {
       { status: 400 }
     );
   }
-
-  const notOwner = await requirePortfolioOwner(auth.user.id, portfolioId);
-  if (notOwner) return notOwner;
 
   const supabase = await getSupabaseDataClient();
   if (!supabase) {
@@ -257,6 +264,25 @@ async function handlePOST(req: NextRequest) {
     updated_at: new Date().toISOString(),
   };
 
+  // May this caller write here, is this a classroom sheet, and what is the
+  // balance: one read of the portfolio row with the owners table joined and
+  // filtered on the caller. Three separate selects used to answer those, two
+  // of them after the write had already landed. It sits after the range
+  // checks because a request the app is going to refuse should not cost a
+  // query at all.
+  const loaded = await loadPortfolioWriteContext(
+    supabase,
+    auth.user.id,
+    portfolioId
+  );
+  if (!loaded.ok) {
+    return NextResponse.json(
+      { error: loaded.error },
+      { status: loaded.status }
+    );
+  }
+  const context = loaded.context;
+
   for (let attempt = 0; attempt < HOLDING_WRITE_ATTEMPTS; attempt++) {
     const { data: existingRaw, error: existingErr } = await supabase
       .from(PORTFELL_TABLES.holdings)
@@ -283,6 +309,7 @@ async function handlePOST(req: NextRequest) {
     const blocked = await denyClassroomWrite(supabase, {
       portfolioId,
       userId: auth.user.id,
+      classroomCommunityId: context.classroomCommunityId,
       action: holdingWriteActions({
         isNew: !existingRow,
         isDelete: false,
@@ -319,10 +346,13 @@ async function handlePOST(req: NextRequest) {
         });
         return NextResponse.json({ error: dbError(error, "/api/holdings") }, { status: 500 });
       }
+      // A buy is arithmetic and costs nothing to work out, so it is handed
+      // over whether or not it will be spent. Selling is the expensive one.
       const cash = await applyTradeCashDelta(
         supabase,
         portfolioId,
-        tradeCashDelta({ buyShares: shares, buyPrice })
+        tradeCashDelta({ buyShares: shares, buyPrice }),
+        context
       );
       return NextResponse.json({ holding: data, cash_balance: cash });
     }
@@ -359,20 +389,32 @@ async function handlePOST(req: NextRequest) {
 
     const prevShares = existingRow.shares;
     const prevBuy = existingRow.buy_price;
+    // Only a classroom paper sheet moves cash on a trade, so on every other
+    // portfolio this arithmetic is worked out and thrown away. Selling asks
+    // salePriceFor for a live price, which is a walk of the quote providers
+    // and the slowest thing in the request, so the ledger question is asked
+    // first and the walk does not happen at all.
     let delta = 0;
-    if (shares > prevShares) {
-      delta = tradeCashDelta({
-        buyShares: shares - prevShares,
-        buyPrice,
-      });
-    } else if (shares < prevShares) {
-      const px = await salePriceFor(ticker, prevBuy || buyPrice);
-      delta = tradeCashDelta({
-        sellShares: prevShares - shares,
-        sellPrice: px,
-      });
+    if (context.tracksTradeCash) {
+      if (shares > prevShares) {
+        delta = tradeCashDelta({
+          buyShares: shares - prevShares,
+          buyPrice,
+        });
+      } else if (shares < prevShares) {
+        const px = await salePriceFor(ticker, prevBuy || buyPrice);
+        delta = tradeCashDelta({
+          sellShares: prevShares - shares,
+          sellPrice: px,
+        });
+      }
     }
-    const cash = await applyTradeCashDelta(supabase, portfolioId, delta);
+    const cash = await applyTradeCashDelta(
+      supabase,
+      portfolioId,
+      delta,
+      context
+    );
     return NextResponse.json({ holding: data, cash_balance: cash });
   }
 
@@ -495,7 +537,7 @@ async function handlePATCH(req: NextRequest) {
   for (let attempt = 0; attempt < HOLDING_WRITE_ATTEMPTS; attempt++) {
     const loaded = await loadWritableHolding(supabase, auth.user.id, id);
     if ("error" in loaded) return loaded.error;
-    const { row: existing, portfolioId } = loaded;
+    const { row: existing, portfolioId, context } = loaded;
 
     const prevShares = existing.shares;
     const prevBuy = existing.buy_price;
@@ -522,6 +564,7 @@ async function handlePATCH(req: NextRequest) {
     const blocked = await denyClassroomWrite(supabase, {
       portfolioId,
       userId: auth.user.id,
+      classroomCommunityId: context.classroomCommunityId,
       action: holdingWriteActions({
         isNew: false,
         isDelete: false,
@@ -572,27 +615,37 @@ async function handlePATCH(req: NextRequest) {
       return NextResponse.json({ error: "Holding not found" }, { status: 404 });
     }
 
+    // As in the POST above: the delta is only ever spent on a classroom paper
+    // sheet, and two of these three branches pay for a live quote to compute
+    // it. On an ordinary portfolio there is nothing to compute.
     let delta = 0;
-    if (renamed) {
-      const sellPx = await salePriceFor(prevTicker, prevBuy);
-      delta += tradeCashDelta({ sellShares: prevShares, sellPrice: sellPx });
-      delta += tradeCashDelta({
-        buyShares: nextShares,
-        buyPrice: nextBuy || prevBuy,
-      });
-    } else if (nextShares > prevShares) {
-      delta = tradeCashDelta({
-        buyShares: nextShares - prevShares,
-        buyPrice: nextBuy || prevBuy,
-      });
-    } else if (nextShares < prevShares) {
-      const px = await salePriceFor(prevTicker, prevBuy);
-      delta = tradeCashDelta({
-        sellShares: prevShares - nextShares,
-        sellPrice: px,
-      });
+    if (context.tracksTradeCash) {
+      if (renamed) {
+        const sellPx = await salePriceFor(prevTicker, prevBuy);
+        delta += tradeCashDelta({ sellShares: prevShares, sellPrice: sellPx });
+        delta += tradeCashDelta({
+          buyShares: nextShares,
+          buyPrice: nextBuy || prevBuy,
+        });
+      } else if (nextShares > prevShares) {
+        delta = tradeCashDelta({
+          buyShares: nextShares - prevShares,
+          buyPrice: nextBuy || prevBuy,
+        });
+      } else if (nextShares < prevShares) {
+        const px = await salePriceFor(prevTicker, prevBuy);
+        delta = tradeCashDelta({
+          sellShares: prevShares - nextShares,
+          sellPrice: px,
+        });
+      }
     }
-    const cash = await applyTradeCashDelta(supabase, portfolioId, delta);
+    const cash = await applyTradeCashDelta(
+      supabase,
+      portfolioId,
+      delta,
+      context
+    );
     return NextResponse.json({ holding: data, cash_balance: cash });
   }
 
@@ -624,11 +677,12 @@ async function handleDELETE(req: NextRequest) {
 
   const loaded = await loadWritableHolding(supabase, auth.user.id, id);
   if ("error" in loaded) return loaded.error;
-  const { row: existing, portfolioId } = loaded;
+  const { row: existing, portfolioId, context } = loaded;
 
   const blocked = await denyClassroomWrite(supabase, {
     portfolioId,
     userId: auth.user.id,
+    classroomCommunityId: context.classroomCommunityId,
     action: "sell",
   });
   if (blocked) return blocked;
@@ -663,7 +717,7 @@ async function handleDELETE(req: NextRequest) {
       ticker: existing.ticker,
       holdingId: id,
     });
-    const cash = await applyTradeCashDelta(supabase, portfolioId, 0);
+    const cash = await applyTradeCashDelta(supabase, portfolioId, 0, context);
     return NextResponse.json({ ok: true, cash_balance: cash });
   }
   const deleted = parseHoldingRow({
@@ -673,12 +727,16 @@ async function handleDELETE(req: NextRequest) {
   const shares = deleted?.shares ?? existing.shares;
   const buy = deleted?.buy_price ?? existing.buy_price;
   const ticker = deleted?.ticker ?? existing.ticker;
-  const px = ticker ? await salePriceFor(ticker, buy) : buy;
-  const cash = await applyTradeCashDelta(
-    supabase,
-    portfolioId,
-    tradeCashDelta({ sellShares: shares, sellPrice: px })
-  );
+  // A sale credits cash on a classroom paper sheet and nowhere else, so
+  // only a paper sheet pays for the live price the credit is worked out
+  // from. Deleting a holding from an ordinary portfolio used to walk the
+  // quote providers for a number the next line threw away.
+  let delta = 0;
+  if (context.tracksTradeCash) {
+    const px = ticker ? await salePriceFor(ticker, buy) : buy;
+    delta = tradeCashDelta({ sellShares: shares, sellPrice: px });
+  }
+  const cash = await applyTradeCashDelta(supabase, portfolioId, delta, context);
   return NextResponse.json({ ok: true, cash_balance: cash });
 }
 

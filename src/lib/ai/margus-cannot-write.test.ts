@@ -88,6 +88,10 @@ describe("the endpoint that does write checks who is asking", () => {
     // indistinguishable from one the reader typed, which is exactly why
     // this route cannot take anybody's word for it.
     expect(holdings).toContain("requireAuthUser");
-    expect(holdings).toContain("requirePortfolioOwner");
+    // The ownership check is the owners table joined onto the portfolio row
+    // and filtered to the caller, which also answers whether the portfolio
+    // keeps a cash ledger. It fails closed the same way the separate owners
+    // select it replaced did.
+    expect(holdings).toContain("loadPortfolioWriteContext");
   });
 });
