@@ -2,8 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  LAPSE_MS,
+  loadAlertSeen,
   loadDismissedAlertIds,
   loadToastedAlertIds,
+  reviseAlertMemory,
+  saveAlertSeen,
   saveDismissedAlertIds,
   saveToastedAlertIds,
 } from "@/lib/alert-dismiss";
@@ -104,10 +108,17 @@ describe("the room draws the list a reader has not waved off", () => {
   });
 
   it("writes the dismissal list from a reader action, not from the toast", () => {
-    const toastEffect = source.slice(
-      source.indexOf("const fresh = bookAlerts.filter"),
-      source.indexOf("for (const a of fresh) toast(")
-    );
+    /*
+      The end anchor moved deliberately: the effect no longer toasts every
+      fresh alert, since three of the four kinds are calm facts and a toast
+      is a medium that vanishes. It is a loop with a tone check in it now,
+      so the marker is the loop's own brace.
+    */
+    const start = source.indexOf("const fresh = bookAlerts.filter");
+    const end = source.indexOf("for (const a of fresh) {");
+    expect(start).toBeGreaterThan(0);
+    expect(end).toBeGreaterThan(start);
+    const toastEffect = source.slice(start, end);
     expect(toastEffect).toContain("saveToastedAlertIds");
     expect(toastEffect).not.toContain("saveDismissedAlertIds");
     expect(source).toContain("const onDismissAlert");
@@ -121,5 +132,133 @@ describe("the room draws the list a reader has not waved off", () => {
     const opener = source.slice(at, at + 300);
     expect(opener).toContain("alert.ticker");
     expect(opener).toContain("onOpenPulse");
+  });
+});
+
+describe("a dismissal keys on the condition, not on the calendar", () => {
+  /*
+    The choice recorded here, because there were two on offer: bucket the
+    id by month, or forget the dismissal once the condition itself has been
+    gone for a while. This is the second. A loan that stays large is one
+    piece of news however many months pass, and a price level crossed twice
+    is genuinely two, so absence is the thing worth measuring. The lapse
+    exists so a price hovering either side of a level over one afternoon
+    does not resurrect a card the reader has already waved off.
+  */
+  const now = 1_800_000_000_000;
+
+  it("records when a condition was first true, and does not restamp it", () => {
+    const first = reviseAlertMemory({
+      seen: {},
+      dismissed: new Set(),
+      toasted: new Set(),
+      liveIds: ["decision-margin-heavy"],
+      now,
+    });
+    expect(first.seen["decision-margin-heavy"]!.first).toBe(now);
+    expect(first.changed).toBe(true);
+
+    const later = reviseAlertMemory({
+      seen: first.seen,
+      dismissed: new Set(),
+      toasted: new Set(),
+      liveIds: ["decision-margin-heavy"],
+      now: now + 5 * 86_400_000,
+    });
+    expect(later.seen["decision-margin-heavy"]!.first).toBe(now);
+    expect(later.seen["decision-margin-heavy"]!.last).toBe(
+      now + 5 * 86_400_000
+    );
+  });
+
+  it("keeps a dismissal for as long as the condition is still true", () => {
+    const out = reviseAlertMemory({
+      seen: { "strike-target-$AAPL": { first: now, last: now } },
+      dismissed: new Set(["strike-target-$AAPL"]),
+      toasted: new Set(["strike-target-$AAPL"]),
+      liveIds: ["strike-target-$AAPL"],
+      now: now + 400 * 86_400_000,
+    });
+    expect(out.dismissed.has("strike-target-$AAPL")).toBe(true);
+  });
+
+  it("forgets it once the condition has been gone longer than the lapse", () => {
+    const out = reviseAlertMemory({
+      seen: { "strike-target-$AAPL": { first: now, last: now } },
+      dismissed: new Set(["strike-target-$AAPL"]),
+      toasted: new Set(["strike-target-$AAPL"]),
+      liveIds: [],
+      now: now + LAPSE_MS + 1000,
+    });
+    expect(out.dismissed.size).toBe(0);
+    expect(out.toasted.size).toBe(0);
+    expect(out.seen["strike-target-$AAPL"]).toBeUndefined();
+    expect(out.changed).toBe(true);
+  });
+
+  it("holds on through a condition flickering for an afternoon", () => {
+    const out = reviseAlertMemory({
+      seen: { "strike-target-$AAPL": { first: now, last: now } },
+      dismissed: new Set(["strike-target-$AAPL"]),
+      toasted: new Set(),
+      liveIds: [],
+      now: now + 6 * 3600_000,
+    });
+    expect(out.dismissed.has("strike-target-$AAPL")).toBe(true);
+    expect(out.changed).toBe(false);
+  });
+
+  it("says nothing changed when nothing did, so nothing is written", () => {
+    const out = reviseAlertMemory({
+      seen: { a: { first: now, last: now } },
+      dismissed: new Set(),
+      toasted: new Set(),
+      liveIds: ["a"],
+      now: now + 60_000,
+    });
+    expect(out.changed).toBe(false);
+  });
+
+  it("round-trips through the store and survives junk in it", () => {
+    saveAlertSeen({ a: { first: 1, last: 2 } });
+    expect(loadAlertSeen()).toEqual({ a: { first: 1, last: 2 } });
+    store.set("upside-alerts-seen-v1", "not json");
+    expect(loadAlertSeen()).toEqual({});
+    store.set("upside-alerts-seen-v1", JSON.stringify({ a: { first: "x" } }));
+    expect(loadAlertSeen()).toEqual({});
+  });
+});
+
+describe("the page has a door on both breakpoints", () => {
+  /*
+    A claim about behaviour is pinned to the code rather than asserted as
+    copy. This page used to be reachable only by typing the address: the
+    phone's bell was never wired up, neither dock has a cell for it, and
+    the one card on Home that could route there is below `md` and only
+    routes when the featured alert is not about cash. What it has instead
+    is a row in the one overflow menu the chrome already carries, which is
+    both the phone's More menu and the laptop's View menu, so no dock cell
+    was spent and no portfolio name lost 44px of the phone's top bar.
+  */
+  const source = readFileSync(
+    join(process.cwd(), "src/components/Dashboard.tsx"),
+    "utf8"
+  );
+
+  it("puts a row in the menu that both breakpoints draw", () => {
+    const menu = source.slice(
+      source.indexOf("const viewMenuItems"),
+      source.indexOf("// Account-scoped actions")
+    );
+    expect(menu).toContain('id: "alerts"');
+    expect(menu).toContain("Worth a look");
+    expect(menu).toContain("onOpenAlerts()");
+    // The phone's overflow menu and the laptop's View menu, one list.
+    expect(source).toContain("mobileMenuItems={viewMenuItems}");
+    expect(source).toContain("items={viewMenuItems}");
+  });
+
+  it("spends no dock cell on it, since the news dot already points there", () => {
+    expect(source).toContain("alertCount={activeAlerts.length}");
   });
 });

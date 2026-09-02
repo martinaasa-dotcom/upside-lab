@@ -35,11 +35,20 @@ import { buildSnapshot } from "@/lib/calculations";
 import type { CsvHoldingRow } from "@/lib/csv-import";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import {
+  loadAlertSeen,
   loadDismissedAlertIds,
-  saveDismissedAlertIds,
   loadToastedAlertIds,
+  reviseAlertMemory,
+  saveAlertSeen,
+  saveDismissedAlertIds,
   saveToastedAlertIds,
+  type AlertSeen,
 } from "@/lib/alert-dismiss";
+import {
+  AlertStack,
+  AlertsChecking,
+  AlertsQuiet,
+} from "@/components/AlertCards";
 import { PULSE_REFRESH_MS, effectiveMove, isEmptyPulseCheck, loadPulseTickerCache, type PulseCheck } from "@/lib/thesis-pulse";
 import { loadForecastPlan } from "@/lib/forecast-plan";
 import {
@@ -113,6 +122,7 @@ import type {
   Quote,
 } from "@/lib/types";
 import {
+  ChevronLeft,
   Plus,
   RefreshCw,
   SlidersHorizontal,
@@ -359,6 +369,12 @@ export function Dashboard() {
     },
     [router, portfolios]
   );
+  /*
+    Declared here rather than beside the other openers further down,
+    because the toast effect names it in a dependency array and a `const`
+    read before its own line is a crash rather than a warning.
+  */
+  const onOpenAlerts = useStableCallback(() => goToTab(ALERTS_TAB_ID));
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const [options, setOptions] = useState<Record<string, OptionCandidate | null>>(
     {}
@@ -431,6 +447,16 @@ export function Dashboard() {
   const [earningsEvents, setEarningsEvents] = useState<
     Array<{ ticker: string; date: string; days: number }>
   >([]);
+  /*
+    Whether the results dates have answered at all yet.
+    The room used to render its resting "nothing needs your attention"
+    sentence on the first paint, before the holdings, the prices or this
+    fetch had come back, and then contradict itself with a toast two
+    seconds later. Set on the answer and on the failure alike, because a
+    provider that is down is still an answer as far as the room is
+    concerned: it has all it is ever going to get.
+  */
+  const [earningsAnswered, setEarningsAnswered] = useState(false);
   const [alertToastsSent, setAlertToastsSent] = useState<Set<string>>(
     () => new Set()
   );
@@ -444,6 +470,12 @@ export function Dashboard() {
   const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(
     () => new Set()
   );
+  /** When each condition was first true, so a card can say since when. */
+  const [alertSeen, setAlertSeen] = useState<Record<string, AlertSeen>>(
+    () => ({})
+  );
+  const alertSeenRef = useRef(alertSeen);
+  alertSeenRef.current = alertSeen;
   const bookRef = useRef({ portfolios, holdings });
   bookRef.current = { portfolios, holdings };
   const bookAbortRef = useRef<AbortController | null>(null);
@@ -532,6 +564,7 @@ export function Dashboard() {
     setDisplayCurrencyByPortfolio(loadDisplayCurrencyMap());
     setAlertToastsSent(loadToastedAlertIds());
     setDismissedAlertIds(loadDismissedAlertIds());
+    setAlertSeen(loadAlertSeen());
     setCcVisibleByPortfolio(loadVisibilityMap(CC_VISIBLE_KEY));
     setForecastVisibleByPortfolio(loadVisibilityMap(FORECAST_VISIBLE_KEY));
     setExperienceTier(loadStoredTier());
@@ -862,9 +895,9 @@ export function Dashboard() {
       ? portfolios[0]!.cash_balance
       : undefined;
 
-  // Book-wide CC rows, computed once and shared by Lab (Alerts/calendar) and
-  // the alert builders below — was previously an inline flatMap recomputed
-  // on every render just for the Lab prop.
+  // Book-wide covered-call rows, computed once and shared by Lab and the
+  // alert builders below. It was an inline flatMap recomputed on every
+  // render just for the Lab prop.
   const bookCoveredCallRows = useMemo(
     () =>
       realPortfolios.flatMap((p) => {
@@ -883,10 +916,13 @@ export function Dashboard() {
     );
   }, [drawerTicker, bookCoveredCallRows, hideOptionsUI]);
 
-  // Single source of truth for "what needs attention" — earnings, near
-  // strike/target, margin, concentration. Lab's Alerts tab and Overview's
-  // briefing both read from this one list (and its one shared dismissal
-  // state) instead of each re-deriving their own copy of these conditions.
+  /*
+    Single source of truth for the four things this app watches: a results
+    date, a share reaching a level, borrowed money, and one holding growing
+    large. Three surfaces read this one list rather than each re-deriving
+    the conditions: the "Worth a look" room below, the borrowed-money card
+    on Home (`CashAlertCard`), and the news dot on both docks.
+  */
   const bookAlerts = useMemo<UpsideAlert[]>(() => {
     // No options experience -> no strike-planning alerts at all, not just
     // a de-emphasized card. These are pure covered-call mechanics.
@@ -898,6 +934,12 @@ export function Dashboard() {
             spot: r.spot,
             stockTarget: r.stockTarget,
             nextStrike: r.nextStrike,
+            // Whether the reader typed that target or the app worked it
+            // out from the recent high. Two different sentences: see
+            // `buildStrikeAlerts`.
+            targetIsHandSet:
+              r.holding.stock_target_override != null &&
+              r.holding.stock_target_override > 0,
           }))
         );
     const earn = buildEarningsAlerts(earningsEvents, hideOptionsUI);
@@ -916,6 +958,48 @@ export function Dashboard() {
     () => bookAlerts.filter((a) => !dismissedAlertIds.has(a.id)),
     [bookAlerts, dismissedAlertIds]
   );
+
+  /*
+    Still finding out. Three inputs decide whether this page is quiet and
+    every one of them arrives on its own schedule: the portfolios, the
+    prices they are valued at, and the results dates. A holding with no
+    quote yet has no value, so the borrowed-money arithmetic and the
+    largest-holding share are both wrong until at least one price is in.
+  */
+  const alertsChecking =
+    loading ||
+    !earningsAnswered ||
+    (holdings.length > 0 && Object.keys(quotes).length === 0);
+
+  /*
+    Keep the memory of these conditions in step with the ones that are true
+    right now, so a card can say "Since Tuesday" and so a dismissal made in
+    March does not silence the same condition recurring in September. The
+    rule is `reviseAlertMemory`'s, and it only writes when something moved.
+  */
+  useEffect(() => {
+    if (bookAlerts.length === 0 && Object.keys(alertSeenRef.current).length === 0) {
+      return;
+    }
+    const next = reviseAlertMemory({
+      seen: alertSeenRef.current,
+      dismissed: dismissedAlertIds,
+      toasted: alertToastsSentRef.current,
+      liveIds: bookAlerts.map((a) => a.id),
+      now: Date.now(),
+    });
+    if (!next.changed) return;
+    saveAlertSeen(next.seen);
+    setAlertSeen(next.seen);
+    if (next.dismissed.size !== dismissedAlertIds.size) {
+      saveDismissedAlertIds(next.dismissed);
+      setDismissedAlertIds(next.dismissed);
+    }
+    if (next.toasted.size !== alertToastsSentRef.current.size) {
+      saveToastedAlertIds(next.toasted);
+      setAlertToastsSent(next.toasted);
+    }
+  }, [bookAlerts, dismissedAlertIds]);
 
   // Glanceable up/down dot per sheet tab. Uses the same live move Pulse
   // does (regular, pre-market, or after-hours), so the dots don't vanish
@@ -1847,7 +1931,12 @@ export function Dashboard() {
     .slice(0, 40)
     .join(",");
   useEffect(() => {
-    if (!overviewTickerKey) return;
+    if (!overviewTickerKey) {
+      // Nothing to ask about, so nothing to wait for. Without this an
+      // empty portfolio sits on "Checking what you own" forever.
+      setEarningsAnswered(true);
+      return;
+    }
     const ctrl = new AbortController();
 
     const load = () => {
@@ -1860,10 +1949,12 @@ export function Dashboard() {
           if (ctrl.signal.aborted || !data) return;
           const events = Array.isArray(data.earnings) ? data.earnings : [];
           setEarningsEvents(events);
+          setEarningsAnswered(true);
         })
         .catch((err) => {
           if (isAbortError(err)) return;
           /* keep whatever was already loaded */
+          setEarningsAnswered(true);
         });
     };
 
@@ -1893,8 +1984,26 @@ export function Dashboard() {
     for (const a of fresh) updated.add(a.id);
     saveToastedAlertIds(updated);
     setAlertToastsSent(updated);
-    for (const a of fresh) toast(a.title, "info");
-  }, [bookAlerts, toast]);
+    /*
+      Only the loud ones, and never bare.
+
+      A toast is a medium that vanishes, and three of these four are calm
+      facts about a portfolio that will still be true tomorrow: a results
+      date, a level reached, one holding growing large. Announcing those in
+      a four-second line teaches a reader to ignore the toaster, and the
+      card is already waiting for them in the room with the arithmetic on
+      it. So a neutral alert is left to the card and the news dot, and the
+      two that raise their own tone carry the cushion line under the title
+      and a way through to the card that is not going to disappear.
+    */
+    for (const a of fresh) {
+      if ((a.tone ?? "neutral") === "neutral") continue;
+      toast(a.title, a.tone === "loss" ? "error" : "warning", {
+        description: a.cushion,
+        action: { label: "See why", onClick: () => onOpenAlerts() },
+      });
+    }
+  }, [bookAlerts, toast, onOpenAlerts]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -1994,6 +2103,40 @@ export function Dashboard() {
   // lone item making this button show up for no reason.
   const viewMenuItems: HeaderMenuItem[] = useMemo(() => {
     const items: HeaderMenuItem[] = [];
+    /*
+      The door to "Worth a look", and the reason it is here rather than
+      anywhere louder.
+
+      Until now the page had none: the phone's bell was never wired up, the
+      dock has no cell for it, and the one card on Home that could route
+      there is below `md` and only when the featured alert is not about
+      cash. So the only way in was typing the address.
+
+      A dock cell was the obvious answer and is the wrong one twice over.
+      The dock's cell count may depend on your data and never on the route
+      (`dock-stability.test.ts`), so a cell here is a cell for everybody
+      including the many readers who will never have anything on this page,
+      and the news it carries already has a home: the accent dot on Home.
+      A bell in the phone's top bar is the other obvious answer, and
+      AGENTS.md has the measurement against it: every control in that row
+      costs 44px of somebody's portfolio name, and the name is the only
+      part of the bar that says where the reader is.
+
+      What is left is the menu both breakpoints already have, which is the
+      answer that bullet reaches too. It is one row, it costs no width, it
+      is on every room rather than only on Home, and it carries the count,
+      which is the thing the dock dot cannot say out loud.
+    */
+    if (!isAlerts) {
+      items.push({
+        id: "alerts",
+        label:
+          activeAlerts.length > 0
+            ? `Worth a look (${activeAlerts.length})`
+            : "Worth a look",
+        onSelect: () => onOpenAlerts(),
+      });
+    }
     if (undoStack.length > 0) {
       items.push({
         id: "undo",
@@ -2041,6 +2184,8 @@ export function Dashboard() {
     undoStack.length,
     source,
     isMetaTab,
+    isAlerts,
+    activeAlerts.length,
     ccVisible,
     hideOptionsUI,
     forecastVisible,
@@ -2104,7 +2249,6 @@ export function Dashboard() {
     }
   );
   const onOpenCompound = useStableCallback(() => goToTab(COMPOUND_TAB_ID));
-  const onOpenAlerts = useStableCallback(() => goToTab(ALERTS_TAB_ID));
   const onOpenCash = useStableCallback(() => {
     const target = [...portfolios].sort(
       (a, b) => a.cash_balance - b.cash_balance
@@ -2134,11 +2278,15 @@ export function Dashboard() {
     Overview, whatever it was about, which is the same as going nowhere:
     the reader is told a company reports on Thursday and is handed the room
     they just left. An alert that names a company opens that company, and
-    the rest open the screen that holds the figure they are about.
+    the borrowed-money one opens the screen holding the figure it is about.
   */
   const onOpenAlert = useStableCallback((alert: UpsideAlert) => {
     if (alert.ticker) {
       onOpenPulse(alert.ticker);
+      return;
+    }
+    if (alert.kind === "margin") {
+      onOpenCash();
       return;
     }
     goToTab(OVERVIEW_TAB_ID);
@@ -2407,8 +2555,26 @@ export function Dashboard() {
 
   const showSheetPicker =
     portfolios.length > 0 && (isOverview || !isMetaTab);
+  /*
+    On this page the phone dock lights Home, because "Worth a look" is
+    Home's second screen rather than a room of its own: it has no cell, it
+    is what the accent dot on Home is pointing at, and `workspaceRoomId`
+    keeps it inside the book. Two pieces of chrome disagreeing about where
+    the reader is would be a bug, so the title says so out loud, as a way
+    back to the room the dock is already naming.
+  */
   const mobileSheetTitle = isAlerts
-    ? "Alerts"
+    ? (
+        <button
+          type="button"
+          onClick={() => goToTab(OVERVIEW_TAB_ID)}
+          className="-ml-1 flex min-w-0 items-center gap-1 rounded-lg px-1 py-1 text-left"
+        >
+          <ChevronLeft className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="truncate">Worth a look</span>
+          <span className="sr-only">, back to Home</span>
+        </button>
+      )
     : showSheetPicker
       ? (
           <SheetPicker
@@ -2455,7 +2621,7 @@ export function Dashboard() {
           isOverview
             ? "Overview"
             : isAlerts
-              ? "Alerts"
+              ? "Worth a look"
               : isCompound
               ? "Compound"
               : isLab
@@ -2520,59 +2686,34 @@ export function Dashboard() {
         )}
 
         {isAlerts ? (
+          /*
+            The boundary keeps its old name on purpose: it is the widget id
+            this app's error log folds crashes under, and renaming it would
+            split one class into two for no reader's benefit.
+          */
           <WidgetErrorBoundary name="Alerts">
-          <div className="flex flex-col gap-4">
-            {activeAlerts.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-14 text-center">
-                <p className="text-sm text-foreground">
-                  Nothing needs your attention right now.
-                </p>
-                <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-                  This room fills up on its own when something moves: a company
-                  you own reporting its results, one holding growing into a
-                  large share of everything you have, or borrowed money getting
-                  close to a line.
-                </p>
-              </div>
-            ) : (
-              activeAlerts.map((a) => (
-                <div
-                  key={a.id}
-                  className="card-sheen glass w-full rounded-xl p-5 sm:p-6"
-                >
-                  <button
-                    type="button"
-                    onClick={() => onOpenAlert(a)}
-                    className="w-full text-left"
-                  >
-                    <p className="text-sm font-semibold text-foreground">
-                      {a.title}
-                    </p>
-                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                      {a.detail}
-                    </p>
-                  </button>
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => onOpenAlert(a)}
-                    >
-                      {a.ticker ? `Open ${a.ticker}` : "Open Overview"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-muted-foreground"
-                      onClick={() => onDismissAlert(a.id)}
-                    >
-                      Dismiss
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+          {/*
+            Three inputs decide whether this page is quiet: the holdings,
+            the prices, and the results dates. Saying "nothing needs your
+            attention" before all three have answered is a promise the app
+            cannot keep, and it used to be contradicted by a toast about
+            borrowed money two seconds later.
+          */}
+          {alertsChecking ? (
+            <AlertsChecking />
+          ) : activeAlerts.length === 0 ? (
+            <AlertsQuiet
+              onOpenPulse={pulseHiddenForTier ? undefined : () => onOpenPulse()}
+              onOpenHome={() => goToTab(OVERVIEW_TAB_ID)}
+            />
+          ) : (
+            <AlertStack
+              alerts={activeAlerts}
+              firstSeen={alertSeen}
+              onOpen={onOpenAlert}
+              onDismiss={onDismissAlert}
+            />
+          )}
           </WidgetErrorBoundary>
         ) : isPulse ? (
           <WidgetErrorBoundary name="Pulse">
