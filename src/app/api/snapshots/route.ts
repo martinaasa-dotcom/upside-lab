@@ -26,6 +26,32 @@ import { parseJsonBody } from "@/lib/parse-json-body";
 export const dynamic = "force-dynamic";
 
 /** List recent snapshots (metadata only). */
+/**
+ * The caller, plus everyone who co-owns a portfolio with them.
+ *
+ * Small by construction: it is the owners of the caller's own portfolios,
+ * which is a household or a class, never the product. Used to bound the
+ * snapshot list to rows that could possibly pass its access check, so the
+ * check is applied to the right eighty rows rather than to whichever eighty
+ * happened to be newest across every account.
+ */
+async function peopleSharingPortfolios(
+  supabase: Awaited<ReturnType<typeof getSupabaseDataClient>>,
+  userId: string,
+  ownedIds: Set<string>
+): Promise<string[]> {
+  const ids = new Set<string>([userId]);
+  if (!supabase || ownedIds.size === 0) return [...ids];
+  const { data } = await supabase
+    .from(PORTFELL_TABLES.portfolioOwners)
+    .select("user_id")
+    .in("portfolio_id", [...ownedIds]);
+  for (const row of (data ?? []) as { user_id?: string | null }[]) {
+    if (row.user_id) ids.add(row.user_id);
+  }
+  return [...ids];
+}
+
 async function handleGET() {
   const auth = await requireAuthUser();
   if ("error" in auth) return auth.error;
@@ -39,10 +65,30 @@ async function handleGET() {
   }
 
   const owned = new Set(await listOwnedPortfolioIds(auth.user.id));
+  /*
+    Narrowed to the people who could have made a copy this caller may see,
+    which is themselves and anyone they share a portfolio with, before the
+    newest eighty are taken rather than after.
+
+    The access rule is unchanged and is still the payload check below: every
+    portfolio in the save has to be one the caller is on. What changed is the
+    window it is applied to. Taking the newest eighty rows in the whole
+    project and filtering afterwards meant a busy week in somebody else's
+    account could push a reader's own saves out of their own list, with
+    nothing deleted and nothing to see. Scoping to the caller alone would
+    have been simpler and wrong: a co-owner is meant to find the copy taken
+    before the other owner deleted a portfolio they share, which is the
+    whole reason that copy exists.
+
+    A row with no owner recorded predates the column and is left out of this
+    narrowing rather than shown to everybody.
+  */
+  const coOwnerIds = await peopleSharingPortfolios(supabase, auth.user.id, owned);
   const { data, error } = await supabase
     .from(PORTFELL_TABLES.snapshots)
     .select("id, kind, label, created_at, payload")
     .neq("kind", "nightly")
+    .in("owner_id", coOwnerIds)
     .order("created_at", { ascending: false })
     .limit(80);
 
@@ -142,7 +188,13 @@ async function handlePOST(req: NextRequest) {
       const safety = await captureBookPayload(supabase, {
         portfolioIds: ownedIds,
       });
-      await saveBookSnapshot(supabase, "pre_delete", "Before restore", safety);
+      await saveBookSnapshot(
+        supabase,
+        "pre_delete",
+        "Before restore",
+        safety,
+        auth.user.id
+      );
       const restored = await restoreBookFromSnapshot(
         supabase,
         snapshotId,
@@ -207,7 +259,8 @@ async function handlePOST(req: NextRequest) {
         supabase,
         "pre_delete",
         "Before portfolio restore",
-        safety
+        safety,
+        auth.user.id
       );
       const restored = await restoreSheetFromSnapshot(
         supabase,
@@ -233,9 +286,12 @@ async function handlePOST(req: NextRequest) {
         supabase,
         "manual",
         body.label?.trim() || "Manual snapshot",
-        payload
+        payload,
+        auth.user.id
       );
-      await pruneOldSnapshots(supabase);
+      // The caller's own window only. Tidying everybody's from a request is
+      // what let one reader's saves push out another's.
+      await pruneOldSnapshots(supabase, auth.user.id);
       return NextResponse.json({ snapshot: snap });
     }
 

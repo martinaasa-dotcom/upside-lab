@@ -430,7 +430,8 @@ async function handleDELETE(req: NextRequest) {
       sheet?.name
         ? `Before delete · ${sheet.name}`
         : "Before delete",
-      await captureBookPayload(supabase, { portfolioIds: [id] })
+      await captureBookPayload(supabase, { portfolioIds: [id] }),
+      auth.user.id
     );
 
     const { error } = await supabase

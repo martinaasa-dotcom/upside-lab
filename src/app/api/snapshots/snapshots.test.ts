@@ -49,6 +49,7 @@ beforeEach(() => {
     [PORTFELL_TABLES.snapshots]: [
       {
         id: "s-shared",
+        owner_id: ANN,
         kind: "pre_delete",
         label: "Before portfolio restore",
         created_at: "2026-09-01T00:00:00Z",
@@ -56,6 +57,7 @@ beforeEach(() => {
       },
       {
         id: "s-ann-account",
+        owner_id: ANN,
         kind: "manual",
         label: "Before delete: Retirement",
         created_at: "2026-08-31T00:00:00Z",
@@ -63,6 +65,7 @@ beforeEach(() => {
       },
       {
         id: "s-nightly",
+        owner_id: null,
         kind: "nightly",
         label: "",
         created_at: "2026-08-30T00:00:00Z",
@@ -70,6 +73,7 @@ beforeEach(() => {
       },
       {
         id: "s-empty",
+        owner_id: BOB,
         kind: "manual",
         label: "Nothing in it",
         created_at: "2026-08-29T00:00:00Z",

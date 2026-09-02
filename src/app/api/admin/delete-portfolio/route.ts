@@ -1,6 +1,7 @@
 import { dbError } from "@/lib/db-error";
 import { isSuperadminEmail } from "@/lib/auth/superadmin";
 import { captureBookPayload, saveBookSnapshot } from "@/lib/book-snapshot";
+import { portfolioCreatorId } from "@/lib/auth/ownership";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient, supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
@@ -94,12 +95,21 @@ async function handlePOST(req: NextRequest) {
 
   const name = (sheet as { name?: string | null }).name ?? "";
 
+  /*
+    The copy belongs to whoever owned the portfolio, never to the admin who
+    pressed delete. Filing it under the admin would count it against their
+    retention window and hide it from the person whose portfolio it was, who
+    is the only one with a reason to look for it.
+  */
+  const owner = await portfolioCreatorId(portfolioId);
+
   try {
     await saveBookSnapshot(
       supabase,
       "pre_delete",
       name ? `Before admin delete · ${name}` : "Before admin delete",
-      await captureBookPayload(supabase, { portfolioIds: [portfolioId] })
+      await captureBookPayload(supabase, { portfolioIds: [portfolioId] }),
+      owner
     );
   } catch (err) {
     // Same rule the owner's own delete follows: no backup, no delete.

@@ -68,6 +68,7 @@ export type Database = {
           id: string
           kind: string
           label: string
+          owner_id: string | null
           payload: Json
         }
         Insert: {
@@ -75,6 +76,7 @@ export type Database = {
           id?: string
           kind: string
           label?: string
+          owner_id?: string | null
           payload: Json
         }
         Update: {
@@ -82,6 +84,7 @@ export type Database = {
           id?: string
           kind?: string
           label?: string
+          owner_id?: string | null
           payload?: Json
         }
         Relationships: []
