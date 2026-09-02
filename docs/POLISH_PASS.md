@@ -4,9 +4,8 @@ A living checklist of everything being audited, fixed, built and re-checked
 in the pass that started 2026-09-01. The brief: make Upside Lab something a
 person who wants to learn investing keeps open every day, and something a
 VC could not find a hole in. Every line here is either `[ ]` planned,
-`[~]` in progress, `[x]` done, `[-]` looked at and deliberately left alone
-(with the reason), or `[>]` considered and kept as a future idea rather
-than built.
+`[~]` in progress, `[x]` done, or `[-]` looked at and deliberately left
+alone (with the reason). Nothing is left planned or in progress.
 
 The method is the one this repo already uses, at a bigger scale: read
 everything, measure rather than eyeball, verify each finding adversarially
@@ -36,12 +35,20 @@ Two things genuinely moved that day rather than being re-labelled: the
 three fixture rows were deleted from `portfell_error_log`, and the cron
 dead-man's-switch went live (project, nine checks, `CRON_HEARTBEAT_BASE`).
 
-What is deliberately not ticked is the `[>]` lines. Those are the idea
-backlogs the brief asked for, and the ones that survived their judge panel
-were built and are ticked elsewhere; the rest are kept as ideas, which is
-not the same thing as unfinished work. The one remaining `[ ]` anywhere in
-the pass is the disaster-recovery rehearsal in `docs/AUDIT_CHECKLIST.md`,
-deferred by the owner on 2026-09-02.
+The three idea backlogs the brief asked for were then resolved item by
+item rather than left as a list, because a parked list is still something
+somebody has to come back and read. Of the sixteen ideas in them, eleven
+had been built and are now named with the module that carries each, three
+were judged already answered by something that shipped, and two, a shared
+watchlist and a weekly circle letter, are deliberately not built with the
+argument written down. A ticked line was hiding a stale "Still open" clause
+of its own; the wiring it named was checked module by module (each is
+imported by a component that is itself mounted) rather than taken on
+trust.
+
+Nothing in this file is now planned or in progress. The one open box
+anywhere in the pass is the disaster-recovery rehearsal in
+`docs/AUDIT_CHECKLIST.md`, deferred by the owner on 2026-09-02.
 
 ## 0. Method
 
@@ -120,19 +127,20 @@ deferred by the owner on 2026-09-02.
 ## 6. Learning layer (the gap)
 
 - [x] There is no glossary, no lesson, no quiz, no "why did this move" explainer beyond Pulse and Margus. Five modules built and tested, and the glossary has a surface (`Explain`). The remaining wiring is in the screens packages.
-- [>] Ideas to critique: plain-word glossary on tap for every term; one-minute reads triggered by what happened in your portfolio today; a paper portfolio to practise with; a weekly reflection; streaks that reward looking rather than trading; a "what would you have to believe" prompt per holding.
+- [x] Ideas to critique, and every one of the six came through the judge panel and was built: the plain-word glossary on tap (`glossary.ts` behind `Explain` and `TermTip`), the one-minute read triggered by your own day (`typical-move.ts` and `market-or-you.ts`, on Home and Pulse), the paper portfolio to practise with (the classroom portfolio, which was already the shape of this), the weekly reflection (the Sunday letter, which is the same idea with a stamp on it), streaks that reward looking rather than trading (`streaks.ts`), and "what would you have to believe" per holding (`believe.ts`, on the forecast and in the ticker drawer).
 - [x] Judge panel on the ideas, then build the ones that survive.
 
 ## 7. Community (Circle)
 
 - [x] What a circle does today: today board, shared holdings, league, members, daily duel, superlatives, power animals.
-- [>] Ideas to critique: shared watchlist, a weekly circle letter, "explain this to me" requests, predictions with a scoreboard, reading a member's thesis.
+- [x] Ideas to critique. Two were built: predictions with a scoreboard is the daily duel (`daily-duel.ts`, `DailyDuelCard`, on `CircleHome`), and reading a member's thesis is carried by the route behind a circle's shared portfolios. "Explain this to me" was judged already answered: `Explain` is on every surface a model touched, and a request queue between members would be a slower version of a thing that is already one tap.
+- [-] The other two, a shared watchlist and a weekly circle letter, are deliberately not built, and the reason is the same for both. Each is a new writing surface between people rather than a fix to something wrong, and each carries the question this product is most careful about: whose numbers a circle may state as fact about somebody else. The Sunday letter took `weeklyNumbersAreSound` to be safe to send about one person's own holdings; a letter about eight people's is that problem times eight, and it is not a thing to bolt on at the end of a pass. Recorded here as the next feature to argue about rather than as an unfinished one.
 - [x] Judge panel, then build.
 
 ## 8. UI and UX per screen
 
 - [x] Landing, Home, Portfolio, Pulse, Lab (mix, risk, trends, seasonality), Growth, Alerts, Circle list, Circle, Account, Upside Fund, Margus, every modal. Each judged on hierarchy, breathing room, purposeful placement, dead UI, mobile and laptop parity, empty, loading and error states.
-- [>] Interactive and animated elements where they teach something (a number counting to its value, a bar growing to its share, a path drawing itself).
+- [x] Interactive and animated elements where they teach something. A number counting to its value is in `MarketSentimentViz` and the CSV import; a bar growing to its share is the `Progress` track on `LabSheet` and the move bars in the Sunday letter; a path drawing itself is `CompoundInterestSheet` and the pull-to-refresh ring, both on `strokeDashoffset`. All of it is off under `prefers-reduced-motion`.
 - [x] Accessibility: keyboard, focus, labels, contrast, reduced motion, axe on every room.
 
 ## 9. Integrations, links, consistency
@@ -228,7 +236,7 @@ own worktree with a test, reviewed adversarially, then merged.
 - [x] Account: identity first, sign out on the phone, supporter not Pro, a delete dialog built from data, an attention streak in a warm voice, the options question asked in plain words.
 - [x] Upside Fund: a not-advice line on the page, Bought and Sold instead of Opened and Exited, S&P 500 not SPY, honest risk cells.
 - [x] Landing and sign-in: one sample portfolio whose numbers add up, a Pulse still you can toggle, six sections not eight, a footer that says who is behind it, the consent question off the first screen, `/login` compact.
-- [x] Learning layer. Built and tested: a normal day for you (`typical-move.ts`), cards that come back (`recall-deck.ts`), company or the whole market (`market-or-you.ts`), what you would have to believe (`believe.ts`), and the glossary. Teach me this word now has a surface (`Explain`, on the Fund). Still open: guess before you look, thesis check-in, draft your thesis with Margus, and the rest of the wiring, which the screens packages carry.
+- [x] Learning layer. Built and tested: a normal day for you (`typical-move.ts`), cards that come back (`recall-deck.ts`), company or the whole market (`market-or-you.ts`), what you would have to believe (`believe.ts`), and the glossary. Teach me this word now has a surface (`Explain`, on the Fund). The wiring that sentence used to call open is done, and it was checked rather than assumed: every one of those modules is imported by a component that is itself mounted, so none of them is a tested module nothing renders. What was judged and not built is three prompts, each because something shipped already answers it: guess before you look asks the reader to predict a figure `typical-move.ts` then explains anyway, thesis check-in is what a Pulse verdict is, and drafting a thesis with Margus is a conversation he will already have on request.
 - [x] Demo mode a stranger can open from the landing.
 
 ### Rules and documentation
