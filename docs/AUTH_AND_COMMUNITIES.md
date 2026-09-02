@@ -72,7 +72,7 @@ Circle membership still copies across those households (`portfell_household_grou
 
 Multiple emails can map to the **same** `portfolio_slug` in `portfell_seed_claims` for co-ownership.
 
-Claims: `/auth/callback` + `GET /api/portfolios` via `ensureProfileAndClaims` → junction insert.
+Claims: the sign-in callbacks, `GET /api/auth/me` (once per session) and `POST /api/portfolios` via `ensureProfileAndClaims` → junction insert. `GET /api/portfolios` is polled every 45 seconds and only runs it for a caller with no portfolio rows and no profile row.
 
 - Preferred: `SUPABASE_SERVICE_ROLE_KEY` on Vercel.
 - Fallback: RPC `portfell_claim_seed_for_me()`.
