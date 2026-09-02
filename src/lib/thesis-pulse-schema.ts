@@ -46,12 +46,12 @@ export const pulseReportSchema = z.object({
         .max(50)
         .nullable()
         .describe(
-          "Required on every check. Only when action=trim: modeled percent of the position for a take-off check (e.g. 10, 15, 20). Null otherwise, including for sell. Never write 'trim 10%' as an order in verdict."
+          "Required on every check. Only when action=trim: the modeled share of this holding that a price this far above its recent range would usually cover, as a percent (e.g. 10, 15, 20). Null otherwise, including for sell. Never write 'trim 10%' as an order in verdict."
         ),
       addLevel: z
         .string()
         .describe(
-          'Modeled add check, e.g. "A level to think about: around $X. Then another look if it drops to around $Y." Spell out that Y is a SECOND, lower level, never just "stagger below" jargon. Required when action=add or the reason is intact on a dip. Empty only for trim. Not greedy, Y within about 5-12% below spot. Never write Add now.'
+          'A modeled price range, stated as a fact and never as something to do. Shape: "The recent range runs to about $X, with a second, lower level around $Y." Say in words that Y is a second and lower level. Required when action=add, or when the reason is intact and the price is down. Empty only for trim. Y sits about 5 to 12% below today\'s price. Never write Add now.'
         ),
       earningsNote: z
         .string()
@@ -61,7 +61,7 @@ export const pulseReportSchema = z.object({
       verdict: z
         .string()
         .describe(
-          "One sentence on why THIS name moved (headline, business, size of the move). A price or thesis fact, never an order. Must not match any other ticker's verdict in this report. Name the company, the headline, or a concrete number. Never reuse a stock phrase like 'looks like a chase, not a new story' or 'this is a dip, not a break' on a second name. Never write do not add, sell some, look to add, trim 10%, add the dip, or any percent of the position as something to do."
+          "One sentence on why THIS name moved (headline, business, size of the move). A price or thesis fact, never an order. Must not match any other ticker's verdict in this report. Name the company, the headline, or a concrete number. Never reuse a stock phrase like 'looks like a chase, not a new story' or 'this is a dip, not a break' on a second name. Never write do not add, sell some, look to add, trim 10%, add the dip, or any percent of the holding as something to do."
         ),
       thesisBreak: z
         .string()
