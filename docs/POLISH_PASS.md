@@ -164,12 +164,12 @@ own worktree with a test, reviewed adversarially, then merged.
 ### Performance, second pass (measured)
 
 - [x] Functions ran in Virginia against a Stockholm database: about 335 ms per read of transit. Pinned to `arn1`.
-- [~] Every quote fetch made ten serial FX calls first; a 90-day chart per ticker on every poll; symbol resolution never memoised.
-- [~] nav-history transferred fourteen whole-product snapshots to read fourteen numbers.
-- [~] `ensureProfileAndClaims` was five to seven serial round trips with an N+1 slug loop.
-- [~] `/api/communities` was two serial reads on every Home load.
+- [x] Every quote fetch made ten serial FX calls first; a 90-day chart per ticker on every poll; symbol resolution never memoised. Measured through a mocked provider, cold then the same hit 5s later: 1 name 12/12 to 12/1, 5 names 20/20 to 20/5, 15 names 40/40 to 40/15. Cold is unchanged on purpose; the saving is the repeat, which is what a polling reader actually does. Cold latency on 5 names 60.9ms to 42.4ms, which is the rates no longer standing in front of the wave.
+- [x] nav-history transferred fourteen whole-product snapshots to read fourteen numbers. Measured against a fake PostgREST with a 2,000-holding payload: 8,655,949 bytes to a few hundred. The alias on the arrow select is load-bearing, since an unnamed one is named differently by different PostgREST versions and reading the wrong name draws an empty chart without raising.
+- [x] `ensureProfileAndClaims` was five to seven serial round trips with an N+1 slug loop. Two waves now, and the merge kept the narrower avatar host guard the earlier pass added.
+- [x] `/api/communities` was two serial reads on every Home load. One embedded select.
 - [x] Proxy auth round trip, fund payload cache, `radix-ui` barrel. The barrel is a development win only: the production output is byte for byte identical, because Turbopack already tree-shakes it.
-- [ ] Deleting a holding on a normal portfolio paid a full Yahoo walk for a cash delta it then threw away; adding one is six serial round trips.
+- [x] Deleting a holding on a normal portfolio paid a full Yahoo walk for a cash delta it then threw away; adding one was six serial round trips. Three now, and no provider walk at all on a portfolio that does not move cash on a trade.
 - [ ] Opening a circle is four routes times three auth round trips plus four serial waves each.
 - [ ] Margus waits for two rate-limit RPCs and a sixteen-ticker calendar before the first token.
 - [ ] Account mounts four routes that each read the same profile row.
@@ -200,3 +200,9 @@ own worktree with a test, reviewed adversarially, then merged.
 - [ ] `TIER_HIDDEN_META_TABS` hides Lab from a novice, which is the analysis room withheld from exactly the reader the product is for. The answer is Lab with each tab saying what to notice, not Lab hidden, so this waits on the Lab content package.
 - [ ] `TIER_HIDDEN_LAB_TABS` hides Risk until advanced. A shock test is one of the most teaching things in the app.
 - [x] `docs/AUDIT_CHECKLIST.md` and `docs/MVP_AUDIT_LIVE_PASS.md` checked for staleness. Both are live and referenced; neither is bloat.
+
+### Production errors, found from the live digest (2026-09-02)
+
+- [x] `portfell_apply_cash_delta failed: boom`, three rows, mailed to the superadmin. A test fixture. `logError` builds its own client from the environment, and any machine that can run this app carries the production service-role key, so every `npx vitest run` wrote to the live error table, silently in both directions. Guarded at the one place a client is made, so the whole class goes rather than the one row.
+- [x] `/navlag`, `_not-found` client reference manifest, three rows on 30 August. Checked against production directly: `/navlag` and a random path both 404 cleanly now. Transient, already gone, nothing to fix.
+- [ ] The three fixture rows are still in `portfell_error_log` and are displacing real errors from the admin console's recent window. One button at `/admin`, and clearing resets the digest's comparison window by design. Left for Martin rather than reaching into production data.
