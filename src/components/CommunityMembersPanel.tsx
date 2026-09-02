@@ -78,6 +78,7 @@ export type CommunityMembersPanelProps = {
   copiedInviteId: string | null;
   createInvite: () => Promise<void>;
   copyInviteLink: (url: string | null, key: string) => Promise<void>;
+  renewInvite: (inviteId: string) => Promise<void>;
   setRole: (userId: string, role: "admin" | "member") => Promise<void>;
   decideJoinRequest: (
     userId: string,
@@ -116,6 +117,7 @@ export function CommunityMembersPanel({
   copiedInviteId,
   createInvite,
   copyInviteLink,
+  renewInvite,
   setRole,
   decideJoinRequest,
   setRemoveTarget,
@@ -521,10 +523,6 @@ export function CommunityMembersPanel({
                                   ? "Expired"
                                   : "Live";
                             const live = inv.status === "live";
-                            const url = inv.path
-                              ? `${window.location.origin}${inv.path}`
-                              : null;
-                            const copied = copiedInviteId === inv.id;
                             return (
                               <Item key={inv.id} variant="outline">
                                 <ItemContent>
@@ -545,25 +543,27 @@ export function CommunityMembersPanel({
                                       {usedLine}
                                     </ItemDescription>
                                   ) : null}
+                                  {live ? (
+                                    <ItemDescription>
+                                      The link was shown once, when it was
+                                      made. To share it again, make a new
+                                      link; this one stops working.
+                                    </ItemDescription>
+                                  ) : null}
                                 </ItemContent>
                                 <ItemActions>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={!live}
-                                    title="Copy invite link"
-                                    onClick={() =>
-                                      void copyInviteLink(url, inv.id)
-                                    }
-                                  >
-                                    {copied ? (
-                                      <Check data-icon="inline-start" />
-                                    ) : (
-                                      <Copy data-icon="inline-start" />
-                                    )}
-                                    {copied ? "Copied" : "Copy link"}
-                                  </Button>
+                                  {live ? (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={busy}
+                                      onClick={() => void renewInvite(inv.id)}
+                                    >
+                                      <Link2 data-icon="inline-start" />
+                                      Make a new link
+                                    </Button>
+                                  ) : null}
                                   {live ? (
                                     <Button
                                       type="button"
