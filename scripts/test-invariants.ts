@@ -5382,8 +5382,11 @@ run("buying a name spends cash and selling adds it back", () => {
     join(process.cwd(), "src/components/CashModal.tsx"),
     "utf8"
   );
-  // A phone number pad has no minus key, so the sign is a toggle.
-  assert.match(cashModal, /Money borrowed/);
+  // A phone number pad has no minus key, so the sign is a toggle. The rule
+  // is that borrowed money gets a side of that toggle to itself, not the
+  // exact wording: this asserted "Money borrowed" and broke on a copy pass
+  // that made the pair "Money you have" / "Money you borrowed".
+  assert.match(cashModal, /borrowed/i);
   assert.doesNotMatch(cashModal, /allowNegative/);
   const portfoliosApi = readFileSync(
     join(process.cwd(), "src/app/api/portfolios/route.ts"),

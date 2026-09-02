@@ -42,6 +42,19 @@ function formatWhen(iso: string) {
   );
 }
 
+/**
+ * What made each saved copy, in words.
+ *
+ * The rows used to print `kind` verbatim, which is the column name in
+ * `portfell_book_snapshots` and reads as a database field rather than a
+ * sentence: "pre_delete", "nightly", "manual".
+ */
+const SAVE_KIND: Record<string, string> = {
+  nightly: "Nightly save",
+  pre_delete: "Taken before a delete",
+  manual: "Saved by you",
+};
+
 export function SnapshotsModal({
   open,
   onClose,
@@ -169,7 +182,7 @@ export function SnapshotsModal({
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
             <History className="h-4 w-4 text-primary" />
-            <h2 className="font-semibold text-foreground">Snapshots</h2>
+            <h2 className="font-semibold text-foreground">Saved copies</h2>
           </div>
           <Button
             type="button"
@@ -188,7 +201,7 @@ export function SnapshotsModal({
             onClick={() => void createManual()}
             disabled={loading}
           >
-            Save snapshot now
+            Save a copy now
           </Button>
         </div>
         <div className="scroll-host min-h-0 flex-1 overflow-y-auto px-2 py-2">
@@ -200,7 +213,7 @@ export function SnapshotsModal({
             <p className="px-2 py-6 text-center text-sm text-loss">{error}</p>
           ) : snapshots.length === 0 ? (
             <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-              No snapshots yet.
+              No saved copies yet.
             </p>
           ) : (
             <ItemGroup>
@@ -209,7 +222,12 @@ export function SnapshotsModal({
                   <ItemContent>
                     <ItemTitle>{s.label}</ItemTitle>
                     <ItemDescription>
-                      {s.kind} · {formatWhen(s.created_at)}
+                      {/*
+                        `kind` is a database enum and it was printed
+                        straight to the reader, so a row read
+                        "pre_delete Sep 1, 02:00".
+                      */}
+                      {SAVE_KIND[s.kind] ?? "Saved"} · {formatWhen(s.created_at)}
                     </ItemDescription>
                   </ItemContent>
                   <ItemActions className="flex-col items-stretch">
@@ -222,7 +240,7 @@ export function SnapshotsModal({
                         setPendingRestore({ kind: "book", id: s.id, label: s.label })
                       }
                     >
-                      {busyId === s.id ? "…" : "All portfolios"}
+                      {busyId === s.id ? "…" : "Restore everywhere"}
                     </Button>
                     {activePortfolioId && (
                       <Button
@@ -238,7 +256,7 @@ export function SnapshotsModal({
                           })
                         }
                       >
-                        {busyId === `${s.id}:sheet` ? "…" : "This portfolio"}
+                        {busyId === `${s.id}:sheet` ? "…" : "Restore here"}
                       </Button>
                     )}
                   </ItemActions>
