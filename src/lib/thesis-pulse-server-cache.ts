@@ -56,6 +56,18 @@ export function getPulseCacheKey(
   return `${symbol}:${bucket}:${thesisKey}`;
 }
 
+/**
+ * Whether this key's answer will be handed to other readers.
+ *
+ * A check on a company the reader has written nothing about is stored under
+ * the shared spelling and served to every other holder of it in the same
+ * move bucket. That is the sharing the cache exists for, and it is also the
+ * one place a caller must not be allowed to write on purpose.
+ */
+export function isSharedPulseKey(key: string): boolean {
+  return key.endsWith(":nothesis");
+}
+
 export function getCachedPulseCheck(
   key: string,
   opts?: { force?: boolean }

@@ -32,17 +32,19 @@ import {
 import {
   getCachedPulseCheck,
   getPulseCacheKey,
+  isSharedPulseKey,
   setCachedPulseCheck,
   getCachedPulseSummary,
   setCachedPulseSummary,
 } from "@/lib/thesis-pulse-server-cache";
 import { pulseReportSchema } from "@/lib/thesis-pulse-schema";
+import { moodLine, safeMoveLabel } from "@/lib/pulse-shared-prompt";
 import { generateObject } from "ai";
 import { observeRoute } from "@/lib/observe-route";
 import { pulsePostSchema } from "@/lib/api-schemas";
 import { parseJsonBody } from "@/lib/parse-json-body";
 import { coinFromSymbol } from "@/lib/coins";
-import { NO_VALUE, cashtag } from "@/lib/format";
+import { cashtag } from "@/lib/format";
 
 export const maxDuration = 90;
 export const runtime = "nodejs";
@@ -109,10 +111,11 @@ function buildPrompt(
   convictions: Body["convictions"],
   fearGreed: Body["fearGreed"]
 ): string {
-  const fg =
-    fearGreed?.score != null
-      ? `Market mood: CNN Fear & Greed ${Math.round(fearGreed.score)} (${fearGreed.rating ?? NO_VALUE}).`
-      : "Market mood: unknown.";
+  // Built from the score alone. See `pulse-shared-prompt.ts`: this line sits
+  // above every company in the request, including ones cached under the
+  // shared key and handed to other readers, so no word in it may be the
+  // caller's.
+  const fg = moodLine(fearGreed);
 
   const lines = candidates.map((c) => {
     const ctx = contexts[c.ticker.toUpperCase()];
@@ -143,7 +146,7 @@ function buildPrompt(
       ? `${shown.name} (${cashtag(c.ticker)})`
       : c.ticker;
     const parts = [
-      `- **${name}** · spot $${c.price.toFixed(2)} · ${c.moveLabel} ${move}${flag}${position}`,
+      `- **${name}** · spot $${c.price.toFixed(2)} · ${safeMoveLabel(c.moveLabel)} ${move}${flag}${position}`,
       conv?.thesis ? `  Thesis: ${conv.thesis}` : "",
       conv?.level ? `  How sure they are: ${conv.level}/5` : "",
       ctx?.sector ? `  Sector: ${ctx.sector}` : "",
@@ -273,7 +276,14 @@ async function handlePOST(req: Request) {
         headlines: cachedEntry.headlines,
       });
     }
-    if (!cachedEntry || force || isEmptyPulseCheck(cachedEntry?.check)) {
+    /*
+      `force` exists so a reader can re-ask about their own company, and on
+      a shared key it is a write into the answer every other holder of that
+      company is about to be given. So it re-asks only where the answer is
+      this reader's own. A stale shared entry still ages out on its own.
+    */
+    const mayForce = force && !isSharedPulseKey(cacheKey);
+    if (!cachedEntry || mayForce || isEmptyPulseCheck(cachedEntry?.check)) {
       uncachedCandidates.push(c);
     }
   }
