@@ -31,7 +31,22 @@
  */
 export const DB_ERROR_MESSAGE = "Database error";
 
-type MaybeError = { message?: unknown } | null | undefined;
+/*
+  A caught value is `unknown`, and half the call sites are a `catch`: a
+  `readAll(..., "throw")` rethrows the driver's error as an `Error`, and a
+  whole cron run can throw anything. Read the message off whatever shape
+  arrived rather than asking each route to shape it first, because a route
+  that has to do that is a route reaching for `.message` itself, which is
+  the thing this module exists to stop.
+*/
+function detailOf(err: unknown): string {
+  if (typeof err === "string") return err.trim();
+  if (err && typeof err === "object") {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === "string") return message.trim();
+  }
+  return "";
+}
 
 /**
  * Log the real error, hand back the safe one.
@@ -41,11 +56,8 @@ type MaybeError = { message?: unknown } | null | undefined;
  * ("GET /api/holdings: read holdings"), not the table, which the driver's
  * own message already names.
  */
-export function dbError(err: MaybeError, where: string): string {
-  const detail =
-    typeof err?.message === "string" && err.message.trim()
-      ? err.message.trim()
-      : "unknown database error";
+export function dbError(err: unknown, where: string): string {
+  const detail = detailOf(err) || "unknown database error";
   console.error(`[db] ${where}: ${detail}`);
   return DB_ERROR_MESSAGE;
 }

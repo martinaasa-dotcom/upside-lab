@@ -122,7 +122,7 @@ async function handleGET(req: NextRequest) {
     );
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "read failed" },
+      { error: dbError(err, "GET /api/portfolios: read portfolios") },
       { status: 500 }
     );
   }
@@ -153,7 +153,7 @@ async function handleGET(req: NextRequest) {
       );
     } catch (err) {
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : "read failed" },
+        { error: dbError(err, "GET /api/portfolios: read holdings") },
         { status: 500 }
       );
     }

@@ -242,12 +242,7 @@ async function handlePOST(req: NextRequest) {
       name in it.
     */
     return NextResponse.json(
-      {
-        error: dbError(
-          err instanceof Error ? err : { message: String(err) },
-          "POST /api/snapshots"
-        ),
-      },
+      { error: dbError(err, "POST /api/snapshots: snapshot action") },
       { status: 500 }
     );
   }
