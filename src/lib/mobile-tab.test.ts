@@ -7,28 +7,7 @@ import {
   OVERVIEW_TAB_ID,
   PULSE_TAB_ID,
 } from "@/lib/overview";
-import { activeMobileTab, mobileTabFromActiveId } from "@/lib/mobile-tab";
-
-describe("activeMobileTab", () => {
-  it("treats portfolio, book, and forecast as Holdings", () => {
-    expect(activeMobileTab("/", "portfolio")).toBe("holdings");
-    expect(activeMobileTab("/", "book")).toBe("holdings");
-    expect(activeMobileTab("/", "forecast")).toBe("holdings");
-  });
-
-  it("does not need holdings data to name the room", () => {
-    expect(activeMobileTab("/?tab=portfolio", "portfolio")).toBe("holdings");
-  });
-
-  it("names the other rooms from the query", () => {
-    expect(activeMobileTab("/", null)).toBe("home");
-    expect(activeMobileTab("/", "pulse")).toBe("pulse");
-    expect(activeMobileTab("/", "lab")).toBe("lab");
-    expect(activeMobileTab("/", "compound")).toBe("compound");
-    expect(activeMobileTab("/communities")).toBe("circle");
-    expect(activeMobileTab("/account")).toBeNull();
-  });
-});
+import { mobileTabFromActiveId } from "@/lib/mobile-tab";
 
 describe("mobileTabFromActiveId", () => {
   it("marks a portfolio id as Holdings even when that table is empty", () => {

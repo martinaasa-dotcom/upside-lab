@@ -23,12 +23,29 @@ describe("workspaceRoomId", () => {
     expect(workspaceRoomId("/account")).toBe("account");
     expect(workspaceRoomId("/admin")).toBe("admin");
   });
+
+  it("keeps /margus in the book, because Margus is a panel over Home", () => {
+    // A room of its own would be a second Dashboard with its own pollers,
+    // for a chat that floats over the one already mounted.
+    expect(workspaceRoomId("/margus")).toBe("book");
+    expect(workspaceRoomId("/margus/")).toBe("book");
+  });
 });
 
 describe("private noindex paths", () => {
   it("covers the authenticated rooms crawlers must skip", () => {
     expect(PRIVATE_NOINDEX_PATHS).toEqual(
-      expect.arrayContaining(["/dashboard", "/lab", "/forecast", "/margus"])
+      expect.arrayContaining(["/lab", "/margus", "/account", "/auth"])
     );
+  });
+
+  it("names no path the proxy answers before any page runs", () => {
+    // `/dashboard` and `/forecast` are 308s in `src/proxy.ts` and have no
+    // page. A header or a robots line for them describes a response nobody
+    // receives, and the book alias list would keep a room alive for it.
+    for (const path of ["/dashboard", "/forecast"]) {
+      expect(PRIVATE_NOINDEX_PATHS).not.toContain(path);
+      expect(BOOK_ROOM_PATHS).not.toContain(path);
+    }
   });
 });

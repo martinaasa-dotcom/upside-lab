@@ -51,6 +51,7 @@ import { useDashboardBookWrites } from "@/lib/use-dashboard-book-writes";
 import {
   PORTFOLIO_PATH,
   hrefForTabId,
+  isMargusPath,
   tabIdFromPath,
 } from "@/lib/book-routes";
 import { loadLastUser } from "@/lib/last-session";
@@ -315,6 +316,24 @@ export function Dashboard() {
       : lastBookTabRef.current;
   const activeIdRef = useRef(activeId);
   activeIdRef.current = activeId;
+
+  /*
+    `/margus` is Home with Margus open, and the address says so only while
+    the panel is. The panel opens itself on arrival (`CcAdvisorChat` reads
+    `margusAddressed`); this is the other half, putting the address back to
+    `/` when the reader closes it. `replace` rather than `push`, because a
+    panel the reader just shut is not somewhere Back should return them to,
+    and `scroll: false`, because the room underneath has not changed and a
+    close button that sent the page to the top would read as a reload.
+    Nothing else moves: `tabIdFromPath` answers Overview for both paths, so
+    the dock's marker stays on Home, and `workspaceRoomId` answers "book"
+    for both, so no poller stops and none starts.
+  */
+  const onMargus = isMargusPath(pathname);
+  const onMargusOpenChange = useStableCallback((open: boolean) => {
+    if (open || !onMargus) return;
+    router.replace("/", { scroll: false });
+  });
 
   /*
     Every "open this tab" in the app, as one navigation.
@@ -2675,6 +2694,8 @@ export function Dashboard() {
         setScreenshotPending={setScreenshotPending}
         margusExpandSignal={margusExpandSignal}
         setMargusExpandSignal={setMargusExpandSignal}
+        margusAddressed={onMargus}
+        onMargusOpenChange={onMargusOpenChange}
         margusContext={margusContext}
         toast={toast}
         handleSave={handleSave}

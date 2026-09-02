@@ -21,7 +21,6 @@ import {
 } from "@/lib/active-sheet";
 
 const BAR = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");
-const TAB = readFileSync("src/lib/mobile-tab.ts", "utf8");
 const DASHBOARD = readFileSync("src/components/Dashboard.tsx", "utf8");
 const ROUTES = readFileSync("src/lib/book-routes.ts", "utf8");
 
@@ -137,13 +136,11 @@ describe("the URL answers for it", () => {
 
   it("marks the cell as the room you are in", () => {
     /*
-     * `activeMobileTab` still reads the old query spellings, because a
-     * redirect answers those URLs and the two have to agree about what
-     * `?tab=book` meant while it does.
+     * From the tab id the path resolved to, and nothing else. A second
+     * reader that took `?tab=` off the URL used to sit beside this one;
+     * the proxy retires that query before any page sees it, so it read
+     * nothing and it is gone.
      */
-    expect(TAB).toMatch(
-      /tab === "portfolio" \|\| tab === "book" \|\| tab === "forecast"/
-    );
     expect(DASHBOARD).toMatch(/mobileTabFromActiveId\(activeId\)/);
   });
 

@@ -547,17 +547,17 @@ export function AdminPage() {
               <section className="flex flex-col gap-3">
                 <div className="flex items-baseline justify-between gap-2">
                   <h2 className="font-semibold text-muted-foreground">
-                    Communities
+                    Circles
                   </h2>
                   <span className="text-sm text-muted-foreground">
                     {communities.length}{" "}
-                    {communities.length === 1 ? "community" : "communities"}
+                    {communities.length === 1 ? "circle" : "circles"}
                   </span>
                 </div>
                 <div className="flex flex-col gap-3">
                   {communities.length === 0 ? (
                     <p className="rounded-xl glass ring-1 ring-foreground/20 px-4 py-6 text-center text-sm text-muted-foreground">
-                      No communities yet.
+                      No circles yet.
                     </p>
                   ) : (
                     communities.map((c) => (

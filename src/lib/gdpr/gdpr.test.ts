@@ -138,7 +138,7 @@ describe("export csv and encryption", () => {
 
   it("parses format and encrypt query flags", () => {
     const csv = parseExportOptions(
-      new Request("https://upsidelab.app/api/user/export?format=csv&encrypt=0"),
+      new Request("https://upsidelab.app/api/account/export?format=csv&encrypt=0"),
       { encrypt: true }
     );
     expect(csv).toEqual({ format: "csv", encrypt: false });

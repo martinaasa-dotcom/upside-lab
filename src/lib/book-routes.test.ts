@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  MARGUS_PATH,
   hrefForTabId,
+  isMargusPath,
   tabIdFromPath,
 } from "@/lib/book-routes";
 import { PORTFOLIO_TAB_PENDING } from "@/lib/mobile-tab";
@@ -114,6 +116,28 @@ describe("tabIdFromPath", () => {
     expect(tabIdFromPath("/account", LIST)).toBeNull();
     expect(tabIdFromPath("/upside-portfolio", LIST)).toBeNull();
   });
+
+  it("reads /margus as Home, since Margus is a panel and not a room", () => {
+    // The panel's opening is the address's reader's job (`isMargusPath`);
+    // the tab underneath it is Overview, with or without a book to answer.
+    expect(tabIdFromPath(MARGUS_PATH, LIST)).toBe(OVERVIEW_TAB_ID);
+    expect(tabIdFromPath("/margus/", [])).toBe(OVERVIEW_TAB_ID);
+  });
+});
+
+describe("isMargusPath", () => {
+  it("names the one address that opens the panel on arrival", () => {
+    expect(isMargusPath("/margus")).toBe(true);
+    expect(isMargusPath("/margus/")).toBe(true);
+    expect(isMargusPath("/margus?x=1")).toBe(true);
+  });
+
+  it("is not a prefix test", () => {
+    expect(isMargusPath("/")).toBe(false);
+    expect(isMargusPath("/margus-fund")).toBe(false);
+    expect(isMargusPath("/portfolio/margus")).toBe(false);
+    expect(isMargusPath("/communities")).toBe(false);
+  });
 });
 
 describe("workspaceRoomId and the new book paths", () => {
@@ -126,6 +150,7 @@ describe("workspaceRoomId and the new book paths", () => {
       "/alerts",
       "/portfolio",
       "/portfolio/aasad",
+      "/margus",
     ]) {
       expect(workspaceRoomId(path), path).toBe("book");
     }
