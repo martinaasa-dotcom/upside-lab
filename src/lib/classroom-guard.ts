@@ -106,3 +106,45 @@ export async function denyClassroomWrite(
   }
   return null;
 }
+
+/**
+ * A student may not set their own paper cash. Null when the write is fine.
+ *
+ * `denyClassroomWrite` asks whether the class period allows the action, and
+ * for cash the default period is "open", so it allowed it: any student could
+ * PATCH their own `cash_balance` to whatever they liked. The class league
+ * ranks on `(value - startingCash) / startingCash`, so that is first place,
+ * and there is nothing on any screen that would look wrong afterwards.
+ *
+ * The period was never the right question here. Starting cash is the
+ * teacher's to set, through the classroom route, and a student's balance
+ * after that is the ledger's answer rather than anybody's opinion. So this
+ * is not a period rule, it is a rule about who: an admin of the class may,
+ * and the owner of the sheet may not, even though they own it.
+ *
+ * An ordinary portfolio is untouched. Somebody typing what their broker
+ * shows is exactly what `cash_balance` is for, borrowed money included.
+ */
+export async function denyStudentCashWrite(
+  supabase: SupabaseClient,
+  opts: {
+    portfolioId: string;
+    userId: string;
+    /** The row's classroom id when the caller already read it. */
+    classroomCommunityId?: string | null;
+  }
+): Promise<NextResponse | null> {
+  const communityId =
+    opts.classroomCommunityId !== undefined
+      ? opts.classroomCommunityId
+      : await readClassroomCommunityId(supabase, opts.portfolioId);
+  if (!communityId) return null;
+  if (await userIsCommunityAdmin(opts.userId, communityId)) return null;
+  return NextResponse.json(
+    {
+      error:
+        "Your teacher sets the starting money for a class portfolio. Yours changes when you buy and sell.",
+    },
+    { status: 403 }
+  );
+}

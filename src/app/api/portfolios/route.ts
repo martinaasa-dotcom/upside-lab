@@ -13,7 +13,10 @@ import {
   resolveClassroomTrade,
   type ClassroomTrade,
 } from "@/lib/classroom";
-import { denyClassroomWrite } from "@/lib/classroom-guard";
+import {
+  denyClassroomWrite,
+  denyStudentCashWrite,
+} from "@/lib/classroom-guard";
 import { shareNewSheetIntoMemberCircles } from "@/lib/community-share";
 import { isSafeSignedMoney, sanitizeSheetName } from "@/lib/input-guard";
 import { roundMoney } from "@/lib/money";
@@ -315,6 +318,15 @@ async function handlePATCH(req: NextRequest) {
     updated_at: new Date().toISOString(),
   };
   if (body.cash_balance !== undefined) {
+    // Two different questions, and only one of them was being asked. The
+    // period rule below says whether the class is open for cash right now;
+    // this says whether this caller may set a class portfolio's cash at all,
+    // which a student may not, in any period. See `denyStudentCashWrite`.
+    const notYours = await denyStudentCashWrite(supabase, {
+      portfolioId: id,
+      userId: auth.user.id,
+    });
+    if (notYours) return notYours;
     const blocked = await denyClassroomWrite(supabase, {
       portfolioId: id,
       userId: auth.user.id,

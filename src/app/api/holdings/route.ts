@@ -256,6 +256,8 @@ async function handlePOST(req: NextRequest) {
     portfolio_id: portfolioId,
     ticker,
     shares,
+    // Replaced with the market price below on a class portfolio, where what
+    // a student types is not what they paid.
     buy_price: buyPrice,
     eoy_target: eoyTarget,
     target_call_pct: callPct,
@@ -282,6 +284,30 @@ async function handlePOST(req: NextRequest) {
     );
   }
   const context = loaded.context;
+
+  /*
+    On a class portfolio the price is the market's, never the student's.
+
+    A paper buy was debited at the price in the request, so buying 100,000
+    shares of a $180 company at $0.01 cost $1,000 and was then worth
+    eighteen million. Nothing on any screen would have looked wrong: the
+    roster ranks on what the portfolio is worth against the starting money,
+    so that is first place in the class, and every figure behind it adds up.
+    The same trick works in reverse on the way out, and the whole point of a
+    paper class is that the league means something.
+
+    So the server prices it, and the stored buy price is that price too: a
+    class trades at the market, and leaving the student's figure on the row
+    would show them a gain they did not make. `salePriceFor` is the same
+    walk a sell already pays for, and it is paid only here, on the portfolios
+    that actually move cash on a trade. An ordinary portfolio is untouched,
+    because there the buy price is a fact about somebody's own broker and
+    this app is not in a position to correct it.
+  */
+  const tradePrice = context.tracksTradeCash
+    ? await salePriceFor(ticker, buyPrice)
+    : buyPrice;
+  if (context.tracksTradeCash) row.buy_price = roundMoney(tradePrice);
 
   for (let attempt = 0; attempt < HOLDING_WRITE_ATTEMPTS; attempt++) {
     const { data: existingRaw, error: existingErr } = await supabase
@@ -351,7 +377,7 @@ async function handlePOST(req: NextRequest) {
       const cash = await applyTradeCashDelta(
         supabase,
         portfolioId,
-        tradeCashDelta({ buyShares: shares, buyPrice }),
+        tradeCashDelta({ buyShares: shares, buyPrice: tradePrice }),
         context
       );
       return NextResponse.json({ holding: data, cash_balance: cash });
@@ -397,9 +423,10 @@ async function handlePOST(req: NextRequest) {
     let delta = 0;
     if (context.tracksTradeCash) {
       if (shares > prevShares) {
+        // The market's price, for the same reason the first buy uses it.
         delta = tradeCashDelta({
           buyShares: shares - prevShares,
-          buyPrice,
+          buyPrice: tradePrice,
         });
       } else if (shares < prevShares) {
         const px = await salePriceFor(ticker, prevBuy || buyPrice);
@@ -575,6 +602,25 @@ async function handlePATCH(req: NextRequest) {
     });
     if (blocked) return blocked;
 
+    /*
+      Buying more on a class portfolio, or moving to a different company,
+      prices at the market rather than at whatever the request said. Same
+      reason as the POST above: a paper class ranks people on what their
+      portfolio is worth against the money they started with, so a buy at a
+      price the student chose is first place in the league and nothing on
+      screen looks wrong. Selling below already asks the same question, and
+      only the two branches that buy pay for it.
+
+      The stored buy price moves with it, because a class trades at the
+      market and a row saying otherwise would show a gain nobody made.
+    */
+    const buying = renamed || nextShares > prevShares;
+    const classBuyPx =
+      context.tracksTradeCash && buying
+        ? await salePriceFor(nextTicker, nextBuy || prevBuy)
+        : null;
+    if (classBuyPx != null) patch.buy_price = roundMoney(classBuyPx);
+
     // Scoped to the portfolio the ownership check just cleared, not only to the
     // row id. Authorization and mutation then describe the same rows, so the
     // window between the two reads can't be used to retarget the write.
@@ -625,12 +671,12 @@ async function handlePATCH(req: NextRequest) {
         delta += tradeCashDelta({ sellShares: prevShares, sellPrice: sellPx });
         delta += tradeCashDelta({
           buyShares: nextShares,
-          buyPrice: nextBuy || prevBuy,
+          buyPrice: classBuyPx ?? (nextBuy || prevBuy),
         });
       } else if (nextShares > prevShares) {
         delta = tradeCashDelta({
           buyShares: nextShares - prevShares,
-          buyPrice: nextBuy || prevBuy,
+          buyPrice: classBuyPx ?? (nextBuy || prevBuy),
         });
       } else if (nextShares < prevShares) {
         const px = await salePriceFor(prevTicker, prevBuy);

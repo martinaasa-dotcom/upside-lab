@@ -28,6 +28,8 @@ const state = vi.hoisted(() => ({
   existingHolding: null as Record<string, unknown> | null,
   existingList: [] as Record<string, unknown>[],
   rpcArgs: [] as unknown[],
+  /** The row the insert was handed, so the stored buy price is checkable. */
+  inserted: null as Record<string, unknown> | null,
 }));
 
 vi.mock("@/lib/supabase/server-auth", () => ({
@@ -143,7 +145,10 @@ vi.mock("@/lib/supabase/server", () => {
   const client = {
     from: (table: string) => ({
       select: () => chain(table, "select"),
-      insert: () => chain(table, "insert"),
+      insert: (row: Record<string, unknown>) => {
+        if (table === PORTFELL_TABLES.holdings) state.inserted = row;
+        return chain(table, "insert");
+      },
       update: () => chain(table, "update"),
       upsert: () => chain(table, "upsert"),
       delete: () => chain(table, "delete"),
@@ -208,6 +213,7 @@ beforeEach(() => {
   state.portfolioError = false;
   state.existingHolding = null;
   state.existingList = [];
+  state.inserted = null;
 });
 
 describe("an ordinary portfolio", () => {
@@ -280,7 +286,16 @@ describe("a classroom paper sheet", () => {
     state.cashBalance = 10_000;
   });
 
-  it("still moves cash by the database delta when a holding is added", async () => {
+  it("buys at the market price, not the one the student sent", async () => {
+    /*
+      The request says $100 and the quote says $120, and the ledger takes
+      the quote. A paper buy used to be debited at whatever price was in the
+      request, so 100,000 shares of a $180 company "bought" at a cent cost
+      a thousand dollars and were then worth eighteen million; the class
+      roster ranks on what a portfolio is worth against the money it started
+      with, so that is first place, and no figure on any screen contradicts
+      it. This is the one place the walk is worth paying for on a buy.
+    */
     const res = await send("POST", {
       portfolio_id: PORTFOLIO,
       ticker: "NVDA",
@@ -288,17 +303,34 @@ describe("a classroom paper sheet", () => {
       buy_price: 100,
     });
     expect(res.status).toBe(200);
-    expect(state.trips).toEqual([
-      OWNED,
-      HOLDING_READ,
-      PORTFELL_TABLES.communities + ".select",
-      PORTFELL_TABLES.communityMembers + ".select",
-      `${PORTFELL_TABLES.holdings}.insert`,
-      "rpc.portfell_apply_cash_delta",
-    ]);
+    expect(state.quoteWalks).toBe(1);
     expect(state.rpcArgs).toEqual([
-      { p_portfolio_id: PORTFOLIO, p_delta: -1000 },
+      { p_portfolio_id: PORTFOLIO, p_delta: -1200 },
     ]);
+  });
+
+  it("stores the market price too, so no gain appears that nobody made", async () => {
+    await send("POST", {
+      portfolio_id: PORTFOLIO,
+      ticker: "NVDA",
+      shares: 10,
+      buy_price: 100,
+    });
+    expect(state.inserted?.buy_price).toBe(120);
+  });
+
+  it("leaves an ordinary portfolio's buy price alone", async () => {
+    // There the buy price is a fact about somebody's own broker, and this
+    // app is not in a position to correct it. No walk either.
+    state.classroomId = null;
+    await send("POST", {
+      portfolio_id: PORTFOLIO,
+      ticker: "NVDA",
+      shares: 10,
+      buy_price: 100,
+    });
+    expect(state.inserted?.buy_price).toBe(100);
+    expect(state.quoteWalks).toBe(0);
   });
 
   it("still credits a sale at the live price when a holding is deleted", async () => {
