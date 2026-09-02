@@ -1,13 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-<<<<<<< HEAD
-import { confirmAddressLink } from "@/lib/auth/linked-addresses";
-=======
 import {
   confirmAddressLink,
   pendingAddressLink,
 } from "@/lib/auth/linked-addresses";
->>>>>>> worktree-wf_f1b85063-2b2-4
 import { PRODUCT_NAME } from "@/lib/product";
 import { isLocalHost, siteUrl } from "@/lib/site-url";
 import { getAuthUser } from "@/lib/supabase/server-auth";
@@ -41,7 +37,6 @@ export const dynamic = "force-dynamic";
   different acts, and a link sitting in a mailbox that opened somebody's
   account would be the thing this whole feature exists to prevent.
 */
-<<<<<<< HEAD
 
 /*
   The token goes back out inside an attribute, and anything at all can be
@@ -93,59 +88,6 @@ function originOf(request: NextRequest): string {
   return isLocalHost(url.hostname) ? url.origin : siteUrl();
 }
 
-=======
-
-/*
-  The token goes back out inside an attribute, and anything at all can be
-  put in a query string, so it is escaped rather than trusted. A minted
-  token is base64url and needs none of this; a stranger's text does.
-*/
-function attr(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/** Plain and self-contained: this is read in a tab with none of the app around it. */
-function page(title: string, body: string, token: string): NextResponse {
-  const form =
-    `<form method="post" action="/auth/link">` +
-    `<input type="hidden" name="token" value="${attr(token)}">` +
-    `<button type="submit">Connect this address</button></form>`;
-
-  return new NextResponse(
-    `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
-      `<meta name="viewport" content="width=device-width,initial-scale=1">` +
-      `<meta name="robots" content="noindex">` +
-      `<title>${title}</title>` +
-      `<style>body{margin:0;min-height:100dvh;display:flex;align-items:center;` +
-      `justify-content:center;padding:24px;background:#0a0a0a;color:#fafafa;` +
-      `font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}` +
-      `main{max-width:28rem;width:100%}h1{font-size:1.125rem;margin:0 0 8px}` +
-      `p{font-size:.875rem;line-height:1.6;color:#b5b5b5;margin:0 0 20px}` +
-      `button{appearance:none;border:none;border-radius:.5rem;padding:.5rem 1rem;` +
-      `font:inherit;font-size:.875rem;font-weight:500;cursor:pointer;` +
-      `background:#e8c37a;color:#1a1206}</style></head>` +
-      `<body><main><h1>${title}</h1><p>${body}</p>${form}</main></body></html>`,
-    {
-      status: 200,
-      headers: {
-        "content-type": "text/html; charset=utf-8",
-        "cache-control": "no-store",
-      },
-    }
-  );
-}
-
-function originOf(request: NextRequest): string {
-  const url = new URL(request.url);
-  return isLocalHost(url.hostname) ? url.origin : siteUrl();
-}
-
->>>>>>> worktree-wf_f1b85063-2b2-4
 function done(origin: string, problem: string | null, email?: string) {
   const url = new URL("/auth/linked", origin);
   if (problem) url.searchParams.set("problem", problem);
@@ -159,11 +101,6 @@ export async function GET(request: NextRequest) {
 
   if (!token) return done(origin, "missing-token");
 
-<<<<<<< HEAD
-  return page(
-    `Connect this address to your ${PRODUCT_NAME} account?`,
-    "Press the button to confirm the address this link was sent to. Opening this page is not enough on purpose: a mail app often loads the link before you do. Nothing signs you in here, and nothing else on the account changes.",
-=======
   /*
     Read without being spent, so the page can say what is actually being
     agreed to. It used to say "connect this address" and name neither the
@@ -185,7 +122,6 @@ export async function GET(request: NextRequest) {
   return page(
     `Connect this address to the ${PRODUCT_NAME} account for ${primary}?`,
     `Press the button and ${address} will also sign in to that account, with the same portfolios and the same circles. If you do not recognise ${primary}, close this page and nothing happens. Opening the page is not enough on purpose: a mail app often loads the link before you do. Nothing signs you in here.`,
->>>>>>> worktree-wf_f1b85063-2b2-4
     token
   );
 }
@@ -206,9 +142,6 @@ export async function POST(request: NextRequest) {
 
   if (!token) return done(origin, "missing-token");
 
-<<<<<<< HEAD
-  const result = await confirmAddressLink(token);
-=======
   /*
     Who is signed in here, which decides one case and only one: an address that
     has no account of its own. Holding the mailbox is the whole proof for every
@@ -220,7 +153,6 @@ export async function POST(request: NextRequest) {
   const me = await getAuthUser();
 
   const result = await confirmAddressLink(token, { signedInUserId: me?.id ?? null });
->>>>>>> worktree-wf_f1b85063-2b2-4
 
   if (result.kind === "fail") return done(origin, result.reason);
 
