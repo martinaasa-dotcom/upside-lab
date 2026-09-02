@@ -65,7 +65,13 @@ type Body = {
   force?: boolean;
 };
 
-type CachedPulse = { check: PulseCheck; headlines: PulseHeadline[] };
+type CachedPulse = {
+  check: PulseCheck;
+  headlines: PulseHeadline[];
+  /** Carried from the cache entry so the eye can name the right run. */
+  writtenBy?: { provider: string; model: string } | null;
+  checkedAt?: string;
+};
 
 function checksForCandidates(
   candidates: PulseCandidate[],
@@ -76,7 +82,11 @@ function checksForCandidates(
     const symbol = pulseTickerKey(c.ticker);
     const cached = cachedMap.get(symbol);
     if (cached && !isEmptyPulseCheck(cached.check)) {
-      return reconcilePulseCheck(cached.check);
+      return reconcilePulseCheck({
+        ...cached.check,
+        writtenBy: cached.writtenBy ?? cached.check.writtenBy ?? null,
+        checkedAt: cached.checkedAt ?? cached.check.checkedAt,
+      });
     }
     headlines[symbol] = headlines[symbol] ?? [];
     return reconcilePulseCheck(buildFallbackPulseCheck(c));
@@ -177,6 +187,27 @@ function buildPrompt(
     return parts.filter(Boolean).join("\n");
   });
 
+  /*
+    No house market view goes in this prompt.
+
+    Two bullets used to sit in the action-tag section telling the model that
+    a red day on a chip maker, an AI computer builder or a data-centre power
+    company was an "add" rather than a hold, and that on a screen of intact
+    dips most names should be tagged "add". Both were a house opinion about
+    which businesses are worth buying into weakness, and the reader never
+    saw it as one: the add tag renders as the badge "Below recent range",
+    which is a claim about the measured low and high printed on the same
+    card. A name sitting mid-range on an ordinary red day was labelled as
+    being below a range it was not below.
+
+    AGENTS.md forbids a house view in a persona or a prompt, for the same
+    reason it forbids per-ticker baselines: it reaches every reader,
+    including one whose whole portfolio is an index fund. This was one in
+    the surface where it is hardest to see, because the output is rendered
+    as a measurement. If a red day on an intact name deserves a distinct
+    reading it belongs in thesisStatus, which is not rendered as a
+    statement about the range.
+  */
   return `${MARGUS_PERSONA}
 
 ## Task: Pulse
@@ -204,7 +235,6 @@ Every position below carries a low and a high taken from its own closing prices 
 - **trim** and **sell** are opposites in spirit, don't blur them:
   - **trim** = the price is above its recent range. The reason they own it is **intact**. A run-up is the story working. Never mark Thesis watch just because the price went up.
   - **sell** = the reason they own it is actually **broken**. The facts no longer match that reason, not because it went up too much.
-- **intact reason + red day** on a name they are very sure about (AI computer builders, chip makers, electricity for data centers, space, or any name whose multi-year story is unbroken): tag **add**, not hold. A quiet down day that didn't break the multi-year story is a price below the recent range, not a trim signal. This is about why they own it, not a fixed ticker list; apply it to whatever the user actually holds.
 - If a line ran hard and the reason is still intact: tag **trim**, put the size in trimPct only, and set thesisStatus to **intact**. Not a warning. Never write that size into verdict.
 - **addLevel**: always give a concrete, self-explanatory price fact when the reason is intact or action is add. Never write orders.
   - \`A level to think about: around $X\` when spot already looks like a dip (e.g. after a 5-10% drop).
@@ -212,7 +242,6 @@ Every position below carries a low and a high taken from its own closing prices 
   - Example RKLB around $80 after a 7% after-hours drop: \`A level to think about: around $80. Then another look if it drops to around $72\`, NOT "wait for $50". Never write "Add now".
 - Use **hold** only when the price is inside a normal range and the reason is intact. Hold never pairs with a broken reason.
 - Use **sell** only when thesisStatus is broken. Never use **trim** for a broken reason. Never use **hold** for a broken reason either: that's what puts an Inside recent range badge next to "Thesis broken".
-- On a screen with multiple intact dips, **most** names should be tagged **add**, not all hold.
 
 ### thesisStatus: start from intact. Watch and broken have to be earned
 - Write **thesisBreak** only if you can name a real, name-specific reason this holding would stop making sense. Otherwise leave it empty and still score intact / watch / broken from headlines.
@@ -288,6 +317,8 @@ async function handlePOST(req: Request) {
       cachedMap.set(symbol, {
         check: cachedEntry.check,
         headlines: cachedEntry.headlines,
+        writtenBy: cachedEntry.writtenBy,
+        checkedAt: new Date(cachedEntry.cachedAt).toISOString(),
       });
     }
     /*
@@ -394,9 +425,15 @@ async function handlePOST(req: Request) {
         cacheKey,
         check,
         headlines[symbol] ?? [],
-        candidate.effectivePct
+        candidate.effectivePct,
+        answeredBy
       );
-      cachedMap.set(symbol, { check, headlines: headlines[symbol] ?? [] });
+      cachedMap.set(symbol, {
+        check,
+        headlines: headlines[symbol] ?? [],
+        writtenBy: answeredBy,
+        checkedAt: new Date().toISOString(),
+      });
     }
 
     if (object.summary?.trim()) {

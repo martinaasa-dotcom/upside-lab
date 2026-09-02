@@ -177,7 +177,7 @@ async function handlePOST(req: Request) {
     // guessing would make the eye a liar.
     let answeredBy: ModelRun | null = null;
 
-    const { object } = await withAdvisorFallback(
+    const { object, response } = await withAdvisorFallback(
       providerChain,
       (model, providerId, signal) => {
         answeredBy = {
@@ -195,6 +195,28 @@ async function handlePOST(req: Request) {
       },
       { deadlineAt: startedAt + LLM_BUDGET_MS, signal: req.signal }
     );
+
+    /*
+      What the provider says answered, not what we asked for.
+
+      `withAdvisorFallback` walks the chain when a provider fails, and the
+      line above records each attempt, which covers that. It does not cover
+      the other kind of fallback: `openRouterFetchWithFallbacks` injects a
+      `models` array into the body, so OpenRouter may route the request to a
+      different model on its own and still answer 200. Nothing here fails,
+      the chain never moves, and the eye names the model at the head of the
+      chain, which did not write a word of this.
+
+      The provider reports what it actually ran, so that wins whenever it is
+      there. `modelIdFor` stays as the fallback for a provider that reports
+      nothing, which is better than naming none: `describeModelRun` hides
+      the whole section on null, and a panel that quietly loses its model
+      line is worse than one naming the model we asked for.
+    */
+    const reported = (response as { modelId?: string } | undefined)?.modelId;
+    if (answeredBy && typeof reported === "string" && reported.trim()) {
+      answeredBy = { ...(answeredBy as ModelRun), model: reported.trim() };
+    }
 
     // Cached tickers keep their reused path/rationale rather than drifting
     // on every run; only tickers with no fresh cache take the model's fresh

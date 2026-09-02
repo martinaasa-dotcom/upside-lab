@@ -117,6 +117,22 @@ export type PulseCheck = {
    * letter's suggestions come from and a fixed rule must not become one.
    */
   fallback?: boolean;
+  /**
+   * Which model wrote this check, and when, on the row rather than on the
+   * report, for exactly the reason `fallback` is.
+   *
+   * A Pulse report is mostly cache hits: nine names on screen can be eight
+   * entries up to four hours old, several written for a different signed-in
+   * reader under the shared key, and one fresh call. The report stamped
+   * that one call's model and its own "just now" across all nine, so the
+   * eye, whose whole job is to say where a sentence came from, named a
+   * model that had written eight of them and a time that was up to four
+   * hours wrong. Absent when the row came from arithmetic, where the eye
+   * credits arithmetic and names no model at all.
+   */
+  writtenBy?: ModelRun | null;
+  /** When this row's answer was actually written. */
+  checkedAt?: string;
 };
 
 export type PulseReport = {
