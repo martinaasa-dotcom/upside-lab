@@ -37,23 +37,49 @@ export type CronCheck = {
 /**
  * How long a late run may still be on its way.
  *
- * Judged per cron, not by a formula: what matters is how long the work can
- * legitimately take and how much lateness is still harmless. A monthly job
- * gets hours because nothing downstream of it is same-day; the splits job
- * gets one hour because a holding priced at a tenth of the truth is wrong
- * on every screen until it runs.
+ * The first version of this table was judged from how long each job can
+ * legitimately take, and it was wrong, because the scheduler is the larger
+ * term and nobody had measured it. Vercel does not promise a cron fires at
+ * the minute named, and on this project it does not come close.
+ *
+ * Measured against production rather than guessed: the arrival times the
+ * work itself records, `portfell_book_snapshots.created_at` against its
+ * 02:00 schedule and `portfell_split_checks.claimed_at` against its 15:00
+ * one, over about a fortnight. Sixteen runs, **3 to 59 minutes late, median
+ * 37**. Nine of the fourteen snapshot runs were past the half hour this
+ * table used to allow, so the file as first written would have raised a
+ * false alarm most days.
+ *
+ * That is the failure this whole feature exists to avoid, in its worst
+ * form: an alarm that cries wolf teaches its reader to ignore the one that
+ * matters. So a grace is the worst observed lateness plus the route's own
+ * `maxDuration` plus room, which for a daily job is two hours. What it
+ * costs is detection latency, and that is the cheap side of the trade: a
+ * backup that stopped running is noticed at 04:00 instead of 02:30, and
+ * nothing downstream of any of these jobs is faster than a day anyway.
+ *
+ * Re-measure before tightening one. Sixteen runs is enough to know the old
+ * numbers were wrong and not enough to know the tail.
  */
 export const CRON_GRACE_SECONDS: Record<string, number> = {
-  snapshot: 30 * 60,
-  "disaster-recovery": 30 * 60,
+  snapshot: 2 * 60 * 60,
+  "disaster-recovery": 2 * 60 * 60,
   "sunday-note": 2 * 60 * 60,
-  "billing-reconcile": 30 * 60,
-  "error-digest": 30 * 60,
+  "billing-reconcile": 2 * 60 * 60,
+  "error-digest": 2 * 60 * 60,
   "popular-tickers": 6 * 60 * 60,
   "margus-fund": 2 * 60 * 60,
-  "empty-book-nudge": 30 * 60,
-  splits: 60 * 60,
+  "empty-book-nudge": 2 * 60 * 60,
+  splits: 2 * 60 * 60,
 };
+
+/**
+ * The worst lateness measured, in seconds, and the floor every grace clears.
+ *
+ * Typed here so the test can hold the rule rather than today's numbers: a
+ * grace under this is one somebody has tightened without re-measuring.
+ */
+export const WORST_MEASURED_LATENESS_SECONDS = 59 * 60;
 
 /** What a person reads when the alert arrives, per cron. */
 export const CRON_CHECK_DESC: Record<string, string> = {

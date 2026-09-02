@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   CRON_CHECK_DESC,
   CRON_GRACE_SECONDS,
+  WORST_MEASURED_LATENESS_SECONDS,
   buildCronCheckPlan,
   cronFiringsPerYear,
   parseCron,
@@ -103,6 +104,29 @@ describe("a grace period covers the work it waits on", () => {
           `run for ${maxDuration}s. A grace that does not clear its own ` +
           `maxDuration alerts on a slow run that was going to succeed.`,
       ).toBeGreaterThan(maxDuration * 2);
+    }
+  });
+
+  it("clears the lateness the scheduler was measured to have", () => {
+    /*
+      The first version of this table assumed the cron fires at the minute
+      named. Measured against production, it arrives 3 to 59 minutes late,
+      and nine of fourteen snapshot runs were past the half hour the table
+      then allowed, so it would have raised a false alarm most days. An
+      alarm that cries wolf is worse than none, which is the whole reason
+      the switch exists, so the floor is the worst arrival plus the route's
+      own maxDuration.
+    */
+    for (const slug of scheduledSlugs()) {
+      const grace = CRON_GRACE_SECONDS[slug]!;
+      const floor = WORST_MEASURED_LATENESS_SECONDS + maxDurationOf(slug);
+      expect(
+        grace,
+        `The grace for "${slug}" is ${grace}s, inside the ${floor}s a run ` +
+          `can legitimately take to arrive (the scheduler has been measured ` +
+          `up to ${WORST_MEASURED_LATENESS_SECONDS}s late, plus this route's ` +
+          `own maxDuration). Re-measure before tightening one.`
+      ).toBeGreaterThan(floor);
     }
   });
 
