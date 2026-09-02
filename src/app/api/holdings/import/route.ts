@@ -1,10 +1,9 @@
 import { dbError } from "@/lib/db-error";
 import { NextRequest, NextResponse } from "next/server";
-import { requirePortfolioOwner } from "@/lib/auth/ownership";
+import { loadPortfolioWriteContext } from "@/lib/portfolio-write-context";
 import {
   applyTradeCashDelta,
   importCashDelta,
-  portfolioTracksTradeCash,
   salePriceFor,
 } from "@/lib/cash-trade";
 import { classifyImportWrite } from "@/lib/classroom";
@@ -56,8 +55,20 @@ async function handlePOST(req: NextRequest) {
     return NextResponse.json({ error: "portfolio_id required" }, { status: 400 });
   }
 
-  const notOwner = await requirePortfolioOwner(auth.user.id, portfolioId);
-  if (notOwner) return notOwner;
+  // Ownership, whether this portfolio keeps a cash ledger, and its balance,
+  // in the one read that used to answer only the first of the three.
+  const loaded = await loadPortfolioWriteContext(
+    supabase,
+    auth.user.id,
+    portfolioId
+  );
+  if (!loaded.ok) {
+    return NextResponse.json(
+      { error: loaded.error },
+      { status: loaded.status }
+    );
+  }
+  const context = loaded.context;
 
   const rows: ImportRow[] = Array.isArray(body.holdings)
     ? body.holdings.flatMap((row) => {
@@ -98,6 +109,7 @@ async function handlePOST(req: NextRequest) {
   const blocked = await denyClassroomWrite(supabase, {
     portfolioId,
     userId: auth.user.id,
+    classroomCommunityId: context.classroomCommunityId,
     action: classifyImportWrite({
       cash: cash != null,
       replace: replacing,
@@ -118,21 +130,30 @@ async function handlePOST(req: NextRequest) {
   });
   if (blocked) return blocked;
 
-  const paperCash = await portfolioTracksTradeCash(supabase, portfolioId);
+  const paperCash = context.tracksTradeCash;
   let cashUpdated = false;
+  let writtenCash: number | null = null;
   // An imported cash line may be negative on any portfolio: a broker screen
   // showing borrowed money is exactly the case worth carrying through.
+  // The write hands the stored balance back, so the response does not have
+  // to select the same row again to say what it just put there.
   if (cash != null && isSafeSignedMoney(cash)) {
-    const { error } = await supabase
+    const { data: written, error } = await supabase
       .from(PORTFELL_TABLES.portfolios)
       .update({
         cash_balance: roundMoney(cash),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", portfolioId);
+      .eq("id", portfolioId)
+      .select("cash_balance")
+      .maybeSingle();
     if (error) {
       return NextResponse.json({ error: dbError(error, "/api/holdings/import") }, { status: 500 });
     }
+    const stored = Number(
+      (written as { cash_balance?: number } | null)?.cash_balance
+    );
+    writtenCash = Number.isFinite(stored) ? stored : roundMoney(cash);
     cashUpdated = true;
   }
 
@@ -235,13 +256,7 @@ async function handlePOST(req: NextRequest) {
 
   let cashBalance: number | null = null;
   if (cashUpdated) {
-    const { data: port } = await supabase
-      .from(PORTFELL_TABLES.portfolios)
-      .select("cash_balance")
-      .eq("id", portfolioId)
-      .maybeSingle();
-    const n = Number((port as { cash_balance?: number } | null)?.cash_balance);
-    cashBalance = Number.isFinite(n) ? n : null;
+    cashBalance = writtenCash;
   } else {
     const accepted = rows
       .map((row) => {
@@ -283,35 +298,38 @@ async function handlePOST(req: NextRequest) {
         saleTickers.add(old.ticker);
       }
     }
-    const salePx: Record<string, number> = {};
-    await Promise.all(
-      [...saleTickers].map(async (ticker) => {
-        const old = existingRows.find(
-          (h) => h.ticker.toUpperCase() === ticker.toUpperCase()
-        );
-        salePx[ticker.toUpperCase()] = await salePriceFor(
-          ticker,
-          old?.buy_price ?? 0
-        );
-      })
-    );
+    // One live price per name sold, and each one is a walk of the quote
+    // providers. They feed importCashDelta and nothing else, and that only
+    // runs on a classroom paper sheet, so an ordinary portfolio replacing a
+    // thirty line CSV used to pay for thirty walks and discard the answers.
     if (paperCash) {
+      const salePx: Record<string, number> = {};
+      await Promise.all(
+        [...saleTickers].map(async (ticker) => {
+          const old = existingRows.find(
+            (h) => h.ticker.toUpperCase() === ticker.toUpperCase()
+          );
+          salePx[ticker.toUpperCase()] = await salePriceFor(
+            ticker,
+            old?.buy_price ?? 0
+          );
+        })
+      );
       const delta = importCashDelta(
         existingRows,
         accepted,
         replacing,
         salePx
       );
-      cashBalance = await applyTradeCashDelta(supabase, portfolioId, delta);
+      cashBalance = await applyTradeCashDelta(
+        supabase,
+        portfolioId,
+        delta,
+        context
+      );
       cashUpdated = delta !== 0;
     } else {
-      const { data: port } = await supabase
-        .from(PORTFELL_TABLES.portfolios)
-        .select("cash_balance")
-        .eq("id", portfolioId)
-        .maybeSingle();
-      const n = Number((port as { cash_balance?: number } | null)?.cash_balance);
-      cashBalance = Number.isFinite(n) ? n : null;
+      cashBalance = context.cashBalance;
     }
   }
 
