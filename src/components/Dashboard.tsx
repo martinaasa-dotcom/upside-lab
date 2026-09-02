@@ -2505,7 +2505,6 @@ export function Dashboard() {
             bookCash={overview.totals.cash}
             eurUsd={eurUsd}
             eurUsdDetail={eurUsdDetail}
-            hideOptions={hideOptionsUI}
           />
           </WidgetErrorBoundary>
         ) : isOverview ? (
