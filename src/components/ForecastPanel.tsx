@@ -491,7 +491,16 @@ function SheetPathChart({
               strokeLinejoin="round"
               strokeLinecap="round"
               strokeOpacity={placeholder ? 0.5 : 1}
-              strokeDasharray={placeholder ? "6 5" : undefined}
+              /*
+                The dashes are screen units, not viewBox units. This svg is
+                `preserveAspectRatio="none"` over a fixed 640-wide box, so
+                the horizontal scale runs from about 0.53 on a phone to 1.45
+                on a laptop: a plain "6 5" pattern reads as a dashed line at
+                1280 and as a solid one at 390, which is the one width where
+                the reader most needs to see that nothing has been reasoned.
+              */
+              vectorEffect={placeholder ? "non-scaling-stroke" : undefined}
+              strokeDasharray={placeholder ? "5 4" : undefined}
               points={line}
             />
             {usable.map((p, i) => (

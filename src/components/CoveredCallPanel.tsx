@@ -478,7 +478,18 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
             {HEADERS.map((label, i) => (
               <div
                 key={label}
-                className={i === 0 ? tickerCell : cellBase}
+                /*
+                  A header may wrap; a figure may not. `cellBase` is
+                  `whitespace-nowrap` because a price broken over two lines
+                  is not a price, and every column is floored at its widest
+                  cell, so a header spelled out in words ("Near your
+                  target?") would set the whole track's width over a column
+                  of two short words. Only the header row grows.
+                */
+                className={cn(
+                  i === 0 ? tickerCell : cellBase,
+                  i === 0 ? "" : "whitespace-normal leading-tight"
+                )}
                 title={HEADER_HINTS[label]}
               >
                 {label}

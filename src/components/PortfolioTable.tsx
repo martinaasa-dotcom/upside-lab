@@ -218,14 +218,23 @@ const COLUMNS: { label: string; key?: SortKey; term?: string }[] = [
   { label: "% of portfolio", key: "pct", term: "share-of-portfolio" },
   { label: "Shares", key: "shares", term: "share" },
   { label: "Paid each", key: "buy", term: "paid-each" },
-  { label: "Price", key: "price", term: "today" },
+  { label: "Price", key: "price" },
   { label: "Cost", key: "cost", term: "cost" },
   { label: "Value", key: "value", term: "value" },
+  /*
+   * One glyph per idea, on the first column that carries it.
+   *
+   * Gain % and Gain $ are one thing said two ways, and so are Today % and
+   * Today $, so a tip on each of the pair would be the same panel twice.
+   * It is also width: every column is floored at its widest cell, the
+   * header usually is that cell in a narrow numeric column, and the table
+   * already needs about 1,100px before it starts scrolling sideways.
+   */
   { label: "Gain %", key: "roiPct", term: "gain" },
-  { label: "Gain $", key: "roiDollar", term: "gain" },
+  { label: "Gain $", key: "roiDollar" },
   { label: "90 days", term: "recent-range" },
   { label: "Today %", key: "today", term: "today" },
-  { label: "Today $", key: "todayDollar", term: "today" },
+  { label: "Today $", key: "todayDollar" },
 ];
 
 /**
@@ -872,8 +881,19 @@ export const PortfolioTable = memo(function PortfolioTable({
               {COLUMNS.map((col, i) => (
                 <div
                   key={col.label}
+                  /*
+                    A header may wrap; a figure may not.
+                    `cellBase` is `whitespace-nowrap` because a price broken
+                    over two lines is not a price, and every column is
+                    floored at its widest cell, so a header spelled out in
+                    words sets the whole track's width: "% of portfolio"
+                    measured 166px over a column of "32.0%". These are
+                    words rather than figures, so they are allowed the
+                    second line, and only the header row grows.
+                  */
                   className={cn(
                     i === 0 ? tickerCell : cellBase,
+                    i === 0 ? "" : "whitespace-normal leading-tight",
                     "gap-1"
                   )}
                 >
