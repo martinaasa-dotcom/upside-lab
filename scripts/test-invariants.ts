@@ -1198,7 +1198,15 @@ run("trim on a run is Thesis intact", () => {
     "utf8"
   );
   assert.match(prompt, /Never mark Thesis watch just because the price went up/);
-  assert.match(fallback, /price is up more than it usually moves in a day/i);
+  /*
+   * The euphoric branch says the price is up a lot in one day, and no
+   * longer "more than it usually moves in a day": that claimed a reading
+   * of this company's own history when the threshold behind it is a flat
+   * 12% for every name in the product. The rule this assertion is for is
+   * that a run-up stays intact, so that is what it checks.
+   */
+  assert.match(fallback, /The price is up a lot in one day/i);
+  assert.doesNotMatch(fallback, /up more than it usually moves in a day/i);
   assert.doesNotMatch(
     fallback,
     /euphoric[\s\S]{0,400}thesisStatus: "watch"/
@@ -3747,8 +3755,12 @@ run("Pulse scan sits in its own card, not under the lookup bar", () => {
     join(process.cwd(), "src/lib/thesis-pulse-schema.ts"),
     "utf8"
   );
-  assert.match(page, /Today's scan/);
-  assert.match(page, /<ScanList/);
+  /*
+   * The label is free to change; that there is exactly one of these cards,
+   * carrying a label, is the rule. It reads "What moved, and why" now that
+   * the duplicate "Recent range" table above it is gone.
+   */
+  assert.match(page, /<ScanList\s+label=/);
   assert.match(page, /scanRows\.map/);
   assert.doesNotMatch(page, /Add yours/);
   assert.doesNotMatch(page, /<Reading/);
@@ -3763,9 +3775,20 @@ run("Pulse scan sits in its own card, not under the lookup bar", () => {
     page,
     /skippedTickers\.length > 0[\s\S]{0,400}humanizeMargusText\(summary\)/
   );
-  assert.doesNotMatch(page, /humanizeMargusText\(summary\)/);
+  /*
+   * The model's one-sentence read on the whole portfolio IS the first
+   * thing on this page now. It used to be received and thrown away, so
+   * the room opened with a search box and a table and never said what the
+   * day had done; this assertion used to forbid rendering it, from a time
+   * when it was wallpaper under the lookup bar. What it holds instead is
+   * that the sentence is the story rather than a nag, which the
+   * "never nags that it is guessing" invariant below covers.
+   */
+  assert.match(page, /humanizeMargusText\(dayStory\)/);
   assert.doesNotMatch(schema, /lead with any sharp drops/);
-  assert.match(page, /stripTrailingScanStop/);
+  // `scanLineBody` moved into thesis-pulse.ts, and it is the one thing
+  // that strips the trailing stop off a scan line for this page.
+  assert.match(page, /scanLineBody/);
 
   const pulseLib = readFileSync(
     join(process.cwd(), "src/lib/thesis-pulse.ts"),
@@ -3980,16 +4003,49 @@ run("Pulse does not hourly-refresh the model", () => {
   );
   assert.doesNotMatch(page, /setInterval\(\(\) => \{[\s\S]*runPulse/);
   assert.match(page, /shouldAutoPulseTicker/);
-  assert.match(page, /Check again/);
+  // One page-level retry, not one per card. Six cards each offering to try
+  // again while nothing was running is what this replaced.
+  assert.match(page, /Read them now/);
+  /*
+   * A row the model never answered is a placeholder, so it is asked again
+   * once its cache has aged out. This case used to assert `false`, which
+   * meant a name filled by the fixed rule during one busy minute kept that
+   * badge, and the model's eye above it, for good.
+   */
+  const ruleWritten = buildFallbackPulseCheck({
+    ticker: "NBIS",
+    effectivePct: 0,
+    moveLabel: "Today",
+  } as Parameters<typeof buildFallbackPulseCheck>[0]);
   assert.equal(
     shouldAutoPulseTicker({
       needsAttention: false,
       cachedAt: "2026-08-15T00:00:00Z",
-      check: buildFallbackPulseCheck({
-        ticker: "NBIS",
-        effectivePct: 0,
-        moveLabel: "Today",
-      } as Parameters<typeof buildFallbackPulseCheck>[0]),
+      check: ruleWritten,
+    }),
+    true
+  );
+  // And within the hour it is left alone, so a provider having a bad
+  // minute does not cost a call on every mount.
+  assert.equal(
+    shouldAutoPulseTicker({
+      needsAttention: false,
+      cachedAt: new Date().toISOString(),
+      check: ruleWritten,
+    }),
+    false
+  );
+  // A quiet name the model did answer is still never re-asked on a timer,
+  // which is what this invariant is named for.
+  assert.equal(
+    shouldAutoPulseTicker({
+      needsAttention: false,
+      cachedAt: "2026-08-15T00:00:00Z",
+      check: {
+        ...ruleWritten,
+        fallback: false,
+        verdict: "Cloud bookings came in ahead of what the company guided to",
+      },
     }),
     false
   );
@@ -5545,7 +5601,15 @@ run("Margus never writes trade orders to a person", () => {
   assert.doesNotMatch(pulseUi, /Trim about \{/);
   assert.doesNotMatch(pulseUi, /into this strength/);
   assert.doesNotMatch(pulseUi, /One check: selling/);
-  assert.match(pulseUi, /pulseSuggestion\(/);
+  /*
+   * The card's lead comes from one writer rather than from raw model text,
+   * which is what keeps an order off this screen. It is `pulseLead` now:
+   * `pulseSuggestion` printed the model's own invented dollar level as
+   * "near $205" inside a sentence about where the price sits, which is a
+   * buy level laundered into a measurement.
+   */
+  assert.match(pulseUi, /pulseLead\(/);
+  assert.doesNotMatch(pulseUi, /pulseSuggestion\(/);
   assert.doesNotMatch(notes, /If it runs, sell some/);
   assert.doesNotMatch(insights, /Own it on purpose or cut it/);
   assert.match(persona, /Never write trade orders/);

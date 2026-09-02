@@ -19,6 +19,8 @@ import { takeDurableRateLimit } from "@/lib/rate-limit-durable";
 import { stampAdvisorUse } from "@/lib/advisor-use";
 import {
   buildFallbackPulseCheck,
+  candidateRange,
+  rangeWindowWords,
   formatMovePct,
   isBigPulseMove,
   isEmptyPulseCheck,
@@ -142,8 +144,17 @@ function buildPrompt(
     const name = shown
       ? `${shown.name} (${cashtag(c.ticker)})`
       : c.ticker;
+    // The range is measured from the closes the quote carries
+    // (`recentRange`), and it is handed over as numbers because the model
+    // is asked to tag a price against a range. It used to be asked that
+    // with no high and no low anywhere in the prompt, and the app printed
+    // the answer as "Below recent range" all the same.
+    const range = candidateRange(c);
+    const rangeLine = range
+      ? ` · ${rangeWindowWords(range.days)} low $${range.low.toFixed(2)} · high $${range.high.toFixed(2)}`
+      : " · (no measured range for this one)";
     const parts = [
-      `- **${name}** · spot $${c.price.toFixed(2)} · ${c.moveLabel} ${move}${flag}${position}`,
+      `- **${name}** · today's price $${c.price.toFixed(2)}${rangeLine} · ${c.moveLabel} ${move}${flag}${position}`,
       conv?.thesis ? `  Thesis: ${conv.thesis}` : "",
       conv?.level ? `  How sure they are: ${conv.level}/5` : "",
       ctx?.sector ? `  Sector: ${ctx.sector}` : "",
@@ -181,6 +192,9 @@ ${insightsPromptBlock(
         todayPct: c.effectivePct,
       }))
   )}
+
+### The range is measured, not yours to guess
+Every position below carries a low and a high taken from its own closing prices over the window named beside them. Those two numbers are printed on the card next to today's price, so the tag you choose has to agree with them: **add** means today's price is near the low end, **trim** means it is near the high end, **hold** means it is somewhere in the middle. A position whose line says there is no measured range gets **hold** or **watch**, never a range tag, because the reader has no low and high on screen to check it against.
 
 ### Action tags (internal codes, never print them as orders)
 - **action** = \`add\` | \`hold\` | \`trim\` | \`sell\` | \`watch\`. These are tags for the app. Verdict and addLevel must describe price or thesis facts, never orders.

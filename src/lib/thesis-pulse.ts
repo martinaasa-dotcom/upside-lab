@@ -1,6 +1,6 @@
 import { humanizeMargusText, humanizeMargusTree, pulseSuggestion } from "@/lib/ai/humanize-copy";
 import { coinFromSymbol, isCoinSymbol, matchCoinQuery } from "@/lib/coins";
-import { NO_VALUE, cashtag } from "@/lib/format";
+import { NO_VALUE, cashtag, currency } from "@/lib/format";
 import { TICKER_SECTORS } from "@/lib/forecast-plan";
 import type { OverviewModel, TickerScore } from "@/lib/overview";
 import type { ModelRun } from "@/lib/ai/model-label";
@@ -31,6 +31,16 @@ export type PulseCandidate = {
   effectivePct: number | null;
   moveLabel: string;
   moveSource: PulseMoveSource;
+  /**
+   * The lowest and highest close in the window `rangeDays` covers, or null
+   * when the provider gave no dated history to measure. Never guessed: the
+   * card and the prompt both print these as facts, so an unmeasured range
+   * is an absent one.
+   */
+  rangeLow: number | null;
+  rangeHigh: number | null;
+  /** How many days of closes the two figures above were taken over. */
+  rangeDays: number;
   /** Down ≥5% on effective move — the “should I sell?” flag */
   needsAttention: boolean;
   /** Up or down ≥5% on the effective move */
@@ -95,6 +105,18 @@ export type PulseCheck = {
    * this bar (watch) or have already cleared it (broken).
    */
   thesisBreak?: string;
+  /**
+   * True when no model answered for this ticker and `buildFallbackPulseCheck`
+   * filled the row from the day's move alone.
+   *
+   * It is on the row rather than on the report because the two are mixed:
+   * one run answers eight names and misses the ninth, and the ninth then
+   * wore the model's badge, the model's eye and the model's name. The card
+   * says so in words, the eye behind it credits arithmetic, and the page
+   * never stamps one into lab state, because that is where the Sunday
+   * letter's suggestions come from and a fixed rule must not become one.
+   */
+  fallback?: boolean;
 };
 
 export type PulseReport = {
@@ -237,6 +259,137 @@ export function sortPulseCandidates<
   });
 }
 
+/**
+ * The lowest and highest close this app can actually see, over a window it
+ * can name.
+ *
+ * "Below recent range" and "Above recent range" have been the loudest words
+ * on a Pulse card since the room was written, and until now the app had
+ * never measured a range. The tags came from the model, which was handed
+ * today's price, today's move, the sector and the headlines and no high or
+ * low at all, with the provenance eye listing a range among the inputs to
+ * back it up. Two ways to fix that, and only one is honest: measure it.
+ *
+ * **Dated closes only, which is the whole of the care here.** A `sparkline`
+ * is right there and is the obvious second source, and it is wrong twice
+ * over. A provider with a last price and no history gets a synthesized one
+ * (`synthesizeSparkline`), a straight walk from yesterday to today with a
+ * sine wave on it, whose low and high are an invention; and a real one is
+ * downsampled to 32 points, so its span is unknown here. Measured on the
+ * running app, a quote carries 32 sparkline points over about ninety days
+ * and 15 dated closes, so reading a range off the sparkline and counting
+ * its points would have printed a ninety-day high and low as "over the
+ * last month". `dailyCloses` carries its dates, so the window is measured
+ * rather than assumed, and a company with no dated history gets no range
+ * on its card at all.
+ */
+export const PULSE_RANGE_MIN_BARS = 10;
+
+export type PulseRange = {
+  low: number;
+  high: number;
+  /** Calendar days between the first and last close, not a bar count. */
+  days: number;
+};
+
+export function recentRange(
+  quote: Quote | null | undefined
+): PulseRange | null {
+  const bars = (quote?.dailyCloses ?? []).filter(
+    (row) => Number.isFinite(row.close) && row.close > 0 && Boolean(row.date)
+  );
+  if (bars.length < PULSE_RANGE_MIN_BARS) return null;
+
+  const closes = bars.map((row) => row.close);
+  const low = Math.min(...closes);
+  const high = Math.max(...closes);
+  if (!Number.isFinite(low) || !Number.isFinite(high) || low <= 0) return null;
+  // A flat line has no range to speak of, and dividing by its width later
+  // would put every price at one end of a bar a pixel wide.
+  if (high - low < low * 0.002) return null;
+
+  const first = Date.parse(`${bars[0]!.date}T00:00:00Z`);
+  const last = Date.parse(`${bars[bars.length - 1]!.date}T00:00:00Z`);
+  const spanned =
+    Number.isFinite(first) && Number.isFinite(last) && last > first
+      ? Math.round((last - first) / 86_400_000)
+      : bars.length;
+  return { low, high, days: Math.max(1, spanned) };
+}
+
+/**
+ * Where today's price stands between the low and the high, 0 to 1.
+ *
+ * Clamped, because the price can be outside the window it is measured
+ * against: a company at a new high today is above every close behind it,
+ * and the bar showing that should sit at the end rather than run off it.
+ */
+export function rangeStanding(
+  price: number,
+  range: PulseRange | null | undefined
+): number | null {
+  if (!range || !Number.isFinite(price) || price <= 0) return null;
+  const width = range.high - range.low;
+  if (width <= 0) return null;
+  return Math.min(1, Math.max(0, (price - range.low) / width));
+}
+
+/**
+ * How long the window is, in the words somebody would use out loud.
+ *
+ * "Over the last 20 days" is a figure nobody asked for; "over the last
+ * three weeks" is the same fact said plainly. Every step reads down rather
+ * than up, so a window is never described as longer than it was.
+ */
+export function rangeWindowWords(days: number): string {
+  if (days >= 75) return "three months";
+  if (days >= 45) return "two months";
+  if (days >= 24) return "month";
+  if (days >= 11) return `${Math.round(days / 7)} weeks`;
+  return `${days} days`;
+}
+
+/** The range as a sentence, in numbers the reader can check on the card. */
+export function rangeSentence(
+  price: number,
+  range: PulseRange | null | undefined
+): string {
+  if (!range || !Number.isFinite(price) || price <= 0) return "";
+  return `Price ${currency(price)}, between its low of ${currency(range.low)} and its high of ${currency(range.high)} over the last ${rangeWindowWords(range.days)}.`;
+}
+
+/**
+ * The measured range carried on a candidate, or null when there is none.
+ *
+ * Every field is checked rather than trusted, because a candidate arrives
+ * on the request body: the route hands these numbers to the model, and on a
+ * company the reader has written nothing about that answer is cached under
+ * the shared key and served to every other holder of it. A string that
+ * happens to compare larger than another string would reach `toFixed` and
+ * take the request down with it.
+ */
+export function candidateRange(
+  c: Pick<PulseCandidate, "rangeLow" | "rangeHigh" | "rangeDays">
+): PulseRange | null {
+  const low = c.rangeLow;
+  const high = c.rangeHigh;
+  if (
+    typeof low !== "number" ||
+    typeof high !== "number" ||
+    !Number.isFinite(low) ||
+    !Number.isFinite(high) ||
+    low <= 0 ||
+    high <= low
+  ) {
+    return null;
+  }
+  const days =
+    typeof c.rangeDays === "number" && Number.isFinite(c.rangeDays)
+      ? Math.min(400, Math.max(1, Math.round(c.rangeDays)))
+      : 1;
+  return { low, high, days };
+}
+
 function toCandidate(
   ticker: string,
   row: TickerScore | null,
@@ -247,6 +400,7 @@ function toCandidate(
   const effectivePct = move.pct;
   const currentValue = row?.currentValue ?? (quote?.price ?? 0);
   const bookPct = row && equity > 0 ? row.currentValue / equity : 0;
+  const range = recentRange(quote);
 
   return {
     ticker: ticker.toUpperCase(),
@@ -267,6 +421,9 @@ function toCandidate(
     effectivePct,
     moveLabel: move.label,
     moveSource: move.source,
+    rangeLow: range?.low ?? null,
+    rangeHigh: range?.high ?? null,
+    rangeDays: range?.days ?? 0,
     needsAttention:
       effectivePct != null && effectivePct <= -PULSE_DOWN_THRESHOLD,
     isBigMove: isBigPulseMove(effectivePct),
@@ -463,6 +620,14 @@ export function shouldAutoPulseTicker(input: {
   check?: PulseCheck | null;
 }): boolean {
   if (isEmptyPulseCheck(input.check)) return true;
+  // A row nobody modelled is a placeholder, so it is asked again on the
+  // next visit past the cache window rather than kept for good. Not asked
+  // again immediately: the commonest reason a name came back this way is
+  // that every provider was busy, and a page that retries on every mount
+  // spends the reader's twelve calls per ten minutes finding that out.
+  if (input.check?.fallback) {
+    return !input.cachedAt || !isPulseCacheFresh({ cachedAt: input.cachedAt });
+  }
   if (
     isMoveRestatement(input.check?.moveReason) ||
     isMoveRestatement(input.check?.verdict)
@@ -481,13 +646,57 @@ export function statusLabel(status: ThesisStatus | string): string {
   return "Thesis intact";
 }
 
+/**
+ * The tag as the reader sees it.
+ *
+ * `watch` used to read "Not enough history", which is not what the model
+ * is asked for and not what it means: the schema says watch is "something
+ * in the story is worth tracking". So an Apple that had just put a number
+ * on tariff costs was described to its owner as a company with no price
+ * history, on a badge coloured as a caution. It says what it means now.
+ *
+ * The three range tags are safe to print as facts because the range is
+ * measured (`recentRange`) and handed to the model as numbers before it
+ * chooses one. They were not, for a long time, and that is the whole
+ * reason this comment is here.
+ */
 export function actionLabel(action: PulseAction | string): string {
   const a = String(action ?? "").trim().toLowerCase();
   if (a === "add") return "Below recent range";
   if (a === "trim") return "Above recent range";
   if (a === "sell") return "Reason no longer matches";
-  if (a === "watch") return "Not enough history";
+  if (a === "watch") return "Worth watching";
   return "Inside recent range";
+}
+
+/**
+ * The lead sentence on a card.
+ *
+ * Deliberately not `pulseSuggestion`, which this replaces on every surface
+ * a reader looks at. Two differences, and both are the point.
+ *
+ * It prints no dollar level. `pulseSuggestion` read the model's own
+ * `addLevel` and printed "Price is below its recent range, near $205",
+ * which put a number the model invented into a sentence about where the
+ * price sits, in the voice of a measurement. The measured low and high go
+ * on the card underneath, as themselves.
+ *
+ * And `watch` says what the model meant rather than apologising for
+ * missing data. See `actionLabel` above.
+ */
+export function pulseLead(
+  check: { action?: string | null } | null | undefined
+): string {
+  const action = String(check?.action ?? "hold").trim().toLowerCase();
+  if (action === "trim") return "The price is above its recent range.";
+  if (action === "add") return "The price is below its recent range.";
+  if (action === "sell") {
+    return "The reason you own this no longer matches what the company is doing.";
+  }
+  if (action === "watch") {
+    return "Something in the story is worth watching, and the price on its own does not settle it.";
+  }
+  return "The price is inside its recent range.";
 }
 
 export function sectorForTicker(ticker: string): string | null {
@@ -572,6 +781,9 @@ export function normalizePulseCheck(check: PulseCheck): PulseCheck {
     thesisStatus: asEnum(check.thesisStatus, THESIS_STATUSES, "intact"),
     action: asEnum(check.action, PULSE_ACTIONS, "hold"),
     thesisBreak: cleanThesisBreak(check.thesisBreak),
+    // Carried through every hop, or the one thing that says nobody read
+    // this company would be lost the first time the row was reconciled.
+    fallback: check.fallback === true,
   };
 }
 
@@ -668,6 +880,27 @@ export function stripTrailingScanStop(text: string): string {
   return text.replace(/[.]+$/g, "").trimEnd();
 }
 
+/**
+ * The scan line without the cashtag it opens with.
+ *
+ * Deliberately not a regular expression built from the ticker. A ticker is
+ * stored data and reaches here from a CSV or a screenshot import, neither
+ * of which checks the symbol shape, so a holding saved as "A(B" would have
+ * made `new RegExp("^\\$A(B\\s+")` throw for an unterminated group. That
+ * throw happens while Pulse renders, which takes the whole room down for
+ * the reader and for every co-owner of the portfolio, over one bad row.
+ * `startsWith` cannot be given a ticker it will not survive.
+ */
+export function scanLineBody(ticker: string, line: string): string {
+  const tag = cashtag(ticker);
+  const trimmed = line.trim();
+  const opensWithTag =
+    trimmed.toLowerCase().startsWith(tag.toLowerCase()) &&
+    /^\s/.test(trimmed.slice(tag.length));
+  const stripped = opensWithTag ? trimmed.slice(tag.length).trim() : trimmed;
+  return stripTrailingScanStop(stripped || line);
+}
+
 /** Compare scan bodies so "$RDDT  Looks like a chase." matches the same line on $NBIS. */
 export function scanLineFingerprint(
   line: string,
@@ -728,10 +961,10 @@ function composeDistinctScanLine(row: {
   const headline = clipScanHeadline(row.headline);
   const price =
     row.price != null && Number.isFinite(row.price) && row.price > 0
-      ? `$${row.price.toFixed(2)}`
+      ? currency(row.price)
       : "";
   const lines: string[] = [];
-  const fact = pulseSuggestion(check ?? {}).replace(/\.+$/, "");
+  const fact = pulseLead(check ?? {}).replace(/\.+$/, "");
 
   if (headline) {
     lines.push(taggedScanLine(ticker, `${move} ${when} after ${headline}`));
@@ -880,16 +1113,22 @@ export function verdictRepeatsSuggestion(
 ): boolean {
   const v = (verdict ?? "").trim().toLowerCase();
   if (!v || !check) return false;
-  const line = pulseSuggestion(check).toLowerCase();
   const norm = (s: string) => s.replace(/[^a-z0-9]+/g, " ").trim();
   const nv = norm(v);
-  const nl = norm(line);
-  if (!nv || !nl) return false;
-  if (nv === nl) return true;
-  if (nl.includes(nv)) return true;
-  if (nv.includes(nl)) {
-    const leftover = nv.replace(nl, " ").replace(/\s+/g, " ").trim();
-    if (leftover.length < 12) return true;
+  if (!nv) return false;
+  // Both wordings, because the card leads with `pulseLead` while the
+  // scrubber in humanize-copy still swaps stray orders for the older
+  // sentence, and a verdict that merely restates either of them is a
+  // paragraph saying the thing directly above it.
+  for (const line of [pulseLead(check), pulseSuggestion(check)]) {
+    const nl = norm(line.toLowerCase());
+    if (!nl) continue;
+    if (nv === nl) return true;
+    if (nl.includes(nv)) return true;
+    if (nv.includes(nl)) {
+      const leftover = nv.replace(nl, " ").replace(/\s+/g, " ").trim();
+      if (leftover.length < 12) return true;
+    }
   }
   return verdictRepeatsTrim(verdict, check.trimPct);
 }
@@ -965,7 +1204,51 @@ export function verdictRepeatsTrim(
  * the ticker is already its own column in the table and its own heading on
  * the card.
  */
+/**
+ * How near an end of its own range a price has to be for the fixed rule to
+ * call it above or below. A fifth in from either end, so the middle three
+ * fifths read as inside it.
+ */
+const RANGE_EDGE = 0.2;
+
 export function buildFallbackPulseCheck(candidate: PulseCandidate): PulseCheck {
+  /*
+   * When the range is measured, the badge comes from the range, because
+   * the card prints that low and that high on a bar directly under it.
+   * Read off the move instead and the two contradict each other in plain
+   * sight: a company down 6% today but sitting in the middle of its own
+   * three weeks got "Below recent range" over a bar with the dot at the
+   * centre. The move rule below is what is left when there is no range to
+   * read, and the card hides the badge in that case rather than claiming
+   * a range nothing measured.
+   */
+  const range = candidateRange(candidate);
+  const standing = rangeStanding(candidate.price, range);
+  if (range && standing != null) {
+    const action: PulseAction =
+      standing <= RANGE_EDGE ? "add" : standing >= 1 - RANGE_EDGE ? "trim" : "hold";
+    const where =
+      action === "add"
+        ? "The price is near the bottom of the range it has been in."
+        : action === "trim"
+          ? "The price is near the top of the range it has been in."
+          : "The price is in the middle of the range it has been in.";
+    return {
+      ticker: candidate.ticker,
+      fallback: true,
+      situation: [where, "Nothing here has read the news for this one."],
+      moveReason:
+        "Where the price sits against its own recent low and high is all this reading is.",
+      thesisStatus: "intact",
+      earningsNote: "",
+      action,
+      trimPct: action === "trim" ? (candidate.bookPct >= 0.08 ? 20 : 10) : null,
+      addLevel: "",
+      verdict: "",
+      thesisBreak: "",
+    };
+  }
+
   const move = candidate.effectivePct ?? 0;
   const euphoric =
     move >= 0.12 || (move >= 0.08 && candidate.roiPct >= 0.5);
@@ -973,60 +1256,64 @@ export function buildFallbackPulseCheck(candidate: PulseCandidate): PulseCheck {
     const trimPct = candidate.bookPct >= 0.08 ? 20 : 10;
     return {
       ticker: candidate.ticker,
+      fallback: true,
       situation: [
-        "The price is up more than it usually moves in a day.",
-        "Nothing has changed in the reason you own it.",
+        "The price is up a lot in one day.",
+        "Nothing here has looked at why, so the reason you own it is untouched.",
       ],
       moveReason:
-        "The price rose more than it usually does in a day, and the reason you own it has not changed.",
+        "The price rose sharply in one day, and nothing here has read what the company did.",
       thesisStatus: "intact",
       earningsNote: "",
       action: "trim",
       trimPct,
       addLevel: "",
-      verdict: pulseSuggestion({ action: "trim", trimPct, ticker: candidate.ticker }),
+      verdict: "",
       thesisBreak: "",
     };
   }
 
   if (candidate.needsAttention) {
-    const price = candidate.price > 0 ? candidate.price.toFixed(2) : "spot";
     return {
       ticker: candidate.ticker,
+      fallback: true,
       situation: [
-        "The price is down more than it usually moves in a day.",
-        "A fall in the price on its own does not mean the reason you own it has changed.",
+        "The price is down a lot in one day.",
+        "A fall in the price on its own says nothing about the company.",
       ],
       moveReason:
-        "The price fell more than it usually does in a day, which on its own says nothing about the company.",
+        "The price fell sharply in one day, which on its own says nothing about the company.",
       thesisStatus: "intact",
       earningsNote: "",
       action: "add",
       trimPct: null,
-      addLevel: `around $${price}`,
-      verdict: pulseSuggestion({
-        action: "add",
-        addLevel: `around $${price}`,
-        ticker: candidate.ticker,
-      }),
+      // Deliberately empty. This branch used to hand back "around $217.35",
+      // today's price with a word in front of it, which the card then
+      // printed as a level to think about: a buy level invented by an if
+      // statement and presented as one somebody had reasoned. Worse, a
+      // candidate with no price at all produced the literal words
+      // "around $spot".
+      addLevel: "",
+      verdict: "",
       thesisBreak: "",
     };
   }
 
   return {
     ticker: candidate.ticker,
+    fallback: true,
     situation: [
-      "Nothing unusual happened today.",
-      "The price stayed inside its normal daily range.",
+      "The price did not move much today.",
+      "Nothing here has read the news for this one.",
     ],
     moveReason:
-      "The price stayed inside the range it normally moves in on a day.",
+      "The price stayed close to where it was, and nothing here has read the news for it.",
     thesisStatus: "intact",
     earningsNote: "",
     action: "hold",
     trimPct: null,
     addLevel: "",
-    verdict: pulseSuggestion({ action: "hold", ticker: candidate.ticker }),
+    verdict: "",
     thesisBreak: "",
   };
 }
