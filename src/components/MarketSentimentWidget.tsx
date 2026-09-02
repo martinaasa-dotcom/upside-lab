@@ -68,6 +68,9 @@ const INDEX_TICKER = "^GSPC";
 const INDEX_NAME = "The S&P 500";
 const INDEX_QUOTES_URL = quotesUrl([INDEX_TICKER]);
 
+/** Said once, then never again on this device. */
+const DRAG_HINT_KEY = "upside-gauge-drag-hint-v1";
+
 type QuotesPayload = {
   quotes?: Record<string, { changePercent?: number | null } | undefined>;
 };
@@ -98,6 +101,26 @@ export function MarketSentimentWidget({
   );
   const [indexPct, setIndexPct] = useState<number | null>(null);
   const [showScales, setShowScales] = useState(false);
+  const [dragHintDone, setDragHintDone] = useState(true);
+
+  useEffect(() => {
+    try {
+      setDragHintDone(
+        window.localStorage.getItem(DRAG_HINT_KEY) === "1"
+      );
+    } catch {
+      setDragHintDone(true);
+    }
+  }, []);
+
+  const learnedDrag = useCallback(() => {
+    setDragHintDone(true);
+    try {
+      window.localStorage.setItem(DRAG_HINT_KEY, "1");
+    } catch {
+      // A reader with storage off is told once per visit, which is fine.
+    }
+  }, []);
   const rootRef = useRef<HTMLDivElement>(null);
   const metricsRef = useRef(metrics);
   metricsRef.current = metrics;
@@ -234,6 +257,9 @@ export function MarketSentimentWidget({
     [indexPct, yoursPct, holdings]
   );
   const answer = marketOrYouLine(split, INDEX_NAME, (n) => percent(n));
+  // The tracks are always drawn from `md` up, so the hint is too; on a
+  // phone it waits for the reader to open the scales.
+  const showDragHint = !dragHintDone;
   const standouts = standoutLine(split, (n) => percent(n));
 
   return (
@@ -284,6 +310,7 @@ export function MarketSentimentWidget({
           className="grid grid-cols-1 gap-5 md:grid-cols-3 md:gap-x-6 md:gap-y-5"
           role="group"
           aria-label="Market gauges"
+          onPointerDown={learnedDrag}
         >
           {card.gauges.map((gauge) => (
             <SentimentGaugeRow
@@ -293,6 +320,23 @@ export function MarketSentimentWidget({
             />
           ))}
         </div>
+        {/*
+          * The best teaching interaction on this page had no affordance.
+          * Every bar is draggable and prints what another reading would
+          * mean under the finger, and the only mention of it was the last
+          * sentence of an info dot. One muted line says so, once, and never
+          * again after the reader has used it.
+          */}
+        {showDragHint ? (
+          <p
+            className={cn(
+              "text-sm text-muted-foreground",
+              showScales ? undefined : "hidden md:block"
+            )}
+          >
+            Drag along a bar to see what another reading would mean.
+          </p>
+        ) : null}
         {/*
           * The scales, and the 200-day picture with them, wait for a tap on
           * a phone. Measured at 390 the three tracks, their ticks, their

@@ -1110,7 +1110,18 @@ export const OverviewDashboard = memo(function OverviewDashboard({
    * appears once there is enough to ask an honest question about.
    */
   const recallInput = useMemo(() => {
-    if (tickers.length < 2 || totals.equityValue <= 0) return null;
+    if (tickers.length < 2 || totals.totalValue <= 0) return null;
+    /*
+     * Everything in the deck is measured against everything you own, so a
+     * figure in an answer can be checked against the hero above it. That
+     * takes one adjustment: the day's move and an ordinary day are both
+     * worked out from the stocks, and cash does not move, so both are
+     * scaled onto the same total. Scaling both by the same factor leaves
+     * the "was today ordinary" ratio exactly as it was, and makes the
+     * dollars come out at the figure the hero already printed.
+     */
+    const stocksShare =
+      totals.totalValue > 0 ? totals.equityValue / totals.totalValue : 1;
     return {
       holdings: tickers.map((t) => ({
         ticker: t.ticker,
@@ -1121,15 +1132,25 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         value: t.currentValue,
         todayPct: t.todayPct,
       })),
-      totalValue: totals.equityValue,
+      totalValue: totals.totalValue,
       cash: totals.cash,
-      todayPct: totals.todayPct,
-      typical,
+      todayPct:
+        totals.todayPct != null ? totals.todayPct * stocksShare : null,
+      typical: typical
+        ? { ...typical, typicalPct: typical.typicalPct * stocksShare }
+        : null,
       money: (n: number) => currency(n, 0),
-      percent: (n: number) => percent(n, 0),
+      /*
+       * A whole percent for a share of the portfolio, one decimal for a
+       * day's move. "37% of your portfolio" is how a person says it, and
+       * "0%" for a day that moved three tenths would be a figure rounded
+       * away rather than stated.
+       */
+      percent: (n: number) => percent(n, Math.abs(n) < 0.05 ? 1 : 0),
     };
   }, [
     tickers,
+    totals.totalValue,
     totals.equityValue,
     totals.cash,
     totals.todayPct,
