@@ -34,6 +34,22 @@ are functional app state rather than tracking.
 | `sb-uzrnybyggznpvgxgrvgl-auth-token` (may be split into `…-auth-token.0`, `…-auth-token.1` when the JWT is large) | `@supabase/ssr`, first-party, on our domain | The signed-in session. Without it you are signed out on every request. | Tracks the Supabase session/refresh-token lifetime; cleared on sign-out and by account deletion (`purgeClientSession()`). | **Strictly necessary** — exempt. No banner required. |
 | Google sign-in cookies | Google, on `google.com` / `accounts.google.com` | Google's own sign-in. | Google's, not ours. | Set by Google under Google's policies during the OAuth redirect. We never read them and they are not on our domain. |
 
+### Attributes on the session cookie
+
+Set by `sessionCookieOptions` (`src/lib/supabase/cookie-options.ts`) and
+passed to all three Supabase clients this app builds: the request-scoped
+server client (`server-auth.ts`), the proxy's session refresh (`proxy.ts`)
+and the browser client (`browser.ts`). `cookie-options.test.ts` and
+`proxy.test.ts` hold each of them to it.
+
+| Attribute | Value | Why |
+|---|---|---|
+| `Secure` | on, except on a local development server (`localhost`, `127.0.0.1`, `*.local`) | `@supabase/ssr` says nothing about this attribute on its own, so before 2026-09-02 the cookie went out without it and a browser would send the session over plain http to this host. HSTS closes that leg on a return visit; this closes it on the first. The local exception exists because Safari refuses a Secure cookie on plain http and `next dev` is plain http. |
+| `SameSite` | `Lax` | The first line of the CSRF defence; `proxy.ts` and `same-origin.ts` are the second. |
+| `Path` | `/` | One session for the whole app. |
+| `HttpOnly` | **off** | On purpose: the browser client reads the session out of `document.cookie` (`AuthProvider` asks it who is signed in and listens for changes), so an HttpOnly cookie would sign the page out while the server still had a session. The defence against a script on the page reading it is the CSP, not this flag. |
+| `Max-Age` | 400 days, the library's own | The browser cap on a cookie lifetime; the session inside it expires on Supabase's schedule and is refreshed by the proxy. |
+
 The name above is the `@supabase/ssr` convention
 (`sb-<project-ref>-auth-token`) applied to this app's project ref, derived
 from the naming convention rather than independently observed in a
