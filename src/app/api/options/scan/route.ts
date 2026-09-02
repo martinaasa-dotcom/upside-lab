@@ -7,6 +7,7 @@ import { PORTFELL_TABLES } from "@/lib/supabase/tables";
 import { rateLimitJson } from "@/lib/rate-limit";
 import { takeDurableRateLimit } from "@/lib/rate-limit-durable";
 import { isRecord, readFiniteNumber, readString } from "@/lib/unknown";
+import { isQuotableTicker } from "@/lib/ticker";
 import { NextRequest, NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
 import { optionsScanPostSchema } from "@/lib/api-schemas";
@@ -14,6 +15,9 @@ import { parseJsonBody } from "@/lib/parse-json-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Daily closes worth reading to shape one strike. A year is plenty. */
+const MAX_PRICE_HISTORY = 400;
 
 async function handlePOST(req: NextRequest) {
   const auth = await requireAuthUser();
@@ -53,13 +57,26 @@ async function handlePOST(req: NextRequest) {
         const ticker = readString(row.ticker);
         const spot = readFiniteNumber(row.spot);
         const shares = readFiniteNumber(row.shares);
-        if (!ticker || isCoinSymbol(ticker) || spot == null || shares == null) {
+        // Each name here becomes an option chain lookup, so free text is a
+        // provider call that can never answer. The schema caps the list at
+        // fifty rows; this caps what a row may be.
+        if (
+          !ticker ||
+          !isQuotableTicker(ticker) ||
+          isCoinSymbol(ticker) ||
+          spot == null ||
+          shares == null
+        ) {
           return [];
         }
+        // Only recent closes shape a strike, and the body may carry a
+        // megabyte of them. Keep the tail, which is the recent end.
         const history = Array.isArray(row.price_history)
-          ? row.price_history.filter(
-              (n): n is number => typeof n === "number" && Number.isFinite(n)
-            )
+          ? row.price_history
+              .filter(
+                (n): n is number => typeof n === "number" && Number.isFinite(n)
+              )
+              .slice(-MAX_PRICE_HISTORY)
           : undefined;
         return [
           {

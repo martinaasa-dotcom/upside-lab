@@ -44,3 +44,27 @@ export function isSafePositiveMoney(n: number): boolean {
 export function isSafeSignedMoney(n: number): boolean {
   return Number.isFinite(n) && Math.abs(n) <= MAX_SAFE_MONEY;
 }
+
+/**
+ * A Call % is a fraction of the share price, so 0.15 is fifteen per cent.
+ * Above 1 is a strike more than double the price, which is not a covered
+ * call anybody writes, and below 0 puts the strike under the price the
+ * reader already owns at. Both reach the covered-call table, the write
+ * plan and the Sunday letter as a real strike price, so the shape is
+ * settled where the number is stored rather than where it is drawn.
+ */
+export function isSafeCallPct(n: number): boolean {
+  return Number.isFinite(n) && n >= 0 && n <= 1;
+}
+
+/**
+ * A holding's place in its portfolio's list. Whole, and small: it only
+ * orders rows on one screen, and an import writes it as a counter. Bounding
+ * it keeps a number too large for the column out of the database, where it
+ * would come back as a failed save with nothing on screen explaining it.
+ */
+export const MAX_SORT_ORDER = 9_999;
+
+export function isSafeSortOrder(n: number): boolean {
+  return Number.isInteger(n) && n >= 0 && n <= MAX_SORT_ORDER;
+}

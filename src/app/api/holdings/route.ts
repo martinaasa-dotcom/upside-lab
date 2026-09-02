@@ -11,7 +11,12 @@ import { logError } from "@/lib/error-log";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
 import { callPctForTicker, isCoinSymbol, matchCoinQuery } from "@/lib/coins";
-import { isSafePositiveMoney, isSafeShares } from "@/lib/input-guard";
+import {
+  isSafeCallPct,
+  isSafePositiveMoney,
+  isSafeShares,
+  isSafeSortOrder,
+} from "@/lib/input-guard";
 import type { TablesUpdate } from "@/lib/supabase/database.types";
 import { HOLDING_COLUMNS, PORTFELL_TABLES } from "@/lib/supabase/tables";
 import { isPlausibleTicker, normalizeYahooTicker } from "@/lib/ticker";
@@ -203,18 +208,52 @@ async function handlePOST(req: NextRequest) {
     return NextResponse.json({ error: "Buy price must be a positive number" }, { status: 400 });
   }
 
+  // Every one of these is a price or a place in a list, and each reaches a
+  // reader as a fact: a target of -1 or 1e300 is drawn on the forecast grid
+  // and handed to Margus, and a Call % of 5 becomes a strike price on the
+  // covered-call table. The schema only says they are finite numbers, so
+  // the range is settled here, before anything is stored.
+  const eoyTarget = body.eoy_target != null ? Number(body.eoy_target) : null;
+  const stockTarget =
+    body.stock_target_override != null
+      ? Number(body.stock_target_override)
+      : null;
+  if (eoyTarget != null && !isSafePositiveMoney(eoyTarget)) {
+    return NextResponse.json(
+      { error: "End of year target must be a positive number" },
+      { status: 400 }
+    );
+  }
+  if (stockTarget != null && !isSafePositiveMoney(stockTarget)) {
+    return NextResponse.json(
+      { error: "Stock target must be a positive number" },
+      { status: 400 }
+    );
+  }
+  const callPct = callPctForTicker(ticker, body.target_call_pct);
+  if (!isSafeCallPct(callPct)) {
+    return NextResponse.json(
+      { error: "Call % must be between 0 and 100" },
+      { status: 400 }
+    );
+  }
+  const sortOrder = Number(body.sort_order ?? 99);
+  if (!isSafeSortOrder(sortOrder)) {
+    return NextResponse.json(
+      { error: "Sort order must be a small whole number" },
+      { status: 400 }
+    );
+  }
+
   const row = {
     portfolio_id: portfolioId,
     ticker,
     shares,
     buy_price: buyPrice,
-    eoy_target: body.eoy_target != null ? Number(body.eoy_target) : null,
-    target_call_pct: callPctForTicker(ticker, body.target_call_pct),
-    stock_target_override:
-      body.stock_target_override != null
-        ? Number(body.stock_target_override)
-        : null,
-    sort_order: Number(body.sort_order ?? 99),
+    eoy_target: eoyTarget,
+    target_call_pct: callPct,
+    stock_target_override: stockTarget,
+    sort_order: sortOrder,
     updated_at: new Date().toISOString(),
   };
 
@@ -402,20 +441,53 @@ async function handlePATCH(req: NextRequest) {
     }
     patch.buy_price = n;
   }
+  // Same ranges as the POST above, and for the same reason: an edit that
+  // sets a target to a negative number or a Call % to 500 reaches the
+  // forecast grid, the covered-call table and the Sunday letter as a price.
+  // Clearing a target is a different thing and is handled above, by the
+  // two null branches.
   if (body.eoy_target !== undefined && body.eoy_target !== null) {
-    patch.eoy_target = Number(body.eoy_target);
+    const n = Number(body.eoy_target);
+    if (!isSafePositiveMoney(n)) {
+      return NextResponse.json(
+        { error: "End of year target must be a positive number" },
+        { status: 400 }
+      );
+    }
+    patch.eoy_target = n;
   }
   if (
     body.stock_target_override !== undefined &&
     body.stock_target_override !== null
   ) {
-    patch.stock_target_override = Number(body.stock_target_override);
+    const n = Number(body.stock_target_override);
+    if (!isSafePositiveMoney(n)) {
+      return NextResponse.json(
+        { error: "Stock target must be a positive number" },
+        { status: 400 }
+      );
+    }
+    patch.stock_target_override = n;
   }
   if (body.target_call_pct !== undefined) {
-    patch.target_call_pct = Number(body.target_call_pct);
+    const n = Number(body.target_call_pct);
+    if (!isSafeCallPct(n)) {
+      return NextResponse.json(
+        { error: "Call % must be between 0 and 100" },
+        { status: 400 }
+      );
+    }
+    patch.target_call_pct = n;
   }
   if (body.sort_order !== undefined) {
-    patch.sort_order = Number(body.sort_order);
+    const n = Number(body.sort_order);
+    if (!isSafeSortOrder(n)) {
+      return NextResponse.json(
+        { error: "Sort order must be a small whole number" },
+        { status: 400 }
+      );
+    }
+    patch.sort_order = n;
   }
 
   const casOnShares = body.shares !== undefined;

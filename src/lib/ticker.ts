@@ -260,6 +260,33 @@ export function isPlausibleTicker(ticker: string): boolean {
 }
 
 /**
+ * Is this name worth asking a market provider about at all?
+ *
+ * A name that is not a ticker is the most expensive thing the market layer
+ * can be handed, not the cheapest: nothing resolves it, so it walks the
+ * bare symbol plus every European exchange suffix at two upstream calls
+ * each before anyone learns it was free text. So the shape is checked
+ * before a provider is contacted rather than after.
+ *
+ * The typed spelling counts as well as the stored one. A reader whose
+ * holding still reads LON:VOD is asking about a real London listing, and
+ * `normalizeYahooTicker` is what turns it into VOD.L on the way out, so a
+ * name is quotable when either form is a real symbol shape. Coins
+ * (BTC-USD), indexes (^GSPC), currency pairs (EURUSD=X) and futures (ES=F)
+ * all pass on the first test.
+ */
+export function isQuotableTicker(raw: string): boolean {
+  const typed = raw.trim().toUpperCase();
+  if (!typed) return false;
+  // A space inside is free text, and it has to be refused before the
+  // normalized form is consulted: `normalizeYahooTicker` strips whitespace,
+  // so "HELLO WORLD" comes back as HELLOWORLD, which is a perfectly good
+  // symbol shape and a name no provider will ever resolve.
+  if (/\s/.test(typed)) return false;
+  return isPlausibleTicker(typed) || isPlausibleTicker(normalizeYahooTicker(typed));
+}
+
+/**
  * Resolve a broker screenshot ticker (+ optional ISIN) to a Yahoo symbol.
  * Prefer explicit exchange suffixes; else map known EU names; else ISIN country.
  */

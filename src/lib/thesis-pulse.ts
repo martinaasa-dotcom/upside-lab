@@ -668,6 +668,27 @@ export function stripTrailingScanStop(text: string): string {
   return text.replace(/[.]+$/g, "").trimEnd();
 }
 
+/**
+ * The scan line without the cashtag it opens with.
+ *
+ * Deliberately not a regular expression built from the ticker. A ticker is
+ * stored data and reaches here from a CSV or a screenshot import, neither
+ * of which checks the symbol shape, so a holding saved as "A(B" would have
+ * made `new RegExp("^\\$A(B\\s+")` throw for an unterminated group. That
+ * throw happens while Pulse renders, which takes the whole room down for
+ * the reader and for every co-owner of the portfolio, over one bad row.
+ * `startsWith` cannot be given a ticker it will not survive.
+ */
+export function scanLineBody(ticker: string, line: string): string {
+  const tag = cashtag(ticker);
+  const trimmed = line.trim();
+  const opensWithTag =
+    trimmed.toLowerCase().startsWith(tag.toLowerCase()) &&
+    /^\s/.test(trimmed.slice(tag.length));
+  const stripped = opensWithTag ? trimmed.slice(tag.length).trim() : trimmed;
+  return stripTrailingScanStop(stripped || line);
+}
+
 /** Compare scan bodies so "$RDDT  Looks like a chase." matches the same line on $NBIS. */
 export function scanLineFingerprint(
   line: string,
