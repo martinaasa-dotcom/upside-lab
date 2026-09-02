@@ -203,7 +203,7 @@ export type CircleHomeProps = {
   achievements: CommunityAchievement[];
   sharedNames: OverlapRow[];
   sharedReasons: Map<string, SharedReason[]>;
-  youHold: Set<string>;
+  needYourReason: Set<string>;
   avatarByName: Map<string, string>;
   communityThemeBreakdown: ThemeSlice[];
   yourThemeBreakdown: ThemeSlice[];
@@ -214,6 +214,8 @@ export type CircleHomeProps = {
   communityId: string;
   duelCache: CommunityDuelCache | null;
   isAdmin: boolean;
+  /** People who have asked to join and are waiting on an admin. */
+  waitingToJoin: number;
   inviteBusy: boolean;
   inviteUrl: string | null;
   createInvite: () => void;
@@ -234,7 +236,7 @@ export function CircleHome({
   achievements,
   sharedNames,
   sharedReasons,
-  youHold,
+  needYourReason,
   avatarByName,
   communityThemeBreakdown,
   yourThemeBreakdown,
@@ -245,6 +247,7 @@ export function CircleHome({
   communityId,
   duelCache,
   isAdmin,
+  waitingToJoin,
   inviteBusy,
   inviteUrl,
   createInvite,
@@ -279,10 +282,21 @@ export function CircleHome({
         ariaLabel="Circle view"
         value={shownView}
         onChange={setView}
+        /*
+          The tab was called League and had no league in it: the only
+          ranking, the Today board, sits on Overview, and what is behind
+          this tab is each person's power animal, what stands out about
+          them, what the circle owns and the day's facts. "Animals" is what
+          a reader will actually find. The id stays `play`, so the
+          `?view=league` links already in circulation still land here.
+        */
         options={[
           { id: "overview" as const, label: "Overview" },
-          ...(hasLeague ? [{ id: "play" as const, label: "League" }] : []),
-          { id: "members" as const, label: "Members" },
+          ...(hasLeague ? [{ id: "play" as const, label: "Animals" }] : []),
+          {
+            id: "members" as const,
+            label: waitingToJoin > 0 ? `Members · ${waitingToJoin}` : "Members",
+          },
         ]}
       />
 
@@ -744,7 +758,7 @@ export function CircleHome({
         <ReasonsSheet
           ticker={openTicker}
           reasons={sharedReasons.get(openTicker) ?? []}
-          youHold={youHold.has(openTicker)}
+          youNeedsReason={needYourReason.has(openTicker)}
           onClose={() => setOpenTicker(null)}
         />
       ) : null}
@@ -763,12 +777,13 @@ export function CircleHome({
 function ReasonsSheet({
   ticker,
   reasons,
-  youHold,
+  youNeedsReason,
   onClose,
 }: {
   ticker: string;
   reasons: SharedReason[];
-  youHold: boolean;
+  /** True only when the reader owns it and has written nothing yet. */
+  youNeedsReason: boolean;
   onClose: () => void;
 }) {
   const anyReason = reasons.some((r) => r.reason);
@@ -822,7 +837,7 @@ function ReasonsSheet({
               Nobody has written down why they own this one.
             </p>
           ) : null}
-          {youHold ? (
+          {youNeedsReason ? (
             <p className="text-sm leading-relaxed text-muted-foreground">
               You own it too. Write your reason in Pulse and it shows up here.
             </p>

@@ -272,13 +272,32 @@ export function buildCommunityFunFacts(
   const order = shuffleInPlace(rng, MAKERS.map((_, i) => i));
   const out: string[] = [];
   const seen = new Set<string>();
+  const named = new Set<string>();
   for (const idx of order) {
     if (out.length >= limit) break;
     const candidate = MAKERS[idx]!(ctx);
     if (!candidate) continue;
     const key = candidate.toLowerCase();
     if (seen.has(key)) continue;
+    /*
+      One person, one fact.
+
+      Whoever tops the concentration measure usually tops the one-kind and
+      the biggest-holding ones as well, because all three are asking the
+      same question from different angles. Measured on a real circle, three
+      of the six facts were about Liisa, so a list of six read as two facts
+      about one person. A fact naming exactly one member is skipped once
+      that member already has one; a fact naming two (the gap between the
+      best and the hardest day) or none is always allowed, since it is
+      about the circle rather than about somebody.
+    */
+    const mentioned = members
+      .map((m) => m.name)
+      .filter((name) => name && candidate.includes(name));
+    const only = mentioned.length === 1 ? mentioned[0]! : null;
+    if (only && named.has(only)) continue;
     seen.add(key);
+    if (only) named.add(only);
     out.push(candidate);
   }
   return out;

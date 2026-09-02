@@ -92,6 +92,7 @@ export function CommunitiesList() {
   const [startPeriod, setStartPeriod] = useState(initialClass.period);
   const [visibility, setVisibility] = useState<"public" | "private">("private");
   const [startOpen, setStartOpen] = useState(false);
+  const [warm, setWarm] = useState(0);
   const [error, setError] = useState<string | null>(null);
   // Only blocks on a spinner when there's truly nothing cached to show —
   // same instant-first-paint pattern as Thesis Pulse and the community detail
@@ -129,7 +130,16 @@ export function CommunitiesList() {
       const rows = (data.communities ?? []) as CommunityListRow[];
       setCommunities(rows);
       saveCommunityListCache(rows);
-      prefetchCommunityList(rows);
+      /*
+        The row wants to say how many people are in each circle, and that
+        answer lives in the copy `prefetchCommunity` warms rather than in
+        the list response. Warming is fire and forget, so nothing told this
+        component when the answer arrived and every row rendered without
+        one. `warm` is the nudge: one re-render once the copies have landed.
+      */
+      void Promise.all(rows.map((row) => prefetchCommunity(row.id))).then(() => {
+        if (!signal?.aborted) setWarm((n) => n + 1);
+      });
     } catch (e) {
       if (isAbortError(e) || signal?.aborted) return;
       if (!hadCache) setError(e instanceof Error ? e.message : "Couldn't load your circles.");
@@ -340,8 +350,12 @@ export function CommunitiesList() {
                     </p>
                   </li>
                 )}
-                {communities
-                  .map((c) => (
+                {communities.map((c) => {
+                  // `warm` is only in the dependency list to re-read the
+                  // cache after the copies land; see `load` above.
+                  void warm;
+                  const people = peopleLabel(c.id);
+                  return (
                   <li key={c.id}>
                     <Link
                       href={`/communities/${c.id}`}
@@ -383,9 +397,9 @@ export function CommunitiesList() {
                         ) : null}
                       </span>
                       <span className="flex shrink-0 items-center gap-2">
-                        {peopleLabel(c.id) ? (
+                        {people ? (
                           <span className="text-sm text-muted-foreground">
-                            {peopleLabel(c.id)}
+                            {people}
                           </span>
                         ) : null}
                         {c.role === "admin" ? (
@@ -395,7 +409,8 @@ export function CommunitiesList() {
                       </span>
                     </Link>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </Panel>

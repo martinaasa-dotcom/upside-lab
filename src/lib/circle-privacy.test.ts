@@ -134,6 +134,54 @@ describe("a circle fact sounds like a person wrote it", () => {
     }
   });
 
+  it("gives one person one fact, not three", () => {
+    // Whoever tops the concentration measure usually tops the one-kind and
+    // the biggest-holding ones too. Measured on a real circle, three of six
+    // facts were about the same person.
+    const hogsEverything = personality({
+      riskScore: 93,
+      diversificationScore: 1,
+      specialistScore: 93,
+      convictionScore: 93,
+      cashPct: 30,
+      topTicker: "BTC",
+      dominantTheme: "crypto",
+    });
+    const members = [
+      {
+        name: "Liisa",
+        totalValue: 1000,
+        todayDollar: -20,
+        todayPct: -0.02,
+        roiPct: 0,
+        personality: hogsEverything,
+      },
+      {
+        name: "Martin",
+        totalValue: 1000,
+        todayDollar: 10,
+        todayPct: 0.01,
+        roiPct: 0,
+        personality: personality({ themeCount: 4 }),
+      },
+      {
+        name: "Jaan",
+        totalValue: 1000,
+        todayDollar: 1,
+        todayPct: 0.001,
+        roiPct: 0,
+        personality: personality({}),
+      },
+    ];
+    for (let day = 0; day < 20; day += 1) {
+      const facts = buildCommunityFunFacts(members, `2026-04-${day}`, 6);
+      const aboutLiisa = facts.filter(
+        (f) => f.includes("Liisa") && !f.includes("Martin") && !f.includes("Jaan")
+      );
+      expect(aboutLiisa.length, facts.join(" | ")).toBeLessThanOrEqual(1);
+    }
+  });
+
   it("does not restate an award that is already on screen above it", () => {
     const members = [
       {
@@ -142,15 +190,25 @@ describe("a circle fact sounds like a person wrote it", () => {
         todayDollar: 0,
         todayPct: 0,
         roiPct: 0,
-        personality: personality({ riskScore: 95 }),
+        personality: personality({ riskScore: 95, diversificationScore: 20 }),
       },
       {
+        // Martin takes every other measure, so the only fact Amanda can be
+        // the subject of is the jumpy one. Otherwise the one-fact-per-person
+        // rule could be what drops it, and this test would pass or fail for
+        // the wrong reason.
         name: "Martin",
         totalValue: 10_000,
         todayDollar: 0,
         todayPct: 0,
         roiPct: 0,
-        personality: personality({ riskScore: 10 }),
+        personality: personality({
+          riskScore: 10,
+          diversificationScore: 90,
+          themeCount: 5,
+          cashPct: 30,
+          convictionScore: 45,
+        }),
       },
     ];
     const withAward = buildCommunityFunFacts(

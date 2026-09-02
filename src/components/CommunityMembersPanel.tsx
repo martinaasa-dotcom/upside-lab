@@ -42,6 +42,7 @@ import {
 import type { Holding, Quote } from "@/lib/types";
 import {
   Check,
+  ChevronRight,
   Copy,
   Link2,
   LogOut,
@@ -462,7 +463,8 @@ export function CommunityMembersPanel({
                         hint. Labels above the fields instead.
                       */}
                       <details className="group">
-                        <summary className="cursor-pointer list-none text-sm text-muted-foreground hover:text-foreground">
+                        <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+                          <ChevronRight className="size-3.5 transition-transform group-open:rotate-90 motion-reduce:transition-none" />
                           Link options
                         </summary>
                         <div className="mt-3 flex flex-col gap-3">

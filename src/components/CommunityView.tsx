@@ -47,6 +47,7 @@ import type {
 import { ReadOnlyHoldings } from "@/components/CircleCards";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Segmented } from "@/components/ui/Panel";
 import { combineHouseholdNames } from "@/lib/auth/identity";
 import { copyText } from "@/lib/copy-text";
@@ -904,17 +905,26 @@ export function CommunityView({ communityId }: Props) {
     return map;
   }, [sharedNames, memberStats, theses]);
 
-  /** What the reader owns, so the reason sheet can offer to add theirs. */
-  const youHold = useMemo(() => {
+  /**
+   * Companies the reader owns and has written nothing about, so the reason
+   * sheet asks only the person it can actually ask. Owning it is not enough:
+   * a reader whose own reason is already on the sheet was being told to go
+   * and write one.
+   */
+  const needYourReason = useMemo(() => {
     const you = memberStats.find((m) => m.isYou);
     if (!you) return new Set<string>();
     const mySheets = new Set(
       ownership.filter((o) => o.user_id === you.id).map((o) => o.portfolio_id)
     );
+    const mine = theses[you.id] ?? {};
     return new Set(
-      holdings.filter((h) => mySheets.has(h.portfolio_id)).map((h) => h.ticker)
+      holdings
+        .filter((h) => mySheets.has(h.portfolio_id))
+        .map((h) => h.ticker)
+        .filter((ticker) => !mine[ticker]?.trim())
     );
-  }, [memberStats, ownership, holdings]);
+  }, [memberStats, ownership, holdings, theses]);
 
   /*
     What changed since the reader last opened this circle. Six lines at
@@ -1486,8 +1496,21 @@ export function CommunityView({ communityId }: Props) {
         </AppHeader>
 
         <main id="main" className={PAGE_MAIN_CLASS}>
+          {/*
+            A skeleton in the shape of the room that is about to arrive,
+            rather than one grey sentence and then the whole page popping
+            in. The list this came from has used skeletons all along.
+          */}
           {loading && (
-            <p className="text-sm text-muted-foreground">Loading …</p>
+            <div className="flex flex-col gap-4" aria-hidden>
+              <Skeleton className="h-8 w-2/3" />
+              <Skeleton className="h-10 w-64" />
+              <div className="grid grid-cols-2 gap-3">
+                <Skeleton className="h-24" />
+                <Skeleton className="h-24" />
+              </div>
+              <Skeleton className="h-52" />
+            </div>
           )}
           {error && (
             <Alert variant="destructive">
@@ -1533,7 +1556,7 @@ export function CommunityView({ communityId }: Props) {
                 achievements={achievements}
                 sharedNames={sharedNames}
                 sharedReasons={sharedReasons}
-                youHold={youHold}
+                needYourReason={needYourReason}
                 avatarByName={avatarByName}
                 communityThemeBreakdown={communityThemeBreakdown}
                 yourThemeBreakdown={yourThemeBreakdown}
@@ -1544,6 +1567,7 @@ export function CommunityView({ communityId }: Props) {
                 communityId={communityId}
                 duelCache={duelCache}
                 isAdmin={isAdmin}
+                waitingToJoin={isAdmin ? joinRequests.length : 0}
                 inviteBusy={busy}
                 inviteUrl={inviteUrl}
                 createInvite={() => void createInvite()}

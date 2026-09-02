@@ -354,7 +354,13 @@ export function ReadOnlyHoldings({
               const why = theses?.[h.ticker]?.trim();
               return (
                 <Fragment key={h.id}>
-                <FluidRow>
+                {/*
+                  The row loses its own hairline when a reason follows, so
+                  the two read as one block. Left as it was, the rule ran
+                  between a company and its own reason and the sentence
+                  looked like it belonged to the row underneath.
+                */}
+                <FluidRow className={why ? "border-b-0" : undefined}>
                   <div className={cn(tickerCell, "font-medium")}>
                     <TickerSymbol
                       ticker={h.ticker}
