@@ -63,9 +63,13 @@ describe("closing puts the address back", () => {
      * them to, and the room underneath has not changed, so a close that
      * sent the page to the top would read as a reload.
      */
+    const start = DASHBOARD.indexOf("const onMargusOpenChange");
+    // Up to and including the `});` that closes the replace call itself,
+    // since `{ scroll: false })` is the first `})` after the opening line.
+    const replaceAt = DASHBOARD.indexOf("router.replace", start);
     const handler = DASHBOARD.slice(
-      DASHBOARD.indexOf("const onMargusOpenChange"),
-      DASHBOARD.indexOf("});", DASHBOARD.indexOf("const onMargusOpenChange"))
+      start,
+      DASHBOARD.indexOf("});", replaceAt) + 3
     );
     expect(handler).toMatch(/if \(open \|\| !onMargus\) return;/);
     expect(handler).toMatch(/router\.replace\("\/", \{ scroll: false \}\)/);
