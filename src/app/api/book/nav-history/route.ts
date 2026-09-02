@@ -3,10 +3,7 @@ import { ownedBookPortfolios } from "@/lib/classroom";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
-import {
-  NIGHTLY_SNAPSHOT_WINDOW,
-  type BookSnapshotPayload,
-} from "@/lib/book-snapshot";
+import { NIGHTLY_SNAPSHOT_WINDOW } from "@/lib/book-snapshot";
 import {
   reconstructAssumedNav,
 } from "@/lib/market/assumed-nav";
@@ -23,6 +20,39 @@ export const maxDuration = 30;
 const MAX_TICKERS = 24;
 
 type NavPoint = { date: string; nav: number };
+
+/*
+  A nightly row is every portfolio and every holding in the product, and this
+  route reads one small map out of it: payload.marks.navByPortfolio, a
+  portfolio id against what it was worth that night. Fourteen whole nightly
+  payloads therefore crossed the wire on every Home open, and that figure
+  grows with the product rather than with the caller. PostgREST can project
+  inside the json column, so what comes back now is that map and the date
+  beside it.
+
+  The name is pinned with an alias rather than left to the server to choose.
+  A bare arrow select is named after the last key by current PostgREST and
+  after the whole expression by older ones, and this route reading the wrong
+  name would not raise: it would find undefined on every row, skip all of
+  them, and draw no line at all. The reader below still accepts either
+  spelling, for the same reason.
+*/
+const NAV_COL = "navByPortfolio";
+const NAV_PATH = "payload->marks->navByPortfolio";
+
+/**
+ * The night's marks, or null for a row that has none. Older snapshots were
+ * written before marks existed, and Postgres walks an arrow path off a
+ * missing key to null rather than failing, so a null here is an ordinary
+ * older night rather than a failed read.
+ */
+function navMapOf(row: unknown): Record<string, unknown> | null {
+  if (!row || typeof row !== "object") return null;
+  const named = row as Record<string, unknown>;
+  const value = named[NAV_COL] ?? named[NAV_PATH];
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
 
 async function snapshotPointsForUser(
   userId: string,
@@ -55,7 +85,7 @@ async function snapshotPointsForUser(
   // constant that governs retention so the two can't drift apart.
   const { data, error } = await supabase
     .from(PORTFELL_TABLES.snapshots)
-    .select("created_at, payload")
+    .select(`created_at, ${NAV_COL}:${NAV_PATH}`)
     .eq("kind", "nightly")
     .order("created_at", { ascending: false })
     .limit(NIGHTLY_SNAPSHOT_WINDOW);
@@ -64,12 +94,11 @@ async function snapshotPointsForUser(
 
   const points: NavPoint[] = [];
   for (const row of [...(data ?? [])].reverse()) {
-    const payload = row.payload as BookSnapshotPayload | null;
-    const marks = payload?.marks;
-    if (!marks?.navByPortfolio) continue;
+    const navByPortfolio = navMapOf(row);
+    if (!navByPortfolio) continue;
     let nav = 0;
     let hit = false;
-    for (const [id, value] of Object.entries(marks.navByPortfolio)) {
+    for (const [id, value] of Object.entries(navByPortfolio)) {
       if (!ownedSet.has(id)) continue;
       hit = true;
       nav += Number(value) || 0;
