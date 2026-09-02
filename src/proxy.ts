@@ -11,6 +11,7 @@ import {
   isVercelPreviewHost,
   redirectTarget,
 } from "@/lib/site-url";
+import { sessionCookieOptions } from "@/lib/supabase/cookie-options";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase/env";
 
 /**
@@ -135,6 +136,7 @@ export async function proxy(request: NextRequest) {
   const key = supabaseAnonKey();
   if (url && key) {
     const supabase = createServerClient(url, key, {
+      cookieOptions: sessionCookieOptions(request.nextUrl.hostname),
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -156,6 +158,19 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
+/*
+  Every path but the build output and the files in `public/`. The exclusion
+  used to be `.*\..*`, any path with a dot in it, which is the shape Next's
+  own example uses and which reads as "static files". It is not: a circle
+  called `a.b`, a portfolio slug like `v1.2` and any API id carrying a dot
+  matched it too, and a request the proxy never sees gets no CSP header, no
+  forged-request gate and no mutation limit. So the exclusion names the
+  extensions a static file actually has, at the end of the path, and
+  everything else comes through. `src/proxy.test.ts` compiles this exactly
+  as the build does and walks both lists.
+*/
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|.*\\..*).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|.*\\.(?:ico|png|jpe?g|gif|svg|webp|avif|css|js|mjs|map|json|txt|xml|webmanifest|woff2?|ttf|otf|mp4|webm|pdf)$).*)",
+  ],
 };

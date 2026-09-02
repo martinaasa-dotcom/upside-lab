@@ -1,14 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import type { User } from "@supabase/supabase-js";
 import type { AppSupabaseClient } from "@/lib/supabase/client-types";
 import type { Database } from "@/lib/supabase/database.types";
 import { NextResponse } from "next/server";
+import { sessionCookieOptions } from "@/lib/supabase/cookie-options";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase/env";
 import { supabaseFetch } from "@/lib/supabase/http";
 
 function attachCookies(
   cookieStore: Awaited<ReturnType<typeof cookies>>,
+  hostname: string | null,
   response?: NextResponse
 ): AppSupabaseClient | null {
   const url = supabaseUrl();
@@ -17,6 +19,7 @@ function attachCookies(
 
   return createServerClient<Database>(url, key, {
     global: { fetch: supabaseFetch },
+    cookieOptions: sessionCookieOptions(hostname),
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -37,16 +40,24 @@ function attachCookies(
   });
 }
 
+/** The host this request came in on, which decides the cookie's Secure flag. */
+async function requestHost(): Promise<string | null> {
+  const store = await headers();
+  return store.get("host");
+}
+
 /** Cookie-session Supabase client (RLS as the signed-in user). */
 export async function createSupabaseServerAuth(): Promise<AppSupabaseClient | null> {
-  return attachCookies(await cookies());
+  const [cookieStore, host] = await Promise.all([cookies(), requestHost()]);
+  return attachCookies(cookieStore, host);
 }
 
 /** Same client, but session cookies are copied onto a redirect response. */
 export async function createSupabaseAuthForResponse(
   response: NextResponse
 ): Promise<AppSupabaseClient | null> {
-  return attachCookies(await cookies(), response);
+  const [cookieStore, host] = await Promise.all([cookies(), requestHost()]);
+  return attachCookies(cookieStore, host, response);
 }
 
 export async function getAuthUser(): Promise<User | null> {
