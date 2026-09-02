@@ -70,7 +70,7 @@ before acting on it, and write the reasoning down beside the change.
 - [ ] Persona: "risk reference point", the borrowing ceiling that reads as a rule.
 - [ ] The scrubber misses the bare form of most banned words; openers only caught at the start of a paragraph.
 - [ ] The covered-call prompt tells the model to give execution timing and uses the words the persona bans.
-- [ ] Margus's tool descriptions still use the words the product does not.
+- [x] The context block handed Margus `roi%`, `roi$` and `pctTotal`, which are the abbreviations the product renamed out of reader copy, so the ban list and the scrubber were cleaning up a word the prompt had just taught. The labels are the reader's words now.
 - [ ] Response speed: streaming, first-token time, chunk warm.
 - [ ] Openers, empty portfolio behaviour, what he can and cannot write.
 - [~] Second-pass: an adversarial reader tries to make Margus give advice, use slang, or invent a number.

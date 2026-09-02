@@ -95,3 +95,39 @@ describe("the endpoint that does write checks who is asking", () => {
     expect(holdings).toContain("loadPortfolioWriteContext");
   });
 });
+
+/*
+  What the model is shown is what it says back.
+
+  The context block hands Margus one line per holding, and its labels were
+  the abbreviations this product renamed out of reader copy: `roi%`, `roi$`
+  and `pctTotal`. AGENTS.md makes the argument for the em dash rule and it
+  is the same argument here, that a model copies the vocabulary it is shown,
+  so the persona's ban list and `humanizeMargusText` were being asked to
+  scrub a word the prompt had just taught. Cheaper to not teach it.
+*/
+describe("the context block uses the words the product uses", () => {
+  const advisor = readFileSync(
+    join(process.cwd(), "src/lib/ai/cc-advisor.ts"),
+    "utf8"
+  );
+
+  it("labels a holding's figures the way a reader would hear them", () => {
+    expect(advisor).toContain("gain%=");
+    expect(advisor).toContain("gain$=");
+    expect(advisor).toContain("shareOfPortfolio%=");
+    expect(advisor).toContain("paidEach=");
+  });
+
+  it("shows the model none of the words it is then told not to say", () => {
+    // Not a search of the whole file: `roiPct` and `roiDollar` are the
+    // field names on the context object and stay, for the reason the
+    // rename bullet gives. This is about the strings sent to the model.
+    const labels = [...advisor.matchAll(/`[^`]*\$\{[^`]*`/g)]
+      .map((m) => m[0])
+      .filter((t) => t.includes("=$"));
+    for (const line of labels) {
+      expect(line).not.toMatch(/\broi%|\broi\$|pctTotal|costBasis/);
+    }
+  });
+});

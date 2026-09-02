@@ -99,7 +99,7 @@ export type CcChatContext = {
   watchlist?: string[];
   /** Paper class portfolio. Margus is the lab assistant, not a stock picker. */
   classroom?: boolean;
-  /** Live Yahoo calendar for the book + watchlist. Do not invent dates. */
+  /** Live Yahoo calendar for the portfolio and watchlist. Do not invent dates. */
   earnings?: EarningsCalendarRow[];
   /** Per-ticker Lab notes + Pulse stamps already on this portfolio. */
   convictions?: Record<
@@ -805,7 +805,7 @@ export function buildCcSystemPrompt(ctx: CcChatContext): string {
       ? "(no holdings)"
       : ctx.holdings
           .map((h) => {
-            return `${h.ticker}: shares=${h.shares}, buy=${h.buyPrice}, price=${h.price}, cost=${h.cost.toFixed(0)}, value=${h.value.toFixed(0)}, roi%=${(h.roiPct * 100).toFixed(1)}%, roi$=${h.roiDollar.toFixed(0)}, pctTotal=${(h.pctOfTotal * 100).toFixed(1)}%, today=${h.todayPct != null ? (h.todayPct * 100).toFixed(1) + "%" : NO_VALUE}${holdingExtendedHoursLine(h)}`;
+            return `${h.ticker}: shares=${h.shares}, paidEach=${h.buyPrice}, price=${h.price}, cost=${h.cost.toFixed(0)}, value=${h.value.toFixed(0)}, gain%=${(h.roiPct * 100).toFixed(1)}%, gain$=${h.roiDollar.toFixed(0)}, shareOfPortfolio%=${(h.pctOfTotal * 100).toFixed(1)}%, today=${h.todayPct != null ? (h.todayPct * 100).toFixed(1) + "%" : NO_VALUE}${holdingExtendedHoursLine(h)}`;
           })
           .join("\n");
 
@@ -929,8 +929,8 @@ How the write plan is built:
 `;
 
   const totalsLine = hideOptions
-    ? `Portfolio totals: cost=${ctx.totals.cost.toFixed(0)}, value=${ctx.totals.value.toFixed(0)}, roi%=${(ctx.totals.roiPct * 100).toFixed(1)}%, roi$=${ctx.totals.roiDollar.toFixed(0)}`
-    : `Portfolio totals: cost=${ctx.totals.cost.toFixed(0)}, value=${ctx.totals.value.toFixed(0)}, roi%=${(ctx.totals.roiPct * 100).toFixed(1)}%, roi$=${ctx.totals.roiDollar.toFixed(0)}, ccYieldAvg=${(ctx.totals.yield2wAvg * 100).toFixed(2)}%, premiumTotal=${ctx.totals.premiumTotal.toFixed(2)}`;
+    ? `Portfolio totals: cost=${ctx.totals.cost.toFixed(0)}, value=${ctx.totals.value.toFixed(0)}, gain%=${(ctx.totals.roiPct * 100).toFixed(1)}%, gain$=${ctx.totals.roiDollar.toFixed(0)}`
+    : `Portfolio totals: cost=${ctx.totals.cost.toFixed(0)}, value=${ctx.totals.value.toFixed(0)}, gain%=${(ctx.totals.roiPct * 100).toFixed(1)}%, gain$=${ctx.totals.roiDollar.toFixed(0)}, ccYieldAvg=${(ctx.totals.yield2wAvg * 100).toFixed(2)}%, premiumTotal=${ctx.totals.premiumTotal.toFixed(2)}`;
 
   const ccRowsSection = hideOptions
     ? ""
