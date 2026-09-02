@@ -9,6 +9,8 @@
  * in surprising ways.
  */
 
+import { avatarImgSources } from "./avatar-url";
+
 export const STATIC_SECURITY_HEADERS: { key: string; value: string }[] = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -88,7 +90,14 @@ export function buildContentSecurityPolicy(): string {
     "default-src 'self'",
     `script-src ${scriptSrc.join(" ")}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https:",
+    /*
+      Named hosts rather than every https host there is. A profile photo is
+      the one image in this app that comes from somewhere else, and a photo
+      link a member chose is a request every other member's browser makes:
+      see avatar-url.ts. `https:` here would keep loading the ones stored
+      before that rule existed.
+    */
+    `img-src 'self' data: blob: ${avatarImgSources().join(" ")}`,
     "font-src 'self'",
     `connect-src ${connectSrc.join(" ")}`,
     "frame-src 'none'",

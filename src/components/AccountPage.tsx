@@ -31,6 +31,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
+import { AVATAR_HOST_MESSAGE } from "@/lib/avatar-url";
 import { NO_VALUE, cn } from "@/lib/format";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import { PRODUCT_NAME, PRODUCT_SUPPORT_EMAIL } from "@/lib/product";
@@ -563,7 +564,7 @@ export function AccountPage() {
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-sm text-muted-foreground">
-                  Avatar URL (optional)
+                  Photo link (optional)
                 </span>
                 <Input
                   value={avatarUrl}
@@ -573,6 +574,10 @@ export function AccountPage() {
                   }}
                   placeholder="https://…"
                 />
+                <span className="text-sm text-muted-foreground">
+                  {AVATAR_HOST_MESSAGE} Everyone who can see your profile
+                  loads this picture, so it only comes from these two places.
+                </span>
                 {avatarBroken && (
                   <span className="text-sm text-loss">
                     Couldn&apos;t load that image, showing your initial instead.

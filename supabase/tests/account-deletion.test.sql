@@ -252,16 +252,50 @@ insert into public.portfell_error_log (source, message, user_id, user_email)
 values ('server', 'boom', 'cccc0000-0000-0000-0000-000000000001',
         'carol@example.com');
 
+-- The saved copies carry whole portfolio rows, so each entry names the
+-- owner it had when the copy was taken. Carol created the shared book, so
+-- her id is on it: the scrub has to leave that one alone, because Dave is
+-- still in it and it still exists.
 insert into public.portfell_book_snapshots (kind, label, payload) values
   ('nightly', 'Nightly test', jsonb_build_object(
     'portfolios', jsonb_build_array(
-      jsonb_build_object('id', 'cccc0000-0000-0000-0000-0000000000a1'),
-      jsonb_build_object('id', 'dddd0000-0000-0000-0000-0000000000b1')
+      jsonb_build_object(
+        'id', 'cccc0000-0000-0000-0000-0000000000a1',
+        'owner_id', 'cccc0000-0000-0000-0000-000000000001'),
+      jsonb_build_object(
+        'id', 'dddd0000-0000-0000-0000-0000000000b1',
+        'owner_id', 'cccc0000-0000-0000-0000-000000000001')
     ),
     'holdings', jsonb_build_array(
       jsonb_build_object(
         'portfolio_id', 'cccc0000-0000-0000-0000-0000000000a1',
         'ticker', 'NVDA')
+    )
+  ));
+
+/*
+  A portfolio Carol deleted months before she deleted her account. The
+  portfolio row is long gone, so nothing in portfell_portfolio_owners names
+  it any more, and the copy DELETE /api/portfolios took on the way out is
+  the only place her holdings in it still exist. Deleting her account has to
+  reach it.
+*/
+insert into public.portfell_book_snapshots (kind, label, payload) values
+  ('pre_delete', 'Before delete: Carol old book', jsonb_build_object(
+    'portfolios', jsonb_build_array(
+      jsonb_build_object(
+        'id', 'cccc0000-0000-0000-0000-0000000000f1',
+        'name', 'Carol old book',
+        'owner_id', 'cccc0000-0000-0000-0000-000000000001')
+    ),
+    'holdings', jsonb_build_array(
+      jsonb_build_object(
+        'portfolio_id', 'cccc0000-0000-0000-0000-0000000000f1',
+        'ticker', 'CRWV')
+    ),
+    'marks', jsonb_build_object(
+      'navByPortfolio',
+      jsonb_build_object('cccc0000-0000-0000-0000-0000000000f1', 1000)
     )
   ));
 
@@ -394,6 +428,18 @@ begin
   where payload::text like '%dddd0000-0000-0000-0000-0000000000b1%';
   if n <> 1 then
     raise exception 'snapshot scrubbing took the shared portfolio too';
+  end if;
+
+  -- And the copy of the portfolio she deleted long before her account, which
+  -- no owners row pointed at any more. Its holdings and its mark go with it,
+  -- and so does the row itself, whose label is the name she gave it.
+  select count(*) into n from public.portfell_book_snapshots
+  where payload::text like '%cccc0000-0000-0000-0000-0000000000f1%'
+     or label like '%Carol old book%';
+  if n <> 0 then
+    raise exception
+      'a saved copy still holds a portfolio the deleted person had already '
+      'deleted; the purge only reached the ones she still owned';
   end if;
 
   -- A stranger's pending sign-in link is not ours to delete.

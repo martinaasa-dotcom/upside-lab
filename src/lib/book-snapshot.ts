@@ -36,6 +36,54 @@ const KEEP_NIGHTLY = NIGHTLY_SNAPSHOT_WINDOW;
 const KEEP_PRE_DELETE = 30;
 const KEEP_MANUAL = 20;
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How long a before-delete copy is kept, whatever the count says.
+ *
+ * Deleting a portfolio takes a copy of it first, holding by holding, so
+ * there is an undo. Nobody asks for that copy and nobody is shown it going
+ * stale, and keeping thirty of them by count alone means a person who has
+ * deleted three portfolios in two years still has all three sitting there
+ * with their holdings in them. A month is a generous undo window and is
+ * where an unasked-for copy of somebody's holdings stops earning its keep.
+ * A save the reader made themselves is a different thing and is not bounded
+ * by age here: they asked for it, they can see it, and taking it away on a
+ * timer would be the app throwing out something somebody meant to keep.
+ */
+export const PRE_DELETE_SNAPSHOT_MAX_AGE_DAYS = 30;
+
+/**
+ * Which saved copies to drop, newest row first.
+ *
+ * Two bounds rather than one, and a row past either goes: everything after
+ * `keep`, and, when `maxAgeDays` is given, anything older than that however
+ * few there are. A row whose timestamp cannot be read is kept, because
+ * deleting somebody's save on the strength of a date nobody could parse is
+ * the wrong way round to be wrong.
+ */
+export function snapshotsToPrune(
+  rows: { id?: string | null; created_at?: string | null }[],
+  opts: { keep: number; maxAgeDays?: number; now?: number }
+): string[] {
+  const now = opts.now ?? Date.now();
+  const cutoff =
+    opts.maxAgeDays == null ? null : now - opts.maxAgeDays * DAY_MS;
+  const drop: string[] = [];
+  rows.forEach((row, index) => {
+    const id = row?.id;
+    if (!id) return;
+    if (index >= opts.keep) {
+      drop.push(id);
+      return;
+    }
+    if (cutoff == null) return;
+    const at = row.created_at ? Date.parse(row.created_at) : Number.NaN;
+    if (Number.isFinite(at) && at < cutoff) drop.push(id);
+  });
+  return drop;
+}
+
 export async function captureBookPayload(
   supabase: SupabaseClient,
   opts?: { portfolioIds?: string[] }
@@ -228,29 +276,28 @@ export async function saveBookSnapshot(
 }
 
 export async function pruneOldSnapshots(supabase: SupabaseClient) {
+  const byKind = (kind: BookSnapshotKind) =>
+    supabase
+      .from(PORTFELL_TABLES.snapshots)
+      .select("id, created_at")
+      .eq("kind", kind)
+      .order("created_at", { ascending: false });
+
   const [{ data: nightly }, { data: preDelete }, { data: manuals }] =
     await Promise.all([
-      supabase
-        .from(PORTFELL_TABLES.snapshots)
-        .select("id")
-        .eq("kind", "nightly")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from(PORTFELL_TABLES.snapshots)
-        .select("id")
-        .eq("kind", "pre_delete")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from(PORTFELL_TABLES.snapshots)
-        .select("id")
-        .eq("kind", "manual")
-        .order("created_at", { ascending: false }),
+      byKind("nightly"),
+      byKind("pre_delete"),
+      byKind("manual"),
     ]);
 
+  type PruneRow = { id?: string | null; created_at?: string | null };
   const dropIds = [
-    ...(nightly ?? []).slice(KEEP_NIGHTLY).map((r) => r.id as string),
-    ...(preDelete ?? []).slice(KEEP_PRE_DELETE).map((r) => r.id as string),
-    ...(manuals ?? []).slice(KEEP_MANUAL).map((r) => r.id as string),
+    ...snapshotsToPrune((nightly ?? []) as PruneRow[], { keep: KEEP_NIGHTLY }),
+    ...snapshotsToPrune((preDelete ?? []) as PruneRow[], {
+      keep: KEEP_PRE_DELETE,
+      maxAgeDays: PRE_DELETE_SNAPSHOT_MAX_AGE_DAYS,
+    }),
+    ...snapshotsToPrune((manuals ?? []) as PruneRow[], { keep: KEEP_MANUAL }),
   ];
   if (dropIds.length === 0) return;
   await supabase.from(PORTFELL_TABLES.snapshots).delete().in("id", dropIds);
