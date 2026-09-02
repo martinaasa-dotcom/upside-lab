@@ -603,5 +603,5 @@ note is kept as written: it is why the mechanism exists.
     `MVP_AUDIT_LIVE_PASS.md` logs live-app passes — a mechanism that has
     only ever been unit-tested is unverified in the one way that matters.
 
-   The log landed in `docs/DISASTER_RECOVERY.md` with its first row honestly empty; the first real rehearsal against a scratch project still needs a human with production DR credentials to run it and write the row.
+   The log landed in `docs/DISASTER_RECOVERY.md` with its first row honestly empty; the first real rehearsal against a scratch project still needs a human with production DR credentials to run it and write the row. **Deferred by the owner on 2026-09-02**, which leaves this the one thing in the pass nobody has done rather than something anybody has forgotten: the export and the restore script are both tested, and what is untested is whether a restore into a fresh project actually comes back.
 
