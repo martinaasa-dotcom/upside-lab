@@ -196,7 +196,7 @@ async function handlePOST(req: NextRequest) {
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Snapshot failed" },
+      { error: dbError(err, "POST /api/snapshots: snapshot action") },
       { status: 500 }
     );
   }

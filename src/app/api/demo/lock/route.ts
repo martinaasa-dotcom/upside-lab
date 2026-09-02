@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { dbError } from "@/lib/db-error";
 import { NextRequest, NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
 import { demoLockPostSchema } from "@/lib/api-schemas";
@@ -49,7 +50,7 @@ async function handlePOST(req: NextRequest) {
   } catch (err) {
     console.error("Failed to lock demo snapshot", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Lock failed" },
+      { error: dbError(err, "POST /api/demo/lock: write locked demo") },
       { status: 500 }
     );
   }

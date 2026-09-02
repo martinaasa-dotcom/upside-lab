@@ -44,6 +44,7 @@ import { postTweet, xPostingEnabled } from "@/lib/x-post";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logError } from "@/lib/error-log";
 import { generateObject } from "ai";
+import { dbError } from "@/lib/db-error";
 import { NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
 
@@ -909,7 +910,7 @@ async function handleGET(req: Request) {
       path: "/api/cron/margus-fund",
     });
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Upside Portfolio run failed" },
+      { error: dbError(err, "GET /api/cron/margus-fund: run") },
       { status: 500 }
     );
   }

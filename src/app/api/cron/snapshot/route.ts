@@ -8,6 +8,7 @@ import { requireCronAuth } from "@/lib/cron-auth";
 import { fetchQuotesWithFallback } from "@/lib/market/quotes";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { todayKeyInTz } from "@/lib/timezone";
+import { dbError } from "@/lib/db-error";
 import { NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
 
@@ -79,7 +80,7 @@ async function handleGET(req: Request) {
   } catch (err) {
     console.error("[cron/snapshot]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Snapshot failed" },
+      { error: dbError(err, "GET /api/cron/snapshot: nightly snapshot") },
       { status: 500 }
     );
   }
