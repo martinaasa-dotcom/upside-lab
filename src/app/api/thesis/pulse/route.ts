@@ -47,6 +47,7 @@ import { pulsePostSchema } from "@/lib/api-schemas";
 import { parseJsonBody } from "@/lib/parse-json-body";
 import { coinFromSymbol } from "@/lib/coins";
 import { cashtag } from "@/lib/format";
+import { serverAnchorPrices } from "@/lib/forecast-ticker-cache-store";
 
 export const maxDuration = 90;
 export const runtime = "nodejs";
@@ -57,6 +58,17 @@ export const runtime = "nodejs";
  * maxDuration to still return JSON rather than being killed mid-flight.
  */
 const LLM_BUDGET_MS = 70_000;
+
+/**
+ * How far the price a shared Pulse answer was reasoned from may sit from
+ * the market's own before that answer is kept to the reader who asked.
+ *
+ * Not a validation bound: a reader holding a slightly stale price is
+ * ordinary, and they are served their own answer either way. This is the
+ * gate on what becomes everybody's, and it is the same figure the forecast
+ * cache uses for the same reason.
+ */
+const PUBLISHABLE_PRICE_DRIFT = 0.02;
 
 type Body = {
   candidates?: PulseCandidate[];
@@ -403,6 +415,15 @@ async function handlePOST(req: Request) {
       if (key) newlyGeneratedMap.set(key, check);
     }
 
+    /*
+      Asked once, for the whole batch, and only for the names that could be
+      written to a shared key. fetchQuotesWithFallback single-flights an
+      identical set, so this is one provider round trip at most.
+    */
+    const serverPrices = await serverAnchorPrices(
+      uncachedCandidates.map((c) => pulseTickerKey(c.ticker))
+    );
+
     for (const candidate of uncachedCandidates) {
       const symbol = pulseTickerKey(candidate.ticker);
       const fromModel = newlyGeneratedMap.get(symbol);
@@ -421,13 +442,41 @@ async function handlePOST(req: Request) {
         conv?.thesis,
         conv?.level
       );
-      setCachedPulseCheck(
-        cacheKey,
-        check,
-        headlines[symbol] ?? [],
-        candidate.effectivePct,
-        answeredBy
-      );
+      /*
+        A shared answer is only written when the numbers behind it were the
+        market's, not the caller's.
+
+        `price`, `rangeLow` and `rangeHigh` all arrive in the request body
+        and are printed into the prompt as the facts the model reasons
+        against: "today's price $X, 30 day low $Y, high $Z". A caller can
+        state a price that puts a company at the bottom of a range it is
+        nowhere near, and under the shared `:nothesis` key that answer is
+        served to every other holder of the company in the same move bucket
+        for up to four hours. The earlier pass took the two text fields out
+        of the caller's hands for exactly this reason and left the numbers,
+        which are the part the tag is actually derived from.
+
+        Correcting them is the wrong fix: they are one consistent set with
+        the reader's own screen, and a reader holding a slightly stale price
+        is ordinary rather than hostile. So the reader is served their own
+        answer either way, and only a run whose price agrees with the
+        market's is allowed to become everybody's. This is the same rule the
+        forecast cache uses, and the same tolerance.
+      */
+      const trusted = serverPrices[symbol];
+      const priceAgrees =
+        typeof trusted === "number" &&
+        trusted > 0 &&
+        Math.abs(candidate.price - trusted) / trusted <= PUBLISHABLE_PRICE_DRIFT;
+      if (!isSharedPulseKey(cacheKey) || priceAgrees) {
+        setCachedPulseCheck(
+          cacheKey,
+          check,
+          headlines[symbol] ?? [],
+          candidate.effectivePct,
+          answeredBy
+        );
+      }
       cachedMap.set(symbol, {
         check,
         headlines: headlines[symbol] ?? [],

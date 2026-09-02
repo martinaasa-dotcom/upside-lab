@@ -33,7 +33,7 @@ Not financial advice. Pulse, Forecast, and Margus are educational scenario tools
 
 Google sign-in, or a one-time link mailed to any address. No passwords. One account can open from more than one mailbox (`portfell_account_emails`), so signing in with a work address on one device and a personal one on another lands in the same portfolios rather than an empty second account. Shared portfolios use co-ownership (`portfell_portfolio_owners`), and a co-owner sees the whole portfolio, what each of you paid included; sharing a portfolio into a circle is a different thing and shows what you hold without what you paid. Communities are opt-in only: invite or an admin-approved join request. Never auto-join on sign-in.
 
-Production data belongs on the dedicated Upside Lab Supabase project (`uzrnybyggznpvgxgrvgl`, `portfell_*` tables). Isolation is env (URL + keys), not a table rename. See `docs/UPSIDE_LAB_CUTOVER.md` and `scripts/export-upside-schema.sql`.
+Production data belongs on the dedicated Upside Lab Supabase project (`uzrnybyggznpvgxgrvgl`, `portfell_*` tables). Isolation is env (URL + keys), not a table rename. See `docs/UPSIDE_LAB_CUTOVER.md`. To stand a fresh project up, apply `supabase/migrations` in order (`supabase db push`), which is the same path `docs/DISASTER_RECOVERY.md` describes and the one CI builds a database from on every run. There used to be a concatenated `scripts/export-upside-schema.sql` here as well; it stopped fifty-one migrations short of the schema and nothing would have told anybody following it, so it is gone rather than regenerated.
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=...

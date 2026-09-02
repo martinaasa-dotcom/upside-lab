@@ -55,7 +55,8 @@ export async function getYahoo(): Promise<YahooFinanceInstance> {
 
 function hashTicker(ticker: string): number {
   let h = 0;
-  for (let i = 0; i < ticker.length; i++) h = (h * 31 + ticker.charCodeAt(i)) | 0;
+  for (let i = 0; i < ticker.length; i++)
+    h = (h * 31 + ticker.charCodeAt(i)) | 0;
   return Math.abs(h);
 }
 
@@ -110,7 +111,7 @@ function yahooCall<T>(fn: () => Promise<T>): Promise<T> {
 
 async function usdPerUnit(
   yf: YahooFinanceInstance,
-  code: string
+  code: string,
 ): Promise<number | null> {
   try {
     const direct = await yahooCall(() => yf.quote(`${code}USD=X`));
@@ -248,7 +249,7 @@ function priceToUsd(
   price: number,
   currency: string | undefined,
   fx: FxRates,
-  symbol?: string
+  symbol?: string,
 ): number | null {
   const { amount, code } = normalizeListedPrice(price, currency);
   // FX pairs are the rate. Rounding them to cents freezes EURUSD at 1.16.
@@ -261,7 +262,7 @@ function priceToUsd(
 function scaleMoney(
   value: number | null,
   nativePrice: number,
-  usdPrice: number
+  usdPrice: number,
 ): number | null {
   if (value == null || nativePrice <= 0) return value;
   return value * (usdPrice / nativePrice);
@@ -295,9 +296,7 @@ function pruneSymbolMemo() {
   }
 }
 
-async function walkForListedSymbol(
-  raw: string
-): Promise<string | null> {
+async function walkForListedSymbol(raw: string): Promise<string | null> {
   const yf = await getYahoo();
   for (const symbol of yahooQuoteCandidates(raw)) {
     try {
@@ -318,7 +317,7 @@ async function walkForListedSymbol(
 
 /** First Yahoo listing that actually quotes. Xetra before London. */
 export async function resolveYahooListedSymbol(
-  raw: string
+  raw: string,
 ): Promise<string | null> {
   const key = raw.trim().toUpperCase();
   if (!key) return null;
@@ -379,7 +378,7 @@ function pruneChartMemo() {
 }
 
 function toDailyBars(
-  rows: Array<{ date?: Date | string | number | null; close?: number | null }>
+  rows: Array<{ date?: Date | string | number | null; close?: number | null }>,
 ): DailyBar[] {
   const out: DailyBar[] = [];
   for (const row of rows) {
@@ -394,7 +393,7 @@ function toDailyBars(
         : new Date(
             typeof rawDate === "number" && rawDate < 1e12
               ? rawDate * 1000
-              : rawDate
+              : rawDate,
           );
     if (Number.isNaN(when.getTime())) continue;
     out.push({ date: dateKeyInTz(when, "America/New_York"), close });
@@ -405,7 +404,7 @@ function toDailyBars(
 async function dailyBarsForSymbol(
   yf: YahooFinanceInstance,
   symbol: string,
-  period1: Date
+  period1: Date,
 ): Promise<DailyBar[] | null> {
   const hit = chartMemo.get(symbol);
   if (hit && Date.now() - hit.at < chartMemoMs()) return hit.bars;
@@ -435,7 +434,7 @@ async function dailyBarsForSymbol(
 function withLiveLastBar(
   bars: DailyBar[],
   todayKey: string,
-  nativeClose: number
+  nativeClose: number,
 ): DailyBar[] {
   const last = bars[bars.length - 1];
   if (!last || last.date !== todayKey || last.close === nativeClose) {
@@ -448,7 +447,7 @@ async function quoteOneSymbol(
   yf: YahooFinanceInstance,
   symbol: string,
   fxTask: Promise<FxRates>,
-  period1: Date
+  period1: Date,
 ): Promise<Quote | null> {
   // The quote and the bars are asked for together, and the rates are only
   // waited on once both are back: an FX round in front of the wave used to
@@ -500,7 +499,7 @@ async function quoteOneSymbol(
     mark.previousClose,
     yahooCurrency,
     fx,
-    symbol
+    symbol,
   );
   /*
     No rate, no quote. A price this app cannot turn into dollars must not
@@ -522,7 +521,7 @@ async function quoteOneSymbol(
   const bars = withLiveLastBar(
     cachedBars ?? [],
     dateKeyInTz(new Date(), "America/New_York"),
-    yahooNative
+    yahooNative,
   );
   const sparkline =
     bars.length > 1
@@ -539,12 +538,12 @@ async function quoteOneSymbol(
   const preMarketPrice = scaleMoney(
     typeof quote.preMarketPrice === "number" ? quote.preMarketPrice : null,
     yahooNative,
-    price
+    price,
   );
   const preMarketChange = scaleMoney(
     typeof quote.preMarketChange === "number" ? quote.preMarketChange : null,
     yahooNative,
-    price
+    price,
   );
   const preMarketChangePercent =
     typeof quote.preMarketChangePercent === "number"
@@ -553,12 +552,12 @@ async function quoteOneSymbol(
   const postMarketPrice = scaleMoney(
     typeof quote.postMarketPrice === "number" ? quote.postMarketPrice : null,
     yahooNative,
-    price
+    price,
   );
   const postMarketChange = scaleMoney(
     typeof quote.postMarketChange === "number" ? quote.postMarketChange : null,
     yahooNative,
-    price
+    price,
   );
   const postMarketChangePercent =
     typeof quote.postMarketChangePercent === "number"
@@ -606,7 +605,7 @@ type QuoteHit = { requested: string; symbol: string; quote: Quote };
 const quoteInFlight = new Map<string, Promise<QuoteHit | null>>();
 
 export async function fetchQuotesYahoo(
-  tickers: string[]
+  tickers: string[],
 ): Promise<YahooQuotesAttempt> {
   const unique = [
     ...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean)),
@@ -655,7 +654,7 @@ export async function fetchQuotesYahoo(
         });
         quoteInFlight.set(requested, started);
         return started;
-      }
+      },
     );
 
     const map: Record<string, Quote> = {};
@@ -717,27 +716,33 @@ export type ShareSplit = {
 export async function fetchSplits(
   ticker: string,
   fromIso: string,
-  toIso: string
+  toIso: string,
 ): Promise<ShareSplit[] | null> {
   const yf = await getYahoo();
   const period1 = new Date(`${fromIso}T00:00:00Z`);
   // A day past the end, because the window is inclusive and the bar for the
   // last day has to be inside it.
-  const period2 = new Date(new Date(`${toIso}T00:00:00Z`).getTime() + 86_400_000);
+  const period2 = new Date(
+    new Date(`${toIso}T00:00:00Z`).getTime() + 86_400_000,
+  );
 
   let asked = false;
 
   for (const symbol of yahooQuoteCandidates(ticker)) {
     try {
       const chart = await yahooCall(() =>
-        yf.chart(symbol, { period1, period2, interval: "1d", events: "split" })
+        yf.chart(symbol, { period1, period2, interval: "1d", events: "split" }),
       );
       asked = true;
 
       const splits = (
         chart as unknown as {
           events?: {
-            splits?: Array<{ date?: Date; numerator?: number; denominator?: number }>;
+            splits?: Array<{
+              date?: Date;
+              numerator?: number;
+              denominator?: number;
+            }>;
           };
         }
       ).events?.splits;
@@ -751,7 +756,7 @@ export async function fetchSplits(
             Number.isFinite(split.numerator) &&
             Number.isFinite(split.denominator) &&
             (split.numerator as number) > 0 &&
-            (split.denominator as number) > 0
+            (split.denominator as number) > 0,
         )
         .map((split) => ({
           ticker: ticker.toUpperCase(),
@@ -784,9 +789,12 @@ const ytdCloseCache = new Map<
 const ytdCloseInFlight = new Map<string, Promise<DailyClose[]>>();
 
 function chartRowsToDailyCloses(
-  quotes: Array<{ date?: Date | string | number | null; close?: number | null }>,
+  quotes: Array<{
+    date?: Date | string | number | null;
+    close?: number | null;
+  }>,
   currency: string | undefined,
-  fx: FxRates
+  fx: FxRates,
 ): DailyClose[] {
   return quotes
     .map((row) => {
@@ -799,7 +807,7 @@ function chartRowsToDailyCloses(
           : new Date(
               typeof rawDate === "number" && rawDate < 1e12
                 ? rawDate * 1000
-                : rawDate
+                : rawDate,
             );
       if (Number.isNaN(when.getTime())) return null;
       // A bar this app cannot price in dollars is dropped, not passed on as
@@ -821,7 +829,7 @@ async function ytdClosesForSymbol(
   fxTask: Promise<FxRates>,
   symbol: string,
   year: number,
-  period1: Date
+  period1: Date,
 ): Promise<DailyClose[]> {
   const cacheKey = `${year}:${symbol}`;
   const hit = ytdCloseCache.get(cacheKey);
@@ -839,7 +847,7 @@ async function ytdClosesForSymbol(
   const task = (async () => {
     try {
       const chart = await yahooCall(() =>
-        yf.chart(symbol, { period1, interval: "1d" })
+        yf.chart(symbol, { period1, interval: "1d" }),
       );
       const currency =
         typeof chart.meta?.currency === "string"
@@ -848,7 +856,7 @@ async function ytdClosesForSymbol(
       const rows = chartRowsToDailyCloses(
         chart.quotes ?? [],
         currency,
-        await fxTask
+        await fxTask,
       );
       ytdCloseCache.set(cacheKey, { year, at: Date.now(), rows });
       return rows;
@@ -866,11 +874,9 @@ async function ytdClosesForSymbol(
 /** Calendar-year daily closes in USD, cached a few hours so every sheet
  * that holds NBIS does not hit Yahoo again. */
 export async function fetchYtdDailyCloses(
-  tickers: string[]
+  tickers: string[],
 ): Promise<Record<string, DailyClose[]>> {
-  const unique = [
-    ...new Set(tickers.map((t) => t.trim()).filter(Boolean)),
-  ];
+  const unique = [...new Set(tickers.map((t) => t.trim()).filter(Boolean))];
   if (unique.length === 0) return {};
   const year = new Date().getFullYear();
   const period1 = new Date(Date.UTC(year, 0, 1));
@@ -878,25 +884,25 @@ export async function fetchYtdDailyCloses(
     const yf = await getYahoo();
     const fxTask = currentFxRates(yf);
     const out: Record<string, DailyClose[]> = {};
-    await Promise.all(
-      unique.map(async (ticker) => {
-        const key = ticker.toUpperCase();
-        for (const symbol of yahooQuoteCandidates(ticker)) {
-          const rows = await ytdClosesForSymbol(
-            yf,
-            fxTask,
-            symbol,
-            year,
-            period1
-          );
-          if (rows.length > 0) {
-            out[key] = rows;
-            return;
-          }
+    // Pooled for the same reason the quote path is: an unbounded burst is
+    // already sent by the time the circuit breaker can open.
+    await mapWithConcurrency(unique, MAX_IN_FLIGHT, async (ticker) => {
+      const key = ticker.toUpperCase();
+      for (const symbol of yahooQuoteCandidates(ticker)) {
+        const rows = await ytdClosesForSymbol(
+          yf,
+          fxTask,
+          symbol,
+          year,
+          period1,
+        );
+        if (rows.length > 0) {
+          out[key] = rows;
+          return;
         }
-        out[key] = [];
-      })
-    );
+      }
+      out[key] = [];
+    });
     return out;
   } catch (err) {
     console.error("YTD close fetch unavailable", err);
@@ -908,7 +914,7 @@ export type WeekReturn = { start: number; end: number; pct: number };
 
 /** Prior Friday close to the latest close. Sunday look uses this, not today's session. */
 export async function fetchWeekReturns(
-  tickers: string[]
+  tickers: string[],
 ): Promise<Record<string, WeekReturn>> {
   const unique = [
     ...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean)),
@@ -924,7 +930,7 @@ export async function fetchWeekReturns(
         for (const symbol of yahooQuoteCandidates(ticker)) {
           try {
             const chart = await yahooCall(() =>
-              yf.chart(symbol, { period1, interval: "1d" })
+              yf.chart(symbol, { period1, interval: "1d" }),
             );
             const currency =
               typeof chart.meta?.currency === "string"
@@ -933,7 +939,7 @@ export async function fetchWeekReturns(
             const rows = chartRowsToDailyCloses(
               chart.quotes ?? [],
               currency,
-              await fxTask
+              await fxTask,
             );
             if (rows.length < 2) continue;
             const end = rows[rows.length - 1];
@@ -950,7 +956,7 @@ export async function fetchWeekReturns(
           }
         }
         console.error(`Week return failed for ${ticker}`);
-      })
+      }),
     );
     return out;
   } catch (err) {
@@ -1036,7 +1042,7 @@ const THEME_CATALYSTS: Record<string, string[]> = {
 };
 
 export async function fetchNextEarningsDate(
-  ticker: string
+  ticker: string,
 ): Promise<Date | null> {
   if (isCoinSymbol(ticker)) return null;
   try {
@@ -1045,7 +1051,7 @@ export async function fetchNextEarningsDate(
     const summary = await yahooCall(() =>
       yf.quoteSummary(symbol, {
         modules: ["earnings", "calendarEvents", "earningsHistory"],
-      })
+      }),
     );
     const calendar = summary.calendarEvents?.earnings;
     const resolved = resolveYahooEarnings({
@@ -1068,7 +1074,9 @@ export async function fetchMarketEvents(tickers: string[]): Promise<{
   earnings: EarningsEvent[];
   catalysts: CatalystEvent[];
 }> {
-  const unique = [...new Set(tickers.map((t) => t.toUpperCase()).filter(Boolean))];
+  const unique = [
+    ...new Set(tickers.map((t) => t.toUpperCase()).filter(Boolean)),
+  ];
 
   const earnings: EarningsEvent[] = [];
   const catalysts: CatalystEvent[] = [];
@@ -1086,8 +1094,7 @@ export async function fetchMarketEvents(tickers: string[]): Promise<{
   */
   const dated = unique.filter((ticker) => !isCoinSymbol(ticker));
   const { fetchPulseContexts } = await import("@/lib/market/ticker-context");
-  const contexts =
-    dated.length > 0 ? await fetchPulseContexts(dated) : {};
+  const contexts = dated.length > 0 ? await fetchPulseContexts(dated) : {};
   const todayKey = dateKeyInTz(new Date());
 
   for (const ticker of unique) {
@@ -1123,7 +1130,8 @@ export async function fetchMarketEvents(tickers: string[]): Promise<{
 
   earnings.sort((a, b) => a.days - b.days);
   catalysts.sort((a, b) => {
-    if (a.days === null && b.days === null) return a.ticker.localeCompare(b.ticker);
+    if (a.days === null && b.days === null)
+      return a.ticker.localeCompare(b.ticker);
     if (a.days === null) return 1;
     if (b.days === null) return -1;
     return a.days - b.days;
