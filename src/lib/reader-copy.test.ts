@@ -266,7 +266,9 @@ describe("copy reads as a person wrote it", () => {
     "src/lib/ai/margus-persona.ts",
     "src/lib/ai/cc-advisor.ts",
     "src/lib/weekly-margus.ts",
-    "src/lib/forecast-plan.ts",
+    // forecast-plan.ts is deliberately not here any more: its prompt used
+    // to restate five of the persona's banned words in miniature and now
+    // points at the persona instead, so it names none of them itself.
     "src/lib/forecast-plan-schema.ts",
     "src/lib/book-insights.ts",
     // Sanitizer: it matches these to rewrite them out of model output.
