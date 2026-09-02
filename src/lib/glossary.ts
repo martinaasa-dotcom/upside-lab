@@ -1,0 +1,244 @@
+/**
+ * Every word this app prints that a beginner would have to look up, said
+ * plainly once, in one place.
+ *
+ * The rule the product already follows is that nothing a person reads uses
+ * market slang. That rule cannot reach every word, because some of them are
+ * the real names of real things: a share, a dividend, what you paid, the
+ * price today. A reader meeting one of those for the first time should not
+ * have to leave the app to find out what it is, and should not have to ask
+ * Margus either, because the answer never changes and asking a model a
+ * settled question is slower and less reliable than reading it.
+ *
+ * Two sentences each, and the second one is the point: it says the idea
+ * again with the reader's own number in it, because "what you paid" means
+ * nothing until it means "$4,120 for your twelve Apple shares". The example
+ * is a function the caller feeds from what is already on screen, so nothing
+ * here fetches anything and nothing here can be stale.
+ *
+ * What belongs here: a word the app itself prints. What does not: anything
+ * this app has decided not to say at all (sleeve, tape, drawdown), which
+ * belongs in the ban list rather than in a dictionary, and anything that
+ * would amount to telling somebody what to do with their money.
+ */
+
+export type GlossaryExample = {
+  /** The reader's own figures, already formatted by the caller. */
+  ticker?: string;
+  amount?: string;
+  second?: string;
+  count?: number;
+};
+
+export type GlossaryEntry = {
+  id: string;
+  /** The word as the app prints it. */
+  term: string;
+  /** Other spellings a caller may look up. */
+  also?: string[];
+  /** Two sentences. The first says what it is, the second why it matters. */
+  meaning: string;
+  /**
+   * The same idea with the reader's own numbers in it, or null when the
+   * caller has nothing to put in. Never invents a figure.
+   */
+  example?: (input: GlossaryExample) => string | null;
+};
+
+const ENTRIES: GlossaryEntry[] = [
+  {
+    id: "share",
+    term: "Share",
+    also: ["shares"],
+    meaning:
+      "A share is one small piece of a company. Owning ten shares of a company means you own ten pieces of it, however many pieces there are in total.",
+    example: ({ ticker, count }) =>
+      ticker && count != null
+        ? `You hold ${count} ${count === 1 ? "share" : "shares"} of ${ticker}.`
+        : null,
+  },
+  {
+    id: "paid-each",
+    term: "Paid each",
+    also: ["average buy", "buy price", "cost basis", "what you paid"],
+    meaning:
+      "The average price you paid for one share, across every share of that company you own. It is the number your gain is measured against, so it matters more than the price on the day you bought.",
+    example: ({ ticker, amount }) =>
+      ticker && amount
+        ? `On ${ticker} that average is ${amount} a share.`
+        : null,
+  },
+  {
+    id: "cost",
+    term: "Cost",
+    meaning:
+      "Everything you have put into a holding: the shares you own times the average price you paid for one. It is the money you handed over, not what the holding is worth now.",
+    example: ({ ticker, amount }) =>
+      ticker && amount ? `Your cost on ${ticker} is ${amount}.` : null,
+  },
+  {
+    id: "value",
+    term: "Value",
+    also: ["worth now"],
+    meaning:
+      "What a holding would be worth if you sold it at today's price: the shares you own times the price right now. It moves every day the market is open, whether you do anything or not.",
+    example: ({ ticker, amount }) =>
+      ticker && amount ? `${ticker} is worth ${amount} today.` : null,
+  },
+  {
+    id: "gain",
+    term: "Gain",
+    also: ["roi", "gain %", "gain $", "return"],
+    meaning:
+      "The difference between what a holding is worth now and what you paid for it. It is on paper until you sell, which means it can change back.",
+    example: ({ ticker, amount, second }) =>
+      ticker && amount
+        ? `On ${ticker} that is ${amount}${second ? `, or ${second} of what you paid` : ""}.`
+        : null,
+  },
+  {
+    id: "today",
+    term: "Today's move",
+    also: ["today"],
+    meaning:
+      "How much the price has changed since the market closed yesterday. It says nothing on its own about whether the company is doing well.",
+    example: ({ ticker, amount }) =>
+      ticker && amount ? `${ticker} has moved ${amount} today.` : null,
+  },
+  {
+    id: "share-of-portfolio",
+    term: "Share of your portfolio",
+    also: ["% of portfolio", "% total", "concentration"],
+    meaning:
+      "How much of everything you own sits in one company. The larger it is, the more that one company decides how your year goes.",
+    example: ({ ticker, second }) =>
+      ticker && second ? `${ticker} is ${second} of what you own.` : null,
+  },
+  {
+    id: "cash",
+    term: "Cash",
+    meaning:
+      "Money in the account that is not in any company. It counts towards what your portfolio is worth, and it can be less than nothing if you borrowed to buy.",
+    example: ({ amount }) => (amount ? `You are holding ${amount}.` : null),
+  },
+  {
+    id: "borrowed",
+    term: "Borrowed money",
+    also: ["margin", "negative cash"],
+    meaning:
+      "Money your broker lent you, so what you hold is worth more than the money you put in. If it falls far enough, the broker can sell part of it without asking you first.",
+    example: ({ amount }) => (amount ? `You have borrowed ${amount}.` : null),
+  },
+  {
+    id: "thesis",
+    term: "Thesis",
+    also: ["why you own it"],
+    meaning:
+      "Your own reason for owning a company, written down in a sentence. Writing it is what lets you tell later whether something actually changed or the price simply moved.",
+    example: ({ ticker }) =>
+      ticker ? `Yours for ${ticker} is in the holding's own panel.` : null,
+  },
+  {
+    id: "recent-range",
+    term: "Recent range",
+    meaning:
+      "The lowest and highest a price has been over the last stretch of weeks. Knowing where today sits inside it says whether a move is unusual for that company.",
+    example: ({ ticker, amount, second }) =>
+      ticker && amount && second
+        ? `${ticker} has been between ${amount} and ${second}.`
+        : null,
+  },
+  {
+    id: "results-day",
+    term: "Results day",
+    also: ["earnings", "reports"],
+    meaning:
+      "The day a company tells everybody how much it sold and earned in the last three months. Prices often move more than usual that day, in either direction.",
+    example: ({ ticker, second }) =>
+      ticker && second ? `${ticker} reports ${second}.` : null,
+  },
+  {
+    id: "dividend",
+    term: "Dividend",
+    meaning:
+      "A share of a company's profit paid out in cash to the people who own it, usually every three months. Not every company pays one, and a company can stop.",
+  },
+  {
+    id: "index-fund",
+    term: "Index fund",
+    also: ["fund", "etf"],
+    meaning:
+      "One holding that quietly owns hundreds of companies at once, in the same proportions as a published list. Buying one is how a person owns a whole market without picking anything.",
+    example: ({ ticker }) =>
+      ticker ? `${ticker} is one of these.` : null,
+  },
+  {
+    id: "market",
+    term: "The market",
+    meaning:
+      "All the companies bought and sold together, usually summed up by an index like the S&P 500. When it falls, most companies fall with it whatever their own news.",
+  },
+  {
+    id: "compounding",
+    term: "Compounding",
+    meaning:
+      "Growth earning growth: this year's gain is added to the pot, and next year's gain is worked out on the larger pot. It is slow at first and does most of its work late.",
+  },
+  {
+    id: "split",
+    term: "Share split",
+    meaning:
+      "A company turning each share into several smaller ones, so the price per share falls and you hold more of them. Nothing you own changed in value on the day it happened.",
+  },
+  {
+    id: "covered-call",
+    term: "Covered call",
+    meaning:
+      "An agreement to sell shares you already own at a set price, if the buyer wants them, in return for a payment now. Most people never use one and this app is complete without them.",
+  },
+  {
+    id: "strike",
+    term: "Strike",
+    meaning:
+      "The price you agreed to sell at in one of those agreements. If the share price passes it, the buyer can take the shares at that price and you keep the payment.",
+    example: ({ ticker, amount }) =>
+      ticker && amount ? `Yours on ${ticker} is ${amount}.` : null,
+  },
+  {
+    id: "premium",
+    term: "Premium",
+    meaning:
+      "The payment you receive for making that agreement. It is yours whether or not the shares are ever taken.",
+  },
+];
+
+const BY_KEY = new Map<string, GlossaryEntry>();
+for (const entry of ENTRIES) {
+  BY_KEY.set(entry.id, entry);
+  BY_KEY.set(entry.term.toLowerCase(), entry);
+  for (const alias of entry.also ?? []) BY_KEY.set(alias.toLowerCase(), entry);
+}
+
+export const GLOSSARY: readonly GlossaryEntry[] = ENTRIES;
+
+/** Look a term up by its id, the word itself, or a spelling of it. */
+export function glossaryEntry(key: string): GlossaryEntry | null {
+  return BY_KEY.get(key.trim().toLowerCase()) ?? null;
+}
+
+/**
+ * The whole answer for one term: what it is, and the same thing said with
+ * the reader's own figures when the caller has them.
+ */
+export function explainTerm(
+  key: string,
+  input: GlossaryExample = {}
+): { term: string; meaning: string; example: string | null } | null {
+  const entry = glossaryEntry(key);
+  if (!entry) return null;
+  return {
+    term: entry.term,
+    meaning: entry.meaning,
+    example: entry.example?.(input) ?? null,
+  };
+}
