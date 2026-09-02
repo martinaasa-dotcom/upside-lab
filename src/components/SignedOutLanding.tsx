@@ -24,6 +24,7 @@ import {
   LineChart,
   Mail,
   MessagesSquare,
+  ShieldCheck,
   MinusCircle,
   TrendingDown,
   Users,
@@ -653,15 +654,37 @@ function CircleStill() {
   );
 }
 
+/*
+  These used to be two cards, and the first one described co-ownership and
+  then attached a circle's privacy promise to it: "you both own it. They see
+  today's prices and never what you paid." The second half is not true of a
+  co-owner. `HOLDING_COLUMNS` sends `buy_price` to everybody on the owners
+  list, which is right, because two people who own one portfolio together
+  are looking at one portfolio. Hiding what it cost from one of them would
+  make the gain unreadable for them.
+
+  The sentence was true of the other thing, which the page had not mentioned:
+  a portfolio pinned into a circle, where `buy_price` is zeroed for every
+  reader but its owner (`/api/communities/[id]/book`). Two different acts
+  with two different answers, so they are two different cards. Getting this
+  one wrong is worse than getting a feature claim wrong, because somebody
+  reads it, invites their parent, and finds out afterwards.
+*/
 const CIRCLE_POINTS = [
   {
     icon: Users,
-    title: "Share a portfolio",
+    title: "Share a portfolio with one person",
     detail:
-      "Invite a partner, a parent or a friend and you both own it. They see today's prices and never what you paid.",
+      "Invite a partner or a parent and you both own it. One portfolio with two people on it, not a copy: you both add holdings and you both see all of it, what each of you paid included.",
   },
   {
     icon: MessagesSquare,
+    title: "Or show a circle, without the money",
+    detail:
+      "Putting a portfolio in a circle is the other thing, and it answers differently. Everybody there sees what you hold and how it has gone. What you paid for it stays yours.",
+  },
+  {
+    icon: ShieldCheck,
     title: "Nobody is added for you",
     detail:
       "A circle is invite-only and private by default. Signing in never puts you in one, and nothing you own is shared until you share it.",

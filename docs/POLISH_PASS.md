@@ -168,7 +168,7 @@ own worktree with a test, reviewed adversarially, then merged.
 - [~] nav-history transferred fourteen whole-product snapshots to read fourteen numbers.
 - [~] `ensureProfileAndClaims` was five to seven serial round trips with an N+1 slug loop.
 - [~] `/api/communities` was two serial reads on every Home load.
-- [~] Proxy auth round trip, fund payload cache, `radix-ui` barrel (retried after the limit).
+- [x] Proxy auth round trip, fund payload cache, `radix-ui` barrel. The barrel is a development win only: the production output is byte for byte identical, because Turbopack already tree-shakes it.
 - [ ] Deleting a holding on a normal portfolio paid a full Yahoo walk for a cash delta it then threw away; adding one is six serial round trips.
 - [ ] Opening a circle is four routes times three auth round trips plus four serial waves each.
 - [ ] Margus waits for two rate-limit RPCs and a sixteen-ticker calendar before the first token.
@@ -184,10 +184,19 @@ own worktree with a test, reviewed adversarially, then merged.
 - [ ] Home: hero that leads with the value, market card that answers "me or the market", one briefing card, no duplicate notices, honest chart caption, watchlist suggestions that are not three coins, "less than 1%" everywhere, status strip in words.
 - [ ] Portfolio room: fractional shares, Gain instead of ROI, phone card with a lead figure, tap-to-open drawer, drawer that matches the row, totals up top, covered calls hidden below 100 shares, placeholder forecast drawn as a placeholder, modal copy.
 - [ ] Pulse: the day's story first, the market's move beside yours, company names on cards, a real measured range, fallback cards that say so, headlines with source and age, no forced model call from Home.
-- [ ] Alerts: the lifecycle bug (every alert dismissed the instant it is toasted), a door into the room, cards that teach with the reader's numbers, margin health reaching a screen.
+- [x] Alerts: the lifecycle bug is fixed (two lists, and only a press on Dismiss writes the one the room reads), cards go where they are about rather than all to Overview, the empty state says what will fill it, and margin health reaches a screen now that the room is not permanently empty. Cards that teach with the reader's own numbers are still open.
 - [ ] Circle: percent-only by default, a duel that resolves, reasons shared side by side, an empty circle that leads with the invite, what changed since you looked, a League that fits on a phone, one award per person, "circle" not "community".
 - [ ] Account: identity first, sign out on the phone, supporter not Pro, a delete dialog built from data, an attention streak in a warm voice, the options question asked in plain words.
 - [ ] Upside Fund: a not-advice line on the page, Bought and Sold instead of Opened and Exited, S&P 500 not SPY, honest risk cells.
 - [ ] Landing and sign-in: one sample portfolio whose numbers add up, a Pulse still you can toggle, six sections not eight, a footer that says who is behind it, the consent question off the first screen, `/login` compact.
-- [ ] Learning layer: a normal day for you, guess before you look, cards that come back, teach me this word, thesis check-in, draft your thesis with Margus, company or the whole market, what you would have to believe.
+- [~] Learning layer. Built and tested: a normal day for you (`typical-move.ts`), cards that come back (`recall-deck.ts`), company or the whole market (`market-or-you.ts`), what you would have to believe (`believe.ts`), and the glossary. Teach me this word now has a surface (`Explain`, on the Fund). Still open: guess before you look, thesis check-in, draft your thesis with Margus, and the rest of the wiring, which the screens packages carry.
 - [ ] Demo mode a stranger can open from the landing.
+
+### Rules and documentation
+
+- [x] `AGENTS.md` opens with what the product is for and how to read a file whose weight follows where the debugging went rather than what matters most. About a sixth of it is one navigation bar's motion, and nothing in it said what the app was for.
+- [x] The slang ban is amended rather than kept or dropped. It was costing the reader the other half of their life: taught the idea, then unable to recognise it in their own broker's screens. One field in one module may name the outside word, and the test refuses an entry whose definition needs it.
+- [x] Two migrations sharing the timestamp `20260902120000`, from two sessions in one hour.
+- [ ] `TIER_HIDDEN_META_TABS` hides Lab from a novice, which is the analysis room withheld from exactly the reader the product is for. The answer is Lab with each tab saying what to notice, not Lab hidden, so this waits on the Lab content package.
+- [ ] `TIER_HIDDEN_LAB_TABS` hides Risk until advanced. A shock test is one of the most teaching things in the app.
+- [x] `docs/AUDIT_CHECKLIST.md` and `docs/MVP_AUDIT_LIVE_PASS.md` checked for staleness. Both are live and referenced; neither is bloat.
