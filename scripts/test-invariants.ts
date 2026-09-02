@@ -6942,7 +6942,38 @@ run("in-app feedback is a monthly walk-through and freeform when you open it", (
     join(process.cwd(), "src/components/AccountPage.tsx"),
     "utf8"
   );
-  assert.match(account, /Tell Upside/);
+  /*
+   * The rule is that Account can open feedback, not what the button says.
+   *
+   * This asserted the literal "Tell Upside", which is exactly the kind of
+   * assertion AGENTS.md warns costs more than it protects: the button is
+   * "Send feedback" now, sitting beside "Show me around" in one "Help and
+   * feedback" panel, because feedback was being offered three times on one
+   * screen with the same sentence under each offer.
+   */
+  assert.match(
+    account,
+    /openManual/,
+    "Account opens the freeform form itself"
+  );
+  assert.equal(
+    (account.match(/onClick=\{openManual\}/g) || []).length,
+    1,
+    "and offers it once, not once per panel"
+  );
+  /*
+   * And the monthly round is offered rather than sprung. It used to open
+   * itself over whatever room the reader had come for, 1.6 seconds after
+   * launch; the cadence is unchanged and the host now publishes whether it
+   * is due so a row in Account can ask.
+   */
+  assert.doesNotMatch(
+    host,
+    /setTimeout[\s\S]{0,120}setMode/,
+    "nothing opens the feedback modal on a timer after launch"
+  );
+  assert.match(host, /monthlyDue/);
+  assert.match(account, /openMonthly/);
 });
 
 run("community invite admin list reads like Discord", () => {
