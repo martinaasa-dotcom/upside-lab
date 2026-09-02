@@ -60,4 +60,28 @@ describe("plainError", () => {
     const written = "That ticker doesn't look like a real symbol.";
     expect(plainError(written, FALLBACK)).toBe(written);
   });
+
+  /*
+    An error is a bad moment to introduce the company. "That action is not
+    one we recognize" answers the reader's problem by talking about us, and
+    this is the sentence somebody meets when something has just failed,
+    which is exactly when the shortest true answer is the kind one.
+  */
+  it("says what happened without talking about us", () => {
+    for (const raw of ["Unknown action", "Unrecognized ticker"]) {
+      const out = plainError(raw, FALLBACK);
+      expect(out).not.toMatch(/\bwe\b|\bus\b|\bour\b/i);
+      expect(out).not.toBe(raw);
+    }
+    expect(plainError("Unknown action", FALLBACK)).toBe(
+      "That did not work. Try again."
+    );
+  });
+
+  /* The one scheduled email is called the Sunday letter everywhere. */
+  it("calls the Sunday letter the Sunday letter", () => {
+    expect(plainError("sunday required", FALLBACK)).toBe(
+      "Pick whether you want the Sunday letter."
+    );
+  });
 });
