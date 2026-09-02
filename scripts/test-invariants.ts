@@ -951,7 +951,10 @@ run("fund thesis and exit plans split into short bullets", () => {
   );
   assert.deepEqual(thesis, [
     "Data cloud consumption accelerating with GenAI workloads",
-    "RPO up >50% YoY",
+    // The acronym is spelled out now rather than compressed into. Every
+    // other rule in this app opens a term up, and this card is read by
+    // somebody who has never seen those three letters before.
+    "Signed orders not yet billed up >50% YoY",
     "Durable multi-year expansion",
     "Enterprises unify analytics and AI pipelines",
   ]);
