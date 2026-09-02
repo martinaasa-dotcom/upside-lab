@@ -16,6 +16,7 @@ import {
   Scoreboard,
   SwatchLegend,
 } from "@/components/ui/Panel";
+import { Explain } from "@/components/ui/Explain";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -527,15 +528,25 @@ function FundMetric({
   value,
   hint,
   valueClassName,
+  explain,
 }: {
   label: string;
   value: string;
   hint?: string;
   valueClassName?: string;
+  /*
+    A glossary term, where this label is one. The Fund is the page a reader
+    who owns nothing yet is most likely to be looking at, so it is the worst
+    place in the product to print a word and leave them to guess it.
+  */
+  explain?: string;
 }) {
   return (
     <div className="min-w-0">
-      <MicroLabel>{label}</MicroLabel>
+      <MicroLabel>
+        {label}
+        {explain ? <Explain term={explain} className="ml-1.5" /> : null}
+      </MicroLabel>
       <p
         className={cn(
           "mt-1.5 truncate font-mono text-base font-semibold tabular-nums text-foreground",
@@ -612,13 +623,21 @@ function FundPosition({
         </Pill>
       </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <FundMetric label="Cost" value={currency(holding.cost_basis)} />
+        <FundMetric
+          label="Cost"
+          value={currency(holding.cost_basis)}
+          explain="cost"
+        />
         <FundMetric
           label="Now"
           value={currency(price)}
           valueClassName={signedTone(pnlPct, "text-foreground")}
         />
-        <FundMetric label="Portfolio" value={currency(marketValue, 0)} />
+        <FundMetric
+          label="Portfolio"
+          value={currency(marketValue, 0)}
+          explain="value"
+        />
         <FundMetric
           label="Since buy"
           value={signedCurrency(pnlDollar, 0)}
