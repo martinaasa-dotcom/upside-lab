@@ -31,44 +31,42 @@ async function handleGET() {
     return NextResponse.json({ communities: [] });
   }
 
+  /*
+    One request rather than two. Home fetches this on every mount, and
+    reading the memberships and then reading the communities those rows had
+    just named was two serial round trips for one line of text. PostgREST
+    joins them on the foreign key, so a membership row arrives carrying its
+    own community.
+
+    The sort is done here rather than by the database: PostgREST orders a
+    result by columns of the table it was asked for, and the name is on the
+    embedded side. A person is in a handful of circles, so this costs
+    nothing next to the round trip it saves.
+  */
   const { data: memberships, error } = await supabase
     .from(PORTFELL_TABLES.communityMembers)
-    .select("community_id, role, joined_at")
+    .select(
+      "role, community:portfell_communities!inner(id, name, visibility, kind, starting_cash, created_by, created_at, updated_at)"
+    )
     .eq("user_id", auth.user.id);
 
   if (error) {
     return NextResponse.json({ error: dbError(error, "/api/communities") }, { status: 500 });
   }
 
-  const ids = ((memberships ?? []) as { community_id: string }[]).map(
-    (m) => m.community_id
+  const rows = (memberships ?? []) as unknown as {
+    role: string | null;
+    community:
+      | ({ id: string; name: string } & Record<string, unknown>)
+      | null;
+  }[];
+
+  const communities = rows.flatMap((m) =>
+    m.community ? [{ ...m.community, role: m.role ?? "member" }] : []
   );
-  if (!ids.length) {
-    return NextResponse.json({ communities: [] });
-  }
+  communities.sort((a, b) => a.name.localeCompare(b.name));
 
-  const { data: communities, error: cErr } = await supabase
-    .from(PORTFELL_TABLES.communities)
-    .select("id, name, visibility, kind, starting_cash, created_by, created_at, updated_at")
-    .in("id", ids)
-    .order("name");
-
-  if (cErr) {
-    return NextResponse.json({ error: dbError(cErr, "/api/communities") }, { status: 500 });
-  }
-
-  const roleById = new Map(
-    ((memberships ?? []) as { community_id: string; role: string }[]).map(
-      (m) => [m.community_id, m.role]
-    )
-  );
-
-  return NextResponse.json({
-    communities: (communities ?? []).map((c) => ({
-      ...(c as object),
-      role: roleById.get((c as { id: string }).id) ?? "member",
-    })),
-  });
+  return NextResponse.json({ communities });
 }
 
 async function handlePOST(req: NextRequest) {
