@@ -53,8 +53,14 @@ describe("the landing hero lamps stay with the window", () => {
     expect(CSS).not.toContain(".ambient-glow {");
     expect(CSS).not.toContain(".sample-still");
     expect(LANDING).not.toMatch(/ring-0/);
-    // Same glass shell as Pulse: the rim stays, only the private glow goes.
-    expect(LANDING).toContain('className="h-auto gap-5 p-5"');
+    /*
+      Same glass shell as Pulse: the rim stays, only the private glow goes.
+      Matched rather than compared, because the sample card also carries
+      `@container` now: it is drawn at 768px in the hero and at 336px in
+      the sign-in column at the same viewport, so what decides its layout
+      has to be the room it has rather than the width of the window.
+    */
+    expect(LANDING).toMatch(/className="(?:@container )?h-auto gap-5 p-5"/);
     expect(LANDING).toContain("items-start");
   });
 });

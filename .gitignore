@@ -51,3 +51,11 @@ supabase/.temp/
 .claude/settings.local.json
 .claude/worktrees/
 test-results/
+
+# Throwaway Playwright scripts written by audit agents while they measure the app
+scripts/_tmp_*
+
+# A locked demo save is one person's real holdings. It stays on the machine
+# that made it: the dev route that writes it refuses to answer on any
+# deployment, and this repository is public.
+data/locked-demo.json
