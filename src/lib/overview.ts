@@ -15,7 +15,12 @@ export const COMPOUND_TAB_ID = "__compound__";
 export const LAB_TAB_ID = "__lab__";
 export const PULSE_TAB_ID = "__pulse__";
 export const SEASONALITY_TAB_ID = "__seasonality__";
-/** Mobile-only: the Alerts tab. Not a desktop meta-tab. */
+/**
+ * "Worth a look" (`/alerts`), which renders on both breakpoints and has no
+ * cell of its own on either dock: it is Home's second screen, reached from
+ * the one overflow menu the chrome already has, and the accent dot on the
+ * Home cell is what points at it.
+ */
 export const ALERTS_TAB_ID = "__alerts__";
 
 export type SheetScore = {
