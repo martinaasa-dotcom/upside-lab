@@ -127,6 +127,10 @@ import {
 import { useTimeout } from "@/lib/use-timeout";
 import { useStableCallback } from "@/lib/use-stable-callback";
 import {
+  takeTourScreenshot,
+  TOUR_SCREENSHOT_EVENT,
+} from "@/lib/welcome-tour";
+import {
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -2190,6 +2194,23 @@ export function Dashboard() {
   const onImportScreenshot = useStableCallback((files: File[]) => {
     void beginSilentScreenshotImport(files);
   });
+  /*
+    The picture somebody handed the walkthrough on their way in.
+
+    Reading a broker screenshot is Margus's job, and Margus is here rather
+    than inside that overlay, so the walkthrough holds the file and lets go
+    of it as it closes. This is the same import the empty Overview screen
+    runs, so what happens next is the ordinary one: Margus reads the picture
+    out and shows what was found before anything is saved.
+  */
+  useEffect(() => {
+    const take = () => {
+      const files = takeTourScreenshot();
+      if (files.length) onImportScreenshot(files);
+    };
+    window.addEventListener(TOUR_SCREENSHOT_EVENT, take);
+    return () => window.removeEventListener(TOUR_SCREENSHOT_EVENT, take);
+  }, [onImportScreenshot]);
   const onImportCsv = useStableCallback(() => setCsvImportOpen(true));
   const onOpenTicker = useStableCallback((t: string) => setDrawerTicker(t));
   const onDisplayCurrencyChange = useStableCallback((code: DisplayCurrency) => {

@@ -72,7 +72,7 @@ export const SIGNIN_WHO =
 
 export const SIGNIN_POINTS = [
   "When a price falls, it says whether there was news about the company or the whole market moved together.",
-  "Margus has read your portfolio. Ask him why your week went the way it did.",
+  "Margus has read your portfolio. Ask why your week went the way it did.",
   "A circle is the people you already talk to about this. Share a portfolio and see how everyone's day went.",
 ] as const;
 
@@ -92,6 +92,25 @@ export const SIGNIN_POINTS = [
  * comparison that opens by running down a tool the reader likes is a
  * comparison they stop reading.
  */
+/**
+ * What the Sunday email is, in one sentence, for every surface that has to
+ * say it.
+ *
+ * Three places used to describe it and all three said something different:
+ * the landing offered "what moved, and the reasoning in full sentences",
+ * Account said "nothing else lands in your inbox", and the walkthrough
+ * promised "what to think about for the week ahead", which no section of
+ * `weekly-letter.ts` writes. A reader who reads two of them has been told
+ * two things, and one of them was a feature that is not there.
+ *
+ * So it is one string and every surface prints it. What each surface may
+ * add is its own second sentence about its own context (the switch, the
+ * one reminder mail an empty portfolio gets); the description itself does
+ * not vary.
+ */
+export const SUNDAY_EMAIL_LINE =
+  "One email a week: how the week went, which of your holdings moved, and any note Pulse already showed you.";
+
 export const BROKER_ALREADY_DOES = [
   "Holds your money and puts your orders through.",
   "Shows what everything is worth right now, to the cent.",

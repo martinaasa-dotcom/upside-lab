@@ -37,6 +37,7 @@ import {
   SIGNIN_PRICE,
   SIGNIN_PRICE_NOTE,
   SIGNIN_TRUST,
+  SUNDAY_EMAIL_LINE,
   THIS_DOES_INSTEAD,
 } from "@/lib/product";
 import Link from "next/link";
@@ -415,8 +416,7 @@ const MORE = [
   {
     icon: Mail,
     title: "A letter on Sunday",
-    detail:
-      "One email a week. What moved, and the reasoning in full sentences.",
+    detail: SUNDAY_EMAIL_LINE,
   },
   {
     icon: LayoutGrid,
