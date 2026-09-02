@@ -153,13 +153,17 @@ own worktree with a test, reviewed adversarially, then merged.
 - [~] Add-address endpoint tells any signed-in user whether an address has an account.
 - [~] One-time tokens are spent without checking the row count.
 - [~] The sign-in link page never names the address it opens and replaces an existing session silently.
-- [ ] Forecast ticker cache: one reader's thesis text can steer every other reader's shared path for fourteen days.
-- [ ] Pulse shared cache serves a caller-steered verdict to other readers for four hours.
-- [ ] Classroom students can set their own paper cash and buy at any price.
-- [ ] Invite mail with no rate limit and a caller-chosen subject.
+- [x] Forecast ticker cache: one reader's thesis text could steer every other reader's shared path for fourteen days. A run publishes nothing at all if any holding in it carries a written reason, the anchor price is the server's own quote rather than a figure off the request, and the portfolio's name is out of the prompt entirely.
+- [x] Pulse shared cache served a caller-steered verdict to other readers for four hours. The mood word is derived from the score, the move label is one of the four the server produces, and `force` no longer overwrites an answer other readers will be given.
+- [x] Classroom students could set their own paper cash and buy at any price. Cash is the teacher's to set in every period, a paper trade prices at the market on every buying path, and the balance cannot go below zero, which the database enforces and `class-cash-floor.test.sql` proves by failing without the migration.
+- [x] Invite mail with no rate limit and a caller-chosen subject. Bounded per account and per circle, charged by the envelope, and the subject carries no text anybody typed.
 - [ ] Circle invite tokens stored in plaintext (in flight from the first pass).
 - [ ] Unsubscribe `ilike`, `/auth/link` on GET, raw error strings, holdings import bounds, unshaped chat and forecast bodies (in flight from the first pass).
 - [-] `/api/internal/log-error` unauthenticated by design; text-only digest, log pollution only.
+
+### Security, second pass
+
+- [x] The anonymous quote fan-out (one request with 120 invented names causing about 4,000 provider calls, tripping the shared circuit breaker and taking live prices off every signed-in reader) was already closed by an earlier wave: `isQuotableTicker` runs before any provider is contacted, the unresolved budget is charged up front rather than after the walk, and `/api/market/events` carries the same two guards.
 
 ### Performance, second pass (measured)
 
