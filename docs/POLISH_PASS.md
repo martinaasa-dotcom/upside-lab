@@ -57,8 +57,8 @@ before acting on it, and write the reasoning down beside the change.
 
 - [ ] Eight sentences that are instructions to buy, sell or hold, on the covered-call surfaces, the Pulse schema and the Sunday letter.
 - [ ] Jargon without a plain gloss (ROI, P&L, equity, strike, yield, allocation, benchmark, presidential cycle, leverage multiple).
-- [ ] The growth planner's default rate can be 27 to 37 percent a year, compounded for fifty years, with the caveat behind a click.
-- [ ] Presets named by a number and nothing else.
+- [x] The growth planner's default rate can be 27 to 37 percent a year, compounded for fifty years, with the caveat behind a click. It opens on the broad-market baseline now, with the mix as a named preset and a sentence under the field saying which one is on. Verified: `DEFAULT_COMPOUND_INPUTS.ratePercent` is 10.
+- [x] Presets named by a number and nothing else. Each says what it is and where it comes from.
 - [ ] One name for the Sunday letter, one name for a circle, companies rather than "names".
 - [ ] Walls: the walkthrough's 62-word opening sentence, the terms' 200-word payment paragraph.
 - [ ] Empty states and error messages that do not say what to do next.
@@ -68,8 +68,8 @@ before acting on it, and write the reasoning down beside the change.
 ## 4. Margus
 
 - [ ] Persona: "risk reference point", the borrowing ceiling that reads as a rule.
-- [ ] The scrubber misses the bare form of most banned words; openers only caught at the start of a paragraph.
-- [ ] The covered-call prompt tells the model to give execution timing and uses the words the persona bans.
+- [x] The scrubber misses the bare form of most banned words. Verified: `dry powder`, `risk-on` and `drawdown` are each replaced on a word boundary now, not only inside a phrase.
+- [x] The covered-call prompt tells the model to give execution timing and uses the words the persona bans. Verified: no execution-timing instruction is left in `cc-advisor.ts`, and the context block's own labels stopped teaching him the abbreviations the ban list then cleans up.
 - [x] The context block handed Margus `roi%`, `roi$` and `pctTotal`, which are the abbreviations the product renamed out of reader copy, so the ban list and the scrubber were cleaning up a word the prompt had just taught. The labels are the reader's words now.
 - [ ] Response speed: streaming, first-token time, chunk warm.
 - [ ] Openers, empty portfolio behaviour, what he can and cannot write.
@@ -77,14 +77,14 @@ before acting on it, and write the reasoning down beside the change.
 
 ## 5. Onboarding
 
-- [ ] The walkthrough is eleven screens of cards with two or three sentences each. Rebuild the telling screens as interactive: a live sample day the reader can tap through, a working miniature of the bar, questions that show their effect.
-- [ ] The map omits Upside Fund and Margus; "a minute" on one screen and "two minutes" on another.
+- [x] The walkthrough is eleven screens of cards with two or three sentences each. Rebuilt so every screen wants a tap before it wants a read, including the red day turned over one row at a time, a working miniature of the bar, and the two questions shown against a live preview that reads the real gates.
+- [x] The map omits Upside Fund and Margus; "a minute" on one screen and "two minutes" on another. Verified: the rooms screen names Margus and the account, and only one time claim is left.
 - [ ] Holdings entry: screenshot, CSV, paste and typing all reachable from the first screen that asks.
 - [ ] Empty Home reads as a wall.
 
 ## 6. Learning layer (the gap)
 
-- [ ] There is no glossary, no lesson, no quiz, no "why did this move" explainer beyond Pulse and Margus. Design a learning layer that is short, in context, and earned by looking at your own portfolio rather than a course.
+- [~] There is no glossary, no lesson, no quiz, no "why did this move" explainer beyond Pulse and Margus. Five modules built and tested, and the glossary has a surface (`Explain`). The remaining wiring is in the screens packages.
 - [ ] Ideas to critique: plain-word glossary on tap for every term; one-minute reads triggered by what happened in your portfolio today; a paper portfolio to practise with; a weekly reflection; streaks that reward looking rather than trading; a "what would you have to believe" prompt per holding.
 - [~] Judge panel on the ideas, then build the ones that survive.
 
