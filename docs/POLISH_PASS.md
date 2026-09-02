@@ -26,7 +26,8 @@ before acting on it, and write the reasoning down beside the change.
 - [x] `/api/book/ytd-from-image` computes the 401 and throws it away. Closed, with the limiter keyed on the reader.
 - [~] Chat `ccContext` and `messages` reach the system prompt unshaped.
 - [~] Holdings import skips the money and share ceilings the single-holding route enforces.
-- [ ] CSP `'unsafe-inline'` on scripts: measure a report-only nonce policy.
+- [-] CSP `'unsafe-inline'` on scripts. Assessed and blocked structurally, not for want of a measurement, so the item is closed with the reason rather than left open forever. A report-only nonce policy would report the same thing the comment in `security-headers.ts` already records from a live failure: the app shell is ISR and CDN-cached, Next stamps nonces only onto dynamically rendered markup, so a fresh per-request nonce meets cached Flight scripts that carry none and hydration is blocked. Hashes are the same trap from the other side, because CSP Level 3 says a policy containing any hash or nonce source ignores `'unsafe-inline'`, so hashing the one inline script this repo owns (`SESSION_HINT_SCRIPT`) would take Flight down with it. What would actually unblock it is the shell no longer being CDN-cached, which costs more than this buys.
+- [ ] What is worth doing instead, and is not done: `'unsafe-inline'` is why `docs/COOKIES.md` can say the CSP is the defence for a cookie that is deliberately not HttpOnly. That argument is weaker than the file makes it sound, and the honest compensating controls are the ones already in place (no `'strict-dynamic'`, a named-host `connect-src` and `img-src`, the same-origin gate on every mutation). Worth saying so in `COOKIES.md` rather than leaving the CSP sounding stronger than it is.
 - [~] Unsubscribe matches email with `ilike` (LIKE wildcards).
 - [~] `/auth/link` acts on GET (mail scanners confirm an address).
 - [~] Raw error strings in three responses.
