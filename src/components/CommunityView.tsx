@@ -98,6 +98,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -222,6 +223,15 @@ export function CommunityView({ communityId }: Props) {
   const loadAbortRef = useRef<AbortController | null>(null);
   const fromPopRef = useRef(false);
   const bootstrappedRef = useRef(false);
+  /*
+    What the layout effect read out of the address, so the writer below can
+    tell "the reader has not changed anything yet" from "this render is
+    still carrying the defaults".
+  */
+  const urlSeedRef = useRef<{
+    view: "overview" | "play" | "members";
+    member: string | null;
+  } | null>(null);
   const correctingRef = useRef(false);
 
   useLayoutEffect(() => {
@@ -264,11 +274,17 @@ export function CommunityView({ communityId }: Props) {
     fromPopRef.current = false;
 
     const params = new URLSearchParams(window.location.search);
-    setSelectedOwnerId(params.get("member"));
     const rawView = params.get("view");
-    if (rawView === "members") setView("members");
-    else if (rawView === "play" || rawView === "league") setView("play");
-    else setView("overview");
+    const seedView =
+      rawView === "members"
+        ? ("members" as const)
+        : rawView === "play" || rawView === "league"
+          ? ("play" as const)
+          : ("overview" as const);
+    const seedMember = params.get("member");
+    urlSeedRef.current = { view: seedView, member: seedMember };
+    setSelectedOwnerId(seedMember);
+    setView(seedView);
   }, [communityId]);
   const [bestiaryOpen, setBestiaryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -456,7 +472,27 @@ export function CommunityView({ communityId }: Props) {
     else url.searchParams.delete("view");
     const href = `${url.pathname}${url.search}`;
 
+    /*
+      A shared link did not survive its own page load.
+
+      This effect is queued from the first render, whose `view` is still the
+      default, and the layout effect that reads the address commits a second
+      render after it. Both passive effects then run, so the first one wrote
+      the address back without the query it had arrived with. That alone
+      only cost an extra history entry, but `WorkspaceShell` can remount the
+      room, and the layout effect then re-read an address that no longer
+      said anything: a link to `?view=league` landed on Overview, and
+      `?member=` never opened the drill-down at all.
+
+      So nothing is written until the state agrees with what the layout
+      effect actually parsed. A render still carrying the defaults is a
+      render that has not caught up, not a reader who has changed their
+      mind, and it leaves the address alone.
+    */
     if (!bootstrappedRef.current) {
+      const seed = urlSeedRef.current;
+      if (!seed) return;
+      if (seed.view !== view || seed.member !== selectedOwnerId) return;
       bootstrappedRef.current = true;
       window.history.replaceState(window.history.state, "", href);
       return;
@@ -948,6 +984,45 @@ export function CommunityView({ communityId }: Props) {
         .map((c) => circleChangeSentence(c, cashtag)),
     [previousBook, ownership, holdings, profileName]
   );
+
+  /**
+   * Who in this circle wears each animal, and the three groups the field
+   * guide is read in: you, then the room, then everything else.
+   */
+  const bestiaryHolders = useMemo(() => {
+    const map = new Map<string, string>();
+    const names = new Map<string, string[]>();
+    for (const m of membersWithBooks) {
+      const id = m.personality?.archetype.id;
+      if (!id) continue;
+      names.set(id, [...(names.get(id) ?? []), m.isYou ? "You" : m.name]);
+    }
+    for (const [id, list] of names) {
+      const joined =
+        list.length === 1
+          ? list[0]!
+          : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+      map.set(id, `${joined} ${list.length === 1 && list[0] !== "You" ? "has" : "have"} this one.`);
+    }
+    return map;
+  }, [membersWithBooks]);
+
+  const bestiaryGroups = useMemo(() => {
+    const you = membersWithBooks.find((m) => m.isYou)?.personality?.archetype.id;
+    const here = new Set(
+      membersWithBooks
+        .map((m) => m.personality?.archetype.id)
+        .filter((id): id is string => Boolean(id))
+    );
+    const mine = ANIMAL_BESTIARY.filter((a) => a.id === you);
+    const inRoom = ANIMAL_BESTIARY.filter((a) => a.id !== you && here.has(a.id));
+    const rest = ANIMAL_BESTIARY.filter((a) => a.id !== you && !here.has(a.id));
+    return [
+      { title: "Yours", animals: mine },
+      { title: "In this circle", animals: inRoom },
+      { title: "Every other animal", animals: rest },
+    ].filter((g) => g.animals.length > 0);
+  }, [membersWithBooks]);
 
   const [funFactsShuffle, setFunFactsShuffle] = useState(0);
   const communityFunFacts = useMemo(
@@ -1892,9 +1967,24 @@ export function CommunityView({ communityId }: Props) {
                 <X />
               </Button>
             </div>
+            {/*
+              A mirror before a glossary.
+
+              This was twenty-one identical cards in decision order, so the
+              reader's own animal and the ones actually in the room were no
+              easier to find than the eighteen nobody here has. Yours first,
+              with the sentence explaining why you got it, then the ones
+              present in this circle and who has them, then the rest.
+            */}
             <div className="flex flex-col mt-4 gap-3">
-              {ANIMAL_BESTIARY.map((a) => {
+              {bestiaryGroups.map((group) => (
+                <Fragment key={group.title}>
+                  <p className="mt-2 text-sm font-medium text-muted-foreground first:mt-0">
+                    {group.title}
+                  </p>
+                  {group.animals.map((a) => {
                 const tone = animalCardTone(a.id);
+                const who = bestiaryHolders.get(a.id);
                 return (
                   <div
                     key={a.id}
@@ -1921,6 +2011,9 @@ export function CommunityView({ communityId }: Props) {
                         <p className="text-sm text-muted-foreground">{a.criteria}</p>
                       </div>
                     </div>
+                    {who ? (
+                      <p className="mt-2 text-sm text-foreground">{who}</p>
+                    ) : null}
                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                       {a.vibe}
                     </p>
@@ -1937,6 +2030,8 @@ export function CommunityView({ communityId }: Props) {
                   </div>
                 );
               })}
+                </Fragment>
+              ))}
             </div>
           </div>
         </ViewportOverlay>
