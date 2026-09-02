@@ -37,6 +37,8 @@ import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import {
   loadDismissedAlertIds,
   saveDismissedAlertIds,
+  loadToastedAlertIds,
+  saveToastedAlertIds,
 } from "@/lib/alert-dismiss";
 import { PULSE_REFRESH_MS, effectiveMove, isEmptyPulseCheck, loadPulseTickerCache, type PulseCheck } from "@/lib/thesis-pulse";
 import { loadForecastPlan } from "@/lib/forecast-plan";
@@ -432,6 +434,12 @@ export function Dashboard() {
   // (that would re-trigger the alert effect on every toast it fires).
   const alertToastsSentRef = useRef(alertToastsSent);
   alertToastsSentRef.current = alertToastsSent;
+  // Separate from the above, and the whole point of being separate: this one
+  // is written by a reader pressing Dismiss and by nothing else. See
+  // `alert-dismiss.ts` for what merging the two did to the room.
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(
+    () => new Set()
+  );
   const bookRef = useRef({ portfolios, holdings });
   bookRef.current = { portfolios, holdings };
   const bookAbortRef = useRef<AbortController | null>(null);
@@ -518,7 +526,8 @@ export function Dashboard() {
       return next;
     });
     setDisplayCurrencyByPortfolio(loadDisplayCurrencyMap());
-    setAlertToastsSent(loadDismissedAlertIds());
+    setAlertToastsSent(loadToastedAlertIds());
+    setDismissedAlertIds(loadDismissedAlertIds());
     setCcVisibleByPortfolio(loadVisibilityMap(CC_VISIBLE_KEY));
     setForecastVisibleByPortfolio(loadVisibilityMap(FORECAST_VISIBLE_KEY));
     setExperienceTier(loadStoredTier());
@@ -900,8 +909,8 @@ export function Dashboard() {
   }, [bookCoveredCallRows, earningsEvents, overview, hideOptionsUI]);
 
   const activeAlerts = useMemo(
-    () => bookAlerts.filter((a) => !alertToastsSent.has(a.id)),
-    [bookAlerts, alertToastsSent]
+    () => bookAlerts.filter((a) => !dismissedAlertIds.has(a.id)),
+    [bookAlerts, dismissedAlertIds]
   );
 
   // Glanceable up/down dot per sheet tab. Uses the same live move Pulse
@@ -1878,7 +1887,7 @@ export function Dashboard() {
     // toast(), which itself calls setState on ToastProvider).
     const updated = new Set(prev);
     for (const a of fresh) updated.add(a.id);
-    saveDismissedAlertIds(updated);
+    saveToastedAlertIds(updated);
     setAlertToastsSent(updated);
     for (const a of fresh) toast(a.title, "info");
   }, [bookAlerts, toast]);
@@ -2107,6 +2116,28 @@ export function Dashboard() {
   const onOpenPulse = useStableCallback((ticker?: string) => {
     if (ticker) setPulseIntent(ticker);
     goToTab(PULSE_TAB_ID);
+  });
+  const onDismissAlert = useStableCallback((id: string) => {
+    setDismissedAlertIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      saveDismissedAlertIds(next);
+      return next;
+    });
+  });
+  /*
+    Where an alert card goes when it is pressed. Every card used to go to
+    Overview, whatever it was about, which is the same as going nowhere:
+    the reader is told a company reports on Thursday and is handed the room
+    they just left. An alert that names a company opens that company, and
+    the rest open the screen that holds the figure they are about.
+  */
+  const onOpenAlert = useStableCallback((alert: UpsideAlert) => {
+    if (alert.ticker) {
+      onOpenPulse(alert.ticker);
+      return;
+    }
+    goToTab(OVERVIEW_TAB_ID);
   });
   const onOverviewAddHolding = useStableCallback(() =>
     startFirstRunAction("manual")
@@ -2471,22 +2502,53 @@ export function Dashboard() {
           <WidgetErrorBoundary name="Alerts">
           <div className="flex flex-col gap-4">
             {activeAlerts.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">
-                Nothing needs your attention right now.
-              </p>
+              <div className="flex flex-col items-center gap-2 py-14 text-center">
+                <p className="text-sm text-foreground">
+                  Nothing needs your attention right now.
+                </p>
+                <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+                  This room fills up on its own when something moves: a company
+                  you own reporting its results, one holding growing into a
+                  large share of everything you have, or borrowed money getting
+                  close to a line.
+                </p>
+              </div>
             ) : (
               activeAlerts.map((a) => (
-                <button
+                <div
                   key={a.id}
-                  type="button"
-                  onClick={() => goToTab(OVERVIEW_TAB_ID)}
-                  className="w-full rounded-xl glass ring-1 ring-foreground/20 p-6 text-left"
+                  className="card-sheen glass w-full rounded-xl p-5 sm:p-6"
                 >
-                  <p className="text-sm font-semibold text-foreground">{a.title}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                    {a.detail}
-                  </p>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenAlert(a)}
+                    className="w-full text-left"
+                  >
+                    <p className="text-sm font-semibold text-foreground">
+                      {a.title}
+                    </p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                      {a.detail}
+                    </p>
+                  </button>
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onOpenAlert(a)}
+                    >
+                      {a.ticker ? `Open ${a.ticker}` : "Open Overview"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground"
+                      onClick={() => onDismissAlert(a.id)}
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
               ))
             )}
           </div>
