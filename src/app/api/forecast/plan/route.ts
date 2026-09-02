@@ -22,6 +22,8 @@ import { stampAdvisorUse } from "@/lib/advisor-use";
 import {
   loadServerTickerCache,
   persistServerTickerCache,
+  runIsShareable,
+  serverAnchorPrices,
 } from "@/lib/forecast-ticker-cache-store";
 import { generateObject } from "ai";
 import { observeRoute } from "@/lib/observe-route";
@@ -207,7 +209,27 @@ async function handlePOST(req: Request) {
         anchorPrice: spots[t.ticker.toUpperCase()],
       }));
 
-    void persistServerTickerCache(reasoned, { convictions, generatedAt });
+    /*
+      The anchor is the price the path was reasoned from, and it is half of
+      what later decides whether this row may stand in for a fresh run for
+      somebody else. Taking it off the request let a caller set it: anchor a
+      row far from the real price and it survives every drift check, or
+      anchor it absurdly and no other reader can ever reuse it. So the
+      server prices the companies it is about to publish, and a company the
+      server cannot price is simply not published.
+
+      Fire and forget, exactly as before, so the reader is not kept waiting
+      for a quote call that is only about what the next reader gets.
+    */
+    void (async () => {
+      if (reasoned.length === 0) return;
+      if (!runIsShareable(convictions)) return;
+      const anchors = await serverAnchorPrices(reasoned.map((t) => t.ticker));
+      const priced = reasoned
+        .map((t) => ({ ...t, anchorPrice: anchors[t.ticker.toUpperCase()] }))
+        .filter((t) => typeof t.anchorPrice === "number" && t.anchorPrice > 0);
+      await persistServerTickerCache(priced, { convictions, generatedAt });
+    })();
 
     return Response.json({ plan });
   } catch (err) {
