@@ -15,6 +15,19 @@ export type PulseServerCacheEntry = {
   headlines: PulseHeadline[];
   cachedAt: number;
   effectivePct: number | null;
+  /*
+    Which model wrote this check, kept with it rather than taken from
+    whichever run happened to serve it.
+
+    A Pulse report is mostly cache hits: nine names on screen can be eight
+    entries up to four hours old, several of them written for a different
+    signed-in reader under the shared nothesis key, and one fresh call. The
+    report stamped that one call's model and "just now" across all nine, so
+    the provenance eye, whose whole job is to say where a sentence came
+    from, named a model that had not written eight of them and a time that
+    was up to four hours wrong.
+  */
+  writtenBy: { provider: string; model: string } | null;
 };
 
 // Cache timings
@@ -94,7 +107,8 @@ export function setCachedPulseCheck(
   key: string,
   check: PulseCheck,
   headlines: PulseHeadline[],
-  effectivePct: number | null
+  effectivePct: number | null,
+  writtenBy: { provider: string; model: string } | null = null
 ) {
   if (isEmptyPulseCheck(check) || isMoveRestatement(check.moveReason) || isMoveRestatement(check.verdict)) return;
   prunePulseCacheIfNeeded();
@@ -103,6 +117,7 @@ export function setCachedPulseCheck(
     headlines,
     cachedAt: Date.now(),
     effectivePct,
+    writtenBy,
   });
 }
 

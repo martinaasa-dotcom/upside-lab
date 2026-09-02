@@ -156,7 +156,40 @@ export function buildStrikeAlerts(
             }
       );
     }
-    if (r.nextStrike != null && r.spot > 0 && r.spot >= r.nextStrike * 0.98) {
+    /*
+      Closing in means approaching, and the gate used to be one-sided.
+
+      `r.spot >= r.nextStrike * 0.98` is true two per cent below the level
+      and equally true eighty per cent above it, so a reader whose hand-set
+      stock target the price has long since run past was told every day that
+      the price was "within about 2%" of a level it was nowhere near. A
+      figure this app states as fact is never rounded up into existence, and
+      this one was not even rounded: it was simply wrong, in a sentence with
+      a number in it.
+
+      Past the level is a different thing and deserves its own words, with
+      the real distance in them.
+    */
+    if (r.nextStrike != null && r.spot > 0 && r.spot >= r.nextStrike) {
+      const over = safeDiv(r.spot - r.nextStrike, r.nextStrike);
+      out.push({
+        id: `strike-past-${cashtag(r.ticker)}`,
+        kind: "strike",
+        title: `${cashtag(r.ticker)} is past the level you planned`,
+        detail: `The price is ${currency(r.spot, 2)}, ${percent(over, 1)} above ${currency(r.nextStrike, 2)}. That is the level you planned, not a call you have already sold.`,
+        learn: `If you had sold that agreement, your shares could be bought from you at ${currency(r.nextStrike, 2)} each, which is below what they are worth now.`,
+        ticker: r.ticker,
+        term: "strike",
+        explain: {
+          ticker: cashtag(r.ticker),
+          amount: currency(r.nextStrike, 2),
+        },
+      });
+    } else if (
+      r.nextStrike != null &&
+      r.spot > 0 &&
+      r.spot >= r.nextStrike * 0.98
+    ) {
       out.push({
         id: `strike-near-${cashtag(r.ticker)}`,
         kind: "strike",

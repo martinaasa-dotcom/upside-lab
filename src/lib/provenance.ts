@@ -368,8 +368,8 @@ export function forecastRoomProvenance(input: {
   if (input.adjustedCount && input.adjustedCount > 0) {
     steps.push(
       input.adjustedCount === 1
-        ? "One of those paths was changed by this app afterwards, because the model skipped a year, drew a straight line, or landed under the shape kept for that kind of business. Open that name's own eye to see which."
-        : `${input.adjustedCount} of those paths were changed by this app afterwards, because the model skipped a year, drew a straight line, or landed under the shape kept for that kind of business. Open a name's own eye to see which.`
+        ? "One of those paths was changed by this app afterwards, because the model skipped a year or drew a straight line. Open that name's own eye to see which."
+        : `${input.adjustedCount} of those paths were changed by this app afterwards, because the model skipped a year or drew a straight line. Open a name's own eye to see which.`
     );
   }
   if (input.reusedCount && input.reusedCount > 0) {

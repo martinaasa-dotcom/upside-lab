@@ -605,3 +605,63 @@ note is kept as written: it is why the mechanism exists.
 
    The log landed in `docs/DISASTER_RECOVERY.md` with its first row honestly empty; the first real rehearsal against a scratch project still needs a human with production DR credentials to run it and write the row. **Deferred by the owner on 2026-09-02**, which leaves this the one thing in the pass nobody has done rather than something anybody has forgotten: the export and the restore script are both tested, and what is untested is whether a restore into a fresh project actually comes back.
 
+## Second full audit, 2026-09-02
+
+Run after the polish pass merged, as nine independent finders (authorization
+and abuse, input validation and injection, money arithmetic, data integrity
+and concurrency, reader copy, performance, cross-part consistency, the model
+surfaces and provenance, reachability and dead weight), each finding then
+handed to a separate agent whose only instruction was to refute it, and a
+completeness critic at the end. Fifty agents. **28 findings survived
+refutation and all 28 are fixed.**
+
+The two that mattered most were both live rather than theoretical.
+
+**A saved copy belonged to nobody.** `portfell_book_snapshots` had no owner
+column, and the retention window counted the two per-person kinds
+project-wide, so the twenty-first manual save made by anybody deleted the
+oldest belonging to somebody else. No attacker was required: the nightly
+cron ran the same prune, so this had been quietly destroying the per-user
+undo layer, including the "Before delete" copy that is the only thing making
+portfolio deletion recoverable.
+
+**A forecast reasoned from a price the caller made up was shared with
+everyone.** The publish block re-priced the anchor server-side and its own
+comment reasoned about exactly this attack; the price the model *reasons
+from* still came from the request body. A company sent at $5.00 produced a
+five-year path off five dollars, published beside a truthful anchor, and
+served to every other holder of that company for a fortnight under the
+provenance eye.
+
+The rest, by shape rather than by dimension:
+
+- Figures stated as fact that were not: today's percent averaged over
+  post-move values, so a flat day read as +25%; "within about 2% of $X"
+  printed however far above; the Sunday fallback calling a 1.5% holding a
+  large share; the forecast eye still promising a floor deleted a week
+  earlier; a typed table called measured history; a trading window in one
+  reader's summer time.
+- A class trade written before the cash floor could refuse it, in three
+  write paths, plus a guard charging the whole position so a student could
+  not sell.
+- The eye naming a model that had not written the sentence under it, in
+  three separate ways, and the humanizer rewriting real cashtags into prose.
+- A missing exchange rate relabelling a foreign price as dollars; an
+  email-existence oracle that also added strangers without consent; free
+  text reaching the provider unauthenticated; an unbounded fan-out that
+  outruns the circuit breaker; a nudge that read a failed query as an empty
+  portfolio and then marked it sent.
+- `portfell_account_never_used` that could never answer true, so a
+  documented path was dead from the day it was written.
+
+Nine of the fixes carry a test verified by breaking it: the old behaviour
+fails by name. One flaky test that predates the branch was fixed at the
+cause rather than re-run.
+
+**What the completeness critic flagged and this pass did not cover:** the
+Upside Fund is a second, parallel portfolio engine, with its own valuation,
+its own trade execution, a public page and an audited daily report, and it
+reuses none of the guards the user-facing app grew. It has no
+`applyPortfolioCashDelta`, no split ledger, no `weeklyNumbersAreSound`, no
+`readAll`. Nothing in a sweep organised by kind of defect opens it, and
+nothing here has. That is the next audit.

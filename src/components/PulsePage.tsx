@@ -398,9 +398,9 @@ function PulseCard({
             {statusLabel(status)}
           </Pill>
           {leftHold ? <Pill tone="neutral">Reading changed today</Pill> : null}
-          {checkedAt ? (
+          {(check?.checkedAt ?? checkedAt) ? (
             <span className="text-sm text-muted-foreground">
-              Checked {formatRelativeTime(checkedAt)}
+              Checked {formatRelativeTime(check?.checkedAt ?? checkedAt!)}
             </span>
           ) : null}
         </>
@@ -455,7 +455,7 @@ function PulseCard({
           ) : null}
           {shown ? (
             fromRule ? (
-              <WhyThis provenance={ruleProvenance(c.ticker, checkedAt)} />
+              <WhyThis provenance={ruleProvenance(c.ticker, check?.checkedAt ?? checkedAt)} />
             ) : (
               <WhyThis
                 provenance={pulseProvenance({
@@ -463,8 +463,17 @@ function PulseCard({
                   hasOwnReason: Boolean(convictionThesis?.trim()),
                   headlineCount: headlines.length,
                   publishers: headlines.map((h) => h.publisher),
-                  at: checkedAt,
-                  model: writtenBy,
+                  /*
+                    The row's own answer where it has one, and only the
+                    run's as a fallback. Most of a Pulse screen is cache
+                    hits, several of them written for a different reader
+                    hours earlier, and stamping the current run's model and
+                    "just now" across all of them made the one panel whose
+                    job is to say where a sentence came from the least
+                    reliable thing on the card.
+                  */
+                  at: check?.checkedAt ?? checkedAt,
+                  model: check?.writtenBy ?? writtenBy,
                 })}
               />
             )

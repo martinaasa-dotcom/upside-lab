@@ -1,11 +1,37 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+/*
+  The provider is refused outright, because "no network" was an assumption
+  and this container has one.
+
+  These tests are about the synthetic estimate, the path that prices a
+  hand-picked expiry when the chain has no such date. The comment here used
+  to say they run with no network, and nothing made that true: `optionChain`
+  reached a real provider for the ticker "TEST", which usually failed fast
+  and sometimes did not, so the suite failed roughly half the time on a
+  five second timeout with nothing wrong. Measured at four runs on an
+  untouched checkout: two passes, two timeouts.
+
+  A test that depends on a lookup failing quickly is a test that fails on a
+  slow day, and a flake teaches everybody to re-run rather than read. So the
+  premise is enforced rather than assumed.
+*/
+vi.mock("yahoo-finance2", () => ({
+  default: class {
+    async options() {
+      throw new Error("no network in this test");
+    }
+    async quote() {
+      throw new Error("no network in this test");
+    }
+    async chart() {
+      throw new Error("no network in this test");
+    }
+  },
+}));
+
 import { scanCoveredCall } from "./covered-call";
 
-/**
- * These run with no network, so the scan falls through to its synthetic
- * estimate — which is exactly the path that has to price a hand-picked
- * expiry when the option chain has no such date listed.
- */
 function dateKeyIn(days: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + days);

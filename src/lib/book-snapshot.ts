@@ -255,11 +255,20 @@ export function computeSnapshotMarks(
   };
 }
 
+/**
+ * Save a copy, and say whose it is.
+ *
+ * `ownerId` is required for the two per-person kinds and meaningless for the
+ * nightly one, which is the whole project. It is what stops one reader's
+ * twenty-first save deleting another reader's first: see the retention note
+ * on `pruneOldSnapshots`.
+ */
 export async function saveBookSnapshot(
   supabase: SupabaseClient,
   kind: BookSnapshotKind,
   label: string,
-  payload?: BookSnapshotPayload
+  payload?: BookSnapshotPayload,
+  ownerId?: string | null
 ): Promise<BookSnapshotRow> {
   const body = payload ?? (await captureBookPayload(supabase));
   const { data, error } = await supabase
@@ -268,6 +277,7 @@ export async function saveBookSnapshot(
       kind,
       label,
       payload: body,
+      owner_id: kind === "nightly" ? null : (ownerId ?? null),
     })
     .select("id, kind, label, payload, created_at")
     .single();
@@ -275,29 +285,79 @@ export async function saveBookSnapshot(
   return data as BookSnapshotRow;
 }
 
-export async function pruneOldSnapshots(supabase: SupabaseClient) {
-  const byKind = (kind: BookSnapshotKind) =>
-    supabase
+type PruneRow = {
+  id?: string | null;
+  created_at?: string | null;
+  owner_id?: string | null;
+};
+
+/** Group per-person rows by whose they are, so one window is one person's. */
+function byOwner(rows: PruneRow[]): PruneRow[][] {
+  const groups = new Map<string, PruneRow[]>();
+  for (const row of rows) {
+    // A row nobody could be attributed to shares one bucket with the others
+    // like it, which is the behaviour those rows already had.
+    const key = row.owner_id ?? "";
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  return [...groups.values()];
+}
+
+/**
+ * Keep the last of each kind, counting a per-person kind inside its owner.
+ *
+ * The nightly window is project-wide because a nightly row is the project.
+ * The other two are one reader's own history, and counting those globally is
+ * what let anybody's saves push out everybody's: twenty manual rows in total
+ * meant the twenty-first, whoever made it, deleted the oldest, whoever owned
+ * it. The cron did it unaided every night the totals were over, so this was
+ * live data loss rather than an attack anybody had to mount.
+ *
+ * `ownerId` narrows the read for the request path, which only ever needs to
+ * tidy the caller's own history. The cron passes nothing and prunes every
+ * owner's window in turn.
+ */
+export async function pruneOldSnapshots(
+  supabase: SupabaseClient,
+  ownerId?: string | null
+) {
+  const nightlyQuery = supabase
+    .from(PORTFELL_TABLES.snapshots)
+    .select("id, created_at, owner_id")
+    .eq("kind", "nightly")
+    .order("created_at", { ascending: false });
+
+  // Every filter before the ordering, so the read is one chain rather than
+  // an ordered query narrowed afterwards.
+  const perPerson = (kind: BookSnapshotKind) => {
+    const base = supabase
       .from(PORTFELL_TABLES.snapshots)
-      .select("id, created_at")
-      .eq("kind", kind)
-      .order("created_at", { ascending: false });
+      .select("id, created_at, owner_id")
+      .eq("kind", kind);
+    return (ownerId ? base.eq("owner_id", ownerId) : base).order("created_at", {
+      ascending: false,
+    });
+  };
 
   const [{ data: nightly }, { data: preDelete }, { data: manuals }] =
     await Promise.all([
-      byKind("nightly"),
-      byKind("pre_delete"),
-      byKind("manual"),
+      nightlyQuery,
+      perPerson("pre_delete"),
+      perPerson("manual"),
     ]);
 
-  type PruneRow = { id?: string | null; created_at?: string | null };
   const dropIds = [
+    // The one genuinely project-wide window, and the only one that stays so.
     ...snapshotsToPrune((nightly ?? []) as PruneRow[], { keep: KEEP_NIGHTLY }),
-    ...snapshotsToPrune((preDelete ?? []) as PruneRow[], {
-      keep: KEEP_PRE_DELETE,
-      maxAgeDays: PRE_DELETE_SNAPSHOT_MAX_AGE_DAYS,
-    }),
-    ...snapshotsToPrune((manuals ?? []) as PruneRow[], { keep: KEEP_MANUAL }),
+    ...byOwner((preDelete ?? []) as PruneRow[]).flatMap((rows) =>
+      snapshotsToPrune(rows, {
+        keep: KEEP_PRE_DELETE,
+        maxAgeDays: PRE_DELETE_SNAPSHOT_MAX_AGE_DAYS,
+      })
+    ),
+    ...byOwner((manuals ?? []) as PruneRow[]).flatMap((rows) =>
+      snapshotsToPrune(rows, { keep: KEEP_MANUAL })
+    ),
   ];
   if (dropIds.length === 0) return;
   await supabase.from(PORTFELL_TABLES.snapshots).delete().in("id", dropIds);

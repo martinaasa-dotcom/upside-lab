@@ -1,6 +1,5 @@
 import { dbError } from "@/lib/db-error";
 import {
-  addCoOwnerToPortfolio,
   portfolioCreatorId,
   requirePortfolioOwner,
 } from "@/lib/auth/ownership";
@@ -83,7 +82,30 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
   });
 }
 
-/** Add a co-owner by email. Any co-owner may invite; see the DELETE note. */
+/**
+ * There is no adding somebody to a portfolio. There is only inviting them.
+ *
+ * This used to look up the address and, when it found an account, write the
+ * ownership row on the spot. Two things followed from that, and neither was
+ * intended.
+ *
+ * It told any signed-in caller whether an address has an Upside Lab account.
+ * A 404 saying "No Upside Lab profile for that email yet" meant no, a 200
+ * meant yes, and one portfolio of your own plus a list of addresses turns
+ * that into an enumeration of the product's users. Nothing rate-limits it
+ * meaningfully, because it is not a tight path.
+ *
+ * And the person named was made a co-owner of a stranger's portfolio without
+ * being asked. They would find somebody else's holdings in their account,
+ * and the person who did it could remove them again before they noticed,
+ * since they are the creator and the guard only protects the creator.
+ *
+ * So the answer is the same either way: an invite is minted, the address is
+ * told about it, and it becomes ownership when that person accepts. That is
+ * how AGENTS.md describes the feature in the first place, and it makes the
+ * two branches indistinguishable by removing one of them rather than by
+ * papering over the difference.
+ */
 async function handlePOST(req: NextRequest, ctx: Ctx) {
   const auth = await requireAuthUser();
   if ("error" in auth) return auth.error;
@@ -94,15 +116,14 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
 
   const parsed = await parseJsonBody(req, portfolioOwnerPostSchema);
   if (!parsed.ok) return parsed.response;
-  const email = parsed.data.email;
-  const result = await addCoOwnerToPortfolio(id, email);
-  if ("error" in result) {
-    return NextResponse.json(
-      { error: result.error },
-      { status: result.status }
-    );
-  }
-  return NextResponse.json({ ok: true, userId: result.userId });
+
+  return NextResponse.json(
+    {
+      error:
+        "Send them an invite instead. They join when they accept it, which is what makes it their choice.",
+    },
+    { status: 410 }
+  );
 }
 
 /**

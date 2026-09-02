@@ -91,68 +91,20 @@ export async function requirePortfolioOwner(
   return null;
 }
 
-/**
- * Add a co-owner by email. Caller must already be a co-owner.
- * Creates a profile stub only if the target has already signed in (has a profile).
- *
- * The email->profile lookup goes through a security-definer RPC on the
- * service-role client. Execute was revoked from authenticated in migration
- * 043 so a stolen user JWT cannot enumerate profiles by email. The insert
- * still goes through the same data client; production always has the
- * service-role key.
- */
-export async function addCoOwnerToPortfolio(
-  portfolioId: string,
-  targetUserEmail: string
-): Promise<{ ok: true; userId: string } | { error: string; status: number }> {
-  const email = targetUserEmail.trim().toLowerCase();
-  if (!email || !email.includes("@")) {
-    return { error: "Valid email required", status: 400 };
-  }
+/*
+  addCoOwnerToPortfolio was deleted with the route that called it.
 
-  const supabase = await getSupabaseDataClient();
-  if (!supabase) {
-    return { error: "Supabase not configured", status: 400 };
-  }
+  It looked an address up and, when it found an account, wrote the ownership
+  row on the spot. That told any signed-in caller whether an address has an
+  Upside Lab account (a 404 meant no, a 200 meant yes), and it put the
+  person named into a stranger's portfolio without asking them. Both go away
+  by removing the direct add rather than by disguising it: an invite is the
+  only road in, and it becomes ownership when that person accepts.
 
-  const { data: userId, error: lookupError } = await supabase.rpc(
-    "portfell_lookup_profile_id_by_email",
-    { p_email: email }
-  );
-
-  if (lookupError) {
-    return { error: lookupError.message, status: 500 };
-  }
-  if (!userId) {
-    return {
-      error:
-        "No Upside Lab profile for that email yet. They need to sign in first.",
-      status: 404,
-    };
-  }
-
-  const { error } = await supabase.from(PORTFELL_TABLES.portfolioOwners).upsert(
-    {
-      portfolio_id: portfolioId,
-      user_id: userId as string,
-    },
-    { onConflict: "portfolio_id,user_id" }
-  );
-
-  if (error) {
-    return { error: error.message, status: 500 };
-  }
-
-  return { ok: true, userId: userId as string };
-}
-
-/**
- * Which of these communities the user is an admin of, in one round trip.
- *
- * Callers resolving a set of communities were mapping userIsCommunityAdmin over
- * the list inside Promise.all, which is one query per community. Concurrency
- * hides it at three classrooms and stops hiding it well before thirty.
- */
+  The email lookup RPC it used, portfell_lookup_profile_id_by_email, is
+  still revoked from `authenticated` by migration 043 and is still the right
+  shape for the invite redemption path.
+*/
 export async function communityAdminFlags(
   userId: string,
   communityIds: string[]

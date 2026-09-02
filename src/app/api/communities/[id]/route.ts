@@ -509,11 +509,48 @@ async function handlePATCH(req: NextRequest, ctx: Ctx) {
         .order("id")
         .eq("classroom_community_id", id)
     );
-    await Promise.all(
-      sheets.map((sheet) =>
-        applyPortfolioCashDelta(supabase, sheet.id, startingCashDelta)
-      )
+    /*
+      A student who cannot absorb the change is a fact the teacher has to be
+      told, not one to swallow.
+
+      Lowering the class's starting cash debits every portfolio. A student
+      who has already spent most of theirs would go below zero, and the
+      floor in portfell_apply_cash_delta refuses that: the RPC's transaction
+      rolls back and it answers null. Every one of those was discarded here,
+      so the teacher was told the change went through while some of the
+      class stayed on the old figure, and the difference shows up later as
+      one student inexplicably richer than the rest in the same league.
+
+      The change is not undone for the students it did reach. Rolling back a
+      partial adjustment needs a transaction across every portfolio in the
+      class, and the honest half-measure is to say exactly who was missed so
+      the teacher can lower it in two steps or ask those students to sell.
+    */
+    const outcomes = await Promise.all(
+      sheets.map(async (sheet) => ({
+        id: sheet.id,
+        ok:
+          (await applyPortfolioCashDelta(
+            supabase,
+            sheet.id,
+            startingCashDelta
+          )) != null,
+      }))
     );
+    const refused = outcomes.filter((o) => !o.ok);
+    if (refused.length > 0) {
+      return NextResponse.json(
+        {
+          error:
+            refused.length === 1
+              ? "One student has already spent too much for that change, so their portfolio was left as it was. Everyone else has been moved."
+              : `${refused.length} students have already spent too much for that change, so their portfolios were left as they were. Everyone else has been moved.`,
+          adjusted: outcomes.length - refused.length,
+          refused: refused.length,
+        },
+        { status: 409 }
+      );
+    }
   }
   const saved = community as {
     kind?: string;

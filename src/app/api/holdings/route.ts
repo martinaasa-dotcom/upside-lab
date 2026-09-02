@@ -1,11 +1,11 @@
 import { dbError } from "@/lib/db-error";
-import { currency } from "@/lib/format";
 import {
   loadPortfolioWriteContext,
   type PortfolioWriteContext,
 } from "@/lib/portfolio-write-context";
 import {
   applyTradeCashDelta,
+  classCashRefusal,
   salePriceFor,
   tradeCashDelta,
 } from "@/lib/cash-trade";
@@ -34,6 +34,19 @@ import { holdingPatchSchema, holdingPostSchema } from "@/lib/api-schemas";
 import { parseJsonBody } from "@/lib/parse-json-body";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * What a student reads when the cash floor refused the trade after the
+ * holding had already been written.
+ *
+ * Only a race reaches this: the guard before the write answers the ordinary
+ * case in the student's own numbers. Here two edits both passed that guard
+ * and the database refused the second, so the honest thing is to put the row
+ * back and say nothing happened, rather than leave shares nobody paid for
+ * standing behind a 200.
+ */
+const NOT_ENOUGH_LEFT =
+  "There was not enough cash left for that by the time it went through. Nothing was changed.";
 
 const HOLDING_WRITE_ATTEMPTS = 3;
 const UNIQUE_VIOLATION = "23505";
@@ -321,19 +334,12 @@ async function handlePOST(req: NextRequest) {
     fourteen-year-old, and because the floor firing after the insert would
     leave shares that were never paid for.
   */
-  const wouldCost = context.tracksTradeCash ? roundMoney(tradePrice * shares) : 0;
-  if (
-    context.tracksTradeCash &&
-    context.cashBalance != null &&
-    wouldCost > context.cashBalance
-  ) {
-    return NextResponse.json(
-      {
-        error: `That costs ${currency(wouldCost)} and you have ${currency(context.cashBalance)} to spend. Try fewer shares.`,
-      },
-      { status: 400 }
-    );
-  }
+  // The guard is inside the loop below, where the row being edited has been
+  // read, because it has to charge the increase in the position rather than
+  // the whole of it. The holding modal saves the new total even when it is
+  // editing an existing row, so charging the total meant a student who had
+  // spent most of their cash could not sell half a holding: the reduction
+  // was read as a purchase of everything they were left holding.
 
   for (let attempt = 0; attempt < HOLDING_WRITE_ATTEMPTS; attempt++) {
     const { data: existingRaw, error: existingErr } = await supabase
@@ -371,6 +377,12 @@ async function handlePOST(req: NextRequest) {
     });
     if (blocked) return blocked;
 
+    const added = Math.max(0, shares - (existingRow ? existingRow.shares : 0));
+    const refusal = classCashRefusal(context, roundMoney(tradePrice * added));
+    if (refusal) {
+      return NextResponse.json({ error: refusal }, { status: 400 });
+    }
+
     if (!existingRow) {
       const { data, error } = await supabase
         .from(PORTFELL_TABLES.holdings)
@@ -406,6 +418,17 @@ async function handlePOST(req: NextRequest) {
         tradeCashDelta({ buyShares: shares, buyPrice: tradePrice }),
         context
       );
+      if (context.tracksTradeCash && cash == null) {
+        // The floor refused the debit after the row was written. Its own
+        // transaction rolled back and this one did not, so without this the
+        // student keeps shares nobody paid for and the route answers 200.
+        await supabase
+          .from(PORTFELL_TABLES.holdings)
+          .delete()
+          .eq("id", (data as { id: string }).id)
+          .eq("portfolio_id", portfolioId);
+        return NextResponse.json({ error: NOT_ENOUGH_LEFT }, { status: 400 });
+      }
       return NextResponse.json({ holding: data, cash_balance: cash });
     }
 
@@ -468,6 +491,14 @@ async function handlePOST(req: NextRequest) {
       delta,
       context
     );
+    if (context.tracksTradeCash && cash == null) {
+      await supabase
+        .from(PORTFELL_TABLES.holdings)
+        .update({ shares: prevShares })
+        .eq("id", (data as { id: string }).id)
+        .eq("portfolio_id", portfolioId);
+      return NextResponse.json({ error: NOT_ENOUGH_LEFT }, { status: 400 });
+    }
     return NextResponse.json({ holding: data, cash_balance: cash });
   }
 
@@ -712,12 +743,45 @@ async function handlePATCH(req: NextRequest) {
         });
       }
     }
+    /*
+      PATCH had no cash check at all, and wrote the holding before the debit.
+
+      A student editing fifty shares to five hundred had the update commit,
+      then the floor in portfell_apply_cash_delta refuse the debit; that
+      function's transaction rolled back and this one did not, so the shares
+      stood, unpaid for, behind a 200. Every oversized edit took that path,
+      and the modal sends an edit as a PATCH.
+
+      The refusal is the ordinary case, said in the student's own numbers
+      before anything is written back. The null return below is the race, and
+      there the row goes back the way it was.
+    */
+    const owed = delta < 0 ? -delta : 0;
+    const refusal = context.tracksTradeCash
+      ? classCashRefusal(context, owed)
+      : null;
+    if (refusal) {
+      await supabase
+        .from(PORTFELL_TABLES.holdings)
+        .update({ shares: prevShares, ticker: prevTicker, buy_price: prevBuy })
+        .eq("id", id)
+        .eq("portfolio_id", portfolioId);
+      return NextResponse.json({ error: refusal }, { status: 400 });
+    }
     const cash = await applyTradeCashDelta(
       supabase,
       portfolioId,
       delta,
       context
     );
+    if (context.tracksTradeCash && cash == null) {
+      await supabase
+        .from(PORTFELL_TABLES.holdings)
+        .update({ shares: prevShares, ticker: prevTicker, buy_price: prevBuy })
+        .eq("id", id)
+        .eq("portfolio_id", portfolioId);
+      return NextResponse.json({ error: NOT_ENOUGH_LEFT }, { status: 400 });
+    }
     return NextResponse.json({ holding: data, cash_balance: cash });
   }
 

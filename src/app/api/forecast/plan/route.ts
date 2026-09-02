@@ -41,6 +41,17 @@ export const runtime = "nodejs";
  */
 const LLM_BUDGET_MS = 95_000;
 
+/**
+ * How far the price a run was reasoned from may sit from the market's own
+ * before that run is kept to the reader who asked for it.
+ *
+ * Not a validation bound: a reader may hold a slightly stale price for
+ * perfectly ordinary reasons and is still shown their own answer. This is
+ * the gate on what reaches the shared cross-reader cache, where one wrong
+ * path is served to everybody holding that company for up to a fortnight.
+ */
+const PUBLISHABLE_SPOT_DRIFT = 0.02;
+
 async function handlePOST(req: Request) {
   const startedAt = Date.now();
   const auth = await requireAuthUser();
@@ -84,9 +95,40 @@ async function handlePOST(req: Request) {
   // bound and the stock is still near the price it was reasoned from, so
   // today's prices go in with the lookup. See forecast-ticker-cache-store.ts.
   const heldTickers = [...new Set(forecast.rows.map((r) => r.ticker.toUpperCase()))];
+
+  /*
+    Today's price is asked of the market, not of the caller.
+
+    The publish block below already re-prices the anchor server-side, and its
+    comment reasons about exactly this attack: taking the anchor off the
+    request let a caller set the price a cached row would later be judged
+    against. What it did not cover is the price the model *reasons from*,
+    which still came out of `forecast.rows[].currentPrice` and reached the
+    prompt verbatim as `spot=`.
+
+    That is the same hole one step earlier and it is worse, because the
+    anchor is then corrected on the way in. Send NVDA at 5.00 with no
+    conviction notes and the model answers a five-year path off five
+    dollars; `runIsShareable` is true, so the row publishes, and the anchor
+    it publishes with is the real price. Every other reader holding that
+    company then passes the age and drift checks and is served a path a
+    thirty-sixth of the truth, under the provenance eye, as a fact, for up
+    to a fortnight. The attacker need not own the company.
+
+    So the server's own price wins wherever it has one. The caller's figure
+    is used only for a company the market could not price, and such a
+    company is not published either: the publish filter below drops any
+    ticker with no server anchor, which is the same rule from the other end.
+  */
+  const serverSpots = await serverAnchorPrices(heldTickers);
+  const claimedSpots: Record<string, number> = {};
   const spots: Record<string, number> = {};
   for (const row of forecast.rows) {
-    if (row.currentPrice > 0) spots[row.ticker.toUpperCase()] = row.currentPrice;
+    const key = row.ticker.toUpperCase();
+    if (row.currentPrice > 0) claimedSpots[key] = row.currentPrice;
+    const trusted = serverSpots[key];
+    if (typeof trusted === "number" && trusted > 0) spots[key] = trusted;
+    else if (row.currentPrice > 0) spots[key] = row.currentPrice;
   }
   const cacheHits = await loadServerTickerCache(heldTickers, {
     convictions,
@@ -135,7 +177,7 @@ async function handlePOST(req: Request) {
     // guessing would make the eye a liar.
     let answeredBy: ModelRun | null = null;
 
-    const { object } = await withAdvisorFallback(
+    const { object, response } = await withAdvisorFallback(
       providerChain,
       (model, providerId, signal) => {
         answeredBy = {
@@ -153,6 +195,28 @@ async function handlePOST(req: Request) {
       },
       { deadlineAt: startedAt + LLM_BUDGET_MS, signal: req.signal }
     );
+
+    /*
+      What the provider says answered, not what we asked for.
+
+      `withAdvisorFallback` walks the chain when a provider fails, and the
+      line above records each attempt, which covers that. It does not cover
+      the other kind of fallback: `openRouterFetchWithFallbacks` injects a
+      `models` array into the body, so OpenRouter may route the request to a
+      different model on its own and still answer 200. Nothing here fails,
+      the chain never moves, and the eye names the model at the head of the
+      chain, which did not write a word of this.
+
+      The provider reports what it actually ran, so that wins whenever it is
+      there. `modelIdFor` stays as the fallback for a provider that reports
+      nothing, which is better than naming none: `describeModelRun` hides
+      the whole section on null, and a panel that quietly loses its model
+      line is worse than one naming the model we asked for.
+    */
+    const reported = (response as { modelId?: string } | undefined)?.modelId;
+    if (answeredBy && typeof reported === "string" && reported.trim()) {
+      answeredBy = { ...(answeredBy as ModelRun), model: reported.trim() };
+    }
 
     // Cached tickers keep their reused path/rationale rather than drifting
     // on every run; only tickers with no fresh cache take the model's fresh
@@ -224,10 +288,40 @@ async function handlePOST(req: Request) {
     void (async () => {
       if (reasoned.length === 0) return;
       if (!runIsShareable(convictions)) return;
-      const anchors = await serverAnchorPrices(reasoned.map((t) => t.ticker));
+      // Already resolved above, when the prompt was built. Asking again
+      // would be a second provider call for the same answer, and worse, a
+      // path could then publish against a price it was not reasoned from.
+      const anchors = serverSpots;
       const priced = reasoned
         .map((t) => ({ ...t, anchorPrice: anchors[t.ticker.toUpperCase()] }))
-        .filter((t) => typeof t.anchorPrice === "number" && t.anchorPrice > 0);
+        .filter((t) => typeof t.anchorPrice === "number" && t.anchorPrice > 0)
+        /*
+          And the path has to have been reasoned from roughly the truth.
+
+          The prompt prints `spot=` from the caller's own row, so a request
+          claiming a company at 5.00 gets a five-year path off five dollars.
+          The anchor is corrected on the way in, which is exactly what makes
+          it dangerous: the row lands looking perfectly healthy, passes every
+          later age and drift check, and serves that path to every other
+          reader holding the company for up to a fortnight, under the
+          provenance eye, as a fact. Nobody has to own the company to do it.
+
+          Correcting the reader's own view was the other option and is worse:
+          their price, their value and the weights derived from it are one
+          consistent set, and rewriting one of them mid-request would make a
+          screen disagree with itself over a number nobody attacked.
+
+          So the reader keeps whatever they sent, and the shared table takes
+          only runs whose price agrees with the market's. Two per cent is
+          wide enough for the gap between a reader's last poll and this
+          request, and far too tight to move a path anywhere useful.
+        */
+        .filter((t) => {
+          const claimed = claimedSpots[t.ticker.toUpperCase()];
+          if (typeof claimed !== "number" || claimed <= 0) return true;
+          const anchor = t.anchorPrice as number;
+          return Math.abs(claimed - anchor) / anchor <= PUBLISHABLE_SPOT_DRIFT;
+        });
       await persistServerTickerCache(priced, { convictions, generatedAt });
     })();
 

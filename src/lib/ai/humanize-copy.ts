@@ -97,6 +97,31 @@ export function scrubAiPhrases(text: string): string {
 function scrubMarketJargon(text: string): string {
   if (!text) return text;
   let s = text;
+
+  /*
+    A cashtag is a company's name, and the rules below rewrite words.
+
+    MARGUS_PERSONA tells the model to write every ticker as a cashtag, every
+    mention, everywhere. One of the substitutions further down turns `$spot`
+    into "today's price", because a price the app could not read used to be
+    interpolated as the literal word. It is case-insensitive, so a reader who
+    holds Spotify was shown "today's price is up 4% today after results above
+    what people expected" on every surface Margus writes: Pulse, chat, the
+    forecast rationale, the Fund note.
+
+    The same collision is waiting for any company whose ticker happens to be
+    an English word the scrubber rewrites. So a cashtag is masked before any
+    rule runs and put back after them all, the way the balance-sheet
+    placeholders already are. Uppercase is what separates the two cases: a
+    cashtag is uppercase by the persona's own rule, and the placeholder bug
+    this protects is the lowercase literal `$spot`.
+  */
+  const cashtags: string[] = [];
+  s = s.replace(/\$[A-Z][A-Z0-9.\-]{0,7}\b/g, (tag) => {
+    cashtags.push(tag);
+    return `%%CASHTAG${cashtags.length - 1}%%`;
+  });
+
   for (const coin of COINS) {
     const escaped = coin.symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     s = s.replace(new RegExp(`\\$?${escaped}`, "gi"), `$${coin.short}`);
@@ -235,6 +260,8 @@ function scrubMarketJargon(text: string): string {
   s = s.replace(/\bhedged\b/gi, "protected");
   s = s.replace(/%%BALANCE_SHEETS%%/g, "balance sheets");
   s = s.replace(/%%BALANCE_SHEET%%/g, "balance sheet");
+  // Last, so nothing above can see a real ticker as a word.
+  s = s.replace(/%%CASHTAG(\d+)%%/g, (_m, i: string) => cashtags[Number(i)] ?? "");
   s = s.replace(/%%SPREADSHEETS%%/g, "spreadsheets");
   s = s.replace(/%%SPREADSHEET%%/g, "spreadsheet");
   return s;

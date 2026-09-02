@@ -1,10 +1,14 @@
 import { isCoinSymbol } from "@/lib/coins";
 import { resolveYahooEarnings } from "@/lib/market/earnings-dates";
 import { resolveYahooListedSymbol } from "@/lib/market/yahoo";
-import { isMarketCircuitOpen, withMarketCircuit } from "@/lib/market/circuit-breaker";
+import {
+  isMarketCircuitOpen,
+  withMarketCircuit,
+} from "@/lib/market/circuit-breaker";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { sectorForTicker, type PulseHeadline } from "@/lib/thesis-pulse";
 import { unstable_cache } from "next/cache";
+import { mapWithConcurrency } from "@/lib/market/pool";
 
 type YahooFinanceInstance = InstanceType<
   typeof import("yahoo-finance2").default
@@ -36,14 +40,14 @@ export type TickerPulseContext = {
 async function fetchTickerNewsUncached(
   ticker: string,
   listedSymbol: () => Promise<string>,
-  count = 5
+  count = 5,
 ): Promise<PulseHeadline[]> {
   try {
     if (isMarketCircuitOpen("yahoo")) return [];
     const yf = await getYahoo();
     const symbol = await listedSymbol();
     const result = await withMarketCircuit("yahoo", () =>
-      yf.search(symbol, { newsCount: count })
+      yf.search(symbol, { newsCount: count }),
     );
     const items = result.news ?? [];
     return items.slice(0, count).map((n) => ({
@@ -64,7 +68,7 @@ async function fetchTickerNewsUncached(
 }
 
 async function fetchTickerPulseContextUncached(
-  ticker: string
+  ticker: string,
 ): Promise<TickerPulseContext> {
   const base: TickerPulseContext = {
     ticker: ticker.toUpperCase(),
@@ -102,7 +106,7 @@ async function fetchTickerPulseContextUncached(
         return await withMarketCircuit("yahoo", () =>
           yf.quoteSummary(symbol, {
             modules: ["earningsHistory", "calendarEvents", "earnings"],
-          })
+          }),
         );
       } catch (err) {
         console.error(`Pulse context failed for ${ticker}`, err);
@@ -147,12 +151,12 @@ async function fetchTickerPulseContextUncached(
 const fetchTickerPulseContextCached = unstable_cache(
   async (ticker: string) => fetchTickerPulseContextUncached(ticker),
   ["pulse-ticker-context-v2"],
-  { revalidate: 60 * 60 }
+  { revalidate: 60 * 60 },
 );
 
 export async function fetchTickerPulseContext(
   ticker: string,
-  opts?: { force?: boolean }
+  opts?: { force?: boolean },
 ): Promise<TickerPulseContext> {
   const key = ticker.trim().toUpperCase();
   if (!key) {
@@ -164,16 +168,37 @@ export async function fetchTickerPulseContext(
   return fetchTickerPulseContextCached(key);
 }
 
+/**
+ * How many pulse contexts are built at once.
+ *
+ * Below the quote path's own MAX_IN_FLIGHT because each of these is several
+ * calls rather than one: a listing walk, a summary and a news search.
+ */
+const PULSE_CONTEXT_IN_FLIGHT = 8;
+
 export async function fetchPulseContexts(
   tickers: string[],
-  opts?: { force?: boolean }
+  opts?: { force?: boolean },
 ): Promise<Record<string, TickerPulseContext>> {
   const unique = [...new Set(tickers.map((t) => t.toUpperCase()))];
-  const entries = await Promise.all(
-    unique.map(
-      async (ticker) =>
-        [ticker, await fetchTickerPulseContext(ticker, opts)] as const
-    )
+  /*
+    Through the pool, because each of these is several provider calls and
+    this list can be a hundred and twenty names.
+
+    `GET /api/market/events` accepts up to MAX_TICKERS_PER_REQUEST and hands
+    all of them here. Every context is a listing walk plus a summary plus a
+    news search, so on a cold cache, which is every deploy and every cold
+    lambda, `Promise.all` started three hundred or more requests in the same
+    tick. The circuit breaker is what protects the rest of the app from a
+    provider having a bad minute, and it cannot help when the whole burst is
+    already in flight before the first failure comes back: it opens with
+    everything already sent.
+  */
+  const entries = await mapWithConcurrency(
+    unique,
+    PULSE_CONTEXT_IN_FLIGHT,
+    async (ticker) =>
+      [ticker, await fetchTickerPulseContext(ticker, opts)] as const,
   );
   return Object.fromEntries(entries);
 }
