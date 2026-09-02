@@ -123,13 +123,17 @@ describe("the forged-request gate", () => {
       src/proxy.ts refuses a cross-site mutation on every path before it
       asks whether the path is an API route, so a new page-path POST is
       covered without anybody remembering this file. The proxy's matcher
-      excludes only static assets and paths with a dot in them.
+      has to reach this path, so it excludes real asset extensions rather
+      than every path carrying a dot.
     */
     const proxy = readFileSync(join(process.cwd(), "src/proxy.ts"), "utf8");
     const gate = proxy.indexOf("isMutatingRequest(request.method)");
     const apiBranch = proxy.indexOf("if (!isApi) {");
     expect(gate).toBeGreaterThan(-1);
     expect(apiBranch).toBeGreaterThan(gate);
-    expect(proxy).toMatch(/matcher: \["\/\(\(\?!_next\/static\|_next\/image\|\.\*\\\\\.\.\*\)\.\*\)"\]/);
+    expect(proxy).toMatch(/matcher: \[/);
+    // The exclusion names extensions, so /auth/link still matches.
+    expect(proxy).toMatch(/_next\/static\|_next\/image/);
+    expect(proxy).not.toMatch(/\.\*\\\\\.\.\*\)/);
   });
 });
