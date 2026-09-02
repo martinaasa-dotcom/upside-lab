@@ -108,7 +108,7 @@ Paragraph two. Where it came from. Name the one or two holdings that did most of
 
 Paragraph three. The other side of the week, if there is one: something that went the other way, what that company does, and whether it was big enough to change the total. If a small holding jumped, say plainly that a small holding jumping does not move much.
 
-Paragraph four. The one standout fact, if the facts list flagged one, and say out loud that it is the only one. Say it in your own words as a fact about the week, the size, or the stated reason. Do not tell them what to do with it.
+Paragraph four. The one standout fact, if the facts list flagged one, and say out loud that it is the only one. Say it in your own words as a fact about the week, about how much of the portfolio one company is, or about why they own it. Do not tell them what to do with it.
 
 Last paragraph. The rest of the companies, in one or two sentences: steady, up, or down relative to last week. Stop there. Do not tell them to sit still, hold, or do nothing.
 
@@ -171,21 +171,33 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
     paras.push(middle.join(" "));
   }
 
-  const sell = r.suggestions.find((s) => s.kind === "sell");
-  const trim = r.suggestions.find((s) => s.kind === "trim");
-  const add = r.suggestions.find((s) => s.kind === "add");
-  if (sell) {
-    paras.push(
-      `One standout fact: Pulse last said the stated reason for ${cashtag(sell.ticker)} no longer matches.`
-    );
-  } else if (trim) {
-    paras.push(
-      `One standout fact: ${cashtag(trim.ticker)} is now a large share of what you own, so one company decides a lot of the result.`
-    );
-  } else if (add) {
-    paras.push(
-      `One standout fact: ${cashtag(add.ticker)} is still a small part of what you own, and Pulse last noted it was down vs its recent range.`
-    );
+  /*
+   * The first note the reader already has, whatever kind it is.
+   *
+   * This used to run down a list, sell first and add last, and take the
+   * highest one it found. Choosing which of somebody's own notes to put
+   * in front of them by how dramatic it is comes very close to a
+   * recommendation, and it also meant a week whose only note was a size
+   * one read as though there were nothing to say. `buildSuggestions`
+   * already orders these: the reader's own Pulse notes come before the
+   * arithmetic ones. Take the first and describe it.
+   */
+  const standout = r.suggestions[0];
+  if (standout) {
+    const tag = cashtag(standout.ticker);
+    if (standout.kind === "sell") {
+      paras.push(
+        `One standout fact: Pulse last said why you own ${tag} no longer matches what the company is doing.`
+      );
+    } else if (standout.kind === "trim") {
+      paras.push(
+        `One standout fact: ${tag} is now a large share of what you own, so one company decides a lot of the result.`
+      );
+    } else {
+      paras.push(
+        `One standout fact: ${tag} is still a small part of what you own, and Pulse last noted it was below its recent range.`
+      );
+    }
   }
 
   const watch = r.watchRows.find((w) => w.dipped);

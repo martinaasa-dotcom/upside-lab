@@ -46,35 +46,50 @@ export function stripAiDashes(text: string): string {
   return s.trim();
 }
 
-const AI_OPENERS: Array<[RegExp, string]> = [
-  [/^it'?s important to note that\s+/i, ""],
-  [/^it is worth noting that\s+/i, ""],
-  [/^in today'?s fast[- ]paced(?:\s+\w+)?[,]?\s+/i, ""],
-  [/^at the end of the day[,]?\s+/i, ""],
-  [/^when all is said and done[,]?\s+/i, ""],
-  [/\bnot just\s+([^,.;]+),\s+but\s+/gi, "$1, and "],
+/**
+ * The stock assistant warm-ups, as they are written rather than where
+ * they sit.
+ *
+ * These were anchored to the start of the string, which only ever caught
+ * the ones that opened a reply. A model that has been told to skip the
+ * preamble usually does, and then writes "The price fell about 4%. It's
+ * important to note that the company said nothing today." in the second
+ * sentence, which is the same tell one clause further in and survived
+ * every pass. Each body is matched at the start of the string, after a
+ * full stop, or at the start of a line, and the character that follows is
+ * taken along so the sentence left behind starts with a capital.
+ */
+const AI_OPENER_BODIES: RegExp[] = [
+  /it'?s important to note that\s+/,
+  /it is worth noting that\s+/,
+  /in today'?s fast[- ]paced(?:\s+\w+)?[,]?\s+/,
+  /at the end of the day[,]?\s+/,
+  /when all is said and done[,]?\s+/,
 ];
+
+const AI_OPENERS: RegExp[] = AI_OPENER_BODIES.map(
+  (body) => new RegExp(`(^|[.!?]\\s+|\\n[ \\t]*)(?:${body.source})(.)`, "gi")
+);
+
+/** "not just X, but Y" is a shape rather than an opener, so it stands apart. */
+const NOT_JUST = /\bnot just\s+([^,.;]+),\s+but\s+/gi;
 
 /** Light scrub of stock AI openers; keeps the rest of the sentence. */
 export function scrubAiPhrases(text: string): string {
   if (!text) return text;
   let s = text;
-  let strippedLead = false;
-  for (const [re, rep] of AI_OPENERS) {
-    const next = s.replace(re, rep);
-    if (next !== s) {
-      s = next;
-      if (re.source.startsWith("^")) strippedLead = true;
-    }
+  for (const re of AI_OPENERS) {
+    s = s.replace(re, (_full, lead: string, next: string) => {
+      // Nothing here uppercases the whole string. Doing that turned Pulse
+      // enums (`intact`, `hold`) into `Intact` / `Hold`, which the badge
+      // code then read as unknown and painted "Thesis at risk" on a fully
+      // intact Hold card. Only the one letter that now opens the sentence
+      // is touched.
+      return `${lead}${next.toUpperCase()}`;
+    });
   }
+  s = s.replace(NOT_JUST, "$1, and ");
   if (!s) return text;
-  // Only recapitalize when we actually ate a leading opener. Doing this
-  // to every string turned Pulse enums (`intact`, `hold`) into `Intact` /
-  // `Hold`, which the badge code then treated as unknown and painted
-  // "Thesis at risk" on a fully intact Hold card.
-  if (strippedLead) {
-    return s.replace(/^[a-z]/, (c) => c.toUpperCase());
-  }
   return s;
 }
 
@@ -112,6 +127,47 @@ function scrubMarketJargon(text: string): string {
   s = s.replace(/\bhighest conviction\b/gi, "biggest bet");
   s = s.replace(/\bhigh conviction\b/gi, "a big bet");
   s = s.replace(/\bsector rotation\b/gi, "money moving between groups");
+  /*
+   * The bare forms of the words the persona bans.
+   *
+   * Every rule above catches a phrase: "high conviction", "sector
+   * rotation", "high-beta". A model that has been told not to say those
+   * reaches for the noun on its own instead, and "the rotation is into
+   * energy" or "its beta is high" walked straight through. These sit
+   * after the phrase rules on purpose, so a phrase is rewritten as a
+   * phrase before the single word ever sees it.
+   */
+  s = s.replace(/\bconvictions\b/gi, "reasons for owning something");
+  s = s.replace(/\bconviction\b/gi, "how sure you are");
+  s = s.replace(/\brotations\b/gi, "money moving between groups");
+  s = s.replace(/\brotation\b/gi, "money moving between groups");
+  s = s.replace(/\bbeta\b/gi, "how much it swings with the market");
+  s = s.replace(/\bliquidity\b/gi, "how easily it can be bought and sold");
+  s = s.replace(/\bcadence\b/gi, "rhythm");
+  s = s.replace(/\bIV crush\b/gi, "the drop in what options pay after results");
+  s = s.replace(/\bOTM\b/g, "above today's price");
+  s = s.replace(/\bNAV\b/g, "what the fund's holdings are worth");
+  s = s.replace(/\balpha\b/gi, "doing better than the market");
+  s = s.replace(/\bmoats\b/gi, "the things that keep competitors out");
+  s = s.replace(/\bmoat\b/gi, "what keeps competitors out");
+  s = s.replace(/\bTAM\b/g, "how big the market could get");
+  s = s.replace(/\bcapex\b/gi, "spending on buildings and equipment");
+  s = s.replace(/\bcost basis\b/gi, "what you paid on average");
+  // "The print came in soft" is a number. "It printed 42%" is a verb and
+  // is left alone, so only the noun with an article in front of it goes.
+  s = s.replace(
+    /\b(the|a|that|this|last|latest|next) print\b/gi,
+    (_full, lead: string) => `${lead} number`
+  );
+  /*
+   * A price the app could not read was interpolated as the literal word
+   * spot, so a suggestion could reach a card reading "around $spot". The
+   * dollar sign in front of it is what makes it look like a figure.
+   */
+  s = s.replace(/\b(around|near|at|about)\s+\$spot\b/gi, "$1 today's price");
+  s = s.replace(/\$spot\b/gi, "today's price");
+  s = s.replace(/\b(above|below|from|against|versus|vs\.?)\s+spot\b/gi, "$1 today's price");
+  s = s.replace(/\bspot price\b/gi, "today's price");
   s = s.replace(/\bbalance sheets\b/gi, "%%BALANCE_SHEETS%%");
   s = s.replace(/\bbalance sheet\b/gi, "%%BALANCE_SHEET%%");
   s = s.replace(/\bspreadsheets\b/gi, "%%SPREADSHEETS%%");
@@ -324,7 +380,15 @@ export function pulseSuggestion(input: {
     return "The reason you own this no longer matches what the company is doing.";
   }
   if (action === "watch") {
-    return "There is not enough price history yet to say where this sits in its range.";
+    /*
+     * A watch verdict is about the story, not the chart. The model uses
+     * it when something around the company is worth following and the
+     * price has not settled the question either way. The old sentence
+     * said there was not enough price history, which is a different
+     * claim, usually untrue, and it told the reader to distrust the data
+     * rather than to keep reading about the company.
+     */
+    return "Something about this company is worth following, and the price on its own does not settle it.";
   }
   return "Price is inside its recent range.";
 }

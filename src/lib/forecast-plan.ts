@@ -16,6 +16,7 @@ import {
   reshapeToThemeRhythm,
   shapedFallbackPath,
 } from "@/lib/forecast-conviction";
+import { currency } from "@/lib/format";
 import { todayKeyInTz } from "@/lib/timezone";
 
 export const FORECAST_PLAN_STORAGE_KEY = "portfell-forecast-plan-by-portfolio";
@@ -375,35 +376,58 @@ function isJunkRationale(text: string | undefined): boolean {
   );
 }
 
-function themeDynamicsLabel(
+/**
+ * The usual shape for this kind of business, in a sentence somebody's
+ * mother reads.
+ *
+ * This is printed on a Forecast card in the slot the subtitle calls
+ * Margus's own reasoning, so it used to read "AI computer builders S-curve
+ * with quiet years", "easy-money cycle", "non-linear clinical / payer
+ * cycles" and "broad market grind". Four of those are not English outside
+ * a trading floor, and none of them says the one useful thing, which is
+ * that the price is not expected to climb evenly.
+ */
+function themeShapeLabel(
   theme: ReturnType<typeof forecastThemeForTicker>
 ): string {
   switch (theme) {
     case "ai_infra":
-      return "AI computer builders S-curve with quiet years, not a straight line";
+      return "companies that build computers for AI, which tend to grow in bursts with quiet years in between";
     case "ai_power":
-      return "datacenter power bottleneck compounding through buildout";
+      return "companies supplying electricity to data centres, which grow while the building goes on";
     case "crypto":
-      return "crypto easy-money cycle with an explicit winter in the middle";
+      return "anything tied to crypto, which runs hard and then falls hard";
     case "space":
-      return "launch-rhythm story with quiet stretches between expansion legs";
+      return "rocket and satellite companies, which are busy for a while and then quiet again";
     case "semi":
-      return "AI chip cycle that pauses, then runs again on spend";
+      return "chip makers, which pause when spending pauses and run again when it comes back";
     case "fintech":
-      return "payment and finance companies that move when rates and risk appetite move";
+      return "payment and finance companies, which move when interest rates move";
     case "software":
-      return "software / SaaS adoption with a quiet stretch in the middle";
+      return "software companies, which usually have one slower stretch in the middle";
     case "healthcare":
-      return "healthcare compounder with non-linear clinical / payer cycles";
+      return "health companies, which move in steps as treatments and insurance decisions land";
     case "drones":
-      return "defense / autonomy rhythm with quiet program years";
+      return "defence and drone companies, which are quiet between the years an order lands";
     case "index":
-      return "broad market grind, quieter than a single big bet";
+      return "a fund holding many companies, steadier than any single one of them";
     default:
-      return "path with non-linear bull runs and quiet stretches";
+      return "a business with strong stretches and quiet ones rather than an even climb";
   }
 }
 
+/**
+ * The sentence printed under a Forecast card when the model did not write
+ * one for this company.
+ *
+ * Two things it must not do. It must not throw away a sentence the model
+ * actually wrote: re-timing a path onto the usual rhythm keeps the price
+ * the model chose, so the reason it gave still stands and used to be
+ * discarded anyway. And it must not read as a note to a colleague. The
+ * old line was `NBIS: AI computer builders S-curve with quiet years, not a
+ * straight line; illustrative path EOY’26 ~$120 → ’30 ~$400 (spot $80).`,
+ * which reached the card as Margus's own reasoning.
+ */
 function fallbackRationale(input: {
   ticker: string;
   theme: ReturnType<typeof forecastThemeForTicker>;
@@ -412,12 +436,15 @@ function fallbackRationale(input: {
   existing?: string;
   reshaped: boolean;
 }): string {
-  if (!input.reshaped && !isJunkRationale(input.existing)) {
+  if (!isJunkRationale(input.existing)) {
     return input.existing!.trim();
   }
-  const y26 = input.prices[FORECAST_YEARS[0]!];
-  const y30 = input.prices[FORECAST_YEARS[FORECAST_YEARS.length - 1]!];
-  return `${input.ticker}: ${themeDynamicsLabel(input.theme)}; illustrative path EOY’26 ~$${Math.round(y26)} → ’30 ~$${Math.round(y30)} (spot $${input.spot.toFixed(0)}). Modeled prices, not a target.`;
+  const firstYear = FORECAST_YEARS[0]!;
+  const lastYear = FORECAST_YEARS[FORECAST_YEARS.length - 1]!;
+  const first = currency(input.prices[firstYear], 0);
+  const last = currency(input.prices[lastYear], 0);
+  const today = currency(input.spot, 0);
+  return `No written reason for ${input.ticker} yet. These prices follow the usual shape for ${themeShapeLabel(input.theme)}: about ${first} at the end of ${firstYear} and about ${last} by the end of ${lastYear}, against ${today} today. Modeled prices, not a target.`;
 }
 
 /**
@@ -630,13 +657,13 @@ export function buildCachedForecastPlan(input: {
     periods: [
       {
         label: `Next quarter (Q${nextQuarter.q} ${nextQuarter.y})`,
-        theme: "Reused from a shared run",
+        theme: "Reused from an earlier run",
         add: "No mix change",
         trim: "No mix change",
       },
       {
         label: `${year + 1}`,
-        theme: "Reused from a shared run",
+        theme: "Reused from an earlier run",
         add: "No mix change",
         trim: "No mix change",
       },
@@ -745,9 +772,9 @@ HOW SURE THEY ARE: some holdings carry the owner's own 1-5 score and a written r
 
 ${FORECAST_CONVICTION_PROMPT}
 
-Build an actionable trim/add + theme plan AND a full EOY stock-price prognosis for this Upside Lab portfolio.
+Describe a modeled mix and a year-end price path for every holding in this Upside Lab portfolio.
 
-CRITICAL: Reason every price from why that company exists and the anchoring above. Do NOT paste sell-side targets. Do NOT draw straight lines. Never leave a ticker or year empty. Never paste the same spot across all years unless cash-like (say so).
+CRITICAL: Reason every price from why that company exists and the anchoring above. Do not copy analysts' published price targets. Do NOT draw straight lines. Never leave a ticker or year empty. Never paste today's price across all years unless the holding really is cash-like, and say so when it is.
 
 Today (Europe/Tallinn): ${todayKeyInTz()} · next quarter ≈ Q${nextQuarter.q} ${nextQuarter.y} · next calendar year ${year + 1}.
 
@@ -777,16 +804,16 @@ Requirements:
    - Ground the "why" in something specific and falsifiable for THAT company (a metric, a date, or an event with rough timing). Never a generic sector vibe that could be pasted onto any ticker in the theme.
    - Name the condition when the modeled weight would apply: a price, an earnings date, a number that just came out. So it reads as a scenario, not a headline.
    - Each item: "TICKER (current% -> target%): specific why + condition". Groups: "data-center power (~0% to 5%): why + size". Tickers already in the portfolio preferred; NEW tickers and sectors are welcome when describing a modeled mix, not as a shopping list.
-   - Plain English only. Never say sleeve, marks, conviction, digestion, beta, or rotation. Thesis is fine.
+   - Plain English only. The persona's word bans apply here in full. Thesis is fine.
    - If the modeled mix is unchanged: "No mix change" (never leave blank)
    - Never use em dashes or en-dash clause breaks in add/trim lines.
 4. sectorRotation: talk through money moving between groups (AI computer builders, chip makers, data-center power, crypto, space, software, healthcare, drones, payments and finance, etc.). Chip makers and AI computer builders are different bets. Do not stay stuck in one box. Plain speech, no em dashes.
-5. generalAdvice: sizing, concentration, cash, described as facts about the mix. 2-4 short spoken sentences in you/your. Sound like a note at a desk, not a generated briefing. Forbidden: em dashes, stacked jargon slogans, tidy wrap-up paragraphs, trade orders. Never we/us/our.
+5. generalAdvice: how big each holding is, how much sits in one place, and the cash, described as facts about the mix. 2-4 short spoken sentences in you/your. Sound like a person talking, not a generated briefing. Forbidden: em dashes, stacked jargon slogans, tidy wrap-up paragraphs, trade orders. Never we/us/our.
 6. eoyTargets: REQUIRED for EVERY ticker listed above. Use the exact ticker strings (keep ".AS", ".L", ".DE", etc.).
    - Provide a positive price for EACH of years ${yearsList}. All five required, no omissions.
-   - Year ${year} is December 31 ${year}, not today's spot. Do not paste today's price into that cell.
+   - Year ${year} is December 31 ${year}, not today's price. Do not paste today's price into that cell.
    - NON-LINEAR only, unless the holding is genuinely steady (a broad index fund, a cash-like holding), in which case say so. Crypto-linked: include a deep drop year. Jumpy growth names: a quiet year somewhere in the middle.
-   - rationale: one human sentence on why this company + how the path wiggles. FORBIDDEN words/phrases: overridden, rejected, too timid, portfolio-aligned, calibrated path. No em dashes. Never say sleeve, marks, conviction, digestion, beta, or rotation. Thesis is fine.
+   - rationale: one human sentence on why this company, and how the path moves rather than climbing evenly. FORBIDDEN words/phrases: overridden, rejected, too timid, portfolio-aligned, calibrated path. No em dashes. The persona's word bans apply here in full. Thesis is fine.
 7. Consistency: if the reason you own the names is unchanged from a prior run, keep year-end prices in a similar neighborhood. Do not randomly reshuffle for no reason.
 8. Do not invent fake share counts or claim trades already happened.
 9. Be concise.

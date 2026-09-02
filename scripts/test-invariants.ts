@@ -970,7 +970,10 @@ run("fund thesis and exit plans split into short bullets", () => {
   );
   assert.deepEqual(thesis, [
     "Data cloud consumption accelerating with GenAI workloads",
-    "RPO up >50% YoY",
+    // The acronym is spelled out now rather than compressed into. Every
+    // other rule in this app opens a term up, and this card is read by
+    // somebody who has never seen those three letters before.
+    "Signed orders not yet billed up >50% YoY",
     "Durable multi-year expansion",
     "Enterprises unify analytics and AI pipelines",
   ]);
@@ -1402,10 +1405,14 @@ run("humanize kills leftover market slang", () => {
     pulseSuggestion({ action: "sell" }),
     /reason you own this no longer matches/i
   );
-  assert.match(
-    pulseSuggestion({ action: "watch" }),
-    /not enough price history/i
-  );
+  /*
+    A watch verdict is about the company's story, not about the chart. It
+    used to say there was not enough price history, which is a different
+    claim, usually untrue, and it taught the reader to distrust the data
+    rather than to keep reading about the business.
+  */
+  assert.match(pulseSuggestion({ action: "watch" }), /worth following/i);
+  assert.doesNotMatch(pulseSuggestion({ action: "watch" }), /history/i);
   assert.match(
     pulseSuggestion({ action: "hold" }),
     /Price is inside its recent range/

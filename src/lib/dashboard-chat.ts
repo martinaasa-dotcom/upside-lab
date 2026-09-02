@@ -1,5 +1,6 @@
 import type { CcChatContext } from "@/lib/ai/cc-advisor";
 import type { ForecastPlan } from "@/lib/forecast-plan";
+import { loadStoredTier } from "@/lib/experience-tier";
 import { loadWatchlist } from "@/lib/watchlist";
 import type { PulseCheck } from "@/lib/thesis-pulse";
 import type { Holding, Portfolio, PortfolioSnapshot, Quote } from "@/lib/types";
@@ -53,6 +54,13 @@ export function margusChatContext(input: {
   forecastPlan: ForecastPlan | null;
 }): CcChatContext {
   const watchlist = loadWatchlist();
+  /*
+   * How much investing this person told onboarding they have done. It
+   * only sets how much each answer stops to explain itself, so an
+   * unanswered question is not a problem: `loadStoredTier` returns null
+   * and the prompt simply adds nothing.
+   */
+  const experienceTier = loadStoredTier();
   const {
     portfolio,
     snapshot,
@@ -70,6 +78,7 @@ export function margusChatContext(input: {
       cashBalance: 0,
       adviseOnly: true,
       hideOptions,
+      experienceTier,
       eurUsd,
       gbpUsd,
       watchlist,
@@ -94,6 +103,7 @@ export function margusChatContext(input: {
     cashBalance: portfolio.cash_balance,
     classroom: Boolean(portfolio.classroom_community_id),
     hideOptions,
+    experienceTier,
     eurUsd,
     gbpUsd,
     watchlist,

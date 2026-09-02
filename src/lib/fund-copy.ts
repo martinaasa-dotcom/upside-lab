@@ -12,7 +12,17 @@ function tidy(part: string): string {
   let s = part.trim().replace(/^[.;,\s]+|[.;,\s]+$/g, "");
   s = s.replace(/^sell if\s+/i, "");
   s = s.replace(/^if\s+/i, "");
-  s = s.replace(/\bremaining performance obligations\s*\(RPO\)/gi, "RPO");
+  /*
+   * Every other rule in this file opens a term up. This one used to close
+   * one, turning "remaining performance obligations (RPO)" into a
+   * three-letter acronym on a card a beginner reads. Both spellings go the
+   * same plain way now.
+   */
+  s = s.replace(
+    /\bremaining performance obligations\s*\(RPO\)/gi,
+    "signed orders not yet billed"
+  );
+  s = s.replace(/\bRPO\b/g, "signed orders not yet billed");
   s = s.replace(/\bfails to exceed\b/gi, "below");
   s = s.replace(/\bdecelerates below\b/gi, "below");
   s = s.replace(/^signaling\s+/i, "");

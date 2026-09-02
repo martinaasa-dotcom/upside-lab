@@ -70,7 +70,7 @@ const fundDecisionSchema = z.object({
           .max(1)
           .nullable()
           .describe(
-            "For trim/add only: fraction of CURRENT shares to sell (trim) or buy more of relative to current position size (add). Null for hold/exit."
+            "For trim/add only: fraction of CURRENT shares to sell (trim), or to buy more of relative to what you already hold (add). Null for hold/exit."
           ),
         reasoning: z
           .string()
@@ -103,12 +103,12 @@ const fundDecisionSchema = z.object({
         allocationDollars: z
           .number()
           .positive()
-          .describe("Dollar amount of available cash to deploy into this."),
+          .describe("Dollar amount of the cash you have to put into this."),
       })
     )
     .max(2)
     .describe(
-      "0-2 brand-new positions to open today. Leave empty most days -- only names that genuinely clear a high bar today, never a position just to have news to report."
+      "0-2 companies you do not already hold and would start holding today. Leave empty most days: only ones that genuinely clear a high bar, never one added just to have news to report."
     ),
   headline: z
     .string()
@@ -127,18 +127,18 @@ const fundDecisionSchema = z.object({
         waitFor: z
           .string()
           .describe(
-            "One concrete sentence: the price or dip you are waiting for. Not a why-you-own-it paragraph."
+            "One concrete sentence: the price you are waiting for. Not a why-you-own-it paragraph."
           ),
       })
     )
     .max(4)
     .describe(
-      "1-4 names you do NOT already hold. Empty only if you genuinely have nobody on deck."
+      "1-4 companies you do NOT already hold. Empty only if there is genuinely nobody you are waiting on."
     ),
   cashPurpose: z
     .string()
     .describe(
-      "One sentence on why undeployed cash is sitting. If you are nearly fully invested, say you are keeping a small buffer."
+      "One sentence on what the cash you have not used is waiting for. If almost all of it is invested, say you keep a small cushion."
     ),
 });
 
@@ -156,8 +156,8 @@ function money(n: number): string {
 /**
  * System + user prompt for the daily decision call. Reuses MARGUS_PERSONA
  * verbatim for voice/philosophy consistency with the rest of the app, with
- * fund-specific rules layered on top (paper money, position sizing,
- * "review every holding" requirement).
+ * fund-specific rules layered on top (paper money, how big one holding may
+ * get, the "review every holding" requirement).
  */
 export function buildFundSystemPrompt(): string {
   return `${MARGUS_PERSONA}
@@ -166,15 +166,15 @@ export function buildFundSystemPrompt(): string {
 You run a single, fully simulated (paper money) portfolio that started at ${money(
     MARGUS_FUND_START_CAPITAL
   )} and is shown publicly as a daily, followable feed. Think of it like a public "AI managed portfolio" account. People may glance at this for ideas, so:
-- Every position needs a genuine, specific, fundamentals-based reason (growth drivers, staying power, unit economics, how big the market can get). Never momentum, never "it's up a lot," never because it's trending.
-- Every new position needs a concrete timeframe and a concrete exit condition (a price/return level, a reason-broke condition, or a hard time stop) decided at entry, not improvised later.
+- Every holding needs a genuine, specific reason grounded in the business (what is growing, its staying power, whether each sale makes money, how big the market can get). Never because the price is moving, never "it's up a lot," never because it's trending.
+- Every new holding needs a concrete timeframe and a concrete condition for selling (a price or return level, the reason no longer holding, or a hard time limit) decided when you buy, not improvised later.
 - Review EVERY currently open holding, every day, even when the action is "hold." When it's hold, say specifically why the original reason and timeline still stand, not a generic "staying the course" line.
-- Position sizing discipline: don't let any single new position exceed roughly 25% of total portfolio value, and don't deploy all available cash even on a great idea. Leave room to be wrong and to add later.
-- Most days should have zero or one action. A portfolio that trades every single day isn't disciplined, it's noisy. Only act when something genuinely changed (the reason moved or broke, the timeline elapsed, price hit your own stated level) or a new idea truly clears the bar.
+- Size discipline: don't let any single new holding exceed roughly 25% of total portfolio value, and don't put every dollar of cash in even on a great idea. Leave room to be wrong and to buy more later.
+- Most days should have zero or one action. A portfolio that trades every single day isn't disciplined, it's noisy. Only act when something genuinely changed (the reason moved or broke, the timeline ran out, the price hit your own stated level) or a new idea truly clears the bar.
 - Keep every field SHORT. This report gets read daily; nobody wants a wall of text. 1-3 sentences per field, always.
 - thesis and exitPlan are bullet lists, not paragraphs. Semicolon-separated. Each bullet is one fact, under 14 words.
-- Always fill watchlist with 1-4 names you do not already hold, each with a concrete wait (a price, a dip). Not "keeping an eye on tech."
-- Always fill cashPurpose in one sentence: what the undeployed cash is waiting for. Sitting in cash without saying why is hiding the ball.`;
+- Always fill watchlist with 1-4 companies you do not already hold, each with a concrete thing you are waiting for, usually a price. Not "keeping an eye on tech."
+- Always fill cashPurpose in one sentence: what the cash you have not used is waiting for. Cash with no stated reason is a gap in the report.`;
 }
 
 const weeklyRecapSchema = z.object({
@@ -200,7 +200,7 @@ export function buildWeeklyRecapSystemPrompt(): string {
   return `${MARGUS_PERSONA}
 
 ## This specific job: your weekly step-back
-Once a week (Friday's close) you write a short recap of your paper portfolio. Bullets only. What you did, what moved, what you are watching next week. No paragraphs, no throat-clearing. The numbers below are already computed and correct; don't recompute or contradict them.`;
+Once a week (Friday's close) you write a short recap of your paper portfolio. Bullets only. What you did, what moved, what you are watching next week. No paragraphs, no warm-up sentences. The numbers below are already computed and correct; don't recompute or contradict them.`;
 }
 
 export function buildWeeklyRecapUserPrompt(input: {
@@ -274,13 +274,13 @@ export function buildFundUserPrompt(input: {
 
   const holdingsBlock =
     holdings.length === 0
-      ? "No open positions, 100% cash right now."
+      ? "No holdings, 100% cash right now."
       : holdings
           .map((h) => {
             return [
               `### ${h.ticker}`,
               `- Entry: ${h.entry_date} (${h.daysHeld}d ago) at $${h.cost_basis.toFixed(2)}, now $${h.price.toFixed(2)} (${h.unrealizedPnlPct >= 0 ? "+" : ""}${(h.unrealizedPnlPct * 100).toFixed(1)}%, ${money(h.unrealizedPnl)})`,
-              `- Position size: ${money(h.marketValue)} (${((h.marketValue / totalValue) * 100).toFixed(1)}% of the portfolio)`,
+              `- Size: ${money(h.marketValue)} (${((h.marketValue / totalValue) * 100).toFixed(1)}% of the portfolio)`,
               `- Thesis: ${h.thesis}`,
               `- Target timeframe: ${h.target_timeframe ?? "not set"}`,
               `- Exit plan: ${h.exit_plan ?? "not set"}`,
@@ -311,7 +311,7 @@ export function buildFundUserPrompt(input: {
 
   const cashBlock = currentCashPurpose
     ? `What you last said cash was for: ${currentCashPurpose}`
-    : "You have not said what undeployed cash is for yet. Fill cashPurpose.";
+    : "You have not said what your unused cash is for yet. Fill cashPurpose.";
 
   return `${contextLines.join("\n")}
 
@@ -328,5 +328,5 @@ ${watchBlock}
 ## Recent history
 ${recapBlock}
 
-Decide today's actions. Review every open holding above. Only add a new position if something genuinely clears your bar today; most days that's zero new positions. Fill watchlist and cashPurpose even on a no-trade day.`;
+Decide today's actions. Review every open holding above. Only start a new holding if something genuinely clears your bar today; most days that is none. Fill watchlist and cashPurpose even on a no-trade day.`;
 }
