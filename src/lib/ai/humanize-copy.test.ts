@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { humanizeMargusText } from "@/lib/ai/humanize-copy";
+import { humanizeMargusText, pulseSuggestion } from "@/lib/ai/humanize-copy";
 
 describe("humanizeMargusText picker talk", () => {
   it("rewrites which-portfolio questions", () => {
@@ -82,5 +82,93 @@ describe("humanizeMargusText trade orders", () => {
     );
     expect(withLevel).toMatch(/Nebius/i);
     expect(withLevel).not.toMatch(/modeled trim/i);
+  });
+});
+
+describe("humanizeMargusText desk words on their own", () => {
+  /*
+    Every rule these cover already existed as a phrase: "high conviction",
+    "sector rotation", "high-beta". A model told not to write the phrase
+    reaches for the bare noun instead, which is what these check.
+  */
+  const cases: Array<[string, RegExp]> = [
+    ["Your conviction here is high.", /how sure you are/i],
+    ["The rotation is into energy.", /money moving between groups/i],
+    ["Its beta is above one.", /swings with the market/i],
+    ["Liquidity is thin on this one.", /bought and sold/i],
+    ["The cadence of its results is quarterly.", /rhythm/i],
+    ["Expect IV crush the day after.", /what options pay after results/i],
+    ["The strike is 20% OTM.", /above today's price/i],
+    ["It trades under its NAV.", /the fund's holdings are worth/i],
+    ["There is alpha left in this.", /better than the market/i],
+    ["Its moat is the network.", /keeps competitors out/i],
+    ["The TAM is enormous.", /how big the market could get/i],
+    ["Capex is rising fast.", /buildings and equipment/i],
+    ["Your cost basis is $40.", /what you paid on average/i],
+    ["The print came in soft.", /the number came in soft/i],
+  ];
+
+  for (const [input, expected] of cases) {
+    it(`rewrites: ${input}`, () => {
+      expect(humanizeMargusText(input)).toMatch(expected);
+    });
+  }
+
+  it("leaves the verb form of print alone", () => {
+    expect(humanizeMargusText("It printed 42% for the year.")).toMatch(
+      /printed 42%/
+    );
+  });
+
+  it("never lets a missing price render as a dollar sign and a word", () => {
+    expect(humanizeMargusText("A level to think about: around $spot.")).toBe(
+      "A level to think about: around today's price."
+    );
+    expect(humanizeMargusText("It is 6% below spot.")).toMatch(
+      /below today's price/
+    );
+  });
+});
+
+describe("humanizeMargusText assistant openers", () => {
+  it("catches an opener that is not the first sentence", () => {
+    expect(
+      humanizeMargusText(
+        "The price fell about 4% today. It's important to note that the company said nothing at all."
+      )
+    ).toBe("The price fell about 4% today. The company said nothing at all.");
+  });
+
+  it("still catches one that opens the reply", () => {
+    expect(
+      humanizeMargusText("At the end of the day, the week was quiet.")
+    ).toBe("The week was quiet.");
+  });
+
+  it("catches one that opens a later line", () => {
+    expect(
+      humanizeMargusText(
+        "Prices were steady.\nIt is worth noting that nothing was traded."
+      )
+    ).toMatch(/\nNothing was traded\./);
+  });
+
+  it("leaves an enum alone", () => {
+    expect(humanizeMargusText("intact")).toBe("intact");
+    expect(humanizeMargusText("hold")).toBe("hold");
+  });
+});
+
+describe("pulseSuggestion", () => {
+  it("says a watch verdict is about the company, not missing history", () => {
+    const out = pulseSuggestion({ action: "watch" });
+    expect(out).toMatch(/worth following/i);
+    expect(out).not.toMatch(/history/i);
+  });
+
+  it("drops the price when there is no readable one", () => {
+    expect(pulseSuggestion({ action: "add", addLevel: "around $spot" })).toBe(
+      "Price is below its recent range."
+    );
   });
 });

@@ -1383,10 +1383,14 @@ run("humanize kills leftover market slang", () => {
     pulseSuggestion({ action: "sell" }),
     /reason you own this no longer matches/i
   );
-  assert.match(
-    pulseSuggestion({ action: "watch" }),
-    /not enough price history/i
-  );
+  /*
+    A watch verdict is about the company's story, not about the chart. It
+    used to say there was not enough price history, which is a different
+    claim, usually untrue, and it taught the reader to distrust the data
+    rather than to keep reading about the business.
+  */
+  assert.match(pulseSuggestion({ action: "watch" }), /worth following/i);
+  assert.doesNotMatch(pulseSuggestion({ action: "watch" }), /history/i);
   assert.match(
     pulseSuggestion({ action: "hold" }),
     /Price is inside its recent range/
