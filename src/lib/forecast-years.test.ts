@@ -1,13 +1,37 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { FORECAST_YEARS, buildForecast } from "@/lib/forecast";
+import {
+  FIVE_YEAR,
+  FORECAST_YEARS,
+  THREE_YEAR,
+  buildForecast,
+} from "@/lib/forecast";
 import type { Holding } from "@/lib/types";
 
 const PANEL = readFileSync(
   join(process.cwd(), "src/components/ForecastPanel.tsx"),
   "utf8"
 );
+
+/*
+ * The drawer is the second place forecast years are drawn, and it was the
+ * unguarded copy. It carried "End of 2028" and "End of 2030" as its own
+ * constants and then read `eoyPrices[2028]` by literal, so the day the
+ * range rolls the heading keeps a year the range no longer has and the
+ * price under it is read from a key that is not there. Nothing failed,
+ * which is exactly why this file now reads both.
+ */
+const DRAWER = readFileSync(
+  join(process.cwd(), "src/components/TickerDrawer.tsx"),
+  "utf8"
+);
+
+/** The forecast horizons must come from the range, wherever they are drawn. */
+const HORIZON_SOURCES: [string, string][] = [
+  ["src/components/ForecastPanel.tsx", PANEL],
+  ["src/components/TickerDrawer.tsx", DRAWER],
+];
 
 const holding: Holding = {
   id: "1",
@@ -48,6 +72,35 @@ describe("the phone shows every forecast year", () => {
         PANEL.includes(`!== ${year}`) || PANEL.includes(`=== ${year}`)
       ).toBe(false);
     }
+  });
+
+  it("writes no forecast year into any screen that draws one", () => {
+    for (const [name, src] of HORIZON_SOURCES) {
+      for (const year of FORECAST_YEARS) {
+        const hits = src
+          .split("\n")
+          .map((line, i) => [i + 1, line] as const)
+          // Comments explain why the literal is banned, so they may say it.
+          .filter(([, line]) => {
+            const t = line.trim();
+            if (t.startsWith("*") || t.startsWith("//") || t.startsWith("/*")) {
+              return false;
+            }
+            return line.includes(String(year));
+          })
+          .map(([i, line]) => `${name}:${i}: ${line.trim()}`);
+        expect(hits).toEqual([]);
+      }
+    }
+  });
+
+  it("takes both drawer horizons from the range", () => {
+    expect(DRAWER).toMatch(/THREE_YEAR/);
+    expect(DRAWER).toMatch(/FIVE_YEAR/);
+    // The 3-year horizon is the third column and the 5-year one the last,
+    // so a range of a different length still lines up.
+    expect(FORECAST_YEARS[2]).toBe(THREE_YEAR);
+    expect(FORECAST_YEARS[FORECAST_YEARS.length - 1]).toBe(FIVE_YEAR);
   });
 
   it("hands every holding the same year list", () => {

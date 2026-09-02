@@ -28,15 +28,21 @@ import { forecastThemeForTicker } from "@/lib/forecast-conviction";
 import { THEME_LABEL } from "@/lib/portfolio-personality";
 import { getShockProfile } from "@/lib/book-shock";
 import {
+  FIVE_YEAR,
   FORECAST_YEARS,
+  THREE_YEAR,
   resolveTickerForecastPath,
   type ForecastYear,
 } from "@/lib/forecast";
+import { beliefLines } from "@/lib/believe";
+import { shareCount } from "@/lib/share-count";
+import { typicalMoveFromCloses, typicalMoveLine } from "@/lib/typical-move";
+import { formatDateTime } from "@/lib/timezone";
 import type { PortfolioEoyOverrides } from "@/lib/forecast-overrides";
 import { coinFromSymbol, isCoinSymbol } from "@/lib/coins";
 import type { CoveredCallRow } from "@/lib/types";
 import { isSafePositiveMoney } from "@/lib/input-guard";
-import { Bot, X } from "lucide-react";
+import { Bot, Trash2, X } from "lucide-react";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { forecastPathProvenance } from "@/lib/provenance";
 import { useEffect, useMemo, useState } from "react";
@@ -49,9 +55,16 @@ const CONVICTION_LABELS: Record<ConvictionLevel, string> = {
   5: "Highest, and I am sure why I own it",
 };
 
+/*
+ * Both horizons come from FORECAST_YEARS, never from a year typed here.
+ * This file used to carry "End of 2028" and "End of 2030" as constants and
+ * then read `eoyPrices[2028]` by literal, so the day the range rolls the
+ * heading would keep a year the range no longer has and the price under it
+ * would be read from a key that is not there.
+ */
 const HORIZONS = [
-  { id: "3y" as const, label: "3 years", title: "End of 2028" },
-  { id: "5y" as const, label: "5 years", title: "End of 2030" },
+  { id: "3y" as const, label: "3 years", title: `End of ${THREE_YEAR}` },
+  { id: "5y" as const, label: "5 years", title: `End of ${FIVE_YEAR}` },
 ];
 
 type Props = {
@@ -65,9 +78,17 @@ type Props = {
   conviction?: ConvictionEntry | null;
   overrides?: PortfolioEoyOverrides;
   coveredCallRow?: CoveredCallRow | null;
+  /**
+   * How many portfolios the shares and the average price above cover.
+   * More than one and the drawer says so, because the card it was opened
+   * from shows one portfolio and a silent total disagrees with it.
+   */
+  portfolioCount?: number;
   onSetEoyPrice?: (ticker: string, year: ForecastYear, price: number) => void;
   onConviction: (level: ConvictionLevel, thesis: string) => void;
   onClose: () => void;
+  /** Removes the holding this drawer was opened from, when there is one. */
+  onDelete?: () => void;
   onAskMargus?: () => void;
 };
 
@@ -82,9 +103,11 @@ export function TickerDrawer({
   conviction,
   overrides,
   coveredCallRow,
+  portfolioCount = 1,
   onSetEoyPrice,
   onConviction,
   onClose,
+  onDelete,
   onAskMargus,
 }: Props) {
   const [horizon, setHorizon] = useState<"3y" | "5y">("3y");
@@ -108,15 +131,31 @@ export function TickerDrawer({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  const liveSpot = spot ?? buyPrice ?? 50;
-
-  // Resolves the exact forecast path matching the Forecast table
+  /*
+   * A path needs a price to grow from, and there is no honest stand-in for
+   * one. This used to read `spot ?? buyPrice ?? 50`, so a holding nothing
+   * could price showed "n/a" in its header and, three inches below, a full
+   * five-year path with "+43.4% from today's price" under it, worked out
+   * from what the reader paid years ago. The 50 was worse still: a price
+   * invented outright for any row with no buy price either. With no price,
+   * the drawer says so and draws no path.
+   */
   const forecastSummary = useMemo(() => {
-    if (!ticker) return null;
-    return resolveTickerForecastPath(ticker, liveSpot, overrides);
-  }, [ticker, liveSpot, overrides]);
+    if (!ticker || spot == null || !(spot > 0)) return null;
+    return resolveTickerForecastPath(ticker, spot, overrides);
+  }, [ticker, spot, overrides]);
 
-  if (!open || !ticker || !forecastSummary) return null;
+  /*
+   * What an ordinary day looks like for this company, from the same
+   * ninety-day series the sparkline already draws. A red number means
+   * nothing until a reader knows whether it is a normal day.
+   */
+  const typical = useMemo(
+    () => typicalMoveFromCloses(sparkline ?? []),
+    [sparkline]
+  );
+
+  if (!open || !ticker) return null;
 
   const streak = estimateGreenStreak(sparkline);
   const roi =
@@ -126,23 +165,55 @@ export function TickerDrawer({
           return Number.isFinite(v) ? v : null;
         })()
       : null;
-  const level = conviction?.level ?? 3;
+  // Nothing chosen is nothing chosen. Lighting cell 3 and printing
+  // "Neutral, holding it as it is" put an opinion in somebody's mouth on
+  // every holding they had never answered for.
+  const level = conviction?.level ?? null;
   const theme = forecastThemeForTicker(ticker);
   const shockProfile = getShockProfile(ticker);
 
-  const targetPrice =
-    horizon === "3y"
+  const targetPrice = forecastSummary
+    ? horizon === "3y"
       ? forecastSummary.threeYearPrice
-      : forecastSummary.fiveYearPrice;
-  const targetGainPct =
-    horizon === "3y"
+      : forecastSummary.fiveYearPrice
+    : null;
+  const targetGainPct = forecastSummary
+    ? horizon === "3y"
       ? forecastSummary.threeYearGainPct
-      : forecastSummary.fiveYearGainPct;
-  const targetCagrPct =
-    horizon === "3y"
+      : forecastSummary.fiveYearGainPct
+    : null;
+  const targetCagrPct = forecastSummary
+    ? horizon === "3y"
       ? forecastSummary.threeYearCagrPct
-      : forecastSummary.fiveYearCagrPct;
-  const targetYear: ForecastYear = horizon === "3y" ? 2028 : 2030;
+      : forecastSummary.fiveYearCagrPct
+    : null;
+  const targetYear: ForecastYear = horizon === "3y" ? THREE_YEAR : FIVE_YEAR;
+  const yearsOut = horizon === "3y" ? 3 : FORECAST_YEARS.length;
+
+  /*
+   * What the target is asking of the company, in arithmetic the reader can
+   * weigh: the whole gain, the rate a year, and how that compares with the
+   * distance this company has actually travelled lately.
+   */
+  const belief =
+    spot != null && spot > 0 && targetPrice != null && targetPrice > 0
+      ? beliefLines(
+          {
+            subject: cashtag(ticker),
+            spot,
+            target: targetPrice,
+            months: yearsOut * 12,
+            closes: sparkline,
+          },
+          (n) => currency(n)
+        )
+      : [];
+
+  const todayLine = typicalMoveLine(
+    cashtag(ticker),
+    todayChangePct ?? null,
+    typical
+  );
 
   function handleYearEditCommit(year: ForecastYear) {
     const parsed = Number.parseFloat(yearDraftPrice.replace(/,/g, "."));
@@ -175,7 +246,7 @@ export function TickerDrawer({
               <Pill tone="neutral">{THEME_LABEL[theme] ?? "other businesses"}</Pill>
             </div>
             <p className="mt-1 text-sm tabular-nums text-muted-foreground">
-              {spot != null ? currency(spot) : NO_VALUE}
+              {spot != null ? currency(spot) : "No price right now"}
               {todayChangePct != null && (
                 <span
                   className={cn(
@@ -188,11 +259,19 @@ export function TickerDrawer({
               )}
               {shares != null
                 ? isCoinSymbol(ticker)
-                  ? ` · ${shares.toLocaleString("en-US")}`
-                  : ` · ${shares.toLocaleString("en-US")} shares`
+                  ? ` · ${shareCount(shares)}`
+                  : ` · ${shareCount(shares)} shares`
                 : ""}
-              {roi != null ? ` · ${percent(roi)} vs cost` : ""}
+              {portfolioCount > 1
+                ? ` across ${portfolioCount} portfolios`
+                : ""}
+              {roi != null ? ` · ${percent(roi)} against what you paid` : ""}
             </p>
+            {todayLine ? (
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {todayLine}
+              </p>
+            ) : null}
           </div>
           <Button
             type="button"
@@ -206,7 +285,13 @@ export function TickerDrawer({
           </Button>
         </div>
 
-        <div className="scroll-host flex flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        {/*
+          The dock floats over this panel, so the last control in the
+          scroller has to clear it. `--dock-clearance` is the measured
+          height `use-dock-pad` publishes, and the safe-area inset is the
+          floor for a screen with no dock on it.
+        */}
+        <div className="scroll-host flex flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 pb-[max(1.5rem,var(--dock-clearance,0px),env(safe-area-inset-bottom))]">
           <Field>
             <FieldLabel htmlFor="ticker-thesis">Thesis</FieldLabel>
             <Textarea
@@ -214,7 +299,13 @@ export function TickerDrawer({
               value={thesisDraft}
               rows={2}
               onChange={(e) => setThesisDraft(e.target.value)}
-              onBlur={() => onConviction(level, thesisDraft)}
+              onBlur={() => {
+                // Only on a real change, so simply looking at the box does
+                // not create an entry that then claims a stance nobody set.
+                if (thesisDraft !== (conviction?.thesis ?? "")) {
+                  onConviction(level ?? 3, thesisDraft);
+                }
+              }}
               placeholder="Two sentences. What has to stay true for you to keep holding this?"
               className="min-h-16 leading-relaxed"
             />
@@ -229,7 +320,7 @@ export function TickerDrawer({
                     {" · "}
                     {s.line}
                     <span className="ml-1">
-                      {new Date(s.at).toLocaleDateString("en-GB", {
+                      {formatDateTime(s.at, {
                         day: "numeric",
                         month: "short",
                       })}
@@ -240,6 +331,7 @@ export function TickerDrawer({
             ) : null}
           </Field>
 
+          {forecastSummary ? (
           <section className="flex flex-col gap-4">
             <div className={SPLIT_ROW}>
               <div className={SPLIT_COPY}>
@@ -248,7 +340,7 @@ export function TickerDrawer({
                   <WhyThis
                     provenance={forecastPathProvenance({
                       ticker,
-                      spot: liveSpot,
+                      spot: forecastSummary.spot,
                       sector: THEME_LABEL[forecastThemeForTicker(ticker)],
                       hasOwnReason: Boolean(conviction?.thesis?.trim()),
                       fallback: !forecastSummary.hasOverrides,
@@ -270,12 +362,17 @@ export function TickerDrawer({
             <Scoreboard cols={1}>
               <Score
                 label={`If it plays out by ${targetYear}`}
-                value={currency(targetPrice, 2)}
+                value={currency(targetPrice ?? 0, 2)}
                 sub={
                   <>
                     Works out to about{" "}
-                    <span className="font-medium tabular-nums text-gain">
-                      {Number.isFinite(targetCagrPct)
+                    <span
+                      className={cn(
+                        "font-medium tabular-nums",
+                        (targetCagrPct ?? 0) >= 0 ? "text-gain" : "text-loss"
+                      )}
+                    >
+                      {targetCagrPct != null && Number.isFinite(targetCagrPct)
                         ? `${targetCagrPct >= 0 ? "+" : ""}${targetCagrPct.toFixed(1)}%`
                         : NO_VALUE}
                     </span>{" "}
@@ -283,17 +380,30 @@ export function TickerDrawer({
                     <span
                       className={cn(
                         "font-semibold tabular-nums",
-                        targetGainPct >= 0 ? "text-gain" : "text-loss"
+                        (targetGainPct ?? 0) >= 0 ? "text-gain" : "text-loss"
                       )}
                     >
-                      {targetGainPct >= 0 ? "+" : ""}
-                      {percent(targetGainPct)}
+                      {(targetGainPct ?? 0) >= 0 ? "+" : ""}
+                      {percent(targetGainPct ?? 0)}
                     </span>{" "}
                     from today&apos;s price.
                   </>
                 }
               />
             </Scoreboard>
+
+            {/*
+              What that price is asking for, said as arithmetic rather than
+              as a claim. A figure with two decimals looks like a
+              measurement whatever the label above it says, so the cure is
+              to restate it in things the reader has already seen this
+              company do.
+            */}
+            {belief.length > 0 ? (
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {belief.join(" ")}
+              </p>
+            ) : null}
 
             <div>
               <MicroLabel className="mb-2">
@@ -373,10 +483,22 @@ export function TickerDrawer({
               </div>
             </div>
           </section>
+          ) : (
+            <section className="flex flex-col gap-2">
+              <h3 className="text-base text-foreground">Price path</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                No price right now, so there is nothing to draw a path from.
+                A path worked out from what you paid years ago would not be
+                a forecast. Check the symbol is still right: a company that
+                was renamed or taken over stops reporting a price under its
+                old one.
+              </p>
+            </section>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <Metric label="Recent run">{streak.label}</Metric>
-            <Metric label="Moves with">{shockProfile.label}</Metric>
+            <Metric label="What it does">{shockProfile.label}</Metric>
           </div>
 
           {coveredCallRow && coveredCallRow.nextStrike != null ? (
@@ -409,14 +531,14 @@ export function TickerDrawer({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <FieldLabel>How sure are you?</FieldLabel>
               <span className="text-sm font-medium text-muted-foreground">
-                {level} of 5
+                {level != null ? `${level} of 5` : "Not answered yet"}
               </span>
             </div>
             <ToggleGroup
               type="single"
               variant="outline"
               spacing={0}
-              value={String(level)}
+              value={level != null ? String(level) : ""}
               onValueChange={(v) => {
                 if (!v) return;
                 onConviction(Number(v) as ConvictionLevel, thesisDraft);
@@ -435,7 +557,11 @@ export function TickerDrawer({
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
-            <FieldDescription>{CONVICTION_LABELS[level]}</FieldDescription>
+            <FieldDescription>
+              {level != null
+                ? CONVICTION_LABELS[level]
+                : "Tap a number when you have made up your mind. Nothing is chosen until you do."}
+            </FieldDescription>
           </Field>
 
           {onAskMargus ? (
@@ -451,6 +577,29 @@ export function TickerDrawer({
               <Bot data-icon="inline-start" />
               Ask Margus about {cashtag(ticker)}
             </Button>
+          ) : null}
+
+          {/*
+            Removing a holding lives here, at the end, rather than as a bin
+            in the corner of every card. It used to be the only visible
+            control on a phone card, so the one thing the card offered was
+            the destructive one and the useful one, opening this panel, had
+            no affordance at all.
+          */}
+          {onDelete ? (
+            <div className="border-t border-border pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onDelete();
+                }}
+                className="touch-target inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground outline-none transition hover:bg-loss/10 hover:text-loss focus-visible:text-loss focus-visible:ring-1 focus-visible:ring-loss/40"
+              >
+                <Trash2 className="size-4" aria-hidden />
+                Remove {cashtag(ticker)} from this portfolio
+              </button>
+            </div>
           ) : null}
         </div>
       </div>
