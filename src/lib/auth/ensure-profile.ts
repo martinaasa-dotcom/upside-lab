@@ -3,6 +3,7 @@ import { createSupabaseServerAuth } from "@/lib/supabase/server-auth";
 import {
   getSupabaseServer,
   supabaseUsesServiceRole,
+  type AppSupabaseClient,
 } from "@/lib/supabase/server";
 import { PORTFELL_TABLES, UPSIDE_CIRCLE_ID } from "@/lib/supabase/tables";
 import { safeHttpUrl } from "@/lib/safe-url";
@@ -65,6 +66,113 @@ async function claimWithRpc(user: User): Promise<{ claimedSlugs: string[] }> {
   return { claimedSlugs: claimed };
 }
 
+/** Every slug waiting on this address: the claims table plus the env extras. */
+async function seedSlugsFor(
+  admin: AppSupabaseClient,
+  email: string
+): Promise<string[]> {
+  const { data, error } = await admin
+    .from(PORTFELL_TABLES.seedClaims)
+    .select("portfolio_slug")
+    .eq("email", email);
+
+  if (error) {
+    console.error("seed claims lookup failed", error.message);
+  }
+
+  return [
+    ...new Set([
+      ...((data ?? []) as { portfolio_slug: string }[]).map(
+        (c) => c.portfolio_slug
+      ),
+      ...envSeedSlugs(email),
+    ]),
+  ];
+}
+
+/**
+ * Add this account as a co-owner of every seed portfolio waiting on it.
+ *
+ * One select for the whole list and one upsert for the whole list, rather
+ * than a pair of round trips per slug: a seed household has several each,
+ * and this runs while somebody is watching a blank screen.
+ */
+async function claimSeedPortfolios(
+  admin: AppSupabaseClient,
+  userId: string,
+  slugs: string[],
+  now: string
+): Promise<string[]> {
+  if (!slugs.length) return [];
+
+  const { data: sheets, error: readErr } = await admin
+    .from(PORTFELL_TABLES.portfolios)
+    .select("id, slug, owner_id")
+    .in("slug", slugs);
+
+  if (readErr) {
+    console.error("seed portfolio lookup failed", readErr.message);
+    return [];
+  }
+
+  const rows = (sheets ?? []) as {
+    id: string;
+    slug: string;
+    owner_id: string | null;
+  }[];
+  if (!rows.length) return [];
+
+  const unowned = rows.filter((r) => !r.owner_id).map((r) => r.id);
+
+  const [{ error }] = await Promise.all([
+    admin.from(PORTFELL_TABLES.portfolioOwners).upsert(
+      rows.map((r) => ({ portfolio_id: r.id, user_id: userId })),
+      { onConflict: "portfolio_id,user_id" }
+    ),
+    // Keep the first claimant as the primary owner_id. The `is null` is the
+    // question the per-slug read used to ask, asked of the database instead,
+    // so a second claimant landing between that read and this write cannot
+    // take an owner the first one had just been given.
+    unowned.length
+      ? admin
+          .from(PORTFELL_TABLES.portfolios)
+          .update({ owner_id: userId, updated_at: now })
+          .in("id", unowned)
+          .is("owner_id", null)
+      : Promise.resolve({ error: null }),
+  ]);
+
+  if (error) {
+    console.error(
+      "portfolio owner upsert failed",
+      slugs.join(", "),
+      error.message
+    );
+    return [];
+  }
+
+  // Answered in the order the slugs were claimed in, which is the claims
+  // table and then the env extras, never the order the rows came back in.
+  const found = new Set(rows.map((r) => r.slug));
+  return slugs.filter((slug) => found.has(slug));
+}
+
+async function syncHouseholdCommunities(
+  admin: AppSupabaseClient,
+  userId: string
+): Promise<void> {
+  const { error } = await admin.rpc(
+    "portfell_sync_household_community_memberships",
+    { p_user_id: userId }
+  );
+  if (error) {
+    console.error(
+      "portfell_sync_household_community_memberships failed",
+      error.message
+    );
+  }
+}
+
 async function claimWithServiceRole(user: User): Promise<{
   claimedSlugs: string[];
 }> {
@@ -84,118 +192,77 @@ async function claimWithServiceRole(user: User): Promise<{
       : typeof meta?.picture === "string"
         ? meta.picture
         : null;
+  const now = new Date().toISOString();
 
-  await admin.from(PORTFELL_TABLES.profiles).upsert(
-    {
-      id: user.id,
-      email: email || null,
-      display_name: displayName,
-      avatar_url: avatarUrl
-        ? safeHttpUrl(avatarUrl, { httpsOnly: true })
-        : null,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "id" }
-  );
+  /*
+    Three requests with nothing to say to each other, so they go out
+    together rather than one after the next: the profile row, the claims
+    that name the seed portfolios waiting on this address, and the lab
+    state row. This step runs where a session begins, which is somebody
+    waiting on a blank screen, so the round trips are the whole of its cost.
 
-  const claimedSlugs: string[] = [];
-  if (email) {
-    const { data: claims, error: claimsErr } = await admin
-      .from(PORTFELL_TABLES.seedClaims)
-      .select("portfolio_slug")
-      .eq("email", email);
-
-    if (claimsErr) {
-      console.error("seed claims lookup failed", claimsErr.message);
-    }
-
-    const slugs = new Set<string>([
-      ...((claims ?? []) as { portfolio_slug: string }[]).map(
-        (c) => c.portfolio_slug
-      ),
-      ...envSeedSlugs(email),
-    ]);
-
-    for (const slug of slugs) {
-      const { data: sheet } = await admin
-        .from(PORTFELL_TABLES.portfolios)
-        .select("id, owner_id")
-        .eq("slug", slug)
-        .maybeSingle();
-      if (!sheet) continue;
-
-      const portfolioId = (sheet as { id: string; owner_id?: string | null }).id;
-
-      // Keep first claimant as primary owner_id; always add junction row.
-      if (!(sheet as { owner_id?: string | null }).owner_id) {
-        await admin
-          .from(PORTFELL_TABLES.portfolios)
-          .update({
-            owner_id: user.id,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", portfolioId);
-      }
-
-      const { error } = await admin.from(PORTFELL_TABLES.portfolioOwners).upsert(
-        { portfolio_id: portfolioId, user_id: user.id },
-        { onConflict: "portfolio_id,user_id" }
-      );
-      if (error) {
-        console.error("portfolio owner upsert failed", slug, error.message);
-      } else if (!claimedSlugs.includes(slug)) {
-        claimedSlugs.push(slug);
-      }
-    }
-  }
-
-  const { data: lab } = await admin
-    .from(PORTFELL_TABLES.labState)
-    .select("id")
-    .eq("owner_id", user.id)
-    .maybeSingle();
-  if (!lab) {
-    await admin.from(PORTFELL_TABLES.labState).upsert(
+    The lab row is an upsert that ignores duplicates, which is an insert
+    that does nothing on a conflict: an existing row keeps its conviction
+    notes and its watchlist, exactly as the read and then write it replaces
+    did, in one request instead of two.
+  */
+  const [, slugs] = await Promise.all([
+    admin.from(PORTFELL_TABLES.profiles).upsert(
+      {
+        id: user.id,
+        email: email || null,
+        display_name: displayName,
+        avatar_url: avatarUrl
+          ? safeHttpUrl(avatarUrl, { httpsOnly: true })
+          : null,
+        updated_at: now,
+      },
+      { onConflict: "id" }
+    ),
+    email ? seedSlugsFor(admin, email) : Promise.resolve<string[]>([]),
+    admin.from(PORTFELL_TABLES.labState).upsert(
       {
         id: user.id,
         owner_id: user.id,
         conviction: {},
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       },
-      { onConflict: "id" }
-    );
-  }
-
-  // Deliberately no auto-join to any community (including Upside Circle)
-  // here. Community membership is opt-in only, via an invite link (private
-  // communities) or a request an admin approves (public communities). See
-  // /api/communities/[id]/join-request. Signing in must never silently
-  // expose a stranger's book to an existing community or vice versa.
-  // Household pairs (Martin/Amanda, Rasmus/Karoliine) are the exception:
-  // if a partner is already in a circle, copy that membership so both
-  // logins see the same groups. Never creates a new stranger join.
-  if (householdEmailsFor(email).length > 1) {
-    const { error: syncErr } = await admin.rpc(
-      "portfell_sync_household_community_memberships",
-      { p_user_id: user.id }
-    );
-    if (syncErr) {
-      console.error(
-        "portfell_sync_household_community_memberships failed",
-        syncErr.message
-      );
-    }
-  }
+      { onConflict: "id", ignoreDuplicates: true }
+    ),
+  ]);
 
   const isMartin =
     email === "martin.aasa@upthink.ee" || email === "aasamartinaasa@gmail.com";
-  if (isMartin) {
-    await admin
-      .from(PORTFELL_TABLES.communities)
-      .update({ created_by: user.id, updated_at: new Date().toISOString() })
-      .eq("id", UPSIDE_CIRCLE_ID)
-      .is("created_by", null);
-  }
+
+  /*
+    Deliberately no auto-join to any community (including Upside Circle)
+    here. Community membership is opt-in only, via an invite link (private
+    communities) or a request an admin approves (public communities). See
+    /api/communities/[id]/join-request. Signing in must never silently
+    expose a stranger's book to an existing community or vice versa.
+    Household pairs (Martin/Amanda, Rasmus/Karoliine) are the exception:
+    if a partner is already in a circle, copy that membership so both
+    logins see the same groups. Never creates a new stranger join.
+
+    The second wave, for the same reason as the first: the claim's own
+    read, that household sync and the circle's created_by have nothing to
+    say to one another either. The sync waits for the wave above rather
+    than joining it, because it reads this account's profile row to find
+    the address it syncs on.
+  */
+  const [claimedSlugs] = await Promise.all([
+    claimSeedPortfolios(admin, user.id, slugs, now),
+    householdEmailsFor(email).length > 1
+      ? syncHouseholdCommunities(admin, user.id)
+      : null,
+    isMartin
+      ? admin
+          .from(PORTFELL_TABLES.communities)
+          .update({ created_by: user.id, updated_at: now })
+          .eq("id", UPSIDE_CIRCLE_ID)
+          .is("created_by", null)
+      : null,
+  ]);
 
   return { claimedSlugs };
 }
