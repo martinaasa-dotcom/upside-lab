@@ -22,24 +22,24 @@ before acting on it, and write the reasoning down beside the change.
 
 ## 1. Security
 
-- [~] Snapshot restore lets a signed-in reader restore another account's portfolio by name (`restore_sheet`). Verify and close.
-- [~] `/api/book/ytd-from-image` computes the 401 and throws it away.
+- [x] Snapshot restore lets a signed-in reader restore another account's portfolio by name (`restore_sheet`). Closed: a saved copy is matched only among the caller's own sheets, and a stranger's sheet answers 403 with no writes.
+- [x] `/api/book/ytd-from-image` computes the 401 and throws it away. Closed, with the limiter keyed on the reader.
 - [~] Chat `ccContext` and `messages` reach the system prompt unshaped.
 - [~] Holdings import skips the money and share ceilings the single-holding route enforces.
 - [ ] CSP `'unsafe-inline'` on scripts: measure a report-only nonce policy.
 - [~] Unsubscribe matches email with `ilike` (LIKE wildcards).
 - [~] `/auth/link` acts on GET (mail scanners confirm an address).
 - [~] Raw error strings in three responses.
-- [~] `/api/trends` on the per-instance limiter only.
+- [x] `/api/trends` on the per-instance limiter only. Now the durable limiter, per reader.
 - [~] Circle invite tokens stored in plaintext beside their hash.
 - [~] Unshaped `conviction` and `forecast.rows` bodies; a malformed row is a 500.
-- [~] `/api/book/nav-history` serves anonymous callers.
+- [x] `/api/book/nav-history` serves anonymous callers. Requires a session now.
 - [~] Second-pass finders: authorization and IDOR; input validation and injection; auth flows, cookies and crypto; abuse and rate limits; supply chain (`npm audit`, lockfile).
 
 ## 2. Performance, caching, page speed
 
 - [~] Two remote auth round trips per API call (proxy plus route handler).
-- [~] `GET /api/portfolios` writes on every read and is polled every 45 seconds.
+- [x] `GET /api/portfolios` writes on every read and is polled every 45 seconds. The ensure step moved to the session's first `/api/auth/me`; the poll is a read.
 - [~] `/api/upside-portfolio` recomputed per viewer.
 - [~] Client fetch dedupe for quotes, fear and greed, portfolios, experience tier, market events.
 - [~] Redundant FX-only quote poll.
@@ -102,9 +102,9 @@ before acting on it, and write the reasoning down beside the change.
 
 ## 9. Integrations, links, consistency
 
-- [~] Dead pages: `/dashboard`, `/forecast`, `/margus` deep link paints Home, `/api/user/export` orphan, `activeMobileTab` dead.
-- [~] `/auth/*` missing from the noindex list.
-- [~] Circle room titled "Communities" in metadata and Admin.
+- [x] Dead pages: `/dashboard`, `/forecast`, `/margus` deep link paints Home, `/api/user/export` orphan, `activeMobileTab` dead. Two pages and the orphan route deleted; `/margus` opens Margus over Home and closes back to `/`.
+- [x] `/auth/*` missing from the noindex list.
+- [x] Circle room titled "Communities" in metadata and Admin.
 - [~] Forecast described as a room in three places.
 - [~] README's room list.
 
@@ -124,3 +124,70 @@ before acting on it, and write the reasoning down beside the change.
 
 - [ ] Merge to `main`.
 - [ ] Walk the production build room by room, phone and laptop, and record what it found in `docs/MVP_AUDIT_LIVE_PASS.md`.
+
+## 14. Second pass: what the finders brought back
+
+The second pass (six workflows, twenty-one finders that completed before
+the session limit, the rest re-run afterwards) produced 118 UX findings on
+the first six screens, 83 on the rest, 51 security findings, 12 measured
+performance findings, 156 copy and accuracy findings, and 79 feature ideas
+scored by a panel. The digests live in the session scratchpad; the
+findings that survive are tracked here as work packages, each built in its
+own worktree with a test, reviewed adversarially, then merged.
+
+### Security, second pass
+
+- [~] A co-owner can remove the portfolio's creator and lock them out (the RLS fix closed only the direct path).
+- [~] Linked-address confirmation can bind a stranger's future account to the requester (never-signed-up address, spent on GET).
+- [~] A tab or newline in `next` survives `safeInternalPath` and becomes an open redirect after sign-in.
+- [~] Session cookies set without `Secure`.
+- [~] Rate-limit buckets keyed on an unverified cookie value.
+- [~] Proxy matcher skips every path containing a dot, so dotted slugs get no CSP and no forged-request gate.
+- [~] Junk symbols in one anonymous quote request cost thousands of provider calls before the budget is charged.
+- [~] A ticker with a bracket, stored by import, crashes Pulse for every co-owner.
+- [~] Call %, targets and sort order accept any finite number.
+- [~] Account purge leaves a deleted person's holdings inside older saved copies.
+- [~] An expired session skips the client purge, so the next account on the browser inherits notes and the sync queue.
+- [~] Google fallback binds accounts by email string, not the provider's subject.
+- [~] Any avatar URL works as a tracking pixel on every circle member.
+- [~] Add-address endpoint tells any signed-in user whether an address has an account.
+- [~] One-time tokens are spent without checking the row count.
+- [~] The sign-in link page never names the address it opens and replaces an existing session silently.
+- [ ] Forecast ticker cache: one reader's thesis text can steer every other reader's shared path for fourteen days.
+- [ ] Pulse shared cache serves a caller-steered verdict to other readers for four hours.
+- [ ] Classroom students can set their own paper cash and buy at any price.
+- [ ] Invite mail with no rate limit and a caller-chosen subject.
+- [ ] Circle invite tokens stored in plaintext (in flight from the first pass).
+- [ ] Unsubscribe `ilike`, `/auth/link` on GET, raw error strings, holdings import bounds, unshaped chat and forecast bodies (in flight from the first pass).
+- [-] `/api/internal/log-error` unauthenticated by design; text-only digest, log pollution only.
+
+### Performance, second pass (measured)
+
+- [x] Functions ran in Virginia against a Stockholm database: about 335 ms per read of transit. Pinned to `arn1`.
+- [~] Every quote fetch made ten serial FX calls first; a 90-day chart per ticker on every poll; symbol resolution never memoised.
+- [~] nav-history transferred fourteen whole-product snapshots to read fourteen numbers.
+- [~] `ensureProfileAndClaims` was five to seven serial round trips with an N+1 slug loop.
+- [~] `/api/communities` was two serial reads on every Home load.
+- [~] Proxy auth round trip, fund payload cache, `radix-ui` barrel (retried after the limit).
+- [ ] Deleting a holding on a normal portfolio paid a full Yahoo walk for a cash delta it then threw away; adding one is six serial round trips.
+- [ ] Opening a circle is four routes times three auth round trips plus four serial waves each.
+- [ ] Margus waits for two rate-limit RPCs and a sixteen-ticker calendar before the first token.
+- [ ] Account mounts four routes that each read the same profile row.
+- [ ] Client fetch sharing, the FX-only poll, the 1 Hz timers, the Margus chunk loader (waiting on the Dashboard package).
+
+### Screens (UX and copy together, one package per room)
+
+- [~] Growth and Lab: honest default rate, presets named, chart that draws and can be scrubbed, Lab tabs that say what to notice, all jargon out.
+- [~] Welcome tour: seven screens, each interactive (the red day you tap open, sort the rules, the bar you can press, two questions on a live Home, add what you own with something said back, pick one to watch, your first week).
+- [~] Margus: prompts, scrubber, tier voice, teaching block, follow-up question.
+- [~] Emails and legal: terms and privacy checked against the code, loading lines, error pages, invite and reminder mail.
+- [ ] Home: hero that leads with the value, market card that answers "me or the market", one briefing card, no duplicate notices, honest chart caption, watchlist suggestions that are not three coins, "less than 1%" everywhere, status strip in words.
+- [ ] Portfolio room: fractional shares, Gain instead of ROI, phone card with a lead figure, tap-to-open drawer, drawer that matches the row, totals up top, covered calls hidden below 100 shares, placeholder forecast drawn as a placeholder, modal copy.
+- [ ] Pulse: the day's story first, the market's move beside yours, company names on cards, a real measured range, fallback cards that say so, headlines with source and age, no forced model call from Home.
+- [ ] Alerts: the lifecycle bug (every alert dismissed the instant it is toasted), a door into the room, cards that teach with the reader's numbers, margin health reaching a screen.
+- [ ] Circle: percent-only by default, a duel that resolves, reasons shared side by side, an empty circle that leads with the invite, what changed since you looked, a League that fits on a phone, one award per person, "circle" not "community".
+- [ ] Account: identity first, sign out on the phone, supporter not Pro, a delete dialog built from data, an attention streak in a warm voice, the options question asked in plain words.
+- [ ] Upside Fund: a not-advice line on the page, Bought and Sold instead of Opened and Exited, S&P 500 not SPY, honest risk cells.
+- [ ] Landing and sign-in: one sample portfolio whose numbers add up, a Pulse still you can toggle, six sections not eight, a footer that says who is behind it, the consent question off the first screen, `/login` compact.
+- [ ] Learning layer: a normal day for you, guess before you look, cards that come back, teach me this word, thesis check-in, draft your thesis with Margus, company or the whole market, what you would have to believe.
+- [ ] Demo mode a stranger can open from the landing.
