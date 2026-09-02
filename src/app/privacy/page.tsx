@@ -39,9 +39,9 @@ export default function PrivacyPage() {
         </div>
 
         <p>
-          Short version: we store what you type in so the app can work, we
-          don&apos;t sell your data, and you can export or delete it any time
-          from{" "}
+          Short version: we store what you type in so the app can work, it
+          is kept in the European Union, we don&apos;t sell your data, and
+          you can export or delete it any time from{" "}
           <Link href="/account" className="underline hover:text-foreground">
             My account
           </Link>
@@ -74,13 +74,16 @@ export default function PrivacyPage() {
             <li>
               <strong className="text-foreground">From email sign-in:</strong>{" "}
               the address we send the link to, used to create your account
-              and identify you the same way.
+              and identify you the same way. If you connect a second address
+              so that it opens the same account, we keep that address too,
+              and a pending sign-in link is stored for one hour as a code
+              rather than as the link itself.
             </li>
             <li>
               <strong className="text-foreground">What you enter:</strong>{" "}
               holdings, cash, notes, targets, forecast overrides, chat with
               Assistant Margus, and any broker or bank screenshot you upload
-              so we can read the names onto a portfolio.
+              so we can read the companies onto a portfolio.
             </li>
             <li>
               <strong className="text-foreground">Feedback:</strong> if you
@@ -101,11 +104,15 @@ export default function PrivacyPage() {
           your preferences, and (only if you opt into a community) show
           today&apos;s prices, holdings, cash, and returns for the portfolios you
           linked. AI features send the relevant portfolio context to a model
-          provider. That includes chat with Margus, Pulse, the Sunday email,
-          Forecast, and screenshot import. It is not limited to times you
-          type a question. We don&apos;t sell or rent your data. We don&apos;t
-          train our own models on it. Third-party model providers have their
-          own retention and training rules.
+          provider. That includes chat with Margus, Pulse, the Sunday
+          letter, Forecast, and screenshot import. It is not limited to
+          times you type a question. We also use your address to send you
+          mail you asked for: the Sunday letter, invites you send or
+          receive, sign-in links, and one reminder about a week after you
+          sign up if your portfolio is still empty. We don&apos;t sell or
+          rent your data. We don&apos;t train our own models on it.
+          Third-party model providers have their own retention and training
+          rules.
         </Section>
 
         <Section title="4. Who sees it: third parties">
@@ -115,19 +122,27 @@ export default function PrivacyPage() {
           </p>
           <ul className="list-disc pl-4 [&>li+li]:mt-1.5">
             <li>
-              <strong className="text-foreground">Supabase</strong> (EU-hosted),
-              our database and authentication provider. Everything you
-              enter lives there.
+              <strong className="text-foreground">Supabase</strong>, our
+              database and the thing that keeps you signed in. Everything
+              you enter lives there, on servers in the European Union.
             </li>
             <li>
-              <strong className="text-foreground">Resend</strong> sends
-              the Sunday email, invites, and other mail from the app, including
-              feedback you submit.
+              <strong className="text-foreground">Google</strong> is where
+              Continue with Google goes. Google tells us the address, name,
+              and profile photo on that account, and nothing else. We never
+              see your Google password.
+            </li>
+            <li>
+              <strong className="text-foreground">Resend</strong> sends every
+              email the app sends: the Sunday letter, invites, sign-in links,
+              the one reminder about an empty portfolio, and feedback you
+              submit.
             </li>
             <li>
               <strong className="text-foreground">AI model providers</strong>{" "}
-              (OpenRouter and fallbacks such as Groq, Gemini, and Cerebras). Chat,
-              Pulse, the Sunday email, Forecast, and screenshot import send the
+              (OpenRouter first, then Groq, Gemini, and Cerebras when one of
+              them is not answering). Chat,
+              Pulse, the Sunday letter, Forecast, and screenshot import send the
               relevant context, and for screenshots the image itself, to
               whichever provider answers. Some of those providers process
               data outside {LEGAL_COUNTRY} and the EEA, including the
@@ -138,9 +153,9 @@ export default function PrivacyPage() {
             <li>
               <strong className="text-foreground">Market data providers</strong>{" "}
               (Yahoo Finance, with Twelve Data and Finnhub as fallbacks). We
-              send ticker symbols to fetch prices &mdash; so a provider sees
-              which companies someone looked up, but never how many shares
-              you own, what you paid, or who you are. The request carries no
+              send ticker symbols to fetch prices, so a provider sees which
+              companies someone looked up, but never how many shares you
+              own, what you paid, or who you are. The request carries no
               account, no name, and no session.
             </li>
             <li>
@@ -155,11 +170,11 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong className="text-foreground">Stripe</strong> handles
-              payment for {PRODUCT_NAME} Pro. If you subscribe, your name,
-              email, billing address, and card details go directly to
-              Stripe. We never see or store your card number, and we keep only
-              your Stripe customer/subscription IDs and subscription status
-              so the app knows what you&apos;re on.
+              payment for the supporter plan. If you take it, your name,
+              email, billing address, and card details go straight to
+              Stripe. We never see or store your card number. All we keep is
+              the customer and subscription reference Stripe gives us, and
+              whether the plan is running, so the app knows what you are on.
             </li>
           </ul>
         </Section>
@@ -177,26 +192,37 @@ export default function PrivacyPage() {
         </Section>
 
         <Section title="6. Cookies and what we keep on your device">
-          We use essential cookies from Supabase Auth to keep you signed in.
-          That is the only cookie this app sets. When you sign in with
-          Google, Google sets cookies on its own domain under Google&apos;s
-          rules; we never read those.
-          {" "}
-          Vercel Analytics and Speed Insights measure page views and load
-          times only if you allow it. They set no cookies at all, and we
-          still ask first. You can say no on the banner, or change your mind
-          later in{" "}
-          <Link href="/account" className="underline hover:text-foreground">
-            My account
-          </Link>
-          . Nothing here is advertising, and none of it follows you across
-          other sites.
-          {" "}
-          The app also saves things on your own device (browser storage, not
-          cookies): your settings, which portfolio you had open, your thesis
-          notes and watchlist, and a cached copy of your portfolio so it
-          still works offline. That never leaves your device on its own.
-          Signing out, or switching accounts, clears all of it.
+          <p>
+            This app sets two cookies of its own and neither of them follows
+            you anywhere. One is the Supabase sign-in cookie, which is what
+            keeps you signed in from one page to the next; without it you
+            would be signed out on every click. The other is set only while
+            you are being handed back and forth with Google during sign-in,
+            lives for ten minutes, and is there so that the trip back can be
+            checked as the same trip that left. Both are marked so that a
+            browser will only send them over an encrypted connection and
+            never hand them to a script on the page. When you sign in with
+            Google, Google sets cookies on its own domain too, under
+            Google&apos;s rules; we never read those.
+          </p>
+          <p>
+            Vercel Analytics and Speed Insights measure page views and load
+            times only if you allow it. They set no cookies at all, and we
+            still ask first. You can say no on the banner, or change your
+            mind later in{" "}
+            <Link href="/account" className="underline hover:text-foreground">
+              My account
+            </Link>
+            . Nothing here is advertising, and none of it follows you across
+            other sites.
+          </p>
+          <p>
+            The app also saves things on your own device (browser storage,
+            not cookies): your settings, which portfolio you had open, your
+            thesis notes and watchlist, and a cached copy of your portfolio
+            so it still works offline. That never leaves your device on its
+            own. Signing out, or switching accounts, clears all of it.
+          </p>
         </Section>
 
         <Section title="7. Data retention">
@@ -223,9 +249,13 @@ export default function PrivacyPage() {
             My account
           </Link>{" "}
           you can download a complete export of your data as JSON, or
-          permanently delete your account: your profile, any portfolio you solely
-          own, and your sign-in credential itself (portfolios you share with a
-          co-owner stay with them). If for any reason the sign-in credential
+          permanently delete your account. That removes your profile, any
+          portfolio you solely own with everything on it, your cash history,
+          your notes and watchlist, your saved snapshots, your circle
+          memberships, any extra addresses you connected, any sign-in link
+          still waiting to be used, and your sign-in credential itself.
+          Portfolios you share with a co-owner stay with them, and you are
+          simply stepped off them. If for any reason the sign-in credential
           can&apos;t be removed at the same time, your {PRODUCT_NAME} data is
           still fully wiped from active use immediately (see &ldquo;Data
           retention&rdquo; above; it can take up to 30 days to age out of
@@ -296,7 +326,7 @@ export default function PrivacyPage() {
   );
 }
 
-const LAST_UPDATED = "19 August 2026";
+const LAST_UPDATED = "2 September 2026";
 
 function Section({
   title,
@@ -308,7 +338,15 @@ function Section({
   return (
     <section className="flex flex-col gap-2">
       <h2 className="font-semibold text-foreground">{title}</h2>
-      <div>{children}</div>
+      {/*
+        An ordinary block, never a flex column: most sections here are one
+        run of prose with a link in the middle of it, and a flex container
+        turns every stretch of bare text into an item of its own, so the
+        sentence, the link and the full stop after it each land on their own
+        line. The parent spaces its paragraphs instead, so no paragraph
+        carries its own margin.
+      */}
+      <div className="[&>p+p]:mt-3">{children}</div>
     </section>
   );
 }

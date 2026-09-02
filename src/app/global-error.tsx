@@ -52,7 +52,7 @@ export default function GlobalError({
               margin: 0,
             }}
           >
-            Upside Lab hit a snag
+            Upside Lab did not open
           </h1>
           <p
             style={{
@@ -63,8 +63,9 @@ export default function GlobalError({
               color: "#a1a1a1",
             }}
           >
-            Your portfolios are safe. This was a rendering error in the app shell,
-            so reload to get back in.
+            Your portfolios are safe and nothing you own has changed. The app
+            itself did not finish loading. Reload the page and it should come
+            back.
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>

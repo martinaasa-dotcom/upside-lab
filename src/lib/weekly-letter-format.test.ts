@@ -302,3 +302,33 @@ describe("the move bar scales with the client's width", () => {
     expect(Math.max(...fillWidths(weeklyLetterHtml(letter())))).toBe(88);
   });
 });
+
+describe("the letter counts companies, not names", () => {
+  /*
+   * "12 names" is market shorthand for twelve companies, and this letter is
+   * the plainest writing in the product: it goes to somebody who has never
+   * worked in finance, and the word sat directly under the week's figure in
+   * both the HTML and the plain text. The word is the whole of the fix, so a
+   * test is the only thing that keeps it from drifting back.
+   */
+  it("says companies under the week's figure, in both shapes", () => {
+    const r = letter();
+    expect(r.nameCount).toBe(2);
+    expect(weeklyLetterHtml(r)).toContain("2 companies");
+    expect(weeklyLetterText(r)).toContain("2 companies");
+  });
+
+  it("counts one company as one company", () => {
+    const r = letter();
+    r.nameCount = 1;
+    expect(weeklyLetterText(r)).toContain("1 company");
+    expect(weeklyLetterHtml(r)).toContain("1 company");
+  });
+
+  it("never calls a company a name where a reader can see it", () => {
+    const r = letter();
+    for (const body of [weeklyLetterText(r), weeklyLetterHtml(r)]) {
+      expect(body).not.toMatch(/\bnames\b/);
+    }
+  });
+});

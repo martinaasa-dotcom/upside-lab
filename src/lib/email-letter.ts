@@ -383,14 +383,22 @@ ${emailButton(input.url, "Open the sign-in page")}
   return { subject, text, html };
 }
 
-export function emptyBookNudgeHtml(text: string): string {
-  const blocks = text.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
-  const preview = blocks[0] ?? "Your portfolio is still empty";
+/**
+ * The reminder to somebody whose portfolio is still empty a week on.
+ *
+ * The heading is passed in rather than lifted off the first paragraph,
+ * because the letter now opens the way a person opens a note: the greeting
+ * first, then the news. Reading the heading off the top of the body would
+ * put "Hi Martin." in 26px type and leave the letter with no headline.
+ */
+export function emptyBookNudgeHtml(input: {
+  heading: string;
+  text: string;
+}): string {
+  const blocks = input.text.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+  const preview = input.heading;
   const bodyBlocks = blocks.filter(
-    (b) =>
-      !/^https?:\/\//i.test(b) &&
-      !/one-time note/i.test(b) &&
-      b !== preview
+    (b) => !/^https?:\/\//i.test(b) && !/one-time note/i.test(b)
   );
   const prose = bodyBlocks
     .map(
@@ -407,6 +415,6 @@ export function emptyBookNudgeHtml(text: string): string {
 <p style="margin:0;font-family:${EMAIL.sans};font-size:26px;line-height:1.25;font-weight:400;letter-spacing:-0.02em;color:${EMAIL.cream}">${escapeEmail(preview)}</p>
 ${prose}
 ${emailButton(EMAIL.origin, "Open Upside Lab")}
-<p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">This is a one-time note. The Sunday email starts once there are names in your portfolio. Turn it off in <a href="${EMAIL.origin}/account" style="color:${EMAIL.gold};text-decoration:underline">Account</a>.</p>`,
+<p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">This is a one-time note. The Sunday letter starts once there is something in your portfolio. Turn it off in <a href="${EMAIL.origin}/account" style="color:${EMAIL.gold};text-decoration:underline">Account</a>.</p>`,
   });
 }

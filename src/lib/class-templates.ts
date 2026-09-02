@@ -39,7 +39,7 @@ export const CLASS_TEMPLATES: ClassTemplate[] = [
     cash: 100_000,
     period: "buy",
     assignment:
-      "Buy this week. Then we hold until the last class. The Sunday note is how you keep the grade.",
+      "Buy this week. Then we hold until the last class. The Sunday letter is how you keep the grade.",
   },
   {
     id: "open-trading",
