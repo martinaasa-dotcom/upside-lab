@@ -230,7 +230,7 @@ figure somebody acts on.
 
 ## 6. Copy, naming, and rename discipline
 
-- **No "sheet" or "book" in anything a person or the model reads.**
+- **Neither `sheet` nor `book` in anything a person or the model reads.**
   `src/lib/reader-copy.test.ts` walks every JSX text node under `src/` —
   this is a floor, not a ceiling; a label passed as a prop or built in a
   variable is not caught and needs a manual read. `humanizeMargusText`

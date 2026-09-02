@@ -22,7 +22,7 @@ before acting on it, and write the reasoning down beside the change.
 
 ## 1. Security
 
-- [x] Snapshot restore lets a signed-in reader restore another account's portfolio by name (`restore_sheet`). Closed: a saved copy is matched only among the caller's own sheets, and a stranger's sheet answers 403 with no writes.
+- [x] Snapshot restore lets a signed-in reader restore another account's portfolio by name (`restore_sheet`). Closed: a saved copy is matched only among the portfolios the caller owns, and somebody else's answers 403 with no writes.
 - [x] `/api/book/ytd-from-image` computes the 401 and throws it away. Closed, with the limiter keyed on the reader.
 - [~] Chat `ccContext` and `messages` reach the system prompt unshaped.
 - [~] Holdings import skips the money and share ceilings the single-holding route enforces.
@@ -49,7 +49,7 @@ before acting on it, and write the reasoning down beside the change.
 - [~] `radix-ui` barrel not in `optimizePackageImports`.
 - [~] Margus chat chunk warmed by a different `import()` than the one that renders it.
 - [~] `OverviewDashboard` memo defeated by two inline callbacks.
-- [ ] Options scan on the book's critical path.
+- [ ] Options scan sits on the critical path of opening a portfolio.
 - [ ] Service worker offline fallback on a shared device.
 - [~] Second-pass finders: server latency, client waterfalls and polling, bundle and render cost, CDN and browser caching, measured before and after.
 
@@ -70,7 +70,7 @@ before acting on it, and write the reasoning down beside the change.
 - [ ] Persona: "risk reference point", the borrowing ceiling that reads as a rule.
 - [ ] The scrubber misses the bare form of most banned words; openers only caught at the start of a paragraph.
 - [ ] The covered-call prompt tells the model to give execution timing and uses the words the persona bans.
-- [ ] Tool descriptions say "cost basis" and "books".
+- [ ] Margus's tool descriptions still use the words the product does not.
 - [ ] Response speed: streaming, first-token time, chunk warm.
 - [ ] Openers, empty portfolio behaviour, what he can and cannot write.
 - [~] Second-pass: an adversarial reader tries to make Margus give advice, use slang, or invent a number.
