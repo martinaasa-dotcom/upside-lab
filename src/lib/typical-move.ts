@@ -94,6 +94,25 @@ export function typicalMoveFromCloses(closes: number[]): TypicalMove | null {
 export function typicalMoveForPortfolio(
   positions: { shares: number; closes: number[] }[]
 ): TypicalMove | null {
+  /*
+    CLOSES HERE MEANS REAL CONSECUTIVE DAILY CLOSES, AND ONE PARTICULAR
+    ARRAY IN THIS APP IS NOT THAT.
+
+    `Quote.sparkline` looks exactly like what this wants and is a drawing.
+    It is downsampled to about thirty points from up to ninety closes, so
+    two neighbours are not two consecutive days and every gap this measures
+    is really three, and when a provider has a price and no history it is
+    replaced by `synthesizeSparkline`, which is a sine wave around a drift
+    line. A median taken off either is a fact about the drawing, and it
+    reaches the reader as "your portfolio moves about $229 on an ordinary
+    day", which is the kind of invented figure stated as fact that this
+    product refuses everywhere else.
+
+    So the honest series never leaves the server, and neither does this
+    call: a quote carries `typicalPct`, measured in `fetchQuotesYahoo` from
+    the bars before they are thinned or invented. Pass real closes here or
+    pass nothing.
+  */
   const held = positions.filter(
     (p) => Number.isFinite(p.shares) && p.shares > 0 && p.closes.length > 1
   );

@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { synthesizeSparkline } from "@/lib/market/sparkline";
 import {
   daySize,
   portfolioDayLine,
@@ -151,5 +154,58 @@ describe("the sentences", () => {
       expect(line).not.toMatch(/buy|sell|hold|should|expect|will /i);
       expect(line).not.toMatch(/[—–]/);
     }
+  });
+});
+
+/*
+  The sparkline is a drawing and this measures. Keeping those apart is the
+  whole correctness of the sentence "your portfolio moves about $229 on an
+  ordinary day", which Home states as fact.
+
+  Two things make `Quote.sparkline` unusable here, and both are silent.
+  `downsampleSparkline` thins up to ninety closes to about thirty points,
+  so two neighbours are not two consecutive days and every gap measured is
+  really about three. And `synthesizeSparkline` replaces it outright, with
+  a sine wave around a straight drift line, whenever a provider has a price
+  and no history. A median off either is a fact about a curve.
+*/
+describe("what it may be measured from", () => {
+  it("is not fooled by a curve that was drawn rather than lived", () => {
+    const invented = synthesizeSparkline(100, 1.5);
+    const real = Array.from({ length: 40 }, (_, i) =>
+      100 * (1 + 0.012 * Math.sin(i * 3.9) + 0.004 * ((i % 5) - 2))
+    );
+    const fromInvented = typicalMoveFromCloses(invented);
+    const fromReal = typicalMoveFromCloses(real);
+    // Both answer, which is the danger: nothing about the invented one
+    // says it is invented, so the guard has to be at the call site.
+    expect(fromInvented).not.toBeNull();
+    expect(fromReal).not.toBeNull();
+    expect(fromInvented!.typicalPct).not.toBeCloseTo(fromReal!.typicalPct, 3);
+  });
+
+  it("is read off dailyCloses on Home, never off the sparkline", () => {
+    const home = readFileSync(
+      join(process.cwd(), "src/components/OverviewDashboard.tsx"),
+      "utf8"
+    );
+    const call = home.slice(
+      home.indexOf("typicalMoveForPortfolio("),
+      home.indexOf("typicalMoveForPortfolio(") + 400
+    );
+    expect(call).toContain("dailyCloses");
+    expect(call).not.toMatch(/closes:\s*t\.sparkline/);
+  });
+
+  it("says so where somebody would reach for the wrong one", () => {
+    // The type and the function both carry the warning, because the two
+    // fields sit next to each other and look interchangeable.
+    const types = readFileSync(join(process.cwd(), "src/lib/types.ts"), "utf8");
+    expect(types).toMatch(/A drawing, not a series to do arithmetic on/);
+    const mod = readFileSync(
+      join(process.cwd(), "src/lib/typical-move.ts"),
+      "utf8"
+    );
+    expect(mod).toMatch(/REAL CONSECUTIVE DAILY CLOSES/);
   });
 });

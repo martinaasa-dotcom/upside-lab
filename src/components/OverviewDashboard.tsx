@@ -1063,7 +1063,15 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   const typical = useMemo(
     () =>
       typicalMoveForPortfolio(
-        tickers.map((t) => ({ shares: t.shares, closes: t.sparkline }))
+        tickers.map((t) => ({
+          shares: t.shares,
+          // `dailyCloses`, never `sparkline`. The sparkline is a drawing:
+          // downsampled, so two neighbours are not two consecutive days,
+          // and a sine wave outright when a provider had no history. A
+          // median off it is a fact about the drawing, printed here as
+          // "your portfolio moves about $229 on an ordinary day".
+          closes: t.dailyCloses ?? [],
+        }))
       ),
     [tickers]
   );

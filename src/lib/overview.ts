@@ -48,6 +48,12 @@ export type TickerScore = {
   todayPct: number | null;
   price: number;
   sparkline: number[];
+  /**
+   * Real consecutive closing prices, newest last, for anything that has to
+   * measure rather than draw. `sparkline` beside it is thinned and
+   * sometimes invented, so a median taken off it is a fact about a curve.
+   */
+  dailyCloses?: number[];
 };
 
 export type OverviewModel = {
@@ -204,6 +210,7 @@ export function buildOverview(
         row.quote?.price ??
         (row.shares > 0 ? safeDiv(row.currentValue, row.shares) : 0),
       sparkline: row.quote?.sparkline ?? [],
+      dailyCloses: (row.quote?.dailyCloses ?? []).map((b) => b.close),
     };
   });
 

@@ -46,6 +46,14 @@ export type Quote = {
   /** Fraction, e.g. 0.015 = +1.5% */
   changePercent: number;
   previousClose: number;
+  /*
+    A drawing, not a series to do arithmetic on. It is downsampled to about
+    thirty points from up to ninety daily closes, so two neighbours are not
+    two consecutive days, and it is replaced outright by a sine wave around
+    a drift line when a provider has a price and no history. Anything that
+    measures how far a company moves reads `dailyCloses` below, which is
+    real consecutive sessions and carries its dates.
+  */
   sparkline: number[];
   /** Yahoo marketState: PREPRE | PRE | REGULAR | POST | POSTPOST | CLOSED | … */
   marketState: string | null;
