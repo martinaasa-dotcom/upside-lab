@@ -49,7 +49,8 @@ before acting on it, and write the reasoning down beside the change.
 - [~] `radix-ui` barrel not in `optimizePackageImports`.
 - [~] Margus chat chunk warmed by a different `import()` than the one that renders it.
 - [~] `OverviewDashboard` memo defeated by two inline callbacks.
-- [ ] Options scan sits on the critical path of opening a portfolio.
+- [~] Options scan sits on the critical path of opening a portfolio. Half done. The chains are cached now, which was the larger half by a distance: `scanCoveredCall` costs one provider call to list the expiry dates and one per nearby expiry it prices, up to four a holding, and the Dashboard fires the whole scan inside the quote refresh, which polls every fifteen seconds. Ten holdings was up to forty option-chain calls every fifteen seconds, all day, through the same circuit breaker every reader's live prices depend on. Measured on the double: three scans cost six calls before and two after.
+- [ ] The other half, which waits until the screens waves have merged out of `Dashboard.tsx`: the scan runs on every poll whether or not a covered-call surface is on screen, so a reader with the panel collapsed still pays for it.
 - [ ] Service worker offline fallback on a shared device.
 - [~] Second-pass finders: server latency, client waterfalls and polling, bundle and render cost, CDN and browser caching, measured before and after.
 
