@@ -3180,8 +3180,18 @@ run("inbox letters share one letterhead", () => {
   assert.match(invite.html, /Open the invite/);
   assert.doesNotMatch(invite.html, /\u2014/);
   assert.doesNotMatch(invite.text, /the book|the sheet/);
-  const nudge = emptyBookNudgeHtml(emptyBookNudgeText("Martin Aasa"));
+  /*
+    The heading is passed in now rather than lifted off the first paragraph
+    of the body, because the body greets before it says anything. The
+    assertions are unchanged: the subject is still the headline a reader
+    sees, and the greeting is still in the letter.
+  */
+  const nudge = emptyBookNudgeHtml({
+    heading: emptyBookNudgeSubject(),
+    text: emptyBookNudgeText("Martin Aasa"),
+  });
   assert.match(nudge, /Your portfolio is still empty/);
+  assert.match(nudge, /Hi Martin\./);
   assert.match(nudge, /Open Upside Lab/);
   assert.doesNotMatch(nudge, /\u2014/);
   const send = readFileSync("src/lib/send-note.ts", "utf8");
@@ -6985,7 +6995,10 @@ run("legal pages name the operator and match the product", () => {
 
   assert.match(privacy, /today&apos;s prices, the companies you hold/);
   assert.match(privacy, /They do not see what you paid/);
-  assert.match(privacy, /Pulse, the Sunday email/);
+  // Renamed deliberately: the one scheduled email is the Sunday letter
+  // everywhere a person can read it, and the policy was the last place
+  // still calling it the Sunday email.
+  assert.match(privacy, /Pulse, the Sunday letter/);
   assert.match(privacy, /screenshot/);
   assert.match(privacy, /Resend/);
   assert.match(privacy, /United States/);

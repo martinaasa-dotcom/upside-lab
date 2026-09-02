@@ -627,12 +627,18 @@ export function groupSuggestions(
 }
 
 export function weeklyLetterText(r: WeeklyLetter): string {
-  const names = r.nameCount === 1 ? "1 name" : `${r.nameCount} names`;
+  /*
+    A company is a company in anything a person reads. "12 names" is the
+    trade's own shorthand for it, and it means nothing to somebody who has
+    never worked in finance, which is exactly who this letter is written
+    for.
+  */
+  const companies = r.nameCount === 1 ? "1 company" : `${r.nameCount} companies`;
   const lines: string[] = [];
   lines.push(weeklyPreview(r), "", `Your week: ${r.dateLine}`, "");
   lines.push(
     `Your portfolio  ${money(r.book)}`,
-    names,
+    companies,
     `This week  ${signedMoney(r.weekDollar)}${
       r.weekPct != null ? `  ${signedPct(r.weekPct)}` : ""
     }`
@@ -877,7 +883,7 @@ function margusHtml(text: string): string {
 }
 
 /** The week's figure, its percent, and what it is a percent of. */
-function heroFigure(r: WeeklyLetter, names: string): string {
+function heroFigure(r: WeeklyLetter, companies: string): string {
   const weekColor = toneColor(r.weekDollar);
   return `${kicker("Your week")}${gap(14)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%">
@@ -894,7 +900,7 @@ function heroFigure(r: WeeklyLetter, names: string): string {
     }
   </tr>
 </table>
-<p style="margin:16px 0 0 0;font-family:${EMAIL.sans};font-size:13px;letter-spacing:0.01em;color:${EMAIL.muted}">Your portfolio <span style="font-family:${EMAIL.mono};color:${EMAIL.cream}">${escapeEmail(money(r.book))}</span> &middot; ${escapeEmail(names)}</p>`;
+<p style="margin:16px 0 0 0;font-family:${EMAIL.sans};font-size:13px;letter-spacing:0.01em;color:${EMAIL.muted}">Your portfolio <span style="font-family:${EMAIL.mono};color:${EMAIL.cream}">${escapeEmail(money(r.book))}</span> &middot; ${escapeEmail(companies)}</p>`;
 }
 
 export function weeklyLetterHtml(
@@ -906,7 +912,7 @@ export function weeklyLetterHtml(
   */
   unsubscribeUrl?: string
 ): string {
-  const names = r.nameCount === 1 ? "1 name" : `${r.nameCount} names`;
+  const companies = r.nameCount === 1 ? "1 company" : `${r.nameCount} companies`;
 
   /*
    * The figure and the two paragraphs about it are one opening, not two.
@@ -916,7 +922,7 @@ export function weeklyLetterHtml(
    * hairlines below join the sections.
    */
   const opening = emailCard(
-    `${heroFigure(r, names)}${
+    `${heroFigure(r, companies)}${
       r.margus
         ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:22px 0 0 0">
   <tr><td style="height:1px;background:${EMAIL.cardLine};font-size:0;line-height:0">&nbsp;</td></tr>
