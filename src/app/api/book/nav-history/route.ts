@@ -14,6 +14,8 @@ import { fetchYtdDailyCloses } from "@/lib/market/yahoo";
 import { NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
 import { navHistoryPostSchema } from "@/lib/api-schemas";
+import { takeDurableRateLimit } from "@/lib/rate-limit-durable";
+import { clientIp, rateLimitJson } from "@/lib/rate-limit";
 import { parseJsonBody } from "@/lib/parse-json-body";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +23,16 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const MAX_TICKERS = 24;
+/*
+  Signed out, the same line is drawn from fewer names and on a budget. Ten
+  covers a sample portfolio and any ordinary one somebody is looking around
+  with; the budget is per address and shared with nobody, so a stranger
+  cannot spend the provider's goodwill on behalf of the readers who own
+  something.
+*/
+const ANON_MAX_TICKERS = 10;
+const ANON_REQUESTS_PER_WINDOW = 20;
+const ANON_WINDOW_MS = 10 * 60_000;
 
 type NavPoint = { date: string; nav: number };
 
@@ -104,13 +116,35 @@ async function handleGET() {
 }
 
 async function handlePOST(req: Request) {
-  // Signed in, like GET. A missing session used to read as "no recorded
-  // nights" and the assumed path was still built, which is a year of Yahoo
-  // history for up to MAX_TICKERS names handed to anyone who found the
-  // address. Both callers, Home's year chart and the Fund compare, sit
-  // behind SignInGate, so a reader sees nothing different.
+  /*
+    Two halves with two different answers to "who may ask".
+
+    The recorded nights are somebody's own saved copies, so reading them
+    needs their session and always did. The assumed line is arithmetic over
+    a year of public closing prices for tickers the caller names, and that
+    used to be free to anyone who found the address: a year of history for
+    up to MAX_TICKERS names, with only the proxy's per-address ceiling in
+    front of it. It is bounded rather than closed, because a reader looking
+    around with a sample portfolio has no session and the line is the same
+    public data a chart on any finance site shows. Signed out, the request
+    costs a durable budget and carries fewer names.
+  */
   const auth = await requireAuthUser();
-  if ("error" in auth) return auth.error;
+  const signedIn = !("error" in auth);
+
+  if (!signedIn) {
+    const gate = await takeDurableRateLimit(
+      `nav-history:${clientIp(req)}`,
+      ANON_REQUESTS_PER_WINDOW,
+      ANON_WINDOW_MS
+    );
+    if (!gate.ok) {
+      return rateLimitJson(
+        gate,
+        "That is a lot of chart in a short time. Try again in a few minutes."
+      );
+    }
+  }
 
   const parsed = await parseJsonBody(req, navHistoryPostSchema);
   if (!parsed.ok) return parsed.response;
@@ -120,7 +154,9 @@ async function handlePOST(req: Request) {
   const onlyIds = Array.isArray(body.portfolioIds)
     ? body.portfolioIds.map((id) => String(id)).filter(Boolean)
     : undefined;
-  const snaps = await snapshotPointsForUser(auth.user.id, onlyIds);
+  const snaps = signedIn
+    ? await snapshotPointsForUser(auth.user.id, onlyIds)
+    : { points: [] as NavPoint[], firstRealDate: null };
 
   if (!assumed) {
     let spyPoints: NavPoint[] | undefined;
@@ -153,7 +189,7 @@ async function handlePOST(req: Request) {
     byTicker.set(ticker, (byTicker.get(ticker) ?? 0) + shares);
   }
   const positions = [...byTicker.entries()]
-    .slice(0, MAX_TICKERS)
+    .slice(0, signedIn ? MAX_TICKERS : ANON_MAX_TICKERS)
     .map(([ticker, shares]) => ({ ticker, shares }));
 
   if (positions.length === 0) {
