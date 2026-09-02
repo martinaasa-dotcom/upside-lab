@@ -31,7 +31,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentType } from "react";
 
 export type { MobileTabId } from "@/lib/mobile-tab";
-export { activeMobileTab, mobileTabFromActiveId } from "@/lib/mobile-tab";
+export { mobileTabFromActiveId } from "@/lib/mobile-tab";
 
 /*
   The phone's dock.

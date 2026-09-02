@@ -1818,8 +1818,6 @@ run("public pages ship OG cards and private rooms are noindex", () => {
   const login = readFileSync("src/app/login/page.tsx", "utf8");
   const communities = readFileSync("src/app/communities/page.tsx", "utf8");
   const lab = readFileSync("src/app/lab/page.tsx", "utf8");
-  const dashboard = readFileSync("src/app/dashboard/page.tsx", "utf8");
-  const forecast = readFileSync("src/app/forecast/page.tsx", "utf8");
   const margus = readFileSync("src/app/margus/page.tsx", "utf8");
   const seo = readFileSync("src/lib/seo-routes.ts", "utf8");
   const meta = readFileSync("src/lib/site-metadata.ts", "utf8");
@@ -1849,15 +1847,23 @@ run("public pages ship OG cards and private rooms are noindex", () => {
   assert.match(login, /LOGIN_METADATA/);
   assert.match(communities, /COMMUNITIES_METADATA/);
   assert.match(lab, /privatePageMetadata/);
-  assert.match(dashboard, /privatePageMetadata/);
-  assert.match(forecast, /privatePageMetadata/);
   assert.match(margus, /privatePageMetadata/);
   assert.match(meta, /index: false/);
   assert.match(meta, /follow: false/);
-  assert.match(seo, /\/dashboard/);
-  assert.match(seo, /\/lab/);
-  assert.match(seo, /\/forecast/);
-  assert.match(seo, /\/margus/);
+  assert.match(seo, /"\/lab"/);
+  assert.match(seo, /"\/margus"/);
+  /*
+    The sign-in pages and handlers live under `/auth` and are not rooms;
+    the prefix is what gives every one of them the noindex header and the
+    robots line. `/dashboard` and `/forecast` have no page at all: the
+    proxy 308s them to `/` before any page could run, so a page file or a
+    noindex entry for them describes a response nobody ever receives.
+  */
+  assert.match(seo, /"\/auth"/);
+  assert.doesNotMatch(seo, /"\/dashboard"/);
+  assert.doesNotMatch(seo, /"\/forecast"/);
+  assert.ok(!existsSync("src/app/dashboard/page.tsx"));
+  assert.ok(!existsSync("src/app/forecast/page.tsx"));
   /*
     Both halves of robots.txt are derived from `seo-routes.ts`, and the
     sitemap is keyed off the same list.
@@ -7105,12 +7111,9 @@ run("GDPR hard-delete, export engine, and session purge", () => {
   assert.match(mig, /insert into public\.portfell_cash_events/);
   assert.doesNotMatch(mig, /grant execute[^;]*portfell_purge_user_data[^;]*to authenticated/i);
 
-  const userExport = readFileSync(
-    join(process.cwd(), "src/app/api/user/export/route.ts"),
-    "utf8"
-  );
-  assert.match(userExport, /observeRoute\(handleGET, "\/api\/user\/export"\)/);
-  assert.match(userExport, /encrypt: true/);
+  // One export route. `/api/user/export` was a second door onto the same
+  // payload that nothing in the app opened, and it is gone.
+  assert.ok(!existsSync(join(process.cwd(), "src/app/api/user/export")));
 
   const accountExport = readFileSync(
     join(process.cwd(), "src/app/api/account/export/route.ts"),

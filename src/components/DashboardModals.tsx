@@ -82,6 +82,9 @@ export type DashboardModalsProps = {
   setScreenshotPending: Dispatch<SetStateAction<boolean>>;
   margusExpandSignal: number;
   setMargusExpandSignal: Dispatch<SetStateAction<number>>;
+  /** The address is `/margus`: Home with the panel open. */
+  margusAddressed: boolean;
+  onMargusOpenChange: (open: boolean) => void;
   margusContext: CcChatContext;
   toast: (message: string, kind?: ToastKind) => void;
   handleSave: (batch: HoldingFormValues[]) => void;
@@ -147,6 +150,8 @@ export function DashboardModals({
   setScreenshotPending,
   margusExpandSignal,
   setMargusExpandSignal,
+  margusAddressed,
+  onMargusOpenChange,
   margusContext,
   toast,
   handleSave,
@@ -369,6 +374,8 @@ export function DashboardModals({
         key={margusPortfolio?.id ?? OVERVIEW_TAB_ID}
         portfolioId={margusPortfolio?.id ?? OVERVIEW_TAB_ID}
         expandSignal={margusExpandSignal}
+        addressed={margusAddressed}
+        onOpenChange={onMargusOpenChange}
         screenshotImport={silentScreenshot}
         screenshotPending={screenshotPending}
         onScreenshotImportConsumed={(id) => {

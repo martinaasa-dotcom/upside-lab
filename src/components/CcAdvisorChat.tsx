@@ -117,6 +117,15 @@ type Props = {
   /** Bump to open the floating Margus panel (empty-state / drawer CTAs). */
   expandSignal?: number;
   /**
+   * True while the address is `/margus`, which is Home with this panel
+   * open. The panel opens on arrival and stays open until the reader
+   * closes it; closing is reported through `onOpenChange` so the address
+   * can go back to `/`.
+   */
+  addressed?: boolean;
+  /** The panel opened or closed, by any route. Never fired on mount. */
+  onOpenChange?: (open: boolean) => void;
+  /**
    * Files chosen from a user tap on Import screenshot. The picker lives
    * next to that tap so a remount of this panel cannot open it.
    * Sending happens here; the dashboard only hands the files across.
@@ -564,6 +573,8 @@ export function CcAdvisorChat({
   context,
   onApplyActions,
   expandSignal = 0,
+  addressed = false,
+  onOpenChange,
   screenshotImport = null,
   screenshotPending = false,
   onScreenshotImportConsumed,
@@ -572,7 +583,14 @@ export function CcAdvisorChat({
   const [input, setInput] = useState("");
   const [pendingImages, setPendingImages] = useState<FileUIPart[]>([]);
   const [rulesOpen, setRulesOpen] = useState(false);
-  const [open, setOpen] = useState(false);
+  /*
+    Open from the first render when the address asks for it. On a cold deep
+    link to `/margus` this panel mounts after the book has loaded and the
+    dynamic chunk has arrived, which is long after the address was read, so
+    a signal sent at arrival would be the value this panel mounted with,
+    and the effect below ignores that on purpose.
+  */
+  const [open, setOpen] = useState(addressed);
   const [wide, setWide] = useState(false);
   // Screenshot imports from the holdings empty-state never open the chat
   // panel. They send immediately and report progress through this small
@@ -628,6 +646,35 @@ export function CcAdvisorChat({
     seenExpandSignal.current = expandSignal;
     if (expandSignal) setOpen(true);
   }, [expandSignal]);
+
+  /*
+    `/margus` opens the panel on arrival. The initial state covers a panel
+    that mounts on that address; this covers the address changing under a
+    mounted one, which is Back and Forward. A layout effect so the panel
+    is open in the same paint as the room, rather than a frame after it.
+    Leaving the address does not close the panel: a reader who opened
+    Margus and then tapped Pulse still has their conversation, exactly as
+    they do when the panel was opened from a button.
+  */
+  useLayoutEffect(() => {
+    if (addressed) setOpen(true);
+  }, [addressed]);
+
+  /*
+    Reports a change, never the value the panel mounted with. The parent
+    answers a close on `/margus` by putting the address back to `/`, and
+    this panel remounts whenever the chat's portfolio changes
+    (`key={portfolioId}`), so a mount report of `false` would do that to a
+    reader who never touched the panel.
+  */
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+  const reportedOpen = useRef(open);
+  useEffect(() => {
+    if (reportedOpen.current === open) return;
+    reportedOpen.current = open;
+    onOpenChangeRef.current?.(open);
+  }, [open]);
 
   // Close on Escape when the panel is open (rules popover handles its own Esc).
   useEffect(() => {

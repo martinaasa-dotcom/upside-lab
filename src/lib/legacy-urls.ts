@@ -47,7 +47,12 @@ const PATH_FOR_META: Record<string, string> = {
 /** `?tab=` spellings that meant the holdings table rather than a meta tab. */
 const PORTFOLIO_TOKENS = new Set(["portfolio", "book", "forecast"]);
 
-/** Paths that only ever showed Overview, and the one renamed room. */
+/**
+ * Paths that only ever showed Overview, and the one renamed room.
+ *
+ * None of these has a page file. This table answers them before any page
+ * could run, so a page for one would be code nothing reaches.
+ */
 const PATH_ALIASES: Record<string, string> = {
   "/dashboard": "/",
   "/forecast": "/",
