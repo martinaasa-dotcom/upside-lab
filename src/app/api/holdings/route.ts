@@ -1,4 +1,5 @@
 import { dbError } from "@/lib/db-error";
+import { currency } from "@/lib/format";
 import {
   loadPortfolioWriteContext,
   type PortfolioWriteContext,
@@ -308,6 +309,31 @@ async function handlePOST(req: NextRequest) {
     ? await salePriceFor(ticker, buyPrice)
     : buyPrice;
   if (context.tracksTradeCash) row.buy_price = roundMoney(tradePrice);
+
+  /*
+    And a class portfolio cannot spend money it has not got.
+
+    The guarantee is in the database, where it has to be: a check here is a
+    read and then an act, and two overlapping buys both read the same balance
+    and both pass (migration 20260902140000). This is the sentence, said
+    before anything is written, because "not enough cash in this class
+    portfolio" raised out of a function is not something to show a
+    fourteen-year-old, and because the floor firing after the insert would
+    leave shares that were never paid for.
+  */
+  const wouldCost = context.tracksTradeCash ? roundMoney(tradePrice * shares) : 0;
+  if (
+    context.tracksTradeCash &&
+    context.cashBalance != null &&
+    wouldCost > context.cashBalance
+  ) {
+    return NextResponse.json(
+      {
+        error: `That costs ${currency(wouldCost)} and you have ${currency(context.cashBalance)} to spend. Try fewer shares.`,
+      },
+      { status: 400 }
+    );
+  }
 
   for (let attempt = 0; attempt < HOLDING_WRITE_ATTEMPTS; attempt++) {
     const { data: existingRaw, error: existingErr } = await supabase

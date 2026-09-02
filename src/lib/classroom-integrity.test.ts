@@ -94,3 +94,48 @@ describe("a paper trade prices at the market", () => {
     expect(holdings).toContain("context.tracksTradeCash\n    ? await salePriceFor");
   });
 });
+
+describe("a class portfolio cannot spend money it has not got", () => {
+  const holdings = read("src/app/api/holdings/route.ts");
+  const migration = read(
+    "supabase/migrations/20260902140000_a_class_portfolio_cannot_spend_money_it_has_not_got.sql"
+  );
+
+  it("guarantees it in the database, where the race is", () => {
+    /*
+      A check in Node is a read and then an act, so two overlapping buys
+      both read the same balance and both pass. The raise is after the
+      update and inside the same transaction, so the write rolls back with
+      it rather than being left half applied.
+    */
+    expect(migration).toContain("if is_class and next_balance < 0 then");
+    expect(migration).toContain("errcode = 'check_violation'");
+    const fn = migration.slice(migration.indexOf("update public.portfell_portfolios"));
+    expect(fn.indexOf("raise exception")).toBeGreaterThan(
+      fn.indexOf("returning cash_balance")
+    );
+  });
+
+  it("leaves a real portfolio able to go below zero", () => {
+    // Borrowed money is an ordinary way to hold something, and the Cash
+    // card is built to say how much of the portfolio it is.
+    expect(migration).toContain("classroom_community_id is not null");
+  });
+
+  it("says it in a sentence before anything is written", () => {
+    /*
+      "not enough cash in this class portfolio" raised out of a Postgres
+      function is not something to put in front of a fourteen-year-old, and
+      the floor firing after the insert would leave shares nobody paid for.
+    */
+    expect(holdings).toContain("const wouldCost = context.tracksTradeCash");
+    expect(holdings).toContain("Try fewer shares.");
+    const refusal = holdings.indexOf("Try fewer shares.");
+    expect(refusal).toBeLessThan(holdings.indexOf(".insert(row)"));
+  });
+
+  it("says the two figures rather than just refusing", () => {
+    expect(holdings).toContain("That costs ${currency(wouldCost)}");
+    expect(holdings).toContain("you have ${currency(context.cashBalance)}");
+  });
+});
