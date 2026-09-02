@@ -11,20 +11,29 @@ export const EXPERIENCE_TIERS: {
   label: string;
   blurb: string;
 }[] = [
+  /*
+    Two sentences each, never a comma splice, and worded to match what the
+    walkthrough calls the same three answers. "I actively trade" described
+    the tier the walkthrough calls "Very experienced. I follow markets
+    closely", so a reader picking one in Account and the other on the way
+    in could not tell they were the same choice. The label is also printed
+    into a sentence on the walkthrough's last screen, which is why it stays
+    a plain noun phrase.
+  */
   {
     id: "novice",
     label: "New to investing",
-    blurb: "Show me the essentials, I'll grow into the rest.",
+    blurb: "Show me the essentials. I will grow into the rest.",
   },
   {
     id: "investor",
     label: "Comfortable investor",
-    blurb: "I understand stocks and portfolios, show me most things.",
+    blurb: "I understand stocks and portfolios. Show me most things.",
   },
   {
     id: "advanced",
     label: "Very experienced",
-    blurb: "I actively trade, show me everything.",
+    blurb: "I follow markets closely. Show me everything.",
   },
 ];
 

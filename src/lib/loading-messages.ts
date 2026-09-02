@@ -5,6 +5,14 @@
  * (money jokes, everyday-delay jokes, self-aware app jokes) so it doesn't
  * read as one repetitive bit. A space before the trailing ellipsis reads
  * cleaner than jamming it right against the last word.
+ *
+ * A line here is read by somebody opening their savings, sometimes on the
+ * evening those savings fell, so two kinds went out and must not come back.
+ * Nothing that mocks how the reader has done ("unlike your portfolio, this
+ * won't take forever"), and nothing that promises fortune-telling ("the
+ * financial oracles", "your financial destiny"), which argues with the
+ * landing page's own promise of facts. Market slang goes too: this is the
+ * one file `humanizeMargusText` never passes over.
  */
 const LOADING_MESSAGES = [
   "Opening your portfolio …",
@@ -18,35 +26,29 @@ const LOADING_MESSAGES = [
   "Counting your money (again) …",
   "Convincing your stocks to cooperate …",
   "Waking up your portfolio …",
-  "Negotiating with the market gods …",
   "Making sure your cash didn't wander off …",
   "Polishing your gains …",
   "Reassuring your losses …",
   "Untangling your holdings …",
-  "Checking if you're rich yet …",
   "Summoning your portfolio from the cloud …",
   "Dusting off the spreadsheet …",
   "Warming up the calculator …",
-  "Consulting the financial oracles …",
-  "Recalculating how rich you feel …",
-  "Buffering your financial destiny …",
   "Doing math so you don't have to …",
   "Pretending this is instant …",
   "Shuffling numbers into place …",
-  "Assembling your empire …",
   "Making it look easy …",
   "Fetching the good stuff …",
-  "One sec, just flexing …",
-  "Bribing the server with imaginary money …",
   "Herding your tickers into one place …",
   "Reading the fine print (there isn't any) …",
   "Asking Margus to hurry up …",
-  "Double-checking you didn't buy the dip by accident …",
-  "Loading, and unlike your portfolio, this won't take forever …",
-  "Rehearsing your excuse for that one ticker …",
   "Giving your cash a pep talk …",
   "Waiting for the numbers to feel ready …",
   "Tidying up before you walk in …",
+  "Getting today's prices …",
+  "Adding it all up …",
+  "Reading the day on your companies …",
+  "Checking what moved since you last looked …",
+  "Nearly there …",
 ];
 
 /** Stable SSR + first paint. Random line swaps in after mount. */

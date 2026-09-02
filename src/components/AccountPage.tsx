@@ -33,7 +33,11 @@ import {
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
 import { NO_VALUE, cn } from "@/lib/format";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
-import { PRODUCT_NAME, PRODUCT_SUPPORT_EMAIL } from "@/lib/product";
+import {
+  PRODUCT_NAME,
+  PRODUCT_SUPPORT_EMAIL,
+  SUNDAY_EMAIL_LINE,
+} from "@/lib/product";
 import {
   ANALYTICS_CONSENT_EVENT,
   loadAnalyticsConsent,
@@ -446,7 +450,7 @@ export function AccountPage() {
                 title="The Sunday email"
                 subtitle={
                   emailConfigured
-                    ? "One email a week, on Sunday. Nothing else lands in your inbox."
+                    ? SUNDAY_EMAIL_LINE
                     : "Email is not set up on this server yet."
                 }
                 controlId={sundaySwitchId}
