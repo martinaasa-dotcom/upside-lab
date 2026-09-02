@@ -59,8 +59,15 @@ async function handleGET() {
     .filter((row) => {
       if (row.kind === "nightly") return false;
       const ports = row.payload?.portfolios;
-      if (!Array.isArray(ports)) return false;
-      return ports.some((p) => p.id && owned.has(p.id));
+      if (!Array.isArray(ports) || ports.length === 0) return false;
+      /*
+        Every portfolio in the save, not any. A save is one person's whole
+        account, and its label names a portfolio ("Before delete: Savings"),
+        so a save that so much as touches one portfolio the caller shares
+        used to hand them the names and ids of every other portfolio in it.
+        A co-owner sees only saves made of portfolios they are on.
+      */
+      return ports.every((p) => p.id && owned.has(p.id));
     })
     .slice(0, 40)
     .map(({ id, kind, label, created_at }) => ({

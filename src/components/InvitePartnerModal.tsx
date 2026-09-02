@@ -49,6 +49,14 @@ export function InvitePartnerModal({
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [owners, setOwners] = useState<OwnerRow[]>([]);
+  /*
+    The person who made the portfolio. Only they can remove somebody else,
+    and nobody can remove them, so the remove button is drawn only where a
+    press would go through: on your own row, or on every other row if the
+    portfolio is yours. The route decides; this only stops drawing a button
+    that would answer with a refusal.
+  */
+  const [creatorId, setCreatorId] = useState<string | null>(null);
   const [copied, setCopied] = useState<"link" | "code" | null>(null);
   const [removeTarget, setRemoveTarget] = useState<OwnerRow | null>(null);
 
@@ -57,13 +65,22 @@ export function InvitePartnerModal({
       const res = await fetch(`/api/portfolios/${portfolioId}/owners`, {
         signal,
       });
-      const data = (await res.json().catch(() => ({}))) as { owners?: OwnerRow[] };
+      const data = (await res.json().catch(() => ({}))) as {
+        owners?: OwnerRow[];
+        creatorId?: string | null;
+      };
       if (signal?.aborted) return;
       setOwners(data.owners ?? []);
+      setCreatorId(data.creatorId ?? null);
     } catch {
       /* closed or network */
     }
   }, [portfolioId]);
+
+  const canRemove = (row: OwnerRow) =>
+    owners.length > 1 &&
+    row.user_id !== creatorId &&
+    (row.user_id === user?.id || user?.id === creatorId);
 
   useEffect(() => {
     if (!open) return;
@@ -253,11 +270,20 @@ export function InvitePartnerModal({
               >
                 <span className="min-w-0 truncate text-foreground">
                   {o.profile?.display_name || o.profile?.email || o.user_id.slice(0, 8)}
-                  {o.user_id === user?.id ? (
-                    <span className="ml-2 text-sm text-muted-foreground">(you)</span>
+                  {o.user_id === user?.id || o.user_id === creatorId ? (
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      (
+                      {[
+                        o.user_id === user?.id ? "you" : null,
+                        o.user_id === creatorId ? "made it" : null,
+                      ]
+                        .filter(Boolean)
+                        .join(", ")}
+                      )
+                    </span>
                   ) : null}
                 </span>
-                {owners.length > 1 && (
+                {canRemove(o) && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -290,7 +316,12 @@ export function InvitePartnerModal({
             `/api/portfolios/${portfolioId}/owners?userId=${encodeURIComponent(removeTarget.user_id)}`,
             { method: "DELETE" }
           );
-          if (!res.ok) return false;
+          if (!res.ok) {
+            const data = (await res.json().catch(() => ({}))) as {
+              error?: string;
+            };
+            throw new Error(plainError(data.error, "Couldn't remove them."));
+          }
           setRemoveTarget(null);
           await loadOwners();
           return true;

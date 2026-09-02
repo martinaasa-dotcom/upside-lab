@@ -35,6 +35,43 @@ export async function listOwnedPortfolioIds(
   return ((data ?? []) as { portfolio_id: string }[]).map((r) => r.portfolio_id);
 }
 
+/**
+ * The person who made a portfolio.
+ *
+ * Every co-owner can edit the holdings, and that is the whole point of
+ * inviting somebody. Two things stay with the person who made it: deleting
+ * the portfolio, and taking somebody else off it. Without that line an
+ * invited partner could remove the person who invited them and be left the
+ * only owner of a portfolio they did not make, which is a lockout with one
+ * request and nothing on screen saying it could happen.
+ *
+ * `portfell_portfolios.owner_id` names them. A seed row from before that
+ * column was always written falls back to the earliest ownership row,
+ * which is the first person who claimed it, so the answer is the same
+ * whichever way the row was made. Null only when nobody owns it at all.
+ */
+export async function portfolioCreatorId(
+  portfolioId: string
+): Promise<string | null> {
+  const supabase = await db();
+  if (!supabase) return null;
+  const { data: sheet } = await supabase
+    .from(PORTFELL_TABLES.portfolios)
+    .select("owner_id")
+    .eq("id", portfolioId)
+    .maybeSingle();
+  const ownerId = (sheet as { owner_id?: string | null } | null)?.owner_id;
+  if (ownerId) return ownerId;
+  const { data: first } = await supabase
+    .from(PORTFELL_TABLES.portfolioOwners)
+    .select("user_id")
+    .eq("portfolio_id", portfolioId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return (first as { user_id?: string } | null)?.user_id ?? null;
+}
+
 export async function requirePortfolioOwner(
   userId: string,
   portfolioId: string | null | undefined
