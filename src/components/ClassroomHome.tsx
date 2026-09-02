@@ -2,7 +2,6 @@
 
 import { ClassTradeBanner } from "@/components/ClassTradeBanner";
 import { ClassroomRoster } from "@/components/ClassroomRoster";
-import { CommunityTodayBoard } from "@/components/CommunityTodayBoard";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { Button } from "@/components/ui/button";
 import { Score, Scoreboard, Segmented } from "@/components/ui/Panel";
@@ -32,6 +31,9 @@ export type ClassroomHomeProps = {
   overview: OverviewModel;
   membersWithBooks: MemberStat[];
   memberStats: MemberStat[];
+  /** Admins of the class, so a teacher without a paper portfolio is not
+   * listed as a student who has not started. */
+  teacherIds: Set<string>;
   startingCash: number;
   classVsStartPct: number | null;
   classVsStartDollar: number;
@@ -58,6 +60,7 @@ export function ClassroomHome({
   overview,
   membersWithBooks,
   memberStats,
+  teacherIds,
   startingCash,
   classVsStartPct,
   classVsStartDollar,
@@ -89,7 +92,7 @@ export function ClassroomHome({
             <p className="min-w-0 flex-1 text-sm text-foreground">
               {isAdmin
                 ? "You are watching the class. Get a paper portfolio if you want to trade alongside them."
-                : "Your paper portfolio is not ready yet. Same starting cash as everyone else."}
+                : "You do not have a paper portfolio in this class yet. Tap Get paper portfolio to start with the same cash as everyone else."}
             </p>
             <Button
               type="button"
@@ -103,13 +106,13 @@ export function ClassroomHome({
         ) : (
           <p className="text-sm text-muted-foreground">
             Open your paper portfolio to buy companies with the paper
-            money. The Sunday note is your weekly summary.
+            money. The Sunday letter is your weekly summary.
           </p>
         )}
       </section>
 
       <Segmented
-        ariaLabel="Community view"
+        ariaLabel="Class view"
         value={view}
         onChange={setView}
         options={[
@@ -118,7 +121,7 @@ export function ClassroomHome({
         ]}
       />
 
-      <WidgetErrorBoundary name="Community totals">
+      <WidgetErrorBoundary name="Class totals">
         <Scoreboard cols={3}>
           <Score
             label="Today"
@@ -141,7 +144,7 @@ export function ClassroomHome({
             value={currency(overview.totals.totalValue)}
           />
           <Score
-            label="vs start"
+            label="Since start"
             value={
               classVsStartPct != null
                 ? signedPercent(classVsStartPct)
@@ -167,6 +170,7 @@ export function ClassroomHome({
                 id: m.id,
                 name: m.name,
                 isYou: m.isYou,
+                isTeacher: teacherIds.has(m.id),
                 sheetCount: m.sheetCount,
                 totalValue: m.totalValue,
                 todayDollar: m.todayDollar,
@@ -198,12 +202,6 @@ export function ClassroomHome({
                 Invite students
               </Button>
             </div>
-          )}
-          {membersWithBooks.length > 0 && (
-            <CommunityTodayBoard
-              members={membersWithBooks}
-              onOpen={onOpenMember}
-            />
           )}
         </div>
       )}

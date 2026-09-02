@@ -10,6 +10,13 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Item,
@@ -26,13 +33,7 @@ import {
   inviteUsesLabel,
   type InviteAdminRow,
 } from "@/lib/community-invite-admin";
-import {
-  cn,
-  currency,
-  NO_VALUE,
-  signedPercent,
-  signedTone,
-} from "@/lib/format";
+import { cn, NO_VALUE, signedPercent, signedTone } from "@/lib/format";
 import type { OverviewModel } from "@/lib/overview";
 import {
   animalCardTone,
@@ -41,9 +42,11 @@ import {
 import type { Holding, Quote } from "@/lib/types";
 import {
   Check,
+  ChevronRight,
   Copy,
   Link2,
   LogOut,
+  MoreHorizontal,
   Shield,
   UserCheck,
   UserMinus,
@@ -222,13 +225,13 @@ export function CommunityMembersPanel({
                                 </div>
                               ) : null}
                               <div className="text-sm text-muted-foreground">
-                                {m.role}
+                                {m.role === "admin" ? "Admin" : "Member"}
                                 {" · "}
                                 {sheets.length} portfolio
                                 {sheets.length === 1 ? "" : "s"}
                                 {sheets.length > 0 && (
                                   <>
-                                    {" - today "}
+                                    {" · today "}
                                     <span
                                       className={signedTone(
                                         sheetTodayPct,
@@ -241,43 +244,62 @@ export function CommunityMembersPanel({
                                     </span>
                                   </>
                                 )}
-                                {" · "}
-                                {currency(sheetValue)}
                               </div>
                             </button>
+                            {/*
+                              A row menu, not two buttons.
+
+                              Every row used to carry a rose "Remove" and a
+                              "Make admin", so a family of six read as six
+                              destructive actions stacked down the page. The
+                              accent in this product is spent on news, and
+                              red is spent on somebody about to lose
+                              something; neither is what a list of people you
+                              invited yourself looks like.
+                            */}
                             {isAdmin && !m.is_you && (
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={busy}
-                                  onClick={() =>
-                                    void setRole(
-                                      m.user_id,
-                                      m.role === "admin" ? "member" : "admin"
-                                    )
-                                  }
-                                >
-                                  <Shield data-icon="inline-start" />
-                                  {m.role === "admin" ? "Demote" : "Make admin"}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="destructive"
-                                  size="sm"
-                                  disabled={busy}
-                                  onClick={() =>
-                                    setRemoveTarget({
-                                      userId: m.user_id,
-                                      name: profileName(m.user_id),
-                                    })
-                                  }
-                                >
-                                  <UserMinus data-icon="inline-start" />
-                                  Remove
-                                </Button>
-                              </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    disabled={busy}
+                                    className="touch-target"
+                                    aria-label={`Options for ${profileName(m.user_id)}`}
+                                  >
+                                    <MoreHorizontal />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onSelect={() =>
+                                      void setRole(
+                                        m.user_id,
+                                        m.role === "admin" ? "member" : "admin"
+                                      )
+                                    }
+                                  >
+                                    <Shield />
+                                    {m.role === "admin"
+                                      ? "Make them a member"
+                                      : "Make them an admin"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    onSelect={() =>
+                                      setRemoveTarget({
+                                        userId: m.user_id,
+                                        name: profileName(m.user_id),
+                                      })
+                                    }
+                                  >
+                                    <UserMinus />
+                                    Remove from this {isClassroom ? "class" : "circle"}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             )}
                             {m.is_you && (
                               <Button
@@ -340,7 +362,7 @@ export function CommunityMembersPanel({
                                 {sheets.length === 1 ? "" : "s"}
                                 {sheets.length > 0 && (
                                   <>
-                                    {" - today "}
+                                    {" · today "}
                                     <span
                                       className={signedTone(
                                         sheetTodayPct,
@@ -353,8 +375,6 @@ export function CommunityMembersPanel({
                                     </span>
                                   </>
                                 )}
-                                {" · "}
-                                {currency(sheetValue)}
                               </div>
                             </button>
                           </li>
@@ -371,7 +391,7 @@ export function CommunityMembersPanel({
                         <Badge variant="secondary">{joinRequests.length}</Badge>
                       </h2>
                       <p className="text-sm text-muted-foreground">
-                        This community is public, so anyone can ask to join,
+                        This circle is public, so anyone can ask to join,
                         but nothing happens until you approve them here.
                       </p>
                       <ItemGroup>
@@ -421,52 +441,82 @@ export function CommunityMembersPanel({
                       <h2 className="text-foreground">
                         Invite people
                       </h2>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm leading-relaxed text-muted-foreground">
                         {isClassroom
-                          ? "This link works for 30 days. Students join with it, and each one starts with the same paper cash and an empty portfolio. Add email addresses if you want the link sent for you, which also locks it to those people. Separate the addresses with a comma. Change the number of days if 30 is not what you want."
-                          : "This link works for 30 days, and anyone who has it can join. Their portfolios then show up here, and they can hide one again later. Everyone sees today's prices only. Add email addresses if you want the link sent for you, which also locks it to those people. Separate the addresses with a comma. Change the number of days if 30 is not what you want."}
+                          ? "Anyone with this link joins the class and starts with the same paper cash and an empty portfolio. It works for 30 days."
+                          : "Anyone with this link can join. They will see how each portfolio moved and what is in it, never what anything is worth. It works for 30 days."}
                       </p>
-                      <div className="flex flex-wrap gap-2">
-                        <Input
-                          type="text"
-                          inputMode="email"
-                          autoComplete="off"
-                          value={inviteEmail}
-                          onChange={(e) => setInviteEmail(e.target.value)}
-                          placeholder="Email addresses, separated by commas (optional)"
-                          className="min-w-[12rem] w-auto flex-1"
-                        />
-                        <Input
-                          type="number"
-                          min={1}
-                          max={365}
-                          inputMode="numeric"
-                          value={inviteDays}
-                          onChange={(e) => setInviteDays(e.target.value)}
-                          disabled={inviteNeverExpires}
-                          placeholder="How many days the link works (30 by default)"
-                          className="no-spinner w-[14rem] min-w-[14rem] shrink-0"
-                        />
-                        <Button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void createInvite()}
-                        >
-                          <Link2 data-icon="inline-start" />
-                          Create invite link
-                        </Button>
-                      </div>
-                      <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Checkbox
-                          checked={inviteNeverExpires}
-                          onCheckedChange={(v) =>
-                            setInviteNeverExpires(v === true)
-                          }
-                          aria-label="Link never expires"
-                        />
-                        Never expires. Anyone who ever sees this link can
-                        join, so only use it somewhere private.
-                      </label>
+                      <Button
+                        type="button"
+                        className="self-start"
+                        disabled={busy}
+                        onClick={() => void createInvite()}
+                      >
+                        <Link2 data-icon="inline-start" />
+                        Create invite link
+                      </Button>
+                      {/*
+                        The two settings almost nobody changes, folded away.
+                        Measured at 1280 the expiry field's placeholder was
+                        cut off mid-sentence ("How many days the link works
+                        (") because it was carrying the label as well as the
+                        hint. Labels above the fields instead.
+                      */}
+                      <details className="group">
+                        <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+                          <ChevronRight className="size-3.5 transition-transform group-open:rotate-90 motion-reduce:transition-none" />
+                          Link options
+                        </summary>
+                        <div className="mt-3 flex flex-col gap-3">
+                          <label className="block">
+                            <span className="text-sm font-medium text-muted-foreground">
+                              Send it to
+                            </span>
+                            <Input
+                              type="text"
+                              inputMode="email"
+                              autoComplete="off"
+                              value={inviteEmail}
+                              onChange={(e) => setInviteEmail(e.target.value)}
+                              placeholder="jaan@example.com, liisa@example.com"
+                              className="mt-1.5"
+                            />
+                            <span className="mt-1 block text-sm text-muted-foreground">
+                              We will mail the link for you, and it will only
+                              work for these people. Separate them with a comma.
+                            </span>
+                          </label>
+                          <label className="block">
+                            <span className="text-sm font-medium text-muted-foreground">
+                              Works for
+                            </span>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={365}
+                              inputMode="numeric"
+                              value={inviteDays}
+                              onChange={(e) => setInviteDays(e.target.value)}
+                              disabled={inviteNeverExpires}
+                              placeholder="30 days"
+                              className="no-spinner mt-1.5 w-[10rem]"
+                            />
+                          </label>
+                          <label className="flex items-start gap-2 text-sm text-muted-foreground">
+                            <Checkbox
+                              checked={inviteNeverExpires}
+                              onCheckedChange={(v) =>
+                                setInviteNeverExpires(v === true)
+                              }
+                              aria-label="Link never stops working"
+                            />
+                            <span className="leading-relaxed">
+                              Never stops working. Anyone who ever sees this
+                              link can join, so only use it somewhere private.
+                            </span>
+                          </label>
+                        </div>
+                      </details>
                       {inviteUrl && (
                         <Item className="items-start px-0">
                           <ItemContent>
@@ -518,7 +568,7 @@ export function CommunityMembersPanel({
                                   : `${usedNames.slice(0, 4).join(", ")} and ${usedNames.length - 4} more`;
                             const statusLabel =
                               inv.status === "retired"
-                                ? "Retired"
+                                ? "Turned off"
                                 : inv.status === "expired"
                                   ? "Expired"
                                   : "Live";
@@ -572,7 +622,7 @@ export function CommunityMembersPanel({
                                       disabled={busy}
                                       onClick={() => setRetireTarget(inv)}
                                     >
-                                      Retire this link
+                                      Turn off this link
                                     </Button>
                                   ) : null}
                                 </ItemActions>

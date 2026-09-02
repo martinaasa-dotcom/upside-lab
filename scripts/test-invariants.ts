@@ -1723,8 +1723,24 @@ run("home keeps Fund and Communities in view", () => {
   assert.doesNotMatch(world, /fundOnly/);
 });
 
-run("community books lead with today's percent, not dollar size", () => {
-  const community = readFileSync(
+/*
+  A circle leads with the percent, and now it is the only thing it says.
+
+  This used to assert that the dollar figure was the *sub-line* under the
+  percent, which was the right rule while a circle still printed amounts at
+  all. It does not any more: the landing page promises a circle "shows how a
+  member's day went and never what anything is worth", and a real one was
+  printing pooled net worth on six surfaces. So the assertion moved up a
+  level, from "dollars go second" to "there are no dollars", which is the
+  rule those surfaces are actually held to. `circle-privacy.test.ts` carries
+  the behavioural half.
+
+  The classroom is deliberately not in that ban: a paper class hands every
+  student the same made-up cash, so the amount is the lesson and not
+  anybody's private business.
+*/
+run("a circle says how a day went, never what anything is worth", () => {
+  const board = readFileSync(
     join(process.cwd(), "src/components/CommunityTodayBoard.tsx"),
     "utf8"
   );
@@ -1736,11 +1752,28 @@ run("community books lead with today's percent, not dollar size", () => {
     join(process.cwd(), "src/components/CircleCards.tsx"),
     "utf8"
   );
+  const home = readFileSync(
+    join(process.cwd(), "src/components/CircleHome.tsx"),
+    "utf8"
+  );
   const readOnly = cards.slice(cards.indexOf("export function ReadOnlyHoldings"));
   assert.match(readOnly, /label="Today"/);
   assert.match(readOnly, /signedPercent\(todayPct\)/);
-  assert.match(readOnly, /sub=\{signedCurrency\(todayDollar\)\}/);
-  assert.match(community, /Ranked by today&apos;s percent, not dollar size/);
+  // `currency` and `signedCurrency` are the only two functions in this app
+  // that render an amount, so importing either into one of these is the
+  // whole of the failure.
+  for (const [name, src] of [
+    ["CommunityTodayBoard", board],
+    ["CircleCards", cards],
+    ["CircleHome", home],
+  ] as const) {
+    assert.doesNotMatch(
+      src,
+      /\b(signedCurrency|currency)\s*\(/,
+      `${name} must not print an amount of money`
+    );
+  }
+  assert.match(board, /signedPercent\(pct\)/);
   assert.match(roster, /signedPercent\(vsStartPct\)/);
   assert.match(roster, /signedPercent\(m\.todayPct\)/);
 });
@@ -1750,8 +1783,12 @@ run("circle awards are a grid of cards, not a flat divided list", () => {
     join(process.cwd(), "src/components/CircleHome.tsx"),
     "utf8"
   );
-  const awardsStart = community.indexOf("Community superlatives");
-  const awardsEnd = community.indexOf("<CommunityTodayBoard", awardsStart);
+  // The heading is "Who stands out" now (one award per person, chosen by
+  // the clearest margin), and the Today board that used to follow it moved
+  // inside a `BelowFold`. Anchored on the section's own `achievements.map`
+  // instead, which is what makes it this section rather than any other.
+  const awardsStart = community.indexOf("Who stands out");
+  const awardsEnd = community.indexOf("</section>", awardsStart);
   const awards = community.slice(awardsStart, awardsEnd);
   assert.match(awards, /grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3/);
   // Each award is a glass-well card, not a divided list row. Asserted by
@@ -4277,9 +4314,11 @@ run("Daily Duel is the next open US session, never yesterday", () => {
   assert.equal(currentDuelSessionKey(sunday), "2026-08-17");
   assert.equal(duelCanSettle("2026-08-17", sunday), false);
   assert.equal(duelSessionLabel("2026-08-17", sunday), "Monday");
+  // "Who" is for people and "session" is exchange jargon, on a card that
+  // asks about two companies.
   assert.equal(
     duelSessionCopy("2026-08-17", sunday),
-    "Who finishes Monday's US session higher."
+    "Which one is higher when the US market closes on Monday."
   );
   const saturday = new Date("2026-08-15T16:00:00.000Z");
   assert.equal(currentDuelSessionKey(saturday), "2026-08-17");
@@ -6351,7 +6390,9 @@ run("dashboard modules sit behind an error boundary", () => {
     );
   assert.ok(community.includes(`<WidgetErrorBoundary name="Daily Duel"`));
   assert.ok(/WidgetErrorBoundary[\s\S]{0,80}name="Member portfolio"/.test(community));
-  assert.ok(community.includes(`<WidgetErrorBoundary name="Community totals">`));
+  assert.ok(
+    community.includes(`<WidgetErrorBoundary name="Circle totals">`)
+  );
   const fund = readFileSync(
     join(process.cwd(), "src/components/UpsidePortfolioPage.tsx"),
     "utf8"
@@ -6645,18 +6686,33 @@ run("email and admin RPCs are not callable with a user JWT", () => {
       "utf8"
     );
   assert.doesNotMatch(communityView, /daysValid: community\?\.kind === "classroom" \? 90 : 14/);
-  assert.match(communityView, /This link works for 30 days/);
+  // The rule is the thirty days, not the sentence it used to be in: the
+  // sixty-word paragraph became two lines with the two settings almost
+  // nobody changes folded behind "Link options".
+  assert.match(communityView, /works for 30 days/i);
   assert.doesNotMatch(communityView, /This link stays live/);
   assert.match(communityView, /inviteNeverExpires/);
-  // The rule is that the invite form takes optional email addresses, not
-  // the exact placeholder it says that in.
-  assert.match(communityView, /Email addresses[^"]*optional/i);
-  assert.match(communityView, /Retire this link/);
+  // Same rule, one level up: the form still takes email addresses and
+  // still explains that they are optional, wherever it says so.
+  assert.match(communityView, /Send it to/);
+  assert.match(communityView, /inviteEmail/);
+  // "Retire" is a pension word. A reader turns a link off.
+  assert.match(communityView, /Turn off this link/);
+  assert.doesNotMatch(communityView, /Retire this link/);
   assert.match(communityView, /copyInviteLink/);
-  // An invite already in the list cannot be shown again, because only its
-  // hash was kept. Sharing it again means minting a fresh link.
+  /*
+    The stored row cannot hand its link back, because the database keeps a
+    hash of the token and nothing else: a link is shown once when it is
+    made, and an admin who needs it again mints a fresh one. Two halves,
+    and the first is the security rule.
+
+    The copy is deliberately not asserted here any more. This used to match
+    the button's exact words and the circle pass renamed them, which is the
+    brittleness AGENTS.md warns about: assert the rule, never today's
+    markup.
+  */
   assert.doesNotMatch(communityView, /inv\.path/);
-  assert.match(communityView, /Make a new link/);
+  assert.match(communityView, /renewInvite/);
   assert.match(communityView, /inviteUsesLabel/);
   const joinPeek = readFileSync(
     join(process.cwd(), "src/app/api/communities/join/route.ts"),

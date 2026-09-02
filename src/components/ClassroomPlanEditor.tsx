@@ -128,7 +128,7 @@ export function ClassroomPlanEditor({
       <p className="mt-8 text-sm font-medium text-muted-foreground">Schedule</p>
       {scheduled.length === 0 ? (
         <p className="mt-1 text-sm text-muted-foreground">
-          Nothing dated. Use the buttons above, or add a stretch with dates.
+          Nothing scheduled. Use the buttons above for now, or add a dated period below.
         </p>
       ) : (
         <ItemGroup>
@@ -144,7 +144,7 @@ export function ClassroomPlanEditor({
                     minute: "2-digit",
                   })}
                   {p.endsAt
-                    ? ` → ${formatDateTime(p.endsAt, {
+                    ? ` to ${formatDateTime(p.endsAt, {
                         month: "short",
                         day: "numeric",
                         hour: "2-digit",
@@ -172,7 +172,7 @@ export function ClassroomPlanEditor({
       )}
 
       <div className="flex flex-col mt-6 gap-3 card-sheen glass-well rounded-lg p-6">
-        <p className="text-sm font-medium text-muted-foreground">Add a stretch</p>
+        <p className="text-sm font-medium text-muted-foreground">Add a period</p>
         <NativeSelect
           value={draftKind}
           onChange={(e) => setDraftKind(e.target.value as ClassPeriodKind)}
@@ -212,7 +212,7 @@ export function ClassroomPlanEditor({
           onClick={addStretch}
         >
           <Plus data-icon="inline-start" />
-          Add stretch
+          Add a period
         </Button>
       </div>
     </div>

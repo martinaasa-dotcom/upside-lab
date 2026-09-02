@@ -13,7 +13,7 @@ export type ClassTemplate = {
   assignment: string;
 };
 
-/** Covers the usual high-school and uni paper class. Pick one, then tweak. */
+/** Covers the usual high school and university paper class. Pick one, then tweak. */
 export const CLASS_TEMPLATES: ClassTemplate[] = [
   {
     id: "first-picks",
@@ -71,11 +71,11 @@ export const CLASS_TEMPLATES: ClassTemplate[] = [
   {
     id: "midterm-move",
     title: "Sell and move",
-    blurb: "Midterm tidy-up. No new companies yet.",
+    blurb: "Midterm tidy-up. Sell what you cannot explain. No new companies yet.",
     cash: 100_000,
     period: "fix",
     assignment:
-      "Sell what is not working and move the money. No new companies until I open buying again.",
+      "Sell anything you no longer have a reason to own, and move the money. No new companies until I open buying again.",
   },
 ];
 

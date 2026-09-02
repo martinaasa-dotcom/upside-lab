@@ -7,10 +7,11 @@ import {
   loadStickyDuelPick,
   saveCommunityDuelCache,
   saveStickyDuelPick,
+  type ClosedDuel,
   type CommunityDuelCache,
 } from "@/lib/community-cache";
 import { Swords } from "lucide-react";
-import { cn, percent, cashtag } from "@/lib/format";
+import { cn, percent, signedPercent, cashtag } from "@/lib/format";
 import { SPLIT_COPY, SPLIT_ROW } from "@/components/ui/Panel";
 import {
   currentDuelSessionKey,
@@ -181,7 +182,7 @@ export function DailyDuelCard({
   const sessionWhen = duelSessionLabel(sessionKey);
   const sessionLine = communityId
     ? `The circle's pick. ${duelSessionCopy(sessionKey)}`
-    : `Tap who you think finishes ${sessionWhen === "today" ? "today's" : `${sessionWhen}'s`} US session higher.`;
+    : `Tap the one you think is higher when the US market closes ${sessionWhen === "today" ? "today" : `on ${sessionWhen}`}.`;
 
   if (!pair) {
     return (
@@ -272,6 +273,24 @@ export function DailyDuelCard({
       ? "the US close today, at 16:00 New York time"
       : `the US close ${sessionWhen}, at 16:00 New York time`;
 
+  const voteTotal = (community?.counts.a ?? 0) + (community?.counts.b ?? 0);
+
+  /*
+    The finished duel, which is a different duel from the one on the
+    buttons. It is only ever the last session that has actually closed, so
+    the live card still reveals nothing and the reader still gets an answer.
+  */
+  const closedDuel = communityId ? (community?.previous ?? null) : null;
+  const closed = closedDuel && closedDuel.winner != null ? closedDuel : null;
+  const closedWhenLabel = closed ? duelSessionLabel(closed.dayKey) : "";
+  const closedWhen = closed
+    ? closedWhenLabel === "today"
+      ? "How it finished today"
+      : `How it finished on ${closedWhenLabel}`
+    : "";
+  const closedLine = closed ? closedResultLine(closed) : "";
+  const closedCalledIt = closed ? calledItLine(closed) : "";
+
   const communityLine = communityId
     ? myPick == null
       ? "Same matchup for everyone here. One tap locks it."
@@ -296,12 +315,20 @@ export function DailyDuelCard({
             <p className="mt-0.5 text-sm text-muted-foreground">{sessionLine}</p>
           </div>
         </div>
-        {communityId && (community?.pickCount ?? 0) > 0 ? (
+        {/*
+          * The count used to sit here AND in the footer of the same card,
+          * which is one card saying "3 picks" and "3 people have picked."
+          * about six inches apart. The footer keeps it, because that is
+          * where the sentence explaining the wait already is, and this slot
+          * carries the one thing the circle never had: how many closed
+          * sessions in a row the reader has called right.
+          */}
+        {communityId && (community?.streak ?? 0) >= 2 ? (
           <p className="shrink-0 text-sm text-muted-foreground">
             <span className="font-semibold tabular-nums text-foreground">
-              {community?.pickCount ?? 0}
+              {community?.streak}
             </span>
-            {(community?.pickCount ?? 0) === 1 ? " pick" : " picks"}
+            {" in a row"}
           </p>
         ) : (
           !communityId &&
@@ -401,13 +428,22 @@ export function DailyDuelCard({
                         : "text-muted-foreground"
                   )}
                 >
-                  {percent(pct)}
+                  {signedPercent(pct)}
                 </p>
               )}
             </button>
           );
         })}
       </div>
+
+      {communityId && myPick != null && voteTotal > 0 ? (
+        <DuelVoteBar
+          a={community?.counts.a ?? 0}
+          b={community?.counts.b ?? 0}
+          pair={pair}
+          myPick={myPick}
+        />
+      ) : null}
 
       <p className="mt-4 text-center text-sm leading-relaxed text-muted-foreground">
         {communityId
@@ -418,7 +454,83 @@ export function DailyDuelCard({
               ? `Your pick is locked in. Results come after ${closeWhen}.`
               : resultLine}
       </p>
+
+      {closed ? (
+        <div className="mt-4 border-t border-border pt-4">
+          <p className="text-sm font-medium text-muted-foreground">
+            {closedWhen}
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-foreground">
+            {closedLine}
+          </p>
+          {closedCalledIt ? (
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              {closedCalledIt}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+/**
+ * Two friends picked the other one, and until now a pick changed almost
+ * nothing on screen: the words "Your pick" and a ring, on a card whose whole
+ * point is that other people are in it. The bar grows from nothing on the
+ * frame after the pick lands, so what the reader sees is the circle's
+ * opinion arriving rather than a static ratio that was always there.
+ *
+ * A transition on `flex-grow` rather than a keyframe, so a re-render while
+ * somebody else's vote comes in eases from where it is instead of
+ * replaying. Off under reduced motion, where it is simply drawn.
+ */
+function DuelVoteBar({
+  a,
+  b,
+  pair,
+  myPick,
+}: {
+  a: number;
+  b: number;
+  pair: { a: string; b: string };
+  myPick: DuelPick;
+}) {
+  const [grown, setGrown] = useState(false);
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => setGrown(true));
+    return () => window.cancelAnimationFrame(id);
+  }, []);
+  const total = Math.max(1, a + b);
+  const shareA = grown ? a / total : 0.5;
+  return (
+    <div className="mt-3">
+      <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn(
+            "h-full rounded-full transition-[flex-grow] duration-500 ease-out motion-reduce:transition-none",
+            myPick === "a" ? "bg-primary" : "bg-foreground/25"
+          )}
+          style={{ flexGrow: shareA, flexBasis: 0 }}
+        />
+        <div className="w-px shrink-0" />
+        <div
+          className={cn(
+            "h-full rounded-full transition-[flex-grow] duration-500 ease-out motion-reduce:transition-none",
+            myPick === "b" ? "bg-primary" : "bg-foreground/25"
+          )}
+          style={{ flexGrow: 1 - shareA, flexBasis: 0 }}
+        />
+      </div>
+      <div className="mt-1.5 flex items-baseline justify-between text-sm text-muted-foreground">
+        <span className="tabular-nums">
+          {cashtag(pair.a)} {a}
+        </span>
+        <span className="tabular-nums">
+          {b} {cashtag(pair.b)}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -440,4 +552,31 @@ function communityVoteLine(
     return `${split}. ${bits.join(". ")}`;
   }
   return split;
+}
+
+/** "$NVDA finished higher, up 1.4%. $AAPL was down 0.3%." */
+function closedResultLine(closed: ClosedDuel): string {
+  if (closed.winner === "tie") {
+    return `${cashtag(closed.pair.a)} and ${cashtag(closed.pair.b)} finished level.`;
+  }
+  const winnerTicker = closed.winner === "a" ? closed.pair.a : closed.pair.b;
+  const otherTicker = closed.winner === "a" ? closed.pair.b : closed.pair.a;
+  const winnerPct = closed.winner === "a" ? closed.pctA : closed.pctB;
+  const otherPct = closed.winner === "a" ? closed.pctB : closed.pctA;
+  const head =
+    winnerPct != null
+      ? `${cashtag(winnerTicker)} finished higher, ${signedPercent(winnerPct)}.`
+      : `${cashtag(winnerTicker)} finished higher.`;
+  const tail =
+    otherPct != null ? ` ${cashtag(otherTicker)} was ${signedPercent(otherPct)}.` : "";
+  return `${head}${tail}`;
+}
+
+/** "Liisa and Jaan called it." */
+function calledItLine(closed: ClosedDuel): string {
+  const names = closed.calledIt;
+  if (names.length === 0) return "Nobody picked that side.";
+  if (names.length === 1) return `${names[0]} called it.`;
+  const last = names[names.length - 1];
+  return `${names.slice(0, -1).join(", ")} and ${last} called it.`;
 }

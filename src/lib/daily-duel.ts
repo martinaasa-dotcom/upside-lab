@@ -81,6 +81,93 @@ export function currentDuelSessionKey(now: Date = new Date()): string {
   return key;
 }
 
+/**
+ * YYYY-MM-DD of the most recent US regular session that HAS closed.
+ *
+ * The circle's duel could never end without this. `currentDuelSessionKey`
+ * always returns a session whose close is still ahead, by construction, and
+ * both the route and the card asked `duelCanSettle(currentDuelSessionKey())`
+ * to decide whether the result was in, which is false every time. After
+ * 16:00 the key simply rolled to the next day and the picks everybody made
+ * were never read again, so nobody in a circle ever saw who won.
+ */
+export function previousDuelSessionKey(now: Date = new Date()): string {
+  let key = dateKeyInTz(now, US_TZ);
+  for (let i = 0; i < 10; i++) {
+    if (!isWeekendKey(key) && now.getTime() >= duelSessionCloseMs(key)) {
+      return key;
+    }
+    key = addDayKey(key, -1);
+  }
+  return key;
+}
+
+/** The last `count` closed sessions, newest first. */
+export function recentDuelSessionKeys(
+  count: number,
+  now: Date = new Date()
+): string[] {
+  const out: string[] = [];
+  let key = previousDuelSessionKey(now);
+  while (out.length < count) {
+    if (!isWeekendKey(key)) out.push(key);
+    key = addDayKey(key, -1);
+  }
+  return out;
+}
+
+/**
+ * How a company moved on one session, from the dated closes a quote already
+ * carries. `dailyCloses` is about fifteen sessions deep, which is what lets
+ * a streak be counted over the fortnight the duel table holds picks for
+ * without asking a provider for anything extra.
+ *
+ * Returns null when either that session or the one before it is missing,
+ * because a percentage against the wrong day is worse than no percentage.
+ */
+export function duelDayPct(
+  closes: { date: string; close: number }[] | undefined,
+  sessionKey: string
+): number | null {
+  if (!closes || closes.length < 2) return null;
+  const idx = closes.findIndex((c) => c.date === sessionKey);
+  if (idx < 1) return null;
+  const previous = closes[idx - 1]!.close;
+  const settled = closes[idx]!.close;
+  if (!(previous > 0) || !Number.isFinite(settled)) return null;
+  return (settled - previous) / previous;
+}
+
+/** Which side won, or null for a tie or a session we cannot resolve. */
+export function duelWinnerSide(
+  pctA: number | null,
+  pctB: number | null
+): DuelPick | "tie" | null {
+  if (pctA == null || pctB == null) return null;
+  if (pctA === pctB) return "tie";
+  return pctA > pctB ? "a" : "b";
+}
+
+/**
+ * How many closed sessions in a row this person has called right, newest
+ * first. A tie neither breaks it nor counts, a session they did not play is
+ * skipped, and a session nobody can resolve stops the walk rather than being
+ * treated as a win.
+ */
+export function duelStreak(
+  sessions: Array<{ myPick: DuelPick | null; winner: DuelPick | "tie" | null }>
+): number {
+  let streak = 0;
+  for (const session of sessions) {
+    if (session.myPick == null) continue;
+    if (session.winner == null) break;
+    if (session.winner === "tie") continue;
+    if (session.winner !== session.myPick) break;
+    streak += 1;
+  }
+  return streak;
+}
+
 export function duelSessionLabel(
   sessionKey: string,
   now: Date = new Date()
@@ -99,8 +186,8 @@ export function duelSessionCopy(
 ): string {
   const when = duelSessionLabel(sessionKey, now);
   return when === "today"
-    ? "Which one finishes higher when the US market closes today."
-    : `Who finishes ${when}'s US session higher.`;
+    ? "Which one is higher when the US market closes today."
+    : `Which one is higher when the US market closes on ${when}.`;
 }
 
 export type DuelPick = "a" | "b";
@@ -345,18 +432,18 @@ export function duelStats(history: DuelRecord[]): DuelStats {
 }
 
 const WIN_LINES = [
-  (t: string) => `Called it. ${t} takes the belt.`,
-  (t: string) => `Certified prophet, ${t} wins.`,
-  (t: string) => `${t} delivered. Your gut was right.`,
-  (t: string) => `Nailed it. ${t} came out on top.`,
+  (t: string) => `You called it. ${t} finished higher.`,
+  (t: string) => `Good eye. ${t} won the day.`,
+  (t: string) => `${t} came out ahead, just as you said.`,
+  (t: string) => `Right on. ${t} finished higher.`,
 ];
 const LOSS_LINES = [
-  (t: string) => `Nope, ${t} had main character energy instead.`,
-  (t: string) => `The market disagreed. ${t} won this one.`,
-  (t: string) => `Rough beat. ${t} took it.`,
-  (t: string) => `${t} said "not today". Try again tomorrow.`,
+  (t: string) => `Not this time. ${t} finished higher.`,
+  (t: string) => `The other one won. ${t} finished higher today.`,
+  (t: string) => `Close, but ${t} came out ahead.`,
+  (t: string) => `${t} had the better day. Another go tomorrow.`,
 ];
-const PUSH_LINE = "An exact tie. Nobody wins this one.";
+const PUSH_LINE = "A tie. Both finished level.";
 
 function pick<T>(seed: string, items: T[]): T {
   const rng = mulberry32(hashSeed(seed));
