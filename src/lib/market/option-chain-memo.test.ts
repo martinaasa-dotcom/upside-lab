@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   resetOptionChainMemoForTests,
@@ -145,5 +147,47 @@ describe("the module still exports what the route calls", () => {
   it("keeps scanCoveredCall's shape", () => {
     expect(typeof scanCoveredCall).toBe("function");
     expect(typeof resetOptionChainMemoForTests).toBe("function");
+  });
+});
+
+/*
+  The other half of the same cost, and it is in the room rather than the
+  provider layer. The scan runs inside the quote refresh, which polls every
+  fifteen seconds; caching the chains stopped the repeat calls, and this
+  stops a reader who has folded the covered-call panel away from filling a
+  cache for a screen they are not looking at.
+*/
+describe("the room only scans when a covered-call surface is on screen", () => {
+  const dashboard = readFileSync(
+    join(process.cwd(), "src/components/Dashboard.tsx"),
+    "utf8"
+  );
+
+  it("asks the cheap questions before the expensive one", () => {
+    // quotesOnly and hideOptionsUI are booleans already in hand; the panel
+    // check is last because it is the one that reads a ref.
+    expect(dashboard).toContain(
+      "if (opts?.quotesOnly || hideOptionsUI || !ccVisibleRef.current)"
+    );
+  });
+
+  it("reads the panel's state from a ref, not from the callback's deps", () => {
+    /*
+      As a dependency it would tear the quote poll down and start a new one
+      every time somebody folded the panel, which is the fault the expiry
+      map beside it already avoids the same way.
+    */
+    expect(dashboard).toContain("const ccVisibleRef = useRef(false)");
+    expect(dashboard).toContain("ccVisibleRef.current = ccVisible;");
+    const refresh = dashboard.slice(dashboard.indexOf("const refreshMarkets"));
+    const deps = refresh.slice(refresh.indexOf("[applyFxPayload"), refresh.indexOf("[applyFxPayload") + 120);
+    expect(deps).not.toContain("ccVisible");
+  });
+
+  it("fills the panel when it opens rather than at the next poll", () => {
+    // Otherwise the saving would cost the reader up to fifteen seconds of
+    // empty rows during the session, and much longer outside it.
+    expect(dashboard).toContain("const ccWasVisibleRef = useRef(false)");
+    expect(dashboard).toContain("const opened = ccVisible && !ccWasVisibleRef.current");
   });
 });

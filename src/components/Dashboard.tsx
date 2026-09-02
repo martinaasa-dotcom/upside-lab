@@ -403,6 +403,12 @@ export function Dashboard() {
   const [ccExpiry, setCcExpiry] = useState<Record<string, string | null>>({});
   const ccExpiryRef = useRef(ccExpiry);
   ccExpiryRef.current = ccExpiry;
+  /*
+    Whether a covered-call surface is actually on screen. A ref, read inside
+    the refresh below, so opening or folding the panel does not tear the
+    quote poll down and start another one.
+  */
+  const ccVisibleRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [quotesUpdatedAt, setQuotesUpdatedAt] = useState<number | null>(null);
@@ -747,6 +753,7 @@ export function Dashboard() {
       : activePortfolio
         ? isPanelVisible(ccVisibleByPortfolio, activePortfolio, experienceTier !== "novice")
         : true;
+  ccVisibleRef.current = ccVisible;
   // Forecast defaults to visible for every experience tier — unlike Lab/
   // Pulse/Seasonality, it's plain price-scenario modeling, not something
   // that needs "growing into."
@@ -1437,9 +1444,25 @@ export function Dashboard() {
           applyFxPayload(quotesJson.fx);
         }
 
-        // No options experience -> don't even fetch options-chain data;
-        // the panel that would show it never renders for these viewers.
-        if (opts?.quotesOnly || hideOptionsUI) {
+        /*
+          The options scan is the most expensive thing this app asks a
+          provider for, and it was running on every poll.
+
+          `scanCoveredCall` costs one call to list a company's expiry dates
+          and one per nearby expiry it prices, so up to four a holding, and
+          this runs inside the quote refresh, which polls every fifteen
+          seconds while the market is open. The chains are cached now, which
+          took most of it, but a reader who has folded the covered-call
+          panel away was still paying to fill a cache for a screen they are
+          not looking at.
+
+          So it asks three questions, cheapest first: did the caller ask for
+          quotes alone, has this reader said they do not know options, and
+          is a covered-call surface actually on screen. The last is read
+          from a ref, and an effect below re-runs the scan the moment the
+          panel is opened, so nothing waits a poll to appear.
+        */
+        if (opts?.quotesOnly || hideOptionsUI || !ccVisibleRef.current) {
           if (hideOptionsUI) setOptions({});
           return;
         }
@@ -1521,6 +1544,26 @@ export function Dashboard() {
     awaited rather than fired and forgotten, so the ring turns for as long as
     the answer really takes.
   */
+  /*
+    Opening the covered-call panel fills it now, rather than at the next
+    poll. The refresh above skips the options scan while no covered-call
+    surface is on screen, which is what stops a folded panel paying for
+    provider calls all day; without this a reader who opened it would sit
+    in front of empty rows for up to fifteen seconds during the session and
+    a good deal longer outside it.
+
+    It fires only on the edge, when the panel becomes visible, so the poll
+    is left to do its own work. The chains are cached, so an open and a
+    close and an open again costs one walk rather than three.
+  */
+  const ccWasVisibleRef = useRef(false);
+  useEffect(() => {
+    const opened = ccVisible && !ccWasVisibleRef.current;
+    ccWasVisibleRef.current = ccVisible;
+    if (!opened || hideOptionsUI || allTickers.length === 0) return;
+    void refreshMarkets(allTickers, holdings, undefined, { silent: true });
+  }, [ccVisible, hideOptionsUI, allTickers, holdings, refreshMarkets]);
+
   useEffect(
     () =>
       onWorkspaceRefresh("book", async () => {
