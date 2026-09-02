@@ -104,19 +104,23 @@ async function handleGET() {
 }
 
 async function handlePOST(req: Request) {
+  // Signed in, like GET. A missing session used to read as "no recorded
+  // nights" and the assumed path was still built, which is a year of Yahoo
+  // history for up to MAX_TICKERS names handed to anyone who found the
+  // address. Both callers, Home's year chart and the Fund compare, sit
+  // behind SignInGate, so a reader sees nothing different.
+  const auth = await requireAuthUser();
+  if ("error" in auth) return auth.error;
+
   const parsed = await parseJsonBody(req, navHistoryPostSchema);
   if (!parsed.ok) return parsed.response;
   const body = parsed.data;
 
   const assumed = body.assumed !== false;
-  const auth = await requireAuthUser();
-  const userId = "error" in auth ? null : auth.user.id;
   const onlyIds = Array.isArray(body.portfolioIds)
     ? body.portfolioIds.map((id) => String(id)).filter(Boolean)
     : undefined;
-  const snaps = userId
-    ? await snapshotPointsForUser(userId, onlyIds)
-    : { points: [] as NavPoint[], firstRealDate: null };
+  const snaps = await snapshotPointsForUser(auth.user.id, onlyIds);
 
   if (!assumed) {
     let spyPoints: NavPoint[] | undefined;
