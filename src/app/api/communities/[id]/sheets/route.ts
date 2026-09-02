@@ -112,22 +112,25 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 400 });
   }
 
-  const { data: community } = await supabase
-    .from(PORTFELL_TABLES.communities)
-    .select("kind")
-    .eq("id", id)
-    .maybeSingle();
+  const [{ data: community }, { data: sheet }] = await Promise.all([
+    supabase
+      .from(PORTFELL_TABLES.communities)
+      .select("kind")
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from(PORTFELL_TABLES.portfolios)
+      .select("name, classroom_community_id")
+      .eq("id", portfolioId)
+      .maybeSingle(),
+  ]);
   const classroom = isClassroomKind(
     (community as { kind?: string } | null)?.kind
   );
+  const classId = (
+    sheet as { classroom_community_id?: string | null } | null
+  )?.classroom_community_id;
   if (classroom) {
-    const { data: sheet } = await supabase
-      .from(PORTFELL_TABLES.portfolios)
-      .select("classroom_community_id")
-      .eq("id", portfolioId)
-      .maybeSingle();
-    const classId = (sheet as { classroom_community_id?: string | null } | null)
-      ?.classroom_community_id;
     if (body.shared !== false && classId !== id) {
       return NextResponse.json(
         { error: "This class only shows the paper portfolio you were given." },
@@ -141,14 +144,23 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
       );
     }
   }
+  /*
+    The rule above only ran when the target was a class, so a student could
+    pin the class's paper portfolio into an ordinary circle and every member
+    there would read a homework portfolio as somebody's real one. A class
+    portfolio is only ever shown in its own class. The insert policy on
+    portfell_community_portfolios says the same (migration
+    20260902120000), so a direct PostgREST call is refused too.
+  */
+  if (body.shared !== false && classId && classId !== id) {
+    return NextResponse.json(
+      { error: "A class portfolio stays in its class." },
+      { status: 403 }
+    );
+  }
 
   const share = body.shared !== false;
   if (share) {
-    const { data: sheet } = await supabase
-      .from(PORTFELL_TABLES.portfolios)
-      .select("name")
-      .eq("id", portfolioId)
-      .maybeSingle();
     const { error } = await supabase.from(PORTFELL_TABLES.communityPortfolios).insert({
       community_id: id,
       portfolio_id: portfolioId,

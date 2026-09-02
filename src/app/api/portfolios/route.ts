@@ -5,6 +5,7 @@ import { ensureProfileAndClaims } from "@/lib/auth/ensure-profile";
 import {
   communityAdminFlags,
   listOwnedPortfolioIds,
+  portfolioCreatorId,
   requirePortfolioOwner,
 } from "@/lib/auth/ownership";
 import {
@@ -321,6 +322,25 @@ async function handleDELETE(req: NextRequest) {
 
   const notOwner = await requirePortfolioOwner(auth.user.id, id);
   if (notOwner) return notOwner;
+
+  /*
+    Deleting is the creator's alone. A co-owner can edit every holding,
+    which is what they were invited for, and they can leave from the
+    Invite screen; what they cannot do is take the whole portfolio away
+    from the person who made it and everybody else on it. Inviting stays
+    open to every co-owner, because adding a person is undoable and
+    deleting a portfolio is not.
+  */
+  const creatorId = await portfolioCreatorId(id);
+  if (creatorId && creatorId !== auth.user.id) {
+    return NextResponse.json(
+      {
+        error:
+          "Only the person who made this portfolio can delete it. You can leave it from the Invite screen instead.",
+      },
+      { status: 403 }
+    );
+  }
 
   const supabase = await getSupabaseDataClient();
   if (!supabase) {
