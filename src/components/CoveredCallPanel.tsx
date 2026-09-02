@@ -4,7 +4,8 @@ import { FluidRow, FluidTable, cellBase, cellTicker, tableCols } from "@/compone
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, Panel, PanelHeader } from "@/components/ui/Panel";
-import { NO_VALUE, cn, currency, percent, signedTone } from "@/lib/format";
+import { NO_VALUE, cashtag, cn, currency, percent, plural, signedTone } from "@/lib/format";
+import { shareCount } from "@/lib/share-count";
 import { isSafePositiveMoney } from "@/lib/input-guard";
 import {
   blockWheelChange,
@@ -77,11 +78,23 @@ function InlineTargetCall({
   );
 }
 
+/**
+ * The price the reader would be happy to sell at.
+ *
+ * Until they set one, what is in the box is this app's own suggestion,
+ * worked out from where the price has turned back lately, and it was
+ * presented in exactly the same weight as a figure somebody chose. So a
+ * suggested one is muted and says so beside it, and typing over it makes
+ * it theirs.
+ */
 function InlineStockTarget({
   value,
+  suggested = false,
   onCommit,
 }: {
   value: number | null;
+  /** True when nobody has set this and the number is our own guess. */
+  suggested?: boolean;
   onCommit: (price: number) => void;
 }) {
   const display =
@@ -122,7 +135,10 @@ function InlineStockTarget({
             (e.target as HTMLInputElement).blur();
           }
         }}
-        className="inline-edit no-spinner w-[4.5rem] rounded-t py-0.5 text-center tabular-nums text-foreground outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50"
+        className={cn(
+          "inline-edit no-spinner w-[4.5rem] rounded-t py-0.5 text-center tabular-nums outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50",
+          suggested ? "text-muted-foreground" : "text-foreground"
+        )}
       />
     </div>
   );
@@ -197,11 +213,11 @@ function InlineExpiry({
 
 const HEADERS = [
   "Ticker",
-  "Spot",
+  "Price",
   "Call %",
   "Stock target",
   "Distance",
-  "Write",
+  "Near your target?",
   "Next strike",
   "Expires",
   "Contracts",
@@ -210,11 +226,15 @@ const HEADERS = [
 ] as const;
 
 const HEADER_HINTS: Partial<Record<(typeof HEADERS)[number], string>> = {
-  Spot: "What one share costs right now",
+  Price: "What one share costs right now",
   "Call %": "How far above your target you set the strike. A strike further away pays you less, but your shares are less likely to be sold",
-  "Stock target": "The price you would be happy to sell at",
+  "Stock target": "The price you would be happy to sell at. Until you set one, this is a suggestion worked out from where the price has turned back lately",
   Distance: "How far the price still has to travel to reach your target. Negative means it is already there",
-  Write: "How close the share price is to the price you would sell the call at",
+  // The column measures the distance to the price the reader said they
+  // would sell the shares at, not to the strike. It said the strike for
+  // months, which is a different number in a table that shows both.
+  "Near your target?":
+    "How close the share price is to the price you said you would be happy to sell at",
   "Next strike": "The strike this plan points at, rounded to one you can actually trade",
   Contracts: "One contract covers 100 shares",
   "2-week %": "What you collect, as a percentage of the shares this ties up, over roughly two weeks",
@@ -239,10 +259,12 @@ function writeProximity(distance: number | null): {
     return { label: NO_VALUE, className: "text-muted-foreground" };
   }
   if (distance <= 0) {
-    return { label: "At your target", className: "text-primary/60" };
+    return { label: "Already there", className: "text-primary/60" };
   }
   if (distance < 0.04) {
-    return { label: "Close", className: "text-caution" };
+    // "Close" sat under a column headed Write, so a beginner read the two
+    // words together as an instruction to close something.
+    return { label: "Nearly there", className: "text-caution" };
   }
   if (distance < 0.12) {
     return { label: "Getting near", className: "text-foreground" };
@@ -252,6 +274,9 @@ function writeProximity(distance: number | null): {
 
 /** Anchor Home uses to land on this table from "Open covered calls". */
 export const COVERED_CALLS_ANCHOR = "covered-calls";
+
+/** One contract is one hundred shares, and that is the whole gate. */
+const SHARES_PER_CONTRACT = 100;
 
 export const CoveredCallPanel = memo(function CoveredCallPanel({
   rows,
@@ -267,6 +292,55 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
   );
   const tickerCell = mixedListings ? cellTicker : cellBase;
   const template = tableCols(11, mixedListings);
+
+  /*
+   * Nothing here can apply until one holding reaches a hundred shares of
+   * one company, and on a portfolio whose biggest holding is fifteen this
+   * panel was about 2,300px of "0 contracts, n/a, n/a" on a phone: roughly
+   * a third of the room, all of it about something the reader cannot do.
+   * So it collapses to one line that says why, and names the holding that
+   * is closest, which is the only useful thing on the whole panel for
+   * somebody in that position.
+   */
+  const writable = rows.filter(
+    (r) => r.holding.shares >= SHARES_PER_CONTRACT
+  );
+  const biggest = rows.reduce<CoveredCallRow | null>(
+    (best, r) => (best == null || r.holding.shares > best.holding.shares ? r : best),
+    null
+  );
+
+  /*
+   * An empty portfolio used to stack four empty panels: a Holdings empty
+   * state with three import buttons, this one with a fourth Add holding
+   * button, a "No holdings yet" forecast and a line claiming Margus was
+   * still working on prices that do not exist. The Holdings empty state
+   * is the one that says what to do, so it is the only one that renders.
+   */
+  if (rows.length === 0) return null;
+
+  if (writable.length === 0) {
+    return (
+      <Panel
+        padded={false}
+        id={COVERED_CALLS_ANCHOR}
+        className="scroll-mt-28 overflow-hidden"
+      >
+        <div className="p-6">
+          <PanelHeader title="Covered calls" />
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            Writing one covered call needs a hundred shares of a single
+            company.
+            {biggest
+              ? ` Your biggest holding is ${shareCount(biggest.holding.shares)} of ${cashtag(biggest.holding.ticker)}, so there is nothing to write yet.`
+              : " There is nothing to write yet."}{" "}
+            This fills in on its own when one of your holdings gets there.
+          </p>
+        </div>
+      </Panel>
+    );
+  }
+
   return (
     <Panel
       padded={false}
@@ -302,7 +376,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                   />
                 </p>
                 <p className="text-sm tabular-nums text-muted-foreground">
-                  Spot {currency(r.spot)}
+                  Price {currency(r.spot)}
                 </p>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
@@ -317,10 +391,16 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                   <p className="mb-1 text-muted-foreground">Happy to sell at</p>
                   <InlineStockTarget
                     value={r.stockTarget}
+                    suggested={r.holding.stock_target_override == null}
                     onCommit={(price) =>
                       onPatchStockTarget(r.holding.id, price)
                     }
                   />
+                  {r.holding.stock_target_override == null ? (
+                    <p className="mt-0.5 text-sm italic text-muted-foreground">
+                      Our suggestion
+                    </p>
+                  ) : null}
                 </div>
                 <div>
                   <p className="text-muted-foreground">Still to go</p>
@@ -338,7 +418,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Write</p>
+                  <p className="text-muted-foreground">Near your target?</p>
                   <p
                     className={cn(
                       "font-medium",
@@ -368,9 +448,9 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                 </div>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                {Math.round(r.contracts)} contracts
+                {plural(Math.round(r.contracts), "contract")}
                 {r.expiration
-                  ? ` - expires ${format(parseISO(r.expiration), "MMM d")}`
+                  ? `, expires ${format(parseISO(r.expiration), "MMM d")}`
                   : ""}
               </p>
             </Card>
@@ -398,7 +478,18 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
             {HEADERS.map((label, i) => (
               <div
                 key={label}
-                className={i === 0 ? tickerCell : cellBase}
+                /*
+                  A header may wrap; a figure may not. `cellBase` is
+                  `whitespace-nowrap` because a price broken over two lines
+                  is not a price, and every column is floored at its widest
+                  cell, so a header spelled out in words ("Near your
+                  target?") would set the whole track's width over a column
+                  of two short words. Only the header row grows.
+                */
+                className={cn(
+                  i === 0 ? tickerCell : cellBase,
+                  i === 0 ? "" : "whitespace-normal leading-tight"
+                )}
                 title={HEADER_HINTS[label]}
               >
                 {label}
@@ -447,6 +538,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
               <div className={cellBase}>
                 <InlineStockTarget
                   value={r.stockTarget}
+                  suggested={r.holding.stock_target_override == null}
                   onCommit={(price) => onPatchStockTarget(r.holding.id, price)}
                 />
               </div>

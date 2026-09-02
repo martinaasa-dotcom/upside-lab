@@ -66,10 +66,6 @@ type Props = {
   portfolioName: string;
   onClose: () => void;
   onSave: (rows: HoldingFormValues[]) => void;
-  /** Hide the Target call % field for viewers with no options experience
-   * — still submits with the same default, they just never see or think
-   * about it. */
-  hideCallPct?: boolean;
 };
 
 function upsertDraft(list: Draft[], row: Draft): Draft[] {
@@ -93,7 +89,6 @@ export function HoldingModal({
   portfolioName,
   onClose,
   onSave,
-  hideCallPct = false,
 }: Props) {
   const [ticker, setTicker] = useState("");
   /*
@@ -341,7 +336,6 @@ export function HoldingModal({
     buyPrice,
     normalized ? listingCurrency(normalized) : "USD"
   );
-  const hideCall = hideCallPct || holdingIsCoin;
   const exchangeHint = normalized ? tickerExchangeHint(normalized) : null;
   const buyCode = normalized ? listingCurrency(normalized) : "USD";
   const mixedListings = listingCurrenciesAreMixed(
@@ -615,28 +609,18 @@ export function HoldingModal({
               <span className="font-mono tabular-nums text-foreground">
                 {costPreview.total}
               </span>{" "}
-              put into {holdingIsCoin ? "this coin" : "this name"}.
+              put into {holdingIsCoin ? "this coin" : "this company"}.
             </p>
           )}
-          {!hideCall && (
-            <Field>
-              <FieldLabel htmlFor="holding-call">
-                How far above your target to sell (%)
-              </FieldLabel>
-              <Input
-                id="holding-call"
-                type="text"
-                inputMode="numeric"
-                value={targetCall}
-                onChange={(e) => {
-                  setTargetCall(e.target.value.replace(/[^\d]/g, ""));
-                  setError(null);
-                }}
-                onWheel={blockWheelChange}
-                className="tabular-nums"
-              />
-            </Field>
-          )}
+          {/*
+            The covered-call distance is not a question for this form. It
+            is the first form a beginner fills in, "How far above your
+            target to sell" names a target nothing above defines, and it
+            reads as a plan to sell the shares they are in the middle of
+            adding. The default is applied on save by `callPctForTicker`
+            from each ticker's own recent movement, and it is editable
+            inline in the covered calls panel by anybody who wants it.
+          */}
         </FieldGroup>
 
         {error && <p className="mt-3 text-sm text-destructive">{error}</p>}

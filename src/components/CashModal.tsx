@@ -23,8 +23,8 @@ type Props = {
 type Sign = "have" | "owe";
 
 const SIGN_OPTIONS = [
-  { id: "have" as const, label: "Money there" },
-  { id: "owe" as const, label: "Money borrowed" },
+  { id: "have" as const, label: "Money you have" },
+  { id: "owe" as const, label: "Money you borrowed" },
 ];
 
 /**
