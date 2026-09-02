@@ -113,4 +113,24 @@ describe("the session refresh", () => {
     await proxy(new NextRequest("http://localhost:3000/pulse"));
     expect(optionsFor("http://localhost:3000/pulse")).toMatchObject({ secure: false });
   });
+
+  /*
+    An API route asks the auth service who is signed in itself, so the proxy
+    asking first is a second round trip for the same answer, and on a public
+    route it is a round trip for nobody. A client that is never built cannot
+    make one, so that is what this checks.
+  */
+  it("builds no client at all for an API route", async () => {
+    const res = await proxy(
+      new NextRequest("https://upsidelab.app/api/quotes?symbols=NVDA")
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Security-Policy")).toBeTruthy();
+    expect(createServerClient).not.toHaveBeenCalled();
+  });
+
+  it("still builds one for a page", async () => {
+    await proxy(new NextRequest("https://upsidelab.app/pulse"));
+    expect(createServerClient).toHaveBeenCalledTimes(1);
+  });
 });
