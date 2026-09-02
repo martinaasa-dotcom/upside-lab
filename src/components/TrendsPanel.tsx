@@ -180,10 +180,19 @@ function TickerStoryCard({
       </CardContent>
       {row.divergence ? (
         <CardFooter className="items-start text-sm leading-relaxed text-muted-foreground">
-          Price made a {row.divergence.kind === "bearish" ? "higher high" : "lower low"} (
-          {row.divergence.priceFrom.toFixed(0)} → {row.divergence.priceTo.toFixed(0)}) while RSI went the
-          other way ({row.divergence.rsiFrom.toFixed(0)} → {row.divergence.rsiTo.toFixed(0)}). Confirmed{" "}
-          {row.divergence.weeksAgo === 0 ? "this week" : `${row.divergence.weeksAgo}w ago`}.
+          The price reached a new{" "}
+          {row.divergence.kind === "bearish" ? "high" : "low"} (
+          {row.divergence.priceFrom.toFixed(0)} to{" "}
+          {row.divergence.priceTo.toFixed(0)}) while the reading of how hard it
+          was moving went the other way ({row.divergence.rsiFrom.toFixed(0)} to{" "}
+          {row.divergence.rsiTo.toFixed(0)}). That often comes before a turn,
+          and it does not always. Seen{" "}
+          {row.divergence.weeksAgo === 0
+            ? "this week"
+            : row.divergence.weeksAgo === 1
+              ? "a week ago"
+              : `${row.divergence.weeksAgo} weeks ago`}
+          .
         </CardFooter>
       ) : null}
     </Card>
@@ -418,7 +427,7 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
               <span>
                 {attentionCount === 0
                   ? "None of these has changed direction or started to slow right now. They are sorted by how far each one is ahead of the S&P 500."
-                  : `${attentionCount} name${attentionCount === 1 ? "" : "s"} below ${attentionCount === 1 ? "has" : "have"} something actually changing. Those come first.`}
+                  : `${attentionCount} of the companies below ${attentionCount === 1 ? "has" : "have"} something actually changing. Those come first.`}
               </span>
             </span>
           </Reading>

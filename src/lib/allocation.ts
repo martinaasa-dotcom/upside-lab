@@ -105,7 +105,7 @@ export function allocationBySector(
     if (value <= 0) continue;
     const base = h.ticker.split(".")[0]!.toUpperCase();
     const sector =
-      TICKER_SECTORS[h.ticker] ?? TICKER_SECTORS[base] ?? "Unclassified";
+      TICKER_SECTORS[h.ticker] ?? TICKER_SECTORS[base] ?? "Not sorted yet";
     totals.set(sector, sumMoney([totals.get(sector) ?? 0, value]));
     sum = sumMoney([sum, value]);
   }

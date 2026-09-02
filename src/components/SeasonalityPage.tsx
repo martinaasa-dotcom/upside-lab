@@ -69,6 +69,23 @@ function retTone(v: number): "up" | "down" | undefined {
   return undefined;
 }
 
+/**
+ * The list mixes two spellings of the same index and three funds nobody can
+ * be expected to recognise by their letters, so each one says what it is and
+ * keeps its ticker in brackets for anybody who does.
+ */
+const MARKET_NAMES: Record<string, string> = {
+  SPY: "S&P 500 fund (SPY)",
+  "^GSPC": "S&P 500 index",
+  QQQ: "Nasdaq 100 fund (QQQ)",
+  IWM: "Smaller US companies (IWM)",
+  DIA: "Dow Jones fund (DIA)",
+};
+
+function marketName(ticker: string): string {
+  return MARKET_NAMES[ticker] ?? cashtag(ticker);
+}
+
 function stanceStyles(stance: ActionStance): string {
   if (stance === "deploy") return "border-gain/30 bg-gain/[0.08]";
   if (stance === "raise_cash") return "border-loss/30 bg-loss/[0.08]";
@@ -76,8 +93,8 @@ function stanceStyles(stance: ActionStance): string {
 }
 
 function stanceLabel(stance: ActionStance): string {
-  if (stance === "deploy") return "Historically strong months";
-  if (stance === "raise_cash") return "Historically soft months";
+  if (stance === "deploy") return "A historically strong month";
+  if (stance === "raise_cash") return "A historically soft month";
   return "Mixed, with no clear pattern";
 }
 
@@ -120,7 +137,7 @@ function CycleMonthlyChart({
                   ? "ring-1 ring-ring/40 hover:bg-hover"
                   : "hover:bg-hover"
             )}
-            title={`${row.label}: avg ${fmtPct(v)} (${row.samples} prior ${row.label}s)`}
+            title={`${MONTH_NAMES[row.month - 1]}: ${fmtPct(v)} on average over ${row.samples} earlier ${MONTH_NAMES[row.month - 1]}s`}
           >
             <div className="flex h-28 w-full items-end justify-center">
               <div
@@ -222,7 +239,9 @@ function CycleHistoryBars({
 }) {
   if (history.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">No prior data in this cycle phase.</p>
+      <p className="text-sm text-muted-foreground">
+        No earlier years like this one to compare.
+      </p>
     );
   }
 
@@ -437,8 +456,8 @@ function DayOfMonthChart({
         })}
       </div>
       <p className="hidden text-sm text-muted-foreground md:block">
-        Average session return on that calendar day in {monthLabel}. Pick a
-        day for the years behind it.
+        The average move on that calendar day in {monthLabel}. Pick a day to
+        see the years behind it.
       </p>
     </div>
   );
@@ -458,7 +477,7 @@ function ActionCards({ signals }: { signals: ActionSignal[] }) {
     >
       <div className={SPLIT_COPY}>
         <p className="text-sm font-medium text-muted-foreground">
-          {stanceLabel(s.stance)} - this month
+          {stanceLabel(s.stance)}, going by the years behind it
         </p>
         <p className="mt-1.5 text-base font-semibold text-foreground">{s.headline}</p>
         <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{s.detail}</p>
@@ -632,7 +651,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
                 {thisMonthSamples != null
                   ? `${thisMonthSamples} ${thisMonthSamples === 1 ? "year" : "years"}`
                   : "the matching years"}
-                , the prior {model.currentCycleLabel.toLowerCase()} years only.
+                , the earlier {model.currentCycleLabel.toLowerCase()} years only.
                 That describes what happened, not what will. Nothing here
                 looks at what you own.
               </p>
@@ -646,7 +665,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
           </div>
           <div className={SPLIT_ACTIONS}>
             <label className="flex min-w-0 flex-1 items-center gap-2 text-sm text-muted-foreground sm:flex-none">
-              <span className="shrink-0">Benchmark</span>
+              <span className="shrink-0">Look at</span>
               <NativeSelect
                 value={ticker}
                 onChange={(e) => setTicker(e.target.value)}
@@ -654,7 +673,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
               >
                 {tickers.map((t) => (
                   <NativeSelectOption key={t} value={t}>
-                    {t}
+                    {marketName(t)}
                   </NativeSelectOption>
                 ))}
               </NativeSelect>
@@ -689,7 +708,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
           <ActionCards signals={model.signals} />
 
           <Panel>
-            <PanelHeader title="What this month usually does" />
+            <PanelHeader title="What this month has done before" />
             <div className="mt-4">
               <CycleMonthlyTiles
                 rows={model.cycleMonthly}
@@ -794,7 +813,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
               />
               {selectedDayRow ? (
                 <SelectedHistory
-                  heading={`${selectedDayLabel}, prior sessions`}
+                  heading={`${selectedDayLabel} in earlier years`}
                   avgPct={selectedDayRow.avgReturnPct}
                   winRate={selectedDayRow.winRate}
                   samples={selectedDayRow.samples}
@@ -804,7 +823,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
                 />
               ) : (
                 <p className="mt-4 text-sm text-muted-foreground">
-                  No prior sessions for this day.
+                  No earlier years for this day.
                 </p>
               )}
             </div>

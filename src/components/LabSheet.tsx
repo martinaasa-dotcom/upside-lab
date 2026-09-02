@@ -71,7 +71,7 @@ type LabTab = "alloc" | "risk" | "trends" | "seasonality";
 
 /** One flat row: what you hold, how risky it is, and when it tends to move. */
 const TABS: { id: LabTab; label: string }[] = [
-  { id: "alloc", label: "Allocation" },
+  { id: "alloc", label: "The mix" },
   { id: "risk", label: "Risk" },
   { id: "trends", label: "Trends" },
   { id: "seasonality", label: "Seasonality" },
@@ -296,9 +296,53 @@ export const LabSheet = memo(function LabSheet({
   );
   const corrHeat = useMemo(() => correlationGrid(corrSeries), [corrSeries]);
 
+  /*
+   * One sentence per tab: what the view is for, then one thing to notice in
+   * this reader's own figures. Worked out from what is on screen rather than
+   * written once for everybody, because a general sentence about
+   * diversification teaches nobody anything about their own portfolio.
+   */
+  const risingCount = useMemo(
+    () =>
+      scopedTickers.filter((t) => {
+        const spark = t.sparkline ?? [];
+        const first = spark[0];
+        const last = spark[spark.length - 1];
+        return first != null && last != null && first > 0 && last > first;
+      }).length,
+    [scopedTickers]
+  );
+
+  const holdingCount = concentration.positionCount;
+  const topThree = Math.round(concentration.topThreePct * 100);
+  const topWeight = Math.round(concentration.topWeightPct * 100);
+  const topName = concentration.topWeightTicker
+    ? cashtag(concentration.topWeightTicker)
+    : null;
+
+  const tabIntro: Record<LabTab, string> = {
+    alloc:
+      holdingCount === 0
+        ? "Where your money actually sits, grouped by company and by kind of business."
+        : holdingCount > 3
+          ? `Where your money actually sits, grouped by company and by kind of business. Your three biggest holdings are ${topThree}% of your stocks.`
+          : `Where your money actually sits, grouped by company and by kind of business. You hold ${holdingCount} ${holdingCount === 1 ? "company" : "companies"}, so almost all of this rides on ${topName ?? "them"}.`,
+    risk:
+      topName && holdingCount > 0
+        ? `What a rough day would do to what you hold, and which of your companies move together. ${topName} is ${topWeight}% of your stocks, so a bad day for it is a bad day for the whole portfolio.`
+        : "What a rough day would do to what you hold, and which of your companies tend to move together.",
+    trends:
+      holdingCount === 0
+        ? "Whether each company is still moving the way it was, read from four years of weekly closing prices."
+        : `Whether each company is still moving the way it was, read from four years of weekly closing prices. ${risingCount} of your ${holdingCount} ${holdingCount === 1 ? "holding is" : "holdings are"} higher now than three months ago.`,
+    seasonality:
+      "Which months the market has been kind in before, and which it has not. This one never looks at what you own, and your own holdings are in the list so you can look one up.",
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <Panel padded={false} className="px-4 py-3 sm:px-6 sm:py-4">
+        <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
             <h2 className="shrink-0 text-foreground">Lab</h2>
@@ -421,6 +465,10 @@ export const LabSheet = memo(function LabSheet({
             </Select>
           </div>
         </div>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {tabIntro[tab]}
+        </p>
+        </div>
       </Panel>
 
       {tab === "alloc" && !hiddenTabs.includes("alloc") && (
@@ -460,9 +508,9 @@ export const LabSheet = memo(function LabSheet({
                     value={Math.max(2, Math.min(100, personality.diversificationScore))}
                     className="h-3 bg-secondary"
                   />
-                  <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-                    <span>0 - all in one name</span>
-                    <span>100 - index-broad</span>
+                  <div className="mt-2 flex justify-between gap-4 text-xs text-muted-foreground">
+                    <span>0 is everything in one holding</span>
+                    <span className="text-right">100 is as spread out as an index fund</span>
                   </div>
                 </div>
 
@@ -472,12 +520,12 @@ export const LabSheet = memo(function LabSheet({
                     value={`${concentration.effectivePositions.toFixed(1)} holdings`}
                     sub={
                       concentration.positionCount === 1
-                        ? "Your only position."
+                        ? "Your only holding."
                         : `You hold ${concentration.positionCount}. Uneven weights make it act like fewer.`
                     }
                   />
                   <Score
-                    label="Largest position"
+                    label="Largest holding"
                     value={`${(concentration.topWeightPct * 100).toFixed(1)}%`}
                     sub={concentration.topWeightTicker ?? undefined}
                     /* --warning, not --loss. A concentrated position is a
@@ -564,8 +612,8 @@ export const LabSheet = memo(function LabSheet({
               )}
 
               <div className="grid gap-4 md:grid-cols-2">
-                <AllocCard title="By sector" slices={sectors} />
-                <AllocCard title="By ticker" slices={byTicker} />
+                <AllocCard title="By kind of business" slices={sectors} />
+                <AllocCard title="By holding" slices={byTicker} />
               </div>
             </>
           )}
@@ -761,7 +809,7 @@ function AllocCard({
           </div>
         ))}
         {slices.length === 0 && (
-          <p className="text-sm text-muted-foreground">No equity to allocate.</p>
+          <p className="text-sm text-muted-foreground">Nothing held here yet.</p>
         )}
       </div>
     </Panel>
