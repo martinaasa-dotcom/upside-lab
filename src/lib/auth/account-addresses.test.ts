@@ -8,6 +8,7 @@ import {
   hashLinkToken,
   isAddressOutcome,
   linkUrl,
+  maskAddress,
   mintLinkToken,
   type ClaimFacts,
 } from "@/lib/auth/account-addresses";
@@ -241,5 +242,35 @@ describe("the address on a Google identity token", () => {
     expect(readIdTokenClaims("not.a")).toBeNull();
     expect(googleEmailFromIdToken("not.a.jwt", CLIENT, now)).toBeNull();
     expect(googleEmailFromIdToken(token(good), undefined, now)).toBeNull();
+  });
+});
+
+describe("naming an account on a page behind no sign-in", () => {
+  /*
+    Every page in this feature has to say which account a link opens, or the
+    reader is agreeing to something nobody described. None of them is behind a
+    session, so the mailbox goes and the domain stays: enough for the person it
+    is meant for to recognise, not enough for anybody else to learn.
+  */
+  it("keeps a couple of letters and the whole domain", () => {
+    expect(maskAddress("martin.aasa@upthink.ee")).toBe("ma...@upthink.ee");
+    expect(maskAddress("amandalucas400@gmail.com")).toBe("am...@gmail.com");
+  });
+
+  it("gives a very short mailbox away less, not more", () => {
+    expect(maskAddress("ab@x.com")).toBe("a...@x.com");
+    expect(maskAddress("a@x.com")).toBe("a...@x.com");
+  });
+
+  it("says nothing at all about something that is not an address", () => {
+    expect(maskAddress("")).toBe("...");
+    expect(maskAddress("nothing")).toBe("...");
+    expect(maskAddress("@x.com")).toBe("...");
+  });
+
+  it("has a sentence for the pace refusal, like every other outcome", () => {
+    expect(isAddressOutcome("slow-down")).toBe(true);
+    expect(ADDRESS_MESSAGES["slow-down"]).toMatch(/tomorrow/);
+    expect(addressOutcomeIsGood("slow-down")).toBe(false);
   });
 });

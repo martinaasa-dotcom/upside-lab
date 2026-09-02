@@ -119,14 +119,30 @@ async function handlePOST(req: NextRequest) {
   });
 
   if (result.kind === "error") {
+    const status =
+      result.code === "failed" ? 500 : result.code === "slow-down" ? 429 : 400;
+
     return NextResponse.json(
       { error: ADDRESS_MESSAGES[result.code], typed: email },
-      { status: result.code === "failed" ? 500 : 400 }
+      { status }
     );
   }
 
   if (result.kind === "already") {
     return NextResponse.json({ ok: true, note: ADDRESS_MESSAGES.already });
+  }
+
+  /*
+    An address that is spoken for reads exactly like one that is free.
+
+    Naming the difference turned this field into a way of asking whether a
+    stranger has an account here: anybody signed in could type an address and
+    read the answer off the screen, one address at a time, at whatever pace the
+    limit above allows. The refusal still happens and is still said out loud,
+    in the mailbox it is about, which is the one place it is anybody's news.
+  */
+  if (result.kind === "quiet") {
+    return NextResponse.json({ ok: true, sent: ADDRESS_MESSAGES.sent });
   }
 
   /*

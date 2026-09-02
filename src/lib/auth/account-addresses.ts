@@ -57,6 +57,28 @@ export function linkUrl(origin: string, token: string): string {
   return `${origin}/auth/link?token=${encodeURIComponent(token)}`;
 }
 
+/**
+ * An address with most of the mailbox taken out.
+ *
+ * Every page in this feature has to name the account a link would open, or
+ * the reader is being asked to agree to something nobody told them. None of
+ * those pages is behind a sign-in: a confirmation is read in whatever mailbox
+ * it was sent to, and the Google question is read before any session exists.
+ * So the sentence names enough for the person it is meant for to recognise
+ * their own account, and not enough for anybody else to learn an address.
+ *
+ * The domain is kept whole on purpose. It is the half somebody recognises,
+ * and it is public: it is on every business card and in the MX record.
+ */
+export function maskAddress(email: string): string {
+  const at = email.lastIndexOf("@");
+  if (at < 1) return "...";
+
+  const local = email.slice(0, at);
+  const keep = local.length >= 4 ? 2 : 1;
+  return `${local.slice(0, keep)}...${email.slice(at)}`;
+}
+
 /*
   What should happen when an account asks for an address.
 
@@ -95,6 +117,7 @@ export type AddressOutcome =
   | "has-data"
   | "limit"
   | "no-mail"
+  | "slow-down"
   | "signed-out"
   | "not-configured"
   | "failed";
@@ -110,6 +133,8 @@ export const ADDRESS_MESSAGES: Record<AddressOutcome, string> = {
   limit: `An account holds ${MAX_LINKED_ADDRESSES} extra addresses at most. Take one off to add another.`,
   "no-mail":
     `${PRODUCT_NAME} cannot send mail from this deployment, so an address cannot be confirmed here. Connect it with Google instead.`,
+  "slow-down":
+    "That address has had a few confirmations sent to it already today. Try again tomorrow.",
   "signed-out":
     "You were signed out before that came back, so nothing was added. Sign in and try again.",
   "not-configured": "Adding an address is not switched on here yet.",

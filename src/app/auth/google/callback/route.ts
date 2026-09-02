@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import {
+  CONTINUE_COOKIE,
+  continueCookieOptions,
+  sealContinue,
+} from "@/lib/auth/continue-session";
+import { normalizeAddress } from "@/lib/auth/email-address";
 import { ensureProfileAndClaims } from "@/lib/auth/ensure-profile";
 import {
   GOOGLE_OAUTH_COOKIE,
@@ -117,6 +123,29 @@ export async function GET(request: Request) {
   const linked = await accountForAddress(googleEmail);
 
   if (linked) {
+    /*
+      The account this address opens signs in under a different address, which
+      is what an extra address means and is also the whole of what could have
+      gone wrong. Somebody who was talked into confirming a link a month ago
+      would otherwise arrive here, be handed a session on a stranger's account
+      and have nothing on screen ever name it. So the browser is asked first,
+      and only a press mints anything.
+    */
+    if (normalizeAddress(linked.primaryEmail) !== normalizeAddress(googleEmail)) {
+      const sealed = sealContinue({
+        address: googleEmail,
+        primaryEmail: linked.primaryEmail,
+        next: stored.next,
+      });
+
+      if (!sealed) return fail();
+
+      const ask = NextResponse.redirect(new URL("/auth/continue", stored.origin));
+      ask.cookies.set(CONTINUE_COOKIE, sealed, continueCookieOptions(secure));
+      clearOAuthCookie(ask, secure);
+      return ask;
+    }
+
     const tokenHash = await magicTokenFor(linked.primaryEmail);
     if (!tokenHash) return fail();
 
