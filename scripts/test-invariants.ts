@@ -3198,7 +3198,19 @@ run("inbox letters share one letterhead", () => {
     url: "https://upsidelab.app/communities/join?token=abc",
     classroom: false,
   });
-  assert.equal(invite.subject, "Join Upside Circle");
+  /*
+    The subject deliberately carries no text anybody typed. A circle's name
+    is its creator's to choose and anyone signed in can make one, so
+    "Join <name>" put a chosen sentence in the subject of mail sent from the
+    address the sign-in links come from, to twenty strangers a call. The
+    name is still in the body, escaped, where an inbox list never shows it.
+  */
+  assert.equal(
+    invite.subject,
+    "You have been invited to a circle on Upside Lab"
+  );
+  assert.doesNotMatch(invite.subject, /Upside Circle/);
+  assert.match(invite.html, /Upside Circle/);
   assert.match(invite.html, /-apple-system/);
   assert.doesNotMatch(invite.html, /Georgia/);
   assert.match(invite.html, /#000000/);

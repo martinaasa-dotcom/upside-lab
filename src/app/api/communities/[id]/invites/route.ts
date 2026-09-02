@@ -23,6 +23,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
 import { communityInvitePostSchema } from "@/lib/api-schemas";
 import { parseJsonBody } from "@/lib/parse-json-body";
+import { takeDurableRateLimitWeighted } from "@/lib/rate-limit-durable";
+
+/**
+ * Envelopes one account, or one circle, may post in a day.
+ *
+ * Well above a teacher setting up a class of thirty and adding a few
+ * latecomers, and well below the volume that makes a sending domain worth
+ * abusing.
+ */
+const MAX_INVITE_EMAILS_PER_DAY = 60;
 
 export const dynamic = "force-dynamic";
 
@@ -111,6 +121,51 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
   const path = inviteJoinPath(token);
   let emailed = 0;
   if (allow.emails.length > 0 && noteEmailConfigured()) {
+    /*
+      Mail to addresses that never asked for it, so it is bounded per person
+      and per circle, weighted by how many envelopes the call would post.
+
+      There was no bound at all. Anyone signed in can make a circle and is
+      then its admin, and each call here mails up to twenty addresses from
+      the same domain the sign-in links and the Sunday letter come from. A
+      loop of these sends thousands of messages to arbitrary inboxes, spends
+      the Resend quota the product's own mail depends on, and collects the
+      spam reports against the sending domain, which is the part that does
+      not undo.
+
+      The daily figure is generous for a real teacher setting up a class and
+      far below what makes the domain worth abusing. Both keys have to
+      clear, so neither one account nor one circle is the way round it.
+    */
+    const cost = allow.emails.length;
+    for (const key of [
+      `invite-mail:user:${auth.user.id}`,
+      `invite-mail:circle:${id}`,
+    ]) {
+      const bill = await takeDurableRateLimitWeighted(
+        key,
+        MAX_INVITE_EMAILS_PER_DAY,
+        24 * 60 * 60_000,
+        cost
+      );
+      if (!bill.ok) {
+        return NextResponse.json(
+          {
+            error:
+              "That is a lot of invites for one day. The link above still works, so you can send it yourself, and you can invite more tomorrow.",
+            token,
+            path,
+            emailed: 0,
+            invite: data,
+          },
+          {
+            status: 429,
+            headers: { "Retry-After": String(bill.retryAfterSec ?? 3600) },
+          }
+        );
+      }
+    }
+
     const { data: community } = await supabase
       .from(PORTFELL_TABLES.communities)
       .select("name, kind")

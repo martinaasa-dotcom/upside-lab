@@ -201,7 +201,26 @@ export function communityInviteCopy(input: {
   classroom: boolean;
 }): { subject: string; text: string; html: string } {
   const name = input.name.trim() || (input.classroom ? "a class" : "a Circle");
-  const subject = `Join ${name}`;
+  /*
+    The subject carries no text anybody typed, and that is the whole of why
+    it is worded this way.
+
+    A circle's name is its creator's to choose, anyone signed in can make
+    one, and it was going straight into the subject line as `Join <name>`.
+    A circle called "URGENT: your Upside Lab account is suspended" is a
+    phishing subject, sent from the address this product's sign-in links and
+    Sunday letters come from, to twenty strangers a call. Trimming the name
+    does not help: the abuse is the sentence, not the characters in it.
+
+    So the subject says what the message is, and the name is in the body,
+    where it is escaped and where nobody's inbox list shows it. A recipient
+    who does not recognise the sender learns less from the subject than
+    before, and that is the correct trade for a message sent to an address
+    that never asked for it.
+  */
+  const subject = input.classroom
+    ? "You have been invited to a class on Upside Lab"
+    : "You have been invited to a circle on Upside Lab";
   const lead = input.classroom
     ? `You've been invited into ${name}. Sign in and you get a paper portfolio to work from.`
     : `You've been invited into ${name}. Sign in and pick which portfolios to share. Today's prices only.`;
