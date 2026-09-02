@@ -478,7 +478,7 @@ note is kept as written: it is why the mechanism exists.
    on the cost of, and there is currently no way to learn about it except a
    reader noticing their holdings look wrong.
 
-   Landed: every cron route exports through `cronRoute` (`src/lib/cron-heartbeat.ts`), which pings a dead-man's-switch per run; `cron-heartbeat.test.ts` fails on an unwrapped route or vercel.json drift. Setup in `docs/CRON_MONITORING.md`, and `npm run cron:checks` creates the nine checks from `vercel.json` so no schedule is ever typed twice; `cron-checks.test.ts` fails if a cron has no grace, if a grace stops clearing its route's `maxDuration`, or if the runbook's table drifts from either. What still needs a person, because it needs an account nobody else can open: the Healthchecks project itself, an alert channel on it, and `CRON_HEARTBEAT_BASE` set in Vercel's production environment.
+   Landed: every cron route exports through `cronRoute` (`src/lib/cron-heartbeat.ts`), which pings a dead-man's-switch per run; `cron-heartbeat.test.ts` fails on an unwrapped route or vercel.json drift. Setup in `docs/CRON_MONITORING.md`, and `npm run cron:checks` creates the nine checks from `vercel.json` so no schedule is ever typed twice; `cron-checks.test.ts` fails if a cron has no grace, if a grace stops clearing its route's `maxDuration`, or if the runbook's table drifts from either. **Live since 2026-09-02**: the Healthchecks project exists with an email alert channel, all nine checks are created against their own schedules in UTC, and `CRON_HEARTBEAT_BASE` is set in Vercel's production environment as a secret. The checks were entered by hand that first time rather than through `npm run cron:checks`, which changes nothing about them: the script upserts on the slug, so running it later updates those same nine in place rather than making a second set.
 
 2. **Cron and route failures have no aggregated visibility.** The stack has
    `@vercel/analytics` and `@vercel/speed-insights` (traffic and web
@@ -603,5 +603,5 @@ note is kept as written: it is why the mechanism exists.
     `MVP_AUDIT_LIVE_PASS.md` logs live-app passes — a mechanism that has
     only ever been unit-tested is unverified in the one way that matters.
 
-   The log landed in `docs/DISASTER_RECOVERY.md` with its first row honestly empty; the first real rehearsal against a scratch project still needs a human with production DR credentials to run it and write the row.
+   The log landed in `docs/DISASTER_RECOVERY.md` with its first row honestly empty; the first real rehearsal against a scratch project still needs a human with production DR credentials to run it and write the row. **Deferred by the owner on 2026-09-02**, which leaves this the one thing in the pass nobody has done rather than something anybody has forgotten: the export and the restore script are both tested, and what is untested is whether a restore into a fresh project actually comes back.
 
