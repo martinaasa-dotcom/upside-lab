@@ -7228,8 +7228,14 @@ run("signed-in users only see sheets they co-own", () => {
     join(process.cwd(), "src/app/api/portfolios/route.ts"),
     "utf8"
   );
+  /*
+    The seed those two names referred to is gone: it was four real people's
+    portfolios, read by nothing, in a public repository. The assertion is
+    now that neither the route nor the store carries one again.
+  */
   assert.doesNotMatch(api, /DEMO_PORTFOLIOS/);
   assert.doesNotMatch(api, /DEMO_HOLDINGS/);
+
   assert.match(api, /A signed-in book is only sheets this user co-owns/);
 
   const runtime = readFileSync(
@@ -7244,7 +7250,14 @@ run("signed-in users only see sheets they co-own", () => {
     "utf8"
   );
   assert.match(demo, /portfolios: \[\], holdings: \[\]/);
-  assert.match(demo, /They are not a starter pack/);
+  /*
+    The sentence this used to look for stood over four real people's
+    portfolios, which were read by nothing and sat in a public repository.
+    What matters is that an unsigned store starts empty and that no seed
+    comes back, which the line above and the two below assert directly.
+  */
+  assert.doesNotMatch(demo, /DEMO_PORTFOLIOS|DEMO_HOLDINGS/);
+  assert.ok(!existsSync(join(process.cwd(), "data/locked-demo.json")));
 });
 
 run("classroom membership actions stay per person, not household-mirrored", () => {
