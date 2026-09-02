@@ -10,6 +10,7 @@ import type { EarningsPrint } from "@/lib/earnings-brief";
 import {
   extraFxCodes,
   listingAmountToUsd,
+  listingCanConvert,
   listingCurrency,
   normalizeListedPrice,
   usdPerMapFromFx,
@@ -226,17 +227,35 @@ export async function fetchFxOnly(): Promise<FxRates> {
   }
 }
 
-/** Convert a Yahoo native price into USD (book of record is always USD). */
+/**
+ * Convert a Yahoo native price into USD (book of record is always USD), or
+ * say it cannot.
+ *
+ * Null is the important half. `listingAmountToUsd` hands the amount back
+ * unchanged when it has no rate, which is right for a field somebody is
+ * typing into and wrong here: the number is stored and printed as dollars
+ * from this point on, so a Stockholm listing at 1,050 SEK became a holding
+ * worth $1,050, roughly ten times the truth, in the portfolio total, in
+ * Pulse, in the forecast and in the Sunday letter, which states its figures
+ * as fact in an inbox.
+ *
+ * It is not a rare shape either. `fetchFxRates` builds its table only from
+ * the pairs that answered, and the memo keeps a partial table as long as
+ * anything is in it, so one bad minute on SEKUSD leaves EUR and GBP working
+ * and SEK silently wrong for the life of the memo.
+ */
 function priceToUsd(
   price: number,
   currency: string | undefined,
   fx: FxRates,
   symbol?: string
-): number {
+): number | null {
   const { amount, code } = normalizeListedPrice(price, currency);
   // FX pairs are the rate. Rounding them to cents freezes EURUSD at 1.16.
   if (symbol?.endsWith("=X") && code === "USD") return amount;
-  return listingAmountToUsd(amount, code, usdPerMapFromFx(fx));
+  const usdPer = usdPerMapFromFx(fx);
+  if (!listingCanConvert(code, usdPer)) return null;
+  return listingAmountToUsd(amount, code, usdPer);
 }
 
 function scaleMoney(
@@ -477,7 +496,22 @@ async function quoteOneSymbol(
   const currency = listingCurrency(symbol, listed.code);
   const nativePrice = listed.amount;
   const price = priceToUsd(yahooNative, yahooCurrency, fx, symbol);
-  const previousClose = priceToUsd(mark.previousClose, yahooCurrency, fx, symbol);
+  const previousCloseOrNull = priceToUsd(
+    mark.previousClose,
+    yahooCurrency,
+    fx,
+    symbol
+  );
+  /*
+    No rate, no quote. A price this app cannot turn into dollars must not
+    become a dollar figure, and the whole of this app's design says a hole
+    beats a wrong number: fallbackQuotes is deliberately not wired into the
+    live path for the same reason, and weeklyNumbersAreSound refuses to send
+    a letter rather than state a total it is unsure of. A dropped name is
+    already an outcome every caller handles.
+  */
+  if (price == null) return null;
+  const previousClose = previousCloseOrNull ?? 0;
   // Derived directly from (current price vs yesterday's close)
   // instead of reusing Yahoo's own change fields — regularMarket*
   // and postMarket* changes are relative to two DIFFERENT baselines
@@ -492,12 +526,15 @@ async function quoteOneSymbol(
   );
   const sparkline =
     bars.length > 1
-      ? bars.map((bar) => priceToUsd(bar.close, yahooCurrency, fx, symbol))
+      ? bars.flatMap((bar) => {
+          const usd = priceToUsd(bar.close, yahooCurrency, fx, symbol);
+          return usd == null ? [] : [usd];
+        })
       : synthesizeSparkline(price, changePercent * 100);
-  const dailyCloses = bars.slice(-15).map((bar) => ({
-    date: bar.date,
-    close: priceToUsd(bar.close, yahooCurrency, fx, symbol),
-  }));
+  const dailyCloses = bars.slice(-15).flatMap((bar) => {
+    const close = priceToUsd(bar.close, yahooCurrency, fx, symbol);
+    return close == null ? [] : [{ date: bar.date, close }];
+  });
 
   const preMarketPrice = scaleMoney(
     typeof quote.preMarketPrice === "number" ? quote.preMarketPrice : null,
@@ -765,9 +802,15 @@ function chartRowsToDailyCloses(
                 : rawDate
             );
       if (Number.isNaN(when.getTime())) return null;
+      // A bar this app cannot price in dollars is dropped, not passed on as
+      // though the listing's own number were dollars. The predicate below
+      // asserts the shape rather than checking it, so a null here would
+      // have travelled as a number.
+      const closeUsd = priceToUsd(close, currency, fx);
+      if (closeUsd == null) return null;
       return {
         date: dateKeyInTz(when, "America/New_York"),
-        close: priceToUsd(close, currency, fx),
+        close: closeUsd,
       };
     })
     .filter((b): b is DailyClose => b != null);

@@ -10,7 +10,10 @@ import {
 import { emptyBookNudgeHtml } from "@/lib/email-letter";
 import { PRODUCT_NAME, PRODUCT_ORIGIN } from "@/lib/product";
 import { noteEmailConfigured, sendNoteEmail } from "@/lib/send-note";
-import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
+import {
+  getSupabaseServer,
+  supabaseUsesServiceRole,
+} from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
 
 export const EMPTY_BOOK_NUDGE_AFTER_DAYS = 7;
@@ -25,10 +28,10 @@ type HoldingRow = {
 };
 
 export function hasLiveHoldings(
-  rows: { ticker?: string | null; shares?: number | null }[]
+  rows: { ticker?: string | null; shares?: number | null }[],
 ): boolean {
   return rows.some(
-    (h) => String(h.ticker ?? "").trim() && Number(h.shares) > 0
+    (h) => String(h.ticker ?? "").trim() && Number(h.shares) > 0,
   );
 }
 
@@ -65,7 +68,7 @@ export function emptyBookNudgeSubject(): string {
 }
 
 export function emptyBookNudgeText(
-  displayName: string | null | undefined
+  displayName: string | null | undefined,
 ): string {
   const hi = firstName(displayName);
   const greeting = hi ? `Hi ${hi}.` : "Hi.";
@@ -121,7 +124,7 @@ export async function dispatchEmptyBookNudges(): Promise<{
   }
 
   const cutoff = new Date(
-    Date.now() - EMPTY_BOOK_NUDGE_AFTER_DAYS * DAY_MS
+    Date.now() - EMPTY_BOOK_NUDGE_AFTER_DAYS * DAY_MS,
   ).toISOString();
   const { data: profiles, error } = await supabase
     .from(PORTFELL_TABLES.profiles)
@@ -164,7 +167,7 @@ export async function dispatchEmptyBookNudges(): Promise<{
       isEmptyBookNudgeDue({
         createdAt: profile.created_at as string,
         sentAt: profile.empty_book_nudge_sent_at as string | null,
-      })
+      }),
   );
   let sent = 0;
   let skipped = recipients.length - due.length;
@@ -174,13 +177,15 @@ export async function dispatchEmptyBookNudges(): Promise<{
   // paged, so "batched" never quietly means "the first 1,000 rows".
   const dueUserIds = due.map(({ profile }) => profile.id as string);
   const owned = dueUserIds.length
-    ? await readAll<{ portfolio_id: string; user_id: string }>(() =>
-        supabase
-          .from(PORTFELL_TABLES.portfolioOwners)
-          .select("portfolio_id, user_id")
-          .order("portfolio_id")
-          .order("user_id")
-          .in("user_id", dueUserIds)
+    ? await readAll<{ portfolio_id: string; user_id: string }>(
+        () =>
+          supabase
+            .from(PORTFELL_TABLES.portfolioOwners)
+            .select("portfolio_id, user_id")
+            .order("portfolio_id")
+            .order("user_id")
+            .in("user_id", dueUserIds),
+        "throw",
       )
     : [];
   const idsByUser = new Map<string, string[]>();
@@ -192,22 +197,40 @@ export async function dispatchEmptyBookNudges(): Promise<{
   const allIds = [...new Set(owned.map((r) => r.portfolio_id))];
 
   const bookRows = allIds.length
-    ? await readAll<{ id: string; classroom_community_id: string | null }>(() =>
-        supabase
-          .from(PORTFELL_TABLES.portfolios)
-          .select("id, classroom_community_id")
-          .order("id")
-          .in("id", allIds)
+    ? await readAll<{ id: string; classroom_community_id: string | null }>(
+        () =>
+          supabase
+            .from(PORTFELL_TABLES.portfolios)
+            .select("id, classroom_community_id")
+            .order("id")
+            .in("id", allIds),
+        "throw",
       )
     : [];
   const classroomIds = new Set(
     bookRows
       .filter((p) =>
-        isClassroomSheet({ classroom_community_id: p.classroom_community_id })
+        isClassroomSheet({ classroom_community_id: p.classroom_community_id }),
       )
-      .map((p) => p.id)
+      .map((p) => p.id),
   );
 
+  /*
+    Paged AND raising, because this read is what decides the email.
+
+    `readAll` defaults to "stop", which hands back what it managed to read
+    when a page fails. That is right for a room, where a short list is
+    better than a blank screen. It is exactly wrong here: an empty holdings
+    result does not read as a failure, it reads as an empty portfolio, so a
+    transient error on the first page tells up to forty people who have been
+    buying all week that they still own nothing. The marker is written
+    straight after, so that letter is the only one they ever get and nothing
+    corrects it.
+
+    Raising aborts the run with nobody marked, and the next daily run
+    retries. A short answer on the read that decides an email is worse than
+    no run at all.
+  */
   /*
     Paged, because this read is what decides the email. It covers every
     portfolio of up to `EMPTY_BOOK_NUDGE_BATCH` people at once, which at
@@ -220,12 +243,14 @@ export async function dispatchEmptyBookNudges(): Promise<{
     corrected.
   */
   const holdingRows = allIds.length
-    ? await readAll<HoldingRow>(() =>
-        supabase
-          .from(PORTFELL_TABLES.holdings)
-          .select("ticker, shares, portfolio_id")
-          .order("id")
-          .in("portfolio_id", allIds)
+    ? await readAll<HoldingRow>(
+        () =>
+          supabase
+            .from(PORTFELL_TABLES.holdings)
+            .select("ticker, shares, portfolio_id")
+            .order("id")
+            .in("portfolio_id", allIds),
+        "throw",
       )
     : [];
   const holdingsByPortfolio = new Map<string, HoldingRow[]>();
@@ -241,10 +266,42 @@ export async function dispatchEmptyBookNudges(): Promise<{
     const ids = idsByUser.get(profile.id as string) ?? [];
     const hasClassroom = ids.some((id) => classroomIds.has(id));
     const live = hasLiveHoldings(
-      ids.flatMap((id) => holdingsByPortfolio.get(id) ?? [])
+      ids.flatMap((id) => holdingsByPortfolio.get(id) ?? []),
     );
 
-    if (shouldSkipEmptyBookNudge({ hasClassroomSheet: hasClassroom, hasLiveHoldings: live })) {
+    if (
+      shouldSkipEmptyBookNudge({
+        hasClassroomSheet: hasClassroom,
+        hasLiveHoldings: live,
+      })
+    ) {
+      skipped += 1;
+      continue;
+    }
+
+    /*
+      Claimed before it is written, the way the Sunday letter claims.
+
+      Vercel documents that a schedule can fire twice, which is the whole
+      reason the Sunday letter carries three independent guards. This mail
+      had none of them: two overlapping runs both saw a null marker, both
+      sent, and both stamped afterwards, so the reader got two copies of a
+      note whose own body says "This is a one-time note".
+
+      The marker goes down first and comes back up if the send fails, so the
+      window where both runs think they may send is the width of one
+      conditional update rather than the width of an SMTP round trip. The
+      idempotency key is the backstop for the rest: Resend holds one for 24
+      hours, which covers every retry of a daily cron.
+    */
+    const claimedAt = new Date().toISOString();
+    const connected = connectedEmailsFor(email, aliasMap);
+    const { error: claimErr } = await supabase
+      .from(PORTFELL_TABLES.profiles)
+      .update({ empty_book_nudge_sent_at: claimedAt })
+      .in("email", connected)
+      .is("empty_book_nudge_sent_at", null);
+    if (claimErr) {
       skipped += 1;
       continue;
     }
@@ -255,16 +312,16 @@ export async function dispatchEmptyBookNudges(): Promise<{
       subject: emptyBookNudgeSubject(),
       text,
       html: emptyBookNudgeHtml({ heading: emptyBookNudgeSubject(), text }),
+      idempotencyKey: `empty-book-nudge:${profile.id as string}`,
     });
     if (!ok) {
-      skipped += 1;
-      continue;
-    }
-    const { error: markErr } = await supabase
-      .from(PORTFELL_TABLES.profiles)
-      .update({ empty_book_nudge_sent_at: new Date().toISOString() })
-      .in("email", connectedEmailsFor(email, aliasMap));
-    if (markErr) {
+      // Release it, or a provider having a bad minute costs this reader the
+      // one note they were ever going to get.
+      await supabase
+        .from(PORTFELL_TABLES.profiles)
+        .update({ empty_book_nudge_sent_at: null })
+        .in("email", connected)
+        .eq("empty_book_nudge_sent_at", claimedAt);
       skipped += 1;
       continue;
     }

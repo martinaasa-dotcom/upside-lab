@@ -14,6 +14,7 @@ import { navHistoryPostSchema } from "@/lib/api-schemas";
 import { takeDurableRateLimit } from "@/lib/rate-limit-durable";
 import { clientIp, rateLimitJson } from "@/lib/rate-limit";
 import { parseJsonBody } from "@/lib/parse-json-body";
+import { isQuotableTicker } from "@/lib/ticker";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -214,7 +215,20 @@ async function handlePOST(req: Request) {
       .trim()
       .toUpperCase();
     const shares = Number(p?.shares);
-    if (!ticker || !Number.isFinite(shares)) continue;
+    /*
+      A name no provider can resolve is dropped rather than sent.
+
+      This route takes an unauthenticated POST, and each name it accepts
+      becomes a listing walk: `yahooQuoteCandidates` tries the bare symbol
+      and then every European suffix, so ten pieces of free text are not ten
+      lookups but well over a hundred, all of them misses, charged against
+      the shared circuit breaker every other reader depends on. /api/quotes
+      and /api/market/events already filter this way; this one did not.
+
+      Dropped, not refused, for the same reason those two drop: one bad row
+      in a list should not cost the reader the rest of the answer.
+    */
+    if (!ticker || !isQuotableTicker(ticker) || !Number.isFinite(shares)) continue;
     byTicker.set(ticker, (byTicker.get(ticker) ?? 0) + shares);
   }
   const positions = [...byTicker.entries()]

@@ -101,27 +101,16 @@ export function InvitePartnerModal({
     setErr(null);
     setMsg(null);
     try {
+      /*
+        One road in, whoever they are.
+
+        This used to try a direct add first and fall back to an invite on a
+        404, which is what made the route an oracle: the two answers said
+        whether that address had an account. It also put somebody in a
+        stranger's portfolio without asking them. An invite is the whole
+        flow now, and the person joins when they accept.
+      */
       const trimmed = email.trim();
-      if (trimmed) {
-        const add = await fetch(`/api/portfolios/${portfolioId}/owners`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: trimmed }),
-        });
-        const addData = (await add.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        if (add.ok) {
-          track("portfolio_invite_created", { direct_add: true });
-          setMsg(`Added ${trimmed} as co-owner.`);
-          setEmail("");
-          await loadOwners();
-          return;
-        }
-        if (add.status !== 404) {
-          throw new Error(plainError(addData.error, "Couldn't add that person."));
-        }
-      }
       const res = await fetch(`/api/portfolios/${portfolioId}/invites`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

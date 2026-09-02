@@ -8,11 +8,7 @@ import {
 } from "@/lib/cash-trade";
 import { classifyImportWrite } from "@/lib/classroom";
 import { callPctForTicker, isCoinSymbol } from "@/lib/coins";
-import {
-  isSafePositiveMoney,
-  isSafeShares,
-  isSafeSignedMoney,
-} from "@/lib/input-guard";
+import { isSafeCallPct, isSafePositiveMoney, isSafeShares, isSafeSignedMoney } from "@/lib/input-guard";
 import { roundMoney, roundShares } from "@/lib/money";
 import { denyClassroomWrite } from "@/lib/classroom-guard";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
@@ -52,7 +48,8 @@ function importRowFault(
   ticker: string,
   shares: number,
   buyPrice: number,
-  isin: string | undefined
+  isin: string | undefined,
+  callPct: number | undefined
 ): string | null {
   const label = `Row ${index + 1} (${ticker.trim().toUpperCase()})`;
   if (!isSafeShares(shares) || !isSafeShares(roundShares(shares))) {
@@ -65,6 +62,18 @@ function importRowFault(
     !isSafePositiveMoney(roundMoney(buyPrice))
   ) {
     return `${label}: buy price must be a positive number the app can hold, so nothing was imported.`;
+  }
+  /*
+    The same bound POST and PATCH apply, and this path had none.
+
+    A Call % of 500, or of -30, landed cleanly in a numeric(8,4) column and
+    from there into the strike arithmetic, the covered-call table and the
+    model's own context. Three write paths for one column drift exactly this
+    way, so the check is the shared predicate rather than a second copy of
+    the rule, and it refuses the row the way an impossible share count does.
+  */
+  if (callPct !== undefined && !isSafeCallPct(callPct)) {
+    return `${label}: Call % must be between 0 and 100, so nothing was imported.`;
   }
   return null;
 }
@@ -123,13 +132,14 @@ async function handlePOST(req: NextRequest) {
     const buy = readFiniteNumber(row.buy_price);
     if (!ticker || shares == null || buy == null) continue;
     const isin = readString(row.isin);
-    const fault = importRowFault(index, ticker, shares, buy, isin);
+    const callPct = readFiniteNumber(row.target_call_pct);
+    const fault = importRowFault(index, ticker, shares, buy, isin, callPct);
     if (fault) return NextResponse.json({ error: fault }, { status: 400 });
     rows.push({
       ticker,
       shares: roundShares(shares),
       buy_price: roundMoney(buy),
-      target_call_pct: readFiniteNumber(row.target_call_pct),
+      target_call_pct: callPct,
       isin,
     });
   }

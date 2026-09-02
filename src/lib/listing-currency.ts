@@ -147,6 +147,32 @@ export function usdPerMapFromFx(fx: ListingFx | null | undefined): Record<string
   return out;
 }
 
+/**
+ * Whether this listing's money can actually be turned into dollars.
+ *
+ * `listingAmountToUsd` returns the amount unchanged when it has no rate,
+ * which is the right shape for a form field a reader is typing into: the
+ * number they see stays the number they typed. It is the wrong shape for a
+ * quote, where the amount is then stored and printed as dollars. A holding
+ * in Stockholm at 1,050 SEK became a holding at $1,050, and `fetchFxRates`
+ * builds its table only from the pairs that answered, so one bad minute on
+ * SEKUSD leaves a table that still has EUR and GBP in it and passes every
+ * has-any-rates check.
+ *
+ * Callers that state a figure as a fact ask this first and drop the name
+ * when it answers false. A hole in the table is what this repo already
+ * chooses over a fabricated price.
+ */
+export function listingCanConvert(
+  code: string,
+  usdPer: Record<string, number>
+): boolean {
+  const unit = code.toUpperCase();
+  if (unit === "USD") return true;
+  const rate = usdPer[unit];
+  return typeof rate === "number" && rate > 0;
+}
+
 export function listingAmountToUsd(
   amount: number,
   code: string,
