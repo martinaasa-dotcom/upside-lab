@@ -22,7 +22,11 @@ import {
 } from "@/components/ui/Panel";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { ConvictionEntry, ConvictionLevel } from "@/lib/conviction";
+import {
+  CONVICTION_THESIS_MAX_CHARS,
+  type ConvictionEntry,
+  type ConvictionLevel,
+} from "@/lib/conviction";
 import { estimateGreenStreak } from "@/lib/streaks";
 import { forecastThemeForTicker } from "@/lib/forecast-conviction";
 import { THEME_LABEL } from "@/lib/portfolio-personality";
@@ -213,6 +217,7 @@ export function TickerDrawer({
               id="ticker-thesis"
               value={thesisDraft}
               rows={2}
+              maxLength={CONVICTION_THESIS_MAX_CHARS}
               onChange={(e) => setThesisDraft(e.target.value)}
               onBlur={() => onConviction(level, thesisDraft)}
               placeholder="Two sentences. What has to stay true for you to keep holding this?"

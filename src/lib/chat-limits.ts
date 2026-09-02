@@ -29,6 +29,18 @@ export const CHAT_MAX_BODY_BYTES = 3_000_000;
 export const CHAT_MAX_IMAGE_CHARS = 1_200_000;
 
 /**
+ * Most one message's text may be, in characters.
+ *
+ * Every message in the conversation is sent back with each turn, and the
+ * whole of it goes to the model, so this is the one bound the body cap
+ * cannot give on its own: forty messages of a body's worth each would be
+ * refused by the body cap, but one message carrying most of a body would
+ * not. A pasted holdings export runs a few thousand characters and a long
+ * reply from Margus a few thousand more, so this is many times either.
+ */
+export const CHAT_MAX_MESSAGE_CHARS = 32_000;
+
+/**
  * Cost budget for chat, in kilobytes per window, charged by what a turn
  * actually weighs.
  *
