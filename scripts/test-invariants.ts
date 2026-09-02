@@ -950,10 +950,10 @@ run("fund today move is live NAV minus last snapshot", () => {
 
   This used to assert that "remaining performance obligations (RPO)" was
   shortened to "RPO", and that YoY and FCF reached the reader as an acronym
-  each. That is backwards for a room a beginner reads: the shortening took a
-  phrase somebody could at least puzzle at and handed them an acronym nothing
-  on the page explains. The splitting behaviour this invariant is really
-  about is unchanged; only the words inside the bullets are plainer.
+  each. That is backwards for a room a beginner reads: the shortening
+  took a phrase somebody could at least puzzle at and handed them an acronym
+  nothing on the page explains. The splitting behaviour this invariant is
+  really about is unchanged; only the words inside the bullets are plainer.
 */
 run("fund thesis and exit plans split into short bullets", () => {
   const thesis = fundCopyBullets(
@@ -1129,7 +1129,14 @@ run("fund cron composes an X post but only sends it when switched on", () => {
     "utf8"
   );
   assert.match(page, /FUND_X_URL/);
-  assert.match(page, /Daily notes on X/);
+  /*
+    Reworded on purpose, 2026-09-02. The link used to be the bare phrase
+    "Daily notes on X" followed by a lone full stop, which reads as a label
+    rather than a sentence. What this invariant is really holding is that
+    the room still points at the account, so it asserts the link and the
+    reason for it rather than one exact caption.
+  */
+  assert.match(page, /He also posts the same note every day on/);
 });
 
 run("forecast add/trim lines split into bullets", () => {
@@ -5464,20 +5471,32 @@ run("fun facts and circle facts do not say NAV or dry powder", () => {
   assert.match(play, /PALETTE\.bronze/);
 });
 
-run("Fund page labels Margus's note Thesis", () => {
+/*
+  Reworded on purpose, 2026-09-02.
+
+  Every label this used to pin was written for somebody who already knows
+  the words. "Thesis" and "Sell if" are now the plain questions they answer,
+  with the glossary entry behind each one, and "Since buy" is "Up or down".
+  The assertion is the rule rather than the wording: the note is still the
+  reason for owning the company, it is still followed by the rule for
+  selling it, and both are still `Reading` blocks on the shared card.
+*/
+run("Fund page says why he owns it and what would make him sell", () => {
   const src = readFileSync(
     join(process.cwd(), "src/components/UpsidePortfolioPage.tsx"),
     "utf8"
   );
-  assert.match(src, /label="Thesis"/);
+  assert.match(src, /term="thesis"/);
   assert.match(src, /function FundPosition/);
   const card = src.slice(
     src.indexOf("function FundNote"),
     src.indexOf("export function UpsidePortfolioPage")
   );
-  assert.match(card, /Hold for/);
-  assert.match(card, /label="Since buy"/);
-  assert.match(card, /label="Sell if"/);
+  assert.match(card, /meant to be held for/);
+  assert.match(card, /Up or down/);
+  assert.match(card, /term="sell-if"/);
+  // Trade shorthand does not come back to the card either.
+  assert.doesNotMatch(card, /label="Cost"|label="Portfolio"|label="Since buy"/);
   // The fund position sits on the shared glass surface and the note uses
   // the shared Reading block. AGENTS.md names BOX/CARD in Panel.tsx as the
   // canonical card treatment, so these are the design system's primitives,
@@ -5491,8 +5510,8 @@ run("Fund page labels Margus's note Thesis", () => {
   assert.doesNotMatch(card, /<Score /);
   assert.doesNotMatch(card, /md:border-l/);
   const positions = src.slice(
-    src.indexOf("Open positions"),
-    src.indexOf("Weekly recap")
+    src.indexOf("companies he owns now"),
+    src.indexOf("How each week went")
   );
   assert.match(positions, /<FundPosition/);
   assert.doesNotMatch(positions, /<Stat/);
