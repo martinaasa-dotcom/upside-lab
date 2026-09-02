@@ -238,6 +238,44 @@ const ENTRIES: GlossaryEntry[] = [
     meaning:
       "The payment you receive for making that agreement. It is yours whether or not the shares are ever taken.",
   },
+  {
+    id: "total-return",
+    term: "Total return",
+    also: ["since it started", "return since the start"],
+    meaning:
+      "Everything a portfolio has made or lost since the day it started, in one figure, rather than only what happened today. It is measured against the money that went in at the beginning.",
+    example: ({ amount, second }) =>
+      amount && second ? `That is ${amount} on the ${second} it began with.` : null,
+  },
+  {
+    id: "paper-money",
+    term: "Paper money",
+    also: ["pretend money", "paper portfolio"],
+    meaning:
+      "Buying and selling written down without any money changing hands, so you can watch how a decision would have turned out. Nothing is really bought, nothing can really be lost, and nothing can really be taken out either.",
+    alsoCalled: "paper trading",
+  },
+  {
+    id: "sell-if",
+    term: "Sell rule",
+    also: ["sell if", "exit plan", "what would make him sell"],
+    meaning:
+      "The thing somebody decides in advance would make them sell, written down while they are calm rather than on the day the price moves. It is what turns selling into a decision you already made instead of a reaction.",
+    example: ({ ticker }) =>
+      ticker ? `The one written for ${ticker} is in this card.` : null,
+  },
+  {
+    id: "spread-out",
+    term: "How spread out it is",
+    also: ["spread", "diversification"],
+    meaning:
+      "Whether the money sits in a few companies or many. Spread out means no single company decides how the year goes; the opposite means one of them mostly does.",
+    alsoCalled: "diversification",
+    example: ({ count }) =>
+      count != null
+        ? `This one behaves like ${count.toFixed(1)} holdings of equal size.`
+        : null,
+  },
 ];
 
 const BY_KEY = new Map<string, GlossaryEntry>();

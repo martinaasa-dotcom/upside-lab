@@ -97,16 +97,19 @@ describe("nothing reads a year by typing it out", () => {
     expect(advisor).not.toContain("row.prices?.[2030]");
   });
 
-  it("says how far the forecast reaches without naming the year", () => {
-    // A landing page cannot import the list at build time and stay honest
-    // about a statically rendered page, so it says "five years out", which
-    // is true every year.
-    const landing = read("src/components/SignedOutLanding.tsx");
-    const forecastCard = landing.slice(
-      landing.indexOf('title: "Forecast"'),
-      landing.indexOf('title: "A letter on Sunday"')
-    );
-    expect(forecastCard).not.toMatch(YEAR);
-    expect(forecastCard).toContain("five years out");
+  it("names no forecast year anywhere a stranger reads", () => {
+    /*
+      This used to slice the landing's Forecast card out and check its one
+      sentence said "five years out" rather than "out to 2030". The landing
+      pass then cut the page from eight sections to six and the card went
+      with it, so the slice was empty and the check passed on nothing.
+
+      The rule outlives the card: whatever the page says about how far the
+      forecast reaches, it may not name a year, because the range rolls
+      every January and a statically rendered page cannot import the list.
+      Asserted over the whole file so it holds wherever the claim moves to.
+    */
+    const landing = code("src/components/SignedOutLanding.tsx");
+    expect(landing).not.toMatch(YEAR);
   });
 });

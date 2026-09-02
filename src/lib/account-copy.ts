@@ -114,12 +114,34 @@ export function tierShowsRisk(tier: ExperienceTier): boolean {
 }
 
 /**
+ * Whether this tier opens the covered-call panel by default.
+ *
+ * The one thing the answer still decides, and it reads the same rule
+ * `Dashboard` does. A novice gets the panel folded away rather than gone,
+ * so nothing is out of reach and the first screen is quieter.
+ */
+export function tierOpensCoveredCalls(tier: ExperienceTier): boolean {
+  return tier !== "novice";
+}
+
+/**
  * What picking this answer actually does, in the reader's words.
  *
  * Derived rather than typed, so somebody moving a room between tiers cannot
  * leave this page describing the old arrangement. Home, Pulse, Growth and
  * every portfolio are on every tier, which is worth saying out loud: the
  * sentence a beginner needs is that nothing is being taken away from them.
+ *
+ * The two hiding branches below are unreachable today and stay anyway. No
+ * tier hides a room any more, on the argument in `experience-tier.ts` that
+ * Lab is where a beginner finds out three holdings are most of their money,
+ * so withholding it from the reader who said they are new was backwards.
+ * If anybody ever reintroduces a gate, this sentence follows it rather than
+ * going stale, which is the whole reason it is derived.
+ *
+ * The last line has to say something real, or the page asks a question
+ * whose three answers read identically. What is left is the panel default,
+ * so it says that.
  */
 export function tierChangeLine(tier: ExperienceTier): string {
   if (!tierShowsLab(tier)) {
@@ -128,7 +150,9 @@ export function tierChangeLine(tier: ExperienceTier): string {
   if (!tierShowsRisk(tier)) {
     return "Everything above, and Lab as well. Its Risk tab, which models a bad week, stays hidden.";
   }
-  return "Every room, and every tab inside Lab, Risk included.";
+  return tierOpensCoveredCalls(tier)
+    ? "Every room, every tab inside Lab, and covered calls open on a portfolio that has them."
+    : "Every room, and every tab inside Lab, Risk included. Covered calls start folded away, one tap from open.";
 }
 
 /* ------------------------------------------------------------------ *

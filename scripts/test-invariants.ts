@@ -964,16 +964,23 @@ run("fund today move is live NAV minus last snapshot", () => {
   assert.equal(missing.todayPct, null);
 });
 
+/*
+  Changed on purpose, 2026-09-02, along with `tidy` in `src/lib/fund-copy.ts`.
+
+  This used to assert that "remaining performance obligations (RPO)" was
+  shortened to "RPO", and that YoY and FCF reached the reader as an acronym
+  each. That is backwards for a room a beginner reads: the shortening
+  took a phrase somebody could at least puzzle at and handed them an acronym
+  nothing on the page explains. The splitting behaviour this invariant is
+  really about is unchanged; only the words inside the bullets are plainer.
+*/
 run("fund thesis and exit plans split into short bullets", () => {
   const thesis = fundCopyBullets(
     "Data cloud consumption accelerating with GenAI workloads; remaining performance obligations (RPO) up >50% YoY, signaling durable multi-year expansion as enterprises unify analytics and AI pipelines."
   );
   assert.deepEqual(thesis, [
     "Data cloud consumption accelerating with GenAI workloads",
-    // The acronym is spelled out now rather than compressed into. Every
-    // other rule in this app opens a term up, and this card is read by
-    // somebody who has never seen those three letters before.
-    "Signed orders not yet billed up >50% YoY",
+    "Signed orders not yet billed up >50% compared with a year earlier",
     "Durable multi-year expansion",
     "Enterprises unify analytics and AI pipelines",
   ]);
@@ -981,8 +988,8 @@ run("fund thesis and exit plans split into short bullets", () => {
     "Sell if product revenue growth decelerates below 25% YoY for two quarters or if adjusted FCF margin fails to exceed 20% by FY28."
   );
   assert.deepEqual(exit, [
-    "Product revenue growth below 25% YoY for two quarters",
-    "Adjusted FCF margin below 20% by FY28",
+    "Product revenue growth below 25% compared with a year earlier for two quarters",
+    "Adjusted free cash flow margin below 20% by FY28",
   ]);
 });
 
@@ -1141,7 +1148,14 @@ run("fund cron composes an X post but only sends it when switched on", () => {
     "utf8"
   );
   assert.match(page, /FUND_X_URL/);
-  assert.match(page, /Daily notes on X/);
+  /*
+    Reworded on purpose, 2026-09-02. The link used to be the bare phrase
+    "Daily notes on X" followed by a lone full stop, which reads as a label
+    rather than a sentence. What this invariant is really holding is that
+    the room still points at the account, so it asserts the link and the
+    reason for it rather than one exact caption.
+  */
+  assert.match(page, /He also posts the same note every day on/);
 });
 
 run("forecast add/trim lines split into bullets", () => {
@@ -5704,20 +5718,32 @@ run("fun facts and circle facts do not say NAV or dry powder", () => {
   assert.match(play, /PALETTE\.bronze/);
 });
 
-run("Fund page labels Margus's note Thesis", () => {
+/*
+  Reworded on purpose, 2026-09-02.
+
+  Every label this used to pin was written for somebody who already knows
+  the words. "Thesis" and "Sell if" are now the plain questions they answer,
+  with the glossary entry behind each one, and "Since buy" is "Up or down".
+  The assertion is the rule rather than the wording: the note is still the
+  reason for owning the company, it is still followed by the rule for
+  selling it, and both are still `Reading` blocks on the shared card.
+*/
+run("Fund page says why he owns it and what would make him sell", () => {
   const src = readFileSync(
     join(process.cwd(), "src/components/UpsidePortfolioPage.tsx"),
     "utf8"
   );
-  assert.match(src, /label="Thesis"/);
+  assert.match(src, /term="thesis"/);
   assert.match(src, /function FundPosition/);
   const card = src.slice(
     src.indexOf("function FundNote"),
     src.indexOf("export function UpsidePortfolioPage")
   );
-  assert.match(card, /Hold for/);
-  assert.match(card, /label="Since buy"/);
-  assert.match(card, /label="Sell if"/);
+  assert.match(card, /meant to be held for/);
+  assert.match(card, /Up or down/);
+  assert.match(card, /term="sell-if"/);
+  // Trade shorthand does not come back to the card either.
+  assert.doesNotMatch(card, /label="Cost"|label="Portfolio"|label="Since buy"/);
   // The fund position sits on the shared glass surface and the note uses
   // the shared Reading block. AGENTS.md names BOX/CARD in Panel.tsx as the
   // canonical card treatment, so these are the design system's primitives,
@@ -5731,8 +5757,8 @@ run("Fund page labels Margus's note Thesis", () => {
   assert.doesNotMatch(card, /<Score /);
   assert.doesNotMatch(card, /md:border-l/);
   const positions = src.slice(
-    src.indexOf("Open positions"),
-    src.indexOf("Weekly recap")
+    src.indexOf("companies he owns now"),
+    src.indexOf("How each week went")
   );
   assert.match(positions, /<FundPosition/);
   assert.doesNotMatch(positions, /<Stat/);

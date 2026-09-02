@@ -8,27 +8,98 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/**
+ * An order book is a book, and the rename cannot tell.
+ *
+ * `humanizeMargusText` rewrites `\bbook\b` to "portfolio" so no leftover
+ * of the old naming reaches a reader, which is right for every sentence
+ * about somebody's holdings and wrong for the one phrase a model writing
+ * about a company reaches for constantly: measured on this room, "order
+ * book covers most of next year" arrived as "order portfolio covers most
+ * of next year", which is not English. Masked here rather than in the
+ * rewriter, the same way that file already masks "balance sheet", so the
+ * fix is scoped to the surface that found it.
+ */
+const KEEP_PHRASES =
+  /\border books?\b|\bbook of business\b|\bbook value\b/gi;
+
+/**
+ * A company is a company, never a "name".
+ *
+ * The desk usage ("the cooling name", "software names") is one of the words
+ * this product does not print, and the fund is the surface where a model
+ * reaches for it most. The rewrite is deliberately narrow: the plural is
+ * always a company here, and the singular is only touched behind a
+ * determiner and one describing word, with the words that really do describe
+ * a name left alone, so "the company name" and "her first name" survive.
+ */
+const NOT_A_COMPANY =
+  /^(company|brand|file|domain|user|account|first|last|full|real|nick|middle|maiden|pen|code|street|place)$/i;
+
+function companiesNotNames(s: string): string {
+  let out = s.replace(/\bnames\b/g, "companies");
+  out = out.replace(/\bNames\b/g, "Companies");
+  out = out.replace(
+    /\b(a|an|the|this|that|one|another) ([A-Za-z][\w-]*) name\b/g,
+    (whole, det: string, describing: string) =>
+      NOT_A_COMPANY.test(describing) ? whole : `${det} ${describing} company`
+  );
+  return out;
+}
+
+/**
+ * Every rewrite that has to happen around the shared humanizing pass.
+ *
+ * Each kept phrase is stashed by index rather than by phrase, so the capital
+ * in "Order book keeps growing" survives: restoring from a fixed table put a
+ * lowercase phrase back, and a headline, which is not run through the
+ * capitaliser, then opened in lower case.
+ */
+export function keepingRealBooks(s: string): string {
+  const kept: string[] = [];
+  const masked = s.replace(KEEP_PHRASES, (m) => {
+    kept.push(m);
+    return `%%KEEP${kept.length - 1}%%`;
+  });
+  // After the shared pass, because that pass writes "names" itself.
+  const humanized = companiesNotNames(humanizeMargusText(masked));
+  return humanized.replace(/%%KEEP(\d+)%%/g, (whole, i: string) => {
+    const original = kept[Number(i)];
+    return original ?? whole;
+  });
+}
+
 function tidy(part: string): string {
   let s = part.trim().replace(/^[.;,\s]+|[.;,\s]+$/g, "");
   s = s.replace(/^sell if\s+/i, "");
   s = s.replace(/^if\s+/i, "");
   /*
-   * Every other rule in this file opens a term up. This one used to close
-   * one, turning "remaining performance obligations (RPO)" into a
-   * three-letter acronym on a card a beginner reads. Both spellings go the
-   * same plain way now.
+   * The acronym is the thing to remove, not the words.
+   *
+   * This used to shorten "remaining performance obligations (RPO)" to
+   * "RPO", which is the opposite of what the voice rules ask for: it took
+   * a phrase a reader could at least puzzle at and handed them three
+   * letters nothing on the page explains. Every acronym below goes the same
+   * plain way, including a bare mention with no spelled-out form beside it.
+   *
+   * The wording is another session's, landed in the main checkout the same
+   * day this branch found the same fault. Two spellings of one plain phrase
+   * would be worse than either, so this takes theirs.
    */
   s = s.replace(
-    /\bremaining performance obligations\s*\(RPO\)/gi,
+    /\bremaining performance obligations\s*(?:\(RPO\))?/gi,
     "signed orders not yet billed"
   );
   s = s.replace(/\bRPO\b/g, "signed orders not yet billed");
+  s = s.replace(/\byear[- ]over[- ]year\b/gi, "compared with a year earlier");
+  s = s.replace(/\bYoY\b/gi, "compared with a year earlier");
+  s = s.replace(/\bFCF\b/g, "free cash flow");
   s = s.replace(/\bfails to exceed\b/gi, "below");
   s = s.replace(/\bdecelerates below\b/gi, "below");
   s = s.replace(/^signaling\s+/i, "");
   s = s.replace(/\s+/g, " ").trim();
   if (!s) return "";
-  return capitalize(humanizeMargusText(s));
+  return capitalize(keepingRealBooks(s));
 }
 
 function splitClause(part: string): string[] {
@@ -48,10 +119,22 @@ function splitClause(part: string): string[] {
   return [part];
 }
 
+/**
+ * A sentence that was cut says so.
+ *
+ * Both clips used to end wherever the word count ran out, with nothing to
+ * mark it, so a reader had no way to tell a short reason from most of a
+ * long one. On the one room in this app that asks to be checked, half a
+ * stated reason presented as the whole of it is the wrong half to hide.
+ */
+function clipTo(s: string, words: number): string {
+  const parts = s.split(/\s+/);
+  if (parts.length <= words) return s;
+  return `${parts.slice(0, words).join(" ").replace(/[.,;:]+$/, "")} …`;
+}
+
 function clipWords(s: string): string {
-  const words = s.split(/\s+/);
-  if (words.length <= MAX_WORDS) return s;
-  return `${words.slice(0, MAX_WORDS).join(" ")}`;
+  return clipTo(s, MAX_WORDS);
 }
 
 /**
@@ -117,14 +200,12 @@ export function numberedReportHeadline(
   unit: "Day" | "Week",
   n: number
 ): string {
-  const body = stripReportSerialPrefix(humanizeMargusText(text));
+  const body = stripReportSerialPrefix(keepingRealBooks(text));
   return `${unit} ${n}: ${body}`;
 }
 
 function clipRecap(s: string): string {
-  const words = s.split(/\s+/);
-  if (words.length <= RECAP_WORDS) return s;
-  return words.slice(0, RECAP_WORDS).join(" ");
+  return clipTo(s, RECAP_WORDS);
 }
 
 /**

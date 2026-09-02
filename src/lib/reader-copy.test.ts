@@ -425,10 +425,6 @@ describe("copy reads as a person wrote it", () => {
    */
   const SAYS_COMMUNITY = new Map<string, string>([
     [
-      "src/components/AccountPage.tsx",
-      "The shared profile block, which belongs to the account screen rather than the circle room. Two strings.",
-    ],
-    [
       "src/components/AdminPage.tsx",
       "The superadmin console. Nobody outside the team reads it, and it names the table it is listing.",
     ],

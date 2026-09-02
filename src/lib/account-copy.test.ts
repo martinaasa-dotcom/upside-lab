@@ -14,6 +14,7 @@ import {
   supporterIsActive,
   supporterThanks,
   tierChangeLine,
+  tierOpensCoveredCalls,
   tierShowsLab,
   tierShowsRisk,
 } from "@/lib/account-copy";
@@ -104,11 +105,21 @@ describe("the supporter panel", () => {
 
 describe("what an experience level changes", () => {
   it("is derived from the gates, so it cannot describe the old arrangement", () => {
-    expect(tierShowsLab("novice")).toBe(false);
-    expect(tierShowsLab("investor")).toBe(true);
-    expect(tierShowsLab("advanced")).toBe(true);
-    expect(tierShowsRisk("investor")).toBe(false);
-    expect(tierShowsRisk("advanced")).toBe(true);
+    /*
+      Written when Lab was hidden from a novice and Risk from an investor,
+      and asserting exactly that. Both gates are empty now, on the argument
+      in experience-tier.ts that Lab is where a beginner finds out three
+      holdings are most of their money, so the teaching room was being
+      withheld from the reader the product is for.
+
+      The point of the test survives the change and is the reason it is
+      worth keeping: this sentence is read out of the gate rather than
+      typed beside it, so it followed the gate when the gate moved.
+    */
+    for (const tier of ["novice", "investor", "advanced"] as const) {
+      expect(tierShowsLab(tier), tier).toBe(true);
+      expect(tierShowsRisk(tier), tier).toBe(true);
+    }
   });
 
   it("gives every tier a line that names a room", () => {
@@ -119,9 +130,21 @@ describe("what an experience level changes", () => {
     }
   });
 
-  it("says what the beginner setting keeps, not only what it hides", () => {
-    expect(tierChangeLine("novice")).toContain("Pulse");
-    expect(tierChangeLine("novice")).toContain("Growth");
+  it("says something a beginner's answer actually changes", () => {
+    /*
+      With no room hidden from anybody, a line about which rooms you get is
+      the same line three times, and a question whose answers read
+      identically is worse than no question. What the answer still decides
+      is whether the covered-call panel starts open, so that is what the
+      beginner's line says.
+    */
+    const novice = tierChangeLine("novice");
+    const investor = tierChangeLine("investor");
+    expect(novice).not.toBe(investor);
+    expect(novice).toContain("folded away");
+    expect(investor).toContain("covered calls open");
+    expect(tierOpensCoveredCalls("novice")).toBe(false);
+    expect(tierOpensCoveredCalls("investor")).toBe(true);
   });
 });
 
