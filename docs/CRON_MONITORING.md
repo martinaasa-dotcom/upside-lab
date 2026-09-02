@@ -83,21 +83,53 @@ false alert nobody trusts afterwards, so it is checked rather than trusted.
 
    | Check (slug)        | Schedule (UTC)          | Grace |
    | ------------------- | ----------------------- | ----- |
-   | `snapshot`          | `0 2 * * *`             | 30 min |
-   | `disaster-recovery` | `0 3 * * *`             | 30 min |
+   | `snapshot`          | `0 2 * * *`             | 2 h |
+   | `disaster-recovery` | `0 3 * * *`             | 2 h |
    | `sunday-note`       | `0 4 * * 0`             | 2 h (the two resume slots ping the same check) |
-   | `billing-reconcile` | `0 5 * * *`             | 30 min |
-   | `error-digest`      | `30 5 * * *`            | 30 min |
+   | `billing-reconcile` | `0 5 * * *`             | 2 h |
+   | `error-digest`      | `30 5 * * *`            | 2 h |
    | `popular-tickers`   | `0 7 1 * *`             | 6 h |
    | `margus-fund`       | `0 11 * * 1-6`          | 2 h (the 23:30 weekday slot pings it too) |
-   | `empty-book-nudge`  | `0 14 * * *`            | 30 min |
-   | `splits`            | `0 15 * * 1-5`          | 1 h |
+   | `empty-book-nudge`  | `0 14 * * *`            | 2 h |
+   | `splits`            | `0 15 * * 1-5`          | 2 h |
+
+### Why every grace is two hours
+
+Because the scheduler is the larger term, and the first version of this
+table did not account for it. Vercel does not promise a cron fires at the
+minute named, and on this project it does not come close. Measured against
+production rather than guessed, using the arrival times the work itself
+records (`portfell_book_snapshots.created_at` against its 02:00 schedule,
+`portfell_split_checks.claimed_at` against its 15:00 one) over about a
+fortnight: sixteen runs, **3 to 59 minutes late, median 37**. Nine of the
+fourteen snapshot runs were past the half hour this table first allowed, so
+as originally written it would have raised a false alarm most days, which
+is the failure the whole feature exists to avoid in its worst form.
+
+So a grace is the worst observed arrival plus the route's own
+`maxDuration` plus room. What it costs is detection latency, and that is
+the cheap side of the trade: a backup that stopped running is noticed at
+04:00 rather than 02:30, and nothing downstream of any of these jobs is
+faster than a day. `cron-checks.test.ts` holds that floor against
+`WORST_MEASURED_LATENESS_SECONDS`, so tightening one fails until somebody
+re-measures.
 
 A route scheduled more than once gets one check, on the slot that runs on
 the most days; the other slots are retries of the same day's work and ping
 it early, which the service treats as fine. A grace has to clear the
 route's own `maxDuration` with room for a retry, and the test reads each
 route's `maxDuration` and fails if one no longer does.
+
+## A changed variable needs a deploy
+
+`CRON_HEARTBEAT_BASE` is read at request time, but that is not the same as
+taking effect at request time. Vercel's own documentation is explicit:
+"Any change you make to environment variables are not applied to previous
+deployments, they only apply to new deployments." So setting or changing it
+in the dashboard does nothing at all until the next production deployment
+goes out, and the symptom is exactly the symptom of a wrong ping key, which
+is every check reading "Last Ping: Never" forever. Push anything to `main`,
+or redeploy the current production deployment from the dashboard.
 
 ## Where it stands
 
