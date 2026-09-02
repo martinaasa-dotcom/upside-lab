@@ -4,7 +4,8 @@ import { sessionMark } from "@/lib/market-session";
 import { synthesizeSparkline } from "@/lib/market/sparkline";
 import { yahooQuoteCandidates } from "@/lib/ticker";
 import { resolveYahooEarnings } from "@/lib/market/earnings-dates";
-import { dateKeyInTz, daysUntilInTz } from "@/lib/timezone";
+import { calendarDaysBetweenKeys, dateKeyInTz } from "@/lib/timezone";
+import { marketSession } from "@/lib/market/session";
 import type { EarningsPrint } from "@/lib/earnings-brief";
 import {
   extraFxCodes,
@@ -158,6 +159,59 @@ async function fetchFxRates(yf: YahooFinanceInstance): Promise<FxRates> {
   }
 }
 
+/**
+ * The rates, remembered for a minute.
+ *
+ * Ten quote calls go out for currency pairs, and until this memo existed
+ * every one of them was paid again on every origin hit: each `/api/quotes`
+ * miss, every sale price the Fund route works out, and the nightly
+ * snapshot. Measured at 128 to 201 ms, and paid before the first ticker
+ * call had even been issued, because the wave waited on it.
+ *
+ * A minute is chosen against what the rates are for. They restate cost,
+ * value and gain on a non-dollar listing, and EURUSD does not move enough
+ * in sixty seconds to change a figure anybody reads. This is not a cache of
+ * prices for the reader: freshness of a share price stays the quote store's
+ * business, and nothing here touches one.
+ */
+const FX_MEMO_MS = 60_000;
+
+let fxMemo: { key: string; at: number; rates: FxRates } | null = null;
+let fxPending: { key: string; task: Promise<FxRates> } | null = null;
+
+function fxMemoKey(): string {
+  return extraFxCodes().join(",");
+}
+
+function fxHasRates(rates: FxRates): boolean {
+  return (
+    (rates.eurUsd != null && rates.eurUsd > 0) ||
+    (rates.gbpUsd != null && rates.gbpUsd > 0) ||
+    Object.keys(rates.usdPer).length > 0
+  );
+}
+
+/**
+ * The memo, the in-flight share, or a fresh round. A round that came back
+ * with nothing is deliberately not remembered: one bad minute at the
+ * provider must not freeze every non-dollar listing for the minute after
+ * it as well.
+ */
+function currentFxRates(yf: YahooFinanceInstance): Promise<FxRates> {
+  const key = fxMemoKey();
+  if (fxMemo && fxMemo.key === key && Date.now() - fxMemo.at < FX_MEMO_MS) {
+    return Promise.resolve(fxMemo.rates);
+  }
+  if (fxPending && fxPending.key === key) return fxPending.task;
+  const task = fetchFxRates(yf).then((rates) => {
+    if (fxHasRates(rates)) fxMemo = { key, at: Date.now(), rates };
+    if (fxPending?.task === task) fxPending = null;
+    return rates;
+  });
+  fxPending = { key, task };
+  return task;
+}
+
 /** Fetch EURUSD/GBPUSD only (for Compound / empty books). */
 export async function fetchFxOnly(): Promise<FxRates> {
   if (isMarketCircuitOpen("yahoo")) {
@@ -165,7 +219,7 @@ export async function fetchFxOnly(): Promise<FxRates> {
   }
   try {
     const yf = await getYahoo();
-    return await fetchFxRates(yf);
+    return await currentFxRates(yf);
   } catch (err) {
     console.error("FX-only fetch failed", err);
     return { ...EMPTY_FX };
@@ -194,8 +248,35 @@ function scaleMoney(
   return value * (usdPrice / nativePrice);
 }
 
-/** First Yahoo listing that actually quotes. Xetra before London. */
-export async function resolveYahooListedSymbol(
+/**
+ * Which exchange a name is listed on does not change during a day, and
+ * asking costs a live quote call per candidate until one answers. Pulse
+ * asked twice for every ticker it built a context for, the news search and
+ * the earnings summary each resolving separately, and the write plan and
+ * the earnings brief asked again on top of that. So a resolved listing is
+ * remembered for a day, with concurrent askers sharing the one walk.
+ *
+ * A name that would not quote is remembered for far less. A negative is
+ * mostly the provider having a bad minute rather than the company having no
+ * listing, and holding that for a day would send every caller to the bare
+ * ticker until tomorrow.
+ */
+const SYMBOL_MEMO_MS = 24 * 60 * 60 * 1000;
+const SYMBOL_MISS_MEMO_MS = 10 * 60 * 1000;
+const MAX_SYMBOL_MEMO = 500;
+
+const symbolMemo = new Map<string, { at: number; symbol: string | null }>();
+const symbolInFlight = new Map<string, Promise<string | null>>();
+
+function pruneSymbolMemo() {
+  if (symbolMemo.size <= MAX_SYMBOL_MEMO) return;
+  const extra = symbolMemo.size - MAX_SYMBOL_MEMO;
+  for (const key of [...symbolMemo.keys()].slice(0, extra)) {
+    symbolMemo.delete(key);
+  }
+}
+
+async function walkForListedSymbol(
   raw: string
 ): Promise<string | null> {
   const yf = await getYahoo();
@@ -216,16 +297,148 @@ export async function resolveYahooListedSymbol(
   return null;
 }
 
+/** First Yahoo listing that actually quotes. Xetra before London. */
+export async function resolveYahooListedSymbol(
+  raw: string
+): Promise<string | null> {
+  const key = raw.trim().toUpperCase();
+  if (!key) return null;
+  const hit = symbolMemo.get(key);
+  if (hit) {
+    const life = hit.symbol ? SYMBOL_MEMO_MS : SYMBOL_MISS_MEMO_MS;
+    if (Date.now() - hit.at < life) return hit.symbol;
+  }
+  const pending = symbolInFlight.get(key);
+  if (pending) return pending;
+
+  const task = walkForListedSymbol(raw)
+    .then((symbol) => {
+      symbolMemo.set(key, { at: Date.now(), symbol });
+      pruneSymbolMemo();
+      return symbol;
+    })
+    .finally(() => {
+      symbolInFlight.delete(key);
+    });
+  symbolInFlight.set(key, task);
+  return task;
+}
+
+/** One daily bar, in the listing's own money. Converting is the caller's job. */
+type DailyBar = { date: string; close: number };
+
+/**
+ * The ninety day series behind the sparkline, kept per symbol.
+ *
+ * A quote and a chart went out together for every ticker on every origin
+ * hit, so a reader polling at the open cadence paid two provider calls a
+ * name for a series that gains one bar a day. The bars are held for about a
+ * minute while a session is running and ten while none is, and the bar for
+ * today is patched from the quote that came back with it, so the sparkline
+ * still ends on the live mark. Nothing about the price a reader sees comes
+ * from here.
+ */
+const CHART_MEMO_SESSION_MS = 60_000;
+const CHART_MEMO_CLOSED_MS = 10 * 60_000;
+const MAX_CHART_MEMO = 400;
+
+const chartMemo = new Map<string, { at: number; bars: DailyBar[] }>();
+const chartInFlight = new Map<string, Promise<DailyBar[] | null>>();
+
+function chartMemoMs(at: Date = new Date()): number {
+  return marketSession(at) === "closed"
+    ? CHART_MEMO_CLOSED_MS
+    : CHART_MEMO_SESSION_MS;
+}
+
+function pruneChartMemo() {
+  if (chartMemo.size <= MAX_CHART_MEMO) return;
+  const extra = chartMemo.size - MAX_CHART_MEMO;
+  for (const key of [...chartMemo.keys()].slice(0, extra)) {
+    chartMemo.delete(key);
+  }
+}
+
+function toDailyBars(
+  rows: Array<{ date?: Date | string | number | null; close?: number | null }>
+): DailyBar[] {
+  const out: DailyBar[] = [];
+  for (const row of rows) {
+    const close = row.close;
+    const rawDate = row.date;
+    if (typeof close !== "number" || !isPlausiblePrice(close) || !rawDate) {
+      continue;
+    }
+    const when =
+      rawDate instanceof Date
+        ? rawDate
+        : new Date(
+            typeof rawDate === "number" && rawDate < 1e12
+              ? rawDate * 1000
+              : rawDate
+          );
+    if (Number.isNaN(when.getTime())) continue;
+    out.push({ date: dateKeyInTz(when, "America/New_York"), close });
+  }
+  return out;
+}
+
+async function dailyBarsForSymbol(
+  yf: YahooFinanceInstance,
+  symbol: string,
+  period1: Date
+): Promise<DailyBar[] | null> {
+  const hit = chartMemo.get(symbol);
+  if (hit && Date.now() - hit.at < chartMemoMs()) return hit.bars;
+  const pending = chartInFlight.get(symbol);
+  if (pending) return pending;
+
+  const task = (async () => {
+    try {
+      const chart = await yf.chart(symbol, { period1, interval: "1d" });
+      const bars = toDailyBars(chart?.quotes ?? []);
+      chartMemo.set(symbol, { at: Date.now(), bars });
+      pruneChartMemo();
+      return bars;
+    } catch {
+      // The last good series beats no series at all; a failed chart used
+      // to leave the sparkline synthetic for the rest of the session.
+      return hit?.bars ?? null;
+    } finally {
+      chartInFlight.delete(symbol);
+    }
+  })();
+  chartInFlight.set(symbol, task);
+  return task;
+}
+
+/** Today's bar restated from the quote that just came back beside it. */
+function withLiveLastBar(
+  bars: DailyBar[],
+  todayKey: string,
+  nativeClose: number
+): DailyBar[] {
+  const last = bars[bars.length - 1];
+  if (!last || last.date !== todayKey || last.close === nativeClose) {
+    return bars;
+  }
+  return [...bars.slice(0, -1), { date: last.date, close: nativeClose }];
+}
+
 async function quoteOneSymbol(
   yf: YahooFinanceInstance,
   symbol: string,
-  fx: FxRates,
+  fxTask: Promise<FxRates>,
   period1: Date
 ): Promise<Quote | null> {
-  const [quoteRaw, chart] = await Promise.all([
+  // The quote and the bars are asked for together, and the rates are only
+  // waited on once both are back: an FX round in front of the wave used to
+  // add its whole latency to every ticker behind it.
+  const [quoteRaw, cachedBars] = await Promise.all([
     yahooCall(() => yf.quote(symbol)),
-    yf.chart(symbol, { period1, interval: "1d" }).catch(() => null),
+    dailyBarsForSymbol(yf, symbol, period1),
   ]);
+  const fx = await fxTask;
   const parsed = yahooQuotePayloadSchema.safeParse(quoteRaw);
   if (!parsed.success) return null;
   const quote = parsed.data;
@@ -272,34 +485,19 @@ async function quoteOneSymbol(
   // valid; recomputing from scratch is correct in every session.
   const change = previousClose > 0 ? price - previousClose : 0;
   const changePercent = previousClose > 0 ? change / previousClose : 0;
+  const bars = withLiveLastBar(
+    cachedBars ?? [],
+    dateKeyInTz(new Date(), "America/New_York"),
+    yahooNative
+  );
   const sparkline =
-    chart?.quotes && chart.quotes.length > 1
-      ? chart.quotes
-          .map((row) => row.close)
-          .filter((c): c is number => typeof c === "number" && isPlausiblePrice(c))
-          .map((c) => priceToUsd(c, yahooCurrency, fx, symbol))
+    bars.length > 1
+      ? bars.map((bar) => priceToUsd(bar.close, yahooCurrency, fx, symbol))
       : synthesizeSparkline(price, changePercent * 100);
-  const dailyCloses = (chart?.quotes ?? [])
-    .map((row) => {
-      const close = row.close;
-      const rawDate = row.date;
-      if (typeof close !== "number" || !rawDate) return null;
-      const when =
-        rawDate instanceof Date
-          ? rawDate
-          : new Date(
-              typeof rawDate === "number" && rawDate < 1e12
-                ? rawDate * 1000
-                : rawDate
-            );
-      if (Number.isNaN(when.getTime())) return null;
-      return {
-        date: dateKeyInTz(when, "America/New_York"),
-        close: priceToUsd(close, yahooCurrency, fx, symbol),
-      };
-    })
-    .filter((b): b is { date: string; close: number } => b != null)
-    .slice(-15);
+  const dailyCloses = bars.slice(-15).map((bar) => ({
+    date: bar.date,
+    close: priceToUsd(bar.close, yahooCurrency, fx, symbol),
+  }));
 
   const preMarketPrice = scaleMoney(
     typeof quote.preMarketPrice === "number" ? quote.preMarketPrice : null,
@@ -386,14 +584,17 @@ export async function fetchQuotesYahoo(
 
   try {
     const yf = await getYahoo();
-    const fx = await fetchFxRates(yf);
+    // Not awaited here. A refresh of the rates runs alongside the ticker
+    // wave rather than in front of it, and each name waits for it only
+    // once its own two calls are back.
+    const fxTask = currentFxRates(yf);
     const period1 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
 
     const resolveOne = async (requested: string): Promise<QuoteHit | null> => {
       if (isMarketCircuitOpen("yahoo")) return null;
       for (const symbol of yahooQuoteCandidates(requested)) {
         try {
-          const quote = await quoteOneSymbol(yf, symbol, fx, period1);
+          const quote = await quoteOneSymbol(yf, symbol, fxTask, period1);
           // A stub with price 0 is not a hit. Keep walking suffixes
           // (LHV1T is empty; LHV1T.TL is the Tallinn listing).
           if (quote && quote.price > 0) return { requested, symbol, quote };
@@ -430,7 +631,7 @@ export async function fetchQuotesYahoo(
     }
 
     const failed = unique.filter((ticker) => !map[ticker]);
-    return { quotes: map, fx, failed };
+    return { quotes: map, fx: await fxTask, failed };
   } catch (err) {
     console.error("yahoo-finance2 unavailable", err);
     return {
@@ -439,6 +640,18 @@ export async function fetchQuotesYahoo(
       failed: unique,
     };
   }
+}
+
+/** Everything this module remembers between calls, for a test to clear. */
+export function resetYahooMemosForTests() {
+  fxMemo = null;
+  fxPending = null;
+  chartMemo.clear();
+  chartInFlight.clear();
+  symbolMemo.clear();
+  symbolInFlight.clear();
+  ytdCloseCache.clear();
+  ytdCloseInFlight.clear();
 }
 
 export type ShareSplit = {
@@ -562,7 +775,7 @@ function chartRowsToDailyCloses(
 
 async function ytdClosesForSymbol(
   yf: YahooFinanceInstance,
-  fx: FxRates,
+  fxTask: Promise<FxRates>,
   symbol: string,
   year: number,
   period1: Date
@@ -589,7 +802,11 @@ async function ytdClosesForSymbol(
         typeof chart.meta?.currency === "string"
           ? chart.meta.currency
           : undefined;
-      const rows = chartRowsToDailyCloses(chart.quotes ?? [], currency, fx);
+      const rows = chartRowsToDailyCloses(
+        chart.quotes ?? [],
+        currency,
+        await fxTask
+      );
       ytdCloseCache.set(cacheKey, { year, at: Date.now(), rows });
       return rows;
     } catch (err) {
@@ -616,13 +833,19 @@ export async function fetchYtdDailyCloses(
   const period1 = new Date(Date.UTC(year, 0, 1));
   try {
     const yf = await getYahoo();
-    const fx = await fetchFxRates(yf);
+    const fxTask = currentFxRates(yf);
     const out: Record<string, DailyClose[]> = {};
     await Promise.all(
       unique.map(async (ticker) => {
         const key = ticker.toUpperCase();
         for (const symbol of yahooQuoteCandidates(ticker)) {
-          const rows = await ytdClosesForSymbol(yf, fx, symbol, year, period1);
+          const rows = await ytdClosesForSymbol(
+            yf,
+            fxTask,
+            symbol,
+            year,
+            period1
+          );
           if (rows.length > 0) {
             out[key] = rows;
             return;
@@ -651,7 +874,7 @@ export async function fetchWeekReturns(
   const period1 = new Date(Date.now() - 18 * 24 * 60 * 60 * 1000);
   try {
     const yf = await getYahoo();
-    const fx = await fetchFxRates(yf);
+    const fxTask = currentFxRates(yf);
     const out: Record<string, WeekReturn> = {};
     await Promise.all(
       unique.map(async (ticker) => {
@@ -664,7 +887,11 @@ export async function fetchWeekReturns(
               typeof chart.meta?.currency === "string"
                 ? chart.meta.currency
                 : undefined;
-            const rows = chartRowsToDailyCloses(chart.quotes ?? [], currency, fx);
+            const rows = chartRowsToDailyCloses(
+              chart.quotes ?? [],
+              currency,
+              await fxTask
+            );
             if (rows.length < 2) continue;
             const end = rows[rows.length - 1];
             const start = rows.length >= 6 ? rows[rows.length - 6] : rows[0];
@@ -765,10 +992,6 @@ const THEME_CATALYSTS: Record<string, string[]> = {
   RDDT: ["Ad cycle & user growth prints"],
 };
 
-function toDateKey(d: Date): string {
-  return dateKeyInTz(d);
-}
-
 export async function fetchNextEarningsDate(
   ticker: string
 ): Promise<Date | null> {
@@ -807,41 +1030,53 @@ export async function fetchMarketEvents(tickers: string[]): Promise<{
   const earnings: EarningsEvent[] = [];
   const catalysts: CatalystEvent[] = [];
 
-  await Promise.all(
-    unique.map(async (ticker) => {
-      if (isCoinSymbol(ticker)) return;
-      const date = await fetchNextEarningsDate(ticker);
-      if (date) {
-        const days = daysUntilInTz(date);
-        // Upcoming only (Tallinn calendar) — drop yesterday/past
-        if (days >= 0 && days <= 90) {
-          const row: EarningsEvent = {
-            ticker,
-            date: toDateKey(date),
-            days,
-          };
-          earnings.push(row);
-          catalysts.push({
-            ticker,
-            label: "Earnings report",
-            date: row.date,
-            days: row.days,
-            kind: "earnings",
-          });
-        }
-      }
+  /*
+    The next earnings date comes from the pulse context rather than from a
+    summary call of its own. Both were asking Yahoo the same question about
+    the same reader's names, and the pulse context already holds the answer
+    for an hour; this route used to pay for a listing walk and a
+    `quoteSummary` per ticker to arrive at the date sitting in that cache.
 
-      for (const label of THEME_CATALYSTS[ticker] ?? []) {
+    Imported here rather than at the top of the file because the context
+    module reads this one for its listing lookup, and a cycle between two
+    modules that both run at import time is not worth having.
+  */
+  const dated = unique.filter((ticker) => !isCoinSymbol(ticker));
+  const { fetchPulseContexts } = await import("@/lib/market/ticker-context");
+  const contexts =
+    dated.length > 0 ? await fetchPulseContexts(dated) : {};
+  const todayKey = dateKeyInTz(new Date());
+
+  for (const ticker of unique) {
+    if (!isCoinSymbol(ticker)) {
+      const nextKey = contexts[ticker]?.nextEarningsDate ?? null;
+      // Counted from today rather than read off the context, which may
+      // have been written on the other side of a midnight.
+      const days = nextKey ? calendarDaysBetweenKeys(todayKey, nextKey) : null;
+      // Upcoming only (Tallinn calendar) — drop yesterday/past
+      if (nextKey && days != null && days >= 0 && days <= 90) {
+        const row: EarningsEvent = { ticker, date: nextKey, days };
+        earnings.push(row);
         catalysts.push({
           ticker,
-          label,
-          date: null,
-          days: null,
-          kind: "theme",
+          label: "Earnings report",
+          date: row.date,
+          days: row.days,
+          kind: "earnings",
         });
       }
-    })
-  );
+    }
+
+    for (const label of THEME_CATALYSTS[ticker] ?? []) {
+      catalysts.push({
+        ticker,
+        label,
+        date: null,
+        days: null,
+        kind: "theme",
+      });
+    }
+  }
 
   earnings.sort((a, b) => a.days - b.days);
   catalysts.sort((a, b) => {
