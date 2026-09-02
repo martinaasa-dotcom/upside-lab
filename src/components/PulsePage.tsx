@@ -65,7 +65,7 @@ import {
   shouldAutoPulseTicker,
   sortPulseCandidates,
   buildPulseScan,
-  stripTrailingScanStop,
+  scanLineBody,
   loadPulseSummary,
   loadPulseTickerCache,
   reconcilePulseCheck,
@@ -122,12 +122,6 @@ type Props = {
     }
   ) => void;
 };
-
-function scanLineBody(ticker: string, line: string): string {
-  const tag = cashtag(ticker);
-  const stripped = line.replace(new RegExp(`^\\${tag}\\s+`, "i"), "").trim();
-  return stripTrailingScanStop(stripped || line);
-}
 
 function thesisDisplayBullets(text: string | undefined): string[] {
   const sentences = normalizePulseSituation(text ?? "");

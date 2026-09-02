@@ -43,13 +43,20 @@ import type { RateLimitResult } from "@/lib/rate-limit";
  * Three properties follow, all of them wanted:
  *
  * - **Ordinary use never touches the database.** The charge only happens on
- *   requests that actually produced new dead names, which for real books is
- *   almost never. No round trip is added to the hot path.
+ *   requests carrying a name no cache can vouch for, which for real books
+ *   is almost never: every holding somebody in the product has priced in
+ *   the last week is in the shared quote cache. No round trip is added to
+ *   the hot path.
  * - **Repeats are free, so honest mistakes are cheap.** A CSV with a typo
  *   in it costs its dead names once. Every later refresh finds them in the
- *   negative cache and is charged nothing, because it cost nothing.
- * - **The charge is honest about what happened.** It is levied after the
- *   fetch, against work already done, rather than guessed at beforehand.
+ *   negative cache and is charged nothing, because it costs nothing.
+ * - **The charge is settled before the walk, not after it.** It used to be
+ *   levied against work already done, which is honest and useless: a
+ *   request's whole walk happens at once, so a hundred and twenty invented
+ *   symbols had already been paid for by the time the bill arrived, and
+ *   the address only went over budget for the *next* request. What is
+ *   charged now is the set of names about to cost a full walk apiece,
+ *   which `namesThatWouldWalk` works out from the caches for nothing.
  */
 
 /**
@@ -160,24 +167,31 @@ export function resetUnresolvedBudgetForTests() {
 }
 
 /**
- * Bill an address for the dead names its request just discovered.
+ * Bill an address for the names its request is about to walk, and say
+ * whether it may.
  *
- * No-op when the request produced none, which is the overwhelmingly common
- * case and the reason this costs nothing in normal use. This is the only
- * call in the pair that reaches Postgres, and it reaches it precisely when
- * something expensive has just happened.
+ * No-op when there are none, which is the overwhelmingly common case and
+ * the reason this costs nothing in normal use: a real portfolio's names are
+ * all in the shared quote cache, so there is nothing to charge for and no
+ * round trip to make. This is the only call in the pair that reaches
+ * Postgres, and it reaches it precisely when something expensive is about
+ * to happen.
+ *
+ * A refusal means the caller must stop before contacting a provider. The
+ * bucket has still been charged, which is deliberate: an address that keeps
+ * asking for the same expensive thing keeps paying for it.
  */
 export async function chargeUnresolvedBudget(
   req: Request,
-  newlyUnresolvable: readonly string[]
-): Promise<void> {
-  if (newlyUnresolvable.length === 0) return;
+  names: readonly string[]
+): Promise<RateLimitResult> {
+  if (names.length === 0) return { ok: true };
   const key = budgetKey(req);
   const result = await takeDurableRateLimitWeighted(
     key,
     UNRESOLVED_LIMIT,
     UNRESOLVED_WINDOW_MS,
-    newlyUnresolvable.length
+    names.length
   );
   if (!result.ok) {
     // Do not keep vouching for an address the shared bucket just refused.
@@ -186,4 +200,5 @@ export async function chargeUnresolvedBudget(
     // -- but it means the cache can never disagree with the bucket.
     sharedOkUntil.delete(key);
   }
+  return result;
 }

@@ -53,6 +53,7 @@ import {
   statusLabel,
   verdictRepeatsTrim,
   verdictRepeatsSuggestion,
+  scanLineBody,
   stripTrailingScanStop,
   buildFallbackPulseCheck,
   buildPulseScan,
@@ -3765,7 +3766,10 @@ run("Pulse scan sits in its own card, not under the lookup bar", () => {
   );
   assert.doesNotMatch(page, /humanizeMargusText\(summary\)/);
   assert.doesNotMatch(schema, /lead with any sharp drops/);
-  assert.match(page, /stripTrailingScanStop/);
+  // The room strips the trailing stop through the library's own helper
+  // rather than doing it inline, so the rule is asserted below against
+  // `scanLineBody` instead of against the page's wiring.
+  assert.match(page, /scanLineBody/);
 
   const pulseLib = readFileSync(
     join(process.cwd(), "src/lib/thesis-pulse.ts"),
@@ -3773,6 +3777,13 @@ run("Pulse scan sits in its own card, not under the lookup bar", () => {
   );
   assert.match(pulseLib, /export function stripTrailingScanStop/);
   assert.match(pulseLib, /stripTrailingScanStop\(body\.trim\(\)\)/);
+  // A ticker is stored data and two import paths write one without checking
+  // its shape, so this must never be a regular expression built from it: a
+  // holding saved as "A(B" would throw while Pulse renders and take the
+  // room down for the reader and every co-owner.
+  assert.equal(scanLineBody("A(B", "Something happened"), "Something happened");
+  assert.equal(scanLineBody("NBIS", "$NBIS  Looks like a chase."), "Looks like a chase");
+  assert.equal(scanLineBody("NBIS", "$NBISX moved today"), "$NBISX moved today");
   assert.equal(
     stripTrailingScanStop("What's Next for the Company?."),
     "What's Next for the Company?"
