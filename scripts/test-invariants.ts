@@ -5485,7 +5485,16 @@ run("fun facts and circle facts do not say NAV or dry powder", () => {
   assert.doesNotMatch(compound, /index-ish beta/);
   assert.doesNotMatch(compound, /long-only beta/);
   assert.doesNotMatch(compound, /this book's assumed rate/);
-  assert.match(compound, /your rate on this plan/);
+  /*
+   * The fourth path used to be labelled "Upside path" with the tagline
+   * "your rate on this plan", and what it drew was the reader's rate plus six
+   * points a year assumed from selling covered calls, compounded for as long
+   * as the horizon ran, with nothing on screen saying so. The addition is
+   * gone, so the line asserted here is the one that now has to stay true:
+   * the fourth path is the number in the box and nothing else.
+   */
+  assert.match(compound, /the number in the box/);
+  assert.doesNotMatch(compound, /ccBoost/);
   const compareUi = readFileSync(
     join(process.cwd(), "src/components/CompoundInterestSheet.tsx"),
     "utf8"

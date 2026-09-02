@@ -589,6 +589,7 @@ export function scenarioProvenance(): Provenance {
     steps: [
       "Each holding is grouped by what kind of business it is.",
       "That group's made-up percentage is applied to its value, and the results are added up.",
+      "If part of your portfolio is borrowed, the room before a forced sale assumes your broker wants 30% of the stocks covered by your own money. Real brokers use 25% to 30% and can raise it without warning.",
     ],
     blindSpots: [
       "Whether a day like that would actually happen, or how likely it is.",
@@ -689,10 +690,19 @@ export function holdingsProvenance(input: { at?: string | null }): Provenance {
  * The Growth room's yearly rate. Not a model, but very much an assumption,
  * and it is compounded for decades, so it needs saying plainly.
  */
+/**
+ * `source` is which of the three the number in the box is, because the honest
+ * answer to "where did this come from" is a different sentence for each: the
+ * page's own opening figure, the table of typical rates per kind of business,
+ * or something the reader typed over the top.
+ */
 export function growthRateProvenance(input: {
   ratePct?: number | null;
+  source?: "baseline" | "mix" | "typed";
+  /** Older spelling: true meant anything other than the mix rate. */
   edited?: boolean;
 }): Provenance {
+  const source = input.source ?? (input.edited ? "typed" : "mix");
   const rate =
     input.ratePct != null && Number.isFinite(input.ratePct)
       ? `${input.ratePct}% a year`
@@ -700,27 +710,33 @@ export function growthRateProvenance(input: {
   return {
     maker: "arithmetic",
     title: "Where this came from",
-    headline: input.edited
-      ? "This is the rate you typed. Everything on this page is that number compounded, and nothing on this page knows whether it is realistic."
-      : `Nobody measured your portfolio's future. ${rate} is a starting guess: a table of typical rates per kind of business, written into this app, weighted by how much of each kind you hold.`,
+    headline:
+      source === "typed"
+        ? `This is the rate you typed: ${rate}. Everything on this page is that number compounded, and nothing on this page knows whether it is realistic.`
+        : source === "baseline"
+          ? `Nobody measured your portfolio's future. This page opens on ${rate}, which is roughly what the whole US market has averaged over a long stretch, before inflation is taken off. It is a starting point, not a reading of what you hold.`
+          : `Nobody measured your portfolio's future. ${rate} is what a mix like yours has usually done: a table of typical rates per kind of business, written into this app, weighted by how much of each kind you hold.`,
     inputs: [
-      { what: "What you hold, and how much of each" },
+      { what: "The rate in the box, whichever preset or number you chose" },
       {
-        what: "A typical yearly rate per kind of business",
+        what: "A long run average for the whole US market",
+        detail: "about 10% a year, before inflation, and where this page starts",
+      },
+      {
+        what: "What you hold, and how much of each",
         detail:
-          "a table written into this app. A broad index fund sits at about 10% a year, and jumpier kinds of business sit above it.",
+          "only for the preset that offers what this mix has usually done. That one comes from a table written into this app. It gives a broad index fund about 10% a year and puts jumpier kinds of business above that.",
       },
       { what: "Your cash, at whatever rate you set for it" },
-      { what: "Anything you typed into the boxes", detail: "yours wins" },
     ],
     sources: [
       YOUR_HOLDINGS,
       { name: "This app", what: "the table of typical rates" },
     ],
     steps: [
-      "Each holding is grouped by what kind of business it is and given that group's rate.",
-      "Those are blended by how much of your money is in each, which is where the starting rate comes from.",
-      "Then it is straight compound interest on that one rate, month by month.",
+      "The rate in the box is compounded month by month over the years you set, together with anything you pay in or take out.",
+      "Nothing is added to that rate afterwards. There is no allowance for option premiums or anything else this app cannot show you.",
+      "The preset for what this mix has usually done is worked out separately: each holding is grouped by kind of business, given that group's typical rate, and those are blended by how much of your money is in each.",
     ],
     blindSpots: [
       "Whether any of it happens. A single rate held for decades is not how markets behave, and the table is optimistic rather than safe.",

@@ -6,10 +6,12 @@ import {
   DEFAULT_COMPOUND_INPUTS,
   calculateCompound,
   type CompoundInputs,
+  type CompoundResult,
   type ContributionFrequency,
   type ContributionMode,
 } from "@/lib/compound-interest";
 import {
+  BROAD_MARKET_ANNUAL_PCT,
   buildCompareScenarios,
   buildCompoundMilestones,
   buildMilestoneTakeaway,
@@ -93,12 +95,45 @@ const FIELD_STACK = "flex flex-col gap-5";
 const SHEET_PANEL = "h-auto min-w-0 max-w-full lg:h-full";
 
 const YEAR_PRESETS = [5, 10, 20, 30] as const;
+
+/*
+ * Every one of these is an assumption, and the page compounds whichever one
+ * is chosen for up to fifty years, so each says what it is rather than
+ * standing there as a bare number. The broad market comes first and is where
+ * the page opens: the rate a mix of holdings has usually managed is offered
+ * beside it, clearly labelled, rather than being the number a reader finds
+ * already in the box.
+ */
 const RATE_PRESETS = [
-  { id: "book", label: "Yours", title: "This portfolio" },
-  { id: "spy", label: "S&P", title: "S&P 500" },
-  { id: "15", label: "15%" },
-  { id: "25", label: "25%" },
+  { id: "spy", label: "10%", title: "The whole US market's long run average" },
+  { id: "book", label: "Your mix", title: "What this mix has usually done" },
+  { id: "15", label: "15%", title: "A very good stretch for the whole market" },
+  { id: "25", label: "25%", title: "What only a handful of years look like" },
 ] as const;
+
+/** The sentence printed under the rate box for whichever preset is on. */
+function rateCaveat(preset: string | null, mixPct: number): string {
+  if (preset === "spy") {
+    return `${BROAD_MARKET_ANNUAL_PCT}% a year is the historical average for the whole US market, before inflation is taken off. Nobody gets it every year.`;
+  }
+  if (preset === "book") {
+    return `What this mix has usually done: about ${mixPct}% a year, from a table of typical rates per kind of business written into this app. Holding a rate like that for decades is a big assumption.`;
+  }
+  if (preset === "15") {
+    return "15% a year is a very good stretch for the whole market, half as much again as its long run average.";
+  }
+  if (preset === "25") {
+    return "25% a year is what only a handful of years look like. Very little holds that for decades.";
+  }
+  return "This is the rate you typed. Nothing on this page knows whether it is realistic.";
+}
+
+/** "7 years", "7 years and 3 months". Never "7y 3m". */
+function spanText(years: number, months: number): string {
+  const y = `${years} ${years === 1 ? "year" : "years"}`;
+  if (!(months > 0)) return y;
+  return `${y} and ${months} ${months === 1 ? "month" : "months"}`;
+}
 
 function milestoneDone(row: CompoundMilestone): boolean {
   return row.hit || Boolean(row.actualDate);
@@ -211,8 +246,6 @@ type Props = {
   /** USD per 1 EUR (Yahoo EURUSD) */
   eurUsd?: number | null;
   eurUsdDetail?: EurUsdQuote | null;
-  /** Skip the covered-call boost in the compare path. */
-  hideOptions?: boolean;
 };
 
 function loadStored(): CompoundInputs {
@@ -481,6 +514,232 @@ function ComparePathsChart({
   );
 }
 
+/**
+ * The one chart that teaches the idea rather than comparing four of them:
+ * the money you pay in, and what growth adds on top, as two lines that cross.
+ *
+ * It draws itself once, on the first render, along its own stroke rather than
+ * by moving anything, and it does not draw itself at all for a reader who has
+ * asked for less motion. Dragging along it reads any single year back in one
+ * sentence, which is the whole point: a reader who drags is asking "what
+ * about the year I retire", and the answer should be a sentence, not a table.
+ */
+function GrowthPathChart({
+  result,
+  show,
+  startYear,
+}: {
+  result: CompoundResult;
+  show: (usd: number, digits?: number) => string;
+  startYear: number;
+}) {
+  const rows = result.yearly;
+  const lastIdx = Math.max(1, rows.length - 1);
+  const paidIn = rows.map((r) => r.balance - r.accruedInterest);
+  const growth = rows.map((r) => Math.max(0, r.accruedInterest));
+  const max = Math.max(1, ...paidIn, ...growth);
+  const crossIdx = rows.findIndex(
+    (r, i) => i > 0 && growth[i]! >= paidIn[i]!
+  );
+
+  const [sel, setSel] = useState<number | null>(null);
+  const shown = sel ?? lastIdx;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const paidRef = useRef<SVGPolylineElement>(null);
+  const growthRef = useRef<SVGPolylineElement>(null);
+  const drawn = useRef(false);
+
+  /*
+   * No fixed pixel height, and the viewBox aspect is the drawing's aspect.
+   * An `h-[180px] w-full` box letterboxes: `preserveAspectRatio` scales the
+   * drawing uniformly and centres it, so at 1280 the chart sat 66px inside
+   * each edge of its own box while the year labels under it ran the full
+   * width, and the first year looked like a gap. Letting the height follow
+   * the width keeps the drawing and its rail on the same scale.
+   */
+  const w = 640;
+  const h = 220;
+  const padL = 6;
+  const padR = 6;
+  const padT = 10;
+  const padB = 6;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+  const xAt = (i: number) => padL + (i / lastIdx) * plotW;
+  const yAt = (v: number) => padT + plotH - (v / max) * plotH;
+  const points = (series: number[]) =>
+    series.map((v, i) => `${xAt(i)},${yAt(v)}`).join(" ");
+
+  useEffect(() => {
+    if (drawn.current) return;
+    drawn.current = true;
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) return;
+    for (const [i, node] of [paidRef.current, growthRef.current].entries()) {
+      if (!node || typeof node.animate !== "function") continue;
+      node.animate(
+        [{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }],
+        { duration: 1100, delay: i * 180, easing: "ease-out", fill: "backwards" }
+      );
+    }
+  }, []);
+
+  function selectFromClientX(clientX: number) {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const relX = ((clientX - rect.left) / rect.width) * w;
+    const idx = Math.round(((relX - padL) / plotW) * lastIdx);
+    setSel(Math.max(0, Math.min(lastIdx, idx)));
+  }
+
+  const shownYear = startYear + shown;
+  const shownPaid = paidIn[shown] ?? 0;
+  const shownGrowth = growth[shown] ?? 0;
+  const readout =
+    shown === 0
+      ? `This is where you start: ${show(shownPaid)} in, and nothing added by growth yet.`
+      : `By ${shownYear} you would have put in ${show(shownPaid)} and growth would have added ${show(shownGrowth)}.`;
+
+  return (
+    <div className="min-w-0 max-w-full">
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${w} ${h}`}
+        className="w-full min-w-0 touch-pan-y"
+        role="slider"
+        tabIndex={0}
+        aria-label="Year to read"
+        aria-valuemin={startYear}
+        aria-valuemax={startYear + lastIdx}
+        aria-valuenow={shownYear}
+        aria-valuetext={readout}
+        onMouseMove={(e) => selectFromClientX(e.clientX)}
+        onTouchStart={(e) => {
+          const t = e.touches[0];
+          if (t) selectFromClientX(t.clientX);
+        }}
+        onTouchMove={(e) => {
+          const t = e.touches[0];
+          if (t) selectFromClientX(t.clientX);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+            e.preventDefault();
+            setSel(Math.max(0, shown - 1));
+          } else if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+            e.preventDefault();
+            setSel(Math.min(lastIdx, shown + 1));
+          }
+        }}
+      >
+        <line
+          x1={padL}
+          x2={w - padR}
+          y1={padT + plotH}
+          y2={padT + plotH}
+          stroke={PALETTE.well}
+          strokeWidth="1"
+        />
+        {crossIdx > 0 && (
+          <line
+            x1={xAt(crossIdx)}
+            x2={xAt(crossIdx)}
+            y1={padT}
+            y2={padT + plotH}
+            stroke={PALETTE.gain}
+            strokeWidth="1"
+            strokeDasharray="3 3"
+            opacity="0.55"
+          />
+        )}
+        <polyline
+          ref={paidRef}
+          points={points(paidIn)}
+          fill="none"
+          stroke={PALETTE.steel}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          pathLength={1}
+          strokeDasharray="1"
+        />
+        <polyline
+          ref={growthRef}
+          points={points(growth)}
+          fill="none"
+          stroke={PALETTE.gain}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          pathLength={1}
+          strokeDasharray="1"
+        />
+        <g pointerEvents="none">
+          <line
+            x1={xAt(shown)}
+            x2={xAt(shown)}
+            y1={padT}
+            y2={padT + plotH}
+            stroke={PALETTE.muted}
+            strokeWidth="1"
+            strokeDasharray="2 3"
+            opacity="0.7"
+          />
+          <circle
+            cx={xAt(shown)}
+            cy={yAt(shownPaid)}
+            r="3.5"
+            fill={PALETTE.steel}
+            stroke={PALETTE.card}
+            strokeWidth="1.5"
+          />
+          <circle
+            cx={xAt(shown)}
+            cy={yAt(shownGrowth)}
+            r="4"
+            fill={PALETTE.gain}
+            stroke={PALETTE.card}
+            strokeWidth="1.5"
+          />
+        </g>
+      </svg>
+      <ChartXRail inset>
+        <span className="absolute top-0 left-0">{startYear}</span>
+        <span className="absolute top-0 right-0">{startYear + lastIdx}</span>
+      </ChartXRail>
+      <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        <li className="inline-flex items-center gap-1.5">
+          <span
+            className="inline-block w-3.5"
+            style={{ borderTop: `2px solid ${PALETTE.steel}` }}
+            aria-hidden
+          />
+          <span style={{ color: PALETTE.steel }}>Money you put in</span>
+        </li>
+        <li className="inline-flex items-center gap-1.5">
+          <span
+            className="inline-block w-3.5"
+            style={{ borderTop: `2px solid ${PALETTE.gain}` }}
+            aria-hidden
+          />
+          <span style={{ color: PALETTE.gain }}>What growth adds</span>
+        </li>
+      </ul>
+      <p className="mt-3 leading-relaxed text-foreground" aria-live="polite">
+        {readout}
+      </p>
+      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+        {crossIdx > 0
+          ? `The two lines cross in ${startYear + crossIdx}. From then on, more of the pot is growth than money you have put in altogether.`
+          : "Growth does not catch everything you have put in over this many years. Set a longer stretch and watch the green line close on the blue one."}
+      </p>
+    </div>
+  );
+}
+
 export const CompoundInterestSheet = memo(function CompoundInterestSheet({
   bookValue,
   sheets,
@@ -488,7 +747,6 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
   bookCash = 0,
   eurUsd = null,
   eurUsdDetail = null,
-  hideOptions = true,
 }: Props) {
   const [draft, setDraft] = useState<CompoundInputs>(DEFAULT_COMPOUND_INPUTS);
   const [currency, setCurrency] = useState<CurrencyCode>("USD");
@@ -502,15 +760,24 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
   const appliedDefaultRateRef = useRef(false);
   const later = useTimeout();
 
-  // Calculate the portfolio's actual blended expected growth rate
+  /*
+   * What a mix like this one has usually managed, blended from a table of
+   * typical rates per kind of business. It is offered as a preset and named
+   * on screen. It is deliberately NOT what the page opens on: for a portfolio
+   * heavy in one theme this lands near 30% a year, and opening on that
+   * compounds a very optimistic guess for thirty years with the caveat hidden
+   * behind a click.
+   */
   const portfolioExpectedRatePct = useMemo(() => {
-    if (tickerValues.length === 0 && bookCash === 0) return 10.0;
+    if (tickerValues.length === 0 && bookCash === 0) {
+      return BROAD_MARKET_ANNUAL_PCT;
+    }
     const blended = blendedExpectedAnnualReturn(tickerValues, {
       balance: bookCash,
       annualReturnPct: COMPOUND_CASH_YIELD_ANNUAL_PCT,
     });
     const pct = Math.round(blended * 1000) / 10;
-    return pct > 0 ? pct : 10.0;
+    return pct > 0 ? pct : BROAD_MARKET_ANNUAL_PCT;
   }, [tickerValues, bookCash]);
 
   useLayoutEffect(() => {
@@ -521,26 +788,26 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
     setHydrated(true);
   }, []);
 
-  // Sync default interest rate to the portfolio's average growth rate by default
+  /*
+   * A first visit starts on this portfolio's own value. The rate it starts on
+   * is the broad market average and comes from `DEFAULT_COMPOUND_INPUTS`, so
+   * there is no frame where one number is on screen and another replaces it.
+   *
+   * This used to reach for the blended theme rate instead, which is the
+   * single most flattering number this page can produce, and it wrote that
+   * over a stored rate too, so a reader who changed nothing was reading a
+   * thirty year projection built on it. A rate already saved is now left
+   * exactly as it was: it is the reader's, not ours.
+   */
   useEffect(() => {
     if (!hydrated || appliedDefaultRateRef.current) return;
-    if (portfolioExpectedRatePct > 0) {
-      appliedDefaultRateRef.current = true;
-      const stored = loadStored();
-      const rawStored = typeof window !== "undefined" ? window.localStorage.getItem(COMPOUND_STORAGE_KEY) : null;
-      // If never saved before or matches the generic 8% fallback, adopt portfolio's real rate
-      if (!rawStored || stored.ratePercent === 8 || stored.ratePercent === DEFAULT_COMPOUND_INPUTS.ratePercent) {
-        setDraft((prev) => ({
-          ...prev,
-          ratePercent: portfolioExpectedRatePct,
-          principal: bookValue > 0 && prev.principal === 5000 ? Math.round(bookValue) : prev.principal,
-        }));
-        if (bookValue > 0 && stored.principal === 5000) {
-          setPrincipalSource("book");
-        }
-      }
-    }
-  }, [hydrated, portfolioExpectedRatePct, bookValue]);
+    appliedDefaultRateRef.current = true;
+    if (!(bookValue > 0)) return;
+    const stored = loadStored();
+    if (stored.principal !== 5000) return;
+    setDraft((prev) => ({ ...prev, principal: Math.round(bookValue) }));
+    setPrincipalSource("book");
+  }, [hydrated, bookValue]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -590,11 +857,16 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
     [result.yearly]
   );
 
-  const compare = useMemo(
-    () => buildCompareScenarios(liveInputs, hideOptions ? 0 : 6),
-    [liveInputs, hideOptions]
+  const compare = useMemo(() => buildCompareScenarios(liveInputs), [liveInputs]);
+  /*
+   * Every sentence these write is handed the same formatter the figures
+   * above them use, so a calculator switched to euros cannot describe its own
+   * pot in dollars one line further down.
+   */
+  const narrative = useMemo(
+    () => buildNarrative(result, (n) => money(n, currency, eurUsd, 0)),
+    [result, currency, eurUsd]
   );
-  const narrative = useMemo(() => buildNarrative(result), [result]);
 
   const storyOpts = useMemo(
     () => storyYears(Math.max(liveInputs.years, 1)),
@@ -619,8 +891,11 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
     result.yearly[result.yearly.length - 1];
 
   const yearStories = useMemo(
-    () => buildYearStories(result, storyOpts, tipping),
-    [result, storyOpts, tipping]
+    () =>
+      buildYearStories(result, storyOpts, tipping, (n) =>
+        money(n, currency, eurUsd, 0)
+      ),
+    [result, storyOpts, tipping, currency, eurUsd]
   );
 
   const annualRatePct =
@@ -638,8 +913,8 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
     [liveInputs, annualRatePct, milestoneActuals]
   );
   const milestoneTakeaway = useMemo(
-    () => buildMilestoneTakeaway(milestones),
-    [milestones]
+    () => buildMilestoneTakeaway(milestones, (n) => money(n, currency, eurUsd, 0)),
+    [milestones, currency, eurUsd]
   );
   const clearedMilestones = milestones.filter(milestoneDone);
   const upcomingMilestones = milestones.filter((m) => !milestoneDone(m));
@@ -704,23 +979,26 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
     }
   }
 
-  const durationLabel =
-    liveInputs.months > 0
-      ? `${liveInputs.years}y ${liveInputs.months}m`
-      : `${liveInputs.years} year${liveInputs.years === 1 ? "" : "s"}`;
+  const durationLabel = spanText(liveInputs.years, liveInputs.months);
 
   const isRateMatchedToPortfolio = Math.abs(draft.ratePercent - portfolioExpectedRatePct) < 0.05;
   const annualRateInput =
     draft.ratePeriod === "annual" ? draft.ratePercent : draft.ratePercent * 12;
-  const ratePreset = isRateMatchedToPortfolio
-    ? "book"
-    : annualRateInput === 10
+  /*
+   * The broad market reading wins a tie. A portfolio whose blended rate lands
+   * on 10% would otherwise light "Your mix" and print the mix caveat over a
+   * number that is simply the market average.
+   */
+  const ratePreset =
+    annualRateInput === BROAD_MARKET_ANNUAL_PCT
       ? "spy"
-      : annualRateInput === 15
-        ? "15"
-        : annualRateInput === 25
-          ? "25"
-          : null;
+      : isRateMatchedToPortfolio
+        ? "book"
+        : annualRateInput === 15
+          ? "15"
+          : annualRateInput === 25
+            ? "25"
+            : null;
   const yearPreset = YEAR_PRESETS.includes(
     draft.years as (typeof YEAR_PRESETS)[number]
   )
@@ -739,7 +1017,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
       return;
     }
     patchDraft("ratePeriod", "annual");
-    if (id === "spy") patchDraft("ratePercent", 10);
+    if (id === "spy") patchDraft("ratePercent", BROAD_MARKET_ANNUAL_PCT);
     else if (id === "15") patchDraft("ratePercent", 15);
     else patchDraft("ratePercent", 25);
   }
@@ -838,7 +1116,12 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             <WhyThis
               provenance={growthRateProvenance({
                 ratePct: annualRateInput,
-                edited: !isRateMatchedToPortfolio,
+                source:
+                  ratePreset === "spy"
+                    ? "baseline"
+                    : ratePreset === "book"
+                      ? "mix"
+                      : "typed",
               })}
               align="start"
             />
@@ -866,6 +1149,14 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             value={ratePreset}
             onChange={applyRatePreset}
           />
+          {/*
+            * Printed, never behind the eye. The eye answers "where did this
+            * come from" for a reader who goes looking; this is the line that
+            * reaches the reader who does not.
+            */}
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {rateCaveat(ratePreset, portfolioExpectedRatePct)}
+          </p>
         </section>
 
         <section className={cn(FIELD_STACK, "py-4")}>
@@ -895,7 +1186,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             look="buttons"
             options={YEAR_PRESETS.map((yr) => ({
               id: String(yr),
-              label: `${yr}y`,
+              label: `${yr} years`,
               title: `${yr} years`,
             }))}
             value={yearPreset}
@@ -1036,25 +1327,39 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             <Score
               label="Of that, growth"
               value={show(result.totalInterest)}
-              explain="Money the market made for you, on top of everything you put in yourself."
+              explain="What growth at this rate would add on top of everything you put in. A projection, not money you have."
               valueClassName="text-gain"
             />
             <Score
               label="You put in"
-              value={show(result.principal + result.totalDeposited)}
+              value={show(result.totalDeposited)}
               valueClassName="text-primary"
             />
           </Scoreboard>
 
           <p className="text-sm leading-relaxed text-muted-foreground">
-            You put in {show(result.principal + result.totalDeposited)} and end
-            with {show(result.futureValue)}, so growth did{" "}
+            You would put in {show(result.totalDeposited)} and end with{" "}
+            {show(result.futureValue)}, so growth would do{" "}
             {show(result.totalInterest)} of the work
             {result.futureValue > 0
               ? `, which is ${percent(safeDiv(result.totalInterest, result.futureValue), 0)} of the final number`
               : ""}
             .
           </p>
+
+          <div>
+            <MicroLabel>Where that money would come from</MicroLabel>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Drag across the years to read any single one of them.
+            </p>
+            <div className="mt-4">
+              <GrowthPathChart
+                result={result}
+                show={show}
+                startYear={new Date().getFullYear()}
+              />
+            </div>
+          </div>
 
           <Scoreboard cols={2}>
             <Score
@@ -1065,16 +1370,17 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
                   <ArrowUpRight className="h-3.5 w-3.5" />
                 </span>
               }
-              explain="How much bigger the pot is than everything you put into it."
+              explain="How much bigger the pot would be than everything you put into it."
               valueClassName="text-gain"
             />
             <Score
               label="Doubles in"
               value={
                 Number.isFinite(result.doubleYears)
-                  ? `${result.doubleYears}y ${result.doubleMonths}m`
+                  ? spanText(result.doubleYears, result.doubleMonths)
                   : NO_VALUE
               }
+              valueClassName="whitespace-normal leading-snug"
             />
           </Scoreboard>
           <Scoreboard cols={1}>
@@ -1216,7 +1522,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
               </p>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                 {yearStories.get(storyRow.index) ??
-                  `Growth added ${show(storyRow.interest)} this year, ${show(storyRow.accruedInterest)} in total so far.`}
+                  `Growth would add ${show(storyRow.interest)} that year, ${show(storyRow.accruedInterest)} in total by then.`}
               </p>
             </div>
           ) : null}
@@ -1257,7 +1563,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
                         </p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Growth so far</p>
+                        <p className="text-muted-foreground">Growth by then</p>
                         <p className="tabular-nums text-gain">
                           {show(row.accruedInterest)}
                         </p>
@@ -1281,7 +1587,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
                     <th className={cn(htmlCell, "font-medium")}>Your money in</th>
                     <th className={cn(htmlCell, "font-medium")}>Growth that year</th>
                     <th className={cn(htmlCell, "bg-gain/15 font-medium text-gain")}>
-                      Growth so far
+                      Growth by then
                     </th>
                     <th className={cn(htmlCell, "bg-gain/10 font-medium text-gain")}>
                       Pot at year end

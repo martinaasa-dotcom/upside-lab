@@ -353,11 +353,12 @@ export function calculateCompound(inputs: CompoundInputs): CompoundResult {
 
 export const DEFAULT_COMPOUND_INPUTS: CompoundInputs = {
   principal: 5000,
-  // Overridden per-person once the sheet loads with a blended rate derived
-  // from what's actually held (see blendedExpectedAnnualReturn) — this is
-  // only the fallback before that computation is ready / for a book with
-  // no holdings at all.
-  ratePercent: 8,
+  // The whole US market's long-run average, before inflation is taken off.
+  // It used to be 8% here and was then replaced, once the page loaded, by a
+  // rate blended from what the reader actually holds; that blend is a preset
+  // now and this is what the page opens on, so the two agree and there is no
+  // frame where a different number is on screen.
+  ratePercent: 10,
   ratePeriod: "annual",
   compound: "monthly",
   years: 10,

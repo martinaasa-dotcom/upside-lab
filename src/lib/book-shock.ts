@@ -31,18 +31,37 @@ export type MacroShockCategory =
   | "People buying"
   | "Baseline";
 
+/**
+ * The share of the stocks this scenario assumes a broker wants covered by
+ * the reader's own money before it can sell. Real requirements are usually
+ * 25% to 30%, so this is the ordinary one, and the card says so in words
+ * rather than printing a cushion with no floor named beside it.
+ *
+ * The Cash card on Home plans against a stricter 50% (`MAINTENANCE_RATE`,
+ * `margin-health.ts`) on purpose: that one is a resting warning about a real
+ * loan, where a cushion that turns out smaller than promised is a forced
+ * sale. This one is a what-if about one bad day. The two rooms agree by each
+ * naming the floor it used.
+ */
+export const SCENARIO_MAINTENANCE_RATE = 0.3;
+
+/**
+ * `tagline` and `tacticalAction` used to sit here beside `mechanism` and
+ * nothing ever drew either of them. Dead copy still has to pass the voice
+ * rules, and one of these did not: a note telling the reader to keep their
+ * borrowing under control is an order this app does not give, and it sat
+ * there waiting for the day somebody wired it up.
+ * The screen shows `mechanism`, so `mechanism` is what this type carries.
+ */
 export type ShockDefinition = {
   id: ShockId;
   label: string;
   shortLabel: string;
-  tagline: string;
   driver: MacroShockCategory;
   /** Headline move applied to the core driver (e.g. -0.20 for -20%) */
   headlinePct: number;
-  /** Concise PM context on what triggers the shock and why */
+  /** What sets this day off, and why it reaches the things you own. */
   mechanism: string;
-  /** Actionable checklist / tactical takeaway (dash-free) */
-  tacticalAction: string;
 };
 
 export const SHOCKS: ShockDefinition[] = [
@@ -50,101 +69,81 @@ export const SHOCKS: ShockDefinition[] = [
     id: "none",
     label: "No shock",
     shortLabel: "Live",
-    tagline: "Today's prices, with nothing changed.",
     driver: "Baseline",
     headlinePct: 0,
     mechanism: "Today's prices, with no made-up shock applied.",
-    tacticalAction: "What your portfolio is worth right now.",
   },
   {
     id: "rates_up",
     label: "Interest rates up 0.75%",
     shortLabel: "Rates +0.75%",
-    tagline: "Borrowing gets more expensive. Growth companies usually get hit.",
     driver: "Interest rates",
     headlinePct: -0.12,
     mechanism: "When interest rates jump, pricey growth companies usually fall. Power companies and cash tend to hold up better.",
-    tacticalAction: "Borrowed money gets more expensive, and the most expensive growth companies usually fall furthest.",
   },
   {
     id: "tech_pullback10",
     label: "Technology stocks fall 10%",
     shortLabel: "Tech −10%",
-    tagline: "Big technology, AI cloud and chip companies all get cheaper together.",
     driver: "Tech prices",
     headlinePct: -0.10,
     mechanism: "Software, cloud, and chip companies fall together. Calmer businesses, energy, and cash usually hold up better.",
-    tacticalAction: "Cash sitting ready keeps its value in this picture.",
   },
   {
     id: "oil_shock25",
     label: "Oil price up 25%",
     shortLabel: "Oil +25%",
-    tagline: "Oil jumps. Power companies often gain. Consumer tech often pays more for energy.",
     driver: "Oil and energy",
     headlinePct: 0.25,
     mechanism: "Oil and energy prices go up, and power companies often follow them. Technology and retail companies usually end up paying more for energy.",
-    tacticalAction: "Energy and power companies often soften this. Consumer technology usually ends up paying the extra cost.",
   },
   {
     id: "ai_down20",
     label: "AI stocks fall 20%",
     shortLabel: "AI −20%",
-    tagline: "Chip makers and the companies that build AI computers fall furthest. A fund of chip companies is not the whole market, and that group is the part of your mix that moves most here.",
     driver: "AI computer builders",
     headlinePct: -0.20,
     mechanism: "Companies pause spending on AI computers. Cloud, chip makers, AI software, and data-center power all feel it.",
-    tacticalAction: "Chip makers and AI computer builders are the group that moves most in this picture.",
   },
   {
     id: "btc_winter35",
     label: "Crypto falls 35%",
     shortLabel: "Crypto −35%",
-    tagline: "Anything tied to crypto falls first, and payment and growth companies often follow.",
     driver: "Crypto",
     headlinePct: -0.35,
     mechanism: "Bitcoin falls hard. Companies that hold crypto, mine it or trade it fall first, and payment and growth companies often follow.",
-    tacticalAction: "Anything tied to crypto falls first. If those are a large part of what you own, a long crypto downturn becomes a problem for the whole portfolio.",
   },
   {
     id: "broad_down15",
     label: "The whole market falls 15%",
     shortLabel: "Market −15%",
-    tagline: "People sell everything. Chip makers and crypto usually fall further than the market as a whole, and food companies and bonds usually fall less.",
     driver: "Everyone selling",
     headlinePct: -0.15,
     mechanism: "Almost everything falls together, and the jumpiest holdings still fall further than the calm ones and further than the market as a whole.",
-    tacticalAction: "Cash keeps its value in this picture.",
   },
   {
     id: "usd_surge7",
     label: "The dollar rises 7%",
     shortLabel: "Dollar +7%",
-    tagline: "The dollar jumps. European stocks and US companies that sell abroad often feel it.",
     driver: "The dollar",
     headlinePct: 0.07,
     mechanism: "A stronger US dollar makes European stocks and US companies that earn money abroad look weaker in dollars.",
-    tacticalAction: "US-only businesses usually hold up better when the dollar jumps.",
   },
   {
     id: "china_supply_shock",
     label: "Chip factories fall behind",
     shortLabel: "Chip shortage",
-    tagline: "Chip factories in Asia cannot make enough. US software companies are usually safer.",
     driver: "Factories",
     headlinePct: -0.15,
     mechanism: "Trouble making chips in Asia hits chip factories and the machines that make them. US software and energy usually hold up.",
-    tacticalAction: "Software and US power companies are the usual cushion when factories stall.",
   },
   {
     id: "soft_landing_rally",
     label: "A broad rise of 12%",
     shortLabel: "Rise +12%",
-    tagline: "Growth, payments, space and crypto usually lead. The holdings that have already run furthest from what you paid tend to move most.",
     driver: "People buying",
     headlinePct: 0.12,
     mechanism: "Prices stop rising so fast and the economy holds up. Money tends to move into growth companies, technology, and whatever swings hardest.",
-    tacticalAction: "The jumpiest holdings usually lead. The ones that have already run a long way from what you paid tend to move most.",
   },
 ];
 
@@ -499,6 +498,7 @@ export type ShockMarginAnalysis = {
   shockedLeverage: number;
   liveDebtToEquityPct: number;
   shockedDebtToEquityPct: number;
+  /** The share of the stocks this reading assumed a broker wants covered. */
   maintenanceRate: number;
   liveMaintenanceReq: number;
   shockedMaintenanceReq: number;
@@ -506,7 +506,6 @@ export type ShockMarginAnalysis = {
   shockedEquityCushion: number;
   shockedCushionPct: number;
   marginCallRisk: "safe" | "caution" | "critical";
-  statusBlurb: string;
   liveCashPct: number;
   shockedCashPct: number;
 };
@@ -526,7 +525,6 @@ export type PortfolioShockAnalysis = {
   topVulnerability: ShockHoldingImpact | null;
   topShockAbsorber: ShockHoldingImpact | null;
   themeBreakdown: { theme: string; deltaVal: number; liveVal: number; pctOfLoss: number }[];
-  tacticalNotes: string[];
 };
 
 /**
@@ -599,7 +597,7 @@ export function analyzePortfolioShock(
   const liveDebtToEquityPct = liveEquity > 0 ? (marginDebt / liveEquity) * 100 : 0;
   const shockedDebtToEquityPct = shockedEquity > 0 ? (marginDebt / shockedEquity) * 100 : (marginDebt > 0 ? 999 : 0);
 
-  const maintenanceRate = 0.30; // standard 30% maintenance margin
+  const maintenanceRate = SCENARIO_MAINTENANCE_RATE;
   const liveMaintenanceReq = liveHoldingsVal * maintenanceRate;
   const shockedMaintenanceReq = shockedHoldingsVal * maintenanceRate;
   const liveEquityCushion = liveEquity - liveMaintenanceReq;
@@ -607,21 +605,9 @@ export function analyzePortfolioShock(
   const shockedCushionPct = shockedEquity > 0 ? (shockedEquityCushion / shockedEquity) * 100 : -100;
 
   let marginCallRisk: "safe" | "caution" | "critical" = "safe";
-  let statusBlurb = "Cash covers your portfolio. Nothing borrowed.";
-
   if (isUsingMargin) {
-    if (shockedEquityCushion <= 0) {
-      marginCallRisk = "critical";
-      statusBlurb = "What you own drops below the broker's 30% floor. They could force a sale.";
-    } else if (shockedCushionPct < 20) {
-      marginCallRisk = "caution";
-      statusBlurb = "Room before a forced sale drops below 20%. Borrowed money gets heavier in this scenario.";
-    } else {
-      marginCallRisk = "safe";
-      statusBlurb = "Still enough room above the broker's floor.";
-    }
-  } else if (cash > 0) {
-    statusBlurb = `Cash does not fall with the stocks. The cash share goes from ${(liveTotalVal > 0 ? (cash / liveTotalVal) * 100 : 0).toFixed(1)}% to ${(shockedTotalVal > 0 ? (cash / shockedTotalVal) * 100 : 0).toFixed(1)}% of your portfolio.`;
+    if (shockedEquityCushion <= 0) marginCallRisk = "critical";
+    else if (shockedCushionPct < 20) marginCallRisk = "caution";
   }
 
   const liveCashPct = liveTotalVal > 0 ? (cash / liveTotalVal) * 100 : 0;
@@ -643,7 +629,6 @@ export function analyzePortfolioShock(
     shockedEquityCushion,
     shockedCushionPct,
     marginCallRisk,
-    statusBlurb,
     liveCashPct,
     shockedCashPct,
   };
@@ -673,28 +658,6 @@ export function analyzePortfolioShock(
     }))
     .sort((a, b) => a.deltaVal - b.deltaVal);
 
-  // Tactical observations (dash-free)
-  const tacticalNotes: string[] = [];
-  if (shockId !== "none") {
-    tacticalNotes.push(scenario.tacticalAction);
-
-    if (isUsingMargin) {
-      if (marginCallRisk === "critical") {
-        tacticalNotes.push("Borrowed-money warning: what you own drops below the broker's floor.");
-      } else if (marginCallRisk === "caution") {
-        tacticalNotes.push(`Borrowed money goes from ${liveLeverage.toFixed(2)}x to ${shockedLeverage.toFixed(2)}x. Keep the debt in check.`);
-      } else {
-        tacticalNotes.push(`Still comfortable, with $${Math.max(0, Math.round(shockedEquityCushion)).toLocaleString()} of room before a forced sale.`);
-      }
-    } else if (cash > 0) {
-      tacticalNotes.push(`Cash cushions the drop. Cash sitting ready grows to ${shockedCashPct.toFixed(1)}% of your portfolio.`);
-    }
-
-    if (topVulnerability && Math.abs(topVulnerability.lossSharePct) >= 0.35) {
-      tacticalNotes.push(`${topVulnerability.ticker} represents ${(topVulnerability.lossSharePct * 100).toFixed(0)}% of the modeled drop.`);
-    }
-  }
-
   return {
     shock: shockId,
     scenario,
@@ -710,6 +673,5 @@ export function analyzePortfolioShock(
     topVulnerability,
     topShockAbsorber,
     themeBreakdown,
-    tacticalNotes,
   };
 }
