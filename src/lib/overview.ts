@@ -1,6 +1,5 @@
 import { sheetCashBalance } from "@/lib/cash-balance";
 import { enrichHoldings } from "@/lib/calculations";
-import { buildDailyFunFacts } from "@/lib/fun-facts";
 import {
   finiteNumber,
   roundMoney,
@@ -54,7 +53,6 @@ export type OverviewModel = {
   todayWinners: TickerScore[];
   todayLosers: TickerScore[];
   topHoldings: TickerScore[];
-  funFacts: string[];
   totals: {
     buyValue: number;
     equityValue: number;
@@ -245,7 +243,6 @@ export function buildOverview(
     todayWinners: byToday.filter((t) => (t.todayPct ?? 0) > 0).slice(0, 5),
     todayLosers: byToday.filter((t) => (t.todayPct ?? 0) < 0).slice(-5).reverse(),
     topHoldings: byValue.slice(0, 10),
-    funFacts: buildDailyFunFacts(sortedSheets, tickers, totals),
     totals,
   };
 }

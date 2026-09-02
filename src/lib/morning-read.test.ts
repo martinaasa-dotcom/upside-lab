@@ -48,7 +48,6 @@ function model(
     todayWinners: [],
     todayLosers: [],
     topHoldings: tickers,
-    funFacts: [],
     totals: {
       buyValue: equity,
       equityValue: equity,

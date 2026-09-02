@@ -5409,7 +5409,12 @@ run("saves list hides nightly rows", () => {
 });
 
 run("fun facts and circle facts do not say NAV or dry powder", () => {
-  const facts = readFileSync(join(process.cwd(), "src/lib/fun-facts.ts"), "utf8");
+  /*
+    Home's own fun facts were generated on every build and rendered nowhere
+    (the field was never read), so the module went. Only the circle's facts
+    reach a reader now.
+  */
+  assert.ok(!existsSync(join(process.cwd(), "src/lib/fun-facts.ts")));
   const circle = readFileSync(
     join(process.cwd(), "src/lib/community-fun-facts.ts"),
     "utf8"
@@ -5426,8 +5431,6 @@ run("fun facts and circle facts do not say NAV or dry powder", () => {
     join(process.cwd(), "src/components/CommunityView.tsx"),
     "utf8"
   );
-  assert.doesNotMatch(facts, /dry powder/i);
-  assert.doesNotMatch(facts, /\bNAV\b/);
   assert.doesNotMatch(circle, /dry-powder stash|dry powder/i);
   assert.doesNotMatch(circle, /Circle NAV/);
   assert.doesNotMatch(circle, /live mark/i);
