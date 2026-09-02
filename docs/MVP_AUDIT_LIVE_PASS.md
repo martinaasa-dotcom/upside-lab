@@ -95,3 +95,67 @@ the case the cap is actually for.
   optional and unset, so only the Yahoo leg and the miss path were
   exercised.
 - Screenshot parsing against a spread of real broker apps.
+
+# Live pass, 2026-09-02, after the polish pass merged
+
+`main` at `fd37d5c`, deployed and serving. What running against production
+found, and what could not be checked from here.
+
+## Checked, and right
+
+- Every route answers: the five public ones 200, the nine private rooms 200
+  behind their own sign-in gate, and an invented path 404.
+- Every legacy URL still redirects, 308, with the query dropped rather than
+  carried: `?tab=pulse` to `/pulse`, `?tab=lab` to `/lab`, `?sheet=lab` to
+  `/lab`, `?tab=overview` and `/dashboard` and `/forecast` to `/`,
+  `?tab=portfolio` to `/portfolio`, `/compound` to `/growth`.
+- Headers: CSP, HSTS with preload, `X-Frame-Options: DENY`, nosniff,
+  `Referrer-Policy`, and a `Permissions-Policy` that closes camera,
+  microphone and geolocation. `X-Robots-Tag: noindex, nofollow` on a
+  private room and absent on a public one.
+- `robots.txt` and the sitemap agree with `seo-routes.ts`: five public
+  paths allowed and listed, every room and `/api/` disallowed.
+- The look-around door's dependency holds. `/api/quotes` answers a caller
+  with no session (200, real prices), free text is refused with a 400
+  before any provider is contacted, and `/api/portfolios` still answers 401.
+- Every claim this pass pinned is on the live page: that the sample
+  holdings are made up and the prices real, that a co-owner sees what each
+  of you paid, that a circle keeps what you paid to yourself, that nobody
+  is added for you, and where the data lives.
+- No em or en dash anywhere in the visible copy.
+
+## Could not be checked from here, and why
+
+A browser could not reach production from this container: the agent proxy
+relays a browser's parallel connections as tunnels and they close mid
+exchange (`ws_closed_mid_exchange`, logged against `upsidelab.app:443`), so
+`curl` works and Chromium does not. That means the live pass above is HTTP
+rather than rendered, and these are still open for somebody with an
+ordinary browser:
+
+- The rooms read on a real phone, signed in, against their own holdings.
+- The walkthrough, which needs a session and so could not be seen in demo
+  mode either.
+- Anything that only shows up in paint: the dock's motion, the ambient
+  field's banding, the glass at the top of a scroll.
+
+What was done instead, on the same commit, before the merge: the whole
+production build served locally and walked at 390 and 1280 with no page or
+React errors on any room; `npm run test:landing`, which is the axe-core
+WCAG A and AA scan plus the fixed-blur check, green on the landing, privacy
+and terms at both widths; CLS 0, LCP 320 to 420 ms, TTFB 17 to 117 ms.
+
+## The merged tree, checked on its own
+
+A merge commit is a build nobody ever ran: twelve packages of work landed
+through it with conflicts resolved by hand, and the checks that went green
+went green on the branch head rather than on the result. So the same suite
+was run again against `fd37d5c` itself, which is what is deployed:
+typecheck clean, 2,001 tests in 213 files passing, every invariant passing,
+and `eslint --max-warnings 0` silent. GitHub's own CI run on that commit
+(run 649, `push` on `main`) concluded success as well, which is the same
+answer from a machine that does not share this container's environment.
+
+The agent worktrees the pass was built in were checked against `main`
+before being removed: all 39 branches were ancestors of it, so nothing was
+left behind in one.
