@@ -18,7 +18,11 @@ import { denyClassroomWrite } from "@/lib/classroom-guard";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
-import { normalizeYahooTicker, resolveImportTicker } from "@/lib/ticker";
+import {
+  isPlausibleTicker,
+  normalizeYahooTicker,
+  resolveImportTicker,
+} from "@/lib/ticker";
 import { isRecord, readFiniteNumber, readString } from "@/lib/unknown";
 import { observeRoute } from "@/lib/observe-route";
 import { holdingsImportSchema } from "@/lib/api-schemas";
@@ -232,6 +236,30 @@ async function handlePOST(req: NextRequest) {
         row.isin
       ) || normalizeYahooTicker(String(row.ticker ?? ""));
       if (!ticker) return;
+      /*
+        The one write path that stored whatever text arrived.
+
+        POST and PATCH both check the shape; this did not, and
+        `resolveImportTicker` and `normalizeYahooTicker` only uppercase and
+        strip spaces, so a broker's export with a note in the symbol column,
+        or a hand-made CSV, put that string in `portfell_holdings.ticker`,
+        which has no constraint on it. From there it is the primary key of
+        the quote cache, a name the provider walk asks about on every poll
+        (the most expensive thing that layer can be handed, since nothing
+        resolves it), a line in the Pulse and forecast prompts, and a row in
+        the Sunday letter. It used to be a crash as well, in a regular
+        expression built from the stored symbol, which took the Pulse room
+        down for every co-owner; that regular expression is gone, and the
+        rest of the list is reason enough on its own.
+
+        The row is reported as failed rather than refusing the import, which
+        is what the rest of this route does with a row it cannot use: one
+        odd line in a hundred should not cost somebody the other ninety-nine.
+      */
+      if (!isPlausibleTicker(ticker.toUpperCase())) {
+        failed.push(ticker.slice(0, 24));
+        return;
+      }
       // Already rounded and bounded above; a row failing either check
       // refused the whole import before this point.
       const shares = row.shares;
