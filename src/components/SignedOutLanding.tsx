@@ -410,7 +410,7 @@ const MORE = [
     icon: LineChart,
     title: "Forecast",
     detail:
-      "A yearly price path for every holding out to 2030, reasoned name by name. Scenarios to think with, never a promise.",
+      "A yearly price path for every holding, five years out, reasoned name by name. Scenarios to think with, never a promise.",
   },
   {
     icon: Mail,

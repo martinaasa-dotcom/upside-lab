@@ -13,14 +13,29 @@
  */
 
 import { z } from "zod";
+import { FORECAST_YEARS } from "@/lib/forecast";
 
-const yearPriceSchema = z.object({
-  2026: z.number().positive(),
-  2027: z.number().positive(),
-  2028: z.number().positive(),
-  2029: z.number().positive(),
-  2030: z.number().positive(),
-});
+/*
+  Built from FORECAST_YEARS rather than typed out, and that is not tidiness.
+  The years the panel draws move every January; these did not. Left as
+  literals, the first of January would have the model reasoning a path to a
+  year that has already ended while the app displayed a year the model was
+  never asked about, so the last column would be gap-filled for every
+  holding and the first would be thrown away. Nothing fails, and every
+  forecast in the product is quietly one year short.
+
+  Deliberately an object with named keys rather than `z.record`: this schema
+  is turned into JSON schema for structured output, and a record becomes
+  `additionalProperties`, which does not tell a model which five years to
+  answer with.
+*/
+const YEAR_SPAN = `${FORECAST_YEARS[0]}-${FORECAST_YEARS[FORECAST_YEARS.length - 1]}`;
+
+const yearPriceSchema = z.object(
+  Object.fromEntries(
+    FORECAST_YEARS.map((year) => [String(year), z.number().positive()])
+  ) as Record<string, z.ZodNumber>
+);
 
 export const forecastPlanSchema = z.object({
   generalAdvice: z
@@ -39,7 +54,7 @@ export const forecastPlanSchema = z.object({
         label: z
           .string()
           .describe(
-            'Horizon label, e.g. "Next quarter (Q4 2026)", "2027", "2028-2029"'
+            `Horizon label, e.g. "Next quarter (Q4 ${FORECAST_YEARS[0]})", "${FORECAST_YEARS[1]}", "${FORECAST_YEARS[2]}-${FORECAST_YEARS[3]}"`
           ),
         theme: z.string().describe("Short memorable theme name for the period"),
         add: z
@@ -69,7 +84,7 @@ export const forecastPlanSchema = z.object({
           .string()
           .describe("Exact ticker as listed in holdings (keep exchange suffix)"),
         prices: yearPriceSchema.describe(
-          "NON-LINEAR EOY prices 2026-2030. Forbidden: equal steps / flat CAGR. Crypto needs a winter year; AI computer builders can rip with a quieter year as slower-up, not a collapse."
+          `NON-LINEAR EOY prices ${YEAR_SPAN}. Forbidden: equal steps / flat CAGR. Crypto needs a winter year; AI computer builders can rip with a quieter year as slower-up, not a collapse.`
         ),
         rationale: z
           .string()
@@ -80,6 +95,6 @@ export const forecastPlanSchema = z.object({
       })
     )
     .describe(
-      "EOY SP for EVERY holding, all years 2026-2030. Big-bet AI computer builders / chip makers / electricity for data centers / crypto magnitudes. Never paste spot across years. Never draw a straight line."
+      `EOY SP for EVERY holding, all years ${YEAR_SPAN}. Big-bet AI computer builders / chip makers / electricity for data centers / crypto magnitudes. Never paste spot across years. Never draw a straight line.`
     ),
 });

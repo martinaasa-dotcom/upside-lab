@@ -755,7 +755,7 @@ Requirements:
 1. periods MUST include:
    - Next quarter (label like "Next quarter (Q${nextQuarter.q} ${nextQuarter.y})")
    - Next year (label "${year + 1}" or "Next year (${year + 1})")
-   - Then 2-3 longer horizons aligned to the EOY path (e.g. 2028, 2029, 2030) if useful. Not more than 6 total.
+   - Then 2-3 longer horizons aligned to the EOY path (e.g. ${FORECAST_YEARS.slice(2).join(", ")}) if useful. Not more than 6 total.
 2. Themes should be memorable but practical (not marketing fluff).
 3. Add and Trim are SEPARATE bullet lists of modeled mix observations. Semicolon-separated. ONE name or group per item, never two tickers packed with a slash.
    - Reference each name's CURRENT weight (given above) and state the modeled weight: a target weight (e.g. "modeled weight $RKLB from 14% to about 9% if X", "modeled weight of software about 3-5% of the portfolio"), never an order to buy or sell.

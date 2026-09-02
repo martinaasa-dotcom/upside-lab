@@ -1,4 +1,5 @@
 import { STRATEGY } from "@/lib/calculations";
+import { FORECAST_YEARS } from "@/lib/forecast";
 import { MARGUS_PERSONA } from "@/lib/ai/margus-persona";
 import { pulseSuggestion } from "@/lib/ai/humanize-copy";
 import { insightsPromptBlock } from "@/lib/book-insights";
@@ -718,12 +719,21 @@ function margusMemoryBlock(ctx: CcChatContext): string {
     );
     if (plan.generalAdvice?.trim()) lines.push(plan.generalAdvice.trim());
     if (plan.sectorRotation?.trim()) lines.push(plan.sectorRotation.trim());
+    /*
+      The last year the forecast covers, never the literal 2030. Read as a
+      literal, this went quiet on the first of January: a path running to
+      2031 has no 2030 key, so `end` is undefined for every holding and
+      Margus loses the whole forecast from the context with nothing saying
+      so. The reader would have asked about a company and been answered by
+      somebody who could no longer see its price path.
+    */
+    const lastYear = FORECAST_YEARS[FORECAST_YEARS.length - 1]!;
     for (const row of plan.eoyTargets ?? []) {
-      const end = row.prices?.[2030];
+      const end = row.prices?.[lastYear];
       const why = row.rationale?.trim();
       if (end != null && why) {
         lines.push(
-          `- $${row.ticker.toUpperCase()} end 2030 ~$${end.toFixed(0)}: ${why.slice(0, 220)}`
+          `- $${row.ticker.toUpperCase()} end ${lastYear} ~$${end.toFixed(0)}: ${why.slice(0, 220)}`
         );
       }
     }

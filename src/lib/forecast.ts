@@ -3,9 +3,40 @@ import type { PortfolioEoyOverrides } from "@/lib/forecast-overrides";
 import { forecastThemeForTicker, shapedFallbackPath } from "@/lib/forecast-conviction";
 import { cagr, finiteNumber, roundMoney, safeDiv, sumMoney } from "@/lib/money";
 
-/** EOY columns shown after Current — next 5 years from this year. */
-export const FORECAST_YEARS = [2026, 2027, 2028, 2029, 2030] as const;
-export type ForecastYear = (typeof FORECAST_YEARS)[number];
+/** How many end-of-year columns sit after Current. */
+export const FORECAST_YEAR_COUNT = 5;
+
+/**
+ * The years the forecast covers: this one and the next four.
+ *
+ * This was a literal, `[2026, 2027, 2028, 2029, 2030]`, under a comment
+ * saying "next 5 years from this year", which it was on the day it was
+ * written. On the first of January it stops being one, silently and in the
+ * worst possible way: the panel keeps offering an editable price target for
+ * the thirty-first of December of a year that has already finished, the
+ * model is asked to reason a path to a date in the past, and the five year
+ * forecast the landing page sells is four years and a receipt. Nothing
+ * fails; the reader is simply shown a column they can do nothing with,
+ * forever, and one fewer year than they were promised.
+ *
+ * Derived once per module load rather than per call. A tab left open across
+ * midnight on the thirty-first of December keeps the old list until it is
+ * reloaded, which is the right trade: recomputing per call would move the
+ * columns out from under an edit in progress, and the wrong year for one
+ * night on a tab nobody is looking at costs nothing.
+ */
+export const FORECAST_YEARS: readonly number[] = (() => {
+  const first = new Date().getFullYear();
+  return Array.from({ length: FORECAST_YEAR_COUNT }, (_, i) => first + i);
+})();
+
+/**
+ * A year the forecast covers. Deliberately `number` rather than a union of
+ * the literals: the list moves every January, so a type naming this year's
+ * five would have to be edited every January too, which is the same bug
+ * with a compile error in front of it.
+ */
+export type ForecastYear = number;
 
 export type ForecastRow = {
   ticker: string;

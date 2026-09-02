@@ -3552,9 +3552,12 @@ run("Forecast is always the base case", () => {
 });
 
 run("Forecast does not call the model when a path is already saved", () => {
+  // A saved plan carries every field; this stands in for one with only the
+  // part the guard reads, so it goes through `unknown` rather than pretending
+  // to be the whole shape.
   const saved = {
-    eoyTargets: [{ ticker: "NBIS", prices: { 2026: 1 } }],
-  } as Parameters<typeof shouldAutoRefreshForecast>[0]["plan"];
+    eoyTargets: [{ ticker: "NBIS", prices: { [FORECAST_YEARS[0]!]: 1 } }],
+  } as unknown as Parameters<typeof shouldAutoRefreshForecast>[0]["plan"];
   assert.equal(
     shouldAutoRefreshForecast({
       plan: { ...(saved as ForecastPlan), fallback: true },

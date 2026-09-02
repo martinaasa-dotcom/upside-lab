@@ -53,9 +53,26 @@ const CONVICTION_LABELS: Record<ConvictionLevel, string> = {
   5: "Highest, and I am sure why I own it",
 };
 
+/*
+  Both the label and the year behind it come from FORECAST_YEARS. They were
+  literals, and a literal here does not fail on the first of January, it
+  silently reads a year the forecast no longer covers: `eoyPrices[2030]` on
+  a 2027 to 2031 path is undefined, so the five year figure disappears and
+  the heading still says 2030.
+*/
+const THREE_YEAR_INDEX = 2;
+const FIVE_YEAR_INDEX = 4;
 const HORIZONS = [
-  { id: "3y" as const, label: "3 years", title: "End of 2028" },
-  { id: "5y" as const, label: "5 years", title: "End of 2030" },
+  {
+    id: "3y" as const,
+    label: "3 years",
+    title: `End of ${FORECAST_YEARS[THREE_YEAR_INDEX]}`,
+  },
+  {
+    id: "5y" as const,
+    label: "5 years",
+    title: `End of ${FORECAST_YEARS[FIVE_YEAR_INDEX]}`,
+  },
 ];
 
 type Props = {
@@ -146,7 +163,8 @@ export function TickerDrawer({
     horizon === "3y"
       ? forecastSummary.threeYearCagrPct
       : forecastSummary.fiveYearCagrPct;
-  const targetYear: ForecastYear = horizon === "3y" ? 2028 : 2030;
+  const targetYear: ForecastYear =
+    FORECAST_YEARS[horizon === "3y" ? THREE_YEAR_INDEX : FIVE_YEAR_INDEX]!;
 
   function handleYearEditCommit(year: ForecastYear) {
     const parsed = Number.parseFloat(yearDraftPrice.replace(/,/g, "."));
