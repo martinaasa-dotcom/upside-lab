@@ -99,6 +99,19 @@ it early, which the service treats as fine. A grace has to clear the
 route's own `maxDuration` with room for a retry, and the test reads each
 route's `maxDuration` and fails if one no longer does.
 
+## Where it stands
+
+Live since 2026-09-02. The project carries an email alert channel, the nine
+checks below exist with these schedules in UTC, and `CRON_HEARTBEAT_BASE` is
+set in Vercel's production environment only, as a secret.
+
+If a check ever reads "Last Ping: Never" a day after its schedule should
+have come round, the ping is not arriving: either the slug does not match
+the route directory name or the ping key in `CRON_HEARTBEAT_BASE` is wrong.
+The app cannot tell you, by design, since a failed ping is logged
+(`cron_heartbeat_unreachable`) and swallowed so a monitoring outage never
+fails the work it watches.
+
 ## What this deliberately does not do
 
 - No pings from previews or CI: only production carries the env var, so a
