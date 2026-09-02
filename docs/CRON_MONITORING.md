@@ -41,35 +41,63 @@ switch watches the work, the work never waits on the switch.
 
 ## Setting it up (Healthchecks.io, free tier)
 
-1. Create a project at https://healthchecks.io and copy its ping key.
-2. Set `CRON_HEARTBEAT_BASE=https://hc-ping.com/<ping-key>` in Vercel
-   (production env only; previews and CI stay unset on purpose).
-3. Create one check per schedule, named by slug, with the same cron
-   expression (Healthchecks understands cron syntax directly) and a grace
-   long enough to cover the route's own `maxDuration` plus retry slack:
+Two of these steps need a person, because they need an account and a
+payment-free signup nobody can do on somebody else's behalf. The nine
+checks in between are mechanical, and `scripts/setup-healthchecks.ts`
+does them.
 
-   | Check (slug)        | Schedule (UTC)          | Suggested grace |
-   | ------------------- | ----------------------- | --------------- |
-   | `snapshot`          | `0 2 * * *`             | 30 min          |
-   | `disaster-recovery` | `0 3 * * *`             | 30 min          |
-   | `sunday-note`       | `0 4 * * 0`             | 2 h (resume slots ping the same check) |
-   | `billing-reconcile` | `0 5 * * *`             | 30 min          |
-   | `error-digest`      | `30 5 * * *`            | 30 min          |
-   | `popular-tickers`   | `0 7 1 * *`             | 6 h             |
+1. **A person.** Create an account and a project at
+   https://healthchecks.io. Point the project's alert channel at email, or
+   anything else the service offers, before creating the checks: a check
+   with no channel is monitoring that cannot tell anybody. The alert reads
+   "check X is down", which maps one-to-one onto "route X has not completed
+   since its last expected run".
+2. **The script.** From Project Settings, copy the project's read-write
+   **API key** (not the ping key, which is a different value), then:
+
+   ```
+   npm run cron:checks -- --dry-run          # prints the plan, sends nothing
+   HEALTHCHECKS_API_KEY=... npm run cron:checks
+   ```
+
+   It creates one check per cron, named by slug, carrying that cron's own
+   schedule out of `vercel.json` and the grace period judged for it in
+   `src/lib/cron-checks.ts`. Each check is upserted on its slug, so running
+   it again after a schedule moves updates the check in place rather than
+   making a second one. Set `HEALTHCHECKS_API_BASE` for a self-hosted
+   instance.
+
+3. **A person again.** Set `CRON_HEARTBEAT_BASE=https://hc-ping.com/<ping-key>`
+   in Vercel, production environment only. Previews and CI stay unset on
+   purpose. The ping key is write-only: someone holding it can mark checks
+   up or down, nothing more. It still stays out of the client bundle (no
+   `NEXT_PUBLIC_` prefix, read server-side only) and out of CI.
+
+### What it creates
+
+This table is what the script prints today. It is not the source of
+anything: the schedules come from `vercel.json` and the grace periods from
+`CRON_GRACE_SECONDS`, and `src/lib/cron-checks.test.ts` fails if this table
+disagrees with either. A runbook naming the wrong hour is what produces the
+false alert nobody trusts afterwards, so it is checked rather than trusted.
+
+   | Check (slug)        | Schedule (UTC)          | Grace |
+   | ------------------- | ----------------------- | ----- |
+   | `snapshot`          | `0 2 * * *`             | 30 min |
+   | `disaster-recovery` | `0 3 * * *`             | 30 min |
+   | `sunday-note`       | `0 4 * * 0`             | 2 h (the two resume slots ping the same check) |
+   | `billing-reconcile` | `0 5 * * *`             | 30 min |
+   | `error-digest`      | `30 5 * * *`            | 30 min |
+   | `popular-tickers`   | `0 7 1 * *`             | 6 h |
    | `margus-fund`       | `0 11 * * 1-6`          | 2 h (the 23:30 weekday slot pings it too) |
-   | `empty-book-nudge`  | `0 14 * * *`            | 30 min          |
-   | `splits`            | `0 15 * * 1-5`          | 1 h             |
+   | `empty-book-nudge`  | `0 14 * * *`            | 30 min |
+   | `splits`            | `0 15 * * 1-5`          | 1 h |
 
-   A check with several slots (sunday-note, margus-fund) is created against
-   the slot that runs on the most days, and the extra slots simply ping the
-   same check early, which Healthchecks treats as fine.
-4. Point the project's alert channel at email (or anything else the service
-   offers). The alert reads "check X is down", which maps one-to-one onto
-   "route X has not completed since its last expected run".
-
-The ping key is write-only: someone holding it can mark checks up or down,
-nothing more. It still stays out of the client bundle (the variable has no
-`NEXT_PUBLIC_` prefix and is only read server-side) and out of CI.
+A route scheduled more than once gets one check, on the slot that runs on
+the most days; the other slots are retries of the same day's work and ping
+it early, which the service treats as fine. A grace has to clear the
+route's own `maxDuration` with room for a retry, and the test reads each
+route's `maxDuration` and fails if one no longer does.
 
 ## What this deliberately does not do
 

@@ -25,7 +25,8 @@
     "dr:export": "npx tsx scripts/export-cold-snapshot.ts",
     "dr:restore": "npx tsx scripts/restore-snapshot.ts",
     "migrate:online": "npx tsx scripts/migrate-online.ts",
-    "screenshot": "node scripts/screenshot.mjs"
+    "screenshot": "node scripts/screenshot.mjs",
+    "cron:checks": "npx tsx scripts/setup-healthchecks.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.36",
