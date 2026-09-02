@@ -2,16 +2,47 @@
 
 import { toast } from "sonner";
 
-export type ToastKind = "success" | "error" | "info";
+export type ToastKind = "success" | "error" | "info" | "warning";
 
-type ToastContextValue = {
-  push: (message: string, kind?: ToastKind) => void;
+/**
+ * What a toast may carry beyond its one line.
+ *
+ * A toast is the wrong medium for a state that persists, and the alerts
+ * effect used to announce "Borrowed money is 153% of your portfolio" as a
+ * bare four-second line with no second sentence, no icon and nothing to
+ * press. Anything loud enough to be worth a toast is loud enough to earn
+ * the sentence under it and a way through to the card that will still be
+ * there afterwards.
+ */
+export type ToastExtras = {
+  description?: string | null;
+  action?: { label: string; onClick: () => void };
 };
 
-function pushToast(message: string, kind: ToastKind = "info") {
-  if (kind === "success") toast.success(message);
-  else if (kind === "error") toast.error(message);
-  else toast(message);
+type ToastContextValue = {
+  push: (message: string, kind?: ToastKind, extras?: ToastExtras) => void;
+};
+
+function pushToast(
+  message: string,
+  kind: ToastKind = "info",
+  extras?: ToastExtras
+) {
+  const options = {
+    ...(extras?.description ? { description: extras.description } : {}),
+    ...(extras?.action
+      ? {
+          action: {
+            label: extras.action.label,
+            onClick: extras.action.onClick,
+          },
+        }
+      : {}),
+  };
+  if (kind === "success") toast.success(message, options);
+  else if (kind === "error") toast.error(message, options);
+  else if (kind === "warning") toast.warning(message, options);
+  else toast(message, options);
 }
 
 export function useToast(): ToastContextValue {
