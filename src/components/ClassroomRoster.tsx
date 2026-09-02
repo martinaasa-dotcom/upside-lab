@@ -18,6 +18,8 @@ type RosterMember = {
   id: string;
   name: string;
   isYou: boolean;
+  /** A teacher watching the class rather than trading in it. */
+  isTeacher?: boolean;
   sheetCount: number;
   totalValue: number;
   todayDollar: number;
@@ -54,7 +56,13 @@ export function ClassroomRoster({
     a teacher wants to know.
   */
   const started = members.filter((m) => m.sheetCount > 0);
-  const notStarted = members.filter((m) => m.sheetCount === 0);
+  /*
+    A teacher with no paper portfolio has not failed to start: watching the
+    class is the ordinary thing for her to be doing. Measured on a real
+    class, "Ms Tamm you, n/a, n/a, n/a, n/a, n/a" sat in her own roster as
+    though she were a student who had not handed anything in.
+  */
+  const notStarted = members.filter((m) => m.sheetCount === 0 && !m.isTeacher);
   const rows = [...started].sort((a, b) => {
     const pctA =
       startingCash > 0 ? (a.totalValue - startingCash) / startingCash : 0;

@@ -31,6 +31,9 @@ export type ClassroomHomeProps = {
   overview: OverviewModel;
   membersWithBooks: MemberStat[];
   memberStats: MemberStat[];
+  /** Admins of the class, so a teacher without a paper portfolio is not
+   * listed as a student who has not started. */
+  teacherIds: Set<string>;
   startingCash: number;
   classVsStartPct: number | null;
   classVsStartDollar: number;
@@ -57,6 +60,7 @@ export function ClassroomHome({
   overview,
   membersWithBooks,
   memberStats,
+  teacherIds,
   startingCash,
   classVsStartPct,
   classVsStartDollar,
@@ -166,6 +170,7 @@ export function ClassroomHome({
                 id: m.id,
                 name: m.name,
                 isYou: m.isYou,
+                isTeacher: teacherIds.has(m.id),
                 sheetCount: m.sheetCount,
                 totalValue: m.totalValue,
                 todayDollar: m.todayDollar,

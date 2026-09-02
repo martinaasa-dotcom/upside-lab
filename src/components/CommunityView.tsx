@@ -766,6 +766,14 @@ export function CommunityView({ communityId }: Props) {
     [memberStats]
   );
 
+  const teacherIds = useMemo(
+    () =>
+      new Set(
+        members.filter((m) => m.role === "admin").map((m) => m.user_id)
+      ),
+    [members]
+  );
+
   const isClassroom = community?.kind === "classroom";
   /*
     One word for the room, everywhere a reader can see it. The same view
@@ -1609,6 +1617,7 @@ export function CommunityView({ communityId }: Props) {
                 overview={overview}
                 membersWithBooks={membersWithBooks}
                 memberStats={memberStats}
+                teacherIds={teacherIds}
                 startingCash={startingCash}
                 classVsStartPct={classVsStartPct}
                 classVsStartDollar={classVsStartDollar}
