@@ -5,7 +5,7 @@ import {
   supabaseUsesServiceRole,
 } from "@/lib/supabase/server";
 import { PORTFELL_TABLES, UPSIDE_CIRCLE_ID } from "@/lib/supabase/tables";
-import { safeHttpUrl } from "@/lib/safe-url";
+import { safeAvatarUrl } from "@/lib/avatar-url";
 import type { User } from "@supabase/supabase-js";
 
 /** Seed slugs from code, plus optional Vercel extras for Karud/Lap. */
@@ -90,9 +90,10 @@ async function claimWithServiceRole(user: User): Promise<{
       id: user.id,
       email: email || null,
       display_name: displayName,
-      avatar_url: avatarUrl
-        ? safeHttpUrl(avatarUrl, { httpsOnly: true })
-        : null,
+      // The same short list of hosts a person may type in Account. Google
+      // hands back its own photo host, so this is not a filter on Google; it
+      // is one place deciding where a profile photo may come from.
+      avatar_url: avatarUrl ? safeAvatarUrl(avatarUrl) : null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "id" }

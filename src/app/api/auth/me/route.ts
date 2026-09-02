@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
 import { authMePatchSchema } from "@/lib/api-schemas";
 import { parseJsonBody } from "@/lib/parse-json-body";
-import { safeHttpUrl } from "@/lib/safe-url";
+import { AVATAR_HOST_MESSAGE, safeAvatarUrl } from "@/lib/avatar-url";
 
 export const dynamic = "force-dynamic";
 
@@ -84,10 +84,10 @@ async function handlePATCH(req: NextRequest) {
       body.avatar_url == null
         ? null
         : String(body.avatar_url).trim().slice(0, 500) || null;
-    const url = raw ? safeHttpUrl(raw, { httpsOnly: true }) : null;
+    const url = raw ? safeAvatarUrl(raw) : null;
     if (raw && !url) {
       return NextResponse.json(
-        { error: "Photo link has to start with https://" },
+        { error: AVATAR_HOST_MESSAGE },
         { status: 400 }
       );
     }

@@ -3,6 +3,7 @@ import {
   coalesceKey,
   isQueueableRequest,
   queueablePath,
+  syncJobVerdict,
 } from "@/lib/offline/sync-queue";
 
 describe("offline sync queue", () => {
@@ -41,5 +42,23 @@ describe("offline sync queue", () => {
         method: "POST",
       })
     ).toBeNull();
+  });
+
+  it("sends a queued write only under the account that made it", () => {
+    expect(syncJobVerdict({ userId: "u1" }, "u1")).toBe("send");
+  });
+
+  it("drops a queued write when somebody else is signed in", () => {
+    expect(syncJobVerdict({ userId: "u1" }, "u2")).toBe("drop");
+  });
+
+  it("never sends a write with no account on it", () => {
+    expect(syncJobVerdict({}, "u2")).toBe("drop");
+    expect(syncJobVerdict({ userId: null }, "u2")).toBe("drop");
+  });
+
+  it("holds everything while nobody is signed in", () => {
+    expect(syncJobVerdict({ userId: "u1" }, null)).toBe("hold");
+    expect(syncJobVerdict({}, null)).toBe("hold");
   });
 });
