@@ -7,6 +7,7 @@ import { cn } from "@/lib/format";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import { plainError } from "@/lib/plain-error";
 import {
+  loadCommunityCache,
   loadCommunityDiscoverCache,
   loadCommunityListCache,
   prefetchCommunity,
@@ -18,6 +19,7 @@ import {
 } from "@/lib/community-cache";
 import { StartingCashField } from "@/components/StartingCashField";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,7 +33,15 @@ import {
   defaultClassSetup,
 } from "@/lib/class-templates";
 import { DEFAULT_CLASS_ASSIGNMENT } from "@/lib/classroom";
-import { ChevronRight, Compass, Globe, GraduationCap, Lock, Users } from "lucide-react";
+import {
+  ChevronRight,
+  Compass,
+  Globe,
+  GraduationCap,
+  Lock,
+  Plus,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { isAbortError } from "@/lib/abort";
@@ -41,6 +51,28 @@ import { useEffect, useState } from "react";
 import { onWorkspaceRefresh } from "@/lib/workspace-rooms";
 
 type DiscoverRow = CommunityDiscoverRow;
+
+/**
+ * How many people are in a circle, read out of the copy of it already
+ * warmed in this browser by `prefetchCommunityList`.
+ *
+ * The row used to print the caller's own role, capitalised: "Aasa family ·
+ * Admin". That is a database column, not a thing a person wants to know
+ * about a room they are about to walk into, and a class row read "Econ 201
+ * · Class · Member".
+ *
+ * Deliberately not "2 up today". A list row paints from whatever is in the
+ * cache, which on a cold morning is Friday's prices, and this app does not
+ * state a day's move as fact from a figure it cannot vouch for. A member
+ * count does not go stale in that way.
+ */
+function peopleLabel(communityId: string): string | null {
+  const cached = loadCommunityCache(communityId);
+  const meta = cached?.meta as { members?: unknown[] } | undefined;
+  const count = Array.isArray(meta?.members) ? meta.members.length : 0;
+  if (count <= 0) return null;
+  return count === 1 ? "1 person" : `${count} people`;
+}
 
 export function CommunitiesList() {
   const router = useRouter();
@@ -59,6 +91,7 @@ export function CommunitiesList() {
   const [assignment, setAssignment] = useState(initialClass.assignment);
   const [startPeriod, setStartPeriod] = useState(initialClass.period);
   const [visibility, setVisibility] = useState<"public" | "private">("private");
+  const [startOpen, setStartOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Only blocks on a spinner when there's truly nothing cached to show —
   // same instant-first-paint pattern as Thesis Pulse and the community detail
@@ -330,7 +363,7 @@ export function CommunitiesList() {
                       onPointerDown={(e) => {
                         aimOnPress(e.nativeEvent, `/communities/${c.id}`);
                       }}
-                      className="flex items-center justify-between gap-3 px-4 py-4 transition hover:bg-muted"
+                      className="flex items-center justify-between gap-3 px-4 py-4 transition hover:bg-hover"
                     >
                       <span className="flex min-w-0 items-center gap-2">
                         {c.kind === "classroom" ? (
@@ -350,9 +383,14 @@ export function CommunitiesList() {
                         ) : null}
                       </span>
                       <span className="flex shrink-0 items-center gap-2">
-                        <span className="text-sm capitalize text-muted-foreground">
-                          {c.role}
-                        </span>
+                        {peopleLabel(c.id) ? (
+                          <span className="text-sm text-muted-foreground">
+                            {peopleLabel(c.id)}
+                          </span>
+                        ) : null}
+                        {c.role === "admin" ? (
+                          <Badge variant="secondary">Admin</Badge>
+                        ) : null}
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </span>
                     </Link>
@@ -421,18 +459,37 @@ export function CommunitiesList() {
             )}
           </Panel>
 
+          {/*
+            About 330px of form used to sit at the bottom of this page for
+            everybody, including somebody already in three circles, and on a
+            phone that is a whole screen below the fold of a form they are
+            not filling in. It opens on a press now, and it starts open only
+            for a reader who is in nothing yet, which is the one person the
+            page is really for.
+          */}
+          {!startOpen && communities.length > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              onClick={() => setStartOpen(true)}
+            >
+              <Plus data-icon="inline-start" />
+              Start a circle or a class
+            </Button>
+          ) : (
           <form onSubmit={(e) => void createCommunity(e)}>
             <Panel>
               <PanelHeader
                 title="Start a circle"
                 subtitle={
                   kind === "classroom"
-                    ? "High school or uni. Students join with a link. Everyone starts with the same paper cash and an empty portfolio. Real prices. No brokerage."
+                    ? "High school or university. Students join with a link, everyone starts with the same paper cash and an empty portfolio, and the prices are real. No real money changes hands."
                     : "A private circle for people you invite, or a public one people can ask to join."
                 }
                 actions={
                   <Segmented
-                    ariaLabel="Community type"
+                    ariaLabel="What to start"
                     options={[
                       { id: "circle", label: "Circle" },
                       { id: "classroom", label: "Class" },
@@ -452,9 +509,7 @@ export function CommunitiesList() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder={
-                      kind === "classroom"
-                        ? "Econ 201"
-                        : "Circle name"
+                      kind === "classroom" ? "Econ 201" : "The Aasa family"
                     }
                     className="mt-2"
                   />
@@ -549,6 +604,7 @@ export function CommunitiesList() {
               </div>
             </Panel>
           </form>
+          )}
         </main>
       </div>
 
