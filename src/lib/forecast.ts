@@ -3,9 +3,56 @@ import type { PortfolioEoyOverrides } from "@/lib/forecast-overrides";
 import { forecastThemeForTicker, shapedFallbackPath } from "@/lib/forecast-conviction";
 import { cagr, finiteNumber, roundMoney, safeDiv, sumMoney } from "@/lib/money";
 
-/** EOY columns shown after Current — next 5 years from this year. */
-export const FORECAST_YEARS = [2026, 2027, 2028, 2029, 2030] as const;
-export type ForecastYear = (typeof FORECAST_YEARS)[number];
+/** How many end-of-year columns sit after Current. */
+export const FORECAST_YEAR_COUNT = 5;
+
+/**
+ * The years the forecast covers: this one and the next four.
+ *
+ * This was a literal, `[2026, 2027, 2028, 2029, 2030]`, under a comment
+ * saying "next 5 years from this year", which it was on the day it was
+ * written. On the first of January it stops being one, silently and in the
+ * worst possible way: the panel keeps offering an editable price target for
+ * the thirty-first of December of a year that has already finished, the
+ * model is asked to reason a path to a date in the past, and the five year
+ * forecast the landing page sells is four years and a receipt. Nothing
+ * fails; the reader is simply shown a column they can do nothing with,
+ * forever, and one fewer year than they were promised.
+ *
+ * Derived once per module load rather than per call. A tab left open across
+ * midnight on the thirty-first of December keeps the old list until it is
+ * reloaded, which is the right trade: recomputing per call would move the
+ * columns out from under an edit in progress, and the wrong year for one
+ * night on a tab nobody is looking at costs nothing.
+ */
+export const FORECAST_YEARS: readonly number[] = (() => {
+  const first = new Date().getFullYear();
+  return Array.from({ length: FORECAST_YEAR_COUNT }, (_, i) => first + i);
+})();
+
+/**
+ * A year the forecast covers. Deliberately `number` rather than a union of
+ * the literals: the list moves every January, so a type naming this year's
+ * five would have to be edited every January too, which is the same bug
+ * with a compile error in front of it.
+ */
+export type ForecastYear = number;
+
+/**
+ * The two horizons the drawer offers, taken from the range rather than
+ * typed beside it.
+ *
+ * The drawer used to say "End of 2028" and "End of 2030" in its own
+ * constants and then read `eoyPrices[2028]` by literal. The range moves,
+ * and when it does a literal reads a year that is not in it, so the screen
+ * would keep the old heading and show whatever `undefined` falls back to.
+ * Naming the positions here means the label and the price it belongs to
+ * cannot drift apart, wherever either one is drawn.
+ */
+export const THREE_YEAR_INDEX = 2;
+export const FIVE_YEAR_INDEX = FORECAST_YEARS.length - 1;
+export const THREE_YEAR: ForecastYear = FORECAST_YEARS[THREE_YEAR_INDEX]!;
+export const FIVE_YEAR: ForecastYear = FORECAST_YEARS[FIVE_YEAR_INDEX]!;
 
 export type ForecastRow = {
   ticker: string;
@@ -150,11 +197,11 @@ export type TickerForecastSummary = {
   eoyPrices: Record<ForecastYear, number>;
   eoyGains: Record<ForecastYear, number>;
   targetedYears: Record<ForecastYear, boolean>;
-  /** EOY 2028 (3-year horizon from 2026) price */
+  /** Price at the end of the third forecast year. */
   threeYearPrice: number;
   threeYearGainPct: number;
   threeYearCagrPct: number;
-  /** EOY 2030 (terminal 5-year horizon) price */
+  /** Price at the end of the last forecast year. */
   fiveYearPrice: number;
   fiveYearGainPct: number;
   fiveYearCagrPct: number;
@@ -194,16 +241,16 @@ export function resolveTickerForecastPath(
     eoyGains[year] = spot > 0 ? safeDiv(price - spot, spot) : 0;
   }
 
-  // 3-year horizon = EOY 2028 (index 2 in FORECAST_YEARS [2026, 2027, 2028, 2029, 2030])
-  const threeYearPrice = eoyPrices[2028] ?? eoyPrices[FORECAST_YEARS[2]] ?? spot;
+  // Both horizons are positions in the range, never years typed by hand.
+  const threeYearPrice = eoyPrices[THREE_YEAR] ?? spot;
   const threeYearGainPct = spot > 0 ? safeDiv(threeYearPrice - spot, spot) : 0;
-  const threeYearCagrPct = (cagr(spot, threeYearPrice, 3) ?? 0) * 100;
+  const threeYearCagrPct =
+    (cagr(spot, threeYearPrice, THREE_YEAR_INDEX + 1) ?? 0) * 100;
 
-  // 5-year terminal horizon = EOY 2030 (index 4)
-  const fiveYearPrice =
-    eoyPrices[2030] ?? eoyPrices[FORECAST_YEARS[FORECAST_YEARS.length - 1]] ?? spot;
+  const fiveYearPrice = eoyPrices[FIVE_YEAR] ?? spot;
   const fiveYearGainPct = spot > 0 ? safeDiv(fiveYearPrice - spot, spot) : 0;
-  const fiveYearCagrPct = (cagr(spot, fiveYearPrice, 5) ?? 0) * 100;
+  const fiveYearCagrPct =
+    (cagr(spot, fiveYearPrice, FIVE_YEAR_INDEX + 1) ?? 0) * 100;
 
   return {
     ticker: normTicker,

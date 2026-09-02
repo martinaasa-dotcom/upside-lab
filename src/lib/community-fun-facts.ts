@@ -1,7 +1,25 @@
 /**
- * Fun, deterministic-per-day comparison facts across community members —
- * same seeded-angle architecture as lib/fun-facts.ts, just comparing
- * people instead of tickers. Purely playful; never a basis for advice.
+ * A few plain sentences about the circle, different every day.
+ *
+ * Two rules, and both of them were broken.
+ *
+ * **No money.** A circle says how a day went and never what anything is
+ * worth, which is the promise the landing page makes and the reason anybody
+ * agrees to be in one. Four of these facts printed dollars: the biggest
+ * portfolio, the combined total, the gap between the biggest and the
+ * smallest, and the circle's move for the day. The gap one was the worst of
+ * them, because naming the two people either end of it publishes both.
+ *
+ * **No slang, and never a villain.** "Today's villain arc belongs to
+ * Amanda", "main character", "Squirrel energy", "Gap season", "Not a small
+ * group project", "Chin up", "could use a pep talk". A grandmother gets
+ * every sentence in this product, and somebody having a bad day in front of
+ * their family is not a joke the app gets to make.
+ *
+ * They also repeated the awards printed directly above them, three of six on
+ * a normal day, so `buildCommunityFunFacts` now takes the award titles that
+ * are already on screen and skips any fact that would say the same thing
+ * twice. Purely descriptive; never a basis for advice.
  */
 
 import { hashSeed, mulberry32, pick, shuffleInPlace } from "@/lib/seeded-rng";
@@ -17,11 +35,11 @@ export type CommunityMemberStat = {
 };
 
 function pct1(n: number): string {
-  return `${Math.round(n * 1000) / 10}%`;
-}
-
-function money(n: number): string {
-  return Math.round(n).toLocaleString("en-US");
+  const rounded = Math.round(Math.abs(n) * 1000) / 10;
+  // A figure this app states as fact is never rounded up into existence:
+  // a fifth of a percent is not "0.2%" worth arguing about, it is small.
+  if (rounded < 0.1) return "less than 0.1%";
+  return `${rounded}%`;
 }
 
 const IRREGULAR_PLURALS: Record<string, string> = {
@@ -38,12 +56,14 @@ function pluralAnimal(animal: string, n: number): string {
 type FactCtx = {
   members: CommunityMemberStat[];
   rng: () => number;
+  /** Award ids already on screen above these facts. */
+  awarded: Set<string>;
 };
 
 type FactMaker = (ctx: FactCtx) => string | null;
 
 const MAKERS: FactMaker[] = [
-  // Today's MVP.
+  // The best day here.
   ({ members, rng }) => {
     const ranked = members
       .filter((m) => m.todayPct != null)
@@ -51,12 +71,11 @@ const MAKERS: FactMaker[] = [
     const top = ranked[0];
     if (!top || (top.todayPct ?? 0) <= 0) return null;
     return pick(rng, [
-      `${top.name} is today's MVP, up ${pct1(top.todayPct!)} ($${money(top.todayDollar)}).`,
-      `Today's main character: ${top.name} at +${pct1(top.todayPct!)}.`,
-      `${top.name} is winning the day, +$${money(top.todayDollar)} and climbing.`,
+      `${top.name} is having the best day here, up ${pct1(top.todayPct!)}.`,
+      `Best day in the circle so far: ${top.name}, up ${pct1(top.todayPct!)}.`,
     ]);
   },
-  // Today's underdog.
+  // The hardest day here. Stated, never joked about.
   ({ members, rng }) => {
     const ranked = members
       .filter((m) => m.todayPct != null)
@@ -64,24 +83,40 @@ const MAKERS: FactMaker[] = [
     const bottom = ranked[0];
     if (!bottom || (bottom.todayPct ?? 0) >= 0) return null;
     return pick(rng, [
-      `${bottom.name} is having a rough day, ${pct1(bottom.todayPct!)}. Chin up.`,
-      `Today's villain arc belongs to ${bottom.name} (${pct1(bottom.todayPct!)}).`,
-      `${bottom.name} could use a pep talk today, ${pct1(bottom.todayPct!)}.`,
+      `${bottom.name} is having the hardest day here, down ${pct1(bottom.todayPct!)}.`,
+      `${bottom.name} is down ${pct1(bottom.todayPct!)} today, the furthest down in the circle.`,
     ]);
   },
-  // Biggest book (today's prices, not cost).
+  // How far apart the best and the worst day are.
   ({ members, rng }) => {
-    const ranked = [...members].sort((a, b) => b.totalValue - a.totalValue);
-    const top = ranked[0];
-    if (!top || top.totalValue <= 0) return null;
+    const ranked = members
+      .filter((m) => m.todayPct != null)
+      .sort((a, b) => (b.todayPct ?? 0) - (a.todayPct ?? 0));
+    if (ranked.length < 2) return null;
+    const best = ranked[0]!;
+    const worst = ranked[ranked.length - 1]!;
+    const gap = (best.todayPct ?? 0) - (worst.todayPct ?? 0);
+    if (gap < 0.01) return null;
     return pick(rng, [
-      `${top.name} is carrying the biggest portfolio, $${money(top.totalValue)}.`,
-      `Largest portfolio today: ${top.name} at $${money(top.totalValue)}.`,
-      `${top.name} has the most on the board right now, $${money(top.totalValue)}.`,
+      `The best and the hardest day in the circle are ${pct1(gap)} apart today.`,
+      `${pct1(gap)} between ${best.name}'s day and ${worst.name}'s.`,
     ]);
   },
-  // Riskiest investor.
+  // Everybody the same way, which is worth noticing.
   ({ members, rng }) => {
+    const known = members.filter((m) => m.todayPct != null);
+    if (known.length < 3) return null;
+    const allUp = known.every((m) => (m.todayPct ?? 0) > 0);
+    const allDown = known.every((m) => (m.todayPct ?? 0) < 0);
+    if (!allUp && !allDown) return null;
+    return pick(rng, [
+      `Every portfolio in the circle is ${allUp ? "up" : "down"} today.`,
+      `All ${known.length} portfolios here are ${allUp ? "up" : "down"} today.`,
+    ]);
+  },
+  // The jumpiest mix.
+  ({ members, rng, awarded }) => {
+    if (awarded.has("jumpiest")) return null;
     const withScore = members.filter((m) => m.personality);
     const ranked = [...withScore].sort(
       (a, b) => (b.personality?.riskScore ?? 0) - (a.personality?.riskScore ?? 0)
@@ -89,13 +124,13 @@ const MAKERS: FactMaker[] = [
     const top = ranked[0];
     if (!top?.personality) return null;
     return pick(rng, [
-      `${top.name} has the jumpiest mix in the circle, ${top.personality.riskScore} out of 100. Pure ${top.personality.animalEmoji} ${top.personality.animal} energy.`,
-      `Hottest mix in the circle: ${top.name} (${top.personality.riskScore}/100). Not for a quiet night.`,
-      `${top.name} runs the jumpiest portfolio here (${top.personality.riskScore}/100).`,
+      `Jumpiest mix in the circle: ${top.name}, ${top.personality.riskScore} out of 100.`,
+      `${top.name} runs the jumpiest portfolio here, ${top.personality.riskScore} out of 100.`,
     ]);
   },
-  // Most diversified.
-  ({ members, rng }) => {
+  // Most spread out.
+  ({ members, awarded }) => {
+    if (awarded.has("diversifier")) return null;
     const withScore = members.filter((m) => m.personality);
     const ranked = [...withScore].sort(
       (a, b) =>
@@ -104,10 +139,7 @@ const MAKERS: FactMaker[] = [
     );
     const top = ranked[0];
     if (!top?.personality) return null;
-    return pick(rng, [
-      `${top.name} is the most spread out, at ${top.personality.diversificationScore} out of 100.`,
-      `Least concentrated portfolio: ${top.name} (${top.personality.diversificationScore}/100). Nothing keeping all its eggs in one basket.`,
-    ]);
+    return `${top.name} is the most spread out, at ${top.personality.diversificationScore} out of 100.`;
   },
   // Most concentrated.
   ({ members, rng }) => {
@@ -118,10 +150,11 @@ const MAKERS: FactMaker[] = [
         (b.personality?.diversificationScore ?? 100)
     );
     const top = ranked[0];
-    if (!top?.personality || top.personality.diversificationScore >= 40) return null;
+    if (!top?.personality || top.personality.diversificationScore >= 40)
+      return null;
     return pick(rng, [
-      `${top.name} is concentrated in a handful of holdings, scoring just ${top.personality.diversificationScore} out of 100 for spread.`,
-      `${top.name} keeps it tight, the most concentrated portfolio in the group.`,
+      `${top.name} owns the fewest different things here, scoring ${top.personality.diversificationScore} out of 100 for spread.`,
+      `${top.name} keeps it tight, the least spread out portfolio in the circle.`,
     ]);
   },
   // Animal census.
@@ -131,7 +164,10 @@ const MAKERS: FactMaker[] = [
       if (!m.personality) continue;
       const key = m.personality.animal;
       const prev = counts.get(key);
-      counts.set(key, { emoji: m.personality.animalEmoji, n: (prev?.n ?? 0) + 1 });
+      counts.set(key, {
+        emoji: m.personality.animalEmoji,
+        n: (prev?.n ?? 0) + 1,
+      });
     }
     if (counts.size === 0) return null;
     const parts = [...counts.entries()]
@@ -142,64 +178,35 @@ const MAKERS: FactMaker[] = [
       `The circle's animals: ${parts.join(", ")}.`,
     ]);
   },
-  // Combined circle movement today.
+  // How many people hold the same company.
   ({ members, rng }) => {
-    const total = members.reduce((s, m) => s + m.todayDollar, 0);
-    if (total === 0) return null;
+    const holders = new Map<string, number>();
+    for (const m of members) {
+      const ticker = m.personality?.topTicker;
+      if (!ticker) continue;
+      holders.set(ticker, (holders.get(ticker) ?? 0) + 1);
+    }
+    const shared = [...holders.entries()]
+      .filter(([, n]) => n >= 2)
+      .sort((a, b) => b[1] - a[1])[0];
+    if (!shared) return null;
     return pick(rng, [
-      // The sign has to survive: this used to print "+" for gains and
-      // nothing at all for losses, so a red day read as a plain positive
-      // dollar figure sitting next to "Rough one."
-      `Combined movement today: ${total >= 0 ? "+" : "-"}$${money(Math.abs(total))}. ${total >= 0 ? "Nice." : "Rough one."}`,
-      `Add up every portfolio's day and the circle is ${total >= 0 ? "up" : "down"} $${money(Math.abs(total))} today.`,
+      `${shared[1]} people here have $${shared[0]} as their biggest holding.`,
+      `$${shared[0]} is the biggest holding for ${shared[1]} people in this circle.`,
     ]);
   },
-  // Value gap between biggest and smallest book.
-  ({ members, rng }) => {
-    if (members.length < 2) return null;
-    const sorted = [...members].sort((a, b) => b.totalValue - a.totalValue);
-    const biggest = sorted[0]!;
-    const smallest = sorted[sorted.length - 1]!;
-    if (biggest.name === smallest.name) return null;
-    const gap = biggest.totalValue - smallest.totalValue;
-    if (gap <= 0) return null;
-    return pick(rng, [
-      `${biggest.name}'s portfolio is $${money(gap)} ahead of ${smallest.name}'s. Gap season.`,
-      `Biggest-to-smallest spread in the group: $${money(gap)} (${biggest.name} vs ${smallest.name}).`,
-    ]);
-  },
-  // Combined circle total.
-  ({ members, rng }) => {
-    const total = members.reduce((s, m) => s + m.totalValue, 0);
-    if (total <= 0) return null;
-    return pick(rng, [
-      `The circle is sitting on $${money(total)} combined. Not a small group project.`,
-      `Circle total: $${money(total)} across ${members.length} portfolio${members.length === 1 ? "" : "s"}.`,
-    ]);
-  },
-  // Falcon/small-book flex.
-  ({ members, rng }) => {
-    const falcons = members.filter((m) => m.personality?.animal === "Falcon");
-    if (falcons.length === 0) return null;
-    const f = pick(rng, falcons);
-    return pick(rng, [
-      `${f.name} is a Falcon: small portfolio, sharp aim.`,
-      `Don't underestimate ${f.name}'s Falcon portfolio, few positions, big bets.`,
-    ]);
-  },
-  // Most kinds of stocks (Octopus, Squid, or Crab — whichever this book landed on).
-  ({ members, rng }) => {
+  // Most kinds of business.
+  ({ members, rng, awarded }) => {
+    if (awarded.has("themes")) return null;
     const spread = members.filter((m) => (m.personality?.themeCount ?? 0) >= 3);
     if (spread.length === 0) return null;
     const s = pick(rng, spread);
     const p = s.personality!;
-    return pick(rng, [
-      `${s.name} is a ${p.animal}: ${p.themeCount} kinds of stocks, a tentacle in every pond.`,
-      `Most kinds of stocks in the circle: ${s.name} the ${p.animal} (${p.themeCount} groups).`,
-    ]);
+    return `${s.name} owns ${p.themeCount} different kinds of business, the most in the circle.`;
   },
-  // Squirrel cash stash.
-  ({ members, rng }) => {
+  // Cash waiting.
+  ({ members, rng, awarded }) => {
+    if (awarded.has("cash")) return null;
     const withCash = members.filter(
       (m) => m.personality && m.personality.cashPct >= 8
     );
@@ -208,12 +215,13 @@ const MAKERS: FactMaker[] = [
       (a, b) => (b.personality?.cashPct ?? 0) - (a.personality?.cashPct ?? 0)
     )[0]!;
     return pick(rng, [
-      `${top.name} is sitting on ${top.personality!.cashPct}% cash. Squirrel energy, whether the badge says so or not.`,
-      `Biggest cash stash: ${top.name} at ${top.personality!.cashPct}% cash.`,
+      `${top.name} is holding the most cash, ${top.personality!.cashPct}% of the portfolio.`,
+      `Most cash waiting: ${top.name}, at ${top.personality!.cashPct}% of the portfolio.`,
     ]);
   },
-  // Highest conviction name.
-  ({ members, rng }) => {
+  // The biggest single holding.
+  ({ members, awarded }) => {
+    if (awarded.has("conviction")) return null;
     const withTop = members.filter(
       (m) => m.personality && m.personality.convictionScore >= 30
     );
@@ -223,51 +231,73 @@ const MAKERS: FactMaker[] = [
         (b.personality?.convictionScore ?? 0) -
         (a.personality?.convictionScore ?? 0)
     )[0]!;
-    const name = top.personality!.topTicker ?? "one name";
-    return pick(rng, [
-      `${top.name}'s largest position is ${top.personality!.convictionScore}% (${name}). That's a big bet.`,
-      `Biggest single bet in the circle: ${top.name}, ${top.personality!.convictionScore}% in ${name}.`,
-    ]);
+    const company = top.personality!.topTicker
+      ? `$${top.personality!.topTicker}`
+      : "one company";
+    return `${top.name}'s biggest holding is ${top.personality!.convictionScore}% of the portfolio (${company}). That is a big bet.`;
   },
-  // Single-diet specialist (Panda, Beaver, Rhino, Badger, Scorpion, Otter,
-  // Chameleon, or Flamingo — whichever this book's dominant theme lands on).
-  ({ members, rng }) => {
-    const specialists = members.filter((m) => (m.personality?.specialistScore ?? 0) >= 68);
+  // One kind of business. Never a broad market fund, which is the most
+  // spread out thing a person can own and would be labelled the opposite.
+  ({ members, rng, awarded }) => {
+    if (awarded.has("specialist")) return null;
+    const specialists = members.filter(
+      (m) =>
+        (m.personality?.specialistScore ?? 0) >= 68 &&
+        m.personality?.dominantTheme !== "index"
+    );
     if (specialists.length === 0) return null;
     const s = pick(rng, specialists);
     const p = s.personality!;
-    return pick(rng, [
-      `${s.name} is a ${p.animal}: ${p.specialistScore}% in one kind of business. When that group moves, the whole portfolio moves.`,
-      `One-kind diet: ${s.name} the ${p.animal}, ${p.specialistScore}% in a single group.`,
-    ]);
+    return `${s.name} has ${p.specialistScore}% in one kind of business. When that group moves, so does the whole portfolio.`;
   },
 ];
 
 /**
- * Up to `limit` distinct facts for the given day — deterministic per
- * dayKey so a refresh doesn't shuffle the list, but a new day (or manual
- * shuffle seed) gets a fresh batch.
+ * Up to `limit` distinct facts for the given day, deterministic per dayKey
+ * so a refresh does not shuffle the list while a new day gets a fresh batch.
+ * `awarded` is the set of award ids already printed above these, so a fact
+ * never restates one of them.
  */
 export function buildCommunityFunFacts(
   members: CommunityMemberStat[],
   dayKey: string,
-  limit = 6
+  limit = 6,
+  awarded: Iterable<string> = []
 ): string[] {
   if (members.length === 0) return [];
   const seed = hashSeed(`upside-community-fun|${dayKey}|${members.length}`);
   const rng = mulberry32(seed);
-  const ctx: FactCtx = { members, rng };
+  const ctx: FactCtx = { members, rng, awarded: new Set(awarded) };
 
   const order = shuffleInPlace(rng, MAKERS.map((_, i) => i));
   const out: string[] = [];
   const seen = new Set<string>();
+  const named = new Set<string>();
   for (const idx of order) {
     if (out.length >= limit) break;
     const candidate = MAKERS[idx]!(ctx);
     if (!candidate) continue;
     const key = candidate.toLowerCase();
     if (seen.has(key)) continue;
+    /*
+      One person, one fact.
+
+      Whoever tops the concentration measure usually tops the one-kind and
+      the biggest-holding ones as well, because all three are asking the
+      same question from different angles. Measured on a real circle, three
+      of the six facts were about Liisa, so a list of six read as two facts
+      about one person. A fact naming exactly one member is skipped once
+      that member already has one; a fact naming two (the gap between the
+      best and the hardest day) or none is always allowed, since it is
+      about the circle rather than about somebody.
+    */
+    const mentioned = members
+      .map((m) => m.name)
+      .filter((name) => name && candidate.includes(name));
+    const only = mentioned.length === 1 ? mentioned[0]! : null;
+    if (only && named.has(only)) continue;
     seen.add(key);
+    if (only) named.add(only);
     out.push(candidate);
   }
   return out;

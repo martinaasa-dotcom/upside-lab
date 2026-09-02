@@ -37,6 +37,25 @@ export const LAB_PATH = "/lab";
 export const GROWTH_PATH = "/growth";
 export const ALERTS_PATH = "/alerts";
 export const PORTFOLIO_PATH = "/portfolio";
+/** Home with Margus open. See `isMargusPath`. */
+export const MARGUS_PATH = "/margus";
+
+/**
+ * Whether a path is `/margus`, which is Home with the Margus panel open.
+ *
+ * There is no Margus room. The chat floats over whichever page is showing,
+ * so the address names the page underneath (Overview) and adds that the
+ * panel should be open on arrival. Nothing in the app links here; it is
+ * for a bookmark or a link somebody was sent, and until it meant this a
+ * reader following one landed on Home with the panel shut, which is the
+ * one thing the address plainly did not say. Closing the panel puts the
+ * address back to `/`, because a URL saying Margus is open over a panel
+ * that is shut is the address bar reporting on the app rather than
+ * driving it, which is the thing this file exists to end.
+ */
+export function isMargusPath(pathname: string): boolean {
+  return normalizePath(pathname) === MARGUS_PATH;
+}
 
 /** Book paths that are a meta-tab in their own right. */
 const META_PATHS: ReadonlyArray<readonly [string, string]> = [
@@ -112,6 +131,8 @@ export function tabIdFromPath(
     if (portfolios.length === 0) return token;
     return undefined;
   }
+  // Home, with the panel's opening left to whoever reads `isMargusPath`.
+  if (path === MARGUS_PATH) return OVERVIEW_TAB_ID;
   if ((BOOK_ROOM_PATHS as readonly string[]).includes(path)) {
     return OVERVIEW_TAB_ID;
   }

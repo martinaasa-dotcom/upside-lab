@@ -244,12 +244,19 @@ function marketNow(): { year: number; month: number } {
   return { year, month };
 }
 
+/*
+ * `curMonth.label` is the three letter form, which reads badly in a sentence
+ * and worse in the plural: "Across 6 prior Augs in the same presidential
+ * cycle year" is two abbreviations and a piece of desk jargon in one line.
+ * The month is spelled out here and the cycle is described rather than named.
+ */
 export function buildActionSignals(input: {
   cycleMonthly: CycleMonthlyRow[];
   asOfMonth: number;
 }): ActionSignal[] {
   const curMonth = input.cycleMonthly[input.asOfMonth - 1];
   if (!curMonth || curMonth.samples === 0) return [];
+  const month = MONTH_NAMES[curMonth.month - 1] ?? curMonth.label;
 
   const stats = {
     figurePct: curMonth.avgMonthReturnPct,
@@ -261,8 +268,8 @@ export function buildActionSignals(input: {
     return [
       {
         stance: "deploy",
-        headline: `${curMonth.label} has been a strong month in this cycle phase`,
-        detail: `Across ${curMonth.samples} prior ${curMonth.label}s in the same presidential-cycle year.`,
+        headline: `${month} has been a strong month in years like this one`,
+        detail: `Across ${curMonth.samples} earlier ${month}s in the same year of the four-year US election cycle.`,
         ...stats,
       },
     ];
@@ -271,8 +278,8 @@ export function buildActionSignals(input: {
     return [
       {
         stance: "raise_cash",
-        headline: `${curMonth.label} is historically soft in this cycle phase`,
-        detail: `Same slot in the 4-year cycle, prior ${curMonth.label}s only.`,
+        headline: `${month} has been a soft month in years like this one`,
+        detail: `Across ${curMonth.samples} earlier ${month}s in the same year of the four-year US election cycle.`,
         ...stats,
       },
     ];
@@ -280,8 +287,8 @@ export function buildActionSignals(input: {
   return [
     {
       stance: "hold",
-      headline: `${curMonth.label} has been mixed. No strong seasonal pattern.`,
-      detail: `Cycle-phase ${curMonth.label}s, prior years only.`,
+      headline: `${month} has been mixed. No clear pattern either way.`,
+      detail: `Earlier ${month}s in years like this one.`,
       ...stats,
     },
   ];

@@ -115,8 +115,10 @@ export type QuotesResultWithSource = QuotesResult & {
    * Of `missing`, the names this request actually paid to discover -- ones
    * not already in the negative cache, so each walked the full suffix chain
    * at roughly 52 upstream calls apiece. This is the real cost of the
-   * request, and what a cost-proportional limiter should be charged for.
-   * A repeat ask for the same dead ticker is 0 here, because it was free.
+   * request. A repeat ask for the same dead ticker is 0 here, because it
+   * was free. The unresolved budget is charged from `namesThatWouldWalk`
+   * before the fetch rather than from this afterwards, since a bill that
+   * arrives once the providers have been spent cannot stop anything.
    */
   newlyUnresolvable: string[];
   /** Epoch ms of the oldest print in this payload (live or cached). */
@@ -291,4 +293,55 @@ async function fetchQuotesWithFallbackUnshared(
     newlyUnresolvable,
     updatedAt,
   };
+}
+
+/**
+ * Most names one request may walk the exchange chain for.
+ *
+ * `MAX_TICKERS_PER_REQUEST` bounds how many names a request may *name*.
+ * This bounds how many of them may be expensive, which is a different
+ * number: a name the caches can vouch for costs one upstream call, and a
+ * name nothing can vouch for costs about fifty-two. Without this bound the
+ * unresolved budget could not stop a burst at all, only bill for one after
+ * the fact -- a weighted bucket lets a charge through whenever the bucket
+ * is still under its limit, so a single request naming a hundred and
+ * twenty invented symbols was always allowed and only put the address over
+ * budget afterwards, once the providers had already been spent.
+ *
+ * Comfortably below `UNRESOLVED_LIMIT`, so an address's whole window is
+ * worth a couple of these rather than one. Names over the line are simply
+ * not asked about this time round; the ones that were asked about are in
+ * the shared cache by the next poll, so a genuinely new portfolio fills in
+ * over a few seconds instead of being refused.
+ */
+export const MAX_UNKNOWN_NAMES_PER_REQUEST = 25;
+
+/**
+ * Which of these names would pay the full price of a provider walk.
+ *
+ * A quote is cheap or ruinous depending on whether the symbol resolves.
+ * One the shared quote cache already knows is answered by its first
+ * candidate, and one already known to resolve nowhere is not asked about
+ * at all. Everything else walks the bare symbol plus sixteen exchange
+ * suffixes at two upstream calls each, and that walk is the whole reason
+ * the unresolved budget exists.
+ *
+ * Asking this before the fetch is what turns the budget from a bill into a
+ * decision. It costs no extra round trip in the ordinary case: the quote
+ * store answers from memory first and writes whatever it fetches back into
+ * memory, so the read `fetchQuotesWithFallback` does a moment later is
+ * answered without touching Supabase again. For a real portfolio the
+ * answer is an empty list, so nothing is charged and nothing is refused.
+ */
+export async function namesThatWouldWalk(
+  tickers: readonly string[]
+): Promise<string[]> {
+  const unique = [
+    ...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean)),
+  ];
+  if (unique.length === 0) return [];
+  const { worthAsking } = partitionUnresolvable(unique);
+  if (worthAsking.length === 0) return [];
+  const known = await recallQuotes(worthAsking);
+  return worthAsking.filter((t) => !quoteForRequested(known, t));
 }

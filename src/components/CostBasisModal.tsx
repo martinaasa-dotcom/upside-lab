@@ -112,7 +112,7 @@ export function CostBasisModal({
             Skip
           </Button>
           <Button type="button" onClick={onApply}>
-            Apply costs
+            Use these prices
           </Button>
         </div>
       </div>

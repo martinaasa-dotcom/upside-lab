@@ -1,6 +1,5 @@
 import { sheetCashBalance } from "@/lib/cash-balance";
 import { enrichHoldings } from "@/lib/calculations";
-import { buildDailyFunFacts } from "@/lib/fun-facts";
 import {
   finiteNumber,
   roundMoney,
@@ -15,7 +14,12 @@ export const COMPOUND_TAB_ID = "__compound__";
 export const LAB_TAB_ID = "__lab__";
 export const PULSE_TAB_ID = "__pulse__";
 export const SEASONALITY_TAB_ID = "__seasonality__";
-/** Mobile-only: the Alerts tab. Not a desktop meta-tab. */
+/**
+ * "Worth a look" (`/alerts`), which renders on both breakpoints and has no
+ * cell of its own on either dock: it is Home's second screen, reached from
+ * the one overflow menu the chrome already has, and the accent dot on the
+ * Home cell is what points at it.
+ */
 export const ALERTS_TAB_ID = "__alerts__";
 
 export type SheetScore = {
@@ -44,6 +48,12 @@ export type TickerScore = {
   todayPct: number | null;
   price: number;
   sparkline: number[];
+  /**
+   * Real consecutive closing prices, newest last, for anything that has to
+   * measure rather than draw. `sparkline` beside it is thinned and
+   * sometimes invented, so a median taken off it is a fact about a curve.
+   */
+  dailyCloses?: number[];
 };
 
 export type OverviewModel = {
@@ -54,7 +64,6 @@ export type OverviewModel = {
   todayWinners: TickerScore[];
   todayLosers: TickerScore[];
   topHoldings: TickerScore[];
-  funFacts: string[];
   totals: {
     buyValue: number;
     equityValue: number;
@@ -201,6 +210,7 @@ export function buildOverview(
         row.quote?.price ??
         (row.shares > 0 ? safeDiv(row.currentValue, row.shares) : 0),
       sparkline: row.quote?.sparkline ?? [],
+      dailyCloses: (row.quote?.dailyCloses ?? []).map((b) => b.close),
     };
   });
 
@@ -245,7 +255,6 @@ export function buildOverview(
     todayWinners: byToday.filter((t) => (t.todayPct ?? 0) > 0).slice(0, 5),
     todayLosers: byToday.filter((t) => (t.todayPct ?? 0) < 0).slice(-5).reverse(),
     topHoldings: byValue.slice(0, 10),
-    funFacts: buildDailyFunFacts(sortedSheets, tickers, totals),
     totals,
   };
 }

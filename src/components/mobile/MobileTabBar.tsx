@@ -31,7 +31,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentType } from "react";
 
 export type { MobileTabId } from "@/lib/mobile-tab";
-export { activeMobileTab, mobileTabFromActiveId } from "@/lib/mobile-tab";
+export { mobileTabFromActiveId } from "@/lib/mobile-tab";
 
 /*
   The phone's dock.
@@ -77,14 +77,22 @@ export { activeMobileTab, mobileTabFromActiveId } from "@/lib/mobile-tab";
 /** How long the name stays up after a press. */
 const SAY_MS = 900;
 
-const TABS: {
+export type DockTab = {
   id: MobileTabId;
   href: string;
   label: string;
   shortLabel: string;
   Icon: ComponentType<{ className?: string; strokeWidth?: number }>;
   metaId: string | null;
-}[] = [
+};
+
+/*
+  Exported because the walkthrough draws a working miniature of this bar,
+  and a second table of six rooms typed out over there is a second table
+  that goes stale. The room a reader is shown on their way in has to be the
+  room they find afterwards, glyph included.
+*/
+export const DOCK_TABS: DockTab[] = [
   {
     id: "home",
     href: "/",
@@ -179,7 +187,7 @@ export function MobileTabBar({
   const circleHref = useCircleHref();
   useDockPad(dockEl);
 
-  const tabs = TABS.filter(
+  const tabs = DOCK_TABS.filter(
     (t) => !t.metaId || !hiddenModeIds.includes(t.metaId)
   );
 

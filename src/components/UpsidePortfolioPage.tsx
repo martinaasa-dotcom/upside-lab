@@ -29,7 +29,19 @@ import {
 import { plainError } from "@/lib/plain-error";
 import { isAbortError, isNetworkError } from "@/lib/abort";
 import { useNetworkResume } from "@/lib/use-network-resume";
-import { NO_VALUE, cashtag, cn, currency, percent, signedCurrency, signedTone } from "@/lib/format";
+import {
+  NO_VALUE,
+  cashtag,
+  cn,
+  currency,
+  percent,
+  signedCurrency,
+  signedPercent,
+  signedTone,
+} from "@/lib/format";
+import { formatDateTime } from "@/lib/timezone";
+import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
+import { Explain } from "@/components/ui/Explain";
 import { PALETTE } from "@/lib/palette";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import { isWorkspaceRoomActive, onWorkspaceRefresh } from "@/lib/workspace-rooms";
@@ -49,12 +61,15 @@ import {
   THEME_COLOR,
 } from "@/lib/portfolio-personality";
 import {
-  fundDayNumber,
+  fundQuoteCoverage,
+  fundTotalReturn,
   liveFundTodayMove,
   liveFundTotalValue,
+  spyReturnSince,
 } from "@/lib/margus-fund-mark";
 import {
   fundCopyBullets,
+  keepingRealBooks,
   numberedReportHeadline,
   recapBullets,
   serialFromNewest,
@@ -88,6 +103,24 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import { isSuperadminEmail } from "@/lib/auth/superadmin";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+
+/**
+ * The line the fund is measured against is a fund, and it says so.
+ *
+ * The room drew it as "SPY" and called the panel "Margus vs SPY", which
+ * asks a beginner to already know that SPY is a company-shaped thing you
+ * can buy that holds the five hundred largest American companies, and
+ * quietly invites the reading that this is the S&P 500 itself. It is not:
+ * it is one fund that follows that list, its own price, without the
+ * dividends those companies pay. The short form is for a table cell where
+ * the long one will not fit; nothing prints the bare three letters alone.
+ */
+const BENCHMARK_TICKER = "SPY";
+const BENCHMARK_SHORT = "The S&P 500 tracker";
+/** Mid-sentence form. `toLowerCase()` on the short one turned S&P into s&p. */
+const BENCHMARK_MID = "the S&P 500 tracker";
+const BENCHMARK_NOTE =
+  "SPY is one fund that holds the five hundred largest American companies, in the same proportions as the published list. The line is its own share price, without the dividends those companies pay, so it is a little under what somebody holding it would really have made.";
 
 const BENCHMARK_STORAGE_KEY = "portfell-upside-portfolio-benchmark";
 const FEED_CHUNK = 7;
@@ -138,6 +171,13 @@ function pctOnOrBefore(
   return last;
 }
 
+/*
+ * A day with no recorded return carries the last one forward.
+ *
+ * Both of these read `?? 0`, which drew a day whose figure never made it
+ * into the row as the fund having given back everything it was up. On a
+ * chart that is not a missing point, it is a crash that did not happen.
+ */
 function margusOnLabels(
   labels: string[],
   reports: ReportRow[],
@@ -148,8 +188,18 @@ function margusOnLabels(
     if (d === "Live") return live;
     let last = 0;
     for (const r of chrono) {
-      if (r.report_date <= d) last = r.total_return_pct ?? 0;
+      if (r.report_date <= d && r.total_return_pct != null) {
+        last = r.total_return_pct;
+      }
     }
+    return last;
+  });
+}
+
+function carriedReturns(reports: ReportRow[]): number[] {
+  let last = 0;
+  return [...reports].reverse().map((r) => {
+    if (r.total_return_pct != null) last = r.total_return_pct;
     return last;
   });
 }
@@ -279,26 +329,31 @@ type FundPayload = {
 };
 
 function fmtDate(iso: string): string {
-  try {
-    return new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
+  const shown = formatDateTime(`${iso}T12:00:00Z`, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  return shown || iso;
 }
 
+/**
+ * Bought and Sold, never Opened and Exited.
+ *
+ * "Opened a position" and "exited" are how a trading desk writes, and this
+ * room is read by somebody who has owned nothing yet. Every one of these is
+ * the everyday word for the same act, and "Sold some" says what a trim
+ * actually is without anybody having to already know.
+ */
 const ACTION_STYLE: Record<
   FundActionRow["type"],
   { label: string; cls: string }
 > = {
-  buy: { label: "Opened", cls: "bg-gain/15 text-gain" },
-  add: { label: "Added", cls: "bg-gain/15 text-gain" },
-  trim: { label: "Trimmed", cls: "bg-caution/15 text-caution" },
-  exit: { label: "Exited", cls: "bg-loss/15 text-loss" },
-  hold: { label: "Held", cls: "bg-accent text-muted-foreground" },
+  buy: { label: "Bought", cls: "bg-gain/15 text-gain" },
+  add: { label: "Bought more", cls: "bg-gain/15 text-gain" },
+  trim: { label: "Sold some", cls: "bg-caution/15 text-caution" },
+  exit: { label: "Sold all of", cls: "bg-loss/15 text-loss" },
+  hold: { label: "Kept", cls: "bg-accent text-muted-foreground" },
 };
 
 function ActionBadge({ action }: { action: FundActionRow }) {
@@ -323,15 +378,23 @@ function ReportMeta({ r }: { r: ReportRow }) {
       <p className="text-sm text-muted-foreground">
         {fmtDate(r.report_date)}
       </p>
-      <p
-        className={cn(
-          "text-sm font-semibold tabular-nums",
-          signedTone(r.day_change_dollar ?? 0, "text-muted-foreground")
-        )}
-      >
+      {/*
+        * The closing value is a size, not a result, so it is not coloured.
+        *
+        * It used to take the day's tone with it, which painted a perfectly
+        * ordinary $70,900 in green or rose depending on the last few hours
+        * and read, at a glance down the list, as the whole portfolio having
+        * been that colour. Only the move is up or down.
+        */}
+      <p className="font-mono text-sm font-semibold tabular-nums text-foreground">
         {currency(r.portfolio_value, 0)}
         {r.day_change_dollar != null && (
-          <> · {signedCurrency(r.day_change_dollar)}</>
+          <>
+            {" "}
+            <span className={signedTone(r.day_change_dollar, "text-muted-foreground")}>
+              {signedCurrency(r.day_change_dollar, 0)}
+            </span>
+          </>
         )}
       </p>
     </>
@@ -403,13 +466,16 @@ function RecapMeta({ r }: { r: WeeklyRecapRow }) {
     <>
       <p className="text-sm text-muted-foreground">{fmtDate(r.week_ending)}</p>
       {r.week_return_pct != null && (
-        <p className="text-sm font-semibold tabular-nums">
-          <span className={r.week_return_pct >= 0 ? "text-gain" : "text-loss"}>
-            {percent(r.week_return_pct)}
+        <p className="font-mono text-sm font-semibold tabular-nums">
+          <span className={signedTone(r.week_return_pct, "text-muted-foreground")}>
+            {signedPercent(r.week_return_pct)}
           </span>
           {r.spy_week_return_pct != null && (
-            <span className="ml-2 text-muted-foreground">
-              SPY {percent(r.spy_week_return_pct)}
+            <span className="ml-2 font-sans text-muted-foreground">
+              {BENCHMARK_SHORT}{" "}
+              <span className="font-mono tabular-nums">
+                {signedPercent(r.spy_week_return_pct)}
+              </span>
             </span>
           )}
         </p>
@@ -527,15 +593,25 @@ function FundMetric({
   value,
   hint,
   valueClassName,
+  explain,
 }: {
-  label: string;
+  label: React.ReactNode;
   value: string;
   hint?: string;
   valueClassName?: string;
+  /*
+    A glossary term, where this label is one. The Fund is the page a reader
+    who owns nothing yet is most likely to be looking at, so it is the worst
+    place in the product to print a word and leave them to guess it.
+  */
+  explain?: string;
 }) {
   return (
     <div className="min-w-0">
-      <MicroLabel>{label}</MicroLabel>
+      <MicroLabel>
+        {label}
+        {explain ? <Explain term={explain} className="ml-1.5" /> : null}
+      </MicroLabel>
       <p
         className={cn(
           "mt-1.5 truncate font-mono text-base font-semibold tabular-nums text-foreground",
@@ -560,7 +636,7 @@ function FundNote({
   label,
   items,
 }: {
-  label: string;
+  label: React.ReactNode;
   items: string[];
 }) {
   return (
@@ -580,56 +656,219 @@ function FundNote({
   );
 }
 
+/**
+ * One company he owns, with every figure named for what it actually is.
+ *
+ * Three of the four labels used to be wrong, and one of them in the way
+ * that costs a beginner the most. `cost_basis` on a fund holding is the
+ * price of **one share**, not the money put in, so the cell reading "Cost
+ * $168.40" over a hundred and twenty shares said the position had cost a
+ * hundred and sixty eight dollars. Beside it, "Portfolio" was that
+ * holding's own worth today, which is the one word in this app that means
+ * everything you own rather than one line of it. Both now say what they
+ * are, and both carry the glossary entry for the word.
+ *
+ * `price` is null when no quote arrived. It used to fall back to what he
+ * paid, so a company nobody could price showed today's price as the buy
+ * price and a gain of exactly nothing, which is a claim about the market
+ * this page had no basis for.
+ */
 function FundPosition({
   holding,
   price,
 }: {
   holding: HoldingRow;
-  price: number;
+  price: number | null;
 }) {
+  const priced = price != null && Number.isFinite(price) && price > 0;
   const pnlPct =
-    holding.cost_basis > 0 ? (price - holding.cost_basis) / holding.cost_basis : 0;
-  const marketValue = price * holding.shares;
-  const pnlDollar = (price - holding.cost_basis) * holding.shares;
+    priced && holding.cost_basis > 0
+      ? (price - holding.cost_basis) / holding.cost_basis
+      : null;
+  const worthNow = priced ? price * holding.shares : null;
+  const pnlDollar = priced ? (price - holding.cost_basis) * holding.shares : null;
   const thesis = fundCopyBullets(holding.thesis).slice(0, 2);
   const exit = fundCopyBullets(holding.exit_plan).slice(0, 2);
   const shares = holding.shares.toLocaleString("en-US");
   const holdFor = holding.target_timeframe?.trim();
+  const tag = cashtag(holding.ticker);
   return (
-    <div className={cn(BOX, "flex flex-col gap-4 p-6")}>
+    <div className={cn(BOX, "flex flex-col gap-4 p-4 sm:p-6")}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Badge variant="secondary" className="chip-hang h-6 font-heading text-sm font-semibold">
-            {cashtag(holding.ticker)}
+            {tag}
           </Badge>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {shares} shares · bought {fmtDate(holding.entry_date)}
-            {holdFor ? ` · Hold for ${holdFor}` : ""}
+            {shares} shares, bought {fmtDate(holding.entry_date)}
+            {holdFor ? `, meant to be held for ${holdFor}` : ""}
           </p>
         </div>
-        <Pill tone={pnlPct > 0 ? "good" : pnlPct < 0 ? "bad" : "neutral"} className="shrink-0">
-          {percent(pnlPct)}
+        <Pill
+          tone={
+            pnlPct == null ? "neutral" : pnlPct > 0 ? "good" : pnlPct < 0 ? "bad" : "neutral"
+          }
+          className="shrink-0"
+        >
+          {pnlPct == null ? NO_VALUE : signedPercent(pnlPct)}
         </Pill>
       </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <FundMetric label="Cost" value={currency(holding.cost_basis)} />
         <FundMetric
-          label="Now"
-          value={currency(price)}
-          valueClassName={signedTone(pnlPct, "text-foreground")}
+          label={
+            <Explain
+              term="paid-each"
+              ticker={tag}
+              amount={currency(holding.cost_basis)}
+            >
+              Paid each
+            </Explain>
+          }
+          value={currency(holding.cost_basis)}
         />
-        <FundMetric label="Portfolio" value={currency(marketValue, 0)} />
+        <FundMetric label="Price now" value={priced ? currency(price) : NO_VALUE} />
         <FundMetric
-          label="Since buy"
-          value={signedCurrency(pnlDollar, 0)}
+          label={
+            <Explain
+              term="value"
+              ticker={tag}
+              amount={worthNow != null ? currency(worthNow, 0) : undefined}
+            >
+              Worth now
+            </Explain>
+          }
+          value={worthNow != null ? currency(worthNow, 0) : NO_VALUE}
+        />
+        <FundMetric
+          label={
+            <Explain
+              term="gain"
+              ticker={tag}
+              amount={pnlDollar != null ? signedCurrency(pnlDollar, 0) : undefined}
+              second={pnlPct != null ? signedPercent(pnlPct) : undefined}
+            >
+              Up or down
+            </Explain>
+          }
+          value={pnlDollar != null ? signedCurrency(pnlDollar, 0) : NO_VALUE}
           valueClassName={signedTone(pnlDollar)}
         />
       </div>
+      {!priced && (
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          No price came back for {tag} just now, so the three figures that need
+          one say {NO_VALUE} rather than guessing.
+        </p>
+      )}
       <div className="grid items-start gap-4 sm:grid-cols-2">
-        <FundNote label="Thesis" items={thesis} />
-        <FundNote label="Sell if" items={exit} />
+        <FundNote
+          label={
+            <Explain term="thesis" ticker={tag}>
+              Why he owns it
+            </Explain>
+          }
+          items={thesis}
+        />
+        <FundNote
+          label={
+            <Explain term="sell-if" ticker={tag}>
+              What would make him sell
+            </Explain>
+          }
+          items={exit}
+        />
       </div>
     </div>
+  );
+}
+
+/**
+ * A section heading, and the eye on the ones a model wrote.
+ *
+ * The room carried exactly one provenance eye, on the panel with the chart,
+ * while three whole sections underneath it are sentences a language model
+ * wrote: the daily reasons, the weekly summaries, and the reason for owning
+ * each company. Those are the ones a reader is most likely to take
+ * seriously and the ones where knowing what wrote them changes how they
+ * read. The eye goes where the words are.
+ */
+function SectionHeading({ title, eye = false }: { title: string; eye?: boolean }) {
+  return (
+    <h2 className="flex flex-wrap items-center gap-2 font-semibold text-foreground">
+      {title}
+      {eye ? <WhyThis provenance={upsideFundProvenance()} /> : null}
+    </h2>
+  );
+}
+
+/**
+ * A slice of the bar, never rounded up into existence.
+ *
+ * `Math.round(pct * 100)` printed a real 0.4% slice as "0%", which is a
+ * coloured band on the bar beside a legend saying there is nothing there,
+ * and rounded 0.6% up to a whole per cent it had not reached.
+ */
+function sliceLabel(pct: number): string {
+  if (!Number.isFinite(pct) || pct <= 0) return percent(0, 0);
+  if (pct < 0.01) return "less than 1%";
+  return percent(pct, 0);
+}
+
+/**
+ * What this room actually is, on the room, in the first thing read.
+ *
+ * The provenance eye has said all of this since it was written, and the eye
+ * is opened by a reader who has already decided to be suspicious. This page
+ * is the most copyable thing in the product: a confident daily write-up,
+ * with a portfolio value and a return beside it, by something with a name.
+ * Somebody who reads it as a tip sheet and never presses anything is
+ * exactly the reader who most needs the first paragraph, so the first
+ * paragraph is now the answer rather than a link to it.
+ *
+ * `landing-claims.test.ts` is the pattern for the sentences here: each one
+ * is checked against the code that makes it true, in `fund-room-claims.test.ts`.
+ */
+function WhatThisIs({
+  decisions,
+  startedOn,
+}: {
+  decisions: number;
+  startedOn?: string | null;
+}) {
+  return (
+    <Panel>
+      <PanelHeader
+        title={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            What Upside Fund is
+            <WhyThis provenance={upsideFundProvenance()} />
+          </span>
+        }
+      />
+      <div className="flex flex-col gap-3 text-base leading-relaxed text-muted-foreground">
+        <p>
+          Margus is a computer program that writes language, not a person. Once
+          on each day the market is open it is shown this portfolio, asked for
+          one decision, and whatever it answers is written down here with its
+          reason, whether it turns out well or badly. Nothing is edited
+          afterwards.
+        </p>
+        <p>
+          The money is <Explain term="paper-money">pretend</Explain>. No shares
+          are ever really bought, nobody&apos;s savings are in it, and every
+          figure on this page is what would have happened. It is one experiment
+          run in the open so you can watch a reason being written down before
+          the answer is known, which is the part that is worth learning.
+        </p>
+        <p>
+          {decisions > 0
+            ? `${decisions} ${decisions === 1 ? "decision has" : "decisions have"} been written down so far`
+            : "No decision has been written down yet"}
+          {startedOn ? `, starting ${fmtDate(startedOn)}` : ""}. {ADVICE_DISCLAIMER_SHORT}{" "}
+          It is a diary, not a list to copy.
+        </p>
+      </div>
+    </Panel>
   );
 }
 
@@ -791,7 +1030,15 @@ export function UpsidePortfolioPage() {
   const fundRef = useRef(fund);
   fundRef.current = fund;
   const oldestReport = reports[reports.length - 1] ?? null;
-  const cash = latestReport?.cash ?? fund?.cash ?? 0;
+  /*
+   * Cash the room actually knows about, and whether it knows at all.
+   *
+   * The arithmetic still treats an unknown balance as nothing, because a
+   * total is better slightly low than absent, but the cell that prints it
+   * says n/a rather than stating a balance of zero nobody recorded.
+   */
+  const knownCash = latestReport?.cash ?? fund?.cash ?? null;
+  const cash = knownCash ?? 0;
   // Live, not frozen at the last daily snapshot — same formula as the
   // Overview teaser so the two surfaces never disagree.
   const totalValue = liveFundTotalValue({
@@ -828,7 +1075,8 @@ export function UpsidePortfolioPage() {
       .map((s) => s.trim())
       .filter(Boolean);
     const last = parts.at(-1);
-    return last && last.length >= 12 ? last : null;
+    // Model prose, so it goes through the same pass everything else does.
+    return last && last.length >= 12 ? keepingRealBooks(last) : null;
   }, [latestReport?.body]);
   const bettingSlices = useMemo(() => {
     const slices: {
@@ -856,6 +1104,25 @@ export function UpsidePortfolioPage() {
     () => concentrationRead(fundValued),
     [fundValued]
   );
+  /*
+   * The biggest company as a share of the whole portfolio, cash included.
+   *
+   * `concentrationRead` measures against the money that is invested, which
+   * is the right question for how concentrated the picking is and the wrong
+   * one for a cell sitting next to "Share left in cash". Those two read as
+   * two slices of one pie, so with 17% in cash they have to be measured
+   * against the same whole or they do not add up: NVDA was 37% of the
+   * invested money and 31% of the portfolio, and the row printed the first
+   * under a label that promised the second.
+   */
+  const biggestHolding = useMemo(() => {
+    let top: { ticker: string; currentValue: number } | null = null;
+    for (const h of fundValued) {
+      if (!top || h.currentValue > top.currentValue) top = h;
+    }
+    if (!top || !(totalValue > 0)) return null;
+    return { ticker: top.ticker, pct: top.currentValue / totalValue, value: top.currentValue };
+  }, [fundValued, totalValue]);
   const fundPersonality = useMemo(
     () =>
       buildPortfolioPersonality(
@@ -864,44 +1131,69 @@ export function UpsidePortfolioPage() {
       ),
     [fundValued, cash]
   );
-  const totalReturnDollar = totalValue - (fund?.starting_capital ?? 0);
-  const totalReturnPct =
-    fund && fund.starting_capital > 0 ? totalReturnDollar / fund.starting_capital : 0;
+  const { dollar: totalReturnDollar, pct: totalReturnPct } = fundTotalReturn({
+    liveTotal: totalValue,
+    startingCapital: fund?.starting_capital,
+  });
   const { todayDollar, todayPct } = liveFundTodayMove({
     liveTotal: totalValue,
     lastReportValue: latestReport?.portfolio_value,
   });
+  const hasYesterday =
+    latestReport?.portfolio_value != null &&
+    Number.isFinite(latestReport.portfolio_value);
+  /*
+   * How much of "Total value" is a live price and how much is what he
+   * paid. See `fundQuoteCoverage`: the fallback is right and saying
+   * nothing about it was not.
+   */
+  const coverage = useMemo(
+    () => fundQuoteCoverage({ holdings: openHoldings, quotes }),
+    [openHoldings, quotes]
+  );
 
-  const dayNumber = fundDayNumber(fund?.inception_date);
+  /*
+   * The number of decisions written down, which is what the reader can
+   * count in the list below.
+   *
+   * The header used to print `fundDayNumber`, which is calendar days since
+   * the fund started: on a fund three weeks old with five reports it said
+   * "Day 24" directly above a report headed "Day 5". Both numbers were
+   * right and the pair was not, so the one on screen is now the one the
+   * page can be checked against, and how long ago it started is said in
+   * words beside it rather than counted into the same figure.
+   */
+  const decisionCount = reports.length;
 
-  // SPY "equally-funded" benchmark — inception price comes from the oldest
-  // stored report once one exists; before day one runs, today's live price
-  // doubles as inception (so it fairly starts at 0%, not a stale number).
-  const spyLivePrice = quotes.SPY?.price ?? null;
+  // The benchmark's inception price comes from the oldest stored report
+  // once one exists; before day one runs, today's live price doubles as
+  // inception (so it fairly starts at 0%, not a stale number).
+  const spyLivePrice = quotes[BENCHMARK_TICKER]?.price ?? null;
   const spyInceptionPrice = oldestReport?.spy_price ?? spyLivePrice;
-  const spyReturnPct =
-    spyInceptionPrice && spyLivePrice
-      ? (spyLivePrice - spyInceptionPrice) / spyInceptionPrice
-      : 0;
+  const spyReturnPct = spyReturnSince({
+    inceptionPrice: spyInceptionPrice,
+    livePrice: spyLivePrice,
+  });
 
   // Both series end with a live point, not the last daily snapshot — the
   // chart's rightmost edge moves with the market intraday, then "locks
   // in" once tomorrow's cron writes the next real report.
   const margusReturnSeries = useMemo(() => {
-    const historical = [...reports].reverse().map((r) => r.total_return_pct ?? 0);
-    return [...historical, totalReturnPct];
+    const historical = carriedReturns(reports);
+    return [...historical, totalReturnPct ?? historical.at(-1) ?? 0];
   }, [reports, totalReturnPct]);
   const spyReturnSeries = useMemo(() => {
     const chronological = [...reports].reverse();
     const firstPrice =
       chronological.find((r) => r.spy_price != null)?.spy_price ?? null;
-    const historical =
-      !firstPrice
-        ? []
-        : chronological.map((r) =>
-            r.spy_price != null ? (r.spy_price - firstPrice) / firstPrice : 0
-          );
-    return [...historical, spyReturnPct];
+    let last = 0;
+    const historical = !firstPrice
+      ? []
+      : chronological.map((r) => {
+          if (r.spy_price != null) last = (r.spy_price - firstPrice) / firstPrice;
+          return last;
+        });
+    return [...historical, spyReturnPct ?? last];
   }, [reports, spyReturnPct]);
 
   const ytdSheetPath = useMemo(
@@ -962,7 +1254,7 @@ export function UpsidePortfolioPage() {
 
   const margusYtdSeries = useMemo(() => {
     if (!benchmark || !ytdSheetPath) return null;
-    return margusOnLabels(comparisonLabels, reports, totalReturnPct);
+    return margusOnLabels(comparisonLabels, reports, totalReturnPct ?? 0);
   }, [benchmark, ytdSheetPath, comparisonLabels, reports, totalReturnPct]);
 
   const comparisonSeries: ComparisonSeries[] = useMemo(() => {
@@ -970,7 +1262,7 @@ export function UpsidePortfolioPage() {
     const spyPts = spyYtdSeries ?? spyReturnSeries;
     const rows: ComparisonSeries[] = [
       { label: "Margus", color: SERIES_COLOR.margus, points: margusPts },
-      { label: "SPY", color: SERIES_COLOR.spy, points: spyPts },
+      { label: BENCHMARK_SHORT, color: SERIES_COLOR.spy, points: spyPts },
     ];
     if (benchmark && youReturnSeries) {
       const youDollar =
@@ -1279,21 +1571,19 @@ export function UpsidePortfolioPage() {
           <LoadError message={error} onRetry={() => void load("manual")} />
         ) : (
           <>
+            <WhatThisIs decisions={decisionCount} startedOn={fund?.inception_date} />
+
             <Panel>
               <PanelHeader
                 title={
-                  <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex flex-wrap items-center gap-2">
                     {benchmark
-                      ? `${benchmark.portfolioName}, Margus, and SPY`
-                      : "Margus vs SPY"}
+                      ? `${benchmark.portfolioName}, Margus and ${BENCHMARK_MID}`
+                      : `Margus against ${BENCHMARK_MID}`}
                     <WhyThis provenance={upsideFundProvenance()} />
                   </span>
                 }
-                subtitle={
-                  fund
-                    ? `Day ${dayNumber} - started ${fmtDate(fund.inception_date)}. One decision a day in public.`
-                    : "One decision a day in public."
-                }
+                subtitle={BENCHMARK_NOTE}
                 actions={
                   benchmark ? (
                     <button
@@ -1314,38 +1604,104 @@ export function UpsidePortfolioPage() {
                   ) : null
                 }
               />
-              <Scoreboard className="mt-4">
+              <Scoreboard>
                 <Score
-                  label="Total value"
+                  label={
+                    <Explain term="value" amount={currency(totalValue, 0)}>
+                      Worth today
+                    </Explain>
+                  }
                   value={currency(totalValue, 0)}
                 />
+                {/*
+                  * Today's move needs a yesterday, and before the first
+                  * report there is not one. `liveFundTodayMove` answers zero
+                  * dollars in that case, which the cell printed as "$0": a
+                  * flat day, stated, on a fund that has not had a day yet.
+                  */}
                 <Score
-                  label="Today"
-                  value={signedCurrency(todayDollar, 0)}
-                  sub={todayPct != null ? percent(todayPct) : undefined}
-                  valueClassName={signedTone(todayDollar, "text-foreground")}
-                  subClassName={signedTone(todayDollar, "text-muted-foreground")}
+                  label={
+                    <Explain term="today" amount={signedCurrency(todayDollar, 0)}>
+                      Today
+                    </Explain>
+                  }
+                  value={hasYesterday ? signedCurrency(todayDollar, 0) : NO_VALUE}
+                  sub={
+                    hasYesterday
+                      ? todayPct != null
+                        ? signedPercent(todayPct)
+                        : undefined
+                      : "There is no closing figure yet to measure today against."
+                  }
+                  valueClassName={
+                    hasYesterday ? signedTone(todayDollar, "text-foreground") : undefined
+                  }
+                  subClassName={
+                    hasYesterday
+                      ? signedTone(todayDollar, "text-muted-foreground")
+                      : undefined
+                  }
                 />
                 <Score
-                  label="Total return"
-                  value={percent(totalReturnPct)}
-                  sub={signedCurrency(totalReturnDollar, 0)}
+                  label={
+                    <Explain
+                      term="total-return"
+                      amount={
+                        totalReturnDollar != null
+                          ? signedCurrency(totalReturnDollar, 0)
+                          : undefined
+                      }
+                      second={
+                        fund?.starting_capital
+                          ? currency(fund.starting_capital, 0)
+                          : undefined
+                      }
+                    >
+                      Since it started
+                    </Explain>
+                  }
+                  value={totalReturnPct != null ? signedPercent(totalReturnPct) : NO_VALUE}
+                  sub={
+                    totalReturnDollar != null
+                      ? signedCurrency(totalReturnDollar, 0)
+                      : "No starting figure recorded, so there is nothing to measure against."
+                  }
                   valueClassName={signedTone(totalReturnDollar, "text-foreground")}
-                  subClassName={signedTone(totalReturnDollar, "text-muted-foreground")}
+                  subClassName={
+                    totalReturnDollar != null
+                      ? signedTone(totalReturnDollar, "text-muted-foreground")
+                      : undefined
+                  }
                 />
                 <Score
-                  label="Cash"
-                  value={currency(cash, 0)}
+                  label={
+                    <Explain
+                      term="cash"
+                      amount={knownCash != null ? currency(knownCash, 0) : undefined}
+                    >
+                      Cash not invested
+                    </Explain>
+                  }
+                  value={knownCash != null ? currency(knownCash, 0) : NO_VALUE}
                   sub={
                     fund?.starting_capital
-                      ? `of ${currency(fund.starting_capital, 0)} start`
+                      ? `It started with ${currency(fund.starting_capital, 0)}`
                       : undefined
                   }
                 />
               </Scoreboard>
 
+              {coverage.unpriced.length > 0 && (
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {coverage.unpriced.length === 1
+                    ? `No price came back for ${cashtag(coverage.unpriced[0]!)} just now, so it is counted at what he paid for it rather than left out.`
+                    : `No price came back for ${coverage.unpriced.length} of these companies just now, so each is counted at what he paid for it rather than left out.`}{" "}
+                  Everything above leans on that until the prices return.
+                </p>
+              )}
+
               {!benchmark && pickerOpen && (
-                <div className="flex flex-col mt-3 gap-2">
+                <div className="flex flex-col gap-2">
                   {myPortfolios === null ? (
                     <p className="text-sm text-muted-foreground">Loading your portfolio …</p>
                   ) : myPortfolios.length === 0 ? (
@@ -1402,27 +1758,30 @@ export function UpsidePortfolioPage() {
 
               <WidgetErrorBoundary name="Fund chart">
               <ComparisonChart
-                className="mt-4"
                 series={comparisonSeries}
                 labels={comparisonLabels}
               />
               </WidgetErrorBoundary>
-              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                He also posts the same note every day on{" "}
                 <a
                   href={FUND_X_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                  className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
                 >
-                  Daily notes on X
+                  X
                 </a>
-                .
+                , so the record is in two places rather than only this one.
               </p>
             </Panel>
 
             {bettingSlices.length > 0 && (
               <Panel>
-                <PanelHeader title="What he's betting on" />
+                <PanelHeader
+                  title="Where the money sits"
+                  subtitle="Grouped by the kind of business, with the cash he has not spent."
+                />
                 <div>
                   <div className="flex h-3 overflow-hidden rounded-full bg-muted">
                     {bettingSlices.map((t) => (
@@ -1432,7 +1791,7 @@ export function UpsidePortfolioPage() {
                           width: `${Math.max(1.5, t.pct * 100)}%`,
                           backgroundColor: t.color,
                         }}
-                        title={`${t.label}: ${Math.round(t.pct * 100)}%`}
+                        title={`${t.label}: ${sliceLabel(t.pct)}`}
                       />
                     ))}
                   </div>
@@ -1442,31 +1801,69 @@ export function UpsidePortfolioPage() {
                       key: t.key,
                       label: t.label,
                       color: t.color,
-                      value: `${Math.round(t.pct * 100)}%`,
+                      value: sliceLabel(t.pct),
                     }))}
                   />
-                  <Scoreboard className="mt-4" cols={4}>
+                  {/*
+                    * One cell to a row on a phone. Every one of these carries a
+                    * sentence under the figure, and two 123px columns turned
+                    * "Concentrated" into "Concentrat" over "ed".
+                    */}
+                  <Scoreboard className="mt-4" cols={4} mobileCols={1}>
                     <Score
-                      label="Spread"
+                      label={
+                        <Explain
+                          term="spread-out"
+                          count={fundConcentration.effectivePositions}
+                        >
+                          How spread out
+                        </Explain>
+                      }
                       value={fundPersonality.diversificationBand.label}
-                      sub={`Behaves like ${fundConcentration.effectivePositions.toFixed(1)} holdings`}
+                      sub={`Behaves like ${fundConcentration.effectivePositions.toFixed(1)} holdings of equal size`}
                     />
                     <Score
-                      label="Biggest bet"
-                      value={`${(fundConcentration.topWeightPct * 100).toFixed(0)}%`}
-                      sub={fundConcentration.topWeightTicker ?? undefined}
-                    />
-                    <Score
-                      label="Risk"
-                      value={fundPersonality.riskBand.label}
-                      sub={`Could fall ${fundPersonality.maxDrawdownPct}% in a bad stretch`}
-                    />
-                    <Score
-                      label="Cash"
-                      value={`${totalValue > 0 ? Math.round((cash / totalValue) * 100) : 0}%`}
+                      label={
+                        <Explain
+                          term="share-of-portfolio"
+                          ticker={
+                            biggestHolding ? cashtag(biggestHolding.ticker) : undefined
+                          }
+                          second={
+                            biggestHolding ? sliceLabel(biggestHolding.pct) : undefined
+                          }
+                        >
+                          Biggest single company
+                        </Explain>
+                      }
+                      value={biggestHolding ? sliceLabel(biggestHolding.pct) : NO_VALUE}
                       sub={
-                        fund?.starting_capital
-                          ? `of ${currency(fund.starting_capital, 0)} start`
+                        biggestHolding
+                          ? `${cashtag(biggestHolding.ticker)}, ${currency(biggestHolding.value, 0)} of ${currency(totalValue, 0)}`
+                          : undefined
+                      }
+                    />
+                    <Score
+                      label="How bumpy"
+                      /*
+                       * `maxDrawdownPct` is a blended assumption this app keeps
+                       * for each kind of business, not something measured on
+                       * these four companies. It used to print as "Could fall
+                       * 48% in a bad stretch", which reads as a finding. The
+                       * word "assumes" is the whole difference.
+                       */
+                      explain="This is not a measurement of these companies. It is the fall this app assumes for a mix of these kinds of business in a bad stretch, from one figure kept per kind. Nobody knows what the real one would be."
+                      value={fundPersonality.riskBand.label}
+                      sub={`Assumes about a ${fundPersonality.maxDrawdownPct}% fall in a bad stretch`}
+                    />
+                    <Score
+                      label="Share left in cash"
+                      value={
+                        totalValue > 0 ? percent(cash / totalValue, 0) : NO_VALUE
+                      }
+                      sub={
+                        totalValue > 0
+                          ? `${currency(cash, 0)} of ${currency(totalValue, 0)}`
                           : undefined
                       }
                     />
@@ -1513,15 +1910,20 @@ export function UpsidePortfolioPage() {
             {openHoldings.length > 0 && (
               <WidgetErrorBoundary name="Fund positions">
               <section className="flex flex-col gap-4">
-                <h2 className="font-semibold text-foreground">
-                  Open positions - {openHoldings.length}
-                </h2>
+                <SectionHeading
+                  title={
+                    openHoldings.length === 1
+                      ? "The one company he owns now"
+                      : `The ${openHoldings.length} companies he owns now`
+                  }
+                  eye
+                />
                 <div className="flex flex-col gap-3">
                   {openHoldings.map((h) => (
                     <FundPosition
                       key={h.id}
                       holding={h}
-                      price={quotes[h.ticker]?.price ?? h.cost_basis}
+                      price={quotes[h.ticker]?.price ?? null}
                     />
                   ))}
                 </div>
@@ -1531,9 +1933,7 @@ export function UpsidePortfolioPage() {
 
             {weeklyRecaps.length > 0 && (
               <section className="flex flex-col gap-4">
-                <h2 className="font-semibold text-foreground">
-                  Weekly recap
-                </h2>
+                <SectionHeading title="How each week went" eye />
                 <div className="flex flex-col gap-3">
                   {weeklyRecaps.slice(0, weeklyVisible).map((r, i) => {
                     const title = numberedReportHeadline(
@@ -1586,13 +1986,12 @@ export function UpsidePortfolioPage() {
             )}
 
             <section className="flex flex-col gap-4">
-              <h2 className="font-semibold text-foreground">
-                Daily reports
-              </h2>
+              <SectionHeading title="Every decision, in order" eye />
               {reports.length === 0 ? (
-                <p className="rounded-xl glass ring-1 ring-foreground/20 px-4 py-6 text-center text-sm text-muted-foreground">
-                  No reports yet. Margus&apos;s first daily decision runs
-                  after today&apos;s market close.
+                <p className="rounded-xl glass ring-1 ring-foreground/20 px-4 py-6 text-center text-sm leading-relaxed text-muted-foreground">
+                  Nothing written down yet. The first decision is made after
+                  today&apos;s market close, and it will appear here with the
+                  reason behind it.
                 </p>
               ) : (
                 /* Latest report in full. Older ones stay collapsed, and
@@ -1651,36 +2050,56 @@ export function UpsidePortfolioPage() {
 
             {closedHoldings.length > 0 && (
               <section className="flex flex-col gap-4">
-                <h2 className="font-semibold text-foreground">
-                  Closed positions - {closedHoldings.length}
-                </h2>
+                <SectionHeading
+                  title={
+                    closedHoldings.length === 1
+                      ? "The one company he has sold"
+                      : `The ${closedHoldings.length} companies he has sold`
+                  }
+                />
                 <ul className="divide-y divide-border overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
-                  {closedHoldings.map((h) => (
-                    <li key={h.id} className="px-4 py-2.5 text-sm">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="font-medium text-foreground">
-                          {cashtag(h.ticker)}
-                        </span>
-                        <span
-                          className={cn(
-                            "flex items-center gap-1 text-sm font-semibold tabular-nums",
-                            (h.realized_pnl ?? 0) >= 0 ? "text-gain" : "text-loss"
-                          )}
-                        >
-                          {(h.realized_pnl ?? 0) >= 0 ? (
-                            <Plus className="h-3 w-3" />
+                  {closedHoldings.map((h) => {
+                    const made = h.realized_pnl;
+                    return (
+                      <li key={h.id} className="px-4 py-3 text-sm">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="font-medium text-foreground">
+                            {cashtag(h.ticker)}
+                          </span>
+                          {/*
+                            * A sale with no recorded result says so, rather
+                            * than drawing a green plus over a made-up nothing:
+                            * `realized_pnl ?? 0` put "+ $0" beside a company
+                            * whose figure never arrived.
+                            */}
+                          {made == null ? (
+                            <span className="font-mono text-sm tabular-nums text-muted-foreground">
+                              {NO_VALUE}
+                            </span>
                           ) : (
-                            <Minus className="h-3 w-3" />
+                            <span
+                              className={cn(
+                                "flex items-center gap-1 font-mono text-sm font-semibold tabular-nums",
+                                signedTone(made, "text-muted-foreground")
+                              )}
+                            >
+                              {made >= 0 ? (
+                                <Plus className="h-3 w-3" aria-hidden />
+                              ) : (
+                                <Minus className="h-3 w-3" aria-hidden />
+                              )}
+                              {currency(Math.abs(made), 0)}
+                            </span>
                           )}
-                          {currency(Math.abs(h.realized_pnl ?? 0), 0)}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-sm text-muted-foreground">
-                        {fmtDate(h.entry_date)} → {h.closed_at ? fmtDate(h.closed_at) : NO_VALUE}
-                        {h.exit_reasoning ? ` · ${h.exit_reasoning}` : ""}
-                      </p>
-                    </li>
-                  ))}
+                        </div>
+                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                          Bought {fmtDate(h.entry_date)}, sold{" "}
+                          {h.closed_at ? fmtDate(h.closed_at) : NO_VALUE}.
+                          {h.exit_reasoning ? ` ${h.exit_reasoning}` : ""}
+                        </p>
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
             )}

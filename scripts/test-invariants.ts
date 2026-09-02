@@ -2,6 +2,24 @@
  * Product invariants from the Aug 2026 review.
  * Run: npx tsx scripts/test-invariants.ts
  */
+
+/*
+  Said before anything is called, and it matters. This container and every
+  machine that can run the app carry SUPABASE_SERVICE_ROLE_KEY for the
+  production project, and app code that builds its own client from the
+  environment will use it: `logError` did, from inside a function this file
+  exercises, and three "boom" rows from a stub reached the live error table
+  and mailed the superadmin. `getSupabaseServer` refuses to build a client
+  under this flag. Set here rather than in a wrapper script so running the
+  file directly, which is how it is documented above, is also safe.
+
+  Assigning after the imports is correct: the flag is read when a client is
+  asked for, never at module load. Its own variable rather than NODE_ENV,
+  which Next types as read-only, correctly, since app code has no business
+  rewriting it.
+*/
+process.env.UPSIDE_TEST_RUNNER = "1";
+
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, sep } from "node:path";
@@ -53,6 +71,7 @@ import {
   statusLabel,
   verdictRepeatsTrim,
   verdictRepeatsSuggestion,
+  scanLineBody,
   stripTrailingScanStop,
   buildFallbackPulseCheck,
   buildPulseScan,
@@ -945,13 +964,23 @@ run("fund today move is live NAV minus last snapshot", () => {
   assert.equal(missing.todayPct, null);
 });
 
+/*
+  Changed on purpose, 2026-09-02, along with `tidy` in `src/lib/fund-copy.ts`.
+
+  This used to assert that "remaining performance obligations (RPO)" was
+  shortened to "RPO", and that YoY and FCF reached the reader as an acronym
+  each. That is backwards for a room a beginner reads: the shortening
+  took a phrase somebody could at least puzzle at and handed them an acronym
+  nothing on the page explains. The splitting behaviour this invariant is
+  really about is unchanged; only the words inside the bullets are plainer.
+*/
 run("fund thesis and exit plans split into short bullets", () => {
   const thesis = fundCopyBullets(
     "Data cloud consumption accelerating with GenAI workloads; remaining performance obligations (RPO) up >50% YoY, signaling durable multi-year expansion as enterprises unify analytics and AI pipelines."
   );
   assert.deepEqual(thesis, [
     "Data cloud consumption accelerating with GenAI workloads",
-    "RPO up >50% YoY",
+    "Signed orders not yet billed up >50% compared with a year earlier",
     "Durable multi-year expansion",
     "Enterprises unify analytics and AI pipelines",
   ]);
@@ -959,8 +988,8 @@ run("fund thesis and exit plans split into short bullets", () => {
     "Sell if product revenue growth decelerates below 25% YoY for two quarters or if adjusted FCF margin fails to exceed 20% by FY28."
   );
   assert.deepEqual(exit, [
-    "Product revenue growth below 25% YoY for two quarters",
-    "Adjusted FCF margin below 20% by FY28",
+    "Product revenue growth below 25% compared with a year earlier for two quarters",
+    "Adjusted free cash flow margin below 20% by FY28",
   ]);
 });
 
@@ -1119,7 +1148,14 @@ run("fund cron composes an X post but only sends it when switched on", () => {
     "utf8"
   );
   assert.match(page, /FUND_X_URL/);
-  assert.match(page, /Daily notes on X/);
+  /*
+    Reworded on purpose, 2026-09-02. The link used to be the bare phrase
+    "Daily notes on X" followed by a lone full stop, which reads as a label
+    rather than a sentence. What this invariant is really holding is that
+    the room still points at the account, so it asserts the link and the
+    reason for it rather than one exact caption.
+  */
+  assert.match(page, /He also posts the same note every day on/);
 });
 
 run("forecast add/trim lines split into bullets", () => {
@@ -1198,7 +1234,15 @@ run("trim on a run is Thesis intact", () => {
     "utf8"
   );
   assert.match(prompt, /Never mark Thesis watch just because the price went up/);
-  assert.match(fallback, /price is up more than it usually moves in a day/i);
+  /*
+   * The euphoric branch says the price is up a lot in one day, and no
+   * longer "more than it usually moves in a day": that claimed a reading
+   * of this company's own history when the threshold behind it is a flat
+   * 12% for every name in the product. The rule this assertion is for is
+   * that a run-up stays intact, so that is what it checks.
+   */
+  assert.match(fallback, /The price is up a lot in one day/i);
+  assert.doesNotMatch(fallback, /up more than it usually moves in a day/i);
   assert.doesNotMatch(
     fallback,
     /euphoric[\s\S]{0,400}thesisStatus: "watch"/
@@ -1383,10 +1427,14 @@ run("humanize kills leftover market slang", () => {
     pulseSuggestion({ action: "sell" }),
     /reason you own this no longer matches/i
   );
-  assert.match(
-    pulseSuggestion({ action: "watch" }),
-    /not enough price history/i
-  );
+  /*
+    A watch verdict is about the company's story, not about the chart. It
+    used to say there was not enough price history, which is a different
+    claim, usually untrue, and it taught the reader to distrust the data
+    rather than to keep reading about the business.
+  */
+  assert.match(pulseSuggestion({ action: "watch" }), /worth following/i);
+  assert.doesNotMatch(pulseSuggestion({ action: "watch" }), /history/i);
   assert.match(
     pulseSuggestion({ action: "hold" }),
     /Price is inside its recent range/
@@ -1647,15 +1695,28 @@ run("connected emails send notes to the first address only", () => {
   assert.match(nudge, /connectedEmailsFor/);
 });
 
-run("novice hides Lab, never Pulse or Growth", () => {
-  assert.deepEqual(TIER_HIDDEN_META_TABS.novice, [LAB_TAB_ID]);
-  assert.ok(!TIER_HIDDEN_META_TABS.novice.includes(PULSE_TAB_ID));
-  assert.ok(!TIER_HIDDEN_META_TABS.novice.includes(COMPOUND_TAB_ID));
-  assert.deepEqual(TIER_HIDDEN_META_TABS.investor, []);
-  assert.deepEqual(TIER_HIDDEN_META_TABS.advanced, []);
-  assert.deepEqual(TIER_HIDDEN_LAB_TABS.novice, ["risk"]);
-  assert.deepEqual(TIER_HIDDEN_LAB_TABS.investor, ["risk"]);
-  assert.deepEqual(TIER_HIDDEN_LAB_TABS.advanced, []);
+run("no tier hides a room, least of all from a beginner", () => {
+  /*
+    This asserted the opposite until 2026-09-02, and it was right about the
+    code and wrong about the product. Lab was hidden from a novice and Risk
+    from a novice and an investor, so the room where a beginner finds out
+    that three holdings are most of their money, what a rough week would do
+    to it, and which of their companies move together was withheld from the
+    one reader who had said out loud that they are new. Nothing surfaces a
+    hidden room later, so "I'll grow into the rest" meant never.
+
+    What a novice asked for is fewer unexplained things, and every Lab tab
+    now opens with a sentence in that reader's own figures. The tier still
+    decides which panels start open, which is the part of "this looks
+    simpler" that costs a beginner nothing.
+  */
+  for (const tier of ["novice", "investor", "advanced"] as const) {
+    assert.deepEqual(TIER_HIDDEN_META_TABS[tier], []);
+    assert.deepEqual(TIER_HIDDEN_LAB_TABS[tier], []);
+  }
+  for (const id of [LAB_TAB_ID, PULSE_TAB_ID, COMPOUND_TAB_ID]) {
+    assert.ok(!TIER_HIDDEN_META_TABS.novice.includes(id));
+  }
 });
 
 run("FX conversion falls back to 1:1 and rounds to cents", () => {
@@ -1676,8 +1737,24 @@ run("home keeps Fund and Communities in view", () => {
   assert.doesNotMatch(world, /fundOnly/);
 });
 
-run("community books lead with today's percent, not dollar size", () => {
-  const community = readFileSync(
+/*
+  A circle leads with the percent, and now it is the only thing it says.
+
+  This used to assert that the dollar figure was the *sub-line* under the
+  percent, which was the right rule while a circle still printed amounts at
+  all. It does not any more: the landing page promises a circle "shows how a
+  member's day went and never what anything is worth", and a real one was
+  printing pooled net worth on six surfaces. So the assertion moved up a
+  level, from "dollars go second" to "there are no dollars", which is the
+  rule those surfaces are actually held to. `circle-privacy.test.ts` carries
+  the behavioural half.
+
+  The classroom is deliberately not in that ban: a paper class hands every
+  student the same made-up cash, so the amount is the lesson and not
+  anybody's private business.
+*/
+run("a circle says how a day went, never what anything is worth", () => {
+  const board = readFileSync(
     join(process.cwd(), "src/components/CommunityTodayBoard.tsx"),
     "utf8"
   );
@@ -1689,11 +1766,28 @@ run("community books lead with today's percent, not dollar size", () => {
     join(process.cwd(), "src/components/CircleCards.tsx"),
     "utf8"
   );
+  const home = readFileSync(
+    join(process.cwd(), "src/components/CircleHome.tsx"),
+    "utf8"
+  );
   const readOnly = cards.slice(cards.indexOf("export function ReadOnlyHoldings"));
   assert.match(readOnly, /label="Today"/);
   assert.match(readOnly, /signedPercent\(todayPct\)/);
-  assert.match(readOnly, /sub=\{signedCurrency\(todayDollar\)\}/);
-  assert.match(community, /Ranked by today&apos;s percent, not dollar size/);
+  // `currency` and `signedCurrency` are the only two functions in this app
+  // that render an amount, so importing either into one of these is the
+  // whole of the failure.
+  for (const [name, src] of [
+    ["CommunityTodayBoard", board],
+    ["CircleCards", cards],
+    ["CircleHome", home],
+  ] as const) {
+    assert.doesNotMatch(
+      src,
+      /\b(signedCurrency|currency)\s*\(/,
+      `${name} must not print an amount of money`
+    );
+  }
+  assert.match(board, /signedPercent\(pct\)/);
   assert.match(roster, /signedPercent\(vsStartPct\)/);
   assert.match(roster, /signedPercent\(m\.todayPct\)/);
 });
@@ -1703,8 +1797,12 @@ run("circle awards are a grid of cards, not a flat divided list", () => {
     join(process.cwd(), "src/components/CircleHome.tsx"),
     "utf8"
   );
-  const awardsStart = community.indexOf("Community superlatives");
-  const awardsEnd = community.indexOf("<CommunityTodayBoard", awardsStart);
+  // The heading is "Who stands out" now (one award per person, chosen by
+  // the clearest margin), and the Today board that used to follow it moved
+  // inside a `BelowFold`. Anchored on the section's own `achievements.map`
+  // instead, which is what makes it this section rather than any other.
+  const awardsStart = community.indexOf("Who stands out");
+  const awardsEnd = community.indexOf("</section>", awardsStart);
   const awards = community.slice(awardsStart, awardsEnd);
   assert.match(awards, /grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3/);
   // Each award is a glass-well card, not a divided list row. Asserted by
@@ -1818,8 +1916,6 @@ run("public pages ship OG cards and private rooms are noindex", () => {
   const login = readFileSync("src/app/login/page.tsx", "utf8");
   const communities = readFileSync("src/app/communities/page.tsx", "utf8");
   const lab = readFileSync("src/app/lab/page.tsx", "utf8");
-  const dashboard = readFileSync("src/app/dashboard/page.tsx", "utf8");
-  const forecast = readFileSync("src/app/forecast/page.tsx", "utf8");
   const margus = readFileSync("src/app/margus/page.tsx", "utf8");
   const seo = readFileSync("src/lib/seo-routes.ts", "utf8");
   const meta = readFileSync("src/lib/site-metadata.ts", "utf8");
@@ -1849,15 +1945,23 @@ run("public pages ship OG cards and private rooms are noindex", () => {
   assert.match(login, /LOGIN_METADATA/);
   assert.match(communities, /COMMUNITIES_METADATA/);
   assert.match(lab, /privatePageMetadata/);
-  assert.match(dashboard, /privatePageMetadata/);
-  assert.match(forecast, /privatePageMetadata/);
   assert.match(margus, /privatePageMetadata/);
   assert.match(meta, /index: false/);
   assert.match(meta, /follow: false/);
-  assert.match(seo, /\/dashboard/);
-  assert.match(seo, /\/lab/);
-  assert.match(seo, /\/forecast/);
-  assert.match(seo, /\/margus/);
+  assert.match(seo, /"\/lab"/);
+  assert.match(seo, /"\/margus"/);
+  /*
+    The sign-in pages and handlers live under `/auth` and are not rooms;
+    the prefix is what gives every one of them the noindex header and the
+    robots line. `/dashboard` and `/forecast` have no page at all: the
+    proxy 308s them to `/` before any page could run, so a page file or a
+    noindex entry for them describes a response nobody ever receives.
+  */
+  assert.match(seo, /"\/auth"/);
+  assert.doesNotMatch(seo, /"\/dashboard"/);
+  assert.doesNotMatch(seo, /"\/forecast"/);
+  assert.ok(!existsSync("src/app/dashboard/page.tsx"));
+  assert.ok(!existsSync("src/app/forecast/page.tsx"));
   /*
     Both halves of robots.txt are derived from `seo-routes.ts`, and the
     sitemap is keyed off the same list.
@@ -2115,7 +2219,15 @@ run("chart ticks stay HTML text-xs, never SVG text", () => {
   assert.match(nav, /h-64 w-full/);
   assert.match(nav, /min-h-9/);
   assert.match(nav, /plotMax = scale.max \+ span \* 0\.18/);
-  assert.match(nav, /held these same companies all year/i);
+  /*
+   * The caption says the stretch is an estimate, and the assumed part of
+   * the line is drawn dashed rather than in the same solid gold as the days
+   * Upside Lab actually recorded. "This assumes you held these same
+   * companies all year" was true and said nothing about what a reader was
+   * looking at, which was a modelled curve painted exactly like history.
+   */
+  assert.match(nav, /An estimate\. It assumes you held these same companies/i);
+  assert.match(nav, /strokeDasharray/);
   assert.match(nav, /Fill in an assumed year/);
   assert.doesNotMatch(nav, /!assumed && !loading && onRestoreAssumed/);
   const home = readFileSync(
@@ -2354,13 +2466,20 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
   assert.doesNotMatch(home, /border-amber-500\/25 bg-amber-950\/20/);
   assert.doesNotMatch(pulse, /border-brand\/30 bg-brand\/\[0\.07\]/);
   assert.doesNotMatch(pulse, /border-amber-500\/30 bg-amber-950\/15/);
-  assert.match(gate, /<Reading nested label="Worth noticing">/);
   const landing = readFileSync(
     join(process.cwd(), "src/components/SignedOutLanding.tsx"),
     "utf8"
   );
+  /*
+    The sign-in screen used to draw its own sample card, so these two
+    assertions read the gate. There is one sample now, `SampleBriefing`,
+    and both screens draw it, so what the card says is asserted where the
+    card lives. The rule is unchanged: prose on a sample sits in a dark
+    box, and a verdict pill says the words the app itself says.
+  */
+  assert.match(landing, /<Reading nested label="What actually happened"/);
   assert.equal(actionLabel("hold"), "Inside recent range");
-  assert.match(gate, /Inside recent range/);
+  assert.match(gate, /SampleBriefing/);
   assert.match(landing, /Inside recent range/);
   assert.doesNotMatch(gate, /<Pill>Hold<\/Pill>/);
   assert.doesNotMatch(landing, /<Pill>Hold<\/Pill>/);
@@ -2576,7 +2695,10 @@ run("movers are compact tiles, not a stretched table or sparkline", () => {
   assert.doesNotMatch(src, /MOVER_GRID/);
   assert.doesNotMatch(row, /8\.5rem/);
   assert.match(row, /percent\(pct/);
-  assert.match(row, /signedCurrency\(dollars/);
+  // `tileMoney` is `signedCurrency` with one case in front of it: a move
+  // that rounds away says "Under $1" rather than "$0", which on a tile
+  // reads as a figure that failed to load.
+  assert.match(row, /tileMoney\(dollars/);
   assert.match(row, /min-w-0/);
   assert.match(row, /shrink-0/);
   assert.match(src, /sm:grid-cols-2/);
@@ -3050,9 +3172,15 @@ run("first-run is import, not an empty named sheet", () => {
     join(process.cwd(), "src/components/OverviewDashboard.tsx"),
     "utf8"
   );
+  /*
+   * Three equal ways in, each with its hint visible. The wording moved off
+   * broker jargon ("Import a screenshot") onto what the reader actually
+   * does, and the hints are on the screen instead of in `title` attributes
+   * a phone never shows.
+   */
   assert.match(overview, /Upload a CSV/);
-  assert.match(overview, /Import a screenshot/);
-  assert.match(overview, /Not Apple Stocks or a watchlist/);
+  assert.match(overview, /Photo of your broker screen/);
+  assert.match(overview, /Not a watchlist/);
   assert.doesNotMatch(overview, /watch the Upside Fund or start a circle below/);
   assert.doesNotMatch(dash, /Invite someone onto this sheet/);
   assert.doesNotMatch(dash, /wasEmpty && !pulseHiddenForTier/);
@@ -3100,37 +3228,47 @@ run("sign-in reads as a product", () => {
     join(process.cwd(), "src/components/SignInGate.tsx"),
     "utf8"
   );
-  assert.match(gate, /PRODUCT_SENTENCE/);
-  assert.match(gate, /SIGNIN_WHO/);
   assert.match(gate, /SIGNIN_POINTS/);
   assert.match(gate, /Sample/);
-  assert.match(gate, /ticker: "RKLB"/);
-  assert.match(gate, /ticker: "AMZN"/);
-  assert.match(gate, /ticker: "MSFT"/);
+  const landing = readFileSync(
+    join(process.cwd(), "src/components/SignedOutLanding.tsx"),
+    "utf8"
+  );
+  const sample = readFileSync(
+    join(process.cwd(), "src/lib/sample-portfolio.ts"),
+    "utf8"
+  );
   /*
-   * The demo card, not one sentence of it. The copy was rewritten to say
-   * what the reader should take from the move rather than restate the
-   * number, and an invariant that pins a sentence turns every copy edit
-   * into a failing build.
+   * ONE SAMPLE, IN ONE PLACE, AND NOTHING RESTATES ITS NUMBERS.
+   *
+   * This used to assert `ticker: "RKLB"` and a sentence about it in the
+   * gate, because the gate held a second sample of its own: a different
+   * day, a different portfolio total, and arithmetic that did not hold in
+   * either file. Two samples in two files drift the moment one is edited,
+   * and both of these had. The holdings are a single list now and every
+   * figure on both screens is derived from it, so the invariant is that
+   * neither screen types a holding of its own.
    */
-  assert.match(gate, /\$RKLB rose 6\.8% today/);
+  assert.match(gate, /SampleBriefing/);
+  assert.match(landing, /export function SampleBriefing/);
+  assert.doesNotMatch(gate, /ticker: "/);
+  assert.doesNotMatch(landing, /ticker: "/);
+  assert.match(sample, /ticker: "MSFT"/);
+  assert.match(sample, /ticker: "AMZN"/);
+  assert.match(landing, /Thesis intact/);
   /*
-   * The old assertion pinned "Check whether cheaper launches still hold",
-   * a sentence deliberately rewritten: it leaned on a thesis nobody
-   * outside the example knows and called a move "a bounce", which is the
-   * market slang AGENTS.md bans. What is asserted now is that the sample
-   * still explains the move rather than just restating the number, and
-   * that it stays clear of the slang.
+   * The covered-call symbol pill is a mark from inside the app that no
+   * stranger has been introduced to, and the tilt was a flourish the
+   * landing had already dropped from the thing it most wants believed.
    */
-  assert.match(gate, /whether something changed at the/);
-  assert.doesNotMatch(gate, /<InsightText text="[^"]*\ba bounce\b/);
-  assert.match(gate, /Thesis intact/);
-  assert.match(gate, /Up ≥5%/);
+  assert.doesNotMatch(gate, /Up .5%/);
+  assert.doesNotMatch(gate, /md:-rotate-1/);
+  assert.doesNotMatch(landing, /\ba bounce\b/);
   assert.doesNotMatch(gate, /did most of today/);
   assert.doesNotMatch(gate, /quiet down day/);
   assert.doesNotMatch(gate, /\$50k|AI manage/);
   assert.doesNotMatch(gate, /h-2\.5 w-10 rounded-sm bg-zinc-700/);
-  assert.match(gate, /signin-rise-3 h-auto gap-4 p-4/);
+  assert.match(gate, /signin-rise-3/);
   // Two columns from md, with both sides bounded so neither starves. The
   // exact track sizes have moved once already and are not the invariant.
   assert.match(gate, /md:grid-cols-\[minmax\(0,[^\]]+\)_minmax\(0,[^\]]+\)\]/);
@@ -3149,13 +3287,19 @@ run("community invite landing names the circle", () => {
     name: null,
   });
   assert.equal(inviteFromLocation("/", "?token=abc"), null);
+  /*
+    A circle, because that is what the product calls it on every other
+    screen, including the sign-in points printed beside this sentence.
+    "Group" was the first named thing on an invite page and a word the app
+    then never used again.
+  */
   assert.equal(
     inviteLandingCopy({ kind: "community", name: null }).title,
-    "You've been invited to join a group."
+    "You've been invited into a circle."
   );
   assert.equal(
     inviteLandingCopy({ kind: "community", name: "Upside Circle" }).title,
-    "You've been invited to join Upside Circle."
+    "You've been invited into Upside Circle."
   );
   assert.equal(
     inviteLandingCopy({ kind: "classroom", name: null }).title,
@@ -3173,15 +3317,37 @@ run("inbox letters share one letterhead", () => {
     url: "https://upsidelab.app/communities/join?token=abc",
     classroom: false,
   });
-  assert.equal(invite.subject, "Join Upside Circle");
+  /*
+    The subject deliberately carries no text anybody typed. A circle's name
+    is its creator's to choose and anyone signed in can make one, so
+    "Join <name>" put a chosen sentence in the subject of mail sent from the
+    address the sign-in links come from, to twenty strangers a call. The
+    name is still in the body, escaped, where an inbox list never shows it.
+  */
+  assert.equal(
+    invite.subject,
+    "You have been invited to a circle on Upside Lab"
+  );
+  assert.doesNotMatch(invite.subject, /Upside Circle/);
+  assert.match(invite.html, /Upside Circle/);
   assert.match(invite.html, /-apple-system/);
   assert.doesNotMatch(invite.html, /Georgia/);
   assert.match(invite.html, /#000000/);
   assert.match(invite.html, /Open the invite/);
   assert.doesNotMatch(invite.html, /\u2014/);
   assert.doesNotMatch(invite.text, /the book|the sheet/);
-  const nudge = emptyBookNudgeHtml(emptyBookNudgeText("Martin Aasa"));
+  /*
+    The heading is passed in now rather than lifted off the first paragraph
+    of the body, because the body greets before it says anything. The
+    assertions are unchanged: the subject is still the headline a reader
+    sees, and the greeting is still in the letter.
+  */
+  const nudge = emptyBookNudgeHtml({
+    heading: emptyBookNudgeSubject(),
+    text: emptyBookNudgeText("Martin Aasa"),
+  });
   assert.match(nudge, /Your portfolio is still empty/);
+  assert.match(nudge, /Hi Martin\./);
   assert.match(nudge, /Open Upside Lab/);
   assert.doesNotMatch(nudge, /\u2014/);
   const send = readFileSync("src/lib/send-note.ts", "utf8");
@@ -3292,7 +3458,15 @@ run("gap thoughts name the weight and the mix", () => {
     join(process.cwd(), "src/lib/morning-read.ts"),
     "utf8"
   );
-  assert.match(morning, /Also/);
+  /*
+   * The two Home cards say what kind of card they are. "Update" is the
+   * label of a system message and "Also" is not a label at all, so they are
+   * "One thing today" and "Worth a look"; a note the reader has not written
+   * yet gets its own calmer "Worth writing down".
+   */
+  assert.match(morning, /One thing today/);
+  assert.match(morning, /Worth a look/);
+  assert.match(morning, /Worth writing down/);
   assert.doesNotMatch(morning, /A thought/);
   assert.doesNotMatch(morning, /A few names did the work/);
   assert.doesNotMatch(morning, /A few holdings moved the whole number/);
@@ -3545,9 +3719,12 @@ run("Forecast is always the base case", () => {
 });
 
 run("Forecast does not call the model when a path is already saved", () => {
+  // A saved plan carries every field; this stands in for one with only the
+  // part the guard reads, so it goes through `unknown` rather than pretending
+  // to be the whole shape.
   const saved = {
-    eoyTargets: [{ ticker: "NBIS", prices: { 2026: 1 } }],
-  } as Parameters<typeof shouldAutoRefreshForecast>[0]["plan"];
+    eoyTargets: [{ ticker: "NBIS", prices: { [FORECAST_YEARS[0]!]: 1 } }],
+  } as unknown as Parameters<typeof shouldAutoRefreshForecast>[0]["plan"];
   assert.equal(
     shouldAutoRefreshForecast({
       plan: { ...(saved as ForecastPlan), fallback: true },
@@ -3747,8 +3924,12 @@ run("Pulse scan sits in its own card, not under the lookup bar", () => {
     join(process.cwd(), "src/lib/thesis-pulse-schema.ts"),
     "utf8"
   );
-  assert.match(page, /Today's scan/);
-  assert.match(page, /<ScanList/);
+  /*
+   * The label is free to change; that there is exactly one of these cards,
+   * carrying a label, is the rule. It reads "What moved, and why" now that
+   * the duplicate "Recent range" table above it is gone.
+   */
+  assert.match(page, /<ScanList\s+label=/);
   assert.match(page, /scanRows\.map/);
   assert.doesNotMatch(page, /Add yours/);
   assert.doesNotMatch(page, /<Reading/);
@@ -3763,9 +3944,20 @@ run("Pulse scan sits in its own card, not under the lookup bar", () => {
     page,
     /skippedTickers\.length > 0[\s\S]{0,400}humanizeMargusText\(summary\)/
   );
-  assert.doesNotMatch(page, /humanizeMargusText\(summary\)/);
+  /*
+   * The model's one-sentence read on the whole portfolio IS the first
+   * thing on this page now. It used to be received and thrown away, so
+   * the room opened with a search box and a table and never said what the
+   * day had done; this assertion used to forbid rendering it, from a time
+   * when it was wallpaper under the lookup bar. What it holds instead is
+   * that the sentence is the story rather than a nag, which the
+   * "never nags that it is guessing" invariant below covers.
+   */
+  assert.match(page, /humanizeMargusText\(dayStory\)/);
   assert.doesNotMatch(schema, /lead with any sharp drops/);
-  assert.match(page, /stripTrailingScanStop/);
+  // `scanLineBody` moved into thesis-pulse.ts, and it is the one thing
+  // that strips the trailing stop off a scan line for this page.
+  assert.match(page, /scanLineBody/);
 
   const pulseLib = readFileSync(
     join(process.cwd(), "src/lib/thesis-pulse.ts"),
@@ -3773,6 +3965,13 @@ run("Pulse scan sits in its own card, not under the lookup bar", () => {
   );
   assert.match(pulseLib, /export function stripTrailingScanStop/);
   assert.match(pulseLib, /stripTrailingScanStop\(body\.trim\(\)\)/);
+  // A ticker is stored data and two import paths write one without checking
+  // its shape, so this must never be a regular expression built from it: a
+  // holding saved as "A(B" would throw while Pulse renders and take the
+  // room down for the reader and every co-owner.
+  assert.equal(scanLineBody("A(B", "Something happened"), "Something happened");
+  assert.equal(scanLineBody("NBIS", "$NBIS  Looks like a chase."), "Looks like a chase");
+  assert.equal(scanLineBody("NBIS", "$NBISX moved today"), "$NBISX moved today");
   assert.equal(
     stripTrailingScanStop("What's Next for the Company?."),
     "What's Next for the Company?"
@@ -3980,16 +4179,49 @@ run("Pulse does not hourly-refresh the model", () => {
   );
   assert.doesNotMatch(page, /setInterval\(\(\) => \{[\s\S]*runPulse/);
   assert.match(page, /shouldAutoPulseTicker/);
-  assert.match(page, /Check again/);
+  // One page-level retry, not one per card. Six cards each offering to try
+  // again while nothing was running is what this replaced.
+  assert.match(page, /Read them now/);
+  /*
+   * A row the model never answered is a placeholder, so it is asked again
+   * once its cache has aged out. This case used to assert `false`, which
+   * meant a name filled by the fixed rule during one busy minute kept that
+   * badge, and the model's eye above it, for good.
+   */
+  const ruleWritten = buildFallbackPulseCheck({
+    ticker: "NBIS",
+    effectivePct: 0,
+    moveLabel: "Today",
+  } as Parameters<typeof buildFallbackPulseCheck>[0]);
   assert.equal(
     shouldAutoPulseTicker({
       needsAttention: false,
       cachedAt: "2026-08-15T00:00:00Z",
-      check: buildFallbackPulseCheck({
-        ticker: "NBIS",
-        effectivePct: 0,
-        moveLabel: "Today",
-      } as Parameters<typeof buildFallbackPulseCheck>[0]),
+      check: ruleWritten,
+    }),
+    true
+  );
+  // And within the hour it is left alone, so a provider having a bad
+  // minute does not cost a call on every mount.
+  assert.equal(
+    shouldAutoPulseTicker({
+      needsAttention: false,
+      cachedAt: new Date().toISOString(),
+      check: ruleWritten,
+    }),
+    false
+  );
+  // A quiet name the model did answer is still never re-asked on a timer,
+  // which is what this invariant is named for.
+  assert.equal(
+    shouldAutoPulseTicker({
+      needsAttention: false,
+      cachedAt: "2026-08-15T00:00:00Z",
+      check: {
+        ...ruleWritten,
+        fallback: false,
+        verdict: "Cloud bookings came in ahead of what the company guided to",
+      },
     }),
     false
   );
@@ -4119,9 +4351,11 @@ run("Daily Duel is the next open US session, never yesterday", () => {
   assert.equal(currentDuelSessionKey(sunday), "2026-08-17");
   assert.equal(duelCanSettle("2026-08-17", sunday), false);
   assert.equal(duelSessionLabel("2026-08-17", sunday), "Monday");
+  // "Who" is for people and "session" is exchange jargon, on a card that
+  // asks about two companies.
   assert.equal(
     duelSessionCopy("2026-08-17", sunday),
-    "Who finishes Monday's US session higher."
+    "Which one is higher when the US market closes on Monday."
   );
   const saturday = new Date("2026-08-15T16:00:00.000Z");
   assert.equal(currentDuelSessionKey(saturday), "2026-08-17");
@@ -4197,16 +4431,31 @@ run("onboarding asks about the one Sunday email, nothing else", () => {
     join(process.cwd(), "src/lib/welcome-tour.ts"),
     "utf8"
   );
-  assert.match(copy, /Want the Sunday email/);
+  const week = readFileSync(
+    join(process.cwd(), "src/components/tour/FirstWeekScreen.tsx"),
+    "utf8"
+  );
   // There is exactly one email now: no weekday checkbox, no second state.
   assert.doesNotMatch(onboarding, /noteMorning/);
   assert.doesNotMatch(onboarding, /Weekdays/);
   assert.doesNotMatch(copy, /Weekdays/);
+  assert.doesNotMatch(week, /Weekdays/);
   assert.match(onboarding, /noteSunday, setNoteSunday\] = useState\(true\)/);
-  assert.match(onboarding, /One email a week/);
-  assert.match(copy, /This is \$\{PRODUCT_NAME\}/);
+  /*
+   * The email is described by the one shared sentence rather than by a
+   * paragraph typed here, because it used to be described three different
+   * ways across the walkthrough, the landing page and Account, and one of
+   * the three promised a section the letter does not have.
+   */
+  assert.match(week, /SUNDAY_EMAIL_LINE/);
+  /*
+   * And the one other mail this app can send is admitted out loud. A cron
+   * mails an empty portfolio a single reminder about a week in, and the
+   * walkthrough used to deny it in as many words.
+   */
+  assert.match(week, /still empty a week from now/);
+  assert.match(copy, /\$\{PRODUCT_NAME\}/);
   assert.match(copy, /Add what you own/);
-  assert.match(copy, /Names you are watching/);
   assert.match(onboarding, /saveWatchlist/);
 });
 
@@ -5382,8 +5631,11 @@ run("buying a name spends cash and selling adds it back", () => {
     join(process.cwd(), "src/components/CashModal.tsx"),
     "utf8"
   );
-  // A phone number pad has no minus key, so the sign is a toggle.
-  assert.match(cashModal, /Money borrowed/);
+  // A phone number pad has no minus key, so the sign is a toggle. The rule
+  // is that borrowed money gets a side of that toggle to itself, not the
+  // exact wording: this asserted "Money borrowed" and broke on a copy pass
+  // that made the pair "Money you have" / "Money you borrowed".
+  assert.match(cashModal, /borrowed/i);
   assert.doesNotMatch(cashModal, /allowNegative/);
   const portfoliosApi = readFileSync(
     join(process.cwd(), "src/app/api/portfolios/route.ts"),
@@ -5403,7 +5655,12 @@ run("saves list hides nightly rows", () => {
 });
 
 run("fun facts and circle facts do not say NAV or dry powder", () => {
-  const facts = readFileSync(join(process.cwd(), "src/lib/fun-facts.ts"), "utf8");
+  /*
+    Home's own fun facts were generated on every build and rendered nowhere
+    (the field was never read), so the module went. Only the circle's facts
+    reach a reader now.
+  */
+  assert.ok(!existsSync(join(process.cwd(), "src/lib/fun-facts.ts")));
   const circle = readFileSync(
     join(process.cwd(), "src/lib/community-fun-facts.ts"),
     "utf8"
@@ -5420,8 +5677,6 @@ run("fun facts and circle facts do not say NAV or dry powder", () => {
     join(process.cwd(), "src/components/CommunityView.tsx"),
     "utf8"
   );
-  assert.doesNotMatch(facts, /dry powder/i);
-  assert.doesNotMatch(facts, /\bNAV\b/);
   assert.doesNotMatch(circle, /dry-powder stash|dry powder/i);
   assert.doesNotMatch(circle, /Circle NAV/);
   assert.doesNotMatch(circle, /live mark/i);
@@ -5432,7 +5687,16 @@ run("fun facts and circle facts do not say NAV or dry powder", () => {
   assert.doesNotMatch(compound, /index-ish beta/);
   assert.doesNotMatch(compound, /long-only beta/);
   assert.doesNotMatch(compound, /this book's assumed rate/);
-  assert.match(compound, /your rate on this plan/);
+  /*
+   * The fourth path used to be labelled "Upside path" with the tagline
+   * "your rate on this plan", and what it drew was the reader's rate plus six
+   * points a year assumed from selling covered calls, compounded for as long
+   * as the horizon ran, with nothing on screen saying so. The addition is
+   * gone, so the line asserted here is the one that now has to stay true:
+   * the fourth path is the number in the box and nothing else.
+   */
+  assert.match(compound, /the number in the box/);
+  assert.doesNotMatch(compound, /ccBoost/);
   const compareUi = readFileSync(
     join(process.cwd(), "src/components/CompoundInterestSheet.tsx"),
     "utf8"
@@ -5454,20 +5718,32 @@ run("fun facts and circle facts do not say NAV or dry powder", () => {
   assert.match(play, /PALETTE\.bronze/);
 });
 
-run("Fund page labels Margus's note Thesis", () => {
+/*
+  Reworded on purpose, 2026-09-02.
+
+  Every label this used to pin was written for somebody who already knows
+  the words. "Thesis" and "Sell if" are now the plain questions they answer,
+  with the glossary entry behind each one, and "Since buy" is "Up or down".
+  The assertion is the rule rather than the wording: the note is still the
+  reason for owning the company, it is still followed by the rule for
+  selling it, and both are still `Reading` blocks on the shared card.
+*/
+run("Fund page says why he owns it and what would make him sell", () => {
   const src = readFileSync(
     join(process.cwd(), "src/components/UpsidePortfolioPage.tsx"),
     "utf8"
   );
-  assert.match(src, /label="Thesis"/);
+  assert.match(src, /term="thesis"/);
   assert.match(src, /function FundPosition/);
   const card = src.slice(
     src.indexOf("function FundNote"),
     src.indexOf("export function UpsidePortfolioPage")
   );
-  assert.match(card, /Hold for/);
-  assert.match(card, /label="Since buy"/);
-  assert.match(card, /label="Sell if"/);
+  assert.match(card, /meant to be held for/);
+  assert.match(card, /Up or down/);
+  assert.match(card, /term="sell-if"/);
+  // Trade shorthand does not come back to the card either.
+  assert.doesNotMatch(card, /label="Cost"|label="Portfolio"|label="Since buy"/);
   // The fund position sits on the shared glass surface and the note uses
   // the shared Reading block. AGENTS.md names BOX/CARD in Panel.tsx as the
   // canonical card treatment, so these are the design system's primitives,
@@ -5481,8 +5757,8 @@ run("Fund page labels Margus's note Thesis", () => {
   assert.doesNotMatch(card, /<Score /);
   assert.doesNotMatch(card, /md:border-l/);
   const positions = src.slice(
-    src.indexOf("Open positions"),
-    src.indexOf("Weekly recap")
+    src.indexOf("companies he owns now"),
+    src.indexOf("How each week went")
   );
   assert.match(positions, /<FundPosition/);
   assert.doesNotMatch(positions, /<Stat/);
@@ -5545,7 +5821,15 @@ run("Margus never writes trade orders to a person", () => {
   assert.doesNotMatch(pulseUi, /Trim about \{/);
   assert.doesNotMatch(pulseUi, /into this strength/);
   assert.doesNotMatch(pulseUi, /One check: selling/);
-  assert.match(pulseUi, /pulseSuggestion\(/);
+  /*
+   * The card's lead comes from one writer rather than from raw model text,
+   * which is what keeps an order off this screen. It is `pulseLead` now:
+   * `pulseSuggestion` printed the model's own invented dollar level as
+   * "near $205" inside a sentence about where the price sits, which is a
+   * buy level laundered into a measurement.
+   */
+  assert.match(pulseUi, /pulseLead\(/);
+  assert.doesNotMatch(pulseUi, /pulseSuggestion\(/);
   assert.doesNotMatch(notes, /If it runs, sell some/);
   assert.doesNotMatch(insights, /Own it on purpose or cut it/);
   assert.match(persona, /Never write trade orders/);
@@ -6155,7 +6439,9 @@ run("dashboard modules sit behind an error boundary", () => {
     );
   assert.ok(community.includes(`<WidgetErrorBoundary name="Daily Duel"`));
   assert.ok(/WidgetErrorBoundary[\s\S]{0,80}name="Member portfolio"/.test(community));
-  assert.ok(community.includes(`<WidgetErrorBoundary name="Community totals">`));
+  assert.ok(
+    community.includes(`<WidgetErrorBoundary name="Circle totals">`)
+  );
   const fund = readFileSync(
     join(process.cwd(), "src/components/UpsidePortfolioPage.tsx"),
     "utf8"
@@ -6398,15 +6684,26 @@ run("email and admin RPCs are not callable with a user JWT", () => {
   assert.doesNotMatch(mint, /daysValid \?\? 14/);
   // An open invite link is a bearer credential, so "no days given" must
   // mean a bounded default, not "forever". Never-expiring has to be asked
-  // for explicitly.
-  assert.match(mint, /const DEFAULT_INVITE_DAYS = 30/);
+  // for explicitly. The bound is shared with the route that replaces a
+  // link, so it lives beside the other invite helpers.
+  const inviteAdmin = readFileSync(
+    join(process.cwd(), "src/lib/community-invite-admin.ts"),
+    "utf8"
+  );
+  assert.match(inviteAdmin, /const DEFAULT_INVITE_DAYS = 30/);
+  assert.match(mint, /DEFAULT_INVITE_DAYS/);
   assert.match(mint, /body\.neverExpires === true/);
   assert.doesNotMatch(mint, /expiresAt: string \| null = null/);
   assert.match(mint, /inviteEmailAllowlist/);
   assert.match(mint, /sendNoteEmail/);
   assert.match(mint, /token_hint/);
   assert.match(mint, /inviteJoinPath/);
+  // The link is in the create response and nowhere else. Storing the raw
+  // token beside its hash made the hash decorative: one read of the table
+  // handed out every live link in it.
   assert.match(mint, /token,/);
+  assert.doesNotMatch(mint, /token_hint: tokenHintFromToken\(token\),\s*\n\s*token,/);
+  assert.doesNotMatch(mint, /created_by, token_hint, token/);
   assert.match(mint, /communityInviteUses/);
   assert.match(mint, /created_by/);
   const usesMig = readFileSync(
@@ -6425,6 +6722,9 @@ run("email and admin RPCs are not callable with a user JWT", () => {
   );
   assert.match(retire, /revoked_at/);
   assert.match(retire, /communityInvitePatchSchema/);
+  // No GET here. A route that reads an invite's link back out of the table
+  // is the thing that made the stored hash pointless.
+  assert.doesNotMatch(retire, /export const GET/);
   const communityView =
     readFileSync(
       join(process.cwd(), "src/components/CommunityView.tsx"),
@@ -6435,15 +6735,33 @@ run("email and admin RPCs are not callable with a user JWT", () => {
       "utf8"
     );
   assert.doesNotMatch(communityView, /daysValid: community\?\.kind === "classroom" \? 90 : 14/);
-  assert.match(communityView, /This link works for 30 days/);
+  // The rule is the thirty days, not the sentence it used to be in: the
+  // sixty-word paragraph became two lines with the two settings almost
+  // nobody changes folded behind "Link options".
+  assert.match(communityView, /works for 30 days/i);
   assert.doesNotMatch(communityView, /This link stays live/);
   assert.match(communityView, /inviteNeverExpires/);
-  // The rule is that the invite form takes optional email addresses, not
-  // the exact placeholder it says that in.
-  assert.match(communityView, /Email addresses[^"]*optional/i);
-  assert.match(communityView, /Retire this link/);
+  // Same rule, one level up: the form still takes email addresses and
+  // still explains that they are optional, wherever it says so.
+  assert.match(communityView, /Send it to/);
+  assert.match(communityView, /inviteEmail/);
+  // "Retire" is a pension word. A reader turns a link off.
+  assert.match(communityView, /Turn off this link/);
+  assert.doesNotMatch(communityView, /Retire this link/);
   assert.match(communityView, /copyInviteLink/);
-  assert.match(communityView, /inv\.path/);
+  /*
+    The stored row cannot hand its link back, because the database keeps a
+    hash of the token and nothing else: a link is shown once when it is
+    made, and an admin who needs it again mints a fresh one. Two halves,
+    and the first is the security rule.
+
+    The copy is deliberately not asserted here any more. This used to match
+    the button's exact words and the circle pass renamed them, which is the
+    brittleness AGENTS.md warns about: assert the rule, never today's
+    markup.
+  */
+  assert.doesNotMatch(communityView, /inv\.path/);
+  assert.match(communityView, /renewInvite/);
   assert.match(communityView, /inviteUsesLabel/);
   const joinPeek = readFileSync(
     join(process.cwd(), "src/app/api/communities/join/route.ts"),
@@ -6673,7 +6991,38 @@ run("in-app feedback is a monthly walk-through and freeform when you open it", (
     join(process.cwd(), "src/components/AccountPage.tsx"),
     "utf8"
   );
-  assert.match(account, /Tell Upside/);
+  /*
+   * The rule is that Account can open feedback, not what the button says.
+   *
+   * This asserted the literal "Tell Upside", which is exactly the kind of
+   * assertion AGENTS.md warns costs more than it protects: the button is
+   * "Send feedback" now, sitting beside "Show me around" in one "Help and
+   * feedback" panel, because feedback was being offered three times on one
+   * screen with the same sentence under each offer.
+   */
+  assert.match(
+    account,
+    /openManual/,
+    "Account opens the freeform form itself"
+  );
+  assert.equal(
+    (account.match(/onClick=\{openManual\}/g) || []).length,
+    1,
+    "and offers it once, not once per panel"
+  );
+  /*
+   * And the monthly round is offered rather than sprung. It used to open
+   * itself over whatever room the reader had come for, 1.6 seconds after
+   * launch; the cadence is unchanged and the host now publishes whether it
+   * is due so a row in Account can ask.
+   */
+  assert.doesNotMatch(
+    host,
+    /setTimeout[\s\S]{0,120}setMode/,
+    "nothing opens the feedback modal on a timer after launch"
+  );
+  assert.match(host, /monthlyDue/);
+  assert.match(account, /openMonthly/);
 });
 
 run("community invite admin list reads like Discord", () => {
@@ -6985,7 +7334,10 @@ run("legal pages name the operator and match the product", () => {
 
   assert.match(privacy, /today&apos;s prices, the companies you hold/);
   assert.match(privacy, /They do not see what you paid/);
-  assert.match(privacy, /Pulse, the Sunday email/);
+  // Renamed deliberately: the one scheduled email is the Sunday letter
+  // everywhere a person can read it, and the policy was the last place
+  // still calling it the Sunday email.
+  assert.match(privacy, /Pulse, the Sunday letter/);
   assert.match(privacy, /screenshot/);
   assert.match(privacy, /Resend/);
   assert.match(privacy, /United States/);
@@ -7121,12 +7473,9 @@ run("GDPR hard-delete, export engine, and session purge", () => {
   assert.match(mig, /insert into public\.portfell_cash_events/);
   assert.doesNotMatch(mig, /grant execute[^;]*portfell_purge_user_data[^;]*to authenticated/i);
 
-  const userExport = readFileSync(
-    join(process.cwd(), "src/app/api/user/export/route.ts"),
-    "utf8"
-  );
-  assert.match(userExport, /observeRoute\(handleGET, "\/api\/user\/export"\)/);
-  assert.match(userExport, /encrypt: true/);
+  // One export route. `/api/user/export` was a second door onto the same
+  // payload that nothing in the app opened, and it is gone.
+  assert.ok(!existsSync(join(process.cwd(), "src/app/api/user/export")));
 
   const accountExport = readFileSync(
     join(process.cwd(), "src/app/api/account/export/route.ts"),
@@ -7205,8 +7554,14 @@ run("signed-in users only see sheets they co-own", () => {
     join(process.cwd(), "src/app/api/portfolios/route.ts"),
     "utf8"
   );
+  /*
+    The seed those two names referred to is gone: it was four real people's
+    portfolios, read by nothing, in a public repository. The assertion is
+    now that neither the route nor the store carries one again.
+  */
   assert.doesNotMatch(api, /DEMO_PORTFOLIOS/);
   assert.doesNotMatch(api, /DEMO_HOLDINGS/);
+
   assert.match(api, /A signed-in book is only sheets this user co-owns/);
 
   const runtime = readFileSync(
@@ -7221,7 +7576,14 @@ run("signed-in users only see sheets they co-own", () => {
     "utf8"
   );
   assert.match(demo, /portfolios: \[\], holdings: \[\]/);
-  assert.match(demo, /They are not a starter pack/);
+  /*
+    The sentence this used to look for stood over four real people's
+    portfolios, which were read by nothing and sat in a public repository.
+    What matters is that an unsigned store starts empty and that no seed
+    comes back, which the line above and the two below assert directly.
+  */
+  assert.doesNotMatch(demo, /DEMO_PORTFOLIOS|DEMO_HOLDINGS/);
+  assert.ok(!existsSync(join(process.cwd(), "data/locked-demo.json")));
 });
 
 run("classroom membership actions stay per person, not household-mirrored", () => {
@@ -7412,8 +7774,13 @@ run("every text box that can fail tells you what happened", () => {
   // because only one of the two is worth retrying.
   assert.match(watch, /Couldn't look that up just now/);
 
+  /*
+   * The walkthrough's holdings box moved into `src/components/tour/` when
+   * the walkthrough became seven doing screens rather than eleven reading
+   * ones. Same rule, same three messages, read where they now live.
+   */
   const onboarding = readFileSync(
-    join(process.cwd(), "src/components/WelcomeTour.tsx"),
+    join(process.cwd(), "src/components/tour/AddHoldingsScreen.tsx"),
     "utf8"
   );
   assert.match(onboarding, /setStockError\("Type a ticker, a company, or a coin\."\)/);

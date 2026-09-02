@@ -25,7 +25,6 @@ import {
   CHAT_MAX_BODY_BYTES,
 } from "@/lib/chat-limits";
 import { stampAdvisorUse } from "@/lib/advisor-use";
-import { isRecord } from "@/lib/unknown";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -146,27 +145,25 @@ async function handlePOST(req: Request) {
         "That is a lot of pictures at once. Give Margus a few minutes to catch up."
       );
     }
-    const messages = Array.isArray(body.messages)
-      ? (body.messages as UIMessage[])
-      : [];
-    const ccContext = (
-      isRecord(body.ccContext)
-        ? body.ccContext
-        : {
-            portfolioName: "Portfolio",
-            cashBalance: 0,
-            holdings: [],
-            rows: [],
-            totals: {
-              cost: 0,
-              value: 0,
-              roiPct: 0,
-              roiDollar: 0,
-              yield2wAvg: 0,
-              premiumTotal: 0,
-            },
-          }
-    ) as CcChatContext;
+    const messages = (body.messages ?? []) as UIMessage[];
+    // Shaped and bounded by `ccContextSchema` before it gets here, so every
+    // figure the system prompt prints is a number and every string has a
+    // ceiling. The cast narrows the optional fields the schema leaves
+    // partial (a cached Pulse check, a stored plan) onto the prompt's type.
+    const ccContext = (body.ccContext ?? {
+      portfolioName: "Portfolio",
+      cashBalance: 0,
+      holdings: [],
+      rows: [],
+      totals: {
+        cost: 0,
+        value: 0,
+        roiPct: 0,
+        roiDollar: 0,
+        yield2wAvg: 0,
+        premiumTotal: 0,
+      },
+    }) as CcChatContext;
 
     const vision = messagesHaveImages(messages);
     const adviseOnly = Boolean(ccContext.adviseOnly);

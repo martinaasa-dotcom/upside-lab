@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { escapeLike, likeCanBeExact } from "@/lib/escape-like";
 import { profileFromUnsubscribe } from "@/lib/unsubscribe-link";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
@@ -117,13 +118,27 @@ async function handlePOST(request: Request) {
     .eq("id", found.id)
     .maybeSingle();
 
-  const email = (profile as { email?: string | null } | null)?.email?.trim();
+  const email = (profile as { email?: string | null } | null)?.email
+    ?.trim()
+    .toLowerCase();
 
-  const { error } = email
+  /*
+    ILIKE rather than EQ because the column is case-insensitive by the
+    schema's own rules (every policy and the 054 index compare on
+    lower(email)), and ILIKE reads a pattern rather than a value: `%` and `_`
+    are wildcards, so an address carrying either would switch the letter off
+    for strangers. `escapeLike` makes the address mean itself. An address it
+    cannot make exact falls back to the one row the link named, which is a
+    letter still arriving from a second row at worst, against the wrong
+    people's letters stopping.
+  */
+  const pattern = email && likeCanBeExact(email) ? escapeLike(email) : null;
+
+  const { error } = pattern
     ? await supabase
         .from(PORTFELL_TABLES.profiles)
         .update({ note_sunday: false })
-        .ilike("email", email)
+        .ilike("email", pattern)
     : await supabase
         .from(PORTFELL_TABLES.profiles)
         .update({ note_sunday: false })

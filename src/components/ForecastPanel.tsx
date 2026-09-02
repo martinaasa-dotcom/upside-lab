@@ -29,6 +29,7 @@ import { formatDateTime } from "@/lib/timezone";
 import { isAbortError } from "@/lib/abort";
 import {
   NO_VALUE,
+  cashtag,
   cn,
   currency,
   percent,
@@ -59,6 +60,8 @@ import {
   type ForecastPlan,
 } from "@/lib/forecast-plan";
 import type { ConvictionMap } from "@/lib/conviction";
+import { beliefLines } from "@/lib/believe";
+import { sharesLabel } from "@/lib/share-count";
 import { readJsonOrThrow } from "@/lib/http";
 import type { PortfolioEoyOverrides } from "@/lib/forecast-overrides";
 import { isForecastFullyCovered } from "@/lib/forecast";
@@ -297,7 +300,19 @@ function EoyPriceInput({
 
 type SheetPathPoint = { label: string; value: number };
 
-function SheetPathChart({ points }: { points: SheetPathPoint[] }) {
+function SheetPathChart({
+  points,
+  placeholder = false,
+}: {
+  points: SheetPathPoint[];
+  /**
+   * True when no model has run and this shape came from the generic
+   * shaper. Presentation only: the numbers are exactly the numbers the
+   * grid uses, per the no-floor rule. What changes is that the line stops
+   * looking like a measurement.
+   */
+  placeholder?: boolean;
+}) {
   const gid = useId().replace(/:/g, "");
   const svgRef = useRef<SVGSVGElement>(null);
   const [active, setActive] = useState<number | null>(null);
@@ -438,7 +453,9 @@ function SheetPathChart({ points }: { points: SheetPathPoint[] }) {
             aria-valuetext={
               hoverPoint
                 ? `${hoverPoint.label}, ${currency(hoverPoint.value, 0)}${
-                    vsNowPct != null ? `, vs now ${percent(vsNowPct)}` : ""
+                    vsNowPct != null
+                      ? `, ${percent(vsNowPct)} against today`
+                      : ""
                   }`
                 : undefined
             }
@@ -464,13 +481,26 @@ function SheetPathChart({ points }: { points: SheetPathPoint[] }) {
                 strokeOpacity={0.08}
               />
             ))}
-            <polygon points={area} fill={`url(#${gid})`} />
+            {placeholder ? null : (
+              <polygon points={area} fill={`url(#${gid})`} />
+            )}
             <polyline
               fill="none"
               stroke={PALETTE.brand}
               strokeWidth={2}
               strokeLinejoin="round"
               strokeLinecap="round"
+              strokeOpacity={placeholder ? 0.5 : 1}
+              /*
+                The dashes are screen units, not viewBox units. This svg is
+                `preserveAspectRatio="none"` over a fixed 640-wide box, so
+                the horizontal scale runs from about 0.53 on a phone to 1.45
+                on a laptop: a plain "6 5" pattern reads as a dashed line at
+                1280 and as a solid one at 390, which is the one width where
+                the reader most needs to see that nothing has been reasoned.
+              */
+              vectorEffect={placeholder ? "non-scaling-stroke" : undefined}
+              strokeDasharray={placeholder ? "5 4" : undefined}
               points={line}
             />
             {usable.map((p, i) => (
@@ -537,10 +567,12 @@ function SheetPath({
   now,
   years,
   totals,
+  placeholder = false,
 }: {
   now: number;
   years: readonly ForecastYear[];
   totals: Record<ForecastYear, number>;
+  placeholder?: boolean;
 }) {
   const points: SheetPathPoint[] = [
     { label: "Now", value: now },
@@ -549,7 +581,14 @@ function SheetPath({
 
   return (
     <div className="mt-4 border-t border-border pt-4">
-      <SheetPathChart points={points} />
+      <SheetPathChart points={points} placeholder={placeholder} />
+      {placeholder ? (
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          A placeholder shape until Margus works this out. It is the usual
+          rhythm for each kind of business rather than anything reasoned
+          about your companies, which is why it is drawn as a dashed line.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -603,6 +642,7 @@ function ForecastCard({
   mixedListings,
   why,
   provenance,
+  placeholder = false,
   onSetEoyPrice,
 }: {
   row: ForecastRow;
@@ -614,6 +654,8 @@ function ForecastCard({
    */
   why?: string;
   provenance: ReturnType<typeof forecastPathProvenance>;
+  /** No model has reasoned this one, so it is drawn as a placeholder. */
+  placeholder?: boolean;
   onSetEoyPrice: (ticker: string, year: ForecastYear, price: number) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -621,6 +663,22 @@ function ForecastCard({
   const lastYear = years[years.length - 1]!;
   const gainAt = (price: number) =>
     row.currentPrice > 0 ? (price - row.currentPrice) / row.currentPrice : null;
+
+  /*
+   * What that last price is asking of the company, said as arithmetic.
+   * A figure with two decimal places reads as a measurement whatever the
+   * label above it says, so the answer is to restate it against things
+   * this company has actually done.
+   */
+  const believe = beliefLines(
+    {
+      subject: cashtag(row.ticker),
+      spot: row.currentPrice,
+      target: row.eoyPrices[lastYear],
+      months: (lastYear - new Date().getFullYear() + 1) * 12,
+    },
+    (n) => currency(n)
+  );
 
   return (
     <div className={SCORE_CELL}>
@@ -630,22 +688,27 @@ function ForecastCard({
             <TickerSymbol ticker={row.ticker} showCurrency={mixedListings} />
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {row.shares.toLocaleString("en-US")} shares
+            {sharesLabel(row.shares)}
             {!row.hasTargets && ", and Margus is still working this one out"}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <p
-            className={cn(
-              "text-sm font-medium tabular-nums",
-              row.gainPct != null
-                ? signedTone(row.gainPct)
-                : "text-muted-foreground"
-            )}
-          >
-            {row.gainPct != null ? percent(row.gainPct) : NO_VALUE}
-          </p>
-          <WhyThis provenance={provenance} />
+        <div className="flex shrink-0 flex-col items-end gap-0.5">
+          <div className="flex items-center gap-1.5">
+            <p
+              className={cn(
+                "text-sm font-medium tabular-nums",
+                placeholder
+                  ? "text-muted-foreground"
+                  : row.gainPct != null
+                    ? signedTone(row.gainPct)
+                    : "text-muted-foreground"
+              )}
+            >
+              {row.gainPct != null ? signedPercent(row.gainPct) : NO_VALUE}
+            </p>
+            <WhyThis provenance={provenance} />
+          </div>
+          <MicroLabel>by {lastYear}</MicroLabel>
         </div>
       </div>
 
@@ -677,6 +740,12 @@ function ForecastCard({
           Margus is still writing why this path looks like this.
         </p>
       )}
+
+      {believe.length > 0 ? (
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          {believe.join(" ")}
+        </p>
+      ) : null}
 
       <button
         type="button"
@@ -711,16 +780,30 @@ function ForecastCard({
                   label={yearLabel(y)}
                   current={isCurrentYear(y)}
                   value={
-                    <EoyPriceInput
-                      fill
-                      value={row.eoyPrices[y]}
-                      targeted={row.targetedYears[y]}
-                      onCommit={(n) => onSetEoyPrice(row.ticker, y, n)}
-                    />
+                    <span className="inline-flex items-baseline justify-end gap-0.5">
+                      {/*
+                        The rail prints "393.19" beside a Now of "$324.95",
+                        so the one figure a reader can type is the one that
+                        does not say what it is. The sign lives outside the
+                        field, exactly as the covered-call target does.
+                      */}
+                      <span className="text-sm text-muted-foreground">$</span>
+                      <EoyPriceInput
+                        fill
+                        value={row.eoyPrices[y]}
+                        targeted={row.targetedYears[y]}
+                        onCommit={(n) => onSetEoyPrice(row.ticker, y, n)}
+                      />
+                    </span>
                   }
                   note={
                     <span
-                      className={cn("text-sm tabular-nums", signedTone(gain))}
+                      className={cn(
+                        "text-sm tabular-nums",
+                        placeholder
+                          ? "text-muted-foreground"
+                          : signedTone(gain)
+                      )}
                     >
                       {gain != null ? signedPercent(gain) : NO_VALUE}
                     </span>
@@ -1151,6 +1234,24 @@ export const ForecastPanel = memo(function ForecastPanel({
     return null;
   }, [labReady, planHydrated, model.rows, plan, fullyCovered, busy, cachedTickers, retryTick]);
 
+  /*
+   * No model has answered for this portfolio, so every price on the screen
+   * came from the generic shaper. The numbers stay exactly as they are,
+   * per the rule that nothing in this app moves the model's answer; what
+   * changes is that they stop being drawn as though somebody reasoned
+   * them.
+   */
+  const isPlaceholder = isFallbackForecastPlan(plan) || !plan;
+
+  /*
+   * An empty portfolio used to stack four empty panels, and this was two
+   * of them: a "No holdings yet" card, and a line under it saying Margus
+   * was still working out starting prices for holdings that do not exist.
+   * The Holdings empty state is the one that says what to do next, so it
+   * is the only one that renders.
+   */
+  if (model.rows.length === 0) return null;
+
   return (
     <Panel padded={false} className="overflow-hidden">
       <header className="border-b border-border p-6">
@@ -1161,7 +1262,7 @@ export const ForecastPanel = memo(function ForecastPanel({
               <WhyThis
                 provenance={forecastRoomProvenance({
                   at: plan?.generatedAt,
-                  fallback: isFallbackForecastPlan(plan) || !plan,
+                  fallback: isPlaceholder,
                   model: plan?.writtenBy,
                   adjustedCount,
                   reusedCount: Object.keys(plan?.reused ?? {}).length,
@@ -1169,7 +1270,7 @@ export const ForecastPanel = memo(function ForecastPanel({
               />
             </span>
           }
-          subtitle={`A yearly price for each holding, to ${yearCols[yearCols.length - 1] ?? ""}. The chart is the whole portfolio. Each card is why that name is modeled to go from today to there.`}
+          subtitle={`A yearly price for each holding, to ${yearCols[yearCols.length - 1] ?? ""}. The chart is the whole portfolio. Each card says why that company's price is expected to go where it does.`}
           actions={
             <Button
               type="button"
@@ -1202,100 +1303,93 @@ export const ForecastPanel = memo(function ForecastPanel({
             now={model.currentTotal}
             years={yearCols}
             totals={model.eoyTotals}
+            placeholder={isPlaceholder}
           />
         )}
       </header>
 
-      {model.rows.length === 0 ? (
-        <div className="p-4 sm:p-6">
-          <EmptyState
-            title="No holdings yet"
-            detail="Add a holding and Margus will work out where it could go."
+      <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+        {model.rows.map((r) => (
+          <ForecastCard
+            key={r.ticker}
+            row={r}
+            years={yearCols}
+            mixedListings={mixedListings}
+            why={whyByTicker.get(r.ticker.toUpperCase())}
+            provenance={forecastPathProvenance({
+              ticker: r.ticker,
+              spot: r.currentPrice,
+              sector:
+                TICKER_SECTORS[r.ticker] ??
+                TICKER_SECTORS[r.ticker.split(".")[0]!] ??
+                null,
+              hasOwnReason: Boolean(
+                convictions?.[r.ticker]?.thesis?.trim() ||
+                  convictions?.[r.ticker.toUpperCase()]?.thesis?.trim()
+              ),
+              fallback: isPlaceholder || !r.hasTargets,
+              at: plan?.generatedAt,
+              model: plan?.writtenBy,
+              adjust: adjustByTicker.get(r.ticker.toUpperCase()),
+              reusedAt: plan?.reused?.[r.ticker.toUpperCase()] ?? null,
+              lastYear: yearCols[yearCols.length - 1],
+            })}
+            placeholder={isPlaceholder || !r.hasTargets}
+            onSetEoyPrice={onSetEoyPrice}
+          />
+        ))}
+      </div>
+
+      <div className={cn("mx-4 mb-4 card-sheen glass-well rounded-lg", NESTED_PAD)}>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-medium text-muted-foreground">
+            Whole portfolio
+          </p>
+          <WhyThis
+            provenance={forecastTotalProvenance({
+              at: plan?.generatedAt,
+              fallback: isPlaceholder,
+              model: plan?.writtenBy,
+            })}
           />
         </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
-            {model.rows.map((r) => (
-              <ForecastCard
-                key={r.ticker}
-                row={r}
-                years={yearCols}
-                mixedListings={mixedListings}
-                why={whyByTicker.get(r.ticker.toUpperCase())}
-                provenance={forecastPathProvenance({
-                  ticker: r.ticker,
-                  spot: r.currentPrice,
-                  sector:
-                    TICKER_SECTORS[r.ticker] ??
-                    TICKER_SECTORS[r.ticker.split(".")[0]!] ??
-                    null,
-                  hasOwnReason: Boolean(
-                    convictions?.[r.ticker]?.thesis?.trim() ||
-                      convictions?.[r.ticker.toUpperCase()]?.thesis?.trim()
-                  ),
-                  fallback: isFallbackForecastPlan(plan) || !r.hasTargets,
-                  at: plan?.generatedAt,
-                  model: plan?.writtenBy,
-                  adjust: adjustByTicker.get(r.ticker.toUpperCase()),
-                  reusedAt: plan?.reused?.[r.ticker.toUpperCase()] ?? null,
-                  lastYear: yearCols[yearCols.length - 1],
-                })}
-                onSetEoyPrice={onSetEoyPrice}
+        <p className="mt-1.5 font-sans text-lg font-semibold leading-none tabular-nums text-foreground">
+          {currency(model.currentTotal)}
+        </p>
+        <YearRail>
+          {yearCols.map((y) => {
+            const gain =
+              model.currentTotal > 0
+                ? (model.eoyTotals[y] - model.currentTotal) /
+                  model.currentTotal
+                : null;
+            return (
+              <YearRailRow
+                key={y}
+                label={yearLabel(y)}
+                current={isCurrentYear(y)}
+                value={
+                  <span className="text-sm tabular-nums text-foreground">
+                    {currency(model.eoyTotals[y], 0)}
+                  </span>
+                }
+                note={
+                  <span
+                    className={cn(
+                      "text-sm tabular-nums",
+                      isPlaceholder
+                        ? "text-muted-foreground"
+                        : signedTone(gain)
+                    )}
+                  >
+                    {gain != null ? signedPercent(gain) : NO_VALUE}
+                  </span>
+                }
               />
-            ))}
-          </div>
-
-          <div className={cn("mx-4 mb-4 card-sheen glass-well rounded-lg", NESTED_PAD)}>
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-medium text-muted-foreground">
-                Whole portfolio
-              </p>
-              <WhyThis
-                provenance={forecastTotalProvenance({
-                  at: plan?.generatedAt,
-                  fallback: isFallbackForecastPlan(plan) || !plan,
-                  model: plan?.writtenBy,
-                })}
-              />
-            </div>
-            <p className="mt-1.5 font-sans text-lg font-semibold leading-none tabular-nums text-foreground">
-              {currency(model.currentTotal)}
-            </p>
-            <YearRail>
-              {yearCols.map((y) => {
-                const gain =
-                  model.currentTotal > 0
-                    ? (model.eoyTotals[y] - model.currentTotal) /
-                      model.currentTotal
-                    : null;
-                return (
-                  <YearRailRow
-                    key={y}
-                    label={yearLabel(y)}
-                    current={isCurrentYear(y)}
-                    value={
-                      <span className="text-sm tabular-nums text-foreground">
-                        {currency(model.eoyTotals[y], 0)}
-                      </span>
-                    }
-                    note={
-                      <span
-                        className={cn(
-                          "text-sm tabular-nums",
-                          signedTone(gain)
-                        )}
-                      >
-                        {gain != null ? signedPercent(gain) : NO_VALUE}
-                      </span>
-                    }
-                  />
-                );
-              })}
-            </YearRail>
-          </div>
-        </>
-      )}
+            );
+          })}
+        </YearRail>
+      </div>
 
       <div className="border-t border-border p-6">
         <div>
@@ -1360,7 +1454,9 @@ export const ForecastPanel = memo(function ForecastPanel({
             {lastPlanDiffs.length > 0 && (
               <Card className="overflow-hidden p-0">
                 <div className="border-b border-border/50 px-4 py-3">
-                  <p className="text-sm font-medium text-muted-foreground">Vs last plan</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Since the last run
+                  </p>
                 </div>
                 <ul>
                   {lastPlanDiffs.map((d) => (

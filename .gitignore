@@ -47,7 +47,18 @@ supabase/.temp/
 # local disaster-recovery dry runs
 .dr-local/
 
+# throwaway harnesses an agent writes to look at what it built
+scripts/_tmp_*
+
 # personal Claude Code overrides (not for the team)
 .claude/settings.local.json
 .claude/worktrees/
 test-results/
+
+# Throwaway Playwright scripts written by audit agents while they measure the app
+scripts/_tmp_*
+
+# A locked demo save is one person's real holdings. It stays on the machine
+# that made it: the dev route that writes it refuses to answer on any
+# deployment, and this repository is public.
+data/locked-demo.json

@@ -201,7 +201,26 @@ export function communityInviteCopy(input: {
   classroom: boolean;
 }): { subject: string; text: string; html: string } {
   const name = input.name.trim() || (input.classroom ? "a class" : "a Circle");
-  const subject = `Join ${name}`;
+  /*
+    The subject carries no text anybody typed, and that is the whole of why
+    it is worded this way.
+
+    A circle's name is its creator's to choose, anyone signed in can make
+    one, and it was going straight into the subject line as `Join <name>`.
+    A circle called "URGENT: your Upside Lab account is suspended" is a
+    phishing subject, sent from the address this product's sign-in links and
+    Sunday letters come from, to twenty strangers a call. Trimming the name
+    does not help: the abuse is the sentence, not the characters in it.
+
+    So the subject says what the message is, and the name is in the body,
+    where it is escaped and where nobody's inbox list shows it. A recipient
+    who does not recognise the sender learns less from the subject than
+    before, and that is the correct trade for a message sent to an address
+    that never asked for it.
+  */
+  const subject = input.classroom
+    ? "You have been invited to a class on Upside Lab"
+    : "You have been invited to a circle on Upside Lab";
   const lead = input.classroom
     ? `You've been invited into ${name}. Sign in and you get a paper portfolio to work from.`
     : `You've been invited into ${name}. Sign in and pick which portfolios to share. Today's prices only.`;
@@ -265,6 +284,72 @@ ${emailButton(input.url, "Confirm this address")}
 }
 
 /**
+ * Sent to the address an account already signs in with, once a second address
+ * has been confirmed on it.
+ *
+ * The whole feature turns on somebody proving they hold a mailbox, and that
+ * proof happens in the mailbox being added, which the owner of the account may
+ * never look at. So the account's own address is told afterwards. If it was
+ * not them who asked, this letter is the only thing that would ever say so,
+ * and it names the one step that takes it back again.
+ */
+export function addressConnectedCopy(input: {
+  address: string;
+  accountUrl: string;
+}): { subject: string; text: string; html: string } {
+  const subject = "A second address now opens your Upside Lab account";
+  const lead = `${input.address} was confirmed a moment ago, so it signs in to this account as well. Both addresses land in the same place, with the same portfolios and the same circles.`;
+  const undo =
+    "If that was not you, open My account, take the address off under your sign-in addresses, and it stops working straight away.";
+  const text = [lead, input.accountUrl, undo].join("\n\n");
+  const html = wrapEmailLetter({
+    title: subject,
+    preview: lead,
+    hideOpener: true,
+    body: `${emailKicker("Your account")}
+<div style="height:18px;font-size:0;line-height:0">&nbsp;</div>
+<p style="margin:0;font-family:${EMAIL.sans};font-size:26px;line-height:1.25;font-weight:400;letter-spacing:-0.02em;color:${EMAIL.cream}">A second address was connected</p>
+<p style="margin:22px 0 0 0;font-family:${EMAIL.sans};font-size:17px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(lead)}</p>
+${emailButton(input.accountUrl, "Open my account")}
+<p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">${escapeEmail(undo)}</p>`,
+  });
+  return { subject, text, html };
+}
+
+/**
+ * Sent to an address somebody asked for and could not have.
+ *
+ * The screen they asked from is told the same thing whether an address is free
+ * or already spoken for, because a signed-in reader who can type any address
+ * in the world and be told which ones have accounts here has been handed a way
+ * of asking about strangers. The refusal still has to go somewhere, so it goes
+ * to the mailbox it is actually about, which is also the one place it is news.
+ */
+export function addressNotConnectedCopy(input: {
+  requestedBy: string | null;
+  support: string;
+}): { subject: string; text: string; html: string } {
+  const subject = "Somebody asked to connect this address to Upside Lab";
+  const asker = input.requestedBy
+    ? `The Upside Lab account at ${input.requestedBy}`
+    : "An Upside Lab account";
+  const lead = `${asker} asked to sign in with this address as well. It was not connected, because this address already reaches an Upside Lab account of its own. Nothing about either account changed and nobody was let in.`;
+  const nothing = `There is nothing for you to do. If you were expecting this and want the two joined, write to ${input.support} and a person will look at it.`;
+  const text = [lead, nothing].join("\n\n");
+  const html = wrapEmailLetter({
+    title: subject,
+    preview: lead,
+    hideOpener: true,
+    body: `${emailKicker("Your account")}
+<div style="height:18px;font-size:0;line-height:0">&nbsp;</div>
+<p style="margin:0;font-family:${EMAIL.sans};font-size:26px;line-height:1.25;font-weight:400;letter-spacing:-0.02em;color:${EMAIL.cream}">This address was not connected</p>
+<p style="margin:22px 0 0 0;font-family:${EMAIL.sans};font-size:17px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(lead)}</p>
+<p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">${escapeEmail(nothing)}</p>`,
+  });
+  return { subject, text, html };
+}
+
+/**
  * Sent when somebody asks to sign in without Google.
  *
  * The link opens a page. It does not sign them in on its own, because mail
@@ -298,14 +383,22 @@ ${emailButton(input.url, "Open the sign-in page")}
   return { subject, text, html };
 }
 
-export function emptyBookNudgeHtml(text: string): string {
-  const blocks = text.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
-  const preview = blocks[0] ?? "Your portfolio is still empty";
+/**
+ * The reminder to somebody whose portfolio is still empty a week on.
+ *
+ * The heading is passed in rather than lifted off the first paragraph,
+ * because the letter now opens the way a person opens a note: the greeting
+ * first, then the news. Reading the heading off the top of the body would
+ * put "Hi Martin." in 26px type and leave the letter with no headline.
+ */
+export function emptyBookNudgeHtml(input: {
+  heading: string;
+  text: string;
+}): string {
+  const blocks = input.text.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+  const preview = input.heading;
   const bodyBlocks = blocks.filter(
-    (b) =>
-      !/^https?:\/\//i.test(b) &&
-      !/one-time note/i.test(b) &&
-      b !== preview
+    (b) => !/^https?:\/\//i.test(b) && !/one-time note/i.test(b)
   );
   const prose = bodyBlocks
     .map(
@@ -322,6 +415,6 @@ export function emptyBookNudgeHtml(text: string): string {
 <p style="margin:0;font-family:${EMAIL.sans};font-size:26px;line-height:1.25;font-weight:400;letter-spacing:-0.02em;color:${EMAIL.cream}">${escapeEmail(preview)}</p>
 ${prose}
 ${emailButton(EMAIL.origin, "Open Upside Lab")}
-<p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">This is a one-time note. The Sunday email starts once there are names in your portfolio. Turn it off in <a href="${EMAIL.origin}/account" style="color:${EMAIL.gold};text-decoration:underline">Account</a>.</p>`,
+<p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">This is a one-time note. The Sunday letter starts once there is something in your portfolio. Turn it off in <a href="${EMAIL.origin}/account" style="color:${EMAIL.gold};text-decoration:underline">Account</a>.</p>`,
   });
 }

@@ -4,6 +4,7 @@ import {
 } from "@/lib/auth/account-addresses";
 import { normalizeAddress } from "@/lib/auth/email-address";
 import {
+  accountReachedByAddress,
   hashedSessionTokenForAddress,
   magicTokenFor,
 } from "@/lib/auth/linked-addresses";
@@ -108,6 +109,56 @@ export async function startEmailLogin(input: {
   return { kind: "sent" };
 }
 
+export type EmailLoginTarget = {
+  /** The mailbox the link was sent to. */
+  email: string;
+  /** Where the sign-in was headed. */
+  next: string;
+  /*
+    The account that address already opens, and the address that account signs
+    in with. Null for somebody signing in here for the first time.
+  */
+  account: { userId: string; primaryEmail: string } | null;
+};
+
+/**
+ * What a sign-in link would do, without doing any of it.
+ *
+ * Two separate things need this and neither of them should burn the link to
+ * find out. The page at the end of it has to name the mailbox it opens, or a
+ * link forwarded, mis-sent or opened on a shared machine signs somebody into
+ * an account with nothing on screen ever saying whose. And the button behind
+ * it has to know whether this address reaches an account with a different
+ * address of its own, which is the case that stops and asks rather than
+ * quietly swapping one session for another.
+ *
+ * Somebody who says no keeps a link that still works, which is the point of
+ * peeking rather than spending.
+ */
+export async function emailLoginTarget(token: string): Promise<EmailLoginTarget | null> {
+  const admin = getSupabaseServer();
+  if (!admin || !supabaseUsesServiceRole()) return null;
+
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+
+  const { data } = await admin
+    .from(PORTFELL_TABLES.emailLogins)
+    .select("email, expires_at, next_path")
+    .eq("token_hash", hashLinkToken(trimmed))
+    .maybeSingle();
+
+  const row = data as { email: string; expires_at: string; next_path: string } | null;
+  if (!row) return null;
+  if (new Date(row.expires_at) < new Date()) return null;
+
+  return {
+    email: row.email,
+    next: emailLoginNext(row.next_path),
+    account: await accountReachedByAddress(row.email),
+  };
+}
+
 export type EmailLoginConsume =
   | { kind: "ok"; hashedToken: string; next: string }
   | { kind: "fail"; reason: "expired" | "failed" | "not-configured" };
@@ -149,16 +200,30 @@ export async function consumeEmailLogin(token: string): Promise<EmailLoginConsum
     return { kind: "fail", reason: "expired" };
   }
 
-  const { error: gone } = await admin
+  /*
+    Spent with a read on the write, because "did the database answer" is not
+    the same question as "did this post take the token".
+
+    Two posts of one link arrive together often enough to matter: a person
+    double-tapping a button on a slow phone, or a mail client that fetched the
+    page opening it again beside them. Both deletes succeed as far as PostgREST
+    is concerned, one of them removing nothing, and without the returned rows
+    both go on to mint a session from a token that works once. Asking for the
+    row back makes Postgres settle it: exactly one delete carries a row away.
+  */
+  const { data: spent, error: gone } = await admin
     .from(PORTFELL_TABLES.emailLogins)
     .delete()
     .eq("token_hash", hash)
-    .eq("email", row.email);
+    .eq("email", row.email)
+    .select("email");
 
   if (gone) {
     console.error("could not spend an email sign-in token", gone.message);
     return { kind: "fail", reason: "failed" };
   }
+
+  if (!spent || spent.length === 0) return { kind: "fail", reason: "expired" };
 
   const next = emailLoginNext(row.next_path);
   const existing = await hashedSessionTokenForAddress(row.email);

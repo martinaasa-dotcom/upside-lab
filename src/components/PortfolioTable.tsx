@@ -1,6 +1,6 @@
 "use client";
 
-import { NO_VALUE, cn, currency, percent, signedTone } from "@/lib/format";
+import { NO_VALUE, cashtag, cn, currency, percent, signedTone } from "@/lib/format";
 import {
   usdToDisplay,
   formatEurUsdHint,
@@ -16,7 +16,8 @@ import {
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { quoteAsOfTitle } from "@/lib/market/quote-freshness";
 import { Button } from "@/components/ui/button";
-import { Card, MicroLabel, Panel, Segmented } from "@/components/ui/Panel";
+import { Card, Panel, Segmented } from "@/components/ui/Panel";
+import { TermTip } from "@/components/ui/TermTip";
 import {
   blockWheelChange,
   formatDecimal,
@@ -29,7 +30,9 @@ import { todayDollarFor } from "@/lib/overview";
 import {
   ArrowDown,
   ArrowUp,
+  ChevronRight,
   FileUp,
+  Info,
   ImagePlus,
   Plus,
   TriangleAlert,
@@ -40,6 +43,7 @@ import {
   screenshotPickerInputProps,
   useScreenshotPicker,
 } from "@/lib/use-screenshot-picker";
+import { shareDigits } from "@/lib/share-count";
 import { Sparkline } from "./Sparkline";
 import { FluidRow, FluidTable, cellBase, cellTicker, tableCols } from "@/components/FluidTable";
 
@@ -90,18 +94,28 @@ type Props = {
 function InlineNumber({
   value,
   digits = 0,
-  /** How many decimals to show when blurred; commit still uses `digits`. */
+  /**
+   * How many decimals to show when blurred; commit still uses `digits`.
+   *
+   * "auto" is the share count: whole numbers stay whole and a fraction
+   * keeps only the decimals it needs. It used to be a flat 0 here, which
+   * printed a tenth of a Bitcoin as "0" in the column headed Shares while
+   * the forecast card two panels down said "0.12 shares".
+   */
   displayDigits,
   onCommit,
   className,
 }: {
   value: number;
   digits?: number;
-  displayDigits?: number;
+  displayDigits?: number | "auto";
   onCommit: (n: number) => void | boolean | Promise<void | boolean>;
   className?: string;
 }) {
-  const shownDigits = displayDigits ?? digits;
+  const shownDigits =
+    displayDigits === "auto"
+      ? shareDigits(value, digits > 0 ? digits : 4)
+      : displayDigits ?? digits;
   const display = formatDecimal(value, shownDigits);
   // Focus shows true fractional value without trailing zeros (30 not 30.0000)
   const editDisplay =
@@ -199,56 +213,39 @@ type SortKey =
  * Vertical column rules are not used; Covered calls is the same table
  * language, row hairlines only.
  */
-const COLUMNS: { label: string; key?: SortKey; explain?: string }[] = [
+const COLUMNS: { label: string; key?: SortKey; term?: string }[] = [
   { label: "Ticker", key: "ticker" },
-  {
-    label: "% Total",
-    key: "pct",
-    explain: "Share of your whole portfolio's value this position takes up",
-  },
-  {
-    label: "Shares",
-    key: "shares",
-    explain: "How many you hold (shares or coins)",
-  },
-  {
-    label: "Buy",
-    key: "buy",
-    explain: "Average price you paid per share, in this listing's money",
-  },
-  { label: "Price", key: "price", explain: "Current share price, in this listing's money" },
-  {
-    label: "Cost",
-    key: "cost",
-    explain: "Total dollars you put in: shares × buy price",
-  },
-  {
-    label: "Value",
-    key: "value",
-    explain: "What that position is worth right now: shares × current price",
-  },
-  {
-    label: "ROI %",
-    key: "roiPct",
-    explain: "Gain or loss against what you paid, as a percentage: (Value − Cost) ÷ Cost",
-  },
-  {
-    label: "ROI $",
-    key: "roiDollar",
-    explain: "Gain or loss against what you paid, in dollars: Value − Cost",
-  },
-  { label: "90d", explain: "Price trend over the last ~90 days" },
-  {
-    label: "Today %",
-    key: "today",
-    explain: "Share-price move since yesterday's close",
-  },
-  {
-    label: "Today $",
-    key: "todayDollar",
-    explain: "What today's share-price move did to this position, in dollars",
-  },
+  { label: "% of portfolio", key: "pct", term: "share-of-portfolio" },
+  { label: "Shares", key: "shares", term: "share" },
+  { label: "Paid each", key: "buy", term: "paid-each" },
+  { label: "Price", key: "price" },
+  { label: "Cost", key: "cost", term: "cost" },
+  { label: "Value", key: "value", term: "value" },
+  /*
+   * One glyph per idea, on the first column that carries it.
+   *
+   * Gain % and Gain $ are one thing said two ways, and so are Today % and
+   * Today $, so a tip on each of the pair would be the same panel twice.
+   * It is also width: every column is floored at its widest cell, the
+   * header usually is that cell in a narrow numeric column, and the table
+   * already needs about 1,100px before it starts scrolling sideways.
+   */
+  { label: "Gain %", key: "roiPct", term: "gain" },
+  { label: "Gain $", key: "roiDollar" },
+  { label: "90 days", term: "recent-range" },
+  { label: "Today %", key: "today", term: "today" },
+  { label: "Today $", key: "todayDollar" },
 ];
+
+/**
+ * The label tier, on a tap target.
+ *
+ * `MicroLabel` renders a paragraph, and a paragraph is not allowed inside a
+ * button, so the tip's own trigger carries the typography instead of
+ * wrapping one.
+ */
+const TERM_LABEL =
+  "font-mono text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground";
 
 function sortValue(h: EnrichedHolding, key: SortKey): number | string {
   switch (key) {
@@ -393,6 +390,20 @@ export const PortfolioTable = memo(function PortfolioTable({
   const rowToday = (h: (typeof holdings)[number]) =>
     todayDollarFor(h.currentValue, h.quote?.changePercent);
 
+  /*
+   * The phone's three orders, over the same `sortKey` the laptop table
+   * drives, so one reading of the list serves both. A column the phone has
+   * no button for (the reader sorted by cost on a laptop, then picked the
+   * phone up) leaves the control showing nothing rather than lighting a
+   * cell that is not what the list is doing.
+   */
+  const PHONE_SORTS = ["pct", "roiPct", "today"] as const;
+  type PhoneSort = (typeof PHONE_SORTS)[number];
+  const phoneSort: PhoneSort | null =
+    sortKey && (PHONE_SORTS as readonly string[]).includes(sortKey)
+      ? (sortKey as PhoneSort)
+      : null;
+
   /**
    * Holdings nothing could price.
    *
@@ -459,8 +470,9 @@ export const PortfolioTable = memo(function PortfolioTable({
       {holdings.length === 0 && onImportScreenshot ? (
         <input {...screenshotPickerInputProps(screenshot)} />
       ) : null}
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-6">
-        <div className="flex items-center gap-3">
+      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border px-6 py-6">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <div className="flex items-center gap-3">
           <h2 className="font-semibold text-foreground">Holdings</h2>
           {onDisplayCurrencyChange && (
             <div
@@ -481,20 +493,54 @@ export const PortfolioTable = memo(function PortfolioTable({
               />
             </div>
           )}
+          </div>
+          {/*
+            The three figures a reader came for, under the title rather
+            than under two thousand pixels of cards. The footer keeps the
+            arithmetic; this is the answer.
+          */}
+          {holdings.length > 0 && (
+            <p className="text-sm tabular-nums text-muted-foreground">
+              <span className="font-medium text-foreground">
+                {money(totals.currentValue, 0)}
+              </span>
+              {" · "}
+              <span className={signedTone(totals.roiPct)}>
+                {percent(totals.roiPct)}
+              </span>{" "}
+              since you bought
+              {today.pct !== null ? (
+                <>
+                  {" · "}
+                  <span className={signedTone(today.pct)}>
+                    {percent(today.pct, 2)}
+                  </span>{" "}
+                  today
+                </>
+              ) : null}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 py-1 pl-1 pr-1">
-            {canAdd && onImportCsv && holdings.length > 0 && (
-              <button
-                type="button"
-                onClick={onImportCsv}
-                title="Import / update holdings from a CSV file"
-                className="touch-target inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:bg-hover hover:text-foreground"
-                aria-label="Import CSV"
-              >
-                <FileUp className="h-3.5 w-3.5" />
-              </button>
-            )}
+          {/*
+            Import used to share one bordered well with the cash figure,
+            so a document glyph appeared to belong to Cash. It is its own
+            control, and it says what it does in words rather than in a
+            hover tooltip no phone can reach.
+          */}
+          {canAdd && onImportCsv && holdings.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onImportCsv}
+              className="text-muted-foreground"
+            >
+              <FileUp data-icon="inline-start" />
+              Import
+            </Button>
+          )}
+          <div className="card-sheen glass-well flex items-center gap-1 rounded-lg py-1 pl-1 pr-1">
             <button
               type="button"
               onClick={canCash ? onEditCash : undefined}
@@ -540,7 +586,20 @@ export const PortfolioTable = memo(function PortfolioTable({
         </div>
       )}
 
-      {/* Mobile / tablet cards. The 13-col table needs the 1080px column. */}
+      {/*
+        Phone cards.
+
+        This used to be eight figures of equal weight in a two by four
+        grid, 352px tall, with the two editable ones dashed like
+        separators. Nothing led, so a beginner could not tell which number
+        mattered, and the only visible control on the card was the bin.
+
+        Now it leads with what the holding is worth and what that made,
+        then today and how much of the portfolio it is, and last and
+        smallest the three you come back to change. The header row is the
+        way into the drawer, where the rest of this company lives, and
+        removing the holding moved in there with it.
+      */}
       <div className="flex flex-col gap-3 p-6 lg:hidden">
         {holdings.length === 0 ? (
           <div className="glass-well rounded-xl border border-dashed border-border px-4 py-8 text-center">
@@ -548,104 +607,143 @@ export const PortfolioTable = memo(function PortfolioTable({
             {emptyCta}
           </div>
         ) : (
-          holdings.map((h) => {
+          <>
+            {/*
+              Sorting existed only on the laptop table, and the cards
+              iterated the raw list, so a phone reader could not put their
+              biggest holding first. Three orders is all a phone needs.
+            */}
+            {holdings.length > 2 && (
+              <Segmented
+                ariaLabel="Order the holdings by"
+                value={phoneSort}
+                onChange={(id) => {
+                  setSortKey(id);
+                  // Every phone order is a figure, so biggest first.
+                  setSortDir(-1);
+                }}
+                options={[
+                  { id: "pct", label: "Biggest" },
+                  { id: "roiPct", label: "Best gain" },
+                  { id: "today", label: "Today" },
+                ]}
+              />
+            )}
+            {sortedHoldings.map((h) => {
             const listed = rowMoney(h);
             const today = rowToday(h);
             return (
             <Card key={h.id} className="px-4 py-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="text-base font-semibold text-foreground">
+              <button
+                type="button"
+                onClick={() => onOpenTicker?.(h.ticker)}
+                disabled={!onOpenTicker}
+                className="-mx-2 -mt-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2 text-left outline-none transition hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring/50 disabled:hover:bg-transparent"
+                aria-label={
+                  onOpenTicker ? `Open ${h.ticker}` : undefined
+                }
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-base font-semibold text-foreground">
                     <TickerSymbol
                       ticker={h.ticker}
                       currency={listed.code}
-                      onOpen={onOpenTicker}
                       showCurrency={mixedListings}
                     />
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {percent(h.pctOfTotal)} of your portfolio
-                  </p>
-                </div>
-                {canSell ? (
-                <button
-                  type="button"
-                  onClick={() => onDelete(h.id)}
-                  className="rounded-md p-2.5 text-muted-foreground hover:bg-hover hover:text-loss"
-                  aria-label={`Delete ${h.ticker}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-                ) : (
-                  <span className="w-10" />
-                )}
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <label className="grid gap-1">
-                  <MicroLabel>Shares</MicroLabel>
-                  <InlineNumber
-                    value={h.shares}
-                    digits={4}
-                    displayDigits={0}
-                    onCommit={(shares) => onPatch({ id: h.id, shares })}
-                    className="w-full"
-                  />
-                </label>
-                <label className="grid gap-1">
-                  <MicroLabel>Buy</MicroLabel>
-                  <InlineNumber
-                    value={listed.nativeBuy}
-                    digits={listed.digits}
-                    onCommit={(buy_price) => commitBuy(h, buy_price)}
-                    className="w-full"
-                  />
-                </label>
-                <div>
-                  <MicroLabel>Price</MicroLabel>
-                  <p
-                    className="mt-1 text-base font-semibold tabular-nums text-foreground"
-                    title={quoteAsOfTitle(h.quote)}
-                  >
+                  </span>
+                  <span className="mt-0.5 block text-sm text-muted-foreground">
                     {currency(listed.nativeSpot, listed.digits, listed.code)}
-                  </p>
-                </div>
-                {/* Same grouping as the desktop columns: cost and value,
-                    then what they made, then today. */}
-                <div>
-                  <MicroLabel>Cost</MicroLabel>
-                  <p className="mt-1 text-sm tabular-nums text-muted-foreground">
-                    {money(h.buyValue, 0)}
-                  </p>
-                </div>
-                <div>
-                  <MicroLabel>Value</MicroLabel>
-                  <p className="mt-1 text-sm tabular-nums text-foreground">
+                    {" a share"}
+                  </span>
+                </span>
+                {/*
+                  The line beside the ticker rather than a bare squiggle at
+                  the foot of the card, with a caption saying what stretch
+                  of time it covers.
+                */}
+                <span className="flex shrink-0 flex-col items-end gap-0.5">
+                  <Sparkline
+                    points={h.quote?.sparkline ?? []}
+                    width={72}
+                    height={22}
+                  />
+                  <span className={TERM_LABEL}>Last 90 days</span>
+                </span>
+                {onOpenTicker ? (
+                  <ChevronRight
+                    className="size-4 shrink-0 text-muted-foreground"
+                    aria-hidden
+                  />
+                ) : null}
+              </button>
+
+              <div className="mt-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+                <div className="min-w-0">
+                  <TermTip
+                    className={TERM_LABEL}
+                    term="value"
+                    example={{
+                      ticker: cashtag(h.ticker),
+                      amount: money(h.currentValue, 0),
+                    }}
+                  >
+                    Value
+                  </TermTip>
+                  <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-foreground">
                     {money(h.currentValue, 0)}
                   </p>
                 </div>
-                <div>
-                  <MicroLabel>ROI %</MicroLabel>
-                  <p className={cn("mt-1 text-base font-semibold tabular-nums", signedTone(h.roiPct))}>
-                    {percent(h.roiPct)}
-                  </p>
-                </div>
-                <div>
-                  <MicroLabel>ROI $</MicroLabel>
+                <div className="min-w-0 text-right">
+                  <TermTip
+                    className={TERM_LABEL}
+                    term="gain"
+                    align="end"
+                    example={{
+                      ticker: cashtag(h.ticker),
+                      amount: money(h.roiDollar, 0),
+                      second: percent(h.roiPct),
+                    }}
+                  >
+                    Gain
+                  </TermTip>
                   <p
                     className={cn(
-                      "mt-1 text-base font-semibold tabular-nums",
+                      "mt-1 font-mono text-xl font-semibold tabular-nums",
+                      signedTone(h.roiPct)
+                    )}
+                  >
+                    {percent(h.roiPct)}
+                  </p>
+                  <p
+                    className={cn(
+                      "text-sm tabular-nums",
                       signedTone(h.roiDollar)
                     )}
                   >
                     {money(h.roiDollar, 0)}
                   </p>
                 </div>
-                <div>
-                  <MicroLabel>Today</MicroLabel>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-t border-border/60 pt-3">
+                <div className="min-w-0">
+                  <TermTip
+                    className={TERM_LABEL}
+                    term="today"
+                    example={{
+                      ticker: cashtag(h.ticker),
+                      amount:
+                        today.pct != null ? money(today.dollar, 0) : undefined,
+                    }}
+                  >
+                    Today
+                  </TermTip>
                   <p
                     className={cn(
                       "mt-1 text-sm font-medium tabular-nums",
-                      today.pct != null ? signedTone(today.pct) : "text-muted-foreground"
+                      today.pct != null
+                        ? signedTone(today.pct)
+                        : "text-muted-foreground"
                     )}
                   >
                     {today.pct != null
@@ -653,17 +751,89 @@ export const PortfolioTable = memo(function PortfolioTable({
                       : NO_VALUE}
                   </p>
                 </div>
+                <div className="min-w-0 text-right">
+                  <TermTip
+                    className={TERM_LABEL}
+                    term="share-of-portfolio"
+                    align="end"
+                    example={{
+                      ticker: cashtag(h.ticker),
+                      second: percent(h.pctOfTotal),
+                    }}
+                  >
+                    Share of portfolio
+                  </TermTip>
+                  <p className="mt-1 text-sm font-medium tabular-nums text-muted-foreground">
+                    {percent(h.pctOfTotal)}
+                  </p>
+                </div>
               </div>
-              <div className="mt-3">
-                <Sparkline
-                  points={h.quote?.sparkline ?? []}
-                  width={140}
-                  height={28}
-                />
+
+              {/*
+                What you own and what you paid: the numbers you come back
+                to change rather than the ones you read every morning, so
+                they sit last and small. They stay on the card rather than
+                moving into the drawer because this is the only place on a
+                phone they can be edited.
+              */}
+              <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t border-border/60 pt-3 text-sm text-muted-foreground">
+                <label className="inline-flex items-baseline gap-1.5">
+                  <TermTip
+                    className={TERM_LABEL}
+                    term="share"
+                    example={{ ticker: cashtag(h.ticker), count: h.shares }}
+                  >
+                    Shares
+                  </TermTip>
+                  <InlineNumber
+                    value={h.shares}
+                    digits={4}
+                    displayDigits="auto"
+                    onCommit={(shares) => onPatch({ id: h.id, shares })}
+                    className="w-16 text-right"
+                  />
+                </label>
+                <label className="inline-flex items-baseline gap-1.5">
+                  <TermTip
+                    className={TERM_LABEL}
+                    term="paid-each"
+                    example={{
+                      ticker: cashtag(h.ticker),
+                      amount: currency(
+                        listed.nativeBuy,
+                        listed.digits,
+                        listed.code
+                      ),
+                    }}
+                  >
+                    Paid each
+                  </TermTip>
+                  <InlineNumber
+                    value={listed.nativeBuy}
+                    digits={listed.digits}
+                    onCommit={(buy_price) => commitBuy(h, buy_price)}
+                    className="w-20 text-right"
+                  />
+                </label>
+                <span className="inline-flex items-baseline gap-1.5">
+                  <TermTip
+                    className={TERM_LABEL}
+                    term="cost"
+                    align="end"
+                    example={{
+                      ticker: cashtag(h.ticker),
+                      amount: money(h.buyValue, 0),
+                    }}
+                  >
+                    Cost
+                  </TermTip>
+                  <span className="tabular-nums">{money(h.buyValue, 0)}</span>
+                </span>
               </div>
             </Card>
             );
-          })
+          })}
+          </>
         )}
 
         {holdings.length > 0 && (
@@ -711,8 +881,29 @@ export const PortfolioTable = memo(function PortfolioTable({
               {COLUMNS.map((col, i) => (
                 <div
                   key={col.label}
-                  className={i === 0 ? tickerCell : cellBase}
+                  /*
+                    A header may wrap; a figure may not.
+                    `cellBase` is `whitespace-nowrap` because a price broken
+                    over two lines is not a price, and every column is
+                    floored at its widest cell, so a header spelled out in
+                    words sets the whole track's width: "% of portfolio"
+                    measured 166px over a column of "32.0%". These are
+                    words rather than figures, so they are allowed the
+                    second line, and only the header row grows.
+                  */
+                  className={cn(
+                    i === 0 ? tickerCell : cellBase,
+                    i === 0 ? "" : "whitespace-normal leading-tight",
+                    "gap-1"
+                  )}
                 >
+                  {/*
+                    Two jobs, two targets. The header still sorts, because
+                    that is what a table header does; the question mark
+                    beside it opens the same glossary entry the phone label
+                    opens, so the explanation is not a hover tooltip a
+                    touch screen can never reach.
+                  */}
                   {col.key ? (
                     <button
                       type="button"
@@ -721,11 +912,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                         "inline-flex items-center gap-1 transition hover:text-foreground",
                         sortKey === col.key && "text-primary/70"
                       )}
-                      title={
-                        col.explain
-                          ? `${col.explain}. Click to sort.`
-                          : `Sort by ${col.label}`
-                      }
+                      title={`Sort by ${col.label}`}
                     >
                       {col.label}
                       {sortKey === col.key ? (
@@ -736,11 +923,14 @@ export const PortfolioTable = memo(function PortfolioTable({
                         )
                       ) : null}
                     </button>
-                  ) : col.explain ? (
-                    <span title={col.explain}>{col.label}</span>
                   ) : (
                     col.label
                   )}
+                  {col.term ? (
+                    <TermTip bare term={col.term} align="center">
+                      <Info className="size-3.5" aria-hidden />
+                    </TermTip>
+                  ) : null}
                 </div>
               ))}
             </FluidRow>
@@ -769,7 +959,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   <InlineNumber
                     value={h.shares}
                     digits={4}
-                    displayDigits={0}
+                    displayDigits="auto"
                     onCommit={(shares) => onPatch({ id: h.id, shares })}
                   />
                 </div>

@@ -10,7 +10,7 @@ import {
 import { htmlCell, htmlCellTicker, htmlTable } from "@/components/FluidTable";
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Segmented } from "@/components/ui/Panel";
 import { Textarea } from "@/components/ui/textarea";
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
 import { cn, currency } from "@/lib/format";
@@ -87,7 +87,13 @@ export function CsvImportModal({
   const [cash, setCash] = useState<number | null>(null);
   const [skipped, setSkipped] = useState<CsvSkippedRow[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [replace, setReplace] = useState(true);
+  /*
+   * Adding is the default, because replacing throws away every holding the
+   * reader did not paste and there is no undo on this screen. It used to
+   * be the other way round, behind a seventeen-word parenthetical on a
+   * checkbox, which is a destructive default nobody read.
+   */
+  const [replace, setReplace] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paste, setPaste] = useState("");
   const [busy, setBusy] = useState(false);
@@ -173,7 +179,7 @@ export function CsvImportModal({
           <div className="flex items-center gap-2">
             <FileUp className="h-4 w-4 text-primary" />
             <h2 className="font-semibold text-foreground">
-              Import CSV - {portfolioName}
+              Import holdings
             </h2>
           </div>
           <Button
@@ -188,11 +194,23 @@ export function CsvImportModal({
           </Button>
         </div>
 
-        <div className="scroll-host min-h-0 flex-1 gap-4 overflow-y-auto px-6 py-6">
-          <p className="text-sm text-muted-foreground">
-            Replace this portfolio, or paste lines like{" "}
-            <span className="text-foreground">NBIS 500 85.10</span>. CSV columns:
-            Ticker, Shares, Buy Price. Buy price is in that listing&apos;s own money.
+        {/*
+          A `gap` needs a flex or grid parent, and this was a plain block,
+          so every row in the dialog sat on whatever margin it happened to
+          carry.
+        */}
+        <div className="scroll-host flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-6">
+          {/*
+            The lede says what to do. It used to open with "Replace this
+            portfolio, or paste lines like ...", which offers two things
+            that are not alternatives (replacing is a choice further down),
+            and every example was one of the family's own holdings.
+          */}
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Paste one holding per line: the ticker, how many you own, and
+            what you paid for one share. Or choose a CSV file from your
+            broker, with the columns Ticker, Shares, Buy Price. What you
+            paid is in that listing&apos;s own money.
           </p>
 
           <Textarea
@@ -210,7 +228,7 @@ export function CsvImportModal({
               }
             }}
             rows={4}
-            placeholder={"NBIS 500 85.10\nCRWV 1100 64.45"}
+            placeholder={"AAPL 10 150.00\nVOO 5 390.10"}
             className="min-h-24 font-mono"
           />
 
@@ -255,8 +273,29 @@ export function CsvImportModal({
 
           {rows.length > 0 && (
             <div className="flex flex-col gap-2">
+              <Segmented
+                ariaLabel="What to do with these rows"
+                value={replace ? "replace" : "add"}
+                onChange={(id) => setReplace(id === "replace")}
+                options={[
+                  { id: "add", label: "Add to this portfolio" },
+                  { id: "replace", label: "Replace everything" },
+                ]}
+              />
+              <p className="text-sm text-muted-foreground">
+                {replace
+                  ? `Every holding in ${portfolioName || "this portfolio"} is removed and replaced with the rows below.`
+                  : "The rows below are added. A ticker you already hold is updated, and everything else is left as it is."}
+              </p>
+            </div>
+          )}
+
+          {rows.length > 0 && (
+            <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>Preview - {rows.length} holding{rows.length === 1 ? "" : "s"}</span>
+                <span>
+                  Preview: {rows.length} holding{rows.length === 1 ? "" : "s"}
+                </span>
                 {cash != null && (
                   <span className="text-muted-foreground">
                     Cash ${cash.toLocaleString("en-US", { maximumFractionDigits: 0 })}
@@ -301,7 +340,7 @@ export function CsvImportModal({
                           <td className={cn(htmlCell, "py-1.5 tabular-nums text-muted-foreground")}>
                             {r.callPct != null
                               ? `${Math.round(r.callPct * 100)}%`
-                              : "default"}
+                              : "Usual"}
                           </td>
                         )}
                       </tr>
@@ -327,19 +366,6 @@ export function CsvImportModal({
             </div>
           )}
 
-          {rows.length > 0 && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Checkbox
-                id="csv-replace"
-                checked={replace}
-                onCheckedChange={(v) => setReplace(v === true)}
-              />
-              <label htmlFor="csv-replace">
-                Replace this portfolio&apos;s holdings (uncheck to only add/update
-                the tickers above, keeping everything else)
-              </label>
-            </div>
-          )}
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border px-6 py-4">

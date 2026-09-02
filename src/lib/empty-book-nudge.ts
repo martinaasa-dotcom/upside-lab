@@ -1,4 +1,4 @@
-/** One-time nudge when someone signs up and never imports a name. */
+/** One-time nudge when someone signs up and never adds a company. */
 
 import { readAll } from "@/lib/supabase/read-all";
 import { isClassroomSheet } from "@/lib/classroom";
@@ -69,14 +69,21 @@ export function emptyBookNudgeText(
 ): string {
   const hi = firstName(displayName);
   const greeting = hi ? `Hi ${hi}.` : "Hi.";
+  /*
+    The greeting comes first, and the subject is not said twice. This used
+    to open with "Your portfolio is still empty." and only then say hello,
+    which is nobody's idea of how a note begins: the subject line is
+    directly above it, and repeating it before the greeting reads like a
+    form letter rather than somebody writing to you. The subject is still
+    the headline of the HTML version, passed to `emptyBookNudgeHtml`.
+  */
   return [
-    "Your portfolio is still empty.",
     greeting,
     "You signed up about a week ago, and there is still nothing in your portfolio.",
     `${PRODUCT_NAME} watches the companies you already own. Paste what you hold. On the days a price falls it reads what happened at that company and tells you whether anything really changed, which most of the time it has not. Margus will talk the week through with you, and a circle lets you go through it with people you know.`,
     "Getting started is one step: add what you already own. Upload a CSV file, drop in a screenshot of your broker page, or type them in. That is the whole thing.",
     PRODUCT_ORIGIN,
-    "This is a one-time note. The Sunday email starts once there is something in your portfolio. You can turn it off in Account: https://upsidelab.app/account",
+    "This is a one-time note. The Sunday letter starts once there is something in your portfolio. You can turn it off in Account: https://upsidelab.app/account",
   ].join("\n\n");
 }
 
@@ -247,7 +254,7 @@ export async function dispatchEmptyBookNudges(): Promise<{
       to: email,
       subject: emptyBookNudgeSubject(),
       text,
-      html: emptyBookNudgeHtml(text),
+      html: emptyBookNudgeHtml({ heading: emptyBookNudgeSubject(), text }),
     });
     if (!ok) {
       skipped += 1;

@@ -2,8 +2,8 @@ import { dbError } from "@/lib/db-error";
 import { createHash, randomBytes } from "crypto";
 import { userIsCommunityAdmin } from "@/lib/auth/ownership";
 import {
-  inviteAdminStatus,
   inviteJoinPath,
+  renewedExpiry,
   tokenHintFromToken,
 } from "@/lib/community-invite-admin";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
@@ -22,15 +22,30 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
-type InviteCopyRow = {
+type InviteSourceRow = {
   id: string;
-  token: string | null;
-  revoked_at: string | null;
+  email: string | null;
+  role: string;
   expires_at: string | null;
+  revoked_at: string | null;
 };
 
-/** Admin: join path for a live invite. Mints a stored token on older rows. */
-async function handleGET(_req: NextRequest, ctx: Ctx) {
+/**
+ * Admin: make a new link in place of this one.
+ *
+ * There is no GET here any more, and that is the point. This route used to
+ * read the raw token back out of the table to show a link a second time,
+ * which made the stored hash decorative: anyone who could read the table
+ * held every live credential in it. Only the hash is kept now, the same as
+ * a portfolio invite, so a link exists exactly once, in the response that
+ * made it. An admin who needs to share it again gets a fresh one that keeps
+ * the old link's lock, role and expiry, and the old link stops working.
+ *
+ * The new row is written before the old one is retired. If the second
+ * write fails the admin holds two live links for a moment, which costs
+ * nothing; the other order could leave them with none.
+ */
+async function handlePOST(_req: NextRequest, ctx: Ctx) {
   const auth = await requireAuthUser();
   if ("error" in auth) return auth.error;
 
@@ -46,7 +61,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
 
   const { data, error } = await supabase
     .from(PORTFELL_TABLES.communityInvites)
-    .select("id, token, revoked_at, expires_at")
+    .select("id, email, role, expires_at, revoked_at")
     .eq("id", inviteId)
     .eq("community_id", id)
     .maybeSingle();
@@ -58,35 +73,45 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "Invite not found" }, { status: 404 });
   }
 
-  const row = data as InviteCopyRow;
-  if (inviteAdminStatus(row) !== "live") {
-    return NextResponse.json(
-      { error: "That link is no longer live." },
-      { status: 400 }
-    );
-  }
-
-  if (row.token) {
-    return NextResponse.json({ path: inviteJoinPath(row.token) });
-  }
-
+  const old = data as InviteSourceRow;
   const token = randomBytes(24).toString("base64url");
-  const { error: updateError } = await supabase
+  const { data: created, error: insertError } = await supabase
     .from(PORTFELL_TABLES.communityInvites)
-    .update({
-      token,
+    .insert({
+      community_id: id,
+      email: old.email,
       token_hash: hashToken(token),
       token_hint: tokenHintFromToken(token),
+      role: old.role === "admin" ? "admin" : "member",
+      created_by: auth.user.id,
+      expires_at: renewedExpiry(old.expires_at),
     })
-    .eq("id", inviteId)
-    .eq("community_id", id)
-    .is("revoked_at", null);
+    .select("id, email, role, expires_at, created_at, token_hint")
+    .single();
 
-  if (updateError) {
-    return NextResponse.json({ error: dbError(updateError, "/api/communities/[id]/invites/[inviteId]") }, { status: 500 });
+  if (insertError) {
+    return NextResponse.json({ error: dbError(insertError, "/api/communities/[id]/invites/[inviteId]") }, { status: 500 });
   }
 
-  return NextResponse.json({ path: inviteJoinPath(token) });
+  if (!old.revoked_at) {
+    const { error: revokeError } = await supabase
+      .from(PORTFELL_TABLES.communityInvites)
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("id", inviteId)
+      .eq("community_id", id)
+      .is("revoked_at", null);
+    if (revokeError) {
+      return NextResponse.json({ error: dbError(revokeError, "/api/communities/[id]/invites/[inviteId]") }, { status: 500 });
+    }
+  }
+
+  return NextResponse.json({
+    ok: true,
+    token,
+    path: inviteJoinPath(token),
+    invite: created,
+    replaced: inviteId,
+  });
 }
 
 /** Admin: retire an invite so new people cannot join with it. */
@@ -135,5 +160,5 @@ async function handlePATCH(req: NextRequest, ctx: Ctx) {
   return NextResponse.json({ ok: true });
 }
 
-export const GET = observeRoute(handleGET, '/api/communities/[id]/invites/[inviteId]');
+export const POST = observeRoute(handlePOST, '/api/communities/[id]/invites/[inviteId]');
 export const PATCH = observeRoute(handlePATCH, '/api/communities/[id]/invites/[inviteId]');

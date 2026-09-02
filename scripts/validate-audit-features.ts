@@ -5,7 +5,6 @@
 import { allocationBySector, allocationByTicker } from "../src/lib/allocation";
 import {
   buildEarningsAlerts,
-  buildGoalAlert,
   buildStrikeAlerts,
 } from "../src/lib/alerts";
 import { shockedPrice, SHOCKS } from "../src/lib/book-shock";
@@ -58,7 +57,8 @@ const earn = buildEarningsAlerts([
 ]);
 assert(earn.length === 1, "earnings window");
 
-assert(buildGoalAlert(true, "Hit 100k"), "goal alert");
+// `buildGoalAlert` and the "goal" kind were deleted: nothing ever called
+// the builder and no surface ever handled the kind.
 assert(Math.abs(shockedPrice("NBIS", 100, "ai_down20") - 80) < 1e-9, "ai shock nbis");
 assert(Math.abs(shockedPrice("VST", 100, "ai_down20") - 83) < 1e-9, "ai shock vst");
 assert(Math.abs(shockedPrice("PWR", 100, "ai_down20") - 84) < 1e-9, "ai shock pwr");

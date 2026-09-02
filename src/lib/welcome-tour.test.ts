@@ -114,19 +114,25 @@ describe("tourStages", () => {
     expect(tourStages({ ...both, classroomOnly: true })).not.toContain("holdings");
   });
 
-  it("still explains the whole app to every one of them", () => {
-    const telling: Stage[] = ["what", "map", "helps", "rules"];
+  it("still shows the whole app to every one of them", () => {
+    const telling: Stage[] = ["day", "rules", "rooms"];
     for (const input of [
       both,
       { ...both, hasHoldings: true },
       { ...both, classroomOnly: true },
     ]) {
       const stages = tourStages(input);
-      for (const stage of telling) expect(stages, JSON.stringify(input)).toContain(stage);
-      // Explaining comes before asking, on every variant.
-      expect(stages.indexOf("rules")).toBeLessThan(stages.indexOf("q1"));
-      expect(stages.at(-1)).toBe("done");
+      for (const stage of telling) {
+        expect(stages, JSON.stringify(input)).toContain(stage);
+      }
+      // What the app is comes before what it wants from you, every variant.
+      expect(stages.indexOf("rules")).toBeLessThan(stages.indexOf("you"));
+      expect(stages.at(-1)).toBe("week");
     }
+  });
+
+  it("is seven screens for somebody with nothing in it", () => {
+    expect(tourStages(both)).toHaveLength(7);
   });
 });
 
@@ -202,14 +208,38 @@ describe("screenCopy", () => {
   });
 
   it("names the product on the first screen rather than spelling it out", () => {
-    expect(screenCopy("what", null).title).toContain("Upside Lab");
+    expect(screenCopy("day", null).title).toContain("Upside Lab");
+  });
+
+  it("says the first screen is made up, on the first screen", () => {
+    // Real companies, invented share counts, an invented day. If that stops
+    // being said out loud, the screen reads as a record of something that
+    // happened to a real company.
+    expect(screenCopy("day", null).lede.toLowerCase()).toContain("made up");
   });
 
   it("only claims a view once a tier has actually been settled", () => {
-    expect(screenCopy("done", null).title).not.toContain("Showing you");
-    expect(screenCopy("done", "Comfortable investor").title).toContain(
+    expect(screenCopy("week", null).title).not.toContain("set to");
+    expect(screenCopy("week", "Comfortable investor").title).toContain(
       "Comfortable investor"
     );
+  });
+
+  it("never tells the reader to skip, because Skip leaves the walkthrough", () => {
+    // The footer's one skip button is the way out of the whole thing, so a
+    // lede saying "skip this" sends somebody out of the screens after it.
+    for (const stage of stages) {
+      expect(screenCopy(stage, null).lede.toLowerCase(), stage).not.toContain(
+        "skip"
+      );
+    }
+  });
+
+  it("calls a company a company, never a name", () => {
+    const everything = stages
+      .flatMap((s) => [screenCopy(s, null).title, screenCopy(s, null).lede])
+      .join(" ");
+    expect(everything).not.toMatch(/\bnames you\b|\bthe names\b/i);
   });
 
   it("says portfolio, never sheet or book", () => {

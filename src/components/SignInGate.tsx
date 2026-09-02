@@ -2,18 +2,11 @@
 
 import { useAuth } from "@/components/AuthProvider";
 import { UpsideLogo } from "@/components/UpsideLogo";
-import {
-  CARD,
-  InsightText,
-  MicroLabel,
-  Panel,
-  Pill,
-  Reading,
-} from "@/components/ui/Panel";
+import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { cn } from "@/lib/format";
-import { Activity, CheckCircle2, MessageCircle, Users } from "lucide-react";
+import { Activity, MessageCircle, Users } from "lucide-react";
 import {
   inviteFromLocation,
   inviteLandingCopy,
@@ -24,12 +17,20 @@ import {
   PRODUCT_SUPPORT_EMAIL,
   SIGNIN_POINTS,
 } from "@/lib/product";
+import {
+  LOOK_AROUND_EVENT,
+  SAMPLE_PORTFOLIO_NAME,
+  isLookingAround,
+  startLookingAround,
+  stopLookingAround,
+} from "@/lib/sample-portfolio";
 import { SessionResumeShell } from "@/components/SessionResumeShell";
-import { SignedOutLanding } from "@/components/SignedOutLanding";
+import { SampleBriefing, SignedOutLanding } from "@/components/SignedOutLanding";
 import { SignInMethods } from "@/components/SignInMethods";
 import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
 import { supabaseIsConfigured } from "@/lib/supabase/env";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 type Props = {
@@ -44,11 +45,50 @@ type Props = {
 };
 
 /**
+ * The addresses that get the compact sign-in rather than the product page.
+ *
+ * `/login` is where the Google route sends a handshake that broke, and it
+ * used to answer with the full pitch under a tab titled "Sign in": a
+ * returning reader whose sign-in failed got nine screens of marketing with
+ * the red line about the failure buried under two unrelated grey captions,
+ * about a hundred and forty pixels below the button they wanted. The
+ * compact layout already existed for invites and was unreachable for a
+ * plain sign-in.
+ *
+ * Decided here rather than by a prop from `/login/page.tsx`, because that
+ * page is never drawn: `/login` is a book-room path, so `WorkspaceShell`
+ * answers it with the book room, and the gate inside that room is this
+ * one. The page file says so too.
+ */
+function compactSignIn(pathname: string): boolean {
+  return (pathname.split("?")[0] ?? pathname).replace(/\/+$/, "") === "/login";
+}
+
+/**
+ * The rooms a look-around reader can actually open.
+ *
+ * Everything in the book runs on holdings, which the sample provides, so
+ * every one of those rooms is real. Circle, the Fund, Account and Admin
+ * are about an account, and there is no account, so they would draw a
+ * screen of failed reads. Sending somebody there and showing them nothing
+ * is worse than saying plainly that this part needs signing in.
+ */
+function lookAroundOpens(pathname: string): boolean {
+  const path = (pathname.split("?")[0] ?? pathname).replace(/\/+$/, "") || "/";
+  if (path === "/") return true;
+  return ["/pulse", "/lab", "/growth", "/alerts", "/portfolio"].some(
+    (p) => path === p || path.startsWith(`${p}/`)
+  );
+}
+
+/**
  * Requires a session when Supabase is configured.
  * Demo / no-Supabase local mode renders children immediately.
  */
 export function SignInGate({ children, invite: seededInvite = null }: Props) {
   const { user, signInWithGoogle } = useAuth();
+  const pathname = usePathname();
+  const compact = compactSignIn(pathname);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   // Plain browser API instead of useSearchParams() — this page is statically
@@ -58,6 +98,16 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
     null
   );
   const [invite, setInvite] = useState<InviteLanding | null>(seededInvite);
+  /**
+   * Whether this browser has chosen to look around.
+   *
+   * Starts false on every render, server and client alike, and is corrected
+   * in an effect. Reading `localStorage` during render would make the first
+   * HTML disagree with the first hydration, and this gate is the one
+   * component in the app where that costs the most: it decides between the
+   * marketing page and the app.
+   */
+  const [looking, setLooking] = useState(false);
   /**
    * GDPR Article 8 lets each member state set the digital-consent age
    * anywhere from 13 to 16, and this app is EU-facing. Rather than pick one
@@ -76,6 +126,39 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
    */
   const minAge = invite?.kind === "classroom" ? 13 : 16;
   const needsAuth = supabaseIsConfigured();
+
+  useEffect(() => {
+    const sync = () => setLooking(isLookingAround());
+    sync();
+    window.addEventListener(LOOK_AROUND_EVENT, sync);
+    return () => window.removeEventListener(LOOK_AROUND_EVENT, sync);
+  }, []);
+
+  /*
+    The mark the cookie question reads.
+
+    Asking a stranger about performance measurement on the first screen of
+    the product is the wrong moment and, measured at 390x844, the wrong
+    place: the banner covered the sample card almost exactly, so what was
+    left of the product on the first screen was ten pixels of card rim. The
+    question is not dropped, it is deferred to a reader who has an account,
+    where the walkthrough already has a switch for it.
+
+    The mark is "there is no session here", not "the landing is drawn", so
+    it stays on while somebody is looking around the sample: they have no
+    account either, and the strip that says so is already the one thing
+    pinned to the bottom of that screen.
+
+    An attribute on the root element rather than a prop, because the banner
+    is mounted from `Providers` and is nobody's child here. Same shape as
+    `data-dock` and the session hint.
+  */
+  useEffect(() => {
+    const root = document.documentElement;
+    if (needsAuth && !user) root.setAttribute("data-signed-out", "");
+    else root.removeAttribute("data-signed-out");
+    return () => root.removeAttribute("data-signed-out");
+  }, [needsAuth, user]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -135,6 +218,52 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
    */
   if (user) return <>{children}</>;
 
+  /*
+    Looking around opens the real app on the sample portfolio.
+
+    The rooms below draw their own holdings from the demo store, which
+    `startLookingAround` has filled with the sample, so this is the product
+    rather than a picture of it. The strip is always there and always says
+    the same two things: these holdings are invented, the prices are not.
+  */
+  if (looking) {
+    const opens = lookAroundOpens(pathname);
+    return (
+      <>
+        {opens ? (
+          children
+        ) : (
+          <div className={cn(PAGE_FRAME_CLASS)}>
+            <main
+              id="main"
+              className="relative z-10 mx-auto flex w-full min-w-0 max-w-lg flex-1 flex-col justify-center gap-5 px-6 py-16 text-center"
+            >
+              <h1 className="font-heading text-2xl font-semibold text-foreground">
+                This part needs an account.
+              </h1>
+              <p className="text-base leading-relaxed text-muted-foreground">
+                A circle is other people, and the Fund and your account
+                settings are about you, so there is nothing to show somebody
+                who has not signed in yet. The portfolio, Pulse, Lab and
+                Growth are all open on the sample.
+              </p>
+              <div className="flex flex-col items-center gap-3">
+                <Button asChild>
+                  <Link href="/">Back to the sample portfolio</Link>
+                </Button>
+              </div>
+            </main>
+          </div>
+        )}
+        <LookAroundStrip
+          busy={busy}
+          onSignIn={() => void onSignIn()}
+          onLeave={() => stopLookingAround()}
+        />
+      </>
+    );
+  }
+
   async function onSignIn() {
     setErr(null);
     setBusy(true);
@@ -145,6 +274,14 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
       setBusy(false);
     }
   }
+
+  const compactCopy = invite
+    ? inviteLandingCopy(invite)
+    : {
+        title: "Sign in to Upside Lab.",
+        detail:
+          "Add what you own and it tells you, in plain words, what happened at those companies each day.",
+      };
 
   /*
    * Held in a variable rather than returned directly, because it is now
@@ -175,15 +312,16 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
         // the page-frame ones, fixed to the window. Do not make this a
         // scroll container: a y-auto overflow here either clips those lamps
         // to the first screen or stretches the SVG filter to the document.
-        !invite && "landing-field"
+        !invite && !compact && "landing-field"
       )}
     >
-      {!invite ? (
+      {!invite && !compact ? (
         <SignedOutLanding
           busy={busy}
           err={err}
           minAge={minAge}
           onSignIn={() => void onSignIn()}
+          onLookAround={() => startLookingAround()}
           notice={
             deletedNotice ? (
               <Alert className="mt-8 max-w-md">
@@ -237,26 +375,11 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
                 * flagged. It measured 19.26:1 -> 14.73:1 contrast, so it
                 * was never actually illegible — it just reads as a hedge on
                 * the one sentence that has to sound certain. */}
-              {/*
-                * The invite's own words, with no fallback, because there is
-                * no case here without an invite.
-                *
-                * These two were `invite ? inviteLandingCopy(invite).x :
-                * PRODUCT_SENTENCE` and `: SIGNIN_WHO`. This whole block is
-                * the else of `{!invite ? <SignedOutLanding/> : ...}`, so
-                * `invite` is always truthy by the time either ternary is
-                * read and neither fallback could ever draw. Left in, they
-                * are worse than dead: somebody rewriting `SIGNIN_WHO` would
-                * reasonably believe they were changing what a person sees
-                * on the sign-in page, and they were not. Both constants are
-                * still live in `site-metadata.ts`, which is where they do
-                * their work.
-                */}
               <h1 className="text-balance font-heading text-2xl font-semibold text-foreground">
-                {inviteLandingCopy(invite).title}
+                {compactCopy.title}
               </h1>
               <p className="text-base leading-relaxed text-muted-foreground">
-                {inviteLandingCopy(invite).detail}
+                {compactCopy.detail}
               </p>
             </div>
 
@@ -278,19 +401,26 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
             </ul>
 
             <div className="signin-rise-3 mt-10 flex max-w-sm flex-col gap-2.5">
+              {/*
+                * The error goes with the button, not two captions below it.
+                * `/login` is where every failed Google handshake lands, so
+                * this is the one screen where that sentence is read most.
+                */}
+              {/*
+                * An invite opens the field, because the whole point of
+                * arriving on one is to act. A plain sign-in does not: on
+                * `/login` that put an open form with a greyed-out submit
+                * on the screen a failed handshake lands on, which reads as
+                * something already broken. Two doors, both live.
+                */}
               <SignInMethods
                 googleBusy={busy}
                 onGoogle={() => void onSignIn()}
-                startWithEmail
+                error={err}
+                startWithEmail={Boolean(invite)}
                 align="start"
               />
             </div>
-
-            {err && (
-              <p className="mt-4 text-sm text-loss" role="alert">
-                {err}
-              </p>
-            )}
 
             {/*
               * Age is asserted here, in the same sentence as Terms and
@@ -323,25 +453,21 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
             </p>
           </div>
 
-          <BookStill />
+          {/*
+            * The one sample card, the same one the landing page draws.
+            *
+            * This used to be a second sample in this file: a different day,
+            * a different portfolio total, a covered-call symbol pill nobody
+            * outside the app has been introduced to, and arithmetic that
+            * did not hold either. Two samples in two files had already
+            * drifted apart, so there is one. The tilt went with it, since
+            * the landing deliberately stopped tilting the thing it most
+            * wants believed.
+            */}
+          <div className="signin-rise-3">
+            <SampleBriefing />
+          </div>
         </div>
-
-        {/*
-          * Everything below the hero exists for one reader: somebody who
-          * followed a link, has never heard of this, and is deciding whether
-          * to hand over what they own.
-          *
-          * The hero answers "what is it" and stops. That was the whole page,
-          * so a stranger judged the product on two of the eight things it
-          * does, with no answer to what it costs or what happens to their
-          * holdings. Those are the next two questions in that order, every
-          * time, and leaving them unanswered reads as something being kept
-          * back rather than as brevity.
-          *
-          * An invite skips all of it. Somebody arriving on a named invite
-          * already knows why they are here, and the hero swaps to that
-          * story; a product tour underneath would talk over it.
-          */}
       </main>
       )}
     </div>
@@ -378,114 +504,58 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
 */
 const SIGNIN_POINT_ICONS = [Activity, MessageCircle, Users] as const;
 
-
-const SAMPLE_MOVERS = [
-  { ticker: "RKLB", pct: "+6.8%", dollar: "+$3,640", up: true },
-  { ticker: "AMZN", pct: "+1.4%", dollar: "+$720", up: true },
-  { ticker: "MSFT", pct: "-0.6%", dollar: "-$180", up: false },
-] as const;
-
-/** Compact sample of a day that moved. Not a full-size Home panel. */
-function BookStill() {
+/**
+ * The one thing on screen that a look-around reader must never lose.
+ *
+ * It says both halves of the truth every time: the holdings are made up,
+ * the prices are real. A demo that looks exactly like the product is only
+ * honest while it keeps saying which one you are in.
+ *
+ * `.bottom-notice` rather than a typed offset, so it clears whatever is
+ * actually drawn down there. It carries no `backdrop-filter` of its own
+ * beyond `glass-overlay`, which is what every notice pinned over content
+ * in this app uses.
+ */
+function LookAroundStrip({
+  busy,
+  onSignIn,
+  onLeave,
+}: {
+  busy: boolean;
+  onSignIn: () => void;
+  onLeave: () => void;
+}) {
   return (
-    <div className="relative md:-rotate-1 md:transition-transform md:duration-700 md:hover:rotate-0">
-      <Panel
-        className="signin-rise-3 h-auto gap-4 p-4 relative overflow-hidden"
-        aria-hidden
-      >
-        <div className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-2">
-            <span className="signin-live-dot" aria-hidden />
-            <MicroLabel>
-              Today&apos;s briefing
-            </MicroLabel>
-          </span>
-          <Pill tone="neutral">Sample</Pill>
+    <div
+      className="bottom-notice fixed z-50 left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] sm:left-1/2 sm:right-auto sm:w-[34rem] sm:-translate-x-1/2"
+      role="region"
+      aria-label="Sample portfolio"
+    >
+      {/*
+        * Two lines and two small buttons, because this is pinned over the
+        * product on a phone and every pixel of it is a pixel of somebody's
+        * portfolio. "Sign in to use what you own" was a third sentence
+        * saying what the button beside it already says.
+        */}
+      <div className="flex flex-col gap-2.5 rounded-xl glass-overlay ring-1 ring-foreground/20 p-3.5 sm:flex-row sm:items-center sm:gap-4 sm:p-4">
+        <p className="min-w-0 flex-1 text-sm leading-relaxed text-foreground">
+          {SAMPLE_PORTFOLIO_NAME}: the holdings are made up and the prices
+          are real.
+        </p>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button type="button" size="sm" disabled={busy} onClick={onSignIn}>
+            Sign in
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onLeave}
+          >
+            Leave the sample
+          </Button>
         </div>
-
-        <div>
-          <MicroLabel>Portfolio</MicroLabel>
-          <p className="mt-1 font-sans text-2xl font-bold tabular-nums text-foreground">
-            $91,400
-          </p>
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            <span className="rounded-md bg-gain/15 px-2 py-1 text-sm font-semibold tabular-nums text-gain">
-              Today +$4,180
-            </span>
-            <span className="rounded-md bg-muted px-2 py-1 text-sm font-semibold tabular-nums text-gain">
-              All time +18%
-            </span>
-          </div>
-        </div>
-
-        {/*
-         * Three columns, not two, and the figures line up.
-         *
-         * The percent and the dollar used to sit in one span separated by a
-         * space, both in the same weight and colour, so `+6.8% +$3,640` read
-         * as one run of characters and nothing lined up down the rows. They
-         * are separate fixed-width `tabular-nums` columns now — the percent
-         * carries the gain/loss colour because that is the figure a person
-         * scans, and the money sits beside it in a quieter tone rather than
-         * competing with it.
-         *
-         * `glass-well` rather than the opaque `bg-muted` this had, so the
-         * ambient field reads through the sample the way it does through
-         * every real well in the app.
-         */}
-        <div className={cn(CARD, "divide-y divide-border overflow-hidden")}>
-          {SAMPLE_MOVERS.map((row) => (
-            <div
-              key={row.ticker}
-              className="flex h-10 items-center gap-3 px-3"
-            >
-              <span className="flex-1 font-heading text-sm font-semibold text-foreground">
-                ${row.ticker}
-              </span>
-              <span
-                className={cn(
-                  "w-14 text-right font-mono text-sm font-medium tabular-nums",
-                  row.up ? "text-gain" : "text-loss"
-                )}
-              >
-                {row.pct}
-              </span>
-              <span className="w-16 text-right font-mono text-sm tabular-nums text-muted-foreground">
-                {row.dollar}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <Reading nested label="Worth noticing">
-          {/*
-           * Rewritten. The old line read "Check whether cheaper launches
-           * still hold, or this is just a bounce" — "cheaper launches" was
-           * a thesis nobody outside this example knows, and "a bounce" is
-           * exactly the market slang AGENTS.md bans on anything a person
-           * reads. It also asked the reader to check something without
-           * saying why it mattered.
-           *
-           * This says the observation, then the reason it is worth a
-           * second look, in words a grandmother gets.
-           */}
-          <InsightText text="$RKLB rose 6.8% today while Amazon and Microsoft barely moved. When one company climbs on its own, the question is whether something changed at the business, or only the price." />
-        </Reading>
-
-        <div className="rounded-lg bg-muted p-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">$RKLB</span>
-            <Pill tone="good">Up ≥5%</Pill>
-          </div>
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            <Pill>Inside recent range</Pill>
-            <Pill tone="good">
-              <CheckCircle2 data-icon="inline-start" />
-              Thesis intact
-            </Pill>
-          </div>
-        </div>
-      </Panel>
+      </div>
     </div>
   );
 }

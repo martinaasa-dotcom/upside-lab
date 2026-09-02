@@ -79,16 +79,21 @@ export function marketDaysPhrase(days: number): string {
   return `about ${months} months`;
 }
 
+/*
+ * A one-word sentence with no subject is not how a person talks, and
+ * "Upward. The S&P 500 is above its usual price ..." was the first thing on
+ * the card. These say what is trending instead.
+ */
 function directionLead(direction: SentimentReading["direction"]): string | null {
-  if (direction === "up") return "Upward.";
-  if (direction === "down") return "Downward.";
+  if (direction === "up") return "The market is trending up.";
+  if (direction === "down") return "The market is trending down.";
   return null;
 }
 
 export function sentimentLead(reading: SentimentReading): string {
   const head = directionLead(reading.direction);
   if (!head) return reading.copy;
-  if (reading.copy.startsWith("Upward") || reading.copy.startsWith("Downward")) {
+  if (reading.copy.startsWith("The market is trending")) {
     return reading.copy;
   }
   return `${head} ${reading.copy}`;
@@ -122,7 +127,7 @@ export function sentimentHistoryLine(metrics: SentimentMetrics): string | null {
   }
   const more = metrics.typicalMoreDays;
   if (more != null && more >= MIN_HISTORY_DAYS) {
-    return `In this sample, stretches like this typically ran ${marketDaysPhrase(more)} more before price came back to usual.`;
+    return `In this sample, stretches like this typically ran ${marketDaysPhrase(more)} more before the price came back to its usual level.`;
   }
   return null;
 }
@@ -168,7 +173,7 @@ export function sentimentStretch(metrics: SentimentMetrics): SentimentStretch | 
     moreLabel: metrics.alreadyLong
       ? "Already the long one in this sample"
       : metrics.typicalMoreDays != null
-        ? `Typically ${marketDaysPhrase(metrics.typicalMoreDays)} more`
+        ? `Past runs lasted ${marketDaysPhrase(metrics.typicalMoreDays)} longer`
         : "",
     above: side === "above",
     streakDays: metrics.streakDays,
@@ -226,9 +231,13 @@ function rsiGlance(rsiNow: number | null): {
   glance: "up" | "down" | "warn" | "none";
 } {
   const explainBase =
-    "How fast SPY has moved over the last 14 days. Near 30 the recent drop has been hard. Near 70 the recent rise has been fast. The bar runs from 20 to 80, and only stretches if the reading is outside that.";
+    "How fast the S&P 500 has moved over the last 14 days. Near 30 the recent drop has been hard. Near 70 the recent rise has been fast. The bar runs from 20 to 80, and only stretches if the reading is outside that.";
   if (rsiNow == null) {
-    return { sub: "14-day SPY", explain: explainBase, glance: "none" };
+    return {
+      sub: "The S&P 500 over 14 days",
+      explain: explainBase,
+      glance: "none",
+    };
   }
   const n = number(rsiNow, 1);
   if (rsiNow <= 32) {
@@ -238,18 +247,19 @@ function rsiGlance(rsiNow: number | null): {
       glance: "down",
     };
   }
-  if (rsiNow < 50) {
+  /*
+   * One neutral band across the middle, colour only at the ends.
+   *
+   * This used to turn orange at 48.6 and green at 50.1, so a reading a hair
+   * under the midpoint wore a caution colour and a hair over wore a good
+   * one, with nothing different about what the number meant. Both are the
+   * middle of the range, and the middle of a range is not a verdict.
+   */
+  if (rsiNow <= 68) {
     return {
-      sub: "On the low side",
-      explain: `${explainBase} ${n} is on the low side of the middle.`,
-      glance: "warn",
-    };
-  }
-  if (rsiNow <= 70) {
-    return {
-      sub: "Mid-range",
-      explain: `${explainBase} ${n} is in the middle.`,
-      glance: "up",
+      sub: "Middle of its range",
+      explain: `${explainBase} ${n} is in the middle of that range.`,
+      glance: "none",
     };
   }
   return {
@@ -287,11 +297,16 @@ function fearGlance(
       ? ` Coins sit at ${Math.round(cryptoFearGreed)} on their own score.`
       : "";
   const explain = `${explainBase} ${n} is called ${rating.toLowerCase()}.${crypto}`;
-  if (fearGreed <= 25) return { sub: rating, explain, glance: "down" };
-  if (fearGreed <= 45) return { sub: rating, explain, glance: "down" };
-  if (fearGreed <= 55) return { sub: rating, explain, glance: "none" };
-  if (fearGreed <= 75) return { sub: rating, explain, glance: "up" };
-  return { sub: rating, explain, glance: "up" };
+  /*
+   * Neither end of this scale is good or bad for the reader, so neither is
+   * painted as a gain or a loss. The card's own copy says extreme fear has
+   * sat near a market low (2009, 2020, 2022), which is the opposite of what
+   * a red number teaches; both extremes are simply unusual, and the middle
+   * is ordinary.
+   */
+  if (fearGreed <= 25) return { sub: rating, explain, glance: "warn" };
+  if (fearGreed >= 75) return { sub: rating, explain, glance: "warn" };
+  return { sub: rating, explain, glance: "none" };
 }
 
 function usualGlance(metrics: Pick<SentimentMetrics, "smaRatio">): {
@@ -541,10 +556,10 @@ export function sentimentGaugeNotes(metrics: SentimentMetrics): SentimentGaugeNo
       kind: "linear",
       markerPct: linearMarkerPct(metrics.fearGreed, 0, 100),
       fills: trackFills(0, 100, [
-        { lo: 0, hi: 25, className: "bg-loss/40" },
-        { lo: 25, hi: 45, className: "bg-loss/20" },
-        { lo: 55, hi: 75, className: "bg-gain/20" },
-        { lo: 75, hi: 100, className: "bg-gain/40" },
+        { lo: 0, hi: 25, className: "bg-warning/40" },
+        { lo: 25, hi: 45, className: "bg-warning/20" },
+        { lo: 55, hi: 75, className: "bg-warning/20" },
+        { lo: 75, hi: 100, className: "bg-warning/40" },
       ]),
       signedFillPct: null,
       dotClass: glanceDot(fear.glance),

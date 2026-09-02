@@ -234,7 +234,9 @@ function structuralRotation(
   ).length;
   if (inTheme < 2) return null;
   const label = THEME_LABEL[top.theme];
-  return `Most of your portfolio is ${label} (${sharePct(top.pct)}). A bad year in that group is a bad year for you, not a dip in one name. If you did not mean to take that much in one place, that is the thing to fix.`;
+  // Never "that is the thing to fix": the only way to fix it is to sell,
+  // which is the one sentence this app does not write.
+  return `Most of your portfolio is ${label} (${sharePct(top.pct)}). A bad year in that group is a bad year for you, not a dip in one holding. If you did not mean to have that much in one place, that is worth knowing before the next bad week.`;
 }
 
 function loudestInTheme(
@@ -499,8 +501,16 @@ export function groupSplitFact(
     downLabel: THEME_PLAIN[worst.theme],
     upPct: best.pct,
     downPct: worst.pct,
-    upTicker: loudestInTheme(moving, best.theme),
-    downTicker: loudestInTheme(moving, worst.theme),
+    /*
+     * The "other" group is everything the app could not put a name to, so
+     * it has no loudest member worth naming: `groupLead` would build
+     * "$KO and the other the rest of your portfolio", which is not a
+     * sentence. Handing back null takes the null path, which says "The
+     * rest of your portfolio" and reads correctly.
+     */
+    upTicker: best.theme === "other" ? null : loudestInTheme(moving, best.theme),
+    downTicker:
+      worst.theme === "other" ? null : loudestInTheme(moving, worst.theme),
     sameAiStory:
       AI_NEIGHBORS.has(best.theme) && AI_NEIGHBORS.has(worst.theme),
   };

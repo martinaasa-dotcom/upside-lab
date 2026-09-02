@@ -35,12 +35,13 @@ export type TickerPulseContext = {
 
 async function fetchTickerNewsUncached(
   ticker: string,
+  listedSymbol: () => Promise<string>,
   count = 5
 ): Promise<PulseHeadline[]> {
   try {
     if (isMarketCircuitOpen("yahoo")) return [];
     const yf = await getYahoo();
-    const symbol = (await resolveYahooListedSymbol(ticker)) ?? ticker;
+    const symbol = await listedSymbol();
     const result = await withMarketCircuit("yahoo", () =>
       yf.search(symbol, { newsCount: count })
     );
@@ -79,13 +80,25 @@ async function fetchTickerPulseContextUncached(
     news: [],
   };
 
+  /*
+    One listing lookup per context, shared by both halves. The earnings
+    summary and the news search each used to resolve the symbol for
+    themselves, which on a name Yahoo does not list in the US is two walks
+    down the whole suffix list for one answer.
+  */
+  let symbolPending: Promise<string> | null = null;
+  const listedSymbol = () =>
+    (symbolPending ??= resolveYahooListedSymbol(ticker)
+      .then((symbol) => symbol ?? ticker)
+      .catch(() => ticker));
+
   const [summaryResult, news] = await Promise.all([
     (async () => {
       if (isCoinSymbol(ticker)) return null;
       try {
         const yf = await getYahoo();
         if (isMarketCircuitOpen("yahoo")) return null;
-        const symbol = (await resolveYahooListedSymbol(ticker)) ?? ticker;
+        const symbol = await listedSymbol();
         return await withMarketCircuit("yahoo", () =>
           yf.quoteSummary(symbol, {
             modules: ["earningsHistory", "calendarEvents", "earnings"],
@@ -96,7 +109,7 @@ async function fetchTickerPulseContextUncached(
         return null;
       }
     })(),
-    fetchTickerNewsUncached(ticker),
+    fetchTickerNewsUncached(ticker, listedSymbol),
   ]);
 
   base.news = news;

@@ -34,6 +34,22 @@ are functional app state rather than tracking.
 | `sb-uzrnybyggznpvgxgrvgl-auth-token` (may be split into `…-auth-token.0`, `…-auth-token.1` when the JWT is large) | `@supabase/ssr`, first-party, on our domain | The signed-in session. Without it you are signed out on every request. | Tracks the Supabase session/refresh-token lifetime; cleared on sign-out and by account deletion (`purgeClientSession()`). | **Strictly necessary** — exempt. No banner required. |
 | Google sign-in cookies | Google, on `google.com` / `accounts.google.com` | Google's own sign-in. | Google's, not ours. | Set by Google under Google's policies during the OAuth redirect. We never read them and they are not on our domain. |
 
+### Attributes on the session cookie
+
+Set by `sessionCookieOptions` (`src/lib/supabase/cookie-options.ts`) and
+passed to all three Supabase clients this app builds: the request-scoped
+server client (`server-auth.ts`), the proxy's session refresh (`proxy.ts`)
+and the browser client (`browser.ts`). `cookie-options.test.ts` and
+`proxy.test.ts` hold each of them to it.
+
+| Attribute | Value | Why |
+|---|---|---|
+| `Secure` | on, except on a local development server (`localhost`, `127.0.0.1`, `*.local`) | `@supabase/ssr` says nothing about this attribute on its own, so before 2026-09-02 the cookie went out without it and a browser would send the session over plain http to this host. HSTS closes that leg on a return visit; this closes it on the first. The local exception exists because Safari refuses a Secure cookie on plain http and `next dev` is plain http. |
+| `SameSite` | `Lax` | The first line of the CSRF defence; `proxy.ts` and `same-origin.ts` are the second. |
+| `Path` | `/` | One session for the whole app. |
+| `HttpOnly` | **off** | On purpose: the browser client reads the session out of `document.cookie` (`AuthProvider` asks it who is signed in and listens for changes), so an HttpOnly cookie would sign the page out while the server still had a session. What stands in for the flag is the CSP, and it is worth being straight about how much that is: `script-src` carries `'unsafe-inline'` and cannot lose it while the app shell is CDN-cached (see `buildContentSecurityPolicy`, which records the live hydration failure a nonce caused, and note that a hash would take Flight down the same way, since CSP Level 3 ignores `'unsafe-inline'` in any policy carrying a hash or a nonce). So the CSP stops a script from a host this app does not name, and does not stop an inline one. What is actually carrying the weight is the rest of it: no `'strict-dynamic'`, a `connect-src` and `img-src` of named hosts rather than every https host, and the same-origin gate in front of every mutation. |
+| `Max-Age` | 400 days, the library's own | The browser cap on a cookie lifetime; the session inside it expires on Supabase's schedule and is refreshed by the proxy. |
+
 The name above is the `@supabase/ssr` convention
 (`sb-<project-ref>-auth-token`) applied to this app's project ref, derived
 from the naming convention rather than independently observed in a
@@ -123,3 +139,29 @@ Re-run the verification and update this file when any of these change:
   and for a consent banner that blocks it before it loads.
 - Supabase auth changes how it stores sessions.
 - The app starts setting first-party cookies of its own.
+
+## Performance measurement, and what "No thanks" turns off
+
+The cookie card offers a choice about performance measurement, and until
+2026-09-02 pressing No thanks turned off the third-party analytics and left
+this app's own web-vitals reporting running: `WebVitals` is mounted
+unconditionally in the root layout, so CLS, LCP, TTFB and the path of every
+page opened went on being posted to `/api/internal/telemetry` for as long as
+that reader used the app.
+
+Nothing in that payload identifies anybody and it sets no cookie, so this was
+never a leak. It was a promise the code did not keep, on the one card whose
+whole job is to ask honestly. `reportWebVital` reads the answer now, at send
+time rather than at mount, so the button stops the next measurement rather
+than the page after next.
+
+An explicit no is honoured and nothing else changes. A reader who has not
+answered is still measured, which is what the card describes: it says the
+measurement is optional, not that it is off until asked, and the card is on
+screen saying so while it happens.
+
+`reportClientError` is deliberately not gated. A crash report is not
+analytics: it carries no measurement of anybody's behaviour, the card does
+not offer to turn it off, and gating it would quietly turn "no thanks to
+performance measurement" into "and stop telling anyone when the app breaks
+for me".

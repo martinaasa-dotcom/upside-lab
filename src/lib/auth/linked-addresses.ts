@@ -2,13 +2,19 @@ import {
   decideClaim,
   hashLinkToken,
   linkUrl,
+  maskAddress,
   mintLinkToken,
   type AddressOutcome,
   type ClaimVerdict,
 } from "@/lib/auth/account-addresses";
 import { normalizeAddress } from "@/lib/auth/email-address";
-import { confirmAddressCopy } from "@/lib/email-letter";
-import { PRODUCT_ORIGIN } from "@/lib/product";
+import {
+  addressConnectedCopy,
+  addressNotConnectedCopy,
+  confirmAddressCopy,
+} from "@/lib/email-letter";
+import { PRODUCT_ORIGIN, PRODUCT_SUPPORT_EMAIL } from "@/lib/product";
+import { takeDurableRateLimit } from "@/lib/rate-limit-durable";
 import { noteEmailConfigured, sendNoteEmail } from "@/lib/send-note";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
@@ -138,17 +144,22 @@ export async function magicTokenFor(primaryEmail: string): Promise<string | null
 }
 
 /**
- * A one-time token for whichever account this address already reaches.
+ * Whichever account this address already reaches, and nothing minted yet.
  *
  * Extra addresses go to the account they were added to. An address that is
  * already the login on an auth user goes to that user. Null means there is
  * nobody yet, which is how a first email sign-in knows to make one.
+ *
+ * Kept apart from minting a token because two callers want the answer without
+ * wanting a session: the page that asks whether this really is the account you
+ * meant to open needs to name it, and the sign-in link needs to know whether a
+ * browser is already signed in to somebody else.
  */
-export async function hashedSessionTokenForAddress(
+export async function accountReachedByAddress(
   rawEmail: string
-): Promise<string | null> {
+): Promise<{ userId: string; primaryEmail: string } | null> {
   const linked = await accountForAddress(rawEmail);
-  if (linked) return magicTokenFor(linked.primaryEmail);
+  if (linked) return linked;
 
   const admin = getSupabaseServer();
   if (!admin || !supabaseUsesServiceRole()) return null;
@@ -163,9 +174,20 @@ export async function hashedSessionTokenForAddress(
   if (!userId) return null;
 
   const { data: found, error } = await admin.auth.admin.getUserById(userId);
-  if (error || !found?.user?.email) return null;
+  const primaryEmail = found?.user?.email;
+  if (error || !primaryEmail) return null;
 
-  return magicTokenFor(found.user.email);
+  return { userId, primaryEmail };
+}
+
+/** A one-time token for whichever account this address already reaches. */
+export async function hashedSessionTokenForAddress(
+  rawEmail: string
+): Promise<string | null> {
+  const reached = await accountReachedByAddress(rawEmail);
+  if (!reached) return null;
+
+  return magicTokenFor(reached.primaryEmail);
 }
 
 /*
@@ -220,7 +242,56 @@ async function claimVerdict(
 export type LinkStart =
   | { kind: "sent"; email: string; closes: boolean }
   | { kind: "already" }
+  /*
+    The address was answered and the caller is told nothing. Somebody signed in
+    can type any address in the world into that field, so an answer that
+    changed depending on whether the address already had an account here would
+    be a way of asking about strangers. The refusal goes to the mailbox it is
+    about instead.
+  */
+  | { kind: "quiet" }
   | { kind: "error"; code: AddressOutcome };
+
+/** At most this many confirmations may be sent to one address in a day. */
+export const DAILY_LETTERS_PER_ADDRESS = 3;
+
+/** And the same account may not ask for the same address again inside this. */
+export const SAME_ADDRESS_COOLDOWN_MS = 10 * 60 * 1000;
+
+/**
+ * Tells the mailbox that somebody asked for it and did not get it.
+ *
+ * The one letter in this feature nobody asked to receive, so it is bounded by
+ * the same daily count as a confirmation: a refusal repeated on demand would
+ * be a way of sending a stranger mail through us just as surely as a
+ * confirmation is.
+ */
+async function quietlyRefuse(
+  email: string,
+  requestedBy: string | null
+): Promise<LinkStart> {
+  const perAddress = await takeDurableRateLimit(
+    `address-link-to:${email}`,
+    DAILY_LETTERS_PER_ADDRESS,
+    24 * 60 * 60_000
+  );
+
+  if (perAddress.ok) {
+    const copy = addressNotConnectedCopy({
+      requestedBy,
+      support: PRODUCT_SUPPORT_EMAIL,
+    });
+
+    await sendNoteEmail({
+      to: email,
+      subject: copy.subject,
+      text: copy.text,
+      html: copy.html,
+    });
+  }
+
+  return { kind: "quiet" };
+}
 
 /**
  * Starts adding an address: writes it down as pending and mails it a link.
@@ -243,37 +314,67 @@ export async function startAddressLink(input: {
   const email = normalizeAddress(input.email);
 
   /*
+    One account asking again for the same address. Every one of those is a
+    letter with our sending domain on it going to a mailbox that may not want
+    any, so a person who keeps pressing the button sends one letter and then
+    waits. Checked before anything is written, so a refusal here leaves the
+    pending row that is already sitting in that mailbox alone.
+  */
+  const again = await takeDurableRateLimit(
+    `address-link-pair:${input.userId}:${email}`,
+    1,
+    SAME_ADDRESS_COOLDOWN_MS
+  );
+  if (!again.ok) return { kind: "error", code: "slow-down" };
+
+  /*
     A pending row nobody ever confirmed holds an address hostage, because the
-    table allows one row per address whatever its state. An expired one is
-    worth nothing to the account that started it, so it goes rather than
-    standing in the way of somebody who is asking now.
+    table allows one row per address whatever its state. It is worth nothing to
+    the account that started it, whether it has run out yet or not: nothing
+    reaches an account until somebody opens the link. So a newer request takes
+    it, rather than the first account to type a stranger's address being able
+    to keep everyone else off it by asking again every hour.
+
+    That door only swings as far as the two limits either side of it let it,
+    which is why they are not optional.
   */
   await admin
     .from(PORTFELL_TABLES.accountEmails)
     .delete()
     .eq("email", email)
-    .is("verified_at", null)
-    .lt("token_expires_at", new Date().toISOString());
+    .is("verified_at", null);
 
   const verdict = await claimVerdict(input.userId, input.primaryEmail, email);
 
   if (verdict.kind === "already") return { kind: "already" };
-  if (verdict.kind === "refuse") return { kind: "error", code: verdict.code };
-
-  const token = mintLinkToken();
 
   /*
-    One row per address per account, so asking again sends a fresh link rather
-    than filling the table with tokens that all open the same thing. The old
-    token stops working the moment this lands, which is what somebody who
-    pressed "send it again" expects.
+    A refusal about the address itself is answered in the mailbox rather than
+    on the screen, so the account screen cannot be used to find out which
+    addresses have accounts here. Everything else is about the caller's own
+    account and is said to their face.
   */
-  await admin
-    .from(PORTFELL_TABLES.accountEmails)
-    .delete()
-    .eq("email", email)
-    .eq("user_id", input.userId)
-    .is("verified_at", null);
+  if (verdict.kind === "refuse") {
+    if (verdict.code !== "has-data" && verdict.code !== "linked-elsewhere") {
+      return { kind: "error", code: verdict.code };
+    }
+
+    return quietlyRefuse(email, input.primaryEmail);
+  }
+
+  /*
+    And the shared limit, which is the one that protects the mailbox rather
+    than the sender: three accounts each asking once is the same three letters
+    to the same stranger as one account asking three times.
+  */
+  const perAddress = await takeDurableRateLimit(
+    `address-link-to:${email}`,
+    DAILY_LETTERS_PER_ADDRESS,
+    24 * 60 * 60_000
+  );
+  if (!perAddress.ok) return { kind: "error", code: "slow-down" };
+
+  const token = mintLinkToken();
 
   const { error } = await admin.from(PORTFELL_TABLES.accountEmails).insert({
     user_id: input.userId,
@@ -289,7 +390,7 @@ export async function startAddressLink(input: {
       same one in the same breath. It is the same answer the verdict above
       gives, arrived at a moment later, so it reads the same way.
     */
-    if (error.code === "23505") return { kind: "error", code: "linked-elsewhere" };
+    if (error.code === "23505") return { kind: "quiet" };
 
     console.error("could not record a pending address", error.message);
     return { kind: "error", code: "failed" };
@@ -325,6 +426,71 @@ export type LinkConfirmation =
   | { kind: "linked"; email: string }
   | { kind: "fail"; reason: string };
 
+type PendingRow = {
+  id: string;
+  user_id: string;
+  email: string;
+  token_expires_at: string | null;
+  verified_at: string | null;
+};
+
+async function readPending(token: string): Promise<PendingRow | null> {
+  const admin = getSupabaseServer();
+  if (!admin || !supabaseUsesServiceRole()) return null;
+
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+
+  const { data } = await admin
+    .from(PORTFELL_TABLES.accountEmails)
+    .select("id, user_id, email, token_expires_at, verified_at")
+    .eq("token_hash", hashLinkToken(trimmed))
+    .maybeSingle();
+
+  const pending = data as PendingRow | null;
+  if (!pending || pending.verified_at) return null;
+  if (!pending.token_expires_at) return null;
+  if (new Date(pending.token_expires_at) < new Date()) return null;
+
+  return pending;
+}
+
+export type PendingLink = {
+  /** The address the link was sent to. */
+  email: string;
+  /** Whose account it would open, with most of the mailbox taken out. */
+  maskedPrimary: string;
+  /** The account itself, so the page behind the button can check the session. */
+  account: string;
+};
+
+/**
+ * What a confirmation link is for, without spending it.
+ *
+ * The page at the end of that link used to say "connect this address" and name
+ * neither the address nor the account, which is asking somebody to agree to
+ * something nobody has told them. The account it would open is the whole of
+ * what is being agreed to, so it is on the page, masked, because that page is
+ * behind no sign-in and can be opened by whoever holds the mail.
+ */
+export async function pendingAddressLink(token: string): Promise<PendingLink | null> {
+  const pending = await readPending(token);
+  if (!pending) return null;
+
+  const admin = getSupabaseServer();
+  if (!admin) return null;
+
+  const { data: found } = await admin.auth.admin.getUserById(pending.user_id);
+  const primary = found?.user?.email;
+  if (!primary) return null;
+
+  return {
+    email: pending.email,
+    maskedPrimary: maskAddress(primary.toLowerCase()),
+    account: pending.user_id,
+  };
+}
+
 /**
  * The other end of that link.
  *
@@ -333,40 +499,43 @@ export type LinkConfirmation =
  * somebody else, and the answer that matters is the one true at the moment
  * the address is actually joined.
  */
-export async function confirmAddressLink(token: string): Promise<LinkConfirmation> {
+export async function confirmAddressLink(
+  token: string,
+  opts: { signedInUserId?: string | null } = {}
+): Promise<LinkConfirmation> {
   const admin = getSupabaseServer();
   if (!admin || !supabaseUsesServiceRole()) {
     return { kind: "fail", reason: "not-configured" };
   }
 
-  const hash = hashLinkToken(token);
-
-  const { data } = await admin
-    .from(PORTFELL_TABLES.accountEmails)
-    .select("id, user_id, email, token_expires_at, verified_at")
-    .eq("token_hash", hash)
-    .maybeSingle();
-
-  const pending = data as {
-    id: string;
-    user_id: string;
-    email: string;
-    token_expires_at: string | null;
-    verified_at: string | null;
-  } | null;
-
-  if (!pending || pending.verified_at) return { kind: "fail", reason: "expired" };
-
-  if (!pending.token_expires_at || new Date(pending.token_expires_at) < new Date()) {
-    await admin.from(PORTFELL_TABLES.accountEmails).delete().eq("id", pending.id);
-    return { kind: "fail", reason: "expired" };
-  }
+  const pending = await readPending(token);
+  if (!pending) return { kind: "fail", reason: "expired" };
 
   const { data: loginAccount } = await admin.rpc("portfell_account_for_login_email", {
     p_email: pending.email,
   });
 
   const other = (loginAccount as string | null) ?? null;
+
+  /*
+    An address with no Upside Lab account of its own is the dangerous one, and
+    it is dangerous in a way the link on its own cannot answer.
+
+    Confirming it binds a mailbox that has never signed up here to somebody
+    else's account, and nothing after that ever asks again: the day its owner
+    taps Continue with Google, `accountForAddress` reads the row and hands them
+    a session on the account that claimed them. An address that already has an
+    account here is refused or adopted by the rules further down, and its owner
+    is a party either way. An address with nothing on it has only our own mail
+    to go on, and a branded letter is exactly what a person is fooled by.
+
+    So the mailbox is not enough on its own here. The browser pressing the
+    button also has to be signed in to the account asking, which is the one
+    thing somebody who is not that account cannot arrange.
+  */
+  if (!other && opts.signedInUserId !== pending.user_id) {
+    return { kind: "fail", reason: "sign-in-first" };
+  }
 
   if (other && other !== pending.user_id) {
     const { data: never } = await admin.rpc("portfell_account_never_used", {
@@ -393,21 +562,75 @@ export async function confirmAddressLink(token: string): Promise<LinkConfirmatio
     }
   }
 
-  const { error } = await admin
+  /*
+    Spent with a read on the write, and only against a row that is still
+    waiting. A mail client that fetches a page and a person who presses the
+    button a moment later are two posts arriving together, and an update that
+    only reports whether the database was reachable cannot tell the second one
+    that the first already did this. Postgres settles it: exactly one of them
+    matches `verified_at is null` and comes back with a row.
+  */
+  const { data: spent, error } = await admin
     .from(PORTFELL_TABLES.accountEmails)
     .update({
       verified_at: new Date().toISOString(),
       token_hash: null,
       token_expires_at: null,
     })
-    .eq("id", pending.id);
+    .eq("id", pending.id)
+    .is("verified_at", null)
+    .select("id");
 
   if (error) {
     console.error("could not confirm an address", error.message);
     return { kind: "fail", reason: "link-failed" };
   }
 
+  if (!spent || spent.length === 0) return { kind: "fail", reason: "expired" };
+
+  await tellTheAccount(pending.user_id, pending.email);
+
   return { kind: "linked", email: pending.email };
+}
+
+/**
+ * Tells the address an account signs in with that a second one now does too.
+ *
+ * The proof this feature runs on happens in the mailbox being added, which is
+ * not necessarily one the account holder reads. Without this letter there is
+ * no moment at which the account's own address hears about a new way in, and a
+ * quiet new way in is the thing worth hearing about. It cannot fail the
+ * confirmation: the address is joined either way, and a person who never gets
+ * the letter is no worse off than before it existed.
+ */
+async function tellTheAccount(userId: string, address: string): Promise<void> {
+  if (!noteEmailConfigured()) return;
+
+  const admin = getSupabaseServer();
+  if (!admin) return;
+
+  try {
+    const { data: found } = await admin.auth.admin.getUserById(userId);
+    const primary = found?.user?.email;
+    if (!primary) return;
+
+    const copy = addressConnectedCopy({
+      address,
+      accountUrl: `${PRODUCT_ORIGIN}/account`,
+    });
+
+    await sendNoteEmail({
+      to: primary,
+      subject: copy.subject,
+      text: copy.text,
+      html: copy.html,
+    });
+  } catch (err) {
+    console.error(
+      "could not tell an account about a new address",
+      err instanceof Error ? err.message : err
+    );
+  }
 }
 
 export type GoogleLink =
@@ -436,12 +659,16 @@ export async function connectGoogleAddress(input: {
 
   const email = normalizeAddress(input.email);
 
+  /*
+    Any pending row on this address goes first, whoever started it. Google
+    confirmed the mailbox a second ago, which beats a confirmation nobody has
+    opened, and a row in that state reaches no account and opens nothing.
+  */
   await admin
     .from(PORTFELL_TABLES.accountEmails)
     .delete()
     .eq("email", email)
-    .is("verified_at", null)
-    .lt("token_expires_at", new Date().toISOString());
+    .is("verified_at", null);
 
   const verdict = await claimVerdict(input.userId, input.primaryEmail, email);
 
@@ -456,13 +683,6 @@ export async function connectGoogleAddress(input: {
       return { kind: "fail", code: "has-data" };
     }
   }
-
-  await admin
-    .from(PORTFELL_TABLES.accountEmails)
-    .delete()
-    .eq("email", email)
-    .eq("user_id", input.userId)
-    .is("verified_at", null);
 
   const { error } = await admin.from(PORTFELL_TABLES.accountEmails).insert({
     user_id: input.userId,

@@ -35,9 +35,20 @@ import { buildSnapshot } from "@/lib/calculations";
 import type { CsvHoldingRow } from "@/lib/csv-import";
 import { PAGE_FRAME_CLASS, PAGE_MAIN_CLASS } from "@/lib/page-shell";
 import {
+  loadAlertSeen,
   loadDismissedAlertIds,
+  loadToastedAlertIds,
+  reviseAlertMemory,
+  saveAlertSeen,
   saveDismissedAlertIds,
+  saveToastedAlertIds,
+  type AlertSeen,
 } from "@/lib/alert-dismiss";
+import {
+  AlertStack,
+  AlertsChecking,
+  AlertsQuiet,
+} from "@/components/AlertCards";
 import { PULSE_REFRESH_MS, effectiveMove, isEmptyPulseCheck, loadPulseTickerCache, type PulseCheck } from "@/lib/thesis-pulse";
 import { loadForecastPlan } from "@/lib/forecast-plan";
 import {
@@ -51,6 +62,7 @@ import { useDashboardBookWrites } from "@/lib/use-dashboard-book-writes";
 import {
   PORTFOLIO_PATH,
   hrefForTabId,
+  isMargusPath,
   tabIdFromPath,
 } from "@/lib/book-routes";
 import { loadLastUser } from "@/lib/last-session";
@@ -67,6 +79,7 @@ import { parseHoldingList, parsePortfolioList } from "@/lib/parse-book";
 import { readJsonOrThrow } from "@/lib/http";
 import { isRecord } from "@/lib/unknown";
 import { hasLockedSave, loadDemoStore } from "@/lib/demo-store";
+import { isLookingAround, lookAroundStore } from "@/lib/sample-portfolio";
 import {
   getDisplayCurrency,
   loadDisplayCurrencyMap,
@@ -110,6 +123,7 @@ import type {
   Quote,
 } from "@/lib/types";
 import {
+  ChevronLeft,
   Plus,
   RefreshCw,
   SlidersHorizontal,
@@ -123,6 +137,10 @@ import {
 } from "@/lib/market/session";
 import { useTimeout } from "@/lib/use-timeout";
 import { useStableCallback } from "@/lib/use-stable-callback";
+import {
+  takeTourScreenshot,
+  TOUR_SCREENSHOT_EVENT,
+} from "@/lib/welcome-tour";
 import {
   useCallback,
   useEffect,
@@ -217,6 +235,17 @@ const LabSheet = dynamic(loadLabSheet, { ssr: true });
 const CompoundInterestSheet = dynamic(loadCompoundInterestSheet, { ssr: true });
 const ForecastPanel = dynamic(loadForecastPanel, { ssr: true });
 const CoveredCallPanel = dynamic(loadCoveredCallPanel, { ssr: true });
+
+/*
+  Where a signed-out reader's portfolios come from.
+
+  Two cases share one branch. A local run with no Supabase configured is
+  the demo store, which is what it has always been. A stranger who pressed
+  "look around" on the landing gets the sample portfolio instead, built
+  fresh every time so nothing they change while looking survives a reload.
+  See `src/lib/sample-portfolio.ts`.
+*/
+const readSignedOutBook = () => lookAroundStore() ?? loadDemoStore();
 
 type DataSource = "demo" | "supabase";
 
@@ -317,6 +346,24 @@ export function Dashboard() {
   activeIdRef.current = activeId;
 
   /*
+    `/margus` is Home with Margus open, and the address says so only while
+    the panel is. The panel opens itself on arrival (`CcAdvisorChat` reads
+    `margusAddressed`); this is the other half, putting the address back to
+    `/` when the reader closes it. `replace` rather than `push`, because a
+    panel the reader just shut is not somewhere Back should return them to,
+    and `scroll: false`, because the room underneath has not changed and a
+    close button that sent the page to the top would read as a reload.
+    Nothing else moves: `tabIdFromPath` answers Overview for both paths, so
+    the dock's marker stays on Home, and `workspaceRoomId` answers "book"
+    for both, so no poller stops and none starts.
+  */
+  const onMargus = isMargusPath(pathname);
+  const onMargusOpenChange = useStableCallback((open: boolean) => {
+    if (open || !onMargus) return;
+    router.replace("/", { scroll: false });
+  });
+
+  /*
     Every "open this tab" in the app, as one navigation.
 
     Kept to the `Dispatch<SetStateAction<string>>` shape the state setter
@@ -334,6 +381,12 @@ export function Dashboard() {
     },
     [router, portfolios]
   );
+  /*
+    Declared here rather than beside the other openers further down,
+    because the toast effect names it in a dependency array and a `const`
+    read before its own line is a crash rather than a warning.
+  */
+  const onOpenAlerts = useStableCallback(() => goToTab(ALERTS_TAB_ID));
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const [options, setOptions] = useState<Record<string, OptionCandidate | null>>(
     {}
@@ -350,6 +403,12 @@ export function Dashboard() {
   const [ccExpiry, setCcExpiry] = useState<Record<string, string | null>>({});
   const ccExpiryRef = useRef(ccExpiry);
   ccExpiryRef.current = ccExpiry;
+  /*
+    Whether a covered-call surface is actually on screen. A ref, read inside
+    the refresh below, so opening or folding the panel does not tear the
+    quote poll down and start another one.
+  */
+  const ccVisibleRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [quotesUpdatedAt, setQuotesUpdatedAt] = useState<number | null>(null);
@@ -406,6 +465,16 @@ export function Dashboard() {
   const [earningsEvents, setEarningsEvents] = useState<
     Array<{ ticker: string; date: string; days: number }>
   >([]);
+  /*
+    Whether the results dates have answered at all yet.
+    The room used to render its resting "nothing needs your attention"
+    sentence on the first paint, before the holdings, the prices or this
+    fetch had come back, and then contradict itself with a toast two
+    seconds later. Set on the answer and on the failure alike, because a
+    provider that is down is still an answer as far as the room is
+    concerned: it has all it is ever going to get.
+  */
+  const [earningsAnswered, setEarningsAnswered] = useState(false);
   const [alertToastsSent, setAlertToastsSent] = useState<Set<string>>(
     () => new Set()
   );
@@ -413,6 +482,18 @@ export function Dashboard() {
   // (that would re-trigger the alert effect on every toast it fires).
   const alertToastsSentRef = useRef(alertToastsSent);
   alertToastsSentRef.current = alertToastsSent;
+  // Separate from the above, and the whole point of being separate: this one
+  // is written by a reader pressing Dismiss and by nothing else. See
+  // `alert-dismiss.ts` for what merging the two did to the room.
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  /** When each condition was first true, so a card can say since when. */
+  const [alertSeen, setAlertSeen] = useState<Record<string, AlertSeen>>(
+    () => ({})
+  );
+  const alertSeenRef = useRef(alertSeen);
+  alertSeenRef.current = alertSeen;
   const bookRef = useRef({ portfolios, holdings });
   bookRef.current = { portfolios, holdings };
   const bookAbortRef = useRef<AbortController | null>(null);
@@ -499,7 +580,9 @@ export function Dashboard() {
       return next;
     });
     setDisplayCurrencyByPortfolio(loadDisplayCurrencyMap());
-    setAlertToastsSent(loadDismissedAlertIds());
+    setAlertToastsSent(loadToastedAlertIds());
+    setDismissedAlertIds(loadDismissedAlertIds());
+    setAlertSeen(loadAlertSeen());
     setCcVisibleByPortfolio(loadVisibilityMap(CC_VISIBLE_KEY));
     setForecastVisibleByPortfolio(loadVisibilityMap(FORECAST_VISIBLE_KEY));
     setExperienceTier(loadStoredTier());
@@ -670,6 +753,7 @@ export function Dashboard() {
       : activePortfolio
         ? isPanelVisible(ccVisibleByPortfolio, activePortfolio, experienceTier !== "novice")
         : true;
+  ccVisibleRef.current = ccVisible;
   // Forecast defaults to visible for every experience tier — unlike Lab/
   // Pulse/Seasonality, it's plain price-scenario modeling, not something
   // that needs "growing into."
@@ -830,9 +914,9 @@ export function Dashboard() {
       ? portfolios[0]!.cash_balance
       : undefined;
 
-  // Book-wide CC rows, computed once and shared by Lab (Alerts/calendar) and
-  // the alert builders below — was previously an inline flatMap recomputed
-  // on every render just for the Lab prop.
+  // Book-wide covered-call rows, computed once and shared by Lab and the
+  // alert builders below. It was an inline flatMap recomputed on every
+  // render just for the Lab prop.
   const bookCoveredCallRows = useMemo(
     () =>
       realPortfolios.flatMap((p) => {
@@ -851,10 +935,13 @@ export function Dashboard() {
     );
   }, [drawerTicker, bookCoveredCallRows, hideOptionsUI]);
 
-  // Single source of truth for "what needs attention" — earnings, near
-  // strike/target, margin, concentration. Lab's Alerts tab and Overview's
-  // briefing both read from this one list (and its one shared dismissal
-  // state) instead of each re-deriving their own copy of these conditions.
+  /*
+    Single source of truth for the four things this app watches: a results
+    date, a share reaching a level, borrowed money, and one holding growing
+    large. Three surfaces read this one list rather than each re-deriving
+    the conditions: the "Worth a look" room below, the borrowed-money card
+    on Home (`CashAlertCard`), and the news dot on both docks.
+  */
   const bookAlerts = useMemo<UpsideAlert[]>(() => {
     // No options experience -> no strike-planning alerts at all, not just
     // a de-emphasized card. These are pure covered-call mechanics.
@@ -866,6 +953,12 @@ export function Dashboard() {
             spot: r.spot,
             stockTarget: r.stockTarget,
             nextStrike: r.nextStrike,
+            // Whether the reader typed that target or the app worked it
+            // out from the recent high. Two different sentences: see
+            // `buildStrikeAlerts`.
+            targetIsHandSet:
+              r.holding.stock_target_override != null &&
+              r.holding.stock_target_override > 0,
           }))
         );
     const earn = buildEarningsAlerts(earningsEvents, hideOptionsUI);
@@ -881,9 +974,51 @@ export function Dashboard() {
   }, [bookCoveredCallRows, earningsEvents, overview, hideOptionsUI]);
 
   const activeAlerts = useMemo(
-    () => bookAlerts.filter((a) => !alertToastsSent.has(a.id)),
-    [bookAlerts, alertToastsSent]
+    () => bookAlerts.filter((a) => !dismissedAlertIds.has(a.id)),
+    [bookAlerts, dismissedAlertIds]
   );
+
+  /*
+    Still finding out. Three inputs decide whether this page is quiet and
+    every one of them arrives on its own schedule: the portfolios, the
+    prices they are valued at, and the results dates. A holding with no
+    quote yet has no value, so the borrowed-money arithmetic and the
+    largest-holding share are both wrong until at least one price is in.
+  */
+  const alertsChecking =
+    loading ||
+    !earningsAnswered ||
+    (holdings.length > 0 && Object.keys(quotes).length === 0);
+
+  /*
+    Keep the memory of these conditions in step with the ones that are true
+    right now, so a card can say "Since Tuesday" and so a dismissal made in
+    March does not silence the same condition recurring in September. The
+    rule is `reviseAlertMemory`'s, and it only writes when something moved.
+  */
+  useEffect(() => {
+    if (bookAlerts.length === 0 && Object.keys(alertSeenRef.current).length === 0) {
+      return;
+    }
+    const next = reviseAlertMemory({
+      seen: alertSeenRef.current,
+      dismissed: dismissedAlertIds,
+      toasted: alertToastsSentRef.current,
+      liveIds: bookAlerts.map((a) => a.id),
+      now: Date.now(),
+    });
+    if (!next.changed) return;
+    saveAlertSeen(next.seen);
+    setAlertSeen(next.seen);
+    if (next.dismissed.size !== dismissedAlertIds.size) {
+      saveDismissedAlertIds(next.dismissed);
+      setDismissedAlertIds(next.dismissed);
+    }
+    if (next.toasted.size !== alertToastsSentRef.current.size) {
+      saveToastedAlertIds(next.toasted);
+      setAlertToastsSent(next.toasted);
+    }
+  }, [bookAlerts, dismissedAlertIds]);
 
   // Glanceable up/down dot per sheet tab. Uses the same live move Pulse
   // does (regular, pre-market, or after-hours), so the dots don't vanish
@@ -1134,7 +1269,7 @@ export function Dashboard() {
           });
         }
       } else {
-        const demo = loadDemoStore();
+        const demo = readSignedOutBook();
         setSource("demo");
         setPortfolios(demo.portfolios);
         setHoldings(demo.holdings);
@@ -1170,7 +1305,7 @@ export function Dashboard() {
               fetchedAt: Date.now(),
             });
           } else {
-            const demo = loadDemoStore();
+            const demo = readSignedOutBook();
             setSource("demo");
             setPortfolios(demo.portfolios);
             setHoldings(demo.holdings);
@@ -1182,7 +1317,7 @@ export function Dashboard() {
             setPortfolios([]);
             setHoldings([]);
           } else {
-            const demo = loadDemoStore();
+            const demo = readSignedOutBook();
             setSource("demo");
             setPortfolios(demo.portfolios);
             setHoldings(demo.holdings);
@@ -1309,9 +1444,25 @@ export function Dashboard() {
           applyFxPayload(quotesJson.fx);
         }
 
-        // No options experience -> don't even fetch options-chain data;
-        // the panel that would show it never renders for these viewers.
-        if (opts?.quotesOnly || hideOptionsUI) {
+        /*
+          The options scan is the most expensive thing this app asks a
+          provider for, and it was running on every poll.
+
+          `scanCoveredCall` costs one call to list a company's expiry dates
+          and one per nearby expiry it prices, so up to four a holding, and
+          this runs inside the quote refresh, which polls every fifteen
+          seconds while the market is open. The chains are cached now, which
+          took most of it, but a reader who has folded the covered-call
+          panel away was still paying to fill a cache for a screen they are
+          not looking at.
+
+          So it asks three questions, cheapest first: did the caller ask for
+          quotes alone, has this reader said they do not know options, and
+          is a covered-call surface actually on screen. The last is read
+          from a ref, and an effect below re-runs the scan the moment the
+          panel is opened, so nothing waits a poll to appear.
+        */
+        if (opts?.quotesOnly || hideOptionsUI || !ccVisibleRef.current) {
           if (hideOptionsUI) setOptions({});
           return;
         }
@@ -1393,6 +1544,26 @@ export function Dashboard() {
     awaited rather than fired and forgotten, so the ring turns for as long as
     the answer really takes.
   */
+  /*
+    Opening the covered-call panel fills it now, rather than at the next
+    poll. The refresh above skips the options scan while no covered-call
+    surface is on screen, which is what stops a folded panel paying for
+    provider calls all day; without this a reader who opened it would sit
+    in front of empty rows for up to fifteen seconds during the session and
+    a good deal longer outside it.
+
+    It fires only on the edge, when the panel becomes visible, so the poll
+    is left to do its own work. The chains are cached, so an open and a
+    close and an open again costs one walk rather than three.
+  */
+  const ccWasVisibleRef = useRef(false);
+  useEffect(() => {
+    const opened = ccVisible && !ccWasVisibleRef.current;
+    ccWasVisibleRef.current = ccVisible;
+    if (!opened || hideOptionsUI || allTickers.length === 0) return;
+    void refreshMarkets(allTickers, holdings, undefined, { silent: true });
+  }, [ccVisible, hideOptionsUI, allTickers, holdings, refreshMarkets]);
+
   useEffect(
     () =>
       onWorkspaceRefresh("book", async () => {
@@ -1815,7 +1986,12 @@ export function Dashboard() {
     .slice(0, 40)
     .join(",");
   useEffect(() => {
-    if (!overviewTickerKey) return;
+    if (!overviewTickerKey) {
+      // Nothing to ask about, so nothing to wait for. Without this an
+      // empty portfolio sits on "Checking what you own" forever.
+      setEarningsAnswered(true);
+      return;
+    }
     const ctrl = new AbortController();
 
     const load = () => {
@@ -1828,10 +2004,12 @@ export function Dashboard() {
           if (ctrl.signal.aborted || !data) return;
           const events = Array.isArray(data.earnings) ? data.earnings : [];
           setEarningsEvents(events);
+          setEarningsAnswered(true);
         })
         .catch((err) => {
           if (isAbortError(err)) return;
           /* keep whatever was already loaded */
+          setEarningsAnswered(true);
         });
     };
 
@@ -1859,10 +2037,28 @@ export function Dashboard() {
     // toast(), which itself calls setState on ToastProvider).
     const updated = new Set(prev);
     for (const a of fresh) updated.add(a.id);
-    saveDismissedAlertIds(updated);
+    saveToastedAlertIds(updated);
     setAlertToastsSent(updated);
-    for (const a of fresh) toast(a.title, "info");
-  }, [bookAlerts, toast]);
+    /*
+      Only the loud ones, and never bare.
+
+      A toast is a medium that vanishes, and three of these four are calm
+      facts about a portfolio that will still be true tomorrow: a results
+      date, a level reached, one holding growing large. Announcing those in
+      a four-second line teaches a reader to ignore the toaster, and the
+      card is already waiting for them in the room with the arithmetic on
+      it. So a neutral alert is left to the card and the news dot, and the
+      two that raise their own tone carry the cushion line under the title
+      and a way through to the card that is not going to disappear.
+    */
+    for (const a of fresh) {
+      if ((a.tone ?? "neutral") === "neutral") continue;
+      toast(a.title, a.tone === "loss" ? "error" : "warning", {
+        description: a.cushion,
+        action: { label: "See why", onClick: () => onOpenAlerts() },
+      });
+    }
+  }, [bookAlerts, toast, onOpenAlerts]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -1962,6 +2158,40 @@ export function Dashboard() {
   // lone item making this button show up for no reason.
   const viewMenuItems: HeaderMenuItem[] = useMemo(() => {
     const items: HeaderMenuItem[] = [];
+    /*
+      The door to "Worth a look", and the reason it is here rather than
+      anywhere louder.
+
+      Until now the page had none: the phone's bell was never wired up, the
+      dock has no cell for it, and the one card on Home that could route
+      there is below `md` and only when the featured alert is not about
+      cash. So the only way in was typing the address.
+
+      A dock cell was the obvious answer and is the wrong one twice over.
+      The dock's cell count may depend on your data and never on the route
+      (`dock-stability.test.ts`), so a cell here is a cell for everybody
+      including the many readers who will never have anything on this page,
+      and the news it carries already has a home: the accent dot on Home.
+      A bell in the phone's top bar is the other obvious answer, and
+      AGENTS.md has the measurement against it: every control in that row
+      costs 44px of somebody's portfolio name, and the name is the only
+      part of the bar that says where the reader is.
+
+      What is left is the menu both breakpoints already have, which is the
+      answer that bullet reaches too. It is one row, it costs no width, it
+      is on every room rather than only on Home, and it carries the count,
+      which is the thing the dock dot cannot say out loud.
+    */
+    if (!isAlerts) {
+      items.push({
+        id: "alerts",
+        label:
+          activeAlerts.length > 0
+            ? `Worth a look (${activeAlerts.length})`
+            : "Worth a look",
+        onSelect: () => onOpenAlerts(),
+      });
+    }
     if (undoStack.length > 0) {
       items.push({
         id: "undo",
@@ -1990,7 +2220,9 @@ export function Dashboard() {
         onSelect: () => toggleForecastVisible(),
       });
     }
-    if (source === "demo") {
+    /* The demo save lock is a local development tool. A stranger looking
+       around the sample has no save to lock and no demo to reset. */
+    if (source === "demo" && !isLookingAround()) {
       items.push({
         id: "save",
         label: saveFlash ? "Saved" : "Save demo lock",
@@ -2009,6 +2241,8 @@ export function Dashboard() {
     undoStack.length,
     source,
     isMetaTab,
+    isAlerts,
+    activeAlerts.length,
     ccVisible,
     hideOptionsUI,
     forecastVisible,
@@ -2072,7 +2306,6 @@ export function Dashboard() {
     }
   );
   const onOpenCompound = useStableCallback(() => goToTab(COMPOUND_TAB_ID));
-  const onOpenAlerts = useStableCallback(() => goToTab(ALERTS_TAB_ID));
   const onOpenCash = useStableCallback(() => {
     const target = [...portfolios].sort(
       (a, b) => a.cash_balance - b.cash_balance
@@ -2088,6 +2321,32 @@ export function Dashboard() {
   const onOpenPulse = useStableCallback((ticker?: string) => {
     if (ticker) setPulseIntent(ticker);
     goToTab(PULSE_TAB_ID);
+  });
+  const onDismissAlert = useStableCallback((id: string) => {
+    setDismissedAlertIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      saveDismissedAlertIds(next);
+      return next;
+    });
+  });
+  /*
+    Where an alert card goes when it is pressed. Every card used to go to
+    Overview, whatever it was about, which is the same as going nowhere:
+    the reader is told a company reports on Thursday and is handed the room
+    they just left. An alert that names a company opens that company, and
+    the borrowed-money one opens the screen holding the figure it is about.
+  */
+  const onOpenAlert = useStableCallback((alert: UpsideAlert) => {
+    if (alert.ticker) {
+      onOpenPulse(alert.ticker);
+      return;
+    }
+    if (alert.kind === "margin") {
+      onOpenCash();
+      return;
+    }
+    goToTab(OVERVIEW_TAB_ID);
   });
   const onOverviewAddHolding = useStableCallback(() =>
     startFirstRunAction("manual")
@@ -2140,6 +2399,23 @@ export function Dashboard() {
   const onImportScreenshot = useStableCallback((files: File[]) => {
     void beginSilentScreenshotImport(files);
   });
+  /*
+    The picture somebody handed the walkthrough on their way in.
+
+    Reading a broker screenshot is Margus's job, and Margus is here rather
+    than inside that overlay, so the walkthrough holds the file and lets go
+    of it as it closes. This is the same import the empty Overview screen
+    runs, so what happens next is the ordinary one: Margus reads the picture
+    out and shows what was found before anything is saved.
+  */
+  useEffect(() => {
+    const take = () => {
+      const files = takeTourScreenshot();
+      if (files.length) onImportScreenshot(files);
+    };
+    window.addEventListener(TOUR_SCREENSHOT_EVENT, take);
+    return () => window.removeEventListener(TOUR_SCREENSHOT_EVENT, take);
+  }, [onImportScreenshot]);
   const onImportCsv = useStableCallback(() => setCsvImportOpen(true));
   const onOpenTicker = useStableCallback((t: string) => setDrawerTicker(t));
   const onDisplayCurrencyChange = useStableCallback((code: DisplayCurrency) => {
@@ -2336,8 +2612,26 @@ export function Dashboard() {
 
   const showSheetPicker =
     portfolios.length > 0 && (isOverview || !isMetaTab);
+  /*
+    On this page the phone dock lights Home, because "Worth a look" is
+    Home's second screen rather than a room of its own: it has no cell, it
+    is what the accent dot on Home is pointing at, and `workspaceRoomId`
+    keeps it inside the book. Two pieces of chrome disagreeing about where
+    the reader is would be a bug, so the title says so out loud, as a way
+    back to the room the dock is already naming.
+  */
   const mobileSheetTitle = isAlerts
-    ? "Alerts"
+    ? (
+        <button
+          type="button"
+          onClick={() => goToTab(OVERVIEW_TAB_ID)}
+          className="-ml-1 flex min-w-0 items-center gap-1 rounded-lg px-1 py-1 text-left"
+        >
+          <ChevronLeft className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="truncate">Worth a look</span>
+          <span className="sr-only">, back to Home</span>
+        </button>
+      )
     : showSheetPicker
       ? (
           <SheetPicker
@@ -2384,7 +2678,7 @@ export function Dashboard() {
           isOverview
             ? "Overview"
             : isAlerts
-              ? "Alerts"
+              ? "Worth a look"
               : isCompound
               ? "Compound"
               : isLab
@@ -2449,28 +2743,34 @@ export function Dashboard() {
         )}
 
         {isAlerts ? (
+          /*
+            The boundary keeps its old name on purpose: it is the widget id
+            this app's error log folds crashes under, and renaming it would
+            split one class into two for no reader's benefit.
+          */
           <WidgetErrorBoundary name="Alerts">
-          <div className="flex flex-col gap-4">
-            {activeAlerts.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">
-                Nothing needs your attention right now.
-              </p>
-            ) : (
-              activeAlerts.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => goToTab(OVERVIEW_TAB_ID)}
-                  className="w-full rounded-xl glass ring-1 ring-foreground/20 p-6 text-left"
-                >
-                  <p className="text-sm font-semibold text-foreground">{a.title}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                    {a.detail}
-                  </p>
-                </button>
-              ))
-            )}
-          </div>
+          {/*
+            Three inputs decide whether this page is quiet: the holdings,
+            the prices, and the results dates. Saying "nothing needs your
+            attention" before all three have answered is a promise the app
+            cannot keep, and it used to be contradicted by a toast about
+            borrowed money two seconds later.
+          */}
+          {alertsChecking ? (
+            <AlertsChecking />
+          ) : activeAlerts.length === 0 ? (
+            <AlertsQuiet
+              onOpenPulse={pulseHiddenForTier ? undefined : () => onOpenPulse()}
+              onOpenHome={() => goToTab(OVERVIEW_TAB_ID)}
+            />
+          ) : (
+            <AlertStack
+              alerts={activeAlerts}
+              firstSeen={alertSeen}
+              onOpen={onOpenAlert}
+              onDismiss={onDismissAlert}
+            />
+          )}
           </WidgetErrorBoundary>
         ) : isPulse ? (
           <WidgetErrorBoundary name="Pulse">
@@ -2505,7 +2805,6 @@ export function Dashboard() {
             bookCash={overview.totals.cash}
             eurUsd={eurUsd}
             eurUsdDetail={eurUsdDetail}
-            hideOptions={hideOptionsUI}
           />
           </WidgetErrorBoundary>
         ) : isOverview ? (
@@ -2675,6 +2974,8 @@ export function Dashboard() {
         setScreenshotPending={setScreenshotPending}
         margusExpandSignal={margusExpandSignal}
         setMargusExpandSignal={setMargusExpandSignal}
+        margusAddressed={onMargus}
+        onMargusOpenChange={onMargusOpenChange}
         margusContext={margusContext}
         toast={toast}
         handleSave={handleSave}

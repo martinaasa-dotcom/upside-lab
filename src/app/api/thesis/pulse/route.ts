@@ -19,6 +19,8 @@ import { takeDurableRateLimit } from "@/lib/rate-limit-durable";
 import { stampAdvisorUse } from "@/lib/advisor-use";
 import {
   buildFallbackPulseCheck,
+  candidateRange,
+  rangeWindowWords,
   formatMovePct,
   isBigPulseMove,
   isEmptyPulseCheck,
@@ -32,17 +34,19 @@ import {
 import {
   getCachedPulseCheck,
   getPulseCacheKey,
+  isSharedPulseKey,
   setCachedPulseCheck,
   getCachedPulseSummary,
   setCachedPulseSummary,
 } from "@/lib/thesis-pulse-server-cache";
 import { pulseReportSchema } from "@/lib/thesis-pulse-schema";
+import { moodLine, safeMoveLabel } from "@/lib/pulse-shared-prompt";
 import { generateObject } from "ai";
 import { observeRoute } from "@/lib/observe-route";
 import { pulsePostSchema } from "@/lib/api-schemas";
 import { parseJsonBody } from "@/lib/parse-json-body";
 import { coinFromSymbol } from "@/lib/coins";
-import { NO_VALUE, cashtag } from "@/lib/format";
+import { cashtag } from "@/lib/format";
 
 export const maxDuration = 90;
 export const runtime = "nodejs";
@@ -109,10 +113,11 @@ function buildPrompt(
   convictions: Body["convictions"],
   fearGreed: Body["fearGreed"]
 ): string {
-  const fg =
-    fearGreed?.score != null
-      ? `Market mood: CNN Fear & Greed ${Math.round(fearGreed.score)} (${fearGreed.rating ?? NO_VALUE}).`
-      : "Market mood: unknown.";
+  // Built from the score alone. See `pulse-shared-prompt.ts`: this line sits
+  // above every company in the request, including ones cached under the
+  // shared key and handed to other readers, so no word in it may be the
+  // caller's.
+  const fg = moodLine(fearGreed);
 
   const lines = candidates.map((c) => {
     const ctx = contexts[c.ticker.toUpperCase()];
@@ -142,8 +147,17 @@ function buildPrompt(
     const name = shown
       ? `${shown.name} (${cashtag(c.ticker)})`
       : c.ticker;
+    // The range is measured from the closes the quote carries
+    // (`recentRange`), and it is handed over as numbers because the model
+    // is asked to tag a price against a range. It used to be asked that
+    // with no high and no low anywhere in the prompt, and the app printed
+    // the answer as "Below recent range" all the same.
+    const range = candidateRange(c);
+    const rangeLine = range
+      ? ` · ${rangeWindowWords(range.days)} low $${range.low.toFixed(2)} · high $${range.high.toFixed(2)}`
+      : " · (no measured range for this one)";
     const parts = [
-      `- **${name}** · spot $${c.price.toFixed(2)} · ${c.moveLabel} ${move}${flag}${position}`,
+      `- **${name}** · today's price $${c.price.toFixed(2)}${rangeLine} · ${safeMoveLabel(c.moveLabel)} ${move}${flag}${position}`,
       conv?.thesis ? `  Thesis: ${conv.thesis}` : "",
       conv?.level ? `  How sure they are: ${conv.level}/5` : "",
       ctx?.sector ? `  Sector: ${ctx.sector}` : "",
@@ -181,6 +195,9 @@ ${insightsPromptBlock(
         todayPct: c.effectivePct,
       }))
   )}
+
+### The range is measured, not yours to guess
+Every position below carries a low and a high taken from its own closing prices over the window named beside them. Those two numbers are printed on the card next to today's price, so the tag you choose has to agree with them: **add** means today's price is near the low end, **trim** means it is near the high end, **hold** means it is somewhere in the middle. A position whose line says there is no measured range gets **hold** or **watch**, never a range tag, because the reader has no low and high on screen to check it against.
 
 ### Action tags (internal codes, never print them as orders)
 - **action** = \`add\` | \`hold\` | \`trim\` | \`sell\` | \`watch\`. These are tags for the app. Verdict and addLevel must describe price or thesis facts, never orders.
@@ -273,7 +290,14 @@ async function handlePOST(req: Request) {
         headlines: cachedEntry.headlines,
       });
     }
-    if (!cachedEntry || force || isEmptyPulseCheck(cachedEntry?.check)) {
+    /*
+      `force` exists so a reader can re-ask about their own company, and on
+      a shared key it is a write into the answer every other holder of that
+      company is about to be given. So it re-asks only where the answer is
+      this reader's own. A stale shared entry still ages out on its own.
+    */
+    const mayForce = force && !isSharedPulseKey(cacheKey);
+    if (!cachedEntry || mayForce || isEmptyPulseCheck(cachedEntry?.check)) {
       uncachedCandidates.push(c);
     }
   }

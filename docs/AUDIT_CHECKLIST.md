@@ -193,11 +193,22 @@ figure somebody acts on.
   `MARGUS_PERSONA`, `FORECAST_CONVICTION_PROMPT` — confirm no "you are
   structurally bullish" instruction, no per-theme CAGR floor the model must
   clear, and that sector lenses stay phrased as questions.
-- **No market slang, in reader copy or in prompts sent to the model.**
-  Grep for sleeve, marks, tape, conviction (outside "Thesis"), digestion,
-  dry powder, beta, risk-on, drawdown, rotation. `MARGUS_PERSONA`'s ban list
-  and `humanizeMargusText`'s scrub are the two enforcement points; a new
-  prompt or a new card copy needs both.
+- **No unexplained market slang, in reader copy or in prompts sent to the
+  model.** Grep for sleeve, marks, tape, conviction (outside "Thesis"),
+  digestion, dry powder, beta, risk-on, drawdown, rotation.
+  `MARGUS_PERSONA`'s ban list and `humanizeMargusText`'s scrub are the two
+  enforcement points; a new prompt or a new card copy needs both.
+  **One exception, and it is narrow.** `alsoCalled` on a glossary entry
+  (`src/lib/glossary.ts`) may name the word the rest of the world uses,
+  rendered only as "Elsewhere you will see this called X" by
+  `outsideWordLine` and shown only through `Explain`
+  (`src/components/ui/Explain.tsx`), which a reader has to open. The ban
+  was costing something real: a person who learns the idea here and then
+  opens their own broker meets the word with nothing connecting the two.
+  Check that the plain phrase still carries the whole meaning with the
+  clause deleted, which `glossary.test.ts` asserts by refusing an entry
+  whose definition needs its own outside word, and that no heading, label,
+  badge, button, chart axis, alert or letter has picked one up.
 - **Every model-touched surface carries a working `WhyThis`.** Six
   sections in order: who made it, which model, what it was given, where
   those inputs came from, how the number was worked out, what it cannot
@@ -219,7 +230,7 @@ figure somebody acts on.
 
 ## 6. Copy, naming, and rename discipline
 
-- **No "sheet" or "book" in anything a person or the model reads.**
+- **Neither `sheet` nor `book` in anything a person or the model reads.**
   `src/lib/reader-copy.test.ts` walks every JSX text node under `src/` —
   this is a floor, not a ceiling; a label passed as a prop or built in a
   variable is not caught and needs a manual read. `humanizeMargusText`
@@ -248,6 +259,18 @@ figure somebody acts on.
 - **A portfolio is a portfolio in copy, and `portfell_*`/`Sheet`/localStorage
   keys stay as-is in code.** Re-read the rename bullet in `AGENTS.md` before
   touching either half — they are deliberately not the same decision.
+- **A word a beginner would look up is explained from the glossary, never
+  typed at the call site.** `InfoTip` takes free text, which is right for a
+  sentence about one chart and wrong for a word: "what you paid" appears on
+  the holdings table, in the drawer, in the forecast and in the letter, and
+  four hand-typed answers to one question drift into four different
+  answers. `Explain` reads `src/lib/glossary.ts` and carries the reader's
+  own figures into the example. Add an entry rather than a sentence.
+- **A promise about behaviour is pinned to the behaviour, not asserted as
+  copy.** `src/lib/landing-claims.test.ts` is the pattern: it fails
+  whichever side moves. The rule earned its place on a privacy claim, which
+  is the kind a reader acts on immediately and irreversibly. The landing had
+  told them a co-owner cannot see what they paid, and a co-owner can.
 
 ## 7. Layout, motion, and the visual system
 

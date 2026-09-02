@@ -190,6 +190,7 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
   const current: MonthlyStep = MONTHLY_STEPS[step] ?? MONTHLY_STEPS[0]!;
 
   function pickSingle(step: MonthlyStep, id: string, atIndex: number) {
+    setError(null);
     const cleared = answers[step.id] === id;
     if (step.id === "feel") {
       setAnswers((prev) => ({
@@ -209,6 +210,7 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
   }
 
   function pickMulti(step: MonthlyStep, id: string) {
+    setError(null);
     setAnswers((prev) =>
       step.id === "helped"
         ? { ...prev, helped: toggleId(prev.helped, id as MonthlyHelpedId) }
@@ -223,8 +225,37 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
       : value === id;
   }
 
+  /*
+    A DEAD BUTTON WITH NO REASON GIVEN IS THE WORST WAY TO ASK FOR TWO
+    MORE WORDS.
+
+    Sending needs a topic and eight characters of body, and the button used
+    to be `disabled` until both were there. Somebody who typed "slow" got a
+    button that did not respond and nothing anywhere saying why, so the way
+    out was to give up. The rules have not changed; they just say
+    themselves now, on the press, in one warm line, and the line clears the
+    moment either field is touched.
+  */
+  function whatIsMissing(): string | null {
+    if (mode === "monthly") {
+      return monthlyHasAnswer(answers)
+        ? null
+        : "Answer one of these and it is worth sending.";
+    }
+    if (!topic.trim()) return "Say what this is about first. A few words will do.";
+    if (body.trim().length < 8) {
+      return "Say a little more, one sentence is enough.";
+    }
+    return null;
+  }
+
   async function submit() {
     if (busy) return;
+    const missing = whatIsMissing();
+    if (missing) {
+      setError(missing);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -247,10 +278,6 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
     }
   }
 
-  const canSend =
-    mode === "monthly"
-      ? monthlyHasAnswer(answers)
-      : topic.trim() && body.trim().length >= 8;
   const onLastStep = step >= LAST_STEP;
 
   return (
@@ -354,25 +381,39 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
           </div>
         ) : (
           <div className="scroll-host -mx-6 px-6 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+            {/*
+              One line, said once.
+
+              The card on Account, this lede and the topic placeholder all
+              used to carry "a bug, something missing, something annoying",
+              and "every one of these gets read" appeared three times on the
+              way to sending one message. That is the stacked subtitle,
+              blurb and hint `Panel.tsx` forbids, spread over two screens.
+              The thanks now lives only in the sent state, where it is news.
+            */}
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Tell us what this is about, then say the rest in your own words.
-              A bug, something missing, or something that annoyed you. Every one
-              of these gets read.
+              What happened, and what you expected instead.
             </p>
             <label className="flex flex-col gap-1">
               <span className="text-sm text-muted-foreground">What is this about?</span>
               <Input
                 value={topic}
-                onChange={(e) => setTopic(e.target.value)}
+                onChange={(e) => {
+                  setTopic(e.target.value);
+                  setError(null);
+                }}
                 maxLength={120}
-                placeholder="A bug, something missing, something annoying"
+                placeholder="Which screen, and what you were doing"
               />
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-sm text-muted-foreground">Say it</span>
               <Textarea
                 value={body}
-                onChange={(e) => setBody(e.target.value)}
+                onChange={(e) => {
+                  setBody(e.target.value);
+                  setError(null);
+                }}
                 maxLength={8000}
                 rows={8}
                 placeholder="As long as you like. What happened, what you expected instead, and what would be better."
@@ -417,7 +458,7 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
                 <Button
                   type="button"
                   onClick={() => void submit()}
-                  disabled={busy || !canSend}
+                  disabled={busy}
                 >
                   {busy
                     ? "Sending…"

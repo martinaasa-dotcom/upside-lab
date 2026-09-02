@@ -10,11 +10,25 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { RankMedal } from "@/components/RankMedal";
-import { cn, NO_VALUE, percent, signedCurrency, signedTone } from "@/lib/format";
+import { cn, NO_VALUE, signedPercent, signedTone } from "@/lib/format";
 import { Trophy } from "lucide-react";
 import { Fragment } from "react";
 import type { MemberStat } from "@/components/community-types";
 
+/**
+ * A circle ranks people by how their day went, and by nothing else.
+ *
+ * The board used to carry a dollar column beside the percent, so a friend's
+ * whole portfolio was one subtraction away from anybody in the room. The
+ * landing page promises the opposite in as many words, and it is the reason
+ * people agree to be in one of these at all. The percent is also the more
+ * useful of the two: it is the only figure that compares a first job to a
+ * pension, which is exactly who is in a family circle together.
+ *
+ * The percent carries its sign (`signedPercent`), which it did not: a good
+ * day printed "1.2%" beside every loss printing "-0.8%", so the winning row
+ * was the only one on the board without a sign on it.
+ */
 export function CommunityTodayBoard({
   members,
   onOpen,
@@ -32,7 +46,7 @@ export function CommunityTodayBoard({
           <div>
             <h3 className="text-foreground">Today</h3>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Ranked by today&apos;s percent, not dollar size
+              How each portfolio moved today, biggest move first
             </p>
           </div>
         </div>
@@ -45,7 +59,7 @@ export function CommunityTodayBoard({
             return (
               <Fragment key={m.id}>
                 {i > 0 ? <ItemSeparator className="my-0" /> : null}
-                <Item asChild size="sm" className="px-0 hover:bg-muted">
+                <Item asChild size="sm" className="px-0 hover:bg-hover">
                   <button
                     type="button"
                     onClick={() => {
@@ -82,8 +96,6 @@ export function CommunityTodayBoard({
                         ) : null}
                       </ItemTitle>
                     </ItemContent>
-                    {/* Fixed-width so a wide dollar figure
-                      * cannot shove the percent column. */}
                     <ItemActions className="shrink-0">
                       <span
                         className={cn(
@@ -91,15 +103,7 @@ export function CommunityTodayBoard({
                           signedTone(pct, "text-muted-foreground")
                         )}
                       >
-                        {pct != null ? percent(pct) : NO_VALUE}
-                      </span>
-                      <span
-                        className={cn(
-                          "hidden w-24 text-right text-sm tabular-nums sm:inline-block",
-                          signedTone(m.todayDollar, "text-muted-foreground")
-                        )}
-                      >
-                        {signedCurrency(m.todayDollar, 0)}
+                        {pct != null ? signedPercent(pct) : NO_VALUE}
                       </span>
                     </ItemActions>
                   </button>

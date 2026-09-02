@@ -1,5 +1,6 @@
 import { requireAuthUser } from "@/lib/supabase/server-auth";
-import { checkRateLimit, rateLimitJson } from "@/lib/rate-limit";
+import { rateLimitJson } from "@/lib/rate-limit";
+import { takeDurableRateLimit } from "@/lib/rate-limit-durable";
 import { fetchTrendsBatch, MAX_TICKERS } from "@/lib/market/trends-cache";
 import { NextRequest, NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
@@ -13,7 +14,11 @@ async function handlePOST(req: NextRequest) {
   const auth = await requireAuthUser();
   if ("error" in auth) return auth.error;
 
-  const limit = checkRateLimit(`trends:${auth.user.id}`, 30, 5 * 60_000);
+  // The shared bucket, as forecast and Pulse use. The memory limiter is per
+  // warm instance, so a burst spread over cold starts was handed a fresh
+  // thirty each, and every one of those is up to MAX_TICKERS names of
+  // weekly history from Yahoo.
+  const limit = await takeDurableRateLimit(`trends:${auth.user.id}`, 30, 5 * 60_000);
   if (!limit.ok) {
     return rateLimitJson(limit, "Too many trend requests at once. Try again in a few minutes.");
   }

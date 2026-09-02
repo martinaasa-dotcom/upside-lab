@@ -1,6 +1,7 @@
 import { dbError } from "@/lib/db-error";
 import {
   addCoOwnerToPortfolio,
+  portfolioCreatorId,
   requirePortfolioOwner,
 } from "@/lib/auth/ownership";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
@@ -15,7 +16,24 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** List co-owners for a portfolio (caller must be a co-owner). */
+/**
+ * What the reader is told when a removal is refused. Each is a sentence on
+ * its own because the modal shows it under the button that was pressed.
+ * (Not exported: a route file may only export handlers and config.)
+ */
+const OWNER_MESSAGES = {
+  creatorStays:
+    "The person who made this portfolio stays on it. To be rid of it, delete the portfolio.",
+  onlyCreatorRemoves:
+    "Only the person who made this portfolio can remove someone else. You can leave it yourself.",
+  lastOwner: "Can't remove the last owner. A portfolio needs at least one.",
+} as const;
+
+/**
+ * List co-owners for a portfolio (caller must be a co-owner). `creatorId`
+ * is the person who made it, so the modal can show the remove button only
+ * where a press would succeed.
+ */
 async function handleGET(_req: NextRequest, ctx: Ctx) {
   const auth = await requireAuthUser();
   if ("error" in auth) return auth.error;
@@ -26,7 +44,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
 
   const supabase = await getSupabaseDataClient();
   if (!supabase) {
-    return NextResponse.json({ owners: [] });
+    return NextResponse.json({ owners: [], creatorId: null });
   }
 
   const { data: rows, error } = await supabase
@@ -39,18 +57,22 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
   }
 
   const userIds = ((rows ?? []) as { user_id: string }[]).map((r) => r.user_id);
-  const { data: profiles } = userIds.length
-    ? await supabase
-        .from(PORTFELL_TABLES.profiles)
-        .select("id, email, display_name, avatar_url")
-        .in("id", userIds)
-    : { data: [] };
+  const [{ data: profiles }, creatorId] = await Promise.all([
+    userIds.length
+      ? supabase
+          .from(PORTFELL_TABLES.profiles)
+          .select("id, email, display_name, avatar_url")
+          .in("id", userIds)
+      : Promise.resolve({ data: [] }),
+    portfolioCreatorId(id),
+  ]);
 
   const byId = new Map(
     ((profiles ?? []) as { id: string }[]).map((p) => [p.id, p])
   );
 
   return NextResponse.json({
+    creatorId,
     owners: ((rows ?? []) as { user_id: string; created_at: string }[]).map(
       (r) => ({
         user_id: r.user_id,
@@ -61,7 +83,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
   });
 }
 
-/** Add a co-owner by email. */
+/** Add a co-owner by email. Any co-owner may invite; see the DELETE note. */
 async function handlePOST(req: NextRequest, ctx: Ctx) {
   const auth = await requireAuthUser();
   if ("error" in auth) return auth.error;
@@ -83,7 +105,21 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
   return NextResponse.json({ ok: true, userId: result.userId });
 }
 
-/** Remove a co-owner (self or another owner). Refuses to orphan a portfolio. */
+/**
+ * Remove a co-owner: yourself, or somebody else if you made the portfolio.
+ *
+ * This runs on the service role, so row level security does not apply and
+ * the rule has to be here. Migration 20260824130000 narrowed the table's
+ * own DELETE policy to "your own row" and said nothing in src/ deletes from
+ * this table; that was not true, this handler always has, and until this
+ * check it let any co-owner remove any other, the person who made the
+ * portfolio included. Somebody who redeemed an invite could lock out the
+ * person who sent it.
+ *
+ * So: leaving is always allowed (short of orphaning the portfolio), removing
+ * somebody else is the creator's alone, and the creator is never removed.
+ * A creator who wants out deletes the portfolio, which is theirs to delete.
+ */
 async function handleDELETE(req: NextRequest, ctx: Ctx) {
   const auth = await requireAuthUser();
   if ("error" in auth) return auth.error;
@@ -97,6 +133,20 @@ async function handleDELETE(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "userId required" }, { status: 400 });
   }
 
+  const creatorId = await portfolioCreatorId(id);
+  if (userId === creatorId) {
+    return NextResponse.json(
+      { error: OWNER_MESSAGES.creatorStays },
+      { status: 403 }
+    );
+  }
+  if (userId !== auth.user.id && auth.user.id !== creatorId) {
+    return NextResponse.json(
+      { error: OWNER_MESSAGES.onlyCreatorRemoves },
+      { status: 403 }
+    );
+  }
+
   const supabase = await getSupabaseDataClient();
   if (!supabase) {
     return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
@@ -108,7 +158,7 @@ async function handleDELETE(req: NextRequest, ctx: Ctx) {
     .eq("portfolio_id", id);
   if ((count ?? 0) <= 1) {
     return NextResponse.json(
-      { error: "Can't remove the last owner. A portfolio needs at least one." },
+      { error: OWNER_MESSAGES.lastOwner },
       { status: 400 }
     );
   }

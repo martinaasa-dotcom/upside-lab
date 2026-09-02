@@ -11,7 +11,16 @@ import {
   isVercelPreviewHost,
   redirectTarget,
 } from "@/lib/site-url";
+import { sessionCookieOptions } from "@/lib/supabase/cookie-options";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase/env";
+
+/*
+  One policy, built once when the module loads rather than on every request.
+  Nothing in it comes from the request: `buildContentSecurityPolicy` reads
+  `NODE_ENV`, `VERCEL_ENV` and the Supabase URL, and all three are fixed for
+  the life of the process.
+*/
+const CSP = buildContentSecurityPolicy();
 
 /**
  * Legacy host redirects, mutation rate limits, CSP, and Supabase
@@ -26,7 +35,7 @@ export async function proxy(request: NextRequest) {
   const target = redirectTarget();
   const path = request.nextUrl.pathname;
   const isApi = path.startsWith("/api/");
-  const csp = buildContentSecurityPolicy();
+  const csp = CSP;
 
   if (
     target &&
@@ -131,10 +140,32 @@ export async function proxy(request: NextRequest) {
 
   let response = continueRequest();
 
-  const url = supabaseUrl();
-  const key = supabaseAnonKey();
+  /*
+    The session refresh, and only for a page.
+
+    Nothing here reads the user. `getUser()` is called for its one side
+    effect: an expired access token is exchanged and the new cookies are
+    written onto the response. That is a round trip to the auth service, and
+    it was being made on every request the matcher sees, `/api/*` included,
+    where it is paid twice. An API route that needs a user builds its own
+    cookie-session client and asks the same question itself
+    (`requireAuthUser`), and that client refreshes and writes the cookie
+    exactly as this one does, since a route handler is allowed to set
+    cookies. So the proxy's call on an API path bought a second round trip
+    for an answer the route was about to fetch a moment later, and on a
+    public one (`/api/quotes`, the popular tickers, every cron) it bought a
+    round trip for nobody.
+
+    It stays on page routes, where it is the only thing keeping a session
+    alive: the rooms are statically rendered, so no server render asks who
+    is signed in, and without this a cookie in a tab left open would go
+    stale with nothing to refresh it.
+  */
+  const url = isApi ? null : supabaseUrl();
+  const key = isApi ? null : supabaseAnonKey();
   if (url && key) {
     const supabase = createServerClient(url, key, {
+      cookieOptions: sessionCookieOptions(request.nextUrl.hostname),
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -156,6 +187,20 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
+/*
+  Every path but the build output and the files in `public/`. The exclusion
+  used to be `.*\..*`, any path with a dot in it, which is the shape Next's
+  own example uses and which reads as "static files". It is not: a circle
+  called `a.b`, a portfolio slug like `v1.2` and any API id carrying a dot
+  matched it too, and a request the proxy never sees gets no CSP header, no
+  forged-request gate and no mutation limit. So the exclusion names the
+  extensions a static file actually has, at the end of the path, and
+  everything else comes through, `/auth/link` and `/auth/continue`
+  included. `src/proxy.test.ts` compiles this exactly as the build does and
+  walks both lists.
+*/
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|.*\\..*).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|.*\\.(?:ico|png|jpe?g|gif|svg|webp|avif|css|js|mjs|map|json|txt|xml|webmanifest|woff2?|ttf|otf|mp4|webm|pdf)$).*)",
+  ],
 };

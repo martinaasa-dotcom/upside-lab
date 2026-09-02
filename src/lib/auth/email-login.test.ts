@@ -59,4 +59,21 @@ describe("email sign-in links", () => {
     expect(complete).toMatch(/export const POST/);
     expect(complete).not.toMatch(/export const GET/);
   });
+
+  it("names the mailbox the link opens, read without being spent", () => {
+    /*
+      The page used to say "press the button to open your account" and name
+      nothing, so a link forwarded, mis-sent or opened on a machine somebody
+      else uses looked exactly like the right one. It peeks now, which is a
+      read rather than a spend, and prints the address masked because it is
+      behind no sign-in.
+    */
+    const page = readFileSync(
+      join(process.cwd(), "src/app/auth/email/page.tsx"),
+      "utf8"
+    );
+
+    expect(page).toMatch(/emailLoginTarget/);
+    expect(page).toMatch(/maskAddress/);
+  });
 });

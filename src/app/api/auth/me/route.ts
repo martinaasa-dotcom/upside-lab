@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
 import { authMePatchSchema } from "@/lib/api-schemas";
 import { parseJsonBody } from "@/lib/parse-json-body";
-import { safeHttpUrl } from "@/lib/safe-url";
+import { AVATAR_HOST_MESSAGE, safeAvatarUrl } from "@/lib/avatar-url";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,11 @@ async function handleGET() {
   const auth = await requireAuthUser();
   if ("error" in auth) return auth.error;
 
+  // This is where a session begins: AuthProvider calls it once per session
+  // and Dashboard awaits it before its first book read. The profile row,
+  // the seed claims and the lab state row are made here rather than on
+  // GET /api/portfolios, which is polled every 45 seconds and on every room
+  // shown and must read the book and nothing else.
   await ensureProfileAndClaims(auth.user);
 
   const admin = await getSupabaseDataClient();
@@ -84,10 +89,10 @@ async function handlePATCH(req: NextRequest) {
       body.avatar_url == null
         ? null
         : String(body.avatar_url).trim().slice(0, 500) || null;
-    const url = raw ? safeHttpUrl(raw, { httpsOnly: true }) : null;
+    const url = raw ? safeAvatarUrl(raw) : null;
     if (raw && !url) {
       return NextResponse.json(
-        { error: "Photo link has to start with https://" },
+        { error: AVATAR_HOST_MESSAGE },
         { status: 400 }
       );
     }

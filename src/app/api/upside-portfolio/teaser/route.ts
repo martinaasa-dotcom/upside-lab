@@ -8,6 +8,7 @@ import {
   liveFundTotalValue,
 } from "@/lib/margus-fund-mark";
 import { stripReportSerialPrefix } from "@/lib/fund-copy";
+import { dbError } from "@/lib/db-error";
 import { NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { observeRoute } from "@/lib/observe-route";
@@ -127,9 +128,18 @@ async function handleGET() {
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Teaser failed";
-    const status = message === "Supabase not configured" ? 400 : 500;
-    return NextResponse.json({ error: message }, { status });
+    /*
+      "Supabase not configured" is this app's own sentence and keeps its
+      400. Everything else that reaches here was thrown with the driver's
+      message on it, and that stays on the server.
+    */
+    if (err instanceof Error && err.message === "Supabase not configured") {
+      return NextResponse.json({ error: "Supabase not configured" }, { status: 400 });
+    }
+    return NextResponse.json(
+      { error: dbError(err, "GET /api/upside-portfolio/teaser: load teaser") },
+      { status: 500 }
+    );
   }
 }
 

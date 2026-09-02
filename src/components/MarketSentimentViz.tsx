@@ -547,7 +547,24 @@ function LinearTrack({
   );
 }
 
-export function SentimentGaugeRow({ gauge }: { gauge: SentimentGaugeNote }) {
+/**
+ * One gauge.
+ *
+ * `showTrack` is false on a phone until the reader asks for the scales.
+ * Three tracks, three sets of ticks and three two-line captions is most of
+ * a screen spent on the same three numbers a compact row says in one line
+ * each, on a card that sits between a reader's own figure and the briefing
+ * about their own holdings. The track is hidden rather than unmounted, so
+ * the reading stays in the page for a screen reader, and it always draws
+ * from `md` up, where there is room for it.
+ */
+export function SentimentGaugeRow({
+  gauge,
+  showTrack = true,
+}: {
+  gauge: SentimentGaugeNote;
+  showTrack?: boolean;
+}) {
   const scrub = useScrubPct();
   const live = gauge.markerPct != null;
   const probing = live && scrub.show;
@@ -566,15 +583,23 @@ export function SentimentGaugeRow({ gauge }: { gauge: SentimentGaugeNote }) {
             <InfoTip text={gauge.explain} />
           </MicroLabel>
         </div>
-        <p
-          className={cn(
-            "shrink-0 font-mono text-base font-semibold tabular-nums leading-6",
-            gauge.valueClassName ?? "text-foreground"
+        <div className="flex min-w-0 items-baseline gap-2">
+          {showTrack ? null : (
+            <span className="truncate text-sm text-muted-foreground md:hidden">
+              {sub}
+            </span>
           )}
-        >
-          {gauge.value}
-        </p>
+          <p
+            className={cn(
+              "shrink-0 font-mono text-base font-semibold tabular-nums leading-6",
+              gauge.valueClassName ?? "text-foreground"
+            )}
+          >
+            {gauge.value}
+          </p>
+        </div>
       </div>
+      <div className={cn(showTrack ? undefined : "hidden md:block")}>
       {live ? (
         <div
           ref={scrub.ref}
@@ -604,6 +629,7 @@ export function SentimentGaugeRow({ gauge }: { gauge: SentimentGaugeNote }) {
       <p className="mt-0.5 h-10 text-sm leading-5 text-muted-foreground max-md:line-clamp-2 md:h-5 md:truncate">
         {sub}
       </p>
+      </div>
     </div>
   );
 }

@@ -36,6 +36,54 @@ const KEEP_NIGHTLY = NIGHTLY_SNAPSHOT_WINDOW;
 const KEEP_PRE_DELETE = 30;
 const KEEP_MANUAL = 20;
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How long a before-delete copy is kept, whatever the count says.
+ *
+ * Deleting a portfolio takes a copy of it first, holding by holding, so
+ * there is an undo. Nobody asks for that copy and nobody is shown it going
+ * stale, and keeping thirty of them by count alone means a person who has
+ * deleted three portfolios in two years still has all three sitting there
+ * with their holdings in them. A month is a generous undo window and is
+ * where an unasked-for copy of somebody's holdings stops earning its keep.
+ * A save the reader made themselves is a different thing and is not bounded
+ * by age here: they asked for it, they can see it, and taking it away on a
+ * timer would be the app throwing out something somebody meant to keep.
+ */
+export const PRE_DELETE_SNAPSHOT_MAX_AGE_DAYS = 30;
+
+/**
+ * Which saved copies to drop, newest row first.
+ *
+ * Two bounds rather than one, and a row past either goes: everything after
+ * `keep`, and, when `maxAgeDays` is given, anything older than that however
+ * few there are. A row whose timestamp cannot be read is kept, because
+ * deleting somebody's save on the strength of a date nobody could parse is
+ * the wrong way round to be wrong.
+ */
+export function snapshotsToPrune(
+  rows: { id?: string | null; created_at?: string | null }[],
+  opts: { keep: number; maxAgeDays?: number; now?: number }
+): string[] {
+  const now = opts.now ?? Date.now();
+  const cutoff =
+    opts.maxAgeDays == null ? null : now - opts.maxAgeDays * DAY_MS;
+  const drop: string[] = [];
+  rows.forEach((row, index) => {
+    const id = row?.id;
+    if (!id) return;
+    if (index >= opts.keep) {
+      drop.push(id);
+      return;
+    }
+    if (cutoff == null) return;
+    const at = row.created_at ? Date.parse(row.created_at) : Number.NaN;
+    if (Number.isFinite(at) && at < cutoff) drop.push(id);
+  });
+  return drop;
+}
+
 export async function captureBookPayload(
   supabase: SupabaseClient,
   opts?: { portfolioIds?: string[] }
@@ -228,33 +276,74 @@ export async function saveBookSnapshot(
 }
 
 export async function pruneOldSnapshots(supabase: SupabaseClient) {
+  const byKind = (kind: BookSnapshotKind) =>
+    supabase
+      .from(PORTFELL_TABLES.snapshots)
+      .select("id, created_at")
+      .eq("kind", kind)
+      .order("created_at", { ascending: false });
+
   const [{ data: nightly }, { data: preDelete }, { data: manuals }] =
     await Promise.all([
-      supabase
-        .from(PORTFELL_TABLES.snapshots)
-        .select("id")
-        .eq("kind", "nightly")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from(PORTFELL_TABLES.snapshots)
-        .select("id")
-        .eq("kind", "pre_delete")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from(PORTFELL_TABLES.snapshots)
-        .select("id")
-        .eq("kind", "manual")
-        .order("created_at", { ascending: false }),
+      byKind("nightly"),
+      byKind("pre_delete"),
+      byKind("manual"),
     ]);
 
+  type PruneRow = { id?: string | null; created_at?: string | null };
   const dropIds = [
-    ...(nightly ?? []).slice(KEEP_NIGHTLY).map((r) => r.id as string),
-    ...(preDelete ?? []).slice(KEEP_PRE_DELETE).map((r) => r.id as string),
-    ...(manuals ?? []).slice(KEEP_MANUAL).map((r) => r.id as string),
+    ...snapshotsToPrune((nightly ?? []) as PruneRow[], { keep: KEEP_NIGHTLY }),
+    ...snapshotsToPrune((preDelete ?? []) as PruneRow[], {
+      keep: KEEP_PRE_DELETE,
+      maxAgeDays: PRE_DELETE_SNAPSHOT_MAX_AGE_DAYS,
+    }),
+    ...snapshotsToPrune((manuals ?? []) as PruneRow[], { keep: KEEP_MANUAL }),
   ];
   if (dropIds.length === 0) return;
   await supabase.from(PORTFELL_TABLES.snapshots).delete().in("id", dropIds);
 }
+
+/**
+ * One saved book, or null when there is no row by that id.
+ *
+ * A driver error is thrown as it came. The route turns it into `dbError`,
+ * so the sentence Postgres wrote never reaches a response body.
+ */
+export async function loadBookSnapshot(
+  supabase: SupabaseClient,
+  snapshotId: string
+): Promise<{ id: string; payload: BookSnapshotPayload } | null> {
+  const { data, error } = await supabase
+    .from(PORTFELL_TABLES.snapshots)
+    .select("id, payload")
+    .eq("id", snapshotId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return data as { id: string; payload: BookSnapshotPayload };
+}
+
+/*
+  A restore either happens or is refused, and a refusal is a sentence the
+  reader is meant to see with the status that belongs to it. It comes back
+  as a value rather than a throw so the route can tell it from the driver
+  failing, which is the only thing these functions still throw and which
+  is never written for a reader.
+*/
+export type RestoreRefusal = { ok: false; status: 403 | 404; error: string };
+
+export type BookRestoreOutcome =
+  | { ok: true; counts: { portfolios: number; holdings: number } }
+  | RestoreRefusal;
+
+export type SheetRestoreOutcome =
+  | { ok: true; counts: { holdings: number; cash: number } }
+  | RestoreRefusal;
+
+export const SNAPSHOT_GONE = "That save is not there any more.";
+export const SNAPSHOT_NONE_OF_YOURS = "This save has none of your portfolios.";
+export const SNAPSHOT_NOT_THIS_PORTFOLIO =
+  "This save has no copy of this portfolio.";
 
 /**
  * Put the caller's own sheets back from a save. Never deletes a sheet,
@@ -264,26 +353,28 @@ export async function restoreBookFromSnapshot(
   supabase: SupabaseClient,
   snapshotId: string,
   ownedPortfolioIds: string[]
-): Promise<{ portfolios: number; holdings: number }> {
-  const { data: snap, error: sErr } = await supabase
-    .from(PORTFELL_TABLES.snapshots)
-    .select("id, payload")
-    .eq("id", snapshotId)
-    .single();
-  if (sErr || !snap) throw new Error(sErr?.message ?? "Snapshot not found");
+): Promise<BookRestoreOutcome> {
+  const snap = await loadBookSnapshot(supabase, snapshotId);
+  if (!snap) return { ok: false, status: 404, error: SNAPSHOT_GONE };
 
-  const payload = snap.payload as BookSnapshotPayload;
+  const payload = snap.payload;
   const ids = snapshotSheetsForOwner(payload, ownedPortfolioIds);
   if (ids.length === 0) {
-    throw new Error("This save has none of your portfolios.");
+    return { ok: false, status: 403, error: SNAPSHOT_NONE_OF_YOURS };
   }
 
   let holdings = 0;
   for (const id of ids) {
-    const counts = await applySheetFromPayload(supabase, id, payload);
-    holdings += counts.holdings;
+    const applied = await applySheetFromPayload(
+      supabase,
+      id,
+      payload,
+      ownedPortfolioIds
+    );
+    if (!applied.ok) return applied;
+    holdings += applied.counts.holdings;
   }
-  return { portfolios: ids.length, holdings };
+  return { ok: true, counts: { portfolios: ids.length, holdings } };
 }
 
 type SnapshotPortfolio = {
@@ -308,46 +399,76 @@ type SnapshotHolding = {
   [key: string]: unknown;
 };
 
+/**
+ * The saved copy of one live portfolio, chosen from the caller's own sheets
+ * in the save and nobody else's.
+ *
+ * A nightly save carries every portfolio in the project. This used to match
+ * by id, then slug, then name across all of them, so a reader who renamed
+ * their portfolio to a name somebody else was already using had that
+ * person's holdings and cash copied in over their own. The slug and name
+ * fallbacks stay, because a save taken before a rename is still the right
+ * save, but they only ever look at sheets the caller owns: a sheet that is
+ * not theirs is not a candidate whatever it is called. A live portfolio the
+ * caller does not own matches nothing.
+ */
+export function matchSnapshotSheet(
+  payload: BookSnapshotPayload,
+  live: { id: string; slug?: string | null; name?: string | null },
+  ownedPortfolioIds: string[]
+): SnapshotPortfolio | null {
+  const owned = new Set(ownedPortfolioIds.filter(Boolean));
+  if (!owned.has(live.id)) return null;
+
+  const mine = (Array.isArray(payload.portfolios)
+    ? payload.portfolios
+    : []
+  ).filter((raw) => {
+    const id = (raw as SnapshotPortfolio).id;
+    return Boolean(id && owned.has(id));
+  }) as SnapshotPortfolio[];
+
+  const lower = (v: unknown) => String(v).toLowerCase();
+  return (
+    mine.find((p) => p.id === live.id) ||
+    mine.find(
+      (p) => p.slug && live.slug && lower(p.slug) === lower(live.slug)
+    ) ||
+    mine.find(
+      (p) => p.name && live.name && lower(p.name) === lower(live.name)
+    ) ||
+    null
+  );
+}
+
 async function applySheetFromPayload(
   supabase: SupabaseClient,
   livePortfolioId: string,
-  payload: BookSnapshotPayload
-): Promise<{ holdings: number; cash: number }> {
+  payload: BookSnapshotPayload,
+  ownedPortfolioIds: string[]
+): Promise<SheetRestoreOutcome> {
   const { data: live, error: liveErr } = await supabase
     .from(PORTFELL_TABLES.portfolios)
     .select("id, slug, name")
     .eq("id", livePortfolioId)
-    .single();
-  if (liveErr || !live) throw new Error(liveErr?.message ?? "Portfolio not found");
+    .maybeSingle();
+  if (liveErr) throw new Error(liveErr.message);
+  if (!live) {
+    return { ok: false, status: 404, error: "Couldn't find that portfolio." };
+  }
 
-  const portfolios = (Array.isArray(payload.portfolios)
-    ? payload.portfolios
-    : []) as SnapshotPortfolio[];
+  const match = matchSnapshotSheet(
+    payload,
+    live as { id: string; slug?: string | null; name?: string | null },
+    ownedPortfolioIds
+  );
+  if (!match) {
+    return { ok: false, status: 403, error: SNAPSHOT_NOT_THIS_PORTFOLIO };
+  }
+
   const holdings = (Array.isArray(payload.holdings)
     ? payload.holdings
     : []) as SnapshotHolding[];
-
-  const match =
-    portfolios.find((p) => p.id === livePortfolioId) ||
-    portfolios.find(
-      (p) =>
-        p.slug &&
-        live.slug &&
-        String(p.slug).toLowerCase() === String(live.slug).toLowerCase()
-    ) ||
-    portfolios.find(
-      (p) =>
-        p.name &&
-        live.name &&
-        String(p.name).toLowerCase() === String(live.name).toLowerCase()
-    );
-
-  if (!match) {
-    throw new Error(
-      `Snapshot has no portfolio matching “${live.name}” (id/slug/name)`
-    );
-  }
-
   const snapPortfolioId = match.id;
   const sheetHoldings = holdings.filter((h) =>
     snapPortfolioId ? h.portfolio_id === snapPortfolioId : false
@@ -386,28 +507,24 @@ async function applySheetFromPayload(
     if (hIns) throw new Error(hIns.message);
   }
 
-  return { holdings: sheetHoldings.length, cash };
+  return { ok: true, counts: { holdings: sheetHoldings.length, cash } };
 }
 
 /**
- * Replace one live sheet's cash + holdings from a book snapshot.
- * Matches snapshot portfolio by id, then slug, then name.
+ * Replace one live sheet's cash + holdings from a save the caller has
+ * already loaded. Only the caller's own sheets in that save are candidates;
+ * see `matchSnapshotSheet`.
  */
 export async function restoreSheetFromSnapshot(
   supabase: SupabaseClient,
-  snapshotId: string,
-  livePortfolioId: string
-): Promise<{ holdings: number; cash: number }> {
-  const { data: snap, error: sErr } = await supabase
-    .from(PORTFELL_TABLES.snapshots)
-    .select("id, payload")
-    .eq("id", snapshotId)
-    .single();
-  if (sErr || !snap) throw new Error(sErr?.message ?? "Snapshot not found");
-
+  payload: BookSnapshotPayload,
+  livePortfolioId: string,
+  ownedPortfolioIds: string[]
+): Promise<SheetRestoreOutcome> {
   return applySheetFromPayload(
     supabase,
     livePortfolioId,
-    snap.payload as BookSnapshotPayload
+    payload,
+    ownedPortfolioIds
   );
 }

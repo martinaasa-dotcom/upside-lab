@@ -2,113 +2,23 @@ import type { Holding, Portfolio } from "./types";
 import { tracksTradeCash } from "@/lib/cash-balance";
 import { tradeCashDelta } from "@/lib/cash-delta";
 
-/** Yahoo-friendly symbols for non-US listings */
-function yf(ticker: string) {
-  return ticker;
-}
+/*
+  There is no seed in this file, and that is deliberate.
 
-function h(
-  id: string,
-  portfolio_id: string,
-  ticker: string,
-  shares: number,
-  buy_price: number,
-  sort_order: number,
-  target_call_pct = 0.15,
-  stock_target_override: number | null = null
-): Holding {
-  return {
-    id,
-    portfolio_id,
-    ticker: yf(ticker),
-    shares,
-    buy_price,
-    eoy_target: null,
-    target_call_pct,
-    stock_target_override,
-    sort_order,
-  };
-}
+  It used to carry four real people's portfolios: their names, the
+  companies they hold, how many shares and what they paid. Nothing read
+  them (an invariant asserts the portfolios route does not), the local
+  store starts empty either way, and the repository is public, so the only
+  thing they did was publish somebody's holdings to anybody who looked.
 
-export const DEMO_PORTFOLIOS: Portfolio[] = [
-  {
-    id: "p-aasad",
-    name: "Aasad",
-    slug: "aasad",
-    sort_order: 1,
-    // From Martin's Aasad sheet — do not invent different cash/holdings
-    cash_balance: -7000,
-  },
-  {
-    id: "p-anu",
-    name: "Anu",
-    slug: "anu",
-    sort_order: 2,
-    // MAJA FOND $2000 + KÖÖGI FOND $400
-    cash_balance: 2400,
-  },
-  {
-    id: "p-maryann",
-    name: "MaryAnn",
-    slug: "maryann",
-    sort_order: 3,
-    cash_balance: 0,
-  },
-  {
-    id: "p-karud",
-    name: "Karud",
-    slug: "karud",
-    sort_order: 4,
-    cash_balance: 0,
-  },
-];
+  The rule they existed to serve still stands and is in AGENTS.md: never
+  invent holdings for Martin's own portfolios. It is served by asking him
+  rather than by keeping the answer here.
+*/
 
-/**
- * Canonical holdings so agents do not invent a different Aasad/Anu/MaryAnn/Karud book.
- * These are real people's sheets. They are not a starter pack. Never paint them
- * as a signed-in user's book. Unsigned local mode starts empty; a Save lock
- * on this device (`portfell-locked`) is the only local copy.
- */
-export const DEMO_HOLDINGS: Holding[] = [
-  // —— Aasad (sheet + confirmed Call % / stock-target baselines) ——
-  h("h-aasad-nbis", "p-aasad", "NBIS", 500, 109.96, 1, 0.22, 205),
-  h("h-aasad-crwv", "p-aasad", "CRWV", 1100, 83.27, 2, 0.18, 90),
-  h("h-aasad-rklb", "p-aasad", "RKLB", 200, 68.65, 3, 0.16, 77),
-  h("h-aasad-bmnr", "p-aasad", "BMNR", 1500, 18.2, 4, 0.15, 19.5),
-  h("h-aasad-vst", "p-aasad", "VST", 200, 145, 5, 0.07, 145),
-
-  // —— Anu ——
-  h("h-anu-crwv", "p-anu", "CRWV", 173, 88.47, 1, 0.15),
-  h("h-anu-nbis", "p-anu", "NBIS", 73, 190.3, 2, 0.15),
-  h("h-anu-rklb", "p-anu", "RKLB", 105, 75.59, 3, 0.16),
-  h("h-anu-rddt", "p-anu", "RDDT", 13, 164.09, 4, 0.15),
-
-  // —— MaryAnn ——
-  h("h-maryann-crwv", "p-maryann", "CRWV", 1500, 73.07, 1, 0.15),
-  h("h-maryann-nbis", "p-maryann", "NBIS", 800, 194.0, 2, 0.15),
-  h("h-maryann-rklb", "p-maryann", "RKLB", 800, 67.83, 3, 0.16),
-  h("h-maryann-nvda", "p-maryann", "NVDA", 300, 184.39, 4, 0.12),
-  h("h-maryann-vst", "p-maryann", "VST", 700, 145.0, 5, 0.12),
-  h("h-maryann-avgo", "p-maryann", "AVGO", 200, 385.22, 6, 0.12),
-
-  // —— Karud (Lightyear + LHV) ——
-  h("h-karud-jedi", "p-karud", "JEDI.L", 500, 1.2, 1, 0.15),
-  h("h-karud-asml", "p-karud", "ASML.AS", 3, 650, 2, 0.12),
-  h("h-karud-rklb", "p-karud", "RKLB", 80, 40, 3, 0.16),
-  h("h-karud-bmnr", "p-karud", "BMNR", 200, 25, 4, 0.15),
-  h("h-karud-nvda", "p-karud", "NVDA", 10, 130, 5, 0.12),
-  h("h-karud-nbis", "p-karud", "NBIS", 70, 55, 6, 0.15),
-  h("h-karud-vwce", "p-karud", "VWCE.DE", 50, 120, 7, 0.1),
-  h("h-karud-anx", "p-karud", "ANX.PA", 20, 15, 8, 0.12),
-  h("h-karud-cspx", "p-karud", "CSPX.L", 15, 500, 9, 0.1),
-  h("h-karud-smh", "p-karud", "SMH.L", 40, 40, 10, 0.12),
-  h("h-karud-abea", "p-karud", "ABEA.DE", 25, 150, 11, 0.12),
-  h("h-karud-ex13", "p-karud", "EX13.VI", 100, 25, 12, 0.1),
-  h("h-karud-pwr", "p-karud", "PWR", 15, 280, 13, 0.12),
-];
-
-/** Working copy — may change with app versions; locked save wins. */
+/** Working copy. May change with app versions; a locked save wins. */
 const STORAGE_KEY = "portfell-demo-v8";
+
 /**
  * User Save lock. Never cleared by version bumps or Reset.
  * Agents must not delete this key.

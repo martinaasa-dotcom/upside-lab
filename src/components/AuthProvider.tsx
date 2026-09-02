@@ -140,11 +140,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setReady(true);
         void loadProfile(next);
       } else {
+        /*
+         * The session is gone and nobody pressed Sign out: it expired, or
+         * another tab ended it, or the cookie went. `SIGNED_OUT` is not
+         * guaranteed to arrive for any of those, and on a cold load there
+         * is no listener yet to hear it, so this branch is where it has to
+         * be handled.
+         *
+         * Forgetting the last user without purging was the worst of both.
+         * The previous account's local caches stayed (Lab conviction notes,
+         * watchlist, Pulse history, chat, IndexedDB, the offline write
+         * queue) and the record of whose they were was erased with
+         * `saveLastUser(null)`, so the next person to sign in on this
+         * browser was not recognised as a switch by the guard above and
+         * simply inherited them, queued writes included.
+         */
+        const last = loadLastUser();
         setUser(null);
         setReady(true);
-        saveLastUser(null);
         setProfile(null);
-        clearBookCache();
+        if (last) {
+          await purgeClientSession();
+        } else {
+          saveLastUser(null);
+          clearBookCache();
+        }
       }
     } catch {
       // Keep the last-known user on a flaky network. Kicking someone to

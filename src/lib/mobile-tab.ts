@@ -7,7 +7,7 @@ import {
 } from "@/lib/overview";
 
 /**
- * `?tab=portfolio` before there is a portfolio to open.
+ * `/portfolio` before there is a portfolio to open.
  *
  * Distinct from `null`, which means nothing was asked for. This asked for
  * the holdings table. It is a real room id: the Holdings cell stays lit
@@ -24,46 +24,16 @@ export type MobileTabId =
   | "circle";
 
 /**
- * Which phone-dock cell is on, from the URL alone.
- *
- * Holdings is `?tab=portfolio` (and the old `book` / `forecast` spellings).
- * An empty table does not change the room: the query is the room.
- */
-export function activeMobileTab(
-  pathname: string,
-  tabParam?: string | null
-): MobileTabId | null {
-  if (pathname.startsWith("/account") || pathname.startsWith("/admin")) {
-    return null;
-  }
-  if (pathname.startsWith("/upside-portfolio")) {
-    return null;
-  }
-  if (pathname.startsWith("/communities")) {
-    return "circle";
-  }
-  const tab = (tabParam ?? "").toLowerCase();
-  if (tab === "pulse") return "pulse";
-  if (tab === "lab") return "lab";
-  if (tab === "compound") return "compound";
-  /*
-    `book` is the old spelling of `portfolio` and `forecast` is a panel on a
-    portfolio rather than a room of its own, so all three are the holdings
-    table. Kept in step with `legacyRedirectPath`, which retires all three
-    onto `/portfolio` and has to agree about what they meant.
-  */
-  if (tab === "portfolio" || tab === "book" || tab === "forecast") {
-    return "holdings";
-  }
-  return "home";
-}
-
-/**
  * Which phone-dock cell is on, from the Dashboard tab id.
  *
  * A portfolio id (UUID, slug, or the pending-holdings sentinel) is Holdings,
  * whether that portfolio has rows or not. The marker follows the room you
  * asked for, never the size of the table inside it.
+ *
+ * This is the only reader of the room on the phone. There used to be a
+ * second one that read `?tab=` off the URL, and it read nothing: the proxy
+ * retires that query with a 308 before any page sees it, so the path is
+ * the room and `tabIdFromPath` (`book-routes.ts`) is what reads it.
  */
 export function mobileTabFromActiveId(
   activeId: string | null | undefined

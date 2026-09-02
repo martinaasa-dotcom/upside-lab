@@ -22,7 +22,14 @@ import {
   type ClassPlan,
   type ThesisCoverage,
 } from "@/lib/classroom";
-import { cashtag, cn, currency } from "@/lib/format";
+import { cashtag, cn } from "@/lib/format";
+import { buildCircleAwards } from "@/lib/circle-awards";
+import {
+  circleChangeSentence,
+  circleChanges,
+  type CircleBookSnapshot,
+} from "@/lib/circle-changes";
+import { namedRoom, RoomNoun, roomNoun } from "@/lib/community-words";
 import { CircleHome } from "@/components/CircleHome";
 import { ClassroomHome } from "@/components/ClassroomHome";
 import { CommunityMembersPanel } from "@/components/CommunityMembersPanel";
@@ -40,6 +47,7 @@ import type {
 import { ReadOnlyHoldings } from "@/components/CircleCards";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Segmented } from "@/components/ui/Panel";
 import { combineHouseholdNames } from "@/lib/auth/identity";
 import { copyText } from "@/lib/copy-text";
@@ -90,6 +98,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -130,6 +139,13 @@ type CommunityBookResponse = {
   profiles?: Profile[];
   ownership?: { portfolio_id: string; user_id: string }[];
   thesisCoverage?: Record<string, ThesisCoverage>;
+  /**
+   * Person id to ticker to the reason they wrote, for members who share
+   * their reasons. A circle whose whole subject is why you own something
+   * had no way to show it, so this is what the reason sheet and the muted
+   * line under each holding read.
+   */
+  theses?: Record<string, Record<string, string>>;
 };
 
 /** Synchronous cache read shared by every piece of state below, so they
@@ -177,6 +193,19 @@ export function CommunityView({ communityId }: Props) {
   const [thesisCoverage, setThesisCoverage] = useState<
     Record<string, ThesisCoverage>
   >({});
+  const [theses, setTheses] = useState<Record<string, Record<string, string>>>(
+    {}
+  );
+  /*
+    The copy of this circle that was in the browser when the reader arrived.
+    Diffed against the fresh one to say what changed while they were away,
+    which needs no table because the cache is already there. Held in state
+    rather than only in `initialCacheRef` so the diff re-runs when the fresh
+    book lands.
+  */
+  const [previousBook, setPreviousBook] = useState<CircleBookSnapshot | null>(
+    null
+  );
   const [claimBusy, setClaimBusy] = useState(false);
   // Community books paint instantly from cache, so without seeding prices
   // too every member's value would render at cost basis for a beat.
@@ -194,6 +223,15 @@ export function CommunityView({ communityId }: Props) {
   const loadAbortRef = useRef<AbortController | null>(null);
   const fromPopRef = useRef(false);
   const bootstrappedRef = useRef(false);
+  /*
+    What the layout effect read out of the address, so the writer below can
+    tell "the reader has not changed anything yet" from "this render is
+    still carrying the defaults".
+  */
+  const urlSeedRef = useRef<{
+    view: "overview" | "play" | "members";
+    member: string | null;
+  } | null>(null);
   const correctingRef = useRef(false);
 
   useLayoutEffect(() => {
@@ -215,6 +253,19 @@ export function CommunityView({ communityId }: Props) {
     setProfiles(cache.book?.profiles ?? []);
     setOwnership(cache.book?.ownership ?? []);
     setThesisCoverage(cache.book?.thesisCoverage ?? {});
+    setTheses(cache.book?.theses ?? {});
+    setPreviousBook(
+      cache.book
+        ? {
+            ownership: cache.book.ownership ?? [],
+            holdings: (cache.book.holdings ?? []).map((h) => ({
+              portfolio_id: h.portfolio_id,
+              ticker: h.ticker,
+              shares: h.shares,
+            })),
+          }
+        : null
+    );
     setQuotes(loadCachedQuotes().quotes);
     setDuelCache(loadCommunityDuelCache(communityId, currentDuelSessionKey()));
     hasDataRef.current = Boolean(cache.meta);
@@ -223,11 +274,17 @@ export function CommunityView({ communityId }: Props) {
     fromPopRef.current = false;
 
     const params = new URLSearchParams(window.location.search);
-    setSelectedOwnerId(params.get("member"));
     const rawView = params.get("view");
-    if (rawView === "members") setView("members");
-    else if (rawView === "play" || rawView === "league") setView("play");
-    else setView("overview");
+    const seedView =
+      rawView === "members"
+        ? ("members" as const)
+        : rawView === "play" || rawView === "league"
+          ? ("play" as const)
+          : ("overview" as const);
+    const seedMember = params.get("member");
+    urlSeedRef.current = { view: seedView, member: seedMember };
+    setSelectedOwnerId(seedMember);
+    setView(seedView);
   }, [communityId]);
   const [bestiaryOpen, setBestiaryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -310,6 +367,7 @@ export function CommunityView({ communityId }: Props) {
       setProfiles(book.profiles ?? []);
       setOwnership(book.ownership ?? []);
       setThesisCoverage(book.thesisCoverage ?? {});
+      setTheses(book.theses ?? {});
       hasDataRef.current = true;
       saveCommunityCache(communityId, { meta, book });
     } catch (e) {
@@ -414,7 +472,27 @@ export function CommunityView({ communityId }: Props) {
     else url.searchParams.delete("view");
     const href = `${url.pathname}${url.search}`;
 
+    /*
+      A shared link did not survive its own page load.
+
+      This effect is queued from the first render, whose `view` is still the
+      default, and the layout effect that reads the address commits a second
+      render after it. Both passive effects then run, so the first one wrote
+      the address back without the query it had arrived with. That alone
+      only cost an extra history entry, but `WorkspaceShell` can remount the
+      room, and the layout effect then re-read an address that no longer
+      said anything: a link to `?view=league` landed on Overview, and
+      `?member=` never opened the drill-down at all.
+
+      So nothing is written until the state agrees with what the layout
+      effect actually parsed. A render still carrying the defaults is a
+      render that has not caught up, not a reader who has changed their
+      mind, and it leaves the address alone.
+    */
     if (!bootstrappedRef.current) {
+      const seed = urlSeedRef.current;
+      if (!seed) return;
+      if (seed.view !== view || seed.member !== selectedOwnerId) return;
       bootstrappedRef.current = true;
       window.history.replaceState(window.history.state, "", href);
       return;
@@ -688,7 +766,25 @@ export function CommunityView({ communityId }: Props) {
     [memberStats]
   );
 
+  const teacherIds = useMemo(
+    () =>
+      new Set(
+        members.filter((m) => m.role === "admin").map((m) => m.user_id)
+      ),
+    [members]
+  );
+
   const isClassroom = community?.kind === "classroom";
+  /*
+    One word for the room, everywhere a reader can see it. The same view
+    serves a circle of friends and a paper class, and the copy called both
+    of them a "community" in fourteen places, so a student leaving a class
+    was asked "Leave this community?". `community-words.ts` owns the noun
+    and `reader-copy.test.ts` fails on the old one in any markup.
+  */
+  const roomWord = roomNoun(community?.kind);
+  const RoomWord = RoomNoun(community?.kind);
+  const thisRoomWord = `this ${roomWord}`;
   const startingCash = Number(community?.starting_cash) || DEFAULT_STARTING_CASH;
   const classStartTotal =
     startingCash * Math.max(1, membersWithBooks.length);
@@ -758,163 +854,28 @@ export function CommunityView({ communityId }: Props) {
     return map;
   }, [members, profiles, profileName]);
 
-  // Fun superlative badges — deliberately don't repeat what the leaderboard
-  // already shows (today's move, lifetime return); these highlight the
-  // axes only Power Animals surfaces, so nothing here is a duplicate view
-  // of another section's data.
-  const achievements = useMemo<CommunityAchievement[]>(() => {
-    const withPersonality = membersWithBooks.filter((m) => m.personality);
-    if (withPersonality.length === 0) return [];
-    const out: CommunityAchievement[] = [];
+  /*
+    One award per person, and never one about how much money they have.
 
-    const mostDiversified = [...withPersonality].sort(
-      (a, b) => b.personality!.diversificationScore - a.personality!.diversificationScore
-    )[0]!;
-    out.push({
-      id: "diversifier",
-      emoji: "🌐",
-      title: "Most spread out",
-      winner: mostDiversified.name,
-      winnerId: mostDiversified.id,
-      stat: `${mostDiversified.personality!.diversificationScore}/100`,
-      description: "Most spread-out portfolio in the circle.",
-    });
-
-    const mostRisk = [...withPersonality].sort(
-      (a, b) => b.personality!.riskScore - a.personality!.riskScore
-    )[0]!;
-    out.push({
-      id: "risk-taker",
-      emoji: "🔥",
-      title: "Hottest portfolio",
-      winner: mostRisk.name,
-      winnerId: mostRisk.id,
-      stat: `${mostRisk.personality!.riskScore}/100`,
-      description: "The jumpiest mix of holdings in the circle.",
-    });
-
-    const steadiest = [...withPersonality].sort(
-      (a, b) => a.personality!.riskScore - b.personality!.riskScore
-    )[0]!;
-    out.push({
-      id: "steady-hand",
-      emoji: "🛡️",
-      title: "The Steady Hand",
-      winner: steadiest.name,
-      winnerId: steadiest.id,
-      stat: `${steadiest.personality!.riskScore}/100`,
-      description: "Calmest portfolio in the circle.",
-    });
-
-    const mostConviction = [...withPersonality].sort(
-      (a, b) => b.personality!.convictionScore - a.personality!.convictionScore
-    )[0]!;
-    if (mostConviction.personality!.convictionScore >= 30) {
-      out.push({
-        id: "conviction",
-        emoji: "🎯",
-        title: "Biggest bet",
-        winner: mostConviction.name,
-        winnerId: mostConviction.id,
-        stat: `${mostConviction.personality!.convictionScore}%${
-          mostConviction.personality!.topTicker
-            ? ` ${cashtag(mostConviction.personality!.topTicker)}`
-            : ""
-        }`,
-        description: "The biggest single holding, measured against the rest of the portfolio.",
-      });
-    }
-
-    const mostThemes = [...withPersonality].sort(
-      (a, b) => b.personality!.themeCount - a.personality!.themeCount
-    )[0]!;
-    if (mostThemes.personality!.themeCount >= 2) {
-      out.push({
-        id: "themes",
-        emoji: "🗺️",
-        title: "Most kinds of stocks",
-        winner: mostThemes.name,
-        winnerId: mostThemes.id,
-        stat: `${mostThemes.personality!.themeCount} groups`,
-        description: "Holds the most different kinds of businesses.",
-      });
-    }
-
-    const mostCash = [...withPersonality].sort(
-      (a, b) => b.personality!.cashPct - a.personality!.cashPct
-    )[0]!;
-    if (mostCash.personality!.cashPct >= 8) {
-      out.push({
-        id: "dry-powder",
-        emoji: "💧",
-        title: "Most cash",
-        winner: mostCash.name,
-        winnerId: mostCash.id,
-        stat: `${mostCash.personality!.cashPct}% cash`,
-        description: "The most cash, measured against the size of the portfolio.",
-      });
-    }
-
-    const mostSpecialist = [...withPersonality]
-      .filter((m) => m.personality!.specialistScore >= 55)
-      .sort(
-        (a, b) => b.personality!.specialistScore - a.personality!.specialistScore
-      )[0];
-    if (mostSpecialist) {
-      out.push({
-        id: "specialist",
-        emoji: "⬡",
-        title: "One-kind diet",
-        winner: mostSpecialist.name,
-        winnerId: mostSpecialist.id,
-        stat: `${mostSpecialist.personality!.specialistScore}%`,
-        description: "The most weight in one kind of business.",
-      });
-    }
-    const biggestBook = [...membersWithBooks].sort(
-      (a, b) => b.totalValue - a.totalValue
-    )[0]!;
-    const smallestBook = [...membersWithBooks].sort(
-      (a, b) => a.totalValue - b.totalValue
-    )[0]!;
-    if (biggestBook.id !== smallestBook.id) {
-      out.push({
-        id: "big-book",
-        emoji: "🏦",
-        title: "Largest portfolio",
-        winner: biggestBook.name,
-        winnerId: biggestBook.id,
-        stat: currency(biggestBook.totalValue, 0),
-        description: "Largest portfolio in the circle.",
-      });
-      out.push({
-        id: "small-mighty",
-        emoji: "🌱",
-        title: "Small but Mighty",
-        winner: smallestBook.name,
-        winnerId: smallestBook.id,
-        stat: currency(smallestBook.totalValue, 0),
-        description: "Smallest portfolio. Every circle has a sapling.",
-      });
-    }
-
-    const closestToGoal = [...membersWithBooks]
-      .filter((m) => m.milestone.next != null)
-      .sort((a, b) => a.milestone.remaining - b.milestone.remaining)[0];
-    if (closestToGoal) {
-      out.push({
-        id: "closest-milestone",
-        emoji: "🏁",
-        title: "On the Doorstep",
-        winner: closestToGoal.name,
-        winnerId: closestToGoal.id,
-        stat: `${currency(closestToGoal.milestone.remaining, 0)} away`,
-        description: `Closest to hitting ${currency(closestToGoal.milestone.next ?? 0, 0)}.`,
-      });
-    }
-
-    return out;
-  }, [membersWithBooks]);
+    This used to be nine independent sorts handing out ten awards to six
+    people, so the same person collected three and two of them contradicted
+    each other on the same grid (an index fund tops both the spread-out
+    score and the one-kind score). Two of them ranked people by the size of
+    their portfolio, which is the figure a circle promises never to show:
+    the friend with the smallest one was labelled the sapling in front of
+    everybody. `circle-awards.ts` holds the rule and the argument.
+  */
+  const achievements = useMemo<CommunityAchievement[]>(
+    () =>
+      buildCircleAwards(
+        membersWithBooks.map((m) => ({
+          id: m.id,
+          name: m.name,
+          personality: m.personality,
+        }))
+      ),
+    [membersWithBooks]
+  );
 
   // Combined family sector fingerprint — every member's holdings pooled
   // into one dollar-weighted theme breakdown, a level up from "What the
@@ -940,15 +901,147 @@ export function CommunityView({ communityId }: Props) {
       .sort((a, b) => b.value - a.value);
   }, [overview.tickers]);
 
+  /*
+    The same breakdown for the reader alone, so the chart can answer the one
+    question it exists to answer: how you differ from the room. A single
+    stacked bar of the group tells nobody anything about themselves.
+  */
+  const yourThemeBreakdown = useMemo(() => {
+    const you = memberStats.find((m) => m.isYou);
+    if (!you) return [];
+    const mySheets = new Set(
+      ownership
+        .filter((o) => o.user_id === you.id)
+        .map((o) => o.portfolio_id)
+    );
+    const byTheme = new Map<string, number>();
+    let total = 0;
+    for (const h of holdings) {
+      if (!mySheets.has(h.portfolio_id)) continue;
+      const value = h.shares * (quotes[h.ticker]?.price ?? 0);
+      if (value <= 0) continue;
+      const theme = forecastThemeForTicker(h.ticker);
+      byTheme.set(theme, (byTheme.get(theme) ?? 0) + value);
+      total += value;
+    }
+    if (total <= 0) return [];
+    return [...byTheme.entries()]
+      .map(([theme, value]) => ({
+        theme: theme as ForecastTheme,
+        label: THEME_LABEL[theme as ForecastTheme] ?? theme,
+        value,
+        pct: value / total,
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [memberStats, ownership, holdings, quotes]);
+
+  /** Every person's reason for a shared company, keyed on the ticker. */
+  const sharedReasons = useMemo(() => {
+    const map = new Map<string, { person: string; reason: string | null }[]>();
+    for (const row of sharedNames) {
+      const people = row.people.map((person) => {
+        const stat = memberStats.find((m) => m.name === person);
+        const reason = stat ? theses[stat.id]?.[row.ticker] ?? null : null;
+        return { person, reason: reason?.trim() ? reason.trim() : null };
+      });
+      map.set(row.ticker, people);
+    }
+    return map;
+  }, [sharedNames, memberStats, theses]);
+
+  /**
+   * Companies the reader owns and has written nothing about, so the reason
+   * sheet asks only the person it can actually ask. Owning it is not enough:
+   * a reader whose own reason is already on the sheet was being told to go
+   * and write one.
+   */
+  const needYourReason = useMemo(() => {
+    const you = memberStats.find((m) => m.isYou);
+    if (!you) return new Set<string>();
+    const mySheets = new Set(
+      ownership.filter((o) => o.user_id === you.id).map((o) => o.portfolio_id)
+    );
+    const mine = theses[you.id] ?? {};
+    return new Set(
+      holdings
+        .filter((h) => mySheets.has(h.portfolio_id))
+        .map((h) => h.ticker)
+        .filter((ticker) => !mine[ticker]?.trim())
+    );
+  }, [memberStats, ownership, holdings, theses]);
+
+  /*
+    What changed since the reader last opened this circle. Six lines at
+    most: past that it stops being news and starts being a list.
+  */
+  const changes = useMemo(
+    () =>
+      circleChanges(
+        previousBook,
+        {
+          ownership,
+          holdings: holdings.map((h) => ({
+            portfolio_id: h.portfolio_id,
+            ticker: h.ticker,
+            shares: h.shares,
+          })),
+        },
+        profileName
+      )
+        .slice(0, 6)
+        .map((c) => circleChangeSentence(c, cashtag)),
+    [previousBook, ownership, holdings, profileName]
+  );
+
+  /**
+   * Who in this circle wears each animal, and the three groups the field
+   * guide is read in: you, then the room, then everything else.
+   */
+  const bestiaryHolders = useMemo(() => {
+    const map = new Map<string, string>();
+    const names = new Map<string, string[]>();
+    for (const m of membersWithBooks) {
+      const id = m.personality?.archetype.id;
+      if (!id) continue;
+      names.set(id, [...(names.get(id) ?? []), m.isYou ? "You" : m.name]);
+    }
+    for (const [id, list] of names) {
+      const joined =
+        list.length === 1
+          ? list[0]!
+          : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+      map.set(id, `${joined} ${list.length === 1 && list[0] !== "You" ? "has" : "have"} this one.`);
+    }
+    return map;
+  }, [membersWithBooks]);
+
+  const bestiaryGroups = useMemo(() => {
+    const you = membersWithBooks.find((m) => m.isYou)?.personality?.archetype.id;
+    const here = new Set(
+      membersWithBooks
+        .map((m) => m.personality?.archetype.id)
+        .filter((id): id is string => Boolean(id))
+    );
+    const mine = ANIMAL_BESTIARY.filter((a) => a.id === you);
+    const inRoom = ANIMAL_BESTIARY.filter((a) => a.id !== you && here.has(a.id));
+    const rest = ANIMAL_BESTIARY.filter((a) => a.id !== you && !here.has(a.id));
+    return [
+      { title: "Yours", animals: mine },
+      { title: "In this circle", animals: inRoom },
+      { title: "Every other animal", animals: rest },
+    ].filter((g) => g.animals.length > 0);
+  }, [membersWithBooks]);
+
   const [funFactsShuffle, setFunFactsShuffle] = useState(0);
   const communityFunFacts = useMemo(
     () =>
       buildCommunityFunFacts(
         membersWithBooks,
         funFactsShuffle === 0 ? todayKeyInTz() : `shuffle-${funFactsShuffle}`,
-        6
+        6,
+        achievements.map((a) => a.id)
       ),
-    [membersWithBooks, funFactsShuffle]
+    [membersWithBooks, funFactsShuffle, achievements]
   );
 
   /** Every book the drilled-into member owns. */
@@ -990,10 +1083,10 @@ export function CommunityView({ communityId }: Props) {
     return [...byTicker.values()];
   }, [ownerPortfolios, holdings]);
 
-  const selectedCash = ownerPortfolios.reduce(
-    (s, p) => s + sheetCashBalance(p),
-    0
-  );
+  const selectedOwnerName = selectedOwnerId
+    ? memberStats.find((m) => m.id === selectedOwnerId)?.name ??
+      profileName(selectedOwnerId)
+    : "";
 
   const loadInvites = useCallback(async () => {
     try {
@@ -1048,44 +1141,55 @@ export function CommunityView({ communityId }: Props) {
     }
   }
 
+  /**
+   * The link is only ever the one the server just handed back. The database
+   * holds a hash of the token and nothing else, so there is no call that
+   * fetches an existing invite's link; an admin who needs one again makes a
+   * new link (`renewInvite`).
+   */
   async function copyInviteLink(url: string | null, key: string) {
-    let resolved = url;
-    if (!resolved && key !== "fresh") {
-      try {
-        const res = await fetch(
-          `/api/communities/${communityId}/invites/${key}`
-        );
-        const data = (await res.json().catch(() => ({}))) as {
-          error?: string;
-          path?: string;
-        };
-        if (!res.ok) {
-          throw new Error(plainError(data.error, "Couldn't copy that link."));
-        }
-        const path = typeof data.path === "string" ? data.path : "";
-        if (!path) throw new Error("Couldn't copy that link.");
-        resolved = `${window.location.origin}${path}`;
-        setInvites((rows) =>
-          rows.map((inv) => (inv.id === key ? { ...inv, path } : inv))
-        );
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Couldn't copy that link.");
-        return;
-      }
-    }
-    if (!resolved) {
+    if (!url) {
       setError("Couldn't copy that link.");
       return;
     }
-    const ok = await copyText(resolved);
+    const ok = await copyText(url);
     if (!ok) {
       setError("Couldn't copy that link. Select it and copy by hand.");
-      setInviteUrl(resolved);
+      setInviteUrl(url);
       return;
     }
     setError(null);
     setCopiedInviteId(key);
     later(() => setCopiedInviteId((id) => (id === key ? null : id)), 1500);
+  }
+
+  /** A fresh link in place of an existing one. The old link stops working. */
+  async function renewInvite(inviteId: string) {
+    setBusy(true);
+    setInviteUrl(null);
+    setInviteEmailed(0);
+    try {
+      const res = await fetch(
+        `/api/communities/${communityId}/invites/${inviteId}`,
+        { method: "POST" }
+      );
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        path?: string;
+      };
+      if (!res.ok || typeof data.path !== "string") {
+        throw new Error(plainError(data.error, "Couldn't make a new link."));
+      }
+      track("community_invite_created");
+      const url = `${window.location.origin}${data.path}`;
+      setInviteUrl(url);
+      await copyInviteLink(url, "fresh");
+      await loadInvites();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't make a new link.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function retireInvite(inviteId: string) {
@@ -1388,6 +1492,7 @@ export function CommunityView({ communityId }: Props) {
       copiedInviteId={copiedInviteId}
       createInvite={createInvite}
       copyInviteLink={copyInviteLink}
+      renewInvite={renewInvite}
       setRole={setRole}
       decideJoinRequest={decideJoinRequest}
       setRemoveTarget={setRemoveTarget}
@@ -1402,7 +1507,7 @@ export function CommunityView({ communityId }: Props) {
       <div className={PAGE_FRAME_CLASS}>
         <MobileDock active="circle" />
         <AppHeader
-          mobileTitle={community?.name ?? "Community"}
+          mobileTitle={community?.name ?? RoomWord}
           mobileEnd={
             /*
              * `ghost`/`icon-sm`, matching the feedback and account controls
@@ -1428,15 +1533,15 @@ export function CommunityView({ communityId }: Props) {
           }
           title={
             <span className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate">{community?.name ?? "Community"}</span>
+              <span className="truncate">{community?.name ?? RoomWord}</span>
               {community && (
                 <span
                   title={
                     community.kind === "classroom"
                       ? "Paper class"
                       : community.visibility === "public"
-                        ? "Public community"
-                        : "Private community"
+                        ? "Public circle"
+                        : "Private circle"
                   }
                 >
                   {community.kind === "classroom" ? (
@@ -1474,8 +1579,21 @@ export function CommunityView({ communityId }: Props) {
         </AppHeader>
 
         <main id="main" className={PAGE_MAIN_CLASS}>
+          {/*
+            A skeleton in the shape of the room that is about to arrive,
+            rather than one grey sentence and then the whole page popping
+            in. The list this came from has used skeletons all along.
+          */}
           {loading && (
-            <p className="text-sm text-muted-foreground">Loading community …</p>
+            <div className="flex flex-col gap-4" aria-hidden>
+              <Skeleton className="h-8 w-2/3" />
+              <Skeleton className="h-10 w-64" />
+              <div className="grid grid-cols-2 gap-3">
+                <Skeleton className="h-24" />
+                <Skeleton className="h-24" />
+              </div>
+              <Skeleton className="h-52" />
+            </div>
           )}
           {error && (
             <Alert variant="destructive">
@@ -1486,7 +1604,7 @@ export function CommunityView({ communityId }: Props) {
           {!loading && !selectedOwnerId && (
             isClassroom ? (
               <ClassroomHome
-                name={community?.name ?? "Community"}
+                name={community?.name ?? RoomWord}
                 houseNote={community?.house_note?.trim() || null}
                 classTrade={community?.classTrade}
                 isAdmin={isAdmin}
@@ -1499,6 +1617,7 @@ export function CommunityView({ communityId }: Props) {
                 overview={overview}
                 membersWithBooks={membersWithBooks}
                 memberStats={memberStats}
+                teacherIds={teacherIds}
                 startingCash={startingCash}
                 classVsStartPct={classVsStartPct}
                 classVsStartDollar={classVsStartDollar}
@@ -1512,7 +1631,7 @@ export function CommunityView({ communityId }: Props) {
               />
             ) : (
               <CircleHome
-                name={community?.name ?? "Community"}
+                name={community?.name ?? RoomWord}
                 houseNote={community?.house_note?.trim() || null}
                 view={view}
                 setView={setView}
@@ -1520,13 +1639,23 @@ export function CommunityView({ communityId }: Props) {
                 membersWithBooks={membersWithBooks}
                 achievements={achievements}
                 sharedNames={sharedNames}
+                sharedReasons={sharedReasons}
+                needYourReason={needYourReason}
                 avatarByName={avatarByName}
                 communityThemeBreakdown={communityThemeBreakdown}
+                yourThemeBreakdown={yourThemeBreakdown}
                 communityFunFacts={communityFunFacts}
                 funFactsShuffle={funFactsShuffle}
                 setFunFactsShuffle={setFunFactsShuffle}
+                changes={changes}
                 communityId={communityId}
                 duelCache={duelCache}
+                isAdmin={isAdmin}
+                waitingToJoin={isAdmin ? joinRequests.length : 0}
+                inviteBusy={busy}
+                inviteUrl={inviteUrl}
+                createInvite={() => void createInvite()}
+                copyInviteLink={(url, key) => void copyInviteLink(url, key)}
                 onOpenMember={setSelectedOwnerId}
                 onOpenBestiary={() => setBestiaryOpen(true)}
                 onShareChanged={() => void load()}
@@ -1553,19 +1682,25 @@ export function CommunityView({ communityId }: Props) {
                 }}
               >
                 <ArrowLeft data-icon="inline-start" />
-                Back to community
+                Back to {community?.name ?? thisRoomWord}
               </Button>
-              <div className="card-sheen glass sticky top-24 z-20 flex flex-col gap-3 rounded-xl p-4 shadow-sm ring-1 ring-foreground/20 sm:p-6">
-                <p className="text-sm font-semibold text-foreground">
-                  You can look but not edit. Owned by{" "}
-                  {memberStats.find((m) => m.id === selectedOwnerId)?.name ??
-                    profileName(selectedOwnerId)}
-                </p>
+              {/*
+                Not sticky, and it says its one thing once.
+
+                Measured at 390 after 260px of scroll, the sticky card sat
+                over the reader's own figures with the numbers peeking out
+                beneath it, and it said "you can look but not edit" three
+                times in four lines under a title that said it a fourth.
+              */}
+              <div className="flex flex-col gap-1">
+                <h2 className="text-foreground">
+                  {selectedOwnerName}
+                  &apos;s portfolio
+                </h2>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  This is their portfolio. You can look, you cannot edit. Nothing
-                  you tap here changes their holdings. Every portfolio they own is
-                  pooled into one view here, so a name held in two of them shows
-                  as a single line.
+                  You can look, not change anything. Every portfolio they own
+                  is pooled here, so a company held in two of them shows as one
+                  line.
                 </p>
               </div>
 
@@ -1576,7 +1711,7 @@ export function CommunityView({ communityId }: Props) {
               <ReadOnlyHoldings
                 holdings={selectedHoldings}
                 quotes={quotes}
-                cash={selectedCash}
+                theses={theses[selectedOwnerId] ?? undefined}
               />
               </WidgetErrorBoundary>
             </section>
@@ -1586,9 +1721,9 @@ export function CommunityView({ communityId }: Props) {
 
       <ConfirmModal
         open={Boolean(retireTarget)}
-        title="Retire this link?"
+        title="Turn off this link?"
         body="New people will not be able to join with it. People already in stay."
-        confirmLabel="Retire this link"
+        confirmLabel="Turn off this link"
         destructive
         onClose={() => setRetireTarget(null)}
         onConfirm={async () => {
@@ -1600,7 +1735,7 @@ export function CommunityView({ communityId }: Props) {
       <ConfirmModal
         open={Boolean(removeTarget)}
         title="Remove member?"
-        body={`Remove ${removeTarget?.name ?? "this member"} from the community? They'll lose read access to everyone else's portfolio and can be re-invited later.`}
+        body={`Remove ${removeTarget?.name ?? "this member"} from this ${roomWord}? They will stop seeing everyone else's portfolios, and you can invite them again later.`}
         confirmLabel="Remove"
         destructive
         onClose={() => setRemoveTarget(null)}
@@ -1612,8 +1747,8 @@ export function CommunityView({ communityId }: Props) {
 
       <ConfirmModal
         open={leaveOpen}
-        title="Leave this community?"
-        body={`You'll stop seeing everyone else's portfolio in ${community?.name ?? "this community"}, and they'll stop seeing yours. Your own portfolios and holdings stay exactly as they are. You can rejoin later with an invite, or by requesting again if it's public.`}
+        title={`Leave ${thisRoomWord}?`}
+        body={`You will stop seeing everyone else's portfolios in ${namedRoom(community?.kind, community?.name)}, and they will stop seeing yours. Your own portfolios and holdings stay exactly as they are. You can come back later with an invite, or by asking again if it is public.`}
         confirmLabel="Leave"
         destructive
         onClose={() => setLeaveOpen(false)}
@@ -1622,9 +1757,9 @@ export function CommunityView({ communityId }: Props) {
 
       <ConfirmModal
         open={deleteConfirmOpen}
-        title="Delete this community?"
-        body={`This removes "${community?.name ?? "this community"}" for everyone. Members lose shared read access and the invite link stops working. Nobody's actual portfolio or holdings are touched, and it can't be undone.`}
-        confirmLabel="Delete community"
+        title={`Delete ${thisRoomWord}?`}
+        body={`This removes "${namedRoom(community?.kind, community?.name)}" for everyone. Members stop seeing each other's portfolios and the invite link stops working. Nobody's own portfolio or holdings are touched, and it cannot be undone.`}
+        confirmLabel={`Delete this ${roomWord}`}
         destructive
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleDeleteCommunity}
@@ -1644,7 +1779,7 @@ export function CommunityView({ communityId }: Props) {
           <div className="scroll-host relative max-h-full w-full max-w-sm overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:rounded-xl sm:pb-6">
             <div className="mb-4 flex items-start justify-between gap-3">
               <h3 className="text-base font-semibold text-foreground">
-                Community settings
+                {RoomWord} settings
               </h3>
               <Button
                 type="button"
@@ -1659,7 +1794,7 @@ export function CommunityView({ communityId }: Props) {
             </div>
 
             <label className="block text-sm font-medium text-muted-foreground">
-              Community name
+              {RoomWord} name
             </label>
             <Input
               value={settingsName}
@@ -1739,8 +1874,9 @@ export function CommunityView({ communityId }: Props) {
                   />
                 </div>
                 <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                  Classes stay invite-only. Changing this adds or takes the
-                  difference from every paper portfolio already handed out.
+                  Changing this adds the difference to, or takes it from, every
+                  paper portfolio already handed out. Classes are always
+                  invite-only.
                 </p>
                 <div className="mt-2 flex justify-end">
                   <Button
@@ -1762,7 +1898,7 @@ export function CommunityView({ communityId }: Props) {
               </label>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 {community?.visibility === "public"
-                  ? "Public: anyone signed in can find this community and ask to join. You still approve every request."
+                  ? "Public: anyone signed in can find this circle and ask to join. You still approve every request."
                   : "Private: invite-only. No one can find or join without a link."}
               </p>
               <Segmented
@@ -1786,8 +1922,8 @@ export function CommunityView({ communityId }: Props) {
                   Danger zone
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-loss">
-                  Deleting the community removes it for every member. Their
-                  own portfolios and holdings are never affected.
+                  Deleting {thisRoomWord} removes it for every member. Their own
+                  portfolios and holdings are never affected.
                 </p>
                 <button
                   type="button"
@@ -1798,7 +1934,7 @@ export function CommunityView({ communityId }: Props) {
                   className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-loss/40 bg-loss/10 px-3 py-1.5 text-sm font-semibold text-loss hover:bg-loss/15"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  Delete community
+                  Delete this {roomWord}
                 </button>
               </div>
             )}
@@ -1840,9 +1976,24 @@ export function CommunityView({ communityId }: Props) {
                 <X />
               </Button>
             </div>
+            {/*
+              A mirror before a glossary.
+
+              This was twenty-one identical cards in decision order, so the
+              reader's own animal and the ones actually in the room were no
+              easier to find than the eighteen nobody here has. Yours first,
+              with the sentence explaining why you got it, then the ones
+              present in this circle and who has them, then the rest.
+            */}
             <div className="flex flex-col mt-4 gap-3">
-              {ANIMAL_BESTIARY.map((a) => {
+              {bestiaryGroups.map((group) => (
+                <Fragment key={group.title}>
+                  <p className="mt-2 text-sm font-medium text-muted-foreground first:mt-0">
+                    {group.title}
+                  </p>
+                  {group.animals.map((a) => {
                 const tone = animalCardTone(a.id);
+                const who = bestiaryHolders.get(a.id);
                 return (
                   <div
                     key={a.id}
@@ -1869,6 +2020,9 @@ export function CommunityView({ communityId }: Props) {
                         <p className="text-sm text-muted-foreground">{a.criteria}</p>
                       </div>
                     </div>
+                    {who ? (
+                      <p className="mt-2 text-sm text-foreground">{who}</p>
+                    ) : null}
                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                       {a.vibe}
                     </p>
@@ -1885,6 +2039,8 @@ export function CommunityView({ communityId }: Props) {
                   </div>
                 );
               })}
+                </Fragment>
+              ))}
             </div>
           </div>
         </ViewportOverlay>

@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { HeaderBrand } from "@/components/HeaderBrand";
 import { Button } from "@/components/ui/button";
+import { maskAddress } from "@/lib/auth/account-addresses";
+import { emailLoginTarget } from "@/lib/auth/email-login";
 import { PRODUCT_NAME, PRODUCT_SUPPORT_EMAIL } from "@/lib/product";
 import { privatePageMetadata } from "@/lib/site-metadata";
 
@@ -30,22 +32,46 @@ const PROBLEMS: Record<string, string> = {
   "not-configured": "Email sign-in is not switched on here yet.",
 };
 
+/*
+  Not a failure, so it is kept apart from the list above: the link works, and
+  the only question is whether the reader meant to close the account already
+  open in this browser. It used to be closed for them without a word.
+*/
+const OTHER_SESSION =
+  "A different account is already signed in on this browser. Using this link closes that one and opens the account the link is for.";
+
 export default async function EmailSignInPage({
   searchParams,
 }: {
   searchParams: Promise<{ token?: string; problem?: string }>;
 }) {
   const { token, problem } = await searchParams;
-  const failed = problem ? (PROBLEMS[problem] ?? PROBLEMS.failed) : null;
+  const switching = problem === "other-session";
+  const failed = problem && !switching ? (PROBLEMS[problem] ?? PROBLEMS.failed) : null;
   const ready = Boolean(token?.trim()) && !failed;
+
+  /*
+    Looked up rather than spent, so the page can say which mailbox this link
+    opens. It never did, and a link that signs somebody in without naming who
+    is a link nobody can check before pressing: forwarded, mis-sent, or opened
+    on a machine somebody else uses, it was the same button either way. Masked
+    because this page is behind no sign-in.
+  */
+  const target = ready && token ? await emailLoginTarget(token) : null;
+  const opens = target ? maskAddress(target.email) : null;
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
       <header className="border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
           <HeaderBrand />
+          {/*
+            Not "Back". A reader arrives here from their mail app, so there
+            is nowhere behind them to go, and on the linked page the main
+            button below already says the same thing this one links to.
+          */}
           <Button asChild variant="outline" size="sm">
-            <Link href="/">Back</Link>
+            <Link href="/">Open {PRODUCT_NAME}</Link>
           </Button>
         </div>
       </header>
@@ -60,13 +86,22 @@ export default async function EmailSignInPage({
 
         <p className="text-muted-foreground">
           {failed ??
-            "Press the button to open your account. Opening this page is not enough on purpose: a mail app often loads the link before you do."}
+            (opens
+              ? `Press the button to open the account for ${opens}. Opening this page is not enough on purpose: a mail app often loads the link before you do.`
+              : "Press the button to open your account. Opening this page is not enough on purpose: a mail app often loads the link before you do.")}
         </p>
+
+        {switching && ready ? (
+          <p className="text-muted-foreground">{OTHER_SESSION}</p>
+        ) : null}
 
         {ready ? (
           <form method="post" action="/auth/email/complete" className="mt-2">
             <input type="hidden" name="token" value={token} />
-            <Button type="submit">Sign in</Button>
+            {switching ? <input type="hidden" name="switch" value="1" /> : null}
+            <Button type="submit">
+              {switching ? "Close that one and sign in" : "Sign in"}
+            </Button>
           </form>
         ) : (
           <div className="mt-2">

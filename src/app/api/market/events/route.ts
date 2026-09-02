@@ -4,16 +4,21 @@ import { MAX_TICKERS_PER_REQUEST } from "@/lib/market/quotes";
 import { NextRequest, NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
 import { checkUnresolvedBudget } from "@/lib/market/unresolved-budget";
+import { isQuotableTicker } from "@/lib/ticker";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 async function handleGET(req: NextRequest) {
   const tickersParam = req.nextUrl.searchParams.get("tickers") ?? "";
+  // Free text costs a provider call apiece here and can never answer, so it
+  // is dropped before anything is contacted. Dropped rather than refused,
+  // for the reason /api/quotes gives: one bad row in a portfolio must not
+  // take the earnings dates off every other name in it.
   const tickers = tickersParam
     .split(",")
     .map((t) => t.trim().toUpperCase())
-    .filter(Boolean);
+    .filter((t) => Boolean(t) && isQuotableTicker(t));
 
   // Same cost ceiling as /api/quotes: one request must not fan out without
   // a bound, whatever the per-IP request limiter says.

@@ -1,15 +1,16 @@
 import { dbError } from "@/lib/db-error";
 import {
   captureBookPayload,
+  loadBookSnapshot,
   pruneOldSnapshots,
   restoreBookFromSnapshot,
   restoreSheetFromSnapshot,
   saveBookSnapshot,
+  snapshotSheetsForOwner,
+  SNAPSHOT_GONE,
+  SNAPSHOT_NOT_THIS_PORTFOLIO,
 } from "@/lib/book-snapshot";
-import {
-  listOwnedPortfolioIds,
-  requirePortfolioOwner,
-} from "@/lib/auth/ownership";
+import { listOwnedPortfolioIds } from "@/lib/auth/ownership";
 import { denyClassroomWrite } from "@/lib/classroom-guard";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import {
@@ -58,8 +59,15 @@ async function handleGET() {
     .filter((row) => {
       if (row.kind === "nightly") return false;
       const ports = row.payload?.portfolios;
-      if (!Array.isArray(ports)) return false;
-      return ports.some((p) => p.id && owned.has(p.id));
+      if (!Array.isArray(ports) || ports.length === 0) return false;
+      /*
+        Every portfolio in the save, not any. A save is one person's whole
+        account, and its label names a portfolio ("Before delete: Savings"),
+        so a save that so much as touches one portfolio the caller shares
+        used to hand them the names and ids of every other portfolio in it.
+        A co-owner sees only saves made of portfolios they are on.
+      */
+      return ports.every((p) => p.id && owned.has(p.id));
     })
     .slice(0, 40)
     .map(({ id, kind, label, created_at }) => ({
@@ -135,12 +143,18 @@ async function handlePOST(req: NextRequest) {
         portfolioIds: ownedIds,
       });
       await saveBookSnapshot(supabase, "pre_delete", "Before restore", safety);
-      const counts = await restoreBookFromSnapshot(
+      const restored = await restoreBookFromSnapshot(
         supabase,
         snapshotId,
         ownedIds
       );
-      return NextResponse.json({ ok: true, restored: counts });
+      if (!restored.ok) {
+        return NextResponse.json(
+          { error: restored.error },
+          { status: restored.status }
+        );
+      }
+      return NextResponse.json({ ok: true, restored: restored.counts });
     }
 
     if (body.action === "restore_sheet") {
@@ -150,17 +164,42 @@ async function handlePOST(req: NextRequest) {
           { status: 400 }
         );
       }
-      const notOwner = await requirePortfolioOwner(
-        auth.user.id,
-        body.portfolioId
-      );
-      if (notOwner) return notOwner;
+      /*
+        Two ownership questions, and the second is the one that was missing.
+
+        The target has to be the caller's, which was always asked. The save
+        also has to hold the caller's own copy of that portfolio, and nothing
+        asked that: a nightly save carries every portfolio in the project,
+        and the matcher underneath fell back from id to slug to name across
+        all of them, so a reader who had renamed their portfolio to a name
+        somebody else was using had that person's holdings and cash copied
+        in over their own. Both are settled here, before the safety copy is
+        written and before anything is touched.
+      */
+      const ownedIds = await listOwnedPortfolioIds(auth.user.id);
+      if (!ownedIds.includes(body.portfolioId)) {
+        return NextResponse.json(
+          { error: "You can only put back a portfolio you own." },
+          { status: 403 }
+        );
+      }
       const blocked = await denyClassroomWrite(supabase, {
         portfolioId: body.portfolioId,
         userId: auth.user.id,
         action: ["buy", "sell", "cash"],
       });
       if (blocked) return blocked;
+      const snap = await loadBookSnapshot(supabase, snapshotId);
+      if (!snap) {
+        return NextResponse.json({ error: SNAPSHOT_GONE }, { status: 404 });
+      }
+      const mine = snapshotSheetsForOwner(snap.payload, ownedIds);
+      if (!mine.includes(body.portfolioId)) {
+        return NextResponse.json(
+          { error: SNAPSHOT_NOT_THIS_PORTFOLIO },
+          { status: 403 }
+        );
+      }
       const safety = await captureBookPayload(supabase, {
         portfolioIds: [body.portfolioId],
       });
@@ -170,12 +209,19 @@ async function handlePOST(req: NextRequest) {
         "Before portfolio restore",
         safety
       );
-      const counts = await restoreSheetFromSnapshot(
+      const restored = await restoreSheetFromSnapshot(
         supabase,
-        snapshotId,
-        body.portfolioId
+        snap.payload,
+        body.portfolioId,
+        ownedIds
       );
-      return NextResponse.json({ ok: true, restoredSheet: counts });
+      if (!restored.ok) {
+        return NextResponse.json(
+          { error: restored.error },
+          { status: restored.status }
+        );
+      }
+      return NextResponse.json({ ok: true, restoredSheet: restored.counts });
     }
 
     if (body.action === "create" || !body.action) {
@@ -195,8 +241,15 @@ async function handlePOST(req: NextRequest) {
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (err) {
+    /*
+      Anything thrown out of a restore is the driver talking, and a driver
+      sentence names tables and columns; a refusal the reader is meant to
+      see comes back as a value and is answered above. It used to go out
+      verbatim, and a snapshot error can carry another reader's portfolio
+      name in it.
+    */
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Snapshot failed" },
+      { error: dbError(err, "POST /api/snapshots: snapshot action") },
       { status: 500 }
     );
   }

@@ -132,7 +132,11 @@ export function YtdAnchorModal({
               )
             }
             onWheel={blockWheelChange}
-            placeholder="120000"
+            placeholder={
+              liveNav > 0
+                ? String(Math.round((liveNav * 0.9) / 100) * 100)
+                : "10000"
+            }
             className="tabular-nums"
           />
         </label>
@@ -140,7 +144,7 @@ export function YtdAnchorModal({
         <p className="mt-3 text-sm text-muted-foreground">or</p>
 
         <label className="mt-3 grid gap-1 text-sm text-muted-foreground">
-          Year-to-date your broker shows
+          What your broker says you are up or down this year (%)
           <Input
             type="text"
             inputMode="decimal"

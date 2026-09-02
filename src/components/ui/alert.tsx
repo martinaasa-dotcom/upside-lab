@@ -4,13 +4,21 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const alertVariants = cva(
-  "group/alert relative grid w-full gap-0.5 rounded-lg border px-2.5 py-2 text-left text-sm has-data-[slot=alert-action]:relative has-data-[slot=alert-action]:pr-18 has-[>svg]:grid-cols-[auto_1fr] has-[>svg]:gap-x-2 *:[svg]:row-span-2 *:[svg]:translate-y-0.5 *:[svg]:text-current *:[svg:not([class*='size-'])]:size-4",
+  "group/alert relative grid w-full gap-0.5 rounded-lg px-2.5 py-2 text-left text-sm has-data-[slot=alert-action]:relative has-data-[slot=alert-action]:pr-18 has-[>svg]:grid-cols-[auto_1fr] has-[>svg]:gap-x-2 *:[svg]:row-span-2 *:[svg]:translate-y-0.5 *:[svg]:text-current *:[svg:not([class*='size-'])]:size-4",
   {
     variants: {
+      /*
+        Glass, never a flat fill. The shadcn default paints `bg-card`
+        opaque, and this banner appears on top of rooms whose panels are
+        translucent, so a failed load drew an opaque slab that reads as a
+        hole cut in the page beside every card around it. Same material as
+        a nested well, with the status carried by a ring, which is the rule
+        the rest of the app already follows: status is a ring, never a wash.
+      */
       variant: {
-        default: "bg-card text-card-foreground",
+        default: "card-sheen glass-well text-card-foreground ring-1 ring-border",
         destructive:
-          "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
+          "card-sheen glass-well text-destructive ring-1 ring-destructive/30 *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
       },
     },
     defaultVariants: {

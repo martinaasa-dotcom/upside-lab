@@ -1,6 +1,6 @@
 "use client";
 
-import { Mail } from "lucide-react";
+import { KeyRound, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useState } from "react";
 
@@ -180,6 +180,7 @@ export function SignInAddresses() {
   return (
     <Panel>
       <PanelHeader
+        icon={<KeyRound className="h-4 w-4" />}
         title="Ways to sign in"
         subtitle="Every address here opens this account, with the same portfolios and the same circles. Nothing new is made."
       />
@@ -331,10 +332,17 @@ export function SignInAddresses() {
         </p>
       ) : null}
 
-      <p className="text-xs text-muted-foreground">
-        You sign in with Google, so every address here is one you can use to
-        sign in to Google. Removing an address closes that way in and changes
-        nothing else about your {PRODUCT_NAME} account.
+      {/*
+        This used to open "You sign in with Google, so every address here is
+        one you can use to sign in to Google", unconditionally, in a panel
+        that offers to mail somebody a link. Plenty of readers have never
+        touched Google, and being told what you do by the app you are using
+        is a small thing that costs a lot of trust.
+      */}
+      <p className="text-sm text-muted-foreground">
+        Any address here opens this account, whether you sign in with Google
+        or with a link we email you. Removing one closes that way in and
+        changes nothing else about your {PRODUCT_NAME} account.
       </p>
     </Panel>
   );

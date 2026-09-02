@@ -1,4 +1,5 @@
 import { isAbortError, isNetworkError } from "@/lib/abort";
+import { loadLastUser } from "@/lib/last-session";
 import {
   idbQueueDelete,
   idbQueueGetAll,
@@ -16,6 +17,8 @@ export type SyncJob = {
   body: unknown;
   createdAt: number;
   retries: number;
+  /** The account this write was made in. Older jobs have none. */
+  userId?: string | null;
 };
 
 /** Same-origin writes that are safe to replay later. Holdings CRUD is not. */
@@ -61,6 +64,35 @@ export function coalesceKey(job: {
   return `${job.kind}:${job.method.toUpperCase()}:${path}`;
 }
 
+/**
+ * What to do with a queued write now that we know who is signed in.
+ *
+ * A job is a write somebody made offline, and this queue outlives the
+ * session that filled it: a session can end without a sign out, and the
+ * next person to open the app on this browser is a different account with
+ * different cookies. Replaying one of these under them would file somebody
+ * else's note, preference or feedback into their account.
+ *
+ * So a job is only sent under the account it was written in. A job with no
+ * account on it was either written before jobs carried one or written with
+ * no session at all, and is not provably anybody's, so it is never sent: it
+ * waits while nobody is signed in, in case its own account comes back
+ * within the same page, and is dropped as soon as somebody else is.
+ */
+export function syncJobVerdict(
+  job: { userId?: string | null },
+  userId: string | null
+): "send" | "hold" | "drop" {
+  const owner = job.userId ?? null;
+  if (!userId) return "hold";
+  if (!owner) return "drop";
+  return owner === userId ? "send" : "drop";
+}
+
+function currentUserId(): string | null {
+  return loadLastUser()?.id ?? null;
+}
+
 function newId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -84,6 +116,7 @@ export async function enqueueSync(input: {
     body: input.body,
     createdAt: Date.now(),
     retries: 0,
+    userId: currentUserId(),
   };
   const key = coalesceKey(job);
   if (key) {
@@ -125,12 +158,19 @@ export async function flushSyncQueue(): Promise<number> {
   flushing = true;
   let sent = 0;
   try {
+    const userId = currentUserId();
     const jobs = (await idbQueueGetAll<SyncJob>()).sort(
       (a, b) => a.createdAt - b.createdAt
     );
     for (const job of jobs) {
       if (!job?.id || !job.url) {
         if (job?.id) await idbQueueDelete(job.id);
+        continue;
+      }
+      const verdict = syncJobVerdict(job, userId);
+      if (verdict === "hold") continue;
+      if (verdict === "drop") {
+        await idbQueueDelete(job.id);
         continue;
       }
       try {

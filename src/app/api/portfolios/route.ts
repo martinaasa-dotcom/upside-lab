@@ -5,6 +5,7 @@ import { ensureProfileAndClaims } from "@/lib/auth/ensure-profile";
 import {
   communityAdminFlags,
   listOwnedPortfolioIds,
+  portfolioCreatorId,
   requirePortfolioOwner,
 } from "@/lib/auth/ownership";
 import {
@@ -12,13 +13,19 @@ import {
   resolveClassroomTrade,
   type ClassroomTrade,
 } from "@/lib/classroom";
-import { denyClassroomWrite } from "@/lib/classroom-guard";
+import {
+  denyClassroomWrite,
+  denyStudentCashWrite,
+} from "@/lib/classroom-guard";
 import { shareNewSheetIntoMemberCircles } from "@/lib/community-share";
 import { isSafeSignedMoney, sanitizeSheetName } from "@/lib/input-guard";
 import { roundMoney } from "@/lib/money";
 import { createSupabaseServerAuth, requireAuthUser } from "@/lib/supabase/server-auth";
 import type { TablesUpdate } from "@/lib/supabase/database.types";
-import { getSupabaseDataClient } from "@/lib/supabase/server";
+import {
+  getSupabaseDataClient,
+  type AppSupabaseClient,
+} from "@/lib/supabase/server";
 import {
   HOLDING_COLUMNS,
   PORTFELL_TABLES,
@@ -35,11 +42,26 @@ function mapPortfolio(p: Record<string, unknown>) {
   return p;
 }
 
+/**
+ * Whether this account has a profile row, as one HEAD count and no rows.
+ *
+ * A count that fails reads as "no profile", which sends the caller down the
+ * old path of ensuring one. That is the cheap direction to be wrong in.
+ */
+async function hasProfileRow(
+  supabase: AppSupabaseClient,
+  userId: string
+): Promise<boolean> {
+  const { count } = await supabase
+    .from(PORTFELL_TABLES.profiles)
+    .select("id", { count: "exact", head: true })
+    .eq("id", userId);
+  return (count ?? 0) > 0;
+}
+
 async function handleGET(req: NextRequest) {
   const auth = await requireAuthUser();
   if ("error" in auth) return auth.error;
-
-  await ensureProfileAndClaims(auth.user);
 
   const supabase = await getSupabaseDataClient();
 
@@ -61,7 +83,27 @@ async function handleGET(req: NextRequest) {
     );
   }
 
-  const ownedIds = await listOwnedPortfolioIds(auth.user.id);
+  /*
+    This is the book's poll: the client asks every 45 seconds and again on
+    every room shown, so it reads the book and nothing else. The profile
+    upsert, the seed claims and the lab state row are made where a session
+    begins, in GET /api/auth/me (which AuthProvider calls once per session,
+    and which Dashboard awaits before its first read of this route) and in
+    the sign-in callbacks, and again on POST here, because creating a
+    portfolio is the one thing a brand-new account does first.
+
+    What is left is a guard for a first read that lands before any of those
+    did: no portfolio rows, and no profile row either. The owners list was
+    being read anyway, and the profile is one HEAD count, so an account with
+    a portfolio pays nothing and an empty one pays a count. The seed claim
+    can hand this person a portfolio, so the list is read again afterwards
+    rather than answering empty on the strength of the first read.
+  */
+  let ownedIds = await listOwnedPortfolioIds(auth.user.id);
+  if (!ownedIds.length && !(await hasProfileRow(supabase, auth.user.id))) {
+    await ensureProfileAndClaims(auth.user);
+    ownedIds = await listOwnedPortfolioIds(auth.user.id);
+  }
   if (!ownedIds.length) {
     return NextResponse.json({
       source: "supabase",
@@ -84,7 +126,7 @@ async function handleGET(req: NextRequest) {
     );
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "read failed" },
+      { error: dbError(err, "GET /api/portfolios: read portfolios") },
       { status: 500 }
     );
   }
@@ -115,7 +157,7 @@ async function handleGET(req: NextRequest) {
       );
     } catch (err) {
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : "read failed" },
+        { error: dbError(err, "GET /api/portfolios: read holdings") },
         { status: 500 }
       );
     }
@@ -186,6 +228,12 @@ async function handleGET(req: NextRequest) {
 async function handlePOST(req: NextRequest) {
   const auth = await requireAuthUser();
   if ("error" in auth) return auth.error;
+
+  // Creating a portfolio is the first thing a brand-new account does, and
+  // the profile row has to exist by the time anything reads the owner back
+  // (a circle's member list, the Sunday letter). The book read no longer
+  // ensures it on every poll, so the one mutation that begins a book does.
+  await ensureProfileAndClaims(auth.user);
 
   const parsedBody = await parseJsonBody(req, portfolioPostSchema);
   if (!parsedBody.ok) return parsedBody.response;
@@ -270,6 +318,15 @@ async function handlePATCH(req: NextRequest) {
     updated_at: new Date().toISOString(),
   };
   if (body.cash_balance !== undefined) {
+    // Two different questions, and only one of them was being asked. The
+    // period rule below says whether the class is open for cash right now;
+    // this says whether this caller may set a class portfolio's cash at all,
+    // which a student may not, in any period. See `denyStudentCashWrite`.
+    const notYours = await denyStudentCashWrite(supabase, {
+      portfolioId: id,
+      userId: auth.user.id,
+    });
+    if (notYours) return notYours;
     const blocked = await denyClassroomWrite(supabase, {
       portfolioId: id,
       userId: auth.user.id,
@@ -324,6 +381,25 @@ async function handleDELETE(req: NextRequest) {
 
   const notOwner = await requirePortfolioOwner(auth.user.id, id);
   if (notOwner) return notOwner;
+
+  /*
+    Deleting is the creator's alone. A co-owner can edit every holding,
+    which is what they were invited for, and they can leave from the
+    Invite screen; what they cannot do is take the whole portfolio away
+    from the person who made it and everybody else on it. Inviting stays
+    open to every co-owner, because adding a person is undoable and
+    deleting a portfolio is not.
+  */
+  const creatorId = await portfolioCreatorId(id);
+  if (creatorId && creatorId !== auth.user.id) {
+    return NextResponse.json(
+      {
+        error:
+          "Only the person who made this portfolio can delete it. You can leave it from the Invite screen instead.",
+      },
+      { status: 403 }
+    );
+  }
 
   const supabase = await getSupabaseDataClient();
   if (!supabase) {

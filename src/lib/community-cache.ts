@@ -19,6 +19,25 @@ const CACHE_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes — communities update sl
 /** Alt-tab / room return: don't hit the API again inside this window. */
 export const COMMUNITY_VISIBLE_REFRESH_MS = 30_000;
 
+/**
+ * The last closed session, resolved server-side.
+ *
+ * The live duel never carries a result, on purpose: a running percentage
+ * beside two buttons is the prediction spoiled. This is the separate,
+ * finished one, which is what the "Yesterday" strip on the card reads.
+ */
+export type ClosedDuel = {
+  dayKey: string;
+  pair: { a: string; b: string };
+  counts: { a: number; b: number };
+  pctA: number | null;
+  pctB: number | null;
+  winner: DuelPick | "tie" | null;
+  myPick: DuelPick | null;
+  /** Everybody who picked the side that won, by name. */
+  calledIt: string[];
+};
+
 export type CommunityDuelCache = {
   dayKey: string;
   pair: { a: string; b: string } | null;
@@ -27,6 +46,9 @@ export type CommunityDuelCache = {
   names?: { a: string[]; b: string[] };
   settled: boolean;
   pickCount: number;
+  previous?: ClosedDuel | null;
+  /** Closed sessions in a row this reader has called right. */
+  streak?: number;
 };
 
 const duelMemory = new Map<string, CommunityDuelCache>();

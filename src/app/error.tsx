@@ -27,14 +27,16 @@ export default function Error({
       <UpsideLogo variant="icon" />
       <div className="flex max-w-sm flex-col gap-2">
         <h1 className="text-foreground">
-          Something broke on this screen
+          This screen did not load
         </h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Your holdings are safe. This screen hit a snag. Try again, or
-          reload if it keeps happening.
+          Your holdings are safe and nothing you own has changed. Press Try
+          again, and reload the page if it keeps happening.
         </p>
         {error.digest && (
-          <p className="text-sm text-muted-foreground">Ref: {error.digest}</p>
+          <p className="text-sm text-muted-foreground">
+            If you write in about it, this code helps us find it: {error.digest}
+          </p>
         )}
       </div>
       <div className="flex items-center gap-2">

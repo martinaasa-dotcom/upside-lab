@@ -65,4 +65,20 @@ describe("public and private paths agree across robots and the sitemap", () => {
     expect(allow).toContain("/communities$");
     expect(disallow).toContain("/communities/");
   });
+
+  /*
+    The sign-in pages and handlers under `/auth` are not rooms and are not
+    for a crawler: an indexed `/auth/email` is a sign-in button offered as
+    a search result. One prefix in the private list is what gives every
+    handler under it the robots line here and the `X-Robots-Tag` header in
+    `next.config.ts`.
+  */
+  it("keeps the sign-in handlers out of the index", () => {
+    const rules = robots().rules;
+    const one = Array.isArray(rules) ? rules[0] : rules;
+    const disallow = Array.isArray(one?.disallow) ? one.disallow : [];
+
+    expect(PRIVATE_NOINDEX_PATHS).toContain("/auth");
+    expect(disallow).toContain("/auth");
+  });
 });

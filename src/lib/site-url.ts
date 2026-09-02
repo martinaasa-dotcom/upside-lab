@@ -119,7 +119,17 @@ export function isVercelPreviewHost(hostname: string): boolean {
 /**
  * Post-login `?next=` must stay on this origin. A scheme, protocol-relative
  * URL, or backslash lands on home instead of sending the session elsewhere.
+ *
+ * A tab or a newline is refused anywhere in the path, because the URL
+ * parser strips those before it reads anything else: "/\t/evil.com" is
+ * "//evil.com" by the time a redirect resolves it, and every check written
+ * against the text as typed had already passed it. The parser gets the last
+ * word for the same reason: whatever survives the text checks is resolved
+ * against a sentinel origin, and a result that landed anywhere else is a
+ * result we did not understand and do not follow.
  */
+const SENTINEL_ORIGIN = "https://internal.invalid";
+
 export function safeInternalPath(raw: string | null | undefined): string {
   if (!raw) return "/";
   const trimmed = raw.trim();
@@ -127,6 +137,12 @@ export function safeInternalPath(raw: string | null | undefined): string {
   if (trimmed.startsWith("//") || trimmed.startsWith("/\\")) return "/";
   if (trimmed.includes("\\")) return "/";
   if (trimmed.includes("://")) return "/";
+  if (/[\u0000-\u001F\u007F]/.test(trimmed)) return "/";
+  try {
+    if (new URL(trimmed, SENTINEL_ORIGIN).origin !== SENTINEL_ORIGIN) return "/";
+  } catch {
+    return "/";
+  }
   return trimmed;
 }
 

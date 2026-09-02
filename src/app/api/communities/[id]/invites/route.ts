@@ -2,6 +2,7 @@ import { dbError } from "@/lib/db-error";
 import { createHash, randomBytes } from "crypto";
 import { userIsCommunityAdmin } from "@/lib/auth/ownership";
 import {
+  DEFAULT_INVITE_DAYS,
   inviteAdminStatus,
   profileLabel,
   tokenHintFromToken,
@@ -22,9 +23,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { observeRoute } from "@/lib/observe-route";
 import { communityInvitePostSchema } from "@/lib/api-schemas";
 import { parseJsonBody } from "@/lib/parse-json-body";
+import { takeDurableRateLimitWeighted } from "@/lib/rate-limit-durable";
 
-/** How long a community invite link lives when nobody says otherwise. */
-const DEFAULT_INVITE_DAYS = 30;
+/**
+ * Envelopes one account, or one circle, may post in a day.
+ *
+ * Well above a teacher setting up a class of thirty and adding a few
+ * latecomers, and well below the volume that makes a sending domain worth
+ * abusing.
+ */
+const MAX_INVITE_EMAILS_PER_DAY = 60;
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +43,12 @@ function hashToken(token: string) {
 }
 
 /** Admin: create invite link. Optional emails lock it to those people
- * and get the link in their inbox. The link stays reusable. */
+ * and get the link in their inbox. The link stays reusable.
+ *
+ * The full link is in this response and nowhere else. Only its hash is
+ * stored, the same as a portfolio invite, so a read of the table cannot
+ * hand out a credential; the last six characters are kept as a hint so an
+ * admin can tell two links apart. Losing the link means making a new one. */
 async function handlePOST(req: NextRequest, ctx: Ctx) {
   const auth = await requireAuthUser();
   if ("error" in auth) return auth.error;
@@ -94,7 +107,6 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
       email: storeInviteEmails(allow.emails),
       token_hash: hashToken(token),
       token_hint: tokenHintFromToken(token),
-      token,
       role: body.role === "admin" ? "admin" : "member",
       created_by: auth.user.id,
       expires_at: expiresAt,
@@ -109,6 +121,51 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
   const path = inviteJoinPath(token);
   let emailed = 0;
   if (allow.emails.length > 0 && noteEmailConfigured()) {
+    /*
+      Mail to addresses that never asked for it, so it is bounded per person
+      and per circle, weighted by how many envelopes the call would post.
+
+      There was no bound at all. Anyone signed in can make a circle and is
+      then its admin, and each call here mails up to twenty addresses from
+      the same domain the sign-in links and the Sunday letter come from. A
+      loop of these sends thousands of messages to arbitrary inboxes, spends
+      the Resend quota the product's own mail depends on, and collects the
+      spam reports against the sending domain, which is the part that does
+      not undo.
+
+      The daily figure is generous for a real teacher setting up a class and
+      far below what makes the domain worth abusing. Both keys have to
+      clear, so neither one account nor one circle is the way round it.
+    */
+    const cost = allow.emails.length;
+    for (const key of [
+      `invite-mail:user:${auth.user.id}`,
+      `invite-mail:circle:${id}`,
+    ]) {
+      const bill = await takeDurableRateLimitWeighted(
+        key,
+        MAX_INVITE_EMAILS_PER_DAY,
+        24 * 60 * 60_000,
+        cost
+      );
+      if (!bill.ok) {
+        return NextResponse.json(
+          {
+            error:
+              "That is a lot of invites for one day. The link above still works, so you can send it yourself, and you can invite more tomorrow.",
+            token,
+            path,
+            emailed: 0,
+            invite: data,
+          },
+          {
+            status: 429,
+            headers: { "Retry-After": String(bill.retryAfterSec ?? 3600) },
+          }
+        );
+      }
+    }
+
     const { data: community } = await supabase
       .from(PORTFELL_TABLES.communities)
       .select("name, kind")
@@ -152,7 +209,6 @@ type InviteRow = {
   created_at: string;
   created_by: string | null;
   token_hint: string | null;
-  token: string | null;
 };
 
 type UseRow = {
@@ -185,7 +241,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
   const { data, error } = await supabase
     .from(PORTFELL_TABLES.communityInvites)
     .select(
-      "id, email, role, expires_at, accepted_at, revoked_at, created_at, created_by, token_hint, token"
+      "id, email, role, expires_at, accepted_at, revoked_at, created_at, created_by, token_hint"
     )
     .eq("community_id", id)
     .order("created_at", { ascending: false });
@@ -237,7 +293,6 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
     return {
       id: row.id,
       hint: row.token_hint,
-      path: row.token ? inviteJoinPath(row.token) : null,
       email: row.email,
       role: row.role,
       expires_at: row.expires_at,

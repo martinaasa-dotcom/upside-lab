@@ -7,6 +7,7 @@ import {
 import type { OptionCandidate } from "@/lib/types";
 import { dateKeyInTz, daysUntilInTz } from "@/lib/timezone";
 import { isMarketCircuitOpen, withMarketCircuit } from "@/lib/market/circuit-breaker";
+import { marketSession } from "@/lib/market/session";
 
 type YahooFinanceInstance = InstanceType<
   typeof import("yahoo-finance2").default
@@ -19,6 +20,104 @@ async function getYahoo(): Promise<YahooFinanceInstance> {
   const { default: YahooFinance } = await import("yahoo-finance2");
   yahoo = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
   return yahoo;
+}
+
+/*
+  Option chains, remembered per symbol and per expiry.
+
+  This was the heaviest thing the app asked a provider for, and nothing
+  cached it. `scanCoveredCall` costs one call to list the expiry dates and
+  then one per nearby expiry it prices, so up to four per holding, and the
+  Dashboard fires the whole scan inside the quote refresh, which polls
+  every fifteen seconds while the market is open. A reader with ten
+  holdings was therefore asking Yahoo for up to forty option chains every
+  fifteen seconds, all day, and every one of those calls goes through the
+  same circuit breaker that every reader's live prices depend on.
+
+  A chain is not a price. It is a list of listed contracts and their
+  quotes, and the strike this app picks off it does not change from one
+  fifteen-second poll to the next. So it is remembered for about a minute
+  while the market is open and for ten while it is shut, with in-flight
+  sharing so a class opening the same portfolio together costs one call,
+  which is the rule `fetchQuotesWithFallback` already follows.
+
+  A failed call falls back to the last good chain rather than to nothing,
+  for the reason the circuit-breaker branch below gives: a reader who saw
+  an estimate a moment ago should not be shown an empty row now.
+*/
+const CHAIN_MEMO_SESSION_MS = 60_000;
+const CHAIN_MEMO_CLOSED_MS = 10 * 60_000;
+const MAX_CHAIN_MEMO = 400;
+
+/*
+  Inferred from the call rather than from ReturnType of the method:
+  `options` is overloaded, and asking for the return type of the overload
+  set hands back `{}`, which types away the two fields this file reads.
+*/
+async function askForChain(
+  yf: YahooFinanceInstance,
+  ticker: string,
+  date?: Date
+) {
+  return date ? yf.options(ticker, { date }) : yf.options(ticker);
+}
+
+type ChainResult = Awaited<ReturnType<typeof askForChain>>;
+
+const chainMemo = new Map<string, { at: number; chain: ChainResult }>();
+const chainInFlight = new Map<string, Promise<ChainResult | null>>();
+
+function chainMemoMs(at: Date = new Date()): number {
+  return marketSession(at) === "closed"
+    ? CHAIN_MEMO_CLOSED_MS
+    : CHAIN_MEMO_SESSION_MS;
+}
+
+function pruneChainMemo() {
+  if (chainMemo.size <= MAX_CHAIN_MEMO) return;
+  const extra = chainMemo.size - MAX_CHAIN_MEMO;
+  for (const key of [...chainMemo.keys()].slice(0, extra)) {
+    chainMemo.delete(key);
+  }
+}
+
+/** Exported for the test, which has to start from a cold memo. */
+export function resetOptionChainMemoForTests() {
+  chainMemo.clear();
+  chainInFlight.clear();
+}
+
+async function optionChain(
+  yf: YahooFinanceInstance,
+  ticker: string,
+  date?: Date
+): Promise<ChainResult | null> {
+  const key = date ? `${ticker}@${toDateKey(date)}` : ticker;
+  const hit = chainMemo.get(key);
+  if (hit && Date.now() - hit.at < chainMemoMs()) return hit.chain;
+  const pending = chainInFlight.get(key);
+  if (pending) return pending;
+
+  const task = (async () => {
+    try {
+      const chain = await withMarketCircuit("yahoo", () =>
+        askForChain(yf, ticker, date)
+      );
+      chainMemo.set(key, { at: Date.now(), chain });
+      pruneChainMemo();
+      return chain;
+    } catch (err) {
+      // The last good chain beats none. A throw still has to reach the
+      // caller when there is nothing to fall back on, because the catch
+      // around the scan is what draws the estimate instead.
+      if (hit) return hit.chain;
+      throw err;
+    } finally {
+      chainInFlight.delete(key);
+    }
+  })();
+  chainInFlight.set(key, task);
+  return task;
 }
 
 function toDateKey(d: Date | string): string {
@@ -117,7 +216,8 @@ export async function scanCoveredCall(params: {
 
   try {
     const yf = await getYahoo();
-    const chain = await withMarketCircuit("yahoo", () => yf.options(ticker));
+    const chain = await optionChain(yf, ticker);
+    if (!chain) throw new Error("no option chain");
     const expirations: Date[] = (chain.expirationDates ?? []).map(
       (d: Date | string) => (typeof d === "string" ? new Date(d) : d)
     );
@@ -161,10 +261,8 @@ export async function scanCoveredCall(params: {
     let best: Quoted | null = null;
 
     for (const { exp, days, key } of nearby) {
-      const detailed = await withMarketCircuit("yahoo", () =>
-        yf.options(ticker, { date: exp })
-      );
-      const calls = detailed.options?.[0]?.calls ?? [];
+      const detailed = await optionChain(yf, ticker, exp);
+      const calls = detailed?.options?.[0]?.calls ?? [];
       if (!calls.length) continue;
 
       let nearest = calls[0];

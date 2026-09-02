@@ -38,9 +38,9 @@ const KNOWN: Record<string, string> = {
   // so a response from an older deploy still resolves to plain English.
   "This save has none of your sheets.":
     "This save has none of your portfolios.",
-  "Unknown action": "That action is not one we recognize.",
+  "Unknown action": "That did not work. Try again.",
   "No pulse candidates supplied": "Nothing on this list yet.",
-  "sunday required": "Pick whether you want the Sunday email.",
+  "sunday required": "Pick whether you want the Sunday letter.",
   "userId required": "Pick a person first.",
   "userId and decision required": "Pick approve or decline.",
   "role required": "Pick a role first.",
@@ -112,7 +112,7 @@ const KNOWN: Record<string, string> = {
   "Invalid ticker": "That ticker doesn't look right.",
   "Invalid tier": "That experience level isn't valid.",
   "Invalid knowsOptions": "That options answer isn't valid.",
-  "Unrecognized ticker": "That ticker is not one we recognize.",
+  "Unrecognized ticker": "That ticker did not match anything.",
   "Use community book endpoint for peer portfolios":
     "Open that portfolio from the circle, not here.",
   "Supabase not configured": "Cloud save isn't available right now.",

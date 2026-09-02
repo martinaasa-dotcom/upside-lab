@@ -114,6 +114,15 @@ describe("what the mail and the endpoint do with it", () => {
     expect(route).toContain('ilike("email"');
   });
 
+  it("matches the address as a value, never as a pattern", () => {
+    // ILIKE reads `%` and `_` as wildcards, so an address carrying either
+    // would switch the letter off for strangers. The pattern the route
+    // sends has to have been through the escaper.
+    const post = route.slice(route.indexOf("async function handlePOST"));
+    expect(post).toContain("escapeLike(");
+    expect(post).toContain('ilike("email", pattern)');
+  });
+
   it("builds the form's target rather than echoing the address bar", () => {
     expect(route).toContain("new URLSearchParams({ p: id, s: signature })");
   });

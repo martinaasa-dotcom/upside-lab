@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  SCENARIO_MAINTENANCE_RATE,
   SHOCKS,
   analyzePortfolioShock,
   type ShockId,
@@ -164,7 +165,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
                 <Pill tone="neutral">{activeScenario.driver}</Pill>
               </div>
               <span className="text-sm text-muted-foreground">
-                Headline move{" "}
+                Move assumed for the group hit hardest{" "}
                 <span className="font-semibold tabular-nums text-foreground">
                   {activeScenario.headlinePct > 0 ? "+" : ""}
                   {(activeScenario.headlinePct * 100).toFixed(0)}%
@@ -204,9 +205,12 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
             ) : (
               <Pill tone="good">Comfortable</Pill>
             )}
-            <p className="text-sm text-muted-foreground">
-              {analysis.margin.shockedLeverage.toFixed(2)}x borrowed. Room
-              before a forced sale:{" "}
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              You would be holding{" "}
+              {analysis.margin.shockedLeverage.toFixed(2)} times what is really
+              yours, because part of it is borrowed. If your broker wants{" "}
+              {percent(SCENARIO_MAINTENANCE_RATE, 0)} of the stocks covered by
+              your own money, the room before a forced sale is{" "}
               <span
                 className={cn(
                   "font-semibold tabular-nums",
@@ -217,6 +221,8 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
               >
                 {currency(analysis.margin.shockedEquityCushion, 0)}
               </span>
+              . Brokers use 25% to 30% and can raise it without warning, so the
+              Cash card on Home plans against a stricter half.
             </p>
           </div>
         ) : (
@@ -278,7 +284,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
           <Table className="mt-3">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Theme</TableHead>
+                <TableHead>Kind of business</TableHead>
                 <TableHead className="text-right">Change</TableHead>
               </TableRow>
             </TableHeader>
@@ -308,7 +314,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
         <div className={SPLIT_ROW}>
           <div className={SPLIT_COPY}>
             <h3 className="text-base font-semibold text-foreground">
-              Every position
+              Every holding
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
               Sorted by the biggest dollar change. Tap a column to re-sort.
@@ -316,7 +322,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
           </div>
           <span className="text-sm text-muted-foreground">
             {sortedRows.length}{" "}
-            {sortedRows.length === 1 ? "position" : "positions"}
+            {sortedRows.length === 1 ? "holding" : "holdings"}
           </span>
         </div>
 
@@ -405,7 +411,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
                     )}
                   </span>
                 </button>
-                <div className={cellBase}>Bet</div>
+                <div className={cellBase}>Kind of business</div>
                 <button
                   type="button"
                   onClick={() => handleSort("move")}

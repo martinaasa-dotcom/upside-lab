@@ -1,3 +1,4 @@
+import { loadAnalyticsConsent } from "@/lib/analytics-consent";
 import { ACTIVE_SHEET_KEY } from "@/lib/active-sheet";
 import { loadLastUser } from "@/lib/last-session";
 import { supabaseIsConfigured } from "@/lib/supabase/env";
@@ -117,10 +118,28 @@ export type WebVitalReport = {
   delta?: number;
 };
 
-/** Production-only. sendBeacon so it cannot block paint or unload. */
+/**
+ * Production-only, and only where the reader has not said no.
+ *
+ * The cookie card says "Performance measurement is optional" and offers a
+ * No thanks button, and this used to send anyway: `WebVitals` is mounted
+ * unconditionally in the root layout, so a reader who pressed No thanks
+ * went on reporting CLS, LCP, TTFB and the path of every page they opened,
+ * on every load, for as long as they used the app. Nothing in what is sent
+ * identifies anybody and no cookie is set by it, so this was never a leak;
+ * it was a promise the code did not keep, on the one card whose whole job
+ * is to ask honestly.
+ *
+ * An explicit no is honoured and nothing else changes. A reader who has not
+ * answered is still measured, which is what the card describes: it says the
+ * measurement is optional, not that it is off until asked, and it is on
+ * screen saying so. Read at send time rather than at mount, so pressing No
+ * thanks stops the next one rather than the next page.
+ */
 export function reportWebVital(metric: WebVitalReport): void {
   if (typeof window === "undefined") return;
   if (process.env.NODE_ENV !== "production") return;
+  if (loadAnalyticsConsent() === "deny") return;
   const path = window.location.pathname;
   const body = JSON.stringify({
     event: "web_vital",

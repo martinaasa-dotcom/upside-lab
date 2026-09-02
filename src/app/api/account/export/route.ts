@@ -17,8 +17,11 @@ export const maxDuration = 60;
 
 
 /**
- * Account-page download. Same payload as /api/user/export, plaintext JSON
- * so the existing "Export my data" button stays a file they can open.
+ * Account-page download, plaintext JSON so the "Export my data" button
+ * stays a file they can open. `userExportResponse` still takes `encrypt`
+ * and `format=csv` because the export is a legal answer and the shape a
+ * reader is owed is theirs to choose; the encrypted-by-default twin this
+ * route once had at `/api/user/export` went unused and was removed.
  */
 async function handleGET(req: Request) {
   return userExportResponse(req, { encrypt: false });

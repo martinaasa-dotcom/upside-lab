@@ -54,9 +54,13 @@ function asPercentFraction(raw: number | null): number | null {
 
 async function handlePOST(req: Request) {
   const startedAt = Date.now();
+  // The 401 used to be worked out here and then dropped: a signed-out
+  // caller was let through under one shared "anon" bucket, in front of a
+  // vision model on a free tier. Sign-in comes first, and the budget is
+  // charged to the reader it belongs to.
   const auth = await requireAuthUser();
-  const userKey = "error" in auth ? "anon" : auth.user.id;
-  const limit = await takeDurableRateLimit(`ytd-image:${userKey}`, 8, 10 * 60_000);
+  if ("error" in auth) return auth.error;
+  const limit = await takeDurableRateLimit(`ytd-image:${auth.user.id}`, 8, 10 * 60_000);
   if (!limit.ok) {
     return rateLimitJson(
       limit,
@@ -105,7 +109,7 @@ async function handlePOST(req: Request) {
 
   const liveNav = Number(form.get("liveNav"));
   const bytes = new Uint8Array(await file.arrayBuffer());
-  if (!("error" in auth)) stampAdvisorUse(auth.user.id);
+  stampAdvisorUse(auth.user.id);
 
   try {
     const { object } = await withAdvisorFallback(

@@ -3,6 +3,7 @@ import { requireCronAuth } from "@/lib/cron-auth";
 import { cronRoute } from "@/lib/cron-heartbeat";
 import { logError } from "@/lib/error-log";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
+import { dbError } from "@/lib/db-error";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -75,10 +76,7 @@ async function handleGET(req: Request) {
       event: "disaster_recovery_failed",
     });
     return NextResponse.json(
-      {
-        error:
-          err instanceof Error ? err.message : "Disaster recovery failed",
-      },
+      { error: dbError(err, "GET /api/cron/disaster-recovery: run") },
       { status: 500 }
     );
   }

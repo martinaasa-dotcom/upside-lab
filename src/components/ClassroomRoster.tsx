@@ -1,6 +1,14 @@
 "use client";
 
 import { htmlCell, htmlTable } from "@/components/FluidTable";
+
+/**
+ * A name and a sentence are not figures. `htmlCell` is centred `font-mono`,
+ * which is exactly right for a price and reads as a serial number when it
+ * holds "No reasons written yet" or somebody's name.
+ */
+const htmlCellName =
+  "h-10 whitespace-nowrap px-1.5 py-1.5 text-left align-middle font-sans first:pl-3 last:pr-3";
 import { NO_VALUE, cashtag, cn, currency, signedPercent, signedTone } from "@/lib/format";
 import { Card } from "@/components/ui/Panel";
 import type { ThesisCoverage } from "@/lib/classroom";
@@ -10,6 +18,8 @@ type RosterMember = {
   id: string;
   name: string;
   isYou: boolean;
+  /** A teacher watching the class rather than trading in it. */
+  isTeacher?: boolean;
   sheetCount: number;
   totalValue: number;
   todayDollar: number;
@@ -35,15 +45,29 @@ export function ClassroomRoster({
   thesisCoverage: Record<string, ThesisCoverage>;
   onOpen: (memberId: string) => void;
 }) {
-  const rows = [...members].sort((a, b) => {
+  /*
+    Only people who have a paper portfolio are rows.
+
+    Measured on a real class, the teacher appeared as a student in her own
+    roster reading "Ms Tamm you, n/a, n/a, n/a, n/a, n/a", and anybody who
+    had joined but not started yet was five more empty cells. A row of n/a
+    teaches nothing and pushes the students who did the work down the page.
+    They are named in one line underneath instead, which is the actual thing
+    a teacher wants to know.
+  */
+  const started = members.filter((m) => m.sheetCount > 0);
+  /*
+    A teacher with no paper portfolio has not failed to start: watching the
+    class is the ordinary thing for her to be doing. Measured on a real
+    class, "Ms Tamm you, n/a, n/a, n/a, n/a, n/a" sat in her own roster as
+    though she were a student who had not handed anything in.
+  */
+  const notStarted = members.filter((m) => m.sheetCount === 0 && !m.isTeacher);
+  const rows = [...started].sort((a, b) => {
     const pctA =
-      a.sheetCount && startingCash > 0
-        ? (a.totalValue - startingCash) / startingCash
-        : Number.NEGATIVE_INFINITY;
+      startingCash > 0 ? (a.totalValue - startingCash) / startingCash : 0;
     const pctB =
-      b.sheetCount && startingCash > 0
-        ? (b.totalValue - startingCash) / startingCash
-        : Number.NEGATIVE_INFINITY;
+      startingCash > 0 ? (b.totalValue - startingCash) / startingCash : 0;
     return pctB - pctA;
   });
 
@@ -60,7 +84,7 @@ export function ClassroomRoster({
       <div className="flex flex-col gap-3 p-6 md:hidden">
         {rows.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            Nobody in the class yet.
+            Nobody has started a paper portfolio yet.
           </p>
         ) : (
           rows.map((m) => {
@@ -96,7 +120,7 @@ export function ClassroomRoster({
                     {m.name}
                     {m.isYou ? (
                       <span className="ml-1.5 text-sm font-normal text-muted-foreground">
-                        you
+                        (you)
                       </span>
                     ) : null}
                   </p>
@@ -106,7 +130,7 @@ export function ClassroomRoster({
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="text-muted-foreground">vs start</p>
+                    <p className="text-muted-foreground">Since start</p>
                     <p
                       className={`font-semibold tabular-nums ${
                         vsStart == null ? "text-muted-foreground" : signedTone(vsStart)
@@ -165,11 +189,11 @@ export function ClassroomRoster({
         <table className={cn(htmlTable, "min-w-[36rem]")}>
           <thead>
             <tr className="border-b border-border text-muted-foreground">
-              <th className={cn(htmlCell, "font-medium")}>Student</th>
+              <th className={cn(htmlCellName, "font-medium")}>Student</th>
               <th className={cn(htmlCell, "font-medium")}>Now</th>
-              <th className={cn(htmlCell, "font-medium")}>vs start</th>
+              <th className={cn(htmlCell, "font-medium")}>Since start</th>
               <th className={cn(htmlCell, "font-medium")}>Today</th>
-              <th className={cn(htmlCell, "font-medium")}>Why</th>
+              <th className={cn(htmlCellName, "font-medium")}>Why</th>
               <th className={cn(htmlCell, "font-medium")}>Biggest</th>
             </tr>
           </thead>
@@ -177,7 +201,7 @@ export function ClassroomRoster({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={6} className={cn(htmlCell, "h-auto py-8 text-muted-foreground")}>
-                  Nobody in the class yet.
+                  Nobody has started a paper portfolio yet.
                 </td>
               </tr>
             ) : (
@@ -204,7 +228,7 @@ export function ClassroomRoster({
                     key={m.id}
                     className="border-b border-border last:border-0"
                   >
-                    <td className={htmlCell}>
+                    <td className={htmlCellName}>
                       {m.sheetCount > 0 ? (
                         <button
                           type="button"
@@ -214,7 +238,7 @@ export function ClassroomRoster({
                           {m.name}
                           {m.isYou ? (
                             <span className="ml-1.5 font-normal text-muted-foreground">
-                              you
+                              (you)
                             </span>
                           ) : null}
                         </button>
@@ -223,7 +247,7 @@ export function ClassroomRoster({
                           {m.name}
                           {m.isYou ? (
                             <span className="ml-1.5 font-normal text-muted-foreground">
-                              you
+                              (you)
                             </span>
                           ) : null}
                         </span>
@@ -252,7 +276,7 @@ export function ClassroomRoster({
                         ? signedPercent(m.todayPct)
                         : NO_VALUE}
                     </td>
-                    <td className={cn(htmlCell, "text-muted-foreground")}>
+                    <td className={cn(htmlCellName, "text-muted-foreground")}>
                       {!m.sheetCount
                         ? NO_VALUE
                         : !thesis || thesis.names === 0
@@ -263,7 +287,7 @@ export function ClassroomRoster({
                     </td>
                     <td className={cn(htmlCell, "text-muted-foreground")}>
                       {biggest?.ticker
-                        ? `${biggest.ticker}${
+                        ? `${cashtag(biggest.ticker)}${
                             biggest.weight != null
                               ? ` · ${Math.round(biggest.weight)}%`
                               : ""
@@ -277,6 +301,13 @@ export function ClassroomRoster({
           </tbody>
         </table>
       </div>
+      {notStarted.length > 0 ? (
+        <p className="border-t border-border px-6 py-4 text-sm leading-relaxed text-muted-foreground">
+          {notStarted.length === 1
+            ? `${notStarted[0]!.name} has not started yet.`
+            : `Not started yet: ${notStarted.map((m) => m.name).join(", ")}.`}
+        </p>
+      ) : null}
     </section>
   );
 }

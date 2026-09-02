@@ -143,6 +143,65 @@ export async function loadServerTickerCache(
 }
 
 /**
+ * Today's price for each company, from the quote path the app already uses.
+ *
+ * Only ever called on the publish side, so a provider having a bad minute
+ * costs the next reader a cache hit rather than costing this reader their
+ * forecast. A company that comes back without a price is left out.
+ */
+export async function serverAnchorPrices(
+  tickers: string[]
+): Promise<Record<string, number>> {
+  const wanted = [...new Set(tickers.map((t) => t.toUpperCase()))];
+  if (wanted.length === 0) return {};
+  try {
+    const { fetchQuotesWithFallback } = await import("@/lib/market/quotes");
+    const { quotes } = await fetchQuotesWithFallback(wanted);
+    const out: Record<string, number> = {};
+    for (const t of wanted) {
+      const price = quotes?.[t]?.price;
+      if (typeof price === "number" && Number.isFinite(price) && price > 0) {
+        out[t] = price;
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Whether anything the caller wrote could have shaped this run.
+ *
+ * This is the rule that decides what may be published to the shared table,
+ * and getting it wrong is the worst bug this cache can have, so it is
+ * deliberately blunt.
+ *
+ * `tickerConvictionKey` asks whether *this ticker* carried a thesis, which
+ * is the right question for reuse and the wrong one for publishing. One
+ * prompt reasons every holding together, so a thesis written against any
+ * ticker in the request can steer the path of any other ticker in it. A row
+ * for a company the reader wrote nothing about therefore went in with an
+ * empty conviction key, which `isReusableTickerPath` reads as "no thesis
+ * shaped this, fair game for anybody", and it was served to every reader
+ * holding that company for a fortnight. A request holding NVDA with no note
+ * on it and one junk holding whose thesis said what to write about NVDA was
+ * enough.
+ *
+ * So a run publishes nothing at all if any holding in it carries a written
+ * reason. That costs the cache the readers who keep notes, and keeps it for
+ * the readers who do not, which is most people and nearly everybody new. The
+ * alternative, keying the shared row on the whole request, is not a shared
+ * cache: no two portfolios would ever match.
+ */
+export function runIsShareable(convictions?: ConvictionLike): boolean {
+  if (!convictions) return true;
+  return !Object.values(convictions).some((c) =>
+    typeof c?.thesis === "string" ? c.thesis.trim().length > 0 : false
+  );
+}
+
+/**
  * Write-through after a model run. Best-effort; never throws.
  *
  * Takes only the paths the model actually reasoned this run. A path the
@@ -158,6 +217,10 @@ export async function persistServerTickerCache(
 ) {
   const db = getSupabaseServer();
   if (!db) return;
+  // Nothing this caller wrote may reach a table every other reader drinks
+  // from. See `runIsShareable` for why this is the whole run rather than
+  // the ticker.
+  if (!runIsShareable(input.convictions)) return;
   const generatedAt = input.generatedAt ?? new Date().toISOString();
   const rows = reasoned
     .filter((t) => t.prices && Object.keys(t.prices).length > 0)
@@ -165,8 +228,23 @@ export async function persistServerTickerCache(
       ticker: t.ticker.toUpperCase(),
       prices: t.prices as unknown as Json,
       rationale: t.rationale ?? null,
+      /*
+        Empty by construction now: a run carrying any thesis publishes
+        nothing. The column stays, because rows written before this rule
+        carry a key and `isReusableTickerPath` still honours it, which is
+        what keeps an older shaped row from being served to the wrong
+        reader rather than having to be deleted.
+      */
       conviction_key: tickerConvictionKey(t.ticker, input.convictions),
       generated_at: generatedAt,
+      /*
+        The price the path was reasoned from, and it has to be a price
+        rather than a figure off the request. `anchor_price` is half of
+        what decides whether this row may stand in for a fresh run, so a
+        caller who could set it could keep a row alive against any real
+        price, or kill every other reader's reuse by anchoring it absurdly.
+        The route resolves it from the quote store before calling this.
+      */
       anchor_price:
         typeof t.anchorPrice === "number" && t.anchorPrice > 0 ? t.anchorPrice : null,
       updated_at: new Date().toISOString(),

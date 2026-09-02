@@ -15,6 +15,7 @@ import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import type { ToastKind } from "@/components/ui/Toast";
 import type { CcChatContext } from "@/lib/ai/cc-advisor";
+import { cashtag } from "@/lib/format";
 import { sheetCashBalance, tracksTradeCash } from "@/lib/cash-balance";
 import { setConviction, type ConvictionMap } from "@/lib/conviction";
 import type { CsvHoldingRow } from "@/lib/csv-import";
@@ -82,6 +83,9 @@ export type DashboardModalsProps = {
   setScreenshotPending: Dispatch<SetStateAction<boolean>>;
   margusExpandSignal: number;
   setMargusExpandSignal: Dispatch<SetStateAction<number>>;
+  /** The address is `/margus`: Home with the panel open. */
+  margusAddressed: boolean;
+  onMargusOpenChange: (open: boolean) => void;
   margusContext: CcChatContext;
   toast: (message: string, kind?: ToastKind) => void;
   handleSave: (batch: HoldingFormValues[]) => void;
@@ -147,6 +151,8 @@ export function DashboardModals({
   setScreenshotPending,
   margusExpandSignal,
   setMargusExpandSignal,
+  margusAddressed,
+  onMargusOpenChange,
   margusContext,
   toast,
   handleSave,
@@ -163,6 +169,24 @@ export function DashboardModals({
   loadPortfolios,
   onCreatedAwayFromBook,
 }: DashboardModalsProps) {
+  /*
+   * The rows the ticker drawer is about.
+   *
+   * It used to sum shares and average the buy price over every holding of
+   * that company in the whole account, so opening $AAPL from My portfolio
+   * said "14 shares, 89.5%" while the card the reader had just tapped said
+   * 12 and 92.9%. Scoped to the open portfolio the two agree; opened from
+   * a room that has no portfolio of its own the drawer keeps the wider
+   * total and says out loud how many portfolios it covers.
+   */
+  const drawerRows = drawerTicker
+    ? holdings.filter(
+        (h) =>
+          h.ticker === drawerTicker &&
+          (!activePortfolio || h.portfolio_id === activePortfolio.id)
+      )
+    : [];
+
   return (
     <>
       <HoldingModal
@@ -170,7 +194,6 @@ export function DashboardModals({
         portfolioName={inviteSheet?.name ?? ""}
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
-        hideCallPct={hideOptionsUI}
       />
 
       <CsvImportModal
@@ -314,18 +337,15 @@ export function DashboardModals({
         ticker={drawerTicker}
         spot={drawerTicker ? quotes[drawerTicker]?.price ?? null : null}
         shares={
-          drawerTicker
-            ? holdings
-                .filter((h) => h.ticker === drawerTicker)
-                .reduce((s, h) => s + h.shares, 0)
+          drawerRows.length > 0
+            ? drawerRows.reduce((s, h) => s + h.shares, 0)
             : null
         }
         buyPrice={
-          drawerTicker
+          drawerRows.length > 0
             ? (() => {
-                const rows = holdings.filter((h) => h.ticker === drawerTicker);
-                const sh = rows.reduce((s, h) => s + h.shares, 0);
-                const cost = rows.reduce(
+                const sh = drawerRows.reduce((s, h) => s + h.shares, 0);
+                const cost = drawerRows.reduce(
                   (s, h) => s + h.shares * h.buy_price,
                   0
                 );
@@ -333,6 +353,17 @@ export function DashboardModals({
                 return Number.isFinite(avg) && avg > 0 ? avg : null;
               })()
             : null
+        }
+        portfolioCount={new Set(drawerRows.map((h) => h.portfolio_id)).size}
+        onDelete={
+          drawerRows.length === 1 && drawerTicker
+            ? () =>
+                setConfirmDelete({
+                  kind: "holding",
+                  id: drawerRows[0]!.id,
+                  label: cashtag(drawerTicker),
+                })
+            : undefined
         }
         sparkline={
           drawerTicker ? quotes[drawerTicker]?.sparkline : undefined
@@ -369,6 +400,8 @@ export function DashboardModals({
         key={margusPortfolio?.id ?? OVERVIEW_TAB_ID}
         portfolioId={margusPortfolio?.id ?? OVERVIEW_TAB_ID}
         expandSignal={margusExpandSignal}
+        addressed={margusAddressed}
+        onOpenChange={onMargusOpenChange}
         screenshotImport={silentScreenshot}
         screenshotPending={screenshotPending}
         onScreenshotImportConsumed={(id) => {

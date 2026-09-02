@@ -1,3 +1,4 @@
+import { NO_VALUE } from "@/lib/format";
 import { isCoinSymbol } from "@/lib/coins";
 import { STRATEGY } from "@/lib/calculations";
 import {
@@ -515,13 +516,28 @@ export async function buildWritePlan(params: {
     earningsNote = "Last reported earnings recently; next date unclear.";
   }
 
+  /*
+   * This line is the whole tool result Margus paraphrases to the reader,
+   * so its last part used to hand him an instruction: "write-eligible" or
+   * "consider waiting", which is the app telling somebody when to place a
+   * trade. What actually sits behind that flag is one fact, whether the
+   * results date falls inside this expiry, so the summary states the fact
+   * and leaves the decision where it belongs.
+   */
+  const earningsFact =
+    daysToEarnings != null &&
+    daysToEarnings >= 0 &&
+    daysToEarnings <= daysToExpiry
+      ? `results in ${daysToEarnings} days, inside this expiry`
+      : "no results date inside this expiry";
+
   const summary = [
     `${ticker}: target $${target}, Call ${(callPct * 100).toFixed(1)}%, strike ~$${nextStrike}`,
-    `exp ${expiry?.key ?? "n/a"} (${daysToExpiry}d)`,
+    `expiry ${expiry?.key ?? NO_VALUE} (${daysToExpiry} days out)`,
     estimatedYield != null
-      ? `yield ~${(estimatedYield * 100).toFixed(2)}%${yieldSource === "estimate" ? " (est.)" : ""}`
-      : "yield n/a",
-    writeNow ? "write-eligible" : "consider waiting",
+      ? `pays about ${(estimatedYield * 100).toFixed(2)}% of the share price${yieldSource === "estimate" ? " (estimated)" : ""}`
+      : "what it pays is unknown",
+    earningsFact,
   ].join(" · ");
 
   return {

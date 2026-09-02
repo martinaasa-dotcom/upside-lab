@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /*
@@ -33,6 +34,10 @@ const CHECKED = [
   "docs/ZERO_DOWNTIME_MIGRATIONS.md",
   "docs/BRAND_MARK.md",
   "docs/MVP_AUDIT_LIVE_PASS.md",
+  "docs/AUDIT_CHECKLIST.md",
+  "docs/CRON_MONITORING.md",
+  "docs/POLISH_PASS.md",
+  "docs/SECRET_ROTATION.md",
 ];
 
 /*
@@ -70,6 +75,31 @@ export function prose(file: string): { line: number; text: string }[] {
     .map((text, i) => ({ line: i + 1, text }))
     .filter(({ text }) => text.trim() !== "");
 }
+
+describe("every document is either checked or exempted", () => {
+  /*
+    The two lists above are a decision each, and a document in neither is
+    not a decision, it is a gap. Four had opened one: the audit checklist,
+    the cron and secret runbooks and this pass's own checklist were all
+    written after the guard and none of them was covered by it, so the
+    naming rule quietly did not apply to a quarter of the documentation.
+    Two of them had drifted, which is what a gap like this is for.
+  */
+  it("leaves no markdown file out of both lists", () => {
+    const files = [
+      ...readdirSync(".").filter((f) => f.endsWith(".md")),
+      ...readdirSync("docs").map((f) => join("docs", f)).filter((f) => f.endsWith(".md")),
+    ].sort();
+    const covered = new Set([...CHECKED, ...NOT_CHECKED]);
+    expect(files.filter((f) => !covered.has(f))).toEqual([]);
+  });
+
+  it("names no file that is not there any more", () => {
+    for (const file of [...CHECKED, ...NOT_CHECKED]) {
+      expect(existsSync(file), `${file} is listed but does not exist`).toBe(true);
+    }
+  });
+});
 
 describe("the documentation calls a portfolio a portfolio", () => {
   for (const file of CHECKED) {

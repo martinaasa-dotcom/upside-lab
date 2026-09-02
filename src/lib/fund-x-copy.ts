@@ -23,10 +23,16 @@ export type FundXPostInput = {
   radar?: Array<{ ticker: string; waitFor?: string | null }>;
 };
 
+/*
+ * "Trimmed" is desk shorthand for selling part of a holding, and the same
+ * reader who meets it here meets "Sold some" on the page. Two words for one
+ * act, in two places, is how a beginner ends up thinking they are different
+ * things.
+ */
 const TRADE_VERB: Record<Exclude<FundAction["type"], "hold">, string> = {
   buy: "bought",
   exit: "sold",
-  trim: "trimmed",
+  trim: "sold some",
   add: "bought",
 };
 

@@ -112,9 +112,15 @@ export const LOGIN_METADATA = publicPageMetadata({
   ogTitle: `Sign in to ${PRODUCT_NAME}`,
 });
 
+/*
+  The room is Circle on the dock, in the walkthrough and on the landing, so
+  the tab title and the share card say the same word. The path and the
+  constant keep the old name: the URL is in links already sent, and the
+  identifier is not something a reader sees.
+*/
 export const COMMUNITIES_METADATA = publicPageMetadata({
-  title: "Communities",
+  title: "Circle",
   description: COMMUNITIES_DESCRIPTION,
   path: "/communities",
-  ogTitle: `Communities · ${PRODUCT_NAME}`,
+  ogTitle: `Circle · ${PRODUCT_NAME}`,
 });

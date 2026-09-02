@@ -1,4 +1,5 @@
 import { STRATEGY } from "@/lib/calculations";
+import { FORECAST_YEARS } from "@/lib/forecast";
 import { MARGUS_PERSONA } from "@/lib/ai/margus-persona";
 import { pulseSuggestion } from "@/lib/ai/humanize-copy";
 import { insightsPromptBlock } from "@/lib/book-insights";
@@ -98,7 +99,7 @@ export type CcChatContext = {
   watchlist?: string[];
   /** Paper class portfolio. Margus is the lab assistant, not a stock picker. */
   classroom?: boolean;
-  /** Live Yahoo calendar for the book + watchlist. Do not invent dates. */
+  /** Live Yahoo calendar for the portfolio and watchlist. Do not invent dates. */
   earnings?: EarningsCalendarRow[];
   /** Per-ticker Lab notes + Pulse stamps already on this portfolio. */
   convictions?: Record<
@@ -113,6 +114,18 @@ export type CcChatContext = {
   pulseByTicker?: Record<string, PulseCheck>;
   /** Saved Forecast plan for this portfolio, when on a portfolio tab. */
   forecastPlan?: ForecastPlan | null;
+  /**
+   * How much investing the reader told onboarding they have done. It sets
+   * how much explaining each answer carries, and nothing else: it is not
+   * the options answer, which is its own flag (`hideOptions`), and a very
+   * experienced investor can still have never touched an option.
+   *
+   * Read defensively. Older clients do not send it, and the chat route
+   * passes the context through as it arrives, so anything that is not one
+   * of the three words means nobody has answered and the voice sits in
+   * the middle.
+   */
+  experienceTier?: string | null;
 };
 
 type AdvisorFx = { eurUsd: number | null; gbpUsd: number | null };
@@ -153,7 +166,7 @@ export function buildCcAdvisorTools(
   const allTools = {
   setCallPct: tool({
     description:
-      "Set the Call % for one ticker. Call % is how far the Next Strike sits above the Stock Target (resistance). Example: stock target $100 and callPct 15 → next strike ~$115.",
+      "Set the Call % for one ticker. Call % is how far the Next Strike sits above the Stock Target. Example: stock target $100 and callPct 15 → next strike ~$115.",
     inputSchema: z.object({
       ticker: z.string().describe("Ticker symbol, e.g. NBIS"),
       callPct: z
@@ -173,7 +186,7 @@ export function buildCcAdvisorTools(
 
   setCallPctBulk: tool({
     description:
-      "Set Call % for several tickers in one step with DIFFERENT percentages per name. Preferred when the user wants safety, risk buffers, or volatility-aware Call %. Never flatten everything to one number.",
+      "Set Call % for several tickers in one step with DIFFERENT percentages per name. Preferred when the user wants safety, a wider gap, or a Call % that follows how much each company moves. Never flatten everything to one number.",
     inputSchema: z.object({
       updates: z
         .array(
@@ -215,7 +228,7 @@ export function buildCcAdvisorTools(
 
   updateHolding: tool({
     description:
-      "Update shares and/or buy price for an existing holding. Use for position size or cost-basis edits.",
+      "Update shares and/or buy price for an existing holding. Use when the share count or what they paid per share needs correcting.",
     inputSchema: z.object({
       ticker: z.string().describe("Ticker symbol, e.g. CRWV"),
       shares: z
@@ -301,7 +314,7 @@ export function buildCcAdvisorTools(
 
   importPortfolio: tool({
     description:
-      "Import an entire portfolio in ONE call from a spreadsheet OR broker portfolio screenshot (Lightyear, etc.). Include every investment row. Prefer markValue (position value) when average buy/cost is missing: never stall asking for cost basis. Fold multi-currency cash + tiny MMFs into cashUsd. Call once with the full list.",
+      "Import an entire portfolio in ONE call from a spreadsheet OR broker portfolio screenshot (Lightyear, etc.). Include every investment row. Prefer markValue (what the holding is worth) when the average buy price is missing: never stall asking what they paid. Fold multi-currency cash + tiny MMFs into cashUsd. Call once with the full list.",
     inputSchema: z.object({
       cash: z
         .number()
@@ -354,7 +367,7 @@ export function buildCcAdvisorTools(
               .positive()
               .optional()
               .describe(
-                "Position market value in `currency` (Value column). Required when buyPrice is missing: implied cost = markValue / shares."
+                "What the holding is worth in `currency` (Value column). Required when buyPrice is missing: implied cost = markValue / shares."
               ),
             currency: z
               .enum(["USD", "EUR", "GBP"])
@@ -479,7 +492,7 @@ export function buildCcAdvisorTools(
       reason: z
         .enum(SCREENSHOT_ISSUE_REASONS)
         .describe(
-          "not_holdings = Stocks app / watchlist / prices only. unreadable = cropped, dark, or blurry. missing_shares = tickers but no share counts. missing_cost = shares but no avg buy or position value."
+          "not_holdings = Stocks app / watchlist / prices only. unreadable = cropped, dark, or blurry. missing_shares = tickers but no share counts. missing_cost = shares but no average buy price and no value."
         ),
     }),
     execute: async ({ reason }) => {
@@ -508,7 +521,7 @@ export function buildCcAdvisorTools(
 
   setStockTarget: tool({
     description:
-      "Set the Stock Target price for one ticker (the price level you want to write covered calls toward). Overrides the auto resistance model. Next Strike = Stock Target × (1 + Call %).",
+      "Set the Stock Target price for one ticker: the price level you want to write covered calls toward. Overrides the level the app picks on its own. Next Strike = Stock Target × (1 + Call %).",
     inputSchema: z.object({
       ticker: z.string(),
       stockTarget: z
@@ -549,7 +562,7 @@ export function buildCcAdvisorTools(
 
   clearStockTarget: tool({
     description:
-      "Clear a manual Stock Target override so the ticker goes back to the auto resistance model.",
+      "Clear a manual Stock Target so the ticker goes back to the level the app picks on its own.",
     inputSchema: z.object({
       ticker: z.string(),
     }),
@@ -562,20 +575,20 @@ export function buildCcAdvisorTools(
 
   proposeWritePlan: tool({
     description:
-      "Analyze covered-call setups (expiry, yield, strikes). For critiques of the CURRENT table plan, ALWAYS pass each position's stockTarget + callPct from the covered-call rows so you do not overwrite manual targets. Only omit stockTarget/callPct when the user asks to re-pick targets from local highs / resistance.",
+      "Work out covered-call expiries, what an option would pay, and strikes. When looking over the CURRENT table plan, ALWAYS pass each holding's stockTarget + callPct from the covered-call rows so you do not overwrite a level the reader set by hand. Only omit stockTarget/callPct when the user asks for the targets to be picked again from the prices the stock has bounced off before.",
     inputSchema: z.object({
-      positions: z
+      holdings: z
         .array(
           z.object({
             ticker: z.string(),
             shares: z.number().positive(),
-            spot: z.number().positive().optional(),
+            price: z.number().positive().optional(),
             stockTarget: z
               .number()
               .positive()
               .optional()
               .describe(
-                "Current table Stock Target: pass this when critiquing/analyzing the existing plan"
+                "The Stock Target already in the table: pass this when looking over the existing plan"
               ),
             callPct: z
               .number()
@@ -583,19 +596,21 @@ export function buildCcAdvisorTools(
               .max(40)
               .optional()
               .describe(
-                "Current table Call % as whole number e.g. 18 for 18%: pass when critiquing existing plan"
+                "The Call % already in the table, as a whole number e.g. 18 for 18%: pass when looking over the existing plan"
               ),
           })
         )
         .min(1),
     }),
-    execute: async ({ positions }) => {
+    execute: async ({ holdings }) => {
       const { buildWritePlans } = await import("@/lib/market/write-plan");
       const plans = await buildWritePlans(
-        positions.map((p) => ({
+        holdings.map((p) => ({
           ticker: p.ticker,
           shares: p.shares,
-          spot: p.spot,
+          // `spot` is what the planner calls it internally. The word never
+          // reaches the model or the reader, so the tool asks for `price`.
+          spot: p.price,
           stockTarget: p.stockTarget,
           callPct: p.callPct,
         }))
@@ -718,12 +733,21 @@ function margusMemoryBlock(ctx: CcChatContext): string {
     );
     if (plan.generalAdvice?.trim()) lines.push(plan.generalAdvice.trim());
     if (plan.sectorRotation?.trim()) lines.push(plan.sectorRotation.trim());
+    /*
+      The last year the forecast covers, never the literal 2030. Read as a
+      literal, this went quiet on the first of January: a path running to
+      2031 has no 2030 key, so `end` is undefined for every holding and
+      Margus loses the whole forecast from the context with nothing saying
+      so. The reader would have asked about a company and been answered by
+      somebody who could no longer see its price path.
+    */
+    const lastYear = FORECAST_YEARS[FORECAST_YEARS.length - 1]!;
     for (const row of plan.eoyTargets ?? []) {
-      const end = row.prices?.[2030];
+      const end = row.prices?.[lastYear];
       const why = row.rationale?.trim();
       if (end != null && why) {
         lines.push(
-          `- $${row.ticker.toUpperCase()} end 2030 ~$${end.toFixed(0)}: ${why.slice(0, 220)}`
+          `- $${row.ticker.toUpperCase()} end ${lastYear} ~$${end.toFixed(0)}: ${why.slice(0, 220)}`
         );
       }
     }
@@ -737,13 +761,51 @@ function margusMemoryBlock(ctx: CcChatContext): string {
   return lines.join("\n");
 }
 
+/**
+ * How much explaining every answer carries, from the one question
+ * onboarding asked about how much investing they have done.
+ *
+ * The words are short on purpose. A long block here competes with the
+ * persona's own voice section, and the thing that actually changes between
+ * these three readers is how much a sentence has to stop and explain
+ * itself, not what is true. Somebody who has never done this needs one
+ * idea at a time and the dollar figure before the percent, because a
+ * percent of a number you have not been told is not a fact you can feel.
+ * Somebody who trades every week is slowed down by both.
+ *
+ * An unanswered tier gets nothing, which leaves the persona's own rule
+ * standing: explain the one word they would have had to look up.
+ */
+function experienceVoiceBlock(tier: string | null | undefined): string {
+  const answer = String(tier ?? "").trim().toLowerCase();
+  if (answer === "novice") {
+    return `
+### Who is reading, and how much to explain
+This reader told us they are new to investing. One idea per paragraph, and keep the paragraphs to two or three sentences. The first time any word from investing appears, say what it means in the same sentence, in about six words, then carry on. Lead with the dollar figure and put the percent after it, because a percent on its own is hard to feel. No cashtag arithmetic stacked into one line. Never suggest they should already have known something.
+`;
+  }
+  if (answer === "investor") {
+    return `
+### Who is reading, and how much to explain
+This reader has bought and sold shares before and is comfortable with the ordinary words. Give them the figures without stopping to define percent, dividend or market value. Explain only the genuinely specialist words, once. Still whole sentences, still no jargon from a trading desk.
+`;
+  }
+  if (answer === "advanced") {
+    return `
+### Who is reading, and how much to explain
+This reader trades actively and wants the short form. Answer in as few sentences as the question honestly takes, figures first, no glosses, no warm-up. The plain-words rule still holds, because plain is not the same as slow.
+`;
+  }
+  return "";
+}
+
 export function buildCcSystemPrompt(ctx: CcChatContext): string {
   const holdingsTable =
     ctx.holdings.length === 0
       ? "(no holdings)"
       : ctx.holdings
           .map((h) => {
-            return `${h.ticker}: shares=${h.shares}, buy=${h.buyPrice}, price=${h.price}, cost=${h.cost.toFixed(0)}, value=${h.value.toFixed(0)}, roi%=${(h.roiPct * 100).toFixed(1)}%, roi$=${h.roiDollar.toFixed(0)}, pctTotal=${(h.pctOfTotal * 100).toFixed(1)}%, today=${h.todayPct != null ? (h.todayPct * 100).toFixed(1) + "%" : NO_VALUE}${holdingExtendedHoursLine(h)}`;
+            return `${h.ticker}: shares=${h.shares}, paidEach=${h.buyPrice}, price=${h.price}, cost=${h.cost.toFixed(0)}, value=${h.value.toFixed(0)}, gain%=${(h.roiPct * 100).toFixed(1)}%, gain$=${h.roiDollar.toFixed(0)}, shareOfPortfolio%=${(h.pctOfTotal * 100).toFixed(1)}%, today=${h.todayPct != null ? (h.todayPct * 100).toFixed(1) + "%" : NO_VALUE}${holdingExtendedHoursLine(h)}`;
           })
           .join("\n");
 
@@ -755,11 +817,11 @@ export function buildCcSystemPrompt(ctx: CcChatContext): string {
       ? "(no CC rows)"
       : ctx.rows
           .map((r) => {
-            const strikeOtm =
+            const strikeAboveToday =
               r.nextStrike != null && r.spot > 0
                 ? (r.nextStrike - r.spot) / r.spot
                 : null;
-            return `${r.ticker}: spot=${r.spot}, call%=${(r.callPct * 100).toFixed(0)}%, stockTarget=${r.stockTarget ?? NO_VALUE}, distanceToTarget=${r.distance != null ? (r.distance * 100).toFixed(1) + "%" : NO_VALUE}, nextStrike=${r.nextStrike ?? NO_VALUE}, strikeOtmFromSpot=${strikeOtm != null ? (strikeOtm * 100).toFixed(1) + "%" : NO_VALUE}, contracts=${r.contracts}, ccYield=${r.yield2w != null ? (r.yield2w * 100).toFixed(2) + "%" : NO_VALUE}, premium=${r.premium ?? NO_VALUE}, exp=${r.expiration ?? NO_VALUE}`;
+            return `${r.ticker}: price=${r.spot}, call%=${(r.callPct * 100).toFixed(0)}%, stockTarget=${r.stockTarget ?? NO_VALUE}, distanceToTarget=${r.distance != null ? (r.distance * 100).toFixed(1) + "%" : NO_VALUE}, nextStrike=${r.nextStrike ?? NO_VALUE}, strikeAboveTodayPct=${strikeAboveToday != null ? (strikeAboveToday * 100).toFixed(1) + "%" : NO_VALUE}, contracts=${r.contracts}, ccYield=${r.yield2w != null ? (r.yield2w * 100).toFixed(2) + "%" : NO_VALUE}, premium=${r.premium ?? NO_VALUE}, exp=${r.expiration ?? NO_VALUE}`;
           })
           .join("\n");
 
@@ -787,10 +849,10 @@ Tools ALWAYS apply to this portfolio (${ctx.portfolioName}). Never ask the reade
 When the user pastes or attaches a screenshot (spreadsheet, broker app, portfolio table, OR single-ticker detail) or asks to import holdings:
 
 **A) Single-ticker broker detail screen** (Lightyear etc.: big symbol like €RHM, fields Shares / Avg buy / Invested / chart):
-1. Read ticker (strip €/$ prefix), Shares (full decimals), Avg buy (cost basis, NOT the live market price at the top).
+1. Read ticker (strip €/$ prefix), Shares (full decimals), Avg buy (what they paid per share on average, NOT the live price at the top).
 2. Currency from € → EUR, $ → USD.
 3. Call addHolding ONCE with ticker, shares, buyPrice=Avg buy, currency. Example: RHM, 2.889580565, buyPrice 1239.69, currency EUR → Yahoo RHM.DE.
-4. Do NOT use the live spot as buyPrice. Do NOT refuse. Do NOT ask clarifying questions first. Tool first, then confirm.
+4. Do NOT use the live price as buyPrice. Do NOT refuse. Do NOT ask clarifying questions first. Tool first, then confirm.
 5. replace is NOT needed; upsert this one name only.
 
 **B) Multi-row portfolio / breakdown table**:
@@ -798,7 +860,7 @@ When the user pastes or attaches a screenshot (spreadsheet, broker app, portfoli
 2. If Quantity + Value but NO Avg buy: set markValue = Value and currency from €/$. buyPrice optional.
 3. Pass isin when visible (RHM + DE ISIN → RHM.DE). US ISINs stay bare.
 4. Cash: sum Cash-EUR/USD/GBP (cashNative+cashCurrency or cashUsd). Tiny MMFs → fold into cash.
-5. Skip headers/totals. replace=true for full books.
+5. Skip headers and totals. replace=true when the screenshot is a whole portfolio.
 6. Prefer importPortfolio over a chain of addHolding / setCash.
 
 **C) Not a holdings screenshot** (Apple Stocks, a watchlist, prices + daily % only, news, a chart, cropped/blurry, tickers with no share counts):
@@ -813,63 +875,62 @@ FX for imports (USD per 1 unit): EURUSD=${ctx.eurUsd != null ? ctx.eurUsd.toFixe
   const ccGuidanceBlock = hideOptions
     ? ""
     : `
-When the user asks to critique / review / advise on the CURRENT plan (or “current targets”):
+When the user asks you to look over the CURRENT plan (or “current targets”):
 1. Use the Covered-call rows snapshot as ground truth (and/or proposeWritePlan WITH stockTarget+callPct passed through).
-2. Critique those exact levels: do NOT invent new Stock Targets or Call %.
+2. Talk about those exact levels: do NOT invent new Stock Targets or Call %.
 3. Do NOT call applyWritePlan / setStockTarget unless they ask to change something.
-4. Speak using the column names correctly (see glossary). Never call Distance “OTM to strike”.
+4. Use the column names as the app uses them (see glossary). Distance is never the gap between today's price and the strike.
 
-When the user asks to pick NEW stock targets, re-find local highs, or rebuild the plan from scratch:
-1. Call proposeWritePlan with ticker + shares + spot only (omit stockTarget/callPct so resistance/vol can re-pick).
-2. Summarize recommendations; apply only if they ask.
+When the user asks to pick NEW stock targets, re-find the prices a stock has bounced off before, or rebuild the plan from scratch:
+1. Call proposeWritePlan with ticker + shares + price only (omit stockTarget/callPct so the plan can pick them again).
+2. Say what it came back with; apply only if they ask.
 
 ### Covered Call Targets: column glossary (memorize this)
-This table is the WRITE PLAN, not a generic options chain dump.
+This table is the WRITE PLAN, not a listing of every option available.
 
-1. **Spot / price**: regular-session last (or best available). For overnight / gap talk use preMarket* and afterHours* fields.
-2. **Stock Target**: the price level you are writing *toward* (resistance / local high / manual level). It is NOT the option strike.
-3. **Call %**: safety buffer ABOVE Stock Target. Volatility-scaled. Example: target $100 + Call 15% → Next Strike $115.
-4. **Distance**: how far Spot is from Stock Target = (Stock Target − Spot) / Spot.
-   - Positive = Spot still below target (room to run into the write level).
-   - Negative = Spot already above / through the target (plan is stale or aggressive).
-   - Distance is NOT option OTM % and NOT Call %.
-5. **Next Strike**: the actual call strike you aim to sell = Stock Target × (1 + Call %).
-6. **strikeOtmFromSpot**: how far Next Strike is above Spot = (Next Strike − Spot) / Spot. THIS is the true OTM % for premium talk.
+1. **price**: the last regular-session price, or the best one available. For overnight talk use the preMarket and afterHours fields.
+2. **Stock Target**: the price level you are writing *toward*. Usually a price the stock has bounced off before, or one the reader set by hand. It is NOT the option strike.
+3. **Call %**: the safety gap ABOVE Stock Target. It scales with how much the stock moves. Example: target $100 and Call 15% gives a Next Strike of $115.
+4. **Distance**: how far today's price is from Stock Target = (Stock Target − price) / price.
+   - Positive = the price is still below the target, so there is room before the write level.
+   - Negative = the price has already gone past the target, so the plan is out of date or ambitious.
+   - Distance is not the gap up to the strike, and it is not Call %.
+5. **Next Strike**: the call strike you aim to sell = Stock Target × (1 + Call %).
+6. **strikeAboveTodayPct**: how far Next Strike sits above today's price = (Next Strike − price) / price. This is the figure that goes with what the option pays.
 7. **Contracts**: floor(shares / 100).
-8. **CC yield / Premium**: live mid for that Next Strike & expiry ÷ Spot (and total $ for all contracts).
-9. **Expiration**: chosen roughly 2 to 3 week expiry (earnings-aware).
-10. **preMarket / afterHours**: extended-hours last price and % vs prior close when Yahoo has them. Use these when the user asks about premarket, after-hours, overnight gaps, or “what’s moving before the open”. Format as a real Markdown table (one row per line) or tight bullets: never a single jammed pipe paragraph.
-11. **session / marketState**: Yahoo session flag (PREPRE, PRE, REGULAR, POST, POSTPOST, CLOSED, …). When PRE/PREPRE lean on preMarket; when POST/POSTPOST lean on afterHours.
+8. **CC yield / Premium**: the live middle price for that Next Strike and expiry, divided by today's price (and the total dollars for all contracts).
+9. **Expiration**: an expiry roughly 2 to 3 weeks out, chosen around the results date.
+10. **preMarket / afterHours**: the last price outside normal hours and its percent against the previous close, when Yahoo has them. Use these when the user asks about before the open, after the close, an overnight jump, or “what’s moving before the open”. Format as a real Markdown table (one row per line) or tight bullets: never a single jammed pipe paragraph.
+11. **session / marketState**: Yahoo's session flag (PREPRE, PRE, REGULAR, POST, POSTPOST, CLOSED, …). When PRE/PREPRE lean on preMarket; when POST/POSTPOST lean on afterHours.
 
 Example (do not confuse these):
-- Spot $188, Stock Target $205, Call 22% → Distance ≈ +9% (to target), Next Strike ≈ $250, strikeOtmFromSpot ≈ +33%.
-- Saying “9% OTM premium” is WRONG here: 9% is Distance to target; the strike is ~33% OTM.
+- price $188, Stock Target $205, Call 22% gives Distance about +9% to the target, a Next Strike near $250, and strikeAboveTodayPct about +33%.
+- Calling that a "9% gap to the strike" is wrong: 9% is the distance to the target, and the strike is about 33% above today's price.
 
-When critiquing, discuss:
-- Is Stock Target still a sensible write level vs Spot / local highs?
-- Is Call % right for this ticker's realized volatility?
-- Is strikeOtmFromSpot so far that premium/CC yield is junk → maybe tighten Call % or raise realism of target?
-- Earnings vs Expiration.
-- Never “fix” Distance by calling it strike OTM.
+When you look a plan over, the things worth saying are:
+- Whether Stock Target is still a sensible level to write toward, next to today's price and the prices this stock has bounced off before.
+- Whether Call % matches how much this particular stock actually moves.
+- How far above today's price the strike sits. A strike far above it is one the option pays very little for, and a smaller Call % or a nearer target is what would change that.
+- Where the results date falls against the expiry.
+- Distance and the gap up to the strike are two different numbers. Do not use one for the other.
 
-Covered-call strategy:
-- Prefer intraday green rebound to sell.
-- Expiry: ${STRATEGY.minDaysPreferred} to ${STRATEGY.maxDaysPreferred} days (about 2 to 3 weeks); up to ~${STRATEGY.maxDaysExtended}d if earnings forces a longer dated.
-- Prefer expire BEFORE earnings when possible; otherwise go past earnings and widen Call %.
-- Call % MUST always reflect each name's own realized volatility. Never a flat portfolio-wide default.
-  · Calmer / defensive names: about ${(STRATEGY.callPctSafeMin * 100).toFixed(0)} to ${(STRATEGY.callPctSafeMax * 100).toFixed(0)}%.
-  · Typical growth names: around ${(STRATEGY.callPctSafeMax * 100).toFixed(0)} to ${(STRATEGY.callPctMid * 100).toFixed(0)}%.
-  · Jumpy / speculative names: around ${(STRATEGY.callPctMid * 100).toFixed(0)} to ${(STRATEGY.callPctHighBeta * 100).toFixed(0)}%.
-  · "I want safety" means scale UP jumpy names and keep calm names near their own vol-implied level. NOT setUniformCallPct to one number for everything.
-  · Prefer proposeWritePlan or setCallPctBulk with per-ticker values, each reasoned from that name's own realized volatility (higher vol → wider Call %). Explain the vol rationale briefly.
-  · Still nudge Call % for earnings and distance to stock target after the vol baseline.
-- Target ~${(STRATEGY.targetYield * 100).toFixed(0)}% period yield (floor ~${(STRATEGY.minYield * 100).toFixed(0)}%).
-- Execution: ${STRATEGY.executionWindow}.
+How the write plan is built:
+- Expiry: ${STRATEGY.minDaysPreferred} to ${STRATEGY.maxDaysPreferred} days out, about 2 to 3 weeks. Up to about ${STRATEGY.maxDaysExtended} days when the results date forces a longer one.
+- An expiry that ends before the results date is preferred. When there is none, the expiry runs past results and the Call % is wider.
+- Call % always follows how much that one stock has actually moved. There is no single number for the whole portfolio.
+  · Calmer, steadier companies: about ${(STRATEGY.callPctSafeMin * 100).toFixed(0)} to ${(STRATEGY.callPctSafeMax * 100).toFixed(0)}%.
+  · Ordinary growing companies: around ${(STRATEGY.callPctSafeMax * 100).toFixed(0)} to ${(STRATEGY.callPctMid * 100).toFixed(0)}%.
+  · Jumpy, speculative ones: around ${(STRATEGY.callPctMid * 100).toFixed(0)} to ${(STRATEGY.callPctHighBeta * 100).toFixed(0)}%.
+  · "I want safety" means the jumpy ones get a wider gap and the calm ones stay near their own level. NOT setUniformCallPct to one number for everything.
+  · Prefer proposeWritePlan or setCallPctBulk with a value per ticker, each read off how much that company's own share price moves: the more it moves, the wider the gap. Say in one plain clause how much it moves and why that gave the number.
+  · After that, the results date and the distance to the stock target each move the number a little.
+- The plan aims for about ${(STRATEGY.targetYield * 100).toFixed(0)}% of the share price over the period, and treats anything under about ${(STRATEGY.minYield * 100).toFixed(0)}% as too little to be worth it. That is what the app aims for, not a level to tell the reader to hit.
+- The app's own window for placing one of these is ${STRATEGY.executionWindow}.
 `;
 
   const totalsLine = hideOptions
-    ? `Portfolio totals: cost=${ctx.totals.cost.toFixed(0)}, value=${ctx.totals.value.toFixed(0)}, roi%=${(ctx.totals.roiPct * 100).toFixed(1)}%, roi$=${ctx.totals.roiDollar.toFixed(0)}`
-    : `Portfolio totals: cost=${ctx.totals.cost.toFixed(0)}, value=${ctx.totals.value.toFixed(0)}, roi%=${(ctx.totals.roiPct * 100).toFixed(1)}%, roi$=${ctx.totals.roiDollar.toFixed(0)}, ccYieldAvg=${(ctx.totals.yield2wAvg * 100).toFixed(2)}%, premiumTotal=${ctx.totals.premiumTotal.toFixed(2)}`;
+    ? `Portfolio totals: cost=${ctx.totals.cost.toFixed(0)}, value=${ctx.totals.value.toFixed(0)}, gain%=${(ctx.totals.roiPct * 100).toFixed(1)}%, gain$=${ctx.totals.roiDollar.toFixed(0)}`
+    : `Portfolio totals: cost=${ctx.totals.cost.toFixed(0)}, value=${ctx.totals.value.toFixed(0)}, gain%=${(ctx.totals.roiPct * 100).toFixed(1)}%, gain$=${ctx.totals.roiDollar.toFixed(0)}, ccYieldAvg=${(ctx.totals.yield2wAvg * 100).toFixed(2)}%, premiumTotal=${ctx.totals.premiumTotal.toFixed(2)}`;
 
   const ccRowsSection = hideOptions
     ? ""
@@ -877,6 +938,8 @@ Covered-call strategy:
 
 Covered-call rows:
 ${ccTable}`;
+
+  const tierVoiceBlock = experienceVoiceBlock(ctx.experienceTier);
 
   const classroomBlock = ctx.classroom
     ? `
@@ -893,7 +956,7 @@ ${classroomBlock}
 This chat is for your portfolio ("${ctx.portfolioName}"). Never ask the reader to pick a portfolio. Never say "your portfolios" or "your other portfolios".
 
 ${writeBlock}
-${ccGuidanceBlock}
+${ccGuidanceBlock}${tierVoiceBlock}
 ### How you talk in this chat
 Same voice as the Sunday letter. You, your. Connected paragraphs. The question first, then the mix if it matters, then the facts. Never a telegram. Never "this person".
 
@@ -905,20 +968,20 @@ If a question is common and reasonable but rests on a wrong idea (that a stock g
 
 If they ask what a company is or how it makes money, then short bullets, one line each:
 
-- **What it is**: one plain line a grandma would understand. No jargon. Never say sleeve, marks, conviction, digestion, or beta. Thesis is fine.
+- **What it is**: one plain line a grandma would understand. The persona's word bans apply here in full. Thesis is fine.
 - **What moves it**: the one or two things that actually set the price.
 - **What has to go right**: the specific thing, not a vibe.
 - **The risk**: the specific thing that breaks it. Name it.
-- **Your position**: only if they hold it. How big a share of their portfolio it is, what they paid versus today's price, and what that means for them.
+- **What you hold**: only if they hold it. How big a share of their portfolio it is, what they paid against today's price, and what that means for them.
 
 No opening preamble ("Great question", "Let's break this down") and no
 closing summary paragraph.
 
 Prefer tools over invented numbers. After tools, briefly confirm.
-None of this is personalized investment advice or a recommendation to buy, sell, or hold. You are describing prices and the stated reason for owning a name. Never write orders: do not add, sell some, look to add, buy this, trim 10%, sit tight, start small. Never confirm that a move fits the reader.${optionsGuard}
+None of this is personalized investment advice or a recommendation to buy, sell, or hold. You are describing prices and why they own the company. Never write orders: do not add, sell some, look to add, buy this, trim 10%, sit tight, start small. Never confirm that a move fits the reader.${optionsGuard}
 
 Market session: ${ctx.marketState ?? "unknown"}
-Watchlist (not owned, discuss freely, never invent a position in the portfolio): ${(ctx.watchlist ?? []).join(", ") || "(none)"}
+Watchlist (not owned, discuss freely, never invent a holding in the portfolio): ${(ctx.watchlist ?? []).join(", ") || "(none)"}
 ${formatEarningsCalendarBlock(ctx.earnings ?? [])}
 ${margusMemoryBlock(ctx)}
 ${insightsPromptBlock(

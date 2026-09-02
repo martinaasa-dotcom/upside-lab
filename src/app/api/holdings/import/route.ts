@@ -1,21 +1,28 @@
 import { dbError } from "@/lib/db-error";
 import { NextRequest, NextResponse } from "next/server";
-import { requirePortfolioOwner } from "@/lib/auth/ownership";
+import { loadPortfolioWriteContext } from "@/lib/portfolio-write-context";
 import {
   applyTradeCashDelta,
   importCashDelta,
-  portfolioTracksTradeCash,
   salePriceFor,
 } from "@/lib/cash-trade";
 import { classifyImportWrite } from "@/lib/classroom";
-import { callPctForTicker } from "@/lib/coins";
-import { isSafeSignedMoney } from "@/lib/input-guard";
-import { roundMoney } from "@/lib/money";
+import { callPctForTicker, isCoinSymbol } from "@/lib/coins";
+import {
+  isSafePositiveMoney,
+  isSafeShares,
+  isSafeSignedMoney,
+} from "@/lib/input-guard";
+import { roundMoney, roundShares } from "@/lib/money";
 import { denyClassroomWrite } from "@/lib/classroom-guard";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
-import { normalizeYahooTicker, resolveImportTicker } from "@/lib/ticker";
+import {
+  isPlausibleTicker,
+  normalizeYahooTicker,
+  resolveImportTicker,
+} from "@/lib/ticker";
 import { isRecord, readFiniteNumber, readString } from "@/lib/unknown";
 import { observeRoute } from "@/lib/observe-route";
 import { holdingsImportSchema } from "@/lib/api-schemas";
@@ -30,6 +37,37 @@ type ImportRow = {
   target_call_pct?: number;
   isin?: string;
 };
+
+/**
+ * The guards are the single-holding route's, so a figure the form would
+ * refuse cannot arrive through a CSV instead. The raw value is judged as
+ * well as the rounded one because `roundShares` and `roundMoney` clamp at
+ * the ceiling rather than refusing: 1e300 shares would otherwise round to
+ * the largest legal count and pass, and a trillion shares of anything is a
+ * portfolio value nobody typed. The sentence names the row the way the
+ * reader counts them, from one, and says the whole import was refused.
+ */
+function importRowFault(
+  index: number,
+  ticker: string,
+  shares: number,
+  buyPrice: number,
+  isin: string | undefined
+): string | null {
+  const label = `Row ${index + 1} (${ticker.trim().toUpperCase()})`;
+  if (!isSafeShares(shares) || !isSafeShares(roundShares(shares))) {
+    const resolved = resolveImportTicker(ticker, isin) || ticker;
+    const what = isCoinSymbol(resolved) ? "how many" : "shares";
+    return `${label}: ${what} must be a positive number the app can hold, so nothing was imported.`;
+  }
+  if (
+    !isSafePositiveMoney(buyPrice) ||
+    !isSafePositiveMoney(roundMoney(buyPrice))
+  ) {
+    return `${label}: buy price must be a positive number the app can hold, so nothing was imported.`;
+  }
+  return null;
+}
 
 /**
  * Atomic-ish sheet import: set cash (optional) + upsert all equity rows.
@@ -56,32 +94,62 @@ async function handlePOST(req: NextRequest) {
     return NextResponse.json({ error: "portfolio_id required" }, { status: 400 });
   }
 
-  const notOwner = await requirePortfolioOwner(auth.user.id, portfolioId);
-  if (notOwner) return notOwner;
+  // Ownership, whether this portfolio keeps a cash ledger, and its balance,
+  // in the one read that used to answer only the first of the three.
+  const loaded = await loadPortfolioWriteContext(
+    supabase,
+    auth.user.id,
+    portfolioId
+  );
+  if (!loaded.ok) {
+    return NextResponse.json(
+      { error: loaded.error },
+      { status: loaded.status }
+    );
+  }
+  const context = loaded.context;
 
-  const rows: ImportRow[] = Array.isArray(body.holdings)
-    ? body.holdings.flatMap((row) => {
-        if (!isRecord(row)) return [];
-        const ticker = readString(row.ticker) ?? "";
-        const shares = readFiniteNumber(row.shares);
-        const buy = readFiniteNumber(row.buy_price);
-        if (!ticker || shares == null || buy == null) return [];
-        return [
-          {
-            ticker,
-            shares,
-            buy_price: buy,
-            target_call_pct: readFiniteNumber(row.target_call_pct),
-            isin: readString(row.isin),
-          },
-        ];
-      })
-    : [];
+  // Every row is checked before anything is written, because a half-applied
+  // import is worse than none: a reader whose third row was refused would
+  // have two names landed, the rest missing, and nothing on screen saying
+  // which. The values stored on the row are the rounded ones, so the writes
+  // below carry exactly what the single-holding route would have stored.
+  const rows: ImportRow[] = [];
+  const holdings = Array.isArray(body.holdings) ? body.holdings : [];
+  for (const [index, row] of holdings.entries()) {
+    if (!isRecord(row)) continue;
+    const ticker = readString(row.ticker) ?? "";
+    const shares = readFiniteNumber(row.shares);
+    const buy = readFiniteNumber(row.buy_price);
+    if (!ticker || shares == null || buy == null) continue;
+    const isin = readString(row.isin);
+    const fault = importRowFault(index, ticker, shares, buy, isin);
+    if (fault) return NextResponse.json({ error: fault }, { status: 400 });
+    rows.push({
+      ticker,
+      shares: roundShares(shares),
+      buy_price: roundMoney(buy),
+      target_call_pct: readFiniteNumber(row.target_call_pct),
+      isin,
+    });
+  }
   const cash =
     body.cash === null ? null : readFiniteNumber(body.cash) ?? null;
   if (rows.length === 0 && cash == null) {
     return NextResponse.json(
       { error: "cash or holdings required" },
+      { status: 400 }
+    );
+  }
+  // A cash figure past the ceiling used to be dropped on the floor while the
+  // holdings landed, and the response said so only in a field no import
+  // screen reads. Saying no out loud is the only honest answer.
+  if (cash != null && !isSafeSignedMoney(cash)) {
+    return NextResponse.json(
+      {
+        error:
+          "That cash figure is bigger than the app can hold, so nothing was imported.",
+      },
       { status: 400 }
     );
   }
@@ -98,6 +166,7 @@ async function handlePOST(req: NextRequest) {
   const blocked = await denyClassroomWrite(supabase, {
     portfolioId,
     userId: auth.user.id,
+    classroomCommunityId: context.classroomCommunityId,
     action: classifyImportWrite({
       cash: cash != null,
       replace: replacing,
@@ -118,21 +187,30 @@ async function handlePOST(req: NextRequest) {
   });
   if (blocked) return blocked;
 
-  const paperCash = await portfolioTracksTradeCash(supabase, portfolioId);
+  const paperCash = context.tracksTradeCash;
   let cashUpdated = false;
+  let writtenCash: number | null = null;
   // An imported cash line may be negative on any portfolio: a broker screen
   // showing borrowed money is exactly the case worth carrying through.
+  // The write hands the stored balance back, so the response does not have
+  // to select the same row again to say what it just put there.
   if (cash != null && isSafeSignedMoney(cash)) {
-    const { error } = await supabase
+    const { data: written, error } = await supabase
       .from(PORTFELL_TABLES.portfolios)
       .update({
         cash_balance: roundMoney(cash),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", portfolioId);
+      .eq("id", portfolioId)
+      .select("cash_balance")
+      .maybeSingle();
     if (error) {
       return NextResponse.json({ error: dbError(error, "/api/holdings/import") }, { status: 500 });
     }
+    const stored = Number(
+      (written as { cash_balance?: number } | null)?.cash_balance
+    );
+    writtenCash = Number.isFinite(stored) ? stored : roundMoney(cash);
     cashUpdated = true;
   }
 
@@ -158,13 +236,35 @@ async function handlePOST(req: NextRequest) {
         row.isin
       ) || normalizeYahooTicker(String(row.ticker ?? ""));
       if (!ticker) return;
-      const shares = Number(row.shares);
-      const buyPrice = Number(row.buy_price);
-      const callPct = callPctForTicker(ticker, row.target_call_pct);
-      if (!Number.isFinite(shares) || shares <= 0 || !Number.isFinite(buyPrice) || !(buyPrice > 0)) {
-        failed.push(ticker || "?");
+      /*
+        The one write path that stored whatever text arrived.
+
+        POST and PATCH both check the shape; this did not, and
+        `resolveImportTicker` and `normalizeYahooTicker` only uppercase and
+        strip spaces, so a broker's export with a note in the symbol column,
+        or a hand-made CSV, put that string in `portfell_holdings.ticker`,
+        which has no constraint on it. From there it is the primary key of
+        the quote cache, a name the provider walk asks about on every poll
+        (the most expensive thing that layer can be handed, since nothing
+        resolves it), a line in the Pulse and forecast prompts, and a row in
+        the Sunday letter. It used to be a crash as well, in a regular
+        expression built from the stored symbol, which took the Pulse room
+        down for every co-owner; that regular expression is gone, and the
+        rest of the list is reason enough on its own.
+
+        The row is reported as failed rather than refusing the import, which
+        is what the rest of this route does with a row it cannot use: one
+        odd line in a hundred should not cost somebody the other ninety-nine.
+      */
+      if (!isPlausibleTicker(ticker.toUpperCase())) {
+        failed.push(ticker.slice(0, 24));
         return;
       }
+      // Already rounded and bounded above; a row failing either check
+      // refused the whole import before this point.
+      const shares = row.shares;
+      const buyPrice = row.buy_price;
+      const callPct = callPctForTicker(ticker, row.target_call_pct);
 
       keep.add(ticker.toUpperCase());
       const prev = byTicker.get(ticker.toUpperCase());
@@ -235,31 +335,15 @@ async function handlePOST(req: NextRequest) {
 
   let cashBalance: number | null = null;
   if (cashUpdated) {
-    const { data: port } = await supabase
-      .from(PORTFELL_TABLES.portfolios)
-      .select("cash_balance")
-      .eq("id", portfolioId)
-      .maybeSingle();
-    const n = Number((port as { cash_balance?: number } | null)?.cash_balance);
-    cashBalance = Number.isFinite(n) ? n : null;
+    cashBalance = writtenCash;
   } else {
     const accepted = rows
       .map((row) => {
         const ticker =
           resolveImportTicker(String(row.ticker ?? ""), row.isin) ||
           normalizeYahooTicker(String(row.ticker ?? ""));
-        const shares = Number(row.shares);
-        const buyPrice = Number(row.buy_price);
-        if (
-          !ticker ||
-          !Number.isFinite(shares) ||
-          shares <= 0 ||
-          !Number.isFinite(buyPrice) ||
-          !(buyPrice > 0)
-        ) {
-          return null;
-        }
-        return { ticker, shares, buy_price: buyPrice };
+        if (!ticker) return null;
+        return { ticker, shares: row.shares, buy_price: row.buy_price };
       })
       .filter((row): row is { ticker: string; shares: number; buy_price: number } =>
         Boolean(row)
@@ -283,35 +367,38 @@ async function handlePOST(req: NextRequest) {
         saleTickers.add(old.ticker);
       }
     }
-    const salePx: Record<string, number> = {};
-    await Promise.all(
-      [...saleTickers].map(async (ticker) => {
-        const old = existingRows.find(
-          (h) => h.ticker.toUpperCase() === ticker.toUpperCase()
-        );
-        salePx[ticker.toUpperCase()] = await salePriceFor(
-          ticker,
-          old?.buy_price ?? 0
-        );
-      })
-    );
+    // One live price per name sold, and each one is a walk of the quote
+    // providers. They feed importCashDelta and nothing else, and that only
+    // runs on a classroom paper sheet, so an ordinary portfolio replacing a
+    // thirty line CSV used to pay for thirty walks and discard the answers.
     if (paperCash) {
+      const salePx: Record<string, number> = {};
+      await Promise.all(
+        [...saleTickers].map(async (ticker) => {
+          const old = existingRows.find(
+            (h) => h.ticker.toUpperCase() === ticker.toUpperCase()
+          );
+          salePx[ticker.toUpperCase()] = await salePriceFor(
+            ticker,
+            old?.buy_price ?? 0
+          );
+        })
+      );
       const delta = importCashDelta(
         existingRows,
         accepted,
         replacing,
         salePx
       );
-      cashBalance = await applyTradeCashDelta(supabase, portfolioId, delta);
+      cashBalance = await applyTradeCashDelta(
+        supabase,
+        portfolioId,
+        delta,
+        context
+      );
       cashUpdated = delta !== 0;
     } else {
-      const { data: port } = await supabase
-        .from(PORTFELL_TABLES.portfolios)
-        .select("cash_balance")
-        .eq("id", portfolioId)
-        .maybeSingle();
-      const n = Number((port as { cash_balance?: number } | null)?.cash_balance);
-      cashBalance = Number.isFinite(n) ? n : null;
+      cashBalance = context.cashBalance;
     }
   }
 

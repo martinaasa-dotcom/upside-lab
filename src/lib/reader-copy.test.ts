@@ -266,7 +266,9 @@ describe("copy reads as a person wrote it", () => {
     "src/lib/ai/margus-persona.ts",
     "src/lib/ai/cc-advisor.ts",
     "src/lib/weekly-margus.ts",
-    "src/lib/forecast-plan.ts",
+    // forecast-plan.ts is deliberately not here any more: its prompt used
+    // to restate five of the persona's banned words in miniature and now
+    // points at the persona instead, so it names none of them itself.
     "src/lib/forecast-plan-schema.ts",
     "src/lib/book-insights.ts",
     // Sanitizer: it matches these to rewrite them out of model output.
@@ -392,6 +394,63 @@ describe("copy reads as a person wrote it", () => {
           .map((l) => `${f}:${l.line}: ${l.text}`)
       );
     expect(bad).toEqual([]);
+  });
+
+  /*
+    The room is a circle, or a class. Never a "community".
+
+    Same rule and the same failure mode as the portfolio rename above: the
+    product has never called it a community out loud, but the tables, the
+    routes and the types all do, so the word kept leaking back into the
+    markup one string at a time. A 2026-09 sweep of the circle screens found
+    twenty-nine of them, and several were plainly wrong rather than merely
+    off-brand: the same view serves a paper class, so a student leaving one
+    was asked "Leave this community?" and a teacher deleting one was warned
+    about "the community".
+
+    `src/lib/community-words.ts` owns the noun. This reads JSX text nodes
+    only, exactly as the portfolio check does, and for the same reason: the
+    identifiers the schema keeps (`communityId`, `CommunityView`,
+    `portfell_community_members`) are not copy and widening it past markup
+    text would drown the rule in them.
+  */
+  const ROOM_WORD = /\bcommunit(y|ies)\b/i;
+
+  /**
+   * Screens still carrying the old word, and who is meant to fix them.
+   *
+   * Not a place to park new copy. An entry whose file no longer says it
+   * fails the honesty check below, so clearing one of these means deleting
+   * the line as well.
+   */
+  const SAYS_COMMUNITY = new Map<string, string>([
+    [
+      "src/components/AdminPage.tsx",
+      "The superadmin console. Nobody outside the team reads it, and it names the table it is listing.",
+    ],
+  ]);
+
+  it("calls the room a circle or a class on screen, never a community", () => {
+    const bad = files
+      .filter((f) => f.endsWith(".tsx") && !SAYS_COMMUNITY.has(f))
+      .flatMap((f) =>
+        jsxText(f)
+          .filter((l) => ROOM_WORD.test(l.text))
+          .map((l) => `${f}:${l.line}: ${l.text}`)
+      );
+    expect(bad).toEqual([]);
+  });
+
+  it("keeps the room-word exception list honest", () => {
+    for (const [file, why] of SAYS_COMMUNITY) {
+      expect(files, `${file} is in SAYS_COMMUNITY but not in src`).toContain(
+        file
+      );
+      expect(
+        jsxText(file).some((l) => ROOM_WORD.test(l.text)),
+        `${file} no longer says it, so drop it from the list (${why})`
+      ).toBe(true);
+    }
   });
 
   /*

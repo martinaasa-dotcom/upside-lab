@@ -338,10 +338,11 @@ Move up or down from the baseline on that specific company's economics,
 balance sheet and competitive position. Never assign a number because of
 the theme label attached to a ticker.
 
-Two honesty checks: the path is not smooth (quiet years, crowded-trade
-drops, and periods where the price falls while the business is fine all
-happen, and most names should show at least one down or flat year in the
-middle), and no holding has a predetermined destination.
+Two honesty checks: the path is not smooth (quiet years, drops that come
+when a lot of people sell at once, and stretches where the price falls
+while the business is fine all happen, and most holdings should show at
+least one down or flat year in the middle), and no holding has a
+predetermined destination.
 
 ### Required dynamics
 - Non-linear paths: bull runs and/or consolidation years, reasoned from that specific company's fundamentals and cycle. Never a flat CAGR line.

@@ -22,19 +22,29 @@ export type PublicIndexPath = (typeof PUBLIC_INDEX_PATHS)[number];
 /**
  * Authenticated rooms. Crawlers get noindex. Share cards still show the
  * generic product image, never a user's book.
+ *
+ * `/auth` is here for its children: the email and linked-address pages and
+ * the sign-in handlers under it. None of them is a room, and a crawler
+ * that indexed one would be offering a sign-in button as a search result.
+ * The `X-Robots-Tag` header in `next.config.ts` and the robots.txt line
+ * both come from this list, so the prefix covers every handler under it.
+ *
+ * `/dashboard` and `/forecast` are not here because they have no page:
+ * `src/proxy.ts` answers both with a 308 to `/` before any page could
+ * run, so a header or a robots line for them would describe a response
+ * nobody ever receives.
  */
 export const PRIVATE_NOINDEX_PATHS = [
-  "/dashboard",
   "/lab",
   "/pulse",
   "/growth",
   "/alerts",
   "/portfolio",
-  "/forecast",
   "/margus",
   "/account",
   "/admin",
   "/upside-portfolio",
+  "/auth",
 ] as const;
 
 /**
@@ -49,13 +59,11 @@ export const PRIVATE_NOINDEX_PATHS = [
 export const BOOK_ROOM_PATHS = [
   "/",
   "/login",
-  "/dashboard",
   "/lab",
   "/pulse",
   "/growth",
   "/alerts",
   "/portfolio",
-  "/forecast",
   "/margus",
 ] as const;
 

@@ -25,9 +25,13 @@ const THEME_RISK_SCORE: Record<ForecastTheme, number> = {
   index: 15,
 };
 
-/** Illustrative worst-case peak-to-trough drawdown per theme — a rough,
- * directional "how far could this fall" read (loosely shaped by how these
- * sectors have actually drawn down historically), not a modeled forecast. */
+/**
+ * A rough guess at how far a bad stretch could take each kind of business,
+ * typed into this app by hand. Nothing here was measured, nothing was
+ * modelled, and no history was read to produce it: it is shaped by what these
+ * sectors have broadly done, and that is the whole of its authority. Copy that
+ * reads this table must say so rather than presenting it as a measurement.
+ */
 const THEME_MAX_DRAWDOWN_PCT: Record<ForecastTheme, number> = {
   crypto: 75,
   space: 60,
@@ -160,7 +164,7 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     tagline: "Nothing held yet. Every portfolio starts here.",
     vibe: "Nothing picked. Every other animal on this list started right here, deciding what to hatch into.",
     strength: "Nothing to lose, and no bad habits yet.",
-    watchFor: "Cash sitting forever is just a savings account. Hatch when you're ready.",
+    watchFor: "Cash on its own only keeps pace with a savings account.",
   },
   {
     id: "squirrel",
@@ -170,7 +174,7 @@ export const ANIMAL_BESTIARY: AnimalArchetype[] = [
     tagline: "Keeps a fat cash stash so a quiet stretch doesn't starve your portfolio.",
     vibe: "There are holdings here, but the pile of cash is the real personality. Ready to pounce, or just nervously hoarding.",
     strength: "Can buy when prices drop without selling something else first.",
-    watchFor: "Cash that never gets used is just a savings account with extra steps.",
+    watchFor: "Cash that is never spent earns what a savings account earns, no more.",
   },
   {
     id: "dragon",
@@ -632,7 +636,7 @@ function riskBandFor(score: number): ScoreBand {
     return { label: "Balanced", description: "A mix of steady and speculative." };
   if (score < 75)
     return { label: "Aggressive", description: "Leans towards holdings that swing hard." };
-  return { label: "High-octane", description: "Most of the money sits in companies whose prices swing hard." };
+  return { label: "Fast-moving", description: "Most of the money sits in companies whose prices swing hard." };
 }
 
 function convictionBandFor(score: number): ScoreBand {

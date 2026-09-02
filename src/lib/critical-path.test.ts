@@ -807,7 +807,14 @@ describe("production cash paths stay on the atomic helpers", () => {
       "utf8"
     );
     expect(src).toMatch(/Segmented/);
-    expect(src).toMatch(/Money borrowed/);
+    /*
+     * The rule is that borrowed money has a side of the toggle to itself,
+     * not that it is spelled a particular way. This used to assert the
+     * exact string "Money borrowed" and broke on a copy pass that made the
+     * pair "Money you have" / "Money you borrowed", which is the same two
+     * options said the way a person says them.
+     */
+    expect(src).toMatch(/borrowed/i);
     expect(src).not.toMatch(/allowNegative/);
     expect(src).not.toMatch(/below zero/);
   });
