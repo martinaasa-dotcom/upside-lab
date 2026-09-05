@@ -882,20 +882,19 @@ export const PortfolioTable = memo(function PortfolioTable({
                 <div
                   key={col.label}
                   /*
-                    A header may wrap; a figure may not.
-                    `cellBase` is `whitespace-nowrap` because a price broken
-                    over two lines is not a price, and every column is
-                    floored at its widest cell, so a header spelled out in
-                    words sets the whole track's width: "% of portfolio"
-                    measured 166px over a column of "32.0%". These are
-                    words rather than figures, so they are allowed the
-                    second line, and only the header row grows.
+                    A header is one line, like every cell under it.
+                    Headers used to be allowed to wrap so a label spelled
+                    out in words ("% of portfolio") would not set the whole
+                    track's width, and the result was a header row where
+                    four titles sat on two lines and eight on one, so the
+                    row read as uneven before a single figure was looked
+                    at. `cellBase` is already `whitespace-nowrap`, every
+                    column is floored at its widest cell, and `FluidTable`
+                    scrolls sideways past that, so a wider table is the
+                    price and it is the right one: a title broken over
+                    two lines is the same fault as a price broken over two.
                   */
-                  className={cn(
-                    i === 0 ? tickerCell : cellBase,
-                    i === 0 ? "" : "whitespace-normal leading-tight",
-                    "gap-1"
-                  )}
+                  className={cn(i === 0 ? tickerCell : cellBase, "gap-1")}
                 >
                   {/*
                     Two jobs, two targets. The header still sorts, because
