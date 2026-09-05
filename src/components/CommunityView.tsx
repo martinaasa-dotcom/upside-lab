@@ -1651,6 +1651,7 @@ export function CommunityView({ communityId }: Props) {
                 communityId={communityId}
                 duelCache={duelCache}
                 isAdmin={isAdmin}
+                memberCount={members.length}
                 waitingToJoin={isAdmin ? joinRequests.length : 0}
                 inviteBusy={busy}
                 inviteUrl={inviteUrl}

@@ -373,9 +373,18 @@ export function CommunitiesList() {
                        * opening a circle at 4x CPU, the room appeared at
                        * 514ms either way with `onClick`, and at 457ms on
                        * the press.
+                       *
+                       * And the press navigates. Mounting the circle hides
+                       * this list, so the click this Link was waiting for
+                       * lands on the new room instead and never arrives;
+                       * `aimOnPress` judges the tap and takes it there.
                        */
                       onPointerDown={(e) => {
-                        aimOnPress(e.nativeEvent, `/communities/${c.id}`);
+                        aimOnPress(
+                          e.nativeEvent,
+                          `/communities/${c.id}`,
+                          (path) => router.push(path)
+                        );
                       }}
                       className="flex items-center justify-between gap-3 px-4 py-4 transition hover:bg-hover"
                     >
