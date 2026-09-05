@@ -22,11 +22,14 @@ import {
   PanelHeader,
   Pill,
   Reading,
-  Score,
   Scoreboard,
   Segmented,
   MicroLabel,
+  InfoTip,
+  SCORE_CELL,
 } from "@/components/ui/Panel";
+import { KIND_GLYPH, TONE_GLYPH, TONE_RING } from "@/components/AlertCards";
+import type { MarginToneName } from "@/lib/margin-health";
 import { NO_VALUE, cashtag, cn, currency, percent, plural, signedCurrency, signedPercent, signedTone } from "@/lib/format";
 import {
   portfolioDayLine,
@@ -71,6 +74,7 @@ import {
   AlertTriangle,
   ArrowRight,
   Calculator,
+  Landmark,
   Camera,
   FileUp,
   PencilLine,
@@ -429,6 +433,126 @@ function DriverTile({
     );
   }
   return <div className={shellClass}>{body}</div>;
+}
+
+/**
+ * The row under the hero, spent on what needs doing rather than on
+ * restating the portfolio.
+ *
+ * It used to hold two tiles, All time and Cash, then All time and This
+ * year: figures the hero card already sets the reader up to read and
+ * which never ask anything of them. The same list that fills the "Worth
+ * a look" room and lights the news dot on the dock was reaching Home
+ * only through a toast and, on a phone, the borrowed-money card. So a
+ * results day this week, one company grown into most of the portfolio
+ * and a call strike within reach now stand where those tiles were, each
+ * with the one line that says why and a way into Pulse on that name.
+ *
+ * Borrowed money is deliberately not in it: the hero says so in its own
+ * cash line, the phone has `CashAlertCard` with the margin arithmetic,
+ * and the same fact three times on one screen is what taught readers to
+ * swipe past the red one. Three at most, because a row is a glance and
+ * the room further along holds the rest. The cushion line is preferred
+ * over the detail because it was written to fit under a title; the
+ * detail's first sentence stands in when there is none.
+ */
+const HOME_ALERTS_SHOWN = 3;
+
+/** One standing figure in the hero strip: a spread row on a phone, a column from `sm`. */
+const FACT_ROW =
+  "flex min-w-0 items-baseline justify-between gap-x-3 sm:block";
+const FACT_VALUE =
+  "min-w-0 text-right font-mono text-base font-semibold tabular-nums sm:mt-1 sm:text-left";
+
+function firstSentence(text: string): string {
+  const m = /^(.*?[.!?])(\s|$)/.exec(text);
+  return m ? m[1] : text;
+}
+
+function HomeAlertRow({
+  alerts,
+  onOpenPulse,
+  onOpenAlerts,
+  className,
+}: {
+  alerts: UpsideAlert[];
+  onOpenPulse?: (ticker: string) => void;
+  onOpenAlerts?: () => void;
+  className?: string;
+}) {
+  const shown = alerts
+    .filter((a) => a.kind !== "margin")
+    .slice(0, HOME_ALERTS_SHOWN);
+  if (shown.length === 0) return null;
+  const more = alerts.filter((a) => a.kind !== "margin").length - shown.length;
+  return (
+    <div className={cn("flex flex-col gap-3", className)}>
+      <Scoreboard cols={3} mobileCols={1}>
+        {shown.map((alert) => {
+          const tone: MarginToneName = alert.tone ?? "neutral";
+          const Glyph =
+            tone === "neutral"
+              ? (KIND_GLYPH[alert.kind] ?? Landmark)
+              : AlertTriangle;
+          const line = alert.cushion ?? firstSentence(alert.detail);
+          const open = alert.ticker
+            ? () => onOpenPulse?.(alert.ticker as string)
+            : onOpenAlerts;
+          return (
+            <article
+              key={alert.id}
+              className={cn(SCORE_CELL, "ring-1", TONE_RING[tone])}
+            >
+              <div className="flex items-start gap-3">
+                <span
+                  className={cn(
+                    "flex size-8 shrink-0 items-center justify-center rounded-lg",
+                    TONE_GLYPH[tone]
+                  )}
+                >
+                  <Glyph className="size-4" aria-hidden />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold leading-snug text-foreground">
+                    {alert.title}
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    {line}
+                  </p>
+                </div>
+              </div>
+              {open ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="-ml-2 mt-auto self-start pt-3 text-muted-foreground hover:text-foreground"
+                  onClick={open}
+                >
+                  {alert.ticker
+                    ? `Open Pulse on ${cashtag(alert.ticker)}`
+                    : "Open Worth a look"}
+                  <ArrowRight data-icon="inline-end" />
+                </Button>
+              ) : null}
+            </article>
+          );
+        })}
+      </Scoreboard>
+      {more > 0 && onOpenAlerts ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="self-start text-muted-foreground hover:text-foreground"
+          onClick={onOpenAlerts}
+        >
+          {more === 1 ? "One more worth a look" : `${more} more worth a look`}
+          <ArrowRight data-icon="inline-end" />
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
 function MorningStack({
@@ -1318,15 +1442,12 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         * the first thing a returning reader looks at. The one number they
         * came for now spans the row with the day's move on the same line.
         *
-        * Cash then had a whole tile of its own beside All time, which is
-        * still more room than it earns: on most portfolios it is a few
-        * percent of everything and never changes, so half the second row
-        * was spent restating one small number in a large font. It is one
-        * line at the foot of the hero card now, in the same voice as the
-        * ordinary-day sentence, red only when it is borrowed. The cell it
-        * left goes to This year, which was a small caption on the chart
-        * panel further down and is the second question a reader asks
-        * after "since I bought": the two horizons sit side by side.
+        * What sat under it went through two shapes before this one: All
+        * time and Cash as two tiles, then All time and This year. Each
+        * was a row of the first screen spent restating the portfolio at
+        * the hero's own weight. The standing figures are a strip at the
+        * foot of the hero card now, and the row is the reader's own
+        * alerts (see `HomeAlertRow`).
         */}
       <div className="overview-fade flex flex-col gap-4">
         <div className="card-sheen glass flex min-w-0 flex-col rounded-xl p-4 ring-1 ring-foreground/20 sm:p-6">
@@ -1364,73 +1485,103 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             </p>
           ) : null}
           {/*
-            * Cash, as a line rather than a tile. The figure keeps its mono
-            * face so it still reads as a number in a sentence, and the
-            * share of everything stays beside it, because a cash figure
-            * with nothing next to it teaches nobody whether it is a lot.
-            * Borrowed money is the one case that changes colour; the size
-            * of it, and what it means, is the Cash card's own job further
-            * down the page.
+            * The three standing figures, in one strip at the foot of the
+            * card rather than as tiles of their own.
+            *
+            * All time and Cash used to be two cells under the hero, then
+            * All time and This year. Both readings were right about the
+            * ranking and wrong about the size: a figure that never asks
+            * anything of the reader was taking a row of the first screen
+            * at the hero's own weight. In a strip they are still the
+            * first thing after the day's move, still tabular, and they
+            * cost the page one line. The row they left is spent on what
+            * needs doing (`HomeAlertRow`).
+            *
+            * This year reads the same `yearPct` / `yearDollar` the chart
+            * panel captions, off the one painted path, so the two cannot
+            * disagree; until it has painted the figure is `NO_VALUE`.
+            * Borrowed money is the one thing here that changes colour;
+            * the size of it, and what it means, is the Cash card's own
+            * job further down the page.
             */}
-          <p
-            className={cn(
-              "mt-3 text-sm leading-relaxed",
-              totals.cash < 0 ? "text-loss" : "text-muted-foreground"
-            )}
-          >
-            <span className="font-medium">Cash</span>{" "}
-            <span className="font-mono tabular-nums">
-              {currency(totals.cash, 0)}
-            </span>
-            {cashNote ? `, ${cashNote}` : ""}
-          </p>
+          {/*
+            * Spread rows on a phone, label left and figure right, and a
+            * strip of three from `sm` up. Two stacked columns at 390px
+            * broke "+$26,454 · 93.5%" over two lines and the cash note
+            * over three; a row per fact reads whole. `FACT_ROW` and
+            * `FACT_VALUE` are the same rule applied three times.
+            */}
+          <dl className="mt-4 flex flex-col gap-y-2 border-t border-border pt-4 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-3">
+            <div className={FACT_ROW}>
+              <dt>
+                <MicroLabel>
+                  All time
+                  <InfoTip text="Your value today against what you paid for these shares on average. There is no date in it: Upside Lab does not keep the day you bought, so nothing here can draw a line starting from that day." />
+                </MicroLabel>
+              </dt>
+              <dd
+                className={cn(
+                  FACT_VALUE,
+                  tone(totals.roiDollar)
+                )}
+              >
+                {signedCurrency(totals.roiDollar, 0)}
+                <span className="font-medium text-muted-foreground">
+                  {" "}
+                  · {percent(totals.roiPct)}
+                </span>
+              </dd>
+            </div>
+            <div className={FACT_ROW}>
+              <dt>
+                <MicroLabel>This year</MicroLabel>
+              </dt>
+              <dd
+                className={cn(
+                  FACT_VALUE,
+                  yearDollar != null ? tone(yearDollar) : "text-muted-foreground"
+                )}
+              >
+                {yearDollar != null ? signedCurrency(yearDollar, 0) : NO_VALUE}
+                {yearPct != null ? (
+                  <span className="font-medium text-muted-foreground">
+                    {" "}
+                    · {signedPercent(yearPct)}
+                  </span>
+                ) : null}
+              </dd>
+            </div>
+            <div className={FACT_ROW}>
+              <dt>
+                <MicroLabel>Cash</MicroLabel>
+              </dt>
+              <dd
+                className={cn(
+                  FACT_VALUE,
+                  totals.cash < 0 ? "text-loss" : "text-foreground"
+                )}
+              >
+                {currency(totals.cash, 0)}
+                {cashNote ? (
+                  <span
+                    className={cn(
+                      "font-sans font-medium",
+                      totals.cash < 0 ? "text-loss" : "text-muted-foreground"
+                    )}
+                  >
+                    {" "}
+                    · {cashNote}
+                  </span>
+                ) : null}
+              </dd>
+            </div>
+          </dl>
         </div>
-        <Scoreboard cols={2}>
-          {/*
-            * The explainer is on this cell because this is the cell people go
-            * looking for when they want "since I bought", and it is already
-            * the answer: it is measured against the average price you paid,
-            * which is your own buy price blended. What it is not is a period
-            * starting on a date, and a reader spent a whole session hunting
-            * for a period picker that is never going to exist. Saying so here
-            * costs one info dot on the figure they were already reading.
-            */}
-          <Score
-            label="All time"
-            explain="Your value today against what you paid for these shares on average. There is no date in it: Upside Lab does not keep the day you bought, so nothing here can draw a line starting from that day."
-            value={signedCurrency(totals.roiDollar, 0)}
-            sub={
-              <DeltaBadge value={totals.roiDollar}>
-                {percent(totals.roiPct)}
-              </DeltaBadge>
-            }
-            valueClassName={tone(totals.roiDollar)}
-          />
-          {/*
-            * The same figure the chart panel captions, so the two cannot
-            * disagree: both read `yearPct` and `yearDollar` off the one
-            * painted path. Until the path has painted there is nothing to
-            * say, and the cell says `NO_VALUE` with a line under it rather
-            * than a dash that reads as a number whose digits failed to load.
-            */}
-          <Score
-            label="This year"
-            explain="How your portfolio has moved since the start of the year, in money and as a share of where it started. It is drawn from the same line as the chart further down."
-            value={
-              yearDollar != null ? signedCurrency(yearDollar, 0) : NO_VALUE
-            }
-            sub={
-              yearPct != null ? (
-                <DeltaBadge value={yearPct}>{signedPercent(yearPct)}</DeltaBadge>
-              ) : (
-                "Waiting for this year's prices."
-              )
-            }
-            valueClassName={
-              yearDollar != null ? tone(yearDollar) : "text-muted-foreground"
-            }
-          />
-        </Scoreboard>
+        <HomeAlertRow
+          alerts={activeAlerts}
+          onOpenPulse={onOpenPulse}
+          onOpenAlerts={onOpenAlerts}
+        />
       </div>
 
       <MorningStack
