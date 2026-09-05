@@ -106,7 +106,7 @@ export function CompanySearch({
           }
         }}
         placeholder={placeholder}
-        aria-label="Look up a company"
+        aria-label="Search for a company"
         className="pl-9"
       />
       {open && results.length > 0 && (

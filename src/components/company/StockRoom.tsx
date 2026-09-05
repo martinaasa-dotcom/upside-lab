@@ -213,7 +213,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
     return fairValueRead(facts, { modelYearOne });
   }, [facts, page?.brief]);
 
-  const title = facts?.name || (ticker ? cashtag(ticker) : "Look up a company");
+  const title = facts?.name || (ticker ? cashtag(ticker) : "Research");
 
   return (
     <SignInGate>
@@ -225,7 +225,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
             <div className={SPLIT_ROW}>
               <div className={SPLIT_COPY}>
                 <h1 className="text-2xl font-semibold text-foreground">
-                  Research a company
+                  Research
                 </h1>
                 <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                   What it does, what the accounts say, what the price is

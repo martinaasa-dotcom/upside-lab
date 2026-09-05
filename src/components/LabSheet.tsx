@@ -94,7 +94,7 @@ const TABS: { id: LabTab; label: string }[] = [
   { id: "risk", label: "Risk" },
   { id: "trends", label: "Trends" },
   { id: "seasonality", label: "Seasonality" },
-  { id: "lookup", label: "Look up a company" },
+  { id: "lookup", label: "Research" },
 ];
 
 const INTENT_TO_TAB: Record<LabDeepLink, LabTab> = {
@@ -505,7 +505,7 @@ export const LabSheet = memo(function LabSheet({
       </Panel>
 
       {tab === "lookup" && !hiddenTabs.includes("lookup") && (
-        <WidgetErrorBoundary name="Look up a company">
+        <WidgetErrorBoundary name="Research">
           <CompanyLookupPanel
             watchlist={watchlist}
             owned={overview.tickers.map((t) => t.ticker)}

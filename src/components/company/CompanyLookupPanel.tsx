@@ -94,7 +94,7 @@ export function CompanyLookupPanel({
   return (
     <Panel>
       <PanelHeader
-        title="Look up a company"
+        title="Research"
         subtitle="Type any company and get the whole picture in plain words: what they do, what the finances look like, what several different methods say it is worth, and both sides of the argument. You do not have to own it, and nothing changes in your portfolio."
         icon={<Search className="h-4 w-4" />}
       />

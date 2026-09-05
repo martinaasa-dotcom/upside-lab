@@ -2,7 +2,7 @@
  * What one company is, in the fields a person actually asked about, and
  * nothing a model wrote.
  *
- * This file is the boundary the whole Look up a company room rests on. A
+ * This file is the boundary the whole Research room rests on. A
  * reader arriving here is deciding what to do with their own money off
  * numbers they have no way of checking, so the split is absolute: every
  * figure on that page comes from a provider and lands in one of these
