@@ -87,7 +87,7 @@ export type ForecastPlan = z.infer<typeof forecastPlanSchema> & {
   /** Generic theme-shaped prices when Margus never finished a run. */
   fallback?: boolean;
   /**
-   * Which model actually answered, recorded at the moment it did. The eye
+   * Which model actually answered, recorded at the moment it did. The mark
    * beside a modeled price names it, so a reader can look it up rather than
    * take "a language model" on faith. Absent on a plan that no model ran.
    */
@@ -459,7 +459,7 @@ function fallbackRationale(input: {
  * The path on screen is not always the path the model wrote: a year it
  * left empty gets filled from a table of typical shapes, and an even ramp
  * gets re-timed onto that shape's rhythm. Neither is the reader's
- * assumption, so the eye beside the price says which of them happened.
+ * assumption, so the mark beside the price says which of them happened.
  *
  * What is deliberately not in this list any more is a magnitude floor.
  * Until 2026-08-28 a path whose last year came in under the theme shape

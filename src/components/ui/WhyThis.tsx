@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { ExternalLink, Eye } from "lucide-react";
+import { ExternalLink, Info } from "lucide-react";
 import { MicroLabel } from "@/components/ui/Panel";
 import {
   Popover,
@@ -25,14 +25,17 @@ import {
 } from "@/lib/provenance";
 
 /**
- * The eye that sits beside any figure a model had a hand in.
+ * The information mark that sits beside any figure a model had a hand in.
  *
- * It is deliberately its own glyph rather than the `InfoTip` circle. Those
- * two answer different questions: an info dot explains what a word means,
- * and this says who made the number and what they could see when they made
- * it. Sharing one icon would mean a reader could not tell, at a glance down
- * a page, which figures were reasoned and which were counted, which is the
- * whole point.
+ * It was an eye for a long time, on the argument that a reader scanning a
+ * page should be able to tell a figure that was reasoned from one that was
+ * counted without opening anything. That cost more than it bought: an eye
+ * is not what anybody has been taught to press for an explanation, so the
+ * one control in the app that answers "where did this come from" was the
+ * one control nobody recognised. It is the same circled `i` as `InfoTip`
+ * and `Explain` now, at the same size and in the same muted colour, so
+ * every "tell me more" in the product is one glyph. What separates them is
+ * what opens, which is the half the reader actually reads.
  *
  * What is behind it is written for one particular reader: somebody who does
  * not trust generated text and is looking for the place this app oversells
@@ -88,17 +91,17 @@ function useNarrow(): boolean {
     },
     () => window.matchMedia(NARROW).matches,
     // The server has no width. It renders the popover, and the sheet takes
-    // over on hydration, which is before anybody can have pressed the eye.
+    // over on hydration, which is before anybody can have pressed the mark.
     () => false
   );
 }
 
-function WhyThisEye({ className }: { className?: string }) {
+function WhyThisMark({ className }: { className?: string }) {
   return (
     <>
       {/* Coarse pointers get a real target without the icon growing. */}
       <span className="absolute -inset-3.5 lg:-inset-2.5" aria-hidden />
-      <Eye className={cn("relative size-3.5", className)} aria-hidden />
+      <Info className={cn("relative size-3.5", className)} aria-hidden />
     </>
   );
 }
@@ -276,7 +279,7 @@ export function WhyThis({
           className={cn(TRIGGER_CLASS, className)}
           onClick={(e) => e.stopPropagation()}
         >
-          <WhyThisEye />
+          <WhyThisMark />
         </SheetTrigger>
         <SheetContent
           side="bottom"
@@ -308,7 +311,7 @@ export function WhyThis({
         className={cn(TRIGGER_CLASS, className)}
         onClick={(e) => e.stopPropagation()}
       >
-        <WhyThisEye />
+        <WhyThisMark />
       </PopoverTrigger>
       <PopoverContent
         side={side}

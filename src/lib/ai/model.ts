@@ -151,7 +151,7 @@ export type AdvisorProviderCandidate = {
   model: LanguageModel;
   /**
    * The provider's own name for the model, exactly as it is sent on the
-   * wire. Carried because the reader is owed it: the eye beside a modeled
+   * wire. Carried because the reader is owed it: the mark beside a modeled
    * number says which model wrote it, and `LanguageModel` does not hand
    * that string back in a form worth showing anybody.
    */

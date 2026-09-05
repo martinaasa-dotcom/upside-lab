@@ -80,7 +80,7 @@ type Body = {
 type CachedPulse = {
   check: PulseCheck;
   headlines: PulseHeadline[];
-  /** Carried from the cache entry so the eye can name the right run. */
+  /** Carried from the cache entry so the mark can name the right run. */
   writtenBy?: { provider: string; model: string } | null;
   checkedAt?: string;
 };
@@ -386,7 +386,7 @@ async function handlePOST(req: Request) {
 
     // The chain walks past a rate-limited provider, so the model that
     // answers is often not the one at its head. Recorded here as it
-    // answers, because the eye on each card names it.
+    // answers, because the mark on each card names it.
     let answeredBy: ModelRun | null = null;
 
     const { object } = await withAdvisorFallback(
