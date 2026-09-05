@@ -211,14 +211,21 @@ function InlineExpiry({
   );
 }
 
+/*
+ * Every title fits its own column. The widest header sets a track's width,
+ * and "Stock target" and "Next strike" each sat over a column of "$250.00"
+ * at half again the width of the titles beside them, so the row read as
+ * uneven before a figure was looked at. The phone cards already say
+ * "Target" and "Strike"; the hints below carry the long form.
+ */
 const HEADERS = [
   "Ticker",
   "Price",
   "Call %",
-  "Stock target",
+  "Target",
   "Distance",
   "Near target?",
-  "Next strike",
+  "Strike",
   "Expires",
   "Contracts",
   "2-week %",
@@ -228,14 +235,14 @@ const HEADERS = [
 const HEADER_HINTS: Partial<Record<(typeof HEADERS)[number], string>> = {
   Price: "What one share costs right now",
   "Call %": "How far above your target you set the strike. A strike further away pays you less, but your shares are less likely to be sold",
-  "Stock target": "The price you would be happy to sell at. Until you set one, this is a suggestion worked out from where the price has turned back lately",
+  Target: "The price you would be happy to sell at. Until you set one, this is a suggestion worked out from where the price has turned back lately",
   Distance: "How far the price still has to travel to reach your target. Negative means it is already there",
   // The column measures the distance to the price the reader said they
   // would sell the shares at, not to the strike. It said the strike for
   // months, which is a different number in a table that shows both.
   "Near target?":
     "How close the share price is to the price you said you would be happy to sell at",
-  "Next strike": "The strike this plan points at, rounded to one you can actually trade",
+  Strike: "The strike this plan points at, rounded to one you can actually trade",
   Contracts: "One contract covers 100 shares",
   "2-week %": "What you collect, as a percentage of the shares this ties up, over roughly two weeks",
   Premium: "The cash you would collect for selling these calls",
@@ -418,7 +425,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Near your target?</p>
+                  <p className="text-muted-foreground">Near target?</p>
                   <p
                     className={cn(
                       "font-medium",
