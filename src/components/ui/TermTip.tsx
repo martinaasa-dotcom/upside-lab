@@ -64,8 +64,20 @@ function useNarrow(): boolean {
  * app keeps for news. A hairline under the word is the oldest answer there
  * is and it survives being set in 11px uppercase mono.
  */
+/*
+ * `[text-transform:inherit]`, and it is load-bearing rather than tidy.
+ *
+ * The trigger is a `<button>`, and the preflight sets `text-transform: none`
+ * on buttons, which does not inherit through. So a tip sitting inside a
+ * `MicroLabel` silently lost the mono caps that label voice is made of: in
+ * one Scoreboard row the labels with a definition behind them read as
+ * sentence case and the ones without read as caps, which is two voices for
+ * one tier of scaffolding. A tip must never change the voice of the label
+ * it is standing in. Callers passing their own case class still win, since
+ * `cn` puts theirs last.
+ */
 const TRIGGER_CLASS =
-  "inline-flex max-w-full items-center gap-1 border-b border-dashed border-border/70 text-left outline-none transition hover:border-foreground/60 hover:text-foreground focus-visible:border-foreground/60 focus-visible:text-foreground";
+  "inline-flex max-w-full items-center gap-1 border-b border-dashed border-border/70 text-left [text-transform:inherit] outline-none transition hover:border-foreground/60 hover:text-foreground focus-visible:border-foreground/60 focus-visible:text-foreground";
 
 /** Same target, no underline, for a glyph beside a control that has its own job. */
 const BARE_TRIGGER_CLASS =

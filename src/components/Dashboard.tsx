@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/Toast";
 import { AIM_GIVES_UP_MS, onRouteAim } from "@/lib/route-aim";
+import { companyHref } from "@/lib/company/client";
 import { usePathname, useRouter } from "next/navigation";
 import {
   buildDecisionAlerts,
@@ -2095,6 +2096,16 @@ export function Dashboard() {
     ];
     if (!labHiddenForTier) {
       items.push({
+        id: "lookup",
+        label: "Look up a company",
+        group: "Go",
+        hint: "In Lab: any company, in plain words",
+        run: () => {
+          setLabIntent("lookup");
+          goToTab(LAB_TAB_ID);
+        },
+      });
+      items.push({
         id: "statistics",
         label: "Seasonality",
         group: "Go",
@@ -2133,6 +2144,18 @@ export function Dashboard() {
       });
     }
     for (const t of overview.tickers.slice(0, 30)) {
+      /*
+        Two ways in for a name you already own: the drawer, which is what
+        you hold of it, and the company page, which is what the company is.
+        Both are things a reader wants and neither answers the other.
+      */
+      items.push({
+        id: `company-${t.ticker}`,
+        label: `Look up ${t.ticker}`,
+        group: "Companies",
+        hint: "What the company is, and what it might be worth",
+        run: () => router.push(companyHref(t.ticker)),
+      });
       items.push({
         id: `ticker-${t.ticker}`,
         label: t.ticker,
@@ -2147,7 +2170,7 @@ export function Dashboard() {
     }
     return items;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
-  }, [portfolios, overview.tickers, undoStack.length, labHiddenForTier]);
+  }, [portfolios, overview.tickers, undoStack.length, labHiddenForTier, router]);
 
   // Page-level view toggles for the current sheet — kept separate from
   // account actions below so one menu isn't a junk drawer of unrelated

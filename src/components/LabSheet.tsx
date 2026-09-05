@@ -31,6 +31,7 @@ import type { Holding, Portfolio, Quote } from "@/lib/types";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
+import { loadWatchlist } from "@/lib/watchlist";
 
 type Props = {
   overview: OverviewModel;
@@ -64,13 +65,22 @@ const TrendsPanel = dynamic(
   () => import("@/components/TrendsPanel").then((m) => m.TrendsPanel),
   { ssr: true }
 );
+const CompanyLookupPanel = dynamic(
+  () =>
+    import("@/components/company/CompanyLookupPanel").then(
+      (m) => m.CompanyLookupPanel
+    ),
+  { ssr: true }
+);
 
 const EMPTY_HIDDEN_TABS: string[] = [];
+const EMPTY_WATCHLIST: string[] = [];
 
-type LabTab = "alloc" | "risk" | "trends" | "seasonality";
+type LabTab = "alloc" | "risk" | "trends" | "seasonality" | "lookup";
 
 /** One flat row: what you hold, how risky it is, and when it tends to move. */
 const TABS: { id: LabTab; label: string }[] = [
+  { id: "lookup", label: "Look up a company" },
   { id: "alloc", label: "The mix" },
   { id: "risk", label: "Risk" },
   { id: "trends", label: "Trends" },
@@ -79,6 +89,7 @@ const TABS: { id: LabTab; label: string }[] = [
 
 const INTENT_TO_TAB: Record<LabDeepLink, LabTab> = {
   seasonality: "seasonality",
+  lookup: "lookup",
 };
 
 /** Reads `?labtab=` so a hard refresh (or revisiting Lab after switching
@@ -124,6 +135,14 @@ export const LabSheet = memo(function LabSheet({
   const [tabOverflow, setTabOverflow] = useState({ left: false, right: false });
   /** What-if scope: full book or a single sheet */
   const [scopeId, setScopeId] = useState<string>("book");
+  /*
+    Read once on mount rather than through the sync hook, because this tab
+    only needs the names to draw chips with and re-rendering the whole Lab
+    every time the watchlist syncs would be a lot of work for a row of
+    links. `useHydratedCache` keeps the first server render empty, so the
+    markup matches.
+  */
+  const [watchlist] = useHydratedCache<string[]>(() => loadWatchlist(), EMPTY_WATCHLIST);
 
   function selectTab(id: LabTab) {
     setTab(id);
@@ -337,6 +356,10 @@ export const LabSheet = memo(function LabSheet({
         : `Whether each company is still moving the way it was, read from four years of weekly closing prices. ${risingCount} of your ${holdingCount} ${holdingCount === 1 ? "holding is" : "holdings are"} higher now than three months ago.`,
     seasonality:
       "Which months the market has been kind in before, and which it has not. This one never looks at what you own, and your own holdings are in the list so you can look one up.",
+    lookup:
+      holdingCount === 0
+        ? "Any company, explained in plain words: what it does, what its finances look like, what it might be worth and both sides of the argument. Nothing here is advice and nothing you look at is bought."
+        : `Any company, explained in plain words, whether you own it or not. The same treatment your ${holdingCount === 1 ? "own holding gets" : `${holdingCount} holdings get`}, applied to something you are only thinking about.`,
   };
 
   return (
@@ -470,6 +493,15 @@ export const LabSheet = memo(function LabSheet({
         </p>
         </div>
       </Panel>
+
+      {tab === "lookup" && !hiddenTabs.includes("lookup") && (
+        <WidgetErrorBoundary name="Look up a company">
+          <CompanyLookupPanel
+            watchlist={watchlist}
+            owned={overview.tickers.map((t) => t.ticker)}
+          />
+        </WidgetErrorBoundary>
+      )}
 
       {tab === "alloc" && !hiddenTabs.includes("alloc") && (
         <WidgetErrorBoundary name="Allocation">

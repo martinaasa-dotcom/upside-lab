@@ -44,6 +44,7 @@ export const PRIVATE_NOINDEX_PATHS = [
   "/account",
   "/admin",
   "/upside-portfolio",
+  "/stock",
   "/auth",
 ] as const;
 

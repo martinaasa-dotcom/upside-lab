@@ -24,6 +24,7 @@ export const PORTFELL_TABLES = {
   communityJoinRequests: "portfell_community_join_requests",
   communityDuels: "portfell_community_duels",
   popularTickers: "portfell_popular_tickers",
+  companyBriefs: "portfell_company_briefs",
   errorLog: "portfell_error_log",
   margusFund: "portfell_margus_fund",
   margusFundHoldings: "portfell_margus_fund_holdings",

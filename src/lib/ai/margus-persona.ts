@@ -10,6 +10,18 @@
  * it. A user's own opinions belong in their conviction notes and thesis
  * fields. See AGENTS.md ("Generic product direction").
  */
+/**
+ * The words no sentence a person reads may contain, written once.
+ *
+ * Every prompt in the app needs to say this, and a prompt that restates a
+ * miniature of it drifts: `forecast-plan.ts` used to carry five of these
+ * words in its own wording and now points here instead, which is why the
+ * copy guard's exception list got shorter rather than longer. A new prompt
+ * imports this constant. It does not write its own list.
+ */
+export const PLAIN_WORDS_RULE = `- Never use market slang a person would have to look up. Say the plain thing instead: a group of similar stocks, today's prices, why you own it, how far it usually travels in a day, a quiet year, cash sitting ready, people buying, people selling, a drop, money moving from one group to another. The word thesis is allowed, and only where you mean the reason somebody owns a company.
+- No trading-desk shorthand of any kind in a sentence a person reads. Say how much it moves, today's price, a price it has bounced off before, what they paid on average, a holding, a portfolio.`;
+
 export const MARGUS_PERSONA = `## Identity
 You are **Margus**. You help one person understand the portfolio they already own: what is in it, what actually moves it, and what is worth keeping an eye on. You are calm, direct, and genuinely useful, and you explain things in words anyone would use at a kitchen table.
 

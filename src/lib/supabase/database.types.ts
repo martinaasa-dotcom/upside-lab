@@ -1047,6 +1047,33 @@ export type Database = {
         }
         Relationships: []
       }
+      portfell_company_briefs: {
+        Row: {
+          anchor_price: number | null
+          brief: Json
+          facts_key: string
+          generated_at: string
+          ticker: string
+          updated_at: string
+        }
+        Insert: {
+          anchor_price?: number | null
+          brief: Json
+          facts_key?: string
+          generated_at?: string
+          ticker: string
+          updated_at?: string
+        }
+        Update: {
+          anchor_price?: number | null
+          brief?: Json
+          facts_key?: string
+          generated_at?: string
+          ticker?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       portfell_forecast_ticker_cache: {
         Row: {
           anchor_price: number | null

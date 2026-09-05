@@ -29,6 +29,15 @@ import {
 } from "react";
 
 const MAX_COMMUNITY_ROOMS = 4;
+/**
+ * How many company pages stay mounted behind the one on screen.
+ *
+ * Looking companies up is browsing: a reader walks four or five of them in
+ * a sitting and goes back to compare. Keeping the recent ones mounted
+ * makes going back instant, and the cap is what stops an afternoon of
+ * browsing from holding twenty rooms' worth of DOM.
+ */
+const MAX_STOCK_ROOMS = 3;
 
 /*
  * ONE NAMED LOADER PER ROOM, USED BOTH TO RENDER IT AND TO WARM IT.
@@ -49,6 +58,8 @@ const loadCommunitiesList = () =>
   import("@/components/CommunitiesList").then((m) => m.CommunitiesList);
 const loadCommunityView = () =>
   import("@/components/CommunityView").then((m) => m.CommunityView);
+const loadStockRoom = () =>
+  import("@/components/company/StockRoom").then((m) => m.StockRoom);
 const loadAccountPage = () =>
   import("@/components/AccountPage").then((m) => m.AccountPage);
 const loadAdminPage = () =>
@@ -58,6 +69,7 @@ const BookRoom = dynamic(loadBookRoom, { ssr: true });
 const FundRoom = dynamic(loadFundRoom, { ssr: true });
 const CommunitiesList = dynamic(loadCommunitiesList, { ssr: true });
 const CommunityView = dynamic(loadCommunityView, { ssr: true });
+const StockRoom = dynamic(loadStockRoom, { ssr: true });
 const AccountPage = dynamic(loadAccountPage, { ssr: true });
 const AdminPage = dynamic(loadAdminPage, { ssr: true });
 
@@ -65,6 +77,16 @@ function pruneCommunityRooms(mounted: Set<string>, keep: string) {
   const keys = [...mounted].filter((k) => k.startsWith("community:"));
   for (const key of keys) {
     if (keys.length <= MAX_COMMUNITY_ROOMS) break;
+    if (key === keep) continue;
+    mounted.delete(key);
+    keys.splice(keys.indexOf(key), 1);
+  }
+}
+
+function pruneStockRooms(mounted: Set<string>, keep: string) {
+  const keys = [...mounted].filter((k) => k.startsWith("stock:"));
+  for (const key of keys) {
+    if (keys.length <= MAX_STOCK_ROOMS) break;
     if (key === keep) continue;
     mounted.delete(key);
     keys.splice(keys.indexOf(key), 1);
@@ -157,6 +179,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     // bottom chrome. Hidden rooms stay inert; the dock portals out.
     mountedRef.current.add("book");
     pruneCommunityRooms(mountedRef.current, room);
+    pruneStockRooms(mountedRef.current, room);
   }
 
   const mounted = mountedRef.current;
@@ -223,6 +246,13 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       void loadFundRoom();
       void loadCommunitiesList();
       void loadCommunityView();
+      /*
+        Warmed like every other room, and for the reason the note above
+        gives: the first tap on a company otherwise pays a chunk fetch and
+        a parse on the tap. It is not gated behind a tier the way Lab's
+        panels are, because every reader can reach it.
+      */
+      void loadStockRoom();
       void loadAccountPage();
     };
     const w = window as Window & {
@@ -263,6 +293,16 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
           return (
             <Room key={key} on={room === key}>
               <CommunityView communityId={id} />
+            </Room>
+          );
+        })}
+      {[...mounted]
+        .filter((key) => key.startsWith("stock:"))
+        .map((key) => {
+          const ticker = key.slice("stock:".length);
+          return (
+            <Room key={key} on={room === key}>
+              <StockRoom ticker={ticker} />
             </Room>
           );
         })}
