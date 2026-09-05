@@ -55,8 +55,8 @@ describe("the read at the top never tells anybody what to do", () => {
       estimate: {
         price: 100,
         used: [
-          { id: "a", name: "A", maker: "arithmetic", price: 100, assumes: "", working: "", weight: 1 },
-          { id: "b", name: "B", maker: "arithmetic", price: 400, assumes: "", working: "", weight: 1 },
+          { id: "a", name: "A", source: "a", maker: "arithmetic", price: 100, assumes: "", working: "", weight: 1 },
+          { id: "b", name: "B", source: "b", maker: "arithmetic", price: 400, assumes: "", working: "", weight: 1 },
         ],
         dropped: [],
         spread: 3,

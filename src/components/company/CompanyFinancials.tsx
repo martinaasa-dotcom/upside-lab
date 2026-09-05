@@ -318,16 +318,25 @@ export function CompanyFinancials({
   facts: CompanyFacts;
   code: string;
 }) {
-  const hasQuarters = facts.quarters.length >= 2;
-  const hasSurprises = facts.surprises.length > 0;
+  /*
+    Read through a default rather than off the object. These arrive from a
+    cache that holds a whole `CompanyFacts`, so an entry written before a
+    field existed comes back without it, and a bare `.length` on that is a
+    crash rather than an empty panel. The cache key is versioned for the
+    same reason; this is the half that survives somebody forgetting to.
+  */
+  const quarters = facts.quarters ?? [];
+  const surprises = facts.surprises ?? [];
+  const hasQuarters = quarters.length >= 2;
+  const hasSurprises = surprises.length > 0;
   const hasLadder =
     facts.grossMargin !== null ||
     facts.operatingMargin !== null ||
     facts.returnOnEquity !== null;
   if (!hasQuarters && !hasSurprises && !hasLadder) return null;
 
-  const last = facts.surprises[facts.surprises.length - 1];
-  const beats = facts.surprises.filter((s) => (s.surprise ?? 0) > 0).length;
+  const last = surprises[surprises.length - 1];
+  const beats = surprises.filter((s) => (s.surprise ?? 0) > 0).length;
 
   return (
     <Panel>
@@ -345,13 +354,13 @@ export function CompanyFinancials({
         }
         subtitle={
           hasSurprises && last
-            ? `What it earned each quarter, whether it hit the number each time, and where the money goes on the way down. It beat expectations ${beats} of the last ${facts.surprises.length} times, most recently in ${last.label}.`
+            ? `What it earned each quarter, whether it hit the number each time, and where the money goes on the way down. It beat expectations ${beats} of the last ${surprises.length} times, most recently in ${last.label}.`
             : "What it earned each quarter and where the money goes on the way down from revenue to profit."
         }
         icon={<BarChart3 className="h-4 w-4" />}
       />
-      {hasQuarters && <QuarterTable quarters={facts.quarters} code={code} />}
-      {hasSurprises && <Surprises surprises={facts.surprises} code={code} />}
+      {hasQuarters && <QuarterTable quarters={quarters} code={code} />}
+      {hasSurprises && <Surprises surprises={surprises} code={code} />}
       {hasLadder && <QualityLadder facts={facts} />}
     </Panel>
   );

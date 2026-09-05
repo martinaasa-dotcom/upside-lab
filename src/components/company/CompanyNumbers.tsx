@@ -141,20 +141,36 @@ function ReadingCell({
 }
 
 /**
- * Four years of revenue and profit, as a table with a bar behind it.
+ * Four years of the business, drawn as what the money did.
  *
- * It was two bars a year with no scale on them, and it was useless for
- * exactly the reason a chart without an axis always is: a reader could see
- * that one was taller and could not see from what to what. Worse, a
- * healthy company's profit bar is a tenth the height of its revenue bar,
- * so the thing you most wanted to read was a sliver.
+ * THIS IS THE THIRD ATTEMPT AND THE FIRST TWO ARE WHY IT LOOKS LIKE THIS.
  *
- * A table fixes both. Every figure is printed, so a professional gets the
- * actual numbers and a beginner gets the margin worked out for them, and
- * the bar behind the revenue column carries the shape that made a chart
- * tempting in the first place. Read down the margin column and you can see
- * whether a growing business is getting better at it, which is the
- * question the bars could never answer.
+ * It was two bars a year with no scale, which is useless for the reason a
+ * chart without an axis always is: you can see one is taller and not from
+ * what to what, and a healthy company's profit bar is a tenth the height
+ * of its revenue bar, so the figure you most wanted was a sliver. Then it
+ * was a table of four printed columns with a bar behind one of them, which
+ * is accurate, complete, and still a spreadsheet: four numbers a row, all
+ * the same size, in the same grey, with nothing telling a reader which of
+ * them is the story.
+ *
+ * A year of a company is one quantity split in two, and that is a shape
+ * rather than a row. Each year is ONE bar, its length the revenue against
+ * the biggest year, and the filled part of it is the profit. So the length
+ * says how big the business got and the coloured part says how much of it
+ * they kept, in one object, read down the column without arithmetic. The
+ * grey is not a leftover: it is what the year cost them, and it is labelled
+ * as such, because "revenue minus profit" is the number nobody prints and
+ * everybody should see.
+ *
+ * Both encodings share one scale, the biggest year's revenue, so the
+ * profit blocks are comparable across years as well as within one. A
+ * margin drawn on its own scale would let a small year's profit look
+ * bigger than a large year's, which is the exact lie the two-bar version
+ * told.
+ *
+ * The figures are still all printed. A professional reads the numbers and
+ * a beginner reads the shape, and neither has to take the other's word.
  */
 function YearTable({
   history,
@@ -164,122 +180,118 @@ function YearTable({
   currency: string;
 }) {
   const peak = Math.max(...history.map((h) => h.revenue ?? 0), 1);
-  /*
-    Year-on-year growth is the column the table was missing, and it is the
-    one a professional reads first. Revenue rising every year says almost
-    nothing on its own: what decides whether a business is winning or
-    running out of road is whether each year's rise is bigger or smaller
-    than the last, and that is invisible in a column of totals. It is
-    computed from the row above rather than taken from the feed, so the
-    first year has none and says so.
-  */
-  const growthOf = (i: number): number | null => {
-    const now = history[i]?.revenue;
+  const rows = history.map((year, i) => {
+    const revenue = year.revenue;
+    const profit = year.netIncome;
     const before = history[i - 1]?.revenue;
-    if (!now || !before || before <= 0) return null;
-    return now / before - 1;
-  };
+    return {
+      year: year.year,
+      revenue,
+      profit,
+      /*
+        Growth is computed from the row above rather than taken from the
+        feed, so the first year has none. Revenue rising every year says
+        almost nothing on its own; whether each rise is bigger or smaller
+        than the last is what decides whether a business is winning or
+        running out of road, and it is invisible in a column of totals.
+      */
+      growth:
+        revenue && before && before > 0 ? revenue / before - 1 : null,
+      margin:
+        revenue && revenue > 0 && profit !== null ? profit / revenue : null,
+      /* Both widths are shares of the same scale, so years compare. */
+      revenueWidth: Math.max(((revenue ?? 0) / peak) * 100, 1),
+      profitWidth: Math.max((Math.max(profit ?? 0, 0) / peak) * 100, 0),
+    };
+  });
+
   return (
-    <div className="flex flex-col gap-3">
-      <MicroLabel>Revenue and profit by year</MicroLabel>
-      <div className="glass-well overflow-hidden rounded-lg">
-        <div className="grid grid-cols-[3.5rem_1fr_auto_auto] items-center gap-x-3 border-b border-border px-3 py-2 font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground sm:grid-cols-[3.5rem_1fr_auto_auto_auto] sm:gap-x-5">
-          <span>Year</span>
-          <span>Revenue</span>
-          <span className="hidden w-16 text-right sm:block">Growth</span>
-          <span className="text-right">Profit</span>
-          <span className="w-[5.5rem] text-right sm:w-[6.75rem]">Margin</span>
-        </div>
-        {history.map((year, i) => {
-          const growth = growthOf(i);
-          const revenue = year.revenue;
-          const profit = year.netIncome;
-          const margin =
-            revenue && revenue > 0 && profit !== null ? profit / revenue : null;
-          return (
-            <div
-              key={year.year}
-              className="grid grid-cols-[3.5rem_1fr_auto_auto] items-center gap-x-3 border-b border-border px-3 py-2 last:border-b-0 sm:grid-cols-[3.5rem_1fr_auto_auto_auto] sm:gap-x-5"
-            >
-              <span className="font-mono text-sm tabular-nums text-muted-foreground">
-                {year.year}
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <MicroLabel>Four years of the business</MicroLabel>
+        <span className="flex items-center gap-4 font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span aria-hidden className="h-2 w-3 rounded-sm bg-gain/70" />
+            Kept as profit
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span aria-hidden className="h-2 w-3 rounded-sm bg-foreground/15" />
+            What it cost them
+          </span>
+        </span>
+      </div>
+
+      <ul className="flex flex-col gap-3">
+        {rows.map((r) => (
+          <li key={r.year} className="flex flex-col gap-1.5">
+            {/*
+              The year and its figures sit above the bar rather than in
+              columns beside it, so the bar gets the full width of the panel
+              and stays readable on a phone, where four columns and a bar
+              cannot both fit.
+            */}
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-mono text-sm font-bold tabular-nums text-foreground">
+                {r.year}
               </span>
-              {/*
-                The bar sits behind the figure rather than beside it, so it
-                costs no column width on a phone and the number stays the
-                thing being read.
-              */}
-              <span className="relative flex min-w-0 items-center">
-                <span
-                  aria-hidden
-                  className="absolute inset-y-0 left-0 rounded-sm bg-foreground/[0.07]"
-                  style={{
-                    width: `${Math.max(((revenue ?? 0) / peak) * 100, 2)}%`,
-                  }}
-                />
-                <span className="relative truncate font-mono text-sm tabular-nums text-foreground">
-                  {bigMoney(revenue, code)}
-                </span>
+              <span className="font-mono text-sm tabular-nums text-foreground">
+                {bigMoney(r.revenue, code)}
               </span>
-              <span
-                className={cn(
-                  "hidden w-16 text-right font-mono text-sm tabular-nums sm:block",
-                  growth === null
-                    ? "text-muted-foreground"
-                    : growth < 0
-                      ? "text-loss"
-                      : "text-gain"
-                )}
-              >
-                {growth === null ? NO_VALUE : signedPercent(growth)}
-              </span>
-              <span
-                className={cn(
-                  "text-right font-mono text-sm tabular-nums",
-                  profit !== null && profit < 0 ? "text-loss" : "text-foreground"
-                )}
-              >
-                {bigMoney(profit, code)}
-              </span>
-              {/*
-                The margin gets its own small bar, scaled to itself rather
-                than to the revenue beside it. A profit margin drawn on the
-                revenue scale is a sliver, which is what made the chart this
-                table replaced useless; on its own scale the column reads
-                downwards as a trend, which is the question.
-              */}
-              <span className="flex items-center justify-end gap-2">
-                <span className="relative hidden h-1.5 w-10 overflow-hidden rounded-full bg-foreground/10 sm:block">
-                  <span
-                    aria-hidden
-                    className={cn(
-                      "absolute inset-y-0 left-0 rounded-full",
-                      margin !== null && margin < 0 ? "bg-loss/70" : "bg-gain/60"
-                    )}
-                    style={{
-                      width: `${Math.min(Math.max((margin ?? 0) * 100, 0), 100)}%`,
-                    }}
-                  />
-                </span>
+              {r.growth !== null && (
                 <span
                   className={cn(
-                    "w-12 text-right font-mono text-sm tabular-nums",
-                    margin !== null && margin < 0
-                      ? "text-loss"
-                      : "text-muted-foreground"
+                    "font-mono text-xs tabular-nums",
+                    r.growth < 0 ? "text-loss" : "text-gain"
                   )}
                 >
-                  {margin === null ? NO_VALUE : percent(margin, 1)}
+                  {signedPercent(r.growth)}
                 </span>
+              )}
+              <span className="ml-auto font-mono text-sm tabular-nums text-muted-foreground">
+                <span
+                  className={cn(
+                    r.profit !== null && r.profit < 0
+                      ? "text-loss"
+                      : "text-gain"
+                  )}
+                >
+                  {bigMoney(r.profit, code)}
+                </span>{" "}
+                kept
+                {r.margin !== null && (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    ({percent(r.margin, 1)})
+                  </span>
+                )}
               </span>
             </div>
-          );
-        })}
-      </div>
+            <span
+              aria-hidden
+              className="relative block h-3 w-full overflow-hidden rounded-sm"
+            >
+              <span
+                className="absolute inset-y-0 left-0 rounded-sm bg-foreground/15"
+                style={{ width: `${r.revenueWidth}%` }}
+              />
+              <span
+                className={cn(
+                  "absolute inset-y-0 left-0 rounded-sm",
+                  r.profit !== null && r.profit < 0 ? "bg-loss/70" : "bg-gain/70"
+                )}
+                style={{ width: `${r.profitWidth}%` }}
+              />
+            </span>
+          </li>
+        ))}
+      </ul>
+
       <p className="text-sm leading-relaxed text-muted-foreground">
-        Read the growth and margin columns downwards. Growth slowing while
-        the margin climbs is a business getting more valuable per sale; growth
-        holding up while the margin falls is one buying its way forward.
+        Each bar is one year, its length that year&apos;s revenue against the
+        biggest of the four. The green part is the profit they kept and the
+        grey is what the year cost them. A bar getting longer while the green
+        part grows faster than the grey is a business getting better at what
+        it does, not just bigger.
       </p>
     </div>
   );
