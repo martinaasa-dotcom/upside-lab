@@ -1184,9 +1184,16 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             ariaLabel="How many years"
             columns={4}
             look="buttons"
+            /*
+              The number alone on the cell: the field directly above ends
+              in the word "years", and "10 years" in a four-cell row broke
+              over two lines on a 390px phone, which made the row twice
+              as tall as every other preset row on the page. `title`
+              keeps the full phrase for a pointer.
+            */
             options={YEAR_PRESETS.map((yr) => ({
               id: String(yr),
-              label: `${yr} years`,
+              label: String(yr),
               title: `${yr} years`,
             }))}
             value={yearPreset}

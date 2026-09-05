@@ -147,7 +147,7 @@ export const DOCK_TABS: DockTab[] = [
   {
     id: "compound",
     href: GROWTH_PATH,
-    label: "Compound",
+    label: "Growth",
     shortLabel: "Growth",
     Icon: TrendingUp,
     metaId: COMPOUND_TAB_ID,

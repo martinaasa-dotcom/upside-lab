@@ -43,7 +43,7 @@ export const TONE_GLYPH: Record<MarginToneName, string> = {
  * tier where the word "margin call" is in the copy. A results date and a
  * large holding are calm facts and get calm glyphs.
  */
-const KIND_GLYPH: Record<AlertKind, typeof Landmark> = {
+export const KIND_GLYPH: Record<AlertKind, typeof Landmark> = {
   results: CalendarDays,
   strike: Target,
   margin: Landmark,

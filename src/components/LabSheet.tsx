@@ -487,10 +487,21 @@ export const LabSheet = memo(function LabSheet({
                     <h3 className="text-foreground">
                       How spread out you are
                     </h3>
+                    {/*
+                      The scope is its own line, and only when it is one
+                      portfolio: the band description ends in a full stop,
+                      and "dominate. · Entire portfolio" put a separator
+                      after a sentence. When the whole portfolio is in
+                      view the picker above already says so.
+                    */}
                     <p className="mt-1.5 text-sm text-muted-foreground">
-                      {personality.diversificationBand.description} ·{" "}
-                      {scopeLabel}
+                      {personality.diversificationBand.description}
                     </p>
+                    {scopeId !== "book" ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        In {scopeLabel}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="text-right">
                     <p className="font-mono text-xl font-bold tabular-nums text-foreground">
@@ -611,7 +622,12 @@ export const LabSheet = memo(function LabSheet({
                 </Panel>
               )}
 
-              <div className="grid gap-4 md:grid-cols-2">
+              {/*
+                `items-start`: the two cards hold different counts (a few
+                kinds of business against every holding), and stretched
+                to one height the shorter card was mostly empty glass.
+              */}
+              <div className="grid gap-4 md:grid-cols-2 md:items-start">
                 <AllocCard title="By kind of business" slices={sectors} />
                 <AllocCard title="By holding" slices={byTicker} />
               </div>
@@ -789,7 +805,12 @@ function AllocCard({
   slices: { label: string; pct: number; value: number }[];
 }) {
   return (
-    <Panel tone="plain">
+    /*
+      `md:h-auto`: a Panel fills its grid cell by default, and beside the
+      taller "By holding" card that left this one mostly empty glass. The
+      grid it sits in is `md:items-start`, so the cell hugs the card too.
+    */
+    <Panel tone="plain" className="md:h-auto">
       <h3 className="text-foreground">{title}</h3>
       <div className="flex flex-col gap-2">
         {slices.map((s) => (
