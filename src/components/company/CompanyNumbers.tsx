@@ -61,10 +61,25 @@ function Versus({ versus }: { versus: NonNullable<CompanyReading["versus"]> }) {
   );
 }
 
-function ReadingCell({ reading }: { reading: CompanyReading }) {
+function ReadingCell({
+  reading,
+  lead = false,
+}: {
+  reading: CompanyReading;
+  /** One of the three read first. Heavier figure, accent rule on the card. */
+  lead?: boolean;
+}) {
   const missing = reading.value === NO_VALUE;
   return (
     <Score
+      className={cn(lead && "border-t-2 border-t-primary/50")}
+      /*
+        The hierarchy is made by shrinking the reference cells rather than
+        by growing the three that lead, because the type ladder stops at
+        2xl and a scoreboard figure is already there. Same direction, one
+        step, and the invariant stays happy.
+      */
+      valueClassName={lead ? undefined : "text-lg sm:text-xl"}
       label={
         reading.glossary ? (
           <TermTip term={reading.glossary}>{reading.label}</TermTip>
@@ -72,25 +87,53 @@ function ReadingCell({ reading }: { reading: CompanyReading }) {
           reading.label
         )
       }
+      /*
+        WHAT ORDINARY LOOKS LIKE IS ONLY PRINTED ON THE THREE THAT LEAD.
+
+        Nine cards each carrying a figure, a sentence saying what it means
+        and a second sentence saying what it is next to comes to twenty
+        seven lines of prose in one panel, and it reads as an essay with
+        numbers in it rather than as figures. The teaching is the point of
+        this room, so it is not dropped: it moves onto the label, which is
+        already the thing a reader presses when a word is unfamiliar. The
+        three that lead keep it in full, because those are the ones
+        somebody actually stops on.
+      */
+      explain={lead ? undefined : reading.compare}
+      /*
+        A FIXED HEIGHT, AND IT IS THE FIX FOR A REAL MISALIGNMENT.
+
+        `Score` bottom-aligns its note so a row of cells share a floor,
+        which is right for a scoreboard of bare figures and wrong here.
+        These cells carry a sentence, the figure line is sometimes one
+        line and sometimes two (a benchmark chip is taller than the digits
+        beside it), and the result was that the explanatory line started
+        at a different height in every cell of the row. Reading across
+        three cards whose second lines all begin somewhere else is what
+        makes a grid feel thrown together.
+
+        Pinning the figure row and top-aligning the note below it puts
+        every second line on the same baseline, whatever the cell holds.
+      */
       value={
-        <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
+        <span className="flex min-h-[2.25rem] flex-wrap items-baseline gap-x-3 gap-y-1.5 sm:min-h-[2.5rem]">
           <span className={cn(missing ? "text-muted-foreground" : TONE_CLASS[reading.tone])}>
             {reading.value}
           </span>
           {reading.versus && !missing && <Versus versus={reading.versus} />}
         </span>
       }
+      subClassName="mt-0 text-muted-foreground"
       sub={
         <>
           {reading.plain ? (
             <span className="block text-foreground">{reading.plain}</span>
           ) : (
             <span className="block text-foreground">
-              The feed did not carry this one, so there is nothing to show.
-              It has not been estimated.
+              The feed did not carry this one. It has not been estimated.
             </span>
           )}
-          <span className="mt-2 block">{reading.compare}</span>
+          {lead && <span className="mt-2 block">{reading.compare}</span>}
         </>
       }
     />
@@ -129,7 +172,7 @@ function YearTable({
           <span>Year</span>
           <span>Revenue</span>
           <span className="text-right">Profit</span>
-          <span className="w-14 text-right">Margin</span>
+          <span className="w-[5.5rem] text-right sm:w-[6.75rem]">Margin</span>
         </div>
         {history.map((year) => {
           const revenue = year.revenue;
@@ -169,15 +212,36 @@ function YearTable({
               >
                 {bigMoney(profit, code)}
               </span>
-              <span
-                className={cn(
-                  "w-14 text-right font-mono text-sm tabular-nums",
-                  margin !== null && margin < 0
-                    ? "text-loss"
-                    : "text-muted-foreground"
-                )}
-              >
-                {margin === null ? NO_VALUE : percent(margin, 1)}
+              {/*
+                The margin gets its own small bar, scaled to itself rather
+                than to the revenue beside it. A profit margin drawn on the
+                revenue scale is a sliver, which is what made the chart this
+                table replaced useless; on its own scale the column reads
+                downwards as a trend, which is the question.
+              */}
+              <span className="flex items-center justify-end gap-2">
+                <span className="relative hidden h-1.5 w-10 overflow-hidden rounded-full bg-foreground/10 sm:block">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "absolute inset-y-0 left-0 rounded-full",
+                      margin !== null && margin < 0 ? "bg-loss/70" : "bg-gain/60"
+                    )}
+                    style={{
+                      width: `${Math.min(Math.max((margin ?? 0) * 100, 0), 100)}%`,
+                    }}
+                  />
+                </span>
+                <span
+                  className={cn(
+                    "w-12 text-right font-mono text-sm tabular-nums",
+                    margin !== null && margin < 0
+                      ? "text-loss"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  {margin === null ? NO_VALUE : percent(margin, 1)}
+                </span>
               </span>
             </div>
           );
@@ -191,6 +255,18 @@ function YearTable({
     </div>
   );
 }
+
+/**
+ * Which figures lead.
+ *
+ * A grid of nine identical cards is a spreadsheet, and a reader with no
+ * background has no way to tell which of the nine to start with. These
+ * three are what anybody reads first: what it costs against its earnings,
+ * whether those earnings are growing, and whether the business keeps what
+ * it sells. They get their own row, a heavier figure and an accent rule;
+ * the rest are reference and sit below.
+ */
+const LEAD_READINGS = ["price-tag", "earnings-growth", "profit"];
 
 export function CompanyNumbers({
   ticker,
@@ -206,6 +282,10 @@ export function CompanyNumbers({
   at?: string | null;
 }) {
   const filled = readings.filter((r) => r.value !== NO_VALUE).length;
+  const lead = LEAD_READINGS.map((id) =>
+    readings.find((r) => r.id === id)
+  ).filter((r): r is CompanyReading => Boolean(r));
+  const rest = readings.filter((r) => !lead.includes(r));
   return (
     <Panel>
       <PanelHeader
@@ -222,7 +302,7 @@ export function CompanyNumbers({
             />
           </span>
         }
-        subtitle="Each figure under its real name, what it means in ordinary words, and what it is measured against. A number with nothing beside it is not information."
+        subtitle="The three that matter most first, then the rest for reference. Press any label for what the figure is and what ordinary looks like."
         icon={<BarChart3 className="h-4 w-4" />}
       />
       {/*
@@ -235,11 +315,20 @@ export function CompanyNumbers({
         company has nine, a fund four and a coin two, which at three
         columns fill exactly three rows, two rows and one.
       */}
-      <Scoreboard cols={3} mobileCols={1}>
-        {readings.map((r) => (
-          <ReadingCell key={r.id} reading={r} />
-        ))}
-      </Scoreboard>
+      {lead.length > 0 && (
+        <Scoreboard cols={3} mobileCols={1}>
+          {lead.map((r) => (
+            <ReadingCell key={r.id} reading={r} lead />
+          ))}
+        </Scoreboard>
+      )}
+      {rest.length > 0 && (
+        <Scoreboard cols={3} mobileCols={1}>
+          {rest.map((r) => (
+            <ReadingCell key={r.id} reading={r} />
+          ))}
+        </Scoreboard>
+      )}
       {history.length >= 2 && (
         <YearTable history={history} currency={currency} />
       )}

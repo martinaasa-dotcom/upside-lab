@@ -23,7 +23,12 @@ import {
 import { getYahoo, resolveYahooListedSymbol } from "@/lib/market/yahoo";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { sectorForTicker } from "@/lib/thesis-pulse";
-import type { CompanyFacts, CompanyYear } from "@/lib/company/facts";
+import type {
+  CompanyFacts,
+  CompanyQuarter,
+  CompanySurprise,
+  CompanyYear,
+} from "@/lib/company/facts";
 import { unstable_cache } from "next/cache";
 
 /** A finite number, or null. Zero counts as a real answer only where asked. */
@@ -72,6 +77,65 @@ function endYear(value: unknown): number | null {
     return new Date(asNumber * 1000).getUTCFullYear();
   }
   return null;
+}
+
+function quarterlyHistory(source: unknown): CompanyQuarter[] {
+  const rows = pick(pick(source, "financialsChart"), "quarterly");
+  if (!Array.isArray(rows)) return [];
+  const out: CompanyQuarter[] = [];
+  for (const row of rows) {
+    const label = str(pick(row, "date")) ?? str(pick(row, "fiscalQuarter"));
+    if (!label) continue;
+    const revenue = num(pick(row, "revenue"));
+    const earnings = num(pick(row, "earnings"), { zeroIsReal: true });
+    out.push({
+      label,
+      revenue,
+      earnings,
+      /*
+        Worked out here rather than read off `profitMargin`, because the
+        feed publishes that field only sometimes and a margin computed
+        from two numbers already on the row cannot disagree with them.
+      */
+      margin:
+        revenue !== null && revenue > 0 && earnings !== null
+          ? earnings / revenue
+          : null,
+    });
+  }
+  return out.slice(-4);
+}
+
+function earningsSurprises(source: unknown): CompanySurprise[] {
+  const rows = pick(pick(source, "earningsChart"), "quarterly");
+  if (!Array.isArray(rows)) return [];
+  const out: CompanySurprise[] = [];
+  for (const row of rows) {
+    const label = str(pick(row, "date")) ?? str(pick(row, "fiscalQuarter"));
+    if (!label) continue;
+    const actual = num(pick(row, "actual"), { zeroIsReal: true });
+    const estimate = num(pick(row, "estimate"), { zeroIsReal: true });
+    const reported = pick(row, "reportedDate");
+    out.push({
+      label,
+      actual,
+      estimate,
+      /*
+        Computed rather than taken from `surprisePct`, which the feed
+        publishes as a string on this module and as a fraction on another.
+        Two numbers on the same row cannot be inconsistent with each other.
+      */
+      surprise:
+        actual !== null && estimate !== null && estimate !== 0
+          ? (actual - estimate) / Math.abs(estimate)
+          : null,
+      reportedAt:
+        reported instanceof Date
+          ? reported.toISOString()
+          : str(reported) ?? null,
+    });
+  }
+  return out.slice(-4);
 }
 
 function annualHistory(source: unknown): CompanyYear[] {
@@ -124,6 +188,13 @@ const MODULES = [
   "indexTrend",
   "topHoldings",
   "fundProfile",
+  /*
+    The quarters and the beats. An annual figure hides the shape of a year
+    and hides the results days entirely, and a results day is the single
+    most-read line on any company page: whether the company did what the
+    people forecasting it said it would.
+  */
+  "earnings",
 ] as const;
 
 /** `{ period, growth, earningsEstimate: { avg } }` rows, by period key. */
@@ -217,6 +288,7 @@ async function fetchCompanyFactsUncached(
   const stats = pick(summary, "defaultKeyStatistics");
   const financial = pick(summary, "financialData");
   const history = annualHistory(pick(summary, "incomeStatementHistory"));
+  const earnings = pick(summary, "earnings");
   const trend = pick(summary, "earningsTrend");
   const index = pick(summary, "indexTrend");
   const holdings = pick(summary, "topHoldings");
@@ -341,6 +413,19 @@ async function fetchCompanyFactsUncached(
     marketLongTermGrowth: indexGrowth(index, "LTG"),
 
     history,
+    quarters: quarterlyHistory(earnings),
+    surprises: earningsSurprises(earnings),
+
+    operatingMargin: num(pick(financial, "operatingMargins"), {
+      zeroIsReal: true,
+    }),
+    returnOnEquity: num(pick(financial, "returnOnEquity"), {
+      zeroIsReal: true,
+    }),
+    returnOnAssets: num(pick(financial, "returnOnAssets"), {
+      zeroIsReal: true,
+    }),
+    operatingCashFlow: num(pick(financial, "operatingCashflow")),
 
     expenseRatio: num(
       pick(pick(fund, "feesExpensesInvestment"), "annualReportExpenseRatio")

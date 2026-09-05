@@ -205,6 +205,7 @@ export function ValueGlance({
       <Scoreboard cols={3} mobileCols={1}>
         <Score
           label="Share price"
+          subClassName="mt-0 text-muted-foreground"
           value={currency(read.spot, 2, code)}
           sub={
             <>
@@ -227,6 +228,7 @@ export function ValueGlance({
         />
         <Score
           label="12 month estimate"
+          subClassName="mt-0 text-muted-foreground"
           value={
             read.estimate.price === null
               ? NO_VALUE
@@ -251,6 +253,7 @@ export function ValueGlance({
         />
         <Score
           label="Difference"
+          subClassName="mt-0 text-muted-foreground"
           value={read.gap === null ? NO_VALUE : signedPercent(read.gap)}
           /*
             Deliberately not `signedTone`. That colour is for figures where

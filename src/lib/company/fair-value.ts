@@ -121,6 +121,17 @@ const GROWTH_RULE_FLOOR_PCT = 12;
  */
 const GROWTH_RULE_CEILING = 30;
 
+/**
+ * How much extra multiple a point of growth above the market earns.
+ *
+ * Half a turn. At that rate a company growing twice as fast as the market
+ * lands about six turns above it, which is roughly where such companies
+ * actually trade, and the cap binds before it can run away. A whole turn
+ * per point would put anything growing 40% straight into the cap and make
+ * the rule a step function.
+ */
+const GROWTH_PREMIUM_PER_POINT = 0.5;
+
 function ok(n: number | null | undefined): n is number {
   return typeof n === "number" && Number.isFinite(n) && n > 0;
 }
@@ -198,15 +209,34 @@ function consensusMethod(f: CompanyFacts): FairValueMethod | null {
 */
 
 /**
- * The same idea with the growth put back in: a company compounding
- * earnings at 20% a year is allowed roughly a 20 times multiple. The
- * oldest rule of thumb in the business, and it is a rule of thumb, which
- * the copy says out loud.
+ * The multiple a company's growth earns it, anchored on the market's own
+ * multiple rather than on the growth rate alone.
  *
- * The growth figure is **earnings** growth where the feed has an estimate
- * and sales growth only as a fallback, because the multiple being set is a
- * multiple of earnings and the two can differ by a lot in a company whose
- * margins are moving.
+ * THE FAULT THIS REPLACES, BECAUSE IT LOOKED PERFECTLY REASONABLE.
+ *
+ * The old rule was the textbook one: a company compounding earnings at
+ * 20% a year is allowed roughly a 20 times multiple. Read literally off a
+ * single year's expected growth it produces answers nobody would defend
+ * in either direction. Meta, whose next financial year is a heavy
+ * investment year and whose expected earnings growth is therefore 12%,
+ * came out at 12 times earnings and a fair value of $414 against a share
+ * price of $617. The market itself pays 18 times for it. A rule saying a
+ * company with 30% net margins, $90 billion of cash and a 30% return on
+ * equity is worth twelve times earnings is not conservative, it is a rule
+ * that has been handed the wrong input: **one year's expected growth is
+ * not a company's sustainable growth rate**, and it is wrong low for a
+ * business mid-investment and wrong high for one mid-rebound.
+ *
+ * What it does now is anchor: a company growing at the same pace as the
+ * whole market earns the same multiple as the whole market, and growth
+ * above that earns half a turn of multiple per point of extra growth.
+ * Both ends of that are the feed's own published figures rather than
+ * numbers typed into this app, and the assumption is printed for the
+ * reader to argue with.
+ *
+ * It is deliberately not a bullish adjustment. It is symmetric, it still
+ * stands down entirely on a company growing slower than the market
+ * (see `GROWTH_RULE_FLOOR_PCT`), and the cap still binds the top.
  */
 function growthMethod(
   f: CompanyFacts,
@@ -224,60 +254,49 @@ function growthMethod(
       : "its sales growth";
   const pct = growth * 100;
   /*
-    This rule of thumb is a growth-company rule and it stands down on a
-    company that is not one, rather than flooring.
-
-    Floored at 8, it valued Coca-Cola, growing earnings at about 7% a
-    year, at eight times earnings, which is $26 against a share price of
-    $88 and is not an estimate anybody would defend. A steady company
-    growing in line with the economy is ordinarily priced near the
-    market's own multiple for reasons this rule knows nothing about:
-    dividends, predictability, and the fact that it will still be here.
-    Saying nothing is the right answer, and the market-multiple method
-    beside it is the one built for exactly this company.
+    The market's own expected growth, from the feed's index figures, so
+    the comparison is against what the market is actually doing rather
+    than against a constant typed in here. The fallback is the long-run
+    average when the feed carried no index trend this session.
   */
-  if (pct < GROWTH_RULE_FLOOR_PCT) return null;
-  const multiple = Math.min(pct, GROWTH_RULE_CEILING);
+  const marketPct =
+    (f.marketLongTermGrowth ?? f.marketEpsGrowthNextYear ?? 0.12) * 100;
+
+  /*
+    Below the market's own pace this rule has nothing to say and says
+    nothing. Floored at 8 it valued Coca-Cola, growing at about 7%, at
+    eight times earnings, which is $26 against a share price of $88: a
+    steady company growing with the economy is ordinarily priced near the
+    market's multiple for reasons this rule knows nothing about, dividends
+    and predictability among them.
+  */
+  if (pct < Math.max(marketPct, GROWTH_RULE_FLOOR_PCT)) return null;
+
+  const multiple = Math.min(
+    MARKET_EARNINGS_MULTIPLE + (pct - marketPct) * GROWTH_PREMIUM_PER_POINT,
+    GROWTH_RULE_CEILING
+  );
   return {
     id: "growth",
     name: "Priced for the growth it is showing",
     maker: "arithmetic",
     price: round2(eps * multiple),
-    assumes: `That a company growing earnings at ${Math.round(pct)}% a year deserves about ${Math.round(multiple)} times a year's earnings. It is an old rule of thumb rather than a law, it is capped at ${GROWTH_RULE_CEILING} times because a company sustaining more than that on next year's earnings is rare enough that no rule should assume it, and it takes a single year's expected growth as though it continued.`,
-    working: `Expected earnings of ${currency(eps, 2, f.currency ?? "USD")} a share multiplied by ${Math.round(multiple)}, taken from ${source} and capped at ${GROWTH_RULE_CEILING}.`,
+    assumes: `That a company growing earnings at ${Math.round(pct)}% a year, against ${Math.round(marketPct)}% for the market as a whole, deserves about ${Math.round(multiple)} times a year's earnings. It anchors on the market's own multiple of ${MARKET_EARNINGS_MULTIPLE} and adds half a turn for each point of growth above the market, capped at ${GROWTH_RULE_CEILING}. It is a rule of thumb rather than a law, and it takes one year's expected growth as though it continued.`,
+    /*
+      The premium is written out only when there is one. A company growing
+      at the market's own pace lands on the market's own multiple, and
+      "plus half of the 0 points by which its growth beats the market's"
+      is a sentence that reads as a bug in the arithmetic rather than as
+      the arithmetic working correctly.
+    */
+    working: `Expected earnings of ${currency(eps, 2, f.currency ?? "USD")} a share multiplied by ${Math.round(multiple)}${
+      Math.round(pct - marketPct) < 1
+        ? `, the market's own multiple, because its growth of ${Math.round(pct)}% a year is the same pace as the market's. Growth taken from ${source}.`
+        : `, which is ${MARKET_EARNINGS_MULTIPLE} plus half of the ${Math.round(pct - marketPct)} points by which its growth beats the market's, taken from ${source}.`
+    }`,
     weight: 0.18,
   };
 }
-
-/**
- * THERE IS NO DISCOUNTED CASH FLOW HERE, AND THAT IS A DECISION.
- *
- * One was built, shipped in the first draft of this file, and taken out
- * again, because it was confidently wrong rather than merely uncertain
- * and the reason is in the data rather than in the method.
- *
- * The only cash figure this feed supplies is `freeCashflow`, which it
- * computes after interest and debt service. That is not what anybody else
- * means by free cash flow and it is wrong by a factor of two or three on
- * ordinary companies: measured in September 2026, Nvidia reported
- * $41.8 billion of it against $134.4 billion of operating cash flow, and
- * Coca-Cola $5.2 billion against $16.3 billion. Projecting ten years off a
- * starting number that far out and then discounting it produces a figure
- * with a great deal of arithmetic behind it and no relationship to the
- * company. It valued Coca-Cola at $11 a share against a price of $88.
- *
- * There was a second bug on top of it worth recording, because it is the
- * one somebody re-adding this will hit: a stream that has already paid its
- * interest is an equity stream, so adding net cash and subtracting debt on
- * top of it counts the balance sheet twice. Coca-Cola was being charged
- * $40 billion of debt it had already serviced.
- *
- * The honest fix needs capital spending, which this feed no longer carries
- * (`cashflowStatementHistory` comes back empty, and the library says so).
- * So the method is out until there is an input worth running it on, and
- * what replaced it is `impliedGrowth` below: the same question asked
- * backwards, from figures that are solid.
- */
 
 /**
  * What the price is assuming, which is the question a valuation is really
@@ -285,12 +304,12 @@ function growthMethod(
  *
  * Rather than tell somebody what a share is worth, this tells them what
  * has to happen for today's price to make sense: the annual earnings
- * growth needed, over five years, to bring the multiple down to what the
- * market ordinarily pays. It is one line of arithmetic on two figures that
- * are solid, it makes no assumption about a discount rate or a terminal
- * value, and it is the thing a professional actually asks. It is also the
- * fairest possible framing for a company that looks expensive: the price
- * is not wrong, it is a bet, and this is the size of the bet.
+ * growth needed, over five years, to bring the multiple back to what the
+ * market ordinarily pays. It is one line of arithmetic on two figures
+ * that are solid, it assumes no discount rate and no terminal value, and
+ * it is the thing a professional actually asks. It is also the fairest
+ * framing a company that looks expensive can get: the price is not wrong,
+ * it is a bet, and this is the size of the bet.
  *
  * Deliberately not part of the blend. It is a growth rate, not a price.
  */
@@ -311,8 +330,8 @@ export function impliedGrowth(f: CompanyFacts): {
       : null;
   if (!ok(price) || !ok(eps)) return null;
   const multiple = price / eps;
-  // Already at or below the market's ordinary multiple: the price is
-  // assuming nothing in particular, and there is no bet to size.
+  // Already at or below the market's ordinary multiple: the price assumes
+  // nothing in particular, and there is no bet to size.
   if (multiple <= MARKET_EARNINGS_MULTIPLE) return null;
   const years = 5;
   const rate = Math.pow(multiple / MARKET_EARNINGS_MULTIPLE, 1 / years) - 1;

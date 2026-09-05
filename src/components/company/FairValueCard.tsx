@@ -2,7 +2,6 @@
 
 import { Card, Panel, PanelHeader } from "@/components/ui/Panel";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { cn, currency, percent } from "@/lib/format";
 import { fairValueProvenance } from "@/lib/provenance";
@@ -11,7 +10,6 @@ import type {
   FairValueRead,
 } from "@/lib/company/fair-value";
 import { Scale } from "lucide-react";
-import { useState } from "react";
 
 /**
  * Every method behind the estimate at the top of the page, with what each
@@ -43,6 +41,39 @@ const MAKER_TONE = {
   arithmetic: "text-foreground",
   model: "text-primary",
 } as const;
+
+/**
+ * How far this method landed from today's price, drawn.
+ *
+ * The figure is already printed beside it, so this is not the information:
+ * it is the ordering. Six methods in a column with six percentages in them
+ * is a list a reader has to do arithmetic on to see that four agreed and
+ * two are outliers. A bar growing right from a centre line says it at a
+ * glance, and the centre line is today's price, which is the only reference
+ * on this card that means anything.
+ *
+ * Capped at 60%, because one method landing three times the share price
+ * would otherwise squash every other bar to nothing and the card would stop
+ * comparing anything.
+ */
+function GapBar({ gap }: { gap: number }) {
+  const width = Math.min(Math.abs(gap) / 0.6, 1) * 50;
+  return (
+    <span
+      aria-hidden
+      className="relative hidden h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-foreground/[0.07] sm:block"
+    >
+      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-foreground/25" />
+      <span
+        className={cn(
+          "absolute inset-y-0 rounded-full",
+          gap >= 0 ? "left-1/2 bg-gain/70" : "right-1/2 bg-loss/70"
+        )}
+        style={{ width: `${Math.max(width, 1.5)}%` }}
+      />
+    </span>
+  );
+}
 
 function MethodRow({
   method,
@@ -86,10 +117,18 @@ function MethodRow({
             Counts for {percent(method.weight, 0)}
           </Badge>
         )}
-        {gap !== null && (
-          <span className="font-mono text-xs tabular-nums text-muted-foreground">
-            {gap >= 0 ? "+" : ""}
-            {percent(gap, 0)} against today
+        {gap !== null && !method.dropped && (
+          <span className="inline-flex items-center gap-2">
+            <GapBar gap={gap} />
+            <span
+              className={cn(
+                "font-mono text-xs tabular-nums",
+                gap >= 0 ? "text-gain" : "text-loss"
+              )}
+            >
+              {gap >= 0 ? "+" : ""}
+              {percent(gap, 0)} against today
+            </span>
           </span>
         )}
       </div>
@@ -135,7 +174,6 @@ export function FairValueCard({
   at?: string | null;
   model?: Parameters<typeof fairValueProvenance>[0]["model"];
 }) {
-  const [open, setOpen] = useState(false);
   const all = [...read.estimate.used, ...read.estimate.dropped];
   if (all.length === 0) return null;
 
@@ -169,28 +207,26 @@ export function FairValueCard({
         anybody telling you to buy or sell.
       </p>
 
+      {/*
+        EVERY METHOD IS ON THE PAGE, NOT BEHIND A BUTTON.
+
+        It was a disclosure that opened them, which is the ordinary way to
+        keep a panel short and is the wrong way here. The working is the
+        reason this card exists: the figure at the top of the page is an
+        average, and an average nobody can take apart is exactly the
+        unfalsifiable number this room was built to replace. A reader who
+        has to press something to find out that one method said half of
+        another has, in practice, not been told.
+      */}
       <div className="flex flex-col gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className="self-start"
-        >
-          {open ? "Hide the working" : `Show all ${all.length} methods`}
-        </Button>
-        {open && (
-          <div className="flex flex-col gap-3">
-            {all.map((m) => (
-              <MethodRow
-                key={`${m.id}:${m.price}`}
-                method={m}
-                code={code}
-                spot={read.spot}
-              />
-            ))}
-          </div>
-        )}
+        {all.map((m) => (
+          <MethodRow
+            key={`${m.id}:${m.price}`}
+            method={m}
+            code={code}
+            spot={read.spot}
+          />
+        ))}
       </div>
     </Panel>
   );

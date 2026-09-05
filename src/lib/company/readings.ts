@@ -124,10 +124,10 @@ function sizeReading(f: CompanyFacts): CompanyReading {
     bigMoney(v, code),
     plain,
     fund
-      ? "A larger fund is usually cheaper to run and easier to sell out of on a bad day. It says nothing about whether what is inside it is any good."
+      ? "Bigger funds are usually cheaper to run. It says nothing about what is inside."
       : coin
-        ? "There is no revenue, no profit and no asset behind this figure. It is the number of coins multiplied by what the last one traded at, so it moves entirely with sentiment."
-        : "Under $2 billion is small, $10 billion to $200 billion is the middle of the market, and above that are the few dozen everybody has heard of.",
+        ? "No revenue, no profit and no asset behind it. Coins in existence times the last price."
+        : "Under $2 billion is small; above $200 billion are the few dozen everybody has heard of.",
     "neutral",
     fund || coin ? undefined : "market-value"
   );
@@ -143,7 +143,7 @@ function salesReading(f: CompanyFacts): CompanyReading {
     "Revenue",
     bigMoney(f.revenue, code),
     plain,
-    "Money in the door before any costs come out. A company can sell a great deal and still lose money.",
+    "Money in the door before any costs come out.",
     "neutral",
     "sales"
   );
@@ -166,8 +166,8 @@ function growthReading(f: CompanyFacts): CompanyReading {
     has(g) ? percent(g) : NO_VALUE,
     plain,
     has(next)
-      ? `Analysts expect ${percent(next)} next year. The economy as a whole grows a few percent, so anything well above that is real growth.`
-      : "The economy as a whole grows a few percent a year, so anything well above that is real growth. Falling sales is the one figure here worth stopping on.",
+      ? `Analysts expect ${percent(next)} next year.`
+      : "The economy grows a few percent a year. Falling sales is the one figure here worth stopping on.",
     tone,
     "sales-growth",
     has(next)
@@ -207,8 +207,8 @@ function earningsGrowthReading(f: CompanyFacts): CompanyReading {
     has(g) ? percent(g) : NO_VALUE,
     plain,
     has(market)
-      ? `The S&P 500's own earnings are expected to grow ${percent(market)} over the same stretch, so this is the figure that says whether the company is outrunning the market or keeping pace with it.`
-      : "This is what the market is paying for. A high price is usually a bet on this number, so it is the one to watch when results come out.",
+      ? `This is what the price is a bet on, and the S&P 500 is expected to manage ${percent(market)}.`
+      : "This is what the price is a bet on, so it is the figure to watch on results day.",
     tone,
     undefined,
     has(market)
@@ -247,8 +247,8 @@ function profitReading(f: CompanyFacts): CompanyReading {
     has(m) ? percent(m) : NO_VALUE,
     plain,
     has(past)
-      ? `In ${oldest!.year} it was ${percent(past)}, so the business is ${has(m) && m > past ? "keeping more of what it sells than it used to" : has(m) && m < past ? "keeping less of what it sells than it used to" : "keeping about the same share as it used to"}.`
-      : "Most large companies keep $5 to $15 of every $100. A young company losing money on purpose is a choice, and it works only while somebody keeps lending it the difference.",
+      ? `In ${oldest!.year} it was ${percent(past)}, so the business is ${has(m) && m > past ? "keeping more of what it sells" : has(m) && m < past ? "keeping less of what it sells" : "keeping about the same share"} than it used to.`
+      : "Most large companies keep $5 to $15 of every $100.",
     tone,
     "profit-margin",
     has(past) && oldest
@@ -267,7 +267,7 @@ function balanceReading(f: CompanyFacts): CompanyReading {
       "Net cash",
       NO_VALUE,
       null,
-      "More cash than debt means a bad year is survivable without asking anybody. The other way round, the lenders have a say too.",
+      "More cash than debt means a bad year needs nobody's permission.",
       "neutral",
       "debt"
     );
@@ -293,8 +293,8 @@ function balanceReading(f: CompanyFacts): CompanyReading {
     bigMoney(Math.abs(net), code),
     plain,
     has(years)
-      ? `The debt comes to ${years < 0.15 ? "a small fraction of" : years < 0.9 ? `about ${percent(years, 0)} of` : `about ${years.toFixed(1)} times`} a year's sales. Past about one and a half years of sales, keeping the lenders happy starts competing with keeping customers happy.`
-      : "More cash than debt means a bad year is survivable without asking anybody. The other way round, the lenders have a say too.",
+      ? `The debt is ${years < 0.15 ? "a small fraction of" : years < 0.9 ? `about ${percent(years, 0)} of` : `about ${years.toFixed(1)} times`} a year's sales. Past one and a half years, the lenders get a say.`
+      : "More cash than debt means a bad year needs nobody's permission.",
     net >= 0 ? "good" : heavy ? "watch" : "neutral",
     "debt"
   );
@@ -328,8 +328,8 @@ function priceTagReading(f: CompanyFacts): CompanyReading {
     has(shown) ? `${number(shown, 1)}x` : NO_VALUE,
     plain,
     has(trailing) && isForward
-      ? `On last year's profit it is ${number(trailing, 1)}x. The whole US market has averaged near ${MARKET_MULTIPLE}x over the long run, so the gap between those two numbers is how much growth the price is counting on.`
-      : `The whole US market has averaged near ${MARKET_MULTIPLE}x over the long run. Higher usually means people expect the profit to grow, and that more has to go right.`,
+      ? `${number(trailing, 1)}x on last year's profit. The market has averaged near ${MARKET_MULTIPLE}x, and the gap is the growth the price counts on.`
+      : `The market has averaged near ${MARKET_MULTIPLE}x. Higher means more has to go right.`,
     "neutral",
     "price-to-earnings",
     {
@@ -349,7 +349,7 @@ function rangeReading(f: CompanyFacts): CompanyReading {
       "52 week range",
       NO_VALUE,
       null,
-      "Near the top or the bottom of its own year says nothing about what happens next. It says how much the people holding it have changed their minds lately.",
+      "Where it sits in its own year says nothing about what happens next.",
       "neutral",
       "recent-range"
     );
@@ -361,7 +361,7 @@ function rangeReading(f: CompanyFacts): CompanyReading {
     "52 week range",
     percent(spot, 0),
     plain,
-    "Near the top or the bottom of its own year says nothing about what happens next. It says how much the people holding it have changed their minds lately.",
+    "Where it sits in its own year says nothing about what happens next.",
     "neutral",
     "recent-range",
     { label: "Down from the high", value: percent((high - price) / high, 0), better: null }
@@ -383,8 +383,8 @@ function dividendReading(f: CompanyFacts): CompanyReading {
     pays ? percent(y, 2) : "None",
     plain,
     fund
-      ? "This is what the companies inside the fund paid out, passed on to you after the fund's charge. It arrives whether the price moves or not, and it is part of what you get from holding the fund rather than a bonus on top."
-      : "Cash that arrives whether the price moves or not. Not free money: it comes out of the company, which then has that much less to spend on growing.",
+      ? "What the companies inside paid out, passed on after the fund's charge."
+      : "Cash that arrives whether the price moves or not, and it comes out of the company.",
     "neutral",
     "dividend"
   );
@@ -416,8 +416,8 @@ function feeReading(f: CompanyFacts): CompanyReading {
     has(fee) ? percent(fee, 2) : NO_VALUE,
     plain,
     has(fee)
-      ? `Held for thirty years, that compounds: at ${percent(fee, 2)} a year roughly ${percent(1 - Math.pow(1 - fee, 30), 0)} of what you would otherwise have ends up with the fund instead. The cheapest broad funds charge under 0.10%.`
-      : "The cheapest broad index funds charge under 0.10% a year. Anything near 1% has to beat the market by that much every year just to draw level.",
+      ? `Over thirty years that compounds to roughly ${percent(1 - Math.pow(1 - fee, 30), 0)} of what you would otherwise have. The cheapest broad funds charge under 0.10%.`
+      : "The cheapest broad funds charge under 0.10%. Anything near 1% has to beat the market by that much just to draw level.",
     tone
   );
 }
