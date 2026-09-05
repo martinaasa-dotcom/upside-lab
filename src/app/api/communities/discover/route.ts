@@ -70,10 +70,11 @@ async function handleGET() {
       name: string;
       house_note: string | null;
       created_at: string;
+      auto_approve_joins: boolean | null;
     }>(() =>
       supabase
         .from(PORTFELL_TABLES.communities)
-        .select("id, name, house_note, created_at")
+        .select("id, name, house_note, created_at, auto_approve_joins")
         .eq("visibility", "public")
         .order("name")
         .order("id")
@@ -120,6 +121,10 @@ async function handleGET() {
       houseNote: c.house_note,
       memberCount: memberCountByCommunity.get(c.id) ?? 0,
       requestStatus: requestStatusByCommunity.get(c.id) ?? null,
+      // Whether pressing the button is joining or asking, so the button
+      // can say which one it is rather than promising a wait that is not
+      // going to happen.
+      autoApproveJoins: c.auto_approve_joins !== false,
     })),
   });
 }

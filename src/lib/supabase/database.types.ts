@@ -133,6 +133,7 @@ export type Database = {
       }
       portfell_communities: {
         Row: {
+          auto_approve_joins: boolean
           class_plan: Json
           created_at: string
           created_by: string | null
@@ -145,6 +146,7 @@ export type Database = {
           visibility: string
         }
         Insert: {
+          auto_approve_joins?: boolean
           class_plan?: Json
           created_at?: string
           created_by?: string | null
@@ -157,6 +159,7 @@ export type Database = {
           visibility?: string
         }
         Update: {
+          auto_approve_joins?: boolean
           class_plan?: Json
           created_at?: string
           created_by?: string | null

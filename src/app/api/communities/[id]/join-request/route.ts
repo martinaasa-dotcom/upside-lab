@@ -3,11 +3,8 @@ import {
   userIsCommunityAdmin,
   userIsCommunityMember,
 } from "@/lib/auth/ownership";
-import { provisionClassroomSheet } from "@/lib/classroom";
-import {
-  parseSharePortfolioIds,
-  shareOwnedSheetsIntoCommunity,
-} from "@/lib/community-share";
+import { admitToCommunity } from "@/lib/community-join";
+import { parseSharePortfolioIds } from "@/lib/community-share";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
@@ -20,9 +17,19 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** Request to join a PUBLIC community — never auto-joins; an admin has to
- * approve. Re-requesting after a rejection resets the same row to pending
- * rather than erroring on the unique constraint. */
+/**
+ * Ask to join a PUBLIC community. Re-requesting after a rejection resets
+ * the same row to pending rather than erroring on the unique constraint.
+ *
+ * Whether the asking is also the joining is the circle's own setting
+ * (`auto_approve_joins`, on by default for a public circle): a door
+ * marked public and then bolted only delays people, since the admin
+ * approves whenever they next happen to look. An admin who wants to meet
+ * everybody first turns it off in Settings and the request waits for
+ * them, exactly as it always did. A private community is refused above
+ * before any of this is read, so an invite is still the only way into
+ * one, and a class is always private.
+ */
 async function handlePOST(req: NextRequest, ctx: Ctx) {
   const auth = await requireAuthUser();
   if ("error" in auth) return auth.error;
@@ -35,7 +42,7 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
 
   const { data: community } = await supabase
     .from(PORTFELL_TABLES.communities)
-    .select("id, visibility")
+    .select("id, visibility, auto_approve_joins")
     .eq("id", id)
     .maybeSingle();
   // A nonexistent id and a real private community both fail the same way —
@@ -77,7 +84,33 @@ async function handlePOST(req: NextRequest, ctx: Ctx) {
   if (error) {
     return NextResponse.json({ error: dbError(error, "/api/communities/[id]/join-request") }, { status: 500 });
   }
-  return NextResponse.json({ request: data });
+
+  const autoApprove =
+    (community as { auto_approve_joins?: boolean }).auto_approve_joins !== false;
+  if (autoApprove) {
+    // Decided by the person who asked, because nobody else was involved:
+    // the circle said in advance that asking is enough.
+    const admitted = await admitToCommunity(supabase, {
+      communityId: id,
+      userId: auth.user.id,
+      sharePortfolioIds: shareIds,
+      decidedBy: auth.user.id,
+    });
+    if (admitted.error) {
+      return NextResponse.json(
+        {
+          error: dbError(
+            admitted.error,
+            "/api/communities/[id]/join-request"
+          ),
+        },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ request: data, joined: true });
+  }
+
+  return NextResponse.json({ request: data, joined: false });
 }
 
 /** Cancel your own pending request. */
@@ -134,29 +167,27 @@ async function handlePATCH(req: NextRequest, ctx: Ctx) {
   }
 
   if (body.decision === "approve") {
-    const { error: memberErr } = await supabase
-      .from(PORTFELL_TABLES.communityMembers)
-      .insert({ community_id: id, user_id: targetUserId, role: "member" });
-    if (memberErr) {
-      return NextResponse.json({ error: dbError(memberErr, "/api/communities/[id]/join-request") }, { status: 500 });
-    }
-    await provisionClassroomSheet(supabase, {
-      communityId: id,
-      userId: targetUserId,
-    });
     const picked = (request as { share_portfolio_ids?: string[] | null })
       .share_portfolio_ids;
-    await shareOwnedSheetsIntoCommunity(supabase, {
+    const admitted = await admitToCommunity(supabase, {
       communityId: id,
       userId: targetUserId,
-      portfolioIds: picked ?? null,
+      sharePortfolioIds: picked ?? null,
+      decidedBy: auth.user.id,
     });
+    if (admitted.error) {
+      return NextResponse.json(
+        { error: dbError(admitted.error, "/api/communities/[id]/join-request") },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ ok: true });
   }
 
   const { error } = await supabase
     .from(PORTFELL_TABLES.communityJoinRequests)
     .update({
-      status: body.decision === "approve" ? "approved" : "rejected",
+      status: "rejected",
       decided_at: new Date().toISOString(),
       decided_by: auth.user.id,
     })

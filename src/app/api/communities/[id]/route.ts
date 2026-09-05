@@ -66,7 +66,7 @@ async function handleGET(_req: NextRequest, ctx: Ctx) {
       userIsCommunityAdmin(auth.user.id, id),
       supabase
         .from(PORTFELL_TABLES.communities)
-        .select("id, name, visibility, kind, starting_cash, house_note, class_plan, created_by, created_at, updated_at")
+        .select("id, name, visibility, auto_approve_joins, kind, starting_cash, house_note, class_plan, created_by, created_at, updated_at")
         .eq("id", id)
         .single(),
       readAll<{ user_id: string; role: string; joined_at: string }>(() =>
@@ -385,6 +385,27 @@ async function handlePATCH(req: NextRequest, ctx: Ctx) {
       );
     }
     patch.visibility = body.visibility;
+  }
+  if (body.autoApproveJoins !== undefined) {
+    /*
+      Only a public circle can be let open: a class and a private circle
+      are reached by invite alone, and a stored true on one of those would
+      be a setting that reads as a promise the join route never keeps.
+    */
+    const { data: current } = await supabase
+      .from(PORTFELL_TABLES.communities)
+      .select("kind, visibility")
+      .eq("id", id)
+      .maybeSingle();
+    const row = current as { kind?: string; visibility?: string } | null;
+    const nextVisibility = patch.visibility ?? row?.visibility;
+    if (body.autoApproveJoins && (row?.kind === "classroom" || nextVisibility !== "public")) {
+      return NextResponse.json(
+        { error: "Only a public circle can let people in on the spot" },
+        { status: 400 }
+      );
+    }
+    patch.auto_approve_joins = body.autoApproveJoins;
   }
   if (body.houseNote !== undefined) {
     patch.house_note = String(body.houseNote).trim().slice(0, 800);

@@ -10,7 +10,7 @@
 - Portfolio PIN/password and guest share links are **removed**. A signed-in session (Google or email link) plus co-ownership is the only gate.
 - Community membership is **always opt-in, never automatic**. Signing in never adds anyone to any community (fixed in `030`, see below). A community is either:
   - **Private** (default): invite-link only, exactly like portfolio co-ownership.
-  - **Public**: discoverable to any signed-in user (`GET /api/communities/discover`), who can ask to join (`POST /api/communities/:id/join-request`) — an admin still has to approve (`PATCH` same route) before the requester gets read access to anyone's portfolios.
+  - **Public**: discoverable to any signed-in user (`GET /api/communities/discover`), who can ask to join (`POST /api/communities/:id/join-request`). `auto_approve_joins` (migration `20260905120000`, default true) decides what happens next: on, the asking is the joining and the admin is told who arrived by the card at the top of the circle; off, the request waits and an admin approves or declines (`PATCH` same route). Either way the member row is written in one place, `admitToCommunity` (`src/lib/community-join.ts`), and only for somebody who asked. A private circle and a class never reach the column: the route refuses anything that is not public first.
   - **Classroom** (`kind = classroom`, always private): teacher-run paper class. Students join with an invite. Redeeming the invite (or an approved join request) provisions one homework portfolio with the class `starting_cash` and pins it. Real portfolios cannot be shared into a class. Class portfolios cannot be deleted while the class exists. See migration `039`. Teacher sets `class_plan` (migration `040`): buy week, closed, sell-and-move, or anything goes. Empty plan means open. Purpose is the house note. Teachers can still edit a class portfolio; students cannot break the current rule. Leaving the class unpins the homework portfolio and drops the class lock so it becomes a normal portfolio they can delete.
 
 ## One account, more than one address
@@ -134,7 +134,8 @@ Shows every Upside profile (Google sign-ins), every community, and each communit
 - `052` drop the Karud account alias. Rasmus and Karoliine stay two Circle members on one portfolio, like Martin and Amanda
 - `053` household circle membership. Martin/Amanda and Rasmus/Karoliine join, leave, and change roles together. Classrooms stay per person.
 - `050` community invite uses log + `token_hint`. Redeem RPC records who used which link. Admin list + retire.
-- `051` circle share is opt-out again. Backfill members' real portfolios into non-class circles. Public join requests can store `share_portfolio_ids`.  
+- `051` circle share is opt-out again. Backfill members' real portfolios into non-class circles. Public join requests can store `share_portfolio_ids`.
+- `20260905120000` a public circle lets people in: `auto_approve_joins` on `portfell_communities`, true by default and false for every class.  
 
 - `017` RLS hardening — closed a self co-owner-escalation hole on `portfell_portfolio_owners`, a world-readable `portfell_book_snapshots` policy, a stale shared-row leak on `portfell_lab_state`, and a null-email coalesce bug on invite `SELECT` policies
 - `018` fixed `portfell_claim_seed_for_me()` — a PL/pgSQL loop variable named `slug` collided with the `portfell_portfolios.slug` column, so every first-time seed claim raised "column reference is ambiguous" and rolled back (profile included). Silently broken since `010`; only worked for people seeded directly via `scripts/seed-ownership.sql` (Martin/Martina/Amanda). Rasmus was backfilled manually after the fix; Karoliine and Liina will claim normally on their first sign-in now
