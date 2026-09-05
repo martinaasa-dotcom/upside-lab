@@ -119,6 +119,44 @@ export function dueCards(
   return due.slice(0, Math.max(0, limit));
 }
 
+/**
+ * The one card to show this visit.
+ *
+ * A card that has come round before still goes first, since that is the
+ * asking that teaches. Among the cards nobody has answered yet, the deck
+ * used to hand over the first one it generated, which was the same
+ * question about the same holding every day until somebody answered it.
+ * Now the visit's own roll picks a *kind* of question first and a card
+ * within it second, so two visits in a row ask about different things
+ * rather than the same holding's share, then its share again.
+ *
+ * `roll` is any non-negative integer; the panel draws a fresh one each
+ * time it mounts, so a refresh is a new question, which is deliberate: a
+ * card is worth more for being answered than for being the day's card.
+ */
+export function pickCard(
+  cards: RecallCard[],
+  state: DeckState,
+  today: string,
+  roll: number,
+  except: ReadonlySet<string> = new Set()
+): RecallCard | null {
+  const due = cards.filter(
+    (c) => !except.has(c.id) && isDue(state, c.id, today)
+  );
+  if (!due.length) return null;
+  const seen = due
+    .filter((c) => state[c.id])
+    .sort((a, b) => (state[a.id]!.due < state[b.id]!.due ? -1 : 1));
+  if (seen.length) return seen[0]!;
+  const byConcept = new Map<string, RecallCard[]>();
+  for (const c of due) byConcept.set(c.concept, [...(byConcept.get(c.concept) ?? []), c]);
+  const concepts = [...byConcept.keys()];
+  const r = Math.abs(Math.floor(roll)) || 0;
+  const group = byConcept.get(concepts[r % concepts.length]!)!;
+  return group[Math.floor(r / concepts.length) % group.length]!;
+}
+
 /** How much of the deck the reader has answered right at the far end. */
 export function deckProgress(
   cards: RecallCard[],
@@ -172,11 +210,37 @@ function seedOf(text: string): number {
   return Math.abs(h);
 }
 
-function biggest(holdings: DeckHolding[]): DeckHolding | null {
-  return (
-    [...holdings].sort((a, b) => b.value - a.value).find((h) => h.value > 0) ??
-    null
-  );
+function byValue(holdings: DeckHolding[]): DeckHolding[] {
+  return [...holdings]
+    .filter((h) => h.value > 0)
+    .sort((a, b) => b.value - a.value);
+}
+
+/** "under a tenth" and friends, for a share of the whole. */
+const BANDS = ["under a tenth", "about a quarter", "about a half", "most of it"] as const;
+
+function bandOf(share: number): string {
+  return share < 0.15
+    ? BANDS[0]
+    : share < 0.35
+      ? BANDS[1]
+      : share < 0.6
+        ? BANDS[2]
+        : BANDS[3];
+}
+
+/** Since what was paid, as a fraction: 0.25 is up a quarter. */
+function sinceBought(h: DeckHolding): number | null {
+  if (!(h.buyPrice > 0) || !(h.price > 0)) return null;
+  return h.price / h.buyPrice - 1;
+}
+
+function pctWord(n: number): string {
+  return `about ${Math.round(n * 100)}%`;
+}
+
+function uniq(options: string[]): string[] {
+  return options.filter((v, i, a) => a.indexOf(v) === i);
 }
 
 /**
@@ -184,39 +248,173 @@ function biggest(holdings: DeckHolding[]): DeckHolding | null {
  *
  * A generator that cannot ask an honest question returns nothing, so a
  * portfolio of one holding simply has a smaller deck rather than a deck of
- * questions with no answer.
+ * questions with no answer. Each kind of question runs over every holding
+ * it can, not only the biggest one, because a deck of five cards about the
+ * same company is one card asked five ways.
  */
 export function buildRecallCards(input: DeckInput): RecallCard[] {
   const { holdings, totalValue, money, percent } = input;
   const cards: RecallCard[] = [];
   const named = (h: DeckHolding) => h.label ?? h.ticker;
+  const ranked = byValue(holdings);
+  const top = ranked[0] ?? null;
 
-  const top = biggest(holdings);
-  if (top && totalValue > 0 && holdings.length >= 2) {
-    const share = top.value / totalValue;
-    const bands = ["under a tenth", "about a quarter", "about a half", "most of it"];
-    const band =
-      share < 0.15
-        ? bands[0]!
-        : share < 0.35
-          ? bands[1]!
-          : share < 0.6
-            ? bands[2]!
-            : bands[3]!;
-    const { options, answerIndex } = shuffleTo(
-      bands,
-      band,
-      seedOf(`share:${top.ticker}`)
-    );
-    cards.push({
-      id: `share:${top.ticker}`,
-      concept: "share-of-portfolio",
-      question: `How much of everything you own is ${named(top)}?`,
-      options,
-      answerIndex,
-      because: `${named(top)} is ${percent(share)} of your portfolio, ${money(top.value)} of ${money(totalValue)}.`,
-    });
+  // A card is only worth asking when its options are really different
+  // answers, so every generator dedupes its options and stands down under
+  // three.
+  const push = (
+    id: string,
+    concept: string,
+    question: string,
+    options: string[],
+    answer: string,
+    because: string
+  ) => {
+    const distinct = uniq(options);
+    if (distinct.length < 3 || !distinct.includes(answer)) return;
+    const shuffled = shuffleTo(distinct, answer, seedOf(id));
+    cards.push({ id, concept, question, because, ...shuffled });
+  };
+
+  /* -------------------------------------------- how much of it is this */
+
+  if (totalValue > 0 && holdings.length >= 2) {
+    for (const h of ranked) {
+      const share = h.value / totalValue;
+      push(
+        `share:${h.ticker}`,
+        "share-of-portfolio",
+        `How much of everything you own is ${named(h)}?`,
+        [...BANDS],
+        bandOf(share),
+        `${named(h)} is ${percent(share)} of your portfolio, ${money(h.value)} of ${money(totalValue)}.`
+      );
+    }
   }
+
+  if (top && totalValue > 0 && ranked.length >= 3) {
+    const second = ranked[1]!;
+    const share = (top.value + second.value) / totalValue;
+    push(
+      "top-two",
+      "concentration",
+      `Your two biggest holdings, ${named(top)} and ${named(second)}, add up to how much of everything you own?`,
+      [...BANDS],
+      bandOf(share),
+      `Together they are ${percent(share)} of your portfolio. The other ${ranked.length - 2} ${ranked.length - 2 === 1 ? "holding shares" : "holdings share"} the remaining ${percent(Math.max(0, 1 - share))}.`
+    );
+  }
+
+  if (totalValue > 0 && Math.abs(input.cash) > 0 && holdings.length >= 1) {
+    const share = Math.abs(input.cash) / totalValue;
+    const borrowed = input.cash < 0;
+    push(
+      "cash-share",
+      "cash",
+      borrowed
+        ? "Part of your portfolio is borrowed money. About how much of the whole is it?"
+        : "How much of everything you own is sitting in cash?",
+      [...BANDS],
+      bandOf(share),
+      borrowed
+        ? `You are borrowing ${money(Math.abs(input.cash))} against a portfolio worth ${money(totalValue)}, which is ${percent(share)} of it.`
+        : `${money(input.cash)} of your ${money(totalValue)} is cash, which is ${percent(share)}. Cash does not move when the market does, so it is the part of the total that stays put on a bad day.`
+    );
+  }
+
+  /* ------------------------------------------------ which one is it */
+
+  if (ranked.length >= 3) {
+    const names = ranked.slice(0, 4).map(named);
+    push(
+      "which-biggest",
+      "which-one",
+      "Which of these is the biggest slice of everything you own?",
+      names,
+      named(top!),
+      `${named(top!)}, at ${money(top!.value)}. ${names.length > 2 ? `Next is ${named(ranked[1]!)} at ${money(ranked[1]!.value)}.` : ""}`
+    );
+    const small = ranked[ranked.length - 1]!;
+    push(
+      "which-smallest",
+      "which-one",
+      "Which of these is the smallest slice of everything you own?",
+      uniq([...ranked.slice(-3).map(named), named(top!)]),
+      named(small),
+      `${named(small)}, at ${money(small.value)}, which is ${percent(small.value / totalValue)} of the total. Even if it doubled or halved, the whole portfolio would barely notice.`
+    );
+  }
+
+  const moved = holdings.filter((h) => h.todayPct != null);
+  if (moved.length >= 3) {
+    const bySize = [...moved].sort(
+      (a, b) => Math.abs(b.todayPct!) - Math.abs(a.todayPct!)
+    );
+    const first = bySize[0]!;
+    const next = bySize[1]!;
+    if (Math.abs(first.todayPct!) - Math.abs(next.todayPct!) >= 0.003) {
+      push(
+        "which-moved-today",
+        "today",
+        "Which of your holdings moved the most today, up or down?",
+        bySize.slice(0, 4).map(named),
+        named(first),
+        `${named(first)} moved ${percent(Math.abs(first.todayPct!))}, ${first.todayPct! < 0 ? "down" : "up"}. ${named(next)} was next at ${percent(Math.abs(next.todayPct!))}. A big move in a small holding can still be a small move in your total.`
+      );
+    }
+    const up = moved.filter((h) => h.todayPct! > 0).reduce((s, h) => s + h.value, 0);
+    const down = moved.filter((h) => h.todayPct! < 0).reduce((s, h) => s + h.value, 0);
+    const pool = up + down;
+    if (pool > 0) {
+      const answer =
+        Math.abs(up - down) / pool < 0.1
+          ? "about an even split"
+          : up > down
+            ? "more of it went up"
+            : "more of it went down";
+      push(
+        "money-direction",
+        "today",
+        "Counting in dollars rather than in names, did more of your money go up or down today?",
+        ["more of it went up", "more of it went down", "about an even split"],
+        answer,
+        `${money(up)} of your holdings rose today and ${money(down)} fell. A count of names can say one thing and the money another, because one big holding outweighs three small ones.`
+      );
+    }
+  }
+
+  const withRoi = holdings
+    .map((h) => ({ h, roi: sinceBought(h) }))
+    .filter((x): x is { h: DeckHolding; roi: number } => x.roi != null)
+    .sort((a, b) => b.roi - a.roi);
+  if (withRoi.length >= 3) {
+    const best = withRoi[0]!;
+    const runnerUp = withRoi[1]!;
+    if (best.roi - runnerUp.roi >= 0.03) {
+      push(
+        "which-best-since-bought",
+        "since-bought",
+        "Since you bought them, which of these has risen the most?",
+        withRoi.slice(0, 4).map((x) => named(x.h)),
+        named(best.h),
+        `${named(best.h)}, up ${percent(best.roi)} on what you paid for it. ${named(runnerUp.h)} is next at ${best.roi >= 0 && runnerUp.roi < 0 ? `down ${percent(Math.abs(runnerUp.roi))}` : `${runnerUp.roi < 0 ? "down" : "up"} ${percent(Math.abs(runnerUp.roi))}`}.`
+      );
+    }
+    const worst = withRoi[withRoi.length - 1]!;
+    const nextWorst = withRoi[withRoi.length - 2]!;
+    if (nextWorst.roi - worst.roi >= 0.03) {
+      push(
+        "which-worst-since-bought",
+        "since-bought",
+        "Since you bought them, which of these has done the worst?",
+        withRoi.slice(-4).map((x) => named(x.h)),
+        named(worst.h),
+        `${named(worst.h)}, ${worst.roi < 0 ? "down" : "up only"} ${percent(Math.abs(worst.roi))} on what you paid. That is the price against your own cost, which is a different question from how it did today.`
+      );
+    }
+  }
+
+  /* --------------------------------------- the arithmetic of one name */
 
   if (top && totalValue > 0) {
     // What a bad day for the largest holding alone does to the total. The
@@ -227,43 +425,119 @@ export function buildRecallCards(input: DeckInput): RecallCard[] {
     const rounded = Math.round(hit * 100);
     const wrong = [Math.max(1, Math.round(rounded / 3)), 20, Math.min(95, rounded * 2 + 3)];
     const answer = `about ${rounded}%`;
-    const { options, answerIndex } = shuffleTo(
-      [answer, ...wrong.map((w) => `about ${w}%`)].filter(
-        (v, i, a) => a.indexOf(v) === i
-      ),
+    push(
+      `shock:${top.ticker}`,
+      "concentration",
+      `If ${named(top)} fell 20% tomorrow and nothing else moved, your whole portfolio would fall by about how much?`,
+      [answer, ...wrong.map((w) => `about ${w}%`)],
       answer,
-      seedOf(`shock:${top.ticker}`)
+      `${named(top)} is ${percent(share)} of what you own, so a fifth off it is about ${percent(hit)} off your total, which is ${money(hit * totalValue)}.`
     );
-    if (options.length >= 3) {
-      cards.push({
-        id: `shock:${top.ticker}`,
-        concept: "concentration",
-        question: `If ${named(top)} fell 20% tomorrow and nothing else moved, your whole portfolio would fall by about how much?`,
-        options,
-        answerIndex,
-        because: `${named(top)} is ${percent(share)} of what you own, so a fifth off it is about ${percent(hit)} off your total, which is ${money(hit * totalValue)}.`,
-      });
+  }
+
+  if (totalValue > 0 && holdings.length >= 2) {
+    for (const h of ranked) {
+      const share = h.value / totalValue;
+      if (share < 0.02) continue;
+      const answer = pctWord(share);
+      push(
+        `double:${h.ticker}`,
+        "what-if",
+        `If ${named(h)} doubled overnight and nothing else moved, how much bigger would everything you own be?`,
+        [answer, pctWord(share / 2), "about 100%", pctWord(Math.min(0.95, share * 2))],
+        answer,
+        `A holding that doubles adds its own size to the total once more. ${named(h)} is ${percent(share)} of what you own, so the whole would grow by ${percent(share)}, which is ${money(h.value)}.`
+      );
     }
   }
 
-  for (const h of holdings.slice(0, 3)) {
-    if (!(h.buyPrice > 0) || !(h.price > 0)) continue;
+  for (const h of holdings) {
+    const roi = sinceBought(h);
+    if (roi == null) continue;
     const above = h.price >= h.buyPrice;
-    const answer = above ? "above what you paid" : "below what you paid";
-    const { options, answerIndex } = shuffleTo(
+    push(
+      `paid:${h.ticker}`,
+      "paid-each",
+      `${named(h)} is ${money(h.price)} today. Is that above or below what you paid?`,
       ["above what you paid", "below what you paid", "exactly what you paid"],
-      answer,
-      seedOf(`paid:${h.ticker}`)
+      above ? "above what you paid" : "below what you paid",
+      `You paid ${money(h.buyPrice)} a share on average, so today is ${above ? "above" : "below"} it by ${money(Math.abs(h.price - h.buyPrice))} a share.`
     );
-    cards.push({
-      id: `paid:${h.ticker}`,
-      concept: "paid-each",
-      question: `${named(h)} is ${money(h.price)} today. Is that above or below what you paid?`,
-      options,
-      answerIndex,
-      because: `You paid ${money(h.buyPrice)} a share on average, so today is ${above ? "above" : "below"} it by ${money(Math.abs(h.price - h.buyPrice))} a share.`,
-    });
+
+    // The asymmetry most people never notice: a fall of a third needs a
+    // rise of a half to undo, because the rise starts from a smaller
+    // number. The wrong answer offered is the one nearly everybody gives.
+    if (roi <= -0.05) {
+      const fall = -roi;
+      const rise = h.buyPrice / h.price - 1;
+      const answer = pctWord(rise);
+      push(
+        `back-even:${h.ticker}`,
+        "asymmetry",
+        `${named(h)} is ${percent(fall)} below what you paid. To get back to your price, it would need to rise by about how much?`,
+        [answer, pctWord(fall), pctWord(rise * 2), pctWord(fall / 2)],
+        answer,
+        `More than it fell. It is at ${money(h.price)} and you paid ${money(h.buyPrice)}, and the climb is measured from the lower number, so a ${percent(fall)} fall takes a ${percent(rise)} rise to undo.`
+      );
+    } else if (roi >= 0.05) {
+      const room = 1 - h.buyPrice / h.price;
+      const answer = pctWord(room);
+      push(
+        `room:${h.ticker}`,
+        "asymmetry",
+        `${named(h)} is ${percent(roi)} above what you paid. It could fall by about how much before it was back at your price?`,
+        [answer, pctWord(roi), pctWord(room / 2), pctWord(Math.min(0.95, roi * 2))],
+        answer,
+        `Less than it rose. It is at ${money(h.price)} against the ${money(h.buyPrice)} you paid, and a fall is measured from the higher number, so a ${percent(roi)} rise is undone by a ${percent(room)} fall.`
+      );
+    }
   }
+
+  /* ------------------------------------------------ your own figures */
+
+  for (const h of holdings) {
+    if (h.shares >= 3 && Number.isInteger(h.shares)) {
+      const answer = String(h.shares);
+      push(
+        `shares:${h.ticker}`,
+        "your-figures",
+        `How many shares of ${named(h)} do you own?`,
+        [
+          answer,
+          String(Math.max(1, Math.round(h.shares / 2))),
+          String(h.shares * 2),
+          String(Math.max(1, h.shares + (h.shares >= 10 ? 5 : 1))),
+        ],
+        answer,
+        `${h.shares} shares, at ${money(h.price)} each, which is ${money(h.value)} all together.`
+      );
+    }
+    if (h.value > 0) {
+      const answer = money(h.value);
+      push(
+        `worth:${h.ticker}`,
+        "your-figures",
+        `What are all your ${named(h)} shares worth today, added up?`,
+        [answer, money(h.value / 2), money(h.value * 2), money(h.value * 4)],
+        answer,
+        `${money(h.value)}, which is ${h.shares} shares at ${money(h.price)}. That is ${percent(totalValue > 0 ? h.value / totalValue : 0)} of everything you own.`
+      );
+    }
+    const cost = h.shares * h.buyPrice;
+    if (cost > 0 && h.value > 0) {
+      const answer = money(cost);
+      push(
+        `paid-total:${h.ticker}`,
+        "your-figures",
+        `All together, how much did you put into ${named(h)}?`,
+        [answer, money(h.value), money(cost / 2), money(cost * 2)],
+        answer,
+        `${money(cost)}, and it is worth ${money(h.value)} today, so you are ${h.value >= cost ? "up" : "down"} ${money(Math.abs(h.value - cost))} on it.`
+      );
+    }
+  }
+
+  /* --------------------------------------------------------- the day */
 
   if (holdings.length >= 3) {
     const down = holdings.filter((h) => (h.todayPct ?? 0) < 0).length;
@@ -271,21 +545,14 @@ export function buildRecallCards(input: DeckInput): RecallCard[] {
     const nearby = [down - 1, down + 1, down + 2].filter(
       (n) => n >= 0 && n <= holdings.length && n !== down
     );
-    const { options, answerIndex } = shuffleTo(
+    push(
+      "down-today",
+      "today",
+      `How many of your ${holdings.length} holdings are down today?`,
       [answer, ...nearby.slice(0, 2).map(String)],
       answer,
-      seedOf("down-today")
+      `${down} of ${holdings.length}. When nearly all of them move the same way, it is usually the whole market rather than any one company.`
     );
-    if (options.length >= 3) {
-      cards.push({
-        id: "down-today",
-        concept: "today",
-        question: `How many of your ${holdings.length} holdings are down today?`,
-        options,
-        answerIndex,
-        because: `${down} of ${holdings.length}. When nearly all of them move the same way, it is usually the whole market rather than any one company.`,
-      });
-    }
   }
 
   if (input.typical && input.todayPct != null && totalValue > 0) {
@@ -296,19 +563,25 @@ export function buildRecallCards(input: DeckInput): RecallCard[] {
         : size === "bigger"
           ? "bigger than usual"
           : "much bigger than usual";
-    const { options, answerIndex } = shuffleTo(
+    push(
+      "today-size",
+      "typical-move",
+      "Your portfolio moved today. Was that an ordinary day for it?",
       ["an ordinary day", "bigger than usual", "much bigger than usual"],
       answer,
-      seedOf("today-size")
+      `Your portfolio usually moves about ${percent(input.typical.typicalPct)}, which is ${money(input.typical.typicalPct * totalValue)}. Today it moved ${percent(Math.abs(input.todayPct))}.`
     );
-    cards.push({
-      id: "today-size",
-      concept: "typical-move",
-      question: "Your portfolio moved today. Was that an ordinary day for it?",
-      options,
-      answerIndex,
-      because: `Your portfolio usually moves about ${percent(input.typical.typicalPct)}, which is ${money(input.typical.typicalPct * totalValue)}. Today it moved ${percent(Math.abs(input.todayPct))}.`,
-    });
+
+    const typicalDollar = input.typical.typicalPct * totalValue;
+    const answerMoney = money(typicalDollar);
+    push(
+      "typical-dollars",
+      "typical-move",
+      "On an ordinary day, about how many dollars does your whole portfolio move, up or down?",
+      [answerMoney, money(typicalDollar / 3), money(typicalDollar * 3), money(typicalDollar * 10)],
+      answerMoney,
+      `About ${money(typicalDollar)}, which is ${percent(input.typical.typicalPct)} of ${money(totalValue)}. Half your days are smaller than that, so a move of that size is not news.`
+    );
   }
 
   return cards;

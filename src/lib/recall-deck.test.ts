@@ -5,6 +5,7 @@ import {
   deckProgress,
   dueCards,
   isDue,
+  pickCard,
   LAST_BOX,
   type DeckInput,
   type DeckState,
@@ -117,6 +118,41 @@ describe("the schedule", () => {
   });
 });
 
+describe("the visit's roll", () => {
+  const cards = buildRecallCards(INPUT);
+
+  it("asks about more than one thing across a handful of visits", () => {
+    const seen = new Set<string>();
+    for (let roll = 0; roll < 12; roll += 1) {
+      seen.add(pickCard(cards, {}, "2026-09-02", roll)!.concept);
+    }
+    expect(seen.size).toBeGreaterThan(3);
+  });
+
+  it("does not open on the biggest holding's share every time", () => {
+    const ids = new Set<string>();
+    for (let roll = 0; roll < 12; roll += 1) {
+      ids.add(pickCard(cards, {}, "2026-09-02", roll)!.id);
+    }
+    expect(ids.size).toBeGreaterThan(4);
+  });
+
+  it("still puts a card that has come round before ahead of the roll", () => {
+    let state: DeckState = {};
+    state = answerCard(state, cards[3]!.id, false, "2026-09-01");
+    for (let roll = 0; roll < 5; roll += 1) {
+      expect(pickCard(cards, state, "2026-09-02", roll)!.id).toBe(cards[3]!.id);
+    }
+  });
+
+  it("leaves out the cards already asked this visit", () => {
+    const first = pickCard(cards, {}, "2026-09-02", 7)!;
+    const second = pickCard(cards, {}, "2026-09-02", 7, new Set([first.id]))!;
+    expect(second.id).not.toBe(first.id);
+    expect(pickCard(cards, {}, "2026-09-02", 7, new Set(cards.map((c) => c.id)))).toBeNull();
+  });
+});
+
 describe("the questions", () => {
   const cards = buildRecallCards(INPUT);
 
@@ -130,7 +166,7 @@ describe("the questions", () => {
   });
 
   it("gets the arithmetic right on a fall in the biggest holding", () => {
-    const card = cards.find((c) => c.concept === "concentration")!;
+    const card = cards.find((c) => c.id === "shock:$VOO")!;
     // VOO is 3,420 of 7,200, which is 47.5%, so a fifth off it is 9.5%.
     expect(card.options[card.answerIndex]).toBe("about 10%");
     expect(card.because).toContain("48%");
@@ -141,6 +177,66 @@ describe("the questions", () => {
     expect(apple.options[apple.answerIndex]).toBe("above what you paid");
     const voo = cards.find((c) => c.id === "paid:$VOO")!;
     expect(voo.options[voo.answerIndex]).toBe("below what you paid");
+  });
+
+  it("asks every kind of question it can about this portfolio", () => {
+    const concepts = new Set(cards.map((c) => c.concept));
+    for (const c of [
+      "share-of-portfolio",
+      "concentration",
+      "cash",
+      "which-one",
+      "today",
+      "since-bought",
+      "what-if",
+      "paid-each",
+      "asymmetry",
+      "your-figures",
+      "typical-move",
+    ]) {
+      expect(concepts.has(c), c).toBe(true);
+    }
+    expect(cards.length).toBeGreaterThan(20);
+  });
+
+  it("asks about every holding, not only the biggest", () => {
+    for (const h of INPUT.holdings) {
+      expect(cards.some((c) => c.id === `share:${h.ticker}`), h.ticker).toBe(true);
+      expect(cards.some((c) => c.id === `paid:${h.ticker}`), h.ticker).toBe(true);
+    }
+  });
+
+  it("knows a fall takes a bigger rise to undo", () => {
+    // VOO is 380 against 390.1 paid: down 2.6%, under the 5% floor, so no
+    // card. Push it further down and the arithmetic has to hold.
+    const deeper = buildRecallCards({
+      ...INPUT,
+      holdings: INPUT.holdings.map((h) =>
+        h.ticker === "$VOO" ? { ...h, price: 260, value: 2340 } : h
+      ),
+    });
+    const card = deeper.find((c) => c.id === "back-even:$VOO")!;
+    // 260 to 390.1 is a rise of 50%, after a fall of a third.
+    expect(card.options[card.answerIndex]).toBe("about 50%");
+    expect(card.options).toContain("about 33%");
+    const apple = cards.find((c) => c.id === "room:$AAPL")!;
+    // 190 against 168.4 paid: up 12.8%, and 168.4 is 11.4% below 190.
+    expect(apple.options[apple.answerIndex]).toBe("about 11%");
+  });
+
+  it("names the biggest slice and the biggest mover", () => {
+    const biggest = cards.find((c) => c.id === "which-biggest")!;
+    expect(biggest.options[biggest.answerIndex]).toBe("$VOO");
+    const mover = cards.find((c) => c.id === "which-moved-today")!;
+    expect(mover.options[mover.answerIndex]).toBe("Nvidia");
+    const money = cards.find((c) => c.id === "money-direction")!;
+    expect(money.options[money.answerIndex]).toBe("more of it went down");
+  });
+
+  it("never offers two options that say the same thing", () => {
+    for (const card of cards) {
+      expect(new Set(card.options).size, card.id).toBe(card.options.length);
+    }
   });
 
   it("counts today's fallers", () => {
@@ -154,14 +250,18 @@ describe("the questions", () => {
   });
 
   it("keeps a card's id steady as prices move, so it can come back", () => {
+    // A small move, so no holding crosses the floor under which a question
+    // is not asked (Nvidia is under 4% above what was paid, and the
+    // asymmetry card wants 5%). A card appearing is fine; a renamed one is
+    // not.
     const later = buildRecallCards({
       ...INPUT,
       holdings: INPUT.holdings.map((h) => ({
         ...h,
-        price: h.price * 1.05,
-        value: h.value * 1.05,
+        price: h.price * 1.01,
+        value: h.value * 1.01,
       })),
-      totalValue: INPUT.totalValue * 1.05,
+      totalValue: INPUT.totalValue * 1.01,
     });
     expect(later.map((c) => c.id).sort()).toEqual(
       cards.map((c) => c.id).sort()
