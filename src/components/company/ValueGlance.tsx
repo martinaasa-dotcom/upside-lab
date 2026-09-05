@@ -139,13 +139,13 @@ function Ladder({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       {/*
         The labels stand clear above the track rather than inside it. They
         were absolutely positioned in the same box as the marks, so the
         gold pill was drawn straight through its own figure.
       */}
-      <div className="relative mt-9 h-2">
+      <div className="relative mt-10 h-2">
         <span
           aria-hidden
           className="absolute inset-0 rounded-full bg-foreground/[0.07]"
@@ -308,7 +308,7 @@ function MethodRow({
   return (
     <Card
       tone="default"
-      className={cn("flex flex-col gap-2", method.dropped && "opacity-60")}
+      className={cn("flex flex-col gap-3 p-5", method.dropped && "opacity-60")}
     >
       {/*
         Never `flex-wrap` here. A long method name pushed the price onto its
@@ -440,6 +440,18 @@ export function ValueGlance({
         icon={<Gauge className="h-4 w-4" />}
       />
 
+      {/*
+        ONE CHILD, SO THIS PANEL SETS ITS OWN VERTICAL RHYTHM.
+
+        `Panel` spaces its direct children at `gap-5 sm:gap-6`, which is
+        right for a panel of short blocks and far too tight for this one:
+        four sections of prose stacked at 24px read as one wall, and a rule
+        in `AGENTS.md` forbids a direct child adding its own `mt-*`, because
+        it would then get both. Wrapping the body in a single child moves
+        the decision here, where the content is, and every section below
+        breathes at `gap-10`.
+      */}
+      <div className="flex flex-col gap-10 sm:gap-12">
       {glance.low !== null && glance.high !== null && read.spot !== null ? (
         <Ladder
           low={glance.low}
@@ -451,7 +463,7 @@ export function ValueGlance({
         />
       ) : null}
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
         <p className="text-base font-semibold leading-relaxed text-foreground">
           {glance.read}
         </p>
@@ -484,7 +496,7 @@ export function ValueGlance({
         unfalsifiable number this room was built to replace.
       */}
       {all.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-5">
           {/*
             The confidence line is only printed when it says something the
             cards below do not. A reader can count three methods; being
@@ -507,6 +519,7 @@ export function ValueGlance({
           ))}
         </div>
       )}
+      </div>
     </Panel>
   );
 }
