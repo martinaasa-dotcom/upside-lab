@@ -145,7 +145,7 @@ export function CompanyCases({
       )}
 
       {/*
-        One closing line rather than a card of caveats. The eye above
+        One closing line rather than a card of caveats. The mark above
         carries the full account, and a panel that apologises twice reads
         as less trustworthy than one that says its piece once.
       */}

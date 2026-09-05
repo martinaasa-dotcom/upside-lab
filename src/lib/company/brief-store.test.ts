@@ -10,7 +10,7 @@ import type { CompanyBrief } from "@/lib/ai/company-brief";
 /**
  * A row in this table is read by every reader in the product, so getting
  * these three bounds wrong means one bad run is served to everybody looking
- * that company up, under the provenance eye, as a considered answer. The
+ * that company up, under the provenance mark, as a considered answer. The
  * forecast cache learned each of them the hard way; these are the same
  * rules on a page that also has to age against the company's own figures.
  */

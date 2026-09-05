@@ -754,7 +754,7 @@ export function growthRateProvenance(input: {
  * which is the highest-stakes reading in the product and the one where the
  * least of what is on screen is theirs. Everything else here is arithmetic
  * on figures they typed; this is a feed's figures and a model's opinion
- * about a company they may never have heard of. So the eye goes on every
+ * about a company they may never have heard of. So the mark goes on every
  * block of it, and each block gets its own account rather than one page-
  * level disclaimer, because the honest answer really is different: the
  * figures are a feed, the fair value is arithmetic on that feed, the two
@@ -813,7 +813,7 @@ export function companyNumbersProvenance(input: {
 
 /**
  * The blended fair value. Arithmetic, plus one model voice that is named
- * as such, so the eye has to say both.
+ * as such, so the mark has to say both.
  */
 export function fairValueProvenance(input: {
   ticker: string;

@@ -22,7 +22,7 @@ import { useState } from "react";
  * one of them shown.
  *
  * The blended figure is the headline because it is what somebody wants,
- * and the working is one press away rather than behind an eye, because
+ * and the working is one press away rather than behind the mark, because
  * this is the number on the page most likely to be acted on. Somebody
  * about to spend money on the strength of an average deserves to see that
  * one of the four methods said half of it, and why.

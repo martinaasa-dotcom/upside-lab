@@ -65,7 +65,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
  * things about it are both about restraint. It must never add up to a
  * recommendation, so nothing here scores the company or prints a word like
  * cheap. And it must never state anything the reader cannot follow to a
- * source, so every block carries its own eye and the page ends on the
+ * source, so every block carries its own mark and the page ends on the
  * links out.
  *
  * A block whose data did not arrive is absent rather than empty. A page

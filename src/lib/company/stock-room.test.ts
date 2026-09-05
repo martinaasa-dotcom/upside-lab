@@ -45,7 +45,7 @@ describe("a company is a room of its own", () => {
 describe("the room keeps its promises in the markup", () => {
   const room = read("src/components/company/StockRoom.tsx");
 
-  it("puts an eye on every block a model or a feed touched", () => {
+  it("puts a provenance mark on every block a model or a feed touched", () => {
     for (const panel of [
       "CompanyNumbers",
       "FairValueCard",

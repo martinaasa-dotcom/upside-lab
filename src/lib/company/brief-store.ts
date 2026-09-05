@@ -5,7 +5,7 @@
  * the same shape of table: one row per company, read by every reader in
  * the product rather than by the person who caused the run. Getting any of
  * the three wrong means one bad run is served to everybody looking that
- * company up, under the provenance eye, as a considered answer.
+ * company up, under the provenance mark, as a considered answer.
  *
  * One rule is new, and it is the one that matters most here. A forecast
  * path ages against the clock and the share price; a written page about a
