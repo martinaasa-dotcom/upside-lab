@@ -3,7 +3,7 @@
 import { MicroLabel, Panel, PanelHeader, Score, Scoreboard } from "@/components/ui/Panel";
 import { TermTip } from "@/components/ui/TermTip";
 import { WhyThis } from "@/components/ui/WhyThis";
-import { NO_VALUE, cn, percent } from "@/lib/format";
+import { NO_VALUE, cn, percent, signedPercent } from "@/lib/format";
 import { companyNumbersProvenance } from "@/lib/provenance";
 import type { CompanyReading } from "@/lib/company/readings";
 import type { CompanyYear } from "@/lib/company/facts";
@@ -164,17 +164,34 @@ function YearTable({
   currency: string;
 }) {
   const peak = Math.max(...history.map((h) => h.revenue ?? 0), 1);
+  /*
+    Year-on-year growth is the column the table was missing, and it is the
+    one a professional reads first. Revenue rising every year says almost
+    nothing on its own: what decides whether a business is winning or
+    running out of road is whether each year's rise is bigger or smaller
+    than the last, and that is invisible in a column of totals. It is
+    computed from the row above rather than taken from the feed, so the
+    first year has none and says so.
+  */
+  const growthOf = (i: number): number | null => {
+    const now = history[i]?.revenue;
+    const before = history[i - 1]?.revenue;
+    if (!now || !before || before <= 0) return null;
+    return now / before - 1;
+  };
   return (
     <div className="flex flex-col gap-3">
       <MicroLabel>Revenue and profit by year</MicroLabel>
       <div className="glass-well overflow-hidden rounded-lg">
-        <div className="grid grid-cols-[3.5rem_1fr_auto_auto] items-center gap-x-3 border-b border-border px-3 py-2 font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground sm:gap-x-5">
+        <div className="grid grid-cols-[3.5rem_1fr_auto_auto] items-center gap-x-3 border-b border-border px-3 py-2 font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground sm:grid-cols-[3.5rem_1fr_auto_auto_auto] sm:gap-x-5">
           <span>Year</span>
           <span>Revenue</span>
+          <span className="hidden w-16 text-right sm:block">Growth</span>
           <span className="text-right">Profit</span>
           <span className="w-[5.5rem] text-right sm:w-[6.75rem]">Margin</span>
         </div>
-        {history.map((year) => {
+        {history.map((year, i) => {
+          const growth = growthOf(i);
           const revenue = year.revenue;
           const profit = year.netIncome;
           const margin =
@@ -182,7 +199,7 @@ function YearTable({
           return (
             <div
               key={year.year}
-              className="grid grid-cols-[3.5rem_1fr_auto_auto] items-center gap-x-3 border-b border-border px-3 py-2 last:border-b-0 sm:gap-x-5"
+              className="grid grid-cols-[3.5rem_1fr_auto_auto] items-center gap-x-3 border-b border-border px-3 py-2 last:border-b-0 sm:grid-cols-[3.5rem_1fr_auto_auto_auto] sm:gap-x-5"
             >
               <span className="font-mono text-sm tabular-nums text-muted-foreground">
                 {year.year}
@@ -203,6 +220,18 @@ function YearTable({
                 <span className="relative truncate font-mono text-sm tabular-nums text-foreground">
                   {bigMoney(revenue, code)}
                 </span>
+              </span>
+              <span
+                className={cn(
+                  "hidden w-16 text-right font-mono text-sm tabular-nums sm:block",
+                  growth === null
+                    ? "text-muted-foreground"
+                    : growth < 0
+                      ? "text-loss"
+                      : "text-gain"
+                )}
+              >
+                {growth === null ? NO_VALUE : signedPercent(growth)}
               </span>
               <span
                 className={cn(
@@ -248,9 +277,9 @@ function YearTable({
         })}
       </div>
       <p className="text-sm leading-relaxed text-muted-foreground">
-        Read the margin column downwards. A business getting bigger and
-        keeping a larger share of what it sells is a different story from
-        one getting bigger by selling more cheaply.
+        Read the growth and margin columns downwards. Growth slowing while
+        the margin climbs is a business getting more valuable per sale; growth
+        holding up while the margin falls is one buying its way forward.
       </p>
     </div>
   );

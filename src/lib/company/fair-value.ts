@@ -37,7 +37,7 @@
  * provenance says so, and no caller may reduce this file's output to a
  * single word like cheap or expensive.
  */
-import { currency } from "@/lib/format";
+import { currency, percent } from "@/lib/format";
 import { MARKET_EARNINGS_MULTIPLE } from "@/lib/company/scale";
 import { isCryptoLike, isFundLike, type CompanyFacts } from "@/lib/company/facts";
 
@@ -163,18 +163,48 @@ function consensusMethod(f: CompanyFacts): FairValueMethod | null {
     at the old weights the heuristic carried 36% of the answer and pulled
     Nvidia's estimate $106 above what any analyst had published.
   */
-  const weight = n >= 10 ? 0.4 : n >= 3 ? 0.3 : n >= 1 ? 0.16 : 0.1;
+  const coverage = n >= 10 ? 0.4 : n >= 3 ? 0.3 : n >= 1 ? 0.16 : 0.1;
+  /*
+    AND HOW MUCH THEY AGREE, WHICH IS THE ONLY HONEST WAY TO WEIGHT THEM.
+
+    The obvious ask is to weight the analysts themselves: more for the ones
+    with a good record or a view you share, less for the ones who are
+    structurally cautious. Two reasons it is not done here. The feed
+    publishes an average, a high, a low and a count, and no names at all, so
+    there is nothing to weight one by. And weighting towards the analysts
+    who agree with a house view is that house view wearing somebody else's
+    research as a costume: it would reach every reader of this app,
+    including one who would take the other side, and it is the same thing
+    `MARGUS_PERSONA` had removed from it.
+
+    What is measurable, and is the question underneath, is whether these
+    people agree with EACH OTHER. Forty targets clustered inside twenty per
+    cent is a consensus and the average of it means something. Forty running
+    from half the price to double it is a contested name where the average
+    is the midpoint of an argument and describes nobody's actual view, so
+    the blend leans on it less. That cuts the weight in both directions at
+    once, which is what keeps it a measurement rather than an opinion.
+  */
+  const spreadRead = analystSpread(f);
+  const width = spreadRead?.width ?? null;
+  const agreement =
+    width === null ? 1 : width >= 1 ? 0.6 : width >= 0.5 ? 0.85 : 1;
+  const weight = Math.round(coverage * agreement * 100) / 100;
   const code = f.currency ?? "USD";
   const spread =
     ok(f.analystTargetHigh) && ok(f.analystTargetLow)
       ? ` Their own answers run from ${currency(f.analystTargetLow, 2, code)} to ${currency(f.analystTargetHigh, 2, code)}, which is the part an average hides.`
+      : "";
+  const disagreement =
+    agreement < 1
+      ? ` They disagree enough that this counts for less here than a settled view would: the gap between the highest and lowest is ${percent(width ?? 0, 0)} of the share price.`
       : "";
   return {
     id: "consensus",
     name: "What Wall Street expects",
     maker: "market",
     price: round2(target),
-    assumes: `That the ${n > 0 ? `${n} analyst${n === 1 ? "" : "s"} covering this company` : "analysts covering this company"} have it about right. They are paid to be right and are often wrong together.${spread}`,
+    assumes: `That the ${n > 0 ? `${n} analyst${n === 1 ? "" : "s"} covering this company` : "analysts covering this company"} have it about right. They are paid to be right and are often wrong together.${spread}${disagreement}`,
     working: `The plain average of the twelve-month price targets published by the ${n > 0 ? n : ""} analyst${n === 1 ? "" : "s"} who cover it.`.replace("  ", " "),
     weight,
   };

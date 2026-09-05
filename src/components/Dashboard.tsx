@@ -2097,7 +2097,7 @@ export function Dashboard() {
     if (!labHiddenForTier) {
       items.push({
         id: "lookup",
-        label: "Look up a company",
+        label: "Research",
         group: "Go",
         hint: "In Lab: any company, in plain words",
         run: () => {

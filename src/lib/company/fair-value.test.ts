@@ -239,4 +239,39 @@ describe("nothing here reaches a verdict", () => {
       expect(`${m.name}${m.assumes}${m.working}`).not.toMatch(/[—–]/);
     }
   });
+
+  /*
+    THE ANALYSTS ARE WEIGHTED BY HOW MUCH THEY AGREE, NEVER BY WHO THEY ARE.
+
+    The feed publishes an average, a high, a low and a count and no names,
+    so there is nothing to weight an individual analyst by; and leaning
+    towards the ones who agree with a house view would be that house view
+    wearing their research as a costume. Agreement is measurable and
+    directionless, so that is what moves the weight.
+  */
+  it("leans less on a consensus whose members disagree with each other", () => {
+    const tight = fairValueRead(
+      facts({ analystTargetLow: 190, analystTargetHigh: 230 }),
+      { modelYearOne: 150 }
+    );
+    const contested = fairValueRead(
+      facts({ analystTargetLow: 60, analystTargetHigh: 320 }),
+      { modelYearOne: 150 }
+    );
+    const weightOf = (r: typeof tight) =>
+      r.estimate.used.find((m) => m.id === "consensus")?.weight ?? 0;
+    expect(weightOf(tight)).toBeGreaterThan(0);
+    expect(weightOf(contested)).toBeLessThan(weightOf(tight));
+    // Both still count. A contested consensus is worth less, never nothing.
+    expect(weightOf(contested)).toBeGreaterThan(0);
+  });
+
+  it("says out loud when it has discounted a contested consensus", () => {
+    const contested = fairValueRead(
+      facts({ analystTargetLow: 60, analystTargetHigh: 320 }),
+      { modelYearOne: 150 }
+    );
+    const method = contested.estimate.used.find((m) => m.id === "consensus");
+    expect(method?.assumes).toContain("counts for less");
+  });
 });

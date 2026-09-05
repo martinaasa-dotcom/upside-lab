@@ -748,7 +748,7 @@ export function growthRateProvenance(input: {
 }
 
 /* ---------------------------------------------------------------------- *
- * Look up a company
+ * Research
  *
  * The room where a reader is deciding about a company they do not own yet,
  * which is the highest-stakes reading in the product and the one where the
