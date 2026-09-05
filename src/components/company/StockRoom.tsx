@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/Panel";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { CompanyCases } from "@/components/company/CompanyCases";
+import { CompanyFinancials } from "@/components/company/CompanyFinancials";
 import { CompanyNumbers } from "@/components/company/CompanyNumbers";
 import { CompanyPath } from "@/components/company/CompanyPath";
 import { CompanySearch } from "@/components/company/CompanySearch";
@@ -30,7 +31,11 @@ import { useAuth } from "@/components/AuthProvider";
 import { readBookCache } from "@/lib/book-cache";
 import { loadCachedQuotes } from "@/lib/quote-cache";
 import { fairValueRead } from "@/lib/company/fair-value";
-import { isCryptoLike, isFundLike } from "@/lib/company/facts";
+import {
+  isCryptoLike,
+  isFundLike,
+  shortDescription,
+} from "@/lib/company/facts";
 import type { FitHolding } from "@/lib/company/position-fit";
 import {
   companyHref,
@@ -344,7 +349,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                 ) : facts.about ? (
                   <Reading nested label="What the company says it does">
                     <p className="text-sm leading-relaxed text-foreground">
-                      {facts.about}
+                      {shortDescription(facts.about)}
                     </p>
                     <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
                       Their own words, unedited, so some of it will be
@@ -385,6 +390,18 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                 </WidgetErrorBoundary>
               )}
 
+              {fair && (
+                <WidgetErrorBoundary name="Fair value">
+                  <FairValueCard
+                    ticker={ticker}
+                    read={fair}
+                    code={code}
+                    at={page.briefAt ?? facts.fetchedAt}
+                    model={page.model}
+                  />
+                </WidgetErrorBoundary>
+              )}
+
               {isCryptoLike(facts) && (
                 <Panel tone="warn">
                   <p className="text-sm leading-relaxed text-foreground">
@@ -408,6 +425,16 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                   at={facts.fetchedAt}
                 />
               </WidgetErrorBoundary>
+
+              {!isFundLike(facts) && !isCryptoLike(facts) && (
+                <WidgetErrorBoundary name="Quarterly financials">
+                  <CompanyFinancials
+                    ticker={ticker}
+                    facts={facts}
+                    code={code}
+                  />
+                </WidgetErrorBoundary>
+              )}
 
               {isFundLike(facts) && (
                 <WidgetErrorBoundary name="Inside the fund">
@@ -447,17 +474,6 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                 </WidgetErrorBoundary>
               )}
 
-              {fair && (
-                <WidgetErrorBoundary name="Fair value">
-                  <FairValueCard
-                    ticker={ticker}
-                    read={fair}
-                    code={code}
-                    at={page.briefAt ?? facts.fetchedAt}
-                    model={page.model}
-                  />
-                </WidgetErrorBoundary>
-              )}
 
               {book.ready && book.hasBook && (
                 <WidgetErrorBoundary name="How it would fit">

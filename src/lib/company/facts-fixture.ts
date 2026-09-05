@@ -58,6 +58,13 @@ export function makeFacts(over: Partial<CompanyFacts> = {}): CompanyFacts {
     marketLongTermGrowth: null,
 
     history: [],
+    quarters: [],
+    surprises: [],
+
+    operatingMargin: null,
+    returnOnEquity: null,
+    returnOnAssets: null,
+    operatingCashFlow: null,
 
     expenseRatio: null,
     fundCategory: null,

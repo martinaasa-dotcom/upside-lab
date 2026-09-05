@@ -24,6 +24,30 @@ export type CompanyYear = {
   netIncome: number | null;
 };
 
+/** One reported quarter, oldest first. `3Q2025` as the feed labels it. */
+export type CompanyQuarter = {
+  label: string;
+  revenue: number | null;
+  earnings: number | null;
+  /** Profit as a share of revenue, that quarter. */
+  margin: number | null;
+};
+
+/**
+ * What the company earned in a quarter against what analysts had said it
+ * would, which is the single most-read line on any company page and was
+ * missing entirely. A run of beats and a run of misses are different
+ * companies, and neither is visible in an annual figure.
+ */
+export type CompanySurprise = {
+  label: string;
+  actual: number | null;
+  estimate: number | null;
+  /** Actual against estimate, as a fraction. Positive is a beat. */
+  surprise: number | null;
+  reportedAt: string | null;
+};
+
 export type CompanyFacts = {
   /** The symbol as this app stores it, uppercase. */
   ticker: string;
@@ -91,6 +115,22 @@ export type CompanyFacts = {
 
   /** Oldest first, at most four. */
   history: CompanyYear[];
+  /** The last four reported quarters, oldest first. */
+  quarters: CompanyQuarter[];
+  /** The last four results days, beat or miss, oldest first. */
+  surprises: CompanySurprise[];
+
+  /*
+    The quality ladder. A margin on its own says how much is left at the
+    end; these say where it goes on the way down, which is what separates
+    a business with pricing power from one running on volume. `roe` is the
+    return the company makes on the money its owners have left in it, and
+    it is the figure most professionals look at before any of the others.
+  */
+  operatingMargin: number | null;
+  returnOnEquity: number | null;
+  returnOnAssets: number | null;
+  operatingCashFlow: number | null;
 
   /*
     Funds only. A fund is not a company and asking it about its profit
@@ -158,6 +198,39 @@ export function factsAreThin(facts: CompanyFacts): boolean {
     facts.history.length > 0 ? 1 : null,
   ].filter((v) => v !== null && v !== undefined).length;
   return present < 2;
+}
+
+/**
+ * The first couple of sentences of the company's own description.
+ *
+ * The raw field is a single unbroken paragraph running to two thousand
+ * characters, written by a filing clerk: Meta's opens by listing every
+ * product it has ever shipped and ends with the year it was incorporated.
+ * Printed whole it is a wall of text at the top of the page, which is the
+ * exact thing this room exists to replace, and a reader who wanted the
+ * full version can open the company's own site from the sources at the
+ * bottom.
+ *
+ * Sentence-aware rather than a character cut, because a description
+ * chopped mid-clause reads as broken rather than as abridged. Abbreviations
+ * that end in a period are the trap: "Inc." and "Corp." are not the end of
+ * a sentence, and a naive split on a full stop cuts Meta's first line in
+ * half at "Meta Platforms, Inc."
+ */
+export function shortDescription(about: string | null, sentences = 2): string | null {
+  const text = (about ?? "").trim();
+  if (!text) return null;
+  const guarded = text.replace(
+    /\b(Inc|Corp|Ltd|Co|plc|LLC|L\.L\.C|S\.A|N\.V|A\.G|Pty|Cos|St|No|approx|e\.g|i\.e|U\.S|U\.K)\./g,
+    (m) => m.replace(/\./g, "\u0000")
+  );
+  const parts = guarded.match(/[^.!?]+[.!?]+/g);
+  if (!parts || parts.length <= sentences) return text;
+  return parts
+    .slice(0, sentences)
+    .join("")
+    .replace(/\u0000/g, ".")
+    .trim();
 }
 
 /** A fund holds companies rather than being one, so most of this is moot. */

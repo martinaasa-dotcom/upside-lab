@@ -79,12 +79,22 @@ const EMPTY_WATCHLIST: string[] = [];
 type LabTab = "alloc" | "risk" | "trends" | "seasonality" | "lookup";
 
 /** One flat row: what you hold, how risky it is, and when it tends to move. */
+/*
+  The mix stays first, and the company lookup goes last.
+
+  Lab's other four tabs are all whole-portfolio tools and one of them has
+  to be what Lab opens on. Putting the lookup first made it look like the
+  default and then visibly not be it: a reader lands on Lab, sees "Look up
+  a company" at the left of the row, and the highlight is two tabs along.
+  Last is where a tool that is about something other than your own
+  portfolio belongs anyway.
+*/
 const TABS: { id: LabTab; label: string }[] = [
-  { id: "lookup", label: "Look up a company" },
   { id: "alloc", label: "The mix" },
   { id: "risk", label: "Risk" },
   { id: "trends", label: "Trends" },
   { id: "seasonality", label: "Seasonality" },
+  { id: "lookup", label: "Look up a company" },
 ];
 
 const INTENT_TO_TAB: Record<LabDeepLink, LabTab> = {
