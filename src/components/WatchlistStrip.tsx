@@ -486,13 +486,19 @@ export function WatchlistStrip({
           >
             <PopoverAnchor asChild>
               <form
-                className="relative"
+                /*
+                  Full width on a phone: at `w-44` the field showed
+                  "Apple or Bitcoi" with the last letter cut, which reads
+                  as a broken control rather than a hint. The header
+                  stacks below `sm`, so the field has the whole row.
+                */
+                className="relative w-full sm:w-auto"
                 onSubmit={(e) => {
                   e.preventDefault();
                   void add(suggestions[active]?.symbol);
                 }}
               >
-                <InputGroup className="w-44 sm:w-56">
+                <InputGroup className="w-full sm:w-56">
                   <InputGroupInput
                     value={draft}
                     onChange={(e) => {

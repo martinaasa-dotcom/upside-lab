@@ -499,24 +499,35 @@ export const PortfolioTable = memo(function PortfolioTable({
             than under two thousand pixels of cards. The footer keeps the
             arithmetic; this is the answer.
           */}
+          {/*
+            Three phrases, and each is unbreakable. On a phone the line is
+            about 20px wider than the column, so it used to break wherever
+            the last space fell: once leaving "today" alone under its own
+            number, once leaving a separator dangling at the end of the
+            line. Now the day's move is its own line below `sm` and joins
+            the sentence with a separator from `sm` up, so the break is
+            always at a phrase.
+          */}
           {holdings.length > 0 && (
             <p className="text-sm tabular-nums text-muted-foreground">
-              <span className="font-medium text-foreground">
-                {money(totals.currentValue, 0)}
+              <span className="whitespace-nowrap">
+                <span className="font-medium text-foreground">
+                  {money(totals.currentValue, 0)}
+                </span>
+                {" · "}
+                <span className={signedTone(totals.roiPct)}>
+                  {percent(totals.roiPct)}
+                </span>{" "}
+                since you bought
               </span>
-              {" · "}
-              <span className={signedTone(totals.roiPct)}>
-                {percent(totals.roiPct)}
-              </span>{" "}
-              since you bought
               {today.pct !== null ? (
-                <>
-                  {" · "}
+                <span className="block whitespace-nowrap sm:inline">
+                  <span className="hidden sm:inline">{" · "}</span>
                   <span className={signedTone(today.pct)}>
                     {percent(today.pct, 2)}
                   </span>{" "}
                   today
-                </>
+                </span>
               ) : null}
             </p>
           )}
@@ -725,7 +736,17 @@ export const PortfolioTable = memo(function PortfolioTable({
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-t border-border/60 pt-3">
+              {/*
+                Two fixed columns, never a wrapping row. As `flex-wrap`
+                the share cell dropped under the today cell on whichever
+                cards had a wider figure, so half the cards on one screen
+                read as two columns and the other half as a stack, with
+                the share figure right-aligned under a left-aligned label.
+                The label is "Of your total", the same words Pulse uses
+                for the same figure, because "Share of portfolio" is two
+                lines in a half-width column on a 390px phone.
+              */}
+              <div className="mt-3 grid grid-cols-2 items-end gap-x-6 border-t border-border/60 pt-3">
                 <div className="min-w-0">
                   <TermTip
                     className={TERM_LABEL}
@@ -761,7 +782,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                       second: percent(h.pctOfTotal),
                     }}
                   >
-                    Share of portfolio
+                    Of your total
                   </TermTip>
                   <p className="mt-1 text-sm font-medium tabular-nums text-muted-foreground">
                     {percent(h.pctOfTotal)}

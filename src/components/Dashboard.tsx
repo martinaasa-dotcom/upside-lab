@@ -2081,7 +2081,7 @@ export function Dashboard() {
       },
       {
         id: "compound",
-        label: "Compound",
+        label: "Growth",
         group: "Go",
         run: () => goToTab(COMPOUND_TAB_ID),
       },
@@ -2680,7 +2680,7 @@ export function Dashboard() {
             : isAlerts
               ? "Worth a look"
               : isCompound
-              ? "Compound"
+              ? "Growth"
               : isLab
                 ? "Lab"
                 : isPulse

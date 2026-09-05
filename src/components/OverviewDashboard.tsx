@@ -458,11 +458,24 @@ function DriverTile({
  */
 const HOME_ALERTS_SHOWN = 3;
 
-/** One standing figure in the hero strip: a spread row on a phone, a column from `sm`. */
+/**
+ * One standing figure in the hero strip.
+ *
+ * On a phone it is a row: the label in a fixed column on the left and the
+ * figure starting at one shared edge beside it, so three rows read as a
+ * small table and everything in the card stays left-aligned with the
+ * sentence above. Two earlier shapes were measured at 390px and taken
+ * out: two stacked columns broke "+$26,454 · 93.5%" over two lines, and a
+ * spread row (label left, figure right) left the card ragged, half of it
+ * on one edge and half on the other. The label column is 5.5rem because
+ * "THIS YEAR" in the 11px mono label face is about 62px and "ALL TIME"
+ * with its info dot about 76px; at 4.5rem both broke onto two lines.
+ * From `sm` the three stand side by side as label over figure.
+ */
 const FACT_ROW =
-  "flex min-w-0 items-baseline justify-between gap-x-3 sm:block";
+  "grid min-w-0 grid-cols-[5.5rem_1fr] items-baseline gap-x-3 sm:block";
 const FACT_VALUE =
-  "min-w-0 text-right font-mono text-base font-semibold tabular-nums sm:mt-1 sm:text-left";
+  "min-w-0 font-mono text-sm font-semibold tabular-nums sm:mt-1 sm:text-base";
 
 function firstSentence(text: string): string {
   const m = /^(.*?[.!?])(\s|$)/.exec(text);
@@ -1210,8 +1223,8 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   /*
    * Cash says what share of everything it is, because a cash figure with
    * nothing beside it teaches nobody whether it is a lot. Borrowed money
-   * says so first: the size of it, and what it means, is the Cash card's
-   * own job further down the page.
+   * says so in the label: the size of it, and what it means, is the Cash
+   * card's own job further down the page.
    */
   const cashShare =
     totals.totalValue > 0 ? Math.abs(totals.cash) / totals.totalValue : null;
@@ -1221,12 +1234,6 @@ export const OverviewDashboard = memo(function OverviewDashboard({
       : cashShare < 0.005
         ? "less than 1% of everything"
         : `${percent(cashShare, 0)} of everything`;
-  const cashNote =
-    totals.cash < 0
-      ? cashShareWords
-        ? `Borrowed, ${cashShareWords}`
-        : "Borrowed"
-      : cashShareWords;
 
   /** Friday's prices are captioned as Friday's, on a Saturday. */
   const priceWord = morning.moveLabel === "Friday" ? "Friday's" : "today's";
@@ -1505,11 +1512,14 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             * job further down the page.
             */}
           {/*
-            * Spread rows on a phone, label left and figure right, and a
-            * strip of three from `sm` up. Two stacked columns at 390px
-            * broke "+$26,454 · 93.5%" over two lines and the cash note
-            * over three; a row per fact reads whole. `FACT_ROW` and
-            * `FACT_VALUE` are the same rule applied three times.
+            * Rows on a phone, a strip of three from `sm` up; see
+            * `FACT_ROW`. `FACT_ROW` and `FACT_VALUE` are the same rule
+            * applied three times.
+            *
+            * Borrowed money changes the label rather than the sentence:
+            * "Borrowed" over "-$9,000 · 20% of everything" says in two
+            * words what "Cash / -$9,000 · Borrowed, 20% of everything"
+            * took a line and a half to say on a phone.
             */}
           <dl className="mt-4 flex flex-col gap-y-2 border-t border-border pt-4 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-3">
             <div className={FACT_ROW}>
@@ -1553,7 +1563,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             </div>
             <div className={FACT_ROW}>
               <dt>
-                <MicroLabel>Cash</MicroLabel>
+                <MicroLabel>{totals.cash < 0 ? "Borrowed" : "Cash"}</MicroLabel>
               </dt>
               <dd
                 className={cn(
@@ -1562,15 +1572,15 @@ export const OverviewDashboard = memo(function OverviewDashboard({
                 )}
               >
                 {currency(totals.cash, 0)}
-                {cashNote ? (
+                {cashShareWords ? (
                   <span
                     className={cn(
                       "font-sans font-medium",
-                      totals.cash < 0 ? "text-loss" : "text-muted-foreground"
+                      totals.cash < 0 ? "text-loss/80" : "text-muted-foreground"
                     )}
                   >
                     {" "}
-                    · {cashNote}
+                    · {cashShareWords}
                   </span>
                 ) : null}
               </dd>
