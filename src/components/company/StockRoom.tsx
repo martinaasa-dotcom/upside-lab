@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/Panel";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { CompanyCases } from "@/components/company/CompanyCases";
-import { CompanyFinancials } from "@/components/company/CompanyFinancials";
+import { BusinessPanel } from "@/components/company/BusinessPanel";
 import { CompanyNumbers } from "@/components/company/CompanyNumbers";
 import { CompanyPath } from "@/components/company/CompanyPath";
 import { CompanySearch } from "@/components/company/CompanySearch";
@@ -407,15 +407,13 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                 <CompanyNumbers
                   ticker={ticker}
                   readings={page.readings}
-                  history={facts.history}
-                  currency={code}
                   at={facts.fetchedAt}
                 />
               </WidgetErrorBoundary>
 
               {!isFundLike(facts) && !isCryptoLike(facts) && (
-                <WidgetErrorBoundary name="Quarterly financials">
-                  <CompanyFinancials
+                <WidgetErrorBoundary name="The business">
+                  <BusinessPanel
                     ticker={ticker}
                     facts={facts}
                     code={code}

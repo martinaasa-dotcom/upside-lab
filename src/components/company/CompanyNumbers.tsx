@@ -1,13 +1,11 @@
 "use client";
 
-import { MicroLabel, Panel, PanelHeader, Score, Scoreboard } from "@/components/ui/Panel";
+import { Panel, PanelHeader, Score, Scoreboard } from "@/components/ui/Panel";
 import { TermTip } from "@/components/ui/TermTip";
 import { WhyThis } from "@/components/ui/WhyThis";
-import { NO_VALUE, cn, percent, signedPercent } from "@/lib/format";
+import { NO_VALUE, cn } from "@/lib/format";
 import { companyNumbersProvenance } from "@/lib/provenance";
 import type { CompanyReading } from "@/lib/company/readings";
-import type { CompanyYear } from "@/lib/company/facts";
-import { bigMoney } from "@/lib/company/readings";
 import { BarChart3 } from "lucide-react";
 
 /**
@@ -141,163 +139,6 @@ function ReadingCell({
 }
 
 /**
- * Four years of the business, drawn as what the money did.
- *
- * THIS IS THE THIRD ATTEMPT AND THE FIRST TWO ARE WHY IT LOOKS LIKE THIS.
- *
- * It was two bars a year with no scale, which is useless for the reason a
- * chart without an axis always is: you can see one is taller and not from
- * what to what, and a healthy company's profit bar is a tenth the height
- * of its revenue bar, so the figure you most wanted was a sliver. Then it
- * was a table of four printed columns with a bar behind one of them, which
- * is accurate, complete, and still a spreadsheet: four numbers a row, all
- * the same size, in the same grey, with nothing telling a reader which of
- * them is the story.
- *
- * A year of a company is one quantity split in two, and that is a shape
- * rather than a row. Each year is ONE bar, its length the revenue against
- * the biggest year, and the filled part of it is the profit. So the length
- * says how big the business got and the coloured part says how much of it
- * they kept, in one object, read down the column without arithmetic. The
- * grey is not a leftover: it is what the year cost them, and it is labelled
- * as such, because "revenue minus profit" is the number nobody prints and
- * everybody should see.
- *
- * Both encodings share one scale, the biggest year's revenue, so the
- * profit blocks are comparable across years as well as within one. A
- * margin drawn on its own scale would let a small year's profit look
- * bigger than a large year's, which is the exact lie the two-bar version
- * told.
- *
- * The figures are still all printed. A professional reads the numbers and
- * a beginner reads the shape, and neither has to take the other's word.
- */
-function YearTable({
-  history,
-  currency: code,
-}: {
-  history: CompanyYear[];
-  currency: string;
-}) {
-  const peak = Math.max(...history.map((h) => h.revenue ?? 0), 1);
-  const rows = history.map((year, i) => {
-    const revenue = year.revenue;
-    const profit = year.netIncome;
-    const before = history[i - 1]?.revenue;
-    return {
-      year: year.year,
-      revenue,
-      profit,
-      /*
-        Growth is computed from the row above rather than taken from the
-        feed, so the first year has none. Revenue rising every year says
-        almost nothing on its own; whether each rise is bigger or smaller
-        than the last is what decides whether a business is winning or
-        running out of road, and it is invisible in a column of totals.
-      */
-      growth:
-        revenue && before && before > 0 ? revenue / before - 1 : null,
-      margin:
-        revenue && revenue > 0 && profit !== null ? profit / revenue : null,
-      /* Both widths are shares of the same scale, so years compare. */
-      revenueWidth: Math.max(((revenue ?? 0) / peak) * 100, 1),
-      profitWidth: Math.max((Math.max(profit ?? 0, 0) / peak) * 100, 0),
-    };
-  });
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <MicroLabel>Four years of the business</MicroLabel>
-        <span className="flex items-center gap-4 font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <span aria-hidden className="h-2 w-3 rounded-sm bg-gain/70" />
-            Kept as profit
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span aria-hidden className="h-2 w-3 rounded-sm bg-foreground/15" />
-            What it cost them
-          </span>
-        </span>
-      </div>
-
-      <ul className="flex flex-col gap-3">
-        {rows.map((r) => (
-          <li key={r.year} className="flex flex-col gap-1.5">
-            {/*
-              The year and its figures sit above the bar rather than in
-              columns beside it, so the bar gets the full width of the panel
-              and stays readable on a phone, where four columns and a bar
-              cannot both fit.
-            */}
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="font-mono text-sm font-bold tabular-nums text-foreground">
-                {r.year}
-              </span>
-              <span className="font-mono text-sm tabular-nums text-foreground">
-                {bigMoney(r.revenue, code)}
-              </span>
-              {r.growth !== null && (
-                <span
-                  className={cn(
-                    "font-mono text-xs tabular-nums",
-                    r.growth < 0 ? "text-loss" : "text-gain"
-                  )}
-                >
-                  {signedPercent(r.growth)}
-                </span>
-              )}
-              <span className="ml-auto font-mono text-sm tabular-nums text-muted-foreground">
-                <span
-                  className={cn(
-                    r.profit !== null && r.profit < 0
-                      ? "text-loss"
-                      : "text-gain"
-                  )}
-                >
-                  {bigMoney(r.profit, code)}
-                </span>{" "}
-                kept
-                {r.margin !== null && (
-                  <span className="text-muted-foreground">
-                    {" "}
-                    ({percent(r.margin, 1)})
-                  </span>
-                )}
-              </span>
-            </div>
-            <span
-              aria-hidden
-              className="relative block h-3 w-full overflow-hidden rounded-sm"
-            >
-              <span
-                className="absolute inset-y-0 left-0 rounded-sm bg-foreground/15"
-                style={{ width: `${r.revenueWidth}%` }}
-              />
-              <span
-                className={cn(
-                  "absolute inset-y-0 left-0 rounded-sm",
-                  r.profit !== null && r.profit < 0 ? "bg-loss/70" : "bg-gain/70"
-                )}
-                style={{ width: `${r.profitWidth}%` }}
-              />
-            </span>
-          </li>
-        ))}
-      </ul>
-
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        Each bar is one year, its length that year&apos;s revenue against the
-        biggest of the four. The green part is the profit they kept and the
-        grey is what the year cost them. A bar getting longer while the green
-        part grows faster than the grey is a business getting better at what
-        it does, not just bigger.
-      </p>
-    </div>
-  );
-}
-
-/**
  * Which figures lead.
  *
  * A grid of nine identical cards is a spreadsheet, and a reader with no
@@ -312,14 +153,10 @@ const LEAD_READINGS = ["price-tag", "earnings-growth", "profit"];
 export function CompanyNumbers({
   ticker,
   readings,
-  history,
-  currency,
   at,
 }: {
   ticker: string;
   readings: CompanyReading[];
-  history: CompanyYear[];
-  currency: string;
   at?: string | null;
 }) {
   const filled = readings.filter((r) => r.value !== NO_VALUE).length;
@@ -369,9 +206,6 @@ export function CompanyNumbers({
             <ReadingCell key={r.id} reading={r} />
           ))}
         </Scoreboard>
-      )}
-      {history.length >= 2 && (
-        <YearTable history={history} currency={currency} />
       )}
     </Panel>
   );
