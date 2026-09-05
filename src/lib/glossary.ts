@@ -129,7 +129,7 @@ const ENTRIES: GlossaryEntry[] = [
   {
     id: "share-of-portfolio",
     term: "Share of your portfolio",
-    also: ["% of portfolio", "% total", "concentration"],
+    also: ["% of portfolio", "% of total", "% total", "concentration"],
     meaning:
       "How much of everything you own sits in one company. The larger it is, the more that one company decides how your year goes.",
     alsoCalled: "concentration, or position size",
