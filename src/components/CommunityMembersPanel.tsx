@@ -34,6 +34,7 @@ import {
   type InviteAdminRow,
 } from "@/lib/community-invite-admin";
 import { cn, NO_VALUE, signedPercent, signedTone } from "@/lib/format";
+import { membersCountLine } from "@/lib/members-count-line";
 import type { OverviewModel } from "@/lib/overview";
 import {
   animalCardTone,
@@ -131,10 +132,24 @@ export function CommunityMembersPanel({
   return (
     <>
                   <section className="flex flex-col gap-3">
-                    <h2 className="flex items-center gap-2 text-foreground">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      Members
-                    </h2>
+                    <div className="flex flex-col gap-0.5">
+                      <h2 className="flex items-center gap-2 text-foreground">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        Members
+                      </h2>
+                      {/*
+                        The count the tab used to carry. It was clipped in
+                        a segmented cell and it is a whole line here, so
+                        the waiting can be said in words. See
+                        `members-count-line.ts`.
+                      */}
+                      <p className="text-sm text-muted-foreground">
+                        {membersCountLine(
+                          members.length,
+                          isAdmin ? joinRequests.length : 0
+                        )}
+                      </p>
+                    </div>
                     <ul className="divide-y divide-border overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
                       {members.map((m) => {
                         const sheetIds = new Set(
@@ -391,8 +406,9 @@ export function CommunityMembersPanel({
                         <Badge variant="secondary">{joinRequests.length}</Badge>
                       </h2>
                       <p className="text-sm text-muted-foreground">
-                        This circle is public, so anyone can ask to join,
-                        but nothing happens until you approve them here.
+                        Nothing happens until you decide. If you would
+                        rather people came straight in, turn that on in
+                        Settings.
                       </p>
                       <ItemGroup>
                         {joinRequests.map((r) => (

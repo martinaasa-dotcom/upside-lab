@@ -9,6 +9,7 @@ import { plainError } from "@/lib/plain-error";
 import {
   loadCommunityCache,
   loadCommunityDiscoverCache,
+  joinButtonLabel,
   loadCommunityListCache,
   prefetchCommunity,
   prefetchCommunityList,
@@ -210,6 +211,22 @@ export function CommunitiesList() {
         return;
       }
       setJoinPick(null);
+      /*
+        A public circle that lets people in answers `joined`, and then
+        there is nothing to wait for: the circle moves out of the discover
+        list and into the reader's own, which is what `load()` fetches.
+        The row is dropped here rather than left saying "waiting for
+        approval" over a circle they are already inside.
+      */
+      if ((data as { joined?: boolean }).joined) {
+        setDiscover((rows) => {
+          const next = rows.filter((r) => r.id !== communityId);
+          saveCommunityDiscoverCache(next);
+          return next;
+        });
+        await load();
+        return;
+      }
       setDiscover((rows) => {
         const next = rows.map((r) =>
           r.id === communityId ? { ...r, requestStatus: "pending" as const } : r
@@ -427,7 +444,7 @@ export function CommunitiesList() {
           <Panel>
             <PanelHeader
               title="Public circles"
-              subtitle="Anyone can ask to join. You pick which portfolios they can see. An admin still has to approve."
+              subtitle="You pick which portfolios they can see. Most circles let you straight in; some ask their admin first, and the button says which."
               icon={<Compass className="h-4 w-4" />}
             />
             {discover.length === 0 ? (
@@ -470,11 +487,11 @@ export function CommunitiesList() {
                         onClick={() => void beginJoinRequest(c.id, c.name)}
                         disabled={requestBusyId === c.id}
                       >
-                        {requestBusyId === c.id
-                          ? "Requesting …"
-                          : c.requestStatus === "rejected"
-                            ? "Request again"
-                            : "Request to join"}
+                        {joinButtonLabel({
+                          busy: requestBusyId === c.id,
+                          autoApprove: c.autoApproveJoins !== false,
+                          requestStatus: c.requestStatus,
+                        })}
                       </Button>
                     )}
                   </li>

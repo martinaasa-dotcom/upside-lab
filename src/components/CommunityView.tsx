@@ -30,6 +30,7 @@ import {
   type CircleBookSnapshot,
 } from "@/lib/circle-changes";
 import { namedRoom, RoomNoun, roomNoun } from "@/lib/community-words";
+import { CircleAccessNotice } from "@/components/CircleAccessNotice";
 import { CircleHome } from "@/components/CircleHome";
 import { ClassroomHome } from "@/components/ClassroomHome";
 import { CommunityMembersPanel } from "@/components/CommunityMembersPanel";
@@ -46,7 +47,6 @@ import type {
 } from "@/components/community-types";
 import { ReadOnlyHoldings } from "@/components/CircleCards";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Segmented } from "@/components/ui/Panel";
 import { combineHouseholdNames } from "@/lib/auth/identity";
@@ -1414,6 +1414,33 @@ export function CommunityView({ communityId }: Props) {
     }
   }
 
+  async function handleAutoApproveChange(next: "open" | "ask") {
+    if (!community) return;
+    const wanted = next === "open";
+    if ((community.auto_approve_joins !== false) === wanted) return;
+    setSettingsBusy(true);
+    setSettingsError(null);
+    try {
+      const res = await fetch(`/api/communities/${communityId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoApproveJoins: wanted }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          plainError((data as { error?: string }).error, "Couldn't update that.")
+        );
+      }
+      setCommunity((data as { community: CommunityMeta }).community);
+      void load();
+    } catch (e) {
+      setSettingsError(e instanceof Error ? e.message : "Couldn't update that.");
+    } finally {
+      setSettingsBusy(false);
+    }
+  }
+
   async function decideJoinRequest(userId: string, decision: "approve" | "reject") {
     setJoinDecisionBusyId(userId);
     try {
@@ -1556,13 +1583,13 @@ export function CommunityView({ communityId }: Props) {
             </span>
           }
         >
-          {isAdmin && joinRequests.length > 0 && (
-            <Badge
-              title={`${joinRequests.length} pending join request${joinRequests.length === 1 ? "" : "s"}`}
-            >
-              {joinRequests.length}
-            </Badge>
-          )}
+          {/*
+            The pending-request count used to be a bare digit here, in the
+            chrome, beside the circle's name. It is a card at the top of
+            the circle now (`CircleAccessNotice`), which names the people
+            and carries the answer; a second counter up here would be the
+            same fact twice and the quieter of the two.
+          */}
           {isAdmin && community && (
             <Button
               type="button"
@@ -1651,8 +1678,18 @@ export function CommunityView({ communityId }: Props) {
                 communityId={communityId}
                 duelCache={duelCache}
                 isAdmin={isAdmin}
-                memberCount={members.length}
-                waitingToJoin={isAdmin ? joinRequests.length : 0}
+                accessNotice={
+                  <CircleAccessNotice
+                    communityId={communityId}
+                    isAdmin={isAdmin}
+                    members={members}
+                    joinRequests={joinRequests}
+                    joinDecisionBusyId={joinDecisionBusyId}
+                    profileName={profileName}
+                    decideJoinRequest={decideJoinRequest}
+                    onOpenMembers={() => setView("members")}
+                  />
+                }
                 inviteBusy={busy}
                 inviteUrl={inviteUrl}
                 createInvite={() => void createInvite()}
@@ -1899,7 +1936,7 @@ export function CommunityView({ communityId }: Props) {
               </label>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 {community?.visibility === "public"
-                  ? "Public: anyone signed in can find this circle and ask to join. You still approve every request."
+                  ? "Public: anyone signed in can find this circle and join it."
                   : "Private: invite-only. No one can find or join without a link."}
               </p>
               <Segmented
@@ -1914,6 +1951,40 @@ export function CommunityView({ communityId }: Props) {
                   { id: "public" as const, label: "Public" },
                 ]}
               />
+
+              {/*
+                Only a public circle has anybody to let in, so the choice
+                is only offered on one. A circle marked public and then
+                bolted does not decide anything, it only delays people
+                until an admin happens to look, which is why letting them
+                in is the setting a new public circle starts on.
+              */}
+              {community?.visibility === "public" && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-muted-foreground">
+                    New people
+                  </label>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    {community?.auto_approve_joins !== false
+                      ? "Anyone who asks joins straight away. You are told who arrived, and you can still remove somebody."
+                      : "Everyone who asks waits for you. You see them at the top of the circle and decide there."}
+                  </p>
+                  <Segmented
+                    className="mt-2"
+                    ariaLabel="New people"
+                    columns={2}
+                    disabled={settingsBusy}
+                    value={
+                      community?.auto_approve_joins !== false ? "open" : "ask"
+                    }
+                    onChange={(id) => void handleAutoApproveChange(id)}
+                    options={[
+                      { id: "open" as const, label: "Let them in" },
+                      { id: "ask" as const, label: "Ask me first" },
+                    ]}
+                  />
+                </div>
+              )}
             </div>
             )}
 

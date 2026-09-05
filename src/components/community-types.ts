@@ -31,6 +31,8 @@ export type CommunityMeta = {
   id: string;
   name: string;
   visibility?: "public" | "private";
+  /** Public circles: asking to join is joining, unless an admin says no. */
+  auto_approve_joins?: boolean;
   kind?: "circle" | "classroom";
   starting_cash?: number;
   house_note?: string | null;

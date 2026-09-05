@@ -1,6 +1,5 @@
 "use client";
 
-import { membersTabLabel } from "@/lib/members-tab-label";
 import { DailyDuelCard } from "@/components/DailyDuelCard";
 import { PowerAnimalCard } from "@/components/CircleCards";
 import { BelowFold } from "@/components/BelowFold";
@@ -215,10 +214,12 @@ export type CircleHomeProps = {
   communityId: string;
   duelCache: CommunityDuelCache | null;
   isAdmin: boolean;
-  /** People in the circle, as the list page counts them. */
-  memberCount: number;
-  /** People who have asked to join and are waiting on an admin. */
-  waitingToJoin: number;
+  /**
+   * Who arrived: people waiting on an admin, people who just joined. It
+   * sits under the circle's name rather than in the chrome, because a
+   * digit in a badge is the smallest thing on the screen.
+   */
+  accessNotice: ReactNode;
   inviteBusy: boolean;
   inviteUrl: string | null;
   createInvite: () => void;
@@ -250,8 +251,7 @@ export function CircleHome({
   communityId,
   duelCache,
   isAdmin,
-  memberCount,
-  waitingToJoin,
+  accessNotice,
   inviteBusy,
   inviteUrl,
   createInvite,
@@ -282,6 +282,8 @@ export function CircleHome({
         ) : null}
       </section>
 
+      {accessNotice}
+
       <Segmented
         ariaLabel="Circle view"
         value={shownView}
@@ -298,17 +300,15 @@ export function CircleHome({
           { id: "overview" as const, label: "Overview" },
           ...(hasLeague ? [{ id: "play" as const, label: "Animals" }] : []),
           /*
-            The number after Members is how many people are in the circle.
-            It used to be how many were waiting to join, shown to an admin
-            only, so a circle of fourteen read "Members · 1" and the reader
-            took it for the roster. A count beside a noun is read as the
-            count of that noun; the request waiting on the admin is said
-            in words instead.
+            One word and no number. The cells of a segmented control share
+            one row, so every character in the longest label narrows all
+            of them, and "Members · 15" was clipped against its own pill
+            on a phone. The count lives under the heading on the page the
+            tab opens, where there is room for it, and anybody waiting is
+            in the card at the top of this screen. See
+            `members-count-line.ts`.
           */
-          {
-            id: "members" as const,
-            label: membersTabLabel(memberCount, waitingToJoin),
-          },
+          { id: "members" as const, label: "Members" },
         ]}
       />
 

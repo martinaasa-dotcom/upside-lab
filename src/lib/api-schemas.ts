@@ -205,6 +205,7 @@ export const communityPostSchema = z.looseObject({
 export const communityPatchSchema = z.looseObject({
   name: z.string().max(80).optional(),
   visibility: z.enum(["public", "private"]).optional(),
+  autoApproveJoins: z.boolean().optional(),
   houseNote: z.string().max(800).optional(),
   classPlan: z.unknown().optional(),
   startPeriod: z.string().max(32).optional(),

@@ -255,6 +255,8 @@ export type CommunityDiscoverRow = {
   houseNote?: string | null;
   memberCount: number;
   requestStatus: "pending" | "approved" | "rejected" | null;
+  /** True when asking to join this circle is the same thing as joining. */
+  autoApproveJoins?: boolean;
 };
 
 let discoverMemory: CommunityDiscoverRow[] | null = null;
@@ -399,4 +401,27 @@ export async function prefetchCommunity(communityId: string): Promise<void> {
   } catch {
     /* best-effort prefetch — CommunityView's own fetch is the source of truth */
   }
+}
+
+/**
+ * What the button on a discover row says.
+ *
+ * A public circle that lets people straight in must not offer a button
+ * reading "Request to join": the reader presses it, is in the circle, and
+ * the word promised a wait that never happened. The circle says which
+ * kind it is (`autoApproveJoins`), and the button says the same thing.
+ */
+export function joinButtonLabel({
+  busy,
+  autoApprove,
+  requestStatus,
+}: {
+  busy: boolean;
+  autoApprove: boolean;
+  requestStatus: CommunityDiscoverRow["requestStatus"];
+}) {
+  if (busy) return autoApprove ? "Joining …" : "Requesting …";
+  if (autoApprove) return "Join";
+  if (requestStatus === "rejected") return "Request again";
+  return "Request to join";
 }
