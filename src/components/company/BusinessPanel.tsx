@@ -94,16 +94,30 @@ function MoneyBar({
   const negative = period.profit !== null && period.profit < 0;
 
   return (
-    <li className="flex flex-col gap-2">
+    <li className="flex flex-col gap-2.5">
       {/*
-        The label and its growth sit together on the left. They were at
-        opposite ends of the row, which put a period's own two facts as far
-        apart as the panel allows and made the eye travel to pair them.
+        EVERY NUMBER FOR THIS PERIOD IS ON ONE LINE, ABOVE THE BAR IT
+        DESCRIBES, AND NOTHING FLOATS AT THE PANEL'S EDGE.
+
+        The revenue used to be right-aligned on a row of its own, so it
+        printed at the far right of the panel while the grey bar it named
+        ended somewhere in the middle: a reader saw a bar stop, and a
+        number a hand's width away from it, with nothing connecting them.
+        That was the whole reason the grey read as unexplained.
+
+        The revenue is the bar's own length, so it belongs with the label
+        that names the period, and the bar below is then simply that figure
+        drawn. What is left under the bar is the one number the bar splits
+        out, which is what they kept.
       */}
-      <div className="flex flex-wrap items-baseline gap-x-3">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="font-mono text-sm font-bold tabular-nums text-foreground">
           {period.label}
         </span>
+        <span className="font-mono text-sm tabular-nums text-foreground">
+          {bigMoney(period.revenue, code)}
+        </span>
+        <span className="text-xs text-muted-foreground">revenue</span>
         {period.growth !== null && (
           <span
             className={cn(
@@ -111,7 +125,7 @@ function MoneyBar({
               period.growth < 0 ? "text-loss" : "text-gain"
             )}
           >
-            {signedPercent(period.growth)} revenue
+            {signedPercent(period.growth)}
           </span>
         )}
       </div>
@@ -133,32 +147,17 @@ function MoneyBar({
       </div>
 
       {/*
-        THE FIGURES GO UNDER THE BAR, AT EVERY WIDTH, AND THE BAR IS PURE
-        SHAPE.
-
-        Printing them inside the bar reads beautifully on a laptop and
-        breaks on a phone, which is what shipped: at 390px the profit
-        figure and the revenue figure were drawn over each other, so one
-        company's quarter said "$2.7 billion ke$51.2 billion". There is no
-        threshold that fixes it, because how much text a block can hold
-        depends on the device rather than on the company, so the same
-        period reads one way on a laptop and another on a phone. One line
-        under the bar, profit on the left under the green and revenue on
-        the right under the bar's end, is spatially the same pairing and
-        cannot collide at any width.
+        Left-aligned, under the green it names, and never right-aligned
+        anywhere: a figure pinned to the panel's edge is a figure with
+        nothing beside it.
       */}
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-sm tabular-nums">
-        <span>
-          <span className={cn("font-bold", negative ? "text-loss" : "text-gain")}>
-            {bigMoney(period.profit, code)}
-          </span>
-          <span className="ml-1.5 text-muted-foreground">
-            kept
-            {period.margin !== null && `, ${percent(period.margin, 1)}`}
-          </span>
+      <div className="font-mono text-sm tabular-nums">
+        <span className={cn("font-bold", negative ? "text-loss" : "text-gain")}>
+          {bigMoney(period.profit, code)}
         </span>
-        <span className="text-muted-foreground">
-          {bigMoney(period.revenue, code)} in
+        <span className="ml-1.5 text-muted-foreground">
+          kept
+          {period.margin !== null && `, ${percent(period.margin, 1)} of revenue`}
         </span>
       </div>
     </li>
@@ -168,28 +167,28 @@ function MoneyBar({
 function MoneyBars({ periods, code }: { periods: Period[]; code: string }) {
   const peak = Math.max(...periods.map((p) => p.revenue ?? 0), 1);
   return (
-    <div className="flex flex-col gap-5">
-      <ul className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
+      {/*
+        The key is at the top, where somebody meets the first bar, rather
+        than in a paragraph under the last one. A legend a reader only
+        finds after scrolling past everything it explains has not explained
+        anything.
+      */}
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        Each bar is one period, and its full length is that period&apos;s
+        revenue. The{" "}
+        <span className="font-medium text-gain">green part is the profit</span>{" "}
+        they kept; the grey is what the period cost them.
+      </p>
+      <ul className="flex flex-col gap-8">
         {periods.map((p) => (
           <MoneyBar key={p.key} period={p} peak={peak} code={code} />
         ))}
       </ul>
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        Each bar is one period and its length is the revenue. The green part
-        is the profit they kept, so the rest of the bar is what the period
-        cost them. A bar getting longer while the green part grows faster is
-        a business getting better at what it does, not just bigger.
-      </p>
     </div>
   );
 }
 
-/**
- * The results days, against what analysts expected.
- *
- * A company whose forecasts keep being wrong is a company whose forecasts
- * should be trusted less, and that fact is on no other page in this app.
- */
 function Surprises({
   surprises,
   code,
@@ -200,7 +199,7 @@ function Surprises({
   const beats = surprises.filter((s) => (s.surprise ?? 0) > 0).length;
   const counted = surprises.filter((s) => s.surprise !== null).length;
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <MicroLabel>Results days, against what analysts expected</MicroLabel>
         {counted > 0 && (
@@ -209,7 +208,7 @@ function Surprises({
           </span>
         )}
       </div>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {surprises.map((s) => {
           const beat = (s.surprise ?? 0) > 0;
           const known =
@@ -219,7 +218,7 @@ function Surprises({
             <div
               key={s.label}
               className={cn(
-                "glass-well flex flex-col gap-1 rounded-lg border-l-2 p-3",
+                "glass-well flex flex-col gap-2 rounded-lg border-l-2 p-4",
                 !known ? "border-l-border" : beat ? "border-l-gain" : "border-l-loss"
               )}
             >
@@ -282,9 +281,9 @@ function QualityLadder({ facts }: { facts: CompanyFacts }) {
   ].filter((r) => typeof r.value === "number" && Number.isFinite(r.value));
   if (rungs.length === 0) return null;
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-5">
       <MicroLabel>Where each $100 of revenue goes</MicroLabel>
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-3">
         {rungs.map((r) => (
           <li key={r.label} className="flex items-center gap-3">
             <span className="w-32 shrink-0 text-sm text-muted-foreground sm:w-40">
@@ -392,9 +391,19 @@ export function BusinessPanel({
         }
       />
 
-      {shown.length >= 2 && <MoneyBars periods={shown} code={code} />}
-      {surprises.length > 0 && <Surprises surprises={surprises} code={code} />}
-      {hasLadder && <QualityLadder facts={facts} />}
+      {/*
+        One child, so this panel sets its own vertical rhythm. `Panel`
+        spaces its direct children at `gap-5 sm:gap-6`, which is right for a
+        panel of short blocks and far too tight for three sections of bars,
+        cards and prose: stacked at 24px they read as one wall. A direct
+        child may not add its own `mt-*` (it would get both), so the body is
+        wrapped and the decision lives here, with the content.
+      */}
+      <div className="flex flex-col gap-10 sm:gap-12">
+        {shown.length >= 2 && <MoneyBars periods={shown} code={code} />}
+        {surprises.length > 0 && <Surprises surprises={surprises} code={code} />}
+        {hasLadder && <QualityLadder facts={facts} />}
+      </div>
     </Panel>
   );
 }
