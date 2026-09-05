@@ -293,7 +293,7 @@ function balanceReading(f: CompanyFacts): CompanyReading {
     bigMoney(Math.abs(net), code),
     plain,
     has(years)
-      ? `The debt is worth about ${years < 0.1 ? "a rounding error next to" : `${years.toFixed(1)} times`} a year of sales. Past about one and a half years of sales, keeping the lenders happy starts competing with keeping customers happy.`
+      ? `The debt comes to ${years < 0.15 ? "a small fraction of" : years < 0.9 ? `about ${percent(years, 0)} of` : `about ${years.toFixed(1)} times`} a year's sales. Past about one and a half years of sales, keeping the lenders happy starts competing with keeping customers happy.`
       : "More cash than debt means a bad year is survivable without asking anybody. The other way round, the lenders have a say too.",
     net >= 0 ? "good" : heavy ? "watch" : "neutral",
     "debt"

@@ -58,7 +58,7 @@ export function FundInside({
       <PanelHeader
         title={
           <span className="inline-flex items-center gap-2">
-            What is inside it
+            What the fund holds
             <WhyThis
               provenance={fundProvenance({
                 ticker: facts.ticker,
@@ -134,7 +134,7 @@ export function FundInside({
 
       {sectors.length > 0 && (
         <div className="flex flex-col gap-3">
-          <MicroLabel>The kinds of business it holds</MicroLabel>
+          <MicroLabel>Sector breakdown</MicroLabel>
           <ul className="flex flex-col gap-2">
             {sectors.map((s) => (
               <li key={s.sector} className="flex items-center gap-3">

@@ -1,29 +1,26 @@
 "use client";
 
-import {
-  Card,
-  Panel,
-  PanelHeader,
-  Score,
-  Scoreboard,
-} from "@/components/ui/Panel";
+import { Card, Panel, PanelHeader } from "@/components/ui/Panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WhyThis } from "@/components/ui/WhyThis";
-import { NO_VALUE, cn, currency, percent } from "@/lib/format";
+import { cn, currency, percent } from "@/lib/format";
 import { fairValueProvenance } from "@/lib/provenance";
-import type { FairValueBlend, FairValueMethod, FairValueRead } from "@/lib/company/fair-value";
-import { gapSentence } from "@/lib/company/fair-value";
+import type {
+  FairValueMethod,
+  FairValueRead,
+} from "@/lib/company/fair-value";
 import { Scale } from "lucide-react";
 import { useState } from "react";
 
 /**
- * What several different ways of estimating a price add up to, and every
- * one of them shown.
+ * Every method behind the estimate at the top of the page, with what each
+ * one assumed and the arithmetic it used.
  *
- * The blended figure is the headline because it is what somebody wants,
- * and the working is one press away rather than behind the mark, because
- * this is the number on the page most likely to be acted on. Somebody
+ * The figure itself lives in `ValueGlance`, because that is what somebody
+ * came for; this is the working, one press away rather than behind the
+ * mark, because it is the number on the page most likely to be acted on.
+ * Somebody
  * about to spend money on the strength of an average deserves to see that
  * one of the four methods said half of it, and why.
  *
@@ -125,47 +122,6 @@ const CONFIDENCE_LINE = {
     "Each estimate above rests on four or more methods, so it is a genuine blend rather than one calculation dressed up.",
 } as const;
 
-/**
- * One blend, as a `Score` cell, so this panel speaks the same visual
- * language as every other figure in the app rather than inventing a
- * two-column layout of its own.
- */
-function BlendScore({
-  title,
-  caption,
-  blend,
-  code,
-  gap,
-}: {
-  title: string;
-  caption: string;
-  blend: FairValueBlend;
-  code: string;
-  gap: number | null;
-}) {
-  const sentence = gapSentence(gap, blend.price);
-  const spread =
-    blend.spread !== null && blend.used.length > 1
-      ? `The methods behind it sit ${percent(blend.spread, 0)} apart, top to bottom.`
-      : null;
-  return (
-    <Score
-      label={title}
-      explain={caption}
-      value={blend.price === null ? NO_VALUE : currency(blend.price, 2, code)}
-      valueClassName={blend.price === null ? "text-muted-foreground" : undefined}
-      sub={
-        <>
-          {sentence && (
-            <span className="block text-foreground">{sentence}</span>
-          )}
-          {spread && <span className="mt-2 block">{spread}</span>}
-        </>
-      }
-    />
-  );
-}
-
 export function FairValueCard({
   ticker,
   read,
@@ -180,34 +136,23 @@ export function FairValueCard({
   model?: Parameters<typeof fairValueProvenance>[0]["model"];
 }) {
   const [open, setOpen] = useState(false);
-  const all = [
-    ...read.today.used,
-    ...read.today.dropped,
-    ...read.ahead.used,
-    ...read.ahead.dropped,
-  ];
+  const all = [...read.estimate.used, ...read.estimate.dropped];
   if (all.length === 0) return null;
 
-  const usesModel = [...read.today.used, ...read.ahead.used].some(
-    (m) => m.maker === "model"
-  );
-  const confidence =
-    read.today.used.length >= read.ahead.used.length
-      ? read.today.confidence
-      : read.ahead.confidence;
+  const usesModel = read.estimate.used.some((m) => m.maker === "model");
+  const confidence = read.estimate.confidence;
 
   return (
     <Panel>
       <PanelHeader
         title={
           <span className="inline-flex items-center gap-2">
-            Every method, and what each assumed
+            How the estimate was worked out
             <WhyThis
               provenance={fairValueProvenance({
                 ticker,
                 methodNames: all.map((m) => m.name),
-                droppedCount:
-                  read.today.dropped.length + read.ahead.dropped.length,
+                droppedCount: read.estimate.dropped.length,
                 usesModel,
                 model,
                 at,
@@ -219,26 +164,9 @@ export function FairValueCard({
         icon={<Scale className="h-4 w-4" />}
       />
 
-      <Scoreboard cols={2} mobileCols={1}>
-        <BlendScore
-          title="On today's figures"
-          caption="What the company's own accounts, as they stand, add up to per share."
-          blend={read.today}
-          code={code}
-          gap={read.gapToday}
-        />
-        <BlendScore
-          title="Looking a year out"
-          caption="The same question about next year: the analysts' average, next year's expected profit, and the model's own path."
-          blend={read.ahead}
-          code={code}
-          gap={read.gapAhead}
-        />
-      </Scoreboard>
-
       <p className="text-sm leading-relaxed text-muted-foreground">
-        {CONFIDENCE_LINE[confidence]} None of it is a price target or anybody
-        telling you to buy or sell.
+        {CONFIDENCE_LINE[confidence]} None of it is a price target or
+        anybody telling you to buy or sell.
       </p>
 
       <div className="flex flex-col gap-3">

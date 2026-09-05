@@ -6,7 +6,6 @@ import {
   type FairValueMethod,
 } from "@/lib/company/fair-value";
 import { makeOrdinaryFacts } from "@/lib/company/facts-fixture";
-import { MARKET_EARNINGS_MULTIPLE } from "@/lib/company/scale";
 
 /**
  * Three properties, and each of them is a way this card could quietly turn
@@ -91,33 +90,79 @@ describe("the blend is the weighted average and nothing else", () => {
 
   it("is never pulled towards today's price", () => {
     /*
-      The failure this guards is the tempting one: a fair value that always
-      lands near the market is a fair value that says nothing. Only the
-      earnings method can run here, it says a quarter of today's price, and
-      the blend has to say the same rather than splitting the difference
-      with the market.
+      A fair value that always lands near the market is a fair value that
+      says nothing. Only the analysts' average can run here, it says a
+      quarter of today's price, and the blend has to say the same rather
+      than splitting the difference with the market.
     */
     const read = fairValueRead(
       facts({
         price: 400,
-        epsTrailing: 10,
-        epsForward: 10,
-        epsThisYear: 10,
-        epsNextYear: 10,
-        epsGrowthThisYear: null,
+        analystTargetMean: 100,
+        analystTargetLow: 90,
+        analystTargetHigh: 110,
+        epsNextYear: null,
+        epsForward: null,
+        forwardPe: null,
         epsGrowthNextYear: null,
-        revenueGrowthNextYear: null,
+        epsGrowthThisYear: null,
         revenueGrowth: null,
-        freeCashFlow: null,
       })
     );
-    expect(read.today.price).toBeCloseTo(10 * MARKET_EARNINGS_MULTIPLE, 0);
-    expect(read.gapToday).toBeGreaterThan(0.9);
+    expect(read.estimate.price).toBeCloseTo(100, 6);
+    expect(read.gap).toBeCloseTo(-0.75, 6);
+  });
+
+  it("never prices a fast-growing company off the market's average multiple", () => {
+    /*
+      THE FAULT THIS FILE SHIPPED TWICE, IN TWO DIFFERENT METHODS.
+
+      A company growing earnings at 104% a year, valued at the market's
+      long-run multiple of 20, comes out at a fraction of its share price
+      with the arithmetic perfectly sound and the premise nonsense. On AMD
+      it produced $151 against a price of $478 and dragged the headline
+      figure to $223. A page carrying a number like that does not read as
+      conservative, it reads as fabricated, and it costs the credibility
+      of every honest figure beside it.
+
+      The method is deleted rather than down-weighted, so the assertion is
+      that nothing survives which prices this company anywhere near the
+      market's yardstick.
+    */
+    const amdLike = facts({
+      price: 477.57,
+      epsTrailing: 3.92,
+      epsThisYear: 7.57,
+      epsNextYear: 15.45,
+      epsGrowthNextYear: 1.04,
+      revenueGrowth: 0.5,
+      analystTargetMean: 613.84,
+      analystTargetLow: 365,
+      analystTargetHigh: 1250,
+      analystCount: 49,
+    });
+    const read = fairValueRead(amdLike);
+    expect(read.estimate.price).not.toBeNull();
+    // Nothing that survives may sit anywhere near the market-multiple
+    // answer, which for this company would have been about $151.
+    for (const method of read.estimate.used) {
+      expect(method.price, method.name).toBeGreaterThan(300);
+    }
+    expect(read.estimate.price!).toBeGreaterThan(400);
+  });
+
+  it("has no method that multiplies earnings by the market average", () => {
+    // Named rather than inferred, so re-adding it fails here first.
+    const read = fairValueRead(makeOrdinaryFacts());
+    for (const method of [...read.estimate.used, ...read.estimate.dropped]) {
+      expect(method.id, method.name).not.toMatch(/^earnings-/);
+      expect(method.name.toLowerCase()).not.toContain("average company");
+    }
   });
 
   it("lets an estimate land below today's price", () => {
     const read = fairValueRead(facts({ price: 1_000, analystTargetMean: 200 }));
-    expect(read.ahead.price).toBeLessThan(1_000);
+    expect(read.estimate.price).toBeLessThan(1_000);
   });
 });
 
@@ -141,22 +186,22 @@ describe("no method is run on a figure that is not there", () => {
         revenueGrowth: null,
       })
     );
-    expect(read.today.price).toBeNull();
-    expect(read.ahead.price).toBeNull();
-    expect(read.gapToday).toBeNull();
+    expect(read.estimate.price).toBeNull();
+    expect(read.estimate.price).toBeNull();
+    expect(read.gap).toBeNull();
   });
 
   it("counts an analyst average for more when more of them published", () => {
     const many = fairValueRead(facts({ analystCount: 20 }));
     const one = fairValueRead(facts({ analystCount: 1 }));
     const weightOf = (r: ReturnType<typeof fairValueRead>) =>
-      r.ahead.used.find((m) => m.id === "consensus")?.weight ?? 0;
+      r.estimate.used.find((m) => m.id === "consensus")?.weight ?? 0;
     expect(weightOf(many)).toBeGreaterThan(weightOf(one));
   });
 
   it("names the model as a model wherever its number is used", () => {
     const read = fairValueRead(facts(), { modelYearOne: 150 });
-    const fromModel = read.ahead.used.find((m) => m.id === "model");
+    const fromModel = read.estimate.used.find((m) => m.id === "model");
     expect(fromModel?.maker).toBe("model");
     expect(fromModel?.assumes.toLowerCase()).toContain("model");
   });
@@ -169,13 +214,13 @@ describe("nothing here reaches a verdict", () => {
   it("keeps verdict words out of every sentence a reader sees", () => {
     const read = fairValueRead(facts(), { modelYearOne: 150 });
     const sentences = [
-      ...read.today.used,
-      ...read.ahead.used,
-      ...read.today.dropped,
-      ...read.ahead.dropped,
+      ...read.estimate.used,
+      ...read.estimate.used,
+      ...read.estimate.dropped,
+      ...read.estimate.dropped,
     ].flatMap((m) => [m.name, m.assumes, m.working, m.dropped ?? ""]);
-    sentences.push(gapSentence(read.gapToday, read.today.price) ?? "");
-    sentences.push(gapSentence(read.gapAhead, read.ahead.price) ?? "");
+    sentences.push(gapSentence(read.gap, read.estimate.price) ?? "");
+    sentences.push(gapSentence(read.gap, read.estimate.price) ?? "");
     for (const line of sentences) {
       expect(line, line).not.toMatch(VERDICTS);
     }
@@ -190,7 +235,7 @@ describe("nothing here reaches a verdict", () => {
 
   it("uses no em dash anywhere, the way every reader surface must not", () => {
     const read = fairValueRead(facts(), { modelYearOne: 150 });
-    for (const m of [...read.today.used, ...read.ahead.used]) {
+    for (const m of [...read.estimate.used, ...read.estimate.used]) {
       expect(`${m.name}${m.assumes}${m.working}`).not.toMatch(/[—–]/);
     }
   });

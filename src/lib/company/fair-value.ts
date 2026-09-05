@@ -79,15 +79,24 @@ export type FairValueBlend = {
 };
 
 export type FairValueRead = {
-  /** What the arithmetic makes it worth on today's figures. */
-  today: FairValueBlend;
-  /** Where the same methods, run forward, put it a year out. */
-  ahead: FairValueBlend;
+  /**
+   * One estimate, twelve months out, and there is deliberately no second
+   * one for "today".
+   *
+   * Every method that survives here is a forward method: an analyst's
+   * twelve-month target is forward by definition, a multiple of next
+   * year's earnings is forward, and the model's path starts a year out.
+   * The "on today's earnings" figure that used to sit beside this was the
+   * flat market multiple, and it was the wrong number on every company it
+   * was shown for. Two headline figures where only one is defensible is
+   * worse than one, because the reader has no way to know which to
+   * believe.
+   */
+  estimate: FairValueBlend;
   /** Today's actual share price, for the comparison the reader wants. */
   spot: number | null;
-  /** Spot against the blend, as a fraction. Positive means dearer. */
-  gapToday: number | null;
-  gapAhead: number | null;
+  /** The estimate against today's price, as a fraction. */
+  gap: number | null;
 };
 
 /**
@@ -99,6 +108,18 @@ export type FairValueRead = {
  * such companies actually trade at.
  */
 const GROWTH_RULE_FLOOR_PCT = 12;
+
+/**
+ * The most this rule of thumb may ever pay for a year's earnings.
+ *
+ * It was 40, which is where the rule stops describing anything: a company
+ * holding 40 times next year's earnings for long is rare enough that no
+ * heuristic should assume it, and on Nvidia growing 66% the cap was the
+ * only thing setting the number, putting it $291 above the analysts'
+ * average. Thirty is already the top of the range large companies actually
+ * sustain, and past that the rule is guessing rather than estimating.
+ */
+const GROWTH_RULE_CEILING = 30;
 
 function ok(n: number | null | undefined): n is number {
   return typeof n === "number" && Number.isFinite(n) && n > 0;
@@ -123,7 +144,15 @@ function consensusMethod(f: CompanyFacts): FairValueMethod | null {
     twenty is the single most useful outside opinion on this page. So the
     weight moves with the count rather than the number being in or out.
   */
-  const weight = n >= 10 ? 0.35 : n >= 3 ? 0.28 : n >= 1 ? 0.15 : 0.1;
+  /*
+    Weighted above the rule of thumb beside it, deliberately. Forty-nine
+    analysts publishing a target is forty-nine people's work on the actual
+    company; the growth multiple is one line of arithmetic on a heuristic.
+    Where they disagree the blend should lean on the first, and it did not:
+    at the old weights the heuristic carried 36% of the answer and pulled
+    Nvidia's estimate $106 above what any analyst had published.
+  */
+  const weight = n >= 10 ? 0.4 : n >= 3 ? 0.3 : n >= 1 ? 0.16 : 0.1;
   const code = f.currency ?? "USD";
   const spread =
     ok(f.analystTargetHigh) && ok(f.analystTargetLow)
@@ -140,39 +169,33 @@ function consensusMethod(f: CompanyFacts): FairValueMethod | null {
   };
 }
 
-/**
- * What it would be worth if the market paid it the ordinary price for
- * profit, on the profit it is actually expected to make.
- *
- * The horizon is the whole argument here, and getting it wrong is what
- * made the first version of this file produce nonsense. Run on **last
- * year's** profit, a company whose earnings are about to double comes out
- * at a fraction of its share price with nothing wrong in the arithmetic:
- * the profit being paid for has not happened yet, so of course last year's
- * does not justify the price. Measured on AMD in September 2026 that was
- * the difference between an estimate of $78 and one of $309 a share.
- *
- * So the profit figure is the analysts' own estimate for the year in
- * question, and the label says which year it is. Trailing earnings are
- * used only when there is no estimate, and then only for the "today"
- * blend, where they are the honest answer to "what does it earn now".
- */
-function earningsMethod(
-  f: CompanyFacts,
-  input: { eps: number | null; horizon: "today" | "ahead"; basis: string }
-): FairValueMethod | null {
-  const { eps, horizon, basis } = input;
-  if (!ok(eps)) return null;
-  return {
-    id: `earnings-${horizon}`,
-    name: "Priced like the average company",
-    maker: "arithmetic",
-    price: round2(eps * MARKET_EARNINGS_MULTIPLE),
-    assumes: `That this company deserves the same price for its profit as the market pays on average, about ${MARKET_EARNINGS_MULTIPLE} times a year's earnings. A company growing faster than the market usually trades above that and a shrinking one below, so read this as the market's own yardstick rather than as a target.`,
-    working: `${basis}, ${currency(eps, 2, f.currency ?? "USD")} a share, multiplied by ${MARKET_EARNINGS_MULTIPLE}.`,
-    weight: 0.22,
-  };
-}
+/*
+  THERE IS NO "PRICED LIKE THE AVERAGE COMPANY" METHOD, AND THAT IS THE
+  SECOND VALUATION TAKEN OUT OF THIS FILE FOR THE SAME REASON.
+
+  It multiplied a year's earnings by the market's long-run multiple of 20.
+  The arithmetic was sound and the premise was not: applied to a company
+  growing earnings at 104% a year it asks "what would this be worth if it
+  were an average company", and then prints the answer as what the company
+  is worth. Measured on AMD it produced $151 a share against a price of
+  $478, and it dragged the blended figure at the top of the page down to
+  $223, which is not a conservative estimate, it is a wrong one. A page
+  carrying a number like that does not read as cautious. It reads as
+  fabricated, and it takes the credibility of every honest figure beside
+  it down too.
+
+  It is not missed, because the same fact is already on the page in the
+  form it is actually true in: the figures panel prints this company's
+  multiple next to the market's average as a comparison, which is a
+  statement about how the company is priced rather than a claim about what
+  it is worth. `impliedGrowth` below carries the other half, the growth
+  that price implies.
+
+  The general rule, and it is the one the discounted cash flow broke too:
+  a method whose premise does not hold for this company must not appear in
+  a blend of what the company is worth. Arithmetic being correct is not
+  the same as a method applying.
+*/
 
 /**
  * The same idea with the growth put back in: a company compounding
@@ -214,15 +237,15 @@ function growthMethod(
     beside it is the one built for exactly this company.
   */
   if (pct < GROWTH_RULE_FLOOR_PCT) return null;
-  const multiple = Math.min(pct, 40);
+  const multiple = Math.min(pct, GROWTH_RULE_CEILING);
   return {
     id: "growth",
     name: "Priced for the growth it is showing",
     maker: "arithmetic",
     price: round2(eps * multiple),
-    assumes: `That a company growing earnings at ${Math.round(pct)}% a year deserves about ${Math.round(multiple)} times a year's earnings. It is an old rule of thumb rather than a law, it is capped at 40 times because nothing sustains more than that for long, and it assumes the growth keeps up.`,
-    working: `Expected earnings of ${currency(eps, 2, f.currency ?? "USD")} a share multiplied by ${Math.round(multiple)}, taken from ${source} and held between 8 and 40.`,
-    weight: 0.2,
+    assumes: `That a company growing earnings at ${Math.round(pct)}% a year deserves about ${Math.round(multiple)} times a year's earnings. It is an old rule of thumb rather than a law, it is capped at ${GROWTH_RULE_CEILING} times because a company sustaining more than that on next year's earnings is rare enough that no rule should assume it, and it takes a single year's expected growth as though it continued.`,
+    working: `Expected earnings of ${currency(eps, 2, f.currency ?? "USD")} a share multiplied by ${Math.round(multiple)}, taken from ${source} and capped at ${GROWTH_RULE_CEILING}.`,
+    weight: 0.18,
   };
 }
 
@@ -391,97 +414,55 @@ export function fairValueRead(
   input: { modelYearOne?: number | null } = {}
 ): FairValueRead {
   const spot = ok(f.price) ? f.price : null;
+  const none: FairValueBlend = {
+    price: null,
+    used: [],
+    dropped: [],
+    spread: null,
+    confidence: "none",
+  };
 
   /*
     A fund and a coin get no valuation, and this guard is not tidiness.
 
     Every method here prices a claim on a company's earnings. A fund owns
     hundreds of companies and its price is the sum of theirs by
-    construction, so "priced like the average company" applied to an index
-    fund is circular: measured on SPY it produced an estimate of $619
-    against a price of $770, which reads as a judgement about the S&P 500
-    and is really just the feed's own blended multiple divided by twenty.
-    A coin has no earnings at all, so there is nothing for any of this to
+    construction, so a multiple applied to an index fund is circular. A
+    coin has no earnings at all, so there is nothing for any of this to
     divide. Both are answered honestly elsewhere on the page, a fund by
     what it holds and what it costs, a coin by saying there are no
     accounts behind it.
   */
   if (isFundLike(f) || isCryptoLike(f)) {
-    const none: FairValueBlend = {
-      price: null,
-      used: [],
-      dropped: [],
-      spread: null,
-      confidence: "none",
-    };
-    return {
-      today: none,
-      ahead: none,
-      spot,
-      gapToday: null,
-      gapAhead: null,
-    };
+    return { estimate: none, spot, gap: null };
   }
-  const epsTrailing = ok(f.epsTrailing)
-    ? f.epsTrailing
-    : ok(f.trailingPe) && ok(f.price)
-      ? f.price / f.trailingPe
-      : null;
-  const epsForward = ok(f.epsForward)
-    ? f.epsForward
-    : ok(f.forwardPe) && ok(f.price)
-      ? f.price / f.forwardPe
-      : null;
 
   /*
-    Which profit figure each blend is entitled to, and this is the whole
-    correctness of the file.
-
-    "Today" is what the company is worth on what it earns now, so it uses
-    this year's expected earnings, falling back to the last twelve months
-    where no estimate exists. "A year out" is what it is worth on what it
-    is expected to earn then, so it uses next year's estimate. Running
-    both off trailing earnings, which is what this did first, prices a
-    company whose profits are about to double as though they were not, and
-    the arithmetic looks perfectly sound the whole way down.
+    Next year's expected earnings, because that is what every method here
+    is measured against and what the market is actually pricing. Reading a
+    fast-growing company off last year's profit is the fault that produced
+    every unrealistic figure this file used to print.
   */
-  const nowEps = ok(f.epsThisYear) ? f.epsThisYear : epsTrailing;
-  const nowBasis = ok(f.epsThisYear)
-    ? "The earnings analysts expect this year"
-    : "Earnings over the last twelve months";
-  const aheadEps = ok(f.epsNextYear)
+  const forwardEps = ok(f.epsNextYear)
     ? f.epsNextYear
     : ok(f.epsForward)
       ? f.epsForward
-      : epsForward;
-  const aheadBasis = ok(f.epsNextYear)
-    ? "The earnings analysts expect next year"
-    : "The earnings expected for the year ahead";
+      : ok(f.forwardPe) && ok(f.price)
+        ? f.price / f.forwardPe
+        : null;
 
-  const today = blendFairValue(
-    [
-      earningsMethod(f, { eps: nowEps, horizon: "today", basis: nowBasis }),
-      growthMethod(f, nowEps),
-    ].filter((m): m is FairValueMethod => m !== null)
-  );
-
-  const ahead = blendFairValue(
+  const estimate = blendFairValue(
     [
       consensusMethod(f),
-      earningsMethod(f, { eps: aheadEps, horizon: "ahead", basis: aheadBasis }),
-      growthMethod(f, aheadEps),
+      growthMethod(f, forwardEps),
       modelMethod(input.modelYearOne, "first year"),
     ].filter((m): m is FairValueMethod => m !== null)
   );
 
   return {
-    today,
-    ahead,
+    estimate,
     spot,
-    gapToday:
-      spot && today.price ? (spot - today.price) / today.price : null,
-    gapAhead:
-      spot && ahead.price ? (ahead.price - spot) / spot : null,
+    gap: spot && estimate.price ? (estimate.price - spot) / spot : null,
   };
 }
 
@@ -542,7 +523,7 @@ export type ValueGlance = {
  * `value-glance.test.ts` fails on an instruction word in any output.
  */
 export function valueGlance(read: FairValueRead): ValueGlance {
-  const prices = [...read.today.used, ...read.ahead.used].map((m) => m.price);
+  const prices = read.estimate.used.map((m) => m.price);
   const spot = read.spot;
   if (prices.length === 0 || !ok(spot)) {
     return {

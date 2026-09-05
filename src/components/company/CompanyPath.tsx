@@ -58,7 +58,7 @@ export function CompanyPath({
       <PanelHeader
         title={
           <span className="inline-flex items-center gap-2">
-            The next five years
+            Five-year price path
             <WhyThis
               provenance={forecastPathProvenance({
                 ticker,

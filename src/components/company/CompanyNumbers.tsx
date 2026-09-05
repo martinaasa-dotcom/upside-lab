@@ -123,7 +123,7 @@ function YearTable({
   const peak = Math.max(...history.map((h) => h.revenue ?? 0), 1);
   return (
     <div className="flex flex-col gap-3">
-      <MicroLabel>Revenue and profit, year by year</MicroLabel>
+      <MicroLabel>Revenue and profit by year</MicroLabel>
       <div className="glass-well overflow-hidden rounded-lg">
         <div className="grid grid-cols-[3.5rem_1fr_auto_auto] items-center gap-x-3 border-b border-border px-3 py-2 font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground sm:gap-x-5">
           <span>Year</span>
@@ -211,7 +211,7 @@ export function CompanyNumbers({
       <PanelHeader
         title={
           <span className="inline-flex items-center gap-2">
-            The numbers, in plain words
+            Key financials
             <WhyThis
               provenance={companyNumbersProvenance({
                 ticker,
@@ -222,7 +222,7 @@ export function CompanyNumbers({
             />
           </span>
         }
-        subtitle="The real name of each figure, then what it means in ordinary words, then what it is measured against. A number with nothing beside it is not information."
+        subtitle="Each figure under its real name, what it means in ordinary words, and what it is measured against. A number with nothing beside it is not information."
         icon={<BarChart3 className="h-4 w-4" />}
       />
       {/*

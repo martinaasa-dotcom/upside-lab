@@ -39,14 +39,14 @@ export function CompanySources({
   return (
     <Panel>
       <PanelHeader
-        title="Check it yourself"
-        subtitle="Nothing on this page should be taken on trust. These are the articles it was written from and the places to go and read the company's own words."
+        title="Sources"
+        subtitle="Nothing on this page should be taken on trust. These are the articles it was written from, and the places to go and read the company's own filings."
         icon={<Library className="h-4 w-4" />}
       />
 
       {articles.length > 0 ? (
         <div className="flex flex-col gap-3">
-          <MicroLabel>The articles this page was given</MicroLabel>
+          <MicroLabel>Articles this page was written from</MicroLabel>
           <ul className="flex flex-col gap-2">
             {articles.map((a) => (
               <li key={a.href}>
@@ -86,7 +86,7 @@ export function CompanySources({
 
       {sources.length > 0 && (
         <div className="flex flex-col gap-3">
-          <MicroLabel>Where to go next</MicroLabel>
+          <MicroLabel>Primary sources</MicroLabel>
           <div className="grid gap-3 sm:grid-cols-2">
             {sources.map((s) => (
               <Card key={s.id} tone="default" className="flex flex-col gap-2">

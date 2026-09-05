@@ -220,7 +220,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
             <div className={SPLIT_ROW}>
               <div className={SPLIT_COPY}>
                 <h1 className="text-2xl font-semibold text-foreground">
-                  Get to know a company
+                  Research a company
                 </h1>
                 <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                   What it does, what the accounts say, what the price is
@@ -331,7 +331,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                   )}
                 </div>
                 {page.brief ? (
-                  <Reading nested label="What they actually do">
+                  <Reading nested label="What the company does">
                     <p className="text-sm leading-relaxed text-foreground">
                       {page.brief.whatTheyDo}
                     </p>
@@ -342,7 +342,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                     )}
                   </Reading>
                 ) : facts.about ? (
-                  <Reading nested label="What they say they do">
+                  <Reading nested label="What the company says it does">
                     <p className="text-sm leading-relaxed text-foreground">
                       {facts.about}
                     </p>
@@ -372,7 +372,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                 </Panel>
               )}
 
-              {fair && (fair.today.price !== null || fair.ahead.price !== null) && (
+              {fair && fair.estimate.price !== null && (
                 <WidgetErrorBoundary name="At a glance">
                   <ValueGlance
                     ticker={ticker}

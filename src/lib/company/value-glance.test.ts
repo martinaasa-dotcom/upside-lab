@@ -52,7 +52,7 @@ describe("the read at the top never tells anybody what to do", () => {
       of methods that plainly disagree.
     */
     const wide = valueGlance({
-      today: {
+      estimate: {
         price: 100,
         used: [
           { id: "a", name: "A", maker: "arithmetic", price: 100, assumes: "", working: "", weight: 1 },
@@ -62,10 +62,8 @@ describe("the read at the top never tells anybody what to do", () => {
         spread: 3,
         confidence: "mixed",
       },
-      ahead: { price: null, used: [], dropped: [], spread: null, confidence: "none" },
       spot: 250,
-      gapToday: null,
-      gapAhead: null,
+      gap: null,
     });
     expect(wide.read).toContain("disagree");
     expect(wide.nextQuestion).toContain("settles nothing");

@@ -111,11 +111,11 @@ export function CompanyCases({
       <PanelHeader
         title={
           <span className="inline-flex items-center gap-2">
-            Both sides of it
+            The case for and against
             <WhyThis provenance={provenance} />
           </span>
         }
-        subtitle="A language model read the figures above and the articles below, and was asked what the arguments each way are. Every point names what it rests on."
+        subtitle="A language model read the figures above and the articles below, and was asked what the arguments each way are. Every point names the figure or the article it rests on."
         icon={<GitCompare className="h-4 w-4" />}
       />
 
@@ -123,7 +123,7 @@ export function CompanyCases({
         <Reading
           nested
           tone="good"
-          label="The case for owning it"
+          label="The case for"
           icon={<ThumbsUp className="h-4 w-4" />}
         >
           <PointList points={brief.caseFor} />
@@ -139,7 +139,7 @@ export function CompanyCases({
       </div>
 
       {brief.watchFor.length > 0 && (
-        <Reading nested label="What would change the picture">
+        <Reading nested label="What to watch">
           <PointList points={brief.watchFor} />
         </Reading>
       )}

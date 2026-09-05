@@ -85,7 +85,7 @@ export function PositionFitCard({
       <PanelHeader
         title={
           <span className="inline-flex items-center gap-2">
-            How it would sit in your portfolio
+            What it would do to your portfolio
             <WhyThis
               provenance={positionFitProvenance({
                 ticker,
