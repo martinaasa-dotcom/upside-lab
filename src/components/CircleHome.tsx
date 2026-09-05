@@ -1,5 +1,6 @@
 "use client";
 
+import { membersTabLabel } from "@/lib/members-tab-label";
 import { DailyDuelCard } from "@/components/DailyDuelCard";
 import { PowerAnimalCard } from "@/components/CircleCards";
 import { BelowFold } from "@/components/BelowFold";
@@ -214,6 +215,8 @@ export type CircleHomeProps = {
   communityId: string;
   duelCache: CommunityDuelCache | null;
   isAdmin: boolean;
+  /** People in the circle, as the list page counts them. */
+  memberCount: number;
   /** People who have asked to join and are waiting on an admin. */
   waitingToJoin: number;
   inviteBusy: boolean;
@@ -247,6 +250,7 @@ export function CircleHome({
   communityId,
   duelCache,
   isAdmin,
+  memberCount,
   waitingToJoin,
   inviteBusy,
   inviteUrl,
@@ -293,9 +297,17 @@ export function CircleHome({
         options={[
           { id: "overview" as const, label: "Overview" },
           ...(hasLeague ? [{ id: "play" as const, label: "Animals" }] : []),
+          /*
+            The number after Members is how many people are in the circle.
+            It used to be how many were waiting to join, shown to an admin
+            only, so a circle of fourteen read "Members · 1" and the reader
+            took it for the roster. A count beside a noun is read as the
+            count of that noun; the request waiting on the admin is said
+            in words instead.
+          */
           {
             id: "members" as const,
-            label: waitingToJoin > 0 ? `Members · ${waitingToJoin}` : "Members",
+            label: membersTabLabel(memberCount, waitingToJoin),
           },
         ]}
       />
