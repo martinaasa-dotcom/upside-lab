@@ -7,7 +7,7 @@ import {
 import type { CompanyBriefRaw } from "@/lib/ai/company-brief-schema";
 import type { CompanyReading } from "@/lib/company/readings";
 import type { CompanyArticle } from "@/lib/company/sources";
-import type { CompanyFacts } from "@/lib/company/facts";
+import { makeOrdinaryFacts } from "@/lib/company/facts-fixture";
 import { FORECAST_YEARS } from "@/lib/forecast";
 import { PLAIN_WORDS_RULE } from "@/lib/ai/margus-persona";
 
@@ -190,46 +190,14 @@ describe("the path it sketches", () => {
   });
 });
 
-function facts(): CompanyFacts {
-  return {
-    ticker: "TEST",
-    listedSymbol: "TEST",
-    name: "Test Company",
+const facts = () =>
+  makeOrdinaryFacts({
     about: "It tests things for other companies.",
-    sector: "Technology",
-    industry: "Software",
-    country: "United States",
-    employees: 100,
-    website: null,
-    kind: "EQUITY",
-    currency: "USD",
-    price: 100,
-    changePercent: null,
-    marketCap: 1_000_000_000,
-    fiftyTwoWeekHigh: null,
-    fiftyTwoWeekLow: null,
     revenue: null,
     revenueGrowth: null,
-    grossMargin: null,
-    profitMargin: 0.1,
-    netIncome: null,
-    freeCashFlow: null,
-    totalCash: null,
-    totalDebt: null,
     trailingPe: null,
     forwardPe: null,
-    dividendYield: null,
-    epsTrailing: null,
-    epsForward: null,
-    sharesOutstanding: null,
-    history: [],
-    analystCount: null,
-    analystTargetMean: null,
-    analystTargetHigh: null,
-    analystTargetLow: null,
-    fetchedAt: "2026-09-05T00:00:00.000Z",
-  };
-}
+  });
 
 describe("the prompt hands over exactly what may be cited", () => {
   const prompt = buildCompanyBriefPrompt({

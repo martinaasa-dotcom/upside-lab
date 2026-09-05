@@ -30,6 +30,11 @@
  * out of the forecast on purpose.
  */
 import { NO_VALUE, currency, number, percent } from "@/lib/format";
+export { bigMoney } from "@/lib/company/scale";
+import {
+  MARKET_EARNINGS_MULTIPLE as MARKET_MULTIPLE,
+  bigMoney,
+} from "@/lib/company/scale";
 import type { CompanyFacts } from "@/lib/company/facts";
 import { isCryptoLike, isFundLike } from "@/lib/company/facts";
 
@@ -37,29 +42,41 @@ export type ReadingTone = "good" | "watch" | "neutral";
 
 export type CompanyReading = {
   id: string;
-  /** Ordinary words. Never the market's own name for the number. */
+  /**
+   * The figure's real name, as the rest of the world writes it.
+   *
+   * These were plain paraphrases ("Whether they make money") and that was
+   * a mistake in both directions. Somebody who knows what a profit margin
+   * is had to decode a riddle to find one, and somebody who does not was
+   * left unable to recognise the word anywhere else, which is the exact
+   * cost AGENTS.md records for the outright ban. The real term goes on the
+   * label, where the definition sits behind it, and `plain` immediately
+   * underneath says the same thing in ordinary words. Both readers are
+   * served by the same two lines, in that order.
+   */
   label: string;
   /** The figure, formatted, or NO_VALUE. */
   value: string;
   /** The same figure as a sentence, or null when there is no figure. */
   plain: string | null;
-  /** What ordinary looks like. Always present, figure or no figure. */
+  /**
+   * The one thing the figure is measured against: the market, the
+   * company's own history, or what ordinary looks like for this kind of
+   * number. A figure with nothing beside it is not information, which is
+   * the whole complaint this room exists to answer.
+   */
   compare: string;
+  /**
+   * A short benchmark chip, when there is a real number to compare with
+   * rather than a rule of thumb. `label` is what it is measured against
+   * and `value` is that thing's figure, so the reader sees "S&P 500 · 15%"
+   * beside a company's 104% and needs no sentence to read it.
+   */
+  versus?: { label: string; value: string; better: boolean | null };
   tone: ReadingTone;
   /** Key into `GLOSSARY`, where this app already defines the outside word. */
   glossary?: string;
 };
-
-/** Big money in words: $3.4 trillion reads, $3,400,000,000,000 does not. */
-export function bigMoney(value: number | null | undefined, code = "USD"): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return NO_VALUE;
-  const sign = value < 0 ? "-" : "";
-  const n = Math.abs(value);
-  if (n >= 1e12) return `${sign}${currency(n / 1e12, 2, code)} trillion`;
-  if (n >= 1e9) return `${sign}${currency(n / 1e9, 1, code)} billion`;
-  if (n >= 1e6) return `${sign}${currency(n / 1e6, 1, code)} million`;
-  return currency(value, 0, code);
-}
 
 /**
  * `null` in, a reading out. Every builder below funnels through here so a
@@ -72,9 +89,10 @@ function reading(
   plain: string | null,
   compare: string,
   tone: ReadingTone = "neutral",
-  glossary?: string
+  glossary?: string,
+  versus?: CompanyReading["versus"]
 ): CompanyReading {
-  return { id, label, value, plain, compare, tone, glossary };
+  return { id, label, value, plain, compare, tone, glossary, versus };
 }
 
 function has(n: number | null | undefined): n is number {
@@ -89,28 +107,40 @@ function has(n: number | null | undefined): n is number {
 function sizeReading(f: CompanyFacts): CompanyReading {
   const code = f.currency ?? "USD";
   const v = f.marketCap;
+  const fund = isFundLike(f);
+  const coin = isCryptoLike(f);
   const plain = has(v)
-    ? `Buying every share of this company at today's price would cost ${bigMoney(v, code)}.`
+    ? fund
+      ? `Investors have put ${bigMoney(v, code)} into this fund between them.`
+      : coin
+        ? // A coin has no shares to buy every one of, and saying so would
+          // be the app describing something that does not exist.
+          `Every coin in existence, at today's price, comes to ${bigMoney(v, code)}.`
+        : `Buying every share at today's price would cost ${bigMoney(v, code)}.`
     : null;
   return reading(
     "size",
-    "What the whole company is worth",
+    fund ? "Fund size" : coin ? "Total value of all coins" : "Market value",
     bigMoney(v, code),
     plain,
-    "Under $2 billion is small, $10 billion to $200 billion is the middle of the market, and above that are the few dozen everybody has heard of.",
+    fund
+      ? "A larger fund is usually cheaper to run and easier to sell out of on a bad day. It says nothing about whether what is inside it is any good."
+      : coin
+        ? "There is no revenue, no profit and no asset behind this figure. It is the number of coins multiplied by what the last one traded at, so it moves entirely with sentiment."
+        : "Under $2 billion is small, $10 billion to $200 billion is the middle of the market, and above that are the few dozen everybody has heard of.",
     "neutral",
-    "market-value"
+    fund || coin ? undefined : "market-value"
   );
 }
 
 function salesReading(f: CompanyFacts): CompanyReading {
   const code = f.currency ?? "USD";
   const plain = has(f.revenue)
-    ? `Customers paid this company ${bigMoney(f.revenue, code)} over the last twelve months.`
+    ? `Customers paid them ${bigMoney(f.revenue, code)} over the last twelve months.`
     : null;
   return reading(
     "sales",
-    "What customers paid them",
+    "Revenue",
     bigMoney(f.revenue, code),
     plain,
     "Money in the door before any costs come out. A company can sell a great deal and still lose money.",
@@ -123,20 +153,71 @@ function growthReading(f: CompanyFacts): CompanyReading {
   const g = f.revenueGrowth;
   const plain = has(g)
     ? g > 0
-      ? `They sold ${percent(g)} more than in the same stretch a year ago.`
+      ? `Sales are ${percent(g)} higher than the same stretch a year ago.`
       : g < 0
-        ? `They sold ${percent(Math.abs(g))} less than in the same stretch a year ago.`
-        : "They sold about the same as a year ago."
+        ? `Sales are ${percent(Math.abs(g))} lower than the same stretch a year ago.`
+        : "Sales are about level with a year ago."
     : null;
   const tone: ReadingTone = has(g) ? (g < 0 ? "watch" : "good") : "neutral";
+  const next = f.revenueGrowthNextYear;
   return reading(
     "growth",
-    "Whether that is growing",
+    "Revenue growth",
     has(g) ? percent(g) : NO_VALUE,
     plain,
-    "The economy grows a few percent a year, so anything above that is real growth. Falling sales is the one figure here worth stopping on.",
+    has(next)
+      ? `Analysts expect ${percent(next)} next year. The economy as a whole grows a few percent, so anything well above that is real growth.`
+      : "The economy as a whole grows a few percent a year, so anything well above that is real growth. Falling sales is the one figure here worth stopping on.",
     tone,
-    "sales-growth"
+    "sales-growth",
+    has(next)
+      ? { label: "Expected next year", value: percent(next), better: null }
+      : undefined
+  );
+}
+
+/**
+ * What the analysts expect earnings to do, against what they expect the
+ * whole market to do.
+ *
+ * The single most useful figure on the page and it was missing entirely
+ * from the first version, which priced everything off last year. It is
+ * also the one place a real benchmark is available for nothing: the feed
+ * publishes the S&P 500's own expected growth beside every company's.
+ */
+function earningsGrowthReading(f: CompanyFacts): CompanyReading {
+  const g = f.epsGrowthNextYear ?? f.epsGrowthThisYear;
+  const market = f.marketEpsGrowthNextYear ?? f.marketLongTermGrowth;
+  const which = f.epsGrowthNextYear != null ? "next year" : "this year";
+  const plain = has(g)
+    ? g > 0
+      ? `Profit per share is expected to be ${percent(g)} higher ${which}.`
+      : `Profit per share is expected to be ${percent(Math.abs(g))} lower ${which}.`
+    : null;
+  const tone: ReadingTone = has(g)
+    ? g < 0
+      ? "watch"
+      : has(market) && g > market
+        ? "good"
+        : "neutral"
+    : "neutral";
+  return reading(
+    "earnings-growth",
+    "Expected earnings growth",
+    has(g) ? percent(g) : NO_VALUE,
+    plain,
+    has(market)
+      ? `The S&P 500's own earnings are expected to grow ${percent(market)} over the same stretch, so this is the figure that says whether the company is outrunning the market or keeping pace with it.`
+      : "This is what the market is paying for. A high price is usually a bet on this number, so it is the one to watch when results come out.",
+    tone,
+    undefined,
+    has(market)
+      ? {
+          label: "S&P 500",
+          value: percent(market),
+          better: has(g) ? g > market : null,
+        }
+      : undefined
   );
 }
 
@@ -148,14 +229,31 @@ function profitReading(f: CompanyFacts): CompanyReading {
       : `They lose about ${currency(Math.abs(m) * 100, 0)} on every $100 customers pay them.`
     : null;
   const tone: ReadingTone = has(m) ? (m <= 0 ? "watch" : "good") : "neutral";
+  /*
+    Measured against the company's own history rather than against a
+    table, because a margin only means something next to the margin the
+    same business was earning three years ago. Widening is a business
+    getting stronger; narrowing is the one that matters and no rule of
+    thumb catches it.
+  */
+  const oldest = f.history[0];
+  const past =
+    oldest && has(oldest.revenue) && has(oldest.netIncome) && oldest.revenue > 0
+      ? oldest.netIncome / oldest.revenue
+      : null;
   return reading(
     "profit",
-    "Whether they make money",
+    "Profit margin",
     has(m) ? percent(m) : NO_VALUE,
     plain,
-    "Most large companies keep $5 to $15 of every $100. A young company losing money on purpose is a choice, and it works only while somebody keeps lending it the difference.",
+    has(past)
+      ? `In ${oldest!.year} it was ${percent(past)}, so the business is ${has(m) && m > past ? "keeping more of what it sells than it used to" : has(m) && m < past ? "keeping less of what it sells than it used to" : "keeping about the same share as it used to"}.`
+      : "Most large companies keep $5 to $15 of every $100. A young company losing money on purpose is a choice, and it works only while somebody keeps lending it the difference.",
     tone,
-    "profit-margin"
+    "profit-margin",
+    has(past) && oldest
+      ? { label: `In ${oldest.year}`, value: percent(past), better: has(m) ? m > past : null }
+      : undefined
   );
 }
 
@@ -166,7 +264,7 @@ function balanceReading(f: CompanyFacts): CompanyReading {
   if (!has(cash) && !has(debt)) {
     return reading(
       "balance",
-      "Cash against what they owe",
+      "Net cash",
       NO_VALUE,
       null,
       "More cash than debt means a bad year is survivable without asking anybody. The other way round, the lenders have a say too.",
@@ -177,49 +275,68 @@ function balanceReading(f: CompanyFacts): CompanyReading {
   const net = (cash ?? 0) - (debt ?? 0);
   const plain =
     net >= 0
-      ? `They hold ${bigMoney(cash, code)} in cash against ${bigMoney(debt, code)} of debt, so ${bigMoney(net, code)} more cash than debt.`
-      : `They hold ${bigMoney(cash, code)} in cash against ${bigMoney(debt, code)} of debt, so ${bigMoney(Math.abs(net), code)} more debt than cash.`;
+      ? `They hold ${bigMoney(cash, code)} in cash against ${bigMoney(debt, code)} of debt.`
+      : `They owe ${bigMoney(debt, code)} against ${bigMoney(cash, code)} of cash.`;
   /*
-    The tone turns on the size of the gap rather than its sign, because
-    borrowing is an ordinary way to run a company and a rose flag on every
-    company carrying any debt is a flag a reader learns to ignore. A debt
-    load worth more than a year and a half of sales is the point at which
-    the lenders start being part of the story.
+    Turns on the size of the gap rather than its sign. Borrowing is an
+    ordinary way to run a company and a warning on every company carrying
+    any debt is a warning a reader learns to ignore. Debt worth more than
+    a year and a half of sales is where the lenders join the story.
   */
   const heavy =
     has(debt) && has(f.revenue) && f.revenue > 0 && debt > f.revenue * 1.5;
+  const years =
+    has(f.revenue) && f.revenue > 0 && has(debt) ? debt / f.revenue : null;
   return reading(
     "balance",
-    "Cash against what they owe",
-    bigMoney(net, code),
+    net >= 0 ? "Net cash" : "Net debt",
+    bigMoney(Math.abs(net), code),
     plain,
-    "More cash than debt means a bad year is survivable without asking anybody. Owing more than a year of sales means the lenders have a say too.",
+    has(years)
+      ? `The debt is worth about ${years < 0.1 ? "a rounding error next to" : `${years.toFixed(1)} times`} a year of sales. Past about one and a half years of sales, keeping the lenders happy starts competing with keeping customers happy.`
+      : "More cash than debt means a bad year is survivable without asking anybody. The other way round, the lenders have a say too.",
     net >= 0 ? "good" : heavy ? "watch" : "neutral",
     "debt"
   );
 }
 
 function priceTagReading(f: CompanyFacts): CompanyReading {
-  const pe = f.trailingPe ?? f.forwardPe;
-  const forwardOnly = !has(f.trailingPe) && has(f.forwardPe);
-  const plain = has(pe)
-    ? `At today's price you are paying about ${currency(pe, 0)} for every $1 of profit the company makes in a year${forwardOnly ? ", counting the profit analysts expect next year rather than last year's" : ""}.`
-    : null;
   /*
-    No tone. Expensive is not the same as bad and cheap is not the same as
-    safe: a company growing fast is supposed to cost more than one standing
-    still, and the cheapest companies on the market are usually cheap for a
-    reason somebody has already spotted. Colouring this figure would be the
-    one place on the page where a single number reads as a verdict.
+    Forward first, and that ordering is the whole point of this figure.
+
+    A trailing multiple on a company whose profits are about to double is
+    a true number that answers the wrong question: nobody is paying 122
+    times AMD's last year, they are paying 31 times next year's. Both are
+    printed, because a professional wants the trailing one and a beginner
+    needs to know the forward figure rests on an estimate.
   */
+  const forward =
+    has(f.epsNextYear) && has(f.price) && f.epsNextYear > 0
+      ? f.price / f.epsNextYear
+      : f.forwardPe;
+  const trailing = f.trailingPe;
+  const shown = has(forward) ? forward : trailing;
+  const isForward = has(forward);
+  const plain = has(shown)
+    ? isForward
+      ? `At today's price you are paying about ${currency(shown, 0)} for every $1 of profit the company is expected to make next year.`
+      : `At today's price you are paying about ${currency(shown, 0)} for every $1 of profit it made last year.`
+    : null;
   return reading(
     "price-tag",
-    "How expensive the shares are",
-    has(pe) ? `${number(pe, 1)}x` : NO_VALUE,
+    isForward ? "Price to next year's earnings" : "Price to earnings",
+    has(shown) ? `${number(shown, 1)}x` : NO_VALUE,
     plain,
-    "The whole US market has averaged near 20x over the long run. Higher usually means people expect the profit to grow, and that more has to go right.",
+    has(trailing) && isForward
+      ? `On last year's profit it is ${number(trailing, 1)}x. The whole US market has averaged near ${MARKET_MULTIPLE}x over the long run, so the gap between those two numbers is how much growth the price is counting on.`
+      : `The whole US market has averaged near ${MARKET_MULTIPLE}x over the long run. Higher usually means people expect the profit to grow, and that more has to go right.`,
     "neutral",
-    "price-to-earnings"
+    "price-to-earnings",
+    {
+      label: "Market average",
+      value: `${MARKET_MULTIPLE}x`,
+      better: null,
+    }
   );
 }
 
@@ -229,39 +346,79 @@ function rangeReading(f: CompanyFacts): CompanyReading {
   if (!has(price) || !has(high) || !has(low) || high <= low) {
     return reading(
       "range",
-      "Where the price sits this year",
+      "52 week range",
       NO_VALUE,
       null,
       "Near the top or the bottom of its own year says nothing about what happens next. It says how much the people holding it have changed their minds lately.",
-      "neutral"
+      "neutral",
+      "recent-range"
     );
   }
   const spot = Math.min(Math.max((price - low) / (high - low), 0), 1);
-  const plain = `Over the last year it has traded between ${currency(low, 2, code)} and ${currency(high, 2, code)}. Today it sits about ${percent(spot, 0)} of the way up that range.`;
+  const plain = `It has traded between ${currency(low, 2, code)} and ${currency(high, 2, code)} over the last year, and today sits ${percent(spot, 0)} of the way up.`;
   return reading(
     "range",
-    "Where the price sits this year",
+    "52 week range",
     percent(spot, 0),
     plain,
     "Near the top or the bottom of its own year says nothing about what happens next. It says how much the people holding it have changed their minds lately.",
-    "neutral"
+    "neutral",
+    "recent-range",
+    { label: "Down from the high", value: percent((high - price) / high, 0), better: null }
   );
 }
 
 function dividendReading(f: CompanyFacts): CompanyReading {
   const y = f.dividendYield;
   const pays = has(y) && y > 0;
+  const fund = isFundLike(f);
   const plain = pays
-    ? `For every $100 of shares you hold, they have been paying out about ${currency(y * 100, 2)} a year in cash.`
-    : "They pay nothing out. Everything they earn stays in the business, which is the ordinary choice for a company still growing fast.";
+    ? `For every $100 you hold, about ${currency(y * 100, 2)} a year comes back to you in cash.`
+    : fund
+      ? "Nothing comes back as cash. Either the companies inside it pay nothing out, or the fund keeps and reinvests what they do."
+      : "They pay nothing out. Everything earned stays in the business, which is the ordinary choice for a company still growing fast.";
   return reading(
     "dividend",
-    "Whether they pay you to hold it",
-    pays ? percent(y, 2) : "Nothing",
+    "Dividend yield",
+    pays ? percent(y, 2) : "None",
     plain,
-    "Cash that arrives whether the price moves or not. Not free money: it comes out of the company, which then has that much less to spend on growing.",
+    fund
+      ? "This is what the companies inside the fund paid out, passed on to you after the fund's charge. It arrives whether the price moves or not, and it is part of what you get from holding the fund rather than a bonus on top."
+      : "Cash that arrives whether the price moves or not. Not free money: it comes out of the company, which then has that much less to spend on growing.",
     "neutral",
     "dividend"
+  );
+}
+
+/** What a fund costs to hold, which is the figure that decides its result. */
+function feeReading(f: CompanyFacts): CompanyReading {
+  const fee = f.expenseRatio;
+  const plain = has(fee)
+    ? `On every $10,000 you hold, this fund charges about ${currency(fee * 10_000, 0)} a year, taken out before you see it.`
+    : null;
+  /*
+    Over thirty years the fee is usually the largest single thing anybody
+    can control about a fund, and it is the one number a fund page must
+    lead on. A tenth of a percent is what the cheapest broad index funds
+    charge; anything approaching one percent is an active fund and has to
+    beat the market by that much just to draw level.
+  */
+  const tone: ReadingTone = has(fee)
+    ? fee <= 0.002
+      ? "good"
+      : fee >= 0.0075
+        ? "watch"
+        : "neutral"
+    : "neutral";
+  return reading(
+    "fee",
+    "Annual charge",
+    has(fee) ? percent(fee, 2) : NO_VALUE,
+    plain,
+    has(fee)
+      ? `Held for thirty years, that compounds: at ${percent(fee, 2)} a year roughly ${percent(1 - Math.pow(1 - fee, 30), 0)} of what you would otherwise have ends up with the fund instead. The cheapest broad funds charge under 0.10%.`
+      : "The cheapest broad index funds charge under 0.10% a year. Anything near 1% has to beat the market by that much every year just to draw level.",
+    tone
   );
 }
 
@@ -275,19 +432,33 @@ function dividendReading(f: CompanyFacts): CompanyReading {
  * mistake this app made.
  */
 export function companyReadings(f: CompanyFacts): CompanyReading[] {
+  /*
+    A coin has no accounts. There is no revenue to grow, no profit to keep
+    and nothing owed to anybody, so the only honest figures are what the
+    whole thing is worth and where the price has been. Printing eight
+    headings and six `n/a`s beside them would not be a gap in our data, it
+    would be this app asking a question that does not apply and then
+    reporting that nobody answered it.
+  */
   if (isCryptoLike(f)) {
     return [sizeReading(f), rangeReading(f)];
   }
+  /*
+    A fund is not a company either: it owns them. What decides how a fund
+    turns out is what it holds and what it charges, and the charge is the
+    one number a holder can actually control, so it leads.
+  */
   if (isFundLike(f)) {
-    return [sizeReading(f), rangeReading(f), dividendReading(f)];
+    return [feeReading(f), sizeReading(f), rangeReading(f), dividendReading(f)];
   }
   return [
-    sizeReading(f),
-    salesReading(f),
+    priceTagReading(f),
+    earningsGrowthReading(f),
     growthReading(f),
     profitReading(f),
+    salesReading(f),
     balanceReading(f),
-    priceTagReading(f),
+    sizeReading(f),
     rangeReading(f),
     dividendReading(f),
   ];

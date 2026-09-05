@@ -3700,7 +3700,19 @@ run("Forecast is always the base case", () => {
   assert.doesNotMatch(panel, /Cautious/);
   assert.doesNotMatch(panel, /Optimistic/);
   assert.doesNotMatch(panel, /SPY/);
-  assert.match(panel, /Drag across to read a year/);
+  /*
+    The chart moved into `ui/PathChart.tsx` so the company room can draw a
+    path the same way the portfolio does, ticks and drag readout included.
+    The behaviour is unchanged and the assertion follows it: a path with no
+    axis is a shape with no units, which is the one thing a five-year price
+    chart must not be.
+  */
+  const pathChart = readFileSync(
+    join(process.cwd(), "src/components/ui/PathChart.tsx"),
+    "utf8"
+  );
+  assert.match(panel, /SheetPathChart/);
+  assert.match(pathChart, /Drag across to read a year/);
   assert.doesNotMatch(panel, /mustBeTrue/);
   /*
    * The rule is that every number carries its reason, not that the reason

@@ -23,11 +23,14 @@ import { CompanyPath } from "@/components/company/CompanyPath";
 import { CompanySearch } from "@/components/company/CompanySearch";
 import { CompanySources } from "@/components/company/CompanySources";
 import { FairValueCard } from "@/components/company/FairValueCard";
+import { FundInside } from "@/components/company/FundInside";
+import { ValueGlance } from "@/components/company/ValueGlance";
 import { PositionFitCard } from "@/components/company/PositionFitCard";
 import { useAuth } from "@/components/AuthProvider";
 import { readBookCache } from "@/lib/book-cache";
 import { loadCachedQuotes } from "@/lib/quote-cache";
 import { fairValueRead } from "@/lib/company/fair-value";
+import { isCryptoLike, isFundLike } from "@/lib/company/facts";
 import type { FitHolding } from "@/lib/company/position-fit";
 import {
   companyHref,
@@ -220,9 +223,10 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                   Get to know a company
                 </h1>
                 <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                  What it does, what its finances look like, what it might
-                  be worth, and both sides of the argument. Every figure
-                  links back to where it came from.
+                  What it does, what the accounts say, what the price is
+                  assuming, and both sides of the argument. Every figure is
+                  the real one, named properly, with a plain sentence under
+                  it and a link back to where it came from.
                 </p>
               </div>
               <div className={SPLIT_ACTIONS}>
@@ -294,11 +298,20 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                   <Badge variant="outline" className="font-mono">
                     {cashtag(ticker)}
                   </Badge>
-                  {facts.sector && (
+                  {/*
+                    A fund's own category is the more useful label and the
+                    two would otherwise sit side by side saying roughly the
+                    same thing.
+                  */}
+                  {isFundLike(facts) && facts.fundCategory ? (
+                    <Badge variant="outline" className="text-muted-foreground">
+                      {facts.fundCategory}
+                    </Badge>
+                  ) : facts.sector ? (
                     <Badge variant="outline" className="text-muted-foreground">
                       {facts.sector}
                     </Badge>
-                  )}
+                  ) : null}
                   {facts.employees !== null && (
                     <Badge variant="outline" className="text-muted-foreground">
                       {new Intl.NumberFormat("en-US").format(facts.employees)}{" "}
@@ -359,6 +372,33 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                 </Panel>
               )}
 
+              {fair && (fair.today.price !== null || fair.ahead.price !== null) && (
+                <WidgetErrorBoundary name="At a glance">
+                  <ValueGlance
+                    ticker={ticker}
+                    facts={facts}
+                    read={fair}
+                    code={code}
+                    at={page.briefAt ?? facts.fetchedAt}
+                    model={page.model}
+                  />
+                </WidgetErrorBoundary>
+              )}
+
+              {isCryptoLike(facts) && (
+                <Panel tone="warn">
+                  <p className="text-sm leading-relaxed text-foreground">
+                    There is no company behind this one. It files no
+                    accounts, earns no revenue and owns nothing, so most of
+                    what this page does for a company cannot be done here:
+                    there is nothing to value it against except what
+                    somebody else will pay. The price and the range below
+                    are real; everything else on a company page would be
+                    invented.
+                  </p>
+                </Panel>
+              )}
+
               <WidgetErrorBoundary name="Company numbers">
                 <CompanyNumbers
                   ticker={ticker}
@@ -369,14 +409,11 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                 />
               </WidgetErrorBoundary>
 
-              {fair && (
-                <WidgetErrorBoundary name="Fair value">
-                  <FairValueCard
-                    ticker={ticker}
-                    read={fair}
-                    code={code}
-                    at={page.briefAt ?? facts.fetchedAt}
-                    model={page.model}
+              {isFundLike(facts) && (
+                <WidgetErrorBoundary name="Inside the fund">
+                  <FundInside
+                    facts={facts}
+                    owned={book.holdings.map((h) => h.ticker)}
                   />
                 </WidgetErrorBoundary>
               )}
@@ -406,6 +443,18 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                     model={page.model}
                     sector={facts.sector}
                     shared={page.briefShared}
+                  />
+                </WidgetErrorBoundary>
+              )}
+
+              {fair && (
+                <WidgetErrorBoundary name="Fair value">
+                  <FairValueCard
+                    ticker={ticker}
+                    read={fair}
+                    code={code}
+                    at={page.briefAt ?? facts.fetchedAt}
+                    model={page.model}
                   />
                 </WidgetErrorBoundary>
               )}

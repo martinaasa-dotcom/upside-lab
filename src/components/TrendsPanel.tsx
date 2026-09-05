@@ -45,6 +45,10 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { isAbortError } from "@/lib/abort";
+import { aimOnPress } from "@/lib/route-aim";
+import { companyHref } from "@/lib/company/client";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
 import { loadTrendsPaint, saveTrendsPaint } from "@/lib/paint-cache";
 
@@ -205,6 +209,7 @@ function rsText(v: number | null): string {
 }
 
 export function TrendsPanel({ tickers }: { tickers: string[] }) {
+  const router = useRouter();
   const [watchlist, setWatchlist] = useHydratedCache<string[]>(
     loadTrendsWatchlist,
     []
@@ -381,9 +386,31 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
         />
         {watchlist.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
+            {/*
+              The ticker itself opens the company page now.
+
+              Watching a name used to have no consequence at all beyond a
+              mention in the Sunday letter: a reader could add a company
+              they were thinking about and there was nowhere in the app to
+              go and think about it. The whole point of a watchlist is that
+              these are the names you are still deciding on, so each one
+              is a link to what the company is, what it earns and what the
+              price is assuming. The cross keeps its own hit area.
+            */}
             {watchlist.map((t) => (
               <Badge key={t} variant="secondary" className="h-8 gap-1.5 pr-1">
-                {cashtag(t)}
+                <Link
+                  href={companyHref(t)}
+                  onPointerDown={(e) =>
+                    aimOnPress(e.nativeEvent, companyHref(t), (href) =>
+                      router.push(href)
+                    )
+                  }
+                  title={`Look up ${cashtag(t)}`}
+                  className="rounded-sm underline decoration-border underline-offset-4 transition hover:text-primary"
+                >
+                  {cashtag(t)}
+                </Link>
                 <button
                   type="button"
                   onClick={() => removeFromWatchlist(t)}

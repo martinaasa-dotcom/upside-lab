@@ -67,8 +67,42 @@ export type CompanyFacts = {
   epsForward: number | null;
   sharesOutstanding: number | null;
 
+  /*
+    What the analysts covering it actually expect, which is a different
+    thing from last year's figures and is what the market is pricing.
+    Reading a fast-growing company off its trailing profit is how an
+    estimate ends up a third of the share price with nothing wrong in the
+    arithmetic: the profit it is being priced on has not happened yet.
+  */
+  epsThisYear: number | null;
+  epsNextYear: number | null;
+  epsGrowthThisYear: number | null;
+  epsGrowthNextYear: number | null;
+  revenueGrowthNextYear: number | null;
+
+  /*
+    The same questions asked of the whole market, from the feed's own index
+    figures, so every growth number on the page has something real to be
+    compared against instead of a rule of thumb written into this app.
+  */
+  marketEpsGrowthThisYear: number | null;
+  marketEpsGrowthNextYear: number | null;
+  marketLongTermGrowth: number | null;
+
   /** Oldest first, at most four. */
   history: CompanyYear[];
+
+  /*
+    Funds only. A fund is not a company and asking it about its profit
+    margin is a category mistake, so what it gets asked instead is what it
+    costs to hold, what is actually inside it, and how concentrated that
+    is. Empty on anything that is not a fund.
+  */
+  expenseRatio: number | null;
+  fundCategory: string | null;
+  fundFamily: string | null;
+  topHoldings: { symbol: string; name: string; weight: number }[];
+  sectorWeights: { sector: string; weight: number }[];
 
   /** How many analysts published a view, and where they land on average. */
   analystCount: number | null;

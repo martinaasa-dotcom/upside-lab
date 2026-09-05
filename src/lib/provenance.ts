@@ -971,6 +971,62 @@ export function positionFitProvenance(input: {
   };
 }
 
+/** What a fund holds. The feed's own published list, plus your own rows. */
+export function fundProvenance(input: {
+  ticker: string;
+  holdingCount?: number;
+  hasOverlap?: boolean;
+  at?: string | null;
+}): Provenance {
+  const n = input.holdingCount ?? 0;
+  return {
+    maker: "market",
+    title: "Where this came from",
+    headline: `No model wrote this. It is the list of holdings ${cashtag(input.ticker)} publishes, printed as the feed has it.`,
+    inputs: [
+      {
+        what: "The fund's largest holdings and their weights",
+        detail:
+          n > 0
+            ? `the ${n} it publishes, which is a fraction of what a broad fund actually holds`
+            : "as published",
+      },
+      { what: "The kinds of business it holds, as the fund groups them" },
+      { what: "What it charges a year" },
+      ...(input.hasOverlap
+        ? [
+            {
+              what: "Your own holdings",
+              detail:
+                "only to check which of these companies you already own. Nothing about your portfolio leaves this browser to work that out.",
+            },
+          ]
+        : []),
+    ],
+    sources: [
+      COMPANY_FEED,
+      ...(input.hasOverlap ? [YOUR_HOLDINGS] : []),
+    ],
+    steps: [
+      "The weights are the fund's own published figures, not a calculation.",
+      ...(input.hasOverlap
+        ? [
+            "The overlap line matches the ticker you hold against the ticker in the fund, and adds up the fund's weight in those. It counts only the holdings listed here, so a broad fund's real overlap with your portfolio is larger than the figure shown.",
+          ]
+        : []),
+    ],
+    blindSpots: [
+      n > 0
+        ? `Everything below the ${n} listed. A broad fund holds hundreds of companies and publishes its largest few.`
+        : "Everything the fund does not publish.",
+      "When the list was last updated. A fund reports its holdings periodically, not daily.",
+      "How much the holdings overlap with each other, or with anything you hold outside this app.",
+    ],
+    at: input.at,
+    yours: "Open any holding to read about it the same way.",
+  };
+}
+
 /** "Worked out 24 Aug 2026, 09:12", or nothing if the surface never knew. */
 export function provenanceWhen(at?: string | null): string | null {
   if (!at) return null;

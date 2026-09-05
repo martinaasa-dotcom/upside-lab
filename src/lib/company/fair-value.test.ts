@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  MARKET_EARNINGS_MULTIPLE,
   blendFairValue,
   fairValueRead,
   gapSentence,
   type FairValueMethod,
 } from "@/lib/company/fair-value";
-import type { CompanyFacts } from "@/lib/company/facts";
+import { makeOrdinaryFacts } from "@/lib/company/facts-fixture";
+import { MARKET_EARNINGS_MULTIPLE } from "@/lib/company/scale";
 
 /**
  * Three properties, and each of them is a way this card could quietly turn
@@ -20,47 +20,7 @@ import type { CompanyFacts } from "@/lib/company/facts";
  * word, because the whole design is that the reader draws the conclusion.
  */
 
-function facts(over: Partial<CompanyFacts> = {}): CompanyFacts {
-  return {
-    ticker: "TEST",
-    listedSymbol: "TEST",
-    name: "Test",
-    about: null,
-    sector: null,
-    industry: null,
-    country: null,
-    employees: null,
-    website: null,
-    kind: "EQUITY",
-    currency: "USD",
-    price: 100,
-    changePercent: null,
-    marketCap: 1_000_000_000,
-    fiftyTwoWeekHigh: null,
-    fiftyTwoWeekLow: null,
-    revenue: 500_000_000,
-    revenueGrowth: 0.15,
-    grossMargin: null,
-    profitMargin: 0.1,
-    netIncome: 50_000_000,
-    freeCashFlow: 40_000_000,
-    totalCash: 100_000_000,
-    totalDebt: 50_000_000,
-    trailingPe: 25,
-    forwardPe: 20,
-    dividendYield: null,
-    epsTrailing: 4,
-    epsForward: 5,
-    sharesOutstanding: 10_000_000,
-    history: [],
-    analystCount: 12,
-    analystTargetMean: 130,
-    analystTargetHigh: 160,
-    analystTargetLow: 90,
-    fetchedAt: "2026-09-05T00:00:00.000Z",
-    ...over,
-  };
-}
+const facts = makeOrdinaryFacts;
 
 function method(over: Partial<FairValueMethod> = {}): FairValueMethod {
   return {
@@ -142,6 +102,11 @@ describe("the blend is the weighted average and nothing else", () => {
         price: 400,
         epsTrailing: 10,
         epsForward: 10,
+        epsThisYear: 10,
+        epsNextYear: 10,
+        epsGrowthThisYear: null,
+        epsGrowthNextYear: null,
+        revenueGrowthNextYear: null,
         revenueGrowth: null,
         freeCashFlow: null,
       })
@@ -163,6 +128,11 @@ describe("no method is run on a figure that is not there", () => {
         price: null,
         epsTrailing: null,
         epsForward: null,
+        epsThisYear: null,
+        epsNextYear: null,
+        epsGrowthThisYear: null,
+        epsGrowthNextYear: null,
+        revenueGrowthNextYear: null,
         trailingPe: null,
         forwardPe: null,
         freeCashFlow: null,

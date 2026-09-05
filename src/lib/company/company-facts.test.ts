@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NO_VALUE } from "@/lib/format";
-import { companyFactsKey, factsAreThin, type CompanyFacts } from "@/lib/company/facts";
+import { companyFactsKey, factsAreThin } from "@/lib/company/facts";
+import { makeFacts, makeOrdinaryFacts } from "@/lib/company/facts-fixture";
 import { companyReadings } from "@/lib/company/readings";
 
 /**
@@ -13,68 +14,16 @@ import { companyReadings } from "@/lib/company/readings";
  * would break all three at once, and would look exactly like a real answer.
  */
 
-function facts(over: Partial<CompanyFacts> = {}): CompanyFacts {
-  return {
-    ticker: "TEST",
-    listedSymbol: "TEST",
-    name: "Test Company",
-    about: "It tests things.",
-    sector: "Technology",
-    industry: "Software",
-    country: "United States",
-    employees: 100,
-    website: null,
-    kind: "EQUITY",
-    currency: "USD",
-    price: 100,
-    changePercent: 1,
-    marketCap: 1_000_000_000,
-    fiftyTwoWeekHigh: 120,
-    fiftyTwoWeekLow: 80,
-    revenue: 500_000_000,
-    revenueGrowth: 0.2,
-    grossMargin: 0.6,
-    profitMargin: 0.1,
-    netIncome: 50_000_000,
-    freeCashFlow: 40_000_000,
-    totalCash: 200_000_000,
-    totalDebt: 100_000_000,
-    trailingPe: 25,
-    forwardPe: 20,
-    dividendYield: null,
-    epsTrailing: 4,
-    epsForward: 5,
-    sharesOutstanding: 10_000_000,
-    history: [],
-    analystCount: 12,
-    analystTargetMean: 130,
-    analystTargetHigh: 160,
-    analystTargetLow: 90,
-    fetchedAt: "2026-09-05T00:00:00.000Z",
-    ...over,
-  };
-}
+const facts = makeOrdinaryFacts;
 
 describe("a reading never invents a figure", () => {
   it("says n/a for every number the feed did not carry", () => {
-    const empty = facts({
-      marketCap: null,
-      revenue: null,
-      revenueGrowth: null,
-      profitMargin: null,
-      totalCash: null,
-      totalDebt: null,
-      trailingPe: null,
-      forwardPe: null,
-      fiftyTwoWeekHigh: null,
-      fiftyTwoWeekLow: null,
-      dividendYield: null,
-    });
+    const empty = makeFacts({ name: "Test Company" });
     for (const reading of companyReadings(empty)) {
       // The payout reading is the one that has a real answer for "no
       // figure": a company that pays nothing pays nothing.
       if (reading.id === "dividend") {
-        expect(reading.value).toBe("Nothing");
+        expect(reading.value).toBe("None");
         continue;
       }
       expect(reading.value, reading.id).toBe(NO_VALUE);
@@ -144,7 +93,58 @@ describe("the readings say what they mean", () => {
     const ids = companyReadings(facts({ kind: "ETF" })).map((r) => r.id);
     expect(ids).not.toContain("sales");
     expect(ids).not.toContain("profit");
-    expect(ids).toContain("size");
+    // What a fund charges is the one number its holder controls, so it
+    // leads rather than being an afterthought below the price.
+    expect(ids[0]).toBe("fee");
+  });
+
+  it("does not ask a coin about its accounts", () => {
+    /*
+      A coin has no revenue to grow and no profit to keep. Eight headings
+      over six `n/a`s is not a gap in the data, it is this app asking a
+      question that does not apply and reporting that nobody answered.
+    */
+    const ids = companyReadings(facts({ kind: "CRYPTOCURRENCY" })).map((r) => r.id);
+    expect(ids).toEqual(["size", "range"]);
+  });
+
+  it("prices a company on the profit it is expected to make", () => {
+    /*
+      The fault this pins is the one that made the first version produce
+      nonsense: read off last year, a company whose earnings are about to
+      quadruple looks several times more expensive than the market is
+      actually pricing it at.
+    */
+    const reading = companyReadings(
+      facts({ price: 400, epsTrailing: 4, trailingPe: 100, epsNextYear: 20 })
+    ).find((r) => r.id === "price-tag");
+    expect(reading?.value).toBe("20.0x");
+    expect(reading?.label).toContain("next year");
+    // The trailing figure is still printed, because it is the one a
+    // professional wants and the gap between the two is the story.
+    expect(reading?.compare).toContain("100.0x");
+  });
+
+  it("sets expected growth against the market's own, when the feed has it", () => {
+    const reading = companyReadings(
+      facts({ epsGrowthNextYear: 1.04, marketEpsGrowthNextYear: 0.15 })
+    ).find((r) => r.id === "earnings-growth");
+    expect(reading?.versus).toMatchObject({ label: "S&P 500", better: true });
+    expect(reading?.versus?.value).toBe("15.0%");
+  });
+
+  it("measures a margin against the company's own history, not a table", () => {
+    const reading = companyReadings(
+      facts({
+        profitMargin: 0.2,
+        history: [
+          { year: 2022, revenue: 100, netIncome: 5 },
+          { year: 2025, revenue: 200, netIncome: 40 },
+        ],
+      })
+    ).find((r) => r.id === "profit");
+    expect(reading?.versus).toMatchObject({ label: "In 2022", better: true });
+    expect(reading?.compare).toContain("keeping more");
   });
 });
 

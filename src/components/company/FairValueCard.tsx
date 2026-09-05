@@ -201,7 +201,7 @@ export function FairValueCard({
       <PanelHeader
         title={
           <span className="inline-flex items-center gap-2">
-            What the arithmetic makes it worth
+            Every method, and what each assumed
             <WhyThis
               provenance={fairValueProvenance({
                 ticker,
@@ -215,7 +215,7 @@ export function FairValueCard({
             />
           </span>
         }
-        subtitle="Several ways of estimating one share, run separately and averaged. Each is listed below with the assumption it rests on, because the assumptions are the argument."
+        subtitle="Every method behind the figures at the top of the page, run separately, with the assumption each rests on and the arithmetic it used. The assumptions are the argument."
         icon={<Scale className="h-4 w-4" />}
       />
 

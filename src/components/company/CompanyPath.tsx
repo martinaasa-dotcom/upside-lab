@@ -4,11 +4,7 @@ import { MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { cashtag, cn, currency, signedPercent, signedTone } from "@/lib/format";
 import { FORECAST_YEARS } from "@/lib/forecast";
-import {
-  sharedSparkBounds,
-  sparkGeometry,
-  sparkSeries,
-} from "@/lib/forecast-spark";
+import { SheetPathChart } from "@/components/ui/PathChart";
 import { forecastPathProvenance } from "@/lib/provenance";
 import type { ModelRun } from "@/lib/ai/model-label";
 import { TrendingUp } from "lucide-react";
@@ -27,8 +23,6 @@ import { TrendingUp } from "lucide-react";
  * honest part. Five prices to the cent look like a measurement; a line
  * with a quiet year in the middle of it looks like what it is.
  */
-
-const BOX = { width: 300, height: 72, padL: 2, padR: 6, padT: 6, padB: 6 };
 
 export function CompanyPath({
   ticker,
@@ -54,12 +48,10 @@ export function CompanyPath({
   const years = FORECAST_YEARS.filter((y) => (path[y] ?? 0) > 0);
   if (!spot || spot <= 0 || years.length < 2) return null;
 
-  const prices = [spot, ...years.map((y) => path[y] as number)];
-  const series = sparkSeries(prices);
-  const bounds = sharedSparkBounds(series ? [series] : []);
-  const geo = series ? sparkGeometry(series, bounds, BOX) : null;
-  const last = prices[prices.length - 1] as number;
-  const total = (last - spot) / spot;
+  const points = [
+    { label: "Now", value: spot },
+    ...years.map((y) => ({ label: String(y), value: path[y] as number })),
+  ];
 
   return (
     <Panel>
@@ -83,41 +75,17 @@ export function CompanyPath({
         icon={<TrendingUp className="h-4 w-4" />}
       />
 
-      {geo && (
-        <div className="relative w-full">
-          <svg
-            viewBox={`0 0 ${BOX.width} ${BOX.height}`}
-            preserveAspectRatio="none"
-            className="h-20 w-full"
-            aria-hidden
-          >
-            <line
-              x1={0}
-              x2={BOX.width}
-              y1={geo.baseY}
-              y2={geo.baseY}
-              stroke="currentColor"
-              strokeWidth={1}
-              strokeDasharray="3 4"
-              className="text-border"
-              vectorEffect="non-scaling-stroke"
-            />
-            <polyline
-              points={geo.line}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinejoin="round"
-              className={total >= 0 ? "text-gain" : "text-loss"}
-              vectorEffect="non-scaling-stroke"
-            />
-          </svg>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            The dashed line is today&apos;s price. Everything above it is a
-            gain and everything below it is a loss.
-          </p>
-        </div>
-      )}
+      {/*
+        The same chart the portfolio's own forecast draws, ticks and all.
+
+        It was a bare sparkline with no axis, which is the one thing a
+        five-year price path must not be: a reader could see that the line
+        went up and could not see from what to what, so the shape carried
+        no information they did not already have. Sharing the component
+        also means the two rooms cannot drift into drawing one company's
+        path two different ways.
+      */}
+      <SheetPathChart points={points} />
 
       <div className="flex flex-col gap-2">
         <MicroLabel>Year by year</MicroLabel>

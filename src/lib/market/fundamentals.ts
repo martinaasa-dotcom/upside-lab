@@ -103,7 +103,87 @@ const MODULES = [
   "defaultKeyStatistics",
   "financialData",
   "incomeStatementHistory",
+  /*
+    The three that turn a page of raw figures into a comparable one.
+
+    `earningsTrend` is what the analysts covering the company expect it to
+    earn this year and next, which is what the market is actually pricing
+    and is a different number from what it earned last year. Reading a
+    fast-growing company off its trailing profit is how a valuation comes
+    out at a third of the share price with nothing wrong in the
+    arithmetic: the profit being paid for has not happened yet.
+
+    `indexTrend` is the same question asked of the S&P 500, so every
+    growth figure on the page can be set against the market's own instead
+    of against a rule of thumb typed into this app.
+
+    `topHoldings` and `fundProfile` are what a fund gets asked instead of
+    the questions that only make sense about a company.
+  */
+  "earningsTrend",
+  "indexTrend",
+  "topHoldings",
+  "fundProfile",
 ] as const;
+
+/** `{ period, growth, earningsEstimate: { avg } }` rows, by period key. */
+function trendRow(source: unknown, period: string): unknown {
+  const rows = pick(source, "trend");
+  if (!Array.isArray(rows)) return undefined;
+  return rows.find((r) => str(pick(r, "period")) === period);
+}
+
+function indexGrowth(source: unknown, period: string): number | null {
+  const rows = pick(source, "estimates");
+  if (!Array.isArray(rows)) return null;
+  const row = rows.find((r) => str(pick(r, "period")) === period);
+  return num(pick(row, "growth"), { zeroIsReal: true });
+}
+
+function fundHoldings(source: unknown): CompanyFacts["topHoldings"] {
+  const rows = pick(source, "holdings");
+  if (!Array.isArray(rows)) return [];
+  const out: CompanyFacts["topHoldings"] = [];
+  for (const row of rows) {
+    const weight = num(pick(row, "holdingPercent"));
+    const symbol = str(pick(row, "symbol"));
+    if (weight === null || !symbol) continue;
+    out.push({
+      symbol,
+      name: str(pick(row, "holdingName")) ?? symbol,
+      weight,
+    });
+  }
+  return out.slice(0, 10);
+}
+
+/** `{ realestate: 0.02, technology: 0.34 }` objects, one per entry. */
+function fundSectors(source: unknown): CompanyFacts["sectorWeights"] {
+  const rows = pick(source, "sectorWeightings");
+  if (!Array.isArray(rows)) return [];
+  const out: CompanyFacts["sectorWeights"] = [];
+  for (const row of rows) {
+    if (typeof row !== "object" || row === null) continue;
+    for (const [key, value] of Object.entries(row as Record<string, unknown>)) {
+      const weight = num(value);
+      if (weight === null) continue;
+      out.push({ sector: prettySector(key), weight });
+    }
+  }
+  return out.sort((a, b) => b.weight - a.weight).slice(0, 8);
+}
+
+/** `realestate` and `financial_services` are keys, not words on a screen. */
+function prettySector(key: string): string {
+  const spaced = key.replace(/[_-]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2");
+  const words: Record<string, string> = {
+    realestate: "Real estate",
+    consumer_cyclical: "Consumer cyclical",
+  };
+  const known = words[key];
+  if (known) return known;
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
+}
 
 async function fetchCompanyFactsUncached(
   ticker: string
@@ -137,6 +217,12 @@ async function fetchCompanyFactsUncached(
   const stats = pick(summary, "defaultKeyStatistics");
   const financial = pick(summary, "financialData");
   const history = annualHistory(pick(summary, "incomeStatementHistory"));
+  const trend = pick(summary, "earningsTrend");
+  const index = pick(summary, "indexTrend");
+  const holdings = pick(summary, "topHoldings");
+  const fund = pick(summary, "fundProfile");
+  const thisYear = trendRow(trend, "0y");
+  const nextYear = trendRow(trend, "+1y");
 
   const spot =
     num(pick(financial, "currentPrice")) ??
@@ -183,7 +269,16 @@ async function fetchCompanyFactsUncached(
       if (!close || close <= 0 || !spot) return null;
       return (spot - close) / close;
     })(),
-    marketCap: num(pick(price, "marketCap")) ?? num(pick(detail, "marketCap")),
+    /*
+      A fund has no market value, it has net assets, and the feed puts
+      them in a different field. Without the fallback an ETF's size read
+      `n/a`, which is not "we do not have this" but "we asked the wrong
+      question", and it is the first figure on a fund page.
+    */
+    marketCap:
+      num(pick(price, "marketCap")) ??
+      num(pick(detail, "marketCap")) ??
+      num(pick(stats, "totalAssets")),
     fiftyTwoWeekHigh: num(pick(detail, "fiftyTwoWeekHigh")),
     fiftyTwoWeekLow: num(pick(detail, "fiftyTwoWeekLow")),
 
@@ -208,7 +303,16 @@ async function fetchCompanyFactsUncached(
       its own share price out in a year.
     */
     dividendYield: (() => {
-      const raw = num(pick(detail, "dividendYield"));
+      /*
+        `dividendYield` is a company's field and `yield` is a fund's, and a
+        fund carries only the second. Reading one of them left every ETF
+        page saying it pays nothing out, which is false of almost all of
+        them: SPY was showing "None" against a real 0.98%.
+      */
+      const raw =
+        num(pick(detail, "dividendYield")) ??
+        num(pick(detail, "yield")) ??
+        num(pick(stats, "yield"));
       if (raw === null) return null;
       return raw > 1 ? raw / 100 : raw;
     })(),
@@ -219,7 +323,32 @@ async function fetchCompanyFactsUncached(
     epsForward: num(pick(stats, "forwardEps"), { zeroIsReal: true }),
     sharesOutstanding: num(pick(stats, "sharesOutstanding")),
 
+    epsThisYear: num(pick(pick(thisYear, "earningsEstimate"), "avg"), {
+      zeroIsReal: true,
+    }),
+    epsNextYear: num(pick(pick(nextYear, "earningsEstimate"), "avg"), {
+      zeroIsReal: true,
+    }),
+    epsGrowthThisYear: num(pick(thisYear, "growth"), { zeroIsReal: true }),
+    epsGrowthNextYear: num(pick(nextYear, "growth"), { zeroIsReal: true }),
+    revenueGrowthNextYear: num(
+      pick(pick(nextYear, "revenueEstimate"), "growth"),
+      { zeroIsReal: true }
+    ),
+
+    marketEpsGrowthThisYear: indexGrowth(index, "0y"),
+    marketEpsGrowthNextYear: indexGrowth(index, "+1y"),
+    marketLongTermGrowth: indexGrowth(index, "LTG"),
+
     history,
+
+    expenseRatio: num(
+      pick(pick(fund, "feesExpensesInvestment"), "annualReportExpenseRatio")
+    ),
+    fundCategory: str(pick(fund, "categoryName")),
+    fundFamily: str(pick(fund, "family")),
+    topHoldings: fundHoldings(holdings),
+    sectorWeights: fundSectors(holdings),
 
     analystCount: num(pick(financial, "numberOfAnalystOpinions")),
     analystTargetMean: num(pick(financial, "targetMeanPrice")),
