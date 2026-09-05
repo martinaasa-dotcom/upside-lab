@@ -23,6 +23,23 @@ export function workspaceRoomId(pathname: string): string | null {
   */
   if (path.startsWith("/upside-portfolio")) return "fund";
   if (path.startsWith("/portfolio/")) return "book";
+  /*
+    One room per company, not one room for all of them.
+
+    Two companies are two different pages with two different fetches, and
+    the shell keys its keep-alive panes on this id: a shared "stock" id
+    would show the reader the last company they looked at while the new one
+    loaded, which is worse than a spinner because it is wrong rather than
+    empty. `pruneStockRooms` in the shell keeps the count down.
+  */
+  const stock = /^\/stock\/([^/]+)$/.exec(path);
+  if (stock?.[1]) {
+    try {
+      return `stock:${decodeURIComponent(stock[1]).toUpperCase()}`;
+    } catch {
+      return `stock:${stock[1].toUpperCase()}`;
+    }
+  }
   if (path === "/communities") return "communities";
   const community = /^\/communities\/([^/]+)$/.exec(path);
   if (community?.[1]) return `community:${community[1]}`;

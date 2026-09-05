@@ -747,6 +747,286 @@ export function growthRateProvenance(input: {
   };
 }
 
+/* ---------------------------------------------------------------------- *
+ * Look up a company
+ *
+ * The room where a reader is deciding about a company they do not own yet,
+ * which is the highest-stakes reading in the product and the one where the
+ * least of what is on screen is theirs. Everything else here is arithmetic
+ * on figures they typed; this is a feed's figures and a model's opinion
+ * about a company they may never have heard of. So the mark goes on every
+ * block of it, and each block gets its own account rather than one page-
+ * level disclaimer, because the honest answer really is different: the
+ * figures are a feed, the fair value is arithmetic on that feed, the two
+ * cases are a model, and how it would sit in the portfolio is the reader's
+ * own rows and no model at all.
+ * ---------------------------------------------------------------------- */
+
+const COMPANY_FEED: ProvenanceSource = {
+  name: "Yahoo Finance",
+  what: "the company's own filed figures, its description of itself, and the analyst targets",
+  href: "https://finance.yahoo.com",
+};
+
+const CHECK_IT_YOURSELF =
+  "Every figure on this page is on the company's own page at the feed, linked at the bottom under where to check. If one of them disagrees with ours, ours is the one that is wrong.";
+
+/** The figures block. No model touched any of it. */
+export function companyNumbersProvenance(input: {
+  ticker: string;
+  at?: string | null;
+  /** How many of the readings came back with a figure in them. */
+  filled?: number;
+  total?: number;
+}): Provenance {
+  const tag = cashtag(input.ticker);
+  const gaps =
+    input.filled != null && input.total != null && input.filled < input.total
+      ? `${input.total - input.filled} of the ${input.total} figures came back empty for this company and are shown as ${NO_VALUE} rather than filled in.`
+      : null;
+  return {
+    maker: "market",
+    title: "Where these came from",
+    headline: `No model wrote any of this. Every figure here is ${tag}'s own reported number, as the feed has it, printed without being adjusted.`,
+    inputs: [
+      { what: "The company's last reported revenue, profit, cash and debt" },
+      { what: "Today's share price, and its high and low over the last year" },
+      { what: "The number of shares in issue, for the per-share figures" },
+    ],
+    sources: [COMPANY_FEED],
+    steps: [
+      "The figures are printed as the feed reports them. Nothing here rounds one up, fills a gap, or substitutes a typical value.",
+      "The sentence under each figure is this app putting the same number into ordinary words, with the unit changed so it can be pictured: a profit margin becomes dollars out of every $100.",
+      "The line saying what ordinary looks like is a broad, long-standing scale written into this app, not a target and not a reading of this company.",
+      ...(gaps ? [gaps] : []),
+    ],
+    blindSpots: [
+      "How fresh the figures are. A company reports every three months, so most of this describes a quarter that has already ended, not this morning.",
+      "Anything not in the accounts. A lawsuit, a lost customer, a founder leaving: none of that is a number here.",
+      "Whether the company's own accounting is a fair picture. These are the figures it filed, not an audit of them.",
+      CHECK_IT_YOURSELF,
+    ],
+    at: input.at,
+    yours: "Open the filings link at the bottom and read what they said themselves.",
+  };
+}
+
+/**
+ * The blended fair value. Arithmetic, plus one model voice that is named
+ * as such, so the mark has to say both.
+ */
+export function fairValueProvenance(input: {
+  ticker: string;
+  methodNames: string[];
+  droppedCount?: number;
+  usesModel?: boolean;
+  model?: ModelRun | null;
+  at?: string | null;
+}): Provenance {
+  const tag = cashtag(input.ticker);
+  const names = input.methodNames.filter(Boolean);
+  return {
+    maker: input.usesModel ? "model" : "arithmetic",
+    title: "How this was worked out",
+    headline: `Nobody knows what ${tag} is worth. This is ${names.length === 1 ? "one way" : `${names.length} different ways`} of estimating it, each run separately and then averaged, and every one of them is shown with the answer it gave.`,
+    model: input.usesModel ? input.model : undefined,
+    inputs: [
+      { what: "Profit per share, last year's and next year's" },
+      { what: "The spare cash the business produces, and the debt against it" },
+      { what: "How fast sales are growing" },
+      {
+        what: "The average of the analysts' twelve-month price targets",
+        detail: "with how many of them published one, which is what decides how much it counts",
+      },
+      ...(input.usesModel
+        ? [
+            {
+              what: "The five-year path a language model reasoned for this company",
+              detail:
+                "the same path the Growth room uses, and the one input here that cannot be checked",
+            },
+          ]
+        : []),
+    ],
+    sources: [
+      COMPANY_FEED,
+      { name: "This app", what: "the arithmetic, which is listed method by method on the card" },
+      ...(input.usesModel ? [MODEL_ITSELF] : []),
+    ],
+    steps: [
+      `Each method is run on its own: ${names.join("; ")}.`,
+      "Each one carries a fixed weight, shown beside it. The analysts' average counts for more when more of them published a target and less when one or two did.",
+      "Any method landing more than three times away from what the others said is thrown out before the average, because at that distance the arithmetic has stopped describing this company rather than disagreeing about it." +
+        (input.droppedCount
+          ? ` ${input.droppedCount === 1 ? "One method was" : `${input.droppedCount} methods were`} thrown out this way and ${input.droppedCount === 1 ? "is" : "are"} still listed, with the reason.`
+          : " Nothing was thrown out this time."),
+      "What is left is averaged by weight. Nothing is nudged towards the current price afterwards, in either direction.",
+    ],
+    blindSpots: [
+      "Whether any of the assumptions hold. Each method rests on one, they are printed beside the numbers, and they are the whole argument.",
+      "Anything that is not in the accounts or the headlines: a new competitor, a rule change, a founder leaving.",
+      NOT_A_TARGET,
+      "Agreement is not accuracy. Several methods landing close together can mean they are all reading the same optimistic forecast.",
+    ],
+    at: input.at,
+    yours: "Open each method and argue with its assumption. That is the useful part, not the average.",
+  };
+}
+
+/** The two cases, and everything else the model wrote on this page. */
+export function companyBriefProvenance(input: {
+  ticker: string;
+  articleCount?: number;
+  publishers?: string[];
+  uncited?: number;
+  at?: string | null;
+  model?: ModelRun | null;
+  /** True when this page was written for somebody else looking it up first. */
+  shared?: boolean;
+}): Provenance {
+  const n = input.articleCount ?? 0;
+  const publishers = [...new Set((input.publishers ?? []).filter(Boolean))];
+  return {
+    maker: "model",
+    title: "Where this came from",
+    headline: `A language model was handed the figures above and the headlines below, and asked which of them matter about ${cashtag(input.ticker)} and why. It was not allowed to bring facts of its own: every point that survived cites something on this page.`,
+    model: input.model,
+    inputs: [
+      {
+        what: "The figures in the block above",
+        detail: "exactly as printed, with their labels, so a point can point back at one",
+      },
+      {
+        what: "The company's own description of itself",
+        detail: "the paragraph it files about what it does, unedited",
+      },
+      n > 0
+        ? {
+            what: "Recent headlines, fetched for this page",
+            detail:
+              publishers.length > 0
+                ? `${n === 1 ? "one headline" : `${n} headlines`}, from ${publishers.join(", ")}. They are listed below and each one opens.`
+                : `${n === 1 ? "one headline" : `${n} headlines`}, listed below`,
+          }
+        : {
+            what: "Recent headlines",
+            detail:
+              "none came back for this company, so the two cases rest on the figures and the company's own description only, which makes them thinner than usual",
+          },
+      TRAINING_INPUT,
+    ],
+    sources: [COMPANY_FEED, ...(n > 0 ? [YAHOO_NEWS] : []), MODEL_ITSELF],
+    steps: [
+      "Every point it made had to name what it rests on: one of the figures above, one of the headlines below, or the company's own description.",
+      "This app then checked each one. A point citing a figure that is not on the page, a headline that does not exist, or nothing at all is deleted before you see it." +
+        (input.uncited
+          ? ` ${input.uncited === 1 ? "One point was" : `${input.uncited} points were`} deleted this way on this run, which is worth knowing when you read what is left.`
+          : " Nothing was deleted on this run."),
+      "A section that loses all of its points is shown empty rather than topped up.",
+      REWRITTEN_STEP,
+      ...(input.shared
+        ? [
+            "This page was written when somebody first looked this company up, not for you, and reused since. It has not been re-read against anything you own.",
+          ]
+        : []),
+    ],
+    blindSpots: [
+      "Whether it picked the right things. Deciding which four facts out of forty matter is a judgement, and it is the model's.",
+      "Headlines it did not get. The search misses things, and a story it never saw is not in here.",
+      TRAINING_IS_STALE,
+      "Anything about you. It does not know what else you own, what you paid, or when you need the money.",
+      NOT_A_TARGET,
+    ],
+    at: input.at,
+    yours: "Open the articles at the bottom and see whether you would have drawn the same conclusion.",
+  };
+}
+
+/** How a purchase would sit in the portfolio. The reader's own rows only. */
+export function positionFitProvenance(input: {
+  ticker: string;
+  amount?: string | null;
+}): Provenance {
+  return {
+    maker: "arithmetic",
+    title: "Where this came from",
+    headline: `No model wrote this. It is your own holdings, plus ${input.amount ?? "the amount in the box"} of ${cashtag(input.ticker)}, added up again.`,
+    inputs: [
+      { what: "Your holdings and what each is worth today" },
+      { what: "Your cash, including anything borrowed" },
+      { what: "The amount you typed", detail: "treated as new money going in" },
+    ],
+    sources: [YOUR_HOLDINGS, YAHOO_PRICES],
+    steps: [
+      "The amount is added to whatever you already hold of this company, and every share is worked out against the new total.",
+      "The group figure counts every company you own that sits in the same kind of business, from a list written into this app.",
+      "The line about a rough month assumes this one holding falls a quarter and everything else stands still. It is a way of picturing the size, not a forecast.",
+    ],
+    blindSpots: [
+      NOT_YOUR_BROKER,
+      "Tax. Buying and selling can have consequences this app does not calculate.",
+      "Nothing is bought. Moving the amount changes nothing anywhere.",
+    ],
+    yours: "Change the amount and watch which of these numbers moves most.",
+  };
+}
+
+/** What a fund holds. The feed's own published list, plus your own rows. */
+export function fundProvenance(input: {
+  ticker: string;
+  holdingCount?: number;
+  hasOverlap?: boolean;
+  at?: string | null;
+}): Provenance {
+  const n = input.holdingCount ?? 0;
+  return {
+    maker: "market",
+    title: "Where this came from",
+    headline: `No model wrote this. It is the list of holdings ${cashtag(input.ticker)} publishes, printed as the feed has it.`,
+    inputs: [
+      {
+        what: "The fund's largest holdings and their weights",
+        detail:
+          n > 0
+            ? `the ${n} it publishes, which is a fraction of what a broad fund actually holds`
+            : "as published",
+      },
+      { what: "The kinds of business it holds, as the fund groups them" },
+      { what: "What it charges a year" },
+      ...(input.hasOverlap
+        ? [
+            {
+              what: "Your own holdings",
+              detail:
+                "only to check which of these companies you already own. Nothing about your portfolio leaves this browser to work that out.",
+            },
+          ]
+        : []),
+    ],
+    sources: [
+      COMPANY_FEED,
+      ...(input.hasOverlap ? [YOUR_HOLDINGS] : []),
+    ],
+    steps: [
+      "The weights are the fund's own published figures, not a calculation.",
+      ...(input.hasOverlap
+        ? [
+            "The overlap line matches the ticker you hold against the ticker in the fund, and adds up the fund's weight in those. It counts only the holdings listed here, so a broad fund's real overlap with your portfolio is larger than the figure shown.",
+          ]
+        : []),
+    ],
+    blindSpots: [
+      n > 0
+        ? `Everything below the ${n} listed. A broad fund holds hundreds of companies and publishes its largest few.`
+        : "Everything the fund does not publish.",
+      "When the list was last updated. A fund reports its holdings periodically, not daily.",
+      "How much the holdings overlap with each other, or with anything you hold outside this app.",
+    ],
+    at: input.at,
+    yours: "Open any holding to read about it the same way.",
+  };
+}
+
 /** "Worked out 24 Aug 2026, 09:12", or nothing if the surface never knew. */
 export function provenanceWhen(at?: string | null): string | null {
   if (!at) return null;

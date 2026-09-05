@@ -276,6 +276,72 @@ const ENTRIES: GlossaryEntry[] = [
         ? `This one behaves like ${count.toFixed(1)} holdings of equal size.`
         : null,
   },
+  {
+    id: "market-value",
+    term: "What the whole company is worth",
+    also: ["market cap", "market capitalisation", "market capitalization", "size"],
+    meaning:
+      "What it would cost to buy every share of a company at today's price. It is the market's running total of what the whole business is worth, and it moves with the share price rather than with anything the company did that day.",
+    alsoCalled: "market cap",
+    example: ({ ticker, amount }) =>
+      ticker && amount ? `${ticker} comes to ${amount}.` : null,
+  },
+  {
+    id: "sales",
+    term: "What customers paid them",
+    also: ["revenue", "sales", "turnover", "top line"],
+    meaning:
+      "All the money customers handed over in a year, before any of the costs of running the business are taken out. It is the size of what the company does, not what it keeps.",
+    alsoCalled: "revenue",
+    example: ({ ticker, amount }) =>
+      ticker && amount ? `${ticker} took in ${amount} over the last year.` : null,
+  },
+  {
+    id: "sales-growth",
+    term: "Whether that is growing",
+    also: ["revenue growth", "growth rate"],
+    meaning:
+      "How much more, or less, customers paid them than in the same stretch a year earlier. One year on its own is weather; several years pointing the same way is the thing worth knowing.",
+    alsoCalled: "revenue growth",
+    example: ({ ticker, amount }) =>
+      ticker && amount ? `${ticker} is at ${amount}.` : null,
+  },
+  {
+    id: "profit-margin",
+    term: "Whether they make money",
+    /*
+      Deliberately not "margin" on its own: that alias already belongs to
+      borrowed money, where a margin call is the thing a reader most needs
+      the word for, and one word opening two entries would hand somebody
+      the wrong definition at the worst moment.
+    */
+    also: ["profit margin", "net margin", "profitability"],
+    meaning:
+      "How much of every $100 customers pay is left over once everything has been paid for. A company can sell an enormous amount and keep none of it, which is why this sits beside the sales figure rather than under it.",
+    alsoCalled: "profit margin",
+    example: ({ ticker, amount }) =>
+      ticker && amount ? `On ${ticker} that is ${amount} of every $100.` : null,
+  },
+  {
+    id: "debt",
+    term: "Cash against what they owe",
+    also: ["debt", "net debt", "balance sheet", "borrowings"],
+    meaning:
+      "The money the company is holding, set against the money it has borrowed and has to pay back. More cash than debt means a bad year is survivable without asking anybody; the other way round means the lenders have a say in how the story goes.",
+    alsoCalled: "net cash or net debt",
+    example: ({ ticker, amount }) =>
+      ticker && amount ? `${ticker} nets out at ${amount}.` : null,
+  },
+  {
+    id: "price-to-earnings",
+    term: "How expensive the shares are",
+    also: ["p/e", "pe ratio", "price to earnings", "earnings multiple", "valuation"],
+    meaning:
+      "How many dollars you are paying today for each $1 of profit the company makes in a year. A high number is not automatically bad: it usually means people expect the profit to grow, and it does mean more has to go right for the price to make sense.",
+    alsoCalled: "the P/E ratio",
+    example: ({ ticker, amount }) =>
+      ticker && amount ? `${ticker} trades at ${amount}.` : null,
+  },
 ];
 
 const BY_KEY = new Map<string, GlossaryEntry>();
