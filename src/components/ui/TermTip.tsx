@@ -35,9 +35,10 @@ import { explainTerm, type GlossaryExample } from "@/lib/glossary";
  * a paragraph in a letterbox, and a popover from `md` up, where there is
  * room for one beside the figure it explains.
  *
- * It is deliberately not the provenance eye. That one answers "who made
- * this number"; this one answers "what is this word", and a reader
- * scanning a page has to be able to tell the two apart at a glance.
+ * It is not the provenance mark, though it draws the same circled `i`:
+ * that one answers "who made this number" and this one answers "what is
+ * this word". One glyph for every "tell me more" is the point, and which
+ * question is being answered is settled by what opens.
  */
 
 const NARROW = "(max-width: 47.999rem)";

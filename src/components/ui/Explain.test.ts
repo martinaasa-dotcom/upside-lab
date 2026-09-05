@@ -51,7 +51,7 @@ describe("where the words come from", () => {
 });
 
 describe("the shape", () => {
-  it("is a popover at every width, unlike the provenance eye", () => {
+  it("is a popover at every width, unlike the provenance mark", () => {
     /*
       Not an inconsistency with WhyThis, which is a bottom sheet below md.
       That surface is about four screens of content on a phone. This one is

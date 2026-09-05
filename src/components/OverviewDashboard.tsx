@@ -607,7 +607,7 @@ function MorningStack({
               * sit here and was the wrong mark by a long way: it is
               * the universal "a model wrote this" badge, and these
               * are arithmetic on the reader's own holdings. A Pulse
-              * note takes Pulse's own icon so the glyph and the eye
+              * note takes Pulse's own icon so the glyph and the mark
               * point at the same room, and a note the reader has not
               * written yet takes a pencil: it is a to-do, not a
               * hazard, and the warning triangle is kept for money at
