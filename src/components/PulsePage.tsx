@@ -146,11 +146,11 @@ function thesisDisplayBullets(text: string | undefined): string[] {
 }
 
 /*
- * `watch` used to draw an eye, which is the glyph `WhyThis` uses for the
- * provenance mark eight pixels away in the same header row. Two meanings
- * for one mark is exactly what that component's own note forbids, so the
- * eye stays with provenance and watch takes a dashed ring: something is
- * unsettled rather than something is wrong.
+ * `watch` used to draw an eye, which read as the same "look at this" as
+ * every other glyph in the header row. It takes a dashed ring instead:
+ * something is unsettled rather than something is wrong. Do not give it a
+ * circled `i` either, which now belongs to the provenance mark sitting a
+ * few pixels away in the same row.
  */
 function StatusIcon({ status }: { status: ThesisStatus }) {
   if (status === "watch") {
@@ -247,7 +247,7 @@ function RangeBar({ price, range }: { price: number; range: PulseRange }) {
 }
 
 /**
- * The eye behind a card nobody modelled.
+ * The provenance mark behind a card nobody modelled.
  *
  * `pulseProvenance` opens "A language model read your own reason for
  * owning $X", names a model and lists headlines among its inputs. On a row
@@ -336,7 +336,7 @@ function PulseCard({
   const status = shown?.thesisStatus ?? "intact";
   const action = shown?.action ?? "hold";
   const writtenThesis = thesisDisplayBullets(convictionThesis);
-  // A row nobody modelled wore the model's badge, the model's eye and the
+  // A row nobody modelled wore the model's badge, the model's mark and the
   // model's name, and the page stamped its action into lab state, which
   // is where the Sunday letter's suggestions come from. It says so now.
   const fromRule = Boolean(shown?.fallback);
@@ -933,7 +933,7 @@ export const PulsePage = memo(function PulsePage({
    * Which model answered the most recent live run, straight from the route
    * that made the call. Not stored per ticker and not persisted: a reading
    * that came back from cache was written by whichever model ran then, and
-   * this app did not record that, so the eye says nothing rather than
+   * this app did not record that, so the mark says nothing rather than
    * naming the model that happens to be answering today.
    */
   const [writtenBy, setWrittenBy] = useState<ModelRun | null>(null);

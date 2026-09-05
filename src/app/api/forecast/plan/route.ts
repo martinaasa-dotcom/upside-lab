@@ -112,7 +112,7 @@ async function handlePOST(req: Request) {
     dollars; `runIsShareable` is true, so the row publishes, and the anchor
     it publishes with is the real price. Every other reader holding that
     company then passes the age and drift checks and is served a path a
-    thirty-sixth of the truth, under the provenance eye, as a fact, for up
+    thirty-sixth of the truth, under the provenance mark, as a fact, for up
     to a fortnight. The attacker need not own the company.
 
     So the server's own price wins wherever it has one. The caller's figure
@@ -135,7 +135,7 @@ async function handlePOST(req: Request) {
     spots,
   });
   // Which companies were answered out of the shared cache rather than
-  // written fresh, and when that earlier run happened. The eye beside a
+  // written fresh, and when that earlier run happened. The mark beside a
   // price says so: a reused path was reasoned from the company, not from
   // this portfolio, and a reader comparing two portfolios deserves to know
   // an identical path is the same run rather than two models agreeing.
@@ -174,7 +174,7 @@ async function handlePOST(req: Request) {
     // Recorded as the call happens, so the plan can name the model that
     // really answered rather than the one at the head of the chain. The
     // chain walks on a rate limit, so those two differ often enough that
-    // guessing would make the eye a liar.
+    // guessing would make the mark a liar.
     let answeredBy: ModelRun | null = null;
 
     const { object, response } = await withAdvisorFallback(
@@ -204,7 +204,7 @@ async function handlePOST(req: Request) {
       the other kind of fallback: `openRouterFetchWithFallbacks` injects a
       `models` array into the body, so OpenRouter may route the request to a
       different model on its own and still answer 200. Nothing here fails,
-      the chain never moves, and the eye names the model at the head of the
+      the chain never moves, and the mark names the model at the head of the
       chain, which did not write a word of this.
 
       The provider reports what it actually ran, so that wins whenever it is
@@ -304,7 +304,7 @@ async function handlePOST(req: Request) {
           it dangerous: the row lands looking perfectly healthy, passes every
           later age and drift check, and serves that path to every other
           reader holding the company for up to a fortnight, under the
-          provenance eye, as a fact. Nobody has to own the company to do it.
+          provenance mark, as a fact. Nobody has to own the company to do it.
 
           Correcting the reader's own view was the other option and is worse:
           their price, their value and the weights derived from it are one

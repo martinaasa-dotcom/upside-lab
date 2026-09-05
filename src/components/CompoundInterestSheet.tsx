@@ -1150,7 +1150,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             onChange={applyRatePreset}
           />
           {/*
-            * Printed, never behind the eye. The eye answers "where did this
+            * Printed, never behind the mark. The mark answers "where did this
             * come from" for a reader who goes looking; this is the line that
             * reaches the reader who does not.
             */}

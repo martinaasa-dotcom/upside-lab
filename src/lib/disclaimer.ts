@@ -3,7 +3,7 @@
  * the surfaces that still print it in the open: the Sunday letter, the
  * welcome walkthrough, sign-in, the terms, and Margus's strategy-rules
  * drawer. Forecast, Pulse, the bad-day simulator and the paper fund carry
- * the same meaning behind the eye on those numbers, so the line does not
+ * the same meaning behind the mark on those numbers, so the line does not
  * also sit on the page as wallpaper.
  *
  * **Everything defined here is displayed somewhere.** An unused variant in
@@ -11,7 +11,7 @@
  * reading it reasonably assumes each constant means some surface is
  * covered. `ADVICE_DISCLAIMER_LONG` sat here unused and was removed for
  * exactly that reason. `FORECAST_DISCLAIMER` and `UPSIDE_PORTFOLIO_DISCLAIMER`
- * went the same way when the eye replaced them. If a surface ever needs
+ * went the same way when the mark replaced them. If a surface ever needs
  * the old forecast line back, it was: "Modeled prices, not a prediction."
  * plus the short advice line. The fund line was: "Paper money, run by
  * Margus. Not a real fund, not a track record, not a signal to copy."

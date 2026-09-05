@@ -35,7 +35,7 @@ const roomCode = room
 const roomText = room.replace(/\s+/g, " ");
 
 describe("what the Fund room promises a reader", () => {
-  it("says on the page, not only behind the eye, that the money is pretend", () => {
+  it("says on the page, not only behind the mark, that the money is pretend", () => {
     /*
       The provenance panel has always said this. It is opened by a reader
       who has already decided to be suspicious, and the reader this matters

@@ -783,20 +783,26 @@ function FundPosition({
 }
 
 /**
- * A section heading, and the eye on the ones a model wrote.
+ * A section heading, and the provenance mark on the ones a model wrote.
  *
- * The room carried exactly one provenance eye, on the panel with the chart,
+ * The room carried exactly one provenance mark, on the panel with the chart,
  * while three whole sections underneath it are sentences a language model
  * wrote: the daily reasons, the weekly summaries, and the reason for owning
  * each company. Those are the ones a reader is most likely to take
  * seriously and the ones where knowing what wrote them changes how they
- * read. The eye goes where the words are.
+ * read. The mark goes where the words are.
  */
-function SectionHeading({ title, eye = false }: { title: string; eye?: boolean }) {
+function SectionHeading({
+  title,
+  why = false,
+}: {
+  title: string;
+  why?: boolean;
+}) {
   return (
     <h2 className="flex flex-wrap items-center gap-2 font-semibold text-foreground">
       {title}
-      {eye ? <WhyThis provenance={upsideFundProvenance()} /> : null}
+      {why ? <WhyThis provenance={upsideFundProvenance()} /> : null}
     </h2>
   );
 }
@@ -817,7 +823,7 @@ function sliceLabel(pct: number): string {
 /**
  * What this room actually is, on the room, in the first thing read.
  *
- * The provenance eye has said all of this since it was written, and the eye
+ * The provenance mark has said all of this since it was written, and it
  * is opened by a reader who has already decided to be suspicious. This page
  * is the most copyable thing in the product: a confident daily write-up,
  * with a portfolio value and a return beside it, by something with a name.
@@ -1916,7 +1922,7 @@ export function UpsidePortfolioPage() {
                       ? "The one company he owns now"
                       : `The ${openHoldings.length} companies he owns now`
                   }
-                  eye
+                  why
                 />
                 <div className="flex flex-col gap-3">
                   {openHoldings.map((h) => (
@@ -1933,7 +1939,7 @@ export function UpsidePortfolioPage() {
 
             {weeklyRecaps.length > 0 && (
               <section className="flex flex-col gap-4">
-                <SectionHeading title="How each week went" eye />
+                <SectionHeading title="How each week went" why />
                 <div className="flex flex-col gap-3">
                   {weeklyRecaps.slice(0, weeklyVisible).map((r, i) => {
                     const title = numberedReportHeadline(
@@ -1986,7 +1992,7 @@ export function UpsidePortfolioPage() {
             )}
 
             <section className="flex flex-col gap-4">
-              <SectionHeading title="Every decision, in order" eye />
+              <SectionHeading title="Every decision, in order" why />
               {reports.length === 0 ? (
                 <p className="rounded-xl glass ring-1 ring-foreground/20 px-4 py-6 text-center text-sm leading-relaxed text-muted-foreground">
                   Nothing written down yet. The first decision is made after

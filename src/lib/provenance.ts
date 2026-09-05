@@ -15,7 +15,7 @@ import type { ForecastPathAdjustment } from "@/lib/forecast-plan";
  * has no way to tell them apart and reasonably assumes the worst of all
  * of it.
  *
- * So anything a model touched carries an eye, and behind the eye is the
+ * So anything a model touched carries an information mark, and behind it is the
  * whole account: which model answered, what it was handed, where each of
  * those things came from, what this app then did to its answer before the
  * reader saw it, and what it cannot know.
@@ -368,8 +368,8 @@ export function forecastRoomProvenance(input: {
   if (input.adjustedCount && input.adjustedCount > 0) {
     steps.push(
       input.adjustedCount === 1
-        ? "One of those paths was changed by this app afterwards, because the model skipped a year or drew a straight line. Open that name's own eye to see which."
-        : `${input.adjustedCount} of those paths were changed by this app afterwards, because the model skipped a year or drew a straight line. Open a name's own eye to see which.`
+        ? "One of those paths was changed by this app afterwards, because the model skipped a year or drew a straight line. Open that name's own information mark to see which."
+        : `${input.adjustedCount} of those paths were changed by this app afterwards, because the model skipped a year or drew a straight line. Open a name's own information mark to see which.`
     );
   }
   if (input.reusedCount && input.reusedCount > 0) {
@@ -406,7 +406,7 @@ export function forecastRoomProvenance(input: {
     steps,
     blindSpots: [NOT_THE_FUTURE, NO_NEWS, TRAINING_IS_STALE, NOT_A_TARGET],
     at: input.at,
-    yours: "Open any card's eye for that name. Type over a year and yours wins.",
+    yours: "Open any card's information mark for that name. Type over a year and yours wins.",
   };
 }
 
@@ -557,7 +557,7 @@ export function pulseRoomProvenance(input: {
       NOT_A_TARGET,
     ],
     at: input.at,
-    yours: "Open any card's eye for what went into that one name.",
+    yours: "Open any card's information mark for what went into that one name.",
   };
 }
 

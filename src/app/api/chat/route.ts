@@ -279,7 +279,7 @@ async function handlePOST(req: Request) {
           }),
           /*
            * Which model is about to write the reply, named on the response
-           * that carries it. The eye beside Margus reads these back, so it
+           * that carries it. The mark beside Margus reads these back, so it
            * can say who answered rather than "a language model". It has to
            * be a header: the chain picks a provider per request and walks
            * past a rate-limited one, so the client cannot know from a

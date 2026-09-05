@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   forecastPathProvenance,
   forecastRoomProvenance,
@@ -54,7 +56,7 @@ describe("provenance", () => {
     /*
       buildForecastPlanPrompt carries the cash balance, the portfolio total
       and the insight lines about which holdings are the same kind of
-      business, on top of the per-name figures. The eye's own rule is that
+      business, on top of the per-name figures. The mark's own rule is that
       its list survives somebody reading the prompt, so a reader checking
       finds them named rather than three inputs it never mentioned.
     */
@@ -276,5 +278,53 @@ describe("describeModelRun", () => {
       "nemotron-3-super-120b-a12b"
     );
     expect(shortModelName("gpt-oss-120b")).toBe("gpt-oss-120b");
+  });
+});
+
+/*
+  There is no jsdom here, so the trigger is checked the way the other
+  component rules in this repo are: by reading the source for the decision
+  that would be expensive to get wrong.
+*/
+describe("the mark a reader presses", () => {
+  const whyThis = readFileSync(
+    join(process.cwd(), "src/components/ui/WhyThis.tsx"),
+    "utf8"
+  );
+  const panel = readFileSync(
+    join(process.cwd(), "src/components/ui/Panel.tsx"),
+    "utf8"
+  );
+
+  it("is the circled i, never an eye", () => {
+    /*
+      An eye is not the glyph anybody has been taught to press for an
+      explanation, so the one control in the app that answers "where did
+      this come from" was the one control nobody recognised.
+    */
+    expect(whyThis).toContain('Info } from "lucide-react"');
+    expect(whyThis).toMatch(/<Info\b/);
+    expect(whyThis).not.toMatch(/\bEye\b/);
+  });
+
+  it("is the same glyph, size and colour as every other tell-me-more", () => {
+    // One "tell me more" in the product, not three that look different.
+    expect(panel).toMatch(/<Info className="relative h-3\.5 w-3\.5"/);
+    expect(whyThis).toMatch(/size-3\.5/);
+    for (const source of [whyThis, panel]) {
+      expect(source).toContain("text-muted-foreground");
+    }
+  });
+
+  it("never tells a reader to press an eye", () => {
+    // The copy names the control, so it has to name the one that is there.
+    const copy = readFileSync(
+      join(process.cwd(), "src/lib/provenance.ts"),
+      "utf8"
+    );
+    const strings = copy.match(/"[^"\n]{12,}"/g) ?? [];
+    for (const line of strings) {
+      expect(line.toLowerCase()).not.toContain(" eye");
+    }
   });
 });
