@@ -215,7 +215,14 @@ type SortKey =
  */
 const COLUMNS: { label: string; key?: SortKey; term?: string }[] = [
   { label: "Ticker", key: "ticker" },
-  { label: "% of portfolio", key: "pct", term: "share-of-portfolio" },
+  /*
+   * "% of total", not "% of portfolio": the widest header sets its
+   * column's width, and this one sat over a column of "27.5%" at close to
+   * twice the width of the next widest title, so the row read as one wide
+   * gap and eleven narrow ones. The glossary tip beside it says the long
+   * form.
+   */
+  { label: "% of total", key: "pct", term: "share-of-portfolio" },
   { label: "Shares", key: "shares", term: "share" },
   { label: "Paid each", key: "buy", term: "paid-each" },
   { label: "Price", key: "price" },
@@ -884,8 +891,9 @@ export const PortfolioTable = memo(function PortfolioTable({
                   /*
                     A header is one line, like every cell under it.
                     Headers used to be allowed to wrap so a label spelled
-                    out in words ("% of portfolio") would not set the whole
-                    track's width, and the result was a header row where
+                    out in words ("% of portfolio", now "% of total") would
+                    not set the whole track's width, and the result was a
+                    header row where
                     four titles sat on two lines and eight on one, so the
                     row read as uneven before a single figure was looked
                     at. `cellBase` is already `whitespace-nowrap`, every
