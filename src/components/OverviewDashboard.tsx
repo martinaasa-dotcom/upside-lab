@@ -1316,8 +1316,17 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         * the same weight as what everything is worth and put the label
         * "Portfolio" over the sub-line "2 portfolios", a contradiction on
         * the first thing a returning reader looks at. The one number they
-        * came for now spans the row with the day's move on the same line,
-        * and All time and Cash sit under it as a pair.
+        * came for now spans the row with the day's move on the same line.
+        *
+        * Cash then had a whole tile of its own beside All time, which is
+        * still more room than it earns: on most portfolios it is a few
+        * percent of everything and never changes, so half the second row
+        * was spent restating one small number in a large font. It is one
+        * line at the foot of the hero card now, in the same voice as the
+        * ordinary-day sentence, red only when it is borrowed. The cell it
+        * left goes to This year, which was a small caption on the chart
+        * panel further down and is the second question a reader asks
+        * after "since I bought": the two horizons sit side by side.
         */}
       <div className="overview-fade flex flex-col gap-4">
         <div className="card-sheen glass flex min-w-0 flex-col rounded-xl p-4 ring-1 ring-foreground/20 sm:p-6">
@@ -1354,6 +1363,27 @@ export const OverviewDashboard = memo(function OverviewDashboard({
               {ordinaryDayLine}
             </p>
           ) : null}
+          {/*
+            * Cash, as a line rather than a tile. The figure keeps its mono
+            * face so it still reads as a number in a sentence, and the
+            * share of everything stays beside it, because a cash figure
+            * with nothing next to it teaches nobody whether it is a lot.
+            * Borrowed money is the one case that changes colour; the size
+            * of it, and what it means, is the Cash card's own job further
+            * down the page.
+            */}
+          <p
+            className={cn(
+              "mt-3 text-sm leading-relaxed",
+              totals.cash < 0 ? "text-loss" : "text-muted-foreground"
+            )}
+          >
+            <span className="font-medium">Cash</span>{" "}
+            <span className="font-mono tabular-nums">
+              {currency(totals.cash, 0)}
+            </span>
+            {cashNote ? `, ${cashNote}` : ""}
+          </p>
         </div>
         <Scoreboard cols={2}>
           {/*
@@ -1376,12 +1406,29 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             }
             valueClassName={tone(totals.roiDollar)}
           />
+          {/*
+            * The same figure the chart panel captions, so the two cannot
+            * disagree: both read `yearPct` and `yearDollar` off the one
+            * painted path. Until the path has painted there is nothing to
+            * say, and the cell says `NO_VALUE` with a line under it rather
+            * than a dash that reads as a number whose digits failed to load.
+            */}
           <Score
-            label="Cash"
-            value={currency(totals.cash, 0)}
-            sub={cashNote}
-            valueClassName={totals.cash < 0 ? "text-loss" : undefined}
-            subClassName={totals.cash < 0 ? "text-loss" : undefined}
+            label="This year"
+            explain="How your portfolio has moved since the start of the year, in money and as a share of where it started. It is drawn from the same line as the chart further down."
+            value={
+              yearDollar != null ? signedCurrency(yearDollar, 0) : NO_VALUE
+            }
+            sub={
+              yearPct != null ? (
+                <DeltaBadge value={yearPct}>{signedPercent(yearPct)}</DeltaBadge>
+              ) : (
+                "Waiting for this year's prices."
+              )
+            }
+            valueClassName={
+              yearDollar != null ? tone(yearDollar) : "text-muted-foreground"
+            }
           />
         </Scoreboard>
       </div>
