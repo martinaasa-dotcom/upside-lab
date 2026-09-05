@@ -1,16 +1,14 @@
 "use client";
 
-import { Card, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
-import { Badge } from "@/components/ui/badge";
-import { WhyThis } from "@/components/ui/WhyThis";
 import {
-  NO_VALUE,
-  cashtag,
-  cn,
-  currency,
-  percent,
-  signedPercent,
-} from "@/lib/format";
+  Card,
+  InfoTip,
+  MicroLabel,
+  Panel,
+  PanelHeader,
+} from "@/components/ui/Panel";
+import { WhyThis } from "@/components/ui/WhyThis";
+import { cashtag, cn, currency, percent, signedPercent } from "@/lib/format";
 import { fairValueProvenance } from "@/lib/provenance";
 import {
   impliedGrowth,
@@ -21,7 +19,6 @@ import {
 import type { CompanyFacts } from "@/lib/company/facts";
 import type { ModelRun } from "@/lib/ai/model-label";
 import { Gauge } from "lucide-react";
-import type { ReactNode } from "react";
 
 /**
  * Valuation: one panel, because it was one subject in two.
@@ -94,12 +91,15 @@ function Ladder({
   high,
   spot,
   blend,
+  gap,
   code,
 }: {
   low: number;
   high: number;
   spot: number;
   blend: number | null;
+  /** The estimate against today, as a fraction. Printed on the mark. */
+  gap: number | null;
   code: string;
 }) {
   const values = [low, high, spot, ...(blend === null ? [] : [blend])];
@@ -161,6 +161,14 @@ function Ladder({
               left={blendLabel}
               name="Estimate"
               figure={currency(blend, 2, code)}
+              /*
+                The gap rides on the mark it describes rather than sitting
+                in a cell of its own further down. It is the difference
+                between the two marks on this very line, so printing it
+                anywhere else asks a reader to hold two numbers in their
+                head to get a third.
+              */
+              note={gap === null ? null : `${signedPercent(gap)} against today`}
               className="text-muted-foreground"
             />
             <span
@@ -182,17 +190,17 @@ function Ladder({
           style={{ left: `${at(spot)}%` }}
         />
       </div>
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        The band runs from the lowest estimate below,{" "}
-        <span className="font-mono tabular-nums text-foreground">
-          {currency(low, 2, code)}
-        </span>
-        , to the highest,{" "}
-        <span className="font-mono tabular-nums text-foreground">
-          {currency(high, 2, code)}
-        </span>
-        . The gold mark is today.
-      </p>
+      {/*
+        The band's ends are labelled where they are rather than described in
+        a sentence underneath. A caption saying "the band runs from X to Y"
+        is a paragraph doing the work of two numbers standing in the right
+        place.
+      */}
+      <div className="flex items-baseline justify-between font-mono text-xs tabular-nums text-muted-foreground">
+        <span>{currency(low, 2, code)}</span>
+        <span className="uppercase tracking-[0.06em]">every estimate</span>
+        <span>{currency(high, 2, code)}</span>
+      </div>
     </div>
   );
 }
@@ -202,11 +210,13 @@ function Mark({
   left,
   name,
   figure,
+  note,
   className,
 }: {
   left: number;
   name: string;
   figure: string;
+  note?: string | null;
   className: string;
 }) {
   return (
@@ -221,32 +231,10 @@ function Mark({
         {name}
       </span>
       <span className="font-mono text-sm font-bold tabular-nums">{figure}</span>
+      {note && (
+        <span className="font-mono text-xs tabular-nums opacity-80">{note}</span>
+      )}
     </span>
-  );
-}
-
-/** One figure and its name, on one line, divided from the next by a rule. */
-function Stat({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: ReactNode;
-  tone?: "warn";
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1 px-4 py-3">
-      <MicroLabel>{label}</MicroLabel>
-      <p
-        className={cn(
-          "min-w-0 font-mono text-base font-bold tabular-nums break-words",
-          tone === "warn" ? "text-warning" : "text-foreground"
-        )}
-      >
-        {value}
-      </p>
-    </div>
   );
 }
 
@@ -328,26 +316,42 @@ function MethodRow({
         methods had its figures in two different places.
       */}
       <div className="flex items-baseline justify-between gap-3">
-        <p className="min-w-0 text-sm font-semibold text-foreground">
+        <p className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold text-foreground">
           {method.name}
+          <InfoTip
+            text={method.working}
+            label={`How ${method.name} was worked out`}
+          />
         </p>
         <p className="shrink-0 font-mono text-base font-bold tabular-nums text-foreground">
           {currency(method.price, 2, code)}
         </p>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline" className={MAKER_TONE[method.maker]}>
+      {/*
+        One muted line rather than two outlined badges. Where a figure came
+        from and how much it counts for are facts about the row, not two
+        separate objects to draw a box around, and three boxes plus a bar
+        plus a percentage on one line is what a reader called cluttered.
+      */}
+      {/*
+        Sentence case, not the label tier. Uppercase mono is the voice of a
+        short fixed label; a whole line of varying content set in it shouts,
+        and this line is scaffolding rather than the point of the card.
+      */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+        <span className={MAKER_TONE[method.maker]}>
           {MAKER_LABEL[method.maker]}
-        </Badge>
-        <Badge variant="outline" className="text-muted-foreground">
+        </span>
+        <span aria-hidden>&middot;</span>
+        <span>
           {method.dropped ? "Left out" : `Counts for ${percent(method.weight, 0)}`}
-        </Badge>
+        </span>
         {gap !== null && !method.dropped && (
           <span className="inline-flex items-center gap-2">
             <GapBar gap={gap} />
             <span
               className={cn(
-                "font-mono text-xs tabular-nums",
+                "font-mono tabular-nums",
                 gap >= 0 ? "text-gain" : "text-loss"
               )}
             >
@@ -357,13 +361,20 @@ function MethodRow({
           </span>
         )}
       </div>
+      {/*
+        THE ASSUMPTION STAYS ON THE PAGE. THE ARITHMETIC MOVES ONE PRESS
+        AWAY, AND THAT IS NOT THE SAME AS HIDING A METHOD.
+
+        Every method is still listed with its name, its price, its weight,
+        its distance from today and the assumption it rests on, which is
+        the part a reader argues with. The working is the line that names
+        the inputs, and three of those stacked under three assumptions is
+        six paragraphs in a panel somebody opened to see one number. It
+        goes behind the same circled i the rest of the product uses for
+        "tell me more", beside the name it belongs to.
+      */}
       <p className="text-sm leading-relaxed text-muted-foreground">
-        <span className="text-foreground">It assumes: </span>
         {method.assumes}
-      </p>
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        <span className="text-foreground">The working: </span>
-        {method.working}
       </p>
       {method.dropped && (
         <p className="text-sm leading-relaxed text-warning">{method.dropped}</p>
@@ -375,10 +386,8 @@ function MethodRow({
 const CONFIDENCE_LINE = {
   none: "Not one of these methods could be run on this company, so there is no estimate to give.",
   thin: "The estimate rests on a single method rather than a blend, so treat it as one opinion with a decimal point on it.",
-  mixed:
-    "The estimate rests on two or three methods. Enough to be worth reading, not enough to lean on hard.",
-  broad:
-    "The estimate rests on four or more methods, so it is a genuine blend rather than one calculation dressed up.",
+  mixed: "",
+  broad: "",
 } as const;
 
 /* ---------------------------------------------------------------------- *
@@ -406,50 +415,6 @@ export function ValueGlance({
   const methodNames = read.estimate.used.map((m) => m.name);
   const all = [...read.estimate.used, ...read.estimate.dropped];
   const tag = cashtag(ticker);
-
-  /*
-    Built as a list rather than written out inline, because the column
-    count has to divide the cells: `md:grid-cols-3` with two children
-    leaves a third of the strip empty, which is the fault
-    `filledCardColumns` exists to prevent on a `Scoreboard`.
-  */
-  const cells = [
-    <Stat
-      key="gap"
-      label="Difference"
-      /*
-        Deliberately not a gain or loss colour. That pairing is for figures
-        where up is good and down is bad, which a profit is and this is
-        not: a gap between an estimate and a price says the estimate is
-        higher, not that the company is a good one.
-      */
-      value={read.gap === null ? NO_VALUE : signedPercent(read.gap)}
-    />,
-    implied ? (
-      <Stat
-        key="implied"
-        label="Growth the price needs"
-        value={`${percent(implied.rate, 0)} a year`}
-        tone={
-          implied.marketRate !== null && implied.rate > implied.marketRate * 2
-            ? "warn"
-            : undefined
-        }
-      />
-    ) : null,
-    facts.fiftyTwoWeekLow !== null && facts.fiftyTwoWeekHigh !== null ? (
-      <Stat
-        key="range"
-        label="52 week range"
-        value={
-          <span className="text-sm">
-            {currency(facts.fiftyTwoWeekLow, 2, code)} to{" "}
-            {currency(facts.fiftyTwoWeekHigh, 2, code)}
-          </span>
-        }
-      />
-    ) : null,
-  ].filter(Boolean);
 
   return (
     <Panel>
@@ -481,6 +446,7 @@ export function ValueGlance({
           high={glance.high}
           spot={read.spot}
           blend={read.estimate.price}
+          gap={read.gap}
           code={code}
         />
       ) : null}
@@ -493,17 +459,6 @@ export function ValueGlance({
           {glance.nextQuestion}
         </p>
       </div>
-
-      {cells.length > 0 && (
-        <div
-          className={cn(
-            "glass-well grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-lg md:divide-y-0",
-            cells.length >= 3 ? "md:grid-cols-3" : "md:grid-cols-2"
-          )}
-        >
-          {cells}
-        </div>
-      )}
 
       {implied ? (
         <p className="text-sm leading-relaxed text-muted-foreground">
@@ -530,11 +485,18 @@ export function ValueGlance({
       */}
       {all.length > 0 && (
         <div className="flex flex-col gap-3">
+          {/*
+            The confidence line is only printed when it says something the
+            cards below do not. A reader can count three methods; being
+            told there are three is a sentence spent on nothing. One
+            method, or none, is the case worth naming out loud.
+          */}
           <MicroLabel>How the estimate was worked out</MicroLabel>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            {CONFIDENCE_LINE[read.estimate.confidence]} The assumptions are
-            the argument.
-          </p>
+          {CONFIDENCE_LINE[read.estimate.confidence] && (
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {CONFIDENCE_LINE[read.estimate.confidence]}
+            </p>
+          )}
           {all.map((m) => (
             <MethodRow
               key={`${m.id}:${m.price}`}
