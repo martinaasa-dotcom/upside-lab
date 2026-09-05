@@ -25,6 +25,7 @@ function method(over: Partial<FairValueMethod> = {}): FairValueMethod {
   return {
     id: "x",
     name: "A method",
+    source: "a method",
     maker: "arithmetic",
     price: 100,
     assumes: "something",

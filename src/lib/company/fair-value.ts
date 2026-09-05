@@ -59,6 +59,13 @@ export type FairValueMethod = {
   weight: number;
   /** Set when the method was dropped, saying why. */
   dropped?: string;
+  /**
+   * The method named in prose, lowercase, so a sentence can say where a
+   * figure came from. "The lowest is $678.92, from the growth multiple" is
+   * the answer to the question a reader actually has, where "the lowest
+   * estimate on this page" points at the page it is printed on.
+   */
+  source: string;
 };
 
 export type FairValueBlend = {
@@ -202,6 +209,7 @@ function consensusMethod(f: CompanyFacts): FairValueMethod | null {
   return {
     id: "consensus",
     name: "What Wall Street expects",
+    source: "the analysts' average",
     maker: "market",
     price: round2(target),
     assumes: `That the ${n > 0 ? `${n} analyst${n === 1 ? "" : "s"} covering this company` : "analysts covering this company"} have it about right. They are paid to be right and are often wrong together.${spread}${disagreement}`,
@@ -309,6 +317,7 @@ function growthMethod(
   return {
     id: "growth",
     name: "Priced for the growth it is showing",
+    source: "the growth multiple",
     maker: "arithmetic",
     price: round2(eps * multiple),
     assumes: `That a company growing earnings at ${Math.round(pct)}% a year, against ${Math.round(marketPct)}% for the market as a whole, deserves about ${Math.round(multiple)} times a year's earnings. It anchors on the market's own multiple of ${MARKET_EARNINGS_MULTIPLE} and adds half a turn for each point of growth above the market, capped at ${GROWTH_RULE_CEILING}. It is a rule of thumb rather than a law, and it takes one year's expected growth as though it continued.`,
@@ -383,6 +392,7 @@ function modelMethod(
   return {
     id: "model",
     name: "What the model reasoned",
+    source: "the model's own path",
     maker: "model",
     price: round2(price),
     assumes:
@@ -586,13 +596,23 @@ export function valueGlance(read: FairValueRead): ValueGlance {
   }
   const low = Math.min(...prices);
   const high = Math.max(...prices);
+  /*
+    Name whose estimate the edge of the band is. "The lowest estimate on
+    this page" points at the page it is printed on and tells a reader
+    nothing; "from the analysts' average" tells them whether to argue with
+    it, which is the whole design of this room.
+  */
+  const from = (v: number) => {
+    const m = read.estimate.used.find((x) => x.price === v);
+    return m ? `, from ${m.source}` : "";
+  };
 
   if (spot > high) {
     return {
       position: "above",
       low,
       high,
-      read: `Today's price is above every estimate on this page, the highest of which is ${currency(high, 2)}.`,
+      read: `Today's price is above every estimate below. The highest is ${currency(high, 2)}${from(high)}.`,
       nextQuestion:
         "So the price is a bet that this company does better than the figures below currently suggest. What has to go right is the thing to read next.",
     };
@@ -602,7 +622,7 @@ export function valueGlance(read: FairValueRead): ValueGlance {
       position: "below",
       low,
       high,
-      read: `Today's price is below every estimate on this page, the lowest of which is ${currency(low, 2)}.`,
+      read: `Today's price is below every estimate below. The lowest is ${currency(low, 2)}${from(low)}.`,
       nextQuestion:
         "Either the market knows something these figures do not, or it has not caught up. The case against, further down, is where to look for the first.",
     };
@@ -623,7 +643,7 @@ export function valueGlance(read: FairValueRead): ValueGlance {
     low,
     high,
     read: wide
-      ? `The methods on this page disagree by a factor of ${(high / low).toFixed(1)}, from ${currency(low, 2)} to ${currency(high, 2)}, and today's price is somewhere in the middle of that.`
+      ? `The methods below disagree by a factor of ${(high / low).toFixed(1)}, from ${currency(low, 2)}${from(low)} to ${currency(high, 2)}${from(high)}, and today's price is somewhere in the middle of that.`
       : `Today's price sits inside the range these methods produce, ${currency(low, 2)} to ${currency(high, 2)}.`,
     nextQuestion: wide
       ? "A range that wide is not a valuation, it is a disagreement, and being inside it settles nothing. The methods are listed below with the assumption each rests on, and the one you find least believable is the one to start with."

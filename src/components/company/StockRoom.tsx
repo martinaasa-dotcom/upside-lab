@@ -23,7 +23,6 @@ import { CompanyNumbers } from "@/components/company/CompanyNumbers";
 import { CompanyPath } from "@/components/company/CompanyPath";
 import { CompanySearch } from "@/components/company/CompanySearch";
 import { CompanySources } from "@/components/company/CompanySources";
-import { FairValueCard } from "@/components/company/FairValueCard";
 import { FundInside } from "@/components/company/FundInside";
 import { ValueGlance } from "@/components/company/ValueGlance";
 import { PositionFitCard } from "@/components/company/PositionFitCard";
@@ -378,22 +377,10 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
               )}
 
               {fair && fair.estimate.price !== null && (
-                <WidgetErrorBoundary name="At a glance">
+                <WidgetErrorBoundary name="Valuation">
                   <ValueGlance
                     ticker={ticker}
                     facts={facts}
-                    read={fair}
-                    code={code}
-                    at={page.briefAt ?? facts.fetchedAt}
-                    model={page.model}
-                  />
-                </WidgetErrorBoundary>
-              )}
-
-              {fair && (
-                <WidgetErrorBoundary name="Fair value">
-                  <FairValueCard
-                    ticker={ticker}
                     read={fair}
                     code={code}
                     at={page.briefAt ?? facts.fetchedAt}

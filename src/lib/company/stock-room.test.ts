@@ -48,7 +48,7 @@ describe("the room keeps its promises in the markup", () => {
   it("puts a provenance mark on every block a model or a feed touched", () => {
     for (const panel of [
       "CompanyNumbers",
-      "FairValueCard",
+      "ValueGlance",
       "CompanyCases",
       "CompanyPath",
       "PositionFitCard",
@@ -57,7 +57,7 @@ describe("the room keeps its promises in the markup", () => {
     }
     for (const file of [
       "src/components/company/CompanyNumbers.tsx",
-      "src/components/company/FairValueCard.tsx",
+      "src/components/company/ValueGlance.tsx",
       "src/components/company/CompanyCases.tsx",
       "src/components/company/CompanyPath.tsx",
       "src/components/company/PositionFitCard.tsx",
@@ -79,7 +79,7 @@ describe("the room keeps its promises in the markup", () => {
     for (const file of [
       "src/components/company/StockRoom.tsx",
       "src/components/company/CompanyNumbers.tsx",
-      "src/components/company/FairValueCard.tsx",
+      "src/components/company/ValueGlance.tsx",
       "src/components/company/CompanyCases.tsx",
       "src/components/company/PositionFitCard.tsx",
       "src/lib/company/readings.ts",

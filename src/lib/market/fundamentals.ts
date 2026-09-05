@@ -452,9 +452,21 @@ async function fetchCompanyFactsUncached(
  * popular company down to a couple of provider calls a day while still
  * picking up an earnings release the same session it lands.
  */
+/*
+  THE KEY CARRIES THE SHAPE, AND FORGETTING THAT CRASHED THE ROOM.
+
+  This cache holds a whole `CompanyFacts`, so the key is part of its type.
+  `quarters`, `surprises`, `operatingMargin` and `returnOnEquity` were added
+  to the shape while the key stayed `v1`, so for an hour after that deploy
+  every reader got an entry written by the old code, `facts.quarters.length`
+  threw on an absent array, and the quarterly panel showed its error card.
+  It heals itself when the entry expires, which is what made it look
+  intermittent and is not a reason to leave it. Bump the version in the same
+  commit that adds or removes a field.
+*/
 const fetchCompanyFactsCached = unstable_cache(
   async (ticker: string) => fetchCompanyFactsUncached(ticker),
-  ["company-facts-v1"],
+  ["company-facts-v2"],
   { revalidate: 60 * 60 }
 );
 

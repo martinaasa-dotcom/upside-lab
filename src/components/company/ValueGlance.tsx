@@ -1,6 +1,7 @@
 "use client";
 
-import { MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
+import { Card, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
+import { Badge } from "@/components/ui/badge";
 import { WhyThis } from "@/components/ui/WhyThis";
 import {
   NO_VALUE,
@@ -12,9 +13,9 @@ import {
 } from "@/lib/format";
 import { fairValueProvenance } from "@/lib/provenance";
 import {
-  earningsRamp,
   impliedGrowth,
   valueGlance,
+  type FairValueMethod,
   type FairValueRead,
 } from "@/lib/company/fair-value";
 import type { CompanyFacts } from "@/lib/company/facts";
@@ -23,52 +24,70 @@ import { Gauge } from "lucide-react";
 import type { ReactNode } from "react";
 
 /**
- * Valuation, at the top of the page, in the words a person would use.
+ * Valuation: one panel, because it was one subject in two.
  *
- * Three rules, and all three were learned by getting them wrong.
+ * The figure and the working used to be separate panels stacked on top of
+ * each other, `ValueGlance` and `FairValueCard`, and a reader met two
+ * headings, two subtitles and two rounds of scaffolding for a single
+ * question. They are one panel now, read top to bottom: where the price
+ * sits, what that means, the figures around it, then every method with the
+ * assumption it rests on.
  *
- * **Say the real name of the thing.** This panel was headed "What you pay,
- * and what it looks worth", with cells called "Is the profit arriving" and
- * "What the price is assuming". Nobody speaks like that. Vagueness is not
- * the same as simplicity: a reader who does not know what a price target
- * is learns nothing from a riddle, and a reader who does has to decode one
- * to find a figure they could have read at a glance.
+ * The rules this panel has been taught, each by getting it wrong.
  *
- * **No method appears whose premise does not hold.** The panel used to
- * carry a second figure, "on today's earnings", which multiplied this
- * year's profit by the market's average multiple. Applied to a company
- * growing earnings at 104% a year that is not a conservative estimate, it
- * is a wrong one, and it printed $223 against a share price of $478.
+ * **Say the real name of the thing.** It was headed "What you pay, and
+ * what it looks worth", with cells called "Is the profit arriving". Nobody
+ * speaks like that, and vagueness is not simplicity: a reader who does not
+ * know what a price target is learns nothing from a riddle, and one who
+ * does has to decode it to find a figure they could have read at a glance.
  *
- * **The line is the panel, and everything else is a caption on it.** This
- * was three tall cards each carrying a figure and a paragraph, then a
- * hairline nobody could see, then three more cards. Nine hundred pixels to
- * say one thing. The whole content of this panel is where one price sits
- * against a band of estimates, which is a picture, so the picture is the
- * hero at full size and every figure around it is one line at most. Two
- * cards went entirely: the analyst target range, whose spread is a fact
- * about analysts rather than about the company and which already has a
- * line inside the method that uses it, and earnings per share, which is
- * the input to every method below rather than a reading in its own right
- * and now sits as one line under the picture.
+ * **No method appears whose premise does not hold.** It used to carry a
+ * figure that multiplied this year's profit by the market's average
+ * multiple. Applied to a company growing earnings at 104% a year that is
+ * not a conservative estimate, it is a wrong one, and it printed $223
+ * against a share price of $478.
+ *
+ * **The line is the panel and everything else is a caption on it.** Three
+ * tall cards each carrying a figure and a paragraph, then a hairline
+ * nobody could see, then three more cards, came to 900px to say one thing.
+ *
+ * **Nothing here repeats what the reader was just shown.** The strip below
+ * the picture carried the share price and the estimate, which are the two
+ * marks drawn on the picture. It carries what the picture does not.
+ *
+ * **A figure with no unit of comparison is not information.** The strip
+ * also carried an earnings-per-share ramp, three rising numbers with
+ * nothing to say what they were rising from or towards. It is gone: every
+ * method's working line already states the earnings it multiplied, with
+ * the year attached, which is that figure with the context that makes it
+ * mean something.
+ *
+ * **One legal line for the product, not a hedge per panel.** The subtitle
+ * used to end "Upside Lab is not an adviser and will not tell you whether
+ * to buy it" and the methods ended "None of it is a price target or
+ * anybody telling you to buy or sell". `ADVICE_DISCLAIMER_SHORT` is the
+ * product's legal line and it is said once; a second and third hedge
+ * bolted onto the panels a reader came for reads as nervousness, and
+ * teaches them to skip the sentence that matters. What replaces it is
+ * structural and stronger: no output here contains a verdict word, and
+ * `value-glance.test.ts` fails on one.
  */
 
+/* ---------------------------------------------------------------------- *
+ * The picture
+ * ---------------------------------------------------------------------- */
+
 /**
- * The picture: today's price against the band the estimates cover.
+ * Today's price against the band the estimates cover.
  *
  * Deliberately no red-to-green gradient, because that would be the traffic
  * light this panel exists to avoid, and no arrow, because neither
  * direction is being recommended.
  *
- * **Both marks are labelled where they stand, and that is the fix for a
- * real complaint.** The gold mark was a 3px hairline on a 1,800px track
- * with its figure printed at the far end of the row, so the one thing this
- * panel is for was the least visible thing on it and the reader had to
- * measure across the panel to pair a mark with its number. Each mark now
- * carries its own name and figure directly above it, the price is a
- * ringed gold pill rather than a line, and the blend is marked too, since
- * "where the price sits against the estimate" needs both ends of the
- * comparison drawn.
+ * Both marks are labelled where they stand. The gold mark was a 3px
+ * hairline with its figure printed at the far end of the row, so the one
+ * thing this panel is for was the least visible thing on it and a reader
+ * had to measure across the panel to pair a mark with its number.
  */
 function Ladder({
   low,
@@ -108,8 +127,7 @@ function Ladder({
   let blendLabel = blend === null ? null : clamp(blend);
   if (blendLabel !== null && Math.abs(spotLabel - blendLabel) < LABEL_GAP) {
     const middle = (spotLabel + blendLabel) / 2;
-    const half = LABEL_GAP / 2;
-    const left = Math.min(Math.max(middle - half, 9), 91 - LABEL_GAP);
+    const left = Math.min(Math.max(middle - LABEL_GAP / 2, 9), 91 - LABEL_GAP);
     const right = left + LABEL_GAP;
     if (spotLabel <= blendLabel) {
       spotLabel = left;
@@ -124,24 +142,23 @@ function Ladder({
     <div className="flex flex-col gap-3">
       {/*
         The labels stand clear above the track rather than inside it. They
-        were absolutely positioned in the same box as the marks, so the gold
-        pill was drawn straight through its own figure and the one thing
-        this panel is for was the least readable thing on it.
+        were absolutely positioned in the same box as the marks, so the
+        gold pill was drawn straight through its own figure.
       */}
       <div className="relative mt-9 h-2">
         <span
           aria-hidden
-          className="absolute inset-x-0 inset-y-0 rounded-full bg-foreground/[0.07]"
+          className="absolute inset-0 rounded-full bg-foreground/[0.07]"
         />
         <span
           aria-hidden
           className="absolute inset-y-0 rounded-full bg-foreground/25"
           style={{ left: `${at(low)}%`, width: `${at(high) - at(low)}%` }}
         />
-        {blend !== null && (
+        {blend !== null && blendLabel !== null && (
           <>
             <Mark
-              left={blendLabel ?? clamp(blend)}
+              left={blendLabel}
               name="Estimate"
               figure={currency(blend, 2, code)}
               className="text-muted-foreground"
@@ -166,11 +183,11 @@ function Ladder({
         />
       </div>
       <p className="text-sm leading-relaxed text-muted-foreground">
-        The band is every estimate on this page, running{" "}
+        The band runs from the lowest estimate below,{" "}
         <span className="font-mono tabular-nums text-foreground">
           {currency(low, 2, code)}
-        </span>{" "}
-        to{" "}
+        </span>
+        , to the highest,{" "}
         <span className="font-mono tabular-nums text-foreground">
           {currency(high, 2, code)}
         </span>
@@ -233,6 +250,141 @@ function Stat({
   );
 }
 
+/* ---------------------------------------------------------------------- *
+ * The working
+ * ---------------------------------------------------------------------- */
+
+const MAKER_LABEL = {
+  market: "Other people's figures",
+  arithmetic: "Arithmetic on the accounts",
+  model: "A language model",
+} as const;
+
+const MAKER_TONE = {
+  market: "text-foreground",
+  arithmetic: "text-foreground",
+  model: "text-primary",
+} as const;
+
+/**
+ * How far this method landed from today's price, drawn.
+ *
+ * The figure is already printed beside it, so this is not the information:
+ * it is the ordering. Several methods in a column with a percentage in
+ * each is a list a reader has to do arithmetic on to see that two agreed
+ * and one is an outlier. A bar growing out of a centre line says it at a
+ * glance, and the centre line is today's price.
+ *
+ * Capped at 60%, because one method landing three times the share price
+ * would otherwise squash every other bar to nothing.
+ */
+function GapBar({ gap }: { gap: number }) {
+  const width = Math.min(Math.abs(gap) / 0.6, 1) * 50;
+  return (
+    <span
+      aria-hidden
+      className="relative hidden h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-foreground/[0.07] sm:block"
+    >
+      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-foreground/25" />
+      <span
+        className={cn(
+          "absolute inset-y-0 rounded-full",
+          gap >= 0 ? "left-1/2 bg-gain/70" : "right-1/2 bg-loss/70"
+        )}
+        style={{ width: `${Math.max(width, 1.5)}%` }}
+      />
+    </span>
+  );
+}
+
+/**
+ * One method, with what it assumed and the arithmetic it used.
+ *
+ * Two things this must never do. It must not print a word like cheap or
+ * expensive: that is a conclusion, and the whole design is that the reader
+ * draws it from methods they can argue with. And it must not hide a method
+ * that disagreed. A method thrown out of the blend is still listed,
+ * greyed, with the reason, because a silently dropped estimate is exactly
+ * the kind of quiet adjustment the forecast floor turned out to be.
+ */
+function MethodRow({
+  method,
+  code,
+  spot,
+}: {
+  method: FairValueMethod;
+  code: string;
+  spot: number | null;
+}) {
+  const gap = spot && spot > 0 ? (method.price - spot) / spot : null;
+  return (
+    <Card
+      tone="default"
+      className={cn("flex flex-col gap-2", method.dropped && "opacity-60")}
+    >
+      {/*
+        Never `flex-wrap` here. A long method name pushed the price onto its
+        own line while a short one kept it on the right, so a column of
+        methods had its figures in two different places.
+      */}
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="min-w-0 text-sm font-semibold text-foreground">
+          {method.name}
+        </p>
+        <p className="shrink-0 font-mono text-base font-bold tabular-nums text-foreground">
+          {currency(method.price, 2, code)}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className={MAKER_TONE[method.maker]}>
+          {MAKER_LABEL[method.maker]}
+        </Badge>
+        <Badge variant="outline" className="text-muted-foreground">
+          {method.dropped ? "Left out" : `Counts for ${percent(method.weight, 0)}`}
+        </Badge>
+        {gap !== null && !method.dropped && (
+          <span className="inline-flex items-center gap-2">
+            <GapBar gap={gap} />
+            <span
+              className={cn(
+                "font-mono text-xs tabular-nums",
+                gap >= 0 ? "text-gain" : "text-loss"
+              )}
+            >
+              {gap >= 0 ? "+" : ""}
+              {percent(gap, 0)} against today
+            </span>
+          </span>
+        )}
+      </div>
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        <span className="text-foreground">It assumes: </span>
+        {method.assumes}
+      </p>
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        <span className="text-foreground">The working: </span>
+        {method.working}
+      </p>
+      {method.dropped && (
+        <p className="text-sm leading-relaxed text-warning">{method.dropped}</p>
+      )}
+    </Card>
+  );
+}
+
+const CONFIDENCE_LINE = {
+  none: "Not one of these methods could be run on this company, so there is no estimate to give.",
+  thin: "The estimate rests on a single method rather than a blend, so treat it as one opinion with a decimal point on it.",
+  mixed:
+    "The estimate rests on two or three methods. Enough to be worth reading, not enough to lean on hard.",
+  broad:
+    "The estimate rests on four or more methods, so it is a genuine blend rather than one calculation dressed up.",
+} as const;
+
+/* ---------------------------------------------------------------------- *
+ * The panel
+ * ---------------------------------------------------------------------- */
+
 export function ValueGlance({
   ticker,
   facts,
@@ -250,15 +402,15 @@ export function ValueGlance({
 }) {
   const glance = valueGlance(read);
   const implied = impliedGrowth(facts);
-  const ramp = earningsRamp(facts);
   const usesModel = read.estimate.used.some((m) => m.maker === "model");
   const methodNames = read.estimate.used.map((m) => m.name);
+  const all = [...read.estimate.used, ...read.estimate.dropped];
   const tag = cashtag(ticker);
 
   /*
     Built as a list rather than written out inline, because the column
-    count has to divide the cells: a `md:grid-cols-4` with three children
-    leaves a quarter of the strip empty, which is the same fault
+    count has to divide the cells: `md:grid-cols-3` with two children
+    leaves a third of the strip empty, which is the fault
     `filledCardColumns` exists to prevent on a `Scoreboard`.
   */
   const cells = [
@@ -297,27 +449,6 @@ export function ValueGlance({
         }
       />
     ) : null,
-    ramp ? (
-      <Stat
-        key="eps"
-        label="Earnings per share"
-        value={
-          <span className="flex flex-wrap items-baseline gap-x-1.5 text-sm">
-            {ramp.steps.map((step, i) => (
-              <span key={step.label} className="flex items-baseline gap-1.5">
-                {i > 0 && (
-                  <span aria-hidden className="text-muted-foreground">
-                    &rarr;
-                  </span>
-                )}
-                <span>{currency(step.eps, 2, code)}</span>
-              </span>
-            ))}
-          </span>
-        }
-        tone={ramp.total !== null && ramp.total < 0 ? "warn" : undefined}
-      />
-    ) : null,
   ].filter(Boolean);
 
   return (
@@ -340,7 +471,7 @@ export function ValueGlance({
             )}
           </span>
         }
-        subtitle={`Where ${tag} trades today against every estimate on this page, twelve months out. Upside Lab is not an adviser and will not tell you whether to buy it.`}
+        subtitle={`Where ${tag} trades today, what each method below puts it at in twelve months, and the assumption every one of them rests on.`}
         icon={<Gauge className="h-4 w-4" />}
       />
 
@@ -363,35 +494,16 @@ export function ValueGlance({
         </p>
       </div>
 
-      {/*
-        THE FIGURES, ON ONE ROW, EACH ONE LINE.
-
-        These used to be three cards of a figure and a paragraph and then
-        three more below them. Every sentence in those paragraphs is said
-        better somewhere else on the page: the method card carries how the
-        estimate was reached, the readings panel carries what a multiple
-        means, and the sentence above this row says where the price sits.
-        What is left is what a professional actually scans, which is four
-        numbers, and they cost four lines rather than nine hundred pixels.
-      */}
-      {/*
-        THE STRIP CARRIES WHAT THE PICTURE DOES NOT.
-
-        It held the share price and the estimate, which are the two marks
-        drawn on the line directly above it, so a third of this panel was
-        printing numbers a reader had just been shown. Every cell here is
-        now a fact that appears nowhere else above: the gap as a figure, the
-        bet the price is making, the year the shares have had, and the
-        earnings line every method below is a multiple of.
-      */}
-      <div
-        className={cn(
-          "glass-well grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-lg md:divide-y-0",
-          cells.length >= 4 ? "md:grid-cols-4" : "md:grid-cols-3"
-        )}
-      >
-        {cells}
-      </div>
+      {cells.length > 0 && (
+        <div
+          className={cn(
+            "glass-well grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-lg md:divide-y-0",
+            cells.length >= 3 ? "md:grid-cols-3" : "md:grid-cols-2"
+          )}
+        >
+          {cells}
+        </div>
+      )}
 
       {implied ? (
         <p className="text-sm leading-relaxed text-muted-foreground">
@@ -405,6 +517,34 @@ export function ValueGlance({
           . That is the bet, in one number.
         </p>
       ) : null}
+
+      {/*
+        EVERY METHOD IS ON THE PAGE, NOT BEHIND A BUTTON AND NOT IN A PANEL
+        OF ITS OWN.
+
+        It was a disclosure, then a second panel with its own heading and
+        subtitle, which meant a reader met two rounds of scaffolding for one
+        question. The working is not an appendix to the figure: the figure
+        is an average, and an average nobody can take apart is exactly the
+        unfalsifiable number this room was built to replace.
+      */}
+      {all.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <MicroLabel>How the estimate was worked out</MicroLabel>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {CONFIDENCE_LINE[read.estimate.confidence]} The assumptions are
+            the argument.
+          </p>
+          {all.map((m) => (
+            <MethodRow
+              key={`${m.id}:${m.price}`}
+              method={m}
+              code={code}
+              spot={read.spot}
+            />
+          ))}
+        </div>
+      )}
     </Panel>
   );
 }
