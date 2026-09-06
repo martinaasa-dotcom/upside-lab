@@ -31,15 +31,22 @@
  * the claim that a model is free in front of a reviewer, next to the date
  * it was checked, rather than in an environment variable nobody reads.
  *
- * What this file cannot check, and what the Groq case below is really
- * about: for Gemini and Cerebras the free tier is a property of the
- * ACCOUNT as much as of the model, so those two legs are free because the
- * keys behind them have no payment method attached. Attach one and every
- * call through that leg bills without a single id here changing. Nothing
- * in the code can see a billing page, so that condition lives in
+ * What this file cannot check, and it is the condition the whole rule
+ * rests on: for Groq, NVIDIA, Gemini and Cerebras the free tier is a
+ * property of the ACCOUNT as much as of the model, so those legs are free
+ * because the keys behind them have no payment method attached. Attach one
+ * and every call through that leg bills without a single id here changing.
+ * Nothing in the code can see a billing page, so that condition lives in
  * `.env.example` beside the keys, where somebody adding a card is looking.
  * OpenRouter is the exception and needs no such caveat: a `:free` slug
  * does not draw on credits even on an account that has them.
+ *
+ * Groq is the worked example of both halves. Its first key was a paid-tier
+ * one shared with another project, where every model bills per token, so
+ * the leg was removed outright rather than narrowed: no list here could
+ * have saved it. Its second key is a new account with no card, and that
+ * was verified rather than assumed, by reading the free tier's own
+ * ceilings back off a live response (see `model.ts`).
  */
 
 /*
@@ -51,13 +58,43 @@
  * therefore has no Groq leg at all. Adding one back is not a matter of
  * adding ids to this file.
  */
-export type ModelProviderId = "openrouter" | "gemini" | "cerebras";
+export type ModelProviderId =
+  | "openrouter"
+  | "groq"
+  | "nvidia"
+  | "gemini"
+  | "cerebras";
 
-/** Verified against each provider's own pricing/limits page, 2026-09-06. */
+/**
+ * Verified 2026-09-06, live against each provider rather than off a
+ * marketing page: every id below was returned by that provider's own
+ * `/models` endpoint for the key this app uses.
+ */
 export const FREE_MODELS: Record<
   Exclude<ModelProviderId, "openrouter">,
   readonly string[]
 > = {
+  // Read back from api.groq.com/openai/v1/models on the cardless account.
+  // The text models it serves; the whisper and guard entries it also lists
+  // are not things this app asks for.
+  groq: [
+    "openai/gpt-oss-20b",
+    "openai/gpt-oss-120b",
+    "qwen/qwen3.6-27b",
+    "qwen/qwen3.8-27b",
+  ],
+  // Read back from integrate.api.nvidia.com/v1/models. NVIDIA publishes no
+  // rate-limit or quota headers, so whether this access renews or is a
+  // finite grant could not be determined from the API. It cannot bill
+  // either way while the account has no card, which is what this file is
+  // about; if it turns out to be finite, the leg stops answering and the
+  // chain walks past it.
+  nvidia: [
+    "nvidia/nemotron-3-super-120b-a12b",
+    "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "nvidia/nemotron-nano-3-30b-a3b",
+    "openai/gpt-oss-20b",
+  ],
   // ai.google.dev/pricing — the models with a free tier. Deliberately no
   // Pro entry: Pro's free allowance comes and goes per key tier, and a
   // model that is free for one key and billed for the next is not a model
