@@ -548,20 +548,26 @@ function HomeAlertRow({
                 </div>
               </div>
               {open ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="-ml-2 mt-auto self-start pt-3 text-muted-foreground hover:text-foreground"
-                  onClick={open}
-                >
-                  {where === "research"
-                    ? `Open Research on ${cashtag(alert.ticker as string)}`
-                    : where === "pulse"
-                      ? `Open Pulse on ${cashtag(alert.ticker as string)}`
-                      : "Open Worth a look"}
-                  <ArrowRight data-icon="inline-end" />
-                </Button>
+                /* The gap above this button is the wrapper's padding, never
+                 * the button's own: a `size="sm"` button is a fixed `h-7`, so
+                 * a `pt-3` on it shrinks the content box and drops the label
+                 * 6px below the centre of the hover fill it sits in. */
+                <div className="mt-auto pt-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-2 text-muted-foreground hover:text-foreground"
+                    onClick={open}
+                  >
+                    {where === "research"
+                      ? `Open Research on ${cashtag(alert.ticker as string)}`
+                      : where === "pulse"
+                        ? `Open Pulse on ${cashtag(alert.ticker as string)}`
+                        : "Open Worth a look"}
+                    <ArrowRight data-icon="inline-end" />
+                  </Button>
+                </div>
               ) : null}
             </article>
           );
