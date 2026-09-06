@@ -30,6 +30,16 @@
  * holds the audited list. Adding one is a code change on purpose: it puts
  * the claim that a model is free in front of a reviewer, next to the date
  * it was checked, rather than in an environment variable nobody reads.
+ *
+ * What this file cannot check, and what the Groq case below is really
+ * about: for Gemini and Cerebras the free tier is a property of the
+ * ACCOUNT as much as of the model, so those two legs are free because the
+ * keys behind them have no payment method attached. Attach one and every
+ * call through that leg bills without a single id here changing. Nothing
+ * in the code can see a billing page, so that condition lives in
+ * `.env.example` beside the keys, where somebody adding a card is looking.
+ * OpenRouter is the exception and needs no such caveat: a `:free` slug
+ * does not draw on credits even on an account that has them.
  */
 
 /*
