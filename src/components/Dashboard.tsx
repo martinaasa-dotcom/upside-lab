@@ -10,6 +10,7 @@ import { useFeedback } from "@/components/FeedbackHost";
 import { HeaderOverflowMenu, type HeaderMenuItem } from "@/components/HeaderOverflowMenu";
 import { OverviewDashboard, type LabDeepLink } from "@/components/OverviewDashboard";
 import { PortfolioTable } from "@/components/PortfolioTable";
+import { BandMap } from "@/components/company/BandMap";
 import { PortfolioTabs } from "@/components/PortfolioTabs";
 import { ClassTradeBanner } from "@/components/ClassTradeBanner";
 import { isPaperClassOnly, ownedBookPortfolios } from "@/lib/classroom";
@@ -69,14 +70,9 @@ import {
 } from "@/lib/book-routes";
 import { loadLastUser } from "@/lib/last-session";
 import { isAbortError, retryOnNetwork } from "@/lib/abort";
-import {
-  FORECAST_YEARS,
-  buildForecast,
-  resolveTickerForecastPath,
-  type ForecastYear,
-} from "@/lib/forecast";
-import { anchorForHolding } from "@/lib/company/ladder-anchor";
-import { buildPlanLadder } from "@/lib/company/plan-ladder";
+import { buildForecast, type ForecastYear } from "@/lib/forecast";
+import { holdingLadders } from "@/lib/company/holding-ladders";
+import { buildBandMap } from "@/lib/company/band-map";
 import {
   loadEoyOverrides,
   mergeEoyTargetPaths,
@@ -956,66 +952,51 @@ export function Dashboard() {
     on Home (`CashAlertCard`), and the news dot on both docks.
   */
   /*
-    Every holding's own price plan, evaluated against the price this
-    browser already has, so a level being reached is noticed on Home
-    without a second fetch. The ladder is the same one the drawer draws
-    and the arithmetic is the same function, which is the point: a level
-    a reader saw on one screen has to be the level that wakes them on
-    another.
+    Every holding's own price plan, built once from the price this
+    browser already has and shared by three surfaces: the map on the
+    holdings page, the list of names that have reached a level on Home,
+    and the alerts. One builder, in `holdingLadders`, so a level reached
+    on one screen cannot be quiet on another.
   */
-  const ladderRows = useMemo(() => {
-    const firstYear = FORECAST_YEARS[0];
-    if (firstYear == null) return [];
-    const seen = new Set<string>();
-    const rows: {
-      ticker: string;
-      spot: number;
-      bandId: string;
-      bandLabel: string;
-      edge: number | null;
-      edited: boolean;
-    }[] = [];
-    for (const t of overview.tickers) {
-      const ticker = t.ticker.toUpperCase();
-      if (seen.has(ticker)) continue;
-      seen.add(ticker);
-      const spot = quotes[ticker]?.price ?? null;
-      if (!spot || !(spot > 0)) continue;
-      const path = resolveTickerForecastPath(ticker, spot, eoyOverrides);
-      const anchor = anchorForHolding({
-        target: path.eoyPrices[firstYear] ?? null,
-        targetIsYours: Boolean(path.targetedYears[firstYear]),
-      });
-      if (!anchor) continue;
-      const closes = (quotes[ticker]?.sparkline ?? []).filter(
-        (n) => Number.isFinite(n) && n > 0
-      );
-      const ladder = buildPlanLadder({
-        ticker,
-        anchor: anchor.price,
-        anchorKind: anchor.kind,
-        anchorSaid: anchor.said,
-        spot,
-        high: closes.length > 1 ? Math.max(...closes) : null,
-        low: closes.length > 1 ? Math.min(...closes) : null,
-        windowSaid: "the last few months",
-        override: labLadders[ticker] ?? null,
-      });
-      const band = ladder?.bands.find((b) => b.id === ladder.atId);
-      if (!ladder || !band) continue;
-      rows.push({
-        ticker,
-        spot,
-        bandId: band.id,
-        bandLabel: band.label,
-        // The edge the price crossed to get here: the floor of a band you
-        // rose into, the ceiling of one you fell into.
-        edge: band.id === "trim-most" ? band.from : band.to,
-        edited: ladder.edited,
-      });
-    }
-    return rows;
-  }, [overview.tickers, quotes, eoyOverrides, labLadders]);
+  const bookLadders = useMemo(
+    () =>
+      holdingLadders({
+        rows: overview.tickers.map((t) => ({
+          ticker: t.ticker,
+          spot: quotes[t.ticker]?.price ?? null,
+          closes: quotes[t.ticker]?.sparkline ?? null,
+          value: t.currentValue,
+        })),
+        overrides: eoyOverrides,
+        ladders: labLadders,
+      }),
+    [overview.tickers, quotes, eoyOverrides, labLadders]
+  );
+
+  /** The same plans as a picture, which is also what Home reads. */
+  const bookBandMap = useMemo(() => buildBandMap(bookLadders), [bookLadders]);
+
+  const ladderRows = useMemo(
+    () =>
+      bookLadders.flatMap((row) => {
+        const { ladder } = row;
+        const band = ladder?.bands.find((b) => b.id === ladder.atId);
+        if (!ladder || !band || ladder.spot === null) return [];
+        return [
+          {
+            ticker: row.ticker,
+            spot: ladder.spot,
+            bandId: band.id,
+            bandLabel: band.label,
+            // The edge the price crossed to get here: the floor of a band
+            // it rose into, the ceiling of one it fell into.
+            edge: band.id === "trim-most" ? band.from : band.to,
+            edited: ladder.edited,
+          },
+        ];
+      }),
+    [bookLadders]
+  );
 
   const bookAlerts = useMemo<UpsideAlert[]>(() => {
     // No options experience -> no strike-planning alerts at all, not just
@@ -2911,6 +2892,7 @@ export function Dashboard() {
               onOpenSheet={onOpenSheet}
               coveredCallRows={bookCoveredCallRows}
               activeAlerts={activeAlerts}
+              bandPoints={bookBandMap.points}
               marketState={marketState}
               showCommunities={source === "supabase"}
               hideOptions={hideOptionsUI}
@@ -2938,6 +2920,22 @@ export function Dashboard() {
           </WidgetErrorBoundary>
         ) : (
           <>
+            <WidgetErrorBoundary name="Where they sit">
+              <BandMap
+                rows={holdingLadders({
+                  rows: snapshot!.holdings.map((h) => ({
+                    ticker: h.ticker,
+                    spot: h.quote?.price ?? null,
+                    closes: h.quote?.sparkline ?? null,
+                    value: h.currentValue,
+                  })),
+                  overrides: eoyOverrides,
+                  ladders: labLadders,
+                })}
+                title={`Where ${activePortfolio!.name} sits on its own plans`}
+              />
+            </WidgetErrorBoundary>
+
             <WidgetErrorBoundary name="Holdings">
             <PortfolioTable
               portfolio={activePortfolio!}

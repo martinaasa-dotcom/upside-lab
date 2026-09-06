@@ -1041,6 +1041,53 @@ export function planLadderProvenance(input: {
 }
 
 /**
+ * Every holding on one ladder. Two figures from other screens drawn
+ * against each other, and nothing else.
+ */
+export function bandMapProvenance(input: {
+  count?: number;
+  at?: string | null;
+}): Provenance {
+  const n = input.count ?? 0;
+  return {
+    maker: "arithmetic",
+    title: "How this picture was drawn",
+    headline: `No model wrote this and nothing here is a score. It is ${n === 1 ? "one holding" : `${n} holdings`} placed by two figures that are already on other screens: each name's own price plan, and how much of this portfolio it is.`,
+    inputs: [
+      {
+        what: "Each holding's own price plan",
+        detail:
+          "the same ladder its own page draws, anchored on that holding's end of year price",
+      },
+      { what: "Today's price for each one" },
+      { what: "What each holding is worth, against the whole portfolio" },
+    ],
+    sources: [
+      YOUR_HOLDINGS,
+      YAHOO_PRICES,
+      {
+        name: "This app",
+        what: "the placing, which is plain arithmetic and is described below",
+      },
+    ],
+    steps: [
+      "Each name's plan is built first, exactly as its own page builds it. Nothing about the plan changes because it is on a map.",
+      "Height is which band the price is in, plus how far through that band it has got. Every band is a multiple of that company's own anchor, which is what lets a $2 company and a $2,000 one be compared at all.",
+      "Across is that holding's share of this portfolio, ending at the largest one rather than at a hundred per cent, or every name would be drawn in the first tenth of the picture.",
+      "Where two names would touch, one moves down a row inside its own band. Nothing is ever moved sideways, because sideways is a real figure.",
+    ],
+    blindSpots: [
+      NOT_YOUR_BROKER,
+      "Anything about the companies themselves. Two names next to each other on this picture have nothing else in common.",
+      "Whether the plan behind any of it is a sensible one for you. The picture inherits every assumption of each name's own anchor.",
+      NOT_A_TARGET,
+    ],
+    at: input.at,
+    yours: "Open a name to see the plan behind its position, and change any level you disagree with.",
+  };
+}
+
+/**
  * The four questions at the top. Every answer is a figure from the feed
  * or arithmetic on one, except the last, which quotes the written page.
  */

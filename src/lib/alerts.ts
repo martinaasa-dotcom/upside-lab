@@ -6,6 +6,7 @@ import {
   type MarginToneName,
 } from "@/lib/margin-health";
 import type { GlossaryExample } from "@/lib/glossary";
+import { isActionableBand } from "@/lib/company/plan-ladder";
 import { safeDiv } from "@/lib/money";
 import { formatDateTime } from "@/lib/timezone";
 
@@ -146,10 +147,12 @@ export function buildLadderAlerts(
     edited: boolean;
   }>
 ): UpsideAlert[] {
-  const LOUD = new Set(["trim-most", "full", "exit"]);
   const out: UpsideAlert[] = [];
   for (const r of rows) {
-    if (!LOUD.has(r.bandId) || !(r.spot > 0)) continue;
+    // One definition of which bands are worth raising a voice about, in
+    // `plan-ladder.ts`, so a name called out on the holdings map cannot
+    // be quiet here.
+    if (!isActionableBand(r.bandId) || !(r.spot > 0)) continue;
     const whose = r.edited
       ? "the plan you set for it"
       : "the plan this app worked out from the estimates on its page, which you have not changed";

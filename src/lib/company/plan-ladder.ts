@@ -501,6 +501,43 @@ export function bandAt(bands: LadderBand[], price: number): LadderBandId | null 
   return null;
 }
 
+/**
+ * Where in its own band a price sits, as a fraction of the band's width.
+ *
+ * An open band has no width to be a fraction of, so the mark is put near
+ * the end that carries the level, which is the one edge the reader can
+ * check. Half way up an open band would be a position the arithmetic
+ * never produced.
+ */
+export function positionInBand(band: LadderBand, price: number): number {
+  const { from, to } = band;
+  if (from !== null && to !== null && to > from) {
+    return Math.min(Math.max((price - from) / (to - from), 0), 1);
+  }
+  return to === null ? 0.85 : 0.15;
+}
+
+/**
+ * The bands where the plan says something decisive, and the only ones
+ * anything is allowed to raise its voice about.
+ *
+ * The middle of a ladder is where a price ordinarily sits: an alert that
+ * fires while nothing has happened is one a reader learns to swipe past,
+ * which is the lesson the borrowed-money card already records. One list,
+ * used by the alert builder and by the map on the holdings page, so a
+ * name called out in one place cannot be quiet in the other.
+ */
+export const ACTIONABLE_BANDS: readonly LadderBandId[] = [
+  "trim-most",
+  "full",
+  "full-aggressive",
+  "exit",
+];
+
+export function isActionableBand(id: LadderBandId | string | null): boolean {
+  return ACTIONABLE_BANDS.includes(id as LadderBandId);
+}
+
 export function bandById(
   ladder: PlanLadder,
   id: LadderBandId
