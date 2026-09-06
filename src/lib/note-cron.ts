@@ -445,6 +445,15 @@ export async function dispatchWeeklyLetters(
   let skipped = optedIn - pending.length;
   let sent = 0;
   let untrusted = 0;
+  /*
+   * Which of the two writers produced each letter. The fallback is meant
+   * to be the rare case, and until this counted them nothing distinguished
+   * a Sunday the model wrote from one where every reader got the plainest
+   * prose the product has.
+   */
+  let modelTakes = 0;
+  let fallbackTakes = 0;
+  const fallbackReasons = new Map<string, number>();
 
   // ---- One batched read per table, not one per recipient. ----------------
   //
@@ -710,6 +719,14 @@ export async function dispatchWeeklyLetters(
     const letter = buildWeeklyLetter(input);
     letter.margus = await writeWeeklyTake(letter, {
       budgetMs: Math.min(LETTER_BUDGET_MS, left),
+      onOutcome: ({ source, reason }) => {
+        if (source === "model") {
+          modelTakes += 1;
+          return;
+        }
+        fallbackTakes += 1;
+        fallbackReasons.set(reason, (fallbackReasons.get(reason) ?? 0) + 1);
+      },
     });
     /*
       A link that stops the letter by itself, signed for the profile whose
@@ -758,6 +775,35 @@ export async function dispatchWeeklyLetters(
    * and the daily error digest rather than only in a log stream nobody
    * reads; anything smaller stays a warning event.
    */
+  /*
+   * A Sunday nobody's letter was written by the model.
+   *
+   * `fallbackWeeklyTake` exists so the letter always ships, and it does its
+   * job quietly, which is exactly the problem: a missing API key, a slot
+   * held by another background job or an answer the checks refuse all end
+   * with a letter in the inbox and nothing anywhere saying the writer
+   * never ran. One alarm, on the run rather than per recipient, carrying
+   * the reasons but nothing about who was reading.
+   */
+  if (fallbackTakes > 0) {
+    const reasons = Object.fromEntries(fallbackReasons);
+    if (modelTakes === 0 && fallbackTakes >= 1) {
+      await logError({
+        source: "server",
+        message: `Sunday letter: the model wrote none of ${fallbackTakes} letters in this run, so every reader got the fallback prose.`,
+        path: "/api/cron/sunday-note",
+        event: "sunday_letter_all_fallback",
+        context: { fallbackTakes, modelTakes, reasons },
+      });
+    } else {
+      logEvent(
+        "sunday_letter_fallback_rate",
+        { fallbackTakes, modelTakes, reasons },
+        "warn"
+      );
+    }
+  }
+
   if (untrusted > 0) {
     const attempted = pending.length;
     if (untrusted >= 2 && untrusted / Math.max(1, attempted) >= 0.25) {
