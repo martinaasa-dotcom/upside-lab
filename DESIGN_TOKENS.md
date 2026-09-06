@@ -370,7 +370,7 @@ Measured in Chromium against the compiled bundle, before and after:
 The last row is the case the rule exists for, and it is unchanged. The
 first four are 21 files' worth of collateral — the community leaderboard,
 Account, the holding modal, Pulse, Forecast, the watchlist strip, the
-ticker drawer, snapshots, invites, onboarding, and the rest.
+snapshots, invites, onboarding, and the rest.
 
 **Rule: this selector may only ever name a fill.** If a future call site
 paints `--primary` some other way (a `data-active:bg-primary` variant, an

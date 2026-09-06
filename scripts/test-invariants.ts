@@ -2967,7 +2967,6 @@ run("sheets sit in the visible viewport so the keyboard cannot cover them", () =
     "CostBasisModal.tsx",
     "SnapshotsModal.tsx",
     "WelcomeTour.tsx",
-    "TickerDrawer.tsx",
     "AccountPage.tsx",
     "CommunityView.tsx",
     "FeedbackModal.tsx",
@@ -3055,7 +3054,7 @@ run("every tier's default surface uses the shared Panel shell", () => {
     "LabSheet.tsx",
     "CoveredCallPanel.tsx",
     "CompoundInterestSheet.tsx",
-    "TickerDrawer.tsx",
+    "YourHolding.tsx",
     "ScenarioSimulator.tsx",
   ];
   const offenders = shells.filter((name) => {
@@ -3402,19 +3401,24 @@ run("the recent Pulse and briefing bugs stay gone", () => {
   assert.doesNotMatch(sim, /Value now/);
   assert.match(sim, /<Stat/);
   assert.match(sim, /label="Portfolio after this"/);
-  const drawer = readFileSync(
-    join(process.cwd(), "src/components/TickerDrawer.tsx"),
+  /*
+    The reason for owning a company, and how sure the reader is, used to
+    live in a drawer the holdings table opened. That drawer is gone: a
+    press on a holding goes to the company's own room, and this is the
+    panel that carries the reader's own half of it there.
+  */
+  const owned = readFileSync(
+    join(process.cwd(), "src/components/company/YourHolding.tsx"),
     "utf8"
   );
   assert.doesNotMatch(morning, /did most of today's move/);
   assert.doesNotMatch(notes, /did most of the move/);
   assert.doesNotMatch(shock, /driver: "AI computers"/);
   assert.doesNotMatch(sim, /"AI computers":/);
-  assert.match(drawer, /THEME_LABEL\[theme\]/);
-  assert.match(drawer, /<FieldLabel htmlFor="ticker-thesis">/);
-  assert.match(drawer, /<ToggleGroup/);
-  assert.doesNotMatch(drawer, /tone="raised"/);
-  assert.doesNotMatch(drawer, /bg-gain\/10/);
+  assert.match(owned, /<FieldLabel htmlFor="your-thesis">/);
+  assert.match(owned, /<ToggleGroup/);
+  assert.doesNotMatch(owned, /tone="raised"/);
+  assert.doesNotMatch(owned, /bg-gain\/10/);
   assert.match(notes, /if \(action === "trim"\)/);
   // The letter suggests adding, trimming, or selling. A Pulse "watch"
   // verdict deliberately produces no suggestion at all, so trim can no
@@ -5018,7 +5022,6 @@ run("split rows stack on a phone so copy fills the card", () => {
     "src/components/LabSheet.tsx",
     "src/components/SeasonalityPage.tsx",
     "src/components/ForecastPanel.tsx",
-    "src/components/TickerDrawer.tsx",
     "src/components/AccountPage.tsx",
   ];
   for (const rel of files) {
@@ -5815,8 +5818,8 @@ run("Margus never writes trade orders to a person", () => {
     join(process.cwd(), "src/components/ForecastPanel.tsx"),
     "utf8"
   );
-  const drawer = readFileSync(
-    join(process.cwd(), "src/components/TickerDrawer.tsx"),
+  const owned = readFileSync(
+    join(process.cwd(), "src/components/company/YourHolding.tsx"),
     "utf8"
   );
   const persona = readFileSync(
@@ -5831,7 +5834,7 @@ run("Margus never writes trade orders to a person", () => {
     join(process.cwd(), "src/lib/ai/cc-advisor.ts"),
     "utf8"
   );
-  for (const src of [notes, pulseUi, pulseLib, insights, forecastUi, drawer]) {
+  for (const src of [notes, pulseUi, pulseLib, insights, forecastUi, owned]) {
     assert.doesNotMatch(src, /Do not add today/);
     assert.doesNotMatch(src, /Look to add if it dips/);
     assert.doesNotMatch(src, /Don't chase/);
@@ -6429,7 +6432,10 @@ run("dashboard modules sit behind an error boundary", () => {
       join(process.cwd(), "src/components/DashboardModals.tsx"),
       "utf8"
     );
-  for (const name of ["Pulse", "Lab", "Overview", "Holdings", "Forecast", "Margus", "Alerts", "Ticker"]) {
+  // "Ticker" was the holdings drawer, which is gone: a press on a holding
+  // opens the company's own room, and the panel that carries the reader's
+  // own half of it is boundaried there (`What you own`, in StockRoom).
+  for (const name of ["Pulse", "Lab", "Overview", "Holdings", "Forecast", "Margus", "Alerts"]) {
     assert.ok(
       dash.includes(`<WidgetErrorBoundary name="${name}">`),
       `Dashboard must isolate ${name}`

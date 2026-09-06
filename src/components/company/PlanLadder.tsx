@@ -375,6 +375,7 @@ export function PlanLadderPanel({
   ladder,
   code = "USD",
   at,
+  costBasis,
   onSetEdge,
   onReset,
 }: {
@@ -382,6 +383,12 @@ export function PlanLadderPanel({
   ladder: Ladder;
   code?: string;
   at?: string | null;
+  /**
+   * What this reader paid, where they own it. It draws as a second,
+   * quieter mark on its own band, since that is the context a holder has
+   * and a researcher does not.
+   */
+  costBasis?: number | null;
   /** Null where this reader cannot save, which keeps the rows read-only. */
   onSetEdge?: ((id: LadderBandId, price: number | null) => void) | null;
   onReset?: (() => void) | null;
@@ -437,6 +444,7 @@ export function PlanLadderPanel({
         ticker={ticker}
         ladder={ladder}
         code={code}
+        costBasis={costBasis}
         onSetEdge={onSetEdge}
       />
 

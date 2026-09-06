@@ -1095,7 +1095,8 @@ const SEGMENTED_ITEM =
   "rounded-md border border-transparent text-muted-foreground shadow-none group-data-[spacing=0]/toggle-group:rounded-md group-data-horizontal/toggle-group:data-[spacing=0]:first:rounded-md group-data-horizontal/toggle-group:data-[spacing=0]:last:rounded-md hover:bg-hover hover:text-foreground data-[state=on]:card-sheen data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground";
 
 /**
- * The one segmented toggle. Overview's today/lifetime, the drawer's 3y/5y,
+ * The one segmented toggle. Overview's today/lifetime, the company room's
+ * years against quarters,
  * and the scenario picker used to be four hand-rolled copies with three
  * different active states. Labels always paint in full: compact pills size
  * to the words, filled grids wrap instead of ellipsizing.

@@ -469,7 +469,6 @@ export function Dashboard() {
   const { labBundle, labReady, patchLab } = useLabSync();
   const [costBasisOpen, setCostBasisOpen] = useState(false);
   const [costBasisRows, setCostBasisRows] = useState<CostBasisRow[]>([]);
-  const [drawerTicker, setDrawerTicker] = useState<string | null>(null);
   const convictionMap = labBundle.conviction;
   // Memoized because it feeds the alert arithmetic below: a fresh object
   // literal every render would rebuild every holding's ladder on every
@@ -939,15 +938,6 @@ export function Dashboard() {
     [realPortfolios, holdings, quotes, options]
   );
 
-  const drawerCoveredCallRow = useMemo(() => {
-    if (!drawerTicker || hideOptionsUI) return null;
-    return (
-      bookCoveredCallRows.find(
-        (r) => r.holding.ticker.toUpperCase() === drawerTicker.toUpperCase()
-      ) ?? null
-    );
-  }, [drawerTicker, bookCoveredCallRows, hideOptionsUI]);
-
   /*
     Single source of truth for the four things this app watches: a results
     date, a share reaching a level, borrowed money, and one holding growing
@@ -958,8 +948,8 @@ export function Dashboard() {
   /*
     Every holding's own price plan, evaluated against the price this
     browser already has, so a level being reached is noticed on Home
-    without a second fetch. The ladder is the same one the drawer draws
-    and the arithmetic is the same function, which is the point: a level
+    without a second fetch. The ladder is the same one the company room
+    draws and the arithmetic is the same function, which is the point: a level
     a reader saw on one screen has to be the level that wakes them on
     another.
   */
@@ -2219,27 +2209,16 @@ export function Dashboard() {
     }
     for (const t of overview.tickers.slice(0, 30)) {
       /*
-        Two ways in for a name you already own: the drawer, which is what
-        you hold of it, and the company page, which is what the company is.
-        Both are things a reader wants and neither answers the other.
+        One entry per company, because there is one room for a company
+        now. It used to be two, the drawer and the page, and the drawer
+        answered a smaller version of the same question.
       */
       items.push({
         id: `company-${t.ticker}`,
-        label: `Look up ${t.ticker}`,
+        label: t.ticker,
         group: "Companies",
         hint: "What the company is, and what it might be worth",
         run: () => router.push(companyHref(t.ticker)),
-      });
-      items.push({
-        id: `ticker-${t.ticker}`,
-        label: t.ticker,
-        group: "Tickers",
-        hint: t.portfolios[0],
-        run: () => {
-          const sheet = portfolios.find((p) => t.portfolios.includes(p.name));
-          if (sheet) goToTab(sheet.id);
-          setDrawerTicker(t.ticker);
-        },
       });
     }
     return items;
@@ -2385,7 +2364,16 @@ export function Dashboard() {
   const onOpenSheet = useStableCallback(openSheet);
   const onPulseIntentConsumed = useStableCallback(() => setPulseIntent(null));
   const onLabIntentConsumed = useStableCallback(() => setLabIntent(null));
-  const onWriteThesis = useStableCallback((t: string) => setDrawerTicker(t));
+  /*
+    Both ways into a company are one way now. A holding used to open a
+    drawer of its own, which restated a little of Research and none of it
+    as well, so a press on a name goes to the company's own room and the
+    reason for owning it is written there, beside everything the company
+    is.
+  */
+  const onWriteThesis = useStableCallback((t: string) =>
+    router.push(companyHref(t))
+  );
   const onStampPulse = useStableCallback(
     (
       ticker: string,
@@ -2514,7 +2502,9 @@ export function Dashboard() {
     return () => window.removeEventListener(TOUR_SCREENSHOT_EVENT, take);
   }, [onImportScreenshot]);
   const onImportCsv = useStableCallback(() => setCsvImportOpen(true));
-  const onOpenTicker = useStableCallback((t: string) => setDrawerTicker(t));
+  const onOpenTicker = useStableCallback((t: string) =>
+    router.push(companyHref(t))
+  );
   const onDisplayCurrencyChange = useStableCallback((code: DisplayCurrency) => {
     if (!activePortfolio) return;
     setDisplayCurrencyByPortfolio((prev) => {
@@ -3052,26 +3042,18 @@ export function Dashboard() {
         setCostBasisOpen={setCostBasisOpen}
         costBasisRows={costBasisRows}
         setCostBasisRows={setCostBasisRows}
-        drawerTicker={drawerTicker}
-        setDrawerTicker={setDrawerTicker}
         inviteSheet={inviteSheet}
         activePortfolio={activePortfolio}
         margusPortfolio={margusPortfolio}
         holdings={holdings}
-        quotes={quotes}
         hideOptionsUI={hideOptionsUI}
         isMetaTab={isMetaTab}
-        eoyOverrides={eoyOverrides}
-        convictionMap={convictionMap}
-        labLadders={labLadders}
-        drawerCoveredCallRow={drawerCoveredCallRow}
         commandItems={commandItems}
         silentScreenshot={silentScreenshot}
         screenshotPending={screenshotPending}
         setSilentScreenshot={setSilentScreenshot}
         setScreenshotPending={setScreenshotPending}
         margusExpandSignal={margusExpandSignal}
-        setMargusExpandSignal={setMargusExpandSignal}
         margusAddressed={onMargus}
         onMargusOpenChange={onMargusOpenChange}
         margusContext={margusContext}
@@ -3085,8 +3067,6 @@ export function Dashboard() {
         deleteHoldingById={deleteHoldingById}
         handlePatch={handlePatch}
         applyAdvisorActions={applyAdvisorActions}
-        commitEoyPrice={commitEoyPrice}
-        patchLab={patchLab}
         loadPortfolios={loadPortfolios}
         onCreatedAwayFromBook={
           onBook

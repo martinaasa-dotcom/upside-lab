@@ -615,8 +615,8 @@ export const PortfolioTable = memo(function PortfolioTable({
         Now it leads with what the holding is worth and what that made,
         then today and how much of the portfolio it is, and last and
         smallest the three you come back to change. The header row is the
-        way into the drawer, where the rest of this company lives, and
-        removing the holding moved in there with it.
+        way into Research, where the rest of this company lives, and
+        removing the holding is the last and quietest thing on the card.
       */}
       <div className="flex flex-col gap-3 p-6 lg:hidden">
         {holdings.length === 0 ? (
@@ -800,9 +800,8 @@ export const PortfolioTable = memo(function PortfolioTable({
               {/*
                 What you own and what you paid: the numbers you come back
                 to change rather than the ones you read every morning, so
-                they sit last and small. They stay on the card rather than
-                moving into the drawer because this is the only place on a
-                phone they can be edited.
+                they sit last and small. They stay on the card because this
+                is the only place on a phone they can be edited.
               */}
               <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t border-border/60 pt-3 text-sm text-muted-foreground">
                 <label className="inline-flex items-baseline gap-1.5">
@@ -858,6 +857,26 @@ export const PortfolioTable = memo(function PortfolioTable({
                   <span className="tabular-nums">{money(h.buyValue, 0)}</span>
                 </span>
               </div>
+
+              {/*
+                Removing the holding, last and quiet, the way it was at the
+                foot of the drawer this card used to open. It is not a bin
+                in the corner of the card: the card's own header is the
+                useful press now, and a destructive glyph beside it would
+                be the loudest thing on a row of ordinary numbers.
+              */}
+              {canSell ? (
+                <div className="mt-3 border-t border-border/60 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => onDelete(h.id)}
+                    className="touch-target inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground outline-none transition hover:bg-loss/10 hover:text-loss focus-visible:text-loss focus-visible:ring-1 focus-visible:ring-loss/40"
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                    Remove {cashtag(h.ticker)} from this portfolio
+                  </button>
+                </div>
+              ) : null}
             </Card>
             );
           })}
