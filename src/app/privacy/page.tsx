@@ -140,8 +140,8 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong className="text-foreground">AI model providers</strong>{" "}
-              (Groq first, then NVIDIA, OpenRouter, Gemini, and Cerebras
-              when one of them is not answering). Chat,
+              (Groq first, then NVIDIA, OpenRouter, and Cerebras when one
+              of them is not answering). Chat,
               Pulse, the Sunday letter, Forecast, and screenshot import send the
               relevant context, and for screenshots the image itself, to
               whichever provider answers. Some of those providers process

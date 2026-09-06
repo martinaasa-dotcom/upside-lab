@@ -3,8 +3,8 @@
  * is a rule rather than a habit. The chain in `model.ts` was written that
  * way and nothing enforced it: every model id is an env override away from
  * being something else, and a paid slug does not fail, it bills. `MODEL`,
- * `MODEL_FORECAST`, `MODEL_FALLBACKS`, `GEMINI_MODEL` and `CEREBRAS_MODEL`
- * are all read straight from the environment, so a typo,
+ * `MODEL_FORECAST`, `MODEL_FALLBACKS`, `GROQ_MODEL`, `NVIDIA_MODEL` and
+ * `CEREBRAS_MODEL` are all read straight from the environment, so a typo,
  * a copied line from a provider's docs, or somebody reaching for a smarter
  * model to fix one bad answer is all it takes.
  *
@@ -32,8 +32,8 @@
  * it was checked, rather than in an environment variable nobody reads.
  *
  * What this file cannot check, and it is the condition the whole rule
- * rests on: for Groq, NVIDIA, Gemini and Cerebras the free tier is a
- * property of the ACCOUNT as much as of the model, so those legs are free
+ * rests on: for Groq, NVIDIA and Cerebras the free tier is a property of
+ * the ACCOUNT as much as of the model, so those legs are free
  * because the keys behind them have no payment method attached. Attach one
  * and every call through that leg bills without a single id here changing.
  * Nothing in the code can see a billing page, so that condition lives in
@@ -62,7 +62,6 @@ export type ModelProviderId =
   | "openrouter"
   | "groq"
   | "nvidia"
-  | "gemini"
   | "cerebras";
 
 /**
@@ -80,8 +79,12 @@ export const FREE_MODELS: Record<
   groq: [
     "openai/gpt-oss-20b",
     "openai/gpt-oss-120b",
-    "qwen/qwen3.6-27b",
+    // The vision model. Same free-tier ceilings as the text ones, read
+    // back off a live response: 1000 requests, 8000 tokens.
     "qwen/qwen3.8-27b",
+    // Reads an image and then refuses `tool_choice: required`, so it is
+    // listed as free (it is) and is not the vision default.
+    "qwen/qwen3.6-27b",
   ],
   // Read back from integrate.api.nvidia.com/v1/models. NVIDIA publishes no
   // rate-limit or quota headers, so whether this access renews or is a
@@ -94,17 +97,10 @@ export const FREE_MODELS: Record<
     "nvidia/nemotron-3.5-lightning-30b-a3b",
     "nvidia/nemotron-nano-3-30b-a3b",
     "openai/gpt-oss-20b",
-  ],
-  // ai.google.dev/pricing — the models with a free tier. Deliberately no
-  // Pro entry: Pro's free allowance comes and goes per key tier, and a
-  // model that is free for one key and billed for the next is not a model
-  // this app can promise anything about.
-  gemini: [
-    "gemini-flash-latest",
-    "gemini-flash-lite-latest",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-2.0-flash",
+    // The vision model, and the only NVIDIA one that read the test image
+    // correctly. meta/llama-3.2-11b-vision-instruct is deliberately absent:
+    // it answers fast and gets the digits wrong.
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
   ],
   // inference-docs.cerebras.ai — free-tier daily token grant.
   cerebras: ["gpt-oss-120b", "llama3.1-8b", "llama-3.3-70b", "qwen-3-32b"],

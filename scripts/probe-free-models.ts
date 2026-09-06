@@ -1,6 +1,6 @@
 /**
  * Live check of the free advisor chain. Not a CI job: it needs real keys
- * and it talks to Groq / NVIDIA / OpenRouter / Gemini / Cerebras.
+ * and it talks to Groq / NVIDIA / OpenRouter / Cerebras.
  *
  *   npx tsx scripts/probe-free-models.ts
  *
@@ -42,7 +42,6 @@ function reportKeys() {
     "GROQ_API_KEY",
     "NVIDIA_API_KEY",
     "OPENROUTER_API_KEY",
-    "GEMINI_API_KEY",
     "CEREBRAS_API_KEY",
   ] as const;
   for (const name of names) {

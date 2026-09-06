@@ -263,6 +263,9 @@ describe("describeModelRun", () => {
 
   it("does not say a thing twice when the maker is the host", () => {
     expect(
+      // Gemini has left the chain, and its label stays: rows written while
+      // it was configured still carry provider "gemini", and the
+      // provenance mark owes that reader the name of who ran it.
       describeModelRun({ provider: "gemini", model: "gemini-flash-latest" })
     ).toBe("gemini-flash-latest, run by Google");
   });

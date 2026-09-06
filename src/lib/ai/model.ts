@@ -58,15 +58,33 @@ const DEFAULT_VISION_FALLBACKS = ["google/gemma-4-26b-a4b-it:free"];
  * The other providers name a model per free tier rather than in the slug,
  * so their defaults are named here and checked against the audited list in
  * `free-models.ts` like any env override. Cerebras's gpt-oss-120b is their
- * current production model and is safe for structured output; Gemini's is
- * a rolling alias rather than a dated snapshot, since Google retires dated
- * ids over time; and NVIDIA serves the nemotron the OpenRouter default
- * already names, so a reader who walks two legs meets one model.
+ * current production model and is safe for structured output; and NVIDIA
+ * serves the nemotron the OpenRouter default already names, so a reader
+ * who walks two legs meets one model.
  */
 const GROQ_DEFAULT_MODEL = "openai/gpt-oss-20b";
 const NVIDIA_DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b";
-const GEMINI_DEFAULT_MODEL = "gemini-flash-latest";
 const CEREBRAS_DEFAULT_MODEL = "gpt-oss-120b";
+
+/*
+ * Vision is a different model on the same key, and which one was measured
+ * rather than picked off a catalogue. Reading a rendered holding line
+ * ("NVDA 12 $180.50") back through a forced tool call, 2026-09-06: Groq
+ * qwen3.8-27b answered `{"ticker":"NVDA","shares":12,"price":180.5}` in
+ * 0.86s and NVIDIA's omni the same in 6.59s.
+ *
+ * The two that failed are the reason this is measured. Groq qwen3.6-27b
+ * reads the image and then 400s on `tool_choice: required` -- "Failed to
+ * call a function" -- which is the trap MARGUS_PERSONA's own note warns
+ * about: a model that answers in prose and never emits a call looks like
+ * success and changes nothing. And NVIDIA's llama-3.2-11b-vision answered
+ * fast (0.79s) with `NDA 12 #138 58.`, wrong on the ticker and on both
+ * numbers, which on a screenshot import is somebody's share count and
+ * their price written down wrong, quietly. Speed is worth nothing here
+ * without the other two.
+ */
+const GROQ_VISION_MODEL = "qwen/qwen3.8-27b";
+const NVIDIA_VISION_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning";
 
 function parseEnvList(raw: string | undefined): string[] {
   if (!raw?.trim()) return [];
@@ -188,7 +206,6 @@ export type AdvisorProviderId =
   | "openrouter"
   | "groq"
   | "nvidia"
-  | "gemini"
   | "cerebras";
 
 export type AdvisorProviderCandidate = {
@@ -206,9 +223,9 @@ export type AdvisorProviderCandidate = {
 /**
  * Full ordered chain of every CONFIGURED free-tier provider — Groq, then
  * NVIDIA, then OpenRouter (with its own internal free-model list
- * fallback), then Gemini, then Cerebras, each only included when its API
- * key is set. Every tier here is a free tier; add resilience by getting a
- * free key, not by paying anyone.
+ * fallback), then Cerebras, each only included when its API key is set.
+ * Every tier here is a free tier; add resilience by getting a free key,
+ * not by paying anyone.
  *
  * The order is measured rather than assumed. One short completion, median
  * of three, on 2026-09-06: Groq gpt-oss-20b 0.51s and gpt-oss-120b 0.48s,
@@ -219,9 +236,14 @@ export type AdvisorProviderCandidate = {
  * spends twice over in two chat turns: the second leg here is reached
  * often, so it matters that it is 1.2s rather than 5.
  *
- * Vision requests skip Groq, NVIDIA and Cerebras (the models configured on
- * them are text-only) and go OpenRouter -> Gemini, since Gemini is
- * natively multimodal.
+ * Vision walks the same order on different models (see the two vision
+ * constants above), and only Cerebras stands out of it, having none. That
+ * is a change from when Gemini was configured: it was the only other leg
+ * that could read a picture, so when its key was deleted the whole of
+ * screenshot import rested on OpenRouter alone, with no fallback at all on
+ * the one screen a new reader meets first. Groq and NVIDIA both read the
+ * test image correctly through a forced tool call, so vision now has three
+ * legs where it briefly had one.
  */
 export function buildAdvisorProviderChain(options?: {
   vision?: boolean;
@@ -232,25 +254,33 @@ export function buildAdvisorProviderChain(options?: {
   const speaking = Boolean(options?.speaking) && !vision && !options?.reasoning;
   const chain: AdvisorProviderCandidate[] = [];
 
-  if (hasKey("GROQ_API_KEY") && !vision) {
+  if (hasKey("GROQ_API_KEY")) {
     const groq = createOpenAI({
       apiKey: process.env.GROQ_API_KEY,
       baseURL: "https://api.groq.com/openai/v1",
     });
     // 20b finishes a valid JSON object. 120b thinks longer and more often
     // dies mid-update, and measured no faster (0.48s against 0.51s), so
-    // there is nothing to trade for the risk on a structured job.
-    const groqModel = freeModelIdOr(
-      "groq",
-      speaking
-        ? (process.env.GROQ_CHAT_MODEL ?? process.env.GROQ_MODEL)
-        : process.env.GROQ_MODEL,
-      GROQ_DEFAULT_MODEL
-    );
+    // there is nothing to trade for the risk on a structured job. Neither
+    // takes an image at all -- both 400 with "content must be a string" --
+    // so a picture goes to the vision model instead.
+    const groqModel = vision
+      ? freeModelIdOr(
+          "groq",
+          process.env.GROQ_VISION_MODEL,
+          GROQ_VISION_MODEL
+        )
+      : freeModelIdOr(
+          "groq",
+          speaking
+            ? (process.env.GROQ_CHAT_MODEL ?? process.env.GROQ_MODEL)
+            : process.env.GROQ_MODEL,
+          GROQ_DEFAULT_MODEL
+        );
     chain.push({ id: "groq", model: groq.chat(groqModel), modelId: groqModel });
   }
 
-  if (hasKey("NVIDIA_API_KEY") && !vision) {
+  if (hasKey("NVIDIA_API_KEY")) {
     const nvidia = createOpenAI({
       apiKey: process.env.NVIDIA_API_KEY,
       baseURL: "https://integrate.api.nvidia.com/v1",
@@ -258,13 +288,19 @@ export function buildAdvisorProviderChain(options?: {
     // The same model the OpenRouter default names, served by the people who
     // made it: `nemotron-3-super-120b-a12b` without the `:free` suffix,
     // because on NVIDIA's own endpoint there is no other kind.
-    const nvidiaModel = freeModelIdOr(
-      "nvidia",
-      speaking
-        ? (process.env.NVIDIA_CHAT_MODEL ?? process.env.NVIDIA_MODEL)
-        : process.env.NVIDIA_MODEL,
-      NVIDIA_DEFAULT_MODEL
-    );
+    const nvidiaModel = vision
+      ? freeModelIdOr(
+          "nvidia",
+          process.env.NVIDIA_VISION_MODEL,
+          NVIDIA_VISION_MODEL
+        )
+      : freeModelIdOr(
+          "nvidia",
+          speaking
+            ? (process.env.NVIDIA_CHAT_MODEL ?? process.env.NVIDIA_MODEL)
+            : process.env.NVIDIA_MODEL,
+          NVIDIA_DEFAULT_MODEL
+        );
     chain.push({
       id: "nvidia",
       model: nvidia.chat(nvidiaModel),
@@ -291,23 +327,6 @@ export function buildAdvisorProviderChain(options?: {
       model: openrouter.chat(modelId),
       modelId,
     });
-  }
-
-  if (hasKey("GEMINI_API_KEY")) {
-    const gemini = createOpenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-    });
-    // Rolling alias, not a dated snapshot — Google retires dated model
-    // IDs over time (gemini-2.5-flash 404s on some key tiers already),
-    // -latest keeps pointing at whatever's current without needing a
-    // code change every time Google ships a new generation.
-    const geminiModel = freeModelIdOr(
-      "gemini",
-      process.env.GEMINI_MODEL,
-      GEMINI_DEFAULT_MODEL
-    );
-    chain.push({ id: "gemini", model: gemini.chat(geminiModel), modelId: geminiModel });
   }
 
   if (hasKey("CEREBRAS_API_KEY") && !vision) {
@@ -361,7 +380,7 @@ export const STRUCTURED_PROVIDER_OPTIONS = {
  * Try a non-streaming call (generateText / generateObject) against each
  * configured provider in order, moving to the next on any failure —
  * OpenRouter's account-wide daily quota running out no longer means Margus
- * is down if Groq/NVIDIA/Gemini/Cerebras are also configured.
+ * is down if Groq/NVIDIA/Cerebras are also configured.
  */
 export type AdvisorFallbackOptions = {
   /**
@@ -390,7 +409,7 @@ const MIN_ATTEMPT_MS = 5_000;
  * A live failure is far better evidence than a ping, so trust it and
  * step over that provider for a few minutes.
  *
- * Bounded by the number of providers (5), so nothing accumulates.
+ * Bounded by the number of providers (4), so nothing accumulates.
  */
 const providerCooldownUntil = new Map<AdvisorProviderId, number>();
 const PROVIDER_COOLDOWN_MS = 3 * 60 * 1000;
@@ -435,7 +454,7 @@ export async function withAdvisorFallback<T>(
 ): Promise<T> {
   if (chain.length === 0) {
     throw new Error(
-      "No LLM key configured. Set GROQ_API_KEY (or OPENROUTER_API_KEY / NVIDIA_API_KEY / GEMINI_API_KEY / CEREBRAS_API_KEY) in .env.local."
+      "No LLM key configured. Set GROQ_API_KEY (or OPENROUTER_API_KEY / NVIDIA_API_KEY / CEREBRAS_API_KEY) in .env.local."
     );
   }
   const order = usableChain(chain);
@@ -514,7 +533,7 @@ export function pickStreamingProvider(
 ): AdvisorProviderCandidate {
   if (chain.length === 0) {
     throw new Error(
-      "No LLM key configured. Set GROQ_API_KEY (or OPENROUTER_API_KEY / NVIDIA_API_KEY / GEMINI_API_KEY / CEREBRAS_API_KEY) in .env.local."
+      "No LLM key configured. Set GROQ_API_KEY (or OPENROUTER_API_KEY / NVIDIA_API_KEY / CEREBRAS_API_KEY) in .env.local."
     );
   }
   const order = usableChain(chain);
@@ -552,7 +571,7 @@ export function invalidateStreamingProvider(cacheKey: string) {
  * status. OpenRouter's free-models-per-day cap is account-wide (shared
  * across every `:free` model), so falling back to a different free OpenRouter
  * model can't help there — Margus instead falls through to a different
- * PROVIDER (Groq/NVIDIA/Gemini/Cerebras) when one is configured.
+ * PROVIDER (Groq/NVIDIA/Cerebras) when one is configured.
  */
 /**
  * Providers report the same failure in wildly different shapes: a message

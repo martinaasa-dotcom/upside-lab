@@ -100,11 +100,16 @@ describe("the privacy policy matches what the code does", () => {
       "OpenRouter",
       "Groq",
       "NVIDIA",
-      "Gemini",
       "Cerebras",
     ]) {
       expect(privacy).toContain(party);
     }
+    /*
+      Naming a provider the app sends nothing to is as wrong as failing to
+      name one it does. Gemini's key was deleted and its leg removed, so it
+      must not stand in a list of where a reader's data goes.
+    */
+    expect(privacy).not.toContain("Gemini");
   });
 
   it("names both kinds of mail the app sends on its own", () => {
