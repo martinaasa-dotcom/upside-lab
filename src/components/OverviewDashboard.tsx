@@ -50,7 +50,6 @@ import {
 } from "@/lib/morning-read";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { pulseProvenance } from "@/lib/provenance";
-import { loadConvictionMap } from "@/lib/conviction";
 import {
   bumpInsightLook,
   loadShownInsights,
@@ -79,7 +78,6 @@ import {
   Landmark,
   Camera,
   FileUp,
-  PencilLine,
   Plus,
   Search,
   TrendingDown,
@@ -607,7 +605,6 @@ function MorningStack({
   className?: string;
 }) {
   const sunday = morning.sunday;
-  const convictions = loadConvictionMap();
   /*
    * Friday's numbers are captioned as Friday's.
    *
@@ -637,18 +634,14 @@ function MorningStack({
               * the universal "a model wrote this" badge, and these
               * are arithmetic on the reader's own holdings. A Pulse
               * note takes Pulse's own icon so the glyph and the mark
-              * point at the same room, and a note the reader has not
-              * written yet takes a pencil: it is a to-do, not a
-              * hazard, and the warning triangle is kept for money at
-              * risk.
+              * point at the same room, and the warning triangle is
+              * kept for money at risk.
               */}
             <span
               className="mt-0.5 flex size-4 shrink-0 text-muted-foreground [&>svg]:size-4"
               aria-hidden
             >
-              {notice.ask === "write-thesis" ? (
-                <PencilLine />
-              ) : notice.kind === "gap" ? (
+              {notice.kind === "gap" ? (
                 <AlertTriangle />
               ) : notice.source === "pulse" ? (
                 <Activity />
@@ -661,14 +654,7 @@ function MorningStack({
                 <MicroLabel>{notice.label}</MicroLabel>
                 {notice.source === "pulse" && notice.ticker ? (
                   <WhyThis
-                    provenance={pulseProvenance({
-                      ticker: notice.ticker,
-                      hasOwnReason: Boolean(
-                        convictions[
-                          notice.ticker.toUpperCase()
-                        ]?.thesis?.trim()
-                      ),
-                    })}
+                    provenance={pulseProvenance({ ticker: notice.ticker })}
                   />
                 ) : null}
               </div>
@@ -682,9 +668,7 @@ function MorningStack({
                   className="-ml-2 mt-1 self-start text-muted-foreground hover:text-foreground"
                   onClick={() => onOpenPulse(notice.ticker)}
                 >
-                  {notice.ask === "write-thesis"
-                    ? `Write why you own ${cashtag(notice.ticker)}`
-                    : `Open Pulse on ${cashtag(notice.ticker)}`}
+                  {`Open Pulse on ${cashtag(notice.ticker)}`}
                   <ArrowRight data-icon="inline-end" />
                 </Button>
               ) : null}

@@ -21,7 +21,7 @@ const LAB_BASE_COLS = ["id", "owner_id", "conviction", "updated_at"];
  * A column that arrives with a migration may not be applied yet on a given
  * environment, and every Lab save names every column: without a guard an
  * unapplied migration does not just lose that one field, it fails the whole
- * request and takes the conviction notes down with it.
+ * request and takes the Pulse stamp trail down with it.
  *
  * So each optional column is tried, and if Postgres says it does not
  * exist it is dropped and the request retried once. The flags are per warm
@@ -135,9 +135,9 @@ async function handlePUT(req: NextRequest) {
     .eq("owner_id", auth.user.id)
     .maybeSingle();
 
-  // A partial save. The watchlist and the conviction notes are written by
+  // A partial save. The watchlist and the Pulse history are written by
   // different screens, so only touch the fields this request actually sent
-  // — otherwise a watchlist-only save would blank someone's thesis notes.
+  // — otherwise a watchlist-only save would blank someone's Pulse history.
   const write = async () => {
     const patch: {
       updated_at: string;

@@ -30,7 +30,7 @@ export const CLASS_TEMPLATES: ClassTemplate[] = [
     cash: 25_000,
     period: "buy",
     assignment:
-      "Pick one company. Write down why you own it. Hold it unless I say you can change.",
+      "Pick one company. Hold it unless I say you can change.",
   },
   {
     id: "term-hold",

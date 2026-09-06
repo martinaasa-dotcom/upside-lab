@@ -1138,20 +1138,12 @@ export function Dashboard() {
   const margusConvictionsForChat = useMemo(() => {
     const out: Record<
       string,
-      {
-        level?: number;
-        thesis?: string;
-        stamps?: Array<{ at?: string; line?: string; verdict?: string }>;
-      }
+      { stamps?: Array<{ at?: string; line?: string; verdict?: string }> }
     > = {};
     for (const t of margusSheetTickersKey.split("|").filter(Boolean)) {
       const entry = convictionMap[t];
       if (!entry) continue;
-      out[t] = {
-        level: entry.level,
-        thesis: entry.thesis,
-        stamps: entry.stamps,
-      };
+      out[t] = { stamps: entry.stamps };
     }
     return out;
   }, [margusSheetTickersKey, convictionMap]);
@@ -2145,7 +2137,7 @@ export function Dashboard() {
       },
       {
         id: "pulse",
-        label: "Pulse: check why you own it",
+        label: "Pulse: what moved and why",
         group: "Go",
         hint: "Big movers",
         run: () => goToTab(PULSE_TAB_ID),
@@ -2368,7 +2360,6 @@ export function Dashboard() {
   const onOpenSheet = useStableCallback(openSheet);
   const onPulseIntentConsumed = useStableCallback(() => setPulseIntent(null));
   const onLabIntentConsumed = useStableCallback(() => setLabIntent(null));
-  const onWriteThesis = useStableCallback((t: string) => setDrawerTicker(t));
   const onStampPulse = useStableCallback(
     (
       ticker: string,
@@ -2873,10 +2864,9 @@ export function Dashboard() {
           <PulsePage
             model={overview}
             quotes={quotes}
-            convictions={convictionMap}
             intentTicker={pulseIntent}
             onIntentConsumed={onPulseIntentConsumed}
-            onWriteThesis={onWriteThesis}
+            onOpenTicker={onOpenTicker}
             onStamp={onStampPulse}
           />
           </WidgetErrorBoundary>
@@ -3017,7 +3007,6 @@ export function Dashboard() {
                   overrides={eoyOverrides}
                   onSetEoyPrice={onSetEoyPrice}
                   onApplyMargusPaths={onApplyMargusPaths}
-                  convictions={convictionMap}
                   labReady={labReady}
                 />
                 </WidgetErrorBoundary>

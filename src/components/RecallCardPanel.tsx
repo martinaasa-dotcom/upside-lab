@@ -24,7 +24,7 @@
  * The state is per reader in `localStorage`. It is a schedule rather than
  * anything anybody would miss, so a new device simply starts the deck
  * again; it should later ride along in `portfell_lab_state` with the
- * conviction notes and the watchlist, which is where per-owner state
+ * Pulse history and the watchlist, which is where per-owner state
  * belongs.
  */
 

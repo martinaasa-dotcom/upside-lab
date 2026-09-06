@@ -19,7 +19,7 @@ import type { ToastKind } from "@/components/ui/Toast";
 import type { CcChatContext } from "@/lib/ai/cc-advisor";
 import { cashtag } from "@/lib/format";
 import { sheetCashBalance, tracksTradeCash } from "@/lib/cash-balance";
-import { setConviction, type ConvictionMap } from "@/lib/conviction";
+import { type ConvictionMap } from "@/lib/conviction";
 import type { CsvHoldingRow } from "@/lib/csv-import";
 import type { ForecastYear } from "@/lib/forecast";
 import type { PortfolioEoyOverrides } from "@/lib/forecast-overrides";
@@ -388,15 +388,6 @@ export function DashboardModals({
           patchLab({ ladders: withEdge(labLadders, t, id, ratio) })
         }
         onSetEoyPrice={commitEoyPrice}
-        onConviction={(level, thesis) => {
-          if (!drawerTicker) return;
-          patchLab({
-            conviction: setConviction(convictionMap, drawerTicker, {
-              level,
-              thesis,
-            }),
-          });
-        }}
         onClose={() => setDrawerTicker(null)}
         onAskMargus={() => {
           setMargusExpandSignal((n) => n + 1);

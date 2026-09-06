@@ -25,7 +25,6 @@ import {
   ScanList,
   SUGGEST_MENU,
 } from "@/components/ui/Panel";
-import type { ConvictionMap } from "@/lib/conviction";
 import type { FearGreedSnapshot } from "@/lib/market/fear-greed";
 import { humanizeMargusText } from "@/lib/ai/humanize-copy";
 import { WhyThis } from "@/components/ui/WhyThis";
@@ -99,7 +98,6 @@ import {
   marketOrYouLine,
   standoutLine,
 } from "@/lib/market-or-you";
-import { fundCopyBullets } from "@/lib/fund-copy";
 import { loadFearGreedPaint, loadMacroPaint, saveMacroPaint } from "@/lib/paint-cache";
 import {
   loadPulseHistory,
@@ -110,7 +108,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   CircleDashed,
-  PenLine,
   RefreshCw,
   Search,
   TrendingDown,
@@ -123,10 +120,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, mem
 type Props = {
   model: OverviewModel;
   quotes: Record<string, Quote>;
-  convictions: ConvictionMap;
   intentTicker?: string | null;
   onIntentConsumed?: () => void;
-  onWriteThesis?: (ticker: string) => void;
+  /** Opens the holding drawer for a ticker. */
+  onOpenTicker?: (ticker: string) => void;
   onStamp?: (
     ticker: string,
     stamp: {
@@ -138,12 +135,6 @@ type Props = {
     }
   ) => void;
 };
-
-function thesisDisplayBullets(text: string | undefined): string[] {
-  const sentences = normalizePulseSituation(text ?? "");
-  if (sentences.length > 0) return sentences.slice(0, 6);
-  return fundCopyBullets(text);
-}
 
 /*
  * `watch` used to draw an eye, which read as the same "look at this" as
@@ -283,11 +274,10 @@ function ruleProvenance(ticker: string, at?: string): Provenance {
     steps: [
       "Up 12% or more in a day, or up 8% on a holding that has already doubled, reads as above its recent range.",
       "Down 5% or more reads as below it. Anything else reads as inside it.",
-      "Nothing here read a headline, your reason for owning it, or anything the company did.",
+      "Nothing here read a headline or anything the company did.",
     ],
     blindSpots: [
       "Anything about the company. No article, filing or note was fetched or read for this card.",
-      "Your own reason for owning it, which nothing here compared the price against.",
       "It is not a price target, and it is nobody telling you to buy or sell.",
     ],
     at,
@@ -301,11 +291,10 @@ function PulseCard({
   check,
   headlines,
   loading,
-  convictionThesis,
   checkedAt,
   writtenBy,
   onRefresh,
-  onWriteThesis,
+  onOpenTicker,
   pinned = false,
   leftHold = false,
 }: {
@@ -313,12 +302,11 @@ function PulseCard({
   check?: PulseCheck;
   headlines: PulseHeadline[];
   loading: boolean;
-  convictionThesis?: string;
   checkedAt?: string;
   /** The model that answered the last live run, when one has run here. */
   writtenBy?: ModelRun | null;
   onRefresh?: () => void;
-  onWriteThesis?: () => void;
+  onOpenTicker?: () => void;
   pinned?: boolean;
   leftHold?: boolean;
 }) {
@@ -335,7 +323,6 @@ function PulseCard({
     check && !isEmptyPulseCheck(check) ? reconcilePulseCheck(check) : null;
   const status = shown?.thesisStatus ?? "intact";
   const action = shown?.action ?? "hold";
-  const writtenThesis = thesisDisplayBullets(convictionThesis);
   // A row nobody modelled wore the model's badge, the model's mark and the
   // model's name, and the page stamped its action into lab state, which
   // is where the Sunday letter's suggestions come from. It says so now.
@@ -358,10 +345,7 @@ function PulseCard({
     !isMoveRestatement(cleanedVerdict)
       ? cleanedVerdict
       : "";
-  const hasBody =
-    Boolean(shown) ||
-    writtenThesis.length > 0 ||
-    Boolean(onWriteThesis);
+  const hasBody = Boolean(shown);
   const needsMargusRun = !loading && !shown;
 
   /*
@@ -436,11 +420,11 @@ function PulseCard({
         */}
       <CardHeader>
         <CardTitle className="col-start-1 row-start-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-          {onWriteThesis ? (
+          {onOpenTicker ? (
             <Button
               type="button"
               variant="link"
-              onClick={onWriteThesis}
+              onClick={onOpenTicker}
               className="h-auto p-0 text-base font-semibold text-foreground"
             >
               {cashtag(c.ticker)}
@@ -460,7 +444,6 @@ function PulseCard({
               <WhyThis
                 provenance={pulseProvenance({
                   ticker: c.ticker,
-                  hasOwnReason: Boolean(convictionThesis?.trim()),
                   headlineCount: headlines.length,
                   publishers: headlines.map((h) => h.publisher),
                   /*
@@ -626,28 +609,6 @@ function PulseCard({
           <NoteRows
             rows={[
               { label: "Why", body: extraVerdict },
-              {
-                label: "Why you own it",
-                body:
-                  writtenThesis.length > 0 ? (
-                    writtenThesis.join(" ")
-                  ) : onWriteThesis ? (
-                    <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span>You have not written down why you own this one.</span>
-                      <Button
-                        type="button"
-                        variant="link"
-                        onClick={onWriteThesis}
-                        className="h-auto p-0 text-sm"
-                      >
-                        <PenLine data-icon="inline-start" />
-                        Write it in one sentence
-                      </Button>
-                    </span>
-                  ) : (
-                    ""
-                  ),
-              },
               { label: "Earnings", body: shown?.earningsNote ?? "" },
               { label: "Breaks if", body: shown?.thesisBreak ?? "" },
             ]}
@@ -842,10 +803,9 @@ async function resolveListedTicker(
 export const PulsePage = memo(function PulsePage({
   model,
   quotes,
-  convictions,
   intentTicker,
   onIntentConsumed,
-  onWriteThesis,
+  onOpenTicker,
   onStamp,
 }: Props) {
   const [searchInput, setSearchInput] = useState("");
@@ -1267,26 +1227,11 @@ export const PulsePage = memo(function PulsePage({
       setCheckingTickers((prev) => new Set([...prev, ...staleKeys]));
       setError(null);
       try {
-        const convictionPayload: Record<
-          string,
-          { thesis?: string; level?: number }
-        > = {};
-        for (const c of stale) {
-          const entry = convictions[c.ticker.toUpperCase()];
-          if (entry) {
-            convictionPayload[c.ticker.toUpperCase()] = {
-              thesis: entry.thesis,
-              level: entry.level,
-            };
-          }
-        }
-
         const res = await fetch("/api/thesis/pulse", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             candidates: stale,
-            convictions: convictionPayload,
             fearGreed,
             force,
           }),
@@ -1400,7 +1345,7 @@ export const PulsePage = memo(function PulsePage({
         });
       }
     },
-    [convictions, fearGreed]
+    [fearGreed]
   );
 
   // Keyed off the ticker SET, not the `candidates` array's object identity
@@ -1699,15 +1644,12 @@ export const PulsePage = memo(function PulsePage({
                 headlinesByTicker[pinnedCandidate.ticker.toUpperCase()] ?? []
               }
               loading={pinnedLoading}
-              convictionThesis={
-                convictions[pinnedCandidate.ticker.toUpperCase()]?.thesis
-              }
               checkedAt={checkedAtByTicker[pinnedCandidate.ticker.toUpperCase()]}
               writtenBy={writtenBy}
               onRefresh={() => void runPulse([pinnedCandidate], { force: true })}
-              onWriteThesis={
-                onWriteThesis
-                  ? () => onWriteThesis(pinnedCandidate.ticker)
+              onOpenTicker={
+                onOpenTicker
+                  ? () => onOpenTicker(pinnedCandidate.ticker)
                   : undefined
               }
               pinned
@@ -1752,14 +1694,11 @@ export const PulsePage = memo(function PulsePage({
                     check={checksByTicker[c.ticker.toUpperCase()]}
                     headlines={headlinesByTicker[c.ticker.toUpperCase()] ?? []}
                     loading={checkingTickers.has(c.ticker.toUpperCase())}
-                    convictionThesis={
-                      convictions[c.ticker.toUpperCase()]?.thesis
-                    }
                     checkedAt={checkedAtByTicker[c.ticker.toUpperCase()]}
                     writtenBy={writtenBy}
                     onRefresh={() => void runPulse([c], { force: true })}
-                    onWriteThesis={
-                      onWriteThesis ? () => onWriteThesis(c.ticker) : undefined
+                    onOpenTicker={
+                      onOpenTicker ? () => onOpenTicker(c.ticker) : undefined
                     }
                     leftHold={leftHoldTickers.has(c.ticker.toUpperCase())}
                   />
@@ -1783,14 +1722,11 @@ export const PulsePage = memo(function PulsePage({
                     check={checksByTicker[c.ticker.toUpperCase()]}
                     headlines={headlinesByTicker[c.ticker.toUpperCase()] ?? []}
                     loading={checkingTickers.has(c.ticker.toUpperCase())}
-                    convictionThesis={
-                      convictions[c.ticker.toUpperCase()]?.thesis
-                    }
                     checkedAt={checkedAtByTicker[c.ticker.toUpperCase()]}
                     writtenBy={writtenBy}
                     onRefresh={() => void runPulse([c], { force: true })}
-                    onWriteThesis={
-                      onWriteThesis ? () => onWriteThesis(c.ticker) : undefined
+                    onOpenTicker={
+                      onOpenTicker ? () => onOpenTicker(c.ticker) : undefined
                     }
                     leftHold={leftHoldTickers.has(c.ticker.toUpperCase())}
                   />

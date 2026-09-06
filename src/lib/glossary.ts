@@ -157,10 +157,10 @@ const ENTRIES: GlossaryEntry[] = [
     term: "Thesis",
     also: ["why you own it"],
     meaning:
-      "Your own reason for owning a company, written down in a sentence. Writing it is what lets you tell later whether something actually changed or the price simply moved.",
+      "The reason to own a company rather than the price it happens to be at. Pulse checks each day whether the news and the price still fit that reason, which is how you tell a real change from a price simply moving.",
     alsoCalled: "an investment thesis",
     example: ({ ticker }) =>
-      ticker ? `Yours for ${ticker} is in the holding's own panel.` : null,
+      ticker ? `Pulse reads ${ticker} against it every day.` : null,
   },
   {
     id: "recent-range",

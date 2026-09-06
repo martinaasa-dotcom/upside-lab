@@ -101,14 +101,10 @@ export type CcChatContext = {
   classroom?: boolean;
   /** Live Yahoo calendar for the portfolio and watchlist. Do not invent dates. */
   earnings?: EarningsCalendarRow[];
-  /** Per-ticker Lab notes + Pulse stamps already on this portfolio. */
+  /** Per-ticker Pulse stamps already on this portfolio. */
   convictions?: Record<
     string,
-    {
-      level?: number;
-      thesis?: string;
-      stamps?: Array<{ at?: string; line?: string; verdict?: string }>;
-    }
+    { stamps?: Array<{ at?: string; line?: string; verdict?: string }> }
   >;
   /** Latest saved Pulse read per ticker (local + server cache). */
   pulseByTicker?: Record<string, PulseCheck>;
@@ -703,10 +699,6 @@ function margusMemoryBlock(ctx: CcChatContext): string {
     const entry = conv[key];
     const check = pulse[key];
     const bits: string[] = [`**$${key}**`];
-    if (entry?.thesis?.trim()) {
-      bits.push(`why they own it: "${entry.thesis.trim().slice(0, 400)}"`);
-    }
-    if (entry?.level != null) bits.push(`how sure: ${entry.level}/5`);
     const stamp = entry?.stamps?.at(-1);
     if (stamp?.line?.trim()) {
       bits.push(

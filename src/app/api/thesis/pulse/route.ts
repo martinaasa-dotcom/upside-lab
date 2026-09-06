@@ -34,7 +34,6 @@ import {
 import {
   getCachedPulseCheck,
   getPulseCacheKey,
-  isSharedPulseKey,
   setCachedPulseCheck,
   getCachedPulseSummary,
   setCachedPulseSummary,
@@ -72,7 +71,6 @@ const PUBLISHABLE_PRICE_DRIFT = 0.02;
 
 type Body = {
   candidates?: PulseCandidate[];
-  convictions?: Record<string, { thesis?: string; level?: number }>;
   fearGreed?: { score?: number; rating?: string } | null;
   force?: boolean;
 };
@@ -132,7 +130,6 @@ function newsBlock(headlines: PulseHeadline[]): string {
 function buildPrompt(
   candidates: PulseCandidate[],
   contexts: Awaited<ReturnType<typeof fetchPulseContexts>>,
-  convictions: Body["convictions"],
   fearGreed: Body["fearGreed"]
 ): string {
   // Built from the score alone. See `pulse-shared-prompt.ts`: this line sits
@@ -143,23 +140,15 @@ function buildPrompt(
 
   const lines = candidates.map((c) => {
     const ctx = contexts[c.ticker.toUpperCase()];
-    const conv = convictions?.[c.ticker.toUpperCase()];
     const move = formatMovePct(c.effectivePct);
-    const bookPct = (c.bookPct * 100).toFixed(1);
-    const roiPct = (c.roiPct * 100).toFixed(0);
-    // With no thesis written, this ticker's answer is cached under the
-    // shared "nothesis" key (getPulseCacheKey) and can be served to any
-    // other holder of the same name in the same move bucket. So keep this
-    // holder's own position size and lifetime return out of the prompt —
-    // otherwise a generated line could echo one person's numbers to
-    // another. A written thesis makes the key private again.
-    const sharedAnswer = !conv?.thesis;
-    const position =
-      !c.inBook
-        ? " · (lookup, not in the portfolio)"
-        : sharedAnswer
-          ? " · (in their portfolio)"
-          : ` · ${bookPct}% of the portfolio · lifetime ROI ${roiPct}%`;
+    // Every answer is cached under a shared key (getPulseCacheKey) and can
+    // be served to any other holder of the same name in the same move
+    // bucket, so this holder's own position size and lifetime return stay
+    // out of the prompt: otherwise a generated line could echo one person's
+    // numbers to another.
+    const position = !c.inBook
+      ? " · (lookup, not in the portfolio)"
+      : " · (in their portfolio)";
     const flag = isBigPulseMove(c.effectivePct)
       ? c.needsAttention
         ? " **NEEDS ATTENTION: down ≥5%**"
@@ -180,8 +169,6 @@ function buildPrompt(
       : " · (no measured range for this one)";
     const parts = [
       `- **${name}** · today's price $${c.price.toFixed(2)}${rangeLine} · ${safeMoveLabel(c.moveLabel)} ${move}${flag}${position}`,
-      conv?.thesis ? `  Thesis: ${conv.thesis}` : "",
-      conv?.level ? `  How sure they are: ${conv.level}/5` : "",
       ctx?.sector ? `  Sector: ${ctx.sector}` : "",
       "  Recent headlines:",
       newsBlock(ctx?.news ?? []),
@@ -290,7 +277,7 @@ For **each** ticker:
 
 **summary**: one short sentence on the portfolio as a whole, you/your. Name the 5% movers (up or down) and whether any tag left Inside recent range. Do not recap one ticker's news. That belongs on the card. Do not start with "the sharp drop". Verdicts use the same voice. Never "the user" or "this person". Never we/us/our.
 
-If the owner didn't write why they own it, still pick action and thesisStatus from headlines and today's prices. Never ask them to write a note. Never say you are guessing. Never say "tape".
+Pick action and thesisStatus from the headlines and today's prices. Never ask the reader to write a note: there is nowhere in this app to write one. Never say you are guessing. Never say "tape".
 
 Keep every field to the length above, and keep every one of them a sentence a person would say out loud. Use the headlines, don't invent news.
 
@@ -315,15 +302,13 @@ async function handlePOST(req: Request) {
   }
 
   const force = Boolean(body.force);
-  const convictions = body.convictions ?? {};
 
   const cachedMap = new Map<string, CachedPulse>();
   const uncachedCandidates: PulseCandidate[] = [];
 
   for (const c of candidates) {
     const symbol = pulseTickerKey(c.ticker);
-    const conv = convictions[symbol];
-    const cacheKey = getPulseCacheKey(symbol, c.effectivePct, conv?.thesis, conv?.level);
+    const cacheKey = getPulseCacheKey(symbol, c.effectivePct);
     const cachedEntry = getCachedPulseCheck(cacheKey);
     if (cachedEntry && !isEmptyPulseCheck(cachedEntry.check)) {
       cachedMap.set(symbol, {
@@ -334,13 +319,16 @@ async function handlePOST(req: Request) {
       });
     }
     /*
-      `force` exists so a reader can re-ask about their own company, and on
-      a shared key it is a write into the answer every other holder of that
-      company is about to be given. So it re-asks only where the answer is
-      this reader's own. A stale shared entry still ages out on its own.
+      `force` never re-asks a cached answer any more.
+
+      Every key is shared now: nothing a reader writes reaches this prompt,
+      so one company in one move bucket is one question and one answer,
+      handed to every holder of it. A re-ask is therefore a write into the
+      answer everybody else is about to be given, which is the one thing a
+      caller must not be able to do on purpose. A stale entry still ages out
+      on its own, and a company nobody has checked yet is asked either way.
     */
-    const mayForce = force && !isSharedPulseKey(cacheKey);
-    if (!cachedEntry || mayForce || isEmptyPulseCheck(cachedEntry?.check)) {
+    if (!cachedEntry || isEmptyPulseCheck(cachedEntry?.check)) {
       uncachedCandidates.push(c);
     }
   }
@@ -380,7 +368,6 @@ async function handlePOST(req: Request) {
     const prompt = buildPrompt(
       uncachedCandidates,
       contexts,
-      convictions,
       body.fearGreed ?? null
     );
 
@@ -435,13 +422,7 @@ async function handlePOST(req: Request) {
           fromModel.action === "trim" ? (fromModel.trimPct ?? null) : null,
       });
 
-      const conv = convictions[symbol];
-      const cacheKey = getPulseCacheKey(
-        symbol,
-        candidate.effectivePct,
-        conv?.thesis,
-        conv?.level
-      );
+      const cacheKey = getPulseCacheKey(symbol, candidate.effectivePct);
       /*
         A shared answer is only written when the numbers behind it were the
         market's, not the caller's.
@@ -468,7 +449,7 @@ async function handlePOST(req: Request) {
         typeof trusted === "number" &&
         trusted > 0 &&
         Math.abs(candidate.price - trusted) / trusted <= PUBLISHABLE_PRICE_DRIFT;
-      if (!isSharedPulseKey(cacheKey) || priceAgrees) {
+      if (priceAgrees) {
         setCachedPulseCheck(
           cacheKey,
           check,

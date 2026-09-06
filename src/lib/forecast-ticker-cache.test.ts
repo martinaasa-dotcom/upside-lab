@@ -42,7 +42,7 @@ function path(over: Partial<ServerTickerPath> = {}): ServerTickerPath {
 describe("a shared row ages out", () => {
   it("reuses a path reasoned inside the age bound", () => {
     expect(
-      isReusableTickerPath(path(), "RKLB", { spot: 100, now: NOW })
+      isReusableTickerPath(path(), { spot: 100, now: NOW })
     ).toBe(true);
   });
 
@@ -52,14 +52,14 @@ describe("a shared row ages out", () => {
         NOW.getTime() - FORECAST_CACHE_MAX_AGE_MS - 1000
       ).toISOString(),
     });
-    expect(isReusableTickerPath(stale, "RKLB", { spot: 100, now: NOW })).toBe(
+    expect(isReusableTickerPath(stale, { spot: 100, now: NOW })).toBe(
       false
     );
   });
 
   it("refuses a row whose date cannot be read, rather than reusing it forever", () => {
     expect(
-      isReusableTickerPath(path({ generatedAt: "" }), "RKLB", {
+      isReusableTickerPath(path({ generatedAt: "" }), {
         spot: 100,
         now: NOW,
       })
@@ -68,7 +68,7 @@ describe("a shared row ages out", () => {
 
   it("refuses a row with no prices in it", () => {
     expect(
-      isReusableTickerPath(path({ prices: {} }), "RKLB", { spot: 100, now: NOW })
+      isReusableTickerPath(path({ prices: {} }), { spot: 100, now: NOW })
     ).toBe(false);
   });
 });
@@ -76,47 +76,41 @@ describe("a shared row ages out", () => {
 describe("a shared row is tied to the price it was reasoned from", () => {
   it("reuses one whose stock has barely moved", () => {
     expect(
-      isReusableTickerPath(path(), "RKLB", { spot: 105, now: NOW })
+      isReusableTickerPath(path(), { spot: 105, now: NOW })
     ).toBe(true);
   });
 
   it("refuses one whose stock has run away from its anchor", () => {
     const spot = 100 * (1 + FORECAST_CACHE_MAX_DRIFT) + 1;
-    expect(isReusableTickerPath(path(), "RKLB", { spot, now: NOW })).toBe(false);
+    expect(isReusableTickerPath(path(), { spot, now: NOW })).toBe(false);
   });
 
   it("refuses one whose stock has fallen away from its anchor", () => {
     const spot = 100 * (1 - FORECAST_CACHE_MAX_DRIFT) - 1;
-    expect(isReusableTickerPath(path(), "RKLB", { spot, now: NOW })).toBe(false);
+    expect(isReusableTickerPath(path(), { spot, now: NOW })).toBe(false);
   });
 
   it("judges a row written before anchors existed on age alone", () => {
     const old = path({ anchorPrice: undefined });
-    expect(isReusableTickerPath(old, "RKLB", { spot: 900, now: NOW })).toBe(true);
+    expect(isReusableTickerPath(old, { spot: 900, now: NOW })).toBe(true);
   });
 
   it("does not refuse a row just because today's price is missing", () => {
-    expect(isReusableTickerPath(path(), "RKLB", { now: NOW })).toBe(true);
+    expect(isReusableTickerPath(path(), { now: NOW })).toBe(true);
   });
 });
 
-describe("somebody's written thesis does not leak into everybody's forecast", () => {
+/*
+  The written reason is gone from the product, so nothing writes a key any
+  more. A row that carries one was reasoned from somebody's note back when
+  there were notes, and there is no longer anybody it can honestly be handed
+  to: it is refused outright rather than matched.
+*/
+describe("a row shaped by an old written reason is never served again", () => {
   const shaped = path({ convictionKey: "4:they win the launch market" });
 
-  it("keeps a thesis-shaped row from a reader who wrote nothing", () => {
-    expect(isReusableTickerPath(shaped, "RKLB", { spot: 100, now: NOW })).toBe(
-      false
-    );
-  });
-
-  it("hands it back to a reader whose thesis matches", () => {
-    expect(
-      isReusableTickerPath(shaped, "RKLB", {
-        spot: 100,
-        now: NOW,
-        convictions: { RKLB: { level: 4, thesis: "they win the launch market" } },
-      })
-    ).toBe(true);
+  it("keeps it from every reader", () => {
+    expect(isReusableTickerPath(shaped, { spot: 100, now: NOW })).toBe(false);
   });
 });
 

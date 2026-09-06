@@ -22,7 +22,6 @@ import { stampAdvisorUse } from "@/lib/advisor-use";
 import {
   loadServerTickerCache,
   persistServerTickerCache,
-  runIsShareable,
   serverAnchorPrices,
 } from "@/lib/forecast-ticker-cache-store";
 import { generateObject } from "ai";
@@ -78,9 +77,6 @@ async function handlePOST(req: Request) {
   // is missing one is a 400 from `parseJsonBody` rather than a throw from
   // `r.ticker.toUpperCase()` below, which used to come back as a 500.
   const forecast = body.forecast as ForecastModel;
-  const convictions = body.convictions as
-    | Record<string, { level: number; thesis: string }>
-    | undefined;
 
   const fallbackPlan = () =>
     buildFallbackForecastPlan({
@@ -107,11 +103,10 @@ async function handlePOST(req: Request) {
     prompt verbatim as `spot=`.
 
     That is the same hole one step earlier and it is worse, because the
-    anchor is then corrected on the way in. Send NVDA at 5.00 with no
-    conviction notes and the model answers a five-year path off five
-    dollars; `runIsShareable` is true, so the row publishes, and the anchor
-    it publishes with is the real price. Every other reader holding that
-    company then passes the age and drift checks and is served a path a
+    anchor is then corrected on the way in. Send NVDA at 5.00 and the model
+    answers a five-year path off five dollars; the row publishes, and the
+    anchor it publishes with is the real price. Every other reader holding
+    that company then passes the age and drift checks and is served a path a
     thirty-sixth of the truth, under the provenance mark, as a fact, for up
     to a fortnight. The attacker need not own the company.
 
@@ -130,10 +125,7 @@ async function handlePOST(req: Request) {
     if (typeof trusted === "number" && trusted > 0) spots[key] = trusted;
     else if (row.currentPrice > 0) spots[key] = row.currentPrice;
   }
-  const cacheHits = await loadServerTickerCache(heldTickers, {
-    convictions,
-    spots,
-  });
+  const cacheHits = await loadServerTickerCache(heldTickers, { spots });
   // Which companies were answered out of the shared cache rather than
   // written fresh, and when that earlier run happened. The mark beside a
   // price says so: a reused path was reasoned from the company, not from
@@ -168,7 +160,6 @@ async function handlePOST(req: Request) {
       portfolioName,
       cashBalance,
       forecast,
-      convictions,
     });
 
     // Recorded as the call happens, so the plan can name the model that
@@ -287,7 +278,6 @@ async function handlePOST(req: Request) {
     */
     void (async () => {
       if (reasoned.length === 0) return;
-      if (!runIsShareable(convictions)) return;
       // Already resolved above, when the prompt was built. Asking again
       // would be a second provider call for the same answer, and worse, a
       // path could then publish against a price it was not reasoned from.
@@ -322,7 +312,7 @@ async function handlePOST(req: Request) {
           const anchor = t.anchorPrice as number;
           return Math.abs(claimed - anchor) / anchor <= PUBLISHABLE_SPOT_DRIFT;
         });
-      await persistServerTickerCache(priced, { convictions, generatedAt });
+      await persistServerTickerCache(priced, { generatedAt });
     })();
 
     return Response.json({ plan });

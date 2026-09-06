@@ -5,7 +5,6 @@ import {
   neighborGapsToday,
   type InsightHolding,
 } from "@/lib/book-insights";
-import { loadConvictionMap } from "@/lib/conviction";
 import { cashtag, signedCurrency } from "@/lib/format";
 import { forecastThemeForTicker } from "@/lib/forecast-conviction";
 import {
@@ -73,14 +72,6 @@ export type MorningNotice = {
   source: MorningSource;
   /** Set only when the card is about one company, so it can offer Pulse. */
   ticker?: string;
-  /**
-   * What the card is asking for, when it asks for anything.
-   *
-   * "write-thesis" is a note the reader has not written yet, which is a
-   * to-do rather than a hazard: it takes a pencil and a calm ring, never
-   * the warning triangle this app keeps for money at risk.
-   */
-  ask?: "write-thesis";
 };
 
 export type MorningRead = {
@@ -97,7 +88,6 @@ export type MorningRead = {
 export type HomePulseNote = {
   ticker: string;
   thesisStatus?: string | null;
-  hasThesis: boolean;
   moveReason?: string | null;
 };
 
@@ -119,7 +109,6 @@ type Candidate = {
   /** Defaults to "holdings", which is what all but a handful of these are. */
   source?: MorningSource;
   ticker?: string;
-  ask?: "write-thesis";
 };
 
 function holdingsFrom(model: OverviewModel): InsightHolding[] {
@@ -713,25 +702,6 @@ function pulseCandidates(
         text: `${cashtag(t.ticker)} is on ${label}, and it ${t.todayPct >= 0 ? "rose" : "fell"} ${aboutMove(t.todayPct)} ${whenTail}.`,
       });
     }
-    if (
-      !n.hasThesis &&
-      Math.abs(t.todayPct) >= 0.02 &&
-      equity > 0 &&
-      t.currentValue / equity >= 0.08
-    ) {
-      const id = `thesis-${t.ticker}`;
-      out.push({
-        id,
-        subject: t.ticker,
-        fingerprint: insightFingerprint("thesis", t.ticker, t.todayPct),
-        kind: "gap",
-        rank: 62,
-        ticker: t.ticker,
-        label: "Worth writing down",
-        ask: "write-thesis",
-        text: `${cashtag(t.ticker)} ${t.todayPct >= 0 ? "rose" : "fell"} ${aboutMove(t.todayPct)} ${whenTail}, and you have not written down why you own it. A line now is what tells you, on a bad week, whether anything has actually changed.`,
-      });
-    }
   }
   return out;
 }
@@ -858,7 +828,6 @@ export function pickHomeNotices(
       kind: "notice",
       source: n.source ?? "holdings",
       ticker: n.ticker,
-      ask: n.ask,
     });
   }
   /*
@@ -878,7 +847,6 @@ export function pickHomeNotices(
       kind: "gap",
       source: g.source ?? "holdings",
       ticker: g.ticker,
-      ask: g.ask,
     });
   }
   return out;
@@ -921,15 +889,12 @@ export function buildMorningRead(
 
 export function loadHomePulseNotes(tickers: string[]): HomePulseNote[] {
   if (typeof window === "undefined") return [];
-  const conv = loadConvictionMap();
   return tickers.map((ticker) => {
     const key = ticker.toUpperCase();
     const pulse = loadPulseTickerCache(key);
-    const thesis = conv[key]?.thesis?.trim() ?? "";
     return {
       ticker: key,
       thesisStatus: pulse?.check.thesisStatus ?? null,
-      hasThesis: thesis.length > 0,
       moveReason: pulse?.check.moveReason ?? null,
     };
   });

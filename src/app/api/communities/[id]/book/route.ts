@@ -5,7 +5,7 @@ import {
   type RawMember,
 } from "@/lib/auth/identity";
 import { userIsCommunityMember } from "@/lib/auth/ownership";
-import { countTheses, isClassroomKind } from "@/lib/classroom";
+import { isClassroomKind } from "@/lib/classroom";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
@@ -280,54 +280,12 @@ async function handleGET(req: NextRequest, ctx: Ctx) {
     }
   }
 
-  const thesisCoverage: Record<string, { names: number; withWhy: number }> = {};
-  if (classroom && memberIds.length) {
-    const labRows = await readAll<{
-      owner_id: string | null;
-      conviction: unknown;
-    }>(() =>
-      supabase
-        .from(PORTFELL_TABLES.labState)
-        .select("owner_id, conviction")
-        .order("id")
-        .in("owner_id", memberIds)
-    );
-    const convictionByOwner = new Map<
-      string,
-      Record<string, { thesis?: string } | undefined>
-    >();
-    for (const row of labRows) {
-      if (!row.owner_id) continue;
-      convictionByOwner.set(
-        row.owner_id,
-        (row.conviction ?? {}) as Record<string, { thesis?: string } | undefined>
-      );
-    }
-    const tickersByOwner = new Map<string, string[]>();
-    for (const o of ownershipOut) {
-      const held = (
-        holdings as Array<{ portfolio_id: string; ticker: string }>
-      )
-        .filter((h) => h.portfolio_id === o.portfolio_id)
-        .map((h) => h.ticker);
-      const prev = tickersByOwner.get(o.user_id) ?? [];
-      tickersByOwner.set(o.user_id, [...prev, ...held]);
-    }
-    for (const [userId, tickers] of tickersByOwner) {
-      thesisCoverage[userId] = countTheses(
-        tickers,
-        convictionByOwner.get(userId)
-      );
-    }
-  }
-
   return NextResponse.json({
     readOnly: true,
     profiles: profiles ?? [],
     portfolios,
     holdings,
     ownership: ownershipOut,
-    ...(classroom ? { thesisCoverage } : {}),
   });
 }
 

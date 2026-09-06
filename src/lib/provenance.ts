@@ -147,11 +147,6 @@ const YOUR_HOLDINGS: ProvenanceSource = {
   what: "share counts, buy prices and cash, as you typed or imported them",
 };
 
-const YOUR_WORDS: ProvenanceSource = {
-  name: "You",
-  what: "the reason you wrote down for owning it, in your own words",
-};
-
 /** The model is a source in its own right, and the least checkable one. */
 const MODEL_ITSELF: ProvenanceSource = {
   name: "The model itself",
@@ -203,7 +198,6 @@ export function forecastPathProvenance(input: {
   ticker: string;
   spot: number;
   sector?: string | null;
-  hasOwnReason?: boolean;
   edited?: boolean;
   fallback?: boolean;
   at?: string | null;
@@ -286,15 +280,6 @@ export function forecastPathProvenance(input: {
         what: "How big this holding is for you",
         detail: "as a share of everything in this portfolio",
       },
-      input.hasOwnReason
-        ? {
-            what: "Your own reason for holding it",
-            detail: "your written reason, and how sure you said you were",
-          }
-        : {
-            what: "Your own reason for holding it",
-            detail: "you have not written one, so the model worked without it",
-          },
       {
         what: "The rest of your portfolio",
         detail:
@@ -309,7 +294,7 @@ export function forecastPathProvenance(input: {
     ],
     sources: [
       YAHOO_PRICES,
-      input.hasOwnReason ? YOUR_WORDS : YOUR_HOLDINGS,
+      YOUR_HOLDINGS,
       MODEL_ITSELF,
     ],
     steps,
@@ -388,13 +373,12 @@ export function forecastRoomProvenance(input: {
     maker: "model",
     title: "Where this came from",
     headline:
-      "A language model writes a yearly price for every holding, from what the company does, how much of it you own and what you wrote down as your reason. Today's column is the real market price. Every year after it is modeled.",
+      "A language model writes a yearly price for every holding, from what the company does and how much of it you own. Today's column is the real market price. Every year after it is modeled.",
     model: input.model,
     inputs: [
       { what: "Today's price of each holding" },
       { what: "The kind of business each one is" },
       { what: "How big each holding is in this portfolio" },
-      { what: "Your written reason for a company, where you have written one" },
       {
         what: "Your cash, your total, and which holdings are the same kind of business",
       },
@@ -455,7 +439,6 @@ export function forecastTotalProvenance(input: {
 /** A Thesis Pulse verdict on one name. */
 export function pulseProvenance(input: {
   ticker: string;
-  hasOwnReason: boolean;
   headlineCount?: number;
   /** The publishers behind those headlines, so the reader can go and read them. */
   publishers?: string[];
@@ -469,16 +452,9 @@ export function pulseProvenance(input: {
   return {
     maker: "model",
     title: "Where this came from",
-    headline: `A language model read your own reason for owning ${tag} against how the price has moved and what was in the news, then said whether the two still agree.`,
+    headline: `A language model read how the price of ${tag} has moved against what was in the news, then said whether the reason to own it still holds.`,
     model: input.model,
     inputs: [
-      input.hasOwnReason
-        ? { what: "Your written reason for owning it", detail: "in your words" }
-        : {
-            what: "Your written reason for owning it",
-            detail:
-              "you have not written one. The model still answers, but it is judging the price against nothing, which is why the reading is thin.",
-          },
       { what: "Today's price and how it has moved" },
       { what: "Where the price sits against its recent high and low" },
       n > 0
@@ -492,13 +468,13 @@ export function pulseProvenance(input: {
         : {
             what: "Recent headlines",
             detail:
-              "none came back for this check, so the reading is the price and your reason only",
+              "none came back for this check, so the reading is the price alone",
           },
       { what: "Last and next earnings dates, when the feed has them" },
       TRAINING_INPUT,
     ],
     sources: [
-      input.hasOwnReason ? YOUR_WORDS : YOUR_HOLDINGS,
+      YOUR_HOLDINGS,
       YAHOO_PRICES,
       ...(n > 0 ? [YAHOO_NEWS] : []),
       MODEL_ITSELF,
@@ -512,11 +488,11 @@ export function pulseProvenance(input: {
     blindSpots: [
       "Headlines it did not get. The search misses things, and a story it never saw is not in the reading.",
       TRAINING_IS_STALE,
-      "Whether you are right. It checks whether your reason and the price still fit each other, not whether the reason was any good.",
+      "Whether the reason to own it was any good. It checks whether the news and the price still fit the case for the company, not whether that case was sound.",
       NOT_A_TARGET,
     ],
     at: input.at,
-    yours: "Rewrite your reason and the next reading answers the new one.",
+    yours: "Ask for a re-check and the next reading answers today's headlines.",
   };
 }
 
@@ -538,7 +514,6 @@ export function pulseRoomProvenance(input: {
         what: "Your holdings and how each one moved",
         detail: "which is what picks the companies on this page",
       },
-      { what: "Your written reason for each name, where you have one" },
       { what: "Recent headlines for each name" },
       TRAINING_INPUT,
     ],
@@ -548,7 +523,7 @@ export function pulseRoomProvenance(input: {
       n > 0
         ? `Those ${n === 1 ? "name is" : `${n} names are`} then sent to the model, and it writes one reading each.`
         : "Those companies are then sent to the model, and it writes one reading each.",
-      "A reading is kept and reused until the price moves or you change your reason, so two visits on a quiet day show the same words rather than a new opinion.",
+      "A reading is kept and reused until the price moves, so two visits on a quiet day show the same words rather than a new opinion.",
       REWRITTEN_STEP,
     ],
     blindSpots: [
@@ -1016,7 +991,9 @@ export function planLadderProvenance(input: {
       YAHOO_PRICES,
       COMPANY_FEED,
       { name: "This app", what: "the multiplication, which is plain arithmetic and is printed above" },
-      ...(input.edited ? [YOUR_WORDS] : []),
+      ...(input.edited
+        ? [{ name: "You", what: "the levels you typed over the worked-out ones" }]
+        : []),
     ],
     steps: [
       "The anchor is taken from the valuation panel below, unmodified. Nothing here re-estimates it and nothing nudges it towards today's price.",
