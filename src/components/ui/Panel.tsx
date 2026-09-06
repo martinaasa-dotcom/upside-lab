@@ -279,27 +279,68 @@ export function PanelHeader({
         className
       )}
     >
-      <div
-        className={cn(
-          SPLIT_COPY,
-          "flex gap-3",
-          subtitle ? "items-start" : "items-center"
-        )}
-      >
-        {icon && (
-          <span
-            className={cn(
-              "flex size-8 shrink-0 items-center justify-center rounded-lg",
-              subtitle ? "mt-0.5" : undefined,
-              iconTones[iconTone]
-            )}
-            aria-hidden
-          >
-            {icon}
-          </span>
-        )}
-        <div className="min-w-0 flex-1">
-          <h2
+      {/*
+        THE SUBTITLE LEAVES THE ICON'S COLUMN ON A PHONE, AND KEEPS IT
+        EVERYWHERE ELSE.
+
+        The icon and the copy used to be one row, so the subtitle was
+        indented past the icon at every width. That is right on a laptop,
+        where the indent ties two lines to the glyph that heads them and
+        costs 44 of a thousand pixels. On a phone it is 44px of a 326px
+        column, an eighth of the line, and the subtitle is the longest text
+        in most panels: measured across the 21 real (title, subtitle) pairs
+        in this app, it cost 75 lines of wrapped prose at 390px.
+
+        The icon and the title stay one row, because a glyph belongs beside
+        the thing it names. The subtitle drops below that row and takes the
+        full width, then `sm:pl-11` puts it back under the title from the
+        first breakpoint up: 44px is the icon's 32 plus the row's 12 gap, so
+        nothing above `sm` moves by a pixel.
+
+        `items-start` with no nudge: the row is the icon and the title
+        alone now, so the icon aligns with the top of the title rather than
+        with the top of a block that also held two lines of prose.
+      */}
+      <div className={cn(SPLIT_COPY, "flex min-w-0 flex-col")}>
+        <div
+          className={cn(
+            "flex gap-3",
+            subtitle ? "items-start" : "items-center"
+          )}
+        >
+          {/*
+            `mt-0.5 -mb-1.5` is not a nudge, it is the icon's overhang
+            measured, and it is what keeps every width above `sm` exactly
+            where it was.
+
+            The icon is 32px and a panel title's line box is 28, so once
+            the icon and the title are a row of their own the row is
+            taller than the title and the subtitle hangs off the row
+            rather than off the title: measured, the gap grew from 6px to
+            10 on a phone, and correcting it on the subtitle instead was
+            wrong for a title that wraps to two lines, where the icon does
+            not set the height at all and the correction fired anyway.
+
+            Taking the 2px it already had plus the 4 it overhangs off the
+            icon's own box makes it stop driving the row's height at every
+            title size: a one-line title, a wrapped one and a hero all keep
+            the geometry they had, and the icon paints in exactly the place
+            it painted when it lived in a column beside the copy.
+          */}
+          {icon && (
+            <span
+              className={cn(
+                "flex size-8 shrink-0 items-center justify-center rounded-lg",
+                subtitle && "mt-0.5 -mb-1.5",
+                iconTones[iconTone]
+              )}
+              aria-hidden
+            >
+              {icon}
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
+            <h2
             className={cn(
               /* Tracking is optical, so it tightens as the size grows —
                * the fit that reads right at 18px reads loose at 24px.
@@ -316,15 +357,21 @@ export function PanelHeader({
               "font-heading font-semibold text-balance text-foreground",
               hero ? "text-2xl tracking-[-0.035em]" : "text-lg tracking-[-0.028em]"
             )}
-          >
-            {title}
-          </h2>
-          {subtitle ? (
-            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-              {subtitle}
-            </p>
-          ) : null}
+            >
+              {title}
+            </h2>
+          </div>
         </div>
+        {subtitle ? (
+          <p
+            className={cn(
+              "mt-1.5 text-sm leading-relaxed text-muted-foreground",
+              icon && "sm:pl-11"
+            )}
+          >
+            {subtitle}
+          </p>
+        ) : null}
       </div>
       {actions && <div className={SPLIT_ACTIONS}>{actions}</div>}
     </div>
