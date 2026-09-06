@@ -48,6 +48,7 @@ export const KIND_GLYPH: Record<AlertKind, typeof Landmark> = {
   strike: Target,
   margin: Landmark,
   concentration: PieChart,
+  ladder: Target,
 };
 
 /**

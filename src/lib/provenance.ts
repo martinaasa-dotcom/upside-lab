@@ -971,6 +971,111 @@ export function positionFitProvenance(input: {
   };
 }
 
+/**
+ * The price plan. Arithmetic on two numbers already on the page, and the
+ * one surface in this app whose output looks most like an instruction, so
+ * it is the one that most needs to say out loud that nobody wrote it.
+ */
+export function planLadderProvenance(input: {
+  ticker: string;
+  anchor?: string | null;
+  anchorSaid?: string | null;
+  stepSaid?: string | null;
+  edited?: boolean;
+  at?: string | null;
+}): Provenance {
+  const tag = cashtag(input.ticker);
+  return {
+    maker: "arithmetic",
+    title: "Where these levels came from",
+    headline: `No model wrote these levels and nobody at this app chose them. They are two numbers multiplied together: an estimate for ${tag} that is already on this page, and how far this share ordinarily travels in a year. Every one of them is yours to change.`,
+    inputs: [
+      {
+        what: "The anchor, which every level is a multiple of",
+        detail: input.anchorSaid ?? input.anchor ?? "the blended estimate on this page",
+      },
+      {
+        what: "How wide each band is",
+        detail: input.stepSaid ?? "read off the year's high and low for this share",
+      },
+      { what: "Today's price", detail: "which decides only which band it lands in" },
+      ...(input.edited
+        ? [{ what: "The levels you typed", detail: "which replace the worked-out ones" }]
+        : []),
+    ],
+    sources: [
+      YAHOO_PRICES,
+      COMPANY_FEED,
+      { name: "This app", what: "the multiplication, which is plain arithmetic and is printed above" },
+      ...(input.edited ? [YOUR_WORDS] : []),
+    ],
+    steps: [
+      "The anchor is taken from the valuation panel below, unmodified. Nothing here re-estimates it and nothing nudges it towards today's price.",
+      "The band width is the share's own year, high against low, measured against that anchor: a share that swings twice as far gets bands twice as wide, held between a twentieth and a fifth of the anchor either way.",
+      "Each level is the anchor times a fixed multiple, and the floor sits further down for a share that swings harder, because a hard-swinging share reaches a given fall on an ordinary bad month.",
+      "Today's price is then read against those levels. That is the whole calculation: no model, no scoring, no view about this company.",
+    ],
+    blindSpots: [
+      NOT_YOUR_BROKER,
+      "Whether any of this is a sensible plan for you. The bands are a shape, not a judgement about your money, your timescale or what else you own.",
+      "Anything that happens between two prices: a level can be passed and come back before you ever look.",
+      "The anchor's own assumptions. Every method behind it rests on one, and they are listed in the panel below.",
+    ],
+    at: input.at,
+    yours: "Change any level and the ladder redraws around it. The levels are the plan; this app only does the multiplication.",
+  };
+}
+
+/**
+ * The four questions at the top. Every answer is a figure from the feed
+ * or arithmetic on one, except the last, which quotes the written page.
+ */
+export function researchQuestionsProvenance(input: {
+  ticker: string;
+  usesModel?: boolean;
+  model?: ModelRun | null;
+  at?: string | null;
+}): Provenance {
+  const tag = cashtag(input.ticker);
+  return {
+    maker: input.usesModel ? "model" : "arithmetic",
+    title: "Where these answers came from",
+    headline: input.usesModel
+      ? `Three of the four are plain arithmetic on figures the feed published for ${tag}. The fourth quotes the model's own case against, and says so where it does.`
+      : `No model wrote these. All four are plain arithmetic on figures the feed published for ${tag}, and a question the figures could not answer says so rather than being answered loosely.`,
+    model: input.usesModel ? input.model : undefined,
+    inputs: [
+      { what: "The year's high and low, and today's price" },
+      { what: "Profit per share, this year's estimate and next year's" },
+      { what: "The profit margin and the return on the owners' money" },
+      { what: "The blended estimate from the valuation panel below" },
+      ...(input.usesModel
+        ? [{ what: "The first point of the model's case against", detail: "quoted, and named as the model's" }]
+        : []),
+    ],
+    sources: [
+      COMPANY_FEED,
+      YAHOO_PRICES,
+      { name: "This app", what: "the arithmetic, which is named inside each answer" },
+      ...(input.usesModel ? [MODEL_ITSELF] : []),
+    ],
+    steps: [
+      "Where it sits is today's price against its own year, and what it costs against a year of profit. Two yardsticks, named separately, because they answer different things.",
+      "What the price is assuming is the multiple worked backwards: the yearly growth that would bring it to the ordinary multiple in five years, with no discount rate in it.",
+      "The great company and the good price question prints one figure of each kind and deliberately refuses to add them up, because adding them up is a rating.",
+      "What would change your mind is a level and a date, both checkable, plus whatever the model argued if it argued anything.",
+    ],
+    blindSpots: [
+      "Anything not in the accounts: a competitor, a rule change, a customer leaving.",
+      "A question the feed could not answer is marked, and an unanswered question is not the same as a comfortable answer.",
+      NOT_A_TARGET,
+      NOT_YOUR_BROKER,
+    ],
+    at: input.at,
+    yours: "Answer the fourth one yourself, in writing, before you decide anything. That is the one nobody can answer for you.",
+  };
+}
+
 /** What a fund holds. The feed's own published list, plus your own rows. */
 export function fundProvenance(input: {
   ticker: string;

@@ -28,7 +28,12 @@ import { formatDateTime } from "@/lib/timezone";
  * rewording a sentence changed where a tap went, and a results-day card
  * that happened to mention borrowed money would have opened the editor.
  */
-export type AlertKind = "results" | "strike" | "margin" | "concentration";
+export type AlertKind =
+  | "results"
+  | "strike"
+  | "margin"
+  | "concentration"
+  | "ladder";
 
 export type UpsideAlert = {
   id: string;
@@ -107,6 +112,63 @@ export function spokenDate(key: string): string {
     day: "numeric",
     month: "long",
   });
+}
+
+/**
+ * A holding whose price has reached one of the levels that reader wrote
+ * down for it.
+ *
+ * The whole value of a price plan is that the level was chosen on a quiet
+ * afternoon and the alert arrives on a loud one, so this says which level
+ * was reached and what the reader's own plan calls that band, and stops
+ * there. It never adds an instruction of its own: the plan is the
+ * instruction, and it is the reader's.
+ *
+ * Only the ends of the ladder are worth waking somebody for. The middle
+ * bands are where a price ordinarily sits, and an alert that fires while
+ * nothing has happened is one a reader learns to swipe past, which is the
+ * lesson the borrowed-money card already records. The id carries the band
+ * for the same reason the margin alert's carries its tier: a dismissal is
+ * stored per id, and one id for every level would silence the floor
+ * because somebody waved off a trim in March.
+ */
+export function buildLadderAlerts(
+  rows: Array<{
+    ticker: string;
+    spot: number;
+    /** The band today's price falls in, from the reader's own ladder. */
+    bandId: string;
+    /** That band's own words, as the plan has them. */
+    bandLabel: string;
+    /** The edge the price crossed to get here, when the band has one. */
+    edge: number | null;
+    /** True where the reader typed at least one edge of this ladder. */
+    edited: boolean;
+  }>
+): UpsideAlert[] {
+  const LOUD = new Set(["trim-most", "full", "exit"]);
+  const out: UpsideAlert[] = [];
+  for (const r of rows) {
+    if (!LOUD.has(r.bandId) || !(r.spot > 0)) continue;
+    const whose = r.edited
+      ? "the plan you set for it"
+      : "the plan this app worked out from the estimates on its page, which you have not changed";
+    const level =
+      r.edge != null && r.edge > 0
+        ? ` The level is ${currency(r.edge, 2)}, and the price is ${currency(Math.abs(r.spot - r.edge), 2)} ${r.spot >= r.edge ? "above" : "below"} it.`
+        : "";
+    out.push({
+      id: `ladder-${r.bandId}-${cashtag(r.ticker)}`,
+      kind: "ladder",
+      title: `${cashtag(r.ticker)} reached a level in your plan`,
+      detail: `At ${currency(r.spot, 2)} it is in the band ${whose} calls "${r.bandLabel}".${level}`,
+      learn:
+        "Nothing has been bought or sold, and this app is not telling you to do either. It is repeating a level you can change on the company's own page.",
+      ticker: r.ticker,
+      tone: r.bandId === "exit" ? "warning" : "neutral",
+    });
+  }
+  return out;
 }
 
 export function buildStrikeAlerts(

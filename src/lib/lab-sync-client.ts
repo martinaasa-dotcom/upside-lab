@@ -2,6 +2,7 @@ import { isAbortError } from "@/lib/abort";
 import { emptyLabBundle, type LabBundle } from "@/lib/lab-bundle";
 import { saveConvictionMap } from "@/lib/conviction";
 import { saveWatchlist } from "@/lib/watchlist";
+import { saveLocalLadders } from "@/lib/company/ladder-store";
 import { fetchOrQueue } from "@/lib/offline/queued-fetch";
 
 const LAB_SAVE_FAILED =
@@ -17,6 +18,7 @@ export function mirrorLabLocal(bundle: LabBundle) {
   if (Array.isArray(bundle.watchlist)) {
     saveWatchlist(bundle.watchlist, { sync: false });
   }
+  saveLocalLadders(bundle.ladders ?? {});
 }
 
 export async function fetchLabBundle(
@@ -58,6 +60,7 @@ export async function pushLabBundle(
         body: JSON.stringify({
           conviction: bundle.conviction,
           watchlist: bundle.watchlist ?? [],
+          ladders: bundle.ladders ?? {},
         }),
       },
       { kind: "preference" }

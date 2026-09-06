@@ -2,6 +2,7 @@ import { dbError } from "@/lib/db-error";
 import { NextRequest, NextResponse } from "next/server";
 import {
   emptyLabBundle,
+  sanitizeLadders,
   sanitizeWatchlist,
   type LabBundle,
 } from "@/lib/lab-bundle";
@@ -14,35 +15,52 @@ import { parseJsonBody } from "@/lib/parse-json-body";
 
 export const dynamic = "force-dynamic";
 
-const LAB_COLS_FULL = "id, owner_id, conviction, watchlist, updated_at";
-const LAB_COLS_BASE = "id, owner_id, conviction, updated_at";
+const LAB_BASE_COLS = ["id", "owner_id", "conviction", "updated_at"];
 
 /**
- * `watchlist` arrives with migration `20260819140000_lab_watchlist.sql`,
- * which may not be applied yet on a given environment. Every Lab save
- * sends the column, and both the read and the write name it — so without
- * this guard an unapplied migration doesn't just lose the watchlist, it
- * fails the whole request and takes conviction notes down with it.
+ * A column that arrives with a migration may not be applied yet on a given
+ * environment, and every Lab save names every column: without a guard an
+ * unapplied migration does not just lose that one field, it fails the whole
+ * request and takes the conviction notes down with it.
  *
- * So: try with the column, and if Postgres says it doesn't exist, drop it
- * and retry once. The flag is per warm instance and resets when the
- * instance recycles, so the column starts being used again on its own
- * once the migration lands — no deploy or restart needed.
+ * So each optional column is tried, and if Postgres says it does not
+ * exist it is dropped and the request retried once. The flags are per warm
+ * instance and reset when the instance recycles, so a column starts being
+ * used again on its own once its migration lands, with no deploy needed.
+ *
+ * `watchlist` came with `20260819140000_lab_watchlist.sql` and `ladders`
+ * with `20260906140000_a_price_plan_belongs_to_the_reader.sql`. They are
+ * tracked separately on purpose: one environment can have the first and
+ * not the second, and a single flag would take the applied column out
+ * along with the missing one.
  */
-let watchlistColumnReady = true;
+const OPTIONAL_COLUMNS = ["watchlist", "ladders"] as const;
+type OptionalColumn = (typeof OPTIONAL_COLUMNS)[number];
+
+const columnReady: Record<OptionalColumn, boolean> = {
+  watchlist: true,
+  ladders: true,
+};
 
 function labCols(): string {
-  return watchlistColumnReady ? LAB_COLS_FULL : LAB_COLS_BASE;
+  return [
+    ...LAB_BASE_COLS,
+    ...OPTIONAL_COLUMNS.filter((c) => columnReady[c]),
+  ].join(", ");
 }
 
 /** PostgREST's two shapes for "that column isn't in the schema". */
-function isMissingWatchlistColumn(
+function missingColumn(
   error: { code?: string; message?: string } | null
-): boolean {
-  if (!error || !watchlistColumnReady) return false;
+): OptionalColumn | null {
+  if (!error) return null;
   const code = error.code ?? "";
-  if (code !== "PGRST204" && code !== "42703") return false;
-  return /watchlist/i.test(error.message ?? "");
+  if (code !== "PGRST204" && code !== "42703") return null;
+  return (
+    OPTIONAL_COLUMNS.find(
+      (c) => columnReady[c] && new RegExp(c, "i").test(error.message ?? "")
+    ) ?? null
+  );
 }
 
 function rowToBundle(row: Record<string, unknown> | null): LabBundle {
@@ -50,6 +68,7 @@ function rowToBundle(row: Record<string, unknown> | null): LabBundle {
   return {
     conviction: (row.conviction as LabBundle["conviction"]) ?? {},
     watchlist: sanitizeWatchlist(row.watchlist),
+    ladders: sanitizeLadders(row.ladders),
     updatedAt: typeof row.updated_at === "string" ? row.updated_at : undefined,
   };
 }
@@ -74,8 +93,10 @@ async function handleGET() {
       .maybeSingle();
 
   let { data, error } = await read();
-  if (isMissingWatchlistColumn(error)) {
-    watchlistColumnReady = false;
+  for (let attempt = 0; attempt < OPTIONAL_COLUMNS.length; attempt += 1) {
+    const missing = missingColumn(error);
+    if (!missing) break;
+    columnReady[missing] = false;
     ({ data, error } = await read());
   }
 
@@ -122,12 +143,16 @@ async function handlePUT(req: NextRequest) {
       updated_at: string;
       conviction?: LabBundle["conviction"];
       watchlist?: string[];
+      ladders?: LabBundle["ladders"];
     } = { updated_at: now };
     if (body.conviction !== undefined) {
       patch.conviction = body.conviction as LabBundle["conviction"];
     }
-    if (body.watchlist !== undefined && watchlistColumnReady) {
+    if (body.watchlist !== undefined && columnReady.watchlist) {
       patch.watchlist = sanitizeWatchlist(body.watchlist);
+    }
+    if (body.ladders !== undefined && columnReady.ladders) {
+      patch.ladders = sanitizeLadders(body.ladders);
     }
 
     if (existing) {
@@ -144,8 +169,11 @@ async function handlePUT(req: NextRequest) {
         id: auth.user.id,
         owner_id: auth.user.id,
         conviction: (body.conviction ?? {}) as LabBundle["conviction"],
-        ...(watchlistColumnReady
+        ...(columnReady.watchlist
           ? { watchlist: sanitizeWatchlist(body.watchlist) }
+          : {}),
+        ...(columnReady.ladders
+          ? { ladders: sanitizeLadders(body.ladders) }
           : {}),
         updated_at: now,
       })
@@ -154,8 +182,10 @@ async function handlePUT(req: NextRequest) {
   };
 
   let { data, error } = await write();
-  if (isMissingWatchlistColumn(error)) {
-    watchlistColumnReady = false;
+  for (let attempt = 0; attempt < OPTIONAL_COLUMNS.length; attempt += 1) {
+    const missing = missingColumn(error);
+    if (!missing) break;
+    columnReady[missing] = false;
     ({ data, error } = await write());
   }
 

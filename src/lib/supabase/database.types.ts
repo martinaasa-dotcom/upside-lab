@@ -587,6 +587,7 @@ export type Database = {
         Row: {
           conviction: Json
           id: string
+          ladders: Json
           owner_id: string | null
           updated_at: string
           watchlist: Json
@@ -594,6 +595,7 @@ export type Database = {
         Insert: {
           conviction?: Json
           id?: string
+          ladders?: Json
           owner_id?: string | null
           updated_at?: string
           watchlist?: Json
@@ -601,6 +603,7 @@ export type Database = {
         Update: {
           conviction?: Json
           id?: string
+          ladders?: Json
           owner_id?: string | null
           updated_at?: string
           watchlist?: Json

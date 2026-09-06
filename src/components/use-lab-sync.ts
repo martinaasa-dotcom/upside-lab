@@ -3,6 +3,7 @@
 import { emptyLabBundle, type LabBundle } from "@/lib/lab-bundle";
 import { loadConvictionMap } from "@/lib/conviction";
 import { loadWatchlist } from "@/lib/watchlist";
+import { loadLocalLadders } from "@/lib/company/ladder-store";
 import {
   fetchLabBundle,
   mirrorLabLocal,
@@ -25,6 +26,7 @@ export function useLabSync() {
       const local: LabBundle = {
         conviction: loadConvictionMap(),
         watchlist: loadWatchlist(),
+        ladders: loadLocalLadders(),
       };
       const remote = await fetchLabBundle(ctrl.signal);
       if (ctrl.signal.aborted) return;
@@ -51,6 +53,16 @@ export function useLabSync() {
               (remote.bundle.watchlist ?? []).length === 0
                 ? local.watchlist
                 : remote.bundle.watchlist,
+            /*
+              The price plans, and the same rule the watchlist follows: the
+              server wins unless it has nothing, because a browser that has
+              been offline holds a stale copy and a plan is per person
+              rather than per device.
+            */
+            ladders:
+              Object.keys(remote.bundle.ladders ?? {}).length === 0
+                ? local.ladders
+                : remote.bundle.ladders,
             updatedAt: remote.bundle.updatedAt,
           };
           setLabBundle(merged);

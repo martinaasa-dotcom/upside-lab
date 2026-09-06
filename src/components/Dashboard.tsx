@@ -28,6 +28,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   buildDecisionAlerts,
   buildEarningsAlerts,
+  buildLadderAlerts,
   buildStrikeAlerts,
   type UpsideAlert,
 } from "@/lib/alerts";
@@ -68,7 +69,14 @@ import {
 } from "@/lib/book-routes";
 import { loadLastUser } from "@/lib/last-session";
 import { isAbortError, retryOnNetwork } from "@/lib/abort";
-import { buildForecast, type ForecastYear } from "@/lib/forecast";
+import {
+  FORECAST_YEARS,
+  buildForecast,
+  resolveTickerForecastPath,
+  type ForecastYear,
+} from "@/lib/forecast";
+import { anchorForHolding } from "@/lib/company/ladder-anchor";
+import { buildPlanLadder } from "@/lib/company/plan-ladder";
 import {
   loadEoyOverrides,
   mergeEoyTargetPaths,
@@ -463,6 +471,10 @@ export function Dashboard() {
   const [costBasisRows, setCostBasisRows] = useState<CostBasisRow[]>([]);
   const [drawerTicker, setDrawerTicker] = useState<string | null>(null);
   const convictionMap = labBundle.conviction;
+  // Memoized because it feeds the alert arithmetic below: a fresh object
+  // literal every render would rebuild every holding's ladder on every
+  // render of this page.
+  const labLadders = useMemo(() => labBundle.ladders ?? {}, [labBundle.ladders]);
   const [earningsEvents, setEarningsEvents] = useState<
     Array<{ ticker: string; date: string; days: number }>
   >([]);
@@ -943,6 +955,68 @@ export function Dashboard() {
     the conditions: the "Worth a look" room below, the borrowed-money card
     on Home (`CashAlertCard`), and the news dot on both docks.
   */
+  /*
+    Every holding's own price plan, evaluated against the price this
+    browser already has, so a level being reached is noticed on Home
+    without a second fetch. The ladder is the same one the drawer draws
+    and the arithmetic is the same function, which is the point: a level
+    a reader saw on one screen has to be the level that wakes them on
+    another.
+  */
+  const ladderRows = useMemo(() => {
+    const firstYear = FORECAST_YEARS[0];
+    if (firstYear == null) return [];
+    const seen = new Set<string>();
+    const rows: {
+      ticker: string;
+      spot: number;
+      bandId: string;
+      bandLabel: string;
+      edge: number | null;
+      edited: boolean;
+    }[] = [];
+    for (const t of overview.tickers) {
+      const ticker = t.ticker.toUpperCase();
+      if (seen.has(ticker)) continue;
+      seen.add(ticker);
+      const spot = quotes[ticker]?.price ?? null;
+      if (!spot || !(spot > 0)) continue;
+      const path = resolveTickerForecastPath(ticker, spot, eoyOverrides);
+      const anchor = anchorForHolding({
+        target: path.eoyPrices[firstYear] ?? null,
+        targetIsYours: Boolean(path.targetedYears[firstYear]),
+      });
+      if (!anchor) continue;
+      const closes = (quotes[ticker]?.sparkline ?? []).filter(
+        (n) => Number.isFinite(n) && n > 0
+      );
+      const ladder = buildPlanLadder({
+        ticker,
+        anchor: anchor.price,
+        anchorKind: anchor.kind,
+        anchorSaid: anchor.said,
+        spot,
+        high: closes.length > 1 ? Math.max(...closes) : null,
+        low: closes.length > 1 ? Math.min(...closes) : null,
+        windowSaid: "the last few months",
+        override: labLadders[ticker] ?? null,
+      });
+      const band = ladder?.bands.find((b) => b.id === ladder.atId);
+      if (!ladder || !band) continue;
+      rows.push({
+        ticker,
+        spot,
+        bandId: band.id,
+        bandLabel: band.label,
+        // The edge the price crossed to get here: the floor of a band you
+        // rose into, the ceiling of one you fell into.
+        edge: band.id === "trim-most" ? band.from : band.to,
+        edited: ladder.edited,
+      });
+    }
+    return rows;
+  }, [overview.tickers, quotes, eoyOverrides, labLadders]);
+
   const bookAlerts = useMemo<UpsideAlert[]>(() => {
     // No options experience -> no strike-planning alerts at all, not just
     // a de-emphasized card. These are pure covered-call mechanics.
@@ -971,8 +1045,8 @@ export function Dashboard() {
       equityValue: overview.totals.equityValue,
       topTicker: top ? { ticker: top.ticker, value: top.currentValue } : null,
     });
-    return [...earn, ...strike, ...decisions];
-  }, [bookCoveredCallRows, earningsEvents, overview, hideOptionsUI]);
+    return [...earn, ...strike, ...buildLadderAlerts(ladderRows), ...decisions];
+  }, [bookCoveredCallRows, earningsEvents, overview, hideOptionsUI, ladderRows]);
 
   const activeAlerts = useMemo(
     () => bookAlerts.filter((a) => !dismissedAlertIds.has(a.id)),
@@ -2989,6 +3063,7 @@ export function Dashboard() {
         isMetaTab={isMetaTab}
         eoyOverrides={eoyOverrides}
         convictionMap={convictionMap}
+        labLadders={labLadders}
         drawerCoveredCallRow={drawerCoveredCallRow}
         commandItems={commandItems}
         silentScreenshot={silentScreenshot}
