@@ -981,6 +981,9 @@ export function planLadderProvenance(input: {
   anchor?: string | null;
   anchorSaid?: string | null;
   stepSaid?: string | null;
+  floorSaid?: string | null;
+  /** The bands were tightened because the price is far under the anchor. */
+  farBelow?: boolean;
   edited?: boolean;
   at?: string | null;
 }): Provenance {
@@ -998,6 +1001,12 @@ export function planLadderProvenance(input: {
         what: "How wide each band is",
         detail: input.stepSaid ?? "read off the year's high and low for this share",
       },
+      {
+        what: "The bottom of the ladder",
+        detail:
+          input.floorSaid ??
+          "the lowest this share has actually traded in a year, where the feed carried one",
+      },
       { what: "Today's price", detail: "which decides only which band it lands in" },
       ...(input.edited
         ? [{ what: "The levels you typed", detail: "which replace the worked-out ones" }]
@@ -1011,8 +1020,13 @@ export function planLadderProvenance(input: {
     ],
     steps: [
       "The anchor is taken from the valuation panel below, unmodified. Nothing here re-estimates it and nothing nudges it towards today's price.",
-      "The band width is the share's own year, high against low, measured against that anchor: a share that swings twice as far gets bands twice as wide, held between a twentieth and a fifth of the anchor either way.",
-      "Each level is the anchor times a fixed multiple, and the floor sits further down for a share that swings harder, because a hard-swinging share reaches a given fall on an ordinary bad month.",
+      "Each band is a tenth of the anchor wide, which is the width the ladders this was built from use. Two fifths of how far this share's own year ran, against an ordinary company's, is added on top, so a name that barely moves gets slightly finer bands and one that swings hard slightly coarser.",
+      ...(input.farBelow
+        ? [
+            "The bands are tighter than that here, because the price is a long way under the anchor. Down there every price is the same decision, so the fine detail belongs at the top, where the levels you would actually meet are, and the stretch below is one band rather than five.",
+          ]
+        : []),
+      "The bottom of the ladder is the lowest this share has actually traded in a year, where the feed carried one and it sits clear of the band above it. It is a price rather than a fraction of the estimate, so it is a level you can check.",
       "Today's price is then read against those levels. That is the whole calculation: no model, no scoring, no view about this company.",
     ],
     blindSpots: [

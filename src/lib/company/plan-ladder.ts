@@ -76,6 +76,24 @@ export type PlanLadder = {
   step: number;
   /** Why the step is that wide, naming the figure it was read off. */
   stepSaid: string;
+  /**
+   * True where the price is far enough under the anchor that the upper
+   * bands were tightened. Said out loud, because a ladder three per cent
+   * wide next to one ten per cent wide reads as a fault otherwise.
+   */
+  farBelow: boolean;
+  /**
+   * Whether the bottom of the ladder is a price the share has actually
+   * traded at, or a fraction of the anchor because no year was on file.
+   *
+   * A flag rather than something a caller reads back out of `floorSaid`:
+   * the Cash card already taught this app what happens when a surface
+   * decides what to do by running a regex over its own copy, which is
+   * that rewording a sentence changes behaviour.
+   */
+  floorFromYear: boolean;
+  /** Where the bottom of the ladder came from, in a sentence. */
+  floorSaid: string;
   bands: LadderBand[];
   /** Today's price, when there is one. */
   spot: number | null;
@@ -117,15 +135,62 @@ export const BASE_STEP = 0.1;
 /**
  * The narrowest and widest a band may be.
  *
- * A step under the floor makes a ladder that a steady company crosses
- * twice a week, which is a plan that fires constantly and therefore says
- * nothing. A step over the ceiling makes one whose bands are so wide that
- * a company can halve inside a single band, which is a plan that never
- * fires at all. Both failures are the same failure: a level nobody would
- * ever act on.
+ * Deliberately close either side of `BASE_STEP` rather than the wide
+ * bracket this started with. The reference ladders put a flat 10% on two
+ * companies whose volatility is nothing like each other's, which is good
+ * evidence that the source treats the step as a constant, and a step that
+ * wanders between a twentieth and a fifth is not the same ladder any
+ * more. What is left inside these bounds is a mild correction, not a
+ * different design: a name that barely moves gets slightly finer bands
+ * and one that swings hard slightly coarser.
  */
-export const MIN_STEP = 0.05;
-export const MAX_STEP = 0.2;
+export const MIN_STEP = 0.08;
+export const MAX_STEP = 0.14;
+
+/**
+ * How much of a name's own swing reaches the step.
+ *
+ * At 1 the step is proportional to the swing, which is what this file did
+ * first and which pulled an ordinary large company out to 15% on nothing
+ * but a wide year. At 0 it is the references' flat 10% for everything,
+ * including a coin. Two fifths keeps the references' number for an
+ * ordinary company and still separates a utility from something that
+ * halves twice a year.
+ *
+ * It matters more since the floor started coming from the year's low
+ * (`ladderFloor`): the same year would otherwise set both the width of
+ * every band and the depth of the floor, so one bad month would widen
+ * the whole ladder twice over.
+ */
+export const SWING_WEIGHT = 0.4;
+
+/**
+ * A SHARE TRADING A LONG WAY UNDER THE ANCHOR GETS A TIGHTER LADDER.
+ *
+ * Two of the four reference ladders are drawn on companies whose price
+ * is down in the accumulation band, and both of them use a step about a
+ * third of the other two's: 3.25% and 3.69% of the anchor against a flat
+ * 10%. That looked at first like an inconsistency in the references and
+ * it is the interesting part of them.
+ *
+ * The bands do a different job in the two cases. Near the anchor they are
+ * the granularity of a decision that is live: every 10% is another slice
+ * of a real choice about trimming or adding. A long way under it, every
+ * price between the floor and the bottom of the ladder is the SAME
+ * decision, so cutting that stretch into 10% slices is precision the
+ * situation does not have; what is worth resolving finely is the top,
+ * where the trimming levels are, because those are the ones this reader
+ * will meet if they are right about the company. So the upper bands
+ * tighten and the accumulation band swallows the whole gap, which is
+ * exactly the shape the two references have: 18.6 and 9.6 steps wide.
+ *
+ * `MIN_STEP` does not apply here and that is the point rather than an
+ * exception. That floor exists so a ladder does not fire twice a week,
+ * and it cannot: the price is nowhere near these bands, which is the
+ * condition that put it in this regime.
+ */
+export const FAR_BELOW_STEP_FACTOR = 1 / 3;
+export const MIN_STEP_FAR_BELOW = 0.03;
 
 /**
  * The swing that earns the reference ladder's own tenth-of-the-anchor step.
@@ -140,18 +205,60 @@ export const MAX_STEP = 0.2;
 const ORDINARY_SWING = 0.5;
 
 /**
- * How far below the anchor the bottom of the ladder sits.
+ * How far below the anchor the bottom of the ladder sits, when there is
+ * nothing better to put it on.
  *
  * Not a step. Every other edge on this ladder is a price where a reader
  * might do a bit more or a bit less of something; this one is the price
- * at which the estimates above are no longer describing the same company,
- * and on the reference ladders it lands about half the anchor. It moves
- * with the step for the same reason the bands do: a name that swings hard
- * reaches a given fall on an ordinary bad month, so its floor is further
- * down.
+ * at which the estimates above are no longer describing the same company.
+ * It moves with the step for the same reason the bands do: a name that
+ * swings hard reaches a given fall on an ordinary bad month, so its floor
+ * is further down.
+ *
+ * It is the fallback rather than the rule, because `ladderFloor` prefers
+ * a real level to a ratio.
  */
 export function exitRatio(step: number): number {
   return clamp(0.7 - 2 * step, 0.25, 0.55);
+}
+
+/**
+ * THE FLOOR IS THE YEAR'S LOW, NOT A FRACTION OF ANYTHING.
+ *
+ * The four reference ladders this was built from put their floor at
+ * 0.46, 0.51, 0.30 and 0.54 of their own anchor, which is not a ratio
+ * anybody chose: a rule would not produce four numbers that far apart on
+ * four ordinary companies. They are prices. The lowest a share has
+ * actually traded in a year is the one price down there that means
+ * something a reader can check, and "below anything it has traded at all
+ * year" is a sentence with evidence behind it, where "below half the
+ * estimate" is a sentence with arithmetic behind it and nothing else.
+ *
+ * Two guards, and both of them fall back rather than bending the number.
+ * A low that is not clear of the accumulation band above it is not a
+ * floor, it is the same level twice, so it stands down. And with no year
+ * on file there is nothing to read, so the ratio does the job it was
+ * always the fallback for.
+ */
+export function ladderFloor(input: {
+  anchor: number;
+  step: number;
+  low?: number | null;
+}): { price: number; fromYear: boolean } {
+  const { anchor, step } = input;
+  const byRatio = anchor * exitRatio(step);
+  const low = input.low;
+  if (!ok(low)) return { price: byRatio, fromYear: false };
+  /*
+    The bottom of the accumulation band, which is where the floor has to
+    sit clear of: closer than half a step and the ladder ends on two
+    levels a reader cannot tell apart.
+  */
+  const accumulationFloor = anchor * (1 - 3 * step);
+  if (low > accumulationFloor - anchor * step * 0.5) {
+    return { price: byRatio, fromYear: false };
+  }
+  return { price: low, fromYear: true };
 }
 
 function clamp(v: number, lo: number, hi: number): number {
@@ -195,7 +302,8 @@ export function stepFor(input: {
     };
   }
   const swing = (high - low) / anchor;
-  const raw = BASE_STEP * (swing / ORDINARY_SWING);
+  const raw =
+    BASE_STEP * (1 + (swing / ORDINARY_SWING - 1) * SWING_WEIGHT);
   const step = clamp(raw, MIN_STEP, MAX_STEP);
   const capped =
     raw > MAX_STEP
@@ -205,8 +313,30 @@ export function stepFor(input: {
         : "";
   return {
     step,
-    said: `Bands of ${percent(step, 0)} of the anchor. Over ${over} this one ran from ${currency(low, 2)} to ${currency(high, 2)}, which is ${percent(swing, 0)} of the anchor, against ${percent(ORDINARY_SWING, 0)} for an ordinary large company.${capped}`,
+    said: `Bands of ${percent(step, 0)} of the anchor, starting from the ${percent(BASE_STEP, 0)} an ordinary company gets. Over ${over} this one ran from ${currency(low, 2)} to ${currency(high, 2)}, which is ${percent(swing, 0)} of the anchor against ${percent(ORDINARY_SWING, 0)} for an ordinary large company, and two fifths of that difference reaches the bands.${capped}`,
   };
+}
+
+/**
+ * Whether this price is far enough under the anchor to be in the second
+ * regime, judged against the ordinary ladder rather than the tightened
+ * one.
+ *
+ * Read against the ordinary step on purpose, and not iterated: the
+ * tightened ladder's own accumulation band starts much higher, so asking
+ * the question of it would answer yes for almost any price under the
+ * anchor and the two regimes would have no boundary between them. The
+ * boundary is the bottom of the ladder a reader would otherwise have
+ * been shown.
+ */
+export function isFarBelow(input: {
+  anchor: number;
+  spot?: number | null;
+  ordinaryStep: number;
+}): boolean {
+  const { anchor, spot, ordinaryStep } = input;
+  if (!ok(spot) || !ok(anchor)) return false;
+  return spot < anchor * (1 - 3 * ordinaryStep);
 }
 
 /** One reader's edits to a ladder, as multiples of the anchor. */
@@ -243,15 +373,36 @@ export function buildPlanLadder(input: {
   const anchor = typed ?? (ok(input.anchor) ? input.anchor : null);
   if (!ok(anchor)) return null;
 
-  const { step, said } = stepFor({
+  const ordinary = stepFor({
     high: input.high,
     low: input.low,
     anchor,
     windowSaid: input.windowSaid,
   });
 
+  /*
+    The second regime. A price down in the accumulation band gets a
+    tighter ladder, for the reason `FAR_BELOW_STEP_FACTOR` gives, and the
+    sentence behind the mark says which regime the reader is looking at:
+    bands three per cent wide with no explanation would read as a bug on
+    a company whose neighbour on the next page has ten.
+  */
+  const over = input.windowSaid ?? "the last year";
+  const farBelow = isFarBelow({
+    anchor,
+    spot: input.spot,
+    ordinaryStep: ordinary.step,
+  });
+  const step = farBelow
+    ? Math.max(ordinary.step * FAR_BELOW_STEP_FACTOR, MIN_STEP_FAR_BELOW)
+    : ordinary.step;
+  const said = farBelow
+    ? `${ordinary.said} Tightened to ${percent(step, 2)} because the price is a long way under the anchor: down there every price is the same decision, so the fine detail belongs at the top, where the levels you would actually meet are.`
+    : ordinary.said;
+
   const edits = input.override?.edges ?? {};
-  const exitAt = exitRatio(step);
+  const floor = ladderFloor({ anchor, step, low: input.low });
+  const exitAt = floor.price / anchor;
 
   /*
     Every band's top edge, as a multiple of the anchor. The bottom of one
@@ -321,6 +472,18 @@ export function buildPlanLadder(input: {
       : input.anchorSaid,
     step,
     stepSaid: said,
+    farBelow,
+    floorFromYear: floor.fromYear,
+    /*
+      The window is carried into this sentence rather than assumed. A
+      holding's ladder is drawn from the price history the browser
+      already holds, which is about three months, and calling that "the
+      lowest in a year" would be a false sentence with a real number in
+      it, which is worse than either half alone.
+    */
+    floorSaid: floor.fromYear
+      ? `${currency(floor.price, 2)}, the lowest it has actually traded over ${over}. Under that level the price is below anything the market has paid for it in that time, which is a fact you can check rather than a fraction of the estimate.`
+      : `${currency(floor.price, 2)}, which is ${percent(1 - exitAt, 0)} under the anchor. There was no low over ${over} sitting clear of the band above it, so this one is worked out from the anchor rather than read off a price the share has actually traded at.`,
     bands,
     spot,
     atId: spot === null ? null : bandAt(bands, spot),

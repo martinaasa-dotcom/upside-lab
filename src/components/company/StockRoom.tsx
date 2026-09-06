@@ -394,6 +394,9 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
       read: fair,
       nextEarnings: page?.nextEarnings ?? null,
       exitLevel: ladder ? bandById(ladder, "exit")?.to ?? null : null,
+      // The floor is the year's low where the feed carried one, and that
+      // is a different sentence from a worked-out level.
+      exitFromYear: ladder?.floorFromYear ?? false,
       againstPoint: page?.brief?.caseAgainst?.[0]?.point ?? null,
     });
   }, [facts, fair, live.price, page?.nextEarnings, page?.brief, ladder]);

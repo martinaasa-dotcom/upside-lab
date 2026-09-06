@@ -352,7 +352,17 @@ export function PlanLadderFoot({
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-xs leading-relaxed text-muted-foreground">
         Anchored on {currency(ladder.anchor, 2, code)}, with bands{" "}
-        {percent(ladder.step, 0)} of it wide. {ADVICE_DISCLAIMER_SHORT}
+        {percent(ladder.step, ladder.farBelow ? 1 : 0)} of it wide
+        {/*
+          Said on the panel and not only behind the mark. A ladder three
+          per cent wide sitting next to one ten per cent wide reads as a
+          fault, and the reason it is tighter is a fact about this
+          company that the reader wants anyway.
+        */}
+        {ladder.farBelow
+          ? ", tighter than usual because the price is a long way under the anchor and the stretch below it is one band rather than five"
+          : ""}
+        . {ADVICE_DISCLAIMER_SHORT}
       </p>
       {ladder.edited && onReset && (
         <Button
@@ -397,6 +407,8 @@ export function PlanLadderPanel({
                 ticker,
                 anchorSaid: ladder.anchorSaid,
                 stepSaid: ladder.stepSaid,
+                floorSaid: ladder.floorSaid,
+                farBelow: ladder.farBelow,
                 edited: ladder.edited,
                 at,
               })}
