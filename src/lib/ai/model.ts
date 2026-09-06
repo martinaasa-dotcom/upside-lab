@@ -42,7 +42,7 @@ const DEFAULT_VISION_MODEL = "google/gemma-4-31b-it:free";
  * Free-tier backups when the primary OpenRouter model is rate-limited.
  * Deliberately excludes nemotron-3-ultra-550b: it answers with a valid
  * tool call but took 101s to do it, which is worse for the user than
- * failing fast and letting the provider chain move to Groq.
+ * failing fast and letting the provider chain move to the next provider.
  *
  * Both of these are slower than the primary (lightning measured ~8s) and
  * are here to keep answering when it is rate limited, not to match it.
@@ -55,15 +55,13 @@ const DEFAULT_TEXT_FALLBACKS = [
 const DEFAULT_VISION_FALLBACKS = ["google/gemma-4-26b-a4b-it:free"];
 
 /*
- * The other three providers name a model per free tier rather than in the
+ * The other two providers name a model per free tier rather than in the
  * slug, so their defaults are named here and checked against the audited
- * list in `free-models.ts` like any env override. 20b on Groq finishes a
- * valid JSON object where 120b thinks longer and more often dies mid-update;
- * Cerebras's gpt-oss-120b is their current production model and matches
- * Groq's structured-output-safe family; Gemini's is a rolling alias rather
- * than a dated snapshot, since Google retires dated ids over time.
+ * list in `free-models.ts` like any env override. Cerebras's gpt-oss-120b
+ * is their current production model and is safe for structured output;
+ * Gemini's is a rolling alias rather than a dated snapshot, since Google
+ * retires dated ids over time.
  */
-const GROQ_DEFAULT_MODEL = "openai/gpt-oss-20b";
 const GEMINI_DEFAULT_MODEL = "gemini-flash-latest";
 const CEREBRAS_DEFAULT_MODEL = "gpt-oss-120b";
 
@@ -171,7 +169,17 @@ function openRouterFetchWithFallbacks(
   };
 }
 
-export type AdvisorProviderId = "openrouter" | "groq" | "gemini" | "cerebras";
+/*
+ * Groq is deliberately not here, and its absence is load-bearing rather
+ * than an omission. Free-ness on Groq is a property of the ACCOUNT, not of
+ * the model: once a key is on the paid tier every model on it bills per
+ * token, gpt-oss-20b included, so no per-model allowlist can make that leg
+ * safe. The key this project would use is a paid-tier key shared with
+ * another project, so the leg is gone and the type says so: re-adding one
+ * means deliberately re-adding the id, which is where somebody has to
+ * argue that the account behind the key is free.
+ */
+export type AdvisorProviderId = "openrouter" | "gemini" | "cerebras";
 
 export type AdvisorProviderCandidate = {
   id: AdvisorProviderId;
@@ -187,13 +195,12 @@ export type AdvisorProviderCandidate = {
 
 /**
  * Full ordered chain of every CONFIGURED free-tier provider — OpenRouter
- * (with its own internal free-model list fallback), then Groq, Gemini, and
+ * (with its own internal free-model list fallback), then Gemini, then
  * Cerebras, each only included when its API key is set. Every tier here is
  * a free tier; add resilience by getting a free key, not by paying anyone.
  *
- * Vision requests skip Groq/Cerebras (their hosted OSS models are
- * text-only) and go OpenRouter -> Gemini, since Gemini is natively
- * multimodal.
+ * Vision requests skip Cerebras (its hosted OSS models are text-only) and
+ * go OpenRouter -> Gemini, since Gemini is natively multimodal.
  */
 export function buildAdvisorProviderChain(options?: {
   vision?: boolean;
@@ -203,28 +210,6 @@ export function buildAdvisorProviderChain(options?: {
   const vision = Boolean(options?.vision) && !options?.reasoning;
   const speaking = Boolean(options?.speaking) && !vision && !options?.reasoning;
   const chain: AdvisorProviderCandidate[] = [];
-
-  // Groq leads for text: measured 380-640ms with dependable tool calls,
-  // against 5s at best and 100s at worst on OpenRouter's free tier, which
-  // also 404s and 429s far more often. It can't take images though, so
-  // vision still starts at OpenRouter below.
-  if (hasKey("GROQ_API_KEY") && !vision) {
-    const groq = createOpenAI({
-      apiKey: process.env.GROQ_API_KEY,
-      baseURL: "https://api.groq.com/openai/v1",
-    });
-    // 20b on Groq finishes a valid JSON object. 120b thinks longer and
-    // more often dies mid-update. llama-3.3-70b-versatile 400s on
-    // generateObject, so it is not a fallback for those jobs.
-    const groqModel = freeModelIdOr(
-      "groq",
-      speaking
-        ? (process.env.GROQ_CHAT_MODEL ?? process.env.GROQ_MODEL)
-        : process.env.GROQ_MODEL,
-      GROQ_DEFAULT_MODEL
-    );
-    chain.push({ id: "groq", model: groq.chat(groqModel), modelId: groqModel });
-  }
 
   if (hasKey("OPENROUTER_API_KEY")) {
     const modelId = resolveAdvisorModelId(options);
@@ -271,7 +256,7 @@ export function buildAdvisorProviderChain(options?: {
     });
     // llama-3.3-70b no longer exists on Cerebras's catalog (confirmed
     // 404 against the live API) — gpt-oss-120b is their current
-    // production model and matches Groq's structured-output-safe choice.
+    // production model and is safe for structured output.
     const cerebrasModel = freeModelIdOr(
       "cerebras",
       speaking
@@ -315,7 +300,7 @@ export const STRUCTURED_PROVIDER_OPTIONS = {
  * Try a non-streaming call (generateText / generateObject) against each
  * configured provider in order, moving to the next on any failure —
  * OpenRouter's account-wide daily quota running out no longer means Margus
- * is down if Groq/Gemini/Cerebras are also configured.
+ * is down if Gemini/Cerebras are also configured.
  */
 export type AdvisorFallbackOptions = {
   /**
@@ -344,7 +329,7 @@ const MIN_ATTEMPT_MS = 5_000;
  * A live failure is far better evidence than a ping, so trust it and
  * step over that provider for a few minutes.
  *
- * Bounded by the number of providers (4), so nothing accumulates.
+ * Bounded by the number of providers (3), so nothing accumulates.
  */
 const providerCooldownUntil = new Map<AdvisorProviderId, number>();
 const PROVIDER_COOLDOWN_MS = 3 * 60 * 1000;
@@ -389,7 +374,7 @@ export async function withAdvisorFallback<T>(
 ): Promise<T> {
   if (chain.length === 0) {
     throw new Error(
-      "No LLM key configured. Set OPENROUTER_API_KEY (or GROQ_API_KEY / GEMINI_API_KEY / CEREBRAS_API_KEY) in .env.local."
+      "No LLM key configured. Set OPENROUTER_API_KEY (or GEMINI_API_KEY / CEREBRAS_API_KEY) in .env.local."
     );
   }
   const order = usableChain(chain);
@@ -468,7 +453,7 @@ export function pickStreamingProvider(
 ): AdvisorProviderCandidate {
   if (chain.length === 0) {
     throw new Error(
-      "No LLM key configured. Set OPENROUTER_API_KEY (or GROQ_API_KEY / GEMINI_API_KEY / CEREBRAS_API_KEY) in .env.local."
+      "No LLM key configured. Set OPENROUTER_API_KEY (or GEMINI_API_KEY / CEREBRAS_API_KEY) in .env.local."
     );
   }
   const order = usableChain(chain);
@@ -506,7 +491,7 @@ export function invalidateStreamingProvider(cacheKey: string) {
  * status. OpenRouter's free-models-per-day cap is account-wide (shared
  * across every `:free` model), so falling back to a different free OpenRouter
  * model can't help there — Margus instead falls through to a different
- * PROVIDER (Groq/Gemini/Cerebras) when one is configured.
+ * PROVIDER (Gemini/Cerebras) when one is configured.
  */
 /**
  * Providers report the same failure in wildly different shapes: a message

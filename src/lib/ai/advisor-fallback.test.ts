@@ -10,7 +10,7 @@ describe("withAdvisorFallback", () => {
     await expect(
       withAdvisorFallback(
         [
-          { id: "groq", model: dummy, modelId: "openai/gpt-oss-20b" },
+          { id: "openrouter", model: dummy, modelId: "some/model:free" },
           { id: "gemini", model: dummy, modelId: "gemini-flash-latest" },
         ],
         async () => {
@@ -21,7 +21,7 @@ describe("withAdvisorFallback", () => {
 
     const joined = spy.mock.calls.map((c) => String(c[0])).join("\n");
     expect(joined).toContain("advisor chain exhausted");
-    expect(joined).toContain("groq");
+    expect(joined).toContain("openrouter");
     expect(joined).toContain("gemini");
     spy.mockRestore();
   });

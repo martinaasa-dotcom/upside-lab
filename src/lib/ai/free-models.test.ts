@@ -21,9 +21,6 @@ const ENV_KEYS = [
   "OPENROUTER_MODEL",
   "OPENROUTER_VISION_MODEL",
   "OPENROUTER_API_KEY",
-  "GROQ_API_KEY",
-  "GROQ_MODEL",
-  "GROQ_CHAT_MODEL",
   "GEMINI_API_KEY",
   "GEMINI_MODEL",
   "CEREBRAS_API_KEY",
@@ -65,8 +62,6 @@ describe("isFreeModelId", () => {
   });
 
   it("takes a named provider's model only from the audited list", () => {
-    expect(isFreeModelId("groq", "openai/gpt-oss-20b")).toBe(true);
-    expect(isFreeModelId("groq", "llama-3.3-70b-specdec-paid")).toBe(false);
     expect(isFreeModelId("gemini", "gemini-flash-latest")).toBe(true);
     // Pro's free allowance varies per key tier, so it is not on the list.
     expect(isFreeModelId("gemini", "gemini-2.5-pro")).toBe(false);
@@ -75,7 +70,7 @@ describe("isFreeModelId", () => {
   });
 
   it("refuses an empty or blank id rather than sending one", () => {
-    expect(isFreeModelId("groq", "")).toBe(false);
+    expect(isFreeModelId("gemini", "")).toBe(false);
     expect(isFreeModelId("openrouter", "   ")).toBe(false);
   });
 });
@@ -96,7 +91,7 @@ describe("freeModelIdOr", () => {
   });
 
   it("throws on a paid in-code default rather than laundering it", () => {
-    expect(() => freeModelIdOr("groq", undefined, "some-paid-model")).toThrow(
+    expect(() => freeModelIdOr("gemini", undefined, "some-paid-model")).toThrow(
       /not free-tier/
     );
   });
@@ -129,11 +124,9 @@ describe("the advisor chain never sends a paid model", () => {
 
   it("refuses a paid model on every provider leg", () => {
     process.env.OPENROUTER_API_KEY = "k";
-    process.env.GROQ_API_KEY = "k";
     process.env.GEMINI_API_KEY = "k";
     process.env.CEREBRAS_API_KEY = "k";
     process.env.MODEL = "openai/gpt-5";
-    process.env.GROQ_MODEL = "some-paid-groq-model";
     process.env.GEMINI_MODEL = "gemini-2.5-pro";
     process.env.CEREBRAS_MODEL = "some-paid-cerebras-model";
 
@@ -141,7 +134,6 @@ describe("the advisor chain never sends a paid model", () => {
     expect(chain.map((c) => c.id).sort()).toEqual([
       "cerebras",
       "gemini",
-      "groq",
       "openrouter",
     ]);
     for (const candidate of chain) {
@@ -151,7 +143,6 @@ describe("the advisor chain never sends a paid model", () => {
 
   it("sends only free models with nothing configured at all", () => {
     process.env.OPENROUTER_API_KEY = "k";
-    process.env.GROQ_API_KEY = "k";
     process.env.GEMINI_API_KEY = "k";
     process.env.CEREBRAS_API_KEY = "k";
     for (const options of [
@@ -167,6 +158,37 @@ describe("the advisor chain never sends a paid model", () => {
         expect(isFreeModelId("openrouter", id)).toBe(true);
       }
     }
+  });
+});
+
+describe("a paid-tier provider is not in the chain at all", () => {
+  /*
+    Free-ness on Groq is a property of the account, not of the model: a key
+    on the paid tier bills per token for every model on it. So there is no
+    Groq leg, and a Groq key present in the environment must not conjure
+    one. A per-model allowlist could never have expressed this, which is
+    why the leg is gone rather than narrowed.
+  */
+  it("builds no leg for a Groq key, whatever else is set", () => {
+    process.env.GROQ_API_KEY = "k";
+    process.env.GROQ_MODEL = "openai/gpt-oss-20b";
+    process.env.GROQ_CHAT_MODEL = "openai/gpt-oss-20b";
+    for (const options of [
+      undefined,
+      { vision: true },
+      { reasoning: true },
+      { speaking: true },
+    ]) {
+      const ids = buildAdvisorProviderChain(options).map((c) => String(c.id));
+      expect(ids).not.toContain("groq");
+    }
+    delete process.env.GROQ_API_KEY;
+    delete process.env.GROQ_MODEL;
+    delete process.env.GROQ_CHAT_MODEL;
+  });
+
+  it("has no free-tier list to tempt a Groq leg back", () => {
+    expect(Object.keys(FREE_MODELS)).not.toContain("groq");
   });
 });
 
@@ -196,15 +218,13 @@ describe("model.ts cannot name a model outside the guard", () => {
 
   it("keeps every in-code default on the free tier", () => {
     const defaults = [...src.matchAll(/const \w*DEFAULT\w*MODEL = "([^"]+)"/g)];
-    expect(defaults.length).toBeGreaterThanOrEqual(5);
+    expect(defaults.length).toBeGreaterThanOrEqual(4);
     for (const [, id] of defaults) {
       const provider = id!.includes(":free")
         ? "openrouter"
         : id!.startsWith("gemini")
           ? "gemini"
-          : id!.includes("/")
-            ? "groq"
-            : "cerebras";
+          : "cerebras";
       expect(isFreeModelId(provider, id!), id).toBe(true);
     }
   });

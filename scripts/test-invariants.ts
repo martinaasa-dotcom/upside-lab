@@ -3898,8 +3898,11 @@ run("chat does not ping the model before the first token", () => {
   assert.match(chat, /rememberStreamingProvider/);
   assert.match(chat, /speaking:\s*true/);
   assert.match(chat, /reasoningEffort:\s*"low"/);
-  assert.match(model, /GROQ_CHAT_MODEL/);
-  assert.match(model, /openai\/gpt-oss-20b/);
+  // The chat leg used to be Groq's, named by GROQ_CHAT_MODEL. That leg is
+  // gone (its key bills per token), so what this holds now is that a
+  // provider with a separate chat model still has one: `speaking` picks it.
+  assert.match(model, /CEREBRAS_CHAT_MODEL/);
+  assert.match(model, /speaking/);
   assert.match(model, /STRUCTURED_PROVIDER_OPTIONS/);
   assert.match(
     readFileSync(join(process.cwd(), "src/app/api/forecast/plan/route.ts"), "utf8"),
@@ -4299,7 +4302,7 @@ run("Pulse does not hourly-refresh the model", () => {
   );
 });
 
-run("Pulse matches $AAPL to AAPL and keeps trimPct required for Groq", () => {
+run("Pulse matches $AAPL to AAPL and keeps trimPct required", () => {
   assert.equal(pulseTickerKey("$AAPL"), "AAPL");
   assert.equal(pulseTickerKey(" aapl "), "AAPL");
   assert.equal(pulseTickerKey("AAPL"), "AAPL");

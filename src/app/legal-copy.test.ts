@@ -98,12 +98,16 @@ describe("the privacy policy matches what the code does", () => {
       "Twelve Data",
       "Finnhub",
       "OpenRouter",
-      "Groq",
       "Gemini",
       "Cerebras",
     ]) {
       expect(privacy).toContain(party);
     }
+    // Naming a provider the app does not send anything to is as wrong as
+    // failing to name one it does. Groq was removed from the chain because
+    // the key available for it is a paid-tier one, so it must not be listed
+    // among the places a reader's data goes.
+    expect(privacy).not.toContain("Groq");
   });
 
   it("names both kinds of mail the app sends on its own", () => {

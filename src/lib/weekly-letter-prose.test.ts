@@ -287,7 +287,7 @@ describe("the rest summary is the whole portfolio, not the table", () => {
 describe("a letter the model did not write says so", () => {
   it("reports the fallback and why, rather than falling back in silence", async () => {
     const seen: { source: string; reason: string }[] = [];
-    const keys = ["GROQ_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY"];
+    const keys = ["OPENROUTER_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY"];
     const saved = keys.map((k) => [k, process.env[k]] as const);
     for (const k of keys) delete process.env[k];
     try {
@@ -319,7 +319,7 @@ describe("the model gets more than one go", () => {
 
   /** Answers, in order, from a stubbed provider. */
   function stubModel(answers: string[]) {
-    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubEnv("OPENROUTER_API_KEY", "test-key");
     let n = 0;
     return vi.spyOn(model, "withAdvisorFallback").mockImplementation(async () => {
       const text = answers[Math.min(n, answers.length - 1)];

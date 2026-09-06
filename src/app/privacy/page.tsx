@@ -140,7 +140,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong className="text-foreground">AI model providers</strong>{" "}
-              (OpenRouter first, then Groq, Gemini, and Cerebras when one of
+              (OpenRouter first, then Gemini, and Cerebras when one of
               them is not answering). Chat,
               Pulse, the Sunday letter, Forecast, and screenshot import send the
               relevant context, and for screenshots the image itself, to

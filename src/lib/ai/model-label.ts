@@ -23,6 +23,15 @@ export type ModelRun = {
   model?: string | null;
 };
 
+/*
+ * Keyed on strings rather than on `AdvisorProviderId`, because this map has
+ * to answer for runs that already happened. Groq is no longer in the chain
+ * (its key bills per token), but rows written while it was still carry
+ * `provider: "groq"` in the forecast cache and the Pulse stamps, and a
+ * reader opening the provenance mark on one of those is owed the name of
+ * whoever actually ran it. Dropping the entry would answer "run by" with
+ * nothing on a run that has a perfectly good answer.
+ */
 const HOSTS: Record<string, string> = {
   groq: "Groq",
   openrouter: "OpenRouter",

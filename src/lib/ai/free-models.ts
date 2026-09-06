@@ -3,8 +3,8 @@
  * is a rule rather than a habit. The chain in `model.ts` was written that
  * way and nothing enforced it: every model id is an env override away from
  * being something else, and a paid slug does not fail, it bills. `MODEL`,
- * `MODEL_FORECAST`, `MODEL_FALLBACKS`, `GROQ_MODEL`, `GEMINI_MODEL` and
- * `CEREBRAS_MODEL` are all read straight from the environment, so a typo,
+ * `MODEL_FORECAST`, `MODEL_FALLBACKS`, `GEMINI_MODEL` and `CEREBRAS_MODEL`
+ * are all read straight from the environment, so a typo,
  * a copied line from a provider's docs, or somebody reaching for a smarter
  * model to fix one bad answer is all it takes.
  *
@@ -32,20 +32,22 @@
  * it was checked, rather than in an environment variable nobody reads.
  */
 
-export type ModelProviderId = "openrouter" | "groq" | "gemini" | "cerebras";
+/*
+ * Groq is deliberately absent, and this is the file where that decision has
+ * to be understood rather than worked around. Free-ness on Groq is a
+ * property of the ACCOUNT and not of the model: a key on the paid tier
+ * bills per token for every model on it, gpt-oss-20b included, so there is
+ * no list of Groq model ids that would be safe to put here. `model.ts`
+ * therefore has no Groq leg at all. Adding one back is not a matter of
+ * adding ids to this file.
+ */
+export type ModelProviderId = "openrouter" | "gemini" | "cerebras";
 
 /** Verified against each provider's own pricing/limits page, 2026-09-06. */
 export const FREE_MODELS: Record<
   Exclude<ModelProviderId, "openrouter">,
   readonly string[]
 > = {
-  // console.groq.com/docs/rate-limits — the free tier's on-demand models.
-  groq: [
-    "openai/gpt-oss-20b",
-    "openai/gpt-oss-120b",
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-  ],
   // ai.google.dev/pricing — the models with a free tier. Deliberately no
   // Pro entry: Pro's free allowance comes and goes per key tier, and a
   // model that is free for one key and billed for the next is not a model

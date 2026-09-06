@@ -1,6 +1,6 @@
 /**
  * Live check of the free advisor chain. Not a CI job: it needs real keys
- * and it talks to OpenRouter / Groq / Gemini / Cerebras.
+ * and it talks to OpenRouter / Gemini / Cerebras.
  *
  *   npx tsx scripts/probe-free-models.ts
  *
@@ -39,7 +39,6 @@ async function listOpenRouterFree(): Promise<OpenRouterModel[]> {
 
 function reportKeys() {
   const names = [
-    "GROQ_API_KEY",
     "OPENROUTER_API_KEY",
     "GEMINI_API_KEY",
     "CEREBRAS_API_KEY",
