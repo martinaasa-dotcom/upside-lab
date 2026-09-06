@@ -17,6 +17,21 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildWeeklyLetter, type WeeklyLetterInput } from "@/lib/weekly-letter";
 import { fallbackWeeklyTake, writeWeeklyTake } from "@/lib/weekly-margus";
 import * as model from "@/lib/ai/model";
+import { buildAdvisorProviderChain } from "@/lib/ai/model";
+
+/**
+ * Every key that can put a leg in the advisor chain. A test that means
+ * "no model provider" has to clear all of them, and one that stubs a
+ * single provider has to blank the rest, or the machine's own environment
+ * decides what the chain looks like.
+ */
+const PROVIDER_KEYS = [
+  "OPENROUTER_API_KEY",
+  "GROQ_API_KEY",
+  "NVIDIA_API_KEY",
+  "CEREBRAS_API_KEY",
+  "OPENAI_API_KEY",
+] as const;
 
 const NOW = new Date("2026-09-06T05:00:00Z");
 
@@ -287,9 +302,21 @@ describe("the rest summary is the whole portfolio, not the table", () => {
 describe("a letter the model did not write says so", () => {
   it("reports the fallback and why, rather than falling back in silence", async () => {
     const seen: { source: string; reason: string }[] = [];
-    const keys = ["OPENROUTER_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY"];
-    const saved = keys.map((k) => [k, process.env[k]] as const);
-    for (const k of keys) delete process.env[k];
+    const saved = PROVIDER_KEYS.map((k) => [k, process.env[k]] as const);
+    for (const k of PROVIDER_KEYS) delete process.env[k];
+    /*
+      Clearing three of the keys was enough until the chain grew a fourth
+      leg, and then this test stopped testing what it says. On a machine
+      with a real NVIDIA key set it built a live chain and made an actual
+      network call, which is slow, spends somebody's quota, and only failed
+      as a timeout with nothing saying why. CI has no keys, so it passed
+      there and nowhere else. Assert the premise instead of assuming it:
+      the next provider added fails here immediately, with a reason.
+    */
+    expect(
+      buildAdvisorProviderChain(),
+      "a provider key survived: this test would call it for real"
+    ).toHaveLength(0);
     try {
       const take = await writeWeeklyTake(letterOf(BOOK, WATCH), {
         onOutcome: (o) => seen.push(o),
@@ -319,6 +346,10 @@ describe("the model gets more than one go", () => {
 
   /** Answers, in order, from a stubbed provider. */
   function stubModel(answers: string[]) {
+    // Blank every other leg, so the chain is exactly one provider whatever
+    // the machine running this has configured. An empty string reads as
+    // absent to `hasKey`.
+    for (const k of PROVIDER_KEYS) vi.stubEnv(k, "");
     vi.stubEnv("OPENROUTER_API_KEY", "test-key");
     let n = 0;
     return vi.spyOn(model, "withAdvisorFallback").mockImplementation(async () => {

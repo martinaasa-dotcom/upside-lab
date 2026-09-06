@@ -11,7 +11,7 @@ describe("withAdvisorFallback", () => {
       withAdvisorFallback(
         [
           { id: "openrouter", model: dummy, modelId: "some/model:free" },
-          { id: "gemini", model: dummy, modelId: "gemini-flash-latest" },
+          { id: "nvidia", model: dummy, modelId: "nvidia/nemotron-3-super-120b-a12b" },
         ],
         async () => {
           throw new Error("provider down");
@@ -22,7 +22,7 @@ describe("withAdvisorFallback", () => {
     const joined = spy.mock.calls.map((c) => String(c[0])).join("\n");
     expect(joined).toContain("advisor chain exhausted");
     expect(joined).toContain("openrouter");
-    expect(joined).toContain("gemini");
+    expect(joined).toContain("nvidia");
     spy.mockRestore();
   });
 });

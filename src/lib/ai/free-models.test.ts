@@ -27,8 +27,6 @@ const ENV_KEYS = [
   "NVIDIA_API_KEY",
   "NVIDIA_MODEL",
   "NVIDIA_CHAT_MODEL",
-  "GEMINI_API_KEY",
-  "GEMINI_MODEL",
   "CEREBRAS_API_KEY",
   "CEREBRAS_MODEL",
   "CEREBRAS_CHAT_MODEL",
@@ -74,15 +72,12 @@ describe("isFreeModelId", () => {
       true
     );
     expect(isFreeModelId("nvidia", "nvidia/not-a-real-model")).toBe(false);
-    expect(isFreeModelId("gemini", "gemini-flash-latest")).toBe(true);
-    // Pro's free allowance varies per key tier, so it is not on the list.
-    expect(isFreeModelId("gemini", "gemini-2.5-pro")).toBe(false);
     expect(isFreeModelId("cerebras", "gpt-oss-120b")).toBe(true);
     expect(isFreeModelId("cerebras", "llama-4-maverick-paid")).toBe(false);
   });
 
   it("refuses an empty or blank id rather than sending one", () => {
-    expect(isFreeModelId("gemini", "")).toBe(false);
+    expect(isFreeModelId("groq", "")).toBe(false);
     expect(isFreeModelId("openrouter", "   ")).toBe(false);
   });
 });
@@ -103,7 +98,7 @@ describe("freeModelIdOr", () => {
   });
 
   it("throws on a paid in-code default rather than laundering it", () => {
-    expect(() => freeModelIdOr("gemini", undefined, "some-paid-model")).toThrow(
+    expect(() => freeModelIdOr("groq", undefined, "some-paid-model")).toThrow(
       /not free-tier/
     );
   });
@@ -136,16 +131,19 @@ describe("the advisor chain never sends a paid model", () => {
 
   it("refuses a paid model on every provider leg", () => {
     process.env.OPENROUTER_API_KEY = "k";
-    process.env.GEMINI_API_KEY = "k";
+    process.env.GROQ_API_KEY = "k";
+    process.env.NVIDIA_API_KEY = "k";
     process.env.CEREBRAS_API_KEY = "k";
     process.env.MODEL = "openai/gpt-5";
-    process.env.GEMINI_MODEL = "gemini-2.5-pro";
+    process.env.GROQ_MODEL = "some-paid-groq-model";
+    process.env.NVIDIA_MODEL = "some-paid-nvidia-model";
     process.env.CEREBRAS_MODEL = "some-paid-cerebras-model";
 
     const chain = buildAdvisorProviderChain();
     expect(chain.map((c) => c.id).sort()).toEqual([
       "cerebras",
-      "gemini",
+      "groq",
+      "nvidia",
       "openrouter",
     ]);
     for (const candidate of chain) {
@@ -155,7 +153,8 @@ describe("the advisor chain never sends a paid model", () => {
 
   it("sends only free models with nothing configured at all", () => {
     process.env.OPENROUTER_API_KEY = "k";
-    process.env.GEMINI_API_KEY = "k";
+    process.env.GROQ_API_KEY = "k";
+    process.env.NVIDIA_API_KEY = "k";
     process.env.CEREBRAS_API_KEY = "k";
     for (const options of [
       undefined,
@@ -196,16 +195,28 @@ describe("a leg is only as free as the account behind its key", () => {
     }
   });
 
-  it("keeps Groq and NVIDIA out of a request carrying a picture", () => {
-    // Neither serves a vision model here, so a screenshot walks a shorter
-    // chain. A leg that cannot answer must not be offered the request.
+  it("gives a picture more than one leg to land on", () => {
+    /*
+      Deleting the Gemini key left screenshot import resting on OpenRouter
+      alone, on the one screen a new reader meets first. Groq and NVIDIA
+      both read the test image correctly through a forced tool call, so
+      they carry vision too, on a different model from their text one.
+    */
     process.env.GROQ_API_KEY = "k";
     process.env.NVIDIA_API_KEY = "k";
     process.env.OPENROUTER_API_KEY = "k";
-    const ids = buildAdvisorProviderChain({ vision: true }).map((c) => c.id);
-    expect(ids).not.toContain("groq");
-    expect(ids).not.toContain("nvidia");
-    expect(ids).toContain("openrouter");
+    process.env.CEREBRAS_API_KEY = "k";
+    const chain = buildAdvisorProviderChain({ vision: true });
+    expect(chain.map((c) => c.id)).toEqual(["groq", "nvidia", "openrouter"]);
+    // Cerebras has no vision model at all, so it stays out.
+    expect(chain.map((c) => c.id)).not.toContain("cerebras");
+    // And a picture must not be sent to a text-only model: both 400 with
+    // "content must be a string", which is a failure, not a fallback.
+    const groq = chain.find((c) => c.id === "groq")!;
+    expect(groq.modelId).toBe("qwen/qwen3.8-27b");
+    for (const candidate of chain) {
+      expect(isFreeModelId(candidate.id, candidate.modelId)).toBe(true);
+    }
   });
 });
 
@@ -225,11 +236,22 @@ describe("model.ts cannot name a model outside the guard", () => {
     for (const arg of sends) {
       // A bare identifier, never an inline env read or a literal.
       expect(arg).toMatch(/^[A-Za-z][A-Za-z0-9]*$/);
-      expect(src).toMatch(
-        new RegExp(
-          `const ${arg} = (freeModelIdOr\\(|resolveAdvisorModelId\\()`
-        )
+      const decl = src.match(
+        new RegExp(`const ${arg} =([\\s\\S]*?);\\n`)
       );
+      expect(decl, `no declaration for ${arg}`).toBeTruthy();
+      const init = decl![1]!;
+      /*
+        Assert the rule, not today's syntax. A leg may resolve its id
+        through a ternary (text one way, vision the other), so what matters
+        is that every branch went through the guard and that nothing falls
+        back to a bare literal -- an env read coalesced to a model id is exactly
+        the shape that would put an unchecked id on the wire.
+      */
+      expect(init, `${arg} bypasses the guard`).toMatch(
+        /freeModelIdOr\(|resolveAdvisorModelId\(/
+      );
+      expect(init, `${arg} falls back to a bare literal`).not.toMatch(/\?\?\s*"/);
     }
   });
 
@@ -241,18 +263,31 @@ describe("model.ts cannot name a model outside the guard", () => {
       allowlist, which is a test failing for a reason that has nothing to do
       with what it is checking.
     */
-    const defaults = [
-      ...src.matchAll(/const (\w+)_DEFAULT_MODEL = "([^"]+)"/g),
-    ];
-    expect(defaults.length).toBeGreaterThanOrEqual(4);
-    for (const [, name, id] of defaults) {
-      const provider = name!.toLowerCase() as Parameters<
-        typeof isFreeModelId
-      >[0];
-      expect(isFreeModelId(provider, id!), `${name} = ${id}`).toBe(true);
+    /*
+      Text defaults and vision defaults both, since a vision model reaches
+      the wire exactly as a text one does. Named providers only: the
+      OpenRouter ones are spelt DEFAULT_*_MODEL and carry the rule in the
+      slug, and are checked separately below.
+    */
+    const named = new Map<string, string[]>();
+    for (const [, name, id] of src.matchAll(
+      /^const (\w+)_(?:DEFAULT|VISION)_MODEL = "([^"]+)"/gm
+    )) {
+      const provider = name!.toLowerCase();
+      if (!(provider in FREE_MODELS)) continue;
+      named.set(provider, [...(named.get(provider) ?? []), id!]);
     }
-    // The two OpenRouter defaults are named differently and carry the rule
-    // in the slug itself.
+    // Every provider with an audited list has an in-code default, so a new
+    // leg cannot arrive with its model named only in the environment.
+    expect([...named.keys()].sort()).toEqual(Object.keys(FREE_MODELS).sort());
+    for (const [provider, ids] of named) {
+      for (const id of ids) {
+        expect(
+          isFreeModelId(provider as Parameters<typeof isFreeModelId>[0], id),
+          `${provider} default ${id}`
+        ).toBe(true);
+      }
+    }
     for (const [, id] of src.matchAll(/const DEFAULT_\w*MODEL = "([^"]+)"/g)) {
       expect(isFreeModelId("openrouter", id!), id).toBe(true);
     }

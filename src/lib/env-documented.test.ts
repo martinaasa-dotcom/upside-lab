@@ -93,13 +93,7 @@ describe("what it says about the model chain is what the chain does", () => {
     const order = [...model.matchAll(/hasKey\("([A-Z_]+)_API_KEY"\)/g)].map(
       (m) => m[1]!.toLowerCase()
     );
-    expect(order).toEqual([
-      "groq",
-      "nvidia",
-      "openrouter",
-      "gemini",
-      "cerebras",
-    ]);
+    expect(order).toEqual(["groq", "nvidia", "openrouter", "cerebras"]);
     // Two providers spell themselves rather than capitalising: the rest
     // are just their own name with a capital on the front.
     const SPELT: Record<string, string> = {
@@ -117,12 +111,16 @@ describe("what it says about the model chain is what the chain does", () => {
     expect(example).not.toMatch(/Cerebras was evaluated and deliberately skipped/);
   });
 
-  it("says which legs a picture skips, because three of them do", () => {
-    // Groq, NVIDIA and Cerebras are each gated on `!vision`, so a
-    // screenshot import walks a shorter chain than a text question does.
-    for (const key of ["GROQ", "NVIDIA", "CEREBRAS"]) {
-      expect(model).toContain(`hasKey("${key}_API_KEY") && !vision`);
-    }
+  it("says which leg a picture skips, because only one does", () => {
+    /*
+      Cerebras has no vision model, so it alone is gated on `!vision`.
+      Groq and NVIDIA answer a picture on a different model from their text
+      one, which is what stopped screenshot import resting on OpenRouter
+      alone once the Gemini key was deleted.
+    */
+    expect(model).toContain('hasKey("CEREBRAS_API_KEY") && !vision');
+    expect(model).not.toContain('hasKey("GROQ_API_KEY") && !vision');
+    expect(model).not.toContain('hasKey("NVIDIA_API_KEY") && !vision');
     expect(example).toMatch(/skipped for a request carrying a picture/i);
   });
 
