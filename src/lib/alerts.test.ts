@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  alertDestination,
   alertSinceLine,
+  buildLadderAlerts,
   buildDecisionAlerts,
   buildEarningsAlerts,
   buildStrikeAlerts,
@@ -198,5 +200,38 @@ describe("since when", () => {
   it("says nothing when there is nothing recorded", () => {
     expect(alertSinceLine(null)).toBeNull();
     expect(alertSinceLine(undefined)).toBeNull();
+  });
+});
+
+describe("a card's button goes where the fact can be acted on", () => {
+  const ladder = buildLadderAlerts([
+    {
+      ticker: "NASA",
+      spot: 23.55,
+      bandId: "full",
+      bandLabel: "Full position",
+      edge: 22,
+      edited: false,
+    },
+  ]);
+
+  it("sends a price plan to Research, where the level is written", () => {
+    expect(ladder).toHaveLength(1);
+    expect(alertDestination(ladder[0])).toBe("research");
+    /*
+      The card's own learn line already tells the reader the level lives on
+      the company's page, so a button offering Pulse contradicted it.
+    */
+    expect(ladder[0].learn).toContain("Research page");
+  });
+
+  it("still sends every other card about a company to Pulse", () => {
+    expect(alertDestination({ kind: "results", ticker: "NVDA" })).toBe("pulse");
+    expect(alertDestination({ kind: "strike", ticker: "NVDA" })).toBe("pulse");
+  });
+
+  it("sends the borrowed-money card to the figure it is about", () => {
+    expect(alertDestination({ kind: "margin" })).toBe("cash");
+    expect(alertDestination({ kind: "concentration" })).toBe("overview");
   });
 });
