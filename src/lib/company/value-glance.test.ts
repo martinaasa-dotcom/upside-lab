@@ -236,6 +236,42 @@ describe("the valuation picture", () => {
     expect(src).not.toMatch(/<MicroLabel>12 month estimate<\/MicroLabel>/);
   });
 
+  /*
+    The labels hang from a band of their own rather than off the track, so
+    a mark with a note under its price cannot grow upward into the
+    subtitle. Measured on the real component before this: the taller mark's
+    first line came within 12px of the subtitle on a laptop and 8px on a
+    phone, and the two names sat 16px apart vertically. Neither is
+    something more `mt-*` fixes, because the space needed depends on how
+    many lines the tallest mark happens to have.
+  */
+  it("hangs the labels from a band of their own, not off the track", () => {
+    expect(src).toMatch(/relative h-\[3\.5rem\]/);
+    expect(src).toMatch(/"absolute top-0 flex -translate-x-1\/2 flex-col/);
+    expect(src).not.toMatch(/absolute bottom-full/);
+  });
+
+  /*
+    A reader cannot see what "the range of the estimates" is while the
+    estimates themselves are not on the picture. Two goes at captioning the
+    bar failed for that reason. Drawing each surviving method where it
+    landed makes the bar an obvious thing rather than a grey rectangle to
+    take on trust.
+  */
+  it("draws every method as its own tick, so the bar explains itself", () => {
+    expect(src).toMatch(/estimates\.map\(\(price\) => \(/);
+    expect(src).toMatch(/estimates: number\[\]/);
+  });
+
+  it("draws no band, no ticks and no end figures when there is no range", () => {
+    // One surviving method made the low and the high the same number, and
+    // the two end figures were pushed apart into the same price printed
+    // twice, which reads as a fault in the page.
+    expect(src).toMatch(/const hasBand = high > low;/);
+    expect(src).toMatch(/\{hasBand && \(/);
+    expect(src).toMatch(/\{hasBand &&\s*estimates\.map/);
+  });
+
   it("keeps two labels that nearly coincide from printing over each other", () => {
     expect(src).toMatch(/function spread\(/);
     expect(src).toMatch(/LABEL_GAP/);

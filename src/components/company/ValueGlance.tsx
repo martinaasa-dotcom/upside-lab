@@ -113,6 +113,7 @@ function Ladder({
   spot,
   blend,
   gap,
+  estimates,
   code,
 }: {
   low: number;
@@ -121,6 +122,8 @@ function Ladder({
   blend: number | null;
   /** The estimate against today, as a fraction. Printed on the mark. */
   gap: number | null;
+  /** Every surviving method's price, drawn as its own tick. */
+  estimates: number[];
   code: string;
 }) {
   const values = [low, high, spot, ...(blend === null ? [] : [blend])];
@@ -138,9 +141,7 @@ function Ladder({
   */
   const clamp = (v: number) => Math.min(Math.max(at(v), 9), 91);
   const pair =
-    blend === null
-      ? null
-      : spread(clamp(spot), clamp(blend), LABEL_GAP);
+    blend === null ? null : spread(clamp(spot), clamp(blend), LABEL_GAP);
   const spotLabel = pair ? pair[0] : clamp(spot);
   const blendLabel = pair ? pair[1] : null;
   /*
@@ -150,20 +151,89 @@ function Ladder({
   */
   const [lowLabel, highLabel] = spread(clamp(low), clamp(high), EDGE_GAP);
   /*
+    A BAND WITH NO WIDTH IS NOT A BAND.
+
+    One surviving method makes the low and the high the same number, and
+    the picture drew it faithfully: a zero-width bar, and the two end
+    figures pushed apart by the collision guard into `$120.00` printed
+    twice with empty line between them. A reader meets that as a fault in
+    the page rather than as a company only one method could be run on.
+
+    So the span, the ticks and the two end figures are all drawn only when
+    there is a range to draw. The mark and its caption stay, and they are
+    the whole honest picture in that case: one estimate, named as one.
+  */
+  const hasBand = high > low;
+  /*
     The caption is wider than a price and sits on its own row, so it is
     clamped harder: at the band's own middle it would hang past the panel
     on a phone whenever the estimates land at one end of the scale.
   */
-  const bandMiddle = Math.min(Math.max((at(low) + at(high)) / 2, 20), 80);
+  const bandMiddle = Math.min(Math.max((at(low) + at(high)) / 2, 22), 78);
 
   return (
-    <div className="flex flex-col gap-2">
+    /*
+      A little more air above the labels than the panel's own rhythm gives.
+      This is scaffolding in mono caps sitting under a sentence, and at the
+      panel gap alone the two read as one block.
+    */
+    <div className="mt-1 flex flex-col sm:mt-2">
       {/*
-        The labels stand clear above the track rather than inside it. They
-        were absolutely positioned in the same box as the marks, so the
-        gold pill was drawn straight through its own figure.
+        THE LABELS HAVE A BAND OF THEIR OWN, AND IT IS A FIXED HEIGHT.
+
+        They used to hang off the bottom of the track (`bottom-full`), so a
+        mark with a percentage under its price grew upward and a mark
+        without one did not: measured on the real panel the two names sat
+        16px apart vertically, and the taller one's first line came within
+        12px of the subtitle on a laptop and 8px on a phone. That is what
+        reads as cramped, and it is not something more `mt-*` fixes,
+        because the amount needed depends on how many lines the tallest
+        mark happens to have.
+
+        Giving the labels their own box and hanging them from its top
+        settles both at once: every name is on one row, every price is on
+        the row under it, a note hangs on a third row where there is one,
+        and the clearance above is a constant this file sets rather than
+        whatever is left over.
       */}
-      <div className="relative mt-12 h-2">
+      <div className="relative h-[3.5rem]">
+        {blend !== null && blendLabel !== null && (
+          <Mark
+            left={blendLabel}
+            /*
+              Not "Estimate". The word was doing nothing the figure and the
+              horizon underneath it were not already doing, and it read as
+              a hedge stamped over the number.
+            */
+            name="In 12 months"
+            figure={currency(blend, 2, code)}
+            /*
+              The gap rides on the mark it describes rather than sitting in
+              a cell of its own further down. It is the difference between
+              the two marks on this very line, so printing it anywhere else
+              asks a reader to hold two numbers in their head to get a
+              third.
+
+              The percentage alone, without "against today" after it. That
+              phrase made the note three times wider than the price above
+              it, and a label's width is what decides whether two marks can
+              stand near each other: measured on a 342px track with the
+              estimate a few per cent from the price, it printed straight
+              through the gold mark's own figure. What it is against is the
+              only other mark on the line, named in gold a few pixels away.
+            */
+            note={gap === null ? null : signedPercent(gap)}
+            className="text-muted-foreground"
+          />
+        )}
+        <Mark
+          left={spotLabel}
+          name="Today"
+          figure={currency(spot, 2, code)}
+          className="text-primary"
+        />
+      </div>
+      <div className="relative h-2">
         {/*
           The scale is a hairline, and that is what tells a reader it is a
           scale. It used to be a rounded bar of the same height as the
@@ -174,54 +244,44 @@ function Ladder({
           aria-hidden
           className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 rounded-full bg-foreground/[0.12]"
         />
-        <span
-          aria-hidden
-          className="absolute inset-y-0 rounded-full bg-foreground/25"
-          style={{ left: `${at(low)}%`, width: `${at(high) - at(low)}%` }}
-        />
-        {blend !== null && blendLabel !== null && (
-          <>
-            <Mark
-              left={blendLabel}
-              /*
-                Not "Estimate". The word was doing nothing the figure and
-                the horizon underneath it were not already doing, and it
-                read as a hedge stamped over the number.
-              */
-              name="In 12 months"
-              figure={currency(blend, 2, code)}
-              /*
-                The gap rides on the mark it describes rather than sitting
-                in a cell of its own further down. It is the difference
-                between the two marks on this very line, so printing it
-                anywhere else asks a reader to hold two numbers in their
-                head to get a third.
-
-                The percentage alone, without "against today" after it.
-                That phrase made the note three times wider than the price
-                above it, and a label's width is what decides whether two
-                marks can stand near each other: measured on a 342px track
-                with the estimate a few per cent from the price, it printed
-                straight through the gold mark's own figure. What it is
-                against is the only other mark on the line, named in gold a
-                few pixels away.
-              */
-              note={gap === null ? null : signedPercent(gap)}
-              className="text-muted-foreground"
-            />
-            <span
-              aria-hidden
-              className="absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground"
-              style={{ left: `${at(blend)}%` }}
-            />
-          </>
+        {hasBand && (
+          <span
+            aria-hidden
+            className="absolute inset-y-0 rounded-full bg-foreground/[0.14]"
+            style={{ left: `${at(low)}%`, width: `${at(high) - at(low)}%` }}
+          />
         )}
-        <Mark
-          left={spotLabel}
-          name="Today"
-          figure={currency(spot, 2, code)}
-          className="text-primary"
-        />
+        {/*
+          EVERY METHOD IS A TICK, WHICH IS WHAT MAKES THE BAR EXPLAIN
+          ITSELF.
+
+          Two goes at captioning the bar both failed for the same reason:
+          a reader cannot see what "the range of the estimates" is when
+          the estimates themselves are not on the picture. What they saw
+          was a grey bar on a slightly darker grey bar and a caption they
+          had to take on trust.
+
+          Drawing each surviving method where it landed turns the bar into
+          an obvious thing: three ticks, and the grey behind them is what
+          they span. The blend is the same ticks averaged, so it is the one
+          bright mark among them and its label says so.
+        */}
+        {hasBand &&
+          estimates.map((price) => (
+            <span
+              key={price}
+              aria-hidden
+              className="absolute top-1/2 h-3 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground/45"
+              style={{ left: `${at(price)}%` }}
+            />
+          ))}
+        {blend !== null && (
+          <span
+            aria-hidden
+            className="absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground"
+            style={{ left: `${at(blend)}%` }}
+          />
+        )}
         <span
           aria-hidden
           className="absolute top-1/2 h-5 w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-4 ring-primary/20"
@@ -235,17 +295,26 @@ function Ladder({
         row, so a reader saw a bar stop somewhere in the middle and a
         number a hand's width away, with nothing connecting them, and the
         caption between them sat under the panel's middle rather than
-        under the bar's. Every part of it is anchored to the part of the
-        picture it belongs to now.
+        under the bar's.
       */}
-      <div className="relative h-4 font-mono text-xs tabular-nums text-muted-foreground">
-        <Anchored left={lowLabel}>{currency(low, 2, code)}</Anchored>
-        <Anchored left={highLabel}>{currency(high, 2, code)}</Anchored>
-      </div>
-      <div className="relative h-4">
+      {hasBand && (
+        <div className="relative mt-2 h-4 font-mono text-xs tabular-nums text-muted-foreground">
+          <Anchored left={lowLabel}>{currency(low, 2, code)}</Anchored>
+          <Anchored left={highLabel}>{currency(high, 2, code)}</Anchored>
+        </div>
+      )}
+      {/*
+        The caption counts the ticks the reader can see and says what they
+        are, in ordinary words. "Every estimate" in mono caps was a label
+        floating under a shape, and a label is only worth printing when a
+        reader can pair it with the thing it names.
+      */}
+      <div className="relative mt-1 h-4">
         <Anchored left={bandMiddle}>
-          <span className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground/80">
-            every estimate
+          <span className="text-xs text-muted-foreground">
+            {estimates.length === 1
+              ? "the one method below"
+              : `all ${estimates.length} methods below`}
           </span>
         </Anchored>
       </div>
@@ -311,7 +380,7 @@ function Mark({
   return (
     <span
       className={cn(
-        "absolute bottom-full mb-2 flex -translate-x-1/2 flex-col items-center whitespace-nowrap leading-tight",
+        "absolute top-0 flex -translate-x-1/2 flex-col items-center whitespace-nowrap leading-tight",
         className
       )}
       style={{ left: `${left}%` }}
@@ -548,6 +617,7 @@ export function ValueGlance({
           spot={read.spot}
           blend={read.estimate.price}
           gap={read.gap}
+          estimates={read.estimate.used.map((m) => m.price)}
           code={code}
         />
       ) : null}
