@@ -12,8 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Explain } from "@/components/ui/Explain";
 import { MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
 import { Skeleton } from "@/components/ui/skeleton";
-import { alertSinceLine, type AlertKind, type UpsideAlert } from "@/lib/alerts";
-import { cn } from "@/lib/format";
+import {
+  alertDestination,
+  alertSinceLine,
+  type AlertKind,
+  type UpsideAlert,
+} from "@/lib/alerts";
+import { cashtag, cn } from "@/lib/format";
 import type { MarginToneName } from "@/lib/margin-health";
 
 /**
@@ -60,10 +65,16 @@ export const KIND_GLYPH: Record<AlertKind, typeof Landmark> = {
  * On Home the card is a summary and its tap opens that detail instead;
  * here there is nothing further to open, and a button that leads to a form
  * should say it leads to a form.
+ *
+ * A price-plan card says Research rather than the bare ticker, because
+ * that is where the level it is repeating can be changed.
  */
 export function alertOpenLabel(alert: UpsideAlert): string {
-  if (alert.ticker) return `Open ${alert.ticker}`;
-  if (alert.kind === "margin") return "Edit cash";
+  const where = alertDestination(alert);
+  if (where === "research")
+    return `Open Research on ${cashtag(alert.ticker as string)}`;
+  if (where === "pulse") return `Open ${alert.ticker}`;
+  if (where === "cash") return "Edit cash";
   return "Open Overview";
 }
 

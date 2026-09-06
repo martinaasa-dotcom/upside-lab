@@ -30,6 +30,7 @@ import {
   buildEarningsAlerts,
   buildLadderAlerts,
   buildStrikeAlerts,
+  alertDestination,
   type UpsideAlert,
 } from "@/lib/alerts";
 import { type BookUndoSnapshot } from "@/lib/book-undo";
@@ -2419,6 +2420,14 @@ export function Dashboard() {
     if (ticker) setPulseIntent(ticker);
     goToTab(PULSE_TAB_ID);
   });
+  /*
+    A company's own Research page, where its price plan is written and can
+    be changed. `router.push` rather than a tab, since a company is a room
+    of its own (`workspaceRoomId`).
+  */
+  const onOpenResearch = useStableCallback((ticker: string) => {
+    router.push(companyHref(ticker));
+  });
   const onDismissAlert = useStableCallback((id: string) => {
     setDismissedAlertIds((prev) => {
       const next = new Set(prev);
@@ -2433,13 +2442,21 @@ export function Dashboard() {
     the reader is told a company reports on Thursday and is handed the room
     they just left. An alert that names a company opens that company, and
     the borrowed-money one opens the screen holding the figure it is about.
+    A price plan opens Research rather than Pulse, because the level the
+    card is repeating is read and changed there; `alertDestination` decides
+    it once so Home's own card and this one cannot disagree.
   */
   const onOpenAlert = useStableCallback((alert: UpsideAlert) => {
-    if (alert.ticker) {
-      onOpenPulse(alert.ticker);
+    const where = alertDestination(alert);
+    if (where === "research") {
+      onOpenResearch(alert.ticker as string);
       return;
     }
-    if (alert.kind === "margin") {
+    if (where === "pulse") {
+      onOpenPulse(alert.ticker as string);
+      return;
+    }
+    if (where === "cash") {
       onOpenCash();
       return;
     }
@@ -2922,6 +2939,7 @@ export function Dashboard() {
               homeworkCash={homeworkCash}
               onOpenLab={labHiddenForTier ? undefined : onOpenLab}
               onOpenPulse={pulseHiddenForTier ? undefined : onOpenPulse}
+              onOpenResearch={onOpenResearch}
               onOpenCompound={onOpenCompound}
               onOpenCash={onOpenCash}
               onOpenAlerts={onOpenAlerts}

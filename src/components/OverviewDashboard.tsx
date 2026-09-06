@@ -55,7 +55,7 @@ import {
   lockInsightLook,
   rememberShownInsights,
 } from "@/lib/insight-look";
-import type { UpsideAlert } from "@/lib/alerts";
+import { alertDestination, type UpsideAlert } from "@/lib/alerts";
 import { sessionLabel, sessionKind } from "@/lib/market-session";
 import { sheetCashBalance } from "@/lib/cash-balance";
 import type { OverviewModel, SheetScore, TickerScore } from "@/lib/overview";
@@ -136,6 +136,8 @@ type Props = {
   activeAlerts?: UpsideAlert[];
   onOpenLab?: (tab?: LabDeepLink) => void;
   onOpenPulse?: (ticker?: string) => void;
+  /** The company's own Research page, where a price plan lives. */
+  onOpenResearch?: (ticker: string) => void;
   onOpenCompound?: () => void;
   marketState?: string | null;
   guest?: boolean;
@@ -485,11 +487,13 @@ function firstSentence(text: string): string {
 function HomeAlertRow({
   alerts,
   onOpenPulse,
+  onOpenResearch,
   onOpenAlerts,
   className,
 }: {
   alerts: UpsideAlert[];
   onOpenPulse?: (ticker: string) => void;
+  onOpenResearch?: (ticker: string) => void;
   onOpenAlerts?: () => void;
   className?: string;
 }) {
@@ -508,9 +512,18 @@ function HomeAlertRow({
               ? (KIND_GLYPH[alert.kind] ?? Landmark)
               : AlertTriangle;
           const line = alert.cushion ?? firstSentence(alert.detail);
-          const open = alert.ticker
-            ? () => onOpenPulse?.(alert.ticker as string)
-            : onOpenAlerts;
+          /*
+            A price plan is read and changed on the company's own Research
+            page, so that is where its card goes. Everything else naming a
+            company goes to Pulse, which explains a move.
+          */
+          const where = alertDestination(alert);
+          const open =
+            where === "research"
+              ? () => onOpenResearch?.(alert.ticker as string)
+              : where === "pulse"
+                ? () => onOpenPulse?.(alert.ticker as string)
+                : onOpenAlerts;
           return (
             <article
               key={alert.id}
@@ -547,9 +560,11 @@ function HomeAlertRow({
                     className="-ml-2 text-muted-foreground hover:text-foreground"
                     onClick={open}
                   >
-                    {alert.ticker
-                      ? `Open Pulse on ${cashtag(alert.ticker)}`
-                      : "Open Worth a look"}
+                    {where === "research"
+                      ? `Open Research on ${cashtag(alert.ticker as string)}`
+                      : where === "pulse"
+                        ? `Open Pulse on ${cashtag(alert.ticker as string)}`
+                        : "Open Worth a look"}
                     <ArrowRight data-icon="inline-end" />
                   </Button>
                 </div>
@@ -981,6 +996,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   onOpenSheet,
   activeAlerts = EMPTY_ALERTS,
   onOpenPulse,
+  onOpenResearch,
   marketState = null,
   onAddHolding,
   onImportScreenshot,
@@ -1596,6 +1612,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         <HomeAlertRow
           alerts={activeAlerts}
           onOpenPulse={onOpenPulse}
+          onOpenResearch={onOpenResearch}
           onOpenAlerts={onOpenAlerts}
         />
       </div>
