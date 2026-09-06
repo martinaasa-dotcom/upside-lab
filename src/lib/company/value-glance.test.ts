@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   analystSpread,
@@ -187,5 +189,92 @@ describe("how much of a fund you already own", () => {
     const sentence = overlapSentence(fundOverlap(HOLDINGS, ["NVDA", "AAPL"]))!;
     expect(sentence).toContain("4 largest holdings");
     expect(sentence).not.toMatch(INSTRUCTIONS);
+  });
+});
+
+
+/**
+ * THE PICTURE NAMES EVERY PART OF ITSELF WHERE THAT PART STANDS.
+ *
+ * It drew a grey bar on a slightly darker grey bar, both the same height
+ * and shape, and printed the brighter one's two figures at the far left
+ * and far right of the row beneath, with its caption under the middle of
+ * the panel. Nothing on screen said which bar was the scale and which was
+ * the data, and no figure stood anywhere near the thing it named.
+ *
+ * Read as source rather than rendered, because this suite runs in node and
+ * there is no jsdom in the repo. It asserts the rules, not the markup.
+ */
+describe("the valuation picture", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src/components/company/ValueGlance.tsx"),
+    "utf8"
+  );
+
+  it("draws the scale as a hairline, so it cannot be mistaken for a reading", () => {
+    expect(src).toMatch(/h-px[^"]*rounded-full bg-foreground\/\[0\.12\]/);
+  });
+
+  it("anchors the band's own figures and caption to the band", () => {
+    expect(src).toMatch(/<Anchored left=\{lowLabel\}/);
+    expect(src).toMatch(/<Anchored left=\{highLabel\}/);
+    expect(src).toMatch(/<Anchored left=\{bandMiddle\}/);
+    // Never back to a spread row pinned to the panel's two edges.
+    expect(src).not.toMatch(/items-baseline justify-between[^>]*>\s*<span>\{currency\(low/);
+  });
+
+  it("puts the twelve month estimate back on the line as a mark", () => {
+    expect(src).toMatch(/blend !== null && blendLabel !== null/);
+    expect(src).toMatch(/name="In 12 months"/);
+  });
+
+  it("does not stamp the word estimate over that mark", () => {
+    expect(src).not.toMatch(/name="Estimate"/);
+  });
+
+  it("does not print the same figure again underneath the picture", () => {
+    expect(src).not.toMatch(/<MicroLabel>12 month estimate<\/MicroLabel>/);
+  });
+
+  /*
+    The labels hang from a band of their own rather than off the track, so
+    a mark with a note under its price cannot grow upward into the
+    subtitle. Measured on the real component before this: the taller mark's
+    first line came within 12px of the subtitle on a laptop and 8px on a
+    phone, and the two names sat 16px apart vertically. Neither is
+    something more `mt-*` fixes, because the space needed depends on how
+    many lines the tallest mark happens to have.
+  */
+  it("hangs the labels from a band of their own, not off the track", () => {
+    expect(src).toMatch(/relative h-\[3\.5rem\]/);
+    expect(src).toMatch(/"absolute top-0 flex -translate-x-1\/2 flex-col/);
+    expect(src).not.toMatch(/absolute bottom-full/);
+  });
+
+  /*
+    A reader cannot see what "the range of the estimates" is while the
+    estimates themselves are not on the picture. Two goes at captioning the
+    bar failed for that reason. Drawing each surviving method where it
+    landed makes the bar an obvious thing rather than a grey rectangle to
+    take on trust.
+  */
+  it("draws every method as its own tick, so the bar explains itself", () => {
+    expect(src).toMatch(/estimates\.map\(\(price\) => \(/);
+    expect(src).toMatch(/estimates: number\[\]/);
+  });
+
+  it("draws no band, no ticks and no end figures when there is no range", () => {
+    // One surviving method made the low and the high the same number, and
+    // the two end figures were pushed apart into the same price printed
+    // twice, which reads as a fault in the page.
+    expect(src).toMatch(/const hasBand = high > low;/);
+    expect(src).toMatch(/\{hasBand && \(/);
+    expect(src).toMatch(/\{hasBand &&\s*estimates\.map/);
+  });
+
+  it("keeps two labels that nearly coincide from printing over each other", () => {
+    expect(src).toMatch(/function spread\(/);
+    expect(src).toMatch(/LABEL_GAP/);
+    expect(src).toMatch(/EDGE_GAP/);
   });
 });

@@ -2,7 +2,8 @@
 
 import { Card, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
 import { Badge } from "@/components/ui/badge";
-import { formatRelativeTime } from "@/lib/timezone";
+import { cn } from "@/lib/format";
+import { formatDateTime } from "@/lib/timezone";
 import type { CompanyArticle, CompanySource } from "@/lib/company/sources";
 import { ExternalLink, Library } from "lucide-react";
 
@@ -28,6 +29,24 @@ const KIND_LABEL = {
   market: "The figures",
   coverage: "Other people",
 } as const;
+
+/**
+ * An article's date, in the one format the whole list uses.
+ *
+ * Absolute rather than relative, and the year only when it is not the
+ * current one, so a headline from last week and one from last year read
+ * the same way and sort by eye.
+ */
+function articleDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const thisYear = d.getFullYear() === new Date().getFullYear();
+  return formatDateTime(d, {
+    year: thisYear ? undefined : "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export function CompanySources({
   articles,
@@ -63,8 +82,20 @@ export function CompanySources({
                       aria-hidden
                     />
                   </span>
+                  {/*
+                    ONE DATE FORMAT IN ONE LIST.
+
+                    `formatRelativeTime` turns absolute after a week, so a
+                    list of headlines printed "3d ago" over "Aug 28" over
+                    "Aug 21" and a reader could not order them by eye,
+                    which is the one thing a date in this list is for. The
+                    panel's own argument is that the publisher and the date
+                    are how somebody decides what a piece is worth, and
+                    comparing them needs them to be the same kind of thing.
+                    The year is printed only when it is not this one.
+                  */}
                   <span className="text-sm text-muted-foreground">
-                    {a.publisher} · {formatRelativeTime(a.publishedAt)}
+                    {a.publisher} · {articleDate(a.publishedAt)}
                   </span>
                 </a>
               </li>
@@ -87,7 +118,20 @@ export function CompanySources({
       {sources.length > 0 && (
         <div className="flex flex-col gap-3">
           <MicroLabel>Primary sources</MicroLabel>
-          <div className="grid gap-3 sm:grid-cols-2">
+          {/*
+            An odd number of sources left the last card alone in a row with
+            a hole beside it, which reads as a card that failed to load.
+            There are between three and six of these depending on what the
+            company is and what the feed carried, so an odd count is the
+            ordinary case rather than the edge one. The last one takes the
+            whole row when it would otherwise be orphaned.
+          */}
+          <div
+            className={cn(
+              "grid gap-3 sm:grid-cols-2",
+              sources.length % 2 === 1 && "[&>*:last-child]:sm:col-span-2"
+            )}
+          >
             {sources.map((s) => (
               <Card key={s.id} tone="default" className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">

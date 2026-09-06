@@ -152,3 +152,56 @@ describe("the route refuses what it cannot vouch for", () => {
     expect(route).not.toMatch(/liftPathToThemeMagnitude|Math\.max\(.*spot/);
   });
 });
+
+
+/**
+ * THREE FAULTS FOUND BY RENDERING THE ROOM AND MEASURING IT.
+ *
+ * Each was invisible to reasoning about the markup and obvious in one
+ * screenshot, which is the lesson worth keeping more than the fixes:
+ * render the component with the app's own CSS, at more than one width,
+ * and measure.
+ *
+ * Read as source rather than rendered, because this suite runs in node and
+ * there is no jsdom in the repo.
+ */
+describe("the research room, measured", () => {
+  const cases = read("src/components/company/CompanyCases.tsx");
+  const sources = read("src/components/company/CompanySources.tsx");
+  const glance = read("src/components/company/ValueGlance.tsx");
+
+  it("does not stretch one case card to the other's height", () => {
+    /*
+      A grid stretches its children. Measured on a company with three
+      points for and two against, the right card was 399px tall with its
+      content ending at 264: a third of a bordered card blank, which reads
+      as content that failed to arrive.
+    */
+    expect(cases).toMatch(/grid items-start gap-4 md:grid-cols-2/);
+  });
+
+  it("never leaves a source card alone in a row with a hole beside it", () => {
+    // Three to six sources depending on the company, so an odd count is
+    // the ordinary case rather than the edge one.
+    expect(sources).toMatch(/sources\.length % 2 === 1/);
+    expect(sources).toMatch(/last-child\]:sm:col-span-2/);
+  });
+
+  it("prints one kind of date in the article list", () => {
+    /*
+      `formatRelativeTime` turns absolute after a week, so the list read
+      "3d ago" over "Aug 28" over "Aug 21" and could not be ordered by eye,
+      which is the one thing a date in this list is for.
+    */
+    // The name still appears in the comment saying why it is not called.
+    expect(sources).not.toMatch(/formatRelativeTime\(/);
+    expect(sources).toMatch(/function articleDate/);
+  });
+
+  it("does not strand a separator at the end of a wrapped line", () => {
+    // At 390px the method's metadata row wrapped as "Arithmetic on the
+    // accounts ·" with the dot alone at the end of the line.
+    expect(glance).toMatch(/&middot;/);
+    expect(glance).toMatch(/aria-hidden className="hidden sm:inline"/);
+  });
+});

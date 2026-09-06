@@ -186,3 +186,40 @@ describe("a company the feed barely covers is called thin", () => {
     expect(factsAreThin(facts())).toBe(false);
   });
 });
+
+
+/**
+ * A LABEL AND THE FIGURE UNDER IT MAY NOT DISAGREE.
+ *
+ * The 52 week range cell printed "52 week range" over `44%`, which is
+ * where today's price sits inside the range rather than the range itself.
+ * Read the way every cell on this page is read, label then figure, it
+ * states something false. The label is the ordinary financial name and
+ * stays, so the figure has to be the thing it names.
+ */
+describe("the 52 week range cell prints a range", () => {
+  const rangeOf = (over: Parameters<typeof makeFacts>[0]) =>
+    companyReadings(makeFacts(over)).find((r) => r.id === "range")!;
+
+  it("states the low and the high, never a position inside them", () => {
+    const r = rangeOf({ price: 616.77, fiftyTwoWeekLow: 479.8, fiftyTwoWeekHigh: 790.5 });
+    expect(r.label).toBe("52 week range");
+    expect(r.value).toBe("$480 to $791");
+    expect(r.value).not.toMatch(/%/);
+  });
+
+  it("moves the position inside the range onto the chip beside it", () => {
+    const r = rangeOf({ price: 616.77, fiftyTwoWeekLow: 479.8, fiftyTwoWeekHigh: 790.5 });
+    expect(r.versus?.value).toBe("44% up");
+  });
+
+  it("keeps the cents on a share price small enough to need them", () => {
+    // "$5 to $9" is a different range from the real one.
+    const r = rangeOf({ price: 7, fiftyTwoWeekLow: 4.52, fiftyTwoWeekHigh: 9.31 });
+    expect(r.value).toBe("$4.52 to $9.31");
+  });
+
+  it("still says n/a when the feed carried no range", () => {
+    expect(rangeOf({ price: 10 }).value).toBe(NO_VALUE);
+  });
+});
