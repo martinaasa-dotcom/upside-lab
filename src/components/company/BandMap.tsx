@@ -285,6 +285,57 @@ function Sections({ map, code }: { map: Map; code: string }) {
                           </span>
                         </span>
                         {/*
+                          WHERE IN THE BAND, WHICH THE BAND NAME ALONE
+                          DOES NOT SAY.
+
+                          A price a hair under the level above it and one
+                          sitting in the middle of the same band are
+                          different situations, and the second is the one
+                          worth doing nothing about. The plot says this
+                          with a position; a phone has no picture to read
+                          it off, so it gets the band's own two prices
+                          with a tick between them.
+                        */}
+                        {/*
+                          An open band has one edge and no position, so it
+                          gets the edge said in words rather than a track
+                          with nothing on it. The level is the checkable
+                          part either way.
+                        */}
+                        {p.withinBand === null && p.edge !== null && (
+                          <span className="mt-2 block font-mono text-xs tabular-nums text-muted-foreground">
+                            {p.bandTo === null ? "Above " : "Below "}
+                            {currency(p.edge, 2, code)}
+                          </span>
+                        )}
+                        {p.withinBand !== null &&
+                          p.bandFrom !== null &&
+                          p.bandTo !== null && (
+                            <span className="mt-2 block">
+                              <span
+                                aria-hidden
+                                className="relative block h-1.5 rounded-full bg-foreground/10"
+                              >
+                                <span
+                                  className={cn(
+                                    "absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full",
+                                    p.actionable ? "bg-primary" : "bg-foreground/60"
+                                  )}
+                                  style={{
+                                    // Held half a tick in from each end so
+                                    // a price at either edge of its band
+                                    // still draws inside the track.
+                                    left: `${Math.min(Math.max(p.withinBand, 0.02), 0.98) * 100}%`,
+                                  }}
+                                />
+                              </span>
+                              <span className="mt-1 flex items-baseline justify-between gap-2 font-mono text-xs tabular-nums text-muted-foreground">
+                                <span>{currency(p.bandFrom, 2, code)}</span>
+                                <span>{currency(p.bandTo, 2, code)}</span>
+                              </span>
+                            </span>
+                          )}
+                        {/*
                           The share as a bar, which is the across axis of
                           the plot doing its job in the room a phone
                           actually has: a row each, so ten holdings at a
@@ -307,8 +358,13 @@ function Sections({ map, code }: { map: Map; code: string }) {
                               }}
                             />
                           </span>
+                          {/*
+                            Named, because there are two bars in this row
+                            and one of them is a price and the other is a
+                            size: unlabelled they are two grey tracks.
+                          */}
                           <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-                            {percent(p.share, 1)}
+                            {percent(p.share, 1)} of this portfolio
                           </span>
                         </span>
                       </span>

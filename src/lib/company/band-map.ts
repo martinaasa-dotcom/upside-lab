@@ -98,6 +98,18 @@ export type BandMapPoint = {
   roiPct: number | null;
   /** The nearest level of that name's own plan, for the label. */
   edge: number | null;
+  /**
+   * The two prices this band runs between, and where in it the price
+   * actually sits, as a fraction. Null on the open bands at either end,
+   * which have no width to be a fraction of.
+   *
+   * Carried because a phone has no picture to read it off: "in the hold
+   * band" and "a hair under the level above it" are different situations
+   * and the second is the one worth acting on.
+   */
+  bandFrom: number | null;
+  bandTo: number | null;
+  withinBand: number | null;
   actionable: boolean;
   /** The reader typed at least one level of this name's plan. */
   edited: boolean;
@@ -175,12 +187,27 @@ export function ladderUnits(lanes: BandLane[]): number {
  */
 export function ladderHeight(
   ladder: PlanLadder,
-  lanes: BandLane[] = lanesFrom(ladder)
+  lanes: BandLane[] = lanesFrom(ladder),
+  /**
+   * How far in from an open end a chip sits, in lane units.
+   *
+   * AN OPEN BAND HAS NO POSITION, SO IT MUST NOT HAVE A FRACTION.
+   * `positionInBand` puts the mark at a fraction of the band, which is
+   * right for a band with two edges and wrong for the two that have one:
+   * a fraction of the lane means the chip rises as the lane grows, so
+   * making the top band taller to give the highest holding room moves
+   * the holding up with it and it stays jammed against the ceiling. A
+   * fixed inset does not, so growing the lane is what creates the
+   * headroom, which is the only reason to grow it.
+   */
+  openInset = 0.5
 ): number | null {
   if (ladder.spot === null || ladder.atId === null) return null;
   const lane = lanes.find((l) => l.id === ladder.atId);
   const band = bandById(ladder, ladder.atId);
   if (!lane || !band) return null;
+  if (band.to === null) return lane.to - openInset;
+  if (band.from === null) return lane.from + openInset;
   const within = positionInBand(band, ladder.spot);
   return lane.from + within * (lane.to - lane.from);
 }
@@ -279,6 +306,15 @@ export function placeUp(
   return out;
 }
 
+/**
+ * How far in from an open end a chip sits, in lane units.
+ *
+ * Half an ordinary band, which is about one chip: near enough the open
+ * end to read as "past this level and going", far enough in that the
+ * lane above it is visibly headroom rather than a clipped edge.
+ */
+export const OPEN_INSET = 0.5;
+
 /** How wide a ticker chip is, in pixels, before the axis is divided by it. */
 export const CHIP_WIDTH_PX = 92;
 
@@ -371,11 +407,33 @@ export function buildBandMap(
       .map((k, i) => ({ k, x: xs[i] ?? 0.5 }))
       .filter(({ k }) => k.bandId === band.id);
     if (inBand.length === 0) continue;
-    crowding[band.id] =
+    const deep =
       stackDepth(
         inBand.map((b) => b.x),
         chipWidth
       ) * chipHeight;
+    /*
+      An open band carries its chips a fixed distance in from its open
+      end, so it needs that distance plus a chip of air above them, or
+      the highest holding a reader has is drawn hard against the edge of
+      the picture with its top clipped off. That is the one place this
+      chart looked broken rather than full.
+    */
+    const open = band.to === null || band.from === null;
+    /*
+      A chip is centred on its own height, so a band needs half a chip of
+      margin at each end for the whole box to sit inside its own lane.
+      Without it the outermost chip in a band straddles the line under
+      the band's name and reads as belonging to the band below, which is
+      the picture saying something false about which band it is in.
+    */
+    crowding[band.id] = open
+      ? // The headroom an open band needs is whichever is larger: the air
+        // above its chips, or the room its own stack takes. Taking only
+        // the first left two names in the top band with nowhere to go and
+        // drew them through each other.
+        Math.max(deep + chipHeight, OPEN_INSET + chipHeight)
+      : deep + chipHeight;
   }
 
   const lanes = lanesFrom(shape, crowding);
@@ -388,7 +446,7 @@ export function buildBandMap(
       ticker: row.ticker.toUpperCase(),
       bandId,
       bandLabel: band?.label ?? "",
-      y: ladderHeight(ladder, lanes) ?? 0,
+      y: ladderHeight(ladder, lanes, OPEN_INSET) ?? 0,
       share: shares[i] ?? 0,
       value: row.value,
       spot: ladder.spot ?? 0,
@@ -400,6 +458,12 @@ export function buildBandMap(
       // The level the price is nearest inside this band, which is what a
       // reader wants the moment they have found their name.
       edge: band?.to ?? band?.from ?? null,
+      bandFrom: band?.from ?? null,
+      bandTo: band?.to ?? null,
+      withinBand:
+        band && band.from !== null && band.to !== null && ladder.spot !== null
+          ? positionInBand(band, ladder.spot)
+          : null,
       actionable: isActionableBand(bandId),
       edited: ladder.edited,
     };
@@ -418,11 +482,18 @@ export function buildBandMap(
   const ys = placeUp(
     placed.map((p, i) => {
       const lane = laneOf.get(p.bandId);
+      const from = lane?.from ?? 0;
+      const to = lane?.to ?? units;
+      // Half a chip in from each end of the band, so the whole box stays
+      // inside the lane rather than only its centre. Never inverted: a
+      // band shorter than a chip keeps its own bounds and the chip is
+      // centred in it.
+      const inset = Math.min(chipHeight / 2, Math.max((to - from) / 2, 0));
       return {
         x: xs[i] ?? 0.5,
-        y: p.y,
-        min: lane?.from ?? 0,
-        max: lane?.to ?? units,
+        y: Math.min(Math.max(p.y, from + inset), to - inset),
+        min: from + inset,
+        max: to - inset,
       };
     }),
     { across: chipWidth, up: chipHeight }
