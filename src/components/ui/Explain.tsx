@@ -18,7 +18,7 @@ import {
  * `InfoTip` beside it takes free text, which means every explanation in the
  * app is typed at the call site it appears on. That is fine for a sentence
  * about one chart and wrong for a word: "what you paid" is explained on the
- * holdings table, in the drawer, in the forecast and in the letter, and four
+ * holdings table, in Research, in the forecast and in the letter, and four
  * hand-typed answers to one question drift into four different answers. This
  * one reads `src/lib/glossary.ts`, so the answer to a word is the same answer
  * wherever the reader happens to ask it, and improving it improves it

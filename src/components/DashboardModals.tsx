@@ -10,22 +10,14 @@ import { InvitePartnerModal } from "@/components/InvitePartnerModal";
 import type { HoldingPatch } from "@/components/PortfolioTable";
 import { RenameSheetModal } from "@/components/RenameSheetModal";
 import { SnapshotsModal } from "@/components/SnapshotsModal";
-import { TickerDrawer } from "@/components/TickerDrawer";
-import { withEdge } from "@/lib/company/ladder-store";
-import type { LadderOverrides } from "@/lib/company/plan-ladder";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import type { ToastKind } from "@/components/ui/Toast";
 import type { CcChatContext } from "@/lib/ai/cc-advisor";
-import { cashtag } from "@/lib/format";
 import { sheetCashBalance, tracksTradeCash } from "@/lib/cash-balance";
-import { type ConvictionMap } from "@/lib/conviction";
 import type { CsvHoldingRow } from "@/lib/csv-import";
-import type { ForecastYear } from "@/lib/forecast";
-import type { PortfolioEoyOverrides } from "@/lib/forecast-overrides";
-import type { LabBundle } from "@/lib/lab-bundle";
 import { OVERVIEW_TAB_ID } from "@/lib/overview";
-import type { CoveredCallRow, Holding, Portfolio, Quote } from "@/lib/types";
+import type { Holding, Portfolio } from "@/lib/types";
 import dynamic from "next/dynamic";
 import type { Dispatch, SetStateAction } from "react";
 
@@ -66,25 +58,18 @@ export type DashboardModalsProps = {
   setCostBasisOpen: Dispatch<SetStateAction<boolean>>;
   costBasisRows: CostBasisRow[];
   setCostBasisRows: Dispatch<SetStateAction<CostBasisRow[]>>;
-  drawerTicker: string | null;
-  setDrawerTicker: Dispatch<SetStateAction<string | null>>;
   inviteSheet: Portfolio | null;
   activePortfolio: Portfolio | null;
   margusPortfolio: Portfolio | null;
   holdings: Holding[];
-  quotes: Record<string, Quote>;
   hideOptionsUI: boolean;
   isMetaTab: boolean;
-  eoyOverrides: PortfolioEoyOverrides;
-  convictionMap: ConvictionMap;
-  drawerCoveredCallRow: CoveredCallRow | null;
   commandItems: CommandItem[];
   silentScreenshot: SilentScreenshotImport | null;
   screenshotPending: boolean;
   setSilentScreenshot: Dispatch<SetStateAction<SilentScreenshotImport | null>>;
   setScreenshotPending: Dispatch<SetStateAction<boolean>>;
   margusExpandSignal: number;
-  setMargusExpandSignal: Dispatch<SetStateAction<number>>;
   /** The address is `/margus`: Home with the panel open. */
   margusAddressed: boolean;
   onMargusOpenChange: (open: boolean) => void;
@@ -105,10 +90,6 @@ export type DashboardModalsProps = {
   deleteHoldingById: (id: string) => boolean;
   handlePatch: (patch: HoldingPatch) => boolean;
   applyAdvisorActions: (actions: AdvisorAction[], into?: Portfolio) => void;
-  commitEoyPrice: (ticker: string, year: ForecastYear, price: number) => void;
-  patchLab: (patch: Partial<LabBundle>) => void;
-  /** This reader's price-plan edits, straight off the Lab bundle. */
-  labLadders: LadderOverrides;
   loadPortfolios: (opts?: { silent?: boolean; retry?: boolean }) => Promise<void>;
   onCreatedAwayFromBook?: (created: Portfolio) => void;
 };
@@ -136,25 +117,18 @@ export function DashboardModals({
   setCostBasisOpen,
   costBasisRows,
   setCostBasisRows,
-  drawerTicker,
-  setDrawerTicker,
   inviteSheet,
   activePortfolio,
   margusPortfolio,
   holdings,
-  quotes,
   hideOptionsUI,
   isMetaTab,
-  eoyOverrides,
-  convictionMap,
-  drawerCoveredCallRow,
   commandItems,
   silentScreenshot,
   screenshotPending,
   setSilentScreenshot,
   setScreenshotPending,
   margusExpandSignal,
-  setMargusExpandSignal,
   margusAddressed,
   onMargusOpenChange,
   margusContext,
@@ -168,30 +142,9 @@ export function DashboardModals({
   deleteHoldingById,
   handlePatch,
   applyAdvisorActions,
-  commitEoyPrice,
-  patchLab,
-  labLadders,
   loadPortfolios,
   onCreatedAwayFromBook,
 }: DashboardModalsProps) {
-  /*
-   * The rows the ticker drawer is about.
-   *
-   * It used to sum shares and average the buy price over every holding of
-   * that company in the whole account, so opening $AAPL from My portfolio
-   * said "14 shares, 89.5%" while the card the reader had just tapped said
-   * 12 and 92.9%. Scoped to the open portfolio the two agree; opened from
-   * a room that has no portfolio of its own the drawer keeps the wider
-   * total and says out loud how many portfolios it covers.
-   */
-  const drawerRows = drawerTicker
-    ? holdings.filter(
-        (h) =>
-          h.ticker === drawerTicker &&
-          (!activePortfolio || h.portfolio_id === activePortfolio.id)
-      )
-    : [];
-
   return (
     <>
       <HoldingModal
@@ -335,65 +288,6 @@ export function DashboardModals({
           toast("Buy prices saved", "success");
         }}
       />
-
-      <WidgetErrorBoundary name="Ticker">
-      <TickerDrawer
-        open={Boolean(drawerTicker)}
-        ticker={drawerTicker}
-        spot={drawerTicker ? quotes[drawerTicker]?.price ?? null : null}
-        shares={
-          drawerRows.length > 0
-            ? drawerRows.reduce((s, h) => s + h.shares, 0)
-            : null
-        }
-        buyPrice={
-          drawerRows.length > 0
-            ? (() => {
-                const sh = drawerRows.reduce((s, h) => s + h.shares, 0);
-                const cost = drawerRows.reduce(
-                  (s, h) => s + h.shares * h.buy_price,
-                  0
-                );
-                const avg = sh > 0 ? cost / sh : NaN;
-                return Number.isFinite(avg) && avg > 0 ? avg : null;
-              })()
-            : null
-        }
-        portfolioCount={new Set(drawerRows.map((h) => h.portfolio_id)).size}
-        onDelete={
-          drawerRows.length === 1 && drawerTicker
-            ? () =>
-                setConfirmDelete({
-                  kind: "holding",
-                  id: drawerRows[0]!.id,
-                  label: cashtag(drawerTicker),
-                })
-            : undefined
-        }
-        sparkline={
-          drawerTicker ? quotes[drawerTicker]?.sparkline : undefined
-        }
-        todayChangePct={
-          drawerTicker ? quotes[drawerTicker]?.changePercent ?? null : null
-        }
-        conviction={
-          drawerTicker
-            ? convictionMap[drawerTicker.toUpperCase()] ?? null
-            : null
-        }
-        overrides={eoyOverrides}
-        coveredCallRow={drawerCoveredCallRow}
-        ladders={labLadders}
-        onSetLadderEdge={(t, id, ratio) =>
-          patchLab({ ladders: withEdge(labLadders, t, id, ratio) })
-        }
-        onSetEoyPrice={commitEoyPrice}
-        onClose={() => setDrawerTicker(null)}
-        onAskMargus={() => {
-          setMargusExpandSignal((n) => n + 1);
-        }}
-      />
-      </WidgetErrorBoundary>
 
       <WidgetErrorBoundary name="Margus">
       <CcAdvisorChat

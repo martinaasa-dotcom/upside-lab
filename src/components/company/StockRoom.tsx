@@ -28,6 +28,7 @@ import { ValueGlance } from "@/components/company/ValueGlance";
 import { FourQuestions } from "@/components/company/FourQuestions";
 import { PlanLadderPanel } from "@/components/company/PlanLadder";
 import { PositionFitCard } from "@/components/company/PositionFitCard";
+import { YourHolding, type OwnedRow } from "@/components/company/YourHolding";
 import { useAuth } from "@/components/AuthProvider";
 import { readBookCache } from "@/lib/book-cache";
 import { loadCachedQuotes } from "@/lib/quote-cache";
@@ -121,24 +122,39 @@ function HeroSkeleton() {
  * they own. That is a confident false statement about somebody's own
  * money, which is the one thing this room may never make.
  */
-function useOwnBook(): {
+type OwnBook = {
   holdings: FitHolding[];
+  /** This reader's own rows for the company on screen, one per portfolio. */
+  mine: OwnedRow[];
+  /** Today's price in dollars, the money the rows above are kept in. */
+  minePrice: number | null;
   cash: number;
   ready: boolean;
   hasBook: boolean;
-} {
+};
+
+function useOwnBook(ticker: string): OwnBook {
   const { user } = useAuth();
-  const [state, setState] = useState<{
-    holdings: FitHolding[];
-    cash: number;
-    ready: boolean;
-    hasBook: boolean;
-  }>({ holdings: [], cash: 0, ready: false, hasBook: false });
+  const [state, setState] = useState<OwnBook>({
+    holdings: [],
+    mine: [],
+    minePrice: null,
+    cash: 0,
+    ready: false,
+    hasBook: false,
+  });
 
   useEffect(() => {
     const cached = readBookCache(user?.id ?? null);
     if (!cached) {
-      setState({ holdings: [], cash: 0, ready: true, hasBook: false });
+      setState({
+        holdings: [],
+        mine: [],
+        minePrice: null,
+        cash: 0,
+        ready: true,
+        hasBook: false,
+      });
       return;
     }
     const { quotes } = loadCachedQuotes();
@@ -156,8 +172,26 @@ function useOwnBook(): {
       (sum, p) => sum + (p.cash_balance ?? 0),
       0
     );
+    const names = new Map(cached.portfolios.map((p) => [p.id, p.name]));
+    /*
+      What the reader paid is stored in dollars, and so is this price:
+      `quote.price` is the dollar one and `nativePrice` the listing's. The
+      two figures on the panel below are a subtraction, so they have to be
+      the same money, and it is the reader's rather than the listing's for
+      the reason `PositionFitCard` gives.
+    */
+    const mineUsd = quotes?.[ticker]?.price ?? null;
+    const mine: OwnedRow[] = cached.holdings
+      .filter((h) => h.ticker.toUpperCase() === ticker && h.shares > 0)
+      .map((h) => ({
+        shares: h.shares,
+        buyPrice: h.buy_price,
+        portfolio: names.get(h.portfolio_id) ?? "",
+      }));
     setState({
       holdings,
+      mine,
+      minePrice: typeof mineUsd === "number" && mineUsd > 0 ? mineUsd : null,
       cash,
       ready: true,
       // An account with nothing in it is a real answer and the card is
@@ -165,7 +199,7 @@ function useOwnBook(): {
       // not, and the two are only distinguishable here.
       hasBook: true,
     });
-  }, [user?.id]);
+  }, [user?.id, ticker]);
 
   return state;
 }
@@ -294,7 +328,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [recents, setRecents] = useState<string[]>([]);
-  const book = useOwnBook();
+  const book = useOwnBook(ticker);
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -420,6 +454,45 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
 
   const title = facts?.name || (ticker ? cashtag(ticker) : "Research");
 
+  /*
+    What this reader paid a share, averaged over their own rows, where
+    they own the company at all. It is the second mark on the price plan
+    below and nothing else reads it.
+  */
+  const paidEach = useMemo(() => {
+    const shares = book.mine.reduce((s, r) => s + r.shares, 0);
+    if (!(shares > 0)) return null;
+    const cost = book.mine.reduce((s, r) => s + r.shares * r.buyPrice, 0);
+    const avg = cost / shares;
+    return Number.isFinite(avg) && avg > 0 ? avg : null;
+  }, [book.mine]);
+
+  /*
+    The reader's own half of the page, drawn whether or not the feed
+    answered. What they own and the reason they wrote down are theirs
+    rather than the provider's, and a company the feed is having a bad
+    minute about is exactly when somebody goes looking for the reason.
+  */
+  const ownedPanel =
+    book.ready && book.mine.length > 0 && ticker ? (
+      <WidgetErrorBoundary name="What you own">
+        <YourHolding
+          ticker={ticker}
+          rows={book.mine}
+          /*
+            Dollars, because that is the money the rows are kept in. The
+            room's own price is the live one but it stands in for the
+            page's figure until the first poll lands, and that figure is
+            in the listing's money, so it is only used where the two are
+            the same. Everywhere else the book's own cached dollar price
+            is the honest answer.
+          */
+          price={(code === "USD" ? live.price : null) ?? book.minePrice}
+          code="USD"
+        />
+      </WidgetErrorBoundary>
+    ) : null;
+
   return (
     <SignInGate>
       <div className={PAGE_FRAME_CLASS}>
@@ -470,7 +543,10 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
               detail="Type a name or a ticker above. You do not have to own it, and looking one up changes nothing in your portfolio."
             />
           ) : error ? (
-            <LoadError message={error} onRetry={() => void load()} />
+            <>
+              <LoadError message={error} onRetry={() => void load()} />
+              {ownedPanel}
+            </>
           ) : loading && !page ? (
             <HeroSkeleton />
           ) : page && facts ? (
@@ -583,6 +659,14 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
               )}
 
               {/*
+                What the reader owns of it, and why, before anything that
+                values it. Somebody who holds this company came to think
+                about a position rather than to meet a company, and the
+                reason they wrote down is what Pulse reads first.
+              */}
+              {ownedPanel}
+
+              {/*
                 The plan comes first, under the summary of what the
                 company is, because a reader arriving at a company page is
                 deciding what to do about a price and everything below is
@@ -597,6 +681,13 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                     ladder={ladder}
                     code={code}
                     at={facts.fetchedAt}
+                    /*
+                      What the reader paid is in dollars and the ladder is
+                      in the listing's money, so the mark is only drawn
+                      where those are the same. A euro cost basis on a
+                      dollar ladder would land in the wrong band.
+                    */
+                    costBasis={code === "USD" ? paidEach : null}
                     onSetEdge={setEdge}
                     onReset={() => setLadders(withoutLadder(ladders, ticker))}
                   />

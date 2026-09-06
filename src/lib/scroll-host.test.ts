@@ -48,7 +48,6 @@ const HOSTS = [
   "src/components/InvitePartnerModal.tsx",
   "src/components/YtdAnchorModal.tsx",
   "src/components/RenameSheetModal.tsx",
-  "src/components/TickerDrawer.tsx",
   "src/components/SnapshotsModal.tsx",
   "src/components/CommunitiesList.tsx",
   "src/components/CommunityView.tsx",

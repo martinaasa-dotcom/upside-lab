@@ -39,10 +39,10 @@ export const FORECAST_YEARS: readonly number[] = (() => {
 export type ForecastYear = number;
 
 /**
- * The two horizons the drawer offers, taken from the range rather than
- * typed beside it.
+ * The two named horizons, taken from the range rather than typed beside
+ * it.
  *
- * The drawer used to say "End of 2028" and "End of 2030" in its own
+ * The holdings drawer used to say "End of 2028" and "End of 2030" in its own
  * constants and then read `eoyPrices[2028]` by literal. The range moves,
  * and when it does a literal reads a year that is not in it, so the screen
  * would keep the old heading and show whatever `undefined` falls back to.

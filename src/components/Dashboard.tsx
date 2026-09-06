@@ -466,7 +466,6 @@ export function Dashboard() {
   const { labBundle, labReady, patchLab } = useLabSync();
   const [costBasisOpen, setCostBasisOpen] = useState(false);
   const [costBasisRows, setCostBasisRows] = useState<CostBasisRow[]>([]);
-  const [drawerTicker, setDrawerTicker] = useState<string | null>(null);
   const convictionMap = labBundle.conviction;
   // Memoized because it feeds the alert arithmetic below: a fresh object
   // literal every render would rebuild every holding's ladder on every
@@ -936,15 +935,6 @@ export function Dashboard() {
     [realPortfolios, holdings, quotes, options]
   );
 
-  const drawerCoveredCallRow = useMemo(() => {
-    if (!drawerTicker || hideOptionsUI) return null;
-    return (
-      bookCoveredCallRows.find(
-        (r) => r.holding.ticker.toUpperCase() === drawerTicker.toUpperCase()
-      ) ?? null
-    );
-  }, [drawerTicker, bookCoveredCallRows, hideOptionsUI]);
-
   /*
     Single source of truth for the four things this app watches: a results
     date, a share reaching a level, borrowed money, and one holding growing
@@ -957,7 +947,10 @@ export function Dashboard() {
     browser already has and shared by three surfaces: the map on the
     holdings page, the list of names that have reached a level on Home,
     and the alerts. One builder, in `holdingLadders`, so a level reached
-    on one screen cannot be quiet on another.
+    on one screen cannot be quiet on another. The Research room draws
+    the same ladder for a single holding (`YourHolding`), through the
+    same `plan-ladder` arithmetic, so a level a reader saw there is the
+    level that wakes them here too.
   */
   const bookLadders = useMemo(
     () =>
@@ -2194,27 +2187,16 @@ export function Dashboard() {
     }
     for (const t of overview.tickers.slice(0, 30)) {
       /*
-        Two ways in for a name you already own: the drawer, which is what
-        you hold of it, and the company page, which is what the company is.
-        Both are things a reader wants and neither answers the other.
+        One entry per company, because there is one room for a company
+        now. It used to be two, the drawer and the page, and the drawer
+        answered a smaller version of the same question.
       */
       items.push({
         id: `company-${t.ticker}`,
-        label: `Look up ${t.ticker}`,
+        label: t.ticker,
         group: "Companies",
         hint: "What the company is, and what it might be worth",
         run: () => router.push(companyHref(t.ticker)),
-      });
-      items.push({
-        id: `ticker-${t.ticker}`,
-        label: t.ticker,
-        group: "Tickers",
-        hint: t.portfolios[0],
-        run: () => {
-          const sheet = portfolios.find((p) => t.portfolios.includes(p.name));
-          if (sheet) goToTab(sheet.id);
-          setDrawerTicker(t.ticker);
-        },
       });
     }
     return items;
@@ -2504,7 +2486,9 @@ export function Dashboard() {
     return () => window.removeEventListener(TOUR_SCREENSHOT_EVENT, take);
   }, [onImportScreenshot]);
   const onImportCsv = useStableCallback(() => setCsvImportOpen(true));
-  const onOpenTicker = useStableCallback((t: string) => setDrawerTicker(t));
+  const onOpenTicker = useStableCallback((t: string) =>
+    router.push(companyHref(t))
+  );
   const onDisplayCurrencyChange = useStableCallback((code: DisplayCurrency) => {
     if (!activePortfolio) return;
     setDisplayCurrencyByPortfolio((prev) => {
@@ -3059,26 +3043,18 @@ export function Dashboard() {
         setCostBasisOpen={setCostBasisOpen}
         costBasisRows={costBasisRows}
         setCostBasisRows={setCostBasisRows}
-        drawerTicker={drawerTicker}
-        setDrawerTicker={setDrawerTicker}
         inviteSheet={inviteSheet}
         activePortfolio={activePortfolio}
         margusPortfolio={margusPortfolio}
         holdings={holdings}
-        quotes={quotes}
         hideOptionsUI={hideOptionsUI}
         isMetaTab={isMetaTab}
-        eoyOverrides={eoyOverrides}
-        convictionMap={convictionMap}
-        labLadders={labLadders}
-        drawerCoveredCallRow={drawerCoveredCallRow}
         commandItems={commandItems}
         silentScreenshot={silentScreenshot}
         screenshotPending={screenshotPending}
         setSilentScreenshot={setSilentScreenshot}
         setScreenshotPending={setScreenshotPending}
         margusExpandSignal={margusExpandSignal}
-        setMargusExpandSignal={setMargusExpandSignal}
         margusAddressed={onMargus}
         onMargusOpenChange={onMargusOpenChange}
         margusContext={margusContext}
@@ -3092,8 +3068,6 @@ export function Dashboard() {
         deleteHoldingById={deleteHoldingById}
         handlePatch={handlePatch}
         applyAdvisorActions={applyAdvisorActions}
-        commitEoyPrice={commitEoyPrice}
-        patchLab={patchLab}
         loadPortfolios={loadPortfolios}
         onCreatedAwayFromBook={
           onBook

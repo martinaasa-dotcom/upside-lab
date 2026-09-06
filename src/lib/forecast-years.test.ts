@@ -15,22 +15,17 @@ const PANEL = readFileSync(
 );
 
 /*
- * The drawer is the second place forecast years are drawn, and it was the
- * unguarded copy. It carried "End of 2028" and "End of 2030" as its own
- * constants and then read `eoyPrices[2028]` by literal, so the day the
- * range rolls the heading keeps a year the range no longer has and the
- * price under it is read from a key that is not there. Nothing failed,
- * which is exactly why this file now reads both.
+ * The holdings drawer used to be the second place forecast years were
+ * drawn, and it was the unguarded copy: it carried the years as its own
+ * constants and then read `eoyPrices[<year>]` by literal, so the day the
+ * range rolled the heading kept a year the range no longer had. It is
+ * gone, and a holding opens the company's own room instead, so the panel
+ * is the one place left. The list stays a list: the fault was a second
+ * copy, and the next second copy goes in here.
  */
-const DRAWER = readFileSync(
-  join(process.cwd(), "src/components/TickerDrawer.tsx"),
-  "utf8"
-);
-
 /** The forecast horizons must come from the range, wherever they are drawn. */
 const HORIZON_SOURCES: [string, string][] = [
   ["src/components/ForecastPanel.tsx", PANEL],
-  ["src/components/TickerDrawer.tsx", DRAWER],
 ];
 
 const holding: Holding = {
@@ -94,9 +89,7 @@ describe("the phone shows every forecast year", () => {
     }
   });
 
-  it("takes both drawer horizons from the range", () => {
-    expect(DRAWER).toMatch(/THREE_YEAR/);
-    expect(DRAWER).toMatch(/FIVE_YEAR/);
+  it("keeps both named horizons on the range itself", () => {
     // The 3-year horizon is the third column and the 5-year one the last,
     // so a range of a different length still lines up.
     expect(FORECAST_YEARS[2]).toBe(THREE_YEAR);
