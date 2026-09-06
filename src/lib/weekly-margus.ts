@@ -123,7 +123,11 @@ Paragraph two. What was pulling the other way, and whether it mattered. Name it,
 
 Paragraph three. The watchlist, if there is one in the facts, as a summary of the whole of it in both directions: which of them fell the most and which rose the most, each with its percentage. Never single out one watched name as though it were the only one that moved. These are not owned, so do not describe them as gains or losses.
 
-Last paragraph. Everything not yet named, using the "everything else" line in the facts. If the biggest move left is small, say they were quiet and give that number. If it is not small, do not call it quiet: say how many went up, how many went down, and how big the largest of them was. Stop there. Do not tell them to sit still, hold, or do nothing.
+Paragraph three also takes in everything owned that you have not named, using the "everything else" line in the facts. Say plainly that these are companies they own. If the biggest move left is small, say they were quiet and give that number. If it is not small, do not call it quiet: say how many went up, how many went down, and how big the largest of them was.
+
+Last paragraph. What the week amounted to, and where the answer per company is. Read it off breadth, which the facts give you: nearly everything moving the same way usually means the market moved rather than one of their companies, one company doing most of the damage while the rest sat still means it was that company, and a mixed week means it did not happen to all of them at once. Say which of the three this was, hedged, because breadth is evidence and not proof. If the week was large in either direction, put its size in proportion using their own holdings: a portfolio where several companies moved more than a tenth in one week is a portfolio that does this regularly, in both directions, and they can count them in the table. Then finish by saying Pulse has the check on each company one at a time, whenever they want to see which of these was news about the business and which was the market.
+
+That last paragraph is the one place it is easy to go wrong, so: it never tells them what to do. Not hold, not sit tight, not do nothing, not take a closer look at one of them, not stay calm. Pointing at Pulse is a door, not an instruction, and which company is worth opening is their call. It also never promises the market comes back. A bad week being an ordinary thing is a fact about how often shares fall; "and it will recover" is a forecast, and a forecast in a template reaches every reader including one holding three companies where it would be false.
 
 Rules, all of them non-negotiable:
 - Everyday company names, not cashtags: "Nvidia", not "$NVDA". If you do not know what a company does, use its name alone. If you do not know the name, use the ticker. Never invent a business or a fact about one.
@@ -150,6 +154,30 @@ const ALONGSIDE_PCT = 5;
 
 /** A move worth less than this share of the week barely dented the total. */
 const SMALL_SHARE = 0.15;
+
+/** One company worth this much of the week is what the week was about. */
+const CONCENTRATED_SHARE = 0.5;
+
+/** This much of the portfolio going one way is a market week, not a company one. */
+const BROAD_SHARE = 0.75;
+
+/** A week this big in either direction gets its size put in proportion. */
+const BIG_WEEK_PCT = 4;
+
+/**
+ * Under this, the week is small enough that nothing inside it caused it.
+ *
+ * Both "most of that came from" and "this week came down to one company"
+ * are shares of the week, so on a week that finished near flat they are
+ * ratios over almost nothing and fire on any ordinary holding. It is the
+ * size of the week that makes them meaningless, not how quiet the
+ * companies inside it were, so this is deliberately not `r.quiet`: a week
+ * can finish at a tenth of a per cent with a holding down twenty inside it.
+ */
+const FLAT_WEEK_PCT = 1;
+
+/** A company that moves this much in a week is one that does this regularly. */
+const SWINGY_PCT = 10;
 
 /** The same letter from the numbers alone, when the model can't be reached. */
 export function fallbackWeeklyTake(r: WeeklyLetter): string {
@@ -228,9 +256,22 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
       r.weekDollar !== 0 && leader.dollar !== 0
         ? Math.abs(leader.dollar) / Math.abs(r.weekDollar)
         : 0;
-    if (leader.dollar === 0) {
+    /*
+     * "Most of that came from" is a claim that one holding caused the
+     * week, and it only holds when that holding went the same way the
+     * week did and did not overshoot it. On a week that finished near
+     * flat the biggest mover is routinely a faller inside a small gain,
+     * and the share is a ratio over a denominator close to zero: this
+     * printed "Your portfolio gained $388. Most of that came from $RKLB,
+     * down 0.8%, which on its own took off $1,400."
+     */
+    const sameWay = Math.sign(leader.pct) === Math.sign(r.weekDollar);
+    const nearFlat = Math.abs(r.weekPct ?? 0) < FLAT_WEEK_PCT;
+    if (leader.dollar === 0 || nearFlat || !sameWay) {
       opening.push(
-        `The biggest move was ${tag}, ${dirWord(leader.pct)} ${bare(leader.pct)}.`
+        `The biggest move either way was ${tag}, ${dirWord(leader.pct)} ${bare(leader.pct)}${
+          leader.dollar === 0 ? "" : `, worth ${bareMoney(leader.dollar)}`
+        }.`
       );
     } else if (share >= 0.5) {
       opening.push(
@@ -318,6 +359,43 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
     } else if (leader.pct < 0 && (r.rest?.up ?? 0) === 0) {
       against.push("Nothing you own finished the week higher.");
     }
+    /*
+     * Everything owned that has not been named yet, in the same paragraph
+     * as the rest of the holdings talk.
+     *
+     * It used to be a paragraph of its own at the very bottom, directly
+     * under the watchlist, where "that leaves three other companies" read
+     * as though it were still counting watched names. A sentence about
+     * what you own has to sit next to the other sentences about what you
+     * own, and say so in words.
+     */
+    const otherMovers = r.movers.filter((m) => !named.has(m.ticker));
+    const otherCount = otherMovers.length + (r.rest?.count ?? 0);
+    if (otherCount > 0) {
+      const biggest = Math.max(
+        ...otherMovers.map((m) => Math.abs(m.pct)),
+        r.rest?.maxAbsPct ?? 0
+      );
+      const up = otherMovers.filter((m) => m.pct > 0).length + (r.rest?.up ?? 0);
+      const down = otherMovers.filter((m) => m.pct < 0).length + (r.rest?.down ?? 0);
+      const companies = otherCount === 1 ? "company" : "companies";
+      const other = named.size > 0 ? "other " : "";
+      /*
+       * A split is only a split when both sides have something in them.
+       * Read straight out of the counts this printed "no up and four
+       * down", which is a spreadsheet talking.
+       */
+      const oneWay = up === 0 || down === 0;
+      const body = oneWay
+        ? `all ${up === 0 ? "fell" : "rose"} too, the largest of those moves ${bare(biggest)}`
+        : `went ${count(up)} up and ${count(down)} down, with the largest of those moves ${bare(biggest)}`;
+      against.push(
+        biggest < QUIET_PCT
+          ? `The ${other}${count(otherCount)} ${companies} you own barely moved, none of them by more than ${bare(biggest)} in either direction.`
+          : `The ${other}${count(otherCount)} ${companies} you own ${body}.`
+      );
+    }
+
     if (against.length > 0) paras.push(against.join(" "));
   }
 
@@ -352,46 +430,202 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
         ? `${cashtag(watchUp[0].ticker)} finished ${bare(watchUp[0].pct)} dearer`
         : `${cashtag(watchUp[0].ticker)} rose the most, ${bare(watchUp[0].pct)}, then ${listOf(watchUp.slice(1).map(withPct))}`
       : "";
+  /*
+   * "On your watchlist, the companies you follow but do not own, X fell"
+   * is an appositive wedged between a subject and its verb, and a reader
+   * meets three commas before the first fact. The clause that says these
+   * are not owned earns its place, so it gets its own short sentence and
+   * the list follows it.
+   */
+  const notOwned = "None of these is money you have in.";
   if (fell && rose) {
-    paras.push(
-      `On your watchlist, the companies you follow but do not own, ${fell}. Going the other way, ${rose}.`
-    );
+    paras.push(`On your watchlist, ${fell}. Going the other way, ${rose}. ${notOwned}`);
   } else if (fell) {
-    paras.push(
-      `Everything on your watchlist, which you follow but do not own, finished lower: ${fell}.`
-    );
+    paras.push(`Everything on your watchlist finished lower: ${fell}. ${notOwned}`);
   } else if (rose) {
-    paras.push(
-      `Everything on your watchlist, which you follow but do not own, finished higher: ${rose}.`
+    paras.push(`Everything on your watchlist finished higher: ${rose}. ${notOwned}`);
+  }
+
+  const close = closingThought(r);
+  if (close) paras.push(close);
+
+  return paras.join("\n\n");
+}
+
+/**
+ * The last paragraph: what the week amounted to, and where to look.
+ *
+ * The letter used to stop on a count of the holdings it had not named,
+ * which is a fact and not an ending. What a reader wants at the bottom is
+ * the thing the whole product exists to answer: was this the market having
+ * a bad week, or was it one of my companies.
+ *
+ * That question is answered here from breadth, which the letter already
+ * knows: nearly everything moving the same way is what a market week looks
+ * like, and one name doing the damage while the rest sat still is what a
+ * company week looks like. It hedges with "usually", because breadth is
+ * evidence and not proof, and it ends by pointing at the screen that
+ * settles it per company rather than settling it here.
+ *
+ * Two things it deliberately does not do, both of them rules this product
+ * is built on rather than preferences.
+ *
+ * It never tells the reader what to do about any of it: no hold, no sit
+ * tight, no take a closer look at this one, no do nothing. Upside Lab is
+ * not an adviser, the letter says so in its own footer, and the honest
+ * reason is that the answer depends on a holding period and a plan the
+ * letter cannot see. Pointing at Pulse is navigational, which is the line
+ * the rest of the app already draws.
+ *
+ * And it never promises the market goes back up. A bad week being ordinary
+ * is a fact about how often shares fall; "and it will recover" is a
+ * forecast, and one baked into a template reaches every reader, including
+ * somebody holding three speculative names where it would simply be false.
+ * So the perspective sentence is anchored on what this reader's own
+ * companies did this week, which is printed in the table above it.
+ */
+function closingThought(r: WeeklyLetter): string | null {
+  const bare = (pct: number) => signedPercent(Math.abs(pct) / 100, 1).replace(/^\+/, "");
+
+  const moves = [
+    ...r.movers.map((m) => m.pct),
+    // The names outside the table, as the directions we know they took.
+    ...Array.from({ length: r.rest?.up ?? 0 }, () => 1),
+    ...Array.from({ length: r.rest?.down ?? 0 }, () => -1),
+  ];
+  const up = moves.filter((v) => v > 0).length;
+  const down = moves.filter((v) => v < 0).length;
+  const withWeek = up + down;
+  if (withWeek < 2) return null;
+
+  const fell = r.weekDollar < 0;
+  const sameWay = fell ? down : up;
+  const leader = [...r.movers].sort(
+    (a, b) => Math.abs(b.dollar) - Math.abs(a.dollar)
+  )[0];
+
+  const broad = sameWay >= withWeek * BROAD_SHARE && withWeek >= 3;
+  /*
+   * Concentration is a share of the week, so on a week that finished near
+   * flat it is a ratio over almost nothing: one holding moving $1,400
+   * inside a $388 week came out as "this week came down to that single
+   * company", which is not what a reader who gained $388 experienced. A
+   * quiet week is a quiet week, and it gets said as one.
+   */
+  const nearFlat = Math.abs(r.weekPct ?? 0) < FLAT_WEEK_PCT;
+  const concentrated =
+    !broad &&
+    !nearFlat &&
+    leader != null &&
+    r.weekDollar !== 0 &&
+    Math.abs(leader.dollar) >= Math.abs(r.weekDollar) * CONCENTRATED_SHARE;
+
+  const bits: string[] = [];
+
+  /*
+   * One: what kind of week this was.
+   *
+   * This is the question the whole product exists to answer, and breadth
+   * is the honest way to answer it in a letter: nearly everything moving
+   * together is what a market week looks like, one name doing the damage
+   * while the rest sit still is what a company week looks like. Hedged,
+   * because breadth is evidence rather than proof.
+   */
+  if (nearFlat) {
+    // True whether the companies inside it sat still or cancelled out,
+    // which is the difference between these two sentences.
+    bits.push(
+      r.quiet
+        ? `Nothing much happened either way this week, in the market or in any of your companies.`
+        : `Your portfolio finished the week about where it started, with the moves inside it cancelling each other out.`
+    );
+  } else if (broad) {
+    bits.push(
+      `Nearly everything you own went the same way this week, which usually means the market moved rather than any one of your companies.`
+    );
+  } else if (concentrated) {
+    // Whether the rest sat still or went both ways is a fact this letter
+    // already worked out, so the sentence has to agree with it.
+    const others = r.movers.filter((m) => m.ticker !== leader.ticker);
+    const calm =
+      Math.max(
+        ...others.map((m) => Math.abs(m.pct)),
+        r.rest?.maxAbsPct ?? 0
+      ) < QUIET_PCT;
+    // Not the ticker again: the paragraph above has just named it, and a
+    // letter that says one company twice reads as a letter with one idea.
+    bits.push(
+      `This week came down to that single company rather than a move across the market, since the rest of what you own ${
+        calm ? "barely moved" : "went both ways"
+      }.`
+    );
+  } else {
+    bits.push(
+      `Your companies went both ways this week, so whatever happened did not happen to all of them at once.`
     );
   }
 
-  /* ------------------------------------------------- everything not named */
-
-  const otherMovers = r.movers.filter((m) => !named.has(m.ticker));
-  const otherCount = otherMovers.length + (r.rest?.count ?? 0);
-  if (otherCount > 0) {
-    const biggest = Math.max(
-      ...otherMovers.map((m) => Math.abs(m.pct)),
-      r.rest?.maxAbsPct ?? 0
-    );
-    const up = otherMovers.filter((m) => m.pct > 0).length + (r.rest?.up ?? 0);
-    const down = otherMovers.filter((m) => m.pct < 0).length + (r.rest?.down ?? 0);
-    const companies = otherCount === 1 ? "company" : "companies";
-    const other = named.size > 0 ? "other " : "";
-    if (biggest < QUIET_PCT) {
-      paras.push(
-        `The ${other}${count(otherCount)} ${companies} you own barely moved, none of them by more than ${bare(biggest)} in either direction.`
+  /*
+   * Two: a big week put in proportion.
+   *
+   * The perspective a reader wants after a bad week is that a week like it
+   * is an ordinary thing rather than a verdict. That is sayable honestly,
+   * because it is a claim about how often shares fall. What is not sayable
+   * is the sentence that usually follows it: that the market comes back.
+   * That is a forecast, and a forecast in a template reaches every reader,
+   * including one holding three companies where it would be false.
+   *
+   * So the proportion is anchored on this reader's own week, printed in
+   * the table directly above: how far these companies moved, and the fact
+   * that a company which can move that far does it in both directions.
+   */
+  const swingiest = Math.max(0, ...r.movers.map((m) => Math.abs(m.pct)));
+  if (Math.abs(r.weekPct ?? 0) >= BIG_WEEK_PCT) {
+    if (broad) {
+      bits.push(
+        fell
+          ? `A fall this size across almost everything you own is what an ordinary bad week in the market looks like, and they come round regularly. On its own it says nothing about any of these companies.`
+          : `A rise this size across almost everything you own is the market having a good week, and breadth like that works the same way when it has a bad one.`
       );
     } else {
-      paras.push(
-        `That leaves ${count(otherCount)} ${other}${companies}, ${count(up)} up and ${count(down)} down, and the largest move among those was ${bare(biggest)}.`
+      const source = concentrated
+        ? `That is a large amount of money for one company's ${fell ? "bad" : "good"} week to be worth.`
+        : "It is a big number in dollars, and it came from a few of your companies rather than from everything you own.";
+      bits.push(
+        swingiest >= SWINGY_PCT
+          ? `${source} A company that can move ${bare(swingiest)} in a week moves that far in both directions, and weeks like this one turn up in both.`
+          : source
       );
     }
   }
 
-  return paras.join("\n\n");
+  /*
+   * Three: where the answer per company actually lives.
+   *
+   * Navigational, never an instruction. Upside Lab is not an adviser, so
+   * the letter does not say what to do about any of this: which company is
+   * worth opening depends on a holding period and a plan the letter cannot
+   * see, and that decision stays with the reader.
+   */
+  /*
+   * Ending on the same sentence whatever happened is what makes a letter
+   * feel posted rather than written, so the pointer answers the paragraph
+   * it is standing in: a market week and a one-company week send a reader
+   * to Pulse for different reasons, and a flat one barely sends them at all.
+   */
+  bits.push(
+    nearFlat
+      ? `Pulse is there for the week one of them does something.`
+      : concentrated
+        ? `Pulse will tell you whether that was news about the business or the market carrying it, one company at a time.`
+        : broad
+          ? `If you want it company by company rather than as one number, Pulse checks each of them against the reason you own it.`
+          : `Pulse has the same check for each company, one at a time, whenever you want to see which of these was the business and which was the market.`
+  );
+
+  return bits.join(" ");
 }
+
 
 type Accepted = { text: string } | { rejected: string };
 
@@ -429,6 +663,53 @@ export type WeeklyTakeOutcome = {
   reason: string;
 };
 
+/**
+ * How many times the model may be asked before the fallback writes it.
+ *
+ * One shot was the whole reason a reader could get fallback prose: an
+ * answer that came back three sentences long, or with an unfinished last
+ * one, was refused by `accept` and that was the end of it, even with most
+ * of the budget unspent. A refusal is now a retry that says what was wrong
+ * with the last answer, which is the single cheapest thing that keeps the
+ * good writer writing.
+ */
+const TAKE_ATTEMPTS = 3;
+
+/** No point starting an attempt with less time than a call needs. */
+const MIN_ATTEMPT_MS = 6_000;
+
+/**
+ * How long to wait for the shared model slot before giving up on it.
+ *
+ * `beginBackgroundLlm` guards free-tier quota by letting one background job
+ * near the model at a time, and a Pulse sweep on the same warm instance
+ * would hand the letter straight to the fallback. A letter goes out once a
+ * week; waiting a couple of seconds for the slot is obviously worth more
+ * than the prose it was losing.
+ */
+const SLOT_WAIT_MS = 4_000;
+const SLOT_POLL_MS = 250;
+
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Take the shared background slot, waiting a little rather than giving up. */
+async function takeSlot(waitMs: number): Promise<boolean> {
+  const until = Date.now() + Math.max(0, waitMs);
+  for (;;) {
+    if (!chatIsBusy() && beginBackgroundLlm()) return true;
+    if (Date.now() >= until) return false;
+    await sleep(SLOT_POLL_MS);
+  }
+}
+
+/** What to tell the model about the answer that was just refused. */
+function retryNote(rejected: string): string {
+  return `
+
+The previous answer was not usable: ${rejected}. Write the whole letter again from these same facts, four paragraphs, every sentence finished, and nothing about the attempt that failed.`;
+}
+
 export async function writeWeeklyTake(
   letter: WeeklyLetter,
   /**
@@ -438,6 +719,7 @@ export async function writeWeeklyTake(
    */
   opts: { budgetMs?: number; onOutcome?: (outcome: WeeklyTakeOutcome) => void } = {}
 ): Promise<string | null> {
+  const deadlineAt = Date.now() + (opts.budgetMs ?? 22_000);
   const say = (source: "model" | "fallback", reason: string) => {
     opts.onOutcome?.({ source, reason });
   };
@@ -446,44 +728,65 @@ export async function writeWeeklyTake(
     return fallbackWeeklyTake(letter);
   };
 
-  if (chatIsBusy()) return fall("chat holds the model slot");
-  if (!beginBackgroundLlm()) return fall("another background job holds the slot");
   const chain = buildAdvisorProviderChain();
-  if (chain.length === 0) {
-    endBackgroundLlm();
-    return fall("no model provider is configured");
-  }
-  try {
-    const { text } = await withAdvisorFallback(
-      chain,
-      (model, _id, signal) =>
-        generateText({
-          model,
-          system: `${MARGUS_PERSONA}
+  if (chain.length === 0) return fall("no model provider is configured");
+
+  const system = `${MARGUS_PERSONA}
 
 ## This email
 ${JOB}
 
 Write the finished letter only. The first word you write is the first word of the letter.
-Do not restate these rules. Do not list words to avoid. Do not plan out loud.`,
-          prompt: facts(letter),
-          maxOutputTokens: 640,
-          abortSignal: signal,
-        }),
-      { deadlineAt: Date.now() + (opts.budgetMs ?? 22_000) }
-    );
-    const verdict = accept(text);
-    if ("text" in verdict) {
-      say("model", "ok");
-      return verdict.text;
+Do not restate these rules. Do not list words to avoid. Do not plan out loud.`;
+
+  let lastReason = "";
+  for (let attempt = 1; attempt <= TAKE_ATTEMPTS; attempt++) {
+    const left = deadlineAt - Date.now();
+    if (left < MIN_ATTEMPT_MS) {
+      lastReason = lastReason || "out of time before the first attempt";
+      break;
     }
-    return fall(`answer refused: ${verdict.rejected}`);
-  } catch (err) {
-    console.error("Weekly letter take failed", err);
-    return fall(
-      `model call failed: ${err instanceof Error ? err.name : "unknown"}`
-    );
-  } finally {
-    endBackgroundLlm();
+
+    // Wait for the slot out of this letter's own budget, never out of the
+    // time an attempt needs.
+    if (!(await takeSlot(Math.min(SLOT_WAIT_MS, left - MIN_ATTEMPT_MS)))) {
+      lastReason = "another background job held the model slot";
+      break;
+    }
+
+    try {
+      const remaining = deadlineAt - Date.now();
+      const share = Math.max(
+        MIN_ATTEMPT_MS,
+        Math.floor(remaining / (TAKE_ATTEMPTS - attempt + 1))
+      );
+      const { text } = await withAdvisorFallback(
+        chain,
+        (model, _id, signal) =>
+          generateText({
+            model,
+            system,
+            prompt: `${facts(letter)}${lastReason ? retryNote(lastReason) : ""}`,
+            maxOutputTokens: 640,
+            abortSignal: signal,
+          }),
+        { deadlineAt: Date.now() + Math.min(share, remaining) }
+      );
+      const verdict = accept(text);
+      if ("text" in verdict) {
+        say("model", attempt === 1 ? "ok" : `ok on attempt ${attempt}`);
+        return verdict.text;
+      }
+      lastReason = `answer refused: ${verdict.rejected}`;
+    } catch (err) {
+      console.error("Weekly letter take failed", err);
+      lastReason = `model call failed: ${
+        err instanceof Error ? err.name : "unknown"
+      }`;
+    } finally {
+      endBackgroundLlm();
+    }
   }
+
+  return fall(lastReason || "unknown");
 }
