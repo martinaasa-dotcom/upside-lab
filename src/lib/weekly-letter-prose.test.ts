@@ -184,8 +184,8 @@ describe("the letter ends on what the week amounted to", () => {
     // The size is put in proportion, and the perspective is anchored on
     // this reader's own week rather than on a claim about what markets do
     // next. Asserted as the rule: the wording differs per shape of week.
-    expect(last).toMatch(/large amount of money|big number in dollars/);
-    expect(last).toMatch(/moves that far in both directions/);
+    expect(last).toMatch(/a lot of money|big number in dollars/);
+    expect(last).toMatch(/can rise that far too|can fall that far too/);
   });
 
   it("points at Pulse rather than answering per company itself", () => {
@@ -218,6 +218,51 @@ describe("the letter ends on what the week amounted to", () => {
         /\b(will recover|bounce back|comes back|keeps going up|long run|over time (it|the market|markets)|in the end)\b/i
       );
     }
+  });
+});
+
+/*
+ * Every one of these was found by rendering the letter for a small
+ * portfolio rather than by reading the code. A sentence built from counts
+ * reads correctly at four holdings and falls apart at one.
+ */
+describe("a small portfolio gets English, not counts", () => {
+  const TWO: Row[] = [
+    ["NVDA", 700, 190, 176.06],
+    ["SOFI", 5000, 17.6, 17.154],
+  ];
+
+  it("does not say the largest of one move", () => {
+    const take = fallbackWeeklyTake(letterOf(TWO));
+    expect(take).not.toMatch(/largest of the other one/);
+    expect(take).toMatch(/The other one rose 2\.6%\./);
+  });
+
+  it("does not call a single watched name everything on the watchlist", () => {
+    const take = fallbackWeeklyTake(letterOf(TWO, [["ONDS", 3.9, -0.082]]));
+    expect(take).not.toMatch(/Everything on your watchlist/);
+    expect(take).toMatch(/The one name on your watchlist, \$ONDS, finished 8\.2% lower\./);
+    expect(take).toMatch(/You do not own it\./);
+  });
+
+  it("does not say one other holding went both ways", () => {
+    const last = fallbackWeeklyTake(letterOf(TWO)).split(/\n{2,}/).at(-1) as string;
+    expect(last).not.toMatch(/the rest of what you own went both ways/);
+  });
+
+  it("introduces every watchlist percentage the same way", () => {
+    const take = fallbackWeeklyTake(letterOf(BOOK, WATCH));
+    // "fell the most, 8.2%, then $IONQ at 5.1%" reads as two writers a
+    // comma apart.
+    expect(take).toMatch(/fell the most, at 8\.2%/);
+  });
+
+  it("reads two watched names as a pair rather than a ranking", () => {
+    const take = fallbackWeeklyTake(
+      letterOf(BOOK, [["ONDS", 3.9, -0.082], ["IONQ", 44, -0.051]])
+    );
+    expect(take).toMatch(/\$ONDS fell 8\.2% and \$IONQ 5\.1%/);
+    expect(take).not.toMatch(/fell the most/);
   });
 });
 

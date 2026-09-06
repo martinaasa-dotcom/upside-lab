@@ -385,15 +385,42 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
        * Read straight out of the counts this printed "no up and four
        * down", which is a spreadsheet talking.
        */
+      /*
+       * When the sentence before it has already said nothing finished
+       * higher, "the other four companies you own all fell too" is the
+       * same fact again with "you own" in both halves. There it only has
+       * to carry the size.
+       */
+      const alreadySaid = against.some((line) => /Nothing you own/.test(line));
       const oneWay = up === 0 || down === 0;
-      const body = oneWay
-        ? `all ${up === 0 ? "fell" : "rose"} too, the largest of those moves ${bare(biggest)}`
-        : `went ${count(up)} up and ${count(down)} down, with the largest of those moves ${bare(biggest)}`;
-      against.push(
-        biggest < QUIET_PCT
-          ? `The ${other}${count(otherCount)} ${companies} you own barely moved, none of them by more than ${bare(biggest)} in either direction.`
-          : `The ${other}${count(otherCount)} ${companies} you own ${body}.`
-      );
+      const verb = up === 0 ? "fell" : "rose";
+      // At one holding there is no largest of anything, and no plural to
+      // agree with: this printed "The largest of the other one rises was
+      // 2.6%". Every branch has to read at one as well as at four.
+      const only = otherCount === 1;
+      if (biggest < QUIET_PCT) {
+        against.push(
+          only
+            ? `The ${other}company you own barely moved, ${bare(biggest)} either way.`
+            : `The ${other}${count(otherCount)} ${companies} you own barely moved, none of them by more than ${bare(biggest)} in either direction.`
+        );
+      } else if (alreadySaid) {
+        against.push(
+          only
+            ? `The other one ${verb} ${bare(biggest)}.`
+            : `The largest of the other ${count(otherCount)} moves was ${bare(biggest)}.`
+        );
+      } else if (oneWay) {
+        against.push(
+          only
+            ? `The ${other}company you own ${verb} too, by ${bare(biggest)}.`
+            : `The other ${count(otherCount)} ${companies} you own all ${verb} too, the largest of those moves ${bare(biggest)}.`
+        );
+      } else {
+        against.push(
+          `The ${other}${count(otherCount)} ${companies} you own were split ${count(up)} up and ${count(down)} down, the largest of those moves ${bare(biggest)}.`
+        );
+      }
     }
 
     if (against.length > 0) paras.push(against.join(" "));
@@ -418,18 +445,26 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
     .filter((w) => w.pct > 0)
     .sort((a, b) => b.pct - a.pct)
     .slice(0, 3);
-  const fell =
-    watchDown.length > 0
-      ? watchDown.length === 1
-        ? `${cashtag(watchDown[0].ticker)} finished ${bare(watchDown[0].pct)} cheaper than it was last Sunday`
-        : `${cashtag(watchDown[0].ticker)} fell the most, ${bare(watchDown[0].pct)}, then ${listOf(watchDown.slice(1).map(withPct))}`
-      : "";
-  const rose =
-    watchUp.length > 0
-      ? watchUp.length === 1
-        ? `${cashtag(watchUp[0].ticker)} finished ${bare(watchUp[0].pct)} dearer`
-        : `${cashtag(watchUp[0].ticker)} rose the most, ${bare(watchUp[0].pct)}, then ${listOf(watchUp.slice(1).map(withPct))}`
-      : "";
+  /*
+   * "Fell the most" only means something with three or more of them; with
+   * two it is a pair, and with one there is nothing to be the most of.
+   * Every percentage in the list is introduced the same way, since
+   * "$ONDS fell the most, 8.2%, then $IONQ at 5.1%" reads as two different
+   * writers a comma apart.
+   */
+  const side = (
+    rows: typeof watchDown,
+    verb: "fell" | "rose"
+  ): string => {
+    if (rows.length === 0) return "";
+    if (rows.length === 1) return `${cashtag(rows[0].ticker)} ${verb} ${bare(rows[0].pct)}`;
+    if (rows.length === 2) {
+      return `${cashtag(rows[0].ticker)} ${verb} ${bare(rows[0].pct)} and ${cashtag(rows[1].ticker)} ${bare(rows[1].pct)}`;
+    }
+    return `${cashtag(rows[0].ticker)} ${verb} the most, at ${bare(rows[0].pct)}, then ${listOf(rows.slice(1).map(withPct))}`;
+  };
+  const fell = side(watchDown, "fell");
+  const rose = side(watchUp, "rose");
   /*
    * "On your watchlist, the companies you follow but do not own, X fell"
    * is an appositive wedged between a subject and its verb, and a reader
@@ -437,9 +472,22 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
    * are not owned earns its place, so it gets its own short sentence and
    * the list follows it.
    */
-  const notOwned = "None of these is money you have in.";
+  const watched = watchDown.length + watchUp.length;
+  const notOwned = watched === 1 ? "You do not own it." : "You do not own any of them.";
   if (fell && rose) {
     paras.push(`On your watchlist, ${fell}. Going the other way, ${rose}. ${notOwned}`);
+  } else if (watched === 1) {
+    /*
+     * One name is not "everything on your watchlist finished lower: $ONDS
+     * fell 8.2%", which says the same thing twice and calls one company
+     * everything.
+     */
+    const one = watchDown[0] ?? watchUp[0];
+    paras.push(
+      `The one name on your watchlist, ${cashtag(one.ticker)}, finished ${bare(one.pct)} ${
+        one.pct < 0 ? "lower" : "higher"
+      }. ${notOwned}`
+    );
   } else if (fell) {
     paras.push(`Everything on your watchlist finished lower: ${fell}. ${notOwned}`);
   } else if (rose) {
@@ -544,20 +592,34 @@ function closingThought(r: WeeklyLetter): string | null {
       `Nearly everything you own went the same way this week, which usually means the market moved rather than any one of your companies.`
     );
   } else if (concentrated) {
-    // Whether the rest sat still or went both ways is a fact this letter
-    // already worked out, so the sentence has to agree with it.
+    /*
+     * Whichever of these it says has to be true of the rest. "The rest
+     * went both ways" was said of a portfolio with one other holding in
+     * it, which cannot go both ways. The last branch is the one that
+     * holds by construction, since concentration means this company moved
+     * more money than everything else put together.
+     */
     const others = r.movers.filter((m) => m.ticker !== leader.ticker);
-    const calm =
-      Math.max(
-        ...others.map((m) => Math.abs(m.pct)),
-        r.rest?.maxAbsPct ?? 0
-      ) < QUIET_PCT;
+    const othersMax = Math.max(
+      0,
+      ...others.map((m) => Math.abs(m.pct)),
+      r.rest?.maxAbsPct ?? 0
+    );
+    const restUp = others.filter((m) => m.pct > 0).length + (r.rest?.up ?? 0);
+    const restDown = others.filter((m) => m.pct < 0).length + (r.rest?.down ?? 0);
+    const bothWays = restUp > 0 && restDown > 0;
+    const restDid =
+      othersMax < QUIET_PCT
+        ? "the rest of what you own barely moved"
+        : othersMax * 2 <= Math.abs(leader.pct)
+          ? "nothing else you own moved anything like as far"
+          : bothWays
+            ? "the rest of what you own went both ways"
+            : "no other company you own came close to it in money";
     // Not the ticker again: the paragraph above has just named it, and a
     // letter that says one company twice reads as a letter with one idea.
     bits.push(
-      `This week came down to that single company rather than a move across the market, since the rest of what you own ${
-        calm ? "barely moved" : "went both ways"
-      }.`
+      `This week came down to that single company rather than a move across the market, since ${restDid}.`
     );
   } else {
     bits.push(
@@ -589,11 +651,13 @@ function closingThought(r: WeeklyLetter): string | null {
       );
     } else {
       const source = concentrated
-        ? `That is a large amount of money for one company's ${fell ? "bad" : "good"} week to be worth.`
+        ? `That is a lot of money for one company's ${fell ? "bad" : "good"} week.`
         : "It is a big number in dollars, and it came from a few of your companies rather than from everything you own.";
       bits.push(
         swingiest >= SWINGY_PCT
-          ? `${source} A company that can move ${bare(swingiest)} in a week moves that far in both directions, and weeks like this one turn up in both.`
+          ? `${source} A company that can ${fell ? "fall" : "rise"} ${bare(
+              swingiest
+            )} in a week can ${fell ? "rise" : "fall"} that far too, and weeks of both kinds come round.`
           : source
       );
     }
@@ -620,7 +684,7 @@ function closingThought(r: WeeklyLetter): string | null {
         ? `Pulse will tell you whether that was news about the business or the market carrying it, one company at a time.`
         : broad
           ? `If you want it company by company rather than as one number, Pulse checks each of them against the reason you own it.`
-          : `Pulse has the same check for each company, one at a time, whenever you want to see which of these was the business and which was the market.`
+          : `Pulse has the same check for each company, one at a time, whenever you want to see which of these was news about the business and which was the market.`
   );
 
   return bits.join(" ");
