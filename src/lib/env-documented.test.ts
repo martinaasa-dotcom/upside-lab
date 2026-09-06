@@ -11,9 +11,10 @@ import { join } from "node:path";
   the leg had been built, so somebody reading it would have concluded no
   Cerebras tier existed while `resolveAdvisorChain` was already adding one
   for any key it found. The same paragraph named the provider order as
-  OpenRouter to Groq to Gemini, and the code walks Groq, OpenRouter,
+  OpenRouter to Groq to Gemini, and the code walked Groq, OpenRouter,
   Gemini, Cerebras. Four provider settings and three migration knobs were
-  not mentioned at all.
+  not mentioned at all. (The Groq leg is gone since: its key bills per
+  token, so the chain is OpenRouter, Gemini, Cerebras.)
 
   None of that breaks anything, which is exactly why it drifted: a wrong
   comment costs nothing until somebody trusts it.
@@ -93,7 +94,7 @@ describe("what it says about the model chain is what the chain does", () => {
     const order = [...model.matchAll(/hasKey\("([A-Z_]+)_API_KEY"\)/g)].map(
       (m) => m[1]!.toLowerCase()
     );
-    expect(order).toEqual(["groq", "openrouter", "gemini", "cerebras"]);
+    expect(order).toEqual(["openrouter", "gemini", "cerebras"]);
     const written = order
       .map((n) => (n === "openrouter" ? "OpenRouter" : n[0]!.toUpperCase() + n.slice(1)))
       .join(" -> ");
@@ -105,11 +106,22 @@ describe("what it says about the model chain is what the chain does", () => {
     expect(example).not.toMatch(/Cerebras was evaluated and deliberately skipped/);
   });
 
-  it("says which legs a picture skips, because two of them do", () => {
-    // Groq and Cerebras are both gated on `!vision`, so a screenshot
-    // import walks a shorter chain than a text question does.
-    expect(model).toContain('hasKey("GROQ_API_KEY") && !vision');
+  it("says which leg a picture skips, because one of them does", () => {
+    // Cerebras is gated on `!vision`, so a screenshot import walks a
+    // shorter chain than a text question does.
     expect(model).toContain('hasKey("CEREBRAS_API_KEY") && !vision');
     expect(example).toMatch(/skipped for a request carrying a picture/i);
+  });
+
+  it("has no Groq leg, because that key bills per token", () => {
+    /*
+      Free-ness on Groq is a property of the account rather than of the
+      model, so a chain that reached for it at all would spend money on a
+      paid-tier key. The check is on the code, not on the prose: a leg
+      added back would otherwise pass every other test in this file.
+    */
+    expect(model).not.toContain('hasKey("GROQ_API_KEY")');
+    expect(model).not.toContain("api.groq.com");
+    expect(example).toMatch(/GROQ_API_KEY is ignored/);
   });
 });
