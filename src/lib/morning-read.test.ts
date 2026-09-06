@@ -293,39 +293,6 @@ describe("Home notices", () => {
     expect(second.notices.some((n) => /Thesis watch/.test(n.text))).toBe(true);
   });
 
-  it("says the reason has not been written down when a large name moved", () => {
-    const book = model(
-      [
-        ticker({
-          ticker: "CRWV",
-          currentValue: 40_000,
-          todayPct: -0.04,
-          todayDollar: -1600,
-        }),
-        ticker({
-          ticker: "AAPL",
-          currentValue: 60_000,
-          todayPct: 0.001,
-          todayDollar: 60,
-        }),
-      ],
-      0.015
-    );
-    const read = buildMorningRead(book, null, "open", {
-      lookIndex: 0,
-      notes: [
-        { ticker: "CRWV", hasThesis: false },
-        { ticker: "AAPL", hasThesis: true },
-      ],
-    });
-    const gap = read.notices.find((n) => n.kind === "gap");
-    // A note nobody has written is a to-do, not a hazard, so it carries its
-    // own calm label rather than the generic one.
-    expect(gap?.label).toBe("Worth writing down");
-    expect(gap?.ask).toBe("write-thesis");
-    expect(gap?.text).toMatch(/\$CRWV fell about 4%/);
-    expect(gap?.text).toMatch(/why you own it/);
-  });
 });
 
 describe("concentration as today's story", () => {

@@ -5,7 +5,7 @@ import { ClassroomRoster } from "@/components/ClassroomRoster";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { Button } from "@/components/ui/button";
 import { Score, Scoreboard, Segmented } from "@/components/ui/Panel";
-import type { ClassroomTrade, ThesisCoverage } from "@/lib/classroom";
+import type { ClassroomTrade } from "@/lib/classroom";
 import {
   currency,
   NO_VALUE,
@@ -40,7 +40,6 @@ export type ClassroomHomeProps = {
   holdings: Holding[];
   quotes: Record<string, Quote>;
   ownership: { portfolio_id: string; user_id: string }[];
-  thesisCoverage: Record<string, ThesisCoverage>;
   communityId: string;
   onOpenMember: (id: string) => void;
   members: ReactNode;
@@ -67,7 +66,6 @@ export function ClassroomHome({
   holdings,
   quotes,
   ownership,
-  thesisCoverage,
   communityId,
   onOpenMember,
   members,
@@ -182,7 +180,6 @@ export function ClassroomHome({
               holdings={holdings}
               quotes={quotes}
               ownership={ownership}
-              thesisCoverage={thesisCoverage}
               onOpen={(id) => {
                 onOpenMember(id);
               }}

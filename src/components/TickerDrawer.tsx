@@ -2,13 +2,7 @@
 
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
 import { Button } from "@/components/ui/button";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { FieldGroup } from "@/components/ui/field";
 import { NO_VALUE, cashtag, cn, currency, percent, signedPercent } from "@/lib/format";
 import {
   Metric,
@@ -21,12 +15,7 @@ import {
   SPLIT_ROW,
 } from "@/components/ui/Panel";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  CONVICTION_THESIS_MAX_CHARS,
-  type ConvictionEntry,
-  type ConvictionLevel,
-} from "@/lib/conviction";
+import { type ConvictionEntry } from "@/lib/conviction";
 import { estimateGreenStreak } from "@/lib/streaks";
 import { forecastThemeForTicker } from "@/lib/forecast-conviction";
 import { THEME_LABEL } from "@/lib/portfolio-personality";
@@ -60,14 +49,6 @@ import { planLadderProvenance } from "@/lib/provenance";
 import { forecastPathProvenance } from "@/lib/provenance";
 import { useEffect, useMemo, useState } from "react";
 
-const CONVICTION_LABELS: Record<ConvictionLevel, string> = {
-  1: "Weak, and I am watching whether the reason holds",
-  2: "Below average, and this may be more than I want to own",
-  3: "Neutral, holding it as it is",
-  4: "Strong, and I still believe the reason",
-  5: "Highest, and I am sure why I own it",
-};
-
 /*
  * Both horizons come from FORECAST_YEARS, never from a year typed here.
  * This file used to carry "End of 2028" and "End of 2030" as constants and
@@ -88,6 +69,7 @@ type Props = {
   buyPrice: number | null;
   sparkline?: number[];
   todayChangePct?: number | null;
+  /** This holding's Pulse stamp trail, newest first. */
   conviction?: ConvictionEntry | null;
   overrides?: PortfolioEoyOverrides;
   coveredCallRow?: CoveredCallRow | null;
@@ -104,7 +86,6 @@ type Props = {
    */
   portfolioCount?: number;
   onSetEoyPrice?: (ticker: string, year: ForecastYear, price: number) => void;
-  onConviction: (level: ConvictionLevel, thesis: string) => void;
   onClose: () => void;
   /** Removes the holding this drawer was opened from, when there is one. */
   onDelete?: () => void;
@@ -126,7 +107,6 @@ export function TickerDrawer({
   onSetLadderEdge,
   portfolioCount = 1,
   onSetEoyPrice,
-  onConviction,
   onClose,
   onDelete,
   onAskMargus,
@@ -134,15 +114,6 @@ export function TickerDrawer({
   const [horizon, setHorizon] = useState<"3y" | "5y">("3y");
   const [editingYear, setEditingYear] = useState<ForecastYear | null>(null);
   const [yearDraftPrice, setYearDraftPrice] = useState<string>("");
-  const [thesisDraft, setThesisDraft] = useState(conviction?.thesis ?? "");
-
-  // Reset when the drawer target changes, not on every remote save, or
-  // the textarea fights you mid-sentence.
-  useEffect(() => {
-    setThesisDraft(conviction?.thesis ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- ticker/open only
-  }, [ticker, open]);
-
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -224,7 +195,6 @@ export function TickerDrawer({
   // Nothing chosen is nothing chosen. Lighting cell 3 and printing
   // "Neutral, holding it as it is" put an opinion in somebody's mouth on
   // every holding they had never answered for.
-  const level = conviction?.level ?? null;
   const theme = forecastThemeForTicker(ticker);
   const shockProfile = getShockProfile(ticker);
 
@@ -348,33 +318,14 @@ export function TickerDrawer({
           floor for a screen with no dock on it.
         */}
         <div className="scroll-host flex flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 pb-[max(1.5rem,var(--dock-clearance,0px),env(safe-area-inset-bottom))]">
-          <Field>
-            <FieldLabel htmlFor="ticker-thesis">Thesis</FieldLabel>
-            <Textarea
-              id="ticker-thesis"
-              value={thesisDraft}
-              rows={2}
-              maxLength={CONVICTION_THESIS_MAX_CHARS}
-              onChange={(e) => setThesisDraft(e.target.value)}
-              onBlur={() => {
-                // Only on a real change, so simply looking at the box does
-                // not create an entry that then claims a stance nobody set.
-                if (thesisDraft !== (conviction?.thesis ?? "")) {
-                  onConviction(level ?? 3, thesisDraft);
-                }
-              }}
-              placeholder="Two sentences. What has to stay true for you to keep holding this?"
-              className="min-h-16 leading-relaxed"
-            />
-            <FieldDescription>
-              Pulse reads this first. Leave it blank and it still works from headlines and today&apos;s prices.
-            </FieldDescription>
-            {conviction?.stamps && conviction.stamps.length > 0 ? (
-              <ul className="flex flex-col gap-1.5 border-t border-border pt-3">
+          {conviction?.stamps && conviction.stamps.length > 0 ? (
+            <section className="flex flex-col gap-2">
+              <MicroLabel>Recent Pulse readings</MicroLabel>
+              <ul className="flex flex-col gap-1.5">
                 {conviction.stamps.slice(0, 3).map((s) => (
                   <li key={s.at} className="text-sm text-muted-foreground">
                     <span className="text-foreground">{s.verdict}</span>
-                    {" · "}
+                    {" \u00b7 "}
                     {s.line}
                     <span className="ml-1">
                       {formatDateTime(s.at, {
@@ -385,8 +336,8 @@ export function TickerDrawer({
                   </li>
                 ))}
               </ul>
-            ) : null}
-          </Field>
+            </section>
+          ) : null}
 
           {forecastSummary ? (
           <section className="flex flex-col gap-4">
@@ -399,7 +350,6 @@ export function TickerDrawer({
                       ticker,
                       spot: forecastSummary.spot,
                       sector: THEME_LABEL[forecastThemeForTicker(ticker)],
-                      hasOwnReason: Boolean(conviction?.thesis?.trim()),
                       fallback: !forecastSummary.hasOverrides,
                     })}
                   />
@@ -627,43 +577,6 @@ export function TickerDrawer({
               </div>
             </FieldGroup>
           ) : null}
-
-          <Field>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <FieldLabel>How sure are you?</FieldLabel>
-              <span className="text-sm font-medium text-muted-foreground">
-                {level != null ? `${level} of 5` : "Not answered yet"}
-              </span>
-            </div>
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              spacing={0}
-              value={level != null ? String(level) : ""}
-              onValueChange={(v) => {
-                if (!v) return;
-                onConviction(Number(v) as ConvictionLevel, thesisDraft);
-              }}
-              className="w-full"
-              aria-label="How sure are you"
-            >
-              {([1, 2, 3, 4, 5] as ConvictionLevel[]).map((n) => (
-                <ToggleGroupItem
-                  key={n}
-                  value={String(n)}
-                  title={CONVICTION_LABELS[n]}
-                  className="h-10 flex-1"
-                >
-                  {n}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-            <FieldDescription>
-              {level != null
-                ? CONVICTION_LABELS[level]
-                : "Tap a number when you have made up your mind. Nothing is chosen until you do."}
-            </FieldDescription>
-          </Field>
 
           {onAskMargus ? (
             <Button

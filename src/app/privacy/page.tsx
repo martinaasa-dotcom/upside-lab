@@ -219,7 +219,7 @@ export default function PrivacyPage() {
           <p>
             The app also saves things on your own device (browser storage,
             not cookies): your settings, which portfolio you had open, your
-            thesis notes and watchlist, and a cached copy of your portfolio
+            watchlist and your Pulse history, and a cached copy of your portfolio
             so it still works offline. That never leaves your device on its
             own. Signing out, or switching accounts, clears all of it.
           </p>

@@ -84,15 +84,15 @@ describe("what the route does with them", () => {
 
   it("never lets a caller overwrite an answer other readers will be given", () => {
     /*
-      `force` exists so a reader can re-ask about their own company. On a
-      shared key it is a write into everybody else's answer, which is the
-      same hole from the other side.
+      Every key is shared now. Nothing a reader writes reaches this prompt,
+      so one company in one move bucket is one question with one answer,
+      handed to everybody holding it. A re-ask would therefore be a write
+      into everybody else's answer, so `force` never re-asks a cached one.
     */
-    const shared = getPulseCacheKey("NVDA", -0.06);
-    expect(shared).toContain("nothesis");
-    expect(getPulseCacheKey("NVDA", -0.06, "my own reason", 4)).not.toContain(
-      "nothesis"
+    expect(getPulseCacheKey("NVDA", -0.06)).toBe("NVDA:down_heavy:nothesis");
+    expect(route).not.toContain("mayForce");
+    expect(route).toContain(
+      "if (!cachedEntry || isEmptyPulseCheck(cachedEntry?.check)) {"
     );
-    expect(route).toContain("isSharedPulseKey");
   });
 });

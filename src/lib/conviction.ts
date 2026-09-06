@@ -1,16 +1,18 @@
-/** Per-ticker conviction + thesis (localStorage, mirrored to IndexedDB). */
-import { persistLabSnapshot } from "@/lib/offline/snapshots";
-
-export type ConvictionLevel = 1 | 2 | 3 | 4 | 5;
-
 /**
- * Most a thesis note may be, in characters. The editor and the Lab save
- * route read the same number, because a note the editor accepts and the
- * server refuses is a note that quietly never syncs. Margus is only ever
- * shown the first 400 characters of one, so nothing past there reaches
- * the model whatever the note says.
+ * Per-ticker Pulse history (localStorage, mirrored to IndexedDB).
+ *
+ * This map used to carry two things the reader typed: a written reason for
+ * owning a company and a one-to-five score for how sure they were. Both are
+ * gone, along with every screen that asked for them and every prompt that
+ * read them back. What is left is the Pulse stamp trail, which is this
+ * app's own record of what it told the reader and is what the Sunday
+ * letter's suggestions are built from.
+ *
+ * `loadConvictionMap` drops anything else it finds, so a browser holding a
+ * note written before the removal stops sending it anywhere the moment the
+ * map is next saved.
  */
-export const CONVICTION_THESIS_MAX_CHARS = 2000;
+import { persistLabSnapshot } from "@/lib/offline/snapshots";
 
 export type PulseStamp = {
   at: string;
@@ -21,8 +23,6 @@ export type PulseStamp = {
 };
 
 export type ConvictionEntry = {
-  level: ConvictionLevel;
-  thesis: string;
   updatedAt: string;
   stamps?: PulseStamp[];
 };
@@ -31,12 +31,32 @@ export type ConvictionMap = Record<string, ConvictionEntry>;
 
 const KEY = "upside-conviction-v1";
 
+/** Keeps the stamp trail and the timestamp, and nothing else. */
+function cleanEntry(raw: unknown): ConvictionEntry | null {
+  if (!raw || typeof raw !== "object") return null;
+  const entry = raw as Partial<ConvictionEntry>;
+  const stamps = Array.isArray(entry.stamps) ? entry.stamps : undefined;
+  return {
+    updatedAt:
+      typeof entry.updatedAt === "string"
+        ? entry.updatedAt
+        : new Date().toISOString(),
+    ...(stamps ? { stamps } : {}),
+  };
+}
+
 export function loadConvictionMap(): ConvictionMap {
   if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return {};
-    return JSON.parse(raw) as ConvictionMap;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: ConvictionMap = {};
+    for (const [ticker, value] of Object.entries(parsed ?? {})) {
+      const entry = cleanEntry(value);
+      if (entry) out[ticker] = entry;
+    }
+    return out;
   } catch {
     return {};
   }
@@ -45,35 +65,16 @@ export function loadConvictionMap(): ConvictionMap {
 export function saveConvictionMap(map: ConvictionMap) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(KEY, JSON.stringify(map));
-    persistLabSnapshot(map);
+    const clean: ConvictionMap = {};
+    for (const [ticker, value] of Object.entries(map ?? {})) {
+      const entry = cleanEntry(value);
+      if (entry) clean[ticker] = entry;
+    }
+    localStorage.setItem(KEY, JSON.stringify(clean));
+    persistLabSnapshot(clean);
   } catch {
     /* ignore */
   }
-}
-
-export function setConviction(
-  map: ConvictionMap,
-  ticker: string,
-  patch: Partial<ConvictionEntry>
-): ConvictionMap {
-  const key = ticker.toUpperCase();
-  const prev = map[key] ?? {
-    level: 3 as ConvictionLevel,
-    thesis: "",
-    updatedAt: new Date().toISOString(),
-  };
-  const next: ConvictionMap = {
-    ...map,
-    [key]: {
-      level: (patch.level ?? prev.level) as ConvictionLevel,
-      thesis: patch.thesis ?? prev.thesis,
-      stamps: patch.stamps ?? prev.stamps,
-      updatedAt: new Date().toISOString(),
-    },
-  };
-  saveConvictionMap(next);
-  return next;
 }
 
 export function addPulseStamp(
@@ -82,12 +83,7 @@ export function addPulseStamp(
   stamp: PulseStamp
 ): ConvictionMap {
   const key = ticker.toUpperCase();
-  const prev = map[key] ?? {
-    level: 3 as ConvictionLevel,
-    thesis: "",
-    updatedAt: stamp.at,
-    stamps: [],
-  };
+  const prev = map[key] ?? { updatedAt: stamp.at, stamps: [] };
   const stamps = [stamp, ...(prev.stamps ?? [])].slice(0, 8);
   const next: ConvictionMap = {
     ...map,

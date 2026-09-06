@@ -7,8 +7,8 @@
  * bull bias** in here: an opinion baked into the persona reaches every user
  * of the app, including people who hold three index funds and nothing else.
  * The lenses below are questions to ask about a holding, never verdicts on
- * it. A user's own opinions belong in their conviction notes and thesis
- * fields. See AGENTS.md ("Generic product direction").
+ * it. A user's own opinions belong to them, never compiled into a prompt
+ * every reader shares. See AGENTS.md ("Generic product direction").
  */
 /**
  * The words no sentence a person reads may contain, written once.

@@ -25,7 +25,7 @@ import {
 import { animalCardTone, type PortfolioPersonality } from "@/lib/portfolio-personality";
 import type { Holding, Quote } from "@/lib/types";
 import { AlertTriangle, ChevronDown, Shield } from "lucide-react";
-import { Fragment, useState } from "react";
+import { useState } from "react";
 
 export function bookTodayPct(
   totalValue: number,
@@ -269,7 +269,7 @@ function ScoreRead({
  * the whole promise of a circle is that they do not get it. What is left is
  * what a circle is actually for, which is seeing how somebody has put a
  * portfolio together: which companies, what share of the whole each one is,
- * how each moved today, and the reason they wrote for owning it.
+ * and how each moved today.
  *
  * The share of the portfolio used to be on the laptop only. It is the most
  * teachable number here, so it is on the phone too.
@@ -277,12 +277,9 @@ function ScoreRead({
 export function ReadOnlyHoldings({
   holdings,
   quotes,
-  theses,
 }: {
   holdings: Holding[];
   quotes: Record<string, Quote>;
-  /** Ticker to the reason this person wrote, when they share their reasons. */
-  theses?: Record<string, string>;
 }) {
   const totalValue = holdings.reduce(
     (s, h) => s + (quotes[h.ticker]?.price ?? 0) * h.shares,
@@ -351,16 +348,8 @@ export function ReadOnlyHoldings({
               const value = (quotes[h.ticker]?.price ?? 0) * h.shares;
               const rowTodayPct = quotes[h.ticker]?.changePercent ?? null;
               const pctBook = totalValue > 0 ? value / totalValue : 0;
-              const why = theses?.[h.ticker]?.trim();
               return (
-                <Fragment key={h.id}>
-                {/*
-                  The row loses its own hairline when a reason follows, so
-                  the two read as one block. Left as it was, the rule ran
-                  between a company and its own reason and the sentence
-                  looked like it belonged to the row underneath.
-                */}
-                <FluidRow className={why ? "border-b-0" : undefined}>
+                <FluidRow key={h.id}>
                   <div className={cn(tickerCell, "font-medium")}>
                     <TickerSymbol
                       ticker={h.ticker}
@@ -381,19 +370,6 @@ export function ReadOnlyHoldings({
                     {rowTodayPct != null ? signedPercent(rowTodayPct) : NO_VALUE}
                   </div>
                 </FluidRow>
-                {/*
-                  The reason is a sibling of the row rather than a cell in
-                  it. Every cell in this app is `whitespace-nowrap` inside a
-                  fixed `h-10` row, because a price broken over two lines is
-                  not a price, so a sentence put in a track would paint
-                  across the two columns beside it.
-                */}
-                {why ? (
-                  <div className="col-span-full -mx-1.5 border-b border-border/50 px-3 pb-2.5 text-sm leading-relaxed text-muted-foreground">
-                    {why}
-                  </div>
-                ) : null}
-                </Fragment>
               );
             })}
           </FluidTable>

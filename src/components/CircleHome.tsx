@@ -7,7 +7,6 @@ import { CommunityTodayBoard } from "@/components/CommunityTodayBoard";
 import { ShareSheets } from "@/components/ShareSheets";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { Button } from "@/components/ui/button";
-import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
 import {
   Score,
   Scoreboard,
@@ -53,11 +52,9 @@ import {
   PieChart,
   Shuffle,
   Sparkles,
-  X,
 } from "lucide-react";
 import {
   Fragment,
-  useState,
   type Dispatch,
   type ReactNode,
   type SetStateAction,
@@ -77,33 +74,20 @@ function initialsFromName(name: string): string {
   return `${first}${last}`.toUpperCase();
 }
 
-/**
- * A group that owns the same company and never says why.
- *
- * This whole product is about the reason you own something, and a circle
- * had nothing to talk about: the shared list was a name, some faces and a
- * percentage. Tapping one opens everybody's reason for it, side by side,
- * which is the one screen in the app where you can read somebody else's
- * thinking about a company you also own.
- */
-export type SharedReason = { person: string; reason: string | null };
-
 function SharedNameRow({
   ticker,
   people,
   todayPct,
   avatarByName,
-  onOpen,
 }: {
   ticker: string;
   people: string[];
   todayPct: number | null;
   avatarByName: Map<string, string>;
-  onOpen: () => void;
 }) {
   return (
-    <Item asChild size="sm" className="px-0 hover:bg-hover">
-      <button type="button" onClick={onOpen} className="cursor-pointer text-left">
+    <Item size="sm" className="px-0">
+      <>
         <ItemMedia className="w-20">
           <AvatarGroup>
             {people.map((name) => {
@@ -133,7 +117,7 @@ function SharedNameRow({
             {todayPct != null ? signedPercent(todayPct) : NO_VALUE}
           </span>
         </ItemActions>
-      </button>
+      </>
     </Item>
   );
 }
@@ -202,8 +186,6 @@ export type CircleHomeProps = {
   membersWithBooks: MemberStat[];
   achievements: CommunityAchievement[];
   sharedNames: OverlapRow[];
-  sharedReasons: Map<string, SharedReason[]>;
-  needYourReason: Set<string>;
   avatarByName: Map<string, string>;
   communityThemeBreakdown: ThemeSlice[];
   yourThemeBreakdown: ThemeSlice[];
@@ -239,8 +221,6 @@ export function CircleHome({
   membersWithBooks,
   achievements,
   sharedNames,
-  sharedReasons,
-  needYourReason,
   avatarByName,
   communityThemeBreakdown,
   yourThemeBreakdown,
@@ -261,7 +241,6 @@ export function CircleHome({
   onShareChanged,
   members,
 }: CircleHomeProps) {
-  const [openTicker, setOpenTicker] = useState<string | null>(null);
   const empty = membersWithBooks.length === 0;
   /*
     A league of one is a list with a winner and nothing to compare it to,
@@ -614,7 +593,7 @@ export function CircleHome({
                   <div>
                     <h3 className="text-foreground">Holdings you share</h3>
                     <p className="mt-0.5 text-sm text-muted-foreground">
-                      Tap a company to read why each person owns it
+                      The companies more than one of you owns
                     </p>
                   </div>
                 </div>
@@ -627,7 +606,6 @@ export function CircleHome({
                         people={row.people}
                         todayPct={row.todayPct}
                         avatarByName={avatarByName}
-                        onOpen={() => setOpenTicker(row.ticker)}
                       />
                     </Fragment>
                   ))}
@@ -766,96 +744,7 @@ export function CircleHome({
 
       {shownView === "members" && members}
 
-      {openTicker ? (
-        <ReasonsSheet
-          ticker={openTicker}
-          reasons={sharedReasons.get(openTicker) ?? []}
-          youNeedsReason={needYourReason.has(openTicker)}
-          onClose={() => setOpenTicker(null)}
-        />
-      ) : null}
     </>
   );
 }
 
-/**
- * Everybody's reason for one company, side by side.
- *
- * A person who owns it and has not written a reason gets the nudge rather
- * than a blank: the reason field is the one piece of work this product asks
- * anybody to do, and the moment you notice it is missing is when you are
- * looking at three friends who did it.
- */
-function ReasonsSheet({
-  ticker,
-  reasons,
-  youNeedsReason,
-  onClose,
-}: {
-  ticker: string;
-  reasons: SharedReason[];
-  /** True only when the reader owns it and has written nothing yet. */
-  youNeedsReason: boolean;
-  onClose: () => void;
-}) {
-  const anyReason = reasons.some((r) => r.reason);
-  return (
-    <ViewportOverlay
-      className="z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
-      onClose={onClose}
-    >
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-        aria-label="Close"
-        onClick={onClose}
-      />
-      <div className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] ring-1 ring-foreground/20 sm:max-w-md sm:rounded-xl sm:pb-6">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-base font-semibold text-foreground">
-              Why people own {cashtag(ticker)}
-            </h3>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              In their own words. Only people who chose to share their reasons
-              show up here.
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            aria-label="Close"
-            className="touch-target shrink-0 sm:size-7"
-          >
-            <X />
-          </Button>
-        </div>
-        <div className="flex flex-col gap-3">
-          {reasons.map((r) => (
-            <div
-              key={r.person}
-              className="card-sheen glass-well rounded-lg p-3.5"
-            >
-              <p className="text-sm font-semibold text-foreground">{r.person}</p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                {r.reason ?? "Has not written a reason for this one yet."}
-              </p>
-            </div>
-          ))}
-          {!anyReason ? (
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              Nobody has written down why they own this one.
-            </p>
-          ) : null}
-          {youNeedsReason ? (
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              You own it too. Write your reason in Pulse and it shows up here.
-            </p>
-          ) : null}
-        </div>
-      </div>
-    </ViewportOverlay>
-  );
-}

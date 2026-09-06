@@ -11,7 +11,6 @@ const htmlCellName =
   "h-10 whitespace-nowrap px-1.5 py-1.5 text-left align-middle font-sans first:pl-3 last:pr-3";
 import { NO_VALUE, cashtag, cn, currency, signedPercent, signedTone } from "@/lib/format";
 import { Card } from "@/components/ui/Panel";
-import type { ThesisCoverage } from "@/lib/classroom";
 import type { Holding, Quote } from "@/lib/types";
 
 type RosterMember = {
@@ -34,7 +33,6 @@ export function ClassroomRoster({
   holdings,
   quotes,
   ownership,
-  thesisCoverage,
   onOpen,
 }: {
   members: RosterMember[];
@@ -42,7 +40,6 @@ export function ClassroomRoster({
   holdings: Holding[];
   quotes: Record<string, Quote>;
   ownership: { portfolio_id: string; user_id: string }[];
-  thesisCoverage: Record<string, ThesisCoverage>;
   onOpen: (memberId: string) => void;
 }) {
   /*
@@ -95,7 +92,6 @@ export function ClassroomRoster({
               vsStart != null && startingCash > 0
                 ? vsStart / startingCash
                 : null;
-            const thesis = thesisCoverage[m.id];
             const sheetIds = new Set(
               ownership
                 .filter((o) => o.user_id === m.id)
@@ -105,14 +101,6 @@ export function ClassroomRoster({
             const biggest = m.topTicker
               ? { ticker: m.topTicker, weight: m.topWeight }
               : top;
-            const why =
-              !m.sheetCount
-                ? NO_VALUE
-                : !thesis || thesis.names === 0
-                  ? "Nothing bought yet"
-                  : thesis.withWhy === 0
-                    ? "No reasons written yet"
-                    : `${thesis.withWhy} of ${thesis.names}`;
             const body = (
               <Card>
                 <div className="flex items-baseline justify-between gap-2">
@@ -152,10 +140,6 @@ export function ClassroomRoster({
                     </p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Why</p>
-                    <p className="text-muted-foreground">{why}</p>
-                  </div>
-                  <div>
                     <p className="text-muted-foreground">Biggest</p>
                     <p className="text-muted-foreground">
                       {biggest?.ticker
@@ -186,21 +170,20 @@ export function ClassroomRoster({
         )}
       </div>
       <div className="hidden overflow-x-auto md:block">
-        <table className={cn(htmlTable, "min-w-[36rem]")}>
+        <table className={cn(htmlTable, "min-w-[30rem]")}>
           <thead>
             <tr className="border-b border-border text-muted-foreground">
               <th className={cn(htmlCellName, "font-medium")}>Student</th>
               <th className={cn(htmlCell, "font-medium")}>Now</th>
               <th className={cn(htmlCell, "font-medium")}>Since start</th>
               <th className={cn(htmlCell, "font-medium")}>Today</th>
-              <th className={cn(htmlCellName, "font-medium")}>Why</th>
               <th className={cn(htmlCell, "font-medium")}>Biggest</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className={cn(htmlCell, "h-auto py-8 text-muted-foreground")}>
+                <td colSpan={5} className={cn(htmlCell, "h-auto py-8 text-muted-foreground")}>
                   Nobody has started a paper portfolio yet.
                 </td>
               </tr>
@@ -213,8 +196,7 @@ export function ClassroomRoster({
                   vsStart != null && startingCash > 0
                     ? vsStart / startingCash
                     : null;
-                const thesis = thesisCoverage[m.id];
-                const sheetIds = new Set(
+                    const sheetIds = new Set(
                   ownership
                     .filter((o) => o.user_id === m.id)
                     .map((o) => o.portfolio_id)
@@ -275,15 +257,6 @@ export function ClassroomRoster({
                       {m.sheetCount && m.todayPct != null
                         ? signedPercent(m.todayPct)
                         : NO_VALUE}
-                    </td>
-                    <td className={cn(htmlCellName, "text-muted-foreground")}>
-                      {!m.sheetCount
-                        ? NO_VALUE
-                        : !thesis || thesis.names === 0
-                          ? "Nothing bought yet"
-                          : thesis.withWhy === 0
-                            ? "No reasons written yet"
-                            : `${thesis.withWhy} of ${thesis.names}`}
                     </td>
                     <td className={cn(htmlCell, "text-muted-foreground")}>
                       {biggest?.ticker

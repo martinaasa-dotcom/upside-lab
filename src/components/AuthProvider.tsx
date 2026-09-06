@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
          * be handled.
          *
          * Forgetting the last user without purging was the worst of both.
-         * The previous account's local caches stayed (Lab conviction notes,
+         * The previous account's local caches stayed (Lab Pulse history,
          * watchlist, Pulse history, chat, IndexedDB, the offline write
          * queue) and the record of whose they were was erased with
          * `saveLastUser(null)`, so the next person to sign in on this
