@@ -1568,17 +1568,23 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
     `fallback should be 3-6 paragraphs, got ${paras.length}`
   );
   // The figure is defused in the very next sentence, in dollars per $100.
-  assert.match(paras[0], /out of every \$100/);
+  assert.match(paras[0], /\$100 you had invested/);
   /*
-    And it ends on how the rest of the week's holdings compared, without
-    telling the reader to do anything. Asserted as the rule rather than as
-    one exact sentence: the previous version pinned the literal string
-    "quiet relative to last week", so rewording the letter to say companies
-    instead of names broke a check that was never about that.
+    And it ends on the companies the letter has not already named, without
+    telling the reader to do anything.
+
+    Asserted as the rule rather than as one exact sentence, twice over now.
+    The first version pinned the literal "quiet relative to last week"; the
+    second pinned the word "quiet" itself, which was worse, because it held
+    in place the one sentence a reader actually complained about: the letter
+    closed "the rest of your companies were quiet" every week whatever the
+    numbers said, with a holding up 10% in the table directly above it. The
+    rule is that the closer accounts for what is left in figures. Whether
+    that reads as quiet is the arithmetic's business.
   */
   const closer = paras[paras.length - 1]!;
-  assert.match(closer, /\bquiet\b/i, "the fallback closes on the quiet rest");
-  assert.match(closer, /last week/i, "and compares it with last week");
+  assert.match(closer, /\bcompan(y|ies)\b/i, "the fallback closes on the rest");
+  assert.match(closer, /\d+(\.\d+)?%/, "and says how far they actually moved");
   assert.match(take, /[.!?]$/);
   assert.doesNotMatch(take, /\bwe\b|\bour\b|\bus\b/i);
   // Banned market slang never reaches a reader (AGENTS.md).

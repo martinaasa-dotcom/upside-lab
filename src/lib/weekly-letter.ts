@@ -90,6 +90,24 @@ export type WeeklyWeight = {
   weight: number;
 };
 
+/**
+ * Everything the reader owns that "What moved" does not list.
+ *
+ * The prose used to close on "the rest of your companies were quiet",
+ * which was a sentence typed once and printed every week whatever the
+ * numbers said: a holding up 10% sat in the table directly above it. The
+ * closing line is built from this now, so it can only say quiet when the
+ * biggest move left is small, and otherwise says what that move was.
+ */
+export type WeeklyRest = {
+  /** Holdings with a real week move that are not among `movers`. */
+  count: number;
+  up: number;
+  down: number;
+  /** The biggest of those moves, by size, as a percent. */
+  maxAbsPct: number;
+};
+
 export type WeeklyLetter = {
   dateLine: string;
   shortDate: string;
@@ -103,6 +121,7 @@ export type WeeklyLetter = {
   opening: string;
   subjectHook: string;
   movers: WeeklyMover[];
+  rest: WeeklyRest | null;
   weights: WeeklyWeight[];
   suggestions: WeeklySuggestion[];
   watchRows: WeeklyWatchRow[];
@@ -534,6 +553,22 @@ export function buildWeeklyLetter(input: WeeklyLetterInput): WeeklyLetter {
   const quiet =
     movers.every((m) => Math.abs(m.pct) < 1) && Math.abs(weekPct ?? 0) < 1;
 
+  // What the table does not show, summarised, so the prose can close on
+  // the truth rather than on the word "quiet".
+  const shown = new Set(movers.map((m) => m.ticker));
+  const restMoves = positions
+    .filter((p) => p.weekPct != null && !shown.has(p.ticker))
+    .map((p) => p.weekPct as number);
+  const rest: WeeklyRest | null =
+    restMoves.length > 0
+      ? {
+          count: restMoves.length,
+          up: restMoves.filter((v) => v > 0).length,
+          down: restMoves.filter((v) => v < 0).length,
+          maxAbsPct: Math.max(...restMoves.map((v) => Math.abs(v))),
+        }
+      : null;
+
   const earnings = input.earnings ?? [];
   const interesting = new Set<string>([
     ...positions.map((p) => p.ticker),
@@ -557,6 +592,7 @@ export function buildWeeklyLetter(input: WeeklyLetterInput): WeeklyLetter {
     opening: openingLine({ weekDollar, weekPct, movers, quiet }),
     subjectHook: signedMoney(weekDollar),
     movers,
+    rest,
     weights: positions
       .slice(0, 5)
       .map((p) => ({ ticker: p.ticker, weight: p.weight })),
