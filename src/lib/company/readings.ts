@@ -356,15 +356,30 @@ function rangeReading(f: CompanyFacts): CompanyReading {
   }
   const spot = Math.min(Math.max((price - low) / (high - low), 0), 1);
   const plain = `It has traded between ${currency(low, 2, code)} and ${currency(high, 2, code)} over the last year, and today sits ${percent(spot, 0)} of the way up.`;
+  /*
+    A LABEL AND THE FIGURE UNDER IT MAY NOT DISAGREE.
+
+    This cell said "52 week range" over the figure `44%`, which is where
+    today's price sits inside that range and is not a range at all. Read
+    the way every other cell on this page is read, label then figure, it
+    states something false: the 52 week range is not 44%. The label is the
+    ordinary financial name and stays, so the figure has to be the thing it
+    names, and the range is what every other page in the world prints here.
+
+    Cents are dropped above $100, where they are four digits of noise in a
+    figure meant to be read at a glance, and kept below it, where "$5 to
+    $9" would be a different range from the real one.
+  */
+  const dp = high < 100 ? 2 : 0;
   return reading(
     "range",
     "52 week range",
-    percent(spot, 0),
+    `${currency(low, dp, code)} to ${currency(high, dp, code)}`,
     plain,
     "Where it sits in its own year says nothing about what happens next.",
     "neutral",
     "recent-range",
-    { label: "Down from the high", value: percent((high - price) / high, 0), better: null }
+    { label: "Today sits", value: `${percent(spot, 0)} up`, better: null }
   );
 }
 

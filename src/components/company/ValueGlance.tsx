@@ -496,11 +496,26 @@ function MethodRow({
         short fixed label; a whole line of varying content set in it shouts,
         and this line is scaffolding rather than the point of the card.
       */}
+      {/*
+        A SEPARATOR MAY NOT BE THE LAST THING ON A LINE.
+
+        This row wraps, and a middot is an item in it like any other, so at
+        390px it wrapped as "Arithmetic on the accounts ·" with the dot
+        stranded at the end of the line and the rest of the row underneath
+        it. A separator that separates nothing reads as a typo.
+
+        Below `sm` the row is a short stack of two or three phrases, where
+        the gap between them is already doing the separating and the gap
+        figure is coloured besides. The dots come back at the width where
+        the row is one line, which is the only width they were for.
+      */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
         <span className={MAKER_TONE[method.maker]}>
           {MAKER_LABEL[method.maker]}
         </span>
-        <span aria-hidden>&middot;</span>
+        <span aria-hidden className="hidden sm:inline">
+          &middot;
+        </span>
         <span>
           {method.dropped ? "Left out" : `Counts for ${percent(method.weight, 0)}`}
         </span>

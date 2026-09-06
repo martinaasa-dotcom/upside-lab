@@ -119,7 +119,18 @@ export function CompanyCases({
         icon={<GitCompare className="h-4 w-4" />}
       />
 
-      <div className="grid gap-4 md:grid-cols-2">
+      {/*
+        `items-start`, so neither card is stretched to the other's height.
+
+        The two cases rarely carry the same number of points, and a grid
+        stretches its children by default: measured on a company with three
+        points for and two against, the right-hand card was 399px tall with
+        its content ending at 264, so a third of it was empty. A bordered
+        card with a third of it blank reads as content that failed to
+        arrive, where two cards of their own heights read as two answers of
+        different lengths, which is what they are.
+      */}
+      <div className="grid items-start gap-4 md:grid-cols-2">
         <Reading
           nested
           tone="good"
