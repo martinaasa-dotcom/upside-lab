@@ -90,19 +90,14 @@ function Ladder({
   low,
   high,
   spot,
-  blend,
-  gap,
   code,
 }: {
   low: number;
   high: number;
   spot: number;
-  blend: number | null;
-  /** The estimate against today, as a fraction. Printed on the mark. */
-  gap: number | null;
   code: string;
 }) {
-  const values = [low, high, spot, ...(blend === null ? [] : [blend])];
+  const values = [low, high, spot];
   const min = Math.min(...values);
   const max = Math.max(...values);
   const pad = (max - min) * 0.18 || Math.max(max * 0.06, 1);
@@ -115,28 +110,13 @@ function Ladder({
     exactly where the arithmetic put it. Clamping the mark instead would
     be drawing a price in the wrong place to make a caption fit.
   */
-  const clamp = (v: number) => Math.min(Math.max(at(v), 9), 91);
   /*
-    Two labels centred on marks that nearly coincide would print over each
-    other, which happens exactly when the price and the estimate agree and
-    is therefore not a rare case. They are pushed apart to a readable
-    distance while the marks themselves stay put.
+    A label is centred on its mark and would hang off the panel at either
+    end, so its own anchor is clamped while the mark it belongs to stays
+    exactly where the arithmetic put it. Clamping the mark instead would be
+    drawing a price in the wrong place to make a caption fit.
   */
-  const LABEL_GAP = 26;
-  let spotLabel = clamp(spot);
-  let blendLabel = blend === null ? null : clamp(blend);
-  if (blendLabel !== null && Math.abs(spotLabel - blendLabel) < LABEL_GAP) {
-    const middle = (spotLabel + blendLabel) / 2;
-    const left = Math.min(Math.max(middle - LABEL_GAP / 2, 9), 91 - LABEL_GAP);
-    const right = left + LABEL_GAP;
-    if (spotLabel <= blendLabel) {
-      spotLabel = left;
-      blendLabel = right;
-    } else {
-      blendLabel = left;
-      spotLabel = right;
-    }
-  }
+  const spotLabel = Math.min(Math.max(at(spot), 9), 91);
 
   return (
     <div className="flex flex-col gap-4">
@@ -155,29 +135,6 @@ function Ladder({
           className="absolute inset-y-0 rounded-full bg-foreground/25"
           style={{ left: `${at(low)}%`, width: `${at(high) - at(low)}%` }}
         />
-        {blend !== null && blendLabel !== null && (
-          <>
-            <Mark
-              left={blendLabel}
-              name="Estimate"
-              figure={currency(blend, 2, code)}
-              /*
-                The gap rides on the mark it describes rather than sitting
-                in a cell of its own further down. It is the difference
-                between the two marks on this very line, so printing it
-                anywhere else asks a reader to hold two numbers in their
-                head to get a third.
-              */
-              note={gap === null ? null : `${signedPercent(gap)} against today`}
-              className="text-muted-foreground"
-            />
-            <span
-              aria-hidden
-              className="absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground"
-              style={{ left: `${at(blend)}%` }}
-            />
-          </>
-        )}
         <Mark
           left={spotLabel}
           name="Today"
@@ -210,13 +167,11 @@ function Mark({
   left,
   name,
   figure,
-  note,
   className,
 }: {
   left: number;
   name: string;
   figure: string;
-  note?: string | null;
   className: string;
 }) {
   return (
@@ -231,9 +186,6 @@ function Mark({
         {name}
       </span>
       <span className="font-mono text-sm font-bold tabular-nums">{figure}</span>
-      {note && (
-        <span className="font-mono text-xs tabular-nums opacity-80">{note}</span>
-      )}
     </span>
   );
 }
@@ -457,13 +409,36 @@ export function ValueGlance({
           low={glance.low}
           high={glance.high}
           spot={read.spot}
-          blend={read.estimate.price}
-          gap={read.gap}
           code={code}
         />
       ) : null}
 
       <div className="flex flex-col gap-3">
+        {/*
+          THE ESTIMATE IS A FIGURE HERE, NOT A SECOND MARK ON THE PICTURE.
+
+          It was labelled on the band, with its name, its price and the gap
+          stacked above the track, and three lines of label on a mark near
+          the top of the panel ground into the subtitle above it. The
+          picture is about one thing, which is where today's price sits
+          against the band; a second mark on it was a second subject
+          competing for the same 40 pixels. The band's ends already say
+          what the estimates run between, so the blend is read as a figure,
+          where a figure belongs.
+        */}
+        {read.estimate.price !== null && (
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <MicroLabel>12 month estimate</MicroLabel>
+            <span className="font-mono text-base font-bold tabular-nums text-foreground">
+              {currency(read.estimate.price, 2, code)}
+            </span>
+            {read.gap !== null && (
+              <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                {signedPercent(read.gap)} against today
+              </span>
+            )}
+          </div>
+        )}
         <p className="text-base font-semibold leading-relaxed text-foreground">
           {glance.read}
         </p>
