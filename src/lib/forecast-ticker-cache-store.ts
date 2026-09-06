@@ -22,9 +22,6 @@
 import type { Json } from "@/lib/supabase/database.types";
 import type { ForecastYear } from "@/lib/forecast";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { tickerConvictionKey } from "@/lib/forecast-plan";
-
-type ConvictionLike = Record<string, { level: number; thesis: string }>;
 
 /**
  * How long a reasoned path may be reused. One shared run serves every reader
@@ -46,6 +43,11 @@ export type ServerTickerPath = {
   rationale?: string;
   /** When the model reasoned this path, not when it was last handed out. */
   generatedAt: string;
+  /**
+   * Left over from a fingerprint of the reader's written reason. Nothing
+   * writes one any more, so a row carrying one was shaped by a note that no
+   * longer exists anywhere and is never handed out.
+   */
   convictionKey: string;
   /** Share price the path was reasoned from. Absent on pre-anchor rows. */
   anchorPrice?: number;
@@ -73,8 +75,7 @@ function driftFrom(anchor: number | undefined, spot: number | undefined): number
  */
 export function isReusableTickerPath(
   row: ServerTickerPath,
-  ticker: string,
-  input: { spot?: number; convictions?: ConvictionLike; now?: Date } = {}
+  input: { spot?: number; now?: Date } = {}
 ): boolean {
   if (!row.prices || Object.keys(row.prices).length === 0) return false;
 
@@ -88,20 +89,18 @@ export function isReusableTickerPath(
   const drift = driftFrom(row.anchorPrice, input.spot);
   if (drift !== null && drift > FORECAST_CACHE_MAX_DRIFT) return false;
 
-  // No thesis shaped this row: fair game for any portfolio holding the ticker.
-  if (!row.convictionKey) return true;
-  return row.convictionKey === tickerConvictionKey(ticker, input.convictions);
+  // Nobody's note shaped this row: fair game for any portfolio holding it.
+  return !row.convictionKey;
 }
 
 /**
  * Reusable rows for the given tickers. A ticker whose row is missing, aged
- * out, adrift from its anchor, or shaped by somebody else's thesis is simply
- * absent from the result rather than an error.
+ * out or adrift from its anchor is simply absent from the result rather than
+ * an error.
  */
 export async function loadServerTickerCache(
   tickers: string[],
   input: {
-    convictions?: ConvictionLike;
     /** Today's price per ticker, for the drift bound. */
     spots?: Record<string, number>;
     now?: Date;
@@ -130,9 +129,8 @@ export async function loadServerTickerCache(
       anchorPrice: row.anchor_price ?? undefined,
     };
     if (
-      isReusableTickerPath(path, row.ticker, {
+      isReusableTickerPath(path, {
         spot: input.spots?.[key],
-        convictions: input.convictions,
         now: input.now,
       })
     ) {
@@ -171,37 +169,6 @@ export async function serverAnchorPrices(
 }
 
 /**
- * Whether anything the caller wrote could have shaped this run.
- *
- * This is the rule that decides what may be published to the shared table,
- * and getting it wrong is the worst bug this cache can have, so it is
- * deliberately blunt.
- *
- * `tickerConvictionKey` asks whether *this ticker* carried a thesis, which
- * is the right question for reuse and the wrong one for publishing. One
- * prompt reasons every holding together, so a thesis written against any
- * ticker in the request can steer the path of any other ticker in it. A row
- * for a company the reader wrote nothing about therefore went in with an
- * empty conviction key, which `isReusableTickerPath` reads as "no thesis
- * shaped this, fair game for anybody", and it was served to every reader
- * holding that company for a fortnight. A request holding NVDA with no note
- * on it and one junk holding whose thesis said what to write about NVDA was
- * enough.
- *
- * So a run publishes nothing at all if any holding in it carries a written
- * reason. That costs the cache the readers who keep notes, and keeps it for
- * the readers who do not, which is most people and nearly everybody new. The
- * alternative, keying the shared row on the whole request, is not a shared
- * cache: no two portfolios would ever match.
- */
-export function runIsShareable(convictions?: ConvictionLike): boolean {
-  if (!convictions) return true;
-  return !Object.values(convictions).some((c) =>
-    typeof c?.thesis === "string" ? c.thesis.trim().length > 0 : false
-  );
-}
-
-/**
  * Write-through after a model run. Best-effort; never throws.
  *
  * Takes only the paths the model actually reasoned this run. A path the
@@ -213,14 +180,10 @@ export function runIsShareable(convictions?: ConvictionLike): boolean {
  */
 export async function persistServerTickerCache(
   reasoned: ReasonedTickerPath[],
-  input: { convictions?: ConvictionLike; generatedAt?: string } = {}
+  input: { generatedAt?: string } = {}
 ) {
   const db = getSupabaseServer();
   if (!db) return;
-  // Nothing this caller wrote may reach a table every other reader drinks
-  // from. See `runIsShareable` for why this is the whole run rather than
-  // the ticker.
-  if (!runIsShareable(input.convictions)) return;
   const generatedAt = input.generatedAt ?? new Date().toISOString();
   const rows = reasoned
     .filter((t) => t.prices && Object.keys(t.prices).length > 0)
@@ -229,13 +192,12 @@ export async function persistServerTickerCache(
       prices: t.prices as unknown as Json,
       rationale: t.rationale ?? null,
       /*
-        Empty by construction now: a run carrying any thesis publishes
-        nothing. The column stays, because rows written before this rule
-        carry a key and `isReusableTickerPath` still honours it, which is
-        what keeps an older shaped row from being served to the wrong
-        reader rather than having to be deleted.
+        Always empty. Nothing a reader writes reaches this prompt any more,
+        so every run is shareable. The column stays, because rows written
+        before that carry a key and `isReusableTickerPath` refuses them,
+        which retires them rather than having to delete them.
       */
-      conviction_key: tickerConvictionKey(t.ticker, input.convictions),
+      conviction_key: "",
       generated_at: generatedAt,
       /*
         The price the path was reasoned from, and it has to be a price

@@ -1498,8 +1498,6 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
     },
     conviction: {
       CRWV: {
-        level: 3,
-        thesis: "Rented GPUs at scale.",
         updatedAt: "2026-08-01T00:00:00.000Z",
         stamps: [
           {
@@ -3472,12 +3470,13 @@ run("gap thoughts name the weight and the mix", () => {
   /*
    * The two Home cards say what kind of card they are. "Update" is the
    * label of a system message and "Also" is not a label at all, so they are
-   * "One thing today" and "Worth a look"; a note the reader has not written
-   * yet gets its own calmer "Worth writing down".
+   * "One thing today" and "Worth a look".
    */
   assert.match(morning, /One thing today/);
   assert.match(morning, /Worth a look/);
-  assert.match(morning, /Worth writing down/);
+  // There is nowhere to write a reason any more, so Home never asks.
+  assert.doesNotMatch(morning, /Worth writing down/);
+  assert.doesNotMatch(morning, /written down why you own it/);
   assert.doesNotMatch(morning, /A thought/);
   assert.doesNotMatch(morning, /A few names did the work/);
   assert.doesNotMatch(morning, /A few holdings moved the whole number/);

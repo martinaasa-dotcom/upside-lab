@@ -52,13 +52,11 @@ import {
   shouldAutoRefreshForecast,
   isFallbackForecastPlan,
   forecastHoldingsKey,
-  bookConvictionKey,
   cachedEoyPathsFor,
   cachedTickersFor,
   TICKER_SECTORS,
   type ForecastPlan,
 } from "@/lib/forecast-plan";
-import type { ConvictionMap } from "@/lib/conviction";
 import { beliefLines } from "@/lib/believe";
 import { sharesLabel } from "@/lib/share-count";
 import { readJsonOrThrow } from "@/lib/http";
@@ -89,11 +87,8 @@ type Props = {
   onApplyMargusPaths: (
     paths: { ticker: string; prices: Partial<Record<ForecastYear, number>> }[]
   ) => void;
-  /** Owner's per-ticker conviction, passed to Margus so a written thesis
-   * actually influences the path instead of being ignored. */
-  convictions?: ConvictionMap;
-  /** False until Lab conviction has loaded. Auto-run waits so a late
-   * hydrate cannot look like a missing cache and fire the model. */
+  /** False until Lab state has loaded. Auto-run waits so a late hydrate
+   * cannot look like a missing cache and fire the model. */
   labReady?: boolean;
 };
 
@@ -382,8 +377,8 @@ function ForecastCard({
   years: readonly ForecastYear[];
   mixedListings: boolean;
   /**
-   * Why this path, in Margus's own sentence or the owner's written reason
-   * for holding it. On the card rather than in a list under the grid.
+   * Why this path, in Margus's own sentence. On the card rather than in a
+   * list under the grid.
    */
   why?: string;
   provenance: ReturnType<typeof forecastPathProvenance>;
@@ -559,7 +554,6 @@ export const ForecastPanel = memo(function ForecastPanel({
   overrides,
   onSetEoyPrice,
   onApplyMargusPaths,
-  convictions,
   labReady = true,
 }: Props) {
   const yearCols = model.years;
@@ -578,14 +572,12 @@ export const ForecastPanel = memo(function ForecastPanel({
     [model.rows]
   );
   const holdingsKey = forecastHoldingsKey(rowTickers);
-  const convictionKey = bookConvictionKey(rowTickers, convictions);
   // Memoized on the stable keys rather than recomputed inline: this feeds a
   // useMemo below, and a fresh array every render made that memo recompute
   // every render, which is the same as not having it.
   const cachedTickers = useMemo(
-    () => (planHydrated ? cachedTickersFor(rowTickers, convictions) : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- convictionKey stands in for `convictions`
-    [planHydrated, rowTickers, convictionKey]
+    () => (planHydrated ? cachedTickersFor(rowTickers) : []),
+    [planHydrated, rowTickers]
   );
   const fullyCovered = isForecastFullyCovered(rowTickers, overrides);
   const autoKeyRef = useRef<string>("");
@@ -685,7 +677,6 @@ export const ForecastPanel = memo(function ForecastPanel({
           portfolioName,
           cashBalance,
           forecast: model,
-          convictions,
         }),
         signal: ctrl.signal,
       });
@@ -711,14 +702,9 @@ export const ForecastPanel = memo(function ForecastPanel({
         }
         return "fail";
       }
-      const convictionKey = bookConvictionKey(
-        model.rows.map((r) => r.ticker),
-        convictions
-      );
       const next: ForecastPlan = {
         ...data.plan,
         holdingsKey,
-        convictionKey,
         stance: DEFAULT_FORECAST_STANCE,
       };
       const { eoyTargets, paths } = calibratedPaths(next, model);
@@ -727,9 +713,7 @@ export const ForecastPanel = memo(function ForecastPanel({
         eoyTargets,
         stance: DEFAULT_FORECAST_STANCE,
       };
-      saveForecastPlan(calibrated, convictions, {
-        shareTickerPaths: !data.fallback,
-      });
+      saveForecastPlan(calibrated, { shareTickerPaths: !data.fallback });
       setPlan(calibrated);
 
       if (paths.length > 0) {
@@ -778,7 +762,7 @@ export const ForecastPanel = memo(function ForecastPanel({
       return;
     }
     const next: ForecastPlan = { ...plan, eoyTargets, holdingsKey };
-    saveForecastPlan(next, convictions);
+    saveForecastPlan(next);
     setPlan(next);
     if (paths.length > 0) {
       onApplyMargusPaths(paths);
@@ -799,18 +783,14 @@ export const ForecastPanel = memo(function ForecastPanel({
     const planPaths = plan
       ? calibratedPaths(plan, model).paths
       : [];
-    const cachePaths = cachedEoyPathsFor(
-      model.rows.map((r) => r.ticker),
-      convictions
-    );
+    const cachePaths = cachedEoyPathsFor(model.rows.map((r) => r.ticker));
     const merged = mergeEoyPaths(cachePaths, planPaths);
     if (merged.length > 0) onApplyMargusPaths(merged);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once per sheet/holdings
   }, [portfolioId, holdingsKey, flatCount, plan]);
 
   // Auto: first run with nothing cached, or a new ticker with no shared path.
-  // Cached reasoning is reused across sheets. Convictions loading in later
-  // is not a reason to call the model again.
+  // Cached reasoning is reused across sheets.
   //
   // First-run is a person waiting on this sheet, not a skippable background
   // job. Seed a shaped path immediately so the grid is never today's price
@@ -908,20 +888,11 @@ export const ForecastPanel = memo(function ForecastPanel({
   const whyByTicker = useMemo(() => {
     const map = new Map<string, string>();
     for (const t of plan?.eoyTargets ?? []) {
-      const text =
-        t.rationale?.trim() || convictions?.[t.ticker]?.thesis?.trim() || "";
+      const text = t.rationale?.trim() || "";
       if (text) map.set(t.ticker.toUpperCase(), text);
     }
-    // A holding the model has not reached yet can still carry the owner's
-    // own written reason, and that is a better answer than silence.
-    for (const [ticker, c] of Object.entries(convictions ?? {})) {
-      const key = ticker.toUpperCase();
-      if (map.has(key)) continue;
-      const thesis = c?.thesis?.trim();
-      if (thesis) map.set(key, thesis);
-    }
     return map;
-  }, [plan, convictions]);
+  }, [plan]);
 
   /*
    * What this app changed about each path after the model answered, worked
@@ -1056,10 +1027,6 @@ export const ForecastPanel = memo(function ForecastPanel({
                 TICKER_SECTORS[r.ticker] ??
                 TICKER_SECTORS[r.ticker.split(".")[0]!] ??
                 null,
-              hasOwnReason: Boolean(
-                convictions?.[r.ticker]?.thesis?.trim() ||
-                  convictions?.[r.ticker.toUpperCase()]?.thesis?.trim()
-              ),
               fallback: isPlaceholder || !r.hasTargets,
               at: plan?.generatedAt,
               model: plan?.writtenBy,

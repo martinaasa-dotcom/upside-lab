@@ -2,7 +2,7 @@ import type { ConvictionMap } from "@/lib/conviction";
 import type { LadderOverride, LadderOverrides } from "@/lib/company/plan-ladder";
 
 /**
- * Per-owner Lab state. Conviction is the thesis note per ticker; the
+ * Per-owner Lab state. Conviction is the Pulse stamp trail per ticker; the
  * watchlist rides along so the Sunday email can suggest names the reader
  * is watching but does not own yet.
  */

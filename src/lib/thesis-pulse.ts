@@ -141,7 +141,7 @@ export type PulseReport = {
   checks: PulseCheck[];
   /**
    * Which model answered this run, recorded as it answered. The eye on a
-   * Pulse card names it, because "a language model read your reason" is a
+   * Pulse card names it, because "a language model read the news" is a
    * claim a reader cannot check and a model's name is one they can.
    * Absent when nothing fresh ran and every check came back from cache.
    */

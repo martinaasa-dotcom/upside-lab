@@ -8,7 +8,6 @@ import {
   CHAT_MAX_IMAGE_CHARS,
   CHAT_MAX_MESSAGE_CHARS,
 } from "@/lib/chat-limits";
-import { CONVICTION_THESIS_MAX_CHARS } from "@/lib/conviction";
 
 const id = z.string().trim().min(1).max(128);
 const finite = z.coerce.number().finite();
@@ -62,25 +61,17 @@ const pulseStampSchema = z.object({
 });
 
 /**
- * A conviction note as `setConviction` / `addPulseStamp` write it. Every
- * field is optional because a stamp can create the entry before the reader
- * has scored it, and anything outside these four is dropped on the way
- * past, for the reason above.
+ * A Pulse stamp trail as `addPulseStamp` writes it. Both fields are
+ * optional and anything outside them is dropped on the way past, for the
+ * reason above, which is what retires the written reason and the one-to-five
+ * score an older client may still be holding.
  */
 export const convictionEntrySchema = z.object({
-  level: z.number().int().min(1).max(5).optional(),
-  thesis: z.string().max(CONVICTION_THESIS_MAX_CHARS).optional(),
   updatedAt: z.string().max(40).optional(),
   stamps: z.array(pulseStampSchema).max(16).optional(),
 });
 
-/**
- * Notes by ticker. Three routes take one and all three read this shape:
- * the Lab save writes it into the row, and Forecast and Pulse print the
- * level and the thesis straight into a prompt. A thesis is the reader's
- * own words going to a model, so its ceiling is the same one the editor
- * enforces rather than whatever fits in a request.
- */
+/** Stamps by ticker. The Lab save writes this into the row. */
 export const convictionMapSchema = z.record(tickerKey, convictionEntrySchema);
 
 export const holdingPostSchema = z.looseObject({
@@ -403,10 +394,8 @@ const chatOtherPortfolioSchema = z.object({
     .max(200),
 });
 
-/** The note Margus is shown: `Dashboard` trims it to level, thesis and stamps. */
+/** What Margus is shown: `Dashboard` trims it to the stamp trail. */
 const chatConvictionSchema = z.object({
-  level: num.optional(),
-  thesis: z.string().max(CONVICTION_THESIS_MAX_CHARS).optional(),
   stamps: z
     .array(
       z.object({
@@ -540,7 +529,6 @@ export const forecastPostSchema = z.looseObject({
     rows: z.array(forecastRowSchema).min(1).max(200),
     currentTotal: finite.optional(),
   }),
-  convictions: convictionMapSchema.optional(),
 });
 
 export const pulsePostSchema = z.looseObject({
@@ -569,7 +557,6 @@ export const pulsePostSchema = z.looseObject({
     )
     .min(1)
     .max(50),
-  convictions: convictionMapSchema.optional(),
   fearGreed: z.unknown().nullable().optional(),
   force: z.boolean().optional(),
 });

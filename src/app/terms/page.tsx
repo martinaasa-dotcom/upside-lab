@@ -139,7 +139,7 @@ export default function TermsPage() {
 
         <Section title="6. Your data, your entries">
           You keep ownership of the portfolio data you enter (holdings, cash,
-          notes, thesis text). You&apos;re responsible for its accuracy; we
+          your price plans). You&apos;re responsible for its accuracy; we
           don&apos;t verify anything you type in. If you invite a co-owner to
           a portfolio, they can read and edit everything on it, though only
           the person who made the portfolio can delete it or remove another

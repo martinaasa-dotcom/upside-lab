@@ -55,30 +55,21 @@ export function getMoveBucket(effectivePct: number | null): string {
   return "flat";
 }
 
+/**
+ * The key an answer is cached under, and it is the same key for everybody.
+ *
+ * It used to carry a fingerprint of the reader's own written reason, which
+ * made their answer private to them. Nothing a reader writes reaches this
+ * prompt any more, so every check on a company in a given move bucket is the
+ * same question and is served to every holder of it. The `:nothesis` tail
+ * stays in the spelling so an entry written by an older deploy, under the
+ * shared key it already used, is still found rather than re-asked.
+ */
 export function getPulseCacheKey(
   ticker: string,
-  effectivePct: number | null,
-  thesis?: string,
-  level?: number
+  effectivePct: number | null
 ): string {
-  const symbol = ticker.toUpperCase();
-  const bucket = getMoveBucket(effectivePct);
-  const thesisKey = thesis
-    ? `${thesis.trim().slice(0, 40)}:${level ?? 0}`
-    : "nothesis";
-  return `${symbol}:${bucket}:${thesisKey}`;
-}
-
-/**
- * Whether this key's answer will be handed to other readers.
- *
- * A check on a company the reader has written nothing about is stored under
- * the shared spelling and served to every other holder of it in the same
- * move bucket. That is the sharing the cache exists for, and it is also the
- * one place a caller must not be allowed to write on purpose.
- */
-export function isSharedPulseKey(key: string): boolean {
-  return key.endsWith(":nothesis");
+  return `${ticker.toUpperCase()}:${getMoveBucket(effectivePct)}:nothesis`;
 }
 
 export function getCachedPulseCheck(

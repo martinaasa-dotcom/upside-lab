@@ -229,11 +229,6 @@ export function classifyImportWrite(opts: {
   return [...needs];
 }
 
-export type ThesisCoverage = {
-  names: number;
-  withWhy: number;
-};
-
 export function isClassroomKind(kind: unknown): boolean {
   return kind === CLASSROOM_KIND;
 }
@@ -285,21 +280,6 @@ export function parseStartingCash(raw: unknown): number | null {
   const rounded = Math.round(n);
   if (rounded < MIN_STARTING_CASH || rounded > MAX_STARTING_CASH) return null;
   return rounded;
-}
-
-export function countTheses(
-  tickers: string[],
-  conviction: Record<string, { thesis?: string } | undefined> | null | undefined
-): ThesisCoverage {
-  const names = new Set(
-    tickers.map((t) => t.trim().toUpperCase()).filter(Boolean)
-  );
-  let withWhy = 0;
-  for (const ticker of names) {
-    const thesis = conviction?.[ticker]?.thesis?.trim();
-    if (thesis) withWhy += 1;
-  }
-  return { names: names.size, withWhy };
 }
 
 function slugify(name: string): string {

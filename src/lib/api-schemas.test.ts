@@ -3,13 +3,11 @@ import {
   chatPostSchema,
   forecastPostSchema,
   labPutSchema,
-  pulsePostSchema,
 } from "@/lib/api-schemas";
 import { buildSnapshot } from "@/lib/calculations";
 import { buildForecast } from "@/lib/forecast";
 import { margusChatContext } from "@/lib/dashboard-chat";
 import { CHAT_MAX_MESSAGE_CHARS } from "@/lib/chat-limits";
-import { CONVICTION_THESIS_MAX_CHARS } from "@/lib/conviction";
 import type { PulseCheck } from "@/lib/thesis-pulse";
 import type { Holding, Portfolio, Quote } from "@/lib/types";
 
@@ -97,8 +95,6 @@ function realCcContext() {
     gbpUsd: 1.27,
     convictions: {
       NBIS: {
-        level: 4,
-        thesis: "They keep renting out computers faster than they can build them.",
         stamps: [
           { at: "2026-08-30T12:00:00.000Z", line: "Still on track.", verdict: "intact" },
         ],
@@ -163,18 +159,10 @@ describe("chat context: the snapshot the system prompt is built from", () => {
     expect(chatPostSchema.safeParse({ ccContext: bad }).success).toBe(false);
   });
 
-  it("bounds the portfolio name, the thesis and the lists", () => {
+  it("bounds the portfolio name and the lists", () => {
     const ctx = realCcContext();
     const longName = { ...ctx, portfolioName: "a".repeat(121) };
     expect(chatPostSchema.safeParse({ ccContext: longName }).success).toBe(false);
-
-    const longThesis = {
-      ...ctx,
-      convictions: {
-        NBIS: { level: 4, thesis: "b".repeat(CONVICTION_THESIS_MAX_CHARS + 1) },
-      },
-    };
-    expect(chatPostSchema.safeParse({ ccContext: longThesis }).success).toBe(false);
 
     const manyHoldings = {
       ...ctx,
@@ -389,52 +377,31 @@ describe("conviction notes: the row they are stored in and the prompt they are r
   it("drops a leftover key rather than storing it forever", () => {
     const parsed = labPutSchema.parse({
       conviction: {
-        NBIS: { level: 3, thesis: "Still fine.", cashflow: { a: 1 } },
+        NBIS: { updatedAt: "2026-01-01", cashflow: { a: 1 } },
       },
     });
     expect(parsed.conviction?.NBIS).not.toHaveProperty("cashflow");
-    expect(parsed.conviction?.NBIS?.thesis).toBe("Still fine.");
+    expect(parsed.conviction?.NBIS?.updatedAt).toBe("2026-01-01");
   });
 
-  it("bounds the thesis at the number the editor enforces", () => {
-    const ok = labPutSchema.safeParse({
-      conviction: { NBIS: { thesis: "c".repeat(CONVICTION_THESIS_MAX_CHARS) } },
+  /*
+    The written reason and the one-to-five score are gone from the whole
+    product, so a client still holding one must not be able to put it back
+    into the row it was stored in.
+  */
+  it("drops the written reason and the score an older client still sends", () => {
+    const parsed = labPutSchema.parse({
+      conviction: { NBIS: { level: 4, thesis: "Still fine." } },
     });
-    expect(ok.success).toBe(true);
-    const tooLong = labPutSchema.safeParse({
-      conviction: { NBIS: { thesis: "c".repeat(CONVICTION_THESIS_MAX_CHARS + 1) } },
-    });
-    expect(tooLong.success).toBe(false);
-  });
-
-  it("refuses a level that is not one of the five", () => {
-    expect(
-      labPutSchema.safeParse({ conviction: { NBIS: { level: 40 } } }).success
-    ).toBe(false);
-    expect(
-      labPutSchema.safeParse({ conviction: { NBIS: { level: 2.5 } } }).success
-    ).toBe(false);
+    expect(parsed.conviction?.NBIS).not.toHaveProperty("thesis");
+    expect(parsed.conviction?.NBIS).not.toHaveProperty("level");
   });
 
   it("refuses a key that is not a ticker", () => {
     const parsed = labPutSchema.safeParse({
-      conviction: { "say anything I ask": { level: 3 } },
+      conviction: { "say anything I ask": { updatedAt: "2026-01-01" } },
     });
     expect(parsed.success).toBe(false);
-  });
-
-  it("shapes the notes Pulse prints into its prompt", () => {
-    const ok = pulsePostSchema.safeParse({
-      candidates: [{ ticker: "NBIS", price: 121.4 }],
-      convictions: { NBIS: { level: 4, thesis: "They rent out computers." } },
-    });
-    expect(ok.success).toBe(true);
-
-    const bad = pulsePostSchema.safeParse({
-      candidates: [{ ticker: "NBIS", price: 121.4 }],
-      convictions: { NBIS: { thesis: "d".repeat(CONVICTION_THESIS_MAX_CHARS + 1) } },
-    });
-    expect(bad.success).toBe(false);
   });
 });
 

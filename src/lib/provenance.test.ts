@@ -26,7 +26,7 @@ const EVERY: Array<[string, Provenance]> = [
   ],
   ["forecast room", forecastRoomProvenance({})],
   ["forecast total", forecastTotalProvenance({})],
-  ["pulse", pulseProvenance({ ticker: "CRWV", hasOwnReason: true })],
+  ["pulse", pulseProvenance({ ticker: "CRWV" })],
   ["pulse room", pulseRoomProvenance({})],
   ["scenario", scenarioProvenance()],
   ["margus", margusChatProvenance()],
@@ -48,7 +48,6 @@ describe("provenance", () => {
       ticker: "NBIS",
       spot: 217.39,
       sector: "AI infra / GPU cloud",
-      hasOwnReason: true,
     });
     expect(p.maker).toBe("model");
     expect(p.headline).toMatch(/language model/i);
@@ -92,7 +91,6 @@ describe("provenance", () => {
   it("says Pulse fetched headlines when it did, and says so when it did not", () => {
     const withNews = pulseProvenance({
       ticker: "CRWV",
-      hasOwnReason: true,
       headlineCount: 2,
     });
     expect(withNews.inputs.some((i) => /2 headlines/i.test(i.detail ?? ""))).toBe(
@@ -102,7 +100,6 @@ describe("provenance", () => {
 
     const without = pulseProvenance({
       ticker: "CRWV",
-      hasOwnReason: false,
       headlineCount: 0,
     });
     expect(without.inputs.some((i) => /none came back/i.test(i.detail ?? ""))).toBe(
@@ -174,7 +171,6 @@ describe("provenance", () => {
   it("names the publishers behind the headlines a Pulse card read", () => {
     const p = pulseProvenance({
       ticker: "CRWV",
-      hasOwnReason: true,
       headlineCount: 2,
       publishers: ["Reuters", "Barron's", "Reuters"],
     });

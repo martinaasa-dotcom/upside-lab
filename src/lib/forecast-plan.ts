@@ -82,7 +82,12 @@ export type ForecastPlan = z.infer<typeof forecastPlanSchema> & {
   stance: ForecastStance;
   /** Sorted ticker fingerprint when the plan was generated */
   holdingsKey?: string;
-  /** Per-ticker conviction/thesis fingerprint when the plan was generated */
+  /**
+   * Left over from a fingerprint of two things the reader used to type, a
+   * reason and a score. Both are gone; nothing writes this any more, and a
+   * plan carrying one was reasoned from a note nobody can see. Kept so an
+   * older saved plan still parses.
+   */
   convictionKey?: string;
   /** Generic theme-shaped prices when Margus never finished a run. */
   fallback?: boolean;
@@ -122,47 +127,22 @@ export type CachedTickerPath = {
 
 export type StoredTickerPaths = Record<string, CachedTickerPath>;
 
-type ConvictionLike = Record<string, { level: number; thesis: string }>;
-
 export function forecastHoldingsKey(tickers: string[]): string {
   return [...new Set(tickers.map((t) => t.toUpperCase()))].sort().join("|");
 }
 
-export function tickerConvictionKey(
-  ticker: string,
-  convictions?: ConvictionLike
-): string {
-  if (!convictions) return "";
-  const c =
-    convictions[ticker] ??
-    convictions[ticker.toUpperCase()] ??
-    convictions[ticker.split(".")[0]!.toUpperCase()];
-  if (!c) return "";
-  return `${c.level}:${(c.thesis ?? "").trim()}`;
-}
-
-export function bookConvictionKey(
-  tickers: string[],
-  convictions?: ConvictionLike
-): string {
-  return [...new Set(tickers.map((t) => t.toUpperCase()))]
-    .sort()
-    .map((t) => `${t}=${tickerConvictionKey(t, convictions)}`)
-    .join("|");
-}
-
-function tickerCacheIsFresh(
-  cached: CachedTickerPath | undefined,
-  ticker: string,
-  convictions?: ConvictionLike
-): boolean {
+/*
+ * `convictionKey` is dead weight on new rows and load-bearing on old ones.
+ *
+ * It used to fingerprint two things the reader typed, a reason for owning a
+ * company and a score, both of which are gone. Nothing writes a key any
+ * more, so a row
+ * carrying one was reasoned from somebody's note and must not be handed to a
+ * reader who never wrote it. Only an empty key is reusable now.
+ */
+function tickerCacheIsFresh(cached: CachedTickerPath | undefined): boolean {
   if (!cached?.prices || Object.keys(cached.prices).length === 0) return false;
-  const nowKey = tickerConvictionKey(ticker, convictions);
-  // Harvested pre-fingerprint entries stay usable so opening a portfolio after
-  // this ships does not fire a model run. A later explicit regenerate stamps
-  // a real key; thesis edits after that do trigger a refresh.
-  if (!cached.convictionKey) return true;
-  return cached.convictionKey === nowKey;
+  return !cached.convictionKey;
 }
 
 function harvestPlansIntoTickerCache(
@@ -211,10 +191,7 @@ function persistTickerPathCache(cache: StoredTickerPaths) {
   }
 }
 
-export function upsertTickerPathsFromPlan(
-  plan: ForecastPlan,
-  convictions?: ConvictionLike
-) {
+export function upsertTickerPathsFromPlan(plan: ForecastPlan) {
   if (typeof window === "undefined") return;
   const cache = loadTickerPathCache();
   for (const t of plan.eoyTargets ?? []) {
@@ -223,18 +200,13 @@ export function upsertTickerPathsFromPlan(
       prices: t.prices,
       rationale: t.rationale,
       generatedAt: plan.generatedAt ?? cache[t.ticker.toUpperCase()]?.generatedAt ?? "",
-      convictionKey: convictions
-        ? tickerConvictionKey(t.ticker, convictions)
-        : cache[t.ticker.toUpperCase()]?.convictionKey ?? "",
+      convictionKey: "",
     };
   }
   persistTickerPathCache(cache);
 }
 
-export function cachedEoyPathsFor(
-  tickers: string[],
-  convictions?: ConvictionLike
-): {
+export function cachedEoyPathsFor(tickers: string[]): {
   ticker: string;
   prices: Partial<Record<ForecastYear, number>>;
   rationale?: string;
@@ -247,19 +219,14 @@ export function cachedEoyPathsFor(
   }[] = [];
   for (const ticker of tickers) {
     const hit = cache[ticker.toUpperCase()];
-    if (!tickerCacheIsFresh(hit, ticker, convictions) || !hit) continue;
+    if (!tickerCacheIsFresh(hit) || !hit) continue;
     out.push({ ticker, prices: hit.prices, rationale: hit.rationale });
   }
   return out;
 }
 
-export function cachedTickersFor(
-  tickers: string[],
-  convictions?: ConvictionLike
-): string[] {
-  return cachedEoyPathsFor(tickers, convictions).map((p) =>
-    p.ticker.toUpperCase()
-  );
+export function cachedTickersFor(tickers: string[]): string[] {
+  return cachedEoyPathsFor(tickers).map((p) => p.ticker.toUpperCase());
 }
 
 export type ForecastAutoRefresh =
@@ -272,8 +239,7 @@ export type ForecastAutoRefresh =
 /** Auto-run the model only when there is no reusable path yet: first visit
  * with nothing cached, or a newly added ticker with no shared path.
  * A saved plan, a shared ticker path, or a filled grid is enough. Opening
- * the portfolio again, switching portfolios, or convictions loading in late must
- * not call the model. "Work it out again" is the user's override. */
+ * the portfolio again or switching portfolios must not call the model. "Work it out again" is the user's override. */
 export function shouldAutoRefreshForecast(input: {
   plan: ForecastPlan | null;
   tickers: string[];
@@ -335,7 +301,6 @@ export function loadPreviousForecastPlan(portfolioId: string): ForecastPlan | nu
 
 export function saveForecastPlan(
   plan: ForecastPlan,
-  convictions?: ConvictionLike,
   opts?: { shareTickerPaths?: boolean }
 ) {
   if (typeof window === "undefined") return;
@@ -358,7 +323,7 @@ export function saveForecastPlan(
     // A shaped fallback is a safety net for this portfolio, not a reasoned
     // path to copy onto Anu/MaryAnn and skip their first real run.
     if (opts?.shareTickerPaths !== false) {
-      upsertTickerPathsFromPlan(cleaned, convictions);
+      upsertTickerPathsFromPlan(cleaned);
     }
   } catch {
     /* ignore */
@@ -444,7 +409,7 @@ function fallbackRationale(input: {
   const first = currency(input.prices[firstYear], 0);
   const last = currency(input.prices[lastYear], 0);
   const today = currency(input.spot, 0);
-  return `No written reason for ${input.ticker} yet. These prices follow the usual shape for ${themeShapeLabel(input.theme)}: about ${first} at the end of ${firstYear} and about ${last} by the end of ${lastYear}, against ${today} today. Modeled prices, not a target.`;
+  return `No model has reasoned ${input.ticker} yet. These prices follow the usual shape for ${themeShapeLabel(input.theme)}: about ${first} at the end of ${firstYear} and about ${last} by the end of ${lastYear}, against ${today} today. Modeled prices, not a target.`;
 }
 
 /**
@@ -710,10 +675,6 @@ export function buildForecastPlanPrompt(input: {
   portfolioName: string;
   cashBalance: number;
   forecast: ForecastModel;
-  /** The owner's own per-ticker conviction level and written thesis. This
-   * is where a personal view belongs (the engine itself stays generic and
-   * ticker-agnostic), so it's passed through and weighted explicitly. */
-  convictions?: Record<string, { level: number; thesis: string }>;
   now?: Date;
 }): string {
   const now = input.now ?? new Date();
@@ -735,21 +696,8 @@ export function buildForecastPlanPrompt(input: {
       input.forecast.currentTotal > 0
         ? ((r.currentValue / input.forecast.currentTotal) * 100).toFixed(1)
         : "0";
-    const conv =
-      input.convictions?.[r.ticker] ??
-      input.convictions?.[r.ticker.split(".")[0]!.toUpperCase()];
-    const convBit = conv
-      ? `, HOW SURE THEY ARE=${conv.level}/5${conv.thesis?.trim() ? `, why they own it: "${conv.thesis.trim().slice(0, 400)}"` : ""}`
-      : "";
-    return `${r.ticker} [${sector} · theme=${theme}]: shares=${r.shares}, spot=${r.currentPrice.toFixed(2)}, value=${r.currentValue.toFixed(0)}, weight=${weightPct}% of portfolio, covered=${r.hasTargets ? "yes" : "NEED FULL PATH"}${convBit}`;
+    return `${r.ticker} [${sector} · theme=${theme}]: shares=${r.shares}, spot=${r.currentPrice.toFixed(2)}, value=${r.currentValue.toFixed(0)}, weight=${weightPct}% of portfolio, covered=${r.hasTargets ? "yes" : "NEED FULL PATH"}`;
   });
-
-  const anyConviction = lines.some((l) => l.includes("HOW SURE THEY ARE"));
-  const convictionGuidance = anyConviction
-    ? `
-HOW SURE THEY ARE: some holdings carry the owner's own 1-5 score and a written reason they own it. Treat a high score plus a real writeup as a serious input, not decoration: if the owner has said why a name is a long-term compounder, reason their argument through properly and let the path reflect it where the argument holds up. You are allowed to disagree, but if you land materially below their view you must say why in one plain sentence in that ticker's rationale, naming the specific thing you think they are underweighting. A 5/5 with a real writeup should not quietly get an average path.
-`
-    : "";
 
   /*
     The portfolio's name is deliberately not in the prompt any more.
@@ -779,7 +727,7 @@ CRITICAL: Reason every price from why that company exists and the anchoring abov
 Today (Europe/Tallinn): ${todayKeyInTz()} · next quarter ≈ Q${nextQuarter.q} ${nextQuarter.y} · next calendar year ${year + 1}.
 
 ${stanceGuidance()}
-${convictionGuidance}
+
 Cash: ${input.cashBalance}
 Current portfolio value (equity+cash): ${input.forecast.currentTotal.toFixed(0)}
 

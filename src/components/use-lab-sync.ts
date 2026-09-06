@@ -37,10 +37,10 @@ export function useLabSync() {
         if (remoteEmpty && localHas) {
           // Show it (a genuinely new signup with pre-auth local notes should
           // see them), but do NOT auto-mark dirty. `localHas` only means
-          // *this browser* has conviction notes cached — on a shared or
+          // *this browser* has Pulse history cached — on a shared or
           // borrowed device those can belong to whoever used the app here
           // before this account existed. Auto-pushing them, as this used to
-          // do, would silently write a stranger's private thesis notes into
+          // do, would silently write a stranger's private Pulse history into
           // this account's own portfell_lab_state row. Only a real edit
           // (patchLab) should ever mark the bundle dirty and trigger a save.
           setLabBundle(local);

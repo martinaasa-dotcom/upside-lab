@@ -20,7 +20,6 @@ import {
   parseStartingCash,
   type ClassPeriodKind,
   type ClassPlan,
-  type ThesisCoverage,
 } from "@/lib/classroom";
 import { cashtag, cn } from "@/lib/format";
 import { buildCircleAwards } from "@/lib/circle-awards";
@@ -138,14 +137,6 @@ type CommunityBookResponse = {
   holdings?: Holding[];
   profiles?: Profile[];
   ownership?: { portfolio_id: string; user_id: string }[];
-  thesisCoverage?: Record<string, ThesisCoverage>;
-  /**
-   * Person id to ticker to the reason they wrote, for members who share
-   * their reasons. A circle whose whole subject is why you own something
-   * had no way to show it, so this is what the reason sheet and the muted
-   * line under each holding read.
-   */
-  theses?: Record<string, Record<string, string>>;
 };
 
 /** Synchronous cache read shared by every piece of state below, so they
@@ -190,12 +181,6 @@ export function CommunityView({ communityId }: Props) {
   const [ownership, setOwnership] = useState<
     { portfolio_id: string; user_id: string }[]
   >([]);
-  const [thesisCoverage, setThesisCoverage] = useState<
-    Record<string, ThesisCoverage>
-  >({});
-  const [theses, setTheses] = useState<Record<string, Record<string, string>>>(
-    {}
-  );
   /*
     The copy of this circle that was in the browser when the reader arrived.
     Diffed against the fresh one to say what changed while they were away,
@@ -252,8 +237,6 @@ export function CommunityView({ communityId }: Props) {
     setHoldings(cache.book?.holdings ?? []);
     setProfiles(cache.book?.profiles ?? []);
     setOwnership(cache.book?.ownership ?? []);
-    setThesisCoverage(cache.book?.thesisCoverage ?? {});
-    setTheses(cache.book?.theses ?? {});
     setPreviousBook(
       cache.book
         ? {
@@ -366,8 +349,6 @@ export function CommunityView({ communityId }: Props) {
       setHoldings(book.holdings ?? []);
       setProfiles(book.profiles ?? []);
       setOwnership(book.ownership ?? []);
-      setThesisCoverage(book.thesisCoverage ?? {});
-      setTheses(book.theses ?? {});
       hasDataRef.current = true;
       saveCommunityCache(communityId, { meta, book });
     } catch (e) {
@@ -934,41 +915,6 @@ export function CommunityView({ communityId }: Props) {
       }))
       .sort((a, b) => b.value - a.value);
   }, [memberStats, ownership, holdings, quotes]);
-
-  /** Every person's reason for a shared company, keyed on the ticker. */
-  const sharedReasons = useMemo(() => {
-    const map = new Map<string, { person: string; reason: string | null }[]>();
-    for (const row of sharedNames) {
-      const people = row.people.map((person) => {
-        const stat = memberStats.find((m) => m.name === person);
-        const reason = stat ? theses[stat.id]?.[row.ticker] ?? null : null;
-        return { person, reason: reason?.trim() ? reason.trim() : null };
-      });
-      map.set(row.ticker, people);
-    }
-    return map;
-  }, [sharedNames, memberStats, theses]);
-
-  /**
-   * Companies the reader owns and has written nothing about, so the reason
-   * sheet asks only the person it can actually ask. Owning it is not enough:
-   * a reader whose own reason is already on the sheet was being told to go
-   * and write one.
-   */
-  const needYourReason = useMemo(() => {
-    const you = memberStats.find((m) => m.isYou);
-    if (!you) return new Set<string>();
-    const mySheets = new Set(
-      ownership.filter((o) => o.user_id === you.id).map((o) => o.portfolio_id)
-    );
-    const mine = theses[you.id] ?? {};
-    return new Set(
-      holdings
-        .filter((h) => mySheets.has(h.portfolio_id))
-        .map((h) => h.ticker)
-        .filter((ticker) => !mine[ticker]?.trim())
-    );
-  }, [memberStats, ownership, holdings, theses]);
 
   /*
     What changed since the reader last opened this circle. Six lines at
@@ -1651,7 +1597,6 @@ export function CommunityView({ communityId }: Props) {
                 holdings={holdings}
                 quotes={quotes}
                 ownership={ownership}
-                thesisCoverage={thesisCoverage}
                 communityId={communityId}
                 onOpenMember={setSelectedOwnerId}
                 members={membersPanel}
@@ -1666,8 +1611,6 @@ export function CommunityView({ communityId }: Props) {
                 membersWithBooks={membersWithBooks}
                 achievements={achievements}
                 sharedNames={sharedNames}
-                sharedReasons={sharedReasons}
-                needYourReason={needYourReason}
                 avatarByName={avatarByName}
                 communityThemeBreakdown={communityThemeBreakdown}
                 yourThemeBreakdown={yourThemeBreakdown}
@@ -1749,7 +1692,6 @@ export function CommunityView({ communityId }: Props) {
               <ReadOnlyHoldings
                 holdings={selectedHoldings}
                 quotes={quotes}
-                theses={theses[selectedOwnerId] ?? undefined}
               />
               </WidgetErrorBoundary>
             </section>
