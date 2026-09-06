@@ -11,6 +11,8 @@ import type { HoldingPatch } from "@/components/PortfolioTable";
 import { RenameSheetModal } from "@/components/RenameSheetModal";
 import { SnapshotsModal } from "@/components/SnapshotsModal";
 import { TickerDrawer } from "@/components/TickerDrawer";
+import { withEdge } from "@/lib/company/ladder-store";
+import type { LadderOverrides } from "@/lib/company/plan-ladder";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import type { ToastKind } from "@/components/ui/Toast";
@@ -105,6 +107,8 @@ export type DashboardModalsProps = {
   applyAdvisorActions: (actions: AdvisorAction[], into?: Portfolio) => void;
   commitEoyPrice: (ticker: string, year: ForecastYear, price: number) => void;
   patchLab: (patch: Partial<LabBundle>) => void;
+  /** This reader's price-plan edits, straight off the Lab bundle. */
+  labLadders: LadderOverrides;
   loadPortfolios: (opts?: { silent?: boolean; retry?: boolean }) => Promise<void>;
   onCreatedAwayFromBook?: (created: Portfolio) => void;
 };
@@ -166,6 +170,7 @@ export function DashboardModals({
   applyAdvisorActions,
   commitEoyPrice,
   patchLab,
+  labLadders,
   loadPortfolios,
   onCreatedAwayFromBook,
 }: DashboardModalsProps) {
@@ -378,6 +383,10 @@ export function DashboardModals({
         }
         overrides={eoyOverrides}
         coveredCallRow={drawerCoveredCallRow}
+        ladders={labLadders}
+        onSetLadderEdge={(t, id, ratio) =>
+          patchLab({ ladders: withEdge(labLadders, t, id, ratio) })
+        }
         onSetEoyPrice={commitEoyPrice}
         onConviction={(level, thesis) => {
           if (!drawerTicker) return;

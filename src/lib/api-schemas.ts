@@ -182,6 +182,12 @@ export const weeklyNotePostSchema = z.looseObject({
 export const labPutSchema = z.looseObject({
   conviction: convictionMapSchema.optional(),
   watchlist: z.array(z.string().max(12)).max(40).optional(),
+  /*
+    The price-plan edits, kept loose here and cleaned by `sanitizeLadders`
+    on the way into the table: the shape is a map of tickers to a map of
+    band ids, which a schema would have to restate and then drift from.
+  */
+  ladders: z.record(z.string().max(12), z.unknown()).optional(),
   updatedAt: z.string().max(40).optional(),
 });
 

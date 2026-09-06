@@ -48,6 +48,15 @@ import type { CoveredCallRow } from "@/lib/types";
 import { isSafePositiveMoney } from "@/lib/input-guard";
 import { Bot, Trash2, X } from "lucide-react";
 import { WhyThis } from "@/components/ui/WhyThis";
+import { PlanLadderFoot, PlanLadderTable } from "@/components/company/PlanLadder";
+import { anchorForHolding } from "@/lib/company/ladder-anchor";
+import {
+  buildPlanLadder,
+  type LadderBandId,
+  type LadderOverrides,
+} from "@/lib/company/plan-ladder";
+import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
+import { planLadderProvenance } from "@/lib/provenance";
 import { forecastPathProvenance } from "@/lib/provenance";
 import { useEffect, useMemo, useState } from "react";
 
@@ -82,6 +91,12 @@ type Props = {
   conviction?: ConvictionEntry | null;
   overrides?: PortfolioEoyOverrides;
   coveredCallRow?: CoveredCallRow | null;
+  /** This reader's price-plan edits, keyed by ticker. */
+  ladders?: LadderOverrides;
+  /** Null where the plan is read-only, which keeps every level fixed. */
+  onSetLadderEdge?:
+    | ((ticker: string, id: LadderBandId, ratio: number | null) => void)
+    | null;
   /**
    * How many portfolios the shares and the average price above cover.
    * More than one and the drawer says so, because the card it was opened
@@ -107,6 +122,8 @@ export function TickerDrawer({
   conviction,
   overrides,
   coveredCallRow,
+  ladders,
+  onSetLadderEdge,
   portfolioCount = 1,
   onSetEoyPrice,
   onConviction,
@@ -158,6 +175,41 @@ export function TickerDrawer({
     () => typicalMoveFromCloses(sparkline ?? []),
     [sparkline]
   );
+
+  /*
+    The same price plan the Research room draws, on a holding this reader
+    already owns.
+    
+    Two differences, both forced by what is on this screen rather than by
+    preference. The anchor is the holding's own end of year target, which
+    is either the reader's number or the shared path's and is printed a
+    few inches above, because an anchor a reader cannot see is a plan they
+    cannot argue with. And the swing is read off the price history this
+    browser already has, roughly three months rather than the feed's year,
+    so the sentence behind the mark says three months.
+  */
+  const ladder = useMemo(() => {
+    const firstYear = FORECAST_YEARS[0];
+    if (!ticker || !forecastSummary || firstYear == null) return null;
+    const target = forecastSummary.eoyPrices[firstYear] ?? null;
+    const anchor = anchorForHolding({
+      target,
+      targetIsYours: Boolean(forecastSummary.targetedYears[firstYear]),
+    });
+    if (!anchor) return null;
+    const closes = (sparkline ?? []).filter((n) => Number.isFinite(n) && n > 0);
+    return buildPlanLadder({
+      ticker,
+      anchor: anchor.price,
+      anchorKind: anchor.kind,
+      anchorSaid: anchor.said,
+      spot,
+      high: closes.length > 1 ? Math.max(...closes) : null,
+      low: closes.length > 1 ? Math.min(...closes) : null,
+      windowSaid: "the last few months",
+      override: ladders?.[ticker.toUpperCase()] ?? null,
+    });
+  }, [ticker, forecastSummary, sparkline, spot, ladders]);
 
   if (!open || !ticker) return null;
 
@@ -498,6 +550,50 @@ export function TickerDrawer({
                 was renamed or taken over stops reporting a price under its
                 old one.
               </p>
+            </section>
+          )}
+
+          {ladder && ticker && (
+            <section className="flex flex-col gap-4">
+              <div>
+                <h3 className="inline-flex items-center gap-2 text-base text-foreground">
+                  Your price plan
+                  <WhyThis
+                    provenance={planLadderProvenance({
+                      ticker,
+                      anchorSaid: ladder.anchorSaid,
+                      stepSaid: ladder.stepSaid,
+                      edited: ladder.edited,
+                    })}
+                  />
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  Levels decided in advance, built from the end of year
+                  price above and how far this one ordinarily travels.
+                  Every one of them is yours to change, and when the price
+                  reaches the top or the bottom of the ladder it turns up
+                  on Home. {ADVICE_DISCLAIMER_SHORT}
+                </p>
+              </div>
+              <PlanLadderTable
+                ticker={ticker}
+                ladder={ladder}
+                costBasis={buyPrice}
+                onSetEdge={
+                  onSetLadderEdge
+                    ? (id, price) =>
+                        onSetLadderEdge(
+                          ticker,
+                          id,
+                          // Stored as a multiple of the anchor, never a
+                          // price, so a level set today still means the
+                          // same thing when the target moves.
+                          price === null ? null : price / ladder.anchor
+                        )
+                    : null
+                }
+              />
+              <PlanLadderFoot ladder={ladder} />
             </section>
           )}
 

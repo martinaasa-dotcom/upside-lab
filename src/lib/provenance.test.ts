@@ -6,6 +6,8 @@ import {
   forecastRoomProvenance,
   forecastTotalProvenance,
   growthRateProvenance,
+  planLadderProvenance,
+  researchQuestionsProvenance,
   holdingsProvenance,
   margusChatProvenance,
   pulseProvenance,
@@ -29,6 +31,13 @@ const EVERY: Array<[string, Provenance]> = [
   ["margus", margusChatProvenance()],
   ["holdings", holdingsProvenance({})],
   ["growth rate", growthRateProvenance({ ratePct: 23 })],
+  ["price plan", planLadderProvenance({ ticker: "GOOGL" })],
+  ["price plan, edited", planLadderProvenance({ ticker: "GOOGL", edited: true })],
+  ["four questions", researchQuestionsProvenance({ ticker: "GOOGL" })],
+  [
+    "four questions with the model's own case against",
+    researchQuestionsProvenance({ ticker: "GOOGL", usesModel: true }),
+  ],
 ];
 
 describe("provenance", () => {
