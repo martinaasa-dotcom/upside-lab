@@ -3402,10 +3402,11 @@ run("the recent Pulse and briefing bugs stay gone", () => {
   assert.match(sim, /<Stat/);
   assert.match(sim, /label="Portfolio after this"/);
   /*
-    The reason for owning a company, and how sure the reader is, used to
-    live in a drawer the holdings table opened. That drawer is gone: a
-    press on a holding goes to the company's own room, and this is the
-    panel that carries the reader's own half of it there.
+    A holding used to open a drawer of its own. It is gone, and a press on
+    one goes to the company's own room, where this panel says what the
+    reader owns. It asks nothing: no box for a written reason and no score
+    for how sure they are, so a panel that grew either would be the one
+    place left in the app doing it.
   */
   const owned = readFileSync(
     join(process.cwd(), "src/components/company/YourHolding.tsx"),
@@ -3415,8 +3416,8 @@ run("the recent Pulse and briefing bugs stay gone", () => {
   assert.doesNotMatch(notes, /did most of the move/);
   assert.doesNotMatch(shock, /driver: "AI computers"/);
   assert.doesNotMatch(sim, /"AI computers":/);
-  assert.match(owned, /<FieldLabel htmlFor="your-thesis">/);
-  assert.match(owned, /<ToggleGroup/);
+  assert.doesNotMatch(owned, /Thesis|How sure are you/);
+  assert.doesNotMatch(owned, /<ToggleGroup/);
   assert.doesNotMatch(owned, /tone="raised"/);
   assert.doesNotMatch(owned, /bg-gain\/10/);
   assert.match(notes, /if \(action === "trim"\)/);

@@ -1,6 +1,6 @@
 import { isAbortError } from "@/lib/abort";
 import { emptyLabBundle, type LabBundle } from "@/lib/lab-bundle";
-import { saveConvictionMap, type ConvictionMap } from "@/lib/conviction";
+import { saveConvictionMap } from "@/lib/conviction";
 import { saveWatchlist } from "@/lib/watchlist";
 import { saveLocalLadders } from "@/lib/company/ladder-store";
 import { fetchOrQueue } from "@/lib/offline/queued-fetch";
@@ -79,29 +79,5 @@ export async function pushLabBundle(
   } catch (e) {
     console.warn("[lab] save failed", e);
     return { ok: false, error: LAB_SAVE_FAILED };
-  }
-}
-
-/**
- * Push the conviction notes to the account, and nothing else.
- *
- * The Lab save is a partial one by design, so a thesis written in the
- * Research room must not blank a watchlist on its way past. It rides the
- * offline queue for the same reason the price plans do: a note written on
- * a train is still the reader's own words.
- */
-export async function pushConviction(conviction: ConvictionMap) {
-  try {
-    await fetchOrQueue(
-      "/api/lab",
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conviction }),
-      },
-      { kind: "preference" }
-    );
-  } catch {
-    /* the local copy is saved, and the next save retries */
   }
 }

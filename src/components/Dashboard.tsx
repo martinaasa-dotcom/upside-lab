@@ -2364,16 +2364,6 @@ export function Dashboard() {
   const onOpenSheet = useStableCallback(openSheet);
   const onPulseIntentConsumed = useStableCallback(() => setPulseIntent(null));
   const onLabIntentConsumed = useStableCallback(() => setLabIntent(null));
-  /*
-    Both ways into a company are one way now. A holding used to open a
-    drawer of its own, which restated a little of Research and none of it
-    as well, so a press on a name goes to the company's own room and the
-    reason for owning it is written there, beside everything the company
-    is.
-  */
-  const onWriteThesis = useStableCallback((t: string) =>
-    router.push(companyHref(t))
-  );
   const onStampPulse = useStableCallback(
     (
       ticker: string,
@@ -2867,7 +2857,6 @@ export function Dashboard() {
             convictions={convictionMap}
             intentTicker={pulseIntent}
             onIntentConsumed={onPulseIntentConsumed}
-            onWriteThesis={onWriteThesis}
             onStamp={onStampPulse}
           />
           </WidgetErrorBoundary>

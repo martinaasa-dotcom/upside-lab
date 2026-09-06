@@ -48,14 +48,7 @@ import {
   withEdge,
   withoutLadder,
 } from "@/lib/company/ladder-store";
-import { fetchLabBundle, pushConviction } from "@/lib/lab-sync-client";
-import {
-  loadConvictionMap,
-  onConvictionChanged,
-  setConviction,
-  type ConvictionLevel,
-  type ConvictionMap,
-} from "@/lib/conviction";
+import { fetchLabBundle } from "@/lib/lab-sync-client";
 import { quotePollMs, quotesUrl } from "@/lib/market/session";
 import {
   isCryptoLike,
@@ -328,51 +321,6 @@ function usePlanLadders(): {
   return { ladders, setLadders };
 }
 
-/**
- * The reader's own reason for owning this company, and how sure they are.
- *
- * The local copy shows first and the account's copy wins when it lands,
- * the same rule the price plans follow: a reason belongs to a person
- * rather than to a device. Saving is a partial one, conviction alone, so
- * writing a thesis here cannot blank a watchlist edited in the book, and
- * `saveConvictionMap` tells the book's own copy so its next save does not
- * push a map from before this edit.
- */
-function useConvictionNotes(): {
-  conviction: ConvictionMap;
-  setEntry: (ticker: string, level: ConvictionLevel, thesis: string) => void;
-} {
-  const [conviction, setState] = useState<ConvictionMap>({});
-
-  useEffect(() => {
-    setState(loadConvictionMap());
-    const ctrl = new AbortController();
-    void fetchLabBundle(ctrl.signal).then((r) => {
-      if (ctrl.signal.aborted || r.source !== "supabase") return;
-      setState(r.bundle.conviction ?? {});
-    });
-    return () => ctrl.abort();
-  }, []);
-
-  // Pulse stamps a verdict onto the same map from the book, which is a
-  // different room and may be alive at the same time as this one.
-  useEffect(() => onConvictionChanged((map) => setState(map)), []);
-
-  const setEntry = useCallback(
-    (ticker: string, level: ConvictionLevel, thesis: string) => {
-      setState((prev) => {
-        // `setConviction` saves the map, which publishes it to the book.
-        const next = setConviction(prev, ticker, { level, thesis });
-        void pushConviction(next);
-        return next;
-      });
-    },
-    []
-  );
-
-  return { conviction, setEntry };
-}
-
 export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
   const pathname = usePathname();
   const ticker = (fromProps || companyTickerFromPath(pathname) || "").toUpperCase();
@@ -449,7 +397,6 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
   */
   const live = useLivePrice(ticker, facts?.price ?? null, () => void load());
   const { ladders, setLadders } = usePlanLadders();
-  const { conviction, setEntry } = useConvictionNotes();
 
   /*
     The ladder, and every number on it, against the live price rather than
@@ -539,8 +486,6 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
           */
           price={(code === "USD" ? live.price : null) ?? book.minePrice}
           code="USD"
-          conviction={conviction[ticker] ?? null}
-          onConviction={(level, thesis) => setEntry(ticker, level, thesis)}
         />
       </WidgetErrorBoundary>
     ) : null;

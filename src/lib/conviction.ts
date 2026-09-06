@@ -42,28 +42,6 @@ export function loadConvictionMap(): ConvictionMap {
   }
 }
 
-/**
- * The map changed in this tab.
- *
- * Two rooms can be alive at once: the Research room, where a thesis is
- * written, and the book, whose Lab sync holds its own copy and pushes the
- * whole bundle whenever anything else in it is edited. Without this, a
- * thesis typed in one room would be reverted by the other room's next
- * save of the watchlist. It fires wherever the map is saved rather than
- * at each editor, so a new one cannot forget it.
- */
-export const CONVICTION_EVENT = "upside:conviction-changed";
-
-export function onConvictionChanged(fn: (map: ConvictionMap) => void) {
-  if (typeof window === "undefined") return () => {};
-  const handler = (e: Event) => {
-    const map = (e as CustomEvent<ConvictionMap>).detail;
-    if (map) fn(map);
-  };
-  window.addEventListener(CONVICTION_EVENT, handler);
-  return () => window.removeEventListener(CONVICTION_EVENT, handler);
-}
-
 export function saveConvictionMap(map: ConvictionMap) {
   if (typeof window === "undefined") return;
   try {
@@ -72,7 +50,6 @@ export function saveConvictionMap(map: ConvictionMap) {
   } catch {
     /* ignore */
   }
-  window.dispatchEvent(new CustomEvent(CONVICTION_EVENT, { detail: map }));
 }
 
 export function setConviction(

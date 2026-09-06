@@ -1,7 +1,7 @@
 "use client";
 
 import { emptyLabBundle, type LabBundle } from "@/lib/lab-bundle";
-import { loadConvictionMap, onConvictionChanged } from "@/lib/conviction";
+import { loadConvictionMap } from "@/lib/conviction";
 import { loadWatchlist } from "@/lib/watchlist";
 import { loadLocalLadders } from "@/lib/company/ladder-store";
 import {
@@ -81,23 +81,6 @@ export function useLabSync() {
       ctrl.abort();
     };
   }, []);
-
-  /*
-    A thesis written in the Research room, which holds its own copy and
-    saves the notes on their own. Without this the book's next save of
-    anything else in the bundle would push a conviction map from before
-    that edit and quietly revert it. It never marks the bundle dirty:
-    the room that made the edit has already saved it.
-  */
-  useEffect(
-    () =>
-      onConvictionChanged((conviction) => {
-        setLabBundle((prev) =>
-          prev.conviction === conviction ? prev : { ...prev, conviction }
-        );
-      }),
-    []
-  );
 
   const pushGenRef = useRef(0);
   useEffect(() => {
