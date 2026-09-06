@@ -79,13 +79,52 @@ export function anchorForCompany(
 export function anchorForHolding(input: {
   target: number | null;
   targetIsYours: boolean;
+  /** The middle of the range this browser has closes for, when it has any. */
+  rangeMid?: number | null;
+  /** The window those closes cover, in words. */
+  windowSaid?: string;
 }): LadderAnchor {
-  if (!ok(input.target)) return null;
-  return {
-    price: input.target,
-    kind: "target",
-    said: input.targetIsYours
-      ? `${currency(input.target, 2)}, the end of year price you wrote down for this holding. Change it and the whole ladder moves with it.`
-      : `${currency(input.target, 2)}, the end of year price on the path a model reasoned for this company. Nobody at this app chose it, and you can write your own over it.`,
-  };
+  /*
+    A TARGET NOBODY CHOSE IS NOT AN ANCHOR.
+
+    `resolveTickerForecastPath` answers with the reader's own end of year
+    price where they set one, and otherwise with a shaped path grown from
+    TODAY'S PRICE by a multiple that depends only on the kind of business.
+    That second one is fine as a forecast shape and useless as an anchor:
+    every holding in a theme is then the same fraction of its own anchor,
+    so a ladder built on it says where the price is against a rule of
+    thumb about that theme, and a map of them would order the reader's
+    holdings by how volatile they are while looking like it ordered them
+    by how cheap they are.
+
+    So a target counts only when somebody chose it. Failing that, the
+    middle of the range this name has actually traded in is a real,
+    checkable figure about this company, and the sentence says outright
+    that it is a statement about the price rather than about worth. It is
+    the same fallback `anchorForCompany` uses for a fund and a coin, for
+    the same reason.
+  */
+  if (ok(input.target) && input.targetIsYours) {
+    return {
+      price: input.target,
+      kind: "target",
+      said: `${currency(input.target, 2)}, the end of year price you wrote down for this holding. Change it and the whole ladder moves with it.`,
+    };
+  }
+  const over = input.windowSaid ?? "the last few months";
+  if (ok(input.rangeMid)) {
+    return {
+      price: input.rangeMid,
+      kind: "history",
+      said: `${currency(input.rangeMid, 2)}, the middle of the range this one has actually traded in over ${over}. Nobody has written an end of year price for it, and the shape this app would otherwise use is grown from today's price by a rule about its kind of business, which would tell you nothing about this company. This is a plan about the price and says nothing about what it is worth.`,
+    };
+  }
+  if (ok(input.target)) {
+    return {
+      price: input.target,
+      kind: "target",
+      said: `${currency(input.target, 2)}, the end of year price on the path this app shapes for its kind of business. Nobody chose it for this company, there is not enough price history to use instead, and you can write your own over it.`,
+    };
+  }
+  return null;
 }

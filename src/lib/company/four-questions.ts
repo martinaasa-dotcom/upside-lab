@@ -237,6 +237,8 @@ function changeMyMindAnswer(input: {
   facts: CompanyFacts;
   nextEarnings?: string | null;
   exitLevel?: number | null;
+  /** That level is a price the share has traded at, not a ratio. */
+  exitFromYear?: boolean;
   againstPoint?: string | null;
 }): FourQuestionAnswer {
   const { facts, exitLevel, againstPoint } = input;
@@ -250,7 +252,9 @@ function changeMyMindAnswer(input: {
   if (pos(exitLevel) && pos(facts.price)) {
     const fall = (facts.price - exitLevel) / facts.price;
     parts.push(
-      `A price of ${currency(exitLevel, 2)} is where the estimates below stop describing this company, which is ${percent(fall, 0)} under today. That is the level your own plan calls the floor, and it is yours to move.`
+      input.exitFromYear
+        ? `A price of ${currency(exitLevel, 2)} is the lowest this share has traded in a year, ${percent(fall, 0)} under today, and it is the floor of your own plan. Under it the price is below anything the market has paid for this company in twelve months, which is the plainest thing on this page that could tell you the argument above has stopped holding.`
+        : `A price of ${currency(exitLevel, 2)} is where the estimates below stop describing this company, which is ${percent(fall, 0)} under today. That is the level your own plan calls the floor, and it is yours to move.`
     );
   }
   if (input.nextEarnings) {
@@ -293,6 +297,8 @@ export function fourQuestions(input: {
   nextEarnings?: string | null;
   /** The bottom of the reader's own ladder, when one could be built. */
   exitLevel?: number | null;
+  /** Whether that level is the year's low rather than worked-out. */
+  exitFromYear?: boolean;
   /** The first point of the model's case against, when the page has one. */
   againstPoint?: string | null;
 }): FourQuestionAnswer[] {

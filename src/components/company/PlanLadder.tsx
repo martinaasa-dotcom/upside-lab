@@ -10,6 +10,7 @@ import { cashtag, cn, currency, percent } from "@/lib/format";
 import { planLadderProvenance } from "@/lib/provenance";
 import {
   ladderRead,
+  positionInBand,
   type LadderBand,
   type LadderBandId,
   type PlanLadder as Ladder,
@@ -37,21 +38,6 @@ import { ListOrdered, Pencil, RotateCcw } from "lucide-react";
  * quote. A band a price is merely "in" tells a reader far less than one
  * that shows it eight tenths of the way to the next level.
  */
-
-/** Where in its own band a price sits, as a fraction of the band's width. */
-export function positionInBand(band: LadderBand, price: number): number {
-  const { from, to } = band;
-  if (from !== null && to !== null && to > from) {
-    return Math.min(Math.max((price - from) / (to - from), 0), 1);
-  }
-  /*
-    An open band has no width to be a fraction of, so the marker is put at
-    the end nearest the level, which is the one edge the reader can check.
-    Half way up an open band would be a position the arithmetic never
-    produced.
-  */
-  return to === null ? 0.85 : 0.15;
-}
 
 /**
  * A band's prices, in the least room they can honestly take.
@@ -352,7 +338,17 @@ export function PlanLadderFoot({
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-xs leading-relaxed text-muted-foreground">
         Anchored on {currency(ladder.anchor, 2, code)}, with bands{" "}
-        {percent(ladder.step, 0)} of it wide. {ADVICE_DISCLAIMER_SHORT}
+        {percent(ladder.step, ladder.farBelow ? 1 : 0)} of it wide
+        {/*
+          Said on the panel and not only behind the mark. A ladder three
+          per cent wide sitting next to one ten per cent wide reads as a
+          fault, and the reason it is tighter is a fact about this
+          company that the reader wants anyway.
+        */}
+        {ladder.farBelow
+          ? ", tighter than usual because the price is a long way under the anchor and the stretch below it is one band rather than five"
+          : ""}
+        . {ADVICE_DISCLAIMER_SHORT}
       </p>
       {ladder.edited && onReset && (
         <Button
@@ -404,6 +400,8 @@ export function PlanLadderPanel({
                 ticker,
                 anchorSaid: ladder.anchorSaid,
                 stepSaid: ladder.stepSaid,
+                floorSaid: ladder.floorSaid,
+                farBelow: ladder.farBelow,
                 edited: ladder.edited,
                 at,
               })}

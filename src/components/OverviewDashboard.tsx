@@ -2,6 +2,8 @@
 
 import { BelowFold } from "@/components/BelowFold";
 import { HomeWorld } from "@/components/HomeWorld";
+import { BandAlerts } from "@/components/company/BandAlerts";
+import type { BandMapPoint } from "@/lib/company/band-map";
 import { CashAlertCard } from "@/components/mobile/CashAlertCard";
 import { WatchlistStrip } from "@/components/WatchlistStrip";
 import {
@@ -55,7 +57,7 @@ import {
   lockInsightLook,
   rememberShownInsights,
 } from "@/lib/insight-look";
-import type { UpsideAlert } from "@/lib/alerts";
+import { alertDestination, type UpsideAlert } from "@/lib/alerts";
 import { sessionLabel, sessionKind } from "@/lib/market-session";
 import { sheetCashBalance } from "@/lib/cash-balance";
 import type { OverviewModel, SheetScore, TickerScore } from "@/lib/overview";
@@ -127,6 +129,7 @@ function DeltaBadge({
  */
 const MOVERS_SHOWN = 6;
 const EMPTY_ALERTS: UpsideAlert[] = [];
+const EMPTY_BAND_POINTS: BandMapPoint[] = [];
 
 type Props = {
   model: OverviewModel;
@@ -134,8 +137,15 @@ type Props = {
   coveredCallRows?: CoveredCallRow[];
   /** Book-wide, not-yet-dismissed alerts (earnings/strike/margin/concentration). */
   activeAlerts?: UpsideAlert[];
+  /**
+   * Every holding placed on its own price plan. Home shows only the ones
+   * that have reached a level; the whole picture is on the holdings page.
+   */
+  bandPoints?: BandMapPoint[];
   onOpenLab?: (tab?: LabDeepLink) => void;
   onOpenPulse?: (ticker?: string) => void;
+  /** The company's own Research page, where a price plan lives. */
+  onOpenResearch?: (ticker: string) => void;
   onOpenCompound?: () => void;
   marketState?: string | null;
   guest?: boolean;
@@ -485,11 +495,13 @@ function firstSentence(text: string): string {
 function HomeAlertRow({
   alerts,
   onOpenPulse,
+  onOpenResearch,
   onOpenAlerts,
   className,
 }: {
   alerts: UpsideAlert[];
   onOpenPulse?: (ticker: string) => void;
+  onOpenResearch?: (ticker: string) => void;
   onOpenAlerts?: () => void;
   className?: string;
 }) {
@@ -508,9 +520,18 @@ function HomeAlertRow({
               ? (KIND_GLYPH[alert.kind] ?? Landmark)
               : AlertTriangle;
           const line = alert.cushion ?? firstSentence(alert.detail);
-          const open = alert.ticker
-            ? () => onOpenPulse?.(alert.ticker as string)
-            : onOpenAlerts;
+          /*
+            A price plan is read and changed on the company's own Research
+            page, so that is where its card goes. Everything else naming a
+            company goes to Pulse, which explains a move.
+          */
+          const where = alertDestination(alert);
+          const open =
+            where === "research"
+              ? () => onOpenResearch?.(alert.ticker as string)
+              : where === "pulse"
+                ? () => onOpenPulse?.(alert.ticker as string)
+                : onOpenAlerts;
           return (
             <article
               key={alert.id}
@@ -535,18 +556,26 @@ function HomeAlertRow({
                 </div>
               </div>
               {open ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="-ml-2 mt-auto self-start pt-3 text-muted-foreground hover:text-foreground"
-                  onClick={open}
-                >
-                  {alert.ticker
-                    ? `Open Pulse on ${cashtag(alert.ticker)}`
-                    : "Open Worth a look"}
-                  <ArrowRight data-icon="inline-end" />
-                </Button>
+                /* The gap above this button is the wrapper's padding, never
+                 * the button's own: a `size="sm"` button is a fixed `h-7`, so
+                 * a `pt-3` on it shrinks the content box and drops the label
+                 * 6px below the centre of the hover fill it sits in. */
+                <div className="mt-auto pt-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-2 text-muted-foreground hover:text-foreground"
+                    onClick={open}
+                  >
+                    {where === "research"
+                      ? `Open Research on ${cashtag(alert.ticker as string)}`
+                      : where === "pulse"
+                        ? `Open Pulse on ${cashtag(alert.ticker as string)}`
+                        : "Open Worth a look"}
+                    <ArrowRight data-icon="inline-end" />
+                  </Button>
+                </div>
               ) : null}
             </article>
           );
@@ -974,7 +1003,9 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   model,
   onOpenSheet,
   activeAlerts = EMPTY_ALERTS,
+  bandPoints = EMPTY_BAND_POINTS,
   onOpenPulse,
+  onOpenResearch,
   marketState = null,
   onAddHolding,
   onImportScreenshot,
@@ -1590,6 +1621,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         <HomeAlertRow
           alerts={activeAlerts}
           onOpenPulse={onOpenPulse}
+          onOpenResearch={onOpenResearch}
           onOpenAlerts={onOpenAlerts}
         />
       </div>
@@ -1603,6 +1635,14 @@ export const OverviewDashboard = memo(function OverviewDashboard({
       {marketReading}
 
       {recallInput ? <RecallCardPanel input={recallInput} /> : null}
+
+      {/*
+        High on the page, because it is the one thing here that a reader
+        would want to know before deciding what to do with their day: a
+        price they wrote a level for has reached it. Absent entirely when
+        nothing has, rather than an empty card saying so.
+      */}
+      <BandAlerts points={bandPoints} />
 
       <Panel className="overview-fade">
         <PanelHeader

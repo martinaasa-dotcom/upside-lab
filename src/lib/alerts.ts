@@ -6,6 +6,7 @@ import {
   type MarginToneName,
 } from "@/lib/margin-health";
 import type { GlossaryExample } from "@/lib/glossary";
+import { isActionableBand } from "@/lib/company/plan-ladder";
 import { safeDiv } from "@/lib/money";
 import { formatDateTime } from "@/lib/timezone";
 
@@ -146,10 +147,12 @@ export function buildLadderAlerts(
     edited: boolean;
   }>
 ): UpsideAlert[] {
-  const LOUD = new Set(["trim-most", "full", "exit"]);
   const out: UpsideAlert[] = [];
   for (const r of rows) {
-    if (!LOUD.has(r.bandId) || !(r.spot > 0)) continue;
+    // One definition of which bands are worth raising a voice about, in
+    // `plan-ladder.ts`, so a name called out on the holdings map cannot
+    // be quiet here.
+    if (!isActionableBand(r.bandId) || !(r.spot > 0)) continue;
     const whose = r.edited
       ? "the plan you set for it"
       : "the plan this app worked out from the estimates on its page, which you have not changed";
@@ -163,7 +166,7 @@ export function buildLadderAlerts(
       title: `${cashtag(r.ticker)} reached a level in your plan`,
       detail: `At ${currency(r.spot, 2)} it is in the band ${whose} calls "${r.bandLabel}".${level}`,
       learn:
-        "Nothing has been bought or sold, and this app is not telling you to do either. It is repeating a level you can change on the company's own page.",
+        "Nothing has been bought or sold, and this app is not telling you to do either. It is repeating a level you can read and change on the company's own Research page.",
       ticker: r.ticker,
       tone: r.bandId === "exit" ? "warning" : "neutral",
     });
@@ -452,4 +455,25 @@ export function buildDecisionAlerts(input: {
     });
   }
   return out;
+}
+
+/**
+ * Where a card's one button goes, decided once for every surface.
+ *
+ * Home and the alerts room each draw their own button, and both used to
+ * send anything naming a company to Pulse. That is right for a card about
+ * a move or a results date, and wrong for the price plan: a ladder alert
+ * repeats a level the reader can only read, argue with or change on the
+ * company's own Research page, which is what its own learn line already
+ * tells them. Sending them to Pulse instead offered an explanation of a
+ * move nothing on the card had claimed.
+ */
+export type AlertDestination = "research" | "pulse" | "cash" | "overview";
+
+export function alertDestination(
+  alert: Pick<UpsideAlert, "kind" | "ticker">
+): AlertDestination {
+  if (alert.ticker) return alert.kind === "ladder" ? "research" : "pulse";
+  if (alert.kind === "margin") return "cash";
+  return "overview";
 }
