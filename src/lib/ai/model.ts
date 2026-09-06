@@ -1,6 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel } from "ai";
 import { siteUrl } from "@/lib/site-url";
+import { freeModelIdOr, freeModelIds } from "@/lib/ai/free-models";
 
 /**
  * OpenRouter's `:free` catalogue rots: slugs get retired or moved behind
@@ -53,6 +54,19 @@ const DEFAULT_TEXT_FALLBACKS = [
 
 const DEFAULT_VISION_FALLBACKS = ["google/gemma-4-26b-a4b-it:free"];
 
+/*
+ * The other three providers name a model per free tier rather than in the
+ * slug, so their defaults are named here and checked against the audited
+ * list in `free-models.ts` like any env override. 20b on Groq finishes a
+ * valid JSON object where 120b thinks longer and more often dies mid-update;
+ * Cerebras's gpt-oss-120b is their current production model and matches
+ * Groq's structured-output-safe family; Gemini's is a rolling alias rather
+ * than a dated snapshot, since Google retires dated ids over time.
+ */
+const GROQ_DEFAULT_MODEL = "openai/gpt-oss-20b";
+const GEMINI_DEFAULT_MODEL = "gemini-flash-latest";
+const CEREBRAS_DEFAULT_MODEL = "gpt-oss-120b";
+
 function parseEnvList(raw: string | undefined): string[] {
   if (!raw?.trim()) return [];
   return raw
@@ -83,23 +97,30 @@ export function resolveAdvisorModelId(options?: {
   speaking?: boolean;
 }): string {
   const vision = Boolean(options?.vision) && !options?.reasoning;
+  // Every env override goes through the free-tier check: an id without
+  // OpenRouter's `:free` suffix is billed against account credits, and this
+  // app has no credits to spend. A paid one is refused out loud and the
+  // audited default answers instead.
   if (vision) {
-    return (
-      process.env.MODEL_VISION ??
-      process.env.OPENROUTER_VISION_MODEL ??
+    return freeModelIdOr(
+      "openrouter",
+      process.env.MODEL_VISION ?? process.env.OPENROUTER_VISION_MODEL,
       DEFAULT_VISION_MODEL
     );
   }
   if (options?.reasoning) {
-    return (
+    return freeModelIdOr(
+      "openrouter",
       process.env.MODEL_FORECAST ??
-      process.env.MODEL ??
-      process.env.OPENROUTER_MODEL ??
+        process.env.MODEL ??
+        process.env.OPENROUTER_MODEL,
       DEFAULT_TEXT_MODEL
     );
   }
-  return (
-    process.env.MODEL ?? process.env.OPENROUTER_MODEL ?? DEFAULT_TEXT_MODEL
+  return freeModelIdOr(
+    "openrouter",
+    process.env.MODEL ?? process.env.OPENROUTER_MODEL,
+    DEFAULT_TEXT_MODEL
   );
 }
 
@@ -117,7 +138,13 @@ export function resolveAdvisorFallbackIds(options?: {
       : process.env.MODEL_FALLBACKS
   );
   const defaults = vision ? DEFAULT_VISION_FALLBACKS : DEFAULT_TEXT_FALLBACKS;
-  return uniq([...fromEnv, ...defaults]).filter((id) => id !== primary);
+  // OpenRouter walks this list server-side, so a paid id here is spent
+  // without any further call of ours to refuse it. Drop those before they
+  // reach the wire.
+  return freeModelIds(
+    "openrouter",
+    uniq([...fromEnv, ...defaults])
+  ).filter((id) => id !== primary);
 }
 
 /**
@@ -189,9 +216,13 @@ export function buildAdvisorProviderChain(options?: {
     // 20b on Groq finishes a valid JSON object. 120b thinks longer and
     // more often dies mid-update. llama-3.3-70b-versatile 400s on
     // generateObject, so it is not a fallback for those jobs.
-    const groqModel = speaking
-      ? (process.env.GROQ_CHAT_MODEL ?? process.env.GROQ_MODEL ?? "openai/gpt-oss-20b")
-      : (process.env.GROQ_MODEL ?? "openai/gpt-oss-20b");
+    const groqModel = freeModelIdOr(
+      "groq",
+      speaking
+        ? (process.env.GROQ_CHAT_MODEL ?? process.env.GROQ_MODEL)
+        : process.env.GROQ_MODEL,
+      GROQ_DEFAULT_MODEL
+    );
     chain.push({ id: "groq", model: groq.chat(groqModel), modelId: groqModel });
   }
 
@@ -225,7 +256,11 @@ export function buildAdvisorProviderChain(options?: {
     // IDs over time (gemini-2.5-flash 404s on some key tiers already),
     // -latest keeps pointing at whatever's current without needing a
     // code change every time Google ships a new generation.
-    const geminiModel = process.env.GEMINI_MODEL ?? "gemini-flash-latest";
+    const geminiModel = freeModelIdOr(
+      "gemini",
+      process.env.GEMINI_MODEL,
+      GEMINI_DEFAULT_MODEL
+    );
     chain.push({ id: "gemini", model: gemini.chat(geminiModel), modelId: geminiModel });
   }
 
@@ -237,9 +272,13 @@ export function buildAdvisorProviderChain(options?: {
     // llama-3.3-70b no longer exists on Cerebras's catalog (confirmed
     // 404 against the live API) — gpt-oss-120b is their current
     // production model and matches Groq's structured-output-safe choice.
-    const cerebrasModel = speaking
-      ? (process.env.CEREBRAS_CHAT_MODEL ?? process.env.CEREBRAS_MODEL ?? "gpt-oss-120b")
-      : (process.env.CEREBRAS_MODEL ?? "gpt-oss-120b");
+    const cerebrasModel = freeModelIdOr(
+      "cerebras",
+      speaking
+        ? (process.env.CEREBRAS_CHAT_MODEL ?? process.env.CEREBRAS_MODEL)
+        : process.env.CEREBRAS_MODEL,
+      CEREBRAS_DEFAULT_MODEL
+    );
     chain.push({
       id: "cerebras",
       model: cerebras.chat(cerebrasModel),
