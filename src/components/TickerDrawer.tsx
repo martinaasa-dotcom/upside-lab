@@ -49,11 +49,10 @@ import { isSafePositiveMoney } from "@/lib/input-guard";
 import { Bot, Trash2, X } from "lucide-react";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { PlanLadderFoot, PlanLadderTable } from "@/components/company/PlanLadder";
-import { anchorForHolding } from "@/lib/company/ladder-anchor";
-import {
-  buildPlanLadder,
-  type LadderBandId,
-  type LadderOverrides,
+import { holdingLadders } from "@/lib/company/holding-ladders";
+import type {
+  LadderBandId,
+  LadderOverrides,
 } from "@/lib/company/plan-ladder";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { planLadderProvenance } from "@/lib/provenance";
@@ -189,27 +188,19 @@ export function TickerDrawer({
     so the sentence behind the mark says three months.
   */
   const ladder = useMemo(() => {
-    const firstYear = FORECAST_YEARS[0];
-    if (!ticker || !forecastSummary || firstYear == null) return null;
-    const target = forecastSummary.eoyPrices[firstYear] ?? null;
-    const anchor = anchorForHolding({
-      target,
-      targetIsYours: Boolean(forecastSummary.targetedYears[firstYear]),
+    if (!ticker || spot == null) return null;
+    /*
+      The same builder the holdings map and the alerts use, rather than a
+      second copy of the arithmetic here: a level reached in this drawer
+      has to be the level that turns up on Home.
+    */
+    const [row] = holdingLadders({
+      rows: [{ ticker, spot, closes: sparkline ?? null, value: 0 }],
+      overrides,
+      ladders,
     });
-    if (!anchor) return null;
-    const closes = (sparkline ?? []).filter((n) => Number.isFinite(n) && n > 0);
-    return buildPlanLadder({
-      ticker,
-      anchor: anchor.price,
-      anchorKind: anchor.kind,
-      anchorSaid: anchor.said,
-      spot,
-      high: closes.length > 1 ? Math.max(...closes) : null,
-      low: closes.length > 1 ? Math.min(...closes) : null,
-      windowSaid: "the last few months",
-      override: ladders?.[ticker.toUpperCase()] ?? null,
-    });
-  }, [ticker, forecastSummary, sparkline, spot, ladders]);
+    return row?.ladder ?? null;
+  }, [ticker, spot, sparkline, overrides, ladders]);
 
   if (!open || !ticker) return null;
 

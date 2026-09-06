@@ -981,6 +981,9 @@ export function planLadderProvenance(input: {
   anchor?: string | null;
   anchorSaid?: string | null;
   stepSaid?: string | null;
+  floorSaid?: string | null;
+  /** The bands were tightened because the price is far under the anchor. */
+  farBelow?: boolean;
   edited?: boolean;
   at?: string | null;
 }): Provenance {
@@ -998,6 +1001,12 @@ export function planLadderProvenance(input: {
         what: "How wide each band is",
         detail: input.stepSaid ?? "read off the year's high and low for this share",
       },
+      {
+        what: "The bottom of the ladder",
+        detail:
+          input.floorSaid ??
+          "the lowest this share has actually traded in a year, where the feed carried one",
+      },
       { what: "Today's price", detail: "which decides only which band it lands in" },
       ...(input.edited
         ? [{ what: "The levels you typed", detail: "which replace the worked-out ones" }]
@@ -1011,8 +1020,13 @@ export function planLadderProvenance(input: {
     ],
     steps: [
       "The anchor is taken from the valuation panel below, unmodified. Nothing here re-estimates it and nothing nudges it towards today's price.",
-      "The band width is the share's own year, high against low, measured against that anchor: a share that swings twice as far gets bands twice as wide, held between a twentieth and a fifth of the anchor either way.",
-      "Each level is the anchor times a fixed multiple, and the floor sits further down for a share that swings harder, because a hard-swinging share reaches a given fall on an ordinary bad month.",
+      "Each band is a tenth of the anchor wide, which is the width the ladders this was built from use. Two fifths of how far this share's own year ran, against an ordinary company's, is added on top, so a name that barely moves gets slightly finer bands and one that swings hard slightly coarser.",
+      ...(input.farBelow
+        ? [
+            "The bands are tighter than that here, because the price is a long way under the anchor. Down there every price is the same decision, so the fine detail belongs at the top, where the levels you would actually meet are, and the stretch below is one band rather than five.",
+          ]
+        : []),
+      "The bottom of the ladder is the lowest this share has actually traded in a year, where the feed carried one and it sits clear of the band above it. It is a price rather than a fraction of the estimate, so it is a level you can check.",
       "Today's price is then read against those levels. That is the whole calculation: no model, no scoring, no view about this company.",
     ],
     blindSpots: [
@@ -1023,6 +1037,53 @@ export function planLadderProvenance(input: {
     ],
     at: input.at,
     yours: "Change any level and the ladder redraws around it. The levels are the plan; this app only does the multiplication.",
+  };
+}
+
+/**
+ * Every holding on one ladder. Two figures from other screens drawn
+ * against each other, and nothing else.
+ */
+export function bandMapProvenance(input: {
+  count?: number;
+  at?: string | null;
+}): Provenance {
+  const n = input.count ?? 0;
+  return {
+    maker: "arithmetic",
+    title: "How this picture was drawn",
+    headline: `No model wrote this and nothing here is a score. It is ${n === 1 ? "one holding" : `${n} holdings`} placed by two figures that are already on other screens: each name's own price plan, and how much of this portfolio it is.`,
+    inputs: [
+      {
+        what: "Each holding's own price plan",
+        detail:
+          "the same ladder its own page draws, anchored on that holding's end of year price",
+      },
+      { what: "Today's price for each one" },
+      { what: "What each holding is worth, against the whole portfolio" },
+    ],
+    sources: [
+      YOUR_HOLDINGS,
+      YAHOO_PRICES,
+      {
+        name: "This app",
+        what: "the placing, which is plain arithmetic and is described below",
+      },
+    ],
+    steps: [
+      "Each name's plan is built first, exactly as its own page builds it. Nothing about the plan changes because it is on a map.",
+      "Height is which band the price is in, plus how far through that band it has got. Every band is a multiple of that company's own anchor, which is what lets a $2 company and a $2,000 one be compared at all.",
+      "Across is that holding's share of this portfolio, ending at the largest one rather than at a hundred per cent, or every name would be drawn in the first tenth of the picture.",
+      "Where two names would touch, one moves down a row inside its own band. Nothing is ever moved sideways, because sideways is a real figure.",
+    ],
+    blindSpots: [
+      NOT_YOUR_BROKER,
+      "Anything about the companies themselves. Two names next to each other on this picture have nothing else in common.",
+      "Whether the plan behind any of it is a sensible one for you. The picture inherits every assumption of each name's own anchor.",
+      NOT_A_TARGET,
+    ],
+    at: input.at,
+    yours: "Open a name to see the plan behind its position, and change any level you disagree with.",
   };
 }
 
