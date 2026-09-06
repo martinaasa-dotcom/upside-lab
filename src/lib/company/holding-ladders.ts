@@ -29,6 +29,8 @@ export type HoldingLadderRow = {
   ticker: string;
   ladder: PlanLadder | null;
   value: number;
+  /** Up or down against what this reader paid, as a fraction. */
+  roiPct?: number | null;
 };
 
 export function holdingLadders(input: {
@@ -40,6 +42,8 @@ export function holdingLadders(input: {
     closes?: number[] | null;
     /** What the holding is worth today, in the reader's own money. */
     value: number;
+    /** Up or down against what they paid, as a fraction. */
+    roiPct?: number | null;
   }>;
   overrides?: PortfolioEoyOverrides;
   ladders?: LadderOverrides;
@@ -60,7 +64,7 @@ export function holdingLadders(input: {
 
     const spot = row.spot;
     if (firstYear == null || typeof spot !== "number" || !(spot > 0)) {
-      out.push({ ticker, ladder: null, value: row.value });
+      out.push({ ticker, ladder: null, value: row.value, roiPct: row.roiPct });
       continue;
     }
     const closes = (row.closes ?? []).filter(
@@ -82,6 +86,7 @@ export function holdingLadders(input: {
     out.push({
       ticker,
       value: row.value,
+      roiPct: row.roiPct,
       ladder: buildPlanLadder({
         ticker,
         anchor: anchor.price,

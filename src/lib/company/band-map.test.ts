@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  LANE_WEIGHTS,
+  ladderUnits,
+  stackDepth,
   actionableFirst,
   buildBandMap,
   ladderHeight,
   lanesFrom,
-  packLane,
+  placeUp,
+  rankAcross,
 } from "@/lib/company/band-map";
 import { buildPlanLadder, type PlanLadder } from "@/lib/company/plan-ladder";
 
@@ -35,10 +39,11 @@ describe("the ladder is the common unit, not the price", () => {
   });
 
   it("runs from the foot of the ladder to its head", () => {
+    const units = Object.values(LANE_WEIGHTS).reduce((a, b) => a + b, 0);
     const bottom = ladderAt(1, 100);
     const top = ladderAt(400, 100);
-    expect(ladderHeight(bottom)!).toBeLessThan(0.15);
-    expect(ladderHeight(top)!).toBeGreaterThan(0.85);
+    expect(ladderHeight(bottom)!).toBeLessThan(units * 0.15);
+    expect(ladderHeight(top)!).toBeGreaterThan(units * 0.85);
   });
 
   it("puts a price a hair either side of a level a hair apart", () => {
@@ -47,7 +52,8 @@ describe("the ladder is the common unit, not the price", () => {
     const below = ladderHeight(ladderAt(edge - 0.01, 100))!;
     const above = ladderHeight(ladderAt(edge + 0.01, 100))!;
     expect(above).toBeGreaterThan(below);
-    expect(above - below).toBeLessThan(0.05);
+    // Well under one ordinary lane, which is the unit here.
+    expect(above - below).toBeLessThan(0.3);
   });
 
   it("takes its lanes from the ladder rather than restating them", () => {
@@ -55,7 +61,7 @@ describe("the ladder is the common unit, not the price", () => {
     const lanes = lanesFrom(ladder);
     expect(lanes.map((l) => l.id)).toEqual(ladder.bands.map((b) => b.id));
     // Head first, and the whole axis covered with no gaps.
-    expect(lanes[0]!.to).toBeCloseTo(1, 10);
+    expect(lanes[0]!.to).toBeCloseTo(ladderUnits(lanes), 10);
     expect(lanes[lanes.length - 1]!.from).toBeCloseTo(0, 10);
     for (let i = 0; i < lanes.length - 1; i += 1) {
       expect(lanes[i]!.from).toBeCloseTo(lanes[i + 1]!.to, 10);
@@ -72,14 +78,14 @@ describe("the ladder is the common unit, not the price", () => {
   });
 });
 
-describe("across is the share of the portfolio", () => {
+describe("across is the order by size, so nothing can pile up", () => {
   const rows = [
     { ticker: "BIG", ladder: ladderAt(100, 100), value: 600 },
     { ticker: "MID", ladder: ladderAt(60, 100), value: 300 },
     { ticker: "SML", ladder: ladderAt(30, 100), value: 100 },
   ];
 
-  it("works the share out against the whole map", () => {
+  it("still works the real share out, for the label", () => {
     const map = buildBandMap(rows);
     const share = Object.fromEntries(
       map.points.map((p) => [p.ticker, p.share])
@@ -87,21 +93,43 @@ describe("across is the share of the portfolio", () => {
     expect(share.BIG).toBeCloseTo(0.6, 10);
     expect(share.MID).toBeCloseTo(0.3, 10);
     expect(share.SML).toBeCloseTo(0.1, 10);
+    expect(map.topShare).toBeCloseTo(0.6, 10);
   });
 
-  it("ends the axis at the largest holding, not at everything", () => {
+  it("puts the smallest on the left and the biggest on the right", () => {
     const map = buildBandMap(rows, { chipWidth: 0.1 });
-    expect(map.topShare).toBeCloseTo(0.6, 10);
-    /*
-      The biggest name reaches the right-hand end, less half a chip: a
-      chip is centred on its own position, so one drawn at the very end
-      would hang half outside the picture. Nothing else is squashed into
-      the first tenth, which is what the axis ending at the largest
-      holding is for.
-    */
-    expect(map.points.find((p) => p.ticker === "BIG")!.x).toBeCloseTo(0.95, 6);
-    // The share itself is untouched by any of that drawing.
-    expect(map.points.find((p) => p.ticker === "BIG")!.share).toBeCloseTo(0.6, 10);
+    const x = Object.fromEntries(map.points.map((p) => [p.ticker, p.x]));
+    expect(x.SML).toBeLessThan(x.MID!);
+    expect(x.MID).toBeLessThan(x.BIG!);
+  });
+
+  it("separates a portfolio where every holding is the same size", () => {
+    // Ten names at a tenth each. Any scale that is a function of the
+    // value alone draws them on one spot, which is the case this axis
+    // exists for.
+    const same = Array.from({ length: 10 }, (_, i) => ({
+      ticker: `T${i}`,
+      ladder: ladderAt(100, 100),
+      value: 100,
+    }));
+    const xs = buildBandMap(same, { chipWidth: 0.05 }).points
+      .map((p) => p.x)
+      .sort((a, b) => a - b);
+    expect(new Set(xs).size).toBe(10);
+    for (let i = 0; i < xs.length - 1; i += 1) {
+      expect(xs[i + 1]! - xs[i]!).toBeGreaterThan(0.05);
+    }
+  });
+
+  it("spaces the ranks evenly and holds them inside the picture", () => {
+    expect(rankAcross([5, 1, 3])).toEqual([1, 0, 0.5]);
+    expect(rankAcross([7])).toEqual([0.5]);
+    expect(rankAcross([])).toEqual([]);
+    const map = buildBandMap(rows, { chipWidth: 0.2 });
+    for (const p of map.points) {
+      expect(p.x).toBeGreaterThanOrEqual(0.1 - 1e-9);
+      expect(p.x).toBeLessThanOrEqual(0.9 + 1e-9);
+    }
   });
 
   it("does not divide by a portfolio worth nothing", () => {
@@ -113,81 +141,137 @@ describe("across is the share of the portfolio", () => {
   });
 });
 
-describe("a crowded lane stacks, and never moves a chip along the axis", () => {
-  it("puts a chip in the first row with room for it", () => {
-    // Three chips on top of each other need three rows; a fourth well
-    // clear of them goes back on the first.
-    const at = (x: number, y: number) => ({ x, y });
-    expect(
-      packLane([at(0.5, 0.3), at(0.5, 0.2), at(0.5, 0.1), at(1, 0.3)], 0.2)
-    ).toEqual([0, 1, 2, 0]);
+describe("up is the real position in the band, and stays in the band", () => {
+  it("gives a two-step band twice the height of a one-step one", () => {
+    expect(LANE_WEIGHTS.hold).toBe(2);
+    const lanes = lanesFrom(ladderAt(100, 100));
+    expect(lanes.find((l) => l.id === "hold")!.weight).toBe(2);
+    expect(lanes.find((l) => l.id === "starter")!.weight).toBe(1);
   });
 
-  it("leaves chips that were never in each other's way on one row", () => {
-    const at = (x: number) => ({ x, y: 0.5 });
-    expect(packLane([at(0), at(0.5), at(1)], 0.2)).toEqual([0, 0, 0]);
+  it("leaves a chip exactly where the price is when nothing is in the way", () => {
+    const map = buildBandMap(
+      [
+        { ticker: "AAA", ladder: ladderAt(103, 100), value: 100 },
+        { ticker: "BBB", ladder: ladderAt(97, 100), value: 50 },
+      ],
+      { chipWidth: 0.05, chipHeight: 0.05 }
+    );
+    for (const p of map.points) expect(p.y).toBeCloseTo(p.trueY, 10);
   });
 
-  it("draws the highest in the band on the highest row", () => {
-    // All on top of each other across, so every one needs its own row,
-    // and the order of those rows is the order up the band.
-    const chips = [
-      { x: 0.5, y: 0.1 },
-      { x: 0.5, y: 0.9 },
-      { x: 0.5, y: 0.5 },
-    ];
-    expect(packLane(chips, 0.3)).toEqual([2, 0, 1]);
+  it("moves a chip off its true height only to stop it covering another", () => {
+    // Same band, same height, adjacent in the order: something has to
+    // give, and it is the height, never the order.
+    const map = buildBandMap(
+      [
+        { ticker: "AAA", ladder: ladderAt(100, 100), value: 100 },
+        { ticker: "BBB", ladder: ladderAt(100, 100), value: 100 },
+      ],
+      { chipWidth: 1, chipHeight: 0.4 }
+    );
+    const [a, b] = map.points;
+    expect(Math.abs(a!.y - b!.y)).toBeGreaterThan(0);
+    for (const p of map.points) expect(p.trueY).toBeCloseTo(a!.trueY, 10);
   });
 
-  it("keeps every chip on its own exact share", () => {
-    const rows = Array.from({ length: 6 }, (_, i) => ({
+  it("gives a crowded band the height it needs before placing anything", () => {
+    // Eight names all in one band and all near each other across, so the
+    // band has to grow: drawn at its ordinary height they would be
+    // stacked through each other.
+    const crowd = Array.from({ length: 8 }, (_, i) => ({
       ticker: `T${i}`,
-      ladder: ladderAt(100, 100),
+      ladder: ladderAt(100 + i * 0.01, 100),
       value: 100,
     }));
-    const map = buildBandMap(rows, { chipWidth: 0.3 });
-    // One band, one height, one share: the only thing that moved is
-    // which row of the lane each chip sits on.
-    expect(new Set(map.points.map((p) => p.bandId)).size).toBe(1);
-    expect(new Set(map.points.map((p) => p.y)).size).toBe(1);
-    for (const p of map.points) expect(p.x).toBeCloseTo(0.85, 10);
-    expect(new Set(map.points.map((p) => p.row)).size).toBe(6);
-    expect(map.laneRows[map.points[0]!.bandId]).toBe(6);
+    const map = buildBandMap(crowd, { chipWidth: 1, chipHeight: 0.5 });
+    const hold = map.lanes.find((l) => l.id === "hold")!;
+    expect(hold.weight).toBeGreaterThan(LANE_WEIGHTS.hold);
+    expect(hold.weight).toBeGreaterThanOrEqual(8 * 0.5);
+    // And with the room, nothing had to sit on anything else.
+    const ys = [...map.points.map((p) => p.y)].sort((a, b) => a - b);
+    for (let i = 0; i < ys.length - 1; i += 1) {
+      expect(ys[i + 1]! - ys[i]!).toBeGreaterThanOrEqual(0.5 - 1e-9);
+    }
   });
 
-  it("needs fewer rows where the chips are narrower", () => {
-    const rows = [0.2, 0.3, 0.45, 0.62, 0.8, 1].map((v, i) => ({
+  it("counts how deep a band has to stack, and no deeper", () => {
+    expect(stackDepth([0.1, 0.9], 0.2)).toBe(1);
+    expect(stackDepth([0.1, 0.15, 0.2], 0.2)).toBe(3);
+    expect(stackDepth([], 0.2)).toBe(0);
+  });
+
+  it("holds a chip inside the bounds it was given", () => {
+    const ys = placeUp(
+      [
+        { x: 0.5, y: 0.5, min: 0.5, max: 0.5 },
+        { x: 0.5, y: 0.5, min: 0.5, max: 0.5 },
+      ],
+      { across: 0.5, up: 0.5 }
+    );
+    // Nowhere to go, so the true position stands rather than the chip
+    // being pushed out of the band it belongs to.
+    expect(ys).toEqual([0.5, 0.5]);
+  });
+
+  it("separates two chips a hair either side of a level", () => {
+    // Different bands, a few pixels apart: resolving band by band cannot
+    // see this pair at all, which is the fault this test holds shut.
+    const ladder = ladderAt(100, 100);
+    const edge = ladder.bands.find((b) => b.id === "hold")!.to!;
+    const map = buildBandMap(
+      [
+        { ticker: "OVER", ladder: ladderAt(edge + 0.01, 100), value: 100 },
+        { ticker: "UNDER", ladder: ladderAt(edge - 0.01, 100), value: 101 },
+      ],
+      { chipWidth: 1, chipHeight: 0.6 }
+    );
+    const [a, b] = map.points;
+    expect(a!.bandId).not.toBe(b!.bandId);
+    // A chip's height, which is what they have to clear each other by,
+    // and is in the same lane units the placing works in.
+    expect(Math.abs(a!.y - b!.y)).toBeGreaterThanOrEqual(0.6 - 1e-9);
+  });
+
+  it("never moves a chip out of its own band", () => {
+    const crowd = Array.from({ length: 9 }, (_, i) => ({
       ticker: `T${i}`,
       ladder: ladderAt(100, 100),
-      value: v * 100,
+      value: 100 + i,
     }));
-    const wide = buildBandMap(rows, { chipWidth: 0.3 });
-    const narrow = buildBandMap(rows, { chipWidth: 0.08 });
-    const rowsUsed = (m: ReturnType<typeof buildBandMap>) =>
-      Math.max(...Object.values(m.laneRows));
-    expect(rowsUsed(narrow)).toBeLessThan(rowsUsed(wide));
+    const map = buildBandMap(crowd, { chipWidth: 1, chipHeight: 0.9 });
+    // The map's own lanes, not a fresh set: a crowded band is drawn
+    // taller than its ordinary height, and the bounds a chip was held
+    // inside are the ones the picture actually uses.
+    for (const p of map.points) {
+      const lane = map.lanes.find((l) => l.id === p.bandId)!;
+      expect(p.y).toBeGreaterThanOrEqual(lane.from - 1e-9);
+      expect(p.y).toBeLessThanOrEqual(lane.to + 1e-9);
+    }
   });
 
-  it("never lets two chips in one row come within a chip of each other", () => {
-    const shares = [0.9, 0.92, 0.5, 0.51, 0.2, 1, 0.3, 0.31];
-    const map = buildBandMap(
-      shares.map((v, i) => ({
-        ticker: `T${i}`,
-        ladder: ladderAt(100, 100),
-        value: v * 1000,
-      })),
-      { chipWidth: 0.15 }
+  it("keeps chips clear of each other when the band has the room", () => {
+    const chips = [
+      { x: 0.5, y: 0.5, min: 0, max: 1 },
+      { x: 0.5, y: 0.5, min: 0, max: 1 },
+      { x: 0.5, y: 0.5, min: 0, max: 1 },
+    ];
+    const ys = placeUp(chips, { across: 0.2, up: 0.2 });
+    const sorted = [...ys].sort((a, b) => a - b);
+    for (let i = 0; i < sorted.length - 1; i += 1) {
+      expect(sorted[i + 1]! - sorted[i]!).toBeGreaterThanOrEqual(0.2 - 1e-9);
+    }
+  });
+
+  it("leaves chips far apart across each other alone", () => {
+    const ys = placeUp(
+      [
+        { x: 0, y: 0.5, min: 0, max: 1 },
+        { x: 1, y: 0.5, min: 0, max: 1 },
+      ],
+      { across: 0.2, up: 0.2 }
     );
-    const byRow = new Map<number, number[]>();
-    for (const p of map.points) {
-      byRow.set(p.row, [...(byRow.get(p.row) ?? []), p.x]);
-    }
-    for (const xs of byRow.values()) {
-      const sorted = [...xs].sort((a, b) => a - b);
-      for (let i = 0; i < sorted.length - 1; i += 1) {
-        expect(sorted[i + 1]! - sorted[i]!).toBeGreaterThanOrEqual(0.15 - 1e-9);
-      }
-    }
+    expect(ys).toEqual([0.5, 0.5]);
   });
 });
 
