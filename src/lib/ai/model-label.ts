@@ -25,15 +25,16 @@ export type ModelRun = {
 
 /*
  * Keyed on strings rather than on `AdvisorProviderId`, because this map has
- * to answer for runs that already happened. Groq is no longer in the chain
- * (its key bills per token), but rows written while it was still carry
- * `provider: "groq"` in the forecast cache and the Pulse stamps, and a
- * reader opening the provenance mark on one of those is owed the name of
- * whoever actually ran it. Dropping the entry would answer "run by" with
+ * to answer for runs that already happened as well as for the chain as it
+ * stands. A provider that leaves the chain keeps its entry: rows in the
+ * forecast cache and the Pulse stamps carry the provider that wrote them,
+ * and a reader opening the provenance mark on an old one is owed the name
+ * of whoever actually ran it. Dropping an entry would answer "run by" with
  * nothing on a run that has a perfectly good answer.
  */
 const HOSTS: Record<string, string> = {
   groq: "Groq",
+  nvidia: "NVIDIA",
   openrouter: "OpenRouter",
   gemini: "Google",
   cerebras: "Cerebras",

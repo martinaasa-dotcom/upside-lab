@@ -13,8 +13,7 @@ import { join } from "node:path";
   for any key it found. The same paragraph named the provider order as
   OpenRouter to Groq to Gemini, and the code walked Groq, OpenRouter,
   Gemini, Cerebras. Four provider settings and three migration knobs were
-  not mentioned at all. (The Groq leg is gone since: its key bills per
-  token, so the chain is OpenRouter, Gemini, Cerebras.)
+  not mentioned at all.
 
   None of that breaks anything, which is exactly why it drifted: a wrong
   comment costs nothing until somebody trusts it.
@@ -94,9 +93,21 @@ describe("what it says about the model chain is what the chain does", () => {
     const order = [...model.matchAll(/hasKey\("([A-Z_]+)_API_KEY"\)/g)].map(
       (m) => m[1]!.toLowerCase()
     );
-    expect(order).toEqual(["openrouter", "gemini", "cerebras"]);
+    expect(order).toEqual([
+      "groq",
+      "nvidia",
+      "openrouter",
+      "gemini",
+      "cerebras",
+    ]);
+    // Two providers spell themselves rather than capitalising: the rest
+    // are just their own name with a capital on the front.
+    const SPELT: Record<string, string> = {
+      openrouter: "OpenRouter",
+      nvidia: "NVIDIA",
+    };
     const written = order
-      .map((n) => (n === "openrouter" ? "OpenRouter" : n[0]!.toUpperCase() + n.slice(1)))
+      .map((n) => SPELT[n] ?? n[0]!.toUpperCase() + n.slice(1))
       .join(" -> ");
     expect(example).toContain(written);
   });
@@ -106,22 +117,24 @@ describe("what it says about the model chain is what the chain does", () => {
     expect(example).not.toMatch(/Cerebras was evaluated and deliberately skipped/);
   });
 
-  it("says which leg a picture skips, because one of them does", () => {
-    // Cerebras is gated on `!vision`, so a screenshot import walks a
-    // shorter chain than a text question does.
-    expect(model).toContain('hasKey("CEREBRAS_API_KEY") && !vision');
+  it("says which legs a picture skips, because three of them do", () => {
+    // Groq, NVIDIA and Cerebras are each gated on `!vision`, so a
+    // screenshot import walks a shorter chain than a text question does.
+    for (const key of ["GROQ", "NVIDIA", "CEREBRAS"]) {
+      expect(model).toContain(`hasKey("${key}_API_KEY") && !vision`);
+    }
     expect(example).toMatch(/skipped for a request carrying a picture/i);
   });
 
-  it("has no Groq leg, because that key bills per token", () => {
+  it("says out loud what every leg's free-ness depends on", () => {
     /*
-      Free-ness on Groq is a property of the account rather than of the
-      model, so a chain that reached for it at all would spend money on a
-      paid-tier key. The check is on the code, not on the prose: a leg
-      added back would otherwise pass every other test in this file.
+      The one thing no test can check is whether the account behind a key
+      has a card on it, and it is the thing that decides whether four of
+      these five legs are free at all. Groq proved it twice: removed when
+      its key was a paid-tier one, back when a cardless account replaced
+      it. So the file a person edits when they add a key has to carry the
+      condition, where somebody attaching a card is looking.
     */
-    expect(model).not.toContain('hasKey("GROQ_API_KEY")');
-    expect(model).not.toContain("api.groq.com");
-    expect(example).toMatch(/GROQ_API_KEY is ignored/);
+    expect(example).toMatch(/no payment method attached/i);
   });
 });

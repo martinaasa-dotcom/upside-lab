@@ -21,6 +21,12 @@ const ENV_KEYS = [
   "OPENROUTER_MODEL",
   "OPENROUTER_VISION_MODEL",
   "OPENROUTER_API_KEY",
+  "GROQ_API_KEY",
+  "GROQ_MODEL",
+  "GROQ_CHAT_MODEL",
+  "NVIDIA_API_KEY",
+  "NVIDIA_MODEL",
+  "NVIDIA_CHAT_MODEL",
   "GEMINI_API_KEY",
   "GEMINI_MODEL",
   "CEREBRAS_API_KEY",
@@ -62,6 +68,12 @@ describe("isFreeModelId", () => {
   });
 
   it("takes a named provider's model only from the audited list", () => {
+    expect(isFreeModelId("groq", "openai/gpt-oss-20b")).toBe(true);
+    expect(isFreeModelId("groq", "some-model-groq-never-served")).toBe(false);
+    expect(isFreeModelId("nvidia", "nvidia/nemotron-3-super-120b-a12b")).toBe(
+      true
+    );
+    expect(isFreeModelId("nvidia", "nvidia/not-a-real-model")).toBe(false);
     expect(isFreeModelId("gemini", "gemini-flash-latest")).toBe(true);
     // Pro's free allowance varies per key tier, so it is not on the list.
     expect(isFreeModelId("gemini", "gemini-2.5-pro")).toBe(false);
@@ -161,34 +173,39 @@ describe("the advisor chain never sends a paid model", () => {
   });
 });
 
-describe("a paid-tier provider is not in the chain at all", () => {
+describe("a leg is only as free as the account behind its key", () => {
   /*
-    Free-ness on Groq is a property of the account, not of the model: a key
-    on the paid tier bills per token for every model on it. So there is no
-    Groq leg, and a Groq key present in the environment must not conjure
-    one. A per-model allowlist could never have expressed this, which is
-    why the leg is gone rather than narrowed.
+    Groq is here twice over. Its first key was a paid-tier one shared with
+    another project, where every model bills per token, so the leg was
+    deleted rather than narrowed: free-ness on Groq is a property of the
+    ACCOUNT, and no list of model ids could have expressed that. A new
+    cardless account brought it back. What a test CAN hold is the half that
+    lives in code, which is that nothing reaches the wire unchecked; the
+    other half, whether the account has a card, is written in .env.example
+    beside the key, and env-documented.test.ts fails if that goes.
   */
-  it("builds no leg for a Groq key, whatever else is set", () => {
+  it("still refuses a paid model on the restored legs", () => {
     process.env.GROQ_API_KEY = "k";
-    process.env.GROQ_MODEL = "openai/gpt-oss-20b";
-    process.env.GROQ_CHAT_MODEL = "openai/gpt-oss-20b";
-    for (const options of [
-      undefined,
-      { vision: true },
-      { reasoning: true },
-      { speaking: true },
-    ]) {
-      const ids = buildAdvisorProviderChain(options).map((c) => String(c.id));
-      expect(ids).not.toContain("groq");
+    process.env.NVIDIA_API_KEY = "k";
+    process.env.GROQ_MODEL = "some-paid-groq-model";
+    process.env.NVIDIA_MODEL = "some-paid-nvidia-model";
+    for (const candidate of buildAdvisorProviderChain()) {
+      expect(isFreeModelId(candidate.id, candidate.modelId), candidate.id).toBe(
+        true
+      );
     }
-    delete process.env.GROQ_API_KEY;
-    delete process.env.GROQ_MODEL;
-    delete process.env.GROQ_CHAT_MODEL;
   });
 
-  it("has no free-tier list to tempt a Groq leg back", () => {
-    expect(Object.keys(FREE_MODELS)).not.toContain("groq");
+  it("keeps Groq and NVIDIA out of a request carrying a picture", () => {
+    // Neither serves a vision model here, so a screenshot walks a shorter
+    // chain. A leg that cannot answer must not be offered the request.
+    process.env.GROQ_API_KEY = "k";
+    process.env.NVIDIA_API_KEY = "k";
+    process.env.OPENROUTER_API_KEY = "k";
+    const ids = buildAdvisorProviderChain({ vision: true }).map((c) => c.id);
+    expect(ids).not.toContain("groq");
+    expect(ids).not.toContain("nvidia");
+    expect(ids).toContain("openrouter");
   });
 });
 
@@ -217,15 +234,27 @@ describe("model.ts cannot name a model outside the guard", () => {
   });
 
   it("keeps every in-code default on the free tier", () => {
-    const defaults = [...src.matchAll(/const \w*DEFAULT\w*MODEL = "([^"]+)"/g)];
+    /*
+      Read the provider off the constant's own name rather than guessing it
+      from the shape of the id. Guessing worked until Groq and Cerebras both
+      defaulted to a gpt-oss model and the heuristic sent one to the wrong
+      allowlist, which is a test failing for a reason that has nothing to do
+      with what it is checking.
+    */
+    const defaults = [
+      ...src.matchAll(/const (\w+)_DEFAULT_MODEL = "([^"]+)"/g),
+    ];
     expect(defaults.length).toBeGreaterThanOrEqual(4);
-    for (const [, id] of defaults) {
-      const provider = id!.includes(":free")
-        ? "openrouter"
-        : id!.startsWith("gemini")
-          ? "gemini"
-          : "cerebras";
-      expect(isFreeModelId(provider, id!), id).toBe(true);
+    for (const [, name, id] of defaults) {
+      const provider = name!.toLowerCase() as Parameters<
+        typeof isFreeModelId
+      >[0];
+      expect(isFreeModelId(provider, id!), `${name} = ${id}`).toBe(true);
+    }
+    // The two OpenRouter defaults are named differently and carry the rule
+    // in the slug itself.
+    for (const [, id] of src.matchAll(/const DEFAULT_\w*MODEL = "([^"]+)"/g)) {
+      expect(isFreeModelId("openrouter", id!), id).toBe(true);
     }
   });
 

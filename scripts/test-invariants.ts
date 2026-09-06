@@ -3898,10 +3898,8 @@ run("chat does not ping the model before the first token", () => {
   assert.match(chat, /rememberStreamingProvider/);
   assert.match(chat, /speaking:\s*true/);
   assert.match(chat, /reasoningEffort:\s*"low"/);
-  // The chat leg used to be Groq's, named by GROQ_CHAT_MODEL. That leg is
-  // gone (its key bills per token), so what this holds now is that a
-  // provider with a separate chat model still has one: `speaking` picks it.
-  assert.match(model, /CEREBRAS_CHAT_MODEL/);
+  assert.match(model, /GROQ_CHAT_MODEL/);
+  assert.match(model, /openai\/gpt-oss-20b/);
   assert.match(model, /speaking/);
   assert.match(model, /STRUCTURED_PROVIDER_OPTIONS/);
   assert.match(
