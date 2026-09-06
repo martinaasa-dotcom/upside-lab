@@ -206,10 +206,18 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
 
   const fair = useMemo(() => {
     if (!facts) return null;
+    /*
+      Both of the first two points, because neither of them is twelve
+      months away and the panel promises a twelve month figure. The path
+      prices calendar year ends, so read in September the first point is
+      under four months out; `fairValueRead` interpolates between the two.
+    */
     const yearOne = FORECAST_YEARS[0];
-    const modelYearOne =
-      yearOne != null ? page?.brief?.path?.[yearOne] ?? null : null;
-    return fairValueRead(facts, { modelYearOne });
+    const yearTwo = FORECAST_YEARS[1];
+    const path = page?.brief?.path;
+    const modelYearOne = yearOne != null ? path?.[yearOne] ?? null : null;
+    const modelYearTwo = yearTwo != null ? path?.[yearTwo] ?? null : null;
+    return fairValueRead(facts, { modelYearOne, modelYearTwo });
   }, [facts, page?.brief]);
 
   const title = facts?.name || (ticker ? cashtag(ticker) : "Research");

@@ -383,9 +383,53 @@ export function impliedGrowth(f: CompanyFacts): {
   };
 }
 
-/** The model's own reasoned path, one year out. Labelled as a model. */
+/**
+ * TWELVE MONTHS OUT, ON A PATH WHOSE POINTS ARE CALENDAR YEAR ENDS.
+ *
+ * The shared forecast path prices the close of this calendar year, then
+ * next year's, and so on, and this panel's heading promises what each
+ * method puts the share at **in twelve months**. Those are the same thing
+ * for about one day a year. Read in September the first point on the path
+ * is under four months away, so a model that reasoned a perfectly ordinary
+ * year was printed next to analyst targets covering three times as long,
+ * and came out looking timid for a reason that has nothing to do with what
+ * it actually said.
+ *
+ * That is the fault this file already records against a method run on
+ * trailing earnings: the arithmetic was sound and the horizon was wrong.
+ * So the two points either side of the twelve month mark are interpolated
+ * between, in log space, because a price path compounds rather than adds.
+ *
+ * It moves the figure in whichever direction the model's own path goes,
+ * which is what keeps it a horizon correction rather than an opinion: a
+ * path that falls through next year comes out lower here, not higher.
+ *
+ * With only this year's close to go on there is nothing to interpolate
+ * towards, so the point is handed back as it stands and the caller says
+ * which horizon it really is.
+ */
+export function modelTwelveMonthPrice(
+  thisYearEnd: number | null | undefined,
+  nextYearEnd: number | null | undefined,
+  now: Date = new Date()
+): { price: number; exact: boolean } | null {
+  if (!ok(thisYearEnd)) return null;
+  if (!ok(nextYearEnd)) return { price: thisYearEnd, exact: false };
+  const year = now.getFullYear();
+  const start = Date.UTC(year, 0, 1);
+  const end = Date.UTC(year + 1, 0, 1);
+  const elapsed = (now.getTime() - start) / (end - start);
+  // Guard the arithmetic rather than trusting a clock: a date outside its
+  // own year would extrapolate off the end of the path.
+  const frac = Math.min(Math.max(elapsed, 0), 1);
+  const price = thisYearEnd * Math.pow(nextYearEnd / thisYearEnd, frac);
+  return { price, exact: true };
+}
+
+/** The model's own reasoned path, twelve months out. Labelled as a model. */
 function modelMethod(
   price: number | null | undefined,
+  /** The working line, which names the points on the path it read. */
   when: string
 ): FairValueMethod | null {
   if (!ok(price)) return null;
@@ -397,7 +441,7 @@ function modelMethod(
     price: round2(price),
     assumes:
       "That a general-purpose language model, reasoning about this company from what it already knows, is worth listening to. It cannot check itself, nothing here corrects it, and it is the one number on this page nobody can verify.",
-    working: `The ${when} of the five-year path the model wrote for this company, which is the same path the Growth room uses.`,
+    working: when,
     weight: 0.18,
   };
 }
@@ -461,16 +505,24 @@ export function blendFairValue(methods: FairValueMethod[]): FairValueBlend {
 }
 
 /**
- * Every method this app can run on this company, blended two ways.
+ * Every method this app can run on this company.
  *
- * `modelYearOne` is the first year of the shared forecast path, which is
- * this calendar year's close rather than exactly twelve months out. That
- * is a real approximation and the copy beside it says so rather than
- * pretending the horizons line up.
+ * `modelYearOne` and `modelYearTwo` are the first two points of the shared
+ * forecast path, which price the close of this calendar year and of the
+ * next. Neither of them is twelve months away, so they are interpolated
+ * between rather than being printed as though the horizons lined up: read
+ * in September, the first point alone is under four months out and sits in
+ * a panel promising a twelve month figure. With only the first point
+ * available the method says which horizon it is really quoting.
  */
 export function fairValueRead(
   f: CompanyFacts,
-  input: { modelYearOne?: number | null } = {}
+  input: {
+    modelYearOne?: number | null;
+    modelYearTwo?: number | null;
+    /** Injectable only so the interpolation can be tested on a fixed day. */
+    now?: Date;
+  } = {}
 ): FairValueRead {
   const spot = ok(f.price) ? f.price : null;
   const none: FairValueBlend = {
@@ -510,11 +562,23 @@ export function fairValueRead(
         ? f.price / f.forwardPe
         : null;
 
+  const thisYear = (input.now ?? new Date()).getFullYear();
+  const modelTwelveMonth = modelTwelveMonthPrice(
+    input.modelYearOne,
+    input.modelYearTwo,
+    input.now
+  );
+
   const estimate = blendFairValue(
     [
       consensusMethod(f),
       growthMethod(f, forwardEps),
-      modelMethod(input.modelYearOne, "first year"),
+      modelMethod(
+        modelTwelveMonth?.price,
+        modelTwelveMonth?.exact
+          ? `Twelve months from today on the five-year path the model wrote for this company, read between its end of ${thisYear} price of ${currency(input.modelYearOne ?? 0, 2)} and its end of ${thisYear + 1} price of ${currency(input.modelYearTwo ?? 0, 2)}. It is the same path the Growth room uses.`
+          : `The end of ${thisYear} price on the five-year path the model wrote for this company, which is the same path the Growth room uses. It is nearer than twelve months, because the rest of the path is not available here.`
+      ),
     ].filter((m): m is FairValueMethod => m !== null)
   );
 

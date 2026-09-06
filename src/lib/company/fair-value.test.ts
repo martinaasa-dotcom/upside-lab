@@ -3,6 +3,7 @@ import {
   blendFairValue,
   fairValueRead,
   gapSentence,
+  modelTwelveMonthPrice,
   type FairValueMethod,
 } from "@/lib/company/fair-value";
 import { makeOrdinaryFacts } from "@/lib/company/facts-fixture";
@@ -274,5 +275,60 @@ describe("nothing here reaches a verdict", () => {
     );
     const method = contested.estimate.used.find((m) => m.id === "consensus");
     expect(method?.assumes).toContain("counts for less");
+  });
+});
+
+
+/**
+ * THE MODEL'S NUMBER IS READ AT THE HORIZON THE PANEL PROMISES.
+ *
+ * The shared forecast path prices calendar year ends, and the panel is
+ * headed "in twelve months". Those coincide for about one day a year, so
+ * a path read in September was being compared with analyst targets
+ * covering three times as long. That is the same fault this file already
+ * records against a method run on trailing earnings: sound arithmetic on
+ * the wrong horizon.
+ *
+ * It is a horizon correction and not an opinion, which is why the test
+ * that matters is the one below where the path falls.
+ */
+describe("the model's point is twelve months out, not this calendar year's close", () => {
+  const SEPT = new Date(Date.UTC(2026, 8, 6));
+
+  it("reads between the two points either side of twelve months from today", () => {
+    const got = modelTwelveMonthPrice(110, 121, SEPT);
+    expect(got?.exact).toBe(true);
+    // About 68% of the way through 2026, compounding rather than adding.
+    expect(got!.price).toBeGreaterThan(115);
+    expect(got!.price).toBeLessThan(120);
+  });
+
+  it("follows a falling path down, so it cannot be a bullish adjustment", () => {
+    const rising = modelTwelveMonthPrice(100, 130, SEPT)!.price;
+    const falling = modelTwelveMonthPrice(100, 70, SEPT)!.price;
+    expect(rising).toBeGreaterThan(100);
+    expect(falling).toBeLessThan(100);
+  });
+
+  it("hands back this year's close unchanged when there is no second point", () => {
+    expect(modelTwelveMonthPrice(110, null, SEPT)).toEqual({
+      price: 110,
+      exact: false,
+    });
+    expect(modelTwelveMonthPrice(null, 121, SEPT)).toBeNull();
+  });
+
+  it("says in its own working which horizon it actually quoted", () => {
+    const both = fairValueRead(facts(), {
+      modelYearOne: 100,
+      modelYearTwo: 130,
+      now: SEPT,
+    });
+    const one = fairValueRead(facts(), { modelYearOne: 100, now: SEPT });
+    const workingOf = (r: ReturnType<typeof fairValueRead>) =>
+      [...r.estimate.used, ...r.estimate.dropped].find((m) => m.id === "model")
+        ?.working ?? "";
+    expect(workingOf(both)).toContain("Twelve months from today");
+    expect(workingOf(one)).toContain("nearer than twelve months");
   });
 });

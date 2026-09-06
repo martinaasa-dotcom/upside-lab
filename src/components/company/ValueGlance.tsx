@@ -75,29 +75,55 @@ import { Gauge } from "lucide-react";
  * ---------------------------------------------------------------------- */
 
 /**
- * Today's price against the band the estimates cover.
+ * Today's price, and the stretch of the line every method below lands in.
  *
  * Deliberately no red-to-green gradient, because that would be the traffic
  * light this panel exists to avoid, and no arrow, because neither
  * direction is being recommended.
  *
- * Both marks are labelled where they stand. The gold mark was a 3px
- * hairline with its figure printed at the far end of the row, so the one
- * thing this panel is for was the least visible thing on it and a reader
- * had to measure across the panel to pair a mark with its number.
+ * THE TWO GREYS HAD TO BE TOLD APART, BECAUSE NOTHING SAID WHICH WAS
+ * WHICH.
+ *
+ * It was a grey bar sitting on a slightly darker grey bar, both the same
+ * height and the same shape, with two figures printed at the far left and
+ * far right of the row below. A reader could see that one bar was
+ * brighter than the other and had no way at all to learn what either one
+ * meant: the figures naming the brighter bar's ends were a hand's width
+ * from the ends they named, and the caption between them sat under the
+ * middle of the panel rather than under the thing it captioned. That is
+ * the fault `AGENTS.md` already records twice, once as a label belonging
+ * over its own mark and once as a figure pinned to the panel's edge, and
+ * it was still here.
+ *
+ * Two changes, no new words. The scale is a hairline now and the
+ * estimates are the only bar on it, so the difference between them is a
+ * difference in kind rather than two weights of the same shape: a thin
+ * rule reads as the ruler, a thick bar reads as the reading. And the
+ * band's own figures moved to underneath its own ends, with its name
+ * directly under its middle, so every part of the picture is named where
+ * it stands.
+ *
+ * Both marks are labelled overhead. The gold one was a 3px hairline with
+ * its figure printed at the far end of the row, so the one thing this
+ * panel is for was the least visible thing on it.
  */
 function Ladder({
   low,
   high,
   spot,
+  blend,
+  gap,
   code,
 }: {
   low: number;
   high: number;
   spot: number;
+  blend: number | null;
+  /** The estimate against today, as a fraction. Printed on the mark. */
+  gap: number | null;
   code: string;
 }) {
-  const values = [low, high, spot];
+  const values = [low, high, spot, ...(blend === null ? [] : [blend])];
   const min = Math.min(...values);
   const max = Math.max(...values);
   const pad = (max - min) * 0.18 || Math.max(max * 0.06, 1);
@@ -107,34 +133,89 @@ function Ladder({
   /*
     A label is centred on its mark and would hang off the panel at either
     end, so its own anchor is clamped while the mark it belongs to stays
-    exactly where the arithmetic put it. Clamping the mark instead would
-    be drawing a price in the wrong place to make a caption fit.
-  */
-  /*
-    A label is centred on its mark and would hang off the panel at either
-    end, so its own anchor is clamped while the mark it belongs to stays
     exactly where the arithmetic put it. Clamping the mark instead would be
     drawing a price in the wrong place to make a caption fit.
   */
-  const spotLabel = Math.min(Math.max(at(spot), 9), 91);
+  const clamp = (v: number) => Math.min(Math.max(at(v), 9), 91);
+  const pair =
+    blend === null
+      ? null
+      : spread(clamp(spot), clamp(blend), LABEL_GAP);
+  const spotLabel = pair ? pair[0] : clamp(spot);
+  const blendLabel = pair ? pair[1] : null;
+  /*
+    The band's own two figures are subject to the same collision, and it
+    fires more often: a company whose methods agree closely draws a band a
+    few per cent wide with two prices under its ends.
+  */
+  const [lowLabel, highLabel] = spread(clamp(low), clamp(high), EDGE_GAP);
+  /*
+    The caption is wider than a price and sits on its own row, so it is
+    clamped harder: at the band's own middle it would hang past the panel
+    on a phone whenever the estimates land at one end of the scale.
+  */
+  const bandMiddle = Math.min(Math.max((at(low) + at(high)) / 2, 20), 80);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
       {/*
         The labels stand clear above the track rather than inside it. They
         were absolutely positioned in the same box as the marks, so the
         gold pill was drawn straight through its own figure.
       */}
-      <div className="relative mt-10 h-2">
+      <div className="relative mt-12 h-2">
+        {/*
+          The scale is a hairline, and that is what tells a reader it is a
+          scale. It used to be a rounded bar of the same height as the
+          band on top of it, which made the picture two bars of slightly
+          different greys and no way to tell which one was the data.
+        */}
         <span
           aria-hidden
-          className="absolute inset-0 rounded-full bg-foreground/[0.07]"
+          className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 rounded-full bg-foreground/[0.12]"
         />
         <span
           aria-hidden
           className="absolute inset-y-0 rounded-full bg-foreground/25"
           style={{ left: `${at(low)}%`, width: `${at(high) - at(low)}%` }}
         />
+        {blend !== null && blendLabel !== null && (
+          <>
+            <Mark
+              left={blendLabel}
+              /*
+                Not "Estimate". The word was doing nothing the figure and
+                the horizon underneath it were not already doing, and it
+                read as a hedge stamped over the number.
+              */
+              name="In 12 months"
+              figure={currency(blend, 2, code)}
+              /*
+                The gap rides on the mark it describes rather than sitting
+                in a cell of its own further down. It is the difference
+                between the two marks on this very line, so printing it
+                anywhere else asks a reader to hold two numbers in their
+                head to get a third.
+
+                The percentage alone, without "against today" after it.
+                That phrase made the note three times wider than the price
+                above it, and a label's width is what decides whether two
+                marks can stand near each other: measured on a 342px track
+                with the estimate a few per cent from the price, it printed
+                straight through the gold mark's own figure. What it is
+                against is the only other mark on the line, named in gold a
+                few pixels away.
+              */
+              note={gap === null ? null : signedPercent(gap)}
+              className="text-muted-foreground"
+            />
+            <span
+              aria-hidden
+              className="absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground"
+              style={{ left: `${at(blend)}%` }}
+            />
+          </>
+        )}
         <Mark
           left={spotLabel}
           name="Today"
@@ -148,17 +229,68 @@ function Ladder({
         />
       </div>
       {/*
-        The band's ends are labelled where they are rather than described in
-        a sentence underneath. A caption saying "the band runs from X to Y"
-        is a paragraph doing the work of two numbers standing in the right
-        place.
+        THE BAND IS NAMED WHERE IT STANDS, NOT AT THE EDGES OF THE PANEL.
+
+        Its two figures were printed at the far left and far right of this
+        row, so a reader saw a bar stop somewhere in the middle and a
+        number a hand's width away, with nothing connecting them, and the
+        caption between them sat under the panel's middle rather than
+        under the bar's. Every part of it is anchored to the part of the
+        picture it belongs to now.
       */}
-      <div className="flex items-baseline justify-between font-mono text-xs tabular-nums text-muted-foreground">
-        <span>{currency(low, 2, code)}</span>
-        <span className="uppercase tracking-[0.06em]">every estimate</span>
-        <span>{currency(high, 2, code)}</span>
+      <div className="relative h-4 font-mono text-xs tabular-nums text-muted-foreground">
+        <Anchored left={lowLabel}>{currency(low, 2, code)}</Anchored>
+        <Anchored left={highLabel}>{currency(high, 2, code)}</Anchored>
+      </div>
+      <div className="relative h-4">
+        <Anchored left={bandMiddle}>
+          <span className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground/80">
+            every estimate
+          </span>
+        </Anchored>
       </div>
     </div>
+  );
+}
+
+/**
+ * How far apart two labels have to stand, as a percentage of the track.
+ *
+ * Two labels centred on marks that nearly coincide print over each other,
+ * which happens exactly when the price and the estimate agree and is
+ * therefore not a rare case.
+ */
+const LABEL_GAP = 30;
+/** The band's own two figures are shorter, so they may stand closer. */
+const EDGE_GAP = 16;
+
+/**
+ * Push two label anchors apart to a readable distance, symmetrically,
+ * leaving the marks they belong to exactly where the arithmetic put them.
+ */
+function spread(a: number, b: number, minGap: number): [number, number] {
+  if (Math.abs(a - b) >= minGap) return [a, b];
+  const middle = (a + b) / 2;
+  const left = Math.min(Math.max(middle - minGap / 2, 9), 91 - minGap);
+  const right = left + minGap;
+  return a <= b ? [left, right] : [right, left];
+}
+
+/** One thing standing under the point on the track it names. */
+function Anchored({
+  left,
+  children,
+}: {
+  left: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className="absolute top-0 -translate-x-1/2 whitespace-nowrap"
+      style={{ left: `${left}%` }}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -167,17 +299,19 @@ function Mark({
   left,
   name,
   figure,
+  note,
   className,
 }: {
   left: number;
   name: string;
   figure: string;
+  note?: string | null;
   className: string;
 }) {
   return (
     <span
       className={cn(
-        "absolute bottom-full mb-2 flex -translate-x-1/2 flex-col items-center leading-tight",
+        "absolute bottom-full mb-2 flex -translate-x-1/2 flex-col items-center whitespace-nowrap leading-tight",
         className
       )}
       style={{ left: `${left}%` }}
@@ -186,6 +320,9 @@ function Mark({
         {name}
       </span>
       <span className="font-mono text-sm font-bold tabular-nums">{figure}</span>
+      {note && (
+        <span className="font-mono text-xs tabular-nums opacity-80">{note}</span>
+      )}
     </span>
   );
 }
@@ -409,36 +546,29 @@ export function ValueGlance({
           low={glance.low}
           high={glance.high}
           spot={read.spot}
+          blend={read.estimate.price}
+          gap={read.gap}
           code={code}
         />
       ) : null}
 
       <div className="flex flex-col gap-3">
         {/*
-          THE ESTIMATE IS A FIGURE HERE, NOT A SECOND MARK ON THE PICTURE.
+          THE ESTIMATE IS A MARK ON THE PICTURE, NOT A FIGURE REPEATED
+          UNDER IT.
 
-          It was labelled on the band, with its name, its price and the gap
-          stacked above the track, and three lines of label on a mark near
-          the top of the panel ground into the subtitle above it. The
-          picture is about one thing, which is where today's price sits
-          against the band; a second mark on it was a second subject
-          competing for the same 40 pixels. The band's ends already say
-          what the estimates run between, so the blend is read as a figure,
-          where a figure belongs.
+          It was pulled off the band and printed here as a row of its own,
+          on the argument that the picture answers one question and a
+          second mark competes with it for the same forty pixels. Read for
+          real, what that cost was the one comparison the panel exists to
+          draw: where the estimate stands against today is a distance
+          along a line, and turning it back into two numbers in two places
+          asks the reader to do in their head what the picture was already
+          doing for them. It is back on the band, its label has stopped
+          saying "estimate" over the top of it, and there is more room
+          above the track for both marks to stand in. What does not happen
+          is printing the same figure twice, so this row is gone.
         */}
-        {read.estimate.price !== null && (
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <MicroLabel>12 month estimate</MicroLabel>
-            <span className="font-mono text-base font-bold tabular-nums text-foreground">
-              {currency(read.estimate.price, 2, code)}
-            </span>
-            {read.gap !== null && (
-              <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                {signedPercent(read.gap)} against today
-              </span>
-            )}
-          </div>
-        )}
         <p className="text-base font-semibold leading-relaxed text-foreground">
           {glance.read}
         </p>
