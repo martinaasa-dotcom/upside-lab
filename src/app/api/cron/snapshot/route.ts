@@ -4,6 +4,7 @@ import {
   pruneOldSnapshots,
   saveBookSnapshot,
 } from "@/lib/book-snapshot";
+import { withClockSkewRetry } from "@/lib/db-clock-skew";
 import { requireCronAuth } from "@/lib/cron-auth";
 import { logError } from "@/lib/error-log";
 import { fetchQuotesWithFallback } from "@/lib/market/quotes";
@@ -45,7 +46,13 @@ async function handleGET(req: Request) {
 
   try {
     const day = todayKeyInTz();
-    const payload = await captureBookPayload(supabase);
+    /*
+      The read and the write both go through `withClockSkewRetry`, which
+      only ever fires when the database refused the credential on its own
+      clock -- a rejection that happened before any statement ran, so the
+      retried write cannot double-insert. See `src/lib/db-clock-skew.ts`.
+    */
+    const payload = await withClockSkewRetry(() => captureBookPayload(supabase));
     const tickers = [
       ...new Set(
         (payload.holdings as Array<{ ticker?: string }>).map((h) =>
@@ -80,11 +87,8 @@ async function handleGET(req: Request) {
         });
       }
     }
-    const snap = await saveBookSnapshot(
-      supabase,
-      "nightly",
-      `Nightly ${day}`,
-      payload
+    const snap = await withClockSkewRetry(() =>
+      saveBookSnapshot(supabase, "nightly", `Nightly ${day}`, payload)
     );
     await pruneOldSnapshots(supabase);
     return NextResponse.json({

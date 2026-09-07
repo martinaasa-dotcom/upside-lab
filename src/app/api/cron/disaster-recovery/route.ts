@@ -1,5 +1,6 @@
 import { runDisasterRecoveryJob } from "@/lib/dr/export-book";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { withClockSkewRetry } from "@/lib/db-clock-skew";
 import { cronRoute } from "@/lib/cron-heartbeat";
 import { logError } from "@/lib/error-log";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
@@ -37,7 +38,15 @@ async function handleGET(req: Request) {
   }
 
   try {
-    const result = await runDisasterRecoveryJob({ supabase });
+    /*
+      Its one database read is the whole book, and a credential the
+      database refused on its own clock costs the day's cold copy for no
+      reason at all. See `src/lib/db-clock-skew.ts` for why that one class
+      of failure, and only that one, is safe to try again.
+    */
+    const result = await withClockSkewRetry(() =>
+      runDisasterRecoveryJob({ supabase })
+    );
     if (!result.ok) {
       await logError({
         source: "server",
