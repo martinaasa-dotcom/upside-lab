@@ -34,7 +34,9 @@ import type { OverlapRow } from "@/lib/circle-overlap";
 import {
   cashtag,
   cn,
+  currency,
   NO_VALUE,
+  signedCurrency,
   signedPercent,
   signedTone,
 } from "@/lib/format";
@@ -292,18 +294,18 @@ export function CircleHome({
       />
 
       {/*
-        A circle says how a day went and never what anything is worth.
+        What the circle holds between it, and how today went.
 
-        The landing page promises exactly that, in as many words, and it is
-        the reason anybody agrees to be in one. This card used to be three
-        big cells reading Today, Total value and Cash, so the first screen
-        of a family circle broadcast the pooled net worth of everybody in
-        it, to the cent. A circle-wide cash figure also means nothing: six
-        people's spare cash added together is not a fact about anybody.
+        The percent leads, because it is the one figure that compares a
+        first job to a pension and it is what the board below is ranked on.
+        The pooled total and the pooled cash sit beside it: they are sums
+        rather than facts about any one person, which is what makes them
+        safe to open a shared room on, and the per-person amounts are a tap
+        away on the board and the cards.
       */}
       {!empty && (
         <WidgetErrorBoundary name="Circle totals">
-          <Scoreboard cols={2}>
+          <Scoreboard cols={3}>
             <Score
               label="Today"
               value={
@@ -311,7 +313,7 @@ export function CircleHome({
                   ? signedPercent(overview.totals.todayPct)
                   : NO_VALUE
               }
-              sub="Everyone's portfolios together"
+              sub={signedCurrency(overview.totals.todayDollar)}
               tone={
                 (overview.totals.todayPct ?? 0) > 0
                   ? "up"
@@ -321,13 +323,19 @@ export function CircleHome({
               }
             />
             <Score
-              label="Sharing"
-              value={String(membersWithBooks.length)}
+              label="Total value"
+              value={currency(overview.totals.totalValue)}
               sub={
                 membersWithBooks.length === 1
-                  ? "portfolio in the circle"
-                  : "portfolios in the circle"
+                  ? "1 portfolio in the circle"
+                  : `${membersWithBooks.length} portfolios in the circle`
               }
+            />
+            <Score
+              label="Cash"
+              value={currency(overview.totals.cash)}
+              sub="Everyone's, added up"
+              tone={overview.totals.cash < 0 ? "down" : undefined}
             />
           </Scoreboard>
         </WidgetErrorBoundary>
@@ -347,8 +355,8 @@ export function CircleHome({
               <h3 className="text-foreground">Two steps and this circle is live</h3>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 Everyone here will see how each portfolio moved, which
-                companies are in it, and the reasons people wrote for owning
-                them. Nobody sees what anything is worth.
+                companies are in it, how many shares of each, and what the
+                whole thing is worth today. What anybody paid stays theirs.
               </p>
 
               <div className="mt-5 flex flex-col gap-2">
@@ -483,8 +491,10 @@ export function CircleHome({
                     name={m.name}
                     isYou={m.isYou}
                     isPending={m.isPending}
+                    totalValue={m.totalValue}
                     todayPct={m.todayPct}
                     personality={m.personality}
+                    milestone={m.milestone}
                     onOpen={() => {
                       onOpenMember(m.id);
                     }}

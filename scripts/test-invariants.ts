@@ -1742,22 +1742,18 @@ run("home keeps Fund and Communities in view", () => {
 });
 
 /*
-  A circle leads with the percent, and now it is the only thing it says.
+  A circle leads with the percent, and prints the money beside it.
 
-  This used to assert that the dollar figure was the *sub-line* under the
-  percent, which was the right rule while a circle still printed amounts at
-  all. It does not any more: the landing page promises a circle "shows how a
-  member's day went and never what anything is worth", and a real one was
-  printing pooled net worth on six surfaces. So the assertion moved up a
-  level, from "dollars go second" to "there are no dollars", which is the
-  rule those surfaces are actually held to. `circle-privacy.test.ts` carries
-  the behavioural half.
-
-  The classroom is deliberately not in that ban: a paper class hands every
-  student the same made-up cash, so the amount is the lesson and not
-  anybody's private business.
+  The percent is what the board is ranked on and what the drill-down leads
+  with, because it is the only figure that compares a first job to a
+  pension, which is exactly who is in a family circle together. The amounts
+  sit after it: a second reading of the same day, never a second ordering of
+  the people. This asserts the order rather than the presence of one or the
+  other, which is the rule that has survived both directions of this
+  argument. `circle-privacy.test.ts` carries the behavioural half, including
+  the one figure the server genuinely withholds, which is what anybody paid.
 */
-run("a circle says how a day went, never what anything is worth", () => {
+run("a circle leads with the percent and prints the money after it", () => {
   const board = readFileSync(
     join(process.cwd(), "src/components/CommunityTodayBoard.tsx"),
     "utf8"
@@ -1770,28 +1766,17 @@ run("a circle says how a day went, never what anything is worth", () => {
     join(process.cwd(), "src/components/CircleCards.tsx"),
     "utf8"
   );
-  const home = readFileSync(
-    join(process.cwd(), "src/components/CircleHome.tsx"),
-    "utf8"
-  );
   const readOnly = cards.slice(cards.indexOf("export function ReadOnlyHoldings"));
   assert.match(readOnly, /label="Today"/);
   assert.match(readOnly, /signedPercent\(todayPct\)/);
-  // `currency` and `signedCurrency` are the only two functions in this app
-  // that render an amount, so importing either into one of these is the
-  // whole of the failure.
-  for (const [name, src] of [
-    ["CommunityTodayBoard", board],
-    ["CircleCards", cards],
-    ["CircleHome", home],
-  ] as const) {
-    assert.doesNotMatch(
-      src,
-      /\b(signedCurrency|currency)\s*\(/,
-      `${name} must not print an amount of money`
-    );
-  }
+  // The board ranks on the percent and prints it first; the dollar column
+  // follows it in the same row.
   assert.match(board, /signedPercent\(pct\)/);
+  assert.ok(
+    board.indexOf("signedPercent(pct)") <
+      board.indexOf("signedCurrency(m.todayDollar"),
+    "the Today board must print the percent before the dollar figure"
+  );
   assert.match(roster, /signedPercent\(vsStartPct\)/);
   assert.match(roster, /signedPercent\(m\.todayPct\)/);
 });

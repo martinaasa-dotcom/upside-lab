@@ -40,7 +40,14 @@ describe("what the page promises about who sees what", () => {
     // reading their own classroom).
     expect(book).toContain("buy_price: showAllCost || (classroom && own)");
     expect(book).toContain("? row.buy_price : 0");
-    expect(landing).toMatch(/What you paid for it stays yours/i);
+    /*
+      The sentence gained a clause when the circle started showing what a
+      portfolio is worth again: what stays yours is the cost, and therefore
+      whether you are up or down, which is the part a reader would otherwise
+      assume travels with the value. The promise is the cost, so that is
+      what this matches on.
+    */
+    expect(landing).toMatch(/What you paid for it,[^."]*stays yours/i);
   });
 
   it("does not claim a circle hides what somebody holds, because it does not", () => {

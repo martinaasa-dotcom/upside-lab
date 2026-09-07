@@ -841,10 +841,11 @@ export function CommunityView({ communityId }: Props) {
     This used to be nine independent sorts handing out ten awards to six
     people, so the same person collected three and two of them contradicted
     each other on the same grid (an index fund tops both the spread-out
-    score and the one-kind score). Two of them ranked people by the size of
-    their portfolio, which is the figure a circle promises never to show:
-    the friend with the smallest one was labelled the sapling in front of
-    everybody. `circle-awards.ts` holds the rule and the argument.
+    score and the one-kind score). One award per person now, settled by the
+    clearest margin, the two size awards among them: they are ranked on the
+    share of the circle so their margins are in the same units as everybody
+    else's, and they print the amount. `circle-awards.ts` holds the rule and
+    the argument.
   */
   const achievements = useMemo<CommunityAchievement[]>(
     () =>
@@ -852,6 +853,7 @@ export function CommunityView({ communityId }: Props) {
         membersWithBooks.map((m) => ({
           id: m.id,
           name: m.name,
+          totalValue: m.totalValue,
           personality: m.personality,
         }))
       ),
@@ -1028,6 +1030,17 @@ export function CommunityView({ communityId }: Props) {
     }
     return [...byTicker.values()];
   }, [ownerPortfolios, holdings]);
+
+  /**
+   * Cash across every portfolio this member shares here, so the drill-down's
+   * total is the same number their own Overview shows rather than the
+   * holdings alone. Borrowed money is negative and stays negative: a
+   * portfolio carrying a loan is worth less, not more.
+   */
+  const selectedCash = useMemo(
+    () => ownerPortfolios.reduce((s, p) => s + sheetCashBalance(p), 0),
+    [ownerPortfolios]
+  );
 
   const selectedOwnerName = selectedOwnerId
     ? memberStats.find((m) => m.id === selectedOwnerId)?.name ??
@@ -1692,6 +1705,7 @@ export function CommunityView({ communityId }: Props) {
               <ReadOnlyHoldings
                 holdings={selectedHoldings}
                 quotes={quotes}
+                cash={selectedCash}
               />
               </WidgetErrorBoundary>
             </section>
