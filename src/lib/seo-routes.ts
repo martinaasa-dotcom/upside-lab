@@ -13,6 +13,7 @@ export const PUBLIC_INDEX_PATHS = [
   "/",
   "/login",
   "/communities",
+  "/research",
   "/terms",
   "/privacy",
 ] as const;
@@ -28,6 +29,13 @@ export type PublicIndexPath = (typeof PUBLIC_INDEX_PATHS)[number];
  * that indexed one would be offering a sign-in button as a search result.
  * The `X-Robots-Tag` header in `next.config.ts` and the robots.txt line
  * both come from this list, so the prefix covers every handler under it.
+ *
+ * `/research` is deliberately NOT here. It is the one section of this app
+ * written to be found by strangers: the index and every company page under
+ * it are public, indexed, and named in the sitemap. `/stock` stays private
+ * and is the same company read by somebody with a portfolio behind them,
+ * which is a different page and not one anybody outside the account should
+ * see.
  *
  * `/dashboard` and `/forecast` are not here because they have no page:
  * `src/proxy.ts` answers both with a 308 to `/` before any page could

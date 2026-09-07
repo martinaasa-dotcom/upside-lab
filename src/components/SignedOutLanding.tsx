@@ -958,6 +958,15 @@ function Footer() {
           in the European Union.
         </p>
         <p className="flex flex-wrap items-center gap-x-5 gap-y-1">
+          {/*
+            The way into the public research pages, and the only link to
+            them from the front door. A section reachable only from a
+            sitemap is a section a crawler visits once a quarter; one
+            linked from the home page is part of the site.
+          */}
+          <Link href="/research" className="underline hover:text-foreground">
+            Research
+          </Link>
           <Link href="/terms" className="underline hover:text-foreground">
             Terms
           </Link>

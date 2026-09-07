@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { NO_AI_TRAINING_HEADER } from "./src/lib/bot-policy";
 import { STATIC_SECURITY_HEADERS } from "./src/lib/security-headers";
 import { PRIVATE_NOINDEX_PATHS } from "./src/lib/seo-routes";
 
@@ -65,6 +66,26 @@ const nextConfig: NextConfig = {
       {
         source: "/communities/:path+",
         headers: [ROBOTS_NOINDEX_HEADER],
+      },
+      /*
+        The research section says two things at once, from two places, and
+        they do not conflict: each page's own metadata says it may be
+        indexed and how much of it a snippet may quote, and this header
+        says it may not be harvested to train a model.
+
+        `noai` and `noimageai` are not a standard anybody is obliged to
+        honour. They cost one header, a growing number of the crawlers that
+        respect an opt-out at all read them, and `robots.txt` refuses the
+        same harvesters by name for the ones that do not. See
+        `src/lib/bot-policy.ts`.
+      */
+      {
+        source: "/research",
+        headers: [NO_AI_TRAINING_HEADER],
+      },
+      {
+        source: "/research/:path*",
+        headers: [NO_AI_TRAINING_HEADER],
       },
     ];
   },
