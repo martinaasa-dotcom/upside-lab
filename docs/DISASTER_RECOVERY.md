@@ -204,6 +204,28 @@ still counts as ok -- writes a `portfell_error_log` row, so it shows in
 heartbeat therefore means "the run completed", never "a backup exists";
 the error log is where that second question is answered.
 
+### "JWT issued at future"
+
+If a run fails with PostgREST's `JWT issued at future` (PGRST303), or with
+`JWT expired` (PGRST301) on a credential that has years left on it, nothing
+in this app is at fault. PostgREST checks the token's issued-at claim
+against its own clock, and a few seconds of disagreement between the node
+that minted the credential and the node that reads it is enough for it to
+refuse the request before any statement runs.
+
+Both backup crons retry that one class of rejection twice before giving up
+(`src/lib/db-clock-skew.ts`), which absorbs an ordinary blip. A run that
+still fails after those attempts is reporting skew larger than a blip:
+check https://status.supabase.com and the project's own health before
+looking for a bug here. The retry is deliberately narrow and must stay so:
+it fires only where the request never reached Postgres, which is what makes
+it safe over a write as well as a read.
+
+The retry is not the same thing as the run *saying* which step failed;
+`during()` in `src/lib/dr/export-book.ts` does that, so the alert reads
+`while reading the book from Supabase: JWT issued at future` rather than
+the provider's three words alone.
+
 ## Retention backstop (do this once, in Cloudflare)
 
 The purge above runs *inside the cron*. If the cron stops running —

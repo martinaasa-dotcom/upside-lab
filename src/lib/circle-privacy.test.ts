@@ -5,15 +5,26 @@ import { buildCommunityFunFacts } from "@/lib/community-fun-facts";
 import type { PortfolioPersonality } from "@/lib/portfolio-personality";
 
 /*
-  A circle says how a day went and never what anything is worth.
+  What a circle shows, and the one thing it never shows.
 
-  The landing page says so in as many words, and it is the reason anybody
-  agrees to be in one: "they see how your day went, never what anything is
-  worth". A real circle broke that promise on six surfaces at once, so this
-  file checks the two that decide their own wording (the awards and the
-  facts) by their output, and the four that are markup by reading the
-  markup, which is the same floor `reader-copy.test.ts` uses and for the
-  same reason.
+  A circle prints the amounts: today in money as well as in percent, what
+  each portfolio is worth, and the shares, the price and the value of every
+  company in it. Those were withheld for a release on the argument that a
+  friend's net worth should not be one subtraction away, and they are back,
+  because whether the people in a circle see each other's amounts is a
+  decision for the person who put their portfolio in one. It was never a
+  real seal in any case: `/api/communities/[id]/book` has always sent the
+  share count to every member, so anybody who opened the network tab could
+  multiply.
+
+  **What the API does withhold is cost**, and that is the line this file
+  guards. `buy_price` reaches the owner and nobody else, so what somebody
+  paid, and therefore whether they are up or down on a company, stays
+  theirs. That is a rule the server keeps rather than a rule the markup
+  keeps, so it is asserted against the route.
+
+  The rest of the file is the voice rule, which did not move: a circle
+  states a figure and never makes a joke of the person it belongs to.
 */
 
 function personality(over: Partial<PortfolioPersonality>): PortfolioPersonality {
@@ -53,21 +64,65 @@ function personality(over: Partial<PortfolioPersonality>): PortfolioPersonality 
 const MONEY = /\$\s?\d|\d[\d,]*\s?(dollars|USD)/i;
 
 describe("a circle never prints what anything is worth", () => {
-  it("gives no award for the size of a portfolio", () => {
+  it("names the largest and the smallest portfolio, with the amount", () => {
     const awards = buildCircleAwards([
-      { id: "a", name: "Rasmus", personality: personality({ riskScore: 90 }) },
-      { id: "b", name: "Jaan", personality: personality({ riskScore: 20 }) },
+      {
+        id: "a",
+        name: "Rasmus",
+        totalValue: 400_000,
+        personality: personality({}),
+      },
+      { id: "b", name: "Jaan", totalValue: 20_000, personality: personality({}) },
     ]);
-    expect(awards.length).toBeGreaterThan(0);
-    for (const award of awards) {
-      expect(award.stat, award.title).not.toMatch(MONEY);
-      expect(award.description, award.title).not.toMatch(MONEY);
-      expect(award.title.toLowerCase()).not.toContain("largest portfolio");
-      expect(award.title.toLowerCase()).not.toContain("small but mighty");
-    }
+    const big = awards.find((a) => a.id === "big-portfolio");
+    const small = awards.find((a) => a.id === "small-portfolio");
+    expect(big?.winner).toBe("Rasmus");
+    expect(big?.stat).toBe("$400,000");
+    expect(small?.winner).toBe("Jaan");
+    expect(small?.stat).toBe("$20,000");
   });
 
-  it("prints no money in a fact, however large the portfolios are", () => {
+  /*
+    The reason a size award is ranked on the share of the circle and not on
+    the balance. Every other measure here is a score out of 100 and the
+    ranking divides one margin by another, so a raw balance arrives in units
+    thousands of times larger and takes every award in the room. Rasmus is
+    plainly the jumpiest here and would lose that award to his own bank
+    balance.
+  */
+  it("does not let a large balance take every other award", () => {
+    const awards = buildCircleAwards([
+      {
+        id: "a",
+        name: "Rasmus",
+        totalValue: 900_000,
+        personality: personality({ riskScore: 95 }),
+      },
+      {
+        id: "b",
+        name: "Jaan",
+        totalValue: 1_000,
+        personality: personality({ riskScore: 20, diversificationScore: 95 }),
+      },
+    ]);
+    expect(awards.find((a) => a.id === "big-portfolio")?.winner).toBe("Rasmus");
+    expect(awards.find((a) => a.id === "jumpiest")?.winner).toBe("Rasmus");
+    // And Jaan still wins something for the shape of his, rather than
+    // being the person the size award happened to leave over.
+    expect(
+      awards.filter((a) => a.winner === "Jaan" && !a.id.endsWith("portfolio"))
+    ).not.toEqual([]);
+  });
+
+  it("gives neither size award in a circle of one", () => {
+    const awards = buildCircleAwards([
+      { id: "a", name: "Rasmus", totalValue: 400_000, personality: personality({}) },
+    ]);
+    expect(awards.some((a) => a.id === "big-portfolio")).toBe(false);
+    expect(awards.some((a) => a.id === "small-portfolio")).toBe(false);
+  });
+
+  it("prints the money in a fact in whole grouped dollars", () => {
     const members = [
       {
         name: "Rasmus",
@@ -94,12 +149,53 @@ describe("a circle never prints what anything is worth", () => {
         personality: personality({ convictionScore: 62, topTicker: "NVDA" }),
       },
     ];
+    /*
+      Every amount printed here goes through `currency`, so it is grouped
+      and carries no cents. A bare `2000000` in a sentence is the failure
+      this checks for, and so is `$2,000,000.00`: a fact is a sentence, not
+      a receipt.
+    */
+    const seen: string[] = [];
     for (let day = 0; day < 40; day += 1) {
-      const facts = buildCommunityFunFacts(members, `2026-01-${day}`, 6);
-      for (const fact of facts) {
-        // A cashtag is a company, not an amount: "$NVDA" has to survive
-        // while "$2,000,000" must not.
-        expect(fact.replace(/\$[A-Z][A-Z0-9.-]*/g, ""), fact).not.toMatch(MONEY);
+      for (const fact of buildCommunityFunFacts(members, `2026-01-${day}`, 6)) {
+        seen.push(fact);
+        for (const amount of fact.match(/\$[\d,.]+/g) ?? []) {
+          expect(amount, fact).not.toMatch(/\.\d/);
+        }
+        const bare = fact.replace(/\$[A-Z][A-Z0-9.-]*/g, "").match(/\b\d{4,}\b/);
+        expect(bare, fact).toBeNull();
+      }
+    }
+    expect(seen.some((f) => MONEY.test(f))).toBe(true);
+  });
+
+  it("says how far apart the two ends are without ranking the people", () => {
+    /*
+      The gap fact names two portfolios and no winner. "$X ahead of" is the
+      wording this replaced, and it is the one sentence in the circle that
+      turns a difference in savings into a scoreboard in front of a family.
+    */
+    const members = [
+      {
+        name: "Rasmus",
+        totalValue: 2_000_000,
+        todayDollar: 100,
+        todayPct: 0.001,
+        roiPct: 0,
+        personality: personality({}),
+      },
+      {
+        name: "Liisa",
+        totalValue: 535,
+        todayDollar: -12,
+        todayPct: -0.022,
+        roiPct: 0,
+        personality: personality({ diversificationScore: 20 }),
+      },
+    ];
+    for (let day = 0; day < 40; day += 1) {
+      for (const fact of buildCommunityFunFacts(members, `2026-05-${day}`, 6)) {
+        expect(fact, fact).not.toMatch(/ahead of|behind|beats|loses to/i);
       }
     }
   });
@@ -229,6 +325,7 @@ describe("one award per person, and only a clear one", () => {
       {
         id: "a",
         name: "Amanda",
+        totalValue: 10_000,
         personality: personality({
           diversificationScore: 100,
           riskScore: 10,
@@ -236,8 +333,10 @@ describe("one award per person, and only a clear one", () => {
           cashPct: 40,
         }),
       },
-      { id: "b", name: "Martin", personality: personality({}) },
-      { id: "c", name: "Rasmus", personality: personality({}) },
+      { id: "b", name: "Martin", totalValue: 10_000,
+        personality: personality({}) },
+      { id: "c", name: "Rasmus", totalValue: 10_000,
+        personality: personality({}) },
     ]);
     const winners = awards.map((a) => a.winnerId);
     expect(new Set(winners).size).toBe(winners.length);
@@ -248,13 +347,15 @@ describe("one award per person, and only a clear one", () => {
       {
         id: "a",
         name: "Amanda",
+        totalValue: 10_000,
         personality: personality({
           specialistScore: 100,
           dominantTheme: "index",
           diversificationScore: 100,
         }),
       },
-      { id: "b", name: "Martin", personality: personality({}) },
+      { id: "b", name: "Martin", totalValue: 10_000,
+        personality: personality({}) },
     ]);
     expect(awards.some((a) => a.id === "specialist")).toBe(false);
   });
@@ -262,17 +363,22 @@ describe("one award per person, and only a clear one", () => {
   it("gives nothing when nobody is clearly ahead", () => {
     const same = personality({});
     const awards = buildCircleAwards([
-      { id: "a", name: "A", personality: same },
-      { id: "b", name: "B", personality: same },
-      { id: "c", name: "C", personality: same },
+      { id: "a", name: "A", totalValue: 10_000,
+        personality: same },
+      { id: "b", name: "B", totalValue: 10_000,
+        personality: same },
+      { id: "c", name: "C", totalValue: 10_000,
+        personality: same },
     ]);
     expect(awards).toEqual([]);
   });
 
   it("writes every title in sentence case", () => {
     const awards = buildCircleAwards([
-      { id: "a", name: "A", personality: personality({ riskScore: 95 }) },
-      { id: "b", name: "B", personality: personality({ riskScore: 10 }) },
+      { id: "a", name: "A", totalValue: 10_000,
+        personality: personality({ riskScore: 95 }) },
+      { id: "b", name: "B", totalValue: 10_000,
+        personality: personality({ riskScore: 10 }) },
     ]);
     expect(awards.length).toBeGreaterThan(0);
     for (const a of awards) {
@@ -287,27 +393,41 @@ describe("one award per person, and only a clear one", () => {
 describe("the circle surfaces that are markup", () => {
   const board = readFileSync("src/components/CommunityTodayBoard.tsx", "utf8");
   const cards = readFileSync("src/components/CircleCards.tsx", "utf8");
-  const home = readFileSync("src/components/CircleHome.tsx", "utf8");
-  const members = readFileSync(
-    "src/components/CommunityMembersPanel.tsx",
+
+  it("still leads with the percent, with its sign", () => {
+    // The board is ranked on the percent and reads on the percent; the
+    // dollar column beside it is a second reading of the same day, never a
+    // second ordering of the people.
+    expect(board).toContain("signedPercent(pct)");
+    expect(board).toContain("[...members]\n          .sort((a, b) => (b.todayPct ?? -1) - (a.todayPct ?? -1))");
+    const readOnly = cards.slice(cards.indexOf("export function ReadOnlyHoldings"));
+    expect(readOnly).toMatch(/label="Today"[\s\S]{0,120}signedPercent\(todayPct\)/);
+  });
+
+  it("shows the shares and the value of every holding", () => {
+    const readOnly = cards.slice(cards.indexOf("export function ReadOnlyHoldings"));
+    expect(readOnly).toContain(">Shares</div>");
+    expect(readOnly).toContain(">Value</div>");
+    expect(readOnly).toContain("{h.shares}");
+    expect(readOnly).toContain("currency(value)");
+  });
+});
+
+/*
+  The one figure a circle genuinely withholds, and it is the server that
+  withholds it. Everything else on these screens is derived from rows the
+  API already sends, so a markup rule could never have been the seal; this
+  one can be, because the number never leaves the database.
+*/
+describe("what somebody paid stays theirs", () => {
+  const route = readFileSync(
+    "src/app/api/communities/[id]/book/route.ts",
     "utf8"
   );
 
-  /*
-    `currency` and `signedCurrency` are the only two functions in this app
-    that render an amount of money, so importing either into a circle
-    surface is the whole of the failure this rule exists to prevent.
-  */
-  const RENDERS_MONEY = /\b(signedCurrency|currency)\s*\(/;
-
-  it("draws no amount on the board, the animal cards, the rows, or the home", () => {
-    expect(board).not.toMatch(RENDERS_MONEY);
-    expect(cards).not.toMatch(RENDERS_MONEY);
-    expect(home).not.toMatch(RENDERS_MONEY);
-    expect(members).not.toMatch(RENDERS_MONEY);
-  });
-
-  it("still prints the percent, with its sign", () => {
-    expect(board).toContain("signedPercent(pct)");
+  it("sends buy_price as zero to everybody but the owner", () => {
+    expect(route).toContain(
+      "buy_price: showAllCost || (classroom && own) ? row.buy_price : 0,"
+    );
   });
 });

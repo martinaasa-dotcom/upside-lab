@@ -1,27 +1,31 @@
 /**
  * A few plain sentences about the circle, different every day.
  *
- * Two rules, and both of them were broken.
+ * **The voice rule, which does not move.** No slang and never a villain:
+ * "Today's villain arc belongs to Amanda", "main character", "Squirrel
+ * energy", "Gap season", "Not a small group project", "Chin up", "could use
+ * a pep talk". A grandmother gets every sentence in this product, and
+ * somebody having a bad day in front of their family is not a joke the app
+ * gets to make. That is the whole reason the money facts below are written
+ * as flat statements: the amount is a fact about a portfolio, and the
+ * sentence around it must not be a fact about a person.
  *
- * **No money.** A circle says how a day went and never what anything is
- * worth, which is the promise the landing page makes and the reason anybody
- * agrees to be in one. Four of these facts printed dollars: the biggest
+ * **The money rule, which did.** These four sentences (the biggest
  * portfolio, the combined total, the gap between the biggest and the
- * smallest, and the circle's move for the day. The gap one was the worst of
- * them, because naming the two people either end of it publishes both.
- *
- * **No slang, and never a villain.** "Today's villain arc belongs to
- * Amanda", "main character", "Squirrel energy", "Gap season", "Not a small
- * group project", "Chin up", "could use a pep talk". A grandmother gets
- * every sentence in this product, and somebody having a bad day in front of
- * their family is not a joke the app gets to make.
+ * smallest, and the circle's move for the day) were taken out on the
+ * argument that a circle should never print what anything is worth, and
+ * they are back because whether a circle shares its amounts is that
+ * circle's decision rather than this file's. Every one of them is worded
+ * without a comparison a reader could take as a ranking of the people in
+ * it: the gap fact names the two portfolios and no winner.
  *
  * They also repeated the awards printed directly above them, three of six on
- * a normal day, so `buildCommunityFunFacts` now takes the award titles that
- * are already on screen and skips any fact that would say the same thing
- * twice. Purely descriptive; never a basis for advice.
+ * a normal day, so `buildCommunityFunFacts` takes the award ids that are
+ * already on screen and skips any fact that would say the same thing twice.
+ * Purely descriptive; never a basis for advice.
  */
 
+import { currency } from "@/lib/format";
 import { hashSeed, mulberry32, pick, shuffleInPlace } from "@/lib/seeded-rng";
 import type { PortfolioPersonality } from "@/lib/portfolio-personality";
 
@@ -40,6 +44,14 @@ function pct1(n: number): string {
   // a fifth of a percent is not "0.2%" worth arguing about, it is small.
   if (rounded < 0.1) return "less than 0.1%";
   return `${rounded}%`;
+}
+
+/**
+ * Money in a fact is whole dollars. Cents on a portfolio total is precision
+ * nobody reads, and it is the difference between a sentence and a receipt.
+ */
+function money(n: number): string {
+  return currency(Math.abs(n), 0);
 }
 
 const IRREGULAR_PLURALS: Record<string, string> = {
@@ -249,6 +261,57 @@ const MAKERS: FactMaker[] = [
     const s = pick(rng, specialists);
     const p = s.personality!;
     return `${s.name} has ${p.specialistScore}% in one kind of business. When that group moves, so does the whole portfolio.`;
+  },
+  // The largest portfolio here. Skipped when the award above already says
+  // it, which on a circle with one clear leader is most days.
+  ({ members, rng, awarded }) => {
+    if (awarded.has("big-portfolio")) return null;
+    const ranked = [...members].sort((a, b) => b.totalValue - a.totalValue);
+    const top = ranked[0];
+    if (!top || top.totalValue <= 0) return null;
+    return pick(rng, [
+      `${top.name} has the largest portfolio in the circle, ${money(top.totalValue)}.`,
+      `Largest portfolio here: ${top.name}, at ${money(top.totalValue)}.`,
+    ]);
+  },
+  // Everything the circle shares, added up.
+  ({ members, rng }) => {
+    const total = members.reduce((s, m) => s + m.totalValue, 0);
+    if (total <= 0) return null;
+    const n = members.length;
+    return pick(rng, [
+      `The circle shares ${money(total)} between ${n} portfolio${n === 1 ? "" : "s"}.`,
+      `Everything in this circle adds up to ${money(total)} today.`,
+    ]);
+  },
+  // The day in money rather than in percent.
+  ({ members, rng }) => {
+    const total = members.reduce((s, m) => s + m.todayDollar, 0);
+    if (Math.round(total) === 0) return null;
+    return pick(rng, [
+      `Add up every portfolio and the circle is ${total > 0 ? "up" : "down"} ${money(total)} today.`,
+      `The circle's day comes to ${total > 0 ? "+" : "-"}${money(total)} across everybody.`,
+    ]);
+  },
+  /*
+    How far apart the two ends are.
+
+    Named as a distance between two portfolios and never as one person
+    being ahead of another: the numbers are the same either way and the
+    sentence a family reads is not.
+  */
+  ({ members, rng }) => {
+    if (members.length < 2) return null;
+    const sorted = [...members].sort((a, b) => b.totalValue - a.totalValue);
+    const biggest = sorted[0]!;
+    const smallest = sorted[sorted.length - 1]!;
+    if (biggest.name === smallest.name) return null;
+    const gap = biggest.totalValue - smallest.totalValue;
+    if (gap <= 0) return null;
+    return pick(rng, [
+      `There is ${money(gap)} between the largest portfolio here and the smallest.`,
+      `The two ends of the circle, ${biggest.name}'s and ${smallest.name}'s, are ${money(gap)} apart.`,
+    ]);
   },
 ];
 

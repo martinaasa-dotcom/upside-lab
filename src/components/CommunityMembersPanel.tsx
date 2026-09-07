@@ -33,7 +33,13 @@ import {
   inviteUsesLabel,
   type InviteAdminRow,
 } from "@/lib/community-invite-admin";
-import { cn, NO_VALUE, signedPercent, signedTone } from "@/lib/format";
+import {
+  cn,
+  currency,
+  NO_VALUE,
+  signedPercent,
+  signedTone,
+} from "@/lib/format";
 import { membersCountLine } from "@/lib/members-count-line";
 import type { OverviewModel } from "@/lib/overview";
 import {
@@ -257,6 +263,8 @@ export function CommunityMembersPanel({
                                         ? signedPercent(sheetTodayPct)
                                         : NO_VALUE}
                                     </span>
+                                    {" · "}
+                                    {currency(sheetValue, 0)}
                                   </>
                                 )}
                               </div>
@@ -388,6 +396,8 @@ export function CommunityMembersPanel({
                                         ? signedPercent(sheetTodayPct)
                                         : NO_VALUE}
                                     </span>
+                                    {" · "}
+                                    {currency(sheetValue, 0)}
                                   </>
                                 )}
                               </div>
@@ -460,7 +470,7 @@ export function CommunityMembersPanel({
                       <p className="text-sm leading-relaxed text-muted-foreground">
                         {isClassroom
                           ? "Anyone with this link joins the class and starts with the same paper cash and an empty portfolio. It works for 30 days."
-                          : "Anyone with this link can join. They will see how each portfolio moved and what is in it, never what anything is worth. It works for 30 days."}
+                          : "Anyone with this link can join. They will see how each portfolio moved, what is in it and what it is worth today, never what anybody paid. It works for 30 days."}
                       </p>
                       <Button
                         type="button"

@@ -774,9 +774,9 @@ const CIRCLE_POINTS = [
   },
   {
     icon: MessagesSquare,
-    title: "Or show a circle, without the money",
+    title: "Or show a circle, without what you paid",
     detail:
-      "Putting a portfolio in a circle is the other thing, and it answers differently. Everybody there sees what you hold and how it has gone. What you paid for it stays yours.",
+      "Putting a portfolio in a circle is the other thing, and it answers differently. Everybody there sees what you hold, what it is worth and how it has gone. What you paid for it, and so whether you are up or down, stays yours.",
   },
   {
     icon: ShieldCheck,
