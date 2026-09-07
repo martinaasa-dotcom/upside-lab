@@ -221,6 +221,11 @@ looking for a bug here. The retry is deliberately narrow and must stay so:
 it fires only where the request never reached Postgres, which is what makes
 it safe over a write as well as a read.
 
+The retry is not the same thing as the run *saying* which step failed;
+`during()` in `src/lib/dr/export-book.ts` does that, so the alert reads
+`while reading the book from Supabase: JWT issued at future` rather than
+the provider's three words alone.
+
 ## Retention backstop (do this once, in Cloudflare)
 
 The purge above runs *inside the cron*. If the cron stops running —

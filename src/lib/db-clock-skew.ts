@@ -45,20 +45,40 @@ const SKEW_MESSAGES = [
   "jwt not yet valid",
 ];
 
+/*
+  The chain is walked, not just the top error.
+
+  `during()` (`src/lib/dr/export-book.ts`) wraps each step of the recovery
+  job so the alert names which one failed, and it does that by throwing a
+  new Error with the step phrase in front of the provider's own sentence
+  and the original kept as `cause`. That wrapper is plain, so the
+  PostgREST `code` is on the cause rather than on what is thrown. Reading
+  only the top error would work today, by the sentence surviving the
+  prefix, and would stop working the day a wrapper reworded it.
+*/
+const MAX_CAUSE_DEPTH = 5;
+
 /**
  * Was this failure a credential the database refused before running
- * anything? True only for the clock-shaped rejections above.
+ * anything? True only for the clock-shaped rejections above, anywhere in
+ * the cause chain.
  */
 export function isCredentialClockRejection(err: unknown): boolean {
-  if (!err || typeof err !== "object") return false;
-  const source = err as { code?: unknown; message?: unknown };
-  if (typeof source.code === "string" && SKEW_CODES.has(source.code)) {
-    return true;
+  let current: unknown = err;
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth += 1) {
+    if (!current || typeof current !== "object") return false;
+    const source = current as { code?: unknown; message?: unknown; cause?: unknown };
+    if (typeof source.code === "string" && SKEW_CODES.has(source.code)) {
+      return true;
+    }
+    const message =
+      typeof source.message === "string" ? source.message.toLowerCase() : "";
+    if (message && SKEW_MESSAGES.some((phrase) => message.includes(phrase))) {
+      return true;
+    }
+    current = source.cause;
   }
-  const message =
-    typeof source.message === "string" ? source.message.toLowerCase() : "";
-  if (!message) return false;
-  return SKEW_MESSAGES.some((phrase) => message.includes(phrase));
+  return false;
 }
 
 /** The sentence the error log and the digest get instead of three words. */

@@ -25,6 +25,21 @@ describe("credential clock rejections", () => {
     expect(isCredentialClockRejection(new Error("JWT issued at future"))).toBe(true);
   });
 
+  it("finds it under a step wrapper, which is how the DR job throws", () => {
+    // `during()` in src/lib/dr/export-book.ts names the step and keeps the
+    // provider's error as the cause, so the code is one level down.
+    const wrapped = new Error("while reading the book from Supabase: refused", {
+      cause: { code: "PGRST303", message: "JWT issued at future" },
+    });
+    expect(isCredentialClockRejection(wrapped)).toBe(true);
+  });
+
+  it("does not follow a cause chain forever", () => {
+    const loop: { message: string; cause?: unknown } = { message: "nope" };
+    loop.cause = loop;
+    expect(isCredentialClockRejection(loop)).toBe(false);
+  });
+
   it("refuses every failure that may already have run a statement", () => {
     for (const other of [
       new Error("fetch failed"),

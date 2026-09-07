@@ -6,7 +6,6 @@ import {
 } from "@/lib/book-snapshot";
 import { requireCronAuth } from "@/lib/cron-auth";
 import { withClockSkewRetry } from "@/lib/db-clock-skew";
-import { logError } from "@/lib/error-log";
 import { fetchQuotesWithFallback } from "@/lib/market/quotes";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { todayKeyInTz } from "@/lib/timezone";
@@ -84,19 +83,6 @@ async function handleGET(req: Request) {
     });
   } catch (err) {
     console.error("[cron/snapshot]", err);
-    /*
-      The heartbeat says a run failed and nothing else does: without this
-      row the nightly backup can stop happening and the daily error digest
-      never mentions it, so the only notice is a Healthchecks mail nobody
-      can act on from the words in it.
-    */
-    await logError({
-      source: "server",
-      message: `Nightly snapshot failed: ${err instanceof Error ? err.message : String(err)}`,
-      stack: err instanceof Error ? err.stack : undefined,
-      path: "/api/cron/snapshot",
-      event: "nightly_snapshot_failed",
-    });
     return NextResponse.json(
       { error: dbError(err, "GET /api/cron/snapshot: nightly snapshot") },
       { status: 500 }
