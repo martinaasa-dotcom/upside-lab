@@ -5,6 +5,8 @@ import {
   saveBookSnapshot,
 } from "@/lib/book-snapshot";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { withClockSkewRetry } from "@/lib/db-clock-skew";
+import { logError } from "@/lib/error-log";
 import { fetchQuotesWithFallback } from "@/lib/market/quotes";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { todayKeyInTz } from "@/lib/timezone";
@@ -44,7 +46,13 @@ async function handleGET(req: Request) {
 
   try {
     const day = todayKeyInTz();
-    const payload = await captureBookPayload(supabase);
+    /*
+      The read and the write both go through `withClockSkewRetry`, which
+      only ever fires when the database refused the credential on its own
+      clock -- a rejection that happened before any statement ran, so the
+      retried write cannot double-insert. See `src/lib/db-clock-skew.ts`.
+    */
+    const payload = await withClockSkewRetry(() => captureBookPayload(supabase));
     const tickers = [
       ...new Set(
         (payload.holdings as Array<{ ticker?: string }>).map((h) =>
@@ -64,11 +72,8 @@ async function handleGET(req: Request) {
         console.error("[cron/snapshot] marks skipped", err);
       }
     }
-    const snap = await saveBookSnapshot(
-      supabase,
-      "nightly",
-      `Nightly ${day}`,
-      payload
+    const snap = await withClockSkewRetry(() =>
+      saveBookSnapshot(supabase, "nightly", `Nightly ${day}`, payload)
     );
     await pruneOldSnapshots(supabase);
     return NextResponse.json({
@@ -79,6 +84,19 @@ async function handleGET(req: Request) {
     });
   } catch (err) {
     console.error("[cron/snapshot]", err);
+    /*
+      The heartbeat says a run failed and nothing else does: without this
+      row the nightly backup can stop happening and the daily error digest
+      never mentions it, so the only notice is a Healthchecks mail nobody
+      can act on from the words in it.
+    */
+    await logError({
+      source: "server",
+      message: `Nightly snapshot failed: ${err instanceof Error ? err.message : String(err)}`,
+      stack: err instanceof Error ? err.stack : undefined,
+      path: "/api/cron/snapshot",
+      event: "nightly_snapshot_failed",
+    });
     return NextResponse.json(
       { error: dbError(err, "GET /api/cron/snapshot: nightly snapshot") },
       { status: 500 }
