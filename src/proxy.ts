@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isBlockedCrawler } from "@/lib/bot-policy";
 import { legacyRedirectPath } from "@/lib/legacy-urls";
 import { buildContentSecurityPolicy } from "@/lib/security-headers";
 import { limitMutationRequest, limitPublicMarketRequest } from "@/lib/rate-limit";
@@ -36,6 +37,45 @@ export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isApi = path.startsWith("/api/");
   const csp = CSP;
+
+  /*
+    BULK HARVESTERS, REFUSED BEFORE ANYTHING ELSE RUNS.
+
+    The public research pages are written to be found, so search crawlers
+    and the bots that draw a link preview are welcome and are named in
+    robots.txt with an explicit allow. This refuses the other kind: the
+    model-training and link-graph crawlers that read every page on a site,
+    send nobody back, and in several documented cases crawl an order of
+    magnitude harder than any search engine. They are asked politely in
+    robots.txt first; this is for the ones that do not read it.
+
+    First, because it is the cheapest check in the file (one lowercase and
+    a walk down a short list of substrings) and because everything after it
+    costs more: a Supabase round trip on a page request, a rate-limit
+    bucket, a render.
+
+    It reads a header the caller controls, so it is a cost control and
+    never a boundary: anything can call itself Chrome, and this must
+    therefore never be the only thing standing between somebody and their
+    data. It is not. It refuses a document and nothing else.
+
+    `/api/` is deliberately exempt. Those routes have their own limits and
+    their own auth, some of them are called by schedulers and signed
+    webhooks whose user agents nobody here controls, and a false positive
+    there breaks the product where a false positive on a public page costs
+    a harvester one page it was not welcome to.
+  */
+  if (!isApi && isBlockedCrawler(request.headers.get("user-agent"))) {
+    const refused = new NextResponse(
+      "This crawler is not permitted. See /robots.txt.",
+      {
+        status: 403,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      }
+    );
+    refused.headers.set("Content-Security-Policy", csp);
+    return refused;
+  }
 
   if (
     target &&

@@ -71,6 +71,15 @@ export const CRON_GRACE_SECONDS: Record<string, number> = {
   "margus-fund": 2 * 60 * 60,
   "empty-book-nudge": 2 * 60 * 60,
   splits: 2 * 60 * 60,
+  /*
+    Four slots a day, so a missed one is not the end of anything: the
+    published research pages carry their own age and the next slot picks
+    up whatever the last one did not reach. Three hours clears the worst
+    measured lateness plus the route's own two minute ceiling with room,
+    and there is a slot every four to six hours, so a check that goes down
+    means the schedule has genuinely stopped rather than run late.
+  */
+  "research-briefs": 3 * 60 * 60,
 };
 
 /**
@@ -99,6 +108,8 @@ export const CRON_CHECK_DESC: Record<string, string> = {
     "The one reminder to somebody who signed up and added nothing.",
   splits:
     "Applies share splits. Down means a split company is priced at a fraction of the truth on every screen.",
+  "research-briefs":
+    "Writes the public research pages. Down means those pages slowly lose their written half, since a page view is never allowed to write one.",
 };
 
 /** `/api/cron/snapshot?resume=1` is the check named `snapshot`. */

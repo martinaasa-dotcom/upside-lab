@@ -120,36 +120,74 @@ describe("the room keeps its promises in the markup", () => {
   });
 });
 
+/*
+  THE BUILDING MOVED, AND THE ASSERTIONS MOVED WITH IT.
+
+  A company page used to be built inside the app's own route. It is
+  `page-build.ts` now, shared with the public research pages and the cron
+  that warms them, precisely so a company cannot read one way inside the
+  app and another way on its own public page. So the rules about what a
+  page may contain are asserted against the builder, and what is left on
+  the route is what belongs to the caller: who they are, how often they may
+  ask, and the check on the one value they supply.
+*/
 describe("the route refuses what it cannot vouch for", () => {
   const route = read("src/app/api/company/[ticker]/route.ts");
 
-  it("checks the ticker before anything is fetched or written", () => {
+  it("checks the ticker before anything is built", () => {
     // The one caller-supplied value that reaches this route. A row written
     // under a symbol the market does not list is a page nobody can check.
     expect(route).toMatch(/isQuotableTicker/);
     const guard = route.indexOf("isQuotableTicker");
-    expect(guard).toBeLessThan(route.indexOf("fetchCompanyFacts(ticker)"));
+    expect(guard).toBeLessThan(route.indexOf("buildCompanyPage("));
   });
 
+  it("is the caller allowed to spend a model run on demand", () => {
+    /*
+      A person is waiting for this answer and has an account behind them.
+      The public page is the opposite case and passes `generate: false`,
+      because a page a stranger can trigger must never be able to spend a
+      run: see `src/lib/research/page-data.ts`.
+    */
+    expect(route).toMatch(/generate: true/);
+    expect(read("src/lib/research/page-data.ts")).toMatch(/generate: false/);
+    expect(read("src/lib/research/page-data.ts")).not.toMatch(/generate: true/);
+  });
+});
+
+describe("the builder refuses what it cannot vouch for", () => {
+  const build = read("src/lib/company/page-build.ts");
+
   it("returns the figures even when the written half fails", () => {
-    expect(route).toMatch(/brief: null/);
+    expect(build).toMatch(/brief: null/);
+    expect(build).toMatch(/figuresOnly/);
   });
 
   it("anchors the shared row on the server's own price", () => {
-    expect(route).toMatch(/anchorPrice: facts\.price/);
+    expect(build).toMatch(/anchorPrice: facts\.price/);
   });
 
   it("shares one reasoned path with the Growth room", () => {
-    expect(route).toMatch(/persistServerTickerCache/);
+    expect(build).toMatch(/persistServerTickerCache/);
   });
 
   it("puts no floor under the path it stores", () => {
     /*
       The forecast floor was the worst bug this product has had: a falling
-      path reached the reader as a rise. Nothing in this route may lift,
+      path reached the reader as a rise. Nothing in this builder may lift,
       floor or bound a price the model wrote.
     */
-    expect(route).not.toMatch(/liftPathToThemeMagnitude|Math\.max\(.*spot/);
+    expect(build).not.toMatch(/liftPathToThemeMagnitude|Math\.max\(.*spot/);
+  });
+
+  it("writes the shared row before it answers", () => {
+    /*
+      A promise still in flight when a serverless handler returns is one
+      the platform is free to kill, so the write that saves the next reader
+      a model run was the one least likely to survive.
+    */
+    expect(build).toMatch(/await saveCompanyBrief\(/);
+    expect(build).not.toMatch(/void \(async \(\) =>/);
   });
 });
 
