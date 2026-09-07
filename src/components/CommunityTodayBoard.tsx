@@ -10,20 +10,28 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { RankMedal } from "@/components/RankMedal";
-import { cn, NO_VALUE, signedPercent, signedTone } from "@/lib/format";
+import {
+  cn,
+  NO_VALUE,
+  signedCurrency,
+  signedPercent,
+  signedTone,
+} from "@/lib/format";
 import { Trophy } from "lucide-react";
 import { Fragment } from "react";
 import type { MemberStat } from "@/components/community-types";
 
 /**
- * A circle ranks people by how their day went, and by nothing else.
+ * A circle ranks people by how their day went, in percent, with the money
+ * beside it.
  *
- * The board used to carry a dollar column beside the percent, so a friend's
- * whole portfolio was one subtraction away from anybody in the room. The
- * landing page promises the opposite in as many words, and it is the reason
- * people agree to be in one of these at all. The percent is also the more
- * useful of the two: it is the only figure that compares a first job to a
- * pension, which is exactly who is in a family circle together.
+ * The ranking is the percent and only the percent, because it is the only
+ * figure that compares a first job to a pension, which is exactly who is in
+ * a family circle together. The dollar column is a second reading of the
+ * same day rather than a second ordering of the people: it sits after the
+ * percent, in a fixed width so a wide figure cannot shove the column it
+ * follows, and it is hidden below `sm`, where 358px of row has no space for
+ * two numbers and a name.
  *
  * The percent carries its sign (`signedPercent`), which it did not: a good
  * day printed "1.2%" beside every loss printing "-0.8%", so the winning row
@@ -104,6 +112,16 @@ export function CommunityTodayBoard({
                         )}
                       >
                         {pct != null ? signedPercent(pct) : NO_VALUE}
+                      </span>
+                      {/* Fixed-width so a wide dollar figure
+                        * cannot shove the percent column. */}
+                      <span
+                        className={cn(
+                          "hidden w-24 text-right text-sm tabular-nums sm:inline-block",
+                          signedTone(m.todayDollar, "text-muted-foreground")
+                        )}
+                      >
+                        {signedCurrency(m.todayDollar, 0)}
                       </span>
                     </ItemActions>
                   </button>

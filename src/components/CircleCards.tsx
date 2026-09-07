@@ -14,14 +14,18 @@ import {
   NO_VALUE,
   cashtag,
   cn,
+  currency,
   percent,
+  signedCurrency,
   signedPercent,
   signedTone,
 } from "@/lib/format";
 import {
   listingCurrenciesAreMixed,
   listingCurrency,
+  listingPriceDigits,
 } from "@/lib/listing-currency";
+import { quoteAsOfTitle } from "@/lib/market/quote-freshness";
 import { animalCardTone, type PortfolioPersonality } from "@/lib/portfolio-personality";
 import type { Holding, Quote } from "@/lib/types";
 import { AlertTriangle, ChevronDown, Shield } from "lucide-react";
@@ -56,22 +60,29 @@ function signedPctPoints(n: number): string {
  * asking at a glance: which animal, and how the day went. Everything else
  * is one tap away. Six people are now about one screen rather than ten.
  *
- * No money anywhere on it. It used to print the portfolio's value under
- * today's percent, which is the figure a circle promises never to show.
+ * The portfolio's value sits under today's percent, quieter and a step
+ * smaller, because the percent is what the row is sorted and read by and
+ * the amount is context for it. The milestone bar comes back with it: what
+ * it tracks is the next round number this portfolio reaches, so without an
+ * amount on the card there was nothing for it to be the progress of.
  */
 export function PowerAnimalCard({
   name,
   isYou,
   isPending,
+  totalValue,
   todayPct,
   personality,
+  milestone,
   onOpen,
 }: {
   name: string;
   isYou: boolean;
   isPending: boolean;
+  totalValue: number;
   todayPct: number | null;
   personality: PortfolioPersonality | null;
+  milestone: { next: number | null; progress: number };
   onOpen: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -120,13 +131,18 @@ export function PowerAnimalCard({
             {personality?.animal ?? "No portfolio yet"}
           </span>
         </span>
-        <span
-          className={cn(
-            "shrink-0 text-base font-semibold tabular-nums",
-            signedTone(todayPct, "text-foreground")
-          )}
-        >
-          {todayPct != null ? signedPercent(todayPct) : NO_VALUE}
+        <span className="shrink-0 text-right">
+          <span
+            className={cn(
+              "block text-base font-semibold tabular-nums",
+              signedTone(todayPct, "text-foreground")
+            )}
+          >
+            {todayPct != null ? signedPercent(todayPct) : NO_VALUE}
+          </span>
+          <span className="block text-sm tabular-nums text-muted-foreground">
+            {currency(totalValue, 0)}
+          </span>
         </span>
         <ChevronDown
           className={cn(
@@ -217,6 +233,28 @@ export function PowerAnimalCard({
             />
           </Scoreboard>
 
+          {milestone.next != null && (
+            <div>
+              <div className="flex items-baseline justify-between gap-2 text-sm text-muted-foreground">
+                <span>
+                  Next{" "}
+                  <span className="font-medium text-muted-foreground">
+                    {currency(milestone.next, 0)}
+                  </span>
+                </span>
+                <span className="tabular-nums">
+                  {Math.round(milestone.progress * 100)}%
+                </span>
+              </div>
+              <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={cn("h-full rounded-full", tone.milestone)}
+                  style={{ width: `${Math.round(milestone.progress * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           <Button
             type="button"
             variant="outline"
@@ -262,40 +300,55 @@ function ScoreRead({
 }
 
 /**
- * Somebody else's portfolio, in shares of itself and nothing else.
+ * Somebody else's portfolio, in full.
  *
- * This was a full price table: total value, cash, share count, price and a
- * dollar value per company. Any two of those give a friend's net worth, and
- * the whole promise of a circle is that they do not get it. What is left is
- * what a circle is actually for, which is seeing how somebody has put a
- * portfolio together: which companies, what share of the whole each one is,
- * and how each moved today.
+ * This was cut back for a while to the shape of it alone (which companies,
+ * what share of the whole each is, how each moved today) on the argument
+ * that any two of a share count, a price and a value give a friend's net
+ * worth. That is true, and it is the circle's own decision: a circle you
+ * put your portfolio into is people you chose, and the amounts are back.
  *
- * The share of the portfolio used to be on the laptop only. It is the most
- * teachable number here, so it is on the phone too.
+ * One table at every width, which scrolls sideways on a phone rather than
+ * splitting into a narrow copy of itself. That is the answer the holdings
+ * table in this app already uses, and it is the one that never hides a
+ * figure: a second, shorter table for small screens is a second thing to
+ * keep in step, and it was the reason the share of the portfolio spent a
+ * release visible on a laptop and missing on a phone. Measured with the
+ * app's own compiled CSS on a row carrying a ten-character ticker and a
+ * $1,234,567.89 value: the six columns need 481px, so the table fits whole
+ * from about 500px of panel and scrolls below it, no cell's text paints
+ * outside its own track at 360, 390, 430, 820 or 1280, and the page itself
+ * never overflows sideways at any of them.
+ *
+ * Cost is still not here and cannot be: `/api/communities/[id]/book` sends
+ * `buy_price` as zero to everybody but the owner, so what somebody paid,
+ * and therefore whether they are up or down, stays theirs.
  */
 export function ReadOnlyHoldings({
   holdings,
   quotes,
+  cash,
 }: {
   holdings: Holding[];
   quotes: Record<string, Quote>;
+  cash: number;
 }) {
-  const totalValue = holdings.reduce(
+  const stockValue = holdings.reduce(
     (s, h) => s + (quotes[h.ticker]?.price ?? 0) * h.shares,
     0
   );
-  const previousCloseValue = holdings.reduce(
-    (s, h) =>
-      s +
-      (quotes[h.ticker]?.previousClose ?? quotes[h.ticker]?.price ?? 0) *
-        h.shares,
-    0
-  );
+  const totalValue = stockValue + cash;
+  const previousCloseValue =
+    holdings.reduce(
+      (s, h) =>
+        s +
+        (quotes[h.ticker]?.previousClose ?? quotes[h.ticker]?.price ?? 0) *
+          h.shares,
+      0
+    ) + cash;
+  const todayDollar = totalValue - previousCloseValue;
   const todayPct =
-    previousCloseValue > 0
-      ? (totalValue - previousCloseValue) / previousCloseValue
-      : null;
+    previousCloseValue > 0 ? todayDollar / previousCloseValue : null;
   const mixedListings = listingCurrenciesAreMixed(
     holdings.map((h) => ({
       ticker: h.ticker,
@@ -316,19 +369,18 @@ export function ReadOnlyHoldings({
 
   return (
     <div className="flex flex-col gap-3">
-      <Scoreboard cols={2}>
+      <Scoreboard cols={3}>
         <Score
           label="Today"
           value={todayPct != null ? signedPercent(todayPct) : NO_VALUE}
-          sub="How the whole portfolio moved"
-          tone={
-            (todayPct ?? 0) > 0 ? "up" : (todayPct ?? 0) < 0 ? "down" : undefined
-          }
+          sub={signedCurrency(todayDollar)}
+          tone={todayDollar > 0 ? "up" : todayDollar < 0 ? "down" : undefined}
         />
+        <Score label="Total value" value={currency(totalValue)} />
         <Score
-          label="Companies"
-          value={String(holdings.length)}
-          sub="Sizes are shares of this portfolio, never amounts"
+          label="Cash"
+          value={currency(cash)}
+          tone={cash < 0 ? "down" : undefined}
         />
       </Scoreboard>
       {holdings.length === 0 ? (
@@ -337,17 +389,32 @@ export function ReadOnlyHoldings({
         </p>
       ) : (
         <div className="overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
-          <FluidTable template={tableCols(3, mixedListings)}>
+          <FluidTable template={tableCols(6, mixedListings)}>
             <FluidRow>
               <div className={cn(tickerCell, headerCell)}>Company</div>
-              <div className={cn(cellBase, headerCell)}>Share of it</div>
               <div className={cn(cellBase, headerCell)}>Today</div>
+              <div className={cn(cellBase, headerCell)}>Share of it</div>
+              <div className={cn(cellBase, headerCell)}>Shares</div>
+              <div className={cn(cellBase, headerCell)}>Price</div>
+              <div className={cn(cellBase, headerCell)}>Value</div>
             </FluidRow>
             {sortedHoldings.map((h) => {
               const listed = listingCurrency(h.ticker, quotes[h.ticker]?.currency);
+              const digits = listingPriceDigits(listed);
+              /*
+                The price is quoted in the listing's own money and the value
+                is in dollars, which is why they are read from two different
+                fields rather than one multiplied by the shares: a euro
+                listing priced in dollars would label both wrong.
+              */
+              const native =
+                quotes[h.ticker]?.nativePrice != null &&
+                quotes[h.ticker]!.nativePrice! > 0
+                  ? quotes[h.ticker]!.nativePrice!
+                  : quotes[h.ticker]?.price ?? 0;
               const value = (quotes[h.ticker]?.price ?? 0) * h.shares;
               const rowTodayPct = quotes[h.ticker]?.changePercent ?? null;
-              const pctBook = totalValue > 0 ? value / totalValue : 0;
+              const pctBook = stockValue > 0 ? value / stockValue : 0;
               return (
                 <FluidRow key={h.id}>
                   <div className={cn(tickerCell, "font-medium")}>
@@ -356,9 +423,6 @@ export function ReadOnlyHoldings({
                       currency={listed}
                       showCurrency={mixedListings}
                     />
-                  </div>
-                  <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
-                    {percent(pctBook)}
                   </div>
                   <div
                     className={cn(
@@ -369,9 +433,32 @@ export function ReadOnlyHoldings({
                   >
                     {rowTodayPct != null ? signedPercent(rowTodayPct) : NO_VALUE}
                   </div>
+                  <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
+                    {percent(pctBook)}
+                  </div>
+                  <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
+                    {h.shares}
+                  </div>
+                  <div
+                    className={cn(cellBase, "tabular-nums text-muted-foreground")}
+                    title={quoteAsOfTitle(quotes[h.ticker])}
+                  >
+                    {currency(native, digits, listed)}
+                  </div>
+                  <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
+                    {currency(value)}
+                  </div>
                 </FluidRow>
               );
             })}
+            <FluidRow footer>
+              <div className={cn(tickerCell, "text-muted-foreground")}>Cash</div>
+              <div className={cellBase} />
+              <div className={cellBase} />
+              <div className={cellBase} />
+              <div className={cellBase} />
+              <div className={cn(cellBase, "tabular-nums")}>{currency(cash)}</div>
+            </FluidRow>
           </FluidTable>
         </div>
       )}
