@@ -6,6 +6,7 @@ import {
 } from "@/lib/book-snapshot";
 import { withClockSkewRetry } from "@/lib/db-clock-skew";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { logError } from "@/lib/error-log";
 import { fetchQuotesWithFallback } from "@/lib/market/quotes";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { todayKeyInTz } from "@/lib/timezone";
@@ -68,7 +69,22 @@ async function handleGET(req: Request) {
           quotes
         );
       } catch (err) {
-        console.error("[cron/snapshot] marks skipped", err);
+        /*
+          The snapshot still saves, so this is a warning rather than a
+          failed night: what is lost is the marks, which is what makes a
+          restored book worth anything to read. It gets a row for the same
+          reason a warning-laden disaster-recovery run does -- a known
+          class stays quiet after the first mail, so this is one mail per
+          regression, not one per night.
+        */
+        await logError({
+          source: "server",
+          message: `Nightly snapshot saved without marks: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+          path: "/api/cron/snapshot",
+          event: "snapshot_marks_skipped",
+        });
       }
     }
     const snap = await withClockSkewRetry(() =>
@@ -82,7 +98,22 @@ async function handleGET(req: Request) {
       holdings: payload.holdings.length,
     });
   } catch (err) {
-    console.error("[cron/snapshot]", err);
+    /*
+      This catch answers 500, so nothing is thrown and `onRequestError`
+      never runs: without this row a failed night is a console line in a
+      log stream nobody reads. That is not hypothetical -- the check went
+      down on 3 September 2026 and the daily digest named only
+      disaster-recovery, because the nightly snapshot had no way to say so.
+    */
+    await logError({
+      source: "server",
+      message: `Nightly snapshot failed: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+      stack: err instanceof Error ? err.stack : undefined,
+      path: "/api/cron/snapshot",
+      event: "snapshot_failed",
+    });
     return NextResponse.json(
       { error: dbError(err, "GET /api/cron/snapshot: nightly snapshot") },
       { status: 500 }

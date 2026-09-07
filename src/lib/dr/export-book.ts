@@ -123,6 +123,30 @@ export async function exportEncryptedBook(opts: {
   };
 }
 
+/*
+  A nightly job that throws says only what the provider said.
+
+  On 7 September 2026 the run died and the alert read "Disaster recovery
+  failed: JWT issued at future" -- PostgREST's PGRST303, a clock skew
+  between Supabase's own services, and nothing whatever about which of
+  this job's steps was holding the connection when it happened. Reading
+  the book, listing the backups and writing to R2 are three different
+  faults with three different answers, and the message that summons a
+  human at 03:00 named none of them.
+
+  So each step says what it was doing. The provider's own sentence is kept
+  verbatim after it, because that is the part that is searchable, and the
+  original is kept as the `cause` so nothing is lost by the wrapping.
+*/
+async function during<T>(what: string, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(`${what}: ${detail}`, { cause: err });
+  }
+}
+
 export async function runDisasterRecoveryJob(opts: {
   supabase: SupabaseClient;
   config?: DrConfig;
@@ -133,24 +157,30 @@ export async function runDisasterRecoveryJob(opts: {
   const capturedAt = opts.now ?? new Date();
   const warnings: string[] = [];
 
-  const wal = await verifyWalBackups({
-    projectRef: supabaseProjectRef(),
-    accessToken: config.accessToken,
-    maxAgeHours: config.backupMaxAgeHours,
-    fetchImpl: opts.fetchImpl,
-    now: capturedAt,
-  });
+  const wal = await during("while listing the Supabase backups", () =>
+    verifyWalBackups({
+      projectRef: supabaseProjectRef(),
+      accessToken: config.accessToken,
+      maxAgeHours: config.backupMaxAgeHours,
+      fetchImpl: opts.fetchImpl,
+      now: capturedAt,
+    })
+  );
   if (!wal.skipped && !wal.ok) warnings.push(wal.reason);
 
-  const payload = await captureBookPayload(opts.supabase);
+  const payload = await during("while reading the book from Supabase", () =>
+    captureBookPayload(opts.supabase)
+  );
   const checksum = bookChecksum(payload);
-  const cold = await exportEncryptedBook({
-    payload,
-    checksum,
-    wal,
-    config,
-    capturedAt,
-  });
+  const cold = await during("while writing the encrypted cold copy", () =>
+    exportEncryptedBook({
+      payload,
+      checksum,
+      wal,
+      config,
+      capturedAt,
+    })
+  );
   if (cold.skipped) warnings.push(cold.reason);
 
   let retention: ColdRetentionResult | null = null;

@@ -1,4 +1,5 @@
 import { requireCronAuth } from "@/lib/cron-auth";
+import { logError } from "@/lib/error-log";
 import { refreshPopularTickers } from "@/lib/popular-tickers-store";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { dbError } from "@/lib/db-error";
@@ -35,7 +36,15 @@ async function handleGET(req: Request) {
     const payload = await refreshPopularTickers(supabase);
     return NextResponse.json({ ok: true, ...payload });
   } catch (err) {
-    console.error("[cron/popular-tickers]", err);
+    await logError({
+      source: "server",
+      message: `Monthly popular names refresh failed: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+      stack: err instanceof Error ? err.stack : undefined,
+      path: "/api/cron/popular-tickers",
+      event: "popular_tickers_failed",
+    });
     return NextResponse.json(
       { error: dbError(err, "GET /api/cron/popular-tickers: refresh") },
       { status: 500 }
