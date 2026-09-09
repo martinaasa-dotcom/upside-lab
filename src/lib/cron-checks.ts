@@ -72,6 +72,15 @@ export const CRON_GRACE_SECONDS: Record<string, number> = {
   "empty-book-nudge": 2 * 60 * 60,
   splits: 2 * 60 * 60,
   /*
+    Every five minutes, market hours, so a genuinely down sweep is still
+    only found the same day: this warms a shared cache every reader's own
+    poll already refreshes on its own, so a missed run costs latency on
+    the next cold open rather than a wrong number ever being stated as
+    fact. Two hours stays the floor every other check uses rather than a
+    tighter number nobody has measured this route's own lateness against.
+  */
+  "quotes-warm": 2 * 60 * 60,
+  /*
     Four slots a day, so a missed one is not the end of anything: the
     published research pages carry their own age and the next slot picks
     up whatever the last one did not reach. Three hours clears the worst
@@ -108,6 +117,8 @@ export const CRON_CHECK_DESC: Record<string, string> = {
     "The one reminder to somebody who signed up and added nothing.",
   splits:
     "Applies share splits. Down means a split company is priced at a fraction of the truth on every screen.",
+  "quotes-warm":
+    "Keeps the shared quote cache warm between visits. Down means a cold app open falls back to a slower live fetch, never a wrong number.",
   "research-briefs":
     "Writes the public research pages. Down means those pages slowly lose their written half, since a page view is never allowed to write one.",
 };
