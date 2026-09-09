@@ -122,7 +122,7 @@ function BandRow({
         <div className="min-w-0">
           <p
             className={cn(
-              "text-sm leading-snug",
+              "text-sm leading-snug lg:text-base",
               here ? "font-semibold text-foreground" : "text-foreground"
             )}
           >
@@ -148,7 +148,7 @@ function BandRow({
                 between them are 110 of the 326 the row has, and the name
                 is what a reader is scanning for.
               */
-              "font-mono text-xs tabular-nums sm:text-sm",
+              "font-mono text-xs tabular-nums sm:text-sm lg:text-base",
               here ? "text-foreground" : "text-muted-foreground"
             )}
           >
@@ -204,8 +204,19 @@ function BandRow({
           }
         : {})}
       className={cn(
-        "flex w-full flex-col gap-2 border-l-2 px-4 py-3 text-left transition sm:px-5",
-        here ? "border-l-primary bg-primary/[0.06]" : "border-l-transparent",
+        /*
+          A plain row is one line of content, so it does not need the same
+          vertical room as the row carrying the live price and its track:
+          drawn at one padding throughout, seven rows of mostly a name and
+          a price read as a table with more air in it than it has content
+          for. The current row keeps (and on a wide screen, gains) a
+          little extra, since it is the row a reader is actually here to
+          find.
+        */
+        "flex w-full flex-col gap-2 border-l-2 px-4 py-2.5 text-left transition sm:px-5 sm:py-3 lg:px-6",
+        here
+          ? "border-l-primary bg-primary/[0.06] py-3 sm:py-3.5 lg:py-4"
+          : "border-l-transparent",
         onEdit && "hover:bg-hover"
       )}
       aria-current={here ? "true" : undefined}
@@ -249,7 +260,7 @@ export function PlanLadderTable({
   return (
     <div className="flex flex-col gap-4">
       <Card tone="default" className="overflow-hidden p-0 sm:p-0">
-        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2 sm:px-5">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2 sm:px-5 lg:px-6">
           <MicroLabel>Band</MicroLabel>
           <MicroLabel>Price</MicroLabel>
         </div>
