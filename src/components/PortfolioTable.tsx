@@ -474,7 +474,7 @@ export const PortfolioTable = memo(function PortfolioTable({
 
   return (
     <Panel padded={false} className="overflow-hidden">
-      {holdings.length === 0 && onImportScreenshot ? (
+      {onImportScreenshot ? (
         <input {...screenshotPickerInputProps(screenshot)} />
       ) : null}
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border px-6 py-6">
@@ -545,17 +545,39 @@ export const PortfolioTable = memo(function PortfolioTable({
             so a document glyph appeared to belong to Cash. It is its own
             control, and it says what it does in words rather than in a
             hover tooltip no phone can reach.
+            *
+            * Both ways in, not just CSV, and both `outline` rather than a
+            * muted `ghost` "Import" link easy to read past. Bringing in
+            * several names at once is the empty state's own headline pair
+            * of buttons; once a first holding exists that shrank to one
+            * small grey link and screenshot import vanished from this page
+            * entirely (its picker only mounted while `holdings.length`
+            * was 0), so the only way back to it was deleting every
+            * holding first. Bulk import is exactly as reachable with one
+            * holding as with none.
           */}
+          {canAdd && onImportScreenshot && holdings.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={screenshot.open}
+            >
+              <ImagePlus data-icon="inline-start" />
+              <span className="hidden sm:inline">Import screenshot</span>
+              <span className="sm:hidden">Screenshot</span>
+            </Button>
+          )}
           {canAdd && onImportCsv && holdings.length > 0 && (
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={onImportCsv}
-              className="text-muted-foreground"
             >
               <FileUp data-icon="inline-start" />
-              Import
+              <span className="hidden sm:inline">Import CSV</span>
+              <span className="sm:hidden">CSV</span>
             </Button>
           )}
           <div className="card-sheen glass-well flex items-center gap-1 rounded-lg py-1 pl-1 pr-1">

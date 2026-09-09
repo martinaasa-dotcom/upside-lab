@@ -2448,6 +2448,17 @@ export function Dashboard() {
   const onOverviewAddHolding = useStableCallback(() =>
     startFirstRunAction("manual")
   );
+  /**
+   * The one Add-holding button in the app header, whatever screen it is
+   * on: Overview has no active portfolio to add into, so it runs the
+   * same first-run path the empty book's own button does (create or pick
+   * a portfolio, land on it, then open the modal); a portfolio tab opens
+   * the modal directly on the one already open.
+   */
+  const headerAddHolding = useStableCallback(() => {
+    if (isOverview) onOverviewAddHolding();
+    else setModalOpen(true);
+  });
   const onOverviewImportScreenshot = useStableCallback((files: File[]) => {
     void beginSilentScreenshotImport(files);
   });
@@ -2758,13 +2769,20 @@ export function Dashboard() {
          * 44px controls and an avatar, which left the portfolio name a
          * single letter. Everything that is not Add holding is a row in
          * the bar's one overflow menu now.
+         *
+         * Shown on Overview too, not just a portfolio tab: it used to be
+         * `!isMetaTab` alone, which hid this button entirely on Home and
+         * left Home's own hero card to draw a second, differently styled
+         * "Add holding" (outline, embedded in a card) in a different spot
+         * on the page. One control, one look, one place, on every screen
+         * that has anything to add a holding to.
          */
         mobileEnd={
-          !isMetaTab && canClassBuy ? (
+          (!isMetaTab || isOverview) && canClassBuy ? (
             <Button
               type="button"
               size="icon"
-              onClick={() => setModalOpen(true)}
+              onClick={headerAddHolding}
               aria-label="Add holding"
               className="touch-target"
             >
@@ -2789,10 +2807,10 @@ export function Dashboard() {
         end={accountEnd}
         status={headerStatus}
       >
-            {!isMetaTab && canClassBuy && (
+            {(!isMetaTab || isOverview) && canClassBuy && (
               <Button
                 type="button"
-                onClick={() => setModalOpen(true)}
+                onClick={headerAddHolding}
               >
                 <Plus data-icon="inline-start" />
                 <span className="hidden sm:inline">Add holding</span>
