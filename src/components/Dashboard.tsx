@@ -184,6 +184,7 @@ import {
 } from "@/lib/experience-tier";
 import { DashboardLoading } from "@/components/DashboardLoading";
 import { MobileTabBar } from "@/components/mobile/MobileTabBar";
+import { useDockAttentionCue } from "@/lib/use-dock-attention-cue";
 import { mobileTabFromActiveId, PORTFOLIO_TAB_PENDING } from "@/lib/mobile-tab";
 import { SheetPicker } from "@/components/SheetPicker";
 import { useLabSync } from "@/components/use-lab-sync";
@@ -415,6 +416,14 @@ export function Dashboard() {
     quote poll down and start another one.
   */
   const ccVisibleRef = useRef(false);
+  /*
+   * Checked once here, not inside each dock: the book room mounts the
+   * wide dock and the phone dock together (one hidden by breakpoint, both
+   * always in the DOM), so whichever's own `useDockAttentionCue()` effect
+   * ran first would consume the one-time nudge even when it is the
+   * hidden one. See the hook's own note.
+   */
+  const dockAttentionCue = useDockAttentionCue();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [quotesUpdatedAt, setQuotesUpdatedAt] = useState<number | null>(null);
@@ -2668,6 +2677,7 @@ export function Dashboard() {
           ? (id, name) => setConfirmDelete({ kind: "sheet", id, label: name })
           : undefined
       }
+      attentionCue={dockAttentionCue}
     />
   );
 
@@ -2714,6 +2724,7 @@ export function Dashboard() {
           key="phone-dock"
           active={mobileTab}
           hiddenModeIds={hiddenMetaTabIds}
+          attentionCue={dockAttentionCue}
         />
       </div>
       </>
@@ -3065,6 +3076,7 @@ export function Dashboard() {
         active={mobileTab}
         alertCount={activeAlerts.length}
         hiddenModeIds={hiddenMetaTabIds}
+        attentionCue={dockAttentionCue}
       />
 
       <DashboardModals

@@ -17,6 +17,7 @@ import {
 import { type MobileTabId } from "@/lib/mobile-tab";
 import { useDockPad } from "@/lib/use-dock-pad";
 import { useDockMarker } from "@/lib/use-dock-marker";
+import { useDockAttentionCue } from "@/lib/use-dock-attention-cue";
 import { DockMarker } from "@/components/DockMarker";
 import { CircleNavIcon } from "@/components/CircleIcons";
 import {
@@ -176,11 +177,18 @@ export function MobileTabBar({
   alertCount = 0,
   className,
   hiddenModeIds = [],
+  attentionCue,
 }: {
   active: MobileTabId | null;
   alertCount?: number;
   className?: string;
   hiddenModeIds?: string[];
+  /**
+   * Supplied by the book room, which mounts a wide dock alongside this
+   * one and shares a single `useDockAttentionCue()` call between them.
+   * Every other caller leaves this unset and the bar checks for itself.
+   */
+  attentionCue?: boolean;
 }) {
   /* A callback ref: see `use-dock-pad.ts` for why the hook takes the node. */
   const [dockEl, setDockEl] = useState<HTMLElement | null>(null);
@@ -194,6 +202,8 @@ export function MobileTabBar({
   const marker = useDockMarker("phone");
   const rowRef = marker.ref;
   const [said, setSaid] = useState<Said | null>(null);
+  const ownCue = useDockAttentionCue(attentionCue === undefined);
+  const cue = attentionCue ?? ownCue;
 
   const hush = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -246,7 +256,13 @@ export function MobileTabBar({
            * the ring and the lift shadow are untouched. Numbers in
            * globals.css and DESIGN_TOKENS.md.
            */
-          "card-sheen glass glass-dock pointer-events-auto relative flex w-fit items-center gap-1 rounded-full p-1 ring-1 ring-foreground/20"
+          "card-sheen glass glass-dock pointer-events-auto relative flex w-fit items-center gap-1 rounded-full p-1 ring-1 ring-foreground/20",
+          /*
+           * A one-time nudge for a reader who has been away long enough
+           * that they might not remember this bar is here. See
+           * `use-dock-attention-cue.ts`.
+           */
+          cue && "dock-attention"
         )}
       >
         {tabs.map(({ id, href, label, shortLabel, Icon }) => {
