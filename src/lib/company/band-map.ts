@@ -148,15 +148,33 @@ export const LANE_WEIGHTS: Record<LadderBandId, number> = {
   exit: 1,
 };
 
+/**
+ * How much of its ordinary weight an empty band keeps.
+ *
+ * Small enough that seven bands, most of them empty on an ordinary
+ * portfolio, no longer read as one crowded lane surrounded by dead air:
+ * an empty band still shows as a step of the ladder, just a thin one,
+ * so the reader's eye lands on where the holdings actually are rather
+ * than on the space between them.
+ */
+export const EMPTY_LANE_SCALE = 0.4;
+
 export function lanesFrom(
   ladder: PlanLadder,
-  /** Extra height per band, in lane units, where one is crowded. */
-  crowding: Partial<Record<LadderBandId, number>> = {}
+  /**
+   * A per-band override of the ordinary weight, in lane units. Missing
+   * entries fall back to `LANE_WEIGHTS`. Unlike the old "extra height"
+   * shape, an entry here replaces the ordinary weight rather than only
+   * ever growing it, which is what lets an empty band be drawn smaller
+   * than a crowded one instead of every band defaulting to the same
+   * floor.
+   */
+  weights: Partial<Record<LadderBandId, number>> = {}
 ): BandLane[] {
   let from = 0;
   // Foot of the ladder first, so the units run the way the picture does.
   const feetFirst = [...ladder.bands].reverse().map((b) => {
-    const weight = Math.max(LANE_WEIGHTS[b.id] ?? 1, crowding[b.id] ?? 0);
+    const weight = weights[b.id] ?? LANE_WEIGHTS[b.id] ?? 1;
     const lane: BandLane = {
       id: b.id,
       label: b.label,
@@ -401,12 +419,28 @@ export function buildBandMap(
     that runs out of room first, and the fallback for running out of room
     is chips drawn through each other.
   */
-  const crowding: Partial<Record<LadderBandId, number>> = {};
+  const weights: Partial<Record<LadderBandId, number>> = {};
   for (const band of shape.bands) {
+    const base = LANE_WEIGHTS[band.id] ?? 1;
     const inBand = kept
       .map((k, i) => ({ k, x: xs[i] ?? 0.5 }))
       .filter(({ k }) => k.bandId === band.id);
-    if (inBand.length === 0) continue;
+    if (inBand.length === 0) {
+      /*
+        NOTHING IS IN THIS BAND, SO IT DOES NOT NEED A CROWDED BAND'S
+        ROOM.
+
+        The band still has to be visible, because the shape of the whole
+        ladder is half of what a reader came for, but an empty "trim
+        60%+" taking the same height as a "hold" full of names is the
+        dead space that made the whole picture read as mostly nothing.
+        Shrunk rather than dropped: a band a reader can still see and
+        measure by eye against the others, just not fighting a crowded
+        one for the same room.
+      */
+      weights[band.id] = base * EMPTY_LANE_SCALE;
+      continue;
+    }
     const deep =
       stackDepth(
         inBand.map((b) => b.x),
@@ -427,16 +461,19 @@ export function buildBandMap(
       the band's name and reads as belonging to the band below, which is
       the picture saying something false about which band it is in.
     */
-    crowding[band.id] = open
+    const needed = open
       ? // The headroom an open band needs is whichever is larger: the air
         // above its chips, or the room its own stack takes. Taking only
         // the first left two names in the top band with nowhere to go and
         // drew them through each other.
         Math.max(deep + chipHeight, OPEN_INSET + chipHeight)
       : deep + chipHeight;
+    // Never smaller than the ordinary weight: a band with one holding
+    // and no crowding still reads as a full step of the ladder.
+    weights[band.id] = Math.max(base, needed);
   }
 
-  const lanes = lanesFrom(shape, crowding);
+  const lanes = lanesFrom(shape, weights);
   const units = ladderUnits(lanes);
   const laneOf = new Map(lanes.map((l) => [l.id, l]));
 
