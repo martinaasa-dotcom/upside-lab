@@ -151,13 +151,15 @@ export const LANE_WEIGHTS: Record<LadderBandId, number> = {
 /**
  * How much of its ordinary weight an empty band keeps.
  *
- * Small enough that seven bands, most of them empty on an ordinary
- * portfolio, no longer read as one crowded lane surrounded by dead air:
- * an empty band still shows as a step of the ladder, just a thin one,
- * so the reader's eye lands on where the holdings actually are rather
- * than on the space between them.
+ * Was 0.4, which read fine next to a lane a reader's own chips had
+ * inflated well past its base weight, and hideous once the chip
+ * oversizing below it was reined in: a run of near-invisible hairlines
+ * next to one merely-tall lane, rather than seven bands that all read as
+ * the same ladder. 0.75 keeps an empty band visibly a step and a
+ * populated one visibly fuller, without the gap between them reading as
+ * two different charts.
  */
-export const EMPTY_LANE_SCALE = 0.4;
+export const EMPTY_LANE_SCALE = 0.75;
 
 export function lanesFrom(
   ladder: PlanLadder,

@@ -56,6 +56,22 @@ const LANE_H = 46;
 /** Air around the plot, in pixels, so a chip never sits flush on an edge. */
 const PLOT_PAD_PX = 20;
 /**
+ * How far the smallest and the biggest holding's chip sit in from the
+ * plot's left and right edges, in pixels, whatever either chip's own
+ * width happens to be.
+ *
+ * Was folded into `PLOT_PAD_PX` (20px), sized for the air this chart
+ * wants above and below a chip rather than beside one, and on the
+ * widest chip in a wide portfolio that read as the pill about to run
+ * off the table. This is the sideways-only figure, bigger on purpose,
+ * and it is added on both sides of the widest chip's own width before
+ * that half-width becomes the clamp every extreme chip is held inside,
+ * which is what keeps the smallest and the biggest chip the same
+ * distance from their own edge rather than each keeping only its own
+ * half-width of room.
+ */
+const EDGE_PAD_PX = 32;
+/**
  * A chip's height, plus a little air, as a fraction of an ordinary lane.
  *
  * Measured off a rendered chip rather than typed, for the same reason the
@@ -80,6 +96,14 @@ const CHIP_H_PX = 30;
  * comfortable at, so the scale is 1 there and grows past it. It never
  * shrinks below 1: a crowded portfolio keeps today's sizing rather than
  * being squeezed smaller than a reader has already seen.
+ *
+ * `max` used to reach 3.2, which a plot of six holdings across a wide
+ * screen hit almost outright: a pill drawn two and a half times its own
+ * size is not "readable", it is oversized, and it drags every lane a
+ * crowded band needs room for up with it, since a lane's own height is
+ * sized off the chips actually sitting in it. 1.35 (1.3 on the phone
+ * strip) still grows a sparse portfolio's chips past a crowded one's, it
+ * just stops well short of looking like a different chart.
  */
 function chipScaleFor(
   perTicker: number,
@@ -491,9 +515,11 @@ export function BandMap({
         // flush on the plot's own border. Padding the width fed in here
         // (rather than the plot's own CSS padding, which an absolutely
         // positioned child's percentage `left` ignores) buys genuine air
-        // on both sides without changing that clamp's logic at all.
+        // on both sides without changing that clamp's logic at all, and
+        // it is `EDGE_PAD_PX` rather than `PLOT_PAD_PX` because this is
+        // sideways room, not the air above and below a chip.
         ...(size.plot > 0
-          ? { chipWidth: (size.chip + PLOT_PAD_PX * 2) / size.plot }
+          ? { chipWidth: (size.chip + EDGE_PAD_PX * 2) / size.plot }
           : {}),
       }),
     [rows, size]
@@ -511,11 +537,11 @@ export function BandMap({
   */
   const chipScale = chipScaleFor(
     size.plot > 0 ? size.plot / Math.max(map.points.length, 1) : 0,
-    { base: 130, max: 3.2 }
+    { base: 220, max: 1.35 }
   );
   const mobileScale = chipScaleFor(
     (viewportWidth - 96) / Math.max(map.points.length, 1),
-    { base: 76, max: 2 }
+    { base: 130, max: 1.3 }
   );
 
   if (map.points.length === 0) return null;
