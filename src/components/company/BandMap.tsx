@@ -40,8 +40,21 @@ import { Map as MapIcon } from "lucide-react";
  * printed elsewhere in the app, and nothing here adds them up.
  */
 
-/** Height of an ordinary one-step lane, in pixels. */
-const LANE_H = 62;
+/**
+ * Height of an ordinary one-step lane, in pixels.
+ *
+ * Was 62. A portfolio with a few names clustered in one or two bands
+ * (the ordinary case) drew a "hold" lane -- always at least its own
+ * 2-step weight, since that height is the real width of the price band
+ * and must not shrink just because it is lightly populated -- as a wall
+ * of near-empty space around two chips. Shrinking the unit itself keeps
+ * every lane's *relative* height (what the band height is supposed to
+ * mean) while making the whole chart read as full rather than mostly air.
+ */
+const LANE_H = 46;
+
+/** Air around the plot, in pixels, so a chip never sits flush on an edge. */
+const PLOT_PAD_PX = 20;
 /**
  * A chip's height, plus a little air, as a fraction of an ordinary lane.
  *
@@ -143,14 +156,17 @@ function Plot({
   chipScale: number;
 }) {
   // Lane units into pixels, and nothing else in this file knows about
-  // lanes: a chip's own height is already in the same units.
-  const height = map.units * LANE_H;
-  const laneTop = (lane: BandLane) => (map.units - lane.to) * LANE_H;
+  // lanes: a chip's own height is already in the same units. Padded top
+  // and bottom so the outermost lane's border, and the chip nearest it,
+  // never sit flush on the plot's own edge.
+  const height = map.units * LANE_H + PLOT_PAD_PX * 2;
+  const laneTop = (lane: BandLane) =>
+    (map.units - lane.to) * LANE_H + PLOT_PAD_PX;
   const laneHeight = (lane: BandLane) => lane.weight * LANE_H;
 
   const hold = map.lanes.find((l) => l.id === "hold");
   const anchorAt = hold
-    ? (map.units - (hold.from + hold.to) / 2) * LANE_H
+    ? (map.units - (hold.from + hold.to) / 2) * LANE_H + PLOT_PAD_PX
     : null;
 
   return (
@@ -241,7 +257,7 @@ function Plot({
             )}
             style={{
               left: `${p.x * 100}%`,
-              top: (map.units - p.y) * LANE_H,
+              top: (map.units - p.y) * LANE_H + PLOT_PAD_PX,
               // A chip is drawn bigger the more room the chart has to
               // give each one, rather than sitting at one fixed size
               // whether there are six holdings or thirty. Font size
@@ -469,7 +485,16 @@ export function BandMap({
     () =>
       buildBandMap(rows, {
         chipHeight: size.chipH / LANE_H,
-        ...(size.plot > 0 ? { chipWidth: size.chip / size.plot } : {}),
+        // `buildBandMap` clamps a chip's centre to half its own width in
+        // from each edge, which is exactly enough room for the chip
+        // itself and none left over: the outermost holding's edge lands
+        // flush on the plot's own border. Padding the width fed in here
+        // (rather than the plot's own CSS padding, which an absolutely
+        // positioned child's percentage `left` ignores) buys genuine air
+        // on both sides without changing that clamp's logic at all.
+        ...(size.plot > 0
+          ? { chipWidth: (size.chip + PLOT_PAD_PX * 2) / size.plot }
+          : {}),
       }),
     [rows, size]
   );
@@ -486,11 +511,11 @@ export function BandMap({
   */
   const chipScale = chipScaleFor(
     size.plot > 0 ? size.plot / Math.max(map.points.length, 1) : 0,
-    { base: 130, max: 2.4 }
+    { base: 130, max: 3.2 }
   );
   const mobileScale = chipScaleFor(
     (viewportWidth - 96) / Math.max(map.points.length, 1),
-    { base: 76, max: 1.65 }
+    { base: 76, max: 2 }
   );
 
   if (map.points.length === 0) return null;

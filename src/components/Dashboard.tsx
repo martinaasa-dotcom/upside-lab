@@ -507,6 +507,8 @@ export function Dashboard() {
   bookRef.current = { portfolios, holdings };
   const bookAbortRef = useRef<AbortController | null>(null);
   const quotesAbortRef = useRef<AbortController | null>(null);
+  const quotesRetryTimerRef = useRef(0);
+  const quotesRetryAttemptRef = useRef(0);
   const quotesRef = useRef(quotes);
   quotesRef.current = quotes;
   const quotesPolledAtRef = useRef(0);
@@ -1445,9 +1447,12 @@ export function Dashboard() {
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         return;
       }
+      window.clearTimeout(quotesRetryTimerRef.current);
       quotesAbortRef.current?.abort();
       const ctrl = new AbortController();
       quotesAbortRef.current = ctrl;
+      const attemptingLiveQuotes =
+        !existingQuotes || Object.keys(existingQuotes).length === 0;
       try {
         let nextQuotes = existingQuotes;
         if (!nextQuotes || Object.keys(nextQuotes).length === 0) {
@@ -1474,6 +1479,7 @@ export function Dashboard() {
           });
           saveCachedQuotes(merged);
           quotesPolledAtRef.current = Date.now();
+          quotesRetryAttemptRef.current = 0;
           setQuotesUpdatedAt(quotesStampMs(quotesJson));
           if (!unchanged) {
             setQuotesDelayed(quotesAreDelayed(quotesJson));
@@ -1546,6 +1552,27 @@ export function Dashboard() {
         if (isAbortError(err) || quotesAbortRef.current !== ctrl) return;
         console.error(err);
         setQuotesDelayed(true);
+        /*
+          A stale cached price shown at first paint is meant to be
+          corrected within a second by the fetch this call just made. If
+          that fetch failed (a rate limit, a provider blip), the reader is
+          left looking at an hours-old number until the next background
+          poll, which can be up to 30 minutes out overnight. Retry quickly
+          instead of waiting on that cadence, capped so a genuinely down
+          provider doesn't get hammered forever -- the ordinary poll timer
+          takes back over once these attempts are spent.
+        */
+        if (attemptingLiveQuotes && !document.hidden) {
+          const attempt = ++quotesRetryAttemptRef.current;
+          if (attempt <= 5) {
+            const delay = Math.min(5_000 * 2 ** (attempt - 1), 30_000);
+            window.clearTimeout(quotesRetryTimerRef.current);
+            quotesRetryTimerRef.current = window.setTimeout(() => {
+              if (document.hidden || !isWorkspaceRoomActive("book")) return;
+              void refreshMarkets(tickers, rows, undefined, opts);
+            }, delay);
+          }
+        }
       }
     },
     [applyFxPayload, refreshFx, hideOptionsUI]
@@ -1575,6 +1602,7 @@ export function Dashboard() {
     return () => {
       bookAbortRef.current?.abort();
       quotesAbortRef.current?.abort();
+      window.clearTimeout(quotesRetryTimerRef.current);
     };
   }, []);
 
@@ -2886,6 +2914,7 @@ export function Dashboard() {
               activeAlerts={activeAlerts}
               bandPoints={bookBandMap.points}
               marketState={marketState}
+              quotesUpdatedAt={quotesUpdatedAt}
               showCommunities={source === "supabase"}
               hideOptions={hideOptionsUI}
               onAddHolding={onOverviewAddHolding}

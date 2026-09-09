@@ -58,6 +58,7 @@ import {
 } from "@/lib/insight-look";
 import { alertDestination, type UpsideAlert } from "@/lib/alerts";
 import { sessionLabel, sessionKind } from "@/lib/market-session";
+import { isQuoteFreshForView } from "@/lib/market/session";
 import { sheetCashBalance } from "@/lib/cash-balance";
 import type { OverviewModel, SheetScore, TickerScore } from "@/lib/overview";
 import { recordWeekMark } from "@/lib/week-marks";
@@ -146,6 +147,13 @@ type Props = {
   onOpenResearch?: (ticker: string) => void;
   onOpenCompound?: () => void;
   marketState?: string | null;
+  /**
+   * When the prices behind `model.totals` were last confirmed live. A
+   * cached-quotes first paint can be many hours old (see `quote-cache.ts`);
+   * the hero must not present that figure with the same weight as a fresh
+   * one, since the swing between the two can be the whole unrealized gain.
+   */
+  quotesUpdatedAt?: number | null;
   guest?: boolean;
   /** Show Fund + Communities on home (signed-in My book). */
   showCommunities?: boolean;
@@ -363,6 +371,17 @@ function signedMovePct(pct: number): string {
   if (pct > 0) return `+${n}`;
   if (pct < 0) return `-${n}`;
   return n;
+}
+
+/** How to say the hero total is not live yet, in the reader's own words. */
+function staleAgeLabel(updatedAt: number | null): string {
+  if (updatedAt == null || !Number.isFinite(updatedAt)) return "updating";
+  const sec = Math.max(0, Math.round((Date.now() - updatedAt) / 1000));
+  if (sec < 60) return "updating";
+  const min = Math.round(sec / 60);
+  if (min < 60) return `as of ${min}m ago`;
+  const hr = Math.round(min / 60);
+  return `as of ${hr}h ago`;
 }
 
 /**
@@ -991,6 +1010,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   onOpenPulse,
   onOpenResearch,
   marketState = null,
+  quotesUpdatedAt = null,
   onAddHolding,
   onImportScreenshot,
   onImportCsv,
@@ -1029,6 +1049,27 @@ export const OverviewDashboard = memo(function OverviewDashboard({
     "today"
   );
   const kind = sessionKind(marketState);
+
+  /*
+   * The hero total can be painted from a `quote-cache.ts` snapshot that is
+   * hours (up to a week) old on a cold browser, corrected once the live
+   * fetch lands. That correction is usually fast, but while it is in
+   * flight the figure must not read as current: a swing from a stale
+   * cached gain to today's real one is the whole unrealized gain, not
+   * normal drift. Re-checked on an interval (not just at mount) so the
+   * flag clears itself the moment the live fetch actually lands, and so a
+   * paint that is fresh at mount but goes stale from waiting doesn't get
+   * stuck looking authoritative.
+   */
+  const [pricesStale, setPricesStale] = useState(
+    () => !isQuoteFreshForView(quotesUpdatedAt)
+  );
+  useEffect(() => {
+    const check = () => setPricesStale(!isQuoteFreshForView(quotesUpdatedAt));
+    check();
+    const id = window.setInterval(check, 5_000);
+    return () => window.clearInterval(id);
+  }, [quotesUpdatedAt]);
 
   const tickerKey = tickers.map((t) => t.ticker).join(",");
   const heldTickers = useMemo(
@@ -1483,15 +1524,32 @@ export const OverviewDashboard = memo(function OverviewDashboard({
               * step above the two cells under it is on the phone, where the
               * cells drop to `text-xl`.
               */}
-            <p className="min-w-0 break-words font-mono text-2xl font-bold leading-tight tracking-tight tabular-nums text-primary">
+            <p
+              className={cn(
+                "min-w-0 break-words font-mono text-2xl font-bold leading-tight tracking-tight tabular-nums",
+                pricesStale ? "text-muted-foreground" : "text-primary"
+              )}
+            >
               {currency(totals.totalValue, 0)}
             </p>
-            <DeltaBadge value={totals.todayDollar}>
-              {signedCurrency(totals.todayDollar, 0)}
-              {totals.todayPct != null ? ` · ${percent(totals.todayPct)}` : ""}
-            </DeltaBadge>
+            {pricesStale ? (
+              <Badge variant="outline" className="text-muted-foreground">
+                {staleAgeLabel(quotesUpdatedAt)}
+              </Badge>
+            ) : (
+              <DeltaBadge value={totals.todayDollar}>
+                {signedCurrency(totals.todayDollar, 0)}
+                {totals.todayPct != null
+                  ? ` · ${percent(totals.todayPct)}`
+                  : ""}
+              </DeltaBadge>
+            )}
             <span className="text-sm text-muted-foreground">
-              {morning.moveLabel === "Friday" ? "on Friday" : "today"}
+              {pricesStale
+                ? "updating"
+                : morning.moveLabel === "Friday"
+                  ? "on Friday"
+                  : "today"}
             </span>
           </div>
           {/*
