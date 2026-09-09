@@ -176,6 +176,14 @@ type Props = {
   onSheetMenu?: (x: number, y: number, id: string, name: string) => void;
   onSheetRename?: (id: string, name: string) => void;
   className?: string;
+  /**
+   * From `Dashboard.tsx`'s one shared `useDockAttentionCue()` call: the
+   * phone bar is always in the same DOM alongside this one (`hidden` by
+   * breakpoint, never by absence), so each checking for itself would let
+   * whichever mounts first in the tree consume the one-time nudge even
+   * when it is the hidden one. See `use-dock-attention-cue.ts`.
+   */
+  attentionCue?: boolean;
 };
 
 export function BookModeDock({
@@ -189,6 +197,7 @@ export function BookModeDock({
   onSheetMenu,
   onSheetRename,
   className,
+  attentionCue = false,
 }: Props) {
   const modes = MODES.filter((m) => {
     if (guest && m.id === LAB_TAB_ID) return false;
@@ -287,6 +296,7 @@ export function BookModeDock({
          * than an animation on the click.
          */
         "card-sheen glass glass-dock dock-breathe pointer-events-auto relative mx-auto grid w-fit max-w-full gap-1 rounded-full p-1 ring-1 ring-foreground/20",
+        attentionCue && "dock-attention",
         className
       )}
       style={{

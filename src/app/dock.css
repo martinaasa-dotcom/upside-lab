@@ -230,6 +230,60 @@
 }
 
 /*
+ * A NUDGE FOR SOMEBODY WHO HAS FORGOTTEN THE BAR IS THERE, NOT A DECORATION
+ * FOR SOMEBODY WHO ALREADY KNOWS.
+ *
+ * `useDockAttentionCue` (`src/lib/use-dock-attention-cue.ts`) adds this
+ * class for one short window, only on a dock's first mount after the
+ * reader has been away past `DOCK_CUE_IDLE_MS`. Two soft rings expanding
+ * out from the capsule's own edge and fading as they go, on a pseudo
+ * element so it never touches `.card-sheen.glass`'s own `box-shadow` or
+ * `.glass-dock::after`'s glass edge, both of which already own that
+ * property on the elements they sit on. `--primary` rather than a louder
+ * colour, because this is still the app's one quiet accent and not an
+ * alert: the whole point is to say "this is here", not "something is
+ * wrong".
+ */
+@layer components {
+  .dock-attention {
+    position: relative;
+  }
+
+  .dock-attention::before {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 55%, transparent);
+    animation: dock-attention-pulse 1.2s ease-out 2;
+  }
+
+  @keyframes dock-attention-pulse {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 55%, transparent);
+    }
+    70% {
+      box-shadow: 0 0 0 10px
+        color-mix(in oklch, var(--primary) 0%, transparent);
+    }
+    100% {
+      box-shadow: 0 0 0 10px
+        color-mix(in oklch, var(--primary) 0%, transparent);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock-attention::before {
+    animation: none;
+    /* Present, not pulsing, for the same ~2.4s the class is applied: a
+       state change the reader can see rather than a motion effect. */
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 40%, transparent);
+  }
+}
+
+/*
  * THE GLASS HAS THICKNESS, AND THE EDGE IS WHERE THAT READS.
  *
  * The dock had a blur, a fill and a hairline rim, which is frosted glass:

@@ -34,6 +34,8 @@ type Props = {
   /** Alerts waiting, drawn on Home exactly as the phone bar draws them. */
   alertCount?: number;
   className?: string;
+  /** Forwarded straight to `BookModeDock`. See its own note. */
+  attentionCue?: boolean;
 };
 
 type OpenMenu = {
@@ -68,6 +70,7 @@ export function PortfolioTabs({
   sheetTodayTone,
   alertCount = 0,
   className,
+  attentionCue = false,
 }: Props) {
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const pathname = usePathname();
@@ -136,6 +139,7 @@ export function PortfolioTabs({
           onAddSheet={!guest && !hideAdd ? onAdd : undefined}
           onSheetMenu={!guest ? openSheetMenu : undefined}
           onSheetRename={!guest ? onRenameRequest : undefined}
+          attentionCue={attentionCue}
         />
       </div>
 
