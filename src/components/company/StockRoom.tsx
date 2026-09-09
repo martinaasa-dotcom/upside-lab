@@ -34,7 +34,13 @@ import { readBookCache } from "@/lib/book-cache";
 import { loadCachedQuotes } from "@/lib/quote-cache";
 import { fairValueRead } from "@/lib/company/fair-value";
 import { fourQuestions } from "@/lib/company/four-questions";
-import { anchorForCompany } from "@/lib/company/ladder-anchor";
+import { anchorForCompany, anchorForHolding } from "@/lib/company/ladder-anchor";
+import { HOLDING_WINDOW_SAID } from "@/lib/company/holding-ladders";
+import {
+  loadEoyOverrides,
+  type EoyTickerOverrides,
+  type PortfolioEoyOverrides,
+} from "@/lib/forecast-overrides";
 import {
   buildPlanLadder,
   bandById,
@@ -65,7 +71,7 @@ import {
   type CompanyPage,
 } from "@/lib/company/client";
 import { isAbortError } from "@/lib/abort";
-import { FORECAST_YEARS } from "@/lib/forecast";
+import { FORECAST_YEARS, resolveTickerForecastPath } from "@/lib/forecast";
 import {
   NO_VALUE,
   cashtag,
@@ -131,6 +137,17 @@ type OwnBook = {
   cash: number;
   ready: boolean;
   hasBook: boolean;
+  /**
+   * The portfolios this reader holds the company in, so its price plan can
+   * read the same end-of-year overrides those portfolios use elsewhere.
+   */
+  portfolioIds: string[];
+  /**
+   * The closes this browser holds for the company, for the same "how far
+   * does it ordinarily travel" question `holdingLadders` asks everywhere
+   * else. About three months, not the feed's year.
+   */
+  mineCloses: number[] | null;
 };
 
 function useOwnBook(ticker: string): OwnBook {
@@ -142,6 +159,8 @@ function useOwnBook(ticker: string): OwnBook {
     cash: 0,
     ready: false,
     hasBook: false,
+    portfolioIds: [],
+    mineCloses: null,
   });
 
   useEffect(() => {
@@ -154,6 +173,8 @@ function useOwnBook(ticker: string): OwnBook {
         cash: 0,
         ready: true,
         hasBook: false,
+        portfolioIds: [],
+        mineCloses: null,
       });
       return;
     }
@@ -181,13 +202,18 @@ function useOwnBook(ticker: string): OwnBook {
       the reason `PositionFitCard` gives.
     */
     const mineUsd = quotes?.[ticker]?.price ?? null;
-    const mine: OwnedRow[] = cached.holdings
-      .filter((h) => h.ticker.toUpperCase() === ticker && h.shares > 0)
-      .map((h) => ({
-        shares: h.shares,
-        buyPrice: h.buy_price,
-        portfolio: names.get(h.portfolio_id) ?? "",
-      }));
+    const mineRows = cached.holdings.filter(
+      (h) => h.ticker.toUpperCase() === ticker && h.shares > 0
+    );
+    const mine: OwnedRow[] = mineRows.map((h) => ({
+      shares: h.shares,
+      buyPrice: h.buy_price,
+      portfolio: names.get(h.portfolio_id) ?? "",
+    }));
+    const portfolioIds = Array.from(
+      new Set(mineRows.map((h) => h.portfolio_id))
+    );
+    const sparkline = quotes?.[ticker]?.sparkline ?? null;
     setState({
       holdings,
       mine,
@@ -198,6 +224,8 @@ function useOwnBook(ticker: string): OwnBook {
       // still worth showing; a browser that has not read the portfolio is
       // not, and the two are only distinguishable here.
       hasBook: true,
+      portfolioIds,
+      mineCloses: sparkline,
     });
   }, [user?.id, ticker]);
 
@@ -399,14 +427,73 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
   const { ladders, setLadders } = usePlanLadders();
 
   /*
+    This reader's own end-of-year overrides for the company on screen,
+    merged across every portfolio it sits in. Read fresh per ticker rather
+    than kept in state, because these live in localStorage and nothing
+    else in this room needs to watch them change.
+  */
+  const ownEoyOverrides = useMemo((): PortfolioEoyOverrides | undefined => {
+    if (!ticker || book.portfolioIds.length === 0) return undefined;
+    let merged: EoyTickerOverrides = {};
+    for (const pid of book.portfolioIds) {
+      const row = loadEoyOverrides(pid)[ticker];
+      if (row) merged = { ...merged, ...row };
+    }
+    return Object.keys(merged).length > 0 ? { [ticker]: merged } : undefined;
+  }, [ticker, book.portfolioIds]);
+
+  /*
     The ladder, and every number on it, against the live price rather than
-    the page's. `anchorForCompany` chooses what it hangs off and says so;
-    with nothing to hang it off there is no ladder at all, because a
-    ladder centred on today's price would be this app saying today's price
-    is right.
+    the page's.
+
+    ONE HOLDING, ONE ANCHOR, WHATEVER ROOM IT IS DRAWN IN. A name this
+    reader owns is anchored the same way `holdingLadders` anchors it
+    everywhere else, `anchorForHolding`: their own end-of-year target
+    where they set one, the shared shaped path where they did not, and the
+    three-month window this browser's own closes cover. A name they do not
+    own falls back to `anchorForCompany`'s blended fair-value estimate,
+    which has no holding to be consistent with. Building this room's own
+    company-anchored ladder for an owned name would tell the reader two
+    different bands for the same price on two screens.
   */
   const ladder = useMemo(() => {
     if (!facts) return null;
+    const owns = book.mine.length > 0;
+    if (owns && live.price != null) {
+      const firstYear = FORECAST_YEARS[0];
+      const path =
+        firstYear != null
+          ? resolveTickerForecastPath(ticker, live.price, ownEoyOverrides)
+          : null;
+      const closes = (book.mineCloses ?? []).filter(
+        (n) => Number.isFinite(n) && n > 0
+      );
+      const high = closes.length > 1 ? Math.max(...closes) : null;
+      const low = closes.length > 1 ? Math.min(...closes) : null;
+      const holdingAnchor =
+        firstYear != null
+          ? anchorForHolding({
+              target: path?.eoyPrices[firstYear] ?? null,
+              targetIsYours: Boolean(path?.targetedYears[firstYear]),
+              rangeMid:
+                high !== null && low !== null ? (high + low) / 2 : null,
+              windowSaid: HOLDING_WINDOW_SAID,
+            })
+          : null;
+      if (holdingAnchor) {
+        return buildPlanLadder({
+          ticker,
+          anchor: holdingAnchor.price,
+          anchorKind: holdingAnchor.kind,
+          anchorSaid: holdingAnchor.said,
+          spot: live.price,
+          high,
+          low,
+          windowSaid: HOLDING_WINDOW_SAID,
+          override: ladders[ticker] ?? null,
+        });
+      }
+    }
     const anchor = anchorForCompany(facts, fair);
     if (!anchor) return null;
     return buildPlanLadder({
@@ -419,7 +506,16 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
       low: facts.fiftyTwoWeekLow,
       override: ladders[ticker] ?? null,
     });
-  }, [facts, fair, ticker, live.price, ladders]);
+  }, [
+    facts,
+    fair,
+    ticker,
+    live.price,
+    ladders,
+    book.mine.length,
+    book.mineCloses,
+    ownEoyOverrides,
+  ]);
 
   const questions = useMemo(() => {
     if (!facts || !fair) return [];
