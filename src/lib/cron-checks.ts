@@ -72,12 +72,19 @@ export const CRON_GRACE_SECONDS: Record<string, number> = {
   "empty-book-nudge": 2 * 60 * 60,
   splits: 2 * 60 * 60,
   /*
-    Every five minutes, market hours, so a genuinely down sweep is still
-    only found the same day: this warms a shared cache every reader's own
-    poll already refreshes on its own, so a missed run costs latency on
-    the next cold open rather than a wrong number ever being stated as
-    fact. Two hours stays the floor every other check uses rather than a
-    tighter number nobody has measured this route's own lateness against.
+    Was every five minutes through market hours. The Hobby plan refuses
+    to deploy any cron that fires more than once a day -- discovered the
+    hard way when this schedule quietly blocked every production deploy
+    behind it from #216 onward, since a project cannot build a
+    `vercel.json` its own plan will not accept. One run, timed for just
+    before the open, is what survives that ceiling: it still warms the
+    cache for the readers most likely to hit a cold one (the first
+    people opening the app for the day), it costs a fraction of the
+    compute the five-minute cadence did (which was also eating into the
+    account's own Fluid CPU allowance), and a missed run still only ever
+    costs latency on the next cold open rather than a wrong number ever
+    being stated as fact -- the same guarantee the old cadence made. Two
+    hours stays the floor every other check uses.
   */
   "quotes-warm": 2 * 60 * 60,
   /*
@@ -118,7 +125,7 @@ export const CRON_CHECK_DESC: Record<string, string> = {
   splits:
     "Applies share splits. Down means a split company is priced at a fraction of the truth on every screen.",
   "quotes-warm":
-    "Keeps the shared quote cache warm between visits. Down means a cold app open falls back to a slower live fetch, never a wrong number.",
+    "Warms the shared quote cache once before the open. Down means a cold app open falls back to a slower live fetch, never a wrong number.",
   "research-briefs":
     "Writes the public research pages. Down means those pages slowly lose their written half, since a page view is never allowed to write one.",
 };

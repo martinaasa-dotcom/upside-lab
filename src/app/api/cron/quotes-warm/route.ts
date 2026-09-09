@@ -10,9 +10,9 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /*
-  Vercel Cron, market hours. Keeps the shared quote store (memory +
-  `portfell_quote_cache`) warm for every ticker anybody actually holds,
-  whether or not anybody has the app open right now.
+  Vercel Cron, once a day just before the open. Keeps the shared quote
+  store (memory + `portfell_quote_cache`) warm for every ticker anybody
+  actually holds, whether or not anybody has the app open right now.
 
   Without this, a portfolio nobody has looked at all day has a store entry
   that is however old the last person's visit was -- fine most of the time,
@@ -23,6 +23,16 @@ export const maxDuration = 60;
   makes the warm path in `fetchQuotesWithFallbackUnshared` actually warm for
   a portfolio nobody in the household has opened recently, rather than only
   benefiting from whoever else's own poll happens to be running.
+
+  Was every five minutes through market hours. The Hobby plan refuses to
+  deploy any cron that fires more than once a day, which that schedule
+  quietly did from the
+  moment it merged -- every production deploy behind it failed at the
+  platform level, not the build, so nothing in CI caught it. One run
+  timed for the open is both what the plan allows and the single best
+  moment to spend it: it warms the cache for the readers most likely to
+  open a cold app right then, at a fraction of the compute the five-minute
+  cadence cost. See `CRON_GRACE_SECONDS["quotes-warm"]` in `cron-checks.ts`.
 
   `portfell_tickers_held` is the same RPC `applyDueSplits` uses for "every
   ticker somebody holds" -- one distinct list across every portfolio in the
