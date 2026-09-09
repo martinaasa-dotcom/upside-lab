@@ -1477,21 +1477,6 @@ export const OverviewDashboard = memo(function OverviewDashboard({
               {sessionLabel(marketState)}
             </Badge>
           )}
-          {/*
-            * One spelling of this button, everywhere, and it is `outline`
-            * on Home.
-            *
-            * A reader with eight holdings adds one a few times a year; what
-            * they do every day is read what happened and open Pulse. The
-            * page's one accent colour was being spent on the rarest task on
-            * the screen.
-            */}
-          {onAddHolding && (
-            <Button type="button" variant="outline" onClick={onAddHolding}>
-              <Plus data-icon="inline-start" />
-              Add holding
-            </Button>
-          )}
         </div>
       </div>
 
