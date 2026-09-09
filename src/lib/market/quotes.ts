@@ -12,6 +12,7 @@ import { yahooQuoteCandidates } from "@/lib/ticker";
 import type { Quote } from "@/lib/types";
 import { sanitizeQuote } from "@/lib/market/quote-sanitize";
 import { recallFx, recallQuotes, rememberFx, rememberQuotes } from "@/lib/market/quote-store";
+import { quoteViewMaxAgeMs } from "@/lib/market/session";
 import {
   markUnresolvable,
   partitionUnresolvable,
@@ -108,7 +109,7 @@ function fxLooksLive(fx: FxRates): boolean {
 
 export type QuotesResultWithSource = QuotesResult & {
   /** Which tier ultimately priced each ticker — surfaced for debugging/UI. */
-  sources: Record<string, "yahoo" | "twelvedata" | "finnhub" | "cache">;
+  sources: Record<string, "yahoo" | "twelvedata" | "finnhub" | "cache" | "warm">;
   /** Tickers no provider could price. Client should keep last known mark. */
   missing: string[];
   /**
@@ -207,9 +208,44 @@ async function fetchQuotesWithFallbackUnshared(
   // to learn what we already know. They still fall through to the cached
   // and missing paths below exactly as before.
   const { worthAsking, recentlyMissed } = partitionUnresolvable(unique);
+
+  /*
+    A name the shared background cache already answered inside the view
+    freshness window skips the live round trip entirely. `lastKnown` is
+    populated by `recallQuotes` from the same store the background warm
+    cron and every other reader's own poll write through to
+    (`rememberQuotes`), so on an actively-held ticker it is very often a
+    few seconds old, not stale.
+
+    This is the fix for the flash this app's own reader would feel: a
+    browser opened cold shows whatever it had cached locally (possibly
+    hours or days old) until the live fetch lands, and that fetch used to
+    always pay a full Yahoo round trip even when a fresher answer was
+    sitting in the shared store the whole time. Skipping straight to it
+    when it is fresh enough to put in front of someone (the same bar
+    `isQuoteFreshForView` judges an on-screen price by) turns that
+    correction from "however long Yahoo and a cold start take" into
+    whatever `recallQuotes` costs, typically well under the second the
+    reader would otherwise watch the wrong number sit on screen.
+
+    Anything the store cannot vouch for at that freshness is asked live
+    exactly as before -- this never widens what a reader can be shown,
+    it only skips asking again for what was already answered.
+  */
+  const viewMaxAge = quoteViewMaxAgeMs();
+  const warm: Record<string, Quote> = {};
+  const askLive = worthAsking.filter((ticker) => {
+    const known = lastKnown[ticker];
+    if (!known || typeof known.quotedAt !== "number") return true;
+    if (now - known.quotedAt >= viewMaxAge) return true;
+    warm[ticker] = { ...known, stale: false };
+    return false;
+  });
+
   let newlyUnresolvable: string[] = [];
-  const yahoo = await fetchQuotesYahoo(worthAsking);
+  const yahoo = await fetchQuotesYahoo(askLive);
   const quotes: Record<string, Quote> = {};
+  ingestLive(warm, lastKnown, quotes, sources, "warm");
   ingestLive(yahoo.quotes, lastKnown, quotes, sources, "yahoo");
   aliasResolvedQuotes(unique, quotes, sources);
 
@@ -246,9 +282,12 @@ async function fetchQuotesWithFallbackUnshared(
     markUnresolvable(newlyUnresolvable);
   }
 
+  // A quote served from the warm path above is already in the store under
+  // its own real `quotedAt` -- writing it back here under `now` would claim
+  // a fresher print than the one actually shown.
   const liveQuotes: Record<string, Quote> = {};
   for (const [ticker, q] of Object.entries(quotes)) {
-    if (!q.stale) liveQuotes[ticker] = q;
+    if (!q.stale && sources[ticker] !== "warm") liveQuotes[ticker] = q;
   }
   if (Object.keys(liveQuotes).length > 0) {
     rememberQuotes(liveQuotes, now);
@@ -268,10 +307,15 @@ async function fetchQuotesWithFallbackUnshared(
     if (cachedFx) fx = cachedFx.rates;
   }
 
+  // "warm" is a print inside the same view-freshness window a live Yahoo
+  // answer is judged by -- it just came from the shared background cache
+  // instead of a fresh round trip -- so it does not count as delayed on
+  // its own, the same way a "cache" print (which can be arbitrarily old)
+  // always does.
   const delayed =
     stillMissing.length > 0 ||
     Object.values(quotes).some((q) => q.stale) ||
-    Object.values(sources).some((s) => s !== "yahoo");
+    Object.values(sources).some((s) => s !== "yahoo" && s !== "warm");
 
   let updatedAt = now;
   for (const q of Object.values(quotes)) {

@@ -92,6 +92,7 @@ false alert nobody trusts afterwards, so it is checked rather than trusted.
    | `margus-fund`       | `0 11 * * 1-6`          | 2 h (the 23:30 weekday slot pings it too) |
    | `empty-book-nudge`  | `0 14 * * *`            | 2 h |
    | `splits`            | `0 15 * * 1-5`          | 2 h |
+   | `quotes-warm`       | `*/5 11-23 * * 1-5`     | 2 h |
    | `research-briefs`   | `0 6 * * *`             | 3 h (the 10:00, 16:00 and 21:00 slots ping it too) |
 
 ### Why every grace is two hours
