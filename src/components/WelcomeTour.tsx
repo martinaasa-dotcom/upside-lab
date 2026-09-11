@@ -298,7 +298,7 @@ export function WelcomeTour({
         */}
         <div
           ref={scrollRef}
-          className="scroll-host -mx-4 px-4 sm:-mx-6 sm:px-6 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
+          className="scroll-host modal-bleed flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
         >
           <div className="flex flex-col gap-2">
             <h2

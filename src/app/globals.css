@@ -1153,6 +1153,62 @@ p:not([class*="leading-"]):not([class*="font-mono"]):not([class*="tabular-nums"]
     gap: 2rem;
   }
 
+  /*
+   * A modal's inside pad, and the gutter for the split-header kind.
+   *
+   * Nine modal shells carried a flat `p-6` -- 24px on every side at every
+   * width. Measured on the rendered CashModal at 360px the sheet is 96% of
+   * the screen and its padding takes 48 of that, leaving **287px** to set a
+   * field in. That is the same arithmetic `PANEL_PAD` steps down to avoid
+   * and that `Reading`'s own flat `p-6` was already corrected for; the
+   * modals had simply been missed, and a modal is the surface where it
+   * costs most, because it is the one a reader types into.
+   *
+   * Same numbers as `.panel-pad`, so a dialog and a panel sit on one inside
+   * edge, which also steps the desktop vertical up from 24 to 28 and stops
+   * a modal being tighter than the panel behind it.
+   *
+   * The safe-area floor is inside the class rather than left to a
+   * `pb-[max(...)]` at each call site: below `sm` these are bottom sheets
+   * and the iPhone home indicator sits under them, and a utility bolted on
+   * per call site is exactly the half-override this layer exists to stop.
+   * At `sm` the shorthand resets it, which is right, since from there the
+   * dialog is centred and nothing is under it.
+   */
+  .modal-pad {
+    padding: 1.25rem 1rem;
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+  /*
+   * Sides only, and the same two numbers as every pad above.
+   *
+   * For a surface whose header, body and footer each own their own vertical
+   * rhythm and only need to share one left edge: a split modal, and a
+   * table panel's own header row, which is `Panel padded={false}` and so
+   * has to state its gutter itself. Both were a flat `px-6`, which is the
+   * phone fault again -- and on a table it is the worse one, since the
+   * header sat 24px in while the rows under it sit at 6.
+   */
+  .surface-gutter {
+    padding-inline: 1rem;
+  }
+  /*
+   * A scroller that breaks out of its modal's pad and re-pads itself, so
+   * its scrollbar sits at the sheet's own edge rather than floating inside
+   * the content.
+   *
+   * It has to mirror `.modal-pad` exactly, which is why it is a class: as
+   * `-mx-6 px-6` it was a hardcoded 24 that silently stopped matching the
+   * moment the pad around it stepped down to 16 on a phone, pulling the
+   * content 8px past the sheet's edge on each side. A test caught that the
+   * same hour it was introduced; a pair of numbers that must agree should
+   * not be typed twice.
+   */
+  .modal-bleed {
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+  }
+
   @media (width >= 40rem) {
     .panel-rhythm {
       gap: 2rem;
@@ -1165,6 +1221,16 @@ p:not([class*="leading-"]):not([class*="font-mono"]):not([class*="tabular-nums"]
     }
     .panel-stack {
       gap: 2.5rem;
+    }
+    .modal-pad {
+      padding: 1.75rem 1.5rem;
+    }
+    .surface-gutter {
+      padding-inline: 1.5rem;
+    }
+    .modal-bleed {
+      margin-inline: -1.5rem;
+      padding-inline: 1.5rem;
     }
   }
 }

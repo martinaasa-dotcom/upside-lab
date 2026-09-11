@@ -477,7 +477,7 @@ export const PortfolioTable = memo(function PortfolioTable({
       {onImportScreenshot ? (
         <input {...screenshotPickerInputProps(screenshot)} />
       ) : null}
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border px-6 py-6">
+      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border surface-gutter py-6">
         <div className="flex min-w-0 flex-col gap-1.5">
           <div className="flex items-center gap-3">
           <h2 className="font-semibold text-foreground">Holdings</h2>
@@ -605,7 +605,7 @@ export const PortfolioTable = memo(function PortfolioTable({
       </header>
 
       {unpriced.length > 0 && (
-        <div className="flex items-start gap-3 border-b border-border bg-warning/10 px-6 py-4">
+        <div className="flex items-start gap-3 border-b border-border bg-warning/10 surface-gutter py-4">
           <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
           <div className="min-w-0 text-sm">
             <p className="font-medium text-foreground">

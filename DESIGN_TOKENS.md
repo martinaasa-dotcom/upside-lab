@@ -921,6 +921,45 @@ slightly short settles the scrollbar, where one that is too long is the
 empty block over 200px that the deferral rule forbids, so growing the
 content moves them the safe way.
 
+### Modals share the surface scale; tables were measured and left alone
+
+`.modal-pad` is `.panel-pad`'s two numbers, `.surface-gutter` is those two
+sides-only, and `.modal-bleed` mirrors them for a scroller that breaks out
+of its sheet.
+
+Nine modal shells carried a flat `p-6`. Measured on the real `CashModal`
+rendered through `react-dom/server` at 360px, the sheet is 96% of the screen
+and its padding took 48 of that, leaving **287px** to set a field in — the
+arithmetic `PANEL_PAD` steps down to avoid, on the one surface a reader
+types into.
+
+| | before | after |
+| --- | --- | --- |
+| Modal pad, across (phone) | 24px | **16** |
+| Modal pad, down (phone) | 24px | **20** |
+| Modal pad, down (`sm`+) | 24px | **28** |
+| Content width at 360px | 287px | **303** |
+| Content width at 390px | 317px | **333** |
+
+The safe-area floor lives in `.modal-pad` rather than as a
+`pb-[max(1.5rem,env(safe-area-inset-bottom))]` on each shell, for the same
+half-override reason the rhythm is one class. `.modal-bleed` exists because
+`-mx-6 px-6` is the pad restated by hand: the moment the pad stepped to 16
+it pulled FeedbackModal's content 8px past the sheet edge on each side, and
+a test caught it the same hour.
+
+**The tables were measured and not loosened.** Rendered with twenty
+holdings at 360, 390, 430, 820 and 1440: the row is a flat **40px carrying a
+20px line box** — half the row is already air — the column gutter is 12px,
+and none of it moves with the width. That is tuned for what a holdings table
+is for, and spreading a scan table out makes it worse to scan. The header is
+separated by its own rule at twice a row's weight (`border-border` against
+`border-border/50`, compositing to about **41/255 against 20/255** on this
+field); that override was verified through `cn` rather than assumed, since a
+colour utility against a base carrying an alpha is exactly the shape that
+silently loses. The only table change is the header row's gutter, which was
+a flat `px-6` sitting 24px in while its own rows sit at 6.
+
 ### The rhythm is one class per role, not a responsive pair
 
 `.panel-rhythm`, `.panel-pad`, `.nested-pad` and `.panel-stack` live in

@@ -70,7 +70,7 @@ export function ClassroomRoster({
 
   return (
     <section className="overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
-      <div className="border-b border-border px-6 py-6">
+      <div className="border-b border-border surface-gutter py-6">
         <h2 className="font-semibold text-foreground">Roster</h2>
         <p className="mt-1.5 text-sm text-muted-foreground">
           Everyone started with the same cash. This is ranked by how far each
@@ -275,7 +275,7 @@ export function ClassroomRoster({
         </table>
       </div>
       {notStarted.length > 0 ? (
-        <p className="border-t border-border px-6 py-4 text-sm leading-relaxed text-muted-foreground">
+        <p className="border-t border-border surface-gutter py-4 text-sm leading-relaxed text-muted-foreground">
           {notStarted.length === 1
             ? `${notStarted[0]!.name} has not started yet.`
             : `Not started yet: ${notStarted.map((m) => m.name).join(", ")}.`}

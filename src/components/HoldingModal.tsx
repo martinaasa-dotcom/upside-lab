@@ -365,7 +365,7 @@ export function HoldingModal({
           e.preventDefault();
           void submit();
         }}
-        className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-xl sm:pb-6"
+        className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 modal-pad sm:max-w-md sm:rounded-xl"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>

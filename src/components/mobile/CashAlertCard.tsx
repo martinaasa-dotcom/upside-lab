@@ -148,7 +148,7 @@ function MarginSheet({
       />
       <div
         className={cn(
-          "scroll-host glass-overlay relative max-h-full w-full max-w-md overflow-y-auto rounded-t-xl p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] ring-1 sm:rounded-xl sm:pb-6",
+          "scroll-host glass-overlay relative max-h-full w-full max-w-md overflow-y-auto rounded-t-xl modal-pad ring-1 sm:rounded-xl",
           TONE_RING[tone]
         )}
       >

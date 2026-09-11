@@ -116,8 +116,21 @@ describe("scroll hosts keep the bar off the fields", () => {
   });
 
   it("parks the walkthrough track in the card pad, so fields line up with the progress", () => {
+    /*
+      The rule, not the class string it used to be written as. The bleed was
+      `-mx-4 px-4 sm:-mx-6 sm:px-6`, which is the card's own pad restated by
+      hand -- correct, and correct only for as long as nobody moved the pad.
+      They are one class now (`.modal-bleed`, globals.css), so the scroller
+      cannot stop matching the surface it sits in; FeedbackModal's copy of
+      the same idiom had already drifted to a flat `-mx-6 px-6` and pulled
+      its content 8px past the sheet edge on a phone.
+    */
     const tour = readFileSync("src/components/WelcomeTour.tsx", "utf8");
-    expect(tour).toMatch(/scroll-host -mx-4 px-4 sm:-mx-6 sm:px-6/);
+    expect(tour).toMatch(/scroll-host modal-bleed/);
+    const css = readFileSync("src/app/globals.css", "utf8");
+    const bleed = css.slice(css.indexOf(".modal-bleed {"));
+    expect(bleed).toMatch(/margin-inline: -1rem/);
+    expect(bleed).toMatch(/padding-inline: 1rem/);
   });
 
   for (const path of HOSTS) {

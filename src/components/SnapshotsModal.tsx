@@ -179,7 +179,7 @@ export function SnapshotsModal({
         onClick={onClose}
       />
       <div className="relative z-10 flex max-h-[min(100%,560px)] w-full max-w-md flex-col overflow-hidden rounded-xl bg-popover ring-1 ring-foreground/20 shadow-sm">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border surface-gutter py-4">
           <div className="flex items-center gap-2">
             <History className="h-4 w-4 text-primary" />
             <h2 className="font-semibold text-foreground">Saved copies</h2>

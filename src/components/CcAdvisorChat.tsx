@@ -1311,7 +1311,7 @@ export function CcAdvisorChat({
 
           <div
             ref={scrollerRef}
-            className="scroll-host flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-5"
+            className="scroll-host flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto surface-gutter py-5"
           >
             {messages.length === 0 && (
               <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted p-4">
@@ -1517,7 +1517,7 @@ export function CcAdvisorChat({
 
           <form
             onSubmit={onSubmit}
-            className="flex shrink-0 flex-col gap-2 border-t border-border px-6 py-4"
+            className="flex shrink-0 flex-col gap-2 border-t border-border surface-gutter py-4"
           >
             {pendingImages.length > 0 && (
               <div className="flex flex-wrap gap-2">

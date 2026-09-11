@@ -136,3 +136,120 @@ describe("prose leading reaches sentences and leaves figures alone", () => {
     expect(CSS).toMatch(/line-height: 1\.625;/);
   });
 });
+
+/*
+  Modals and tables, measured the same way and with the same rule.
+
+  Nine modal shells carried a flat `p-6` -- 24px on every side at every
+  width. Measured on the real CashModal rendered through react-dom/server at
+  360px, the sheet is 96% of the screen and its own padding took 48 of that,
+  leaving **287px** to set a field in. That is the arithmetic `PANEL_PAD`
+  steps down to avoid and that `Reading`'s own flat `p-6` was already
+  corrected for; the modals had simply been missed, and a modal is where it
+  costs most, because it is the surface a reader types into. After:
+  **303px at 360 and 333 at 390**, with the desktop vertical stepping 24 to
+  28 so a dialog is no longer tighter than the panel behind it.
+
+  The tables were measured and deliberately left alone -- see the table
+  block below for what the numbers said.
+*/
+
+const MODAL_SHELLS = [
+  "src/components/CashModal.tsx",
+  "src/components/HoldingModal.tsx",
+  "src/components/InvitePartnerModal.tsx",
+  "src/components/YtdAnchorModal.tsx",
+  "src/components/FeedbackModal.tsx",
+  "src/components/CsvImportModal.tsx",
+  "src/components/CostBasisModal.tsx",
+  "src/components/SnapshotsModal.tsx",
+];
+
+describe("a modal's pad steps down on a phone, like every other surface", () => {
+  const CSS = readFileSync("src/app/globals.css", "utf8");
+
+  it("defines .modal-pad and .surface-gutter narrower on a phone", () => {
+    const layer = CSS.slice(CSS.indexOf("@layer components {"));
+    const split = layer.indexOf("@media (width >= 40rem)");
+    const phone = layer.slice(0, split);
+    const wide = layer.slice(split);
+    const sideOf = (block: string, name: string, prop: string) => {
+      const at = block.indexOf(`.${name} {`);
+      expect(at, `.${name} is defined`).toBeGreaterThanOrEqual(0);
+      const rule = block.slice(at, at + 200);
+      const m = rule.match(new RegExp(`${prop}:[^;]*?([\\d.]+)rem\\s*(?:([\\d.]+)rem)?`));
+      return m ? Number(m[2] ?? m[1]) : null;
+    };
+    // `padding: <y> <x>` -- the side is the second value.
+    expect(sideOf(phone, "modal-pad", "padding")).toBeLessThan(
+      sideOf(wide, "modal-pad", "padding")!
+    );
+    expect(sideOf(phone, "surface-gutter", "padding-inline")).toBeLessThan(
+      sideOf(wide, "surface-gutter", "padding-inline")!
+    );
+  });
+
+  it("carries the safe-area floor itself, not at each call site", () => {
+    // Below `sm` these are bottom sheets and the home indicator sits under
+    // them. A `pb-[max(...)]` bolted on per call site is the half-override
+    // this layer exists to stop.
+    expect(CSS).toMatch(/\.modal-pad\s*\{[^}]*padding-bottom:\s*max\([^)]*safe-area-inset-bottom/);
+  });
+
+  for (const shell of MODAL_SHELLS) {
+    it(`${shell} states no flat pad of its own`, () => {
+      const src = readFileSync(shell, "utf8");
+      // A modal shell is the element carrying the sheet's own rounding.
+      const shellLines = src
+        .split("\n")
+        .filter((l) => /rounded-t-xl|scroll-host/.test(l));
+      for (const line of shellLines) {
+        expect(line, `${shell}: use modal-pad / surface-gutter`).not.toMatch(
+          /\bp-6\b|\bpx-6\b/
+        );
+      }
+    });
+  }
+});
+
+describe("a table row keeps its fixed height, and cells add nothing to it", () => {
+  /*
+    Measured on the real FluidTable rendered with twenty holdings at 360,
+    390, 430, 820 and 1440: the row is a flat **40px** carrying a 20px line
+    box, so half the row is air, the column gutter is 12px, and none of it
+    moves with the width. That is already tuned, and it is tuned for the
+    thing a holdings table is for -- comparing twenty names down a column --
+    so nothing here was loosened: spreading a scan table out makes it worse
+    to scan, and AGENTS.md says so. The header is separated by its own rule
+    at twice the weight of a row's (border-border against border-border/50,
+    which composites to about 41/255 against 20/255 on this field), and that
+    override was checked through `cn` rather than assumed.
+
+    What this guards is the rule AGENTS.md states and nothing enforced: the
+    height lives on the row, and a cell may not add to it. A `min-h` or a
+    taller `py` on a cell inside an `items-center` grid row either does
+    nothing or breaks the one thing that makes the table scannable, which is
+    that every row is the same height.
+  */
+  const FLUID = readFileSync("src/components/FluidTable.tsx", "utf8");
+
+  it("sets the height on the row", () => {
+    const row = FLUID.slice(FLUID.indexOf("export function FluidRow"));
+    expect(row).toMatch(/\bh-10\b/);
+  });
+
+  it("adds no min-height anywhere in the table primitives", () => {
+    expect(FLUID).not.toMatch(/\bmin-h-/);
+  });
+
+  it("keeps every cell's vertical padding inside the row's own height", () => {
+    // py-1.5 twice (6+6) plus a 20px line is 32, inside the 40px row.
+    for (const name of ["cellBase", "cellTicker", "htmlCell"]) {
+      const at = FLUID.indexOf(`const ${name} =`);
+      expect(at, `${name} exists`).toBeGreaterThanOrEqual(0);
+      const value = FLUID.slice(at, at + 400);
+      const py = value.match(/\bpy-([\d.]+)/)?.[1];
+      expect(Number(py ?? 0), `${name} keeps a small py`).toBeLessThanOrEqual(2);
+    }
+  });
+});
