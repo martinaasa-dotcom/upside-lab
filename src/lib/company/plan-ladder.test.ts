@@ -253,27 +253,34 @@ describe("a moment on the ladder is this holding's own, not the same sentence wi
     expect(b).toContain("level you set");
   });
 
-  it("only mentions the gain or loss on the band it is relevant to", () => {
-    const trim = ladderMomentRow({
+  it("carries the gain or loss on any actionable band, not just trimming", () => {
+    const moment = (bandId: LadderBandId) => ({
       ticker: "X",
       spot: 100,
-      bandId: "trim-most",
+      bandId,
+      bandLabel: bandId,
+      edge: bandId === "trim-most" ? 90 : 110,
+      edited: false,
+      roiPct: -0.15,
+    });
+    expect(ladderMomentDetail(moment("trim-most"))).toContain("below what you paid");
+    expect(ladderMomentDetail(moment("full"))).toContain("below what you paid");
+    expect(ladderMomentDetail(moment("full-aggressive"))).toContain("below what you paid");
+    expect(ladderMomentDetail(moment("exit"))).toContain("below what you paid");
+  });
+
+  it("keeps the panel row short: no gain or loss there, only in the alert", () => {
+    const moment = {
+      ticker: "X",
+      spot: 100,
+      bandId: "trim-most" as const,
       bandLabel: "Trim 60%+",
       edge: 90,
       edited: false,
       roiPct: 0.4,
-    });
-    const full = ladderMomentRow({
-      ticker: "X",
-      spot: 100,
-      bandId: "full",
-      bandLabel: "Full position",
-      edge: 110,
-      edited: false,
-      roiPct: 0.4,
-    });
-    expect(trim).toContain("above what you paid");
-    expect(full).not.toContain("what you paid");
+    };
+    expect(ladderMomentDetail(moment)).toContain("what you paid");
+    expect(ladderMomentRow(moment)).not.toContain("what you paid");
   });
 });
 

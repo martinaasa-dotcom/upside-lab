@@ -23,7 +23,7 @@ import { Map as MapIcon } from "lucide-react";
  *
  * A band is a multiple of that name's own anchor, so the ladder is a
  * unit every company shares even though their prices are not: two names
- * in the same band are in the same place in their own plans whether one
+ * in the same band are in the same place in their own ladders whether one
  * trades at $2 and the other at $2,000.
  *
  * **Two drawings, not one, and the phone gets the better of them.** A
@@ -131,7 +131,7 @@ function useViewportWidth(): number {
  * Colour says what the reader has made or lost on the holding, which is
  * what these two mean everywhere else in this app.
  *
- * Deliberately NOT spent on where the price sits against its plan, which
+ * Deliberately NOT spent on where the price sits against its ladder, which
  * was the first version: that is the height, and attaching a second
  * meaning to a fixed pair is how a holding in profit ends up drawn in
  * the colour of a loss. The two questions are independent and the
@@ -162,7 +162,7 @@ function Chip({
         </span>
       )}
       <span className="sr-only">
-        , {currency(point.spot, 2, code)}, in the band your plan calls{" "}
+        , {currency(point.spot, 2, code)}, in the band your ladder calls{" "}
         {point.bandLabel}
       </span>
     </>
@@ -270,11 +270,11 @@ function Plot({
             key={p.ticker}
             href={companyHref(p.ticker)}
             data-band-chip=""
-            title={`${cashtag(p.ticker)}: ${currency(p.spot, 2, code)}, ${percent(p.share, 1)} of this portfolio, in the band your plan calls "${p.bandLabel}"`}
+            title={`${cashtag(p.ticker)}: ${currency(p.spot, 2, code)}, ${percent(p.share, 1)} of this portfolio, in the band your ladder calls "${p.bandLabel}"`}
             className={cn(
               "absolute z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border font-mono tabular-nums transition hover:z-20 hover:brightness-125",
               toneOf(p),
-              // The ones at an end of their own plan carry the accent
+              // The ones at an end of their own ladder carry the accent
               // ring on top of their own colour, so the two readings do
               // not compete for the same property.
               p.actionable && "ring-1 ring-primary/70"
@@ -364,7 +364,7 @@ function Strip({ map, code, scale }: { map: Map; code: string; scale: number }) 
                     <Link
                       key={p.ticker}
                       href={companyHref(p.ticker)}
-                      title={`${cashtag(p.ticker)}: ${currency(p.spot, 2, code)}, ${percent(p.share, 1)} of this portfolio, in the band your plan calls "${p.bandLabel}"`}
+                      title={`${cashtag(p.ticker)}: ${currency(p.spot, 2, code)}, ${percent(p.share, 1)} of this portfolio, in the band your ladder calls "${p.bandLabel}"`}
                       className={cn(
                         "flex min-w-[4.5rem] flex-col gap-1 rounded-xl border px-3 py-2 outline-none transition active:brightness-110 focus-visible:ring-1 focus-visible:ring-ring/50",
                         toneOf(p),
@@ -434,7 +434,7 @@ function Strip({ map, code, scale }: { map: Map; code: string; scale: number }) 
                         </span>
                       )}
                       <span className="sr-only">
-                        , in the band your plan calls {p.bandLabel}
+                        , in the band your ladder calls {p.bandLabel}
                       </span>
                     </Link>
                   );
@@ -452,7 +452,7 @@ export function BandMap({
   rows,
   code = "USD",
   at,
-  title = "Where your holdings sit on their own plans",
+  title = "Where your holdings sit on their own ladders",
 }: {
   rows: Array<{
     ticker: string;
@@ -584,14 +584,14 @@ export function BandMap({
 
       {map.missing.length > 0 && (
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Not on this: {map.missing.map((t) => cashtag(t)).join(", ")}. A plan
+          Not on this: {map.missing.map((t) => cashtag(t)).join(", ")}. A ladder
           needs a price and something to anchor on, and one of those is
           missing for {map.missing.length === 1 ? "that one" : "those"}.
         </p>
       )}
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        {"Height is that name's own plan, not a score, and the two are only comparable because every band is a multiple of that company's own anchor. Tap a name to open its plan and change any level. "}
+        {"Height is that name's own ladder, not a score, and the two are only comparable because every band is a multiple of that company's own anchor. Tap a name to open its ladder and change any level. "}
         {ADVICE_DISCLAIMER_SHORT}
       </p>
     </Panel>

@@ -1008,12 +1008,12 @@ export function planLadderProvenance(input: {
     ],
     blindSpots: [
       NOT_YOUR_BROKER,
-      "Whether any of this is a sensible plan for you. The bands are a shape, not a judgement about your money, your timescale or what else you own.",
+      "Whether any of this is a sensible ladder for you. The bands are a shape, not a judgement about your money, your timescale or what else you own.",
       "Anything that happens between two prices: a level can be passed and come back before you ever look.",
       "The anchor's own assumptions. Every method behind it rests on one, and they are listed in the panel below.",
     ],
     at: input.at,
-    yours: "Change any level and the ladder redraws around it. The levels are the plan; this app only does the multiplication.",
+    yours: "Change any level and the ladder redraws around it. The levels are yours; this app only does the multiplication.",
   };
 }
 
@@ -1048,7 +1048,7 @@ export function bandMapProvenance(input: {
       },
     ],
     steps: [
-      "Each name's plan is built first, exactly as its own page builds it. Nothing about the plan changes because it is on a map.",
+      "Each name's ladder is built first, exactly as its own page builds it. Nothing about the ladder changes because it is on a map.",
       "Height is which band the price is in, plus how far through that band it has got. Every band is a multiple of that company's own anchor, which is what lets a $2 company and a $2,000 one be compared at all.",
       "Across is that holding's share of this portfolio, ending at the largest one rather than at a hundred per cent, or every name would be drawn in the first tenth of the picture.",
       "Where two names would touch, one moves down a row inside its own band. Nothing is ever moved sideways, because sideways is a real figure.",
@@ -1056,11 +1056,11 @@ export function bandMapProvenance(input: {
     blindSpots: [
       NOT_YOUR_BROKER,
       "Anything about the companies themselves. Two names next to each other on this picture have nothing else in common.",
-      "Whether the plan behind any of it is a sensible one for you. The picture inherits every assumption of each name's own anchor.",
+      "Whether the ladder behind any of it is a sensible one for you. The picture inherits every assumption of each name's own anchor.",
       NOT_A_TARGET,
     ],
     at: input.at,
-    yours: "Open a name to see the plan behind its position, and change any level you disagree with.",
+    yours: "Open a name to see the ladder behind its position, and change any level you disagree with.",
   };
 }
 

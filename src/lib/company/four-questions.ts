@@ -230,7 +230,7 @@ function qualityAnswer(f: CompanyFacts, read: FairValueRead): FourQuestionAnswer
  * The written half of the room already carries a case against, and it is
  * the model's, so it is named as the model's here rather than folded in
  * as though the app worked it out. What is not the model's is the results
- * date and the level the reader's own plan calls the floor, and both are
+ * date and the level the reader's own ladder calls the floor, and both are
  * checkable, which is why they lead.
  */
 function changeMyMindAnswer(input: {
@@ -245,7 +245,7 @@ function changeMyMindAnswer(input: {
   const base = {
     id: "change-my-mind" as const,
     question: QUESTIONS["change-my-mind"],
-    figureLabel: "The level your plan calls the floor",
+    figureLabel: "The level your ladder calls the floor",
     maker: againstPoint ? ("model" as const) : ("arithmetic" as const),
   };
   const parts: string[] = [];
@@ -253,8 +253,8 @@ function changeMyMindAnswer(input: {
     const fall = (facts.price - exitLevel) / facts.price;
     parts.push(
       input.exitFromYear
-        ? `A price of ${currency(exitLevel, 2)} is the lowest this share has traded in a year, ${percent(fall, 0)} under today, and it is the floor of your own plan. Under it the price is below anything the market has paid for this company in twelve months, which is the plainest thing on this page that could tell you the argument above has stopped holding.`
-        : `A price of ${currency(exitLevel, 2)} is where the estimates below stop describing this company, which is ${percent(fall, 0)} under today. That is the level your own plan calls the floor, and it is yours to move.`
+        ? `A price of ${currency(exitLevel, 2)} is the lowest this share has traded in a year, ${percent(fall, 0)} under today, and it is the floor of your own ladder. Under it the price is below anything the market has paid for this company in twelve months, which is the plainest thing on this page that could tell you the argument above has stopped holding.`
+        : `A price of ${currency(exitLevel, 2)} is where the estimates below stop describing this company, which is ${percent(fall, 0)} under today. That is the level your own ladder calls the floor, and it is yours to move.`
     );
   }
   if (input.nextEarnings) {

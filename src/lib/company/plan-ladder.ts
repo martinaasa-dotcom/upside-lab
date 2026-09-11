@@ -10,7 +10,7 @@
  * ordinarily travels. The bands are those two multiplied together. The
  * app's whole claim is "here is that arithmetic"; which band means what,
  * and whether to act on any of it, is the reader's, which is why every
- * edge is editable and why the labels are the reader's plan rather than
+ * edge is editable and why the labels are the reader's ladder rather than
  * this app's opinion. `ADVICE_DISCLAIMER_SHORT` is the legal line and it
  * is said once, on the panel.
  *
@@ -29,10 +29,10 @@ import { cashtag, currency, percent } from "@/lib/format";
  *
  * The ids are stable and are what a saved edit, a dismissal and an alert
  * are keyed on, so they never change with the wording. The labels are the
- * plan's own words: they say what this reader decided to do at that
+ * ladder's own words: they say what this reader decided to do at that
  * price, which is why they are imperative and why that is not this app
  * instructing anybody. Read them as the sentence they complete: "at this
- * price, my plan says ...".
+ * price, my ladder says ...".
  */
 export type LadderBandId =
   | "trim-most"
@@ -45,7 +45,7 @@ export type LadderBandId =
 
 export type LadderBand = {
   id: LadderBandId;
-  /** The plan's own words for this band. */
+  /** The ladder's own words for this band. */
   label: string;
   /** Bottom of the band, or null for the open band at the bottom. */
   from: number | null;
@@ -518,7 +518,7 @@ export function positionInBand(band: LadderBand, price: number): number {
 }
 
 /**
- * The bands where the plan says something decisive, and the only ones
+ * The bands where the ladder says something decisive, and the only ones
  * anything is allowed to raise its voice about.
  *
  * The middle of a ladder is where a price ordinarily sits: an alert that
@@ -549,7 +549,7 @@ export function bandById(
  * Where the price sits, as a fact rather than as a verdict.
  *
  * Deliberately never "cheap", never "time to buy", and never an
- * instruction of any kind: it names the band the reader's own plan puts
+ * instruction of any kind: it names the band the reader's own ladder puts
  * this price in, and the distance to the nearest edge, which is checkable
  * against the table directly underneath it.
  */
@@ -602,10 +602,9 @@ export function nearestEdge(
  * already sitting on the page: which edge was crossed and which way,
  * whether the level is the reader's own or the ladder's arithmetic, how
  * far past it the price has gone, how much of the portfolio it is, and
- * (for the band where it bears on the decision) whether the position is
- * up or down against what was paid. This is the one place those get
- * turned into words, so the alert and the panel row read them the same
- * way and never drift into two syntaxes for one fact.
+ * whether the position is up or down against what was paid. This is the
+ * one place those get turned into words, so the alert and the panel row
+ * read them the same way and never drift into two syntaxes for one fact.
  */
 export type LadderMoment = {
   ticker: string;
@@ -636,15 +635,18 @@ function shareClause(share: number | null | undefined): string {
 }
 
 /**
- * Said only for the band where it bears on the decision that band names.
- * Trimming is about locking in a gain, so the gain is the fact worth
- * carrying; an accumulation band or the floor is about the price against
- * the ladder, not against what was paid, and stapling a gain or loss onto
- * every band regardless is the same filler the share clause guards
- * against.
+ * Whether this holding is up or down against what was paid, said once it
+ * is known. A trim band reaching this line means the gain being locked
+ * in; an accumulation band or the floor reaching it means whether adding
+ * here would be adding to a position already under water, which is at
+ * least as much a fact worth having as the gain is. Printed only in the
+ * alert's own sentence, not in the panel row: the row already carries
+ * the price, the level and the share, and a fourth figure in a two-line
+ * card is the point where more facts stop reading as context and start
+ * reading as noise.
  */
-function roiClause(bandId: LadderBandId, roiPct: number | null | undefined): string {
-  if (bandId !== "trim-most" || roiPct == null || !Number.isFinite(roiPct)) return "";
+function roiClause(roiPct: number | null | undefined): string {
+  if (roiPct == null || !Number.isFinite(roiPct)) return "";
   const said = `${percent(Math.abs(roiPct), 0)} ${roiPct >= 0 ? "above" : "below"} what you paid for it`;
   return ` That is ${said}.`;
 }
@@ -698,7 +700,7 @@ export function ladderMomentDetail(m: LadderMoment, code: string = "USD"): strin
   const changed = changedNote(m.edited);
   const pct = gapPct(m.spot, m.edge);
   const share = shareClause(m.share);
-  const roi = roiClause(m.bandId, m.roiPct);
+  const roi = roiClause(m.roiPct);
 
   switch (m.bandId) {
     case "trim-most": {
@@ -712,7 +714,7 @@ export function ladderMomentDetail(m: LadderMoment, code: string = "USD"): strin
     }
     case "exit": {
       const gap = pct ? ` That is ${pct} under ${level}${changed}.` : "";
-      return `At ${spot} it has fallen under the floor of its ladder.${gap} Below that level the estimates this ladder was built from stop describing the company you bought.${share}`;
+      return `At ${spot} it has fallen under the floor of its ladder.${gap} Below that level the estimates this ladder was built from stop describing the company you bought.${roi}${share}`;
     }
     default:
       return `At ${spot} it is in the "${m.bandLabel}" band of ${level}${changed}.${share}`;
@@ -721,7 +723,11 @@ export function ladderMomentDetail(m: LadderMoment, code: string = "USD"): strin
 
 /**
  * The panel row's own line: the same facts as `ladderMomentDetail`, said
- * shorter because the band's own words are already printed above the row.
+ * shorter because the band's own words are already printed above the row,
+ * and without the gain or loss, which stays in the alert's own longer
+ * sentence: a two-line card row already carries the price, the level and
+ * the share, and a fourth figure is where more facts stop reading as
+ * context and start reading as clutter.
  */
 export function ladderMomentRow(m: LadderMoment, code: string = "USD"): string {
   const spot = currency(m.spot, 2, code);
@@ -729,14 +735,13 @@ export function ladderMomentRow(m: LadderMoment, code: string = "USD"): string {
   const changed = changedNote(m.edited);
   const pct = gapPct(m.spot, m.edge);
   const share = shareClause(m.share);
-  const roi = roiClause(m.bandId, m.roiPct);
 
   switch (m.bandId) {
     case "trim-most":
-      return `${spot} today, ${pct ? `${pct} above` : "above"} ${level}${changed}.${roi}${share}`;
+      return `${spot} today, ${pct ? `${pct} above` : "above"} ${level}${changed}.${share}`;
     case "full":
     case "full-aggressive":
-      return `${spot} today, ${pct ? `${pct} below` : "at"} ${level}${changed}.${roi}${share}`;
+      return `${spot} today, ${pct ? `${pct} below` : "at"} ${level}${changed}.${share}`;
     case "exit":
       return `${spot} today, ${pct ? `${pct} under` : "under"} ${level}${changed}.${share}`;
     default:

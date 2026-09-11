@@ -240,7 +240,7 @@ function useOwnBook(ticker: string): OwnBook {
  * company, the headlines, and a written brief, and it is refetched on the
  * pull and when the room is shown. The price is not, and the price is the
  * one number on this page that means something different every minute,
- * because it is what decides which band of the reader's own plan they are
+ * because it is what decides which band of the reader's own ladder they are
  * looking at. So it polls on the same curve the rest of the app does
  * (`quotePollMs`: tight at the bell, slack overnight), and the page's own
  * figure stands until the first live one lands.
@@ -320,9 +320,9 @@ function useLivePrice(
 /**
  * The reader's own price ladders, read from the account and mirrored here.
  *
- * The local copy is shown first so a plan is on screen before the round
- * trip lands, and the account's copy wins when it arrives, because a plan
- * belongs to a person rather than to a browser.
+ * The local copy is shown first so a ladder is on screen before the round
+ * trip lands, and the account's copy wins when it arrives, because a
+ * ladder belongs to a person rather than to a browser.
  */
 function usePlanLadders(): {
   ladders: LadderOverrides;
@@ -421,7 +421,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
   /*
     The live price, and the room's own reason to refetch. The page carries
     a price from the moment it was built; this one is minutes old at
-    worst, and it is what decides which band of the plan the reader is in.
+    worst, and it is what decides which band of the ladder the reader is in.
   */
   const live = useLivePrice(ticker, facts?.price ?? null, () => void load());
   const { ladders, setLadders } = usePlanLadders();
@@ -763,7 +763,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
               {ownedPanel}
 
               {/*
-                The plan comes first, under the summary of what the
+                The ladder comes first, under the summary of what the
                 company is, because a reader arriving at a company page is
                 deciding what to do about a price and everything below is
                 the working behind that. It is theirs and it says so; the

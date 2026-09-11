@@ -24,7 +24,7 @@ import { ListOrdered, Pencil, RotateCcw } from "lucide-react";
  * This is the surface in the whole app that most looks like advice, and it
  * is not, so the design carries that distinction rather than a sentence
  * carrying it. Three things do the work. **The panel is the reader's**,
- * headed as their plan and not as anything this app thinks, with every
+ * headed as their ladder and not as anything this app thinks, with every
  * level editable in place and a reset beside it. **The arithmetic is on
  * the page**, so the provenance mark opens the two numbers the whole
  * ladder is multiplied from and there is nothing behind it but a
@@ -93,7 +93,7 @@ function BandRow({
   /*
     What they paid, on its own band and only there. Second most useful
     mark on the table for somebody who already owns the company, and
-    deliberately the quieter of the two: the plan is about where the
+    deliberately the quieter of the two: the ladder is about where the
     price is now, and what they paid is context for that.
   */
   const paidHere =

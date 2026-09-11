@@ -56,7 +56,7 @@ export function useLabSync() {
             /*
               The price ladders, and the same rule the watchlist follows: the
               server wins unless it has nothing, because a browser that has
-              been offline holds a stale copy and a plan is per person
+              been offline holds a stale copy and a ladder is per person
               rather than per device.
             */
             ladders:

@@ -66,7 +66,7 @@ export const KIND_GLYPH: Record<AlertKind, typeof Landmark> = {
  * here there is nothing further to open, and a button that leads to a form
  * should say it leads to a form.
  *
- * A price-plan card says Research rather than the bare ticker, because
+ * A price-ladder card says Research rather than the bare ticker, because
  * that is where the level it is repeating can be changed.
  */
 export function alertOpenLabel(alert: UpsideAlert): string {

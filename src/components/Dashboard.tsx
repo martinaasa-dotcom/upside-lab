@@ -2989,7 +2989,7 @@ export function Dashboard() {
                   overrides: eoyOverrides,
                   ladders: labLadders,
                 })}
-                title={`Where ${activePortfolio!.name} sits on its own plans`}
+                title={`Where ${activePortfolio!.name} sits on its own ladders`}
               />
             </WidgetErrorBoundary>
 

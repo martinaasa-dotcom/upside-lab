@@ -5,7 +5,7 @@
  * The three surfaces reach it from different directions: the map wants
  * every holding in one portfolio with what each is worth, the list wants
  * every holding a reader owns anywhere, and the alerts want whichever of
- * those has reached an end of its plan. All three need the same anchor,
+ * those has reached an end of its ladder. All three need the same anchor,
  * the same step and the same window, and the day they stop agreeing is
  * the day a reader is told on one screen that a level was reached and on
  * another that it was not.
@@ -56,7 +56,7 @@ export function holdingLadders(input: {
     const ticker = row.ticker.toUpperCase();
     /*
       One row per name. A reader holding the same company in two
-      portfolios has one plan for it, and drawing it twice would put two
+      portfolios has one ladder for it, and drawing it twice would put two
       chips on top of each other saying the same thing.
     */
     if (seen.has(ticker)) continue;
