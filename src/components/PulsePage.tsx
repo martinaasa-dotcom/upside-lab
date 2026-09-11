@@ -62,7 +62,6 @@ import {
   pulseLeftHold,
   rangeSentence,
   rangeStanding,
-  sectorForTicker,
   shouldAutoPulseTicker,
   sortPulseCandidates,
   buildPulseScan,
@@ -87,8 +86,7 @@ import {
   type PulseCandidate,
   type ThesisStatus,
 } from "@/lib/thesis-pulse";
-import { indexProxyName } from "@/lib/market/index-proxy";
-import { coinFromSymbol } from "@/lib/coins";
+import { describeCompany } from "@/lib/company-label";
 import { ratingForScore } from "@/lib/market/fear-greed";
 import {
   daySize,
@@ -187,28 +185,14 @@ function pulseCardChrome({
   return "";
 }
 
-/**
- * What the company does, in the words a beginner needs.
- *
- * The prompt has always told the model that "a reader should know which
- * company you mean without seeing the ticker", and the card itself then
- * printed $VOO and nothing else. What the app already knows is used and
- * nothing is guessed: the coin list names a coin, `indexProxyName` names
- * the index a fund tracks, and `sectorForTicker` says in a few plain
- * words what a company sells. A name the app cannot describe gets no
- * line, because a wrong description is worse than a bare cashtag.
- */
-function companyLabel(ticker: string): string {
-  // Both spellings, because a holding is stored as "BTC" and the coin list
-  // is keyed on the symbol the provider uses. Missing that put "Coins" on
-  // the card, which is the bucket rather than the thing.
-  const coin = coinFromSymbol(ticker) ?? coinFromSymbol(normalizeYahooTicker(ticker));
-  if (coin) return coin.name;
-  const index = indexProxyName(ticker);
-  if (index) return `A fund that tracks the ${index}`;
-  const sector = sectorForTicker(ticker);
-  return sector && sector !== "Coins" ? sector : "";
-}
+/*
+  What the company does now lives in `describeCompany`
+  (`src/lib/company-label.ts`), because this room was not the only one
+  answering the question and the three tables behind it disagreed. The
+  rule this function carried is unchanged and is written down there: the
+  app says only what it already knows, and a name it cannot describe gets
+  no line, because a wrong description is worse than a bare cashtag.
+*/
 
 /**
  * Where today's price sits between the measured low and high.
@@ -316,7 +300,7 @@ function PulseCard({
   const hasPct = pct != null && Number.isFinite(pct);
   const up = (pct ?? 0) >= 0;
   const range = candidateRange(c);
-  const label = companyLabel(c.ticker);
+  const label = describeCompany(c.ticker);
   // Re-applied at render time (not just when the check is first cached) so
   // an already-cached "broken" + "hold" contradiction from before this
   // guardrail existed, or from a stale server/localStorage entry, clears
