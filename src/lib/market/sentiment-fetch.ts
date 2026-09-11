@@ -180,10 +180,33 @@ export async function fetchMarketSentimentSnapshot(): Promise<SentimentMetrics |
   inflight = (async () => {
     try {
       const snap = await loadSnapshot();
-      const chosen = preferSentimentSnapshot(cached?.snap ?? null, snap);
+      const prev = cached?.snap ?? null;
+      const chosen = preferSentimentSnapshot(prev, snap);
+      /*
+        THE TEST IS "IS THIS THE ROW WE ALREADY HAVE", NOT "IS THIS THE
+        RAW FETCH".
+
+        It used to be `chosen === snap`, and the intent was right: do not
+        stamp a fresh time on a snapshot that is really the old one, or a
+        stale reading becomes immortal and the TTL can never fire, which is
+        the same bug this repo records against a re-stamped `generated_at`.
+        But `preferSentimentSnapshot` has a third answer besides prev and
+        next. It MERGES, carrying forward an expensive half of the chart
+        the new fetch did not get, and a merge is neither of the two
+        objects, so an identity test against `snap` read it as "nothing
+        new" and declined to cache a snapshot full of fresh gauges.
+
+        The cost is quiet and entirely on the provider: nothing is cached
+        for as long as that condition holds, so every single request walks
+        Yahoo again, on a free tier, with the app looking perfectly well.
+        Measured on a chart truncated to about eighteen months, which
+        yields a spark but not the ten-year read: `chosen === snap` is
+        false on every fetch. Comparing against the row we already have
+        says what was meant, and covers the merge.
+      */
       if (
-        chosen === snap &&
-        (sentimentGaugesReady(snap) || sentimentHasAnyGauge(snap))
+        chosen !== prev &&
+        (sentimentGaugesReady(chosen) || sentimentHasAnyGauge(chosen))
       ) {
         cached = { at: Date.now(), snap: chosen };
       }

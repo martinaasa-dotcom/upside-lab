@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ratingForScore } from "@/lib/market/fear-greed";
 import {
@@ -180,5 +182,104 @@ describe("market words are only printed where they are being defined", () => {
       expect(TEACHABLE.test(idea.title), idea.id).toBe(false);
       TEACHABLE.lastIndex = 0;
     }
+  });
+});
+
+/*
+  A CROSS-REFERENCE THAT SENDS SOMEBODY THE WRONG WAY IS WORSE THAN NONE.
+
+  Two ideas pointed "further down this page" at the two arithmetic
+  sections, which sit ABOVE the idea deck, so a reader following either one
+  scrolled to the end, found nothing, and had no reason to trust the next
+  pointer. Naming the section instead is both correct and stable under
+  reordering, and this is what stops the name drifting away from the
+  heading it claims to be.
+*/
+describe("a pointer at another section names one that exists", () => {
+  const panel = readFileSync(
+    join(process.cwd(), "src/components/playbook/PlaybookPanel.tsx"),
+    "utf8"
+  );
+  const titles = [...panel.matchAll(/title="([^"]+)"/g)].map((m) =>
+    (m[1] ?? "").toLowerCase()
+  );
+
+  it("finds the panel's own headings to check against", () => {
+    expect(titles.length).toBeGreaterThan(2);
+  });
+
+  it("points only at headings this room actually has", () => {
+    const pointers = ownProse().flatMap((line) =>
+      [...line.matchAll(/on this page, under ([^,.:]+)/gi)].map((m) =>
+        (m[1] ?? "").trim().toLowerCase()
+      )
+    );
+    expect(pointers.length).toBeGreaterThan(0);
+    for (const pointer of pointers) {
+      expect(titles, `"${pointer}" is not a heading in this room`).toContain(
+        pointer
+      );
+    }
+  });
+
+  it("never sends a reader up the page by calling it down", () => {
+    const bad = ownProse().filter((line) => /further down this page/i.test(line));
+    expect(bad).toEqual([]);
+  });
+});
+
+/*
+  The one door a beginner meets. It is on the market-reading card because
+  that card has just raised the question the Playbook answers, and it is
+  the one panel Home draws for an empty portfolio as well as a full one.
+  Read from source rather than rendered, which is what the rest of this
+  repo does for a wiring rule: the point is that the wiring cannot be
+  quietly removed, not that a particular pixel is in a particular place.
+*/
+describe("Home has a door into this room", () => {
+  const read = (f: string) => readFileSync(join(process.cwd(), f), "utf8");
+  const widget = read("src/components/MarketSentimentWidget.tsx");
+  const home = read("src/components/OverviewDashboard.tsx");
+  const lab = read("src/components/LabSheet.tsx");
+
+  it("draws the door on the card an empty portfolio still gets", () => {
+    expect(widget).toMatch(/PlaybookDoor/);
+    expect(widget).toMatch(/bandForScore/);
+  });
+
+  it("is handed a way to open the room, and draws nothing without one", () => {
+    expect(widget).toMatch(/onOpenPlaybook \? \(/);
+    expect(home).toMatch(/onOpenPlaybook=\{/);
+    expect(home).toMatch(/onOpenLab\("playbook"\)/);
+  });
+
+  it("lands on the tab it names", () => {
+    expect(lab).toMatch(/playbook: "playbook"/);
+  });
+
+  it("never turns the door's own label into an instruction", () => {
+    const label = widget.slice(widget.indexOf("function PlaybookDoor"));
+    expect(label).not.toMatch(
+      /\b(you should|buy now|sell now|time to buy|time to sell)\b/i
+    );
+  });
+});
+
+/*
+  The fetcher decides whether to store a snapshot. `preferSentimentSnapshot`
+  can hand back a merge that is neither of its inputs, so the test has to be
+  against the row already held, never against the raw fetch. See the
+  matching case in `market-temperature.test.ts` for why it is reachable.
+*/
+describe("the market snapshot still caches a merged reading", () => {
+  it("compares the answer against the cached row, not the raw fetch", () => {
+    const src = readFileSync(
+      join(process.cwd(), "src/lib/market/sentiment-fetch.ts"),
+      "utf8"
+    );
+    // Only the positive assertion. The note above that line in the source
+    // quotes the old, wrong test to explain it, so a scan for the absence
+    // of that spelling fails on the comment that exists to prevent it.
+    expect(src).toMatch(/chosen !== prev/);
   });
 });

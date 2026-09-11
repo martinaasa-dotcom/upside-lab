@@ -278,7 +278,7 @@ export const IDEAS: readonly Idea[] = [
     meaning:
       "A fall of about a tenth or more is the thing you will see called a correction, and preparing for one means being out of the market, or partly out, for some stretch of time. Falls are sharp and occasional, while the rises that pay for everything are spread thinly across years, so time spent waiting on the side is expensive in a way that does not feel expensive, because nothing visibly goes wrong while you wait.",
     inPractice:
-      "The arithmetic of it is further down this page: what the last ten years of the index would have come to with a small number of its best days taken out.",
+      "The arithmetic of it is on this page, under where the returns actually come from. It is what the last ten years of the index came to with a small number of its best days taken out.",
     goesWrong:
       "This is not an argument that falls do not matter or that every price is worth paying. It is an argument about a particular habit, which is stepping out because a fall feels due. Somebody genuinely holding more than they can afford to see halved is not guessing at the market, they are fixing a real problem.",
   },
@@ -310,7 +310,7 @@ export const IDEAS: readonly Idea[] = [
     meaning:
       "Holding several things that do not all move together lowers how much the total swings about, without lowering what you expect to end up with. That combination is rare enough that economists call it the only one of its kind. It works because the things that go wrong for one company mostly are not the things that go wrong for another.",
     inPractice:
-      "The catch is the phrase do not all move together. Ten companies that all sell to the same customers in the same industry are one bet held ten times over, which is exactly what the Risk tab a few headings back is drawing when it shows which of your companies move together.",
+      "The catch is the phrase do not all move together. Ten companies that all sell to the same customers in the same industry are one bet held ten times over, which is exactly what Lab's Risk tab is drawing when it shows which of your companies move together.",
     goesWrong:
       "Spread far enough and you have bought the market, which is a perfectly reasonable thing to do and is not the same as picking well. Concentration is also how essentially every large fortune was made. Both of those are true, and which one applies depends on something no formula knows, which is how much you can afford to be wrong.",
   },
@@ -340,7 +340,7 @@ export const IDEAS: readonly Idea[] = [
     meaning:
       "This is not a claim that losses can be avoided, which would be silly coming from somebody who has had plenty. It is about the shape of the arithmetic. A fall and the rise needed to undo it are not the same size, and the gap between them grows fast: half your money back needs a double to get level. That asymmetry is why a portfolio that never has a catastrophic year can beat one that has several brilliant ones.",
     inPractice:
-      "The slider further down this page draws the gap. It is the single most useful piece of arithmetic in this room and it takes about ten seconds to understand.",
+      "The slider on this page, under what a fall costs to undo, draws the gap. It is the single most useful piece of arithmetic in this room and it takes about ten seconds to understand.",
     goesWrong:
       "Read literally it argues for never taking any risk at all, which guarantees a different loss: money that sits still while prices for everything else go up. Avoiding every fall and avoiding ruin are different projects, and only the second one is worth organising your life around.",
   },
@@ -456,11 +456,6 @@ export const IDEAS: readonly Idea[] = [
       "Doubting everything is not the answer either. Somebody who never reaches a conclusion never makes a decision, and never making a decision is itself a decision with a cost.",
   },
 ] as const;
-
-export function ideasByTheme(theme: IdeaTheme | "all"): readonly Idea[] {
-  if (theme === "all") return IDEAS;
-  return IDEAS.filter((i) => i.theme === theme);
-}
 
 /**
  * The app's own prose, for the test that keeps this room descriptive.

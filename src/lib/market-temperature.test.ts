@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  preferSentimentSnapshot,
+  spySparkFromCloses,
+  type SentimentMetrics,
+} from "@/lib/market-sentiment";
+import {
   annualFromMultiple,
   BEST_DAY_STEPS,
   bestDaysFromCloses,
@@ -136,5 +141,79 @@ describe("the yearly rate", () => {
     expect(annualFromMultiple(2, 0)).toBeNull();
     expect(annualFromMultiple(0, 10)).toBeNull();
     expect(annualFromMultiple(-1, 10)).toBeNull();
+  });
+});
+
+/*
+  THE TWO HALVES OF THE CHART HAVE DIFFERENT APPETITES, AND THAT BROKE THE
+  SNAPSHOT CACHE.
+
+  `preferSentimentSnapshot` has three answers, not two: the new reading, the
+  old one, or a MERGE that carries forward an expensive half the new fetch
+  did not get. The fetcher used to decide whether to cache by asking whether
+  the answer was identical to the raw fetch, which reads a merge as "nothing
+  new" and declines to store a snapshot full of fresh gauges. Nothing looks
+  wrong when that happens; the app simply stops caching and walks the
+  provider on every single request, on a free tier.
+
+  It never fired before, because the only thing carried forward was the
+  spark, and a chart too short for a spark is too short for anything. The
+  ten-year read has a larger appetite than the spark does, so a truncated
+  chart now yields one and not the other, which is exactly the case. This
+  holds the condition that made it reachable.
+*/
+describe("a truncated chart yields a spark but no ten-year read", () => {
+  function bars(n: number) {
+    const closes: number[] = [100];
+    const at: string[] = [];
+    const start = Date.UTC(2014, 0, 2);
+    for (let i = 0; i < n; i++) {
+      at.push(new Date(start + i * 86_400_000 * 1.45).toISOString().slice(0, 10));
+      if (i) closes.push(closes[i - 1]! * (i % 2 ? 1.002 : 0.999));
+    }
+    return { closes, at };
+  }
+
+  function snapshot(n: number): SentimentMetrics {
+    const { closes, at } = bars(n);
+    return {
+      vix: 18,
+      rsi: 55,
+      fearGreed: 40,
+      cryptoFearGreed: 40,
+      spyPrice: 500,
+      sma200: 480,
+      smaRatio: 0.04,
+      streakDays: 10,
+      typicalMoreDays: 5,
+      alreadyLong: false,
+      spark: spySparkFromCloses(closes, at, 10),
+      bestDays: bestDaysFromCloses(closes, at),
+      asOf: new Date().toISOString(),
+    };
+  }
+
+  it("is a real condition and not a hypothetical one", () => {
+    const short = snapshot(400);
+    expect(short.spark).not.toBeNull();
+    expect(short.bestDays).toBeNull();
+  });
+
+  it("carries the older read forward rather than dropping it", () => {
+    const full = snapshot(2600);
+    const short = snapshot(400);
+    const chosen = preferSentimentSnapshot(full, short);
+    expect(chosen.bestDays).toBe(full.bestDays);
+    expect(chosen.fearGreed).toBe(short.fearGreed);
+  });
+
+  it("hands back neither input, which is what the fetcher must notice", () => {
+    const full = snapshot(2600);
+    const short = snapshot(400);
+    const chosen = preferSentimentSnapshot(full, short);
+    // The fetcher decides on `chosen !== prev`. Identity against the raw
+    // fetch is the test that was wrong; this says why it cannot be used.
+    expect(chosen).not.toBe(short);
+    expect(chosen).not.toBe(full);
   });
 });

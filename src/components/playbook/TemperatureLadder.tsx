@@ -10,6 +10,7 @@ import {
   type TemperatureBand,
   type TemperatureBandId,
 } from "@/lib/playbook";
+import { formatRelativeTime } from "@/lib/timezone";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -46,8 +47,26 @@ function zoneWidth(band: TemperatureBand): number {
   return band.range[1] - band.range[0] + 1;
 }
 
+/*
+  A MARKER AT AN END OF THE TRACK IS HALF A MARKER.
+
+  The pill is centred on its own position, so at 0 or 100 exactly half of
+  it falls outside a track that is `overflow-hidden`, and the one thing the
+  picture exists to show is clipped at precisely the two readings a reader
+  would most want to look at. It is the same fault this repo already
+  records against a label positioned by its own centre, and the same fix:
+  hold the mark its own half-width inside the ends. The drawn position is
+  the only thing inset. The figure in the prose below is always the real
+  score, so nothing states a number the picture has rounded.
+*/
+const MARK_INSET_PCT = 1.2;
+
 function Track({ score }: { score: number | null }) {
-  const pos = score == null ? null : ladderPosition(score) * 100;
+  const pos =
+    score == null
+      ? null
+      : MARK_INSET_PCT +
+        ladderPosition(score) * (100 - MARK_INSET_PCT * 2);
   return (
     <div>
       <div className="relative h-9 overflow-hidden rounded-lg ring-1 ring-border">
@@ -153,11 +172,25 @@ function BandRow({
   );
 }
 
-export function TemperatureLadder({ score }: { score: number | null }) {
+export function TemperatureLadder({
+  score,
+  asOf,
+}: {
+  score: number | null;
+  /** When the snapshot carrying this score was taken. */
+  asOf?: string | null;
+}) {
   const current = useMemo(
     () => (score == null ? null : bandForScore(score)),
     [score]
   );
+  /*
+    Worked out on every render rather than once, because the point of the
+    stamp is that it ages; and empty rather than a guess when the snapshot
+    did not carry a time, since "read just now" over an unknown one is the
+    confident wrong sentence the stamp exists to prevent.
+  */
+  const stamp = asOf ? formatRelativeTime(asOf) : "";
   const [open, setOpen] = useState<TemperatureBandId | null>(null);
   const [touched, setTouched] = useState(false);
 
@@ -181,6 +214,23 @@ export function TemperatureLadder({ score }: { score: number | null }) {
           {score == null
             ? "The reading has not landed yet. The five bands below are the same either way: the score only says which one the market is standing in today."
             : `The market is at ${Math.round(score)} out of 100 today, which is the band marked below. Neither end of this scale is the good one. The frightening end is where things are cheap and the comfortable end is where they are dear, which is why each band carries the idea that belongs to it and the way that idea goes wrong.`}
+        </p>
+        {/*
+          WHOSE NUMBER IT IS, AND WHEN IT WAS READ.
+
+          The whole design of this room is that a reader can check the
+          figure instead of believing it, and a score printed with no
+          source is exactly the unfalsifiable thing it was built to
+          replace. The index is CNN's and is published for anybody, so it
+          is named, and the stamp is here for the same reason the research
+          page carries one: this panel can sit open on a screen for hours,
+          and a reading with no age on it silently becomes a claim about
+          right now that nobody can audit.
+        */}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {score == null
+            ? "The score is CNN's Fear and Greed index for US stocks, which anybody can look up."
+            : `The score is CNN's Fear and Greed index for US stocks, which anybody can look up.${stamp ? ` Read ${stamp}.` : ""}`}
         </p>
       </div>
       <div className="flex flex-col gap-3">

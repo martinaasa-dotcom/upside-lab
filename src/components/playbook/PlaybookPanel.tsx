@@ -21,6 +21,16 @@ import { Compass, Gauge, Scale, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 
 /*
+  The score is a daily index, so this does not poll. It re-reads when the
+  reader comes back to the tab, behind a floor, which is the only case that
+  actually goes stale: this panel lives in the book room, which the shell
+  keeps mounted, so a reader who opened it last night and returns in the
+  morning would otherwise be shown yesterday's band under a sentence saying
+  "today" with a stamp that has quietly aged to "14h ago".
+*/
+const MIN_REFETCH_MS = 600_000;
+
+/*
   THE ONE ROOM IN THIS APP THAT IS NOT ABOUT THE READER'S OWN ROWS.
 
   Everything else here starts from what somebody already holds: Pulse
@@ -97,6 +107,7 @@ export function PlaybookPanel() {
   );
   const metricsRef = useRef(metrics);
   metricsRef.current = metrics;
+  const fetchedAtRef = useRef(0);
 
   const load = useCallback(
     async (signal: AbortSignal) => {
@@ -108,6 +119,7 @@ export function PlaybookPanel() {
         const chosen = preferSentimentSnapshot(metricsRef.current, data);
         setMetrics(chosen);
         saveSentimentPaint(chosen);
+        fetchedAtRef.current = Date.now();
       } catch (err) {
         if (isAbortError(err)) return;
       }
@@ -118,7 +130,16 @@ export function PlaybookPanel() {
   useEffect(() => {
     const ctrl = new AbortController();
     void load(ctrl.signal);
-    return () => ctrl.abort();
+    const again = () => {
+      if (document.hidden) return;
+      if (Date.now() - fetchedAtRef.current < MIN_REFETCH_MS) return;
+      void load(ctrl.signal);
+    };
+    document.addEventListener("visibilitychange", again);
+    return () => {
+      document.removeEventListener("visibilitychange", again);
+      ctrl.abort();
+    };
   }, [load]);
 
   /*
@@ -156,11 +177,11 @@ export function PlaybookPanel() {
           subtitle="The oldest idea in investing is that prices and mood move together and the mood is the easier of the two to read. Somebody publishes a number for it every day, so the idea that belongs to today is the one this reading picks out."
           icon={<Gauge aria-hidden className="size-4" />}
         >
-          <TemperatureLadder score={score} />
+          <TemperatureLadder score={score} asOf={metrics.asOf} />
         </Section>
       </WidgetErrorBoundary>
 
-      <BelowFold reserve={600}>
+      <BelowFold reserve={320}>
         <WidgetErrorBoundary name="Recovery gap">
           <Section
             title="What a fall costs to undo"
@@ -173,7 +194,7 @@ export function PlaybookPanel() {
       </BelowFold>
 
       {bestDays ? (
-        <BelowFold reserve={620}>
+        <BelowFold reserve={320}>
           <WidgetErrorBoundary name="Best days">
             <Section
               title="Where the returns actually come from"
@@ -186,7 +207,7 @@ export function PlaybookPanel() {
         </BelowFold>
       ) : null}
 
-      <BelowFold reserve={900}>
+      <BelowFold reserve={380}>
         <WidgetErrorBoundary name="Ideas">
           <Section
             title="Ideas worth keeping"

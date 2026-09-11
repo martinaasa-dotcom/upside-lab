@@ -1,6 +1,8 @@
 "use client";
 
 import { Card, MicroLabel, Segmented } from "@/components/ui/Panel";
+import { WhyThis } from "@/components/ui/WhyThis";
+import { bestDaysProvenance } from "@/lib/provenance";
 import { cn, currency, percent } from "@/lib/format";
 import {
   annualFromMultiple,
@@ -65,13 +67,18 @@ export function BestDays({ read }: { read: BestDaysRead }) {
 
   const options = BEST_DAY_STEPS.map((n) => ({
     id: String(n),
-    label: `${n} days`,
+    label: String(n),
+    title: `${n} days`,
   }));
 
-  const window =
-    read.from && read.to
-      ? `${read.from} to ${read.to}`
-      : `${read.years} years`;
+  /*
+    Never `window`. A local of that name inside a client component shadows
+    the global for the whole function body, so the next line of code here
+    that reaches for `window.matchMedia` fails in a way that reads as a
+    server-rendering problem and is not.
+  */
+  const windowLabel =
+    read.from && read.to ? `${read.from} to ${read.to}` : `${read.years} years`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -79,17 +86,46 @@ export function BestDays({ read }: { read: BestDaysRead }) {
         The rises that pay for everything do not arrive evenly. They arrive in a
         handful of days, and being somewhere else on those days costs far more
         than it sounds like it should. Here is the S&amp;P 500 over{" "}
-        {read.years} years, {window}, worked out from {read.days} daily closing
-        prices, with the best of those days taken out.
+        {read.years} years, {windowLabel}, worked out from its {read.days}{" "}
+        trading days, with the best of them taken out. The money is in dollars
+        because that is what the index is quoted in.
       </p>
 
-      <Segmented
-        options={options}
-        value={String(days)}
-        onChange={(id) => setDays(Number(id))}
-        ariaLabel="How many of the best days to take out"
-        columns={options.length}
-      />
+      {/*
+        The mark goes beside the control rather than under the figures,
+        because the question it answers ("which ten years, and what did
+        this app do to the number") is the one a reader has before they
+        read the figures, not after. It is the header rule from the panel
+        note in a smaller place: the mark stands beside the thing it is
+        about.
+      */}
+      <div className="flex items-end gap-2">
+        <div className="min-w-0 flex-1">
+          {/*
+            The unit is on the label, not in every cell. "10 days" does not
+            fit a 65px cell at 390px and "5 days" does, so the row wrapped
+            three of its four cells to two lines and left one on one, which
+            reads as a broken control rather than as a choice. The cells are
+            the numbers; the row above says what they count.
+          */}
+          <MicroLabel className="mb-1.5">Days taken out</MicroLabel>
+          <Segmented
+            options={options}
+            value={String(days)}
+            onChange={(id) => setDays(Number(id))}
+            ariaLabel="How many of the best days to take out"
+            columns={options.length}
+          />
+        </div>
+        <WhyThis
+          provenance={bestDaysProvenance({
+            from: read.from,
+            to: read.to,
+            days: read.days,
+            starting: currency(STARTING, 0),
+          })}
+        />
+      </div>
 
       <Card tone="default" className="flex flex-col gap-6">
         <Row

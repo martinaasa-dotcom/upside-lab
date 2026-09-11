@@ -170,11 +170,6 @@ export function isBestDaysRead(v: unknown): v is BestDaysRead {
   );
 }
 
-/** What `amount` becomes at a growth multiple. */
-export function grownTo(amount: number, multiple: number): number {
-  return amount * multiple;
-}
-
 /** The yearly rate a multiple works out to over a window. */
 export function annualFromMultiple(
   multiple: number,
