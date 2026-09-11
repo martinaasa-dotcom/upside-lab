@@ -121,7 +121,12 @@ export function concentrationRead(
  * a time on the Forecast cards, where nothing can be split.
  */
 export function allocationBySector(
-  holdings: Array<{ ticker: string; currentValue: number }>
+  holdings: Array<{
+    ticker: string;
+    currentValue: number;
+    /** The provider's sector in this app's words, where one was fetched. */
+    sector?: string | null;
+  }>
 ): AllocationSlice[] {
   const totals = new Map<string, number>();
   let sum = 0;
@@ -131,7 +136,8 @@ export function allocationBySector(
   for (const h of holdings) {
     const value = finiteNumber(h.currentValue);
     if (value <= 0) continue;
-    const sector = THEME_LABEL[forecastThemeForTicker(h.ticker)];
+    const sector =
+      h.sector?.trim() || THEME_LABEL[forecastThemeForTicker(h.ticker)];
     totals.set(sector, sumMoney([totals.get(sector) ?? 0, value]));
     sum = sumMoney([sum, value]);
   }

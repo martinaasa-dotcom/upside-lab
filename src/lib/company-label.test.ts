@@ -68,3 +68,43 @@ describe("describeCompany", () => {
     expect(describeCompany("VOO")).toMatch(/fund/i);
   });
 });
+
+describe("describeCompany with the provider's sector", () => {
+  it("describes the two the sample could not, and the rest of the market", () => {
+    /*
+      Nike and Disney are in none of this app's hand-kept tables, so they
+      got no line at all on Pulse -- on the portfolio every stranger is
+      shown first. The provider knows what they are, and the profile for
+      that kind of business was already written.
+    */
+    expect(describeCompany("NKE", "Shops, brands and travel")).toBe(
+      "Shops, brands and travel"
+    );
+    expect(describeCompany("DIS", "Media, telecoms and internet")).toBe(
+      "Media, telecoms and internet"
+    );
+    expect(describeCompany("O", "Property")).toBe("Property companies");
+    expect(describeCompany("NEE", "Electricity, water and gas")).toBe(
+      "Water, gas and electricity"
+    );
+  });
+
+  it("keeps the finer hand-written answer where there is one", () => {
+    /*
+      A sector is the coarsest true thing about a company. Where this app
+      has written a sentence about the company itself, that wins: the
+      provider would only say "Technology and software" for both of these.
+    */
+    expect(describeCompany("MSFT", "Technology and software")).toBe(
+      "Cloud computing for businesses"
+    );
+    expect(describeCompany("AAPL", "Technology and software")).toBe(
+      "Phones, computers and software"
+    );
+  });
+
+  it("still says nothing when the provider had nothing either", () => {
+    expect(describeCompany("ZZZZ", null)).toBe("");
+    expect(describeCompany("ZZZZ", undefined)).toBe("");
+  });
+});

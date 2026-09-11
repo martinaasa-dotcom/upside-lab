@@ -45,7 +45,15 @@ const NOT_A_DESCRIPTION: ReadonlySet<string> = new Set([
   getShockProfile("ZZZZZZZZ").label,
 ]);
 
-export function describeCompany(ticker: string): string {
+export function describeCompany(
+  ticker: string,
+  /**
+   * The provider's sector in this app's words, where one was fetched.
+   * Absent is the ordinary case, not a fault: a fund and a coin file no
+   * `assetProfile`, and a room that has not asked yet passes nothing.
+   */
+  providerSector?: string | null
+): string {
   const symbol = ticker.trim();
   if (!symbol) return "";
 
@@ -59,9 +67,17 @@ export function describeCompany(ticker: string): string {
   const index = indexProxyName(symbol);
   if (index) return `A fund that tracks the ${index}`;
 
-  const sector = sectorForTicker(symbol);
-  if (sector && sector !== "Coins") return sector;
+  const written = sectorForTicker(symbol);
+  if (written && written !== "Coins") return written;
 
-  const shock = getShockProfile(symbol).label;
+  /*
+    The sector reaches the answer through here rather than being printed
+    itself, because this table is finer wherever it knows the company:
+    Microsoft reads "Cloud computing for businesses" rather than
+    "Technology and software". Where it does not, the sector routes the
+    holding to the profile for its kind of business, so Nike arrives as
+    "Shops, brands and travel" instead of nothing at all.
+  */
+  const shock = getShockProfile(symbol, providerSector).label;
   return NOT_A_DESCRIPTION.has(shock) ? "" : shock;
 }

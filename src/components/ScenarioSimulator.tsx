@@ -56,6 +56,8 @@ type Props = {
     ticker: string;
     shares: number;
     price: number;
+    /** The provider's sector in this app's words, where it answered. */
+    sector?: string | null;
   }[];
   cash: number;
   scopeLabel: string;
@@ -124,8 +126,8 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
   const guessedProfiles = useMemo(
     () =>
       holdings
-        .map((h) => h.ticker)
-        .filter((ticker) => shockProfileIsGuessed(ticker)),
+        .filter((h) => shockProfileIsGuessed(h.ticker, h.sector))
+        .map((h) => h.ticker),
     [holdings]
   );
 

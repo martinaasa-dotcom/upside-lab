@@ -87,6 +87,7 @@ import {
   type ThesisStatus,
 } from "@/lib/thesis-pulse";
 import { describeCompany } from "@/lib/company-label";
+import { useTickerSectors } from "@/lib/use-ticker-sectors";
 import { ratingForScore } from "@/lib/market/fear-greed";
 import {
   daySize,
@@ -283,6 +284,7 @@ function PulseCard({
   onOpenTicker,
   pinned = false,
   leftHold = false,
+  sector,
 }: {
   candidate: PulseCandidate;
   check?: PulseCheck;
@@ -295,12 +297,14 @@ function PulseCard({
   onOpenTicker?: () => void;
   pinned?: boolean;
   leftHold?: boolean;
+  /** The provider's sector in this app's words, where it answered. */
+  sector?: string | null;
 }) {
   const pct = c.effectivePct;
   const hasPct = pct != null && Number.isFinite(pct);
   const up = (pct ?? 0) >= 0;
   const range = candidateRange(c);
-  const label = describeCompany(c.ticker);
+  const label = describeCompany(c.ticker, sector);
   // Re-applied at render time (not just when the check is first cached) so
   // an already-cached "broken" + "hold" contradiction from before this
   // guardrail existed, or from a stale server/localStorage entry, clears
@@ -840,6 +844,15 @@ export const PulsePage = memo(function PulsePage({
   const candidates = useMemo(
     () => buildPulseCandidates(model, mergedQuotes),
     [model, mergedQuotes]
+  );
+
+  /*
+    What kind of business each of these is, so a card can say it. Asked
+    once per set of names and shared with Lab through the same module map,
+    never on the quote cycle: a sector does not move.
+  */
+  const sectorWordsByTicker = useTickerSectors(
+    useMemo(() => candidates.map((c) => c.ticker), [candidates])
   );
 
   // Every check + its headlines, retained per ticker for good — never
@@ -1625,6 +1638,7 @@ export const PulsePage = memo(function PulsePage({
           <ul className="flex flex-col gap-6">
             <PulseCard
               candidate={pinnedCandidate}
+              sector={sectorWordsByTicker[pinnedCandidate.ticker.toUpperCase()]}
               check={checksByTicker[pinnedCandidate.ticker.toUpperCase()]}
               headlines={
                 headlinesByTicker[pinnedCandidate.ticker.toUpperCase()] ?? []
@@ -1677,6 +1691,7 @@ export const PulsePage = memo(function PulsePage({
                   <PulseCard
                     key={c.ticker}
                     candidate={c}
+                    sector={sectorWordsByTicker[c.ticker.toUpperCase()]}
                     check={checksByTicker[c.ticker.toUpperCase()]}
                     headlines={headlinesByTicker[c.ticker.toUpperCase()] ?? []}
                     loading={checkingTickers.has(c.ticker.toUpperCase())}
@@ -1705,6 +1720,7 @@ export const PulsePage = memo(function PulsePage({
                   <PulseCard
                     key={c.ticker}
                     candidate={c}
+                    sector={sectorWordsByTicker[c.ticker.toUpperCase()]}
                     check={checksByTicker[c.ticker.toUpperCase()]}
                     headlines={headlinesByTicker[c.ticker.toUpperCase()] ?? []}
                     loading={checkingTickers.has(c.ticker.toUpperCase())}

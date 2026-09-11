@@ -1,5 +1,6 @@
 "use client";
 
+import { useTickerSectors } from "@/lib/use-ticker-sectors";
 import {
   allocationBySector,
   allocationByTicker,
@@ -333,10 +334,39 @@ export const LabSheet = memo(function LabSheet({
     [scopedTickers]
   );
 
-  const sectors = useMemo(
-    () => allocationBySector(sheetHoldings),
-    [sheetHoldings]
+  /*
+    Asked once per set of holdings and then remembered for the session, so
+    walking between Lab's tabs and Pulse costs nothing. See
+    `use-ticker-sectors.ts` for why this is not on the quote cycle.
+  */
+  const sectorWordsByTicker = useTickerSectors(
+    useMemo(() => sheetHoldings.map((h) => h.ticker), [sheetHoldings])
   );
+
+  const sectors = useMemo(
+    () =>
+      allocationBySector(
+        sheetHoldings.map((h) => ({
+          ...h,
+          sector: sectorWordsByTicker[h.ticker.toUpperCase()] ?? null,
+        }))
+      ),
+    [sheetHoldings, sectorWordsByTicker]
+  );
+  /*
+    The same answer threaded into the Risk room, so a bad day is modelled
+    from the profile for that kind of business rather than from the
+    plain-large-company catch-all every unlisted name used to get.
+  */
+  const scopedWithSectors = useMemo(
+    () =>
+      scopedTickers.map((t) => ({
+        ...t,
+        sector: sectorWordsByTicker[t.ticker.toUpperCase()] ?? null,
+      })),
+    [scopedTickers, sectorWordsByTicker]
+  );
+
   const byTicker = useMemo(
     () => allocationByTicker(sheetHoldings),
     [sheetHoldings]
@@ -721,7 +751,18 @@ export const LabSheet = memo(function LabSheet({
                 to one height the shorter card was mostly empty glass.
               */}
               <div className="grid gap-4 md:grid-cols-2 md:items-start">
-                <AllocCard title="By kind of business" slices={sectors} />
+                {/*
+                  "By sector", not "By kind of business", because the donut
+                  above is already headed with that phrase and the two are
+                  not the same question. That one is the themes this app
+                  groups by -- AI builders, chip makers, broad market funds
+                  -- which is what a reader is betting on. This is the
+                  sector the company's own filings put it in, which the
+                  provider answers for the whole market, so an ordinary
+                  portfolio reads as staples, banks and property rather
+                  than as one bucket of leftovers.
+                */}
+                <AllocCard title="By sector" slices={sectors} />
                 <AllocCard title="By holding" slices={byTicker} />
               </div>
             </>
@@ -754,7 +795,7 @@ export const LabSheet = memo(function LabSheet({
         <WidgetErrorBoundary name="Risk">
         <>
         <ScenarioSimulator
-          holdings={scopedTickers}
+          holdings={scopedWithSectors}
           cash={scopedCash}
           scopeLabel={scopeLabel}
         />
