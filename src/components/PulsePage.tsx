@@ -62,7 +62,6 @@ import {
   pulseLeftHold,
   rangeSentence,
   rangeStanding,
-  sectorForTicker,
   shouldAutoPulseTicker,
   sortPulseCandidates,
   buildPulseScan,
@@ -87,9 +86,22 @@ import {
   type PulseCandidate,
   type ThesisStatus,
 } from "@/lib/thesis-pulse";
-import { indexProxyName } from "@/lib/market/index-proxy";
-import { coinFromSymbol } from "@/lib/coins";
+import { describeCompany } from "@/lib/company-label";
+import { useTickerSectors } from "@/lib/use-ticker-sectors";
+import { TermTip } from "@/components/ui/TermTip";
+import {
+  sectorFund,
+  sectorFundsFor,
+  sectorPeerLine,
+  sectorPeerRead,
+} from "@/lib/sector-peers";
+import { publishQuotes, useQuotes } from "@/lib/quote-pool";
 import { ratingForScore } from "@/lib/market/fear-greed";
+import {
+  ensureFearGreed,
+  onFearGreed,
+  pooledFearGreed,
+} from "@/lib/fear-greed-pool";
 import {
   daySize,
   typicalMoveFromCloses,
@@ -100,7 +112,6 @@ import {
   marketOrYouLine,
   standoutLine,
 } from "@/lib/market-or-you";
-import { loadFearGreedPaint, loadMacroPaint, saveMacroPaint } from "@/lib/paint-cache";
 import {
   loadPulseHistory,
   recordPulseHistory,
@@ -187,28 +198,14 @@ function pulseCardChrome({
   return "";
 }
 
-/**
- * What the company does, in the words a beginner needs.
- *
- * The prompt has always told the model that "a reader should know which
- * company you mean without seeing the ticker", and the card itself then
- * printed $VOO and nothing else. What the app already knows is used and
- * nothing is guessed: the coin list names a coin, `indexProxyName` names
- * the index a fund tracks, and `sectorForTicker` says in a few plain
- * words what a company sells. A name the app cannot describe gets no
- * line, because a wrong description is worse than a bare cashtag.
- */
-function companyLabel(ticker: string): string {
-  // Both spellings, because a holding is stored as "BTC" and the coin list
-  // is keyed on the symbol the provider uses. Missing that put "Coins" on
-  // the card, which is the bucket rather than the thing.
-  const coin = coinFromSymbol(ticker) ?? coinFromSymbol(normalizeYahooTicker(ticker));
-  if (coin) return coin.name;
-  const index = indexProxyName(ticker);
-  if (index) return `A fund that tracks the ${index}`;
-  const sector = sectorForTicker(ticker);
-  return sector && sector !== "Coins" ? sector : "";
-}
+/*
+  What the company does now lives in `describeCompany`
+  (`src/lib/company-label.ts`), because this room was not the only one
+  answering the question and the three tables behind it disagreed. The
+  rule this function carried is unchanged and is written down there: the
+  app says only what it already knows, and a name it cannot describe gets
+  no line, because a wrong description is worse than a bare cashtag.
+*/
 
 /**
  * Where today's price sits between the measured low and high.
@@ -299,6 +296,8 @@ function PulseCard({
   onOpenTicker,
   pinned = false,
   leftHold = false,
+  sector,
+  sectorPct,
 }: {
   candidate: PulseCandidate;
   check?: PulseCheck;
@@ -311,12 +310,16 @@ function PulseCard({
   onOpenTicker?: () => void;
   pinned?: boolean;
   leftHold?: boolean;
+  /** The provider's sector in this app's words, where it answered. */
+  sector?: string | null;
+  /** Today's move for the fund that tracks this company's sector. */
+  sectorPct?: number | null;
 }) {
   const pct = c.effectivePct;
   const hasPct = pct != null && Number.isFinite(pct);
   const up = (pct ?? 0) >= 0;
   const range = candidateRange(c);
-  const label = companyLabel(c.ticker);
+  const label = describeCompany(c.ticker, sector);
   // Re-applied at render time (not just when the check is first cached) so
   // an already-cached "broken" + "hold" contradiction from before this
   // guardrail existed, or from a stale server/localStorage entry, clears
@@ -347,7 +350,22 @@ function PulseCard({
     !isMoveRestatement(cleanedVerdict)
       ? cleanedVerdict
       : "";
-  const hasBody = Boolean(shown);
+  /*
+    A measured comparison is body enough on its own.
+
+    This was `Boolean(shown)`, so the card drew its body only once a model
+    had read the company. The sector line needs no model -- it is two
+    quotes and a subtraction -- and it is most useful in exactly the state
+    that gated it out: a card reading "Nobody has read this one yet" can
+    still say what the rest of that company's sector did today, which is
+    the market-or-company question answered without anybody's opinion.
+  */
+  const peerRead = sectorPeerRead({
+    sectorWords: sector,
+    ownPct: c.effectivePct,
+    sectorPct,
+  });
+  const hasBody = Boolean(shown) || Boolean(peerRead);
   const needsMargusRun = !loading && !shown;
 
   /*
@@ -528,14 +546,40 @@ function PulseCard({
           <Metric label="Price" hint={`worth ${currency(c.currentValue)}`}>
             {currency(c.price)}
           </Metric>
+          {/*
+            The three figures a beginner is most likely to misread, each
+            now openable on the word itself. "All time" is `gain` rather
+            than `total-return`: this is one holding against what was paid
+            for it, where total return is the whole portfolio since it
+            started, and handing a reader the portfolio answer under a
+            column about Apple is the kind of quietly wrong sentence this
+            app does not print.
+          */}
           <Metric
-            label="Today"
+            label={
+              <TermTip
+                term="today"
+                example={{
+                  ticker: c.ticker,
+                  amount: signedCurrency(c.todayDollar),
+                }}
+              >
+                Today
+              </TermTip>
+            }
             valueClassName={signedTone(c.todayDollar, "text-foreground")}
           >
             {signedCurrency(c.todayDollar)}
           </Metric>
           <Metric
-            label="All time"
+            label={
+              <TermTip
+                term="gain"
+                example={{ ticker: c.ticker, amount: percent(c.roiPct) }}
+              >
+                All time
+              </TermTip>
+            }
             valueClassName={signedTone(c.roiPct, "text-foreground")}
           >
             {percent(c.roiPct)}
@@ -549,7 +593,14 @@ function PulseCard({
             * three beside it.
             */}
           <Metric
-            label="Of your total"
+            label={
+              <TermTip
+                term="share-of-portfolio"
+                example={{ ticker: c.ticker, amount: percent(c.bookPct) }}
+              >
+                Of your total
+              </TermTip>
+            }
             hint={c.portfolios.length > 0 ? c.portfolios.join(", ") : undefined}
           >
             {percent(c.bookPct)}
@@ -592,6 +643,19 @@ function PulseCard({
               </p>
               <RangeBar price={c.price} range={range} />
             </div>
+          ) : null}
+          {/*
+            What the rest of this company's sector did, from a fund the
+            reader can look up. The claim that a fall was the sector rather
+            than the company was being made on these cards by the model,
+            with nothing behind it; this is the same comparison with a real
+            instrument named in the sentence. It draws no conclusion, for
+            the reason `market-or-you.ts` gives.
+          */}
+          {peerRead ? (
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {sectorPeerLine(peerRead)}
+            </p>
           ) : null}
           {situation.length > 0 ? (
             <div className="flex flex-col gap-2">
@@ -777,6 +841,7 @@ export function marketMoodLine(score: number | null | undefined): string {
  * that index's own figure.
  */
 const MARKET_INDEX = "^GSPC";
+const MARKET_INDEX_TICKERS = [MARKET_INDEX];
 const MARKET_INDEX_NAME = "The S&P 500";
 
 async function resolveListedTicker(
@@ -858,6 +923,49 @@ export const PulsePage = memo(function PulsePage({
     [model, mergedQuotes]
   );
 
+  /*
+    What kind of business each of these is, so a card can say it. Asked
+    once per set of names and shared with Lab through the same module map,
+    never on the quote cycle: a sector does not move.
+  */
+  const sectorWordsByTicker = useTickerSectors(
+    useMemo(() => candidates.map((c) => c.ticker), [candidates])
+  );
+
+  /*
+    Only the funds for sectors this portfolio actually touches, so a
+    reader holding three kinds of business asks about three rather than
+    eleven. Its own fetch rather than a rider on the quote poll: these
+    symbols are the same for everybody, so asked alone they are a CDN hit
+    shared across the whole product.
+  */
+  const sectorFunds = useMemo(
+    () =>
+      sectorFundsFor(
+        candidates.map((c) => sectorWordsByTicker[c.ticker.toUpperCase()])
+      ),
+    [candidates, sectorWordsByTicker]
+  );
+  const sectorQuotes = useQuotes(sectorFunds);
+
+  /*
+    The index from the shared pool rather than a fetch of its own. The
+    market reading card in this same room already wanted it, and so did
+    Home, so a session walking between the two asked for `^GSPC` nine
+    times before every surface read one pool.
+  */
+  const indexQuote = useQuotes(MARKET_INDEX_TICKERS)[MARKET_INDEX] ?? null;
+
+  const sectorPctFor = useCallback(
+    (ticker: string): number | null => {
+      const fund = sectorFund(sectorWordsByTicker[ticker.toUpperCase()]);
+      if (!fund) return null;
+      const q = sectorQuotes[fund];
+      return q && Number.isFinite(q.changePercent) ? q.changePercent : null;
+    },
+    [sectorWordsByTicker, sectorQuotes]
+  );
+
   // Every check + its headlines, retained per ticker for good — never
   // cleared just because a background refresh is running or a new
   // calendar day started. Hydrated SYNCHRONOUSLY from localStorage in the
@@ -925,7 +1033,6 @@ export const PulsePage = memo(function PulsePage({
    * states the two figures side by side and never models a split between
    * them.
    */
-  const [indexQuote, setIndexQuote] = useState<Quote | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fearGreed, setFearGreed] = useState<FearGreedSnapshot | null>(null);
 
@@ -1130,44 +1237,34 @@ export const PulsePage = memo(function PulsePage({
   useLayoutEffect(() => {
     const cached = loadPulseSummary();
     if (cached) setSummary(humanizeMargusText(cached.summary));
-    const fg = loadFearGreedPaint();
-    if (fg) setFearGreed(fg);
   }, []);
 
-  useEffect(() => {
-    const ctrl = new AbortController();
-    void fetch("/api/market/fear-greed", { signal: ctrl.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!ctrl.signal.aborted && data?.score != null) {
-          const fg = data as FearGreedSnapshot;
-          setFearGreed(fg);
-          saveMacroPaint({
-            macro: loadMacroPaint()?.macro ?? {
-              vix: null,
-              eurusd: null,
-              btc: null,
-              tenYear: null,
-            },
-            fearGreed: fg,
-          });
-        }
-      })
-      .catch((err) => {
-        if (isAbortError(err)) return;
-      });
-    return () => {
-      ctrl.abort();
+  /*
+    The mood reading is shared, not fetched here.
+
+    This asked for it on every mount with no guard, and the header strip
+    and the Playbook asked too: measured on the real app, opening this
+    room put three requests for one daily figure on the wire in the same
+    millisecond. The pool owns the freshness rule and single-flights the
+    askers, so all three now cost one round trip, and none at all when a
+    recent reading is already in hand.
+  */
+  // A layout effect for the first read, so a score already in hand is on
+  // the first painted frame rather than one after it -- which is what the
+  // paint read this replaced was a layout effect for.
+  useLayoutEffect(() => {
+    let alive = true;
+    const read = () => {
+      if (!alive) return;
+      const fg = pooledFearGreed();
+      if (fg) setFearGreed(fg);
     };
-  }, []);
-
-  useEffect(() => {
-    const ctrl = new AbortController();
-    void fetchQuote(MARKET_INDEX, ctrl.signal).then((q) => {
-      if (!ctrl.signal.aborted && q) setIndexQuote(q);
-    });
+    read();
+    const unsubscribe = onFearGreed(read);
+    void ensureFearGreed().then(read);
     return () => {
-      ctrl.abort();
+      alive = false;
+      unsubscribe();
     };
   }, []);
 
@@ -1403,6 +1500,9 @@ export const PulsePage = memo(function PulsePage({
     // for, so a lookup that failed left an error banner above a card
     // reading $0.00 with a green up-arrow beside it.
     setPinnedTicker(ticker);
+    // Published as well as kept locally, so a company somebody looked up
+    // here is already priced in every other room.
+    publishQuotes({ [ticker]: q });
     setLookupQuotes((prev) => ({ ...prev, [ticker]: q, [typed]: q }));
     quoteMap = { ...quoteMap, [ticker]: q, [typed]: q };
 
@@ -1641,6 +1741,8 @@ export const PulsePage = memo(function PulsePage({
           <ul className="flex flex-col gap-6">
             <PulseCard
               candidate={pinnedCandidate}
+              sector={sectorWordsByTicker[pinnedCandidate.ticker.toUpperCase()]}
+              sectorPct={sectorPctFor(pinnedCandidate.ticker)}
               check={checksByTicker[pinnedCandidate.ticker.toUpperCase()]}
               headlines={
                 headlinesByTicker[pinnedCandidate.ticker.toUpperCase()] ?? []
@@ -1693,6 +1795,8 @@ export const PulsePage = memo(function PulsePage({
                   <PulseCard
                     key={c.ticker}
                     candidate={c}
+                    sector={sectorWordsByTicker[c.ticker.toUpperCase()]}
+                    sectorPct={sectorPctFor(c.ticker)}
                     check={checksByTicker[c.ticker.toUpperCase()]}
                     headlines={headlinesByTicker[c.ticker.toUpperCase()] ?? []}
                     loading={checkingTickers.has(c.ticker.toUpperCase())}
@@ -1721,6 +1825,8 @@ export const PulsePage = memo(function PulsePage({
                   <PulseCard
                     key={c.ticker}
                     candidate={c}
+                    sector={sectorWordsByTicker[c.ticker.toUpperCase()]}
+                    sectorPct={sectorPctFor(c.ticker)}
                     check={checksByTicker[c.ticker.toUpperCase()]}
                     headlines={headlinesByTicker[c.ticker.toUpperCase()] ?? []}
                     loading={checkingTickers.has(c.ticker.toUpperCase())}

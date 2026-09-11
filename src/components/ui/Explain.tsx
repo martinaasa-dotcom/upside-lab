@@ -11,6 +11,7 @@ import {
   explainTerm,
   type GlossaryExample,
 } from "@/lib/glossary";
+import { recordWordLookedUp } from "@/lib/words-looked-up";
 
 /**
  * Teach me this word.
@@ -65,10 +66,29 @@ export function Explain({
    */
   if (!entry) return <>{children ?? null}</>;
 
-  const label = `What does ${entry.term.toLowerCase()} mean?`;
+  /*
+    Recorded when it opens, never when it renders. A word on screen is not
+    a word somebody asked about, and counting it would turn the reader's
+    own record of what they looked up into this app's claim about what
+    they read. `entry.id` rather than the caller's spelling, so every
+    surface asking about one word records one word.
+  */
+  const onOpenChange = (open: boolean) => {
+    if (open) recordWordLookedUp(entry.id);
+  };
+
+  /*
+    "What this means: How spread out it is", not "What How spread out it
+    is means". Several entries are phrases rather than single words, and
+    the sentence template assumed a word: a screen reader announced the
+    label with the phrase wedged into the middle of it, which is the one
+    place this app's care about wording was not reaching. Putting the term
+    last reads correctly whatever shape it is.
+  */
+  const label = `What this means: ${entry.term}`;
 
   return (
-    <Popover>
+    <Popover onOpenChange={onOpenChange}>
       <PopoverTrigger
         type="button"
         data-slot="explain"

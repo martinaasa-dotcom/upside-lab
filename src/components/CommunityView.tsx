@@ -75,15 +75,14 @@ import { currentDuelSessionKey } from "@/lib/daily-duel";
 import {
   buildPortfolioPersonality,
   ANIMAL_BESTIARY,
-  THEME_LABEL,
   animalCardTone,
 } from "@/lib/portfolio-personality";
 import {
-  forecastThemeForTicker,
-  type ForecastTheme,
 } from "@/lib/forecast-conviction";
 import { buildCommunityFunFacts } from "@/lib/community-fun-facts";
 import { loadCachedQuotes, mergeQuotes, saveCachedQuotes, quotesUnchanged } from "@/lib/quote-cache";
+import { mixGapLine, mixSlices } from "@/lib/mix-slices";
+import { useTickerSectors } from "@/lib/use-ticker-sectors";
 import { COMPOUND_MILESTONE_GOALS } from "@/lib/compound-play";
 import { todayKeyInTz } from "@/lib/timezone";
 import type { Holding, Quote } from "@/lib/types";
@@ -934,30 +933,43 @@ export function CommunityView({ communityId }: Props) {
   // into one dollar-weighted theme breakdown, a level up from "What the
   // community is holding" (which is per-ticker) to "what does the family
   // collectively believe in."
-  const communityThemeBreakdown = useMemo(() => {
-    const byTheme = new Map<string, number>();
-    let total = 0;
-    for (const t of overview.tickers) {
-      if (t.currentValue <= 0) continue;
-      const theme = forecastThemeForTicker(t.ticker);
-      byTheme.set(theme, (byTheme.get(theme) ?? 0) + t.currentValue);
-      total += t.currentValue;
-    }
-    if (total <= 0) return [];
-    return [...byTheme.entries()]
-      .map(([theme, value]) => ({
-        theme: theme as ForecastTheme,
-        label: THEME_LABEL[theme as ForecastTheme] ?? theme,
-        value,
-        pct: value / total,
-      }))
-      .sort((a, b) => b.value - a.value);
-  }, [overview.tickers]);
+  /*
+    By sector, the way Lab and the Fund draw it, so one product answers
+    "what kind of business is this money in" one way. The theme list is a
+    curated set of ideas that files everything outside it under "other
+    businesses"; the provider's sector covers the market, which is what a
+    circle of ordinary portfolios actually holds.
+  */
+  const circleSectors = useTickerSectors(
+    useMemo(() => overview.tickers.map((t) => t.ticker), [overview.tickers])
+  );
+  const withSector = useCallback(
+    (ticker: string) => circleSectors[ticker.toUpperCase()] ?? null,
+    [circleSectors]
+  );
+
+  const communityThemeBreakdown = useMemo(
+    () =>
+      mixSlices(
+        overview.tickers
+          .filter((t) => t.currentValue > 0)
+          .map((t) => ({
+            ticker: t.ticker,
+            currentValue: t.currentValue,
+            sector: withSector(t.ticker),
+          }))
+      ),
+    [overview.tickers, withSector]
+  );
 
   /*
     The same breakdown for the reader alone, so the chart can answer the one
     question it exists to answer: how you differ from the room. A single
     stacked bar of the group tells nobody anything about themselves.
+
+    Coloured from the room's own chart rather than by its own ranking, or
+    the same group would arrive in two different colours on two bars drawn
+    to be compared.
   */
   const yourThemeBreakdown = useMemo(() => {
     const you = memberStats.find((m) => m.isYou);
@@ -967,26 +979,63 @@ export function CommunityView({ communityId }: Props) {
         .filter((o) => o.user_id === you.id)
         .map((o) => o.portfolio_id)
     );
-    const byTheme = new Map<string, number>();
-    let total = 0;
-    for (const h of holdings) {
-      if (!mySheets.has(h.portfolio_id)) continue;
-      const value = h.shares * (quotes[h.ticker]?.price ?? 0);
-      if (value <= 0) continue;
-      const theme = forecastThemeForTicker(h.ticker);
-      byTheme.set(theme, (byTheme.get(theme) ?? 0) + value);
-      total += value;
-    }
-    if (total <= 0) return [];
-    return [...byTheme.entries()]
-      .map(([theme, value]) => ({
-        theme: theme as ForecastTheme,
-        label: THEME_LABEL[theme as ForecastTheme] ?? theme,
-        value,
-        pct: value / total,
-      }))
-      .sort((a, b) => b.value - a.value);
-  }, [memberStats, ownership, holdings, quotes]);
+    const byColor = new Map(
+      communityThemeBreakdown.map((slice) => [slice.label, slice.color])
+    );
+    return mixSlices(
+      holdings
+        .filter((h) => mySheets.has(h.portfolio_id))
+        .map((h) => ({
+          ticker: h.ticker,
+          currentValue: h.shares * (quotes[h.ticker]?.price ?? 0),
+          sector: withSector(h.ticker),
+        }))
+        .filter((h) => h.currentValue > 0),
+      { colorFor: (label) => byColor.get(label) }
+    );
+  }, [
+    memberStats,
+    ownership,
+    holdings,
+    quotes,
+    withSector,
+    communityThemeBreakdown,
+  ]);
+
+  /*
+    Where the reader differs most from the room.
+
+    Built from the holdings rather than from the two charts above, because
+    a chart folds its tail into one slice and the two tails are different
+    sectors: comparing them subtracts one set of companies from an
+    unrelated set. `mixGapLine` walks the unfolded allocation of both
+    sides, so a sector the reader is heavily in can be the answer even
+    when the room holds too little of it to draw.
+  */
+  const themeGapLine = useMemo(() => {
+    const you = memberStats.find((m) => m.isYou);
+    if (!you) return null;
+    const mySheets = new Set(
+      ownership.filter((o) => o.user_id === you.id).map((o) => o.portfolio_id)
+    );
+    return mixGapLine(
+      overview.tickers
+        .filter((t) => t.currentValue > 0)
+        .map((t) => ({
+          ticker: t.ticker,
+          currentValue: t.currentValue,
+          sector: withSector(t.ticker),
+        })),
+      holdings
+        .filter((h) => mySheets.has(h.portfolio_id))
+        .map((h) => ({
+          ticker: h.ticker,
+          currentValue: h.shares * (quotes[h.ticker]?.price ?? 0),
+          sector: withSector(h.ticker),
+        }))
+        .filter((h) => h.currentValue > 0)
+    );
+  }, [memberStats, ownership, overview.tickers, holdings, quotes, withSector]);
 
   /*
     What changed since the reader last opened this circle. Six lines at
@@ -1710,6 +1759,7 @@ export function CommunityView({ communityId }: Props) {
                 avatarByName={avatarByName}
                 communityThemeBreakdown={communityThemeBreakdown}
                 yourThemeBreakdown={yourThemeBreakdown}
+                gapLine={themeGapLine}
                 communityFunFacts={communityFunFacts}
                 funFactsShuffle={funFactsShuffle}
                 setFunFactsShuffle={setFunFactsShuffle}

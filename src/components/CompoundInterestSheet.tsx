@@ -1,5 +1,6 @@
 "use client";
 
+import { TermTip } from "@/components/ui/TermTip";
 import { BelowFold } from "@/components/BelowFold";
 import {
   COMPOUND_STORAGE_KEY,
@@ -1370,7 +1371,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
 
           <Scoreboard cols={2}>
             <Score
-              label="Total return"
+              label={<TermTip term="total-return">Total return</TermTip>}
               value={
                 <span className="inline-flex items-center gap-1">
                   {(result.allTimeRoR * 100).toFixed(1)}%
@@ -1392,7 +1393,16 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           </Scoreboard>
           <Scoreboard cols={1}>
             <Score
-              label="When growth takes over"
+              label={
+                /*
+                  The one cell on this page that is compounding rather than
+                  a consequence of it: the year growth starts adding more
+                  than the reader pays in. If a beginner is going to look
+                  the word up anywhere, it is here, beside the figure that
+                  only makes sense once they have.
+                */
+                <TermTip term="compounding">When growth takes over</TermTip>
+              }
               value={
                 tipping != null ? `Year ${tipping}` : "Not on this plan"
               }

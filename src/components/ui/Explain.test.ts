@@ -72,7 +72,14 @@ describe("the shape", () => {
 
   it("names the word for somebody who cannot see the glyph", () => {
     expect(source).toContain("aria-label={label}");
-    expect(source).toContain("What does ${entry.term.toLowerCase()} mean?");
+    /*
+      The term goes last, and that is the whole of this assertion. Several
+      entries are phrases rather than single words, and the old template
+      wedged the phrase into the middle of the sentence: a screen reader
+      announced "What How spread out it is means". Putting it after a
+      colon reads correctly whatever shape the term is.
+    */
+    expect(source).toContain("What this means: ${entry.term}");
   });
 });
 

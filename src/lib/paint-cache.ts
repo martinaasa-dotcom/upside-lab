@@ -97,6 +97,17 @@ export type MacroNumbers = {
 export type MacroPaint = {
   macro: MacroNumbers;
   fearGreed: FearGreedSnapshot | null;
+  /**
+   * When that reading was taken.
+   *
+   * Optional because entries written before this field existed are still
+   * in readers' browsers; `fear-greed-pool.ts` reads a missing one as
+   * arbitrarily old, which shows the number and re-asks rather than
+   * trusting it. Without a time the guard against re-fetching could never
+   * expire, so a reader opening the app in the morning kept yesterday's
+   * mood under a card that says today.
+   */
+  fearGreedAt?: number;
 };
 
 function isMacroPaint(v: unknown): v is MacroPaint {
@@ -111,6 +122,37 @@ export function loadMacroPaint(): MacroPaint | null {
 
 export function saveMacroPaint(next: MacroPaint) {
   save(MACRO_KEY, next);
+}
+
+/**
+ * Write the macro numbers without disturbing the mood reading beside them.
+ *
+ * These are two things on one key, fetched on two schedules, and a caller
+ * that rebuilds the whole record to save one half silently drops whatever
+ * it did not think to carry. That is not hypothetical: the macro poll
+ * wrote `{ macro, fearGreed }` every time a quote landed, which threw away
+ * `fearGreedAt` each time, so the reading was saved without the timestamp
+ * its own freshness rule depends on and the guard could never fire.
+ * Measured on the real app, the score arrived and the paint carried no
+ * time at all.
+ */
+export function saveMacroNumbers(macro: MacroNumbers) {
+  const prev = loadMacroPaint();
+  save(MACRO_KEY, {
+    macro,
+    fearGreed: prev?.fearGreed ?? null,
+    fearGreedAt: prev?.fearGreedAt,
+  });
+}
+
+/** The mood reading, without disturbing the macro numbers beside it. */
+export function saveFearGreedPaint(fearGreed: FearGreedSnapshot, at: number) {
+  const prev = loadMacroPaint();
+  save(MACRO_KEY, {
+    macro: prev?.macro ?? { vix: null, eurusd: null, btc: null, tenYear: null },
+    fearGreed,
+    fearGreedAt: at,
+  });
 }
 
 export function loadFearGreedPaint(): FearGreedSnapshot | null {

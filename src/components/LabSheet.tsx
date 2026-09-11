@@ -1,14 +1,15 @@
 "use client";
 
+import { useTickerSectors } from "@/lib/use-ticker-sectors";
+
+import { TermTip } from "@/components/ui/TermTip";
+import { mixSlices } from "@/lib/mix-slices";
 import {
-  allocationBySector,
   allocationByTicker,
   concentrationRead,
-  themeBreakdown,
 } from "@/lib/allocation";
 import {
   buildPortfolioPersonality,
-  THEME_COLOR,
 } from "@/lib/portfolio-personality";
 import {
   EmptyState,
@@ -33,7 +34,7 @@ import {
   correlationGrid,
   correlationMatrix,
 } from "@/lib/correlation";
-import { NO_VALUE, barFillPct, cashtag, cn, currency } from "@/lib/format";
+import { NO_VALUE, barFillPct, cashtag, cn, currency, percent } from "@/lib/format";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import type { OverviewModel } from "@/lib/overview";
 import type { Holding, Portfolio, Quote } from "@/lib/types";
@@ -333,15 +334,43 @@ export const LabSheet = memo(function LabSheet({
     [scopedTickers]
   );
 
-  const sectors = useMemo(
-    () => allocationBySector(sheetHoldings),
-    [sheetHoldings]
+  /*
+    Asked once per set of holdings and then remembered for the session, so
+    walking between Lab's tabs and Pulse costs nothing. See
+    `use-ticker-sectors.ts` for why this is not on the quote cycle.
+  */
+  const sectorWordsByTicker = useTickerSectors(
+    useMemo(() => sheetHoldings.map((h) => h.ticker), [sheetHoldings])
   );
+
+  const mix = useMemo(
+    () =>
+      mixSlices(
+        sheetHoldings.map((h) => ({
+          ...h,
+          sector: sectorWordsByTicker[h.ticker.toUpperCase()] ?? null,
+        }))
+      ),
+    [sheetHoldings, sectorWordsByTicker]
+  );
+  /*
+    The same answer threaded into the Risk room, so a bad day is modelled
+    from the profile for that kind of business rather than from the
+    plain-large-company catch-all every unlisted name used to get.
+  */
+  const scopedWithSectors = useMemo(
+    () =>
+      scopedTickers.map((t) => ({
+        ...t,
+        sector: sectorWordsByTicker[t.ticker.toUpperCase()] ?? null,
+      })),
+    [scopedTickers, sectorWordsByTicker]
+  );
+
   const byTicker = useMemo(
     () => allocationByTicker(sheetHoldings),
     [sheetHoldings]
   );
-  const themes = useMemo(() => themeBreakdown(sheetHoldings), [sheetHoldings]);
   const concentration = useMemo(
     () => concentrationRead(sheetHoldings),
     [sheetHoldings]
@@ -624,7 +653,14 @@ export const LabSheet = memo(function LabSheet({
 
                 <Scoreboard cols={concentration.positionCount > 3 ? 3 : 2}>
                   <Score
-                    label="Behaves like"
+                    label={
+                      <TermTip
+                        term="spread-out"
+                        example={{ count: Math.round(concentration.effectivePositions) }}
+                      >
+                        Behaves like
+                      </TermTip>
+                    }
                     value={`${concentration.effectivePositions.toFixed(1)} holdings`}
                     sub={
                       concentration.positionCount === 1
@@ -633,7 +669,11 @@ export const LabSheet = memo(function LabSheet({
                     }
                   />
                   <Score
-                    label="Largest holding"
+                    label={
+                      <TermTip term="share-of-portfolio">
+                        Largest holding
+                      </TermTip>
+                    }
                     value={`${(concentration.topWeightPct * 100).toFixed(1)}%`}
                     sub={concentration.topWeightTicker ?? undefined}
                     /* --warning, not --loss. A concentrated position is a
@@ -677,7 +717,7 @@ export const LabSheet = memo(function LabSheet({
                 </Scoreboard>
               </Panel>
 
-              {themes.length > 0 && (
+              {mix.length > 0 && (
                 <Panel tone="plain">
                   {/*
                     `PanelHeader`, not a hand-rolled title and subtitle.
@@ -697,19 +737,26 @@ export const LabSheet = memo(function LabSheet({
                     subtitle="Your holdings grouped by kind of business, which usually tells you more than the list of tickers does."
                   />
                   <AllocationBar
-                    slices={themes.map((t) => ({
-                      key: t.theme,
-                      pct: t.pct,
-                      color: THEME_COLOR[t.theme],
-                      title: `${t.label}: ${Math.round(t.pct * 100)}%`,
+                    slices={mix.map((m) => ({
+                      key: m.key,
+                      pct: m.pct,
+                      color: m.color,
+                      title: `${m.label}: ${percent(m.pct)}`,
                     }))}
                   />
+                  {/*
+                    The legend carries the money as well as the share,
+                    which is what the separate bar card below used to be
+                    for. With one grouping there is nothing left for a
+                    second panel to say, and two panels answering one
+                    question is how this room came to contradict itself.
+                  */}
                   <SwatchLegend
-                    items={themes.map((t) => ({
-                      key: t.theme,
-                      label: t.label,
-                      color: THEME_COLOR[t.theme],
-                      value: `${Math.round(t.pct * 100)}%`,
+                    items={mix.map((m) => ({
+                      key: m.key,
+                      label: m.label,
+                      color: m.color,
+                      value: `${percent(m.pct)} · ${currency(m.value, 0)}`,
                     }))}
                   />
                 </Panel>
@@ -720,10 +767,14 @@ export const LabSheet = memo(function LabSheet({
                 kinds of business against every holding), and stretched
                 to one height the shorter card was mostly empty glass.
               */}
-              <div className="grid gap-4 md:grid-cols-2 md:items-start">
-                <AllocCard title="By kind of business" slices={sectors} />
-                <AllocCard title="By holding" slices={byTicker} />
-              </div>
+              {/*
+                "By sector" stood here and is gone. It was the same
+                grouping as the panel above with the money attached, so
+                the money moved into that panel's legend and the duplicate
+                went: a reader asking what kind of business their money is
+                in should meet one answer, not two panels of it.
+              */}
+              <AllocCard title="By holding" slices={byTicker} />
             </>
           )}
         </div>
@@ -754,7 +805,7 @@ export const LabSheet = memo(function LabSheet({
         <WidgetErrorBoundary name="Risk">
         <>
         <ScenarioSimulator
-          holdings={scopedTickers}
+          holdings={scopedWithSectors}
           cash={scopedCash}
           scopeLabel={scopeLabel}
         />

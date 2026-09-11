@@ -1,5 +1,6 @@
 "use client";
 
+import { TermTip } from "@/components/ui/TermTip";
 import { BelowFold } from "@/components/BelowFold";
 import { HomeWorld } from "@/components/HomeWorld";
 import { BandAlerts } from "@/components/company/BandAlerts";
@@ -39,6 +40,7 @@ import {
   portfolioDayLine,
   typicalMoveForPortfolio,
 } from "@/lib/typical-move";
+import { LearnedPanel } from "@/components/LearnedPanel";
 import { RecallCardPanel } from "@/components/RecallCardPanel";
 import { parseHoldingsPaste, type CsvHoldingRow } from "@/lib/csv-import";
 import {
@@ -1604,6 +1606,26 @@ export const OverviewDashboard = memo(function OverviewDashboard({
           <dl className="mt-4 flex flex-col gap-y-2 border-t border-border pt-4 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-3">
             <div className={FACT_ROW}>
               <dt>
+                {/*
+                  One affordance, and the measurement is why.
+
+                  A glossary word was put on this label beside the note,
+                  on the argument that the two answer different questions:
+                  what does the term mean, and what does this app not know.
+                  Rendered and clicked, they cannot both be here.
+                  `InfoTip` carries an invisible `-inset-3.5` halo so the
+                  circle is a real target on a phone, and that halo reaches
+                  14px to its left, straight over the end of the word
+                  beside it. Playwright could not click the word at all:
+                  the note's hit area intercepted every attempt. On a
+                  finger it would be worse and silent, a reader tapping
+                  "All time" and getting the wrong panel.
+
+                  So the note stays, because it is the rarer thing and the
+                  one only this app can say -- there is no date in this
+                  figure -- and the word keeps its home on Growth's own
+                  "Total return" cell, which has no note beside it.
+                */}
                 <MicroLabel>
                   All time
                   <InfoTip text="Your value today against what you paid for these shares on average. There is no date in it: Upside Lab does not keep the day you bought, so nothing here can draw a line starting from that day." />
@@ -1643,7 +1665,20 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             </div>
             <div className={FACT_ROW}>
               <dt>
-                <MicroLabel>{totals.cash < 0 ? "Borrowed" : "Cash"}</MicroLabel>
+                {/*
+                  Two entries, not one, because they are two ideas: money
+                  sitting there, and money a broker lent you that can be
+                  called back. A reader whose cash has gone negative is
+                  exactly the reader who needs the second one.
+                */}
+                <MicroLabel>
+                  <TermTip
+                    term={totals.cash < 0 ? "borrowed" : "cash"}
+                    example={{ amount: currency(Math.abs(totals.cash), 0) }}
+                  >
+                    {totals.cash < 0 ? "Borrowed" : "Cash"}
+                  </TermTip>
+                </MicroLabel>
               </dt>
               <dd
                 className={cn(
@@ -1684,6 +1719,14 @@ export const OverviewDashboard = memo(function OverviewDashboard({
       {marketReading}
 
       {recallInput ? <RecallCardPanel input={recallInput} /> : null}
+      {/*
+        Directly under the question card, because it is the same subject:
+        that card asks one thing and stops, and until now nothing said that
+        any of it had happened. It draws nothing at all for a reader who has
+        not opened a word or answered a question, so a first day sees no
+        empty shelf.
+      */}
+      <LearnedPanel />
 
       {/*
         High on the page, because it is the one thing here that a reader

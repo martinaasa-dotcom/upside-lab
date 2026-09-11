@@ -2,6 +2,10 @@ import { NO_VALUE, cashtag, currency } from "@/lib/format";
 import { formatDateTime } from "@/lib/timezone";
 import type { ModelRun } from "@/lib/ai/model-label";
 import type { ForecastPathAdjustment } from "@/lib/forecast-plan";
+import {
+  forecastThemeForTicker,
+  impliedAnnualReturnForTheme,
+} from "@/lib/forecast-conviction";
 
 /**
  * Where a number on screen came from, in the reader's own language.
@@ -207,6 +211,27 @@ function adjustmentSteps(adjust?: ForecastPathAdjustment): string[] {
  * in forecast-plan.ts, which also carries `FORECAST_CONVICTION_PROMPT` and
  * the portfolio insight lines). If that list changes, this changes with it.
  */
+/**
+ * How fast the fallback shape compounds, said against the market.
+ *
+ * The mark already said the shape came from a table written here. It did
+ * not say how big the assumption was, and on some kinds of business it is
+ * very big: a reader could be looking at a path implying nearly thirty per
+ * cent a year with nothing on screen putting that next to the ten the
+ * market's own baseline uses. State the figure and what it is next to,
+ * which is the rule the whole product runs on.
+ */
+function shapeRateLine(ticker: string): string {
+  const theme = forecastThemeForTicker(ticker);
+  const rate = impliedAnnualReturnForTheme(theme);
+  const market = impliedAnnualReturnForTheme("index");
+  const said = `${Math.round(rate * 100)}% a year`;
+  const baseline = `${Math.round(market * 100)}%`;
+  return rate > market + 0.005
+    ? `That shape works out at about ${said}, against the ${baseline} this app uses for the market as a whole.`
+    : `That shape works out at about ${said}, which is what this app uses for the market as a whole.`;
+}
+
 export function forecastPathProvenance(input: {
   ticker: string;
   spot: number;
@@ -247,10 +272,21 @@ export function forecastPathProvenance(input: {
       sources: [YAHOO_PRICES, { name: "This app", what: "the table of shapes" }],
       steps: [
         `Today's price is multiplied by the shape for that kind of business, one multiple per year out to ${last}.`,
+        shapeRateLine(input.ticker),
         "The percent on the card is that last price against today's price, and nothing else.",
       ],
       blindSpots: [
         "Anything at all about this company. It is a shape for a category, not a view on a name.",
+        /*
+          The uncomfortable half, and the reason this line exists at all.
+          The shapes are not a measurement and they are not evenly spread:
+          some kinds of business were given a faster one than the market
+          and most were not, and which is which is a list somebody here
+          chose. A reader looking at a fallback path compounding at nearly
+          thirty per cent a year is owed that, because the figure on the
+          card is entirely that choice and nothing about their company.
+        */
+        "Which kinds of business get a faster shape than the market is a list somebody wrote here, not something measured. A company this app does not recognise is assumed to do what the market does.",
         NOT_THE_FUTURE,
         NOT_A_TARGET,
       ],
@@ -553,8 +589,48 @@ export function pulseRoomProvenance(input: {
  * Everything else
  * ---------------------------------------------------------------------- */
 
-/** The made-up bad days in Lab. Arithmetic, not a model. */
-export function scenarioProvenance(): Provenance {
+/**
+ * The made-up bad days in Lab. Arithmetic, not a model.
+ *
+ * `guessed` is the uncomfortable half, and it is here for the reason the
+ * forecast's own mark names the paths the model did not write. This room
+ * prints a figure per holding, and behind each one is a profile saying
+ * how that kind of business moves in that kind of day. About ninety
+ * companies have a profile written about them; everything else is
+ * reasoned from a plain-large-company catch-all, which on an ordinary
+ * portfolio is several of the reader's own names. Nike, Disney, Berkshire
+ * and every REIT land there.
+ *
+ * Assuming a plain large company is a fair thing to do and not a fair
+ * thing to state as fact in silence. So the names are said out loud, and
+ * said as a blind spot rather than buried in the steps, because what a
+ * reader needs is not "some rows are approximate" but which of their own
+ * rows.
+ */
+export function scenarioProvenance(guessed: string[] = []): Provenance {
+  const names = [...new Set(guessed.map((t) => t.trim().toUpperCase()))]
+    .filter(Boolean)
+    .sort();
+  const guessedSpot =
+    names.length > 0
+      ? `This app has no profile written for ${listInWords(names)}, so ${
+          names.length === 1 ? "it is" : "they are"
+        } assumed to move like a plain large company. That is a guess, and the ${
+          names.length === 1 ? "figure" : "figures"
+        } beside ${names.length === 1 ? "it" : "them"} ${
+          names.length === 1 ? "is" : "are"
+        } only as good as it.`
+      : null;
+  return scenarioProvenanceBody(guessedSpot);
+}
+
+/** Joins names the way a sentence does: "A, B and C". */
+function listInWords(names: string[]): string {
+  if (names.length === 1) return names[0]!;
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]!}`;
+}
+
+function scenarioProvenanceBody(guessedSpot: string | null): Provenance {
   return {
     maker: "arithmetic",
     title: "Where this came from",
@@ -582,6 +658,7 @@ export function scenarioProvenance(): Provenance {
     blindSpots: [
       "Whether a day like that would actually happen, or how likely it is.",
       "What you would do in it. The numbers assume you sit still and hold exactly what you hold today.",
+      ...(guessedSpot ? [guessedSpot] : []),
       NOT_A_TARGET,
     ],
     yours: "Pick a different day from the row above.",

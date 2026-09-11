@@ -194,6 +194,7 @@ import { SheetPicker } from "@/components/SheetPicker";
 import { useLabSync } from "@/components/use-lab-sync";
 import { useLoadingMessage } from "@/lib/use-loading-message";
 import { loadCachedQuotes, mergeQuotes, saveCachedQuotes, quotesUnchanged } from "@/lib/quote-cache";
+import { publishQuotes } from "@/lib/quote-pool";
 import { quotesAreDelayed, quotesStampMs } from "@/lib/market/quote-freshness";
 import { OFFLINE_CACHE_READY } from "@/lib/offline/snapshots";
 import { postJsonOrQueue } from "@/lib/offline/queued-fetch";
@@ -1515,6 +1516,13 @@ export function Dashboard() {
           }
           const quotesJson = await quotesRes.json();
           const incoming = (quotesJson.quotes ?? {}) as Record<string, Quote>;
+          /*
+            Into the shared per-ticker cache as well as this room's state,
+            so every other room gets these for free. The poll already
+            fetches most of what anybody wants; without this a room asking
+            for a price the reader plainly holds went and fetched it again.
+          */
+          publishQuotes(incoming);
           const missing = (quotesJson.missing ?? []) as string[];
           let merged = incoming;
           let unchanged = false;

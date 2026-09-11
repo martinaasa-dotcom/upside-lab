@@ -57,10 +57,11 @@ import {
   isQuotePollFresh,
   isQuoteFreshForView,
 } from "@/lib/market/session";
-import { concentrationRead, themeBreakdown } from "@/lib/allocation";
+import { concentrationRead } from "@/lib/allocation";
+import { mixSlices } from "@/lib/mix-slices";
+import { useTickerSectors } from "@/lib/use-ticker-sectors";
 import {
   buildPortfolioPersonality,
-  THEME_COLOR,
 } from "@/lib/portfolio-personality";
 import {
   fundQuoteCoverage,
@@ -1066,7 +1067,25 @@ export function UpsidePortfolioPage() {
       })),
     [openHoldings, quotes]
   );
-  const fundThemes = useMemo(() => themeBreakdown(fundValued), [fundValued]);
+  /*
+    By sector, the way Lab draws it, so one product answers "what kind of
+    business is this money in" one way. The theme list is a curated set of
+    ideas that files everything outside it under "other businesses"; the
+    provider's sector covers the market.
+  */
+  const fundSectors = useTickerSectors(
+    useMemo(() => fundValued.map((h) => h.ticker), [fundValued])
+  );
+  const fundMix = useMemo(
+    () =>
+      mixSlices(
+        fundValued.map((h) => ({
+          ...h,
+          sector: fundSectors[h.ticker.toUpperCase()] ?? null,
+        }))
+      ),
+    [fundValued, fundSectors]
+  );
   const fundWatchlist = useMemo(
     () =>
       sanitizeFundWatchlist(
@@ -1092,11 +1111,11 @@ export function UpsidePortfolioPage() {
       label: string;
       pct: number;
       color: string;
-    }[] = fundThemes.map((t) => ({
-      key: t.theme,
-      label: t.label,
-      pct: totalValue > 0 ? t.value / totalValue : t.pct,
-      color: THEME_COLOR[t.theme],
+    }[] = fundMix.map((m) => ({
+      key: m.key,
+      label: m.label,
+      pct: totalValue > 0 ? m.value / totalValue : m.pct,
+      color: m.color,
     }));
     if (cash > 0 && totalValue > 0) {
       slices.push({
@@ -1107,7 +1126,7 @@ export function UpsidePortfolioPage() {
       });
     }
     return slices;
-  }, [fundThemes, cash, totalValue]);
+  }, [fundMix, cash, totalValue]);
   const fundConcentration = useMemo(
     () => concentrationRead(fundValued),
     [fundValued]

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/format";
 import { explainTerm, type GlossaryExample } from "@/lib/glossary";
+import { recordWordLookedUp } from "@/lib/words-looked-up";
 
 /**
  * A column heading a person can ask about.
@@ -138,13 +139,32 @@ export function TermTip({
   // panel is worse than one that opens nothing.
   if (!entry) return <>{children ?? term}</>;
 
-  const label = `What ${entry.term} means`;
+  /*
+    Recorded when it opens, never when it renders. A word on screen is not
+    a word somebody asked about, and counting it would turn the reader's
+    own record of what they looked up into this app's claim about what
+    they read. `entry.id` rather than the caller's spelling, so "market
+    cap" and "market-value" are one word in the record.
+  */
+  const onOpenChange = (open: boolean) => {
+    if (open) recordWordLookedUp(entry.id);
+  };
+
+  /*
+    "What this means: How spread out it is", not "What How spread out it
+    is means". Several entries are phrases rather than single words, and
+    the sentence template assumed a word: a screen reader announced the
+    label with the phrase wedged into the middle of it, which is the one
+    place this app's care about wording was not reaching. Putting the term
+    last reads correctly whatever shape it is.
+  */
+  const label = `What this means: ${entry.term}`;
   const shown = children ?? entry.term;
   const triggerClass = cn(bare ? BARE_TRIGGER_CLASS : TRIGGER_CLASS, className);
 
   if (narrow) {
     return (
-      <Sheet>
+      <Sheet onOpenChange={onOpenChange}>
         <SheetTrigger
           type="button"
           aria-label={label}
@@ -169,7 +189,7 @@ export function TermTip({
   }
 
   return (
-    <Popover>
+    <Popover onOpenChange={onOpenChange}>
       <PopoverTrigger
         type="button"
         aria-label={label}

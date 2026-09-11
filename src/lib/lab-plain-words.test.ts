@@ -3,7 +3,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { allocationBySector } from "@/lib/allocation";
-import { SCENARIO_MAINTENANCE_RATE, SHOCKS } from "@/lib/book-shock";
+import {
+  SCENARIO_MAINTENANCE_RATE,
+  SHOCKS,
+  shockBeta,
+  shockedPct,
+} from "@/lib/book-shock";
 import { MAINTENANCE_RATE } from "@/lib/margin-health";
 import { buildActionSignals } from "@/lib/market/seasonality";
 
@@ -49,11 +54,60 @@ describe("Lab says what it means", () => {
     expect(lab).toMatch(/risingCount\} of your \$\{holdingCount\}/);
   });
 
-  it("labels an unsorted holding in words", () => {
-    const slices = allocationBySector([
+  it("files every holding under a kind of business, never 'Not sorted yet'", () => {
+    /*
+      The bucket this used to assert was a hole rather than a label. The
+      hand-kept table behind it is about thirty tickers, so on the app's
+      own sample portfolio -- the one a stranger gets from "Look around"
+      -- it swallowed 65.6% of the money: an S&P 500 fund, Microsoft,
+      Amazon, Coca-Cola, Nike and Disney, all filed as unsorted directly
+      beneath a donut that had just sorted every one of them.
+    */
+    const sample = [
+      "VOO", "NVDA", "AAPL", "KO", "MSFT", "AMZN", "DIS", "NKE",
+    ].map((ticker) => ({ ticker, currentValue: 100 }));
+    const slices = allocationBySector(sample);
+    for (const slice of slices) {
+      expect(slice.label).not.toBe("Not sorted yet");
+      expect(slice.label).toBeTruthy();
+    }
+    // A name nothing recognises still gets words, not a key.
+    expect(allocationBySector([{ ticker: "ZZZZ", currentValue: 100 }])[0]!.label)
+      .toBe("Other businesses");
+  });
+
+  it("draws the mix once, from the sector", () => {
+    /*
+      This asserted that two panels grouped the same way, because Lab drew
+      a donut by investment theme directly above a bar list by sector and
+      they contradicted each other: "other businesses 20%" over a card
+      that resolved the same money into household goods, shops and media.
+
+      There is one panel now, so the rule is stronger than agreement --
+      there is nothing left to disagree with. `mixSlices` is what it draws,
+      and the duplicate card is gone.
+    */
+    expect(lab).toMatch(/mixSlices\(/);
+    expect(lab).not.toMatch(/AllocCard title="By sector"/);
+    expect(lab).not.toMatch(/themeBreakdown/);
+    // The money moved into the legend the duplicate card used to carry.
+    expect(lab).toMatch(/currency\(m\.value, 0\)/);
+  });
+
+  it("keeps one voice down the legend", () => {
+    /*
+      `THEME_LABEL` is lower case because it is written to sit inside a
+      sentence elsewhere, and beside the provider's sentence-cased sectors
+      it read as "broad market funds" under "Technology and software".
+    */
+    const labels = allocationBySector([
+      { ticker: "VOO", currentValue: 100 },
+      { ticker: "KO", currentValue: 100, sector: "Everyday household goods" },
       { ticker: "ZZZZ", currentValue: 100 },
-    ]);
-    expect(slices[0]!.label).toBe("Not sorted yet");
+    ]).map((slice) => slice.label);
+    for (const label of labels) {
+      expect(label[0], label).toBe(label[0]!.toUpperCase());
+    }
   });
 });
 
@@ -138,5 +192,57 @@ describe("a trend card explains its own news", () => {
     expect(trends).not.toMatch(/higher high|lower low/);
     expect(trends).not.toMatch(/weeksAgo\}w ago/);
     expect(trends).toMatch(/how hard it\n?\s*was moving/);
+  });
+});
+
+describe("the risk room reasons from what it was told", () => {
+  it("hands the sector on to every scenario, not just the oil one", () => {
+    /*
+      `shockedPct` took a sector and dropped it when it called `shockBeta`,
+      so the sector reached exactly one of the nine scenarios and looked
+      like it reached all of them. A signature that takes an argument the
+      call does not pass is invisible to a typechecker.
+
+      A utility is the case that shows it: the catch-all moves it like a
+      plain large company, and its own profile moves it far less.
+    */
+    const utility = "Electricity, water and gas";
+    for (const shock of ["broad_down15", "tech_pullback10", "soft_landing_rally"] as const) {
+      expect(
+        Math.abs(shockedPct("NEE", shock, utility)),
+        shock
+      ).not.toBeCloseTo(Math.abs(shockedPct("NEE", shock)), 4);
+    }
+  });
+
+  it("does not claim a per-company swing it has no history to measure", () => {
+    /*
+      A measured beta per holding was built here and taken out, and the
+      reason is the data rather than the arithmetic. Two series reach the
+      browser: `sparkline`, which is a drawing -- downsampled, so two
+      neighbours are not two consecutive days, and a sine wave outright
+      when a provider had no history -- and `dailyCloses`, which is real
+      and, measured against the live feed, exactly **15 sessions** deep.
+
+      A beta off the drawing is a fact about a curve, and the provenance
+      mark would have called it "measured from their own recent prices".
+      A beta off fourteen daily returns has a confidence interval wider
+      than the distinction it is drawing, which is the same fault this
+      repo already deleted a discounted cash flow and two valuation
+      methods for: confidently wrong beats uncertain only in the wrong
+      direction.
+
+      So the table stays typed and says so. Do not add a `measured`
+      argument back to this chain without a source of history deep enough
+      to support one.
+    */
+    const utility = "Electricity, water and gas";
+    expect(shockedPct.length).toBeLessThanOrEqual(3);
+    expect(shockBeta.length).toBeLessThanOrEqual(3);
+    // The sector still decides it, which is the part that is real.
+    expect(Math.abs(shockedPct("NEE", "broad_down15", utility))).not.toBeCloseTo(
+      Math.abs(shockedPct("NEE", "broad_down15")),
+      4
+    );
   });
 });

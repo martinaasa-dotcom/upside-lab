@@ -46,8 +46,7 @@ import {
   signedPercent,
   signedTone,
 } from "@/lib/format";
-import type { ForecastTheme } from "@/lib/forecast-conviction";
-import { THEME_COLOR } from "@/lib/portfolio-personality";
+import type { MixSlice } from "@/lib/mix-slices";
 import type { OverviewModel } from "@/lib/overview";
 import {
   Award,
@@ -136,49 +135,18 @@ function themePctLabel(p: number): string {
   return `${Math.round(p * 100)}%`;
 }
 
-type ThemeSlice = {
-  theme: ForecastTheme;
-  label: string;
-  value: number;
-  pct: number;
-};
 
-function ThemeBar({ slices }: { slices: ThemeSlice[] }) {
+function ThemeBar({ slices }: { slices: MixSlice[] }) {
   return (
     <AllocationBar
-      slices={slices.map((t) => ({
-        key: t.theme,
-        pct: t.pct,
-        color: THEME_COLOR[t.theme],
-        title: `${t.label}: ${themePctLabel(t.pct)}`,
+      slices={slices.map((m) => ({
+        key: m.key,
+        pct: m.pct,
+        color: m.color,
+        title: `${m.label}: ${themePctLabel(m.pct)}`,
       }))}
     />
   );
-}
-
-/**
- * The one sentence the chart can teach: where you differ from the room.
- * A single stacked bar tells a reader what the group holds and nothing at
- * all about themselves, which is the comparison they came for.
- */
-function biggestThemeGap(
-  circle: ThemeSlice[],
-  you: ThemeSlice[]
-): string | null {
-  if (circle.length === 0 || you.length === 0) return null;
-  const yourPct = new Map(you.map((t) => [t.theme, t.pct]));
-  let best: { label: string; gap: number } | null = null;
-  for (const slice of circle) {
-    const gap = (yourPct.get(slice.theme) ?? 0) - slice.pct;
-    if (!best || Math.abs(gap) > Math.abs(best.gap)) {
-      best = { label: slice.label, gap };
-    }
-  }
-  if (!best || Math.abs(best.gap) < 0.05) return null;
-  const points = Math.round(Math.abs(best.gap) * 100);
-  return best.gap > 0
-    ? `You hold ${points} points more of ${best.label} than the circle does.`
-    : `You hold ${points} points less of ${best.label} than the circle does.`;
 }
 
 export type CircleHomeProps = {
@@ -192,8 +160,17 @@ export type CircleHomeProps = {
   circleLadderRows: HoldingLadderRow[];
   sharedNames: OverlapRow[];
   avatarByName: Map<string, string>;
-  communityThemeBreakdown: ThemeSlice[];
-  yourThemeBreakdown: ThemeSlice[];
+  communityThemeBreakdown: MixSlice[];
+  yourThemeBreakdown: MixSlice[];
+  /**
+   * Where the reader differs most from the room, already worked out.
+   *
+   * Computed by `mixGapLine` from the unfolded allocations rather than
+   * from the two charts below: a chart folds its tail to stay readable,
+   * and the two tails are different sectors, so comparing them compares
+   * unrelated companies. See the note on that function.
+   */
+  gapLine: string | null;
   communityFunFacts: string[];
   funFactsShuffle: number;
   setFunFactsShuffle: Dispatch<SetStateAction<number>>;
@@ -230,6 +207,7 @@ export function CircleHome({
   avatarByName,
   communityThemeBreakdown,
   yourThemeBreakdown,
+  gapLine,
   communityFunFacts,
   funFactsShuffle,
   setFunFactsShuffle,
@@ -256,7 +234,6 @@ export function CircleHome({
   */
   const hasLeague = membersWithBooks.length >= 2;
   const shownView = view === "play" && !hasLeague ? "overview" : view;
-  const gapLine = biggestThemeGap(communityThemeBreakdown, yourThemeBreakdown);
 
   return (
     <>
@@ -695,11 +672,11 @@ export function CircleHome({
                 </p>
               ) : null}
               <SwatchLegend
-                items={communityThemeBreakdown.map((t) => ({
-                  key: t.theme,
-                  label: t.label,
-                  color: THEME_COLOR[t.theme],
-                  value: themePctLabel(t.pct),
+                items={communityThemeBreakdown.map((m) => ({
+                  key: m.key,
+                  label: m.label,
+                  color: m.color,
+                  value: themePctLabel(m.pct),
                 }))}
               />
             </Panel>

@@ -4,12 +4,17 @@ import { useEffect } from "react";
 import { isAbortError } from "@/lib/abort";
 import type { FearGreedSnapshot } from "@/lib/market/fear-greed";
 import { fearGreedTone } from "@/lib/market/fear-greed";
+import {
+  ensureFearGreed,
+  onFearGreed,
+  pooledFearGreed,
+} from "@/lib/fear-greed-pool";
 import { NO_VALUE, cn } from "@/lib/format";
 import { quotePollMs, quotesUrl } from "@/lib/market/session";
 import { macroFromQuotesPayload } from "@/lib/market/macro-numbers";
 import {
   loadMacroPaint,
-  saveMacroPaint,
+  saveMacroNumbers,
   type MacroNumbers,
 } from "@/lib/paint-cache";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
@@ -37,17 +42,6 @@ async function fetchMacroPayload(signal?: AbortSignal): Promise<MacroPayload> {
   return (await res.json()) as MacroPayload;
 }
 
-async function fetchFearGreed(signal?: AbortSignal): Promise<FearGreedSnapshot | null> {
-  try {
-    const res = await fetch("/api/market/fear-greed", { signal });
-    if (!res.ok) return null;
-    return (await res.json()) as FearGreedSnapshot;
-  } catch (err) {
-    if (isAbortError(err)) throw err;
-    return null;
-  }
-}
-
 function fmt(n: number | null, digits = 2) {
   if (n == null || !Number.isFinite(n)) return NO_VALUE;
   return n.toLocaleString("en-US", {
@@ -69,29 +63,29 @@ export function MacroStrip() {
       if (ctrl.signal.aborted) return;
       setMacro((prev) => {
         const next = macroFromQuotesPayload(payload, prev);
-        saveMacroPaint({
-          macro: next,
-          fearGreed: loadMacroPaint()?.fearGreed ?? null,
-        });
+        // Numbers only: the mood reading and the time it was taken belong
+        // to the pool, and rebuilding the whole record here is what used
+        // to throw that time away on every quote tick.
+        saveMacroNumbers(next);
         return next;
       });
     };
-    const applyFear = (fg: FearGreedSnapshot | null) => {
-      if (ctrl.signal.aborted || !fg) return;
-      setFearGreed(fg);
-      saveMacroPaint({
-        macro: loadMacroPaint()?.macro ?? readCachedMacro(),
-        fearGreed: fg,
-      });
+    /*
+      The reading itself comes from the shared pool, which owns its own
+      freshness and single-flights concurrent askers. This strip only has
+      to say when it wants one and copy out whatever is there.
+    */
+    const readFear = () => {
+      if (ctrl.signal.aborted) return;
+      const fg = pooledFearGreed();
+      if (fg) setFearGreed(fg);
     };
     void fetchMacroPayload(ctrl.signal).then(applyMacro).catch((err) => {
       if (isAbortError(err)) return;
     });
-    if (!loadMacroPaint()?.fearGreed) {
-      void fetchFearGreed(ctrl.signal).then(applyFear).catch((err) => {
-        if (isAbortError(err)) return;
-      });
-    }
+    readFear();
+    const unsubscribe = onFearGreed(readFear);
+    void ensureFearGreed().then(readFear);
     let timer = 0;
     const schedule = () => {
       timer = window.setTimeout(
@@ -100,9 +94,7 @@ export function MacroStrip() {
             void fetchMacroPayload(ctrl.signal).then(applyMacro).catch((err) => {
               if (isAbortError(err)) return;
             });
-            void fetchFearGreed(ctrl.signal).then(applyFear).catch((err) => {
-              if (isAbortError(err)) return;
-            });
+            void ensureFearGreed().then(readFear);
           }
           if (!ctrl.signal.aborted) schedule();
         },
@@ -113,6 +105,7 @@ export function MacroStrip() {
 
     return () => {
       ctrl.abort();
+      unsubscribe();
       window.clearTimeout(timer);
     };
   }, [setFearGreed, setMacro]);

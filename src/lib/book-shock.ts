@@ -264,7 +264,31 @@ const KIND_PROFILES: Record<string, TickerShockProfile> = {
   crypto: { label: "Moves with crypto", ai: 0.2, crypto: 1, rates: -0.75, energy: -0.3, fx: -0.2, beta: 2.2, supplyChain: 0.2 },
   space: { label: "Rockets and spacecraft", ai: 0.22, crypto: 0.42, rates: -0.85, energy: -0.3, fx: -0.2, beta: 1.8, supplyChain: 0.5 },
   fintech: { label: "Banking and payment apps", ai: 0.25, crypto: 0.5, rates: -0.65, energy: -0.2, fx: -0.2, beta: 1.5, supplyChain: 0.1 },
-  consumer: { label: "A social network", ai: 0.3, crypto: 0.28, rates: -0.55, energy: -0.15, fx: -0.25, beta: 1.25, supplyChain: 0.1 },
+  /*
+    This was `consumer`, labelled "A social network", and nothing routed to
+    it, so no reader could reach it and the wrong label was harmless right
+    up until somebody filed Nike here to close a gap. The numbers were
+    always a social network's -- little supply chain, rate-sensitive
+    advertising, a beta above the market -- which is squarely the
+    communication-services sector the provider actually names, so it keeps
+    them and takes the name and the words that match.
+  */
+  communication: { label: "Media, telecoms and internet", ai: 0.3, crypto: 0.28, rates: -0.55, energy: -0.15, fx: -0.25, beta: 1.25, supplyChain: 0.1 },
+  /*
+    The two the provider names that this table had no profile for at all.
+    Both are placed by where they sit between neighbours already here
+    rather than by anything measured, which is the standing of every number
+    in this table and is what the copy reading it has to keep saying.
+
+    Consumer cyclical is what people buy when they feel well off, so it
+    sits above staples (0.55) and below software (1.15), and it carries
+    more rate sensitivity than either because a lot of what it sells is
+    bought on credit. Materials is dug up and processed: it moves with
+    energy costs rather than against them, and it carries the heaviest
+    supply chain of anything here.
+  */
+  consumer_cyclical: { label: "Shops, brands and travel", ai: 0.15, crypto: 0.15, rates: -0.6, energy: -0.4, fx: -0.3, beta: 1.1, supplyChain: 0.45 },
+  materials: { label: "Metals, chemicals and materials", ai: 0.1, crypto: 0.1, rates: -0.3, energy: 0.35, fx: -0.45, beta: 0.95, supplyChain: 0.55 },
   ev: { label: "Electric and self-driving cars", ai: 0.7, crypto: 0.5, rates: -0.8, energy: -0.35, fx: -0.5, beta: 1.85, supplyChain: 0.65 },
   energy: { label: "Oil, gas and energy", ai: 0.05, crypto: 0.1, rates: 0.1, energy: 1.0, fx: -0.3, beta: 0.8, supplyChain: 0.2 },
   healthcare: { label: "Healthcare", ai: 0.1, crypto: 0.05, rates: -0.22, energy: -0.1, fx: -0.3, beta: 0.55, supplyChain: 0.2 },
@@ -369,11 +393,62 @@ function kindFromTheme(ticker: string): string {
   }
 }
 
-function resolveKind(raw: string, base: string): string {
+/**
+ * The provider's sector, mapped onto the profile this table already has
+ * for that kind of business.
+ *
+ * Every one of these but two was already written and already applied --
+ * to the handful of tickers somebody typed into `TICKER_KIND`. Coca-Cola
+ * got the staples profile because Coca-Cola is on a list; every other
+ * staple in the market got `other`, a plain large company with a beta of
+ * 1.05, which for a defensive business is not a near miss. This is the
+ * same treatment reaching the companies that were only ever missing from
+ * a list.
+ *
+ * Technology is deliberately `software` rather than anything finer: the
+ * sector holds chip makers and IT services too, and `semi_stock` is a
+ * much stronger claim than the provider actually made.
+ */
+const KIND_BY_PROVIDER_SECTOR: Record<string, string> = {
+  "Technology and software": "software",
+  "Media, telecoms and internet": "communication",
+  "Shops, brands and travel": "consumer_cyclical",
+  "Everyday household goods": "staples",
+  "Oil, gas and energy": "energy",
+  "Banks and finance": "banks",
+  "Healthcare and medicines": "healthcare",
+  "Factories, machines and transport": "industrials",
+  Property: "reit",
+  "Metals, chemicals and materials": "materials",
+  "Electricity, water and gas": "utilities",
+};
+
+/** The kind the provider's sector implies, or null when it names none. */
+export function kindFromProviderSector(words: string | null | undefined): string | null {
+  if (!words) return null;
+  return KIND_BY_PROVIDER_SECTOR[words] ?? null;
+}
+
+/*
+  Order matters and the provider sits third on purpose.
+
+  The two ahead of it are this app's own reading of a specific symbol --
+  a hand-written entry, or a pattern that recognises a levered or inverse
+  fund from its ticker -- and both are finer than a sector. A provider
+  that calls a 3x semiconductor fund "Technology" is not wrong, it is
+  answering a different question, and taking its word there would lose the
+  one fact about that holding that matters most.
+
+  It sits ahead of `kindFromTheme` for the opposite reason: that is a
+  fallback over another hand-kept list, ending at a catch-all, where this
+  is a fact about the company.
+*/
+function resolveKind(raw: string, base: string, sector?: string | null): string {
   return (
     TICKER_KIND[raw] ??
     TICKER_KIND[base] ??
     kindFromName(base) ??
+    kindFromProviderSector(sector) ??
     kindFromTheme(raw)
   );
 }
@@ -386,7 +461,41 @@ export function tickerBase(ticker: string): string {
   return ticker.split(".")[0]!.toUpperCase();
 }
 
-export function getShockProfile(ticker: string): TickerShockProfile {
+/**
+ * Whether this app has a profile written about this company, or is
+ * reasoning about it from a catch-all.
+ *
+ * `PROFILES` is about ninety names and `KIND_PROFILES` a couple of dozen
+ * groups, and between them they cover the holdings this app was built
+ * around. Anything else lands on `KIND_PROFILES.other`, which is a plain
+ * large company and is a guess rather than a reading: Nike, Disney,
+ * Berkshire and every REIT arrive there.
+ *
+ * That is a reasonable thing to assume and not a reasonable thing to
+ * state as fact without saying so, which is this product's first rule.
+ * The Risk room prints a figure per holding, so it has to be able to say
+ * which of the reader's own names it was only guessing about.
+ */
+export function shockProfileIsGuessed(
+  ticker: string,
+  sector?: string | null
+): boolean {
+  const raw = ticker.trim();
+  const upper = raw.toUpperCase();
+  const base = tickerBase(upper);
+  if (PROFILES[upper] ?? PROFILES[raw] ?? PROFILES[base]) return false;
+  const kind = resolveKind(upper, base, sector);
+  // A dotted symbol with no kind is treated as a company listed outside
+  // the US, which is something the ticker itself told us rather than a
+  // guess about the business.
+  if (raw.includes(".") && kind === "other") return false;
+  return kind === "other";
+}
+
+export function getShockProfile(
+  ticker: string,
+  sector?: string | null
+): TickerShockProfile {
   const raw = ticker.trim();
   const upper = raw.toUpperCase();
   const base = tickerBase(upper);
@@ -396,7 +505,7 @@ export function getShockProfile(ticker: string): TickerShockProfile {
     PROFILES[base];
   if (found) return found;
 
-  const kind = resolveKind(upper, base);
+  const kind = resolveKind(upper, base, sector);
   const profile = KIND_PROFILES[kind] ?? KIND_PROFILES.other!;
   if (raw.includes(".") && kind === "other") {
     return KIND_PROFILES.intl!;
@@ -405,9 +514,13 @@ export function getShockProfile(ticker: string): TickerShockProfile {
 }
 
 /** Fraction of the headline move applied to this ticker (0–1+). */
-export function shockBeta(ticker: string, shock: ShockId): number {
+export function shockBeta(
+  ticker: string,
+  shock: ShockId,
+  sector?: string | null
+): number {
   if (shock === "none") return 0;
-  const p = getShockProfile(ticker);
+  const p = getShockProfile(ticker, sector);
   switch (shock) {
     case "broad_down15":
       return clamp(p.beta ?? 1, -1.2, 2.6);
@@ -440,13 +553,17 @@ function boundedMove(pct: number): number {
   return clamp(pct, -0.55, 0.45);
 }
 
-export function shockedPct(ticker: string, shock: ShockId): number {
+export function shockedPct(
+  ticker: string,
+  shock: ShockId,
+  sector?: string | null
+): number {
   if (shock === "none") return 0;
   const meta = SHOCKS.find((s) => s.id === shock);
   if (!meta) return 0;
 
   if (shock === "oil_shock25") {
-    const p = getShockProfile(ticker);
+    const p = getShockProfile(ticker, sector);
     const energySens = p.energy ?? -0.2;
     if (energySens > 0) {
       return boundedMove(0.12 * energySens);
@@ -455,23 +572,31 @@ export function shockedPct(ticker: string, shock: ShockId): number {
   }
 
   if (shock === "usd_surge7") {
-    const p = getShockProfile(ticker);
+    const p = getShockProfile(ticker, sector);
     const fxSens = p.fx ?? (ticker.includes(".") ? -0.85 : -0.3);
     return boundedMove(-0.07 * Math.abs(fxSens));
   }
 
-  return boundedMove(meta.headlinePct * shockBeta(ticker, shock));
+  /*
+    The sector has to be handed on here, and this line dropped it when it
+    was first threaded through: every scenario but oil fell back to the
+    catch-all profile, so the sector reached one card of nine and looked
+    like it reached all of them. The signature took the argument and the
+    call did not pass it, which typecheck cannot see.
+  */
+  return boundedMove(meta.headlinePct * shockBeta(ticker, shock, sector));
 }
 
 export function shockedPrice(
   ticker: string,
   spot: number,
-  shock: ShockId
+  shock: ShockId,
+  sector?: string | null
 ): number {
   if (!(spot > 0) || !Number.isFinite(spot) || shock === "none") {
     return finiteNumber(spot);
   }
-  const pct = shockedPct(ticker, shock);
+  const pct = shockedPct(ticker, shock, sector);
   return roundMoney(spot * (1 + pct));
 }
 
@@ -532,7 +657,13 @@ export type PortfolioShockAnalysis = {
  * under any selected macro shock scenario.
  */
 export function analyzePortfolioShock(
-  holdings: { ticker: string; shares: number; price: number }[],
+  holdings: {
+    ticker: string;
+    shares: number;
+    price: number;
+    /** The provider's sector in this app's words, where it answered. */
+    sector?: string | null;
+  }[],
   cash: number,
   shockId: ShockId
 ): PortfolioShockAnalysis {
@@ -542,13 +673,13 @@ export function analyzePortfolioShock(
     .filter((h) => h.shares > 0 && h.price > 0)
     .map((h) => {
       const livePx = finiteNumber(h.price);
-      const shockPx = shockedPrice(h.ticker, livePx, shockId);
+      const shockPx = shockedPrice(h.ticker, livePx, shockId, h.sector);
       const liveVal = roundMoney(finiteNumber(h.shares) * livePx);
       const shockVal = roundMoney(finiteNumber(h.shares) * shockPx);
       const deltaVal = roundMoney(shockVal - liveVal);
       const deltaPct = safeDiv(deltaVal, liveVal);
-      const movePct = shockedPct(h.ticker, shockId);
-      const profile = getShockProfile(h.ticker);
+      const movePct = shockedPct(h.ticker, shockId, h.sector);
+      const profile = getShockProfile(h.ticker, h.sector);
 
       return {
         ticker: h.ticker,

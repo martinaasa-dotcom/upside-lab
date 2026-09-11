@@ -88,6 +88,41 @@ describe("provenance", () => {
     expect(p.headline).toMatch(/not reasoning/i);
   });
 
+  it("says how fast the fallback shape compounds, against the market", () => {
+    /*
+      "A table written into this app" was true and said nothing about the
+      size of the assumption. Some kinds of business were given a shape
+      compounding at nearly thirty per cent a year and most were not, and
+      which is which is a list somebody here chose. A reader looking at
+      one of the fast ones is owed both figures.
+    */
+    const fast = forecastPathProvenance({
+      ticker: "NVDA",
+      spot: 180,
+      fallback: true,
+    });
+    const fastStep = (fast.steps ?? []).find((s) => /% a year/.test(s));
+    expect(fastStep).toBeTruthy();
+    expect(fastStep).toMatch(/for the market as a whole/i);
+    // Both numbers present, so the reader can see the gap rather than take it.
+    expect(fastStep!.match(/\d+%/g)?.length).toBeGreaterThanOrEqual(2);
+
+    // A company this app does not recognise gets the market's own shape,
+    // and the copy says that rather than implying a premium.
+    const plain = forecastPathProvenance({
+      ticker: "ZZZZQQ",
+      spot: 40,
+      fallback: true,
+    });
+    const plainStep = (plain.steps ?? []).find((s) => /% a year/.test(s));
+    expect(plainStep).toMatch(/which is what this app uses/i);
+
+    // And the blind spot admits the list is a choice, not a measurement.
+    expect(
+      plain.blindSpots.some((s) => /not something measured/i.test(s))
+    ).toBe(true);
+  });
+
   it("says Pulse fetched headlines when it did, and says so when it did not", () => {
     const withNews = pulseProvenance({
       ticker: "CRWV",
@@ -111,6 +146,33 @@ describe("provenance", () => {
     const p = scenarioProvenance();
     expect(p.maker).toBe("arithmetic");
     expect(p.headline).toMatch(/nobody asked a model/i);
+  });
+
+  it("names the reader's own holdings it was only guessing about", () => {
+    /*
+      This room prints a figure per holding, and behind each is a profile
+      saying how that kind of business moves. About ninety companies have
+      one written about them; everything else is reasoned from a
+      plain-large-company catch-all, which on an ordinary portfolio is
+      several of the reader's own names. Assuming that is fair; stating
+      the result as fact in silence is not, which is this product's first
+      rule.
+    */
+    const quiet = scenarioProvenance([]).blindSpots.join(" ");
+    expect(quiet).not.toMatch(/no profile written/);
+
+    const guessed = scenarioProvenance(["NKE", "DIS"]).blindSpots.join(" ");
+    expect(guessed).toMatch(/no profile written for DIS and NKE/);
+    expect(guessed).toMatch(/a guess/);
+
+    // One name reads as a sentence too, not "1 holdings".
+    const one = scenarioProvenance(["DIS"]).blindSpots.join(" ");
+    expect(one).toMatch(/no profile written for DIS, so it is assumed/);
+    expect(one).toMatch(/the figure beside it/);
+
+    // Deduped, and a blank never reaches the sentence.
+    const messy = scenarioProvenance(["dis", "DIS", " ", "NKE"]).blindSpots.join(" ");
+    expect(messy).toMatch(/for DIS and NKE/);
   });
 
   it("tells a skeptic the Forecast room's years ahead are modeled", () => {

@@ -48,33 +48,11 @@ import {
   type DeckState,
   type RecallCard,
 } from "@/lib/recall-deck";
+import { loadDeck, saveDeck } from "@/lib/recall-deck-store";
+import { loadWordsLookedUp, type WordsLookedUp } from "@/lib/words-looked-up";
 import { todayKeyInTz } from "@/lib/timezone";
 
-const KEY_PREFIX = "upside-recall-deck-v1";
 
-function storageKey(userId: string | null | undefined): string {
-  return userId ? `${KEY_PREFIX}:${userId}` : KEY_PREFIX;
-}
-
-function loadDeck(userId: string | null | undefined): DeckState {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(storageKey(userId));
-    if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? (parsed as DeckState) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveDeck(userId: string | null | undefined, state: DeckState): void {
-  try {
-    window.localStorage.setItem(storageKey(userId), JSON.stringify(state));
-  } catch {
-    // A reader with storage switched off simply gets the question again.
-  }
-}
 
 export function RecallCardPanel({
   input,
@@ -96,16 +74,34 @@ export function RecallCardPanel({
   // The deck as it stands once the current card is answered; applied only
   // when the reader asks for another card, so the explanation stays put.
   const [pending, setPending] = useState<DeckState | null>(null);
+  /*
+    Words the reader has opened a definition for, read here rather than
+    passed in, because it is `localStorage` and the server has none: built
+    into the input during render it would be empty on the server and full
+    on the client, which is a hydration mismatch on the one panel whose
+    content is the difference between the two.
+  */
+  const [words, setWords] = useState<WordsLookedUp>({});
 
   useEffect(() => {
     setDeck(loadDeck(userId));
+    setWords(loadWordsLookedUp());
     setRoll(Math.floor(Math.random() * 1_000_000));
     setAsked(new Set());
     setPending(null);
     setPicked(null);
   }, [userId]);
 
-  const cards = useMemo(() => buildRecallCards(input), [input]);
+  /*
+    A word opened twice is the most precise signal this app has that a
+    definition did not stick, and the deck is already a spaced-repetition
+    engine, so the loop closes itself: the word comes back in a day, then
+    three, then a week, and stops being asked once it is known.
+  */
+  const cards = useMemo(
+    () => buildRecallCards({ ...input, words }),
+    [input, words]
+  );
   const today = todayKeyInTz();
   const card: RecallCard | null = useMemo(() => {
     if (!deck) return null;
@@ -154,7 +150,18 @@ export function RecallCardPanel({
     <Panel className={cn("overview-fade", className)}>
       <PanelHeader
         title="One question"
-        subtitle="About what you already own. Nothing is scored."
+        /*
+          The subtitle said "About what you already own", which stopped
+          being true when a word the reader had looked up twice became one
+          of the questions. It is the reader's own two things either way,
+          their holdings and the words they went looking for, and neither
+          is scored.
+        */
+        subtitle={
+          card.concept === "word"
+            ? "A word you looked up more than once. Nothing is scored."
+            : "About what you already own. Nothing is scored."
+        }
       />
       <p className="text-base font-medium leading-relaxed text-foreground">
         {card.question}

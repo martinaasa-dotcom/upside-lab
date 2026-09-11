@@ -1,11 +1,32 @@
 import { describe, expect, it } from "vitest";
 import { FORECAST_YEARS } from "@/lib/forecast";
+import { buildForecastPlanPrompt } from "@/lib/forecast-plan";
 import type { ForecastModel, ForecastYear } from "@/lib/forecast";
 import {
   ensureCompleteEoyTargets,
   type ForecastPathAdjustment,
 } from "@/lib/forecast-plan";
-import { reshapeToThemeRhythm, shapedFallbackPath } from "@/lib/forecast-conviction";
+import {
+  impliedAnnualReturnForTheme,
+  reshapeToThemeRhythm,
+  shapedFallbackPath,
+  type ForecastTheme,
+} from "@/lib/forecast-conviction";
+
+/** Every theme, so a new one cannot dodge the baseline rule below. */
+const THEMES_FOR_TEST: ForecastTheme[] = [
+  "ai_infra",
+  "ai_power",
+  "crypto",
+  "space",
+  "semi",
+  "fintech",
+  "software",
+  "healthcare",
+  "drones",
+  "index",
+  "other",
+];
 
 /*
  * A forecast is allowed to point down.
@@ -143,5 +164,83 @@ describe("reshapeToThemeRhythm", () => {
       FORECAST_YEARS.map((y, i) => [y, 90 - i])
     ) as Record<ForecastYear, number>;
     expect(reshapeToThemeRhythm(given, flatShape, SPOT)).toEqual(given);
+  });
+});
+
+describe("the bucket for names this app cannot place", () => {
+  it("assumes the market, never a premium over it", () => {
+    /*
+      `other` sat at about 13% a year against the index's 10%, so every
+      company the theme list did not recognise was assumed to beat the
+      market by three points. That is a lift, and the rules over
+      `forecast-conviction.ts` forbid one: the persona's "structurally
+      bullish" compass and its per-theme floors were removed for exactly
+      this reason.
+
+      It reached further than a forecast. `impliedAnnualReturnForTheme`
+      feeds the Growth room's "Your mix" rate, so an ordinary portfolio's
+      starting assumption was optimistic before the reader touched
+      anything.
+    */
+    const market = impliedAnnualReturnForTheme("index");
+    expect(impliedAnnualReturnForTheme("other")).toBeCloseTo(market, 10);
+  });
+
+  it("leaves no theme below the market it cannot justify", () => {
+    // A sanity floor on the whole ladder: nothing may be *under* the
+    // baseline, since a theme is a kind of business rather than a bet
+    // against the market.
+    for (const theme of THEMES_FOR_TEST) {
+      expect(
+        impliedAnnualReturnForTheme(theme),
+        theme
+      ).toBeGreaterThanOrEqual(impliedAnnualReturnForTheme("index") - 1e-9);
+    }
+  });
+});
+
+describe("what the forecast prompt tells the model a holding is", () => {
+  const forecast = {
+    rows: [
+      { ticker: "KO", shares: 40, currentPrice: 88, currentValue: 3520, hasTargets: false },
+      { ticker: "NVDA", shares: 22, currentPrice: 219, currentValue: 4818, hasTargets: false },
+    ],
+    currentTotal: 8338,
+    years: [],
+  } as unknown as ForecastModel;
+
+  it("names the sector instead of calling an ordinary company unclassified", () => {
+    /*
+      The table behind this line is about thirty names, so most ordinary
+      companies arrived as "unclassified". That is worse than saying
+      nothing: it is a fact about this app's own bookkeeping, presented as
+      a fact about the company, in a prompt asking a model to reason about
+      that company.
+    */
+    const vague = buildForecastPlanPrompt({
+      portfolioName: "x",
+      cashBalance: 0,
+      forecast,
+    });
+    expect(vague).toContain("KO [unclassified");
+
+    const named = buildForecastPlanPrompt({
+      portfolioName: "x",
+      cashBalance: 0,
+      forecast,
+      sectors: { KO: "Everyday household goods" },
+    });
+    expect(named).toContain("KO [Everyday household goods");
+    expect(named).not.toContain("KO [unclassified");
+  });
+
+  it("keeps the hand-written entry, which is finer than a sector", () => {
+    const prompt = buildForecastPlanPrompt({
+      portfolioName: "x",
+      cashBalance: 0,
+      forecast,
+      sectors: { NVDA: "Technology and software" },
+    });
+    expect(prompt).toContain("NVDA [Makes computer chips");
   });
 });

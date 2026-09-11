@@ -169,3 +169,50 @@ describe("the preset amounts", () => {
     expect(fitPresets(0).length).toBeGreaterThan(0);
   });
 });
+
+describe("the group comparison reaches an ordinary portfolio", () => {
+  it("uses the provider's sector when the hand table has never heard of these", () => {
+    /*
+      The one shaped observation this card is allowed to make used to be
+      silently absent on any ordinary portfolio: the hand-kept table is
+      about thirty names, so the sector came back null for Coca-Cola,
+      Pepsi and the rest, and the "your biggest group goes from X to Y"
+      sentence simply never printed.
+    */
+    const holdings = [
+      { ticker: "KO", value: 4000 },
+      { ticker: "PEP", value: 3000 },
+      { ticker: "NVDA", value: 3000 },
+    ];
+    const sectors = {
+      KO: "Everyday household goods",
+      PEP: "Everyday household goods",
+      NVDA: "Technology and software",
+    };
+
+    const without = positionFit({ ticker: "KO", amount: 1000, holdings, cash: 0 });
+    const with_ = positionFit({
+      ticker: "KO",
+      amount: 1000,
+      holdings,
+      cash: 0,
+      sectors,
+    });
+
+    expect(without?.sectorAfter).toBeNull();
+    // 7,000 of household goods plus the new 1,000, over 11,000 of stocks.
+    expect(with_?.sectorBefore).toBeCloseTo(7000 / 10000, 6);
+    expect(with_?.sectorAfter).toBeCloseTo(8000 / 11000, 6);
+  });
+
+  it("still prefers the hand-written entry where there is one", () => {
+    // No sector passed for NVDA: the table knows it, so the group is found.
+    const fit = positionFit({
+      ticker: "NVDA",
+      amount: 500,
+      holdings: [{ ticker: "NVDA", value: 1000 }, { ticker: "AVGO", value: 1000 }],
+      cash: 0,
+    });
+    expect(fit?.sectorAfter).not.toBeNull();
+  });
+});

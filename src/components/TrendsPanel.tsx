@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@/components/AuthProvider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +51,14 @@ import {
   TrendingUp,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { isAbortError } from "@/lib/abort";
 import { aimOnPress } from "@/lib/route-aim";
 import { companyHref } from "@/lib/company/client";
@@ -235,6 +243,26 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
     () => (key ? loadTrendsPaint(key) : []),
     null
   );
+  /*
+    Whether there is an account behind this reader.
+
+    This tab reads four years of weekly closes and asks a model whether
+    the trend has turned, so `/api/trends` requires a session and should:
+    a stranger walking the sample must not be able to spend a model call.
+    What was wrong is what the sample reader saw. Every other Lab tab
+    answers on the sample, and the gate on the rooms that do not says
+    "This part needs an account" in as many words; this one offered a
+    Recheck button that could only fail and then answered with the shared
+    401 copy, "You're signed out. Sign in again to see this", to somebody
+    who has never signed in. It also made the sample's own promise false,
+    since the gate tells that reader Lab is open to them.
+  */
+  const { user, ready: authReady } = useAuth();
+  const needsAccount = authReady && !user;
+  // Read through a ref so `load`'s identity does not change when the
+  // session settles, which would re-run every effect that depends on it.
+  const needsAccountRef = useRef(needsAccount);
+  needsAccountRef.current = needsAccount;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -250,7 +278,7 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
   }, [key, setRows]);
 
   const load = useCallback(async (force = false, signal?: AbortSignal) => {
-    if (!key) {
+    if (!key || needsAccountRef.current) {
       setRows([]);
       return;
     }
@@ -380,7 +408,8 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
                 type="button"
                 variant="outline"
                 onClick={() => void load(true)}
-                disabled={busy}
+                disabled={busy || needsAccount}
+                hidden={needsAccount}
               >
                 <RefreshCw
                   data-icon="inline-start"
@@ -435,18 +464,25 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
         ) : null}
       </Panel>
 
-      {error && (
+      {error && !needsAccount && (
         <Alert variant="destructive">
           <AlertTriangle />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      {rows == null && !error && (
+      {needsAccount ? (
+        <EmptyState
+          title="This part needs an account"
+          detail="Reading four years of closes and working out whether a trend has turned is done for a signed-in reader, so it is the one thing in Lab the sample cannot show you. Everything else here answers on the sample."
+        />
+      ) : null}
+
+      {!needsAccount && rows == null && !error && (
         <EmptyState title="Reading four years of weekly closing prices …" />
       )}
 
-      {rows != null && rows.length === 0 && !error && (
+      {!needsAccount && rows != null && rows.length === 0 && !error && (
         <EmptyState
           title="Nothing to read yet"
           detail="Add a holding, or watch a ticker above, and its trend appears here."

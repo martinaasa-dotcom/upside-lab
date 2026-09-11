@@ -366,6 +366,13 @@ export function explainTerm(
   key: string,
   input: GlossaryExample = {}
 ): {
+  /**
+   * The entry's own id, which is the stable name for this word however the
+   * caller spelled it. A surface recording that a reader opened a
+   * definition has to key on this, or "market cap" and "market-value"
+   * become two words in their record.
+   */
+  id: string;
   term: string;
   meaning: string;
   alsoCalled: string | null;
@@ -375,6 +382,7 @@ export function explainTerm(
   const entry = glossaryEntry(key);
   if (!entry) return null;
   return {
+    id: entry.id,
     term: entry.term,
     meaning: entry.meaning,
     alsoCalled: entry.alsoCalled ?? null,
