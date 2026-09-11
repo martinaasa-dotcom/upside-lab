@@ -26,6 +26,7 @@
  * is not asked about it forever.
  */
 
+import { GLOSSARY, glossaryEntry } from "@/lib/glossary";
 import { daySize, type TypicalMove } from "@/lib/typical-move";
 
 /** Days from a correct answer to the next asking, one entry per box. */
@@ -60,6 +61,12 @@ export type RecallCard = {
   /** Said the moment they answer, right or wrong, with the real figure. */
   because: string;
 };
+
+/** The first sentence of a definition, which is the part that defines it. */
+function firstSentence(text: string): string {
+  const end = text.indexOf(". ");
+  return end > 0 ? text.slice(0, end + 1) : text;
+}
 
 function addDays(dayKey: string, days: number): string {
   const [y, m, d] = dayKey.split("-").map(Number);
@@ -188,6 +195,16 @@ export type DeckInput = {
   /** Formatters, so this module states no opinion about money. */
   money: (n: number) => string;
   percent: (n: number) => string;
+  /**
+   * Words the reader has opened the definition of, and how often.
+   *
+   * A word opened twice is the most precise signal this app has that a
+   * definition did not stick: nobody looks up a word they already know.
+   * The deck is already a spaced-repetition engine, so the loop closes
+   * itself -- the word comes back in a day, then three, then a week, and
+   * stops being asked once it is known.
+   */
+  words?: Record<string, { id: string; times: number }>;
 };
 
 function shuffleTo(options: string[], answer: string, seed: number): {
@@ -275,6 +292,43 @@ export function buildRecallCards(input: DeckInput): RecallCard[] {
     const shuffled = shuffleTo(distinct, answer, seedOf(id));
     cards.push({ id, concept, question, because, ...shuffled });
   };
+
+  /* ------------------------------------------------- words you looked up */
+
+  /*
+    Only a word looked up more than once. Once is curiosity, and asking
+    somebody to define a word they glanced at is a test they did not sit
+    down for. Twice is a definition that did not land, which is the one
+    thing here worth bringing back.
+
+    The meaning is the question and the words are the options, rather than
+    the other way round: four two-sentence definitions is a wall of prose
+    where four words is a glance, and it is the direction a person
+    actually needs -- meeting the idea in the wild and reaching for its
+    name.
+  */
+  const lookedUpTwice = Object.values(input.words ?? {})
+    .filter((w) => w.times >= 2)
+    .map((w) => glossaryEntry(w.id))
+    .filter((e): e is NonNullable<typeof e> => e != null);
+
+  for (const entry of lookedUpTwice) {
+    const others = GLOSSARY.filter((g) => g.id !== entry.id).map((g) => g.term);
+    const seed = seedOf(`word:${entry.id}`);
+    // Three others, taken at a stride from the seed so the same word gets
+    // the same neighbours on two devices and different ones per word.
+    const distractors = [0, 1, 2].map(
+      (i) => others[(seed + i * 7) % others.length]!
+    );
+    push(
+      `word:${entry.id}`,
+      "word",
+      `Which of these means: ${firstSentence(entry.meaning)}`,
+      [entry.term, ...distractors],
+      entry.term,
+      entry.meaning
+    );
+  }
 
   /* -------------------------------------------- how much of it is this */
 

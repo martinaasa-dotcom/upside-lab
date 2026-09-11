@@ -289,3 +289,75 @@ describe("the questions", () => {
     }
   });
 });
+
+describe("words that did not stick come back as questions", () => {
+  const base = {
+    holdings: [
+      { ticker: "AAA", shares: 10, buyPrice: 10, price: 20, value: 200, todayPct: 0.01 },
+      { ticker: "BBB", shares: 10, buyPrice: 10, price: 10, value: 100, todayPct: 0.01 },
+    ],
+    totalValue: 300,
+    cash: 0,
+    todayPct: 0.01,
+    money: (n: number) => `$${n.toFixed(0)}`,
+    percent: (n: number) => `${(n * 100).toFixed(0)}%`,
+  };
+
+  it("asks about a word opened twice, and not one opened once", () => {
+    /*
+      Once is curiosity. Asking somebody to define a word they glanced at
+      is a test they never sat down for; twice is a definition that did not
+      land, which is the one thing worth bringing back.
+    */
+    const cards = buildRecallCards({
+      ...base,
+      words: {
+        borrowed: { id: "borrowed", times: 2 },
+        cash: { id: "cash", times: 1 },
+      },
+    });
+    const ids = cards.map((c) => c.id);
+    expect(ids).toContain("word:borrowed");
+    expect(ids).not.toContain("word:cash");
+  });
+
+  it("puts the meaning in the question and the words in the options", () => {
+    const card = buildRecallCards({
+      ...base,
+      words: { borrowed: { id: "borrowed", times: 3 } },
+    }).find((c) => c.id === "word:borrowed")!;
+
+    expect(card.concept).toBe("word");
+    expect(card.question).toContain("Which of these means");
+    // Four short words, not four walls of prose.
+    expect(card.options.length).toBe(4);
+    for (const option of card.options) expect(option.length).toBeLessThan(40);
+    expect(card.options[card.answerIndex]).toBe("Borrowed money");
+  });
+
+  it("keeps the id stable, so the card can actually come back", () => {
+    const twice = [2, 9].map(
+      (times) =>
+        buildRecallCards({
+          ...base,
+          words: { borrowed: { id: "borrowed", times } },
+        }).find((c) => c.id === "word:borrowed")!
+    );
+    expect(twice[0]!.id).toBe(twice[1]!.id);
+    expect(twice[0]!.options).toEqual(twice[1]!.options);
+  });
+
+  it("ignores a word the glossary has never heard of", () => {
+    const cards = buildRecallCards({
+      ...base,
+      words: { nonsense: { id: "nonsense", times: 5 } },
+    });
+    expect(cards.some((c) => c.id.startsWith("word:"))).toBe(false);
+  });
+
+  it("changes nothing for a reader who has looked nothing up", () => {
+    const without = buildRecallCards(base).map((c) => c.id);
+    const withEmpty = buildRecallCards({ ...base, words: {} }).map((c) => c.id);
+    expect(withEmpty).toEqual(without);
+  });
+});
