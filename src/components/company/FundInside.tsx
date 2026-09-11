@@ -5,7 +5,7 @@ import { WhyThis } from "@/components/ui/WhyThis";
 import { companyHref } from "@/lib/company/client";
 import { fundOverlap, overlapSentence } from "@/lib/company/fund-overlap";
 import { fundProvenance } from "@/lib/provenance";
-import { cashtag, percent } from "@/lib/format";
+import { barFillPct, cashtag, percent } from "@/lib/format";
 import type { CompanyFacts } from "@/lib/company/facts";
 import { aimOnPress } from "@/lib/route-aim";
 import Link from "next/link";
@@ -98,7 +98,7 @@ export function FundInside({
                   <span
                     aria-hidden
                     className="absolute inset-y-0 left-0 bg-foreground/[0.06]"
-                    style={{ width: `${(h.weight / peak) * 100}%` }}
+                    style={{ width: `${barFillPct((h.weight / peak) * 100)}%` }}
                   />
                   <span className="relative w-20 shrink-0 font-mono text-sm tabular-nums text-foreground">
                     {cashtag(h.symbol)}
@@ -145,7 +145,7 @@ export function FundInside({
                   <span
                     aria-hidden
                     className="absolute inset-y-0 left-0 rounded-full bg-foreground/40"
-                    style={{ width: `${Math.min(s.weight * 100, 100)}%` }}
+                    style={{ width: `${barFillPct(s.weight * 100)}%` }}
                   />
                 </span>
                 <span className="w-12 shrink-0 text-right font-mono text-sm tabular-nums text-foreground">

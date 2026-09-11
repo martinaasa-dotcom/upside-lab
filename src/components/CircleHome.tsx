@@ -32,6 +32,7 @@ import {
 import type { CommunityDuelCache } from "@/lib/community-cache";
 import type { OverlapRow } from "@/lib/circle-overlap";
 import {
+  barFillPct,
   cashtag,
   cn,
   currency,
@@ -144,7 +145,7 @@ function ThemeBar({ slices }: { slices: ThemeSlice[] }) {
         <div
           key={t.theme}
           style={{
-            width: `${Math.max(1.5, t.pct * 100)}%`,
+            width: `${barFillPct(t.pct * 100, 1.5)}%`,
             backgroundColor: THEME_COLOR[t.theme],
           }}
           title={`${t.label}: ${themePctLabel(t.pct)}`}

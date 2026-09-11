@@ -24,7 +24,7 @@ import {
   correlationGrid,
   correlationMatrix,
 } from "@/lib/correlation";
-import { NO_VALUE, cashtag, cn, currency } from "@/lib/format";
+import { NO_VALUE, barFillPct, cashtag, cn, currency } from "@/lib/format";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import type { OverviewModel } from "@/lib/overview";
 import type { Holding, Portfolio, Quote } from "@/lib/types";
@@ -646,7 +646,7 @@ export const LabSheet = memo(function LabSheet({
                       <div
                         key={t.theme}
                         style={{
-                          width: `${Math.max(1.5, t.pct * 100)}%`,
+                          width: `${barFillPct(t.pct * 100, 1.5)}%`,
                           backgroundColor: THEME_COLOR[t.theme],
                         }}
                         title={`${t.label}: ${Math.round(t.pct * 100)}%`}

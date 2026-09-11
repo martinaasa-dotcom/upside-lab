@@ -31,6 +31,7 @@ import { isAbortError, isNetworkError } from "@/lib/abort";
 import { useNetworkResume } from "@/lib/use-network-resume";
 import {
   NO_VALUE,
+  barFillPct,
   cashtag,
   cn,
   currency,
@@ -1794,7 +1795,7 @@ export function UpsidePortfolioPage() {
                       <div
                         key={t.key}
                         style={{
-                          width: `${Math.max(1.5, t.pct * 100)}%`,
+                          width: `${barFillPct(t.pct * 100, 1.5)}%`,
                           backgroundColor: t.color,
                         }}
                         title={`${t.label}: ${sliceLabel(t.pct)}`}
