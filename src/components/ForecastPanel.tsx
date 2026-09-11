@@ -55,6 +55,7 @@ import {
   cachedEoyPathsFor,
   cachedTickersFor,
   TICKER_SECTORS,
+  forecastPlanDiffs,
   type ForecastPlan,
 } from "@/lib/forecast-plan";
 import { beliefLines } from "@/lib/believe";
@@ -850,39 +851,10 @@ export const ForecastPanel = memo(function ForecastPanel({
     return planTickers.filter((t) => !current.has(t));
   }, [plan, model.rows]);
 
-  const lastPlanDiffs = useMemo(() => {
-    if (!plan || !prevPlan?.eoyTargets?.length) return [];
-    const lastYear = yearCols[yearCols.length - 1];
-    if (lastYear == null) return [];
-    const out: {
-      ticker: string;
-      from: number;
-      to: number;
-      rationale: string;
-    }[] = [];
-    for (const t of plan.eoyTargets) {
-      const old = prevPlan.eoyTargets.find(
-        (p) => p.ticker.toUpperCase() === t.ticker.toUpperCase()
-      );
-      if (!old) continue;
-      const nextP = t.prices?.[lastYear];
-      const oldP = old.prices?.[lastYear];
-      if (
-        typeof nextP !== "number" ||
-        typeof oldP !== "number" ||
-        Math.abs(nextP - oldP) < 0.5
-      ) {
-        continue;
-      }
-      out.push({
-        ticker: t.ticker,
-        from: oldP,
-        to: nextP,
-        rationale: t.rationale?.trim() || "",
-      });
-    }
-    return out;
-  }, [plan, prevPlan, yearCols]);
+  const lastPlanDiffs = useMemo(
+    () => forecastPlanDiffs(plan, prevPlan, yearCols[yearCols.length - 1]),
+    [plan, prevPlan, yearCols]
+  );
 
   const activePeriod =
     plan && plan.periods.length > 0
