@@ -9,6 +9,7 @@
 
 import { downsampleIndices, SPARK_POINTS, SPARK_WINDOW } from "@/lib/market-sentiment-viz";
 import { ratingForScore } from "@/lib/market/fear-greed";
+import { isBestDaysRead, type BestDaysRead } from "@/lib/market-temperature";
 import { rsi, sma } from "@/lib/market/indicators";
 
 export type SentimentSpark = {
@@ -42,6 +43,21 @@ export type SentimentMetrics = {
   alreadyLong: boolean;
   /** Last year of SPY closes against the 200-day average, downsampled. */
   spark: SentimentSpark | null;
+  /*
+    Ten years of the index, with its best and worst days taken out.
+
+    It rides along on this snapshot rather than having a route of its own
+    because the ten years of daily closes it needs are already fetched
+    here, for the 200-day average and the stretch sample, and asking the
+    provider twice for the same chart to answer a second question is the
+    one thing this app's whole free-tier fallback chain exists to avoid.
+
+    Optional, and every reader treats an absent one as a section that does
+    not draw: a paint cached by a deploy from before this field existed
+    comes back without it, which is not an error and heals on the next
+    fetch. See the Playbook room.
+  */
+  bestDays?: BestDaysRead | null;
   asOf: string | null;
 };
 
@@ -223,8 +239,19 @@ export function preferSentimentSnapshot(
         : sentimentHasAnyGauge(next)
           ? next
           : prev;
-  if (chosen.spark || !prev?.spark) return chosen;
-  return { ...chosen, spark: prev.spark };
+  /*
+    Both of these are expensive halves of the same chart, and a snapshot
+    that arrived without one is not a statement that there is none: it is
+    a fetch that did not get that far. Carrying the previous one forward
+    keeps a section on screen through a provider's bad minute rather than
+    blanking it and drawing it again a moment later.
+  */
+  const spark = chosen.spark ?? prev?.spark ?? null;
+  const bestDays = chosen.bestDays ?? prev?.bestDays ?? null;
+  if (spark === chosen.spark && bestDays === (chosen.bestDays ?? null)) {
+    return chosen;
+  }
+  return { ...chosen, spark, bestDays };
 }
 
 function clamp01(n: number): number {
@@ -658,6 +685,7 @@ export function isSentimentMetrics(v: unknown): v is SentimentMetrics {
     numOrNull(o.typicalMoreDays) &&
     (o.alreadyLong == null || typeof o.alreadyLong === "boolean") &&
     isSpark(o.spark) &&
+    (o.bestDays == null || isBestDaysRead(o.bestDays)) &&
     (o.asOf == null || typeof o.asOf === "string")
   );
 }

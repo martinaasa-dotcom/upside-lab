@@ -19,6 +19,7 @@ import { fetchQuotesWithFallback } from "@/lib/market/quotes";
 import { marketSession } from "@/lib/market/session";
 import { getYahoo } from "@/lib/market/yahoo";
 import { siteUrl } from "@/lib/site-url";
+import { bestDaysFromCloses } from "@/lib/market-temperature";
 import {
   preferSentimentSnapshot,
   sentimentGaugesReady,
@@ -157,6 +158,10 @@ async function loadSnapshot(): Promise<SentimentMetrics> {
       closes,
       bars.map((b) => b.at),
       history.streakDays
+    ),
+    bestDays: bestDaysFromCloses(
+      closes,
+      bars.map((b) => b.at)
     ),
     asOf,
   };

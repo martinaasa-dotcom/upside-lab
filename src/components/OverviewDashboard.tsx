@@ -93,7 +93,7 @@ import {
   type ReactNode,
 } from "react";
 
-export type LabDeepLink = "seasonality" | "lookup";
+export type LabDeepLink = "seasonality" | "lookup" | "playbook";
 
 /** Signed numbers use gain/loss. Neutral figures stay on the cream. */
 const tone = (value: number | null | undefined) =>
