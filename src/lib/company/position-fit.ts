@@ -80,6 +80,15 @@ export function positionFit(input: {
   amount: number;
   holdings: FitHolding[];
   cash: number;
+  /**
+   * The provider's sector per ticker, in this app's words, where it was
+   * fetched. Optional, and the fallback is the hand-kept table this used
+   * to read alone: that table is about thirty names, so on an ordinary
+   * portfolio the group comparison below simply did not happen -- the
+   * sector came back null and the one shaped observation this card is
+   * allowed to make was silently absent.
+   */
+  sectors?: Record<string, string>;
 }): PositionFit | null {
   const ticker = input.ticker.trim().toUpperCase();
   const amount = Number.isFinite(input.amount) ? Math.max(input.amount, 0) : 0;
@@ -109,12 +118,15 @@ export function positionFit(input: {
   const sorted = [...after].sort((a, b) => b.value - a.value);
   const rank = sorted.findIndex((h) => h.ticker === ticker) + 1;
 
-  const sector = sectorForTicker(ticker);
+  const sectorOf = (t: string): string | null =>
+    input.sectors?.[t.trim().toUpperCase()] ?? sectorForTicker(t);
+
+  const sector = sectorOf(ticker);
   let sectorBefore: number | null = null;
   let sectorAfter: number | null = null;
   if (sector) {
     const inSectorBefore = rows
-      .filter((h) => sectorForTicker(h.ticker) === sector)
+      .filter((h) => sectorOf(h.ticker) === sector)
       .reduce((sum, h) => sum + h.value, 0);
     const stocksAfter = stocksBefore + amount;
     sectorBefore = stocksBefore > 0 ? inSectorBefore / stocksBefore : null;

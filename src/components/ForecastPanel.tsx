@@ -23,6 +23,8 @@ import {
   forecastRoomProvenance,
   forecastTotalProvenance,
 } from "@/lib/provenance";
+import { describeCompany } from "@/lib/company-label";
+import { useTickerSectors } from "@/lib/use-ticker-sectors";
 import { listingCurrenciesAreMixed } from "@/lib/listing-currency";
 import { formatDateTime } from "@/lib/timezone";
 import { isAbortError } from "@/lib/abort";
@@ -54,7 +56,6 @@ import {
   forecastHoldingsKey,
   cachedEoyPathsFor,
   cachedTickersFor,
-  TICKER_SECTORS,
   forecastPlanDiffs,
   type ForecastPlan,
 } from "@/lib/forecast-plan";
@@ -558,6 +559,13 @@ export const ForecastPanel = memo(function ForecastPanel({
   labReady = true,
 }: Props) {
   const yearCols = model.years;
+  /*
+    Asked once per set of holdings and shared with every other room through
+    the same module map, so walking here from Pulse costs nothing.
+  */
+  const sectorWordsByTicker = useTickerSectors(
+    useMemo(() => model.rows.map((r) => r.ticker), [model.rows])
+  );
   const mixedListings = listingCurrenciesAreMixed(
     model.rows.map((r) => ({ ticker: r.ticker }))
   );
@@ -923,10 +931,14 @@ export const ForecastPanel = memo(function ForecastPanel({
         forecastPathProvenance({
           ticker: r.ticker,
           spot: r.currentPrice,
-          sector:
-            TICKER_SECTORS[r.ticker] ??
-            TICKER_SECTORS[r.ticker.split(".")[0]!] ??
-            null,
+          /*
+            The provider's sector where it answered, and this app's own
+            table where it has an entry, which is finer. Behind the mark a
+            reader is being told what kind of business the shape was drawn
+            for, and "unclassified" was the honest answer for most
+            ordinary companies until the sector arrived.
+          */
+          sector: describeCompany(r.ticker, sectorWordsByTicker[r.ticker.toUpperCase()]) || null,
           fallback: isPlaceholder || !r.hasTargets,
           at: plan?.generatedAt,
           model: plan?.writtenBy,
@@ -937,7 +949,14 @@ export const ForecastPanel = memo(function ForecastPanel({
       );
     }
     return map;
-  }, [model.rows, isPlaceholder, plan, adjustByTicker, yearCols]);
+  }, [
+    model.rows,
+    isPlaceholder,
+    plan,
+    adjustByTicker,
+    yearCols,
+    sectorWordsByTicker,
+  ]);
 
   const statusHint = useMemo(() => {
     if (!labReady || !planHydrated || model.rows.length === 0 || busy) return null;

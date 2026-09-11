@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { FormattedNumberInput } from "@/components/FormattedNumberInput";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { cashtag, cn, currency, percent } from "@/lib/format";
+import { useTickerSectors } from "@/lib/use-ticker-sectors";
 import { positionFitProvenance } from "@/lib/provenance";
 import {
   SHOCK_FALL,
@@ -57,9 +58,23 @@ export function PositionFitCard({
   const presets = useMemo(() => fitPresets(portfolioValue), [portfolioValue]);
   const [amount, setAmount] = useState<number>(() => presets[1] ?? 1000);
 
+  /*
+    The group comparison is the one shaped observation this card is allowed
+    to make, and on an ordinary portfolio it never happened: the hand-kept
+    table behind it is about thirty names, so the sector came back null and
+    the sentence was silently absent. Asked once per set of holdings and
+    shared with every other room through the same module map.
+  */
+  const sectors = useTickerSectors(
+    useMemo(
+      () => [ticker, ...holdings.map((h) => h.ticker)],
+      [ticker, holdings]
+    )
+  );
+
   const fit = useMemo(
-    () => positionFit({ ticker, amount, holdings, cash }),
-    [ticker, amount, holdings, cash]
+    () => positionFit({ ticker, amount, holdings, cash, sectors }),
+    [ticker, amount, holdings, cash, sectors]
   );
 
   if (!fit) return null;
