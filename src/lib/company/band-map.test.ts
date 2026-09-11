@@ -1,22 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
-  LANE_WEIGHTS,
-  ladderUnits,
-  stackDepth,
+  TINY_SHARE,
   actionableFirst,
+  barShares,
   buildBandMap,
-  ladderHeight,
-  lanesFrom,
-  placeUp,
-  rankAcross,
+  foldToFit,
+  readySaid,
 } from "@/lib/company/band-map";
 import { buildPlanLadder, type PlanLadder } from "@/lib/company/plan-ladder";
+import { blocksThatFit } from "@/components/company/BandMap";
 
 /**
- * The map's whole claim is that two names drawn level are in the same
- * place in their own ladders, so the tests are mostly about that: a $2
- * company and a $2,000 one at the same point of their own ladders have to
- * land on the same line.
+ * The map's whole claim is that two names in the same band are in the
+ * same place in their own ladders, so the tests are mostly about that: a
+ * $2 company and a $2,000 one at the same point of their own ladders
+ * have to land in the same row, and the row a name lands in has to be
+ * the row its own page would put it in.
+ *
+ * The rest is about the two things the picture must never do, both of
+ * which it did in an earlier design: change its own proportions with
+ * the portfolio, and drop a holding without saying so.
  */
 
 function ladderAt(spot: number, anchor: number): PlanLadder {
@@ -31,268 +34,453 @@ function ladderAt(spot: number, anchor: number): PlanLadder {
   })!;
 }
 
-describe("the ladder is the common unit, not the price", () => {
-  it("draws two names of wildly different prices level", () => {
-    const cheap = ladderAt(2, 2);
-    const dear = ladderAt(2_000, 2_000);
-    expect(ladderHeight(cheap)).toBeCloseTo(ladderHeight(dear)!, 10);
+/** A holding whose price sits at `at` times its own fair value. */
+function holding(ticker: string, at: number, value: number, roiPct = 0.1) {
+  const anchor = 100;
+  return { ticker, ladder: ladderAt(anchor * at, anchor), value, roiPct };
+}
+
+describe("the band is the common unit, not the price", () => {
+  it("puts two names of wildly different prices in the same band", () => {
+    const map = buildBandMap([
+      { ticker: "CHEAP", ladder: ladderAt(2, 2), value: 100 },
+      { ticker: "DEAR", ladder: ladderAt(2_000, 2_000), value: 100 },
+    ]);
+    const bands = map.bands.filter((b) => b.items.length > 0);
+    expect(bands).toHaveLength(1);
+    expect(bands[0]!.items.map((p) => p.ticker).sort()).toEqual([
+      "CHEAP",
+      "DEAR",
+    ]);
   });
 
-  it("runs from the foot of the ladder to its head", () => {
-    const units = Object.values(LANE_WEIGHTS).reduce((a, b) => a + b, 0);
-    const bottom = ladderAt(1, 100);
-    const top = ladderAt(400, 100);
-    expect(ladderHeight(bottom)!).toBeLessThan(units * 0.15);
-    expect(ladderHeight(top)!).toBeGreaterThan(units * 0.85);
-  });
-
-  it("puts a price a hair either side of a level a hair apart", () => {
+  it("takes its bands from the ladder rather than restating them", () => {
     const ladder = ladderAt(100, 100);
-    const edge = ladder.bands.find((b) => b.id === "hold")!.to!;
-    const below = ladderHeight(ladderAt(edge - 0.01, 100))!;
-    const above = ladderHeight(ladderAt(edge + 0.01, 100))!;
-    expect(above).toBeGreaterThan(below);
-    // Well under one ordinary lane, which is the unit here.
-    expect(above - below).toBeLessThan(0.3);
-  });
-
-  it("takes its lanes from the ladder rather than restating them", () => {
-    const ladder = ladderAt(100, 100);
-    const lanes = lanesFrom(ladder);
-    expect(lanes.map((l) => l.id)).toEqual(ladder.bands.map((b) => b.id));
-    // Head first, and the whole axis covered with no gaps.
-    expect(lanes[0]!.to).toBeCloseTo(ladderUnits(lanes), 10);
-    expect(lanes[lanes.length - 1]!.from).toBeCloseTo(0, 10);
-    for (let i = 0; i < lanes.length - 1; i += 1) {
-      expect(lanes[i]!.from).toBeCloseTo(lanes[i + 1]!.to, 10);
-    }
+    const map = buildBandMap([{ ticker: "T", ladder, value: 1 }]);
+    expect(map.bands.map((b) => b.id)).toEqual(ladder.bands.map((b) => b.id));
+    expect(map.bands.map((b) => b.label)).toEqual(
+      ladder.bands.map((b) => b.label)
+    );
   });
 
   it("says nothing about a holding it could not build a ladder for", () => {
     const map = buildBandMap([
-      { ticker: "AAA", ladder: ladderAt(100, 100), value: 100 },
-      { ticker: "BBB", ladder: null, value: 100 },
+      { ticker: "ok", ladder: ladderAt(100, 100), value: 1 },
+      { ticker: "nope", ladder: null, value: 1 },
     ]);
-    expect(map.points.map((p) => p.ticker)).toEqual(["AAA"]);
-    expect(map.missing).toEqual(["BBB"]);
+    expect(map.missing).toEqual(["NOPE"]);
+    expect(map.points.map((p) => p.ticker)).toEqual(["OK"]);
   });
 });
 
-describe("across is the order by size, so nothing can pile up", () => {
-  const rows = [
-    { ticker: "BIG", ladder: ladderAt(100, 100), value: 600 },
-    { ticker: "MID", ladder: ladderAt(60, 100), value: 300 },
-    { ticker: "SML", ladder: ladderAt(30, 100), value: 100 },
-  ];
-
-  it("still works the real share out, for the label", () => {
-    const map = buildBandMap(rows);
-    const share = Object.fromEntries(
-      map.points.map((p) => [p.ticker, p.share])
-    );
-    expect(share.BIG).toBeCloseTo(0.6, 10);
-    expect(share.MID).toBeCloseTo(0.3, 10);
-    expect(share.SML).toBeCloseTo(0.1, 10);
-    expect(map.topShare).toBeCloseTo(0.6, 10);
-  });
-
-  it("puts the smallest on the left and the biggest on the right", () => {
-    const map = buildBandMap(rows, { chipWidth: 0.1 });
-    const x = Object.fromEntries(map.points.map((p) => [p.ticker, p.x]));
-    expect(x.SML).toBeLessThan(x.MID!);
-    expect(x.MID).toBeLessThan(x.BIG!);
-  });
-
-  it("separates a portfolio where every holding is the same size", () => {
-    // Ten names at a tenth each. Any scale that is a function of the
-    // value alone draws them on one spot, which is the case this axis
-    // exists for.
-    const same = Array.from({ length: 10 }, (_, i) => ({
-      ticker: `T${i}`,
-      ladder: ladderAt(100, 100),
-      value: 100,
-    }));
-    const xs = buildBandMap(same, { chipWidth: 0.05 }).points
-      .map((p) => p.x)
-      .sort((a, b) => a - b);
-    expect(new Set(xs).size).toBe(10);
-    for (let i = 0; i < xs.length - 1; i += 1) {
-      expect(xs[i + 1]! - xs[i]!).toBeGreaterThan(0.05);
-    }
-  });
-
-  it("spaces the ranks evenly and holds them inside the picture", () => {
-    expect(rankAcross([5, 1, 3])).toEqual([1, 0, 0.5]);
-    expect(rankAcross([7])).toEqual([0.5]);
-    expect(rankAcross([])).toEqual([]);
-    const map = buildBandMap(rows, { chipWidth: 0.2 });
-    for (const p of map.points) {
-      expect(p.x).toBeGreaterThanOrEqual(0.1 - 1e-9);
-      expect(p.x).toBeLessThanOrEqual(0.9 + 1e-9);
-    }
+describe("a band's bar is the money in it", () => {
+  it("shares out the portfolio, so the bands add up to all of it", () => {
+    const map = buildBandMap([
+      holding("A", 1, 60),
+      holding("B", 0.85, 30),
+      holding("C", 1.3, 10),
+    ]);
+    const total = map.bands.reduce((s, b) => s + b.share, 0);
+    expect(total).toBeCloseTo(1, 10);
+    expect(map.bands.find((b) => b.id === "hold")!.share).toBeCloseTo(0.6, 10);
   });
 
   it("does not divide by a portfolio worth nothing", () => {
     const map = buildBandMap([
-      { ticker: "AAA", ladder: ladderAt(100, 100), value: 0 },
+      { ticker: "A", ladder: ladderAt(100, 100), value: 0 },
+      { ticker: "B", ladder: ladderAt(85, 100), value: 0 },
     ]);
-    expect(map.points[0]!.share).toBe(0);
-    expect(Number.isFinite(map.points[0]!.x)).toBe(true);
+    for (const p of map.points) expect(p.share).toBe(0);
+    expect(map.topShare).toBe(0);
+  });
+
+  it("puts the biggest holding first inside its own band", () => {
+    const map = buildBandMap([
+      holding("SMALL", 1, 10),
+      holding("BIG", 1.02, 70),
+      holding("MID", 0.98, 20),
+    ]);
+    const hold = map.bands.find((b) => b.id === "hold")!;
+    expect(hold.items.map((p) => p.ticker)).toEqual(["BIG", "MID", "SMALL"]);
   });
 });
 
-describe("up is the real position in the band, and stays in the band", () => {
-  it("gives a two-step band twice the height of a one-step one", () => {
-    expect(LANE_WEIGHTS.hold).toBe(2);
-    const lanes = lanesFrom(ladderAt(100, 100));
-    expect(lanes.find((l) => l.id === "hold")!.weight).toBe(2);
-    expect(lanes.find((l) => l.id === "starter")!.weight).toBe(1);
+describe("the picture never changes its own proportions", () => {
+  it("draws every band whatever the portfolio holds", () => {
+    const one = buildBandMap([holding("ONLY", 1, 100)]);
+    const many = buildBandMap([
+      holding("A", 1, 30),
+      holding("B", 1.3, 20),
+      holding("C", 0.75, 20),
+      holding("D", 0.4, 30),
+    ]);
+    // Six since the three bands about adding became two.
+    expect(one.bands).toHaveLength(6);
+    expect(many.bands).toHaveLength(6);
+    expect(one.bands.map((b) => b.id)).toEqual(many.bands.map((b) => b.id));
   });
 
-  it("leaves a chip exactly where the price is when nothing is in the way", () => {
-    const map = buildBandMap(
-      [
-        { ticker: "AAA", ladder: ladderAt(103, 100), value: 100 },
-        { ticker: "BBB", ladder: ladderAt(97, 100), value: 50 },
-      ],
-      { chipWidth: 0.05, chipHeight: 0.05 }
-    );
-    for (const p of map.points) expect(p.y).toBeCloseTo(p.trueY, 10);
+  it("keeps an empty band rather than dropping it", () => {
+    const map = buildBandMap([holding("ONLY", 1, 100)]);
+    const empty = map.bands.filter((b) => b.items.length === 0);
+    expect(empty.length).toBe(5);
+    for (const b of empty) {
+      expect(b.share).toBe(0);
+      expect(b.label).toBeTruthy();
+    }
+  });
+});
+
+describe("a name folds away because the bar ran out of room", () => {
+  const band = (n: number) =>
+    buildBandMap(
+      Array.from({ length: n }, (_, i) => holding(`N${i}`, 1, 100 - i))
+    ).bands.find((b) => b.id === "hold")!.items;
+
+  it("draws every name while the bar has room for them", () => {
+    const { shown, folded } = foldToFit(band(4), 6);
+    expect(shown).toHaveLength(4);
+    expect(folded).toEqual([]);
   });
 
-  it("moves a chip off its true height only to stop it covering another", () => {
-    // Same band, same height, adjacent in the order: something has to
-    // give, and it is the height, never the order.
-    const map = buildBandMap(
-      [
-        { ticker: "AAA", ladder: ladderAt(100, 100), value: 100 },
-        { ticker: "BBB", ladder: ladderAt(100, 100), value: 100 },
-      ],
-      { chipWidth: 1, chipHeight: 0.4 }
-    );
-    const [a, b] = map.points;
-    expect(Math.abs(a!.y - b!.y)).toBeGreaterThan(0);
-    for (const p of map.points) expect(p.trueY).toBeCloseTo(a!.trueY, 10);
+  it("DRAWS A SMALL NAME WHEN THE BAND HAS THE ROOM FOR IT", () => {
+    /*
+      The fault this replaced: a cutoff on size alone folded two names
+      worth 1.5% and 0.2% away and drew "+2 small" over a bar with room
+      for six, so a reader could not see what was in their own band.
+    */
+    const map = buildBandMap([
+      holding("HUGE", 1.3, 400_000),
+      holding("SMALL", 0.85, 9_000),
+      holding("TINY", 0.85, 1_400),
+    ]);
+    const starter = map.bands.find((b) => b.id === "starter")!;
+    for (const p of starter.items) expect(p.share).toBeLessThan(TINY_SHARE);
+    const { shown, folded } = foldToFit(starter.items, 6);
+    expect(shown.map((p) => p.ticker)).toEqual(["SMALL", "TINY"]);
+    expect(folded).toEqual([]);
   });
 
-  it("gives a crowded band the height it needs before placing anything", () => {
-    // Eight names all in one band and all near each other across, so the
-    // band has to grow: drawn at its ordinary height they would be
-    // stacked through each other.
-    const crowd = Array.from({ length: 8 }, (_, i) => ({
-      ticker: `T${i}`,
-      ladder: ladderAt(100 + i * 0.01, 100),
-      value: 100,
-    }));
-    const map = buildBandMap(crowd, { chipWidth: 1, chipHeight: 0.5 });
-    const hold = map.lanes.find((l) => l.id === "hold")!;
-    expect(hold.weight).toBeGreaterThan(LANE_WEIGHTS.hold);
-    expect(hold.weight).toBeGreaterThanOrEqual(8 * 0.5);
-    // And with the room, nothing had to sit on anything else.
-    const ys = [...map.points.map((p) => p.y)].sort((a, b) => a - b);
-    for (let i = 0; i < ys.length - 1; i += 1) {
-      expect(ys[i + 1]! - ys[i]!).toBeGreaterThanOrEqual(0.5 - 1e-9);
+  it("draws exactly the names it was told the bar has room for", () => {
+    const { shown, folded } = foldToFit(band(10), 4);
+    expect(shown).toHaveLength(4);
+    expect(folded).toHaveLength(6);
+  });
+
+  it("folds the smallest, since the biggest is what a reader looks for", () => {
+    const { shown, folded } = foldToFit(band(10), 4);
+    for (const kept of shown) {
+      for (const gone of folded) {
+        expect(kept.share).toBeGreaterThanOrEqual(gone.share);
+      }
     }
   });
 
-  it("counts how deep a band has to stack, and no deeper", () => {
-    expect(stackDepth([0.1, 0.9], 0.2)).toBe(1);
-    expect(stackDepth([0.1, 0.15, 0.2], 0.2)).toBe(3);
-    expect(stackDepth([], 0.2)).toBe(0);
+  it("draws what it keeps in the band's own biggest first order", () => {
+    const { shown } = foldToFit(band(10), 4);
+    const shares = shown.map((p) => p.share);
+    expect([...shares].sort((a, b) => b - a)).toEqual(shares);
   });
 
-  it("holds a chip inside the bounds it was given", () => {
-    const ys = placeUp(
-      [
-        { x: 0.5, y: 0.5, min: 0.5, max: 0.5 },
-        { x: 0.5, y: 0.5, min: 0.5, max: 0.5 },
-      ],
-      { across: 0.5, up: 0.5 }
-    );
-    // Nowhere to go, so the true position stands rather than the chip
-    // being pushed out of the band it belongs to.
-    expect(ys).toEqual([0.5, 0.5]);
-  });
-
-  it("separates two chips a hair either side of a level", () => {
-    // Different bands, a few pixels apart: resolving band by band cannot
-    // see this pair at all, which is the fault this test holds shut.
-    const ladder = ladderAt(100, 100);
-    const edge = ladder.bands.find((b) => b.id === "hold")!.to!;
-    const map = buildBandMap(
-      [
-        { ticker: "OVER", ladder: ladderAt(edge + 0.01, 100), value: 100 },
-        { ticker: "UNDER", ladder: ladderAt(edge - 0.01, 100), value: 101 },
-      ],
-      { chipWidth: 1, chipHeight: 0.6 }
-    );
-    const [a, b] = map.points;
-    expect(a!.bandId).not.toBe(b!.bandId);
-    // A chip's height, which is what they have to clear each other by,
-    // and is in the same lane units the placing works in.
-    expect(Math.abs(a!.y - b!.y)).toBeGreaterThanOrEqual(0.6 - 1e-9);
-  });
-
-  it("never moves a chip out of its own band", () => {
-    const crowd = Array.from({ length: 9 }, (_, i) => ({
-      ticker: `T${i}`,
-      ladder: ladderAt(100, 100),
-      value: 100 + i,
-    }));
-    const map = buildBandMap(crowd, { chipWidth: 1, chipHeight: 0.9 });
-    // The map's own lanes, not a fresh set: a crowded band is drawn
-    // taller than its ordinary height, and the bounds a chip was held
-    // inside are the ones the picture actually uses.
-    for (const p of map.points) {
-      const lane = map.lanes.find((l) => l.id === p.bandId)!;
-      expect(p.y).toBeGreaterThanOrEqual(lane.from - 1e-9);
-      expect(p.y).toBeLessThanOrEqual(lane.to + 1e-9);
-    }
-  });
-
-  it("keeps chips clear of each other when the band has the room", () => {
-    const chips = [
-      { x: 0.5, y: 0.5, min: 0, max: 1 },
-      { x: 0.5, y: 0.5, min: 0, max: 1 },
-      { x: 0.5, y: 0.5, min: 0, max: 1 },
+  it("KEEPS A TINY NAME THAT HAS REACHED AN END OF ITS OWN PLAN", () => {
+    /*
+      The whole reason to open this picture is to find the name that
+      reached a level, and folding by size alone throws exactly that one
+      away first when it is small.
+    */
+    const rows = [
+      ...Array.from({ length: 9 }, (_, i) => holding(`BIG${i}`, 1, 100)),
+      holding("FALLEN", 0.3, 1),
     ];
-    const ys = placeUp(chips, { across: 0.2, up: 0.2 });
-    const sorted = [...ys].sort((a, b) => a - b);
-    for (let i = 0; i < sorted.length - 1; i += 1) {
-      expect(sorted[i + 1]! - sorted[i]!).toBeGreaterThanOrEqual(0.2 - 1e-9);
-    }
+    const map = buildBandMap(rows);
+    const fallen = map.points.find((p) => p.ticker === "FALLEN")!;
+    expect(fallen.actionable).toBe(true);
+    expect(fallen.share).toBeLessThan(TINY_SHARE);
+
+    const quiet = map.bands.find((b) => b.id === "hold")!;
+    const itsBand = map.bands.find((b) => b.id === fallen.bandId)!;
+    // Its own band draws it even squeezed down to two slots.
+    expect(
+      foldToFit(itsBand.items, 2).shown.map((p) => p.ticker)
+    ).toContain("FALLEN");
+    // And the crowded band it is not in still folds by size.
+    expect(foldToFit(quiet.items, 3).folded.length).toBeGreaterThan(0);
   });
 
-  it("leaves chips far apart across each other alone", () => {
-    const ys = placeUp(
-      [
-        { x: 0, y: 0.5, min: 0, max: 1 },
-        { x: 1, y: 0.5, min: 0, max: 1 },
-      ],
-      { across: 0.2, up: 0.2 }
-    );
-    expect(ys).toEqual([0.5, 0.5]);
+  it("counts every name in its band's own share, drawn or folded", () => {
+    const map = buildBandMap([
+      holding("A", 1, 90),
+      holding("B", 1, 6),
+      holding("C", 1, 4),
+    ]);
+    const hold = map.bands.find((b) => b.id === "hold")!;
+    const { folded } = foldToFit(hold.items, 2);
+    expect(folded.length).toBeGreaterThan(0);
+    expect(hold.share).toBeCloseTo(1, 10);
+  });
+});
+
+describe("how many names fit is a fact about the device", () => {
+  it("gives a phone fewer names than a laptop", () => {
+    // The bar column at 390px against the same column on a laptop.
+    expect(blocksThatFit(294, 12)).toBeLessThan(blocksThatFit(900, 12));
+  });
+
+  it("draws them all when they all fit, with no slot held back", () => {
+    expect(blocksThatFit(900, 3)).toBe(3);
+  });
+
+  it("A '+N' IS NARROWER THAN A NAME, so it does not cost one", () => {
+    /*
+      The bar a 390px phone gives this panel is about 294px. Counting
+      the "+N" as though it were as wide as a ticker and a share left
+      room for one name where there is room for two, so a six holding
+      portfolio showed a single name in its busiest band.
+    */
+    expect(blocksThatFit(294, 3)).toBe(3);
+    expect(blocksThatFit(294, 9)).toBe(2);
+  });
+
+  it("never asks for a block narrower than a ticker needs", () => {
+    expect(blocksThatFit(100, 5)).toBe(1);
+    expect(blocksThatFit(0, 5)).toBeGreaterThan(0);
+  });
+});
+
+describe("the summary is figures already on the page", () => {
+  it("splits the portfolio around fair value", () => {
+    const map = buildBandMap([
+      holding("MID", 1, 50),
+      holding("LOW", 0.75, 30),
+      holding("HIGH", 1.3, 20),
+    ]);
+    expect(map.summary.aroundFairValue).toBeCloseTo(0.5, 10);
+    expect(map.summary.below).toBeCloseTo(0.3, 10);
+    expect(map.summary.above).toBeCloseTo(0.2, 10);
+    expect(
+      map.summary.aroundFairValue + map.summary.below + map.summary.above
+    ).toBeCloseTo(1, 10);
+  });
+
+  it("names the two ends apart, since they are different answers", () => {
+    const map = buildBandMap([
+      holding("TRIMME", 1.4, 40),
+      holding("ADDME", 0.3, 40),
+      holding("QUIET", 1, 20),
+    ]);
+    expect(map.summary.trimNames).toEqual(["TRIMME"]);
+    expect(map.summary.addNames).toEqual(["ADDME"]);
+  });
+
+  it("names the biggest holding, not the first one given", () => {
+    const map = buildBandMap([
+      holding("SMALL", 1, 10),
+      holding("BIG", 0.85, 90),
+    ]);
+    expect(map.summary.biggest?.ticker).toBe("BIG");
+  });
+
+  it("is empty rather than wrong when no ladder could be built", () => {
+    const map = buildBandMap([{ ticker: "X", ladder: null, value: 10 }]);
+    expect(map.summary.biggest).toBeNull();
+    expect(map.summary.aroundFairValue).toBe(0);
+    expect(map.bands).toEqual([]);
   });
 });
 
 describe("the list on Home leads with what is furthest out", () => {
   it("puts the ends of the ladder before the middle, and drops the middle", () => {
     const map = buildBandMap([
-      { ticker: "TOP", ladder: ladderAt(400, 100), value: 100 },
-      { ticker: "MIDDLE", ladder: ladderAt(100, 100), value: 100 },
-      { ticker: "BOTTOM", ladder: ladderAt(20, 100), value: 100 },
+      holding("TOP", 1.4, 10),
+      holding("MID", 1, 10),
+      holding("BOTTOM", 0.3, 10),
     ]);
     const out = actionableFirst(map.points).map((p) => p.ticker);
-    expect(out).not.toContain("MIDDLE");
-    expect(out).toContain("TOP");
-    expect(out).toContain("BOTTOM");
+    expect(out).not.toContain("MID");
+    expect(out.sort()).toEqual(["BOTTOM", "TOP"]);
   });
 
   it("breaks a tie on how much of the portfolio it is", () => {
     const map = buildBandMap([
-      { ticker: "SMALL", ladder: ladderAt(400, 100), value: 100 },
-      { ticker: "LARGE", ladder: ladderAt(400, 100), value: 900 },
+      holding("SMALL", 1.4, 10),
+      holding("BIG", 1.4, 90),
     ]);
-    expect(actionableFirst(map.points)[0]!.ticker).toBe("LARGE");
+    expect(actionableFirst(map.points)[0]!.ticker).toBe("BIG");
+  });
+});
+
+describe("a band's blocks divide its own bar, and fill it", () => {
+  const sums = (r: { grows: number[]; rest: number }) =>
+    r.grows.reduce((s, v) => s + v, 0) + r.rest;
+
+  it("GROWS BY THE SHARE OF THE BAND, NEVER OF THE PORTFOLIO", () => {
+    /*
+      The fault this replaced is invisible in the markup: flex gives out
+      only the SUM of the grow factors when that sum is under one, and a
+      band's portfolio shares always are. A band holding 55% of the money
+      filled 55% of its own bar and left the rest empty, so the length a
+      reader saw went as the square of the share.
+    */
+    const r = barShares({ bandShare: 0.55, shown: [0.25, 0.21, 0.09], folded: [] });
+    expect(sums(r)).toBeCloseTo(1, 10);
+    // And in proportion to each other inside the band.
+    expect(r.grows[0]! / r.grows[1]!).toBeCloseTo(0.25 / 0.21, 10);
+  });
+
+  it("fills the bar whatever the band is worth", () => {
+    for (const bandShare of [0.01, 0.06, 0.5, 1]) {
+      const r = barShares({
+        bandShare,
+        shown: [bandShare * 0.7, bandShare * 0.3],
+        folded: [],
+      });
+      expect(sums(r)).toBeCloseTo(1, 10);
+    }
+  });
+
+  it("gives the folded block the room its own names came to", () => {
+    const r = barShares({
+      bandShare: 0.4,
+      shown: [0.3],
+      folded: [0.07, 0.03],
+    });
+    expect(r.rest).toBeCloseTo(0.25, 10);
+    expect(sums(r)).toBeCloseTo(1, 10);
+  });
+
+  it("shares a bar out evenly rather than leaving it empty", () => {
+    // A portfolio worth nothing: every share is zero and the bar still
+    // has to be filled by the names that are in it.
+    const r = barShares({ bandShare: 0, shown: [0, 0], folded: [] });
+    expect(sums(r)).toBeCloseTo(1, 10);
+    expect(r.grows).toEqual([0.5, 0.5]);
+  });
+
+  it("never asks for more than a whole bar", () => {
+    const r = barShares({ bandShare: 0.1, shown: [0.02], folded: [0.5] });
+    expect(r.rest).toBeLessThanOrEqual(1);
+    expect(sums(r)).toBeCloseTo(1, 10);
+  });
+});
+
+describe("the picture never claims a level was the reader's when it was not", () => {
+  /*
+    The bands are labelled in the ladder's own imperative voice: "trim
+    most of it", "add a lot". What keeps six imperatives beside somebody
+    real holdings honest is that the ladder is theirs, so the one sentence
+    this panel must never get wrong is whose level was reached. A
+    default this app worked out is not a level anybody set, and saying
+    it was is both false and the sentence that turns a computed default
+    into this app's instruction.
+  */
+  const reached = (edited: boolean) => {
+    const map = buildBandMap([
+      { ...holding("TOP", 1.4, 50), ladder: editedTo(ladderAt(140, 100), edited) },
+      holding("QUIET", 1, 50),
+    ]);
+    return map.summary;
+  };
+
+  function editedTo(ladder: PlanLadder, edited: boolean): PlanLadder {
+    return { ...ladder, edited };
+  }
+
+  it("says the app worked it out when the reader has changed nothing", () => {
+    const said = readySaid(reached(false));
+    expect(said).toContain("Levels this app worked out, which you have not changed.");
+    expect(said).not.toContain("you set");
+  });
+
+  it("says the reader set it only when they actually did", () => {
+    expect(readySaid(reached(true))).toContain("Levels you set.");
+  });
+
+  it("stands on neither claim when the names disagree", () => {
+    const map = buildBandMap([
+      { ...holding("A", 1.4, 40), ladder: editedTo(ladderAt(140, 100), true) },
+      { ...holding("B", 0.3, 40), ladder: editedTo(ladderAt(30, 100), false) },
+      holding("QUIET", 1, 20),
+    ]);
+    const said = readySaid(map.summary);
+    expect(said).toContain("Some of those levels are yours");
+    expect(said).not.toContain("Levels you set.");
+  });
+
+  it("counts the whole portfolio, including what it could not draw", () => {
+    /*
+      Two thirds of the money has a plan and a third does not. The
+      shares are "of this portfolio" on the panel, so a name with no
+      plan must stay in the denominator: counting only the drawn ones
+      would report 100% priced around fair value while a third of the
+      portfolio was not on the picture at all.
+    */
+    const map = buildBandMap([
+      holding("SEEN", 1, 60),
+      holding("ALSO", 1, 10),
+      { ticker: "NOPLAN", ladder: null, value: 30 },
+    ]);
+    expect(map.missing).toEqual(["NOPLAN"]);
+    expect(map.points.map((p) => p.share)).toEqual([0.6, 0.1]);
+    expect(map.summary.aroundFairValue).toBeCloseTo(0.7, 10);
+    // And the drawn shares fall short of one by exactly what is missing.
+    const drawn = map.points.reduce((s, p) => s + p.share, 0);
+    expect(1 - drawn).toBeCloseTo(0.3, 10);
+  });
+
+  it("still sums to one when every name has a plan", () => {
+    const map = buildBandMap([holding("A", 1, 25), holding("B", 0.3, 75)]);
+    expect(map.missing).toEqual([]);
+    expect(map.points.reduce((s, p) => s + p.share, 0)).toBeCloseTo(1, 10);
+  });
+
+  it("gives a list of names a plural, since they do not share one ladder", () => {
+    const map = buildBandMap([
+      holding("A", 0.3, 30),
+      holding("B", 0.28, 30),
+      holding("QUIET", 1, 40),
+    ]);
+    const said = readySaid(map.summary);
+    expect(said).toContain("their own ladders");
+    expect(said).not.toContain("B at the bottom of its own ladder");
+  });
+
+  it("keeps the singular for one name", () => {
+    const map = buildBandMap([holding("A", 0.3, 40), holding("QUIET", 1, 60)]);
+    expect(readySaid(map.summary)).toContain("its own ladder");
+  });
+
+  it("says nothing about levels when no name has reached one", () => {
+    const map = buildBandMap([holding("QUIET", 1, 100)]);
+    expect(readySaid(map.summary)).toBe(
+      "every name is somewhere in the middle of its own ladder"
+    );
+  });
+
+  it("NEVER TELLS ANYBODY WHAT TO DO, whoever set the level", () => {
+    /*
+      The band's own name may be imperative, because it is the reader's
+      plan completing the sentence "at this price, my plan says ...".
+      This app's own sentence about it may not be.
+    */
+    const BANNED = [
+      "you should",
+      "we recommend",
+      "recommended",
+      "buy now",
+      "sell now",
+      "time to",
+      "consider selling",
+      "consider buying",
+      "worth buying",
+      "worth selling",
+      "undervalued",
+      "overvalued",
+      "cheap",
+      "expensive",
+    ];
+    for (const edited of [true, false]) {
+      const said = readySaid(reached(edited)).toLowerCase();
+      for (const word of BANNED) expect(said).not.toContain(word);
+    }
   });
 });

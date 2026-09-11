@@ -2,467 +2,732 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
+import { InfoTip, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
-import { cashtag, cn, currency, percent, signedPercent } from "@/lib/format";
+import { NO_VALUE, cashtag, cn, currency, percent } from "@/lib/format";
 import { bandMapProvenance } from "@/lib/provenance";
 import { companyHref } from "@/lib/company/client";
 import {
-  CHIP_WIDTH_PX,
+  TINY_SHARE,
+  barShares,
   buildBandMap,
-  type BandLane,
+  foldToFit,
+  readySaid,
   type BandMap as Map,
+  type BandMapBand,
   type BandMapPoint,
 } from "@/lib/company/band-map";
-import type { PlanLadder } from "@/lib/company/plan-ladder";
+import {
+  bandRangeSaid,
+  type LadderBandId,
+  type PlanLadder,
+} from "@/lib/company/plan-ladder";
 import { Map as MapIcon } from "lucide-react";
 
 /**
- * Every holding on one ladder.
+ * Every holding on one ladder: a bar per band, one block per holding.
  *
- * A band is a multiple of that name's own anchor, so the ladder is a
- * unit every company shares even though their prices are not: two names
- * in the same band are in the same place in their own ladders whether one
- * trades at $2 and the other at $2,000.
+ * A band is a multiple of that name's own fair value, so the ladder is
+ * a unit every company shares even though their prices are not. **The
+ * bar's length is how much of the reader's money is in that band**,
+ * which is the reading nothing else in the app gives: a portfolio
+ * mostly priced under fair value looks different at a glance from one
+ * mostly priced over it, and no list of prices shows that.
  *
- * **Two drawings, not one, and the phone gets the better of them.** A
- * scatter needs width to say anything, and at 390px the plot is 215px
- * across, which is three chips: an axis that cannot separate its own
- * points is furniture. Below `sm` the same model is drawn as a ladder of
- * sections, one per band, each holding a row carrying its ticker, its
- * share as a bar, its price and how far it is from the next level. That
- * is more information than the plot gives, not less, and it is the same
- * numbers. The forecast panel already splits this way for the same
- * reason.
+ * Three rules the first version had to learn, all of them about a
+ * picture whose proportions moved with the portfolio. **A row is a
+ * fixed height, always**: a lane sized off whatever band happened to be
+ * crowded made the same ladder read differently on two portfolios.
+ * **Blocks are laid out, never placed**, so two names cannot overlap
+ * however many are in one band. And **colour is one dot**: a tinted
+ * pill plus a tinted border plus an accent ring is three signals over
+ * one object, which is what made it look muddy against the near black.
  *
- * What the picture must never become: a score. Both axes are figures
- * printed elsewhere in the app, and nothing here adds them up.
+ * An empty band is drawn, and drawn quieter. The shape of the whole
+ * ladder is half of what a reader came for, so a band with nothing in
+ * it keeps its row and its height and loses its ink.
  */
 
 /**
- * Height of an ordinary one-step lane, in pixels.
+ * THE SEVEN BANDS READ AS THREE ANSWERS.
  *
- * Was 62. A portfolio with a few names clustered in one or two bands
- * (the ordinary case) drew a "hold" lane -- always at least its own
- * 2-step weight, since that height is the real width of the price band
- * and must not shrink just because it is lightly populated -- as a wall
- * of near-empty space around two chips. Shrinking the unit itself keeps
- * every lane's *relative* height (what the band height is supposed to
- * mean) while making the whole chart read as full rather than mostly air.
+ * Six rows of near-identical grey is a table a reader has to parse
+ * rather than see, and the thing they are actually trying to find is
+ * whether their money is priced above, around or below what its
+ * companies look worth. So the rows are grouped under those three
+ * headings and each group carries its own wash.
+ *
+ * **Warm above and cool below, never the gain and loss pair.** Every
+ * block on these rows already carries a gain or loss dot, so tinting
+ * the zone emerald and rose would put two meanings on one pair and a
+ * holding in profit would sit in the colour of a loss. Warm and cool
+ * say the direction without touching it, and the middle zone stays
+ * neutral because "around fair value" is not a direction.
+ *
+ * The grouping pays for itself twice: with the direction said once in
+ * a heading, each band's own line drops from "about 10% to 20% below
+ * fair value" to "10% to 20%", which is what made the column of them
+ * read as a wall of prose.
  */
-const LANE_H = 46;
+const ZONES = [
+  {
+    key: "above",
+    name: "Above fair value",
+    ids: ["trim-most", "trim-some"] as LadderBandId[],
+    row: "bg-[var(--zone-warm)]/[0.05]",
+    /*
+      THE ZONE'S HEADING IS A BANNER, NOT A CAPTION.
 
-/** Air around the plot, in pixels, so a chip never sits flush on an edge. */
-const PLOT_PAD_PX = 20;
+      It was mono caps in muted grey, the same voice every other small
+      label in the app uses, sitting on a 9% wash: three zones that a
+      reader had to look for. It is a filled bar now, with the zone's
+      own colour in the rail, the name in that colour at sentence size
+      and weight, and the share beside it. The wash on the rows below
+      stays where it was, so only the heading got louder.
+    */
+    strong: "bg-[var(--zone-warm)]/[0.16]",
+    ink: "text-[var(--zone-warm)]",
+    rail: "bg-[var(--zone-warm)]",
+  },
+  {
+    key: "around",
+    name: "Around fair value",
+    ids: ["hold"] as LadderBandId[],
+    row: "bg-foreground/[0.022]",
+    strong: "bg-foreground/[0.08]",
+    ink: "text-foreground",
+    rail: "bg-foreground/40",
+  },
+  {
+    key: "below",
+    name: "Below fair value",
+    ids: ["starter", "full", "full-aggressive", "exit"] as LadderBandId[],
+    /*
+      Lower alphas than the warm zone's, and measured rather than
+      matched by eye. The same alpha of this hue lands further from the
+      near-black field than the warm one does, and a saturated blue
+      reads brighter still than its luminance says (the
+      Helmholtz-Kohlrausch effect this repo already balances the ambient
+      lobes on), so an even pair of numbers gives a cool zone that
+      shouts over the warm one. Sampled off the rendered page, 0.06 and
+      0.11 measured chroma 8.0 and 13.1 against the warm zone's 5.0 and
+      8.0; these land on 5.1 and 8.1.
+    */
+    row: "bg-[var(--zone-cool)]/[0.038]",
+    strong: "bg-[var(--zone-cool)]/[0.13]",
+    ink: "text-[var(--zone-cool)]",
+    rail: "bg-[var(--zone-cool)]",
+  },
+] as const;
+
+type Zone = (typeof ZONES)[number];
+
+/** How tall one band's row is. Never varies, on any portfolio. */
+const ROW_H = 68;
 /**
- * How far the smallest and the biggest holding's chip sit in from the
- * plot's left and right edges, in pixels, whatever either chip's own
- * width happens to be.
+ * The same row on a phone, where it stacks the name over the bar.
  *
- * Was folded into `PLOT_PAD_PX` (20px), sized for the air this chart
- * wants above and below a chip rather than beside one, and on the
- * widest chip in a wide portfolio that read as the pill about to run
- * off the table. This is the sideways-only figure, bigger on purpose,
- * and it is added on both sides of the widest chip's own width before
- * that half-width becomes the clamp every extreme chip is held inside,
- * which is what keeps the smallest and the biggest chip the same
- * distance from their own edge rather than each keeping only its own
- * half-width of room.
+ * A MIN HEIGHT UNDER THE CONTENT IS NOT A FIXED HEIGHT. On a phone the
+ * stacked row runs past `ROW_H` on its own, so the height came from the
+ * content and landed on fractional pixels: measured, six bands drew at
+ * 94.5, 93.5, 93.5, 94.5, 94.5 and 93.5, which is a ladder whose rungs
+ * are visibly uneven on the one screen where the shape is hardest to
+ * read. This clears the tallest of them, so every row is exactly this
+ * and the rule this panel is built on ("a row is a fixed height,
+ * always") holds at both layouts rather than only at one.
  */
-const EDGE_PAD_PX = 32;
-/**
- * A chip's height, plus a little air, as a fraction of an ordinary lane.
- *
- * Measured off a rendered chip rather than typed, for the same reason the
- * width is: a guess four pixels short draws two tickers through each
- * other, and four pixels is well inside what a font or a padding change
- * moves this by. The constant is only the value before the first
- * measurement, and it is deliberately generous.
- */
-const CHIP_H_PX = 30;
+const PHONE_ROW_H = 96;
 
 /**
- * How much bigger a chip is drawn than its own baseline, given how much
- * room each ticker actually has.
+ * The narrowest a block may be drawn and still print its own name and
+ * its own share, MEASURED off rendered blocks rather than guessed.
  *
- * A portfolio of six names in a chart built to hold thirty reads as
- * mostly empty, and the fix is not a smaller chart, it is a chart that
- * spends the room it has on the chips it is actually drawing. `perTicker`
- * is however many pixels one name gets on the axis it is being laid out
- * along (an axis's own width divided by how many chips are on it, or a
- * screen's own width divided by how many holdings are on the phone
- * strip); `base` is the perTicker figure this chart already reads as
- * comfortable at, so the scale is 1 there and grows past it. It never
- * shrinks below 1: a crowded portfolio keeps today's sizing rather than
- * being squeezed smaller than a reader has already seen.
- *
- * `max` used to reach 3.2, which a plot of six holdings across a wide
- * screen hit almost outright: a pill drawn two and a half times its own
- * size is not "readable", it is oversized, and it drags every lane a
- * crowded band needs room for up with it, since a lane's own height is
- * sized off the chips actually sitting in it. 1.35 (1.3 on the phone
- * strip) still grows a sparse portfolio's chips past a crowded one's, it
- * just stops well short of looking like a different chart.
+ * The guess was 98 and it cost a phone most of its names: the bar there
+ * is about 294px, so 98 let two blocks in where 94 lets three, and a
+ * six holding portfolio came out showing one name in its busiest band
+ * and "+2 more". The measurements: "NVDA 17%" needs 86px, "GOOGL 12%"
+ * and "ABCDE <1%" both need 93, and "GOOGL 100%" needs 100 but can only
+ * happen to a holding that is the whole portfolio and therefore alone
+ * in its bar. 94 covers every case that can share a bar.
  */
-function chipScaleFor(
-  perTicker: number,
-  { base, max }: { base: number; max: number }
-): number {
-  if (!(perTicker > 0)) return 1;
-  return Math.min(Math.max(perTicker / base, 1), max);
-}
+const BLOCK_MIN_PX = 94;
+/**
+ * The same block on a phone, where it carries its name and no share.
+ *
+ * A PHONE BUYS NAMES WITH THE SHARE, AND NAMES ARE WORTH MORE. The bar
+ * a 360px phone gives this panel is 249px, which holds one block
+ * carrying a ticker and a share plus a "+2", so a six holding portfolio
+ * showed one name in its busiest band. Without the share a block needs
+ * 72px, so the same bar draws all three. The share is not lost: the
+ * band's own share is on the row, and tapping the name opens the
+ * company. Every block in any one view still looks like every other,
+ * which is the rule this was fixed for; what changes is the breakpoint,
+ * the way the rest of this app changes at one.
+ */
+const BLOCK_MIN_NARROW_PX = 72;
+/** The hairline between two blocks. */
+const BLOCK_GAP_PX = 3;
+/** A "+N" block carries a count rather than a name, so it needs less. */
+const REST_MIN_PX = 64;
 
 /**
- * The viewport's own width, for sizing the phone strip's chips by it.
+ * How wide the bar column actually is, which is what decides how many
+ * names can be drawn in it.
  *
- * THE INITIAL STATE MUST MATCH THE SERVER, NOT GUESS THE CLIENT.
- *
- * This read `window.innerWidth` in the `useState` initializer, gated on
- * `typeof window === "undefined"`. That guard is true on the server and
- * false on the client's very first render too, before any effect has
- * run, so hydration compared the server's 390 against whatever the real
- * device measured and failed on every load a phone strip chip appeared
- * in, discovered by actually rendering the page rather than by reading
- * the code. The fix is the ordinary one: start at the SSR value always,
- * and let the effect that already runs on mount correct it a frame
- * later, same as every other client-only measurement in this file
- * (`plotRef`'s `ResizeObserver` included).
+ * HOW MANY BLOCKS FIT IS A FACT ABOUT THE DEVICE, NOT ABOUT THE
+ * PORTFOLIO. A fixed cap in the model was wrong in both directions: six
+ * blocks at their own minimum width is 411px, which a 390px phone does
+ * not have, and a 1440px laptop has room for a dozen. Measured here and
+ * folded here, so the same portfolio reads right on both.
  */
-function useViewportWidth(): number {
-  const [width, setWidth] = useState(390);
+/**
+ * Whether this is the wide layout, read from the same breakpoint the
+ * CSS uses rather than guessed from the bar's own width: the bar is
+ * narrow on a laptop too when a band is nearly empty, and that is not
+ * the same question.
+ */
+function useWide(): boolean {
+  const [wide, setWide] = useState(true);
   useEffect(() => {
-    const onResize = () => setWidth(window.innerWidth);
-    onResize();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    const mq = window.matchMedia("(min-width: 40rem)");
+    const read = () => setWide(mq.matches);
+    read();
+    mq.addEventListener("change", read);
+    return () => mq.removeEventListener("change", read);
   }, []);
-  return width;
+  return wide;
+}
+
+function useBarWidth<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const read = () => setWidth(node.clientWidth);
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, width] as const;
 }
 
 /**
- * Colour says what the reader has made or lost on the holding, which is
- * what these two mean everywhere else in this app.
+ * How many names a bar that wide can carry, and whether it has to keep
+ * a slot back for the "+N" block.
  *
- * Deliberately NOT spent on where the price sits against its ladder, which
- * was the first version: that is the height, and attaching a second
- * meaning to a fixed pair is how a holding in profit ends up drawn in
- * the colour of a loss. The two questions are independent and the
- * picture answers both at once, which is the whole reason to draw it.
+ * A "+N" IS NARROWER THAN A NAME, so counting it as one costs a name
+ * that would have fitted: it carries a count rather than a ticker and a
+ * share. On the bar a phone gives this panel that was the difference
+ * between two names drawn and three.
  */
-function toneOf(point: BandMapPoint): string {
-  if (point.roiPct === null) return "border-border bg-card text-foreground";
-  return point.roiPct >= 0
-    ? "border-gain/40 bg-gain/10 text-foreground"
-    : "border-loss/40 bg-loss/10 text-foreground";
+export function blocksThatFit(
+  width: number,
+  items: number,
+  block: number = BLOCK_MIN_PX
+): number {
+  if (!(width > 0)) return Math.min(items, 6);
+  const room = (w: number) =>
+    Math.max(1, Math.floor((w + BLOCK_GAP_PX) / (block + BLOCK_GAP_PX)));
+  const all = room(width);
+  if (items <= all) return items;
+  // Something has to fold, so the "+N" takes its own, smaller, slot.
+  return Math.max(1, room(width - REST_MIN_PX - BLOCK_GAP_PX));
 }
 
-function Chip({
-  point,
-  code,
-  compact,
-}: {
-  point: BandMapPoint;
-  code: string;
-  compact?: boolean;
-}) {
+/**
+ * WHOSE PICTURE THIS IS, SAID ONCE AND THREADED.
+ *
+ * The same panel draws one person's portfolio and a circle's pooled
+ * holdings, and almost every sentence on it is first person: "of this
+ * portfolio", "the band your ladder calls", "levels you set", "your
+ * biggest holding". Every one of those is a false statement about a
+ * circle, whose shares are added up across people and whose levels
+ * nobody can edit. One object carries the difference so a new sentence
+ * cannot quietly ship in the wrong voice.
+ */
+type Voice = {
+  pooled: boolean;
+  /** "this portfolio" or "the circle's holdings". */
+  whose: string;
+  /** "your plan" or "this plan". */
+  planWord: string;
+};
+
+const OWN_VOICE: Voice = {
+  pooled: false,
+  whose: "this portfolio",
+  planWord: "your plan",
+};
+const POOLED_VOICE: Voice = {
+  pooled: true,
+  whose: "the circle's holdings",
+  planWord: "this plan",
+};
+
+function Dot({ roi }: { roi: number | null }) {
   return (
-    <>
-      <span className="font-semibold">{cashtag(point.ticker)}</span>
-      {!compact && (
-        <span className="text-muted-foreground" style={{ marginLeft: "0.4em" }}>
-          {percent(point.share, 0)}
-        </span>
+    <span
+      aria-hidden
+      className={cn(
+        "h-1.5 w-1.5 shrink-0 rounded-full",
+        roi === null
+          ? "bg-muted-foreground/40"
+          : roi >= 0
+            ? "bg-gain"
+            : "bg-loss"
       )}
-      <span className="sr-only">
-        , {currency(point.spot, 2, code)}, in the band your ladder calls{" "}
-        {point.bandLabel}
-      </span>
-    </>
+    />
   );
 }
 
-/** The plot, at `sm` and up, where an axis has the width to mean something. */
-function Plot({
-  map,
+/** One holding, as a block of its band's bar. */
+function Block({
+  point,
+  grow,
   code,
-  chipScale,
+  wide,
+  voice,
 }: {
-  map: Map;
+  voice: Voice;
+  point: BandMapPoint;
+  /** At `sm` and up, where the bar has the room for a share as well. */
+  wide: boolean;
+  /**
+   * This holding's share OF ITS OWN BAND, not of the portfolio.
+   *
+   * The bar already carries the band's share of the portfolio in its
+   * own width, so the blocks divide that bar between themselves. Growing
+   * them by their portfolio share instead looks equivalent and is not:
+   * flex distributes only the SUM of the grow factors when that sum is
+   * under 1, so a band holding 55% of the money filled 55% of its own
+   * bar and left the rest empty, and the length a reader actually saw
+   * went as the square of the share. Measured on a real book, three
+   * names in a 294px bar all sat at their 72px floor with 71px of the
+   * bar unfilled beside them.
+   */
+  grow: number;
   code: string;
-  chipScale: number;
 }) {
-  // Lane units into pixels, and nothing else in this file knows about
-  // lanes: a chip's own height is already in the same units. Padded top
-  // and bottom so the outermost lane's border, and the chip nearest it,
-  // never sit flush on the plot's own edge.
-  const height = map.units * LANE_H + PLOT_PAD_PX * 2;
-  const laneTop = (lane: BandLane) =>
-    (map.units - lane.to) * LANE_H + PLOT_PAD_PX;
-  const laneHeight = (lane: BandLane) => lane.weight * LANE_H;
-
-  const hold = map.lanes.find((l) => l.id === "hold");
-  const anchorAt = hold
-    ? (map.units - (hold.from + hold.to) / 2) * LANE_H + PLOT_PAD_PX
-    : null;
-
+  const roi =
+    point.roiPct === null
+      ? ""
+      : `, ${point.roiPct >= 0 ? "up" : "down"} ${percent(Math.abs(point.roiPct), 1)} on what you paid`;
   return (
-    <div className="flex">
+    <Link
+      href={companyHref(point.ticker)}
+      data-band-chip=""
+      title={`${cashtag(point.ticker)}: ${currency(point.spot, 2, code)}, ${percent(point.share, 1)} of ${voice.whose}, in the band ${voice.planWord} calls "${point.bandLabel}"`}
+      className={cn(
+        "flex min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-md border px-2",
+        "border-border/60 bg-card font-mono text-xs tabular-nums text-foreground",
+        // One inset hairline along the top, which is what the app's own
+        // glass does: a flat rectangle on a flat wash reads as a gap in
+        // the row rather than as an object sitting on it.
+        "shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]",
+        "transition hover:border-border hover:brightness-125",
+        "outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
+      )}
+      style={{
+        flexGrow: Math.max(grow, 0.0001),
+        flexBasis: 0,
+        minWidth: wide ? BLOCK_MIN_PX : BLOCK_MIN_NARROW_PX,
+      }}
+    >
       {/*
-        The band names are a column of their own rather than captions
-        floating in the picture: a label inside the plot is a label a
-        chip can land on, and this plot is made of chips that move.
+        A DOT THAT IS GREY ON EVERY BLOCK IS NOT A LEGEND, IT IS NOISE.
+
+        The dot is whether the reader is up or down, and a circle never
+        knows: `/api/communities/[id]/book` sends `buy_price` as zero for
+        every holding in an ordinary circle, this reader's own included,
+        so cost never reaches the pooled picture at all. Drawing the
+        neutral colour on all of them would be a signal that never
+        varies, taking 12px of the ticker's room on a phone to say
+        nothing. It is simply absent there, which is also the honest
+        reading: this picture answers where a price sits and does not
+        pretend to answer the other question.
+      */}
+      {!voice.pooled && <Dot roi={point.roiPct} />}
+      <span className="truncate font-semibold tracking-tight">
+        {point.ticker}
+      </span>
+      {/*
+        EVERY BLOCK, NOT THE WIDE ONES. This printed only where a block
+        had the room, which a reader reads as arbitrary: one name in a
+        row carried a figure and its neighbours did not, for a reason
+        invisible on the page. The block's own minimum width is the
+        width that fits it, so the rule is now "always".
+      */}
+      {wide && (
+        <span aria-hidden className="text-muted-foreground">
+          {sharePct(point.share)}
+        </span>
+      )}
+      <span className="sr-only">
+        , {currency(point.spot, 2, code)}, {percent(point.share, 1)} of{" "}
+        {voice.whose}
+        {roi}
+      </span>
+    </Link>
+  );
+}
+
+/**
+ * What a band says about the names it did not draw.
+ *
+ * Never a silent drop: the count is here and so is what they come to
+ * together, and the wording says which cutoff did it, since "+3 under
+ * 3%" and "+3 more" are different facts about somebody's money.
+ */
+function Rest({
+  folded,
+  grow,
+  voice,
+}: {
+  folded: BandMapPoint[];
+  grow: number;
+  voice: Voice;
+}) {
+  const share = folded.reduce((s, p) => s + p.share, 0);
+  const allTiny = folded.every((p) => p.share < TINY_SHARE);
+  return (
+    <span
+      className="flex items-center justify-center whitespace-nowrap rounded-md border border-dashed border-border/50 px-2 font-mono text-xs tabular-nums text-muted-foreground"
+      style={{ flexGrow: Math.max(grow, 0.0001), flexBasis: 0, minWidth: REST_MIN_PX }}
+      title={`${folded.map((p) => cashtag(p.ticker)).join(", ")}: ${percent(share, 1)} of ${voice.whose} together`}
+    >
+      <span aria-hidden>
+        +{folded.length}
+        {allTiny ? " small" : " more"}
+      </span>
+      <span className="sr-only">
+        and {folded.length} not drawn here:{" "}
+        {folded.map((p) => cashtag(p.ticker)).join(", ")},{" "}
+        {percent(share, 1)} of {voice.whose} together
+      </span>
+    </span>
+  );
+}
+
+/** A band nothing is in: same row, same height, a fraction of the ink. */
+function EmptyTrack() {
+  return (
+    <span
+      aria-hidden
+      className="h-[3px] w-24 rounded-full bg-foreground/[0.06] sm:w-32"
+    />
+  );
+}
+
+function Row({
+  band,
+  widest,
+  code,
+  zone,
+  wide,
+  voice,
+}: {
+  voice: Voice;
+  band: BandMapBand;
+  widest: number;
+  code: string;
+  zone: Zone;
+  wide: boolean;
+}) {
+  const [barRef, barWidth] = useBarWidth<HTMLDivElement>();
+  const filled = band.items.length > 0;
+  /*
+    Both sides count NAMES: `blocksThatFit` has already kept the room
+    the "+N" needs back out of the width, so what it returns is how many
+    tickers can be drawn, and that is exactly what `foldToFit` keeps.
+  */
+  const blockMin = wide ? BLOCK_MIN_PX : BLOCK_MIN_NARROW_PX;
+  const { shown, folded } = foldToFit(
+    band.items,
+    blocksThatFit(barWidth, band.items.length, blockMin)
+  );
+  /*
+    The floor is what these blocks actually need, counted per block:
+    the folded "+N" is narrower than a name, so counting it as a name
+    overstates the floor and `max-width` then clips the bar's own end.
+  */
+  const slots = shown.length + (folded.length > 0 ? 1 : 0);
+  const floorPx =
+    shown.length * blockMin +
+    (folded.length > 0 ? REST_MIN_PX : 0) +
+    Math.max(slots - 1, 0) * BLOCK_GAP_PX;
+
+  const { grows, rest } = barShares({
+    bandShare: band.share,
+    shown: shown.map((p) => p.share),
+    folded: folded.map((p) => p.share),
+  });
+  return (
+    <div
+      data-band-row=""
+      className={cn(
+        "flex flex-col justify-center gap-2 border-b border-border/30 px-4 py-3 last:border-b-0",
+        "sm:flex-row sm:items-center sm:gap-4 sm:px-5 sm:py-0 lg:gap-6",
+        filled ? zone.row : "bg-transparent"
+      )}
+      style={{ minHeight: wide ? ROW_H : PHONE_ROW_H }}
+    >
+      {/*
+        WHAT A BAND MEANS GOES BEHIND THE MARK, NOT IN A COLUMN.
+
+        The range had a column of its own on every row, which is a fact
+        a reader needs once and then never again: after the first read
+        they know what "a long way above" is, and the figure is still
+        printing itself six times down the table for the rest of the
+        account's life. It is behind the tip beside the band's own name
+        now, which is the app's one glyph for "tell me more", and the
+        row is the name, what is in it, and how much of the portfolio
+        that is.
       */}
       <div
-        className="relative w-32 shrink-0 lg:w-40"
-        style={{ height }}
-        aria-hidden
+        className={cn(
+          /*
+            THE NAME COLUMN IS SIZED BY THE NARROWEST LAYOUT THAT USES
+            IT, WHICH IS THE TABLET, NOT THE LAPTOP.
+
+            At a flat `w-56` the name and the share between them took
+            272 of the 457px a 640px screen gives this panel, leaving the
+            bar 137 while its own blocks needed 161: the last block was
+            drawn past the end of the bar and clipped by the rounding,
+            which is the "about to burst out of the table" fault in a new
+            place. 176px still holds every band name this ladder has, and
+            the roomier column comes back at `lg` where there is width to
+            spend on it.
+          */
+          "flex min-w-0 shrink-0 items-center justify-between gap-3 sm:w-44 sm:justify-start lg:w-56",
+          // Quieter, not unreadable: an empty band is still a step of
+          // the ladder a reader is entitled to read.
+          !filled && "opacity-55"
+        )}
       >
-        {map.lanes.map((lane) => (
-          <div
-            key={lane.id}
-            className="absolute right-0 flex w-full items-center justify-end pr-3"
-            style={{ top: laneTop(lane), height: laneHeight(lane) }}
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span
+            className={cn(
+              "truncate text-sm leading-tight",
+              filled ? "font-medium text-foreground" : "text-muted-foreground"
+            )}
           >
-            <span
-              className={cn(
-                "text-right text-xs leading-tight",
-                lane.actionable ? "text-foreground" : "text-muted-foreground"
-              )}
-            >
-              {lane.label}
-            </span>
-          </div>
-        ))}
+            {band.label}
+          </span>
+          <InfoTip
+            label={`What does ${band.label.toLowerCase()} mean?`}
+            text={`${band.label}: ${bandRangeSaid(band, { direction: true })}. Every band is a slice of that company's own fair value, so the same band means the same thing on a $2 company and a $2,000 one. How wide a slice depends on how far that company usually travels, between 8% and 14%.`}
+          />
+        </span>
+        {/* The share has its own column from `sm` up, so on a phone it
+            rides with the name rather than being dropped. */}
+        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground sm:hidden">
+          {sharePct(band.share)}
+        </span>
       </div>
 
+      {/*
+        A fixed height, so a band with nothing in it is exactly as tall
+        as one with a bar: on a phone the row stacks, and without this
+        an empty band collapsed to its own hairline and the ladder went
+        uneven again on the one screen where it is hardest to see.
+      */}
       <div
-        className="relative min-w-0 flex-1 overflow-hidden rounded-lg border border-border"
-        style={{ height }}
+        ref={barRef}
+        /*
+          `flex-1` only from `sm`, where the row is a row and the main
+          axis is the width. On a phone the row stacks, so `flex-1`
+          would be a height of zero that grows by nothing and the fixed
+          height would lose to it.
+        */
+        /*
+          A BLOCK IS A LINK, SO ON A PHONE IT IS 44px TALL.
+
+          It was 36, which is under the coarse-pointer floor `globals.css`
+          puts on every button and input in this app, and these are the
+          one control on the panel: the whole picture is a grid of things
+          you tap to open a company. A pointer needs no such floor and a
+          taller bar would only make the ladder longer on a laptop, so
+          the height steps at the same breakpoint everything else here
+          steps at.
+        */
+        className="flex h-11 w-full min-w-0 shrink-0 items-center sm:h-9 sm:w-auto sm:flex-1"
       >
-        {map.lanes.map((lane) => (
+        {filled ? (
           <div
-            key={lane.id}
-            className={cn(
-              "absolute inset-x-0 border-b border-border last:border-b-0",
-              // The ends of the ladder are the two places anything is
-              // worth acting on, so they carry the accent and the middle
-              // carries nothing.
-              lane.actionable && "bg-primary/[0.05]"
-            )}
-            style={{ top: laneTop(lane), height: laneHeight(lane) }}
-          />
-        ))}
-
-        {/*
-          The estimate itself, across the middle of the "hold" band, which
-          is where the anchor sits by construction: every band on this
-          ladder is a multiple of it, and the picture said nothing about
-          it before. Read off that band rather than from the middle of
-          the picture, because the lanes are not all the same height.
-
-          NO LABEL LIVES INSIDE THE PLOT, ON EITHER EDGE.
-
-          A first pass put a floating "Estimate" pill at the left edge,
-          a beat after the right-aligned band-name column, so "Hold,
-          nothing new" and a dashed "ESTIMATE" read as one clause. Moving
-          the pill to the right edge traded that fault for a worse one:
-          the file's own comment two components up says why nothing
-          floats inside this plot at all -- "a label inside the plot is
-          a label a chip can land on" -- and the right edge is exactly
-          where the biggest holding's chip sits, in the band most
-          holdings are in. A label there is a label a real chip will
-          eventually sit on top of. So the line carries no text of its
-          own; the legend beneath the chart (`Estimate` swatch) says
-          what it is once, in a place nothing can ever be drawn over.
-        */}
-        {anchorAt !== null && (
-          <div
-            className="absolute inset-x-0 border-t border-dashed border-primary/50"
-            style={{ top: anchorAt }}
-            aria-hidden
-          />
-        )}
-
-        {map.points.map((p) => (
-          <Link
-            key={p.ticker}
-            href={companyHref(p.ticker)}
-            data-band-chip=""
-            title={`${cashtag(p.ticker)}: ${currency(p.spot, 2, code)}, ${percent(p.share, 1)} of this portfolio, in the band your ladder calls "${p.bandLabel}"`}
-            className={cn(
-              "absolute z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border font-mono tabular-nums transition hover:z-20 hover:brightness-125",
-              toneOf(p),
-              // The ones at an end of their own ladder carry the accent
-              // ring on top of their own colour, so the two readings do
-              // not compete for the same property.
-              p.actionable && "ring-1 ring-primary/70"
-            )}
+            className="flex h-11 items-stretch gap-[3px] overflow-hidden rounded-lg sm:h-9"
             style={{
-              left: `${p.x * 100}%`,
-              top: (map.units - p.y) * LANE_H + PLOT_PAD_PX,
-              // A chip is drawn bigger the more room the chart has to
-              // give each one, rather than sitting at one fixed size
-              // whether there are six holdings or thirty. Font size
-              // rather than a transform, so the text stays crisp and the
-              // measured width this scale is derived from keeps meaning
-              // the same thing.
-              fontSize: `${0.75 * chipScale}rem`,
-              padding: `${0.25 * chipScale}rem ${0.5 * chipScale}rem`,
+              /*
+                The bar is how much of the portfolio is in this band,
+                but never so short that a block cannot print the name it
+                stands for: a bar showing a dot and no ticker is a bar
+                saying nothing. The floor is what its own blocks need.
+              */
+              width: `max(${(band.share / widest) * 100}%, ${floorPx}px)`,
+              maxWidth: "100%",
             }}
           >
-            <Chip point={p} code={code} />
-          </Link>
-        ))}
+            {shown.map((p, i) => (
+              <Block
+                key={p.ticker}
+                point={p}
+                grow={grows[i] ?? 0}
+                code={code}
+                wide={wide}
+                voice={voice}
+              />
+            ))}
+            {folded.length > 0 && (
+              <Rest folded={folded} grow={rest} voice={voice} />
+            )}
+          </div>
+        ) : (
+          <EmptyTrack />
+        )}
       </div>
+
+      <span
+        className={cn(
+          "hidden w-12 shrink-0 text-right font-mono text-xs tabular-nums sm:block",
+          filled ? "text-muted-foreground" : "text-muted-foreground/25"
+        )}
+      >
+        {sharePct(band.share)}
+      </span>
+    </div>
+  );
+}
+
+function Tile({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "card-sheen glass-well rounded-xl px-4 py-3 sm:py-3.5",
+        accent && "ring-1 ring-inset ring-primary/30"
+      )}
+    >
+      {/*
+        A PHONE READS THESE AS ROWS, A LAPTOP AS TILES.
+
+        Three of these stacked cost 425px of a 390px phone before the
+        first band was on screen, which is most of a screen spent on the
+        caption of a picture nobody has seen yet. The figure moves up
+        beside its own label, which is the one line it can share without
+        crowding: measured, that is 84px back across the three, and the
+        reading is unchanged because a label and the figure it names are
+        one thought either way. Nothing is hidden on a phone; the app
+        does not have two sets of facts.
+      */}
+      <div className="flex items-baseline justify-between gap-3 sm:block">
+        <MicroLabel>{label}</MicroLabel>
+        <p
+          className={cn(
+            "shrink-0 font-mono text-xl leading-none tabular-nums sm:pt-2 sm:text-2xl",
+            accent ? "text-primary" : "text-foreground"
+          )}
+        >
+          {value}
+        </p>
+      </div>
+      <p className="pt-1.5 text-xs leading-snug text-muted-foreground sm:pt-2">
+        {sub}
+      </p>
     </div>
   );
 }
 
 /**
- * The phone's drawing: the ladder as labelled rows of chips, biggest
- * holding first inside each, rather than one full-width card per name.
+ * A SHARE IS NEVER ROUNDED INTO OR OUT OF EXISTENCE.
  *
- * The first version was a card per holding, stacked one under the other,
- * which is a scroll whose length is the size of the portfolio rather
- * than the size of the ladder: twenty holdings was twenty screens'
- * worth of cards to work through. The ladder itself is seven bands
- * however many holdings a reader owns, so a design that costs one row
- * per BAND rather than one row per HOLDING stays the same length
- * whatever is in it. Chips wrap within a band's row exactly as the
- * desktop plot's chips sit across its axis, which is what makes this the
- * same picture rather than a second, poorer one built for a smaller
- * screen.
- *
- * Every band is present even when it is empty, because the shape of the
- * ladder is half of what the reader came for: a portfolio with nothing
- * in the bottom two bands should be able to see that at a glance rather
- * than infer it from an absence.
+ * `percent(0.004, 0)` is "0%", which beside a bar with a name in it is
+ * this app stating as fact that a holding it is drawing is worth
+ * nothing. "none" is the same lie in the other direction: it is right
+ * for a band that really is empty and wrong for one holding half a per
+ * cent of the portfolio. So there are three answers, and the middle one
+ * is the one that was missing.
  */
-function Strip({ map, code, scale }: { map: Map; code: string; scale: number }) {
+function sharePct(v: number): string {
+  if (!(v > 0)) return "0%";
+  return v < 0.005 ? "<1%" : percent(v, 0);
+}
+
+/** The same three answers, for a sentence rather than a column. */
+function sharePhrase(v: number): string {
+  if (!(v > 0)) return "none";
+  return v < 0.005 ? "less than 1%" : percent(v, 0);
+}
+
+/**
+ * The three readings worth having before the picture itself.
+ *
+ * Each one is a figure already on the page, said out loud: how much of
+ * the money is priced near what its companies look worth, which names
+ * have reached an end of a plan the reader set, and what the biggest
+ * holding is doing. None of them is a score and none of them tells
+ * anybody to do anything: the second names the level as the reader's
+ * own, which is what it is.
+ */
+function Summary({ map, voice }: { map: Map; voice: Voice }) {
+  const s = map.summary;
+  const ready = s.reachedTotal;
   return (
-    <div className="flex flex-col gap-3">
-      {map.lanes.map((lane) => {
-        const inLane = map.points
-          .filter((p) => p.bandId === lane.id)
-          .sort((a, b) => b.share - a.share);
-        return (
-          <div key={lane.id} className="flex flex-col gap-1.5">
-            <div className="flex items-baseline justify-between gap-2">
-              <p
-                className={cn(
-                  "flex min-w-0 items-center gap-2 text-sm",
-                  lane.actionable
-                    ? "font-semibold text-foreground"
-                    : "text-muted-foreground"
-                )}
-              >
-                <span
-                  aria-hidden
-                  className={cn(
-                    "h-3 w-1 shrink-0 rounded-full",
-                    lane.actionable ? "bg-primary" : "bg-border"
-                  )}
-                />
-                {lane.label}
-              </p>
-              {inLane.length === 0 && <MicroLabel>None</MicroLabel>}
-            </div>
-            {inLane.length > 0 && (
-              <div className="flex flex-wrap gap-2 pl-3">
-                {inLane.map((p) => {
-                  // Share of the portfolio is drawn as size here rather
-                  // than as a bar of its own: a bigger holding gets a
-                  // bigger pill, which is the same reading a bubble
-                  // chart gives and costs no extra row.
-                  const shareScale =
-                    map.topShare > 0
-                      ? 1 + 0.6 * Math.sqrt(Math.max(p.share, 0) / map.topShare)
-                      : 1;
-                  return (
-                    <Link
-                      key={p.ticker}
-                      href={companyHref(p.ticker)}
-                      title={`${cashtag(p.ticker)}: ${currency(p.spot, 2, code)}, ${percent(p.share, 1)} of this portfolio, in the band your ladder calls "${p.bandLabel}"`}
-                      className={cn(
-                        "flex min-w-[4.5rem] flex-col gap-1 rounded-xl border px-3 py-2 outline-none transition active:brightness-110 focus-visible:ring-1 focus-visible:ring-ring/50",
-                        toneOf(p),
-                        p.actionable && "ring-1 ring-primary/70"
-                      )}
-                      style={{ fontSize: `${0.8125 * scale * shareScale}rem` }}
-                    >
-                      <span className="flex items-baseline justify-between gap-2 font-mono tabular-nums">
-                        <span className="font-semibold">
-                          {cashtag(p.ticker)}
-                        </span>
-                        <span
-                          className="text-muted-foreground"
-                          style={{ fontSize: "0.78em" }}
-                        >
-                          {percent(p.share, 0)}
-                        </span>
-                      </span>
-                      <span
-                        className="flex items-baseline justify-between gap-2 font-mono tabular-nums text-muted-foreground"
-                        style={{ fontSize: "0.72em" }}
-                      >
-                        <span>{currency(p.spot, 2, code)}</span>
-                        {p.roiPct !== null && (
-                          <span
-                            className={p.roiPct >= 0 ? "text-gain" : "text-loss"}
-                          >
-                            {signedPercent(p.roiPct)}
-                          </span>
-                        )}
-                      </span>
-                      {/*
-                        WHERE IN THE BAND, WHICH THE BAND NAME ALONE DOES
-                        NOT SAY. A price a hair under the level above it
-                        and one sitting in the middle of the same band
-                        are different situations, and the second is the
-                        one worth doing nothing about. Drawn as a thin
-                        track the width of the pill rather than a whole
-                        second row, so the extra reading costs four
-                        pixels of height rather than a whole line.
-                      */}
-                      {p.withinBand !== null ? (
-                        <span
-                          aria-hidden
-                          className="relative mt-0.5 h-1 w-full overflow-hidden rounded-full bg-foreground/10"
-                        >
-                          <span
-                            className={cn(
-                              "absolute inset-y-0 w-1 rounded-full",
-                              p.actionable ? "bg-primary" : "bg-foreground/50"
-                            )}
-                            style={{
-                              left: `calc(${Math.min(Math.max(p.withinBand, 0.04), 0.96) * 100}% - 2px)`,
-                            }}
-                          />
-                        </span>
-                      ) : (
-                        // An open band has one edge and no position, so
-                        // it gets the direction said as an arrow rather
-                        // than a track with nothing on it.
-                        <span
-                          aria-hidden
-                          className="mt-0.5 text-center leading-none text-muted-foreground"
-                          style={{ fontSize: "0.6em" }}
-                        >
-                          {p.bandTo === null ? "▲" : "▼"}
-                        </span>
-                      )}
-                      <span className="sr-only">
-                        , in the band your ladder calls {p.bandLabel}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
+    <div className="grid gap-3 sm:grid-cols-3">
+      <Tile
+        label="Around fair value"
+        value={sharePct(s.aroundFairValue)}
+        sub={`of ${voice.whose} is priced near what its companies look worth. Below it, ${sharePhrase(s.below)}. Above it, ${sharePhrase(s.above)}.`}
+      />
+      <Tile
+        /*
+          Not "Ready to act on", which is what this said while the bands
+          were imperative. Once the table stopped telling anybody what to
+          do, a tile over it counting the things to do was the last place
+          the app still did, and the count is just as useful said as a
+          fact about where the prices are.
+        */
+        /*
+          A LABEL THAT SHARES ITS LINE WITH A FIGURE IS PRICED BY THAT
+          LINE. "At an end of its plan" is 21 characters of mono caps,
+          which on a 326px phone row wrapped and left the word "plan"
+          alone under a figure reading "4 of 14". Three words say the
+          same thing and fit beside every value this tile can print.
+        */
+        label="At a plan's end"
+        value={ready === 0 ? "None" : `${ready} of ${map.points.length}`}
+        sub={
+          ready === 0 && map.points.length === 1 && !voice.pooled
+            ? "your one holding is somewhere in the middle of its own ladder"
+            : readySaid(s, voice.pooled)
+        }
+        accent={ready > 0}
+      />
+      <Tile
+        label={
+          voice.pooled
+            ? "Biggest bet"
+            : map.points.length === 1
+              ? "Your holding"
+              : "Biggest holding"
+        }
+        value={s.biggest ? sharePct(s.biggest.share) : NO_VALUE}
+        sub={
+          s.biggest
+            ? `${s.biggest.ticker}, which its own ladder puts at "${s.biggest.bandLabel.toLowerCase()}".`
+            : "nothing with a plan yet"
+        }
+      />
     </div>
   );
 }
@@ -472,6 +737,7 @@ export function BandMap({
   code = "USD",
   at,
   title = "Where your holdings sit on their own ladders",
+  pooled = false,
 }: {
   rows: Array<{
     ticker: string;
@@ -482,86 +748,18 @@ export function BandMap({
   code?: string;
   at?: string | null;
   title?: string;
+  /**
+   * True for a circle's map, pooled across everyone who shared a
+   * portfolio there. Shares are added up across people and no level is
+   * anybody's own, so every first-person sentence on this panel is a
+   * false statement about it. See `Voice`.
+   */
+  pooled?: boolean;
 }) {
-  const plotRef = useRef<HTMLDivElement | null>(null);
-  const [size, setSize] = useState<{
-    plot: number;
-    chip: number;
-    chipH: number;
-  }>({ plot: 0, chip: CHIP_WIDTH_PX, chipH: CHIP_H_PX });
-
-  /*
-    How wide a chip is as a fraction of the axis is a fact about the
-    device rather than about the portfolio, and half a chip is exactly
-    the margin that decides whether the outermost holding is cut off, so
-    it is measured off the widest chip actually drawn. It settles in one
-    pass: moving a chip never changes how wide it is.
-  */
-  useEffect(() => {
-    const node = plotRef.current;
-    if (!node || typeof ResizeObserver === "undefined") return;
-    const read = () => {
-      const chips = node.querySelectorAll<HTMLElement>("[data-band-chip]");
-      let chip = CHIP_WIDTH_PX;
-      let chipH = CHIP_H_PX;
-      chips.forEach((c) => {
-        chip = Math.max(chip, c.offsetWidth);
-        // Four pixels of air, so two chips that have been separated do
-        // not sit with their borders touching.
-        chipH = Math.max(chipH, c.offsetHeight + 4);
-      });
-      setSize((prev) =>
-        prev.plot === node.clientWidth &&
-        prev.chip === chip &&
-        prev.chipH === chipH
-          ? prev
-          : { plot: node.clientWidth, chip, chipH }
-      );
-    };
-    read();
-    const ro = new ResizeObserver(read);
-    ro.observe(node);
-    return () => ro.disconnect();
-  }, []);
-
-  const map = useMemo(
-    () =>
-      buildBandMap(rows, {
-        chipHeight: size.chipH / LANE_H,
-        // `buildBandMap` clamps a chip's centre to half its own width in
-        // from each edge, which is exactly enough room for the chip
-        // itself and none left over: the outermost holding's edge lands
-        // flush on the plot's own border. Padding the width fed in here
-        // (rather than the plot's own CSS padding, which an absolutely
-        // positioned child's percentage `left` ignores) buys genuine air
-        // on both sides without changing that clamp's logic at all, and
-        // it is `EDGE_PAD_PX` rather than `PLOT_PAD_PX` because this is
-        // sideways room, not the air above and below a chip.
-        ...(size.plot > 0
-          ? { chipWidth: (size.chip + EDGE_PAD_PX * 2) / size.plot }
-          : {}),
-      }),
-    [rows, size]
-  );
-
-  const viewportWidth = useViewportWidth();
-
-  /*
-    A chip is drawn bigger the more room the chart actually has: a wide
-    monitor with six holdings gives each one far more than the 92px this
-    chart was built comfortable at, and drawing them at that floor
-    regardless is the dead space the chart used to read as. Never smaller
-    than that floor, only bigger, so a crowded portfolio keeps the sizing
-    a reader has already seen.
-  */
-  const chipScale = chipScaleFor(
-    size.plot > 0 ? size.plot / Math.max(map.points.length, 1) : 0,
-    { base: 220, max: 1.35 }
-  );
-  const mobileScale = chipScaleFor(
-    (viewportWidth - 96) / Math.max(map.points.length, 1),
-    { base: 130, max: 1.3 }
-  );
+  const voice = pooled ? POOLED_VOICE : OWN_VOICE;
+  const map = useMemo(() => buildBandMap(rows), [rows]);
+  const wide = useWide();
+  const widest = Math.max(...map.bands.map((b) => b.share), 0.0001);
 
   if (map.points.length === 0) return null;
 
@@ -572,77 +770,116 @@ export function BandMap({
           <span className="inline-flex items-center gap-2">
             {title}
             <WhyThis
-              provenance={bandMapProvenance({ count: map.points.length, at })}
+              provenance={bandMapProvenance({
+                count: map.points.length,
+                at,
+                pooled,
+              })}
             />
           </span>
         }
-        subtitle="Every name on its own price ladder, so two in the same band are in the same place in their own ladders whatever their prices are. Green and red are what you are up or down on each one, which is a different question from where its price sits."
+        subtitle={
+          pooled
+            ? "Everyone's holdings pooled into one company each, on its own price ladder. The bar is how much of the circle's money is in that band. What anybody paid stays theirs, so this says where a price sits and never who is up or down."
+            : "Every name on its own price ladder. The bar is how much of your money is in that band, and each block is one holding."
+        }
         icon={<MapIcon className="h-4 w-4" />}
       />
 
-      <div className="hidden flex-col gap-2 sm:flex" ref={plotRef}>
-        <Plot map={map} code={code} chipScale={chipScale} />
-        <div className="flex">
-          <div className="w-32 shrink-0 lg:w-40" />
-          <div className="flex min-w-0 flex-1 items-center justify-between">
-            {/*
-              An ordering, said as one. The axis is not the share itself:
-              ten holdings at a tenth each are the same figure and would
-              land on one spot, so the smallest is on the left and the
-              biggest on the right, and each chip prints its own share.
-            */}
-            <MicroLabel>Smallest holding</MicroLabel>
-            <MicroLabel>Biggest, {percent(map.topShare, 0)}</MicroLabel>
-          </div>
-        </div>
-        {/*
-          The dashed line has no other explanation on the page, and it is
-          the one mark on this picture that is not a chip: a reader who
-          has never met it has no way to work out that it is not, say,
-          the border of the "hold" band it happens to sit inside. Said
-          once, in words, rather than left to a hover a phone cannot even
-          trigger.
+      <Summary map={map} voice={voice} />
 
-          "ANCHOR", NEVER "ESTIMATE" -- THE FOUR KINDS ARE NOT ALL ONE.
-
-          `LadderAnchorKind` is `estimate | target | history | your-own`:
-          the blended analyst figure, a stock's own end-of-year target,
-          a fund or coin's year of trading (which is not a forecast of
-          anything), or a number the reader typed in by hand. A first
-          version of this line said "each holding's own estimate" for
-          all four, which is true of exactly one of them and an
-          overclaim for the other three -- a fund's anchor is the
-          middle of a price it has already traded at, not anybody's
-          guess about the future, and calling it an estimate states
-          something the reader cannot check. `PlanLadderFoot` already
-          has the word that covers all four without asserting which one
-          it is: "Anchored on $X". This line borrows it.
-        */}
-        <p className="flex items-center gap-2 text-xs leading-relaxed text-muted-foreground">
-          <span
-            aria-hidden
-            className="h-0 w-4 shrink-0 border-t border-dashed border-primary/50"
-          />
-          The dashed line marks each holding&rsquo;s own anchor, the one
-          price its whole plan is built from. Every band is a multiple
-          of it, which is why it always falls in the middle of Hold.
-        </p>
-      </div>
-
-      <div className="sm:hidden">
-        <Strip map={map} code={code} scale={mobileScale} />
+      {/*
+        The ladder is a surface in its own right, so it takes the app's
+        own well material rather than a hollow outline: a bordered box
+        with nothing in it reads as a hole cut in the panel.
+      */}
+      <div className="card-sheen glass-well overflow-hidden rounded-xl">
+        {ZONES.map((zone) => {
+          const bands = map.bands.filter((b) => zone.ids.includes(b.id));
+          if (bands.length === 0) return null;
+          const share = bands.reduce((sum, b) => sum + b.share, 0);
+          /*
+            A ZONE WITH NOTHING IN IT IS QUIETER, LIKE ITS OWN ROWS.
+            The banner was at full strength over two desaturated rows
+            reading "0%", so the loudest thing on a portfolio holding
+            nothing above fair value was the heading announcing that.
+            Same bar, same height, a fraction of the ink, which is the
+            rule the empty rows under it already follow.
+          */
+          const zoneFilled = bands.some((b) => b.items.length > 0);
+          return (
+            <div key={zone.key}>
+              <div
+                className={cn(
+                  "flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5",
+                  zone.strong,
+                  !zoneFilled && "opacity-55"
+                )}
+              >
+                <span className="flex items-center gap-2.5">
+                  {/* The rail carries the zone's colour at full
+                      strength, where a wash of a few per cent cannot. */}
+                  <span
+                    aria-hidden
+                    className={cn("h-4 w-1 shrink-0 rounded-full", zone.rail)}
+                  />
+                  <span className={cn("text-sm font-semibold", zone.ink)}>
+                    {zone.name}
+                  </span>
+                </span>
+                <span className="font-mono text-sm tabular-nums text-foreground">
+                  {sharePct(share)}
+                </span>
+              </div>
+                {bands.map((band) => (
+                  <Row
+                    key={band.id}
+                    band={band}
+                    widest={widest}
+                    code={code}
+                    zone={zone}
+                    wide={wide}
+                    voice={voice}
+                  />
+                ))}
+            </div>
+          );
+        })}
       </div>
 
       {map.missing.length > 0 && (
         <p className="text-xs leading-relaxed text-muted-foreground">
           Not on this: {map.missing.map((t) => cashtag(t)).join(", ")}. A ladder
           needs a price and something to anchor on, and one of those is
-          missing for {map.missing.length === 1 ? "that one" : "those"}.
+          missing for {map.missing.length === 1 ? "that one" : "those"}.{" "}
+          {/*
+            THE SHORTFALL IS ANSWERED WHERE THE READER MEETS IT.
+
+            Every share on this picture is of the whole portfolio, which
+            is what makes the figures checkable, and it means the zones
+            add up to less than a hundred per cent exactly when
+            something is missing. Naming the tickers is not enough on
+            its own: a reader who adds 37% and 30% and gets 67% is
+            owed the reason on the same screen rather than left to infer
+            it from a sentence above about a different subject.
+          */}
+          The shares here are of {voice.whose}, so with{" "}
+          {map.missing.length === 1 ? "that one" : "those"} missing they add up
+          to less than all of it.
         </p>
       )}
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        {"Height is that name's own ladder, not a score, and the two are only comparable because every band is a multiple of that company's own anchor. Tap a name to open its ladder and change any level. "}
+        {"A band is a multiple of that company's own fair value, which is what makes two names comparable here. "}
+        {/*
+          The invitation has to be one somebody can accept. A circle's
+          plan is nobody's to change, so telling a reader to change a
+          level here sends them looking for a control that does not
+          exist; their own page is where their own levels live.
+        */}
+        {pooled
+          ? "Tap a name to open its own page, and set your own levels there if you hold it. "
+          : "Tap a name to open its plan and change any level. "}
         {ADVICE_DISCLAIMER_SHORT}
       </p>
     </Panel>

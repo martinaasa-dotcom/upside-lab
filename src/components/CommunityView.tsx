@@ -56,6 +56,7 @@ import { plainError } from "@/lib/plain-error";
 import { overlapRows } from "@/lib/circle-overlap";
 import { sheetCashBalance } from "@/lib/cash-balance";
 import { buildOverview } from "@/lib/overview";
+import { holdingLadders } from "@/lib/company/holding-ladders";
 import {
   loadCommunityCache,
   loadCommunityDuelCache,
@@ -622,6 +623,74 @@ export function CommunityView({ communityId }: Props) {
   const overview = useMemo(
     () => buildOverview(portfolios, holdings, quotes),
     [portfolios, holdings, quotes]
+  );
+
+  /*
+    Every company the circle holds, pooled across everyone who shared a
+    portfolio here, on the same price-band ladder the holdings page draws
+    for one portfolio: every band is a multiple of that company's own
+    fair value, so a $50 stock and a $5,000 one can be read against each
+    other.
+
+    THE ZEROED BUY PRICE IS THE TRAP IN THIS ROOM, AND IT BITES TWICE.
+    `/api/communities/[id]/book` sends `buy_price` as zero for every
+    holding in an ordinary circle, this reader's own included (the `own`
+    half of its condition only ever applies inside a classroom). So
+    neither `TickerScore.price` nor `t.currentValue` may be read here:
+    both fall back to a cost-basis price when no live quote has arrived,
+    and that fallback is a uniform zero. A name with no quote would land
+    the map on a price of zero, and `currentValue` would drag down the
+    total every other block's share is measured against. `spot` comes
+    straight off `quotes`, and the value is worked out fresh from
+    `shares * spot`, since shares are never cost and so are never zeroed.
+
+    `roiPct` is `null` on every row for the same reason, and deliberately
+    rather than incidentally: a pooled gain needs a cost basis the circle
+    does not have, so the picture says where prices sit and refuses the
+    other question outright. No per-reader overrides are passed either.
+    This is the circle's own shape, not any one member's edited plan, and
+    `pooled` on the panel is what keeps every sentence on it saying so.
+  */
+  const circleLadderRows = useMemo(
+    () =>
+      holdingLadders({
+        rows: overview.tickers.map((t) => {
+          const spot = quotes[t.ticker]?.price ?? null;
+          return {
+            ticker: t.ticker,
+            spot,
+            /*
+              THE SAME CLOSES THE REST OF THE APP PASSES, WHICH IS THE
+              WHOLE POINT OF THERE BEING ONE BUILDER.
+
+              This read `dailyCloses` first, which sounds better and is
+              not: it is `bars.slice(-15)`, about three weeks, where
+              `sparkline` is the ninety day series `Dashboard` hands the
+              same function for the holdings page and the alerts. The
+              window sets the step, and on a holding nobody has set a
+              target for it also sets the ANCHOR, because
+              `anchorForHolding` takes the middle of the range when the
+              target is not the reader's own, and a circle's never is.
+              So a shorter window does not shift a band slightly, it
+              moves the anchor to somewhere near today's price.
+
+              Measured on a name that ran 100 to 150 over a quarter, at
+              a spot of 150: ninety closes anchor at 125.00 and put it in
+              "A long way above", fifteen anchor at 146.07 and put it in
+              "Close to fair value". That is a level reaching the alerts
+              on one screen and the do-nothing band on another, for one
+              company at one price, which is the exact thing one builder
+              exists to make impossible. `HOLDING_WINDOW_SAID` says "the
+              last few months" on both, so the short window also made
+              that sentence false.
+            */
+            closes: quotes[t.ticker]?.sparkline ?? null,
+            value: spot !== null ? t.shares * spot : 0,
+            roiPct: null,
+          };
+        }),
+      }),
+    [overview.tickers, quotes]
   );
 
   // One combined per-person stat, computed once and reused by the power
@@ -1636,6 +1705,7 @@ export function CommunityView({ communityId }: Props) {
                 overview={overview}
                 membersWithBooks={membersWithBooks}
                 achievements={achievements}
+                circleLadderRows={circleLadderRows}
                 sharedNames={sharedNames}
                 avatarByName={avatarByName}
                 communityThemeBreakdown={communityThemeBreakdown}

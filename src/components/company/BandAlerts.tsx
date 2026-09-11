@@ -47,9 +47,20 @@ export function BandAlerts({
   return (
     <Panel className="overview-fade">
       <PanelHeader
+        /*
+          NOT "A LEVEL YOU PLANNED", WHICH IS FALSE FOR MOST READERS.
+
+          Every level on a ladder starts as one this app worked out, and
+          most readers never open one to change it, so a heading saying
+          they planned it credits them with a decision they did not make
+          and turns a default of this app's into their own plan. The
+          card's own rows already draw the distinction name by name, and
+          the heading now says only what is true of all of them: a price
+          reached an end of the ladder.
+        */
         title={
           <span className="inline-flex items-center gap-2">
-            Prices that reached a level you planned
+            Prices that reached an end of their plan
             <WhyThis provenance={bandMapProvenance({ count: points.length, at })} />
           </span>
         }

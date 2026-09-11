@@ -39,6 +39,19 @@ export type LadderBandId =
   | "trim-some"
   | "hold"
   | "starter"
+  /**
+   * RETIRED ON 2026-09-11, AND KEPT IN THE TYPE ON PURPOSE.
+   *
+   * There were three bands about adding and two of them said the same
+   * thing: "Add more" and "Add a lot" were a step apart and nobody could
+   * say which was which. `full` is gone from `EDGES`, so no ladder draws
+   * it any more, and the id stays here because it is still sitting in
+   * saved levels and dismissed alerts. A reader who set a level on it
+   * loses that one level rather than having their whole plan refuse to
+   * parse, which is the difference between a retired band and a broken
+   * one. Nothing may add it back to `EDGES` without merging its saved
+   * edits somewhere first.
+   */
   | "full"
   | "full-aggressive"
   | "exit";
@@ -119,14 +132,44 @@ export type PlanLadder = {
  * once and read in pairs. Two bands that disagree about the price between
  * them is a ladder with a hole in it.
  */
+/*
+  A BAND SAYS WHERE THE PRICE IS. IT DOES NOT SAY WHAT TO DO.
+
+  These were imperative for most of this app's life: "Trim 60%+",
+  "Consider a trim", "Half a starter", "Full position", "Out of it", and
+  then a tidier set of the same kind, "Trim most of it" through "Add a
+  lot". The argument for that was always that the words are the
+  READER'S: a plan is a decision made in advance, so the label
+  completes "at this price, my plan says ...", and this app is only
+  printing it back.
+
+  That argument has a hole, and it is the defaults. Most readers never
+  open a ladder, so what they see is six imperatives this app computed,
+  set beside their own tickers, on a screen anybody may now reach. The
+  instruction is the app's however the label is framed, and a frame is a
+  poor thing to rest on when the downside is somebody reading "trim most
+  of it" as advice.
+
+  So the bands describe the price instead. "A long way above" is a fact
+  about a number, checkable against the figures printed beside it, and
+  it leaves the decision where it always belonged. Nothing about the
+  arithmetic changed: the edges, the steps and the ids are what they
+  were, so a saved level, a dismissal and an alert all still land. Do
+  not put a verb back in here.
+*/
 const EDGES: { id: LadderBandId; label: string; steps: number | null }[] = [
-  { id: "trim-most", label: "Trim 60%+", steps: null },
-  { id: "trim-some", label: "Consider a trim", steps: 2 },
-  { id: "hold", label: "Hold, nothing new", steps: 1 },
-  { id: "starter", label: "Half a starter", steps: -1 },
-  { id: "full", label: "Full position", steps: -2 },
-  { id: "full-aggressive", label: "Full position, and more", steps: -3 },
-  { id: "exit", label: "Out of it", steps: null },
+  { id: "trim-most", label: "A long way above", steps: null },
+  { id: "trim-some", label: "A little above", steps: 2 },
+  { id: "hold", label: "Close to fair value", steps: 1 },
+  { id: "starter", label: "A little below", steps: -1 },
+  { id: "full-aggressive", label: "A long way below", steps: -2 },
+  /*
+    Not "Under its year's low", which is word for word what the range
+    beside it says: the foot of the ladder is the one band whose level
+    is a price rather than a distance from fair value, so the label
+    takes the longer view and the range names the level.
+  */
+  { id: "exit", label: "Below its whole year", steps: null },
 ];
 
 /** A tenth of the anchor per band, which is the reference ladder's own width. */
@@ -529,7 +572,6 @@ export function positionInBand(band: LadderBand, price: number): number {
  */
 export const ACTIONABLE_BANDS: readonly LadderBandId[] = [
   "trim-most",
-  "full",
   "full-aggressive",
   "exit",
 ];
@@ -589,6 +631,54 @@ export function nearestEdge(
     }
   }
   return best;
+}
+
+/**
+ * How far from fair value this band runs, in the reader's own words.
+ *
+ * THE DIRECTION IS NOT IN HERE, AND THAT IS WHY IT IS SHORT. The first
+ * version said "about 10% to 20% below fair value" on every row, so the
+ * words "fair value" were printed six times down one column and the
+ * distance, which is the only part that changes, was the tail of a
+ * sentence. The picture groups its rows under "above", "around" and
+ * "below fair value" headings, and a caller that does not group them
+ * has to say the direction itself.
+ *
+ * It stays approximate on purpose: the step is each company's own, held
+ * between `MIN_STEP` and `MAX_STEP`, so a name that barely moves gets 8%
+ * bands and one that swings hard gets 14%. One printed range is the
+ * shape of the ladder rather than a promise about any one holding.
+ */
+export function bandRangeSaid(
+  band: { fromRatio: number | null; toRatio: number | null },
+  /**
+   * Say which side of fair value it is on.
+   *
+   * Off where a column header or a grouping heading already says it,
+   * which is the only reason the short form is safe: "10% to 20%" on
+   * its own is a number with no question attached to it.
+   */
+  opts: { direction?: boolean } = {}
+): string {
+  const pc = (r: number) => `${Math.round(Math.abs(1 - r) * 100)}%`;
+  const { fromRatio, toRatio } = band;
+  const way = (word: string) => (opts.direction ? `${word} fair value` : "");
+  const join = (a: string, b: string) => (b ? `${a} ${b}` : a);
+  /*
+    The foot of the ladder is not a distance from fair value at all, so
+    it says what it is instead of borrowing the column's unit.
+  */
+  if (fromRatio === null) return "its year's low";
+  if (toRatio === null) return join(`${pc(fromRatio)} or more`, way("above"));
+  if (fromRatio >= 1) {
+    return join(`${pc(fromRatio)} to ${pc(toRatio)}`, way("above"));
+  }
+  if (toRatio > 1) {
+    return opts.direction
+      ? `within ${pc(fromRatio)} of fair value`
+      : `within ${pc(fromRatio)}`;
+  }
+  return join(`${pc(toRatio)} to ${pc(fromRatio)}`, way("below"));
 }
 
 /**

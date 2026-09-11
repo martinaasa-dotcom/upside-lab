@@ -2,360 +2,138 @@
  * Every holding on one ladder, so a portfolio can be read as a picture
  * rather than as a list of prices.
  *
- * The problem it solves is that each name's ladder is in its own money: one
- * company's "consider a trim" is $456 and another's is $1.80, so the
- * prices cannot share an axis. What they can share is the ladder itself.
- * Every band is a multiple of that name's own anchor, so **the band is the
- * common unit**, and a holding's height here is which band it is in plus
- * how far through that band it has got. Two names drawn level are in the
- * same place in their own ladders, whatever their prices are.
+ * The problem it solves is that each name's plan is in its own money:
+ * one company's "trim a little" is $456 and another's is $1.80, so the
+ * prices cannot share an axis. What they can share is the ladder
+ * itself. Every band is a multiple of that name's own fair value, so
+ * **the band is the common unit**, and two names in the same band are
+ * in the same place in their own ladders whatever their prices are.
  *
- * The reading is the one a person expects from a chart: low is a price
- * far under what the estimates say, high is a price far over it. Across,
- * it is how much of the portfolio that holding is, so the corners mean
- * something. **Bottom left** is a small holding whose price is at the
- * bottom of its own ladder. **Top right** is a big holding whose price is
- * at the top of one, which is the position a reader would look at first
- * if they were going to trim anything.
+ * **The picture is a bar per band and each block in it is one holding.**
+ * The bar's length is how much of the reader's money is in that band,
+ * which is the reading nothing else in the app gives: a portfolio with
+ * most of its money under fair value looks different at a glance from
+ * one with most of its money above. That replaced a scatter whose
+ * height was the exact position inside a band and whose lanes grew
+ * with whatever happened to be crowded, whose faults were all the same
+ * fault: a picture whose proportions changed with the portfolio. Rows
+ * are a fixed height now, chips cannot overlap because they are laid
+ * out rather than placed, and a band nothing is in is drawn quieter
+ * rather than drawn taller or dropped.
  *
- * Nothing here says to do either of those things, and nothing here is a
- * score. Both axes are figures already on other screens, drawn against
- * each other: the ladder the reader owns, and the share of their own money.
+ * Nothing here is a score and nothing here says to do anything. Both
+ * readings are figures already on other screens: the ladder the reader
+ * owns, and the share of their own money.
  */
 import {
-  bandById,
   isActionableBand,
   positionInBand,
   type LadderBandId,
   type PlanLadder,
 } from "@/lib/company/plan-ladder";
 
-export type BandLane = {
-  id: LadderBandId;
-  label: string;
-  /**
-   * Where this lane starts and ends, in LANE UNITS: one unit is an
-   * ordinary one-step band, and the foot of the ladder is zero. Not a
-   * fraction of the whole, because the whole changes when a crowded band
-   * is given the height it needs, and a coordinate that moves when
-   * another band grows is a coordinate nothing can be placed against.
-   */
-  from: number;
-  to: number;
-  actionable: boolean;
-  /**
-   * How tall this lane is, in those units, which is at least what its
-   * band is worth and more when it is crowded.
-   *
-   * The bands are not the same width: "hold" is two steps and every band
-   * either side is one, and the accumulation band at the foot can be ten.
-   * Drawn as equal lanes, the two-step band is where most holdings sit
-   * and they pile into a strip no taller than the bands with one name in
-   * them. Height in proportion to width is both truer and the thing that
-   * unpicks the pile, because a taller lane gives the real position
-   * inside the band room to separate the names by itself.
-   *
-   * The open bands at the ends are given a fixed weight rather than their
-   * real width, which is infinite at the top and can be most of the
-   * ladder at the foot.
-   */
-  weight: number;
-};
-
 export type BandMapPoint = {
   ticker: string;
   bandId: LadderBandId;
   bandLabel: string;
-  /** Height on the ladder in lane units, zero at the very bottom. */
-  y: number;
   /** This holding's share of the portfolio, as a fraction. */
   share: number;
   /**
-   * Where it is drawn across, 0 at the left edge and 1 at the right.
-   * The holding's place in the order by size, so the smallest is always
-   * on the left and the biggest always on the right, whatever the sizes
-   * happen to be. Nothing moves a chip along this axis.
+   * Today's price, in the reader's own money.
+   *
+   * The book's own price, which is USD whatever the listing is quoted
+   * in (`nativePrice` is the other one), so the whole of this picture
+   * is a USD world and the panel's default is right rather than lucky.
    */
-  x: number;
-  /**
-   * Where the price really is on the ladder, in lane units, before
-   * anything moved to keep two chips from covering each other. Always
-   * inside the same band as `y`.
-   */
-  trueY: number;
-  value: number;
   spot: number;
-  anchor: number;
   /**
    * What this reader is up or down on the holding, as a fraction.
    *
-   * Carried so the picture can spend the app's gain and loss pair on the
-   * one thing those two colours mean everywhere else in it: money made
-   * and money lost. That is a different question from where the price
-   * sits on its ladder, which is the height, so the two never compete: a
-   * name can be up a lot and at the bottom of its ladder.
+   * The picture spends the app's gain and loss pair on the one thing
+   * those two colours mean everywhere else in it, money made and money
+   * lost, and spends it on a single dot rather than on the whole chip:
+   * a tinted pill plus a tinted border plus an accent ring is three
+   * signals fighting over one object, which is what made the first
+   * version look muddy. Where the price sits against the ladder is the
+   * row it is in, so the two readings never compete.
    */
   roiPct: number | null;
   /** The nearest level of that name's own ladder, for the label. */
   edge: number | null;
-  /**
-   * The two prices this band runs between, and where in it the price
-   * actually sits, as a fraction. Null on the open bands at either end,
-   * which have no width to be a fraction of.
-   *
-   * Carried because a phone has no picture to read it off: "in the hold
-   * band" and "a hair under the level above it" are different situations
-   * and the second is the one worth acting on.
-   */
-  bandFrom: number | null;
-  bandTo: number | null;
-  withinBand: number | null;
   actionable: boolean;
   /** The reader typed at least one level of this name's ladder. */
   edited: boolean;
+  /**
+   * Height on the whole ladder, 0 at the foot and 1 at the head, which
+   * is which band it is in plus how far through that band it has got.
+   *
+   * The picture no longer draws with this: it is what orders the list
+   * on Home, where the name furthest out of the middle in either
+   * direction is the one a reader most wants to see first.
+   */
+  y: number;
+};
+
+export type BandMapBand = {
+  id: LadderBandId;
+  label: string;
+  /** Where this band sits against fair value, as multiples of it. */
+  fromRatio: number | null;
+  toRatio: number | null;
+  actionable: boolean;
+  /** Every holding in this band, biggest first. */
+  items: BandMapPoint[];
+  /** What this band is worth against the whole portfolio, hidden included. */
+  share: number;
+};
+
+export type BandMapSummary = {
+  /** Share of the portfolio priced inside the fair value band. */
+  aroundFairValue: number;
+  /** Share priced under it, and over it. */
+  below: number;
+  above: number;
+  /** Names that reached an end of their own plan, by which end. */
+  trimNames: string[];
+  addNames: string[];
+  /**
+   * Whether the reader actually typed the levels those names reached.
+   *
+   * NEVER TELL SOMEBODY THEY SET A LEVEL THEY DID NOT SET. The bands
+   * are labelled in the ladder's own imperative voice ("trim most of it",
+   * "add a lot"), and what keeps that honest is that the ladder is the
+   * reader's. A default this app worked out is not, so a sentence
+   * calling it "a level you set" is both false and the one sentence
+   * that would make a computed default read as this app's instruction.
+   * The alerts have always drawn this distinction; the picture above
+   * them did not until it was asked whether it could be flagged.
+   */
+  reachedEdited: number;
+  reachedTotal: number;
+  /** The biggest holding, which is the one worth naming out loud. */
+  biggest: BandMapPoint | null;
 };
 
 export type BandMap = {
-  lanes: BandLane[];
+  bands: BandMapBand[];
   points: BandMapPoint[];
-  /** The largest share on the map, which the across axis is labelled with. */
+  summary: BandMapSummary;
+  /** The largest share on the map. */
   topShare: number;
-  /** The whole ladder's height, in lane units. */
-  units: number;
   /** Holdings left off, because no ladder could be built for them. */
   missing: string[];
 };
 
 /**
- * The lanes, head first, which is the order they are drawn in.
- *
- * Taken from a real ladder rather than restated here, so the map cannot
- * end up naming a band the ladder does not have, or ordering them
- * differently from the table on the company's own page.
+ * Under this share of the portfolio a holding is a rounding error, and
+ * the picture says "small" rather than "more" when it folds a run of
+ * them away. It decides a word and nothing else: which names are drawn
+ * is `foldToFit`, and it is decided by room.
  */
-/** What each band is worth in lane height, against an ordinary one. */
-export const LANE_WEIGHTS: Record<LadderBandId, number> = {
-  "trim-most": 1,
-  "trim-some": 1,
-  // Two steps wide, so twice as tall, and the one that needs the room.
-  hold: 2,
-  starter: 1,
-  full: 1,
-  // Wide in price and open at the foot in the tightened regime, so a
-  // fixed weight rather than its real width, which would swallow the
-  // picture.
-  "full-aggressive": 1.5,
-  exit: 1,
-};
+export const TINY_SHARE = 0.03;
 
-/**
- * How much of its ordinary weight an empty band keeps.
- *
- * Was 0.4, which read fine next to a lane a reader's own chips had
- * inflated well past its base weight, and hideous once the chip
- * oversizing below it was reined in: a run of near-invisible hairlines
- * next to one merely-tall lane, rather than seven bands that all read as
- * the same ladder. 0.75 keeps an empty band visibly a step and a
- * populated one visibly fuller, without the gap between them reading as
- * two different charts.
- */
-export const EMPTY_LANE_SCALE = 0.75;
-
-export function lanesFrom(
-  ladder: PlanLadder,
-  /**
-   * A per-band override of the ordinary weight, in lane units. Missing
-   * entries fall back to `LANE_WEIGHTS`. Unlike the old "extra height"
-   * shape, an entry here replaces the ordinary weight rather than only
-   * ever growing it, which is what lets an empty band be drawn smaller
-   * than a crowded one instead of every band defaulting to the same
-   * floor.
-   */
-  weights: Partial<Record<LadderBandId, number>> = {}
-): BandLane[] {
-  let from = 0;
-  // Foot of the ladder first, so the units run the way the picture does.
-  const feetFirst = [...ladder.bands].reverse().map((b) => {
-    const weight = weights[b.id] ?? LANE_WEIGHTS[b.id] ?? 1;
-    const lane: BandLane = {
-      id: b.id,
-      label: b.label,
-      from,
-      to: from + weight,
-      actionable: isActionableBand(b.id),
-      weight,
-    };
-    from += weight;
-    return lane;
-  });
-  return feetFirst.reverse();
-}
-
-/** The whole ladder's height, in lane units. */
-export function ladderUnits(lanes: BandLane[]): number {
-  return lanes.reduce((sum, l) => sum + l.weight, 0);
-}
-
-/**
- * How high one holding sits: which band, plus how far through it.
- *
- * The band contributes the whole lane and the position inside it the
- * rest, so a name a hair below the top of "hold" and one a hair above the
- * bottom of the band over it are drawn a hair apart, rather than a whole
- * lane apart. That is the property that makes this readable as a scale
- * rather than as seven buckets.
- */
-export function ladderHeight(
-  ladder: PlanLadder,
-  lanes: BandLane[] = lanesFrom(ladder),
-  /**
-   * How far in from an open end a chip sits, in lane units.
-   *
-   * AN OPEN BAND HAS NO POSITION, SO IT MUST NOT HAVE A FRACTION.
-   * `positionInBand` puts the mark at a fraction of the band, which is
-   * right for a band with two edges and wrong for the two that have one:
-   * a fraction of the lane means the chip rises as the lane grows, so
-   * making the top band taller to give the highest holding room moves
-   * the holding up with it and it stays jammed against the ceiling. A
-   * fixed inset does not, so growing the lane is what creates the
-   * headroom, which is the only reason to grow it.
-   */
-  openInset = 0.5
-): number | null {
-  if (ladder.spot === null || ladder.atId === null) return null;
-  const lane = lanes.find((l) => l.id === ladder.atId);
-  const band = bandById(ladder, ladder.atId);
-  if (!lane || !band) return null;
-  if (band.to === null) return lane.to - openInset;
-  if (band.from === null) return lane.from + openInset;
-  const within = positionInBand(band, ladder.spot);
-  return lane.from + within * (lane.to - lane.from);
-}
-
-/**
- * ACROSS IS THE ORDER OF THE HOLDINGS BY SIZE, NOT THE SIZE ITSELF.
- *
- * The first version put a chip at its share of the portfolio against the
- * largest holding, which is the obvious axis and fails on the commonest
- * portfolio there is: ten names at a tenth each land on one spot, and a
- * picture whose whole job is to separate them draws a pile. Any scale
- * that is a function of the value alone does that, because the values
- * really are the same.
- *
- * So the axis is ordinal, and it is labelled as one: smallest on the
- * left, biggest on the right, evenly spaced, which separates every
- * portfolio including that one. **The size itself is not lost** and is
- * not left to be inferred from a position: each chip prints its own
- * share next to its name, which is both exact and easier to read than
- * any spacing.
- */
-export function rankAcross(shares: number[]): number[] {
-  const n = shares.length;
-  if (n === 0) return [];
-  if (n === 1) return [0.5];
-  const order = shares
-    .map((share, i) => ({ share, i }))
-    // Ties keep the order they arrived in, which is the value order the
-    // caller built, so the axis is stable between renders.
-    .sort((a, b) => a.share - b.share || a.i - b.i);
-  const out = new Array<number>(n).fill(0);
-  order.forEach((p, rank) => {
-    out[p.i] = rank / (n - 1);
-  });
-  return out;
-}
-
-/**
- * Up is where the price really is inside its own band, and a chip is
- * moved off that only far enough to stop it covering another one.
- *
- * The lanes are drawn as tall as their band is wide, so the real
- * positions do most of the separating by themselves: seven names in the
- * two-step "hold" band are at seven different heights, and drawn on a
- * lane with the room for it they simply do not touch. What is left after
- * that is nudged, and the nudge is bounded twice over. **It only ever
- * moves a chip up or down**, because across is an ordering and moving a
- * chip along it would put it in the wrong order. And **it never leaves
- * the band**, because the band is the reading: a chip nudged out of its
- * own band would be a picture stating something false, where one nudged
- * within it is the same answer drawn a few pixels off.
- */
-export function placeUp(
-  chips: Array<{ x: number; y: number; min: number; max: number }>,
-  gap: { across: number; up: number }
-): number[] {
-  const out = chips.map((c) => c.y);
-  const taken: Array<{ x: number; y: number }> = [];
-  const order = chips
-    .map((c, i) => ({ ...c, i }))
-    .sort((a, b) => b.y - a.y);
-  const clashes = (x: number, y: number) =>
-    taken.some(
-      (t) => Math.abs(t.x - x) < gap.across && Math.abs(t.y - y) < gap.up
-    );
-  for (const p of order) {
-    let y = p.y;
-    if (clashes(p.x, y)) {
-      /*
-        Down first, because chips are placed from the top down, so the
-        room is below. Then up, for one near the foot of its own band.
-        Both are held inside `min` and `max`, which are that chip's own
-        band: a chip nudged out of its band would be a picture stating
-        something false, where one nudged inside it is the same answer
-        drawn a few pixels off.
-      */
-      let found = false;
-      for (const dir of [-1, 1]) {
-        for (let step = 1; step <= 24 && !found; step += 1) {
-          const tryY = p.y + dir * step * (gap.up / 4);
-          if (tryY < p.min || tryY > p.max) break;
-          if (!clashes(p.x, tryY)) {
-            y = tryY;
-            found = true;
-          }
-        }
-        if (found) break;
-      }
-      // Nowhere in the band is clear: the true position stands rather
-      // than the chip being pushed somewhere it does not belong.
-      if (!found) y = p.y;
-    }
-    taken.push({ x: p.x, y });
-    out[p.i] = y;
-  }
-  return out;
-}
-
-/**
- * How far in from an open end a chip sits, in lane units.
- *
- * Half an ordinary band, which is about one chip: near enough the open
- * end to read as "past this level and going", far enough in that the
- * lane above it is visibly headroom rather than a clipped edge.
- */
-export const OPEN_INSET = 0.5;
-
-/** How wide a ticker chip is, in pixels, before the axis is divided by it. */
-export const CHIP_WIDTH_PX = 92;
-
-/**
- * How many chips deep a band has to be drawn before nothing overlaps.
- *
- * A first-fit scan across the axis: chips within a chip's width of each
- * other cannot share a row, so the deepest stack is how many rows that
- * band needs. Used only to decide how tall to draw the lane. The real
- * placing afterwards is two-dimensional and puts every chip at its own
- * height; this only makes sure there is room for it to.
- */
-export function stackDepth(xs: number[], chipWidth: number): number {
-  const rows: number[][] = [];
-  for (const x of [...xs].sort((a, b) => a - b)) {
-    let row = 0;
-    while (rows[row]?.some((t) => Math.abs(t - x) < chipWidth)) row += 1;
-    (rows[row] ??= []).push(x);
-  }
-  return rows.length;
-}
+/** Which end of the ladder an actionable band sits at. */
+const TRIM_END = new Set<LadderBandId>(["trim-most", "trim-some"]);
 
 export function buildBandMap(
   rows: Array<{
@@ -365,21 +143,11 @@ export function buildBandMap(
     value: number;
     /** Up or down against what they paid, as a fraction. */
     roiPct?: number | null;
-  }>,
-  opts: { chipWidth?: number; chipHeight?: number } = {}
+  }>
 ): BandMap {
   const missing: string[] = [];
-  const kept: Array<{
-    row: (typeof rows)[number];
-    ladder: PlanLadder;
-    bandId: LadderBandId;
-  }> = [];
+  const kept: Array<{ row: (typeof rows)[number]; ladder: PlanLadder }> = [];
   let shape: PlanLadder | null = null;
-
-  const total = rows.reduce(
-    (sum, r) => sum + (Number.isFinite(r.value) && r.value > 0 ? r.value : 0),
-    0
-  );
 
   for (const row of rows) {
     const { ladder } = row;
@@ -388,165 +156,149 @@ export function buildBandMap(
       continue;
     }
     shape ??= ladder;
-    kept.push({ row, ladder, bandId: ladder.atId });
+    kept.push({ row, ladder });
   }
 
   if (!shape) {
-    return { lanes: [], points: [], topShare: 0, units: 0, missing };
+    return {
+      bands: [],
+      points: [],
+      summary: EMPTY_SUMMARY,
+      topShare: 0,
+      missing,
+    };
   }
 
-  const shares = kept.map(({ row }) =>
-    total > 0 ? Math.max(row.value, 0) / total : 0
-  );
-  const topShare = shares.reduce((m, v) => Math.max(m, v), 0);
+  /*
+    THE DENOMINATOR IS THE WHOLE PORTFOLIO, INCLUDING THE NAMES THIS
+    PICTURE COULD NOT DRAW.
+
+    It was the drawn holdings alone, so the shares always summed to a
+    hundred per cent of whatever happened to have a plan, while the
+    panel above them says "of this portfolio". A holding with no quote
+    yet, or nothing to anchor on, left the denominator silently: a
+    reader with ten names, two of them a third of their money and
+    missing a price, was told that a hundred per cent of their portfolio
+    was priced near fair value when a third of it was not on the picture
+    at all. That is a figure stated as fact and rounded up into
+    existence, which is the one thing this app does not do.
+
+    So every row counts, and the drawn shares now sum to less than one
+    exactly when something is missing. The `missing` line under the
+    picture already names those tickers, so the shortfall has an answer
+    on the same screen. Nothing about the drawing moves: `barShares`
+    normalises within each bar, and the bars are measured against the
+    fullest band rather than against a hundred per cent, so both are
+    ratios that a common rescale leaves alone.
+  */
+  const value = (v: number) => (Number.isFinite(v) && v > 0 ? v : 0);
+  const total = rows.reduce((sum, row) => sum + value(row.value), 0);
 
   /*
-    Across is the order by size, worked out over the whole map at once
-    rather than per band: two names in different bands still have to sit
-    in the right order against each other, which is what makes "the
-    biggest is on the right" true of the picture and not just of one row.
+    The ladder runs head first, so the foot of it is the last band. A
+    holding's height is how many whole bands sit under it plus how far
+    through its own it has got, over the number of bands, which puts
+    every name on one 0 to 1 scale whatever its prices are.
   */
-  const chipWidth = Math.min(Math.max(opts.chipWidth ?? 0.36, 0.01), 1);
-  const chipHeight = Math.min(Math.max(opts.chipHeight ?? 0.5, 0.01), 4);
-  const edge = chipWidth / 2;
-  const xs = rankAcross(shares).map((x) =>
-    Math.min(Math.max(x, edge), 1 - edge)
-  );
+  const order = shape.bands.map((b) => b.id);
+  const lanes = order.length;
 
-  /*
-    A crowded band is given the height it needs before anything is placed
-    in it, which is the whole reason the lanes are measured in units of
-    an ordinary band rather than in fractions of the picture. Drawn as
-    equal lanes, the two-step band where most holdings sit is the one
-    that runs out of room first, and the fallback for running out of room
-    is chips drawn through each other.
-  */
-  const weights: Partial<Record<LadderBandId, number>> = {};
-  for (const band of shape.bands) {
-    const base = LANE_WEIGHTS[band.id] ?? 1;
-    const inBand = kept
-      .map((k, i) => ({ k, x: xs[i] ?? 0.5 }))
-      .filter(({ k }) => k.bandId === band.id);
-    if (inBand.length === 0) {
-      /*
-        NOTHING IS IN THIS BAND, SO IT DOES NOT NEED A CROWDED BAND'S
-        ROOM.
-
-        The band still has to be visible, because the shape of the whole
-        ladder is half of what a reader came for, but an empty "trim
-        60%+" taking the same height as a "hold" full of names is the
-        dead space that made the whole picture read as mostly nothing.
-        Shrunk rather than dropped: a band a reader can still see and
-        measure by eye against the others, just not fighting a crowded
-        one for the same room.
-      */
-      weights[band.id] = base * EMPTY_LANE_SCALE;
-      continue;
-    }
-    const deep =
-      stackDepth(
-        inBand.map((b) => b.x),
-        chipWidth
-      ) * chipHeight;
+  const points: BandMapPoint[] = kept.map(({ row, ladder }) => {
+    const bandId = ladder.atId!;
+    const band = ladder.bands.find((b) => b.id === bandId) ?? null;
+    const spot = ladder.spot!;
     /*
-      An open band carries its chips a fixed distance in from its open
-      end, so it needs that distance plus a chip of air above them, or
-      the highest holding a reader has is drawn hard against the edge of
-      the picture with its top clipped off. That is the one place this
-      chart looked broken rather than full.
+      How far through its own band the price has got, which no longer
+      places anything and still decides the order of the list on Home:
+      the name furthest out of the middle is the one to show first.
     */
-    const open = band.to === null || band.from === null;
-    /*
-      A chip is centred on its own height, so a band needs half a chip of
-      margin at each end for the whole box to sit inside its own lane.
-      Without it the outermost chip in a band straddles the line under
-      the band's name and reads as belonging to the band below, which is
-      the picture saying something false about which band it is in.
-    */
-    const needed = open
-      ? // The headroom an open band needs is whichever is larger: the air
-        // above its chips, or the room its own stack takes. Taking only
-        // the first left two names in the top band with nowhere to go and
-        // drew them through each other.
-        Math.max(deep + chipHeight, OPEN_INSET + chipHeight)
-      : deep + chipHeight;
-    // Never smaller than the ordinary weight: a band with one holding
-    // and no crowding still reads as a full step of the ladder.
-    weights[band.id] = Math.max(base, needed);
-  }
-
-  const lanes = lanesFrom(shape, weights);
-  const units = ladderUnits(lanes);
-  const laneOf = new Map(lanes.map((l) => [l.id, l]));
-
-  const placed = kept.map(({ row, ladder, bandId }, i) => {
-    const band = bandById(ladder, bandId);
+    const within =
+      band && band.from !== null && band.to !== null
+        ? positionInBand(band, spot)
+        : null;
+    const fromFoot = lanes - 1 - order.indexOf(bandId);
     return {
       ticker: row.ticker.toUpperCase(),
       bandId,
       bandLabel: band?.label ?? "",
-      y: ladderHeight(ladder, lanes, OPEN_INSET) ?? 0,
-      share: shares[i] ?? 0,
-      value: row.value,
-      spot: ladder.spot ?? 0,
-      anchor: ladder.anchor,
+      share: total > 0 ? value(row.value) / total : 0,
+      spot,
       roiPct:
         typeof row.roiPct === "number" && Number.isFinite(row.roiPct)
           ? row.roiPct
           : null,
-      // The level the price is nearest inside this band, which is what a
-      // reader wants the moment they have found their name.
+      // The level the price is nearest inside this band, which is what
+      // a reader wants the moment they have found their name.
       edge: band?.to ?? band?.from ?? null,
-      bandFrom: band?.from ?? null,
-      bandTo: band?.to ?? null,
-      withinBand:
-        band && band.from !== null && band.to !== null && ladder.spot !== null
-          ? positionInBand(band, ladder.spot)
-          : null,
       actionable: isActionableBand(bandId),
       edited: ladder.edited,
+      y: (fromFoot + (within ?? 0.5)) / lanes,
     };
   });
 
+  const biggestFirst = (a: BandMapPoint, b: BandMapPoint) => b.share - a.share;
+
   /*
-    ONE PASS OVER THE WHOLE LADDER, NOT ONE PER BAND.
-
-    Resolving the crowding band by band looks equivalent and is not: two
-    chips a hair either side of a level are in different bands and a few
-    pixels apart in the picture, and neither pass can see the other.
-    Measured on a real book, that drew two tickers eleven pixels through
-    each other. Every chip carries the bounds of its own band, so nothing
-    can be nudged out of the band it belongs to.
+    Biggest first, and EVERY name in the band. How many of them can
+    actually be drawn is a fact about the device rather than about the
+    portfolio, so the view measures its own bar and calls `foldToFit`.
   */
-  const ys = placeUp(
-    placed.map((p, i) => {
-      const lane = laneOf.get(p.bandId);
-      const from = lane?.from ?? 0;
-      const to = lane?.to ?? units;
-      // Half a chip in from each end of the band, so the whole box stays
-      // inside the lane rather than only its centre. Never inverted: a
-      // band shorter than a chip keeps its own bounds and the chip is
-      // centred in it.
-      const inset = Math.min(chipHeight / 2, Math.max((to - from) / 2, 0));
-      return {
-        x: xs[i] ?? 0.5,
-        y: Math.min(Math.max(p.y, from + inset), to - inset),
-        min: from + inset,
-        max: to - inset,
-      };
-    }),
-    { across: chipWidth, up: chipHeight }
-  );
+  const bands: BandMapBand[] = shape.bands.map((b) => {
+    const mine = points.filter((p) => p.bandId === b.id).sort(biggestFirst);
+    return {
+      id: b.id,
+      label: b.label,
+      fromRatio: b.fromRatio,
+      toRatio: b.toRatio,
+      actionable: isActionableBand(b.id),
+      items: mine,
+      share: mine.reduce((s, p) => s + p.share, 0),
+    };
+  });
 
-  const points: BandMapPoint[] = placed.map((p, i) => ({
-    ...p,
-    x: xs[i] ?? 0.5,
-    y: ys[i] ?? p.y,
-    trueY: p.y,
-  }));
+  const holdAt = order.indexOf("hold");
+  const shareWhere = (test: (p: BandMapPoint) => boolean) =>
+    points.filter(test).reduce((s, p) => s + p.share, 0);
+  const reached = points.filter((p) => p.actionable);
 
-  return { lanes, points, topShare, units, missing };
+  const summary: BandMapSummary = {
+    aroundFairValue: shareWhere((p) => p.bandId === "hold"),
+    // Below fair value is further down the ladder, which is later in
+    // the band order, since the bands run head first.
+    below: shareWhere((p) => order.indexOf(p.bandId) > holdAt),
+    above: shareWhere((p) => order.indexOf(p.bandId) < holdAt),
+    trimNames: reached
+      .filter((p) => TRIM_END.has(p.bandId))
+      .sort(biggestFirst)
+      .map((p) => p.ticker),
+    addNames: reached
+      .filter((p) => !TRIM_END.has(p.bandId))
+      .sort(biggestFirst)
+      .map((p) => p.ticker),
+    biggest: points.slice().sort(biggestFirst)[0] ?? null,
+    reachedEdited: reached.filter((p) => p.edited).length,
+    reachedTotal: reached.length,
+  };
+
+  return {
+    bands,
+    points,
+    summary,
+    topShare: points.reduce((m, p) => Math.max(m, p.share), 0),
+    missing,
+  };
 }
+
+const EMPTY_SUMMARY: BandMapSummary = {
+  aroundFairValue: 0,
+  below: 0,
+  above: 0,
+  trimNames: [],
+  addNames: [],
+  biggest: null,
+  reachedEdited: 0,
+  reachedTotal: 0,
+};
 
 /**
  * The holdings whose price has reached one of the decisive bands, worst
@@ -565,4 +317,155 @@ export function actionableFirst(points: BandMapPoint[]): BandMapPoint[] {
       const out = Math.abs(b.y - 0.5) - Math.abs(a.y - 0.5);
       return out !== 0 ? out : b.share - a.share;
     });
+}
+
+/**
+ * WHICH NAMES A BAND CAN ACTUALLY DRAW, AND WHICH FOLD AWAY.
+ *
+ * Folding is decided by **room**, never by size alone, and that is the
+ * correction rather than a detail. A cutoff that dropped everything
+ * under a few per cent of the portfolio read well on a crowded band and
+ * was nonsense on a quiet one: measured on a book with one holding at
+ * 69%, the band holding two names worth 1.5% and 0.2% folded BOTH of
+ * them and drew "+2 small" over a bar with room for six, so a reader
+ * could not see what was in their own band without hovering it. Room is
+ * the only thing that actually forces a name out.
+ *
+ * Size still decides WHICH name goes, because the blocks are ordered
+ * biggest first and folding takes from the end, so the smallest are the
+ * ones that fold. The one name that jumps the queue is **a holding at
+ * an end of its own ladder**, kept however small it is: that is the row
+ * the reader opened this picture to find, and it is exactly the row an
+ * ordering by size alone throws away first.
+ */
+export function foldToFit(
+  items: BandMapPoint[],
+  /**
+   * How many NAMES the bar can draw, not how many slots it has: the
+   * "+N" block is narrower than a name, so whoever measures the bar
+   * works out its own room for it and hands back the names that are
+   * left. Counting in slots here and in pixels there put the two a
+   * block apart, and a 360px phone drew one name where two fit.
+   */
+  names: number
+): { shown: BandMapPoint[]; folded: BandMapPoint[] } {
+  if (items.length === 0) return { shown: [], folded: [] };
+  if (items.length <= names) return { shown: items, folded: [] };
+  const keep = Math.max(names, 1);
+  const ranked = [...items].sort(
+    (a, b) =>
+      Number(b.actionable) - Number(a.actionable) || b.share - a.share
+  );
+  const kept = new Set(ranked.slice(0, keep));
+  return {
+    // Filtered rather than taken from `ranked`, so what is drawn stays
+    // in the band's own biggest-first order however it was chosen.
+    shown: items.filter((p) => kept.has(p)),
+    folded: items.filter((p) => !kept.has(p)),
+  };
+}
+
+/**
+ * HOW A BAND'S BAR IS DIVIDED BETWEEN THE NAMES IN IT.
+ *
+ * The bar's own width already carries the band's share of the
+ * portfolio, so what is left for the blocks is to divide that bar
+ * between themselves: each block grows by its share OF ITS OWN BAND,
+ * and the factors sum to one.
+ *
+ * Growing them by their share of the whole portfolio looks equivalent
+ * and is not, and the way it fails is invisible in the markup. Flex
+ * distributes only the SUM of the grow factors when that sum is under
+ * one, and a band's shares always are: a band holding 55% of the money
+ * filled 55% of its own bar and left the rest empty, so the length a
+ * reader actually saw went as the SQUARE of the share. Measured on a
+ * real book, three names in a 294px bar all sat at their 72px floor
+ * with 71px of bar unfilled beside them, and the bars were right only
+ * for whichever band happened to be the fullest.
+ */
+export function barShares(input: {
+  /** What the whole band is worth against the portfolio. */
+  bandShare: number;
+  /** The shares of the holdings actually drawn as blocks. */
+  shown: number[];
+  /** The shares of the holdings folded into the "+N" block. */
+  folded: number[];
+}): { grows: number[]; rest: number } {
+  const { bandShare } = input;
+  const shownSum = input.shown.reduce((s, v) => s + v, 0);
+  const foldedSum = input.folded.reduce((s, v) => s + v, 0);
+  if (!(bandShare > 0) || shownSum <= 0) {
+    // Nothing to divide by: share the bar out evenly rather than
+    // leaving it empty, which is what a portfolio worth nothing does.
+    const n = input.shown.length + (input.folded.length > 0 ? 1 : 0);
+    const even = n > 0 ? 1 / n : 1;
+    return {
+      grows: input.shown.map(() => even),
+      rest: input.folded.length > 0 ? even : 0,
+    };
+  }
+  const rest = Math.min(Math.max(foldedSum / bandShare, 0), 1);
+  const drawn = 1 - rest;
+  return {
+    grows: input.shown.map((v) => (v / shownSum) * drawn),
+    rest,
+  };
+}
+
+/**
+ * What the picture says about the names that reached a level, worded so
+ * it is true whoever set that level.
+ *
+ * Kept out of the component and tested, because this is the sentence
+ * that decides whether a row of imperative band names reads as the
+ * reader's own plan or as this app telling somebody to sell something.
+ */
+export function readySaid(
+  summary: BandMapSummary,
+  /**
+   * True for a circle's pooled picture, where no level is anybody's own.
+   * "Levels you set" and "which you have not changed" are both false
+   * there in the same way the first-person version was false for a
+   * reader who had never opened a ladder: nobody can edit a circle's
+   * plan, so the sentence must not imply somebody declined to.
+   */
+  pooled = false
+): string {
+  const { trimNames, addNames, reachedEdited, reachedTotal } = summary;
+  if (reachedTotal === 0) {
+    return "every name is somewhere in the middle of its own ladder";
+  }
+  /*
+    The names, and which end of the ladder they reached, described
+    rather than instructed: the bands stopped saying "trim" and "add"
+    when they stopped being imperative, so a sentence about them that
+    still did would be the app supplying the verb the table refuses to.
+  */
+  /*
+    A LIST OF NAMES TAKES A PLURAL. It read "SHOP, MU, SOFI at the
+    bottom of its own ladder", which is three companies sharing one ladder
+    and is not what the picture above it shows.
+  */
+  const ownPlan = (names: string[]) =>
+    names.length === 1 ? "its own ladder" : "their own ladders";
+  const parts: string[] = [];
+  if (trimNames.length > 0) {
+    parts.push(`${trimNames.join(", ")} at the top of ${ownPlan(trimNames)}`);
+  }
+  if (addNames.length > 0) {
+    parts.push(`${addNames.join(", ")} at the bottom of ${ownPlan(addNames)}`);
+  }
+  /*
+    Whose level it is, said once at the end rather than hung on each
+    name: it is the same answer for all of them and repeating it buried
+    the names, which are what the reader came to read.
+  */
+  const whose = pooled
+    ? "Levels this app worked out. Nothing here is anybody's own edited ladder."
+    : reachedEdited === reachedTotal
+      ? "Levels you set."
+      : reachedEdited === 0
+        ? "Levels this app worked out, which you have not changed."
+        : "Some of those levels are yours, the rest this app worked out.";
+  return `${parts.join(", and ")}. ${whose}`;
 }

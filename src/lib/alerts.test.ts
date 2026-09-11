@@ -243,22 +243,27 @@ describe("a ladder alert reads like this holding's own situation, not a mail mer
     expect(big!.detail).toContain("you have not changed");
   });
 
+  /*
+    The three bands `ACTIONABLE_BANDS` names, and only those: `full` was
+    retired from `EDGES` on 2026-09-11 (two of the three adding bands
+    said the same thing), so no ladder draws it and no alert can be
+    built from it. Its id survives in `LadderBandId` for saved levels
+    alone. Labels here are the ladder's own, which describe where the
+    price sits rather than telling anybody what to do about it.
+  */
   it("gives every actionable band its own headline and sentence shape", () => {
     const base = { ticker: "X", spot: 10, edited: false, edge: 9 };
     const [trim] = buildLadderAlerts([
-      { ...base, bandId: "trim-most", bandLabel: "Trim 60%+" },
-    ]);
-    const [full] = buildLadderAlerts([
-      { ...base, bandId: "full", bandLabel: "Full position" },
+      { ...base, bandId: "trim-most", bandLabel: "A long way above" },
     ]);
     const [more] = buildLadderAlerts([
-      { ...base, bandId: "full-aggressive", bandLabel: "Full position, and more" },
+      { ...base, bandId: "full-aggressive", bandLabel: "A long way below" },
     ]);
     const [exit] = buildLadderAlerts([
-      { ...base, bandId: "exit", bandLabel: "Out of it" },
+      { ...base, bandId: "exit", bandLabel: "Below its whole year" },
     ]);
-    const titles = [trim, full, more, exit].map((a) => a!.title);
-    expect(new Set(titles).size).toBe(4);
+    const titles = [trim, more, exit].map((a) => a!.title);
+    expect(new Set(titles).size).toBe(3);
     expect(exit!.detail).toContain("stop describing the company you bought");
     expect(exit!.tone).toBe("warning");
     expect(trim!.tone).toBe("neutral");
@@ -286,8 +291,8 @@ describe("a card's button goes where the fact can be acted on", () => {
     {
       ticker: "NASA",
       spot: 23.55,
-      bandId: "full",
-      bandLabel: "Full position",
+      bandId: "full-aggressive",
+      bandLabel: "Add a lot",
       edge: 22,
       edited: false,
     },

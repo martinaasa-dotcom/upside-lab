@@ -52,6 +52,7 @@ the ambient field, and the field is what closed the gap.
 | Orange | `--warning`, `--chart-3` | Caution/warning states only (e.g. Pulse alert badges). Not a general-purpose accent — don't reach for it decoratively. |
 | Emerald | `--gain` | Gains only. Semantic, not brand. |
 | Rose | `--loss` / `--destructive` | Losses and destructive actions only. Semantic, not brand. |
+| Zone warm / zone cool | `--zone-warm`, `--zone-cool` | The band map's three zones, and nothing else. A price above what a company looks worth washes warm, one below it washes cool, both at 4-9% alpha so they read as a ground rather than a fill, with the middle zone left neutral. **Why not gain and loss:** every block on those rows already carries a gain or loss dot, so spending emerald and rose on the zone as well would put two meanings on one pair, which is the fault this file records against tinting by anything but money made and money lost. Warm and cool say direction without touching that pair. `--zone-warm` is `--primary`'s own value and `--zone-cool` is `--cat-9`'s; they are named separately so the intent is readable where it is used and so moving the brand accent does not silently repaint a data zone. |
 | Blue | `--ambient-cool` | The ambient page glow's bottom-right counter-lobe, and nothing else — see "Ambient counter-lobe" below. Deliberately not exported as a Tailwind utility, so there is no `bg-ambient-cool` to reach for. |
 
 Four colors total, three of them semantic single-purpose (warning/gain/loss)
