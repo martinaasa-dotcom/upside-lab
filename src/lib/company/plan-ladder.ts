@@ -10,7 +10,7 @@
  * ordinarily travels. The bands are those two multiplied together. The
  * app's whole claim is "here is that arithmetic"; which band means what,
  * and whether to act on any of it, is the reader's, which is why every
- * edge is editable and why the labels are the reader's plan rather than
+ * edge is editable and why the labels are the reader's ladder rather than
  * this app's opinion. `ADVICE_DISCLAIMER_SHORT` is the legal line and it
  * is said once, on the panel.
  *
@@ -29,10 +29,10 @@ import { cashtag, currency, percent } from "@/lib/format";
  *
  * The ids are stable and are what a saved edit, a dismissal and an alert
  * are keyed on, so they never change with the wording. The labels are the
- * plan's own words: they say what this reader decided to do at that
+ * ladder's own words: they say what this reader decided to do at that
  * price, which is why they are imperative and why that is not this app
  * instructing anybody. Read them as the sentence they complete: "at this
- * price, my plan says ...".
+ * price, my ladder says ...".
  */
 export type LadderBandId =
   | "trim-most"
@@ -45,7 +45,7 @@ export type LadderBandId =
 
 export type LadderBand = {
   id: LadderBandId;
-  /** The plan's own words for this band. */
+  /** The ladder's own words for this band. */
   label: string;
   /** Bottom of the band, or null for the open band at the bottom. */
   from: number | null;
@@ -518,7 +518,7 @@ export function positionInBand(band: LadderBand, price: number): number {
 }
 
 /**
- * The bands where the plan says something decisive, and the only ones
+ * The bands where the ladder says something decisive, and the only ones
  * anything is allowed to raise its voice about.
  *
  * The middle of a ladder is where a price ordinarily sits: an alert that
@@ -549,18 +549,18 @@ export function bandById(
  * Where the price sits, as a fact rather than as a verdict.
  *
  * Deliberately never "cheap", never "time to buy", and never an
- * instruction of any kind: it names the band the reader's own plan puts
+ * instruction of any kind: it names the band the reader's own ladder puts
  * this price in, and the distance to the nearest edge, which is checkable
  * against the table directly underneath it.
  */
 export function ladderRead(ladder: PlanLadder): string {
   const spot = ladder.spot;
   if (spot === null) {
-    return `There is no price for ${cashtag(ladder.ticker)} right now, so nothing can be placed on this ladder. The levels below are still what your plan says.`;
+    return `There is no price for ${cashtag(ladder.ticker)} right now, so nothing can be placed on this ladder. The levels below are still what your ladder says.`;
   }
   const band = ladder.bands.find((b) => b.id === ladder.atId);
   if (!band) {
-    return `${currency(spot, 2)} today. Your plan does not cover that price.`;
+    return `${currency(spot, 2)} today. Your ladder does not cover that price.`;
   }
   const next = nearestEdge(ladder, spot);
   /*
@@ -573,7 +573,7 @@ export function ladderRead(ladder: PlanLadder): string {
   const distance = next
     ? ` ${whose} is ${currency(next.price, 2)}, which is ${percent(Math.abs(next.price - spot) / spot, 1)} ${next.price > spot ? "above" : "below"} today.`
     : "";
-  return `${currency(spot, 2)} today, which your plan files under "${band.label}".${distance}`;
+  return `${currency(spot, 2)} today, which your ladder files under "${band.label}".${distance}`;
 }
 
 /** The closest edge to a price, in either direction. */
@@ -589,4 +589,162 @@ export function nearestEdge(
     }
   }
   return best;
+}
+
+/**
+ * ONE HOLDING'S OWN MOMENT ON ITS LADDER, NOT JUST WHICH BAND IT IS IN.
+ *
+ * `buildLadderAlerts` and the "prices that reached a level" panel used to
+ * pour every ticker through one sentence shape: "At $X it is in the band
+ * [whose] calls 'Y'." Two different companies in the same band came out
+ * as the same sentence with the numbers swapped, which reads as a
+ * template because it is one. What actually differs between them, and is
+ * already sitting on the page: which edge was crossed and which way,
+ * whether the level is the reader's own or the ladder's arithmetic, how
+ * far past it the price has gone, how much of the portfolio it is, and
+ * whether the position is up or down against what was paid. This is the
+ * one place those get turned into words, so the alert and the panel row
+ * read them the same way and never drift into two syntaxes for one fact.
+ */
+export type LadderMoment = {
+  ticker: string;
+  spot: number;
+  bandId: LadderBandId;
+  /** That band's own words, as the ladder has them. */
+  bandLabel: string;
+  /** The edge the price crossed to land in this band. */
+  edge: number | null;
+  edited: boolean;
+  /** Share of the portfolio, when it is worth saying. */
+  share?: number | null;
+  /** Up or down against what was paid, as a fraction. */
+  roiPct?: number | null;
+};
+
+/**
+ * A share too small to be the reason anybody opened this card. Printing
+ * it on every row regardless of size is exactly the kind of filler that
+ * makes a card read as a mail merge.
+ */
+const NOTABLE_SHARE = 0.1;
+
+function shareClause(share: number | null | undefined): string {
+  return share != null && share >= NOTABLE_SHARE
+    ? ` It is ${percent(share, 1)} of what you own.`
+    : "";
+}
+
+/**
+ * Whether this holding is up or down against what was paid, said once it
+ * is known. A trim band reaching this line means the gain being locked
+ * in; an accumulation band or the floor reaching it means whether adding
+ * here would be adding to a position already under water, which is at
+ * least as much a fact worth having as the gain is. Printed only in the
+ * alert's own sentence, not in the panel row: the row already carries
+ * the price, the level and the share, and a fourth figure in a two-line
+ * card is the point where more facts stop reading as context and start
+ * reading as noise.
+ */
+function roiClause(roiPct: number | null | undefined): string {
+  if (roiPct == null || !Number.isFinite(roiPct)) return "";
+  const said = `${percent(Math.abs(roiPct), 0)} ${roiPct >= 0 ? "above" : "below"} what you paid for it`;
+  return ` That is ${said}.`;
+}
+
+/**
+ * "the $23.78 level you set", "the $23.78 level your ladder worked out",
+ * or, with no edge to name, "the level you set" / "the level your ladder
+ * worked out". The dollar figure sits directly after "the", so a reader
+ * never has to cross a whole relative clause to find the one number that
+ * anchors the sentence.
+ */
+function levelSaid(edge: number | null, edited: boolean, code: string): string {
+  const said = edited ? "level you set" : "level your ladder worked out";
+  return edge != null && edge > 0 ? `the ${currency(edge, 2, code)} ${said}` : `the ${said}`;
+}
+
+/** ", which you have not changed" only where the reader did not set it. */
+function changedNote(edited: boolean): string {
+  return edited ? "" : ", which you have not changed";
+}
+
+/** "4.9%", the distance from the price to the edge, or null with no edge. */
+function gapPct(spot: number, edge: number | null): string | null {
+  return edge != null && edge > 0 ? percent(Math.abs(spot - edge) / edge, 1) : null;
+}
+
+/**
+ * The headline for an actionable moment, one clause per band naming which
+ * way the price moved rather than one shape every band is poured into.
+ */
+export function ladderMomentTitle(m: LadderMoment): string {
+  const tag = cashtag(m.ticker);
+  switch (m.bandId) {
+    case "trim-most":
+      return `${tag} climbed past your trim level`;
+    case "full":
+      return `${tag} fell to a full position`;
+    case "full-aggressive":
+      return `${tag} fell well past a full position`;
+    case "exit":
+      return `${tag} fell under the floor of its ladder`;
+    default:
+      return `${tag} reached a level on its ladder`;
+  }
+}
+
+/** The alert's own sentence: the full account of the moment. */
+export function ladderMomentDetail(m: LadderMoment, code: string = "USD"): string {
+  const spot = currency(m.spot, 2, code);
+  const level = levelSaid(m.edge, m.edited, code);
+  const changed = changedNote(m.edited);
+  const pct = gapPct(m.spot, m.edge);
+  const share = shareClause(m.share);
+  const roi = roiClause(m.roiPct);
+
+  switch (m.bandId) {
+    case "trim-most": {
+      const gap = pct ? ` That is ${pct} above ${level}${changed}.` : "";
+      return `At ${spot} it has climbed into the band your ladder calls "${m.bandLabel}".${gap}${roi}${share}`;
+    }
+    case "full":
+    case "full-aggressive": {
+      const gap = pct ? ` That is ${pct} below ${level}${changed}.` : "";
+      return `At ${spot} it has fallen into the band your ladder calls "${m.bandLabel}".${gap}${roi}${share}`;
+    }
+    case "exit": {
+      const gap = pct ? ` That is ${pct} under ${level}${changed}.` : "";
+      return `At ${spot} it has fallen under the floor of its ladder.${gap} Below that level the estimates this ladder was built from stop describing the company you bought.${roi}${share}`;
+    }
+    default:
+      return `At ${spot} it is in the "${m.bandLabel}" band of ${level}${changed}.${share}`;
+  }
+}
+
+/**
+ * The panel row's own line: the same facts as `ladderMomentDetail`, said
+ * shorter because the band's own words are already printed above the row,
+ * and without the gain or loss, which stays in the alert's own longer
+ * sentence: a two-line card row already carries the price, the level and
+ * the share, and a fourth figure is where more facts stop reading as
+ * context and start reading as clutter.
+ */
+export function ladderMomentRow(m: LadderMoment, code: string = "USD"): string {
+  const spot = currency(m.spot, 2, code);
+  const level = levelSaid(m.edge, m.edited, code);
+  const changed = changedNote(m.edited);
+  const pct = gapPct(m.spot, m.edge);
+  const share = shareClause(m.share);
+
+  switch (m.bandId) {
+    case "trim-most":
+      return `${spot} today, ${pct ? `${pct} above` : "above"} ${level}${changed}.${share}`;
+    case "full":
+    case "full-aggressive":
+      return `${spot} today, ${pct ? `${pct} below` : "at"} ${level}${changed}.${share}`;
+    case "exit":
+      return `${spot} today, ${pct ? `${pct} under` : "under"} ${level}${changed}.${share}`;
+    default:
+      return `${spot} today.${share}`;
+  }
 }

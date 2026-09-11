@@ -19,7 +19,7 @@ export type OwnedRow = {
  * The room is written for somebody who does not own the company yet, and
  * for the reader who does, the first thing they came to see is their own
  * position rather than the argument about the company. So it sits above
- * the price plan, and everything on it is arithmetic on figures the
+ * the price ladder, and everything on it is arithmetic on figures the
  * reader typed themselves: shares, what they paid, what that is worth
  * now. Nothing here is a second opinion about the price; everything that
  * values the company is the rest of the page.

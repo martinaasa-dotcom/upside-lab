@@ -14,7 +14,7 @@ import { buildPlanLadder, type PlanLadder } from "@/lib/company/plan-ladder";
 
 /**
  * The map's whole claim is that two names drawn level are in the same
- * place in their own plans, so the tests are mostly about that: a $2
+ * place in their own ladders, so the tests are mostly about that: a $2
  * company and a $2,000 one at the same point of their own ladders have to
  * land on the same line.
  */

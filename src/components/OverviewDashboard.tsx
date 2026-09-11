@@ -137,13 +137,13 @@ type Props = {
   /** Book-wide, not-yet-dismissed alerts (earnings/strike/margin/concentration). */
   activeAlerts?: UpsideAlert[];
   /**
-   * Every holding placed on its own price plan. Home shows only the ones
+   * Every holding placed on its own price ladder. Home shows only the ones
    * that have reached a level; the whole picture is on the holdings page.
    */
   bandPoints?: BandMapPoint[];
   onOpenLab?: (tab?: LabDeepLink) => void;
   onOpenPulse?: (ticker?: string) => void;
-  /** The company's own Research page, where a price plan lives. */
+  /** The company's own Research page, where a price ladder lives. */
   onOpenResearch?: (ticker: string) => void;
   onOpenCompound?: () => void;
   marketState?: string | null;
@@ -538,7 +538,7 @@ function HomeAlertRow({
               : AlertTriangle;
           const line = alert.cushion ?? firstSentence(alert.detail);
           /*
-            A price plan is read and changed on the company's own Research
+            A price ladder is read and changed on the company's own Research
             page, so that is where its card goes. Everything else naming a
             company goes to Pulse, which explains a move.
           */

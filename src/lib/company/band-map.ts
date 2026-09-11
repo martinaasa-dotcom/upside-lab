@@ -2,25 +2,25 @@
  * Every holding on one ladder, so a portfolio can be read as a picture
  * rather than as a list of prices.
  *
- * The problem it solves is that each name's plan is in its own money: one
+ * The problem it solves is that each name's ladder is in its own money: one
  * company's "consider a trim" is $456 and another's is $1.80, so the
  * prices cannot share an axis. What they can share is the ladder itself.
  * Every band is a multiple of that name's own anchor, so **the band is the
  * common unit**, and a holding's height here is which band it is in plus
  * how far through that band it has got. Two names drawn level are in the
- * same place in their own plans, whatever their prices are.
+ * same place in their own ladders, whatever their prices are.
  *
  * The reading is the one a person expects from a chart: low is a price
  * far under what the estimates say, high is a price far over it. Across,
  * it is how much of the portfolio that holding is, so the corners mean
  * something. **Bottom left** is a small holding whose price is at the
- * bottom of its own plan. **Top right** is a big holding whose price is
+ * bottom of its own ladder. **Top right** is a big holding whose price is
  * at the top of one, which is the position a reader would look at first
  * if they were going to trim anything.
  *
  * Nothing here says to do either of those things, and nothing here is a
  * score. Both axes are figures already on other screens, drawn against
- * each other: the plan the reader owns, and the share of their own money.
+ * each other: the ladder the reader owns, and the share of their own money.
  */
 import {
   bandById,
@@ -92,11 +92,11 @@ export type BandMapPoint = {
    * Carried so the picture can spend the app's gain and loss pair on the
    * one thing those two colours mean everywhere else in it: money made
    * and money lost. That is a different question from where the price
-   * sits on its plan, which is the height, so the two never compete: a
-   * name can be up a lot and at the bottom of its plan.
+   * sits on its ladder, which is the height, so the two never compete: a
+   * name can be up a lot and at the bottom of its ladder.
    */
   roiPct: number | null;
-  /** The nearest level of that name's own plan, for the label. */
+  /** The nearest level of that name's own ladder, for the label. */
   edge: number | null;
   /**
    * The two prices this band runs between, and where in it the price
@@ -111,7 +111,7 @@ export type BandMapPoint = {
   bandTo: number | null;
   withinBand: number | null;
   actionable: boolean;
-  /** The reader typed at least one level of this name's plan. */
+  /** The reader typed at least one level of this name's ladder. */
   edited: boolean;
 };
 
@@ -553,7 +553,7 @@ export function buildBandMap(
  * first, for the list on Home.
  *
  * "Worst" here means furthest out of the middle in either direction: the
- * name at the very top of its plan and the name at the very bottom are
+ * name at the very top of its ladder and the name at the very bottom are
  * both things a reader wants to see before a name a step inside either.
  * Size breaks the tie, because the same distance matters more on a
  * holding that is a third of the portfolio.
