@@ -55,6 +55,7 @@ import { plainError } from "@/lib/plain-error";
 import { overlapRows } from "@/lib/circle-overlap";
 import { sheetCashBalance } from "@/lib/cash-balance";
 import { buildOverview } from "@/lib/overview";
+import { holdingLadders } from "@/lib/company/holding-ladders";
 import {
   loadCommunityCache,
   loadCommunityDuelCache,
@@ -621,6 +622,33 @@ export function CommunityView({ communityId }: Props) {
   const overview = useMemo(
     () => buildOverview(portfolios, holdings, quotes),
     [portfolios, holdings, quotes]
+  );
+
+  /*
+    Every ticker the circle holds, pooled across every member, on the same
+    price-band ladder the Holdings page draws for one portfolio -- so a
+    reader can see at a glance which of the circle's biggest bets are
+    trading near an estimate and which have run past one. `roiPct` is
+    fixed at `null` on every row: the book route zeroes `buy_price` for
+    everybody but the holding's own owner (see `circle-privacy.test.ts`),
+    so a pooled gain/loss figure here would silently be wrong whenever more
+    than one person holds a name, and a chip that cannot tell whether it is
+    up or down draws its neutral colour rather than guessing. No per-reader
+    overrides go in either: this is the circle's own shape, not any one
+    member's edited plan.
+  */
+  const circleLadderRows = useMemo(
+    () =>
+      holdingLadders({
+        rows: overview.tickers.map((t) => ({
+          ticker: t.ticker,
+          spot: t.price > 0 ? t.price : null,
+          closes: t.dailyCloses?.length ? t.dailyCloses : t.sparkline,
+          value: t.currentValue,
+          roiPct: null,
+        })),
+      }),
+    [overview.tickers]
   );
 
   // One combined per-person stat, computed once and reused by the power
@@ -1623,6 +1651,7 @@ export function CommunityView({ communityId }: Props) {
                 overview={overview}
                 membersWithBooks={membersWithBooks}
                 achievements={achievements}
+                circleLadderRows={circleLadderRows}
                 sharedNames={sharedNames}
                 avatarByName={avatarByName}
                 communityThemeBreakdown={communityThemeBreakdown}

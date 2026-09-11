@@ -3,6 +3,7 @@
 import { DailyDuelCard } from "@/components/DailyDuelCard";
 import { PowerAnimalCard } from "@/components/CircleCards";
 import { BelowFold } from "@/components/BelowFold";
+import { BandMap } from "@/components/company/BandMap";
 import { CommunityTodayBoard } from "@/components/CommunityTodayBoard";
 import { ShareSheets } from "@/components/ShareSheets";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/item";
 import type { CommunityDuelCache } from "@/lib/community-cache";
 import type { OverlapRow } from "@/lib/circle-overlap";
+import type { HoldingLadderRow } from "@/lib/company/holding-ladders";
 import {
   cashtag,
   cn,
@@ -187,6 +189,7 @@ export type CircleHomeProps = {
   overview: OverviewModel;
   membersWithBooks: MemberStat[];
   achievements: CommunityAchievement[];
+  circleLadderRows: HoldingLadderRow[];
   sharedNames: OverlapRow[];
   avatarByName: Map<string, string>;
   communityThemeBreakdown: ThemeSlice[];
@@ -222,6 +225,7 @@ export function CircleHome({
   overview,
   membersWithBooks,
   achievements,
+  circleLadderRows,
   sharedNames,
   avatarByName,
   communityThemeBreakdown,
@@ -560,6 +564,28 @@ export function CircleHome({
                 ))}
               </div>
             </section>
+          )}
+
+          {/*
+            The circle's own biggest bets, pooled across every member and
+            drawn on the same price-band ladder the Holdings page uses for
+            one portfolio: every band is a multiple of that company's own
+            estimate, so a $50 stock and a $5,000 one can share an axis.
+            Across is the order by size (smallest to biggest), up is where
+            today's price sits against the circle's own plan for it. Colour
+            is deliberately neutral -- cost is the one thing this room
+            withholds, so a pooled gain or loss is not something this chart
+            can honestly draw.
+          */}
+          {shownView === "play" && circleLadderRows.length > 0 && (
+            <BelowFold className="order-4" reserve={520}>
+              <WidgetErrorBoundary name="Where the circle sits">
+                <BandMap
+                  rows={circleLadderRows}
+                  title="Where the circle's biggest bets sit"
+                />
+              </WidgetErrorBoundary>
+            </BelowFold>
           )}
 
           {/*
