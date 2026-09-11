@@ -1,7 +1,7 @@
 "use client";
 
 import { useTickerSectors } from "@/lib/use-ticker-sectors";
-import { useSectorQuotes } from "@/lib/use-sector-quotes";
+import { useQuotes } from "@/lib/quote-pool";
 import { measuredBetas } from "@/lib/measured-beta";
 
 /** The market, for measuring a holding's own swing against. */
@@ -367,7 +367,7 @@ export const LabSheet = memo(function LabSheet({
     One symbol, public and heavily traded, so it is a CDN hit shared by
     every reader rather than a fetch per portfolio.
   */
-  const marketSparkline = useSectorQuotes(MARKET_PROXY)[MARKET_PROXY[0]!]
+  const marketSparkline = useQuotes(MARKET_PROXY)[MARKET_PROXY[0]!]
     ?.sparkline;
 
   /*

@@ -1,5 +1,7 @@
 "use client";
 
+import { useQuotes } from "@/lib/quote-pool";
+
 import { TermTip } from "@/components/ui/TermTip";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -18,7 +20,6 @@ import {
   standoutLine,
   type MarketOrYouInput,
 } from "@/lib/market-or-you";
-import { quotesUrl } from "@/lib/market/session";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { bandForScore } from "@/lib/playbook";
 import {
@@ -68,15 +69,12 @@ const MIN_POLL_MS = 60_000;
  * already calls is the cheapest way to have it.
  */
 const INDEX_TICKER = "^GSPC";
+const INDEX_TICKERS = [INDEX_TICKER];
 const INDEX_NAME = "The S&P 500";
-const INDEX_QUOTES_URL = quotesUrl([INDEX_TICKER]);
 
 /** Said once, then never again on this device. */
 const DRAG_HINT_KEY = "upside-gauge-drag-hint-v1";
 
-type QuotesPayload = {
-  quotes?: Record<string, { changePercent?: number | null } | undefined>;
-};
 
 function sentimentPollMs(): number {
   return Math.max(quotePollMs(), MIN_POLL_MS);
@@ -105,7 +103,18 @@ export function MarketSentimentWidget({
     () => loadSentimentPaint() ?? EMPTY,
     EMPTY
   );
-  const [indexPct, setIndexPct] = useState<number | null>(null);
+  /*
+    From the shared pool rather than a fetch of its own. This widget is
+    mounted on Home and again in Pulse, and Pulse separately asked for the
+    same index, so one session walking between the two rooms fetched
+    `^GSPC` nine times. It is one ticker that every surface wants and
+    nothing here is special about it.
+  */
+  const indexQuote = useQuotes(INDEX_TICKERS)[INDEX_TICKER];
+  const indexPct =
+    indexQuote && Number.isFinite(indexQuote.changePercent)
+      ? indexQuote.changePercent
+      : null;
   const [showScales, setShowScales] = useState(false);
   const [dragHintDone, setDragHintDone] = useState(true);
 
@@ -134,21 +143,8 @@ export function MarketSentimentWidget({
   const fetchedAtRef = useRef(0);
   const refreshCtrl = useRef<AbortController | null>(null);
 
-  const loadIndex = useCallback(async (signal: AbortSignal) => {
-    try {
-      const res = await fetch(INDEX_QUOTES_URL, { signal });
-      if (!res.ok) return;
-      const data = (await res.json()) as QuotesPayload;
-      if (signal.aborted) return;
-      const pct = data.quotes?.[INDEX_TICKER]?.changePercent;
-      if (typeof pct === "number" && Number.isFinite(pct)) setIndexPct(pct);
-    } catch (err) {
-      if (isAbortError(err)) return;
-    }
-  }, []);
 
   const load = useCallback(async (signal: AbortSignal) => {
-    void loadIndex(signal);
     try {
       const res = await fetch("/api/market/sentiment", { signal });
       if (!res.ok) return;
@@ -161,7 +157,7 @@ export function MarketSentimentWidget({
     } catch (err) {
       if (isAbortError(err)) return;
     }
-  }, [loadIndex, setMetrics]);
+  }, [setMetrics]);
 
   useEffect(() => {
     const ctrl = new AbortController();

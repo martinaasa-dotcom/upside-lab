@@ -95,7 +95,7 @@ import {
   sectorPeerLine,
   sectorPeerRead,
 } from "@/lib/sector-peers";
-import { useSectorQuotes } from "@/lib/use-sector-quotes";
+import { publishQuotes, useQuotes } from "@/lib/quote-pool";
 import { ratingForScore } from "@/lib/market/fear-greed";
 import {
   daySize,
@@ -837,6 +837,7 @@ export function marketMoodLine(score: number | null | undefined): string {
  * that index's own figure.
  */
 const MARKET_INDEX = "^GSPC";
+const MARKET_INDEX_TICKERS = [MARKET_INDEX];
 const MARKET_INDEX_NAME = "The S&P 500";
 
 async function resolveListedTicker(
@@ -941,7 +942,15 @@ export const PulsePage = memo(function PulsePage({
       ),
     [candidates, sectorWordsByTicker]
   );
-  const sectorQuotes = useSectorQuotes(sectorFunds);
+  const sectorQuotes = useQuotes(sectorFunds);
+
+  /*
+    The index from the shared pool rather than a fetch of its own. The
+    market reading card in this same room already wanted it, and so did
+    Home, so a session walking between the two asked for `^GSPC` nine
+    times before every surface read one pool.
+  */
+  const indexQuote = useQuotes(MARKET_INDEX_TICKERS)[MARKET_INDEX] ?? null;
 
   const sectorPctFor = useCallback(
     (ticker: string): number | null => {
@@ -1020,7 +1029,6 @@ export const PulsePage = memo(function PulsePage({
    * states the two figures side by side and never models a split between
    * them.
    */
-  const [indexQuote, setIndexQuote] = useState<Quote | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fearGreed, setFearGreed] = useState<FearGreedSnapshot | null>(null);
 
@@ -1251,16 +1259,6 @@ export const PulsePage = memo(function PulsePage({
       .catch((err) => {
         if (isAbortError(err)) return;
       });
-    return () => {
-      ctrl.abort();
-    };
-  }, []);
-
-  useEffect(() => {
-    const ctrl = new AbortController();
-    void fetchQuote(MARKET_INDEX, ctrl.signal).then((q) => {
-      if (!ctrl.signal.aborted && q) setIndexQuote(q);
-    });
     return () => {
       ctrl.abort();
     };
@@ -1498,6 +1496,9 @@ export const PulsePage = memo(function PulsePage({
     // for, so a lookup that failed left an error banner above a card
     // reading $0.00 with a green up-arrow beside it.
     setPinnedTicker(ticker);
+    // Published as well as kept locally, so a company somebody looked up
+    // here is already priced in every other room.
+    publishQuotes({ [ticker]: q });
     setLookupQuotes((prev) => ({ ...prev, [ticker]: q, [typed]: q }));
     quoteMap = { ...quoteMap, [ticker]: q, [typed]: q };
 
