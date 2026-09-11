@@ -2,6 +2,10 @@ import { NO_VALUE, cashtag, currency } from "@/lib/format";
 import { formatDateTime } from "@/lib/timezone";
 import type { ModelRun } from "@/lib/ai/model-label";
 import type { ForecastPathAdjustment } from "@/lib/forecast-plan";
+import {
+  forecastThemeForTicker,
+  impliedAnnualReturnForTheme,
+} from "@/lib/forecast-conviction";
 
 /**
  * Where a number on screen came from, in the reader's own language.
@@ -207,6 +211,27 @@ function adjustmentSteps(adjust?: ForecastPathAdjustment): string[] {
  * in forecast-plan.ts, which also carries `FORECAST_CONVICTION_PROMPT` and
  * the portfolio insight lines). If that list changes, this changes with it.
  */
+/**
+ * How fast the fallback shape compounds, said against the market.
+ *
+ * The mark already said the shape came from a table written here. It did
+ * not say how big the assumption was, and on some kinds of business it is
+ * very big: a reader could be looking at a path implying nearly thirty per
+ * cent a year with nothing on screen putting that next to the ten the
+ * market's own baseline uses. State the figure and what it is next to,
+ * which is the rule the whole product runs on.
+ */
+function shapeRateLine(ticker: string): string {
+  const theme = forecastThemeForTicker(ticker);
+  const rate = impliedAnnualReturnForTheme(theme);
+  const market = impliedAnnualReturnForTheme("index");
+  const said = `${Math.round(rate * 100)}% a year`;
+  const baseline = `${Math.round(market * 100)}%`;
+  return rate > market + 0.005
+    ? `That shape works out at about ${said}, against the ${baseline} this app uses for the market as a whole.`
+    : `That shape works out at about ${said}, which is what this app uses for the market as a whole.`;
+}
+
 export function forecastPathProvenance(input: {
   ticker: string;
   spot: number;
@@ -247,10 +272,21 @@ export function forecastPathProvenance(input: {
       sources: [YAHOO_PRICES, { name: "This app", what: "the table of shapes" }],
       steps: [
         `Today's price is multiplied by the shape for that kind of business, one multiple per year out to ${last}.`,
+        shapeRateLine(input.ticker),
         "The percent on the card is that last price against today's price, and nothing else.",
       ],
       blindSpots: [
         "Anything at all about this company. It is a shape for a category, not a view on a name.",
+        /*
+          The uncomfortable half, and the reason this line exists at all.
+          The shapes are not a measurement and they are not evenly spread:
+          some kinds of business were given a faster one than the market
+          and most were not, and which is which is a list somebody here
+          chose. A reader looking at a fallback path compounding at nearly
+          thirty per cent a year is owed that, because the figure on the
+          card is entirely that choice and nothing about their company.
+        */
+        "Which kinds of business get a faster shape than the market is a list somebody wrote here, not something measured. A company this app does not recognise is assumed to do what the market does.",
         NOT_THE_FUTURE,
         NOT_A_TARGET,
       ],

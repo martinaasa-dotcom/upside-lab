@@ -88,6 +88,41 @@ describe("provenance", () => {
     expect(p.headline).toMatch(/not reasoning/i);
   });
 
+  it("says how fast the fallback shape compounds, against the market", () => {
+    /*
+      "A table written into this app" was true and said nothing about the
+      size of the assumption. Some kinds of business were given a shape
+      compounding at nearly thirty per cent a year and most were not, and
+      which is which is a list somebody here chose. A reader looking at
+      one of the fast ones is owed both figures.
+    */
+    const fast = forecastPathProvenance({
+      ticker: "NVDA",
+      spot: 180,
+      fallback: true,
+    });
+    const fastStep = (fast.steps ?? []).find((s) => /% a year/.test(s));
+    expect(fastStep).toBeTruthy();
+    expect(fastStep).toMatch(/for the market as a whole/i);
+    // Both numbers present, so the reader can see the gap rather than take it.
+    expect(fastStep!.match(/\d+%/g)?.length).toBeGreaterThanOrEqual(2);
+
+    // A company this app does not recognise gets the market's own shape,
+    // and the copy says that rather than implying a premium.
+    const plain = forecastPathProvenance({
+      ticker: "ZZZZQQ",
+      spot: 40,
+      fallback: true,
+    });
+    const plainStep = (plain.steps ?? []).find((s) => /% a year/.test(s));
+    expect(plainStep).toMatch(/which is what this app uses/i);
+
+    // And the blind spot admits the list is a choice, not a measurement.
+    expect(
+      plain.blindSpots.some((s) => /not something measured/i.test(s))
+    ).toBe(true);
+  });
+
   it("says Pulse fetched headlines when it did, and says so when it did not", () => {
     const withNews = pulseProvenance({
       ticker: "CRWV",
