@@ -17,7 +17,8 @@ import {
   type MarketOrYouInput,
 } from "@/lib/market-or-you";
 import { quotesUrl } from "@/lib/market/session";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { bandForScore } from "@/lib/playbook";
 import {
   isSentimentMetrics,
   preferSentimentSnapshot,
@@ -88,12 +89,15 @@ export function MarketSentimentWidget({
   className,
   yoursPct = null,
   holdings,
+  onOpenPlaybook,
 }: {
   className?: string;
   /** The reader's own move today, as a fraction. */
   yoursPct?: number | null;
   /** What they hold, so the card can name what plainly went its own way. */
   holdings?: MarketOrYouInput["holdings"];
+  /** Opens the Playbook. Absent means no door is drawn. */
+  onOpenPlaybook?: () => void;
 }) {
   const [metrics, setMetrics] = useHydratedCache<SentimentMetrics>(
     () => loadSentimentPaint() ?? EMPTY,
@@ -372,7 +376,70 @@ export function MarketSentimentWidget({
             ) : null}
           </div>
         ) : null}
+        {onOpenPlaybook ? (
+          <PlaybookDoor
+            score={metrics.fearGreed}
+            onOpen={onOpenPlaybook}
+          />
+        ) : null}
       </Panel>
+    </div>
+  );
+}
+
+/*
+  THE DOOR TO THE PLAYBOOK GOES HERE, AND THAT IS THE WHOLE ARGUMENT FOR
+  PUTTING IT HERE RATHER THAN ANYWHERE ELSE ON HOME.
+
+  A room of investing principles is easy to hide and easy to advertise
+  badly. A card on Home saying "learn to invest" is an advertisement: it
+  arrives unasked, it is about nothing in particular, and a beginner skips
+  it exactly as they skip every other one. This card is the opposite
+  situation. It has just printed a reading of the market's mood and left
+  the reader holding the obvious next question, which is what any of that
+  is supposed to mean to them, and the Playbook is the answer to precisely
+  that question. So the door is the end of a sentence somebody is already
+  reading rather than a new thing shouting at them.
+
+  It names the band the reading actually landed in, so the label is about
+  today rather than about a feature. It is never an instruction: it offers
+  the idea that belongs to this state of the market and the way that idea
+  goes wrong, which is what is behind it, and it says so.
+
+  It reaches the reader who most needs it for free. `marketReading` is the
+  one panel Home draws for an empty portfolio as well as a full one, so a
+  beginner who has not typed a holding in yet gets this door on their very
+  first screen, which is the one place in the product where somebody with
+  nothing to look at has a reason to read about how any of it works.
+*/
+function PlaybookDoor({
+  score,
+  onOpen,
+}: {
+  score: number | null;
+  onOpen: () => void;
+}) {
+  const band = score == null ? null : bandForScore(score);
+  return (
+    <div className="border-t border-border pt-4">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="veil-hover flex w-full min-w-0 items-center gap-3 rounded-lg p-2 text-left transition hover:bg-hover"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-foreground">
+            {band
+              ? `The idea that belongs to ${band.label.toLowerCase()}`
+              : "The ideas behind readings like this"}
+          </span>
+          <span className="mt-0.5 block text-sm leading-relaxed text-muted-foreground">
+            What this has meant before, the way that idea goes wrong, and what
+            to look at to check it yourself.
+          </span>
+        </span>
+        <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+      </button>
     </div>
   );
 }

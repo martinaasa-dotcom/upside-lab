@@ -575,6 +575,72 @@ export function scenarioProvenance(): Provenance {
   };
 }
 
+/**
+ * The ten-year index read in the Playbook. No model anywhere near it.
+ *
+ * This is the surface in the whole product most in need of the mark, and
+ * for a reason that has nothing to do with a model. The missing-the-best-
+ * days figure is the most repeated statistic in retail investing and it is
+ * almost always printed with no window at all, which means the version a
+ * reader has met before was unfalsifiable and, worse, free to pick: run it
+ * over a different decade and it says something else. A reader who has
+ * learned to distrust that number is right to, and the only answer is to
+ * hand them the window, the source and the arithmetic and let them check.
+ */
+export function bestDaysProvenance(input: {
+  from?: string | null;
+  to?: string | null;
+  /** Trading days in the window, so the account can say how many. */
+  days?: number | null;
+  starting: string;
+}): Provenance {
+  const window =
+    input.from && input.to ? `${input.from} to ${input.to}` : "the window shown";
+  return {
+    maker: "arithmetic",
+    title: "Where this came from",
+    headline:
+      "Nobody asked a model. It is the index's own daily closing prices multiplied together, once with every day and once with a few of them left out.",
+    inputs: [
+      {
+        what: "Daily closing prices for SPY, which tracks the S&P 500",
+        detail:
+          input.days != null
+            ? `${window}, which is ${input.days} trading days`
+            : window,
+      },
+      {
+        what: "How many of the days to leave out",
+        detail: "whichever of 5, 10, 20 or 30 you picked",
+      },
+      {
+        what: "A starting amount",
+        detail: `${input.starting}, chosen to make the figures readable and nothing else`,
+      },
+    ],
+    sources: [
+      YAHOO_PRICES,
+      {
+        name: "This app",
+        what: "the multiplying, and the count of how close the best days sat to the worst",
+      },
+    ],
+    steps: [
+      "Each day's move is the close against the day before, so a window of closing prices becomes a list of daily moves.",
+      "Those moves are multiplied together to get what a pound left alone became. The best days are then taken out and the rest multiplied again, and separately the worst days.",
+      "The clustering figure counts how many of the ten largest daily rises landed within ten trading days of one of the ten largest falls.",
+      "Nothing is adjusted afterwards. The window is whatever the provider returned, and it is printed rather than chosen.",
+    ],
+    blindSpots: [
+      "Dividends. These are closing prices, so the real result of holding the index was higher than every figure here.",
+      "Whether the next ten years look anything like these ten. A different window gives different numbers, which is the whole reason this one names its dates.",
+      "That nobody could have known in advance which days to miss. Taking days out afterwards is arithmetic on what happened, not a strategy anybody could have run.",
+      NOT_A_TARGET,
+    ],
+    yours: "Change how many days come out with the row above.",
+  };
+}
+
 /** Margus in the corner. Every reply is a model. */
 export function margusChatProvenance(model?: ModelRun | null): Provenance {
   return {
