@@ -79,7 +79,7 @@ function historyAnswer(f: CompanyFacts): FourQuestionAnswer {
   const base = {
     id: "history" as const,
     question: QUESTIONS.history,
-    figureLabel: "Where it sits in its own year",
+    figureLabel: "Where it sits this year",
     maker: "market" as const,
   };
   if (at === null) {
@@ -87,21 +87,21 @@ function historyAnswer(f: CompanyFacts): FourQuestionAnswer {
       ...base,
       figure: NO_VALUE,
       answer:
-        "The feed did not carry a high and a low for the last year, so there is nothing here to measure today's price against. Nothing was estimated in its place.",
+        "The feed did not carry a high and low for the last year, so there is nothing to measure today's price against.",
       against: null,
       thin: true,
     };
   }
   const priced =
     pos(f.trailingPe) && pos(f.forwardPe)
-      ? ` On the other yardstick, what you pay for a year of profit, it is ${num(f.forwardPe, 1)} times next year's earnings against ${num(f.trailingPe, 1)} times last year's.`
+      ? ` On profit, it costs ${num(f.forwardPe, 1)} times next year's earnings against ${num(f.trailingPe, 1)} times last year's.`
       : pos(f.forwardPe)
-        ? ` On the other yardstick, what you pay for a year of profit, it is ${num(f.forwardPe, 1)} times next year's earnings.`
+        ? ` On profit, it costs ${num(f.forwardPe, 1)} times next year's earnings.`
         : "";
   return {
     ...base,
     figure: percent(at, 0),
-    answer: `${currency(f.price, 2)} today sits ${percent(at, 0)} of the way up the range it has traded in over the last year, from ${currency(f.fiftyTwoWeekLow, 2)} to ${currency(f.fiftyTwoWeekHigh, 2)}. That yardstick is the price alone: it says nothing about the business behind it, which is why it is one of two here.${priced}`,
+    answer: `${currency(f.price, 2)} sits ${percent(at, 0)} of the way up its ${currency(f.fiftyTwoWeekLow, 2)} to ${currency(f.fiftyTwoWeekHigh, 2)} year. That is price alone, nothing about the business behind it.${priced}`,
     against: `${currency(f.fiftyTwoWeekLow, 2)} to ${currency(f.fiftyTwoWeekHigh, 2)} over the year`,
     thin: false,
   };
@@ -120,7 +120,7 @@ function assumingAnswer(f: CompanyFacts): FourQuestionAnswer {
       figure: NO_VALUE,
       figureLabel: "What it costs a year",
       answer:
-        "A fund's price is the sum of what it holds, so it is not assuming anything of its own. What it is assuming is whatever the companies inside it are, and the one number in your control is what it charges you each year.",
+        "A fund's price is the sum of what it holds, so it is not assuming anything of its own. What it charges you each year is the one number in your control.",
       against: null,
       thin: false,
     };
@@ -130,7 +130,7 @@ function assumingAnswer(f: CompanyFacts): FourQuestionAnswer {
       ...base,
       figure: NO_VALUE,
       answer:
-        "There are no earnings behind this one, so there is no growth rate for the price to be assuming. What the price assumes is that somebody else will pay more, and nothing here can measure that.",
+        "There are no earnings behind this one, so there is no growth rate for the price to be assuming. It is assuming somebody else will pay more, which nothing here can measure.",
       against: null,
       thin: false,
     };
@@ -142,7 +142,7 @@ function assumingAnswer(f: CompanyFacts): FourQuestionAnswer {
         ...base,
         figure: percent(0, 0),
         figureLabel: "Growth the price needs",
-        answer: `At ${num(f.forwardPe, 1)} times next year's earnings the price is at or under the ${MARKET_EARNINGS_MULTIPLE} times an ordinary profitable company has gone for, so it is not asking for growth above the market to make sense of itself. That is a statement about the price, not about whether the earnings arrive.`,
+        answer: `At ${num(f.forwardPe, 1)} times next year's earnings, the price is already at or under the ${MARKET_EARNINGS_MULTIPLE} times an ordinary profitable company goes for. It is not asking for growth above the market.`,
         against: `${MARKET_EARNINGS_MULTIPLE} times earnings, the ordinary multiple`,
         thin: false,
       };
@@ -151,7 +151,7 @@ function assumingAnswer(f: CompanyFacts): FourQuestionAnswer {
       ...base,
       figure: NO_VALUE,
       answer:
-        "The feed carried no earnings estimate for this one, so there is no multiple to work backwards from and nothing here can say what the price is assuming.",
+        "The feed carried no earnings estimate for this one, so there is no multiple to work backwards from and no earnings to say what the price is assuming.",
       against: null,
       thin: true,
     };
@@ -167,12 +167,12 @@ function assumingAnswer(f: CompanyFacts): FourQuestionAnswer {
   const marketLine = !ok(implied.marketRate)
     ? ""
     : close
-      ? " That is about what the market as a whole is expected to do, so on this measure the price is asking for no more than an ordinary company's growth."
-      : ` The market as a whole is expected to grow earnings about ${percent(implied.marketRate, 0)} a year.`;
+      ? " That is about what the market as a whole is expected to do, no more."
+      : ` The market as a whole is expected to grow about ${percent(implied.marketRate, 0)} a year.`;
   return {
     ...base,
     figure: `${percent(implied.rate, 0)} a year`,
-    answer: `To bring today's price back to the ${MARKET_EARNINGS_MULTIPLE} times earnings an ordinary profitable company goes for, this one would have to grow earnings about ${percent(implied.rate, 0)} a year for ${implied.years} years, starting from ${implied.basis}'s estimate. That is the size of the bet the price is making, worked out backwards with no discount rate and no model in it.${marketLine}`,
+    answer: `To bring the price back to ${MARKET_EARNINGS_MULTIPLE} times earnings, this one would have to grow about ${percent(implied.rate, 0)} a year for ${implied.years} years, from ${implied.basis}'s estimate: no discount rate and no model in it, just that bet.${marketLine}`,
     against: `${MARKET_EARNINGS_MULTIPLE} times earnings in ${implied.years} years`,
     thin: false,
   };
@@ -190,7 +190,7 @@ function qualityAnswer(f: CompanyFacts, read: FairValueRead): FourQuestionAnswer
   const base = {
     id: "quality" as const,
     question: QUESTIONS.quality,
-    figureLabel: "What it keeps of every $100",
+    figureLabel: "Kept per $100 sold",
     maker: "arithmetic" as const,
   };
   const margin = ok(f.profitMargin) ? f.profitMargin : null;
@@ -200,7 +200,7 @@ function qualityAnswer(f: CompanyFacts, read: FairValueRead): FourQuestionAnswer
       ...base,
       figure: NO_VALUE,
       answer:
-        "The feed carried neither a profit margin nor a return on equity for this one, so the quality half of this question cannot be answered here at all. The price half is in the panel below.",
+        "The feed carried neither a profit margin nor a return on equity for this one, so quality can't be answered here. The price half is in the panel below.",
       against: null,
       thin: true,
     };
@@ -212,12 +212,12 @@ function qualityAnswer(f: CompanyFacts, read: FairValueRead): FourQuestionAnswer
   const gap = read.gap;
   const priceHalf =
     read.estimate.price !== null && ok(gap)
-      ? ` The price half is separate: the ${read.estimate.used.length} ${read.estimate.used.length === 1 ? "method" : "methods"} below land at ${currency(read.estimate.price, 2)} twelve months out, ${percent(Math.abs(gap), 1)} ${gap > 0 ? "above" : "below"} today.`
-      : " The price half could not be worked out for this one, so only half of this question is answered here.";
+      ? ` Separately, the ${read.estimate.used.length} ${read.estimate.used.length === 1 ? "method" : "methods"} below land at ${currency(read.estimate.price, 2)} twelve months out, ${percent(Math.abs(gap), 1)} ${gap > 0 ? "above" : "below"} today.`
+      : " The price half could not be worked out for this one.";
   return {
     ...base,
     figure: margin !== null ? currency(Math.max(margin, 0) * 100, 2) : percent(roe ?? 0, 0),
-    answer: `${quality}${priceHalf} Those are two measurements, not one: a business can be the better one and the worse buy at the same time, and the two figures above are the two you would be trading off.`,
+    answer: `${quality}${priceHalf} That is two measurements, not one: a business can be the better one and the worse buy at once, and the two figures above are what you'd be trading off.`,
     against: margin !== null ? "every $100 of sales" : "the owners' own money",
     thin: false,
   };
@@ -245,7 +245,7 @@ function changeMyMindAnswer(input: {
   const base = {
     id: "change-my-mind" as const,
     question: QUESTIONS["change-my-mind"],
-    figureLabel: "The level your ladder calls the floor",
+    figureLabel: "Your ladder's floor",
     maker: againstPoint ? ("model" as const) : ("arithmetic" as const),
   };
   const parts: string[] = [];
@@ -253,24 +253,24 @@ function changeMyMindAnswer(input: {
     const fall = (facts.price - exitLevel) / facts.price;
     parts.push(
       input.exitFromYear
-        ? `A price of ${currency(exitLevel, 2)} is the lowest this share has traded in a year, ${percent(fall, 0)} under today, and it is the floor of your own ladder. Under it the price is below anything the market has paid for this company in twelve months, which is the plainest thing on this page that could tell you the argument above has stopped holding.`
-        : `A price of ${currency(exitLevel, 2)} is where the estimates below stop describing this company, which is ${percent(fall, 0)} under today. That is the level your own ladder calls the floor, and it is yours to move.`
+        ? `${currency(exitLevel, 2)} is the lowest this share has traded in a year, ${percent(fall, 0)} under today, and the floor of your own ladder. Below it, the price is under everything the market has paid this year, the clearest sign the case above has broken.`
+        : `${currency(exitLevel, 2)} is where the estimates below stop describing this company, ${percent(fall, 0)} under today. That is the floor your own ladder calls, and it is yours to move.`
     );
   }
   if (input.nextEarnings) {
     parts.push(
-      "The next set of results is the next time any of this can be checked against what the company actually did, rather than what anybody expects it to do."
+      "The next set of results is the next chance to check this against what the company actually did, not what anybody expects."
     );
   }
   if (againstPoint) {
-    parts.push(`The model's own answer to this, from the argument below: ${againstPoint}`);
+    parts.push(`The model's own answer: ${againstPoint}`);
   }
   if (parts.length === 0) {
     return {
       ...base,
       figure: NO_VALUE,
       answer:
-        "There is no price level and no results date to hang this on for this one, so nothing here can tell you what would prove you wrong. That is worth knowing before you decide anything.",
+        "There is no price level and no results date to hang this on for this one, so nothing here can say what would prove you wrong.",
       against: null,
       thin: true,
     };

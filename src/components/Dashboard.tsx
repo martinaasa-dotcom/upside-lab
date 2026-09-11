@@ -14,6 +14,10 @@ import { BandMap } from "@/components/company/BandMap";
 import { PortfolioTabs } from "@/components/PortfolioTabs";
 import { ClassTradeBanner } from "@/components/ClassTradeBanner";
 import { isPaperClassOnly, ownedBookPortfolios } from "@/lib/classroom";
+import {
+  loadCompoundInterestSheet,
+  loadGrowthRoom,
+} from "@/lib/growth-chunks";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { useAuth } from "@/components/AuthProvider";
 import {
@@ -228,10 +232,21 @@ const loadPulsePage = () =>
   import("@/components/PulsePage").then((m) => m.PulsePage);
 const loadLabSheet = () =>
   import("@/components/LabSheet").then((m) => m.LabSheet);
-const loadCompoundInterestSheet = () =>
-  import("@/components/CompoundInterestSheet").then(
-    (m) => m.CompoundInterestSheet
-  );
+/*
+  Growth is two panels behind one sub-tab now, so the room is the wrapper
+  rather than the calculator.
+
+  Both are warmed, and that is not belt and braces. The wrapper mounts its
+  two panels with `dynamic` of its own, so fetching the wrapper's module
+  does not fetch either of them: warming only the wrapper would leave the
+  first Growth tap fetching the calculator anyway, which is the exact fault
+  the named-loader rule exists to prevent. The calculator is what the room
+  opens on, so it is the one that has to be there on the tap. The
+  retirement panel is not warmed, for the same reason Lab and covered calls
+  are not: it is a large chunk behind a second tap, and a reader who never
+  presses it should not download it.
+*/
+
 const loadForecastPanel = () =>
   import("@/components/ForecastPanel").then((m) => m.ForecastPanel);
 const loadCoveredCallPanel = () =>
@@ -239,7 +254,7 @@ const loadCoveredCallPanel = () =>
 
 const PulsePage = dynamic(loadPulsePage, { ssr: true });
 const LabSheet = dynamic(loadLabSheet, { ssr: true });
-const CompoundInterestSheet = dynamic(loadCompoundInterestSheet, { ssr: true });
+const GrowthRoom = dynamic(loadGrowthRoom, { ssr: true });
 const ForecastPanel = dynamic(loadForecastPanel, { ssr: true });
 const CoveredCallPanel = dynamic(loadCoveredCallPanel, { ssr: true });
 
@@ -1802,6 +1817,7 @@ export function Dashboard() {
   useEffect(() => {
     const warm = () => {
       void loadPulsePage();
+      void loadGrowthRoom();
       void loadCompoundInterestSheet();
       void loadForecastPanel();
       /*
@@ -2196,6 +2212,22 @@ export function Dashboard() {
         hint: "In Lab: patterns by year and by calendar month",
         run: () => {
           setLabIntent("seasonality");
+          goToTab(LAB_TAB_ID);
+        },
+      });
+      /*
+        Every Lab tab with a deep link of its own is offered here. Research
+        and Seasonality were, and the Playbook was not, so the one room a
+        reader is most likely to be looking for by name was the one the
+        palette could not find.
+      */
+      items.push({
+        id: "playbook",
+        label: "Playbook",
+        group: "Go",
+        hint: "In Lab: how to think about all of this",
+        run: () => {
+          setLabIntent("playbook");
           goToTab(LAB_TAB_ID);
         },
       });
@@ -2930,7 +2962,7 @@ export function Dashboard() {
           </WidgetErrorBoundary>
         ) : isCompound ? (
           <WidgetErrorBoundary name="Compound">
-          <CompoundInterestSheet
+          <GrowthRoom
             bookValue={overview.totals.totalValue}
             sheets={compoundSheets}
             tickerValues={compoundTickerValues}

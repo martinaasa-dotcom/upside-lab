@@ -4585,7 +4585,8 @@ run("watchlist look is a range read, not a made-up target", () => {
   assert.match(strip, /Fetch price/);
   assert.match(strip, /cache: "no-store"/);
   assert.match(strip, /watchLook/);
-  assert.match(strip, /Open Pulse/);
+  assert.match(strip, />\s*Pulse\s*</);
+  assert.match(strip, />\s*Research\s*</);
 });
 
 run("watchlist typeahead matches names as you type", () => {
