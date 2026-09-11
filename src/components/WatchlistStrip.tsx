@@ -354,7 +354,7 @@ function WatchRowMobile({
   if (waiting) {
     return (
       <div className="glass-well flex h-12 items-center justify-between gap-3 rounded-md border border-border px-3">
-        <Badge variant="secondary" className="chip-hang h-6">{cashtag(ticker)}</Badge>
+        <Badge variant="secondary" className="h-6">{cashtag(ticker)}</Badge>
         <div className="flex items-center gap-1">
           <span className="text-xs text-muted-foreground">Waiting on today&apos;s price</span>
           {onRetryQuote ? (
@@ -384,17 +384,20 @@ function WatchRowMobile({
     );
   }
 
+  const panelId = `watch-panel-${ticker}`;
+
   return (
     <div className="card-sheen glass-well overflow-hidden rounded-lg border border-border">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex w-full touch-target items-center gap-3 px-3 py-2.5 text-left"
+        aria-controls={panelId}
+        className="flex w-full touch-target items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring/50"
       >
         <Badge
           variant="secondary"
-          className="chip-hang h-6 shrink-0 font-heading text-xs font-semibold"
+          className="h-6 shrink-0 font-heading text-xs font-semibold"
         >
           {cashtag(ticker)}
         </Badge>
@@ -415,53 +418,71 @@ function WatchRowMobile({
         </span>
         <ChevronDown
           className={cn(
-            "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+            "size-4 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none",
             expanded && "rotate-180"
           )}
         />
       </button>
 
-      {expanded && (
-        <div className="flex flex-col gap-4 border-t border-border px-3 pb-3 pt-3">
-          {coin ? (
-            <p className="-mt-1 text-sm text-muted-foreground">{coin.name}</p>
-          ) : null}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={cn("font-mono text-sm tabular-nums", signedTone(pct))}>
-              {signedCurrency(quote.change)} today
-            </span>
-          </div>
-
-          {rangeLow != null && rangeHigh != null && (
-            <RangeMeter low={rangeLow} high={rangeHigh} price={quote.price} />
-          )}
-
-          {look && (
-            <div>
-              <p className="font-heading text-base font-semibold tracking-tight text-foreground">
-                {look.headline}
-              </p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                {look.detail}
-              </p>
+      {/*
+        * The grid-rows trick `AlertCards` already uses: the row is always
+        * mounted, so opening one never costs a fetch or a layout jump, and
+        * height animates instead of the content just appearing. `inert`
+        * (plus `aria-hidden`) takes the buttons inside out of tab order
+        * while the row is shut, since a zero-height panel is still in the
+        * document and would otherwise be a focus stop nobody can see land.
+        */}
+      <div
+        id={panelId}
+        inert={!expanded}
+        aria-hidden={!expanded}
+        className={cn(
+          "grid transition-[grid-template-rows] duration-200 motion-reduce:duration-0",
+          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex flex-col gap-4 border-t border-border px-3 pb-3 pt-3">
+            {coin ? (
+              <p className="-mt-1 text-sm text-muted-foreground">{coin.name}</p>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={cn("font-mono text-sm tabular-nums", signedTone(pct))}>
+                {signedCurrency(quote.change)} today
+              </span>
             </div>
-          )}
 
-          <WatchActions
-            ticker={ticker}
-            onOpenResearch={onOpenResearch}
-            onOpenPulse={onOpenPulse}
-          />
+            {rangeLow != null && rangeHigh != null && (
+              <RangeMeter low={rangeLow} high={rangeHigh} price={quote.price} />
+            )}
 
-          <button
-            type="button"
-            onClick={onRemove}
-            className="touch-target self-end px-2 text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-2"
-          >
-            Remove from watchlist
-          </button>
+            {look && (
+              <div>
+                <p className="font-heading text-base font-semibold tracking-tight text-foreground">
+                  {look.headline}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  {look.detail}
+                </p>
+              </div>
+            )}
+
+            <WatchActions
+              ticker={ticker}
+              onOpenResearch={onOpenResearch}
+              onOpenPulse={onOpenPulse}
+            />
+
+            <button
+              type="button"
+              onClick={onRemove}
+              className="touch-target self-end px-2 text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-2"
+            >
+              Remove from watchlist
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
