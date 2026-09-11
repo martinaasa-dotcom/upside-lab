@@ -280,7 +280,7 @@ export function AlertsQuiet({
         <MicroLabel>What this page watches</MicroLabel>
         <ul className="mt-2 flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
           <li>A company you own about to share its quarterly results.</li>
-          <li>A share reaching a price you wrote down for it.</li>
+          <li>A share reaching a level on its price ladder.</li>
           <li>Borrowed money growing large next to what you own.</li>
           <li>One holding becoming most of your portfolio.</li>
         </ul>
