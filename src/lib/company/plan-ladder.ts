@@ -638,15 +638,34 @@ export function nearestEdge(
  * bands and one that swings hard gets 14%. One printed range is the
  * shape of the ladder rather than a promise about any one holding.
  */
-export function bandRangeSaid(band: {
-  fromRatio: number | null;
-  toRatio: number | null;
-}): string {
+export function bandRangeSaid(
+  band: { fromRatio: number | null; toRatio: number | null },
+  /**
+   * Say which side of fair value it is on.
+   *
+   * Off where a column header or a grouping heading already says it,
+   * which is the only reason the short form is safe: "10% to 20%" on
+   * its own is a number with no question attached to it.
+   */
+  opts: { direction?: boolean } = {}
+): string {
   const pc = (r: number) => `${Math.round(Math.abs(1 - r) * 100)}%`;
   const { fromRatio, toRatio } = band;
-  if (fromRatio === null) return "below its year's low";
-  if (toRatio === null) return `${pc(fromRatio)} or more`;
-  if (fromRatio >= 1) return `${pc(fromRatio)} to ${pc(toRatio)}`;
-  if (toRatio > 1) return `within ${pc(fromRatio)}`;
-  return `${pc(toRatio)} to ${pc(fromRatio)}`;
+  const way = (word: string) => (opts.direction ? `${word} fair value` : "");
+  const join = (a: string, b: string) => (b ? `${a} ${b}` : a);
+  /*
+    The foot of the ladder is not a distance from fair value at all, so
+    it says what it is instead of borrowing the column's unit.
+  */
+  if (fromRatio === null) return "its year's low";
+  if (toRatio === null) return join(`${pc(fromRatio)} or more`, way("above"));
+  if (fromRatio >= 1) {
+    return join(`${pc(fromRatio)} to ${pc(toRatio)}`, way("above"));
+  }
+  if (toRatio > 1) {
+    return opts.direction
+      ? `within ${pc(fromRatio)} of fair value`
+      : `within ${pc(fromRatio)}`;
+  }
+  return join(`${pc(toRatio)} to ${pc(fromRatio)}`, way("below"));
 }

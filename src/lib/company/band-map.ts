@@ -96,6 +96,20 @@ export type BandMapSummary = {
   /** Names that reached an end of their own plan, by which end. */
   trimNames: string[];
   addNames: string[];
+  /**
+   * Whether the reader actually typed the levels those names reached.
+   *
+   * NEVER TELL SOMEBODY THEY SET A LEVEL THEY DID NOT SET. The bands
+   * are labelled in the plan's own imperative voice ("trim most of it",
+   * "add a lot"), and what keeps that honest is that the plan is the
+   * reader's. A default this app worked out is not, so a sentence
+   * calling it "a level you set" is both false and the one sentence
+   * that would make a computed default read as this app's instruction.
+   * The alerts have always drawn this distinction; the picture above
+   * them did not until it was asked whether it could be flagged.
+   */
+  reachedEdited: number;
+  reachedTotal: number;
   /** The biggest holding, which is the one worth naming out loud. */
   biggest: BandMapPoint | null;
 };
@@ -243,6 +257,8 @@ export function buildBandMap(
       .sort(biggestFirst)
       .map((p) => p.ticker),
     biggest: points.slice().sort(biggestFirst)[0] ?? null,
+    reachedEdited: reached.filter((p) => p.edited).length,
+    reachedTotal: reached.length,
   };
 
   return {
@@ -261,6 +277,8 @@ const EMPTY_SUMMARY: BandMapSummary = {
   trimNames: [],
   addNames: [],
   biggest: null,
+  reachedEdited: 0,
+  reachedTotal: 0,
 };
 
 /**
@@ -367,4 +385,85 @@ export function barShares(input: {
     grows: input.shown.map((v) => (v / shownSum) * drawn),
     rest,
   };
+}
+
+/**
+ * What the picture says about the names that reached a level, worded so
+ * it is true whoever set that level.
+ *
+ * Kept out of the component and tested, because this is the sentence
+ * that decides whether a row of imperative band names reads as the
+ * reader's own plan or as this app telling somebody to sell something.
+ */
+export function readySaid(summary: BandMapSummary): string {
+  const { trimNames, addNames, reachedEdited, reachedTotal } = summary;
+  if (reachedTotal === 0) {
+    return "every name is somewhere in the middle of its own plan";
+  }
+  const parts: string[] = [];
+  if (trimNames.length > 0) {
+    parts.push(`${trimNames.join(", ")} at a trimming level`);
+  }
+  if (addNames.length > 0) {
+    parts.push(`${addNames.join(", ")} at an adding level`);
+  }
+  /*
+    Whose level it is, said once at the end rather than hung on each
+    name: it is the same answer for all of them and repeating it buried
+    the names, which are what the reader came to read.
+  */
+  const whose =
+    reachedEdited === reachedTotal
+      ? "Levels you set."
+      : reachedEdited === 0
+        ? "Levels this app worked out, which you have not changed."
+        : "Some of those levels are yours, the rest this app worked out.";
+  return `${parts.join(", and ")}. ${whose}`;
+}
+
+/**
+ * What the browser will actually draw each block at.
+ *
+ * PROPORTION IS NOT ENOUGH, BECAUSE A MINIMUM WIDTH IS CONTAGIOUS. A
+ * block held up at its floor keeps room the others were counted as
+ * having, so a share-of-the-bar estimate runs over on every block
+ * beside a small one. Measured: a band holding 1.5% and 0.2% of a
+ * portfolio drew both blocks at their 72px floor, while the estimate
+ * said the first would get 130px, so it was asked to print its share as
+ * well as its name and truncated the name to do it.
+ *
+ * This is flex's own resolution: hand out the space by grow factor,
+ * freeze anything that lands under its floor, and give what is left to
+ * the rest, until nothing new freezes.
+ */
+export function flexWidths(
+  space: number,
+  grows: number[],
+  mins: number[]
+): number[] {
+  const out = mins.map((m) => Math.max(m, 0));
+  if (grows.length === 0) return out;
+  const frozen = grows.map(() => false);
+  for (let pass = 0; pass <= grows.length; pass += 1) {
+    const free =
+      space - out.reduce((sum, w, i) => sum + (frozen[i] ? w : 0), 0);
+    const pool = grows.reduce(
+      (sum, g, i) => sum + (frozen[i] ? 0 : Math.max(g, 0)),
+      0
+    );
+    let froze = false;
+    for (let i = 0; i < grows.length; i += 1) {
+      if (frozen[i]) continue;
+      const want = pool > 0 ? (Math.max(grows[i]!, 0) / pool) * free : 0;
+      if (want < (mins[i] ?? 0)) {
+        out[i] = mins[i] ?? 0;
+        frozen[i] = true;
+        froze = true;
+      } else {
+        out[i] = want;
+      }
+    }
+    if (!froze) break;
+  }
+  return out;
 }

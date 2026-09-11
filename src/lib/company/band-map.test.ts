@@ -4,7 +4,9 @@ import {
   actionableFirst,
   barShares,
   buildBandMap,
+  flexWidths,
   foldToFit,
+  readySaid,
 } from "@/lib/company/band-map";
 import { buildPlanLadder, type PlanLadder } from "@/lib/company/plan-ladder";
 import { blocksThatFit } from "@/components/company/BandMap";
@@ -345,5 +347,117 @@ describe("a band's blocks divide its own bar, and fill it", () => {
     const r = barShares({ bandShare: 0.1, shown: [0.02], folded: [0.5] });
     expect(r.rest).toBeLessThanOrEqual(1);
     expect(sums(r)).toBeCloseTo(1, 10);
+  });
+});
+
+describe("the picture never claims a level was the reader's when it was not", () => {
+  /*
+    The bands are labelled in the plan's own imperative voice: "trim
+    most of it", "add a lot". What keeps six imperatives beside somebody
+    real holdings honest is that the plan is theirs, so the one sentence
+    this panel must never get wrong is whose level was reached. A
+    default this app worked out is not a level anybody set, and saying
+    it was is both false and the sentence that turns a computed default
+    into this app's instruction.
+  */
+  const reached = (edited: boolean) => {
+    const map = buildBandMap([
+      { ...holding("TOP", 1.4, 50), ladder: editedTo(ladderAt(140, 100), edited) },
+      holding("QUIET", 1, 50),
+    ]);
+    return map.summary;
+  };
+
+  function editedTo(ladder: PlanLadder, edited: boolean): PlanLadder {
+    return { ...ladder, edited };
+  }
+
+  it("says the app worked it out when the reader has changed nothing", () => {
+    const said = readySaid(reached(false));
+    expect(said).toContain("Levels this app worked out, which you have not changed.");
+    expect(said).not.toContain("you set");
+  });
+
+  it("says the reader set it only when they actually did", () => {
+    expect(readySaid(reached(true))).toContain("Levels you set.");
+  });
+
+  it("stands on neither claim when the names disagree", () => {
+    const map = buildBandMap([
+      { ...holding("A", 1.4, 40), ladder: editedTo(ladderAt(140, 100), true) },
+      { ...holding("B", 0.3, 40), ladder: editedTo(ladderAt(30, 100), false) },
+      holding("QUIET", 1, 20),
+    ]);
+    const said = readySaid(map.summary);
+    expect(said).toContain("Some of those levels are yours");
+    expect(said).not.toContain("Levels you set.");
+  });
+
+  it("says nothing about levels when no name has reached one", () => {
+    const map = buildBandMap([holding("QUIET", 1, 100)]);
+    expect(readySaid(map.summary)).toBe(
+      "every name is somewhere in the middle of its own plan"
+    );
+  });
+
+  it("NEVER TELLS ANYBODY WHAT TO DO, whoever set the level", () => {
+    /*
+      The band's own name may be imperative, because it is the reader's
+      plan completing the sentence "at this price, my plan says ...".
+      This app's own sentence about it may not be.
+    */
+    const BANNED = [
+      "you should",
+      "we recommend",
+      "recommended",
+      "buy now",
+      "sell now",
+      "time to",
+      "consider selling",
+      "consider buying",
+      "worth buying",
+      "worth selling",
+      "undervalued",
+      "overvalued",
+      "cheap",
+      "expensive",
+    ];
+    for (const edited of [true, false]) {
+      const said = readySaid(reached(edited)).toLowerCase();
+      for (const word of BANNED) expect(said).not.toContain(word);
+    }
+  });
+});
+
+describe("what a block will really be drawn at", () => {
+  it("A MINIMUM WIDTH IS CONTAGIOUS, so it is resolved, not estimated", () => {
+    /*
+      The fault: a band holding 1.5% and 0.2% of a portfolio drew both
+      blocks at their 72px floor, while a proportional estimate said the
+      first would get 130px. It was asked to print its share as well as
+      its name on that strength, and truncated the name to do it.
+    */
+    const widths = flexWidths(144, [0.9, 0.1], [72, 72]);
+    expect(widths).toEqual([72, 72]);
+  });
+
+  it("hands the rest to whoever is left when one block freezes", () => {
+    const widths = flexWidths(300, [0.9, 0.1], [72, 72]);
+    expect(widths[1]).toBe(72);
+    expect(widths[0]).toBeCloseTo(228, 6);
+    expect(widths[0]! + widths[1]!).toBeCloseTo(300, 6);
+  });
+
+  it("shares the space out by grow factor when nothing is squeezed", () => {
+    const widths = flexWidths(400, [0.5, 0.25, 0.25], [72, 72, 72]);
+    expect(widths).toEqual([200, 100, 100]);
+  });
+
+  it("gives every block its floor when there is not enough room at all", () => {
+    expect(flexWidths(50, [0.5, 0.5], [72, 72])).toEqual([72, 72]);
+  });
+
+  it("does not fall over on a band with nothing in it", () => {
+    expect(flexWidths(100, [], [])).toEqual([]);
   });
 });
