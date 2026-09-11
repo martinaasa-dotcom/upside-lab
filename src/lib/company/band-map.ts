@@ -38,9 +38,14 @@ export type BandMapPoint = {
   bandLabel: string;
   /** This holding's share of the portfolio, as a fraction. */
   share: number;
-  value: number;
+  /**
+   * Today's price, in the reader's own money.
+   *
+   * The book's own price, which is USD whatever the listing is quoted
+   * in (`nativePrice` is the other one), so the whole of this picture
+   * is a USD world and the panel's default is right rather than lucky.
+   */
   spot: number;
-  anchor: number;
   /**
    * What this reader is up or down on the holding, as a fraction.
    *
@@ -55,14 +60,6 @@ export type BandMapPoint = {
   roiPct: number | null;
   /** The nearest level of that name's own plan, for the label. */
   edge: number | null;
-  /**
-   * The two prices this band runs between, and where in it the price
-   * actually sits, as a fraction. Null on the open bands at either end,
-   * which have no width to be a fraction of.
-   */
-  bandFrom: number | null;
-  bandTo: number | null;
-  withinBand: number | null;
   actionable: boolean;
   /** The reader typed at least one level of this name's plan. */
   edited: boolean;
@@ -177,6 +174,11 @@ export function buildBandMap(
     const bandId = ladder.atId!;
     const band = ladder.bands.find((b) => b.id === bandId) ?? null;
     const spot = ladder.spot!;
+    /*
+      How far through its own band the price has got, which no longer
+      places anything and still decides the order of the list on Home:
+      the name furthest out of the middle is the one to show first.
+    */
     const within =
       band && band.from !== null && band.to !== null
         ? positionInBand(band, spot)
@@ -187,9 +189,7 @@ export function buildBandMap(
       bandId,
       bandLabel: band?.label ?? "",
       share: total > 0 ? Math.max(row.value, 0) / total : 0,
-      value: row.value,
       spot,
-      anchor: ladder.anchor,
       roiPct:
         typeof row.roiPct === "number" && Number.isFinite(row.roiPct)
           ? row.roiPct
@@ -197,9 +197,6 @@ export function buildBandMap(
       // The level the price is nearest inside this band, which is what
       // a reader wants the moment they have found their name.
       edge: band?.to ?? band?.from ?? null,
-      bandFrom: band?.from ?? null,
-      bandTo: band?.to ?? null,
-      withinBand: within,
       actionable: isActionableBand(bandId),
       edited: ladder.edited,
       y: (fromFoot + (within ?? 0.5)) / lanes,
@@ -322,5 +319,52 @@ export function foldToFit(
     // in the band's own biggest-first order however it was chosen.
     shown: items.filter((p) => kept.has(p)),
     folded: items.filter((p) => !kept.has(p)),
+  };
+}
+
+/**
+ * HOW A BAND'S BAR IS DIVIDED BETWEEN THE NAMES IN IT.
+ *
+ * The bar's own width already carries the band's share of the
+ * portfolio, so what is left for the blocks is to divide that bar
+ * between themselves: each block grows by its share OF ITS OWN BAND,
+ * and the factors sum to one.
+ *
+ * Growing them by their share of the whole portfolio looks equivalent
+ * and is not, and the way it fails is invisible in the markup. Flex
+ * distributes only the SUM of the grow factors when that sum is under
+ * one, and a band's shares always are: a band holding 55% of the money
+ * filled 55% of its own bar and left the rest empty, so the length a
+ * reader actually saw went as the SQUARE of the share. Measured on a
+ * real book, three names in a 294px bar all sat at their 72px floor
+ * with 71px of bar unfilled beside them, and the bars were right only
+ * for whichever band happened to be the fullest.
+ */
+export function barShares(input: {
+  /** What the whole band is worth against the portfolio. */
+  bandShare: number;
+  /** The shares of the holdings actually drawn as blocks. */
+  shown: number[];
+  /** The shares of the holdings folded into the "+N" block. */
+  folded: number[];
+}): { grows: number[]; rest: number } {
+  const { bandShare } = input;
+  const shownSum = input.shown.reduce((s, v) => s + v, 0);
+  const foldedSum = input.folded.reduce((s, v) => s + v, 0);
+  if (!(bandShare > 0) || shownSum <= 0) {
+    // Nothing to divide by: share the bar out evenly rather than
+    // leaving it empty, which is what a portfolio worth nothing does.
+    const n = input.shown.length + (input.folded.length > 0 ? 1 : 0);
+    const even = n > 0 ? 1 / n : 1;
+    return {
+      grows: input.shown.map(() => even),
+      rest: input.folded.length > 0 ? even : 0,
+    };
+  }
+  const rest = Math.min(Math.max(foldedSum / bandShare, 0), 1);
+  const drawn = 1 - rest;
+  return {
+    grows: input.shown.map((v) => (v / shownSum) * drawn),
+    rest,
   };
 }

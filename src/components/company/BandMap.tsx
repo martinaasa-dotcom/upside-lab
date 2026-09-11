@@ -10,6 +10,7 @@ import { bandMapProvenance } from "@/lib/provenance";
 import { companyHref } from "@/lib/company/client";
 import {
   TINY_SHARE,
+  barShares,
   buildBandMap,
   foldToFit,
   type BandMap as Map,
@@ -58,6 +59,20 @@ const BLOCK_MIN_PX = 72;
 const BLOCK_GAP_PX = 3;
 /** A "+N" block carries a count rather than a name, so it needs less. */
 const REST_MIN_PX = 58;
+/**
+ * How wide a block has to be before it prints its own share as well as
+ * its name.
+ *
+ * A PHONE HAS NO HOVER, so what is not on the block is not readable at
+ * all: the tooltip carrying the price and the share is a laptop's
+ * privilege, and the first version left a phone reader with a ticker
+ * and a coloured dot. The share is the figure this picture is about, so
+ * the blocks with the room for it say it, and the ones without stay a
+ * name rather than truncating one. Which blocks those are is arithmetic
+ * on the bar's own width, not a guess: 116px is the name, the dot, the
+ * gaps, the padding and four characters of "100%".
+ */
+const SHARE_AT_PX = 116;
 
 /**
  * How wide the bar column actually is, which is what decides how many
@@ -110,7 +125,35 @@ function Dot({ roi }: { roi: number | null }) {
 }
 
 /** One holding, as a block of its band's bar. */
-function Block({ point, code }: { point: BandMapPoint; code: string }) {
+function Block({
+  point,
+  grow,
+  code,
+  showShare,
+}: {
+  point: BandMapPoint;
+  /**
+   * This holding's share OF ITS OWN BAND, not of the portfolio.
+   *
+   * The bar already carries the band's share of the portfolio in its
+   * own width, so the blocks divide that bar between themselves. Growing
+   * them by their portfolio share instead looks equivalent and is not:
+   * flex distributes only the SUM of the grow factors when that sum is
+   * under 1, so a band holding 55% of the money filled 55% of its own
+   * bar and left the rest empty, and the length a reader actually saw
+   * went as the square of the share. Measured on a real book, three
+   * names in a 294px bar all sat at their 72px floor with 71px of the
+   * bar unfilled beside them.
+   */
+  grow: number;
+  code: string;
+  /** Wide enough to carry its own share as well as its name. */
+  showShare?: boolean;
+}) {
+  const roi =
+    point.roiPct === null
+      ? ""
+      : `, ${point.roiPct >= 0 ? "up" : "down"} ${percent(Math.abs(point.roiPct), 1)} on what you paid`;
   return (
     <Link
       href={companyHref(point.ticker)}
@@ -123,19 +166,20 @@ function Block({ point, code }: { point: BandMapPoint; code: string }) {
         "outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
         point.actionable && "border-primary/45 bg-primary/[0.08]"
       )}
-      style={{
-        flexGrow: Math.max(point.share, 0.0001),
-        flexBasis: 0,
-        minWidth: BLOCK_MIN_PX,
-      }}
+      style={{ flexGrow: Math.max(grow, 0.0001), flexBasis: 0, minWidth: BLOCK_MIN_PX }}
     >
       <Dot roi={point.roiPct} />
       <span className="truncate font-semibold tracking-tight">
         {point.ticker}
       </span>
+      {showShare && (
+        <span aria-hidden className="text-muted-foreground">
+          {sharePct(point.share)}
+        </span>
+      )}
       <span className="sr-only">
         , {currency(point.spot, 2, code)}, {percent(point.share, 1)} of this
-        portfolio
+        portfolio{roi}
       </span>
     </Link>
   );
@@ -148,17 +192,13 @@ function Block({ point, code }: { point: BandMapPoint; code: string }) {
  * together, and the wording says which cutoff did it, since "+3 under
  * 3%" and "+3 more" are different facts about somebody's money.
  */
-function Rest({ folded }: { folded: BandMapPoint[] }) {
+function Rest({ folded, grow }: { folded: BandMapPoint[]; grow: number }) {
   const share = folded.reduce((s, p) => s + p.share, 0);
   const allTiny = folded.every((p) => p.share < TINY_SHARE);
   return (
     <span
       className="flex items-center justify-center whitespace-nowrap rounded-md border border-dashed border-border/50 px-2 font-mono text-xs tabular-nums text-muted-foreground"
-      style={{
-        flexGrow: Math.max(share, 0.0001),
-        flexBasis: 0,
-        minWidth: REST_MIN_PX,
-      }}
+      style={{ flexGrow: Math.max(grow, 0.0001), flexBasis: 0, minWidth: REST_MIN_PX }}
       title={`${folded.map((p) => cashtag(p.ticker)).join(", ")}: ${percent(share, 1)} of this portfolio together`}
     >
       <span aria-hidden>
@@ -206,6 +246,30 @@ function Row({
     shown.length * BLOCK_MIN_PX +
     (folded.length > 0 ? REST_MIN_PX : 0) +
     Math.max(slots - 1, 0) * BLOCK_GAP_PX;
+
+  /*
+    What each block will actually be drawn at, so a block can be asked
+    to carry its own share only where there is room for it. The same
+    arithmetic the browser is about to do: the bar's own width shared
+    out by each block's share, with every block held at its floor.
+  */
+  const barPx = Math.max((band.share / widest) * (barWidth || 0), floorPx);
+  const shareSum = shown.reduce((sum, p) => sum + p.share, 0) || 1;
+  const { grows, rest } = barShares({
+    bandShare: band.share,
+    shown: shown.map((p) => p.share),
+    folded: folded.map((p) => p.share),
+  });
+  const spare =
+    barPx -
+    Math.max(slots - 1, 0) * BLOCK_GAP_PX -
+    (folded.length > 0 ? REST_MIN_PX : 0);
+  const widthOf = new Map(
+    shown.map((p) => [
+      p.ticker,
+      Math.max((p.share / shareSum) * spare, BLOCK_MIN_PX),
+    ])
+  );
   return (
     <div
       className={cn(
@@ -277,10 +341,18 @@ function Row({
               maxWidth: "100%",
             }}
           >
-            {shown.map((p) => (
-              <Block key={p.ticker} point={p} code={code} />
+            {shown.map((p, i) => (
+              <Block
+                key={p.ticker}
+                point={p}
+                grow={grows[i] ?? 0}
+                code={code}
+                showShare={(widthOf.get(p.ticker) ?? 0) >= SHARE_AT_PX}
+              />
             ))}
-            {folded.length > 0 && <Rest folded={folded} />}
+            {folded.length > 0 && (
+              <Rest folded={folded} grow={rest} />
+            )}
           </div>
         ) : (
           <EmptyTrack />

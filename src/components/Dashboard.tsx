@@ -979,6 +979,29 @@ export function Dashboard() {
     [overview.tickers, quotes, eoyOverrides, labLadders]
   );
 
+  /*
+    The open portfolio's own plans, for the picture on its holdings
+    page. Memoised because it is not the same list as `bookLadders`
+    above, which is every name the reader owns rather than the ones in
+    this portfolio, and because building it inline rebuilt every ladder
+    on every render of a room that re-renders on every quote poll.
+  */
+  const portfolioLadders = useMemo(
+    () =>
+      holdingLadders({
+        rows: (snapshot?.holdings ?? []).map((h) => ({
+          ticker: h.ticker,
+          spot: h.quote?.price ?? null,
+          closes: h.quote?.sparkline ?? null,
+          value: h.currentValue,
+          roiPct: h.roiPct,
+        })),
+        overrides: eoyOverrides,
+        ladders: labLadders,
+      }),
+    [snapshot?.holdings, eoyOverrides, labLadders]
+  );
+
   /** The same plans as a picture, which is also what Home reads. */
   const bookBandMap = useMemo(() => buildBandMap(bookLadders), [bookLadders]);
 
@@ -2973,17 +2996,7 @@ export function Dashboard() {
           <>
             <WidgetErrorBoundary name="Where they sit">
               <BandMap
-                rows={holdingLadders({
-                  rows: snapshot!.holdings.map((h) => ({
-                    ticker: h.ticker,
-                    spot: h.quote?.price ?? null,
-                    closes: h.quote?.sparkline ?? null,
-                    value: h.currentValue,
-                    roiPct: h.roiPct,
-                  })),
-                  overrides: eoyOverrides,
-                  ladders: labLadders,
-                })}
+                rows={portfolioLadders}
                 title={`Where ${activePortfolio!.name} sits on its own plans`}
               />
             </WidgetErrorBoundary>

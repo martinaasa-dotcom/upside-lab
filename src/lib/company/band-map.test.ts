@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   TINY_SHARE,
   actionableFirst,
+  barShares,
   buildBandMap,
   foldToFit,
 } from "@/lib/company/band-map";
@@ -289,5 +290,59 @@ describe("the list on Home leads with what is furthest out", () => {
       holding("BIG", 1.4, 90),
     ]);
     expect(actionableFirst(map.points)[0]!.ticker).toBe("BIG");
+  });
+});
+
+describe("a band's blocks divide its own bar, and fill it", () => {
+  const sums = (r: { grows: number[]; rest: number }) =>
+    r.grows.reduce((s, v) => s + v, 0) + r.rest;
+
+  it("GROWS BY THE SHARE OF THE BAND, NEVER OF THE PORTFOLIO", () => {
+    /*
+      The fault this replaced is invisible in the markup: flex gives out
+      only the SUM of the grow factors when that sum is under one, and a
+      band's portfolio shares always are. A band holding 55% of the money
+      filled 55% of its own bar and left the rest empty, so the length a
+      reader saw went as the square of the share.
+    */
+    const r = barShares({ bandShare: 0.55, shown: [0.25, 0.21, 0.09], folded: [] });
+    expect(sums(r)).toBeCloseTo(1, 10);
+    // And in proportion to each other inside the band.
+    expect(r.grows[0]! / r.grows[1]!).toBeCloseTo(0.25 / 0.21, 10);
+  });
+
+  it("fills the bar whatever the band is worth", () => {
+    for (const bandShare of [0.01, 0.06, 0.5, 1]) {
+      const r = barShares({
+        bandShare,
+        shown: [bandShare * 0.7, bandShare * 0.3],
+        folded: [],
+      });
+      expect(sums(r)).toBeCloseTo(1, 10);
+    }
+  });
+
+  it("gives the folded block the room its own names came to", () => {
+    const r = barShares({
+      bandShare: 0.4,
+      shown: [0.3],
+      folded: [0.07, 0.03],
+    });
+    expect(r.rest).toBeCloseTo(0.25, 10);
+    expect(sums(r)).toBeCloseTo(1, 10);
+  });
+
+  it("shares a bar out evenly rather than leaving it empty", () => {
+    // A portfolio worth nothing: every share is zero and the bar still
+    // has to be filled by the names that are in it.
+    const r = barShares({ bandShare: 0, shown: [0, 0], folded: [] });
+    expect(sums(r)).toBeCloseTo(1, 10);
+    expect(r.grows).toEqual([0.5, 0.5]);
+  });
+
+  it("never asks for more than a whole bar", () => {
+    const r = barShares({ bandShare: 0.1, shown: [0.02], folded: [0.5] });
+    expect(r.rest).toBeLessThanOrEqual(1);
+    expect(sums(r)).toBeCloseTo(1, 10);
   });
 });
