@@ -12,7 +12,7 @@ import { loadUpsidePortfolioCache } from "@/lib/upside-portfolio-cache";
 import {
   loadCommunityListCache,
   prefetchCommunityList,
-  saveCommunityListCache,
+  publishCommunityList,
 } from "@/lib/community-cache";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
 import { ArrowRight, Bot, Users } from "lucide-react";
@@ -131,7 +131,7 @@ export function HomeWorld({
           const rows = (data.communities ?? []) as CommunityRow[];
           setCommunitiesError(false);
           setCommunities(rows);
-          saveCommunityListCache(rows);
+          publishCommunityList(rows);
           prefetchCommunityList(rows);
         }
       } catch {
