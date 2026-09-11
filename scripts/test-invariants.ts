@@ -2362,31 +2362,56 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
     /text-sm font-semibold tracking-tight text-foreground/
   );
   /*
-   * The rule, not today's numbers. This used to pin the exact class string
-   * and so broke on a pure spacing pass that changed nothing it was about.
+   * The rule, not today's numbers, and read from the CSS rather than from a
+   * class string. This used to pin the exact utilities and so broke on a
+   * pure spacing pass that changed nothing it was about; it then had to
+   * change again when the rhythm moved into `@layer components`, which is
+   * the second time an assertion about markup cost more than it protected.
+   *
    * What it is about: a padded panel is a flex column that owns the air
-   * around and between its own children, its horizontal pad steps down on
-   * a phone, and the gap between its sections is at least as large as the
-   * pad -- sections that sit closer together than they sit from the edge
-   * do not read as separate sections.
+   * around and between its own children; its side pad steps down on a
+   * phone, because a phone's width is the scarce budget; and its sections
+   * sit at least as far apart as they sit from its own edge, or sections
+   * that sit closer together than they sit from the edge do not read as
+   * separate sections.
    */
-  const padded = panel.match(/padded &&\s*"([^"]+)"/)?.[1] ?? "";
+  const padded = panel.match(/padded && `([^`]+)`/)?.[1] ?? "";
   assert.match(padded, /flex flex-col/, "a padded panel is a flex column");
-  const step = (prop: string, cls: string) => {
-    const base = cls.match(new RegExp(`(?:^| )${prop}-(\\d+)`))?.[1];
-    const wide = cls.match(new RegExp(`sm:${prop}-(\\d+)`))?.[1];
-    return [Number(base), Number(wide ?? base)] as const;
+  assert.match(padded, /panel-rhythm/, "a padded panel carries the shared rhythm");
+  const rhythmCss = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+  const rem = (block: string, prop: string) => {
+    const m = block.match(new RegExp(`${prop}:\\s*([\\d.]+)rem(?:\\s+([\\d.]+)rem)?`));
+    return m ? [Number(m[1]), m[2] === undefined ? Number(m[1]) : Number(m[2])] : null;
   };
-  const [padPhone, padWide] = step("px", padded);
-  const [gapPhone, gapWide] = step("gap", padded);
-  const [padYPhone, padYWide] = step("py", padded);
+  const rule = (name: string, wide: boolean) => {
+    const layer = rhythmCss.slice(rhythmCss.indexOf("@layer components {"));
+    const scope = wide ? layer.slice(layer.indexOf("@media (width >= 40rem)")) : layer.slice(0, layer.indexOf("@media (width >= 40rem)"));
+    const at = scope.indexOf(`.${name} {`);
+    assert.ok(at >= 0, `.${name} is defined${wide ? " at sm" : ""}`);
+    return scope.slice(at, at + 120);
+  };
+  const padPhone = rem(rule("panel-pad", false), "padding")!;
+  const padWide = rem(rule("panel-pad", true), "padding")!;
+  const gapPhone = rem(rule("panel-rhythm", false), "gap")![0];
+  const gapWide = rem(rule("panel-rhythm", true), "gap")![0];
   assert.ok(
-    padPhone > 0 && padPhone < padWide,
-    `a panel's side pad steps down on a phone (got ${padPhone}/${padWide})`
+    padPhone[1] > 0 && padPhone[1] < padWide[1],
+    `a panel's side pad steps down on a phone (got ${padPhone[1]}/${padWide[1]}rem)`
   );
   assert.ok(
-    gapPhone >= padYPhone && gapWide >= padYWide,
-    `a panel's sections sit at least as far apart as they sit from its edge (gap ${gapPhone}/${gapWide} vs pad ${padYPhone}/${padYWide})`
+    gapPhone >= padPhone[0] && gapWide >= padWide[0],
+    `a panel's sections sit at least as far apart as they sit from its edge (gap ${gapPhone}/${gapWide} vs pad ${padPhone[0]}/${padWide[0]}rem)`
+  );
+  /*
+   * A room's stack of panels must separate more than a panel separates its
+   * own sections, or the boxes stop reading as separate answers -- which is
+   * the whole fault the spacing pass was fixing.
+   */
+  const stackPhone = rem(rule("panel-stack", false), "gap")![0];
+  const stackWide = rem(rule("panel-stack", true), "gap")![0];
+  assert.ok(
+    stackPhone > gapPhone && stackWide > gapWide,
+    `panels sit further apart than a panel's own sections (stack ${stackPhone}/${stackWide} vs rhythm ${gapPhone}/${gapWide}rem)`
   );
   assert.match(panel, /export function Scoreboard/);
   /*

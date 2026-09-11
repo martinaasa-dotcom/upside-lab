@@ -149,12 +149,35 @@ export const CARD = "glass-well rounded-lg";
  * figure wrapped mid-number has lost the figure. So the vertical step goes
  * up one, which is what puts air above a panel's title and under its last
  * line without touching a single measured width.
+ *
+ * These are single classes from `@layer components` (globals.css) rather
+ * than `px-4 py-5 sm:px-6 sm:py-7`, and that is load-bearing rather than
+ * tidiness: a pair of utilities can only ever be half overridden. A call
+ * site asking for a compact panel with `p-4` replaced the base and left
+ * `sm:px-6 sm:py-7` standing, so it got its 16px on a phone and 24/28px
+ * from `sm` -- the opposite of what it asked for. One class puts the media
+ * query inside, so a call site's `p-*` or `gap-*` wins at every width.
  */
-export const PANEL_PAD = "px-4 py-5 sm:px-6 sm:py-7";
+export const PANEL_PAD = "panel-pad";
+/**
+ * A room's own vertical stack of panels.
+ *
+ * `PAGE_MAIN_CLASS` already spaces the panels that are direct children of
+ * `<main>`, and for a long time that was assumed to be all of them. It is
+ * not: seven rooms build their own column and stack panels inside it, so
+ * Home, Lab, Pulse, Trends, Scenario and Seasonality were all still on the
+ * old flat 24px (Seasonality on 16) while a room that happened to stack
+ * straight into `<main>` had stepped to 32/40. One product, two answers to
+ * the same question, decided by a detail of how a room was built.
+ *
+ * Same class as the page column uses, so there is one number rather than a
+ * constant that agrees with it today.
+ */
+export const PANEL_STACK = "flex flex-col panel-stack";
 /** Nested card / score-cell padding. One step tighter than the panel's,
  * so a well inside a panel reads as contained by it rather than as a
  * second panel with the same weight. */
-export const NESTED_PAD = "px-4 py-5 sm:px-6 sm:py-6";
+export const NESTED_PAD = "nested-pad";
 /** A Scoreboard cell. Separate card on the field, not a hairline slice. */
 /*
  * `flex flex-col` so the note under the figure can bottom-align — see the
@@ -163,7 +186,7 @@ export const NESTED_PAD = "px-4 py-5 sm:px-6 sm:py-6";
  * happened to end.
  */
 export const SCORE_CELL =
-  "card-sheen glass flex min-w-0 flex-col rounded-xl px-4 py-5 ring-1 ring-foreground/20 sm:px-6 sm:py-6";
+  `card-sheen glass flex min-w-0 flex-col rounded-xl ring-1 ring-foreground/20 ${NESTED_PAD}`;
 /** Member / row list on the field. */
 export const LIST =
   "glass divide-y divide-border overflow-hidden rounded-xl ring-1 ring-foreground/20";
@@ -267,7 +290,7 @@ export function Panel({
          * wrapper at gap-10; this is that fix made the default rather
          * than something each crowded panel has to rediscover.
          */
-        padded && "flex flex-col gap-6 px-4 py-5 sm:gap-8 sm:px-6 sm:py-7",
+        padded && `flex flex-col panel-rhythm ${PANEL_PAD}`,
         className
       )}
       {...rest}

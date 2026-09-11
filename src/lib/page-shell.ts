@@ -53,5 +53,11 @@ export const PAGE_CHROME_SPACER_CLASS =
  * inside padding, so the rule holds at both widths. It is vertical only,
  * so it costs no width on the phone, which is the one budget that is
  * actually tight (see PAGE_GUTTER_CLASS above).
+ *
+ * The number itself is `.panel-stack` in globals.css, shared with
+ * `PANEL_STACK` (Panel.tsx), because most rooms do not stack their panels
+ * straight into `<main>` -- they build their own column -- and a constant
+ * here that merely agreed with that one is how the two drifted apart in
+ * the first place.
  */
-export const PAGE_MAIN_CLASS = `${PAGE_COLUMN_CLASS} flex flex-1 flex-col gap-8 pt-6 pb-[var(--dock-pad)] sm:gap-10 sm:pt-8`;
+export const PAGE_MAIN_CLASS = `${PAGE_COLUMN_CLASS} panel-stack flex flex-1 flex-col pt-6 pb-[var(--dock-pad)] sm:pt-8`;

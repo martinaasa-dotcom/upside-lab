@@ -1082,15 +1082,91 @@ body {
  * specificity, which is the same mechanism the session hint in
  * `session-hint.ts` relies on.
  *
- * Which makes the `:not()` the whole safety of it: a paragraph that states
- * its own leading still wins, so `leading-tight` on a figure, or on
- * anything else that is not prose, is how a call site opts out. Never
- * widen this past `p` -- `text-sm` is also every table cell, button, input
- * and nav label in the app, and a table row is a fixed `h-10` that a
- * looser line would fight.
+ * Which makes the `:not()` chain the whole safety of it, and the chain is
+ * longer than `leading-` for a reason found by measuring rather than by
+ * reading. A `<p>` in this app is not always prose: 53 of them are a
+ * figure, a label or a status word, and the first version of this rule
+ * loosened every one of them silently -- `MicroLabel` measured 12px type
+ * on a 19.5px line where it had been 16, and every `tabular-nums` figure
+ * in the product grew its line box by about a sixth. Nothing looked
+ * broken, which is exactly why it needed measuring: a change nobody
+ * decided is still a change, and `DISPLAY` already records that a figure's
+ * leading is a considered number (a wrapped two-line balance has to read
+ * as one figure).
+ *
+ * So the selector states the rule the design system already runs on, which
+ * is the split in DESIGN_TOKENS.md: **Geist for every sentence, Geist Mono
+ * for every figure.** A paragraph that is mono or `tabular-nums` is a
+ * figure; one that is `uppercase` is the `MicroLabel` scaffolding voice;
+ * one that is `font-heading` is a status word on a reading tile. None of
+ * those is prose and none of them takes prose leading. What is left is a
+ * sentence, and a sentence gets 1.625.
+ *
+ * A call site still overrides everything by naming its own `leading-*`,
+ * which is how `FIGURE` opts out and how a sentence that happens to carry
+ * `tabular-nums` can opt back in. Never widen this past `p` -- `text-sm`
+ * is also every table cell, button, input and nav label in the app, and a
+ * table row is a fixed `h-10` that a looser line would fight.
  */
-p:not([class*="leading-"]) {
+p:not([class*="leading-"]):not([class*="font-mono"]):not([class*="tabular-nums"]):not([class*="uppercase"]):not([class*="font-heading"]) {
   line-height: 1.625;
+}
+
+@layer components {
+  /*
+   * The panel rhythm, as one class per role rather than a pair of Tailwind
+   * utilities.
+   *
+   * Written as `gap-6 sm:gap-8` it could only ever be *half* overridden. A
+   * call site that wants a compact panel writes `<Panel className="gap-3">`,
+   * which conflicts with the base `gap-6` and replaces it -- and leaves
+   * `sm:gap-8` standing, because a modifier is its own group to
+   * tailwind-merge. Measured on the real rendered component, that call site
+   * got 12px on a phone and 32px from `sm`: a 2.67x jump at one breakpoint,
+   * in a panel whose author had asked for the tightest gap in the product.
+   * The same held for `p-4` against `sm:px-6 sm:py-7`. Five call sites were
+   * in that state (PulsePage, TrendsPanel, and three landing cards).
+   *
+   * As one class the media query is inside it, so a `gap-*` or `p-*`
+   * utility from a call site wins at **every** width and the override is
+   * whole. `@layer components` is what makes that true and is the only
+   * reason this is not just a rename: Tailwind orders components before
+   * utilities, so any utility beats these regardless of specificity or of
+   * which one carries a media query.
+   *
+   * The numbers are the scale in DESIGN_TOKENS.md. Vertical is generous and
+   * horizontal is not, because a phone's width is the one budget that is
+   * actually scarce -- see the note on PANEL_PAD in Panel.tsx.
+   */
+  .panel-rhythm {
+    gap: 1.5rem;
+  }
+  .panel-pad {
+    padding: 1.25rem 1rem;
+  }
+  .nested-pad {
+    padding: 1.25rem 1rem;
+  }
+  /* A room's own stack of panels. Wider than a panel's inside rhythm, so a
+     panel reads as one answer and the stack as several. */
+  .panel-stack {
+    gap: 2rem;
+  }
+
+  @media (width >= 40rem) {
+    .panel-rhythm {
+      gap: 2rem;
+    }
+    .panel-pad {
+      padding: 1.75rem 1.5rem;
+    }
+    .nested-pad {
+      padding: 1.5rem;
+    }
+    .panel-stack {
+      gap: 2.5rem;
+    }
+  }
 }
 
 /* Hide scrollbars in horizontal tab rails (still scrollable). */

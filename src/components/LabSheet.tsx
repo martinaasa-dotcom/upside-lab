@@ -10,7 +10,16 @@ import {
   buildPortfolioPersonality,
   THEME_COLOR,
 } from "@/lib/portfolio-personality";
-import { EmptyState, Panel, Score, Scoreboard, SPLIT_COPY, SPLIT_ROW, SwatchLegend } from "@/components/ui/Panel";
+import {
+  EmptyState,
+  PANEL_STACK,
+  Panel,
+  SPLIT_COPY,
+  SPLIT_ROW,
+  Score,
+  Scoreboard,
+  SwatchLegend,
+} from "@/components/ui/Panel";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -373,7 +382,7 @@ export const LabSheet = memo(function LabSheet({
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={PANEL_STACK}>
       <Panel padded={false} className="px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

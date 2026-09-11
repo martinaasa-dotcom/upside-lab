@@ -20,7 +20,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CARD, Card, EmptyState, Panel, PanelHeader, Pill, Score, Scoreboard, SPLIT_COPY, SPLIT_ROW, Stat } from "@/components/ui/Panel";
+import {
+  CARD,
+  Card,
+  EmptyState,
+  PANEL_STACK,
+  Panel,
+  PanelHeader,
+  Pill,
+  SPLIT_COPY,
+  SPLIT_ROW,
+  Score,
+  Scoreboard,
+  Stat,
+} from "@/components/ui/Panel";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { scenarioProvenance } from "@/lib/provenance";
 import {
@@ -113,7 +126,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={PANEL_STACK}>
       <Panel>
         <PanelHeader
           icon={<Shield className="h-4 w-4" />}

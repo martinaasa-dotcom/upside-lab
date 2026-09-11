@@ -19,11 +19,12 @@ import {
   Metric,
   MicroLabel,
   NoteRows,
+  PANEL_STACK,
   Panel,
   PanelHeader,
   Pill,
-  ScanList,
   SUGGEST_MENU,
+  ScanList,
 } from "@/components/ui/Panel";
 import type { FearGreedSnapshot } from "@/lib/market/fear-greed";
 import { humanizeMargusText } from "@/lib/ai/humanize-copy";
@@ -1448,7 +1449,7 @@ export const PulsePage = memo(function PulsePage({
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={PANEL_STACK}>
       <Panel className="gap-3">
         <PanelHeader
           icon={<Activity className="h-4 w-4" />}

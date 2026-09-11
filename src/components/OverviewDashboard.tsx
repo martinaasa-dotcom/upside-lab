@@ -18,17 +18,18 @@ import { MarketSentimentWidget } from "@/components/MarketSentimentWidget";
 import { OvernightNote } from "@/components/OvernightNote";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import {
+  InfoTip,
   InsightText,
+  MicroLabel,
   NESTED_PAD,
+  PANEL_STACK,
   Panel,
   PanelHeader,
   Pill,
   Reading,
+  SCORE_CELL,
   Scoreboard,
   Segmented,
-  MicroLabel,
-  InfoTip,
-  SCORE_CELL,
 } from "@/components/ui/Panel";
 import { KIND_GLYPH, TONE_GLYPH, TONE_RING } from "@/components/AlertCards";
 import type { MarginToneName } from "@/lib/margin-health";
@@ -1395,7 +1396,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
 
   if (bookIsEmpty) {
     return (
-      <div className="flex flex-col gap-6">
+      <div className={PANEL_STACK}>
         <EmptyBook
           onAddHolding={onAddHolding}
           onImportScreenshot={onImportScreenshot}
@@ -1410,7 +1411,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={PANEL_STACK}>
       {inviteNudge && onInvitePartner && (
         <Panel className="overview-fade">
           <PanelHeader

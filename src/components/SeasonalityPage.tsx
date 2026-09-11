@@ -13,13 +13,14 @@ import {
 } from "@/lib/market/seasonality";
 import {
   NESTED_PAD,
+  PANEL_STACK,
   Panel,
   PanelHeader,
-  Score,
-  Scoreboard,
   SPLIT_ACTIONS,
   SPLIT_COPY,
   SPLIT_ROW,
+  Score,
+  Scoreboard,
 } from "@/components/ui/Panel";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -629,7 +630,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
     null;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={PANEL_STACK}>
       <Panel>
         <div className={SPLIT_ROW}>
           <div className={SPLIT_COPY}>

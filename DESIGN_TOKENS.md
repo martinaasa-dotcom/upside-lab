@@ -899,6 +899,20 @@ Never widen it past `p`; `text-sm` is also every table cell, button, input
 and nav label, and a table row is a fixed `h-10` that a looser line would
 fight.
 
+**And that selector was still too broad, which only a second measurement
+showed.** `p:not([class*="leading-"])` reached **53 paragraphs that are not
+prose** — every `tabular-nums` figure, every `MicroLabel` (measured 12px
+type on a 19.5px line where it had been 16), every `font-heading` status
+word. Nothing looked broken, which is exactly why it needed measuring: a
+change nobody decided is still a change, and `DISPLAY` already records that
+a figure's leading is a considered number. The selector now states the
+split this file opens with — Geist for every sentence, Geist Mono for every
+figure — by exempting `font-mono`, `tabular-nums`, `uppercase` and
+`font-heading` alongside `leading-`. Measured at 390px after: prose
+14px/22.8, a figure 20px/25, a label 12px/16, and a hand-written
+`leading-relaxed` subtitle 14px/22.8 — the same as prose, which is the
+one-rhythm claim holding.
+
 What deliberately did **not** move: a label to its figure (`mt-2`), which is
 one unit and should stay tight — loosening pairs while loosening groups
 leaves the hierarchy exactly where it was. And `BelowFold`'s `reserve`
@@ -907,9 +921,40 @@ slightly short settles the scrollbar, where one that is too long is the
 empty block over 200px that the deferral rule forbids, so growing the
 content moves them the safe way.
 
+### The rhythm is one class per role, not a responsive pair
+
+`.panel-rhythm`, `.panel-pad`, `.nested-pad` and `.panel-stack` live in
+`@layer components` (globals.css) and the media query is **inside** each
+one. That is load-bearing rather than tidiness.
+
+Written as `gap-6 sm:gap-8`, a call site can only ever override it by half.
+`<Panel className="gap-3">` conflicts with the base `gap-6` and replaces
+it, and leaves `sm:gap-8` standing, because a modifier is its own group to
+tailwind-merge. Measured on the rendered component, that call site got
+**12px on a phone and 32px from `sm`** — a 2.67× jump at one breakpoint, in
+the panel whose author had asked for the tightest gap in the product. The
+landing's sample cards had the same on `p-4` against `sm:px-6 sm:py-7`.
+Five call sites were in that state.
+
+As one class the override is whole, because Tailwind orders components
+before utilities whatever the specificity or the media query. Measured
+after, `<Panel className="gap-3">` is **12px at 360, 390, 430, 820 and
+1440**, and `className="p-4"` is 16px at all five.
+
+The same argument covers `PANEL_STACK`: `PAGE_MAIN_CLASS` spaces only the
+panels that are direct children of `<main>`, and seven rooms build their
+own column instead — Home, Lab, Pulse, Trends, Scenario and Seasonality
+were all still on the old flat 24px after the pass moved every other room
+to 32/40. Both read the same `.panel-stack`, so they cannot agree today and
+drift tomorrow.
+
+`panel-rhythm.test.ts` holds it: the panel body may carry no `sm:gap-*` or
+`sm:p*-*`, `PANEL_PAD`/`NESTED_PAD` must each be a single breakpoint-free
+class, and no room may stack `<Panel>` on a hand-rolled gap.
+
 ### A panel spaces its own children — call sites must not
 
-`Panel` is `flex flex-col gap-6 px-4 py-5 sm:gap-8 sm:px-6 sm:py-7`. Every
+`Panel` is `flex flex-col panel-rhythm panel-pad`. Every
 direct child is already 24/32px from the next one, so a child that also
 carries `mt-3`, `mt-4` or `mb-4` gets **both**: measured on Lab, a subtitle sat 30px under
 its own title and 40px above the bar it introduced, which is what the

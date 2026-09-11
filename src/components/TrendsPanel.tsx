@@ -18,7 +18,14 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { EmptyState, InfoTip, Panel, PanelHeader, Reading } from "@/components/ui/Panel";
+import {
+  EmptyState,
+  InfoTip,
+  PANEL_STACK,
+  Panel,
+  PanelHeader,
+  Reading,
+} from "@/components/ui/Panel";
 import { NO_VALUE, cashtag, cn } from "@/lib/format";
 import { readJsonOrThrow } from "@/lib/http";
 import { buildTrendStory, type Signal, type Tone, type TrendRowLike } from "@/lib/market/trend-story";
@@ -333,7 +340,7 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
   const proxyNote = indexProxyNote((rows ?? []).map((r) => r.ticker));
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={PANEL_STACK}>
       <Panel className="gap-3">
         <PanelHeader
           title="Is the trend changing?"
