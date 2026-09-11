@@ -89,6 +89,13 @@ import {
 import { describeCompany } from "@/lib/company-label";
 import { useTickerSectors } from "@/lib/use-ticker-sectors";
 import { TermTip } from "@/components/ui/TermTip";
+import {
+  sectorFund,
+  sectorFundsFor,
+  sectorPeerLine,
+  sectorPeerRead,
+} from "@/lib/sector-peers";
+import { useSectorQuotes } from "@/lib/use-sector-quotes";
 import { ratingForScore } from "@/lib/market/fear-greed";
 import {
   daySize,
@@ -286,6 +293,7 @@ function PulseCard({
   pinned = false,
   leftHold = false,
   sector,
+  sectorPct,
 }: {
   candidate: PulseCandidate;
   check?: PulseCheck;
@@ -300,6 +308,8 @@ function PulseCard({
   leftHold?: boolean;
   /** The provider's sector in this app's words, where it answered. */
   sector?: string | null;
+  /** Today's move for the fund that tracks this company's sector. */
+  sectorPct?: number | null;
 }) {
   const pct = c.effectivePct;
   const hasPct = pct != null && Number.isFinite(pct);
@@ -336,7 +346,22 @@ function PulseCard({
     !isMoveRestatement(cleanedVerdict)
       ? cleanedVerdict
       : "";
-  const hasBody = Boolean(shown);
+  /*
+    A measured comparison is body enough on its own.
+
+    This was `Boolean(shown)`, so the card drew its body only once a model
+    had read the company. The sector line needs no model -- it is two
+    quotes and a subtraction -- and it is most useful in exactly the state
+    that gated it out: a card reading "Nobody has read this one yet" can
+    still say what the rest of that company's sector did today, which is
+    the market-or-company question answered without anybody's opinion.
+  */
+  const peerRead = sectorPeerRead({
+    sectorWords: sector,
+    ownPct: c.effectivePct,
+    sectorPct,
+  });
+  const hasBody = Boolean(shown) || Boolean(peerRead);
   const needsMargusRun = !loading && !shown;
 
   /*
@@ -615,6 +640,19 @@ function PulseCard({
               <RangeBar price={c.price} range={range} />
             </div>
           ) : null}
+          {/*
+            What the rest of this company's sector did, from a fund the
+            reader can look up. The claim that a fall was the sector rather
+            than the company was being made on these cards by the model,
+            with nothing behind it; this is the same comparison with a real
+            instrument named in the sentence. It draws no conclusion, for
+            the reason `market-or-you.ts` gives.
+          */}
+          {peerRead ? (
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {sectorPeerLine(peerRead)}
+            </p>
+          ) : null}
           {situation.length > 0 ? (
             <div className="flex flex-col gap-2">
               <MicroLabel>What happened</MicroLabel>
@@ -887,6 +925,32 @@ export const PulsePage = memo(function PulsePage({
   */
   const sectorWordsByTicker = useTickerSectors(
     useMemo(() => candidates.map((c) => c.ticker), [candidates])
+  );
+
+  /*
+    Only the funds for sectors this portfolio actually touches, so a
+    reader holding three kinds of business asks about three rather than
+    eleven. Its own fetch rather than a rider on the quote poll: these
+    symbols are the same for everybody, so asked alone they are a CDN hit
+    shared across the whole product.
+  */
+  const sectorFunds = useMemo(
+    () =>
+      sectorFundsFor(
+        candidates.map((c) => sectorWordsByTicker[c.ticker.toUpperCase()])
+      ),
+    [candidates, sectorWordsByTicker]
+  );
+  const sectorQuotes = useSectorQuotes(sectorFunds);
+
+  const sectorPctFor = useCallback(
+    (ticker: string): number | null => {
+      const fund = sectorFund(sectorWordsByTicker[ticker.toUpperCase()]);
+      if (!fund) return null;
+      const q = sectorQuotes[fund];
+      return q && Number.isFinite(q.changePercent) ? q.changePercent : null;
+    },
+    [sectorWordsByTicker, sectorQuotes]
   );
 
   // Every check + its headlines, retained per ticker for good — never
@@ -1673,6 +1737,7 @@ export const PulsePage = memo(function PulsePage({
             <PulseCard
               candidate={pinnedCandidate}
               sector={sectorWordsByTicker[pinnedCandidate.ticker.toUpperCase()]}
+              sectorPct={sectorPctFor(pinnedCandidate.ticker)}
               check={checksByTicker[pinnedCandidate.ticker.toUpperCase()]}
               headlines={
                 headlinesByTicker[pinnedCandidate.ticker.toUpperCase()] ?? []
@@ -1726,6 +1791,7 @@ export const PulsePage = memo(function PulsePage({
                     key={c.ticker}
                     candidate={c}
                     sector={sectorWordsByTicker[c.ticker.toUpperCase()]}
+                    sectorPct={sectorPctFor(c.ticker)}
                     check={checksByTicker[c.ticker.toUpperCase()]}
                     headlines={headlinesByTicker[c.ticker.toUpperCase()] ?? []}
                     loading={checkingTickers.has(c.ticker.toUpperCase())}
@@ -1755,6 +1821,7 @@ export const PulsePage = memo(function PulsePage({
                     key={c.ticker}
                     candidate={c}
                     sector={sectorWordsByTicker[c.ticker.toUpperCase()]}
+                    sectorPct={sectorPctFor(c.ticker)}
                     check={checksByTicker[c.ticker.toUpperCase()]}
                     headlines={headlinesByTicker[c.ticker.toUpperCase()] ?? []}
                     loading={checkingTickers.has(c.ticker.toUpperCase())}
