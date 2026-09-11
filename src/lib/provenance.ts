@@ -1252,3 +1252,126 @@ export function provenanceWhen(at?: string | null): string | null {
   const stamp = formatDateTime(at);
   return stamp ? `Worked out ${stamp}` : null;
 }
+
+/**
+ * The retirement plan. Nobody asked a model, and the interesting half of
+ * the answer to "where did this come from" is what the arithmetic cannot
+ * know rather than what it did.
+ *
+ * This one carries more sources than anything else in the app for a reason
+ * that is the whole design of the module: almost every input is either a
+ * published figure from a named body or a long run series anybody can look
+ * up, and every one of them is editable on the page. A reader who does not
+ * believe the withdrawal rate, the longevity model or the price level for
+ * their own country should be able to find the sentence naming it and then
+ * find the control that changes it.
+ */
+export function retirementProvenance(input: {
+  regionName: string;
+  standardsSource: string;
+  returnsSource: string;
+  swrSource: string;
+  haircutSource: string;
+  statePensionSource: string;
+  /** The published years remaining at 65 the survival curve was fitted to. */
+  e65: number;
+  planningAge: number;
+  improvementPct: number;
+  swrPct: number;
+  realReturnPct: number;
+  /**
+   * Which answer the plan was actually judged on.
+   *
+   * Not decoration. A cash-only plan is answered by spending down to zero
+   * and no withdrawal rate is applied to it at all, so the panel that
+   * exists to say where a number came from was describing machinery this
+   * reader's plan never ran: it printed "the rate the pot is drawn at,
+   * 2.69% a year" beside a figure nothing had drawn at 2.69%, and two
+   * steps about surviving the worst run in the record. This is the one
+   * surface in the app that may never be approximately right.
+   */
+  basis: "safeRate" | "spendDown";
+}): Provenance {
+  const onCash = input.basis === "spendDown";
+  return {
+    maker: "arithmetic",
+    title: "Where this came from",
+    headline:
+      "No model wrote any of this. It is arithmetic, run year by year over the numbers you typed and a handful of published figures, all of which are named below and all of which you can change.",
+    inputs: [
+      { what: "Your age, the age you want to stop, and where you live", detail: input.regionName },
+      {
+        what: "What a year of your retirement costs",
+        detail: "a published basket for your country, or the figure you typed over it",
+      },
+      {
+        what: "Your housing, your children and any car payment",
+        detail: "each with its own end date, because most of them have one",
+      },
+      { what: "What you already have invested, and what you add each year" },
+      { what: "Your state pension and anything else guaranteed", detail: input.statePensionSource },
+      {
+        what: "How long the money must last",
+        detail: `to age ${input.planningAge}, read off a survival curve fitted to ${input.e65.toFixed(1)} further years at 65`,
+      },
+      {
+        what: "What the money earns after inflation",
+        detail: onCash
+          ? `${input.realReturnPct.toFixed(1)}% a year, because you are not investing any of it. No platform fee comes off, since nobody pays one on a savings account.`
+          : `${input.realReturnPct.toFixed(1)}% a year on the mix you chose, fees already taken off`,
+      },
+      onCash
+        ? {
+            what: "How the pot is spent",
+            detail:
+              "down to nothing by the end of the plan, because a pot held in cash has no order of returns to get wrong and so no withdrawal rate to apply",
+          }
+        : {
+            what: "The rate the pot is drawn at",
+            detail: `${input.swrPct.toFixed(2)}% a year`,
+          },
+    ],
+    sources: [
+      { name: "You", what: "every figure on the plan, all of which are editable" },
+      { name: "Pensions UK, formerly the PLSA", what: input.standardsSource },
+      { name: "OECD", what: "comparative price levels, used to move that basket onto your country's prices" },
+      { name: input.regionName, what: input.statePensionSource },
+      { name: "Global Investment Returns Yearbook", what: input.returnsSource },
+      ...(onCash
+        ? []
+        : [
+            {
+              name: "Bengen (1994) and the Trinity study (1998)",
+              what: input.swrSource,
+            },
+          ]),
+      { name: "Gompertz and Makeham", what: "the shape of adult mortality, fitted to your country's published life expectancy at 65" },
+    ],
+    steps: [
+      "Every year of your retirement is costed on its own rather than averaged. A mortgage ending, a child growing up and a state pension starting each change the year they happen in, and the early years are the ones that decide whether a plan survives.",
+      "Tax is grossed up rather than taken off. The published baskets are after tax, so to land a figure you have to draw more than it, and taking the tax off instead would leave the plan about a year of spending short.",
+      "Everything is in today's money. Returns are real returns, after inflation, so no number on the page is a future number you would have to deflate in your head.",
+      ...(onCash
+        ? [
+            "You are holding this in cash, so the answer is every year of the plan added up and discounted at what cash earns, ending at nothing. No safe withdrawal rate is applied: that rate exists to survive the worst ORDER returns could arrive in, and cash has no order to get wrong.",
+            "Cash is priced at what it earns after inflation rather than before it, which over a long plan is the whole of the risk it carries. Cash cannot fall the way shares can, and a decade of high inflation takes just as much from it.",
+          ]
+        : [
+            "The spending that never goes away is funded at a withdrawal rate built to survive the worst run in the historical record. Everything temporary is funded out of capital on top of it, because a debt with an end date and a lifetime of groceries are not the same financial object.",
+            `That rate started at the published figure for a retirement of this length and had two things taken off it: half a point for using the world's markets rather than America's, and ${input.swrPct > 0 ? "your own fees" : "fees"}. Both are shown separately and both can be turned off.`,
+          ]),
+      `The age the plan runs to is not an average life expectancy. Half of people outlive theirs, so it is the age you have a small chance of reaching, with age specific death rates allowed to keep falling at ${input.improvementPct}% a year as medicine improves.`,
+    ],
+    blindSpots: [
+      onCash
+        ? "What inflation does over the length of this plan, which is the whole of the risk in holding cash and the one thing a real return assumption cannot pin down."
+        : "The order your returns arrive in, which matters more than their average and which nothing can know in advance. The gap between the two answers on this panel is the price of not knowing it.",
+      "Your actual tax, which depends on the account each pound sits in, the country you draw it in, and rules that will change several times before you get there.",
+      "Anything that happens to you. Care costs, an inheritance, a divorce, a redundancy, a business that works. Any one of them moves this more than every assumption on the page put together.",
+      "Whether the published figures are still current. They are a year or two old the day you read them and are editable for that reason.",
+      NOT_A_TARGET,
+    ],
+    yours:
+      "Every number that went into this is an input you can change, and the answer moves as you do.",
+  };
+}

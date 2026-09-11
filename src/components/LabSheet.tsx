@@ -178,8 +178,37 @@ export const LabSheet = memo(function LabSheet({
   */
   const [watchlist] = useHydratedCache<string[]>(() => loadWatchlist(), EMPTY_WATCHLIST);
 
+  /*
+    The press writes the address; nothing derives it from the state.
+
+    This used to be a `setTab` here and a `useEffect` below that mirrored
+    the tab into `?labtab=`, and that pair silently broke every deep link
+    into Lab. The read happens in a layout effect (`useHydratedCache`) and
+    the mirror in a passive one, and nothing orders the re-render from the
+    first ahead of the second, so the mirror fired while the tab was still
+    the fallback and wrote `labtab=alloc` over whatever the reader had
+    arrived on. Measured against the running app: `?labtab=risk`,
+    `?labtab=trends` and `?labtab=seasonality` all landed on The mix with
+    the address rewritten to `alloc`, which is the exact opposite of what
+    the parameter is for.
+
+    Writing from the press removes the race instead of trying to sequence
+    it: a deep link is read once and left alone, and the address only ever
+    changes because somebody chose a tab. `replaceState` keeps sub-tab
+    presses off the back stack, and `window.history.state` is passed
+    through because the App Router keeps its own routing state in there.
+    Growth's sub-tabs are the same shape for the same reason.
+  */
   function selectTab(id: LabTab) {
     setTab(id);
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("labtab", id);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}`
+    );
   }
 
   // The tab row can still scroll on a narrow phone, so keep the active tab
@@ -211,23 +240,6 @@ export const LabSheet = memo(function LabSheet({
     observer.observe(el);
     return () => observer.disconnect();
   }, [syncTabOverflow, visibleTabs.length]);
-
-  // Mirror the sub-tab into the URL (replaceState only — sub-tab clicks
-  // shouldn't pile onto the back-button stack the way top-level tab
-  // switches do). Left in place when navigating away from Lab on purpose:
-  // harmless when ignored elsewhere, and means coming back to Lab (even a
-  // tab switch away and back, not just a refresh) restores the same
-  // sub-tab instead of always resetting to Allocation.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const url = new URL(window.location.href);
-    url.searchParams.set("labtab", tab);
-    window.history.replaceState(
-      window.history.state,
-      "",
-      `${url.pathname}${url.search}`
-    );
-  }, [tab]);
 
   useEffect(() => {
     if (!intentTab) return;
