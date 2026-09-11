@@ -36,6 +36,7 @@ const EVERY: Array<[string, Provenance]> = [
   ["price plan, edited", planLadderProvenance({ ticker: "GOOGL", edited: true })],
   ["four questions", researchQuestionsProvenance({ ticker: "GOOGL" })],
   ["band map", bandMapProvenance({ count: 12 })],
+  ["band map, pooled", bandMapProvenance({ count: 12, pooled: true })],
   [
     "four questions with the model's own case against",
     researchQuestionsProvenance({ ticker: "GOOGL", usesModel: true }),

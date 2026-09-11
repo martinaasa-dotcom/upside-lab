@@ -647,17 +647,36 @@ export function CommunityView({ communityId }: Props) {
     up or down draws its neutral colour rather than guessing. No per-reader
     overrides go in either: this is the circle's own shape, not any one
     member's edited plan.
+
+    `value` has the same zeroed-`buy_price` trap and it is easy to miss,
+    because `t.currentValue` looks like a plain aggregate. It is not: it is
+    summed from `enrichHoldings`' per-holding `shares * price`, and that
+    `price` is the same cost-basis fallback as `t.price` above whenever a
+    ticker has no live quote. For a name only some members hold, the ones
+    that are not this reader value at their real (zeroed) cost of zero
+    while this reader's own rows (if any) value at their real cost, so the
+    aggregate silently undercounts by exactly the share other members hold
+    -- and that undercounted figure would still drag down the total every
+    OTHER chip's share on the map is measured against, even though the
+    ticker missing its quote never gets a chip of its own either way (its
+    `spot` is null too, so `holdingLadders` already leaves it out). Working
+    it out fresh from `shares * spot` -- shares are never cost, so they are
+    never zeroed -- keeps the map's one denominator honestly built from
+    real prices alone, or zero when there simply isn't one yet.
   */
   const circleLadderRows = useMemo(
     () =>
       holdingLadders({
-        rows: overview.tickers.map((t) => ({
-          ticker: t.ticker,
-          spot: quotes[t.ticker]?.price ?? null,
-          closes: t.dailyCloses?.length ? t.dailyCloses : t.sparkline,
-          value: t.currentValue,
-          roiPct: null,
-        })),
+        rows: overview.tickers.map((t) => {
+          const spot = quotes[t.ticker]?.price ?? null;
+          return {
+            ticker: t.ticker,
+            spot,
+            closes: t.dailyCloses?.length ? t.dailyCloses : t.sparkline,
+            value: spot !== null ? t.shares * spot : 0,
+            roiPct: null,
+          };
+        }),
       }),
     [overview.tickers, quotes]
   );

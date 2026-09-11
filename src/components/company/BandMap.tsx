@@ -148,10 +148,12 @@ function Chip({
   point,
   code,
   compact,
+  planWord,
 }: {
   point: BandMapPoint;
   code: string;
   compact?: boolean;
+  planWord: string;
 }) {
   return (
     <>
@@ -162,7 +164,7 @@ function Chip({
         </span>
       )}
       <span className="sr-only">
-        , {currency(point.spot, 2, code)}, in the band your plan calls{" "}
+        , {currency(point.spot, 2, code)}, in the band {planWord} calls{" "}
         {point.bandLabel}
       </span>
     </>
@@ -174,10 +176,14 @@ function Plot({
   map,
   code,
   chipScale,
+  whose,
+  planWord,
 }: {
   map: Map;
   code: string;
   chipScale: number;
+  whose: string;
+  planWord: string;
 }) {
   // Lane units into pixels, and nothing else in this file knows about
   // lanes: a chip's own height is already in the same units. Padded top
@@ -270,7 +276,7 @@ function Plot({
             key={p.ticker}
             href={companyHref(p.ticker)}
             data-band-chip=""
-            title={`${cashtag(p.ticker)}: ${currency(p.spot, 2, code)}, ${percent(p.share, 1)} of this portfolio, in the band your plan calls "${p.bandLabel}"`}
+            title={`${cashtag(p.ticker)}: ${currency(p.spot, 2, code)}, ${percent(p.share, 1)} of ${whose}, in the band ${planWord} calls "${p.bandLabel}"`}
             className={cn(
               "absolute z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border font-mono tabular-nums transition hover:z-20 hover:brightness-125",
               toneOf(p),
@@ -292,7 +298,7 @@ function Plot({
               padding: `${0.25 * chipScale}rem ${0.5 * chipScale}rem`,
             }}
           >
-            <Chip point={p} code={code} />
+            <Chip point={p} code={code} planWord={planWord} />
           </Link>
         ))}
       </div>
@@ -320,7 +326,19 @@ function Plot({
  * in the bottom two bands should be able to see that at a glance rather
  * than infer it from an absence.
  */
-function Strip({ map, code, scale }: { map: Map; code: string; scale: number }) {
+function Strip({
+  map,
+  code,
+  scale,
+  whose,
+  planWord,
+}: {
+  map: Map;
+  code: string;
+  scale: number;
+  whose: string;
+  planWord: string;
+}) {
   return (
     <div className="flex flex-col gap-3">
       {map.lanes.map((lane) => {
@@ -364,7 +382,7 @@ function Strip({ map, code, scale }: { map: Map; code: string; scale: number }) 
                     <Link
                       key={p.ticker}
                       href={companyHref(p.ticker)}
-                      title={`${cashtag(p.ticker)}: ${currency(p.spot, 2, code)}, ${percent(p.share, 1)} of this portfolio, in the band your plan calls "${p.bandLabel}"`}
+                      title={`${cashtag(p.ticker)}: ${currency(p.spot, 2, code)}, ${percent(p.share, 1)} of ${whose}, in the band ${planWord} calls "${p.bandLabel}"`}
                       className={cn(
                         "flex min-w-[4.5rem] flex-col gap-1 rounded-xl border px-3 py-2 outline-none transition active:brightness-110 focus-visible:ring-1 focus-visible:ring-ring/50",
                         toneOf(p),
@@ -434,7 +452,7 @@ function Strip({ map, code, scale }: { map: Map; code: string; scale: number }) 
                         </span>
                       )}
                       <span className="sr-only">
-                        , in the band your plan calls {p.bandLabel}
+                        , in the band {planWord} calls {p.bandLabel}
                       </span>
                     </Link>
                   );
@@ -453,7 +471,7 @@ export function BandMap({
   code = "USD",
   at,
   title = "Where your holdings sit on their own plans",
-  subtitle = "Every name on its own price plan, so two in the same band are in the same place in their own plans whatever their prices are. Green and red are what you are up or down on each one, which is a different question from where its price sits.",
+  pooled = false,
 }: {
   rows: Array<{
     ticker: string;
@@ -465,13 +483,16 @@ export function BandMap({
   at?: string | null;
   title?: string;
   /**
-   * Overridable because "green and red are what you are up or down" is
-   * only true where `roiPct` is real: a caller feeding every row `null`
-   * (a circle's pooled map, whose cost basis is not shared) draws every
-   * chip in its neutral colour, and the default sentence would be
-   * promising a reading that never appears.
+   * True for a map pooled across more than one person's holdings (a
+   * circle), where cost basis is not shared. `roiPct` on every row is
+   * `null` in that case, so every chip draws its neutral colour rather
+   * than green or red, and "green and red are what you are up or down"
+   * would be a false sentence. This one flag swaps that reading (and
+   * every "your plan"/"this portfolio" one) for its pooled equivalent in
+   * the subtitle, the per-chip labels and the provenance popover, so the
+   * picture never states an ownership it cannot back up.
    */
-  subtitle?: string;
+  pooled?: boolean;
 }) {
   const plotRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState<{
@@ -555,6 +576,12 @@ export function BandMap({
 
   if (map.points.length === 0) return null;
 
+  const whose = pooled ? "the circle" : "this portfolio";
+  const planWord = pooled ? "this plan" : "your plan";
+  const subtitle = pooled
+    ? "Everyone's holdings pooled into one company each, on its own price plan, so a $50 stock and a $5,000 one can share an axis. Chips are neutral here rather than green or red: what anybody paid stays theirs, so this can show where a price sits, not what the circle is up or down on it."
+    : "Every name on its own price plan, so two in the same band are in the same place in their own plans whatever their prices are. Green and red are what you are up or down on each one, which is a different question from where its price sits.";
+
   return (
     <Panel>
       <PanelHeader
@@ -562,7 +589,11 @@ export function BandMap({
           <span className="inline-flex items-center gap-2">
             {title}
             <WhyThis
-              provenance={bandMapProvenance({ count: map.points.length, at })}
+              provenance={bandMapProvenance({
+                count: map.points.length,
+                at,
+                pooled,
+              })}
             />
           </span>
         }
@@ -571,7 +602,13 @@ export function BandMap({
       />
 
       <div className="hidden flex-col gap-2 sm:flex" ref={plotRef}>
-        <Plot map={map} code={code} chipScale={chipScale} />
+        <Plot
+          map={map}
+          code={code}
+          chipScale={chipScale}
+          whose={whose}
+          planWord={planWord}
+        />
         <div className="flex">
           <div className="w-32 shrink-0 lg:w-40" />
           <div className="flex min-w-0 flex-1 items-center justify-between">
@@ -588,7 +625,13 @@ export function BandMap({
       </div>
 
       <div className="sm:hidden">
-        <Strip map={map} code={code} scale={mobileScale} />
+        <Strip
+          map={map}
+          code={code}
+          scale={mobileScale}
+          whose={whose}
+          planWord={planWord}
+        />
       </div>
 
       {map.missing.length > 0 && (
