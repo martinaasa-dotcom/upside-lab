@@ -139,7 +139,7 @@ type ThemeSlice = {
 
 function ThemeBar({ slices }: { slices: ThemeSlice[] }) {
   return (
-    <div className="flex h-3 overflow-hidden rounded-full bg-muted">
+    <div className="flex h-3 gap-[3px] overflow-hidden rounded-full bg-muted">
       {slices.map((t) => (
         <div
           key={t.theme}

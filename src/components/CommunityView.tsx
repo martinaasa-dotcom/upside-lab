@@ -30,6 +30,7 @@ import {
 } from "@/lib/circle-changes";
 import { namedRoom, RoomNoun, roomNoun } from "@/lib/community-words";
 import { CircleAccessNotice } from "@/components/CircleAccessNotice";
+import { CirclePicker } from "@/components/CirclePicker";
 import { CircleHome } from "@/components/CircleHome";
 import { ClassroomHome } from "@/components/ClassroomHome";
 import { CommunityMembersPanel } from "@/components/CommunityMembersPanel";
@@ -1493,7 +1494,16 @@ export function CommunityView({ communityId }: Props) {
       <div className={PAGE_FRAME_CLASS}>
         <MobileDock active="circle" />
         <AppHeader
-          mobileTitle={community?.name ?? RoomWord}
+          mobileTitle={
+            <h1 className="min-w-0">
+              <span className="block truncate text-sm font-medium leading-none text-muted-foreground">
+                <CirclePicker
+                  communityId={communityId}
+                  currentName={community?.name ?? RoomWord}
+                />
+              </span>
+            </h1>
+          }
           mobileEnd={
             /*
              * `ghost`/`icon-sm`, matching the feedback and account controls
@@ -1519,7 +1529,10 @@ export function CommunityView({ communityId }: Props) {
           }
           title={
             <span className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate">{community?.name ?? RoomWord}</span>
+              <CirclePicker
+                communityId={communityId}
+                currentName={community?.name ?? RoomWord}
+              />
               {community && (
                 <span
                   title={

@@ -1789,7 +1789,7 @@ export function UpsidePortfolioPage() {
                   subtitle="Grouped by the kind of business, with the cash he has not spent."
                 />
                 <div>
-                  <div className="flex h-3 overflow-hidden rounded-full bg-muted">
+                  <div className="flex h-3 gap-[3px] overflow-hidden rounded-full bg-muted">
                     {bettingSlices.map((t) => (
                       <div
                         key={t.key}
