@@ -21,11 +21,22 @@ import { barFillPct } from "@/lib/format";
 
   `barFillPct` is the fix, and this file is what keeps it a fix rather
   than a patch on one component: every place in `src/` that turns a
-  computed ratio into a `width: N%` bar fill is walked here, and each one
-  must either route through `barFillPct` (directly, or through a variable
-  that was itself assigned from it) or be named in `ALLOWED` with the
-  reason its own arithmetic cannot exceed 100 by construction. A new bar
-  added without either fails this test instead of shipping to a screen.
+  computed ratio into a `width: N%` or `height: N%` bar fill is walked
+  here, and each one must either route through `barFillPct` (directly, or
+  through a variable that was itself assigned from it) or be named in
+  `ALLOWED` with the reason its own arithmetic cannot exceed 100 by
+  construction. A new bar added without either fails this test instead of
+  shipping to a screen. `height` is covered for the same reason `width`
+  is: a vertical bar (the seasonality chart's monthly columns) is the same
+  fault rotated 90 degrees, and a ratio that can run away does not care
+  which axis it is drawn on.
+
+  The last describe block goes one step further than the source scan: it
+  actually renders `BusinessPanel` with BMNR's real, reported figures
+  through `react-dom/server` and reads the widths back out of the HTML it
+  produced. The scan proves the source routes through the clamp; this
+  proves the clamp is still wired up to what a browser would actually
+  paint, which a source-text check cannot see for itself.
 */
 
 /**
@@ -92,17 +103,23 @@ function sourceFiles(dir: string): string[] {
   return out;
 }
 
-type Site = { file: string; line: number; expr: string };
+type Site = { file: string; line: number; prop: "width" | "height"; expr: string };
 
-/** Every `width: \`${EXPR}%\`` bar-fill site across `src/`. */
+/** Every `width: \`${EXPR}%\`` or `height: \`${EXPR}%\`` bar-fill site in `src/`. */
 function barFillSites(): Site[] {
   const sites: Site[] = [];
   for (const file of sourceFiles("src")) {
     const text = readFileSync(file, "utf8");
     const lines = text.split("\n");
     lines.forEach((line, i) => {
-      const m = line.match(/width:\s*`\$\{([^}]*)\}%`/);
-      if (m) sites.push({ file, line: i + 1, expr: m[1]!.trim() });
+      const m = line.match(/(width|height):\s*`\$\{([^}]*)\}%`/);
+      if (m)
+        sites.push({
+          file,
+          line: i + 1,
+          prop: m[1] as "width" | "height",
+          expr: m[2]!.trim(),
+        });
     });
   }
   return sites;
@@ -153,7 +170,7 @@ describe("barFillPct clamps a fill to the box it draws in", () => {
   });
 });
 
-describe("every bar-fill width in src/ stays inside its own box", () => {
+describe("every bar-fill width or height in src/ stays inside its own box", () => {
   const sites = barFillSites();
 
   it("found bar-fill sites to check (the scan itself did not break)", () => {
@@ -162,7 +179,7 @@ describe("every bar-fill width in src/ stays inside its own box", () => {
 
   for (const site of sites) {
     const key = `${site.file}:${site.line}`;
-    it(`${key}: \`${site.expr}\` is clamped or explicitly justified`, () => {
+    it(`${key}: \`${site.prop}: ${site.expr}\` is clamped or explicitly justified`, () => {
       const direct = site.expr.includes("barFillPct(");
       const viaVariable =
         isBareIdentifier(site.expr) &&
@@ -170,10 +187,10 @@ describe("every bar-fill width in src/ stays inside its own box", () => {
       const allowedReason = ALLOWED.get(key);
       if (!direct && !viaVariable && !allowedReason) {
         throw new Error(
-          `${key} computes a bar-fill width ("${site.expr}") without ` +
-            `routing through barFillPct(), and is not in this file's ` +
-            `ALLOWED list. Wrap it in barFillPct(), or add an entry to ` +
-            `ALLOWED arguing the arithmetic can never exceed 100.`
+          `${key} computes a bar-fill ${site.prop} ("${site.expr}") ` +
+            `without routing through barFillPct(), and is not in this ` +
+            `file's ALLOWED list. Wrap it in barFillPct(), or add an ` +
+            `entry to ALLOWED arguing the arithmetic can never exceed 100.`
         );
       }
       expect(allowedReason === undefined || allowedReason.length > 0).toBe(
@@ -206,5 +223,50 @@ describe("the business panel's money bar cannot overflow its own row", () => {
       source.indexOf("relative h-7 w-full") + 40
     );
     expect(barRow).toContain("overflow-hidden");
+  });
+});
+
+describe("BusinessPanel actually renders BMNR's real figures without overflowing", () => {
+  /*
+    Everything above checks the source text. This renders the real
+    component through react-dom/server with the exact shape of data that
+    broke it — a period whose profit is many times its revenue, on a
+    balance sheet marked through net income — and reads the widths back
+    out of the HTML it actually produced. A source scan can be fooled by
+    a refactor that moves the arithmetic somewhere the regex cannot see;
+    this cannot, because it is reading what the browser would paint.
+  */
+  it("keeps every drawn bar at or under 100%, on data shaped like BMNR's", async () => {
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const React = await import("react");
+    const { BusinessPanel } = await import("@/components/company/BusinessPanel");
+    const facts = {
+      fetchedAt: new Date().toISOString(),
+      history: [
+        // 2024: no reported revenue, a net loss.
+        { year: 2024, revenue: null, netIncome: -3_300_000 },
+        // 2025: $6.1M revenue, $328.2M net income — crypto marks on the
+        // balance sheet flowing through net income, real and reported.
+        { year: 2025, revenue: 6_100_000, netIncome: 328_200_000 },
+      ],
+      quarters: [],
+      surprises: [],
+      grossMargin: 0.844,
+      operatingMargin: 0.084,
+      profitMargin: 0,
+    } as unknown as Parameters<typeof BusinessPanel>[0]["facts"];
+
+    const html = renderToStaticMarkup(
+      React.createElement(BusinessPanel, { ticker: "BMNR", facts, code: "USD" })
+    );
+
+    const widths = [...html.matchAll(/width:(-?\d+(?:\.\d+)?)%/g)].map((m) =>
+      Number(m[1])
+    );
+    expect(widths.length).toBeGreaterThan(0);
+    for (const w of widths) {
+      expect(w).toBeGreaterThanOrEqual(0);
+      expect(w).toBeLessThanOrEqual(100);
+    }
   });
 });
