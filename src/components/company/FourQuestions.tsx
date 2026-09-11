@@ -86,7 +86,7 @@ export function FourQuestions({
                 <MicroLabel>{a.figureLabel}</MicroLabel>
                 {a.against && (
                   <span className="text-xs text-muted-foreground">
-                    vs. {a.against}
+                    against {a.against}
                   </span>
                 )}
               </div>
