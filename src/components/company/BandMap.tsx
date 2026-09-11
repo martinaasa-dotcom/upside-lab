@@ -267,7 +267,7 @@ function Plot({
               aria-hidden
             />
             <span
-              className="absolute right-2 -translate-y-1/2 whitespace-nowrap rounded-full border border-primary/40 bg-background px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-primary"
+              className="absolute right-2 -translate-y-1/2 whitespace-nowrap rounded-full border border-primary/40 bg-background px-2 py-0.5 font-mono text-xs font-semibold uppercase tracking-wide text-primary"
               style={{ top: anchorAt }}
               aria-hidden
             >
