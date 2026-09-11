@@ -854,7 +854,12 @@ export const ForecastPanel = memo(function ForecastPanel({
     if (!plan || !prevPlan?.eoyTargets?.length) return [];
     const lastYear = yearCols[yearCols.length - 1];
     if (lastYear == null) return [];
-    const out: { ticker: string; from: number; to: number }[] = [];
+    const out: {
+      ticker: string;
+      from: number;
+      to: number;
+      rationale: string;
+    }[] = [];
     for (const t of plan.eoyTargets) {
       const old = prevPlan.eoyTargets.find(
         (p) => p.ticker.toUpperCase() === t.ticker.toUpperCase()
@@ -869,7 +874,12 @@ export const ForecastPanel = memo(function ForecastPanel({
       ) {
         continue;
       }
-      out.push({ ticker: t.ticker, from: oldP, to: nextP });
+      out.push({
+        ticker: t.ticker,
+        from: oldP,
+        to: nextP,
+        rationale: t.rationale?.trim() || "",
+      });
     }
     return out;
   }, [plan, prevPlan, yearCols]);
@@ -1151,33 +1161,48 @@ export const ForecastPanel = memo(function ForecastPanel({
               </Reading>
             )}
 
-            {lastPlanDiffs.length > 0 && (
+            {lastPlanDiffs.length > 0 && prevPlan?.generatedAt && plan.generatedAt && (
               <Card className="overflow-hidden p-0">
                 <div className="border-b border-border/50 px-4 py-3">
                   <p className="text-sm font-medium text-muted-foreground">
                     Since the last run
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {`From the run on ${formatGeneratedAt(prevPlan.generatedAt)} to this one, ${formatGeneratedAt(plan.generatedAt)}. Margus reasoned each name again from scratch; nothing here is nudged toward or away from a number.`}
                   </p>
                 </div>
                 <ul>
                   {lastPlanDiffs.map((d) => (
                     <li
                       key={d.ticker}
-                      className="flex gap-3 border-t border-border/50 px-4 py-3.5 first:border-t-0"
+                      className="flex flex-col gap-1 border-t border-border/50 px-4 py-3.5 first:border-t-0"
                     >
-                      <span
-                        className={cn(
-                          "flex shrink-0 whitespace-nowrap font-semibold text-foreground",
-                          mixedListings ? "w-max justify-start" : "w-[7.5rem] justify-end"
-                        )}
-                      >
-                        <TickerSymbol
-                          ticker={d.ticker}
-                          showCurrency={mixedListings}
-                        />
-                      </span>
-                      <span className="min-w-0 text-sm text-muted-foreground">
-                        {`End ${yearCols[yearCols.length - 1]}: ${currency(d.from, 0)} to ${currency(d.to, 0)}`}
-                      </span>
+                      <div className="flex gap-3">
+                        <span
+                          className={cn(
+                            "flex shrink-0 whitespace-nowrap font-semibold text-foreground",
+                            mixedListings ? "w-max justify-start" : "w-[7.5rem] justify-end"
+                          )}
+                        >
+                          <TickerSymbol
+                            ticker={d.ticker}
+                            showCurrency={mixedListings}
+                          />
+                        </span>
+                        <span className="min-w-0 text-sm text-muted-foreground">
+                          {`End ${yearCols[yearCols.length - 1]}: ${currency(d.from, 0)} to ${currency(d.to, 0)}`}
+                        </span>
+                      </div>
+                      {d.rationale && (
+                        <p
+                          className={cn(
+                            "text-sm leading-snug text-muted-foreground",
+                            mixedListings ? "" : "sm:pl-[calc(7.5rem+0.75rem)]"
+                          )}
+                        >
+                          {d.rationale}
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>
