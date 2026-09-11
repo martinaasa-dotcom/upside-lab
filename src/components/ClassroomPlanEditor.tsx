@@ -171,7 +171,7 @@ export function ClassroomPlanEditor({
         </ItemGroup>
       )}
 
-      <div className="flex flex-col mt-6 gap-3 card-sheen glass-well rounded-lg p-6">
+      <div className="mt-6 flex flex-col gap-3 card-sheen glass-well rounded-lg nested-pad">
         <p className="text-sm font-medium text-muted-foreground">Add a period</p>
         <NativeSelect
           value={draftKind}

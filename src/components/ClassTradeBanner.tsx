@@ -1,6 +1,8 @@
 "use client";
 
+import { PANEL_PAD } from "@/components/ui/Panel";
 import type { ClassroomTrade } from "@/lib/classroom";
+import { cn } from "@/lib/format";
 import { formatDateTime } from "@/lib/timezone";
 
 function untilLabel(iso: string | null): string | null {
@@ -27,7 +29,7 @@ export function ClassTradeBanner({
 }) {
   const until = untilLabel(trade.until);
   return (
-    <div className="rounded-xl glass ring-1 ring-foreground/20 px-6 py-6">
+    <div className={cn("rounded-xl glass ring-1 ring-foreground/20", PANEL_PAD)}>
       <p className="text-sm font-semibold text-foreground">{trade.label}</p>
       <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
         {trade.message}

@@ -3,6 +3,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PANEL_PAD } from "@/components/ui/Panel";
 import { reportClientError } from "@/lib/telemetry-client";
 
 type Props = {
@@ -49,7 +50,7 @@ export class WidgetErrorBoundary extends Component<Props, State> {
           role="alert"
           className={
             this.props.className ??
-            "min-w-0 overflow-x-clip rounded-xl glass ring-1 ring-foreground/20 px-4 py-6"
+            `min-w-0 overflow-x-clip rounded-xl glass ring-1 ring-foreground/20 ${PANEL_PAD}`
           }
         >
           <p className="text-sm font-semibold text-foreground">

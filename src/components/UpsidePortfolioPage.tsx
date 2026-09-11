@@ -1951,7 +1951,7 @@ export function UpsidePortfolioPage() {
                     return i === 0 ? (
                       <article
                         key={r.id}
-                        className="flex flex-col gap-2 rounded-xl glass ring-1 ring-foreground/20 p-6"
+                        className={cn("flex flex-col gap-2 rounded-xl glass ring-1 ring-foreground/20", PANEL_PAD)}
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <RecapMeta r={r} />
@@ -1995,7 +1995,7 @@ export function UpsidePortfolioPage() {
             <section className="flex flex-col gap-4">
               <SectionHeading title="Every decision, in order" why />
               {reports.length === 0 ? (
-                <p className="rounded-xl glass ring-1 ring-foreground/20 px-4 py-6 text-center text-sm leading-relaxed text-muted-foreground">
+                <p className={cn("rounded-xl glass ring-1 ring-foreground/20 text-center text-sm leading-relaxed text-muted-foreground", PANEL_PAD)}>
                   Nothing written down yet. The first decision is made after
                   today&apos;s market close, and it will appear here with the
                   reason behind it.
@@ -2014,7 +2014,7 @@ export function UpsidePortfolioPage() {
                     return i === 0 ? (
                       <article
                         key={r.id}
-                        className="flex flex-col gap-2 rounded-xl glass ring-1 ring-foreground/20 p-6"
+                        className={cn("flex flex-col gap-2 rounded-xl glass ring-1 ring-foreground/20", PANEL_PAD)}
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <ReportMeta r={r} />

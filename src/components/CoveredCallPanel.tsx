@@ -328,22 +328,15 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
 
   if (writable.length === 0) {
     return (
-      <Panel
-        padded={false}
-        id={COVERED_CALLS_ANCHOR}
-        className="scroll-mt-28 overflow-hidden"
-      >
-        <div className="p-6">
-          <PanelHeader title="Covered calls" />
-          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            Writing one covered call needs a hundred shares of a single
-            company.
-            {biggest
-              ? ` Your biggest holding is ${shareCount(biggest.holding.shares)} of ${cashtag(biggest.holding.ticker)}, so there is nothing to write yet.`
-              : " There is nothing to write yet."}{" "}
-            This fills in on its own when one of your holdings gets there.
-          </p>
-        </div>
+      <Panel id={COVERED_CALLS_ANCHOR} className="scroll-mt-28 overflow-hidden">
+        <PanelHeader title="Covered calls" />
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Writing one covered call needs a hundred shares of a single company.
+          {biggest
+            ? ` Your biggest holding is ${shareCount(biggest.holding.shares)} of ${cashtag(biggest.holding.ticker)}, so there is nothing to write yet.`
+            : " There is nothing to write yet."}{" "}
+          This fills in on its own when one of your holdings gets there.
+        </p>
       </Panel>
     );
   }
@@ -354,12 +347,12 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
       id={COVERED_CALLS_ANCHOR}
       className="scroll-mt-28 overflow-hidden"
     >
-      <div className="border-b border-border p-6">
+      <div className="border-b border-border surface-gutter py-6">
         <PanelHeader title="Covered calls" />
       </div>
 
       {/* Mobile cards */}
-      <div className="flex flex-col gap-3 p-6 md:hidden">
+      <div className="flex flex-col gap-3 surface-gutter py-6 md:hidden">
         {rows.length === 0 ? (
           <EmptyState
             title="Nothing to write calls on yet"

@@ -30,6 +30,7 @@ import {
   SCORE_CELL,
   Scoreboard,
   Segmented,
+  PANEL_PAD,
 } from "@/components/ui/Panel";
 import { KIND_GLYPH, TONE_GLYPH, TONE_RING } from "@/components/AlertCards";
 import type { MarginToneName } from "@/lib/margin-health";
@@ -1499,7 +1500,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         * alerts (see `HomeAlertRow`).
         */}
       <div className="overview-fade flex flex-col gap-4">
-        <div className="card-sheen glass flex min-w-0 flex-col rounded-xl p-4 ring-1 ring-foreground/20 sm:p-6">
+        <div className={cn("card-sheen glass flex min-w-0 flex-col rounded-xl ring-1 ring-foreground/20", PANEL_PAD)}>
           <MicroLabel>Everything you own</MicroLabel>
           <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-2">
             {/*

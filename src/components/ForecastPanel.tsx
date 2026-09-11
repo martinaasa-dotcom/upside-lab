@@ -958,7 +958,7 @@ export const ForecastPanel = memo(function ForecastPanel({
 
   return (
     <Panel padded={false} className="overflow-hidden">
-      <header className="border-b border-border p-6">
+      <header className="border-b border-border surface-gutter py-6">
         <PanelHeader
           title={
             <span className="inline-flex items-center gap-2">
@@ -1091,7 +1091,7 @@ export const ForecastPanel = memo(function ForecastPanel({
         </YearRail>
       </div>
 
-      <div className="border-t border-border p-6">
+      <div className="border-t border-border surface-gutter py-6">
         <div>
           <h3 className="font-semibold text-foreground">
             What Margus makes of it

@@ -298,7 +298,17 @@ export function WelcomeTour({
         void leave(true);
       }}
     >
-      <div className="glass-overlay flex max-h-[min(100%,44rem)] w-full max-w-md flex-col overflow-hidden rounded-xl p-4 ring-1 ring-foreground/20 sm:max-w-2xl sm:p-6">
+      {/*
+        The one overlay in the app that was not on the shared pad.
+
+        Every modal moved to `.modal-pad` (16px sides on a phone, 24 from
+        `sm`, with the vertical one step looser) and the walkthrough kept
+        `p-4 sm:p-6`, which is the same sides and a tighter vertical: one
+        surface answering the same question its own way. `.modal-bleed`
+        below already assumes exactly those sides, so the two classes are
+        a pair and this is the half that was missing.
+      */}
+      <div className="glass-overlay modal-pad flex max-h-[min(100%,44rem)] w-full max-w-md flex-col overflow-hidden rounded-xl ring-1 ring-foreground/20 sm:max-w-2xl">
         {/* Progress. Segments rather than labels: seven labels do not fit a phone. */}
         <div className="mb-5 shrink-0">
           <div className="flex gap-1" aria-hidden>

@@ -8,7 +8,16 @@ function Empty({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="empty"
       className={cn(
-        "flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-xl border-dashed p-6 text-center text-balance",
+        /*
+          No pad of its own. `EmptyState` (Panel.tsx) is the only thing
+          that renders this, and it sets the pad from `.surface-gutter`,
+          which lives in `@layer components` -- and a utility beats a
+          component layer whatever the specificity, so a `p-6` here
+          silently held the sides at 24px on a phone where the class was
+          asking for 16. Measured: content 249px against the 265 the
+          override was supposed to give, with nothing failing.
+        */
+        "flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-xl border-dashed text-center text-balance",
         className
       )}
       {...props}

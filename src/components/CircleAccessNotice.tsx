@@ -2,6 +2,8 @@
 
 import type { CommunityJoinRequest, CommunityMember } from "@/components/community-types";
 import { Button } from "@/components/ui/button";
+import { PANEL_PAD } from "@/components/ui/Panel";
+import { cn } from "@/lib/format";
 import {
   arrivalsLine,
   arrivalsSeenKey,
@@ -86,7 +88,7 @@ export function CircleAccessNotice({
   }
 
   return (
-    <section className="card-sheen glass flex flex-col gap-4 rounded-xl p-4 ring-1 ring-foreground/20 sm:p-5">
+    <section className={cn("card-sheen glass flex flex-col gap-4 rounded-xl ring-1 ring-foreground/20", PANEL_PAD)}>
       {waiting.length > 0 && (
         <div className="flex flex-col gap-3">
           <p className="flex items-center gap-2 text-base font-semibold text-foreground">

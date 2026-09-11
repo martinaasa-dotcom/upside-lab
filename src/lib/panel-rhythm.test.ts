@@ -253,3 +253,84 @@ describe("a table row keeps its fixed height, and cells add nothing to it", () =
     }
   });
 });
+
+/*
+  A card on the field pads like a card, at every width.
+
+  The spacing pass reached `Panel`, the page column and the modals, and
+  walked straight past every surface that draws a card by hand. The Circle
+  was the whole room built that way: seven `rounded-xl glass ring-1 p-6`
+  sections stacked on `gap-3`, so measured against the app's own compiled
+  CSS its cards sat **24px inside and 12px apart at every width**, where a
+  panel steps 16/20 on a phone and a room stacks at 32/40. The grouping was
+  inverted -- a card's last line was nearer the next card's first line than
+  its own edge -- which is the exact fault this pass exists to fix and
+  worse than the 24-against-24 it started from. The Fund's report cards,
+  the admin list, the class banner, the duel and the Today board were all
+  in the same state.
+
+  This fails on a flat pad on a glass card. It cannot see a pad built in a
+  variable or handed in as a prop, so it is a floor rather than a ceiling.
+*/
+describe("a card on the field pads like a card", () => {
+  /** `glass` + the card ring: the class pair that means "card" here. */
+  const CARD = /glass(?![-\w])[^"`]*ring-1 ring-foreground\/20|ring-1 ring-foreground\/20[^"`]*glass(?![-\w])/;
+  /** A pad with no breakpoint behind it and no shared class beside it. */
+  const FLAT = /\b(?:p|px)-(?:5|6|7|8|10|12)\b/;
+
+  const offenders: string[] = [];
+  for (const file of sourceFiles("src")) {
+    const lines = readFileSync(file, "utf8").split("\n");
+    lines.forEach((line, i) => {
+      if (!CARD.test(line) || !FLAT.test(line)) return;
+      // A responsive pair is a different (smaller) problem and is not this
+      // one; what this catches is a pad that never steps at all.
+      if (/\bsm:(?:p|px)-/.test(line)) return;
+      offenders.push(`${file}:${i + 1}  ${line.trim().slice(0, 90)}`);
+    });
+  }
+
+  it("has no glass card carrying a flat side pad", () => {
+    expect(
+      offenders,
+      "Use PANEL_PAD (or `Panel` itself) so a card's sides step down on a " +
+        "phone like every other surface.\nOffenders:\n" + offenders.join("\n")
+    ).toEqual([]);
+  });
+});
+
+/*
+  A pad in `@layer components` loses to a utility already in the base.
+
+  This is the first fault in this file read from the other side. There, a
+  call site's `p-4` beat the panel's `sm:px-6` only by half; here, the
+  shadcn `Empty` primitive carried its own `p-6` and `EmptyState` layered
+  `.surface-gutter` on top -- and a utility beats a component layer
+  whatever the specificity, so the sides stayed at 24px on a phone while
+  the class was asking for 16, with nothing failing. Measured on the real
+  component at 360px: 249px of content against the 281 the override was
+  supposed to give, and the one sentence that says what to do next wrapped
+  to four lines instead of three. Empty states are what a brand new reader
+  meets first, so this was the narrowest column in the product on the
+  screens that could least afford it.
+*/
+describe("the empty state's pad is the one it asks for", () => {
+  const EMPTY = readFileSync("src/components/ui/empty.tsx", "utf8");
+  // Comments only, stripped: the note above the class list names the `p-6`
+  // this rule removed, and reading it as markup would fail on the record of
+  // its own fix.
+  const base = (
+    EMPTY.match(/data-slot="empty"[\s\S]*?cn\(\s*([\s\S]*?)\n\s*className/)?.[1] ?? ""
+  ).replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("leaves the pad to its one caller", () => {
+    expect(base, "no padding utility in the primitive's base").not.toMatch(
+      /\b(?:p|px|py)-\d/
+    );
+  });
+
+  it("is padded by the shared gutter, which steps on a phone", () => {
+    const empty = PANEL.slice(PANEL.indexOf("export function EmptyState"));
+    expect(empty).toMatch(/surface-gutter/);
+  });
+});

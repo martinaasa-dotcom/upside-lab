@@ -521,7 +521,7 @@ function PulseCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
       {c.inBook ? (
-        <div className="glass-well grid grid-cols-2 gap-x-4 gap-y-5 rounded-lg p-4 sm:grid-cols-4 sm:gap-6 sm:p-6">
+        <div className="glass-well nested-pad grid grid-cols-2 gap-x-4 gap-y-5 rounded-lg sm:grid-cols-4 sm:gap-6">
           {/* "worth", not "you hold": the hint truncates, and at 124px on
               a phone "you hold $4,566.38" loses its last two digits. */}
           <Metric label="Price" hint={`worth ${currency(c.currentValue)}`}>

@@ -67,7 +67,7 @@ export default async function AddressLinkedPage({
 
       <main
         id="main"
-        className="mx-auto flex min-w-0 max-w-lg flex-col gap-4 px-6 py-16 text-sm leading-relaxed"
+        className="surface-gutter mx-auto flex min-w-0 max-w-lg flex-col gap-4 py-16 text-sm leading-relaxed"
       >
         <h1 className="text-2xl font-semibold">
           {failed ? "That link did not work" : "That address is connected"}

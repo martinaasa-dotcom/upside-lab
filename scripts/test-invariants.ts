@@ -1790,8 +1790,13 @@ run("circle awards are a grid of cards, not a flat divided list", () => {
   // the clearest margin), and the Today board that used to follow it moved
   // inside a `BelowFold`. Anchored on the section's own `achievements.map`
   // instead, which is what makes it this section rather than any other.
+  // Ends at the card's own closing tag. That used to be `</section>`,
+  // because every card in this room was a hand-rolled glass div; they are
+  // `Panel`s now, and a slice that still looked for `</section>` ran on
+  // past this card into the rest of the room and read another section's
+  // markup as this one's.
   const awardsStart = community.indexOf("Who stands out");
-  const awardsEnd = community.indexOf("</section>", awardsStart);
+  const awardsEnd = community.indexOf("</Panel>", awardsStart);
   const awards = community.slice(awardsStart, awardsEnd);
   assert.match(awards, /grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3/);
   // Each award is a glass-well card, not a divided list row. Asserted by
@@ -2626,7 +2631,18 @@ run("boxes sit off the field, never the same color as the page", () => {
     members,
     /divide-y divide-border overflow-hidden rounded-xl glass ring-1 ring-foreground\/20/
   );
-  assert.match(share, /rounded-xl glass ring-1 ring-foreground\/20 p-6/);
+  /*
+    The rule, not the class string it used to be written as. This asserted
+    `rounded-xl glass ring-1 ring-foreground/20 p-6` -- one hand-rolled
+    card's exact markup, including a flat `p-6` that was itself the bug:
+    the Circle was the one room the design system never reached, so its
+    cards sat 24px inside and 12px apart at every width while a panel
+    steps 16/20 on a phone and a room stacks at 32/40. What matters here
+    is that the toggles sit on a card off the field rather than on the
+    page, and `Panel` is what this app calls that card.
+  */
+  assert.match(share, /<Panel[\s>]/);
+  assert.match(panel, /SHELL_TONES/);
   assert.deepEqual(
     offendersOf(/bg-card\/(?:80|50)\b/),
     [],

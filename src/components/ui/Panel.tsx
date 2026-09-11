@@ -1370,7 +1370,17 @@ export function EmptyState({
   return (
     <Empty
       className={cn(
-        "glass flex-none border border-dashed border-border px-8 py-8",
+        /*
+          The emptiest screens had the narrowest column in the product.
+          A flat `px-8` is 64px of a 360px phone, which left 264px for the
+          one sentence that says what to do next -- and an empty state is
+          what a brand new reader meets first. The sides step with every
+          other surface (`.surface-gutter`, 16 on a phone and 24 from
+          `sm`) and the vertical stays generous, because down is the cheap
+          axis and the air is what makes an empty box read as deliberate
+          rather than as content that failed to arrive.
+        */
+        "glass flex-none border border-dashed border-border surface-gutter py-8",
         className
       )}
     >

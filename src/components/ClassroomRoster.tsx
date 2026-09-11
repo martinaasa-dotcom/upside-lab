@@ -78,7 +78,7 @@ export function ClassroomRoster({
           reason for what they own and who is holding just one company.
         </p>
       </div>
-      <div className="flex flex-col gap-3 p-6 md:hidden">
+      <div className="flex flex-col gap-3 surface-gutter py-6 md:hidden">
         {rows.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
             Nobody has started a paper portfolio yet.

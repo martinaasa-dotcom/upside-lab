@@ -24,7 +24,7 @@ export default function PrivacyPage() {
   return (
     <div className="min-h-dvh bg-background text-foreground">
       <header className="border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
+        <div className="surface-gutter mx-auto flex max-w-3xl items-center justify-between gap-3 py-3">
           <HeaderBrand />
           <Button asChild variant="outline" size="sm">
             <Link href="/">Back</Link>
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
         </div>
       </header>
 
-      <main id="main" className="flex flex-col mx-auto min-w-0 max-w-3xl gap-6 px-6 py-10 text-sm leading-relaxed text-foreground">
+      <main id="main" className="surface-gutter mx-auto flex min-w-0 max-w-3xl flex-col gap-6 py-10 text-sm leading-relaxed text-foreground">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Privacy Policy</h1>
           <p className="mt-1 text-sm text-muted-foreground">Last updated {LAST_UPDATED}</p>

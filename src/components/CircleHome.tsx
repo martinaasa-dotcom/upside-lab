@@ -8,6 +8,9 @@ import { ShareSheets } from "@/components/ShareSheets";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { Button } from "@/components/ui/button";
 import {
+  Panel,
+  PANEL_STACK,
+  PanelHeader,
   Score,
   Scoreboard,
   Segmented,
@@ -342,7 +345,23 @@ export function CircleHome({
       )}
 
       {(shownView === "overview" || shownView === "play") && (
-        <div className="flex flex-col gap-3">
+        /*
+          THE CIRCLE IS A ROOM LIKE EVERY OTHER ROOM, AND FOR A LONG TIME
+          IT WAS THE ONE THE DESIGN SYSTEM NEVER REACHED.
+
+          Every card below was a hand-rolled `rounded-xl glass ring-1 p-6`
+          section rather than a `Panel`, so the spacing pass walked past
+          the whole room: measured against the app's own compiled CSS, the
+          cards sat 24px inside and **12px apart** at every width, where a
+          panel steps 16/20 on a phone and a room stacks at 32/40. The
+          grouping was inverted -- a card's last line was closer to the
+          next card's first line than to its own edge -- which is the
+          exact fault the pass exists to fix, and worse here than the
+          24-against-24 it started from. It also cost 16px of content
+          width on a 360px phone, and the titles were `h3` where every
+          other panel in the product titles at `h2`.
+        */
+        <div className={PANEL_STACK}>
           {/*
             A brand new circle used to open on three score cards reading
             n/a, $0.00 and $0.00, one sentence, and then the share toggles,
@@ -351,15 +370,13 @@ export function CircleHome({
             the order they have to happen in.
           */}
           {shownView === "overview" && empty && (
-            <section className="overview-fade order-1 rounded-xl glass ring-1 ring-foreground/20 p-6">
-              <h3 className="text-foreground">Two steps and this circle is live</h3>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                Everyone here will see how each portfolio moved, which
-                companies are in it, how many shares of each, and what the
-                whole thing is worth today. What anybody paid stays theirs.
-              </p>
+            <Panel className="overview-fade order-1">
+              <PanelHeader
+                title="Two steps and this circle is live"
+                subtitle="Everyone here will see how each portfolio moved, which companies are in it, how many shares of each, and what the whole thing is worth today. What anybody paid stays theirs."
+              />
 
-              <div className="mt-5 flex flex-col gap-2">
+              <div className="flex flex-col gap-2">
                 <p className="text-sm font-semibold text-foreground">
                   1. Pick what this circle sees
                 </p>
@@ -367,7 +384,7 @@ export function CircleHome({
               </div>
 
               {isAdmin ? (
-                <div className="mt-6 flex flex-col gap-2">
+                <div className="flex flex-col gap-2">
                   <p className="text-sm font-semibold text-foreground">
                     2. Send the link
                   </p>
@@ -403,12 +420,12 @@ export function CircleHome({
                   )}
                 </div>
               ) : (
-                <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
+                <p className="text-sm leading-relaxed text-muted-foreground">
                   Nobody else has shared a portfolio here yet. Yours will show
                   up as soon as you pick one above.
                 </p>
               )}
-            </section>
+            </Panel>
           )}
 
           {/*
@@ -419,18 +436,12 @@ export function CircleHome({
             skipped rather than announced.
           */}
           {shownView === "overview" && changes.length > 0 && (
-            <section className="overview-fade order-0 rounded-xl glass ring-1 ring-foreground/20 p-6">
-              <div className="mb-3 flex items-center gap-2.5">
-                <div className="card-sheen glass-well rounded-xl p-2 text-primary">
-                  <History className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="text-foreground">Since you last looked</h3>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    What people bought and sold while you were away
-                  </p>
-                </div>
-              </div>
+            <Panel className="overview-fade order-0">
+              <PanelHeader
+                icon={<History className="h-4 w-4" />}
+                title="Since you last looked"
+                subtitle="What people bought and sold while you were away"
+              />
               <ul className="flex flex-col gap-1.5">
                 {changes.map((line) => (
                   <li
@@ -441,7 +452,7 @@ export function CircleHome({
                   </li>
                 ))}
               </ul>
-            </section>
+            </Panel>
           )}
 
           {shownView === "overview" && !empty && (
@@ -459,31 +470,24 @@ export function CircleHome({
           )}
 
           {shownView === "play" && hasLeague && (
-            <section className="overview-fade order-3 rounded-xl glass ring-1 ring-foreground/20 p-6">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="card-sheen glass-well rounded-xl p-2 text-primary">
-                    <Sparkles className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-foreground">Power animals</h3>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      How each portfolio is put together. Tap a row to open it
-                      up.
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  aria-label="Field guide"
-                  onClick={() => onOpenBestiary()}
-                >
-                  <HelpCircle data-icon="inline-start" />
-                  <span className="hidden sm:inline">Field guide</span>
-                </Button>
-              </div>
+            <Panel className="overview-fade order-3">
+              <PanelHeader
+                icon={<Sparkles className="h-4 w-4" />}
+                title="Power animals"
+                subtitle="How each portfolio is put together. Tap a row to open it up."
+                actions={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label="Field guide"
+                    onClick={() => onOpenBestiary()}
+                  >
+                    <HelpCircle data-icon="inline-start" />
+                    <span className="hidden sm:inline">Field guide</span>
+                  </Button>
+                }
+              />
               <div className="flex flex-col gap-2">
                 {membersWithBooks.map((m) => (
                   <PowerAnimalCard
@@ -501,7 +505,7 @@ export function CircleHome({
                   />
                 ))}
               </div>
-            </section>
+            </Panel>
           )}
 
           {/*
@@ -511,18 +515,12 @@ export function CircleHome({
             holds the rule and the reason.
           */}
           {shownView === "play" && achievements.length > 0 && (
-            <section className="overview-fade order-2 rounded-xl glass ring-1 ring-foreground/20 p-6">
-              <div className="mb-4 flex items-center gap-2.5">
-                <div className="card-sheen glass-well rounded-lg p-2 text-muted-foreground">
-                  <Award className="size-4" />
-                </div>
-                <div>
-                  <h3 className="text-foreground">Who stands out</h3>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    One each, for whatever they are furthest ahead on
-                  </p>
-                </div>
-              </div>
+            <Panel className="overview-fade order-2">
+              <PanelHeader
+                icon={<Award className="size-4" />}
+                title="Who stands out"
+                subtitle="One each, for whatever they are furthest ahead on"
+              />
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {achievements.map((a) => (
                   <button
@@ -559,7 +557,7 @@ export function CircleHome({
                   </button>
                 ))}
               </div>
-            </section>
+            </Panel>
           )}
 
           {/*
@@ -595,18 +593,13 @@ export function CircleHome({
           )}
           {shownView === "overview" && sharedNames.length > 0 && (
             <BelowFold className="order-4" reserve={640}>
-              <section className="overview-fade rounded-xl glass ring-1 ring-foreground/20 p-6">
-                <div className="mb-4 flex items-center gap-2.5">
-                  <div className="rounded-xl bg-gain/15 p-2 text-gain">
-                    <Layers className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-foreground">Holdings you share</h3>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      The companies more than one of you owns
-                    </p>
-                  </div>
-                </div>
+              <Panel className="overview-fade">
+                <PanelHeader
+                  icon={<Layers className="h-4 w-4" />}
+                  iconTone="emerald"
+                  title="Holdings you share"
+                  subtitle="The companies more than one of you owns"
+                />
                 <ItemGroup className="gap-0 has-data-[size=sm]:gap-0">
                   {sharedNames.map((row, i) => (
                     <Fragment key={row.ticker}>
@@ -620,40 +613,41 @@ export function CircleHome({
                     </Fragment>
                   ))}
                 </ItemGroup>
-              </section>
+              </Panel>
             </BelowFold>
           )}
 
           {shownView === "play" && communityThemeBreakdown.length > 0 && (
-            <section className="overview-fade order-5 rounded-xl glass ring-1 ring-foreground/20 p-6">
-              <div className="mb-4 flex items-center gap-2.5">
-                <div className="card-sheen glass-well rounded-xl p-2 text-primary">
-                  <PieChart className="h-4 w-4" />
+            <Panel className="overview-fade order-5">
+              <PanelHeader
+                icon={<PieChart className="h-4 w-4" />}
+                title="What the circle owns"
+                subtitle="Everyone's holdings added together and grouped by kind of business. This shows how the circle is put together, and is not a recommendation."
+              />
+              {/*
+                The two bars are one reading, so they are one child of the
+                panel rather than two: a panel spaces its own children at
+                24/32, which between a bar and the bar it is compared with
+                would read as two separate pictures.
+              */}
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-sm text-muted-foreground">The circle</p>
+                  <ThemeBar slices={communityThemeBreakdown} />
                 </div>
-                <div>
-                  <h3 className="text-foreground">What the circle owns</h3>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    Everyone&apos;s holdings added together and grouped by kind
-                    of business. This shows how the circle is put together, and
-                    is not a recommendation.
-                  </p>
-                </div>
+                {yourThemeBreakdown.length > 0 ? (
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-sm text-muted-foreground">You</p>
+                    <ThemeBar slices={yourThemeBreakdown} />
+                  </div>
+                ) : null}
               </div>
-              <p className="mb-1.5 text-sm text-muted-foreground">The circle</p>
-              <ThemeBar slices={communityThemeBreakdown} />
-              {yourThemeBreakdown.length > 0 ? (
-                <>
-                  <p className="mb-1.5 mt-4 text-sm text-muted-foreground">You</p>
-                  <ThemeBar slices={yourThemeBreakdown} />
-                </>
-              ) : null}
               {gapLine ? (
-                <p className="mt-4 text-sm leading-relaxed text-foreground">
+                <p className="text-sm leading-relaxed text-foreground">
                   {gapLine}
                 </p>
               ) : null}
               <SwatchLegend
-                className="mt-4"
                 items={communityThemeBreakdown.map((t) => ({
                   key: t.theme,
                   label: t.label,
@@ -661,37 +655,33 @@ export function CircleHome({
                   value: themePctLabel(t.pct),
                 }))}
               />
-            </section>
+            </Panel>
           )}
 
           {shownView === "play" && (
-            <section className="overview-fade order-6 rounded-xl glass ring-1 ring-foreground/20 p-6">
-              <div className="mb-4 flex items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2.5">
-                  <div className="card-sheen glass-well rounded-xl p-2 text-primary">
-                    <Lightbulb className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-foreground">Circle facts</h3>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      {funFactsShuffle > 0
-                        ? "These are shuffled. Reload the page for today's own set."
-                        : "A new set every day"}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="touch-target"
-                  onClick={() => setFunFactsShuffle((n) => n + 1)}
-                  title="Show a different set of these"
-                >
-                  <Shuffle data-icon="inline-start" />
-                  Shuffle
-                </Button>
-              </div>
+            <Panel className="overview-fade order-6">
+              <PanelHeader
+                icon={<Lightbulb className="h-4 w-4" />}
+                title="Circle facts"
+                subtitle={
+                  funFactsShuffle > 0
+                    ? "These are shuffled. Reload the page for today's own set."
+                    : "A new set every day"
+                }
+                actions={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="touch-target"
+                    onClick={() => setFunFactsShuffle((n) => n + 1)}
+                    title="Show a different set of these"
+                  >
+                    <Shuffle data-icon="inline-start" />
+                    Shuffle
+                  </Button>
+                }
+              />
               {communityFunFacts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Nobody has shared a portfolio yet.
@@ -739,7 +729,7 @@ export function CircleHome({
                   ))}
                 </ItemGroup>
               )}
-            </section>
+            </Panel>
           )}
         </div>
       )}
