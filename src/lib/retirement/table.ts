@@ -91,7 +91,21 @@ function asCash(inputs: RetirementInputs): RetirementInputs {
   return {
     ...inputs,
     glide: cashOnlyGlide(),
-    returns: { ...inputs.returns, cashPct: 0, feePct: 0 },
+    /*
+      Zero real, which is the CAUTIOUS reading of cash and is chosen so
+      this column is comparable with the one beside it.
+
+      The invested column is a safe withdrawal rate: what would have
+      survived the worst run in the record. Pricing cash at its long run
+      average instead would put an expected case next to a worst case, and
+      the comparison inverts, with cash appearing to need a smaller pot
+      than investing. Cash's own bad run is a decade of high inflation
+      eating the nominal return, which is exactly zero real, so this is
+      the matching assumption rather than a rigged one. The Assumptions
+      panel lets a reader price cash at whatever they like on their own
+      plan; this one column holds it at the cautious figure and says so.
+    */
+    returns: { ...inputs.returns, cashPct: 0 },
     swrOverridePct: null,
   };
 }

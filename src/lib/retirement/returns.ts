@@ -137,8 +137,18 @@ export function realReturnAt(
   const bond = finiteNumber(assumptions.bondPct, 0) / 100;
   const cash = finiteNumber(assumptions.cashPct, 0) / 100;
   const fee = Math.max(0, finiteNumber(assumptions.feePct, 0)) / 100;
-  const gross = equity <= 0 && glideIsCashOnly(glide) ? cash : equity * eq + (1 - equity) * bond;
-  return gross - fee;
+  /*
+    NOBODY PAYS A PLATFORM CHARGE ON A SAVINGS ACCOUNT, so the fee does not
+    come off a cash-only plan.
+
+    Left in, it made the module hold two different definitions of "cash" at
+    once: the grid's column zeroed the fee and the Assumptions preset did
+    not, so the same reader got one answer from the table and another from
+    the switch, with nothing on the page explaining the gap. Two systems
+    that must agree and do not is worse than either being wrong.
+  */
+  if (glideIsCashOnly(glide)) return cash;
+  return equity * eq + (1 - equity) * bond - fee;
 }
 
 /** Nothing in shares at any age, which is the one case that means cash. */

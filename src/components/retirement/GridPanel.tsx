@@ -167,7 +167,7 @@ export function GridPanel({
         </MicroLabel>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           {mode === "cash"
-            ? "No growth at all, and no fees either, because nobody pays a platform charge on a savings account. A savings account roughly keeps pace with inflation over long stretches, so this is the fairest version of it rather than a rigged one. The last column is what you would have to put away each month, and it is the single most useful number on this page for somebody who has not started."
+            ? "Cash keeping pace with inflation and no more, and no fees, because nobody pays a platform charge on a savings account. That is the cautious reading of cash, and it is deliberately the cautious one: the invested column is a rate built to survive the worst run in the record, so pricing cash at its long run average instead would put an expected case next to a worst case and the comparison would invert. Cash has a bad run of its own, and it is a decade of high inflation. The last column is what you would have to put away each month, and it is the most useful number on this page for somebody who has not started."
             : "The rate column falls as you move up the table, and that is not an error. A longer retirement is not slightly harder to fund than a shorter one, so the same life needs a bigger pot the earlier you stop, on top of having fewer years to build it in."}
         </p>
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">

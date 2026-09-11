@@ -236,6 +236,19 @@ describe("the mix and what it earns", () => {
     const cash = realReturnAt(40, cashOnlyGlide(), { ...DEFAULT_RETURN_ASSUMPTIONS, feePct: 0 });
     expect(cash).toBeCloseTo(DEFAULT_RETURN_ASSUMPTIONS.cashPct / 100, 10);
   });
+
+  it("charges no platform fee on a savings account", () => {
+    /*
+      Left in, this made the module hold two definitions of cash at once:
+      the grid zeroed the fee and the Assumptions preset did not, so the
+      table and the switch answered differently for one reader.
+    */
+    const withFee = realReturnAt(40, cashOnlyGlide(), {
+      ...DEFAULT_RETURN_ASSUMPTIONS,
+      feePct: 1.5,
+    });
+    expect(withFee).toBeCloseTo(DEFAULT_RETURN_ASSUMPTIONS.cashPct / 100, 10);
+  });
 });
 
 describe("what a year of retirement costs", () => {

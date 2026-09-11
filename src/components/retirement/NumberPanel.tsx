@@ -153,8 +153,8 @@ export function NumberPanel({
           code={code}
           widthPct={100}
           color="var(--primary)"
-          lead="You are holding this in cash, so there is no order of returns to get wrong and no safe withdrawal rate to apply. This is simply every year of your plan added up."
-          assumes={`cash keeps pace with inflation and earns nothing beyond it, and you spend the last of it in ${plan.planningAge}.`}
+          lead="You are holding this in cash, so there is no order of returns to get wrong and no safe withdrawal rate to apply. This is every year of your plan added up and discounted at what cash earns."
+          assumes={`cash returns ${plan.realReturnPct.toFixed(2)}% a year after inflation and you spend the last of it at ${plan.planningAge}. That is the whole risk in this answer: cash cannot fall like shares, and a decade of high inflation takes just as much from it.`}
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
