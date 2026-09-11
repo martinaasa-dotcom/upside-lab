@@ -558,7 +558,7 @@ export const LabSheet = memo(function LabSheet({
 
                 <div>
                   <Progress
-                    value={Math.max(2, Math.min(100, personality.diversificationScore))}
+                    value={barFillPct(personality.diversificationScore, 2)}
                     className="h-3 bg-secondary"
                   />
                   <div className="mt-2 flex justify-between gap-4 text-xs text-muted-foreground">
@@ -866,7 +866,7 @@ function AllocCard({
               </span>
             </div>
             <Progress
-              value={Math.min(100, s.pct * 100)}
+              value={barFillPct(s.pct * 100)}
               className="h-2 bg-secondary"
             />
           </div>

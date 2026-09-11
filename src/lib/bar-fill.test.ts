@@ -31,6 +31,18 @@ import { barFillPct } from "@/lib/format";
   fault rotated 90 degrees, and a ratio that can run away does not care
   which axis it is drawn on.
 
+  `<Progress value={...}>` (`src/components/ui/progress.tsx`) is the same
+  fault through a different door: its indicator is
+  `translateX(-${100 - value}%)`, and nothing in that component refuses a
+  `value` outside [0, 100] — a `value` of `Infinity` reaches the DOM as
+  `translateX(-Infinity%)`. `OverviewDashboard`'s portfolio-size bar found
+  this by accident: it divided `sheet.totalValue` (read raw) by a peak
+  that had been sanitized with `finiteNumber` elsewhere, so a corrupted
+  sheet total (NaN or Infinity, from a bad holding upstream) could reach
+  `value` unclamped where the peak it was measured against could not.
+  Every `<Progress value={...}>` site is walked the same way as a
+  `width`/`height` fill, below.
+
   The last describe block goes one step further than the source scan: it
   actually renders `BusinessPanel` with BMNR's real, reported figures
   through `react-dom/server` and reads the widths back out of the HTML it
@@ -89,6 +101,23 @@ function isBareIdentifier(expr: string): boolean {
   return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(expr.trim());
 }
 
+/**
+ * Source with block comments blanked out (same line count, so reported
+ * line numbers still match the real file).
+ *
+ * Without this, a comment that quotes a bar-fill expression in prose —
+ * exactly what the doc comments in this codebase do, including the ones
+ * a few lines up from here — reads as a second, real site. Line comments
+ * are left alone: nobody writes a `width: \`${...}%\`` or
+ * `<Progress value={...}>` inside a `//` comment in practice, and a
+ * full comment-aware parser is more machinery than this scan needs.
+ */
+function withoutBlockComments(text: string): string {
+  return text.replace(/\/\*[\s\S]*?\*\//g, (m) =>
+    m.replace(/[^\n]/g, " ")
+  );
+}
+
 function sourceFiles(dir: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir)) {
@@ -109,8 +138,7 @@ type Site = { file: string; line: number; prop: "width" | "height"; expr: string
 function barFillSites(): Site[] {
   const sites: Site[] = [];
   for (const file of sourceFiles("src")) {
-    const text = readFileSync(file, "utf8");
-    const lines = text.split("\n");
+    const lines = withoutBlockComments(readFileSync(file, "utf8")).split("\n");
     lines.forEach((line, i) => {
       const m = line.match(/(width|height):\s*`\$\{([^}]*)\}%`/);
       if (m)
@@ -125,13 +153,53 @@ function barFillSites(): Site[] {
   return sites;
 }
 
-/** Whether `identifier` was assigned in `file` from a `barFillPct(` call. */
+type ProgressSite = { file: string; line: number; expr: string };
+
+/** Every `<Progress value={EXPR}>` site in `src/`. */
+function progressValueSites(): ProgressSite[] {
+  const sites: ProgressSite[] = [];
+  for (const file of sourceFiles("src")) {
+    if (file.endsWith("src/components/ui/progress.tsx")) continue;
+    const lines = withoutBlockComments(readFileSync(file, "utf8")).split("\n");
+    lines.forEach((line, i) => {
+      if (!/<Progress\b/.test(line)) return;
+      // The value prop is usually its own line right after the tag; look
+      // a few lines ahead rather than assuming it is on the same line.
+      for (let j = i; j < Math.min(i + 4, lines.length); j++) {
+        const m = lines[j]!.match(/\bvalue=\{([^}]*)\}/);
+        if (m) {
+          sites.push({ file, line: j + 1, expr: m[1]!.trim() });
+          return;
+        }
+      }
+    });
+  }
+  return sites;
+}
+
+/**
+ * Whether `identifier` was assigned in `file` by a statement whose right
+ * side calls `barFillPct(` — anywhere in that statement, not only
+ * immediately after the `=`.
+ *
+ * A plain `const foo = barFillPct(...)` is the common case, but
+ * `OverviewDashboard`'s portfolio-size bar is `const width = cond ?
+ * barFillPct(...) : 10`, a ternary, where the clamp sits inside one
+ * branch rather than right after the `=`. Matching only the immediate
+ * next token would call that unclamped when it is not. So this finds the
+ * declaration and reads forward to the statement's own terminating `;`
+ * (or, failing that, a generous window) rather than pattern-matching the
+ * first few characters after `=`.
+ */
 function identifierIsClamped(file: string, identifier: string): boolean {
-  const text = readFileSync(file, "utf8");
-  const re = new RegExp(
-    `(?:const|let)\\s+${identifier}\\s*=\\s*barFillPct\\(`
-  );
-  return re.test(text);
+  const text = withoutBlockComments(readFileSync(file, "utf8"));
+  const declRe = new RegExp(`(?:const|let)\\s+${identifier}\\s*=`);
+  const m = declRe.exec(text);
+  if (!m) return false;
+  const start = m.index + m[0].length;
+  const semi = text.indexOf(";", start);
+  const end = semi === -1 ? Math.min(start + 400, text.length) : semi;
+  return text.slice(start, end).includes("barFillPct(");
 }
 
 describe("barFillPct clamps a fill to the box it draws in", () => {
@@ -205,6 +273,44 @@ describe("every bar-fill width or height in src/ stays inside its own box", () =
       expect(liveKeys.has(key)).toBe(true);
     }
   });
+});
+
+describe("every <Progress value={...}> in src/ is clamped, not just floored", () => {
+  /*
+    `Progress`'s indicator is `translateX(-${100 - value}%)` with nothing
+    refusing a `value` outside [0, 100]. `Math.min(100, x)` alone is not
+    enough: `Math.min` returns NaN the moment either argument is NaN, so a
+    site that floors with `Math.max` but ceilings with a bare `Math.min`
+    still hands the DOM `translateX(-NaN%)` on the one input (a corrupted
+    upstream total) this whole file exists because of. Every site here is
+    required to route through `barFillPct`, full stop — there is no
+    ALLOWED list for this one, because unlike a `width` fill built from
+    the same array as its own peak, nothing about a `<Progress value>`
+    prop is safe by construction; it is a bare number from wherever the
+    caller got it.
+  */
+  const sites = progressValueSites();
+
+  it("found <Progress value={...}> sites to check", () => {
+    expect(sites.length).toBeGreaterThan(0);
+  });
+
+  for (const site of sites) {
+    const key = `${site.file}:${site.line}`;
+    it(`${key}: \`value={${site.expr}}\` routes through barFillPct`, () => {
+      const direct = site.expr.includes("barFillPct(");
+      const viaVariable =
+        isBareIdentifier(site.expr) && identifierIsClamped(site.file, site.expr);
+      if (!direct && !viaVariable) {
+        throw new Error(
+          `${key} passes Progress a value ("${site.expr}") that does not ` +
+            `route through barFillPct(). Math.min(100, x) is not enough: ` +
+            `it returns NaN on a NaN input instead of clamping it. Wrap ` +
+            `it in barFillPct().`
+        );
+      }
+    });
+  }
 });
 
 describe("the business panel's money bar cannot overflow its own row", () => {

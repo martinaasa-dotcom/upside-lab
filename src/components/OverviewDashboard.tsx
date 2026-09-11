@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/Panel";
 import { KIND_GLYPH, TONE_GLYPH, TONE_RING } from "@/components/AlertCards";
 import type { MarginToneName } from "@/lib/margin-health";
-import { NO_VALUE, cashtag, cn, currency, percent, plural, signedCurrency, signedPercent, signedTone } from "@/lib/format";
+import { NO_VALUE, barFillPct, cashtag, cn, currency, percent, plural, signedCurrency, signedPercent, signedTone } from "@/lib/format";
 import {
   portfolioDayLine,
   typicalMoveForPortfolio,
@@ -875,8 +875,17 @@ function PortfolioLane({
   allValue: number;
   onOpen: () => void;
 }) {
+  /*
+    `maxValue` is sanitized with `finiteNumber` at the call site (a bad
+    holding can make one sheet's own total NaN or Infinity), but
+    `sheet.totalValue` here is read raw. A ratio of a sanitized peak
+    against an unsanitized value is exactly the shape that broke The
+    business panel: an Infinity numerator survives the division and
+    reaches `<Progress value={Infinity}>`, which has nothing to refuse
+    it. `barFillPct` is the floor and the ceiling both.
+  */
   const width =
-    maxValue > 0 ? Math.max(10, (sheet.totalValue / maxValue) * 100) : 10;
+    maxValue > 0 ? barFillPct((sheet.totalValue / maxValue) * 100, 10) : 10;
   const share = allValue > 0 ? sheet.totalValue / allValue : null;
   const shareOfAll =
     share == null
