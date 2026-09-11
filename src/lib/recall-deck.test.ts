@@ -361,3 +361,103 @@ describe("words that did not stick come back as questions", () => {
     expect(withEmpty).toEqual(without);
   });
 });
+
+describe("a word that did not land comes back soon, not eventually", () => {
+  const words = {
+    today: { id: "today", first: "2026-09-12", last: "2026-09-12", times: 2 },
+    premium: { id: "premium", first: "2026-09-12", last: "2026-09-12", times: 3 },
+    dividend: { id: "dividend", first: "2026-09-12", last: "2026-09-12", times: 2 },
+  };
+
+  function deck(extra: Record<string, unknown> = {}) {
+    return buildRecallCards({
+      holdings: [
+        { ticker: "AAA", shares: 10, buyPrice: 10, price: 20, value: 200, todayPct: 1 },
+        { ticker: "BBB", shares: 5, buyPrice: 40, price: 30, value: 150, todayPct: -1 },
+        { ticker: "CCC", shares: 2, buyPrice: 5, price: 9, value: 18, todayPct: 0.5 },
+      ],
+      totalValue: 368,
+      cash: 20,
+      todayPct: 0.4,
+      money: (n: number) => `$${n.toFixed(0)}`,
+      percent: (n: number) => `${(n * 100).toFixed(0)}%`,
+      words,
+      ...extra,
+    } as Parameters<typeof buildRecallCards>[0]);
+  }
+
+  it("comes back within a couple of visits, not a fortnight", () => {
+    /*
+      Measured on the running app before this: with twice-opened words
+      seeded, the first word card arrived on the twelfth reload, because
+      it was one concept among a dozen on the roll. For somebody opening
+      the app daily that is a fortnight after they asked.
+    */
+    const cards = deck();
+    for (const start of [0, 1, 2, 5, 10, 41]) {
+      const seen = [start, start + 1].map(
+        (r) => pickCard(cards, {}, "2026-09-12", r)?.concept
+      );
+      expect(seen, `rolls ${start} and ${start + 1}`).toContain("word");
+    }
+  });
+
+  it("leaves the rest of the deck to somebody who never answers", () => {
+    /*
+      The bound, and the reason this is every other visit rather than
+      every one. Given outright priority it was measured on the running
+      app serving a word card on all five of five consecutive visits,
+      which is the fault the roll itself was introduced for in new
+      clothes: a reader who does not tap loses the portfolio half of the
+      deck entirely.
+    */
+    const cards = deck();
+    const concepts = Array.from({ length: 10 }, (_, r) =>
+      pickCard(cards, {}, "2026-09-12", r)?.concept
+    );
+    expect(concepts.filter((c) => c === "word").length).toBeGreaterThan(0);
+    expect(concepts.filter((c) => c !== "word").length).toBeGreaterThan(0);
+  });
+
+  it("still varies which word it asks", () => {
+    const cards = deck();
+    const asked = new Set(
+      [0, 2, 4, 6].map((r) => pickCard(cards, {}, "2026-09-12", r)?.id)
+    );
+    expect(asked.size).toBeGreaterThan(1);
+  });
+
+  it("leaves the queue once answered, so it cannot monopolise", () => {
+    /*
+      The bound that keeps this from re-creating the fault the roll was
+      introduced for. An answered card has state, so it is no longer
+      unseen and falls back to the schedule.
+    */
+    const cards = deck();
+    const state: Record<string, { box: number; due: string }> = {};
+    for (const c of cards) {
+      if (c.concept === "word") state[c.id] = { box: 3, due: "2099-01-01" };
+    }
+    const picked = pickCard(cards, state as never, "2026-09-12", 4);
+    expect(picked).not.toBeNull();
+    expect(picked?.concept).not.toBe("word");
+  });
+
+  it("does nothing at all for a reader who looked nothing up", () => {
+    const cards = buildRecallCards({
+      holdings: [
+        { ticker: "AAA", shares: 10, buyPrice: 10, price: 20, value: 200, todayPct: 1 },
+        { ticker: "BBB", shares: 5, buyPrice: 40, price: 30, value: 150, todayPct: -1 },
+        { ticker: "CCC", shares: 2, buyPrice: 5, price: 9, value: 18, todayPct: 0.5 },
+      ],
+      totalValue: 368,
+      cash: 20,
+      todayPct: 0.4,
+      money: (n: number) => `$${n.toFixed(0)}`,
+      percent: (n: number) => `${(n * 100).toFixed(0)}%`,
+    } as Parameters<typeof buildRecallCards>[0]);
+    expect(cards.some((c) => c.concept === "word")).toBe(false);
+    const picked = pickCard(cards, {}, "2026-09-12", 3);
+    expect(picked?.concept).not.toBe("word");
+  });
+});

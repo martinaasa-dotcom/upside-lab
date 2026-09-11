@@ -32,6 +32,15 @@ import { daySize, type TypicalMove } from "@/lib/typical-move";
 /** Days from a correct answer to the next asking, one entry per box. */
 const INTERVALS = [1, 3, 7, 21, 60] as const;
 
+/**
+ * How often an unlearned word may jump the roll: every other visit.
+ *
+ * One would take the whole deck (measured: five word cards on five
+ * consecutive visits), and the roll's own uniform share is one in twelve,
+ * which is a fortnight for somebody opening the app daily.
+ */
+const WORD_EVERY = 2;
+
 /** Answered right at the last box: the reader knows it, so it rests. */
 export const LAST_BOX = INTERVALS.length;
 
@@ -156,10 +165,38 @@ export function pickCard(
     .filter((c) => state[c.id])
     .sort((a, b) => (state[a.id]!.due < state[b.id]!.due ? -1 : 1));
   if (seen.length) return seen[0]!;
+
+  /*
+    A word the reader opened twice goes ahead of the roll.
+
+    This is the same argument the line above rests on -- a card that has
+    come round before is the asking that teaches -- and it applies with
+    more force here, because a definition opened a second time is the one
+    piece of evidence in the product that something did not land. Left in
+    the roll it was one concept among a dozen: measured on the running
+    app, seeding three twice-opened words and reloading Home, the first
+    word card arrived on the **twelfth** visit, which for somebody opening
+    the app daily is a fortnight after they asked.
+
+    It takes every other visit and not every one, which is the whole of
+    the balance. Given outright priority it was measured on the running
+    app serving a word card on **all five** of five consecutive visits,
+    which is the fault the roll itself was introduced for wearing better
+    clothes: a reader who does not tap loses the portfolio half of the
+    deck entirely. Alternating puts the wait at about two visits instead
+    of twelve and leaves the other half of the deck intact for somebody
+    who never answers.
+
+    It is bounded twice over besides: only a word opened twice qualifies,
+    and answering one gives it state, so it stops being unseen and falls
+    back to the schedule above.
+  */
+  const r = Math.abs(Math.floor(roll)) || 0;
+  const wanted = due.filter((c) => c.concept === "word");
+  if (wanted.length && r % WORD_EVERY === 0) return wanted[r % wanted.length]!;
   const byConcept = new Map<string, RecallCard[]>();
   for (const c of due) byConcept.set(c.concept, [...(byConcept.get(c.concept) ?? []), c]);
   const concepts = [...byConcept.keys()];
-  const r = Math.abs(Math.floor(roll)) || 0;
   const group = byConcept.get(concepts[r % concepts.length]!)!;
   return group[Math.floor(r / concepts.length) % group.length]!;
 }
