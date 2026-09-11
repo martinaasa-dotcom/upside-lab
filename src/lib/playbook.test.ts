@@ -358,17 +358,66 @@ describe("Home has a door into this room", () => {
   matching case in `market-temperature.test.ts` for why it is reachable.
 */
 describe("the market snapshot still caches a merged reading", () => {
-  it("compares the answer against the cached row, not the raw fetch", () => {
-    const src = readFileSync(
+  const fetcher = () =>
+    readFileSync(
       join(process.cwd(), "src/lib/market/sentiment-fetch.ts"),
       "utf8"
     );
+
+  it("compares the answer against the cached row, not the raw fetch", () => {
     // Only the positive assertion. The note above that line in the source
     // quotes the old, wrong test to explain it, so a scan for the absence
     // of that spelling fails on the comment that exists to prevent it.
-    expect(src).toMatch(/chosen !== prev/);
+    expect(fetcher()).toMatch(/chosen !== prev/);
   });
 });
+
+/*
+  THE TEN-YEAR READ IS NOT ON THE PAYLOAD EVERY READER POLLS.
+
+  It needs the same ten years of closes the 200-day average already costs,
+  so it is computed on that one walk; that argued for computing it in the
+  fetcher and it never argued for shipping it on the fetcher's response.
+  The two got conflated and the field rode along on the snapshot Home polls,
+  measured at **24% larger, 201 bytes of 810 gzipped**, for a figure one Lab
+  tab draws. It has its own route now, read from the same cache, and the
+  Playbook asks for it from inside the fold so a reader who never scrolls
+  that far never asks at all.
+*/
+describe("the ten-year read travels on its own", () => {
+  const read = (f: string) => readFileSync(join(process.cwd(), f), "utf8");
+
+  it("is off the shared snapshot type", () => {
+    const metrics = read("src/lib/market-sentiment.ts");
+    expect(metrics).not.toMatch(/bestDays/);
+  });
+
+  it("is computed on the same walk rather than fetched again", () => {
+    const fetcher = read("src/lib/market/sentiment-fetch.ts");
+    expect(fetcher).toMatch(/bestDaysFromCloses/);
+    // One chart per walk: the ten-year read must not open its own.
+    expect(fetcher.match(/fetchSpyBars\(/g) ?? []).toHaveLength(2);
+  });
+
+  it("has a route that reads the cache rather than the provider", () => {
+    const route = read("src/app/api/market/best-days/route.ts");
+    expect(route).toMatch(/fetchBestDaysRead/);
+    expect(route).not.toMatch(/getYahoo|yf\.chart/);
+  });
+
+  it("is asked for from inside the fold, not on mount", () => {
+    const panel = read("src/components/playbook/PlaybookPanel.tsx");
+    const section = read("src/components/playbook/BestDaysSection.tsx");
+    expect(section).toMatch(/api\/market\/best-days/);
+    // The fetch must sit inside a BelowFold, so the mount is what gates it.
+    const fold = panel.indexOf("<BelowFold reserve={320}>");
+    const use = panel.indexOf("<BestDaysSection>");
+    expect(fold).toBeGreaterThan(-1);
+    expect(use).toBeGreaterThan(fold);
+    expect(panel).not.toMatch(/best-days/);
+  });
+});
+
 
 /*
   A body opened by a button says which button opened it, or a reader on a

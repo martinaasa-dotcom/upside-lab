@@ -60,10 +60,23 @@ export type BestDaysRead = {
 const NEAR_DAYS = 10;
 const CLUSTER_SAMPLE = 10;
 
+/*
+  Six decimal places, because the seventeen a float prints are noise here.
+
+  A multiple is a derived quantity rendered as whole dollars and as a yearly
+  rate to one decimal, and `5.097025169688991` moves neither: measured, all
+  five figures on the panel are identical either way. What the extra digits
+  do is travel, and this crosses a route and a `localStorage` write, so they
+  are rounded where the number is made rather than where it is drawn.
+*/
+function round6(n: number): number {
+  return Math.round(n * 1e6) / 1e6;
+}
+
 function multipleOf(returns: number[]): number {
   let acc = 1;
   for (const r of returns) acc *= 1 + r;
-  return acc;
+  return round6(acc);
 }
 
 /** Indices of the `count` largest (or smallest) daily returns. */

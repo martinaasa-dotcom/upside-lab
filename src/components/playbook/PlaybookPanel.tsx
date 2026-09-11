@@ -1,6 +1,7 @@
 "use client";
 
 import { BestDays } from "@/components/playbook/BestDays";
+import { BestDaysSection } from "@/components/playbook/BestDaysSection";
 import { IdeaDeck } from "@/components/playbook/IdeaDeck";
 import { RecoveryGap } from "@/components/playbook/RecoveryGap";
 import { TemperatureLadder } from "@/components/playbook/TemperatureLadder";
@@ -75,7 +76,6 @@ const EMPTY: SentimentMetrics = {
   typicalMoreDays: null,
   alreadyLong: false,
   spark: null,
-  bestDays: null,
   asOf: null,
 };
 
@@ -158,7 +158,6 @@ export function PlaybookPanel() {
   );
 
   const score = metrics.fearGreed;
-  const bestDays = metrics.bestDays ?? null;
 
   return (
     /*
@@ -195,19 +194,25 @@ export function PlaybookPanel() {
         </WidgetErrorBoundary>
       </BelowFold>
 
-      {bestDays ? (
-        <BelowFold reserve={320}>
-          <WidgetErrorBoundary name="Best days">
-            <Section
-              title="Where the returns actually come from"
-              subtitle="The most quoted statistic in investing, worked out here from the index itself rather than repeated from somewhere, with the half that is usually left off."
-              icon={<Sparkles aria-hidden className="size-4" />}
-            >
-              <BestDays read={bestDays} />
-            </Section>
-          </WidgetErrorBoundary>
-        </BelowFold>
-      ) : null}
+      {/*
+        The fetch lives inside the fold, so a reader who never scrolls this
+        far never asks for it. See `BestDaysSection`.
+      */}
+      <BelowFold reserve={320}>
+        <WidgetErrorBoundary name="Best days">
+          <BestDaysSection>
+            {(read) => (
+              <Section
+                title="Where the returns actually come from"
+                subtitle="The most quoted statistic in investing, worked out here from the index itself rather than repeated from somewhere, with the half that is usually left off."
+                icon={<Sparkles aria-hidden className="size-4" />}
+              >
+                <BestDays read={read} />
+              </Section>
+            )}
+          </BestDaysSection>
+        </WidgetErrorBoundary>
+      </BelowFold>
 
       <BelowFold reserve={380}>
         <WidgetErrorBoundary name="Ideas">

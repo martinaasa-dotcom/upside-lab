@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   preferSentimentSnapshot,
-  spySparkFromCloses,
   type SentimentMetrics,
 } from "@/lib/market-sentiment";
 import {
@@ -145,37 +144,24 @@ describe("the yearly rate", () => {
 });
 
 /*
-  THE TWO HALVES OF THE CHART HAVE DIFFERENT APPETITES, AND THAT BROKE THE
-  SNAPSHOT CACHE.
+  A MERGE IS A THIRD ANSWER, AND THE FETCHER HAS TO NOTICE IT.
 
-  `preferSentimentSnapshot` has three answers, not two: the new reading, the
-  old one, or a MERGE that carries forward an expensive half the new fetch
-  did not get. The fetcher used to decide whether to cache by asking whether
-  the answer was identical to the raw fetch, which reads a merge as "nothing
+  `preferSentimentSnapshot` can hand back the new reading, the old one, or a
+  MERGE that carries the previous spark forward when this walk did not get
+  one. `sentiment-fetch.ts` decided whether to cache by asking whether the
+  answer was identical to the raw fetch, which reads a merge as "nothing
   new" and declines to store a snapshot full of fresh gauges. Nothing looks
   wrong when that happens; the app simply stops caching and walks the
   provider on every single request, on a free tier.
 
-  It never fired before, because the only thing carried forward was the
-  spark, and a chart too short for a spark is too short for anything. The
-  ten-year read has a larger appetite than the spark does, so a truncated
-  chart now yields one and not the other, which is exactly the case. This
-  holds the condition that made it reachable.
+  The ten-year read is what made it reachable, by being a second expensive
+  half of the same chart with a larger appetite than the spark. That read has
+  since moved off this payload onto its own route, so the merge is the
+  spark's again, which is where it always was: this holds the condition
+  itself, and `playbook.test.ts` holds the fetcher's side of it.
 */
-describe("a truncated chart yields a spark but no ten-year read", () => {
-  function bars(n: number) {
-    const closes: number[] = [100];
-    const at: string[] = [];
-    const start = Date.UTC(2014, 0, 2);
-    for (let i = 0; i < n; i++) {
-      at.push(new Date(start + i * 86_400_000 * 1.45).toISOString().slice(0, 10));
-      if (i) closes.push(closes[i - 1]! * (i % 2 ? 1.002 : 0.999));
-    }
-    return { closes, at };
-  }
-
-  function snapshot(n: number): SentimentMetrics {
-    const { closes, at } = bars(n);
+describe("a snapshot that carries the previous spark forward", () => {
+  function snapshot(spark: SentimentMetrics["spark"]): SentimentMetrics {
     return {
       vix: 18,
       rsi: 55,
@@ -187,33 +173,27 @@ describe("a truncated chart yields a spark but no ten-year read", () => {
       streakDays: 10,
       typicalMoreDays: 5,
       alreadyLong: false,
-      spark: spySparkFromCloses(closes, at, 10),
-      bestDays: bestDaysFromCloses(closes, at),
+      spark,
       asOf: new Date().toISOString(),
     };
   }
 
-  it("is a real condition and not a hypothetical one", () => {
-    const short = snapshot(400);
-    expect(short.spark).not.toBeNull();
-    expect(short.bestDays).toBeNull();
-  });
+  const withSpark = snapshot({ price: [1, 2, 3], usual: [1, 1, 1] });
+  const withNone = snapshot(null);
 
-  it("carries the older read forward rather than dropping it", () => {
-    const full = snapshot(2600);
-    const short = snapshot(400);
-    const chosen = preferSentimentSnapshot(full, short);
-    expect(chosen.bestDays).toBe(full.bestDays);
-    expect(chosen.fearGreed).toBe(short.fearGreed);
+  it("keeps the older picture rather than dropping it", () => {
+    const chosen = preferSentimentSnapshot(withSpark, withNone);
+    expect(chosen.spark).toBe(withSpark.spark);
   });
 
   it("hands back neither input, which is what the fetcher must notice", () => {
-    const full = snapshot(2600);
-    const short = snapshot(400);
-    const chosen = preferSentimentSnapshot(full, short);
-    // The fetcher decides on `chosen !== prev`. Identity against the raw
-    // fetch is the test that was wrong; this says why it cannot be used.
-    expect(chosen).not.toBe(short);
-    expect(chosen).not.toBe(full);
+    const chosen = preferSentimentSnapshot(withSpark, withNone);
+    expect(chosen).not.toBe(withNone);
+    expect(chosen).not.toBe(withSpark);
+  });
+
+  it("is the same object when there is nothing to carry", () => {
+    expect(preferSentimentSnapshot(withSpark, withSpark)).toBe(withSpark);
+    expect(preferSentimentSnapshot(null, withSpark)).toBe(withSpark);
   });
 });
