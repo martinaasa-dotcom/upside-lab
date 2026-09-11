@@ -10,6 +10,10 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  TIER_HIDDEN_LAB_TABS,
+  TIER_HIDDEN_META_TABS,
+} from "@/lib/experience-tier";
+import {
   clearSeenTourVersion,
   loadSeenTourVersion,
   saveSeenTourVersion,
@@ -248,5 +252,105 @@ describe("screenCopy", () => {
       .join(" ")
       .toLowerCase();
     expect(everything).not.toMatch(/\byour book\b|\bthe book\b|\bsheet\b/);
+  });
+});
+
+/*
+  The walkthrough may not describe a gate that does not exist.
+
+  `TIER_HIDDEN_META_TABS` and `TIER_HIDDEN_LAB_TABS` are empty on every tier
+  (experience-tier.ts): no room is hidden from anybody, and AGENTS.md records
+  that as a decision rather than an oversight. `AboutYouScreen` reads those
+  tables so its dock preview cannot drift, and that was taken to mean the
+  walkthrough as a whole was safe. It was not. Two pieces of hand-written
+  copy still promised a locked room: `RoomsScreen`'s Lab description said it
+  "arrives once you say you are comfortable, and a Risk view once you say
+  very experienced", and the first answer's own detail line said "Lab waits
+  until you ask for it". Both told somebody who had just called themselves
+  new that a room was being withheld, which is a thing they can find out is
+  untrue by pressing it.
+
+  What the first answer really decides is which panels start folded away.
+  This fails if a tour file starts promising otherwise again.
+*/
+describe("the tour never promises a room that is already there", () => {
+  const TOUR_FILES = [
+    "src/components/tour/RoomsScreen.tsx",
+    "src/components/tour/AboutYouScreen.tsx",
+    "src/components/tour/GroundRulesScreen.tsx",
+    "src/components/tour/FirstWeekScreen.tsx",
+    "src/components/WelcomeTour.tsx",
+  ];
+
+  it("has no tier gate left to describe", () => {
+    for (const tier of ["novice", "investor", "advanced"] as const) {
+      expect(TIER_HIDDEN_META_TABS[tier]).toEqual([]);
+      expect(TIER_HIDDEN_LAB_TABS[tier]).toEqual([]);
+    }
+  });
+
+  for (const file of TOUR_FILES) {
+    it(`${file} does not say a room waits, arrives or is off the bar`, () => {
+      const src = readFileSync(file, "utf8");
+      // Strings only: the comments in these files discuss the removed gate
+      // on purpose, so that the next person to want one meets the argument.
+      const strings = [...src.matchAll(/"([^"\\]{12,})"/g)].map((m) => m[1]);
+      for (const line of strings) {
+        expect(
+          line,
+          `${file}: no room is hidden on any tier, so the walkthrough cannot promise one arrives later`
+        ).not.toMatch(
+          /\b(lab|risk|a room|every room)\b[^.]*\b(waits|arrives|unlocks|off the bar|once you)\b/i
+        );
+      }
+    });
+  }
+});
+
+/*
+  The ground rules cannot be skipped by pressing the obvious button.
+
+  The screen used to keep its own claim index and draw its own "Next one"
+  button inside the card, while the shell's pinned footer carried the big
+  "Next" under the thumb. Two forward affordances, and the big one jumped
+  the whole stage: pressing it after the first claim threw away every claim
+  after it, silently, which is what happened to the first person who read
+  it. One way forward now, and it is the footer's, which steps the claims
+  before it steps the stage.
+*/
+describe("the ground rules have one way forward", () => {
+  const SCREEN = readFileSync(
+    "src/components/tour/GroundRulesScreen.tsx",
+    "utf8"
+  );
+  const SHELL = readFileSync("src/components/WelcomeTour.tsx", "utf8");
+
+  it("does not keep its own place in the sequence", () => {
+    expect(SCREEN).not.toMatch(/useState/);
+  });
+
+  it("draws no forward button of its own", () => {
+    // The two answer buttons are the only buttons on the card.
+    const buttons = [...SCREEN.matchAll(/<Button\b/g)].length;
+    expect(buttons).toBe(2);
+  });
+
+  it("steps a claim before the shell steps the stage", () => {
+    const onNext = SHELL.slice(SHELL.indexOf("function onNext()"));
+    const step = onNext.indexOf('stage === "rules"');
+    const leave = onNext.indexOf("go(1)");
+    expect(step).toBeGreaterThan(-1);
+    expect(step).toBeLessThan(leave);
+    expect(onNext.slice(step, leave)).toMatch(/return;/);
+  });
+
+  it("asks for every claim it holds", () => {
+    const list = SCREEN.slice(SCREEN.indexOf("export const RULES"));
+    const claims = [...list.matchAll(/\bclaim:/g)].length;
+    expect(claims).toBeGreaterThan(1);
+    // The lede counts them out loud, so it cannot drift from the list.
+    expect(screenCopy("rules", null).lede).toMatch(
+      new RegExp(`\\b${["", "one", "two", "three", "four", "five", "six"][claims]}\\b`, "i")
+    );
   });
 });

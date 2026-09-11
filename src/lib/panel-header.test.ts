@@ -72,7 +72,27 @@ describe("a panel header on a phone", () => {
     expect(header).not.toMatch(/sm:-mt-1/);
   });
 
-  it("still hangs the subtitle off the title by the usual 6px", () => {
-    expect(header).toMatch(/"mt-1\.5 text-sm leading-relaxed text-muted-foreground"/);
+  it("hangs the subtitle off its title, closer than sections sit apart", () => {
+    /*
+      A title and its subtitle are one thing said twice, so the space
+      between them has to stay clearly smaller than the space between a
+      panel's sections (24px on a phone, 32 from `sm`) -- a subtitle that
+      floats as far from its title as the next section does stops reading
+      as belonging to it.
+
+      It is 8px rather than the 6 it was, which moved with the rest of the
+      spacing pass: the subtitle's own lines opened up to 1.625 at the same
+      time, and 6px under a looser paragraph read as the title resting on
+      it. Asserted as the rule and its bound rather than as today's class,
+      because the exact pin is what broke here on a change that was not
+      about this.
+    */
+    const sub = header.match(
+      /"(mt-[\d.]+) text-sm leading-relaxed text-muted-foreground"/
+    );
+    expect(sub).not.toBeNull();
+    const step = Number(sub![1].slice(3));
+    expect(step).toBeGreaterThan(0);
+    expect(step).toBeLessThan(6); // 24px, the panel's own section gap
   });
 });

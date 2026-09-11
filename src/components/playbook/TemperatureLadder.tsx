@@ -2,7 +2,7 @@
 
 import { PlaybookQuote } from "@/components/playbook/PlaybookQuote";
 import { PlaybookTerms } from "@/components/playbook/PlaybookTerms";
-import { Card, MicroLabel, NoteRows, Pill } from "@/components/ui/Panel";
+import { Card, MicroLabel, NESTED_PAD, NoteRows, Pill } from "@/components/ui/Panel";
 import { cn } from "@/lib/format";
 import {
   bandCuts,
@@ -180,7 +180,7 @@ function BandRow({
           id={bodyId}
           role="region"
           aria-labelledby={headId}
-          className="flex flex-col gap-5 border-t border-border p-4 sm:p-6"
+          className={cn("flex flex-col gap-5 border-t border-border", NESTED_PAD)}
         >
           <PlaybookQuote quote={band.quote} />
           {band.second ? <PlaybookQuote quote={band.second} /> : null}

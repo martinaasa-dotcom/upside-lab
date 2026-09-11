@@ -83,11 +83,11 @@ export function CashModal({
       />
       <form
         onSubmit={submit}
-        className="scroll-host relative max-h-full w-full max-w-md overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:rounded-xl sm:pb-6"
+        className="scroll-host relative max-h-full w-full max-w-md overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 modal-pad sm:rounded-xl"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-base font-semibold text-foreground">Edit cash</h3>
+            <h2 className="font-semibold text-foreground">Edit cash</h2>
             <p className="text-sm text-muted-foreground">{portfolioName}</p>
           </div>
           <Button

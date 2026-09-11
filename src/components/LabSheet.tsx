@@ -10,7 +10,15 @@ import {
   buildPortfolioPersonality,
   THEME_COLOR,
 } from "@/lib/portfolio-personality";
-import { EmptyState, Panel, Score, Scoreboard, SPLIT_COPY, SPLIT_ROW, SwatchLegend } from "@/components/ui/Panel";
+import {
+  EmptyState,
+  PANEL_STACK,
+  Panel,
+  PanelHeader,
+  Score,
+  Scoreboard,
+  SwatchLegend,
+} from "@/components/ui/Panel";
 import { AllocationBar } from "@/components/ui/AllocationBar";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -411,7 +419,7 @@ export const LabSheet = memo(function LabSheet({
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={PANEL_STACK}>
       <Panel padded={false} className="px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -568,37 +576,40 @@ export const LabSheet = memo(function LabSheet({
           ) : (
             <>
               <Panel tone="plain">
-                <div className={SPLIT_ROW}>
-                  <div className={SPLIT_COPY}>
-                    <h3 className="text-foreground">
-                      How spread out you are
-                    </h3>
-                    {/*
-                      The scope is its own line, and only when it is one
-                      portfolio: the band description ends in a full stop,
-                      and "dominate. · Entire portfolio" put a separator
-                      after a sentence. When the whole portfolio is in
-                      view the picker above already says so.
-                    */}
-                    <p className="mt-1.5 text-sm text-muted-foreground">
+                {/*
+                  The scope is its own line, and only when it is one
+                  portfolio: the band description ends in a full stop, and
+                  "dominate. · Entire portfolio" put a separator after a
+                  sentence. When the whole portfolio is in view the picker
+                  above already says so. It is a `span` rather than a `p`
+                  because it rides inside the subtitle, which is one.
+                */}
+                <PanelHeader
+                  title="How spread out you are"
+                  subtitle={
+                    <>
                       {personality.diversificationBand.description}
-                    </p>
-                    {scopeId !== "book" ? (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        In {scopeLabel}
+                      {scopeId !== "book" ? (
+                        <span className="mt-1 block text-xs">
+                          In {scopeLabel}
+                        </span>
+                      ) : null}
+                    </>
+                  }
+                  actions={
+                    <div className="text-right">
+                      <p className="font-mono text-xl font-bold tabular-nums text-foreground">
+                        {personality.diversificationScore}
+                        <span className="text-sm font-medium text-muted-foreground">
+                          /100
+                        </span>
                       </p>
-                    ) : null}
-                  </div>
-                  <div className="text-right">
-                    <p className="font-mono text-xl font-bold tabular-nums text-foreground">
-                      {personality.diversificationScore}
-                      <span className="text-sm font-medium text-muted-foreground">/100</span>
-                    </p>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Diversified
-                    </p>
-                  </div>
-                </div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Diversified
+                      </p>
+                    </div>
+                  }
+                />
 
                 <div>
                   <Progress
@@ -669,22 +680,22 @@ export const LabSheet = memo(function LabSheet({
               {themes.length > 0 && (
                 <Panel tone="plain">
                   {/*
-                   * Title and subtitle are one child of the panel, not two.
-                   * `Panel` is a `gap-5 sm:gap-6` column, so as siblings the
-                   * subtitle sat a full panel gap under its own title —
-                   * plus whatever margin the call site added on top of it.
-                   * Grouped, the panel gap separates the header from the
-                   * bar and `mt-1.5` does the hugging inside.
-                   */}
-                  <div>
-                    <h3 className="text-foreground">
-                      What you&apos;re actually betting on
-                    </h3>
-                    <p className="mt-1.5 text-sm text-muted-foreground">
-                      Your holdings grouped by kind of business, which usually
-                      tells you more than the list of tickers does.
-                    </p>
-                  </div>
+                    `PanelHeader`, not a hand-rolled title and subtitle.
+
+                    The note that used to stand here had worked out for
+                    itself that a title and its subtitle are one child of
+                    the panel rather than two, and then implemented that
+                    by hand -- which is what `PanelHeader` is, so Lab's
+                    panels titled at `h3` (16px) where the other 66 call
+                    sites in the app title at 18, and hugged at `mt-1.5`
+                    where the component hugs at `mt-2`. Two answers to one
+                    question, decided by whether a panel happened to reach
+                    for the component.
+                  */}
+                  <PanelHeader
+                    title="What you're actually betting on"
+                    subtitle="Your holdings grouped by kind of business, which usually tells you more than the list of tickers does."
+                  />
                   <AllocationBar
                     slices={themes.map((t) => ({
                       key: t.theme,
@@ -748,19 +759,20 @@ export const LabSheet = memo(function LabSheet({
           scopeLabel={scopeLabel}
         />
         <Panel tone="plain" className="flex flex-col gap-4">
-          <div>
-            <h3 className="text-foreground">
-              Do these move together?
-            </h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-              How closely each pair has tracked each other over the last 90
-              days, up to 8 companies. Near <span className="tabular-nums">+1</span> means they
-              rise and fall as one, so holding both spreads your money without
-              spreading your risk. Near{" "}
-              <span className="tabular-nums">0</span> means they drift
-              independently, which is what real diversification looks like.
-            </p>
-          </div>
+          <PanelHeader
+            title="Do these move together?"
+            subtitle={
+              <>
+                How closely each pair has tracked each other over the last 90
+                days, up to 8 companies. Near{" "}
+                <span className="tabular-nums">+1</span> means they rise and
+                fall as one, so holding both spreads your money without
+                spreading your risk. Near{" "}
+                <span className="tabular-nums">0</span> means they drift
+                independently, which is what real diversification looks like.
+              </>
+            }
+          />
           {corrHeat.tickers.length < 2 ? (
             <p className="text-sm text-muted-foreground">
               You need at least two holdings with enough price history to
@@ -893,7 +905,7 @@ function AllocCard({
       grid it sits in is `md:items-start`, so the cell hugs the card too.
     */
     <Panel tone="plain" className="md:h-auto">
-      <h3 className="text-foreground">{title}</h3>
+      <PanelHeader title={title} />
       <div className="flex flex-col gap-2">
         {slices.map((s) => (
           <div key={s.label}>

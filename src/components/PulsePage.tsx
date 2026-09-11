@@ -18,12 +18,14 @@ import {
   EmptyState,
   Metric,
   MicroLabel,
+  NESTED_PAD,
   NoteRows,
+  PANEL_STACK,
   Panel,
   PanelHeader,
   Pill,
-  ScanList,
   SUGGEST_MENU,
+  ScanList,
 } from "@/components/ui/Panel";
 import type { FearGreedSnapshot } from "@/lib/market/fear-greed";
 import { humanizeMargusText } from "@/lib/ai/humanize-copy";
@@ -520,7 +522,7 @@ function PulseCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
       {c.inBook ? (
-        <div className="glass-well grid grid-cols-2 gap-x-4 gap-y-5 rounded-lg p-4 sm:grid-cols-4 sm:gap-6 sm:p-6">
+        <div className="glass-well nested-pad grid grid-cols-2 gap-x-4 gap-y-5 rounded-lg sm:grid-cols-4 sm:gap-6">
           {/* "worth", not "you hold": the hint truncates, and at 124px on
               a phone "you hold $4,566.38" loses its last two digits. */}
           <Metric label="Price" hint={`worth ${currency(c.currentValue)}`}>
@@ -570,7 +572,7 @@ function PulseCard({
         * not tell the model's reasoning from their own note.
         */}
       {hasBody ? (
-        <div className="flex flex-col gap-4 glass-well rounded-lg p-4 sm:p-5">
+        <div className={cn("flex flex-col gap-4 glass-well rounded-lg", NESTED_PAD)}>
           {suggestion ? (
             <p className="text-base font-medium leading-relaxed text-foreground">
               {suggestion}
@@ -1448,7 +1450,7 @@ export const PulsePage = memo(function PulsePage({
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={PANEL_STACK}>
       <Panel className="gap-3">
         <PanelHeader
           icon={<Activity className="h-4 w-4" />}
@@ -1534,7 +1536,7 @@ export const PulsePage = memo(function PulsePage({
         />
 
         {dayStory || marketLine || standouts || mood ? (
-          <div className="flex flex-col gap-3 glass-well rounded-lg p-4 sm:p-5">
+          <div className={cn("flex flex-col gap-3 glass-well rounded-lg", NESTED_PAD)}>
             {dayStory ? (
               <p className="text-base font-medium leading-relaxed text-foreground">
                 {humanizeMargusText(dayStory)}

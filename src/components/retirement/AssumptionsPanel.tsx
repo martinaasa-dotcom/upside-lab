@@ -25,7 +25,7 @@
  */
 
 import { Button } from "@/components/ui/button";
-import { CARD, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
+import { CARD, MicroLabel, Panel, PANEL_STACK, PanelHeader } from "@/components/ui/Panel";
 import {
   CountField,
   FIELD_GRID,
@@ -63,7 +63,7 @@ export function AssumptionsPanel({
     });
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={PANEL_STACK}>
       <Panel>
         <PanelHeader
           icon={<SlidersVertical className="h-4 w-4" />}

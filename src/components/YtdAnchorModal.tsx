@@ -95,14 +95,14 @@ export function YtdAnchorModal({
       />
       <form
         onSubmit={submit}
-        className="scroll-host relative max-h-full w-full max-w-md overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:rounded-xl sm:pb-6"
+        className="scroll-host relative max-h-full w-full max-w-md overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 modal-pad sm:rounded-xl"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-base font-semibold text-foreground">
+            <h2 className="font-semibold text-foreground">
               Your real year
-            </h3>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               The chart still draws its shape from what you hold today. This
               number sets how big the year actually was.
             </p>

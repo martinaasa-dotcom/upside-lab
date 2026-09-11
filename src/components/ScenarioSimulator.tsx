@@ -20,7 +20,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CARD, Card, EmptyState, Panel, PanelHeader, Pill, Score, Scoreboard, SPLIT_COPY, SPLIT_ROW, Stat } from "@/components/ui/Panel";
+import {
+  CARD,
+  Card,
+  EmptyState,
+  PANEL_STACK,
+  Panel,
+  PanelHeader,
+  Pill,
+  Score,
+  Scoreboard,
+  Stat,
+} from "@/components/ui/Panel";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { scenarioProvenance } from "@/lib/provenance";
 import {
@@ -113,7 +124,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={PANEL_STACK}>
       <Panel>
         <PanelHeader
           icon={<Shield className="h-4 w-4" />}
@@ -275,13 +286,11 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
 
       {analysis.themeBreakdown.length > 1 && selectedShock !== "none" && (
         <Panel tone="plain">
-          <h3 className="text-base font-semibold text-foreground">
-            Where the damage lands
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your holdings grouped by what they actually depend on.
-          </p>
-          <Table className="mt-3">
+          <PanelHeader
+            title="Where the damage lands"
+            subtitle="Your holdings grouped by what they actually depend on."
+          />
+          <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Kind of business</TableHead>
@@ -311,22 +320,18 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
       )}
 
       <Panel tone="plain">
-        <div className={SPLIT_ROW}>
-          <div className={SPLIT_COPY}>
-            <h3 className="text-base font-semibold text-foreground">
-              Every holding
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Sorted by the biggest dollar change. Tap a column to re-sort.
-            </p>
-          </div>
-          <span className="text-sm text-muted-foreground">
-            {sortedRows.length}{" "}
-            {sortedRows.length === 1 ? "holding" : "holdings"}
-          </span>
-        </div>
+        <PanelHeader
+          title="Every holding"
+          subtitle="Sorted by the biggest dollar change. Tap a column to re-sort."
+          actions={
+            <span className="text-sm text-muted-foreground">
+              {sortedRows.length}{" "}
+              {sortedRows.length === 1 ? "holding" : "holdings"}
+            </span>
+          }
+        />
 
-        <div className="mt-3 flex flex-col gap-3 md:hidden">
+        <div className="flex flex-col gap-3 md:hidden">
           {sortedRows.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
               Nothing held here yet.
@@ -387,7 +392,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
           )}
         </div>
 
-        <div className="mt-3 hidden md:block">
+        <div className="hidden md:block">
           {sortedRows.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
               Nothing held here yet.

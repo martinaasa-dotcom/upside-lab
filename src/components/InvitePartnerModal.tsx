@@ -155,13 +155,13 @@ export function InvitePartnerModal({
         aria-label="Close"
         onClick={onClose}
       />
-      <div className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-xl sm:pb-6">
+      <div className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 modal-pad sm:max-w-md sm:rounded-xl">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-semibold text-foreground">
               Invite a partner
             </h2>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               They can edit {portfolioName} just as you can, rather than only
               look at it.
             </p>

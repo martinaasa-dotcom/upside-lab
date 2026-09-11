@@ -49,11 +49,11 @@ export function CostBasisModal({
         onClick={onClose}
       />
       <div className="relative flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-xl bg-popover ring-1 ring-foreground/20">
-        <div className="flex items-start justify-between gap-3 border-b border-border px-6 py-4">
+        <div className="flex items-start justify-between gap-3 border-b border-border surface-gutter py-4">
           <div>
-            <h3 className="text-base font-semibold text-foreground">
+            <h2 className="font-semibold text-foreground">
               What you paid
-            </h3>
+            </h2>
             <p className="text-sm text-muted-foreground">
               The import used today&apos;s prices as what you paid. Type your
               real average buy price in dollars, then apply, so the gain and
@@ -71,7 +71,7 @@ export function CostBasisModal({
             <X />
           </Button>
         </div>
-        <div className="scroll-host min-h-0 flex-1 gap-2 overflow-y-auto px-6 py-6">
+        <div className="scroll-host min-h-0 flex-1 gap-2 overflow-y-auto surface-gutter py-6">
           {rows.map((r) => (
             <label
               key={r.ticker}
@@ -107,7 +107,7 @@ export function CostBasisModal({
             </label>
           ))}
         </div>
-        <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
+        <div className="flex justify-end gap-2 border-t border-border surface-gutter py-4">
           <Button type="button" variant="ghost" onClick={onClose}>
             Skip
           </Button>

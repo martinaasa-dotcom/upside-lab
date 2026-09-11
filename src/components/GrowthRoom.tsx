@@ -27,7 +27,7 @@
  * first tap still fetched a chunk. See the account in AGENTS.md.
  */
 
-import { Panel, PanelHeader, Segmented } from "@/components/ui/Panel";
+import { Panel, PANEL_STACK, PanelHeader, Segmented } from "@/components/ui/Panel";
 import { Sprout } from "lucide-react";
 import {
   loadCompoundInterestSheet,
@@ -115,7 +115,7 @@ export function GrowthRoom(props: Props) {
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={PANEL_STACK}>
       <Panel>
         <PanelHeader
           icon={<Sprout className="h-4 w-4" />}

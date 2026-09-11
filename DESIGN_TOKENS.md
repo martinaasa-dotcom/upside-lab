@@ -846,11 +846,156 @@ The exceptions, which stay opaque on purpose: **meter tracks**
 **step indicators**, and `focus:bg-muted` on inline-edit cells, which needs
 an opaque fill to read as focused.
 
+### The vertical scale, and why it is not the horizontal one (2026-09-11)
+
+The complaint was that the product felt cluttered — blocks, text and
+figures all sitting too close to read comfortably. Measured on a
+representative room (three panels, a scoreboard, wells and prose) rendered
+against the app's own compiled CSS at 390, 820 and 1440, the cause was that
+every spacing tier had landed on roughly the same number:
+
+| | before | after |
+| --- | --- | --- |
+| Between panels | 24px | **32 / 40** |
+| A panel's own sections | 20 / 24px | **24 / 32** |
+| A panel's inside pad, down | 16 / 24px | **20 / 28** |
+| A panel's inside pad, across | 16 / 24px | *16 / 24, unchanged* |
+| Score cells, row gap | 16px | **24 at every width** |
+| Score cells, column gap | 16px | *16 on a phone, 20 from `sm`* |
+| Prose line-height | 1.43 | **1.625** |
+
+The rule underneath, which is the part to keep: **separation between groups
+has to beat separation inside one.** At a flat 24px a panel's last line sat
+as far from the next panel's first line as it did from its own edge, so the
+boxes stopped reading as separate answers and a room read as one ribbon.
+Nothing was removed to fix it.
+
+**The two axes are different budgets, and this is why the padding constants
+are `px-*`/`py-*` rather than `p-*`.** Sideways is genuinely scarce: on a
+390px phone every pixel of side padding is one the content does not get,
+and a three-up score cell has ~116px to set a figure in, which is the
+arithmetic that once pushed `23.0% a year` out through the side of its
+card. Downward costs only scroll, and scroll is the cheap axis — a reader
+who swipes once more has lost nothing, where a reader whose figure wrapped
+mid-number has lost the figure. So **every number that grew is vertical**,
+and the measured horizontal ones did not move: content width per cell came
+back 116 → 116 at 390px, with no horizontal overflow at any width. The room
+is about 11% taller, which is the whole price.
+
+**Prose leading was the largest single win and it is the one that nearly
+shipped as a no-op.** Body copy is `text-sm`, and about 190 paragraphs said
+`leading-relaxed` by hand while roughly 320 did not, so the product had two
+reading rhythms depending on whether whoever wrote a panel remembered. The
+fix is one rule in `globals.css` at exactly `leading-relaxed`'s own 1.625,
+so afterwards there is one rhythm and the 190 explicit ones are
+pixel-identical. It has to be **unlayered**: `text-sm` is not only a size,
+it ships its own `line-height`, so the same rule in `@layer base` loses to
+it on every one of those ~320 paragraphs and does nothing at all — which is
+exactly what the first attempt did, and the measurement (prose leading 20px
+before, 20px after) is the only reason it was caught. The `:not([class*=
+"leading-"])` on it is the whole safety: a paragraph that states its own
+leading still wins, which is how `FIGURE` opts out with `leading-tight`.
+Never widen it past `p`; `text-sm` is also every table cell, button, input
+and nav label, and a table row is a fixed `h-10` that a looser line would
+fight.
+
+**And that selector was still too broad, which only a second measurement
+showed.** `p:not([class*="leading-"])` reached **53 paragraphs that are not
+prose** — every `tabular-nums` figure, every `MicroLabel` (measured 12px
+type on a 19.5px line where it had been 16), every `font-heading` status
+word. Nothing looked broken, which is exactly why it needed measuring: a
+change nobody decided is still a change, and `DISPLAY` already records that
+a figure's leading is a considered number. The selector now states the
+split this file opens with — Geist for every sentence, Geist Mono for every
+figure — by exempting `font-mono`, `tabular-nums`, `uppercase` and
+`font-heading` alongside `leading-`. Measured at 390px after: prose
+14px/22.8, a figure 20px/25, a label 12px/16, and a hand-written
+`leading-relaxed` subtitle 14px/22.8 — the same as prose, which is the
+one-rhythm claim holding.
+
+What deliberately did **not** move: a label to its figure (`mt-2`), which is
+one unit and should stay tight — loosening pairs while loosening groups
+leaves the hierarchy exactly where it was. And `BelowFold`'s `reserve`
+heights are untouched even though every section grew: a reserve that is
+slightly short settles the scrollbar, where one that is too long is the
+empty block over 200px that the deferral rule forbids, so growing the
+content moves them the safe way.
+
+### Modals share the surface scale; tables were measured and left alone
+
+`.modal-pad` is `.panel-pad`'s two numbers, `.surface-gutter` is those two
+sides-only, and `.modal-bleed` mirrors them for a scroller that breaks out
+of its sheet.
+
+Nine modal shells carried a flat `p-6`. Measured on the real `CashModal`
+rendered through `react-dom/server` at 360px, the sheet is 96% of the screen
+and its padding took 48 of that, leaving **287px** to set a field in — the
+arithmetic `PANEL_PAD` steps down to avoid, on the one surface a reader
+types into.
+
+| | before | after |
+| --- | --- | --- |
+| Modal pad, across (phone) | 24px | **16** |
+| Modal pad, down (phone) | 24px | **20** |
+| Modal pad, down (`sm`+) | 24px | **28** |
+| Content width at 360px | 287px | **303** |
+| Content width at 390px | 317px | **333** |
+
+The safe-area floor lives in `.modal-pad` rather than as a
+`pb-[max(1.5rem,env(safe-area-inset-bottom))]` on each shell, for the same
+half-override reason the rhythm is one class. `.modal-bleed` exists because
+`-mx-6 px-6` is the pad restated by hand: the moment the pad stepped to 16
+it pulled FeedbackModal's content 8px past the sheet edge on each side, and
+a test caught it the same hour.
+
+**The tables were measured and not loosened.** Rendered with twenty
+holdings at 360, 390, 430, 820 and 1440: the row is a flat **40px carrying a
+20px line box** — half the row is already air — the column gutter is 12px,
+and none of it moves with the width. That is tuned for what a holdings table
+is for, and spreading a scan table out makes it worse to scan. The header is
+separated by its own rule at twice a row's weight (`border-border` against
+`border-border/50`, compositing to about **41/255 against 20/255** on this
+field); that override was verified through `cn` rather than assumed, since a
+colour utility against a base carrying an alpha is exactly the shape that
+silently loses. The only table change is the header row's gutter, which was
+a flat `px-6` sitting 24px in while its own rows sit at 6.
+
+### The rhythm is one class per role, not a responsive pair
+
+`.panel-rhythm`, `.panel-pad`, `.nested-pad` and `.panel-stack` live in
+`@layer components` (globals.css) and the media query is **inside** each
+one. That is load-bearing rather than tidiness.
+
+Written as `gap-6 sm:gap-8`, a call site can only ever override it by half.
+`<Panel className="gap-3">` conflicts with the base `gap-6` and replaces
+it, and leaves `sm:gap-8` standing, because a modifier is its own group to
+tailwind-merge. Measured on the rendered component, that call site got
+**12px on a phone and 32px from `sm`** — a 2.67× jump at one breakpoint, in
+the panel whose author had asked for the tightest gap in the product. The
+landing's sample cards had the same on `p-4` against `sm:px-6 sm:py-7`.
+Five call sites were in that state.
+
+As one class the override is whole, because Tailwind orders components
+before utilities whatever the specificity or the media query. Measured
+after, `<Panel className="gap-3">` is **12px at 360, 390, 430, 820 and
+1440**, and `className="p-4"` is 16px at all five.
+
+The same argument covers `PANEL_STACK`: `PAGE_MAIN_CLASS` spaces only the
+panels that are direct children of `<main>`, and seven rooms build their
+own column instead — Home, Lab, Pulse, Trends, Scenario and Seasonality
+were all still on the old flat 24px after the pass moved every other room
+to 32/40. Both read the same `.panel-stack`, so they cannot agree today and
+drift tomorrow.
+
+`panel-rhythm.test.ts` holds it: the panel body may carry no `sm:gap-*` or
+`sm:p*-*`, `PANEL_PAD`/`NESTED_PAD` must each be a single breakpoint-free
+class, and no room may stack `<Panel>` on a hand-rolled gap.
+
 ### A panel spaces its own children — call sites must not
 
-`Panel` is `flex flex-col gap-5 p-4 sm:gap-6 sm:p-6`. Every direct child is
-already 20/24px from the next one, so a child that also carries `mt-3`,
-`mt-4` or `mb-4` gets **both**: measured on Lab, a subtitle sat 30px under
+`Panel` is `flex flex-col panel-rhythm panel-pad`. Every
+direct child is already 24/32px from the next one, so a child that also
+carries `mt-3`, `mt-4` or `mb-4` gets **both**: measured on Lab, a subtitle sat 30px under
 its own title and 40px above the bar it introduced, which is what the
 "huge dead gap" in that card was. Fifteen call sites across Lab, Growth and
 Fund did it.
@@ -859,8 +1004,8 @@ Two rules come out of it:
 
 - **A title and its subtitle are one child**, not two. As siblings the
   panel gap pushes them a full step apart, and the call site then reaches
-  for a negative-feeling `mt-1.5` to pull them back. Wrap them, and let
-  `mt-1.5` hug inside the wrapper.
+  for a negative-feeling `mt-2` to pull them back. Wrap them, and let
+  `mt-2` hug inside the wrapper.
 - **A component never carries its own outer margin.** `SwatchLegend` had an
   `mt-3` baked in, and every one of its three call sites added `mt-4` on
   top because that still was not what the container wanted. Spacing is the

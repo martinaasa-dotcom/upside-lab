@@ -12,7 +12,7 @@ import {
 } from "@/lib/community-cache";
 import { Swords } from "lucide-react";
 import { cn, percent, signedPercent, cashtag } from "@/lib/format";
-import { SPLIT_COPY, SPLIT_ROW } from "@/components/ui/Panel";
+import { Panel, PanelHeader } from "@/components/ui/Panel";
 import {
   currentDuelSessionKey,
   duelCanSettle,
@@ -186,25 +186,17 @@ export function DailyDuelCard({
 
   if (!pair) {
     return (
-      <section
-        className={cn(
-          "card-sheen glass min-h-[13.5rem] rounded-xl p-6 ring-1 ring-foreground/20"
-        )}
-      >
-        <div className="mb-3 flex items-center gap-2.5">
-          <div className="card-sheen glass-well rounded-xl p-2 text-primary">
-            <Swords className="h-4 w-4" />
-          </div>
-          <div>
-            <h3 className="text-foreground">Daily Duel</h3>
-            <p className="mt-0.5 text-sm text-muted-foreground">{sessionLine}</p>
-          </div>
-        </div>
+      <Panel className="min-h-[13.5rem]">
+        <PanelHeader
+          icon={<Swords className="h-4 w-4" />}
+          title="Daily Duel"
+          subtitle={sessionLine}
+        />
         <div className="grid grid-cols-2 gap-3">
           <div className="h-[5.5rem] glass-well rounded-lg" />
           <div className="h-[5.5rem] glass-well rounded-lg" />
         </div>
-      </section>
+      </Panel>
     );
   }
 
@@ -300,21 +292,12 @@ export function DailyDuelCard({
     : null;
 
   return (
-    <section
-      className={cn(
-        "card-sheen glass min-h-[13.5rem] rounded-xl p-6 ring-1 ring-foreground/20"
-      )}
-    >
-      <div className={cn("mb-3", SPLIT_ROW, "sm:items-center")}>
-        <div className={cn(SPLIT_COPY, "flex items-center gap-2.5")}>
-          <div className="card-sheen glass-well rounded-xl p-2 text-primary">
-            <Swords className="h-4 w-4" />
-          </div>
-          <div>
-            <h3 className="text-foreground">Daily Duel</h3>
-            <p className="mt-0.5 text-sm text-muted-foreground">{sessionLine}</p>
-          </div>
-        </div>
+    <Panel className="min-h-[13.5rem]">
+      <PanelHeader
+        icon={<Swords className="h-4 w-4" />}
+        title="Daily Duel"
+        subtitle={sessionLine}
+        actions={<>
         {/*
           * The count used to sit here AND in the footer of the same card,
           * which is one card saying "3 picks" and "3 people have picked."
@@ -351,7 +334,8 @@ export function DailyDuelCard({
             </div>
           )
         )}
-      </div>
+        </>}
+      />
 
       <div className="grid grid-cols-2 gap-3">
         {(["a", "b"] as const).map((side) => {
@@ -445,7 +429,7 @@ export function DailyDuelCard({
         />
       ) : null}
 
-      <p className="mt-4 text-center text-sm leading-relaxed text-muted-foreground">
+      <p className="text-center text-sm leading-relaxed text-muted-foreground">
         {communityId
           ? communityLine
           : myPick == null
@@ -456,7 +440,7 @@ export function DailyDuelCard({
       </p>
 
       {closed ? (
-        <div className="mt-4 border-t border-border pt-4">
+        <div className="border-t border-border pt-4">
           <p className="text-sm font-medium text-muted-foreground">
             {closedWhen}
           </p>
@@ -470,7 +454,7 @@ export function DailyDuelCard({
           ) : null}
         </div>
       ) : null}
-    </section>
+    </Panel>
   );
 }
 

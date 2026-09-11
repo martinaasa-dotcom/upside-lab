@@ -123,8 +123,8 @@ export const SUNDAY_EMAIL_LINE =
 
 export const THIS_DOES_INSTEAD = [
   "Tells you what happened at each company you own today.",
-  "Tells you whether the whole market had a bad week, or something happened at a company you own.",
-  "Answers questions about your portfolio, and every Sunday emails you how the week went.",
+  "Separates a bad week for the market from news at one of your companies.",
+  "Answers questions about your portfolio, and emails you every Sunday.",
 ] as const;
 
 /**
@@ -162,7 +162,7 @@ export const BROKER_ANSWER =
 export const SIGNIN_PRICE = "Free. Every feature, nothing held back.";
 
 export const SIGNIN_PRICE_NOTE =
-  "There is an optional supporter plan at €12 a month, and it adds nothing: the app is the same either way. It just helps pay for building this.";
+  "An optional supporter plan is €12 a month and unlocks nothing. It helps pay for building this.";
 
 /**
  * Why it is safe to put real holdings in.
@@ -173,9 +173,9 @@ export const SIGNIN_PRICE_NOTE =
  * export and a delete. Do not add a line here that the app cannot back up.
  */
 export const SIGNIN_TRUST = [
-  "Sign in with Google, or a link we send to your email. There is no password to lose.",
-  "Your portfolio is private until you invite someone into it.",
-  "Export everything, or delete all of it, from your account page.",
+  "Google, or a link to your email. No password to lose.",
+  "Private until you invite someone into it.",
+  "Export it all, or delete it all, from your account.",
   "Everything you enter is stored in the European Union.",
 ] as const;
 

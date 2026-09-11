@@ -11,7 +11,7 @@ import {
   type Q2Answer,
 } from "@/components/tour/AboutYouScreen";
 import { FirstWeekScreen } from "@/components/tour/FirstWeekScreen";
-import { GroundRulesScreen } from "@/components/tour/GroundRulesScreen";
+import { GroundRulesScreen, RULES } from "@/components/tour/GroundRulesScreen";
 import { RedDayScreen } from "@/components/tour/RedDayScreen";
 import { RoomsScreen } from "@/components/tour/RoomsScreen";
 import { WatchScreen } from "@/components/tour/WatchScreen";
@@ -153,6 +153,19 @@ export function WelcomeTour({
   */
   const [listOpen, setListOpen] = useState(false);
 
+  /*
+    The ground rules' own place in their sequence, lifted out of the screen.
+
+    It has to live here because the footer is the only way forward: the
+    screen used to own this and draw a second forward button inside its
+    card, so the pinned "Next" under the thumb jumped the whole stage and
+    threw away every claim after the first. `onNext` steps this before it
+    steps the stage, and Back steps it in reverse, so a claim is never
+    skipped by pressing the obvious button.
+  */
+  const [ruleAt, setRuleAt] = useState(0);
+  const [rulePicked, setRulePicked] = useState<boolean | null>(null);
+
   const [watching, setWatching] = useState<string[]>([]);
   useEffect(() => {
     setWatching(loadWatchlist());
@@ -164,7 +177,7 @@ export function WelcomeTour({
   */
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
-  }, [index]);
+  }, [index, ruleAt]);
 
   function go(delta: number) {
     setIndex((i) => Math.min(Math.max(i + delta, 0), stages.length - 1));
@@ -231,6 +244,15 @@ export function WelcomeTour({
     onDone({ ...saved, skipped });
   }
 
+  function onBack() {
+    if (stage === "rules" && ruleAt > 0) {
+      setRulePicked(null);
+      setRuleAt((i) => i - 1);
+      return;
+    }
+    go(-1);
+  }
+
   const tierLabel = finished
     ? (EXPERIENCE_TIERS.find((t) => t.id === finished.tier)?.label ?? null)
     : null;
@@ -240,6 +262,11 @@ export function WelcomeTour({
   const nextLabel = saving ? "Saving …" : "Next";
 
   function onNext() {
+    if (stage === "rules" && ruleAt < RULES.length - 1) {
+      setRulePicked(null);
+      setRuleAt((i) => i + 1);
+      return;
+    }
     if (stage === "watchlist") saveWatchlist(watching);
     /*
       Settled here rather than on the last screen's own render, so the
@@ -271,7 +298,17 @@ export function WelcomeTour({
         void leave(true);
       }}
     >
-      <div className="glass-overlay flex max-h-[min(100%,44rem)] w-full max-w-md flex-col overflow-hidden rounded-xl p-4 ring-1 ring-foreground/20 sm:max-w-2xl sm:p-6">
+      {/*
+        The one overlay in the app that was not on the shared pad.
+
+        Every modal moved to `.modal-pad` (16px sides on a phone, 24 from
+        `sm`, with the vertical one step looser) and the walkthrough kept
+        `p-4 sm:p-6`, which is the same sides and a tighter vertical: one
+        surface answering the same question its own way. `.modal-bleed`
+        below already assumes exactly those sides, so the two classes are
+        a pair and this is the half that was missing.
+      */}
+      <div className="glass-overlay modal-pad flex max-h-[min(100%,44rem)] w-full max-w-md flex-col overflow-hidden rounded-xl ring-1 ring-foreground/20 sm:max-w-2xl">
         {/* Progress. Segments rather than labels: seven labels do not fit a phone. */}
         <div className="mb-5 shrink-0">
           <div className="flex gap-1" aria-hidden>
@@ -298,7 +335,7 @@ export function WelcomeTour({
         */}
         <div
           ref={scrollRef}
-          className="scroll-host -mx-4 px-4 sm:-mx-6 sm:px-6 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
+          className="scroll-host modal-bleed flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
         >
           <div className="flex flex-col gap-2">
             <h2
@@ -314,7 +351,13 @@ export function WelcomeTour({
 
           {stage === "day" && <RedDayScreen />}
 
-          {stage === "rules" && <GroundRulesScreen />}
+          {stage === "rules" && (
+            <GroundRulesScreen
+              at={ruleAt}
+              picked={rulePicked}
+              onPick={setRulePicked}
+            />
+          )}
 
           {stage === "rooms" && <RoomsScreen />}
 
@@ -360,11 +403,11 @@ export function WelcomeTour({
           its own line rather than squeezing the two buttons.
         */}
         <div className="mt-5 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-border pt-4">
-          {index > 0 ? (
+          {index > 0 || (stage === "rules" && ruleAt > 0) ? (
             <Button
               type="button"
               variant="ghost"
-              onClick={() => go(-1)}
+              onClick={onBack}
               disabled={saving}
             >
               Back

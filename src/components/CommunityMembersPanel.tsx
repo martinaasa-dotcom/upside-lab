@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { PANEL_PAD } from "@/components/ui/Panel";
 import {
   Item,
   ItemActions,
@@ -409,7 +410,7 @@ export function CommunityMembersPanel({
                   </section>
 
                   {isAdmin && joinRequests.length > 0 && (
-                    <section className="card-sheen glass flex flex-col gap-3 rounded-xl p-4 ring-1 ring-foreground/20 sm:p-6">
+                    <section className={cn("card-sheen glass flex flex-col gap-3 rounded-xl ring-1 ring-foreground/20", PANEL_PAD)}>
                       <h2 className="flex items-center gap-2 text-foreground">
                         <UserCheck className="size-4 text-muted-foreground" />
                         Join requests
@@ -463,7 +464,7 @@ export function CommunityMembersPanel({
                   )}
 
                   {isAdmin && (
-                    <section className="card-sheen glass flex flex-col gap-3 rounded-xl p-4 ring-1 ring-foreground/20 sm:p-6">
+                    <section className={cn("card-sheen glass flex flex-col gap-3 rounded-xl ring-1 ring-foreground/20", PANEL_PAD)}>
                       <h2 className="text-foreground">
                         Invite people
                       </h2>

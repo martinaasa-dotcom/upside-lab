@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Panel, PanelHeader } from "@/components/ui/Panel";
 import {
   Item,
   ItemActions,
@@ -112,16 +113,11 @@ export function ShareSheets({
   if (sheets && sheets.length === 0) return null;
 
   return (
-    <section className="flex flex-col gap-3 rounded-xl glass ring-1 ring-foreground/20 p-6">
-      <div>
-        <h2 className="text-foreground">
-          Portfolios this circle can see
-        </h2>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          Every portfolio here is shared unless you turn it off. The circle
-          sees today&apos;s prices only, never what you paid.
-        </p>
-      </div>
+    <Panel>
+      <PanelHeader
+        title="Portfolios this circle can see"
+        subtitle="Every portfolio here is shared unless you turn it off. The circle sees today's prices only, never what you paid."
+      />
       {error && <p className="text-sm text-loss">{error}</p>}
       <ItemGroup className="gap-2">
         {(sheets ?? []).map((s) => (
@@ -147,6 +143,6 @@ export function ShareSheets({
           </Item>
         ))}
       </ItemGroup>
-    </section>
+    </Panel>
   );
 }

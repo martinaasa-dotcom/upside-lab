@@ -293,7 +293,7 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
         onClick={onClose}
         disabled={busy}
       />
-      <div className="relative flex max-h-full w-full flex-col overflow-hidden rounded-t-xl bg-popover p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] ring-1 ring-foreground/20 sm:max-w-lg sm:rounded-xl sm:pb-6">
+      <div className="relative flex max-h-full w-full flex-col overflow-hidden rounded-t-xl bg-popover modal-pad ring-1 ring-foreground/20 sm:max-w-lg sm:rounded-xl">
         <div className="mb-3 flex shrink-0 items-start justify-between gap-3">
           <h3
             id="feedback-title"
@@ -332,7 +332,7 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
 
             <StepBar index={step} answers={answers} />
 
-            <div className="scroll-host -mx-6 px-6 min-h-0 flex-1 overflow-y-auto">
+            <div className="scroll-host modal-bleed min-h-0 flex-1 overflow-y-auto">
               <fieldset className="flex flex-col gap-2">
                 <legend className="text-sm font-medium text-foreground">
                   {current.question}
@@ -380,7 +380,7 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
             <AnswerTable index={step} answers={answers} onJump={setStep} />
           </div>
         ) : (
-          <div className="scroll-host -mx-6 px-6 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+          <div className="scroll-host modal-bleed flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
             {/*
               One line, said once.
 

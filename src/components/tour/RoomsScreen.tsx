@@ -27,16 +27,16 @@ import { useState } from "react";
 */
 
 const WHAT_IT_IS: Record<string, string> = {
-  home: "Where you land. Today in a few sentences, then every portfolio you own with one row per holding: what it cost, what it is worth, what it did today.",
+  home: "Where you land. Today in a few sentences, then every portfolio you own.",
   holdings:
-    "The whole table for one portfolio, with room for the numbers. This is where you add a company, change a share count, or fix what you paid.",
+    "One portfolio in full. Add a company, change a share count, fix what you paid.",
   pulse:
-    "Reads the day on every company you own and says whether something really happened there or the price just moved with everything else.",
-  lab: "Closer looks at the same portfolio: what you are most concentrated in, how the last few weeks went, and how each company has usually behaved at this time of year. It arrives once you say you are comfortable, and a Risk view once you say very experienced.",
+    "Reads the day on every company you own and says what actually happened.",
+  lab: "Closer looks at the same portfolio: what you are concentrated in, and how each company usually behaves.",
   compound:
-    "Arithmetic on what you have. What this becomes if you keep adding at some rate for some years. Not a prediction, and it says so.",
+    "Arithmetic on what you have, if you keep adding. Not a prediction, and it says so.",
   circle:
-    "The people you choose to share a portfolio with, like a partner, your family or a class. Optional, invite only, and nothing is shared until you share it.",
+    "The people you choose to share a portfolio with. Invite only, and nothing is shared until you share it.",
 };
 
 export function RoomsScreen() {
@@ -61,9 +61,8 @@ export function RoomsScreen() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Two things are not on the bar. Your account is the picture in the top
-        corner, and Margus floats over every room, so you can ask a question
-        without leaving what you are looking at.
+        Two things are not on the bar: your account, in the top corner, and
+        Margus, who floats over every room.
       </p>
     </div>
   );

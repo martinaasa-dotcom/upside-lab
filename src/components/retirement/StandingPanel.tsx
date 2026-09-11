@@ -26,7 +26,7 @@
  * direction a number about somebody's money must never be wrong in.
  */
 
-import { CARD, MicroLabel, Panel, PanelHeader, Pill, Score, Scoreboard } from "@/components/ui/Panel";
+import { CARD, MicroLabel, Panel, PANEL_STACK, PanelHeader, Pill, Score, Scoreboard } from "@/components/ui/Panel";
 import { barFillPct, cn, currency, percent } from "@/lib/format";
 import { PALETTE } from "@/lib/palette";
 import type { Milestone } from "@/lib/retirement/milestones";
@@ -250,7 +250,7 @@ export function StandingPanel({
   const shortBy = plan.gap;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={PANEL_STACK}>
       <Panel>
         <PanelHeader
           icon={<TrendingUp className="h-4 w-4" />}

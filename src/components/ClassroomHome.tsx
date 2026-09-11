@@ -4,9 +4,10 @@ import { ClassTradeBanner } from "@/components/ClassTradeBanner";
 import { ClassroomRoster } from "@/components/ClassroomRoster";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { Button } from "@/components/ui/button";
-import { Score, Scoreboard, Segmented } from "@/components/ui/Panel";
+import { PANEL_PAD, Score, Scoreboard, Segmented } from "@/components/ui/Panel";
 import type { ClassroomTrade } from "@/lib/classroom";
 import {
+  cn,
   currency,
   NO_VALUE,
   signedCurrency,
@@ -86,7 +87,7 @@ export function ClassroomHome({
           <p className="text-sm leading-relaxed text-foreground">{houseNote}</p>
         ) : null}
         {!myClassSheet ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl glass ring-1 ring-foreground/20 px-6 py-4">
+          <div className={cn("flex flex-wrap items-center gap-2 rounded-xl glass ring-1 ring-foreground/20", PANEL_PAD)}>
             <p className="min-w-0 flex-1 text-sm text-foreground">
               {isAdmin
                 ? "You are watching the class. Get a paper portfolio if you want to trade alongside them."

@@ -1783,7 +1783,7 @@ export function CommunityView({ communityId }: Props) {
             aria-label="Close"
             onClick={() => setSettingsOpen(false)}
           />
-          <div className="scroll-host relative max-h-full w-full max-w-sm overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:rounded-xl sm:pb-6">
+          <div className="scroll-host relative max-h-full w-full max-w-sm overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 modal-pad sm:rounded-xl">
             <div className="mb-4 flex items-start justify-between gap-3">
               <h3 className="text-base font-semibold text-foreground">
                 {RoomWord} settings
@@ -1994,13 +1994,13 @@ export function CommunityView({ communityId }: Props) {
             aria-label="Close"
             onClick={() => setBestiaryOpen(false)}
           />
-          <div className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:max-w-lg sm:rounded-xl sm:pb-6">
+          <div className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 modal-pad sm:max-w-lg sm:rounded-xl">
             <div className="mb-1 flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-semibold text-foreground">
+                <h2 className="font-semibold text-foreground">
                   The power animal field guide
-                </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
                   Every portfolio gets scored on how spread out it is, how jumpy
                   the companies are, and how big the largest holding is. Then it
                   gets the animal that fits. A fun lens, not a grade.

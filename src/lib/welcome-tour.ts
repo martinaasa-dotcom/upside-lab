@@ -121,7 +121,7 @@ export function screenCopy(
       return {
         title: "What this does and does not do",
         lede:
-          "Six things people believe about this app before they use it. Two of them are true. Better to find out which now than after you have typed everything in.",
+          "Four things people believe about this app. One of them is true. Better to find out which now than after you have typed everything in.",
       };
     case "rooms":
       return {

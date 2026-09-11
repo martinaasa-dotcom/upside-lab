@@ -29,7 +29,7 @@ export function ResearchChrome({ children }: { children: ReactNode }) {
   return (
     <div className="page-frame flex min-h-dvh flex-col bg-background text-foreground">
       <header className="border-b border-border">
-        <div className="mx-auto flex w-full min-w-0 max-w-[1200px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="surface-gutter mx-auto flex w-full min-w-0 max-w-[1200px] items-center justify-between gap-3 py-3">
           <HeaderBrand />
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm">
@@ -42,14 +42,24 @@ export function ResearchChrome({ children }: { children: ReactNode }) {
         </div>
       </header>
 
+      {/*
+        The published room stacks on the app's own rhythm.
+
+        This is the one page a stranger from a search result lands on, and
+        it was the last column in the product still on a flat `gap-6`: 24px
+        between panels at every width, where every signed-in room steps to
+        32/40. `.panel-stack` is the same class the page column and
+        `PANEL_STACK` read, so there is one number rather than three files
+        that agree today.
+      */}
       <main
         id="main"
-        className="mx-auto flex w-full min-w-0 max-w-[1200px] flex-1 flex-col gap-6 px-4 pb-16 pt-6 sm:px-6"
+        className="panel-stack surface-gutter mx-auto flex w-full min-w-0 max-w-[1200px] flex-1 flex-col pb-16 pt-6"
       >
         {children}
       </main>
 
-      <footer className="px-4 pb-10 pt-4 sm:px-6">
+      <footer className="surface-gutter pb-10 pt-4">
         <div className="mx-auto flex w-full min-w-0 max-w-[1200px] flex-col gap-2 border-t border-border pt-5 text-sm text-muted-foreground">
           <p className="leading-relaxed">
             Made in {LEGAL_CITY} by {LEGAL_OPERATOR}. Your holdings are stored

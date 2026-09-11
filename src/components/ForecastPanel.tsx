@@ -971,7 +971,7 @@ export const ForecastPanel = memo(function ForecastPanel({
 
   return (
     <Panel padded={false} className="overflow-hidden">
-      <header className="border-b border-border p-6">
+      <header className="border-b border-border surface-gutter py-6">
         <PanelHeader
           title={
             <span className="inline-flex items-center gap-2">
@@ -1040,7 +1040,17 @@ export const ForecastPanel = memo(function ForecastPanel({
         ))}
       </div>
 
-      <div className={cn("mx-4 mb-4 card-sheen glass-well rounded-lg", NESTED_PAD)}>
+      {/*
+        The inset is the panel's own gutter, not a hand-typed 16px.
+
+        This panel is `padded={false}`, so each row owns its edges, and
+        every other row in it sits on `.surface-gutter` (16px on a phone,
+        24 from `sm`). A flat `mx-4` held this well at 16 at every width,
+        so from `sm` up it stood 8px proud of the header above it and the
+        footer below it.
+      */}
+      <div className="surface-gutter pb-4">
+      <div className={cn("card-sheen glass-well rounded-lg", NESTED_PAD)}>
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm font-medium text-muted-foreground">
             Whole portfolio
@@ -1090,19 +1100,20 @@ export const ForecastPanel = memo(function ForecastPanel({
           })}
         </YearRail>
       </div>
+      </div>
 
-      <div className="border-t border-border p-6">
-        <div>
-          <h3 className="font-semibold text-foreground">
-            What Margus makes of it
-          </h3>
-          {plan?.generatedAt && (
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              Worked out {formatGeneratedAt(plan.generatedAt)}
-              {appliedFlash ? ". The prices have just been updated." : ""}
-            </p>
-          )}
-        </div>
+      <div className="border-t border-border surface-gutter py-6">
+        <PanelHeader
+          title="What Margus makes of it"
+          subtitle={
+            plan?.generatedAt ? (
+              <>
+                Worked out {formatGeneratedAt(plan.generatedAt)}
+                {appliedFlash ? ". The prices have just been updated." : ""}
+              </>
+            ) : undefined
+          }
+        />
 
         {error && (
           <p className="mt-3 rounded-lg border border-loss/30 bg-loss/10 px-3 py-2 text-sm text-loss">

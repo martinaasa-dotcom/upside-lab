@@ -5,7 +5,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { MobileDock } from "@/components/mobile/MobileDock";
 import { SignInGate } from "@/components/SignInGate";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
-import { Score, Scoreboard } from "@/components/ui/Panel";
+import { PANEL_PAD, Score, Scoreboard } from "@/components/ui/Panel";
 // The shape is `admin-funnel.ts`'s, imported rather than restated: this
 // file used to carry its own copy of it, which is how the page would have
 // gone on rendering six numbers while the route computed eight.
@@ -31,7 +31,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isAbortError } from "@/lib/abort";
 import { useNetworkResume } from "@/lib/use-network-resume";
-import { NO_VALUE } from "@/lib/format";
+import { cn, NO_VALUE } from "@/lib/format";
 
 type AdminUser = {
   id: string;
@@ -556,14 +556,14 @@ export function AdminPage() {
                 </div>
                 <div className="flex flex-col gap-3">
                   {communities.length === 0 ? (
-                    <p className="rounded-xl glass ring-1 ring-foreground/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                    <p className={cn("rounded-xl glass ring-1 ring-foreground/20 text-center text-sm text-muted-foreground", PANEL_PAD)}>
                       No circles yet.
                     </p>
                   ) : (
                     communities.map((c) => (
                       <article
                         key={c.id}
-                        className="flex flex-col gap-3 rounded-xl glass ring-1 ring-foreground/20 p-6"
+                        className={cn("flex flex-col gap-3 rounded-xl glass ring-1 ring-foreground/20", PANEL_PAD)}
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <div>

@@ -135,9 +135,49 @@ export const CARD = "glass-well rounded-lg";
  * side of its own card. 16px on a phone gives each of those cells another
  * 24px and costs a desktop nothing.
  */
-export const PANEL_PAD = "p-4 sm:p-6";
-/** Nested card / score-cell padding. Same step as the panel. */
-export const NESTED_PAD = "p-4 sm:p-6";
+/*
+ * Vertical and horizontal are two different budgets, and writing them as
+ * one `p-*` spent them as though they were one.
+ *
+ * Sideways is genuinely tight and the note above is why: on a 390px phone
+ * every pixel of side padding is one the content does not get, and a
+ * two-up score cell inside a panel has about 116px to set a figure in.
+ * So the horizontal step stays exactly where it was measured.
+ *
+ * Downward costs nothing but scroll, and scroll is the cheap axis: a
+ * reader who has to swipe once more has lost nothing, where a reader whose
+ * figure wrapped mid-number has lost the figure. So the vertical step goes
+ * up one, which is what puts air above a panel's title and under its last
+ * line without touching a single measured width.
+ *
+ * These are single classes from `@layer components` (globals.css) rather
+ * than `px-4 py-5 sm:px-6 sm:py-7`, and that is load-bearing rather than
+ * tidiness: a pair of utilities can only ever be half overridden. A call
+ * site asking for a compact panel with `p-4` replaced the base and left
+ * `sm:px-6 sm:py-7` standing, so it got its 16px on a phone and 24/28px
+ * from `sm` -- the opposite of what it asked for. One class puts the media
+ * query inside, so a call site's `p-*` or `gap-*` wins at every width.
+ */
+export const PANEL_PAD = "panel-pad";
+/**
+ * A room's own vertical stack of panels.
+ *
+ * `PAGE_MAIN_CLASS` already spaces the panels that are direct children of
+ * `<main>`, and for a long time that was assumed to be all of them. It is
+ * not: seven rooms build their own column and stack panels inside it, so
+ * Home, Lab, Pulse, Trends, Scenario and Seasonality were all still on the
+ * old flat 24px (Seasonality on 16) while a room that happened to stack
+ * straight into `<main>` had stepped to 32/40. One product, two answers to
+ * the same question, decided by a detail of how a room was built.
+ *
+ * Same class as the page column uses, so there is one number rather than a
+ * constant that agrees with it today.
+ */
+export const PANEL_STACK = "flex flex-col panel-stack";
+/** Nested card / score-cell padding. One step tighter than the panel's,
+ * so a well inside a panel reads as contained by it rather than as a
+ * second panel with the same weight. */
+export const NESTED_PAD = "nested-pad";
 /** A Scoreboard cell. Separate card on the field, not a hairline slice. */
 /*
  * `flex flex-col` so the note under the figure can bottom-align — see the
@@ -146,7 +186,7 @@ export const NESTED_PAD = "p-4 sm:p-6";
  * happened to end.
  */
 export const SCORE_CELL =
-  "card-sheen glass flex min-w-0 flex-col rounded-xl p-4 ring-1 ring-foreground/20 sm:p-6";
+  `card-sheen glass flex min-w-0 flex-col rounded-xl ring-1 ring-foreground/20 ${NESTED_PAD}`;
 /** Member / row list on the field. */
 export const LIST =
   "glass divide-y divide-border overflow-hidden rounded-xl ring-1 ring-foreground/20";
@@ -174,7 +214,13 @@ const SHELL_TONES = {
  * thing on the card by a clear step.
  */
 const FIGURE =
-  "mt-2 min-w-0 font-mono text-xl font-bold tabular-nums break-words sm:text-2xl";
+  /*
+   * `leading-tight` is explicit because the base layer now gives every
+   * `<p>` a prose line-height (see globals.css), and a figure is not
+   * prose: at 1.6 a wrapped two-line balance sets its own lines a third
+   * of a line too far apart and stops reading as one number.
+   */
+  "mt-2 min-w-0 font-mono text-xl font-bold leading-tight tabular-nums break-words sm:text-2xl";
 /*
  * `break-words`, and no `whitespace-nowrap`.
  *
@@ -207,7 +253,7 @@ export type PanelTone = keyof typeof SHELL_TONES;
  * gets the full card; sits on one row from `sm` up.
  */
 export const SPLIT_ROW =
-  "flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between";
+  "flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between";
 /** The text side of a SPLIT_ROW. Full width in the column; grows on `sm`. */
 export const SPLIT_COPY = "min-w-0 w-full sm:w-auto sm:min-w-[12rem] sm:flex-1";
 /** Buttons, selects, figures. Never shrink the copy to make room. */
@@ -233,7 +279,18 @@ export function Panel({
       className={cn(
         "h-full min-w-0 max-w-full rounded-xl text-sm text-card-foreground ring-1",
         SHELL_TONES[tone],
-        padded && "flex flex-col gap-5 p-4 sm:gap-6 sm:p-6",
+        /*
+         * The gap between a panel's own sections, and the one that
+         * decides whether a panel of three blocks reads as three
+         * things or as one wall. At 20/24px it was the same distance
+         * as the pad around it and smaller than the gap between whole
+         * panels only by a hair, so the hierarchy had no steps in it.
+         * The account of this in AGENTS.md is the company room, where
+         * four sections at 24px "read as one wall" and the fix was a
+         * wrapper at gap-10; this is that fix made the default rather
+         * than something each crowded panel has to rediscover.
+         */
+        padded && `flex flex-col panel-rhythm ${PANEL_PAD}`,
         className
       )}
       {...rest}
@@ -365,7 +422,7 @@ export function PanelHeader({
         {subtitle ? (
           <p
             className={cn(
-              "mt-1.5 text-sm leading-relaxed text-muted-foreground",
+              "mt-2 text-sm leading-relaxed text-muted-foreground",
               icon && "sm:pl-11"
             )}
           >
@@ -536,7 +593,14 @@ export function Reading({
         nested
           ? "glass-well rounded-lg text-foreground"
           : "card-sheen glass rounded-xl text-foreground ring-1 ring-foreground/20",
-        "p-6",
+        /*
+         * A flat `p-6` here was 48px of a 390px phone gone before a word
+         * of the reading started, which is the exact arithmetic PANEL_PAD
+         * steps down to avoid; this one had simply been missed. Same pad
+         * as a nested card, so a Reading and a well side by side sit on
+         * one inside edge.
+         */
+        NESTED_PAD,
         className
       )}
     >
@@ -950,7 +1014,20 @@ export function Scoreboard({
   return (
     <div
       className={cn(
-        "grid gap-4",
+        /*
+         * Rows and columns are priced differently, so they are set
+         * separately rather than as one `gap-*`.
+         *
+         * A column gap is width taken off every cell in the row, and at
+         * three cells on a phone each one has about 116px to set a figure
+         * in, so sideways stays at 16px until `sm` where there is room to
+         * spare. A row gap costs only scroll, so it is a flat 24px at
+         * every width -- and flat rather than stepping, because a phone
+         * stacks these into more rows than a laptop does, so the width
+         * that needs the row separation most is the one that would have
+         * got the smaller number from a single `gap-*`.
+         */
+        "grid gap-x-4 gap-y-6 sm:gap-x-5",
         HAIRLINE_TRACKS,
         className
       )}
@@ -1011,7 +1088,7 @@ export function Score({
    */
   const noteClass = cn(
     "mt-auto",
-    reading ? "pt-3 text-sm leading-relaxed" : "pt-2 text-sm leading-snug",
+    reading ? "pt-4 text-sm leading-relaxed" : "pt-3 text-sm leading-snug",
     subClassName ?? "text-muted-foreground"
   );
   return (
@@ -1041,7 +1118,7 @@ export function Score({
         {value}
       </p>
       {reading && bullets ? (
-        <ul className={cn(noteClass, "flex flex-col gap-1", bulletsClassName)}>
+        <ul className={cn(noteClass, "flex flex-col gap-1.5", bulletsClassName)}>
           {bullets.map((line, i) => (
             <li key={`${i}:${line}`} className="flex gap-1.5">
               <span
@@ -1293,7 +1370,17 @@ export function EmptyState({
   return (
     <Empty
       className={cn(
-        "glass flex-none border border-dashed border-border px-8 py-8",
+        /*
+          The emptiest screens had the narrowest column in the product.
+          A flat `px-8` is 64px of a 360px phone, which left 264px for the
+          one sentence that says what to do next -- and an empty state is
+          what a brand new reader meets first. The sides step with every
+          other surface (`.surface-gutter`, 16 on a phone and 24 from
+          `sm`) and the vertical stays generous, because down is the cheap
+          axis and the air is what makes an empty box read as deliberate
+          rather than as content that failed to arrive.
+        */
+        "glass flex-none border border-dashed border-border surface-gutter py-8",
         className
       )}
     >
@@ -1393,7 +1480,7 @@ export function NoteRows({
     ) : null;
   }
   return (
-    <dl className={cn("flex flex-col gap-2.5", className)}>
+    <dl className={cn("flex flex-col gap-3.5", className)}>
       {shown.map((r) => (
         <div
           key={r.label}

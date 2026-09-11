@@ -1057,6 +1057,184 @@ body {
   }
 }
 
+/*
+ * Reading copy breathes by default.
+ *
+ * Body copy in this app is `text-sm`, whose line-height is 1.25rem -- 1.43
+ * at 14px, which is a UI line-height rather than a reading one. About 190
+ * paragraphs already said `leading-relaxed` by hand and roughly 320 did
+ * not, so the product carried two different reading rhythms depending on
+ * whether whoever wrote a panel remembered, and the tight one is most of
+ * what "everything feels cluttered" was pointing at: a three-line
+ * explanation set at 1.43 is a block, not three lines.
+ *
+ * 1.625 is not a new number, it is exactly `leading-relaxed`. Matching it
+ * rather than picking something nearby is the point: afterwards there is
+ * one prose rhythm in the product instead of two, and the 190 hand-written
+ * `leading-relaxed` paragraphs are pixel-identical to what they were.
+ *
+ * **Unlayered, and that is load-bearing.** `text-sm` is not only a size,
+ * it ships its own `line-height`, so a rule in `@layer base` loses to it
+ * on every one of those ~320 paragraphs and silently does nothing -- which
+ * is exactly what the first attempt at this did, and the measurement
+ * (prose leading 20px before, 20px after) is the only reason it was
+ * caught. An unlayered rule beats every Tailwind utility whatever the
+ * specificity, which is the same mechanism the session hint in
+ * `session-hint.ts` relies on.
+ *
+ * Which makes the `:not()` chain the whole safety of it, and the chain is
+ * longer than `leading-` for a reason found by measuring rather than by
+ * reading. A `<p>` in this app is not always prose: 53 of them are a
+ * figure, a label or a status word, and the first version of this rule
+ * loosened every one of them silently -- `MicroLabel` measured 12px type
+ * on a 19.5px line where it had been 16, and every `tabular-nums` figure
+ * in the product grew its line box by about a sixth. Nothing looked
+ * broken, which is exactly why it needed measuring: a change nobody
+ * decided is still a change, and `DISPLAY` already records that a figure's
+ * leading is a considered number (a wrapped two-line balance has to read
+ * as one figure).
+ *
+ * So the selector states the rule the design system already runs on, which
+ * is the split in DESIGN_TOKENS.md: **Geist for every sentence, Geist Mono
+ * for every figure.** A paragraph that is mono or `tabular-nums` is a
+ * figure; one that is `uppercase` is the `MicroLabel` scaffolding voice;
+ * one that is `font-heading` is a status word on a reading tile. None of
+ * those is prose and none of them takes prose leading. What is left is a
+ * sentence, and a sentence gets 1.625.
+ *
+ * A call site still overrides everything by naming its own `leading-*`,
+ * which is how `FIGURE` opts out and how a sentence that happens to carry
+ * `tabular-nums` can opt back in. Never widen this past `p` -- `text-sm`
+ * is also every table cell, button, input and nav label in the app, and a
+ * table row is a fixed `h-10` that a looser line would fight.
+ */
+p:not([class*="leading-"]):not([class*="font-mono"]):not([class*="tabular-nums"]):not([class*="uppercase"]):not([class*="font-heading"]) {
+  line-height: 1.625;
+}
+
+@layer components {
+  /*
+   * The panel rhythm, as one class per role rather than a pair of Tailwind
+   * utilities.
+   *
+   * Written as `gap-6 sm:gap-8` it could only ever be *half* overridden. A
+   * call site that wants a compact panel writes `<Panel className="gap-3">`,
+   * which conflicts with the base `gap-6` and replaces it -- and leaves
+   * `sm:gap-8` standing, because a modifier is its own group to
+   * tailwind-merge. Measured on the real rendered component, that call site
+   * got 12px on a phone and 32px from `sm`: a 2.67x jump at one breakpoint,
+   * in a panel whose author had asked for the tightest gap in the product.
+   * The same held for `p-4` against `sm:px-6 sm:py-7`. Five call sites were
+   * in that state (PulsePage, TrendsPanel, and three landing cards).
+   *
+   * As one class the media query is inside it, so a `gap-*` or `p-*`
+   * utility from a call site wins at **every** width and the override is
+   * whole. `@layer components` is what makes that true and is the only
+   * reason this is not just a rename: Tailwind orders components before
+   * utilities, so any utility beats these regardless of specificity or of
+   * which one carries a media query.
+   *
+   * The numbers are the scale in DESIGN_TOKENS.md. Vertical is generous and
+   * horizontal is not, because a phone's width is the one budget that is
+   * actually scarce -- see the note on PANEL_PAD in Panel.tsx.
+   */
+  .panel-rhythm {
+    gap: 1.5rem;
+  }
+  .panel-pad {
+    padding: 1.25rem 1rem;
+  }
+  .nested-pad {
+    padding: 1.25rem 1rem;
+  }
+  /* A room's own stack of panels. Wider than a panel's inside rhythm, so a
+     panel reads as one answer and the stack as several. */
+  .panel-stack {
+    gap: 2rem;
+  }
+
+  /*
+   * A modal's inside pad, and the gutter for the split-header kind.
+   *
+   * Nine modal shells carried a flat `p-6` -- 24px on every side at every
+   * width. Measured on the rendered CashModal at 360px the sheet is 96% of
+   * the screen and its padding takes 48 of that, leaving **287px** to set a
+   * field in. That is the same arithmetic `PANEL_PAD` steps down to avoid
+   * and that `Reading`'s own flat `p-6` was already corrected for; the
+   * modals had simply been missed, and a modal is the surface where it
+   * costs most, because it is the one a reader types into.
+   *
+   * Same numbers as `.panel-pad`, so a dialog and a panel sit on one inside
+   * edge, which also steps the desktop vertical up from 24 to 28 and stops
+   * a modal being tighter than the panel behind it.
+   *
+   * The safe-area floor is inside the class rather than left to a
+   * `pb-[max(...)]` at each call site: below `sm` these are bottom sheets
+   * and the iPhone home indicator sits under them, and a utility bolted on
+   * per call site is exactly the half-override this layer exists to stop.
+   * At `sm` the shorthand resets it, which is right, since from there the
+   * dialog is centred and nothing is under it.
+   */
+  .modal-pad {
+    padding: 1.25rem 1rem;
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+  /*
+   * Sides only, and the same two numbers as every pad above.
+   *
+   * For a surface whose header, body and footer each own their own vertical
+   * rhythm and only need to share one left edge: a split modal, and a
+   * table panel's own header row, which is `Panel padded={false}` and so
+   * has to state its gutter itself. Both were a flat `px-6`, which is the
+   * phone fault again -- and on a table it is the worse one, since the
+   * header sat 24px in while the rows under it sit at 6.
+   */
+  .surface-gutter {
+    padding-inline: 1rem;
+  }
+  /*
+   * A scroller that breaks out of its modal's pad and re-pads itself, so
+   * its scrollbar sits at the sheet's own edge rather than floating inside
+   * the content.
+   *
+   * It has to mirror `.modal-pad` exactly, which is why it is a class: as
+   * `-mx-6 px-6` it was a hardcoded 24 that silently stopped matching the
+   * moment the pad around it stepped down to 16 on a phone, pulling the
+   * content 8px past the sheet's edge on each side. A test caught that the
+   * same hour it was introduced; a pair of numbers that must agree should
+   * not be typed twice.
+   */
+  .modal-bleed {
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+  }
+
+  @media (width >= 40rem) {
+    .panel-rhythm {
+      gap: 2rem;
+    }
+    .panel-pad {
+      padding: 1.75rem 1.5rem;
+    }
+    .nested-pad {
+      padding: 1.5rem;
+    }
+    .panel-stack {
+      gap: 2.5rem;
+    }
+    .modal-pad {
+      padding: 1.75rem 1.5rem;
+    }
+    .surface-gutter {
+      padding-inline: 1.5rem;
+    }
+    .modal-bleed {
+      margin-inline: -1.5rem;
+      padding-inline: 1.5rem;
+    }
+  }
+}
+
 /* Hide scrollbars in horizontal tab rails (still scrollable). */
 .scrollbar-none,
 .no-scrollbar {

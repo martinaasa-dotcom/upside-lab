@@ -36,6 +36,28 @@ export const PAGE_FRAME_CLASS =
 export const PAGE_CHROME_SPACER_CLASS =
   "hidden h-[calc(5.25rem_+_1px)] shrink-0 md:block";
 
-/** Top pad only. Bottom pad is the live dock height. A shorthand
- * vertical pad would wipe that clearance and hide the last section. */
-export const PAGE_MAIN_CLASS = `${PAGE_COLUMN_CLASS} flex flex-1 flex-col gap-6 pt-6 pb-[var(--dock-pad)]`;
+/**
+ * Top pad only. Bottom pad is the live dock height. A shorthand
+ * vertical pad would wipe that clearance and hide the last section.
+ *
+ * The gap between panels is the loudest spacing number in the product,
+ * because it is the one a reader meets over and over on the way down a
+ * room. At a flat 24px it was the same distance as a panel's own inside
+ * padding, so a panel's last line sat as far from the next panel's first
+ * line as it did from its own edge, and the boxes stopped reading as
+ * separate things: a room read as one long ribbon of text rather than as
+ * a stack of answers. Separation between groups has to beat separation
+ * inside one, or the grouping is not doing any work.
+ *
+ * 32px on a phone and 40px from `sm` up, against a panel's own 20/28px of
+ * inside padding, so the rule holds at both widths. It is vertical only,
+ * so it costs no width on the phone, which is the one budget that is
+ * actually tight (see PAGE_GUTTER_CLASS above).
+ *
+ * The number itself is `.panel-stack` in globals.css, shared with
+ * `PANEL_STACK` (Panel.tsx), because most rooms do not stack their panels
+ * straight into `<main>` -- they build their own column -- and a constant
+ * here that merely agreed with that one is how the two drifted apart in
+ * the first place.
+ */
+export const PAGE_MAIN_CLASS = `${PAGE_COLUMN_CLASS} panel-stack flex flex-1 flex-col pt-6 pb-[var(--dock-pad)] sm:pt-8`;

@@ -1790,8 +1790,13 @@ run("circle awards are a grid of cards, not a flat divided list", () => {
   // the clearest margin), and the Today board that used to follow it moved
   // inside a `BelowFold`. Anchored on the section's own `achievements.map`
   // instead, which is what makes it this section rather than any other.
+  // Ends at the card's own closing tag. That used to be `</section>`,
+  // because every card in this room was a hand-rolled glass div; they are
+  // `Panel`s now, and a slice that still looked for `</section>` ran on
+  // past this card into the rest of the room and read another section's
+  // markup as this one's.
   const awardsStart = community.indexOf("Who stands out");
-  const awardsEnd = community.indexOf("</section>", awardsStart);
+  const awardsEnd = community.indexOf("</Panel>", awardsStart);
   const awards = community.slice(awardsStart, awardsEnd);
   assert.match(awards, /grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3/);
   // Each award is a glass-well card, not a divided list row. Asserted by
@@ -2332,7 +2337,7 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
   /*
    * Asserted as properties rather than as one exact class string, which is
    * what made this brittle: the cell gained `flex flex-col` and stepped its
-   * padding down on a phone (`p-4 sm:p-6`), neither of which touches what
+   * padding down on a phone (`px-4 py-5 sm:px-6 sm:py-6`), neither of which touches what
    * this invariant is about. What it is about is that a score cell is glass
    * on the field with a ring, and never a flat fill.
    */
@@ -2361,7 +2366,58 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
     panel.slice(panel.indexOf("export function Reading")),
     /text-sm font-semibold tracking-tight text-foreground/
   );
-  assert.match(panel, /padded &&\s*"flex flex-col gap-5 p-4 sm:gap-6 sm:p-6"/);
+  /*
+   * The rule, not today's numbers, and read from the CSS rather than from a
+   * class string. This used to pin the exact utilities and so broke on a
+   * pure spacing pass that changed nothing it was about; it then had to
+   * change again when the rhythm moved into `@layer components`, which is
+   * the second time an assertion about markup cost more than it protected.
+   *
+   * What it is about: a padded panel is a flex column that owns the air
+   * around and between its own children; its side pad steps down on a
+   * phone, because a phone's width is the scarce budget; and its sections
+   * sit at least as far apart as they sit from its own edge, or sections
+   * that sit closer together than they sit from the edge do not read as
+   * separate sections.
+   */
+  const padded = panel.match(/padded && `([^`]+)`/)?.[1] ?? "";
+  assert.match(padded, /flex flex-col/, "a padded panel is a flex column");
+  assert.match(padded, /panel-rhythm/, "a padded panel carries the shared rhythm");
+  const rhythmCss = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+  const rem = (block: string, prop: string) => {
+    const m = block.match(new RegExp(`${prop}:\\s*([\\d.]+)rem(?:\\s+([\\d.]+)rem)?`));
+    return m ? [Number(m[1]), m[2] === undefined ? Number(m[1]) : Number(m[2])] : null;
+  };
+  const rule = (name: string, wide: boolean) => {
+    const layer = rhythmCss.slice(rhythmCss.indexOf("@layer components {"));
+    const scope = wide ? layer.slice(layer.indexOf("@media (width >= 40rem)")) : layer.slice(0, layer.indexOf("@media (width >= 40rem)"));
+    const at = scope.indexOf(`.${name} {`);
+    assert.ok(at >= 0, `.${name} is defined${wide ? " at sm" : ""}`);
+    return scope.slice(at, at + 120);
+  };
+  const padPhone = rem(rule("panel-pad", false), "padding")!;
+  const padWide = rem(rule("panel-pad", true), "padding")!;
+  const gapPhone = rem(rule("panel-rhythm", false), "gap")![0];
+  const gapWide = rem(rule("panel-rhythm", true), "gap")![0];
+  assert.ok(
+    padPhone[1] > 0 && padPhone[1] < padWide[1],
+    `a panel's side pad steps down on a phone (got ${padPhone[1]}/${padWide[1]}rem)`
+  );
+  assert.ok(
+    gapPhone >= padPhone[0] && gapWide >= padWide[0],
+    `a panel's sections sit at least as far apart as they sit from its edge (gap ${gapPhone}/${gapWide} vs pad ${padPhone[0]}/${padWide[0]}rem)`
+  );
+  /*
+   * A room's stack of panels must separate more than a panel separates its
+   * own sections, or the boxes stop reading as separate answers -- which is
+   * the whole fault the spacing pass was fixing.
+   */
+  const stackPhone = rem(rule("panel-stack", false), "gap")![0];
+  const stackWide = rem(rule("panel-stack", true), "gap")![0];
+  assert.ok(
+    stackPhone > gapPhone && stackWide > gapWide,
+    `panels sit further apart than a panel's own sections (stack ${stackPhone}/${stackWide} vs rhythm ${gapPhone}/${gapWide}rem)`
+  );
   assert.match(panel, /export function Scoreboard/);
   /*
    * Inverted on purpose. This used to require `whitespace-nowrap` on a
@@ -2433,7 +2489,18 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
     /uppercase tracking-wide/
   );
   assert.match(panel, /const FIGURE/);
-  assert.match(panel, /font-mono text-xl font-bold tabular-nums/);
+  /*
+   * Asserted as properties rather than as one run of classes: FIGURE gained
+   * an explicit `leading-tight` when `<p>` picked up a prose line-height in
+   * globals.css, which sits between `font-bold` and `tabular-nums` and broke
+   * a contiguous match while changing nothing this is about. A figure is
+   * mono, steps up a size at `sm`, sets its digits on one width, and states
+   * its own line so the prose default cannot loosen a wrapped number.
+   */
+  const figure = panel.slice(panel.indexOf("const FIGURE"), panel.indexOf("const FIGURE") + 400);
+  for (const cls of ["font-mono", "text-xl", "font-bold", "tabular-nums", "sm:text-2xl", "leading-tight"]) {
+    assert.ok(figure.includes(cls), `FIGURE keeps ${cls}`);
+  }
   /*
    * The chrome's fill and blur are one CSS class now, not utilities on the
    * header. That is load-bearing rather than tidying: a `backdrop-filter`
@@ -2564,7 +2631,18 @@ run("boxes sit off the field, never the same color as the page", () => {
     members,
     /divide-y divide-border overflow-hidden rounded-xl glass ring-1 ring-foreground\/20/
   );
-  assert.match(share, /rounded-xl glass ring-1 ring-foreground\/20 p-6/);
+  /*
+    The rule, not the class string it used to be written as. This asserted
+    `rounded-xl glass ring-1 ring-foreground/20 p-6` -- one hand-rolled
+    card's exact markup, including a flat `p-6` that was itself the bug:
+    the Circle was the one room the design system never reached, so its
+    cards sat 24px inside and 12px apart at every width while a panel
+    steps 16/20 on a phone and a room stacks at 32/40. What matters here
+    is that the toggles sit on a card off the field rather than on the
+    page, and `Panel` is what this app calls that card.
+  */
+  assert.match(share, /<Panel[\s>]/);
+  assert.match(panel, /SHELL_TONES/);
   assert.deepEqual(
     offendersOf(/bg-card\/(?:80|50)\b/),
     [],
@@ -5002,7 +5080,7 @@ run("split rows stack on a phone so copy fills the card", () => {
     "utf8"
   );
   assert.match(panel, /export const SPLIT_ROW/);
-  assert.match(panel, /flex flex-col gap-3 sm:flex-row/);
+  assert.match(panel, /flex flex-col gap-\d+(?:\.5)? sm:flex-row/);
   const files = [
     "src/components/ui/Panel.tsx",
     "src/components/LabSheet.tsx",

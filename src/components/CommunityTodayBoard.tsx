@@ -10,6 +10,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { RankMedal } from "@/components/RankMedal";
+import { Panel, PanelHeader } from "@/components/ui/Panel";
 import {
   cn,
   NO_VALUE,
@@ -45,20 +46,12 @@ export function CommunityTodayBoard({
   onOpen: (id: string) => void;
 }) {
   return (
-    <section className="overview-fade order-1 rounded-xl glass ring-1 ring-foreground/20 p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="card-sheen glass-well rounded-xl p-2 text-primary">
-            <Trophy className="h-4 w-4" />
-          </div>
-          <div>
-            <h3 className="text-foreground">Today</h3>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              How each portfolio moved today, biggest move first
-            </p>
-          </div>
-        </div>
-      </div>
+    <Panel className="overview-fade order-1">
+      <PanelHeader
+        icon={<Trophy className="h-4 w-4" />}
+        title="Today"
+        subtitle="How each portfolio moved today, biggest move first"
+      />
       <ItemGroup className="gap-0 has-data-[size=sm]:gap-0">
         {[...members]
           .sort((a, b) => (b.todayPct ?? -1) - (a.todayPct ?? -1))
@@ -130,6 +123,6 @@ export function CommunityTodayBoard({
             );
           })}
       </ItemGroup>
-    </section>
+    </Panel>
   );
 }
