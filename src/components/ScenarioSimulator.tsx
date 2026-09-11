@@ -58,9 +58,6 @@ type Props = {
     price: number;
     /** The provider's sector in this app's words, where it answered. */
     sector?: string | null;
-    /** This company's own measured swing against the market, where its
-     *  prices could support one. */
-    beta?: number | null;
   }[];
   cash: number;
   scopeLabel: string;
@@ -134,19 +131,6 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
     [holdings]
   );
 
-  /*
-    How much of this room is a measurement rather than a judgement, for the
-    mark. Counted here rather than passed in, so it cannot disagree with
-    the rows actually drawn.
-  */
-  const measuredCount = useMemo(
-    () => ({
-      measured: holdings.filter((h) => h.beta != null).length,
-      total: holdings.length,
-    }),
-    [holdings]
-  );
-
   if (holdings.length === 0) {
     return (
       <EmptyState
@@ -165,7 +149,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
             <span className="inline-flex items-center gap-2">
               What a bad day costs you
               <WhyThis
-                provenance={scenarioProvenance(guessedProfiles, measuredCount)}
+                provenance={scenarioProvenance(guessedProfiles)}
               />
             </span>
           }

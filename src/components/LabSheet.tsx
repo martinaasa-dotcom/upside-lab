@@ -1,11 +1,7 @@
 "use client";
 
 import { useTickerSectors } from "@/lib/use-ticker-sectors";
-import { useQuotes } from "@/lib/quote-pool";
-import { measuredBetas } from "@/lib/measured-beta";
 
-/** The market, for measuring a holding's own swing against. */
-const MARKET_PROXY = ["SPY"];
 import { TermTip } from "@/components/ui/TermTip";
 import { mixSlices } from "@/lib/mix-slices";
 import {
@@ -362,34 +358,13 @@ export const LabSheet = memo(function LabSheet({
     from the profile for that kind of business rather than from the
     plain-large-company catch-all every unlisted name used to get.
   */
-  /*
-    The market's own recent closes, for measuring each holding against.
-    One symbol, public and heavily traded, so it is a CDN hit shared by
-    every reader rather than a fetch per portfolio.
-  */
-  const marketSparkline = useQuotes(MARKET_PROXY)[MARKET_PROXY[0]!]
-    ?.sparkline;
-
-  /*
-    How far each holding has actually swung against the market, from the
-    sparkline every quote already carries, so there is no extra call at
-    all. It replaces the typed beta and nothing else: `book-shock.ts` says
-    outright that nothing in its table was measured, and a month of closes
-    can answer that one question and none of the others.
-  */
-  const measured = useMemo(
-    () => measuredBetas(scopedTickers, marketSparkline),
-    [scopedTickers, marketSparkline]
-  );
-
   const scopedWithSectors = useMemo(
     () =>
       scopedTickers.map((t) => ({
         ...t,
         sector: sectorWordsByTicker[t.ticker.toUpperCase()] ?? null,
-        beta: measured[t.ticker.toUpperCase()] ?? null,
       })),
-    [scopedTickers, sectorWordsByTicker, measured]
+    [scopedTickers, sectorWordsByTicker]
   );
 
   const byTicker = useMemo(

@@ -3,7 +3,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { allocationBySector } from "@/lib/allocation";
-import { SCENARIO_MAINTENANCE_RATE, SHOCKS, shockedPct } from "@/lib/book-shock";
+import {
+  SCENARIO_MAINTENANCE_RATE,
+  SHOCKS,
+  shockBeta,
+  shockedPct,
+} from "@/lib/book-shock";
 import { MAINTENANCE_RATE } from "@/lib/margin-health";
 import { buildActionSignals } from "@/lib/market/seasonality";
 
@@ -210,14 +215,34 @@ describe("the risk room reasons from what it was told", () => {
     }
   });
 
-  it("lets a company's own measured swing replace the typed one", () => {
+  it("does not claim a per-company swing it has no history to measure", () => {
+    /*
+      A measured beta per holding was built here and taken out, and the
+      reason is the data rather than the arithmetic. Two series reach the
+      browser: `sparkline`, which is a drawing -- downsampled, so two
+      neighbours are not two consecutive days, and a sine wave outright
+      when a provider had no history -- and `dailyCloses`, which is real
+      and, measured against the live feed, exactly **15 sessions** deep.
+
+      A beta off the drawing is a fact about a curve, and the provenance
+      mark would have called it "measured from their own recent prices".
+      A beta off fourteen daily returns has a confidence interval wider
+      than the distinction it is drawing, which is the same fault this
+      repo already deleted a discounted cash flow and two valuation
+      methods for: confidently wrong beats uncertain only in the wrong
+      direction.
+
+      So the table stays typed and says so. Do not add a `measured`
+      argument back to this chain without a source of history deep enough
+      to support one.
+    */
     const utility = "Electricity, water and gas";
-    const jumpy = shockedPct("NEE", "broad_down15", utility, 2.0);
-    const steady = shockedPct("NEE", "broad_down15", utility, 0.4);
-    expect(Math.abs(jumpy)).toBeGreaterThan(Math.abs(steady));
-    // And an absent measurement changes nothing.
-    expect(shockedPct("NEE", "broad_down15", utility, null)).toBe(
-      shockedPct("NEE", "broad_down15", utility)
+    expect(shockedPct.length).toBeLessThanOrEqual(3);
+    expect(shockBeta.length).toBeLessThanOrEqual(3);
+    // The sector still decides it, which is the part that is real.
+    expect(Math.abs(shockedPct("NEE", "broad_down15", utility))).not.toBeCloseTo(
+      Math.abs(shockedPct("NEE", "broad_down15")),
+      4
     );
   });
 });
