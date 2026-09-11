@@ -190,3 +190,43 @@ describe("where you differ from the room", () => {
     expect(mixGapLine([hold("Property", 100)], [])).toBeNull();
   });
 });
+
+describe("the Fund divides slice values by its own total", () => {
+  it("keeps every penny, fold included", () => {
+    /*
+      The Fund re-scales each slice as `value / totalValue` so cash can sit
+      beside the sectors in one bar. That only adds up if the slices' own
+      values sum to the equity, fold included -- so this is the Fund's
+      arithmetic depending on a property of mixSlices that nothing stated.
+    */
+    const vals = [5000,4000,3000,2500,2000,1500,300,200];
+    const holdings = vals.map((v,i)=>({ ticker:`T${i}`, currentValue:v, sector:SECTORS[i]! }));
+    const slices = mixSlices(holdings);
+    expect(slices.length).toBe(MAX_MIX_SLICES + 1);
+    const summed = slices.reduce((a,s)=>a+s.value, 0);
+    expect(summed).toBeCloseTo(vals.reduce((a,b)=>a+b,0), 6);
+  });
+
+  it("a worthless holding does not make the bar short", () => {
+    const holdings = [
+      { ticker:"A", currentValue:1000, sector:SECTORS[0]! },
+      { ticker:"B", currentValue:0,    sector:SECTORS[1]! },
+      { ticker:"C", currentValue:500,  sector:SECTORS[2]! },
+    ];
+    const slices = mixSlices(holdings);
+    expect(slices.reduce((a,s)=>a+s.value,0)).toBeCloseTo(1500, 6);
+    // Drawn with cash beside it, the bar still reaches 100%.
+    const cash = 500, total = 1500 + cash;
+    const bar = slices.reduce((a,s)=>a + s.value/total, 0) + cash/total;
+    expect(bar).toBeCloseTo(1, 6);
+  });
+
+  it("a negative holding cannot make a slice longer than the bar", () => {
+    // A short or a bad quote should not produce a slice wider than 100%.
+    const slices = mixSlices([
+      { ticker:"A", currentValue:1000, sector:SECTORS[0]! },
+      { ticker:"B", currentValue:-400, sector:SECTORS[1]! },
+    ]);
+    for (const s of slices) expect(s.pct).toBeLessThanOrEqual(1);
+  });
+});
