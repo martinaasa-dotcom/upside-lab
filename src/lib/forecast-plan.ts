@@ -299,6 +299,56 @@ export function loadPreviousForecastPlan(portfolioId: string): ForecastPlan | nu
   }
 }
 
+/** One holding's changed destination between two saved runs, for the
+ * "Since the last run" card. */
+export type ForecastPlanDiff = {
+  ticker: string;
+  from: number;
+  to: number;
+  /** The current run's own rationale for this ticker, empty if it has none. */
+  rationale: string;
+};
+
+/**
+ * Every holding whose `lastYear` price moved between `prevPlan` and `plan`,
+ * both saved runs of the same portfolio's forecast.
+ *
+ * A ticker only in one of the two plans (a new holding, or one `prevPlan`
+ * still remembers from before it was sold) is not a change to report, so it
+ * is skipped rather than compared against nothing. A move under 50 cents is
+ * float noise surviving calibration, not something worth telling a reader.
+ */
+export function forecastPlanDiffs(
+  plan: ForecastPlan | null,
+  prevPlan: ForecastPlan | null,
+  lastYear: ForecastYear | undefined
+): ForecastPlanDiff[] {
+  if (!plan || !prevPlan?.eoyTargets?.length || lastYear == null) return [];
+  const out: ForecastPlanDiff[] = [];
+  for (const t of plan.eoyTargets) {
+    const old = prevPlan.eoyTargets.find(
+      (p) => p.ticker.toUpperCase() === t.ticker.toUpperCase()
+    );
+    if (!old) continue;
+    const nextP = t.prices?.[lastYear];
+    const oldP = old.prices?.[lastYear];
+    if (
+      typeof nextP !== "number" ||
+      typeof oldP !== "number" ||
+      Math.abs(nextP - oldP) < 0.5
+    ) {
+      continue;
+    }
+    out.push({
+      ticker: t.ticker,
+      from: oldP,
+      to: nextP,
+      rationale: t.rationale?.trim() || "",
+    });
+  }
+  return out;
+}
+
 export function saveForecastPlan(
   plan: ForecastPlan,
   opts?: { shareTickerPaths?: boolean }

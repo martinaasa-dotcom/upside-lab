@@ -93,7 +93,7 @@ import {
   type ReactNode,
 } from "react";
 
-export type LabDeepLink = "seasonality" | "lookup";
+export type LabDeepLink = "seasonality" | "lookup" | "playbook";
 
 /** Signed numbers use gain/loss. Neutral figures stay on the cream. */
 const tone = (value: number | null | undefined) =>
@@ -1018,6 +1018,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   bandPoints = EMPTY_BAND_POINTS,
   onOpenPulse,
   onOpenResearch,
+  onOpenLab,
   marketState = null,
   quotesUpdatedAt = null,
   onAddHolding,
@@ -1393,11 +1394,21 @@ export const OverviewDashboard = memo(function OverviewDashboard({
    * it, and it gives somebody who has not typed anything in yet a reason
    * to look at the page at all.
    */
+  /*
+    The card carries the door to the Playbook, and it is passed from here
+    rather than built in the card, because navigation is the Dashboard's
+    job and `onOpenLab` is already the one way into a Lab tab. Absent when
+    Lab is not reachable for this reader, so the card never offers a room
+    that would not open.
+  */
   const marketReading = (
     <WidgetErrorBoundary name="Market reading">
       <MarketSentimentWidget
         yoursPct={totals.todayPct}
         holdings={marketHoldings}
+        onOpenPlaybook={
+          onOpenLab ? () => onOpenLab("playbook") : undefined
+        }
       />
     </WidgetErrorBoundary>
   );
@@ -1819,6 +1830,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         <WatchlistStrip
           heldTickers={heldTickers}
           onOpenPulse={onOpenPulse}
+          onOpenResearch={onOpenResearch}
         />
       </Panel>
       </WidgetErrorBoundary>

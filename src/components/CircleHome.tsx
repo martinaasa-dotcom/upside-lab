@@ -13,6 +13,7 @@ import {
   Segmented,
   SwatchLegend,
 } from "@/components/ui/Panel";
+import { AllocationBar } from "@/components/ui/AllocationBar";
 import {
   Avatar,
   AvatarFallback,
@@ -32,7 +33,6 @@ import {
 import type { CommunityDuelCache } from "@/lib/community-cache";
 import type { OverlapRow } from "@/lib/circle-overlap";
 import {
-  barFillPct,
   cashtag,
   cn,
   currency,
@@ -140,18 +140,14 @@ type ThemeSlice = {
 
 function ThemeBar({ slices }: { slices: ThemeSlice[] }) {
   return (
-    <div className="flex h-3 overflow-hidden rounded-full bg-muted">
-      {slices.map((t) => (
-        <div
-          key={t.theme}
-          style={{
-            width: `${barFillPct(t.pct * 100, 1.5)}%`,
-            backgroundColor: THEME_COLOR[t.theme],
-          }}
-          title={`${t.label}: ${themePctLabel(t.pct)}`}
-        />
-      ))}
-    </div>
+    <AllocationBar
+      slices={slices.map((t) => ({
+        key: t.theme,
+        pct: t.pct,
+        color: THEME_COLOR[t.theme],
+        title: `${t.label}: ${themePctLabel(t.pct)}`,
+      }))}
+    />
   );
 }
 

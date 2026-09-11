@@ -63,6 +63,10 @@ import { barFillPct } from "@/lib/format";
  */
 const ALLOWED = new Map<string, string>([
   [
+    "src/components/playbook/TemperatureLadder.tsx:79",
+    "bandWidths() is the gaps between fixed cut points on the ladder's own 0-100 axis (playbook.ts), so the widths sum to exactly 100 by construction and no reader's data enters the arithmetic.",
+  ],
+  [
     "src/components/MarketSentimentViz.tsx:455",
     "layout.streak.x0/x1 are day-index positions on the spark's own 0-100 axis, from sentimentSparkLayout, never a ratio of an unrelated quantity.",
   ],
