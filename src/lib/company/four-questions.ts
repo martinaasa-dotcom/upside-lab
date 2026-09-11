@@ -79,7 +79,7 @@ function historyAnswer(f: CompanyFacts): FourQuestionAnswer {
   const base = {
     id: "history" as const,
     question: QUESTIONS.history,
-    figureLabel: "Where it sits in its own year",
+    figureLabel: "Where it sits this year",
     maker: "market" as const,
   };
   if (at === null) {
@@ -190,7 +190,7 @@ function qualityAnswer(f: CompanyFacts, read: FairValueRead): FourQuestionAnswer
   const base = {
     id: "quality" as const,
     question: QUESTIONS.quality,
-    figureLabel: "What it keeps of every $100",
+    figureLabel: "Kept per $100 sold",
     maker: "arithmetic" as const,
   };
   const margin = ok(f.profitMargin) ? f.profitMargin : null;
@@ -245,7 +245,7 @@ function changeMyMindAnswer(input: {
   const base = {
     id: "change-my-mind" as const,
     question: QUESTIONS["change-my-mind"],
-    figureLabel: "The level your plan calls the floor",
+    figureLabel: "Your plan's floor",
     maker: againstPoint ? ("model" as const) : ("arithmetic" as const),
   };
   const parts: string[] = [];
