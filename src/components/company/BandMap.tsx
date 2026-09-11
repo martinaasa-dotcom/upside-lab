@@ -453,6 +453,7 @@ export function BandMap({
   code = "USD",
   at,
   title = "Where your holdings sit on their own plans",
+  subtitle = "Every name on its own price plan, so two in the same band are in the same place in their own plans whatever their prices are. Green and red are what you are up or down on each one, which is a different question from where its price sits.",
 }: {
   rows: Array<{
     ticker: string;
@@ -463,6 +464,14 @@ export function BandMap({
   code?: string;
   at?: string | null;
   title?: string;
+  /**
+   * Overridable because "green and red are what you are up or down" is
+   * only true where `roiPct` is real: a caller feeding every row `null`
+   * (a circle's pooled map, whose cost basis is not shared) draws every
+   * chip in its neutral colour, and the default sentence would be
+   * promising a reading that never appears.
+   */
+  subtitle?: string;
 }) {
   const plotRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState<{
@@ -557,7 +566,7 @@ export function BandMap({
             />
           </span>
         }
-        subtitle="Every name on its own price plan, so two in the same band are in the same place in their own plans whatever their prices are. Green and red are what you are up or down on each one, which is a different question from where its price sits."
+        subtitle={subtitle}
         icon={<MapIcon className="h-4 w-4" />}
       />
 

@@ -589,6 +589,7 @@ export function CircleHome({
                 <BandMap
                   rows={circleLadderRows}
                   title="Where the circle's biggest bets sit"
+                  subtitle="Everyone's holdings pooled into one company each, on its own price plan, so a $50 stock and a $5,000 one can share an axis. Chips are neutral here rather than green or red: what anybody paid stays theirs, so this can show where a price sits, not what the circle is up or down on it."
                 />
               </WidgetErrorBoundary>
             </div>

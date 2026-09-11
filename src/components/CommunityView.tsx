@@ -628,10 +628,21 @@ export function CommunityView({ communityId }: Props) {
     Every ticker the circle holds, pooled across every member, on the same
     price-band ladder the Holdings page draws for one portfolio -- so a
     reader can see at a glance which of the circle's biggest bets are
-    trading near an estimate and which have run past one. `roiPct` is
-    fixed at `null` on every row: the book route zeroes `buy_price` for
-    everybody but the holding's own owner (see `circle-privacy.test.ts`),
-    so a pooled gain/loss figure here would silently be wrong whenever more
+    trading near an estimate and which have run past one.
+
+    `spot` reads `quotes` directly rather than `TickerScore.price`, which
+    matters here specifically: `t.price` falls back to a cost-basis price
+    when no live quote has arrived (see `enrichHoldings`), and in a circle
+    that fallback is `buy_price`, a figure the book route zeroes for every
+    holding but its own owner. A ticker with no live quote would otherwise
+    land the map on somebody else's zeroed cost rather than sitting the
+    name out until a real price is in. Reading straight off `quotes` (the
+    same map `buildOverview` was given) means a ticker with no live quote
+    simply has no spot, exactly as `Dashboard` already does for one
+    portfolio's own map.
+
+    `roiPct` is fixed at `null` on every row for the same zeroed-`buy_price`
+    reason: a pooled gain/loss figure would silently be wrong whenever more
     than one person holds a name, and a chip that cannot tell whether it is
     up or down draws its neutral colour rather than guessing. No per-reader
     overrides go in either: this is the circle's own shape, not any one
@@ -642,13 +653,13 @@ export function CommunityView({ communityId }: Props) {
       holdingLadders({
         rows: overview.tickers.map((t) => ({
           ticker: t.ticker,
-          spot: t.price > 0 ? t.price : null,
+          spot: quotes[t.ticker]?.price ?? null,
           closes: t.dailyCloses?.length ? t.dailyCloses : t.sparkline,
           value: t.currentValue,
           roiPct: null,
         })),
       }),
-    [overview.tickers]
+    [overview.tickers, quotes]
   );
 
   // One combined per-person stat, computed once and reused by the power
