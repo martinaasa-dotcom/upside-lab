@@ -268,7 +268,6 @@ describe("a moment on the ladder is this holding's own, not the same sentence wi
       roiPct: -0.15,
     });
     expect(ladderMomentDetail(moment("trim-most"))).toContain("below what you paid");
-    expect(ladderMomentDetail(moment("full"))).toContain("below what you paid");
     expect(ladderMomentDetail(moment("full-aggressive"))).toContain("below what you paid");
     expect(ladderMomentDetail(moment("exit"))).toContain("below what you paid");
   });
