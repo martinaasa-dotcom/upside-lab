@@ -248,32 +248,27 @@ function Plot({
           it before. Read off that band rather than from the middle of
           the picture, because the lanes are not all the same height.
 
-          THE LABEL SITS AT THE RIGHT EDGE, NEVER THE LEFT.
+          NO LABEL LIVES INSIDE THE PLOT, ON EITHER EDGE.
 
-          The band names are their own column immediately to the left of
-          the plot, right-aligned so they end flush against its border.
-          A label pinned to the plot's own left edge lands a hair from
-          that text, and "Hold, nothing new" followed a beat later by a
-          dashed "ESTIMATE" read as one clause, as if the line were
-          naming what "hold" means rather than marking a price that has
-          nothing to do with the band it happens to cross. The right
-          edge has no other text anywhere near it.
+          A first pass put a floating "Estimate" pill at the left edge,
+          a beat after the right-aligned band-name column, so "Hold,
+          nothing new" and a dashed "ESTIMATE" read as one clause. Moving
+          the pill to the right edge traded that fault for a worse one:
+          the file's own comment two components up says why nothing
+          floats inside this plot at all -- "a label inside the plot is
+          a label a chip can land on" -- and the right edge is exactly
+          where the biggest holding's chip sits, in the band most
+          holdings are in. A label there is a label a real chip will
+          eventually sit on top of. So the line carries no text of its
+          own; the legend beneath the chart (`Estimate` swatch) says
+          what it is once, in a place nothing can ever be drawn over.
         */}
         {anchorAt !== null && (
-          <>
-            <div
-              className="absolute inset-x-0 border-t border-dashed border-primary/50"
-              style={{ top: anchorAt }}
-              aria-hidden
-            />
-            <span
-              className="absolute right-2 -translate-y-1/2 whitespace-nowrap rounded-full border border-primary/40 bg-background px-2 py-0.5 font-mono text-xs font-semibold uppercase tracking-wide text-primary"
-              style={{ top: anchorAt }}
-              aria-hidden
-            >
-              Estimate
-            </span>
-          </>
+          <div
+            className="absolute inset-x-0 border-t border-dashed border-primary/50"
+            style={{ top: anchorAt }}
+            aria-hidden
+          />
         )}
 
         {map.points.map((p) => (
