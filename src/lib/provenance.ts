@@ -553,8 +553,48 @@ export function pulseRoomProvenance(input: {
  * Everything else
  * ---------------------------------------------------------------------- */
 
-/** The made-up bad days in Lab. Arithmetic, not a model. */
-export function scenarioProvenance(): Provenance {
+/**
+ * The made-up bad days in Lab. Arithmetic, not a model.
+ *
+ * `guessed` is the uncomfortable half, and it is here for the reason the
+ * forecast's own mark names the paths the model did not write. This room
+ * prints a figure per holding, and behind each one is a profile saying
+ * how that kind of business moves in that kind of day. About ninety
+ * companies have a profile written about them; everything else is
+ * reasoned from a plain-large-company catch-all, which on an ordinary
+ * portfolio is several of the reader's own names. Nike, Disney, Berkshire
+ * and every REIT land there.
+ *
+ * Assuming a plain large company is a fair thing to do and not a fair
+ * thing to state as fact in silence. So the names are said out loud, and
+ * said as a blind spot rather than buried in the steps, because what a
+ * reader needs is not "some rows are approximate" but which of their own
+ * rows.
+ */
+export function scenarioProvenance(guessed: string[] = []): Provenance {
+  const names = [...new Set(guessed.map((t) => t.trim().toUpperCase()))]
+    .filter(Boolean)
+    .sort();
+  const guessedSpot =
+    names.length > 0
+      ? `This app has no profile written for ${listInWords(names)}, so ${
+          names.length === 1 ? "it is" : "they are"
+        } assumed to move like a plain large company. That is a guess, and the ${
+          names.length === 1 ? "figure" : "figures"
+        } beside ${names.length === 1 ? "it" : "them"} ${
+          names.length === 1 ? "is" : "are"
+        } only as good as it.`
+      : null;
+  return scenarioProvenanceBody(guessedSpot);
+}
+
+/** Joins names the way a sentence does: "A, B and C". */
+function listInWords(names: string[]): string {
+  if (names.length === 1) return names[0]!;
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]!}`;
+}
+
+function scenarioProvenanceBody(guessedSpot: string | null): Provenance {
   return {
     maker: "arithmetic",
     title: "Where this came from",
@@ -582,6 +622,7 @@ export function scenarioProvenance(): Provenance {
     blindSpots: [
       "Whether a day like that would actually happen, or how likely it is.",
       "What you would do in it. The numbers assume you sit still and hold exactly what you hold today.",
+      ...(guessedSpot ? [guessedSpot] : []),
       NOT_A_TARGET,
     ],
     yours: "Pick a different day from the row above.",

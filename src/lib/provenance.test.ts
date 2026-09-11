@@ -113,6 +113,33 @@ describe("provenance", () => {
     expect(p.headline).toMatch(/nobody asked a model/i);
   });
 
+  it("names the reader's own holdings it was only guessing about", () => {
+    /*
+      This room prints a figure per holding, and behind each is a profile
+      saying how that kind of business moves. About ninety companies have
+      one written about them; everything else is reasoned from a
+      plain-large-company catch-all, which on an ordinary portfolio is
+      several of the reader's own names. Assuming that is fair; stating
+      the result as fact in silence is not, which is this product's first
+      rule.
+    */
+    const quiet = scenarioProvenance([]).blindSpots.join(" ");
+    expect(quiet).not.toMatch(/no profile written/);
+
+    const guessed = scenarioProvenance(["NKE", "DIS"]).blindSpots.join(" ");
+    expect(guessed).toMatch(/no profile written for DIS and NKE/);
+    expect(guessed).toMatch(/a guess/);
+
+    // One name reads as a sentence too, not "1 holdings".
+    const one = scenarioProvenance(["DIS"]).blindSpots.join(" ");
+    expect(one).toMatch(/no profile written for DIS, so it is assumed/);
+    expect(one).toMatch(/the figure beside it/);
+
+    // Deduped, and a blank never reaches the sentence.
+    const messy = scenarioProvenance(["dis", "DIS", " ", "NKE"]).blindSpots.join(" ");
+    expect(messy).toMatch(/for DIS and NKE/);
+  });
+
   it("tells a skeptic the Forecast room's years ahead are modeled", () => {
     const p = forecastRoomProvenance({});
     expect(p.maker).toBe("model");

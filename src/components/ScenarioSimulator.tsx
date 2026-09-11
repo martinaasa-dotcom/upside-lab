@@ -4,6 +4,7 @@ import {
   SCENARIO_MAINTENANCE_RATE,
   SHOCKS,
   analyzePortfolioShock,
+  shockProfileIsGuessed,
   type ShockId,
 } from "@/lib/book-shock";
 import { FluidRow, FluidTable, cellBase, cellTicker, tableCols } from "@/components/FluidTable";
@@ -114,6 +115,20 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
   const activeScenario = analysis.scenario;
   const DriverIcon = DRIVER_ICONS[activeScenario.driver] ?? Activity;
 
+  /*
+    The reader's own names this app has no profile for. Behind the mark
+    rather than on the panel: it is true of a couple of rows on an
+    ordinary portfolio, and a warning on the face of the room every day
+    would be read past long before the day it mattered.
+  */
+  const guessedProfiles = useMemo(
+    () =>
+      holdings
+        .map((h) => h.ticker)
+        .filter((ticker) => shockProfileIsGuessed(ticker)),
+    [holdings]
+  );
+
   if (holdings.length === 0) {
     return (
       <EmptyState
@@ -131,7 +146,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
           title={
             <span className="inline-flex items-center gap-2">
               What a bad day costs you
-              <WhyThis provenance={scenarioProvenance()} />
+              <WhyThis provenance={scenarioProvenance(guessedProfiles)} />
             </span>
           }
         />

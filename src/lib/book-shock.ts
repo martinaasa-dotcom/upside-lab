@@ -386,6 +386,34 @@ export function tickerBase(ticker: string): string {
   return ticker.split(".")[0]!.toUpperCase();
 }
 
+/**
+ * Whether this app has a profile written about this company, or is
+ * reasoning about it from a catch-all.
+ *
+ * `PROFILES` is about ninety names and `KIND_PROFILES` a couple of dozen
+ * groups, and between them they cover the holdings this app was built
+ * around. Anything else lands on `KIND_PROFILES.other`, which is a plain
+ * large company and is a guess rather than a reading: Nike, Disney,
+ * Berkshire and every REIT arrive there.
+ *
+ * That is a reasonable thing to assume and not a reasonable thing to
+ * state as fact without saying so, which is this product's first rule.
+ * The Risk room prints a figure per holding, so it has to be able to say
+ * which of the reader's own names it was only guessing about.
+ */
+export function shockProfileIsGuessed(ticker: string): boolean {
+  const raw = ticker.trim();
+  const upper = raw.toUpperCase();
+  const base = tickerBase(upper);
+  if (PROFILES[upper] ?? PROFILES[raw] ?? PROFILES[base]) return false;
+  const kind = resolveKind(upper, base);
+  // A dotted symbol with no kind is treated as a company listed outside
+  // the US, which is something the ticker itself told us rather than a
+  // guess about the business.
+  if (raw.includes(".") && kind === "other") return false;
+  return kind === "other";
+}
+
 export function getShockProfile(ticker: string): TickerShockProfile {
   const raw = ticker.trim();
   const upper = raw.toUpperCase();
