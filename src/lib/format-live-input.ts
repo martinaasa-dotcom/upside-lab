@@ -2,13 +2,46 @@
 
 import { MAX_SAFE_MONEY } from "@/lib/money";
 
-export type CurrencyCode = "USD" | "EUR";
+/*
+  Widened past the dollar and the euro for the retirement module, which
+  asks where the reader lives and then has to print a Swedish krona or a
+  Swiss franc in an input they can type into. Nothing else about these
+  inputs is currency-aware: the grouping and the decimal point are en-US
+  throughout the app, and changing that here would move every figure in
+  every other panel.
+*/
+export type CurrencyCode =
+  | "USD"
+  | "EUR"
+  | "GBP"
+  | "CHF"
+  | "SEK"
+  | "NOK"
+  | "DKK"
+  | "PLN"
+  | "CZK"
+  | "CAD"
+  | "AUD";
 
 /** A typed percent above this is a joke, not a rate. */
 const MAX_SAFE_PERCENT = 1_000_000;
 
+const SYMBOLS: Record<CurrencyCode, string> = {
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  CHF: "CHF ",
+  SEK: "kr ",
+  NOK: "kr ",
+  DKK: "kr ",
+  PLN: "zl ",
+  CZK: "Kc ",
+  CAD: "$",
+  AUD: "$",
+};
+
 function currencySymbol(currency: CurrencyCode): string {
-  return currency === "EUR" ? "€" : "$";
+  return SYMBOLS[currency] ?? "$";
 }
 
 /** Split cleaned numeric string into int / frac / trailing-dot flag. */
