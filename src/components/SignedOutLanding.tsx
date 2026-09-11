@@ -23,6 +23,7 @@ import {
   signedPercent,
 } from "@/lib/format";
 import {
+  ArrowRight,
   CheckCircle2,
   ClipboardList,
   Eye,
@@ -179,35 +180,11 @@ function SectionHead({
         </span>
       </h2>
       {detail ? (
-        <p className="text-base leading-relaxed text-muted-foreground">
+        <p className="max-w-xl text-balance text-lg leading-snug text-muted-foreground">
           {detail}
         </p>
       ) : null}
     </div>
-  );
-}
-
-/**
- * Age and terms, in one short line under the button they apply to.
- *
- * This sentence used to appear once, at the very bottom of the page, about
- * 7,000px below the button most people actually press. A consent sentence
- * that far from the act it describes was never in front of the person who
- * consented.
- */
-function AgeLine({ minAge }: { minAge: number }) {
-  return (
-    <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
-      By continuing you confirm you are {minAge} or older and agree to the{" "}
-      <Link href="/terms" className="underline hover:text-foreground">
-        Terms
-      </Link>{" "}
-      and{" "}
-      <Link href="/privacy" className="underline hover:text-foreground">
-        Privacy policy
-      </Link>
-      .
-    </p>
   );
 }
 
@@ -291,7 +268,11 @@ function MoverRow({ row }: { row: SampleHolding }) {
  * and a card full of gains underneath it demonstrates nothing. Anybody can
  * hand you a good day.
  */
-export function SampleBriefing() {
+export function SampleBriefing({
+  onLookAround,
+}: {
+  onLookAround?: () => void;
+} = {}) {
   return (
     /*
       A container query, not a breakpoint.
@@ -374,10 +355,33 @@ export function SampleBriefing() {
         * compact sign-in draws this card with no look-around button on the
         * page at all.
         */}
-      <p className="text-left text-xs leading-relaxed text-muted-foreground">
-        The holdings on this card are made up. The prices are real, from the
-        same place a signed-in reader gets them.
-      </p>
+      {/*
+        * The invitation sits on the thing it opens, and on the card's own
+        * footnote row rather than in its header.
+        *
+        * It was a text link under the sign-in buttons, a third row of small
+        * type in a stack that already had two. In the header it cost the
+        * company's own name, which truncated at 360 and 390. Down here the
+        * row already ran the full width, so the action is free and still
+        * reads as an action rather than as more fine print.
+        */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="min-w-0 flex-1 text-left text-xs leading-relaxed text-muted-foreground">
+          The holdings on this card are made up. The prices are real, from the
+          same place a signed-in reader gets them.
+        </p>
+        {onLookAround ? (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onLookAround}
+            className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-sm font-medium"
+          >
+            Look around
+            <ArrowRight className="size-3.5" aria-hidden />
+          </Button>
+        ) : null}
+      </div>
     </Panel>
   );
 }
@@ -599,7 +603,7 @@ function Showcase() {
       <SectionHead
         eyebrow="The whole point"
         title="A fall and real news look exactly the same in a list of red numbers."
-        detail="One of them is worth your evening and the other is not. Both cards below are working: switch the day, or ask the follow-up question."
+        detail="One is worth your evening. The other is not. Both cards below are live."
       />
       <div className="mt-8 grid items-start gap-4 md:grid-cols-2">
         <PulseStill />
@@ -619,9 +623,9 @@ function Showcase() {
   total their broker shows.
 */
 const WILL_NOT = [
-  "Connect to your bank or broker. You add what you own once, and from then on the prices update on their own.",
-  "Know the day you bought. Gains are measured against your average price, so there is no chart that starts on the day you bought.",
-  "Match your broker to the cent. Prices are free and a few minutes behind, so the two totals will differ a little.",
+  "Connect to your broker. You add what you own once.",
+  "Know the day you bought. Gains run from your average price.",
+  "Match your broker to the cent. Free prices run minutes behind.",
 ] as const;
 
 /**
@@ -644,7 +648,7 @@ function NotYourBroker() {
       <SectionHead
         eyebrow="Why another one of these"
         title={BROKER_ANSWER}
-        detail="Your broker holds your money, puts your orders through and adds it all up to the cent, and it is good at all of that. Working out why the number moved is usually left to you."
+        detail="Yours holds the money and adds it up to the cent. Why the number moved is left to you."
       />
       {/*
         * One panel, two halves. Stacked on a phone, two separately padded
@@ -661,7 +665,7 @@ function NotYourBroker() {
             {THIS_DOES_INSTEAD.map((line) => (
               <li
                 key={line}
-                className="flex items-start gap-2.5 text-sm leading-relaxed text-muted-foreground"
+                className="flex items-start gap-2.5 text-base leading-snug text-muted-foreground"
               >
                 <CheckCircle2
                   className="mt-0.5 size-4 shrink-0 text-primary"
@@ -679,7 +683,7 @@ function NotYourBroker() {
             {WILL_NOT.map((line) => (
               <li
                 key={line}
-                className="flex items-start gap-2.5 text-sm leading-relaxed text-muted-foreground"
+                className="flex items-start gap-2.5 text-base leading-snug text-muted-foreground"
               >
                 <MinusCircle
                   className="mt-0.5 size-4 shrink-0 text-muted-foreground"
@@ -770,19 +774,19 @@ const CIRCLE_POINTS = [
     icon: Users,
     title: "Share a portfolio with one person",
     detail:
-      "Invite a partner or a parent and you both own it. Not a copy: you both add holdings and you both see all of it, what each of you paid included.",
+      "Invite a partner or a parent. You both own it and see all of it, what each of you paid included.",
   },
   {
     icon: MessagesSquare,
     title: "Or show a circle, without what you paid",
     detail:
-      "Putting a portfolio in a circle is the other thing, and it answers differently. Everybody there sees what you hold, what it is worth and how it has gone. What you paid for it, and so whether you are up or down, stays yours.",
+      "Everybody sees what you hold and how it has gone. What you paid for it, and so whether you are up or down, stays yours.",
   },
   {
     icon: ShieldCheck,
     title: "Nobody is added for you",
     detail:
-      "A circle is invite-only. Signing in never puts you in one, and nothing is shared until you share it.",
+      "Invite-only. Signing in never puts you in one, and nothing is shared until you share it.",
   },
 ] as const;
 
@@ -799,7 +803,7 @@ function CircleSection() {
       <SectionHead
         eyebrow="Circle"
         title="A bad week is easier with someone you know."
-        detail="It helps to hear that nothing really changed, and it helps more from someone looking at the same week."
+        detail="It helps more from someone looking at the same week."
       />
       {/*
         * One panel with three rows, not three panels.
@@ -823,7 +827,7 @@ function CircleSection() {
               </span>
               <div className="min-w-0 flex flex-col gap-1">
                 <h3 className="text-base text-foreground">{c.title}</h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">
+                <p className="text-base leading-snug text-muted-foreground">
                   {c.detail}
                 </p>
               </div>
@@ -835,6 +839,14 @@ function CircleSection() {
   );
 }
 
+/**
+ * The three answers that used to be a 16-word sentence in the hero.
+ *
+ * Each is checkable and each is the answer to a question somebody actually
+ * has before they press: how long, what do I have to hook up, what does it
+ * cost. As a row of three they are scanned; as a sentence they were read,
+ * or more often not.
+ */
 const WAYS_IN = [
   { icon: ClipboardList, label: "Paste a list" },
   { icon: FileSpreadsheet, label: "Upload a CSV" },
@@ -880,16 +892,16 @@ function Closing({
           {WAYS_IN.map((w) => (
             <li
               key={w.label}
-              className="flex items-center gap-2 text-sm text-muted-foreground"
+              className="flex items-center gap-2 text-base text-muted-foreground"
             >
               <w.icon className="size-4 shrink-0 text-primary" aria-hidden />
               {w.label}
             </li>
           ))}
         </ul>
-        <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
-          Also in the app: a letter every Sunday, a what-if for each holding,
-          and a look at what you are concentrated in.
+        <p className="max-w-xl text-base leading-snug text-muted-foreground">
+          Also inside: the Sunday letter, a what-if for every holding, and
+          where you are concentrated.
         </p>
 
         <div className="flex w-full max-w-xl flex-col gap-3 border-t border-border pt-6 text-left">
@@ -905,7 +917,7 @@ function Closing({
           <h3 className="text-primary">
             What it costs, and what happens to your holdings
           </h3>
-          <p className="text-sm leading-relaxed text-muted-foreground">
+          <p className="text-base leading-snug text-muted-foreground">
             <span className="text-foreground">{SIGNIN_PRICE}</span>{" "}
             {SIGNIN_PRICE_NOTE}
           </p>
@@ -913,7 +925,7 @@ function Closing({
             {SIGNIN_TRUST.map((line) => (
               <li
                 key={line}
-                className="flex items-start gap-2.5 text-sm leading-relaxed text-muted-foreground"
+                className="flex items-start gap-2.5 text-base leading-snug text-muted-foreground"
               >
                 <CheckCircle2
                   className="mt-0.5 size-4 shrink-0 text-primary"
@@ -1011,7 +1023,6 @@ function Footer() {
 function HeroHybrid({
   busy,
   err,
-  minAge,
   onSignIn,
   onLookAround,
   notice,
@@ -1051,33 +1062,38 @@ function HeroHybrid({
           * lines on a phone, which is 180px of type before anything else,
           * and it was taller than the space the product needed.
           */}
-        <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-          On the day your whole portfolio is red, it tells you which of your
-          companies had news and which just fell with everything else.
+        {/*
+          * Stepped up rather than cut down. At 18px in a 24-word sentence
+          * this was the same size as the body copy five screens below it,
+          * so the one line that says what the product is read as ordinary
+          * prose. It is the second-loudest thing on the page now, and
+          * `leading-snug` keeps the bigger type from ballooning the block.
+          */}
+        <p className="mt-6 max-w-lg text-balance text-xl leading-snug text-muted-foreground sm:text-2xl">
+          On a red day, which of your companies had news, and which just fell
+          with everything else.
         </p>
-        <div className="mt-8 flex flex-col items-center gap-3.5">
-          <SignInMethods googleBusy={busy} onGoogle={onSignIn} error={err} />
-          {onLookAround ? (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onLookAround}
-              className="h-auto px-2 py-1 text-sm font-normal text-muted-foreground underline underline-offset-4 hover:text-foreground"
-            >
-              Or look around with a sample portfolio
-            </Button>
-          ) : null}
+        <div className="mt-8 flex flex-col items-center gap-3">
           {/*
-            * What happens next, rather than the price. A first-time reader
-            * does not know whether the following screen asks for a broker
-            * login, a card, or an hour of typing. The price has its own
-            * block at the bottom of the page.
+            * Nothing under the buttons, and that is the whole rule here.
+            *
+            * There were three blocks: a text link, a 16-word reassurance,
+            * and a two-line consent sentence, all of it small type stacked
+            * under the one thing a reader came to press. That is what made
+            * the top of the page read as fine print rather than as an
+            * invitation.
+            *
+            * The link moved onto the sample card it opens. The reassurance
+            * went entirely: how long it takes, that there is nothing to
+            * connect and that it is free are each said better further down,
+            * on the limits list and in the price block, and none of them is
+            * something a reader needs before pressing a free sign-in. And
+            * the consent sentence was already on this page twice, so the
+            * hero's copy went and the one under the closing button stays,
+            * which is where a reader who has read the page presses. Terms
+            * and Privacy are still linked from the footer on every screen.
             */}
-          <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-            Sign in, then paste what you own. About two minutes, and there is
-            nothing to connect.
-          </p>
-          <AgeLine minAge={minAge} />
+          <SignInMethods googleBusy={busy} onGoogle={onSignIn} error={err} />
         </div>
       </div>
 
@@ -1091,7 +1107,7 @@ function HeroHybrid({
         data-scroll-cue-still
         className="landing-still mx-auto mt-12 w-full min-w-0 max-w-3xl sm:mt-14"
       >
-        <SampleBriefing />
+        <SampleBriefing onLookAround={onLookAround} />
       </div>
 
       {/*
