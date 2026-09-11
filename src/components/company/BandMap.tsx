@@ -602,15 +602,30 @@ export function BandMap({
           the border of the "hold" band it happens to sit inside. Said
           once, in words, rather than left to a hover a phone cannot even
           trigger.
+
+          "ANCHOR", NEVER "ESTIMATE" -- THE FOUR KINDS ARE NOT ALL ONE.
+
+          `LadderAnchorKind` is `estimate | target | history | your-own`:
+          the blended analyst figure, a stock's own end-of-year target,
+          a fund or coin's year of trading (which is not a forecast of
+          anything), or a number the reader typed in by hand. A first
+          version of this line said "each holding's own estimate" for
+          all four, which is true of exactly one of them and an
+          overclaim for the other three -- a fund's anchor is the
+          middle of a price it has already traded at, not anybody's
+          guess about the future, and calling it an estimate states
+          something the reader cannot check. `PlanLadderFoot` already
+          has the word that covers all four without asserting which one
+          it is: "Anchored on $X". This line borrows it.
         */}
         <p className="flex items-center gap-2 text-xs leading-relaxed text-muted-foreground">
           <span
             aria-hidden
             className="h-0 w-4 shrink-0 border-t border-dashed border-primary/50"
           />
-          The dashed line is each holding&rsquo;s own estimate, the price
-          its plan is built from. Every band is a multiple of it, which is
-          why it always falls in the middle of Hold.
+          The dashed line marks each holding&rsquo;s own anchor, the one
+          price its whole plan is built from. Every band is a multiple
+          of it, which is why it always falls in the middle of Hold.
         </p>
       </div>
 
