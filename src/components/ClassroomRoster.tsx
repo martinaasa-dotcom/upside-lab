@@ -10,7 +10,7 @@ import { htmlCell, htmlTable } from "@/components/FluidTable";
 const htmlCellName =
   "h-10 whitespace-nowrap px-1.5 py-1.5 text-left align-middle font-sans first:pl-3 last:pr-3";
 import { NO_VALUE, cashtag, cn, currency, signedPercent, signedTone } from "@/lib/format";
-import { Card } from "@/components/ui/Panel";
+import { Card, PanelHeader } from "@/components/ui/Panel";
 import type { Holding, Quote } from "@/lib/types";
 
 type RosterMember = {
@@ -71,12 +71,10 @@ export function ClassroomRoster({
   return (
     <section className="overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
       <div className="border-b border-border surface-gutter py-6">
-        <h2 className="font-semibold text-foreground">Roster</h2>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          Everyone started with the same cash. This is ranked by how far each
-          student is up or down since then, and it shows who has written down a
-          reason for what they own and who is holding just one company.
-        </p>
+        <PanelHeader
+          title="Roster"
+          subtitle="Everyone started with the same cash. This is ranked by how far each student is up or down since then, and it shows who has written down a reason for what they own and who is holding just one company."
+        />
       </div>
       <div className="flex flex-col gap-3 surface-gutter py-6 md:hidden">
         {rows.length === 0 ? (

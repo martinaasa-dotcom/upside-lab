@@ -369,7 +369,7 @@ export function HoldingModal({
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-base font-semibold text-foreground">Add holding</h3>
+            <h2 className="font-semibold text-foreground">Add holding</h2>
             <p className="text-sm text-muted-foreground">{portfolioName}</p>
           </div>
           <Button

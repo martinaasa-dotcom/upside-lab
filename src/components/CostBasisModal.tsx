@@ -51,9 +51,9 @@ export function CostBasisModal({
       <div className="relative flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-xl bg-popover ring-1 ring-foreground/20">
         <div className="flex items-start justify-between gap-3 border-b border-border surface-gutter py-4">
           <div>
-            <h3 className="text-base font-semibold text-foreground">
+            <h2 className="font-semibold text-foreground">
               What you paid
-            </h3>
+            </h2>
             <p className="text-sm text-muted-foreground">
               The import used today&apos;s prices as what you paid. Type your
               real average buy price in dollars, then apply, so the gain and

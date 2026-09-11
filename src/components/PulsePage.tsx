@@ -18,6 +18,7 @@ import {
   EmptyState,
   Metric,
   MicroLabel,
+  NESTED_PAD,
   NoteRows,
   PANEL_STACK,
   Panel,
@@ -571,7 +572,7 @@ function PulseCard({
         * not tell the model's reasoning from their own note.
         */}
       {hasBody ? (
-        <div className="flex flex-col gap-4 glass-well rounded-lg p-4 sm:p-5">
+        <div className={cn("flex flex-col gap-4 glass-well rounded-lg", NESTED_PAD)}>
           {suggestion ? (
             <p className="text-base font-medium leading-relaxed text-foreground">
               {suggestion}
@@ -1535,7 +1536,7 @@ export const PulsePage = memo(function PulsePage({
         />
 
         {dayStory || marketLine || standouts || mood ? (
-          <div className="flex flex-col gap-3 glass-well rounded-lg p-4 sm:p-5">
+          <div className={cn("flex flex-col gap-3 glass-well rounded-lg", NESTED_PAD)}>
             {dayStory ? (
               <p className="text-base font-medium leading-relaxed text-foreground">
                 {humanizeMargusText(dayStory)}

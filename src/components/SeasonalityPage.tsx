@@ -710,7 +710,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
 
           <Panel>
             <PanelHeader title="What this month has done before" />
-            <div className="mt-4">
+            <div>
               <CycleMonthlyTiles
                 rows={model.cycleMonthly}
                 selectedMonth={playbookMonth}
@@ -745,7 +745,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
               title="Daily rhythm within the month"
               subtitle="One calendar day, averaged across the matching years. How many years that is sits under the chart."
             />
-            <div className="mt-4">
+            <div>
               <div className="mb-4 flex items-center justify-between gap-2">
                 <Button
                   type="button"

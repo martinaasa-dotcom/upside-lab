@@ -334,3 +334,207 @@ describe("the empty state's pad is the one it asks for", () => {
     expect(empty).toMatch(/surface-gutter/);
   });
 });
+
+/**
+ * Everything below reads a `<Panel>`'s own direct children.
+ *
+ * Indentation rather than a parser: this repo's JSX is prettier-formatted,
+ * so a direct child of a `<Panel>` opened at column N sits at N + 2. That
+ * is a floor, not a ceiling -- a panel whose children are built in a
+ * variable or spread from a map is beyond it -- but it is exact on the
+ * shape these faults actually take, which is markup written out in place.
+ */
+type PanelBlock = {
+  /** The line the `<Panel` opened on, 1-indexed. */
+  at: number;
+  padded: boolean;
+  /** Direct children, comments dropped, in source order. */
+  children: { at: number; line: string }[];
+  /** Every line of the body, comments dropped, at any depth. */
+  body: { at: number; line: string }[];
+};
+
+function panelBlocks(src: string): PanelBlock[] {
+  const lines = src.split("\n");
+  const out: PanelBlock[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const open = /^(\s*)<Panel(\s|>|$)/.exec(lines[i]!);
+    if (!open) {
+      i += 1;
+      continue;
+    }
+    const base = open[1]!.length;
+    let j = i;
+    const head: string[] = [];
+    while (j < lines.length && !/>\s*$/.test(lines[j]!) && j - i < 25) {
+      head.push(lines[j]!);
+      j += 1;
+    }
+    head.push(lines[j] ?? "");
+    if (j >= lines.length || /\/>\s*$/.test(lines[j]!)) {
+      i = j + 1;
+      continue;
+    }
+    const children: { at: number; line: string }[] = [];
+    const body: { at: number; line: string }[] = [];
+    /*
+      Comments are dropped, and that is not tidiness: this repo comments
+      heavily, and the first version of the header guard read a fixed
+      window of lines after the opening tag. On the one panel in Lab whose
+      note explains the very fault being guarded, that window was nothing
+      but comment, so the check saw neither a heading nor a `PanelHeader`
+      and passed. Verified by putting the bare heading back and watching
+      it fail.
+    */
+    let inComment = false;
+    let k = j + 1;
+    while (k < lines.length && !new RegExp(`^\\s{${base}}</Panel>`).test(lines[k]!)) {
+      const line = lines[k]!;
+      const trimmed = line.trim();
+      const indent = line.length - line.trimStart().length;
+      if (inComment) {
+        if (/\*\/\}?\s*$/.test(trimmed)) inComment = false;
+      } else if (/^\{?\/\*/.test(trimmed)) {
+        if (!/\*\/\}?\s*$/.test(trimmed)) inComment = true;
+      } else if (trimmed) {
+        body.push({ at: k + 1, line: trimmed });
+        if (indent === base + 2) children.push({ at: k + 1, line: trimmed });
+      }
+      k += 1;
+    }
+    out.push({
+      at: i + 1,
+      padded: !/padded=\{false\}/.test(head.join(" ")),
+      children,
+      body,
+    });
+    i = j + 1;
+  }
+  return out;
+}
+
+/*
+  A panel spaces its own children, so a child may not space itself.
+
+  AGENTS.md has said this since the design system was written -- "a `Panel`
+  spaces its own children, so a direct child must not add `mt-*`/`mb-*`, it
+  gets both" -- and nothing enforced it, so nine children were adding one
+  anyway: a `mt-4` under a `PanelHeader` in Seasonality, `mt-3` around
+  Scenario's tables, `mt-3 mb-4` on a paragraph in Trends. Every one of
+  them got the panel's gap *plus* its own margin, and the spacing pass made
+  each worse by widening the gap underneath it from 20/24 to 24/32.
+*/
+describe("a panel's children do not space themselves", () => {
+  const offenders: string[] = [];
+  for (const file of sourceFiles("src")) {
+    const src = readFileSync(file, "utf8");
+    for (const block of panelBlocks(src)) {
+      if (!block.padded) continue;
+      for (const { at, line } of block.children) {
+      if (!/className=/.test(line)) continue;
+      // `padded={false}` panels have no gap of their own, and their rows
+      // own their edges on purpose; those are not caught here because the
+      // scan only reads children of a panel that opened with a gap.
+      const margin = /\b(?:mt|mb|my)-[\d.]+/.exec(line);
+      if (margin) offenders.push(`${file}:${at}  ${margin[0]}  ${line.slice(0, 80)}`);
+      }
+    }
+  }
+
+  it("has no direct child of a Panel carrying its own vertical margin", () => {
+    expect(
+      offenders,
+      "A Panel is a `.panel-rhythm` column: its gap already separates these, " +
+        "so a margin here is added to it rather than instead of it.\nOffenders:\n" +
+        offenders.join("\n")
+    ).toEqual([]);
+  });
+});
+
+/*
+  A panel is headed by `PanelHeader`, not by a heading a room wrote itself.
+
+  Six panels in Lab and Scenario opened on a bare `<h3>` with a `mt-1.5`
+  paragraph under it, wrapped in a `<div>` so the pair counted as one
+  child. One of them carried a comment working out for itself that a title
+  and its subtitle are one child of the panel, which is exactly what
+  `PanelHeader` is for. The cost of re-deriving it: those rooms titled at
+  **16px where the other 66 call sites title at 18**, and hugged their
+  subtitle at 6px where the component hugs at 8 -- measured on the real
+  components, before and after. A reader walking from Home into Lab met a
+  panel title one step down the type ladder for no reason they could see.
+
+  `padded={false}` panels are exempt: their rows own their own edges, and a
+  table panel's header band is a different thing from a panel's header.
+*/
+describe("a panel is headed by the component that owns that decision", () => {
+  const offenders: string[] = [];
+  for (const file of sourceFiles("src")) {
+    for (const block of panelBlocks(readFileSync(file, "utf8"))) {
+      // `padded={false}` panels are exempt: their rows own their own
+      // edges, and a table panel's header band is a different thing from
+      // a panel's header.
+      if (!block.padded) continue;
+      /*
+        Whichever comes first anywhere in the body, not just as a direct
+        child. The fault's real shape in Lab was a `<div>` wrapping an
+        `<h3>` and a `<p>` -- the pair counted as one child on purpose, so
+        a check that only read the child line saw a `<div>` and passed.
+      */
+      const heading = block.body.find((l) => /<h[1-4][\s>]/.test(l.line));
+      const header = block.body.find((l) => /<PanelHeader/.test(l.line));
+      if (heading && (!header || heading.at < header.at)) {
+        offenders.push(`${file}:${heading.at}  ${heading.line.slice(0, 70)}`);
+      }
+    }
+  }
+
+  it("has no padded Panel opening on a heading of its own", () => {
+    expect(
+      offenders,
+      "Use PanelHeader so a panel's title sits on the same step of the type " +
+        "ladder as every other panel's.\nOffenders:\n" + offenders.join("\n")
+    ).toEqual([]);
+  });
+});
+
+/*
+  A modal's title sits on the same step as a panel's.
+
+  Five of the eight modal shells opened on `<h3 className="text-base ...">`
+  and three on `<h2 className="font-semibold ...">`, so "Add holding"
+  titled at 16px and "Import a CSV" at 18 -- two answers to one question,
+  decided by whichever modal was written first. A modal is a card-sized
+  surface and its title is the same tier as a panel's, which the `h2` step
+  in `globals.css` already sets at 18px; `h2` is also the right level for
+  a dialog's own label.
+
+  The size is left to the element rather than stated: a `text-base` or a
+  `text-lg` here is a fourth answer waiting to happen.
+*/
+describe("a modal is titled like the rest of the product", () => {
+  const SHELLS = [
+    "src/components/CashModal.tsx",
+    "src/components/HoldingModal.tsx",
+    "src/components/InvitePartnerModal.tsx",
+    "src/components/YtdAnchorModal.tsx",
+    "src/components/CsvImportModal.tsx",
+    "src/components/CostBasisModal.tsx",
+    "src/components/SnapshotsModal.tsx",
+    "src/components/RenameSheetModal.tsx",
+  ];
+
+  for (const shell of SHELLS) {
+    it(`${shell} titles with a plain h2`, () => {
+      const src = readFileSync(shell, "utf8");
+      const first = /<h([1-4])([^>]*)>/.exec(src);
+      expect(first, `${shell} has a heading`).not.toBeNull();
+      expect(first![1], `${shell}: a modal title is an h2`).toBe("2");
+      expect(
+        first![2],
+        `${shell}: leave the size to the h2 step in globals.css`
+      ).not.toMatch(/\btext-(xs|sm|base|lg|xl|2xl)\b/);
+    });
+  }
+});

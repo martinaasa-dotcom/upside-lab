@@ -161,7 +161,7 @@ export function InvitePartnerModal({
             <h2 className="font-semibold text-foreground">
               Invite a partner
             </h2>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               They can edit {portfolioName} just as you can, rather than only
               look at it.
             </p>
