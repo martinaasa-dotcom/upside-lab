@@ -14,7 +14,7 @@ import { quotePollMs, quotesUrl } from "@/lib/market/session";
 import { macroFromQuotesPayload } from "@/lib/market/macro-numbers";
 import {
   loadMacroPaint,
-  saveMacroPaint,
+  saveMacroNumbers,
   type MacroNumbers,
 } from "@/lib/paint-cache";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
@@ -63,10 +63,10 @@ export function MacroStrip() {
       if (ctrl.signal.aborted) return;
       setMacro((prev) => {
         const next = macroFromQuotesPayload(payload, prev);
-        saveMacroPaint({
-          macro: next,
-          fearGreed: loadMacroPaint()?.fearGreed ?? null,
-        });
+        // Numbers only: the mood reading and the time it was taken belong
+        // to the pool, and rebuilding the whole record here is what used
+        // to throw that time away on every quote tick.
+        saveMacroNumbers(next);
         return next;
       });
     };

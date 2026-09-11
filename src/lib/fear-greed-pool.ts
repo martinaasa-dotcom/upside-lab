@@ -1,6 +1,6 @@
 "use client";
 
-import { loadMacroPaint, saveMacroPaint } from "@/lib/paint-cache";
+import { loadMacroPaint, saveFearGreedPaint } from "@/lib/paint-cache";
 import type { FearGreedSnapshot } from "@/lib/market/fear-greed";
 
 /**
@@ -62,12 +62,7 @@ export function fearGreedIsFresh(now: number = Date.now()): boolean {
 
 function publish(snapshot: FearGreedSnapshot, at: number): void {
   entry = { snapshot, at };
-  const paint = loadMacroPaint();
-  saveMacroPaint({
-    macro: paint?.macro ?? { vix: null, eurusd: null, btc: null, tenYear: null },
-    fearGreed: snapshot,
-    fearGreedAt: at,
-  });
+  saveFearGreedPaint(snapshot, at);
   for (const listener of LISTENERS) listener();
 }
 

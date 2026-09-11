@@ -105,6 +105,32 @@ describe("one market-mood reading for the whole browser", () => {
     expect(pooledFearGreed()?.score).toBe(77);
   });
 
+  it("survives the macro numbers being saved next to it", async () => {
+    /*
+      The two halves live on one storage key and are fetched on two
+      schedules. The macro poll used to rebuild the whole record to save
+      its own half, which threw the reading's timestamp away on every
+      quote tick -- so the score was saved without the time its freshness
+      rule depends on and the guard could never fire. Measured on the real
+      app, the score arrived and the paint carried no time at all.
+    */
+    const { ensureFearGreed, fearGreedIsFresh } = await freshPool();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, json: async () => reading(45) })) as unknown as typeof fetch
+    );
+    await ensureFearGreed();
+
+    const { saveMacroNumbers } = await import("@/lib/paint-cache");
+    saveMacroNumbers({ vix: 16, eurusd: 1.1, btc: 77000, tenYear: 4.8 });
+
+    const paint = JSON.parse(store.get("upside-macro-paint-v1") ?? "{}");
+    expect(paint.macro.vix).toBe(16);
+    expect(paint.fearGreed.score).toBe(45);
+    expect(typeof paint.fearGreedAt).toBe("number");
+    expect(fearGreedIsFresh()).toBe(true);
+  });
+
   it("records nothing from a bad minute", async () => {
     const { ensureFearGreed, fearGreedIsFresh, pooledFearGreed } = await freshPool();
     vi.stubGlobal(
