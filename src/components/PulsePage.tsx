@@ -98,6 +98,11 @@ import {
 import { publishQuotes, useQuotes } from "@/lib/quote-pool";
 import { ratingForScore } from "@/lib/market/fear-greed";
 import {
+  ensureFearGreed,
+  onFearGreed,
+  pooledFearGreed,
+} from "@/lib/fear-greed-pool";
+import {
   daySize,
   typicalMoveFromCloses,
   type TypicalMove,
@@ -107,7 +112,6 @@ import {
   marketOrYouLine,
   standoutLine,
 } from "@/lib/market-or-you";
-import { loadFearGreedPaint, loadMacroPaint, saveMacroPaint } from "@/lib/paint-cache";
 import {
   loadPulseHistory,
   recordPulseHistory,
@@ -1233,34 +1237,34 @@ export const PulsePage = memo(function PulsePage({
   useLayoutEffect(() => {
     const cached = loadPulseSummary();
     if (cached) setSummary(humanizeMargusText(cached.summary));
-    const fg = loadFearGreedPaint();
-    if (fg) setFearGreed(fg);
   }, []);
 
-  useEffect(() => {
-    const ctrl = new AbortController();
-    void fetch("/api/market/fear-greed", { signal: ctrl.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!ctrl.signal.aborted && data?.score != null) {
-          const fg = data as FearGreedSnapshot;
-          setFearGreed(fg);
-          saveMacroPaint({
-            macro: loadMacroPaint()?.macro ?? {
-              vix: null,
-              eurusd: null,
-              btc: null,
-              tenYear: null,
-            },
-            fearGreed: fg,
-          });
-        }
-      })
-      .catch((err) => {
-        if (isAbortError(err)) return;
-      });
+  /*
+    The mood reading is shared, not fetched here.
+
+    This asked for it on every mount with no guard, and the header strip
+    and the Playbook asked too: measured on the real app, opening this
+    room put three requests for one daily figure on the wire in the same
+    millisecond. The pool owns the freshness rule and single-flights the
+    askers, so all three now cost one round trip, and none at all when a
+    recent reading is already in hand.
+  */
+  // A layout effect for the first read, so a score already in hand is on
+  // the first painted frame rather than one after it -- which is what the
+  // paint read this replaced was a layout effect for.
+  useLayoutEffect(() => {
+    let alive = true;
+    const read = () => {
+      if (!alive) return;
+      const fg = pooledFearGreed();
+      if (fg) setFearGreed(fg);
+    };
+    read();
+    const unsubscribe = onFearGreed(read);
+    void ensureFearGreed().then(read);
     return () => {
-      ctrl.abort();
+      alive = false;
+      unsubscribe();
     };
   }, []);
 

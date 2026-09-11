@@ -97,6 +97,17 @@ export type MacroNumbers = {
 export type MacroPaint = {
   macro: MacroNumbers;
   fearGreed: FearGreedSnapshot | null;
+  /**
+   * When that reading was taken.
+   *
+   * Optional because entries written before this field existed are still
+   * in readers' browsers; `fear-greed-pool.ts` reads a missing one as
+   * arbitrarily old, which shows the number and re-asks rather than
+   * trusting it. Without a time the guard against re-fetching could never
+   * expire, so a reader opening the app in the morning kept yesterday's
+   * mood under a card that says today.
+   */
+  fearGreedAt?: number;
 };
 
 function isMacroPaint(v: unknown): v is MacroPaint {
