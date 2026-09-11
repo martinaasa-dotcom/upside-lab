@@ -1,6 +1,6 @@
 "use client";
 
-import { NO_VALUE, cashtag, cn } from "@/lib/format";
+import { NO_VALUE, barFillPct, cashtag, cn } from "@/lib/format";
 import { plainError } from "@/lib/plain-error";
 import {
   MONTH_NAMES,
@@ -120,7 +120,7 @@ function CycleMonthlyChart({
     <div className="hidden items-end gap-1 md:flex">
       {rows.map((row) => {
         const v = row.avgMonthReturnPct;
-        const h = Math.max(6, (Math.abs(v) / maxAbs) * 100);
+        const h = barFillPct((Math.abs(v) / maxAbs) * 100, 6);
         const isSelected = row.month === selectedMonth;
         const isCurrent = row.month === currentMonth;
         return (

@@ -301,6 +301,54 @@ describe("the move bar scales with the client's width", () => {
   it("gives the biggest move in the table the widest bar, short of the end", () => {
     expect(Math.max(...fillWidths(weeklyLetterHtml(letter())))).toBe(88);
   });
+
+  /*
+   * The same shape of fault that blew "The business" panel off the edge
+   * of the screen is possible here in principle: `moveBar`'s width is a
+   * share of the table's own biggest move, and a crypto-treasury company
+   * (BMNR again) is exactly the kind of holding that can post a move two
+   * orders of magnitude past an ordinary one in a single week. This
+   * table was never actually vulnerable, because its scale (`maxAbs`)
+   * is always the max of the *same* array being drawn rather than of an
+   * unrelated one, and email HTML has no `position: absolute` for a
+   * runaway width to escape through besides. This test is the proof
+   * rather than the fix: feed it a BMNR-shaped week and confirm the
+   * bound holds under the real input that broke the other surface,
+   * not only under the ordinary numbers `letter()` otherwise uses.
+   */
+  it("stays bounded even for a BMNR-shaped week (one move, orders of magnitude past the rest)", () => {
+    const extreme = buildWeeklyLetter({
+      name: "Martin",
+      cash: 0,
+      holdings: [
+        { ticker: "BMNR", shares: 100, buy_price: 30 },
+        { ticker: "NVDA", shares: 500, buy_price: 180 },
+      ],
+      quotes: {
+        BMNR: { price: 3000 } as never,
+        NVDA: { price: 215.38 } as never,
+      },
+      conviction: {},
+      weekReturns: {
+        // A week where BMNR's crypto marks moved it 5384%, next to NVDA's
+        // ordinary -1.4% — the same ratio that produced `width: 5384%`
+        // on the web panel.
+        BMNR: { start: 30, end: 3000, pct: 53.84 },
+        NVDA: { start: 218.4, end: 215.38, pct: -0.0138 },
+      },
+      watchlist: [],
+      watchQuotes: {},
+      watchWeekReturns: {},
+      now: NOW,
+    });
+    const fills = fillWidths(weeklyLetterHtml(extreme));
+    expect(fills.length).toBeGreaterThan(0);
+    for (const f of fills) {
+      expect(f).toBeGreaterThanOrEqual(8);
+      expect(f).toBeLessThanOrEqual(88);
+    }
+    expect(Math.max(...fills)).toBe(88);
+  });
 });
 
 describe("the letter counts companies, not names", () => {
