@@ -14,7 +14,6 @@ import {
   pushUndoSnapshot,
 } from "../src/lib/book-undo";
 import { correlationMatrix, pearson } from "../src/lib/correlation";
-import { estimateGreenStreak } from "../src/lib/streaks";
 import { isForecastFullyCovered, FORECAST_YEARS } from "../src/lib/forecast";
 import { ensureCompleteEoyTargets } from "../src/lib/forecast-plan";
 import type { ForecastModel } from "../src/lib/forecast";
@@ -132,7 +131,15 @@ assert(
   "corr matrix"
 );
 
-assert(estimateGreenStreak([1, 2, 3, 4]).greenDays >= 3, "streak");
+/*
+  `estimateGreenStreak` and `src/lib/streaks.ts` were deleted on
+  2026-09-11. No component, library or test imported that module; this
+  assertion was the only thing referencing it, which is the "tested module
+  nothing renders" shape this repo already warns about, with a harness
+  proving a feature works that no reader could reach. The attention streak
+  the polish pass meant is `visit-streak.ts`, which is mounted on the
+  Dashboard and Account.
+*/
 
 const forecastStub = {
   years: FORECAST_YEARS,
