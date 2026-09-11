@@ -260,6 +260,13 @@ export function buildCircleAwards(members: AwardCandidate[]): CircleAward[] {
     margin: number;
   };
 
+  // Temporary: append ?debugAwards to the circle URL to see why each
+  // measure was or wasn't handed out, in the browser console. Remove once
+  // the "only one award" question is answered.
+  const debug =
+    typeof window !== "undefined" &&
+    window.location.search.includes("debugAwards");
+
   const ranked: Ranked[] = [];
   for (const measure of MEASURES) {
     const floor =
@@ -273,13 +280,28 @@ export function buildCircleAwards(members: AwardCandidate[]): CircleAward[] {
       )
       .sort((a, b) => b.value - a.value);
     const best = scored[0];
-    if (!best) continue;
+    if (!best) {
+      if (debug) console.debug(`[awards] ${measure.id}: nobody eligible`);
+      continue;
+    }
     // A single-person circle has no runner up, so the margin is whatever
     // the winner clears the floor by. That is honest: with nobody to be
     // ahead of, "ahead" can only mean ahead of the bar.
     const runnerUp = scored[1]?.value ?? floor;
-    if (best.value < floor) continue;
     const margin = best.value - runnerUp;
+    if (debug) {
+      console.debug(
+        `[awards] ${measure.id}: best ${best.member.name}=${best.value.toFixed(1)}` +
+          ` runnerUp=${runnerUp.toFixed(1)} floor=${floor.toFixed(1)}` +
+          ` margin=${margin.toFixed(1)} (needs ${measure.margin})` +
+          (best.value < floor
+            ? " -> BELOW FLOOR"
+            : margin < measure.margin
+              ? " -> MARGIN TOO CLOSE"
+              : " -> qualifies")
+      );
+    }
+    if (best.value < floor) continue;
     if (margin < measure.margin) continue;
     ranked.push({ measure, member: best.member, margin });
   }
