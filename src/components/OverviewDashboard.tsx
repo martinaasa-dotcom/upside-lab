@@ -1810,6 +1810,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         <WatchlistStrip
           heldTickers={heldTickers}
           onOpenPulse={onOpenPulse}
+          onOpenResearch={onOpenResearch}
         />
       </Panel>
       </WidgetErrorBoundary>
