@@ -1,6 +1,7 @@
 "use client";
 
 import { PlaybookQuote } from "@/components/playbook/PlaybookQuote";
+import { PlaybookTerms } from "@/components/playbook/PlaybookTerms";
 import { Card, MicroLabel, NoteRows } from "@/components/ui/Panel";
 import { cn } from "@/lib/format";
 import { IDEA_THEMES, IDEAS, type Idea } from "@/lib/playbook";
@@ -80,6 +81,7 @@ function IdeaCard({ idea }: { idea: Idea }) {
               { label: "Goes wrong", body: idea.goesWrong },
             ]}
           />
+          <PlaybookTerms terms={idea.terms} />
         </div>
       ) : null}
     </Card>

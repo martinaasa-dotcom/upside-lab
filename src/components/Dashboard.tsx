@@ -2194,6 +2194,22 @@ export function Dashboard() {
           goToTab(LAB_TAB_ID);
         },
       });
+      /*
+        Every Lab tab with a deep link of its own is offered here. Research
+        and Seasonality were, and the Playbook was not, so the one room a
+        reader is most likely to be looking for by name was the one the
+        palette could not find.
+      */
+      items.push({
+        id: "playbook",
+        label: "Playbook",
+        group: "Go",
+        hint: "In Lab: how to think about all of this",
+        run: () => {
+          setLabIntent("playbook");
+          goToTab(LAB_TAB_ID);
+        },
+      });
       items.push({
         id: "lab",
         label: "Lab",

@@ -85,6 +85,19 @@ export type TemperatureBand = {
   goesWrong: string;
   /** What a reader can look at to see this for themselves. */
   check: string;
+  /**
+   * Glossary keys for the words this card is actually about.
+   *
+   * The room teaches, and this app already has one place where a word is
+   * defined and one surface that opens it, so a hand-typed definition in
+   * here would be a second answer to a question `glossary.ts` already
+   * answers everywhere else. Keys rather than prose, so this module stays
+   * pure strings and the definition arrives with the reader's own figures
+   * in it. Absent where a card is about no particular word, which is most
+   * of them: a row of words on every card would be scaffolding rather than
+   * help. `playbook.test.ts` fails on a key the glossary does not know.
+   */
+  terms?: readonly string[];
 };
 
 /*
@@ -119,6 +132,7 @@ export const TEMPERATURE_BANDS: readonly TemperatureBand[] = [
       "Cheap is not the same as finished falling, and nothing in this reading says the low point is today. A price can be low because the people selling know something you have not read yet. Somebody acting on this sentence in September 2008 was right about the idea and six months early, which in money is indistinguishable from being wrong.",
     check:
       "The score below, the number of days the index has spent under its usual price, and whether the fall is in everything you own or in one company. Pulse answers that last one for each of your holdings.",
+    terms: ["market"],
   },
   {
     id: "fear",
@@ -134,6 +148,7 @@ export const TEMPERATURE_BANDS: readonly TemperatureBand[] = [
       "Patience is not the same as not looking. A price falling because the business behind it is getting worse is a different thing from a price falling because everything is, and the only way to tell them apart is to go and read about the company. Sitting still on purpose and sitting still because you would rather not know are the same action and not the same decision.",
     check:
       "Whether your own fall is bigger or smaller than the market's. If your holdings fell about as much as the index did, what happened was the market, not your companies.",
+    terms: ["market", "recent-range"],
   },
   {
     id: "neutral",
@@ -149,6 +164,7 @@ export const TEMPERATURE_BANDS: readonly TemperatureBand[] = [
       "Doing nothing is not automatically the right answer either, and a calm market is not proof that a portfolio is sound. Somebody holding one company at eighty per cent of everything they own is carrying the same risk on a quiet day as on a loud one. Quiet is when that is cheap to notice, because nothing is happening to make it feel urgent.",
     check:
       "Lab's own Risk tab, which puts a number on what a rough day would do to what you hold, and the mix, which shows how much of it rides on one name.",
+    terms: ["spread-out", "share-of-portfolio"],
   },
   {
     id: "greed",
@@ -166,6 +182,7 @@ export const TEMPERATURE_BANDS: readonly TemperatureBand[] = [
       "This is the principle most often used to do real damage. Selling a good company because it has gone up is the commonest way an excellent result gets turned into an average one, and the arithmetic is brutal: nearly all of what a long-held portfolio ends up being worth comes from a handful of holdings that kept going far past the point where trimming them felt sensible. A price rising is not by itself a fact about a business.",
     check:
       "Whether the price has run ahead of what the company earns, or alongside it. The Research room prints both figures for any company, with its own multiple next to the market's.",
+    terms: ["price-to-earnings"],
   },
   {
     id: "extreme-greed",
@@ -185,6 +202,7 @@ export const TEMPERATURE_BANDS: readonly TemperatureBand[] = [
       "Expensive markets can stay expensive for years, and leaving one early costs real money. Somebody who stepped out in 1996 because prices looked mad was correct about the prices and missed the four largest years of the run that followed. Nobody can tell you where in one of these you are standing, and anybody who says they can is guessing with a straight face.",
     check:
       "What the price is assuming, which the Research room works out backwards for any company: the growth it would have to deliver for today's price to be ordinary rather than a bet.",
+    terms: ["price-to-earnings"],
   },
 ] as const;
 
@@ -267,6 +285,8 @@ export type Idea = {
   inPractice: string;
   /** The other half. Never optional. */
   goesWrong: string;
+  /** Glossary keys. See the note on `TemperatureBand`. */
+  terms?: readonly string[];
 };
 
 export const IDEAS: readonly Idea[] = [
@@ -286,6 +306,7 @@ export const IDEAS: readonly Idea[] = [
       "It means a bad week tells you close to nothing and a bad five years tells you a great deal, and that the amount of attention worth paying to a price move should scale with how long the move has lasted.",
     goesWrong:
       "Waiting long enough does not make a poor business into a good one. Plenty of companies were weighed carefully over ten years and found to be worth less than they started. The long run is where the truth arrives, and the truth is sometimes that you were wrong.",
+    terms: ["market"],
   },
   {
     id: "know-what-you-own",
@@ -301,6 +322,7 @@ export const IDEAS: readonly Idea[] = [
       "It is the difference between a fall of 20% that sends you looking for what changed and a fall of 20% that just frightens you. Only one of those leads anywhere.",
     goesWrong:
       "Understanding a business is not the same as being right about it, and familiarity is the easiest thing in the world to mistake for insight. Plenty of people could explain exactly what their company did, in detail, all the way down.",
+    terms: ["share"],
   },
   {
     id: "preparing-for-corrections",
@@ -316,6 +338,7 @@ export const IDEAS: readonly Idea[] = [
       "The arithmetic of it is on this page, under where the returns actually come from. It is what the last ten years of the index came to with a small number of its best days taken out.",
     goesWrong:
       "This is not an argument that falls do not matter or that every price is worth paying. It is an argument about a particular habit, which is stepping out because a fall feels due. Somebody genuinely holding more than they can afford to see halved is not guessing at the market, they are fixing a real problem.",
+    terms: ["market", "recent-range"],
   },
   {
     id: "what-you-dont-pay-for",
@@ -331,6 +354,7 @@ export const IDEAS: readonly Idea[] = [
       "For a fund it is the one number its holder actually controls, which is why the Research room prints the cost first on any fund, before what is inside it.",
     goesWrong:
       "Cheapest is not the same as best, and a low fee on something you did not want to own is not a saving. The point is that the cost is certain and the benefit is not, so the cost deserves more scrutiny than it usually gets, not that it is the only thing that matters.",
+    terms: ["index-fund", "total-return"],
   },
   {
     id: "free-lunch",
@@ -348,6 +372,7 @@ export const IDEAS: readonly Idea[] = [
       "The catch is the phrase do not all move together. Ten companies that all sell to the same customers in the same industry are one bet held ten times over, which is exactly what Lab's Risk tab is drawing when it shows which of your companies move together.",
     goesWrong:
       "Spread far enough and you have bought the market, which is a perfectly reasonable thing to do and is not the same as picking well. Concentration is also how essentially every large fortune was made. Both of those are true, and which one applies depends on something no formula knows, which is how much you can afford to be wrong.",
+    terms: ["spread-out", "index-fund"],
   },
   {
     id: "risk-is-not-swings",
@@ -363,6 +388,7 @@ export const IDEAS: readonly Idea[] = [
       "It means the question to ask of a holding is not how much it moves, but what would have to be true for it to be worth nothing, and how likely that is.",
     goesWrong:
       "Swings are not harmless either, and calling them noise is a comfortable thing to say when the number is going up. A price that halves is a real problem for anybody who might have to sell in the meantime, and borrowed money turns a swing into exactly the forced sale described above.",
+    terms: ["recent-range"],
   },
   {
     id: "never-lose-money",
@@ -425,6 +451,7 @@ export const IDEAS: readonly Idea[] = [
       "The Growth room draws exactly this: the same yearly rate over ten years against thirty, which is not three times as much money.",
     goesWrong:
       "Compounding is not a reason to never sell anything, and a holding that has stopped growing is not compounding, it is just sitting there. The rule protects the process, not any particular position.",
+    terms: ["compounding"],
   },
   {
     id: "price-and-value",
@@ -440,6 +467,7 @@ export const IDEAS: readonly Idea[] = [
       "It is the whole design of the Research room's valuation panel: several estimates, each showing its working and its one assumption, set against today's price, with no verdict at the end because the conclusion is yours.",
     goesWrong:
       "Your estimate of what something is worth is also just an opinion, and being convinced is not evidence. The market is wrong often and is right more often than any individual is, and knowing which situation you are in is the hardest judgement in this entire subject.",
+    terms: ["price-to-earnings", "market-value"],
   },
   {
     id: "decision-outcome",
@@ -474,6 +502,7 @@ export const IDEAS: readonly Idea[] = [
       "It means the choice is never between taking a risk and taking none. It is between a risk you can see day to day and one you cannot see at all.",
     goesWrong:
       "This is not an argument for holding nothing in cash. Money you might genuinely need inside a few years has no business being anywhere it could halve, and somebody forced to sell at the bottom because the rent was in the market has lost far more than inflation was ever going to take.",
+    terms: ["cash", "total-return"],
   },
   {
     id: "turnover",
@@ -506,6 +535,7 @@ export const IDEAS: readonly Idea[] = [
       "It is the one question this app will actually answer about a purchase, because it is arithmetic rather than judgement: what a given amount would become as a share of everything you own, and what a quarter off it would cost.",
     goesWrong:
       "Sizing everything small guarantees that being right about something barely matters, which is its own kind of failure. Almost every large result in investing came from somebody holding enough of something for it to count.",
+    terms: ["share-of-portfolio"],
   },
   {
     id: "crowd-is-not-evidence",
@@ -523,6 +553,7 @@ export const IDEAS: readonly Idea[] = [
       "The practical form is to be able to say what the person selling to you believes, in a sentence they would recognise. If you cannot, you do not yet know what you are betting on.",
     goesWrong:
       "This is regularly used to dismiss every objection as mere popular opinion, which turns a warning about the crowd into a licence to ignore everybody. The crowd is often right, and knowing when it is not is the hardest judgement in the subject rather than a matter of temperament.",
+    terms: ["market"],
   },
   {
     id: "crowd",
@@ -538,6 +569,7 @@ export const IDEAS: readonly Idea[] = [
       "It is why the number of analysts who published a target matters less than how far apart their targets are. Forty people agreeing is a consensus. Forty people scattered is an argument, and an argument is where the disagreement lives.",
     goesWrong:
       "Being different is not the same as being right, and most people who hold an unpopular view hold it because it is wrong. Deliberately doing the opposite of the crowd is not a strategy, it is the same herd behaviour with the sign flipped.",
+    terms: ["market", "price-to-earnings"],
   },
   {
     id: "what-you-know-for-sure",

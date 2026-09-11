@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { glossaryEntry } from "@/lib/glossary";
 import { ratingForScore } from "@/lib/market/fear-greed";
 import {
   allQuotes,
@@ -429,5 +430,87 @@ describe("this room does not print a second heading over Lab's own", () => {
       "utf8"
     );
     expect(lab).toMatch(/playbook:\s*\n?\s*"/);
+  });
+});
+
+/*
+  THE TEACHING ROOM USES THE PRODUCT'S OWN TEACHING SURFACE.
+
+  `glossary.ts` is where a word is defined and `Explain` is what opens one,
+  which is what stops four screens drifting into four answers to "what is a
+  price to earnings ratio". This room shipped without touching either, so
+  the one room whose whole job is teaching was the one hand-typing its own
+  definitions. The cards name glossary keys instead.
+*/
+describe("the words on a card come from the glossary", () => {
+  const cards = [...TEMPERATURE_BANDS, ...IDEAS];
+
+  it("names only words the glossary actually knows", () => {
+    const unresolved: string[] = [];
+    for (const card of cards) {
+      for (const key of card.terms ?? []) {
+        if (!glossaryEntry(key)) unresolved.push(`${card.id}: ${key}`);
+      }
+    }
+    expect(unresolved).toEqual([]);
+  });
+
+  it("names each word once per card", () => {
+    for (const card of cards) {
+      const keys = card.terms ?? [];
+      expect(new Set(keys).size, `${card.id} repeats a word`).toBe(keys.length);
+    }
+  });
+
+  /*
+    Not every card. A card about temperament is about no particular word,
+    and a row of definitions under every one of them would be scaffolding
+    rather than help. This says the wiring reaches a real share of the room
+    rather than one card somebody added to make a test pass.
+  */
+  it("reaches a real share of the room without covering all of it", () => {
+    const withTerms = cards.filter((c) => (c.terms ?? []).length > 0).length;
+    expect(withTerms).toBeGreaterThan(cards.length / 3);
+    expect(withTerms).toBeLessThan(cards.length);
+  });
+
+  it("agrees with itself when a card names one word", () => {
+    const src = readFileSync(
+      join(process.cwd(), "src/components/playbook/PlaybookTerms.tsx"),
+      "utf8"
+    );
+    expect(src).toMatch(/known\.length === 1 \? "Word on this one"/);
+    // A card with exactly one word has to exist, or the branch is dead.
+    expect(cards.some((c) => (c.terms ?? []).length === 1)).toBe(true);
+  });
+
+  it("opens them with the app's own surface, in both accordions", () => {
+    const read = (f: string) => readFileSync(join(process.cwd(), f), "utf8");
+    expect(read("src/components/playbook/PlaybookTerms.tsx")).toMatch(
+      /from "@\/components\/ui\/Explain"/
+    );
+    for (const f of [
+      "src/components/playbook/TemperatureLadder.tsx",
+      "src/components/playbook/IdeaDeck.tsx",
+    ]) {
+      expect(read(f), `${f} draws no words`).toMatch(/<PlaybookTerms terms=/);
+    }
+  });
+});
+
+/*
+  Research and Seasonality are both offered by name in the command palette
+  because each is a Lab tab with a deep link of its own. The Playbook is the
+  third and was missing, so the room a reader is most likely to look for by
+  name was the one the palette could not find.
+*/
+describe("the palette offers every Lab tab that has a deep link", () => {
+  it("offers this one", () => {
+    const dash = readFileSync(
+      join(process.cwd(), "src/components/Dashboard.tsx"),
+      "utf8"
+    );
+    expect(dash).toMatch(/label: "Playbook"/);
+    expect(dash).toMatch(/setLabIntent\("playbook"\)/);
   });
 });

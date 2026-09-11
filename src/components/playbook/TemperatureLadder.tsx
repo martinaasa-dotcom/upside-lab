@@ -1,6 +1,7 @@
 "use client";
 
 import { PlaybookQuote } from "@/components/playbook/PlaybookQuote";
+import { PlaybookTerms } from "@/components/playbook/PlaybookTerms";
 import { Card, MicroLabel, NoteRows, Pill } from "@/components/ui/Panel";
 import { cn } from "@/lib/format";
 import {
@@ -190,6 +191,7 @@ function BandRow({
               { label: "Check it", body: band.check },
             ]}
           />
+          <PlaybookTerms terms={band.terms} />
         </div>
       ) : null}
     </Card>
