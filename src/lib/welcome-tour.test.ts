@@ -306,3 +306,51 @@ describe("the tour never promises a room that is already there", () => {
     });
   }
 });
+
+/*
+  The ground rules cannot be skipped by pressing the obvious button.
+
+  The screen used to keep its own claim index and draw its own "Next one"
+  button inside the card, while the shell's pinned footer carried the big
+  "Next" under the thumb. Two forward affordances, and the big one jumped
+  the whole stage: pressing it after the first claim threw away every claim
+  after it, silently, which is what happened to the first person who read
+  it. One way forward now, and it is the footer's, which steps the claims
+  before it steps the stage.
+*/
+describe("the ground rules have one way forward", () => {
+  const SCREEN = readFileSync(
+    "src/components/tour/GroundRulesScreen.tsx",
+    "utf8"
+  );
+  const SHELL = readFileSync("src/components/WelcomeTour.tsx", "utf8");
+
+  it("does not keep its own place in the sequence", () => {
+    expect(SCREEN).not.toMatch(/useState/);
+  });
+
+  it("draws no forward button of its own", () => {
+    // The two answer buttons are the only buttons on the card.
+    const buttons = [...SCREEN.matchAll(/<Button\b/g)].length;
+    expect(buttons).toBe(2);
+  });
+
+  it("steps a claim before the shell steps the stage", () => {
+    const onNext = SHELL.slice(SHELL.indexOf("function onNext()"));
+    const step = onNext.indexOf('stage === "rules"');
+    const leave = onNext.indexOf("go(1)");
+    expect(step).toBeGreaterThan(-1);
+    expect(step).toBeLessThan(leave);
+    expect(onNext.slice(step, leave)).toMatch(/return;/);
+  });
+
+  it("asks for every claim it holds", () => {
+    const list = SCREEN.slice(SCREEN.indexOf("export const RULES"));
+    const claims = [...list.matchAll(/\bclaim:/g)].length;
+    expect(claims).toBeGreaterThan(1);
+    // The lede counts them out loud, so it cannot drift from the list.
+    expect(screenCopy("rules", null).lede).toMatch(
+      new RegExp(`\\b${["", "one", "two", "three", "four", "five", "six"][claims]}\\b`, "i")
+    );
+  });
+});
