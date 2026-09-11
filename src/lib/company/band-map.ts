@@ -169,11 +169,30 @@ export function buildBandMap(
     };
   }
 
-  const total = kept.reduce(
-    (sum, { row }) =>
-      sum + (Number.isFinite(row.value) && row.value > 0 ? row.value : 0),
-    0
-  );
+  /*
+    THE DENOMINATOR IS THE WHOLE PORTFOLIO, INCLUDING THE NAMES THIS
+    PICTURE COULD NOT DRAW.
+
+    It was the drawn holdings alone, so the shares always summed to a
+    hundred per cent of whatever happened to have a plan, while the
+    panel above them says "of this portfolio". A holding with no quote
+    yet, or nothing to anchor on, left the denominator silently: a
+    reader with ten names, two of them a third of their money and
+    missing a price, was told that a hundred per cent of their portfolio
+    was priced near fair value when a third of it was not on the picture
+    at all. That is a figure stated as fact and rounded up into
+    existence, which is the one thing this app does not do.
+
+    So every row counts, and the drawn shares now sum to less than one
+    exactly when something is missing. The `missing` line under the
+    picture already names those tickers, so the shortfall has an answer
+    on the same screen. Nothing about the drawing moves: `barShares`
+    normalises within each bar, and the bars are measured against the
+    fullest band rather than against a hundred per cent, so both are
+    ratios that a common rescale leaves alone.
+  */
+  const value = (v: number) => (Number.isFinite(v) && v > 0 ? v : 0);
+  const total = rows.reduce((sum, row) => sum + value(row.value), 0);
 
   /*
     The ladder runs head first, so the foot of it is the last band. A
@@ -202,7 +221,7 @@ export function buildBandMap(
       ticker: row.ticker.toUpperCase(),
       bandId,
       bandLabel: band?.label ?? "",
-      share: total > 0 ? Math.max(row.value, 0) / total : 0,
+      share: total > 0 ? value(row.value) / total : 0,
       spot,
       roiPct:
         typeof row.roiPct === "number" && Number.isFinite(row.roiPct)

@@ -851,7 +851,21 @@ export function BandMap({
         <p className="text-xs leading-relaxed text-muted-foreground">
           Not on this: {map.missing.map((t) => cashtag(t)).join(", ")}. A plan
           needs a price and something to anchor on, and one of those is
-          missing for {map.missing.length === 1 ? "that one" : "those"}.
+          missing for {map.missing.length === 1 ? "that one" : "those"}.{" "}
+          {/*
+            THE SHORTFALL IS ANSWERED WHERE THE READER MEETS IT.
+
+            Every share on this picture is of the whole portfolio, which
+            is what makes the figures checkable, and it means the zones
+            add up to less than a hundred per cent exactly when
+            something is missing. Naming the tickers is not enough on
+            its own: a reader who adds 37% and 30% and gets 67% is
+            owed the reason on the same screen rather than left to infer
+            it from a sentence above about a different subject.
+          */}
+          The shares here are of {voice.whose}, so with{" "}
+          {map.missing.length === 1 ? "that one" : "those"} missing they add up
+          to less than all of it.
         </p>
       )}
 

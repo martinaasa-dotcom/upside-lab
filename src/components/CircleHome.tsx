@@ -593,9 +593,15 @@ export function CircleHome({
             sentence the panel would otherwise print is a false statement
             about a circle, cost included: what anybody paid never
             reaches this room.
+
+            `reserve` only holds the scrollbar still until the section
+            opens a screen early, so it wants a plausible height rather
+            than an exact one. Measured on a fourteen company circle:
+            1,526px at 390, 1,072 at 768, 980 at 1440. It leans to the
+            narrow end, because a circle is read on a phone.
           */}
           {shownView === "overview" && circleLadderRows.length > 0 && (
-            <BelowFold className="order-5" reserve={980}>
+            <BelowFold className="order-5" reserve={1100}>
               <WidgetErrorBoundary name="Where the circle sits">
                 <BandMap
                   rows={circleLadderRows}

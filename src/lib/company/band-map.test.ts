@@ -406,6 +406,33 @@ describe("the picture never claims a level was the reader's when it was not", ()
     expect(said).not.toContain("Levels you set.");
   });
 
+  it("counts the whole portfolio, including what it could not draw", () => {
+    /*
+      Two thirds of the money has a plan and a third does not. The
+      shares are "of this portfolio" on the panel, so a name with no
+      plan must stay in the denominator: counting only the drawn ones
+      would report 100% priced around fair value while a third of the
+      portfolio was not on the picture at all.
+    */
+    const map = buildBandMap([
+      holding("SEEN", 1, 60),
+      holding("ALSO", 1, 10),
+      { ticker: "NOPLAN", ladder: null, value: 30 },
+    ]);
+    expect(map.missing).toEqual(["NOPLAN"]);
+    expect(map.points.map((p) => p.share)).toEqual([0.6, 0.1]);
+    expect(map.summary.aroundFairValue).toBeCloseTo(0.7, 10);
+    // And the drawn shares fall short of one by exactly what is missing.
+    const drawn = map.points.reduce((s, p) => s + p.share, 0);
+    expect(1 - drawn).toBeCloseTo(0.3, 10);
+  });
+
+  it("still sums to one when every name has a plan", () => {
+    const map = buildBandMap([holding("A", 1, 25), holding("B", 0.3, 75)]);
+    expect(map.missing).toEqual([]);
+    expect(map.points.reduce((s, p) => s + p.share, 0)).toBeCloseTo(1, 10);
+  });
+
   it("gives a list of names a plural, since they do not share one plan", () => {
     const map = buildBandMap([
       holding("A", 0.3, 30),

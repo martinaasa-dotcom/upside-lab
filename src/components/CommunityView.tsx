@@ -658,7 +658,32 @@ export function CommunityView({ communityId }: Props) {
           return {
             ticker: t.ticker,
             spot,
-            closes: t.dailyCloses?.length ? t.dailyCloses : t.sparkline,
+            /*
+              THE SAME CLOSES THE REST OF THE APP PASSES, WHICH IS THE
+              WHOLE POINT OF THERE BEING ONE BUILDER.
+
+              This read `dailyCloses` first, which sounds better and is
+              not: it is `bars.slice(-15)`, about three weeks, where
+              `sparkline` is the ninety day series `Dashboard` hands the
+              same function for the holdings page and the alerts. The
+              window sets the step, and on a holding nobody has set a
+              target for it also sets the ANCHOR, because
+              `anchorForHolding` takes the middle of the range when the
+              target is not the reader's own, and a circle's never is.
+              So a shorter window does not shift a band slightly, it
+              moves the anchor to somewhere near today's price.
+
+              Measured on a name that ran 100 to 150 over a quarter, at
+              a spot of 150: ninety closes anchor at 125.00 and put it in
+              "A long way above", fifteen anchor at 146.07 and put it in
+              "Close to fair value". That is a level reaching the alerts
+              on one screen and the do-nothing band on another, for one
+              company at one price, which is the exact thing one builder
+              exists to make impossible. `HOLDING_WINDOW_SAID` says "the
+              last few months" on both, so the short window also made
+              that sentence false.
+            */
+            closes: quotes[t.ticker]?.sparkline ?? null,
             value: spot !== null ? t.shares * spot : 0,
             roiPct: null,
           };
