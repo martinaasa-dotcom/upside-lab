@@ -25,10 +25,7 @@ import {
 import {
   ArrowRight,
   CheckCircle2,
-  ClipboardList,
   Eye,
-  FileSpreadsheet,
-  ImageUp,
   MessagesSquare,
   ShieldCheck,
   MinusCircle,
@@ -840,88 +837,43 @@ function CircleSection() {
 }
 
 /**
- * The three answers that used to be a 16-word sentence in the hero.
+ * What it costs and what happens to your holdings, as a section like every
+ * other one on this page.
  *
- * Each is checkable and each is the answer to a question somebody actually
- * has before they press: how long, what do I have to hook up, what does it
- * cost. As a row of three they are scanned; as a sentence they were read,
- * or more often not.
- */
-const WAYS_IN = [
-  { icon: ClipboardList, label: "Paste a list" },
-  { icon: FileSpreadsheet, label: "Upload a CSV" },
-  { icon: ImageUp, label: "Drop in a screenshot" },
-] as const;
-
-/**
- * The ask again, with everything a person still needs to know beside it.
+ * It used to be a closing ask: the hero's own headline and sign-in buttons
+ * again, the three ways in, and then the price and the trust list as loose
+ * left-aligned text hanging under a hairline with the consent sentence at
+ * the bottom of it. Two faults. The page asked twice for the same press,
+ * which on a page this short is one screen of scrolling apart, and the one
+ * block a reader who has decided still needs, what it costs and what
+ * happens to what they paste in, was the only block on the page that was
+ * not a section with an eyebrow, a headline and a panel. It read as fine
+ * print because it was set as fine print.
  *
- * This is the one section that grew rather than shrank, because three
- * separate card grids after the product had been shown ("Ways in", "And the
- * rest", "Price and trust") were the monotone back half of the page. They
- * are one block now: the button, the three ways in as a row of glyphs, one
- * sentence for the rest of the app, then what it costs and what happens to
- * your holdings as short text rather than two more bordered panels.
+ * So it is `SectionHead` plus one panel with two halves, which is exactly
+ * what `NotYourBroker` above it is, and the consent sentence moved to the
+ * footer where a legal line belongs. The hero's sign-in is the only one.
  */
-function Closing({
-  busy,
-  minAge,
-  onSignIn,
-}: {
-  busy: boolean;
-  minAge: number;
-  onSignIn: () => void;
-}) {
+function Closing() {
   return (
-    /*
-     * Barely any top padding, and the section above keeps its own. Two full
-     * section pads met here and added up to about 160px of empty black,
-     * which stranded the closing ask rather than letting it land as the end
-     * of something. A coda sits close to what it concludes.
-     */
-    <Section className="pt-2 sm:pt-4">
-      <div className="flex flex-col items-center gap-6 text-center">
-        <h2>
-          <span className="block max-w-xl text-balance font-heading text-xl font-semibold leading-[1.2] tracking-[-0.03em] text-foreground sm:text-3xl">
-            Paste what you own. The next red evening will make a lot more
-            sense.
-          </span>
-        </h2>
-        <SignInMethods googleBusy={busy} onGoogle={onSignIn} />
-        <ul className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-          {WAYS_IN.map((w) => (
-            <li
-              key={w.label}
-              className="flex items-center gap-2 text-base text-muted-foreground"
-            >
-              <w.icon className="size-4 shrink-0 text-primary" aria-hidden />
-              {w.label}
-            </li>
-          ))}
-        </ul>
-        <p className="max-w-xl text-base leading-snug text-muted-foreground">
-          Also inside: the Sunday letter, a what-if for every holding, and
-          where you are concentrated.
-        </p>
-
-        <div className="flex w-full max-w-xl flex-col gap-3 border-t border-border pt-6 text-left">
-          {/*
-            * A real heading, so the document outline does not jump from the
-            * closing headline straight past the price. This block used to
-            * be a section of its own with two MicroLabels and no heading at
-            * all, which a screen-reader user skipping by heading walked
-            * clean over. No size class: the h3 step in `globals.css` is
-            * already right for a subheading, and naming a size here is what
-            * `heading-scale.test.ts` exists to catch.
-            */}
-          <h3 className="text-primary">
-            What it costs, and what happens to your holdings
-          </h3>
-          <p className="text-base leading-snug text-muted-foreground">
-            <span className="text-foreground">{SIGNIN_PRICE}</span>{" "}
-            {SIGNIN_PRICE_NOTE}
-          </p>
-          <ul className="flex flex-col gap-2">
+    <Section>
+      <SectionHead
+        eyebrow="What it costs"
+        title={SIGNIN_PRICE}
+        detail={SIGNIN_PRICE_NOTE}
+      />
+      {/*
+        * One panel, two halves, split by a hairline on a wide screen and
+        * stacked on a phone. The same shape the limits panel uses, for the
+        * same reason: these are two halves of one answer to "is it safe to
+        * put my real holdings in", not two cards.
+        */}
+      <div className={cn(BOX, NESTED_PAD, "mt-8 grid gap-6 md:grid-cols-2")}>
+        <div className="flex flex-col gap-4">
+          <MicroLabel className="text-primary">
+            What happens to your holdings
+          </MicroLabel>
+          <ul className="flex flex-col gap-3">
             {SIGNIN_TRUST.map((line) => (
               <li
                 key={line}
@@ -935,75 +887,135 @@ function Closing({
               </li>
             ))}
           </ul>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            By continuing you confirm you are {minAge} or older and agree to
-            the{" "}
-            <Link href="/terms" className="underline hover:text-foreground">
-              Terms
-            </Link>{" "}
-            and{" "}
-            <Link href="/privacy" className="underline hover:text-foreground">
-              Privacy policy
-            </Link>
-            . {ADVICE_DISCLAIMER_SHORT}
-          </p>
+        </div>
+
+        <div className="flex flex-col gap-4 border-t border-border pt-6 md:border-l md:border-t-0 md:pl-6 md:pt-0">
+          <MicroLabel>Also inside</MicroLabel>
+          <ul className="flex flex-col gap-3">
+            {ALSO_INSIDE.map((line) => (
+              <li
+                key={line}
+                className="flex items-start gap-2.5 text-base leading-snug text-muted-foreground"
+              >
+                {/*
+                  * A dot rather than a glyph. Every icon on this page means
+                  * something (a tick is a promise, a minus is a limit), and
+                  * these three are a list of rooms rather than either, so
+                  * inventing a meaning for them is worse than marking them.
+                  */}
+                <span
+                  className="mt-[0.55rem] size-1.5 shrink-0 rounded-full bg-primary/60"
+                  aria-hidden
+                />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </Section>
   );
 }
 
+/*
+  The rest of the app, as three things rather than one sentence listing
+  three things. It was the tail of the closing ask; it is the second half
+  of the last panel now, which is the only place left that a reader who has
+  read the page and not yet pressed anything is still looking.
+*/
+const ALSO_INSIDE = [
+  "The Sunday letter, in plain English",
+  "A what-if for every holding",
+  "Where you are concentrated",
+] as const;
+
 /**
- * Who is behind this, and where the data sits.
+ * Who is behind this, where the data sits, and the legal line.
  *
- * The page used to end on the legal sentence with no company name, no
- * location and nothing about where a reader's holdings are stored, which
- * is the fact an EU reader deciding whether to paste them looks for. Every
- * line here is already stated on the privacy page.
+ * The consent sentence lives here rather than under a button, because it
+ * is the one block on the page nobody reads before acting and everybody
+ * looks for afterwards. It stays off the first screen deliberately: the
+ * hero is the invitation, and three lines of small type under the button
+ * is what made the top of this page read as fine print once already.
  */
-function Footer() {
+function Footer({ minAge }: { minAge: number }) {
   return (
     <footer className="px-6 pb-[max(6rem,env(safe-area-inset-bottom))] pt-4">
-      <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-2 border-t border-border pt-5 text-sm text-muted-foreground">
-        <p className="leading-relaxed">
-          Made in {LEGAL_CITY} by {LEGAL_OPERATOR}. Your holdings are stored
-          in the European Union.
-        </p>
-        <p className="flex flex-wrap items-center gap-x-5 gap-y-1">
+      <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-8 border-t border-border pt-8">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between sm:gap-10">
+          <div className="flex min-w-0 flex-col gap-3">
+            <UpsideLogo variant="icon" className="text-base" />
+            <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+              Made in {LEGAL_CITY} by {LEGAL_OPERATOR}. Your holdings are stored
+              in the European Union.
+            </p>
+          </div>
           {/*
-            The way into the public research pages, and the only link to
-            them from the front door. A section reachable only from a
-            sitemap is a section a crawler visits once a quarter; one
-            linked from the home page is part of the site.
-          */}
-          <Link href="/research" className="underline hover:text-foreground">
-            Research
-          </Link>
+            * A real `nav`, so the links are a landmark rather than a
+            * paragraph that happens to contain anchors. No rule at rest
+            * and the accent on hover: five underlined links in a row is a
+            * band of broken hairlines across the quietest part of the page.
+            */}
+          <nav aria-label="Footer" className="min-w-0">
+            <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground sm:justify-end">
+              {/*
+                The way into the public research pages, and the only link to
+                them from the front door. A section reachable only from a
+                sitemap is a section a crawler visits once a quarter; one
+                linked from the home page is part of the site.
+              */}
+              <li>
+                <Link href="/research" className={FOOTER_LINK}>
+                  Research
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className={FOOTER_LINK}>
+                  Terms
+                </Link>
+              </li>
+              <li>
+                <Link href="/privacy" className={FOOTER_LINK}>
+                  Privacy
+                </Link>
+              </li>
+              <li>
+                <a href={`mailto:${PRODUCT_SUPPORT_EMAIL}`} className={FOOTER_LINK}>
+                  {PRODUCT_SUPPORT_EMAIL}
+                </a>
+              </li>
+              <li>
+                <a
+                  href={FUND_X_URL}
+                  className={FOOTER_LINK}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  @{FUND_X_HANDLE}
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+
+        <p className="border-t border-border pt-6 text-xs leading-relaxed text-muted-foreground">
+          By continuing you confirm you are {minAge} or older and agree to the{" "}
           <Link href="/terms" className="underline hover:text-foreground">
             Terms
-          </Link>
+          </Link>{" "}
+          and{" "}
           <Link href="/privacy" className="underline hover:text-foreground">
-            Privacy
+            Privacy policy
           </Link>
-          <a
-            href={`mailto:${PRODUCT_SUPPORT_EMAIL}`}
-            className="underline hover:text-foreground"
-          >
-            {PRODUCT_SUPPORT_EMAIL}
-          </a>
-          <a
-            href={FUND_X_URL}
-            className="underline hover:text-foreground"
-            rel="noreferrer"
-            target="_blank"
-          >
-            @{FUND_X_HANDLE}
-          </a>
+          . {ADVICE_DISCLAIMER_SHORT}
         </p>
       </div>
     </footer>
   );
 }
+
+const FOOTER_LINK =
+  "underline-offset-4 transition-colors hover:text-foreground hover:underline";
 
 /* ------------------------------------------------------------------ hero */
 
@@ -1129,12 +1141,8 @@ export function SignedOutLanding(props: HeroProps) {
       <Showcase />
       <NotYourBroker />
       <CircleSection />
-      <Closing
-        busy={props.busy}
-        minAge={props.minAge}
-        onSignIn={props.onSignIn}
-      />
-      <Footer />
+      <Closing />
+      <Footer minAge={props.minAge} />
     </main>
   );
 }
