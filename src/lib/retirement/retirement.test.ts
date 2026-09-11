@@ -44,7 +44,12 @@ import {
 import { buildMilestones } from "@/lib/retirement/milestones";
 import { buildTable } from "@/lib/retirement/table";
 import { flexibleYear, DEFAULT_TIERS, tierAmounts } from "@/lib/retirement/tiers";
-import { cashOnlyGlide } from "@/lib/retirement/returns";
+import {
+  CAUTIOUS_CASH_REAL_PCT,
+  cashOnlyGlide,
+} from "@/lib/retirement/returns";
+import { sanitizeInputs } from "@/lib/retirement/state";
+import { retirementProvenance } from "@/lib/provenance";
 import {
   REGIONS,
   livingStandardFor,
@@ -747,5 +752,175 @@ describe("guaranteed income is the part of the stack the market cannot reach", (
     const top = tiers.length - 1;
     expect(bad.slices[top].funded).toBeLessThan(good.slices[top].funded);
     expect(bad.slices[0].funded).toBeCloseTo(good.slices[0].funded, 6);
+  });
+});
+
+
+describe("the panel that says where a number came from is never approximately right", () => {
+  const forPlan = (inputs: RetirementInputs) => {
+    const plan = buildPlan(inputs, PLAN_AGE);
+    return {
+      plan,
+      prov: retirementProvenance({
+        regionName: "United Kingdom",
+        standardsSource: "s",
+        returnsSource: "r",
+        swrSource: "w",
+        haircutSource: "h",
+        statePensionSource: "p",
+        e65: 19.75,
+        planningAge: PLAN_AGE,
+        improvementPct: 1,
+        swrPct: plan.required.swr.ratePct,
+        realReturnPct: plan.realReturnPct,
+        basis: plan.required.basis,
+      }),
+    };
+  };
+  const words = (p: ReturnType<typeof forPlan>["prov"]) =>
+    [
+      ...p.inputs.map((i) => `${i.what} ${i.detail ?? ""}`),
+      ...(p.steps ?? []),
+      ...(p.sources ?? []).map((x) => `${x.name} ${x.what}`),
+      ...(p.blindSpots ?? []),
+    ]
+      .join(" ")
+      .toLowerCase();
+
+  it("describes a withdrawal rate only where one is used", () => {
+    /*
+      The bug: a cash plan is answered by spending down to zero and no rate
+      is applied to it, yet this panel printed "the rate the pot is drawn
+      at, 2.69% a year" and two steps about surviving the worst run in the
+      record. It was describing machinery that reader's plan never ran.
+    */
+    const invested = forPlan(subject());
+    expect(words(invested.prov)).toContain("withdrawal rate");
+    expect(words(invested.prov)).toContain("the rate the pot is drawn at");
+
+    const cash = forPlan(
+      subject({
+        glide: cashOnlyGlide(),
+        returns: { ...DEFAULT_RETURN_ASSUMPTIONS, cashPct: CAUTIOUS_CASH_REAL_PCT },
+      })
+    );
+    expect(cash.plan.required.basis).toBe("spendDown");
+    expect(words(cash.prov)).not.toContain("the rate the pot is drawn at");
+    expect(words(cash.prov)).not.toContain("bengen");
+    expect(words(cash.prov)).toContain("no safe withdrawal rate is applied");
+  });
+
+  it("does not charge a cash plan a platform fee it never pays", () => {
+    const cash = forPlan(
+      subject({
+        glide: cashOnlyGlide(),
+        returns: { ...DEFAULT_RETURN_ASSUMPTIONS, cashPct: CAUTIOUS_CASH_REAL_PCT },
+      })
+    );
+    expect(words(cash.prov)).not.toContain("fees already taken off");
+    expect(words(cash.prov)).toContain("nobody pays one on a savings account");
+  });
+
+  it("still answers the three things every provenance panel owes", () => {
+    for (const inputs of [
+      subject(),
+      subject({
+        glide: cashOnlyGlide(),
+        returns: { ...DEFAULT_RETURN_ASSUMPTIONS, cashPct: CAUTIOUS_CASH_REAL_PCT },
+      }),
+    ]) {
+      const { prov } = forPlan(inputs);
+      expect(prov.inputs.length).toBeGreaterThan(3);
+      expect(prov.sources?.length ?? 0).toBeGreaterThan(3);
+      expect(prov.blindSpots?.length ?? 0).toBeGreaterThan(3);
+      expect(prov.maker).toBe("arithmetic");
+    }
+  });
+});
+
+describe("one cautious cash rate, read by the grid and the preset alike", () => {
+  it("gives the same answer from both doors", () => {
+    /*
+      Before the constant, the grid zeroed cash's return and the
+      Assumptions preset used its long run 0.9% average, so one reader got
+      two answers to "what if I do not invest" from one page, and on the
+      preset path cash came out needing LESS than investing.
+    */
+    const inputs = subject();
+    const fromPreset = buildPlan(
+      {
+        ...inputs,
+        glide: cashOnlyGlide(),
+        returns: { ...inputs.returns, cashPct: CAUTIOUS_CASH_REAL_PCT },
+      },
+      PLAN_AGE
+    );
+    const fromGrid = buildTable({
+      inputs,
+      suggestedPlanningAge: PLAN_AGE,
+      mode: "cash",
+    }).find((row) => row.retirementAge === inputs.retirementAge);
+
+    expect(fromGrid).toBeDefined();
+    expect(fromPreset.required.target).toBeCloseTo(fromGrid!.custom, 4);
+    expect(fromPreset.realReturnPct).toBe(0);
+  });
+
+  it("keeps cash dearer than investing from the preset too", () => {
+    const inputs = subject();
+    const invested = buildPlan(inputs, PLAN_AGE);
+    const cash = buildPlan(
+      {
+        ...inputs,
+        glide: cashOnlyGlide(),
+        returns: { ...inputs.returns, cashPct: CAUTIOUS_CASH_REAL_PCT },
+      },
+      PLAN_AGE
+    );
+    expect(cash.required.target).toBeGreaterThan(invested.required.target);
+  });
+});
+
+describe("a plan survives the round trip through a browser", () => {
+  it("comes back exactly as it went in", () => {
+    const original = subject({
+      regionId: "EE",
+      sex: "male",
+      children: [
+        { id: "a", age: 3 },
+        { id: "b", age: 7 },
+      ],
+      housing: "renting",
+      rentAnnual: 14_400,
+      carMonthly: 400,
+      carForever: true,
+      planningAge: 99,
+      swrOverridePct: 3.1,
+      globalHaircut: false,
+      glide: [
+        { fromAge: 0, equityPct: 25 },
+        { fromAge: 40, equityPct: 100 },
+      ],
+    });
+    const back = sanitizeInputs(JSON.parse(JSON.stringify(original)));
+    expect(back).toEqual(original);
+  });
+
+  it("takes anything at all without throwing", () => {
+    for (const junk of [
+      null,
+      undefined,
+      42,
+      "nonsense",
+      [],
+      { regionId: 999, children: "no", glide: {}, returns: null },
+      { currentAge: Number.NaN, planningAge: Number.POSITIVE_INFINITY },
+    ]) {
+      const out = sanitizeInputs(junk);
+      expect(Number.isFinite(out.currentAge)).toBe(true);
+      expect(out.glide.length).toBeGreaterThan(0);
+      expect(Array.isArray(out.children)).toBe(true);
+      expect(Number.isFinite(buildPlan(out, PLAN_AGE).required.target)).toBe(true);
+    }
   });
 });

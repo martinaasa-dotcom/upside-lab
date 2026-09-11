@@ -50,6 +50,28 @@ export const RETURNS_SOURCE =
 export const DEFAULT_FEE_PCT = 0.25;
 
 /**
+ * WHAT A PLAN ASSUMES CASH EARNS WHEN THE READER IS NOT INVESTING: NOTHING,
+ * AFTER INFLATION.
+ *
+ * The long run figure above is 0.9% real and it is the honest average. It is
+ * the wrong number to PLAN on, and the reason is the same one that decides
+ * the withdrawal rate a few files over: everything else in this module is
+ * priced at its bad case, so cash has to be too, or the comparison is an
+ * expected case standing beside a worst case and it inverts. Measured
+ * before this existed, the Assumptions preset priced cash at 0.9% and came
+ * out needing LESS than investing, while the grid zeroed it and came out
+ * needing more, for the same reader, on the same page.
+ *
+ * Cash's bad case is not a crash, it is a decade of inflation eating the
+ * nominal return, and that is exactly zero real. So the grid and the
+ * "Nothing invested" preset both use this, from one constant, and the panel
+ * says which figure it is using rather than leaving the reader to wonder
+ * why two screens disagree. A reader who would rather plan on the long run
+ * average can still type it into the field.
+ */
+export const CAUTIOUS_CASH_REAL_PCT = 0;
+
+/**
  * A band of the reader's life and what share of it is in shares.
  *
  * The rest is assumed to be bonds. Two bands is the ordinary shape, more

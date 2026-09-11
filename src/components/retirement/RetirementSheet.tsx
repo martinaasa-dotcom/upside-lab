@@ -178,8 +178,17 @@ export function RetirementSheet({
         improvementPct: inputs.improvementPct,
         swrPct: plan.required.swr.ratePct,
         realReturnPct: plan.realReturnPct,
+        basis: plan.required.basis,
       }),
-    [region, inputs.sex, inputs.improvementPct, planningAge, plan.required.swr.ratePct, plan.realReturnPct]
+    [
+      region,
+      inputs.sex,
+      inputs.improvementPct,
+      planningAge,
+      plan.required.swr.ratePct,
+      plan.realReturnPct,
+      plan.required.basis,
+    ]
   );
 
   return (

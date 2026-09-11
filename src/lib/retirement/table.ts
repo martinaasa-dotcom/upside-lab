@@ -59,7 +59,10 @@ import {
   regionById,
   type LivingStandard,
 } from "@/lib/retirement/regions";
-import { cashOnlyGlide } from "@/lib/retirement/returns";
+import {
+  CAUTIOUS_CASH_REAL_PCT,
+  cashOnlyGlide,
+} from "@/lib/retirement/returns";
 
 export type TableRow = {
   retirementAge: number;
@@ -122,7 +125,7 @@ function asCash(inputs: RetirementInputs): RetirementInputs {
       panel lets a reader price cash at whatever they like on their own
       plan; this one column holds it at the cautious figure and says so.
     */
-    returns: { ...inputs.returns, cashPct: 0 },
+    returns: { ...inputs.returns, cashPct: CAUTIOUS_CASH_REAL_PCT },
     swrOverridePct: null,
   };
 }

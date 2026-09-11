@@ -105,7 +105,11 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
         subtitle="Your spending, split into layers. The bottom one is paid every year whatever the market did. The ones above it are what a real person would move, and moving them is worth more than any other decision available to you."
       />
 
-      <div className={cn(CARD, "flex flex-col gap-2 p-4")}>
+      <div
+        className={cn(CARD, "flex flex-col gap-2 p-4")}
+        role="group"
+        aria-label={`Your spending in layers at a market return of ${returnPct}%`}
+      >
         {year.slices
           .slice()
           .reverse()
@@ -117,7 +121,16 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
             return (
               <div
                 key={slice.tier.id}
-                className="flex min-w-0 items-center justify-between gap-3 overflow-hidden rounded-lg px-3 transition-all duration-300"
+                /*
+                  `motion-safe`, because this keeps moving after the input
+                  stops. A pull or a drag is direct manipulation and is not
+                  the motion that setting is asking about; four blocks
+                  easing to a new height over 300ms afterwards is. There is
+                  no blanket rule in `globals.css` disabling transitions,
+                  so every animated surface opts out by name and this one
+                  has to as well.
+                */
+                className="flex min-w-0 items-center justify-between gap-3 overflow-hidden rounded-lg px-3 motion-safe:transition-all motion-safe:duration-300"
                 style={{
                   height,
                   background: slice.tier.color,

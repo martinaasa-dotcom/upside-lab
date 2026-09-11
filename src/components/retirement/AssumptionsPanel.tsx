@@ -34,10 +34,12 @@ import {
 import { cn, percent } from "@/lib/format";
 import {
   allEquityGlide,
+  CAUTIOUS_CASH_REAL_PCT,
   cashOnlyGlide,
   defaultGlide,
   equityShareAt,
   realReturnAt,
+  REAL_RETURN_ASSUMPTIONS,
   RETURNS_SOURCE,
   type GlideSegment,
 } from "@/lib/retirement/returns";
@@ -84,7 +86,7 @@ export function AssumptionsPanel({
             label="Cash, a year"
             value={inputs.returns.cashPct}
             onChange={(cashPct) => patch({ returns: { ...inputs.returns, cashPct } })}
-            note="Only used where nothing at all is invested."
+            note={`Only used where nothing at all is invested, and no fee comes off it, because nobody pays a platform charge on a savings account. ${CAUTIOUS_CASH_REAL_PCT}% is what a plan should assume, since cash's own bad run is a decade of inflation eating the interest. ${REAL_RETURN_ASSUMPTIONS.cashPct}% is the long run average if you would rather plan on that.`}
           />
           <PercentField
             label="What you are charged, a year"
@@ -207,7 +209,23 @@ export function AssumptionsPanel({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => patch({ glide: cashOnlyGlide() })}
+              onClick={() =>
+                /*
+                  The preset prices cash at its own bad case, exactly as the
+                  grid's cash column does and from the same constant. Left at
+                  the long run 0.9% average, this preset answered a different
+                  question from the table two panels down and came out
+                  needing less than investing. The field below is still the
+                  reader's if they want the average back.
+                */
+                patch({
+                  glide: cashOnlyGlide(),
+                  returns: {
+                    ...inputs.returns,
+                    cashPct: CAUTIOUS_CASH_REAL_PCT,
+                  },
+                })
+              }
             >
               Nothing invested
             </Button>

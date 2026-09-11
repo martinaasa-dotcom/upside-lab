@@ -192,6 +192,7 @@ export function SliderField({
   max,
   step = 1,
   format,
+  ariaLabel,
 }: {
   label: ReactNode;
   note?: ReactNode;
@@ -201,7 +202,17 @@ export function SliderField({
   max: number;
   step?: number;
   format: (n: number) => string;
+  /** Needed when `label` is not a plain string. See the note below. */
+  ariaLabel?: string;
 }) {
+  /*
+    A slider has no `<label for>` to attach to, so the visible heading
+    above it is decoration as far as a screen reader is concerned and the
+    control announces itself as an unnamed slider. The label here is a
+    fragment carrying the reading as well as the name, so it cannot be
+    used as the accessible name directly.
+  */
+  const name = ariaLabel ?? (typeof label === "string" ? label : undefined);
   return (
     <Field
       label={
@@ -223,6 +234,8 @@ export function SliderField({
           const n = next[0];
           if (Number.isFinite(n)) onChange(n);
         }}
+        aria-label={name}
+        aria-valuetext={format(value)}
         className="py-2"
       />
     </Field>
