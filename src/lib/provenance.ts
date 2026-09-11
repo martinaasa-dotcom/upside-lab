@@ -1033,8 +1033,18 @@ export function bandMapProvenance(input: {
     inputs: [
       {
         what: "Each holding's own price plan",
+        /*
+          NEVER "end of year price" ON ITS OWN -- `anchorForHolding`
+          answers with one of two different kinds and this line used to
+          claim only the first. A holding with nobody's chosen target
+          and no shaped path to fall back on is anchored on the middle
+          of the range it has actually traded in instead ("history"),
+          which is not a price of anything in the future, and the old
+          wording stated the wrong kind of figure for every holding
+          that lands there.
+        */
         detail:
-          "the same ladder its own page draws, anchored on that holding's end of year price",
+          "the same ladder its own page draws, anchored on an end of year price where one has been set and on the range it has actually traded in otherwise",
       },
       { what: "Today's price for each one" },
       { what: "What each holding is worth, against the whole portfolio" },

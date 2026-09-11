@@ -113,11 +113,24 @@ function chipScaleFor(
   return Math.min(Math.max(perTicker / base, 1), max);
 }
 
-/** The viewport's own width, for sizing the phone strip's chips by it. */
+/**
+ * The viewport's own width, for sizing the phone strip's chips by it.
+ *
+ * THE INITIAL STATE MUST MATCH THE SERVER, NOT GUESS THE CLIENT.
+ *
+ * This read `window.innerWidth` in the `useState` initializer, gated on
+ * `typeof window === "undefined"`. That guard is true on the server and
+ * false on the client's very first render too, before any effect has
+ * run, so hydration compared the server's 390 against whatever the real
+ * device measured and failed on every load a phone strip chip appeared
+ * in, discovered by actually rendering the page rather than by reading
+ * the code. The fix is the ordinary one: start at the SSR value always,
+ * and let the effect that already runs on mount correct it a frame
+ * later, same as every other client-only measurement in this file
+ * (`plotRef`'s `ResizeObserver` included).
+ */
 function useViewportWidth(): number {
-  const [width, setWidth] = useState(() =>
-    typeof window === "undefined" ? 390 : window.innerWidth
-  );
+  const [width, setWidth] = useState(390);
   useEffect(() => {
     const onResize = () => setWidth(window.innerWidth);
     onResize();
@@ -247,22 +260,28 @@ function Plot({
           ladder is a multiple of it, and the picture said nothing about
           it before. Read off that band rather than from the middle of
           the picture, because the lanes are not all the same height.
+
+          NO LABEL LIVES INSIDE THE PLOT, ON EITHER EDGE.
+
+          A first pass put a floating "Estimate" pill at the left edge,
+          a beat after the right-aligned band-name column, so "Hold,
+          nothing new" and a dashed "ESTIMATE" read as one clause. Moving
+          the pill to the right edge traded that fault for a worse one:
+          the file's own comment two components up says why nothing
+          floats inside this plot at all -- "a label inside the plot is
+          a label a chip can land on" -- and the right edge is exactly
+          where the biggest holding's chip sits, in the band most
+          holdings are in. A label there is a label a real chip will
+          eventually sit on top of. So the line carries no text of its
+          own; the legend beneath the chart (`Estimate` swatch) says
+          what it is once, in a place nothing can ever be drawn over.
         */}
         {anchorAt !== null && (
-          <>
-            <div
-              className="absolute inset-x-0 border-t border-dashed border-primary/40"
-              style={{ top: anchorAt }}
-              aria-hidden
-            />
-            <span
-              className="absolute left-2 -translate-y-1/2 rounded bg-background/80 px-1 font-mono text-xs uppercase tracking-wide text-primary/80"
-              style={{ top: anchorAt }}
-              aria-hidden
-            >
-              Estimate
-            </span>
-          </>
+          <div
+            className="absolute inset-x-0 border-t border-dashed border-primary/50"
+            style={{ top: anchorAt }}
+            aria-hidden
+          />
         )}
 
         {map.points.map((p) => (
@@ -576,6 +595,38 @@ export function BandMap({
             <MicroLabel>Biggest, {percent(map.topShare, 0)}</MicroLabel>
           </div>
         </div>
+        {/*
+          The dashed line has no other explanation on the page, and it is
+          the one mark on this picture that is not a chip: a reader who
+          has never met it has no way to work out that it is not, say,
+          the border of the "hold" band it happens to sit inside. Said
+          once, in words, rather than left to a hover a phone cannot even
+          trigger.
+
+          "ANCHOR", NEVER "ESTIMATE" -- THE FOUR KINDS ARE NOT ALL ONE.
+
+          `LadderAnchorKind` is `estimate | target | history | your-own`:
+          the blended analyst figure, a stock's own end-of-year target,
+          a fund or coin's year of trading (which is not a forecast of
+          anything), or a number the reader typed in by hand. A first
+          version of this line said "each holding's own estimate" for
+          all four, which is true of exactly one of them and an
+          overclaim for the other three -- a fund's anchor is the
+          middle of a price it has already traded at, not anybody's
+          guess about the future, and calling it an estimate states
+          something the reader cannot check. `PlanLadderFoot` already
+          has the word that covers all four without asserting which one
+          it is: "Anchored on $X". This line borrows it.
+        */}
+        <p className="flex items-center gap-2 text-xs leading-relaxed text-muted-foreground">
+          <span
+            aria-hidden
+            className="h-0 w-4 shrink-0 border-t border-dashed border-primary/50"
+          />
+          The dashed line marks each holding&rsquo;s own anchor, the one
+          price its whole plan is built from. Every band is a multiple
+          of it, which is why it always falls in the middle of Hold.
+        </p>
       </div>
 
       <div className="sm:hidden">
