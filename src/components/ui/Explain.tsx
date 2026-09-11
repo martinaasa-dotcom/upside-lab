@@ -77,7 +77,15 @@ export function Explain({
     if (open) recordWordLookedUp(entry.id);
   };
 
-  const label = `What does ${entry.term.toLowerCase()} mean?`;
+  /*
+    "What this means: How spread out it is", not "What How spread out it
+    is means". Several entries are phrases rather than single words, and
+    the sentence template assumed a word: a screen reader announced the
+    label with the phrase wedged into the middle of it, which is the one
+    place this app's care about wording was not reaching. Putting the term
+    last reads correctly whatever shape it is.
+  */
+  const label = `What this means: ${entry.term}`;
 
   return (
     <Popover onOpenChange={onOpenChange}>

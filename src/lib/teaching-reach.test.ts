@@ -98,7 +98,8 @@ describe("the words are where the beginner already is", () => {
       tested, and unreadable by anybody. The unreachable set is asserted by
       name rather than by count, so adding an entry without a home fails
       here with the word in the message instead of drifting upwards
-      unnoticed.
+      unnoticed. It is empty now: `premium` was the last one, and it found
+      its home on the covered-call table's own Premium column.
 
       A key can be a literal in markup or a string in a data module
       (`readings.ts`, `alerts.ts`, `playbook.ts` all pass them as
@@ -113,7 +114,7 @@ describe("the words are where the beginner already is", () => {
         .trim();
       return hits === "";
     });
-    expect(unreachable).toEqual(["premium"]);
+    expect(unreachable).toEqual([]);
   });
 
   it("never puts a glossary word next to an information mark", () => {
@@ -144,5 +145,39 @@ describe("the words are where the beginner already is", () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it("makes the covered-call headers reachable without a hover", () => {
+    /*
+      All nine carried their explanation in a `title` attribute, which is
+      the fault `TermTip` exists to fix: a touch screen has no hover, so
+      the reader who most needs to know what a strike is could reach none
+      of them. The label is the trigger rather than a circle beside it,
+      because nine circles plus their halos would widen every track in a
+      table whose columns already floor at their widest cell.
+    */
+    const source = read("src/components/CoveredCallPanel.tsx");
+    expect(source).not.toMatch(/title=\{HEADER_HINTS/);
+    expect(source).toMatch(/<TermTip term=\{GLOSSARY_HEADERS\[label\]!\}/);
+    expect(source).toMatch(/<InfoTip text=\{HEADER_HINTS\[label\]!\}/);
+    // The two words a reader meets again in their broker's own screens.
+    for (const term of ["strike", "premium"]) {
+      expect(glossaryEntry(term), term).toBeTruthy();
+      expect(source).toContain(`"${term}"`);
+    }
+  });
+
+  it("reads a phrase-shaped term back as a sentence", () => {
+    /*
+      "What this means: How spread out it is", not "What How spread out it
+      is means". Several entries are phrases, and both label templates
+      assumed a single word.
+    */
+    for (const file of [
+      "src/components/ui/TermTip.tsx",
+      "src/components/ui/Explain.tsx",
+    ]) {
+      expect(read(file)).toContain("What this means: ${entry.term}");
+    }
   });
 });

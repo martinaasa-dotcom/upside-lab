@@ -858,19 +858,52 @@ export function Metric({
 /**
  * Tap-to-open explainer. Portaled so a parent `overflow-hidden` cannot
  * clip it, and Radix keeps it inside the viewport.
+ *
+ * Two shapes, the pair `TermTip` already draws for the same reason. With
+ * no children it is the circle, for a label with no room beside it. With
+ * children the label itself is the trigger, underlined the way a word you
+ * can look up has been underlined since paper.
+ *
+ * The word form is not a nicety. The circle carries an invisible
+ * `-inset-3.5` halo so it is a real target under a finger, and that halo
+ * reaches 14px past itself in every direction, which both eats whatever
+ * sits beside it and adds its own width to a column. In a table header
+ * that is a track wider on every column for an explanation nobody can
+ * reach anyway, since a `title` attribute needs a hover and a phone has
+ * none. Wrapping the label costs no width and works on a touch screen.
  */
-export function InfoTip({ text, label }: { text: string; label?: string }) {
+export function InfoTip({
+  text,
+  label,
+  children,
+}: {
+  text: string;
+  label?: string;
+  /** The label to underline. Omit for the circle. */
+  children?: ReactNode;
+}) {
+  const asWord = children != null;
   return (
     <Popover>
       <PopoverTrigger
         type="button"
         data-slot="info-tip"
         aria-label={label ?? "What does this mean?"}
-        className="relative inline-flex size-4 shrink-0 items-center justify-center align-text-bottom text-muted-foreground transition hover:text-foreground"
+        className={
+          asWord
+            ? "cursor-help max-w-full text-left decoration-dotted underline underline-offset-4 decoration-muted-foreground/60 [text-transform:inherit] outline-none transition hover:decoration-foreground focus-visible:decoration-foreground"
+            : "relative inline-flex size-4 shrink-0 items-center justify-center align-text-bottom text-muted-foreground transition hover:text-foreground"
+        }
         onClick={(e) => e.stopPropagation()}
       >
-        <span className="absolute -inset-3.5 lg:-inset-2.5" aria-hidden />
-        <Info className="relative h-3.5 w-3.5" />
+        {asWord ? (
+          children
+        ) : (
+          <>
+            <span className="absolute -inset-3.5 lg:-inset-2.5" aria-hidden />
+            <Info className="relative h-3.5 w-3.5" />
+          </>
+        )}
       </PopoverTrigger>
       <PopoverContent
         side="bottom"

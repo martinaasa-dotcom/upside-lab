@@ -1,9 +1,11 @@
 "use client";
 
+import { TermTip } from "@/components/ui/TermTip";
+
 import { FluidRow, FluidTable, cellBase, cellTicker, tableCols } from "@/components/FluidTable";
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { Button } from "@/components/ui/button";
-import { Card, EmptyState, Panel, PanelHeader } from "@/components/ui/Panel";
+import { Card, EmptyState, InfoTip, Panel, PanelHeader } from "@/components/ui/Panel";
 import { NO_VALUE, cashtag, cn, currency, percent, plural, signedTone } from "@/lib/format";
 import { shareCount } from "@/lib/share-count";
 import { isSafePositiveMoney } from "@/lib/input-guard";
@@ -232,6 +234,17 @@ const HEADERS = [
   "Premium",
 ] as const;
 
+/**
+ * Headers the glossary already answers, so this table does not keep a
+ * second copy of the answer. `Strike` and `Premium` are the two words a
+ * reader meets again in their broker's own screens, which is exactly the
+ * case the shared entry exists for.
+ */
+const GLOSSARY_HEADERS: Partial<Record<(typeof HEADERS)[number], string>> = {
+  Strike: "strike",
+  Premium: "premium",
+};
+
 const HEADER_HINTS: Partial<Record<(typeof HEADERS)[number], string>> = {
   Price: "What one share costs right now",
   "Call %": "How far above your target you set the strike. A strike further away pays you less, but your shares are less likely to be sold",
@@ -242,10 +255,8 @@ const HEADER_HINTS: Partial<Record<(typeof HEADERS)[number], string>> = {
   // months, which is a different number in a table that shows both.
   "Near target?":
     "How close the share price is to the price you said you would be happy to sell at",
-  Strike: "The strike this plan points at, rounded to one you can actually trade",
   Contracts: "One contract covers 100 shares",
   "2-week %": "What you collect, as a percentage of the shares this ties up, over roughly two weeks",
-  Premium: "The cash you would collect for selling these calls",
 };
 
 /**
@@ -489,9 +500,34 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                   so the label is kept short instead ("Near target?").
                 */
                 className={i === 0 ? tickerCell : cellBase}
-                title={HEADER_HINTS[label]}
               >
-                {label}
+                {/*
+                  The explanation was a `title` attribute on all nine of
+                  these, which is the fault `TermTip` was built to fix: a
+                  hover has no equivalent on a touch screen, so the reader
+                  who most needs to know what a strike is could not reach
+                  a single one of them.
+
+                  The label is the trigger rather than a circle beside it,
+                  and that is a width decision as much as a taste one. A
+                  circle would add its own 16px plus a 14px halo to every
+                  column in a table whose tracks already floor at their
+                  widest cell, so nine of them would push the whole thing
+                  into a sideways scroll on the laptop this table is for.
+
+                  `TermTip` where the glossary knows the word, so
+                  improving that answer improves it everywhere at once;
+                  `InfoTip` for the columns that are this table's own
+                  idea and belong to no shared vocabulary. Both open the
+                  same way on a tap, so the row keeps one voice.
+                */}
+                {GLOSSARY_HEADERS[label] ? (
+                  <TermTip term={GLOSSARY_HEADERS[label]!}>{label}</TermTip>
+                ) : HEADER_HINTS[label] ? (
+                  <InfoTip text={HEADER_HINTS[label]!}>{label}</InfoTip>
+                ) : (
+                  label
+                )}
               </div>
             ))}
           </FluidRow>
