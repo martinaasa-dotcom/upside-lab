@@ -81,7 +81,7 @@ import {
 } from "@/lib/forecast-conviction";
 import { buildCommunityFunFacts } from "@/lib/community-fun-facts";
 import { loadCachedQuotes, mergeQuotes, saveCachedQuotes, quotesUnchanged } from "@/lib/quote-cache";
-import { mixSlices } from "@/lib/mix-slices";
+import { mixGapLine, mixSlices } from "@/lib/mix-slices";
 import { useTickerSectors } from "@/lib/use-ticker-sectors";
 import { COMPOUND_MILESTONE_GOALS } from "@/lib/compound-play";
 import { todayKeyInTz } from "@/lib/timezone";
@@ -1003,6 +1003,41 @@ export function CommunityView({ communityId }: Props) {
   ]);
 
   /*
+    Where the reader differs most from the room.
+
+    Built from the holdings rather than from the two charts above, because
+    a chart folds its tail into one slice and the two tails are different
+    sectors: comparing them subtracts one set of companies from an
+    unrelated set. `mixGapLine` walks the unfolded allocation of both
+    sides, so a sector the reader is heavily in can be the answer even
+    when the room holds too little of it to draw.
+  */
+  const themeGapLine = useMemo(() => {
+    const you = memberStats.find((m) => m.isYou);
+    if (!you) return null;
+    const mySheets = new Set(
+      ownership.filter((o) => o.user_id === you.id).map((o) => o.portfolio_id)
+    );
+    return mixGapLine(
+      overview.tickers
+        .filter((t) => t.currentValue > 0)
+        .map((t) => ({
+          ticker: t.ticker,
+          currentValue: t.currentValue,
+          sector: withSector(t.ticker),
+        })),
+      holdings
+        .filter((h) => mySheets.has(h.portfolio_id))
+        .map((h) => ({
+          ticker: h.ticker,
+          currentValue: h.shares * (quotes[h.ticker]?.price ?? 0),
+          sector: withSector(h.ticker),
+        }))
+        .filter((h) => h.currentValue > 0)
+    );
+  }, [memberStats, ownership, overview.tickers, holdings, quotes, withSector]);
+
+  /*
     What changed since the reader last opened this circle. Six lines at
     most: past that it stops being news and starts being a list.
   */
@@ -1724,6 +1759,7 @@ export function CommunityView({ communityId }: Props) {
                 avatarByName={avatarByName}
                 communityThemeBreakdown={communityThemeBreakdown}
                 yourThemeBreakdown={yourThemeBreakdown}
+                gapLine={themeGapLine}
                 communityFunFacts={communityFunFacts}
                 funFactsShuffle={funFactsShuffle}
                 setFunFactsShuffle={setFunFactsShuffle}

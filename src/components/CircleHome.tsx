@@ -149,33 +149,6 @@ function ThemeBar({ slices }: { slices: MixSlice[] }) {
   );
 }
 
-/**
- * The one sentence the chart can teach: where you differ from the room.
- * A single stacked bar tells a reader what the group holds and nothing at
- * all about themselves, which is the comparison they came for.
- */
-function biggestThemeGap(
-  circle: MixSlice[],
-  you: MixSlice[]
-): string | null {
-  if (circle.length === 0 || you.length === 0) return null;
-  // Matched on the group's own key rather than a theme id, since both
-  // charts are built from the same sector grouping.
-  const yourPct = new Map(you.map((m) => [m.key, m.pct]));
-  let best: { label: string; gap: number } | null = null;
-  for (const slice of circle) {
-    const gap = (yourPct.get(slice.key) ?? 0) - slice.pct;
-    if (!best || Math.abs(gap) > Math.abs(best.gap)) {
-      best = { label: slice.label, gap };
-    }
-  }
-  if (!best || Math.abs(best.gap) < 0.05) return null;
-  const points = Math.round(Math.abs(best.gap) * 100);
-  return best.gap > 0
-    ? `You hold ${points} points more of ${best.label} than the circle does.`
-    : `You hold ${points} points less of ${best.label} than the circle does.`;
-}
-
 export type CircleHomeProps = {
   name: string;
   houseNote: string | null;
@@ -189,6 +162,15 @@ export type CircleHomeProps = {
   avatarByName: Map<string, string>;
   communityThemeBreakdown: MixSlice[];
   yourThemeBreakdown: MixSlice[];
+  /**
+   * Where the reader differs most from the room, already worked out.
+   *
+   * Computed by `mixGapLine` from the unfolded allocations rather than
+   * from the two charts below: a chart folds its tail to stay readable,
+   * and the two tails are different sectors, so comparing them compares
+   * unrelated companies. See the note on that function.
+   */
+  gapLine: string | null;
   communityFunFacts: string[];
   funFactsShuffle: number;
   setFunFactsShuffle: Dispatch<SetStateAction<number>>;
@@ -225,6 +207,7 @@ export function CircleHome({
   avatarByName,
   communityThemeBreakdown,
   yourThemeBreakdown,
+  gapLine,
   communityFunFacts,
   funFactsShuffle,
   setFunFactsShuffle,
@@ -251,7 +234,6 @@ export function CircleHome({
   */
   const hasLeague = membersWithBooks.length >= 2;
   const shownView = view === "play" && !hasLeague ? "overview" : view;
-  const gapLine = biggestThemeGap(communityThemeBreakdown, yourThemeBreakdown);
 
   return (
     <>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MAX_MIX_SLICES, mixSlices } from "@/lib/mix-slices";
+import { MAX_MIX_SLICES, mixGapLine, mixSlices } from "@/lib/mix-slices";
 
 const SECTORS = [
   "Technology and software",
@@ -111,5 +111,82 @@ describe("two charts drawn to be compared", () => {
       { colorFor: () => undefined }
     );
     expect(mine[0]!.color).toBeTruthy();
+  });
+});
+
+describe("where you differ from the room", () => {
+  const hold = (sector: string, value: number) => ({
+    ticker: sector.slice(0, 3).toUpperCase(),
+    currentValue: value,
+    sector,
+  });
+
+  it("finds a group the room holds too little of to draw", () => {
+    /*
+      The fault this replaced. The old line walked the ROOM's drawn slices
+      and looked each up on the reader's side, so a sector the reader is
+      heavily in could not be the answer unless the room also held enough
+      of it to survive the fold. Measured on a reader who is entirely in
+      utilities inside a circle holding half a per cent of it, the panel
+      said "27 points less of Technology and software": true, and not what
+      anybody opened the panel to find out.
+    */
+    const room = [
+      hold("Technology and software", 5000),
+      hold("Banks and finance", 4000),
+      hold("Healthcare and medicines", 3000),
+      hold("Everyday household goods", 2500),
+      hold("Oil, gas and energy", 2000),
+      hold("Property", 1500),
+      hold("Electricity, water and gas", 100),
+    ];
+    const you = [hold("Electricity, water and gas", 9000)];
+    const line = mixGapLine(room, you);
+    expect(line).toMatch(/Electricity, water and gas/);
+    expect(line).toMatch(/more/);
+  });
+
+  it("never compares one chart's folded tail against the other's", () => {
+    /*
+      Both charts fold their tail under the key `everything-else`, and the
+      tails are different sectors on each side, so subtracting one from
+      the other states a fact about the reader from two unrelated sets of
+      companies, in a sentence naming neither.
+
+      The room here holds eight sectors and folds its two smallest; the
+      reader holds only the six the room draws and folds nothing. Compared
+      as drawn, the fold is a 24 point gap and wins outright, so the panel
+      leads with "24 points less of 2 smaller groups". Compared unfolded,
+      the answer is one of the two sectors the reader genuinely does not
+      hold, by name.
+    */
+    const room = [
+      hold("Technology and software", 100),
+      hold("Banks and finance", 99),
+      hold("Healthcare and medicines", 98),
+      hold("Everyday household goods", 97),
+      hold("Oil, gas and energy", 96),
+      hold("Property", 95),
+      hold("Electricity, water and gas", 94),
+      hold("Factories, machines and transport", 93),
+    ];
+    const you = room.slice(0, MAX_MIX_SLICES);
+    const line = mixGapLine(room, you);
+    expect(line).not.toMatch(/smaller groups/);
+    expect(line).not.toMatch(/everything.else/i);
+    // It names one of the two the reader really does not hold.
+    expect(line).toMatch(
+      /Electricity, water and gas|Factories, machines and transport/
+    );
+  });
+
+  it("says nothing when the two are the same portfolio", () => {
+    const same = [hold("Technology and software", 100), hold("Property", 100)];
+    expect(mixGapLine(same, same)).toBeNull();
+  });
+
+  it("says nothing when either side holds nothing", () => {
+    expect(mixGapLine([], [hold("Property", 100)])).toBeNull();
+    expect(mixGapLine([hold("Property", 100)], [])).toBeNull();
   });
 });
