@@ -1048,10 +1048,11 @@ export function bandMapProvenance(input: {
       },
     ],
     steps: [
-      "Each name's plan is built first, exactly as its own page builds it. Nothing about the plan changes because it is on a map.",
-      "Height is which band the price is in, plus how far through that band it has got. Every band is a multiple of that company's own anchor, which is what lets a $2 company and a $2,000 one be compared at all.",
-      "Across is that holding's share of this portfolio, ending at the largest one rather than at a hundred per cent, or every name would be drawn in the first tenth of the picture.",
-      "Where two names would touch, one moves down a row inside its own band. Nothing is ever moved sideways, because sideways is a real figure.",
+      "Each name's plan is built first, exactly as its own page builds it. Nothing about the plan changes because it is on this picture.",
+      "Which row a name is in is which band its price is in. Every band is a multiple of that company's own fair value, which is what lets a $2 company and a $2,000 one be compared at all.",
+      "A band's bar is how much of this portfolio is priced in that band, measured against the fullest band rather than against a hundred per cent, and each block in the bar is one holding sized by what it is worth.",
+      "Every row is the same height whatever you own, including the rows with nothing in them, so the shape of the ladder cannot change with the portfolio.",
+      "On a crowded portfolio the names too small to read stand down, folded into a block saying how many went and what they come to together. A name that has reached an end of its own plan is kept however small it is.",
     ],
     blindSpots: [
       NOT_YOUR_BROKER,

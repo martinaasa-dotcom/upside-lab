@@ -119,14 +119,34 @@ export type PlanLadder = {
  * once and read in pairs. Two bands that disagree about the price between
  * them is a ladder with a hole in it.
  */
+/*
+  THE LABELS SAY THE SIZE OF THE MOVE. THE IDS NEVER CHANGE.
+
+  The first set was renamed on 2026-09-11 and every fault it had was a
+  comprehension one. "Trim 60%+" named a number nothing on the page
+  explained. "Half a starter" is trade-desk slang for a first tranche,
+  which this app's own rule against unexplained market words rules out.
+  "Full position" and "Full position, and more" were an indistinguishable
+  pair, and they were the only bands named after position sizing when
+  every other band is named after price. And "Out of it" sat directly
+  under two bands about buying more, so the one place the ladder says to
+  be out read as the cheapest place to buy.
+
+  What replaced them is symmetric about fair value and says how big the
+  move is rather than naming a tranche, with the foot of the ladder
+  named for the fact that put it there rather than for a size, because
+  it is not a bigger version of the band above it. The ids are what a
+  saved edit, a dismissal and an alert are keyed on, so they stay
+  exactly as they were: this is a wording change and nothing else.
+*/
 const EDGES: { id: LadderBandId; label: string; steps: number | null }[] = [
-  { id: "trim-most", label: "Trim 60%+", steps: null },
-  { id: "trim-some", label: "Consider a trim", steps: 2 },
-  { id: "hold", label: "Hold, nothing new", steps: 1 },
-  { id: "starter", label: "Half a starter", steps: -1 },
-  { id: "full", label: "Full position", steps: -2 },
-  { id: "full-aggressive", label: "Full position, and more", steps: -3 },
-  { id: "exit", label: "Out of it", steps: null },
+  { id: "trim-most", label: "Trim most of it", steps: null },
+  { id: "trim-some", label: "Trim a little", steps: 2 },
+  { id: "hold", label: "Hold", steps: 1 },
+  { id: "starter", label: "Add a little", steps: -1 },
+  { id: "full", label: "Add more", steps: -2 },
+  { id: "full-aggressive", label: "Add a lot", steps: -3 },
+  { id: "exit", label: "Cheaper than its whole year", steps: null },
 ];
 
 /** A tenth of the anchor per band, which is the reference ladder's own width. */
@@ -589,4 +609,28 @@ export function nearestEdge(
     }
   }
   return best;
+}
+
+/**
+ * How far from fair value this band runs, in the reader's own words.
+ *
+ * "About", and it is load bearing: the step is each company's own, held
+ * between `MIN_STEP` and `MAX_STEP`, so a name that barely moves gets 8%
+ * bands and one that swings hard gets 14%. A single printed range is the
+ * shape of the ladder rather than a promise about any one holding, and a
+ * sentence that promised the second would be wrong on most of them.
+ */
+export function bandRangeSaid(band: {
+  fromRatio: number | null;
+  toRatio: number | null;
+}): string {
+  const pc = (r: number) => `${Math.round(Math.abs(1 - r) * 100)}%`;
+  const { fromRatio, toRatio } = band;
+  if (fromRatio === null) return "below anything it traded all year";
+  if (toRatio === null) return `more than ${pc(fromRatio)} above fair value`;
+  if (fromRatio >= 1) {
+    return `about ${pc(fromRatio)} to ${pc(toRatio)} above fair value`;
+  }
+  if (toRatio > 1) return `within about ${pc(fromRatio)} of fair value`;
+  return `about ${pc(toRatio)} to ${pc(fromRatio)} below fair value`;
 }

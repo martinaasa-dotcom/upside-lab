@@ -108,7 +108,7 @@ function BandRow({
     A pencil is an icon button, and `globals.css` gives every icon button
     a 44px floor under a coarse pointer, which is right and is 44 of the
     326px a 390px phone leaves this row. Measured with one there, the
-    price column and the button took 200px and "Hold, nothing new" wrapped
+    price column and the button took 200px and a band's own name wrapped
     onto THREE lines: three words, three lines, on the row the reader is
     actually in. The row is a button instead, which needs none of that
     width and is a larger target than the pencil ever was. The glyph stays
