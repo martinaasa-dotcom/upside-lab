@@ -122,11 +122,11 @@ export function buildTable(input: {
     const own = at(customSpend);
     const byStandard = {
       minimum: at(livingStandardFor(region, "minimum", base.household)).required
-        .safeRate,
+        .target,
       moderate: at(livingStandardFor(region, "moderate", base.household)).required
-        .safeRate,
+        .target,
       comfortable: at(livingStandardFor(region, "comfortable", base.household))
-        .required.safeRate,
+        .required.target,
     };
 
     return {
@@ -135,7 +135,7 @@ export function buildTable(input: {
       yearsDrawing: Math.max(0, own.planningAge - retirementAge),
       swrPct: own.required.swr.ratePct,
       byStandard,
-      custom: own.required.safeRate,
+      custom: own.required.target,
       monthlyToCustom: own.monthlyToClose,
       isChosen: retirementAge === chosen,
     };

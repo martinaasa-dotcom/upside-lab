@@ -47,10 +47,28 @@ export function BridgePanel({
   */
   const bridgeYears = Math.round(inputs.statePensionAge - inputs.retirementAge);
   const defaultYears = bridgeYears > 0 ? bridgeYears : 7;
-  const [years, setYears] = useState(defaultYears);
-  const [draw, setDraw] = useState(() =>
-    Math.round(plan.firstYearFromPot > 0 ? plan.firstYearFromPot : 30_000)
+  const defaultDraw = Math.round(
+    plan.firstYearFromPot > 0 ? plan.firstYearFromPot : 30_000
   );
+  const [years, setYears] = useState(defaultYears);
+  const [draw, setDraw] = useState(defaultDraw);
+
+  /*
+    These open on the plan above and then belong to the reader, which
+    means they go stale the moment the plan moves.
+
+    This panel sits behind a fold, so it mounts with whatever the plan said
+    when it was first scrolled to and never hears about a change after
+    that. Somebody who then brings their retirement age forward from 67 to
+    52 has just created a fifteen year bridge and is looking at a panel
+    still answering the old question, with nothing on screen saying so.
+
+    Re-syncing on every change is the wrong fix: it would throw away what
+    the reader typed here every time they touched a field elsewhere. So the
+    panel says the two disagree and offers one press to catch up, which is
+    the same shape as the planning age control further up.
+  */
+  const stale = years !== defaultYears || draw !== defaultDraw;
   const [ratePct, setRatePct] = useState(2);
   const [timing, setTiming] = useState<DrawTiming>("start");
 
@@ -107,6 +125,23 @@ export function BridgePanel({
           note="Taking it at the start costs more, because that money never earns anything."
         />
       </div>
+
+      {stale ? (
+        <button
+          type="button"
+          onClick={() => {
+            setYears(defaultYears);
+            setDraw(defaultDraw);
+          }}
+          className="self-start text-left text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+        >
+          Your plan above now says{" "}
+          {bridgeYears > 0
+            ? `${bridgeYears} years at ${currency(defaultDraw, 0, plan.currency)}`
+            : `${currency(defaultDraw, 0, plan.currency)} a year`}
+          . Press to use that instead.
+        </button>
+      ) : null}
 
       <Scoreboard cols={2} mobileCols={1}>
         <Score

@@ -44,6 +44,7 @@ import { finiteNumber, MAX_SAFE_MONEY } from "@/lib/money";
 import {
   DEFAULT_RETURN_ASSUMPTIONS,
   defaultGlide,
+  glideIsCashOnly,
   realReturnAt,
   type GlideSegment,
   type ReturnAssumptions,
@@ -172,6 +173,17 @@ export type RequiredPot = {
   /** The pot the temporary years need on top. */
   temporaryPot: number;
   swr: SwrBreakdown;
+  /**
+   * Which of the two figures the plan is actually judged against.
+   *
+   * "safeRate" for anything invested. "spendDown" for a pot that earns a
+   * certain nothing, where a safe withdrawal rate is not a conservative
+   * choice but a meaningless one. The note beside `basis` in `buildPlan`
+   * has the measurement.
+   */
+  basis: "safeRate" | "spendDown";
+  /** The figure named by `basis`, so callers never re-derive it. */
+  target: number;
 };
 
 export type LedgerRow = {
@@ -374,20 +386,42 @@ export function buildPlan(
   const lifelongPot = swr.ratePct > 0 ? (lifelong / swr.ratePct) * 100 : 0;
   const safeRatePot = Math.max(0, lifelongPot + temporaryPot);
 
+  /*
+    A SAFE WITHDRAWAL RATE IS A STATEMENT ABOUT SEQUENCE RISK, SO IT DOES
+    NOT APPLY TO A POT THAT EARNS A CERTAIN NOTHING.
+
+    This was a real bug rather than a nicety, and it was loud. The whole
+    point of that rate is to survive the worst ORDER returns could arrive
+    in; cash has no order to get wrong. Applied to a pot held entirely in
+    cash it is simply a number from another problem, and on a 43 year
+    retirement it is far too generous: zero real return supports exactly
+    1/43, which is 2.33% a year, while the ladder was handing back 2.94%.
+
+    Measured on the canonical plan, the cash answer came out at 754,797
+    against the 932,072 a cash pot actually needs, 19% short, and lower
+    than the invested answer sitting next to it, while the panel's own
+    copy told the reader cash costs a multiple of investing. A table that
+    contradicts the sentence above it costs more than a wrong number.
+
+    So a cash-only plan is judged on the spend-down figure, which at zero
+    return is just the sum of every year's need and is exact. This lives
+    here rather than in the table because it is a fact about the money,
+    not about one panel: the milestones and the earliest-retirement solver
+    read the same target and would otherwise disagree with the grid.
+  */
+  const basis = glideIsCashOnly(inputs.glide) ? "spendDown" : "safeRate";
+  const spendDownFigure = Math.max(0, spendDownPot);
+  const target = basis === "spendDown" ? spendDownFigure : safeRatePot;
+
   const required: RequiredPot = {
-    spendDown: Math.max(0, spendDownPot),
+    spendDown: spendDownFigure,
     safeRate: safeRatePot,
     lifelongFromPot: lifelong,
     temporaryPot,
     swr,
+    basis,
+    target,
   };
-
-  /*
-    The safe rate answer is the one the plan is judged against, because it
-    is the one that does not assume the reader is lucky about the order
-    their returns arrive in. The exact answer is still printed beside it.
-  */
-  const target = required.safeRate;
 
   const startPot = clampMoney(inputs.currentPot) + clampMoney(inputs.otherSavings);
   const growthPct = finiteNumber(inputs.contributionGrowthPct, 0) / 100;
@@ -599,7 +633,7 @@ export function earliestRetirement(
     const required = buildPlan(
       { ...inputs, retirementAge: age },
       suggestedPlanningAge
-    ).required.safeRate;
+    ).required.target;
     if (required > 0 && pot >= required) return { age, pot, required };
 
     const r = realReturnAt(age, inputs.glide, inputs.returns);

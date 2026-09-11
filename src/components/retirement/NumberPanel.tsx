@@ -90,6 +90,15 @@ export function NumberPanel({
   const { swr } = plan.required;
   const biggest = Math.max(plan.required.safeRate, plan.required.spendDown, 1);
   const sequenceCost = plan.required.safeRate - plan.required.spendDown;
+  /*
+    A reader holding nothing but cash is answered on the spend-down figure,
+    because a safe withdrawal rate is a statement about the order returns
+    arrive in and cash has no order to get wrong. `buildPlan` makes that
+    choice; this panel only has to stop telling them about a rate that is
+    not being used on their plan, which would be the page contradicting
+    its own headline.
+  */
+  const onCash = plan.required.basis === "spendDown";
 
   return (
     <Panel>
@@ -115,7 +124,7 @@ export function NumberPanel({
           invariant refuses anything larger.
         */}
         <p className="font-mono text-2xl tabular-nums leading-tight text-foreground">
-          {currency(plan.required.safeRate, 0, code)}
+          {currency(plan.required.target, 0, code)}
         </p>
         <p className="text-sm leading-relaxed text-muted-foreground">
           The pot to have on the day you stop. Your first year of retirement
@@ -137,28 +146,40 @@ export function NumberPanel({
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      {onCash ? (
         <Method
-          name="Runs out on the last day"
+          name="Spent down to nothing"
           amount={plan.required.spendDown}
           code={code}
-          widthPct={(plan.required.spendDown / biggest) * 100}
-          color="var(--muted-foreground)"
-          lead="Exact arithmetic. Every year of your plan, discounted back at the return you chose, ending at precisely zero."
-          assumes={`returns arrive at ${plan.realReturnPct.toFixed(1)}% a year after inflation, every year, in that order. Nobody's do.`}
-        />
-        <Method
-          name="Survives a bad run"
-          amount={plan.required.safeRate}
-          code={code}
-          widthPct={(plan.required.safeRate / biggest) * 100}
+          widthPct={100}
           color="var(--primary)"
-          lead="What you will always spend, funded at a rate that would have survived the worst stretch in the record. Everything temporary funded out of capital on top."
-          assumes={`drawing ${swr.ratePct.toFixed(2)}% a year, and that your spending never falls when markets do.`}
+          lead="You are holding this in cash, so there is no order of returns to get wrong and no safe withdrawal rate to apply. This is simply every year of your plan added up."
+          assumes={`cash keeps pace with inflation and earns nothing beyond it, and you spend the last of it in ${plan.planningAge}.`}
         />
-      </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Method
+            name="Runs out on the last day"
+            amount={plan.required.spendDown}
+            code={code}
+            widthPct={(plan.required.spendDown / biggest) * 100}
+            color="var(--muted-foreground)"
+            lead="Exact arithmetic. Every year of your plan, discounted back at the return you chose, ending at precisely zero."
+            assumes={`returns arrive at ${plan.realReturnPct.toFixed(1)}% a year after inflation, every year, in that order. Nobody's do.`}
+          />
+          <Method
+            name="Survives a bad run"
+            amount={plan.required.safeRate}
+            code={code}
+            widthPct={(plan.required.safeRate / biggest) * 100}
+            color="var(--primary)"
+            lead="What you will always spend, funded at a rate that would have survived the worst stretch in the record. Everything temporary funded out of capital on top."
+            assumes={`drawing ${swr.ratePct.toFixed(2)}% a year, and that your spending never falls when markets do.`}
+          />
+        </div>
+      )}
 
-      {sequenceCost > 0 ? (
+      {sequenceCost > 0 && !onCash ? (
         <div className={cn(CARD, "p-4")}>
           <MicroLabel>The gap, and what it buys</MicroLabel>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -177,6 +198,7 @@ export function NumberPanel({
         </div>
       ) : null}
 
+      {onCash ? null : (
       <div className={cn(CARD, "flex flex-col gap-4 p-4")}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <MicroLabel>How the withdrawal rate was built</MicroLabel>
@@ -250,6 +272,7 @@ export function NumberPanel({
           </Button>
         )}
       </div>
+      )}
 
       <p className="text-xs text-muted-foreground">{ADVICE_DISCLAIMER_SHORT}</p>
     </Panel>

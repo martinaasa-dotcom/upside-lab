@@ -36,15 +36,45 @@ import { Button } from "@/components/ui/button";
 import { SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
 
-/** The tallest a layer's bar gets, so a big essentials block fits a phone. */
-const MAX_BAR_PX = 190;
-const MIN_BAR_PX = 30;
+/*
+  A layer's bar is as tall as what it actually gets, not as tall as it
+  would like to be.
+
+  The first version sized every bar off its FULL amount and only changed
+  the figure printed in it, so a bad year drew an unchanged wall of blocks
+  with smaller numbers inside, which is the one reading this panel exists
+  to prevent. The whole argument is visual: the top of the stack is what a
+  bad year takes. A bar has to shrink for that to be true.
+
+  The floor is so a layer that still gets something never collapses to a
+  sliver a reader would take for nothing, and a layer that gets nothing is
+  drawn as a closed line rather than removed, so the stack keeps its shape
+  and the eye can see what went.
+*/
+const MAX_BAR_PX = 180;
+const MIN_FUNDED_PX = 34;
+const EMPTY_BAR_PX = 6;
 
 export function FlexiblePanel({ plan }: { plan: PlanResult }) {
   const [returnPct, setReturnPct] = useState(5);
   const code = plan.currency;
-  const pot = Math.max(1, plan.required.safeRate);
-  const spend = plan.lifelongFromPot > 0 ? plan.lifelongFromPot : plan.firstYearFromPot;
+  const pot = Math.max(1, plan.required.target);
+
+  /*
+    The settled year, not the first one. By the last year of the plan every
+    pension has started and everything temporary has ended, so it is the
+    one year that describes the rest of a life rather than a stretch of it.
+
+    Spending here is the WHOLE bill, with guaranteed income shown as the
+    part of it the market cannot reach, rather than the net figure the pot
+    has to find. A reader's essentials are a share of what they spend; a
+    panel that made them a share of what the POT provides would hide the
+    single most reassuring fact on the page, which is that a pension
+    already covers most of the bottom layer.
+  */
+  const settled = plan.years.length > 0 ? plan.years[plan.years.length - 1] : null;
+  const spend = settled ? settled.spend : plan.firstYearFromPot;
+  const guaranteed = settled ? settled.income : 0;
   const rate = plan.required.swr.ratePct;
 
   const year = useMemo(
@@ -52,14 +82,20 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
       flexibleYear({
         pot,
         annualSpend: spend,
+        guaranteedIncome: guaranteed,
         withdrawalRatePct: rate,
         marketReturnPct: returnPct,
         tiers: DEFAULT_TIERS,
       }),
-    [pot, spend, rate, returnPct]
+    [pot, spend, guaranteed, rate, returnPct]
   );
 
-  const tallest = Math.max(...year.slices.map((s) => s.full), 1);
+  /*
+    The scale is the fully funded stack and does not move with the slider.
+    Rescaling per year would keep every bar the same size whatever the
+    market did, which is the one thing this picture must not do.
+  */
+  const tallest = Math.max(...year.slices.map((t) => t.full), 1);
 
   return (
     <Panel>
@@ -74,25 +110,29 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
           .slice()
           .reverse()
           .map((slice) => {
-            const height = Math.max(
-              MIN_BAR_PX,
-              (slice.full / tallest) * MAX_BAR_PX
-            );
             const gone = slice.funded <= 0.5;
+            const height = gone
+              ? EMPTY_BAR_PX
+              : Math.max(MIN_FUNDED_PX, (slice.funded / tallest) * MAX_BAR_PX);
             return (
               <div
                 key={slice.tier.id}
-                className="flex min-w-0 items-start justify-between gap-3 overflow-hidden rounded-lg px-3 py-2 transition-all"
+                className="flex min-w-0 items-center justify-between gap-3 overflow-hidden rounded-lg px-3 transition-all duration-300"
                 style={{
-                  height: gone ? 8 : height,
+                  height,
                   background: slice.tier.color,
-                  opacity: gone ? 0.45 : 1,
+                  opacity: gone ? 0.35 : 1,
                 }}
               >
                 {gone ? null : (
                   <>
                     <span className="min-w-0 truncate font-semibold text-black">
                       {slice.tier.label}
+                      {slice.fill < 0.995 ? (
+                        <span className="ml-1.5 font-normal opacity-70">
+                          part funded
+                        </span>
+                      ) : null}
                     </span>
                     <span className="shrink-0 font-mono tabular-nums text-black">
                       {currency(slice.funded, 0, code)}
@@ -118,6 +158,16 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
             </>
           ) : null}
           .
+          {guaranteed > 0 ? (
+            <>
+              {" "}
+              Of that,{" "}
+              <span className="font-mono tabular-nums text-foreground">
+                {currency(year.guaranteed, 0, code)}
+              </span>{" "}
+              arrives whatever the market did.
+            </>
+          ) : null}
         </p>
       </div>
 
@@ -164,8 +214,10 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
         <MicroLabel>What this is worth</MicroLabel>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           {year.essentialsShort
-            ? "At this return the year cannot cover even the bottom layer, which is the one situation the plan has to be built to avoid. That is what the safe withdrawal rate above is protecting."
-            : "The essentials are covered at every setting on that slider, which is what the withdrawal rate above is for. Everything else is a choice you would get to make at the time, and being willing to make it is most of the difference between a plan that survives a bad decade and one that does not."}
+            ? "At this return the year cannot cover even the bottom layer, which is the one situation a plan has to be built to avoid. Either the pot is too small for this spending, or too much of the bottom layer is resting on the market rather than on income that is guaranteed."
+            : guaranteed >= year.slices[0].full
+              ? "Drag it anywhere you like: your guaranteed income alone covers the whole bottom layer, so the market decides how good a year you have and never whether you eat. That is what a pension is actually worth, and it is the most under-counted number in retirement arithmetic."
+              : "The essentials hold at every setting on that slider, which is what the withdrawal rate above is for. Everything above them is a choice you would get to make at the time, and being willing to make it is most of the difference between a plan that survives a bad decade and one that does not."}
         </p>
       </div>
     </Panel>

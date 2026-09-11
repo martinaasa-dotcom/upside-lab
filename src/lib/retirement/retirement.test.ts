@@ -30,7 +30,6 @@ import {
   equityShareAt,
   realReturnAt,
   defaultGlide,
-  cashOnlyGlide,
   DEFAULT_RETURN_ASSUMPTIONS,
 } from "@/lib/retirement/returns";
 import {
@@ -45,6 +44,7 @@ import {
 import { buildMilestones } from "@/lib/retirement/milestones";
 import { buildTable } from "@/lib/retirement/table";
 import { flexibleYear, DEFAULT_TIERS, tierAmounts } from "@/lib/retirement/tiers";
+import { cashOnlyGlide } from "@/lib/retirement/returns";
 import {
   REGIONS,
   livingStandardFor,
@@ -574,5 +574,136 @@ describe("the longevity anchors", () => {
       expect(r.suggestedPlanningAge).toBeGreaterThan(r.medianAge);
       expect(r.suggestedPlanningAge).toBeLessThan(120);
     }
+  });
+});
+
+
+describe("a pot that earns nothing is not judged on a safe withdrawal rate", () => {
+  /*
+    The bug these hold cost the grid its credibility rather than a few
+    per cent. A safe withdrawal rate exists to survive the worst ORDER
+    returns arrive in, and cash has no order to get wrong, so applying it
+    to a cash pot borrows a number from a different problem. On the
+    canonical 43 year plan the ladder handed back 2.94% where zero real
+    return supports exactly 1/43, which is 2.33%, and the cash answer came
+    out BELOW the invested one, directly under a panel telling the reader
+    cash costs a multiple of investing.
+  */
+  const asCash = (over: Partial<RetirementInputs> = {}) =>
+    subject({
+      glide: cashOnlyGlide(),
+      returns: { ...DEFAULT_RETURN_ASSUMPTIONS, cashPct: 0, feePct: 0 },
+      ...over,
+    });
+
+  it("switches basis when nothing at all is invested", () => {
+    expect(buildPlan(subject(), PLAN_AGE).required.basis).toBe("safeRate");
+    expect(buildPlan(asCash(), PLAN_AGE).required.basis).toBe("spendDown");
+  });
+
+  it("answers a cash plan with the sum of every year, exactly", () => {
+    const plan = buildPlan(asCash(), PLAN_AGE);
+    const summed = plan.years.reduce((total, y) => total + y.fromPot, 0);
+    expect(plan.required.target).toBeCloseTo(summed, 4);
+    expect(plan.required.target).toBe(plan.required.spendDown);
+  });
+
+  it("makes cash dearer than investing, which is what the page claims", () => {
+    const invested = buildPlan(subject(), PLAN_AGE);
+    const cash = buildPlan(asCash(), PLAN_AGE);
+    expect(cash.required.target).toBeGreaterThan(invested.required.target);
+  });
+
+  it("carries the same reversal into every cell of the grid", () => {
+    const inputs = subject();
+    const invested = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "invested" });
+    const cash = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "cash" });
+    expect(cash.length).toBe(invested.length);
+    for (let i = 0; i < cash.length; i++) {
+      expect(cash[i].byStandard.moderate).toBeGreaterThan(
+        invested[i].byStandard.moderate
+      );
+      expect(cash[i].monthlyToCustom).toBeGreaterThanOrEqual(
+        invested[i].monthlyToCustom
+      );
+    }
+  });
+
+  it("always names the figure it was judged on", () => {
+    for (const inputs of [subject(), asCash()]) {
+      const { required } = buildPlan(inputs, PLAN_AGE);
+      expect(required.target).toBe(required[required.basis]);
+    }
+  });
+});
+
+describe("guaranteed income is the part of the stack the market cannot reach", () => {
+  const tiers = DEFAULT_TIERS;
+  const spend = 31_000;
+
+  it("adds to the budget rather than being netted out of the spending", () => {
+    const without = flexibleYear({
+      pot: 500_000,
+      annualSpend: spend,
+      withdrawalRatePct: 3.2,
+      marketReturnPct: 5,
+      tiers,
+    });
+    const with_ = flexibleYear({
+      pot: 500_000,
+      annualSpend: spend,
+      guaranteedIncome: 12_000,
+      withdrawalRatePct: 3.2,
+      marketReturnPct: 5,
+      tiers,
+    });
+    expect(with_.budget - without.budget).toBeCloseTo(12_000, 6);
+    expect(with_.guaranteed).toBe(12_000);
+    expect(with_.fromPot).toBeCloseTo(without.fromPot, 6);
+    // The layers are shares of what is SPENT, so they do not move when
+    // income does. Only how much of them gets funded changes.
+    expect(with_.slices[0].full).toBeCloseTo(without.slices[0].full, 6);
+  });
+
+  it("keeps the essentials covered through a crash when the pension covers them", () => {
+    const essentials = tierAmounts(spend, tiers)[0].full;
+    const year = flexibleYear({
+      pot: 500_000,
+      annualSpend: spend,
+      guaranteedIncome: essentials,
+      withdrawalRatePct: 3.2,
+      marketReturnPct: -60,
+      tiers,
+    });
+    expect(year.essentialsShort).toBe(false);
+    expect(year.slices[0].fill).toBeCloseTo(1, 5);
+  });
+
+  it("still strips the top layers first when the market falls", () => {
+    /*
+      The pot is chosen so the bad year genuinely bites: at -30% the
+      budget is 27,680 against 31,000 of spending, while the good year
+      still funds every layer. A larger pot funds everything at both ends
+      and the test passes without testing anything.
+    */
+    const good = flexibleYear({
+      pot: 700_000,
+      annualSpend: spend,
+      guaranteedIncome: 12_000,
+      withdrawalRatePct: 3.2,
+      marketReturnPct: 16,
+      tiers,
+    });
+    const bad = flexibleYear({
+      pot: 700_000,
+      annualSpend: spend,
+      guaranteedIncome: 12_000,
+      withdrawalRatePct: 3.2,
+      marketReturnPct: -30,
+      tiers,
+    });
+    const top = tiers.length - 1;
+    expect(bad.slices[top].funded).toBeLessThan(good.slices[top].funded);
+    expect(bad.slices[0].funded).toBeCloseTo(good.slices[0].funded, 6);
   });
 });

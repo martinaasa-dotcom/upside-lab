@@ -130,12 +130,12 @@ export function RetirementSheet({
       buildMilestones({
         inputs,
         suggestedPlanningAge: longevity.suggestedPlanningAge,
-        target: plan.required.safeRate,
+        target: plan.required.target,
         currentPot: inputs.currentPot + inputs.otherSavings,
         ledger: plan.ledger,
         retirementAge: Math.round(inputs.retirementAge),
       }),
-    [inputs, longevity.suggestedPlanningAge, plan.required.safeRate, plan.ledger]
+    [inputs, longevity.suggestedPlanningAge, plan.required.target, plan.ledger]
   );
 
   /*

@@ -102,7 +102,11 @@ export type TierSlice = {
 export type FlexibleYear = {
   /** The pot after the year's return, before anything is taken out. */
   potAfterReturn: number;
-  /** The most that may be drawn this year. */
+  /** What the pot itself provides this year. Moves with the market. */
+  fromPot: number;
+  /** Pension and anything else guaranteed. Does not move with the market. */
+  guaranteed: number;
+  /** The two added together: everything available to spend this year. */
   budget: number;
   slices: TierSlice[];
   /** What is actually spent, which is the budget unless every layer is full. */
@@ -135,7 +139,21 @@ export function tierAmounts(
  */
 export function flexibleYear(input: {
   pot: number;
+  /** Everything the year costs, before any income is set against it. */
   annualSpend: number;
+  /**
+   * Pension and anything else that arrives whatever the market did.
+   *
+   * Counting this is the difference between a picture that teaches
+   * something and one that quietly misleads. Without it the bottom layer
+   * is a share of what the POT provides rather than of what the reader
+   * spends, so a pension already covering most of the essentials is
+   * invisible, and a bad year appears to threaten the food budget when in
+   * fact it only reaches the holidays. Guaranteed income is the part of
+   * the stack the market cannot touch, and that is most of why it is worth
+   * so much.
+   */
+  guaranteedIncome?: number;
   withdrawalRatePct: number;
   marketReturnPct: number;
   tiers: readonly SpendingTier[];
@@ -144,7 +162,9 @@ export function flexibleYear(input: {
   const ret = finiteNumber(input.marketReturnPct, 0) / 100;
   const potAfterReturn = Math.max(0, pot * (1 + ret));
   const rate = Math.max(0, finiteNumber(input.withdrawalRatePct, 0)) / 100;
-  const budget = potAfterReturn * rate;
+  const fromPot = potAfterReturn * rate;
+  const guaranteed = Math.max(0, finiteNumber(input.guaranteedIncome, 0));
+  const budget = fromPot + guaranteed;
 
   let left = budget;
   const slices: TierSlice[] = [];
@@ -158,6 +178,8 @@ export function flexibleYear(input: {
   const essentials = slices[0];
   return {
     potAfterReturn,
+    fromPot,
+    guaranteed,
     budget,
     slices,
     spend,

@@ -34,7 +34,8 @@ import {
   loadRetirementSheet,
 } from "@/lib/growth-chunks";
 import dynamic from "next/dynamic";
-import { useEffect, useState, type ComponentProps } from "react";
+import { useCallback, type ComponentProps } from "react";
+import { useHydratedCache } from "@/lib/use-hydrated-cache";
 
 const CompoundInterestSheet = dynamic(loadCompoundInterestSheet, { ssr: true });
 const RetirementSheet = dynamic(loadRetirementSheet, { ssr: true });
@@ -67,19 +68,51 @@ function initialTab(): GrowthTab {
 type Props = ComponentProps<typeof CompoundInterestSheet>;
 
 export function GrowthRoom(props: Props) {
-  const [tab, setTab] = useState<GrowthTab>("compound");
+  /*
+    THE ADDRESS IS WRITTEN BY THE PRESS, NEVER DERIVED FROM THE STATE.
 
-  useEffect(() => {
-    setTab(initialTab());
-  }, []);
+    The obvious shape is to hold the tab in state, read the address once on
+    mount, and mirror the state back into the address from an effect. It is
+    what Lab does and it is what this file did, and on a deep link it
+    destroys the very parameter it is supposed to honour.
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const url = new URL(window.location.href);
-    if (tab === "compound") url.searchParams.delete("growthtab");
-    else url.searchParams.set("growthtab", tab);
-    window.history.replaceState(null, "", url.toString());
-  }, [tab]);
+    Measured on the real app with both halves logging: the mount read
+    `growthtab=retirement` correctly, and then the mirror ran with the tab
+    still at the server's default and wrote `growthtab=compound` over it.
+    The read and the write live in different effects, and nothing orders a
+    layout effect's re-render ahead of the same commit's passive effects,
+    so the mirror is free to fire while the state is still stale. React's
+    development double-invoke then re-read the clobbered address and made
+    the wrong tab permanent. The address carried `retirement` at 500ms and
+    `compound` by two seconds, with the wrong panel on screen.
+
+    Writing it from the press removes the race rather than sequencing it.
+    The address is only ever changed by somebody actually choosing a tab,
+    a deep link is read once and then left alone, and there is no effect
+    left that can disagree with the state it is mirroring.
+
+    `replaceState` rather than `push`, and `window.history.state` is passed
+    through: a sub-tab must not pile onto the back stack the way a room
+    change does, and the App Router keeps its own routing state in there,
+    so replacing it with `null` leaves Back working from an entry the
+    router no longer recognises.
+  */
+  const [tab, setTab] = useHydratedCache<GrowthTab>(initialTab, "compound");
+
+  const chooseTab = useCallback(
+    (next: GrowthTab) => {
+      setTab(next);
+      if (typeof window === "undefined") return;
+      const url = new URL(window.location.href);
+      url.searchParams.set("growthtab", next);
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${url.pathname}${url.search}`
+      );
+    },
+    [setTab]
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -92,7 +125,7 @@ export function GrowthRoom(props: Props) {
         <Segmented
           options={TABS}
           value={tab}
-          onChange={setTab}
+          onChange={chooseTab}
           columns={TABS.length}
           ariaLabel="Growth view"
         />

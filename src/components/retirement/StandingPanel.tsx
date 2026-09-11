@@ -121,8 +121,17 @@ function PathChart({
             vectorEffect="non-scaling-stroke"
           />
         </svg>
+        {/*
+          The caption hangs above its line, so a target at or near the top
+          of the plot would put it outside the card with nothing to clip
+          against. When the line is in the top eighth the caption sits
+          below it instead. The line itself never moves.
+        */}
         <span
-          className="pointer-events-none absolute left-0 -translate-y-full whitespace-nowrap text-xs tabular-nums text-muted-foreground"
+          className={cn(
+            "pointer-events-none absolute left-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground",
+            shape.targetTop < 0.12 ? "translate-y-0.5" : "-translate-y-full"
+          )}
           style={{ top: `${shape.targetTop * 100}%` }}
         >
           target {currency(target, 0, code)}
@@ -235,7 +244,7 @@ export function StandingPanel({
   earliest: { age: number; pot: number; required: number } | null;
 }) {
   const code = plan.currency;
-  const target = plan.required.safeRate;
+  const target = plan.required.target;
   const currentAge = Math.round(inputs.currentAge);
   const have = inputs.currentPot + inputs.otherSavings;
   const shortBy = plan.gap;

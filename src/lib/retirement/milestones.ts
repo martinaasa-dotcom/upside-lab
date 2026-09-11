@@ -56,7 +56,7 @@ function potWithSpend(
   return buildPlan(
     { ...inputs, spendingMode: "custom", customAnnualSpend: annualSpend },
     suggestedPlanningAge
-  ).required.safeRate;
+  ).required.target;
 }
 
 /**
