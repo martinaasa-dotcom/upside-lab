@@ -726,6 +726,16 @@ export function buildForecastPlanPrompt(input: {
   cashBalance: number;
   forecast: ForecastModel;
   now?: Date;
+  /**
+   * The provider's sector per ticker, in this app's words.
+   *
+   * Without it this line said "unclassified" for most ordinary companies,
+   * because the table behind it is about thirty names. Telling a model a
+   * holding is unclassified is worse than telling it nothing: it is a
+   * fact about this app's own bookkeeping presented as a fact about the
+   * company, in a prompt asking the model to reason about that company.
+   */
+  sectors?: Record<string, string>;
 }): string {
   const now = input.now ?? new Date();
   const year = now.getUTCFullYear();
@@ -737,9 +747,15 @@ export function buildForecastPlanPrompt(input: {
       : { q: quarter + 1, y: year };
 
   const lines = input.forecast.rows.map((r) => {
+    /*
+      Finest first: the hand-written entry was written about this company,
+      the provider's sector is true of it, and "unclassified" is only ever
+      said when neither knows -- which is now rare rather than usual.
+    */
     const sector =
       TICKER_SECTORS[r.ticker] ??
       TICKER_SECTORS[r.ticker.split(".")[0]!] ??
+      input.sectors?.[r.ticker.toUpperCase()] ??
       "unclassified";
     const theme = forecastThemeForTicker(r.ticker);
     const weightPct =

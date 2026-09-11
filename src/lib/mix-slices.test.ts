@@ -73,3 +73,43 @@ describe("the picture of what a portfolio is made of", () => {
     expect(mixSlices([{ ticker: "AAA", currentValue: 0 }])).toEqual([]);
   });
 });
+
+describe("two charts drawn to be compared", () => {
+  it("gives one group the same colour in both", () => {
+    /*
+      Circle draws the room's mix and the reader's own side by side to
+      answer how one differs from the other. Coloured by rank inside each
+      list, the same group would arrive in two different colours on two
+      bars drawn to be compared, which makes the comparison unreadable.
+    */
+    const room = mixSlices([
+      { ticker: "A", currentValue: 900, sector: "Technology and software" },
+      { ticker: "B", currentValue: 600, sector: "Everyday household goods" },
+      { ticker: "C", currentValue: 300, sector: "Banks and finance" },
+    ]);
+    const byLabel = new Map(room.map((s) => [s.label, s.color]));
+
+    // The reader holds the same three in a different order of size.
+    const mine = mixSlices(
+      [
+        { ticker: "C", currentValue: 900, sector: "Banks and finance" },
+        { ticker: "A", currentValue: 100, sector: "Technology and software" },
+      ],
+      { colorFor: (label) => byLabel.get(label) }
+    );
+
+    for (const slice of mine) {
+      expect(slice.color, slice.label).toBe(byLabel.get(slice.label));
+    }
+    // And the ranking really did differ, so the test is not vacuous.
+    expect(room[0]!.label).not.toBe(mine[0]!.label);
+  });
+
+  it("falls back to its own ramp for a group the other chart lacks", () => {
+    const mine = mixSlices(
+      [{ ticker: "D", currentValue: 100, sector: "Oil, gas and energy" }],
+      { colorFor: () => undefined }
+    );
+    expect(mine[0]!.color).toBeTruthy();
+  });
+});

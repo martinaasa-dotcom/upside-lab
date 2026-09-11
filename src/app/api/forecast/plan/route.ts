@@ -14,6 +14,7 @@ import {
   DEFAULT_FORECAST_STANCE,
 } from "@/lib/forecast-plan";
 import { forecastPlanSchema } from "@/lib/forecast-plan-schema";
+import { fetchTickerSectors } from "@/lib/market/sectors";
 import type { ForecastModel } from "@/lib/forecast";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { rateLimitJson } from "@/lib/rate-limit";
@@ -156,10 +157,31 @@ async function handlePOST(req: Request) {
   }
 
   try {
+    /*
+      What kind of business each holding is, so the prompt stops telling
+      the model "unclassified" about ordinary companies. Cached a month
+      behind the provider and shared by every reader, so on a warm cache
+      this costs nothing; on a cold one it is a handful of calls against a
+      request that is about to run a model anyway. A failure here is not
+      worth failing the run for, so it falls back to the old wording.
+    */
+    let sectors: Record<string, string> = {};
+    try {
+      const found = await fetchTickerSectors(
+        forecast.rows.map((r) => r.ticker)
+      );
+      sectors = Object.fromEntries(
+        Object.entries(found).map(([ticker, entry]) => [ticker, entry.words])
+      );
+    } catch {
+      /* the prompt is still correct without it, only vaguer */
+    }
+
     const prompt = buildForecastPlanPrompt({
       portfolioName,
       cashBalance,
       forecast,
+      sectors,
     });
 
     // Recorded as the call happens, so the plan can name the model that

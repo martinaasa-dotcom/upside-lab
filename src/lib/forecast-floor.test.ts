@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FORECAST_YEARS } from "@/lib/forecast";
+import { buildForecastPlanPrompt } from "@/lib/forecast-plan";
 import type { ForecastModel, ForecastYear } from "@/lib/forecast";
 import {
   ensureCompleteEoyTargets,
@@ -195,5 +196,51 @@ describe("the bucket for names this app cannot place", () => {
         theme
       ).toBeGreaterThanOrEqual(impliedAnnualReturnForTheme("index") - 1e-9);
     }
+  });
+});
+
+describe("what the forecast prompt tells the model a holding is", () => {
+  const forecast = {
+    rows: [
+      { ticker: "KO", shares: 40, currentPrice: 88, currentValue: 3520, hasTargets: false },
+      { ticker: "NVDA", shares: 22, currentPrice: 219, currentValue: 4818, hasTargets: false },
+    ],
+    currentTotal: 8338,
+    years: [],
+  } as unknown as ForecastModel;
+
+  it("names the sector instead of calling an ordinary company unclassified", () => {
+    /*
+      The table behind this line is about thirty names, so most ordinary
+      companies arrived as "unclassified". That is worse than saying
+      nothing: it is a fact about this app's own bookkeeping, presented as
+      a fact about the company, in a prompt asking a model to reason about
+      that company.
+    */
+    const vague = buildForecastPlanPrompt({
+      portfolioName: "x",
+      cashBalance: 0,
+      forecast,
+    });
+    expect(vague).toContain("KO [unclassified");
+
+    const named = buildForecastPlanPrompt({
+      portfolioName: "x",
+      cashBalance: 0,
+      forecast,
+      sectors: { KO: "Everyday household goods" },
+    });
+    expect(named).toContain("KO [Everyday household goods");
+    expect(named).not.toContain("KO [unclassified");
+  });
+
+  it("keeps the hand-written entry, which is finer than a sector", () => {
+    const prompt = buildForecastPlanPrompt({
+      portfolioName: "x",
+      cashBalance: 0,
+      forecast,
+      sectors: { NVDA: "Technology and software" },
+    });
+    expect(prompt).toContain("NVDA [Makes computer chips");
   });
 });

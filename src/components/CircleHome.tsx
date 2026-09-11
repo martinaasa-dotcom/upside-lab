@@ -46,8 +46,7 @@ import {
   signedPercent,
   signedTone,
 } from "@/lib/format";
-import type { ForecastTheme } from "@/lib/forecast-conviction";
-import { THEME_COLOR } from "@/lib/portfolio-personality";
+import type { MixSlice } from "@/lib/mix-slices";
 import type { OverviewModel } from "@/lib/overview";
 import {
   Award,
@@ -136,21 +135,15 @@ function themePctLabel(p: number): string {
   return `${Math.round(p * 100)}%`;
 }
 
-type ThemeSlice = {
-  theme: ForecastTheme;
-  label: string;
-  value: number;
-  pct: number;
-};
 
-function ThemeBar({ slices }: { slices: ThemeSlice[] }) {
+function ThemeBar({ slices }: { slices: MixSlice[] }) {
   return (
     <AllocationBar
-      slices={slices.map((t) => ({
-        key: t.theme,
-        pct: t.pct,
-        color: THEME_COLOR[t.theme],
-        title: `${t.label}: ${themePctLabel(t.pct)}`,
+      slices={slices.map((m) => ({
+        key: m.key,
+        pct: m.pct,
+        color: m.color,
+        title: `${m.label}: ${themePctLabel(m.pct)}`,
       }))}
     />
   );
@@ -162,14 +155,16 @@ function ThemeBar({ slices }: { slices: ThemeSlice[] }) {
  * all about themselves, which is the comparison they came for.
  */
 function biggestThemeGap(
-  circle: ThemeSlice[],
-  you: ThemeSlice[]
+  circle: MixSlice[],
+  you: MixSlice[]
 ): string | null {
   if (circle.length === 0 || you.length === 0) return null;
-  const yourPct = new Map(you.map((t) => [t.theme, t.pct]));
+  // Matched on the group's own key rather than a theme id, since both
+  // charts are built from the same sector grouping.
+  const yourPct = new Map(you.map((m) => [m.key, m.pct]));
   let best: { label: string; gap: number } | null = null;
   for (const slice of circle) {
-    const gap = (yourPct.get(slice.theme) ?? 0) - slice.pct;
+    const gap = (yourPct.get(slice.key) ?? 0) - slice.pct;
     if (!best || Math.abs(gap) > Math.abs(best.gap)) {
       best = { label: slice.label, gap };
     }
@@ -192,8 +187,8 @@ export type CircleHomeProps = {
   circleLadderRows: HoldingLadderRow[];
   sharedNames: OverlapRow[];
   avatarByName: Map<string, string>;
-  communityThemeBreakdown: ThemeSlice[];
-  yourThemeBreakdown: ThemeSlice[];
+  communityThemeBreakdown: MixSlice[];
+  yourThemeBreakdown: MixSlice[];
   communityFunFacts: string[];
   funFactsShuffle: number;
   setFunFactsShuffle: Dispatch<SetStateAction<number>>;
@@ -695,11 +690,11 @@ export function CircleHome({
                 </p>
               ) : null}
               <SwatchLegend
-                items={communityThemeBreakdown.map((t) => ({
-                  key: t.theme,
-                  label: t.label,
-                  color: THEME_COLOR[t.theme],
-                  value: themePctLabel(t.pct),
+                items={communityThemeBreakdown.map((m) => ({
+                  key: m.key,
+                  label: m.label,
+                  color: m.color,
+                  value: themePctLabel(m.pct),
                 }))}
               />
             </Panel>

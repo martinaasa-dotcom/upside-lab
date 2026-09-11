@@ -66,8 +66,21 @@ export type MixSlice = {
 
 export function mixSlices(
   holdings: Array<{ ticker: string; currentValue: number; sector?: string | null }>,
-  max: number = MAX_MIX_SLICES
+  opts: {
+    max?: number;
+    /**
+     * A colour for this label, when two charts have to agree.
+     *
+     * Circle draws the room's mix and the reader's own side by side to
+     * answer how one differs from the other, and a colour picked by rank
+     * inside each list would put the same group on two different colours.
+     * The room's chart is built first and its colours are handed to the
+     * reader's, so the comparison the panel exists for actually reads.
+     */
+    colorFor?: (label: string) => string | undefined;
+  } = {}
 ): MixSlice[] {
+  const max = opts.max ?? MAX_MIX_SLICES;
   const sorted = allocationBySector(holdings);
   if (sorted.length === 0) return [];
 
@@ -79,7 +92,7 @@ export function mixSlices(
     label: slice.label,
     pct: slice.pct,
     value: slice.value,
-    color: MIX_COLORS[i % MIX_COLORS.length]!,
+    color: opts.colorFor?.(slice.label) ?? MIX_COLORS[i % MIX_COLORS.length]!,
   }));
 
   if (folded.length > 0) {
@@ -91,7 +104,11 @@ export function mixSlices(
           : `${folded.length} smaller groups`,
       pct: folded.reduce((sum, s) => sum + s.pct, 0),
       value: folded.reduce((sum, s) => sum + s.value, 0),
-      color: folded.length === 1 ? MIX_COLORS[max % MIX_COLORS.length]! : REST_COLOR,
+      color:
+        folded.length === 1
+          ? (opts.colorFor?.(folded[0]!.label) ??
+            MIX_COLORS[max % MIX_COLORS.length]!)
+          : REST_COLOR,
     });
   }
 
