@@ -927,6 +927,46 @@ export const ForecastPanel = memo(function ForecastPanel({
     [adjustByTicker]
   );
 
+  /*
+   * No model has answered for this portfolio, so every price on the screen
+   * came from the generic shaper. The numbers stay exactly as they are,
+   * per the rule that nothing in this app moves the model's answer; what
+   * changes is that they stop being drawn as though somebody reasoned
+   * them.
+   */
+  const isPlaceholder = isFallbackForecastPlan(plan) || !plan;
+
+  /*
+   * The full "where this came from" account per holding, built once here
+   * rather than inline in each card's JSX, so the same object can also sit
+   * on the run-to-run diff below: a number that changed carries the same
+   * mark as the number sitting above it in the grid, not a bare figure with
+   * nothing behind it.
+   */
+  const provenanceByTicker = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof forecastPathProvenance>>();
+    for (const r of model.rows) {
+      map.set(
+        r.ticker.toUpperCase(),
+        forecastPathProvenance({
+          ticker: r.ticker,
+          spot: r.currentPrice,
+          sector:
+            TICKER_SECTORS[r.ticker] ??
+            TICKER_SECTORS[r.ticker.split(".")[0]!] ??
+            null,
+          fallback: isPlaceholder || !r.hasTargets,
+          at: plan?.generatedAt,
+          model: plan?.writtenBy,
+          adjust: adjustByTicker.get(r.ticker.toUpperCase()),
+          reusedAt: plan?.reused?.[r.ticker.toUpperCase()] ?? null,
+          lastYear: yearCols[yearCols.length - 1],
+        })
+      );
+    }
+    return map;
+  }, [model.rows, isPlaceholder, plan, adjustByTicker, yearCols]);
+
   const statusHint = useMemo(() => {
     if (!labReady || !planHydrated || model.rows.length === 0 || busy) return null;
     const decision = shouldAutoRefreshForecast({
@@ -947,15 +987,6 @@ export const ForecastPanel = memo(function ForecastPanel({
     }
     return null;
   }, [labReady, planHydrated, model.rows, plan, fullyCovered, busy, cachedTickers, retryTick]);
-
-  /*
-   * No model has answered for this portfolio, so every price on the screen
-   * came from the generic shaper. The numbers stay exactly as they are,
-   * per the rule that nothing in this app moves the model's answer; what
-   * changes is that they stop being drawn as though somebody reasoned
-   * them.
-   */
-  const isPlaceholder = isFallbackForecastPlan(plan) || !plan;
 
   /*
    * An empty portfolio used to stack four empty panels, and this was two
@@ -1030,20 +1061,7 @@ export const ForecastPanel = memo(function ForecastPanel({
             years={yearCols}
             mixedListings={mixedListings}
             why={whyByTicker.get(r.ticker.toUpperCase())}
-            provenance={forecastPathProvenance({
-              ticker: r.ticker,
-              spot: r.currentPrice,
-              sector:
-                TICKER_SECTORS[r.ticker] ??
-                TICKER_SECTORS[r.ticker.split(".")[0]!] ??
-                null,
-              fallback: isPlaceholder || !r.hasTargets,
-              at: plan?.generatedAt,
-              model: plan?.writtenBy,
-              adjust: adjustByTicker.get(r.ticker.toUpperCase()),
-              reusedAt: plan?.reused?.[r.ticker.toUpperCase()] ?? null,
-              lastYear: yearCols[yearCols.length - 1],
-            })}
+            provenance={provenanceByTicker.get(r.ticker.toUpperCase())!}
             placeholder={isPlaceholder || !r.hasTargets}
             onSetEoyPrice={onSetEoyPrice}
           />
@@ -1172,39 +1190,49 @@ export const ForecastPanel = memo(function ForecastPanel({
                   </p>
                 </div>
                 <ul>
-                  {lastPlanDiffs.map((d) => (
-                    <li
-                      key={d.ticker}
-                      className="flex flex-col gap-1 border-t border-border/50 px-4 py-3.5 first:border-t-0"
-                    >
-                      <div className="flex gap-3">
-                        <span
-                          className={cn(
-                            "flex shrink-0 whitespace-nowrap font-semibold text-foreground",
-                            mixedListings ? "w-max justify-start" : "w-[7.5rem] justify-end"
-                          )}
-                        >
-                          <TickerSymbol
-                            ticker={d.ticker}
-                            showCurrency={mixedListings}
-                          />
-                        </span>
-                        <span className="min-w-0 text-sm text-muted-foreground">
-                          {`End ${yearCols[yearCols.length - 1]}: ${currency(d.from, 0)} to ${currency(d.to, 0)}`}
-                        </span>
-                      </div>
-                      {d.rationale && (
-                        <p
-                          className={cn(
-                            "text-sm leading-snug text-muted-foreground",
-                            mixedListings ? "" : "sm:pl-[calc(7.5rem+0.75rem)]"
-                          )}
-                        >
-                          {d.rationale}
-                        </p>
-                      )}
-                    </li>
-                  ))}
+                  {lastPlanDiffs.map((d) => {
+                    const diffProvenance = provenanceByTicker.get(
+                      d.ticker.toUpperCase()
+                    );
+                    return (
+                      <li
+                        key={d.ticker}
+                        className="flex flex-col gap-1 border-t border-border/50 px-4 py-3.5 first:border-t-0"
+                      >
+                        <div className="flex gap-3">
+                          <span
+                            className={cn(
+                              "flex shrink-0 whitespace-nowrap font-semibold text-foreground",
+                              mixedListings ? "w-max justify-start" : "w-[7.5rem] justify-end"
+                            )}
+                          >
+                            <TickerSymbol
+                              ticker={d.ticker}
+                              showCurrency={mixedListings}
+                            />
+                          </span>
+                          <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                            <span className="min-w-0 text-sm text-muted-foreground">
+                              {`End ${yearCols[yearCols.length - 1]}: ${currency(d.from, 0)} to ${currency(d.to, 0)}`}
+                            </span>
+                            {diffProvenance && (
+                              <WhyThis provenance={diffProvenance} />
+                            )}
+                          </span>
+                        </div>
+                        {d.rationale && (
+                          <p
+                            className={cn(
+                              "text-sm leading-snug text-muted-foreground",
+                              mixedListings ? "" : "sm:pl-[calc(7.5rem+0.75rem)]"
+                            )}
+                          >
+                            {d.rationale}
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </Card>
             )}
