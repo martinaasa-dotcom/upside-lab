@@ -632,37 +632,38 @@ export function CommunityView({ communityId }: Props) {
 
     `spot` reads `quotes` directly rather than `TickerScore.price`, which
     matters here specifically: `t.price` falls back to a cost-basis price
-    when no live quote has arrived (see `enrichHoldings`), and in a circle
-    that fallback is `buy_price`, a figure the book route zeroes for every
-    holding but its own owner. A ticker with no live quote would otherwise
-    land the map on somebody else's zeroed cost rather than sitting the
-    name out until a real price is in. Reading straight off `quotes` (the
-    same map `buildOverview` was given) means a ticker with no live quote
-    simply has no spot, exactly as `Dashboard` already does for one
-    portfolio's own map.
+    when no live quote has arrived (see `enrichHoldings`), and that
+    fallback is `buy_price` -- which `/api/communities/[id]/book` sends as
+    zero for every holding in an ordinary circle, not only for the ones
+    this reader does not own (`buy_price: showAllCost || (classroom &&
+    own) ? row.buy_price : 0`: the `own` half of that only ever applies
+    inside a classroom, so a plain circle's `classroom` is always false
+    and the whole expression is always zero, this reader's own holdings
+    included). So the cost-basis fallback is always zero here, and a
+    ticker with no live quote would otherwise land the map on that zero
+    rather than sitting the name out until a real price is in. Reading
+    straight off `quotes` (the same map `buildOverview` was given) means a
+    ticker with no live quote simply has no spot, exactly as `Dashboard`
+    already does for one portfolio's own map.
 
-    `roiPct` is fixed at `null` on every row for the same zeroed-`buy_price`
-    reason: a pooled gain/loss figure would silently be wrong whenever more
-    than one person holds a name, and a chip that cannot tell whether it is
-    up or down draws its neutral colour rather than guessing. No per-reader
-    overrides go in either: this is the circle's own shape, not any one
-    member's edited plan.
+    `roiPct` is fixed at `null` on every row for the same reason: a pooled
+    gain/loss figure needs a real cost basis and this room never has one,
+    so a chip that cannot tell whether it is up or down draws its neutral
+    colour rather than guessing. No per-reader overrides go in either:
+    this is the circle's own shape, not any one member's edited plan.
 
     `value` has the same zeroed-`buy_price` trap and it is easy to miss,
     because `t.currentValue` looks like a plain aggregate. It is not: it is
     summed from `enrichHoldings`' per-holding `shares * price`, and that
-    `price` is the same cost-basis fallback as `t.price` above whenever a
-    ticker has no live quote. For a name only some members hold, the ones
-    that are not this reader value at their real (zeroed) cost of zero
-    while this reader's own rows (if any) value at their real cost, so the
-    aggregate silently undercounts by exactly the share other members hold
-    -- and that undercounted figure would still drag down the total every
-    OTHER chip's share on the map is measured against, even though the
-    ticker missing its quote never gets a chip of its own either way (its
-    `spot` is null too, so `holdingLadders` already leaves it out). Working
-    it out fresh from `shares * spot` -- shares are never cost, so they are
-    never zeroed -- keeps the map's one denominator honestly built from
-    real prices alone, or zero when there simply isn't one yet.
+    `price` is the same cost-basis fallback as `t.price` above -- zero,
+    uniformly, whenever a ticker has no live quote. That zero would still
+    drag down the total every OTHER chip's share on the map is measured
+    against, even though the ticker missing its quote never gets a chip of
+    its own either way (its `spot` is null too, so `holdingLadders`
+    already leaves it out). Working it out fresh from `shares * spot` --
+    shares are never cost, so they are never zeroed -- keeps the map's one
+    denominator honestly built from real prices alone, or zero when there
+    simply isn't one yet.
   */
   const circleLadderRows = useMemo(
     () =>

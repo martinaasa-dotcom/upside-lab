@@ -149,8 +149,10 @@ const YOUR_HOLDINGS: ProvenanceSource = {
 
 /**
  * A circle's pooled map has no single "You": shares are added up across
- * everyone who shared a portfolio here, and cost stays with each
- * holding's own owner rather than reaching this picture at all.
+ * everyone who shared a portfolio here, and cost never reaches this
+ * picture at all. `/api/communities/[id]/book` sends `buy_price` as zero
+ * for every holding in an ordinary circle, this reader's own included --
+ * only a classroom's teacher or a student's own sheet ever sees it.
  */
 const EVERYONE_IN_THIS_CIRCLE: ProvenanceSource = {
   name: "Everyone in this circle",
@@ -1036,11 +1038,11 @@ export function bandMapProvenance(input: {
   at?: string | null;
   /**
    * True for a circle's map, pooled across every member rather than one
-   * portfolio: "You" is not the source (shares are pooled, cost stays
-   * with each holding's own owner), and no band here is anybody's own
-   * edited plan. Swaps every "you"/"this portfolio" reading for its
-   * pooled equivalent so the picture never states an ownership it
-   * cannot back up.
+   * portfolio: "You" is not the source (shares are pooled, and cost never
+   * reaches an ordinary circle's book at all, this reader's own included),
+   * and no band here is anybody's own edited plan. Swaps every "you"/"this
+   * portfolio" reading for its pooled equivalent so the picture never
+   * states an ownership it cannot back up.
    */
   pooled?: boolean;
 }): Provenance {
