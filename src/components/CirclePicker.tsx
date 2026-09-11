@@ -4,10 +4,13 @@ import { cn } from "@/lib/format";
 import { Check, ChevronDown, Globe, GraduationCap, Lock } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
+import { aimOnPress } from "@/lib/route-aim";
 import {
   loadCommunityListCache,
+  prefetchCommunity,
   prefetchCommunityList,
   saveCommunityListCache,
   type CommunityListRow,
@@ -145,16 +148,30 @@ export function CirclePicker({ communityId, currentName }: Props) {
           >
             {circles.map((c) => {
               const selected = c.id === communityId;
+              const href = `/communities/${c.id}`;
               return (
-                <button
+                <Link
                   key={c.id}
-                  type="button"
+                  href={href}
                   role="menuitem"
                   aria-current={selected ? "true" : undefined}
-                  onClick={() => {
-                    setOpen(false);
-                    if (!selected) router.push(`/communities/${c.id}`);
+                  onPointerEnter={() => void prefetchCommunity(c.id)}
+                  onFocus={() => void prefetchCommunity(c.id)}
+                  /*
+                   * Say where this is going on the press, the same way a
+                   * dock cell and a `CommunitiesList` row do (`route-aim.ts`)
+                   * -- measured there at 514ms on a click against 457ms on
+                   * the press for this exact move, opening a circle. The
+                   * click still lands normally for a keyboard activation,
+                   * which never fires a `pointerdown` to aim from.
+                   */
+                  onPointerDown={(e) => {
+                    aimOnPress(e.nativeEvent, href, (path) => {
+                      setOpen(false);
+                      router.push(path);
+                    });
                   }}
+                  onClick={() => setOpen(false)}
                   className={cn(
                     "flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm sm:py-2.5",
                     selected
@@ -178,7 +195,7 @@ export function CirclePicker({ communityId, currentName }: Props) {
                       aria-hidden
                     />
                   )}
-                </button>
+                </Link>
               );
             })}
           </div>,

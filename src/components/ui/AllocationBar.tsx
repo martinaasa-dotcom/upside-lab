@@ -20,7 +20,15 @@
  * that a slice's width is its share. An inset `box-shadow` costs nothing
  * from the layout instead: it paints a hairline just inside each slice's
  * trailing edge, over its own fill, so widths stay exactly what the data
- * said and the line reads as a seam rather than a gap in the bar.
+ * said.
+ *
+ * The line is `--muted`, the track's own color (the bar sits on
+ * `bg-muted`), not `--background`. `--muted` is `oklch(0.269 0 0)` against
+ * a true-black `--background` of `oklch(0 0 0)` — close enough that the
+ * difference is invisible on its own, but a seam drawn in pure black reads
+ * as a foreign line cut into the bar, where the track's own color reads as
+ * the track showing through a seam, which is what a gap would have shown
+ * had it not cost the bar its own widths.
  */
 export type AllocationBarSlice = {
   key: string;
@@ -44,7 +52,7 @@ export function AllocationBar({ slices }: { slices: AllocationBarSlice[] }) {
             backgroundColor: s.color,
             boxShadow:
               i < slices.length - 1
-                ? "inset -1.5px 0 0 0 var(--background)"
+                ? "inset -1.5px 0 0 0 var(--muted)"
                 : undefined,
           }}
           title={s.title}
