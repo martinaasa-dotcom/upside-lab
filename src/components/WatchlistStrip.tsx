@@ -78,6 +78,20 @@ function rangeDotColor(pos: number): string {
   return `color-mix(in oklch, var(--gain) ${pos * 100}%, var(--loss) ${(1 - pos) * 100}%)`;
 }
 
+/**
+ * What the accordion should have open after a ticker leaves the list.
+ * A removed ticker can be re-added later in the same session, and its row
+ * has to start closed again rather than reopening on its own because
+ * `expandedTicker` was still naming it. Exported so the rule is tested on
+ * its own, apart from the component that calls it.
+ */
+export function nextExpandedAfterRemove(
+  expandedTicker: string | null,
+  removedTicker: string
+): string | null {
+  return expandedTicker === removedTicker ? null : expandedTicker;
+}
+
 function RangeMeter({
   low,
   high,
@@ -544,6 +558,29 @@ export function WatchlistStrip({
   }, [list, heldKey]);
   const namesKey = useMemo(() => names.join("|"), [names]);
 
+  /**
+   * The mobile accordion and the desktop grid draw the same names -- one
+   * CSS-hidden at each width rather than picked by a media-query hook, the
+   * same two-block pattern the holdings table already uses, so there is no
+   * hydration flash while a hook resolves. Computed once here rather than
+   * inside each `.map()`, so a full list doesn't run `watchLook()` twice
+   * over on every quote poll.
+   */
+  const watchRows = useMemo(
+    () =>
+      names.map((ticker) => {
+        const quote = quotes[ticker];
+        const look = quote
+          ? watchLook(
+              quote,
+              isCoinSymbol(ticker) ? null : reportDays[ticker] ?? null
+            )
+          : null;
+        return { ticker, quote, look };
+      }),
+    [names, quotes, reportDays]
+  );
+
   const exclude = useMemo(() => {
     const next = new Set(heldTickers.map((t) => t.toUpperCase()));
     for (const t of list) next.add(t.toUpperCase());
@@ -741,7 +778,7 @@ export function WatchlistStrip({
    */
   function removeTicker(ticker: string) {
     setList(removeWatchlistTicker(list, ticker));
-    setExpandedTicker((prev) => (prev === ticker ? null : prev));
+    setExpandedTicker((prev) => nextExpandedAfterRemove(prev, ticker));
   }
 
   return (
@@ -904,65 +941,44 @@ export function WatchlistStrip({
           {/*
             * Below `sm` this is a closed accordion, one line per name; from
             * `sm` up it is the full two-column grid of cards. Both read the
-            * same `quotes`/`reportDays` state, so the two never disagree --
-            * only how much of a name's card is on screen before you ask
-            * does.
+            * same `watchRows`, so the two never disagree -- only how much
+            * of a name's card is on screen before you ask does.
             */}
           <ul className="flex flex-col gap-2 sm:hidden">
-            {names.map((ticker) => {
-              const q = quotes[ticker];
-              const look = q
-                ? watchLook(
-                    q,
-                    isCoinSymbol(ticker) ? null : reportDays[ticker] ?? null
-                  )
-                : null;
-              return (
-                <li key={ticker}>
-                  <WatchRowMobile
-                    ticker={ticker}
-                    quote={q}
-                    look={look}
-                    expanded={expandedTicker === ticker}
-                    onToggle={() =>
-                      setExpandedTicker((prev) =>
-                        prev === ticker ? null : ticker
-                      )
-                    }
-                    onRemove={() => removeTicker(ticker)}
-                    onOpenPulse={onOpenPulse}
-                    onOpenResearch={onOpenResearch}
-                    onRetryQuote={() => fetchQuotes([ticker], { force: true })}
-                    quoteRetrying={Boolean(quoteRetrying[ticker.toUpperCase()])}
-                  />
-                </li>
-              );
-            })}
+            {watchRows.map(({ ticker, quote: q, look }) => (
+              <li key={ticker}>
+                <WatchRowMobile
+                  ticker={ticker}
+                  quote={q}
+                  look={look}
+                  expanded={expandedTicker === ticker}
+                  onToggle={() =>
+                    setExpandedTicker((prev) => (prev === ticker ? null : ticker))
+                  }
+                  onRemove={() => removeTicker(ticker)}
+                  onOpenPulse={onOpenPulse}
+                  onOpenResearch={onOpenResearch}
+                  onRetryQuote={() => fetchQuotes([ticker], { force: true })}
+                  quoteRetrying={Boolean(quoteRetrying[ticker.toUpperCase()])}
+                />
+              </li>
+            ))}
           </ul>
           <ul className="hidden grid-cols-1 items-stretch gap-4 sm:grid sm:grid-cols-2">
-            {names.map((ticker) => {
-              const q = quotes[ticker];
-              const look = q
-                ? watchLook(
-                    q,
-                    isCoinSymbol(ticker) ? null : reportDays[ticker] ?? null
-                  )
-                : null;
-              return (
-                <li key={ticker}>
-                  <WatchCard
-                    ticker={ticker}
-                    quote={q}
-                    look={look}
-                    onRemove={() => removeTicker(ticker)}
-                    onOpenPulse={onOpenPulse}
-                    onOpenResearch={onOpenResearch}
-                    onRetryQuote={() => fetchQuotes([ticker], { force: true })}
-                    quoteRetrying={Boolean(quoteRetrying[ticker.toUpperCase()])}
-                  />
-                </li>
-              );
-            })}
+            {watchRows.map(({ ticker, quote: q, look }) => (
+              <li key={ticker}>
+                <WatchCard
+                  ticker={ticker}
+                  quote={q}
+                  look={look}
+                  onRemove={() => removeTicker(ticker)}
+                  onOpenPulse={onOpenPulse}
+                  onOpenResearch={onOpenResearch}
+                  onRetryQuote={() => fetchQuotes([ticker], { force: true })}
+                  quoteRetrying={Boolean(quoteRetrying[ticker.toUpperCase()])}
+                />
+              </li>
+            ))}
           </ul>
         </>
       )}
