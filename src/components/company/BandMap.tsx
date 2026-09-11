@@ -557,7 +557,7 @@ export function BandMap({
             />
           </span>
         }
-        subtitle="Every name on its own price plan, so two in the same band are in the same place in their own plans whatever their prices are. Green and red are what you are up or down on each one, which is a different question from where its price sits."
+        subtitle="Every name on its own price ladder, so two in the same band are in the same place in their own ladders whatever their prices are. Green and red are what you are up or down on each one, which is a different question from where its price sits."
         icon={<MapIcon className="h-4 w-4" />}
       />
 

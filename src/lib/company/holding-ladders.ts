@@ -1,5 +1,5 @@
 /**
- * One place builds a price plan for a holding, so the map, the list on
+ * One place builds a price ladder for a holding, so the map, the list on
  * Home and the alerts cannot draw three different ladders for one name.
  *
  * The three surfaces reach it from different directions: the map wants

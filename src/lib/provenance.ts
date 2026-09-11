@@ -947,7 +947,7 @@ export function positionFitProvenance(input: {
 }
 
 /**
- * The price plan. Arithmetic on two numbers already on the page, and the
+ * The price ladder. Arithmetic on two numbers already on the page, and the
  * one surface in this app whose output looks most like an instruction, so
  * it is the one that most needs to say out loud that nobody wrote it.
  */
@@ -1029,10 +1029,10 @@ export function bandMapProvenance(input: {
   return {
     maker: "arithmetic",
     title: "How this picture was drawn",
-    headline: `No model wrote this and nothing here is a score. It is ${n === 1 ? "one holding" : `${n} holdings`} placed by two figures that are already on other screens: each name's own price plan, and how much of this portfolio it is.`,
+    headline: `No model wrote this and nothing here is a score. It is ${n === 1 ? "one holding" : `${n} holdings`} placed by two figures that are already on other screens: each name's own price ladder, and how much of this portfolio it is.`,
     inputs: [
       {
-        what: "Each holding's own price plan",
+        what: "Each holding's own price ladder",
         detail:
           "the same ladder its own page draws, anchored on that holding's end of year price",
       },

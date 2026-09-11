@@ -18,7 +18,7 @@ import {
 import { ListOrdered, Pencil, RotateCcw } from "lucide-react";
 
 /**
- * The price plan, as a table of bands with today's price standing in one
+ * The price ladder, as a table of bands with today's price standing in one
  * of them.
  *
  * This is the surface in the whole app that most looks like advice, and it
@@ -405,7 +405,7 @@ export function PlanLadderPanel({
       <PanelHeader
         title={
           <span className="inline-flex items-center gap-2">
-            Your price plan
+            Your price ladder
             <WhyThis
               provenance={planLadderProvenance({
                 ticker,

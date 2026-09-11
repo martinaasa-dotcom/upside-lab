@@ -6,7 +6,11 @@ import {
   type MarginToneName,
 } from "@/lib/margin-health";
 import type { GlossaryExample } from "@/lib/glossary";
-import { isActionableBand } from "@/lib/company/plan-ladder";
+import {
+  isActionableBand,
+  ladderMomentDetail,
+  ladderMomentTitle,
+} from "@/lib/company/plan-ladder";
 import { safeDiv } from "@/lib/money";
 import { formatDateTime } from "@/lib/timezone";
 
@@ -119,11 +123,15 @@ export function spokenDate(key: string): string {
  * A holding whose price has reached one of the levels that reader wrote
  * down for it.
  *
- * The whole value of a price plan is that the level was chosen on a quiet
- * afternoon and the alert arrives on a loud one, so this says which level
- * was reached and what the reader's own plan calls that band, and stops
- * there. It never adds an instruction of its own: the plan is the
- * instruction, and it is the reader's.
+ * The whole value of a price ladder is that the level was chosen on a
+ * quiet afternoon and the alert arrives on a loud one, so this says which
+ * level was reached and what the reader's own ladder calls that band, and
+ * stops there. It never adds an instruction of its own: the ladder is the
+ * instruction, and it is the reader's. The wording itself is built per
+ * band and per holding by `ladderMomentTitle`/`ladderMomentDetail`
+ * (`plan-ladder.ts`) rather than one sentence every ticker is poured
+ * through, so two names reaching the same band read as two different
+ * situations, not the same card with the numbers swapped.
  *
  * Only the ends of the ladder are worth waking somebody for. The middle
  * bands are where a price ordinarily sits, and an alert that fires while
@@ -139,12 +147,16 @@ export function buildLadderAlerts(
     spot: number;
     /** The band today's price falls in, from the reader's own ladder. */
     bandId: string;
-    /** That band's own words, as the plan has them. */
+    /** That band's own words, as the ladder has them. */
     bandLabel: string;
     /** The edge the price crossed to get here, when the band has one. */
     edge: number | null;
     /** True where the reader typed at least one edge of this ladder. */
     edited: boolean;
+    /** Share of the portfolio, when it is worth saying. */
+    share?: number | null;
+    /** Up or down against what was paid, as a fraction. */
+    roiPct?: number | null;
   }>
 ): UpsideAlert[] {
   const out: UpsideAlert[] = [];
@@ -152,19 +164,23 @@ export function buildLadderAlerts(
     // One definition of which bands are worth raising a voice about, in
     // `plan-ladder.ts`, so a name called out on the holdings map cannot
     // be quiet here.
-    if (!isActionableBand(r.bandId) || !(r.spot > 0)) continue;
-    const whose = r.edited
-      ? "the plan you set for it"
-      : "the plan this app worked out from the estimates on its page, which you have not changed";
-    const level =
-      r.edge != null && r.edge > 0
-        ? ` The level is ${currency(r.edge, 2)}, and the price is ${currency(Math.abs(r.spot - r.edge), 2)} ${r.spot >= r.edge ? "above" : "below"} it.`
-        : "";
+    if (!isActionableBand(r.bandId)) continue;
+    if (!(r.spot > 0)) continue;
+    const moment = {
+      ticker: r.ticker,
+      spot: r.spot,
+      bandId: r.bandId as Parameters<typeof ladderMomentTitle>[0]["bandId"],
+      bandLabel: r.bandLabel,
+      edge: r.edge,
+      edited: r.edited,
+      share: r.share,
+      roiPct: r.roiPct,
+    };
     out.push({
       id: `ladder-${r.bandId}-${cashtag(r.ticker)}`,
       kind: "ladder",
-      title: `${cashtag(r.ticker)} reached a level in your plan`,
-      detail: `At ${currency(r.spot, 2)} it is in the band ${whose} calls "${r.bandLabel}".${level}`,
+      title: ladderMomentTitle(moment),
+      detail: ladderMomentDetail(moment),
       learn:
         "Nothing has been bought or sold, and this app is not telling you to do either. It is repeating a level you can read and change on the company's own Research page.",
       ticker: r.ticker,
@@ -462,7 +478,7 @@ export function buildDecisionAlerts(input: {
  *
  * Home and the alerts room each draw their own button, and both used to
  * send anything naming a company to Pulse. That is right for a card about
- * a move or a results date, and wrong for the price plan: a ladder alert
+ * a move or a results date, and wrong for the price ladder: a ladder alert
  * repeats a level the reader can only read, argue with or change on the
  * company's own Research page, which is what its own learn line already
  * tells them. Sending them to Pulse instead offered an explanation of a

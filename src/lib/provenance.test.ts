@@ -32,8 +32,8 @@ const EVERY: Array<[string, Provenance]> = [
   ["margus", margusChatProvenance()],
   ["holdings", holdingsProvenance({})],
   ["growth rate", growthRateProvenance({ ratePct: 23 })],
-  ["price plan", planLadderProvenance({ ticker: "GOOGL" })],
-  ["price plan, edited", planLadderProvenance({ ticker: "GOOGL", edited: true })],
+  ["price ladder", planLadderProvenance({ ticker: "GOOGL" })],
+  ["price ladder, edited", planLadderProvenance({ ticker: "GOOGL", edited: true })],
   ["four questions", researchQuestionsProvenance({ ticker: "GOOGL" })],
   ["band map", bandMapProvenance({ count: 12 })],
   [

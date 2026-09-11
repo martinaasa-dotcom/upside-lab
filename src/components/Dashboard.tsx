@@ -954,7 +954,7 @@ export function Dashboard() {
     on Home (`CashAlertCard`), and the news dot on both docks.
   */
   /*
-    Every holding's own price plan, built once from the price this
+    Every holding's own price ladder, built once from the price this
     browser already has and shared by three surfaces: the map on the
     holdings page, the list of names that have reached a level on Home,
     and the alerts. One builder, in `holdingLadders`, so a level reached
@@ -979,29 +979,34 @@ export function Dashboard() {
     [overview.tickers, quotes, eoyOverrides, labLadders]
   );
 
-  /** The same plans as a picture, which is also what Home reads. */
+  /** The same ladders as a picture, which is also what Home reads. */
   const bookBandMap = useMemo(() => buildBandMap(bookLadders), [bookLadders]);
 
+  /*
+    Read straight off the band map rather than re-deriving the same edge
+    and band from `bookLadders`: `buildBandMap` has already worked out
+    which edge each holding crossed, its share of the portfolio and its
+    gain or loss, and those last two are what let the alert read like
+    this holding's own moment (`ladderMomentDetail`) instead of the same
+    sentence with the ticker swapped. Filtered to the actionable bands
+    here rather than inside `buildLadderAlerts`, so it stays the one
+    definition (`isActionableBand`) that decides what is worth a card.
+  */
   const ladderRows = useMemo(
     () =>
-      bookLadders.flatMap((row) => {
-        const { ladder } = row;
-        const band = ladder?.bands.find((b) => b.id === ladder.atId);
-        if (!ladder || !band || ladder.spot === null) return [];
-        return [
-          {
-            ticker: row.ticker,
-            spot: ladder.spot,
-            bandId: band.id,
-            bandLabel: band.label,
-            // The edge the price crossed to get here: the floor of a band
-            // it rose into, the ceiling of one it fell into.
-            edge: band.id === "trim-most" ? band.from : band.to,
-            edited: ladder.edited,
-          },
-        ];
-      }),
-    [bookLadders]
+      bookBandMap.points
+        .filter((p) => p.actionable)
+        .map((p) => ({
+          ticker: p.ticker,
+          spot: p.spot,
+          bandId: p.bandId,
+          bandLabel: p.bandLabel,
+          edge: p.edge,
+          edited: p.edited,
+          share: p.share,
+          roiPct: p.roiPct,
+        })),
+    [bookBandMap]
   );
 
   const bookAlerts = useMemo<UpsideAlert[]>(() => {
@@ -2413,7 +2418,7 @@ export function Dashboard() {
     goToTab(PULSE_TAB_ID);
   });
   /*
-    A company's own Research page, where its price plan is written and can
+    A company's own Research page, where its price ladder is written and can
     be changed. `router.push` rather than a tab, since a company is a room
     of its own (`workspaceRoomId`).
   */
@@ -2434,7 +2439,7 @@ export function Dashboard() {
     the reader is told a company reports on Thursday and is handed the room
     they just left. An alert that names a company opens that company, and
     the borrowed-money one opens the screen holding the figure it is about.
-    A price plan opens Research rather than Pulse, because the level the
+    A price ladder opens Research rather than Pulse, because the level the
     card is repeating is read and changed there; `alertDestination` decides
     it once so Home's own card and this one cannot disagree.
   */

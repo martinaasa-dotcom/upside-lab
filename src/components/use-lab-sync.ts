@@ -54,7 +54,7 @@ export function useLabSync() {
                 ? local.watchlist
                 : remote.bundle.watchlist,
             /*
-              The price plans, and the same rule the watchlist follows: the
+              The price ladders, and the same rule the watchlist follows: the
               server wins unless it has nothing, because a browser that has
               been offline holds a stale copy and a plan is per person
               rather than per device.

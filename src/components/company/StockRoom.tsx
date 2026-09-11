@@ -138,7 +138,7 @@ type OwnBook = {
   ready: boolean;
   hasBook: boolean;
   /**
-   * The portfolios this reader holds the company in, so its price plan can
+   * The portfolios this reader holds the company in, so its price ladder can
    * read the same end-of-year overrides those portfolios use elsewhere.
    */
   portfolioIds: string[];
@@ -318,7 +318,7 @@ function useLivePrice(
 }
 
 /**
- * The reader's own price plans, read from the account and mirrored here.
+ * The reader's own price ladders, read from the account and mirrored here.
  *
  * The local copy is shown first so a plan is on screen before the round
  * trip lands, and the account's copy wins when it arrives, because a plan
@@ -552,7 +552,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
 
   /*
     What this reader paid a share, averaged over their own rows, where
-    they own the company at all. It is the second mark on the price plan
+    they own the company at all. It is the second mark on the price ladder
     below and nothing else reads it.
   */
   const paidEach = useMemo(() => {
@@ -771,7 +771,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                 down, where its methods and their assumptions are.
               */}
               {ladder && (
-                <WidgetErrorBoundary name="Your price plan">
+                <WidgetErrorBoundary name="Your price ladder">
                   <PlanLadderPanel
                     ticker={ticker}
                     ladder={ladder}

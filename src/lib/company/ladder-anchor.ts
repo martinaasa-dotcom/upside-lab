@@ -1,5 +1,5 @@
 /**
- * What a price plan hangs off, and how that choice is said out loud.
+ * What a price ladder hangs off, and how that choice is said out loud.
  *
  * The ladder is the anchor times a set of multiples, so the anchor is the
  * whole claim: everything else in `plan-ladder.ts` is multiplication. It

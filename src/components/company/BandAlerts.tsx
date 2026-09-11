@@ -4,25 +4,30 @@ import Link from "next/link";
 import { Card, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
-import { cashtag, cn, currency, percent } from "@/lib/format";
+import { cashtag, cn } from "@/lib/format";
 import { bandMapProvenance } from "@/lib/provenance";
 import { companyHref } from "@/lib/company/client";
 import { actionableFirst, type BandMapPoint } from "@/lib/company/band-map";
+import { ladderMomentRow } from "@/lib/company/plan-ladder";
 import { BellRing, ChevronRight } from "lucide-react";
 
 /**
- * The names whose price has reached one of the ends of their own plan.
+ * The names whose price has reached one of the ends of their own ladder.
  *
  * Home's job here is to say which names are worth opening, not to say
  * what to do about them: each row is the name, the band that name's own
- * plan files it under, the price, and the level it reached, and pressing
- * it opens that company's page where the whole ladder is, with every
- * level editable. Nothing on this card is phrased as an instruction and
- * nothing here is scored.
+ * ladder files it under, the price, and the level it reached, and
+ * pressing it opens that company's page where the whole ladder is, with
+ * every level editable. Nothing on this card is phrased as an instruction
+ * and nothing here is scored. The row's second line comes from
+ * `ladderMomentRow` (`plan-ladder.ts`), the same builder the alert uses,
+ * so two holdings in the same band read as their own situations rather
+ * than one sentence with the numbers swapped.
  *
  * The middle of a ladder is deliberately absent. A price sitting in the
- * band a plan calls "hold, nothing new" is the ordinary case, and a list
- * that included it would be the portfolio again, which Home already has.
+ * band a ladder calls "hold, nothing new" is the ordinary case, and a
+ * list that included it would be the portfolio again, which Home already
+ * has.
  */
 export function BandAlerts({
   points,
@@ -50,8 +55,8 @@ export function BandAlerts({
         }
         subtitle={
           reached.length === 1
-            ? "One of your holdings is at an end of its own price plan. Open it to see where exactly, and to change the level."
-            : `${reached.length} of your holdings are at an end of their own price plans. Open one to see where exactly, and to change the level.`
+            ? "One of your holdings is at an end of its own price ladder. Open it to see where exactly, and to change the level."
+            : `${reached.length} of your holdings are at an end of their own price ladders. Open one to see where exactly, and to change the level.`
         }
         icon={<BellRing className="h-4 w-4" />}
       />
@@ -67,7 +72,7 @@ export function BandAlerts({
               className={cn(
                 // The accent marks a level reached, and nothing here uses
                 // the gain and loss pair: those mean money made and money
-                // lost, and a name at the top of its plan is usually one
+                // lost, and a name at the top of its ladder is usually one
                 // in profit, so rose on it would read as a loss.
                 "flex items-center gap-3 border-l-2 border-l-primary/60 p-4 transition group-hover:bg-hover"
               )}
@@ -80,15 +85,7 @@ export function BandAlerts({
                   <span className="text-muted-foreground">{p.bandLabel}</span>
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  {currency(p.spot, 2, code)} today
-                  {p.edge !== null
-                    ? `, against the ${currency(p.edge, 2, code)} level of ${
-                        p.edited
-                          ? "the plan you set"
-                          : "the plan this app worked out and you have not changed"
-                      }`
-                    : ""}
-                  . {percent(p.share, 1)} of what you own.
+                  {ladderMomentRow(p, code)}
                 </p>
               </div>
               <ChevronRight
