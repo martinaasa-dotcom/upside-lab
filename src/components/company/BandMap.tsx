@@ -113,11 +113,24 @@ function chipScaleFor(
   return Math.min(Math.max(perTicker / base, 1), max);
 }
 
-/** The viewport's own width, for sizing the phone strip's chips by it. */
+/**
+ * The viewport's own width, for sizing the phone strip's chips by it.
+ *
+ * THE INITIAL STATE MUST MATCH THE SERVER, NOT GUESS THE CLIENT.
+ *
+ * This read `window.innerWidth` in the `useState` initializer, gated on
+ * `typeof window === "undefined"`. That guard is true on the server and
+ * false on the client's very first render too, before any effect has
+ * run, so hydration compared the server's 390 against whatever the real
+ * device measured and failed on every load a phone strip chip appeared
+ * in, discovered by actually rendering the page rather than by reading
+ * the code. The fix is the ordinary one: start at the SSR value always,
+ * and let the effect that already runs on mount correct it a frame
+ * later, same as every other client-only measurement in this file
+ * (`plotRef`'s `ResizeObserver` included).
+ */
 function useViewportWidth(): number {
-  const [width, setWidth] = useState(() =>
-    typeof window === "undefined" ? 390 : window.innerWidth
-  );
+  const [width, setWidth] = useState(390);
   useEffect(() => {
     const onResize = () => setWidth(window.innerWidth);
     onResize();
