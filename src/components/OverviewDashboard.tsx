@@ -40,6 +40,7 @@ import {
   portfolioDayLine,
   typicalMoveForPortfolio,
 } from "@/lib/typical-move";
+import { LearnedPanel } from "@/components/LearnedPanel";
 import { RecallCardPanel } from "@/components/RecallCardPanel";
 import { parseHoldingsPaste, type CsvHoldingRow } from "@/lib/csv-import";
 import {
@@ -1606,25 +1607,27 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             <div className={FACT_ROW}>
               <dt>
                 {/*
-                  The word opens the glossary; the circle beside it keeps
-                  this app's own caveat, which is about our data rather
-                  than about the term. Two affordances on one label is
-                  worth it only because they answer different questions:
-                  what does this word mean, and what does this app not
-                  know. The glossary must not swallow the second, since a
-                  reader expecting a line from the day they bought is
-                  owed the reason there isn't one.
+                  One affordance, and the measurement is why.
+
+                  A glossary word was put on this label beside the note,
+                  on the argument that the two answer different questions:
+                  what does the term mean, and what does this app not know.
+                  Rendered and clicked, they cannot both be here.
+                  `InfoTip` carries an invisible `-inset-3.5` halo so the
+                  circle is a real target on a phone, and that halo reaches
+                  14px to its left, straight over the end of the word
+                  beside it. Playwright could not click the word at all:
+                  the note's hit area intercepted every attempt. On a
+                  finger it would be worse and silent, a reader tapping
+                  "All time" and getting the wrong panel.
+
+                  So the note stays, because it is the rarer thing and the
+                  one only this app can say -- there is no date in this
+                  figure -- and the word keeps its home on Growth's own
+                  "Total return" cell, which has no note beside it.
                 */}
                 <MicroLabel>
-                  <TermTip
-                    term="total-return"
-                    example={{
-                      amount: signedCurrency(totals.roiDollar, 0),
-                      second: percent(totals.roiPct),
-                    }}
-                  >
-                    All time
-                  </TermTip>
+                  All time
                   <InfoTip text="Your value today against what you paid for these shares on average. There is no date in it: Upside Lab does not keep the day you bought, so nothing here can draw a line starting from that day." />
                 </MicroLabel>
               </dt>
@@ -1716,6 +1719,14 @@ export const OverviewDashboard = memo(function OverviewDashboard({
       {marketReading}
 
       {recallInput ? <RecallCardPanel input={recallInput} /> : null}
+      {/*
+        Directly under the question card, because it is the same subject:
+        that card asks one thing and stops, and until now nothing said that
+        any of it had happened. It draws nothing at all for a reader who has
+        not opened a word or answered a question, so a first day sees no
+        empty shelf.
+      */}
+      <LearnedPanel />
 
       {/*
         High on the page, because it is the one thing here that a reader

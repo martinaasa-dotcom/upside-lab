@@ -115,4 +115,34 @@ describe("the words are where the beginner already is", () => {
     });
     expect(unreachable).toEqual(["premium"]);
   });
+
+  it("never puts a glossary word next to an information mark", () => {
+    /*
+      `InfoTip` carries an invisible `-inset-3.5` halo so its circle is a
+      real target under a finger, and that halo reaches 14px past itself in
+      every direction, straight over whatever sits beside it. Put a
+      `TermTip` word in the same label and the note's hit area swallows the
+      word's clicks: measured in a real browser, the word could not be
+      clicked at all, and on a phone that is silent -- a reader taps the
+      word and gets the wrong panel.
+
+      Checked per label rather than per file, since the two are fine in one
+      room as long as they are not in one another's reach.
+    */
+    const offenders: string[] = [];
+    for (const file of [
+      ...DAILY_ROOMS.map(([, f]) => f),
+      "src/components/PortfolioTable.tsx",
+      "src/components/UpsidePortfolioPage.tsx",
+    ]) {
+      const source = read(file);
+      for (const label of source.matchAll(/<MicroLabel[\s\S]*?<\/MicroLabel>/g)) {
+        const block = label[0];
+        if (/<TermTip|<Explain/.test(block) && /<InfoTip/.test(block)) {
+          offenders.push(file);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 });

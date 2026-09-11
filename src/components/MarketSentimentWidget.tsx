@@ -1,5 +1,7 @@
 "use client";
 
+import { TermTip } from "@/components/ui/TermTip";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isAbortError } from "@/lib/abort";
 import { Button } from "@/components/ui/button";
@@ -277,7 +279,17 @@ export function MarketSentimentWidget({
         )}
       >
         <PanelHeader
-          title="Market reading"
+          title={
+            /*
+              "The market" is the word this whole card is about and the one
+              a beginner is least likely to have a definition for: the
+              product's central lesson is that most red days are the market
+              rather than a company, and that sentence is unreadable
+              without it. No note sits beside this title, so the word is
+              free to be the affordance here.
+            */
+            <TermTip term="market">Market reading</TermTip>
+          }
           actions={<Pill tone={card.reading.pill}>{card.reading.label}</Pill>}
         />
         {answer ? (

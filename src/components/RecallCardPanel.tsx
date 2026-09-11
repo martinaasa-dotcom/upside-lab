@@ -48,33 +48,10 @@ import {
   type DeckState,
   type RecallCard,
 } from "@/lib/recall-deck";
+import { loadDeck, saveDeck } from "@/lib/recall-deck-store";
 import { todayKeyInTz } from "@/lib/timezone";
 
-const KEY_PREFIX = "upside-recall-deck-v1";
 
-function storageKey(userId: string | null | undefined): string {
-  return userId ? `${KEY_PREFIX}:${userId}` : KEY_PREFIX;
-}
-
-function loadDeck(userId: string | null | undefined): DeckState {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(storageKey(userId));
-    if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? (parsed as DeckState) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveDeck(userId: string | null | undefined, state: DeckState): void {
-  try {
-    window.localStorage.setItem(storageKey(userId), JSON.stringify(state));
-  } catch {
-    // A reader with storage switched off simply gets the question again.
-  }
-}
 
 export function RecallCardPanel({
   input,
