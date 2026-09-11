@@ -7,7 +7,7 @@ import { isAbortError } from "@/lib/abort";
 import { isPaperClassOnly } from "@/lib/classroom";
 import {
   loadCommunityListCache,
-  saveCommunityListCache,
+  publishCommunityList,
   type CommunityListRow,
 } from "@/lib/community-cache";
 import {
@@ -180,7 +180,7 @@ export function WelcomeTourGate() {
           loadCommunityListCache() ??
           []) as CommunityListRow[];
         if (Array.isArray(commData?.communities)) {
-          saveCommunityListCache(communities);
+          publishCommunityList(communities);
         }
 
         setPlan({

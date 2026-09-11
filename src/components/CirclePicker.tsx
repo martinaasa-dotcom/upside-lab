@@ -11,8 +11,8 @@ import { aimOnPress } from "@/lib/route-aim";
 import {
   loadCommunityListCache,
   prefetchCommunity,
-  prefetchCommunityList,
-  saveCommunityListCache,
+  refreshCommunityListOnce,
+  subscribeCommunityList,
   type CommunityListRow,
 } from "@/lib/community-cache";
 
@@ -52,25 +52,20 @@ export function CirclePicker({ communityId, currentName }: Props) {
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
 
-  // Best-effort refresh so a circle joined or left elsewhere shows up here
-  // without the reader having to visit `/communities` first.
+  /*
+   * `AppHeader` renders the phone and desktop title rows at all times and
+   * CSS-hides one rather than unmounting it, so this component itself
+   * mounts twice per circle room; with `MAX_COMMUNITY_ROOMS` kept-alive
+   * rooms that is up to eight live pickers. `refreshCommunityListOnce` is
+   * single-flighted across every caller, so however many of those eight
+   * ask on mount, it is one request, and `subscribeCommunityList` hands
+   * the answer to all of them (and to any that mount later from a fetch
+   * `CommunitiesList` or an invite redeem made on their own).
+   */
   useEffect(() => {
-    let cancelled = false;
-    fetch("/api/communities", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (cancelled || !data) return;
-        const rows = (data.communities ?? []) as CommunityListRow[];
-        setCircles(rows);
-        saveCommunityListCache(rows);
-        prefetchCommunityList(rows);
-      })
-      .catch(() => {
-        /* the cached list, or the plain name, still works */
-      });
-    return () => {
-      cancelled = true;
-    };
+    const unsubscribe = subscribeCommunityList(setCircles);
+    void refreshCommunityListOnce();
+    return unsubscribe;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh once per mount
   }, []);
 
