@@ -576,16 +576,22 @@ export function CircleHome({
             is deliberately neutral -- cost is the one thing this room
             withholds, so a pooled gain or loss is not something this chart
             can honestly draw.
+
+            Not wrapped in `BelowFold`: this whole tab is already absent
+            from the page until a reader presses "Animals", so there is no
+            further mount to defer, and `below-fold.test.ts` holds the
+            circle down to the two sections that genuinely need it -- the
+            ones sitting in the Overview tab, which is what renders first.
           */}
           {shownView === "play" && circleLadderRows.length > 0 && (
-            <BelowFold className="order-4" reserve={520}>
+            <div className="order-4">
               <WidgetErrorBoundary name="Where the circle sits">
                 <BandMap
                   rows={circleLadderRows}
                   title="Where the circle's biggest bets sit"
                 />
               </WidgetErrorBoundary>
-            </BelowFold>
+            </div>
           )}
 
           {/*
