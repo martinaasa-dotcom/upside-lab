@@ -25,7 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { PercentField } from "@/components/retirement/fields";
 import { Button } from "@/components/ui/button";
-import { cn, currency } from "@/lib/format";
+import { barFillPct, cn, currency } from "@/lib/format";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
 import type { PlanResult, RetirementInputs } from "@/lib/retirement/plan";
@@ -63,7 +63,7 @@ function Method({
       >
         <div
           className="h-full rounded-full"
-          style={{ width: `${Math.max(2, Math.min(100, widthPct))}%`, background: color }}
+          style={{ width: `${barFillPct(widthPct, 2)}%`, background: color }}
         />
       </div>
       <p className="text-sm leading-relaxed text-muted-foreground">{lead}</p>

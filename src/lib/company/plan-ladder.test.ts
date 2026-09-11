@@ -10,8 +10,12 @@ import {
   bandById,
   buildPlanLadder,
   exitRatio,
+  ladderMomentDetail,
+  ladderMomentRow,
+  ladderMomentTitle,
   ladderRead,
   stepFor,
+  type LadderBandId,
 } from "@/lib/company/plan-ladder";
 
 /**
@@ -190,7 +194,7 @@ describe("nothing it says is this app telling anybody what to do", () => {
   it("names the band and the distance, and claims nothing else", () => {
     const read = ladderRead(ladder);
     expect(read).toMatch(/\$390\.00 today/);
-    expect(read).toMatch(/your plan/i);
+    expect(read).toMatch(/your ladder/i);
     expect(read).not.toMatch(
       /\b(you should|we (think|like|recommend)|advise|cheap|expensive|undervalued|overvalued|bargain)\b/i
     );
@@ -199,6 +203,88 @@ describe("nothing it says is this app telling anybody what to do", () => {
   it("never says a level was reached when it was not", () => {
     expect(bandAt(ladder.bands, 380.59 * 1.2)).toBe("trim-some");
     expect(bandAt(ladder.bands, 380.59 * 1.2 + 0.01)).toBe("trim-most");
+  });
+});
+
+describe("a moment on the ladder is this holding's own, not the same sentence with the numbers swapped", () => {
+  const ACTIONABLE: LadderBandId[] = ["trim-most", "full", "full-aggressive", "exit"];
+  const BANNED = /\b(you should|we (think|like|recommend)|advise|cheap|expensive|undervalued|overvalued|bargain)\b/i;
+
+  it("gives every actionable band its own title and detail", () => {
+    const moments = ACTIONABLE.map((bandId) => ({
+      ticker: "GOOGL",
+      spot: 100,
+      bandId,
+      bandLabel: bandId,
+      edge: 95,
+      edited: false,
+    }));
+    const titles = moments.map(ladderMomentTitle);
+    const details = moments.map((m) => ladderMomentDetail(m));
+    expect(new Set(titles).size).toBe(ACTIONABLE.length);
+    expect(new Set(details).size).toBe(ACTIONABLE.length);
+    for (const text of [...titles, ...details]) {
+      expect(text).not.toMatch(BANNED);
+      expect(text).not.toMatch(/[–—]/);
+    }
+  });
+
+  it("carries a holding's own numbers rather than a fixed shape", () => {
+    const a = ladderMomentDetail({
+      ticker: "AAPL",
+      spot: 260,
+      bandId: "trim-most",
+      bandLabel: "Trim 60%+",
+      edge: 240,
+      edited: false,
+      share: 0.3,
+      roiPct: 0.85,
+    });
+    const b = ladderMomentDetail({
+      ticker: "MSFT",
+      spot: 500,
+      bandId: "trim-most",
+      bandLabel: "Trim 60%+",
+      edge: 480,
+      edited: true,
+      share: 0.03,
+      roiPct: 0.02,
+    });
+    expect(a).not.toBe(b);
+    expect(a).toContain("30.0% of what you own");
+    expect(b).not.toContain("of what you own");
+    expect(a).toContain("you have not changed");
+    expect(b).toContain("level you set");
+  });
+
+  it("carries the gain or loss on any actionable band, not just trimming", () => {
+    const moment = (bandId: LadderBandId) => ({
+      ticker: "X",
+      spot: 100,
+      bandId,
+      bandLabel: bandId,
+      edge: bandId === "trim-most" ? 90 : 110,
+      edited: false,
+      roiPct: -0.15,
+    });
+    expect(ladderMomentDetail(moment("trim-most"))).toContain("below what you paid");
+    expect(ladderMomentDetail(moment("full"))).toContain("below what you paid");
+    expect(ladderMomentDetail(moment("full-aggressive"))).toContain("below what you paid");
+    expect(ladderMomentDetail(moment("exit"))).toContain("below what you paid");
+  });
+
+  it("keeps the panel row short: no gain or loss there, only in the alert", () => {
+    const moment = {
+      ticker: "X",
+      spot: 100,
+      bandId: "trim-most" as const,
+      bandLabel: "Trim 60%+",
+      edge: 90,
+      edited: false,
+      roiPct: 0.4,
+    };
+    expect(ladderMomentDetail(moment)).toContain("what you paid");
+    expect(ladderMomentRow(moment)).not.toContain("what you paid");
   });
 });
 

@@ -2,7 +2,7 @@
 
 import { Card, MicroLabel, Score, Scoreboard } from "@/components/ui/Panel";
 import { Slider } from "@/components/ui/slider";
-import { cn, percent } from "@/lib/format";
+import { barFillPct, cn, percent } from "@/lib/format";
 import { riseToRecover } from "@/lib/market-temperature";
 import { useState } from "react";
 
@@ -43,7 +43,7 @@ function Bars({ fall, rise }: { fall: number; rise: number }) {
         <div className="mt-1.5 h-3 w-full overflow-hidden rounded-full bg-secondary">
           <div
             className="h-full rounded-full bg-loss"
-            style={{ width: `${Math.max(1, (fall / scale) * 100)}%` }}
+            style={{ width: `${barFillPct((fall / scale) * 100, 1)}%` }}
           />
         </div>
       </div>
@@ -57,7 +57,7 @@ function Bars({ fall, rise }: { fall: number; rise: number }) {
         <div className="mt-1.5 h-3 w-full overflow-hidden rounded-full bg-secondary">
           <div
             className="h-full rounded-full bg-gain"
-            style={{ width: `${Math.max(1, (rise / scale) * 100)}%` }}
+            style={{ width: `${barFillPct((rise / scale) * 100, 1)}%` }}
           />
         </div>
       </div>

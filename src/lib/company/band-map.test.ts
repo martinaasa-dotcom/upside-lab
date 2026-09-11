@@ -12,7 +12,7 @@ import { blocksThatFit } from "@/components/company/BandMap";
 
 /**
  * The map's whole claim is that two names in the same band are in the
- * same place in their own plans, so the tests are mostly about that: a
+ * same place in their own ladders, so the tests are mostly about that: a
  * $2 company and a $2,000 one at the same point of their own ladders
  * have to land in the same row, and the row a name lands in has to be
  * the row its own page would put it in.
@@ -365,9 +365,9 @@ describe("a band's blocks divide its own bar, and fill it", () => {
 
 describe("the picture never claims a level was the reader's when it was not", () => {
   /*
-    The bands are labelled in the plan's own imperative voice: "trim
+    The bands are labelled in the ladder's own imperative voice: "trim
     most of it", "add a lot". What keeps six imperatives beside somebody
-    real holdings honest is that the plan is theirs, so the one sentence
+    real holdings honest is that the ladder is theirs, so the one sentence
     this panel must never get wrong is whose level was reached. A
     default this app worked out is not a level anybody set, and saying
     it was is both false and the sentence that turns a computed default
@@ -433,26 +433,26 @@ describe("the picture never claims a level was the reader's when it was not", ()
     expect(map.points.reduce((s, p) => s + p.share, 0)).toBeCloseTo(1, 10);
   });
 
-  it("gives a list of names a plural, since they do not share one plan", () => {
+  it("gives a list of names a plural, since they do not share one ladder", () => {
     const map = buildBandMap([
       holding("A", 0.3, 30),
       holding("B", 0.28, 30),
       holding("QUIET", 1, 40),
     ]);
     const said = readySaid(map.summary);
-    expect(said).toContain("their own plans");
-    expect(said).not.toContain("B at the bottom of its own plan");
+    expect(said).toContain("their own ladders");
+    expect(said).not.toContain("B at the bottom of its own ladder");
   });
 
   it("keeps the singular for one name", () => {
     const map = buildBandMap([holding("A", 0.3, 40), holding("QUIET", 1, 60)]);
-    expect(readySaid(map.summary)).toContain("its own plan");
+    expect(readySaid(map.summary)).toContain("its own ladder");
   });
 
   it("says nothing about levels when no name has reached one", () => {
     const map = buildBandMap([holding("QUIET", 1, 100)]);
     expect(readySaid(map.summary)).toBe(
-      "every name is somewhere in the middle of its own plan"
+      "every name is somewhere in the middle of its own ladder"
     );
   });
 

@@ -1,3 +1,5 @@
+import { barFillPct } from "@/lib/format";
+
 /**
  * One proportional bar, `Segmented`'s well made presentational.
  *
@@ -32,8 +34,9 @@
  */
 export type AllocationBarSlice = {
   key: string;
-  /** 0-1. Rendered width is never less than 1.5%, so a real but tiny
-   * slice still shows a sliver rather than vanishing. */
+  /** 0-1. Clamped through `barFillPct`, so a real but tiny slice still
+   * shows a 1.5% sliver rather than vanishing, and a bad number (a
+   * division by a zero total, say) cannot run the fill past its track. */
   pct: number;
   color: string;
   /** Read on hover/focus; callers already have their own "12%" vs "less
@@ -48,7 +51,7 @@ export function AllocationBar({ slices }: { slices: AllocationBarSlice[] }) {
         <div
           key={s.key}
           style={{
-            width: `${Math.max(1.5, s.pct * 100)}%`,
+            width: `${barFillPct(s.pct * 100, 1.5)}%`,
             backgroundColor: s.color,
             boxShadow:
               i < slices.length - 1

@@ -19,7 +19,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { EmptyState, InfoTip, Panel, PanelHeader, Reading } from "@/components/ui/Panel";
-import { NO_VALUE, cashtag, cn } from "@/lib/format";
+import { NO_VALUE, barFillPct, cashtag, cn } from "@/lib/format";
 import { readJsonOrThrow } from "@/lib/http";
 import { buildTrendStory, type Signal, type Tone, type TrendRowLike } from "@/lib/market/trend-story";
 import {
@@ -494,7 +494,15 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
               <div className="flex flex-col gap-1.5">
                 {leaders.map((r) => {
                   const v = r.rs13 ?? 0;
-                  const width = Math.min(100, Math.abs(v) * 100 * 1.6);
+                  /*
+                    Each side of this track is half the container (it
+                    grows from a centre line, gain to the right and loss
+                    to the left), so the true ceiling on this fill is 50%,
+                    not 100%: filling the whole track would run this bar
+                    over the centre line and into the other holding's
+                    half.
+                  */
+                  const width = barFillPct(Math.abs(v) * 100 * 1.6, 0, 50);
                   return (
                     <div key={r.ticker} className="flex items-center gap-3">
                       <span className="w-16 shrink-0 truncate text-sm font-medium text-foreground">
@@ -506,7 +514,7 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
                             "absolute top-0 h-full rounded-full",
                             v >= 0 ? "bg-gain/70 left-1/2" : "bg-loss/70 right-1/2"
                           )}
-                          style={{ width: `${width / 2}%` }}
+                          style={{ width: `${width}%` }}
                         />
                         <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
                       </div>

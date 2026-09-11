@@ -7,7 +7,7 @@
  * prices cannot share an axis. What they can share is the ladder
  * itself. Every band is a multiple of that name's own fair value, so
  * **the band is the common unit**, and two names in the same band are
- * in the same place in their own plans whatever their prices are.
+ * in the same place in their own ladders whatever their prices are.
  *
  * **The picture is a bar per band and each block in it is one holding.**
  * The bar's length is how much of the reader's money is in that band,
@@ -22,7 +22,7 @@
  * rather than drawn taller or dropped.
  *
  * Nothing here is a score and nothing here says to do anything. Both
- * readings are figures already on other screens: the plan the reader
+ * readings are figures already on other screens: the ladder the reader
  * owns, and the share of their own money.
  */
 import {
@@ -54,14 +54,14 @@ export type BandMapPoint = {
    * lost, and spends it on a single dot rather than on the whole chip:
    * a tinted pill plus a tinted border plus an accent ring is three
    * signals fighting over one object, which is what made the first
-   * version look muddy. Where the price sits against the plan is the
+   * version look muddy. Where the price sits against the ladder is the
    * row it is in, so the two readings never compete.
    */
   roiPct: number | null;
-  /** The nearest level of that name's own plan, for the label. */
+  /** The nearest level of that name's own ladder, for the label. */
   edge: number | null;
   actionable: boolean;
-  /** The reader typed at least one level of this name's plan. */
+  /** The reader typed at least one level of this name's ladder. */
   edited: boolean;
   /**
    * Height on the whole ladder, 0 at the foot and 1 at the head, which
@@ -100,8 +100,8 @@ export type BandMapSummary = {
    * Whether the reader actually typed the levels those names reached.
    *
    * NEVER TELL SOMEBODY THEY SET A LEVEL THEY DID NOT SET. The bands
-   * are labelled in the plan's own imperative voice ("trim most of it",
-   * "add a lot"), and what keeps that honest is that the plan is the
+   * are labelled in the ladder's own imperative voice ("trim most of it",
+   * "add a lot"), and what keeps that honest is that the ladder is the
    * reader's. A default this app worked out is not, so a sentence
    * calling it "a level you set" is both false and the one sentence
    * that would make a computed default read as this app's instruction.
@@ -132,7 +132,7 @@ export type BandMap = {
  */
 export const TINY_SHARE = 0.03;
 
-/** Which end of the plan an actionable band sits at. */
+/** Which end of the ladder an actionable band sits at. */
 const TRIM_END = new Set<LadderBandId>(["trim-most", "trim-some"]);
 
 export function buildBandMap(
@@ -305,7 +305,7 @@ const EMPTY_SUMMARY: BandMapSummary = {
  * first, for the list on Home.
  *
  * "Worst" here means furthest out of the middle in either direction: the
- * name at the very top of its plan and the name at the very bottom are
+ * name at the very top of its ladder and the name at the very bottom are
  * both things a reader wants to see before a name a step inside either.
  * Size breaks the tie, because the same distance matters more on a
  * holding that is a third of the portfolio.
@@ -334,7 +334,7 @@ export function actionableFirst(points: BandMapPoint[]): BandMapPoint[] {
  * Size still decides WHICH name goes, because the blocks are ordered
  * biggest first and folding takes from the end, so the smallest are the
  * ones that fold. The one name that jumps the queue is **a holding at
- * an end of its own plan**, kept however small it is: that is the row
+ * an end of its own ladder**, kept however small it is: that is the row
  * the reader opened this picture to find, and it is exactly the row an
  * ordering by size alone throws away first.
  */
@@ -433,7 +433,7 @@ export function readySaid(
 ): string {
   const { trimNames, addNames, reachedEdited, reachedTotal } = summary;
   if (reachedTotal === 0) {
-    return "every name is somewhere in the middle of its own plan";
+    return "every name is somewhere in the middle of its own ladder";
   }
   /*
     The names, and which end of the ladder they reached, described
@@ -443,11 +443,11 @@ export function readySaid(
   */
   /*
     A LIST OF NAMES TAKES A PLURAL. It read "SHOP, MU, SOFI at the
-    bottom of its own plan", which is three companies sharing one plan
+    bottom of its own ladder", which is three companies sharing one ladder
     and is not what the picture above it shows.
   */
   const ownPlan = (names: string[]) =>
-    names.length === 1 ? "its own plan" : "their own plans";
+    names.length === 1 ? "its own ladder" : "their own ladders";
   const parts: string[] = [];
   if (trimNames.length > 0) {
     parts.push(`${trimNames.join(", ")} at the top of ${ownPlan(trimNames)}`);
@@ -461,7 +461,7 @@ export function readySaid(
     the names, which are what the reader came to read.
   */
   const whose = pooled
-    ? "Levels this app worked out. Nothing here is anybody's own edited plan."
+    ? "Levels this app worked out. Nothing here is anybody's own edited ladder."
     : reachedEdited === reachedTotal
       ? "Levels you set."
       : reachedEdited === 0

@@ -1,5 +1,5 @@
 /**
- * What a price plan hangs off, and how that choice is said out loud.
+ * What a price ladder hangs off, and how that choice is said out loud.
  *
  * The ladder is the anchor times a set of multiples, so the anchor is the
  * whole claim: everything else in `plan-ladder.ts` is multiplication. It
@@ -11,8 +11,8 @@
  * The order is the order of how checkable each one is, and the last two
  * are deliberately not valuations. A fund and a coin get no estimate
  * anywhere in this app, for the reason `fairValueRead` gives, and the
- * honest answer for them is not to invent one: a plan built on where the
- * price has actually been is a plan about the price, which is what it
+ * honest answer for them is not to invent one: a ladder built on where the
+ * price has actually been is a ladder about the price, which is what it
  * says it is.
  */
 import type { CompanyFacts } from "@/lib/company/facts";
@@ -54,14 +54,14 @@ export function anchorForCompany(
   const mid = rangeMidpoint(facts);
   if (ok(mid)) {
     const why = isFundLike(facts)
-      ? "A fund's price is the sum of what it holds, so there is no estimate of its own to hang a plan on."
+      ? "A fund's price is the sum of what it holds, so there is no estimate of its own to hang a ladder on."
       : isCryptoLike(facts)
-        ? "There are no accounts behind this one, so there is nothing to value it against and no estimate to hang a plan on."
-        : "No valuation method could be run on this one, so there is no estimate to hang a plan on.";
+        ? "There are no accounts behind this one, so there is nothing to value it against and no estimate to hang a ladder on."
+        : "No valuation method could be run on this one, so there is no estimate to hang a ladder on.";
     return {
       price: mid,
       kind: "history",
-      said: `${currency(mid, 2)}, the middle of the range it has traded in over the last year. ${why} This is a plan about the price and says nothing about what it is worth.`,
+      said: `${currency(mid, 2)}, the middle of the range it has traded in over the last year. ${why} This is a ladder about the price and says nothing about what it is worth.`,
     };
   }
   return null;
@@ -74,7 +74,7 @@ export function anchorForCompany(
  * That target is the reader's own where they typed one and the shared
  * forecast path's where they did not, and both are already on the screen
  * this ladder is drawn on, which is the property that matters: an anchor
- * a reader cannot see is a plan they cannot argue with.
+ * a reader cannot see is a ladder they cannot argue with.
  */
 export function anchorForHolding(input: {
   target: number | null;
@@ -116,7 +116,7 @@ export function anchorForHolding(input: {
     return {
       price: input.rangeMid,
       kind: "history",
-      said: `${currency(input.rangeMid, 2)}, the middle of the range this one has actually traded in over ${over}. Nobody has written an end of year price for it, and the shape this app would otherwise use is grown from today's price by a rule about its kind of business, which would tell you nothing about this company. This is a plan about the price and says nothing about what it is worth.`,
+      said: `${currency(input.rangeMid, 2)}, the middle of the range this one has actually traded in over ${over}. Nobody has written an end of year price for it, and the shape this app would otherwise use is grown from today's price by a rule about its kind of business, which would tell you nothing about this company. This is a ladder about the price and says nothing about what it is worth.`,
     };
   }
   if (ok(input.target)) {

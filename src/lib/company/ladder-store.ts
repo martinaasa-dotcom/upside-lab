@@ -1,11 +1,11 @@
 /**
- * Where one reader's price-plan edits live in the browser.
+ * Where one reader's price-ladder edits live in the browser.
  *
  * The server copy is the real one, on `portfell_lab_state` beside the
- * Pulse history, because a plan is a decision about a company rather
+ * Pulse history, because a ladder is a decision about a company rather
  * than a setting on a device: somebody who set their levels on a laptop
  * and then opens their phone in a falling market has to find the same
- * levels there. This is the mirror, so a plan is on screen before the
+ * levels there. This is the mirror, so a ladder is on screen before the
  * round trip lands and survives a browser with no session yet.
  *
  * Edits are multiples of the anchor, never prices, for the reason the
@@ -20,6 +20,10 @@ import type {
   LadderOverrides,
 } from "@/lib/company/plan-ladder";
 
+// Storage key stays as-is even after the "price plan" -> "price ladder"
+// rename in reader-facing copy: this is where an existing reader's edits
+// already live, and renaming a localStorage key orphans them exactly the
+// way a `portfell_*` or `portfell-*` rename would (see AGENTS.md).
 const KEY = "upside-price-plans-v1";
 
 export function loadLocalLadders(): LadderOverrides {
@@ -84,9 +88,9 @@ export function withoutLadder(
 }
 
 /**
- * Push the plans to the account.
+ * Push the ladders to the account.
  *
- * Only the plans: the Lab save is a partial one by design, so sending a
+ * Only the ladders: the Lab save is a partial one by design, so sending a
  * ladder must not blank somebody's Pulse history on its way past. It
  * rides the offline queue for the same reason the watchlist does, since a
  * level typed on a train is still a decision.

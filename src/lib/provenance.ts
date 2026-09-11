@@ -1026,7 +1026,7 @@ export function positionFitProvenance(input: {
 }
 
 /**
- * The price plan. Arithmetic on two numbers already on the page, and the
+ * The price ladder. Arithmetic on two numbers already on the page, and the
  * one surface in this app whose output looks most like an instruction, so
  * it is the one that most needs to say out loud that nobody wrote it.
  */
@@ -1087,12 +1087,12 @@ export function planLadderProvenance(input: {
     ],
     blindSpots: [
       NOT_YOUR_BROKER,
-      "Whether any of this is a sensible plan for you. The bands are a shape, not a judgement about your money, your timescale or what else you own.",
+      "Whether any of this is a sensible ladder for you. The bands are a shape, not a judgement about your money, your timescale or what else you own.",
       "Anything that happens between two prices: a level can be passed and come back before you ever look.",
       "The anchor's own assumptions. Every method behind it rests on one, and they are listed in the panel below.",
     ],
     at: input.at,
-    yours: "Change any level and the ladder redraws around it. The levels are the plan; this app only does the multiplication.",
+    yours: "Change any level and the ladder redraws around it. The levels are yours; this app only does the multiplication.",
   };
 }
 
@@ -1106,7 +1106,7 @@ export function bandMapProvenance(input: {
   /**
    * True for a circle's picture, pooled across every member rather than
    * drawn from one portfolio. "You" is not the source, no band is
-   * anybody's own edited plan, and there is no level here for the reader
+   * anybody's own edited ladder, and there is no level here for the reader
    * to change, so every first-person reading is swapped rather than the
    * panel stating an ownership it cannot back up.
    */
@@ -1119,10 +1119,10 @@ export function bandMapProvenance(input: {
   return {
     maker: "arithmetic",
     title: "How this picture was drawn",
-    headline: `No model wrote this and nothing here is a score. It is ${n === 1 ? one : `${n} ${many}`} filed by two figures that are already on other screens: each name's own price plan, and how much of ${whose} it is.`,
+    headline: `No model wrote this and nothing here is a score. It is ${n === 1 ? one : `${n} ${many}`} filed by two figures that are already on other screens: each name's own price ladder, and how much of ${whose} it is.`,
     inputs: [
       {
-        what: "Each name's own price plan",
+        what: "Each name's own price ladder",
         /*
           NEVER "end of year price" ON ITS OWN -- `anchorForHolding`
           answers with one of two different kinds and this line used to
@@ -1157,11 +1157,11 @@ export function bandMapProvenance(input: {
       },
     ],
     steps: [
-      "Each name's plan is built first, exactly as its own page builds it. Nothing about the plan changes because it is on this picture.",
+      "Each name's ladder is built first, exactly as its own page builds it. Nothing about the ladder changes because it is on this picture.",
       "Which row a name is in is which band its price is in. Every band is a multiple of that company's own fair value, which is what lets a $2 company and a $2,000 one be compared at all.",
       `A band's bar is how much of ${whose} is priced in that band, measured against the fullest band rather than against a hundred per cent, and each block in the bar is one ${input.pooled ? "company" : "holding"} sized by what it is worth.`,
       `Every row is the same height whatever ${input.pooled ? "anybody holds" : "you own"}, including the rows with nothing in them, so the shape of the ladder cannot change with the ${input.pooled ? "circle" : "portfolio"}.`,
-      "A name folds away only when its band has run out of room to draw it, never because it is small on its own, and what folds is the smallest of that band. They fold into a block saying how many went and what they come to together, and a name that has reached an end of its own plan is kept however small it is.",
+      "A name folds away only when its band has run out of room to draw it, never because it is small on its own, and what folds is the smallest of that band. They fold into a block saying how many went and what they come to together, and a name that has reached an end of its own ladder is kept however small it is.",
       `A bar is never drawn shorter than the names inside it need to be readable, so a band holding very little of ${whose} can look longer than its share alone would make it. The figure beside the bar is the exact share, and it is the one to read.`,
     ],
     blindSpots: [
@@ -1173,14 +1173,14 @@ export function bandMapProvenance(input: {
           ]
         : []),
       input.pooled
-        ? "Whether the plan behind any of it is a sensible one for anybody in particular. Every level here is this app's own generic estimate, and none of it is a level somebody in this circle chose."
-        : "Whether the plan behind any of it is a sensible one for you. The picture inherits every assumption of each name's own anchor.",
+        ? "Whether the ladder behind any of it is a sensible one for anybody in particular. Every level here is this app's own generic estimate, and none of it is a level somebody in this circle chose."
+        : "Whether the ladder behind any of it is a sensible one for you. The picture inherits every assumption of each name's own anchor.",
       NOT_A_TARGET,
     ],
     at: input.at,
     yours: input.pooled
-      ? "Open a name to see its own page, and set your own levels there if you hold it. Nothing drawn here is anybody's edited plan."
-      : "Open a name to see the plan behind its position, and change any level you disagree with.",
+      ? "Open a name to see its own page, and set your own levels there if you hold it. Nothing drawn here is anybody's edited ladder."
+      : "Open a name to see the ladder behind its position, and change any level you disagree with.",
   };
 }
 

@@ -9,7 +9,7 @@ import type { LadderOverride, LadderOverrides } from "@/lib/company/plan-ladder"
 export type LabBundle = {
   conviction: ConvictionMap;
   watchlist: string[];
-  /** The reader's own price-plan edits, per ticker. */
+  /** The reader's own price-ladder edits, per ticker. */
   ladders: LadderOverrides;
   updatedAt?: string;
 };
@@ -31,15 +31,15 @@ export function sanitizeWatchlist(raw: unknown): string[] {
 }
 
 /**
- * One reader's price-plan edits, cleaned on the way in and on the way out.
+ * One reader's price-ladder edits, cleaned on the way in and on the way out.
  *
  * Everything here is a multiple of that ladder's anchor rather than a
  * price, so the bounds are bounds on a multiple: nothing below a tenth of
- * the anchor or above five times it, which is far wider than any plan a
+ * the anchor or above five times it, which is far wider than any ladder a
  * person would draw and still narrow enough that a corrupt row cannot put
  * a level at a nonsense price. A value that fails is dropped rather than
  * clamped, because a clamped level is a number the reader never chose
- * sitting in a plan they think is theirs.
+ * sitting in a ladder they think is theirs.
  */
 const EDGE_IDS = [
   "trim-most",
@@ -79,8 +79,8 @@ export function sanitizeLadders(raw: unknown): LadderOverrides {
         : null;
     if (Object.keys(edges).length === 0 && anchor === null) continue;
     out[ticker] = anchor === null ? { edges } : { edges, anchor };
-    // A plan per name, and a sane ceiling on how many rows one row of the
-    // table may carry, for the same reason the watchlist has one.
+    // A ladder per name, and a sane ceiling on how many rows one row of
+    // the table may carry, for the same reason the watchlist has one.
     if (Object.keys(out).length >= 200) break;
   }
   return out;
