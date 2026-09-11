@@ -66,13 +66,23 @@ describe("a section nobody can see is built when they come to it", () => {
     }
   });
 
-  it("Circle's two big sections are the ones deferred", () => {
+  it("Circle's big Overview sections are the ones deferred", () => {
     // 264 of a circle's 308 elements, both starting below an 800px fold.
     expect(CIRCLE).toMatch(/<BelowFold[^>]*>\s*<CommunityTodayBoard/);
+    /*
+     * Three, and the third earned it the same way the first two did: the
+     * pooled band map is six rows and three tiles starting past 1,300px,
+     * in the Overview, which is the tab that paints first. The number is
+     * a ceiling on the Overview rather than a target, so a fourth needs
+     * its own offset measured (see the offset rule below) -- and the
+     * League tab's sections still take none of these, because a tab the
+     * reader has not pressed is a better deferral than any observer.
+     */
+    expect(CIRCLE).toMatch(/<BelowFold[^>]*>\s*<WidgetErrorBoundary[^>]*>\s*<BandMap/);
     expect(
       CIRCLE.match(/<BelowFold/g)?.length,
-      "the two overview sections, and not the League ones a tab already hides"
-    ).toBe(2);
+      "the Overview's own big sections, and not the League ones a tab already hides"
+    ).toBe(3);
   });
 
   it("is spent only where the content is more than a screen down", () => {

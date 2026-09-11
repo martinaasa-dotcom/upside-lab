@@ -401,7 +401,17 @@ export function barShares(input: {
  * that decides whether a row of imperative band names reads as the
  * reader's own plan or as this app telling somebody to sell something.
  */
-export function readySaid(summary: BandMapSummary): string {
+export function readySaid(
+  summary: BandMapSummary,
+  /**
+   * True for a circle's pooled picture, where no level is anybody's own.
+   * "Levels you set" and "which you have not changed" are both false
+   * there in the same way the first-person version was false for a
+   * reader who had never opened a ladder: nobody can edit a circle's
+   * plan, so the sentence must not imply somebody declined to.
+   */
+  pooled = false
+): string {
   const { trimNames, addNames, reachedEdited, reachedTotal } = summary;
   if (reachedTotal === 0) {
     return "every name is somewhere in the middle of its own plan";
@@ -431,8 +441,9 @@ export function readySaid(summary: BandMapSummary): string {
     name: it is the same answer for all of them and repeating it buried
     the names, which are what the reader came to read.
   */
-  const whose =
-    reachedEdited === reachedTotal
+  const whose = pooled
+    ? "Levels this app worked out. Nothing here is anybody's own edited plan."
+    : reachedEdited === reachedTotal
       ? "Levels you set."
       : reachedEdited === 0
         ? "Levels this app worked out, which you have not changed."

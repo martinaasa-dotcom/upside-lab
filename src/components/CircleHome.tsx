@@ -3,6 +3,7 @@
 import { DailyDuelCard } from "@/components/DailyDuelCard";
 import { PowerAnimalCard } from "@/components/CircleCards";
 import { BelowFold } from "@/components/BelowFold";
+import { BandMap } from "@/components/company/BandMap";
 import { CommunityTodayBoard } from "@/components/CommunityTodayBoard";
 import { ShareSheets } from "@/components/ShareSheets";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/item";
 import type { CommunityDuelCache } from "@/lib/community-cache";
 import type { OverlapRow } from "@/lib/circle-overlap";
+import type { HoldingLadderRow } from "@/lib/company/holding-ladders";
 import {
   cashtag,
   cn,
@@ -187,6 +189,7 @@ export type CircleHomeProps = {
   overview: OverviewModel;
   membersWithBooks: MemberStat[];
   achievements: CommunityAchievement[];
+  circleLadderRows: HoldingLadderRow[];
   sharedNames: OverlapRow[];
   avatarByName: Map<string, string>;
   communityThemeBreakdown: ThemeSlice[];
@@ -222,6 +225,7 @@ export function CircleHome({
   overview,
   membersWithBooks,
   achievements,
+  circleLadderRows,
   sharedNames,
   avatarByName,
   communityThemeBreakdown,
@@ -560,6 +564,46 @@ export function CircleHome({
                 ))}
               </div>
             </section>
+          )}
+
+          {/*
+            THE CIRCLE'S OWN COMPANIES, ON THE LADDER THE HOLDINGS PAGE
+            DRAWS FOR ONE PORTFOLIO.
+
+            Every band is a multiple of that company's own fair value, so
+            a $50 stock and a $5,000 one can be read against each other,
+            and the bar is how much of the circle's money is priced in
+            that band. It sits under "Holdings you share" because it is
+            the same subject one level up: that section says which names
+            the circle holds and this one says where their prices are.
+
+            It is in the Overview and not under Animals. Animals only
+            exists once a circle has a league, so a map living there is
+            hidden outright from every circle that has not got one, and
+            it is a tab about awards.
+
+            Overview is the tab that paints first, so this is one of the
+            two sections that genuinely need `BelowFold` rather than one
+            that can skip it: the panel is six rows and three tiles, it
+            starts past 1,300px, and `BelowFold` starts closed, so none
+            of it is in the first render.
+
+            `pooled` is not decoration. Shares here are added up across
+            people and no level is anybody's own, so every first-person
+            sentence the panel would otherwise print is a false statement
+            about a circle, cost included: what anybody paid never
+            reaches this room.
+          */}
+          {shownView === "overview" && circleLadderRows.length > 0 && (
+            <BelowFold className="order-5" reserve={980}>
+              <WidgetErrorBoundary name="Where the circle sits">
+                <BandMap
+                  rows={circleLadderRows}
+                  title="Where the circle's holdings sit"
+                  pooled
+                />
+              </WidgetErrorBoundary>
+            </BelowFold>
           )}
 
           {/*

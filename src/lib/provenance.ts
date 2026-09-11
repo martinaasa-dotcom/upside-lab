@@ -147,6 +147,19 @@ const YOUR_HOLDINGS: ProvenanceSource = {
   what: "share counts, buy prices and cash, as you typed or imported them",
 };
 
+/**
+ * A circle's pooled picture has no single "You": shares are added up
+ * across everyone who shared a portfolio there, and cost never reaches
+ * it at all. `/api/communities/[id]/book` sends `buy_price` as zero for
+ * every holding in an ordinary circle, this reader's own included, so
+ * naming "You" as the source would credit one person with a figure
+ * built from fourteen.
+ */
+const EVERYONE_IN_THIS_CIRCLE: ProvenanceSource = {
+  name: "Everyone in this circle",
+  what: "share counts pooled across every portfolio shared here, never anybody's buy price",
+};
+
 /** The model is a source in its own right, and the least checkable one. */
 const MODEL_ITSELF: ProvenanceSource = {
   name: "The model itself",
@@ -1024,23 +1037,39 @@ export function planLadderProvenance(input: {
 export function bandMapProvenance(input: {
   count?: number;
   at?: string | null;
+  /**
+   * True for a circle's picture, pooled across every member rather than
+   * drawn from one portfolio. "You" is not the source, no band is
+   * anybody's own edited plan, and there is no level here for the reader
+   * to change, so every first-person reading is swapped rather than the
+   * panel stating an ownership it cannot back up.
+   */
+  pooled?: boolean;
 }): Provenance {
   const n = input.count ?? 0;
+  const whose = input.pooled ? "the circle's holdings" : "this portfolio";
+  const one = input.pooled ? "one company" : "one holding";
+  const many = input.pooled ? "companies" : "holdings";
   return {
     maker: "arithmetic",
     title: "How this picture was drawn",
-    headline: `No model wrote this and nothing here is a score. It is ${n === 1 ? "one holding" : `${n} holdings`} filed by two figures that are already on other screens: each name's own price plan, and how much of this portfolio it is.`,
+    headline: `No model wrote this and nothing here is a score. It is ${n === 1 ? one : `${n} ${many}`} filed by two figures that are already on other screens: each name's own price plan, and how much of ${whose} it is.`,
     inputs: [
       {
-        what: "Each holding's own price plan",
-        detail:
-          "the same ladder its own page draws, anchored on that holding's end of year price",
+        what: "Each name's own price plan",
+        detail: input.pooled
+          ? "the same generic ladder a name gets when nobody has set a level on it, anchored on that company's own trading range"
+          : "the same ladder its own page draws, anchored on that holding's end of year price",
       },
       { what: "Today's price for each one" },
-      { what: "What each holding is worth, against the whole portfolio" },
+      {
+        what: input.pooled
+          ? "What the circle holds of each one, against everyone's holdings pooled together"
+          : "What each holding is worth, against the whole portfolio",
+      },
     ],
     sources: [
-      YOUR_HOLDINGS,
+      input.pooled ? EVERYONE_IN_THIS_CIRCLE : YOUR_HOLDINGS,
       YAHOO_PRICES,
       {
         name: "This app",
@@ -1050,19 +1079,28 @@ export function bandMapProvenance(input: {
     steps: [
       "Each name's plan is built first, exactly as its own page builds it. Nothing about the plan changes because it is on this picture.",
       "Which row a name is in is which band its price is in. Every band is a multiple of that company's own fair value, which is what lets a $2 company and a $2,000 one be compared at all.",
-      "A band's bar is how much of this portfolio is priced in that band, measured against the fullest band rather than against a hundred per cent, and each block in the bar is one holding sized by what it is worth.",
-      "Every row is the same height whatever you own, including the rows with nothing in them, so the shape of the ladder cannot change with the portfolio.",
+      `A band's bar is how much of ${whose} is priced in that band, measured against the fullest band rather than against a hundred per cent, and each block in the bar is one ${input.pooled ? "company" : "holding"} sized by what it is worth.`,
+      `Every row is the same height whatever ${input.pooled ? "anybody holds" : "you own"}, including the rows with nothing in them, so the shape of the ladder cannot change with the ${input.pooled ? "circle" : "portfolio"}.`,
       "A name folds away only when its band has run out of room to draw it, never because it is small on its own, and what folds is the smallest of that band. They fold into a block saying how many went and what they come to together, and a name that has reached an end of its own plan is kept however small it is.",
-      "A bar is never drawn shorter than the names inside it need to be readable, so a band holding very little of this portfolio can look longer than its share alone would make it. The figure beside the bar is the exact share, and it is the one to read.",
+      `A bar is never drawn shorter than the names inside it need to be readable, so a band holding very little of ${whose} can look longer than its share alone would make it. The figure beside the bar is the exact share, and it is the one to read.`,
     ],
     blindSpots: [
       NOT_YOUR_BROKER,
       "Anything about the companies themselves. Two names next to each other on this picture have nothing else in common.",
-      "Whether the plan behind any of it is a sensible one for you. The picture inherits every assumption of each name's own anchor.",
+      ...(input.pooled
+        ? [
+            "Whether anybody here is up or down on any of it. What each person paid is theirs and never reaches this room, so this picture can say where a price sits and nothing about anyone's gain or loss.",
+          ]
+        : []),
+      input.pooled
+        ? "Whether the plan behind any of it is a sensible one for anybody in particular. Every level here is this app's own generic estimate, and none of it is a level somebody in this circle chose."
+        : "Whether the plan behind any of it is a sensible one for you. The picture inherits every assumption of each name's own anchor.",
       NOT_A_TARGET,
     ],
     at: input.at,
-    yours: "Open a name to see the plan behind its position, and change any level you disagree with.",
+    yours: input.pooled
+      ? "Open a name to see its own page, and set your own levels there if you hold it. Nothing drawn here is anybody's edited plan."
+      : "Open a name to see the plan behind its position, and change any level you disagree with.",
   };
 }
 

@@ -55,6 +55,7 @@ import { plainError } from "@/lib/plain-error";
 import { overlapRows } from "@/lib/circle-overlap";
 import { sheetCashBalance } from "@/lib/cash-balance";
 import { buildOverview } from "@/lib/overview";
+import { holdingLadders } from "@/lib/company/holding-ladders";
 import {
   loadCommunityCache,
   loadCommunityDuelCache,
@@ -621,6 +622,49 @@ export function CommunityView({ communityId }: Props) {
   const overview = useMemo(
     () => buildOverview(portfolios, holdings, quotes),
     [portfolios, holdings, quotes]
+  );
+
+  /*
+    Every company the circle holds, pooled across everyone who shared a
+    portfolio here, on the same price-band ladder the holdings page draws
+    for one portfolio: every band is a multiple of that company's own
+    fair value, so a $50 stock and a $5,000 one can be read against each
+    other.
+
+    THE ZEROED BUY PRICE IS THE TRAP IN THIS ROOM, AND IT BITES TWICE.
+    `/api/communities/[id]/book` sends `buy_price` as zero for every
+    holding in an ordinary circle, this reader's own included (the `own`
+    half of its condition only ever applies inside a classroom). So
+    neither `TickerScore.price` nor `t.currentValue` may be read here:
+    both fall back to a cost-basis price when no live quote has arrived,
+    and that fallback is a uniform zero. A name with no quote would land
+    the map on a price of zero, and `currentValue` would drag down the
+    total every other block's share is measured against. `spot` comes
+    straight off `quotes`, and the value is worked out fresh from
+    `shares * spot`, since shares are never cost and so are never zeroed.
+
+    `roiPct` is `null` on every row for the same reason, and deliberately
+    rather than incidentally: a pooled gain needs a cost basis the circle
+    does not have, so the picture says where prices sit and refuses the
+    other question outright. No per-reader overrides are passed either.
+    This is the circle's own shape, not any one member's edited plan, and
+    `pooled` on the panel is what keeps every sentence on it saying so.
+  */
+  const circleLadderRows = useMemo(
+    () =>
+      holdingLadders({
+        rows: overview.tickers.map((t) => {
+          const spot = quotes[t.ticker]?.price ?? null;
+          return {
+            ticker: t.ticker,
+            spot,
+            closes: t.dailyCloses?.length ? t.dailyCloses : t.sparkline,
+            value: spot !== null ? t.shares * spot : 0,
+            roiPct: null,
+          };
+        }),
+      }),
+    [overview.tickers, quotes]
   );
 
   // One combined per-person stat, computed once and reused by the power
@@ -1623,6 +1667,7 @@ export function CommunityView({ communityId }: Props) {
                 overview={overview}
                 membersWithBooks={membersWithBooks}
                 achievements={achievements}
+                circleLadderRows={circleLadderRows}
                 sharedNames={sharedNames}
                 avatarByName={avatarByName}
                 communityThemeBreakdown={communityThemeBreakdown}

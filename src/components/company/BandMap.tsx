@@ -237,6 +237,36 @@ export function blocksThatFit(
   return Math.max(1, room(width - REST_MIN_PX - BLOCK_GAP_PX));
 }
 
+/**
+ * WHOSE PICTURE THIS IS, SAID ONCE AND THREADED.
+ *
+ * The same panel draws one person's portfolio and a circle's pooled
+ * holdings, and almost every sentence on it is first person: "of this
+ * portfolio", "the band your plan calls", "levels you set", "your
+ * biggest holding". Every one of those is a false statement about a
+ * circle, whose shares are added up across people and whose levels
+ * nobody can edit. One object carries the difference so a new sentence
+ * cannot quietly ship in the wrong voice.
+ */
+type Voice = {
+  pooled: boolean;
+  /** "this portfolio" or "the circle's holdings". */
+  whose: string;
+  /** "your plan" or "this plan". */
+  planWord: string;
+};
+
+const OWN_VOICE: Voice = {
+  pooled: false,
+  whose: "this portfolio",
+  planWord: "your plan",
+};
+const POOLED_VOICE: Voice = {
+  pooled: true,
+  whose: "the circle's holdings",
+  planWord: "this plan",
+};
+
 function Dot({ roi }: { roi: number | null }) {
   return (
     <span
@@ -259,7 +289,9 @@ function Block({
   grow,
   code,
   wide,
+  voice,
 }: {
+  voice: Voice;
   point: BandMapPoint;
   /** At `sm` and up, where the bar has the room for a share as well. */
   wide: boolean;
@@ -287,7 +319,7 @@ function Block({
     <Link
       href={companyHref(point.ticker)}
       data-band-chip=""
-      title={`${cashtag(point.ticker)}: ${currency(point.spot, 2, code)}, ${percent(point.share, 1)} of this portfolio, in the band your plan calls "${point.bandLabel}"`}
+      title={`${cashtag(point.ticker)}: ${currency(point.spot, 2, code)}, ${percent(point.share, 1)} of ${voice.whose}, in the band ${voice.planWord} calls "${point.bandLabel}"`}
       className={cn(
         "flex min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-md border px-2",
         "border-border/60 bg-card font-mono text-xs tabular-nums text-foreground",
@@ -304,7 +336,20 @@ function Block({
         minWidth: wide ? BLOCK_MIN_PX : BLOCK_MIN_NARROW_PX,
       }}
     >
-      <Dot roi={point.roiPct} />
+      {/*
+        A DOT THAT IS GREY ON EVERY BLOCK IS NOT A LEGEND, IT IS NOISE.
+
+        The dot is whether the reader is up or down, and a circle never
+        knows: `/api/communities/[id]/book` sends `buy_price` as zero for
+        every holding in an ordinary circle, this reader's own included,
+        so cost never reaches the pooled picture at all. Drawing the
+        neutral colour on all of them would be a signal that never
+        varies, taking 12px of the ticker's room on a phone to say
+        nothing. It is simply absent there, which is also the honest
+        reading: this picture answers where a price sits and does not
+        pretend to answer the other question.
+      */}
+      {!voice.pooled && <Dot roi={point.roiPct} />}
       <span className="truncate font-semibold tracking-tight">
         {point.ticker}
       </span>
@@ -321,8 +366,9 @@ function Block({
         </span>
       )}
       <span className="sr-only">
-        , {currency(point.spot, 2, code)}, {percent(point.share, 1)} of this
-        portfolio{roi}
+        , {currency(point.spot, 2, code)}, {percent(point.share, 1)} of{" "}
+        {voice.whose}
+        {roi}
       </span>
     </Link>
   );
@@ -335,14 +381,22 @@ function Block({
  * together, and the wording says which cutoff did it, since "+3 under
  * 3%" and "+3 more" are different facts about somebody's money.
  */
-function Rest({ folded, grow }: { folded: BandMapPoint[]; grow: number }) {
+function Rest({
+  folded,
+  grow,
+  voice,
+}: {
+  folded: BandMapPoint[];
+  grow: number;
+  voice: Voice;
+}) {
   const share = folded.reduce((s, p) => s + p.share, 0);
   const allTiny = folded.every((p) => p.share < TINY_SHARE);
   return (
     <span
       className="flex items-center justify-center whitespace-nowrap rounded-md border border-dashed border-border/50 px-2 font-mono text-xs tabular-nums text-muted-foreground"
       style={{ flexGrow: Math.max(grow, 0.0001), flexBasis: 0, minWidth: REST_MIN_PX }}
-      title={`${folded.map((p) => cashtag(p.ticker)).join(", ")}: ${percent(share, 1)} of this portfolio together`}
+      title={`${folded.map((p) => cashtag(p.ticker)).join(", ")}: ${percent(share, 1)} of ${voice.whose} together`}
     >
       <span aria-hidden>
         +{folded.length}
@@ -351,7 +405,7 @@ function Rest({ folded, grow }: { folded: BandMapPoint[]; grow: number }) {
       <span className="sr-only">
         and {folded.length} not drawn here:{" "}
         {folded.map((p) => cashtag(p.ticker)).join(", ")},{" "}
-        {percent(share, 1)} of this portfolio together
+        {percent(share, 1)} of {voice.whose} together
       </span>
     </span>
   );
@@ -373,7 +427,9 @@ function Row({
   code,
   zone,
   wide,
+  voice,
 }: {
+  voice: Voice;
   band: BandMapBand;
   widest: number;
   code: string;
@@ -520,10 +576,11 @@ function Row({
                 grow={grows[i] ?? 0}
                 code={code}
                 wide={wide}
+                voice={voice}
               />
             ))}
             {folded.length > 0 && (
-              <Rest folded={folded} grow={rest} />
+              <Rest folded={folded} grow={rest} voice={voice} />
             )}
           </div>
         ) : (
@@ -622,7 +679,7 @@ function sharePhrase(v: number): string {
  * anybody to do anything: the second names the level as the reader's
  * own, which is what it is.
  */
-function Summary({ map }: { map: Map }) {
+function Summary({ map, voice }: { map: Map; voice: Voice }) {
   const s = map.summary;
   const ready = s.reachedTotal;
   return (
@@ -630,7 +687,7 @@ function Summary({ map }: { map: Map }) {
       <Tile
         label="Around fair value"
         value={sharePct(s.aroundFairValue)}
-        sub={`of this portfolio is priced near what its companies look worth. Below it, ${sharePhrase(s.below)}. Above it, ${sharePhrase(s.above)}.`}
+        sub={`of ${voice.whose} is priced near what its companies look worth. Below it, ${sharePhrase(s.below)}. Above it, ${sharePhrase(s.above)}.`}
       />
       <Tile
         /*
@@ -650,14 +707,20 @@ function Summary({ map }: { map: Map }) {
         label="At a plan's end"
         value={ready === 0 ? "None" : `${ready} of ${map.points.length}`}
         sub={
-          ready === 0 && map.points.length === 1
+          ready === 0 && map.points.length === 1 && !voice.pooled
             ? "your one holding is somewhere in the middle of its own plan"
-            : readySaid(s)
+            : readySaid(s, voice.pooled)
         }
         accent={ready > 0}
       />
       <Tile
-        label={map.points.length === 1 ? "Your holding" : "Biggest holding"}
+        label={
+          voice.pooled
+            ? "Biggest bet"
+            : map.points.length === 1
+              ? "Your holding"
+              : "Biggest holding"
+        }
         value={s.biggest ? sharePct(s.biggest.share) : NO_VALUE}
         sub={
           s.biggest
@@ -674,6 +737,7 @@ export function BandMap({
   code = "USD",
   at,
   title = "Where your holdings sit on their own plans",
+  pooled = false,
 }: {
   rows: Array<{
     ticker: string;
@@ -684,7 +748,15 @@ export function BandMap({
   code?: string;
   at?: string | null;
   title?: string;
+  /**
+   * True for a circle's map, pooled across everyone who shared a
+   * portfolio there. Shares are added up across people and no level is
+   * anybody's own, so every first-person sentence on this panel is a
+   * false statement about it. See `Voice`.
+   */
+  pooled?: boolean;
 }) {
+  const voice = pooled ? POOLED_VOICE : OWN_VOICE;
   const map = useMemo(() => buildBandMap(rows), [rows]);
   const wide = useWide();
   const widest = Math.max(...map.bands.map((b) => b.share), 0.0001);
@@ -698,15 +770,23 @@ export function BandMap({
           <span className="inline-flex items-center gap-2">
             {title}
             <WhyThis
-              provenance={bandMapProvenance({ count: map.points.length, at })}
+              provenance={bandMapProvenance({
+                count: map.points.length,
+                at,
+                pooled,
+              })}
             />
           </span>
         }
-        subtitle="Every name on its own price plan. The bar is how much of your money is in that band, and each block is one holding."
+        subtitle={
+          pooled
+            ? "Everyone's holdings pooled into one company each, on its own price plan. The bar is how much of the circle's money is in that band. What anybody paid stays theirs, so this says where a price sits and never who is up or down."
+            : "Every name on its own price plan. The bar is how much of your money is in that band, and each block is one holding."
+        }
         icon={<MapIcon className="h-4 w-4" />}
       />
 
-      <Summary map={map} />
+      <Summary map={map} voice={voice} />
 
       {/*
         The ladder is a surface in its own right, so it takes the app's
@@ -759,6 +839,7 @@ export function BandMap({
                     code={code}
                     zone={zone}
                     wide={wide}
+                    voice={voice}
                   />
                 ))}
             </div>
@@ -775,7 +856,16 @@ export function BandMap({
       )}
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        {"A band is a multiple of that company's own fair value, which is what makes two names comparable here. Tap a name to open its plan and change any level. "}
+        {"A band is a multiple of that company's own fair value, which is what makes two names comparable here. "}
+        {/*
+          The invitation has to be one somebody can accept. A circle's
+          plan is nobody's to change, so telling a reader to change a
+          level here sends them looking for a control that does not
+          exist; their own page is where their own levels live.
+        */}
+        {pooled
+          ? "Tap a name to open its own page, and set your own levels there if you hold it. "
+          : "Tap a name to open its plan and change any level. "}
         {ADVICE_DISCLAIMER_SHORT}
       </p>
     </Panel>
