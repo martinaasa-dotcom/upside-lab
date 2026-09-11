@@ -435,6 +435,35 @@ describe("the grid", () => {
     expect(c.monthlyToCustom).toBeGreaterThan(i.monthlyToCustom);
   });
 
+  it("diverges in opposite directions, which is why the copy points at the monthly figure", () => {
+    /*
+      The pot gap narrows as the reader stops later and the saving gap
+      widens, because what separates cash from investing is not the target
+      but the decades of compounding. Measured on a 31 year old at the
+      moderate standard: pot 1.67x at 35 falling to 1.01x at 70, monthly
+      1.79x at 35 rising to 2.60x at 70. On the pot alone the lesson
+      inverts as you read down the table, which is exactly why the caption
+      points at the monthly column instead.
+    */
+    const inputs = subject({ currentPot: 0, annualContribution: 0 });
+    const inv = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "invested" });
+    const cash = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "cash" });
+    const potX = inv.map((r, i) => cash[i].byStandard.moderate / r.byStandard.moderate);
+    const monthlyX = inv.map((r, i) => cash[i].monthlyToCustom / r.monthlyToCustom);
+
+    // Cash is never cheaper, on either measure, at any age.
+    for (const x of [...potX, ...monthlyX]) expect(x).toBeGreaterThan(1);
+
+    // The pot gap closes as the horizon shortens; the saving gap opens.
+    expect(potX[potX.length - 1]).toBeLessThan(potX[0]);
+    expect(monthlyX[monthlyX.length - 1]).toBeGreaterThan(monthlyX[0]);
+
+    // And the saving gap is always the louder of the two.
+    for (let i = 0; i < potX.length; i++) {
+      expect(monthlyX[i]).toBeGreaterThan(potX[i]);
+    }
+  });
+
   it("always includes the age the reader actually chose", () => {
     const rows = buildTable({
       inputs: subject({ retirementAge: 52 }),

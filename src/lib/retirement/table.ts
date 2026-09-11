@@ -19,12 +19,29 @@
  * predicts the size of it before they see the rows next to each other.
  *
  * THE SECOND IS WHAT INVESTING IS ACTUALLY FOR. The cash column is not a
- * strawman. It is what somebody who keeps their savings in a savings
- * account genuinely has to put away, and it is a multiple of the invested
- * column rather than a bit more. That comparison is the single most useful
+ * strawman: it is what somebody who keeps their savings in a savings
+ * account genuinely has to put away. That comparison is the most useful
  * thing this module can show a person who has not started, and it is worth
  * more than any argument about it, which is why it is a toggle on a table
  * rather than a paragraph.
+ *
+ * THE TWO COLUMNS DIVERGE IN OPPOSITE DIRECTIONS AND THAT IS THE PART TO
+ * LOOK AT. Measured on a 31 year old at the moderate standard, cash
+ * against invested: the POT needed runs 1.67x at 35 down to 1.01x at 70,
+ * while the MONTHLY SAVING runs the other way, 1.79x at 35 up to 2.60x at
+ * 70. Stopping at 70 needs practically the same pot either way and still
+ * costs two and a half times as much a month to get there, because what
+ * separates them is not the target, it is the decades of compounding doing
+ * the saving for you. So the copy points at the monthly figure rather than
+ * at the pot: on the pot alone the lesson inverts as the reader looks down
+ * the table, and on the monthly figure it only gets stronger.
+ *
+ * The cash column is also priced on its own terms rather than through the
+ * invested machinery: a cash pot is judged on spending down to zero, not
+ * on a safe withdrawal rate, because that rate exists to survive the worst
+ * ORDER of returns and cash has no order to get wrong. `buildPlan` makes
+ * that choice itself, so every cell here, the milestones and the
+ * earliest-retirement solver read one target and cannot disagree.
  *
  * Every cell is the same `buildPlan` the rest of the module uses with one
  * input changed. No cell has arithmetic of its own, so no cell can disagree
