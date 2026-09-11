@@ -11,6 +11,7 @@ import {
   THEME_COLOR,
 } from "@/lib/portfolio-personality";
 import { EmptyState, Panel, Score, Scoreboard, SPLIT_COPY, SPLIT_ROW, SwatchLegend } from "@/components/ui/Panel";
+import { AllocationBar } from "@/components/ui/AllocationBar";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -641,18 +642,14 @@ export const LabSheet = memo(function LabSheet({
                       tells you more than the list of tickers does.
                     </p>
                   </div>
-                  <div className="flex h-3 gap-[3px] overflow-hidden rounded-full bg-muted">
-                    {themes.map((t) => (
-                      <div
-                        key={t.theme}
-                        style={{
-                          width: `${Math.max(1.5, t.pct * 100)}%`,
-                          backgroundColor: THEME_COLOR[t.theme],
-                        }}
-                        title={`${t.label}: ${Math.round(t.pct * 100)}%`}
-                      />
-                    ))}
-                  </div>
+                  <AllocationBar
+                    slices={themes.map((t) => ({
+                      key: t.theme,
+                      pct: t.pct,
+                      color: THEME_COLOR[t.theme],
+                      title: `${t.label}: ${Math.round(t.pct * 100)}%`,
+                    }))}
+                  />
                   <SwatchLegend
                     items={themes.map((t) => ({
                       key: t.theme,
