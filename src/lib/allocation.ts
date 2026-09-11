@@ -120,6 +120,10 @@ export function concentrationRead(
  * one thing. `TICKER_SECTORS` keeps its own job, labelling one company at
  * a time on the Forecast cards, where nothing can be split.
  */
+function sentenceCase(label: string): string {
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export function allocationBySector(
   holdings: Array<{
     ticker: string;
@@ -136,8 +140,18 @@ export function allocationBySector(
   for (const h of holdings) {
     const value = finiteNumber(h.currentValue);
     if (value <= 0) continue;
+    /*
+      One voice down the column. `THEME_LABEL` is lower case because it is
+      written to sit inside a sentence elsewhere, and beside the provider's
+      sentence-cased sectors it read as "broad market funds" under
+      "Technology and software" -- two labels in one legend, capitalised
+      differently, which looks like nobody checked. Capitalised at this
+      boundary rather than in the shared table, since the sentence callers
+      are right to want it as it is.
+    */
     const sector =
-      h.sector?.trim() || THEME_LABEL[forecastThemeForTicker(h.ticker)];
+      h.sector?.trim() ||
+      sentenceCase(THEME_LABEL[forecastThemeForTicker(h.ticker)]);
     totals.set(sector, sumMoney([totals.get(sector) ?? 0, value]));
     sum = sumMoney([sum, value]);
   }

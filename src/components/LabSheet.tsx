@@ -7,15 +7,13 @@ import { measuredBetas } from "@/lib/measured-beta";
 /** The market, for measuring a holding's own swing against. */
 const MARKET_PROXY = ["SPY"];
 import { TermTip } from "@/components/ui/TermTip";
+import { mixSlices } from "@/lib/mix-slices";
 import {
-  allocationBySector,
   allocationByTicker,
   concentrationRead,
-  themeBreakdown,
 } from "@/lib/allocation";
 import {
   buildPortfolioPersonality,
-  THEME_COLOR,
 } from "@/lib/portfolio-personality";
 import {
   EmptyState,
@@ -40,7 +38,7 @@ import {
   correlationGrid,
   correlationMatrix,
 } from "@/lib/correlation";
-import { NO_VALUE, barFillPct, cashtag, cn, currency } from "@/lib/format";
+import { NO_VALUE, barFillPct, cashtag, cn, currency, percent } from "@/lib/format";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import type { OverviewModel } from "@/lib/overview";
 import type { Holding, Portfolio, Quote } from "@/lib/types";
@@ -349,9 +347,9 @@ export const LabSheet = memo(function LabSheet({
     useMemo(() => sheetHoldings.map((h) => h.ticker), [sheetHoldings])
   );
 
-  const sectors = useMemo(
+  const mix = useMemo(
     () =>
-      allocationBySector(
+      mixSlices(
         sheetHoldings.map((h) => ({
           ...h,
           sector: sectorWordsByTicker[h.ticker.toUpperCase()] ?? null,
@@ -398,7 +396,6 @@ export const LabSheet = memo(function LabSheet({
     () => allocationByTicker(sheetHoldings),
     [sheetHoldings]
   );
-  const themes = useMemo(() => themeBreakdown(sheetHoldings), [sheetHoldings]);
   const concentration = useMemo(
     () => concentrationRead(sheetHoldings),
     [sheetHoldings]
@@ -745,7 +742,7 @@ export const LabSheet = memo(function LabSheet({
                 </Scoreboard>
               </Panel>
 
-              {themes.length > 0 && (
+              {mix.length > 0 && (
                 <Panel tone="plain">
                   {/*
                     `PanelHeader`, not a hand-rolled title and subtitle.
@@ -765,19 +762,26 @@ export const LabSheet = memo(function LabSheet({
                     subtitle="Your holdings grouped by kind of business, which usually tells you more than the list of tickers does."
                   />
                   <AllocationBar
-                    slices={themes.map((t) => ({
-                      key: t.theme,
-                      pct: t.pct,
-                      color: THEME_COLOR[t.theme],
-                      title: `${t.label}: ${Math.round(t.pct * 100)}%`,
+                    slices={mix.map((m) => ({
+                      key: m.key,
+                      pct: m.pct,
+                      color: m.color,
+                      title: `${m.label}: ${percent(m.pct)}`,
                     }))}
                   />
+                  {/*
+                    The legend carries the money as well as the share,
+                    which is what the separate bar card below used to be
+                    for. With one grouping there is nothing left for a
+                    second panel to say, and two panels answering one
+                    question is how this room came to contradict itself.
+                  */}
                   <SwatchLegend
-                    items={themes.map((t) => ({
-                      key: t.theme,
-                      label: t.label,
-                      color: THEME_COLOR[t.theme],
-                      value: `${Math.round(t.pct * 100)}%`,
+                    items={mix.map((m) => ({
+                      key: m.key,
+                      label: m.label,
+                      color: m.color,
+                      value: `${percent(m.pct)} · ${currency(m.value, 0)}`,
                     }))}
                   />
                 </Panel>
@@ -788,21 +792,14 @@ export const LabSheet = memo(function LabSheet({
                 kinds of business against every holding), and stretched
                 to one height the shorter card was mostly empty glass.
               */}
-              <div className="grid gap-4 md:grid-cols-2 md:items-start">
-                {/*
-                  "By sector", not "By kind of business", because the donut
-                  above is already headed with that phrase and the two are
-                  not the same question. That one is the themes this app
-                  groups by -- AI builders, chip makers, broad market funds
-                  -- which is what a reader is betting on. This is the
-                  sector the company's own filings put it in, which the
-                  provider answers for the whole market, so an ordinary
-                  portfolio reads as staples, banks and property rather
-                  than as one bucket of leftovers.
-                */}
-                <AllocCard title="By sector" slices={sectors} />
-                <AllocCard title="By holding" slices={byTicker} />
-              </div>
+              {/*
+                "By sector" stood here and is gone. It was the same
+                grouping as the panel above with the money attached, so
+                the money moved into that panel's legend and the duplicate
+                went: a reader asking what kind of business their money is
+                in should meet one answer, not two panels of it.
+              */}
+              <AllocCard title="By holding" slices={byTicker} />
             </>
           )}
         </div>

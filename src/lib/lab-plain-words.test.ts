@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { allocationBySector, themeBreakdown } from "@/lib/allocation";
+import { allocationBySector } from "@/lib/allocation";
 import { SCENARIO_MAINTENANCE_RATE, SHOCKS, shockedPct } from "@/lib/book-shock";
 import { MAINTENANCE_RATE } from "@/lib/margin-health";
 import { buildActionSignals } from "@/lib/market/seasonality";
@@ -68,26 +68,41 @@ describe("Lab says what it means", () => {
     }
     // A name nothing recognises still gets words, not a key.
     expect(allocationBySector([{ ticker: "ZZZZ", currentValue: 100 }])[0]!.label)
-      .toBe("other businesses");
+      .toBe("Other businesses");
   });
 
-  it("groups the two mix panels the same way", () => {
+  it("draws the mix once, from the sector", () => {
     /*
-      They are drawn one above the other and answer the same question, the
-      donut as a picture and this card with the money on it. Two
-      classifiers is how they came to contradict each other, so the test
-      is that one grouping produces both.
+      This asserted that two panels grouped the same way, because Lab drew
+      a donut by investment theme directly above a bar list by sector and
+      they contradicted each other: "other businesses 20%" over a card
+      that resolved the same money into household goods, shops and media.
+
+      There is one panel now, so the rule is stronger than agreement --
+      there is nothing left to disagree with. `mixSlices` is what it draws,
+      and the duplicate card is gone.
     */
-    const sample = [
-      { ticker: "VOO", currentValue: 7742 },
-      { ticker: "NVDA", currentValue: 4821 },
-      { ticker: "AAPL", currentValue: 4658 },
-      { ticker: "KO", currentValue: 3536 },
-      { ticker: "MSFT", currentValue: 2477 },
-    ];
-    const bySector = allocationBySector(sample).map((s) => s.label).sort();
-    const byTheme = themeBreakdown(sample).map((s) => s.label).sort();
-    expect(bySector).toEqual(byTheme);
+    expect(lab).toMatch(/mixSlices\(/);
+    expect(lab).not.toMatch(/AllocCard title="By sector"/);
+    expect(lab).not.toMatch(/themeBreakdown/);
+    // The money moved into the legend the duplicate card used to carry.
+    expect(lab).toMatch(/currency\(m\.value, 0\)/);
+  });
+
+  it("keeps one voice down the legend", () => {
+    /*
+      `THEME_LABEL` is lower case because it is written to sit inside a
+      sentence elsewhere, and beside the provider's sentence-cased sectors
+      it read as "broad market funds" under "Technology and software".
+    */
+    const labels = allocationBySector([
+      { ticker: "VOO", currentValue: 100 },
+      { ticker: "KO", currentValue: 100, sector: "Everyday household goods" },
+      { ticker: "ZZZZ", currentValue: 100 },
+    ]).map((slice) => slice.label);
+    for (const label of labels) {
+      expect(label[0], label).toBe(label[0]!.toUpperCase());
+    }
   });
 });
 
