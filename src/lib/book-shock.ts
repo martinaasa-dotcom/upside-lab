@@ -517,10 +517,21 @@ export function getShockProfile(
 export function shockBeta(
   ticker: string,
   shock: ShockId,
-  sector?: string | null
+  sector?: string | null,
+  /**
+   * This company's own measured swing against the market, where its price
+   * history could support one. It replaces the table's typed figure and
+   * nothing else: the factor exposures below are not in a month of
+   * closes, so oil, rates and supply chains stay the judgement they were.
+   */
+  measured?: number | null
 ): number {
   if (shock === "none") return 0;
-  const p = getShockProfile(ticker, sector);
+  const base = getShockProfile(ticker, sector);
+  const p =
+    measured != null && Number.isFinite(measured)
+      ? { ...base, beta: measured }
+      : base;
   switch (shock) {
     case "broad_down15":
       return clamp(p.beta ?? 1, -1.2, 2.6);
@@ -556,7 +567,8 @@ function boundedMove(pct: number): number {
 export function shockedPct(
   ticker: string,
   shock: ShockId,
-  sector?: string | null
+  sector?: string | null,
+  measured?: number | null
 ): number {
   if (shock === "none") return 0;
   const meta = SHOCKS.find((s) => s.id === shock);
@@ -572,24 +584,35 @@ export function shockedPct(
   }
 
   if (shock === "usd_surge7") {
-    const p = getShockProfile(ticker);
+    const p = getShockProfile(ticker, sector);
     const fxSens = p.fx ?? (ticker.includes(".") ? -0.85 : -0.3);
     return boundedMove(-0.07 * Math.abs(fxSens));
   }
 
-  return boundedMove(meta.headlinePct * shockBeta(ticker, shock));
+  /*
+    The sector and the measured beta have to be handed on here, and this
+    line dropped both when they were first threaded through: every
+    scenario but oil fell back to the catch-all profile, so the sector
+    reached one card of nine and looked like it reached all of them. The
+    signature took the argument and the call did not pass it, which
+    typecheck cannot see.
+  */
+  return boundedMove(
+    meta.headlinePct * shockBeta(ticker, shock, sector, measured)
+  );
 }
 
 export function shockedPrice(
   ticker: string,
   spot: number,
   shock: ShockId,
-  sector?: string | null
+  sector?: string | null,
+  measured?: number | null
 ): number {
   if (!(spot > 0) || !Number.isFinite(spot) || shock === "none") {
     return finiteNumber(spot);
   }
-  const pct = shockedPct(ticker, shock, sector);
+  const pct = shockedPct(ticker, shock, sector, measured);
   return roundMoney(spot * (1 + pct));
 }
 
@@ -656,6 +679,9 @@ export function analyzePortfolioShock(
     price: number;
     /** The provider's sector in this app's words, where it answered. */
     sector?: string | null;
+    /** This company's own measured swing against the market, where its
+     *  prices could support one. */
+    beta?: number | null;
   }[],
   cash: number,
   shockId: ShockId
@@ -666,12 +692,12 @@ export function analyzePortfolioShock(
     .filter((h) => h.shares > 0 && h.price > 0)
     .map((h) => {
       const livePx = finiteNumber(h.price);
-      const shockPx = shockedPrice(h.ticker, livePx, shockId, h.sector);
+      const shockPx = shockedPrice(h.ticker, livePx, shockId, h.sector, h.beta);
       const liveVal = roundMoney(finiteNumber(h.shares) * livePx);
       const shockVal = roundMoney(finiteNumber(h.shares) * shockPx);
       const deltaVal = roundMoney(shockVal - liveVal);
       const deltaPct = safeDiv(deltaVal, liveVal);
-      const movePct = shockedPct(h.ticker, shockId, h.sector);
+      const movePct = shockedPct(h.ticker, shockId, h.sector, h.beta);
       const profile = getShockProfile(h.ticker, h.sector);
 
       return {

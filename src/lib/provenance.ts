@@ -571,7 +571,15 @@ export function pulseRoomProvenance(input: {
  * reader needs is not "some rows are approximate" but which of their own
  * rows.
  */
-export function scenarioProvenance(guessed: string[] = []): Provenance {
+export function scenarioProvenance(
+  guessed: string[] = [],
+  /**
+   * How many rows moved on a swing measured from the company's own recent
+   * prices, against how many are still the typed table. The reader is owed
+   * the split, because the two are not the same kind of number.
+   */
+  measured?: { measured: number; total: number } | null
+): Provenance {
   const names = [...new Set(guessed.map((t) => t.trim().toUpperCase()))]
     .filter(Boolean)
     .sort();
@@ -585,7 +593,20 @@ export function scenarioProvenance(guessed: string[] = []): Provenance {
           names.length === 1 ? "is" : "are"
         } only as good as it.`
       : null;
-  return scenarioProvenanceBody(guessedSpot);
+  /*
+    Said as a step rather than a blind spot, because unlike the guessed
+    names this is the room doing better than it used to: a measured swing
+    is a fact about this company where the table was a judgement about a
+    category it had been sorted into. It still says what the measurement
+    cannot reach, since only the market scenarios turn on that number and
+    oil, rates and supply chains remain typed.
+  */
+  const measuredStep =
+    measured && measured.total > 0 && measured.measured > 0
+      ? `${measured.measured} of your ${measured.total} holdings move on a swing measured from their own recent prices against the market, rather than on the figure typed into this app for their kind of business. That measurement only reaches the scenarios about the market as a whole; what a company does when oil doubles or a supply chain breaks is still a typed judgement.`
+      : null;
+
+  return scenarioProvenanceBody(guessedSpot, measuredStep);
 }
 
 /** Joins names the way a sentence does: "A, B and C". */
@@ -594,7 +615,10 @@ function listInWords(names: string[]): string {
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]!}`;
 }
 
-function scenarioProvenanceBody(guessedSpot: string | null): Provenance {
+function scenarioProvenanceBody(
+  guessedSpot: string | null,
+  measuredStep: string | null
+): Provenance {
   return {
     maker: "arithmetic",
     title: "Where this came from",
@@ -617,6 +641,7 @@ function scenarioProvenanceBody(guessedSpot: string | null): Provenance {
     steps: [
       "Each holding is grouped by what kind of business it is.",
       "That group's made-up percentage is applied to its value, and the results are added up.",
+      ...(measuredStep ? [measuredStep] : []),
       "If part of your portfolio is borrowed, the room before a forced sale assumes your broker wants 30% of the stocks covered by your own money. Real brokers use 25% to 30% and can raise it without warning.",
     ],
     blindSpots: [

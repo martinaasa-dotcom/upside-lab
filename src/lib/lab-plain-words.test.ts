@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { allocationBySector, themeBreakdown } from "@/lib/allocation";
-import { SCENARIO_MAINTENANCE_RATE, SHOCKS } from "@/lib/book-shock";
+import { SCENARIO_MAINTENANCE_RATE, SHOCKS, shockedPct } from "@/lib/book-shock";
 import { MAINTENANCE_RATE } from "@/lib/margin-health";
 import { buildActionSignals } from "@/lib/market/seasonality";
 
@@ -172,5 +172,37 @@ describe("a trend card explains its own news", () => {
     expect(trends).not.toMatch(/higher high|lower low/);
     expect(trends).not.toMatch(/weeksAgo\}w ago/);
     expect(trends).toMatch(/how hard it\n?\s*was moving/);
+  });
+});
+
+describe("the risk room reasons from what it was told", () => {
+  it("hands the sector on to every scenario, not just the oil one", () => {
+    /*
+      `shockedPct` took a sector and dropped it when it called `shockBeta`,
+      so the sector reached exactly one of the nine scenarios and looked
+      like it reached all of them. A signature that takes an argument the
+      call does not pass is invisible to a typechecker.
+
+      A utility is the case that shows it: the catch-all moves it like a
+      plain large company, and its own profile moves it far less.
+    */
+    const utility = "Electricity, water and gas";
+    for (const shock of ["broad_down15", "tech_pullback10", "soft_landing_rally"] as const) {
+      expect(
+        Math.abs(shockedPct("NEE", shock, utility)),
+        shock
+      ).not.toBeCloseTo(Math.abs(shockedPct("NEE", shock)), 4);
+    }
+  });
+
+  it("lets a company's own measured swing replace the typed one", () => {
+    const utility = "Electricity, water and gas";
+    const jumpy = shockedPct("NEE", "broad_down15", utility, 2.0);
+    const steady = shockedPct("NEE", "broad_down15", utility, 0.4);
+    expect(Math.abs(jumpy)).toBeGreaterThan(Math.abs(steady));
+    // And an absent measurement changes nothing.
+    expect(shockedPct("NEE", "broad_down15", utility, null)).toBe(
+      shockedPct("NEE", "broad_down15", utility)
+    );
   });
 });
