@@ -51,6 +51,14 @@ export type LadderBandId =
    * parse, which is the difference between a retired band and a broken
    * one. Nothing may add it back to `EDGES` without merging its saved
    * edits somewhere first.
+   *
+   * The sentence builders below (`ladderMomentTitle`, `ladderMomentDetail`,
+   * `ladderMomentRow`) deliberately do NOT name it. It is unreachable
+   * there twice over: no ladder draws the band, and both callers gate on
+   * `isActionableBand`, which this id is not in. An arm for it was dead
+   * code that read as a live case and would have had to be kept in step
+   * with three sentences nobody could ever see. Putting the band back
+   * means putting those arms back with it.
    */
   | "full"
   | "full-aggressive"
@@ -772,8 +780,6 @@ export function ladderMomentTitle(m: LadderMoment): string {
   switch (m.bandId) {
     case "trim-most":
       return `${tag} climbed past your trim level`;
-    case "full":
-      return `${tag} fell to a full position`;
     case "full-aggressive":
       return `${tag} fell well past a full position`;
     case "exit":
@@ -797,7 +803,6 @@ export function ladderMomentDetail(m: LadderMoment, code: string = "USD"): strin
       const gap = pct ? ` That is ${pct} above ${level}${changed}.` : "";
       return `At ${spot} it has climbed into the band your ladder calls "${m.bandLabel}".${gap}${roi}${share}`;
     }
-    case "full":
     case "full-aggressive": {
       const gap = pct ? ` That is ${pct} below ${level}${changed}.` : "";
       return `At ${spot} it has fallen into the band your ladder calls "${m.bandLabel}".${gap}${roi}${share}`;
@@ -829,7 +834,6 @@ export function ladderMomentRow(m: LadderMoment, code: string = "USD"): string {
   switch (m.bandId) {
     case "trim-most":
       return `${spot} today, ${pct ? `${pct} above` : "above"} ${level}${changed}.${share}`;
-    case "full":
     case "full-aggressive":
       return `${spot} today, ${pct ? `${pct} below` : "at"} ${level}${changed}.${share}`;
     case "exit":
