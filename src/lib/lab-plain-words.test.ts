@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { allocationBySector } from "@/lib/allocation";
+import { allocationBySector, themeBreakdown } from "@/lib/allocation";
 import { SCENARIO_MAINTENANCE_RATE, SHOCKS } from "@/lib/book-shock";
 import { MAINTENANCE_RATE } from "@/lib/margin-health";
 import { buildActionSignals } from "@/lib/market/seasonality";
@@ -49,11 +49,45 @@ describe("Lab says what it means", () => {
     expect(lab).toMatch(/risingCount\} of your \$\{holdingCount\}/);
   });
 
-  it("labels an unsorted holding in words", () => {
-    const slices = allocationBySector([
-      { ticker: "ZZZZ", currentValue: 100 },
-    ]);
-    expect(slices[0]!.label).toBe("Not sorted yet");
+  it("files every holding under a kind of business, never 'Not sorted yet'", () => {
+    /*
+      The bucket this used to assert was a hole rather than a label. The
+      hand-kept table behind it is about thirty tickers, so on the app's
+      own sample portfolio -- the one a stranger gets from "Look around"
+      -- it swallowed 65.6% of the money: an S&P 500 fund, Microsoft,
+      Amazon, Coca-Cola, Nike and Disney, all filed as unsorted directly
+      beneath a donut that had just sorted every one of them.
+    */
+    const sample = [
+      "VOO", "NVDA", "AAPL", "KO", "MSFT", "AMZN", "DIS", "NKE",
+    ].map((ticker) => ({ ticker, currentValue: 100 }));
+    const slices = allocationBySector(sample);
+    for (const slice of slices) {
+      expect(slice.label).not.toBe("Not sorted yet");
+      expect(slice.label).toBeTruthy();
+    }
+    // A name nothing recognises still gets words, not a key.
+    expect(allocationBySector([{ ticker: "ZZZZ", currentValue: 100 }])[0]!.label)
+      .toBe("other businesses");
+  });
+
+  it("groups the two mix panels the same way", () => {
+    /*
+      They are drawn one above the other and answer the same question, the
+      donut as a picture and this card with the money on it. Two
+      classifiers is how they came to contradict each other, so the test
+      is that one grouping produces both.
+    */
+    const sample = [
+      { ticker: "VOO", currentValue: 7742 },
+      { ticker: "NVDA", currentValue: 4821 },
+      { ticker: "AAPL", currentValue: 4658 },
+      { ticker: "KO", currentValue: 3536 },
+      { ticker: "MSFT", currentValue: 2477 },
+    ];
+    const bySector = allocationBySector(sample).map((s) => s.label).sort();
+    const byTheme = themeBreakdown(sample).map((s) => s.label).sort();
+    expect(bySector).toEqual(byTheme);
   });
 });
 

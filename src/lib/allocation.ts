@@ -1,4 +1,3 @@
-import { TICKER_SECTORS } from "@/lib/forecast-plan";
 import {
   forecastThemeForTicker,
   type ForecastTheme,
@@ -92,6 +91,35 @@ export function concentrationRead(
   };
 }
 
+/**
+ * Every holding filed under one kind of business, with the money.
+ *
+ * One classifier, and that is the whole of the rule here. This used to
+ * read a hand-kept table of about thirty tickers and file everything else
+ * under "Not sorted yet", which failed twice over on any portfolio that
+ * was not the one the table was written from. Measured on this app's own
+ * sample, the portfolio a stranger gets from "Look around", it put 65.6%
+ * of the money in that bucket: a Vanguard S&P 500 fund, Microsoft,
+ * Amazon, Coca-Cola, Nike and Disney. And this card is drawn directly
+ * under the theme donut, which had already sorted all six correctly, so
+ * the room answered "what kind of business is this" twice and disagreed
+ * with itself, a fund reading as "broad market funds" two inches above
+ * and as unsorted here.
+ *
+ * Falling back to the classifier and keeping the table where it had an
+ * entry was tried first and is worse than either alone, because the two
+ * disagree about how fine a group is: Nvidia has a table entry and AMD
+ * does not, so one card would carry "Makes computer chips" and "chip
+ * makers" as two slices of one group, and Apple would be lifted out of
+ * software into a slice of its own. A group split in two is a wrong
+ * figure, not a finer one.
+ *
+ * So the generic classifier answers for everybody, with `THEME_LABEL` for
+ * the wording, which is the label the donut above is already printing:
+ * the two panels group the same way and cannot drift into two names for
+ * one thing. `TICKER_SECTORS` keeps its own job, labelling one company at
+ * a time on the Forecast cards, where nothing can be split.
+ */
 export function allocationBySector(
   holdings: Array<{ ticker: string; currentValue: number }>
 ): AllocationSlice[] {
@@ -103,9 +131,7 @@ export function allocationBySector(
   for (const h of holdings) {
     const value = finiteNumber(h.currentValue);
     if (value <= 0) continue;
-    const base = h.ticker.split(".")[0]!.toUpperCase();
-    const sector =
-      TICKER_SECTORS[h.ticker] ?? TICKER_SECTORS[base] ?? "Not sorted yet";
+    const sector = THEME_LABEL[forecastThemeForTicker(h.ticker)];
     totals.set(sector, sumMoney([totals.get(sector) ?? 0, value]));
     sum = sumMoney([sum, value]);
   }
