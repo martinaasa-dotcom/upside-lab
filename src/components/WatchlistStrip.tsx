@@ -67,6 +67,17 @@ const EMPTY_LIST: string[] = [];
 const EMPTY_QUOTES: Record<string, Quote> = {};
 const POPULAR_SEED = [...FALLBACK_POPULAR_TICKERS];
 
+/** Where a price sits between a low and a high, 0 to 1. Half when the range is flat. */
+function rangePosition(low: number, high: number, price: number): number {
+  const span = high - low;
+  return span > 0 ? Math.min(1, Math.max(0, (price - low) / span)) : 0.5;
+}
+
+/** The same gain-to-loss mix `RangeMeter` and `MiniRangeDot` both paint their dot in. */
+function rangeDotColor(pos: number): string {
+  return `color-mix(in oklch, var(--gain) ${pos * 100}%, var(--loss) ${(1 - pos) * 100}%)`;
+}
+
 function RangeMeter({
   low,
   high,
@@ -76,8 +87,7 @@ function RangeMeter({
   high: number;
   price: number;
 }) {
-  const span = high - low;
-  const pos = span > 0 ? Math.min(1, Math.max(0, (price - low) / span)) : 0.5;
+  const pos = rangePosition(low, high, price);
   return (
     <div>
       <MicroLabel>Recent range</MicroLabel>
@@ -98,7 +108,7 @@ function RangeMeter({
             className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-background"
             style={{
               left: `${pos * 100}%`,
-              backgroundColor: `color-mix(in oklch, var(--gain) ${pos * 100}%, var(--loss) ${(1 - pos) * 100}%)`,
+              backgroundColor: rangeDotColor(pos),
             }}
           />
         </div>
@@ -117,8 +127,7 @@ function MiniRangeDot({
   high: number;
   price: number;
 }) {
-  const span = high - low;
-  const pos = span > 0 ? Math.min(1, Math.max(0, (price - low) / span)) : 0.5;
+  const pos = rangePosition(low, high, price);
   return (
     <div
       className="relative h-1.5 w-10 shrink-0 rounded-full bg-secondary"
@@ -128,7 +137,7 @@ function MiniRangeDot({
         className="absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-background"
         style={{
           left: `${pos * 100}%`,
-          backgroundColor: `color-mix(in oklch, var(--gain) ${pos * 100}%, var(--loss) ${(1 - pos) * 100}%)`,
+          backgroundColor: rangeDotColor(pos),
         }}
       />
     </div>
@@ -725,6 +734,16 @@ export function WatchlistStrip({
     setOpen(false);
   }
 
+  /**
+   * Also closes the accordion row if it was the one open. Otherwise a
+   * removed-then-re-added ticker pops open on its own next time it
+   * renders, since `expandedTicker` would still be naming it.
+   */
+  function removeTicker(ticker: string) {
+    setList(removeWatchlistTicker(list, ticker));
+    setExpandedTicker((prev) => (prev === ticker ? null : prev));
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <PanelHeader
@@ -910,7 +929,7 @@ export function WatchlistStrip({
                         prev === ticker ? null : ticker
                       )
                     }
-                    onRemove={() => setList(removeWatchlistTicker(list, ticker))}
+                    onRemove={() => removeTicker(ticker)}
                     onOpenPulse={onOpenPulse}
                     onOpenResearch={onOpenResearch}
                     onRetryQuote={() => fetchQuotes([ticker], { force: true })}
@@ -935,7 +954,7 @@ export function WatchlistStrip({
                     ticker={ticker}
                     quote={q}
                     look={look}
-                    onRemove={() => setList(removeWatchlistTicker(list, ticker))}
+                    onRemove={() => removeTicker(ticker)}
                     onOpenPulse={onOpenPulse}
                     onOpenResearch={onOpenResearch}
                     onRetryQuote={() => fetchQuotes([ticker], { force: true })}
