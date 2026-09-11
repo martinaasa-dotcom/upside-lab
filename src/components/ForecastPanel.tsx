@@ -1199,34 +1199,22 @@ export const ForecastPanel = memo(function ForecastPanel({
                         key={d.ticker}
                         className="flex flex-col gap-1 border-t border-border/50 px-4 py-3.5 first:border-t-0"
                       >
-                        <div className="flex gap-3">
-                          <span
-                            className={cn(
-                              "flex shrink-0 whitespace-nowrap font-semibold text-foreground",
-                              mixedListings ? "w-max justify-start" : "w-[7.5rem] justify-end"
-                            )}
-                          >
-                            <TickerSymbol
-                              ticker={d.ticker}
-                              showCurrency={mixedListings}
-                            />
-                          </span>
-                          <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                            <span className="min-w-0 text-sm text-muted-foreground">
-                              {`End ${yearCols[yearCols.length - 1]}: ${currency(d.from, 0)} to ${currency(d.to, 0)}`}
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="min-w-0 text-sm text-muted-foreground">
+                            <span className="font-semibold text-foreground">
+                              <TickerSymbol
+                                ticker={d.ticker}
+                                showCurrency={mixedListings}
+                              />
                             </span>
-                            {diffProvenance && (
-                              <WhyThis provenance={diffProvenance} />
-                            )}
-                          </span>
+                            {` End ${yearCols[yearCols.length - 1]}: ${currency(d.from, 0)} to ${currency(d.to, 0)}`}
+                          </p>
+                          {diffProvenance && (
+                            <WhyThis provenance={diffProvenance} />
+                          )}
                         </div>
                         {d.rationale && (
-                          <p
-                            className={cn(
-                              "text-sm leading-snug text-muted-foreground",
-                              mixedListings ? "" : "sm:pl-[calc(7.5rem+0.75rem)]"
-                            )}
-                          >
+                          <p className="text-sm leading-snug text-muted-foreground">
                             {d.rationale}
                           </p>
                         )}
