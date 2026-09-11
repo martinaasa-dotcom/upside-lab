@@ -1,6 +1,7 @@
 "use client";
 
 import { useTickerSectors } from "@/lib/use-ticker-sectors";
+import { TermTip } from "@/components/ui/TermTip";
 import {
   allocationBySector,
   allocationByTicker,
@@ -654,7 +655,14 @@ export const LabSheet = memo(function LabSheet({
 
                 <Scoreboard cols={concentration.positionCount > 3 ? 3 : 2}>
                   <Score
-                    label="Behaves like"
+                    label={
+                      <TermTip
+                        term="spread-out"
+                        example={{ count: Math.round(concentration.effectivePositions) }}
+                      >
+                        Behaves like
+                      </TermTip>
+                    }
                     value={`${concentration.effectivePositions.toFixed(1)} holdings`}
                     sub={
                       concentration.positionCount === 1
@@ -663,7 +671,11 @@ export const LabSheet = memo(function LabSheet({
                     }
                   />
                   <Score
-                    label="Largest holding"
+                    label={
+                      <TermTip term="share-of-portfolio">
+                        Largest holding
+                      </TermTip>
+                    }
                     value={`${(concentration.topWeightPct * 100).toFixed(1)}%`}
                     sub={concentration.topWeightTicker ?? undefined}
                     /* --warning, not --loss. A concentrated position is a

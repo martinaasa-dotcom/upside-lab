@@ -88,6 +88,7 @@ import {
 } from "@/lib/thesis-pulse";
 import { describeCompany } from "@/lib/company-label";
 import { useTickerSectors } from "@/lib/use-ticker-sectors";
+import { TermTip } from "@/components/ui/TermTip";
 import { ratingForScore } from "@/lib/market/fear-greed";
 import {
   daySize,
@@ -516,14 +517,40 @@ function PulseCard({
           <Metric label="Price" hint={`worth ${currency(c.currentValue)}`}>
             {currency(c.price)}
           </Metric>
+          {/*
+            The three figures a beginner is most likely to misread, each
+            now openable on the word itself. "All time" is `gain` rather
+            than `total-return`: this is one holding against what was paid
+            for it, where total return is the whole portfolio since it
+            started, and handing a reader the portfolio answer under a
+            column about Apple is the kind of quietly wrong sentence this
+            app does not print.
+          */}
           <Metric
-            label="Today"
+            label={
+              <TermTip
+                term="today"
+                example={{
+                  ticker: c.ticker,
+                  amount: signedCurrency(c.todayDollar),
+                }}
+              >
+                Today
+              </TermTip>
+            }
             valueClassName={signedTone(c.todayDollar, "text-foreground")}
           >
             {signedCurrency(c.todayDollar)}
           </Metric>
           <Metric
-            label="All time"
+            label={
+              <TermTip
+                term="gain"
+                example={{ ticker: c.ticker, amount: percent(c.roiPct) }}
+              >
+                All time
+              </TermTip>
+            }
             valueClassName={signedTone(c.roiPct, "text-foreground")}
           >
             {percent(c.roiPct)}
@@ -537,7 +564,14 @@ function PulseCard({
             * three beside it.
             */}
           <Metric
-            label="Of your total"
+            label={
+              <TermTip
+                term="share-of-portfolio"
+                example={{ ticker: c.ticker, amount: percent(c.bookPct) }}
+              >
+                Of your total
+              </TermTip>
+            }
             hint={c.portfolios.length > 0 ? c.portfolios.join(", ") : undefined}
           >
             {percent(c.bookPct)}

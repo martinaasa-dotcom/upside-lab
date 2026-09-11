@@ -1,5 +1,6 @@
 "use client";
 
+import { TermTip } from "@/components/ui/TermTip";
 import { BelowFold } from "@/components/BelowFold";
 import { HomeWorld } from "@/components/HomeWorld";
 import { BandAlerts } from "@/components/company/BandAlerts";
@@ -1604,8 +1605,26 @@ export const OverviewDashboard = memo(function OverviewDashboard({
           <dl className="mt-4 flex flex-col gap-y-2 border-t border-border pt-4 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-3">
             <div className={FACT_ROW}>
               <dt>
+                {/*
+                  The word opens the glossary; the circle beside it keeps
+                  this app's own caveat, which is about our data rather
+                  than about the term. Two affordances on one label is
+                  worth it only because they answer different questions:
+                  what does this word mean, and what does this app not
+                  know. The glossary must not swallow the second, since a
+                  reader expecting a line from the day they bought is
+                  owed the reason there isn't one.
+                */}
                 <MicroLabel>
-                  All time
+                  <TermTip
+                    term="total-return"
+                    example={{
+                      amount: signedCurrency(totals.roiDollar, 0),
+                      second: percent(totals.roiPct),
+                    }}
+                  >
+                    All time
+                  </TermTip>
                   <InfoTip text="Your value today against what you paid for these shares on average. There is no date in it: Upside Lab does not keep the day you bought, so nothing here can draw a line starting from that day." />
                 </MicroLabel>
               </dt>
@@ -1643,7 +1662,20 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             </div>
             <div className={FACT_ROW}>
               <dt>
-                <MicroLabel>{totals.cash < 0 ? "Borrowed" : "Cash"}</MicroLabel>
+                {/*
+                  Two entries, not one, because they are two ideas: money
+                  sitting there, and money a broker lent you that can be
+                  called back. A reader whose cash has gone negative is
+                  exactly the reader who needs the second one.
+                */}
+                <MicroLabel>
+                  <TermTip
+                    term={totals.cash < 0 ? "borrowed" : "cash"}
+                    example={{ amount: currency(Math.abs(totals.cash), 0) }}
+                  >
+                    {totals.cash < 0 ? "Borrowed" : "Cash"}
+                  </TermTip>
+                </MicroLabel>
               </dt>
               <dd
                 className={cn(
