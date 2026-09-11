@@ -1029,7 +1029,7 @@ export function bandMapProvenance(input: {
   return {
     maker: "arithmetic",
     title: "How this picture was drawn",
-    headline: `No model wrote this and nothing here is a score. It is ${n === 1 ? "one holding" : `${n} holdings`} placed by two figures that are already on other screens: each name's own price plan, and how much of this portfolio it is.`,
+    headline: `No model wrote this and nothing here is a score. It is ${n === 1 ? "one holding" : `${n} holdings`} filed by two figures that are already on other screens: each name's own price plan, and how much of this portfolio it is.`,
     inputs: [
       {
         what: "Each holding's own price plan",
@@ -1044,7 +1044,7 @@ export function bandMapProvenance(input: {
       YAHOO_PRICES,
       {
         name: "This app",
-        what: "the placing, which is plain arithmetic and is described below",
+        what: "the filing and the bar lengths, which are plain arithmetic and are described below",
       },
     ],
     steps: [
@@ -1052,7 +1052,8 @@ export function bandMapProvenance(input: {
       "Which row a name is in is which band its price is in. Every band is a multiple of that company's own fair value, which is what lets a $2 company and a $2,000 one be compared at all.",
       "A band's bar is how much of this portfolio is priced in that band, measured against the fullest band rather than against a hundred per cent, and each block in the bar is one holding sized by what it is worth.",
       "Every row is the same height whatever you own, including the rows with nothing in them, so the shape of the ladder cannot change with the portfolio.",
-      "On a crowded portfolio the names too small to read stand down, folded into a block saying how many went and what they come to together. A name that has reached an end of its own plan is kept however small it is.",
+      "A name folds away only when its band has run out of room to draw it, never because it is small on its own, and what folds is the smallest of that band. They fold into a block saying how many went and what they come to together, and a name that has reached an end of its own plan is kept however small it is.",
+      "A bar is never drawn shorter than the names inside it need to be readable, so a band holding very little of this portfolio can look longer than its share alone would make it. The figure beside the bar is the exact share, and it is the one to read.",
     ],
     blindSpots: [
       NOT_YOUR_BROKER,

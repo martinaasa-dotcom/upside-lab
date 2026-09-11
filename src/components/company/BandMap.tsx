@@ -5,12 +5,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
-import { cashtag, cn, currency, percent } from "@/lib/format";
+import { NO_VALUE, cashtag, cn, currency, percent } from "@/lib/format";
 import { bandMapProvenance } from "@/lib/provenance";
 import { companyHref } from "@/lib/company/client";
 import {
   TINY_SHARE,
   buildBandMap,
+  foldToFit,
   type BandMap as Map,
   type BandMapBand,
   type BandMapPoint,
@@ -55,6 +56,8 @@ const ROW_H = 68;
 const BLOCK_MIN_PX = 72;
 /** The hairline between two blocks. */
 const BLOCK_GAP_PX = 3;
+/** A "+N" block carries a count rather than a name, so it needs less. */
+const REST_MIN_PX = 58;
 
 /**
  * How wide the bar column actually is, which is what decides how many
@@ -117,6 +120,7 @@ function Block({ point, code }: { point: BandMapPoint; code: string }) {
         "flex min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-md border px-2",
         "border-border/60 bg-card font-mono text-xs tabular-nums text-foreground",
         "transition hover:border-border hover:bg-card",
+        "outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
         point.actionable && "border-primary/45 bg-primary/[0.08]"
       )}
       style={{
@@ -153,12 +157,19 @@ function Rest({ folded }: { folded: BandMapPoint[] }) {
       style={{
         flexGrow: Math.max(share, 0.0001),
         flexBasis: 0,
-        minWidth: 58,
+        minWidth: REST_MIN_PX,
       }}
       title={`${folded.map((p) => cashtag(p.ticker)).join(", ")}: ${percent(share, 1)} of this portfolio together`}
     >
-      +{folded.length}
-      {allTiny ? " small" : " more"}
+      <span aria-hidden>
+        +{folded.length}
+        {allTiny ? " small" : " more"}
+      </span>
+      <span className="sr-only">
+        and {folded.length} not drawn here:{" "}
+        {folded.map((p) => cashtag(p.ticker)).join(", ")},{" "}
+        {percent(share, 1)} of this portfolio together
+      </span>
     </span>
   );
 }
@@ -183,19 +194,18 @@ function Row({
   code: string;
 }) {
   const [barRef, barWidth] = useBarWidth<HTMLDivElement>();
-  const filled = band.items.length + band.hidden.length > 0;
+  const filled = band.items.length > 0;
+  const { shown, folded } = foldToFit(band.items, blocksThatFit(barWidth));
   /*
-    A "+N" block takes a slot of its own, so the names it leaves room
-    for is one fewer than the bar holds whenever anything is folded.
+    The floor is what these blocks actually need, counted per block:
+    the folded "+N" is narrower than a name, so counting it as a name
+    overstates the floor and `max-width` then clips the bar's own end.
   */
-  const room = blocksThatFit(barWidth);
-  const needsRest =
-    band.hidden.length > 0 || band.items.length > room;
-  const shown = band.items.slice(0, needsRest ? Math.max(room - 1, 1) : room);
-  const folded = [...band.items.slice(shown.length), ...band.hidden].sort(
-    (a, b) => b.share - a.share
-  );
   const slots = shown.length + (folded.length > 0 ? 1 : 0);
+  const floorPx =
+    shown.length * BLOCK_MIN_PX +
+    (folded.length > 0 ? REST_MIN_PX : 0) +
+    Math.max(slots - 1, 0) * BLOCK_GAP_PX;
   return (
     <div
       className={cn(
@@ -208,7 +218,9 @@ function Row({
       <div
         className={cn(
           "flex shrink-0 flex-col gap-0.5 sm:w-64 sm:justify-center",
-          !filled && "opacity-45"
+          // Quieter, not unreadable: an empty band is still a step of
+          // the ladder a reader is entitled to read.
+          !filled && "opacity-60"
         )}
       >
         <div className="flex items-baseline justify-between gap-3">
@@ -227,7 +239,7 @@ function Row({
           {/* The share has its own column from `sm` up, so on a phone it
               rides with the label rather than being dropped. */}
           <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground sm:hidden">
-            {percent(band.share, 0)}
+            {sharePct(band.share)}
           </span>
         </div>
         <span className="font-mono text-xs leading-tight text-muted-foreground/70">
@@ -261,7 +273,7 @@ function Row({
                 stands for: a bar showing a dot and no ticker is a bar
                 saying nothing. The floor is what its own blocks need.
               */
-              width: `max(${(band.share / widest) * 100}%, ${slots * BLOCK_MIN_PX + (slots - 1) * BLOCK_GAP_PX}px)`,
+              width: `max(${(band.share / widest) * 100}%, ${floorPx}px)`,
               maxWidth: "100%",
             }}
           >
@@ -281,7 +293,7 @@ function Row({
           filled ? "text-muted-foreground" : "text-muted-foreground/25"
         )}
       >
-        {percent(band.share, 0)}
+        {sharePct(band.share)}
       </span>
     </div>
   );
@@ -321,9 +333,25 @@ function Tile({
   );
 }
 
-/** A zero in the middle of a sentence reads worse than the word. */
-function pctOrNone(v: number): string {
-  return v > 0.005 ? percent(v, 0) : "none";
+/**
+ * A SHARE IS NEVER ROUNDED INTO OR OUT OF EXISTENCE.
+ *
+ * `percent(0.004, 0)` is "0%", which beside a bar with a name in it is
+ * this app stating as fact that a holding it is drawing is worth
+ * nothing. "none" is the same lie in the other direction: it is right
+ * for a band that really is empty and wrong for one holding half a per
+ * cent of the portfolio. So there are three answers, and the middle one
+ * is the one that was missing.
+ */
+function sharePct(v: number): string {
+  if (!(v > 0)) return "0%";
+  return v < 0.005 ? "<1%" : percent(v, 0);
+}
+
+/** The same three answers, for a sentence rather than a column. */
+function sharePhrase(v: number): string {
+  if (!(v > 0)) return "none";
+  return v < 0.005 ? "less than 1%" : percent(v, 0);
 }
 
 /**
@@ -350,8 +378,8 @@ function Summary({ map }: { map: Map }) {
     <div className="grid gap-3 sm:grid-cols-3">
       <Tile
         label="Around fair value"
-        value={percent(s.aroundFairValue, 0)}
-        sub={`of this portfolio is priced near what its companies look worth. Below fair value, ${pctOrNone(s.below)}. Above it, ${pctOrNone(s.above)}.`}
+        value={sharePct(s.aroundFairValue)}
+        sub={`of this portfolio is priced near what its companies look worth. Below fair value, ${sharePhrase(s.below)}. Above it, ${sharePhrase(s.above)}.`}
       />
       <Tile
         label="Ready to act on"
@@ -359,13 +387,15 @@ function Summary({ map }: { map: Map }) {
         sub={
           said.length > 0
             ? said.join(", and ")
-            : "every name is somewhere in the middle of its own plan"
+            : map.points.length === 1
+              ? "your one holding is somewhere in the middle of its own plan"
+              : "every name is somewhere in the middle of its own plan"
         }
         accent={ready > 0}
       />
       <Tile
-        label="Biggest holding"
-        value={s.biggest ? percent(s.biggest.share, 0) : "n/a"}
+        label={map.points.length === 1 ? "Your holding" : "Biggest holding"}
+        value={s.biggest ? sharePct(s.biggest.share) : NO_VALUE}
         sub={
           s.biggest
             ? `${s.biggest.ticker}, and its plan puts today's price at "${s.biggest.bandLabel.toLowerCase()}".`

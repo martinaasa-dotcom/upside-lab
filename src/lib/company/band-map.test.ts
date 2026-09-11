@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  CROWD_AT,
   TINY_SHARE,
   actionableFirst,
   buildBandMap,
+  foldToFit,
 } from "@/lib/company/band-map";
 import { buildPlanLadder, type PlanLadder } from "@/lib/company/plan-ladder";
 import { blocksThatFit } from "@/components/company/BandMap";
@@ -128,56 +128,93 @@ describe("the picture never changes its own proportions", () => {
   });
 });
 
-describe("the crowding cutoff never drops a name silently", () => {
-  const crowd = () => [
-    ...Array.from({ length: CROWD_AT + 2 }, (_, i) =>
-      holding(`BIG${i}`, 1, 100)
-    ),
-    // Well under the cutoff, and nowhere near an end of its own plan.
-    holding("TINY", 1, 1),
-  ];
+describe("a name folds away because the bar ran out of room", () => {
+  const band = (n: number) =>
+    buildBandMap(
+      Array.from({ length: n }, (_, i) => holding(`N${i}`, 1, 100 - i))
+    ).bands.find((b) => b.id === "hold")!.items;
 
-  it("stands a tiny holding down once the picture is crowded", () => {
-    const map = buildBandMap(crowd());
-    const hold = map.bands.find((b) => b.id === "hold")!;
-    expect(hold.items.map((p) => p.ticker)).not.toContain("TINY");
-    expect(hold.hidden.map((p) => p.ticker)).toContain("TINY");
-    expect(map.summary.hiddenCount).toBe(1);
-    expect(map.summary.hiddenShare).toBeGreaterThan(0);
+  it("draws every name while the bar has room for them", () => {
+    const { shown, folded } = foldToFit(band(4), 6);
+    expect(shown).toHaveLength(4);
+    expect(folded).toEqual([]);
   });
 
-  it("draws every name while the portfolio is small enough", () => {
-    const map = buildBandMap([holding("BIG", 1, 100), holding("TINY", 1, 1)]);
-    const hold = map.bands.find((b) => b.id === "hold")!;
-    expect(hold.items.map((p) => p.ticker)).toEqual(["BIG", "TINY"]);
-    expect(map.summary.hiddenCount).toBe(0);
+  it("DRAWS A SMALL NAME WHEN THE BAND HAS THE ROOM FOR IT", () => {
+    /*
+      The fault this replaced: a cutoff on size alone folded two names
+      worth 1.5% and 0.2% away and drew "+2 small" over a bar with room
+      for six, so a reader could not see what was in their own band.
+    */
+    const map = buildBandMap([
+      holding("HUGE", 1.3, 400_000),
+      holding("SMALL", 0.85, 9_000),
+      holding("TINY", 0.85, 1_400),
+    ]);
+    const starter = map.bands.find((b) => b.id === "starter")!;
+    for (const p of starter.items) expect(p.share).toBeLessThan(TINY_SHARE);
+    const { shown, folded } = foldToFit(starter.items, 6);
+    expect(shown.map((p) => p.ticker)).toEqual(["SMALL", "TINY"]);
+    expect(folded).toEqual([]);
+  });
+
+  it("keeps a slot for the block that stands for the folded ones", () => {
+    const { shown, folded } = foldToFit(band(10), 4);
+    // Three names drawn and a "+7", which is the four slots the bar has.
+    expect(shown).toHaveLength(3);
+    expect(folded).toHaveLength(7);
+  });
+
+  it("folds the smallest, since the biggest is what a reader looks for", () => {
+    const { shown, folded } = foldToFit(band(10), 4);
+    for (const kept of shown) {
+      for (const gone of folded) {
+        expect(kept.share).toBeGreaterThanOrEqual(gone.share);
+      }
+    }
+  });
+
+  it("draws what it keeps in the band's own biggest first order", () => {
+    const { shown } = foldToFit(band(10), 4);
+    const shares = shown.map((p) => p.share);
+    expect([...shares].sort((a, b) => b - a)).toEqual(shares);
   });
 
   it("KEEPS A TINY NAME THAT HAS REACHED AN END OF ITS OWN PLAN", () => {
     /*
       The whole reason to open this picture is to find the name that
-      reached a level, and a cutoff by size alone throws exactly that
-      one away when it is small.
+      reached a level, and folding by size alone throws exactly that one
+      away first when it is small.
     */
-    const rows = [...crowd(), holding("FALLEN", 0.3, 1)];
+    const rows = [
+      ...Array.from({ length: 9 }, (_, i) => holding(`BIG${i}`, 1, 100)),
+      holding("FALLEN", 0.3, 1),
+    ];
     const map = buildBandMap(rows);
     const fallen = map.points.find((p) => p.ticker === "FALLEN")!;
-    expect(fallen.share).toBeLessThan(TINY_SHARE);
     expect(fallen.actionable).toBe(true);
-    const band = map.bands.find((b) => b.id === fallen.bandId)!;
-    expect(band.items.map((p) => p.ticker)).toContain("FALLEN");
-    expect(band.hidden.map((p) => p.ticker)).not.toContain("FALLEN");
+    expect(fallen.share).toBeLessThan(TINY_SHARE);
+
+    const quiet = map.bands.find((b) => b.id === "hold")!;
+    const itsBand = map.bands.find((b) => b.id === fallen.bandId)!;
+    // Its own band draws it even squeezed down to two slots.
+    expect(
+      foldToFit(itsBand.items, 2).shown.map((p) => p.ticker)
+    ).toContain("FALLEN");
+    // And the crowded band it is not in still folds by size.
+    expect(foldToFit(quiet.items, 3).folded.length).toBeGreaterThan(0);
   });
 
-  it("counts a folded name in its band's own share", () => {
-    const map = buildBandMap(crowd());
+  it("counts every name in its band's own share, drawn or folded", () => {
+    const map = buildBandMap([
+      holding("A", 1, 90),
+      holding("B", 1, 6),
+      holding("C", 1, 4),
+    ]);
     const hold = map.bands.find((b) => b.id === "hold")!;
-    const drawn = hold.items.reduce((s, p) => s + p.share, 0);
-    expect(hold.share).toBeGreaterThan(drawn);
-    expect(hold.share).toBeCloseTo(
-      drawn + hold.hidden.reduce((s, p) => s + p.share, 0),
-      10
-    );
+    const { folded } = foldToFit(hold.items, 2);
+    expect(folded.length).toBeGreaterThan(0);
+    expect(hold.share).toBeCloseTo(1, 10);
   });
 });
 

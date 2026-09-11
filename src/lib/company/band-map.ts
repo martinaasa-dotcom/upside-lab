@@ -26,7 +26,6 @@
  * owns, and the share of their own money.
  */
 import {
-  ACTIONABLE_BANDS,
   isActionableBand,
   positionInBand,
   type LadderBandId,
@@ -85,10 +84,8 @@ export type BandMapBand = {
   fromRatio: number | null;
   toRatio: number | null;
   actionable: boolean;
-  /** The holdings in this band that survived the size cutoff, biggest first. */
+  /** Every holding in this band, biggest first. */
   items: BandMapPoint[];
-  /** The ones the size cutoff stood down, biggest first. */
-  hidden: BandMapPoint[];
   /** What this band is worth against the whole portfolio, hidden included. */
   share: number;
 };
@@ -104,8 +101,6 @@ export type BandMapSummary = {
   addNames: string[];
   /** The biggest holding, which is the one worth naming out loud. */
   biggest: BandMapPoint | null;
-  hiddenCount: number;
-  hiddenShare: number;
 };
 
 export type BandMap = {
@@ -119,20 +114,12 @@ export type BandMap = {
 };
 
 /**
- * THE CUTOFF, AND WHY IT NEVER DROPS A NAME SILENTLY.
- *
- * Below `TINY_SHARE` a holding is a rounding error in the portfolio,
- * and once there are more than `CROWD_AT` of them the small ones cost
- * more room than they are worth: a band of fourteen blocks is fourteen
- * names nobody can read rather than a picture. So the small ones stand
- * down, their band says how many went and what they come to together,
- * and **a name at an end of its own plan is kept whatever it is worth**,
- * because that is the one the reader opened this picture to find. A 1%
- * holding that has fallen through the floor of its plan is exactly the
- * row a cutoff by size alone would throw away.
+ * Under this share of the portfolio a holding is a rounding error, and
+ * the picture says "small" rather than "more" when it folds a run of
+ * them away. It decides a word and nothing else: which names are drawn
+ * is `foldToFit`, and it is decided by room.
  */
 export const TINY_SHARE = 0.03;
-export const CROWD_AT = 8;
 
 /** Which end of the plan an actionable band sits at. */
 const TRIM_END = new Set<LadderBandId>(["trim-most", "trim-some"]);
@@ -219,31 +206,22 @@ export function buildBandMap(
     };
   });
 
-  const crowded = points.length > CROWD_AT;
-  const drawn = new Set(
-    crowded
-      ? points.filter((p) => p.share >= TINY_SHARE || p.actionable)
-      : points
-  );
-
   const biggestFirst = (a: BandMapPoint, b: BandMapPoint) => b.share - a.share;
 
+  /*
+    Biggest first, and EVERY name in the band. How many of them can
+    actually be drawn is a fact about the device rather than about the
+    portfolio, so the view measures its own bar and calls `foldToFit`.
+  */
   const bands: BandMapBand[] = shape.bands.map((b) => {
-    const mine = points.filter((p) => p.bandId === b.id);
-    /*
-      Biggest first, and every one of them: how many actually fit in a
-      bar is a fact about the device rather than about the portfolio,
-      so the view folds the overflow once it has measured itself. The
-      model's job is the order and the cutoff by size.
-    */
+    const mine = points.filter((p) => p.bandId === b.id).sort(biggestFirst);
     return {
       id: b.id,
       label: b.label,
       fromRatio: b.fromRatio,
       toRatio: b.toRatio,
       actionable: isActionableBand(b.id),
-      items: mine.filter((p) => drawn.has(p)).sort(biggestFirst),
-      hidden: mine.filter((p) => !drawn.has(p)).sort(biggestFirst),
+      items: mine,
       share: mine.reduce((s, p) => s + p.share, 0),
     };
   });
@@ -252,9 +230,6 @@ export function buildBandMap(
   const shareWhere = (test: (p: BandMapPoint) => boolean) =>
     points.filter(test).reduce((s, p) => s + p.share, 0);
   const reached = points.filter((p) => p.actionable);
-  // Read off the bands rather than off `drawn`, since a band folds its
-  // own overflow in on top of whatever the size cutoff stood down.
-  const hidden = bands.flatMap((b) => b.hidden);
 
   const summary: BandMapSummary = {
     aroundFairValue: shareWhere((p) => p.bandId === "hold"),
@@ -271,8 +246,6 @@ export function buildBandMap(
       .sort(biggestFirst)
       .map((p) => p.ticker),
     biggest: points.slice().sort(biggestFirst)[0] ?? null,
-    hiddenCount: hidden.length,
-    hiddenShare: hidden.reduce((s, p) => s + p.share, 0),
   };
 
   return {
@@ -291,12 +264,7 @@ const EMPTY_SUMMARY: BandMapSummary = {
   trimNames: [],
   addNames: [],
   biggest: null,
-  hiddenCount: 0,
-  hiddenShare: 0,
 };
-
-/** Every band the app counts as an end of the ladder, for the summary. */
-export const ENDS = ACTIONABLE_BANDS;
 
 /**
  * The holdings whose price has reached one of the decisive bands, worst
@@ -315,4 +283,44 @@ export function actionableFirst(points: BandMapPoint[]): BandMapPoint[] {
       const out = Math.abs(b.y - 0.5) - Math.abs(a.y - 0.5);
       return out !== 0 ? out : b.share - a.share;
     });
+}
+
+/**
+ * WHICH NAMES A BAND CAN ACTUALLY DRAW, AND WHICH FOLD AWAY.
+ *
+ * Folding is decided by **room**, never by size alone, and that is the
+ * correction rather than a detail. A cutoff that dropped everything
+ * under a few per cent of the portfolio read well on a crowded band and
+ * was nonsense on a quiet one: measured on a book with one holding at
+ * 69%, the band holding two names worth 1.5% and 0.2% folded BOTH of
+ * them and drew "+2 small" over a bar with room for six, so a reader
+ * could not see what was in their own band without hovering it. Room is
+ * the only thing that actually forces a name out.
+ *
+ * Size still decides WHICH name goes, because the blocks are ordered
+ * biggest first and folding takes from the end, so the smallest are the
+ * ones that fold. The one name that jumps the queue is **a holding at
+ * an end of its own plan**, kept however small it is: that is the row
+ * the reader opened this picture to find, and it is exactly the row an
+ * ordering by size alone throws away first.
+ */
+export function foldToFit(
+  items: BandMapPoint[],
+  room: number
+): { shown: BandMapPoint[]; folded: BandMapPoint[] } {
+  if (items.length === 0) return { shown: [], folded: [] };
+  if (items.length <= room) return { shown: items, folded: [] };
+  // One slot goes to the "+N" block that stands for the folded names.
+  const keep = Math.max(room - 1, 1);
+  const ranked = [...items].sort(
+    (a, b) =>
+      Number(b.actionable) - Number(a.actionable) || b.share - a.share
+  );
+  const kept = new Set(ranked.slice(0, keep));
+  return {
+    // Filtered rather than taken from `ranked`, so what is drawn stays
+    // in the band's own biggest-first order however it was chosen.
+    shown: items.filter((p) => kept.has(p)),
+    folded: items.filter((p) => !kept.has(p)),
+  };
 }
