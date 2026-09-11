@@ -227,25 +227,10 @@ const MEASURES: Measure[] = [
  * the other measure passes to the next person clearly enough ahead.
  */
 export function buildCircleAwards(members: AwardCandidate[]): CircleAward[] {
-  // Temporary: append ?debugAwards to the circle URL to see why each
-  // measure was or wasn't handed out, in the browser console. Remove once
-  // the "only one award" question is answered.
-  const debug =
-    typeof window !== "undefined" &&
-    window.location.search.includes("debugAwards");
-
   const withPersonality = members.filter(
     (m): m is AwardCandidate & { personality: PortfolioPersonality } =>
       Boolean(m.personality)
   );
-  if (debug) {
-    console.log(
-      `[awards] ${members.length} members, ${withPersonality.length} with a priced personality` +
-        (withPersonality.length < members.length
-          ? " (the rest have no holdings priced yet, so they're out of the running entirely)"
-          : "")
-    );
-  }
   if (withPersonality.length === 0) return [];
 
   /*
@@ -288,28 +273,13 @@ export function buildCircleAwards(members: AwardCandidate[]): CircleAward[] {
       )
       .sort((a, b) => b.value - a.value);
     const best = scored[0];
-    if (!best) {
-      if (debug) console.log(`[awards] ${measure.id}: nobody eligible`);
-      continue;
-    }
+    if (!best) continue;
     // A single-person circle has no runner up, so the margin is whatever
     // the winner clears the floor by. That is honest: with nobody to be
     // ahead of, "ahead" can only mean ahead of the bar.
     const runnerUp = scored[1]?.value ?? floor;
-    const margin = best.value - runnerUp;
-    if (debug) {
-      console.log(
-        `[awards] ${measure.id}: best ${best.member.name}=${best.value.toFixed(1)}` +
-          ` runnerUp=${runnerUp.toFixed(1)} floor=${floor.toFixed(1)}` +
-          ` margin=${margin.toFixed(1)} (needs ${measure.margin})` +
-          (best.value < floor
-            ? " -> BELOW FLOOR"
-            : margin < measure.margin
-              ? " -> MARGIN TOO CLOSE"
-              : " -> qualifies")
-      );
-    }
     if (best.value < floor) continue;
+    const margin = best.value - runnerUp;
     if (margin < measure.margin) continue;
     ranked.push({ measure, member: best.member, margin });
   }
