@@ -61,7 +61,27 @@ const THEME_BASE_MULTS: Record<ForecastTheme, number[]> = {
   fintech: [1.26, 1.68, 1.56, 2.17, 2.7], // ~22%/yr
   drones: [1.24, 1.65, 1.53, 2.14, 2.7], // ~22%/yr
   software: [1.21, 1.54, 1.46, 1.94, 2.39], // ~19%/yr
-  other: [1.14, 1.32, 1.48, 1.66, 1.84], // ~13%/yr
+  /*
+    The market baseline, and deliberately not a point above it.
+
+    This was [1.14, 1.32, 1.48, 1.66, 1.84], about 13% a year, which put
+    every company this app could not place three points ahead of the index
+    below. That is a lift, and a lift is the one thing the rules over this
+    file forbid: the persona had its "structurally bullish" compass and its
+    per-theme floors removed for exactly this reason, and nothing may
+    reintroduce a minimum a path has to clear. It reached further than a
+    forecast, too, since `impliedAnnualReturnForTheme` feeds the Growth
+    room's "Your mix" rate, so an ordinary portfolio's starting assumption
+    was quietly optimistic before the reader touched anything.
+
+    A case can be made for the premium -- one company is riskier and
+    undiversified -- but it is an investing opinion, and this bucket is by
+    definition the names this app knows least about. The honest assumption
+    about a company we cannot even classify is the market, which is also
+    what `DEFAULT_COMPOUND_INPUTS.ratePercent` already opens on. Same
+    shape as `index` on purpose: not a coincidence to be tidied away.
+  */
+  other: [1.1, 1.23, 1.35, 1.48, 1.61], // ~10%/yr, the market baseline
   healthcare: [1.12, 1.27, 1.43, 1.59, 1.76], // ~12%/yr
   index: [1.1, 1.23, 1.35, 1.48, 1.61], // ~10%/yr, the market baseline
 };
