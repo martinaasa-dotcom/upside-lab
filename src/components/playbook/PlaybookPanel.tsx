@@ -161,16 +161,18 @@ export function PlaybookPanel() {
   const bestDays = metrics.bestDays ?? null;
 
   return (
-    <div className="flex flex-col gap-6">
-      <Panel>
-        <PanelHeader
-          hero
-          title="Playbook"
-          subtitle="The general knowledge that decides what you do with the rest of this app. No company names, nothing about your own holdings, and nothing here is worth anything unless you can check it."
-          icon={<Compass aria-hidden className="size-4" />}
-        />
-      </Panel>
+    /*
+      NO HERO PANEL. LAB'S OWN HEADER IS THE ONE THIS ROOM GETS.
 
+      This opened with a panel carrying a hero title and a subtitle, and
+      directly above it Lab prints its own heading, its tab row and a
+      sentence introducing whichever tab is open. So a reader met two
+      headings and two subtitles saying much the same thing before reaching
+      anything, which is exactly the fault this repo already records
+      against the valuation panel when it was two stacked cards for one
+      question. The tab's own intro sentence carries what the hero said.
+    */
+    <div className="flex flex-col gap-6">
       <WidgetErrorBoundary name="Market temperature">
         <Section
           title="Fear and greed"
@@ -185,7 +187,7 @@ export function PlaybookPanel() {
         <WidgetErrorBoundary name="Recovery gap">
           <Section
             title="What a fall costs to undo"
-            subtitle="Two bars on one ruler. It takes about ten seconds to understand and it changes how most people think about risk for good."
+            subtitle="A fall and the rise that undoes it are never the same size, and the gap between them widens fast."
             icon={<Scale aria-hidden className="size-4" />}
           >
             <RecoveryGap />
@@ -211,7 +213,7 @@ export function PlaybookPanel() {
         <WidgetErrorBoundary name="Ideas">
           <Section
             title="Ideas worth keeping"
-            subtitle="Each one in plain words, with the sentence it is usually remembered by, and the way it goes wrong."
+            subtitle="The ideas that keep turning up in the writing of people who did this well for a long time, each in plain words with the sentence it is usually remembered by."
             icon={<Compass aria-hidden className="size-4" />}
           >
             <IdeaDeck />

@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import { ratingForScore } from "@/lib/market/fear-greed";
 import {
   allQuotes,
+  bandCuts,
   bandForScore,
+  bandWidths,
   IDEA_THEMES,
   IDEAS,
   ladderPosition,
@@ -38,6 +40,43 @@ describe("the ladder is the published one", () => {
       expected = band.range[1] + 1;
     }
     expect(expected).toBe(101);
+  });
+
+  /*
+    The track paints a zone per band and a hairline at each boundary, and
+    those used to be two separate sums: the widths from each band's own
+    span, which totals 101 over 0 to 100 inclusive, and the hairlines from
+    each band's low end. Flex shrank the zones to fit and left the
+    hairlines where they were, so measured on an 800px track every divider
+    sat 2 to 6 pixels to the right of the tone change it marks. One set of
+    cut points feeds both now.
+  */
+  it("cuts between the bands, so the widths cover the track exactly", () => {
+    const widths = bandWidths();
+    expect(widths).toHaveLength(TEMPERATURE_BANDS.length);
+    const total = widths.reduce((a, b) => a + b, 0);
+    expect(total).toBeCloseTo(100, 10);
+    for (const w of widths) expect(w).toBeGreaterThan(0);
+  });
+
+  it("puts each cut between the bands it separates", () => {
+    const cuts = bandCuts();
+    expect(cuts).toHaveLength(TEMPERATURE_BANDS.length - 1);
+    cuts.forEach((cut, i) => {
+      expect(cut).toBeGreaterThan(TEMPERATURE_BANDS[i]!.range[1] - 1);
+      expect(cut).toBeLessThan(TEMPERATURE_BANDS[i + 1]!.range[0] + 1);
+    });
+  });
+
+  it("draws every score inside the zone its own band names", () => {
+    const cuts = bandCuts();
+    const edges = [0, ...cuts, 100];
+    for (let score = 0; score <= 100; score++) {
+      const i = TEMPERATURE_BANDS.indexOf(bandForScore(score));
+      expect(score, `${score} falls outside the zone drawn for its band`)
+        .toBeGreaterThanOrEqual(edges[i]!);
+      expect(score).toBeLessThanOrEqual(edges[i + 1]!);
+    }
   });
 
   it("puts a score where the reader can see it on the track", () => {
@@ -78,6 +117,25 @@ describe("a quotation is the app reporting what somebody said", () => {
   });
 });
 
+/*
+  `ownProse()` is the content module. The room's panel headings and
+  subtitles are written in the component, so the copy rules below would
+  have run over everything except the sentences a reader meets first. Both
+  of the claims-about-the-reader this suite now refuses were in exactly
+  that gap.
+*/
+function surfaceProse(): string[] {
+  const panel = readFileSync(
+    join(process.cwd(), "src/components/playbook/PlaybookPanel.tsx"),
+    "utf8"
+  );
+  const subtitles = [...panel.matchAll(/(?:title|subtitle)="([^"]+)"/g)].map(
+    (m) => m[1] ?? ""
+  );
+  expect(subtitles.length).toBeGreaterThan(4);
+  return [...ownProse(), ...subtitles];
+}
+
 describe("the app's own prose never instructs", () => {
   /*
     Deliberately runs over `ownProse()`, which excludes quotations by
@@ -91,17 +149,37 @@ describe("the app's own prose never instructs", () => {
     /\b(undervalued|overvalued|a strong buy|a strong sell|cheap right now)\b/i;
 
   it("uses no instruction word", () => {
-    const bad = ownProse().filter((line) => INSTRUCTION.test(line));
+    const bad = surfaceProse().filter((line) => INSTRUCTION.test(line));
     expect(bad).toEqual([]);
   });
 
   it("uses no verdict word", () => {
-    const bad = ownProse().filter((line) => VERDICT.test(line));
+    const bad = surfaceProse().filter((line) => VERDICT.test(line));
+    expect(bad).toEqual([]);
+  });
+
+  /*
+    A CLAIM ABOUT THE READER IS THE ONE THING NOBODY CAN CHECK.
+
+    The whole premise of this room is that every sentence in it is either a
+    figure a reader can verify or an argument they can argue with. "It
+    takes about ten seconds to understand" and "it changes how most people
+    think about risk for good" are neither: they are the app telling
+    somebody what they are about to feel, they flatter the writing rather
+    than the reader, and being wrong about them is invisible. Both shipped
+    in the first draft. What replaced them were the figures themselves, a
+    quarter off needing a third back and half off needing a double.
+  */
+  const ABOUT_THE_READER =
+    /\b(takes (?:about )?(?:a few |ten |five |thirty )?seconds|changes how (?:you|most people|anybody) think|you(?:'ll| will) never look at|will blow your mind|life[- ]changing|once you see (?:it|this))\b/i;
+
+  it("never tells the reader what they are about to feel", () => {
+    const bad = surfaceProse().filter((line) => ABOUT_THE_READER.test(line));
     expect(bad).toEqual([]);
   });
 
   it("uses no dash as a clause break", () => {
-    const bad = [...ownProse(), ...allQuotes().map((q) => q.text)].filter(
+    const bad = [...surfaceProse(), ...allQuotes().map((q) => q.text)].filter(
       (line) => /[—–]/.test(line)
     );
     expect(bad).toEqual([]);
@@ -145,12 +223,19 @@ describe("the deck is navigable", () => {
     }
   });
 
-  it("leaves no theme heading with nothing behind it", () => {
+  /*
+    Two ideas, not one. The subjects are headings rather than a filter, so a
+    theme with a single card under it draws a heading over one thing, which
+    reads as a section whose content failed to arrive rather than as a short
+    answer. Cost and The crowd were both in that state when the filter was
+    removed, and the fix was the ideas each was missing (what holding cash
+    quietly costs, what trading often costs) rather than dropping a subject.
+  */
+  it("leaves no theme heading standing over fewer than two cards", () => {
     for (const theme of IDEA_THEMES) {
-      expect(
-        IDEAS.some((i) => i.theme === theme.id),
-        `${theme.id} filters to an empty list`
-      ).toBe(true);
+      const count = IDEAS.filter((i) => i.theme === theme.id).length;
+      expect(count, `${theme.id} has ${count} idea(s) under its heading`)
+        .toBeGreaterThan(1);
     }
   });
 });
@@ -281,5 +366,68 @@ describe("the market snapshot still caches a merged reading", () => {
     // quotes the old, wrong test to explain it, so a scan for the absence
     // of that spelling fails on the comment that exists to prevent it.
     expect(src).toMatch(/chosen !== prev/);
+  });
+});
+
+/*
+  A body opened by a button says which button opened it, or a reader on a
+  screen reader lands in a block of prose with nothing tying it to the
+  control they pressed. `aria-expanded` alone says a control opens
+  something and not what.
+*/
+describe("the accordions name what they open", () => {
+  const read = (f: string) => readFileSync(join(process.cwd(), f), "utf8");
+  const files = [
+    "src/components/playbook/TemperatureLadder.tsx",
+    "src/components/playbook/IdeaDeck.tsx",
+  ];
+
+  it.each(files)("associates the button and its body in %s", (file) => {
+    const src = read(file);
+    expect(src).toMatch(/aria-expanded=\{open\}/);
+    expect(src).toMatch(/aria-controls=\{bodyId\}/);
+    expect(src).toMatch(/id=\{headId\}/);
+    expect(src).toMatch(/role="region"/);
+    expect(src).toMatch(/aria-labelledby=\{headId\}/);
+  });
+
+  /*
+    The repo's accordion idiom for a transition a reader did not ask for.
+    `motion-reduce:duration-0` is what `AlertCards` uses; the glyph turning
+    is the only motion in this room and it has to stand down with the rest.
+  */
+  it.each(files)("stands its one moving glyph down under reduced motion in %s", (file) => {
+    const src = read(file);
+    const turns = [...src.matchAll(/transition-transform[^"]*/g)].map((m) => m[0]);
+    expect(turns.length).toBeGreaterThan(0);
+    for (const cls of turns) {
+      expect(cls, `"${cls}" keeps animating under reduced motion`).toMatch(
+        /motion-reduce:duration-0/
+      );
+    }
+  });
+});
+
+/*
+  Lab already prints its own heading, its tab row and a sentence
+  introducing whichever tab is open, so a hero panel inside the room is a
+  second heading and a second subtitle for one thing.
+*/
+describe("this room does not print a second heading over Lab's own", () => {
+  it("has no hero panel", () => {
+    const src = readFileSync(
+      join(process.cwd(), "src/components/playbook/PlaybookPanel.tsx"),
+      "utf8"
+    );
+    expect(src).not.toMatch(/\bhero\b\s*$/m);
+    expect(src).not.toMatch(/title="Playbook"/);
+  });
+
+  it("keeps the tab's own introduction, which is what the hero said", () => {
+    const lab = readFileSync(
+      join(process.cwd(), "src/components/LabSheet.tsx"),
+      "utf8"
+    );
+    expect(lab).toMatch(/playbook:\s*\n?\s*"/);
   });
 });

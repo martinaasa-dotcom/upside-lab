@@ -188,6 +188,41 @@ export const TEMPERATURE_BANDS: readonly TemperatureBand[] = [
   },
 ] as const;
 
+/*
+  ONE SET OF CUT POINTS, BECAUSE THE PICTURE WAS DRAWING EACH BOUNDARY
+  TWICE FROM TWO DIFFERENT SUMS.
+
+  The track paints a zone per band and a hairline at each boundary. Those
+  were computed separately: the zones from each band's own width and the
+  hairlines from each band's low end. The bands are integer buckets over
+  0 to 100, which is 101 values, so the widths summed to 101% and flex
+  shrank every zone to fit, while the hairlines stayed on the unshrunk
+  scale. Measured on an 800px track the two disagreed by 2, 3.6, 4.4 and
+  **6 pixels**, so every hairline sat to the right of the tone change it
+  was supposed to mark, the gap widening across the picture.
+
+  The cut between two adjacent bands is the half point between them, so
+  the boundaries are 25.5, 45.5, 55.5 and 75.5, and the widths that follow
+  sum to exactly 100. Both halves of the drawing read this, so they cannot
+  drift again.
+*/
+export function bandCuts(): number[] {
+  const cuts: number[] = [];
+  for (let i = 0; i < TEMPERATURE_BANDS.length - 1; i++) {
+    const lower = TEMPERATURE_BANDS[i]!;
+    const upper = TEMPERATURE_BANDS[i + 1]!;
+    cuts.push((lower.range[1] + upper.range[0]) / 2);
+  }
+  return cuts;
+}
+
+/** Each band's share of the 0 to 100 track, in order. Sums to 100. */
+export function bandWidths(): number[] {
+  const cuts = bandCuts();
+  const edges = [0, ...cuts, 100];
+  return TEMPERATURE_BANDS.map((_, i) => edges[i + 1]! - edges[i]!);
+}
+
 export function bandForScore(score: number): TemperatureBand {
   const rating = ratingForScore(score);
   const found = TEMPERATURE_BANDS.find(
@@ -340,7 +375,7 @@ export const IDEAS: readonly Idea[] = [
     meaning:
       "This is not a claim that losses can be avoided, which would be silly coming from somebody who has had plenty. It is about the shape of the arithmetic. A fall and the rise needed to undo it are not the same size, and the gap between them grows fast: half your money back needs a double to get level. That asymmetry is why a portfolio that never has a catastrophic year can beat one that has several brilliant ones.",
     inPractice:
-      "The slider on this page, under what a fall costs to undo, draws the gap. It is the single most useful piece of arithmetic in this room and it takes about ten seconds to understand.",
+      "The slider on this page, under what a fall costs to undo, draws the gap: a quarter off needs a third back, and half off needs a double.",
     goesWrong:
       "Read literally it argues for never taking any risk at all, which guarantees a different loss: money that sits still while prices for everything else go up. Avoiding every fall and avoiding ruin are different projects, and only the second one is worth organising your life around.",
   },
@@ -422,6 +457,72 @@ export const IDEAS: readonly Idea[] = [
       "The useful question after a holding does well is not whether you were right but whether you would make the same decision again knowing only what you knew then.",
     goesWrong:
       "Taken too far this becomes a way of never being wrong about anything: every loss reclassified as bad luck and every gain as judgement. Results are weak evidence, not no evidence, and a long enough run of them is the only evidence there is.",
+  },
+  {
+    id: "inflation",
+    theme: "cost",
+    title: "Money left alone does not stay still. It shrinks quietly.",
+    quote: {
+      text: "Most of these currency-based investments are thought of as safe. In truth they are among the most dangerous of assets.",
+      author: "Warren Buffett",
+      attribution:
+        "Berkshire Hathaway shareholder letter, 2011, about money held as cash, deposits and bonds.",
+    },
+    meaning:
+      "Prices rise a little every year, so the same amount of money buys less of everything as time passes. Cash does not fall in a way anybody notices, which is exactly what makes it feel safe: the number on the statement never goes down. What goes down is what that number can buy, and over twenty or thirty years that quiet shrinking is larger than most of the falls people organise their lives around avoiding.",
+    inPractice:
+      "It means the choice is never between taking a risk and taking none. It is between a risk you can see day to day and one you cannot see at all.",
+    goesWrong:
+      "This is not an argument for holding nothing in cash. Money you might genuinely need inside a few years has no business being anywhere it could halve, and somebody forced to sell at the bottom because the rent was in the market has lost far more than inflation was ever going to take.",
+  },
+  {
+    id: "turnover",
+    theme: "cost",
+    title: "The more often people trade, the worse they tend to do.",
+    quote: {
+      text: "Trading is hazardous to your wealth.",
+      author: "Brad Barber and Terrance Odean",
+      attribution:
+        "The title of their 2000 study in the Journal of Finance, which read the accounts of 66,465 households. The fifth who traded most averaged about 11.4% a year against the market's 17.9%.",
+    },
+    meaning:
+      "That study is one of the most robust findings anybody has produced about ordinary investors, and the gap is not explained by those people picking worse companies. It is the cost of the activity itself: every round trip has a spread and a fee, and each one replaces a decision made with time to think with one made in a moment.",
+    inPractice:
+      "It is the strongest argument there is for making fewer decisions and making them slowly, and it has nothing to do with being clever.",
+    goesWrong:
+      "Rarely is not never, and a rule about averages says nothing about any particular sale. Somebody holding a company whose situation has genuinely changed is not trading too much by selling it, and treating every sale as a lapse in discipline is its own way of losing money.",
+  },
+  {
+    id: "position-size",
+    theme: "risk",
+    title: "How much you put in decides what being wrong costs you.",
+    quote: {
+      text: "It's not whether you're right or wrong that's important, but how much money you make when you're right and how much you lose when you're wrong.",
+      author: "George Soros",
+    },
+    meaning:
+      "Picking well is hard and mostly outside anybody's control. How much of everything you own goes into one decision is entirely inside it, and it is the part that decides whether being wrong is a bad quarter or a changed life. Two people can hold exactly the same companies and have completely different outcomes because one of them put a twentieth into the risky one and the other put half.",
+    inPractice:
+      "It is the one question this app will actually answer about a purchase, because it is arithmetic rather than judgement: what a given amount would become as a share of everything you own, and what a quarter off it would cost.",
+    goesWrong:
+      "Sizing everything small guarantees that being right about something barely matters, which is its own kind of failure. Almost every large result in investing came from somebody holding enough of something for it to count.",
+  },
+  {
+    id: "crowd-is-not-evidence",
+    theme: "crowd",
+    title: "The crowd agreeing with you is not evidence, and neither is the crowd disagreeing.",
+    quote: {
+      text: "You are neither right nor wrong because the crowd disagrees with you. You are right because your data and your reasoning are right.",
+      author: "Benjamin Graham",
+      attribution:
+        "The Intelligent Investor, in the chapter on margin of safety. Buffett quotes it often enough that it is frequently mistaken for his.",
+    },
+    meaning:
+      "Every purchase has somebody on the other side of it who looked at roughly the same facts and reached the opposite conclusion. That should be uncomfortable, and the discomfort is the useful part: it is the reminder that agreement and disagreement are both just headcounts, and a headcount is not a reason.",
+    inPractice:
+      "The practical form is to be able to say what the person selling to you believes, in a sentence they would recognise. If you cannot, you do not yet know what you are betting on.",
+    goesWrong:
+      "This is regularly used to dismiss every objection as mere popular opinion, which turns a warning about the crowd into a licence to ignore everybody. The crowd is often right, and knowing when it is not is the hardest judgement in the subject rather than a matter of temperament.",
   },
   {
     id: "crowd",

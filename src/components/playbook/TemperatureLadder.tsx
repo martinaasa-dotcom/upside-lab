@@ -4,7 +4,9 @@ import { PlaybookQuote } from "@/components/playbook/PlaybookQuote";
 import { Card, MicroLabel, NoteRows, Pill } from "@/components/ui/Panel";
 import { cn } from "@/lib/format";
 import {
+  bandCuts,
   bandForScore,
+  bandWidths,
   ladderPosition,
   TEMPERATURE_BANDS,
   type TemperatureBand,
@@ -43,10 +45,6 @@ const ZONE_WASH = [
   "bg-foreground/[0.09]",
 ] as const;
 
-function zoneWidth(band: TemperatureBand): number {
-  return band.range[1] - band.range[0] + 1;
-}
-
 /*
   A MARKER AT AN END OF THE TRACK IS HALF A MARKER.
 
@@ -62,6 +60,8 @@ function zoneWidth(band: TemperatureBand): number {
 const MARK_INSET_PCT = 1.2;
 
 function Track({ score }: { score: number | null }) {
+  const widths = bandWidths();
+  const cuts = bandCuts();
   const pos =
     score == null
       ? null
@@ -75,17 +75,17 @@ function Track({ score }: { score: number | null }) {
             <div
               key={band.id}
               className={cn("h-full", ZONE_WASH[i])}
-              style={{ width: `${zoneWidth(band)}%` }}
+              style={{ width: `${widths[i]}%` }}
             />
           ))}
         </div>
-        {/* Hairlines where the published bands actually change. */}
+        {/* The same cut points the zones above are drawn from. */}
         <div aria-hidden className="absolute inset-0">
-          {TEMPERATURE_BANDS.slice(1).map((band) => (
+          {cuts.map((cut) => (
             <span
-              key={band.id}
+              key={cut}
               className="absolute top-0 h-full w-px bg-border"
-              style={{ left: `${band.range[0]}%` }}
+              style={{ left: `${cut}%` }}
             />
           ))}
         </div>
@@ -124,6 +124,23 @@ function BandRow({
   open: boolean;
   onToggle: () => void;
 }) {
+  /*
+    A body opened by a button has to say which button, or a reader on a
+    screen reader lands in a block of prose with nothing telling them what
+    it belongs to. `aria-expanded` alone says the control opens something
+    and not what.
+
+    The body is mounted only while it is open rather than animated from
+    zero height, which is the one place this room departs from the
+    accordion `AlertCards` established. That one carries a handful of
+    cards; this room has five bands and eighteen ideas, and the expanded
+    bodies measure about fifteen thousand pixels at phone width, so keeping
+    them all in the document to animate them would roughly triple what the
+    room renders on its first paint. Per-panel render weight is the lever
+    this repo has already measured, so the weight wins and the motion goes.
+  */
+  const headId = `band-${band.id}`;
+  const bodyId = `band-${band.id}-body`;
   return (
     <Card
       tone="default"
@@ -133,6 +150,8 @@ function BandRow({
         type="button"
         onClick={onToggle}
         aria-expanded={open}
+        aria-controls={bodyId}
+        id={headId}
         className="flex w-full items-start gap-3 rounded-lg p-4 text-left transition hover:bg-hover sm:p-6"
       >
         <span className="min-w-0 flex-1">
@@ -150,13 +169,18 @@ function BandRow({
         <ChevronDown
           aria-hidden
           className={cn(
-            "mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform",
+            "mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:duration-0",
             open && "rotate-180"
           )}
         />
       </button>
       {open ? (
-        <div className="flex flex-col gap-5 border-t border-border p-4 sm:p-6">
+        <div
+          id={bodyId}
+          role="region"
+          aria-labelledby={headId}
+          className="flex flex-col gap-5 border-t border-border p-4 sm:p-6"
+        >
           <PlaybookQuote quote={band.quote} />
           {band.second ? <PlaybookQuote quote={band.second} /> : null}
           <NoteRows

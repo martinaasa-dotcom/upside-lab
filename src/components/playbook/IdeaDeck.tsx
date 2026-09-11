@@ -37,6 +37,10 @@ import { useState } from "react";
 
 function IdeaCard({ idea }: { idea: Idea }) {
   const [open, setOpen] = useState(false);
+  /* Named so the opened body says which card it belongs to. See the note
+   * in `TemperatureLadder`, including why it mounts rather than animates. */
+  const headId = `idea-${idea.id}`;
+  const bodyId = `idea-${idea.id}-body`;
   return (
     <Card
       tone="default"
@@ -46,6 +50,8 @@ function IdeaCard({ idea }: { idea: Idea }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        aria-controls={bodyId}
+        id={headId}
         className="flex w-full items-start gap-3 rounded-lg p-4 text-left transition hover:bg-hover sm:p-6"
       >
         <span className="min-w-0 flex-1 text-base font-medium leading-snug text-foreground">
@@ -54,13 +60,18 @@ function IdeaCard({ idea }: { idea: Idea }) {
         <Plus
           aria-hidden
           className={cn(
-            "mt-1 size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+            "mt-1 size-4 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:duration-0",
             open && "rotate-45"
           )}
         />
       </button>
       {open ? (
-        <div className="flex flex-col gap-5 border-t border-border p-4 sm:p-6">
+        <div
+          id={bodyId}
+          role="region"
+          aria-labelledby={headId}
+          className="flex flex-col gap-5 border-t border-border p-4 sm:p-6"
+        >
           <PlaybookQuote quote={idea.quote} />
           <NoteRows
             rows={[
@@ -78,12 +89,20 @@ function IdeaCard({ idea }: { idea: Idea }) {
 export function IdeaDeck() {
   return (
     <div className="flex flex-col gap-8">
+      {/*
+        This does not restate the panel's subtitle above it. That one says
+        what the list is; this says the one thing about it that is not
+        obvious, which is why every card carries its own objection. Both
+        opened with "the ideas that keep turning up ... and the way it goes
+        wrong", so a reader met the same promise twice before reaching a
+        card, which is the fault this room already fixed one level up when
+        it dropped its own hero panel under Lab's heading.
+      */}
       <p className="text-sm leading-relaxed text-muted-foreground">
-        {IDEAS.length} ideas that keep turning up in the writing of people who
-        did this well for a long time, grouped by what they are about. Every one
-        of them carries the way it goes wrong, because each has an opposite that
-        is also true and the whole skill is knowing which one the week in front
-        of you is asking for. Open one to read it.
+        {IDEAS.length} of them, grouped by what they are about. Each has an
+        opposite that is also true, and the whole skill is knowing which one
+        the week in front of you is asking for, so every card carries the way
+        its own idea goes wrong. Open one to read it.
       </p>
       {IDEA_THEMES.map((theme) => {
         const shown = IDEAS.filter((i) => i.theme === theme.id);

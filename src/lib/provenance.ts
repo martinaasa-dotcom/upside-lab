@@ -590,6 +590,7 @@ export function scenarioProvenance(): Provenance {
 export function bestDaysProvenance(input: {
   from?: string | null;
   to?: string | null;
+  /** Trading days in the window, so the account can say how many. */
   days?: number | null;
   starting: string;
 }): Provenance {
@@ -603,7 +604,10 @@ export function bestDaysProvenance(input: {
     inputs: [
       {
         what: "Daily closing prices for SPY, which tracks the S&P 500",
-        detail: window,
+        detail:
+          input.days != null
+            ? `${window}, which is ${input.days} trading days`
+            : window,
       },
       {
         what: "How many of the days to leave out",
