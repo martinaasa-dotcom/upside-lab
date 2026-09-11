@@ -223,8 +223,20 @@ export function preferSentimentSnapshot(
         : sentimentHasAnyGauge(next)
           ? next
           : prev;
-  if (chosen.spark || !prev?.spark) return chosen;
-  return { ...chosen, spark: prev.spark };
+  /*
+    A snapshot that arrived without a spark is not a statement that there is
+    none: it is a fetch that did not get that far. Carrying the previous one
+    forward keeps the picture on screen through a provider's bad minute
+    rather than blanking it and drawing it again a moment later.
+
+    Note the shape: this returns a THIRD thing, neither input, and
+    `sentiment-fetch.ts` has to decide whether to cache against that. See
+    the note there; an identity test against the raw fetch reads a merge as
+    "nothing new" and quietly stops caching.
+  */
+  const spark = chosen.spark ?? prev?.spark ?? null;
+  if (spark === chosen.spark) return chosen;
+  return { ...chosen, spark };
 }
 
 function clamp01(n: number): number {

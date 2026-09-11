@@ -51,13 +51,46 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { ChevronRight, Loader2, Plus, RefreshCw, X } from "lucide-react";
+import {
+  Activity,
+  ChevronDown,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 /** Stable server-side value; a fresh [] each render would churn the memo. */
 const EMPTY_LIST: string[] = [];
 const EMPTY_QUOTES: Record<string, Quote> = {};
 const POPULAR_SEED = [...FALLBACK_POPULAR_TICKERS];
+
+/** Where a price sits between a low and a high, 0 to 1. Half when the range is flat. */
+function rangePosition(low: number, high: number, price: number): number {
+  const span = high - low;
+  return span > 0 ? Math.min(1, Math.max(0, (price - low) / span)) : 0.5;
+}
+
+/** The same gain-to-loss mix `RangeMeter` and `MiniRangeDot` both paint their dot in. */
+function rangeDotColor(pos: number): string {
+  return `color-mix(in oklch, var(--gain) ${pos * 100}%, var(--loss) ${(1 - pos) * 100}%)`;
+}
+
+/**
+ * What the accordion should have open after a ticker leaves the list.
+ * A removed ticker can be re-added later in the same session, and its row
+ * has to start closed again rather than reopening on its own because
+ * `expandedTicker` was still naming it. Exported so the rule is tested on
+ * its own, apart from the component that calls it.
+ */
+export function nextExpandedAfterRemove(
+  expandedTicker: string | null,
+  removedTicker: string
+): string | null {
+  return expandedTicker === removedTicker ? null : expandedTicker;
+}
 
 function RangeMeter({
   low,
@@ -68,8 +101,7 @@ function RangeMeter({
   high: number;
   price: number;
 }) {
-  const span = high - low;
-  const pos = span > 0 ? Math.min(1, Math.max(0, (price - low) / span)) : 0.5;
+  const pos = rangePosition(low, high, price);
   return (
     <div>
       <MicroLabel>Recent range</MicroLabel>
@@ -90,11 +122,81 @@ function RangeMeter({
             className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-background"
             style={{
               left: `${pos * 100}%`,
-              backgroundColor: `color-mix(in oklch, var(--gain) ${pos * 100}%, var(--loss) ${(1 - pos) * 100}%)`,
+              backgroundColor: rangeDotColor(pos),
             }}
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** A pocket-sized `RangeMeter`: the dot alone, no labels, for a row you have not opened yet. */
+function MiniRangeDot({
+  low,
+  high,
+  price,
+}: {
+  low: number;
+  high: number;
+  price: number;
+}) {
+  const pos = rangePosition(low, high, price);
+  return (
+    <div
+      className="relative h-1.5 w-10 shrink-0 rounded-full bg-secondary"
+      aria-hidden="true"
+    >
+      <span
+        className="absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-background"
+        style={{
+          left: `${pos * 100}%`,
+          backgroundColor: rangeDotColor(pos),
+        }}
+      />
+    </div>
+  );
+}
+
+/** Research and Pulse, side by side, wherever a watchlist name offers a way in. */
+function WatchActions({
+  ticker,
+  onOpenResearch,
+  onOpenPulse,
+  className,
+}: {
+  ticker: string;
+  onOpenResearch?: (ticker: string) => void;
+  onOpenPulse?: (ticker: string) => void;
+  className?: string;
+}) {
+  if (!onOpenResearch && !onOpenPulse) return null;
+  return (
+    <div className={cn("flex gap-2", className)}>
+      {onOpenResearch ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => onOpenResearch(ticker)}
+          className="flex-1 touch-target justify-center gap-1.5 lg:min-h-0"
+        >
+          <Search className="size-3.5" />
+          Research
+        </Button>
+      ) : null}
+      {onOpenPulse ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => onOpenPulse(ticker)}
+          className="flex-1 touch-target justify-center gap-1.5 lg:min-h-0"
+        >
+          <Activity className="size-3.5" />
+          Pulse
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -105,6 +207,7 @@ function WatchCard({
   look,
   onRemove,
   onOpenPulse,
+  onOpenResearch,
   onRetryQuote,
   quoteRetrying,
 }: {
@@ -113,6 +216,7 @@ function WatchCard({
   look: WatchLook | null;
   onRemove: () => void;
   onOpenPulse?: (ticker: string) => void;
+  onOpenResearch?: (ticker: string) => void;
   onRetryQuote?: () => void;
   quoteRetrying?: boolean;
 }) {
@@ -218,18 +322,190 @@ function WatchCard({
         </>
       )}
 
-      {onOpenPulse && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onOpenPulse(ticker)}
-          className="mt-auto w-full touch-target justify-between lg:min-h-0"
+      <WatchActions
+        ticker={ticker}
+        onOpenResearch={onOpenResearch}
+        onOpenPulse={onOpenPulse}
+        className="mt-auto"
+      />
+    </div>
+  );
+}
+
+/**
+ * One name, one row, closed by default.
+ *
+ * A watchlist of eight names used to be eight full `WatchCard`s stacked one
+ * under the next on a phone -- ticker, price, a range meter, a headline
+ * paragraph and a button, each upward of 300px, so reading the list end to
+ * end was most of a screen's worth of scrolling per name. Everything
+ * actionable is still here; it just does not print itself until you ask.
+ * Collapsed, a row is a single line: the ticker, a dot on its own recent
+ * range, today's price and its move. Press it and the same headline,
+ * detail and Research/Pulse buttons the desktop card always had drop open
+ * underneath. Only one row is open at a time, so the list stays a list.
+ */
+function WatchRowMobile({
+  ticker,
+  quote,
+  look,
+  expanded,
+  onToggle,
+  onRemove,
+  onOpenPulse,
+  onOpenResearch,
+  onRetryQuote,
+  quoteRetrying,
+}: {
+  ticker: string;
+  quote: Quote | undefined;
+  look: WatchLook | null;
+  expanded: boolean;
+  onToggle: () => void;
+  onRemove: () => void;
+  onOpenPulse?: (ticker: string) => void;
+  onOpenResearch?: (ticker: string) => void;
+  onRetryQuote?: () => void;
+  quoteRetrying?: boolean;
+}) {
+  const pct = quote?.changePercent ?? null;
+  const waiting = !quote || pct == null;
+  const rangeLow = look?.low ?? null;
+  const rangeHigh = look?.high ?? null;
+  const coin = coinFromSymbol(ticker);
+
+  if (waiting) {
+    return (
+      <div className="glass-well flex h-12 items-center justify-between gap-3 rounded-md border border-border px-3">
+        <Badge variant="secondary" className="h-6">{cashtag(ticker)}</Badge>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground">Waiting on today&apos;s price</span>
+          {onRetryQuote ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={onRetryQuote}
+              disabled={quoteRetrying}
+              aria-label={`Fetch price for ${ticker}`}
+              title="Fetch price"
+            >
+              <RefreshCw className={quoteRetrying ? "animate-spin" : undefined} />
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={onRemove}
+            aria-label={`Remove ${coin?.name ?? cashtag(ticker)}`}
+          >
+            <X />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const panelId = `watch-panel-${ticker}`;
+
+  return (
+    <div className="card-sheen glass-well overflow-hidden rounded-lg border border-border">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        className="flex w-full touch-target items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring/50"
+      >
+        <Badge
+          variant="secondary"
+          className="h-6 shrink-0 font-heading text-xs font-semibold"
         >
-          Open Pulse
-          <ChevronRight />
-        </Button>
-      )}
+          {cashtag(ticker)}
+        </Badge>
+        {rangeLow != null && rangeHigh != null ? (
+          <MiniRangeDot low={rangeLow} high={rangeHigh} price={quote.price} />
+        ) : null}
+        <span className="min-w-0 flex-1" />
+        <span className="flex shrink-0 flex-col items-end gap-0.5">
+          <span
+            className="font-mono text-sm font-semibold tabular-nums text-foreground"
+            title={quoteAsOfTitle(quote)}
+          >
+            {currency(quote.price)}
+          </span>
+          <span className={cn("font-mono text-xs tabular-nums", signedTone(pct))}>
+            {signedPercent(pct)}
+          </span>
+        </span>
+        <ChevronDown
+          className={cn(
+            "size-4 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none",
+            expanded && "rotate-180"
+          )}
+        />
+      </button>
+
+      {/*
+        * The grid-rows trick `AlertCards` already uses: the row is always
+        * mounted, so opening one never costs a fetch or a layout jump, and
+        * height animates instead of the content just appearing. `inert`
+        * (plus `aria-hidden`) takes the buttons inside out of tab order
+        * while the row is shut, since a zero-height panel is still in the
+        * document and would otherwise be a focus stop nobody can see land.
+        */}
+      <div
+        id={panelId}
+        inert={!expanded}
+        aria-hidden={!expanded}
+        className={cn(
+          "grid transition-[grid-template-rows] duration-200 motion-reduce:duration-0",
+          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex flex-col gap-4 border-t border-border px-3 pb-3 pt-3">
+            {coin ? (
+              <p className="-mt-1 text-sm text-muted-foreground">{coin.name}</p>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={cn("font-mono text-sm tabular-nums", signedTone(pct))}>
+                {signedCurrency(quote.change)} today
+              </span>
+            </div>
+
+            {rangeLow != null && rangeHigh != null && (
+              <RangeMeter low={rangeLow} high={rangeHigh} price={quote.price} />
+            )}
+
+            {look && (
+              <div>
+                <p className="font-heading text-base font-semibold tracking-tight text-foreground">
+                  {look.headline}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  {look.detail}
+                </p>
+              </div>
+            )}
+
+            <WatchActions
+              ticker={ticker}
+              onOpenResearch={onOpenResearch}
+              onOpenPulse={onOpenPulse}
+            />
+
+            <button
+              type="button"
+              onClick={onRemove}
+              className="touch-target self-end px-2 text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-2"
+            >
+              Remove from watchlist
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -237,9 +513,11 @@ function WatchCard({
 export function WatchlistStrip({
   heldTickers,
   onOpenPulse,
+  onOpenResearch,
 }: {
   heldTickers: string[];
   onOpenPulse?: (ticker?: string) => void;
+  onOpenResearch?: (ticker: string) => void;
 }) {
   // Watchlist lives in localStorage, so it can't be read during render
   // without the server and client trees disagreeing.
@@ -268,6 +546,8 @@ export function WatchlistStrip({
   const [quoteRetrying, setQuoteRetrying] = useState<Record<string, boolean>>(
     {}
   );
+  /** The one row open in the phone's accordion list, or none. */
+  const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const remote = useTickerSearch(draft);
 
   const heldKey = heldTickers.join("|");
@@ -277,6 +557,29 @@ export function WatchlistStrip({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- heldKey stands in for the array's contents
   }, [list, heldKey]);
   const namesKey = useMemo(() => names.join("|"), [names]);
+
+  /**
+   * The mobile accordion and the desktop grid draw the same names -- one
+   * CSS-hidden at each width rather than picked by a media-query hook, the
+   * same two-block pattern the holdings table already uses, so there is no
+   * hydration flash while a hook resolves. Computed once here rather than
+   * inside each `.map()`, so a full list doesn't run `watchLook()` twice
+   * over on every quote poll.
+   */
+  const watchRows = useMemo(
+    () =>
+      names.map((ticker) => {
+        const quote = quotes[ticker];
+        const look = quote
+          ? watchLook(
+              quote,
+              isCoinSymbol(ticker) ? null : reportDays[ticker] ?? null
+            )
+          : null;
+        return { ticker, quote, look };
+      }),
+    [names, quotes, reportDays]
+  );
 
   const exclude = useMemo(() => {
     const next = new Set(heldTickers.map((t) => t.toUpperCase()));
@@ -468,6 +771,16 @@ export function WatchlistStrip({
     setOpen(false);
   }
 
+  /**
+   * Also closes the accordion row if it was the one open. Otherwise a
+   * removed-then-re-added ticker pops open on its own next time it
+   * renders, since `expandedTicker` would still be naming it.
+   */
+  function removeTicker(ticker: string) {
+    setList(removeWatchlistTicker(list, ticker));
+    setExpandedTicker((prev) => nextExpandedAfterRemove(prev, ticker));
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <PanelHeader
@@ -625,29 +938,47 @@ export function WatchlistStrip({
       )}
       {names.length === 0 ? null : (
         <>
-          <ul className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2">
-            {names.map((ticker) => {
-              const q = quotes[ticker];
-              const look = q
-                ? watchLook(
-                    q,
-                    isCoinSymbol(ticker) ? null : reportDays[ticker] ?? null
-                  )
-                : null;
-              return (
-                <li key={ticker}>
-                  <WatchCard
-                    ticker={ticker}
-                    quote={q}
-                    look={look}
-                    onRemove={() => setList(removeWatchlistTicker(list, ticker))}
-                    onOpenPulse={onOpenPulse}
-                    onRetryQuote={() => fetchQuotes([ticker], { force: true })}
-                    quoteRetrying={Boolean(quoteRetrying[ticker.toUpperCase()])}
-                  />
-                </li>
-              );
-            })}
+          {/*
+            * Below `sm` this is a closed accordion, one line per name; from
+            * `sm` up it is the full two-column grid of cards. Both read the
+            * same `watchRows`, so the two never disagree -- only how much
+            * of a name's card is on screen before you ask does.
+            */}
+          <ul className="flex flex-col gap-2 sm:hidden">
+            {watchRows.map(({ ticker, quote: q, look }) => (
+              <li key={ticker}>
+                <WatchRowMobile
+                  ticker={ticker}
+                  quote={q}
+                  look={look}
+                  expanded={expandedTicker === ticker}
+                  onToggle={() =>
+                    setExpandedTicker((prev) => (prev === ticker ? null : ticker))
+                  }
+                  onRemove={() => removeTicker(ticker)}
+                  onOpenPulse={onOpenPulse}
+                  onOpenResearch={onOpenResearch}
+                  onRetryQuote={() => fetchQuotes([ticker], { force: true })}
+                  quoteRetrying={Boolean(quoteRetrying[ticker.toUpperCase()])}
+                />
+              </li>
+            ))}
+          </ul>
+          <ul className="hidden grid-cols-1 items-stretch gap-4 sm:grid sm:grid-cols-2">
+            {watchRows.map(({ ticker, quote: q, look }) => (
+              <li key={ticker}>
+                <WatchCard
+                  ticker={ticker}
+                  quote={q}
+                  look={look}
+                  onRemove={() => removeTicker(ticker)}
+                  onOpenPulse={onOpenPulse}
+                  onOpenResearch={onOpenResearch}
+                  onRetryQuote={() => fetchQuotes([ticker], { force: true })}
+                  quoteRetrying={Boolean(quoteRetrying[ticker.toUpperCase()])}
+                />
+              </li>
+            ))}
           </ul>
         </>
       )}

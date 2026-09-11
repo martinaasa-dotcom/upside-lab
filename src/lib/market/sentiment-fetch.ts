@@ -20,6 +20,10 @@ import { marketSession } from "@/lib/market/session";
 import { getYahoo } from "@/lib/market/yahoo";
 import { siteUrl } from "@/lib/site-url";
 import {
+  bestDaysFromCloses,
+  type BestDaysRead,
+} from "@/lib/market-temperature";
+import {
   preferSentimentSnapshot,
   sentimentGaugesReady,
   sentimentHasAnyGauge,
@@ -41,6 +45,24 @@ const TTL_PARTIAL_MS = 30_000;
 
 let cached: { at: number; snap: SentimentMetrics } | null = null;
 let inflight: Promise<SentimentMetrics | null> | null = null;
+
+/*
+  THE TEN-YEAR READ IS COMPUTED FROM THIS CHART AND SERVED SEPARATELY.
+
+  It needs the same ten years of closes the 200-day average and the stretch
+  sample already cost, so asking the provider twice for one chart is out,
+  which is what the free-tier fallback chain exists to avoid. That argued
+  for computing it here and it never argued for shipping it on this
+  response, and the two got conflated: the field rode along on the snapshot
+  every reader fetches from Home, on a poll, for a figure one Lab tab draws.
+
+  Measured on a real snapshot, it made that payload **24% larger, 201 bytes
+  of 810 gzipped**. So it is computed on the same walk and kept beside the
+  cache, and `/api/market/best-days` hands it over on its own. It also takes
+  an optional field back off a type twelve files read, which is where the
+  cache-identity bug below came from in the first place.
+*/
+let cachedBestDays: BestDaysRead | null = null;
 
 function ttlMs(): number {
   return marketSession() === "closed" ? TTL_CLOSED_MS : TTL_OPEN_MS;
@@ -136,6 +158,16 @@ async function loadSnapshot(): Promise<SentimentMetrics> {
   ]);
 
   const closes = bars.map((b) => b.close);
+  /*
+    Written on the walk rather than returned, because it is not part of the
+    snapshot and must not be. Left alone when this walk got no bars, so a
+    provider's bad minute does not wipe a read that is still good.
+  */
+  const tenYear = bestDaysFromCloses(
+    closes,
+    bars.map((b) => b.at)
+  );
+  if (tenYear) cachedBestDays = tenYear;
   const spy = spyMetricsFromCloses(closes);
   const history = spyTrendHistory(closes);
   const vix = liveNumber(quotes?.quotes[VIX]?.price);
@@ -175,10 +207,33 @@ export async function fetchMarketSentimentSnapshot(): Promise<SentimentMetrics |
   inflight = (async () => {
     try {
       const snap = await loadSnapshot();
-      const chosen = preferSentimentSnapshot(cached?.snap ?? null, snap);
+      const prev = cached?.snap ?? null;
+      const chosen = preferSentimentSnapshot(prev, snap);
+      /*
+        THE TEST IS "IS THIS THE ROW WE ALREADY HAVE", NOT "IS THIS THE
+        RAW FETCH".
+
+        It used to be `chosen === snap`, and the intent was right: do not
+        stamp a fresh time on a snapshot that is really the old one, or a
+        stale reading becomes immortal and the TTL can never fire, which is
+        the same bug this repo records against a re-stamped `generated_at`.
+        But `preferSentimentSnapshot` has a third answer besides prev and
+        next. It MERGES, carrying forward an expensive half of the chart
+        the new fetch did not get, and a merge is neither of the two
+        objects, so an identity test against `snap` read it as "nothing
+        new" and declined to cache a snapshot full of fresh gauges.
+
+        The cost is quiet and entirely on the provider: nothing is cached
+        for as long as that condition holds, so every single request walks
+        Yahoo again, on a free tier, with the app looking perfectly well.
+        Measured on a chart truncated to about eighteen months, which
+        yields a spark but not the ten-year read: `chosen === snap` is
+        false on every fetch. Comparing against the row we already have
+        says what was meant, and covers the merge.
+      */
       if (
-        chosen === snap &&
-        (sentimentGaugesReady(snap) || sentimentHasAnyGauge(snap))
+        chosen !== prev &&
+        (sentimentGaugesReady(chosen) || sentimentHasAnyGauge(chosen))
       ) {
         cached = { at: Date.now(), snap: chosen };
       }
@@ -192,6 +247,19 @@ export async function fetchMarketSentimentSnapshot(): Promise<SentimentMetrics |
   })();
 
   return inflight;
+}
+
+/**
+ * The ten-year read, from the same walk the snapshot came from.
+ *
+ * Asks for the snapshot first so a cold instance does the one fetch that
+ * fills both; `fetchMarketSentimentSnapshot` single-flights, so two routes
+ * arriving together share one walk rather than making two.
+ */
+export async function fetchBestDaysRead(): Promise<BestDaysRead | null> {
+  if (cachedBestDays) return cachedBestDays;
+  await fetchMarketSentimentSnapshot();
+  return cachedBestDays;
 }
 
 export function sentimentCacheTtlSec(snap?: SentimentMetrics): number {

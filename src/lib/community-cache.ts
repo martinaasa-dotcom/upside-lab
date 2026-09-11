@@ -240,10 +240,72 @@ export function saveCommunityListCache(rows: CommunityListRow[]) {
   }
 }
 
+type CommunityListListener = (rows: CommunityListRow[]) => void;
+const communityListListeners = new Set<CommunityListListener>();
+
+/**
+ * Save a fresh copy of "my circles" and tell whoever is already showing
+ * one, however it was fetched.
+ *
+ * `CirclePicker` reads this list, and it is mounted once per visible
+ * circle room *and once more for the hidden breakpoint's copy of the
+ * header* (`AppHeader` renders both the phone and desktop title rows at
+ * all times, CSS-hiding one rather than unmounting it), so with four
+ * kept-alive circle rooms (`MAX_COMMUNITY_ROOMS`) that is up to eight
+ * live pickers. Routing every writer of this list through one publish
+ * point is what lets `refreshCommunityListOnce` below answer all eight
+ * from one request instead of eight, and it also means a fetch anybody
+ * else makes (`CommunitiesList`'s own load, a just-redeemed invite)
+ * reaches every open picker for free.
+ */
+export function publishCommunityList(rows: CommunityListRow[]) {
+  saveCommunityListCache(rows);
+  for (const listener of communityListListeners) listener(rows);
+}
+
+/** Hear a fresh copy of "my circles" land, from whichever caller fetched
+ * it first. Returns the unsubscribe. */
+export function subscribeCommunityList(
+  listener: CommunityListListener
+): () => void {
+  communityListListeners.add(listener);
+  return () => {
+    communityListListeners.delete(listener);
+  };
+}
+
+let communityListInFlight: Promise<void> | null = null;
+
+/**
+ * Refresh the shared circles list, single-flighted across every concurrent
+ * caller. Every mounted `CirclePicker` asks for this on mount; without the
+ * in-flight guard, eight of them (see `publishCommunityList`) would cost
+ * eight identical requests for one answer, on the same free-tier account
+ * this app is deliberately built around everywhere else.
+ */
+export function refreshCommunityListOnce(): Promise<void> {
+  if (communityListInFlight) return communityListInFlight;
+  communityListInFlight = fetch("/api/communities", { cache: "no-store" })
+    .then((res) => (res.ok ? res.json() : null))
+    .then((data) => {
+      if (!data) return;
+      const rows = (data.communities ?? []) as CommunityListRow[];
+      publishCommunityList(rows);
+      prefetchCommunityList(rows);
+    })
+    .catch(() => {
+      /* the cached list, or the plain name, still works */
+    })
+    .finally(() => {
+      communityListInFlight = null;
+    });
+  return communityListInFlight;
+}
+
 /** Stamp a just-redeemed invite into the list so Circle opens immediately. */
 export function rememberJoinedCommunity(row: CommunityListRow) {
   const existing = loadCommunityListCache() ?? [];
-  saveCommunityListCache([
+  publishCommunityList([
     row,
     ...existing.filter((c) => c.id !== row.id),
   ]);
