@@ -125,15 +125,47 @@ type Zone = (typeof ZONES)[number];
 
 /** How tall one band's row is. Never varies, on any portfolio. */
 const ROW_H = 68;
+/**
+ * The same row on a phone, where it stacks the name over the bar.
+ *
+ * A MIN HEIGHT UNDER THE CONTENT IS NOT A FIXED HEIGHT. On a phone the
+ * stacked row runs past `ROW_H` on its own, so the height came from the
+ * content and landed on fractional pixels: measured, six bands drew at
+ * 94.5, 93.5, 93.5, 94.5, 94.5 and 93.5, which is a ladder whose rungs
+ * are visibly uneven on the one screen where the shape is hardest to
+ * read. This clears the tallest of them, so every row is exactly this
+ * and the rule this panel is built on ("a row is a fixed height,
+ * always") holds at both layouts rather than only at one.
+ */
+const PHONE_ROW_H = 96;
 
 /**
- * The narrowest a block may be drawn and still print its own name.
+ * The narrowest a block may be drawn and still print its own name and
+ * its own share, MEASURED off rendered blocks rather than guessed.
  *
- * Five characters of 12px mono plus the gain dot, the gaps and the
- * padding. Measured against the longest ordinary ticker rather than
- * guessed: a block one character short truncates somebody's holding.
+ * The guess was 98 and it cost a phone most of its names: the bar there
+ * is about 294px, so 98 let two blocks in where 94 lets three, and a
+ * six holding portfolio came out showing one name in its busiest band
+ * and "+2 more". The measurements: "NVDA 17%" needs 86px, "GOOGL 12%"
+ * and "ABCDE <1%" both need 93, and "GOOGL 100%" needs 100 but can only
+ * happen to a holding that is the whole portfolio and therefore alone
+ * in its bar. 94 covers every case that can share a bar.
  */
-const BLOCK_MIN_PX = 98;
+const BLOCK_MIN_PX = 94;
+/**
+ * The same block on a phone, where it carries its name and no share.
+ *
+ * A PHONE BUYS NAMES WITH THE SHARE, AND NAMES ARE WORTH MORE. The bar
+ * a 360px phone gives this panel is 249px, which holds one block
+ * carrying a ticker and a share plus a "+2", so a six holding portfolio
+ * showed one name in its busiest band. Without the share a block needs
+ * 72px, so the same bar draws all three. The share is not lost: the
+ * band's own share is on the row, and tapping the name opens the
+ * company. Every block in any one view still looks like every other,
+ * which is the rule this was fixed for; what changes is the breakpoint,
+ * the way the rest of this app changes at one.
+ */
+const BLOCK_MIN_NARROW_PX = 72;
 /** The hairline between two blocks. */
 const BLOCK_GAP_PX = 3;
 /** A "+N" block carries a count rather than a name, so it needs less. */
@@ -149,6 +181,24 @@ const REST_MIN_PX = 64;
  * not have, and a 1440px laptop has room for a dozen. Measured here and
  * folded here, so the same portfolio reads right on both.
  */
+/**
+ * Whether this is the wide layout, read from the same breakpoint the
+ * CSS uses rather than guessed from the bar's own width: the bar is
+ * narrow on a laptop too when a band is nearly empty, and that is not
+ * the same question.
+ */
+function useWide(): boolean {
+  const [wide, setWide] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 40rem)");
+    const read = () => setWide(mq.matches);
+    read();
+    mq.addEventListener("change", read);
+    return () => mq.removeEventListener("change", read);
+  }, []);
+  return wide;
+}
+
 function useBarWidth<T extends HTMLElement>() {
   const ref = useRef<T | null>(null);
   const [width, setWidth] = useState(0);
@@ -164,13 +214,27 @@ function useBarWidth<T extends HTMLElement>() {
   return [ref, width] as const;
 }
 
-/** How many blocks a bar that wide can carry without crushing them. */
-export function blocksThatFit(width: number): number {
-  if (!(width > 0)) return 6;
-  return Math.max(
-    1,
-    Math.floor((width + BLOCK_GAP_PX) / (BLOCK_MIN_PX + BLOCK_GAP_PX))
-  );
+/**
+ * How many names a bar that wide can carry, and whether it has to keep
+ * a slot back for the "+N" block.
+ *
+ * A "+N" IS NARROWER THAN A NAME, so counting it as one costs a name
+ * that would have fitted: it carries a count rather than a ticker and a
+ * share. On the bar a phone gives this panel that was the difference
+ * between two names drawn and three.
+ */
+export function blocksThatFit(
+  width: number,
+  items: number,
+  block: number = BLOCK_MIN_PX
+): number {
+  if (!(width > 0)) return Math.min(items, 6);
+  const room = (w: number) =>
+    Math.max(1, Math.floor((w + BLOCK_GAP_PX) / (block + BLOCK_GAP_PX)));
+  const all = room(width);
+  if (items <= all) return items;
+  // Something has to fold, so the "+N" takes its own, smaller, slot.
+  return Math.max(1, room(width - REST_MIN_PX - BLOCK_GAP_PX));
 }
 
 function Dot({ roi }: { roi: number | null }) {
@@ -194,8 +258,11 @@ function Block({
   point,
   grow,
   code,
+  wide,
 }: {
   point: BandMapPoint;
+  /** At `sm` and up, where the bar has the room for a share as well. */
+  wide: boolean;
   /**
    * This holding's share OF ITS OWN BAND, not of the portfolio.
    *
@@ -231,7 +298,11 @@ function Block({
         "transition hover:border-border hover:brightness-125",
         "outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
       )}
-      style={{ flexGrow: Math.max(grow, 0.0001), flexBasis: 0, minWidth: BLOCK_MIN_PX }}
+      style={{
+        flexGrow: Math.max(grow, 0.0001),
+        flexBasis: 0,
+        minWidth: wide ? BLOCK_MIN_PX : BLOCK_MIN_NARROW_PX,
+      }}
     >
       <Dot roi={point.roiPct} />
       <span className="truncate font-semibold tracking-tight">
@@ -244,9 +315,11 @@ function Block({
         invisible on the page. The block's own minimum width is the
         width that fits it, so the rule is now "always".
       */}
-      <span aria-hidden className="text-muted-foreground">
-        {sharePct(point.share)}
-      </span>
+      {wide && (
+        <span aria-hidden className="text-muted-foreground">
+          {sharePct(point.share)}
+        </span>
+      )}
       <span className="sr-only">
         , {currency(point.spot, 2, code)}, {percent(point.share, 1)} of this
         portfolio{roi}
@@ -299,15 +372,26 @@ function Row({
   widest,
   code,
   zone,
+  wide,
 }: {
   band: BandMapBand;
   widest: number;
   code: string;
   zone: Zone;
+  wide: boolean;
 }) {
   const [barRef, barWidth] = useBarWidth<HTMLDivElement>();
   const filled = band.items.length > 0;
-  const { shown, folded } = foldToFit(band.items, blocksThatFit(barWidth));
+  /*
+    Both sides count NAMES: `blocksThatFit` has already kept the room
+    the "+N" needs back out of the width, so what it returns is how many
+    tickers can be drawn, and that is exactly what `foldToFit` keeps.
+  */
+  const blockMin = wide ? BLOCK_MIN_PX : BLOCK_MIN_NARROW_PX;
+  const { shown, folded } = foldToFit(
+    band.items,
+    blocksThatFit(barWidth, band.items.length, blockMin)
+  );
   /*
     The floor is what these blocks actually need, counted per block:
     the folded "+N" is narrower than a name, so counting it as a name
@@ -315,7 +399,7 @@ function Row({
   */
   const slots = shown.length + (folded.length > 0 ? 1 : 0);
   const floorPx =
-    shown.length * BLOCK_MIN_PX +
+    shown.length * blockMin +
     (folded.length > 0 ? REST_MIN_PX : 0) +
     Math.max(slots - 1, 0) * BLOCK_GAP_PX;
 
@@ -329,10 +413,10 @@ function Row({
       data-band-row=""
       className={cn(
         "flex flex-col justify-center gap-2 border-b border-border/30 px-4 py-3 last:border-b-0",
-        "sm:flex-row sm:items-center sm:gap-6 sm:px-5 sm:py-0",
+        "sm:flex-row sm:items-center sm:gap-4 sm:px-5 sm:py-0 lg:gap-6",
         filled ? zone.row : "bg-transparent"
       )}
-      style={{ minHeight: ROW_H }}
+      style={{ minHeight: wide ? ROW_H : PHONE_ROW_H }}
     >
       {/*
         WHAT A BAND MEANS GOES BEHIND THE MARK, NOT IN A COLUMN.
@@ -348,7 +432,20 @@ function Row({
       */}
       <div
         className={cn(
-          "flex min-w-0 shrink-0 items-center justify-between gap-3 sm:w-56 sm:justify-start",
+          /*
+            THE NAME COLUMN IS SIZED BY THE NARROWEST LAYOUT THAT USES
+            IT, WHICH IS THE TABLET, NOT THE LAPTOP.
+
+            At a flat `w-56` the name and the share between them took
+            272 of the 457px a 640px screen gives this panel, leaving the
+            bar 137 while its own blocks needed 161: the last block was
+            drawn past the end of the bar and clipped by the rounding,
+            which is the "about to burst out of the table" fault in a new
+            place. 176px still holds every band name this ladder has, and
+            the roomier column comes back at `lg` where there is width to
+            spend on it.
+          */
+          "flex min-w-0 shrink-0 items-center justify-between gap-3 sm:w-44 sm:justify-start lg:w-56",
           // Quieter, not unreadable: an empty band is still a step of
           // the ladder a reader is entitled to read.
           !filled && "opacity-55"
@@ -389,11 +486,22 @@ function Row({
           would be a height of zero that grows by nothing and the fixed
           height would lose to it.
         */
-        className="flex h-9 w-full min-w-0 shrink-0 items-center sm:w-auto sm:flex-1"
+        /*
+          A BLOCK IS A LINK, SO ON A PHONE IT IS 44px TALL.
+
+          It was 36, which is under the coarse-pointer floor `globals.css`
+          puts on every button and input in this app, and these are the
+          one control on the panel: the whole picture is a grid of things
+          you tap to open a company. A pointer needs no such floor and a
+          taller bar would only make the ladder longer on a laptop, so
+          the height steps at the same breakpoint everything else here
+          steps at.
+        */
+        className="flex h-11 w-full min-w-0 shrink-0 items-center sm:h-9 sm:w-auto sm:flex-1"
       >
         {filled ? (
           <div
-            className="flex h-9 items-stretch gap-[3px] overflow-hidden rounded-lg"
+            className="flex h-11 items-stretch gap-[3px] overflow-hidden rounded-lg sm:h-9"
             style={{
               /*
                 The bar is how much of the portfolio is in this band,
@@ -411,6 +519,7 @@ function Row({
                 point={p}
                 grow={grows[i] ?? 0}
                 code={code}
+                wide={wide}
               />
             ))}
             {folded.length > 0 && (
@@ -448,20 +557,34 @@ function Tile({
   return (
     <div
       className={cn(
-        "card-sheen glass-well rounded-xl px-4 py-3.5",
+        "card-sheen glass-well rounded-xl px-4 py-3 sm:py-3.5",
         accent && "ring-1 ring-inset ring-primary/30"
       )}
     >
-      <MicroLabel>{label}</MicroLabel>
-      <p
-        className={cn(
-          "pt-2 font-mono text-2xl leading-none tabular-nums",
-          accent ? "text-primary" : "text-foreground"
-        )}
-      >
-        {value}
-      </p>
-      <p className="pt-2 text-xs leading-snug text-muted-foreground">
+      {/*
+        A PHONE READS THESE AS ROWS, A LAPTOP AS TILES.
+
+        Three of these stacked cost 425px of a 390px phone before the
+        first band was on screen, which is most of a screen spent on the
+        caption of a picture nobody has seen yet. The figure moves up
+        beside its own label, which is the one line it can share without
+        crowding: measured, that is 84px back across the three, and the
+        reading is unchanged because a label and the figure it names are
+        one thought either way. Nothing is hidden on a phone; the app
+        does not have two sets of facts.
+      */}
+      <div className="flex items-baseline justify-between gap-3 sm:block">
+        <MicroLabel>{label}</MicroLabel>
+        <p
+          className={cn(
+            "shrink-0 font-mono text-xl leading-none tabular-nums sm:pt-2 sm:text-2xl",
+            accent ? "text-primary" : "text-foreground"
+          )}
+        >
+          {value}
+        </p>
+      </div>
+      <p className="pt-1.5 text-xs leading-snug text-muted-foreground sm:pt-2">
         {sub}
       </p>
     </div>
@@ -507,7 +630,7 @@ function Summary({ map }: { map: Map }) {
       <Tile
         label="Around fair value"
         value={sharePct(s.aroundFairValue)}
-        sub={`of this portfolio is priced near what its companies look worth. Below fair value, ${sharePhrase(s.below)}. Above it, ${sharePhrase(s.above)}.`}
+        sub={`of this portfolio is priced near what its companies look worth. Below it, ${sharePhrase(s.below)}. Above it, ${sharePhrase(s.above)}.`}
       />
       <Tile
         /*
@@ -517,7 +640,14 @@ function Summary({ map }: { map: Map }) {
           the app still did, and the count is just as useful said as a
           fact about where the prices are.
         */
-        label="At an end of its plan"
+        /*
+          A LABEL THAT SHARES ITS LINE WITH A FIGURE IS PRICED BY THAT
+          LINE. "At an end of its plan" is 21 characters of mono caps,
+          which on a 326px phone row wrapped and left the word "plan"
+          alone under a figure reading "4 of 14". Three words say the
+          same thing and fit beside every value this tile can print.
+        */
+        label="At a plan's end"
         value={ready === 0 ? "None" : `${ready} of ${map.points.length}`}
         sub={
           ready === 0 && map.points.length === 1
@@ -531,7 +661,7 @@ function Summary({ map }: { map: Map }) {
         value={s.biggest ? sharePct(s.biggest.share) : NO_VALUE}
         sub={
           s.biggest
-            ? `${s.biggest.ticker}, and its plan puts today's price at "${s.biggest.bandLabel.toLowerCase()}".`
+            ? `${s.biggest.ticker}, which its own plan puts at "${s.biggest.bandLabel.toLowerCase()}".`
             : "nothing with a plan yet"
         }
       />
@@ -556,6 +686,7 @@ export function BandMap({
   title?: string;
 }) {
   const map = useMemo(() => buildBandMap(rows), [rows]);
+  const wide = useWide();
   const widest = Math.max(...map.bands.map((b) => b.share), 0.0001);
 
   if (map.points.length === 0) return null;
@@ -587,12 +718,22 @@ export function BandMap({
           const bands = map.bands.filter((b) => zone.ids.includes(b.id));
           if (bands.length === 0) return null;
           const share = bands.reduce((sum, b) => sum + b.share, 0);
+          /*
+            A ZONE WITH NOTHING IN IT IS QUIETER, LIKE ITS OWN ROWS.
+            The banner was at full strength over two desaturated rows
+            reading "0%", so the loudest thing on a portfolio holding
+            nothing above fair value was the heading announcing that.
+            Same bar, same height, a fraction of the ink, which is the
+            rule the empty rows under it already follow.
+          */
+          const zoneFilled = bands.some((b) => b.items.length > 0);
           return (
             <div key={zone.key}>
               <div
                 className={cn(
                   "flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5",
-                  zone.strong
+                  zone.strong,
+                  !zoneFilled && "opacity-55"
                 )}
               >
                 <span className="flex items-center gap-2.5">
@@ -617,6 +758,7 @@ export function BandMap({
                     widest={widest}
                     code={code}
                     zone={zone}
+                    wide={wide}
                   />
                 ))}
             </div>

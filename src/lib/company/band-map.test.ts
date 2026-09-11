@@ -161,11 +161,10 @@ describe("a name folds away because the bar ran out of room", () => {
     expect(folded).toEqual([]);
   });
 
-  it("keeps a slot for the block that stands for the folded ones", () => {
+  it("draws exactly the names it was told the bar has room for", () => {
     const { shown, folded } = foldToFit(band(10), 4);
-    // Three names drawn and a "+7", which is the four slots the bar has.
-    expect(shown).toHaveLength(3);
-    expect(folded).toHaveLength(7);
+    expect(shown).toHaveLength(4);
+    expect(folded).toHaveLength(6);
   });
 
   it("folds the smallest, since the biggest is what a reader looks for", () => {
@@ -221,15 +220,30 @@ describe("a name folds away because the bar ran out of room", () => {
   });
 });
 
-describe("how many blocks fit is a fact about the device", () => {
+describe("how many names fit is a fact about the device", () => {
   it("gives a phone fewer names than a laptop", () => {
     // The bar column at 390px against the same column on a laptop.
-    expect(blocksThatFit(326)).toBeLessThan(blocksThatFit(900));
+    expect(blocksThatFit(294, 12)).toBeLessThan(blocksThatFit(900, 12));
+  });
+
+  it("draws them all when they all fit, with no slot held back", () => {
+    expect(blocksThatFit(900, 3)).toBe(3);
+  });
+
+  it("A '+N' IS NARROWER THAN A NAME, so it does not cost one", () => {
+    /*
+      The bar a 390px phone gives this panel is about 294px. Counting
+      the "+N" as though it were as wide as a ticker and a share left
+      room for one name where there is room for two, so a six holding
+      portfolio showed a single name in its busiest band.
+    */
+    expect(blocksThatFit(294, 3)).toBe(3);
+    expect(blocksThatFit(294, 9)).toBe(2);
   });
 
   it("never asks for a block narrower than a ticker needs", () => {
-    expect(blocksThatFit(100)).toBe(1);
-    expect(blocksThatFit(0)).toBeGreaterThan(0);
+    expect(blocksThatFit(100, 5)).toBe(1);
+    expect(blocksThatFit(0, 5)).toBeGreaterThan(0);
   });
 });
 
@@ -390,6 +404,22 @@ describe("the picture never claims a level was the reader's when it was not", ()
     const said = readySaid(map.summary);
     expect(said).toContain("Some of those levels are yours");
     expect(said).not.toContain("Levels you set.");
+  });
+
+  it("gives a list of names a plural, since they do not share one plan", () => {
+    const map = buildBandMap([
+      holding("A", 0.3, 30),
+      holding("B", 0.28, 30),
+      holding("QUIET", 1, 40),
+    ]);
+    const said = readySaid(map.summary);
+    expect(said).toContain("their own plans");
+    expect(said).not.toContain("B at the bottom of its own plan");
+  });
+
+  it("keeps the singular for one name", () => {
+    const map = buildBandMap([holding("A", 0.3, 40), holding("QUIET", 1, 60)]);
+    expect(readySaid(map.summary)).toContain("its own plan");
   });
 
   it("says nothing about levels when no name has reached one", () => {

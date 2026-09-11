@@ -321,12 +321,18 @@ export function actionableFirst(points: BandMapPoint[]): BandMapPoint[] {
  */
 export function foldToFit(
   items: BandMapPoint[],
-  room: number
+  /**
+   * How many NAMES the bar can draw, not how many slots it has: the
+   * "+N" block is narrower than a name, so whoever measures the bar
+   * works out its own room for it and hands back the names that are
+   * left. Counting in slots here and in pixels there put the two a
+   * block apart, and a 360px phone drew one name where two fit.
+   */
+  names: number
 ): { shown: BandMapPoint[]; folded: BandMapPoint[] } {
   if (items.length === 0) return { shown: [], folded: [] };
-  if (items.length <= room) return { shown: items, folded: [] };
-  // One slot goes to the "+N" block that stands for the folded names.
-  const keep = Math.max(room - 1, 1);
+  if (items.length <= names) return { shown: items, folded: [] };
+  const keep = Math.max(names, 1);
   const ranked = [...items].sort(
     (a, b) =>
       Number(b.actionable) - Number(a.actionable) || b.share - a.share
@@ -406,12 +412,19 @@ export function readySaid(summary: BandMapSummary): string {
     when they stopped being imperative, so a sentence about them that
     still did would be the app supplying the verb the table refuses to.
   */
+  /*
+    A LIST OF NAMES TAKES A PLURAL. It read "SHOP, MU, SOFI at the
+    bottom of its own plan", which is three companies sharing one plan
+    and is not what the picture above it shows.
+  */
+  const ownPlan = (names: string[]) =>
+    names.length === 1 ? "its own plan" : "their own plans";
   const parts: string[] = [];
   if (trimNames.length > 0) {
-    parts.push(`${trimNames.join(", ")} at the top of its own plan`);
+    parts.push(`${trimNames.join(", ")} at the top of ${ownPlan(trimNames)}`);
   }
   if (addNames.length > 0) {
-    parts.push(`${addNames.join(", ")} at the bottom of its own plan`);
+    parts.push(`${addNames.join(", ")} at the bottom of ${ownPlan(addNames)}`);
   }
   /*
     Whose level it is, said once at the end rather than hung on each
