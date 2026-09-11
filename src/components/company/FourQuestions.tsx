@@ -71,7 +71,25 @@ export function FourQuestions({
               </span>
               {a.question}
             </p>
-            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+            {/*
+              Label above the figure, never beside it — the same order
+              `Score` uses everywhere else in this room (CompanyNumbers,
+              PositionFitCard, YourHolding). A label sharing the figure's
+              own line had to compete with it for width and was the thing
+              that wrapped first on a phone; on its own line above, it has
+              the whole card to read across before the figure even starts.
+              The two are one unit and sit closer to each other than to the
+              question above or the answer below.
+            */}
+            <div className="flex flex-col gap-0.5">
+              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                <MicroLabel>{a.figureLabel}</MicroLabel>
+                {a.against && (
+                  <span className="text-xs text-muted-foreground">
+                    vs. {a.against}
+                  </span>
+                )}
+              </div>
               <span
                 className={cn(
                   "font-mono text-2xl font-bold tabular-nums",
@@ -79,14 +97,6 @@ export function FourQuestions({
                 )}
               >
                 {a.figure}
-              </span>
-              <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
-                <MicroLabel>{a.figureLabel}</MicroLabel>
-                {a.against && (
-                  <span className="text-xs text-muted-foreground">
-                    vs. {a.against}
-                  </span>
-                )}
               </span>
             </div>
             <p className="text-sm leading-relaxed text-muted-foreground">
