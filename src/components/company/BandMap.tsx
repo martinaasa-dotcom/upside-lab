@@ -17,7 +17,11 @@ import {
   type BandMapBand,
   type BandMapPoint,
 } from "@/lib/company/band-map";
-import { bandRangeSaid, type PlanLadder } from "@/lib/company/plan-ladder";
+import {
+  bandRangeSaid,
+  type LadderBandId,
+  type PlanLadder,
+} from "@/lib/company/plan-ladder";
 import { Map as MapIcon } from "lucide-react";
 
 /**
@@ -43,6 +47,67 @@ import { Map as MapIcon } from "lucide-react";
  * ladder is half of what a reader came for, so a band with nothing in
  * it keeps its row and its height and loses its ink.
  */
+
+/**
+ * THE SEVEN BANDS READ AS THREE ANSWERS.
+ *
+ * Six rows of near-identical grey is a table a reader has to parse
+ * rather than see, and the thing they are actually trying to find is
+ * whether their money is priced above, around or below what its
+ * companies look worth. So the rows are grouped under those three
+ * headings and each group carries its own wash.
+ *
+ * **Warm above and cool below, never the gain and loss pair.** Every
+ * block on these rows already carries a gain or loss dot, so tinting
+ * the zone emerald and rose would put two meanings on one pair and a
+ * holding in profit would sit in the colour of a loss. Warm and cool
+ * say the direction without touching it, and the middle zone stays
+ * neutral because "around fair value" is not a direction.
+ *
+ * The grouping pays for itself twice: with the direction said once in
+ * a heading, each band's own line drops from "about 10% to 20% below
+ * fair value" to "10% to 20%", which is what made the column of them
+ * read as a wall of prose.
+ */
+const ZONES = [
+  {
+    key: "above",
+    name: "Above fair value",
+    ids: ["trim-most", "trim-some"] as LadderBandId[],
+    row: "bg-[var(--zone-warm)]/[0.05]",
+    head: "bg-[var(--zone-warm)]/[0.09]",
+    rail: "bg-[var(--zone-warm)]/60",
+  },
+  {
+    key: "around",
+    name: "Around fair value",
+    ids: ["hold"] as LadderBandId[],
+    row: "bg-foreground/[0.022]",
+    head: "bg-foreground/[0.045]",
+    rail: "bg-foreground/15",
+  },
+  {
+    key: "below",
+    name: "Below fair value",
+    ids: ["starter", "full", "full-aggressive", "exit"] as LadderBandId[],
+    /*
+      Lower alphas than the warm zone's, and measured rather than
+      matched by eye. The same alpha of this hue lands further from the
+      near-black field than the warm one does, and a saturated blue
+      reads brighter still than its luminance says (the
+      Helmholtz-Kohlrausch effect this repo already balances the ambient
+      lobes on), so an even pair of numbers gives a cool zone that
+      shouts over the warm one. Sampled off the rendered page, 0.06 and
+      0.11 measured chroma 8.0 and 13.1 against the warm zone's 5.0 and
+      8.0; these land on 5.1 and 8.1.
+    */
+    row: "bg-[var(--zone-cool)]/[0.038]",
+    head: "bg-[var(--zone-cool)]/[0.068]",
+    rail: "bg-[var(--zone-cool)]/60",
+  },
+] as const;
+
+type Zone = (typeof ZONES)[number];
 
 /** How tall one band's row is. Never varies, on any portfolio. */
 const ROW_H = 68;
@@ -228,10 +293,12 @@ function Row({
   band,
   widest,
   code,
+  zone,
 }: {
   band: BandMapBand;
   widest: number;
   code: string;
+  zone: Zone;
 }) {
   const [barRef, barWidth] = useBarWidth<HTMLDivElement>();
   const filled = band.items.length > 0;
@@ -272,10 +339,11 @@ function Row({
   );
   return (
     <div
+      data-band-row=""
       className={cn(
-        "flex flex-col justify-center gap-2 border-b border-border/40 px-4 py-3 last:border-b-0",
+        "flex flex-col justify-center gap-2 border-b border-border/30 px-4 py-3 last:border-b-0",
         "sm:flex-row sm:items-center sm:gap-6 sm:px-5 sm:py-0",
-        filled ? "bg-foreground/[0.022]" : "bg-transparent"
+        filled ? zone.row : "bg-transparent"
       )}
       style={{ minHeight: ROW_H }}
     >
@@ -522,9 +590,40 @@ export function BandMap({
         with nothing in it reads as a hole cut in the panel.
       */}
       <div className="card-sheen glass-well overflow-hidden rounded-xl">
-        {map.bands.map((band) => (
-          <Row key={band.id} band={band} widest={widest} code={code} />
-        ))}
+        {ZONES.map((zone) => {
+          const bands = map.bands.filter((b) => zone.ids.includes(b.id));
+          if (bands.length === 0) return null;
+          const share = bands.reduce((sum, b) => sum + b.share, 0);
+          return (
+            <div key={zone.key} className="flex">
+              {/* The rail carries the zone's colour at full strength,
+                  where a few per cent of wash cannot. */}
+              <span aria-hidden className={cn("w-[3px] shrink-0", zone.rail)} />
+              <div className="min-w-0 flex-1">
+                <div
+                  className={cn(
+                    "flex items-center justify-between gap-3 border-b border-border/30 px-4 py-2 sm:px-5",
+                    zone.head
+                  )}
+                >
+                  <MicroLabel>{zone.name}</MicroLabel>
+                  <span className="font-mono text-xs tabular-nums text-foreground">
+                    {sharePct(share)}
+                  </span>
+                </div>
+                {bands.map((band) => (
+                  <Row
+                    key={band.id}
+                    band={band}
+                    widest={widest}
+                    code={code}
+                    zone={zone}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {map.missing.length > 0 && (

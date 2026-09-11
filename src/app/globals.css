@@ -84,6 +84,14 @@
   --cat-9: oklch(0.78 0.09 230);
   --cat-10: oklch(0.62 0.11 260);
   --cat-neutral: oklch(0.62 0 0);
+  /* The band map's two zone washes. Warm for a price above what a
+     company looks worth, cool for one below it, both at a few per cent
+     so they read as a ground rather than a fill. Deliberately NOT the
+     gain and loss pair: every block on those rows already carries a
+     gain or loss dot, and spending emerald and rose on the zone as well
+     would put two meanings on one pair. See DESIGN_TOKENS.md. */
+  --zone-warm: oklch(0.8 0.09 90);
+  --zone-cool: oklch(0.78 0.09 230);
   --paper: var(--foreground);
   --ink: var(--background);
   --app: var(--background);

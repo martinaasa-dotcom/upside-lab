@@ -208,8 +208,8 @@ describe("a card's button goes where the fact can be acted on", () => {
     {
       ticker: "NASA",
       spot: 23.55,
-      bandId: "full",
-      bandLabel: "Full position",
+      bandId: "full-aggressive",
+      bandLabel: "Add a lot",
       edge: 22,
       edited: false,
     },

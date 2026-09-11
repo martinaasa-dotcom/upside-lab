@@ -51,7 +51,11 @@ describe("the bands are the reference ladder's own arithmetic", () => {
     expect(at("hold").to).toBeCloseTo(380.59 * 1.1, 4);
     expect(at("hold").from).toBeCloseTo(380.59 * 0.9, 4);
     expect(at("starter").from).toBeCloseTo(380.59 * 0.8, 4);
-    expect(at("full").from).toBeCloseTo(380.59 * 0.7, 4);
+    // The band under "add a little" runs from the floor up to that same
+    // edge: the two bands the reference puts either side of 0.7 were
+    // merged, so this ladder draws five of the reference's six levels.
+    expect(at("full-aggressive").to).toBeCloseTo(380.59 * 0.8, 4);
+    expect(bandById(ladder, "full")).toBeNull();
     expect(at("exit").from).toBeNull();
   });
 
@@ -128,7 +132,7 @@ describe("a ladder with nothing to hang on is absent, never centred on today", (
   it("still draws the levels when there is no price today", () => {
     const ladder = buildPlanLadder({ ...REFERENCE, spot: null })!;
     expect(ladder.atId).toBeNull();
-    expect(ladder.bands).toHaveLength(7);
+    expect(ladder.bands).toHaveLength(6);
     expect(ladderRead(ladder)).toMatch(/no price/i);
   });
 });
@@ -268,11 +272,28 @@ describe("the four reference ladders come back out", () => {
       // The floor is the reference's own, exactly, because it is a price
       // rather than a ratio.
       expect(bandById(ladder, "exit")!.to).toBeCloseTo(r.low, 6);
+      /*
+        FIVE OF THE REFERENCE'S SIX LEVELS, AND THE MISSING ONE IS NAMED.
+
+        There were three bands about adding and two of them said the
+        same thing, so the pair either side of the reference's
+        second-from-bottom edge were merged into one. Every other
+        published level still has to come back out to within 5%, which
+        is what makes this a reference test rather than a record of
+        whatever the code happens to do: dropping a level is a decision,
+        and drifting off the rest is a bug.
+      */
+      const MERGED_AWAY = r.edges.length - 2;
+      const published = r.edges.filter((_, i) => i !== MERGED_AWAY);
       const mine = ladder.bands.slice(1).map((b) => b.to!);
+      expect(mine).toHaveLength(published.length);
       mine.forEach((price, i) => {
-        const published = r.edges[i]!;
-        const off = Math.abs(price - published) / published;
-        expect(off, `edge ${i}: ${price.toFixed(2)} against ${published}`).toBeLessThan(0.05);
+        const published_i = published[i]!;
+        const off = Math.abs(price - published_i) / published_i;
+        expect(
+          off,
+          `edge ${i}: ${price.toFixed(2)} against ${published_i}`
+        ).toBeLessThan(0.05);
       });
     });
   }

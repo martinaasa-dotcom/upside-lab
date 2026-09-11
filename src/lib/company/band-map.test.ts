@@ -105,7 +105,7 @@ describe("a band's bar is the money in it", () => {
 });
 
 describe("the picture never changes its own proportions", () => {
-  it("draws all seven bands whatever the portfolio holds", () => {
+  it("draws every band whatever the portfolio holds", () => {
     const one = buildBandMap([holding("ONLY", 1, 100)]);
     const many = buildBandMap([
       holding("A", 1, 30),
@@ -113,15 +113,16 @@ describe("the picture never changes its own proportions", () => {
       holding("C", 0.75, 20),
       holding("D", 0.4, 30),
     ]);
-    expect(one.bands).toHaveLength(7);
-    expect(many.bands).toHaveLength(7);
+    // Six since the three bands about adding became two.
+    expect(one.bands).toHaveLength(6);
+    expect(many.bands).toHaveLength(6);
     expect(one.bands.map((b) => b.id)).toEqual(many.bands.map((b) => b.id));
   });
 
   it("keeps an empty band rather than dropping it", () => {
     const map = buildBandMap([holding("ONLY", 1, 100)]);
     const empty = map.bands.filter((b) => b.items.length === 0);
-    expect(empty.length).toBe(6);
+    expect(empty.length).toBe(5);
     for (const b of empty) {
       expect(b.share).toBe(0);
       expect(b.label).toBeTruthy();

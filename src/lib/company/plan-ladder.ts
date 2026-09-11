@@ -39,6 +39,19 @@ export type LadderBandId =
   | "trim-some"
   | "hold"
   | "starter"
+  /**
+   * RETIRED ON 2026-09-11, AND KEPT IN THE TYPE ON PURPOSE.
+   *
+   * There were three bands about adding and two of them said the same
+   * thing: "Add more" and "Add a lot" were a step apart and nobody could
+   * say which was which. `full` is gone from `EDGES`, so no ladder draws
+   * it any more, and the id stays here because it is still sitting in
+   * saved levels and dismissed alerts. A reader who set a level on it
+   * loses that one level rather than having their whole plan refuse to
+   * parse, which is the difference between a retired band and a broken
+   * one. Nothing may add it back to `EDGES` without merging its saved
+   * edits somewhere first.
+   */
   | "full"
   | "full-aggressive"
   | "exit";
@@ -144,8 +157,7 @@ const EDGES: { id: LadderBandId; label: string; steps: number | null }[] = [
   { id: "trim-some", label: "Trim a little", steps: 2 },
   { id: "hold", label: "Hold", steps: 1 },
   { id: "starter", label: "Add a little", steps: -1 },
-  { id: "full", label: "Add more", steps: -2 },
-  { id: "full-aggressive", label: "Add a lot", steps: -3 },
+  { id: "full-aggressive", label: "Add a lot", steps: -2 },
   { id: "exit", label: "Cheaper than its whole year", steps: null },
 ];
 
@@ -549,7 +561,6 @@ export function positionInBand(band: LadderBand, price: number): number {
  */
 export const ACTIONABLE_BANDS: readonly LadderBandId[] = [
   "trim-most",
-  "full",
   "full-aggressive",
   "exit",
 ];
@@ -614,11 +625,18 @@ export function nearestEdge(
 /**
  * How far from fair value this band runs, in the reader's own words.
  *
- * "About", and it is load bearing: the step is each company's own, held
+ * THE DIRECTION IS NOT IN HERE, AND THAT IS WHY IT IS SHORT. The first
+ * version said "about 10% to 20% below fair value" on every row, so the
+ * words "fair value" were printed six times down one column and the
+ * distance, which is the only part that changes, was the tail of a
+ * sentence. The picture groups its rows under "above", "around" and
+ * "below fair value" headings, and a caller that does not group them
+ * has to say the direction itself.
+ *
+ * It stays approximate on purpose: the step is each company's own, held
  * between `MIN_STEP` and `MAX_STEP`, so a name that barely moves gets 8%
- * bands and one that swings hard gets 14%. A single printed range is the
- * shape of the ladder rather than a promise about any one holding, and a
- * sentence that promised the second would be wrong on most of them.
+ * bands and one that swings hard gets 14%. One printed range is the
+ * shape of the ladder rather than a promise about any one holding.
  */
 export function bandRangeSaid(band: {
   fromRatio: number | null;
@@ -626,11 +644,9 @@ export function bandRangeSaid(band: {
 }): string {
   const pc = (r: number) => `${Math.round(Math.abs(1 - r) * 100)}%`;
   const { fromRatio, toRatio } = band;
-  if (fromRatio === null) return "below anything it traded all year";
-  if (toRatio === null) return `more than ${pc(fromRatio)} above fair value`;
-  if (fromRatio >= 1) {
-    return `about ${pc(fromRatio)} to ${pc(toRatio)} above fair value`;
-  }
-  if (toRatio > 1) return `within about ${pc(fromRatio)} of fair value`;
-  return `about ${pc(toRatio)} to ${pc(fromRatio)} below fair value`;
+  if (fromRatio === null) return "below its year's low";
+  if (toRatio === null) return `${pc(fromRatio)} or more`;
+  if (fromRatio >= 1) return `${pc(fromRatio)} to ${pc(toRatio)}`;
+  if (toRatio > 1) return `within ${pc(fromRatio)}`;
+  return `${pc(toRatio)} to ${pc(fromRatio)}`;
 }
