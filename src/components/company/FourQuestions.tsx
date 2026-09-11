@@ -49,7 +49,7 @@ export function FourQuestions({
             />
           </span>
         }
-        subtitle={`The four a person has to answer before putting their own money into ${cashtag(ticker)}, answered in its own figures. Everything further down this page is the working behind one of them.`}
+        subtitle={`Four questions to answer before putting money into ${cashtag(ticker)}, in its own figures. Everything below is the working behind one of them.`}
         icon={<HelpCircle className="h-4 w-4" />}
       />
       <div className="grid gap-4 lg:grid-cols-2">
@@ -58,22 +58,38 @@ export function FourQuestions({
             key={a.id}
             tone="default"
             className={cn(
-              "flex flex-col gap-3 p-5",
+              "flex flex-col gap-2.5 p-5",
               // The accent rule is a reading, not decoration: it is on the
               // answers that have a figure behind them and off the ones
               // that do not.
               a.thin ? "opacity-80" : "border-l-2 border-l-primary/60"
             )}
           >
-            <div className="flex items-start gap-3">
-              <span className="font-mono text-xs font-semibold tabular-nums text-primary">
+            <p className="text-sm font-semibold leading-snug text-foreground">
+              <span className="mr-1.5 font-mono text-xs font-semibold tabular-nums text-primary">
                 #{i + 1}
               </span>
-              <p className="min-w-0 text-sm font-semibold leading-snug text-foreground">
-                {a.question}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              {a.question}
+            </p>
+            {/*
+              Label above the figure, never beside it — the same order
+              `Score` uses everywhere else in this room (CompanyNumbers,
+              PositionFitCard, YourHolding). A label sharing the figure's
+              own line had to compete with it for width and was the thing
+              that wrapped first on a phone; on its own line above, it has
+              the whole card to read across before the figure even starts.
+              The two are one unit and sit closer to each other than to the
+              question above or the answer below.
+            */}
+            <div className="flex flex-col gap-0.5">
+              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                <MicroLabel>{a.figureLabel}</MicroLabel>
+                {a.against && (
+                  <span className="text-xs text-muted-foreground">
+                    against {a.against}
+                  </span>
+                )}
+              </div>
               <span
                 className={cn(
                   "font-mono text-2xl font-bold tabular-nums",
@@ -82,16 +98,10 @@ export function FourQuestions({
               >
                 {a.figure}
               </span>
-              <MicroLabel>{a.figureLabel}</MicroLabel>
             </div>
             <p className="text-sm leading-relaxed text-muted-foreground">
               {a.answer}
             </p>
-            {a.against && (
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Measured against {a.against}.
-              </p>
-            )}
           </Card>
         ))}
       </div>

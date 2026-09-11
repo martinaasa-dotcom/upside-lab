@@ -17,6 +17,7 @@ import {
   Scoreboard,
   SwatchLegend,
 } from "@/components/ui/Panel";
+import { AllocationBar } from "@/components/ui/AllocationBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -1790,18 +1791,14 @@ export function UpsidePortfolioPage() {
                   subtitle="Grouped by the kind of business, with the cash he has not spent."
                 />
                 <div>
-                  <div className="flex h-3 overflow-hidden rounded-full bg-muted">
-                    {bettingSlices.map((t) => (
-                      <div
-                        key={t.key}
-                        style={{
-                          width: `${Math.max(1.5, t.pct * 100)}%`,
-                          backgroundColor: t.color,
-                        }}
-                        title={`${t.label}: ${sliceLabel(t.pct)}`}
-                      />
-                    ))}
-                  </div>
+                  <AllocationBar
+                    slices={bettingSlices.map((t) => ({
+                      key: t.key,
+                      pct: t.pct,
+                      color: t.color,
+                      title: `${t.label}: ${sliceLabel(t.pct)}`,
+                    }))}
+                  />
                   <SwatchLegend
                     className="mt-4"
                     items={bettingSlices.map((t) => ({

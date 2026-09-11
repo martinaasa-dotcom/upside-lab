@@ -13,8 +13,8 @@ import {
   loadCommunityListCache,
   prefetchCommunity,
   prefetchCommunityList,
+  publishCommunityList,
   saveCommunityDiscoverCache,
-  saveCommunityListCache,
   type CommunityDiscoverRow,
   type CommunityListRow,
 } from "@/lib/community-cache";
@@ -130,7 +130,7 @@ export function CommunitiesList() {
       }
       const rows = (data.communities ?? []) as CommunityListRow[];
       setCommunities(rows);
-      saveCommunityListCache(rows);
+      publishCommunityList(rows);
       /*
         The row wants to say how many people are in each circle, and that
         answer lives in the copy `prefetchCommunity` warms rather than in

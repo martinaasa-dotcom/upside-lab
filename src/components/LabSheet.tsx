@@ -19,6 +19,7 @@ import {
   Scoreboard,
   SwatchLegend,
 } from "@/components/ui/Panel";
+import { AllocationBar } from "@/components/ui/AllocationBar";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -81,10 +82,22 @@ const CompanyLookupPanel = dynamic(
   { ssr: true }
 );
 
+const PlaybookPanel = dynamic(
+  () =>
+    import("@/components/playbook/PlaybookPanel").then((m) => m.PlaybookPanel),
+  { ssr: true }
+);
+
 const EMPTY_HIDDEN_TABS: string[] = [];
 const EMPTY_WATCHLIST: string[] = [];
 
-type LabTab = "alloc" | "risk" | "trends" | "seasonality" | "lookup";
+type LabTab =
+  | "alloc"
+  | "risk"
+  | "trends"
+  | "seasonality"
+  | "lookup"
+  | "playbook";
 
 /** One flat row: what you hold, how risky it is, and when it tends to move. */
 /*
@@ -103,11 +116,22 @@ const TABS: { id: LabTab; label: string }[] = [
   { id: "trends", label: "Trends" },
   { id: "seasonality", label: "Seasonality" },
   { id: "lookup", label: "Research" },
+  /*
+    Playbook is last because it is the only tab that is not about a
+    holding at all, not even one the reader is weighing up. The other five
+    all start from a company: four from the ones already owned and Research
+    from one being considered. This one starts from nothing, which makes it
+    the furthest thing in Lab from "the mix" and therefore the end of the
+    row. It is also the one tab that has something to say to an account
+    with no holdings in it yet, which is why it never hides.
+  */
+  { id: "playbook", label: "Playbook" },
 ];
 
 const INTENT_TO_TAB: Record<LabDeepLink, LabTab> = {
   seasonality: "seasonality",
   lookup: "lookup",
+  playbook: "playbook",
 };
 
 /** Reads `?labtab=` so a hard refresh (or revisiting Lab after switching
@@ -162,8 +186,37 @@ export const LabSheet = memo(function LabSheet({
   */
   const [watchlist] = useHydratedCache<string[]>(() => loadWatchlist(), EMPTY_WATCHLIST);
 
+  /*
+    The press writes the address; nothing derives it from the state.
+
+    This used to be a `setTab` here and a `useEffect` below that mirrored
+    the tab into `?labtab=`, and that pair silently broke every deep link
+    into Lab. The read happens in a layout effect (`useHydratedCache`) and
+    the mirror in a passive one, and nothing orders the re-render from the
+    first ahead of the second, so the mirror fired while the tab was still
+    the fallback and wrote `labtab=alloc` over whatever the reader had
+    arrived on. Measured against the running app: `?labtab=risk`,
+    `?labtab=trends` and `?labtab=seasonality` all landed on The mix with
+    the address rewritten to `alloc`, which is the exact opposite of what
+    the parameter is for.
+
+    Writing from the press removes the race instead of trying to sequence
+    it: a deep link is read once and left alone, and the address only ever
+    changes because somebody chose a tab. `replaceState` keeps sub-tab
+    presses off the back stack, and `window.history.state` is passed
+    through because the App Router keeps its own routing state in there.
+    Growth's sub-tabs are the same shape for the same reason.
+  */
   function selectTab(id: LabTab) {
     setTab(id);
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("labtab", id);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}`
+    );
   }
 
   // The tab row can still scroll on a narrow phone, so keep the active tab
@@ -195,23 +248,6 @@ export const LabSheet = memo(function LabSheet({
     observer.observe(el);
     return () => observer.disconnect();
   }, [syncTabOverflow, visibleTabs.length]);
-
-  // Mirror the sub-tab into the URL (replaceState only — sub-tab clicks
-  // shouldn't pile onto the back-button stack the way top-level tab
-  // switches do). Left in place when navigating away from Lab on purpose:
-  // harmless when ignored elsewhere, and means coming back to Lab (even a
-  // tab switch away and back, not just a refresh) restores the same
-  // sub-tab instead of always resetting to Allocation.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const url = new URL(window.location.href);
-    url.searchParams.set("labtab", tab);
-    window.history.replaceState(
-      window.history.state,
-      "",
-      `${url.pathname}${url.search}`
-    );
-  }, [tab]);
 
   useEffect(() => {
     if (!intentTab) return;
@@ -374,6 +410,8 @@ export const LabSheet = memo(function LabSheet({
         : `Whether each company is still moving the way it was, read from four years of weekly closing prices. ${risingCount} of your ${holdingCount} ${holdingCount === 1 ? "holding is" : "holdings are"} higher now than three months ago.`,
     seasonality:
       "Which months the market has been kind in before, and which it has not. This one never looks at what you own, and your own holdings are in the list so you can look one up.",
+    playbook:
+      "How to think about all of this, which is the half nobody hands you: what the market's mood says about which idea applies today, what a fall actually costs to undo, and the ideas that keep turning up in the writing of people who did this well. It never looks at what you own.",
     lookup:
       holdingCount === 0
         ? "Any company, explained in plain words: what it does, what its finances look like, what it might be worth and both sides of the argument. Nothing here is advice and nothing you look at is bought."
@@ -511,6 +549,12 @@ export const LabSheet = memo(function LabSheet({
         </p>
         </div>
       </Panel>
+
+      {tab === "playbook" && !hiddenTabs.includes("playbook") && (
+        <WidgetErrorBoundary name="Playbook">
+          <PlaybookPanel />
+        </WidgetErrorBoundary>
+      )}
 
       {tab === "lookup" && !hiddenTabs.includes("lookup") && (
         <WidgetErrorBoundary name="Research">
@@ -652,18 +696,14 @@ export const LabSheet = memo(function LabSheet({
                     title="What you're actually betting on"
                     subtitle="Your holdings grouped by kind of business, which usually tells you more than the list of tickers does."
                   />
-                  <div className="flex h-3 overflow-hidden rounded-full bg-muted">
-                    {themes.map((t) => (
-                      <div
-                        key={t.theme}
-                        style={{
-                          width: `${Math.max(1.5, t.pct * 100)}%`,
-                          backgroundColor: THEME_COLOR[t.theme],
-                        }}
-                        title={`${t.label}: ${Math.round(t.pct * 100)}%`}
-                      />
-                    ))}
-                  </div>
+                  <AllocationBar
+                    slices={themes.map((t) => ({
+                      key: t.theme,
+                      pct: t.pct,
+                      color: THEME_COLOR[t.theme],
+                      title: `${t.label}: ${Math.round(t.pct * 100)}%`,
+                    }))}
+                  />
                   <SwatchLegend
                     items={themes.map((t) => ({
                       key: t.theme,
