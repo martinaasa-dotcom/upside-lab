@@ -39,15 +39,15 @@ const STEPS: Step[] = [
   },
   {
     done: false,
-    text: "One evening after the market shuts, open Pulse on a day something moved and see what it says happened.",
+    text: "One evening after the market shuts, open Pulse and see what it says happened.",
   },
   {
     done: false,
-    text: "Ask Margus one question about a company you own. Your portfolio is already in the conversation, and the answers come in plain words.",
+    text: "Ask Margus one question about a company you own.",
   },
   {
     done: false,
-    text: "Add the next company from the same Add holding button on Home, however many you end up with. A second portfolio is a different thing, and one more company never needs one.",
+    text: "Add the next company from the same Add holding button on Home.",
   },
 ];
 
@@ -103,17 +103,13 @@ export function FirstWeekScreen({
           />
         </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          {SUNDAY_EMAIL_LINE} There is no daily note and no alert, with one
-          exception: if your portfolio is still empty a week from now, you
-          get a single reminder. The Sunday one starts once there are
-          companies in a portfolio, and it is one switch in Account either
-          way.
+          {SUNDAY_EMAIL_LINE} No daily note and no alerts, and one reminder
+          if your portfolio is still empty in a week.
         </p>
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Account &rsaquo; Help has a button that replays this walkthrough, any
-        time you want it again.
+        Account &rsaquo; Help replays this walkthrough any time.
       </p>
     </div>
   );

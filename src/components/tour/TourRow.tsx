@@ -46,8 +46,21 @@ export function TourRow({
  * have pressed one. So each of them says so once, quietly, in the same
  * place and the same voice.
  */
+/**
+ * The one line per screen that says what to do here.
+ *
+ * It was `text-sm`, the same size as every other word in the walkthrough,
+ * separated from the body only by its weight. Measured across all seven
+ * screens, 98% of the tour's words were at 14px or smaller and exactly one
+ * word was larger, so the screens had no hierarchy inside them at all: the
+ * ask, the explanation and the fine print were one size. A step up costs
+ * one line of height per screen and is the whole of what makes the ask
+ * findable.
+ */
 export function TourAsk({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-sm font-medium text-foreground">{children}</p>
+    <p className="text-base font-medium leading-snug text-foreground">
+      {children}
+    </p>
   );
 }

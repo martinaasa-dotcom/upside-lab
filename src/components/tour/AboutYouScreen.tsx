@@ -48,7 +48,15 @@ export const Q1_OPTIONS: {
   {
     id: "new",
     label: "New to this, still learning the basics",
-    detail: "Fewer panels at once. Lab waits until you ask for it.",
+    /*
+      No room waits for anybody. `TIER_HIDDEN_META_TABS` and
+      `TIER_HIDDEN_LAB_TABS` are empty on every tier, which this file's own
+      comment records and which the dock preview below reads, so a promise
+      that Lab "waits until you ask for it" was the walkthrough describing a
+      gate that does not exist. What the first answer really decides is which
+      panels start folded away, and that is what it says now.
+    */
+    detail: "Fewer panels open at once. Every room is still there.",
     icon: GraduationCap,
   },
   {
@@ -269,9 +277,8 @@ export function AboutYouScreen({
         <TourAsk>Have you ever used options, such as covered calls?</TourAsk>
         <p className="text-sm leading-relaxed text-muted-foreground">
           An option is a side agreement on a share, like agreeing today to
-          sell it at a set price later. This is a separate question from the
-          last one: plenty of very experienced investors have never touched
-          one.
+          sell it at a set price later. Plenty of experienced investors have
+          never used one.
         </p>
         {Q2_OPTIONS.map((opt) => (
           <Choice
