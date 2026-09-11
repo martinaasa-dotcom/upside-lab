@@ -133,32 +133,43 @@ export type PlanLadder = {
  * them is a ladder with a hole in it.
  */
 /*
-  THE LABELS SAY THE SIZE OF THE MOVE. THE IDS NEVER CHANGE.
+  A BAND SAYS WHERE THE PRICE IS. IT DOES NOT SAY WHAT TO DO.
 
-  The first set was renamed on 2026-09-11 and every fault it had was a
-  comprehension one. "Trim 60%+" named a number nothing on the page
-  explained. "Half a starter" is trade-desk slang for a first tranche,
-  which this app's own rule against unexplained market words rules out.
-  "Full position" and "Full position, and more" were an indistinguishable
-  pair, and they were the only bands named after position sizing when
-  every other band is named after price. And "Out of it" sat directly
-  under two bands about buying more, so the one place the ladder says to
-  be out read as the cheapest place to buy.
+  These were imperative for most of this app's life: "Trim 60%+",
+  "Consider a trim", "Half a starter", "Full position", "Out of it", and
+  then a tidier set of the same kind, "Trim most of it" through "Add a
+  lot". The argument for that was always that the words are the
+  READER'S: a plan is a decision made in advance, so the label
+  completes "at this price, my plan says ...", and this app is only
+  printing it back.
 
-  What replaced them is symmetric about fair value and says how big the
-  move is rather than naming a tranche, with the foot of the ladder
-  named for the fact that put it there rather than for a size, because
-  it is not a bigger version of the band above it. The ids are what a
-  saved edit, a dismissal and an alert are keyed on, so they stay
-  exactly as they were: this is a wording change and nothing else.
+  That argument has a hole, and it is the defaults. Most readers never
+  open a ladder, so what they see is six imperatives this app computed,
+  set beside their own tickers, on a screen anybody may now reach. The
+  instruction is the app's however the label is framed, and a frame is a
+  poor thing to rest on when the downside is somebody reading "trim most
+  of it" as advice.
+
+  So the bands describe the price instead. "A long way above" is a fact
+  about a number, checkable against the figures printed beside it, and
+  it leaves the decision where it always belonged. Nothing about the
+  arithmetic changed: the edges, the steps and the ids are what they
+  were, so a saved level, a dismissal and an alert all still land. Do
+  not put a verb back in here.
 */
 const EDGES: { id: LadderBandId; label: string; steps: number | null }[] = [
-  { id: "trim-most", label: "Trim most of it", steps: null },
-  { id: "trim-some", label: "Trim a little", steps: 2 },
-  { id: "hold", label: "Hold", steps: 1 },
-  { id: "starter", label: "Add a little", steps: -1 },
-  { id: "full-aggressive", label: "Add a lot", steps: -2 },
-  { id: "exit", label: "Cheaper than its whole year", steps: null },
+  { id: "trim-most", label: "A long way above", steps: null },
+  { id: "trim-some", label: "A little above", steps: 2 },
+  { id: "hold", label: "Close to fair value", steps: 1 },
+  { id: "starter", label: "A little below", steps: -1 },
+  { id: "full-aggressive", label: "A long way below", steps: -2 },
+  /*
+    Not "Under its year's low", which is word for word what the range
+    beside it says: the foot of the ladder is the one band whose level
+    is a price rather than a distance from fair value, so the label
+    takes the longer view and the range names the level.
+  */
+  { id: "exit", label: "Below its whole year", steps: null },
 ];
 
 /** A tenth of the anchor per band, which is the reference ladder's own width. */

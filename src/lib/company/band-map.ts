@@ -400,12 +400,18 @@ export function readySaid(summary: BandMapSummary): string {
   if (reachedTotal === 0) {
     return "every name is somewhere in the middle of its own plan";
   }
+  /*
+    The names, and which end of the ladder they reached, described
+    rather than instructed: the bands stopped saying "trim" and "add"
+    when they stopped being imperative, so a sentence about them that
+    still did would be the app supplying the verb the table refuses to.
+  */
   const parts: string[] = [];
   if (trimNames.length > 0) {
-    parts.push(`${trimNames.join(", ")} at a trimming level`);
+    parts.push(`${trimNames.join(", ")} at the top of its own plan`);
   }
   if (addNames.length > 0) {
-    parts.push(`${addNames.join(", ")} at an adding level`);
+    parts.push(`${addNames.join(", ")} at the bottom of its own plan`);
   }
   /*
     Whose level it is, said once at the end rather than hung on each

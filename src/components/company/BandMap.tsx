@@ -569,7 +569,14 @@ function Summary({ map }: { map: Map }) {
         sub={`of this portfolio is priced near what its companies look worth. Below fair value, ${sharePhrase(s.below)}. Above it, ${sharePhrase(s.above)}.`}
       />
       <Tile
-        label="Ready to act on"
+        /*
+          Not "Ready to act on", which is what this said while the bands
+          were imperative. Once the table stopped telling anybody what to
+          do, a tile over it counting the things to do was the last place
+          the app still did, and the count is just as useful said as a
+          fact about where the prices are.
+        */
+        label="At an end of its plan"
         value={ready === 0 ? "None" : `${ready} of ${map.points.length}`}
         sub={
           ready === 0 && map.points.length === 1
@@ -643,7 +650,12 @@ export function BandMap({
         */}
         <div className="hidden items-center gap-6 border-b border-border/40 bg-foreground/[0.03] px-5 py-2 sm:flex">
           <div className="flex w-[21rem] shrink-0 items-center justify-between gap-4">
-            <MicroLabel>Your plan</MicroLabel>
+            {/*
+              Not "Your plan": this column holds where a price sits, and
+              the plan is what the reader edits behind it. The foot of
+              the panel is where that is said.
+            */}
+            <MicroLabel>Band</MicroLabel>
             <span className="flex items-center gap-1.5">
               <MicroLabel>From fair value</MicroLabel>
               <InfoTip
