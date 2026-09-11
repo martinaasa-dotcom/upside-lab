@@ -6,7 +6,7 @@ import { IdeaDeck } from "@/components/playbook/IdeaDeck";
 import { RecoveryGap } from "@/components/playbook/RecoveryGap";
 import { TemperatureLadder } from "@/components/playbook/TemperatureLadder";
 import { BelowFold } from "@/components/BelowFold";
-import { Panel, PanelHeader } from "@/components/ui/Panel";
+import { PANEL_STACK, Panel, PanelHeader } from "@/components/ui/Panel";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { isAbortError } from "@/lib/abort";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
@@ -90,12 +90,19 @@ function Section({
   icon: React.ReactNode;
   children: React.ReactNode;
 }) {
+  /*
+    No wrapper: a `Panel` already gaps its own children at 24/32, and this
+    div restated those two numbers as `gap-6 sm:gap-8` -- the responsive
+    pair the spacing pass removed from `Panel` itself, because a pair can
+    only ever be half overridden. With the wrapper in place the panel had
+    exactly one child, so its own rhythm never applied and a second copy
+    of the numbers did the work. Dropping it leaves the geometry identical
+    and deletes the copy.
+  */
   return (
     <Panel>
-      <div className="flex flex-col gap-6 sm:gap-8">
-        <PanelHeader title={title} subtitle={subtitle} icon={icon} />
-        {children}
-      </div>
+      <PanelHeader title={title} subtitle={subtitle} icon={icon} />
+      {children}
     </Panel>
   );
 }
@@ -171,7 +178,7 @@ export function PlaybookPanel() {
       against the valuation panel when it was two stacked cards for one
       question. The tab's own intro sentence carries what the hero said.
     */
-    <div className="flex flex-col gap-6">
+    <div className={PANEL_STACK}>
       <WidgetErrorBoundary name="Market temperature">
         <Section
           title="Fear and greed"
