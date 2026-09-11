@@ -1158,7 +1158,7 @@ export const ForecastPanel = memo(function ForecastPanel({
                     Since the last run
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {`From the run on ${formatGeneratedAt(prevPlan.generatedAt)} to this one, ${formatGeneratedAt(plan.generatedAt)}. Margus reasoned each name again from scratch; nothing here is nudged toward or away from a number.`}
+                    {`Compared with the run before this one, on ${formatGeneratedAt(prevPlan.generatedAt)}. Margus reasoned each name again from scratch; nothing here is nudged toward or away from a number.`}
                   </p>
                 </div>
                 <ul>
