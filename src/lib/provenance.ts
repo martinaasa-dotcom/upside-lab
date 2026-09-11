@@ -1013,7 +1013,7 @@ export function positionFitProvenance(input: {
 }
 
 /**
- * The price plan. Arithmetic on two numbers already on the page, and the
+ * The price ladder. Arithmetic on two numbers already on the page, and the
  * one surface in this app whose output looks most like an instruction, so
  * it is the one that most needs to say out loud that nobody wrote it.
  */
@@ -1074,12 +1074,12 @@ export function planLadderProvenance(input: {
     ],
     blindSpots: [
       NOT_YOUR_BROKER,
-      "Whether any of this is a sensible plan for you. The bands are a shape, not a judgement about your money, your timescale or what else you own.",
+      "Whether any of this is a sensible ladder for you. The bands are a shape, not a judgement about your money, your timescale or what else you own.",
       "Anything that happens between two prices: a level can be passed and come back before you ever look.",
       "The anchor's own assumptions. Every method behind it rests on one, and they are listed in the panel below.",
     ],
     at: input.at,
-    yours: "Change any level and the ladder redraws around it. The levels are the plan; this app only does the multiplication.",
+    yours: "Change any level and the ladder redraws around it. The levels are yours; this app only does the multiplication.",
   };
 }
 
@@ -1095,10 +1095,10 @@ export function bandMapProvenance(input: {
   return {
     maker: "arithmetic",
     title: "How this picture was drawn",
-    headline: `No model wrote this and nothing here is a score. It is ${n === 1 ? "one holding" : `${n} holdings`} placed by two figures that are already on other screens: each name's own price plan, and how much of this portfolio it is.`,
+    headline: `No model wrote this and nothing here is a score. It is ${n === 1 ? "one holding" : `${n} holdings`} placed by two figures that are already on other screens: each name's own price ladder, and how much of this portfolio it is.`,
     inputs: [
       {
-        what: "Each holding's own price plan",
+        what: "Each holding's own price ladder",
         /*
           NEVER "end of year price" ON ITS OWN -- `anchorForHolding`
           answers with one of two different kinds and this line used to
@@ -1124,7 +1124,7 @@ export function bandMapProvenance(input: {
       },
     ],
     steps: [
-      "Each name's plan is built first, exactly as its own page builds it. Nothing about the plan changes because it is on a map.",
+      "Each name's ladder is built first, exactly as its own page builds it. Nothing about the ladder changes because it is on a map.",
       "Height is which band the price is in, plus how far through that band it has got. Every band is a multiple of that company's own anchor, which is what lets a $2 company and a $2,000 one be compared at all.",
       "Across is that holding's share of this portfolio, ending at the largest one rather than at a hundred per cent, or every name would be drawn in the first tenth of the picture.",
       "Where two names would touch, one moves down a row inside its own band. Nothing is ever moved sideways, because sideways is a real figure.",
@@ -1132,11 +1132,11 @@ export function bandMapProvenance(input: {
     blindSpots: [
       NOT_YOUR_BROKER,
       "Anything about the companies themselves. Two names next to each other on this picture have nothing else in common.",
-      "Whether the plan behind any of it is a sensible one for you. The picture inherits every assumption of each name's own anchor.",
+      "Whether the ladder behind any of it is a sensible one for you. The picture inherits every assumption of each name's own anchor.",
       NOT_A_TARGET,
     ],
     at: input.at,
-    yours: "Open a name to see the plan behind its position, and change any level you disagree with.",
+    yours: "Open a name to see the ladder behind its position, and change any level you disagree with.",
   };
 }
 

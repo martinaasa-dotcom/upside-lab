@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Score, Scoreboard } from "@/components/ui/Panel";
 import {
   NO_VALUE,
+  barFillPct,
   cashtag,
   cn,
   currency,
@@ -249,7 +250,7 @@ export function PowerAnimalCard({
               <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
                 <div
                   className={cn("h-full rounded-full", tone.milestone)}
-                  style={{ width: `${Math.round(milestone.progress * 100)}%` }}
+                  style={{ width: `${barFillPct(Math.round(milestone.progress * 100))}%` }}
                 />
               </div>
             </div>

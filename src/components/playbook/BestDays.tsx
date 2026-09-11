@@ -3,7 +3,7 @@
 import { Card, MicroLabel, Segmented } from "@/components/ui/Panel";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { bestDaysProvenance } from "@/lib/provenance";
-import { cn, currency, percent } from "@/lib/format";
+import { barFillPct, cn, currency, percent } from "@/lib/format";
 import {
   annualFromMultiple,
   BEST_DAY_STEPS,
@@ -243,7 +243,7 @@ function Row({
             "h-full rounded-full",
             tone === "brand" ? "bg-primary" : "bg-foreground/25"
           )}
-          style={{ width: `${Math.max(1, Math.min(100, width))}%` }}
+          style={{ width: `${barFillPct(width, 1)}%` }}
         />
       </div>
       {rate != null ? (

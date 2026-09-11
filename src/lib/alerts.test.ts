@@ -203,6 +203,84 @@ describe("since when", () => {
   });
 });
 
+describe("a ladder alert reads like this holding's own situation, not a mail merge", () => {
+  it("gives two names in the same band different copy, driven by their own numbers", () => {
+    const [big] = buildLadderAlerts([
+      {
+        ticker: "BMNR",
+        spot: 24.96,
+        bandId: "trim-most",
+        bandLabel: "Trim 60%+",
+        edge: 23.78,
+        edited: false,
+        share: 0.124,
+        roiPct: 1.9,
+      },
+    ]);
+    const [small] = buildLadderAlerts([
+      {
+        ticker: "AAPL",
+        spot: 260,
+        bandId: "trim-most",
+        bandLabel: "Trim 60%+",
+        edge: 250,
+        edited: true,
+        share: 0.02,
+        roiPct: 0.12,
+      },
+    ]);
+    expect(big!.detail).not.toBe(small!.detail);
+    // The share is only worth a sentence once it is large enough to be
+    // the reason the card was opened.
+    expect(big!.detail).toContain("12.4% of what you own");
+    expect(small!.detail).not.toContain("of what you own");
+    // The gain is only carried on the trim band, and only when there is
+    // one to report.
+    expect(big!.detail).toContain("190% above what you paid");
+    // An edited level reads as the reader's own rather than the app's
+    // arithmetic.
+    expect(small!.detail).toContain("level you set");
+    expect(big!.detail).toContain("you have not changed");
+  });
+
+  it("gives every actionable band its own headline and sentence shape", () => {
+    const base = { ticker: "X", spot: 10, edited: false, edge: 9 };
+    const [trim] = buildLadderAlerts([
+      { ...base, bandId: "trim-most", bandLabel: "Trim 60%+" },
+    ]);
+    const [full] = buildLadderAlerts([
+      { ...base, bandId: "full", bandLabel: "Full position" },
+    ]);
+    const [more] = buildLadderAlerts([
+      { ...base, bandId: "full-aggressive", bandLabel: "Full position, and more" },
+    ]);
+    const [exit] = buildLadderAlerts([
+      { ...base, bandId: "exit", bandLabel: "Out of it" },
+    ]);
+    const titles = [trim, full, more, exit].map((a) => a!.title);
+    expect(new Set(titles).size).toBe(4);
+    expect(exit!.detail).toContain("stop describing the company you bought");
+    expect(exit!.tone).toBe("warning");
+    expect(trim!.tone).toBe("neutral");
+  });
+
+  it("says nothing about an em dash or an en dash", () => {
+    const [alert] = buildLadderAlerts([
+      {
+        ticker: "X",
+        spot: 10,
+        bandId: "exit",
+        bandLabel: "Out of it",
+        edge: 12,
+        edited: false,
+        share: 0.3,
+      },
+    ]);
+    expect(alert!.title).not.toMatch(/[–—]/);
+    expect(alert!.detail).not.toMatch(/[–—]/);
+  });
+});
+
 describe("a card's button goes where the fact can be acted on", () => {
   const ladder = buildLadderAlerts([
     {
@@ -215,7 +293,7 @@ describe("a card's button goes where the fact can be acted on", () => {
     },
   ]);
 
-  it("sends a price plan to Research, where the level is written", () => {
+  it("sends a price ladder alert to Research, where the level is written", () => {
     expect(ladder).toHaveLength(1);
     expect(alertDestination(ladder[0])).toBe("research");
     /*

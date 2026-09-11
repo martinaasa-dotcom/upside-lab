@@ -27,7 +27,7 @@
  */
 
 import { CARD, MicroLabel, Panel, PANEL_STACK, PanelHeader, Pill, Score, Scoreboard } from "@/components/ui/Panel";
-import { cn, currency, percent } from "@/lib/format";
+import { barFillPct, cn, currency, percent } from "@/lib/format";
 import { PALETTE } from "@/lib/palette";
 import type { Milestone } from "@/lib/retirement/milestones";
 import type { PlanResult, RetirementInputs } from "@/lib/retirement/plan";
@@ -203,7 +203,7 @@ function Rung({
         <div
           className="h-full rounded-full"
           style={{
-            width: `${Math.max(1, milestone.progress * 100)}%`,
+            width: `${barFillPct(milestone.progress * 100, 1)}%`,
             background: milestone.reached ? PALETTE.gain : PALETTE.brand,
           }}
         />

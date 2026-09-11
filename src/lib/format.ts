@@ -189,3 +189,48 @@ export function plural(
   return `${count} ${count === 1 ? singular : pluralForm}`;
 }
 
+/**
+ * A CSS `width: N%` for a bar fill, clamped to what the bar can draw.
+ *
+ * A fill drawn as a fraction of some peak is only ever safe while nothing
+ * plotted can outrun that peak by construction (the peak was the max of
+ * the exact values being drawn). The moment a bar's fill is a *different*
+ * quantity from the one that set the peak — profit filled inside a bar
+ * whose length is revenue, a holding's weight inside a bar scaled to
+ * something else — that assumption can silently stop holding: a company
+ * can keep more than it billed in a period (BitMine's 2026 net income was
+ * fifty times its revenue, marking crypto held on the balance sheet), a
+ * weight can be read from a stale peak, and so on. An unclamped width in
+ * that case is not a rounding error, it is a percentage in the thousands,
+ * and a `style` attribute does not refuse it: the fill paints straight
+ * across the page and off the far edge, dragging every element after it
+ * out of place.
+ *
+ * Every bar-fill computation in this app should route its final `%`
+ * through this rather than trust the arithmetic that produced it. It is
+ * the one line that has to be right for a bar to stay inside its own box
+ * regardless of how implausible the numbers behind it get.
+ */
+export function barFillPct(
+  value: number | null | undefined,
+  min = 0,
+  max = 100
+): number {
+  /*
+    Not `isRenderable`: that rejects `Infinity`, and a width that ran off
+    to infinity (a division by a peak of zero, say) is exactly the case
+    this exists to catch — it should clamp to a full bar, not an empty
+    one. `Math.min`/`Math.max` already do the right thing with ±Infinity;
+    only `NaN`, `null` and `undefined` have no direction to clamp toward,
+    so those alone fall back to the floor.
+
+    `max` defaults to 100 (a bar filling its whole box) and only needs
+    overriding by a track that does not give this fill the whole box to
+    itself — a bar growing from a centre line out to either edge, where
+    each side is 50% of the container and the other 50% belongs to the
+    other direction.
+  */
+  if (value === null || value === undefined || Number.isNaN(value)) return min;
+  return Math.min(Math.max(value, min), max);
+}
+

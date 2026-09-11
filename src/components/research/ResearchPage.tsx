@@ -52,7 +52,7 @@ import Link from "next/link";
  * subtraction is the whole design. What a signed-in reader gets that a
  * stranger does not is everything that needs a portfolio behind it: what
  * they own of it, what buying it would do to their mix, and their own
- * price plan. None of those can be honestly drawn for somebody with no
+ * price ladder. None of those can be honestly drawn for somebody with no
  * portfolio loaded, and the app's own rule about that is emphatic: a
  * browser with no portfolio in it is not an empty portfolio, and a card
  * that treats the two the same makes a confident false statement about
@@ -94,7 +94,7 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
     read: fair,
     nextEarnings: page.nextEarnings,
     /*
-      No exit level and no ladder. A price plan belongs to the reader who
+      No exit level and no ladder. A price ladder belongs to the reader who
       set it, and a stranger has not set one. The answer says so rather
       than inventing a level nobody chose.
     */
@@ -414,7 +414,7 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
               before you buy it.
             </li>
             <li>
-              A price plan you set yourself, and a note when the price
+              A price ladder you set yourself, and a note when the price
               reaches one of your own levels.
             </li>
             <li>

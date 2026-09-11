@@ -2,7 +2,14 @@
 
 import { MicroLabel, Panel, PanelHeader, Segmented } from "@/components/ui/Panel";
 import { WhyThis } from "@/components/ui/WhyThis";
-import { NO_VALUE, cn, currency, percent, signedPercent } from "@/lib/format";
+import {
+  NO_VALUE,
+  barFillPct,
+  cn,
+  currency,
+  percent,
+  signedPercent,
+} from "@/lib/format";
 import { companyNumbersProvenance } from "@/lib/provenance";
 import type { CompanyFacts } from "@/lib/company/facts";
 import { bigMoney } from "@/lib/company/readings";
@@ -89,8 +96,19 @@ function MoneyBar({
   peak: number;
   code: string;
 }) {
-  const revenueWidth = Math.max(((period.revenue ?? 0) / peak) * 100, 1);
-  const profitWidth = Math.max((Math.max(period.profit ?? 0, 0) / peak) * 100, 0);
+  /*
+    Both widths are clamped through `barFillPct`, never trusted raw. The
+    revenue bar's length is safe by construction (`peak` is the max of the
+    exact revenues being drawn), but the profit fill is a *different*
+    quantity drawn inside it, and nothing stops a period's profit from
+    dwarfing its own revenue: a company holding crypto on its balance
+    sheet can report net income many times its revenue on mark-to-market
+    gains alone, which is a real, checkable number and not a bug. Without
+    the clamp that produces a `width: 5384%` — a bar that paints straight
+    off the edge of the panel and drags the rest of the page with it.
+  */
+  const revenueWidth = barFillPct(((period.revenue ?? 0) / peak) * 100, 1);
+  const profitWidth = barFillPct((Math.max(period.profit ?? 0, 0) / peak) * 100, 0);
   const negative = period.profit !== null && period.profit < 0;
 
   return (
@@ -130,7 +148,14 @@ function MoneyBar({
         )}
       </div>
 
-      <div className="relative h-7 w-full">
+      {/*
+        `overflow-hidden` is a backstop, not the fix — `barFillPct` above is
+        what keeps these at or under 100%. It stays anyway: a container
+        that cannot overflow is what turns any future unclamped width into
+        a bar that merely looks full, rather than one that breaks the page
+        it sits on.
+      */}
+      <div className="relative h-7 w-full overflow-hidden">
         <span
           aria-hidden
           className="absolute inset-y-0 left-0 rounded-md bg-foreground/[0.09]"
@@ -296,9 +321,7 @@ function QualityLadder({ facts }: { facts: CompanyFacts }) {
                   "absolute inset-y-0 left-0 rounded-full",
                   (r.value as number) < 0 ? "bg-loss/70" : "bg-gain/50"
                 )}
-                style={{
-                  width: `${Math.min(Math.max((r.value as number) * 100, 0), 100)}%`,
-                }}
+                style={{ width: `${barFillPct((r.value as number) * 100)}%` }}
               />
             </span>
             <span className="w-14 shrink-0 text-right font-mono text-sm tabular-nums text-foreground">
