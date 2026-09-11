@@ -7,6 +7,7 @@ import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import {
   BOX,
   LoadError,
+  PANEL_PAD,
   MicroLabel,
   Panel,
   PanelHeader,
@@ -693,7 +694,7 @@ function FundPosition({
   const holdFor = holding.target_timeframe?.trim();
   const tag = cashtag(holding.ticker);
   return (
-    <div className={cn(BOX, "flex flex-col gap-4 p-4 sm:p-6")}>
+    <div className={cn(BOX, "flex flex-col gap-6 sm:gap-8", PANEL_PAD)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Badge variant="secondary" className="chip-hang h-6 font-heading text-sm font-semibold">

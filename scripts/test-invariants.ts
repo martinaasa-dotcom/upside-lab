@@ -2332,7 +2332,7 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
   /*
    * Asserted as properties rather than as one exact class string, which is
    * what made this brittle: the cell gained `flex flex-col` and stepped its
-   * padding down on a phone (`p-4 sm:p-6`), neither of which touches what
+   * padding down on a phone (`px-4 py-5 sm:px-6 sm:py-6`), neither of which touches what
    * this invariant is about. What it is about is that a score cell is glass
    * on the field with a ring, and never a flat fill.
    */
@@ -2361,7 +2361,33 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
     panel.slice(panel.indexOf("export function Reading")),
     /text-sm font-semibold tracking-tight text-foreground/
   );
-  assert.match(panel, /padded &&\s*"flex flex-col gap-5 p-4 sm:gap-6 sm:p-6"/);
+  /*
+   * The rule, not today's numbers. This used to pin the exact class string
+   * and so broke on a pure spacing pass that changed nothing it was about.
+   * What it is about: a padded panel is a flex column that owns the air
+   * around and between its own children, its horizontal pad steps down on
+   * a phone, and the gap between its sections is at least as large as the
+   * pad -- sections that sit closer together than they sit from the edge
+   * do not read as separate sections.
+   */
+  const padded = panel.match(/padded &&\s*"([^"]+)"/)?.[1] ?? "";
+  assert.match(padded, /flex flex-col/, "a padded panel is a flex column");
+  const step = (prop: string, cls: string) => {
+    const base = cls.match(new RegExp(`(?:^| )${prop}-(\\d+)`))?.[1];
+    const wide = cls.match(new RegExp(`sm:${prop}-(\\d+)`))?.[1];
+    return [Number(base), Number(wide ?? base)] as const;
+  };
+  const [padPhone, padWide] = step("px", padded);
+  const [gapPhone, gapWide] = step("gap", padded);
+  const [padYPhone, padYWide] = step("py", padded);
+  assert.ok(
+    padPhone > 0 && padPhone < padWide,
+    `a panel's side pad steps down on a phone (got ${padPhone}/${padWide})`
+  );
+  assert.ok(
+    gapPhone >= padYPhone && gapWide >= padYWide,
+    `a panel's sections sit at least as far apart as they sit from its edge (gap ${gapPhone}/${gapWide} vs pad ${padYPhone}/${padYWide})`
+  );
   assert.match(panel, /export function Scoreboard/);
   /*
    * Inverted on purpose. This used to require `whitespace-nowrap` on a
@@ -2433,7 +2459,18 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
     /uppercase tracking-wide/
   );
   assert.match(panel, /const FIGURE/);
-  assert.match(panel, /font-mono text-xl font-bold tabular-nums/);
+  /*
+   * Asserted as properties rather than as one run of classes: FIGURE gained
+   * an explicit `leading-tight` when `<p>` picked up a prose line-height in
+   * globals.css, which sits between `font-bold` and `tabular-nums` and broke
+   * a contiguous match while changing nothing this is about. A figure is
+   * mono, steps up a size at `sm`, sets its digits on one width, and states
+   * its own line so the prose default cannot loosen a wrapped number.
+   */
+  const figure = panel.slice(panel.indexOf("const FIGURE"), panel.indexOf("const FIGURE") + 400);
+  for (const cls of ["font-mono", "text-xl", "font-bold", "tabular-nums", "sm:text-2xl", "leading-tight"]) {
+    assert.ok(figure.includes(cls), `FIGURE keeps ${cls}`);
+  }
   /*
    * The chrome's fill and blur are one CSS class now, not utilities on the
    * header. That is load-bearing rather than tidying: a `backdrop-filter`
@@ -5001,7 +5038,7 @@ run("split rows stack on a phone so copy fills the card", () => {
     "utf8"
   );
   assert.match(panel, /export const SPLIT_ROW/);
-  assert.match(panel, /flex flex-col gap-3 sm:flex-row/);
+  assert.match(panel, /flex flex-col gap-\d+(?:\.5)? sm:flex-row/);
   const files = [
     "src/components/ui/Panel.tsx",
     "src/components/LabSheet.tsx",

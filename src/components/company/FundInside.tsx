@@ -1,11 +1,17 @@
 "use client";
 
-import { MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
+import {
+  CARD,
+  MicroLabel,
+  NESTED_PAD,
+  Panel,
+  PanelHeader,
+} from "@/components/ui/Panel";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { companyHref } from "@/lib/company/client";
 import { fundOverlap, overlapSentence } from "@/lib/company/fund-overlap";
 import { fundProvenance } from "@/lib/provenance";
-import { cashtag, percent } from "@/lib/format";
+import { cashtag, cn, percent } from "@/lib/format";
 import type { CompanyFacts } from "@/lib/company/facts";
 import { aimOnPress } from "@/lib/route-aim";
 import Link from "next/link";
@@ -122,7 +128,7 @@ export function FundInside({
       )}
 
       {sentence && (
-        <div className="glass-well rounded-lg p-4 sm:p-6">
+        <div className={cn(CARD, NESTED_PAD)}>
           <p className="text-sm leading-relaxed text-foreground">{sentence}</p>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             That is not a reason to do anything either way. Owning the same

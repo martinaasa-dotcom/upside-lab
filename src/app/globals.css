@@ -1057,6 +1057,42 @@ body {
   }
 }
 
+/*
+ * Reading copy breathes by default.
+ *
+ * Body copy in this app is `text-sm`, whose line-height is 1.25rem -- 1.43
+ * at 14px, which is a UI line-height rather than a reading one. About 190
+ * paragraphs already said `leading-relaxed` by hand and roughly 320 did
+ * not, so the product carried two different reading rhythms depending on
+ * whether whoever wrote a panel remembered, and the tight one is most of
+ * what "everything feels cluttered" was pointing at: a three-line
+ * explanation set at 1.43 is a block, not three lines.
+ *
+ * 1.625 is not a new number, it is exactly `leading-relaxed`. Matching it
+ * rather than picking something nearby is the point: afterwards there is
+ * one prose rhythm in the product instead of two, and the 190 hand-written
+ * `leading-relaxed` paragraphs are pixel-identical to what they were.
+ *
+ * **Unlayered, and that is load-bearing.** `text-sm` is not only a size,
+ * it ships its own `line-height`, so a rule in `@layer base` loses to it
+ * on every one of those ~320 paragraphs and silently does nothing -- which
+ * is exactly what the first attempt at this did, and the measurement
+ * (prose leading 20px before, 20px after) is the only reason it was
+ * caught. An unlayered rule beats every Tailwind utility whatever the
+ * specificity, which is the same mechanism the session hint in
+ * `session-hint.ts` relies on.
+ *
+ * Which makes the `:not()` the whole safety of it: a paragraph that states
+ * its own leading still wins, so `leading-tight` on a figure, or on
+ * anything else that is not prose, is how a call site opts out. Never
+ * widen this past `p` -- `text-sm` is also every table cell, button, input
+ * and nav label in the app, and a table row is a fixed `h-10` that a
+ * looser line would fight.
+ */
+p:not([class*="leading-"]) {
+  line-height: 1.625;
+}
+
 /* Hide scrollbars in horizontal tab rails (still scrollable). */
 .scrollbar-none,
 .no-scrollbar {

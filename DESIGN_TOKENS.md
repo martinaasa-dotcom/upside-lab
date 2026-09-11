@@ -846,11 +846,72 @@ The exceptions, which stay opaque on purpose: **meter tracks**
 **step indicators**, and `focus:bg-muted` on inline-edit cells, which needs
 an opaque fill to read as focused.
 
+### The vertical scale, and why it is not the horizontal one (2026-09-11)
+
+The complaint was that the product felt cluttered — blocks, text and
+figures all sitting too close to read comfortably. Measured on a
+representative room (three panels, a scoreboard, wells and prose) rendered
+against the app's own compiled CSS at 390, 820 and 1440, the cause was that
+every spacing tier had landed on roughly the same number:
+
+| | before | after |
+| --- | --- | --- |
+| Between panels | 24px | **32 / 40** |
+| A panel's own sections | 20 / 24px | **24 / 32** |
+| A panel's inside pad, down | 16 / 24px | **20 / 28** |
+| A panel's inside pad, across | 16 / 24px | *16 / 24, unchanged* |
+| Score cells, row gap | 16px | **24 at every width** |
+| Score cells, column gap | 16px | *16 on a phone, 20 from `sm`* |
+| Prose line-height | 1.43 | **1.625** |
+
+The rule underneath, which is the part to keep: **separation between groups
+has to beat separation inside one.** At a flat 24px a panel's last line sat
+as far from the next panel's first line as it did from its own edge, so the
+boxes stopped reading as separate answers and a room read as one ribbon.
+Nothing was removed to fix it.
+
+**The two axes are different budgets, and this is why the padding constants
+are `px-*`/`py-*` rather than `p-*`.** Sideways is genuinely scarce: on a
+390px phone every pixel of side padding is one the content does not get,
+and a three-up score cell has ~116px to set a figure in, which is the
+arithmetic that once pushed `23.0% a year` out through the side of its
+card. Downward costs only scroll, and scroll is the cheap axis — a reader
+who swipes once more has lost nothing, where a reader whose figure wrapped
+mid-number has lost the figure. So **every number that grew is vertical**,
+and the measured horizontal ones did not move: content width per cell came
+back 116 → 116 at 390px, with no horizontal overflow at any width. The room
+is about 11% taller, which is the whole price.
+
+**Prose leading was the largest single win and it is the one that nearly
+shipped as a no-op.** Body copy is `text-sm`, and about 190 paragraphs said
+`leading-relaxed` by hand while roughly 320 did not, so the product had two
+reading rhythms depending on whether whoever wrote a panel remembered. The
+fix is one rule in `globals.css` at exactly `leading-relaxed`'s own 1.625,
+so afterwards there is one rhythm and the 190 explicit ones are
+pixel-identical. It has to be **unlayered**: `text-sm` is not only a size,
+it ships its own `line-height`, so the same rule in `@layer base` loses to
+it on every one of those ~320 paragraphs and does nothing at all — which is
+exactly what the first attempt did, and the measurement (prose leading 20px
+before, 20px after) is the only reason it was caught. The `:not([class*=
+"leading-"])` on it is the whole safety: a paragraph that states its own
+leading still wins, which is how `FIGURE` opts out with `leading-tight`.
+Never widen it past `p`; `text-sm` is also every table cell, button, input
+and nav label, and a table row is a fixed `h-10` that a looser line would
+fight.
+
+What deliberately did **not** move: a label to its figure (`mt-2`), which is
+one unit and should stay tight — loosening pairs while loosening groups
+leaves the hierarchy exactly where it was. And `BelowFold`'s `reserve`
+heights are untouched even though every section grew: a reserve that is
+slightly short settles the scrollbar, where one that is too long is the
+empty block over 200px that the deferral rule forbids, so growing the
+content moves them the safe way.
+
 ### A panel spaces its own children — call sites must not
 
-`Panel` is `flex flex-col gap-5 p-4 sm:gap-6 sm:p-6`. Every direct child is
-already 20/24px from the next one, so a child that also carries `mt-3`,
-`mt-4` or `mb-4` gets **both**: measured on Lab, a subtitle sat 30px under
+`Panel` is `flex flex-col gap-6 px-4 py-5 sm:gap-8 sm:px-6 sm:py-7`. Every
+direct child is already 24/32px from the next one, so a child that also
+carries `mt-3`, `mt-4` or `mb-4` gets **both**: measured on Lab, a subtitle sat 30px under
 its own title and 40px above the bar it introduced, which is what the
 "huge dead gap" in that card was. Fifteen call sites across Lab, Growth and
 Fund did it.
@@ -859,8 +920,8 @@ Two rules come out of it:
 
 - **A title and its subtitle are one child**, not two. As siblings the
   panel gap pushes them a full step apart, and the call site then reaches
-  for a negative-feeling `mt-1.5` to pull them back. Wrap them, and let
-  `mt-1.5` hug inside the wrapper.
+  for a negative-feeling `mt-2` to pull them back. Wrap them, and let
+  `mt-2` hug inside the wrapper.
 - **A component never carries its own outer margin.** `SwatchLegend` had an
   `mt-3` baked in, and every one of its three call sites added `mt-4` on
   top because that still was not what the container wanted. Spacing is the
