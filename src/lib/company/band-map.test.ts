@@ -4,7 +4,6 @@ import {
   actionableFirst,
   barShares,
   buildBandMap,
-  flexWidths,
   foldToFit,
   readySaid,
 } from "@/lib/company/band-map";
@@ -426,38 +425,5 @@ describe("the picture never claims a level was the reader's when it was not", ()
       const said = readySaid(reached(edited)).toLowerCase();
       for (const word of BANNED) expect(said).not.toContain(word);
     }
-  });
-});
-
-describe("what a block will really be drawn at", () => {
-  it("A MINIMUM WIDTH IS CONTAGIOUS, so it is resolved, not estimated", () => {
-    /*
-      The fault: a band holding 1.5% and 0.2% of a portfolio drew both
-      blocks at their 72px floor, while a proportional estimate said the
-      first would get 130px. It was asked to print its share as well as
-      its name on that strength, and truncated the name to do it.
-    */
-    const widths = flexWidths(144, [0.9, 0.1], [72, 72]);
-    expect(widths).toEqual([72, 72]);
-  });
-
-  it("hands the rest to whoever is left when one block freezes", () => {
-    const widths = flexWidths(300, [0.9, 0.1], [72, 72]);
-    expect(widths[1]).toBe(72);
-    expect(widths[0]).toBeCloseTo(228, 6);
-    expect(widths[0]! + widths[1]!).toBeCloseTo(300, 6);
-  });
-
-  it("shares the space out by grow factor when nothing is squeezed", () => {
-    const widths = flexWidths(400, [0.5, 0.25, 0.25], [72, 72, 72]);
-    expect(widths).toEqual([200, 100, 100]);
-  });
-
-  it("gives every block its floor when there is not enough room at all", () => {
-    expect(flexWidths(50, [0.5, 0.5], [72, 72])).toEqual([72, 72]);
-  });
-
-  it("does not fall over on a band with nothing in it", () => {
-    expect(flexWidths(100, [], [])).toEqual([]);
   });
 });

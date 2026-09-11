@@ -12,7 +12,6 @@ import {
   TINY_SHARE,
   barShares,
   buildBandMap,
-  flexWidths,
   foldToFit,
   readySaid,
   type BandMap as Map,
@@ -77,25 +76,28 @@ const ZONES = [
     name: "Above fair value",
     ids: ["trim-most", "trim-some"] as LadderBandId[],
     row: "bg-[var(--zone-warm)]/[0.05]",
-    head: "bg-[var(--zone-warm)]/[0.09]",
-    rail: "bg-[var(--zone-warm)]/60",
     /*
-      The heading takes its zone's own hue rather than the muted grey
-      every other label in the app uses. A heading, a rail and a wash in
-      three different colours are three things; in one they are a zone.
-      Lightened well past the wash so it clears contrast as type: the
-      wash is 5% of this hue and the text is the hue itself.
+      THE ZONE'S HEADING IS A BANNER, NOT A CAPTION.
+
+      It was mono caps in muted grey, the same voice every other small
+      label in the app uses, sitting on a 9% wash: three zones that a
+      reader had to look for. It is a filled bar now, with the zone's
+      own colour in the rail, the name in that colour at sentence size
+      and weight, and the share beside it. The wash on the rows below
+      stays where it was, so only the heading got louder.
     */
-    title: "text-[var(--zone-warm)]/85",
+    strong: "bg-[var(--zone-warm)]/[0.16]",
+    ink: "text-[var(--zone-warm)]",
+    rail: "bg-[var(--zone-warm)]",
   },
   {
     key: "around",
     name: "Around fair value",
     ids: ["hold"] as LadderBandId[],
     row: "bg-foreground/[0.022]",
-    head: "bg-foreground/[0.045]",
-    rail: "bg-foreground/15",
-    title: "text-muted-foreground",
+    strong: "bg-foreground/[0.08]",
+    ink: "text-foreground",
+    rail: "bg-foreground/40",
   },
   {
     key: "below",
@@ -113,9 +115,9 @@ const ZONES = [
       8.0; these land on 5.1 and 8.1.
     */
     row: "bg-[var(--zone-cool)]/[0.038]",
-    head: "bg-[var(--zone-cool)]/[0.068]",
-    title: "text-[var(--zone-cool)]/85",
-    rail: "bg-[var(--zone-cool)]/60",
+    strong: "bg-[var(--zone-cool)]/[0.13]",
+    ink: "text-[var(--zone-cool)]",
+    rail: "bg-[var(--zone-cool)]",
   },
 ] as const;
 
@@ -131,25 +133,11 @@ const ROW_H = 68;
  * padding. Measured against the longest ordinary ticker rather than
  * guessed: a block one character short truncates somebody's holding.
  */
-const BLOCK_MIN_PX = 72;
+const BLOCK_MIN_PX = 98;
 /** The hairline between two blocks. */
 const BLOCK_GAP_PX = 3;
 /** A "+N" block carries a count rather than a name, so it needs less. */
-const REST_MIN_PX = 58;
-/**
- * How wide a block has to be before it prints its own share as well as
- * its name.
- *
- * A PHONE HAS NO HOVER, so what is not on the block is not readable at
- * all: the tooltip carrying the price and the share is a laptop's
- * privilege, and the first version left a phone reader with a ticker
- * and a coloured dot. The share is the figure this picture is about, so
- * the blocks with the room for it say it, and the ones without stay a
- * name rather than truncating one. Which blocks those are is arithmetic
- * on the bar's own width, not a guess: 116px is the name, the dot, the
- * gaps, the padding and four characters of "100%".
- */
-const SHARE_AT_PX = 116;
+const REST_MIN_PX = 64;
 
 /**
  * How wide the bar column actually is, which is what decides how many
@@ -206,7 +194,6 @@ function Block({
   point,
   grow,
   code,
-  showShare,
 }: {
   point: BandMapPoint;
   /**
@@ -224,8 +211,6 @@ function Block({
    */
   grow: number;
   code: string;
-  /** Wide enough to carry its own share as well as its name. */
-  showShare?: boolean;
 }) {
   const roi =
     point.roiPct === null
@@ -245,7 +230,6 @@ function Block({
         "shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]",
         "transition hover:border-border hover:brightness-125",
         "outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
-        point.actionable && "border-primary/45 bg-primary/[0.08]"
       )}
       style={{ flexGrow: Math.max(grow, 0.0001), flexBasis: 0, minWidth: BLOCK_MIN_PX }}
     >
@@ -253,11 +237,16 @@ function Block({
       <span className="truncate font-semibold tracking-tight">
         {point.ticker}
       </span>
-      {showShare && (
-        <span aria-hidden className="text-muted-foreground">
-          {sharePct(point.share)}
-        </span>
-      )}
+      {/*
+        EVERY BLOCK, NOT THE WIDE ONES. This printed only where a block
+        had the room, which a reader reads as arbitrary: one name in a
+        row carried a figure and its neighbours did not, for a reason
+        invisible on the page. The block's own minimum width is the
+        width that fits it, so the rule is now "always".
+      */}
+      <span aria-hidden className="text-muted-foreground">
+        {sharePct(point.share)}
+      </span>
       <span className="sr-only">
         , {currency(point.spot, 2, code)}, {percent(point.share, 1)} of this
         portfolio{roi}
@@ -330,34 +319,11 @@ function Row({
     (folded.length > 0 ? REST_MIN_PX : 0) +
     Math.max(slots - 1, 0) * BLOCK_GAP_PX;
 
-  /*
-    What each block will actually be drawn at, so a block can be asked
-    to carry its own share only where there is room for it. The same
-    arithmetic the browser is about to do: the bar's own width shared
-    out by each block's share, with every block held at its floor.
-  */
-  const barPx = Math.max((band.share / widest) * (barWidth || 0), floorPx);
   const { grows, rest } = barShares({
     bandShare: band.share,
     shown: shown.map((p) => p.share),
     folded: folded.map((p) => p.share),
   });
-  /*
-    What the browser will really draw each block at, resolved the way
-    flex resolves it: a block held at its floor keeps room the others
-    were counted as having, so a proportional estimate runs over on
-    every block beside a small one and asks it to print a share it has
-    no room for.
-  */
-  const drawn = flexWidths(
-    barPx - Math.max(slots - 1, 0) * BLOCK_GAP_PX,
-    [...grows, ...(folded.length > 0 ? [rest] : [])],
-    [
-      ...shown.map(() => BLOCK_MIN_PX),
-      ...(folded.length > 0 ? [REST_MIN_PX] : []),
-    ]
-  );
-  const widthOf = new Map(shown.map((p, i) => [p.ticker, drawn[i] ?? 0]));
   return (
     <div
       data-band-row=""
@@ -369,67 +335,43 @@ function Row({
       style={{ minHeight: ROW_H }}
     >
       {/*
-        THE BAND'S NAME AND ITS RANGE ARE TWO OBJECTS, NOT TWO LINES.
+        WHAT A BAND MEANS GOES BEHIND THE MARK, NOT IN A COLUMN.
 
-        They were stacked, both ragged left, the name at `text-sm` and
-        the range under it in muted mono. That reads as one soft block of
-        text: the range had no shape of its own, no column to align in,
-        and an opacity that put it half way between a label and a
-        whisper, so a reader's eye slid off both. The range is a quiet
-        capsule now, plainly a tag rather than a second title, and from
-        `sm` up it sits in a right-aligned column of its own so every
-        range on the ladder stacks into one scannable edge under the
-        header that says what they measure.
-
-        A phone keeps them on two lines, because the fuller wording the
-        tag needs there (nothing above it says "below fair value") would
-        leave a band's own name a few characters wide.
+        The range had a column of its own on every row, which is a fact
+        a reader needs once and then never again: after the first read
+        they know what "a long way above" is, and the figure is still
+        printing itself six times down the table for the rest of the
+        account's life. It is behind the tip beside the band's own name
+        now, which is the app's one glyph for "tell me more", and the
+        row is the name, what is in it, and how much of the portfolio
+        that is.
       */}
       <div
         className={cn(
-          "flex min-w-0 shrink-0 flex-col gap-1.5",
-          "sm:w-[21rem] sm:flex-row sm:items-center sm:justify-between sm:gap-4",
+          "flex min-w-0 shrink-0 items-center justify-between gap-3 sm:w-56 sm:justify-start",
           // Quieter, not unreadable: an empty band is still a step of
           // the ladder a reader is entitled to read.
           !filled && "opacity-55"
         )}
       >
-        <span className="flex items-baseline justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-1.5">
           <span
             className={cn(
-              "min-w-0 text-sm leading-tight sm:truncate",
+              "truncate text-sm leading-tight",
               filled ? "font-medium text-foreground" : "text-muted-foreground"
             )}
           >
             {band.label}
           </span>
-          {/* The share has its own column from `sm` up, so on a phone it
-              rides with the name rather than being dropped. */}
-          <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground sm:hidden">
-            {sharePct(band.share)}
-          </span>
+          <InfoTip
+            label={`What does ${band.label.toLowerCase()} mean?`}
+            text={`${band.label}: ${bandRangeSaid(band, { direction: true })}. Every band is a slice of that company's own fair value, so the same band means the same thing on a $2 company and a $2,000 one. How wide a slice depends on how far that company usually travels, between 8% and 14%.`}
+          />
         </span>
-        {/*
-          A COLUMN HEADER IS WHAT MAKES A BARE NUMBER MEAN SOMETHING.
-
-          "10% to 20%" is a quantity with no question attached to it, and
-          the answer is not to print the question on all six rows: "about
-          10% to 20% below fair value" six times over is the wall of
-          prose this replaced. A table says it once, at the top of the
-          column. Where there is no column, the tag says it itself.
-        */}
-        <span
-          className={cn(
-            "w-fit shrink-0 whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono text-xs leading-none tabular-nums",
-            filled
-              ? "bg-foreground/[0.07] text-muted-foreground"
-              : "bg-foreground/[0.04] text-muted-foreground/80"
-          )}
-        >
-          <span className="sm:hidden">
-            {bandRangeSaid(band, { direction: true })}
-          </span>
-          <span className="hidden sm:inline">{bandRangeSaid(band)}</span>
+        {/* The share has its own column from `sm` up, so on a phone it
+            rides with the name rather than being dropped. */}
+        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground sm:hidden">
+          {sharePct(band.share)}
         </span>
       </div>
 
@@ -469,7 +411,6 @@ function Row({
                 point={p}
                 grow={grows[i] ?? 0}
                 code={code}
-                showShare={(widthOf.get(p.ticker) ?? 0) >= SHARE_AT_PX}
               />
             ))}
             {folded.length > 0 && (
@@ -642,63 +583,33 @@ export function BandMap({
         with nothing in it reads as a hole cut in the panel.
       */}
       <div className="card-sheen glass-well overflow-hidden rounded-xl">
-        {/*
-          The column header, which is the one place the ladder says what
-          its own figures are. Only from `sm` up: below that the rows
-          stack, so there are no columns for a header to head, and each
-          tag carries its own wording instead.
-        */}
-        <div className="hidden items-center gap-6 border-b border-border/40 bg-foreground/[0.03] px-5 py-2 sm:flex">
-          <div className="flex w-[21rem] shrink-0 items-center justify-between gap-4">
-            {/*
-              Not "Your plan": this column holds where a price sits, and
-              the plan is what the reader edits behind it. The foot of
-              the panel is where that is said.
-            */}
-            <MicroLabel>Band</MicroLabel>
-            <span className="flex items-center gap-1.5">
-              <MicroLabel>From fair value</MicroLabel>
-              <InfoTip
-                label="What does from fair value mean?"
-                text="Each band is a slice of that company's own fair value, so the same band means the same thing on a $2 company and a $2,000 one. How wide a slice is depends on how far the company usually travels, between 8% and 14%, so these are the shape of the ladder rather than a promise about any one holding."
-              />
-            </span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <MicroLabel>What you hold there</MicroLabel>
-          </div>
-          <div className="w-12 shrink-0 text-right">
-            <MicroLabel>Share</MicroLabel>
-          </div>
-        </div>
         {ZONES.map((zone) => {
           const bands = map.bands.filter((b) => zone.ids.includes(b.id));
           if (bands.length === 0) return null;
           const share = bands.reduce((sum, b) => sum + b.share, 0);
           return (
-            <div key={zone.key} className="flex">
-              {/* The rail carries the zone's colour at full strength,
-                  where a few per cent of wash cannot. */}
-              <span aria-hidden className={cn("w-[3px] shrink-0", zone.rail)} />
-              <div className="min-w-0 flex-1">
-                <div
-                  className={cn(
-                    "flex items-center justify-between gap-3 border-b border-border/30 px-4 py-2 sm:px-5",
-                    zone.head
-                  )}
-                >
+            <div key={zone.key}>
+              <div
+                className={cn(
+                  "flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5",
+                  zone.strong
+                )}
+              >
+                <span className="flex items-center gap-2.5">
+                  {/* The rail carries the zone's colour at full
+                      strength, where a wash of a few per cent cannot. */}
                   <span
-                    className={cn(
-                      "font-mono text-xs uppercase leading-none tracking-[0.16em]",
-                      zone.title
-                    )}
-                  >
+                    aria-hidden
+                    className={cn("h-4 w-1 shrink-0 rounded-full", zone.rail)}
+                  />
+                  <span className={cn("text-sm font-semibold", zone.ink)}>
                     {zone.name}
                   </span>
-                  <span className="font-mono text-xs tabular-nums text-foreground">
-                    {sharePct(share)}
-                  </span>
-                </div>
+                </span>
+                <span className="font-mono text-sm tabular-nums text-foreground">
+                  {sharePct(share)}
+                </span>
+              </div>
                 {bands.map((band) => (
                   <Row
                     key={band.id}
@@ -708,7 +619,6 @@ export function BandMap({
                     zone={zone}
                   />
                 ))}
-              </div>
             </div>
           );
         })}
