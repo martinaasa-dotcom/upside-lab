@@ -247,16 +247,27 @@ function Plot({
           ladder is a multiple of it, and the picture said nothing about
           it before. Read off that band rather than from the middle of
           the picture, because the lanes are not all the same height.
+
+          THE LABEL SITS AT THE RIGHT EDGE, NEVER THE LEFT.
+
+          The band names are their own column immediately to the left of
+          the plot, right-aligned so they end flush against its border.
+          A label pinned to the plot's own left edge lands a hair from
+          that text, and "Hold, nothing new" followed a beat later by a
+          dashed "ESTIMATE" read as one clause, as if the line were
+          naming what "hold" means rather than marking a price that has
+          nothing to do with the band it happens to cross. The right
+          edge has no other text anywhere near it.
         */}
         {anchorAt !== null && (
           <>
             <div
-              className="absolute inset-x-0 border-t border-dashed border-primary/40"
+              className="absolute inset-x-0 border-t border-dashed border-primary/50"
               style={{ top: anchorAt }}
               aria-hidden
             />
             <span
-              className="absolute left-2 -translate-y-1/2 rounded bg-background/80 px-1 font-mono text-xs uppercase tracking-wide text-primary/80"
+              className="absolute right-2 -translate-y-1/2 whitespace-nowrap rounded-full border border-primary/40 bg-background px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-primary"
               style={{ top: anchorAt }}
               aria-hidden
             >
@@ -576,6 +587,23 @@ export function BandMap({
             <MicroLabel>Biggest, {percent(map.topShare, 0)}</MicroLabel>
           </div>
         </div>
+        {/*
+          The dashed line has no other explanation on the page, and it is
+          the one mark on this picture that is not a chip: a reader who
+          has never met it has no way to work out that it is not, say,
+          the border of the "hold" band it happens to sit inside. Said
+          once, in words, rather than left to a hover a phone cannot even
+          trigger.
+        */}
+        <p className="flex items-center gap-2 text-xs leading-relaxed text-muted-foreground">
+          <span
+            aria-hidden
+            className="h-0 w-4 shrink-0 border-t border-dashed border-primary/50"
+          />
+          The dashed line is each holding&rsquo;s own estimate, the price
+          its plan is built from. Every band is a multiple of it, which is
+          why it always falls in the middle of Hold.
+        </p>
       </div>
 
       <div className="sm:hidden">
