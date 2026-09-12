@@ -399,7 +399,17 @@ describe("what a year of retirement costs", () => {
 
 describe("the pot the plan needs", () => {
   it("asks for more than the exact answer, because returns arrive in an order", () => {
-    const plan = buildPlan(subject(), PLAN_AGE);
+    /*
+      Needs a life whose lifelong spend still exceeds the state pension,
+      or there is no lifelong draw for the safe rate to add a buffer to
+      and the two figures land exactly together. Even "comfortable" now
+      sits under the GB single pension on its own (no house, no car), so
+      this one also lowers the pension to get a real lifelong shortfall.
+    */
+    const plan = buildPlan(
+      subject({ standard: "comfortable", statePensionAnnual: 6_000 }),
+      PLAN_AGE
+    );
     expect(plan.required.safeRate).toBeGreaterThan(plan.required.spendDown);
   });
 
@@ -477,7 +487,16 @@ describe("where the reader stands", () => {
   });
 
   it("closes the gap with the saving it says it will", () => {
-    const inputs = subject({ currentPot: 20_000, annualContribution: 0 });
+    /*
+      Needs a life with a real lifelong shortfall (see the note above),
+      or a modest pot given decades to grow already closes it on its own.
+    */
+    const inputs = subject({
+      currentPot: 20_000,
+      annualContribution: 0,
+      standard: "comfortable",
+      statePensionAnnual: 6_000,
+    });
     const plan = buildPlan(inputs, PLAN_AGE);
     expect(plan.gap).toBeGreaterThan(0);
     const closed = buildPlan(
@@ -536,7 +555,18 @@ describe("the grid", () => {
   });
 
   it("makes cash cost a multiple of investing, which is the lesson", () => {
-    const inputs = subject();
+    /*
+      A large enough pot given three decades to grow reaches the target
+      on its own, and "there already" has no multiple to compare. This
+      one asks for a real shortfall: a modest pot, a real contribution,
+      and a lifelong shortfall against the pension (see the note above).
+    */
+    const inputs = subject({
+      currentPot: 5_000,
+      annualContribution: 1_000,
+      standard: "comfortable",
+      statePensionAnnual: 6_000,
+    });
     const invested = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "invested" });
     const cash = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "cash" });
     const i = invested.find((r) => r.retirementAge === 60)!;
@@ -553,8 +583,15 @@ describe("the grid", () => {
       1.79x at 35 rising to 2.60x at 70. On the pot alone the lesson
       inverts as you read down the table, which is exactly why the caption
       points at the monthly column instead.
+
+      Needs a pension below the moderate standard, or the shortfall this
+      is measuring goes to zero at some ages and the ratio is undefined.
     */
-    const inputs = subject({ currentPot: 0, annualContribution: 0 });
+    const inputs = subject({
+      currentPot: 0,
+      annualContribution: 0,
+      statePensionAnnual: 6_000,
+    });
     const inv = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "invested" });
     const cash = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "cash" });
     const potX = inv.map((r, i) => cash[i].byStandard.moderate / r.byStandard.moderate);
@@ -870,7 +907,12 @@ describe("a pot that earns nothing is not judged on a safe withdrawal rate", () 
   });
 
   it("carries the same reversal into every cell of the grid", () => {
-    const inputs = subject();
+    /*
+      Needs a pension below the moderate standard, or both columns settle
+      on the same "nothing owed" answer at the ages nearest the pension
+      and there is no reversal left to carry.
+    */
+    const inputs = subject({ statePensionAnnual: 6_000 });
     const invested = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "invested" });
     const cash = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "cash" });
     expect(cash.length).toBe(invested.length);
