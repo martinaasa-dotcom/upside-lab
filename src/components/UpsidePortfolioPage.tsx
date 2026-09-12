@@ -270,7 +270,7 @@ type FundRow = {
   cash_purpose?: string | null;
 };
 
-type HoldingRow = {
+export type HoldingRow = {
   id: string;
   ticker: string;
   shares: number;
@@ -285,7 +285,7 @@ type HoldingRow = {
   realized_pnl: number | null;
 };
 
-type FundActionRow = {
+export type FundActionRow = {
   type: "hold" | "trim" | "add" | "exit" | "buy";
   ticker: string;
   reasoning: string;
@@ -294,7 +294,7 @@ type FundActionRow = {
   dollarAmount?: number;
 };
 
-type WeeklyRecapRow = {
+export type WeeklyRecapRow = {
   id: string;
   week_ending: string;
   headline: string;
@@ -305,7 +305,7 @@ type WeeklyRecapRow = {
   portfolio_value_end: number;
 };
 
-type ReportRow = {
+export type ReportRow = {
   id: string;
   report_date: string;
   headline: string;
@@ -404,8 +404,8 @@ function ReportMeta({ r }: { r: ReportRow }) {
   );
 }
 
-/** The actual content: what he did, and why. */
-function ReportDetail({ r }: { r: ReportRow }) {
+/** The actual content: what Margus did, and why. */
+export function ReportDetail({ r }: { r: ReportRow }) {
   const moves = (r.actions ?? []).filter((a) => a.type !== "hold");
   return (
     <>
@@ -487,7 +487,7 @@ function RecapMeta({ r }: { r: WeeklyRecapRow }) {
   );
 }
 
-function RecapBody({
+export function RecapBody({
   text,
   muted = false,
 }: {
@@ -591,7 +591,7 @@ function FundFreshness({
   );
 }
 
-function FundMetric({
+export function FundMetric({
   label,
   value,
   hint,
@@ -660,7 +660,14 @@ function FundNote({
 }
 
 /**
- * One company he owns, with every figure named for what it actually is.
+ * One company Margus owns, with every figure named for what it actually is.
+ *
+ * Margus, not "he". This room is the only place in the app that gave the
+ * model a personal pronoun, and it did it on the same page that twice says
+ * "Margus is a computer program that writes language, not a person".
+ * Everywhere else -- the provenance panel, Forecast, the Dashboard -- it is
+ * the name or nothing. The page's credibility rests on a reader keeping
+ * hold of what wrote these reasons, and a pronoun quietly hands it back.
  *
  * Three of the four labels used to be wrong, and one of them in the way
  * that costs a beginner the most. `cost_basis` on a fund holding is the
@@ -676,7 +683,7 @@ function FundNote({
  * price and a gain of exactly nothing, which is a claim about the market
  * this page had no basis for.
  */
-function FundPosition({
+export function FundPosition({
   holding,
   price,
 }: {
@@ -759,15 +766,28 @@ function FundPosition({
       </div>
       {!priced && (
         <p className="text-sm leading-relaxed text-muted-foreground">
-          No price came back for {tag} just now, so the three figures that need
-          one say {NO_VALUE} rather than guessing.
+          {/*
+            * No count. There are four figures on this card that need a
+            * price, not three: the percentage in the pill at the top as
+            * well as Price now, Worth now and Up or down. The sentence said
+            * three, so a reader who counted the {NO_VALUE}s in front of
+            * them got a different answer from the page.
+            *
+            * Counting in prose the things laid out beside it is how this
+            * drifts, and it had: whoever added the pill did not come back
+            * to the sentence. So it says every figure that needs one, which
+            * is true at three, at four, and at whatever the grid holds
+            * next.
+            */}
+          No price came back for {tag} just now, so every figure that needs one
+          says {NO_VALUE} rather than guessing.
         </p>
       )}
       <div className="grid items-start gap-4 sm:grid-cols-2">
         <FundNote
           label={
             <Explain term="thesis" ticker={tag}>
-              Why he owns it
+              Why Margus owns it
             </Explain>
           }
           items={thesis}
@@ -775,7 +795,7 @@ function FundPosition({
         <FundNote
           label={
             <Explain term="sell-if" ticker={tag}>
-              What would make him sell
+              What would make Margus sell
             </Explain>
           }
           items={exit}
@@ -837,7 +857,7 @@ function sliceLabel(pct: number): string {
  * `landing-claims.test.ts` is the pattern for the sentences here: each one
  * is checked against the code that makes it true, in `fund-room-claims.test.ts`.
  */
-function WhatThisIs({
+export function WhatThisIs({
   decisions,
   startedOn,
 }: {
@@ -1721,8 +1741,8 @@ export function UpsidePortfolioPage() {
               {coverage.unpriced.length > 0 && (
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   {coverage.unpriced.length === 1
-                    ? `No price came back for ${cashtag(coverage.unpriced[0]!)} just now, so it is counted at what he paid for it rather than left out.`
-                    : `No price came back for ${coverage.unpriced.length} of these companies just now, so each is counted at what he paid for it rather than left out.`}{" "}
+                    ? `No price came back for ${cashtag(coverage.unpriced[0]!)} just now, so it is counted at what Margus paid for it rather than left out.`
+                    : `No price came back for ${coverage.unpriced.length} of these companies just now, so each is counted at what Margus paid for it rather than left out.`}{" "}
                   Everything above leans on that until the prices return.
                 </p>
               )}
@@ -1790,7 +1810,7 @@ export function UpsidePortfolioPage() {
               />
               </WidgetErrorBoundary>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                He also posts the same note every day on{" "}
+                Margus also posts the same note every day on{" "}
                 <a
                   href={FUND_X_URL}
                   target="_blank"
@@ -1807,7 +1827,7 @@ export function UpsidePortfolioPage() {
               <Panel>
                 <PanelHeader
                   title="Where the money sits"
-                  subtitle="Grouped by the kind of business, with the cash he has not spent."
+                  subtitle="Grouped by the kind of business, with the cash Margus has not spent."
                 />
                 <div>
                   <AllocationBar
@@ -1922,7 +1942,7 @@ export function UpsidePortfolioPage() {
                     ) : (
                       <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                         {watchingNote ??
-                          "He names the companies he is watching in the next daily report."}
+                          "Margus names the companies being watched in the next daily report."}
                       </p>
                     )}
                   </div>
@@ -1936,8 +1956,8 @@ export function UpsidePortfolioPage() {
                 <SectionHeading
                   title={
                     openHoldings.length === 1
-                      ? "The one company he owns now"
-                      : `The ${openHoldings.length} companies he owns now`
+                      ? "The one company Margus owns now"
+                      : `The ${openHoldings.length} companies Margus owns now`
                   }
                   why
                 />
@@ -2076,8 +2096,8 @@ export function UpsidePortfolioPage() {
                 <SectionHeading
                   title={
                     closedHoldings.length === 1
-                      ? "The one company he has sold"
-                      : `The ${closedHoldings.length} companies he has sold`
+                      ? "The one company Margus has sold"
+                      : `The ${closedHoldings.length} companies Margus has sold`
                   }
                 />
                 <ul className="divide-y divide-border overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
