@@ -85,6 +85,39 @@ function lookAroundOpens(pathname: string): boolean {
  * Requires a session when Supabase is configured.
  * Demo / no-Supabase local mode renders children immediately.
  */
+/**
+ * Why this particular room needs an account.
+ *
+ * One sentence used to cover all three and was wrong about one of them.
+ * Each now answers for itself, and the Fund's says what is behind the gate
+ * rather than claiming there is nothing there.
+ */
+function gateReason(pathname: string): string {
+  const path = (pathname.split("?")[0] ?? pathname).replace(/\/+$/, "") || "/";
+  if (path.startsWith("/upside-portfolio")) {
+    return (
+      "The Upside Fund is one portfolio this app runs and writes up, the " +
+      "same for everybody who opens it, and it opens once you are signed in."
+    );
+  }
+  if (path.startsWith("/communities")) {
+    return (
+      "A circle is other people, so there is nothing to show somebody who " +
+      "has not signed in yet."
+    );
+  }
+  if (path.startsWith("/account")) {
+    return (
+      "Your account settings are about you, so there is nothing to show " +
+      "somebody who has not signed in yet."
+    );
+  }
+  return (
+    "A circle is other people and your account settings are about you, so " +
+    "there is nothing to show somebody who has not signed in yet."
+  );
+}
+
 export function SignInGate({ children, invite: seededInvite = null }: Props) {
   const { user, signInWithGoogle } = useAuth();
   const pathname = usePathname();
@@ -241,11 +274,32 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
               <h1 className="font-heading text-2xl font-semibold text-foreground">
                 This part needs an account.
               </h1>
+              {/*
+                * The reason is the one that applies to the room the reader
+                * actually pressed, and for the Fund it used to be untrue
+                * twice over.
+                *
+                * The sentence read "a circle is other people, and the Fund
+                * and your account settings are about you, so there is
+                * nothing to show somebody who has not signed in yet". A
+                * circle is other people and Account is about you, both
+                * true. The Fund is neither: `loadFundPayload` says so in
+                * its own comment, "built once for everybody, nothing in
+                * here is keyed to the person asking", and the select policy
+                * on all four fund tables is `auth.uid() is not null`, so
+                * every signed-in viewer matches the same rows. It is one
+                * portfolio this app runs, identical for everybody.
+                *
+                * So "there is nothing to show" was false for it as well.
+                * There is a whole curated fund behind that gate, and a
+                * visitor who was told otherwise has been given a reason not
+                * to sign in rather than a reason to. The Fund's line says
+                * what it is now, which is an invitation; the other two keep
+                * the reasons that were already true.
+                */}
               <p className="text-base leading-relaxed text-muted-foreground">
-                A circle is other people, and the Fund and your account
-                settings are about you, so there is nothing to show somebody
-                who has not signed in yet. The portfolio, Pulse, Lab and
-                Growth are all open on the sample.
+                {gateReason(pathname)} The portfolio, Pulse, Lab and Growth
+                are all open on the sample.
               </p>
               <div className="flex flex-col items-center gap-3">
                 <Button asChild>
