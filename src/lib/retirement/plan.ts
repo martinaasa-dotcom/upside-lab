@@ -538,14 +538,14 @@ export function defaultInputs(regionId: string = DEFAULT_REGION_ID): RetirementI
     spendingMode: "standard",
     standard: "moderate",
     customAnnualSpend: livingStandardFor(region, "moderate", "single"),
-    housing: "owned",
+    housing: "mortgage",
     mortgageAnnual: localiseFromGbp(region, 12_000),
     mortgageYearsLeft: 20,
     rentAnnual: localiseFromGbp(region, UK_COST_ANCHORS.rentMonthly * 12),
     children: [],
     childAnnualCost: localiseFromGbp(region, UK_COST_ANCHORS.childAnnual),
     childUntilAge: 18,
-    carMonthly: 0,
+    carMonthly: localiseFromGbp(region, UK_COST_ANCHORS.carMonthly),
     carYearsLeft: 3,
     carForever: false,
     currentPot: 0,
@@ -589,6 +589,7 @@ export function retargetRegion(
     childAnnualCost: fresh.childAnnualCost,
     rentAnnual: fresh.rentAnnual,
     mortgageAnnual: fresh.mortgageAnnual,
+    carMonthly: fresh.carMonthly,
     /*
       What the reader already has and already saves is deliberately left
       alone. Those are their own figures in their own money, and silently
