@@ -51,6 +51,16 @@ export function FormattedNumberInput(props: FormattedNumberInputProps) {
   const focused = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(() => blurFormat(props, value));
+  // What this held when the edit began, for Escape to put back — every
+  // valid keystroke already calls `onChange` live, so `value` itself has
+  // moved by the time Escape is pressed and cannot be reread from props.
+  const beforeEdit = useRef(value);
+  // `.blur()` called from a keydown handler runs `onBlur` synchronously,
+  // before React applies the `setText`/`onChange` that same handler just
+  // queued, so `handleBlur` would reformat the stale (pre-Escape) `text`
+  // and immediately redo the very commit Escape was undoing. This flag
+  // tells it to stand down once.
+  const skipNextBlurCommit = useRef(false);
 
   const currencyKey = props.kind === "money" ? props.currency : "pct";
   useEffect(() => {
@@ -90,12 +100,18 @@ export function FormattedNumberInput(props: FormattedNumberInputProps) {
 
   function handleFocus(e: FocusEvent<HTMLInputElement>) {
     focused.current = true;
+    beforeEdit.current = value;
     // Select what's already there, so typing replaces it rather than
     // inserting at wherever the caret happened to land.
     e.target.select();
   }
 
   function handleBlur() {
+    if (skipNextBlurCommit.current) {
+      skipNextBlurCommit.current = false;
+      focused.current = false;
+      return;
+    }
     focused.current = false;
     const parsed =
       props.kind === "money"
@@ -116,6 +132,19 @@ export function FormattedNumberInput(props: FormattedNumberInputProps) {
       onFocus={handleFocus}
       onBlur={handleBlur}
       onWheel={blockWheelChange}
+      onKeyDown={(e) => {
+        // Same as every other inline-edit number field in this app
+        // (`PortfolioTable`'s cells, `ForecastPanel`'s price input):
+        // Enter commits, Escape puts back what was there before.
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") {
+          skipNextBlurCommit.current = true;
+          focused.current = false;
+          setText(blurFormat(props, beforeEdit.current));
+          onChange(beforeEdit.current);
+          e.currentTarget.blur();
+        }
+      }}
       className={cn("tabular-nums", className)}
     />
   );
