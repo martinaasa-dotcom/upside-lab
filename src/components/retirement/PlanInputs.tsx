@@ -381,6 +381,7 @@ export function PlanInputs({
               onChange={(carYearsLeft) => patch({ carYearsLeft })}
               max={60}
               suffix="years"
+              note="Counted from today, the same as the mortgage, so it can finish well before you stop working or run years into retirement depending on how far off that is."
             />
           )}
         </div>
