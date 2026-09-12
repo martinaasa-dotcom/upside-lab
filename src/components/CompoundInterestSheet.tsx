@@ -61,6 +61,7 @@ import { useTimeout } from "@/lib/use-timeout";
 import {
   MicroLabel,
   Panel,
+  PANEL_STACK,
   PanelHeader,
   Pill,
   Score,
@@ -1300,7 +1301,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         goes on the panels inside rather than the section, since a
         contained ancestor would trap anything sticky within it.
       */}
-      <section className="flex flex-col min-w-0 w-full max-w-full gap-4">
+      <section className={cn(PANEL_STACK, "min-w-0 w-full max-w-full")}>
         {/* Hero KPI Summary */}
         <Panel className={SHEET_PANEL}>
           <PanelHeader
@@ -1428,7 +1429,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           style, layout and paint; this skips building them at all until
           the reader comes near.
         */}
-        <BelowFold reserve={560}>
+        <BelowFold reserve={560} className={PANEL_STACK}>
         <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
             title="Same money, four paths"
