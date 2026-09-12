@@ -149,6 +149,83 @@ describe("a room's stack of panels uses the one shared rhythm", () => {
   });
 });
 
+/*
+  A WRAPPER BETWEEN A COLUMN AND ITS PANELS EATS THE COLUMN'S GAP.
+
+  The guard above reads the class on the element that declares a gap, so it
+  cannot see through a component. `BelowFold` renders a `div` of its own
+  around whatever it is handed, which means a section's `panel-stack` stops
+  at the wrapper and separates it as one block, while the panels inside it
+  stack against each other with nothing between them at all. That is how
+  Growth shipped a run of panels touching directly under a column that was
+  already on the shared rhythm, and no amount of reading the column's own
+  class would have found it: the column was right.
+
+  So a wrapper handed two or more panels has to carry the rhythm itself.
+  `BelowFold` takes a `className` for exactly this reason and says so in
+  its own doc comment.
+*/
+const STACK_WRAPPERS = ["BelowFold"];
+
+describe("a wrapper around panels carries the rhythm itself", () => {
+  const offenders: string[] = [];
+  for (const file of sourceFiles("src")) {
+    if (ALLOWED_STACKS.has(file)) continue;
+    const src = readFileSync(file, "utf8");
+    const lines = src.split("\n");
+    for (const tag of STACK_WRAPPERS) {
+      const open = new RegExp(`<${tag}(\\s|>)`);
+      lines.forEach((line, i) => {
+        if (!open.test(line)) return;
+        // The opening tag may wrap over several lines; read to its ">".
+        let head = "";
+        let j = i;
+        while (j < lines.length && j < i + 8) {
+          head += " " + (lines[j] ?? "");
+          if (/>\s*$/.test((lines[j] ?? "").trimEnd())) break;
+          j += 1;
+        }
+        /*
+         * Scan to this wrapper's own closing tag, not by indentation.
+         *
+         * A wrapper added around an existing block is routinely not
+         * reindented, so its children sit at the same column it does:
+         * Growth's own `<BelowFold>` and every `<Panel>` inside it are both
+         * at eight spaces. An indentation scan stops dead on the first
+         * child and reports a wrapper holding six panels as holding none,
+         * which is how the first version of this guard passed on the exact
+         * fault it was written for.
+         */
+        let depth = 0;
+        let panels = 0;
+        for (let k = i; k < lines.length; k++) {
+          const row = lines[k] ?? "";
+          if (k > i && /<Panel[\s>]/.test(row)) panels += 1;
+          for (const m of row.matchAll(new RegExp(`</?${tag}[\\s>/]`, "g"))) {
+            depth += m[0].startsWith("</") ? -1 : 1;
+          }
+          if (k > i && depth <= 0) break;
+        }
+        if (panels < 2) return;
+        if (/panel-stack|PANEL_STACK/.test(head)) return;
+        offenders.push(
+          `${file}:${i + 1}  <${tag}> wraps ${panels} panels with no shared rhythm`
+        );
+      });
+    }
+  }
+
+  it("never lets a wrapper collapse the gap between the panels inside it", () => {
+    expect(
+      offenders,
+      "Pass PANEL_STACK (or PANEL_STACK_GAP) as the wrapper's className. A " +
+        "wrapper renders an element of its own, so the column's gap stops at " +
+        "the wrapper and the panels inside it touch.\nOffenders:\n" +
+        offenders.join("\n")
+    ).toEqual([]);
+  });
+});
+
 describe("prose leading reaches sentences and leaves figures alone", () => {
   const CSS = readFileSync("src/app/globals.css", "utf8");
   const selector = CSS.match(/^(p:not\([^{]*)\{\s*\n\s*line-height: 1\.625;/m)?.[1] ?? "";
