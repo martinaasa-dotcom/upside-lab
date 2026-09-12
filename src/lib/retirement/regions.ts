@@ -477,7 +477,7 @@ export const REGIONS: readonly Region[] = [
   },
 ];
 
-export const DEFAULT_REGION_ID = "GB";
+export const DEFAULT_REGION_ID = "US";
 
 export function regionById(id: string | null | undefined): Region {
   const found = REGIONS.find((r) => r.id === id);
