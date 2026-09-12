@@ -244,7 +244,7 @@ describe("the card a reader pressed", () => {
     );
   }
 
-  it("is marked with an outline, never a ring", () => {
+  it("is marked with a border, never a ring or an outline", () => {
     const markup = quickStart("family-years");
     const card = markup
       .split("<button")
@@ -254,11 +254,16 @@ describe("the card a reader pressed", () => {
       `ring-*` is a box-shadow utility, and `.glass-well` sets `box-shadow`
       itself from the same cascade layer later in the file, so a ring on a
       well loses and the pressed card looks exactly like the other seven.
-      Measured on the rendered card, its whole computed shadow was the
-      well's own 1px rim. An outline is a different property and survives.
+      An `outline` survives that, but it is not clipped to the card's own
+      border-radius the way a `border` is, so at a negative offset on a
+      rounded corner the two curves disagree and the mismatch reads as a
+      bulge past the card's edge on hover. A border is part of the box
+      itself, so it is always the same radius as the card.
     */
-    expect(card).toContain("outline-primary");
+    expect(card).toContain("border-primary");
     expect(card).not.toContain("ring-2");
+    expect(card).not.toContain("outline-primary");
+    expect(card).not.toContain("outline-border");
     expect(card).toContain('aria-pressed="true"');
   });
 
