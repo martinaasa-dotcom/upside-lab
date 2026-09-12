@@ -126,13 +126,41 @@ function PathChart({
           of the plot would put it outside the card with nothing to clip
           against. When the line is in the top eighth the caption sits
           below it instead. The line itself never moves.
+
+          THE FLIPPED CAPTION HAS TO CLEAR "YOU STOP", NOT JUST THE CARD'S
+          OWN EDGE.
+
+          `peak` is `max(target, every pot value)`, so a plan whose pot
+          never climbs past its own target — the ordinary case for a plan
+          that is exactly funded rather than padded — puts the target line
+          at the very top of the plot, `targetTop` exactly 0. The "you
+          stop" caption is pinned to that same top row regardless of where
+          the target line falls, and it is left-anchored at the retirement
+          age's own position, which is well inside the left half of the
+          chart on most inputs. A translate of two pixels was only ever
+          enough to clear the target LINE; it left the flipped caption
+          sitting on the same row as "you stop" whenever both start near
+          the left edge, one caption drawn through the other. A full line
+          of clearance separates the two rows outright, at every retire
+          age, rather than only usually.
+
+          THE SAME FIGURE HAS THE SAME FAULT AT THE OTHER EDGE. A pot that
+          has climbed well past its own target puts the line near the
+          BOTTOM instead, and the caption grows upward from it
+          (`-translate-y-full`) into the ages row, which is pinned to the
+          same bottom edge of this box regardless of where the line falls.
+          The anchor is clamped short of the bottom for exactly the reason
+          `ValueGlance` clamps a label and never the mark it names: the
+          line stays exactly where the arithmetic put it, and only the
+          caption's own position gives up the last stretch of room to stay
+          clear of the row underneath it.
         */}
         <span
           className={cn(
             "chart-label-halo pointer-events-none absolute left-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground",
-            shape.targetTop < 0.12 ? "translate-y-0.5" : "-translate-y-full"
+            shape.targetTop < 0.12 ? "translate-y-5" : "-translate-y-full"
           )}
-          style={{ top: `${shape.targetTop * 100}%` }}
+          style={{ top: `${Math.min(shape.targetTop, 0.86) * 100}%` }}
         >
           target {currency(target, 0, code)}
         </span>
