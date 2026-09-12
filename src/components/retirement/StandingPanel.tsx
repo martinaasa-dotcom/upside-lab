@@ -123,6 +123,13 @@ function PathChart({
           positioned by a fraction of H must live in a wrapper sized to
           exactly the svg, or a target line low in the chart drags its
           label down into the axis row below the chart's real bottom edge.
+
+          Both captions carry `chart-label-halo`: they are drawn directly
+          over the plotted line and the shaded plot area, which can sit on
+          any panel background and over any part of the line they name, so
+          a flat fill behind the text can never match what is actually
+          behind the chart. The halo is the shared background-colored
+          `text-shadow` `ChartAxis` already uses for its own overlay ticks.
         */}
         <div className="relative">
           <svg
@@ -173,7 +180,7 @@ function PathChart({
           */}
           <span
             className={cn(
-              "pointer-events-none absolute left-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground",
+              "chart-label-halo pointer-events-none absolute left-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground",
               !shape.overlapsStopCaption &&
                 (shape.nearTop ? "translate-y-0.5" : "-translate-y-full")
             )}
@@ -186,7 +193,7 @@ function PathChart({
             target {currency(target, 0, code)}
           </span>
           <span
-            className="pointer-events-none absolute top-0 whitespace-nowrap text-xs text-muted-foreground"
+            className="chart-label-halo pointer-events-none absolute top-0 whitespace-nowrap text-xs text-muted-foreground"
             style={{
               left: `${Math.min(80, shape.retire * 100)}%`,
               paddingLeft: "0.25rem",
@@ -198,7 +205,7 @@ function PathChart({
         {[shape.firstAge, shape.midAge, shape.lastAge].map((age, i) => (
           <span
             key={age}
-            className="absolute bottom-0 text-xs tabular-nums text-muted-foreground"
+            className="chart-label-halo absolute bottom-0 text-xs tabular-nums text-muted-foreground"
             style={{
               left: i === 0 ? 0 : undefined,
               right: i === 2 ? 0 : undefined,

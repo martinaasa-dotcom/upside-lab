@@ -198,7 +198,7 @@ function SurvivalChart({
         {shape.marks.map((m) => (
           <span
             key={m.key}
-            className="absolute bottom-0 -translate-x-1/2 text-xs tabular-nums"
+            className="chart-label-halo absolute bottom-0 -translate-x-1/2 text-xs tabular-nums"
             style={{ left: `${m.label * 100}%`, color: m.color }}
           >
             {Math.round(m.age)}
