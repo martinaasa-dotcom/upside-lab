@@ -43,7 +43,7 @@ import {
   RETURNS_SOURCE,
   type GlideSegment,
 } from "@/lib/retirement/returns";
-import { FX_REFERENCE_MONTH, regionById } from "@/lib/retirement/regions";
+import { FX_REFERENCE_MONTH, regionById, UK_COST_ANCHORS } from "@/lib/retirement/regions";
 import type { RetirementInputs } from "@/lib/retirement/plan";
 import { SlidersVertical } from "lucide-react";
 
@@ -292,6 +292,18 @@ export function AssumptionsPanel({
                 </>
               ) : null}{" "}
               If you have a statement, its figure beats this one.
+            </p>
+          </div>
+          <div>
+            <MicroLabel>The mortgage, rent and car figures</MicroLabel>
+            <p className="mt-1 leading-relaxed text-muted-foreground">
+              A plan opens with a mortgage and a car payment already on it. Both
+              are UK figures, a {UK_COST_ANCHORS.mortgageSource.toLowerCase()} and
+              a {UK_COST_ANCHORS.carSource.toLowerCase()}, moved onto{" "}
+              {region.name}&apos;s prices the same way the living standards
+              above are. Rent, if you say you rent, and a child, once one is on
+              the plan, are moved the same way. Every one of these is a field
+              you can type your own number over.
             </p>
           </div>
           <div>

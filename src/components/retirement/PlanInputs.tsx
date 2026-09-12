@@ -264,6 +264,7 @@ export function PlanInputs({
               value={inputs.mortgageAnnual}
               currency={code}
               onChange={(mortgageAnnual) => patch({ mortgageAnnual })}
+              note={`Opened on ${currency(UK_COST_ANCHORS.mortgageAnnual, 0, "GBP")} a year at UK prices, moved onto ${region.name}'s.`}
             />
             <CountField
               label="Years left on it"
@@ -392,6 +393,7 @@ export function PlanInputs({
               onChange={(carYearsLeft) => patch({ carYearsLeft })}
               max={60}
               suffix="years"
+              note="Counted from today, the same as the mortgage, so it can finish well before you stop working or run years into retirement depending on how far off that is."
             />
           )}
         </div>

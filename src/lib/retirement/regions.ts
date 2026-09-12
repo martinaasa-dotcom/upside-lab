@@ -497,6 +497,23 @@ export function regionById(id: string | null | undefined): Region {
 }
 
 /**
+ * Round a converted local-money figure to a step sized to its own
+ * magnitude, so the rounding never claims more precision than the figure
+ * it came from has, in either direction. A five-figure living standard
+ * rounded to the nearest hundred is honest; a few-hundred car payment
+ * rounded the same way moves it by a quarter, which is what a hand-typed
+ * `Math.round(local / 100) * 100` did to the UK's own GBP 380 car anchor,
+ * printing the field's own default as 400 a page after the note beside it
+ * named 380. One shared step, used everywhere a UK figure is moved into
+ * another region's money, so the two cannot say two different things.
+ */
+function roundToLocalStep(local: number): number {
+  if (!Number.isFinite(local) || local <= 0) return 0;
+  const step = local > 100_000 ? 1_000 : local < 1_000 ? 10 : 100;
+  return Math.round(local / step) * step;
+}
+
+/**
  * The UK basket moved into another country's prices and money.
  *
  * Rounded to the nearest hundred, because the input it came from is a
@@ -510,9 +527,7 @@ export function livingStandardFor(
 ): number {
   const base = UK_LIVING_STANDARDS[standard][household];
   const local = base * (region.priceLevel / 100) * region.perGbp;
-  if (!Number.isFinite(local) || local <= 0) return 0;
-  const step = local > 100_000 ? 1_000 : 100;
-  return Math.round(local / step) * step;
+  return roundToLocalStep(local);
 }
 
 /** Every standard for a region, in the order they are shown. */
@@ -534,8 +549,7 @@ export function livingStandardsFor(
  */
 export function localiseFromGbp(region: Region, gbp: number): number {
   const local = gbp * (region.priceLevel / 100) * region.perGbp;
-  if (!Number.isFinite(local) || local <= 0) return 0;
-  return Math.round(local / 100) * 100;
+  return roundToLocalStep(local);
 }
 
 /**
@@ -561,4 +575,7 @@ export const UK_COST_ANCHORS = {
   /** A rough national average rent, which varies more than any other line here. */
   rentMonthly: 1_100,
   rentSource: "Rough national average rent for one home",
+  /** Roughly the average UK mortgage repayment, annualised. */
+  mortgageAnnual: 12_000,
+  mortgageSource: "Typical monthly mortgage repayment, annualised",
 } as const;
