@@ -130,6 +130,137 @@ const TABS: { id: LabTab; label: string }[] = [
   { id: "playbook", label: "Playbook" },
 ];
 
+/**
+ * Lab's tab row, at one breakpoint.
+ *
+ * There used to be two of these written out by hand, a `sm:hidden` one for
+ * the phone and a `hidden sm:block` one for everything else, and they had
+ * drifted in exactly the direction that hurts most. The edge fade that
+ * says a row keeps going, the scroll listener behind it, and the ref that
+ * keeps the chosen tab on screen were all on the desktop row -- the one
+ * with several hundred spare pixels that rarely overflows at all. The
+ * phone row, which is the one that always overflows, had none of them.
+ *
+ * Measured at 390px: the row is 488px of tabs in a 311px window, so 177px
+ * sits off the right, and "Seasonality" ends flush with the card's edge
+ * with no fade, no arrow and no part-shown tab behind it. The row reads as
+ * a complete set of four. The two tabs a beginner has most use for,
+ * Research and the Playbook, are the two that are invisible, and nothing
+ * on the screen suggests scrolling sideways would find them.
+ *
+ * One component used twice fixes that by construction. Each instance owns
+ * its own ref, its own overflow state and its own observer, which is not
+ * tidiness: both rows are in the document at every width and the hidden
+ * one measures `scrollWidth` and `clientWidth` as zero, so a single shared
+ * ref would have one breakpoint deciding the other's fade. That is the
+ * trap this repo already records against a dock measuring itself in a
+ * hidden room.
+ */
+function LabTabRow({
+  tabs,
+  active,
+  onSelect,
+  className,
+}: {
+  tabs: { id: LabTab; label: string }[];
+  active: LabTab;
+  onSelect: (id: LabTab) => void;
+  className?: string;
+}) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const buttonRefs = useRef<Partial<Record<LabTab, HTMLButtonElement | null>>>(
+    {}
+  );
+  const [overflow, setOverflow] = useState({ left: false, right: false });
+
+  // Edge fades, but only on the side that actually has more tabs, so the
+  // row reads as scrollable instead of looking arbitrarily clipped.
+  const sync = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    setOverflow({
+      left: el.scrollLeft > 4,
+      right: maxScroll > 4 && el.scrollLeft < maxScroll - 4,
+    });
+  }, []);
+
+  useEffect(() => {
+    sync();
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(sync);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [sync, tabs.length]);
+
+  /*
+   * Keep the chosen tab on screen. Arriving from a deep link or the
+   * command palette otherwise left the highlight scrolled out of view,
+   * which on the phone row meant landing on Research and seeing a row
+   * whose four visible tabs were all unselected.
+   *
+   * `inline: "nearest"` rather than "center", and `block: "nearest"`, so
+   * this never scrolls the page itself to bring a row into view.
+   */
+  useEffect(() => {
+    buttonRefs.current[active]?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [active]);
+
+  return (
+    <div
+      ref={scrollRef}
+      onScroll={sync}
+      role="tablist"
+      aria-label="Lab sections"
+      /*
+        The scroll edges fade the CONTENT with a mask, they do not paint a
+        ramp over it. Two absolutely-positioned `bg-gradient-to-r
+        from-card/85` strips used to sit on top of this row, which put a
+        card-coloured smear on a glass surface and only matched while the
+        surface behind it was exactly `--card`. A mask takes the tab labels
+        to transparent instead, so the glass underneath is untouched and
+        there is no gradient anywhere in the material.
+      */
+      className={cn(
+        "scrollbar-none flex min-h-[2rem] gap-1 overflow-x-auto",
+        overflow.left && overflow.right
+          ? "[mask-image:linear-gradient(to_right,transparent,black_1.5rem,black_calc(100%-1.5rem),transparent)]"
+          : overflow.left
+            ? "[mask-image:linear-gradient(to_right,transparent,black_1.5rem)]"
+            : overflow.right
+              ? "[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]"
+              : undefined,
+        className
+      )}
+    >
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          ref={(el) => {
+            buttonRefs.current[t.id] = el;
+          }}
+          type="button"
+          role="tab"
+          aria-selected={active === t.id}
+          onClick={() => onSelect(t.id)}
+          className={cn(
+            "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition touch-target",
+            active === t.id
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-primary"
+          )}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 const INTENT_TO_TAB: Record<LabDeepLink, LabTab> = {
   seasonality: "seasonality",
   lookup: "lookup",
@@ -174,9 +305,6 @@ export const LabSheet = memo(function LabSheet({
     const fromUrl = initialLabTab();
     return visibleTabs.some((t) => t.id === fromUrl) ? fromUrl : fallbackTab;
   }, fallbackTab);
-  const tabScrollRef = useRef<HTMLDivElement | null>(null);
-  const tabRefs = useRef<Partial<Record<LabTab, HTMLButtonElement | null>>>({});
-  const [tabOverflow, setTabOverflow] = useState({ left: false, right: false });
   /** What-if scope: full book or a single sheet */
   const [scopeId, setScopeId] = useState<string>("book");
   /*
@@ -220,36 +348,6 @@ export const LabSheet = memo(function LabSheet({
       `${url.pathname}${url.search}`
     );
   }
-
-  // The tab row can still scroll on a narrow phone, so keep the active tab
-  // on screen. Arriving from a deep link or the command palette otherwise
-  // left the highlight scrolled out of view.
-  useEffect(() => {
-    const el = tabRefs.current[tab];
-    if (!el) return;
-    el.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [tab]);
-
-  // Edge fades, but only on the side that actually has more tabs, so the
-  // row reads as scrollable instead of looking arbitrarily clipped.
-  const syncTabOverflow = useCallback(() => {
-    const el = tabScrollRef.current;
-    if (!el) return;
-    const maxScroll = el.scrollWidth - el.clientWidth;
-    setTabOverflow({
-      left: el.scrollLeft > 4,
-      right: maxScroll > 4 && el.scrollLeft < maxScroll - 4,
-    });
-  }, []);
-
-  useEffect(() => {
-    syncTabOverflow();
-    const el = tabScrollRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(syncTabOverflow);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [syncTabOverflow, visibleTabs.length]);
 
   useEffect(() => {
     if (!intentTab) return;
@@ -491,77 +589,37 @@ export const LabSheet = memo(function LabSheet({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
             <h2 className="shrink-0 text-foreground">Lab</h2>
-            <div
-              role="tablist"
-              aria-label="Lab sections"
-              className="scrollbar-none flex min-h-[2rem] gap-1 overflow-x-auto sm:hidden"
-            >
-              {visibleTabs.map((t) => (
-                <button
-                  key={`m-${t.id}`}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === t.id}
-                  onClick={() => selectTab(t.id)}
-                  className={cn(
-                    "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition touch-target",
-                    tab === t.id
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-primary"
-                  )}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+            {/*
+              * The phone row wraps rather than scrolling.
+              *
+              * The fade below says "there is more this way" and it was
+              * measured doing almost nothing here: at 390px the row is 488px
+              * of tabs in a 311px window, and it happens to break within two
+              * pixels of a tab boundary, so what a reader sees is four
+              * complete tabs and a slightly dim final letter. Research and
+              * the Playbook are entirely off-screen with nothing suggesting
+              * they exist, and those are the two tabs a beginner has most use
+              * for: the one that explains a company they are thinking about,
+              * and the one that teaches the ideas. Withholding a room from
+              * the reader who most needs it, by accident, is the worst
+              * version of the thing this product says it does not do.
+              *
+              * Wrapping costs one row of height and shows all six. Kept off
+              * the wider row, which has the space to lay them out in one line
+              * and where the scroller and its fade are the right answer.
+              */}
+            <LabTabRow
+              tabs={visibleTabs}
+              active={tab}
+              onSelect={selectTab}
+              className="flex-wrap sm:hidden"
+            />
             <div className="relative hidden min-w-0 flex-1 sm:block">
-              <div
-                ref={tabScrollRef}
-                onScroll={syncTabOverflow}
-                role="tablist"
-                aria-label="Lab sections"
-                /*
-                  The scroll edges fade the CONTENT with a mask, they do not
-                  paint a ramp over it. Two absolutely-positioned
-                  `bg-gradient-to-r from-card/85` strips used to sit on top
-                  of this row, which put a card-coloured smear on a glass
-                  surface and only matched while the surface behind it was
-                  exactly `--card`. A mask takes the tab labels to
-                  transparent instead, so the glass underneath is untouched
-                  and there is no gradient anywhere in the material.
-                */
-                className={cn(
-                  "scrollbar-none flex min-h-[2rem] gap-1 overflow-x-auto",
-                  tabOverflow.left && tabOverflow.right
-                    ? "[mask-image:linear-gradient(to_right,transparent,black_1.5rem,black_calc(100%-1.5rem),transparent)]"
-                    : tabOverflow.left
-                      ? "[mask-image:linear-gradient(to_right,transparent,black_1.5rem)]"
-                      : tabOverflow.right
-                        ? "[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]"
-                        : undefined
-                )}
-              >
-                {visibleTabs.map((t) => (
-                  <button
-                    key={t.id}
-                    ref={(el) => {
-                      tabRefs.current[t.id] = el;
-                    }}
-                    type="button"
-                    role="tab"
-                    aria-selected={tab === t.id}
-                    onClick={() => selectTab(t.id)}
-                    className={cn(
-                      "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition touch-target",
-                      tab === t.id
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-primary"
-                    )}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
+              <LabTabRow
+                tabs={visibleTabs}
+                active={tab}
+                onSelect={selectTab}
+              />
             </div>
           </div>
           {/*
