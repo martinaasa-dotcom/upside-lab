@@ -691,20 +691,24 @@ function Summary({ map, voice }: { map: Map; voice: Voice }) {
       />
       <Tile
         /*
-          Not "Ready to act on", which is what this said while the bands
-          were imperative. Once the table stopped telling anybody what to
-          do, a tile over it counting the things to do was the last place
-          the app still did, and the count is just as useful said as a
-          fact about where the prices are.
+          "At a plan's end" described where these names sit and made a
+          reader work out why that mattered, rather than saying outright
+          what the count is: `reachedTotal`, which is `isActionableBand`
+          applied to every holding, the same test `BandAlerts` and the
+          alert builder already use to decide what is worth a card.
+
+          "Actionable" was tried here first and is the wrong word for
+          this app to use about itself. `BandAlerts`, drawing the exact
+          same set of names, deliberately calls it "reached an end of
+          their plan" and ends on "a level being reached is a fact about
+          a price, not a reason to do anything" -- because "actionable"
+          reads as this app telling a reader there is an action waiting,
+          which is the one thing a ladder is not allowed to say. This
+          tile answers the same question as that card and has to use the
+          same words to ask it, so it borrows the card's own phrase
+          rather than inventing a second one.
         */
-        /*
-          A LABEL THAT SHARES ITS LINE WITH A FIGURE IS PRICED BY THAT
-          LINE. "At an end of its plan" is 21 characters of mono caps,
-          which on a 326px phone row wrapped and left the word "plan"
-          alone under a figure reading "4 of 14". Three words say the
-          same thing and fit beside every value this tile can print.
-        */
-        label="At a plan's end"
+        label="Reached a level"
         value={ready === 0 ? "None" : `${ready} of ${map.points.length}`}
         sub={
           ready === 0 && map.points.length === 1 && !voice.pooled
