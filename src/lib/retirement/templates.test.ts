@@ -311,12 +311,15 @@ describe("the pot a first visit opens on", () => {
     expect(openingPot(25_000, 42_000.4)).toBe(42_000);
   });
 
-  it("leaves every template's own pot alone, which is what a press asks for", () => {
+  it("builds every life on its own pot, which the room overrides on a press", () => {
     /*
-      A press is a deliberate request for that life, and the pot is part of
-      its shape: "Nearly there" carrying somebody's real two thousand
-      pounds is not nearly there, and the arithmetic tuned into all eight
-      collapses. Only the opener nobody asked for defers.
+      `templateInputs` is pure and stays that way: it is the ARITHMETIC of
+      a life, tuned to the pot it names, and it never reasons about what
+      the reader holds. Whether that pot reaches the screen unchanged, an
+      account with nothing real, or is overridden by a real portfolio, on
+      every other account, is `RetirementSheet`'s `applyTemplate` calling
+      `openingPot` / `resolvedPotOverride` on top of this, in `pot-source.ts`
+      and its own tests. This file only pins the function under it.
     */
     for (const template of RETIREMENT_TEMPLATES) {
       const built = templateInputs(template, "GB");
