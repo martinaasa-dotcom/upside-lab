@@ -121,6 +121,22 @@ export function buildCompareScenarios(inputs: CompoundInputs): CompareScenario[]
     ratePeriod: "annual",
   });
 
+  /*
+   * Your rate is only a path of its own when it is actually a different
+   * rate.
+   *
+   * The rate box opens on the market's own long run 10%, which is also the
+   * index fund row's rate, so on the default screen the last two rows were
+   * the same arithmetic printed twice: identical ending figure, identical
+   * growth figure, two labels, and two lines drawn exactly on top of each
+   * other in the chart below. A reader meeting "Index fund $157,935" and
+   * "Your rate $157,935" reasonably concludes the panel is broken, and the
+   * panel's whole job is to show that different rates land in different
+   * places. When the two agree there is one path and the index row says so.
+   */
+  const yourRateIsMarket =
+    Math.abs(yourRate - BROAD_MARKET_ANNUAL_PCT) < 0.05;
+
   return [
     {
       id: "mattress",
@@ -138,18 +154,24 @@ export function buildCompareScenarios(inputs: CompoundInputs): CompareScenario[]
     },
     {
       id: "spy",
-      label: "Index fund",
-      tagline: `About ${BROAD_MARKET_ANNUAL_PCT}% a year, the long run average for the whole US market before inflation is taken off.`,
+      label: yourRateIsMarket ? "Index fund, and your rate" : "Index fund",
+      tagline: yourRateIsMarket
+        ? `About ${BROAD_MARKET_ANNUAL_PCT}% a year, the long run average for the whole US market before inflation is taken off. It is also the number in your box, so both are this one line.`
+        : `About ${BROAD_MARKET_ANNUAL_PCT}% a year, the long run average for the whole US market before inflation is taken off.`,
       result: spy,
-      color: PALETTE.steel,
+      color: yourRateIsMarket ? PALETTE.bronze : PALETTE.steel,
     },
-    {
-      id: "upside",
-      label: "Your rate",
-      tagline: `${yourRate.toFixed(0)}% a year, the number in the box.`,
-      result: upside,
-      color: PALETTE.bronze,
-    },
+    ...(yourRateIsMarket
+      ? []
+      : [
+          {
+            id: "upside",
+            label: "Your rate",
+            tagline: `${yourRate.toFixed(0)}% a year, the number in the box.`,
+            result: upside,
+            color: PALETTE.bronze,
+          },
+        ]),
   ];
 }
 
@@ -224,14 +246,17 @@ const NARRATIVE_ANGLES: NarrativeAngle[] = [
       `This path never sees another deposit. Doubling about every ${doubleText} does the rest.`,
     ]);
   },
-  ({ tip, rng }) => {
-    if (tip == null) return null;
-    return beat("The year growth takes over", rng, [
-      `Year ${tip} is when one year of growth would first add more than you pay in. Money working harder than you, which is what the years buy.`,
-      `By year ${tip}, a single year of growth would outearn a full year of your deposits.`,
-      `Year ${tip} is the turn. From there on growth adds more each year than your own deposits do.`,
-    ]);
-  },
+  /*
+   * There is deliberately no beat about the year growth takes over.
+   *
+   * That year already has a score cell of its own a screen above, headed
+   * "When growth takes over", carrying the year and the sentence "From this
+   * year, growth adds more than you pay in". A beat here said the same
+   * thing in the same words, so the panel that exists to add something
+   * spent one of its five slots repeating a cell. The tipping year is still
+   * mentioned where it is a qualifier rather than the point, as the suffix
+   * on "Money you pay in".
+   */
   ({ result, fmt, rng }) => {
     const mid = result.yearly.find(
       (y) => y.index === Math.floor(result.durationYears / 2)
@@ -288,25 +313,42 @@ export function buildNarrative(
     result.totalContributions > 0
       ? `${fmt(result.principal)} plus what you pay in`
       : fmt(result.principal);
-  const beats: NarrativeBeat[] = [
+
+  /*
+   * The panel opens on an angle, not on the figures the reader has already
+   * read.
+   *
+   * This list used to start with two fixed beats, "The path" and "What
+   * growth adds", and every figure in both was already on screen: the
+   * ending value is the hero figure at the top of the room, the growth
+   * figure and its share are the score cell beside it, and the percentage
+   * on top of what went in is the total return cell. So a panel titled
+   * "What this actually tells you" opened by telling the reader what they
+   * had just been told, twice, and the genuinely new observations were
+   * pushed below them. The angles are what the figures cannot say on their
+   * own: when growth overtakes the deposits, what the halfway point looks
+   * like, how much steeper the last year is than the first. Those are the
+   * panel now.
+   *
+   * `fallbackPath` is kept for the one shape where every angle stands down,
+   * because a panel with a heading and nothing under it reads as content
+   * that failed to arrive.
+   */
+  const fallbackPath = (): NarrativeBeat =>
     beat("The path", rng, [
       `${from} becomes ${fmt(result.futureValue)} over ${formatHorizon(result.durationYears)}, if this rate holds the whole way. Slow at first, then not.`,
       `${from} would become ${fmt(result.futureValue)} over ${formatHorizon(result.durationYears)}. Slow at first, then not slow at all.`,
       `Over ${formatHorizon(result.durationYears)}, ${from} would grow into ${fmt(result.futureValue)}. Slow at first, then it is not.`,
-    ]),
-    beat("What growth adds", rng, [
-      `${fmt(result.totalInterest)} of that would come from growth rather than from your pocket, which is ${(result.allTimeRoR * 100).toFixed(0)}% on top of what went in.`,
-      `${fmt(result.totalInterest)} of the final number would be growth rather than money you paid in, ${(result.allTimeRoR * 100).toFixed(0)}% on top of what went in.`,
-      `Of what you would end up with, ${fmt(result.totalInterest)} comes from the arithmetic rather than your wallet, ${(result.allTimeRoR * 100).toFixed(0)}% on top of what went in.`,
-    ]),
-  ];
+    ]);
 
+  const beats: NarrativeBeat[] = [];
   const angleOrder = shuffleInPlace(rng, NARRATIVE_ANGLES.map((_, i) => i));
   for (const idx of angleOrder) {
     if (beats.length >= 5) break;
     const candidate = NARRATIVE_ANGLES[idx]!({ result, tip, fmt, rng });
     if (candidate) beats.push(candidate);
   }
+  if (beats.length === 0) beats.push(fallbackPath());
 
   return beats.slice(0, 5);
 }

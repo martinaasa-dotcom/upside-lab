@@ -886,16 +886,34 @@ export const PortfolioTable = memo(function PortfolioTable({
                 in the corner of the card: the card's own header is the
                 useful press now, and a destructive glyph beside it would
                 be the loudest thing on a row of ordinary numbers.
+
+                The label is one word, because everything else it used to
+                say is already on the card. It read "Remove $AAPL from this
+                portfolio", and $AAPL is the card's own heading two inches
+                above while "this portfolio" is the page the reader is
+                standing on, so the only word carrying any information was
+                the first. Naming both made the line long enough to wrap,
+                which at 390px turned the most destructive control on the
+                screen into a centred two-line block with a rule above it,
+                repeated once per holding: measured on the sample, the
+                tallest single element in a holding card and the last thing
+                in it. It is a short left-aligned row now, so the eye going
+                down a column of cards meets the numbers rather than a
+                ladder of delete buttons. `aria-label` keeps the whole
+                sentence, because a screen reader moving button to button
+                genuinely has no card heading in earshot, which is the one
+                reader for whom the ticker was never redundant.
               */}
               {canSell ? (
                 <div className="mt-3 border-t border-border/60 pt-3">
                   <button
                     type="button"
                     onClick={() => onDelete(h.id)}
-                    className="touch-target inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground outline-none transition hover:bg-loss/10 hover:text-loss focus-visible:text-loss focus-visible:ring-1 focus-visible:ring-loss/40"
+                    aria-label={`Remove ${cashtag(h.ticker)} from this portfolio`}
+                    className="touch-target -ml-3 inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground outline-none transition hover:bg-loss/10 hover:text-loss focus-visible:text-loss focus-visible:ring-1 focus-visible:ring-loss/40"
                   >
                     <Trash2 className="size-4" aria-hidden />
-                    Remove {cashtag(h.ticker)} from this portfolio
+                    Remove
                   </button>
                 </div>
               ) : null}
