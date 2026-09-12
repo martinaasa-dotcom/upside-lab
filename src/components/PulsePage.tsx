@@ -298,6 +298,7 @@ function PulseCard({
   leftHold = false,
   sector,
   sectorPct,
+  showPortfolioNames = false,
 }: {
   candidate: PulseCandidate;
   check?: PulseCheck;
@@ -314,6 +315,11 @@ function PulseCard({
   sector?: string | null;
   /** Today's move for the fund that tracks this company's sector. */
   sectorPct?: number | null;
+  /**
+   * Whether naming the portfolios this holding sits in tells the reader
+   * anything. False when every holding on the page is in the same one.
+   */
+  showPortfolioNames?: boolean;
 }) {
   const pct = c.effectivePct;
   const hasPct = pct != null && Number.isFinite(pct);
@@ -601,7 +607,24 @@ function PulseCard({
                 Of your total
               </TermTip>
             }
-            hint={c.portfolios.length > 0 ? c.portfolios.join(", ") : undefined}
+            /*
+              * Which portfolio, only when there is more than one to be in.
+              *
+              * This hint answers "of your total — which total?", and with a
+              * single portfolio it answers with the only name there is,
+              * once per card: measured on the sample, "Sample portfolio"
+              * printed eight times down one page, under a figure whose
+              * denominator was never in question. It is the rule this app
+              * already applies to the listing-currency chip, which shows on
+              * a mixed portfolio and stays off a single-currency one for
+              * the same reason: a label that cannot distinguish anything is
+              * not a label, it is repetition.
+              */
+            hint={
+              showPortfolioNames && c.portfolios.length > 0
+                ? c.portfolios.join(", ")
+                : undefined
+            }
           >
             {percent(c.bookPct)}
           </Metric>
@@ -922,6 +945,25 @@ export const PulsePage = memo(function PulsePage({
     () => buildPulseCandidates(model, mergedQuotes),
     [model, mergedQuotes]
   );
+
+  /*
+   * Whether naming a holding's portfolio distinguishes anything on this
+   * page.
+   *
+   * Derived from the candidates rather than taken as a prop, because the
+   * question is not how many portfolios exist but how many are actually in
+   * play in what is on screen: a reader with three portfolios whose every
+   * holding sits in one of them would still be reading the same name under
+   * every card. More than one distinct name and the hint earns its place.
+   */
+  const showPortfolioNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const c of candidates) {
+      for (const name of c.portfolios) names.add(name);
+      if (names.size > 1) return true;
+    }
+    return false;
+  }, [candidates]);
 
   /*
     What kind of business each of these is, so a card can say it. Asked
@@ -1740,6 +1782,7 @@ export const PulsePage = memo(function PulsePage({
           </h3>
           <ul className="flex flex-col gap-6">
             <PulseCard
+              showPortfolioNames={showPortfolioNames}
               candidate={pinnedCandidate}
               sector={sectorWordsByTicker[pinnedCandidate.ticker.toUpperCase()]}
               sectorPct={sectorPctFor(pinnedCandidate.ticker)}
@@ -1793,6 +1836,7 @@ export const PulsePage = memo(function PulsePage({
               <ul className="flex flex-col gap-6">
                 {attention.map((c) => (
                   <PulseCard
+                    showPortfolioNames={showPortfolioNames}
                     key={c.ticker}
                     candidate={c}
                     sector={sectorWordsByTicker[c.ticker.toUpperCase()]}
@@ -1818,11 +1862,25 @@ export const PulsePage = memo(function PulsePage({
               <h3 className="mb-3 text-muted-foreground">
                 {attention.length > 0
                   ? "Everything else"
-                  : `Your ${plural(rest.length, "biggest holding")}`}
+                  : /*
+                     * "Your 8 holdings", not "your 8 biggest holdings".
+                     *
+                     * `ranked` is every candidate with no cap, and this
+                     * branch is the one where nothing was set aside for
+                     * attention, so the list under this heading is the
+                     * reader's whole portfolio rather than a top slice of
+                     * it. "Biggest" promised a subset that does not exist
+                     * and quietly contradicted the summary a screen above,
+                     * which counts "your 8 holdings". A pinned name is the
+                     * one case something is genuinely held back, and the
+                     * count follows the list either way.
+                     */
+                    `Your ${plural(rest.length, "holding")}`}
               </h3>
               <ul className="flex flex-col gap-6">
                 {rest.map((c) => (
                   <PulseCard
+                    showPortfolioNames={showPortfolioNames}
                     key={c.ticker}
                     candidate={c}
                     sector={sectorWordsByTicker[c.ticker.toUpperCase()]}
