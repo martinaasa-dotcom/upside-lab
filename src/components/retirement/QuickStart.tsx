@@ -86,6 +86,7 @@ import {
 import {
   RETIREMENT_TEMPLATES,
   templateById,
+  templateFacts,
   type RetirementTemplateId,
 } from "@/lib/retirement/templates";
 import { planExtrasSentence, quickResultLine } from "@/lib/retirement/summary";
@@ -211,8 +212,17 @@ export function QuickStart({
             headline figure three screens down on the one device most
             readers arrive on. Two columns halve it and the blurb still
             reads, which is what makes a card pressable without trying it.
+
+            This is the one press that matters most on the whole page, so
+            the cards carry more than a label and a sentence now: a facts
+            row (`templateFacts`) states the age, the household and the one
+            circumstance that actually shapes that life's numbers, in
+            plain figures a reader can check against themselves without
+            reading the blurb first. The card grew to carry it, at `p-4`
+            rather than `p-3` and a bigger label, because a press this
+            important should not be the smallest text on the card.
           */}
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           {RETIREMENT_TEMPLATES.map((template) => {
             const on = template.id === templateId;
             return (
@@ -223,7 +233,7 @@ export function QuickStart({
                 onClick={() => onTemplate(template.id)}
                 className={cn(
                   CARD,
-                  "veil-hover flex min-w-0 flex-col gap-1 border-2 p-3 text-left transition-colors",
+                  "veil-hover flex min-w-0 flex-col gap-1.5 border-2 p-4 text-left transition-colors",
                   /*
                     A real `border`, not a ring and not an outline. `ring-*`
                     is a box-shadow utility and `.glass-well` sets
@@ -253,10 +263,13 @@ export function QuickStart({
                     : "border-transparent hover:border-border"
                 )}
               >
-                <span className="text-sm font-semibold text-foreground">
+                <span className="text-base font-semibold text-foreground">
                   {template.label}
                 </span>
-                <span className="text-xs leading-relaxed text-muted-foreground">
+                <span className="font-mono text-xs tabular-nums text-muted-foreground/80">
+                  {templateFacts(template).join(" · ")}
+                </span>
+                <span className="text-sm leading-relaxed text-muted-foreground">
                   {template.blurb}
                 </span>
               </button>

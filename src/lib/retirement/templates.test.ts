@@ -4,6 +4,7 @@ import {
   openingPot,
   RETIREMENT_TEMPLATES,
   templateById,
+  templateFacts,
   templateInputs,
 } from "@/lib/retirement/templates";
 import {
@@ -145,6 +146,39 @@ describe("retirement templates", () => {
     expect(templateById("not-a-life")).toBeNull();
     expect(templateById(null)).toBeNull();
     expect(templateById("stop-early")?.label).toBe("Stop early");
+  });
+});
+
+describe("the facts on a template card", () => {
+  it("always leads with the age and the household", () => {
+    for (const template of RETIREMENT_TEMPLATES) {
+      const facts = templateFacts(template);
+      expect(facts[0]).toBe(`${template.currentAge}`);
+      expect(facts[1]).toBe(template.household === "couple" ? "A couple" : "One person");
+    }
+  });
+
+  it("says nothing about housing for the ordinary owned-outright case", () => {
+    const twoOfYou = templateById("two-of-you")!;
+    expect(twoOfYou.housing).toBe("owned");
+    expect(templateFacts(twoOfYou).join(" · ")).not.toMatch(/owns|mortgage|rent/i);
+  });
+
+  it("names renting and a mortgage, which is what makes those lives cost differently", () => {
+    const renting = templateById("renting-on")!;
+    expect(templateFacts(renting)).toContain("Renting");
+
+    const family = templateById("family-years")!;
+    expect(templateFacts(family)).toContain("Paying a mortgage");
+    expect(templateFacts(family)).toContain("2 children");
+  });
+
+  it("names the age somebody stops only when it is not the ordinary state pension age", () => {
+    const early = templateById("stop-early")!;
+    expect(templateFacts(early)).toContain("Stops at 50");
+
+    const ordinary = templateById("peak-earning")!;
+    expect(templateFacts(ordinary).some((f) => f.startsWith("Stops at"))).toBe(false);
   });
 });
 
