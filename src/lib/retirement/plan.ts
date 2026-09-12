@@ -171,6 +171,24 @@ export type RequiredPot = {
   safeRate: number;
   /** The lifelong part, the one the safe rate is applied to. */
   lifelongFromPot: number;
+  /**
+   * The slice of `safeRate` (equivalently, of `target` when `basis` is
+   * `"safeRate"`) that is actually generating `lifelongFromPot` forever,
+   * with none of `temporaryPot` in it.
+   *
+   * That distinction is not bookkeeping. `target` is sized to fund BOTH
+   * the ongoing steady-state draw AND the extra a mortgage, a car, or
+   * growing children cost in the early retirement years; by the settled
+   * (last) year those temporary years are over and the capital that
+   * funded them is spent. Anything reasoning about a single settled
+   * year's own sustainable draw, such as the spending-layers panel, has
+   * to reverse the safe rate off THIS figure rather than off `target`,
+   * or it hands that year money that was never its to have. This is
+   * exactly `lifelongFromPot` divided back through the same rate that
+   * produced it, exposed so a caller never has to redo that division
+   * (and risk forgetting the `ratePct` is a percent, not a fraction).
+   */
+  lifelongPot: number;
   /** The pot the temporary years need on top. */
   temporaryPot: number;
   swr: SwrBreakdown;
@@ -418,6 +436,7 @@ export function buildPlan(
     spendDown: spendDownFigure,
     safeRate: safeRatePot,
     lifelongFromPot: lifelong,
+    lifelongPot,
     temporaryPot,
     swr,
     basis,

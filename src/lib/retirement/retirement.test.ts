@@ -589,6 +589,80 @@ describe("spending in layers", () => {
   });
 });
 
+describe("the settled year's own pot, not the whole target", () => {
+  /*
+    FlexiblePanel used to price the settled year's market-funded draw off
+    `required.target`, which is `lifelongPot + temporaryPot`: capital that
+    also covers a mortgage, a car, or growing children in the early
+    retirement years. By the settled (last) year those temporary years are
+    long over, so multiplying the FULL target by the safe rate hands that
+    year money that was never its to have, and a crash on the slider barely
+    moved the bars. `required.lifelongPot` is the slice that is actually
+    generating the settled year's own need forever, with none of that
+    reserve in it, and this is what the fix reads instead.
+  */
+  it("lifelongPot leaves the temporary reserve out, so it is smaller than target whenever there is one", () => {
+    const plan = buildPlan(subject(), PLAN_AGE);
+    expect(plan.required.temporaryPot).toBeGreaterThan(0);
+    expect(plan.required.lifelongPot).toBeLessThan(plan.required.target);
+    expect(plan.required.lifelongPot + plan.required.temporaryPot).toBeCloseTo(
+      plan.required.safeRate,
+      4
+    );
+  });
+
+  it("withdrawn at the average year, lifelongPot reproduces the settled year's real budget exactly", () => {
+    const plan = buildPlan(subject(), PLAN_AGE);
+    const settled = plan.years[plan.years.length - 1];
+    const rate = plan.required.swr.ratePct;
+    const year = flexibleYear({
+      pot: plan.required.lifelongPot,
+      annualSpend: settled.spend,
+      guaranteedIncome: settled.income,
+      withdrawalRatePct: rate,
+      marketReturnPct: 0,
+      tiers: DEFAULT_TIERS,
+    });
+    expect(year.spend).toBeCloseTo(settled.spend, 2);
+    expect(year.unspent).toBeLessThan(1);
+  });
+
+  it("a bad year cuts the top of the stack against lifelongPot, and barely touched it against the whole target: the regression this fix closes", () => {
+    /*
+      Retiring well before the state pension starts, on top of the
+      defaults' own mortgage and car, is what makes `temporaryPot` the
+      dominant share of `target` -- the shape closest to the reported bug,
+      where a reader's pension covered nearly all of the settled year and
+      a -26% year on the slider still left money "unspent".
+    */
+    const plan = buildPlan(subject({ retirementAge: 45 }), PLAN_AGE);
+    const settled = plan.years[plan.years.length - 1];
+    const rate = plan.required.swr.ratePct;
+    const shared = {
+      annualSpend: settled.spend,
+      guaranteedIncome: settled.income,
+      withdrawalRatePct: rate,
+      marketReturnPct: -25,
+      tiers: DEFAULT_TIERS,
+    };
+
+    const fixed = flexibleYear({ pot: plan.required.lifelongPot, ...shared });
+    const buggy = flexibleYear({ pot: plan.required.target, ...shared });
+
+    // The fix: a real crash reaches at least the top of the stack.
+    expect(fixed.spend).toBeLessThan(settled.spend);
+    expect(fixed.slices[fixed.slices.length - 1].fill).toBeLessThan(1);
+
+    // The bug this closes: sized off the whole target, the same crash cuts
+    // markedly less (this plan's temporary reserve absorbs most of it),
+    // which is the muted, barely-moving slider a reader actually saw.
+    expect(buggy.spend).toBeGreaterThan(fixed.spend);
+    const cutFixed = settled.spend - fixed.spend;
+    const cutBuggy = settled.spend - buggy.spend;
+    expect(cutBuggy).toBeLessThan(cutFixed * 0.5);
+  });
+});
+
 describe("where you live", () => {
   it("defaults a brand new plan to the US, never the UK", () => {
     expect(DEFAULT_REGION_ID).toBe("US");

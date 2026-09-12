@@ -61,8 +61,8 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
   const rate = plan.required.swr.ratePct;
 
   /*
-    The pot behind this picture is the LIFELONG share of the required
-    capital, never the whole `required.target`.
+    The pot behind this picture is `required.lifelongPot`, never the whole
+    `required.target`.
 
     `target` is `lifelongPot + temporaryPot`: enough, at retirement, to
     fund both the ongoing steady-state spend forever AND the extra a
@@ -75,13 +75,13 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
     new plan defaults to a mortgage and a car) then shows a budget that
     barely moves with the slider: dragging to a crash still leaves every
     layer funded, because the panel is drawing on capital that in a real
-    plan would already be gone. Reversing the safe rate off the
-    lifelong figure alone (`lifelongFromPot`, which is exactly this
-    settled year's own market-funded need) gives the pot whose withdrawal
-    at the AVERAGE year reproduces that need precisely, so a shock away
-    from average is the whole and only thing that moves the bars.
+    plan would already be gone. `lifelongPot` is the slice of the target
+    that is actually generating the settled year's own need forever, with
+    none of that reserve in it, so withdrawing it at the AVERAGE year
+    reproduces that need precisely and a shock away from average is the
+    whole and only thing that moves the bars.
   */
-  const pot = Math.max(0, rate > 0 ? (plan.required.lifelongFromPot / rate) * 100 : 0);
+  const pot = Math.max(0, plan.required.lifelongPot);
 
   /*
     The settled year, not the first one. By the last year of the plan every
