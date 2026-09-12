@@ -336,6 +336,7 @@ export function RetirementSheet({
         }),
         planningAge,
         improvementPct: inputs.improvementPct,
+        currentAge: inputs.currentAge,
         swrPct: plan.required.swr.ratePct,
         realReturnPct: plan.realReturnPct,
         basis: plan.required.basis,
@@ -344,6 +345,7 @@ export function RetirementSheet({
       region,
       inputs.sex,
       inputs.improvementPct,
+      inputs.currentAge,
       planningAge,
       plan.required.swr.ratePct,
       plan.realReturnPct,
@@ -388,9 +390,7 @@ export function RetirementSheet({
         }}
       />
 
-      {deep ? (
-        <PlanInputs inputs={inputs} patch={patch} portfolioValue={portfolioValue} />
-      ) : null}
+      {deep ? <PlanInputs inputs={inputs} patch={patch} /> : null}
 
       {/*
         The grid asks nothing and teaches the one thing a single answer

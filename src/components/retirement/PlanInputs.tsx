@@ -1,14 +1,27 @@
 "use client";
 
 /**
- * Everything the plan is built from, grouped by the question it answers.
+ * Everything the plan is built from that the first card does not already
+ * ask, grouped by the question it answers.
  *
- * The order is the order somebody thinks in, not the order the arithmetic
- * needs: where you are, what kind of life you want, what your home costs,
- * who depends on you, what you already have, what the state owes you. The
- * hard, technical inputs are not here at all. They live in Assumptions at
- * the foot of the page, because a reader who has to pick an equity glide
- * path before they can find out what a retirement costs will close the tab.
+ * WHY THIS DOES NOT REPEAT `QuickStart`. The country, who you are planning
+ * for, your age, the age you want to stop, what you have invested and what
+ * you add each year, and the life you want to fund are all essentials on
+ * the first card, and they used to be asked again here, verbatim, the
+ * moment a reader opened "More": the same country picker, the same age
+ * fields, the same pot, printed a screen apart with no sign either copy was
+ * the other one. A reader who corrected one had no way to know the other
+ * still held the old figure. This panel now covers only what is left: the
+ * home, who depends on you, a car, the rest of the money picture, and what
+ * the state owes you. The sex control that used to sit in a "You" panel
+ * here moved to `LongevityPanel`, next to the curve it actually feeds.
+ *
+ * The order is the order somebody thinks in: what your home costs, who
+ * depends on you, a car, what else you have and draw out, what the state
+ * owes you. The hard, technical inputs are not here at all. They live in
+ * Assumptions at the foot of the page, because a reader who has to pick an
+ * equity glide path before they can find out what a retirement costs will
+ * close the tab.
  *
  * WHAT IS DELIBERATELY NOT ASKED. Nothing about salary, and nothing about
  * job or employer. A salary would let the page estimate a contribution and
@@ -20,16 +33,11 @@
 
 import { Button } from "@/components/ui/button";
 import { CARD, MicroLabel, Panel, PANEL_STACK, PanelHeader } from "@/components/ui/Panel";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
 import { cn, currency } from "@/lib/format";
 import {
   ChoiceField,
   CountField,
-  Field,
   FIELD_GRID,
   MoneyField,
   MonthlyMoneyField,
@@ -37,207 +45,31 @@ import {
   currencyCodeFor,
 } from "@/components/retirement/fields";
 import {
-  LIVING_STANDARDS,
-  REGIONS,
-  STANDARD_BLURB,
+  costAnchorsForStandard,
   STANDARD_LABEL,
   UK_COST_ANCHORS,
-  livingStandardsFor,
   regionById,
-  type Household,
-  type LivingStandard,
 } from "@/lib/retirement/regions";
-import {
-  retargetHousehold,
-  retargetRegion,
-  type Housing,
-  type RetirementInputs,
-} from "@/lib/retirement/plan";
-import type { Sex } from "@/lib/retirement/longevity";
-import { Baby, Car, Check, Home, PiggyBank, UserRound, Wallet } from "lucide-react";
+import type { Housing, RetirementInputs } from "@/lib/retirement/plan";
+import { Baby, Car, Home, PiggyBank, Wallet } from "lucide-react";
 import { useId } from "react";
 
 type Patch = (next: Partial<RetirementInputs>) => void;
 
-/** The three baskets as pressable cards, which is what the row is for. */
-function StandardPicker({
-  inputs,
-  patch,
-  code,
-}: {
-  inputs: RetirementInputs;
-  patch: Patch;
-  code: string;
-}) {
-  const region = regionById(inputs.regionId);
-  const amounts = livingStandardsFor(region, inputs.household);
-  return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      {LIVING_STANDARDS.map((id: LivingStandard) => {
-        const chosen = inputs.spendingMode === "standard" && inputs.standard === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            aria-pressed={chosen}
-            onClick={() =>
-              patch({
-                spendingMode: "standard",
-                standard: id,
-                customAnnualSpend: amounts[id],
-              })
-            }
-            className={cn(
-              CARD,
-              "veil-hover flex min-w-0 flex-col gap-2 border-2 p-4 text-left transition-colors",
-              chosen ? "border-primary" : "border-transparent hover:border-border"
-            )}
-          >
-            <span className="flex items-center justify-between gap-2">
-              <span
-                className={cn(
-                  "font-semibold",
-                  chosen ? "text-primary" : "text-foreground"
-                )}
-              >
-                {STANDARD_LABEL[id]}
-              </span>
-              <Check
-                aria-hidden
-                className={cn(
-                  "h-4 w-4 shrink-0 text-primary",
-                  chosen ? "" : "opacity-0"
-                )}
-              />
-            </span>
-            <span className="font-mono text-lg tabular-nums text-foreground">
-              {currency(Math.round(amounts[id] / 12), 0, code)}
-              <span className="ml-1 font-sans text-xs text-muted-foreground">
-                a month
-              </span>
-            </span>
-            <span className="text-xs leading-relaxed text-muted-foreground">
-              {STANDARD_BLURB[id]}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 export function PlanInputs({
   inputs,
   patch,
-  portfolioValue,
 }: {
   inputs: RetirementInputs;
   patch: Patch;
-  /** What the reader actually holds, so the pot can be filled from it. */
-  portfolioValue: number | null;
 }) {
   const region = regionById(inputs.regionId);
   const code = currencyCodeFor(region.currency);
-  const regionSelectId = useId();
   const costsId = useId();
+  const standardCosts = costAnchorsForStandard(inputs.standard);
 
   return (
     <div className={PANEL_STACK}>
-      <Panel>
-        <PanelHeader
-          icon={<UserRound className="h-4 w-4" />}
-          title="You"
-          subtitle="Where you live decides the prices, the state pension and the age it starts. Everything below opens on that country's published figures and every one of them can be changed."
-        />
-        <div className={FIELD_GRID}>
-          <Field label="Country" htmlFor={regionSelectId} note="The country you expect to retire in, which need not be the one you are in now.">
-            {/*
-              `NativeSelect` IS the select, not a wrapper around one. Nesting
-              a second inside it renders an empty control: the outer element
-              has no options of its own, so the country picker came up blank
-              on the first real render of this page.
-            */}
-            <NativeSelect
-              id={regionSelectId}
-              value={inputs.regionId}
-              onChange={(e) => patch(retargetRegion(inputs, e.target.value))}
-              className="w-full"
-            >
-              {REGIONS.map((r) => (
-                <NativeSelectOption key={r.id} value={r.id}>
-                  {r.name}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </Field>
-          <ChoiceField<Household>
-            label="Planning for"
-            value={inputs.household}
-            options={[
-              { id: "single", label: "One person" },
-              { id: "couple", label: "A couple" },
-            ]}
-            onChange={(household) => patch(retargetHousehold(inputs, household))}
-            note="A couple costs more than one person and much less than two, which is why the published baskets have both."
-          />
-          <CountField
-            label="Your age now"
-            value={inputs.currentAge}
-            onChange={(currentAge) => patch({ currentAge })}
-            min={16}
-            max={90}
-            suffix="years"
-          />
-          <CountField
-            label="The age you want to stop"
-            value={inputs.retirementAge}
-            onChange={(retirementAge) => patch({ retirementAge })}
-            min={Math.max(16, inputs.currentAge)}
-            max={90}
-            suffix="years"
-            note="Move this more than anything else on the page. It changes the answer more than any other input."
-          />
-          <ChoiceField<Sex>
-            label="For the longevity figures"
-            value={inputs.sex}
-            options={[
-              { id: "female", label: "Woman" },
-              { id: "male", label: "Man" },
-              { id: "average", label: "Either" },
-            ]}
-            onChange={(sex) => patch({ sex })}
-            note="Only used to pick which published life expectancy the survival curve is fitted to. Women live about three years longer on average, so it changes how long the money must last."
-          />
-        </div>
-      </Panel>
-
-      <Panel>
-        <PanelHeader
-          icon={<Wallet className="h-4 w-4" />}
-          title="The life you want"
-          subtitle="After tax, in today's money, and housing is not in these figures. Pick one of the three published standards or type your own over them."
-        />
-        <StandardPicker inputs={inputs} patch={patch} code={region.currency} />
-        <div className={FIELD_GRID}>
-          <MonthlyMoneyField
-            label="Or your own figure, a month"
-            value={inputs.customAnnualSpend}
-            currency={code}
-            onChange={(customAnnualSpend) =>
-              patch({ spendingMode: "custom", customAnnualSpend })
-            }
-            note="Typing here switches off the cards above. What you spend now, less the mortgage if it will be gone, less what you save, is usually closer than people expect."
-          />
-          <PercentField
-            label="Tax on what you draw out"
-            value={inputs.withdrawalTaxPct}
-            digits={1}
-            onChange={(withdrawalTaxPct) => patch({ withdrawalTaxPct })}
-            note="Leave at zero if your savings come out tax free. Otherwise the plan draws enough extra to still land the figure above."
-          />
-        </div>
-      </Panel>
-
       <Panel>
         <PanelHeader
           icon={<Home className="h-4 w-4" />}
@@ -262,7 +94,7 @@ export function PlanInputs({
               value={inputs.mortgageAnnual}
               currency={code}
               onChange={(mortgageAnnual) => patch({ mortgageAnnual })}
-              note={`Opened on ${currency(UK_COST_ANCHORS.mortgageAnnual / 12, 0, "GBP")} a month at UK prices, moved onto ${region.name}'s.`}
+              note={`Opened on ${currency(standardCosts.mortgageAnnual / 12, 0, "GBP")} a month at UK prices for the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard, moved onto ${region.name}'s. Type what you actually pay.`}
             />
             <CountField
               label="Years left on it"
@@ -355,7 +187,7 @@ export function PlanInputs({
               value={inputs.childAnnualCost}
               currency={code}
               onChange={(childAnnualCost) => patch({ childAnnualCost })}
-              note={UK_COST_ANCHORS.childSource}
+              note={`${UK_COST_ANCHORS.childSource} Scaled to the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard and moved onto ${region.name}'s prices. It is a rough starting figure, not a claim about your children: type your own.`}
             />
             <CountField
               label="Until they are"
@@ -382,7 +214,11 @@ export function PlanInputs({
             value={inputs.carMonthly}
             currency={code}
             onChange={(carMonthly) => patch({ carMonthly })}
-            note={`Leave at zero if you own a car outright or do not have one. Opened on ${currency(UK_COST_ANCHORS.carMonthly, 0, "GBP")} a month at UK prices.`}
+            note={
+              inputs.standard === "minimum"
+                ? "The minimum standard is priced with no car in it, so this opens at zero. Type a figure if you have one."
+                : `Leave at zero if you own a car outright or do not have one. Opened on ${currency(standardCosts.carMonthly, 0, "GBP")} a month at UK prices for the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard.`
+            }
           />
           {inputs.carForever ? null : (
             <CountField
@@ -409,48 +245,10 @@ export function PlanInputs({
       <Panel>
         <PanelHeader
           icon={<PiggyBank className="h-4 w-4" />}
-          title="What you have and what you add"
-          subtitle="Only money meant for this. A house you live in is not part of the pot, because selling it to eat means living somewhere else."
+          title="What else you have, and what you draw out"
+          subtitle="What you already have and add each year is asked once, on the first card. This is the rest of the money picture: savings that card does not know about, whether your saving keeps pace, and tax on the way out."
         />
         <div className={FIELD_GRID}>
-          <MoneyField
-            label="Invested now"
-            value={inputs.currentPot}
-            currency={code}
-            onChange={(currentPot) => patch({ currentPot })}
-            note={
-              portfolioValue != null && portfolioValue > 0 ? (
-                inputs.currentPot === Math.round(portfolioValue) ? (
-                  /*
-                    THE FIRST VISIT ALREADY APPLIED THIS FIGURE, so a note
-                    still inviting a press here would be inviting a press
-                    that does nothing, which is the stale-copy fault this
-                    file's own AGENTS.md keeps finding in other rooms. Once
-                    the two agree, the sentence says why they agree instead.
-                  */
-                  <span>
-                    Pre-filled from what your portfolios are worth,{" "}
-                    {currency(portfolioValue, 0, "USD")}. Type over it if that
-                    figure includes money not meant for this.
-                  </span>
-                ) : (
-                  <span>
-                    Your portfolios are worth{" "}
-                    <button
-                      type="button"
-                      className="underline underline-offset-2 hover:text-foreground"
-                      onClick={() => patch({ currentPot: portfolioValue })}
-                    >
-                      {currency(portfolioValue, 0, "USD")}
-                    </button>
-                    . Press it to use that figure.
-                  </span>
-                )
-              ) : (
-                "Everything already invested for this, wherever it sits."
-              )
-            }
-          />
           <MoneyField
             label="Other savings for this"
             value={inputs.otherSavings}
@@ -458,19 +256,19 @@ export function PlanInputs({
             onChange={(otherSavings) => patch({ otherSavings })}
             note="A pension this app cannot see, money in a savings account, anything else earmarked."
           />
-          <MonthlyMoneyField
-            label="You add, a month"
-            value={inputs.annualContribution}
-            currency={code}
-            onChange={(annualContribution) => patch({ annualContribution })}
-            note="Everything that goes in, yours and your employer's. What you actually save now, after the costs above."
-          />
           <PercentField
-            label="That rises by, a year"
+            label="That you add rises by, a year"
             value={inputs.contributionGrowthPct}
             digits={1}
             onChange={(contributionGrowthPct) => patch({ contributionGrowthPct })}
             note="Above inflation, not including it. One per cent is an ordinary career. Zero is honest if you would rather not count on a rise."
+          />
+          <PercentField
+            label="Tax on what you draw out"
+            value={inputs.withdrawalTaxPct}
+            digits={1}
+            onChange={(withdrawalTaxPct) => patch({ withdrawalTaxPct })}
+            note="Leave at zero if your savings come out tax free. Otherwise the plan draws enough extra to still land your own spending figure."
           />
         </div>
         <label

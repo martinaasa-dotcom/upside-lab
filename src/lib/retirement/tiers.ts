@@ -52,11 +52,13 @@ export type SpendingTier = {
 };
 
 /**
- * The opening split. The shares are deliberately roughly what a published
- * moderate retirement basket looks like when its own line items are sorted
- * into these four groups, so the default is not invented: the housing,
- * food and utility lines are about three fifths of it and the holiday, car
- * replacement and eating out lines are most of the rest.
+ * The opening split. This is a split of the reader's WHOLE plan spend
+ * (living cost plus their own housing and car dials, whatever those are
+ * set to), not of the living-standard basket alone, so it still holds now
+ * that basket excludes housing and a car: essentials is about three
+ * fifths of an ordinary retiree's outgoings and holidays, replacing the
+ * car and eating out are most of the rest, whether that car is a monthly
+ * payment on the page or an occasional cash purchase nobody dials in.
  */
 export const DEFAULT_TIERS: readonly SpendingTier[] = [
   {
