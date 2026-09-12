@@ -307,7 +307,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
         <Panel tone="plain">
           <PanelHeader
             title="Where the damage lands"
-            subtitle="Your holdings grouped by what they actually depend on."
+            subtitle="What each holding does, and what this costs it. Holdings that depend on the same thing share a row."
           />
           <Table>
             <TableHeader>
@@ -319,8 +319,28 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
             <TableBody>
               {analysis.themeBreakdown.map((t) => (
                 <TableRow key={t.theme} className="hover:bg-transparent">
+                  {/*
+                    * The holdings first, then what they do.
+                    *
+                    * This cell used to carry the description alone, and the
+                    * description is the grouping key, which is written per
+                    * company: on any portfolio where no two holdings do the
+                    * same thing, and that is most of them, the table is one
+                    * row per holding under a subtitle promising a grouping.
+                    * A reader was left holding "Makes computer chips
+                    * -$960" and matching it against their own list to work
+                    * out it was their NVDA. Naming the tickers makes every
+                    * row readable, and it is also the only thing that shows
+                    * the grouping on the portfolios where it does fire, two
+                    * bitcoin treasuries or two miners landing on one line.
+                    */}
                   <TableCell className="whitespace-normal font-medium">
-                    {t.theme}
+                    <span className="tabular-nums">
+                      {t.tickers.map((x) => cashtag(x)).join(", ")}
+                    </span>
+                    <span className="block text-sm font-normal text-muted-foreground">
+                      {t.theme}
+                    </span>
                   </TableCell>
                   <TableCell
                     className={cn(

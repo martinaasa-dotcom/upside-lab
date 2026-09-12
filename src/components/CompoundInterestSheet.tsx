@@ -60,8 +60,9 @@ import { Fragment, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef
 import { useTimeout } from "@/lib/use-timeout";
 import {
   MicroLabel,
-  Panel,
   PANEL_STACK,
+  PANEL_STACK_GAP,
+  Panel,
   PanelHeader,
   Pill,
   Score,
@@ -1179,7 +1180,18 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
   }
 
   return (
-    <div className="grid w-full min-w-0 max-w-full items-start gap-4 overflow-x-clip lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+    /*
+      * The shared rhythm here too, not a gap of this layout's own.
+      *
+      * On a phone this grid is one column, so its gap is the distance
+      * between the calculator and the first answer, and it was 16px while
+      * the answer panels below it sat 32 apart. The tightest seam on the
+      * screen was the one between the question and its answer, and the
+      * same screen then used two different distances for the same kind of
+      * break. At `lg` it is the gutter between the two columns, where the
+      * same number reads correctly.
+      */
+    <div className={cn(PANEL_STACK_GAP, "grid w-full min-w-0 max-w-full items-start overflow-x-clip lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]")}>
       {/* min-h-0 / min-w-0: grid items default to min-content, which lets
           wide tables below blow the calculator off a phone screen.
 
