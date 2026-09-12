@@ -248,9 +248,29 @@ function useOwnBook(ticker: string): OwnBook {
         mineCloses: sparkline,
       });
     };
-    read();
-    const timer = window.setInterval(read, quotePollMs());
-    return () => window.clearInterval(timer);
+    /*
+      A RESCHEDULING TIMEOUT, NOT A FLAT INTERVAL, FOR THE SAME REASON
+      `useLivePrice` ABOVE USES ONE.
+
+      `quotePollMs()` is not a constant: it tightens at the open and the
+      close and slackens overnight and at the weekend, so a room somebody
+      leaves open across one of those boundaries has to ask on the new
+      cadence, not the one that happened to be in effect when the room
+      was opened. A flat `setInterval` bakes in whatever `quotePollMs()`
+      answered at mount and never asks again.
+    */
+    let stop = false;
+    let timer: number | undefined;
+    const tick = () => {
+      if (stop) return;
+      read();
+      timer = window.setTimeout(tick, quotePollMs());
+    };
+    tick();
+    return () => {
+      stop = true;
+      if (timer) window.clearTimeout(timer);
+    };
   }, [user?.id, ticker]);
 
   return state;

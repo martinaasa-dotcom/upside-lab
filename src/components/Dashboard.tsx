@@ -80,6 +80,7 @@ import { holdingLadders } from "@/lib/company/holding-ladders";
 import { buildBandMap } from "@/lib/company/band-map";
 import {
   loadEoyOverrides,
+  mergeBookEoyOverrides,
   mergeEoyTargetPaths,
   saveEoyOverrides,
   setEoyOverride,
@@ -970,6 +971,35 @@ export function Dashboard() {
     on Home (`CashAlertCard`), and the news dot on both docks.
   */
   /*
+    THE WHOLE BOOK NEEDS EVERY PORTFOLIO'S OWN OVERRIDES, NOT JUST THE
+    ONE OPEN RIGHT NOW.
+
+    `eoyOverrides` is deliberately scoped to `activePortfolio` -- that is
+    right for the Forecast panel below, which is a view of one portfolio
+    -- but `bookLadders` spans `overview.tickers`, which is every holding
+    across every portfolio this reader owns. A ticker held in a portfolio
+    that is not the one open right now would silently lose its own
+    end-of-year target here while `StockRoom`'s ladder for that same
+    company (which merges every portfolio it sits in, per
+    `anchorForHolding`'s own rule that a target counts only when
+    somebody chose it) still found it, anchoring the two pages on two
+    different kinds of figure for one holding. So this is every real
+    portfolio's overrides merged into one map, read fresh off the
+    in-memory copy for whichever portfolio is active (it may have just
+    been edited and not yet be back from `localStorage`) and off disk
+    for the rest.
+  */
+  const bookEoyOverrides = useMemo(
+    () =>
+      mergeBookEoyOverrides(
+        realPortfolios.map((p) =>
+          p.id === activePortfolio?.id ? eoyOverrides : loadEoyOverrides(p.id)
+        )
+      ),
+    [realPortfolios, activePortfolio, eoyOverrides]
+  );
+
+  /*
     Every holding's own price ladder, built once from the price this
     browser already has and shared by three surfaces: the map on the
     holdings page, the list of names that have reached a level on Home,
@@ -989,10 +1019,10 @@ export function Dashboard() {
           value: t.currentValue,
           roiPct: t.roiPct ?? null,
         })),
-        overrides: eoyOverrides,
+        overrides: bookEoyOverrides,
         ladders: labLadders,
       }),
-    [overview.tickers, quotes, eoyOverrides, labLadders]
+    [overview.tickers, quotes, bookEoyOverrides, labLadders]
   );
 
   /*

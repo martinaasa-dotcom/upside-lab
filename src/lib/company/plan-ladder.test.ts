@@ -226,6 +226,10 @@ describe("a moment on the ladder is this holding's own, not the same sentence wi
     for (const text of [...titles, ...details]) {
       expect(text).not.toMatch(BANNED);
       expect(text).not.toMatch(/[–—]/);
+      // These are the sentences the "Worth a look" alert cards print
+      // verbatim, so a leftover "band" here is a leftover "band" on
+      // screen, not just in this file.
+      expect(text).not.toMatch(/\bband\b/i);
     }
   });
 
