@@ -150,9 +150,45 @@ export function tierChangeLine(tier: ExperienceTier): string {
   if (!tierShowsRisk(tier)) {
     return "Everything above, and Lab as well. Its Risk tab, which models a bad week, stays hidden.";
   }
-  return tierOpensCoveredCalls(tier)
+  const rooms = tierOpensCoveredCalls(tier)
     ? "Every room, every tab inside Lab, and covered calls open on a portfolio that has them."
     : "Every room, and every tab inside Lab, Risk included. Covered calls start folded away, one tap from open.";
+  return `${rooms} ${tierChatLine(tier)}`;
+}
+
+/**
+ * How Margus writes for this tier.
+ *
+ * Without this, two of the three answers read identically. Every gate table
+ * is empty on every tier and the only room-level consumer left is
+ * `tier !== "novice"`, so "Comfortable investor" and "Very experienced"
+ * produced the same sentence word for word: a question whose top two
+ * answers told the reader the app would behave the same either way. The
+ * note above this function already worried about exactly that and fixed
+ * only the novice branch.
+ *
+ * The difference is real, it was simply never mentioned here. The three
+ * tiers each get their own paragraph in the chat prompt
+ * (`readerBriefing` in `src/lib/ai/cc-advisor.ts`): a novice has each
+ * investing word explained as it appears, an investor has only the
+ * specialist ones explained, and an advanced reader gets the short form
+ * with no glosses at all. That is the thing a person is actually choosing
+ * between at the top two, so it is what the page says.
+ *
+ * Not derived from the prompt the way the room lines are derived from the
+ * gate tables, because a prompt is instructions to a model rather than a
+ * description that can be read back. `account-tier-lines.test.ts` holds
+ * the claim instead: it fails if the advisor stops writing differently for
+ * all three, so this cannot quietly become untrue.
+ */
+export function tierChatLine(tier: ExperienceTier): string {
+  if (tier === "novice") {
+    return "Margus explains each investing word the first time it comes up.";
+  }
+  if (tier === "investor") {
+    return "Margus skips the ordinary words and explains only the specialist ones.";
+  }
+  return "Margus answers in the short form, figures first and no explaining.";
 }
 
 /* ------------------------------------------------------------------ *
