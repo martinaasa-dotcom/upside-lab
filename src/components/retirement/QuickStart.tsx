@@ -62,6 +62,7 @@ import {
   retargetHousehold,
   retargetRegion,
   retargetRetirementAge,
+  retargetStandard,
   type RetirementInputs,
 } from "@/lib/retirement/plan";
 import {
@@ -155,18 +156,35 @@ export function QuickStart({
                 }}
                 className={cn(
                   CARD,
-                  "flex min-w-0 flex-col gap-1 p-3 text-left transition-colors",
+                  "veil-hover flex min-w-0 flex-col gap-1 border-2 p-3 text-left transition-colors",
                   /*
-                    An outline, not a ring. `ring-*` is a box-shadow
-                    utility and `.glass-well` sets `box-shadow` directly
-                    from the same cascade layer, later in the file, so the
-                    ring loses and the chosen card looks exactly like the
-                    other seven. Measured on the rendered card: the whole
-                    of its computed shadow was the well's own 1px rim.
+                    A real `border`, not a ring and not an outline. `ring-*`
+                    is a box-shadow utility and `.glass-well` sets
+                    `box-shadow` directly from the same cascade layer, later
+                    in the file, so the ring loses and the chosen card looked
+                    exactly like the other seven. `outline` avoided that, but
+                    an outline is not clipped to the element's own
+                    border-radius the way a border is: at a -1px offset on a
+                    rounded corner it draws its own approximation of the
+                    curve, which is a different curve, so the two disagreed
+                    right where they were closest and the mismatch read as a
+                    bulge past the card's own edge on hover. A border is
+                    part of the box itself, so it is always exactly the same
+                    radius as the card, and it is a different property from
+                    `box-shadow`, so `.glass-well` cannot swallow it. The
+                    border is reserved at 2px even when transparent, so
+                    gaining a colour on hover recolours a line that was
+                    already there rather than growing one from nothing.
+
+                    `veil-hover` matches `StandardPicker` (`PlanInputs.tsx`),
+                    the sibling card picker one panel down: without it the
+                    only hover feedback was the border, where every other
+                    pressable card in the app also catches the light across
+                    its whole face.
                   */
                   on
-                    ? "outline-2 -outline-offset-2 outline-primary"
-                    : "hover:outline-1 hover:-outline-offset-1 hover:outline-border"
+                    ? "border-primary"
+                    : "border-transparent hover:border-border"
                 )}
               >
                 <span className="text-sm font-semibold text-foreground">
@@ -317,13 +335,7 @@ export function QuickStart({
               control rather than as a wrapped one.
             */
             ariaLabel="The life you want"
-            onChange={(standard) =>
-              patch({
-                spendingMode: "standard",
-                standard,
-                customAnnualSpend: amounts[standard],
-              })
-            }
+            onChange={(standard) => patch(retargetStandard(inputs, standard))}
           />
         </Field>
         <p className="text-sm leading-relaxed text-muted-foreground">

@@ -1,5 +1,6 @@
 import { NO_VALUE, cashtag, currency } from "@/lib/format";
 import { formatDateTime } from "@/lib/timezone";
+import { hazardReductionAt, IMPROVEMENT_REFERENCE_AGE } from "@/lib/retirement/longevity";
 import type { ModelRun } from "@/lib/ai/model-label";
 import type { ForecastPathAdjustment } from "@/lib/forecast-plan";
 import {
@@ -1398,6 +1399,15 @@ export function retirementProvenance(input: {
   e65: number;
   planningAge: number;
   improvementPct: number;
+  /**
+   * The reader's own age, so this panel can say the same thing
+   * `LongevityPanel` says in its own words: the improvement rate compounds
+   * over calendar time, not age, so a younger reader already gets more of
+   * it baked into old age death rates than an older one does. A skeptic
+   * who trusts this panel over the plain prose above it should not have to
+   * take that claim on faith.
+   */
+  currentAge: number;
   swrPct: number;
   realReturnPct: number;
   /**
@@ -1414,6 +1424,12 @@ export function retirementProvenance(input: {
   basis: "safeRate" | "spendDown";
 }): Provenance {
   const onCash = input.basis === "spendDown";
+  const yearsToReference = Math.max(0, IMPROVEMENT_REFERENCE_AGE - input.currentAge);
+  const hazardCutAtReference = hazardReductionAt(
+    IMPROVEMENT_REFERENCE_AGE,
+    input.currentAge,
+    input.improvementPct
+  );
   return {
     maker: "arithmetic",
     title: "Where this came from",
@@ -1482,6 +1498,11 @@ export function retirementProvenance(input: {
             `That rate started at the published figure for a retirement of this length and had two things taken off it: half a point for using the world's markets rather than America's, and ${input.swrPct > 0 ? "your own fees" : "fees"}. Both are shown separately and both can be turned off.`,
           ]),
       `The age the plan runs to is not an average life expectancy. Half of people outlive theirs, so it is the age you have a small chance of reaching, with age specific death rates allowed to keep falling at ${input.improvementPct}% a year as medicine improves.`,
+      ...(yearsToReference > 0 && hazardCutAtReference > 0.005
+        ? [
+            `That falling rate is applied to calendar time, not to your age, so it treats a younger reader differently without a second assumption anybody chose: you have ${Math.round(yearsToReference)} years between now and ${IMPROVEMENT_REFERENCE_AGE}, which cuts the death rate this model uses for a ${IMPROVEMENT_REFERENCE_AGE} year old by about ${Math.round(hazardCutAtReference * 100)}% against today's published rate for that age. An older reader gets fewer of those years and a smaller cut.`,
+          ]
+        : []),
     ],
     blindSpots: [
       onCash

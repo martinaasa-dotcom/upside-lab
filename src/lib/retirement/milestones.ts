@@ -128,7 +128,7 @@ export function buildMilestones(input: {
     id: "minimum",
     label: "The minimum standard",
     blurb:
-      "Every basic need met, with a little left over for the things that make a week worth having. Not the plan, but no longer a worry.",
+      "Every basic need met, with a little left over for the things that make a week worth having. Not the plan, but no longer a worry. No home, no car; both are set with their own dials.",
     target: potWithSpend(inputs, suggestedPlanningAge, minimum),
   });
 
@@ -146,7 +146,7 @@ export function buildMilestones(input: {
       id: "comfortable",
       label: "The comfortable standard",
       blurb:
-        "More holidays, more spent on going out, and replacing the car without thinking about it.",
+        "More holidays, more spent on going out. No home, no car; both are set with their own dials.",
       target: potWithSpend(inputs, suggestedPlanningAge, comfortable),
     });
   }

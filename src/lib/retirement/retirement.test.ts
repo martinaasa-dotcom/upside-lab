@@ -14,8 +14,10 @@ import {
   assessLongevity,
   ageAtSurvival,
   fitMortalityLevel,
+  hazardReductionAt,
   improvementTaper,
   survivalCurve,
+  IMPROVEMENT_REFERENCE_AGE,
   PLANNING_SURVIVAL,
 } from "@/lib/retirement/longevity";
 import {
@@ -46,6 +48,7 @@ import {
   livingCost,
   yearAt,
   retargetRegion,
+  retargetStandard,
   type RetirementInputs,
 } from "@/lib/retirement/plan";
 import { buildMilestones } from "@/lib/retirement/milestones";
@@ -58,6 +61,7 @@ import {
 import { sanitizeInputs } from "@/lib/retirement/state";
 import { retirementProvenance } from "@/lib/provenance";
 import {
+  costAnchorsForStandard,
   DEFAULT_REGION_ID,
   REGIONS,
   livingStandardFor,
@@ -152,6 +156,41 @@ describe("how long the money has to last", () => {
       improvementPct: 1,
     });
     expect(improving.p5).toBeLessThan(105);
+  });
+
+  it("compounds more improvement into a younger reader's plan, with no second knob", () => {
+    /*
+      The whole point of applying the rate to calendar time rather than to
+      age: a younger reader has more years between now and the reference
+      age for the rate to compound over, so the same one input treats them
+      differently with nothing else changed.
+    */
+    const young = assessLongevity({
+      currentAge: 30,
+      e65Male: 18.5,
+      e65Female: 21,
+      sex: "male",
+      improvementPct: 1,
+    });
+    const old = assessLongevity({
+      currentAge: 65,
+      e65Male: 18.5,
+      e65Female: 21,
+      sex: "male",
+      improvementPct: 1,
+    });
+    expect(young.yearsOfImprovementToReference).toBeGreaterThan(
+      old.yearsOfImprovementToReference
+    );
+    expect(young.hazardCutAtReference).toBeGreaterThan(old.hazardCutAtReference);
+    // Reproduces the exact figure `survivalCurve` uses at that instant.
+    expect(
+      hazardReductionAt(IMPROVEMENT_REFERENCE_AGE, 30, 1)
+    ).toBeCloseTo(young.hazardCutAtReference, 10);
+    // Zero rate is zero improvement whatever the age gap is.
+    expect(hazardReductionAt(IMPROVEMENT_REFERENCE_AGE, 30, 0)).toBe(0);
+    // A reader already past the reference age has no window left to compound.
+    expect(hazardReductionAt(IMPROVEMENT_REFERENCE_AGE, 90, 1)).toBe(0);
   });
 
   it("falls monotonically, so a rarer age is always a later one", () => {
@@ -362,7 +401,17 @@ describe("what a year of retirement costs", () => {
 
 describe("the pot the plan needs", () => {
   it("asks for more than the exact answer, because returns arrive in an order", () => {
-    const plan = buildPlan(subject(), PLAN_AGE);
+    /*
+      Needs a life whose lifelong spend still exceeds the state pension,
+      or there is no lifelong draw for the safe rate to add a buffer to
+      and the two figures land exactly together. Even "comfortable" now
+      sits under the GB single pension on its own (no house, no car), so
+      this one also lowers the pension to get a real lifelong shortfall.
+    */
+    const plan = buildPlan(
+      subject({ standard: "comfortable", statePensionAnnual: 6_000 }),
+      PLAN_AGE
+    );
     expect(plan.required.safeRate).toBeGreaterThan(plan.required.spendDown);
   });
 
@@ -440,7 +489,16 @@ describe("where the reader stands", () => {
   });
 
   it("closes the gap with the saving it says it will", () => {
-    const inputs = subject({ currentPot: 20_000, annualContribution: 0 });
+    /*
+      Needs a life with a real lifelong shortfall (see the note above),
+      or a modest pot given decades to grow already closes it on its own.
+    */
+    const inputs = subject({
+      currentPot: 20_000,
+      annualContribution: 0,
+      standard: "comfortable",
+      statePensionAnnual: 6_000,
+    });
     const plan = buildPlan(inputs, PLAN_AGE);
     expect(plan.gap).toBeGreaterThan(0);
     const closed = buildPlan(
@@ -499,7 +557,18 @@ describe("the grid", () => {
   });
 
   it("makes cash cost a multiple of investing, which is the lesson", () => {
-    const inputs = subject();
+    /*
+      A large enough pot given three decades to grow reaches the target
+      on its own, and "there already" has no multiple to compare. This
+      one asks for a real shortfall: a modest pot, a real contribution,
+      and a lifelong shortfall against the pension (see the note above).
+    */
+    const inputs = subject({
+      currentPot: 5_000,
+      annualContribution: 1_000,
+      standard: "comfortable",
+      statePensionAnnual: 6_000,
+    });
     const invested = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "invested" });
     const cash = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "cash" });
     const i = invested.find((r) => r.retirementAge === 60)!;
@@ -516,8 +585,15 @@ describe("the grid", () => {
       1.79x at 35 rising to 2.60x at 70. On the pot alone the lesson
       inverts as you read down the table, which is exactly why the caption
       points at the monthly column instead.
+
+      Needs a pension below the moderate standard, or the shortfall this
+      is measuring goes to zero at some ages and the ratio is undefined.
     */
-    const inputs = subject({ currentPot: 0, annualContribution: 0 });
+    const inputs = subject({
+      currentPot: 0,
+      annualContribution: 0,
+      statePensionAnnual: 6_000,
+    });
     const inv = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "invested" });
     const cash = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "cash" });
     const potX = inv.map((r, i) => cash[i].byStandard.moderate / r.byStandard.moderate);
@@ -586,6 +662,95 @@ describe("spending in layers", () => {
   it("splits the whole of the spending and no more", () => {
     const total = tierAmounts(40_000, DEFAULT_TIERS).reduce((s, t) => s + t.full, 0);
     expect(total).toBeCloseTo(40_000, 6);
+  });
+});
+
+describe("the settled year's own pot, not the whole target", () => {
+  /*
+    FlexiblePanel used to price the settled year's market-funded draw off
+    `required.target`, which is `lifelongPot + temporaryPot`: capital that
+    also covers a mortgage, a car, or growing children in the early
+    retirement years. By the settled (last) year those temporary years are
+    long over, so multiplying the FULL target by the safe rate hands that
+    year money that was never its to have, and a crash on the slider barely
+    moved the bars. `required.lifelongPot` is the slice that is actually
+    generating the settled year's own need forever, with none of that
+    reserve in it, and this is what the fix reads instead.
+  */
+  it("lifelongPot leaves the temporary reserve out, so it is smaller than target whenever there is one", () => {
+    const plan = buildPlan(subject(), PLAN_AGE);
+    expect(plan.required.temporaryPot).toBeGreaterThan(0);
+    expect(plan.required.lifelongPot).toBeLessThan(plan.required.target);
+    expect(plan.required.lifelongPot + plan.required.temporaryPot).toBeCloseTo(
+      plan.required.safeRate,
+      4
+    );
+  });
+
+  it("withdrawn at the average year, lifelongPot reproduces the settled year's real budget exactly", () => {
+    /*
+      Needs a pension below the moderate standard (see the note on the
+      test below), or the settled year's guaranteed income alone exceeds
+      its whole spend now that the standards exclude housing and a car,
+      leaving real unspent income with nothing to do with the arithmetic
+      this test is actually checking.
+    */
+    const plan = buildPlan(subject({ statePensionAnnual: 3_000 }), PLAN_AGE);
+    const settled = plan.years[plan.years.length - 1];
+    const rate = plan.required.swr.ratePct;
+    const year = flexibleYear({
+      pot: plan.required.lifelongPot,
+      annualSpend: settled.spend,
+      guaranteedIncome: settled.income,
+      withdrawalRatePct: rate,
+      marketReturnPct: 0,
+      tiers: DEFAULT_TIERS,
+    });
+    expect(year.spend).toBeCloseTo(settled.spend, 2);
+    expect(year.unspent).toBeLessThan(1);
+  });
+
+  it("a bad year cuts the top of the stack against lifelongPot, and barely touched it against the whole target: the regression this fix closes", () => {
+    /*
+      Retiring well before the state pension starts, on top of the
+      defaults' own mortgage and car, is what makes `temporaryPot` the
+      dominant share of `target` -- the shape closest to the reported bug,
+      where a reader's pension covered nearly all of the settled year and
+      a -26% year on the slider still left money "unspent".
+
+      Needs a pension below the moderate standard (see the note elsewhere
+      in this file), or the settled year's guaranteed income alone covers
+      its whole spend now that the standards exclude housing and a car,
+      leaving no market-funded draw for a crash to cut at all.
+    */
+    const plan = buildPlan(
+      subject({ retirementAge: 45, statePensionAnnual: 3_000 }),
+      PLAN_AGE
+    );
+    const settled = plan.years[plan.years.length - 1];
+    const rate = plan.required.swr.ratePct;
+    const shared = {
+      annualSpend: settled.spend,
+      guaranteedIncome: settled.income,
+      withdrawalRatePct: rate,
+      marketReturnPct: -25,
+      tiers: DEFAULT_TIERS,
+    };
+
+    const fixed = flexibleYear({ pot: plan.required.lifelongPot, ...shared });
+    const buggy = flexibleYear({ pot: plan.required.target, ...shared });
+
+    // The fix: a real crash reaches at least the top of the stack.
+    expect(fixed.spend).toBeLessThan(settled.spend);
+    expect(fixed.slices[fixed.slices.length - 1].fill).toBeLessThan(1);
+
+    // The bug this closes: sized off the whole target, the same crash cuts
+    // markedly less (this plan's temporary reserve absorbs most of it),
+    // which is the muted, barely-moving slider a reader actually saw.
+    expect(buggy.spend).toBeGreaterThan(fixed.spend);
+    const cutFixed = settled.spend - fixed.spend;
+    const cutBuggy = settled.spend - buggy.spend;
+    expect(cutBuggy).toBeLessThan(cutFixed * 0.5);
   });
 });
 
@@ -709,6 +874,86 @@ describe("where you live", () => {
   });
 });
 
+describe("a child, a car and a mortgage cost different amounts at each standard", () => {
+  it("is a no-op at moderate, which is the figure the UK anchor is cited for", () => {
+    const moderate = costAnchorsForStandard("moderate");
+    expect(moderate.childAnnual).toBe(UK_COST_ANCHORS.childAnnual);
+    expect(moderate.carMonthly).toBe(UK_COST_ANCHORS.carMonthly);
+    expect(moderate.mortgageAnnual).toBe(UK_COST_ANCHORS.mortgageAnnual);
+  });
+
+  it("prices the minimum standard below moderate and comfortable above it", () => {
+    const min = costAnchorsForStandard("minimum");
+    const mod = costAnchorsForStandard("moderate");
+    const comf = costAnchorsForStandard("comfortable");
+    expect(min.childAnnual).toBeLessThan(mod.childAnnual);
+    expect(comf.childAnnual).toBeGreaterThan(mod.childAnnual);
+    expect(min.mortgageAnnual).toBeLessThan(mod.mortgageAnnual);
+    expect(comf.mortgageAnnual).toBeGreaterThan(mod.mortgageAnnual);
+    expect(min.carMonthly).toBeLessThan(mod.carMonthly);
+    expect(comf.carMonthly).toBeGreaterThan(mod.carMonthly);
+    // Every figure still has to be a real number, not zero from a bad ratio.
+    expect(min.childAnnual).toBeGreaterThan(0);
+    expect(min.mortgageAnnual).toBeGreaterThan(0);
+  });
+
+  it("prices no car at all on the minimum standard, because that standard has none in it", () => {
+    /*
+      PLSA's own minimum standard is defined without a car (see
+      STANDARD_BLURB), so scaling the anchor down instead of zeroing it
+      would still be charging for a car nobody in that basket owns.
+    */
+    expect(costAnchorsForStandard("minimum").carMonthly).toBe(0);
+  });
+
+  it("moves the three defaults when a plan not yet touched changes standard", () => {
+    const gb = defaultInputs("GB");
+    expect(gb.standard).toBe("moderate");
+    const minimum = retargetStandard(gb, "minimum");
+    expect(minimum.standard).toBe("minimum");
+    const anchors = costAnchorsForStandard("minimum");
+    expect(minimum.childAnnualCost).toBe(
+      localiseFromGbp(regionById("GB"), anchors.childAnnual)
+    );
+    expect(minimum.carMonthly).toBe(0);
+    expect(minimum.mortgageAnnual).toBe(
+      localiseFromGbp(regionById("GB"), anchors.mortgageAnnual)
+    );
+    expect(minimum.customAnnualSpend).toBe(
+      livingStandardFor(regionById("GB"), "minimum", gb.household)
+    );
+  });
+
+  it("leaves a figure the reader typed alone, exactly as the household toggle does", () => {
+    const mine = {
+      ...defaultInputs("GB"),
+      childAnnualCost: 4_000,
+      carMonthly: 250,
+      mortgageAnnual: 9_500,
+    };
+    const moved = retargetStandard(mine, "comfortable");
+    expect(moved.childAnnualCost).toBe(4_000);
+    expect(moved.carMonthly).toBe(250);
+    expect(moved.mortgageAnnual).toBe(9_500);
+  });
+
+  it("moves a still-default figure again on a second change of standard", () => {
+    // Minimum -> comfortable is the case that would break a check pinned
+    // to the *original* moderate default rather than to the standard the
+    // plan is actually leaving.
+    const gb = defaultInputs("GB");
+    const minimum = retargetStandard(gb, "minimum");
+    const comfortable = retargetStandard(minimum, "comfortable");
+    const anchors = costAnchorsForStandard("comfortable");
+    expect(comfortable.childAnnualCost).toBe(
+      localiseFromGbp(regionById("GB"), anchors.childAnnual)
+    );
+    expect(comfortable.carMonthly).toBe(
+      localiseFromGbp(regionById("GB"), anchors.carMonthly)
+    );
+  });
+});
+
 describe("guards", () => {
   it("survives nonsense without producing a number", () => {
     const junk = subject({
@@ -797,7 +1042,12 @@ describe("a pot that earns nothing is not judged on a safe withdrawal rate", () 
   });
 
   it("carries the same reversal into every cell of the grid", () => {
-    const inputs = subject();
+    /*
+      Needs a pension below the moderate standard, or both columns settle
+      on the same "nothing owed" answer at the ages nearest the pension
+      and there is no reversal left to carry.
+    */
+    const inputs = subject({ statePensionAnnual: 6_000 });
     const invested = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "invested" });
     const cash = buildTable({ inputs, suggestedPlanningAge: PLAN_AGE, mode: "cash" });
     expect(cash.length).toBe(invested.length);
@@ -906,6 +1156,7 @@ describe("the panel that says where a number came from is never approximately ri
         e65: 19.75,
         planningAge: PLAN_AGE,
         improvementPct: 1,
+        currentAge: inputs.currentAge,
         swrPct: plan.required.swr.ratePct,
         realReturnPct: plan.realReturnPct,
         basis: plan.required.basis,

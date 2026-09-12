@@ -140,6 +140,7 @@ describe("both pots are named at every level", () => {
     e65: region.e65Female,
     planningAge: planningAgeFor(inputs, longevity.suggestedPlanningAge),
     improvementPct: inputs.improvementPct,
+    currentAge: inputs.currentAge,
     swrPct: plan.required.swr.ratePct,
     realReturnPct: plan.realReturnPct,
     basis: plan.required.basis,
@@ -244,7 +245,7 @@ describe("the card a reader pressed", () => {
     );
   }
 
-  it("is marked with an outline, never a ring", () => {
+  it("is marked with a border, never a ring or an outline", () => {
     const markup = quickStart("family-years");
     const card = markup
       .split("<button")
@@ -254,12 +255,32 @@ describe("the card a reader pressed", () => {
       `ring-*` is a box-shadow utility, and `.glass-well` sets `box-shadow`
       itself from the same cascade layer later in the file, so a ring on a
       well loses and the pressed card looks exactly like the other seven.
-      Measured on the rendered card, its whole computed shadow was the
-      well's own 1px rim. An outline is a different property and survives.
+      An `outline` survives that, but it is not clipped to the card's own
+      border-radius the way a `border` is, so at a negative offset on a
+      rounded corner the two curves disagree and the mismatch reads as a
+      bulge past the card's edge on hover. A border is part of the box
+      itself, so it is always the same radius as the card.
     */
-    expect(card).toContain("outline-primary");
+    expect(card).toContain("border-primary");
     expect(card).not.toContain("ring-2");
+    expect(card).not.toContain("outline-primary");
+    expect(card).not.toContain("outline-border");
     expect(card).toContain('aria-pressed="true"');
+  });
+
+  it("catches the light on hover like every other pressable card", () => {
+    const markup = quickStart(null);
+    const card = markup
+      .split("<button")
+      .find((chunk) => chunk.includes("Family years"));
+    expect(card).toBeTruthy();
+    /*
+      `veil-hover` matches `StandardPicker` (`PlanInputs.tsx`), the sibling
+      card picker one panel down. Without it the border was the only hover
+      feedback, where every other pressable card in the app also lightens
+      across its whole face.
+    */
+    expect(card).toContain("veil-hover");
   });
 
   it("says whose figures are on the page once one is pressed", () => {

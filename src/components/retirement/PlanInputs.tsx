@@ -36,6 +36,7 @@ import {
   currencyCodeFor,
 } from "@/components/retirement/fields";
 import {
+  costAnchorsForStandard,
   LIVING_STANDARDS,
   REGIONS,
   STANDARD_BLURB,
@@ -49,6 +50,7 @@ import {
 import {
   retargetHousehold,
   retargetRegion,
+  retargetStandard,
   type Housing,
   type RetirementInputs,
 } from "@/lib/retirement/plan";
@@ -79,13 +81,7 @@ function StandardPicker({
             key={id}
             type="button"
             aria-pressed={chosen}
-            onClick={() =>
-              patch({
-                spendingMode: "standard",
-                standard: id,
-                customAnnualSpend: amounts[id],
-              })
-            }
+            onClick={() => patch(retargetStandard(inputs, id))}
             className={cn(
               CARD,
               "veil-hover flex min-w-0 flex-col gap-2 border-2 p-4 text-left transition-colors",
@@ -139,6 +135,7 @@ export function PlanInputs({
   const code = currencyCodeFor(region.currency);
   const regionSelectId = useId();
   const costsId = useId();
+  const standardCosts = costAnchorsForStandard(inputs.standard);
 
   return (
     <div className={PANEL_STACK}>
@@ -261,7 +258,7 @@ export function PlanInputs({
               value={inputs.mortgageAnnual}
               currency={code}
               onChange={(mortgageAnnual) => patch({ mortgageAnnual })}
-              note={`Opened on ${currency(UK_COST_ANCHORS.mortgageAnnual, 0, "GBP")} a year at UK prices, moved onto ${region.name}'s.`}
+              note={`Opened on ${currency(standardCosts.mortgageAnnual, 0, "GBP")} a year at UK prices for the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard, moved onto ${region.name}'s. Type what you actually pay.`}
             />
             <CountField
               label="Years left on it"
@@ -354,7 +351,7 @@ export function PlanInputs({
               value={inputs.childAnnualCost}
               currency={code}
               onChange={(childAnnualCost) => patch({ childAnnualCost })}
-              note={UK_COST_ANCHORS.childSource}
+              note={`${UK_COST_ANCHORS.childSource} Scaled to the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard and moved onto ${region.name}'s prices. It is a rough starting figure, not a claim about your children: type your own.`}
             />
             <CountField
               label="Until they are"
@@ -381,7 +378,11 @@ export function PlanInputs({
             value={inputs.carMonthly}
             currency={code}
             onChange={(carMonthly) => patch({ carMonthly })}
-            note={`Leave at zero if you own a car outright or do not have one. Opened on ${currency(UK_COST_ANCHORS.carMonthly, 0, "GBP")} a month at UK prices.`}
+            note={
+              inputs.standard === "minimum"
+                ? "The minimum standard is priced with no car in it, so this opens at zero. Type a figure if you have one."
+                : `Leave at zero if you own a car outright or do not have one. Opened on ${currency(standardCosts.carMonthly, 0, "GBP")} a month at UK prices for the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard.`
+            }
           />
           {inputs.carForever ? null : (
             <CountField
