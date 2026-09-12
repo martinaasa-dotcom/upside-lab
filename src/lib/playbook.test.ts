@@ -528,7 +528,7 @@ describe("the words on a card come from the glossary", () => {
       join(process.cwd(), "src/components/playbook/PlaybookTerms.tsx"),
       "utf8"
     );
-    expect(src).toMatch(/known\.length === 1 \? "Word on this one"/);
+    expect(src).toMatch(/known\.length === 1\s*\n\s*\? "Tap this word for what it means"/);
     // A card with exactly one word has to exist, or the branch is dead.
     expect(cards.some((c) => (c.terms ?? []).length === 1)).toBe(true);
   });
