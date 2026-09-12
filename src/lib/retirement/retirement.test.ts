@@ -51,6 +51,7 @@ import {
 import { sanitizeInputs } from "@/lib/retirement/state";
 import { retirementProvenance } from "@/lib/provenance";
 import {
+  DEFAULT_REGION_ID,
   REGIONS,
   livingStandardFor,
   regionById,
@@ -523,6 +524,21 @@ describe("spending in layers", () => {
 });
 
 describe("where you live", () => {
+  it("defaults a brand new plan to the US, never the UK", () => {
+    expect(DEFAULT_REGION_ID).toBe("US");
+    expect(defaultInputs().regionId).toBe("US");
+  });
+
+  it("falls back an unrecognised id to the default region, not to whichever region sits first in the list", () => {
+    expect(REGIONS[0]?.id).not.toBe(DEFAULT_REGION_ID);
+    expect(regionById(undefined).id).toBe(DEFAULT_REGION_ID);
+    expect(regionById(null).id).toBe(DEFAULT_REGION_ID);
+    expect(regionById("not-a-real-region").id).toBe(DEFAULT_REGION_ID);
+    // A blob saved before `regionId` existed, or with the field dropped
+    // by hand, must not read back as British.
+    expect(sanitizeInputs({}).regionId).toBe(DEFAULT_REGION_ID);
+  });
+
   it("derives every basket from the one published set, never a typed table", () => {
     const gb = regionById("GB");
     expect(livingStandardFor(gb, "moderate", "single")).toBe(
