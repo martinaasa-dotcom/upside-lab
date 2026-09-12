@@ -261,7 +261,7 @@ export function PlanLadderTable({
     <div className="flex flex-col gap-4">
       <Card tone="default" className="overflow-hidden p-0 sm:p-0">
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2 sm:px-5 lg:px-6">
-          <MicroLabel>Band</MicroLabel>
+          <MicroLabel>Zone</MicroLabel>
           <MicroLabel>Price</MicroLabel>
         </div>
         <div className="divide-y divide-border">
@@ -357,7 +357,7 @@ export function PlanLadderFoot({
           company that the reader wants anyway.
         */}
         {ladder.farBelow
-          ? ", tighter than usual because the price is a long way under the anchor and the stretch below it is one band rather than five"
+          ? ", tighter than usual because the price is a long way under the anchor and the stretch below it is one zone rather than five"
           : ""}
         . {ADVICE_DISCLAIMER_SHORT}
       </p>

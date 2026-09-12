@@ -3009,7 +3009,6 @@ export function Dashboard() {
               onOpenSheet={onOpenSheet}
               coveredCallRows={bookCoveredCallRows}
               activeAlerts={activeAlerts}
-              bandPoints={bookBandMap.points}
               marketState={marketState}
               quotesUpdatedAt={quotesUpdatedAt}
               showCommunities={source === "supabase"}
@@ -3039,11 +3038,8 @@ export function Dashboard() {
           </WidgetErrorBoundary>
         ) : (
           <>
-            <WidgetErrorBoundary name="Where they sit">
-              <BandMap
-                rows={portfolioLadders}
-                title={`Where ${activePortfolio!.name} sits on its own ladders`}
-              />
+            <WidgetErrorBoundary name="Price Zones">
+              <BandMap rows={portfolioLadders} />
             </WidgetErrorBoundary>
 
             <WidgetErrorBoundary name="Holdings">

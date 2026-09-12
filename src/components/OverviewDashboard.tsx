@@ -3,8 +3,6 @@
 import { TermTip } from "@/components/ui/TermTip";
 import { BelowFold } from "@/components/BelowFold";
 import { HomeWorld } from "@/components/HomeWorld";
-import { BandAlerts } from "@/components/company/BandAlerts";
-import type { BandMapPoint } from "@/lib/company/band-map";
 import { CashAlertCard } from "@/components/mobile/CashAlertCard";
 import { WatchlistStrip } from "@/components/WatchlistStrip";
 import {
@@ -132,7 +130,6 @@ function DeltaBadge({
  */
 const MOVERS_SHOWN = 6;
 const EMPTY_ALERTS: UpsideAlert[] = [];
-const EMPTY_BAND_POINTS: BandMapPoint[] = [];
 
 type Props = {
   model: OverviewModel;
@@ -140,11 +137,6 @@ type Props = {
   coveredCallRows?: CoveredCallRow[];
   /** Book-wide, not-yet-dismissed alerts (earnings/strike/margin/concentration). */
   activeAlerts?: UpsideAlert[];
-  /**
-   * Every holding placed on its own price ladder. Home shows only the ones
-   * that have reached a level; the whole picture is on the holdings page.
-   */
-  bandPoints?: BandMapPoint[];
   onOpenLab?: (tab?: LabDeepLink) => void;
   onOpenPulse?: (ticker?: string) => void;
   /** The company's own Research page, where a price ladder lives. */
@@ -1019,7 +1011,6 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   model,
   onOpenSheet,
   activeAlerts = EMPTY_ALERTS,
-  bandPoints = EMPTY_BAND_POINTS,
   onOpenPulse,
   onOpenResearch,
   onOpenLab,
@@ -1727,14 +1718,6 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         empty shelf.
       */}
       <LearnedPanel />
-
-      {/*
-        High on the page, because it is the one thing here that a reader
-        would want to know before deciding what to do with their day: a
-        price they wrote a level for has reached it. Absent entirely when
-        nothing has, rather than an empty card saying so.
-      */}
-      <BandAlerts points={bandPoints} />
 
       <Panel className="overview-fade">
         <PanelHeader
