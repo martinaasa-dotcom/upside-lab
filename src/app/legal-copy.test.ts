@@ -112,6 +112,58 @@ describe("the privacy policy matches what the code does", () => {
     expect(privacy).not.toContain("Gemini");
   });
 
+  it("names every model provider the chain can actually call", () => {
+    /*
+     * The list above is a list of names, so it catches a provider being
+     * taken OFF the page and cannot catch one being added to the chain and
+     * never put on it. That is the direction that matters here: the page is
+     * a legal document about where a reader's data goes, and a new leg in
+     * `model.ts` that nobody thought to name leaves it quietly untrue.
+     *
+     * It has happened once already in a neighbouring file. AGENTS.md
+     * records that adding the NVIDIA leg broke `weekly-letter-prose.test.ts`
+     * because that test cleared three provider keys and there were now
+     * four, and it only surfaced on a machine that happened to have the new
+     * key set.
+     *
+     * So the legs are read out of `model.ts` itself. A key with no name
+     * here fails rather than passing, which is what makes the next provider
+     * somebody adds arrive as a decision about the privacy page instead of
+     * as silence.
+     */
+    const model = readFileSync(
+      join(process.cwd(), "src/lib/ai/model.ts"),
+      "utf8"
+    );
+    const NAME_FOR_KEY: Record<string, string> = {
+      GROQ_API_KEY: "Groq",
+      NVIDIA_API_KEY: "NVIDIA",
+      OPENROUTER_API_KEY: "OpenRouter",
+      CEREBRAS_API_KEY: "Cerebras",
+    };
+    const keys = [
+      ...new Set(
+        [...model.matchAll(/hasKey\("([A-Z0-9_]+_API_KEY)"\)/g)].map(
+          (m) => m[1]!
+        )
+      ),
+    ];
+    expect(keys.length, "no provider legs found in model.ts").toBeGreaterThan(0);
+    for (const key of keys) {
+      const name = NAME_FOR_KEY[key];
+      expect(
+        name,
+        `${key} is a provider leg with no name in this test. Add the ` +
+          `provider to the privacy page's roll call and to NAME_FOR_KEY.`
+      ).toBeTruthy();
+      expect(
+        privacy,
+        `${key} is a leg in model.ts but ${name} is not named on the ` +
+          `privacy page, which says where a reader's data goes`
+      ).toContain(name!);
+    }
+  });
+
   it("names both kinds of mail the app sends on its own", () => {
     expect(privacy).toMatch(/Sunday letter/);
     expect(privacy).toMatch(/if your portfolio is still empty/);
