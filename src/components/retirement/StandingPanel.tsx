@@ -129,7 +129,7 @@ function PathChart({
         */}
         <span
           className={cn(
-            "pointer-events-none absolute left-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground",
+            "chart-label-halo pointer-events-none absolute left-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground",
             shape.targetTop < 0.12 ? "translate-y-0.5" : "-translate-y-full"
           )}
           style={{ top: `${shape.targetTop * 100}%` }}
@@ -137,7 +137,7 @@ function PathChart({
           target {currency(target, 0, code)}
         </span>
         <span
-          className="pointer-events-none absolute top-0 whitespace-nowrap text-xs text-muted-foreground"
+          className="chart-label-halo pointer-events-none absolute top-0 whitespace-nowrap text-xs text-muted-foreground"
           style={{
             left: `${Math.min(80, shape.retire * 100)}%`,
             paddingLeft: "0.25rem",
@@ -148,7 +148,7 @@ function PathChart({
         {[shape.firstAge, shape.midAge, shape.lastAge].map((age, i) => (
           <span
             key={age}
-            className="absolute bottom-0 text-xs tabular-nums text-muted-foreground"
+            className="chart-label-halo absolute bottom-0 text-xs tabular-nums text-muted-foreground"
             style={{
               left: i === 0 ? 0 : undefined,
               right: i === 2 ? 0 : undefined,

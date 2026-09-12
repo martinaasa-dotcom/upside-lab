@@ -1029,6 +1029,28 @@ body {
     content-visibility: auto;
     contain-intrinsic-size: auto 240px;
   }
+
+  /*
+   * A CHART CAPTION SITS OVER A LINE, NOT BESIDE ONE, SO ITS OWN
+   * BACKGROUND CANNOT BE A FLAT FILL.
+   *
+   * A label placed over a plotted line or a shaded area can land under
+   * any panel background (solid or glass/translucent) and over any part
+   * of the line it is naming, so a background-color patch behind it can
+   * never match what is actually behind the chart and still leaves the
+   * glyphs sitting on top of a stroke through their own middle. `ChartAxis`
+   * worked this out for its own overlay ticks: a soft halo the width of
+   * the field colour keeps every glyph legible over whatever is behind it,
+   * with no visible seam. This is that same halo, shared, so every other
+   * caption drawn over a chart (a target line, a milestone mark, an age on
+   * a survival curve) gets it too rather than reinventing it per chart.
+   */
+  .chart-label-halo {
+    text-shadow:
+      0 0 4px var(--background),
+      0 0 4px var(--background),
+      0 0 8px var(--background);
+  }
 }
 
 @layer base {

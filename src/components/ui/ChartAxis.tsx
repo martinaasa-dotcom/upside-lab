@@ -36,19 +36,10 @@ export function ChartYAxis({
           key={t}
           className={cn(
             "absolute -translate-y-1/2 text-xs tabular-nums text-muted-foreground",
-            overlay ? "left-0" : "right-0"
+            overlay ? "left-0 chart-label-halo" : "right-0"
           )}
           style={{
             top: `${(yAt(t) / height) * 100}%`,
-            /* Overlay labels sit on top of the plot line, which can run
-               under any panel background (solid or glass/translucent).
-               A background-color patch behind the label can never match
-               a translucent panel, so give the glyphs a soft halo instead
-               — legible over the line with no visible seam against
-               whatever is actually behind the chart. */
-            textShadow: overlay
-              ? "0 0 4px var(--background), 0 0 4px var(--background), 0 0 8px var(--background)"
-              : undefined,
           }}
         >
           {format(t)}
