@@ -103,6 +103,49 @@ export function MoneyField({
   );
 }
 
+/**
+ * A `MoneyField` that shows and edits a month's worth of a figure the plan
+ * still stores and reasons about annually.
+ *
+ * The arithmetic everywhere else in this module (the grid, the milestones,
+ * the published baskets, every test) is a year at a time, and rebuilding all
+ * of it around a monthly unit would be a much larger and riskier change than
+ * what was actually asked for: a reader typing a mortgage or a contribution
+ * finds it far easier to reason about a monthly figure, which is what a
+ * payslip or a bank statement actually shows. So the value in and out of
+ * this field is always the annual one `RetirementInputs` holds; only the
+ * number printed in the box, and what a keystroke means, is a twelfth of it.
+ */
+export function MonthlyMoneyField({
+  label,
+  note,
+  value,
+  currency,
+  onChange,
+}: {
+  label: ReactNode;
+  note?: ReactNode;
+  /** The annual figure the plan stores. */
+  value: number;
+  currency: CurrencyCode;
+  /** Called with the annual figure a typed monthly amount converts to. */
+  onChange: (annual: number) => void;
+}) {
+  const id = useId();
+  return (
+    <Field label={label} note={note} htmlFor={id}>
+      <FormattedNumberInput
+        id={id}
+        kind="money"
+        value={Math.round(value / 12)}
+        currency={currency}
+        onChange={(monthly) => onChange(monthly * 12)}
+        className="font-mono tabular-nums"
+      />
+    </Field>
+  );
+}
+
 export function PercentField({
   label,
   note,

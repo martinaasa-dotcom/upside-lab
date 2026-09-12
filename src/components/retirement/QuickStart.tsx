@@ -24,9 +24,16 @@
  * prices, the pension and its age. Everything else has a defensible
  * published default, so it is filled in rather than asked for.
  *
- * THE DETAIL CONTROL IS HERE RATHER THAN AT THE FOOT. It is the answer to
- * "where are the other dials", and a reader asks that at the top, next to
- * the thing that looks too simple, not after scrolling past six panels.
+ * THE DETAIL CONTROL LEADS THE CARD, BEFORE THE TEMPLATES AND BEFORE THE
+ * ESSENTIALS. It used to sit at the foot, under everything else this card
+ * asks, which put "how much do you want to see" last, as if it were a
+ * footnote instead of the thing that decides what the rest of the page
+ * looks like. It is also why `PlanInputs` no longer asks anything this card
+ * already asks: with the level chosen first, opening a deeper level was
+ * pulling in a second, near-identical copy of the country, the ages and the
+ * pot, a screen below the first, with nothing on the page saying the two
+ * were the same question. Now a level change only ever adds panels this
+ * card has not touched.
  */
 
 import {
@@ -45,7 +52,7 @@ import {
   CountField,
   Field,
   FIELD_GRID,
-  MoneyField,
+  MonthlyMoneyField,
   currencyCodeFor,
 } from "@/components/retirement/fields";
 import { PotField } from "@/components/retirement/PotField";
@@ -67,6 +74,7 @@ import {
   retargetHousehold,
   retargetRegion,
   retargetRetirementAge,
+  retargetStandard,
   type RetirementInputs,
 } from "@/lib/retirement/plan";
 import {
@@ -152,6 +160,49 @@ export function QuickStart({
         subtitle="Press the life that looks most like yours and the whole plan fills in. Then correct the few figures that are actually yours. Every other panel on this page is an answer, and none of them needs anything else from you."
       />
 
+      {/*
+        THE FIRST DECISION ON THE PAGE, BEFORE ANYTHING ELSE CAN BE PRESSED.
+        It used to sit at the foot of this card, under eight templates and
+        six fields, which put it in the one spot where pressing it felt like
+        it was reacting to everything above rather than setting the stage
+        for it. Levelling up used to also duplicate fields already answered
+        here (the country, the ages, the pot) into a second, near-identical
+        card below with nothing on screen saying the two were the same
+        question — a reader who corrected one had no way to know the other
+        still held the old figure. `PlanInputs` no longer asks anything this
+        card already asks, so a level change now only ever adds panels this
+        card has not touched.
+      */}
+      <div className="flex flex-col gap-3">
+        <MicroLabel>
+          <span className="inline-flex items-center gap-1.5">
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            How much of it you want to see
+          </span>
+        </MicroLabel>
+        {/*
+          Full width with a column per level rather than a compact toggle
+          beside the label. Compact cells are `flex-1` from a zero basis,
+          so they divide whatever the row has left equally and the longest
+          label is the one that loses: measured at every width from 360 to
+          1280, "Everything" was clipped by 3px while "Simple" sat in space
+          it did not need.
+        */}
+        <Segmented<RetirementDetail>
+          options={RETIREMENT_DETAILS.map((id) => ({
+            id,
+            label: DETAIL_LABEL[id],
+          }))}
+          value={detail}
+          columns={3}
+          ariaLabel="How much of it you want to see"
+          onChange={onDetailChange}
+        />
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {DETAIL_BLURB[detail]}
+        </p>
+      </div>
+
       <div className="flex flex-col gap-3">
         <MicroLabel>Pick a starting point</MicroLabel>
         {/*
@@ -172,18 +223,34 @@ export function QuickStart({
                 onClick={() => onTemplate(template.id)}
                 className={cn(
                   CARD,
-                  "flex min-w-0 flex-col gap-1 p-3 text-left transition-colors",
+                  "veil-hover flex min-w-0 flex-col gap-1 border-2 p-3 text-left transition-colors",
                   /*
-                    An outline, not a ring. `ring-*` is a box-shadow
-                    utility and `.glass-well` sets `box-shadow` directly
-                    from the same cascade layer, later in the file, so the
-                    ring loses and the chosen card looks exactly like the
-                    other seven. Measured on the rendered card: the whole
-                    of its computed shadow was the well's own 1px rim.
+                    A real `border`, not a ring and not an outline. `ring-*`
+                    is a box-shadow utility and `.glass-well` sets
+                    `box-shadow` directly from the same cascade layer, later
+                    in the file, so the ring loses and the chosen card looked
+                    exactly like the other seven. `outline` avoided that, but
+                    an outline is not clipped to the element's own
+                    border-radius the way a border is: at a -1px offset on a
+                    rounded corner it draws its own approximation of the
+                    curve, which is a different curve, so the two disagreed
+                    right where they were closest and the mismatch read as a
+                    bulge past the card's own edge on hover. A border is
+                    part of the box itself, so it is always exactly the same
+                    radius as the card, and it is a different property from
+                    `box-shadow`, so `.glass-well` cannot swallow it. The
+                    border is reserved at 2px even when transparent, so
+                    gaining a colour on hover recolours a line that was
+                    already there rather than growing one from nothing.
+
+                    `veil-hover` is the same convention every other
+                    pressable card in the app uses: without it the only
+                    hover feedback here was the border, where elsewhere a
+                    card also catches the light across its whole face.
                   */
                   on
-                    ? "outline-2 -outline-offset-2 outline-primary"
-                    : "hover:outline-1 hover:-outline-offset-1 hover:outline-border"
+                    ? "border-primary"
+                    : "border-transparent hover:border-border"
                 )}
               >
                 <span className="text-sm font-semibold text-foreground">
@@ -299,8 +366,8 @@ export function QuickStart({
             potSource={potSource}
             onPotSourceChange={onPotSourceChange}
           />
-          <MoneyField
-            label="You add, a year"
+          <MonthlyMoneyField
+            label="You add, a month"
             value={inputs.annualContribution}
             currency={code}
             onChange={(annualContribution) => patch({ annualContribution })}
@@ -332,30 +399,24 @@ export function QuickStart({
               control rather than as a wrapped one.
             */
             ariaLabel="The life you want"
-            onChange={(standard) =>
-              patch({
-                spendingMode: "standard",
-                standard,
-                customAnnualSpend: amounts[standard],
-              })
-            }
+            onChange={(standard) => patch(retargetStandard(inputs, standard))}
           />
         </Field>
         <p className="text-sm leading-relaxed text-muted-foreground">
           {standardNow ? (
             <>
               <span className="font-mono tabular-nums text-foreground">
-                {currency(amounts[standardNow], 0, region.currency)}
+                {currency(Math.round(amounts[standardNow] / 12), 0, region.currency)}
               </span>{" "}
-              a year, after tax, in today&apos;s money, with housing counted
+              a month, after tax, in today&apos;s money, with housing counted
               separately. Published figures for {region.name}.
             </>
           ) : (
             <>
               <span className="font-mono tabular-nums text-foreground">
-                {currency(inputs.customAnnualSpend, 0, region.currency)}
+                {currency(Math.round(inputs.customAnnualSpend / 12), 0, region.currency)}
               </span>{" "}
-              a year, your own figure, after tax and with housing counted
+              a month, your own figure, after tax and with housing counted
               separately.
             </>
           )}
@@ -369,8 +430,8 @@ export function QuickStart({
           looked switched off for no visible reason.
         */}
         {standardNow ? null : (
-          <MoneyField
-            label="Your own figure, a year"
+          <MonthlyMoneyField
+            label="Your own figure, a month"
             value={inputs.customAnnualSpend}
             currency={code}
             onChange={(customAnnualSpend) =>
@@ -394,42 +455,6 @@ export function QuickStart({
           .
         </p>
       ) : null}
-
-      {/*
-        Deliberately not inside a `CARD`. A card's own padding costs 32px of
-        a 360px phone, which at three equal cells is the 3px that broke
-        "Everything" onto two lines, and a control that decides what the
-        whole page shows is not a nested well anyway.
-      */}
-      <div className="flex flex-col gap-3">
-        <MicroLabel>
-          <span className="inline-flex items-center gap-1.5">
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            How much of it you want to see
-          </span>
-        </MicroLabel>
-        {/*
-          Full width with a column per level rather than a compact toggle
-          beside the label. Compact cells are `flex-1` from a zero basis,
-          so they divide whatever the row has left equally and the longest
-          label is the one that loses: measured at every width from 360 to
-          1280, "Everything" was clipped by 3px while "Simple" sat in space
-          it did not need.
-        */}
-        <Segmented<RetirementDetail>
-          options={RETIREMENT_DETAILS.map((id) => ({
-            id,
-            label: DETAIL_LABEL[id],
-          }))}
-          value={detail}
-          columns={3}
-          ariaLabel="How much of it you want to see"
-          onChange={onDetailChange}
-        />
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {DETAIL_BLURB[detail]}
-        </p>
-      </div>
     </Panel>
   );
 }

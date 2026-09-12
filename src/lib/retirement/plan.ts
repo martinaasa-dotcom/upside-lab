@@ -50,6 +50,7 @@ import {
   type ReturnAssumptions,
 } from "@/lib/retirement/returns";
 import {
+  costAnchorsForStandard,
   DEFAULT_REGION_ID,
   livingStandardFor,
   localiseFromGbp,
@@ -171,6 +172,24 @@ export type RequiredPot = {
   safeRate: number;
   /** The lifelong part, the one the safe rate is applied to. */
   lifelongFromPot: number;
+  /**
+   * The slice of `safeRate` (equivalently, of `target` when `basis` is
+   * `"safeRate"`) that is actually generating `lifelongFromPot` forever,
+   * with none of `temporaryPot` in it.
+   *
+   * That distinction is not bookkeeping. `target` is sized to fund BOTH
+   * the ongoing steady-state draw AND the extra a mortgage, a car, or
+   * growing children cost in the early retirement years; by the settled
+   * (last) year those temporary years are over and the capital that
+   * funded them is spent. Anything reasoning about a single settled
+   * year's own sustainable draw, such as the spending-layers panel, has
+   * to reverse the safe rate off THIS figure rather than off `target`,
+   * or it hands that year money that was never its to have. This is
+   * exactly `lifelongFromPot` divided back through the same rate that
+   * produced it, exposed so a caller never has to redo that division
+   * (and risk forgetting the `ratePct` is a percent, not a fraction).
+   */
+  lifelongPot: number;
   /** The pot the temporary years need on top. */
   temporaryPot: number;
   swr: SwrBreakdown;
@@ -418,6 +437,7 @@ export function buildPlan(
     spendDown: spendDownFigure,
     safeRate: safeRatePot,
     lifelongFromPot: lifelong,
+    lifelongPot,
     temporaryPot,
     swr,
     basis,
@@ -527,6 +547,7 @@ export function buildPlan(
 export function defaultInputs(regionId: string = DEFAULT_REGION_ID): RetirementInputs {
   const region = regionById(regionId);
   const retirementAge = region.statePensionAge;
+  const costs = costAnchorsForStandard("moderate");
   return {
     regionId: region.id,
     household: "single",
@@ -540,13 +561,13 @@ export function defaultInputs(regionId: string = DEFAULT_REGION_ID): RetirementI
     standard: "moderate",
     customAnnualSpend: livingStandardFor(region, "moderate", "single"),
     housing: "mortgage",
-    mortgageAnnual: localiseFromGbp(region, UK_COST_ANCHORS.mortgageAnnual),
+    mortgageAnnual: localiseFromGbp(region, costs.mortgageAnnual),
     mortgageYearsLeft: 20,
     rentAnnual: localiseFromGbp(region, UK_COST_ANCHORS.rentMonthly * 12),
     children: [],
-    childAnnualCost: localiseFromGbp(region, UK_COST_ANCHORS.childAnnual),
+    childAnnualCost: localiseFromGbp(region, costs.childAnnual),
     childUntilAge: 18,
-    carMonthly: localiseFromGbp(region, UK_COST_ANCHORS.carMonthly),
+    carMonthly: localiseFromGbp(region, costs.carMonthly),
     carYearsLeft: 3,
     carForever: false,
     currentPot: 0,
@@ -567,30 +588,62 @@ export function defaultInputs(regionId: string = DEFAULT_REGION_ID): RetirementI
   };
 }
 
-/** Move every money figure in the inputs onto a new region's prices. */
+/**
+ * Move every money figure in the inputs onto a new region's prices.
+ *
+ * A CHILD, A RENT, A MORTGAGE AND A CAR PAYMENT ARE PORTED ONLY WHILE THEY
+ * ARE STILL THIS APP'S OWN DEFAULT FOR THE OLD REGION.
+ *
+ * This used to overwrite all four unconditionally with the new region's
+ * anchor, which is right for a reader who never touched them and wrong for
+ * one who had typed their actual mortgage payment: switching country (or
+ * simply correcting a wrong first pick) silently replaced their own figure
+ * with a generic one, with nothing on screen saying so. That is exactly the
+ * mistake `retargetHousehold` was written to avoid for the pension and the
+ * spending figure, and it applies here for the same reason: a reader's own
+ * number is theirs, and a control for an unrelated thing has no business
+ * rewriting it.
+ */
 export function retargetRegion(
   inputs: RetirementInputs,
   regionId: string
 ): RetirementInputs {
+  const prev = regionById(inputs.regionId);
   const next = regionById(regionId);
   const fresh = defaultInputs(regionId);
+  const costs = costAnchorsForStandard(inputs.standard);
   const wasStandard = inputs.spendingMode === "standard";
+  const mortgageUntouched =
+    inputs.mortgageAnnual === localiseFromGbp(prev, costs.mortgageAnnual);
+  const rentUntouched =
+    inputs.rentAnnual ===
+    localiseFromGbp(prev, UK_COST_ANCHORS.rentMonthly * 12);
+  const childUntouched =
+    inputs.childAnnualCost === localiseFromGbp(prev, costs.childAnnual);
+  const carUntouched =
+    inputs.carMonthly === localiseFromGbp(prev, costs.carMonthly);
   return {
     ...inputs,
     regionId: next.id,
     statePensionAnnual: statePensionFor(next, inputs.household),
     statePensionAge: next.statePensionAge,
     otherIncomeFromAge:
-      inputs.otherIncomeFromAge === regionById(inputs.regionId).statePensionAge
+      inputs.otherIncomeFromAge === prev.statePensionAge
         ? next.statePensionAge
         : inputs.otherIncomeFromAge,
     customAnnualSpend: wasStandard
       ? livingStandardFor(next, inputs.standard, inputs.household)
       : inputs.customAnnualSpend,
-    childAnnualCost: fresh.childAnnualCost,
-    rentAnnual: fresh.rentAnnual,
-    mortgageAnnual: fresh.mortgageAnnual,
-    carMonthly: fresh.carMonthly,
+    childAnnualCost: childUntouched
+      ? localiseFromGbp(next, costs.childAnnual)
+      : inputs.childAnnualCost,
+    rentAnnual: rentUntouched ? fresh.rentAnnual : inputs.rentAnnual,
+    mortgageAnnual: mortgageUntouched
+      ? localiseFromGbp(next, costs.mortgageAnnual)
+      : inputs.mortgageAnnual,
+    carMonthly: carUntouched
+      ? localiseFromGbp(next, costs.carMonthly)
+      : inputs.carMonthly,
     /*
       What the reader already has and already saves is deliberately left
       alone. Those are their own figures in their own money, and silently
@@ -633,6 +686,56 @@ export function retargetHousehold(
     statePensionAnnual: pensionUntouched
       ? statePensionFor(region, household)
       : inputs.statePensionAnnual,
+  };
+}
+
+/**
+ * Pressing minimum, moderate or comfortable moves the child, car and
+ * mortgage defaults with it, not only the spending basket.
+ *
+ * Those three used to be one flat figure whatever standard was chosen,
+ * so a reader who picked "minimum" was still handed the moderate-life
+ * car payment and a child priced as if they had also picked the foreign
+ * holiday and the meals out. `costAnchorsForStandard` is what the three
+ * lines should have been reading all along; this is what applies it when
+ * the standard changes rather than only when the plan is first opened.
+ *
+ * SAME RULE AS THE HOUSEHOLD TOGGLE ABOVE: A FIGURE THE READER TYPED IS
+ * LEFT ALONE. Each of the three is only moved while it is still exactly
+ * what the *previous* standard would have opened on, because typing a
+ * real mortgage payment and then pressing a different card is not a
+ * request to have that payment overwritten again.
+ */
+export function retargetStandard(
+  inputs: RetirementInputs,
+  standard: LivingStandard
+): RetirementInputs {
+  const region = regionById(inputs.regionId);
+  const was = costAnchorsForStandard(inputs.standard);
+  const next = costAnchorsForStandard(standard);
+  const childUntouched =
+    Math.round(inputs.childAnnualCost) ===
+    Math.round(localiseFromGbp(region, was.childAnnual));
+  const carUntouched =
+    Math.round(inputs.carMonthly) ===
+    Math.round(localiseFromGbp(region, was.carMonthly));
+  const mortgageUntouched =
+    Math.round(inputs.mortgageAnnual) ===
+    Math.round(localiseFromGbp(region, was.mortgageAnnual));
+  return {
+    ...inputs,
+    standard,
+    spendingMode: "standard",
+    customAnnualSpend: livingStandardFor(region, standard, inputs.household),
+    childAnnualCost: childUntouched
+      ? localiseFromGbp(region, next.childAnnual)
+      : inputs.childAnnualCost,
+    carMonthly: carUntouched
+      ? localiseFromGbp(region, next.carMonthly)
+      : inputs.carMonthly,
+    mortgageAnnual: mortgageUntouched
+      ? localiseFromGbp(region, next.mortgageAnnual)
+      : inputs.mortgageAnnual,
   };
 }
 

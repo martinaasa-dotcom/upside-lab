@@ -1,23 +1,21 @@
 "use client";
 
 /**
- * THE ONE CONTROL THAT SETS THE PLAN'S STARTING POT, drawn wherever the
- * plan asks for it.
+ * THE ONE CONTROL THAT SETS THE PLAN'S STARTING POT.
  *
- * `QuickStart`'s essentials card and `PlanInputs`'s deeper "What you have"
- * panel both show this figure, because the essentials always carry it and
- * the deeper levels show every input in one flow. Two hand-rolled copies
- * of the same field is exactly the shape that stops agreeing: one used to
- * offer a picker and the other only a stale "press to use" note pointing
- * at the reader's combined total, with no way to name one portfolio out of
- * several and no way to notice a selection made on the other copy. One
- * component now, so a change to how the pot is chosen cannot land on only
- * one of the two places it is shown.
+ * `QuickStart`'s essentials card is the only place this is asked: it is
+ * one of the figures the first card always carries, and `PlanInputs`'s
+ * deeper panels deliberately do not repeat anything the essentials already
+ * asked (see that file's own note). A picker over a plain money field
+ * earns its own component because it is more than a `MoneyField` — a
+ * reader with more than one portfolio can name one rather than always
+ * being handed the combined total, and a template press has to be able to
+ * write into the same figure without duplicating that logic.
  *
  * WHICH REAL PORTFOLIO IT TRACKS IS `potSource` (`pot-source.ts`), owned by
  * `RetirementSheet` and threaded down here rather than kept locally, so a
- * selection made from either copy of the field, or by pressing a
- * different template, is the same selection everywhere the plan reads it.
+ * selection made from the field, or by pressing a different template, is
+ * the same selection everywhere the plan reads it.
  */
 
 import { useId, type ReactNode } from "react";

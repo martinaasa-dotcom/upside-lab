@@ -13,7 +13,13 @@ import {
   retargetRetirementAge,
 } from "@/lib/retirement/plan";
 import { assessLongevity } from "@/lib/retirement/longevity";
-import { REGIONS, regionById, statePensionFor } from "@/lib/retirement/regions";
+import {
+  costAnchorsForStandard,
+  localiseFromGbp,
+  REGIONS,
+  regionById,
+  statePensionFor,
+} from "@/lib/retirement/regions";
 import { sanitizeInputs } from "@/lib/retirement/state";
 import { defaultGlide } from "@/lib/retirement/returns";
 import {
@@ -54,6 +60,14 @@ describe("retirement templates", () => {
   });
 
   it("builds a sane plan for every life, in every country", () => {
+    /*
+      A target of exactly zero is a real answer, not a broken one, now
+      that the living standards exclude both a home and a car: several of
+      these lives retire at the state pension age with nothing else on
+      the bill, and a generous pension can cover a moderate or even a
+      comfortable no-housing life outright. That is the honest arithmetic
+      of a welfare state doing its job, not a bug in the plan.
+    */
     for (const region of REGIONS) {
       for (let i = 0; i < RETIREMENT_TEMPLATES.length; i += 1) {
         const { inputs, plan } = planFor(region.id, i);
@@ -62,7 +76,7 @@ describe("retirement templates", () => {
         expect(inputs.retirementAge, who).toBeGreaterThan(inputs.currentAge);
         expect(plan.planningAge, who).toBeGreaterThan(inputs.retirementAge);
         expect(Number.isFinite(plan.required.target), who).toBe(true);
-        expect(plan.required.target, who).toBeGreaterThan(0);
+        expect(plan.required.target, who).toBeGreaterThanOrEqual(0);
         expect(Number.isFinite(plan.gap), who).toBe(true);
       }
     }
@@ -202,6 +216,38 @@ describe("one person or two", () => {
       customAnnualSpend: 27_000,
     };
     expect(retargetHousehold(mine, "couple").customAnnualSpend).toBe(27_000);
+  });
+
+  it("prices a child and a mortgage at the template's own standard, not always moderate", () => {
+    /*
+      "Family years" is the only template with children, and it happens
+      to be moderate, so this checks the general rule directly rather than
+      through a life that would pass either way: a template's own standard
+      decides the anchor, not `defaultInputs`'s moderate default.
+    */
+    const family = RETIREMENT_TEMPLATES.find((t) => t.id === "family-years")!;
+    const gb = regionById("GB");
+    const inputs = templateInputs(family, "GB");
+    const anchors = costAnchorsForStandard(family.standard);
+    expect(inputs.childAnnualCost).toBe(localiseFromGbp(gb, anchors.childAnnual));
+    expect(inputs.mortgageAnnual).toBe(localiseFromGbp(gb, anchors.mortgageAnnual));
+
+    const comfortable = { ...family, standard: "comfortable" as const };
+    const comfortableInputs = templateInputs(comfortable, "GB");
+    expect(comfortableInputs.childAnnualCost).toBeGreaterThan(inputs.childAnnualCost);
+    expect(comfortableInputs.mortgageAnnual).toBeGreaterThan(inputs.mortgageAnnual);
+  });
+
+  it("never lets the car anchor override a life template says has no car", () => {
+    // Most of the eight lives are moderate or comfortable with no car in
+    // them on purpose. Falling back to the standard's car anchor whenever
+    // `carMonthlyGbp` is zero would put a car payment into every one of
+    // those lives that never asked for one.
+    for (const template of RETIREMENT_TEMPLATES) {
+      if (template.carMonthlyGbp > 0) continue;
+      const inputs = templateInputs(template, "GB");
+      expect(inputs.carMonthly).toBe(0);
+    }
   });
 
   it("gives every couple template two of them", () => {

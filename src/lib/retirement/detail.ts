@@ -12,8 +12,8 @@
  * room nobody can get into has been withheld. A panel one press below the
  * answer has not.
  *
- * So nothing here is ever unreachable. The control is on the first card,
- * beside the essentials, it says out loud what each level adds, and the
+ * So nothing here is ever unreachable. The control leads the first card,
+ * before the essentials, it says out loud what each level adds, and the
  * level is remembered, so a reader who wanted every dial keeps it and one
  * who wanted an answer is never asked the question twice.
  *

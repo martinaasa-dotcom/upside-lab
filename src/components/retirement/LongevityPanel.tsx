@@ -22,14 +22,16 @@
 import { CARD, MicroLabel, Panel, PanelHeader, Score, Scoreboard } from "@/components/ui/Panel";
 import { ChartYAxis } from "@/components/ui/ChartAxis";
 import { Button } from "@/components/ui/button";
-import { SliderField, CountField } from "@/components/retirement/fields";
+import { SliderField, CountField, ChoiceField } from "@/components/retirement/fields";
 import { cn } from "@/lib/format";
 import { PALETTE } from "@/lib/palette";
 import {
   DEFAULT_IMPROVEMENT_PCT,
   IMPROVEMENT_ENDS_AT_AGE,
   IMPROVEMENT_FULL_TO_AGE,
+  IMPROVEMENT_REFERENCE_AGE,
   type LongevityResult,
+  type Sex,
 } from "@/lib/retirement/longevity";
 import type { RetirementInputs } from "@/lib/retirement/plan";
 import { HeartPulse } from "lucide-react";
@@ -197,7 +199,7 @@ function SurvivalChart({
         {shape.marks.map((m) => (
           <span
             key={m.key}
-            className="absolute bottom-0 -translate-x-1/2 text-xs tabular-nums"
+            className="chart-label-halo absolute bottom-0 -translate-x-1/2 text-xs tabular-nums"
             style={{ left: `${m.label * 100}%`, color: m.color }}
           >
             {Math.round(m.age)}
@@ -247,8 +249,9 @@ export function LongevityPanel({
   planningAge: number;
   /*
     The curve and the four ages are the lesson and cost the reader nothing
-    to read, so they are on the page at every detail level. The two
-    controls under them are the only part anybody has to have an opinion
+    to read, so they are on the page at every detail level. The three
+    controls under them, including which published life expectancy the
+    curve is fitted to, are the only part anybody has to have an opinion
     about, and a reader who has not asked for dials does not need to be
     handed a mortality improvement rate to set.
   */
@@ -294,6 +297,17 @@ export function LongevityPanel({
 
       {showControls ? (
       <div className="grid gap-4 sm:grid-cols-2">
+        <ChoiceField<Sex>
+          label="Fit the curve to"
+          value={inputs.sex}
+          options={[
+            { id: "female", label: "Woman" },
+            { id: "male", label: "Man" },
+            { id: "average", label: "Either" },
+          ]}
+          onChange={(sex) => patch({ sex })}
+          note="Which published life expectancy the curve above is fitted to. Women live about three years longer on average, so it changes how long the money must last."
+        />
         <SliderField
           label="Medicine improves by"
           value={inputs.improvementPct}
@@ -347,6 +361,29 @@ export function LongevityPanel({
           years left on average. Everything else on this panel follows from
           that one number and the improvement rate beside it.
         </p>
+        {result.yearsOfImprovementToReference > 0 && result.hazardCutAtReference > 0.005 ? (
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            That improvement rate is applied to calendar time, not to age, so
+            it treats a younger reader differently without anybody choosing
+            that: it compounds for as long as there are years between now and
+            the age in question. You have{" "}
+            <span className="font-mono tabular-nums text-foreground">
+              {Math.round(result.yearsOfImprovementToReference)}
+            </span>{" "}
+            years between now and {IMPROVEMENT_REFERENCE_AGE}, which cuts the
+            death rate this model uses for a {IMPROVEMENT_REFERENCE_AGE} year
+            old by about{" "}
+            <span className="font-mono tabular-nums text-foreground">
+              {Math.round(result.hazardCutAtReference * 100)}%
+            </span>{" "}
+            against today&apos;s published rate for that age. Somebody older
+            than you gets fewer of those years and a smaller cut, which is
+            why this curve moves with your age rather than sitting on one
+            fixed table. It is still the rate you set above, not a bolder one
+            assumed on your behalf: move the slider if you think medicine
+            will do better than that.
+          </p>
+        ) : null}
       </div>
     </Panel>
   );

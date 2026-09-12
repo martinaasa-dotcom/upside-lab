@@ -3,7 +3,7 @@
  * AND EDITABLE ON THE PAGE.
  *
  * Retirement arithmetic is the same everywhere and retirement *numbers* are
- * not. A basket of goods that costs GBP 31,700 a year in Britain costs
+ * not. A basket of goods that costs GBP 6,500 a year in Britain costs
  * something else in Tallinn and something else again in Zurich, the state
  * hands you a different amount at a different age, and the age you may
  * touch a private pension is set by a parliament rather than by you. A
@@ -45,41 +45,58 @@ export const LIVING_STANDARDS: readonly LivingStandard[] = [
 ];
 
 /**
- * The UK baseline, from Pensions UK (formerly the PLSA) Retirement Living
- * Standards, 2023/24 edition, outside London.
+ * The UK baseline, shaped by Pensions UK (formerly the PLSA) Retirement
+ * Living Standards, 2023/24 edition, outside London, and then reset by
+ * Martin to what these three tiers actually cost a person day to day: the
+ * published figures priced in a car at "moderate" and up, which is exactly
+ * the double-count `plan.ts` guards against everywhere else, since a car
+ * is its own dial (`carMonthly`) a reader may turn off. Reset to roughly
+ * 400/800/1,400 a month per person, GBP, and moved onto every other
+ * region from there.
  *
  * Two properties of these figures matter more than the figures themselves
  * and are repeated on the page, because a reader who misses either will
  * plan for the wrong number. They are **after tax**, so they are what
  * lands in your account rather than what you draw. And they **exclude
- * housing costs**, because the research assumes a home owned outright,
- * which is not most people's retirement. Rent and any mortgage still
- * running are added separately in `plan.ts` and the page says so.
+ * both housing and a car** — nothing here assumes a home owned outright
+ * or a car in the driveway, since both are separate dials a reader may
+ * set to zero. Rent, any mortgage still running, and a car are added
+ * separately in `plan.ts` and the page says so.
+ *
+ * The couple figure is NOT the published ratio scaled onto the new
+ * singles number. The PLSA's own couple-to-single ratios (roughly 1.4 to
+ * 1.6) are doing most of their work through housing, which two people
+ * share almost entirely; strip housing and a car out, as this basket now
+ * does, and what is left (food, going out, health, the rest of daily
+ * life) is mostly spent per person. So a couple here is single times
+ * roughly 1.8, a modest saving over two singles rather than the housing-
+ * sized one the original ratio implied.
  */
 export const UK_LIVING_STANDARDS: Record<
   LivingStandard,
   Record<Household, number>
 > = {
-  minimum: { single: 13_400, couple: 21_600 },
-  moderate: { single: 31_700, couple: 43_900 },
-  comfortable: { single: 43_900, couple: 60_600 },
+  minimum: { single: 3_200, couple: 5_800 },
+  moderate: { single: 6_500, couple: 11_700 },
+  comfortable: { single: 11_300, couple: 20_300 },
 };
 
 export const UK_STANDARDS_SOURCE =
-  "Pensions UK (formerly PLSA) Retirement Living Standards, 2023/24 edition, outside London. After tax, and housing costs are not in them.";
+  "Shaped by Pensions UK (formerly PLSA) Retirement Living Standards, 2023/24 edition, outside London, reset to a living cost with no housing and no car in any of the three. After tax.";
 
 /**
- * What each standard buys, in the research's own terms rather than ours.
- * A reader choosing between three words needs to know what the words mean,
- * and "moderate" means nothing on its own.
+ * What each standard buys, in plain terms. A reader choosing between three
+ * words needs to know what the words mean, and "moderate" means nothing
+ * on its own. None of the three includes a car or a home — both are set
+ * with their own dials, so a figure here never counts a car twice.
  */
 export const STANDARD_BLURB: Record<LivingStandard, string> = {
   minimum:
-    "All your basic needs covered with a little left for fun. A holiday in your own country, eating out about once a month, no car.",
+    "Every basic need covered with a little left for fun: a holiday in your own country, eating out about once a month. No home, no car; both are set with their own dials.",
   moderate:
-    "More security and more choice. A foreign holiday once a year, eating out a few times a month, and a car.",
+    "More security and more choice: a foreign holiday once a year, eating out a few times a month. No home, no car; both are set with their own dials.",
   comfortable:
-    "Room for spontaneity. More holidays, more spent on eating out and going out, and replacing the car more often.",
+    "Room for spontaneity: more holidays, more spent on eating out and going out. No home, no car; both are set with their own dials.",
 };
 
 /** The one-word name, for a heading or a tab. */
@@ -600,3 +617,45 @@ export const UK_COST_ANCHORS = {
   mortgageAnnual: 12_000,
   mortgageSource: "Typical monthly mortgage repayment, annualised",
 } as const;
+
+/**
+ * WHAT A CHILD, A CAR AND A MORTGAGE COST AT EACH LIVING STANDARD.
+ *
+ * `UK_COST_ANCHORS` above is one figure per line, which is honest about
+ * what this app could find a study for and wrong about what a reader
+ * actually spends: somebody living the minimum standard is not paying the
+ * same for a child as somebody living comfortably, and the flat anchor
+ * quietly assumed they were, on every one of the three lines a reader is
+ * most likely to argue with.
+ *
+ * There is no second study that prices a child, a car or a mortgage
+ * separately at each of the three published standards, so this does not
+ * invent one. It scales the one anchor this file can cite by the same
+ * ratio the published minimum/moderate/comfortable baskets already stand
+ * in for a single person (`UK_LIVING_STANDARDS`), which is the same
+ * derived-not-typed rule `livingStandardFor` runs on. A car is zero at
+ * the minimum standard for a stronger reason than arithmetic: the
+ * minimum standard is itself defined without one (see `STANDARD_BLURB`),
+ * so scaling the anchor down instead of zeroing it would still be
+ * charging for a car nobody in that basket owns.
+ *
+ * Every figure this returns is still one field away from being
+ * overwritten with the reader's own, which is the actual answer to "a
+ * child does not cost that here": type the number that is true for you.
+ */
+export function costAnchorsForStandard(standard: LivingStandard): {
+  childAnnual: number;
+  carMonthly: number;
+  mortgageAnnual: number;
+} {
+  const ratio =
+    UK_LIVING_STANDARDS[standard].single / UK_LIVING_STANDARDS.moderate.single;
+  return {
+    childAnnual: Math.round((UK_COST_ANCHORS.childAnnual * ratio) / 50) * 50,
+    carMonthly:
+      standard === "minimum"
+        ? 0
+        : Math.round((UK_COST_ANCHORS.carMonthly * ratio) / 10) * 10,
+    mortgageAnnual: Math.round((UK_COST_ANCHORS.mortgageAnnual * ratio) / 100) * 100,
+  };
+}

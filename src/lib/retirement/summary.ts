@@ -36,6 +36,14 @@ export type MoneyWriter = (amount: number) => string;
  * Empty when the plan really is only the eight figures above, in which case
  * the caller prints nothing rather than a sentence saying there is nothing,
  * which is scaffolding with no reader.
+ *
+ * Every one of `RetirementInputs`' recurring money fields is stored and
+ * reasoned about annually, and every one of them is now typed and read back
+ * as a MONTH's figure (`MonthlyMoneyField`, `fields.tsx`). This sentence
+ * restates those same fields, so it divides by twelve and says "a month"
+ * too: a reader who just typed a mortgage as a monthly figure and then read
+ * it back here as an annual one, at the same magnitude they just corrected,
+ * would reasonably wonder which of the two screens is wrong.
  */
 export function planExtras(
   inputs: RetirementInputs,
@@ -46,8 +54,8 @@ export function planExtras(
   if (inputs.housing === "mortgage" && inputs.mortgageAnnual > 0) {
     out.push(
       inputs.mortgageYearsLeft > 0
-        ? `a mortgage of ${money(inputs.mortgageAnnual)} a year with ${Math.round(inputs.mortgageYearsLeft)} years left`
-        : `a mortgage of ${money(inputs.mortgageAnnual)} a year`
+        ? `a mortgage of ${money(inputs.mortgageAnnual / 12)} a month with ${Math.round(inputs.mortgageYearsLeft)} years left`
+        : `a mortgage of ${money(inputs.mortgageAnnual / 12)} a month`
     );
   } else if (inputs.housing === "renting" && inputs.rentAnnual > 0) {
     /*
@@ -55,13 +63,13 @@ export function planExtras(
       is asked separately from a mortgage and it is the single largest line
       a renting reader carries.
     */
-    out.push(`rent of ${money(inputs.rentAnnual)} a year, which never ends`);
+    out.push(`rent of ${money(inputs.rentAnnual / 12)} a month, which never ends`);
   }
 
   const kids = inputs.children.length;
   if (kids > 0 && inputs.childAnnualCost > 0) {
     out.push(
-      `${kids === 1 ? "one child" : `${kids} children`} at ${money(inputs.childAnnualCost)} a year each until they are ${Math.round(inputs.childUntilAge)}`
+      `${kids === 1 ? "one child" : `${kids} children`} at ${money(inputs.childAnnualCost / 12)} a month each until they are ${Math.round(inputs.childUntilAge)}`
     );
   }
 
@@ -79,13 +87,13 @@ export function planExtras(
 
   if (inputs.includeStatePension && inputs.statePensionAnnual > 0) {
     out.push(
-      `a state pension of ${money(inputs.statePensionAnnual)} a year from ${Math.round(inputs.statePensionAge)}`
+      `a state pension of ${money(inputs.statePensionAnnual / 12)} a month from ${Math.round(inputs.statePensionAge)}`
     );
   }
 
   if (inputs.otherIncomeAnnual > 0) {
     out.push(
-      `${money(inputs.otherIncomeAnnual)} a year of other guaranteed income from ${Math.round(inputs.otherIncomeFromAge)}`
+      `${money(inputs.otherIncomeAnnual / 12)} a month of other guaranteed income from ${Math.round(inputs.otherIncomeFromAge)}`
     );
   }
 

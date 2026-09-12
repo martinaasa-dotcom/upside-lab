@@ -114,6 +114,45 @@ export function improvementTaper(age: number): number {
   );
 }
 
+/**
+ * The age this app reads out loud when it explains how the model treats a
+ * younger reader differently from an older one.
+ *
+ * It has to be older than almost every reader's current age (so there is
+ * always a stretch of years for improvement to compound over) and it has to
+ * be an age retirement plans actually reach, which is why it is not, say,
+ * 65. 85 is both.
+ */
+export const IMPROVEMENT_REFERENCE_AGE = 85;
+
+/**
+ * How much lower the death rate AT a given age is than today's published
+ * rate for somebody that age, purely from the years of improvement between
+ * now and reaching it.
+ *
+ * This is not a separate assumption. It is the same `improvement *
+ * improvementTaper(age) * elapsed` term `survivalCurve` already applies at
+ * every step, read out for one age rather than folded into a cumulative
+ * survival number. It is what makes the model age dependent without a
+ * second knob: a 30 year old reaching 85 in fifty five years compounds
+ * fifty five years of the improvement rate into that age's death rate,
+ * while a 65 year old reaching it in twenty compounds twenty. Nobody typed
+ * that difference in; it falls out of applying the rate to calendar time
+ * rather than to age, which is the whole reason `survivalCurve`'s comment
+ * insists on calendar time over age.
+ */
+export function hazardReductionAt(
+  age: number,
+  currentAge: number,
+  improvementPct: number
+): number {
+  const improvement = Math.min(5, Math.max(0, finiteNumber(improvementPct, 0))) / 100;
+  const elapsed = Math.max(0, finiteNumber(age, 0) - finiteNumber(currentAge, 0));
+  if (elapsed <= 0) return 0;
+  const reduction = 1 - Math.exp(-improvement * improvementTaper(age) * elapsed);
+  return Math.min(1, Math.max(0, reduction));
+}
+
 export type Sex = "male" | "female" | "average";
 
 /** One point on the curve: the chance of still being alive at this age. */
@@ -155,6 +194,19 @@ export type LongevityResult = {
   p1: number;
   /** The age this app plans to unless the reader says otherwise. */
   suggestedPlanningAge: number;
+  /**
+   * Years between the reader's current age and `IMPROVEMENT_REFERENCE_AGE`,
+   * clamped at zero for a reader already past it. This is the length of the
+   * compounding window the reference figure below reads out.
+   */
+  yearsOfImprovementToReference: number;
+  /**
+   * How much lower this reader's death rate at `IMPROVEMENT_REFERENCE_AGE`
+   * is than today's published rate for that age, purely from the years of
+   * improvement between now and reaching it. 0 to 1. See
+   * `hazardReductionAt` for what this is and is not.
+   */
+  hazardCutAtReference: number;
 };
 
 /** The published figure for the sex asked for. "average" takes both. */
@@ -315,5 +367,11 @@ export function assessLongevity(input: LongevityInput): LongevityResult {
     p5: ageAtSurvival(curve, 0.05),
     p1: ageAtSurvival(curve, 0.01),
     suggestedPlanningAge: Math.min(MAX_MODELLED_AGE, suggested),
+    yearsOfImprovementToReference: Math.max(0, IMPROVEMENT_REFERENCE_AGE - currentAge),
+    hazardCutAtReference: hazardReductionAt(
+      IMPROVEMENT_REFERENCE_AGE,
+      currentAge,
+      input.improvementPct
+    ),
   };
 }
