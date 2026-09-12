@@ -88,10 +88,16 @@ function StandardPicker({
             )}
           >
             <span className="flex items-center justify-between gap-2">
-              <span className="font-semibold text-foreground">
+              <span
+                className={cn(
+                  "font-semibold",
+                  chosen ? "text-primary" : "text-foreground"
+                )}
+              >
                 {STANDARD_LABEL[id]}
               </span>
               <Check
+                aria-hidden
                 className={cn(
                   "h-4 w-4 shrink-0 text-primary",
                   chosen ? "" : "opacity-0"
