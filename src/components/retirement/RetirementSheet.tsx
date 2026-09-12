@@ -53,7 +53,7 @@ import {
   regionById,
   UK_STANDARDS_SOURCE,
 } from "@/lib/retirement/regions";
-import { RETURNS_SOURCE } from "@/lib/retirement/returns";
+import { portfolioRealReturnPct, RETURNS_SOURCE } from "@/lib/retirement/returns";
 import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
 import {
   loadRetirementInputs,
@@ -65,18 +65,27 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
+const EMPTY_TICKER_VALUES: Array<{ ticker: string; value: number }> = [];
+
 export function RetirementSheet({
   portfolioValue,
+  tickerValues = EMPTY_TICKER_VALUES,
+  bookCash = 0,
 }: {
   /** What the reader's portfolios are worth, for the pre-fill offer. */
   portfolioValue: number | null;
+  /** Per-ticker value, for the same blended growth rate Compound offers. */
+  tickerValues?: Array<{ ticker: string; value: number }>;
+  bookCash?: number;
 }) {
   const [inputs, setInputs] = useState<RetirementInputs>(() => defaultInputs());
   const [mode, setMode] = useState<TableMode>("invested");
   const [restored, setRestored] = useState(false);
+  const appliedDefaultPotRef = useRef(false);
 
   /*
     The stored plan arrives after the first paint rather than during it.
@@ -90,10 +99,42 @@ export function RetirementSheet({
     setRestored(true);
   }, []);
 
+  /*
+    A FIRST VISIT STARTS THE POT ON WHAT IS ACTUALLY HELD.
+
+    The field's own note already offered this as a press; almost nobody
+    presses a note under a field they have not decided matters yet, and the
+    type comment on `currentPot` has said "pre-filled from the reader's own
+    holdings" for longer than that was true. This is Compound's own pattern
+    (`CompoundInterestSheet`'s `principal` effect): apply it once, only to
+    the untouched default, and never overwrite a figure the reader already
+    saved, because a pot already typed in is theirs, not ours to replace.
+  */
+  useEffect(() => {
+    if (!restored || appliedDefaultPotRef.current) return;
+    appliedDefaultPotRef.current = true;
+    if (!(portfolioValue != null && portfolioValue > 0)) return;
+    setInputs((prev) =>
+      prev.currentPot === 0
+        ? { ...prev, currentPot: Math.round(portfolioValue) }
+        : prev
+    );
+  }, [restored, portfolioValue]);
+
   useEffect(() => {
     if (!restored) return;
     saveRetirementInputs(inputs);
   }, [inputs, restored]);
+
+  /*
+    The same blended growth rate Compound's "Your rate" preset uses, turned
+    real. See `portfolioRealReturnPct` for why it is a preset offered beside
+    the world index rather than what the page opens on.
+  */
+  const portfolioRatePct = useMemo(() => {
+    if (tickerValues.length === 0 && bookCash === 0) return null;
+    return portfolioRealReturnPct(tickerValues, bookCash);
+  }, [tickerValues, bookCash]);
 
   const patch = useCallback(
     (next: Partial<RetirementInputs>) =>
@@ -236,7 +277,11 @@ export function RetirementSheet({
       </BelowFold>
 
       <BelowFold reserve={560}>
-        <AssumptionsPanel inputs={inputs} patch={patch} />
+        <AssumptionsPanel
+          inputs={inputs}
+          patch={patch}
+          portfolioRatePct={portfolioRatePct}
+        />
       </BelowFold>
     </div>
   );

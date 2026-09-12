@@ -31,7 +31,14 @@ import {
   realReturnAt,
   defaultGlide,
   DEFAULT_RETURN_ASSUMPTIONS,
+  portfolioRealReturnPct,
+  REAL_RETURN_ASSUMPTIONS,
 } from "@/lib/retirement/returns";
+import {
+  COMPOUND_CASH_YIELD_ANNUAL_PCT,
+  COMPOUND_INFLATION_ANNUAL_PCT,
+} from "@/lib/compound-play";
+import { blendedExpectedAnnualReturn } from "@/lib/forecast-conviction";
 import {
   buildPlan,
   defaultInputs,
@@ -256,6 +263,50 @@ describe("the mix and what it earns", () => {
       feePct: 1.5,
     });
     expect(withFee).toBeCloseTo(DEFAULT_RETURN_ASSUMPTIONS.cashPct / 100, 10);
+  });
+
+  describe("the reader's own holdings, offered as a growth rate", () => {
+    it("is exactly Compound's own blend, turned real by the Fisher relation", () => {
+      const holdings = [
+        { ticker: "NVDA", value: 6000 },
+        { ticker: "KO", value: 4000 },
+      ];
+      const cashBalance = 1000;
+      const nominal = blendedExpectedAnnualReturn(holdings, {
+        balance: cashBalance,
+        annualReturnPct: COMPOUND_CASH_YIELD_ANNUAL_PCT,
+      });
+      const expectedReal =
+        (1 + nominal) / (1 + COMPOUND_INFLATION_ANNUAL_PCT / 100) - 1;
+      const got = portfolioRealReturnPct(holdings, cashBalance);
+      expect(got).toBeCloseTo(Math.round(expectedReal * 1000) / 10, 5);
+    });
+
+    it("comes back lower than the nominal blend it was built from", () => {
+      const holdings = [{ ticker: "AAPL", value: 10_000 }];
+      const nominalPct =
+        blendedExpectedAnnualReturn(holdings, {
+          balance: 0,
+          annualReturnPct: COMPOUND_CASH_YIELD_ANNUAL_PCT,
+        }) * 100;
+      const real = portfolioRealReturnPct(holdings, 0);
+      expect(real).toBeLessThan(nominalPct);
+    });
+
+    it("all cash, no shares, reads as roughly Compound's cash yield turned real", () => {
+      const real = portfolioRealReturnPct([], 5000);
+      const expected =
+        (1 + COMPOUND_CASH_YIELD_ANNUAL_PCT / 100) /
+          (1 + COMPOUND_INFLATION_ANNUAL_PCT / 100) -
+        1;
+      expect(real).toBeCloseTo(Math.round(expected * 1000) / 10, 5);
+      expect(real).toBeLessThan(REAL_RETURN_ASSUMPTIONS.equityPct);
+    });
+
+    it("never returns something a caller could not render as a percent", () => {
+      const real = portfolioRealReturnPct([{ ticker: "MADE-UP", value: NaN }], NaN);
+      expect(Number.isFinite(real)).toBe(true);
+    });
   });
 });
 
