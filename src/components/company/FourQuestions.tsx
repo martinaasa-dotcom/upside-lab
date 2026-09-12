@@ -80,16 +80,25 @@ export function FourQuestions({
               the whole card to read across before the figure even starts.
               The two are one unit and sit closer to each other than to the
               question above or the answer below.
+
+              The "against X" note is sentence case, not the label tier —
+              crammed onto the label's own line it fought the caps voice
+              for the same few words of width and the two wrapped into
+              each other. It gets its own line under the label instead.
+              Plain `text-muted-foreground`, not a further `/70`: measured
+              against the card, that faded it to 4.42:1 on an ordinary
+              card and 3.19:1 on a thin one (`opacity-80` stacks with the
+              alpha), both under the 4.5:1 this size of text needs. Full
+              muted-foreground measures 7.89:1 here and matches the
+              label and the answer paragraph beside it.
             */}
             <div className="flex flex-col gap-0.5">
-              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-                <MicroLabel>{a.figureLabel}</MicroLabel>
-                {a.against && (
-                  <span className="text-xs text-muted-foreground">
-                    against {a.against}
-                  </span>
-                )}
-              </div>
+              <MicroLabel>{a.figureLabel}</MicroLabel>
+              {a.against && (
+                <p className="text-xs leading-snug text-muted-foreground">
+                  against {a.against}
+                </p>
+              )}
               <span
                 className={cn(
                   "font-mono text-2xl font-bold tabular-nums",
