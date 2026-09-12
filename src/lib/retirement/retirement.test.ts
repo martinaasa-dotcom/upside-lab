@@ -817,6 +817,44 @@ describe("where you live", () => {
     expect(after.regionId).toBe("DE");
   });
 
+  it("ports an untouched mortgage, rent, car and child cost onto the new country", () => {
+    // subject() is built on defaultInputs("GB"), so every one of these is
+    // still the GB anchor and all four should move.
+    const before = subject();
+    const after = retargetRegion(before, "DE");
+    const de = regionById("DE");
+    expect(after.mortgageAnnual).toBe(
+      localiseFromGbp(de, UK_COST_ANCHORS.mortgageAnnual)
+    );
+    expect(after.rentAnnual).toBe(
+      localiseFromGbp(de, UK_COST_ANCHORS.rentMonthly * 12)
+    );
+    expect(after.carMonthly).toBe(localiseFromGbp(de, UK_COST_ANCHORS.carMonthly));
+    expect(after.childAnnualCost).toBe(
+      localiseFromGbp(de, UK_COST_ANCHORS.childAnnual)
+    );
+  });
+
+  it("leaves a mortgage, rent, car payment and child cost the reader typed alone", () => {
+    /*
+      This used to overwrite all four with the new region's generic anchor
+      whatever the reader had put in them: somebody who typed their real
+      mortgage payment, or simply picked the wrong country first and
+      corrected it, had that figure silently replaced with a stranger's.
+    */
+    const before = subject({
+      mortgageAnnual: 9_999,
+      rentAnnual: 15_000,
+      carMonthly: 275,
+      childAnnualCost: 11_500,
+    });
+    const after = retargetRegion(before, "DE");
+    expect(after.mortgageAnnual).toBe(9_999);
+    expect(after.rentAnnual).toBe(15_000);
+    expect(after.carMonthly).toBe(275);
+    expect(after.childAnnualCost).toBe(11_500);
+  });
+
   it("gives every region a currency, a pension and an age that make sense", () => {
     for (const region of REGIONS) {
       expect(region.currency).toMatch(/^[A-Z]{3}$/);
