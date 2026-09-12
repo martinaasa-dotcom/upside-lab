@@ -161,6 +161,7 @@ export function CountField({
           min={min}
           max={max}
           onWheel={blockWheelChange}
+          onFocus={(e) => e.target.select()}
           onChange={(e) => {
             const next = Number(e.target.value);
             onChange(Number.isFinite(next) ? Math.min(max, Math.max(min, next)) : min);

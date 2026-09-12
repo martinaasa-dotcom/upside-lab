@@ -8,6 +8,7 @@ import {
   formatLivePercent,
   formatMoneyFromRaw,
   formatPercentFromRaw,
+  formatPlainNumber,
 } from "@/lib/format-live-input";
 import { blockWheelChange } from "@/lib/number-input";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
@@ -43,7 +44,31 @@ function blurFormat(props: FormattedNumberInputProps, n: number): string {
 }
 
 /**
- * Money / percent input that keeps real formatting ($1,000 / 7.5%) while typing.
+ * While the field is focused, the currency symbol and the percent sign are
+ * not part of the text. A reader who wants to replace "$1,000" or "7.5%"
+ * has nothing in the box but its digits, so typing over the whole thing
+ * needs no deleting first. The symbol comes back the moment the field is
+ * no longer being edited.
+ */
+function editFormat(props: FormattedNumberInputProps, n: number): string {
+  const digits = props.digits ?? (props.kind === "money" ? 0 : 2);
+  return formatPlainNumber(n, digits);
+}
+
+function parseEditRaw(
+  props: FormattedNumberInputProps,
+  raw: string,
+  digits: number
+): { display: string; value: number } {
+  return props.kind === "money"
+    ? formatMoneyFromRaw(raw, props.currency, digits, { plain: true })
+    : formatPercentFromRaw(raw, digits, { plain: true });
+}
+
+/**
+ * Money / percent input. Shows real formatting ($1,000 / 7.5%) at rest, and
+ * the bare, comma-grouped number while focused, selected in full, so a tap
+ * lands ready to type over rather than needing anything deleted first.
  */
 export function FormattedNumberInput(props: FormattedNumberInputProps) {
   const { value, onChange, className, id } = props;
@@ -72,10 +97,7 @@ export function FormattedNumberInput(props: FormattedNumberInputProps) {
       return;
     }
 
-    const next =
-      props.kind === "money"
-        ? formatMoneyFromRaw(raw, props.currency, digits)
-        : formatPercentFromRaw(raw, digits);
+    const next = parseEditRaw(props, raw, digits);
 
     setText(next.display);
     onChange(next.value);
@@ -90,14 +112,18 @@ export function FormattedNumberInput(props: FormattedNumberInputProps) {
 
   function handleFocus() {
     focused.current = true;
+    setText(editFormat(props, value));
+    const node = inputRef.current;
+    if (node) {
+      requestAnimationFrame(() => {
+        node.select();
+      });
+    }
   }
 
   function handleBlur() {
     focused.current = false;
-    const parsed =
-      props.kind === "money"
-        ? formatMoneyFromRaw(text, props.currency, digits).value
-        : formatPercentFromRaw(text, digits).value;
+    const parsed = parseEditRaw(props, text, digits).value;
     onChange(parsed);
     setText(blurFormat(props, parsed));
   }

@@ -123,13 +123,29 @@ export function formatLiveMoney(
   }).format(n);
 }
 
+/**
+ * A number with no currency symbol and no percent sign, comma-grouped.
+ *
+ * This is what a field shows while it is being typed into: the symbol is
+ * chrome, not part of the value, and a reader trying to replace "$1,000"
+ * has nothing to type over but its digits. The symbol comes back on blur.
+ */
+export function formatPlainNumber(value: number, fractionDigits = 0): string {
+  const n = Number.isFinite(value) ? value : 0;
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: fractionDigits,
+  }).format(Number(n.toFixed(fractionDigits)));
+}
+
 /** Format from raw keystrokes — keeps trailing `.` while typing. */
 export function formatMoneyFromRaw(
   raw: string,
   currency: CurrencyCode,
-  fractionDigits = 0
+  fractionDigits = 0,
+  opts?: { plain?: boolean }
 ): { display: string; value: number } {
-  const symbol = currencySymbol(currency);
+  const symbol = opts?.plain ? "" : currencySymbol(currency);
   const stripped = raw.replace(/[^\d.]/g, "");
   if (!stripped) return { display: "", value: 0 };
 
@@ -144,7 +160,9 @@ export function formatMoneyFromRaw(
 
   if (!Number.isFinite(value) || value > MAX_SAFE_MONEY) {
     return {
-      display: formatLiveMoney(MAX_SAFE_MONEY, currency, fractionDigits),
+      display: opts?.plain
+        ? formatPlainNumber(MAX_SAFE_MONEY, fractionDigits)
+        : formatLiveMoney(MAX_SAFE_MONEY, currency, fractionDigits),
       value: MAX_SAFE_MONEY,
     };
   }
@@ -173,7 +191,8 @@ export function formatLivePercent(value: number, fractionDigits = 2): string {
 
 export function formatPercentFromRaw(
   raw: string,
-  fractionDigits = 2
+  fractionDigits = 2,
+  opts?: { plain?: boolean }
 ): { display: string; value: number } {
   const stripped = raw.replace(/[^\d.]/g, "");
   if (!stripped) return { display: "", value: 0 };
@@ -189,7 +208,9 @@ export function formatPercentFromRaw(
 
   if (!Number.isFinite(value) || value > MAX_SAFE_PERCENT) {
     return {
-      display: formatLivePercent(MAX_SAFE_PERCENT, fractionDigits),
+      display: opts?.plain
+        ? formatPlainNumber(MAX_SAFE_PERCENT, fractionDigits)
+        : formatLivePercent(MAX_SAFE_PERCENT, fractionDigits),
       value: MAX_SAFE_PERCENT,
     };
   }
@@ -200,7 +221,7 @@ export function formatPercentFromRaw(
   else if (fracPart) body = `${intFmt}.${fracPart}`;
 
   return {
-    display: `${body}%`,
+    display: opts?.plain ? body : `${body}%`,
     value,
   };
 }
