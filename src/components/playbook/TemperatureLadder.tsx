@@ -158,12 +158,20 @@ function BandRow({
         id={headId}
         className="flex w-full items-start gap-3 rounded-lg p-4 text-left transition hover:bg-hover sm:p-6"
       >
-        {here ? (
-          <Pill tone="brand" className="mt-0.5 shrink-0">
-            Today
-          </Pill>
-        ) : null}
         <span className="min-w-0 flex-1">
+          {/*
+            The pill sits on its own line above the label rather than
+            inline beside it. Inline, it competed with the label and range
+            for the row's width, and on a phone the longest band ("Extreme
+            greed", "76 to 100") pushed the range onto a line of its own
+            with nothing explaining the gap above it. A leading badge is
+            width-independent: it never affects how the label wraps.
+          */}
+          {here ? (
+            <Pill tone="brand" className="mb-1.5">
+              Today
+            </Pill>
+          ) : null}
           <span className="flex flex-wrap items-center gap-2">
             <span
               className={cn(
