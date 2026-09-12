@@ -688,7 +688,14 @@ describe("the settled year's own pot, not the whole target", () => {
   });
 
   it("withdrawn at the average year, lifelongPot reproduces the settled year's real budget exactly", () => {
-    const plan = buildPlan(subject(), PLAN_AGE);
+    /*
+      Needs a pension below the moderate standard (see the note on the
+      test below), or the settled year's guaranteed income alone exceeds
+      its whole spend now that the standards exclude housing and a car,
+      leaving real unspent income with nothing to do with the arithmetic
+      this test is actually checking.
+    */
+    const plan = buildPlan(subject({ statePensionAnnual: 3_000 }), PLAN_AGE);
     const settled = plan.years[plan.years.length - 1];
     const rate = plan.required.swr.ratePct;
     const year = flexibleYear({
@@ -710,8 +717,16 @@ describe("the settled year's own pot, not the whole target", () => {
       dominant share of `target` -- the shape closest to the reported bug,
       where a reader's pension covered nearly all of the settled year and
       a -26% year on the slider still left money "unspent".
+
+      Needs a pension below the moderate standard (see the note elsewhere
+      in this file), or the settled year's guaranteed income alone covers
+      its whole spend now that the standards exclude housing and a car,
+      leaving no market-funded draw for a crash to cut at all.
     */
-    const plan = buildPlan(subject({ retirementAge: 45 }), PLAN_AGE);
+    const plan = buildPlan(
+      subject({ retirementAge: 45, statePensionAnnual: 3_000 }),
+      PLAN_AGE
+    );
     const settled = plan.years[plan.years.length - 1];
     const rate = plan.required.swr.ratePct;
     const shared = {
