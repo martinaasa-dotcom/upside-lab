@@ -58,7 +58,30 @@ const EMPTY_BAR_PX = 6;
 export function FlexiblePanel({ plan }: { plan: PlanResult }) {
   const [returnPct, setReturnPct] = useState(5);
   const code = plan.currency;
-  const pot = Math.max(1, plan.required.target);
+  const rate = plan.required.swr.ratePct;
+
+  /*
+    The pot behind this picture is the LIFELONG share of the required
+    capital, never the whole `required.target`.
+
+    `target` is `lifelongPot + temporaryPot`: enough, at retirement, to
+    fund both the ongoing steady-state spend forever AND the extra a
+    mortgage, a car, or growing children cost in the early years on top
+    of that. By the settled (last) year those temporary years are long
+    over and the capital that funded them is spent, so multiplying the
+    FULL target by the safe rate to answer "what can this settled year
+    draw" hands the settled year money that was never its to have. A
+    plan with any temporary cost (which is most of them, since #252 a
+    new plan defaults to a mortgage and a car) then shows a budget that
+    barely moves with the slider: dragging to a crash still leaves every
+    layer funded, because the panel is drawing on capital that in a real
+    plan would already be gone. Reversing the safe rate off the
+    lifelong figure alone (`lifelongFromPot`, which is exactly this
+    settled year's own market-funded need) gives the pot whose withdrawal
+    at the AVERAGE year reproduces that need precisely, so a shock away
+    from average is the whole and only thing that moves the bars.
+  */
+  const pot = Math.max(0, rate > 0 ? (plan.required.lifelongFromPot / rate) * 100 : 0);
 
   /*
     The settled year, not the first one. By the last year of the plan every
@@ -75,7 +98,6 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
   const settled = plan.years.length > 0 ? plan.years[plan.years.length - 1] : null;
   const spend = settled ? settled.spend : plan.firstYearFromPot;
   const guaranteed = settled ? settled.income : 0;
-  const rate = plan.required.swr.ratePct;
 
   const year = useMemo(
     () =>
