@@ -46,6 +46,7 @@ import {
   Field,
   FIELD_GRID,
   MoneyField,
+  MonthlyMoneyField,
   currencyCodeFor,
 } from "@/components/retirement/fields";
 import {
@@ -284,8 +285,8 @@ export function QuickStart({
               )
             }
           />
-          <MoneyField
-            label="You add, a year"
+          <MonthlyMoneyField
+            label="You add, a month"
             value={inputs.annualContribution}
             currency={code}
             onChange={(annualContribution) => patch({ annualContribution })}
@@ -330,17 +331,17 @@ export function QuickStart({
           {standardNow ? (
             <>
               <span className="font-mono tabular-nums text-foreground">
-                {currency(amounts[standardNow], 0, region.currency)}
+                {currency(Math.round(amounts[standardNow] / 12), 0, region.currency)}
               </span>{" "}
-              a year, after tax, in today&apos;s money, with housing counted
+              a month, after tax, in today&apos;s money, with housing counted
               separately. Published figures for {region.name}.
             </>
           ) : (
             <>
               <span className="font-mono tabular-nums text-foreground">
-                {currency(inputs.customAnnualSpend, 0, region.currency)}
+                {currency(Math.round(inputs.customAnnualSpend / 12), 0, region.currency)}
               </span>{" "}
-              a year, your own figure, after tax and with housing counted
+              a month, your own figure, after tax and with housing counted
               separately.
             </>
           )}
@@ -354,8 +355,8 @@ export function QuickStart({
           looked switched off for no visible reason.
         */}
         {standardNow ? null : (
-          <MoneyField
-            label="Your own figure, a year"
+          <MonthlyMoneyField
+            label="Your own figure, a month"
             value={inputs.customAnnualSpend}
             currency={code}
             onChange={(customAnnualSpend) =>

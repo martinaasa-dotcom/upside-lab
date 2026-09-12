@@ -32,6 +32,7 @@ import {
   Field,
   FIELD_GRID,
   MoneyField,
+  MonthlyMoneyField,
   PercentField,
   currencyCodeFor,
 } from "@/components/retirement/fields";
@@ -110,9 +111,9 @@ function StandardPicker({
               />
             </span>
             <span className="font-mono text-lg tabular-nums text-foreground">
-              {currency(amounts[id], 0, code)}
+              {currency(Math.round(amounts[id] / 12), 0, code)}
               <span className="ml-1 font-sans text-xs text-muted-foreground">
-                a year
+                a month
               </span>
             </span>
             <span className="text-xs leading-relaxed text-muted-foreground">
@@ -218,8 +219,8 @@ export function PlanInputs({
         />
         <StandardPicker inputs={inputs} patch={patch} code={region.currency} />
         <div className={FIELD_GRID}>
-          <MoneyField
-            label="Or your own figure, a year"
+          <MonthlyMoneyField
+            label="Or your own figure, a month"
             value={inputs.customAnnualSpend}
             currency={code}
             onChange={(customAnnualSpend) =>
@@ -256,12 +257,12 @@ export function PlanInputs({
         />
         {inputs.housing === "mortgage" ? (
           <div className={FIELD_GRID}>
-            <MoneyField
-              label="Mortgage a year"
+            <MonthlyMoneyField
+              label="Mortgage a month"
               value={inputs.mortgageAnnual}
               currency={code}
               onChange={(mortgageAnnual) => patch({ mortgageAnnual })}
-              note={`Opened on ${currency(UK_COST_ANCHORS.mortgageAnnual, 0, "GBP")} a year at UK prices, moved onto ${region.name}'s.`}
+              note={`Opened on ${currency(UK_COST_ANCHORS.mortgageAnnual / 12, 0, "GBP")} a month at UK prices, moved onto ${region.name}'s.`}
             />
             <CountField
               label="Years left on it"
@@ -273,12 +274,12 @@ export function PlanInputs({
             />
           </div>
         ) : inputs.housing === "renting" ? (
-          <MoneyField
-            label="Rent a year"
+          <MonthlyMoneyField
+            label="Rent a month"
             value={inputs.rentAnnual}
             currency={code}
             onChange={(rentAnnual) => patch({ rentAnnual })}
-            note={`Rent never ends, so this is carried to the last year of the plan. Opened on ${currency(UK_COST_ANCHORS.rentMonthly * 12, 0, "GBP")} a year at UK prices, moved onto ${region.name}'s.`}
+            note={`Rent never ends, so this is carried to the last year of the plan. Opened on ${currency(UK_COST_ANCHORS.rentMonthly, 0, "GBP")} a month at UK prices, moved onto ${region.name}'s.`}
           />
         ) : null}
       </Panel>
@@ -349,8 +350,8 @@ export function PlanInputs({
         </div>
         {inputs.children.length > 0 ? (
           <div className={FIELD_GRID}>
-            <MoneyField
-              label="Each child, a year"
+            <MonthlyMoneyField
+              label="Each child, a month"
               value={inputs.childAnnualCost}
               currency={code}
               onChange={(childAnnualCost) => patch({ childAnnualCost })}
@@ -457,8 +458,8 @@ export function PlanInputs({
             onChange={(otherSavings) => patch({ otherSavings })}
             note="A pension this app cannot see, money in a savings account, anything else earmarked."
           />
-          <MoneyField
-            label="You add, a year"
+          <MonthlyMoneyField
+            label="You add, a month"
             value={inputs.annualContribution}
             currency={code}
             onChange={(annualContribution) => patch({ annualContribution })}
@@ -506,8 +507,8 @@ export function PlanInputs({
         </label>
         {inputs.includeStatePension ? (
           <div className={FIELD_GRID}>
-            <MoneyField
-              label="State pension a year"
+            <MonthlyMoneyField
+              label="State pension a month"
               value={inputs.statePensionAnnual}
               currency={code}
               onChange={(statePensionAnnual) => patch({ statePensionAnnual })}
@@ -525,8 +526,8 @@ export function PlanInputs({
           </div>
         ) : null}
         <div className={FIELD_GRID}>
-          <MoneyField
-            label="Anything else guaranteed, a year"
+          <MonthlyMoneyField
+            label="Anything else guaranteed, a month"
             value={inputs.otherIncomeAnnual}
             currency={code}
             onChange={(otherIncomeAnnual) => patch({ otherIncomeAnnual })}
