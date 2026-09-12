@@ -46,6 +46,7 @@ import {
   livingCost,
   yearAt,
   retargetRegion,
+  retargetStandard,
   type RetirementInputs,
 } from "@/lib/retirement/plan";
 import { buildMilestones } from "@/lib/retirement/milestones";
@@ -58,6 +59,7 @@ import {
 import { sanitizeInputs } from "@/lib/retirement/state";
 import { retirementProvenance } from "@/lib/provenance";
 import {
+  costAnchorsForStandard,
   DEFAULT_REGION_ID,
   REGIONS,
   livingStandardFor,
@@ -668,6 +670,86 @@ describe("where you live", () => {
 
   it("has no two regions sharing an id", () => {
     expect(new Set(REGIONS.map((r) => r.id)).size).toBe(REGIONS.length);
+  });
+});
+
+describe("a child, a car and a mortgage cost different amounts at each standard", () => {
+  it("is a no-op at moderate, which is the figure the UK anchor is cited for", () => {
+    const moderate = costAnchorsForStandard("moderate");
+    expect(moderate.childAnnual).toBe(UK_COST_ANCHORS.childAnnual);
+    expect(moderate.carMonthly).toBe(UK_COST_ANCHORS.carMonthly);
+    expect(moderate.mortgageAnnual).toBe(UK_COST_ANCHORS.mortgageAnnual);
+  });
+
+  it("prices the minimum standard below moderate and comfortable above it", () => {
+    const min = costAnchorsForStandard("minimum");
+    const mod = costAnchorsForStandard("moderate");
+    const comf = costAnchorsForStandard("comfortable");
+    expect(min.childAnnual).toBeLessThan(mod.childAnnual);
+    expect(comf.childAnnual).toBeGreaterThan(mod.childAnnual);
+    expect(min.mortgageAnnual).toBeLessThan(mod.mortgageAnnual);
+    expect(comf.mortgageAnnual).toBeGreaterThan(mod.mortgageAnnual);
+    expect(min.carMonthly).toBeLessThan(mod.carMonthly);
+    expect(comf.carMonthly).toBeGreaterThan(mod.carMonthly);
+    // Every figure still has to be a real number, not zero from a bad ratio.
+    expect(min.childAnnual).toBeGreaterThan(0);
+    expect(min.mortgageAnnual).toBeGreaterThan(0);
+  });
+
+  it("prices no car at all on the minimum standard, because that standard has none in it", () => {
+    /*
+      PLSA's own minimum standard is defined without a car (see
+      STANDARD_BLURB), so scaling the anchor down instead of zeroing it
+      would still be charging for a car nobody in that basket owns.
+    */
+    expect(costAnchorsForStandard("minimum").carMonthly).toBe(0);
+  });
+
+  it("moves the three defaults when a plan not yet touched changes standard", () => {
+    const gb = defaultInputs("GB");
+    expect(gb.standard).toBe("moderate");
+    const minimum = retargetStandard(gb, "minimum");
+    expect(minimum.standard).toBe("minimum");
+    const anchors = costAnchorsForStandard("minimum");
+    expect(minimum.childAnnualCost).toBe(
+      localiseFromGbp(regionById("GB"), anchors.childAnnual)
+    );
+    expect(minimum.carMonthly).toBe(0);
+    expect(minimum.mortgageAnnual).toBe(
+      localiseFromGbp(regionById("GB"), anchors.mortgageAnnual)
+    );
+    expect(minimum.customAnnualSpend).toBe(
+      livingStandardFor(regionById("GB"), "minimum", gb.household)
+    );
+  });
+
+  it("leaves a figure the reader typed alone, exactly as the household toggle does", () => {
+    const mine = {
+      ...defaultInputs("GB"),
+      childAnnualCost: 4_000,
+      carMonthly: 250,
+      mortgageAnnual: 9_500,
+    };
+    const moved = retargetStandard(mine, "comfortable");
+    expect(moved.childAnnualCost).toBe(4_000);
+    expect(moved.carMonthly).toBe(250);
+    expect(moved.mortgageAnnual).toBe(9_500);
+  });
+
+  it("moves a still-default figure again on a second change of standard", () => {
+    // Minimum -> comfortable is the case that would break a check pinned
+    // to the *original* moderate default rather than to the standard the
+    // plan is actually leaving.
+    const gb = defaultInputs("GB");
+    const minimum = retargetStandard(gb, "minimum");
+    const comfortable = retargetStandard(minimum, "comfortable");
+    const anchors = costAnchorsForStandard("comfortable");
+    expect(comfortable.childAnnualCost).toBe(
+      localiseFromGbp(regionById("GB"), anchors.childAnnual)
+    );
+    expect(comfortable.carMonthly).toBe(
+      localiseFromGbp(regionById("GB"), anchors.carMonthly)
+    );
   });
 });
 
