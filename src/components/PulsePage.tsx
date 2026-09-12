@@ -1140,28 +1140,87 @@ export const PulsePage = memo(function PulsePage({
     [candidates, leftHoldTickers, actionByTicker]
   );
 
+  /**
+   * Where today sits against an ordinary day, per holding.
+   *
+   * Read straight off the closes each quote already carries, so it costs
+   * no request. A name whose provider gave a short series answers null and
+   * is left out of the count rather than guessed at.
+   */
+  const typicalByTicker = useMemo(() => {
+    const out: Record<string, TypicalMove | null> = {};
+    for (const c of candidates) {
+      const key = c.ticker.toUpperCase();
+      out[key] = typicalMoveFromCloses(closesFor(quoteForTicker(mergedQuotes, key)));
+    }
+    return out;
+  }, [candidates, mergedQuotes]);
+
+  /*
+   * Which names had an unusual day, judged the way this page says it
+   * judges one.
+   *
+   * The summary at the top of the room is `unusualDayLine`, which measures
+   * every holding against its OWN ordinary day, read from its dated
+   * closes. The grouping under it used to split on `isBigMove`, which is a
+   * flat 5% for every name. Those are different questions and they
+   * disagree in both directions: a steady name moving 2% is a genuinely
+   * unusual day for it and never clears 5%, and a volatile name moving 5%
+   * is an ordinary Tuesday and always does. On the sample the page said "2
+   * of your 8 holdings moved more than usual today" and then showed no
+   * "Needs a look" section at all, so a reader was told two names did
+   * something and never shown which two.
+   *
+   * This is display only, and deliberately so. `isBigMove` keeps its flat
+   * 5% meaning everywhere it currently reaches: the API route recomputes
+   * its own threshold server-side for the prompt's "NEEDS ATTENTION: down
+   * ≥5%" line, the no-model fallback copy says "down a lot in one day" on
+   * the same basis, and `pulseNeedsExplainer` still uses it for scan
+   * lines. Nothing about which names get a model call changes either,
+   * because `runPulse` is handed every candidate rather than this split.
+   */
+  const unusualTickers = useMemo(() => {
+    const out = new Set<string>();
+    for (const c of ranked) {
+      const typical = typicalByTicker[c.ticker.toUpperCase()];
+      if (!typical || c.effectivePct == null) continue;
+      if (daySize(c.effectivePct, typical) !== "ordinary") {
+        out.add(c.ticker.toUpperCase());
+      }
+    }
+    return out;
+  }, [ranked, typicalByTicker]);
+
+  /*
+   * A name is set aside when its day was unusual for it, or when the last
+   * call moved off Hold. `isBigMove` stays in the test as a floor: a name
+   * whose provider gave too short a series to have an ordinary day has no
+   * per-name answer at all, and a 5% day on one of those is still worth
+   * surfacing rather than silently filed under everything else.
+   */
+  const isSetAside = useCallback(
+    (c: PulseCandidate) => {
+      const key = c.ticker.toUpperCase();
+      return (
+        unusualTickers.has(key) || c.isBigMove || leftHoldTickers.has(key)
+      );
+    },
+    [unusualTickers, leftHoldTickers]
+  );
+
   const attention = useMemo(
     () =>
-      ranked.filter((c) => {
-        const key = c.ticker.toUpperCase();
-        return (
-          key !== pinnedTicker &&
-          (c.isBigMove || leftHoldTickers.has(key))
-        );
-      }),
-    [ranked, pinnedTicker, leftHoldTickers]
+      ranked.filter(
+        (c) => c.ticker.toUpperCase() !== pinnedTicker && isSetAside(c)
+      ),
+    [ranked, pinnedTicker, isSetAside]
   );
   const rest = useMemo(
     () =>
-      ranked.filter((c) => {
-        const key = c.ticker.toUpperCase();
-        return (
-          key !== pinnedTicker &&
-          !c.isBigMove &&
-          !leftHoldTickers.has(key)
-        );
-      }),
-    [ranked, pinnedTicker, leftHoldTickers]
+      ranked.filter(
+        (c) => c.ticker.toUpperCase() !== pinnedTicker && !isSetAside(c)
+      ),
+    [ranked, pinnedTicker, isSetAside]
   );
 
   const scanRows = useMemo(
@@ -1185,21 +1244,6 @@ export const PulsePage = memo(function PulsePage({
     [ranked, leftHoldTickers, checksByTicker, headlinesByTicker]
   );
 
-  /**
-   * Where today sits against an ordinary day, per holding.
-   *
-   * Read straight off the closes each quote already carries, so it costs
-   * no request. A name whose provider gave a short series answers null and
-   * is left out of the count rather than guessed at.
-   */
-  const typicalByTicker = useMemo(() => {
-    const out: Record<string, TypicalMove | null> = {};
-    for (const c of candidates) {
-      const key = c.ticker.toUpperCase();
-      out[key] = typicalMoveFromCloses(closesFor(quoteForTicker(mergedQuotes, key)));
-    }
-    return out;
-  }, [candidates, mergedQuotes]);
 
   const marketSplit = useMemo(
     () =>
