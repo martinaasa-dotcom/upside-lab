@@ -19,7 +19,7 @@
  */
 
 import { CARD, MicroLabel, Panel, PanelHeader, Score, Scoreboard } from "@/components/ui/Panel";
-import { ChoiceField, CountField, MoneyField, PercentField, currencyCodeFor } from "@/components/retirement/fields";
+import { ChoiceField, CountField, MonthlyMoneyField, PercentField, currencyCodeFor } from "@/components/retirement/fields";
 import { cn, currency } from "@/lib/format";
 import {
   fixedHorizonPot,
@@ -87,8 +87,8 @@ export function BridgePanel({
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <MoneyField
-          label="You take out, a year"
+        <MonthlyMoneyField
+          label="You take out, a month"
           value={draw}
           currency={code}
           onChange={setDraw}
@@ -137,8 +137,8 @@ export function BridgePanel({
         >
           Your plan above now says{" "}
           {bridgeYears > 0
-            ? `${bridgeYears} years at ${currency(defaultDraw, 0, plan.currency)}`
-            : `${currency(defaultDraw, 0, plan.currency)} a year`}
+            ? `${bridgeYears} years at ${currency(defaultDraw / 12, 0, plan.currency)} a month`
+            : `${currency(defaultDraw / 12, 0, plan.currency)} a month`}
           . Press to use that instead.
         </button>
       ) : null}
@@ -149,7 +149,7 @@ export function BridgePanel({
           value={
             <span className="font-mono tabular-nums">{currency(pot, 0, plan.currency)}</span>
           }
-          sub={`${currency(draw, 0, plan.currency)} a year for ${years} years, ending at nothing.`}
+          sub={`${currency(draw / 12, 0, plan.currency)} a month for ${years} years, ending at nothing.`}
         />
         <Score
           label="Which is a first year rate of"
