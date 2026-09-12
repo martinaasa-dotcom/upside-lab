@@ -72,7 +72,10 @@
 
 import { BelowFold } from "@/components/BelowFold";
 import { QuickStart } from "@/components/retirement/QuickStart";
-import { AssumptionsPanel } from "@/components/retirement/AssumptionsPanel";
+import {
+  AssumptionsPanel,
+  ReturnsPanel,
+} from "@/components/retirement/AssumptionsPanel";
 import { BridgePanel } from "@/components/retirement/BridgePanel";
 import { FlexiblePanel } from "@/components/retirement/FlexiblePanel";
 import { GridPanel } from "@/components/retirement/GridPanel";
@@ -95,7 +98,11 @@ import {
   regionById,
   UK_STANDARDS_SOURCE,
 } from "@/lib/retirement/regions";
-import { portfolioRealReturnPct, RETURNS_SOURCE } from "@/lib/retirement/returns";
+import {
+  portfolioRealReturnPct,
+  REAL_RETURN_ASSUMPTIONS,
+  RETURNS_SOURCE,
+} from "@/lib/retirement/returns";
 import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
 import {
   atLeast,
@@ -333,6 +340,34 @@ export function RetirementSheet({
     return portfolioRealReturnPct(tickerValues, bookCash);
   }, [tickerValues, bookCash]);
 
+  /*
+    WHAT THE MONEY EARNS DEFAULTS TO THE READER'S OWN BLEND, ONCE ONE IS
+    AVAILABLE.
+
+    Every template opens on the audited world index, on purpose (see
+    `templates.ts`: two lives should differ in their circumstances, not in
+    which market assumption they happen to carry). But most readers arrive
+    with a portfolio already, and "what would my own holdings have earned"
+    is a better first guess than a global average for somebody deciding
+    whether to trust the number at all. So this runs once, the same shape
+    as the pot pre-fill above: only while the plan is still sitting on the
+    untouched world-index default, and only once a blended rate has
+    actually arrived, which can be a tick after the stored plan resolves.
+    A reader who has typed their own figure, or pressed "World index" on
+    purpose, is never overwritten.
+  */
+  const appliedDefaultRateRef = useRef(false);
+  useEffect(() => {
+    if (!restored || appliedDefaultRateRef.current) return;
+    if (portfolioRatePct == null) return;
+    appliedDefaultRateRef.current = true;
+    setInputs((prev) =>
+      Math.abs(prev.returns.equityPct - REAL_RETURN_ASSUMPTIONS.equityPct) < 0.05
+        ? { ...prev, returns: { ...prev.returns, equityPct: portfolioRatePct } }
+        : prev
+    );
+  }, [restored, portfolioRatePct]);
+
   const patch = useCallback(
     (next: Partial<RetirementInputs>) =>
       setInputs((prev) => ({ ...prev, ...next })),
@@ -466,6 +501,7 @@ export function RetirementSheet({
         onDetailChange={changeDetail}
         templateId={templateId}
         onTemplate={applyTemplate}
+        portfolioRatePct={portfolioRatePct}
         result={{
           target: plan.required.target,
           earliestAge: earliest ? earliest.age : null,
@@ -473,6 +509,18 @@ export function RetirementSheet({
       />
 
       {deep ? <PlanInputs inputs={inputs} patch={patch} /> : null}
+
+      {/*
+        WHAT THE MONEY EARNS, BEFORE ANY TABLE THAT USES IT. It used to sit
+        at the very foot of the page, after the grid, the milestones, the
+        spending layers and the survival curve had all already been drawn
+        from whatever these fields happened to hold, which is the wrong
+        order for an input. `QuickStart`'s own toggle above already answers
+        the common case for every reader, simple or not; this is where
+        somebody who opened "More" corrects the exact figures and the mix
+        that shifts more than twice over a life.
+      */}
+      {deep ? <ReturnsPanel inputs={inputs} patch={patch} /> : null}
 
       {/*
         The grid asks nothing and teaches the one thing a single answer
@@ -529,11 +577,7 @@ export function RetirementSheet({
 
       {everything ? (
         <BelowFold reserve={560}>
-          <AssumptionsPanel
-            inputs={inputs}
-            patch={patch}
-            portfolioRatePct={portfolioRatePct}
-          />
+          <AssumptionsPanel inputs={inputs} />
         </BelowFold>
       ) : null}
     </div>

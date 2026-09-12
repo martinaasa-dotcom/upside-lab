@@ -77,6 +77,7 @@ import {
   retargetStandard,
   type RetirementInputs,
 } from "@/lib/retirement/plan";
+import { REAL_RETURN_ASSUMPTIONS } from "@/lib/retirement/returns";
 import {
   DETAIL_BLURB,
   DETAIL_LABEL,
@@ -90,7 +91,7 @@ import {
   type RetirementTemplateId,
 } from "@/lib/retirement/templates";
 import { planExtrasSentence, quickResultLine } from "@/lib/retirement/summary";
-import { Rocket, SlidersHorizontal } from "lucide-react";
+import { Rocket, SlidersHorizontal, TrendingUp } from "lucide-react";
 import { useId } from "react";
 
 type Patch = (next: Partial<RetirementInputs>) => void;
@@ -109,6 +110,7 @@ export function QuickStart({
   onDetailChange,
   templateId,
   onTemplate,
+  portfolioRatePct = null,
   result,
 }: {
   inputs: RetirementInputs;
@@ -131,6 +133,13 @@ export function QuickStart({
    * of which this card owns.
    */
   onTemplate: (id: RetirementTemplateId) => void;
+  /**
+   * The same blended growth rate Compound's "Your rate" preset shows for
+   * these holdings, turned real. Null when there is nothing to blend, in
+   * which case the world index is the only figure on offer and the toggle
+   * below does not draw at all.
+   */
+  portfolioRatePct?: number | null;
   /** What this plan currently needs, so a press changes something here. */
   result: { target: number; earliestAge: number | null };
 }) {
@@ -152,6 +161,23 @@ export function QuickStart({
     detail === "simple"
       ? planExtrasSentence(inputs, (n) => currency(n, 0, region.currency))
       : null;
+
+  /*
+    The world index wins a tie, the same way Compound's own rate preset
+    breaks one: a portfolio whose blend happens to land on the world figure
+    should not light "Your blend" and print a caveat over a number that is
+    simply the market average. `custom` covers both a figure typed in here
+    and the exact bond/cash/fee editing `ReturnsPanel` offers at "More",
+    which is the only way the equity figure moves without matching either
+    preset.
+  */
+  const ratePreset: "world" | "blend" | "custom" =
+    Math.abs(inputs.returns.equityPct - REAL_RETURN_ASSUMPTIONS.equityPct) < 0.05
+      ? "world"
+      : portfolioRatePct != null &&
+          Math.abs(inputs.returns.equityPct - portfolioRatePct) < 0.05
+        ? "blend"
+        : "custom";
 
   return (
     <Panel>
@@ -293,6 +319,83 @@ export function QuickStart({
             </>
           ) : (
             "A template is a starting point, not a guess about you. Every figure it fills in is visible and changeable."
+          )}
+        </p>
+      </div>
+
+      {/*
+        WHAT THE MONEY EARNS, AS A QUICK TOGGLE, EVEN AT THE SIMPLEST LEVEL.
+        This used to be buried in a panel at the foot of the page, behind
+        the deepest detail level, so almost nobody who was not already
+        looking for it ever saw what the whole plan assumed shares earn.
+        It is one of the two biggest levers here (the retirement age is the
+        other), so it gets the same weight as the templates: a toggle
+        rather than a field, defaulting to the reader's own blend the
+        moment one is available (`RetirementSheet`'s one-shot pre-fill).
+        Typing an exact figure, splitting bonds and cash out on their own,
+        or a mix that shifts more than twice over a life is still one
+        press away at "More".
+      */}
+      <div className="flex flex-col gap-3">
+        <MicroLabel>
+          <span className="inline-flex items-center gap-1.5">
+            <TrendingUp className="h-3.5 w-3.5" />
+            What your money earns
+          </span>
+        </MicroLabel>
+        {portfolioRatePct != null ? (
+          <Segmented<"world" | "blend">
+            options={[
+              {
+                id: "world",
+                label: `World index, ${REAL_RETURN_ASSUMPTIONS.equityPct}%`,
+              },
+              {
+                id: "blend",
+                label: `Your blend, ${portfolioRatePct.toFixed(1)}%`,
+              },
+            ]}
+            value={ratePreset === "custom" ? null : ratePreset}
+            columns={2}
+            ariaLabel="What your money earns"
+            onChange={(id) =>
+              patch({
+                returns: {
+                  ...inputs.returns,
+                  equityPct:
+                    id === "blend" ? portfolioRatePct : REAL_RETURN_ASSUMPTIONS.equityPct,
+                },
+              })
+            }
+          />
+        ) : null}
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {ratePreset === "blend" ? (
+            <>
+              What your own holdings have usually returned, real: about{" "}
+              <span className="font-mono tabular-nums text-foreground">
+                {inputs.returns.equityPct.toFixed(1)}%
+              </span>{" "}
+              a year. Treat it as optimistic rather than a safe planning
+              assumption.
+            </>
+          ) : ratePreset === "world" ? (
+            <>
+              The world stock index&apos;s long run real return,{" "}
+              <span className="font-mono tabular-nums text-foreground">
+                {REAL_RETURN_ASSUMPTIONS.equityPct}%
+              </span>{" "}
+              a year. What the plan assumes shares earn, after inflation.
+            </>
+          ) : (
+            <>
+              Your own figure,{" "}
+              <span className="font-mono tabular-nums text-foreground">
+                {inputs.returns.equityPct.toFixed(1)}%
+              </span>{" "}
+              a year. Bonds, cash, fees, and how the mix shifts as you age
+              are at &quot;More&quot;, above.
+            </>
           )}
         </p>
       </div>
