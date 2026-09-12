@@ -30,7 +30,9 @@ import type { RetirementTemplateId } from "@/lib/retirement/templates";
   `BelowFold` starts closed, so the panels inside one are deliberately
   absent from this markup. That is the deferral working rather than a
   detail level hiding something, which is why nothing below is asserted
-  against the grid or the spending layers.
+  against the spending layers, the one panel here still behind a fold.
+  The grid is not: it carries the results table's anchor id, so it must
+  render eagerly and is asserted present rather than absent.
 */
 function roomMarkup(): string {
   return renderToStaticMarkup(
@@ -83,17 +85,24 @@ describe("the retirement room, as somebody new meets it", () => {
     expect(body).not.toContain("How the withdrawal rate was built");
   });
 
-  it("keeps the two deep panels behind their fold", () => {
+  it("still keeps the illustrative slider behind its fold", () => {
     /*
-      Measured at 390 in the app's own CSS: the grid begins at 2,747px and
-      the spending layers at 6,010, against a fold at 800, and rendering
-      both eagerly took the room from 360 elements to 532. #250 could
-      correctly drop these wrappers on its own order, where the grid sat
-      second; the card that asks now sits between, so the offset is not the
-      same offset. Absent from this markup is the fold working.
+      `FlexiblePanel` is a local, illustrative slider over the plan rather
+      than a plan input, and it is reliably the furthest thing down the
+      page, so it stays behind `BelowFold`. Absent from this markup is the
+      fold working.
     */
     expect(body).not.toContain("What a bad year actually costs you");
-    expect(body).not.toContain("What stopping at each age costs");
+  });
+
+  it("renders the results table eagerly, since it is a skip button's target", () => {
+    /*
+      `GridPanel` carries the id `NumberPanel`'s "See the results table"
+      button scrolls to. `BelowFold`'s own doc says an anchor target must
+      never be wrapped in one: a button that lands on an unmounted
+      placeholder is a button that looks like it works and does not.
+    */
+    expect(body).toContain("What stopping at each age costs");
   });
 
   it("still answers, which is the whole point of withholding the inputs", () => {

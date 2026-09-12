@@ -37,13 +37,38 @@
  * compares the target against what the reader actually holds. `Standing`
  * cannot: on a pot of zero it says "you have nothing, short by £697,067",
  * which is not a lesson but an alarming statement about somebody who has
- * not been asked anything yet.
+ * not been asked anything yet. And the zero pot never reaches `Standing`,
+ * both because the card that asks comes before it and because the room
+ * opens on a template rather than on zeroes at all.
  *
- * BOTH HALVES SURVIVE AND THE SECOND FAULT IS FIXED TWICE OVER. The grid,
- * the spending layers and the survival curve sit high, in that ranking,
- * because they answer without asking. And the zero pot never reaches
- * `Standing`, both because the card that asks comes before it and because
- * the room opens on a template rather than on zeroes at all.
+ * AND EVERY PANEL THAT ASKS SITS ABOVE THE RESULTS TABLE, NEVER BELOW IT,
+ * WHICH IS A DIFFERENT RULE FROM THE ONE ABOVE AND HAD BEEN QUIETLY BROKEN.
+ * "Answer, question, then lessons" said nothing about where a panel that
+ * both asks and teaches belongs, so `LongevityPanel` (a chart plus, at a
+ * deeper level, three dials), `BridgePanel` and the old `AssumptionsPanel`
+ * had all drifted to the foot of the page, under the grid, under the
+ * ladder, under the spending layers. A reader who opened "Everything" to
+ * correct their own mix or their own bridge years was editing a figure the
+ * table above it had already been drawn from, with no way to see the table
+ * react without scrolling back up. Nothing that can `patch()` the plan may
+ * sit after `GridPanel` now: `PlanInputs`, `ReturnsPanel`, `LongevityPanel`
+ * and `BridgePanel` all moved above it, in that order, so the table, the
+ * ladder and the spending layers are the last three things on the page
+ * whatever the detail level. `StandingPanel` and `FlexiblePanel` read the
+ * plan and answer; neither writes to it, so both stay put. `AssumptionsPanel`
+ * is documentation rather than a lever now (its levers moved into
+ * `ReturnsPanel`; see that file), so it stays folded near the foot of this
+ * group, at "Everything" only.
+ *
+ * THE HONEST COST OF THAT IS A TABLE THAT CAN SIT SEVERAL SCREENS DOWN AT
+ * THE DEEPEST LEVEL, since opening "More" or "Everything" now pushes every
+ * result down rather than only some of them. `NumberPanel`'s own header
+ * carries a "See the results table" button for exactly that reason: it is
+ * the one panel that never moves, so the way back to the numbers is always
+ * on screen. The table's own `id` (`RETIREMENT_RESULTS_ID`, in
+ * `dom-ids.ts`) is why `GridPanel` can no longer be wrapped in `BelowFold`
+ * — an anchor landing on an unmounted placeholder is a button that looks
+ * like it works and does not, which `BelowFold`'s own doc already forbids.
  *
  * THE POT IS PRE-FILLED FROM WHAT THEY ACTUALLY HOLD, and that is the one
  * thing this module can do that a spreadsheet cannot. Offered rather than
@@ -508,58 +533,27 @@ export function RetirementSheet({
         }}
       />
 
-      {deep ? <PlanInputs inputs={inputs} patch={patch} /> : null}
-
       {/*
-        WHAT THE MONEY EARNS, BEFORE ANY TABLE THAT USES IT. It used to sit
-        at the very foot of the page, after the grid, the milestones, the
-        spending layers and the survival curve had all already been drawn
-        from whatever these fields happened to hold, which is the wrong
-        order for an input. `QuickStart`'s own toggle above already answers
-        the common case for every reader, simple or not; this is where
-        somebody who opened "More" corrects the exact figures and the mix
+        EVERY PANEL BELOW THIS POINT AND ABOVE THE RESULTS TABLE CAN CHANGE
+        THE PLAN. `PlanInputs`, the return assumptions, the survival curve's
+        own dials and the bridge pot used to be split either side of
+        `GridPanel`, so correcting one of them sometimes moved the table
+        and sometimes moved nothing you could see without scrolling back
+        down past it. None of them may sit after the table now, whatever
+        the detail level, so a reader who opens a deeper level always
+        finds the thing they are about to change directly above the
+        numbers it feeds, never buried under them.
+
+        `ReturnsPanel` sits right after `PlanInputs` for the reason it used
+        to sit right before the grid when the grid still had a fold of its
+        own: `QuickStart`'s own toggle above already answers the common
+        case for every reader, simple or not, so this is only reached by
+        somebody who opened "More" to correct the exact figures or a mix
         that shifts more than twice over a life.
       */}
+      {deep ? <PlanInputs inputs={inputs} patch={patch} /> : null}
+
       {deep ? <ReturnsPanel inputs={inputs} patch={patch} /> : null}
-
-      {/*
-        The grid asks nothing and teaches the one thing a single answer
-        cannot, so it leads the panels that follow the question.
-
-        IT KEEPS ITS FOLD, AND THAT IS WHERE THIS ORDER PARTS FROM #250.
-        That change put the grid second, right under the number, and took
-        the wrapper off on the sound argument that a section starting at
-        the fold gets nothing from a wrapper whose lead is a whole screen.
-        The card that asks now sits between them, so the offset is not the
-        same offset: measured at 390 in the app's own CSS, the grid begins
-        at 2,747px and the spending layers at 6,010, against a fold at 800,
-        and rendering both eagerly took the room from 360 elements to 532.
-        The rule for a fold is the offset, and on this order both are three
-        screens and seven screens down. The reserves stay deliberately
-        short of the measured 1,001px and 1,142px, because a short reserve
-        only settles the scrollbar where a long one is the empty block the
-        deferral rule forbids.
-      */}
-      <BelowFold reserve={520}>
-        <GridPanel
-          inputs={inputs}
-          plan={plan}
-          rows={rows}
-          mode={mode}
-          onModeChange={setMode}
-        />
-      </BelowFold>
-
-      <StandingPanel
-        inputs={inputs}
-        plan={plan}
-        milestones={milestones}
-        earliest={earliest}
-      />
-
-      <BelowFold reserve={480}>
-        <FlexiblePanel plan={plan} />
-      </BelowFold>
 
       <LongevityPanel
         inputs={inputs}
@@ -580,6 +574,40 @@ export function RetirementSheet({
           <AssumptionsPanel inputs={inputs} />
         </BelowFold>
       ) : null}
+
+      {/*
+        THE RESULTS, LAST, AND NONE OF THEM WRAPPED IN `BelowFold` BUT
+        `FlexiblePanel`. The grid carries `RETIREMENT_RESULTS_ID`, which
+        `NumberPanel`'s skip button scrolls to, and `BelowFold`'s own doc
+        says an anchor target must never be wrapped in one: a button that
+        lands on an unmounted placeholder looks like it works and does not.
+        `StandingPanel` sits right under it for the same reason it always
+        has (#250: it must never be shown a zero pot before the card that
+        asks has had a turn, which is guaranteed here since both trail
+        every panel that writes to the plan). `FlexiblePanel` is the one
+        exception still worth folding: it is a local, illustrative slider
+        over the plan already built above, never a plan input itself, and
+        it is reliably the furthest thing down the page, so the reserve
+        still buys something.
+      */}
+      <GridPanel
+        inputs={inputs}
+        plan={plan}
+        rows={rows}
+        mode={mode}
+        onModeChange={setMode}
+      />
+
+      <StandingPanel
+        inputs={inputs}
+        plan={plan}
+        milestones={milestones}
+        earliest={earliest}
+      />
+
+      <BelowFold reserve={480}>
+        <FlexiblePanel plan={plan} />
+      </BelowFold>
     </div>
   );
 }

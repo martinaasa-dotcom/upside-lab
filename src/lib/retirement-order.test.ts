@@ -38,14 +38,24 @@ function at(phrase: string): number {
 }
 
 describe("the retirement room's panel order", () => {
-  it("answers, then asks, then teaches", () => {
+  it("answers, then asks", () => {
     expect(at("Your number")).toBeLessThan(at("Start here"));
+  });
+
+  it("never puts a panel that can change the plan after the results table", () => {
     /*
-      #250's argument, kept: the grid turns one answer into a lesson about
-      the shape of the problem and asks the reader for nothing, so it leads
-      the panels that follow the question.
+      `LongevityPanel` used to sit after the grid, the ladder and the
+      spending layers on the argument that it is a lesson a reader plays
+      with. It is also, at a deeper level, three dials that `patch()` the
+      plan, which is what moved it here: nothing that writes to the plan
+      may sit after `GridPanel` any more, whatever the detail level, so a
+      reader who corrects a dial always sees the table it feeds directly
+      below rather than having to scroll back up past it.
     */
-    expect(at("Start here")).toBeLessThan(at("What stopping at each age costs"));
+    expect(at("Start here")).toBeLessThan(at("How long the money has to last"));
+    expect(at("How long the money has to last")).toBeLessThan(
+      at("What stopping at each age costs")
+    );
   });
 
   it("never sets a pot against a target before asking what the pot is", () => {
@@ -59,12 +69,12 @@ describe("the retirement room's panel order", () => {
     expect(at("Start here")).toBeLessThan(at("Where you stand"));
   });
 
-  it("ranks the panels a reader plays with above the ones they read", () => {
+  it("keeps the results together, with the illustrative slider last", () => {
+    expect(at("What stopping at each age costs")).toBeLessThan(
+      at("Where you stand")
+    );
     expect(at("Where you stand")).toBeLessThan(
       at("What a bad year actually costs you")
-    );
-    expect(at("What a bad year actually costs you")).toBeLessThan(
-      at("How long the money has to last")
     );
   });
 });
