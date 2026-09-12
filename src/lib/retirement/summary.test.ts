@@ -35,7 +35,15 @@ describe("what else is in the plan", () => {
   });
 
   it("counts children, and says how old they stop being expensive", () => {
-    const base = defaultInputs("GB");
+    /*
+      Housing and the car are held off here on purpose, matching the same
+      isolation `retirement.test.ts` already applies elsewhere: a fresh
+      plan now defaults to a mortgage and a car payment (#252), so leaving
+      either on would put a housing or car line ahead of the child line
+      this test is actually checking, which is a different assertion than
+      the one being made.
+    */
+    const base = { ...defaultInputs("GB"), housing: "owned" as const, carMonthly: 0 };
     const one = planExtras(
       { ...base, children: [{ id: "a", age: 4 }], childAnnualCost: 9_200 },
       money
@@ -58,7 +66,9 @@ describe("what else is in the plan", () => {
   });
 
   it("tells a car that ends from one that does not", () => {
-    const base = defaultInputs("GB");
+    // Housing held off for the same reason as the test above: a default
+    // mortgage would otherwise be extras[0], ahead of the car line here.
+    const base = { ...defaultInputs("GB"), housing: "owned" as const };
     const ending = planExtras({ ...base, carMonthly: 300, carYearsLeft: 3 }, money);
     expect(ending[0]).toContain("3 more years");
     const forever = planExtras({ ...base, carMonthly: 300, carForever: true }, money);
@@ -89,7 +99,13 @@ describe("what else is in the plan", () => {
   });
 
   it("reads as English with one item and with several", () => {
-    const base = defaultInputs("GB");
+    /*
+      Housing and the car are held off here too: a fresh plan's own
+      defaults now carry a mortgage and a car payment (#252), so the
+      "one item" case needs those switched off to actually have one item
+      (the state pension) rather than three.
+    */
+    const base = { ...defaultInputs("GB"), housing: "owned" as const, carMonthly: 0 };
     const one = planExtrasSentence(base, money);
     expect(one).toMatch(/^This plan also counts /);
     expect(one).not.toContain(" and ");
