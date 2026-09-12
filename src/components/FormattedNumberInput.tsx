@@ -43,18 +43,6 @@ function blurFormat(props: FormattedNumberInputProps, n: number): string {
   return formatLivePercent(n, props.digits ?? 2);
 }
 
-/**
- * While the field is focused, the currency symbol and the percent sign are
- * not part of the text. A reader who wants to replace "$1,000" or "7.5%"
- * has nothing in the box but its digits, so typing over the whole thing
- * needs no deleting first. The symbol comes back the moment the field is
- * no longer being edited.
- */
-function editFormat(props: FormattedNumberInputProps, n: number): string {
-  const digits = props.digits ?? (props.kind === "money" ? 0 : 2);
-  return formatPlainNumber(n, digits);
-}
-
 function parseEditRaw(
   props: FormattedNumberInputProps,
   raw: string,
@@ -110,9 +98,18 @@ export function FormattedNumberInput(props: FormattedNumberInputProps) {
     });
   }
 
+  /*
+    While the field is focused, the currency symbol and the percent sign
+    are not part of the text: a reader who wants to replace "$1,000" or
+    "7.5%" has nothing in the box but its digits, so typing over the whole
+    thing needs no deleting first. The symbol comes back on blur. The
+    selection is set a frame later, in the same way the caret is placed
+    after a keystroke below, because a click's own caret placement lands
+    after the focus event and would otherwise win.
+  */
   function handleFocus() {
     focused.current = true;
-    setText(editFormat(props, value));
+    setText(formatPlainNumber(value, digits));
     const node = inputRef.current;
     if (node) {
       requestAnimationFrame(() => {
