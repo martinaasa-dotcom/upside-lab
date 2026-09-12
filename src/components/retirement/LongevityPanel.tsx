@@ -27,8 +27,6 @@ import { cn } from "@/lib/format";
 import { PALETTE } from "@/lib/palette";
 import {
   DEFAULT_IMPROVEMENT_PCT,
-  IMPROVEMENT_ENDS_AT_AGE,
-  IMPROVEMENT_FULL_TO_AGE,
   IMPROVEMENT_REFERENCE_AGE,
   type LongevityResult,
   type Sex,
@@ -227,10 +225,10 @@ function SurvivalChart({
         ))}
       </ul>
       <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-        The line is your chance of still being here at each age.{" "}
+        Your chance of still being here at each age.{" "}
         {shape.beyondPlan > 0.02
-          ? `The shaded part is the stretch your plan does not reach, and you have about a ${Math.round(shape.beyondPlan * 100)}% chance of living into it.`
-          : "Your plan runs so far out that almost nothing is left unshaded, which is the point of planning into the tail rather than to an average."}
+          ? `The shaded part is unfunded, and you have about a ${Math.round(shape.beyondPlan * 100)}% chance of living into it.`
+          : "Your plan runs so far out that almost nothing is left unshaded."}
       </p>
     </div>
   );
@@ -263,7 +261,7 @@ export function LongevityPanel({
       <PanelHeader
         icon={<HeartPulse className="h-4 w-4" />}
         title="How long the money has to last"
-        subtitle="Not your life expectancy. Half of people outlive theirs, and a plan built on an average is a coin flip on whether the money outlasts you. Running out at 92 costs far more than dying with a surplus, so this plans out in the tail and shows you the whole curve."
+        subtitle="Not your life expectancy. Half of people outlive it, so this plans further out."
       />
 
       <SurvivalChart
@@ -306,7 +304,7 @@ export function LongevityPanel({
             { id: "average", label: "Either" },
           ]}
           onChange={(sex) => patch({ sex })}
-          note="Which published life expectancy the curve above is fitted to. Women live about three years longer on average, so it changes how long the money must last."
+          note="Women live about three years longer on average."
         />
         <SliderField
           label="Medicine improves by"
@@ -316,7 +314,7 @@ export function LongevityPanel({
           step={0.1}
           onChange={(improvementPct) => patch({ improvementPct })}
           format={(n) => `${n.toFixed(1)}% a year`}
-          note={`How fast death rates at each age keep falling. Zero says medicine stops today, which is what every published life table quietly assumes. ${DEFAULT_IMPROVEMENT_PCT}% is the cautious end of the last century's record. The improvement is faded out between ${IMPROVEMENT_FULL_TO_AGE} and ${IMPROVEMENT_ENDS_AT_AGE}, because the gains of the last hundred years came from not dying young rather than from moving the ceiling.`}
+          note={`How fast death rates keep falling. Zero assumes medicine stops today. ${DEFAULT_IMPROVEMENT_PCT}% is the cautious end of the last century's record.`}
         />
         <div className="flex min-w-0 flex-col gap-2">
           <CountField
@@ -328,7 +326,7 @@ export function LongevityPanel({
             onChange={(age) => patch({ planningAge: age })}
             note={
               usingSuggestion
-                ? "Taken from the curve above, at the age one in twenty reach. Type over it if you would rather plan to a different one."
+                ? "The age one in twenty reach. Type over it to use your own."
                 : "Your own figure."
             }
           />
@@ -350,38 +348,29 @@ export function LongevityPanel({
       <div className={cn(CARD, "p-4")}>
         <MicroLabel>How this is worked out</MicroLabel>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          The chance of dying in the next year is a small constant, which is
-          accidents, plus a term that roughly doubles every eight years, which
-          is ageing. That shape has fitted adult death rates in every
-          population anybody has measured since 1825. Its level is solved from
-          one published figure for your country: that a 65 year old there has{" "}
+          Fitted to a shape that has matched adult death rates in every
+          population measured since 1825, solved from one published figure
+          for your country: a 65 year old there has{" "}
           <span className="font-mono tabular-nums text-foreground">
             {result.e65Used.toFixed(1)}
           </span>{" "}
-          years left on average. Everything else on this panel follows from
-          that one number and the improvement rate beside it.
+          years left on average.
         </p>
-        {result.yearsOfImprovementToReference > 0 && result.hazardCutAtReference > 0.005 ? (
+        {showControls &&
+        result.yearsOfImprovementToReference > 0 &&
+        result.hazardCutAtReference > 0.005 ? (
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            That improvement rate is applied to calendar time, not to age, so
-            it treats a younger reader differently without anybody choosing
-            that: it compounds for as long as there are years between now and
-            the age in question. You have{" "}
+            The improvement rate compounds for longer the younger you are. You
+            have{" "}
             <span className="font-mono tabular-nums text-foreground">
               {Math.round(result.yearsOfImprovementToReference)}
             </span>{" "}
-            years between now and {IMPROVEMENT_REFERENCE_AGE}, which cuts the
-            death rate this model uses for a {IMPROVEMENT_REFERENCE_AGE} year
-            old by about{" "}
+            years to {IMPROVEMENT_REFERENCE_AGE}, cutting the death rate this
+            model uses there by about{" "}
             <span className="font-mono tabular-nums text-foreground">
               {Math.round(result.hazardCutAtReference * 100)}%
             </span>{" "}
-            against today&apos;s published rate for that age. Somebody older
-            than you gets fewer of those years and a smaller cut, which is
-            why this curve moves with your age rather than sitting on one
-            fixed table. It is still the rate you set above, not a bolder one
-            assumed on your behalf: move the slider if you think medicine
-            will do better than that.
+            against today&apos;s published rate.
           </p>
         ) : null}
       </div>

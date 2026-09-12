@@ -74,7 +74,7 @@ export function PlanInputs({
         <PanelHeader
           icon={<Home className="h-4 w-4" />}
           title="Your home"
-          subtitle="The published baskets assume a home owned outright, which is not most people. This is where that assumption gets corrected, and for a renter it is the largest single line on the page."
+          subtitle="The published baskets assume a home owned outright. Correct that here."
         />
         <ChoiceField<Housing>
           label="By the time you stop working"
@@ -94,7 +94,7 @@ export function PlanInputs({
               value={inputs.mortgageAnnual}
               currency={code}
               onChange={(mortgageAnnual) => patch({ mortgageAnnual })}
-              note={`Opened on ${currency(standardCosts.mortgageAnnual / 12, 0, "GBP")} a month at UK prices for the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard, moved onto ${region.name}'s. Type what you actually pay.`}
+              note={`Opened on ${currency(standardCosts.mortgageAnnual / 12, 0, "GBP")} a month for the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard. Type what you pay.`}
             />
             <CountField
               label="Years left on it"
@@ -102,7 +102,7 @@ export function PlanInputs({
               onChange={(mortgageYearsLeft) => patch({ mortgageYearsLeft })}
               max={60}
               suffix="years"
-              note="Counted from today. A mortgage that ends partway through retirement makes the early years dear and the rest ordinary, which is exactly the shape a single average would hide."
+              note="Counted from today."
             />
           </div>
         ) : inputs.housing === "renting" ? (
@@ -111,7 +111,7 @@ export function PlanInputs({
             value={inputs.rentAnnual}
             currency={code}
             onChange={(rentAnnual) => patch({ rentAnnual })}
-            note={`Rent never ends, so this is carried to the last year of the plan. Opened on ${currency(UK_COST_ANCHORS.rentMonthly, 0, "GBP")} a month at UK prices, moved onto ${region.name}'s.`}
+            note={`Rent never ends, so it is carried to the last year of the plan. Opened on ${currency(UK_COST_ANCHORS.rentMonthly, 0, "GBP")} a month.`}
           />
         ) : null}
       </Panel>
@@ -120,7 +120,7 @@ export function PlanInputs({
         <PanelHeader
           icon={<Baby className="h-4 w-4" />}
           title="Children"
-          subtitle="Each child is counted from the age they are now until the age they stop costing money, so they drop off the plan on the right year rather than being averaged across it."
+          subtitle="Each child drops off the plan the year they stop costing money."
         />
         <div className={cn(CARD, "flex flex-col gap-3 p-4")}>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -187,7 +187,7 @@ export function PlanInputs({
               value={inputs.childAnnualCost}
               currency={code}
               onChange={(childAnnualCost) => patch({ childAnnualCost })}
-              note={`${UK_COST_ANCHORS.childSource} Scaled to the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard and moved onto ${region.name}'s prices. It is a rough starting figure, not a claim about your children: type your own.`}
+              note="A rough starting figure. Type your own."
             />
             <CountField
               label="Until they are"
@@ -206,7 +206,7 @@ export function PlanInputs({
         <PanelHeader
           icon={<Car className="h-4 w-4" />}
           title="A car"
-          subtitle="A lease or a finance payment is one of the few costs that can genuinely never end, and whether yours does changes the pot more than most people guess."
+          subtitle="A lease or finance payment can carry on indefinitely, which changes the pot more than most people guess."
         />
         <div className={FIELD_GRID}>
           <MoneyField
@@ -217,7 +217,7 @@ export function PlanInputs({
             note={
               inputs.standard === "minimum"
                 ? "The minimum standard is priced with no car in it, so this opens at zero. Type a figure if you have one."
-                : `Leave at zero if you own a car outright or do not have one. Opened on ${currency(standardCosts.carMonthly, 0, "GBP")} a month at UK prices for the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard.`
+                : `Leave at zero if you own your car outright. Opened on ${currency(standardCosts.carMonthly, 0, "GBP")} a month for the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard.`
             }
           />
           {inputs.carForever ? null : (
@@ -227,7 +227,7 @@ export function PlanInputs({
               onChange={(carYearsLeft) => patch({ carYearsLeft })}
               max={60}
               suffix="years"
-              note="Counted from today, the same as the mortgage, so it can finish well before you stop working or run years into retirement depending on how far off that is."
+              note="Counted from today, same as the mortgage."
             />
           )}
         </div>
@@ -246,7 +246,7 @@ export function PlanInputs({
         <PanelHeader
           icon={<PiggyBank className="h-4 w-4" />}
           title="What else you have, and what you draw out"
-          subtitle="What you already have and add each year is asked once, on the first card. This is the rest of the money picture: savings that card does not know about, whether your saving keeps pace, and tax on the way out."
+          subtitle="Other savings, whether your saving keeps pace, and tax on the way out."
         />
         <div className={FIELD_GRID}>
           <MoneyField
@@ -254,21 +254,21 @@ export function PlanInputs({
             value={inputs.otherSavings}
             currency={code}
             onChange={(otherSavings) => patch({ otherSavings })}
-            note="A pension this app cannot see, money in a savings account, anything else earmarked."
+            note="A pension this app cannot see, or anything else set aside."
           />
           <PercentField
             label="That you add rises by, a year"
             value={inputs.contributionGrowthPct}
             digits={1}
             onChange={(contributionGrowthPct) => patch({ contributionGrowthPct })}
-            note="Above inflation, not including it. One per cent is an ordinary career. Zero is honest if you would rather not count on a rise."
+            note="Above inflation. One per cent is an ordinary career; zero is fine too."
           />
           <PercentField
             label="Tax on what you draw out"
             value={inputs.withdrawalTaxPct}
             digits={1}
             onChange={(withdrawalTaxPct) => patch({ withdrawalTaxPct })}
-            note="Leave at zero if your savings come out tax free. Otherwise the plan draws enough extra to still land your own spending figure."
+            note="Leave at zero if your savings come out tax free."
           />
         </div>
         <label
@@ -276,9 +276,7 @@ export function PlanInputs({
           className="flex cursor-pointer items-start justify-between gap-3"
         >
           <span className="min-w-0 text-sm text-muted-foreground">
-            Take the children and the car off what I save each year. Only turn
-            this on if the figure above is what you could save before those
-            costs, or it will be counted twice.
+            Take children and car costs off what I save each year.
           </span>
           <Switch
             id={costsId}
@@ -292,7 +290,7 @@ export function PlanInputs({
         <PanelHeader
           icon={<Wallet className="h-4 w-4" />}
           title="Income that is not the pot"
-          subtitle="Every currency of guaranteed income is a currency the pot does not have to find, and at a 3% withdrawal rate a state pension is worth a third of a million to the plan. It is the most under-counted thing in retirement arithmetic."
+          subtitle="Guaranteed income the pot does not have to fund. Often worth more than people realize."
         />
         <label className="flex cursor-pointer items-center justify-between gap-3">
           <span className="min-w-0 text-sm text-muted-foreground">
@@ -310,7 +308,7 @@ export function PlanInputs({
               value={inputs.statePensionAnnual}
               currency={code}
               onChange={(statePensionAnnual) => patch({ statePensionAnnual })}
-              note={`${region.statePensionSource}.${inputs.household === "couple" ? " Two of them, because the published rate is per person and you are planning for two." : ""} Approximate, and a year or two old. If you have a statement, use its figure.`}
+              note={`${region.statePensionSource}.${inputs.household === "couple" ? " Two pensions, one per person." : ""} Use your own statement if you have one.`}
             />
             <CountField
               label="Starting at age"
@@ -319,7 +317,7 @@ export function PlanInputs({
               min={50}
               max={80}
               suffix="years"
-              note="Most countries are raising this. If you are under 40, planning on a year or two later than today's is the cautious read."
+              note="Most countries are raising this age over time."
             />
           </div>
         ) : null}

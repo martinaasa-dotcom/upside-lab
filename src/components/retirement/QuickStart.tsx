@@ -157,7 +157,7 @@ export function QuickStart({
       <PanelHeader
         icon={<Rocket className="h-4 w-4" />}
         title="Start here"
-        subtitle="Press the life that looks most like yours and the whole plan fills in. Then correct the few figures that are actually yours. Every other panel on this page is an answer, and none of them needs anything else from you."
+        subtitle="Pick the life closest to yours, then fix the few figures that are actually yours."
       />
 
       {/*
@@ -275,18 +275,11 @@ export function QuickStart({
           {chosen ? (
             <>
               Every figure on this page is worked from the{" "}
-              <span className="text-foreground">{chosen.label}</span> plan until
-              you change it, and that is a plausible life rather than a guess
-              about yours. Correct the few that are yours and every answer
-              follows.
+              <span className="text-foreground">{chosen.label}</span> plan
+              until you change it. Correct what is yours below.
             </>
           ) : (
-            <>
-              A template is a plausible life, not a guess about yours. Every
-              figure it fills in is visible and changeable, and all eight use
-              the same market assumptions, so the difference between two of
-              them is the difference between two lives.
-            </>
+            "A template is a starting point, not a guess about you. Every figure it fills in is visible and changeable."
           )}
         </p>
       </div>
@@ -297,7 +290,7 @@ export function QuickStart({
           <Field
             label="Country"
             htmlFor={regionSelectId}
-            note="Decides the prices, the state pension and the age it starts."
+            note="Sets prices and the state pension."
           >
             <NativeSelect
               id={regionSelectId}
@@ -343,7 +336,7 @@ export function QuickStart({
             min={Math.max(16, inputs.currentAge)}
             max={90}
             suffix="years"
-            note="Move this more than anything else here. It changes the answer more than any other figure on the page."
+            note="The biggest lever on this page."
           />
           {/*
             THE DEFAULT IS ALWAYS A REAL PORTFOLIO, NEVER A TEMPLATE'S
@@ -371,7 +364,7 @@ export function QuickStart({
             value={inputs.annualContribution}
             currency={code}
             onChange={(annualContribution) => patch({ annualContribution })}
-            note="Everything that goes in, yours and your employer's."
+            note="Yours and your employer's, combined."
           />
         </div>
       </div>
@@ -382,7 +375,7 @@ export function QuickStart({
           note={
             standardNow
               ? STANDARD_BLURB[standardNow]
-              : "You have typed your own figure, so the three published baskets are switched off. Press one to come back to a basket."
+              : "You typed your own figure. Press one of these to use a basket instead."
           }
         >
           <Segmented<LivingStandard>
@@ -408,15 +401,14 @@ export function QuickStart({
               <span className="font-mono tabular-nums text-foreground">
                 {currency(Math.round(amounts[standardNow] / 12), 0, region.currency)}
               </span>{" "}
-              a month, after tax, in today&apos;s money, with housing counted
-              separately. Published figures for {region.name}.
+              a month, after tax. Housing is counted separately.
             </>
           ) : (
             <>
               <span className="font-mono tabular-nums text-foreground">
                 {currency(Math.round(inputs.customAnnualSpend / 12), 0, region.currency)}
               </span>{" "}
-              a month, your own figure, after tax and with housing counted
+              a month, your own figure, after tax. Housing is counted
               separately.
             </>
           )}
@@ -437,7 +429,7 @@ export function QuickStart({
             onChange={(customAnnualSpend) =>
               patch({ spendingMode: "custom", customAnnualSpend })
             }
-            note="After tax, in today's money, with housing counted separately."
+            note="After tax. Housing is counted separately."
           />
         )}
       </div>

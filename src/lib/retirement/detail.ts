@@ -41,12 +41,9 @@ export const DETAIL_LABEL: Record<RetirementDetail, string> = {
 
 /** What pressing this level actually puts on the page, in one line. */
 export const DETAIL_BLURB: Record<RetirementDetail, string> = {
-  simple:
-    "The figures on this card, and every answer this page can give. Nothing else to fill in.",
-  more:
-    "Adds your home, your children, a car, pensions, and how long the money has to last.",
-  everything:
-    "Adds what the money earns, the mix of shares and bonds by age, and the withdrawal rate itself.",
+  simple: "Nothing else to fill in.",
+  more: "Adds home, children, car, pensions and how long the money lasts.",
+  everything: "Adds returns, the shares/bonds mix and the withdrawal rate.",
 };
 
 const RANK: Record<RetirementDetail, number> = {

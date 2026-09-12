@@ -59,7 +59,7 @@ export function GridPanel({
       <PanelHeader
         icon={<Table2 className="h-4 w-4" />}
         title="What stopping at each age costs"
-        subtitle={`Every cell is the same plan as yours with the age changed, run to ${plan.planningAge} and with everything you typed still in it. Your own row is marked.`}
+        subtitle={`Your plan, with the age changed. Run to ${plan.planningAge}. Your own row is marked.`}
       />
 
       <Segmented
@@ -167,8 +167,8 @@ export function GridPanel({
         </MicroLabel>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           {mode === "cash"
-            ? "Cash keeping pace with inflation and no more, and no fees, because nobody pays a platform charge on a savings account. That is the cautious reading of cash, and it is deliberately the cautious one: the invested column is a rate built to survive the worst run in the record, so pricing cash at its long run average instead would put an expected case next to a worst case and the comparison would invert. Cash has a bad run of its own, and it is a decade of high inflation. The last column is what you would have to put away each month, and it is the most useful number on this page for somebody who has not started."
-            : "The rate column falls as you move up the table, and that is not an error. A longer retirement is not slightly harder to fund than a shorter one, so the same life needs a bigger pot the earlier you stop, on top of having fewer years to build it in."}
+            ? "Cash just keeping pace with inflation, no fees. The last column, what to save each month, is the most useful number here if you have not started."
+            : "The rate falls as you move up the table. A longer retirement needs a bigger pot, and gives you fewer years to build it in."}
         </p>
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
           {UK_STANDARDS_SOURCE} Moved onto {region.name}&apos;s prices using

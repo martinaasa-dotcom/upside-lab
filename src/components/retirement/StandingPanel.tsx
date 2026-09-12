@@ -218,11 +218,10 @@ function PathChart({
         ))}
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-        Your pot in today&apos;s money, climbing while you save and falling
-        once you draw on it.{" "}
+        Your pot, in today&apos;s money.{" "}
         {plan.lasts
-          ? "On these numbers it is still there at the end of the plan."
-          : `On these numbers it runs out at ${plan.emptyAtAge}.`}
+          ? "It lasts the whole plan."
+          : `It runs out at ${plan.emptyAtAge}.`}
       </p>
     </div>
   );
@@ -312,7 +311,7 @@ export function StandingPanel({
         <PanelHeader
           icon={<TrendingUp className="h-4 w-4" />}
           title="Where you stand"
-          subtitle="Your own holdings, projected forward at the mix this plan is using, against the number it needs."
+          subtitle="What you hold today, projected forward against what the plan needs."
         />
 
         <Scoreboard cols={4} mobileCols={2}>
@@ -368,7 +367,7 @@ export function StandingPanel({
         <PanelHeader
           icon={<Flag className="h-4 w-4" />}
           title="The ladder"
-          subtitle="One number decades away tells you nothing about whether you are doing well. These are the thresholds on the way to it, each with the year you cross it on what you are saving now."
+          subtitle="The thresholds on the way to your number, and when you cross each one."
         />
         <div className="grid gap-4 sm:grid-cols-2">
           {milestones.map((m) => (
@@ -376,14 +375,11 @@ export function StandingPanel({
           ))}
         </div>
         <div className={cn(CARD, "p-4")}>
-          <MicroLabel>Why the earliest age is not where the line crosses</MicroLabel>
+          <MicroLabel>Why the earliest age moves the target too</MicroLabel>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Stopping five years earlier is not the same target five years
-            sooner. It adds five years of spending, takes five years of saving
-            away, and lengthens the horizon, which pulls the safe withdrawal
-            rate down and raises the pot needed. The target climbs to meet the
-            pot. The age above is the first year where the pot wins against the
-            target for stopping in exactly that year.
+            Stopping earlier means more years spending, fewer years saving,
+            and a longer stretch to fund, so the target itself climbs. The age
+            above is the first year the pot wins against that higher target.
           </p>
         </div>
       </Panel>

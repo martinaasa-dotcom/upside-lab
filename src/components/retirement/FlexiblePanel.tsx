@@ -124,7 +124,7 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
       <PanelHeader
         icon={<SlidersHorizontal className="h-4 w-4" />}
         title="What a bad year actually costs you"
-        subtitle="Your spending, split into layers. The bottom one is paid every year whatever the market did. The ones above it are what a real person would move, and moving them is worth more than any other decision available to you."
+        subtitle="Your spending in layers. The bottom is paid whatever the market does; the rest is what you would actually cut."
       />
 
       <div
@@ -249,10 +249,10 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
         <MicroLabel>What this is worth</MicroLabel>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           {year.essentialsShort
-            ? "At this return the year cannot cover even the bottom layer, which is the one situation a plan has to be built to avoid. Either the pot is too small for this spending, or too much of the bottom layer is resting on the market rather than on income that is guaranteed."
+            ? "At this return, even the bottom layer is not covered. That is the one situation a plan has to avoid."
             : guaranteed >= year.slices[0].full
-              ? "Drag it anywhere you like: your guaranteed income alone covers the whole bottom layer, so the market decides how good a year you have and never whether you eat. That is what a pension is actually worth, and it is the most under-counted number in retirement arithmetic."
-              : "The essentials hold at every setting on that slider, which is what the withdrawal rate behind your number is for. Everything above them is a choice you would get to make at the time, and being willing to make it is most of the difference between a plan that survives a bad decade and one that does not."}
+              ? "Drag it anywhere: your guaranteed income alone covers the essentials, so the market decides how good a year you have, never whether you eat."
+              : "The essentials hold at every setting on that slider. Everything above them is a choice you would get to make at the time."}
         </p>
       </div>
     </Panel>

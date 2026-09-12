@@ -122,7 +122,7 @@ export function NumberPanel({
             <WhyThis provenance={provenance} />
           </span>
         }
-        subtitle={`In today's money, to stop at ${Math.round(inputs.retirementAge)} and have the money last to ${plan.planningAge}. That is ${plan.retirementYears} years of drawing.`}
+        subtitle={`To stop at ${Math.round(inputs.retirementAge)} and last to ${plan.planningAge}, in today's money.`}
       />
 
       <div className={cn(CARD, "flex flex-col gap-2 p-5")}>
@@ -139,8 +139,7 @@ export function NumberPanel({
           {currency(plan.required.target, 0, code)}
         </p>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          The pot to have on the day you stop. Your first year of retirement
-          takes{" "}
+          The pot to have on the day you stop. Year one takes{" "}
           <span className="font-mono tabular-nums text-foreground">
             {currency(plan.firstYearFromPot, 0, code)}
           </span>{" "}
@@ -151,7 +150,7 @@ export function NumberPanel({
               <span className="font-mono tabular-nums text-foreground">
                 {currency(plan.lifelongFromPot, 0, code)}
               </span>{" "}
-              once your pensions have started and anything temporary has ended
+              once pensions start
             </>
           ) : null}
           .
@@ -162,20 +161,18 @@ export function NumberPanel({
         <p className="text-sm leading-relaxed text-muted-foreground">
           {onCash ? (
             <>
-              That is every year of your plan added up and discounted at what
-              cash earns, spent to nothing at {plan.planningAge}.
+              Cash held in a savings account, spent to nothing by{" "}
+              {plan.planningAge}.
             </>
           ) : (
             <>
-              That figure is built to survive a bad run of markets. The
-              arithmetic that assumes returns arrive on schedule, every year,
-              in that order needs{" "}
+              Built to survive a bad run of markets. A plan that assumes
+              returns arrive on schedule only needs{" "}
               <span className="font-mono tabular-nums text-foreground">
                 {currency(plan.required.spendDown, 0, code)}
               </span>
-              . The difference between the two is the price of not knowing
-              what order your returns will come in, and it is the one number
-              on this page nobody can remove.
+              . The gap is the price of not knowing what order returns will
+              come in.
             </>
           )}
         </p>
@@ -186,8 +183,8 @@ export function NumberPanel({
           code={code}
           widthPct={100}
           color="var(--primary)"
-          lead="You are holding this in cash, so there is no order of returns to get wrong and no safe withdrawal rate to apply. This is every year of your plan added up and discounted at what cash earns."
-          assumes={`cash returns ${plan.realReturnPct.toFixed(2)}% a year after inflation and you spend the last of it at ${plan.planningAge}. That is the whole risk in this answer: cash cannot fall like shares, and a decade of high inflation takes just as much from it.`}
+          lead="Held in cash, so there is no order of returns to get wrong and no rate to apply."
+          assumes={`cash returns ${plan.realReturnPct.toFixed(2)}% a year after inflation, spent to nothing by ${plan.planningAge}.`}
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -197,8 +194,8 @@ export function NumberPanel({
             code={code}
             widthPct={(plan.required.spendDown / biggest) * 100}
             color="var(--muted-foreground)"
-            lead="Exact arithmetic. Every year of your plan, discounted back at the return you chose, ending at precisely zero."
-            assumes={`returns arrive at ${plan.realReturnPct.toFixed(1)}% a year after inflation, every year, in that order. Nobody's do.`}
+            lead="Exact arithmetic, ending at precisely zero."
+            assumes={`returns arrive at ${plan.realReturnPct.toFixed(1)}% a year, every year, in that order. Nobody's do.`}
           />
           <Method
             name="Survives a bad run"
@@ -206,8 +203,8 @@ export function NumberPanel({
             code={code}
             widthPct={(plan.required.safeRate / biggest) * 100}
             color="var(--primary)"
-            lead="What you will always spend, funded at a rate that would have survived the worst stretch in the record. Everything temporary funded out of capital on top."
-            assumes={`drawing ${swr.ratePct.toFixed(2)}% a year, and that your spending never falls when markets do.`}
+            lead="Funded at a rate built to survive the worst stretch in the record."
+            assumes={`drawing ${swr.ratePct.toFixed(2)}% a year.`}
           />
         </div>
       )}
@@ -216,17 +213,14 @@ export function NumberPanel({
         <div className={cn(CARD, "p-4")}>
           <MicroLabel>The gap, and what it buys</MicroLabel>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            The difference of{" "}
+            The extra{" "}
             <span className="font-mono tabular-nums text-foreground">
               {currency(sequenceCost, 0, code)}
             </span>{" "}
-            is not a safety margin somebody added. It is the price of not
-            knowing what order your returns will arrive in. Two retirements
-            with exactly the same average return, one starting into a fall and
-            one into a rise, do not end in the same place once money is being
-            taken out, because what is sold at the bottom is never there for
-            the recovery. The spending layers further down are the cheap way
-            to close most of that gap without saving another penny.
+            is not a margin somebody added. Two retirements with the same
+            average return end up in different places if one starts into a
+            fall, because what is sold at the bottom never gets a recovery.
+            The spending layers below close most of that gap for free.
           </p>
         </div>
       ) : null}
