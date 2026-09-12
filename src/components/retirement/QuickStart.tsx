@@ -155,7 +155,7 @@ export function QuickStart({
                 }}
                 className={cn(
                   CARD,
-                  "flex min-w-0 flex-col gap-1 border-2 p-3 text-left transition-colors",
+                  "veil-hover flex min-w-0 flex-col gap-1 border-2 p-3 text-left transition-colors",
                   /*
                     A real `border`, not a ring and not an outline. `ring-*`
                     is a box-shadow utility and `.glass-well` sets
@@ -174,6 +174,12 @@ export function QuickStart({
                     border is reserved at 2px even when transparent, so
                     gaining a colour on hover recolours a line that was
                     already there rather than growing one from nothing.
+
+                    `veil-hover` matches `StandardPicker` (`PlanInputs.tsx`),
+                    the sibling card picker one panel down: without it the
+                    only hover feedback was the border, where every other
+                    pressable card in the app also catches the light across
+                    its whole face.
                   */
                   on
                     ? "border-primary"

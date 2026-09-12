@@ -267,6 +267,21 @@ describe("the card a reader pressed", () => {
     expect(card).toContain('aria-pressed="true"');
   });
 
+  it("catches the light on hover like every other pressable card", () => {
+    const markup = quickStart(null);
+    const card = markup
+      .split("<button")
+      .find((chunk) => chunk.includes("Family years"));
+    expect(card).toBeTruthy();
+    /*
+      `veil-hover` matches `StandardPicker` (`PlanInputs.tsx`), the sibling
+      card picker one panel down. Without it the border was the only hover
+      feedback, where every other pressable card in the app also lightens
+      across its whole face.
+    */
+    expect(card).toContain("veil-hover");
+  });
+
   it("says whose figures are on the page once one is pressed", () => {
     expect(text(quickStart("family-years"))).toContain(
       "worked from the Family years plan"
