@@ -22,7 +22,7 @@
 import { CARD, MicroLabel, Panel, PanelHeader, Score, Scoreboard } from "@/components/ui/Panel";
 import { ChartYAxis } from "@/components/ui/ChartAxis";
 import { Button } from "@/components/ui/button";
-import { SliderField, CountField } from "@/components/retirement/fields";
+import { SliderField, CountField, ChoiceField } from "@/components/retirement/fields";
 import { cn } from "@/lib/format";
 import { PALETTE } from "@/lib/palette";
 import {
@@ -30,6 +30,7 @@ import {
   IMPROVEMENT_ENDS_AT_AGE,
   IMPROVEMENT_FULL_TO_AGE,
   type LongevityResult,
+  type Sex,
 } from "@/lib/retirement/longevity";
 import type { RetirementInputs } from "@/lib/retirement/plan";
 import { HeartPulse } from "lucide-react";
@@ -247,8 +248,9 @@ export function LongevityPanel({
   planningAge: number;
   /*
     The curve and the four ages are the lesson and cost the reader nothing
-    to read, so they are on the page at every detail level. The two
-    controls under them are the only part anybody has to have an opinion
+    to read, so they are on the page at every detail level. The three
+    controls under them, including which published life expectancy the
+    curve is fitted to, are the only part anybody has to have an opinion
     about, and a reader who has not asked for dials does not need to be
     handed a mortality improvement rate to set.
   */
@@ -294,6 +296,17 @@ export function LongevityPanel({
 
       {showControls ? (
       <div className="grid gap-4 sm:grid-cols-2">
+        <ChoiceField<Sex>
+          label="Fit the curve to"
+          value={inputs.sex}
+          options={[
+            { id: "female", label: "Woman" },
+            { id: "male", label: "Man" },
+            { id: "average", label: "Either" },
+          ]}
+          onChange={(sex) => patch({ sex })}
+          note="Which published life expectancy the curve above is fitted to. Women live about three years longer on average, so it changes how long the money must last."
+        />
         <SliderField
           label="Medicine improves by"
           value={inputs.improvementPct}

@@ -24,9 +24,16 @@
  * prices, the pension and its age. Everything else has a defensible
  * published default, so it is filled in rather than asked for.
  *
- * THE DETAIL CONTROL IS HERE RATHER THAN AT THE FOOT. It is the answer to
- * "where are the other dials", and a reader asks that at the top, next to
- * the thing that looks too simple, not after scrolling past six panels.
+ * THE DETAIL CONTROL LEADS THE CARD, BEFORE THE TEMPLATES AND BEFORE THE
+ * ESSENTIALS. It used to sit at the foot, under everything else this card
+ * asks, which put "how much do you want to see" last, as if it were a
+ * footnote instead of the thing that decides what the rest of the page
+ * looks like. It is also why `PlanInputs` no longer asks anything this card
+ * already asks: with the level chosen first, opening a deeper level was
+ * pulling in a second, near-identical copy of the country, the ages and the
+ * pot, a screen below the first, with nothing on the page saying the two
+ * were the same question. Now a level change only ever adds panels this
+ * card has not touched.
  */
 
 import {
@@ -131,6 +138,49 @@ export function QuickStart({
         title="Start here"
         subtitle="Press the life that looks most like yours and the whole plan fills in. Then correct the few figures that are actually yours. Every other panel on this page is an answer, and none of them needs anything else from you."
       />
+
+      {/*
+        THE FIRST DECISION ON THE PAGE, BEFORE ANYTHING ELSE CAN BE PRESSED.
+        It used to sit at the foot of this card, under eight templates and
+        six fields, which put it in the one spot where pressing it felt like
+        it was reacting to everything above rather than setting the stage
+        for it. Levelling up used to also duplicate fields already answered
+        here (the country, the ages, the pot) into a second, near-identical
+        card below with nothing on screen saying the two were the same
+        question — a reader who corrected one had no way to know the other
+        still held the old figure. `PlanInputs` no longer asks anything this
+        card already asks, so a level change now only ever adds panels this
+        card has not touched.
+      */}
+      <div className="flex flex-col gap-3">
+        <MicroLabel>
+          <span className="inline-flex items-center gap-1.5">
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            How much of it you want to see
+          </span>
+        </MicroLabel>
+        {/*
+          Full width with a column per level rather than a compact toggle
+          beside the label. Compact cells are `flex-1` from a zero basis,
+          so they divide whatever the row has left equally and the longest
+          label is the one that loses: measured at every width from 360 to
+          1280, "Everything" was clipped by 3px while "Simple" sat in space
+          it did not need.
+        */}
+        <Segmented<RetirementDetail>
+          options={RETIREMENT_DETAILS.map((id) => ({
+            id,
+            label: DETAIL_LABEL[id],
+          }))}
+          value={detail}
+          columns={3}
+          ariaLabel="How much of it you want to see"
+          onChange={onDetailChange}
+        />
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {DETAIL_BLURB[detail]}
+        </p>
+      </div>
 
       <div className="flex flex-col gap-3">
         <MicroLabel>Pick a starting point</MicroLabel>
@@ -379,42 +429,6 @@ export function QuickStart({
           .
         </p>
       ) : null}
-
-      {/*
-        Deliberately not inside a `CARD`. A card's own padding costs 32px of
-        a 360px phone, which at three equal cells is the 3px that broke
-        "Everything" onto two lines, and a control that decides what the
-        whole page shows is not a nested well anyway.
-      */}
-      <div className="flex flex-col gap-3">
-        <MicroLabel>
-          <span className="inline-flex items-center gap-1.5">
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            How much of it you want to see
-          </span>
-        </MicroLabel>
-        {/*
-          Full width with a column per level rather than a compact toggle
-          beside the label. Compact cells are `flex-1` from a zero basis,
-          so they divide whatever the row has left equally and the longest
-          label is the one that loses: measured at every width from 360 to
-          1280, "Everything" was clipped by 3px while "Simple" sat in space
-          it did not need.
-        */}
-        <Segmented<RetirementDetail>
-          options={RETIREMENT_DETAILS.map((id) => ({
-            id,
-            label: DETAIL_LABEL[id],
-          }))}
-          value={detail}
-          columns={3}
-          ariaLabel="How much of it you want to see"
-          onChange={onDetailChange}
-        />
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {DETAIL_BLURB[detail]}
-        </p>
-      </div>
     </Panel>
   );
 }
