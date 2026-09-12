@@ -1287,7 +1287,8 @@ export const OverviewDashboard = memo(function OverviewDashboard({
     totals.todayPct,
     totals.equityValue,
     typical,
-    (n) => currency(n, 0)
+    (n) => currency(n, 0),
+    morning.moveLabel === "Friday" ? "friday" : "today"
   );
 
   /*
