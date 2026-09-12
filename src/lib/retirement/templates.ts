@@ -301,3 +301,37 @@ export function templateInputs(
     glide: defaultGlide(retirementAge),
   };
 }
+
+/**
+ * WHICH POT A FIRST VISIT OPENS ON, WHEN THE READER HAS NOT CHOSEN A LIFE.
+ *
+ * Two features arrived in this room within an hour of each other and both
+ * were right. One opens the room on a plausible life rather than on zeroes,
+ * because a page whose every figure is zero reads as a verdict on somebody
+ * who has typed nothing. The other starts the pot on what the reader
+ * actually holds, which is the one thing this module can do that a
+ * spreadsheet cannot. They merged cleanly and disagreed: the pre-fill only
+ * ever wrote into an untouched zero, and the opening template's pot is not
+ * zero, so a reader with real holdings was shown a made-up figure instead
+ * and the better feature was silently dead for exactly the person it was
+ * written for.
+ *
+ * A FACT BEATS A GUESS. The template exists to answer the things nobody can
+ * know about this reader; their pot is the one thing this app does know, so
+ * it wins whenever there is one.
+ *
+ * A TEMPLATE THE READER PRESSED IS NOT THIS CASE and must not call here. A
+ * press is a deliberate request for that life, and its pot is part of the
+ * shape: "Nearly there" carrying somebody's real two thousand pounds is not
+ * nearly there, and the tuned arithmetic behind every one of these lives
+ * collapses. The field's own note offers the real figure as one press, which
+ * is the right weight for a life somebody chose.
+ */
+export function openingPot(
+  templatePot: number,
+  portfolioValue: number | null
+): number {
+  return portfolioValue != null && portfolioValue > 0
+    ? Math.round(portfolioValue)
+    : templatePot;
+}
