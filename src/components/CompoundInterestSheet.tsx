@@ -96,6 +96,70 @@ const FIELD_STACK = "flex flex-col gap-5";
 const SHEET_PANEL = "h-auto min-w-0 max-w-full lg:h-full";
 
 const YEAR_PRESETS = [5, 10, 20, 30] as const;
+const DURATION_MIN_YEARS = 1;
+const DURATION_MAX_YEARS = 50;
+
+/**
+ * The years field, typed over rather than appended to.
+ *
+ * Clamping on every keystroke used to mean typing a two-digit number one
+ * character at a time could never land: the field held onto whatever was
+ * already there, so the first new digit landed beside it rather than
+ * replacing it, and a value that ran past 50 got thrown all the way back
+ * down. This only reflects the committed value while the reader is not
+ * typing, and only clamps once they are done, on blur, the way every field
+ * with a `min`/`max` on this page should but not all of them did.
+ */
+function DurationYearsInput({
+  id,
+  value,
+  onChange,
+  className,
+}: {
+  id?: string;
+  value: number;
+  onChange: (years: number) => void;
+  className?: string;
+}) {
+  const focused = useRef(false);
+  const [text, setText] = useState(() => (Number.isFinite(value) ? String(value) : ""));
+
+  useEffect(() => {
+    if (!focused.current) setText(Number.isFinite(value) ? String(value) : "");
+  }, [value]);
+
+  return (
+    <Input
+      id={id}
+      type="number"
+      inputMode="numeric"
+      min={DURATION_MIN_YEARS}
+      max={DURATION_MAX_YEARS}
+      value={text}
+      onFocus={(e) => {
+        focused.current = true;
+        e.target.select();
+      }}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setText(raw);
+        if (raw === "") return;
+        const next = Number(raw);
+        if (Number.isFinite(next)) onChange(next);
+      }}
+      onBlur={() => {
+        focused.current = false;
+        const parsed = Number(text);
+        const clamped = Number.isFinite(parsed)
+          ? Math.min(DURATION_MAX_YEARS, Math.max(DURATION_MIN_YEARS, parsed))
+          : DURATION_MIN_YEARS;
+        setText(String(clamped));
+        onChange(clamped);
+      }}
+      className={className}
+    />
+  );
+}
 
 /*
  * Every one of these is an assumption, and the page compounds whichever one
@@ -1165,16 +1229,10 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             For how long
           </label>
           <div className="relative">
-            <Input
+            <DurationYearsInput
               id="compound-duration-input"
-              type="number"
-              min={1}
-              max={50}
-              value={draft.years || ""}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                patchDraft("years", Number.isNaN(val) ? 1 : Math.min(50, Math.max(1, val)));
-              }}
+              value={draft.years}
+              onChange={(years) => patchDraft("years", years)}
               className={cn(FIELD_CLASS, "no-spinner pr-16")}
             />
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">

@@ -10,7 +10,7 @@ import {
   formatPercentFromRaw,
 } from "@/lib/format-live-input";
 import { blockWheelChange } from "@/lib/number-input";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FocusEvent } from "react";
 
 type MoneyProps = {
   kind: "money";
@@ -88,8 +88,11 @@ export function FormattedNumberInput(props: FormattedNumberInputProps) {
     });
   }
 
-  function handleFocus() {
+  function handleFocus(e: FocusEvent<HTMLInputElement>) {
     focused.current = true;
+    // Select what's already there, so typing replaces it rather than
+    // inserting at wherever the caret happened to land.
+    e.target.select();
   }
 
   function handleBlur() {

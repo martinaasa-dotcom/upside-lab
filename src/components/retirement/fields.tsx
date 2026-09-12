@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/Panel";
 import { Slider } from "@/components/ui/slider";
 import { blockWheelChange } from "@/lib/number-input";
-import { useId, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 /** Money the plan is in, from the region. Falls back rather than throwing. */
 export function currencyCodeFor(iso: string): CurrencyCode {
@@ -150,6 +150,24 @@ export function CountField({
   suffix?: string;
 }) {
   const id = useId();
+  const focused = useRef(false);
+  const [text, setText] = useState(() => (Number.isFinite(value) ? String(value) : ""));
+
+  /*
+    Clamping on every keystroke is what made this field unusable: typing
+    a two-digit age one character at a time means the first character is
+    briefly a number below `min`, which used to snap straight to `min`
+    and eat the digit that followed, and a value that briefly exceeded
+    `max` (typing "45" into a field already showing "30" with the caret
+    mid-string, since nothing selected the old text) got thrown all the
+    way up to `max` instead. So this only reflects `value` back into the
+    field while the reader is not the one typing, and only clamps once
+    they are done, on blur.
+  */
+  useEffect(() => {
+    if (!focused.current) setText(Number.isFinite(value) ? String(value) : "");
+  }, [value]);
+
   return (
     <Field label={label} note={note} htmlFor={id}>
       <div className="flex min-w-0 items-center gap-2">
@@ -157,15 +175,34 @@ export function CountField({
           id={id}
           type="number"
           inputMode="numeric"
-          value={Number.isFinite(value) ? value : ""}
+          value={text}
           min={min}
           max={max}
           onWheel={blockWheelChange}
-          onChange={(e) => {
-            const next = Number(e.target.value);
-            onChange(Number.isFinite(next) ? Math.min(max, Math.max(min, next)) : min);
+          onFocus={(e) => {
+            focused.current = true;
+            // Tapping the field selects what is already there, the way
+            // every Apple number field does, so typing a new age simply
+            // replaces the old one instead of being appended to it.
+            e.target.select();
           }}
-          className="min-w-0 font-mono tabular-nums"
+          onChange={(e) => {
+            const raw = e.target.value;
+            setText(raw);
+            if (raw === "") return;
+            const next = Number(raw);
+            if (Number.isFinite(next)) onChange(next);
+          }}
+          onBlur={() => {
+            focused.current = false;
+            const parsed = Number(text);
+            const clamped = Number.isFinite(parsed)
+              ? Math.min(max, Math.max(min, parsed))
+              : min;
+            setText(String(clamped));
+            onChange(clamped);
+          }}
+          className="no-spinner min-w-0 font-mono tabular-nums"
         />
         {suffix ? (
           <span className="shrink-0 text-sm text-muted-foreground">{suffix}</span>
