@@ -559,7 +559,7 @@ describe("the grid", () => {
   it("makes cash cost a multiple of investing, which is the lesson", () => {
     /*
       A large enough pot given three decades to grow reaches the target
-      on its own, and "there already" has no multiple to compare. This
+      on its own, and "funded already" has no multiple to compare. This
       one asks for a real shortfall: a modest pot, a real contribution,
       and a lifelong shortfall against the pension (see the note above).
     */
