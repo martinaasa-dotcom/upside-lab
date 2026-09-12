@@ -54,6 +54,14 @@ describe("retirement templates", () => {
   });
 
   it("builds a sane plan for every life, in every country", () => {
+    /*
+      A target of exactly zero is a real answer, not a broken one, now
+      that the living standards exclude both a home and a car: several of
+      these lives retire at the state pension age with nothing else on
+      the bill, and a generous pension can cover a moderate or even a
+      comfortable no-housing life outright. That is the honest arithmetic
+      of a welfare state doing its job, not a bug in the plan.
+    */
     for (const region of REGIONS) {
       for (let i = 0; i < RETIREMENT_TEMPLATES.length; i += 1) {
         const { inputs, plan } = planFor(region.id, i);
@@ -62,7 +70,7 @@ describe("retirement templates", () => {
         expect(inputs.retirementAge, who).toBeGreaterThan(inputs.currentAge);
         expect(plan.planningAge, who).toBeGreaterThan(inputs.retirementAge);
         expect(Number.isFinite(plan.required.target), who).toBe(true);
-        expect(plan.required.target, who).toBeGreaterThan(0);
+        expect(plan.required.target, who).toBeGreaterThanOrEqual(0);
         expect(Number.isFinite(plan.gap), who).toBe(true);
       }
     }

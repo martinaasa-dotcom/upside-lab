@@ -299,8 +299,9 @@ export function AssumptionsPanel({
           <div>
             <MicroLabel>The living standards</MicroLabel>
             <p className="mt-1 leading-relaxed text-muted-foreground">
-              One published set of baskets for the United Kingdom, after tax
-              and with no housing costs in them, moved onto {region.name}&apos;s
+              Shaped by one published set of baskets for the United Kingdom,
+              after tax and reset to a living cost with no housing and no
+              car in any of the three, moved onto {region.name}&apos;s
               prices with a published comparative price level of{" "}
               <span className="font-mono tabular-nums text-foreground">
                 {region.priceLevel}
