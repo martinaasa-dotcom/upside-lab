@@ -78,8 +78,32 @@ function useNarrow(): boolean {
  * it is standing in. Callers passing their own case class still win, since
  * `cn` puts theirs last.
  */
+/*
+ * A dashed rule under something means you can change it. A dotted underline
+ * means there is an explanation behind it. This trigger used to use the
+ * first to mean the second.
+ *
+ * `.inline-edit` (globals.css) marks every editable figure in the app with
+ * `border-bottom: 1px dashed`, and this trigger carried `border-b
+ * border-dashed` for a definition. The two are the same mark, and on the
+ * phone holding card they land on one line: "SHARES" is dashed because a
+ * definition sits behind it, and the "14" beside it is dashed because you
+ * can type over it. A reader cannot learn what a dashed rule means from
+ * that, because it does not mean one thing, and the cost falls hardest on
+ * exactly the beginner this product is for.
+ *
+ * The app already had the right answer in two other places: `Explain`'s
+ * `WORD_CLASS` and `InfoTip`'s `asWord` branch both cue a definition with a
+ * dotted underline at `underline-offset-4`, and they are written
+ * identically. This is the third explanation trigger, so it says the same
+ * thing the same way and the dashed rule goes back to meaning one thing.
+ *
+ * `underline-offset-4` rather than a border also stops the mark dictating
+ * the element's box, which is what let the cue sit under a mono caps label
+ * without adding to the line box.
+ */
 const TRIGGER_CLASS =
-  "inline-flex max-w-full items-center gap-1 border-b border-dashed border-border/70 text-left [text-transform:inherit] outline-none transition hover:border-foreground/60 hover:text-foreground focus-visible:border-foreground/60 focus-visible:text-foreground";
+  "inline-flex max-w-full items-center gap-1 cursor-help decoration-dotted underline underline-offset-4 decoration-muted-foreground/60 text-left [text-transform:inherit] outline-none transition hover:decoration-foreground hover:text-foreground focus-visible:decoration-foreground focus-visible:text-foreground";
 
 /** Same target, no underline, for a glyph beside a control that has its own job. */
 const BARE_TRIGGER_CLASS =

@@ -5,6 +5,7 @@ import { useTickerSectors } from "@/lib/use-ticker-sectors";
 import { TermTip } from "@/components/ui/TermTip";
 import { mixSlices } from "@/lib/mix-slices";
 import {
+  allocationBySector,
   allocationByTicker,
   concentrationRead,
 } from "@/lib/allocation";
@@ -354,6 +355,27 @@ export const LabSheet = memo(function LabSheet({
     [sheetHoldings, sectorWordsByTicker]
   );
   /*
+   * How many kinds of business the money is actually in, counted off the
+   * unfolded allocation rather than off the chart.
+   *
+   * `mix` folds everything past `MAX_MIX_SLICES` into one "everything else"
+   * slice so the chart stays readable, and this repo's own rule is that a
+   * fold has no business deciding what a sentence says: counting the drawn
+   * slices would report a reader in nine kinds of business as being in six.
+   * `allocationBySector` is the same grouping with nothing folded away.
+   */
+  const sectorCount = useMemo(
+    () =>
+      allocationBySector(
+        sheetHoldings.map((h) => ({
+          ...h,
+          sector: sectorWordsByTicker[h.ticker.toUpperCase()] ?? null,
+        }))
+      ).length,
+    [sheetHoldings, sectorWordsByTicker]
+  );
+
+  /*
     The same answer threaded into the Risk room, so a bad day is modelled
     from the profile for that kind of business rather than from the
     plain-large-company catch-all every unlisted name used to get.
@@ -416,7 +438,6 @@ export const LabSheet = memo(function LabSheet({
   );
 
   const holdingCount = concentration.positionCount;
-  const topThree = Math.round(concentration.topThreePct * 100);
   const topWeight = Math.round(concentration.topWeightPct * 100);
   const topName = concentration.topWeightTicker
     ? cashtag(concentration.topWeightTicker)
@@ -427,7 +448,23 @@ export const LabSheet = memo(function LabSheet({
       holdingCount === 0
         ? "Where your money actually sits, grouped by company and by kind of business."
         : holdingCount > 3
-          ? `Where your money actually sits, grouped by company and by kind of business. Your three biggest holdings are ${topThree}% of your stocks.`
+          ? /*
+             * The noticing figure is the count of business kinds, not a
+             * concentration percentage.
+             *
+             * It used to read "Your three biggest holdings are N% of your
+             * stocks", and the panel three inches below opens on a
+             * concentration score, an effective holding count, the largest
+             * holding and a top-five share. So the intro spent its one
+             * sentence on a fifth telling of the same measure, and on a
+             * different cut of it than the panel used, which left two
+             * concentration percentages with different denominators inside
+             * one screen for a reader to reconcile. The sector count is the
+             * one summary of the grouping this tab promises that appears
+             * nowhere else: the chart below draws the kinds of business and
+             * never totals them.
+             */
+            `Where your money actually sits, grouped by company and by kind of business. Your ${holdingCount} holdings fall into ${sectorCount} ${sectorCount === 1 ? "kind" : "kinds"} of business.`
           : `Where your money actually sits, grouped by company and by kind of business. You hold ${holdingCount} ${holdingCount === 1 ? "company" : "companies"}, so almost all of this rides on ${topName ?? "them"}.`,
     risk:
       topName && holdingCount > 0
@@ -633,8 +670,23 @@ export const LabSheet = memo(function LabSheet({
                           /100
                         </span>
                       </p>
+                      {/*
+                        * The band's own label, not a constant.
+                        *
+                        * This read "Diversified" whatever the score was.
+                        * `diversificationBandFor` already computes a word for
+                        * each quarter of the scale, "Concentrated",
+                        * "Moderate", "Spread out", "Broad", and the constant
+                        * was wrong for three of the four: a reader at 48
+                        * saw a big figure captioned "Diversified" sitting
+                        * directly beside the sentence "Somewhat spread out,
+                        * but a few holdings still dominate", so the panel
+                        * contradicted itself in the space of one line, and
+                        * the half a beginner is most likely to take away is
+                        * the one word under the number.
+                        */}
                       <p className="text-sm font-medium text-muted-foreground">
-                        Diversified
+                        {personality.diversificationBand.label}
                       </p>
                     </div>
                   }
