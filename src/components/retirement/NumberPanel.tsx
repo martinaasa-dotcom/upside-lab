@@ -38,7 +38,8 @@ import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
 import { atLeast, type RetirementDetail } from "@/lib/retirement/detail";
 import type { PlanResult, RetirementInputs } from "@/lib/retirement/plan";
 import type { Provenance } from "@/lib/provenance";
-import { Target } from "lucide-react";
+import { RETIREMENT_RESULTS_ID } from "@/lib/retirement/dom-ids";
+import { ArrowDown, Target } from "lucide-react";
 
 function Method({
   name,
@@ -114,6 +115,19 @@ export function NumberPanel({
 
   return (
     <Panel>
+      {/*
+        EVERY INPUT PANEL NOW SITS ABOVE THE RESULTS TABLE, ON PURPOSE, WHICH
+        MEANS OPENING A DEEPER LEVEL PUSHES IT FURTHER DOWN THE PAGE. The
+        panels that ask ("Your home", "What the money earns", the survival
+        curve's own dials, "A pot meant to run out") used to be split either
+        side of the table: some above it, some below, so a level change
+        sometimes moved the table and sometimes did not, and a control this
+        app was still asking about sat under the numbers it feeds. Every one
+        of them moved above the table instead. The honest cost is a table
+        that can sit several screens down at the deepest level, so this
+        button is the answer: always visible, because it lives on the one
+        panel that never moves.
+      */}
       <PanelHeader
         icon={<Target className="h-4 w-4" />}
         title={
@@ -123,6 +137,21 @@ export function NumberPanel({
           </span>
         }
         subtitle={`To stop at ${Math.round(inputs.retirementAge)} and last to ${plan.planningAge}, in today's money.`}
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              document
+                .getElementById(RETIREMENT_RESULTS_ID)
+                ?.scrollIntoView({ behavior: "smooth", block: "start" })
+            }
+          >
+            See the results table
+            <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+          </Button>
+        }
       />
 
       <div className={cn(CARD, "flex flex-col gap-2 p-5")}>
