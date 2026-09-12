@@ -49,11 +49,17 @@ import {
   yearAt,
   retargetRegion,
   retargetStandard,
+  settledCapital,
   type RetirementInputs,
 } from "@/lib/retirement/plan";
 import { buildMilestones } from "@/lib/retirement/milestones";
 import { buildTable } from "@/lib/retirement/table";
-import { flexibleYear, DEFAULT_TIERS, tierAmounts } from "@/lib/retirement/tiers";
+import {
+  flexibleYear,
+  layersRead,
+  DEFAULT_TIERS,
+  tierAmounts,
+} from "@/lib/retirement/tiers";
 import {
   CAUTIOUS_CASH_REAL_PCT,
   cashOnlyGlide,
@@ -751,6 +757,165 @@ describe("the settled year's own pot, not the whole target", () => {
     const cutFixed = settled.spend - fixed.spend;
     const cutBuggy = settled.spend - buggy.spend;
     expect(cutBuggy).toBeLessThan(cutFixed * 0.5);
+  });
+});
+
+describe("the layers are drawn on the pot the reader will have, not the one they need", () => {
+  /*
+    THE FAULT: A PLAN THAT CANNOT WORK STILL PAID FOR EVERY LUXURY.
+
+    Reading the settled year off `required.lifelongPot` fixed one bug (the
+    suite above) and left a larger one standing, because that figure is
+    the capital the settled year NEEDS. Drawn at the average return it
+    reproduces that year's whole bill by construction, for everybody, so
+    the picture was fully funded whatever the reader was actually
+    projected to have. A couple a third of the way to their target saw
+    every layer paid, and the only thing the slider could do was take the
+    top off a stack that had no business being full.
+
+    `settledCapital` reads the same decomposition against the real pot.
+  */
+  function shortPlan() {
+    return buildPlan(
+      subject({ currentPot: 20_000, annualContribution: 1_200, statePensionAnnual: 3_000 }),
+      PLAN_AGE
+    );
+  }
+
+  it("hands the settled year the reader's own pot once the early years are paid for", () => {
+    const plan = buildPlan(subject(), PLAN_AGE);
+    expect(plan.required.temporaryPot).toBeGreaterThan(0);
+    expect(settledCapital(plan)).toBeCloseTo(
+      plan.projectedPot - plan.required.temporaryPot,
+      6
+    );
+  });
+
+  it("never answers with less than nothing, however far short the plan is", () => {
+    const plan = buildPlan(
+      subject({ currentPot: 0, annualContribution: 0, retirementAge: 45 }),
+      PLAN_AGE
+    );
+    expect(settledCapital(plan)).toBe(0);
+  });
+
+  it("a plan that is short cannot fund its luxuries even in an average year", () => {
+    const plan = shortPlan();
+    expect(plan.gap).toBeGreaterThan(0);
+    const settled = plan.years[plan.years.length - 1];
+    const year = flexibleYear({
+      pot: settledCapital(plan),
+      annualSpend: settled.spend,
+      guaranteedIncome: settled.income,
+      withdrawalRatePct: plan.required.swr.ratePct,
+      marketReturnPct: 5,
+      tiers: DEFAULT_TIERS,
+    });
+    const luxuries = year.slices[year.slices.length - 1];
+    expect(luxuries.tier.id).toBe("luxuries");
+    expect(luxuries.fill).toBeLessThan(0.999);
+    expect(year.unspent).toBe(0);
+  });
+
+  it("and the old reading paid for them in full, which is the regression this closes", () => {
+    const plan = shortPlan();
+    const settled = plan.years[plan.years.length - 1];
+    const shared = {
+      annualSpend: settled.spend,
+      guaranteedIncome: settled.income,
+      withdrawalRatePct: plan.required.swr.ratePct,
+      marketReturnPct: 5,
+      tiers: DEFAULT_TIERS,
+    };
+    const buggy = flexibleYear({ pot: plan.required.lifelongPot, ...shared });
+    expect(buggy.slices[buggy.slices.length - 1].fill).toBeCloseTo(1, 6);
+    expect(buggy.spend).toBeGreaterThan(
+      flexibleYear({ pot: settledCapital(plan), ...shared }).spend
+    );
+  });
+
+  it("leaves a reader exactly on target seeing what they always saw", () => {
+    const plan = buildPlan(subject(), PLAN_AGE);
+    const onTarget = {
+      ...plan,
+      projectedPot: plan.required.target,
+    };
+    expect(settledCapital(onTarget)).toBeCloseTo(plan.required.lifelongPot, 4);
+  });
+});
+
+describe("the line under the layers tells a short plan apart from a bad market", () => {
+  function years(pot: number, spend: number, guaranteed: number) {
+    const shared = {
+      pot,
+      annualSpend: spend,
+      guaranteedIncome: guaranteed,
+      withdrawalRatePct: 3,
+      tiers: DEFAULT_TIERS,
+    };
+    return {
+      current: flexibleYear({ ...shared, marketReturnPct: 5 }),
+      worst: flexibleYear({ ...shared, marketReturnPct: -40 }),
+      best: flexibleYear({ ...shared, marketReturnPct: 35 }),
+    };
+  }
+
+  it("names the plan, never the market, when even a strong year leaves a layer short", () => {
+    // Enough to cover the bottom of the stack at any setting and nowhere
+    // near enough to reach the top of it at the best one.
+    const read = layersRead(years(300_000, 40_000, 20_000));
+    expect(read).toMatch(/size of the plan rather than the market/i);
+    expect(read).toMatch(/luxuries/i);
+  });
+
+  it("says the essentials hold when they hold, and only then", () => {
+    const comfortable = layersRead(years(1_000_000, 30_000, 20_000));
+    expect(comfortable).toMatch(/essentials/i);
+    expect(comfortable).not.toMatch(/size of the plan/i);
+
+    const dire = layersRead(years(50_000, 40_000, 5_000));
+    expect(dire).toMatch(/bottom layer is not covered/i);
+  });
+
+  it("says a settled year the pension pays for outright, and where the pot's work really is", () => {
+    /*
+      The shape the reader reported: a couple stopping at 50 in a country
+      with two decent state pensions, three hundred thousand short of
+      their own target, and every layer of this picture paid for whatever
+      the slider said. The picture is the settled year, by which time both
+      pensions have started, so it was answering about the one year of
+      their retirement that was never at risk.
+    */
+    const covered = years(200_000, 20_000, 26_400);
+    const short = layersRead({ ...covered, bridgeYears: 17, short: true });
+    expect(short).toMatch(/covers the whole of this year on its own/i);
+    expect(short).toMatch(/17 years before that income starts/i);
+
+    const funded = layersRead({ ...covered, bridgeYears: 17, short: false });
+    expect(funded).toMatch(/the pot's real work is the 17 years/i);
+    expect(funded).not.toMatch(/short/i);
+
+    const noBridge = layersRead({ ...covered, bridgeYears: 0, short: true });
+    expect(noBridge).toMatch(/on top of a life already paid for/i);
+    expect(noBridge).not.toMatch(/years before/i);
+  });
+
+  it("never tells the reader what to do about any of it", () => {
+    const cases = [
+      years(300_000, 40_000, 20_000),
+      years(1_000_000, 30_000, 20_000),
+      years(50_000, 40_000, 5_000),
+      years(600_000, 40_000, 10_000),
+      { ...years(200_000, 20_000, 26_400), bridgeYears: 17, short: true },
+      { ...years(200_000, 20_000, 26_400), bridgeYears: 0, short: false },
+    ];
+    for (const c of cases) {
+      const read = layersRead(c);
+      expect(read).not.toMatch(
+        /\byou should\b|\bmust\b|\bneed to\b|\bcut back\b|\bsave more\b/i
+      );
+      expect(read).not.toMatch(/[\u2013\u2014]/);
+    }
   });
 });
 

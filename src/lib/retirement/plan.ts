@@ -543,6 +543,41 @@ export function buildPlan(
   };
 }
 
+/**
+ * WHAT THE READER'S OWN POT ACTUALLY LEAVES THE SETTLED YEAR TO LIVE ON.
+ *
+ * `required.lifelongPot` answers a different question and answering the
+ * wrong one here is the quietest possible way to flatter somebody. It is
+ * the capital a settled year needs, so drawing on it reproduces that
+ * year's whole bill by construction: a panel that spends it is a panel
+ * where an average market funds every layer of the stack for everybody,
+ * including a reader three hundred thousand short of their own target,
+ * because the arithmetic never once looked at what they are projected to
+ * have. That is exactly what the spending-layers picture was doing, and
+ * what it read as on screen was a couple who will plainly never get there
+ * enjoying every luxury on the page whatever the slider said.
+ *
+ * This is the same decomposition the target is built from, read against
+ * the real pot instead of the required one. `target` is
+ * `lifelongPot + temporaryPot`; the temporary half is spent living
+ * through the mortgage years, the children, and any stretch before a
+ * pension starts, so what is left generating the settled year forever is
+ * whatever survives that. A reader exactly on target lands on
+ * `lifelongPot` and sees precisely what they saw before. A reader ahead
+ * of it has money over, which the panel leaves invested rather than
+ * spending. A reader short of it cannot fill the top of their stack, and
+ * seeing which layer their plan stops paying for is the whole point.
+ *
+ * The temporary half comes off first rather than pro rata, which is the
+ * conservative reading and also the true one: those years are the early
+ * ones and they are paid for before the settled year ever arrives.
+ */
+export function settledCapital(plan: PlanResult): number {
+  const projected = Math.max(0, finiteNumber(plan.projectedPot, 0));
+  const temporary = Math.max(0, finiteNumber(plan.required.temporaryPot, 0));
+  return Math.max(0, projected - temporary);
+}
+
 /** Sensible opening inputs for a region, before the reader touches anything. */
 export function defaultInputs(regionId: string = DEFAULT_REGION_ID): RetirementInputs {
   const region = regionById(regionId);

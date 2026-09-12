@@ -29,9 +29,10 @@ import {
   DEFAULT_TIERS,
   flexibleYear,
   labelForReturn,
+  layersRead,
   MARKET_YEARS,
 } from "@/lib/retirement/tiers";
-import type { PlanResult } from "@/lib/retirement/plan";
+import { settledCapital, type PlanResult } from "@/lib/retirement/plan";
 import { Button } from "@/components/ui/button";
 import { SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -51,6 +52,15 @@ import { useMemo, useState } from "react";
   drawn as a closed line rather than removed, so the stack keeps its shape
   and the eye can see what went.
 */
+/*
+  The slider's own ends, named because the copy under the picture reads
+  the same year at both of them: a layer the market takes off in a bad
+  year is the point of the panel, and a layer missing even at the top of
+  the slider is the plan being short, which is a different sentence.
+*/
+const WORST_RETURN_PCT = -40;
+const BEST_RETURN_PCT = 35;
+
 const MAX_BAR_PX = 180;
 const MIN_FUNDED_PX = 34;
 const EMPTY_BAR_PX = 6;
@@ -61,27 +71,23 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
   const rate = plan.required.swr.ratePct;
 
   /*
-    The pot behind this picture is `required.lifelongPot`, never the whole
-    `required.target`.
+    THE POT BEHIND THIS PICTURE IS THE READER'S OWN, NEVER THE ONE THE
+    PLAN SAYS THEY NEED.
 
-    `target` is `lifelongPot + temporaryPot`: enough, at retirement, to
-    fund both the ongoing steady-state spend forever AND the extra a
-    mortgage, a car, or growing children cost in the early years on top
-    of that. By the settled (last) year those temporary years are long
-    over and the capital that funded them is spent, so multiplying the
-    FULL target by the safe rate to answer "what can this settled year
-    draw" hands the settled year money that was never its to have. A
-    plan with any temporary cost (which is most of them, since #252 a
-    new plan defaults to a mortgage and a car) then shows a budget that
-    barely moves with the slider: dragging to a crash still leaves every
-    layer funded, because the panel is drawing on capital that in a real
-    plan would already be gone. `lifelongPot` is the slice of the target
-    that is actually generating the settled year's own need forever, with
-    none of that reserve in it, so withdrawing it at the AVERAGE year
-    reproduces that need precisely and a shock away from average is the
-    whole and only thing that moves the bars.
+    It used to be `required.lifelongPot`, which is the capital a settled
+    year needs and therefore, drawn at the average return, reproduces
+    that year's whole bill exactly. Every reader was handed a fully
+    funded stack by construction. A couple projected to reach a third of
+    their target still filled every layer, and the slider, the one
+    control on the panel, could only take the top off a stack that had
+    no business being full in the first place. `settledCapital` reads
+    the same decomposition against what the reader is actually projected
+    to have: the temporary years are paid for first and whatever is left
+    is what the settled year lives on forever. Somebody on target sees
+    what they always saw; somebody short cannot fill the top; somebody
+    ahead has money over, which stays invested.
   */
-  const pot = Math.max(0, plan.required.lifelongPot);
+  const pot = settledCapital(plan);
 
   /*
     The settled year, not the first one. By the last year of the plan every
@@ -98,18 +104,39 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
   const settled = plan.years.length > 0 ? plan.years[plan.years.length - 1] : null;
   const spend = settled ? settled.spend : plan.firstYearFromPot;
   const guaranteed = settled ? settled.income : 0;
+  const earlyYears = Math.max(0, plan.required.temporaryPot);
 
-  const year = useMemo(
-    () =>
+  /*
+    How long the pot pays for everything on its own. A reader who stops
+    at the age their pension starts has none of these; a reader who stops
+    at fifty has seventeen, and those are the years their plan is short
+    in, whatever this settled year looks like.
+  */
+  const bridgeYears = plan.years.filter((y) => y.income <= 0).length;
+
+  const yearAt = useMemo(() => {
+    return (marketReturnPct: number) =>
       flexibleYear({
         pot,
         annualSpend: spend,
         guaranteedIncome: guaranteed,
         withdrawalRatePct: rate,
-        marketReturnPct: returnPct,
+        marketReturnPct,
         tiers: DEFAULT_TIERS,
+      });
+  }, [pot, spend, guaranteed, rate]);
+
+  const year = useMemo(() => yearAt(returnPct), [yearAt, returnPct]);
+  const read = useMemo(
+    () =>
+      layersRead({
+        current: year,
+        worst: yearAt(WORST_RETURN_PCT),
+        best: yearAt(BEST_RETURN_PCT),
+        bridgeYears,
+        short: plan.gap > 0,
       }),
-    [pot, spend, guaranteed, rate, returnPct]
+    [year, yearAt, bridgeYears, plan.gap]
   );
 
   /*
@@ -204,6 +231,52 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
             </>
           ) : null}
         </p>
+        {/*
+          WHICH POT THIS IS, SAID OUT LOUD.
+
+          The whole picture now moves with what the reader is projected to
+          have rather than with what the plan says they need, and a stack
+          that will not fill is a serious thing to show somebody without
+          naming the figure behind it. Nothing in this app states a number
+          as fact that the reader cannot check, and the two figures here
+          are both on the page above: the projected pot is the headline
+          panel's own, and what the early years take is the difference
+          between that and what the settled year lives on.
+        */}
+        <p className="text-center text-xs text-muted-foreground">
+          {pot > 0.5 ? (
+            <>
+              Drawn on the{" "}
+              <span className="font-mono tabular-nums">{currency(pot, 0, code)}</span>{" "}
+              your plan leaves working for you for good
+              {earlyYears > 0.5 ? (
+                <>
+                  , after the{" "}
+                  <span className="font-mono tabular-nums">
+                    {currency(earlyYears, 0, code)}
+                  </span>{" "}
+                  the early years take on top
+                </>
+              ) : null}
+              .
+            </>
+          ) : (
+            <>
+              Your pot has nothing left for a year like this one
+              {earlyYears > 0.5 ? (
+                <>
+                  {" "}
+                  once the{" "}
+                  <span className="font-mono tabular-nums">
+                    {currency(earlyYears, 0, code)}
+                  </span>{" "}
+                  the early years take is paid for
+                </>
+              ) : null}
+              , so everything above it is guaranteed income.
+            </>
+          )}
+        </p>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -219,8 +292,8 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
         </div>
         <Slider
           value={[returnPct]}
-          min={-40}
-          max={35}
+          min={WORST_RETURN_PCT}
+          max={BEST_RETURN_PCT}
           step={1}
           onValueChange={(next) => {
             const n = next[0];
@@ -248,11 +321,7 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
       <div className={cn(CARD, "p-4")}>
         <MicroLabel>What this is worth</MicroLabel>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {year.essentialsShort
-            ? "At this return, even the bottom layer is not covered. That is the one situation a plan has to avoid."
-            : guaranteed >= year.slices[0].full
-              ? "Drag it anywhere: your guaranteed income alone covers the essentials, so the market decides how good a year you have, never whether you eat."
-              : "The essentials hold at every setting on that slider. Everything above them is a choice you would get to make at the time."}
+          {read}
         </p>
       </div>
     </Panel>

@@ -82,9 +82,30 @@ export type RetirementTemplate = {
   potGbp: number;
   /** Goes in each year, in pounds. */
   contributionGbp: number;
-  /** A car payment a month, in pounds. Zero for most. */
+  /**
+   * A car payment a month, in pounds, when this life has a particular one
+   * in mind. Zero means the standard's own anchor where `carForever` is
+   * on, and no car at all where it is not.
+   */
   carMonthlyGbp: number;
   carYearsLeft: number;
+  /**
+   * WHETHER THERE IS STILL A CAR IN RETIREMENT, WHICH FIVE OF THESE LIVES
+   * USED TO SAY NO TO BY ACCIDENT.
+   *
+   * The baskets exclude a car on purpose, because a car is its own dial. A
+   * template that owns its home outright and leaves that dial at zero is
+   * therefore describing somebody whose whole retirement bill is food,
+   * heating and going out, and in most of these countries two state
+   * pensions cover that outright: `required.target` came back as exactly
+   * zero, the room answered "you need nothing", and no market this app can
+   * model could reach a life the state pays for. That is true arithmetic
+   * about a life almost nobody leads. Most retired households run a car
+   * until they cannot, so the lives that own a home run one here, priced
+   * at their own standard's anchor rather than a figure typed in per
+   * template.
+   */
+  carForever: boolean;
 };
 
 /**
@@ -108,13 +129,14 @@ export const RETIREMENT_TEMPLATES: readonly RetirementTemplate[] = [
     retireAt: null,
     household: "single",
     standard: "moderate",
-    housing: "owned",
+    housing: "renting",
     mortgageYearsLeft: 0,
     childAges: [],
-    potGbp: 5_000,
-    contributionGbp: 4_800,
+    potGbp: 2_000,
+    contributionGbp: 1_700,
     carMonthlyGbp: 0,
     carYearsLeft: 0,
+    carForever: false,
   },
   {
     id: "getting-going",
@@ -131,6 +153,7 @@ export const RETIREMENT_TEMPLATES: readonly RetirementTemplate[] = [
     contributionGbp: 2_500,
     carMonthlyGbp: 0,
     carYearsLeft: 0,
+    carForever: false,
   },
   {
     id: "two-of-you",
@@ -143,10 +166,11 @@ export const RETIREMENT_TEMPLATES: readonly RetirementTemplate[] = [
     housing: "owned",
     mortgageYearsLeft: 0,
     childAges: [],
-    potGbp: 120_000,
-    contributionGbp: 14_000,
+    potGbp: 49_000,
+    contributionGbp: 5_700,
     carMonthlyGbp: 0,
     carYearsLeft: 0,
+    carForever: true,
   },
   {
     id: "family-years",
@@ -159,10 +183,11 @@ export const RETIREMENT_TEMPLATES: readonly RetirementTemplate[] = [
     housing: "mortgage",
     mortgageYearsLeft: 18,
     childAges: [8, 5],
-    potGbp: 75_000,
-    contributionGbp: 7_200,
-    carMonthlyGbp: 300,
-    carYearsLeft: 3,
+    potGbp: 60_000,
+    contributionGbp: 4_200,
+    carMonthlyGbp: 0,
+    carYearsLeft: 0,
+    carForever: true,
   },
   {
     id: "renting-on",
@@ -175,10 +200,11 @@ export const RETIREMENT_TEMPLATES: readonly RetirementTemplate[] = [
     housing: "renting",
     mortgageYearsLeft: 0,
     childAges: [],
-    potGbp: 130_000,
-    contributionGbp: 12_000,
+    potGbp: 42_000,
+    contributionGbp: 3_900,
     carMonthlyGbp: 0,
     carYearsLeft: 0,
+    carForever: false,
   },
   {
     id: "peak-earning",
@@ -191,10 +217,11 @@ export const RETIREMENT_TEMPLATES: readonly RetirementTemplate[] = [
     housing: "owned",
     mortgageYearsLeft: 0,
     childAges: [],
-    potGbp: 380_000,
-    contributionGbp: 20_000,
+    potGbp: 150_000,
+    contributionGbp: 7_900,
     carMonthlyGbp: 0,
     carYearsLeft: 0,
+    carForever: true,
   },
   {
     id: "nearly-there",
@@ -207,10 +234,11 @@ export const RETIREMENT_TEMPLATES: readonly RetirementTemplate[] = [
     housing: "owned",
     mortgageYearsLeft: 0,
     childAges: [],
-    potGbp: 700_000,
-    contributionGbp: 20_000,
+    potGbp: 320_000,
+    contributionGbp: 9_200,
     carMonthlyGbp: 0,
     carYearsLeft: 0,
+    carForever: true,
   },
   {
     id: "stop-early",
@@ -223,10 +251,11 @@ export const RETIREMENT_TEMPLATES: readonly RetirementTemplate[] = [
     housing: "owned",
     mortgageYearsLeft: 0,
     childAges: [],
-    potGbp: 80_000,
-    contributionGbp: 24_000,
+    potGbp: 25_000,
+    contributionGbp: 7_400,
     carMonthlyGbp: 0,
     carYearsLeft: 0,
+    carForever: true,
   },
 ];
 
@@ -317,11 +346,18 @@ export function templateInputs(
     A child and a mortgage cost different amounts at each standard (see
     `costAnchorsForStandard`), so a template answers with its own
     standard's figures rather than always the moderate ones `base` opens
-    on. The car stays `carMonthlyGbp` alone, zero for most of these eight
-    lives on purpose (a life without a car in it), rather than falling
-    back to a standard's anchor.
+    on. The car is that standard's anchor for a life that keeps one, and
+    `carMonthlyGbp` only where a template has a particular payment in
+    mind; zero with no car for life is the one combination that means
+    what it says, which is no car at all.
   */
   const costs = costAnchorsForStandard(template.standard);
+  const carMonthlyGbp =
+    template.carMonthlyGbp > 0
+      ? template.carMonthlyGbp
+      : template.carForever
+        ? costs.carMonthly
+        : 0;
 
   return {
     ...base,
@@ -340,8 +376,9 @@ export function templateInputs(
     childAnnualCost: localiseFromGbp(region, costs.childAnnual),
     currentPot: localiseFromGbp(region, template.potGbp),
     annualContribution: localiseFromGbp(region, template.contributionGbp),
-    carMonthly: localiseFromGbp(region, template.carMonthlyGbp),
+    carMonthly: localiseFromGbp(region, carMonthlyGbp),
     carYearsLeft: template.carMonthlyGbp > 0 ? template.carYearsLeft : base.carYearsLeft,
+    carForever: template.carForever,
     /*
       The glide is a function of the age somebody stops, so a template that
       moves that age has to move the glide with it. Left alone, "Stop early"
