@@ -649,7 +649,25 @@ export type PortfolioShockAnalysis = {
   rows: ShockHoldingImpact[];
   topVulnerability: ShockHoldingImpact | null;
   topShockAbsorber: ShockHoldingImpact | null;
-  themeBreakdown: { theme: string; deltaVal: number; liveVal: number; pctOfLoss: number }[];
+  /*
+   * Damage by what a holding actually does, and which holdings those are.
+   *
+   * The key is a description of the business ("Makes computer chips"), so
+   * two holdings only share a row when they genuinely depend on the same
+   * thing -- two bitcoin treasuries, two crypto miners. On an ordinary
+   * portfolio no two do, so the table is one row per holding, and without
+   * the tickers a reader was left matching "Makes computer chips" against
+   * their own list to work out that the row was their NVDA. `tickers` is
+   * what makes the row readable, and it is also the only thing that makes
+   * the grouping visible on the portfolios where it does fire.
+   */
+  themeBreakdown: {
+    theme: string;
+    tickers: string[];
+    deltaVal: number;
+    liveVal: number;
+    pctOfLoss: number;
+  }[];
 };
 
 /**
@@ -772,17 +790,25 @@ export function analyzePortfolioShock(
       : null;
 
   // Theme loss aggregation
-  const themeMap = new Map<string, { deltaVal: number; liveVal: number }>();
+  const themeMap = new Map<
+    string,
+    { deltaVal: number; liveVal: number; tickers: string[] }
+  >();
   for (const r of rows) {
-    const existing = themeMap.get(r.label) ?? { deltaVal: 0, liveVal: 0 };
+    const existing =
+      themeMap.get(r.label) ?? { deltaVal: 0, liveVal: 0, tickers: [] };
     existing.deltaVal += r.deltaVal;
     existing.liveVal += r.liveVal;
+    // `rows` is already sorted worst first, so each row's tickers come out
+    // in the order they hurt.
+    if (!existing.tickers.includes(r.ticker)) existing.tickers.push(r.ticker);
     themeMap.set(r.label, existing);
   }
 
   const themeBreakdown = [...themeMap.entries()]
     .map(([theme, data]) => ({
       theme,
+      tickers: data.tickers,
       deltaVal: data.deltaVal,
       liveVal: data.liveVal,
       pctOfLoss: safeDiv(data.deltaVal, deltaVal) * 100,
