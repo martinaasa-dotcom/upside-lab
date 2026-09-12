@@ -53,7 +53,7 @@ import {
   type RetirementInputs,
 } from "@/lib/retirement/plan";
 import type { Sex } from "@/lib/retirement/longevity";
-import { Baby, Car, Home, PiggyBank, UserRound, Wallet } from "lucide-react";
+import { Baby, Car, Check, Home, PiggyBank, UserRound, Wallet } from "lucide-react";
 import { useId } from "react";
 
 type Patch = (next: Partial<RetirementInputs>) => void;
@@ -88,14 +88,26 @@ function StandardPicker({
             }
             className={cn(
               CARD,
-              "flex min-w-0 flex-col gap-2 p-4 text-left transition-colors",
-              chosen
-                ? "outline-2 -outline-offset-2 outline-primary"
-                : "hover:outline-1 hover:-outline-offset-1 hover:outline-border"
+              "veil-hover flex min-w-0 flex-col gap-2 border-2 p-4 text-left transition-colors",
+              chosen ? "border-primary" : "border-transparent hover:border-border"
             )}
           >
-            <span className="font-semibold text-foreground">
-              {STANDARD_LABEL[id]}
+            <span className="flex items-center justify-between gap-2">
+              <span
+                className={cn(
+                  "font-semibold",
+                  chosen ? "text-primary" : "text-foreground"
+                )}
+              >
+                {STANDARD_LABEL[id]}
+              </span>
+              <Check
+                aria-hidden
+                className={cn(
+                  "h-4 w-4 shrink-0 text-primary",
+                  chosen ? "" : "opacity-0"
+                )}
+              />
             </span>
             <span className="font-mono text-lg tabular-nums text-foreground">
               {currency(amounts[id], 0, code)}
@@ -249,6 +261,7 @@ export function PlanInputs({
               value={inputs.mortgageAnnual}
               currency={code}
               onChange={(mortgageAnnual) => patch({ mortgageAnnual })}
+              note={`Opened on ${currency(UK_COST_ANCHORS.mortgageAnnual, 0, "GBP")} a year at UK prices, moved onto ${region.name}'s.`}
             />
             <CountField
               label="Years left on it"
@@ -377,6 +390,7 @@ export function PlanInputs({
               onChange={(carYearsLeft) => patch({ carYearsLeft })}
               max={60}
               suffix="years"
+              note="Counted from today, the same as the mortgage, so it can finish well before you stop working or run years into retirement depending on how far off that is."
             />
           )}
         </div>
@@ -405,17 +419,32 @@ export function PlanInputs({
             onChange={(currentPot) => patch({ currentPot })}
             note={
               portfolioValue != null && portfolioValue > 0 ? (
-                <span>
-                  Your portfolios are worth{" "}
-                  <button
-                    type="button"
-                    className="underline underline-offset-2 hover:text-foreground"
-                    onClick={() => patch({ currentPot: portfolioValue })}
-                  >
-                    {currency(portfolioValue, 0, "USD")}
-                  </button>
-                  . Press it to use that figure.
-                </span>
+                inputs.currentPot === Math.round(portfolioValue) ? (
+                  /*
+                    THE FIRST VISIT ALREADY APPLIED THIS FIGURE, so a note
+                    still inviting a press here would be inviting a press
+                    that does nothing, which is the stale-copy fault this
+                    file's own AGENTS.md keeps finding in other rooms. Once
+                    the two agree, the sentence says why they agree instead.
+                  */
+                  <span>
+                    Pre-filled from what your portfolios are worth,{" "}
+                    {currency(portfolioValue, 0, "USD")}. Type over it if that
+                    figure includes money not meant for this.
+                  </span>
+                ) : (
+                  <span>
+                    Your portfolios are worth{" "}
+                    <button
+                      type="button"
+                      className="underline underline-offset-2 hover:text-foreground"
+                      onClick={() => patch({ currentPot: portfolioValue })}
+                    >
+                      {currency(portfolioValue, 0, "USD")}
+                    </button>
+                    . Press it to use that figure.
+                  </span>
+                )
               ) : (
                 "Everything already invested for this, wherever it sits."
               )

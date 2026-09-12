@@ -48,10 +48,85 @@ describe("Lab says what it means", () => {
     }
     expect(lab).toMatch(/const tabIntro: Record<LabTab, string>/);
     expect(lab).toMatch(/\{tabIntro\[tab\]\}/);
-    // Each of the three portfolio tabs quotes a figure worked out here.
-    expect(lab).toMatch(/topThree\}% of your stocks/);
-    expect(lab).toMatch(/topWeight\}% of your stocks/);
-    expect(lab).toMatch(/risingCount\} of your \$\{holdingCount\}/);
+
+    /*
+     * Each of the three portfolio tabs quotes a figure worked out in this
+     * file, and the rule is what is asserted rather than which figure.
+     *
+     * This used to pin the three variable names the intros happened to use
+     * that day, so changing which figure a tab notices failed here even
+     * when the sentence still did exactly what the rule asks. AGENTS.md
+     * already records that an assertion against today's exact wording
+     * costs more than it protects; what matters is that the sentence is
+     * about this reader rather than written once for everybody, which is
+     * an interpolation of something computed in the component.
+     */
+    const introStart = lab.indexOf("const tabIntro: Record<LabTab, string>");
+    /*
+     * Comments are dropped before any of this is read. The intros carry
+     * notes explaining why a sentence says what it says, and those notes
+     * quote the wording they replaced, so a scanner that counts quoted
+     * sentences would read an explanation of a fixed fault as the fault.
+     * This is the same reason the copy scan at the top of this file strips
+     * comment lines before looking for desk words.
+     */
+    const introBlock = lab
+      .slice(introStart, lab.indexOf("lookup:", introStart))
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    expect(introBlock.length).toBeGreaterThan(0);
+    const declared = new Set(
+      [...lab.matchAll(/\bconst (\w+)\s*=/g)].map((m) => m[1]!)
+    );
+    for (const tab of ["alloc", "risk", "trends"]) {
+      const start = introBlock.indexOf(`${tab}:`);
+      expect(start, `${tab} intro missing`).toBeGreaterThanOrEqual(0);
+      const end = ["alloc", "risk", "trends", "seasonality", "playbook"]
+        .map((t) => introBlock.indexOf(`${t}:`, start + 1))
+        .filter((i) => i > start)
+        .sort((a, b) => a - b)[0] ?? introBlock.length;
+      const arm = introBlock.slice(start, end);
+
+      // Every sentence this tab can print about a portfolio that has
+      // something in it quotes a figure, which means it is a template
+      // literal interpolating something declared in the component.
+      const templates = [...arm.matchAll(/`[^`]*`/g)].map((m) => m[0]);
+      expect(templates.length, `${tab} intro has no figure at all`)
+        .toBeGreaterThan(0);
+      for (const literal of templates) {
+        const figures = [...literal.matchAll(/\$\{(\w+)/g)].map((m) => m[1]!);
+        expect(
+          figures.some((name) => declared.has(name)),
+          `${tab} intro has a sentence quoting no figure: ${literal.slice(0, 60)}`
+        ).toBe(true);
+      }
+
+      /*
+       * And at most one figure-free sentence, the empty-portfolio one.
+       *
+       * Each arm is a ternary whose first branch answers a portfolio with
+       * nothing in it, and that branch is rightly a plain sentence because
+       * there is no figure to quote. Every other branch must not be: a
+       * second plain sentence in an arm is a branch that has quietly become
+       * general advice, which is the whole thing this test exists to catch
+       * and which a per-arm check cannot see, since the arm's other
+       * branches go on carrying figures.
+       */
+      const plainSentences = [
+        // Template literals come out first. They legitimately contain
+        // double quotes inside their interpolations (a plural switch, for
+        // instance), and scanning the arm whole let a match start inside
+        // one template and end inside the next, which reported ordinary
+        // sentences as figure-free.
+        ...arm.replace(/`[^`]*`/g, "``").matchAll(/"[^"]{40,}"/g),
+      ].map((m) => m[0]);
+      expect(
+        plainSentences.length,
+        `${tab} intro has more than the one figure-free sentence: ${plainSentences
+          .map((x) => x.slice(0, 50))
+          .join(" | ")}`
+      ).toBeLessThanOrEqual(1);
+    }
   });
 
   it("files every holding under a kind of business, never 'Not sorted yet'", () => {

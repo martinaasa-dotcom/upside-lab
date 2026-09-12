@@ -202,7 +202,22 @@ export function portfolioDayLine(
   todayPct: number | null,
   totalValue: number,
   typical: TypicalMove | null,
-  money: (n: number) => string
+  money: (n: number) => string,
+  /*
+   * Which day the move belongs to, in the reader's own words.
+   *
+   * This sentence said "today" whatever the session was, and the card it
+   * sits in resolves the day properly everywhere else: the figure above it
+   * is labelled "on Friday", the line under it reads "US markets are
+   * closed. These are Friday's numbers", and the panel below opens on
+   * "Friday's close". So on a Saturday the one paragraph in the middle of
+   * that card told the reader their portfolio was up today, between two
+   * statements that it was Friday's number, which is a false sentence with
+   * a real figure in it sitting where the product explains itself. The
+   * caller already holds the answer as `morning.moveLabel`, which six other
+   * lines in that room read.
+   */
+  when: "today" | "friday" = "today"
 ): string | null {
   if (typical == null || totalValue <= 0) return null;
   const ordinaryDollar = money(typical.typicalPct * totalValue);
@@ -212,12 +227,16 @@ export function portfolioDayLine(
   const size = daySize(todayPct, typical);
   const moved = money(Math.abs(todayDollar));
   const way = todayDollar >= 0 ? "up" : "down";
+  /* "up $240 on Friday" / "up $240 today" — the clause that follows the
+   * amount, and the pronoun that later refers back to that same day. */
+  const tail = when === "friday" ? "on Friday" : "today";
+  const thatDay = when === "friday" ? "Friday" : "today";
   if (size === "ordinary") {
-    return `Your portfolio is ${way} ${moved} today. It moves about ${ordinaryDollar} on an ordinary day, so today is one of those.`;
+    return `Your portfolio is ${way} ${moved} ${tail}. It moves about ${ordinaryDollar} on an ordinary day, so ${thatDay} is one of those.`;
   }
   if (size === "bigger") {
-    return `Your portfolio is ${way} ${moved} today, more than the ${ordinaryDollar} of an ordinary day.`;
+    return `Your portfolio is ${way} ${moved} ${tail}, more than the ${ordinaryDollar} of an ordinary day.`;
   }
   const times = Math.round(Math.abs(todayPct) / typical.typicalPct);
-  return `Your portfolio is ${way} ${moved} today, about ${times} ordinary days at once.`;
+  return `Your portfolio is ${way} ${moved} ${tail}, about ${times} ordinary days at once.`;
 }

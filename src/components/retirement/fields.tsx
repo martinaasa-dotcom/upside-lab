@@ -18,8 +18,7 @@ import { FormattedNumberInput } from "@/components/FormattedNumberInput";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/Panel";
 import { Slider } from "@/components/ui/slider";
-import { blockWheelChange } from "@/lib/number-input";
-import { useId, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 /** Money the plan is in, from the region. Falls back rather than throwing. */
 export function currencyCodeFor(iso: string): CurrencyCode {
@@ -150,22 +149,106 @@ export function CountField({
   suffix?: string;
 }) {
   const id = useId();
+  const focused = useRef(false);
+  const [text, setText] = useState(() => (Number.isFinite(value) ? String(value) : ""));
+
+  /*
+    Clamping on every keystroke is what made this field unusable: typing
+    a two-digit age one character at a time means the first character is
+    briefly a number below `min`, which used to snap straight to `min`
+    and eat the digit that followed, and a value that briefly exceeded
+    `max` (typing "45" into a field already showing "30" with the caret
+    mid-string, since nothing selected the old text) got thrown all the
+    way up to `max` instead. So this only reflects `value` back into the
+    field while the reader is not the one typing, and only clamps once
+    they are done, on blur.
+
+    `type="text"` rather than `type="number"`, on purpose. `.select()` on
+    a real number input is exactly the kind of thing that reads as fine
+    in one browser and does nothing in another (Firefox has long refused
+    `selectionStart`/`selectionEnd` on it), and a native number input
+    also mangles what is typed in ways nothing here controls: a leading
+    zero silently disappears, scientific notation like `1e2` is a
+    legal partial value, and the field's own `.value` can go blank for
+    an intermediate state that looks fine to the reader. Every other
+    editable number in this app already avoids that (`PortfolioTable`'s
+    inline cells, `ForecastPanel`'s price input, `FormattedNumberInput`
+    itself) by staying on `type="text"` with `inputMode` steering the
+    keyboard instead, so this does the same rather than being the one
+    number field in the product still on the native control.
+  */
+  useEffect(() => {
+    if (!focused.current) setText(Number.isFinite(value) ? String(value) : "");
+  }, [value]);
+
+  // What the field held when this edit began, for Escape to put back. It
+  // cannot just reread `value` at Escape time: every valid keystroke
+  // already calls `onChange`, live, so by the time somebody presses
+  // Escape `value` itself has moved to whatever they typed.
+  const beforeEdit = useRef(value);
+  // `.blur()` called from inside a keydown handler fires `onBlur`
+  // synchronously, before React has applied the `setText`/`onChange`
+  // this same handler just queued — so `onBlur` would read the DOM's
+  // still-stale value and immediately re-commit the very thing Escape
+  // just tried to undo. This flag tells `onBlur` to stand down once.
+  const skipNextBlurCommit = useRef(false);
+
+  function commit(raw: string) {
+    focused.current = false;
+    const trimmed = raw.trim();
+    const parsed = trimmed === "" ? Number.NaN : Number(trimmed);
+    // Leaving the field empty (or otherwise unparseable) restores what
+    // was there before rather than silently snapping to `min` — clearing
+    // a field and tapping away is "never mind", not "set this to the
+    // smallest allowed value".
+    const base = Number.isFinite(parsed) ? parsed : Number.isFinite(value) ? value : min;
+    const clamped = Math.min(max, Math.max(min, base));
+    setText(String(clamped));
+    onChange(clamped);
+  }
+
   return (
     <Field label={label} note={note} htmlFor={id}>
       <div className="flex min-w-0 items-center gap-2">
         <Input
           id={id}
-          type="number"
+          type="text"
           inputMode="numeric"
-          value={Number.isFinite(value) ? value : ""}
-          min={min}
-          max={max}
-          onWheel={blockWheelChange}
-          onChange={(e) => {
-            const next = Number(e.target.value);
-            onChange(Number.isFinite(next) ? Math.min(max, Math.max(min, next)) : min);
+          value={text}
+          onFocus={(e) => {
+            focused.current = true;
+            beforeEdit.current = Number.isFinite(value) ? value : min;
+            // Tapping the field selects what is already there, the way
+            // every Apple number field does, so typing a new age simply
+            // replaces the old one instead of being appended to it.
+            e.target.select();
           }}
-          className="min-w-0 font-mono tabular-nums"
+          onChange={(e) => {
+            const digits = e.target.value.replace(/\D/g, "");
+            setText(digits);
+            if (digits === "") return;
+            const next = Number(digits);
+            if (Number.isFinite(next)) onChange(next);
+          }}
+          onBlur={(e) => {
+            if (skipNextBlurCommit.current) {
+              skipNextBlurCommit.current = false;
+              focused.current = false;
+              return;
+            }
+            commit(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              skipNextBlurCommit.current = true;
+              focused.current = false;
+              setText(String(beforeEdit.current));
+              onChange(beforeEdit.current);
+              e.currentTarget.blur();
+            }
+          }}
+          className="no-spinner min-w-0 font-mono tabular-nums"
         />
         {suffix ? (
           <span className="shrink-0 text-sm text-muted-foreground">{suffix}</span>

@@ -65,6 +65,32 @@ export function setEoyOverride(
   return next;
 }
 
+/**
+ * Every portfolio's own overrides, folded into one map keyed by ticker.
+ *
+ * `loadEoyOverrides` answers for ONE portfolio, which is right for a
+ * view scoped to that portfolio and wrong for anything that spans the
+ * whole book: a ticker held in a portfolio that is not the one open
+ * right now would otherwise silently lose its own end-of-year target on
+ * a surface that reads only the active portfolio's copy, while a
+ * per-holding surface that merges across every portfolio a ticker sits
+ * in (the way `anchorForHolding` is used everywhere else) still finds
+ * it. That is the same holding anchored on two different kinds of
+ * figure on two screens, which is the one thing a shared price ladder
+ * may never do. There is no rule in this app for which portfolio's
+ * target should win when the same ticker carries one in more than one,
+ * so the last one in the list wins, same as any other object spread.
+ */
+export function mergeBookEoyOverrides(
+  perPortfolio: PortfolioEoyOverrides[]
+): PortfolioEoyOverrides {
+  let merged: PortfolioEoyOverrides = {};
+  for (const row of perPortfolio) {
+    merged = { ...merged, ...row };
+  }
+  return merged;
+}
+
 /** Merge a full Margus path (partial years OK) into overrides. */
 export function mergeEoyTargetPaths(
   current: PortfolioEoyOverrides,

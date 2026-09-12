@@ -137,6 +137,27 @@ describe("the visit's roll", () => {
     expect(ids.size).toBeGreaterThan(4);
   });
 
+  it("does not always ask the shock question about the same holding", () => {
+    // The reported bug: this card was keyed to the single biggest holding,
+    // so it was the same ticker on every visit regardless of the roll.
+    const varied = buildRecallCards({
+      ...INPUT,
+      holdings: [
+        { ticker: "$AAA", shares: 1, buyPrice: 1, price: 1, value: 2600, todayPct: 0 },
+        { ticker: "$BBB", shares: 1, buyPrice: 1, price: 1, value: 2500, todayPct: 0 },
+        { ticker: "$CCC", shares: 1, buyPrice: 1, price: 1, value: 2100, todayPct: 0 },
+      ],
+      totalValue: 7200,
+      cash: 0,
+    });
+    const shockIds = new Set<string>();
+    for (let roll = 0; roll < 60; roll += 1) {
+      const id = pickCard(varied, {}, "2026-09-02", roll)?.id;
+      if (id?.startsWith("shock:")) shockIds.add(id);
+    }
+    expect(shockIds.size).toBeGreaterThan(1);
+  });
+
   it("still puts a card that has come round before ahead of the roll", () => {
     let state: DeckState = {};
     state = answerCard(state, cards[3]!.id, false, "2026-09-01");
@@ -203,6 +224,84 @@ describe("the questions", () => {
     for (const h of INPUT.holdings) {
       expect(cards.some((c) => c.id === `share:${h.ticker}`), h.ticker).toBe(true);
       expect(cards.some((c) => c.id === `paid:${h.ticker}`), h.ticker).toBe(true);
+    }
+  });
+
+  it("asks the shock and doubling questions about every holding, not only the biggest", () => {
+    for (const h of INPUT.holdings) {
+      expect(cards.some((c) => c.id === `shock:${h.ticker}`), h.ticker).toBe(true);
+      expect(cards.some((c) => c.id === `double:${h.ticker}`), h.ticker).toBe(true);
+    }
+  });
+
+  it("never lets a shock question's distractors collide with its own answer", () => {
+    // Two of the three distractors are fixed numbers (a third of the
+    // answer, and a flat 20%), which only coincide with the answer at
+    // rounded === 1 and rounded === 20. Walk every share from the 2% floor
+    // to a full portfolio and check every one keeps four distinct options.
+    for (let pct = 2; pct <= 100; pct += 1) {
+      const share = pct / 100;
+      const built = buildRecallCards({
+        ...INPUT,
+        holdings: [
+          {
+            ticker: "$ONE",
+            shares: 1,
+            buyPrice: 1,
+            price: 1,
+            value: share * 10000,
+            todayPct: 0,
+          },
+          {
+            ticker: "$TWO",
+            shares: 1,
+            buyPrice: 1,
+            price: 1,
+            value: (1 - share) * 10000,
+            todayPct: 0,
+          },
+        ],
+        totalValue: 10000,
+        cash: 0,
+      });
+      const card = built.find((c) => c.id === "shock:$ONE");
+      if (!card) continue; // rounds under 1%, deliberately not asked
+      expect(new Set(card.options).size, `share ${pct}%`).toBe(card.options.length);
+      expect(card.options.length, `share ${pct}%`).toBe(4);
+    }
+  });
+
+  it("never lets a doubling question's distractors collide with its own answer", () => {
+    // Two of the three distractors are the fixed "about 100%" and the
+    // doubled share capped at 95%, which only coincide with the answer on
+    // a heavily concentrated holding (share near 95% or 100%).
+    for (let pct = 2; pct <= 100; pct += 1) {
+      const share = pct / 100;
+      const built = buildRecallCards({
+        ...INPUT,
+        holdings: [
+          {
+            ticker: "$ONE",
+            shares: 1,
+            buyPrice: 1,
+            price: 1,
+            value: share * 10000,
+            todayPct: 0,
+          },
+          {
+            ticker: "$TWO",
+            shares: 1,
+            buyPrice: 1,
+            price: 1,
+            value: (1 - share) * 10000,
+            todayPct: 0,
+          },
+        ],
+        totalValue: 10000,
+        cash: 0,
+      });
+      const card = built.find((c) => c.id === "double:$ONE")!;
+      expect(new Set(card.options).size, `share ${pct}%`).toBe(4);
     }
   });
 

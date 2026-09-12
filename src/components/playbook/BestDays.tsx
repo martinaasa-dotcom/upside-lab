@@ -87,9 +87,38 @@ export function BestDays({ read }: { read: BestDaysRead }) {
         handful of days, and being somewhere else on those days costs far more
         than it sounds like it should. Here is the S&amp;P 500 over{" "}
         {read.years} years, {windowLabel}, worked out from its {read.days}{" "}
-        trading days, with the best of them taken out. The money is in dollars
-        because that is what the index is quoted in.
+        trading days. The money is in dollars because that is what the index is
+        quoted in.
       </p>
+
+      {/*
+        THE BASELINE IS ITS OWN CARD, ABOVE AND SEPARATE FROM THE PICKER,
+        BECAUSE IT DOES NOT MOVE WHEN THE PICKER DOES.
+
+        This card and the picker used to sit inside one card together, with
+        "Left alone, every day" as the accented top row and the picker's own
+        answer as a muted row underneath it. A reader who presses 5, 10, 20,
+        30 before reading anything sees the top figure hold still every
+        time, because it is the window's own total and has nothing to do
+        with the picker; the muted row a few inches below it is the one that
+        moves, and nothing on the page pointed there. Splitting the two
+        apart, with the picker sitting directly above the row that answers
+        it, makes the causality the layout rather than something the prose
+        had to explain.
+      */}
+      <Card tone="default" className="flex flex-col gap-2">
+        <Row
+          label="Left alone, the whole time"
+          amount={amountFor(read.full)}
+          rate={fullRate}
+          width={(read.full / scale) * 100}
+          tone="muted"
+        />
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          The whole {read.years}-year window, nothing taken out. This figure
+          does not change below.
+        </p>
+      </Card>
 
       {/*
         The mark goes beside the control rather than under the figures,
@@ -108,7 +137,9 @@ export function BestDays({ read }: { read: BestDaysRead }) {
             reads as a broken control rather than as a choice. The cells are
             the numbers; the row above says what they count.
           */}
-          <MicroLabel className="mb-1.5">Days taken out</MicroLabel>
+          <MicroLabel className="mb-1.5">
+            Days taken out of the window above
+          </MicroLabel>
           <Segmented
             options={options}
             value={String(days)}
@@ -129,18 +160,11 @@ export function BestDays({ read }: { read: BestDaysRead }) {
 
       <Card tone="default" className="flex flex-col gap-6">
         <Row
-          label="Left alone, every day"
-          amount={amountFor(read.full)}
-          rate={fullRate}
-          width={(read.full / scale) * 100}
-          tone="brand"
-        />
-        <Row
           label={`Out of the market for the best ${days} days`}
           amount={amountFor(missed.multiple)}
           rate={missedRate}
           width={(missed.multiple / scale) * 100}
-          tone="muted"
+          tone="brand"
         />
         <p className="text-sm leading-relaxed text-foreground">
           {currency(STARTING, 0)} left alone became{" "}

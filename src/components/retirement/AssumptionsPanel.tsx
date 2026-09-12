@@ -26,6 +26,7 @@
 
 import { Button } from "@/components/ui/button";
 import { CARD, MicroLabel, Panel, PANEL_STACK, PanelHeader } from "@/components/ui/Panel";
+import { COMPOUND_INFLATION_ANNUAL_PCT } from "@/lib/compound-play";
 import {
   CountField,
   FIELD_GRID,
@@ -43,16 +44,22 @@ import {
   RETURNS_SOURCE,
   type GlideSegment,
 } from "@/lib/retirement/returns";
-import { FX_REFERENCE_MONTH, regionById } from "@/lib/retirement/regions";
+import { FX_REFERENCE_MONTH, regionById, UK_COST_ANCHORS } from "@/lib/retirement/regions";
 import type { RetirementInputs } from "@/lib/retirement/plan";
 import { SlidersVertical } from "lucide-react";
 
 export function AssumptionsPanel({
   inputs,
   patch,
+  portfolioRatePct,
 }: {
   inputs: RetirementInputs;
   patch: (next: Partial<RetirementInputs>) => void;
+  /**
+   * The same blended growth rate Compound's "Your rate" preset shows for
+   * these holdings, turned real. Null when there is nothing to blend.
+   */
+  portfolioRatePct: number | null;
 }) {
   const region = regionById(inputs.regionId);
   const sorted = [...inputs.glide].sort((a, b) => a.fromAge - b.fromAge);
@@ -95,8 +102,40 @@ export function AssumptionsPanel({
             note="Platform and funds together. The one number in this whole model that is known in advance and entirely in your hands, which is why it gets its own field. Over forty years the gap between a cheap tracker and an expensive fund is most of a decade of retirement."
           />
         </div>
+        {portfolioRatePct != null ? (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                patch({
+                  returns: {
+                    ...inputs.returns,
+                    equityPct: REAL_RETURN_ASSUMPTIONS.equityPct,
+                  },
+                })
+              }
+            >
+              The world index, {REAL_RETURN_ASSUMPTIONS.equityPct}%
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                patch({ returns: { ...inputs.returns, equityPct: portfolioRatePct } })
+              }
+            >
+              What your own holdings blend to, {portfolioRatePct.toFixed(1)}%
+            </Button>
+          </div>
+        ) : null}
         <p className="text-xs leading-relaxed text-muted-foreground">
           {RETURNS_SOURCE}
+          {portfolioRatePct != null
+            ? ` The second button above is the same blended growth rate Compound's "Your rate" preset shows for what you hold. That figure is nominal, so it is turned real here the same way Compound turns its own mattress line real, by taking off ${COMPOUND_INFLATION_ANNUAL_PCT}% assumed inflation. A portfolio concentrated in one hot theme can still blend well above the world index, so treat it as an optimistic scenario rather than a safe planning assumption.`
+            : ""}
         </p>
       </Panel>
 
@@ -292,6 +331,18 @@ export function AssumptionsPanel({
                 </>
               ) : null}{" "}
               If you have a statement, its figure beats this one.
+            </p>
+          </div>
+          <div>
+            <MicroLabel>The mortgage, rent and car figures</MicroLabel>
+            <p className="mt-1 leading-relaxed text-muted-foreground">
+              A plan opens with a mortgage and a car payment already on it. Both
+              are UK figures, a {UK_COST_ANCHORS.mortgageSource.toLowerCase()} and
+              a {UK_COST_ANCHORS.carSource.toLowerCase()}, moved onto{" "}
+              {region.name}&apos;s prices the same way the living standards
+              above are. Rent, if you say you rent, and a child, once one is on
+              the plan, are moved the same way. Every one of these is a field
+              you can type your own number over.
             </p>
           </div>
           <div>

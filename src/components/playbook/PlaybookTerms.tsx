@@ -32,11 +32,15 @@ export function PlaybookTerms({ terms }: { terms?: readonly string[] }) {
   if (known.length === 0) return null;
   return (
     <div className="border-t border-border pt-4">
-      {/* Singular when there is one, for the reason "Members · 1" is
-        * recorded in AGENTS.md: a plural over a single thing is the label
-        * disagreeing with what is under it. */}
+      {/* The label has to say what the dotted underline does, not just name
+        * the words: "Words on this one" read the words themselves rather
+        * than the tap that opens a definition. Singular when there is one,
+        * for the reason "Members · 1" is recorded in AGENTS.md: a plural
+        * over a single thing is the label disagreeing with what is under it. */}
       <MicroLabel>
-        {known.length === 1 ? "Word on this one" : "Words on this one"}
+        {known.length === 1
+          ? "Tap this word for what it means"
+          : "Tap a word for what it means"}
       </MicroLabel>
       <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
         {known.map((term) => (

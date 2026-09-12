@@ -31,7 +31,14 @@ import {
   realReturnAt,
   defaultGlide,
   DEFAULT_RETURN_ASSUMPTIONS,
+  portfolioRealReturnPct,
+  REAL_RETURN_ASSUMPTIONS,
 } from "@/lib/retirement/returns";
+import {
+  COMPOUND_CASH_YIELD_ANNUAL_PCT,
+  COMPOUND_INFLATION_ANNUAL_PCT,
+} from "@/lib/compound-play";
+import { blendedExpectedAnnualReturn } from "@/lib/forecast-conviction";
 import {
   buildPlan,
   defaultInputs,
@@ -51,9 +58,12 @@ import {
 import { sanitizeInputs } from "@/lib/retirement/state";
 import { retirementProvenance } from "@/lib/provenance";
 import {
+  DEFAULT_REGION_ID,
   REGIONS,
   livingStandardFor,
+  localiseFromGbp,
   regionById,
+  UK_COST_ANCHORS,
   UK_LIVING_STANDARDS,
 } from "@/lib/retirement/regions";
 
@@ -254,6 +264,50 @@ describe("the mix and what it earns", () => {
     });
     expect(withFee).toBeCloseTo(DEFAULT_RETURN_ASSUMPTIONS.cashPct / 100, 10);
   });
+
+  describe("the reader's own holdings, offered as a growth rate", () => {
+    it("is exactly Compound's own blend, turned real by the Fisher relation", () => {
+      const holdings = [
+        { ticker: "NVDA", value: 6000 },
+        { ticker: "KO", value: 4000 },
+      ];
+      const cashBalance = 1000;
+      const nominal = blendedExpectedAnnualReturn(holdings, {
+        balance: cashBalance,
+        annualReturnPct: COMPOUND_CASH_YIELD_ANNUAL_PCT,
+      });
+      const expectedReal =
+        (1 + nominal) / (1 + COMPOUND_INFLATION_ANNUAL_PCT / 100) - 1;
+      const got = portfolioRealReturnPct(holdings, cashBalance);
+      expect(got).toBeCloseTo(Math.round(expectedReal * 1000) / 10, 5);
+    });
+
+    it("comes back lower than the nominal blend it was built from", () => {
+      const holdings = [{ ticker: "AAPL", value: 10_000 }];
+      const nominalPct =
+        blendedExpectedAnnualReturn(holdings, {
+          balance: 0,
+          annualReturnPct: COMPOUND_CASH_YIELD_ANNUAL_PCT,
+        }) * 100;
+      const real = portfolioRealReturnPct(holdings, 0);
+      expect(real).toBeLessThan(nominalPct);
+    });
+
+    it("all cash, no shares, reads as roughly Compound's cash yield turned real", () => {
+      const real = portfolioRealReturnPct([], 5000);
+      const expected =
+        (1 + COMPOUND_CASH_YIELD_ANNUAL_PCT / 100) /
+          (1 + COMPOUND_INFLATION_ANNUAL_PCT / 100) -
+        1;
+      expect(real).toBeCloseTo(Math.round(expected * 1000) / 10, 5);
+      expect(real).toBeLessThan(REAL_RETURN_ASSUMPTIONS.equityPct);
+    });
+
+    it("never returns something a caller could not render as a percent", () => {
+      const real = portfolioRealReturnPct([{ ticker: "MADE-UP", value: NaN }], NaN);
+      expect(Number.isFinite(real)).toBe(true);
+    });
+  });
 });
 
 describe("what a year of retirement costs", () => {
@@ -339,9 +393,22 @@ describe("the pot the plan needs", () => {
       reason a reader could see. Two identical lives at different distances
       should need a similar pot in real terms, and the only thing that
       moves it is the length of the retirement itself.
+
+      Housing and the car are held off here on purpose: both count their
+      years left from today rather than from retirement, so leaving the
+      default mortgage and car payment on would give "distant" a mortgage
+      that finishes decades before retiring while "soon" carries it years
+      into retirement, which is a different life rather than the same one
+      further off.
     */
-    const soon = buildPlan(subject({ currentAge: 55, retirementAge: 65 }), PLAN_AGE);
-    const distant = buildPlan(subject({ currentAge: 25, retirementAge: 65 }), PLAN_AGE);
+    const soon = buildPlan(
+      subject({ currentAge: 55, retirementAge: 65, housing: "owned", carMonthly: 0 }),
+      PLAN_AGE
+    );
+    const distant = buildPlan(
+      subject({ currentAge: 25, retirementAge: 65, housing: "owned", carMonthly: 0 }),
+      PLAN_AGE
+    );
     expect(distant.required.safeRate).toBeCloseTo(soon.required.safeRate, -3);
   });
 });
@@ -523,6 +590,21 @@ describe("spending in layers", () => {
 });
 
 describe("where you live", () => {
+  it("defaults a brand new plan to the US, never the UK", () => {
+    expect(DEFAULT_REGION_ID).toBe("US");
+    expect(defaultInputs().regionId).toBe("US");
+  });
+
+  it("falls back an unrecognised id to the default region, not to whichever region sits first in the list", () => {
+    expect(REGIONS[0]?.id).not.toBe(DEFAULT_REGION_ID);
+    expect(regionById(undefined).id).toBe(DEFAULT_REGION_ID);
+    expect(regionById(null).id).toBe(DEFAULT_REGION_ID);
+    expect(regionById("not-a-real-region").id).toBe(DEFAULT_REGION_ID);
+    // A blob saved before `regionId` existed, or with the field dropped
+    // by hand, must not read back as British.
+    expect(sanitizeInputs({}).regionId).toBe(DEFAULT_REGION_ID);
+  });
+
   it("derives every basket from the one published set, never a typed table", () => {
     const gb = regionById("GB");
     expect(livingStandardFor(gb, "moderate", "single")).toBe(
@@ -544,6 +626,21 @@ describe("where you live", () => {
     const ch = livingStandardFor(regionById("CH"), "moderate", "single");
     const gbInChf = UK_LIVING_STANDARDS.moderate.single * regionById("CH").perGbp;
     expect(ch).toBeGreaterThan(gbInChf * 1.3);
+  });
+
+  it("rounds a small anchor as tightly as the figure it came from", () => {
+    /*
+      The UK's own car payment anchor is GBP 380. Ported onto the UK's own
+      prices (priceLevel 100, perGbp 1) that is a no-op, so the field's
+      default should be exactly the figure the note beside it names. A flat
+      round-to-the-nearest-hundred moved it to 400, printing two different
+      numbers for the same anchor a few inches apart on the page.
+    */
+    expect(localiseFromGbp(regionById("GB"), UK_COST_ANCHORS.carMonthly)).toBe(
+      UK_COST_ANCHORS.carMonthly
+    );
+    // A five-figure living standard still rounds to the nearest hundred.
+    expect(livingStandardFor(regionById("GB"), "minimum", "single") % 100).toBe(0);
   });
 
   it("carries the reader's own money across a change of country untouched", () => {

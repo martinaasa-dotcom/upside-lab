@@ -163,70 +163,114 @@ function useOwnBook(ticker: string): OwnBook {
     mineCloses: null,
   });
 
+  /*
+    THIS USED TO READ THE CACHE ONCE, AND THE LADDER BUILT ON IT WENT
+    STALE WHILE THE PRICE KEPT POLLING.
+
+    `useLivePrice` above refreshes the spot every `quotePollMs()`, but
+    `mineCloses` (the three months of closes `anchorForHolding` takes
+    the range of) was read from `loadCachedQuotes()` exactly once, at
+    mount, and never again. A room left open drifts: the price marker
+    moves live while the anchor it is being measured against is still
+    the range this browser happened to hold when the page opened. Worse,
+    a reader who has this ticker's quote poller running elsewhere (Home,
+    another tab) can update the shared cache with a fuller or shorter
+    sparkline than the one this room started with, and this room would
+    never notice, so this page and Home could disagree about which band
+    a price is in for as long as the room stays open. So the read is a
+    function now, called at mount and again on the same cadence the
+    price polls, which is cheap: it is a `localStorage` read, not a
+    network call.
+  */
   useEffect(() => {
-    const cached = readBookCache(user?.id ?? null);
-    if (!cached) {
-      setState({
-        holdings: [],
-        mine: [],
-        minePrice: null,
-        cash: 0,
-        ready: true,
-        hasBook: false,
-        portfolioIds: [],
-        mineCloses: null,
+    const read = () => {
+      const cached = readBookCache(user?.id ?? null);
+      if (!cached) {
+        setState({
+          holdings: [],
+          mine: [],
+          minePrice: null,
+          cash: 0,
+          ready: true,
+          hasBook: false,
+          portfolioIds: [],
+          mineCloses: null,
+        });
+        return;
+      }
+      const { quotes } = loadCachedQuotes();
+      const holdings: FitHolding[] = cached.holdings.map((h) => {
+        /*
+          The live price where this browser has one, and what the reader paid
+          where it does not. Both are real numbers rather than an estimate,
+          and the difference between them cannot move a share of the
+          portfolio by enough to change what this card is for.
+        */
+        const price = quotes?.[h.ticker]?.price ?? h.buy_price;
+        return { ticker: h.ticker, value: h.shares * price };
       });
-      return;
-    }
-    const { quotes } = loadCachedQuotes();
-    const holdings: FitHolding[] = cached.holdings.map((h) => {
+      const cash = cached.portfolios.reduce(
+        (sum, p) => sum + (p.cash_balance ?? 0),
+        0
+      );
+      const names = new Map(cached.portfolios.map((p) => [p.id, p.name]));
       /*
-        The live price where this browser has one, and what the reader paid
-        where it does not. Both are real numbers rather than an estimate,
-        and the difference between them cannot move a share of the
-        portfolio by enough to change what this card is for.
+        What the reader paid is stored in dollars, and so is this price:
+        `quote.price` is the dollar one and `nativePrice` the listing's. The
+        two figures on the panel below are a subtraction, so they have to be
+        the same money, and it is the reader's rather than the listing's for
+        the reason `PositionFitCard` gives.
       */
-      const price = quotes?.[h.ticker]?.price ?? h.buy_price;
-      return { ticker: h.ticker, value: h.shares * price };
-    });
-    const cash = cached.portfolios.reduce(
-      (sum, p) => sum + (p.cash_balance ?? 0),
-      0
-    );
-    const names = new Map(cached.portfolios.map((p) => [p.id, p.name]));
+      const mineUsd = quotes?.[ticker]?.price ?? null;
+      const mineRows = cached.holdings.filter(
+        (h) => h.ticker.toUpperCase() === ticker && h.shares > 0
+      );
+      const mine: OwnedRow[] = mineRows.map((h) => ({
+        shares: h.shares,
+        buyPrice: h.buy_price,
+        portfolio: names.get(h.portfolio_id) ?? "",
+      }));
+      const portfolioIds = Array.from(
+        new Set(mineRows.map((h) => h.portfolio_id))
+      );
+      const sparkline = quotes?.[ticker]?.sparkline ?? null;
+      setState({
+        holdings,
+        mine,
+        minePrice: typeof mineUsd === "number" && mineUsd > 0 ? mineUsd : null,
+        cash,
+        ready: true,
+        // An account with nothing in it is a real answer and the card is
+        // still worth showing; a browser that has not read the portfolio is
+        // not, and the two are only distinguishable here.
+        hasBook: true,
+        portfolioIds,
+        mineCloses: sparkline,
+      });
+    };
     /*
-      What the reader paid is stored in dollars, and so is this price:
-      `quote.price` is the dollar one and `nativePrice` the listing's. The
-      two figures on the panel below are a subtraction, so they have to be
-      the same money, and it is the reader's rather than the listing's for
-      the reason `PositionFitCard` gives.
+      A RESCHEDULING TIMEOUT, NOT A FLAT INTERVAL, FOR THE SAME REASON
+      `useLivePrice` ABOVE USES ONE.
+
+      `quotePollMs()` is not a constant: it tightens at the open and the
+      close and slackens overnight and at the weekend, so a room somebody
+      leaves open across one of those boundaries has to ask on the new
+      cadence, not the one that happened to be in effect when the room
+      was opened. A flat `setInterval` bakes in whatever `quotePollMs()`
+      answered at mount and never asks again.
     */
-    const mineUsd = quotes?.[ticker]?.price ?? null;
-    const mineRows = cached.holdings.filter(
-      (h) => h.ticker.toUpperCase() === ticker && h.shares > 0
-    );
-    const mine: OwnedRow[] = mineRows.map((h) => ({
-      shares: h.shares,
-      buyPrice: h.buy_price,
-      portfolio: names.get(h.portfolio_id) ?? "",
-    }));
-    const portfolioIds = Array.from(
-      new Set(mineRows.map((h) => h.portfolio_id))
-    );
-    const sparkline = quotes?.[ticker]?.sparkline ?? null;
-    setState({
-      holdings,
-      mine,
-      minePrice: typeof mineUsd === "number" && mineUsd > 0 ? mineUsd : null,
-      cash,
-      ready: true,
-      // An account with nothing in it is a real answer and the card is
-      // still worth showing; a browser that has not read the portfolio is
-      // not, and the two are only distinguishable here.
-      hasBook: true,
-      portfolioIds,
-      mineCloses: sparkline,
-    });
+    let stop = false;
+    let timer: number | undefined;
+    const tick = () => {
+      if (stop) return;
+      read();
+      timer = window.setTimeout(tick, quotePollMs());
+    };
+    tick();
+    return () => {
+      stop = true;
+      if (timer) window.clearTimeout(timer);
+    };
   }, [user?.id, ticker]);
 
   return state;

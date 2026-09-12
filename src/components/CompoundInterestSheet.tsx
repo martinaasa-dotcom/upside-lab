@@ -61,6 +61,7 @@ import { useTimeout } from "@/lib/use-timeout";
 import {
   MicroLabel,
   Panel,
+  PANEL_STACK,
   PanelHeader,
   Pill,
   Score,
@@ -96,6 +97,104 @@ const FIELD_STACK = "flex flex-col gap-5";
 const SHEET_PANEL = "h-auto min-w-0 max-w-full lg:h-full";
 
 const YEAR_PRESETS = [5, 10, 20, 30] as const;
+const DURATION_MIN_YEARS = 1;
+const DURATION_MAX_YEARS = 50;
+
+/**
+ * The years field, typed over rather than appended to.
+ *
+ * Clamping on every keystroke used to mean typing a two-digit number one
+ * character at a time could never land: the field held onto whatever was
+ * already there, so the first new digit landed beside it rather than
+ * replacing it, and a value that ran past 50 got thrown all the way back
+ * down. This only reflects the committed value while the reader is not
+ * typing, and only clamps once they are done, on blur, the way every field
+ * with a `min`/`max` on this page should but not all of them did.
+ *
+ * `type="text"` rather than `type="number"`: `.select()` on a native
+ * number input is not reliable across browsers (Firefox has long refused
+ * `selectionStart`/`selectionEnd` on it) and the control mangles what is
+ * typed in its own ways (a leading zero vanishes, `1e2` is a legal
+ * partial value). Every other editable number in this app already stays
+ * on `type="text"` with `inputMode` steering the keyboard instead.
+ */
+function DurationYearsInput({
+  id,
+  value,
+  onChange,
+  className,
+}: {
+  id?: string;
+  value: number;
+  onChange: (years: number) => void;
+  className?: string;
+}) {
+  const focused = useRef(false);
+  const [text, setText] = useState(() => (Number.isFinite(value) ? String(value) : ""));
+
+  useEffect(() => {
+    if (!focused.current) setText(Number.isFinite(value) ? String(value) : "");
+  }, [value]);
+
+  // See the matching comment on `CountField` in retirement/fields.tsx:
+  // `value` has already moved by the time Escape is pressed (every valid
+  // keystroke calls `onChange` live), and `.blur()` called from a keydown
+  // handler runs `onBlur` synchronously before React applies this same
+  // handler's own state update — so both need to be tracked explicitly
+  // rather than trusted to still hold what they held a moment ago.
+  const beforeEdit = useRef(value);
+  const skipNextBlurCommit = useRef(false);
+
+  function commit(raw: string) {
+    focused.current = false;
+    const trimmed = raw.trim();
+    const parsed = trimmed === "" ? Number.NaN : Number(trimmed);
+    const base = Number.isFinite(parsed) ? parsed : Number.isFinite(value) ? value : DURATION_MIN_YEARS;
+    const clamped = Math.min(DURATION_MAX_YEARS, Math.max(DURATION_MIN_YEARS, base));
+    setText(String(clamped));
+    onChange(clamped);
+  }
+
+  return (
+    <Input
+      id={id}
+      type="text"
+      inputMode="numeric"
+      value={text}
+      onFocus={(e) => {
+        focused.current = true;
+        beforeEdit.current = Number.isFinite(value) ? value : DURATION_MIN_YEARS;
+        e.target.select();
+      }}
+      onChange={(e) => {
+        const digits = e.target.value.replace(/\D/g, "");
+        setText(digits);
+        if (digits === "") return;
+        const next = Number(digits);
+        if (Number.isFinite(next)) onChange(next);
+      }}
+      onBlur={(e) => {
+        if (skipNextBlurCommit.current) {
+          skipNextBlurCommit.current = false;
+          focused.current = false;
+          return;
+        }
+        commit(e.target.value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") {
+          skipNextBlurCommit.current = true;
+          focused.current = false;
+          setText(String(beforeEdit.current));
+          onChange(beforeEdit.current);
+          e.currentTarget.blur();
+        }
+      }}
+      className={className}
+    />
+  );
+}
 
 /*
  * Every one of these is an assumption, and the page compounds whichever one
@@ -729,10 +828,27 @@ function GrowthPathChart({
           <span style={{ color: PALETTE.gain }}>What growth adds</span>
         </li>
       </ul>
-      <p className="mt-3 leading-relaxed text-foreground" aria-live="polite">
-        {readout}
-      </p>
-      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+      {/*
+        * The per-year readout is drawn only once a reader has actually
+        * dragged, because at rest `shown` is the last year and that is the
+        * hero figure again.
+        *
+        * `sel` starts null and the chart falls back to the final year, which
+        * is right for the mark and wrong for the sentence: untouched, this
+        * line read "By 2036 you would have put in X and growth would have
+        * added Y", which is the third printing of the same two numbers on
+        * one screen. Left at rest the caption is now the crossing year
+        * alone, which is the one thing the chart says that the figures above
+        * it do not. `aria-valuetext` still carries `readout` at every
+        * moment, so the slider keeps describing its own value whether or not
+        * anything is drawn.
+        */}
+      {sel !== null ? (
+        <p className="mt-3 leading-relaxed text-foreground" aria-live="polite">
+          {readout}
+        </p>
+      ) : null}
+      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
         {crossIdx > 0
           ? `The two lines cross in ${startYear + crossIdx}. From then on, more of the pot is growth than money you have put in altogether.`
           : "Growth does not catch everything you have put in over this many years. Set a longer stretch and watch the green line close on the blue one."}
@@ -740,6 +856,12 @@ function GrowthPathChart({
     </div>
   );
 }
+
+/**
+ * The fewest rungs the ladder shows however short the reader's stretch is.
+ * Three is enough for the next one to have somewhere to point.
+ */
+const MIN_UPCOMING_MILESTONES = 3;
 
 export const CompoundInterestSheet = memo(function CompoundInterestSheet({
   bookValue,
@@ -918,7 +1040,40 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
     [milestones, currency, eurUsd]
   );
   const clearedMilestones = milestones.filter(milestoneDone);
-  const upcomingMilestones = milestones.filter((m) => !milestoneDone(m));
+  const allUpcoming = milestones.filter((m) => !milestoneDone(m));
+  /*
+   * The ladder answers the question the reader asked, and folds away the
+   * rungs past it.
+   *
+   * The goals are a fixed list ending at $10,000,000, so a reader starting
+   * from an ordinary balance met every rung they had not crossed: measured
+   * on the sample, nineteen rows running out to December 2072, which is
+   * 46.3 years away and dated to the day. That is the fault this repo
+   * already records against re-pricing a thirty year plan every fifteen
+   * seconds, drawn as a list: a date that far out, read off one typed
+   * growth rate, is precision the situation does not have, and nineteen of
+   * them bury the two rungs somebody could actually plan around.
+   *
+   * The horizon is the stretch the reader themselves set, because that is
+   * the question this panel is inside: rungs they reach within their own
+   * "for how long" are part of the answer, and everything past it is
+   * extrapolation beyond what they asked. `MIN_UPCOMING` is the floor, so
+   * a short stretch that clears no rung still shows the next few rather
+   * than an empty panel with a disclosure under it; the rest goes behind
+   * the same kind of summary the crossed rungs already use, so nothing is
+   * removed from the page, only from the way in.
+   */
+  const upcomingMilestones = useMemo(() => {
+    const within = allUpcoming.filter(
+      (m) => m.yearsUntil != null && m.yearsUntil <= liveInputs.years
+    );
+    return within.length >= MIN_UPCOMING_MILESTONES
+      ? within
+      : allUpcoming.slice(0, MIN_UPCOMING_MILESTONES);
+  }, [allUpcoming, liveInputs.years]);
+  const laterMilestones = allUpcoming.filter(
+    (m) => !upcomingMilestones.includes(m)
+  );
 
   function setMilestoneActual(goal: number, iso: string) {
     setMilestoneActuals((prev) => {
@@ -1165,16 +1320,10 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             For how long
           </label>
           <div className="relative">
-            <Input
+            <DurationYearsInput
               id="compound-duration-input"
-              type="number"
-              min={1}
-              max={50}
-              value={draft.years || ""}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                patchDraft("years", Number.isNaN(val) ? 1 : Math.min(50, Math.max(1, val)));
-              }}
+              value={draft.years}
+              onChange={(years) => patchDraft("years", years)}
               className={cn(FIELD_CLASS, "no-spinner pr-16")}
             />
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
@@ -1300,7 +1449,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         goes on the panels inside rather than the section, since a
         contained ancestor would trap anything sticky within it.
       */}
-      <section className="flex flex-col min-w-0 w-full max-w-full gap-4">
+      <section className={cn(PANEL_STACK, "min-w-0 w-full max-w-full")}>
         {/* Hero KPI Summary */}
         <Panel className={SHEET_PANEL}>
           <PanelHeader
@@ -1332,9 +1481,29 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             </p>
           </div>
           <Scoreboard cols={2}>
+            {/*
+              * The share of the final number rides on the growth cell rather
+              * than in a sentence under the row.
+              *
+              * There used to be a paragraph here reading "You would put in X
+              * and end with Y, so growth would do Z of the work, which is N%
+              * of the final number." Every figure in it but the last was
+              * already on screen: Y is the hero figure directly above, and X
+              * and Z are the two cells it sat under. So a reader met the same
+              * three numbers twice within about eighty pixels, and the one
+              * fact that was genuinely new arrived at the end of the second
+              * telling. `sub` is where a cell's own qualifier goes, so the
+              * share sits on the figure it is a share of and the restatement
+              * is gone.
+              */}
             <Score
               label="Of that, growth"
               value={show(result.totalInterest)}
+              sub={
+                result.futureValue > 0
+                  ? `${percent(safeDiv(result.totalInterest, result.futureValue), 0)} of the final number`
+                  : undefined
+              }
               explain="What growth at this rate would add on top of everything you put in. A projection, not money you have."
               valueClassName="text-gain"
             />
@@ -1344,16 +1513,6 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
               valueClassName="text-primary"
             />
           </Scoreboard>
-
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            You would put in {show(result.totalDeposited)} and end with{" "}
-            {show(result.futureValue)}, so growth would do{" "}
-            {show(result.totalInterest)} of the work
-            {result.futureValue > 0
-              ? `, which is ${percent(safeDiv(result.totalInterest, result.futureValue), 0)} of the final number`
-              : ""}
-            .
-          </p>
 
           <div>
             <MicroLabel>Where that money would come from</MicroLabel>
@@ -1428,7 +1587,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           style, layout and paint; this skips building them at all until
           the reader comes near.
         */}
-        <BelowFold reserve={560}>
+        <BelowFold reserve={560} className={PANEL_STACK}>
         <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
             title="Same money, four paths"
@@ -1483,11 +1642,34 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
                 ))}
               </ul>
             ) : null}
-            {clearedMilestones.length > 0 ? (
+            {laterMilestones.length > 0 ? (
               <details
                 className={cn(
                   "card-sheen glass-well rounded-lg",
                   upcomingMilestones.length > 0 && "mt-3"
+                )}
+              >
+                <summary className="cursor-pointer px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition hover:text-foreground">
+                  {laterMilestones.length} further out
+                </summary>
+                <ul className="divide-y divide-border border-t border-border">
+                  {laterMilestones.map((row) => (
+                    <MilestoneLadderRow
+                      key={row.goal}
+                      row={row}
+                      amount={show(row.goal)}
+                      onSetActual={setMilestoneActual}
+                    />
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+            {clearedMilestones.length > 0 ? (
+              <details
+                className={cn(
+                  "card-sheen glass-well rounded-lg",
+                  (upcomingMilestones.length > 0 || laterMilestones.length > 0) &&
+                    "mt-3"
                 )}
                 {...(upcomingMilestones.length === 0 ? { open: true } : {})}
               >
@@ -1512,14 +1694,29 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
             title="Any single year, in words"
+            subtitle="Pick a year."
           />
+          {/*
+            * The cells carry the number alone and the word "Year" is in the
+            * subtitle above them.
+            *
+            * A compact `Segmented` prices every cell at its longest label, so
+            * "Year 10" set the width of all of them: measured at 390px the
+            * row wrapped each cell onto two lines, reading "Year" over "1",
+            * and a control whose every cell is broken in half reads as a
+            * fault rather than as a picker. This is the same arithmetic this
+            * repo already records against the Playbook's "10 days" cells and
+            * against the circle's "Members · 15" tab, and it has the same
+            * answer: the unit belongs on the label above, not repeated inside
+            * each cell. `title` keeps the full wording for a pointer.
+            */}
           <Segmented
             ariaLabel="Year to read"
             columns={storyOpts.length}
             look="buttons"
             options={storyOpts.map((y) => ({
               id: String(y),
-              label: `Year ${y}`,
+              label: String(y),
               title:
                 tipping === y
                   ? `Year ${y}, growth takes over`
