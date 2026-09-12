@@ -390,9 +390,7 @@ export function RetirementSheet({
         }}
       />
 
-      {deep ? (
-        <PlanInputs inputs={inputs} patch={patch} portfolioValue={portfolioValue} />
-      ) : null}
+      {deep ? <PlanInputs inputs={inputs} patch={patch} /> : null}
 
       {/*
         The grid asks nothing and teaches the one thing a single answer
