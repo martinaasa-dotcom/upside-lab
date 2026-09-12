@@ -567,30 +567,57 @@ export function defaultInputs(regionId: string = DEFAULT_REGION_ID): RetirementI
   };
 }
 
-/** Move every money figure in the inputs onto a new region's prices. */
+/**
+ * Move every money figure in the inputs onto a new region's prices.
+ *
+ * A CHILD, A RENT, A MORTGAGE AND A CAR PAYMENT ARE PORTED ONLY WHILE THEY
+ * ARE STILL THIS APP'S OWN DEFAULT FOR THE OLD REGION.
+ *
+ * This used to overwrite all four unconditionally with the new region's
+ * anchor, which is right for a reader who never touched them and wrong for
+ * one who had typed their actual mortgage payment: switching country (or
+ * simply correcting a wrong first pick) silently replaced their own figure
+ * with a generic one, with nothing on screen saying so. That is exactly the
+ * mistake `retargetHousehold` was written to avoid for the pension and the
+ * spending figure, and it applies here for the same reason: a reader's own
+ * number is theirs, and a control for an unrelated thing has no business
+ * rewriting it.
+ */
 export function retargetRegion(
   inputs: RetirementInputs,
   regionId: string
 ): RetirementInputs {
+  const prev = regionById(inputs.regionId);
   const next = regionById(regionId);
   const fresh = defaultInputs(regionId);
   const wasStandard = inputs.spendingMode === "standard";
+  const mortgageUntouched =
+    inputs.mortgageAnnual ===
+    localiseFromGbp(prev, UK_COST_ANCHORS.mortgageAnnual);
+  const rentUntouched =
+    inputs.rentAnnual ===
+    localiseFromGbp(prev, UK_COST_ANCHORS.rentMonthly * 12);
+  const childUntouched =
+    inputs.childAnnualCost ===
+    localiseFromGbp(prev, UK_COST_ANCHORS.childAnnual);
+  const carUntouched =
+    inputs.carMonthly === localiseFromGbp(prev, UK_COST_ANCHORS.carMonthly);
   return {
     ...inputs,
     regionId: next.id,
     statePensionAnnual: statePensionFor(next, inputs.household),
     statePensionAge: next.statePensionAge,
     otherIncomeFromAge:
-      inputs.otherIncomeFromAge === regionById(inputs.regionId).statePensionAge
+      inputs.otherIncomeFromAge === prev.statePensionAge
         ? next.statePensionAge
         : inputs.otherIncomeFromAge,
     customAnnualSpend: wasStandard
       ? livingStandardFor(next, inputs.standard, inputs.household)
       : inputs.customAnnualSpend,
-    childAnnualCost: fresh.childAnnualCost,
-    rentAnnual: fresh.rentAnnual,
-    mortgageAnnual: fresh.mortgageAnnual,
-    carMonthly: fresh.carMonthly,
+    childAnnualCost: childUntouched ? fresh.childAnnualCost : inputs.childAnnualCost,
+    rentAnnual: rentUntouched ? fresh.rentAnnual : inputs.rentAnnual,
+    mortgageAnnual: mortgageUntouched ? fresh.mortgageAnnual : inputs.mortgageAnnual,
+    carMonthly: carUntouched ? fresh.carMonthly : inputs.carMonthly,
     /*
       What the reader already has and already saves is deliberately left
       alone. Those are their own figures in their own money, and silently
