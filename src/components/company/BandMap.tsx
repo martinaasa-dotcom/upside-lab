@@ -691,20 +691,16 @@ function Summary({ map, voice }: { map: Map; voice: Voice }) {
       />
       <Tile
         /*
-          Not "Ready to act on", which is what this said while the bands
-          were imperative. Once the table stopped telling anybody what to
-          do, a tile over it counting the things to do was the last place
-          the app still did, and the count is just as useful said as a
-          fact about where the prices are.
+          "At a plan's end" described where these names sit and made a
+          reader work out why that mattered. What this tile is actually
+          counting is `reachedTotal`, which is `isActionableBand` applied
+          to every holding: the names whose price has reached one of the
+          ends this app and the alerts already treat as worth a look,
+          never the ones sitting in the ordinary middle. Saying that
+          plainly is the fact, not an instruction: the count is unchanged,
+          only the label stopped making the reader translate it.
         */
-        /*
-          A LABEL THAT SHARES ITS LINE WITH A FIGURE IS PRICED BY THAT
-          LINE. "At an end of its plan" is 21 characters of mono caps,
-          which on a 326px phone row wrapped and left the word "plan"
-          alone under a figure reading "4 of 14". Three words say the
-          same thing and fit beside every value this tile can print.
-        */
-        label="At a plan's end"
+        label="Actionable"
         value={ready === 0 ? "None" : `${ready} of ${map.points.length}`}
         sub={
           ready === 0 && map.points.length === 1 && !voice.pooled
