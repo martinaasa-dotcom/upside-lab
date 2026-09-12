@@ -507,23 +507,43 @@ export function buildRecallCards(input: DeckInput): RecallCard[] {
 
   /* --------------------------------------- the arithmetic of one name */
 
-  if (top && totalValue > 0) {
-    // What a bad day for the largest holding alone does to the total. The
-    // arithmetic is the lesson: a fifth off the biggest name is not a fifth
-    // off the portfolio, and most people guess that it is.
-    const share = top.value / totalValue;
-    const hit = share * 0.2;
-    const rounded = Math.round(hit * 100);
-    const wrong = [Math.max(1, Math.round(rounded / 3)), 20, Math.min(95, rounded * 2 + 3)];
-    const answer = `about ${rounded}%`;
-    push(
-      `shock:${top.ticker}`,
-      "concentration",
-      `If ${named(top)} fell 20% tomorrow and nothing else moved, your whole portfolio would fall by about how much?`,
-      [answer, ...wrong.map((w) => `about ${w}%`)],
-      answer,
-      `${named(top)} is ${percent(share)} of what you own, so a fifth off it is about ${percent(hit)} off your total, which is ${money(hit * totalValue)}.`
-    );
+  if (totalValue > 0 && holdings.length >= 2) {
+    // What a bad day for one holding alone does to the total. The
+    // arithmetic is the lesson: a fifth off a holding is not a fifth off
+    // the portfolio, and most people guess that it is. Every holding worth
+    // asking about gets one of these, not only the biggest, or a reader
+    // meets the same ticker every time the roll lands on this kind.
+    for (const h of ranked) {
+      const share = h.value / totalValue;
+      if (share < 0.02) continue;
+      const hit = share * 0.2;
+      const rounded = Math.round(hit * 100);
+      // A holding just over the 2% floor can round to 0%, which reads as
+      // "nothing happens" to a question that opens on a 20% fall -- true,
+      // but the wrong kind of true for a multiple-choice answer. Below
+      // about a fortieth of the portfolio the lesson is better asked as a
+      // share, which the share-of-portfolio card already does.
+      if (rounded < 1) continue;
+      // Two of the three distractors are fixed numbers (a third of the
+      // answer, and a flat 20%), which only collide with the answer itself
+      // at rounded === 1 and rounded === 20 -- rare on the biggest holding
+      // this used to be pinned to, ordinary once every holding gets asked.
+      const third = Math.max(1, Math.round(rounded / 3));
+      const wrong = [
+        third === rounded ? third + 1 : third,
+        rounded === 20 ? 25 : 20,
+        Math.min(95, rounded * 2 + 3),
+      ];
+      const answer = `about ${rounded}%`;
+      push(
+        `shock:${h.ticker}`,
+        "concentration",
+        `If ${named(h)} fell 20% tomorrow and nothing else moved, your whole portfolio would fall by about how much?`,
+        [answer, ...wrong.map((w) => `about ${w}%`)],
+        answer,
+        `${named(h)} is ${percent(share)} of what you own, so a fifth off it is about ${percent(hit)} off your total, which is ${money(hit * totalValue)}.`
+      );
+    }
   }
 
   if (totalValue > 0 && holdings.length >= 2) {
@@ -531,11 +551,24 @@ export function buildRecallCards(input: DeckInput): RecallCard[] {
       const share = h.value / totalValue;
       if (share < 0.02) continue;
       const answer = pctWord(share);
+      // Two of the three distractors can land on the answer itself on a
+      // heavily concentrated holding: the doubled-and-capped distractor
+      // rounds to the same word as the answer once share is near the 95%
+      // cap, and the flat "about 100%" collides once share itself rounds
+      // to 100%. Nudge either aside rather than letting dedup quietly
+      // drop it to three options.
+      const doubled = pctWord(Math.min(0.95, share * 2));
+      const hundred = answer === "about 100%" ? "about 90%" : "about 100%";
       push(
         `double:${h.ticker}`,
         "what-if",
         `If ${named(h)} doubled overnight and nothing else moved, how much bigger would everything you own be?`,
-        [answer, pctWord(share / 2), "about 100%", pctWord(Math.min(0.95, share * 2))],
+        [
+          answer,
+          pctWord(share / 2),
+          hundred,
+          doubled === answer ? pctWord(Math.max(0, Math.min(0.95, share * 2) - 0.1)) : doubled,
+        ],
         answer,
         `A holding that doubles adds its own size to the total once more. ${named(h)} is ${percent(share)} of what you own, so the whole would grow by ${percent(share)}, which is ${money(h.value)}.`
       );
