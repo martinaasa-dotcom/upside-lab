@@ -519,7 +519,7 @@ export function buildPlanLadder(input: {
     anchor,
     anchorKind: typed ? "your-own" : input.anchorKind,
     anchorSaid: typed
-      ? `${currency(anchor, 2)}, which is the figure you typed. Every band is a multiple of it, so changing it moves the whole ladder at once.`
+      ? `${currency(anchor, 2)}, which is the figure you typed. Every zone is a multiple of it, so changing it moves the whole ladder at once.`
       : input.anchorSaid,
     step,
     stepSaid: said,
@@ -534,7 +534,7 @@ export function buildPlanLadder(input: {
     */
     floorSaid: floor.fromYear
       ? `${currency(floor.price, 2)}, the lowest it has actually traded over ${over}. Under that level the price is below anything the market has paid for it in that time, which is a fact you can check rather than a fraction of the estimate.`
-      : `${currency(floor.price, 2)}, which is ${percent(1 - exitAt, 0)} under the anchor. There was no low over ${over} sitting clear of the band above it, so this one is worked out from the anchor rather than read off a price the share has actually traded at.`,
+      : `${currency(floor.price, 2)}, which is ${percent(1 - exitAt, 0)} under the anchor. There was no low over ${over} sitting clear of the zone above it, so this one is worked out from the anchor rather than read off a price the share has actually traded at.`,
     bands,
     spot,
     atId: spot === null ? null : bandAt(bands, spot),
@@ -801,18 +801,18 @@ export function ladderMomentDetail(m: LadderMoment, code: string = "USD"): strin
   switch (m.bandId) {
     case "trim-most": {
       const gap = pct ? ` That is ${pct} above ${level}${changed}.` : "";
-      return `At ${spot} it has climbed into the band your ladder calls "${m.bandLabel}".${gap}${roi}${share}`;
+      return `At ${spot} it has climbed into the zone your ladder calls "${m.bandLabel}".${gap}${roi}${share}`;
     }
     case "full-aggressive": {
       const gap = pct ? ` That is ${pct} below ${level}${changed}.` : "";
-      return `At ${spot} it has fallen into the band your ladder calls "${m.bandLabel}".${gap}${roi}${share}`;
+      return `At ${spot} it has fallen into the zone your ladder calls "${m.bandLabel}".${gap}${roi}${share}`;
     }
     case "exit": {
       const gap = pct ? ` That is ${pct} under ${level}${changed}.` : "";
       return `At ${spot} it has fallen under the floor of its ladder.${gap} Below that level the estimates this ladder was built from stop describing the company you bought.${roi}${share}`;
     }
     default:
-      return `At ${spot} it is in the "${m.bandLabel}" band of ${level}${changed}.${share}`;
+      return `At ${spot} it is in the "${m.bandLabel}" zone of ${level}${changed}.${share}`;
   }
 }
 

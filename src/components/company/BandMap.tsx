@@ -319,7 +319,7 @@ function Block({
     <Link
       href={companyHref(point.ticker)}
       data-band-chip=""
-      title={`${cashtag(point.ticker)}: ${currency(point.spot, 2, code)}, ${percent(point.share, 1)} of ${voice.whose}, in the band ${voice.planWord} calls "${point.bandLabel}"`}
+      title={`${cashtag(point.ticker)}: ${currency(point.spot, 2, code)}, ${percent(point.share, 1)} of ${voice.whose}, in the zone ${voice.planWord} calls "${point.bandLabel}"`}
       className={cn(
         "flex min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-md border px-2",
         "border-border/60 bg-card font-mono text-xs tabular-nums text-foreground",
@@ -468,8 +468,25 @@ function Row({
     <div
       data-band-row=""
       className={cn(
-        "flex flex-col justify-center gap-2 border-b border-border/30 px-4 py-3 last:border-b-0",
+        /*
+          THE SAME MARK "YOUR PRICE LADDER" USES FOR THE ROW A PRICE IS
+          ACTUALLY IN, SPENT HERE ON THE ZONES WORTH NOTICING.
+
+          `PlanLadderTable` marks its current row with a left accent
+          edge rather than the zone wash alone, because a tint by itself
+          reads as decoration and a reader has to go looking for the row
+          that matters. The zones here carry the same problem for the
+          same reason: three of the six are where a plan says something
+          decisive (`band.actionable`, the same list the alerts and the
+          holdings map read), and without an edge of their own they sit
+          in the table looking exactly like the three that are the
+          ordinary case. The edge is there whether the zone has anybody
+          in it, because an actionable zone with nobody home is still
+          worth a reader knowing where it is on the ladder.
+        */
+        "flex flex-col justify-center gap-2 border-b border-l-2 border-border/30 px-4 py-3 last:border-b-0",
         "sm:flex-row sm:items-center sm:gap-4 sm:px-5 sm:py-0 lg:gap-6",
+        band.actionable ? "border-l-primary/60" : "border-l-transparent",
         filled ? zone.row : "bg-transparent"
       )}
       style={{ minHeight: wide ? ROW_H : PHONE_ROW_H }}
@@ -518,7 +535,7 @@ function Row({
           </span>
           <InfoTip
             label={`What does ${band.label.toLowerCase()} mean?`}
-            text={`${band.label}: ${bandRangeSaid(band, { direction: true })}. Every band is a slice of that company's own fair value, so the same band means the same thing on a $2 company and a $2,000 one. How wide a slice depends on how far that company usually travels, between 8% and 14%.`}
+            text={`${band.label}: ${bandRangeSaid(band, { direction: true })}. Every zone is a slice of that company's own fair value, so the same zone means the same thing on a $2 company and a $2,000 one. How wide a slice depends on how far that company usually travels, between 8% and 14%.`}
           />
         </span>
         {/* The share has its own column from `sm` up, so on a phone it
@@ -740,7 +757,7 @@ export function BandMap({
   rows,
   code = "USD",
   at,
-  title = "Where your holdings sit on their own ladders",
+  title = "Price Zones",
   pooled = false,
 }: {
   rows: Array<{
@@ -784,8 +801,8 @@ export function BandMap({
         }
         subtitle={
           pooled
-            ? "Everyone's holdings pooled into one company each, on its own price ladder. The bar is how much of the circle's money is in that band. What anybody paid stays theirs, so this says where a price sits and never who is up or down."
-            : "Every name on its own price ladder. The bar is how much of your money is in that band, and each block is one holding."
+            ? "Everyone's holdings pooled into one company each, on its own price ladder. The bar is how much of the circle's money is in that zone. What anybody paid stays theirs, so this says where a price sits and never who is up or down."
+            : "Every name on its own price ladder. The bar is how much of your money is in that zone, and each block is one holding."
         }
         icon={<MapIcon className="h-4 w-4" />}
       />
@@ -874,7 +891,7 @@ export function BandMap({
       )}
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        {"A band is a multiple of that company's own fair value, which is what makes two names comparable here. "}
+        {"A zone is a multiple of that company's own fair value, which is what makes two names comparable here. "}
         {/*
           The invitation has to be one somebody can accept. A circle's
           plan is nobody's to change, so telling a reader to change a
