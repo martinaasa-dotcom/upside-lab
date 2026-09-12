@@ -10,6 +10,10 @@ const labTabs = readFileSync(
   join(process.cwd(), "src/lib/lab-tabs.ts"),
   "utf8"
 );
+const dashboard = readFileSync(
+  join(process.cwd(), "src/components/Dashboard.tsx"),
+  "utf8"
+);
 const aboutYou = readFileSync(
   join(process.cwd(), "src/components/tour/AboutYouScreen.tsx"),
   "utf8"
@@ -67,6 +71,33 @@ describe("every Lab tab can be reached on a phone", () => {
     expect(component).toMatch(/mask-image:linear-gradient/);
     // And it scrolls the chosen tab into view, which the phone row never did.
     expect(component).toMatch(/scrollIntoView/);
+  });
+
+  it("offers every Lab deep link in the command palette", () => {
+    /*
+     * Adding a Lab tab with a deep link is three edits -- the `LabDeepLink`
+     * type, `INTENT_TO_TAB`, and the palette -- and AGENTS.md records that
+     * the first two fail loudly while the third fails silently. That is how
+     * the Playbook shipped unfindable by name in the one place a reader
+     * goes to look for a room by name.
+     *
+     * `INTENT_TO_TAB` is the list of deep links, keyed by the type, so a
+     * new one cannot be added without appearing here. Each must reach the
+     * palette, which is the only thing that calls `setLabIntent`.
+     */
+    const block = lab.slice(
+      lab.indexOf("const INTENT_TO_TAB"),
+      lab.indexOf("};", lab.indexOf("const INTENT_TO_TAB"))
+    );
+    const links = [...block.matchAll(/^\s*(\w+):/gm)].map((m) => m[1]!);
+    expect(links.length, "no Lab deep links found").toBeGreaterThan(0);
+    for (const link of links) {
+      expect(
+        dashboard,
+        `"${link}" is a Lab deep link with no way into it from the command ` +
+          `palette, which is where a reader looks for a room by name`
+      ).toContain(`setLabIntent("${link}")`);
+    }
   });
 
   it("offers Research and the Playbook at all", () => {

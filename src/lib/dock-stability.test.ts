@@ -31,6 +31,47 @@ function dockProps(): string {
 /** Props that change how many cells the row draws. */
 const WIDTH_PROPS = ["portfolios", "hiddenModeIds", "hideAdd", "guest"];
 
+/*
+  THE TWO DOCKS SAY THE SAME WORD FOR THE SAME ROOM.
+
+  `BookModeDock` keeps its own `MODES` list, because the wide bar and the
+  phone bar are different shapes: one carries a label and a cell per
+  portfolio, the other is glyph-only and ends on Circle. What must not
+  differ is the word. `BookModeDock`'s own comment says so -- "The labels
+  are the phone bar's: Home, Pulse, Lab, Growth, Circle" -- and nothing
+  held it, so a rename on either side would leave one dock calling a room
+  something the other does not.
+
+  The phone bar's `shortLabel` is the canonical word, since `DOCK_TABS`
+  carries both a long `label` ("Overview") and the short one the bars
+  actually print.
+*/
+describe("both docks call a room the same thing", () => {
+  const wide = readFileSync("src/components/BookModeDock.tsx", "utf8");
+  const phone = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");
+
+  it("uses the phone bar's short label for every section cell", () => {
+    const modes = wide.slice(wide.indexOf("const MODES = ["));
+    const labels = [
+      ...modes
+        .slice(0, modes.indexOf("] as const;"))
+        .matchAll(/label:\s*"([^"]+)"/g),
+    ].map((m) => m[1]!);
+    expect(labels.length, "no section labels found in BookModeDock").toBe(4);
+    const shortLabels = new Set(
+      [...phone.matchAll(/shortLabel:\s*"([^"]+)"/g)].map((m) => m[1]!)
+    );
+    expect(shortLabels.size, "no shortLabels found in MobileTabBar").toBeGreaterThan(0);
+    for (const label of labels) {
+      expect(
+        shortLabels.has(label),
+        `the wide dock calls a room "${label}" and the phone bar has no ` +
+          `cell by that name, so the two bars now disagree`
+      ).toBe(true);
+    }
+  });
+});
+
 describe("bottom dock width", () => {
   it("takes no width-determining prop from the route", () => {
     const props = dockProps();
