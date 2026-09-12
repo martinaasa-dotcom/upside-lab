@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import { BestDays } from "@/components/playbook/BestDays";
 import { IdeaDeck } from "@/components/playbook/IdeaDeck";
+import { PlaybookTerms } from "@/components/playbook/PlaybookTerms";
 import { RecoveryGap } from "@/components/playbook/RecoveryGap";
 import { TemperatureLadder } from "@/components/playbook/TemperatureLadder";
 import { bestDaysFromCloses } from "@/lib/market-temperature";
@@ -82,6 +83,26 @@ const SURFACES: Record<string, string> = {
     createElement(BestDays, { read })
   ),
   "the idea deck": renderToStaticMarkup(createElement(IdeaDeck)),
+  /*
+    NEITHER `IdeaDeck` NOR `TemperatureLadder` EVER OPENS A CARD IN A STATIC
+    RENDER, SO THE SURFACES ABOVE NEVER REACH `PlaybookTerms` AT ALL.
+
+    A card's body is mounted only once its `useState` flips to `open`, and
+    the ladder's own auto-open runs from a `useEffect`, which does not run
+    under `renderToStaticMarkup`. So every card in "the idea deck" and "the
+    ladder" above renders collapsed, and the words-you-can-tap row at the
+    foot of an opened body -- the one surface in this whole room whose job
+    is teaching a word -- had never once been rendered by this file's own
+    "render it and read it" check. Rendering it directly here is what
+    closes that gap, rather than trusting the two collapsed surfaces to
+    cover a component they structurally cannot reach.
+  */
+  "the tappable words on a card": renderToStaticMarkup(
+    createElement(PlaybookTerms, { terms: ["market", "recent-range"] })
+  ),
+  "the tappable words on a card naming one word": renderToStaticMarkup(
+    createElement(PlaybookTerms, { terms: ["compounding"] })
+  ),
 };
 
 describe("every sentence this room renders", () => {
@@ -131,5 +152,39 @@ describe("the ladder says whose number it is", () => {
     expect(text).toMatch(/has not landed yet/i);
     expect(text).not.toMatch(/\bRead \d/i);
     expect(text).not.toMatch(/out of 100 today/i);
+  });
+});
+
+/*
+  THE LABEL HAS TO SAY WHAT THE UNDERLINE DOES, NOT JUST NAME THE WORDS.
+
+  "Words on this one" named the row and left the dotted underline to
+  explain itself, which read as unexplained clutter rather than a control:
+  a reader who does not already know the underlined-word-you-can-look-up
+  convention has no way to learn it from that label. The label states the
+  action now, and both branches -- one word and several -- are checked
+  against the real markup rather than against the source string, since a
+  label that reads correctly in the file and wrong on screen is exactly
+  the class of fault this test file exists to catch.
+*/
+describe("the tappable words say what tapping one does", () => {
+  it("names the action for more than one word", () => {
+    const text = textOf(SURFACES["the tappable words on a card"]!);
+    expect(text).toMatch(/^Tap a word for what it means\b/);
+    expect(text).toContain("The market");
+    expect(text).toContain("Recent range");
+  });
+
+  it("names the action for exactly one word, and stays singular", () => {
+    const text = textOf(SURFACES["the tappable words on a card naming one word"]!);
+    expect(text).toMatch(/^Tap this word for what it means\b/);
+    expect(text).toContain("Compounding");
+  });
+
+  it("renders each word as something you can actually open", () => {
+    const markup = SURFACES["the tappable words on a card"]!;
+    expect(markup).toContain('aria-label="What this means: The market"');
+    expect(markup).toContain('aria-label="What this means: Recent range"');
+    expect(markup).toMatch(/data-slot="explain"[^>]*>The market</);
   });
 });
