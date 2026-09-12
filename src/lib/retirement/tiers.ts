@@ -239,19 +239,34 @@ export function layersRead(input: {
   bridgeYears?: number;
   /** Whether the plan is projected to fall short of its own target. */
   short?: boolean;
+  /**
+   * Which of the plan's two pictures this is. A first year and a settled
+   * year fail in different ways and the same sentence cannot cover both:
+   * a first year that will not fill is the years before a pension starts,
+   * and a settled year that will not fill is the rest of a life.
+   */
+  which?: "first" | "settled";
 }): string {
   const { current, worst, best } = input;
   const bridgeYears = Math.max(0, Math.round(finiteNumber(input.bridgeYears, 0)));
+  const first = input.which === "first";
+  const alone =
+    bridgeYears > 0
+      ? ", and until your pension starts the pot is paying for everything by itself"
+      : "";
 
   if (current.essentialsShort) {
-    return "At this return, even the bottom layer is not covered. That is the one situation a plan is built to avoid.";
+    return first
+      ? `At this return, even the bottom layer of your first year is not covered${alone}. That is the one situation a plan is built to avoid.`
+      : "At this return, even the bottom layer is not covered. That is the one situation a plan is built to avoid.";
   }
 
   const thin = best.slices.filter((s) => s.fill < 0.995);
   if (thin.length > 0) {
     const lowest = thin[0];
     const names = thin.map((s) => s.tier.label.toLowerCase()).join(", ");
-    return `Even a strong year leaves ${names} short of what this life costs, so what is missing there is the size of the plan rather than the market. ${lowest.tier.label} is the first layer it reaches.`;
+    const when = first ? "your first year" : "this life";
+    return `Even a strong year leaves ${names} short of what ${when} costs, so what is missing there is the size of the plan rather than the market. ${lowest.tier.label} is the first layer it reaches.`;
   }
 
   if (worst.essentialsShort) {
@@ -268,8 +283,8 @@ export function layersRead(input: {
     const stretch =
       bridgeYears === 1 ? "the year" : `the ${bridgeYears} years`;
     return input.short
-      ? `${covered} This is the settled year, though, and what your plan is short of is ${stretch} before that income starts, when the pot is paying for everything by itself.`
-      : `${covered} This is the settled year, and the pot's real work is ${stretch} before that income starts, when it pays for everything by itself.`;
+      ? `${covered} This is the settled year, though, and what your plan is short of is ${stretch} before that income starts, which is the other picture here.`
+      : `${covered} This is the settled year, and the pot's real work is ${stretch} before that income starts, which is the other picture here.`;
   }
 
   const essentials = current.slices[0];

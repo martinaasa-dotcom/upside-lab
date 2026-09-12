@@ -22,7 +22,13 @@
  * fixed one, which is the failure this panel is arguing against.
  */
 
-import { CARD, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
+import {
+  CARD,
+  MicroLabel,
+  Panel,
+  PanelHeader,
+  Segmented,
+} from "@/components/ui/Panel";
 import { Slider } from "@/components/ui/slider";
 import { cn, currency } from "@/lib/format";
 import {
@@ -32,7 +38,12 @@ import {
   layersRead,
   MARKET_YEARS,
 } from "@/lib/retirement/tiers";
-import { settledCapital, type PlanResult } from "@/lib/retirement/plan";
+import {
+  firstYearDiffers,
+  firstYearDraw,
+  settledDraw,
+  type PlanResult,
+} from "@/lib/retirement/plan";
 import { Button } from "@/components/ui/button";
 import { SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -65,52 +76,71 @@ const MAX_BAR_PX = 180;
 const MIN_FUNDED_PX = 34;
 const EMPTY_BAR_PX = 6;
 
+type Picture = "first" | "settled";
+
 export function FlexiblePanel({ plan }: { plan: PlanResult }) {
   const [returnPct, setReturnPct] = useState(5);
   const code = plan.currency;
-  const rate = plan.required.swr.ratePct;
 
   /*
-    THE POT BEHIND THIS PICTURE IS THE READER'S OWN, NEVER THE ONE THE
-    PLAN SAYS THEY NEED.
+    TWO PICTURES, AND WHICH ONE A READER MOST NEEDS DEPENDS ON THEIR PLAN.
 
-    It used to be `required.lifelongPot`, which is the capital a settled
-    year needs and therefore, drawn at the average return, reproduces
-    that year's whole bill exactly. Every reader was handed a fully
-    funded stack by construction. A couple projected to reach a third of
-    their target still filled every layer, and the slider, the one
-    control on the panel, could only take the top off a stack that had
-    no business being full in the first place. `settledCapital` reads
-    the same decomposition against what the reader is actually projected
-    to have: the temporary years are paid for first and whatever is left
-    is what the settled year lives on forever. Somebody on target sees
-    what they always saw; somebody short cannot fill the top; somebody
-    ahead has money over, which stays invested.
+    This panel drew the settled year and only the settled year, on the
+    sound argument that it is the one year describing the rest of a life
+    rather than a stretch of it. What that missed is that for anybody
+    stopping before their pension starts it is also the one year of their
+    retirement that is NOT at risk: a couple who stop at fifty can be
+    three hundred thousand short of their own target and still watch the
+    settled picture pay for every luxury on the stack, because by then
+    two pensions have started and everything temporary has ended. The
+    arithmetic was right and the reading a person took from it was that
+    the slider was broken.
+
+    So the years that differ get a picture each. The first year is
+    offered first when there is one, because it is the year the shortfall
+    actually lands in, and the settled year is a press away and still
+    says what it always said. A plan whose first year is its settled year
+    (stopping the day the pension starts, nothing temporary left on the
+    bill) gets no choice at all, since two identical pictures behind a
+    control is a control that does nothing.
   */
-  const pot = settledCapital(plan);
+  const hasTwo = firstYearDiffers(plan);
+  const [picture, setPicture] = useState<Picture>(hasTwo ? "first" : "settled");
+  const showing: Picture = hasTwo ? picture : "settled";
+
+  const settled = plan.years.length > 0 ? plan.years[plan.years.length - 1] : null;
+  const opening = plan.years.length > 0 ? plan.years[0] : null;
+  const shown = showing === "first" ? opening : settled;
 
   /*
-    The settled year, not the first one. By the last year of the plan every
-    pension has started and everything temporary has ended, so it is the
-    one year that describes the rest of a life rather than a stretch of it.
-
-    Spending here is the WHOLE bill, with guaranteed income shown as the
-    part of it the market cannot reach, rather than the net figure the pot
-    has to find. A reader's essentials are a share of what they spend; a
+    Spending is the WHOLE bill, with guaranteed income shown as the part
+    of it the market cannot reach, rather than the net figure the pot has
+    to find. A reader's essentials are a share of what they spend; a
     panel that made them a share of what the POT provides would hide the
     single most reassuring fact on the page, which is that a pension
     already covers most of the bottom layer.
   */
-  const settled = plan.years.length > 0 ? plan.years[plan.years.length - 1] : null;
-  const spend = settled ? settled.spend : plan.firstYearFromPot;
-  const guaranteed = settled ? settled.income : 0;
+  const spend = shown ? shown.spend : plan.firstYearFromPot;
+  const guaranteed = shown ? shown.income : 0;
+
+  /*
+    A settled year is a forever question and a first year is a scheduled
+    one, so they are drawn on different arithmetic. `plan.ts` holds both
+    and says why; either way what decides the answer is the pot the
+    reader is actually projected to have rather than the one the plan
+    says they need.
+  */
+  const draw = showing === "first" ? firstYearDraw(plan) : settledDraw(plan);
+  const pot = draw.pot;
+  const rate = draw.ratePct;
   const earlyYears = Math.max(0, plan.required.temporaryPot);
+  const stopAge = opening ? opening.age : plan.planningAge;
 
   /*
     How long the pot pays for everything on its own. A reader who stops
     at the age their pension starts has none of these; a reader who stops
     at fifty has seventeen, and those are the years their plan is short
-    in, whatever this settled year looks like.
+    in, whatever the settled year looks like.
   */
   const bridgeYears = plan.years.filter((y) => y.income <= 0).length;
 
@@ -135,8 +165,9 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
         best: yearAt(BEST_RETURN_PCT),
         bridgeYears,
         short: plan.gap > 0,
+        which: showing,
       }),
-    [year, yearAt, bridgeYears, plan.gap]
+    [year, yearAt, bridgeYears, plan.gap, showing]
   );
 
   /*
@@ -153,6 +184,28 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
         title="What a bad year actually costs you"
         subtitle="Your spending in layers. The bottom is paid whatever the market does; the rest is what you would actually cut."
       />
+
+      {hasTwo ? (
+        <Segmented<Picture>
+          value={showing}
+          onChange={setPicture}
+          columns={2}
+          ariaLabel="Which year of your retirement"
+          options={[
+            /*
+              MEASURED, NOT CHOSEN. A segmented cell is priced by the
+              longest label in the row, so this pair sets the width of
+              both. Rendered with the app's own compiled CSS and real
+              Geist at 360, 390, 430, 820 and 1280, "Your first year, at
+              50" wrapped to three lines on a phone (61px against the
+              44px touch floor) and took "Once it settles" to two with
+              it. This pair measures 44px at every one of those widths.
+            */
+            { id: "first", label: `First year, at ${stopAge}` },
+            { id: "settled", label: "Once it settles" },
+          ]}
+        />
+      ) : null}
 
       <div
         className={cn(CARD, "flex flex-col gap-2 p-4")}
@@ -244,7 +297,26 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
           between that and what the settled year lives on.
         */}
         <p className="text-center text-xs text-muted-foreground">
-          {pot > 0.5 ? (
+          {showing === "first" ? (
+            pot > 0.5 ? (
+              <>
+                Drawn on the{" "}
+                <span className="font-mono tabular-nums">
+                  {currency(pot, 0, code)}
+                </span>{" "}
+                you are projected to have at {stopAge}, against the{" "}
+                <span className="font-mono tabular-nums">
+                  {currency(plan.required.target, 0, code)}
+                </span>{" "}
+                this plan needs by then.
+              </>
+            ) : (
+              <>
+                You are projected to have nothing invested by {stopAge}, so
+                everything above is guaranteed income.
+              </>
+            )
+          ) : pot > 0.5 ? (
             <>
               Drawn on the{" "}
               <span className="font-mono tabular-nums">{currency(pot, 0, code)}</span>{" "}

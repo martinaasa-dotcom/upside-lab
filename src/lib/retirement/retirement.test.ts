@@ -49,7 +49,10 @@ import {
   yearAt,
   retargetRegion,
   retargetStandard,
+  firstYearDiffers,
+  firstYearDraw,
   settledCapital,
+  settledDraw,
   type RetirementInputs,
 } from "@/lib/retirement/plan";
 import { buildMilestones } from "@/lib/retirement/milestones";
@@ -841,6 +844,162 @@ describe("the layers are drawn on the pot the reader will have, not the one they
       projectedPot: plan.required.target,
     };
     expect(settledCapital(onTarget)).toBeCloseTo(plan.required.lifelongPot, 4);
+  });
+});
+
+describe("the first year of a retirement is its own picture", () => {
+  /*
+    THE FAULT THE SETTLED YEAR COULD NOT SHOW.
+
+    The panel drew the settled (last) year and nothing else, which for
+    anybody stopping before their pension starts is the one year of their
+    retirement that is NOT at risk: by then every pension has started and
+    everything temporary has ended. A couple stopping at 50 could be three
+    hundred thousand short and still watch every layer fill at any setting
+    of the slider, because their shortfall lives entirely in the years the
+    picture refused to look at.
+
+    A first year is a different financial question and needs different
+    arithmetic. It is not a forever draw judged at a safe rate: that
+    stretch is what `temporaryPot` is sized to spend down, so judging it at
+    a safe rate would tell a perfectly funded early retiree their first
+    year is broken.
+  */
+  function earlyRetiree(over: Partial<RetirementInputs> = {}) {
+    return buildPlan(
+      subject({
+        retirementAge: 50,
+        currentPot: 40_000,
+        annualContribution: 2_000,
+        ...over,
+      }),
+      PLAN_AGE
+    );
+  }
+
+  it("offers two pictures only when the first year is a different year", () => {
+    expect(firstYearDiffers(earlyRetiree())).toBe(true);
+
+    // Stops the day the pension starts, with nothing temporary left on
+    // the bill: one year repeated, and a control between two identical
+    // pictures is a control that does nothing.
+    const plain = buildPlan(
+      subject({
+        retirementAge: 67,
+        statePensionAge: 67,
+        housing: "owned",
+        children: [],
+        carMonthly: 0,
+        carForever: false,
+        carYearsLeft: 0,
+      }),
+      PLAN_AGE
+    );
+    expect(firstYearDiffers(plain)).toBe(false);
+  });
+
+  it("hands the first year its own share of its own bill, not a safe rate", () => {
+    const plan = earlyRetiree();
+    const draw = firstYearDraw(plan);
+    expect(draw.pot).toBeCloseTo(plan.projectedPot, 6);
+    // The rate is the year's scheduled need as a share of the target, so
+    // pot times rate is that need scaled by how funded the reader is.
+    expect((draw.pot * draw.ratePct) / 100).toBeCloseTo(
+      plan.firstYearFromPot * (plan.projectedPot / plan.required.target),
+      2
+    );
+    // And it is nothing like the safe rate, which is the whole point.
+    expect(draw.ratePct).toBeGreaterThan(settledDraw(plan).ratePct);
+  });
+
+  it("a funded early retiree's first year fills, which is the guard against the obvious wrong fix", () => {
+    /*
+      Judging a bridge year at the safe withdrawal rate reads as the
+      careful thing to do and would tell somebody with exactly the pot
+      their own plan asks for that they cannot afford their first year.
+    */
+    const plan = earlyRetiree();
+    const onTarget = { ...plan, projectedPot: plan.required.target };
+    const draw = firstYearDraw(onTarget);
+    const first = onTarget.years[0];
+    const year = flexibleYear({
+      pot: draw.pot,
+      annualSpend: first.spend,
+      guaranteedIncome: first.income,
+      withdrawalRatePct: draw.ratePct,
+      marketReturnPct: 0,
+      tiers: DEFAULT_TIERS,
+    });
+    expect(year.spend).toBeCloseTo(first.spend, 2);
+    for (const slice of year.slices) expect(slice.fill).toBeCloseTo(1, 4);
+  });
+
+  it("and a short one's first year does not, even where the settled year is paid for outright", () => {
+    // A pension that covers the whole settled bill on its own: the shape
+    // that made the old panel look broken.
+    const plan = earlyRetiree({
+      statePensionAnnual: 60_000,
+      currentPot: 10_000,
+      annualContribution: 0,
+    });
+    const settled = plan.years[plan.years.length - 1];
+    expect(settled.income).toBeGreaterThan(settled.spend);
+    expect(plan.gap).toBeGreaterThan(0);
+
+    const settledYear = flexibleYear({
+      pot: settledDraw(plan).pot,
+      annualSpend: settled.spend,
+      guaranteedIncome: settled.income,
+      withdrawalRatePct: settledDraw(plan).ratePct,
+      marketReturnPct: -25,
+      tiers: DEFAULT_TIERS,
+    });
+    // Nothing the market does reaches the settled year, and that is true.
+    for (const slice of settledYear.slices) expect(slice.fill).toBeCloseTo(1, 4);
+
+    const draw = firstYearDraw(plan);
+    const first = plan.years[0];
+    expect(first.income).toBe(0);
+    const firstYear = flexibleYear({
+      pot: draw.pot,
+      annualSpend: first.spend,
+      guaranteedIncome: first.income,
+      withdrawalRatePct: draw.ratePct,
+      marketReturnPct: 5,
+      tiers: DEFAULT_TIERS,
+    });
+    expect(firstYear.spend).toBeLessThan(first.spend);
+    expect(firstYear.slices[firstYear.slices.length - 1].fill).toBe(0);
+  });
+
+  it("says which year it is talking about", () => {
+    const plan = earlyRetiree({
+      statePensionAnnual: 60_000,
+      currentPot: 10_000,
+      annualContribution: 0,
+    });
+    const draw = firstYearDraw(plan);
+    const first = plan.years[0];
+    const at = (marketReturnPct: number) =>
+      flexibleYear({
+        pot: draw.pot,
+        annualSpend: first.spend,
+        guaranteedIncome: first.income,
+        withdrawalRatePct: draw.ratePct,
+        marketReturnPct,
+        tiers: DEFAULT_TIERS,
+      });
+    const read = layersRead({
+      current: at(5),
+      worst: at(-40),
+      best: at(35),
+      bridgeYears: 17,
+      short: true,
+      which: "first",
+    });
+    expect(read).toMatch(/your first year/i);
+    expect(read).toMatch(/until your pension starts/i);
+    expect(read).not.toMatch(/settled/i);
   });
 });
 

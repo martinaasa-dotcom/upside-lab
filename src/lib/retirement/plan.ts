@@ -66,6 +66,7 @@ import {
   type Sex,
 } from "@/lib/retirement/longevity";
 import {
+  impliedFirstYearRate,
   safeWithdrawalRate,
   type SwrBreakdown,
 } from "@/lib/retirement/swr";
@@ -576,6 +577,74 @@ export function settledCapital(plan: PlanResult): number {
   const projected = Math.max(0, finiteNumber(plan.projectedPot, 0));
   const temporary = Math.max(0, finiteNumber(plan.required.temporaryPot, 0));
   return Math.max(0, projected - temporary);
+}
+
+/**
+ * WHAT ONE YEAR OF THE PLAN MAY DRAW, AS A POT AND A RATE ON IT.
+ *
+ * The two pictures the spending-layers panel can show are two genuinely
+ * different financial questions and they need two different arithmetics.
+ * Answering both with one would be wrong whichever one was picked.
+ *
+ * A SETTLED YEAR IS A FOREVER QUESTION, so it is the safe withdrawal rate
+ * applied to the capital that is still working after the early years are
+ * paid for. That is `settledCapital` above.
+ *
+ * A FIRST YEAR IS NOT. Somebody who stops at fifty with a pension
+ * starting at sixty-seven is MEANT to draw far more than a safe rate for
+ * those seventeen years: that stretch is exactly what `temporaryPot` is
+ * sized to pay for, and it is spent down on purpose rather than
+ * preserved. Judging it at the safe rate would tell a perfectly funded
+ * early retiree their first year is broken, which is the same class of
+ * error as judging the settled year against the whole target.
+ *
+ * So a first year is a SCHEDULED draw, and what decides whether the
+ * reader can afford it is how much of the target they actually have.
+ * `impliedFirstYearRate` states the year's own need as a percentage of
+ * the pot the plan says is needed; applied to the pot the reader is
+ * projected to have, it hands that year the same share of its bill as
+ * they hold of their target. A reader exactly on target draws their whole
+ * first year. A reader at a fifth of it draws a fifth, which is the true
+ * and unwelcome answer the settled picture cannot give.
+ */
+export type PlanYearDraw = {
+  /** The pot this year draws on. */
+  pot: number;
+  /** The percentage of it the year is scheduled to take. */
+  ratePct: number;
+};
+
+export function settledDraw(plan: PlanResult): PlanYearDraw {
+  return { pot: settledCapital(plan), ratePct: plan.required.swr.ratePct };
+}
+
+export function firstYearDraw(plan: PlanResult): PlanYearDraw {
+  return {
+    pot: Math.max(0, finiteNumber(plan.projectedPot, 0)),
+    ratePct: impliedFirstYearRate(plan.firstYearFromPot, plan.required.target),
+  };
+}
+
+/**
+ * Whether the first year of this plan is a different year from the
+ * settled one, which is what decides whether the panel has two pictures
+ * to offer or one.
+ *
+ * A mortgage still running, children not yet grown, or a pension that has
+ * not started all make the first year cost or earn something the settled
+ * year does not. Somebody who stops the day their pension starts with
+ * nothing temporary left on the bill has one year repeated, and offering
+ * them a choice between two identical pictures is a control that does
+ * nothing.
+ */
+export function firstYearDiffers(plan: PlanResult): boolean {
+  if (plan.years.length < 2) return false;
+  const first = plan.years[0];
+  const settled = plan.years[plan.years.length - 1];
+  return (
+    Math.abs(first.spend - settled.spend) > 1 ||
+    Math.abs(first.income - settled.income) > 1
+  );
 }
 
 /** Sensible opening inputs for a region, before the reader touches anything. */
