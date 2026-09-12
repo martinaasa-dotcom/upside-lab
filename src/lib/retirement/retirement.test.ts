@@ -53,7 +53,9 @@ import { retirementProvenance } from "@/lib/provenance";
 import {
   REGIONS,
   livingStandardFor,
+  localiseFromGbp,
   regionById,
+  UK_COST_ANCHORS,
   UK_LIVING_STANDARDS,
 } from "@/lib/retirement/regions";
 
@@ -557,6 +559,21 @@ describe("where you live", () => {
     const ch = livingStandardFor(regionById("CH"), "moderate", "single");
     const gbInChf = UK_LIVING_STANDARDS.moderate.single * regionById("CH").perGbp;
     expect(ch).toBeGreaterThan(gbInChf * 1.3);
+  });
+
+  it("rounds a small anchor as tightly as the figure it came from", () => {
+    /*
+      The UK's own car payment anchor is GBP 380. Ported onto the UK's own
+      prices (priceLevel 100, perGbp 1) that is a no-op, so the field's
+      default should be exactly the figure the note beside it names. A flat
+      round-to-the-nearest-hundred moved it to 400, printing two different
+      numbers for the same anchor a few inches apart on the page.
+    */
+    expect(localiseFromGbp(regionById("GB"), UK_COST_ANCHORS.carMonthly)).toBe(
+      UK_COST_ANCHORS.carMonthly
+    );
+    // A five-figure living standard still rounds to the nearest hundred.
+    expect(livingStandardFor(regionById("GB"), "minimum", "single") % 100).toBe(0);
   });
 
   it("carries the reader's own money across a change of country untouched", () => {

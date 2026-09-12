@@ -539,7 +539,7 @@ export function defaultInputs(regionId: string = DEFAULT_REGION_ID): RetirementI
     standard: "moderate",
     customAnnualSpend: livingStandardFor(region, "moderate", "single"),
     housing: "mortgage",
-    mortgageAnnual: localiseFromGbp(region, 12_000),
+    mortgageAnnual: localiseFromGbp(region, UK_COST_ANCHORS.mortgageAnnual),
     mortgageYearsLeft: 20,
     rentAnnual: localiseFromGbp(region, UK_COST_ANCHORS.rentMonthly * 12),
     children: [],
