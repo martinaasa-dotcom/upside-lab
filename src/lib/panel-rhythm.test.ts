@@ -80,6 +80,39 @@ const ALLOWED_STACKS = new Map<string, string>([
 ]);
 
 describe("a room's stack of panels uses the one shared rhythm", () => {
+  /*
+    A JSX comment between the gap div and its first `<Panel>` used to hide
+    the offender from this guard entirely: `lines[i + 1]` was read literally,
+    so a `{/* Hero KPI Summary *\/}` line (ordinary in this codebase, which
+    comments heavily) meant neither the `<Panel` check nor the `&&` check
+    matched, and the scan moved on as if the container held nothing of
+    interest. That is exactly the shape the compound room's own
+    `gap-4` section shipped in -- comment, then `<Panel>` -- and it passed
+    this test the whole time. Skip comment and blank lines when looking for
+    the next real line, the same way `panelBlocks` below already does.
+  */
+  /** The next non-comment, non-blank line at or after `from`, and its index. */
+  function nextRealLine(
+    lines: string[],
+    from: number
+  ): { at: number; line: string } | null {
+    let inComment = false;
+    for (let k = from; k < lines.length && k < from + 20; k++) {
+      const trimmed = (lines[k] ?? "").trim();
+      if (inComment) {
+        if (/\*\/\}?\s*$/.test(trimmed)) inComment = false;
+        continue;
+      }
+      if (!trimmed) continue;
+      if (/^\{?\/\*/.test(trimmed)) {
+        if (!/\*\/\}?\s*$/.test(trimmed)) inComment = true;
+        continue;
+      }
+      return { at: k, line: trimmed };
+    }
+    return null;
+  }
+
   const offenders: string[] = [];
   for (const file of sourceFiles("src")) {
     if (ALLOWED_STACKS.has(file)) continue;
@@ -87,10 +120,17 @@ describe("a room's stack of panels uses the one shared rhythm", () => {
     lines.forEach((line, i) => {
       // A container that sets its own vertical gap ...
       if (!/className=(?:\{cn\()?["`][^"`]*\b(?:flex flex-col|grid)\b[^"`]*\bgap-[\d.]/.test(line)) return;
-      // ... whose very next JSX element is a <Panel>.
-      const next = lines.slice(i + 1, i + 3).join(" ");
-      if (!/^\s*<Panel[\s>]/.test(lines[i + 1] ?? "") && !/^\s*\{[^}]*&&\s*\(?\s*$/.test(lines[i + 1] ?? "")) return;
-      if (!/<Panel[\s>]/.test(next)) return;
+      // ... whose next real JSX element (comments and blank lines skipped)
+      // is a <Panel>, or opens on a conditional that leads to one.
+      const first = nextRealLine(lines, i + 1);
+      if (!first) return;
+      const isPanel = /^<Panel[\s>]/.test(first.line);
+      const isConditional = /^\{[^}]*&&\s*\(?\s*$/.test(first.line);
+      if (!isPanel && !isConditional) return;
+      if (!isPanel) {
+        const second = nextRealLine(lines, first.at + 1);
+        if (!second || !/^<Panel[\s>]/.test(second.line)) return;
+      }
       offenders.push(`${file}:${i + 1}  ${line.trim().slice(0, 80)}`);
     });
   }

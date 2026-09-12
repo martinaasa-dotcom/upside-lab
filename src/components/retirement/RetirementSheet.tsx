@@ -38,6 +38,7 @@ import { LongevityPanel } from "@/components/retirement/LongevityPanel";
 import { NumberPanel } from "@/components/retirement/NumberPanel";
 import { PlanInputs } from "@/components/retirement/PlanInputs";
 import { StandingPanel } from "@/components/retirement/StandingPanel";
+import { PANEL_STACK } from "@/components/ui/Panel";
 import { retirementProvenance } from "@/lib/provenance";
 import { assessLongevity, e65For } from "@/lib/retirement/longevity";
 import { buildMilestones } from "@/lib/retirement/milestones";
@@ -192,7 +193,7 @@ export function RetirementSheet({
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={PANEL_STACK}>
       <NumberPanel
         inputs={inputs}
         patch={patch}
