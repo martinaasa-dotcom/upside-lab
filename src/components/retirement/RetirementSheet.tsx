@@ -45,17 +45,20 @@
  * WHICH IS A DIFFERENT RULE FROM THE ONE ABOVE AND HAD BEEN QUIETLY BROKEN.
  * "Answer, question, then lessons" said nothing about where a panel that
  * both asks and teaches belongs, so `LongevityPanel` (a chart plus, at a
- * deeper level, three dials), `BridgePanel` and `AssumptionsPanel` had all
- * drifted to the foot of the page, under the grid, under the ladder, under
- * the spending layers. A reader who opened "Everything" to correct their
- * own mix or their own bridge years was editing a figure the table above it
- * had already been drawn from, with no way to see the table react without
- * scrolling back up. Nothing that can `patch()` the plan may sit after
- * `GridPanel` now: `PlanInputs`, `LongevityPanel`, `BridgePanel` and
- * `AssumptionsPanel` all moved above it, in that order, so the table, the
+ * deeper level, three dials), `BridgePanel` and the old `AssumptionsPanel`
+ * had all drifted to the foot of the page, under the grid, under the
+ * ladder, under the spending layers. A reader who opened "Everything" to
+ * correct their own mix or their own bridge years was editing a figure the
+ * table above it had already been drawn from, with no way to see the table
+ * react without scrolling back up. Nothing that can `patch()` the plan may
+ * sit after `GridPanel` now: `PlanInputs`, `ReturnsPanel`, `LongevityPanel`
+ * and `BridgePanel` all moved above it, in that order, so the table, the
  * ladder and the spending layers are the last three things on the page
  * whatever the detail level. `StandingPanel` and `FlexiblePanel` read the
- * plan and answer; neither writes to it, so both stay put.
+ * plan and answer; neither writes to it, so both stay put. `AssumptionsPanel`
+ * is documentation rather than a lever now (its levers moved into
+ * `ReturnsPanel`; see that file), so it stays folded near the foot of this
+ * group, at "Everything" only.
  *
  * THE HONEST COST OF THAT IS A TABLE THAT CAN SIT SEVERAL SCREENS DOWN AT
  * THE DEEPEST LEVEL, since opening "More" or "Everything" now pushes every
@@ -94,7 +97,10 @@
 
 import { BelowFold } from "@/components/BelowFold";
 import { QuickStart } from "@/components/retirement/QuickStart";
-import { AssumptionsPanel } from "@/components/retirement/AssumptionsPanel";
+import {
+  AssumptionsPanel,
+  ReturnsPanel,
+} from "@/components/retirement/AssumptionsPanel";
 import { BridgePanel } from "@/components/retirement/BridgePanel";
 import { FlexiblePanel } from "@/components/retirement/FlexiblePanel";
 import { GridPanel } from "@/components/retirement/GridPanel";
@@ -117,7 +123,11 @@ import {
   regionById,
   UK_STANDARDS_SOURCE,
 } from "@/lib/retirement/regions";
-import { portfolioRealReturnPct, RETURNS_SOURCE } from "@/lib/retirement/returns";
+import {
+  portfolioRealReturnPct,
+  REAL_RETURN_ASSUMPTIONS,
+  RETURNS_SOURCE,
+} from "@/lib/retirement/returns";
 import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
 import {
   atLeast,
@@ -355,6 +365,34 @@ export function RetirementSheet({
     return portfolioRealReturnPct(tickerValues, bookCash);
   }, [tickerValues, bookCash]);
 
+  /*
+    WHAT THE MONEY EARNS DEFAULTS TO THE READER'S OWN BLEND, ONCE ONE IS
+    AVAILABLE.
+
+    Every template opens on the audited world index, on purpose (see
+    `templates.ts`: two lives should differ in their circumstances, not in
+    which market assumption they happen to carry). But most readers arrive
+    with a portfolio already, and "what would my own holdings have earned"
+    is a better first guess than a global average for somebody deciding
+    whether to trust the number at all. So this runs once, the same shape
+    as the pot pre-fill above: only while the plan is still sitting on the
+    untouched world-index default, and only once a blended rate has
+    actually arrived, which can be a tick after the stored plan resolves.
+    A reader who has typed their own figure, or pressed "World index" on
+    purpose, is never overwritten.
+  */
+  const appliedDefaultRateRef = useRef(false);
+  useEffect(() => {
+    if (!restored || appliedDefaultRateRef.current) return;
+    if (portfolioRatePct == null) return;
+    appliedDefaultRateRef.current = true;
+    setInputs((prev) =>
+      Math.abs(prev.returns.equityPct - REAL_RETURN_ASSUMPTIONS.equityPct) < 0.05
+        ? { ...prev, returns: { ...prev.returns, equityPct: portfolioRatePct } }
+        : prev
+    );
+  }, [restored, portfolioRatePct]);
+
   const patch = useCallback(
     (next: Partial<RetirementInputs>) =>
       setInputs((prev) => ({ ...prev, ...next })),
@@ -488,6 +526,7 @@ export function RetirementSheet({
         onDetailChange={changeDetail}
         templateId={templateId}
         onTemplate={applyTemplate}
+        portfolioRatePct={portfolioRatePct}
         result={{
           target: plan.required.target,
           earliestAge: earliest ? earliest.age : null,
@@ -496,16 +535,25 @@ export function RetirementSheet({
 
       {/*
         EVERY PANEL BELOW THIS POINT AND ABOVE THE RESULTS TABLE CAN CHANGE
-        THE PLAN. `PlanInputs`, the survival curve's own dials, the bridge
-        pot and the return assumptions used to be split either side of
+        THE PLAN. `PlanInputs`, the return assumptions, the survival curve's
+        own dials and the bridge pot used to be split either side of
         `GridPanel`, so correcting one of them sometimes moved the table
         and sometimes moved nothing you could see without scrolling back
         down past it. None of them may sit after the table now, whatever
         the detail level, so a reader who opens a deeper level always
         finds the thing they are about to change directly above the
         numbers it feeds, never buried under them.
+
+        `ReturnsPanel` sits right after `PlanInputs` for the reason it used
+        to sit right before the grid when the grid still had a fold of its
+        own: `QuickStart`'s own toggle above already answers the common
+        case for every reader, simple or not, so this is only reached by
+        somebody who opened "More" to correct the exact figures or a mix
+        that shifts more than twice over a life.
       */}
       {deep ? <PlanInputs inputs={inputs} patch={patch} /> : null}
+
+      {deep ? <ReturnsPanel inputs={inputs} patch={patch} /> : null}
 
       <LongevityPanel
         inputs={inputs}
@@ -523,11 +571,7 @@ export function RetirementSheet({
 
       {everything ? (
         <BelowFold reserve={560}>
-          <AssumptionsPanel
-            inputs={inputs}
-            patch={patch}
-            portfolioRatePct={portfolioRatePct}
-          />
+          <AssumptionsPanel inputs={inputs} />
         </BelowFold>
       ) : null}
 

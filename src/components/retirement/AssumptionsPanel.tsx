@@ -3,11 +3,27 @@
 /**
  * EVERY NUMBER THE ANSWER RESTS ON, NAMED, SOURCED, AND EDITABLE.
  *
- * This panel is at the foot of the page and it is the reason the rest of it
- * can be trusted. A retirement figure is the output of a dozen assumptions,
- * and a calculator that hides them is asking to be believed rather than
- * checked. Everything here is a real lever: change the equity return and the
- * headline moves while you watch.
+ * `ReturnsPanel` is the one below shown at the "more" detail level, right
+ * after the essentials and before the tables that use it. It used to be two
+ * panels — a row of flat rate fields, then a second panel for the glide —
+ * sitting at the very foot of the page, after the grid, the milestones, the
+ * spending layers and the survival curve had all already been drawn using
+ * whatever these fields happened to hold. That is backwards: the mix is an
+ * input to everything below it, not a footnote after it, and two panels for
+ * one question (what does the money earn, at what age) read as two separate
+ * decisions when the glide's own per-band figure is that first question
+ * answered again for a specific age. They are one panel now.
+ *
+ * A SEPARATE, QUICKER VERSION OF THE FIRST QUESTION LIVES IN `QuickStart`,
+ * VISIBLE EVEN AT THE SIMPLEST LEVEL. Almost every reader either wants the
+ * world index or wants what their own holdings have usually done, and that
+ * choice is answered with two presets right under the templates, before this
+ * panel is ever opened, defaulting to the reader's own blend once one is
+ * available (see `RetirementSheet`'s rate pre-fill). This panel is for
+ * whoever wants the exact figure, bonds and fees typed in on their own terms,
+ * or a mix that shifts more than twice over a life, so its own preset row for
+ * the same two choices is gone: printing it twice is scaffolding, and the
+ * quicker version is answered before this one is ever on the page.
  *
  * THE MIX IS BANDS OF YOUR LIFE, NOT ONE NUMBER. A person who is all shares
  * at 31 and half bonds at 70 is not earning one average return, and the
@@ -25,8 +41,7 @@
  */
 
 import { Button } from "@/components/ui/button";
-import { CARD, MicroLabel, Panel, PANEL_STACK, PanelHeader } from "@/components/ui/Panel";
-import { COMPOUND_INFLATION_ANNUAL_PCT } from "@/lib/compound-play";
+import { CARD, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
 import {
   CountField,
   FIELD_GRID,
@@ -48,20 +63,13 @@ import { FX_REFERENCE_MONTH, regionById, UK_COST_ANCHORS } from "@/lib/retiremen
 import type { RetirementInputs } from "@/lib/retirement/plan";
 import { SlidersVertical } from "lucide-react";
 
-export function AssumptionsPanel({
+export function ReturnsPanel({
   inputs,
   patch,
-  portfolioRatePct,
 }: {
   inputs: RetirementInputs;
   patch: (next: Partial<RetirementInputs>) => void;
-  /**
-   * The same blended growth rate Compound's "Your rate" preset shows for
-   * these holdings, turned real. Null when there is nothing to blend.
-   */
-  portfolioRatePct: number | null;
 }) {
-  const region = regionById(inputs.regionId);
   const sorted = [...inputs.glide].sort((a, b) => a.fromAge - b.fromAge);
 
   const setSegment = (index: number, next: Partial<GlideSegment>) =>
@@ -70,93 +78,64 @@ export function AssumptionsPanel({
     });
 
   return (
-    <div className={PANEL_STACK}>
-      <Panel>
-        <PanelHeader
-          icon={<SlidersVertical className="h-4 w-4" />}
-          title="What the money earns"
-          subtitle="Real returns, after inflation. That is why there is no separate inflation field."
+    <Panel>
+      <PanelHeader
+        icon={<SlidersVertical className="h-4 w-4" />}
+        title="What the money earns"
+        subtitle="Real returns, after inflation, and how much of it is in shares by age. That is why there is no separate inflation field."
+      />
+
+      <div className={FIELD_GRID}>
+        <PercentField
+          label="Global shares, a year"
+          value={inputs.returns.equityPct}
+          onChange={(equityPct) => patch({ returns: { ...inputs.returns, equityPct } })}
+          note="The world index, not just America's. The quick toggle above sets this too."
         />
-        <div className={FIELD_GRID}>
-          <PercentField
-            label="Global shares, a year"
-            value={inputs.returns.equityPct}
-            onChange={(equityPct) => patch({ returns: { ...inputs.returns, equityPct } })}
-            note="The world index, not just America's."
-          />
-          <PercentField
-            label="Government bonds, a year"
-            value={inputs.returns.bondPct}
-            onChange={(bondPct) => patch({ returns: { ...inputs.returns, bondPct } })}
-          />
-          <PercentField
-            label="Cash, a year"
-            value={inputs.returns.cashPct}
-            onChange={(cashPct) => patch({ returns: { ...inputs.returns, cashPct } })}
-            note={`Used only when nothing is invested. ${CAUTIOUS_CASH_REAL_PCT}% is the cautious assumption; ${REAL_RETURN_ASSUMPTIONS.cashPct}% is the long run average.`}
-          />
-          <PercentField
-            label="What you are charged, a year"
-            value={inputs.returns.feePct}
-            onChange={(feePct) => patch({ returns: { ...inputs.returns, feePct } })}
-            note="Platform and funds together. Over forty years, the gap between a cheap tracker and an expensive fund is most of a decade of retirement."
-          />
-        </div>
-        {portfolioRatePct != null ? (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                patch({
-                  returns: {
-                    ...inputs.returns,
-                    equityPct: REAL_RETURN_ASSUMPTIONS.equityPct,
-                  },
-                })
-              }
-            >
-              The world index, {REAL_RETURN_ASSUMPTIONS.equityPct}%
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                patch({ returns: { ...inputs.returns, equityPct: portfolioRatePct } })
-              }
-            >
-              What your own holdings blend to, {portfolioRatePct.toFixed(1)}%
-            </Button>
-          </div>
-        ) : null}
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          {RETURNS_SOURCE}
-          {portfolioRatePct != null
-            ? ` The second button is what your own holdings blend to, turned real by taking off ${COMPOUND_INFLATION_ANNUAL_PCT}% assumed inflation. Treat it as optimistic rather than a safe planning assumption.`
-            : ""}
+        <PercentField
+          label="Government bonds, a year"
+          value={inputs.returns.bondPct}
+          onChange={(bondPct) => patch({ returns: { ...inputs.returns, bondPct } })}
+        />
+        <PercentField
+          label="Cash, a year"
+          value={inputs.returns.cashPct}
+          onChange={(cashPct) => patch({ returns: { ...inputs.returns, cashPct } })}
+          note={`Used only when nothing is invested. ${CAUTIOUS_CASH_REAL_PCT}% is the cautious assumption; ${REAL_RETURN_ASSUMPTIONS.cashPct}% is the long run average.`}
+        />
+        <PercentField
+          label="What you are charged, a year"
+          value={inputs.returns.feePct}
+          onChange={(feePct) => patch({ returns: { ...inputs.returns, feePct } })}
+          note="Platform and funds together. Over forty years, the gap between a cheap tracker and an expensive fund is most of a decade of retirement."
+        />
+      </div>
+      <p className="text-xs leading-relaxed text-muted-foreground">{RETURNS_SOURCE}</p>
+
+      {/*
+        THE MIX, IN THE SAME PANEL AS WHAT IT MULTIPLIES. It used to open a
+        second `PanelHeader` of its own, with its own title and subtitle,
+        for a question that is the one above answered again per age band —
+        two headings for one subject. A `MicroLabel` says which part of the
+        panel this is without restating the whole thing.
+      */}
+      <div className="flex flex-col gap-3">
+        <MicroLabel>Your mix, by age</MicroLabel>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Share of shares, by age. Everything else is bonds.
         </p>
-      </Panel>
+        {/*
+          A band is a bordered block with its two fields side by side and
+          its reading on a row of its own.
 
-      <Panel>
-        <PanelHeader
-          icon={<SlidersVertical className="h-4 w-4" />}
-          title="Your mix, by age"
-          subtitle="Share of shares, by age. Everything else is bonds."
-        />
+          As one wrapping flex row this collapsed on a phone: the two
+          fields each took the full width, and the reading and the remove
+          button ended up on separate lines at different baselines, so
+          three bands read as nine unrelated controls with no way to tell
+          which age went with which share. Two columns hold at 390px
+          because both fields are short.
+        */}
         <div className={cn(CARD, "flex flex-col gap-3 p-4")}>
-          {/*
-            A band is a bordered block with its two fields side by side and
-            its reading on a row of its own.
-
-            As one wrapping flex row this collapsed on a phone: the two
-            fields each took the full width, and the reading and the remove
-            button ended up on separate lines at different baselines, so
-            three bands read as nine unrelated controls with no way to tell
-            which age went with which share. Two columns hold at 390px
-            because both fields are short.
-          */}
           {sorted.map((seg, i) => (
             <div
               key={`${seg.fromAge}-${i}`}
@@ -254,7 +233,7 @@ export function AssumptionsPanel({
                   grid's cash column does and from the same constant. Left at
                   the long run 0.9% average, this preset answered a different
                   question from the table two panels down and came out
-                  needing less than investing. The field below is still the
+                  needing less than investing. The field above is still the
                   reader's if they want the average back.
                 */
                 patch({
@@ -285,67 +264,77 @@ export function AssumptionsPanel({
           </span>
           . A pot that has to last forty years cannot sit in cash.
         </p>
-      </Panel>
+      </div>
+    </Panel>
+  );
+}
 
-      <Panel>
-        <PanelHeader
-          icon={<SlidersVertical className="h-4 w-4" />}
-          title="Where the reference figures came from"
-          subtitle="Approximate, a year or two old, and every one is a field you can overwrite above."
-        />
-        <div className={cn(CARD, "flex flex-col gap-3 p-4 text-sm")}>
-          <div>
-            <MicroLabel>The living standards</MicroLabel>
-            <p className="mt-1 leading-relaxed text-muted-foreground">
-              A published UK basket, moved onto {region.name}&apos;s prices at
-              a comparative price level of{" "}
-              <span className="font-mono tabular-nums text-foreground">
-                {region.priceLevel}
-              </span>{" "}
-              (UK = 100), at a fixed exchange rate from {FX_REFERENCE_MONTH}.
-            </p>
-          </div>
-          <div>
-            <MicroLabel>The state pension</MicroLabel>
-            <p className="mt-1 leading-relaxed text-muted-foreground">
-              {region.statePensionSource}, starting at{" "}
-              <span className="font-mono tabular-nums text-foreground">
-                {region.statePensionAge}
-              </span>
-              .{" "}
-              {region.privatePensionAge != null ? (
-                <>
-                  A private or workplace pension there cannot be touched
-                  before{" "}
-                  <span className="font-mono tabular-nums text-foreground">
-                    {region.privatePensionAge}
-                  </span>
-                  .
-                </>
-              ) : null}{" "}
-              Use your own statement if you have one.
-            </p>
-          </div>
-          <div>
-            <MicroLabel>The mortgage, child and car figures</MicroLabel>
-            <p className="mt-1 leading-relaxed text-muted-foreground">
-              UK figures ({UK_COST_ANCHORS.mortgageSource.toLowerCase()} and{" "}
-              {UK_COST_ANCHORS.carSource.toLowerCase()} for the mortgage and
-              car, the Child Poverty Action Group&apos;s Cost of a Child study
-              for a child), moved onto {region.name}&apos;s prices and scaled
-              to the standard you pick. Type your own figure and it stays.
-            </p>
-          </div>
-          <div>
-            <MicroLabel>How long the money lasts</MicroLabel>
-            <p className="mt-1 leading-relaxed text-muted-foreground">
-              A survival curve fitted to the published life expectancy at 65
-              for {region.name}. Both the rate and the planning age are
-              controls further up.
-            </p>
-          </div>
+/**
+ * WHERE THE REFERENCE FIGURES CAME FROM. The one part of the old assumptions
+ * panel that is documentation rather than a lever, so it stays at the
+ * `everything` level, further down the page than `ReturnsPanel`.
+ */
+export function AssumptionsPanel({ inputs }: { inputs: RetirementInputs }) {
+  const region = regionById(inputs.regionId);
+  return (
+    <Panel>
+      <PanelHeader
+        icon={<SlidersVertical className="h-4 w-4" />}
+        title="Where the reference figures came from"
+        subtitle="Approximate, a year or two old, and every one is a field you can overwrite above."
+      />
+      <div className={cn(CARD, "flex flex-col gap-3 p-4 text-sm")}>
+        <div>
+          <MicroLabel>The living standards</MicroLabel>
+          <p className="mt-1 leading-relaxed text-muted-foreground">
+            A published UK basket, moved onto {region.name}&apos;s prices at
+            a comparative price level of{" "}
+            <span className="font-mono tabular-nums text-foreground">
+              {region.priceLevel}
+            </span>{" "}
+            (UK = 100), at a fixed exchange rate from {FX_REFERENCE_MONTH}.
+          </p>
         </div>
-      </Panel>
-    </div>
+        <div>
+          <MicroLabel>The state pension</MicroLabel>
+          <p className="mt-1 leading-relaxed text-muted-foreground">
+            {region.statePensionSource}, starting at{" "}
+            <span className="font-mono tabular-nums text-foreground">
+              {region.statePensionAge}
+            </span>
+            .{" "}
+            {region.privatePensionAge != null ? (
+              <>
+                A private or workplace pension there cannot be touched
+                before{" "}
+                <span className="font-mono tabular-nums text-foreground">
+                  {region.privatePensionAge}
+                </span>
+                .
+              </>
+            ) : null}{" "}
+            Use your own statement if you have one.
+          </p>
+        </div>
+        <div>
+          <MicroLabel>The mortgage, child and car figures</MicroLabel>
+          <p className="mt-1 leading-relaxed text-muted-foreground">
+            UK figures ({UK_COST_ANCHORS.mortgageSource.toLowerCase()} and{" "}
+            {UK_COST_ANCHORS.carSource.toLowerCase()} for the mortgage and
+            car, the Child Poverty Action Group&apos;s Cost of a Child study
+            for a child), moved onto {region.name}&apos;s prices and scaled
+            to the standard you pick. Type your own figure and it stays.
+          </p>
+        </div>
+        <div>
+          <MicroLabel>How long the money lasts</MicroLabel>
+          <p className="mt-1 leading-relaxed text-muted-foreground">
+            A survival curve fitted to the published life expectancy at 65
+            for {region.name}. Both the rate and the planning age are
+            controls further up.
+          </p>
+        </div>
+      </div>
+    </Panel>
   );
 }
