@@ -42,7 +42,7 @@ export const DETAIL_LABEL: Record<RetirementDetail, string> = {
 /** What pressing this level actually puts on the page, in one line. */
 export const DETAIL_BLURB: Record<RetirementDetail, string> = {
   simple:
-    "The eight figures above, and every answer this page can give. Nothing else to fill in.",
+    "The figures on this card, and every answer this page can give. Nothing else to fill in.",
   more:
     "Adds your home, your children, a car, pensions, and how long the money has to last.",
   everything:

@@ -1,0 +1,130 @@
+import { describe, expect, it } from "vitest";
+import { planExtras, planExtrasSentence } from "@/lib/retirement/summary";
+import { defaultInputs } from "@/lib/retirement/plan";
+import { templateById, templateInputs } from "@/lib/retirement/templates";
+
+const money = (n: number) => `£${Math.round(n).toLocaleString("en-GB")}`;
+
+/*
+  THE ONE THING THE DETAIL LEVELS COULD QUIETLY BREAK.
+
+  Folding away the CONTROL for a cost is the whole point of the simple
+  level. Folding away the FACT that the cost exists is this repository's
+  oldest rule broken: the reader is then arguing with a figure whose inputs
+  they cannot see. Every cost and every income in the plan that is not one
+  of the eight figures on the first card has to reach this sentence.
+*/
+describe("what else is in the plan", () => {
+  it("names a mortgage with its end, and rent as never ending", () => {
+    const base = defaultInputs("GB");
+    const mortgage = planExtras(
+      { ...base, housing: "mortgage", mortgageAnnual: 12_000, mortgageYearsLeft: 11 },
+      money
+    );
+    expect(mortgage.join(" ")).toContain("11 years left");
+
+    const renting = planExtras(
+      { ...base, housing: "renting", rentAnnual: 13_200 },
+      money
+    );
+    /*
+      Rent never ending is the whole reason it is asked apart from a
+      mortgage, and it is the largest line a renting reader carries.
+    */
+    expect(renting.join(" ")).toContain("never ends");
+  });
+
+  it("counts children, and says how old they stop being expensive", () => {
+    const base = defaultInputs("GB");
+    const one = planExtras(
+      { ...base, children: [{ id: "a", age: 4 }], childAnnualCost: 9_200 },
+      money
+    );
+    expect(one[0]).toContain("one child");
+    expect(one[0]).toContain("until they are 18");
+
+    const two = planExtras(
+      {
+        ...base,
+        children: [
+          { id: "a", age: 8 },
+          { id: "b", age: 5 },
+        ],
+        childAnnualCost: 9_200,
+      },
+      money
+    );
+    expect(two[0]).toContain("2 children");
+  });
+
+  it("tells a car that ends from one that does not", () => {
+    const base = defaultInputs("GB");
+    const ending = planExtras({ ...base, carMonthly: 300, carYearsLeft: 3 }, money);
+    expect(ending[0]).toContain("3 more years");
+    const forever = planExtras({ ...base, carMonthly: 300, carForever: true }, money);
+    expect(forever[0]).toContain("never ends");
+  });
+
+  it("names the state pension, which is the most under-counted figure here", () => {
+    const base = defaultInputs("GB");
+    expect(planExtras(base, money).join(" ")).toContain("state pension");
+    expect(
+      planExtras({ ...base, includeStatePension: false }, money).join(" ")
+    ).not.toContain("state pension");
+  });
+
+  it("says nothing at all rather than saying there is nothing", () => {
+    const bare = {
+      ...defaultInputs("GB"),
+      includeStatePension: false,
+      housing: "owned" as const,
+      carMonthly: 0,
+      otherSavings: 0,
+      otherIncomeAnnual: 0,
+      withdrawalTaxPct: 0,
+      children: [],
+    };
+    expect(planExtras(bare, money)).toEqual([]);
+    expect(planExtrasSentence(bare, money)).toBeNull();
+  });
+
+  it("reads as English with one item and with several", () => {
+    const base = defaultInputs("GB");
+    const one = planExtrasSentence(base, money);
+    expect(one).toMatch(/^This plan also counts /);
+    expect(one).not.toContain(" and ");
+
+    const many = planExtrasSentence(
+      {
+        ...base,
+        housing: "mortgage",
+        mortgageAnnual: 12_000,
+        mortgageYearsLeft: 11,
+        children: [{ id: "a", age: 8 }],
+        childAnnualCost: 9_200,
+        carMonthly: 300,
+      },
+      money
+    );
+    expect(many).toContain(" and ");
+    /* One list, one separator: no dash, and no stranded comma before "and". */
+    expect(many).not.toMatch(/,\s+and\b/);
+  });
+
+  it("surfaces everything the family template quietly filled in", () => {
+    const family = templateById("family-years");
+    const said = planExtrasSentence(
+      templateInputs(family!, "GB"),
+      money
+    );
+    /*
+      The template presses in a mortgage, two children and a car in one
+      press. A reader who cannot see any of that on the simple level is
+      reading a pot with three invisible costs inside it.
+    */
+    expect(said).toContain("mortgage");
+    expect(said).toContain("2 children");
+    expect(said).toContain("car payment");
+    expect(said).toContain("state pension");
+  });
+});

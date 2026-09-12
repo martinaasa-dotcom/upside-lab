@@ -7,6 +7,7 @@ import { LongevityPanel } from "@/components/retirement/LongevityPanel";
 import { NumberPanel } from "@/components/retirement/NumberPanel";
 import { assessLongevity } from "@/lib/retirement/longevity";
 import { buildPlan, defaultInputs, planningAgeFor } from "@/lib/retirement/plan";
+import { templateById, templateInputs } from "@/lib/retirement/templates";
 import { regionById, UK_STANDARDS_SOURCE } from "@/lib/retirement/regions";
 import { RETURNS_SOURCE } from "@/lib/retirement/returns";
 import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
@@ -53,6 +54,16 @@ describe("the retirement room, as somebody new meets it", () => {
   const markup = roomMarkup();
   const body = text(markup);
 
+  it("answers before it asks, which is this room's own oldest rule", () => {
+    /*
+      Measured at 390 on the first draft: eight template cards and six
+      fields put the headline figure 2,103px down, three screens on the
+      device most readers arrive on. The panel that answers comes first.
+    */
+    expect(body.indexOf("Your number")).toBeGreaterThan(-1);
+    expect(body.indexOf("Your number")).toBeLessThan(body.indexOf("Start here"));
+  });
+
   it("opens on the templates and the essentials", () => {
     expect(body).toContain("Start here");
     expect(body).toContain("Pick a starting point");
@@ -72,6 +83,19 @@ describe("the retirement room, as somebody new meets it", () => {
     expect(body).not.toContain("How the withdrawal rate was built");
   });
 
+  it("keeps the two deep panels behind their fold", () => {
+    /*
+      Measured at 390 in the app's own CSS: the grid begins at 2,747px and
+      the spending layers at 6,010, against a fold at 800, and rendering
+      both eagerly took the room from 360 elements to 532. #250 could
+      correctly drop these wrappers on its own order, where the grid sat
+      second; the card that asks now sits between, so the offset is not the
+      same offset. Absent from this markup is the fold working.
+    */
+    expect(body).not.toContain("What a bad year actually costs you");
+    expect(body).not.toContain("What stopping at each age costs");
+  });
+
   it("still answers, which is the whole point of withholding the inputs", () => {
     expect(body).toContain("What you need");
     expect(body).toContain("Your number");
@@ -82,7 +106,9 @@ describe("the retirement room, as somebody new meets it", () => {
 
   it("says out loud where the rest of it went", () => {
     expect(body).toContain("How much of it you want to see");
-    expect(body).toContain("Show me the other dials");
+    expect(body).toContain("Everything");
+    /* The level control says what it adds, so nothing has to be pressed to find out. */
+    expect(body).toContain("Nothing else to fill in");
   });
 });
 
@@ -198,17 +224,22 @@ describe("the survival curve", () => {
 });
 
 describe("the card a reader pressed", () => {
-  function quickStart(templateId: RetirementTemplateId | null): string {
+  function quickStart(
+    templateId: RetirementTemplateId | null,
+    detail: RetirementDetail = "simple",
+    inputs = defaultInputs("GB")
+  ): string {
     return renderToStaticMarkup(
       createElement(QuickStart, {
-        inputs: defaultInputs("GB"),
+        inputs,
         patch: () => {},
         replace: () => {},
         portfolioValue: null,
-        detail: "simple" as RetirementDetail,
+        detail,
         onDetailChange: () => {},
         templateId,
         onTemplate: () => {},
+        result: { target: 697_067, earliestAge: 68 },
       })
     );
   }
@@ -233,8 +264,67 @@ describe("the card a reader pressed", () => {
 
   it("says whose figures are on the page once one is pressed", () => {
     expect(text(quickStart("family-years"))).toContain(
-      "worked from the Family years figures"
+      "worked from the Family years plan"
     );
     expect(text(quickStart(null))).not.toContain("worked from the");
+  });
+});
+
+/*
+  Folding away the CONTROL for a cost is the point of the simple level.
+  Folding away the FACT that the cost exists is not: the reader would be
+  arguing with a figure whose inputs are nowhere on the page.
+*/
+describe("nothing in the plan is invisible", () => {
+  function quick(detail: RetirementDetail, inputs = defaultInputs("GB")): string {
+    return renderToStaticMarkup(
+      createElement(QuickStart, {
+        inputs,
+        patch: () => {},
+        replace: () => {},
+        portfolioValue: null,
+        detail,
+        onDetailChange: () => {},
+        templateId: null,
+        onTemplate: () => {},
+        result: { target: 697_067, earliestAge: 68 },
+      })
+    );
+  }
+
+  it("says what else is in the plan when the panels that say it are absent", () => {
+    const family = templateInputs(templateById("family-years")!, "GB");
+    const body = text(quick("simple", family));
+    expect(body).toContain("This plan also counts");
+    expect(body).toContain("mortgage");
+    expect(body).toContain("2 children");
+    expect(body).toContain("car payment");
+    expect(body).toContain("Change any of it");
+  });
+
+  it("stops saying it once the panels that say it are on the page", () => {
+    const family = templateInputs(templateById("family-years")!, "GB");
+    /* At `more` the plan inputs render in full, so this would be twice. */
+    expect(text(quick("more", family))).not.toContain("This plan also counts");
+  });
+
+  it("gives a reader's own spending figure a field rather than a signpost", () => {
+    const mine = {
+      ...defaultInputs("GB"),
+      spendingMode: "custom" as const,
+      customAnnualSpend: 27_000,
+    };
+    const body = text(quick("simple", mine));
+    /*
+      It used to say "further down", which at this level named nothing: the
+      figure was in the headline, uneditable, with the three baskets beside
+      it apparently switched off for no visible reason.
+    */
+    expect(body).not.toContain("further down");
+    expect(body).toContain("Your own figure, a year");
+  });
+
+  it("leaves the baskets alone when one of them is chosen", () => {
+    expect(text(quick("simple"))).not.toContain("Your own figure, a year");
   });
 });

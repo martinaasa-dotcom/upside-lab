@@ -26,6 +26,25 @@
  * level is remembered. See `detail.ts` for why that is not the withholding
  * this repository argues against.
  *
+ * THE ORDER IS ANSWER, QUESTION, THEN LESSONS, AND #250's ARGUMENT FOR IT
+ * IS FOLDED IN HERE. Two sessions reached this room at once with the same
+ * complaint and different halves of the answer, which this repository
+ * already warns is the dangerous shape: two sound changes that merge
+ * cleanly and disagree. #250's reasoning was that the grid ("what stopping
+ * at each age costs") is the one table that turns a single answer into a
+ * lesson about the shape of the problem, and that it and the number are the
+ * only two panels honest on defaults nobody has touched, because neither
+ * compares the target against what the reader actually holds. `Standing`
+ * cannot: on a pot of zero it says "you have nothing, short by £697,067",
+ * which is not a lesson but an alarming statement about somebody who has
+ * not been asked anything yet.
+ *
+ * BOTH HALVES SURVIVE AND THE SECOND FAULT IS FIXED TWICE OVER. The grid,
+ * the spending layers and the survival curve sit high, in that ranking,
+ * because they answer without asking. And the zero pot never reaches
+ * `Standing`, both because the card that asks comes before it and because
+ * the room opens on a template rather than on zeroes at all.
+ *
  * THE POT IS PRE-FILLED FROM WHAT THEY ACTUALLY HOLD, and that is the one
  * thing this module can do that a spreadsheet cannot. Offered rather than
  * written in, because a portfolio is not necessarily retirement money and
@@ -251,6 +270,23 @@ export function RetirementSheet({
 
   return (
     <div className="flex flex-col gap-6">
+      {/*
+        THE ANSWER IS STILL FIRST, which is this room's own oldest rule and
+        the one the first draft of the quick-start card broke: measured at
+        390, eight template cards and six fields put the headline figure
+        2,103px down, which is three screens on the device most readers
+        arrive on. The card that asks comes second, and carries its own
+        one-line result so a press still changes something on the screen
+        the press happened on.
+      */}
+      <NumberPanel
+        inputs={inputs}
+        patch={patch}
+        plan={plan}
+        provenance={provenance}
+        detail={detail}
+      />
+
       <QuickStart
         inputs={inputs}
         patch={patch}
@@ -260,35 +296,34 @@ export function RetirementSheet({
         onDetailChange={changeDetail}
         templateId={templateId}
         onTemplate={setTemplateId}
-      />
-
-      <NumberPanel
-        inputs={inputs}
-        patch={patch}
-        plan={plan}
-        provenance={provenance}
-        detail={detail}
-      />
-
-      <StandingPanel
-        inputs={inputs}
-        plan={plan}
-        milestones={milestones}
-        earliest={earliest}
+        result={{
+          target: plan.required.target,
+          earliestAge: earliest ? earliest.age : null,
+        }}
       />
 
       {deep ? (
         <PlanInputs inputs={inputs} patch={patch} portfolioValue={portfolioValue} />
       ) : null}
 
-      <LongevityPanel
-        inputs={inputs}
-        patch={patch}
-        result={longevity}
-        planningAge={planningAge}
-        showControls={deep}
-      />
+      {/*
+        The grid asks nothing and teaches the one thing a single answer
+        cannot, so it leads the panels that follow the question.
 
+        IT KEEPS ITS FOLD, AND THAT IS WHERE THIS ORDER PARTS FROM #250.
+        That change put the grid second, right under the number, and took
+        the wrapper off on the sound argument that a section starting at
+        the fold gets nothing from a wrapper whose lead is a whole screen.
+        The card that asks now sits between them, so the offset is not the
+        same offset: measured at 390 in the app's own CSS, the grid begins
+        at 2,747px and the spending layers at 6,010, against a fold at 800,
+        and rendering both eagerly took the room from 360 elements to 532.
+        The rule for a fold is the offset, and on this order both are three
+        screens and seven screens down. The reserves stay deliberately
+        short of the measured 1,001px and 1,142px, because a short reserve
+        only settles the scrollbar where a long one is the empty block the
+        deferral rule forbids.
+      */}
       <BelowFold reserve={520}>
         <GridPanel
           inputs={inputs}
@@ -299,9 +334,24 @@ export function RetirementSheet({
         />
       </BelowFold>
 
+      <StandingPanel
+        inputs={inputs}
+        plan={plan}
+        milestones={milestones}
+        earliest={earliest}
+      />
+
       <BelowFold reserve={480}>
         <FlexiblePanel plan={plan} />
       </BelowFold>
+
+      <LongevityPanel
+        inputs={inputs}
+        patch={patch}
+        result={longevity}
+        planningAge={planningAge}
+        showControls={deep}
+      />
 
       {deep ? (
         <BelowFold reserve={420}>

@@ -29,7 +29,6 @@
  * the thing that looks too simple, not after scrolling past six panels.
  */
 
-import { Button } from "@/components/ui/button";
 import {
   CARD,
   MicroLabel,
@@ -77,6 +76,7 @@ import {
   templateInputs,
   type RetirementTemplateId,
 } from "@/lib/retirement/templates";
+import { planExtrasSentence, quickResultLine } from "@/lib/retirement/summary";
 import { Rocket, SlidersHorizontal } from "lucide-react";
 import { useId } from "react";
 
@@ -91,6 +91,7 @@ export function QuickStart({
   onDetailChange,
   templateId,
   onTemplate,
+  result,
 }: {
   inputs: RetirementInputs;
   patch: Patch;
@@ -101,6 +102,8 @@ export function QuickStart({
   onDetailChange: (next: RetirementDetail) => void;
   templateId: RetirementTemplateId | null;
   onTemplate: (id: RetirementTemplateId) => void;
+  /** What this plan currently needs, so a press changes something here. */
+  result: { target: number; earliestAge: number | null };
 }) {
   const region = regionById(inputs.regionId);
   const code = currencyCodeFor(region.currency);
@@ -109,18 +112,36 @@ export function QuickStart({
   const standardNow =
     inputs.spendingMode === "standard" ? inputs.standard : null;
   const chosen = templateById(templateId);
+  /*
+    Everything in the plan that costs or pays money and is not one of the
+    eight figures on this card. At the deeper levels the panels below say
+    all of it in full, so printing it twice would be scaffolding; at
+    `simple` those panels are not on the page and the reader would
+    otherwise be arguing with a figure whose inputs they cannot see.
+  */
+  const extras =
+    detail === "simple"
+      ? planExtrasSentence(inputs, (n) => currency(n, 0, region.currency))
+      : null;
 
   return (
     <Panel>
       <PanelHeader
         icon={<Rocket className="h-4 w-4" />}
         title="Start here"
-        subtitle="Press the life that looks most like yours and the whole plan fills in. Then correct the few figures that are actually yours. Everything below is the answer, and none of it needs anything else from you."
+        subtitle="Press the life that looks most like yours and the whole plan fills in. Then correct the few figures that are actually yours. Every other panel on this page is an answer, and none of them needs anything else from you."
       />
 
       <div className="flex flex-col gap-3">
         <MicroLabel>Pick a starting point</MicroLabel>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {/*
+            Two up on a phone, not one. Measured at 390: eight cards in a
+            single column is 840px of templates on its own, which put the
+            headline figure three screens down on the one device most
+            readers arrive on. Two columns halve it and the blurb still
+            reads, which is what makes a card pressable without trying it.
+          */}
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           {RETIREMENT_TEMPLATES.map((template) => {
             const on = template.id === templateId;
             return (
@@ -158,14 +179,22 @@ export function QuickStart({
             );
           })}
         </div>
+        <p className="text-sm leading-relaxed text-foreground">
+          {quickResultLine({
+            target: result.target,
+            retirementAge: inputs.retirementAge,
+            earliestAge: result.earliestAge,
+            money: (n) => currency(n, 0, region.currency),
+          })}
+        </p>
         <p className="text-xs leading-relaxed text-muted-foreground">
           {chosen ? (
             <>
-              Everything below is worked from the{" "}
-              <span className="text-foreground">{chosen.label}</span> figures
-              until you change them, and they are a plausible life rather than
-              a guess about yours. Correct the six below and the answers follow
-              you.
+              Every figure on this page is worked from the{" "}
+              <span className="text-foreground">{chosen.label}</span> plan until
+              you change it, and that is a plausible life rather than a guess
+              about yours. Correct the few that are yours and every answer
+              follows.
             </>
           ) : (
             <>
@@ -199,7 +228,7 @@ export function QuickStart({
               ))}
             </NativeSelect>
           </Field>
-          <Field label="Planning for" note="A couple costs more than one person and much less than two.">
+          <Field label="Planning for">
             <Segmented<Household>
               options={[
                 { id: "single", label: "One person" },
@@ -251,7 +280,7 @@ export function QuickStart({
                   . Press it to use that figure.
                 </span>
               ) : (
-                "Everything already put away for this, wherever it sits. A house you live in is not part of it."
+                "A house you live in is not part of it."
               )
             }
           />
@@ -271,7 +300,7 @@ export function QuickStart({
           note={
             standardNow
               ? STANDARD_BLURB[standardNow]
-              : "You have typed your own figure further down, so these are switched off. Press one to come back to a published basket."
+              : "You have typed your own figure, so the three published baskets are switched off. Press one to come back to a basket."
           }
         >
           <Segmented<LivingStandard>
@@ -316,7 +345,40 @@ export function QuickStart({
             </>
           )}
         </p>
+        {/*
+          A reader whose plan already carries their own spending figure gets
+          the field here rather than a sentence pointing at a panel that may
+          not be on the page. The note used to say "further down", which at
+          the simplest level named nothing: the figure was in the headline,
+          unreadable and uneditable, and the three baskets beside it all
+          looked switched off for no visible reason.
+        */}
+        {standardNow ? null : (
+          <MoneyField
+            label="Your own figure, a year"
+            value={inputs.customAnnualSpend}
+            currency={code}
+            onChange={(customAnnualSpend) =>
+              patch({ spendingMode: "custom", customAnnualSpend })
+            }
+            note="After tax, in today's money, with housing counted separately."
+          />
+        )}
       </div>
+
+      {extras ? (
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {extras}{" "}
+          <button
+            type="button"
+            className="underline underline-offset-2 hover:text-foreground"
+            onClick={() => onDetailChange("more")}
+          >
+            Change any of it
+          </button>
+          .
+        </p>
+      ) : null}
 
       {/*
         Deliberately not inside a `CARD`. A card's own padding costs 32px of
@@ -352,18 +414,6 @@ export function QuickStart({
         <p className="text-sm leading-relaxed text-muted-foreground">
           {DETAIL_BLURB[detail]}
         </p>
-        {detail === "simple" ? (
-          <div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onDetailChange("more")}
-            >
-              Show me the other dials
-            </Button>
-          </div>
-        ) : null}
       </div>
     </Panel>
   );
