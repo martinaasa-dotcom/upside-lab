@@ -145,7 +145,10 @@ function BandRow({
   return (
     <Card
       tone="default"
-      className={cn("p-0 sm:p-0", here && "ring-1 ring-primary/30")}
+      className={cn(
+        "p-0 sm:p-0",
+        here && "border-l-2 border-l-primary ring-1 ring-primary/50"
+      )}
     >
       <button
         type="button"
@@ -155,13 +158,24 @@ function BandRow({
         id={headId}
         className="flex w-full items-start gap-3 rounded-lg p-4 text-left transition hover:bg-hover sm:p-6"
       >
+        {here ? (
+          <Pill tone="brand" className="mt-0.5 shrink-0">
+            Today
+          </Pill>
+        ) : null}
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-foreground">{band.label}</span>
+            <span
+              className={cn(
+                "font-medium",
+                here ? "text-primary" : "text-foreground"
+              )}
+            >
+              {band.label}
+            </span>
             <span className="font-mono text-xs tabular-nums text-muted-foreground">
               {band.range[0]} to {band.range[1]}
             </span>
-            {here ? <Pill tone="brand">Where it is today</Pill> : null}
           </span>
           <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">
             {band.says}
@@ -180,10 +194,12 @@ function BandRow({
           id={bodyId}
           role="region"
           aria-labelledby={headId}
-          className={cn("flex flex-col gap-5 border-t border-border", NESTED_PAD)}
+          className={cn("flex flex-col gap-6 border-t border-border", NESTED_PAD)}
         >
-          <PlaybookQuote quote={band.quote} />
-          {band.second ? <PlaybookQuote quote={band.second} /> : null}
+          <div className="flex flex-col gap-5 border-b border-border/60 pb-6">
+            <PlaybookQuote quote={band.quote} />
+            {band.second ? <PlaybookQuote quote={band.second} /> : null}
+          </div>
           <NoteRows
             rows={[
               { label: "The idea", body: band.idea },
