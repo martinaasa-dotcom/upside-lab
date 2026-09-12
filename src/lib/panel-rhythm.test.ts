@@ -91,27 +91,6 @@ describe("a room's stack of panels uses the one shared rhythm", () => {
     this test the whole time. Skip comment and blank lines when looking for
     the next real line, the same way `panelBlocks` below already does.
   */
-  /** The next non-comment, non-blank line at or after `from`, and its index. */
-  function nextRealLine(
-    lines: string[],
-    from: number
-  ): { at: number; line: string } | null {
-    let inComment = false;
-    for (let k = from; k < lines.length && k < from + 20; k++) {
-      const trimmed = (lines[k] ?? "").trim();
-      if (inComment) {
-        if (/\*\/\}?\s*$/.test(trimmed)) inComment = false;
-        continue;
-      }
-      if (!trimmed) continue;
-      if (/^\{?\/\*/.test(trimmed)) {
-        if (!/\*\/\}?\s*$/.test(trimmed)) inComment = true;
-        continue;
-      }
-      return { at: k, line: trimmed };
-    }
-    return null;
-  }
 
   const offenders: string[] = [];
   for (const file of sourceFiles("src")) {
@@ -119,18 +98,42 @@ describe("a room's stack of panels uses the one shared rhythm", () => {
     const lines = readFileSync(file, "utf8").split("\n");
     lines.forEach((line, i) => {
       // A container that sets its own vertical gap ...
-      if (!/className=(?:\{cn\()?["`][^"`]*\b(?:flex flex-col|grid)\b[^"`]*\bgap-[\d.]/.test(line)) return;
-      // ... whose next real JSX element (comments and blank lines skipped)
-      // is a <Panel>, or opens on a conditional that leads to one.
-      const first = nextRealLine(lines, i + 1);
-      if (!first) return;
-      const isPanel = /^<Panel[\s>]/.test(first.line);
-      const isConditional = /^\{[^}]*&&\s*\(?\s*$/.test(first.line);
-      if (!isPanel && !isConditional) return;
-      if (!isPanel) {
-        const second = nextRealLine(lines, first.at + 1);
-        if (!second || !/^<Panel[\s>]/.test(second.line)) return;
+      const gap = /className=(?:\{cn\()?["`][^"`]*\b(?:flex flex-col|grid)\b[^"`]*\bgap-([\d.]+)/.exec(line);
+      if (!gap) return;
+      // ... tighter than the shared rhythm's own 2rem. A room is free to
+      // set a gap at or above it; what this catches is a room quietly
+      // spacing its answers closer than the product does.
+      if (Number(gap[1]) >= 8) return;
+      /*
+       * ... that wraps two or more panels.
+       *
+       * This used to require the very next JSX line to be a `<Panel>`, and
+       * both faults it was written for walked straight past it: Growth put
+       * a `{/* Hero KPI Summary *\/}` comment on the next line and Lab put
+       * an empty-state conditional there, so one room stacked its panels
+       * 16px apart and the other did the same, against a product standard
+       * of 32 stepping to 40. Two panels is what makes a column a stack;
+       * one panel in a wrapper is spacing nothing.
+       */
+      /*
+       * Panels INSIDE the container, not ones that happen to follow it.
+       *
+       * A fixed lookahead reads a heading-and-lede pair at `gap-2` as a
+       * panel stack because two panels sit a few lines below it as its
+       * siblings. Indentation is what tells a child from a sibling here:
+       * scan to the container's own close, which is the first line at or
+       * left of its indentation, and count only the panels deeper than it.
+       */
+      const indent = line.search(/\S/);
+      let panels = 0;
+      for (let j = i + 1; j < lines.length; j++) {
+        const row = lines[j] ?? "";
+        if (!row.trim()) continue;
+        const at = row.search(/\S/);
+        if (at <= indent) break;
+        if (/<Panel[\s>]/.test(row)) panels += 1;
       }
+      if (panels < 2) return;
       offenders.push(`${file}:${i + 1}  ${line.trim().slice(0, 80)}`);
     });
   }

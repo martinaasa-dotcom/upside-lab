@@ -691,7 +691,20 @@ export const LabSheet = memo(function LabSheet({
 
       {tab === "alloc" && !hiddenTabs.includes("alloc") && (
         <WidgetErrorBoundary name="Allocation">
-        <div className="flex flex-col gap-4">
+        {/*
+          * `PANEL_STACK`, so the mix tab is spaced like every other tab.
+          *
+          * Lab's outer column is already `PANEL_STACK`, and every other tab
+          * returns a fragment, so its panels are direct children of that
+          * column and get the product's own 32px stepping to 40px. This tab
+          * is the one that wraps its panels in a column of its own, which
+          * made the wrapper a single child of the outer stack and set its
+          * three panels 16px apart inside it. Half the standard, decided by
+          * nothing but the fact that this tab needed a wrapper for its empty
+          * state, which is exactly the drift AGENTS.md records against rooms
+          * that build their own column.
+          */}
+        <div className={PANEL_STACK}>
           {concentration.positionCount === 0 ? (
             <EmptyState
               title="Nothing to look at yet"

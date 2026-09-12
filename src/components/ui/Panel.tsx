@@ -174,6 +174,13 @@ export const PANEL_PAD = "panel-pad";
  * constant that agrees with it today.
  */
 export const PANEL_STACK = "flex flex-col panel-stack";
+/**
+ * The same rhythm without the flex column, for a layout that is already a
+ * grid. `PANEL_STACK` carries `flex flex-col`, which a two-column grid
+ * cannot take; this is the gap alone so a grid spaces its rows by the one
+ * shared number instead of a gap of its own.
+ */
+export const PANEL_STACK_GAP = "panel-stack";
 /** Nested card / score-cell padding. One step tighter than the panel's,
  * so a well inside a panel reads as contained by it rather than as a
  * second panel with the same weight. */

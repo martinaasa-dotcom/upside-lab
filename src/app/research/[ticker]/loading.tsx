@@ -1,4 +1,4 @@
-import { Panel } from "@/components/ui/Panel";
+import { PANEL_STACK, Panel } from "@/components/ui/Panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResearchChrome } from "@/components/research/ResearchChrome";
 
@@ -86,7 +86,16 @@ function QaPanelSkeleton({
 export default function ResearchTickerLoading() {
   return (
     <ResearchChrome>
-      <div aria-hidden className="flex flex-col gap-6">
+      {/*
+        * The skeleton stacks like the page it becomes.
+        *
+        * It stacked its panels at 24px while the loaded page uses the
+        * shared 32 stepping to 40, so every panel slid down the moment the
+        * real content arrived. That is a layout jump on the one page a
+        * stranger from a search result lands on, and the whole point of a
+        * skeleton is that nothing moves when it is replaced.
+        */}
+      <div aria-hidden className={PANEL_STACK}>
         <Skeleton className="h-4 w-40" />
 
         <div className="flex flex-col gap-2">

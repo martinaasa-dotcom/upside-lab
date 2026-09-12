@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { CARD, Panel } from "@/components/ui/Panel";
+import { CARD, PANEL_STACK, PANEL_STACK_GAP, Panel } from "@/components/ui/Panel";
 import { Explain } from "@/components/ui/Explain";
 import {
   PinnedHeader,
@@ -563,7 +563,16 @@ export function AccountPage() {
     supporterActive: isSupporter,
   });
 
-  const COLUMN = "flex min-w-0 flex-col gap-5 sm:gap-6";
+  /*
+   * A column of panels uses the product's own rhythm.
+   *
+   * This was `gap-5 sm:gap-6`, so Account stacked its panels 20px apart
+   * stepping to 24, against the 32 stepping to 40 every room that stacks
+   * on `PANEL_STACK` uses. AGENTS.md records that the spacing pass reached
+   * the panels that are direct children of `<main>` and walked past the
+   * rooms that build their own column; this page builds two.
+   */
+  const COLUMN = cn("min-w-0", PANEL_STACK);
 
   return (
     <SignInGate>
@@ -601,7 +610,12 @@ export function AccountPage() {
             do, so they sit in a rail beside them. On a phone it is one
             column in this order, which is also the order of importance.
           */}
-          <div className="grid gap-5 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+          <div
+            className={cn(
+              PANEL_STACK_GAP,
+              "grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start"
+            )}
+          >
             <div className={cn(COLUMN, "lg:col-start-1 lg:row-start-1")}>
               {/*
                 WHO YOU ARE, FIRST.
