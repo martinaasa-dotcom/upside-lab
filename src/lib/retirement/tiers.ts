@@ -191,6 +191,111 @@ export function flexibleYear(input: {
 }
 
 /**
+ * THE ONE LINE UNDER THE PICTURE, AND WHY IT HAS FOUR ANSWERS RATHER THAN
+ * TWO.
+ *
+ * The panel used to say one of two things: either the bottom layer was
+ * short at this exact setting, or the essentials hold wherever the slider
+ * goes. That second sentence was a promise the panel could not keep,
+ * because it was drawn on the pot the plan SAYS the reader needs rather
+ * than the one they are projected to have, so it was always true and told
+ * nobody anything.
+ *
+ * Read against a real pot there are two different kinds of shortfall and
+ * confusing them is the whole risk. A layer the market takes off in a bad
+ * year is the point of the picture and is not a problem: it comes back in
+ * a better year and it is what flexibility buys. A layer that is missing
+ * even at the top of the slider is not about the market at all, it is the
+ * plan being short, and saying "the essentials hold" over the top of that
+ * would be this app reassuring somebody about the wrong question.
+ *
+ * AND THE THIRD KIND, WHICH IS THE ONE THAT LOOKED WORST ON SCREEN. A
+ * couple stopping at fifty in a country with two decent state pensions
+ * can be three hundred thousand short of their own target and still have
+ * every layer of this picture paid for, because the picture is the
+ * SETTLED year, the last one, by which time both pensions have started
+ * and everything temporary has ended. The arithmetic is right and the
+ * reading a person takes from it is not: they see a full stack, drag the
+ * slider from one end to the other, watch nothing happen, and conclude
+ * the panel is broken. It is not broken, it is answering about the one
+ * year of their retirement that is not at risk. So when guaranteed income
+ * covers the whole of this year on its own, the line says so out loud and
+ * says where the pot's work actually is, which is the stretch before that
+ * income starts.
+ *
+ * Nothing here tells anybody what to do about any of it.
+ */
+export function layersRead(input: {
+  /** The year at the slider's current setting. */
+  current: FlexibleYear;
+  /** The same year at the worst setting the slider allows. */
+  worst: FlexibleYear;
+  /** And at the best. */
+  best: FlexibleYear;
+  /**
+   * Years of retirement before any guaranteed income arrives. Zero for
+   * somebody stopping the day their pension starts.
+   */
+  bridgeYears?: number;
+  /** Whether the plan is projected to fall short of its own target. */
+  short?: boolean;
+  /**
+   * Which of the plan's two pictures this is. A first year and a settled
+   * year fail in different ways and the same sentence cannot cover both:
+   * a first year that will not fill is the years before a pension starts,
+   * and a settled year that will not fill is the rest of a life.
+   */
+  which?: "first" | "settled";
+}): string {
+  const { current, worst, best } = input;
+  const bridgeYears = Math.max(0, Math.round(finiteNumber(input.bridgeYears, 0)));
+  const first = input.which === "first";
+  const alone =
+    bridgeYears > 0
+      ? ", and until your pension starts the pot is paying for everything by itself"
+      : "";
+
+  if (current.essentialsShort) {
+    return first
+      ? `At this return, even the bottom layer of your first year is not covered${alone}. That is the one situation a plan is built to avoid.`
+      : "At this return, even the bottom layer is not covered. That is the one situation a plan is built to avoid.";
+  }
+
+  const thin = best.slices.filter((s) => s.fill < 0.995);
+  if (thin.length > 0) {
+    const lowest = thin[0];
+    const names = thin.map((s) => s.tier.label.toLowerCase()).join(", ");
+    const when = first ? "your first year" : "this life";
+    return `Even a strong year leaves ${names} short of what ${when} costs, so what is missing there is the size of the plan rather than the market. ${lowest.tier.label} is the first layer it reaches.`;
+  }
+
+  if (worst.essentialsShort) {
+    return "Down at the bottom of that slider the essentials themselves stop being covered, which is the one layer a plan cannot let the market reach.";
+  }
+
+  const wholeBill = current.slices.reduce((sum, s) => sum + s.full, 0);
+  if (wholeBill > 0 && current.guaranteed >= wholeBill) {
+    const covered =
+      "Your guaranteed income covers the whole of this year on its own, which is why nothing on that slider reaches it.";
+    if (bridgeYears <= 0) {
+      return `${covered} What the pot adds is on top of a life already paid for.`;
+    }
+    const stretch =
+      bridgeYears === 1 ? "the year" : `the ${bridgeYears} years`;
+    return input.short
+      ? `${covered} This is the settled year, though, and what your plan is short of is ${stretch} before that income starts, which is the other picture here.`
+      : `${covered} This is the settled year, and the pot's real work is ${stretch} before that income starts, which is the other picture here.`;
+  }
+
+  const essentials = current.slices[0];
+  if (essentials != null && current.guaranteed >= essentials.full) {
+    return "Drag it anywhere: your guaranteed income alone covers the essentials, so the market decides how good a year you have, never whether you eat.";
+  }
+
+  return "The essentials hold at every setting on that slider. Everything above them is a choice you would get to make at the time.";
+}
+
+/**
  * The three years worth naming on the slider, so a reader who never drags
  * it still meets the point. The returns are real ones, after inflation:
  * a bad year is a real market fall rather than a theoretical one, and the

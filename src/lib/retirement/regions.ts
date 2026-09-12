@@ -3,7 +3,7 @@
  * AND EDITABLE ON THE PAGE.
  *
  * Retirement arithmetic is the same everywhere and retirement *numbers* are
- * not. A basket of goods that costs GBP 6,500 a year in Britain costs
+ * not. A basket of goods that costs GBP 9,600 a year in Britain costs
  * something else in Tallinn and something else again in Zurich, the state
  * hands you a different amount at a different age, and the age you may
  * touch a private pension is set by a parliament rather than by you. A
@@ -54,6 +54,21 @@ export const LIVING_STANDARDS: readonly LivingStandard[] = [
  * 400/800/1,400 a month per person, GBP, and moved onto every other
  * region from there.
  *
+ * THE FIRST TRY AT THAT RESET SHIPPED A THIRD BELOW ITS OWN STATED AIM,
+ * AND A THIRD IS THE DIFFERENCE BETWEEN A MODULE THAT ANSWERS AND ONE
+ * THAT SHRUGS. It landed on 3,200 / 6,500 / 11,300 a year, which is
+ * 267 / 542 / 942 a month rather than the 400 / 800 / 1,400 the line
+ * above promises, and nothing on the page could show that: every figure
+ * derived from it looked internally consistent. What it did instead was
+ * put an ordinary retired life BELOW the state pension in most of these
+ * countries. Measured over the eight templates in twelve regions,
+ * `required.target` came out at exactly zero in 62 of the 96 pairs: the
+ * answer to "how much do you need" was "nothing", the spending-layers
+ * panel had nothing to ration whatever the market did, and a couple
+ * three hundred thousand short of their own plan still funded every
+ * luxury on the stack. The figures below are the intended ones, which
+ * are also the checkable ones, since the sentence above states them.
+ *
  * Two properties of these figures matter more than the figures themselves
  * and are repeated on the page, because a reader who misses either will
  * plan for the wrong number. They are **after tax**, so they are what
@@ -76,9 +91,9 @@ export const UK_LIVING_STANDARDS: Record<
   LivingStandard,
   Record<Household, number>
 > = {
-  minimum: { single: 3_200, couple: 5_800 },
-  moderate: { single: 6_500, couple: 11_700 },
-  comfortable: { single: 11_300, couple: 20_300 },
+  minimum: { single: 4_800, couple: 8_600 },
+  moderate: { single: 9_600, couple: 17_300 },
+  comfortable: { single: 16_800, couple: 30_200 },
 };
 
 export const UK_STANDARDS_SOURCE =
@@ -217,9 +232,25 @@ export const REGIONS: readonly Region[] = [
     currency: "EUR",
     perGbp: 1.15,
     priceLevel: 100,
-    statePensionAnnual: 21_200,
-    statePensionSource:
-      "Gesetzliche Rentenversicherung, 45 years at average earnings",
+    /*
+      THE ONE EARNINGS-RELATED SCHEME IN THIS TABLE THAT WAS QUOTED AT ITS
+      BEST CASE RATHER THAN ITS AVERAGE.
+
+      A flat-rate scheme is fairly quoted at its full rate, which is what
+      GB, IE, AU, CH and DK do here, because the full rate is what an
+      ordinary complete record actually pays. Germany's is earnings
+      related, and 21,200 was the Standardrentner: forty-five years at
+      average earnings, which is a benchmark rather than a person. Set
+      beside the fourteen other earnings-related schemes here, every one
+      of them an average, it was the most generous default in the file by
+      a wide margin, and doubled for a couple it came to 42,400 a year of
+      income no market can touch. That is more than a comfortable German
+      retirement costs on these baskets, so the plan answered that the
+      couple needed no pot at all and the spending-layers panel had
+      nothing left to ration.
+    */
+    statePensionAnnual: 13_200,
+    statePensionSource: "Deutsche Rentenversicherung, average old-age pension",
     statePensionAge: 67,
     privatePensionAge: 62,
     inflationPct: 2,

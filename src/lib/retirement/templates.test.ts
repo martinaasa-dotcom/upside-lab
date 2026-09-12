@@ -272,15 +272,41 @@ describe("one person or two", () => {
     expect(comfortableInputs.mortgageAnnual).toBeGreaterThan(inputs.mortgageAnnual);
   });
 
-  it("never lets the car anchor override a life template says has no car", () => {
-    // Most of the eight lives are moderate or comfortable with no car in
-    // them on purpose. Falling back to the standard's car anchor whenever
-    // `carMonthlyGbp` is zero would put a car payment into every one of
-    // those lives that never asked for one.
+  it("only puts a car into a life that says it keeps one", () => {
+    // A car is its own dial, so a zero here has to mean no car rather
+    // than "fall back to the standard's anchor", or every life that never
+    // asked for one would quietly be paying for a car. What decides it is
+    // `carForever`: the lives that own a home keep a car in retirement and
+    // are priced at their own standard's anchor, and the rest carry none.
     for (const template of RETIREMENT_TEMPLATES) {
       if (template.carMonthlyGbp > 0) continue;
       const inputs = templateInputs(template, "GB");
-      expect(inputs.carMonthly).toBe(0);
+      const anchor = localiseFromGbp(
+        regionById("GB"),
+        costAnchorsForStandard(template.standard).carMonthly
+      );
+      expect(inputs.carMonthly, template.id).toBe(template.carForever ? anchor : 0);
+      expect(inputs.carForever, template.id).toBe(template.carForever);
+    }
+  });
+
+  it("leaves a car out of retirement for nobody who owns their home", () => {
+    /*
+      THE FAULT THIS EXISTS TO CATCH IS A SILENT ONE AND IT EMPTIED THE
+      WHOLE MODULE.
+
+      The living-standard baskets exclude a car on purpose. A life that
+      owns its home outright and also carries no car is therefore a
+      retirement whose entire bill is food, heating and going out, and in
+      most of these countries two state pensions cover that: the plan
+      answered that the reader needed no pot at all, `required.target`
+      came back as exactly zero, and the spending-layers panel had
+      nothing left for a bad market to take off. Measured over the eight
+      lives in twelve regions, that was 62 of the 96 pairs.
+    */
+    for (const template of RETIREMENT_TEMPLATES) {
+      if (template.housing !== "owned") continue;
+      expect(template.carForever, template.id).toBe(true);
     }
   });
 

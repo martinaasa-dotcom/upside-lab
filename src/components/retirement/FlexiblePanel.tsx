@@ -22,16 +22,28 @@
  * fixed one, which is the failure this panel is arguing against.
  */
 
-import { CARD, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
+import {
+  CARD,
+  MicroLabel,
+  Panel,
+  PanelHeader,
+  Segmented,
+} from "@/components/ui/Panel";
 import { Slider } from "@/components/ui/slider";
 import { cn, currency } from "@/lib/format";
 import {
   DEFAULT_TIERS,
   flexibleYear,
   labelForReturn,
+  layersRead,
   MARKET_YEARS,
 } from "@/lib/retirement/tiers";
-import type { PlanResult } from "@/lib/retirement/plan";
+import {
+  firstYearDiffers,
+  firstYearDraw,
+  settledDraw,
+  type PlanResult,
+} from "@/lib/retirement/plan";
 import { Button } from "@/components/ui/button";
 import { SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -51,65 +63,111 @@ import { useMemo, useState } from "react";
   drawn as a closed line rather than removed, so the stack keeps its shape
   and the eye can see what went.
 */
+/*
+  The slider's own ends, named because the copy under the picture reads
+  the same year at both of them: a layer the market takes off in a bad
+  year is the point of the panel, and a layer missing even at the top of
+  the slider is the plan being short, which is a different sentence.
+*/
+const WORST_RETURN_PCT = -40;
+const BEST_RETURN_PCT = 35;
+
 const MAX_BAR_PX = 180;
 const MIN_FUNDED_PX = 34;
 const EMPTY_BAR_PX = 6;
 
+type Picture = "first" | "settled";
+
 export function FlexiblePanel({ plan }: { plan: PlanResult }) {
   const [returnPct, setReturnPct] = useState(5);
   const code = plan.currency;
-  const rate = plan.required.swr.ratePct;
 
   /*
-    The pot behind this picture is `required.lifelongPot`, never the whole
-    `required.target`.
+    TWO PICTURES, AND WHICH ONE A READER MOST NEEDS DEPENDS ON THEIR PLAN.
 
-    `target` is `lifelongPot + temporaryPot`: enough, at retirement, to
-    fund both the ongoing steady-state spend forever AND the extra a
-    mortgage, a car, or growing children cost in the early years on top
-    of that. By the settled (last) year those temporary years are long
-    over and the capital that funded them is spent, so multiplying the
-    FULL target by the safe rate to answer "what can this settled year
-    draw" hands the settled year money that was never its to have. A
-    plan with any temporary cost (which is most of them, since #252 a
-    new plan defaults to a mortgage and a car) then shows a budget that
-    barely moves with the slider: dragging to a crash still leaves every
-    layer funded, because the panel is drawing on capital that in a real
-    plan would already be gone. `lifelongPot` is the slice of the target
-    that is actually generating the settled year's own need forever, with
-    none of that reserve in it, so withdrawing it at the AVERAGE year
-    reproduces that need precisely and a shock away from average is the
-    whole and only thing that moves the bars.
+    This panel drew the settled year and only the settled year, on the
+    sound argument that it is the one year describing the rest of a life
+    rather than a stretch of it. What that missed is that for anybody
+    stopping before their pension starts it is also the one year of their
+    retirement that is NOT at risk: a couple who stop at fifty can be
+    three hundred thousand short of their own target and still watch the
+    settled picture pay for every luxury on the stack, because by then
+    two pensions have started and everything temporary has ended. The
+    arithmetic was right and the reading a person took from it was that
+    the slider was broken.
+
+    So the years that differ get a picture each. The first year is
+    offered first when there is one, because it is the year the shortfall
+    actually lands in, and the settled year is a press away and still
+    says what it always said. A plan whose first year is its settled year
+    (stopping the day the pension starts, nothing temporary left on the
+    bill) gets no choice at all, since two identical pictures behind a
+    control is a control that does nothing.
   */
-  const pot = Math.max(0, plan.required.lifelongPot);
+  const hasTwo = firstYearDiffers(plan);
+  const [picture, setPicture] = useState<Picture>(hasTwo ? "first" : "settled");
+  const showing: Picture = hasTwo ? picture : "settled";
+
+  const settled = plan.years.length > 0 ? plan.years[plan.years.length - 1] : null;
+  const opening = plan.years.length > 0 ? plan.years[0] : null;
+  const shown = showing === "first" ? opening : settled;
 
   /*
-    The settled year, not the first one. By the last year of the plan every
-    pension has started and everything temporary has ended, so it is the
-    one year that describes the rest of a life rather than a stretch of it.
-
-    Spending here is the WHOLE bill, with guaranteed income shown as the
-    part of it the market cannot reach, rather than the net figure the pot
-    has to find. A reader's essentials are a share of what they spend; a
+    Spending is the WHOLE bill, with guaranteed income shown as the part
+    of it the market cannot reach, rather than the net figure the pot has
+    to find. A reader's essentials are a share of what they spend; a
     panel that made them a share of what the POT provides would hide the
     single most reassuring fact on the page, which is that a pension
     already covers most of the bottom layer.
   */
-  const settled = plan.years.length > 0 ? plan.years[plan.years.length - 1] : null;
-  const spend = settled ? settled.spend : plan.firstYearFromPot;
-  const guaranteed = settled ? settled.income : 0;
+  const spend = shown ? shown.spend : plan.firstYearFromPot;
+  const guaranteed = shown ? shown.income : 0;
 
-  const year = useMemo(
-    () =>
+  /*
+    A settled year is a forever question and a first year is a scheduled
+    one, so they are drawn on different arithmetic. `plan.ts` holds both
+    and says why; either way what decides the answer is the pot the
+    reader is actually projected to have rather than the one the plan
+    says they need.
+  */
+  const draw = showing === "first" ? firstYearDraw(plan) : settledDraw(plan);
+  const pot = draw.pot;
+  const rate = draw.ratePct;
+  const earlyYears = Math.max(0, plan.required.temporaryPot);
+  const stopAge = opening ? opening.age : plan.planningAge;
+
+  /*
+    How long the pot pays for everything on its own. A reader who stops
+    at the age their pension starts has none of these; a reader who stops
+    at fifty has seventeen, and those are the years their plan is short
+    in, whatever the settled year looks like.
+  */
+  const bridgeYears = plan.years.filter((y) => y.income <= 0).length;
+
+  const yearAt = useMemo(() => {
+    return (marketReturnPct: number) =>
       flexibleYear({
         pot,
         annualSpend: spend,
         guaranteedIncome: guaranteed,
         withdrawalRatePct: rate,
-        marketReturnPct: returnPct,
+        marketReturnPct,
         tiers: DEFAULT_TIERS,
+      });
+  }, [pot, spend, guaranteed, rate]);
+
+  const year = useMemo(() => yearAt(returnPct), [yearAt, returnPct]);
+  const read = useMemo(
+    () =>
+      layersRead({
+        current: year,
+        worst: yearAt(WORST_RETURN_PCT),
+        best: yearAt(BEST_RETURN_PCT),
+        bridgeYears,
+        short: plan.gap > 0,
+        which: showing,
       }),
-    [pot, spend, guaranteed, rate, returnPct]
+    [year, yearAt, bridgeYears, plan.gap, showing]
   );
 
   /*
@@ -126,6 +184,28 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
         title="What a bad year actually costs you"
         subtitle="Your spending in layers. The bottom is paid whatever the market does; the rest is what you would actually cut."
       />
+
+      {hasTwo ? (
+        <Segmented<Picture>
+          value={showing}
+          onChange={setPicture}
+          columns={2}
+          ariaLabel="Which year of your retirement"
+          options={[
+            /*
+              MEASURED, NOT CHOSEN. A segmented cell is priced by the
+              longest label in the row, so this pair sets the width of
+              both. Rendered with the app's own compiled CSS and real
+              Geist at 360, 390, 430, 820 and 1280, "Your first year, at
+              50" wrapped to three lines on a phone (61px against the
+              44px touch floor) and took "Once it settles" to two with
+              it. This pair measures 44px at every one of those widths.
+            */
+            { id: "first", label: `First year, at ${stopAge}` },
+            { id: "settled", label: "Once it settles" },
+          ]}
+        />
+      ) : null}
 
       <div
         className={cn(CARD, "flex flex-col gap-2 p-4")}
@@ -204,6 +284,71 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
             </>
           ) : null}
         </p>
+        {/*
+          WHICH POT THIS IS, SAID OUT LOUD.
+
+          The whole picture now moves with what the reader is projected to
+          have rather than with what the plan says they need, and a stack
+          that will not fill is a serious thing to show somebody without
+          naming the figure behind it. Nothing in this app states a number
+          as fact that the reader cannot check, and the two figures here
+          are both on the page above: the projected pot is the headline
+          panel's own, and what the early years take is the difference
+          between that and what the settled year lives on.
+        */}
+        <p className="text-center text-xs text-muted-foreground">
+          {showing === "first" ? (
+            pot > 0.5 ? (
+              <>
+                Drawn on the{" "}
+                <span className="font-mono tabular-nums">
+                  {currency(pot, 0, code)}
+                </span>{" "}
+                you are projected to have at {stopAge}, against the{" "}
+                <span className="font-mono tabular-nums">
+                  {currency(plan.required.target, 0, code)}
+                </span>{" "}
+                this plan needs by then.
+              </>
+            ) : (
+              <>
+                You are projected to have nothing invested by {stopAge}, so
+                everything above is guaranteed income.
+              </>
+            )
+          ) : pot > 0.5 ? (
+            <>
+              Drawn on the{" "}
+              <span className="font-mono tabular-nums">{currency(pot, 0, code)}</span>{" "}
+              your plan leaves working for you for good
+              {earlyYears > 0.5 ? (
+                <>
+                  , after the{" "}
+                  <span className="font-mono tabular-nums">
+                    {currency(earlyYears, 0, code)}
+                  </span>{" "}
+                  the early years take on top
+                </>
+              ) : null}
+              .
+            </>
+          ) : (
+            <>
+              Your pot has nothing left for a year like this one
+              {earlyYears > 0.5 ? (
+                <>
+                  {" "}
+                  once the{" "}
+                  <span className="font-mono tabular-nums">
+                    {currency(earlyYears, 0, code)}
+                  </span>{" "}
+                  the early years take is paid for
+                </>
+              ) : null}
+              , so everything above it is guaranteed income.
+            </>
+          )}
+        </p>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -219,8 +364,8 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
         </div>
         <Slider
           value={[returnPct]}
-          min={-40}
-          max={35}
+          min={WORST_RETURN_PCT}
+          max={BEST_RETURN_PCT}
           step={1}
           onValueChange={(next) => {
             const n = next[0];
@@ -248,11 +393,7 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
       <div className={cn(CARD, "p-4")}>
         <MicroLabel>What this is worth</MicroLabel>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {year.essentialsShort
-            ? "At this return, even the bottom layer is not covered. That is the one situation a plan has to avoid."
-            : guaranteed >= year.slices[0].full
-              ? "Drag it anywhere: your guaranteed income alone covers the essentials, so the market decides how good a year you have, never whether you eat."
-              : "The essentials hold at every setting on that slider. Everything above them is a choice you would get to make at the time."}
+          {read}
         </p>
       </div>
     </Panel>
