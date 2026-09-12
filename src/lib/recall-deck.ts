@@ -518,7 +518,22 @@ export function buildRecallCards(input: DeckInput): RecallCard[] {
       if (share < 0.02) continue;
       const hit = share * 0.2;
       const rounded = Math.round(hit * 100);
-      const wrong = [Math.max(1, Math.round(rounded / 3)), 20, Math.min(95, rounded * 2 + 3)];
+      // A holding just over the 2% floor can round to 0%, which reads as
+      // "nothing happens" to a question that opens on a 20% fall -- true,
+      // but the wrong kind of true for a multiple-choice answer. Below
+      // about a fortieth of the portfolio the lesson is better asked as a
+      // share, which the share-of-portfolio card already does.
+      if (rounded < 1) continue;
+      // Two of the three distractors are fixed numbers (a third of the
+      // answer, and a flat 20%), which only collide with the answer itself
+      // at rounded === 1 and rounded === 20 -- rare on the biggest holding
+      // this used to be pinned to, ordinary once every holding gets asked.
+      const third = Math.max(1, Math.round(rounded / 3));
+      const wrong = [
+        third === rounded ? third + 1 : third,
+        rounded === 20 ? 25 : 20,
+        Math.min(95, rounded * 2 + 3),
+      ];
       const answer = `about ${rounded}%`;
       push(
         `shock:${h.ticker}`,
