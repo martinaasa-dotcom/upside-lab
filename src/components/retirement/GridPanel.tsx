@@ -30,6 +30,7 @@ import {
   livingStandardsFor,
   regionById,
 } from "@/lib/retirement/regions";
+import { RETIREMENT_RESULTS_ID } from "@/lib/retirement/dom-ids";
 import type { TableMode, TableRow } from "@/lib/retirement/table";
 import type { PlanResult, RetirementInputs } from "@/lib/retirement/plan";
 import { Table2 } from "lucide-react";
@@ -55,7 +56,17 @@ export function GridPanel({
   const amounts = livingStandardsFor(region, inputs.household);
 
   return (
-    <Panel>
+    /*
+      NEVER BEHIND `BelowFold`. `NumberPanel`'s "See the results table"
+      button scrolls to this id, and `BelowFold`'s own doc says why it must
+      not wrap anything reachable that way: an anchor that lands on an
+      unmounted placeholder is a button that appears to work and does not.
+      This panel used to fold at three screens down; now that every input
+      panel sits above it, its own offset moves with the detail level, so a
+      fixed reserve would either lurch on some plans or sit stale on others.
+      Rendering it eagerly is what makes the skip button honest.
+    */
+    <Panel id={RETIREMENT_RESULTS_ID}>
       <PanelHeader
         icon={<Table2 className="h-4 w-4" />}
         title="What stopping at each age costs"
