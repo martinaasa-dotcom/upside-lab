@@ -477,11 +477,23 @@ export const REGIONS: readonly Region[] = [
   },
 ];
 
-export const DEFAULT_REGION_ID = "GB";
+export const DEFAULT_REGION_ID = "US";
 
+/*
+  An unrecognised id falls back to `DEFAULT_REGION_ID`, never to whichever
+  region happens to sit first in the list above. Those used to be the same
+  region (GB), so this fallback and the one-time default were one bug wearing
+  two names: a plan saved before `regionId` existed, or a blob with the field
+  dropped by hand, reached `sanitizeInputs` with no `regionId` at all and was
+  silently read as British, in the same way a brand-new reader with no plan
+  yet used to be. `REGIONS[0]` is one line further down only as a backstop
+  for a `DEFAULT_REGION_ID` that has been mistyped, which is a bug in this
+  file rather than something a reader's data can trigger.
+*/
 export function regionById(id: string | null | undefined): Region {
   const found = REGIONS.find((r) => r.id === id);
-  return found ?? REGIONS[0];
+  if (found) return found;
+  return REGIONS.find((r) => r.id === DEFAULT_REGION_ID) ?? REGIONS[0];
 }
 
 /**
