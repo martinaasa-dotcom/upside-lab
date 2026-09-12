@@ -140,6 +140,7 @@ describe("both pots are named at every level", () => {
     e65: region.e65Female,
     planningAge: planningAgeFor(inputs, longevity.suggestedPlanningAge),
     improvementPct: inputs.improvementPct,
+    currentAge: inputs.currentAge,
     swrPct: plan.required.swr.ratePct,
     realReturnPct: plan.realReturnPct,
     basis: plan.required.basis,

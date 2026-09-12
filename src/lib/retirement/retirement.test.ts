@@ -14,8 +14,10 @@ import {
   assessLongevity,
   ageAtSurvival,
   fitMortalityLevel,
+  hazardReductionAt,
   improvementTaper,
   survivalCurve,
+  IMPROVEMENT_REFERENCE_AGE,
   PLANNING_SURVIVAL,
 } from "@/lib/retirement/longevity";
 import {
@@ -152,6 +154,41 @@ describe("how long the money has to last", () => {
       improvementPct: 1,
     });
     expect(improving.p5).toBeLessThan(105);
+  });
+
+  it("compounds more improvement into a younger reader's plan, with no second knob", () => {
+    /*
+      The whole point of applying the rate to calendar time rather than to
+      age: a younger reader has more years between now and the reference
+      age for the rate to compound over, so the same one input treats them
+      differently with nothing else changed.
+    */
+    const young = assessLongevity({
+      currentAge: 30,
+      e65Male: 18.5,
+      e65Female: 21,
+      sex: "male",
+      improvementPct: 1,
+    });
+    const old = assessLongevity({
+      currentAge: 65,
+      e65Male: 18.5,
+      e65Female: 21,
+      sex: "male",
+      improvementPct: 1,
+    });
+    expect(young.yearsOfImprovementToReference).toBeGreaterThan(
+      old.yearsOfImprovementToReference
+    );
+    expect(young.hazardCutAtReference).toBeGreaterThan(old.hazardCutAtReference);
+    // Reproduces the exact figure `survivalCurve` uses at that instant.
+    expect(
+      hazardReductionAt(IMPROVEMENT_REFERENCE_AGE, 30, 1)
+    ).toBeCloseTo(young.hazardCutAtReference, 10);
+    // Zero rate is zero improvement whatever the age gap is.
+    expect(hazardReductionAt(IMPROVEMENT_REFERENCE_AGE, 30, 0)).toBe(0);
+    // A reader already past the reference age has no window left to compound.
+    expect(hazardReductionAt(IMPROVEMENT_REFERENCE_AGE, 90, 1)).toBe(0);
   });
 
   it("falls monotonically, so a rarer age is always a later one", () => {
@@ -868,6 +905,7 @@ describe("the panel that says where a number came from is never approximately ri
         e65: 19.75,
         planningAge: PLAN_AGE,
         improvementPct: 1,
+        currentAge: inputs.currentAge,
         swrPct: plan.required.swr.ratePct,
         realReturnPct: plan.realReturnPct,
         basis: plan.required.basis,
