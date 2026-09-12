@@ -507,23 +507,28 @@ export function buildRecallCards(input: DeckInput): RecallCard[] {
 
   /* --------------------------------------- the arithmetic of one name */
 
-  if (top && totalValue > 0) {
-    // What a bad day for the largest holding alone does to the total. The
-    // arithmetic is the lesson: a fifth off the biggest name is not a fifth
-    // off the portfolio, and most people guess that it is.
-    const share = top.value / totalValue;
-    const hit = share * 0.2;
-    const rounded = Math.round(hit * 100);
-    const wrong = [Math.max(1, Math.round(rounded / 3)), 20, Math.min(95, rounded * 2 + 3)];
-    const answer = `about ${rounded}%`;
-    push(
-      `shock:${top.ticker}`,
-      "concentration",
-      `If ${named(top)} fell 20% tomorrow and nothing else moved, your whole portfolio would fall by about how much?`,
-      [answer, ...wrong.map((w) => `about ${w}%`)],
-      answer,
-      `${named(top)} is ${percent(share)} of what you own, so a fifth off it is about ${percent(hit)} off your total, which is ${money(hit * totalValue)}.`
-    );
+  if (totalValue > 0 && holdings.length >= 2) {
+    // What a bad day for one holding alone does to the total. The
+    // arithmetic is the lesson: a fifth off a holding is not a fifth off
+    // the portfolio, and most people guess that it is. Every holding worth
+    // asking about gets one of these, not only the biggest, or a reader
+    // meets the same ticker every time the roll lands on this kind.
+    for (const h of ranked) {
+      const share = h.value / totalValue;
+      if (share < 0.02) continue;
+      const hit = share * 0.2;
+      const rounded = Math.round(hit * 100);
+      const wrong = [Math.max(1, Math.round(rounded / 3)), 20, Math.min(95, rounded * 2 + 3)];
+      const answer = `about ${rounded}%`;
+      push(
+        `shock:${h.ticker}`,
+        "concentration",
+        `If ${named(h)} fell 20% tomorrow and nothing else moved, your whole portfolio would fall by about how much?`,
+        [answer, ...wrong.map((w) => `about ${w}%`)],
+        answer,
+        `${named(h)} is ${percent(share)} of what you own, so a fifth off it is about ${percent(hit)} off your total, which is ${money(hit * totalValue)}.`
+      );
+    }
   }
 
   if (totalValue > 0 && holdings.length >= 2) {
