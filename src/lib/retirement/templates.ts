@@ -231,6 +231,45 @@ export const RETIREMENT_TEMPLATES: readonly RetirementTemplate[] = [
 ];
 
 /**
+ * The handful of facts that say what a life actually is, read off a
+ * template card before anybody presses it.
+ *
+ * The label and the blurb were carrying that job alone, and a blurb is a
+ * sentence, which a reader skims rather than reads while comparing eight
+ * cards at once. These are the same facts already in the template, just
+ * pulled back out as short pieces so a card reads in one glance: how old,
+ * how many people, and the one circumstance that actually shapes the
+ * arithmetic. `owned` housing is left out on purpose, because it is the
+ * ordinary case every other template also defaults to and stating it on
+ * every card would say nothing; renting and a mortgage are stated because
+ * they are what makes that life's numbers different from the ordinary
+ * case. Stopping early is the loudest fact a life can carry, so it takes
+ * the place an ordinary retirement age would have said nothing about.
+ */
+export function templateFacts(template: RetirementTemplate): string[] {
+  const facts: string[] = [
+    `${template.currentAge}`,
+    template.household === "couple" ? "A couple" : "One person",
+  ];
+  if (template.childAges.length > 0) {
+    facts.push(
+      template.childAges.length === 1
+        ? "1 child"
+        : `${template.childAges.length} children`
+    );
+  }
+  if (template.housing === "renting") {
+    facts.push("Renting");
+  } else if (template.housing === "mortgage") {
+    facts.push("Paying a mortgage");
+  }
+  if (template.retireAt != null) {
+    facts.push(`Stops at ${template.retireAt}`);
+  }
+  return facts;
+}
+
+/**
  * The life a reader who has never been here before opens on.
  *
  * The room used to open on zeroes: nothing saved, nothing going in, a pot
