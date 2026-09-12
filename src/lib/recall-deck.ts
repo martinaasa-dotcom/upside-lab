@@ -551,11 +551,24 @@ export function buildRecallCards(input: DeckInput): RecallCard[] {
       const share = h.value / totalValue;
       if (share < 0.02) continue;
       const answer = pctWord(share);
+      // Two of the three distractors can land on the answer itself on a
+      // heavily concentrated holding: the doubled-and-capped distractor
+      // rounds to the same word as the answer once share is near the 95%
+      // cap, and the flat "about 100%" collides once share itself rounds
+      // to 100%. Nudge either aside rather than letting dedup quietly
+      // drop it to three options.
+      const doubled = pctWord(Math.min(0.95, share * 2));
+      const hundred = answer === "about 100%" ? "about 90%" : "about 100%";
       push(
         `double:${h.ticker}`,
         "what-if",
         `If ${named(h)} doubled overnight and nothing else moved, how much bigger would everything you own be?`,
-        [answer, pctWord(share / 2), "about 100%", pctWord(Math.min(0.95, share * 2))],
+        [
+          answer,
+          pctWord(share / 2),
+          hundred,
+          doubled === answer ? pctWord(Math.max(0, Math.min(0.95, share * 2) - 0.1)) : doubled,
+        ],
         answer,
         `A holding that doubles adds its own size to the total once more. ${named(h)} is ${percent(share)} of what you own, so the whole would grow by ${percent(share)}, which is ${money(h.value)}.`
       );

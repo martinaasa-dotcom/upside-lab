@@ -271,6 +271,40 @@ describe("the questions", () => {
     }
   });
 
+  it("never lets a doubling question's distractors collide with its own answer", () => {
+    // Two of the three distractors are the fixed "about 100%" and the
+    // doubled share capped at 95%, which only coincide with the answer on
+    // a heavily concentrated holding (share near 95% or 100%).
+    for (let pct = 2; pct <= 100; pct += 1) {
+      const share = pct / 100;
+      const built = buildRecallCards({
+        ...INPUT,
+        holdings: [
+          {
+            ticker: "$ONE",
+            shares: 1,
+            buyPrice: 1,
+            price: 1,
+            value: share * 10000,
+            todayPct: 0,
+          },
+          {
+            ticker: "$TWO",
+            shares: 1,
+            buyPrice: 1,
+            price: 1,
+            value: (1 - share) * 10000,
+            todayPct: 0,
+          },
+        ],
+        totalValue: 10000,
+        cash: 0,
+      });
+      const card = built.find((c) => c.id === "double:$ONE")!;
+      expect(new Set(card.options).size, `share ${pct}%`).toBe(4);
+    }
+  });
+
   it("knows a fall takes a bigger rise to undo", () => {
     // VOO is 380 against 390.1 paid: down 2.6%, under the 5% floor, so no
     // card. Push it further down and the arithmetic has to hold.
