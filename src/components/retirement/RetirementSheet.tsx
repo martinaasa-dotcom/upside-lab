@@ -26,6 +26,16 @@
  * level is remembered. See `detail.ts` for why that is not the withholding
  * this repository argues against.
  *
+ * THE GRID ("WHAT STOPPING AT EACH AGE COSTS") SITS RIGHT BELOW THE NUMBER,
+ * NOT DOWN WITH THE OTHER ANSWERS. `detail.ts` already counts it as one of
+ * the outputs `simple` keeps, and it earns a place ahead of even
+ * `StandingPanel`: one answer says nothing about the shape of the problem,
+ * and the grid is the panel that turns it into a lesson, at a glance, before
+ * a reader has read anything else. It is not behind `BelowFold` for the
+ * same reason nothing else this close to the top is: a section wrapped
+ * there has to actually start a screen down, and two panels below the
+ * template picker does not.
+ *
  * THE POT IS PRE-FILLED FROM WHAT THEY ACTUALLY HOLD, and that is the one
  * thing this module can do that a spreadsheet cannot. Offered rather than
  * written in, because a portfolio is not necessarily retirement money and
@@ -270,6 +280,14 @@ export function RetirementSheet({
         detail={detail}
       />
 
+      <GridPanel
+        inputs={inputs}
+        plan={plan}
+        rows={rows}
+        mode={mode}
+        onModeChange={setMode}
+      />
+
       <StandingPanel
         inputs={inputs}
         plan={plan}
@@ -288,16 +306,6 @@ export function RetirementSheet({
         planningAge={planningAge}
         showControls={deep}
       />
-
-      <BelowFold reserve={520}>
-        <GridPanel
-          inputs={inputs}
-          plan={plan}
-          rows={rows}
-          mode={mode}
-          onModeChange={setMode}
-        />
-      </BelowFold>
 
       <BelowFold reserve={480}>
         <FlexiblePanel plan={plan} />

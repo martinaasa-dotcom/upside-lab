@@ -29,7 +29,9 @@ import type { RetirementTemplateId } from "@/lib/retirement/templates";
   `BelowFold` starts closed, so the panels inside one are deliberately
   absent from this markup. That is the deferral working rather than a
   detail level hiding something, which is why nothing below is asserted
-  against the grid or the spending layers.
+  against the spending layers, still behind a fold two panels further
+  down. The grid is not one of those any more: it sits right under the
+  number now, unfolded, so it is asserted for directly below.
 */
 function roomMarkup(): string {
   return renderToStaticMarkup(
@@ -78,6 +80,19 @@ describe("the retirement room, as somebody new meets it", () => {
     /* The ladder and the curve cost the reader nothing to read. */
     expect(body).toContain("How long the money has to last");
     expect(body).toContain("One in twenty reach");
+    /* Where you stand is an output too, not a field to fill in. */
+    expect(body).toContain("Where you stand");
+  });
+
+  it("puts the grid right under the number, ahead of standing and the form", () => {
+    const idx = (needle: string) => markup.indexOf(needle);
+    expect(idx("What stopping at each age costs")).toBeGreaterThan(0);
+    expect(idx("What you need")).toBeLessThan(
+      idx("What stopping at each age costs")
+    );
+    expect(idx("What stopping at each age costs")).toBeLessThan(
+      idx("Where you stand")
+    );
   });
 
   it("says out loud where the rest of it went", () => {

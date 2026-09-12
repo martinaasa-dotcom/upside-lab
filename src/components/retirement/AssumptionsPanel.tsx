@@ -212,9 +212,9 @@ export function AssumptionsPanel({
               onClick={() =>
                 /*
                   The preset prices cash at its own bad case, exactly as the
-                  grid's cash column does and from the same constant. Left at
-                  the long run 0.9% average, this preset answered a different
-                  question from the table two panels down and came out
+                  age-comparison grid's cash column does and from the same
+                  constant. Left at the long run 0.9% average, this preset
+                  answered a different question from that grid and came out
                   needing less than investing. The field below is still the
                   reader's if they want the average back.
                 */
