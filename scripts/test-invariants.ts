@@ -1155,7 +1155,7 @@ run("fund cron composes an X post but only sends it when switched on", () => {
     the room still points at the account, so it asserts the link and the
     reason for it rather than one exact caption.
   */
-  assert.match(page, /He also posts the same note every day on/);
+  assert.match(page, /Margus also posts the same note every day on/);
 });
 
 run("forecast add/trim lines split into bullets", () => {
@@ -5813,8 +5813,14 @@ run("fun facts and circle facts do not say NAV or dry powder", () => {
   The assertion is the rule rather than the wording: the note is still the
   reason for owning the company, it is still followed by the rule for
   selling it, and both are still `Reading` blocks on the shared card.
+
+  The labels name Margus rather than saying "he", 2026-09-12. This was the
+  one file in the app that gave Margus a gendered pronoun, on the same page
+  that twice says Margus is a computer program and not a person; everywhere
+  else the product writes the name or nothing. So the pronoun is asserted
+  gone as well as the labels being present.
 */
-run("Fund page says why he owns it and what would make him sell", () => {
+run("Fund page says why Margus owns it and what would make Margus sell", () => {
   const src = readFileSync(
     join(process.cwd(), "src/components/UpsidePortfolioPage.tsx"),
     "utf8"
@@ -5842,8 +5848,10 @@ run("Fund page says why he owns it and what would make him sell", () => {
   assert.doesNotMatch(card, /md:grid-cols-\[minmax/);
   assert.doesNotMatch(card, /<Score /);
   assert.doesNotMatch(card, /md:border-l/);
+  // Never a pronoun for Margus on this page (see the note above).
+  assert.doesNotMatch(src, /\bhe owns\b|\bmake him sell\b|\bcompanies he\b/);
   const positions = src.slice(
-    src.indexOf("companies he owns now"),
+    src.indexOf("companies Margus owns now"),
     src.indexOf("How each week went")
   );
   assert.match(positions, /<FundPosition/);

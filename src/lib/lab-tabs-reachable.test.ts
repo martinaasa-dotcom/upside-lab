@@ -6,6 +6,18 @@ const lab = readFileSync(
   join(process.cwd(), "src/components/LabSheet.tsx"),
   "utf8"
 );
+const labTabs = readFileSync(
+  join(process.cwd(), "src/lib/lab-tabs.ts"),
+  "utf8"
+);
+const dashboard = readFileSync(
+  join(process.cwd(), "src/components/Dashboard.tsx"),
+  "utf8"
+);
+const aboutYou = readFileSync(
+  join(process.cwd(), "src/components/tour/AboutYouScreen.tsx"),
+  "utf8"
+);
 
 /*
  * Lab's tab row is the only way into Research and the Playbook, and on a
@@ -61,10 +73,59 @@ describe("every Lab tab can be reached on a phone", () => {
     expect(component).toMatch(/scrollIntoView/);
   });
 
+  it("offers every Lab deep link in the command palette", () => {
+    /*
+     * Adding a Lab tab with a deep link is three edits -- the `LabDeepLink`
+     * type, `INTENT_TO_TAB`, and the palette -- and AGENTS.md records that
+     * the first two fail loudly while the third fails silently. That is how
+     * the Playbook shipped unfindable by name in the one place a reader
+     * goes to look for a room by name.
+     *
+     * `INTENT_TO_TAB` is the list of deep links, keyed by the type, so a
+     * new one cannot be added without appearing here. Each must reach the
+     * palette, which is the only thing that calls `setLabIntent`.
+     */
+    const block = lab.slice(
+      lab.indexOf("const INTENT_TO_TAB"),
+      lab.indexOf("};", lab.indexOf("const INTENT_TO_TAB"))
+    );
+    const links = [...block.matchAll(/^\s*(\w+):/gm)].map((m) => m[1]!);
+    expect(links.length, "no Lab deep links found").toBeGreaterThan(0);
+    for (const link of links) {
+      expect(
+        dashboard,
+        `"${link}" is a Lab deep link with no way into it from the command ` +
+          `palette, which is where a reader looks for a room by name`
+      ).toContain(`setLabIntent("${link}")`);
+    }
+  });
+
   it("offers Research and the Playbook at all", () => {
-    // The two tabs the phone row used to hide. If either leaves TABS this
-    // test should be changed deliberately, not silently.
-    expect(lab).toMatch(/\{ id: "lookup", label: "Research" \}/);
-    expect(lab).toMatch(/\{ id: "playbook", label: "Playbook" \}/);
+    /*
+     * The two tabs the phone row used to hide. If either leaves the list
+     * this test should be changed deliberately, not silently.
+     *
+     * Read from `lab-tabs.ts` rather than from the room, because the row is
+     * drawn twice: Lab draws it, and the walkthrough draws a preview of it.
+     * The walkthrough used to hand-type its own copy, which had drifted to
+     * four tabs with the first one misnamed, so both now read one list.
+     */
+    expect(labTabs).toMatch(/\{ id: "lookup", label: "Research" \}/);
+    expect(labTabs).toMatch(/\{ id: "playbook", label: "Playbook" \}/);
+  });
+
+  it("has the walkthrough read that same list rather than its own", () => {
+    /*
+     * `AboutYouScreen` previews the app as the reader's two answers leave
+     * it. It imports `DOCK_TABS` from the real bar so the rooms cannot
+     * drift, and beside that it had a hand-typed `LAB_VIEWS` which had:
+     * "Allocation" for a tab the product calls "The mix", and no Research
+     * or Playbook at all.
+     */
+    expect(aboutYou).toMatch(/LAB_TABS/);
+    expect(
+      aboutYou,
+      "the walkthrough is hand-typing Lab's tabs again"
+    ).not.toMatch(/const LAB_VIEWS/);
   });
 });

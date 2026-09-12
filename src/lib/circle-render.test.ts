@@ -158,6 +158,64 @@ function roomWith(opts: { gapLine: string | null; mine: { ticker: string; curren
   } as Parameters<typeof CircleHome>[0]);
 }
 
+/*
+  A MEMBER ROW MUST NOT DENY THE PORTFOLIO IT IS PRICING.
+
+  `personality` is null when a member holds no shares, and the row's
+  fallback read "No portfolio yet" for that. The amount beside it on the
+  same row is `totalValue`, which a sheet score computes as `equityValue +
+  cash`. So a member who has made a portfolio, put their cash in and not
+  yet typed a holding -- an ordinary first day, and exactly the reader this
+  product is for -- was announced to their circle as having no portfolio,
+  with their money printed next to the denial.
+*/
+describe("a member who has a portfolio but nothing in it", () => {
+  function cardRow(opts: { sheetCount: number; totalValue: number }): string {
+    const el = room("play") as ReturnType<typeof room>;
+    return textOf(
+      renderToStaticMarkup(
+        createElement(CircleHome, {
+          ...(el.props as Record<string, unknown>),
+          /*
+            Two members, because the Animals tab is hidden in a circle of
+            one and the row under test is only drawn on that tab. Both are
+            put in the same state, so an assertion about the words on the
+            page cannot be answered by the other person's row.
+          */
+          membersWithBooks: [
+            {
+              ...member("You", true, opts.totalValue),
+              personality: null,
+              sheetCount: opts.sheetCount,
+            },
+            {
+              ...member("Amanda", false, opts.totalValue),
+              personality: null,
+              sheetCount: opts.sheetCount,
+            },
+          ],
+        } as Parameters<typeof CircleHome>[0])
+      )
+    );
+  }
+
+  it("is not told the circle they have no portfolio", () => {
+    const text = cardRow({ sheetCount: 1, totalValue: 5000 });
+    expect(text).toContain("$5,000");
+    expect(
+      text,
+      "a member with a portfolio and cash in it is being shown as having none"
+    ).not.toContain("No portfolio yet");
+    expect(text).toContain("Nothing in it yet");
+  });
+
+  it("still says so when there really is no portfolio", () => {
+    const text = cardRow({ sheetCount: 0, totalValue: 0 });
+    expect(text).toContain("No portfolio yet");
+    expect(text).not.toContain("Nothing in it yet");
+  });
+});
+
 describe("the circle renders", () => {
   for (const view of ["overview","play","members"] as const) {
     it(`draws the ${view} tab without crashing`, () => {

@@ -668,8 +668,23 @@ export function ValueGlance({
           year for {implied.years} years, from what analysts expect{" "}
           {implied.basis}, before today&apos;s price sits at the market&apos;s
           ordinary multiple
+          {/*
+            * The horizon is named, because this page quotes two different
+            * expectations of the S&P 500 and they are not the same number.
+            *
+            * `implied.marketRate` prefers `marketLongTermGrowth`, which is
+            * right here: the sentence is about compounding over five years,
+            * so the market's long-run rate is the like-for-like comparison.
+            * The Key financials reading prefers `marketEpsGrowthNextYear`,
+            * which is equally right there, because it sits beside this
+            * company's own next-year growth. Both were correct and neither
+            * said which horizon it meant, so on Apple the page read "12% a
+            * year expected of the S&P 500" in one place and "the S&P 500 is
+            * expected to manage 15.4%" in another, and a reader can only
+            * conclude one of them is wrong.
+            */}
           {implied.marketRate !== null
-            ? `, against ${percent(implied.marketRate, 0)} a year expected of the S&P 500`
+            ? `, against the ${percent(implied.marketRate, 0)} a year the S&P 500 is expected to manage over the long run`
             : ""}
           . That is the bet, in one number.
         </p>

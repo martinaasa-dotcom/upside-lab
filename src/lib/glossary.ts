@@ -258,7 +258,18 @@ const ENTRIES: GlossaryEntry[] = [
   {
     id: "sell-if",
     term: "Sell rule",
-    also: ["sell if", "exit plan", "what would make him sell"],
+    /*
+      "what would make him sell" stays as a spelling this entry answers to,
+      because it was the Fund's label for a long time and a reader who
+      remembers it should still land here. The label itself says Margus now,
+      for the reason written above `FundPosition`.
+    */
+    also: [
+      "sell if",
+      "exit plan",
+      "what would make margus sell",
+      "what would make him sell",
+    ],
     meaning:
       "The thing somebody decides in advance would make them sell, written down while they are calm rather than on the day the price moves. It is what turns selling into a decision you already made instead of a reaction.",
     example: ({ ticker }) =>

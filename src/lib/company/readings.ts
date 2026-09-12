@@ -207,7 +207,17 @@ function earningsGrowthReading(f: CompanyFacts): CompanyReading {
     has(g) ? percent(g) : NO_VALUE,
     plain,
     has(market)
-      ? `This is what the price is a bet on, and the S&P 500 is expected to manage ${percent(market)}.`
+      /*
+       * "next year" is not decoration. `market` prefers
+       * `marketEpsGrowthNextYear`, which is the right comparison here
+       * because this cell is the company's own next-year growth, while the
+       * valuation panel's implied-growth sentence prefers the market's
+       * long-run rate, which is right there because it compounds over five
+       * years. Two correct figures, and with neither naming its horizon the
+       * page looked like it disagreed with itself: on Apple, 15.4% here and
+       * 12% there.
+       */
+      ? `This is what the price is a bet on, and the S&P 500 is expected to manage ${percent(market)} next year.`
       : "This is what the price is a bet on, so it is the figure to watch on results day.",
     tone,
     undefined,

@@ -112,6 +112,58 @@ describe("the privacy policy matches what the code does", () => {
     expect(privacy).not.toContain("Gemini");
   });
 
+  it("names every model provider the chain can actually call", () => {
+    /*
+     * The list above is a list of names, so it catches a provider being
+     * taken OFF the page and cannot catch one being added to the chain and
+     * never put on it. That is the direction that matters here: the page is
+     * a legal document about where a reader's data goes, and a new leg in
+     * `model.ts` that nobody thought to name leaves it quietly untrue.
+     *
+     * It has happened once already in a neighbouring file. AGENTS.md
+     * records that adding the NVIDIA leg broke `weekly-letter-prose.test.ts`
+     * because that test cleared three provider keys and there were now
+     * four, and it only surfaced on a machine that happened to have the new
+     * key set.
+     *
+     * So the legs are read out of `model.ts` itself. A key with no name
+     * here fails rather than passing, which is what makes the next provider
+     * somebody adds arrive as a decision about the privacy page instead of
+     * as silence.
+     */
+    const model = readFileSync(
+      join(process.cwd(), "src/lib/ai/model.ts"),
+      "utf8"
+    );
+    const NAME_FOR_KEY: Record<string, string> = {
+      GROQ_API_KEY: "Groq",
+      NVIDIA_API_KEY: "NVIDIA",
+      OPENROUTER_API_KEY: "OpenRouter",
+      CEREBRAS_API_KEY: "Cerebras",
+    };
+    const keys = [
+      ...new Set(
+        [...model.matchAll(/hasKey\("([A-Z0-9_]+_API_KEY)"\)/g)].map(
+          (m) => m[1]!
+        )
+      ),
+    ];
+    expect(keys.length, "no provider legs found in model.ts").toBeGreaterThan(0);
+    for (const key of keys) {
+      const name = NAME_FOR_KEY[key];
+      expect(
+        name,
+        `${key} is a provider leg with no name in this test. Add the ` +
+          `provider to the privacy page's roll call and to NAME_FOR_KEY.`
+      ).toBeTruthy();
+      expect(
+        privacy,
+        `${key} is a leg in model.ts but ${name} is not named on the ` +
+          `privacy page, which says where a reader's data goes`
+      ).toContain(name!);
+    }
+  });
+
   it("names both kinds of mail the app sends on its own", () => {
     expect(privacy).toMatch(/Sunday letter/);
     expect(privacy).toMatch(/if your portfolio is still empty/);
@@ -131,6 +183,57 @@ describe("the privacy policy matches what the code does", () => {
 });
 
 describe("neither page reads as generated", () => {
+  it("ties the creator-only promise to the code that keeps it", () => {
+    /*
+     * Section 6 tells a reader that "only the person who made the portfolio
+     * can delete it or remove another co-owner". That sentence was untrue
+     * in the product for a while: AGENTS.md records that until 2026-09-02
+     * the owners route let somebody who had merely redeemed an invite
+     * remove the person who sent it, because a migration narrowed the
+     * table's own policy on the belief that nothing in `src/` deleted from
+     * that table, and the route always had.
+     *
+     * A term of service is the one page where a claim being ahead of the
+     * code is not a copy problem. So the sentence and its enforcement are
+     * checked together: the route must still ask who created the portfolio
+     * and must still refuse anybody else, and if that rule is loosened this
+     * fails here as well as in `owners.test.ts`, which is the point --
+     * whoever loosens it has to decide what the terms now say.
+     */
+    // Whitespace collapsed first: the formatter wraps this sentence across
+    // four source lines, so a literal match would be a match against
+    // Prettier's line width rather than against the promise.
+    const termsFlat = terms.replace(/\s+/g, " ");
+    expect(termsFlat).toMatch(
+      /only the person who made the portfolio can delete it or remove another co-owner/i
+    );
+    const owners = readFileSync(
+      join(process.cwd(), "src/app/api/portfolios/[id]/owners/route.ts"),
+      "utf8"
+    );
+    /*
+     * The two refusals themselves, not the names of their messages. An
+     * identifier appears at its use site as well as its definition, so
+     * asserting the name passes happily while the rule it labels is gone;
+     * the first version of this test did exactly that and had to be
+     * rewritten. Whitespace collapsed for the same reason as above.
+     */
+    const ownersFlat = owners.replace(/\s+/g, " ");
+    expect(ownersFlat).toMatch(/const creatorId = await portfolioCreatorId\(/);
+    // The creator cannot be removed by anybody, themselves included.
+    expect(
+      ownersFlat,
+      "the owners route no longer keeps the creator on the portfolio, but the terms still promise it does"
+    ).toMatch(/if \(userId === creatorId\) \{ return NextResponse\.json\(/);
+    // Anybody who is not the creator may remove only themselves.
+    expect(
+      ownersFlat,
+      "the owners route no longer refuses a non-creator removing someone else, but the terms still promise it does"
+    ).toMatch(
+      /if \(userId !== auth\.user\.id && auth\.user\.id !== creatorId\) \{ return NextResponse\.json\(/
+    );
+  });
+
   it("carries no em or en dash a reader could meet", () => {
     for (const page of [terms, privacy]) {
       expect(page).not.toMatch(/[–—]/);
