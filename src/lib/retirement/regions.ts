@@ -516,6 +516,27 @@ export function livingStandardsFor(
 }
 
 /**
+ * The state pension a household actually collects, which is two of them for
+ * a couple.
+ *
+ * The published rate is per person, and the spending baskets are per
+ * household: a couple's "moderate" is one basket covering two people. So a
+ * couple read against a single person's pension is short by a whole
+ * pension, which at a three per cent withdrawal rate is roughly four
+ * hundred thousand pounds of pot they do not need. That is not a rounding
+ * error, it is the largest single mistake this module could make, and it
+ * lands on exactly the reader most likely to be planning seriously.
+ *
+ * It is a DEFAULT rather than a rule. Only one of a couple may have a full
+ * record, and plenty of people have gaps in theirs, so the figure stays a
+ * field the reader owns and this only decides what is in it before they
+ * touch it.
+ */
+export function statePensionFor(region: Region, household: Household): number {
+  return region.statePensionAnnual * (household === "couple" ? 2 : 1);
+}
+
+/**
  * A UK figure ported to a region, for the costs that are not part of the
  * retirement baskets: a child, a car, a year of rent. Same arithmetic, so
  * a reader who has understood one has understood all of them.

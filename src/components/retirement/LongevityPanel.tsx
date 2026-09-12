@@ -239,11 +239,20 @@ export function LongevityPanel({
   patch,
   result,
   planningAge,
+  showControls,
 }: {
   inputs: RetirementInputs;
   patch: (next: Partial<RetirementInputs>) => void;
   result: LongevityResult;
   planningAge: number;
+  /*
+    The curve and the four ages are the lesson and cost the reader nothing
+    to read, so they are on the page at every detail level. The two
+    controls under them are the only part anybody has to have an opinion
+    about, and a reader who has not asked for dials does not need to be
+    handed a mortality improvement rate to set.
+  */
+  showControls: boolean;
 }) {
   const usingSuggestion = inputs.planningAge == null;
   return (
@@ -283,6 +292,7 @@ export function LongevityPanel({
         />
       </Scoreboard>
 
+      {showControls ? (
       <div className="grid gap-4 sm:grid-cols-2">
         <SliderField
           label="Medicine improves by"
@@ -321,6 +331,7 @@ export function LongevityPanel({
           ) : null}
         </div>
       </div>
+      ) : null}
 
       <div className={cn(CARD, "p-4")}>
         <MicroLabel>How this is worked out</MicroLabel>

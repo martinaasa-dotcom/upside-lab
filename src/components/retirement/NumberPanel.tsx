@@ -18,6 +18,13 @@
  * why it went wrong. A reader who sees only the second is being asked for a
  * large number with no explanation of where the conservatism came from. Both,
  * with the difference named, is the only honest version.
+ *
+ * AT `simple` BOTH FIGURES ARE STILL STATED AND THE GAP IS STILL NAMED, in
+ * one sentence rather than in two cards and a paragraph. That is the line
+ * the detail levels may not cross: what may be folded away is the working,
+ * never a number the headline is being chosen over. A page that showed one
+ * pot and mentioned no other would be picking the flattering arithmetic and
+ * hiding that it had picked.
  */
 
 import { CARD, MicroLabel, Panel, PanelHeader, Pill } from "@/components/ui/Panel";
@@ -28,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { barFillPct, cn, currency } from "@/lib/format";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
+import { atLeast, type RetirementDetail } from "@/lib/retirement/detail";
 import type { PlanResult, RetirementInputs } from "@/lib/retirement/plan";
 import type { Provenance } from "@/lib/provenance";
 import { Target } from "lucide-react";
@@ -80,11 +88,13 @@ export function NumberPanel({
   patch,
   plan,
   provenance,
+  detail,
 }: {
   inputs: RetirementInputs;
   patch: (next: Partial<RetirementInputs>) => void;
   plan: PlanResult;
   provenance: Provenance;
+  detail: RetirementDetail;
 }) {
   const code = plan.currency;
   const { swr } = plan.required;
@@ -99,6 +109,8 @@ export function NumberPanel({
     its own headline.
   */
   const onCash = plan.required.basis === "spendDown";
+  const showWorking = atLeast(detail, "more");
+  const showRateBuild = atLeast(detail, "everything");
 
   return (
     <Panel>
@@ -146,7 +158,28 @@ export function NumberPanel({
         </p>
       </div>
 
-      {onCash ? (
+      {!showWorking ? (
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {onCash ? (
+            <>
+              That is every year of your plan added up and discounted at what
+              cash earns, spent to nothing at {plan.planningAge}.
+            </>
+          ) : (
+            <>
+              That figure is built to survive a bad run of markets. The
+              arithmetic that assumes returns arrive on schedule, every year,
+              in that order needs{" "}
+              <span className="font-mono tabular-nums text-foreground">
+                {currency(plan.required.spendDown, 0, code)}
+              </span>
+              . The difference between the two is the price of not knowing
+              what order your returns will come in, and it is the one number
+              on this page nobody can remove.
+            </>
+          )}
+        </p>
+      ) : onCash ? (
         <Method
           name="Spent down to nothing"
           amount={plan.required.spendDown}
@@ -179,7 +212,7 @@ export function NumberPanel({
         </div>
       )}
 
-      {sequenceCost > 0 && !onCash ? (
+      {showWorking && sequenceCost > 0 && !onCash ? (
         <div className={cn(CARD, "p-4")}>
           <MicroLabel>The gap, and what it buys</MicroLabel>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -198,7 +231,7 @@ export function NumberPanel({
         </div>
       ) : null}
 
-      {onCash ? null : (
+      {onCash || !showRateBuild ? null : (
       <div className={cn(CARD, "flex flex-col gap-4 p-4")}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <MicroLabel>How the withdrawal rate was built</MicroLabel>

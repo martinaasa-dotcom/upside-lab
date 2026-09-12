@@ -15,6 +15,17 @@
  * They can change one input and watch the top move, which is also the only
  * way anybody learns what an assumption is worth.
  *
+ * AND THEN THE INPUTS THEMSELVES WERE THE WALL ANYWAY. Answering first is
+ * not enough when the second thing on the page is seven panels of fields:
+ * the room still READ as work, and what a reader does with a page that
+ * reads as work is close it. So the default is `simple` (`detail.ts`),
+ * which keeps every panel that ANSWERS something and withholds every panel
+ * that ASKS something, and `QuickStart` fills the whole plan from one press
+ * on a life plus the six figures nothing can guess. Nothing is unreachable:
+ * the control that brings the rest back is on that same first card, and the
+ * level is remembered. See `detail.ts` for why that is not the withholding
+ * this repository argues against.
+ *
  * THE POT IS PRE-FILLED FROM WHAT THEY ACTUALLY HOLD, and that is the one
  * thing this module can do that a spreadsheet cannot. Offered rather than
  * written in, because a portfolio is not necessarily retirement money and
@@ -30,6 +41,7 @@
  */
 
 import { BelowFold } from "@/components/BelowFold";
+import { QuickStart } from "@/components/retirement/QuickStart";
 import { AssumptionsPanel } from "@/components/retirement/AssumptionsPanel";
 import { BridgePanel } from "@/components/retirement/BridgePanel";
 import { FlexiblePanel } from "@/components/retirement/FlexiblePanel";
@@ -55,9 +67,21 @@ import {
 import { RETURNS_SOURCE } from "@/lib/retirement/returns";
 import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
 import {
+  atLeast,
+  loadRetirementDetail,
+  saveRetirementDetail,
+  type RetirementDetail,
+} from "@/lib/retirement/detail";
+import {
   loadRetirementInputs,
   saveRetirementInputs,
 } from "@/lib/retirement/state";
+import {
+  DEFAULT_TEMPLATE_ID,
+  templateById,
+  templateInputs,
+  type RetirementTemplateId,
+} from "@/lib/retirement/templates";
 import { buildTable, type TableMode } from "@/lib/retirement/table";
 import {
   useCallback,
@@ -76,6 +100,15 @@ export function RetirementSheet({
   const [inputs, setInputs] = useState<RetirementInputs>(() => defaultInputs());
   const [mode, setMode] = useState<TableMode>("invested");
   const [restored, setRestored] = useState(false);
+  const [detail, setDetail] = useState<RetirementDetail>("simple");
+  /*
+    Which life is lit up, for this visit only. It is not stored with the
+    plan and must not be: a template is a starting point somebody pressed
+    once, and every field it filled in is theirs to change from the moment
+    it lands, so a plan restored from an earlier session has no template
+    any more, only the figures that came out of one.
+  */
+  const [templateId, setTemplateId] = useState<RetirementTemplateId | null>(null);
 
   /*
     The stored plan arrives after the first paint rather than during it.
@@ -85,7 +118,24 @@ export function RetirementSheet({
   */
   useEffect(() => {
     const saved = loadRetirementInputs();
-    if (saved) setInputs(saved);
+    if (saved) {
+      setInputs(saved);
+    } else {
+      /*
+        Nobody has been here before, so open on a life rather than on
+        zeroes. `templates.ts` says why at length; the short of it is that
+        a page whose every figure is zero and whose earliest retirement age
+        is "n/a" reads as a verdict on a reader who has not typed anything.
+        The card it came from is lit and the panel says the figures are a
+        template's until they are changed.
+      */
+      const opener = templateById(DEFAULT_TEMPLATE_ID);
+      if (opener) {
+        setInputs((prev) => templateInputs(opener, prev.regionId));
+        setTemplateId(opener.id);
+      }
+    }
+    setDetail(loadRetirementDetail());
     setRestored(true);
   }, []);
 
@@ -93,6 +143,11 @@ export function RetirementSheet({
     if (!restored) return;
     saveRetirementInputs(inputs);
   }, [inputs, restored]);
+
+  const changeDetail = useCallback((next: RetirementDetail) => {
+    setDetail(next);
+    saveRetirementDetail(next);
+  }, []);
 
   const patch = useCallback(
     (next: Partial<RetirementInputs>) =>
@@ -191,16 +246,29 @@ export function RetirementSheet({
     ]
   );
 
+  const deep = atLeast(detail, "more");
+  const everything = atLeast(detail, "everything");
+
   return (
     <div className="flex flex-col gap-6">
+      <QuickStart
+        inputs={inputs}
+        patch={patch}
+        replace={setInputs}
+        portfolioValue={portfolioValue}
+        detail={detail}
+        onDetailChange={changeDetail}
+        templateId={templateId}
+        onTemplate={setTemplateId}
+      />
+
       <NumberPanel
         inputs={inputs}
         patch={patch}
         plan={plan}
         provenance={provenance}
+        detail={detail}
       />
-
-      <PlanInputs inputs={inputs} patch={patch} portfolioValue={portfolioValue} />
 
       <StandingPanel
         inputs={inputs}
@@ -209,11 +277,16 @@ export function RetirementSheet({
         earliest={earliest}
       />
 
+      {deep ? (
+        <PlanInputs inputs={inputs} patch={patch} portfolioValue={portfolioValue} />
+      ) : null}
+
       <LongevityPanel
         inputs={inputs}
         patch={patch}
         result={longevity}
         planningAge={planningAge}
+        showControls={deep}
       />
 
       <BelowFold reserve={520}>
@@ -230,13 +303,17 @@ export function RetirementSheet({
         <FlexiblePanel plan={plan} />
       </BelowFold>
 
-      <BelowFold reserve={420}>
-        <BridgePanel inputs={inputs} plan={plan} />
-      </BelowFold>
+      {deep ? (
+        <BelowFold reserve={420}>
+          <BridgePanel inputs={inputs} plan={plan} />
+        </BelowFold>
+      ) : null}
 
-      <BelowFold reserve={560}>
-        <AssumptionsPanel inputs={inputs} patch={patch} />
-      </BelowFold>
+      {everything ? (
+        <BelowFold reserve={560}>
+          <AssumptionsPanel inputs={inputs} patch={patch} />
+        </BelowFold>
+      ) : null}
     </div>
   );
 }

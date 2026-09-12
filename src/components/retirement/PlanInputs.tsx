@@ -46,7 +46,12 @@ import {
   type Household,
   type LivingStandard,
 } from "@/lib/retirement/regions";
-import { retargetRegion, type Housing, type RetirementInputs } from "@/lib/retirement/plan";
+import {
+  retargetHousehold,
+  retargetRegion,
+  type Housing,
+  type RetirementInputs,
+} from "@/lib/retirement/plan";
 import type { Sex } from "@/lib/retirement/longevity";
 import { Baby, Car, Home, PiggyBank, UserRound, Wallet } from "lucide-react";
 import { useId } from "react";
@@ -85,8 +90,8 @@ function StandardPicker({
               CARD,
               "flex min-w-0 flex-col gap-2 p-4 text-left transition-colors",
               chosen
-                ? "ring-2 ring-primary"
-                : "ring-1 ring-transparent hover:ring-border"
+                ? "outline-2 -outline-offset-2 outline-primary"
+                : "hover:outline-1 hover:-outline-offset-1 hover:outline-border"
             )}
           >
             <span className="font-semibold text-foreground">
@@ -159,15 +164,7 @@ export function PlanInputs({
               { id: "single", label: "One person" },
               { id: "couple", label: "A couple" },
             ]}
-            onChange={(household) =>
-              patch({
-                household,
-                customAnnualSpend:
-                  inputs.spendingMode === "standard"
-                    ? livingStandardsFor(region, household)[inputs.standard]
-                    : inputs.customAnnualSpend,
-              })
-            }
+            onChange={(household) => patch(retargetHousehold(inputs, household))}
             note="A couple costs more than one person and much less than two, which is why the published baskets have both."
           />
           <CountField
@@ -485,7 +482,7 @@ export function PlanInputs({
               value={inputs.statePensionAnnual}
               currency={code}
               onChange={(statePensionAnnual) => patch({ statePensionAnnual })}
-              note={`${region.statePensionSource}. Approximate, and a year or two old. If you have a statement, use its figure.`}
+              note={`${region.statePensionSource}.${inputs.household === "couple" ? " Two of them, because the published rate is per person and you are planning for two." : ""} Approximate, and a year or two old. If you have a statement, use its figure.`}
             />
             <CountField
               label="Starting at age"
