@@ -54,6 +54,7 @@ import {
   livingStandardFor,
   localiseFromGbp,
   regionById,
+  statePensionFor,
   UK_COST_ANCHORS,
   type Household,
   type LivingStandard,
@@ -554,7 +555,7 @@ export function defaultInputs(regionId: string = DEFAULT_REGION_ID): RetirementI
     contributionGrowthPct: 1,
     costsReduceSaving: false,
     includeStatePension: true,
-    statePensionAnnual: region.statePensionAnnual,
+    statePensionAnnual: statePensionFor(region, "single"),
     statePensionAge: region.statePensionAge,
     otherIncomeAnnual: 0,
     otherIncomeFromAge: region.statePensionAge,
@@ -577,7 +578,7 @@ export function retargetRegion(
   return {
     ...inputs,
     regionId: next.id,
-    statePensionAnnual: next.statePensionAnnual,
+    statePensionAnnual: statePensionFor(next, inputs.household),
     statePensionAge: next.statePensionAge,
     otherIncomeFromAge:
       inputs.otherIncomeFromAge === regionById(inputs.regionId).statePensionAge
@@ -597,6 +598,75 @@ export function retargetRegion(
       changed a country picker would be this app rewriting a number it was
       told rather than one it derived.
     */
+  };
+}
+
+/**
+ * One person or two, and the two figures that follow from it.
+ *
+ * A household is not one field. It decides what a year of living costs,
+ * because the published baskets have a figure for each, and it decides how
+ * many state pensions arrive, because the published rate is per person.
+ * Changed on its own it moved only the first, so a couple was priced on a
+ * couple's spending against one person's pension.
+ *
+ * BOTH ARE ONLY MOVED WHILE THEY ARE STILL THIS APP'S OWN DEFAULTS. A
+ * reader who has typed their own spending figure or their own pension
+ * statement keeps it, because those are their numbers and a household
+ * toggle has no business rewriting one.
+ */
+export function retargetHousehold(
+  inputs: RetirementInputs,
+  household: Household
+): RetirementInputs {
+  const region = regionById(inputs.regionId);
+  const spendUntouched = inputs.spendingMode === "standard";
+  const pensionUntouched =
+    Math.round(inputs.statePensionAnnual) ===
+    Math.round(statePensionFor(region, inputs.household));
+  return {
+    ...inputs,
+    household,
+    customAnnualSpend: spendUntouched
+      ? livingStandardFor(region, inputs.standard, household)
+      : inputs.customAnnualSpend,
+    statePensionAnnual: pensionUntouched
+      ? statePensionFor(region, household)
+      : inputs.statePensionAnnual,
+  };
+}
+
+/**
+ * Move the age somebody stops, and move the glide with it.
+ *
+ * The mix of shares and bonds is a function of the retirement age: the
+ * default eases out of shares ten years before it and lands at sixty per
+ * cent in the year itself. So an age changed on its own leaves a plan
+ * holding eighty per cent in shares through a retirement that has already
+ * started, or de-risking a decade before anybody needed it, and neither is
+ * something the reader asked for by typing a different number in an age box.
+ *
+ * A GLIDE THE READER BUILT IS LEFT ALONE. Only one that is still exactly
+ * the default for the old age is moved, because the whole point of the
+ * bands in Assumptions is that somebody can say what they want, and
+ * rewriting that from an unrelated control is worse than a stale default.
+ */
+export function retargetRetirementAge(
+  inputs: RetirementInputs,
+  retirementAge: number
+): RetirementInputs {
+  const was = defaultGlide(inputs.retirementAge);
+  const untouched =
+    inputs.glide.length === was.length &&
+    inputs.glide.every(
+      (seg, i) =>
+        Math.round(seg.fromAge) === Math.round(was[i].fromAge) &&
+        Math.round(seg.equityPct) === Math.round(was[i].equityPct)
+    );
+  return {
+    ...inputs,
+    retirementAge,
+    glide: untouched ? defaultGlide(retirementAge) : inputs.glide,
   };
 }
 

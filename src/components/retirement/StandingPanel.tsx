@@ -255,7 +255,7 @@ export function StandingPanel({
         <PanelHeader
           icon={<TrendingUp className="h-4 w-4" />}
           title="Where you stand"
-          subtitle="Your own holdings, projected forward at the mix you chose, against the number above."
+          subtitle="Your own holdings, projected forward at the mix this plan is using, against the number it needs."
         />
 
         <Scoreboard cols={4} mobileCols={2}>

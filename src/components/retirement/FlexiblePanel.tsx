@@ -230,7 +230,7 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
             ? "At this return the year cannot cover even the bottom layer, which is the one situation a plan has to be built to avoid. Either the pot is too small for this spending, or too much of the bottom layer is resting on the market rather than on income that is guaranteed."
             : guaranteed >= year.slices[0].full
               ? "Drag it anywhere you like: your guaranteed income alone covers the whole bottom layer, so the market decides how good a year you have and never whether you eat. That is what a pension is actually worth, and it is the most under-counted number in retirement arithmetic."
-              : "The essentials hold at every setting on that slider, which is what the withdrawal rate above is for. Everything above them is a choice you would get to make at the time, and being willing to make it is most of the difference between a plan that survives a bad decade and one that does not."}
+              : "The essentials hold at every setting on that slider, which is what the withdrawal rate behind your number is for. Everything above them is a choice you would get to make at the time, and being willing to make it is most of the difference between a plan that survives a bad decade and one that does not."}
         </p>
       </div>
     </Panel>
