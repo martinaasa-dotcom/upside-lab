@@ -600,3 +600,45 @@ export const UK_COST_ANCHORS = {
   mortgageAnnual: 12_000,
   mortgageSource: "Typical monthly mortgage repayment, annualised",
 } as const;
+
+/**
+ * WHAT A CHILD, A CAR AND A MORTGAGE COST AT EACH LIVING STANDARD.
+ *
+ * `UK_COST_ANCHORS` above is one figure per line, which is honest about
+ * what this app could find a study for and wrong about what a reader
+ * actually spends: somebody living the minimum standard is not paying the
+ * same for a child as somebody living comfortably, and the flat anchor
+ * quietly assumed they were, on every one of the three lines a reader is
+ * most likely to argue with.
+ *
+ * There is no second study that prices a child, a car or a mortgage
+ * separately at each of the three published standards, so this does not
+ * invent one. It scales the one anchor this file can cite by the same
+ * ratio the published minimum/moderate/comfortable baskets already stand
+ * in for a single person (`UK_LIVING_STANDARDS`), which is the same
+ * derived-not-typed rule `livingStandardFor` runs on. A car is zero at
+ * the minimum standard for a stronger reason than arithmetic: the
+ * minimum standard is itself defined without one (see `STANDARD_BLURB`),
+ * so scaling the anchor down instead of zeroing it would still be
+ * charging for a car nobody in that basket owns.
+ *
+ * Every figure this returns is still one field away from being
+ * overwritten with the reader's own, which is the actual answer to "a
+ * child does not cost that here": type the number that is true for you.
+ */
+export function costAnchorsForStandard(standard: LivingStandard): {
+  childAnnual: number;
+  carMonthly: number;
+  mortgageAnnual: number;
+} {
+  const ratio =
+    UK_LIVING_STANDARDS[standard].single / UK_LIVING_STANDARDS.moderate.single;
+  return {
+    childAnnual: Math.round((UK_COST_ANCHORS.childAnnual * ratio) / 50) * 50,
+    carMonthly:
+      standard === "minimum"
+        ? 0
+        : Math.round((UK_COST_ANCHORS.carMonthly * ratio) / 10) * 10,
+    mortgageAnnual: Math.round((UK_COST_ANCHORS.mortgageAnnual * ratio) / 100) * 100,
+  };
+}

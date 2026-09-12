@@ -62,6 +62,7 @@ import {
   retargetHousehold,
   retargetRegion,
   retargetRetirementAge,
+  retargetStandard,
   type RetirementInputs,
 } from "@/lib/retirement/plan";
 import {
@@ -317,13 +318,7 @@ export function QuickStart({
               control rather than as a wrapped one.
             */
             ariaLabel="The life you want"
-            onChange={(standard) =>
-              patch({
-                spendingMode: "standard",
-                standard,
-                customAnnualSpend: amounts[standard],
-              })
-            }
+            onChange={(standard) => patch(retargetStandard(inputs, standard))}
           />
         </Field>
         <p className="text-sm leading-relaxed text-muted-foreground">

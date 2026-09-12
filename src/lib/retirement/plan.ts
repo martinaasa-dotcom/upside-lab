@@ -50,6 +50,7 @@ import {
   type ReturnAssumptions,
 } from "@/lib/retirement/returns";
 import {
+  costAnchorsForStandard,
   DEFAULT_REGION_ID,
   livingStandardFor,
   localiseFromGbp,
@@ -527,6 +528,7 @@ export function buildPlan(
 export function defaultInputs(regionId: string = DEFAULT_REGION_ID): RetirementInputs {
   const region = regionById(regionId);
   const retirementAge = region.statePensionAge;
+  const costs = costAnchorsForStandard("moderate");
   return {
     regionId: region.id,
     household: "single",
@@ -540,13 +542,13 @@ export function defaultInputs(regionId: string = DEFAULT_REGION_ID): RetirementI
     standard: "moderate",
     customAnnualSpend: livingStandardFor(region, "moderate", "single"),
     housing: "mortgage",
-    mortgageAnnual: localiseFromGbp(region, UK_COST_ANCHORS.mortgageAnnual),
+    mortgageAnnual: localiseFromGbp(region, costs.mortgageAnnual),
     mortgageYearsLeft: 20,
     rentAnnual: localiseFromGbp(region, UK_COST_ANCHORS.rentMonthly * 12),
     children: [],
-    childAnnualCost: localiseFromGbp(region, UK_COST_ANCHORS.childAnnual),
+    childAnnualCost: localiseFromGbp(region, costs.childAnnual),
     childUntilAge: 18,
-    carMonthly: localiseFromGbp(region, UK_COST_ANCHORS.carMonthly),
+    carMonthly: localiseFromGbp(region, costs.carMonthly),
     carYearsLeft: 3,
     carForever: false,
     currentPot: 0,
@@ -574,6 +576,7 @@ export function retargetRegion(
 ): RetirementInputs {
   const next = regionById(regionId);
   const fresh = defaultInputs(regionId);
+  const costs = costAnchorsForStandard(inputs.standard);
   const wasStandard = inputs.spendingMode === "standard";
   return {
     ...inputs,
@@ -587,10 +590,10 @@ export function retargetRegion(
     customAnnualSpend: wasStandard
       ? livingStandardFor(next, inputs.standard, inputs.household)
       : inputs.customAnnualSpend,
-    childAnnualCost: fresh.childAnnualCost,
+    childAnnualCost: localiseFromGbp(next, costs.childAnnual),
     rentAnnual: fresh.rentAnnual,
-    mortgageAnnual: fresh.mortgageAnnual,
-    carMonthly: fresh.carMonthly,
+    mortgageAnnual: localiseFromGbp(next, costs.mortgageAnnual),
+    carMonthly: localiseFromGbp(next, costs.carMonthly),
     /*
       What the reader already has and already saves is deliberately left
       alone. Those are their own figures in their own money, and silently
@@ -633,6 +636,56 @@ export function retargetHousehold(
     statePensionAnnual: pensionUntouched
       ? statePensionFor(region, household)
       : inputs.statePensionAnnual,
+  };
+}
+
+/**
+ * Pressing minimum, moderate or comfortable moves the child, car and
+ * mortgage defaults with it, not only the spending basket.
+ *
+ * Those three used to be one flat figure whatever standard was chosen,
+ * so a reader who picked "minimum" was still handed the moderate-life
+ * car payment and a child priced as if they had also picked the foreign
+ * holiday and the meals out. `costAnchorsForStandard` is what the three
+ * lines should have been reading all along; this is what applies it when
+ * the standard changes rather than only when the plan is first opened.
+ *
+ * SAME RULE AS THE HOUSEHOLD TOGGLE ABOVE: A FIGURE THE READER TYPED IS
+ * LEFT ALONE. Each of the three is only moved while it is still exactly
+ * what the *previous* standard would have opened on, because typing a
+ * real mortgage payment and then pressing a different card is not a
+ * request to have that payment overwritten again.
+ */
+export function retargetStandard(
+  inputs: RetirementInputs,
+  standard: LivingStandard
+): RetirementInputs {
+  const region = regionById(inputs.regionId);
+  const was = costAnchorsForStandard(inputs.standard);
+  const next = costAnchorsForStandard(standard);
+  const childUntouched =
+    Math.round(inputs.childAnnualCost) ===
+    Math.round(localiseFromGbp(region, was.childAnnual));
+  const carUntouched =
+    Math.round(inputs.carMonthly) ===
+    Math.round(localiseFromGbp(region, was.carMonthly));
+  const mortgageUntouched =
+    Math.round(inputs.mortgageAnnual) ===
+    Math.round(localiseFromGbp(region, was.mortgageAnnual));
+  return {
+    ...inputs,
+    standard,
+    spendingMode: "standard",
+    customAnnualSpend: livingStandardFor(region, standard, inputs.household),
+    childAnnualCost: childUntouched
+      ? localiseFromGbp(region, next.childAnnual)
+      : inputs.childAnnualCost,
+    carMonthly: carUntouched
+      ? localiseFromGbp(region, next.carMonthly)
+      : inputs.carMonthly,
+    mortgageAnnual: mortgageUntouched
+      ? localiseFromGbp(region, next.mortgageAnnual)
+      : inputs.mortgageAnnual,
   };
 }
 

@@ -34,6 +34,7 @@
 
 import { defaultInputs, type Child, type Housing, type RetirementInputs } from "@/lib/retirement/plan";
 import {
+  costAnchorsForStandard,
   livingStandardFor,
   localiseFromGbp,
   regionById,
@@ -273,6 +274,15 @@ export function templateInputs(
     id: `template-child-${i}`,
     age,
   }));
+  /*
+    A child and a mortgage cost different amounts at each standard (see
+    `costAnchorsForStandard`), so a template answers with its own
+    standard's figures rather than always the moderate ones `base` opens
+    on. The car stays `carMonthlyGbp` alone, zero for most of these eight
+    lives on purpose (a life without a car in it), rather than falling
+    back to a standard's anchor.
+  */
+  const costs = costAnchorsForStandard(template.standard);
 
   return {
     ...base,
@@ -284,9 +294,11 @@ export function templateInputs(
     customAnnualSpend: livingStandardFor(region, template.standard, template.household),
     statePensionAnnual: statePensionFor(region, template.household),
     housing: template.housing,
+    mortgageAnnual: localiseFromGbp(region, costs.mortgageAnnual),
     mortgageYearsLeft:
       template.housing === "mortgage" ? template.mortgageYearsLeft : base.mortgageYearsLeft,
     children,
+    childAnnualCost: localiseFromGbp(region, costs.childAnnual),
     currentPot: localiseFromGbp(region, template.potGbp),
     annualContribution: localiseFromGbp(region, template.contributionGbp),
     carMonthly: localiseFromGbp(region, template.carMonthlyGbp),
