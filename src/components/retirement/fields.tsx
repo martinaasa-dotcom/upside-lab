@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/Panel";
 import { Slider } from "@/components/ui/slider";
 import { blockWheelChange } from "@/lib/number-input";
-import { useId, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 /** Money the plan is in, from the region. Falls back rather than throwing. */
 export function currencyCodeFor(iso: string): CurrencyCode {
@@ -132,6 +132,42 @@ export function PercentField({
   );
 }
 
+/**
+ * What a finished count field commits on blur: digits only, clamped to
+ * `[min, max]`, empty text falling back to `min`. Pulled out of the
+ * component so the clamp — the exact thing that went wrong before — is a
+ * plain function a test can call without a DOM.
+ */
+export function clampCountDraft(raw: string, min: number, max: number): number {
+  const digits = raw.replace(/[^\d]/g, "");
+  const n = digits ? Number(digits) : NaN;
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : min;
+}
+
+/**
+ * `type="number"` LOOKS RIGHT AND CANNOT BE SELECTED.
+ *
+ * The spec's selection API only applies to `text`, `search`, `url`, `tel`
+ * and `password` — a `number` input is not on that list, so `.select()`
+ * on one is a defined no-op with no error and no visible effect. This
+ * field used to be `type="number"` with a `.select()` on focus that
+ * therefore never selected anything: clicking in still left the reader
+ * having to delete the old age or year by hand, which is the exact
+ * complaint this component exists to answer. It is `text` with
+ * `inputMode="numeric"` now, the same pairing `CoveredCallPanel` and
+ * `StartingCashField` already use elsewhere in this app for the same
+ * reason.
+ *
+ * THE OLD CLAMP FOUGHT EVERY KEYSTROKE, WHICH SELECT-ALL MAKES FATAL.
+ * Clamping to `[min, max]` on every change meant typing a fresh value
+ * over a selection could not work whenever an intermediate digit fell
+ * outside that range: replacing "16" with "45" by typing "4" then "5"
+ * committed "4" clamped up to the 16 minimum after the first keystroke,
+ * so the second keystroke appended to "16" instead of "4" and the field
+ * settled on the wrong number. A draft is kept while focused and the
+ * bound is only enforced on blur, which is what every other field on
+ * this page already does with its own `MAX_SAFE_MONEY` / percent ceiling.
+ */
 export function CountField({
   label,
   note,
@@ -150,21 +186,51 @@ export function CountField({
   suffix?: string;
 }) {
   const id = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const focused = useRef(false);
+  const [draft, setDraft] = useState(() =>
+    Number.isFinite(value) ? String(value) : ""
+  );
+
+  useEffect(() => {
+    if (!focused.current) setDraft(Number.isFinite(value) ? String(value) : "");
+  }, [value]);
+
   return (
     <Field label={label} note={note} htmlFor={id}>
       <div className="flex min-w-0 items-center gap-2">
         <Input
+          ref={inputRef}
           id={id}
-          type="number"
+          type="text"
           inputMode="numeric"
-          value={Number.isFinite(value) ? value : ""}
-          min={min}
-          max={max}
+          value={draft}
           onWheel={blockWheelChange}
-          onFocus={(e) => e.target.select()}
+          onFocus={() => {
+            focused.current = true;
+            const node = inputRef.current;
+            if (node) requestAnimationFrame(() => node.select());
+          }}
           onChange={(e) => {
-            const next = Number(e.target.value);
-            onChange(Number.isFinite(next) ? Math.min(max, Math.max(min, next)) : min);
+            const digits = e.target.value.replace(/[^\d]/g, "");
+            setDraft(digits);
+            /*
+              Live and unclamped, like every money and percent field on
+              this page: a reader typing "45" over a 16-minimum age must
+              be free to pass through "4" without it snapping back to 16
+              before the "5" ever arrives. The bound is real, it is just
+              enforced once the number is finished rather than mid-digit.
+            */
+            if (digits) {
+              const n = Number(digits);
+              if (Number.isFinite(n)) onChange(n);
+            }
+          }}
+          onBlur={() => {
+            focused.current = false;
+            const clamped = clampCountDraft(draft, min, max);
+            onChange(clamped);
+            setDraft(String(clamped));
           }}
           className="min-w-0 font-mono tabular-nums"
         />
