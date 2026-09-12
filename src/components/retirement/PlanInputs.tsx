@@ -48,7 +48,7 @@ import {
 } from "@/lib/retirement/regions";
 import { retargetRegion, type Housing, type RetirementInputs } from "@/lib/retirement/plan";
 import type { Sex } from "@/lib/retirement/longevity";
-import { Baby, Car, Home, PiggyBank, UserRound, Wallet } from "lucide-react";
+import { Baby, Car, Check, Home, PiggyBank, UserRound, Wallet } from "lucide-react";
 import { useId } from "react";
 
 type Patch = (next: Partial<RetirementInputs>) => void;
@@ -83,14 +83,26 @@ function StandardPicker({
             }
             className={cn(
               CARD,
-              "flex min-w-0 flex-col gap-2 p-4 text-left transition-colors",
-              chosen
-                ? "ring-2 ring-primary"
-                : "ring-1 ring-transparent hover:ring-border"
+              "veil-hover flex min-w-0 flex-col gap-2 border-2 p-4 text-left transition-colors",
+              chosen ? "border-primary" : "border-transparent hover:border-border"
             )}
           >
-            <span className="font-semibold text-foreground">
-              {STANDARD_LABEL[id]}
+            <span className="flex items-center justify-between gap-2">
+              <span
+                className={cn(
+                  "font-semibold",
+                  chosen ? "text-primary" : "text-foreground"
+                )}
+              >
+                {STANDARD_LABEL[id]}
+              </span>
+              <Check
+                aria-hidden
+                className={cn(
+                  "h-4 w-4 shrink-0 text-primary",
+                  chosen ? "" : "opacity-0"
+                )}
+              />
             </span>
             <span className="font-mono text-lg tabular-nums text-foreground">
               {currency(amounts[id], 0, code)}
