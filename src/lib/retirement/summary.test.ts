@@ -143,4 +143,31 @@ describe("what else is in the plan", () => {
     expect(said).toContain("car payment");
     expect(said).toContain("state pension");
   });
+
+  it("states every recurring figure as a month, matching how it was typed", () => {
+    /*
+      Every field this sentence restates (mortgage, rent, a child's cost,
+      the state pension, other guaranteed income) is now typed and shown
+      as a month's figure on the page above it (`MonthlyMoneyField`). This
+      sentence used to divide none of them and still say "a year", so a
+      reader who had just typed a mortgage as a monthly amount read it
+      straight back here at twelve times the size, under the same word.
+    */
+    const family = templateById("family-years");
+    const said = planExtrasSentence(templateInputs(family!, "GB"), money)!;
+    expect(said).not.toContain("a year");
+    expect(said).toContain("a month");
+
+    const mortgage = planExtras(
+      { ...defaultInputs("GB"), housing: "mortgage", mortgageAnnual: 12_000, mortgageYearsLeft: 11 },
+      money
+    ).join(" ");
+    expect(mortgage).toContain(`${money(1_000)} a month`);
+
+    const renting = planExtras(
+      { ...defaultInputs("GB"), housing: "renting", rentAnnual: 13_200 },
+      money
+    ).join(" ");
+    expect(renting).toContain(`${money(1_100)} a month`);
+  });
 });

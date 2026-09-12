@@ -40,6 +40,7 @@ import {
   CountField,
   FIELD_GRID,
   MoneyField,
+  MonthlyMoneyField,
   PercentField,
   currencyCodeFor,
 } from "@/components/retirement/fields";
@@ -88,12 +89,12 @@ export function PlanInputs({
         />
         {inputs.housing === "mortgage" ? (
           <div className={FIELD_GRID}>
-            <MoneyField
-              label="Mortgage a year"
+            <MonthlyMoneyField
+              label="Mortgage a month"
               value={inputs.mortgageAnnual}
               currency={code}
               onChange={(mortgageAnnual) => patch({ mortgageAnnual })}
-              note={`Opened on ${currency(standardCosts.mortgageAnnual, 0, "GBP")} a year at UK prices for the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard, moved onto ${region.name}'s. Type what you actually pay.`}
+              note={`Opened on ${currency(standardCosts.mortgageAnnual / 12, 0, "GBP")} a month at UK prices for the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard, moved onto ${region.name}'s. Type what you actually pay.`}
             />
             <CountField
               label="Years left on it"
@@ -105,12 +106,12 @@ export function PlanInputs({
             />
           </div>
         ) : inputs.housing === "renting" ? (
-          <MoneyField
-            label="Rent a year"
+          <MonthlyMoneyField
+            label="Rent a month"
             value={inputs.rentAnnual}
             currency={code}
             onChange={(rentAnnual) => patch({ rentAnnual })}
-            note={`Rent never ends, so this is carried to the last year of the plan. Opened on ${currency(UK_COST_ANCHORS.rentMonthly * 12, 0, "GBP")} a year at UK prices, moved onto ${region.name}'s.`}
+            note={`Rent never ends, so this is carried to the last year of the plan. Opened on ${currency(UK_COST_ANCHORS.rentMonthly, 0, "GBP")} a month at UK prices, moved onto ${region.name}'s.`}
           />
         ) : null}
       </Panel>
@@ -181,8 +182,8 @@ export function PlanInputs({
         </div>
         {inputs.children.length > 0 ? (
           <div className={FIELD_GRID}>
-            <MoneyField
-              label="Each child, a year"
+            <MonthlyMoneyField
+              label="Each child, a month"
               value={inputs.childAnnualCost}
               currency={code}
               onChange={(childAnnualCost) => patch({ childAnnualCost })}
@@ -304,8 +305,8 @@ export function PlanInputs({
         </label>
         {inputs.includeStatePension ? (
           <div className={FIELD_GRID}>
-            <MoneyField
-              label="State pension a year"
+            <MonthlyMoneyField
+              label="State pension a month"
               value={inputs.statePensionAnnual}
               currency={code}
               onChange={(statePensionAnnual) => patch({ statePensionAnnual })}
@@ -323,8 +324,8 @@ export function PlanInputs({
           </div>
         ) : null}
         <div className={FIELD_GRID}>
-          <MoneyField
-            label="Anything else guaranteed, a year"
+          <MonthlyMoneyField
+            label="Anything else guaranteed, a month"
             value={inputs.otherIncomeAnnual}
             currency={code}
             onChange={(otherIncomeAnnual) => patch({ otherIncomeAnnual })}

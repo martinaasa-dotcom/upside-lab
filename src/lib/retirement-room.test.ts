@@ -342,10 +342,10 @@ describe("nothing in the plan is invisible", () => {
       it apparently switched off for no visible reason.
     */
     expect(body).not.toContain("further down");
-    expect(body).toContain("Your own figure, a year");
+    expect(body).toContain("Your own figure, a month");
   });
 
   it("leaves the baskets alone when one of them is chosen", () => {
-    expect(text(quick("simple"))).not.toContain("Your own figure, a year");
+    expect(text(quick("simple"))).not.toContain("Your own figure, a month");
   });
 });
