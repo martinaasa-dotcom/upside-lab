@@ -35,6 +35,11 @@ import {
   PercentField,
   currencyCodeFor,
 } from "@/components/retirement/fields";
+import { PotField } from "@/components/retirement/PotField";
+import {
+  POT_SOURCE_BOOK,
+  type PortfolioPotOption,
+} from "@/lib/retirement/pot-source";
 import {
   LIVING_STANDARDS,
   REGIONS,
@@ -125,15 +130,25 @@ function StandardPicker({
   );
 }
 
+const EMPTY_SHEETS: PortfolioPotOption[] = [];
+
 export function PlanInputs({
   inputs,
   patch,
   portfolioValue,
+  sheets = EMPTY_SHEETS,
+  potSource = POT_SOURCE_BOOK,
+  onPotSourceChange = () => {},
 }: {
   inputs: RetirementInputs;
   patch: Patch;
   /** What the reader actually holds, so the pot can be filled from it. */
   portfolioValue: number | null;
+  /** One portfolio each, for a reader who wants to pick rather than combine. */
+  sheets?: PortfolioPotOption[];
+  /** Which real portfolio, or `custom`, the pot field currently tracks. */
+  potSource?: string;
+  onPotSourceChange?: (source: string) => void;
 }) {
   const region = regionById(inputs.regionId);
   const code = currencyCodeFor(region.currency);
@@ -412,43 +427,24 @@ export function PlanInputs({
           subtitle="Only money meant for this. A house you live in is not part of the pot, because selling it to eat means living somewhere else."
         />
         <div className={FIELD_GRID}>
-          <MoneyField
+          {/*
+            THE SAME FIELD AND THE SAME SOURCE AS `QuickStart`'S OWN COPY.
+            This used to be a second, hand-rolled version with a "press to
+            use" note that went stale the moment the figure it offered was
+            already on the page, and no way to name one portfolio out of
+            several. `PotField` reads the same `potSource` `RetirementSheet`
+            owns, so a selection made up there, or down here, is the same
+            selection everywhere this figure is shown.
+          */}
+          <PotField
             label="Invested now"
             value={inputs.currentPot}
             currency={code}
             onChange={(currentPot) => patch({ currentPot })}
-            note={
-              portfolioValue != null && portfolioValue > 0 ? (
-                inputs.currentPot === Math.round(portfolioValue) ? (
-                  /*
-                    THE FIRST VISIT ALREADY APPLIED THIS FIGURE, so a note
-                    still inviting a press here would be inviting a press
-                    that does nothing, which is the stale-copy fault this
-                    file's own AGENTS.md keeps finding in other rooms. Once
-                    the two agree, the sentence says why they agree instead.
-                  */
-                  <span>
-                    Pre-filled from what your portfolios are worth,{" "}
-                    {currency(portfolioValue, 0, "USD")}. Type over it if that
-                    figure includes money not meant for this.
-                  </span>
-                ) : (
-                  <span>
-                    Your portfolios are worth{" "}
-                    <button
-                      type="button"
-                      className="underline underline-offset-2 hover:text-foreground"
-                      onClick={() => patch({ currentPot: portfolioValue })}
-                    >
-                      {currency(portfolioValue, 0, "USD")}
-                    </button>
-                    . Press it to use that figure.
-                  </span>
-                )
-              ) : (
-                "Everything already invested for this, wherever it sits."
-              )
-            }
+            portfolioValue={portfolioValue}
+            sheets={sheets}
+            potSource={potSource}
+            onPotSourceChange={onPotSourceChange}
           />
           <MoneyField
             label="Other savings for this"

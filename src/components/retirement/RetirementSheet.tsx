@@ -51,6 +51,17 @@
  * silently treating it as such would be this app deciding something about
  * somebody's money on their behalf.
  *
+ * AND THAT REAL FIGURE NOW SURVIVES A TEMPLATE PRESS, WHICH IT USED NOT TO.
+ * `templates.ts` used to insist a press was a deliberate request for a
+ * template's own fictional pot; in practice it meant every card handed a
+ * reader somebody else's savings. `potSource` is which real portfolio (or
+ * their combined total, or a figure they typed themselves) that pre-fill
+ * tracks, and `applyTemplate` reads it on every press through
+ * `resolvedPotOverride` (`pot-source.ts`), so no life on this page ever
+ * opens on a made-up number while a real one is sitting there. A reader
+ * with more than one portfolio can name which one this plan is for; the
+ * picker lives beside the field in `QuickStart`.
+ *
  * EVERY EXPENSIVE THING IS MEMOISED ON WHAT IT ACTUALLY READS. The survival
  * curve is a thousand steps of numerical integration and does not care what
  * the reader typed in the rent field; recomputing it on every keystroke of
@@ -103,6 +114,12 @@ import {
   templateInputs,
   type RetirementTemplateId,
 } from "@/lib/retirement/templates";
+import {
+  POT_SOURCE_BOOK,
+  potSourceValue,
+  resolvedPotOverride,
+  type PortfolioPotOption,
+} from "@/lib/retirement/pot-source";
 import { buildTable, type TableMode } from "@/lib/retirement/table";
 import {
   useCallback,
@@ -114,14 +131,18 @@ import {
 } from "react";
 
 const EMPTY_TICKER_VALUES: Array<{ ticker: string; value: number }> = [];
+const EMPTY_SHEETS: PortfolioPotOption[] = [];
 
 export function RetirementSheet({
   portfolioValue,
+  sheets = EMPTY_SHEETS,
   tickerValues = EMPTY_TICKER_VALUES,
   bookCash = 0,
 }: {
   /** What the reader's portfolios are worth, for the pre-fill offer. */
   portfolioValue: number | null;
+  /** One portfolio each, for a reader who wants to pick rather than combine. */
+  sheets?: PortfolioPotOption[];
   /** Per-ticker value, for the same blended growth rate Compound offers. */
   tickerValues?: Array<{ ticker: string; value: number }>;
   bookCash?: number;
@@ -138,6 +159,14 @@ export function RetirementSheet({
     any more, only the figures that came out of one.
   */
   const [templateId, setTemplateId] = useState<RetirementTemplateId | null>(null);
+  /*
+    Which real portfolio the pot tracks: the combined total, one portfolio
+    by id, or `custom` once the reader has typed a figure of their own. Also
+    not stored with the plan, for the same reason `templateId` is not: it
+    is a choice about how THIS visit's figure was arrived at, not a fact
+    about the reader's life.
+  */
+  const [potSource, setPotSource] = useState<string>(POT_SOURCE_BOOK);
   const appliedDefaultPotRef = useRef(false);
   /*
     What the opening template put in the pot, or null when the reader came
@@ -243,6 +272,56 @@ export function RetirementSheet({
     setDetail(next);
     saveRetirementDetail(next);
   }, []);
+
+  /*
+    A press names a whole new life, and the one figure that life must never
+    carry is a made-up pot when a real one is sitting right there. The
+    selected source wins when it names a real portfolio; anything else
+    still falls back to the reader's combined total, which is what
+    `resolvedPotOverride` is for. `templateInputs` itself never changes,
+    so the template's own tuned arithmetic is intact for the one case that
+    still needs it, an account with nothing real to hold at all.
+  */
+  const applyTemplate = useCallback(
+    (id: RetirementTemplateId) => {
+      const template = templateById(id);
+      if (!template) return;
+      const life = templateInputs(template, inputs.regionId);
+      const override = resolvedPotOverride(potSource, portfolioValue, sheets);
+      setInputs({ ...life, currentPot: openingPot(life.currentPot, override) });
+      setTemplateId(id);
+      /*
+        The picker has to keep telling the truth. `potSource` only falls
+        back to the combined total when it was pointed at `custom` or at a
+        portfolio that no longer names anything real; left alone, the
+        select would still read "Type your own figure" over a field that
+        now shows the reader's real total, which is a control lying about
+        what it is showing.
+      */
+      if (potSourceValue(potSource, portfolioValue, sheets) == null && override != null) {
+        setPotSource(POT_SOURCE_BOOK);
+      }
+    },
+    [inputs.regionId, potSource, portfolioValue, sheets]
+  );
+
+  /*
+    Switching which portfolio the pot tracks writes the figure straight
+    into the plan, the same way pressing "book" in Compound's own principal
+    picker does. `custom` is never applied here: it means the reader is
+    about to type, or already has, and this function is never the one that
+    should be moving that field.
+  */
+  const changePotSource = useCallback(
+    (source: string) => {
+      setPotSource(source);
+      const value = potSourceValue(source, portfolioValue, sheets);
+      if (value != null) {
+        setInputs((prev) => ({ ...prev, currentPot: Math.round(value) }));
+      }
+    },
+    [portfolioValue, sheets]
+  );
 
   /*
     The same blended growth rate Compound's "Your rate" preset uses, turned
@@ -378,10 +457,13 @@ export function RetirementSheet({
         patch={patch}
         replace={setInputs}
         portfolioValue={portfolioValue}
+        sheets={sheets}
+        potSource={potSource}
+        onPotSourceChange={changePotSource}
         detail={detail}
         onDetailChange={changeDetail}
         templateId={templateId}
-        onTemplate={setTemplateId}
+        onTemplate={applyTemplate}
         result={{
           target: plan.required.target,
           earliestAge: earliest ? earliest.age : null,
@@ -389,7 +471,14 @@ export function RetirementSheet({
       />
 
       {deep ? (
-        <PlanInputs inputs={inputs} patch={patch} portfolioValue={portfolioValue} />
+        <PlanInputs
+          inputs={inputs}
+          patch={patch}
+          portfolioValue={portfolioValue}
+          sheets={sheets}
+          potSource={potSource}
+          onPotSourceChange={changePotSource}
+        />
       ) : null}
 
       {/*

@@ -134,6 +134,7 @@ export function GrowthRoom(props: Props) {
       {tab === "retirement" ? (
         <RetirementSheet
           portfolioValue={props.bookValue > 0 ? props.bookValue : null}
+          sheets={props.sheets}
           tickerValues={props.tickerValues}
           bookCash={props.bookCash}
         />

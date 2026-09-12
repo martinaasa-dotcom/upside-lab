@@ -320,12 +320,20 @@ export function templateInputs(
  * know about this reader; their pot is the one thing this app does know, so
  * it wins whenever there is one.
  *
- * A TEMPLATE THE READER PRESSED IS NOT THIS CASE and must not call here. A
- * press is a deliberate request for that life, and its pot is part of the
- * shape: "Nearly there" carrying somebody's real two thousand pounds is not
- * nearly there, and the tuned arithmetic behind every one of these lives
- * collapses. The field's own note offers the real figure as one press, which
- * is the right weight for a life somebody chose.
+ * A TEMPLATE THE READER PRESSED USED TO BE TOLD NOT THIS CASE, ON THE
+ * ARGUMENT THAT "NEARLY THERE" CARRYING SOMEBODY'S REAL TWO THOUSAND POUNDS
+ * IS NOT NEARLY THERE. That held while a template's own pot was the only
+ * way to see the shape of a life whose arithmetic is tuned to it, and it
+ * cost the room the one thing it can do that a spreadsheet cannot: a reader
+ * pressing a card met a stranger's fictional savings instead of their own,
+ * every single time. So a template press now calls here too, through
+ * `resolvedPotOverride` (`pot-source.ts`), which is the same rule stated
+ * for a reader who may hold more than one portfolio: the selected source
+ * wins when it names one, and anything else still falls back to the
+ * reader's combined total rather than to a made-up figure. `templateInputs`
+ * itself is unchanged and still returns the template's own pot; the
+ * override is applied by the caller, exactly as it already was for the
+ * room's opening life.
  */
 export function openingPot(
   templatePot: number,
