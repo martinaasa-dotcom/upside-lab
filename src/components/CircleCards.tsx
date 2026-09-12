@@ -71,6 +71,7 @@ export function PowerAnimalCard({
   name,
   isYou,
   isPending,
+  sheetCount,
   totalValue,
   todayPct,
   personality,
@@ -80,6 +81,8 @@ export function PowerAnimalCard({
   name: string;
   isYou: boolean;
   isPending: boolean;
+  /** How many portfolios this member has in the circle. */
+  sheetCount: number;
   totalValue: number;
   todayPct: number | null;
   personality: PortfolioPersonality | null;
@@ -129,7 +132,21 @@ export function PowerAnimalCard({
             )}
           </span>
           <span className={cn("block truncate text-sm font-medium", tone.name)}>
-            {personality?.animal ?? "No portfolio yet"}
+            {/*
+              * The fallback says which of two different things is missing.
+              *
+              * `personality` is null when a member holds no SHARES, and this
+              * line read "No portfolio yet" for that, while the amount beside
+              * it on the same row is `totalValue`, which a sheet score
+              * computes as `equityValue + cash`. So a member who has made a
+              * portfolio, put their cash in and not yet typed a holding --
+              * an ordinary first day, and exactly the reader this product
+              * is for -- was announced to their whole circle as having no
+              * portfolio, next to their money. `sheetCount` is on the same
+              * row's data and tells the two cases apart.
+              */}
+            {personality?.animal ??
+              (sheetCount > 0 ? "Nothing in it yet" : "No portfolio yet")}
           </span>
         </span>
         <span className="shrink-0 text-right">

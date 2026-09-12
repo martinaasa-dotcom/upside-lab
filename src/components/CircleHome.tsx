@@ -473,6 +473,7 @@ export function CircleHome({
                     name={m.name}
                     isYou={m.isYou}
                     isPending={m.isPending}
+                    sheetCount={m.sheetCount}
                     totalValue={m.totalValue}
                     todayPct={m.todayPct}
                     personality={m.personality}
