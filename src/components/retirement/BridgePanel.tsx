@@ -83,7 +83,7 @@ export function BridgePanel({
       <PanelHeader
         icon={<Route className="h-4 w-4" />}
         title="A pot meant to run out"
-        subtitle="For a stretch of years with an end on it rather than a retirement. The years between stopping work and a pension starting, a career break, anything with a date at the far end."
+        subtitle="For a stretch with an end date: the years before a pension starts, a career break, anything with a fixed length."
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -92,7 +92,7 @@ export function BridgePanel({
           value={draw}
           currency={code}
           onChange={setDraw}
-          note="In today's money, like everything else here."
+          note="In today's money."
         />
         <CountField
           label="For how many years"
@@ -104,7 +104,7 @@ export function BridgePanel({
           note={
             bridgeYears > 0
               ? `Opened on the ${bridgeYears} years between stopping at ${Math.round(inputs.retirementAge)} and your pension at ${Math.round(inputs.statePensionAge)}.`
-              : "The length of the stretch you have to cover yourself. Your pension starts the year you stop, so there is no gap to bridge unless you bring the age forward."
+              : "Your pension starts the year you stop, so there is no gap unless you retire earlier."
           }
         />
         <PercentField
@@ -112,7 +112,7 @@ export function BridgePanel({
           value={ratePct}
           digits={2}
           onChange={setRatePct}
-          note="After inflation. Money you will need inside a decade is usually held far more cautiously than a lifetime pot, which is why this opens low rather than on the market's own long run figure."
+          note="After inflation. Money needed inside a decade is usually held cautiously, so this opens low."
         />
         <ChoiceField<DrawTiming>
           label="Taken at the"
@@ -161,13 +161,9 @@ export function BridgePanel({
       <div className={cn(CARD, "p-4")}>
         <MicroLabel>Why that rate is not reckless</MicroLabel>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          A safe withdrawal rate answers a different question: what can be
-          taken from a pot that has to survive an unknown number of decades
-          and an unknown order of returns. This pot has a known end date and
-          is supposed to reach it empty, so almost all of what comes out is
-          the capital itself rather than what it earned. The two figures are
-          not comparable, and a reader who compares them anyway will save far
-          more than this stretch needs.
+          A safe withdrawal rate is for a pot that must survive forever. This
+          one has a known end date and is meant to reach it empty, so the two
+          figures are not comparable.
         </p>
       </div>
     </Panel>

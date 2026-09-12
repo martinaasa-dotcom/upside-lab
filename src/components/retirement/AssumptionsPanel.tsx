@@ -75,14 +75,14 @@ export function AssumptionsPanel({
         <PanelHeader
           icon={<SlidersVertical className="h-4 w-4" />}
           title="What the money earns"
-          subtitle="All of these are real returns, after inflation. That is why there is no inflation box: it is already taken off, and every figure on this page is in today's money."
+          subtitle="Real returns, after inflation. That is why there is no separate inflation field."
         />
         <div className={FIELD_GRID}>
           <PercentField
             label="Global shares, a year"
             value={inputs.returns.equityPct}
             onChange={(equityPct) => patch({ returns: { ...inputs.returns, equityPct } })}
-            note="The world index, not America's. The American century is the most flattering series in the data and the most quoted."
+            note="The world index, not just America's."
           />
           <PercentField
             label="Government bonds, a year"
@@ -93,13 +93,13 @@ export function AssumptionsPanel({
             label="Cash, a year"
             value={inputs.returns.cashPct}
             onChange={(cashPct) => patch({ returns: { ...inputs.returns, cashPct } })}
-            note={`Only used where nothing at all is invested, and no fee comes off it, because nobody pays a platform charge on a savings account. ${CAUTIOUS_CASH_REAL_PCT}% is what a plan should assume, since cash's own bad run is a decade of inflation eating the interest. ${REAL_RETURN_ASSUMPTIONS.cashPct}% is the long run average if you would rather plan on that.`}
+            note={`Used only when nothing is invested. ${CAUTIOUS_CASH_REAL_PCT}% is the cautious assumption; ${REAL_RETURN_ASSUMPTIONS.cashPct}% is the long run average.`}
           />
           <PercentField
             label="What you are charged, a year"
             value={inputs.returns.feePct}
             onChange={(feePct) => patch({ returns: { ...inputs.returns, feePct } })}
-            note="Platform and funds together. The one number in this whole model that is known in advance and entirely in your hands, which is why it gets its own field. Over forty years the gap between a cheap tracker and an expensive fund is most of a decade of retirement."
+            note="Platform and funds together. Over forty years, the gap between a cheap tracker and an expensive fund is most of a decade of retirement."
           />
         </div>
         {portfolioRatePct != null ? (
@@ -134,7 +134,7 @@ export function AssumptionsPanel({
         <p className="text-xs leading-relaxed text-muted-foreground">
           {RETURNS_SOURCE}
           {portfolioRatePct != null
-            ? ` The second button above is the same blended growth rate Compound's "Your rate" preset shows for what you hold. That figure is nominal, so it is turned real here the same way Compound turns its own mattress line real, by taking off ${COMPOUND_INFLATION_ANNUAL_PCT}% assumed inflation. A portfolio concentrated in one hot theme can still blend well above the world index, so treat it as an optimistic scenario rather than a safe planning assumption.`
+            ? ` The second button is what your own holdings blend to, turned real by taking off ${COMPOUND_INFLATION_ANNUAL_PCT}% assumed inflation. Treat it as optimistic rather than a safe planning assumption.`
             : ""}
         </p>
       </Panel>
@@ -143,7 +143,7 @@ export function AssumptionsPanel({
         <PanelHeader
           icon={<SlidersVertical className="h-4 w-4" />}
           title="Your mix, by age"
-          subtitle="What share is in shares, and from what age. Everything else is bonds. Add a band for each time it changes."
+          subtitle="Share of shares, by age. Everything else is bonds."
         />
         <div className={cn(CARD, "flex flex-col gap-3 p-4")}>
           {/*
@@ -283,9 +283,7 @@ export function AssumptionsPanel({
           <span className="font-mono tabular-nums text-foreground">
             {equityShareAt(inputs.retirementAge, sorted)}%
           </span>
-          . A pot that has to last forty years after you stop cannot sit in
-          cash, which is what the three figures in the panel above are an
-          argument for rather than an opinion about markets.
+          . A pot that has to last forty years cannot sit in cash.
         </p>
       </Panel>
 
@@ -293,23 +291,18 @@ export function AssumptionsPanel({
         <PanelHeader
           icon={<SlidersVertical className="h-4 w-4" />}
           title="Where the reference figures came from"
-          subtitle="None of these are exact, all of them are a year or two old, and every one of them is a field you have already passed higher up this page."
+          subtitle="Approximate, a year or two old, and every one is a field you can overwrite above."
         />
         <div className={cn(CARD, "flex flex-col gap-3 p-4 text-sm")}>
           <div>
             <MicroLabel>The living standards</MicroLabel>
             <p className="mt-1 leading-relaxed text-muted-foreground">
-              Shaped by one published set of baskets for the United Kingdom,
-              after tax and reset to a living cost with no housing and no
-              car in any of the three, moved onto {region.name}&apos;s
-              prices with a published comparative price level of{" "}
+              A published UK basket, moved onto {region.name}&apos;s prices at
+              a comparative price level of{" "}
               <span className="font-mono tabular-nums text-foreground">
                 {region.priceLevel}
               </span>{" "}
-              against the UK at 100, at a reference exchange rate taken in{" "}
-              {FX_REFERENCE_MONTH}. The rate is fixed rather than live: a
-              thirty year plan whose inputs moved every fifteen seconds
-              because a currency did would be noise dressed as precision.
+              (UK = 100), at a fixed exchange rate from {FX_REFERENCE_MONTH}.
             </p>
           </div>
           <div>
@@ -327,42 +320,28 @@ export function AssumptionsPanel({
                   <span className="font-mono tabular-nums text-foreground">
                     {region.privatePensionAge}
                   </span>
-                  , which is what creates the years an early retiree has to
-                  cover out of ordinary savings.
+                  .
                 </>
               ) : null}{" "}
-              If you have a statement, its figure beats this one.
+              Use your own statement if you have one.
             </p>
           </div>
           <div>
             <MicroLabel>The mortgage, child and car figures</MicroLabel>
             <p className="mt-1 leading-relaxed text-muted-foreground">
-              A plan opens with a mortgage, a car payment and a cost per child
-              already on it. All three are UK figures, a{" "}
-              {UK_COST_ANCHORS.mortgageSource.toLowerCase()} and a{" "}
+              UK figures ({UK_COST_ANCHORS.mortgageSource.toLowerCase()} and{" "}
               {UK_COST_ANCHORS.carSource.toLowerCase()} for the mortgage and
-              the car, and the Child Poverty Action Group&apos;s Cost of a
-              Child study for a child, moved onto {region.name}&apos;s prices
-              the same way the living standards above are. They also move
-              with the standard you pick above it: there is no separate
-              study pricing a child or a car at each of the three standards,
-              so each is the one figure this app could cite, scaled by the
-              same ratio the three published baskets already stand in for a
-              single person, and a car opens at zero on the minimum standard
-              because that standard is defined without one. Rent, if you say
-              you rent, is moved the same way and does not change with the
-              standard. Every one of these is a field you can type your own
-              number over, and typing one keeps it there even if you later
-              change the standard.
+              car, the Child Poverty Action Group&apos;s Cost of a Child study
+              for a child), moved onto {region.name}&apos;s prices and scaled
+              to the standard you pick. Type your own figure and it stays.
             </p>
           </div>
           <div>
             <MicroLabel>How long the money lasts</MicroLabel>
             <p className="mt-1 leading-relaxed text-muted-foreground">
               A survival curve fitted to the published life expectancy at 65
-              for {region.name}, with age specific death rates allowed to keep
-              falling as medicine improves. Both the rate and the age the plan
-              runs to are controls further up.
+              for {region.name}. Both the rate and the planning age are
+              controls further up.
             </p>
           </div>
         </div>
