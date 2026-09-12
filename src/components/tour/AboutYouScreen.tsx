@@ -4,6 +4,7 @@ import { MiniDock } from "@/components/tour/MiniDock";
 import { TourAsk } from "@/components/tour/TourRow";
 import { DOCK_TABS } from "@/components/mobile/MobileTabBar";
 import { ROW_GLASS } from "@/components/tour/TourRow";
+import { LAB_TABS } from "@/lib/lab-tabs";
 import { cn } from "@/lib/format";
 import {
   shouldHideOptions,
@@ -119,13 +120,6 @@ export function blendTier(q1: Q1Answer, q2: Q2Answer): ExperienceTier {
     : Q1_TIER[q1];
 }
 
-/** Lab's own sub-views, in the order Lab draws them. */
-const LAB_VIEWS: { id: string; label: string }[] = [
-  { id: "alloc", label: "Allocation" },
-  { id: "risk", label: "Risk" },
-  { id: "trends", label: "Trends" },
-  { id: "seasonality", label: "Seasonality" },
-];
 
 function Choice({
   on,
@@ -189,7 +183,18 @@ function MiniHome({
   const tabs = DOCK_TABS.filter(
     (t) => !t.metaId || !hiddenMeta.includes(t.metaId)
   );
-  const labViews = LAB_VIEWS.filter((v) => !hiddenLab.includes(v.id));
+  /*
+    Lab's real tabs, the same way the bar above reads the real dock.
+
+    This was a hand-typed list beside an imported `DOCK_TABS`, and it had
+    drifted in both ways a hand-typed list can: it called the first tab
+    "Allocation", a word the product does not use and deliberately renamed
+    to "The mix", and it stopped at four, so the preview promised a Lab
+    with no Research and no Playbook. Those are the two tabs a phone could
+    not reach until recently, missing again on the one screen whose whole
+    job is showing a beginner what their app contains.
+  */
+  const labViews = LAB_TABS.filter((v) => !hiddenLab.includes(v.id));
   const showsLab = tabs.some((t) => t.id === "lab");
 
   return (

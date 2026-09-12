@@ -3,6 +3,7 @@
 import { useTickerSectors } from "@/lib/use-ticker-sectors";
 
 import { TermTip } from "@/components/ui/TermTip";
+import { LAB_TABS as TABS, type LabTab } from "@/lib/lab-tabs";
 import { mixSlices } from "@/lib/mix-slices";
 import {
   allocationBySector,
@@ -93,42 +94,6 @@ const PlaybookPanel = dynamic(
 const EMPTY_HIDDEN_TABS: string[] = [];
 const EMPTY_WATCHLIST: string[] = [];
 
-type LabTab =
-  | "alloc"
-  | "risk"
-  | "trends"
-  | "seasonality"
-  | "lookup"
-  | "playbook";
-
-/** One flat row: what you hold, how risky it is, and when it tends to move. */
-/*
-  The mix stays first, and the company lookup goes last.
-
-  Lab's other four tabs are all whole-portfolio tools and one of them has
-  to be what Lab opens on. Putting the lookup first made it look like the
-  default and then visibly not be it: a reader lands on Lab, sees "Look up
-  a company" at the left of the row, and the highlight is two tabs along.
-  Last is where a tool that is about something other than your own
-  portfolio belongs anyway.
-*/
-const TABS: { id: LabTab; label: string }[] = [
-  { id: "alloc", label: "The mix" },
-  { id: "risk", label: "Risk" },
-  { id: "trends", label: "Trends" },
-  { id: "seasonality", label: "Seasonality" },
-  { id: "lookup", label: "Research" },
-  /*
-    Playbook is last because it is the only tab that is not about a
-    holding at all, not even one the reader is weighing up. The other five
-    all start from a company: four from the ones already owned and Research
-    from one being considered. This one starts from nothing, which makes it
-    the furthest thing in Lab from "the mix" and therefore the end of the
-    row. It is also the one tab that has something to say to an account
-    with no holdings in it yet, which is why it never hides.
-  */
-  { id: "playbook", label: "Playbook" },
-];
 
 /**
  * Lab's tab row, at one breakpoint.

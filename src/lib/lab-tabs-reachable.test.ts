@@ -6,6 +6,14 @@ const lab = readFileSync(
   join(process.cwd(), "src/components/LabSheet.tsx"),
   "utf8"
 );
+const labTabs = readFileSync(
+  join(process.cwd(), "src/lib/lab-tabs.ts"),
+  "utf8"
+);
+const aboutYou = readFileSync(
+  join(process.cwd(), "src/components/tour/AboutYouScreen.tsx"),
+  "utf8"
+);
 
 /*
  * Lab's tab row is the only way into Research and the Playbook, and on a
@@ -62,9 +70,31 @@ describe("every Lab tab can be reached on a phone", () => {
   });
 
   it("offers Research and the Playbook at all", () => {
-    // The two tabs the phone row used to hide. If either leaves TABS this
-    // test should be changed deliberately, not silently.
-    expect(lab).toMatch(/\{ id: "lookup", label: "Research" \}/);
-    expect(lab).toMatch(/\{ id: "playbook", label: "Playbook" \}/);
+    /*
+     * The two tabs the phone row used to hide. If either leaves the list
+     * this test should be changed deliberately, not silently.
+     *
+     * Read from `lab-tabs.ts` rather than from the room, because the row is
+     * drawn twice: Lab draws it, and the walkthrough draws a preview of it.
+     * The walkthrough used to hand-type its own copy, which had drifted to
+     * four tabs with the first one misnamed, so both now read one list.
+     */
+    expect(labTabs).toMatch(/\{ id: "lookup", label: "Research" \}/);
+    expect(labTabs).toMatch(/\{ id: "playbook", label: "Playbook" \}/);
+  });
+
+  it("has the walkthrough read that same list rather than its own", () => {
+    /*
+     * `AboutYouScreen` previews the app as the reader's two answers leave
+     * it. It imports `DOCK_TABS` from the real bar so the rooms cannot
+     * drift, and beside that it had a hand-typed `LAB_VIEWS` which had:
+     * "Allocation" for a tab the product calls "The mix", and no Research
+     * or Playbook at all.
+     */
+    expect(aboutYou).toMatch(/LAB_TABS/);
+    expect(
+      aboutYou,
+      "the walkthrough is hand-typing Lab's tabs again"
+    ).not.toMatch(/const LAB_VIEWS/);
   });
 });
