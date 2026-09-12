@@ -52,9 +52,14 @@ import {
   CountField,
   Field,
   FIELD_GRID,
-  MoneyField,
+  MonthlyMoneyField,
   currencyCodeFor,
 } from "@/components/retirement/fields";
+import { PotField } from "@/components/retirement/PotField";
+import {
+  POT_SOURCE_BOOK,
+  type PortfolioPotOption,
+} from "@/lib/retirement/pot-source";
 import {
   LIVING_STANDARDS,
   REGIONS,
@@ -81,7 +86,6 @@ import {
 import {
   RETIREMENT_TEMPLATES,
   templateById,
-  templateInputs,
   type RetirementTemplateId,
 } from "@/lib/retirement/templates";
 import { planExtrasSentence, quickResultLine } from "@/lib/retirement/summary";
@@ -90,11 +94,16 @@ import { useId } from "react";
 
 type Patch = (next: Partial<RetirementInputs>) => void;
 
+const EMPTY_SHEETS: PortfolioPotOption[] = [];
+
 export function QuickStart({
   inputs,
   patch,
   replace,
   portfolioValue,
+  sheets = EMPTY_SHEETS,
+  potSource = POT_SOURCE_BOOK,
+  onPotSourceChange = () => {},
   detail,
   onDetailChange,
   templateId,
@@ -103,12 +112,23 @@ export function QuickStart({
 }: {
   inputs: RetirementInputs;
   patch: Patch;
-  /** A template replaces the whole plan, so it cannot go through `patch`. */
+  /** The region and household controls replace the whole plan too. */
   replace: (next: RetirementInputs) => void;
   portfolioValue: number | null;
+  /** One portfolio each, for a reader who wants to pick rather than combine. */
+  sheets?: PortfolioPotOption[];
+  /** Which real portfolio, or `custom`, the pot field currently tracks. */
+  potSource?: string;
+  onPotSourceChange?: (source: string) => void;
   detail: RetirementDetail;
   onDetailChange: (next: RetirementDetail) => void;
   templateId: RetirementTemplateId | null;
+  /**
+   * A press names a whole new life. It is handed the id rather than a
+   * built plan because applying it also has to decide the pot, and that
+   * decision needs `potSource` and the reader's real portfolios, neither
+   * of which this card owns.
+   */
   onTemplate: (id: RetirementTemplateId) => void;
   /** What this plan currently needs, so a press changes something here. */
   result: { target: number; earliestAge: number | null };
@@ -200,10 +220,7 @@ export function QuickStart({
                 key={template.id}
                 type="button"
                 aria-pressed={on}
-                onClick={() => {
-                  replace(templateInputs(template, inputs.regionId));
-                  onTemplate(template.id);
-                }}
+                onClick={() => onTemplate(template.id)}
                 className={cn(
                   CARD,
                   "veil-hover flex min-w-0 flex-col gap-1 border-2 p-3 text-left transition-colors",
@@ -321,31 +338,29 @@ export function QuickStart({
             suffix="years"
             note="The biggest lever on this page."
           />
-          <MoneyField
-            label="Invested for this now"
+          {/*
+            THE DEFAULT IS ALWAYS A REAL PORTFOLIO, NEVER A TEMPLATE'S
+            GUESS. `potSource` (owned by `RetirementSheet`) stays pointed
+            at the reader's combined total until they say otherwise, so
+            pressing a different life never swaps in that life's own
+            made-up savings while a real figure is sitting right here. The
+            picker inside `PotField` is what lets a reader with more than
+            one portfolio say which one this plan is for, rather than
+            always being handed everything they own; `PlanInputs` draws
+            the same field lower down the page and reads the same source,
+            so the two copies of this figure cannot disagree.
+          */}
+          <PotField
             value={inputs.currentPot}
             currency={code}
             onChange={(currentPot) => patch({ currentPot })}
-            note={
-              portfolioValue != null && portfolioValue > 0 ? (
-                <span>
-                  Your portfolios are worth{" "}
-                  <button
-                    type="button"
-                    className="underline underline-offset-2 hover:text-foreground"
-                    onClick={() => patch({ currentPot: portfolioValue })}
-                  >
-                    {currency(portfolioValue, 0, "USD")}
-                  </button>
-                  . Press to use it.
-                </span>
-              ) : (
-                "Not the house you live in."
-              )
-            }
+            portfolioValue={portfolioValue}
+            sheets={sheets}
+            potSource={potSource}
+            onPotSourceChange={onPotSourceChange}
           />
-          <MoneyField
-            label="You add, a year"
+          <MonthlyMoneyField
+            label="You add, a month"
             value={inputs.annualContribution}
             currency={code}
             onChange={(annualContribution) => patch({ annualContribution })}
@@ -384,16 +399,17 @@ export function QuickStart({
           {standardNow ? (
             <>
               <span className="font-mono tabular-nums text-foreground">
-                {currency(amounts[standardNow], 0, region.currency)}
+                {currency(Math.round(amounts[standardNow] / 12), 0, region.currency)}
               </span>{" "}
-              a year, after tax. Housing is counted separately.
+              a month, after tax. Housing is counted separately.
             </>
           ) : (
             <>
               <span className="font-mono tabular-nums text-foreground">
-                {currency(inputs.customAnnualSpend, 0, region.currency)}
+                {currency(Math.round(inputs.customAnnualSpend / 12), 0, region.currency)}
               </span>{" "}
-              a year, after tax. Housing is counted separately.
+              a month, your own figure, after tax. Housing is counted
+              separately.
             </>
           )}
         </p>
@@ -406,8 +422,8 @@ export function QuickStart({
           looked switched off for no visible reason.
         */}
         {standardNow ? null : (
-          <MoneyField
-            label="Your own figure, a year"
+          <MonthlyMoneyField
+            label="Your own figure, a month"
             value={inputs.customAnnualSpend}
             currency={code}
             onChange={(customAnnualSpend) =>
