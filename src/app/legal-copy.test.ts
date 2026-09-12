@@ -183,6 +183,57 @@ describe("the privacy policy matches what the code does", () => {
 });
 
 describe("neither page reads as generated", () => {
+  it("ties the creator-only promise to the code that keeps it", () => {
+    /*
+     * Section 6 tells a reader that "only the person who made the portfolio
+     * can delete it or remove another co-owner". That sentence was untrue
+     * in the product for a while: AGENTS.md records that until 2026-09-02
+     * the owners route let somebody who had merely redeemed an invite
+     * remove the person who sent it, because a migration narrowed the
+     * table's own policy on the belief that nothing in `src/` deleted from
+     * that table, and the route always had.
+     *
+     * A term of service is the one page where a claim being ahead of the
+     * code is not a copy problem. So the sentence and its enforcement are
+     * checked together: the route must still ask who created the portfolio
+     * and must still refuse anybody else, and if that rule is loosened this
+     * fails here as well as in `owners.test.ts`, which is the point --
+     * whoever loosens it has to decide what the terms now say.
+     */
+    // Whitespace collapsed first: the formatter wraps this sentence across
+    // four source lines, so a literal match would be a match against
+    // Prettier's line width rather than against the promise.
+    const termsFlat = terms.replace(/\s+/g, " ");
+    expect(termsFlat).toMatch(
+      /only the person who made the portfolio can delete it or remove another co-owner/i
+    );
+    const owners = readFileSync(
+      join(process.cwd(), "src/app/api/portfolios/[id]/owners/route.ts"),
+      "utf8"
+    );
+    /*
+     * The two refusals themselves, not the names of their messages. An
+     * identifier appears at its use site as well as its definition, so
+     * asserting the name passes happily while the rule it labels is gone;
+     * the first version of this test did exactly that and had to be
+     * rewritten. Whitespace collapsed for the same reason as above.
+     */
+    const ownersFlat = owners.replace(/\s+/g, " ");
+    expect(ownersFlat).toMatch(/const creatorId = await portfolioCreatorId\(/);
+    // The creator cannot be removed by anybody, themselves included.
+    expect(
+      ownersFlat,
+      "the owners route no longer keeps the creator on the portfolio, but the terms still promise it does"
+    ).toMatch(/if \(userId === creatorId\) \{ return NextResponse\.json\(/);
+    // Anybody who is not the creator may remove only themselves.
+    expect(
+      ownersFlat,
+      "the owners route no longer refuses a non-creator removing someone else, but the terms still promise it does"
+    ).toMatch(
+      /if \(userId !== auth\.user\.id && auth\.user\.id !== creatorId\) \{ return NextResponse\.json\(/
+    );
+  });
+
   it("carries no em or en dash a reader could meet", () => {
     for (const page of [terms, privacy]) {
       expect(page).not.toMatch(/[–—]/);
