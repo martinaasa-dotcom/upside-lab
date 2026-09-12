@@ -98,6 +98,7 @@ import {
 } from "@/lib/retirement/state";
 import {
   DEFAULT_TEMPLATE_ID,
+  openingPot,
   templateById,
   templateInputs,
   type RetirementTemplateId,
@@ -138,6 +139,20 @@ export function RetirementSheet({
   */
   const [templateId, setTemplateId] = useState<RetirementTemplateId | null>(null);
   const appliedDefaultPotRef = useRef(false);
+  /*
+    What the opening template put in the pot, or null when the reader came
+    back to a plan of their own. Only ever read to tell an untouched opening
+    figure from one somebody typed.
+  */
+  const openerPotRef = useRef<number | null>(null);
+  /*
+    Read inside the restore effect, which must run exactly once and so
+    cannot take this as a dependency. Same reason `TrendsPanel` reads its
+    own gate through a ref: widening the dependency list would re-run the
+    thing the list exists to run once.
+  */
+  const portfolioValueRef = useRef(portfolioValue);
+  portfolioValueRef.current = portfolioValue;
 
   /*
     The stored plan arrives after the first paint rather than during it.
@@ -160,7 +175,24 @@ export function RetirementSheet({
       */
       const opener = templateById(DEFAULT_TEMPLATE_ID);
       if (opener) {
-        setInputs((prev) => templateInputs(opener, prev.regionId));
+        setInputs((prev) => {
+          const life = templateInputs(opener, prev.regionId);
+          /*
+            The opener's pot defers to what the reader actually holds.
+            `openingPot` carries the argument: this template is a guess
+            nobody asked for, their holdings are a fact, and the pre-fill
+            below only ever writes into an untouched zero, so without this
+            the better of the two features was dead for exactly the reader
+            it was written for. The pot the opener would have used is kept
+            so that pre-fill can still recognise an untouched one when the
+            portfolio value arrives a tick later than this effect.
+          */
+          openerPotRef.current = life.currentPot;
+          return {
+            ...life,
+            currentPot: openingPot(life.currentPot, portfolioValueRef.current),
+          };
+        });
         setTemplateId(opener.id);
       }
     }
@@ -181,10 +213,22 @@ export function RetirementSheet({
   */
   useEffect(() => {
     if (!restored || appliedDefaultPotRef.current) return;
-    appliedDefaultPotRef.current = true;
+    /*
+      The one-shot mark is set only once a real figure has arrived. Setting
+      it first spends the single attempt on whatever `portfolioValue` was at
+      the moment the stored plan resolved, which is null on any account
+      whose holdings land a tick later, and the pre-fill then never runs at
+      all for them.
+    */
     if (!(portfolioValue != null && portfolioValue > 0)) return;
+    appliedDefaultPotRef.current = true;
     setInputs((prev) =>
-      prev.currentPot === 0
+      /*
+        An untouched pot is a zero nobody has filled in, or the figure the
+        opening template put there before this value arrived. Anything else
+        is the reader's and is never overwritten.
+      */
+      prev.currentPot === 0 || prev.currentPot === openerPotRef.current
         ? { ...prev, currentPot: Math.round(portfolioValue) }
         : prev
     );

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_TEMPLATE_ID,
+  openingPot,
   RETIREMENT_TEMPLATES,
   templateById,
   templateInputs,
@@ -230,3 +231,60 @@ describe("the life the room opens on", () => {
     expect(inputs.annualContribution).toBeGreaterThan(0);
   });
 });
+
+/*
+  THE ONE PLACE TWO GOOD FEATURES DISAGREED.
+
+  Opening the room on a life and starting the pot on what the reader
+  actually holds both landed in the same hour and both were right. They
+  merged cleanly and cancelled: the pre-fill only ever wrote into an
+  untouched zero, the opening template's pot is not zero, so a brand new
+  reader with real holdings was shown a made-up figure and the better of
+  the two features was dead for exactly the person it was written for.
+*/
+describe("the pot a first visit opens on", () => {
+  it("prefers what the reader actually holds over the template's guess", () => {
+    const opener = templateById(DEFAULT_TEMPLATE_ID)!;
+    const guess = templateInputs(opener, "GB").currentPot;
+    expect(guess).toBeGreaterThan(0);
+    expect(openingPot(guess, 42_000)).toBe(42_000);
+  });
+
+  it("keeps the template's figure when there is nothing to hold", () => {
+    /*
+      The alternative is the zeroes this opener exists to avoid: a pot of
+      nothing, a gap equal to the whole target and an earliest age of n/a,
+      handed to somebody three seconds after they arrived.
+    */
+    expect(openingPot(25_000, null)).toBe(25_000);
+    expect(openingPot(25_000, 0)).toBe(25_000);
+    expect(openingPot(25_000, -5)).toBe(25_000);
+  });
+
+  it("rounds, because a pot is money and not a fraction of a penny", () => {
+    expect(openingPot(25_000, 42_000.4)).toBe(42_000);
+  });
+
+  it("leaves every template's own pot alone, which is what a press asks for", () => {
+    /*
+      A press is a deliberate request for that life, and the pot is part of
+      its shape: "Nearly there" carrying somebody's real two thousand
+      pounds is not nearly there, and the arithmetic tuned into all eight
+      collapses. Only the opener nobody asked for defers.
+    */
+    for (const template of RETIREMENT_TEMPLATES) {
+      const built = templateInputs(template, "GB");
+      expect(built.currentPot).toBe(
+        localisedPotFor(template.potGbp)
+      );
+    }
+  });
+});
+
+/** The template's own figure in the region's money, with nothing applied. */
+function localisedPotFor(gbp: number): number {
+  return templateInputs(
+    { ...RETIREMENT_TEMPLATES[0], potGbp: gbp },
+    "GB"
+  ).currentPot;
+}
