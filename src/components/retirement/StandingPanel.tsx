@@ -86,65 +86,76 @@ function PathChart({
   return (
     <div className={cn(CARD, "p-4")}>
       <div className="relative w-full pb-6">
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="none"
-          className="h-40 w-full sm:h-48"
-          role="img"
-          aria-label={`Your pot from age ${shape.firstAge} to ${shape.lastAge}, rising while you save and falling once you draw on it, against a target of ${currency(target, 0, code)}.`}
-        >
-          <line
-            x1={0}
-            x2={W}
-            y1={shape.targetTop * H}
-            y2={shape.targetTop * H}
-            stroke={PALETTE.brand}
-            strokeWidth={1.5}
-            strokeDasharray="4 4"
-            vectorEffect="non-scaling-stroke"
-          />
-          <line
-            x1={shape.retire * W}
-            x2={shape.retire * W}
-            y1={0}
-            y2={H}
-            stroke="currentColor"
-            strokeWidth={1}
-            vectorEffect="non-scaling-stroke"
-            className="text-border"
-          />
-          <path
-            d={shape.line}
-            fill="none"
-            stroke={PALETTE.gain}
-            strokeWidth={2.5}
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
         {/*
-          The caption hangs above its line, so a target at or near the top
-          of the plot would put it outside the card with nothing to clip
-          against. When the line is in the top eighth the caption sits
-          below it instead. The line itself never moves.
+          The chart and its axis row are two different heights: the svg is
+          H pixels tall and the axis labels live in the pb-6 gutter below
+          it. A `top` percentage on an absolutely positioned element
+          resolves against the WHOLE containing block, so a label
+          positioned by a fraction of H must live in a wrapper sized to
+          exactly the svg, or a target line low in the chart drags its
+          label down into the axis row below the chart's real bottom edge.
         */}
-        <span
-          className={cn(
-            "pointer-events-none absolute left-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground",
-            shape.targetTop < 0.12 ? "translate-y-0.5" : "-translate-y-full"
-          )}
-          style={{ top: `${shape.targetTop * 100}%` }}
-        >
-          target {currency(target, 0, code)}
-        </span>
-        <span
-          className="pointer-events-none absolute top-0 whitespace-nowrap text-xs text-muted-foreground"
-          style={{
-            left: `${Math.min(80, shape.retire * 100)}%`,
-            paddingLeft: "0.25rem",
-          }}
-        >
-          you stop
-        </span>
+        <div className="relative">
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            className="h-40 w-full sm:h-48"
+            role="img"
+            aria-label={`Your pot from age ${shape.firstAge} to ${shape.lastAge}, rising while you save and falling once you draw on it, against a target of ${currency(target, 0, code)}.`}
+          >
+            <line
+              x1={0}
+              x2={W}
+              y1={shape.targetTop * H}
+              y2={shape.targetTop * H}
+              stroke={PALETTE.brand}
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
+              vectorEffect="non-scaling-stroke"
+            />
+            <line
+              x1={shape.retire * W}
+              x2={shape.retire * W}
+              y1={0}
+              y2={H}
+              stroke="currentColor"
+              strokeWidth={1}
+              vectorEffect="non-scaling-stroke"
+              className="text-border"
+            />
+            <path
+              d={shape.line}
+              fill="none"
+              stroke={PALETTE.gain}
+              strokeWidth={2.5}
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+          {/*
+            The caption hangs above its line, so a target at or near the top
+            of the plot would put it outside the card with nothing to clip
+            against. When the line is in the top eighth the caption sits
+            below it instead. The line itself never moves.
+          */}
+          <span
+            className={cn(
+              "pointer-events-none absolute left-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground",
+              shape.targetTop < 0.12 ? "translate-y-0.5" : "-translate-y-full"
+            )}
+            style={{ top: `${shape.targetTop * 100}%` }}
+          >
+            target {currency(target, 0, code)}
+          </span>
+          <span
+            className="pointer-events-none absolute top-0 whitespace-nowrap text-xs text-muted-foreground"
+            style={{
+              left: `${Math.min(80, shape.retire * 100)}%`,
+              paddingLeft: "0.25rem",
+            }}
+          >
+            you stop
+          </span>
+        </div>
         {[shape.firstAge, shape.midAge, shape.lastAge].map((age, i) => (
           <span
             key={age}
