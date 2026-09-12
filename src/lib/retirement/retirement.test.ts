@@ -905,6 +905,7 @@ describe("the panel that says where a number came from is never approximately ri
         e65: 19.75,
         planningAge: PLAN_AGE,
         improvementPct: 1,
+        currentAge: inputs.currentAge,
         swrPct: plan.required.swr.ratePct,
         realReturnPct: plan.realReturnPct,
         basis: plan.required.basis,
