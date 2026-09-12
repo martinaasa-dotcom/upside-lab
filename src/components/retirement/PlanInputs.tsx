@@ -43,7 +43,12 @@ import {
   PercentField,
   currencyCodeFor,
 } from "@/components/retirement/fields";
-import { UK_COST_ANCHORS, regionById } from "@/lib/retirement/regions";
+import {
+  costAnchorsForStandard,
+  STANDARD_LABEL,
+  UK_COST_ANCHORS,
+  regionById,
+} from "@/lib/retirement/regions";
 import type { Housing, RetirementInputs } from "@/lib/retirement/plan";
 import { Baby, Car, Home, PiggyBank, Wallet } from "lucide-react";
 import { useId } from "react";
@@ -60,6 +65,7 @@ export function PlanInputs({
   const region = regionById(inputs.regionId);
   const code = currencyCodeFor(region.currency);
   const costsId = useId();
+  const standardCosts = costAnchorsForStandard(inputs.standard);
 
   return (
     <div className={PANEL_STACK}>
@@ -87,7 +93,7 @@ export function PlanInputs({
               value={inputs.mortgageAnnual}
               currency={code}
               onChange={(mortgageAnnual) => patch({ mortgageAnnual })}
-              note={`Opened on ${currency(UK_COST_ANCHORS.mortgageAnnual, 0, "GBP")} a year at UK prices, moved onto ${region.name}'s.`}
+              note={`Opened on ${currency(standardCosts.mortgageAnnual, 0, "GBP")} a year at UK prices for the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard, moved onto ${region.name}'s. Type what you actually pay.`}
             />
             <CountField
               label="Years left on it"
@@ -180,7 +186,7 @@ export function PlanInputs({
               value={inputs.childAnnualCost}
               currency={code}
               onChange={(childAnnualCost) => patch({ childAnnualCost })}
-              note={UK_COST_ANCHORS.childSource}
+              note={`${UK_COST_ANCHORS.childSource} Scaled to the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard and moved onto ${region.name}'s prices. It is a rough starting figure, not a claim about your children: type your own.`}
             />
             <CountField
               label="Until they are"
@@ -207,7 +213,11 @@ export function PlanInputs({
             value={inputs.carMonthly}
             currency={code}
             onChange={(carMonthly) => patch({ carMonthly })}
-            note={`Leave at zero if you own a car outright or do not have one. Opened on ${currency(UK_COST_ANCHORS.carMonthly, 0, "GBP")} a month at UK prices.`}
+            note={
+              inputs.standard === "minimum"
+                ? "The minimum standard is priced with no car in it, so this opens at zero. Type a figure if you have one."
+                : `Leave at zero if you own a car outright or do not have one. Opened on ${currency(standardCosts.carMonthly, 0, "GBP")} a month at UK prices for the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard.`
+            }
           />
           {inputs.carForever ? null : (
             <CountField

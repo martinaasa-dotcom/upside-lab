@@ -27,14 +27,19 @@
  *
  * THE TWO COLUMNS DIVERGE IN OPPOSITE DIRECTIONS AND THAT IS THE PART TO
  * LOOK AT. Measured on a 31 year old at the moderate standard, cash
- * against invested: the POT needed runs 1.67x at 35 down to 1.01x at 70,
- * while the MONTHLY SAVING runs the other way, 1.79x at 35 up to 2.60x at
- * 70. Stopping at 70 needs practically the same pot either way and still
- * costs two and a half times as much a month to get there, because what
- * separates them is not the target, it is the decades of compounding doing
- * the saving for you. So the copy points at the monthly figure rather than
- * at the pot: on the pot alone the lesson inverts as the reader looks down
- * the table, and on the monthly figure it only gets stronger.
+ * against invested: the POT needed runs 1.62x at 35 down to 1.02x at 65,
+ * while the MONTHLY SAVING runs the other way, 1.74x at 35 up to 2.36x at
+ * 65. Stopping in the mid sixties needs practically the same pot either
+ * way and still costs well over twice as much a month to get there,
+ * because what separates them is not the target, it is the decades of
+ * compounding doing the saving for you. So the copy points at the monthly
+ * figure rather than at the pot: on the pot alone the lesson inverts as
+ * the reader looks down the table, and on the monthly figure it only gets
+ * stronger. (Retiring at or after the state pension age can price the
+ * moderate standard at exactly zero, now that the standards exclude a
+ * home and a car: a modest income-only life the pension already covers
+ * outright has no multiple to compare, cash or invested, and both
+ * columns rightly agree at "there already".)
  *
  * The cash column is also priced on its own terms rather than through the
  * invested machinery: a cash pot is judged on spending down to zero, not

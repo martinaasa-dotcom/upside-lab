@@ -299,8 +299,9 @@ export function AssumptionsPanel({
           <div>
             <MicroLabel>The living standards</MicroLabel>
             <p className="mt-1 leading-relaxed text-muted-foreground">
-              One published set of baskets for the United Kingdom, after tax
-              and with no housing costs in them, moved onto {region.name}&apos;s
+              Shaped by one published set of baskets for the United Kingdom,
+              after tax and reset to a living cost with no housing and no
+              car in any of the three, moved onto {region.name}&apos;s
               prices with a published comparative price level of{" "}
               <span className="font-mono tabular-nums text-foreground">
                 {region.priceLevel}
@@ -334,15 +335,25 @@ export function AssumptionsPanel({
             </p>
           </div>
           <div>
-            <MicroLabel>The mortgage, rent and car figures</MicroLabel>
+            <MicroLabel>The mortgage, child and car figures</MicroLabel>
             <p className="mt-1 leading-relaxed text-muted-foreground">
-              A plan opens with a mortgage and a car payment already on it. Both
-              are UK figures, a {UK_COST_ANCHORS.mortgageSource.toLowerCase()} and
-              a {UK_COST_ANCHORS.carSource.toLowerCase()}, moved onto{" "}
-              {region.name}&apos;s prices the same way the living standards
-              above are. Rent, if you say you rent, and a child, once one is on
-              the plan, are moved the same way. Every one of these is a field
-              you can type your own number over.
+              A plan opens with a mortgage, a car payment and a cost per child
+              already on it. All three are UK figures, a{" "}
+              {UK_COST_ANCHORS.mortgageSource.toLowerCase()} and a{" "}
+              {UK_COST_ANCHORS.carSource.toLowerCase()} for the mortgage and
+              the car, and the Child Poverty Action Group&apos;s Cost of a
+              Child study for a child, moved onto {region.name}&apos;s prices
+              the same way the living standards above are. They also move
+              with the standard you pick above it: there is no separate
+              study pricing a child or a car at each of the three standards,
+              so each is the one figure this app could cite, scaled by the
+              same ratio the three published baskets already stand in for a
+              single person, and a car opens at zero on the minimum standard
+              because that standard is defined without one. Rent, if you say
+              you rent, is moved the same way and does not change with the
+              standard. Every one of these is a field you can type your own
+              number over, and typing one keeps it there even if you later
+              change the standard.
             </p>
           </div>
           <div>
