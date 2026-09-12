@@ -28,6 +28,11 @@
  * decade of retirement. It gets its own input for that reason.
  */
 
+import {
+  COMPOUND_CASH_YIELD_ANNUAL_PCT,
+  COMPOUND_INFLATION_ANNUAL_PCT,
+} from "@/lib/compound-play";
+import { blendedExpectedAnnualReturn } from "@/lib/forecast-conviction";
 import { finiteNumber } from "@/lib/money";
 
 /**
@@ -171,6 +176,48 @@ export function realReturnAt(
   */
   if (glideIsCashOnly(glide)) return cash;
   return equity * eq + (1 - equity) * bond - fee;
+}
+
+/**
+ * WHAT THE READER'S OWN HOLDINGS ARE EXPECTED TO EARN, TURNED INTO A REAL
+ * RETURN.
+ *
+ * The Compound tab already does the one useful thing here: it blends what
+ * each ticker's sector has typically returned into a single rate, weighted
+ * by what the reader actually holds (`blendedExpectedAnnualReturn`). Making
+ * this module recompute that idea from a second set of assumptions is how
+ * two screens looking at the same portfolio start disagreeing, so this
+ * calls the same function rather than inventing a sibling.
+ *
+ * It comes back NOMINAL where this whole module is real, so it is
+ * converted once, by the Fisher relation, using the same inflation figure
+ * Compound already assumes for its own "what this buys" comparison
+ * (`COMPOUND_INFLATION_ANNUAL_PCT`) rather than asking for a second
+ * inflation number nobody typed in.
+ *
+ * THIS IS AN OFFER, NEVER A DEFAULT. A portfolio concentrated in one hot
+ * theme can blend to a nominal rate well above the world index, and opening
+ * a forty year retirement plan on that compounds a very optimistic guess
+ * for a lifetime, which is exactly the caution Compound's own "Your rate"
+ * preset already carries. The world index stays what this page opens on;
+ * this is a button beside it, not a replacement for it.
+ */
+export function portfolioRealReturnPct(
+  holdings: Array<{ ticker: string; value: number }>,
+  cashBalance: number
+): number {
+  /*
+    The cash yield is Compound's own assumption, not a second one typed in
+    here, so the blend this reads is exactly the one "Your rate" on that tab
+    would show for the same holdings.
+  */
+  const nominal = blendedExpectedAnnualReturn(holdings, {
+    balance: cashBalance,
+    annualReturnPct: COMPOUND_CASH_YIELD_ANNUAL_PCT,
+  });
+  const inflation = finiteNumber(COMPOUND_INFLATION_ANNUAL_PCT, 0) / 100;
+  const real = (1 + nominal) / (1 + inflation) - 1;
+  return Number.isFinite(real) ? Math.round(real * 1000) / 10 : REAL_RETURN_ASSUMPTIONS.equityPct;
 }
 
 /** Nothing in shares at any age, which is the one case that means cash. */

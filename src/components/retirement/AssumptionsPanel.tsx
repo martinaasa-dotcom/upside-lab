@@ -50,9 +50,15 @@ import { SlidersVertical } from "lucide-react";
 export function AssumptionsPanel({
   inputs,
   patch,
+  portfolioRatePct,
 }: {
   inputs: RetirementInputs;
   patch: (next: Partial<RetirementInputs>) => void;
+  /**
+   * The same blended growth rate Compound's "Your rate" preset shows for
+   * these holdings, turned real. Null when there is nothing to blend.
+   */
+  portfolioRatePct: number | null;
 }) {
   const region = regionById(inputs.regionId);
   const sorted = [...inputs.glide].sort((a, b) => a.fromAge - b.fromAge);
@@ -75,7 +81,30 @@ export function AssumptionsPanel({
             label="Global shares, a year"
             value={inputs.returns.equityPct}
             onChange={(equityPct) => patch({ returns: { ...inputs.returns, equityPct } })}
-            note="The world index, not America's. The American century is the most flattering series in the data and the most quoted."
+            note={
+              portfolioRatePct != null ? (
+                <span>
+                  The world index, not America&apos;s. Or press{" "}
+                  <button
+                    type="button"
+                    className="underline underline-offset-2 hover:text-foreground"
+                    onClick={() =>
+                      patch({ returns: { ...inputs.returns, equityPct: portfolioRatePct } })
+                    }
+                  >
+                    what your own holdings blend to, {portfolioRatePct.toFixed(1)}%
+                  </button>{" "}
+                  to use the same blended growth rate Compound&apos;s
+                  &quot;Your rate&quot; preset shows for what you hold,
+                  turned into a real return the way every other number on
+                  this page is. A portfolio concentrated in one hot theme can
+                  blend well above the world index, so treat it as an
+                  optimistic scenario rather than a safe planning assumption.
+                </span>
+              ) : (
+                "The world index, not America's. The American century is the most flattering series in the data and the most quoted."
+              )
+            }
           />
           <PercentField
             label="Government bonds, a year"

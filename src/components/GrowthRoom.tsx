@@ -132,7 +132,11 @@ export function GrowthRoom(props: Props) {
       </Panel>
 
       {tab === "retirement" ? (
-        <RetirementSheet portfolioValue={props.bookValue > 0 ? props.bookValue : null} />
+        <RetirementSheet
+          portfolioValue={props.bookValue > 0 ? props.bookValue : null}
+          tickerValues={props.tickerValues}
+          bookCash={props.bookCash}
+        />
       ) : (
         <CompoundInterestSheet
           bookValue={props.bookValue}
