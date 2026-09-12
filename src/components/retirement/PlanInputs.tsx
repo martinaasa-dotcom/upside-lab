@@ -408,17 +408,32 @@ export function PlanInputs({
             onChange={(currentPot) => patch({ currentPot })}
             note={
               portfolioValue != null && portfolioValue > 0 ? (
-                <span>
-                  Your portfolios are worth{" "}
-                  <button
-                    type="button"
-                    className="underline underline-offset-2 hover:text-foreground"
-                    onClick={() => patch({ currentPot: portfolioValue })}
-                  >
-                    {currency(portfolioValue, 0, "USD")}
-                  </button>
-                  . Press it to use that figure.
-                </span>
+                inputs.currentPot === Math.round(portfolioValue) ? (
+                  /*
+                    THE FIRST VISIT ALREADY APPLIED THIS FIGURE, so a note
+                    still inviting a press here would be inviting a press
+                    that does nothing, which is the stale-copy fault this
+                    file's own AGENTS.md keeps finding in other rooms. Once
+                    the two agree, the sentence says why they agree instead.
+                  */
+                  <span>
+                    Pre-filled from what your portfolios are worth,{" "}
+                    {currency(portfolioValue, 0, "USD")}. Type over it if that
+                    figure includes money not meant for this.
+                  </span>
+                ) : (
+                  <span>
+                    Your portfolios are worth{" "}
+                    <button
+                      type="button"
+                      className="underline underline-offset-2 hover:text-foreground"
+                      onClick={() => patch({ currentPot: portfolioValue })}
+                    >
+                      {currency(portfolioValue, 0, "USD")}
+                    </button>
+                    . Press it to use that figure.
+                  </span>
+                )
               ) : (
                 "Everything already invested for this, wherever it sits."
               )

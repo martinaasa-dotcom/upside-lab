@@ -26,6 +26,7 @@
 
 import { Button } from "@/components/ui/button";
 import { CARD, MicroLabel, Panel, PANEL_STACK, PanelHeader } from "@/components/ui/Panel";
+import { COMPOUND_INFLATION_ANNUAL_PCT } from "@/lib/compound-play";
 import {
   CountField,
   FIELD_GRID,
@@ -81,30 +82,7 @@ export function AssumptionsPanel({
             label="Global shares, a year"
             value={inputs.returns.equityPct}
             onChange={(equityPct) => patch({ returns: { ...inputs.returns, equityPct } })}
-            note={
-              portfolioRatePct != null ? (
-                <span>
-                  The world index, not America&apos;s. Or press{" "}
-                  <button
-                    type="button"
-                    className="underline underline-offset-2 hover:text-foreground"
-                    onClick={() =>
-                      patch({ returns: { ...inputs.returns, equityPct: portfolioRatePct } })
-                    }
-                  >
-                    what your own holdings blend to, {portfolioRatePct.toFixed(1)}%
-                  </button>{" "}
-                  to use the same blended growth rate Compound&apos;s
-                  &quot;Your rate&quot; preset shows for what you hold,
-                  turned into a real return the way every other number on
-                  this page is. A portfolio concentrated in one hot theme can
-                  blend well above the world index, so treat it as an
-                  optimistic scenario rather than a safe planning assumption.
-                </span>
-              ) : (
-                "The world index, not America's. The American century is the most flattering series in the data and the most quoted."
-              )
-            }
+            note="The world index, not America's. The American century is the most flattering series in the data and the most quoted."
           />
           <PercentField
             label="Government bonds, a year"
@@ -124,8 +102,40 @@ export function AssumptionsPanel({
             note="Platform and funds together. The one number in this whole model that is known in advance and entirely in your hands, which is why it gets its own field. Over forty years the gap between a cheap tracker and an expensive fund is most of a decade of retirement."
           />
         </div>
+        {portfolioRatePct != null ? (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                patch({
+                  returns: {
+                    ...inputs.returns,
+                    equityPct: REAL_RETURN_ASSUMPTIONS.equityPct,
+                  },
+                })
+              }
+            >
+              The world index, {REAL_RETURN_ASSUMPTIONS.equityPct}%
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                patch({ returns: { ...inputs.returns, equityPct: portfolioRatePct } })
+              }
+            >
+              What your own holdings blend to, {portfolioRatePct.toFixed(1)}%
+            </Button>
+          </div>
+        ) : null}
         <p className="text-xs leading-relaxed text-muted-foreground">
           {RETURNS_SOURCE}
+          {portfolioRatePct != null
+            ? ` The second button above is the same blended growth rate Compound's "Your rate" preset shows for what you hold. That figure is nominal, so it is turned real here the same way Compound turns its own mattress line real, by taking off ${COMPOUND_INFLATION_ANNUAL_PCT}% assumed inflation. A portfolio concentrated in one hot theme can still blend well above the world index, so treat it as an optimistic scenario rather than a safe planning assumption.`
+            : ""}
         </p>
       </Panel>
 
