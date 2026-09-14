@@ -4381,16 +4381,15 @@ run("Pulse matches $AAPL to AAPL and keeps trimPct required", () => {
 
 run("background Margus waits while chat is live", () => {
   markChatActive(0);
-  endBackgroundLlm();
-  endBackgroundLlm();
   markChatActive(5_000);
   assert.equal(chatIsBusy(), true);
-  assert.equal(beginBackgroundLlm(), false);
+  assert.equal(beginBackgroundLlm(), null);
   markChatActive(0);
   assert.equal(chatIsBusy(), false);
-  assert.equal(beginBackgroundLlm(), true);
-  assert.equal(beginBackgroundLlm(), false);
-  endBackgroundLlm();
+  const slot = beginBackgroundLlm();
+  assert.notEqual(slot, null);
+  assert.equal(beginBackgroundLlm(), null);
+  endBackgroundLlm(slot as number);
 });
 
 run("Daily Duel paints the last pick before the network returns", () => {
