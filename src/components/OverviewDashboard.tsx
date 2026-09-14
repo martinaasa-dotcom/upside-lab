@@ -669,7 +669,10 @@ function MorningStack({
                 <MicroLabel>{notice.label}</MicroLabel>
                 {notice.source === "pulse" && notice.ticker ? (
                   <WhyThis
-                    provenance={pulseProvenance({ ticker: notice.ticker })}
+                    provenance={pulseProvenance({
+                      ticker: notice.ticker,
+                      at: notice.checkedAt,
+                    })}
                   />
                 ) : null}
               </div>

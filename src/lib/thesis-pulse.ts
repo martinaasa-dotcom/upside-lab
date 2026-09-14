@@ -351,6 +351,38 @@ export function rangeStanding(
 }
 
 /**
+ * Whether a `trim`/`add` action still matches where the price actually sits
+ * against a freshly measured range.
+ *
+ * `action` is a snapshot choice: whoever wrote it (the model, or a person
+ * reading a cached `PulseCheck`) picked it against the range and price they
+ * were shown at the time, and a quiet name's check is kept indefinitely
+ * (`loadPulseTickerCache`'s own note) rather than re-verified on every read.
+ * `trim` claims the price is above the range's high and `add` claims it is
+ * below the low, so a `rangeStanding` of anything but the claimed edge means
+ * the price has since moved and the claim is no longer true. Every other
+ * action (`hold`, `watch`, `sell`) makes no range claim to check, so the
+ * answer is trivially true for them, and a range this app could not measure
+ * at all cannot back up a claim either, so `rangeStanding`'s `null` reads as
+ * a mismatch the same way a wrong-sided price does.
+ *
+ * One function, used everywhere a cached action is read back to a person:
+ * the Pulse card's own badge and lead sentence, and the Sunday letter's
+ * trim/add suggestions. The day those checked it two different ways is the
+ * day a card and an email could disagree about the same holding.
+ */
+export function pulseActionMatchesRange(
+  action: PulseAction | string,
+  price: number,
+  range: PulseRange | null | undefined
+): boolean {
+  const a = String(action ?? "").trim().toLowerCase();
+  if (a !== "trim" && a !== "add") return true;
+  const standing = rangeStanding(price, range);
+  return a === "trim" ? standing === 1 : standing === 0;
+}
+
+/**
  * How long the window is, in the words somebody would use out loud.
  *
  * "Over the last 20 days" is a figure nobody asked for; "over the last

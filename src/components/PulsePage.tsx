@@ -58,6 +58,7 @@ import {
   buildPulseCandidates,
   candidateRange,
   formatMovePct,
+  pulseActionMatchesRange,
   pulseLead,
   pulseLeftHold,
   rangeSentence,
@@ -345,7 +346,26 @@ function PulseCard({
    * whole pass exists to stop the app making.
    */
   const ruleWithoutRange = fromRule && !range;
-  const suggestion = shown && !ruleWithoutRange ? pulseLead(shown) : "";
+  /*
+   * `action` (and the "Above"/"Below recent range" text `ActionBadge`
+   * builds from it) is cached: the model chose trim/add against the range
+   * and price it was shown on the day it ran, and a quiet name is never
+   * auto-refreshed, so that choice can sit unchanged for weeks. `range` and
+   * `c.price` just above are recomputed fresh on every render, from the
+   * same live quote the rest of this card reads, so the badge is checked
+   * against them before it is allowed to print a range claim -- the same
+   * check the Sunday letter re-runs before repeating one of these
+   * (weekly-letter.ts), read off one shared function so a card and an
+   * email can never disagree about the same holding.
+   */
+  const rangeClaimStale = !pulseActionMatchesRange(action, c.price, range);
+  // `pulseLead` restates the same stale claim as the card's bold, unlabelled
+  // lead sentence -- the first and most prominent thing on the card, sitting
+  // right above `rangeSentence` below, which reads the same live price and
+  // range and would otherwise contradict it in the reader's own numbers a
+  // few lines down. Withheld for the same reason the badge is.
+  const suggestion =
+    shown && !ruleWithoutRange && !rangeClaimStale ? pulseLead(shown) : "";
   const situation = shown && !fromRule ? normalizePulseSituation(shown.situation) : [];
   const cleanedVerdict = shown?.verdict
     ? humanizeMargusText(shown.verdict)
@@ -392,7 +412,7 @@ function PulseCard({
     <>
       {shown ? (
         <>
-          {status === "broken" || ruleWithoutRange ? null : (
+          {status === "broken" || ruleWithoutRange || rangeClaimStale ? null : (
             <ActionBadge action={action} />
           )}
           <Pill
