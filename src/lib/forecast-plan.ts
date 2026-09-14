@@ -12,10 +12,11 @@ import { FORECAST_YEARS } from "@/lib/forecast";
 import {
   FORECAST_CONVICTION_PROMPT,
   fillMissingForecastYears,
+  anchorPathToGrowth,
   isNearLinearPath,
   forecastThemeForTicker,
   reshapeToThemeRhythm,
-  shapedFallbackPath,
+  shapedPathForTicker,
 } from "@/lib/forecast-conviction";
 import { currency } from "@/lib/format";
 import { todayKeyInTz } from "@/lib/timezone";
@@ -496,12 +497,21 @@ export type ForecastPathAdjustment = {
    * that kind of business. Where it ends is still the model's own number.
    */
   reshaped: boolean;
+  /**
+   * Its destination sat below this app's own growth assumption for the
+   * name, so the path was raised to meet it, keeping the model's rhythm.
+   * Never set when the model's own number was already at or above it.
+   */
+  anchored: boolean;
 };
 
 export function forecastPathWasAdjusted(
   adjust: ForecastPathAdjustment | undefined
 ): boolean {
-  return Boolean(adjust && (adjust.missing || adjust.filled || adjust.reshaped));
+  return Boolean(
+    adjust &&
+      (adjust.missing || adjust.filled || adjust.reshaped || adjust.anchored)
+  );
 }
 
 export function ensureCompleteEoyTargets(
@@ -526,7 +536,7 @@ export function ensureCompleteEoyTargets(
     const existing = byTicker.get(key);
     const spot = row.currentPrice > 0 ? row.currentPrice : 1;
     const theme = forecastThemeForTicker(row.ticker);
-    const shaped = shapedFallbackPath(spot, theme);
+    const shaped = shapedPathForTicker(spot, row.ticker);
     let prices = fillMissingForecastYears(existing?.prices, shaped);
 
     /*
@@ -541,6 +551,15 @@ export function ensureCompleteEoyTargets(
       prices = reshapeToThemeRhythm(prices, shaped, spot);
     }
 
+    /*
+      Last, because it is the only step that decides where the path ends
+      and it must see the finished shape to keep it. It lifts a
+      destination under this app's own growth assumption for the name and
+      leaves anything at or above it alone.
+    */
+    const lifted = anchorPathToGrowth(prices, spot, row.ticker);
+    prices = lifted.prices;
+
     onAdjust?.(row.ticker.toUpperCase(), {
       missing: !existing?.prices,
       filled: FORECAST_YEARS.some((y) => {
@@ -548,6 +567,7 @@ export function ensureCompleteEoyTargets(
         return !(typeof given === "number" && given > 0);
       }),
       reshaped: reshape,
+      anchored: lifted.anchored,
     });
 
     out.push({

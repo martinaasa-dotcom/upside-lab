@@ -4,8 +4,10 @@ import { buildForecastPlanPrompt } from "@/lib/forecast-plan";
 import type { ForecastModel, ForecastYear } from "@/lib/forecast";
 import {
   ensureCompleteEoyTargets,
+  forecastPathWasAdjusted,
   type ForecastPathAdjustment,
 } from "@/lib/forecast-plan";
+import { growthAnchorFor } from "@/lib/forecast-growth";
 import {
   impliedAnnualReturnForTheme,
   reshapeToThemeRhythm,
@@ -81,41 +83,83 @@ function pricesFrom(
   };
 }
 
-describe("a forecast may point down", () => {
-  it("keeps a path that ends below today's price", () => {
-    // A wobbly decline: not a straight line, so the shape rule leaves it be.
-    const { years } = pricesFrom("NVDA", [92, 78, 84, 70, 61]);
-    expect(years).toEqual([92, 78, 84, 70, 61]);
-    expect(years[years.length - 1]!).toBeLessThan(SPOT);
+/*
+ * ## The reversal, written down so nobody has to guess
+ *
+ * The block that used to sit here asserted that a path ending below
+ * today's price reached the reader untouched, and that a modest answer
+ * was never scaled up to meet its sector. Those were the headstone for
+ * `liftPathToThemeMagnitude`, removed on 2026-08-28.
+ *
+ * Martin reversed that decision on 2026-09-14, after the argument against
+ * it was put to him twice. A lift is back, deliberately, and it is not the
+ * old one: it reads a rate that is per name where a name has been looked
+ * at, it keeps the model's own rhythm instead of pasting a theme's, and
+ * every surface that draws one says so. `forecast-growth.ts` carries the
+ * reasoning in full.
+ *
+ * So the tests below assert the new contract rather than the old one. What
+ * did NOT change, and is asserted harder than before, is everything about
+ * being honest about it: the lift is reported, it never caps, and it never
+ * shows a reader a mirror image of the model's reasoning.
+ */
+describe("the growth assumption sets where a path ends", () => {
+  it("raises a path whose destination sits under the assumption", () => {
+    const { years, adjust } = pricesFrom("NVDA", [104, 98, 111, 106, 120]);
+    expect(adjust?.anchored).toBe(true);
+    const want = SPOT * growthAnchorFor("NVDA").terminalMultiple;
+    expect(years[years.length - 1]!).toBeCloseTo(want, 1);
   });
 
-  it("keeps a modest path that lands well under its sector shape", () => {
-    // NVDA is a semi, whose shape ends around 3.57x. A 1.2x answer used to
-    // be scaled up by roughly three times to meet it.
-    const { years } = pricesFrom("NVDA", [104, 98, 111, 106, 120]);
-    expect(years).toEqual([104, 98, 111, 106, 120]);
+  it("lifts rather than caps, so a bolder model answer stands", () => {
+    /*
+      The half that keeps this a floor and not a house target. A model that
+      reasons its way above the assumption is left exactly as written, and
+      nothing is reported as adjusted.
+    */
+    const bold = [180, 420, 380, 700, 1400];
+    const { years, adjust } = pricesFrom("NVDA", bold);
+    expect(years).toEqual(bold);
+    expect(adjust?.anchored).toBe(false);
+    expect(forecastPathWasAdjusted(adjust)).toBe(false);
   });
 
-  it("keeps a flat path flat, including the year we are already in", () => {
-    // The current-year cell used to be rewritten whenever it hugged spot
-    // and the theme still had a move left in the year.
-    const { years } = pricesFrom("NVDA", [100, 101, 99, 100, 100]);
-    expect(years[0]).toBe(100);
-    for (const p of years) expect(Math.abs(p - SPOT)).toBeLessThanOrEqual(1);
+  it("keeps the model's own rhythm through the lift", () => {
+    /*
+      The quiet years the model reasoned about have to survive, or the
+      sentence it wrote beside the path stops describing it. Year two dips
+      under year one here, and still does after the lift.
+    */
+    const { years } = pricesFrom("NVDA", [120, 104, 132, 128, 150]);
+    expect(years[1]!).toBeLessThan(years[0]!);
+    expect(years[3]!).toBeLessThan(years[2]!);
   });
 
-  it("re-times a straight line without turning a decline into a rise", () => {
-    // An even ramp down. The shape rule fires, and must not change where
-    // the path ends or which way it points.
-    const { years, adjust } = pricesFrom("NVDA", [90, 80, 70, 60, 50]);
-    expect(adjust?.reshaped).toBe(true);
-    expect(years[years.length - 1]).toBe(50);
-    expect(years.every((p) => p < SPOT)).toBe(true);
+  it("never draws a declining path as its own mirror image", () => {
+    /*
+      The trap in rescaling: a path whose total move is negative, stretched
+      onto a positive one, turns every dip into a peak. That would show a
+      reader the exact opposite of what the model reasoned, which is worse
+      than showing them a generic shape. So a path pointing the other way
+      borrows the theme's rhythm instead of inverting its own.
+    */
+    const falling = [92, 78, 84, 70, 61];
+    const { years } = pricesFrom("NVDA", falling);
+    const shape = falling.map((p, i) => (i === 0 ? 0 : Math.sign(p - falling[i - 1]!)));
+    const drawn = years.map((p, i) => (i === 0 ? 0 : Math.sign(p - years[i - 1]!)));
+    expect(drawn).not.toEqual(shape.map((d) => -d));
+    expect(years.every((p) => p > 0)).toBe(true);
   });
 
-  it("reports no adjustment at all on a path it left alone", () => {
-    const { adjust } = pricesFrom("NVDA", [92, 78, 84, 70, 61]);
-    expect(adjust).toEqual({ missing: false, filled: false, reshaped: false });
+  it("is deterministic: the same name at the same price does not wander", () => {
+    /*
+      The property the whole change was asked for. A reader has to be able
+      to tell a revision from a re-roll, and two runs of the same inputs
+      must not disagree.
+    */
+    const a = pricesFrom("NVDA", [104, 98, 111, 106, 120]).years;
+    const b = pricesFrom("NVDA", [104, 98, 111, 106, 120]).years;
+    expect(a).toEqual(b);
   });
 
   it("still fills a year the model skipped", () => {

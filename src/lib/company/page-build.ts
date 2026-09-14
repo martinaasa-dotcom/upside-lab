@@ -44,11 +44,12 @@ import type { CompanyPage } from "@/lib/company/client";
 import { fetchCompanyFacts } from "@/lib/market/fundamentals";
 import { fetchTickerPulseContext } from "@/lib/market/ticker-context";
 import {
+  anchorPathToGrowth,
   fillMissingForecastYears,
   forecastThemeForTicker,
   isNearLinearPath,
   reshapeToThemeRhythm,
-  shapedFallbackPath,
+  shapedPathForTicker,
 } from "@/lib/forecast-conviction";
 import { persistServerTickerCache } from "@/lib/forecast-ticker-cache-store";
 import { generateObject } from "ai";
@@ -227,12 +228,15 @@ export async function buildCompanyPage(
     let path = resolved.path;
     if (spot > 0 && Object.keys(path).length > 0) {
       const theme = forecastThemeForTicker(ticker);
-      const shaped = shapedFallbackPath(spot, theme);
+      const shaped = shapedPathForTicker(spot, ticker);
       const filled = fillMissingForecastYears(path, shaped);
-      path =
+      const timed =
         isNearLinearPath(filled, spot) && theme !== "index"
           ? reshapeToThemeRhythm(filled, shaped, spot)
           : filled;
+      // Same order as the Growth room: shape first, destination last, so
+      // the two rooms cannot tell a reader two different stories.
+      path = anchorPathToGrowth(timed, spot, ticker).prices;
     }
 
     const brief: CompanyBrief = humanizeMargusTree({ ...resolved, path });

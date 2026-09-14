@@ -140,6 +140,26 @@ describe("the theme rhythms the re-timing borrows", () => {
     expect(fell).toBe(true);
   });
 
+  it.each(RESHAPED_THEMES)("%s runs hard before it gives anything back", (theme) => {
+    /*
+      The timing view, pinned because it is a decision rather than a
+      detail. The quiet year sits fourth, not third: the spending behind
+      the build is contracted well ahead of delivery, so the near years
+      are largely already ordered and the point where that stops being
+      true is further out. Moved on 2026-09-14 from the third entry.
+
+      Positional, so this says "the first three years of whatever window
+      is drawn", not a calendar year.
+    */
+    const shaped = shapedFallbackPath(100, theme);
+    const seq = [100, ...FORECAST_YEARS.map((y) => shaped[y]!)];
+    for (let i = 1; i <= 3; i++) {
+      expect(seq[i]!, `year ${i} of ${theme}`).toBeGreaterThan(seq[i - 1]!);
+    }
+    // And it is still not a straight line: the give-back is real.
+    expect(seq[4]!).toBeLessThan(seq[3]!);
+  });
+
   it("leaves the index alone, which is the one theme that may be smooth", () => {
     // Never re-timed, and a fund holding five hundred companies has no
     // drama to manufacture.
