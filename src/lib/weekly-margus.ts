@@ -13,6 +13,7 @@
 import { generateText } from "ai";
 import { humanizeMargusText } from "@/lib/ai/humanize-copy";
 import {
+  type BackgroundLlmSlot,
   beginBackgroundLlm,
   chatIsBusy,
   endBackgroundLlm,
@@ -758,11 +759,14 @@ const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** Take the shared background slot, waiting a little rather than giving up. */
-async function takeSlot(waitMs: number): Promise<boolean> {
+async function takeSlot(waitMs: number): Promise<BackgroundLlmSlot | null> {
   const until = Date.now() + Math.max(0, waitMs);
   for (;;) {
-    if (!chatIsBusy() && beginBackgroundLlm()) return true;
-    if (Date.now() >= until) return false;
+    if (!chatIsBusy()) {
+      const slot = beginBackgroundLlm();
+      if (slot != null) return slot;
+    }
+    if (Date.now() >= until) return null;
     await sleep(SLOT_POLL_MS);
   }
 }
@@ -813,7 +817,8 @@ Do not restate these rules. Do not list words to avoid. Do not plan out loud.`;
 
     // Wait for the slot out of this letter's own budget, never out of the
     // time an attempt needs.
-    if (!(await takeSlot(Math.min(SLOT_WAIT_MS, left - MIN_ATTEMPT_MS)))) {
+    const slot = await takeSlot(Math.min(SLOT_WAIT_MS, left - MIN_ATTEMPT_MS));
+    if (slot == null) {
       lastReason = "another background job held the model slot";
       break;
     }
@@ -848,7 +853,7 @@ Do not restate these rules. Do not list words to avoid. Do not plan out loud.`;
         err instanceof Error ? err.name : "unknown"
       }`;
     } finally {
-      endBackgroundLlm();
+      endBackgroundLlm(slot);
     }
   }
 
