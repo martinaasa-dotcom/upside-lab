@@ -141,9 +141,11 @@ describe("nothing is called quiet unless it was", () => {
     expect(take).not.toMatch(/largest of those moves/);
   });
 
-  it("gives the group's average move, not just its split", () => {
+  it("gives the group's average move, not just its split, and says it is not a net figure", () => {
     const take = fallbackWeeklyTake(letterOf(BOOK, WATCH));
-    expect(take).toMatch(/average move of 1\.5%/);
+    // "An average of 1.5%" alone reads as a net move; the group has both
+    // up and down movers in it, so it has to say "either way".
+    expect(take).toMatch(/average move of 1\.5% either way/);
   });
 
   it("still says barely moved when everything left really is small", () => {
