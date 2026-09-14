@@ -96,10 +96,14 @@ function facts(r: WeeklyLetter): string {
     }
   }
   if (r.rest) {
+    // The group as a whole, plus the one company inside it that moved the
+    // most, named. A "biggest move" with no name attached is a number
+    // stated about nobody, so the one company this letter can single out
+    // is handed over explicitly rather than left to be guessed at.
     lines.push(
       `Everything else owned, not listed above: ${r.rest.count} ${
         r.rest.count === 1 ? "company" : "companies"
-      }, ${r.rest.up} up and ${r.rest.down} down, biggest move among them ${signedPct(r.rest.maxAbsPct)}`
+      }, ${r.rest.up} up and ${r.rest.down} down, average move among them ${signedPct(r.rest.avgAbsPct)}. The biggest single move in this group was ${cashtag(r.rest.maxTicker)}, ${signedPct(r.rest.maxPct)}.`
     );
   }
   if (r.weekAhead.length > 0) {
@@ -123,7 +127,7 @@ Paragraph two. What was pulling the other way, and whether it mattered. Name it,
 
 Paragraph three. The watchlist, if there is one in the facts, as a summary of the whole of it in both directions: which of them fell the most and which rose the most, each with its percentage. Never single out one watched name as though it were the only one that moved. These are not owned, so do not describe them as gains or losses.
 
-Paragraph three also takes in everything owned that you have not named, using the "everything else" line in the facts. Say plainly that these are companies they own. If the biggest move left is small, say they were quiet and give that number. If it is not small, do not call it quiet: say how many went up, how many went down, and how big the largest of them was.
+Paragraph three also takes in everything owned that you have not named, which is the tickers still sitting unused in "Moves this week" plus the "everything else" line in the facts. Say plainly that these are companies they own. If the average move is small, say they were quiet and give that number. If it is not small, do not call it quiet: say how many went up, how many went down, and give the average size of those moves. Then, of every company in that group, whether it came from an unused ticker in "Moves this week" or from the named biggest inside "everything else", find whichever moved the most and name it with its own percentage. Never say "the biggest of them was X%" without naming which company that was: there is always a name for it, either in "Moves this week" or in the "everything else" line, so there is never a reason to leave it unnamed.
 
 Last paragraph. What the week amounted to, and where the answer per company is. Read it off breadth, which the facts give you: nearly everything moving the same way usually means the market moved rather than one of their companies, one company doing most of the damage while the rest sat still means it was that company, and a mixed week means it did not happen to all of them at once. Say which of the three this was, hedged, because breadth is evidence and not proof. If the week was large in either direction, put its size in proportion using their own holdings: a portfolio where several companies moved more than a tenth in one week is a portfolio that does this regularly, in both directions, and they can count them in the table. Then finish by saying Pulse has the check on each company one at a time, whenever they want to see which of these was news about the business and which was the market.
 
@@ -134,6 +138,7 @@ Rules, all of them non-negotiable:
 - Name each company at most once in the whole letter.
 - No filler and no proverbs. Never write a line like "a week either way is a week" or "time in the market beats timing the market". Every sentence carries a fact from the list or it does not go in.
 - Never call a week, a company or a set of companies quiet unless the numbers in the facts say so.
+- Never state a percentage for "the biggest move" or "the largest of those" without naming the company it belongs to. The facts always give you a name for it; find it rather than leaving it out.
 - Short sentences. No word a grandmother would have to look up, and no market slang: no sleeve, tape, conviction, dry powder, beta, drawdown, rotation, exposure, allocation, volatility.
 - Never invent a number, a headline, or a name that is not in the facts. Never name a website or paste a link. Never say we, us, or our. Never write an instruction to buy, sell, hold, add, trim, sit tight, or start small. Describe the price action. Leave every decision with the reader.
 - Finish every sentence.`;
@@ -372,12 +377,34 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
     const otherMovers = r.movers.filter((m) => !named.has(m.ticker));
     const otherCount = otherMovers.length + (r.rest?.count ?? 0);
     if (otherCount > 0) {
-      const biggest = Math.max(
-        ...otherMovers.map((m) => Math.abs(m.pct)),
-        r.rest?.maxAbsPct ?? 0
+      /*
+       * The single biggest mover in this leftover group, wherever it came
+       * from: a ticker still sitting in the top five with nothing said
+       * about it yet, or the one company `rest` singles out beyond it.
+       * Both carry a name, so "the largest of those" always has a company
+       * attached to it rather than being a percentage stated about nobody.
+       */
+      const candidates: { ticker: string; pct: number }[] = [
+        ...otherMovers.map((m) => ({ ticker: m.ticker, pct: m.pct })),
+        ...(r.rest ? [{ ticker: r.rest.maxTicker, pct: r.rest.maxPct }] : []),
+      ];
+      const winner = candidates.reduce((a, b) =>
+        Math.abs(b.pct) > Math.abs(a.pct) ? b : a
       );
+      const winnerTag = cashtag(winner.ticker);
+      const biggest = Math.abs(winner.pct);
       const up = otherMovers.filter((m) => m.pct > 0).length + (r.rest?.up ?? 0);
       const down = otherMovers.filter((m) => m.pct < 0).length + (r.rest?.down ?? 0);
+      /*
+       * The average across the whole group, not just its extreme: a named
+       * mover carries its own figure, and everything in `rest` carries the
+       * group's own average, computed from the real numbers behind it
+       * rather than guessed at from the count.
+       */
+      const totalAbsPct =
+        otherMovers.reduce((sum, m) => sum + Math.abs(m.pct), 0) +
+        (r.rest ? r.rest.avgAbsPct * r.rest.count : 0);
+      const avg = totalAbsPct / otherCount;
       const companies = otherCount === 1 ? "company" : "companies";
       const other = named.size > 0 ? "other " : "";
       /*
@@ -396,29 +423,31 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
       const verb = up === 0 ? "fell" : "rose";
       // At one holding there is no largest of anything, and no plural to
       // agree with: this printed "The largest of the other one rises was
-      // 2.6%". Every branch has to read at one as well as at four.
+      // 2.6%". Every branch has to read at one as well as at four, and at
+      // one the "biggest mover" and "everything else" are the same
+      // company, so it is simply named.
       const only = otherCount === 1;
       if (biggest < QUIET_PCT) {
         against.push(
           only
-            ? `The ${other}company you own barely moved, ${bare(biggest)} either way.`
-            : `The ${other}${count(otherCount)} ${companies} you own barely moved, none of them by more than ${bare(biggest)} in either direction.`
+            ? `${winnerTag} was the only one of them to move at all, and only ${bare(biggest)} either way.`
+            : `The ${other}${count(otherCount)} ${companies} you own barely moved, ${bare(avg)} on average, and none of them by more than ${bare(biggest)}.`
         );
       } else if (alreadySaid) {
         against.push(
           only
-            ? `The other one ${verb} ${bare(biggest)}.`
-            : `The largest of the other ${count(otherCount)} moves was ${bare(biggest)}.`
+            ? `${winnerTag} ${verb} ${bare(biggest)}.`
+            : `${winnerTag} moved the most among them, ${dirWord(winner.pct)} ${bare(biggest)}, an average of ${bare(avg)} across the ${count(otherCount)}.`
         );
       } else if (oneWay) {
         against.push(
           only
-            ? `The ${other}company you own ${verb} too, by ${bare(biggest)}.`
-            : `The other ${count(otherCount)} ${companies} you own all ${verb} too, the largest of those moves ${bare(biggest)}.`
+            ? `${winnerTag} ${verb} too, by ${bare(biggest)}.`
+            : `The other ${count(otherCount)} ${companies} you own all ${verb} too, an average of ${bare(avg)}, and ${winnerTag} moved the most of them, ${bare(biggest)}.`
         );
       } else {
         against.push(
-          `The ${other}${count(otherCount)} ${companies} you own were split ${count(up)} up and ${count(down)} down, the largest of those moves ${bare(biggest)}.`
+          `The ${other}${count(otherCount)} ${companies} you own were split ${count(up)} up and ${count(down)} down, an average move of ${bare(avg)}. ${winnerTag} moved the most of them, ${dirWord(winner.pct)} ${bare(biggest)}.`
         );
       }
     }
