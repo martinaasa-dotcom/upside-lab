@@ -16,11 +16,8 @@
  * that a company Yahoo does not cover comes back thin, which the room says
  * out loud rather than filling in.
  */
-import {
-  isMarketCircuitOpen,
-  withMarketCircuit,
-} from "@/lib/market/circuit-breaker";
-import { getYahoo, resolveYahooListedSymbol } from "@/lib/market/yahoo";
+import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
+import { getYahoo, resolveYahooListedSymbol, yahooCall } from "@/lib/market/yahoo";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { sectorForTicker } from "@/lib/thesis-pulse";
 import type {
@@ -273,7 +270,7 @@ async function fetchCompanyFactsUncached(
   let summary: unknown;
   try {
     const yf = await getYahoo();
-    summary = await withMarketCircuit("yahoo", () =>
+    summary = await yahooCall(() =>
       yf.quoteSummary(listed, { modules: [...MODULES] })
     );
   } catch (err) {

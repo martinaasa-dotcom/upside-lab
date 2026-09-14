@@ -1,5 +1,5 @@
-import { isMarketCircuitOpen, withMarketCircuit } from "@/lib/market/circuit-breaker";
-import { getYahoo, resolveYahooListedSymbol } from "@/lib/market/yahoo";
+import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
+import { getYahoo, resolveYahooListedSymbol, yahooCall } from "@/lib/market/yahoo";
 import { MAX_SECTOR_TICKERS, sectorWords } from "@/lib/sector-words";
 import { isQuotableTicker } from "@/lib/ticker";
 import { unstable_cache } from "next/cache";
@@ -62,7 +62,7 @@ async function fetchOneSectorUncached(
 
   try {
     const yf = await getYahoo();
-    const summary = (await withMarketCircuit("yahoo", () =>
+    const summary = (await yahooCall(() =>
       yf.quoteSummary(listed, { modules: ["assetProfile"] })
     )) as { assetProfile?: { sector?: unknown } } | null;
     const raw = summary?.assetProfile?.sector;

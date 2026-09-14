@@ -9,7 +9,8 @@ import {
   normalizeYahooTicker,
   tickerStem,
 } from "@/lib/ticker";
-import { isMarketCircuitOpen, withMarketCircuit } from "@/lib/market/circuit-breaker";
+import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
+import { yahooCall } from "@/lib/market/yahoo";
 
 const WATCH_SYMBOL = /^[A-Z0-9.=^-]{1,12}$/;
 const SKIP_TYPES = new Set([
@@ -70,7 +71,7 @@ async function searchOnce(
   yf: YahooFinanceInstance,
   query: string
 ): Promise<unknown[]> {
-  const result = await withMarketCircuit("yahoo", () =>
+  const result = await yahooCall(() =>
     yf.search(query, {
       quotesCount: 8,
       newsCount: 0,

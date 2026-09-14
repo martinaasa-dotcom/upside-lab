@@ -6,9 +6,13 @@ import {
   nextStrikeFromTarget,
   roundToStrike,
 } from "@/lib/market/resistance";
-import { fetchNextEarningsDate, resolveYahooListedSymbol } from "@/lib/market/yahoo";
+import {
+  fetchNextEarningsDate,
+  resolveYahooListedSymbol,
+  yahooCall,
+} from "@/lib/market/yahoo";
 import { dateKeyInTz, daysUntilInTz } from "@/lib/timezone";
-import { isMarketCircuitOpen, withMarketCircuit } from "@/lib/market/circuit-breaker";
+import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
 import { isPlausiblePrice, yahooQuotePayloadSchema } from "@/lib/market/quote-sanitize";
 import { realizedVolAnnual } from "@/lib/market/volatility";
 
@@ -110,8 +114,10 @@ async function fetchSpotAndHistory(ticker: string): Promise<{
     const period1 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
     const symbol = (await resolveYahooListedSymbol(ticker)) ?? ticker;
     const [quoteRaw, chart] = await Promise.all([
-      withMarketCircuit("yahoo", () => yf.quote(symbol)),
-      yf.chart(symbol, { period1, interval: "1d" }).catch(() => null),
+      yahooCall(() => yf.quote(symbol)),
+      yahooCall(() => yf.chart(symbol, { period1, interval: "1d" })).catch(
+        () => null
+      ),
     ]);
     const parsed = yahooQuotePayloadSchema.safeParse(quoteRaw);
     if (!parsed.success) return null;
@@ -159,7 +165,7 @@ type ExpCandidate = { exp: Date; days: number; key: string };
 async function listExpirations(ticker: string): Promise<ExpCandidate[]> {
   if (isMarketCircuitOpen("yahoo")) return [];
   const yf = await getYahoo();
-  const chain = await withMarketCircuit("yahoo", () => yf.options(ticker));
+  const chain = await yahooCall(() => yf.options(ticker));
   return (chain.expirationDates ?? [])
     .map((d: Date | string) => {
       const exp = typeof d === "string" ? new Date(d) : d;
@@ -375,7 +381,7 @@ async function quoteCallPremium(params: {
   if (isMarketCircuitOpen("yahoo")) return null;
   try {
     const yf = await getYahoo();
-    const detailed = await withMarketCircuit("yahoo", () =>
+    const detailed = await yahooCall(() =>
       yf.options(params.ticker, { date: params.exp })
     );
     const calls = detailed.options?.[0]?.calls ?? [];
