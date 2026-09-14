@@ -1,10 +1,7 @@
 import { isCoinSymbol } from "@/lib/coins";
 import { resolveYahooEarnings } from "@/lib/market/earnings-dates";
-import { resolveYahooListedSymbol } from "@/lib/market/yahoo";
-import {
-  isMarketCircuitOpen,
-  withMarketCircuit,
-} from "@/lib/market/circuit-breaker";
+import { resolveYahooListedSymbol, yahooCall } from "@/lib/market/yahoo";
+import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { sectorForTicker, type PulseHeadline } from "@/lib/thesis-pulse";
 import { unstable_cache } from "next/cache";
@@ -46,7 +43,7 @@ async function fetchTickerNewsUncached(
     if (isMarketCircuitOpen("yahoo")) return [];
     const yf = await getYahoo();
     const symbol = await listedSymbol();
-    const result = await withMarketCircuit("yahoo", () =>
+    const result = await yahooCall(() =>
       yf.search(symbol, { newsCount: count }),
     );
     const items = result.news ?? [];
@@ -103,7 +100,7 @@ async function fetchTickerPulseContextUncached(
         const yf = await getYahoo();
         if (isMarketCircuitOpen("yahoo")) return null;
         const symbol = await listedSymbol();
-        return await withMarketCircuit("yahoo", () =>
+        return await yahooCall(() =>
           yf.quoteSummary(symbol, {
             modules: ["earningsHistory", "calendarEvents", "earnings"],
           }),

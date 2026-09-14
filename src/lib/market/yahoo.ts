@@ -17,6 +17,8 @@ import {
 } from "@/lib/listing-currency";
 import {
   CircuitOpenError,
+  MARKET_FETCH_TIMEOUT_MS,
+  MarketHttpError,
   isMarketCircuitOpen,
   withMarketCircuit,
 } from "@/lib/market/circuit-breaker";
@@ -105,8 +107,49 @@ function numOrNull(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null;
 }
 
-function yahooCall<T>(fn: () => Promise<T>): Promise<T> {
-  return withMarketCircuit("yahoo", fn);
+/**
+ * `marketFetch` puts a timeout on every raw `fetch` ("hung provider calls
+ * must not pin a Fluid isolate", circuit-breaker.ts) precisely because
+ * `fetch` has no deadline of its own. The `yahoo-finance2` library calls
+ * below go around that: they carry no timeout either, and nothing here
+ * ever gave them one. A stalled `yf.quote`/`yf.chart` -- a TCP stall, a
+ * provider that accepted the connection and never answered -- then never
+ * settles, and every single-flight map in this file (`quoteInFlight`,
+ * `chartInFlight`, `symbolInFlight`, `ytdCloseInFlight`) hands that same
+ * wedged promise to every later caller for the same ticker, on this warm
+ * instance, forever: the same shape of bug fixed in `src/lib/ai/llm-slots.ts`,
+ * just triggered by an ordinary stall rather than a platform kill. The
+ * underlying call is left running rather than aborted (this library takes
+ * no signal), but nothing here holds onto it past this timeout, so it is
+ * garbage the moment it settles.
+ */
+function withYahooTimeout<T>(fn: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new MarketHttpError("yahoo", 504, null));
+    }, MARKET_FETCH_TIMEOUT_MS);
+    fn().then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
+/**
+ * Every direct `yf.*` call in this codebase should go through this, not
+ * through a bare `withMarketCircuit("yahoo", ...)` -- that shortcut is
+ * exactly what left `sentiment-fetch.ts`'s own SPY chart read unbounded
+ * (and its own single-flight `inflight` promise stuck-forever-prone) while
+ * every call in this file was fixed.
+ */
+export function yahooCall<T>(fn: () => Promise<T>): Promise<T> {
+  return withMarketCircuit("yahoo", () => withYahooTimeout(fn));
 }
 
 async function usdPerUnit(
@@ -413,7 +456,9 @@ async function dailyBarsForSymbol(
 
   const task = (async () => {
     try {
-      const chart = await yf.chart(symbol, { period1, interval: "1d" });
+      const chart = await yahooCall(() =>
+        yf.chart(symbol, { period1, interval: "1d" })
+      );
       const bars = toDailyBars(chart?.quotes ?? []);
       chartMemo.set(symbol, { at: Date.now(), bars });
       pruneChartMemo();

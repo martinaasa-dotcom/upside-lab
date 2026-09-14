@@ -8,7 +8,8 @@
 
 import { yahooQuoteCandidates } from "@/lib/ticker";
 import { unstable_cache } from "next/cache";
-import { isMarketCircuitOpen, withMarketCircuit } from "@/lib/market/circuit-breaker";
+import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
+import { yahooCall } from "@/lib/market/yahoo";
 import {
   macd,
   nWeekChange,
@@ -108,7 +109,7 @@ async function fetchWeeklyClosesUncached(
     period1.setFullYear(period1.getFullYear() - YEARS_BACK);
     for (const symbol of yahooQuoteCandidates(ticker)) {
       try {
-        const chart = await withMarketCircuit("yahoo", () =>
+        const chart = await yahooCall(() =>
           yf.chart(symbol, {
             period1,
             interval: "1d",

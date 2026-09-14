@@ -3,8 +3,8 @@
  * more importantly, what it is not.
  */
 
-import { withMarketCircuit, isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
-import { getYahoo } from "@/lib/market/yahoo";
+import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
+import { getYahoo, yahooCall } from "@/lib/market/yahoo";
 import {
   OVERNIGHT_SYMBOLS,
   isOvernightGap,
@@ -73,7 +73,7 @@ async function fetchLeg(
   period1: Date
 ): Promise<{ leg: OvernightLeg; asOf: number; since: number } | null> {
   const yf = await getYahoo();
-  const chart = await withMarketCircuit("yahoo", () =>
+  const chart = await yahooCall(() =>
     yf.chart(symbol, { period1, interval: BAR_INTERVAL })
   ).catch(() => null);
   const bars = readBars(chart?.quotes);

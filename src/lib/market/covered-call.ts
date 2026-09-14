@@ -6,8 +6,9 @@ import {
 } from "@/lib/market/resistance";
 import type { OptionCandidate } from "@/lib/types";
 import { dateKeyInTz, daysUntilInTz } from "@/lib/timezone";
-import { isMarketCircuitOpen, withMarketCircuit } from "@/lib/market/circuit-breaker";
+import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
 import { marketSession } from "@/lib/market/session";
+import { yahooCall } from "@/lib/market/yahoo";
 
 type YahooFinanceInstance = InstanceType<
   typeof import("yahoo-finance2").default
@@ -100,9 +101,7 @@ async function optionChain(
 
   const task = (async () => {
     try {
-      const chain = await withMarketCircuit("yahoo", () =>
-        askForChain(yf, ticker, date)
-      );
+      const chain = await yahooCall(() => askForChain(yf, ticker, date));
       chainMemo.set(key, { at: Date.now(), chain });
       pruneChainMemo();
       return chain;

@@ -5,7 +5,8 @@ import {
 } from "@/lib/market/seasonality";
 import { yahooQuoteCandidates } from "@/lib/ticker";
 import { unstable_cache } from "next/cache";
-import { isMarketCircuitOpen, withMarketCircuit } from "@/lib/market/circuit-breaker";
+import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
+import { yahooCall } from "@/lib/market/yahoo";
 
 type YahooFinanceInstance = InstanceType<
   typeof import("yahoo-finance2").default
@@ -37,7 +38,7 @@ export async function fetchSeasonalityBars(ticker: string): Promise<{
 
   for (const symbol of yahooQuoteCandidates(ticker)) {
     try {
-      const dailyChart = await withMarketCircuit("yahoo", () =>
+      const dailyChart = await yahooCall(() =>
         yf.chart(symbol, {
           period1: new Date("1993-01-01"),
           period2: new Date(),

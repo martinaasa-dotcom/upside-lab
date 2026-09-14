@@ -1,5 +1,6 @@
 import { sanitizePopularTickers } from "@/lib/popular-tickers";
-import { isMarketCircuitOpen, withMarketCircuit } from "@/lib/market/circuit-breaker";
+import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
+import { yahooCall } from "@/lib/market/yahoo";
 
 type YahooFinanceInstance = InstanceType<
   typeof import("yahoo-finance2").default
@@ -30,10 +31,10 @@ export async function fetchMonthlyPopularTickers(): Promise<string[]> {
   }
   const yf = await getYahoo();
   const [actives, trending] = await Promise.allSettled([
-    withMarketCircuit("yahoo", () =>
+    yahooCall(() =>
       yf.screener({ scrIds: "most_actives", count: 40 })
     ),
-    withMarketCircuit("yahoo", () => yf.trendingSymbols("US", { count: 20 })),
+    yahooCall(() => yf.trendingSymbols("US", { count: 20 })),
   ]);
 
   const raw: string[] = [];

@@ -8,9 +8,9 @@
 
 import { dateKeyInTz, daysUntilInTz } from "@/lib/timezone";
 import { normalizeYahooTicker } from "@/lib/ticker";
-import { resolveYahooListedSymbol } from "@/lib/market/yahoo";
+import { resolveYahooListedSymbol, yahooCall } from "@/lib/market/yahoo";
 import { unstable_cache } from "next/cache";
-import { isMarketCircuitOpen, withMarketCircuit } from "@/lib/market/circuit-breaker";
+import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
 
 type YahooFinanceInstance = InstanceType<
   typeof import("yahoo-finance2").default
@@ -171,7 +171,7 @@ async function impliedMovePct(
   if (!(spot > 0) || earningsDays < 0) return null;
   try {
     const yf = await getYahoo();
-    const chain = await yf.options(ticker);
+    const chain = await yahooCall(() => yf.options(ticker));
     const covering = (chain.expirationDates ?? [])
       .map((d: Date | string) => {
         const exp = typeof d === "string" ? new Date(d) : d;
@@ -183,7 +183,9 @@ async function impliedMovePct(
       .sort((a, b) => a.days - b.days)[0];
     if (!covering) return null;
 
-    const detailed = await yf.options(ticker, { date: covering.exp });
+    const detailed = await yahooCall(() =>
+      yf.options(ticker, { date: covering.exp })
+    );
     const calls = detailed.options?.[0]?.calls ?? [];
     const puts = detailed.options?.[0]?.puts ?? [];
     if (!calls.length || !puts.length) return null;
@@ -269,13 +271,15 @@ async function fetchEarningsBriefUncached(
     const yf = await getYahoo();
     const period1 = new Date(Date.now() - 800 * 24 * 60 * 60 * 1000);
     const [summary, chart, quote] = await Promise.all([
-      withMarketCircuit("yahoo", () =>
+      yahooCall(() =>
         yf.quoteSummary(symbol, {
           modules: ["earnings", "calendarEvents"],
         })
       ),
-      yf.chart(symbol, { period1, interval: "1d" }).catch(() => null),
-      withMarketCircuit("yahoo", () => yf.quote(symbol)),
+      yahooCall(() => yf.chart(symbol, { period1, interval: "1d" })).catch(
+        () => null
+      ),
+      yahooCall(() => yf.quote(symbol)),
     ]);
     const chartRows = chart?.quotes ?? [];
 

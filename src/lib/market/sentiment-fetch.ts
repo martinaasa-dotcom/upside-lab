@@ -12,12 +12,11 @@ import {
   isCircuitOpenError,
   isMarketCircuitOpen,
   marketFetch,
-  withMarketCircuit,
 } from "@/lib/market/circuit-breaker";
 import { fetchFearGreedIndex } from "@/lib/market/fear-greed-fetch";
 import { fetchQuotesWithFallback } from "@/lib/market/quotes";
 import { marketSession } from "@/lib/market/session";
-import { getYahoo } from "@/lib/market/yahoo";
+import { getYahoo, yahooCall } from "@/lib/market/yahoo";
 import { siteUrl } from "@/lib/site-url";
 import {
   bestDaysFromCloses,
@@ -114,7 +113,7 @@ async function fetchSpyBars(): Promise<{ close: number; at: string | null }[]> {
   if (isMarketCircuitOpen("yahoo")) return [];
   const yf = await getYahoo();
   const period1 = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
-  const chart = await withMarketCircuit("yahoo", () =>
+  const chart = await yahooCall(() =>
     yf.chart(SPY, { period1, interval: "1d" })
   );
   return chartBars(chart?.quotes);
