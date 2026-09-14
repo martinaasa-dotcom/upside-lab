@@ -1,4 +1,5 @@
 import {
+  type BackgroundLlmSlot,
   beginBackgroundLlm,
   chatIsBusy,
   endBackgroundLlm,
@@ -352,10 +353,13 @@ async function handlePOST(req: Request) {
     return reuseCachedPulse(auth.user.id, candidates, cachedMap, headlines);
   }
 
-  if (chatIsBusy() || !beginBackgroundLlm()) {
+  if (chatIsBusy()) {
     return reuseCachedPulse(auth.user.id, candidates, cachedMap, headlines);
   }
-  const heldSlot = true;
+  const heldSlot: BackgroundLlmSlot | null = beginBackgroundLlm();
+  if (heldSlot == null) {
+    return reuseCachedPulse(auth.user.id, candidates, cachedMap, headlines);
+  }
   stampAdvisorUse(auth.user.id);
 
   const uncachedTickers = uncachedCandidates.map((c) => pulseTickerKey(c.ticker));
@@ -502,7 +506,7 @@ async function handlePOST(req: Request) {
     console.error("Pulse report failed", err);
     return reuseCachedPulse(auth.user.id, candidates, cachedMap, headlines);
   } finally {
-    if (heldSlot) endBackgroundLlm();
+    endBackgroundLlm(heldSlot);
   }
 }
 

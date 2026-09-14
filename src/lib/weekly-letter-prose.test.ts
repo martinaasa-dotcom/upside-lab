@@ -133,9 +133,17 @@ describe("nothing is called quiet unless it was", () => {
     expect(take).toContain("9.6%");
   });
 
-  it("gives the largest remaining move instead of calling the rest quiet", () => {
+  it("gives the largest remaining move instead of calling the rest quiet, and names it", () => {
     const take = fallbackWeeklyTake(letterOf(BOOK, WATCH));
-    expect(take).toMatch(/largest of those moves 2\.5%/);
+    expect(take).toMatch(/\$CRWV moved the most of them, up 2\.5%/);
+    // The old phrasing stated a percentage for "the largest of those" with
+    // no company attached to it, which is exactly what this fix removes.
+    expect(take).not.toMatch(/largest of those moves/);
+  });
+
+  it("gives the group's average move, not just its split", () => {
+    const take = fallbackWeeklyTake(letterOf(BOOK, WATCH));
+    expect(take).toMatch(/average move of 1\.5%/);
   });
 
   it("still says barely moved when everything left really is small", () => {
@@ -247,10 +255,11 @@ describe("a small portfolio gets English, not counts", () => {
     ["SOFI", 5000, 17.6, 17.154],
   ];
 
-  it("does not say the largest of one move", () => {
+  it("names the one leftover holding rather than calling it 'the other one'", () => {
     const take = fallbackWeeklyTake(letterOf(TWO));
     expect(take).not.toMatch(/largest of the other one/);
-    expect(take).toMatch(/The other one rose 2\.6%\./);
+    expect(take).not.toMatch(/\bThe other one\b/);
+    expect(take).toMatch(/\$SOFI rose 2\.6%\./);
   });
 
   it("does not call a single watched name everything on the watchlist", () => {

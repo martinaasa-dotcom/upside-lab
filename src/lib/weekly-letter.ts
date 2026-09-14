@@ -109,8 +109,19 @@ export type WeeklyRest = {
   count: number;
   up: number;
   down: number;
-  /** The biggest of those moves, by size, as a percent. */
+  /** The biggest of those moves, by size, as a percent, unsigned. */
   maxAbsPct: number;
+  /** The same move, signed, so a sentence naming it can say up or down. */
+  maxPct: number;
+  /**
+   * The one company behind `maxAbsPct`/`maxPct`. A prose sentence naming
+   * "the biggest of the rest" has to be able to say whose move that was,
+   * or it is a percentage attached to nobody: this is what makes that
+   * possible without printing every holding beyond the top five.
+   */
+  maxTicker: string;
+  /** The average size of these moves, as a percent, unsigned. */
+  avgAbsPct: number;
 };
 
 export type WeeklyLetter = {
@@ -574,18 +585,27 @@ export function buildWeeklyLetter(input: WeeklyLetterInput): WeeklyLetter {
     movers.every((m) => Math.abs(m.pct) < 1) && Math.abs(weekPct ?? 0) < 1;
 
   // What the table does not show, summarised, so the prose can close on
-  // the truth rather than on the word "quiet".
+  // the truth rather than on the word "quiet". Kept with its ticker, not
+  // just its size, so the biggest of the group can still be named.
   const shown = new Set(movers.map((m) => m.ticker));
   const restMoves = positions
     .filter((p) => p.weekPct != null && !shown.has(p.ticker))
-    .map((p) => p.weekPct as number);
+    .map((p) => ({ ticker: p.ticker, pct: p.weekPct as number }));
+  const restBiggest = [...restMoves].sort(
+    (a, b) => Math.abs(b.pct) - Math.abs(a.pct)
+  )[0];
   const rest: WeeklyRest | null =
     restMoves.length > 0
       ? {
           count: restMoves.length,
-          up: restMoves.filter((v) => v > 0).length,
-          down: restMoves.filter((v) => v < 0).length,
-          maxAbsPct: Math.max(...restMoves.map((v) => Math.abs(v))),
+          up: restMoves.filter((m) => m.pct > 0).length,
+          down: restMoves.filter((m) => m.pct < 0).length,
+          maxAbsPct: Math.abs(restBiggest.pct),
+          maxPct: restBiggest.pct,
+          maxTicker: restBiggest.ticker,
+          avgAbsPct:
+            restMoves.reduce((sum, m) => sum + Math.abs(m.pct), 0) /
+            restMoves.length,
         }
       : null;
 
