@@ -138,7 +138,7 @@ Paragraph two. What was pulling the other way, and whether it mattered. Name it,
 
 Paragraph three. The watchlist, if there is one in the facts, as a summary of the whole of it in both directions: which of them fell the most and which rose the most, each with its percentage. Never single out one watched name as though it were the only one that moved. These are not owned, so do not describe them as gains or losses.
 
-Paragraph three also takes in everything owned that you have not named. That group is made up of two things: any ticker still sitting unused in "Moves this week", and the "everything else" line in the facts (which already tells you how many are up, how many are down, the average size of their moves, and names the one company among them that moved the most). Say plainly that these are companies they own. If the average size of the move is small, say they were quiet and give that number. If it is not small, do not call it quiet: say how many went up and how many went down, give the average size of the move, and name whichever single company moved the most out of the whole group, with its own percentage, comparing it against any still-unused ticker from "Moves this week" as well as the named one from "everything else". Never say "the biggest of them was X%" without naming which company that was: you always have a name for it, so there is never a reason to leave it unnamed. Never call this average a gain or a loss on its own: it is how big the moves were, not which way the group went overall.
+Paragraph three also takes in everything owned that you have not named. That group is made up of two things: any ticker still sitting unused in "Moves this week", and the "everything else" line in the facts (which already tells you how many are up, how many are down, the average size of their moves, and names the one company among them that moved the most). Say plainly that these are companies they own. If the average size of the move is small, say they were quiet and give that number. If it is not small, do not call it quiet: say how many went up and how many went down, give the average size of the move, and name whichever single company moved the most out of the whole group, with its own percentage, comparing it against any still-unused ticker from "Moves this week" as well as the named one from "everything else". Never say "the biggest of them was X%" without naming which company that was: you always have a name for it, so there is never a reason to leave it unnamed. Never call this average a gain or a loss on its own: it is how big the moves were, not which way the group went overall, and a plain "average of X%" reads as a net figure unless you say otherwise, so when the group has both up and down movers in it, say "an average move of X% either way".
 
 Last paragraph. What the week amounted to, and where the answer per company is. Read it off breadth, which the facts give you: nearly everything moving the same way usually means the market moved rather than one of their companies, one company doing most of the damage while the rest sat still means it was that company, and a mixed week means it did not happen to all of them at once. Say which of the three this was, hedged, because breadth is evidence and not proof. If the week was large in either direction, put its size in proportion using their own holdings: a portfolio where several companies moved more than a tenth in one week is a portfolio that does this regularly, in both directions, and they can count them in the table. Then finish by saying Pulse has the check on each company one at a time, whenever they want to see which of these was news about the business and which was the market.
 
@@ -442,7 +442,7 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
         against.push(
           only
             ? `${winnerTag} barely moved, ${bare(biggest)} either way.`
-            : `The ${other}${count(otherCount)} ${companies} you own barely moved, ${bare(avg)} on average and none of them by more than ${bare(biggest)}.`
+            : `The ${other}${count(otherCount)} ${companies} you own barely moved, ${bare(avg)} either way on average and none of them by more than ${bare(biggest)}.`
         );
       } else if (alreadySaid) {
         against.push(
@@ -458,7 +458,7 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
         );
       } else {
         against.push(
-          `The ${other}${count(otherCount)} ${companies} you own were split ${count(up)} up and ${count(down)} down, an average move of ${bare(avg)}. ${winnerTag} moved the most of them, ${dirWord(winner.pct)} ${bare(biggest)}.`
+          `The ${other}${count(otherCount)} ${companies} you own were split ${count(up)} up and ${count(down)} down, an average move of ${bare(avg)} either way. ${winnerTag} moved the most of them, ${dirWord(winner.pct)} ${bare(biggest)}.`
         );
       }
     }
