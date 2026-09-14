@@ -15,7 +15,7 @@
 import { cashtag, currency, signedCurrency, signedPercent } from "@/lib/format";
 import { groupMoneyInText } from "@/lib/money-text";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
-import { actionLabel, statusLabel } from "@/lib/thesis-pulse";
+import { actionLabel, rangeStanding, recentRange, statusLabel } from "@/lib/thesis-pulse";
 import {
   EMAIL,
   emailAccountFooter,
@@ -275,9 +275,49 @@ const HEAVY_WEIGHT = 0.3;
 /** A watchlist name has to have fallen at least this much to be worth a look. */
 const WATCH_DIP_PCT = -3;
 
+/**
+ * Whether today's own price backs up a stamp's "above"/"below its recent
+ * range" claim.
+ *
+ * A Pulse stamp is a snapshot: the model saw a measured range and today's
+ * price on the day it ran and chose `trim` or `add` to match. Nothing about
+ * that stays true on its own. The stamp can be days old by the time the
+ * Sunday letter reads it back, the range it was judged against has since
+ * rolled forward (a new high or low pushes the old one out of the window),
+ * and the market can simply have moved the price back inside the range it
+ * once broke. The letter states its numbers as fact, so a claim this old is
+ * re-measured before it is allowed to print, against the same live quote
+ * `positionsFor` already priced the portfolio with.
+ *
+ * The measuring is not reinvented here: `recentRange` is the exact function
+ * that produced the range Pulse showed the model in the first place, and
+ * `rangeStanding` is the exact function the Pulse card itself draws its
+ * marker with (`PulsePage.tsx`), clamped to 0 at the low and 1 at the high.
+ * Reusing it rather than writing a fresh `price >= high` comparison means
+ * the letter's claim and the card the reader already saw are judged by the
+ * same ruler; a second, slightly different ruler here is exactly how a
+ * boundary case could read "above" on one screen and "inside" on the other.
+ * A standing of exactly 1 or 0 is a price at or past the edge, not merely
+ * close to it, which is what "above" and "below" mean as plain English.
+ */
+function priceIsAboveRange(
+  price: number,
+  quote: Quote | null | undefined
+): boolean {
+  return rangeStanding(price, recentRange(quote)) === 1;
+}
+
+function priceIsBelowRange(
+  price: number,
+  quote: Quote | null | undefined
+): boolean {
+  return rangeStanding(price, recentRange(quote)) === 0;
+}
+
 function pulseSuggestions(
   positions: Position[],
-  conviction: ConvictionMap | undefined
+  conviction: ConvictionMap | undefined,
+  quotes: Record<string, Quote>
 ): WeeklySuggestion[] {
   if (!conviction) return [];
   const out: WeeklySuggestion[] = [];
@@ -300,6 +340,9 @@ function pulseSuggestions(
       continue;
     }
     if (action === "trim") {
+      // The stamp said this ran above its range; today's own quote has to
+      // still agree, or the sentence is a stale claim stated as fact.
+      if (!priceIsAboveRange(p.price, quotes[p.ticker])) continue;
       out.push({
         kind: "trim",
         ticker: p.ticker,
@@ -310,6 +353,7 @@ function pulseSuggestions(
       continue;
     }
     if (action === "add") {
+      if (!priceIsBelowRange(p.price, quotes[p.ticker])) continue;
       out.push({
         kind: "add",
         ticker: p.ticker,
@@ -338,13 +382,17 @@ function sizeSuggestions(positions: Position[]): WeeklySuggestion[] {
 
 export function buildSuggestions(
   positions: Position[],
-  conviction: ConvictionMap | undefined
+  conviction: ConvictionMap | undefined,
+  quotes: Record<string, Quote>
 ): WeeklySuggestion[] {
   const seen = new Set<string>();
   const out: WeeklySuggestion[] = [];
   // Pulse first: it is the reader's own recorded read, so it outranks a
   // rule of thumb about position size.
-  for (const s of [...pulseSuggestions(positions, conviction), ...sizeSuggestions(positions)]) {
+  for (const s of [
+    ...pulseSuggestions(positions, conviction, quotes),
+    ...sizeSuggestions(positions),
+  ]) {
     if (seen.has(s.ticker)) continue;
     seen.add(s.ticker);
     out.push(s);
@@ -596,7 +644,7 @@ export function buildWeeklyLetter(input: WeeklyLetterInput): WeeklyLetter {
     weights: positions
       .slice(0, 5)
       .map((p) => ({ ticker: p.ticker, weight: p.weight })),
-    suggestions: buildSuggestions(positions, input.conviction),
+    suggestions: buildSuggestions(positions, input.conviction, input.quotes),
     watchRows: buildWatchRows(input),
     weekAhead: weekAheadFor(earnings, interesting),
     margus: null,
