@@ -53,7 +53,7 @@ export type ForecastTheme =
  * but it is an optimistic scenario rate, not a safe planning assumption.
  */
 const THEME_BASE_MULTS: Record<ForecastTheme, number[]> = {
-  ai_infra: [1.54, 2.3, 3.1, 3.91, 4.83], // ~37%/yr
+  ai_infra: [1.54, 2.36, 2.02, 3.32, 4.83], // ~37%/yr
   crypto: [1.6, 2.38, 1.48, 2.74, 4.01], // ~32%/yr
   semi: [1.39, 2.03, 1.82, 2.75, 3.57], // ~29%/yr
   ai_power: [1.37, 1.92, 1.81, 2.61, 3.3], // ~27%/yr
@@ -81,8 +81,8 @@ const THEME_BASE_MULTS: Record<ForecastTheme, number[]> = {
     what `DEFAULT_COMPOUND_INPUTS.ratePercent` already opens on. Same
     shape as `index` on purpose: not a coincidence to be tidied away.
   */
-  other: [1.1, 1.23, 1.35, 1.48, 1.61], // ~10%/yr, the market baseline
-  healthcare: [1.12, 1.27, 1.43, 1.59, 1.76], // ~12%/yr
+  other: [1.1, 1.25, 1.21, 1.42, 1.61], // ~10%/yr, the market baseline
+  healthcare: [1.12, 1.28, 1.25, 1.5, 1.76], // ~12%/yr
   index: [1.1, 1.23, 1.35, 1.48, 1.61], // ~10%/yr, the market baseline
 };
 
@@ -301,6 +301,43 @@ export function reshapeToThemeRhythm(
   return enforcePathRules(out, spot);
 }
 
+
+/**
+ * Does this path only ever step by the same amount?
+ *
+ * The one test both surfaces use, and it lives here beside the reshaper
+ * because the pair is meaningless apart: re-timing is allowed only on a
+ * path that has no timing of its own. It was a private function in
+ * forecast-plan.ts, which is how the research room came to reshape every
+ * path it was ever given, including the ones the model had already given
+ * a rhythm to.
+ */
+export function isNearLinearPath(
+  prices: Record<ForecastYear, number>,
+  spot: number
+): boolean {
+  const seq = [spot, ...FORECAST_YEARS.map((y) => prices[y])];
+  const yoy: number[] = [];
+  for (let i = 1; i < seq.length; i++) {
+    const prev = seq[i - 1]!;
+    const cur = seq[i]!;
+    if (!(prev > 0) || !(cur > 0)) return false;
+    yoy.push(cur / prev - 1);
+  }
+  if (yoy.length < 3) return false;
+  const mean = yoy.reduce((s, x) => s + x, 0) / yoy.length;
+  const variance = yoy.reduce((s, x) => s + (x - mean) ** 2, 0) / yoy.length;
+  // Nearly identical YoY each year, which is a straight CAGR line.
+  if (variance < 0.0008 && Math.abs(mean) < 0.35) return true;
+  // Nearly equal dollar steps.
+  const steps: number[] = [];
+  for (let i = 1; i < seq.length; i++) steps.push(seq[i]! - seq[i - 1]!);
+  const stepMean = steps.reduce((s, x) => s + x, 0) / steps.length;
+  const stepVar =
+    steps.reduce((s, x) => s + (x - stepMean) ** 2, 0) / steps.length;
+  const scale = Math.max(Math.abs(stepMean), spot * 0.02);
+  return stepVar < (scale * 0.15) ** 2;
+}
 
 /** Light sanity net — only guarantees every year is a positive number. */
 export function enforcePathRules(
