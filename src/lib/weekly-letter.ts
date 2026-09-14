@@ -15,7 +15,7 @@
 import { cashtag, currency, signedCurrency, signedPercent } from "@/lib/format";
 import { groupMoneyInText } from "@/lib/money-text";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
-import { actionLabel, recentRange, statusLabel } from "@/lib/thesis-pulse";
+import { actionLabel, rangeStanding, recentRange, statusLabel } from "@/lib/thesis-pulse";
 import {
   EMAIL,
   emailAccountFooter,
@@ -286,27 +286,32 @@ const WATCH_DIP_PCT = -3;
  * rolled forward (a new high or low pushes the old one out of the window),
  * and the market can simply have moved the price back inside the range it
  * once broke. The letter states its numbers as fact, so a claim this old is
- * re-measured against the same live quote `positionsFor` already priced the
- * portfolio with, using the exact function (`recentRange`) that produced the
- * range in the first place, rather than trusted because a stamp once said
- * so. `>=`/`<=` rather than a strict `>`/`<`, because a price sitting
- * exactly on the measured high or low is still outside the open interval
- * between them.
+ * re-measured before it is allowed to print, against the same live quote
+ * `positionsFor` already priced the portfolio with.
+ *
+ * The measuring is not reinvented here: `recentRange` is the exact function
+ * that produced the range Pulse showed the model in the first place, and
+ * `rangeStanding` is the exact function the Pulse card itself draws its
+ * marker with (`PulsePage.tsx`), clamped to 0 at the low and 1 at the high.
+ * Reusing it rather than writing a fresh `price >= high` comparison means
+ * the letter's claim and the card the reader already saw are judged by the
+ * same ruler; a second, slightly different ruler here is exactly how a
+ * boundary case could read "above" on one screen and "inside" on the other.
+ * A standing of exactly 1 or 0 is a price at or past the edge, not merely
+ * close to it, which is what "above" and "below" mean as plain English.
  */
 function priceIsAboveRange(
   price: number,
   quote: Quote | null | undefined
 ): boolean {
-  const range = recentRange(quote);
-  return Boolean(range) && Number.isFinite(price) && price > 0 && price >= range!.high;
+  return rangeStanding(price, recentRange(quote)) === 1;
 }
 
 function priceIsBelowRange(
   price: number,
   quote: Quote | null | undefined
 ): boolean {
-  const range = recentRange(quote);
-  return Boolean(range) && Number.isFinite(price) && price > 0 && price <= range!.low;
+  return rangeStanding(price, recentRange(quote)) === 0;
 }
 
 function pulseSuggestions(
