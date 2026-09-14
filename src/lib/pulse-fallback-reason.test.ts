@@ -22,6 +22,7 @@ import {
   buildFallbackPulseCheck,
   isMoveRestatement,
   normalizePulseCheck,
+  pulseActionMatchesRange,
   pulseLead,
   pulseScanLine,
   rangeSentence,
@@ -325,6 +326,40 @@ describe("recentRange", () => {
     expect(line).toContain("$150.00");
     expect(line).toContain("two months");
     expect(rangeSentence(150, null)).toBe("");
+  });
+});
+
+describe("pulseActionMatchesRange", () => {
+  const range = { low: 100, high: 200, days: 60 };
+
+  it("confirms trim only when the price is genuinely on or past the high", () => {
+    expect(pulseActionMatchesRange("trim", 200, range)).toBe(true);
+    expect(pulseActionMatchesRange("trim", 260, range)).toBe(true);
+    expect(pulseActionMatchesRange("trim", 199.99, range)).toBe(false);
+    expect(pulseActionMatchesRange("trim", 150, range)).toBe(false);
+  });
+
+  it("confirms add only when the price is genuinely on or past the low", () => {
+    expect(pulseActionMatchesRange("add", 100, range)).toBe(true);
+    expect(pulseActionMatchesRange("add", 50, range)).toBe(true);
+    expect(pulseActionMatchesRange("add", 100.01, range)).toBe(false);
+    expect(pulseActionMatchesRange("add", 150, range)).toBe(false);
+  });
+
+  it("refuses both when there is no range to check against", () => {
+    expect(pulseActionMatchesRange("trim", 260, null)).toBe(false);
+    expect(pulseActionMatchesRange("add", 50, null)).toBe(false);
+  });
+
+  it("makes no range claim for hold, watch or sell, so those always pass", () => {
+    for (const action of ["hold", "watch", "sell", ""]) {
+      expect(pulseActionMatchesRange(action, 150, range)).toBe(true);
+      expect(pulseActionMatchesRange(action, 150, null)).toBe(true);
+    }
+  });
+
+  it("reads the action case-insensitively", () => {
+    expect(pulseActionMatchesRange("TRIM", 260, range)).toBe(true);
   });
 });
 

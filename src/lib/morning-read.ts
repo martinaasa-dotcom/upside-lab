@@ -72,6 +72,17 @@ export type MorningNotice = {
   source: MorningSource;
   /** Set only when the card is about one company, so it can offer Pulse. */
   ticker?: string;
+  /**
+   * When the underlying Pulse check was last written, for a "pulse"-sourced
+   * notice. Pulse's per-ticker cache is retained indefinitely for a quiet
+   * name (see `loadPulseTickerCache`'s own note), so a "Thesis broken" badge
+   * on this card can be reporting a read from weeks ago while the sentence
+   * beside it reads as today's news. This is what lets the eye on the card
+   * (`pulseProvenance`'s `at`) say how old the read actually is, the same
+   * disclosure the Pulse card itself already carries as "Checked N ago" —
+   * Home was building that eye with no `at` at all.
+   */
+  checkedAt?: string | null;
 };
 
 export type MorningRead = {
@@ -89,6 +100,8 @@ export type HomePulseNote = {
   ticker: string;
   thesisStatus?: string | null;
   moveReason?: string | null;
+  /** When Pulse actually wrote this read. See `MorningNotice.checkedAt`. */
+  checkedAt?: string | null;
 };
 
 export type MorningReadExtras = {
@@ -109,6 +122,8 @@ type Candidate = {
   /** Defaults to "holdings", which is what all but a handful of these are. */
   source?: MorningSource;
   ticker?: string;
+  /** See `MorningNotice.checkedAt`. */
+  checkedAt?: string | null;
 };
 
 function holdingsFrom(model: OverviewModel): InsightHolding[] {
@@ -681,6 +696,7 @@ function pulseCandidates(
         rank: 88,
         source: "pulse",
         ticker: t.ticker,
+        checkedAt: n.checkedAt,
         text: say(seedFor(lookIndex, id), [
           `${cashtag(t.ticker)} is ${t.todayPct >= 0 ? "up" : "down"} ${aboutMove(t.todayPct)} ${whenTail}. Last Pulse read: ${why}`,
           `${cashtag(t.ticker)} moved ${aboutMove(t.todayPct)} ${whenTail}. ${why}`,
@@ -697,6 +713,7 @@ function pulseCandidates(
         fingerprint: insightFingerprint(`pulse-${status}`, t.ticker, t.todayPct),
         kind: "notice",
         rank: status === "broken" ? 86 : 72,
+        checkedAt: n.checkedAt,
         source: "pulse",
         ticker: t.ticker,
         text: `${cashtag(t.ticker)} is on ${label}, and it ${t.todayPct >= 0 ? "rose" : "fell"} ${aboutMove(t.todayPct)} ${whenTail}.`,
@@ -828,6 +845,7 @@ export function pickHomeNotices(
       kind: "notice",
       source: n.source ?? "holdings",
       ticker: n.ticker,
+      checkedAt: n.checkedAt,
     });
   }
   /*
@@ -896,6 +914,7 @@ export function loadHomePulseNotes(tickers: string[]): HomePulseNote[] {
       ticker: key,
       thesisStatus: pulse?.check.thesisStatus ?? null,
       moveReason: pulse?.check.moveReason ?? null,
+      checkedAt: pulse?.check.checkedAt ?? pulse?.cachedAt ?? null,
     };
   });
 }

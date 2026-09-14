@@ -711,8 +711,20 @@ function margusMemoryBlock(ctx: CcChatContext): string {
         check.verdict?.trim() ||
         check.moveReason?.trim() ||
         "";
+      /*
+        Dated, never "Pulse now:". This is a cached read (Pulse's own
+        per-ticker cache keeps a quiet name's last check indefinitely, see
+        `loadPulseTickerCache`), and `actionLabel` renders as a present-tense
+        range fact ("Above recent range") that can go stale the moment the
+        price moves back inside it. This block is handed to the model with
+        an instruction to answer from it as settled fact, so a claim with no
+        date on it reads to the reader as checked just now. Dating it, the
+        same way the `stamp` bullet above already does, is what lets the
+        model say "as of" instead of asserting the present tense itself.
+      */
+      const checkedDate = check.checkedAt?.slice(0, 10) ?? "?";
       bits.push(
-        `Pulse now: ${statusLabel(check.thesisStatus)}, ${actionLabel(check.action)}${note ? `: ${note}` : ""}`
+        `Pulse (${checkedDate}): ${statusLabel(check.thesisStatus)}, ${actionLabel(check.action)}${note ? `: ${note}` : ""}`
       );
     }
     lines.push(`- ${bits.join(" · ")}`);

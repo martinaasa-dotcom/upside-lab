@@ -293,6 +293,36 @@ describe("Home notices", () => {
     expect(second.notices.some((n) => /Thesis watch/.test(n.text))).toBe(true);
   });
 
+  it("carries the Pulse check's own date onto the notice, for the eye to disclose", () => {
+    // Pulse's per-ticker cache keeps a quiet name's last check indefinitely
+    // (thesis-pulse.ts, loadPulseTickerCache), so a "Thesis watch/broken"
+    // notice built from it can be reporting a read from weeks ago. The
+    // notice must carry that date through so the card's own eye
+    // (pulseProvenance's `at`) can say how old the read is, rather than
+    // reading as today's check with nothing disclosing otherwise.
+    const book = model(
+      [
+        ticker({
+          ticker: "CRWV",
+          currentValue: 50_000,
+          todayPct: -0.04,
+          todayDollar: -2000,
+        }),
+      ],
+      0.019
+    );
+    const notes = [
+      {
+        ticker: "CRWV",
+        thesisStatus: "broken" as const,
+        checkedAt: "2026-08-01T12:00:00.000Z",
+      },
+    ];
+    const read = buildMorningRead(book, null, "open", { lookIndex: 0, notes });
+    const notice = read.notices.find((n) => /Thesis broken/.test(n.text));
+    expect(notice?.checkedAt).toBe("2026-08-01T12:00:00.000Z");
+  });
+
 });
 
 describe("concentration as today's story", () => {
