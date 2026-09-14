@@ -15,7 +15,7 @@
 import { cashtag, currency, signedCurrency, signedPercent } from "@/lib/format";
 import { groupMoneyInText } from "@/lib/money-text";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
-import { actionLabel, statusLabel } from "@/lib/thesis-pulse";
+import { actionLabel, recentRange, statusLabel } from "@/lib/thesis-pulse";
 import {
   EMAIL,
   emailAccountFooter,
@@ -275,9 +275,44 @@ const HEAVY_WEIGHT = 0.3;
 /** A watchlist name has to have fallen at least this much to be worth a look. */
 const WATCH_DIP_PCT = -3;
 
+/**
+ * Whether today's own price backs up a stamp's "above"/"below its recent
+ * range" claim.
+ *
+ * A Pulse stamp is a snapshot: the model saw a measured range and today's
+ * price on the day it ran and chose `trim` or `add` to match. Nothing about
+ * that stays true on its own. The stamp can be days old by the time the
+ * Sunday letter reads it back, the range it was judged against has since
+ * rolled forward (a new high or low pushes the old one out of the window),
+ * and the market can simply have moved the price back inside the range it
+ * once broke. The letter states its numbers as fact, so a claim this old is
+ * re-measured against the same live quote `positionsFor` already priced the
+ * portfolio with, using the exact function (`recentRange`) that produced the
+ * range in the first place, rather than trusted because a stamp once said
+ * so. `>=`/`<=` rather than a strict `>`/`<`, because a price sitting
+ * exactly on the measured high or low is still outside the open interval
+ * between them.
+ */
+function priceIsAboveRange(
+  price: number,
+  quote: Quote | null | undefined
+): boolean {
+  const range = recentRange(quote);
+  return Boolean(range) && Number.isFinite(price) && price > 0 && price >= range!.high;
+}
+
+function priceIsBelowRange(
+  price: number,
+  quote: Quote | null | undefined
+): boolean {
+  const range = recentRange(quote);
+  return Boolean(range) && Number.isFinite(price) && price > 0 && price <= range!.low;
+}
+
 function pulseSuggestions(
   positions: Position[],
-  conviction: ConvictionMap | undefined
+  conviction: ConvictionMap | undefined,
+  quotes: Record<string, Quote>
 ): WeeklySuggestion[] {
   if (!conviction) return [];
   const out: WeeklySuggestion[] = [];
@@ -300,6 +335,9 @@ function pulseSuggestions(
       continue;
     }
     if (action === "trim") {
+      // The stamp said this ran above its range; today's own quote has to
+      // still agree, or the sentence is a stale claim stated as fact.
+      if (!priceIsAboveRange(p.price, quotes[p.ticker])) continue;
       out.push({
         kind: "trim",
         ticker: p.ticker,
@@ -310,6 +348,7 @@ function pulseSuggestions(
       continue;
     }
     if (action === "add") {
+      if (!priceIsBelowRange(p.price, quotes[p.ticker])) continue;
       out.push({
         kind: "add",
         ticker: p.ticker,
@@ -338,13 +377,17 @@ function sizeSuggestions(positions: Position[]): WeeklySuggestion[] {
 
 export function buildSuggestions(
   positions: Position[],
-  conviction: ConvictionMap | undefined
+  conviction: ConvictionMap | undefined,
+  quotes: Record<string, Quote>
 ): WeeklySuggestion[] {
   const seen = new Set<string>();
   const out: WeeklySuggestion[] = [];
   // Pulse first: it is the reader's own recorded read, so it outranks a
   // rule of thumb about position size.
-  for (const s of [...pulseSuggestions(positions, conviction), ...sizeSuggestions(positions)]) {
+  for (const s of [
+    ...pulseSuggestions(positions, conviction, quotes),
+    ...sizeSuggestions(positions),
+  ]) {
     if (seen.has(s.ticker)) continue;
     seen.add(s.ticker);
     out.push(s);
@@ -596,7 +639,7 @@ export function buildWeeklyLetter(input: WeeklyLetterInput): WeeklyLetter {
     weights: positions
       .slice(0, 5)
       .map((p) => ({ ticker: p.ticker, weight: p.weight })),
-    suggestions: buildSuggestions(positions, input.conviction),
+    suggestions: buildSuggestions(positions, input.conviction, input.quotes),
     watchRows: buildWatchRows(input),
     weekAhead: weekAheadFor(earnings, interesting),
     margus: null,
