@@ -133,11 +133,17 @@ export function spokenDate(key: string): string {
  * through, so two names reaching the same band read as two different
  * situations, not the same card with the numbers swapped.
  *
- * Only the ends of the ladder are worth waking somebody for. The middle
- * bands are where a price ordinarily sits, and an alert that fires while
- * nothing has happened is one a reader learns to swipe past, which is the
- * lesson the borrowed-money card already records. The id carries the band
- * for the same reason the margin alert's carries its tier: a dismissal is
+ * "Close to fair value" is the one band that never wakes anybody. That
+ * used to mean the three extreme bands alone, because a mild band fired
+ * on an ordinary week for a volatile name, and an alert that fires while
+ * nothing has happened is one a reader learns to swipe past, which is
+ * the lesson the borrowed-money card already records. `holdHalf`
+ * (`plan-ladder.ts`) is what let the milder bands join `ACTIONABLE_BANDS`
+ * on 2026-09-15: the fair-value zone now widens for a name that swings
+ * hard and narrows for one that barely moves, so landing outside it,
+ * even a little, is a genuinely unusual price for that company rather
+ * than a distance every company shares. The id carries the band for the
+ * same reason the margin alert's carries its tier: a dismissal is
  * stored per id, and one id for every level would silence the floor
  * because somebody waved off a trim in March.
  */
