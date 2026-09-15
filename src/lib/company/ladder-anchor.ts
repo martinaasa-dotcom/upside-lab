@@ -68,71 +68,56 @@ export function anchorForCompany(
 }
 
 /**
- * A holding you already own, where the anchor is the end-of-year target
- * that holding already carries.
+ * A holding you already own, anchored on exactly the same company-wide
+ * reading a stranger looking the name up would get.
  *
- * That target is the reader's own where they typed one and the shared
- * forecast path's where they did not, and both are already on the screen
- * this ladder is drawn on, which is the property that matters: an anchor
- * a reader cannot see is a ladder they cannot argue with.
+ * OWNING A SHARE DOES NOT CHANGE WHAT THE COMPANY IS WORTH, AND UNTIL
+ * 2026-09-15 THIS APP BEHAVED AS THOUGH IT DID.
+ *
+ * This used to anchor a holding on its end-of-year forecast target, on
+ * the argument that the figure was already printed a few inches above
+ * the ladder. Three things were wrong with it, and together they are
+ * why the Circle and the holdings page could not be read against each
+ * other at all.
+ *
+ * A target is a claim about where the price is GOING, and a ladder is a
+ * claim about what the company looks WORTH; they are different
+ * questions with different horizons. This app writes a target for every
+ * holding whether or not anybody chose one, and the written-in default
+ * is grown from today's price, so every name sat the same distance from
+ * its own anchor and the picture ordered a book by how fast this app
+ * expects each name to compound while looking like it ordered it by how
+ * cheap they are. Measured on a real book, five of six holdings landed
+ * in one band. And the target lives in one browser's own storage, so
+ * nobody else could ever see the same ladder: the Circle, which has no
+ * member's targets to read, fell through to the trading-range midpoint
+ * and put the same company in a different band on the next screen.
+ *
+ * So the anchor is `estimate`, the blended twelve-month estimate
+ * `anchorForCompany` publishes for that company, fetched once on the
+ * server and handed to every surface (`loadCompanyAnchors`). The reader
+ * keeps a lever over it, and it is the honest one: the ladder's own
+ * anchor edit, which they type, which is stored as theirs, and which
+ * `buildPlanLadder` still lets outrank this. The trading range is the
+ * last resort, for a name the feed could not answer about at all.
  */
 export function anchorForHolding(input: {
-  target: number | null;
-  targetIsYours: boolean;
+  /**
+   * What this company is worth, the same reading for every reader
+   * (`loadCompanyAnchors`). Absent where the feed could not answer.
+   */
+  estimate?: { price: number; kind: LadderAnchorKind; said: string } | null;
   /** The middle of the range this browser has closes for, when it has any. */
   rangeMid?: number | null;
   /** The window those closes cover, in words. */
   windowSaid?: string;
-  /**
-   * The house account's own end-of-year target for this ticker, when it
-   * has one. Read only where the reader has not set their own: the site's
-   * default is meant to be a starting point, never something that can
-   * outrank a figure the reader actually typed.
-   */
-  houseTarget?: number | null;
 }): LadderAnchor {
-  /*
-    A TARGET NOBODY CHOSE IS NOT AN ANCHOR.
-
-    `resolveTickerForecastPath` answers with the reader's own end of year
-    price where they set one, and otherwise with a shaped path grown from
-    TODAY'S PRICE by a multiple that depends only on the kind of business.
-    That second one is fine as a forecast shape and useless as an anchor:
-    every holding in a theme is then the same fraction of its own anchor,
-    so a ladder built on it says where the price is against a rule of
-    thumb about that theme, and a map of them would order the reader's
-    holdings by how volatile they are while looking like it ordered them
-    by how cheap they are.
-
-    So a target counts only when somebody chose it. Failing that, the
-    middle of the range this name has actually traded in is a real,
-    checkable figure about this company, and the sentence says outright
-    that it is a statement about the price rather than about worth. It is
-    the same fallback `anchorForCompany` uses for a fund and a coin, for
-    the same reason.
-  */
-  if (ok(input.target) && input.targetIsYours) {
+  const estimate = input.estimate;
+  if (estimate && ok(estimate.price)) {
     return {
-      price: input.target,
-      kind: "target",
-      said: `${currency(input.target, 2)}, the end of year price you wrote down for this holding. Change it and the whole ladder moves with it.`,
-    };
-  }
-  /*
-    THE HOUSE ACCOUNT'S OWN TARGET, READ ONLY BECAUSE NOBODY ELSE'S OWN
-    ANSWERED FIRST.
-
-    This is the one place a figure that is not the reader's own and not
-    plain arithmetic is allowed to anchor a ladder, and it is disclosed
-    as exactly that: `kind: "house"` so every surface that reads it says
-    whose figure it is, never claims the reader chose it, and always
-    offers the same "write your own over it" the plain default does.
-  */
-  if (ok(input.houseTarget)) {
-    return {
-      price: input.houseTarget,
-      kind: "house",
-      said: `${currency(input.houseTarget, 2)}, the end of year price this app's own account has set for this holding, which you have not changed. Write your own over it and this ladder is yours.`,
+      price: estimate.price,
+      kind: estimate.kind,
+      said: estimate.said,
     };
   }
   const over = input.windowSaid ?? "the last few months";
@@ -140,14 +125,7 @@ export function anchorForHolding(input: {
     return {
       price: input.rangeMid,
       kind: "history",
-      said: `${currency(input.rangeMid, 2)}, the middle of the range this one has actually traded in over ${over}. Nobody has written an end of year price for it, and the shape this app would otherwise use is grown from today's price by a rule about its kind of business, which would tell you nothing about this company. This is a ladder about the price and says nothing about what it is worth.`,
-    };
-  }
-  if (ok(input.target)) {
-    return {
-      price: input.target,
-      kind: "target",
-      said: `${currency(input.target, 2)}, the end of year price on the path this app shapes for its kind of business. Nobody chose it for this company, there is not enough price history to use instead, and you can write your own over it.`,
+      said: `${currency(input.rangeMid, 2)}, the middle of the range this one has actually traded in over ${over}. No valuation method could be run on this company, so there is no estimate to hang a ladder on. This is a ladder about the price and says nothing about what it is worth.`,
     };
   }
   return null;

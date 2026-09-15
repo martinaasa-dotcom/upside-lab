@@ -58,6 +58,7 @@ import { sheetCashBalance } from "@/lib/cash-balance";
 import { buildOverview } from "@/lib/overview";
 import { holdingLadders } from "@/lib/company/holding-ladders";
 import { useHouseForecastDefaults } from "@/lib/use-house-forecast-defaults";
+import { useCompanyAnchors } from "@/lib/company-anchor-pool";
 import {
   loadCommunityCache,
   loadCommunityDuelCache,
@@ -652,19 +653,34 @@ export function CommunityView({ communityId }: Props) {
     the circle's own shape, not any one member's edited plan, and `pooled`
     on the panel is what keeps every sentence on it saying so.
 
-    The one exception is the house account's own default
-    (`houseOverrides`/`houseLadders`), which is not any member's personal
-    plan either -- it is the site's own starting point, the same one every
-    other portfolio falls back to, so leaving it out here would make
-    Circle the one surface still drawing the plain trading-range default
-    after everywhere else moved on.
+    WHAT THE ANCHOR IS, AND WHY THIS ROOM FINALLY AGREES WITH THE REST OF
+    THE APP. `anchors` is the blended twelve-month estimate the server
+    publishes per company (`/api/company/anchors`), which is not any
+    member's plan either: it is one reading of what that company looks
+    worth, identical for every reader and for every room. Until it
+    existed, a holding on somebody's own page was anchored on that
+    holding's end-of-year forecast target and a circle had none to read,
+    so the same company sat in "a long way below" on one screen and
+    "close to fair value" on the next. The house account's own LADDER
+    edits still come through as the site's default levels, for the same
+    reason they do everywhere else.
   */
+  const circleAnchorTickers = useMemo(
+    () => overview.tickers.map((t) => t.ticker),
+    [overview.tickers]
+  );
+  const { anchors: circleAnchors, ready: circleAnchorsReady } =
+    useCompanyAnchors(circleAnchorTickers);
+
   const circleLadderRows = useMemo(
     () =>
       holdingLadders({
-        houseOverrides: houseForecast.eoyPrices,
+        anchors: circleAnchors,
         houseLadders: houseForecast.ladders,
-        rows: overview.tickers.map((t) => {
+        // Nothing until the shared reading has landed, for the reason
+        // `Dashboard` gives: a ladder drawn before it is a ladder only
+        // this browser agrees with.
+        rows: (circleAnchorsReady ? overview.tickers : []).map((t) => {
           const spot = quotes[t.ticker]?.price ?? null;
           return {
             ticker: t.ticker,
@@ -700,7 +716,7 @@ export function CommunityView({ communityId }: Props) {
           };
         }),
       }),
-    [overview.tickers, quotes, houseForecast]
+    [overview.tickers, quotes, circleAnchors, circleAnchorsReady, houseForecast]
   );
 
   // One combined per-person stat, computed once and reused by the power

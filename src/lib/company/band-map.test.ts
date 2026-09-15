@@ -26,7 +26,7 @@ function ladderAt(spot: number, anchor: number): PlanLadder {
   return buildPlanLadder({
     ticker: "T",
     anchor,
-    anchorKind: "target",
+    anchorKind: "estimate",
     anchorSaid: "the target",
     spot,
     high: anchor * 1.25,

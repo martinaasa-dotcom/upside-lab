@@ -81,8 +81,18 @@ export type LadderBand = {
 
 /** Which reading the ladder was built around, in the reader's own words. */
 export type LadderAnchorKind =
+  /**
+   * What the company looks worth: the blended twelve-month estimate,
+   * built on the server and handed to every room that draws this name
+   * (`company-anchors.ts`). The ordinary case, and the same figure for
+   * every reader.
+   */
   | "estimate"
-  | "target"
+  /**
+   * The range the share has actually traded in, which is what a fund, a
+   * coin and a company the feed could not answer about get. A ladder
+   * about the price, and it says so.
+   */
   | "history"
   | "your-own"
   /**

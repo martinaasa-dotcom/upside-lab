@@ -80,6 +80,7 @@ import { holdingLadders } from "@/lib/company/holding-ladders";
 import { buildBandMap } from "@/lib/company/band-map";
 import { pushEoyOverrides } from "@/lib/eoy-override-store";
 import { useHouseForecastDefaults } from "@/lib/use-house-forecast-defaults";
+import { useCompanyAnchors } from "@/lib/company-anchor-pool";
 import {
   loadEoyOverrides,
   mergeBookEoyOverrides,
@@ -973,39 +974,31 @@ export function Dashboard() {
     the conditions: the "Worth a look" room below, the borrowed-money card
     on Home (`CashAlertCard`), and the news dot on both docks.
   */
-  /*
-    THE WHOLE BOOK NEEDS EVERY PORTFOLIO'S OWN OVERRIDES, NOT JUST THE
-    ONE OPEN RIGHT NOW.
 
-    `eoyOverrides` is deliberately scoped to `activePortfolio` -- that is
-    right for the Forecast panel below, which is a view of one portfolio
-    -- but `bookLadders` spans `overview.tickers`, which is every holding
-    across every portfolio this reader owns. A ticker held in a portfolio
-    that is not the one open right now would silently lose its own
-    end-of-year target here while `StockRoom`'s ladder for that same
-    company (which merges every portfolio it sits in, per
-    `anchorForHolding`'s own rule that a target counts only when
-    somebody chose it) still found it, anchoring the two pages on two
-    different kinds of figure for one holding. So this is every real
-    portfolio's overrides merged into one map, read fresh off the
-    in-memory copy for whichever portfolio is active (it may have just
-    been edited and not yet be back from `localStorage`) and off disk
-    for the rest.
+  /*
+    WHAT EACH COMPANY LOOKS WORTH, THE SAME READING EVERY OTHER READER
+    GETS.
+
+    One ask for the whole book (`/api/company/anchors`), shared with the
+    Circle and with each company's own research page, because a price
+    ladder is its anchor times a set of multiples and a company that
+    anchors one way here and another way there cannot be read against
+    itself. See `company-anchors.ts`.
   */
-  const bookEoyOverrides = useMemo(
-    () =>
-      mergeBookEoyOverrides([
-        // The account's own copy first, so it fills in a target set on
-        // another device that this browser's localStorage never saw; each
-        // portfolio's own local copy is layered on top and wins where it
-        // has one, same as it always has.
-        labBundle.eoyOverrides ?? {},
-        ...realPortfolios.map((p) =>
-          p.id === activePortfolio?.id ? eoyOverrides : loadEoyOverrides(p.id)
-        ),
+  const anchorTickers = useMemo(
+    () => [
+      ...new Set([
+        ...overview.tickers.map((t) => t.ticker.toUpperCase()),
+        // The open portfolio's own names too, since a demo or classroom
+        // sheet is not in the book-wide list and a name missing from this
+        // ask would fall back to a different anchor on that one screen.
+        ...(snapshot?.holdings ?? []).map((h) => h.ticker.toUpperCase()),
       ]),
-    [realPortfolios, activePortfolio, eoyOverrides, labBundle.eoyOverrides]
+    ],
+    [overview.tickers, snapshot?.holdings]
   );
+  const { anchors: companyAnchors, ready: anchorsReady } =
+    useCompanyAnchors(anchorTickers);
 
   /*
     Every holding's own price ladder, built once from the price this
@@ -1020,19 +1013,32 @@ export function Dashboard() {
   const bookLadders = useMemo(
     () =>
       holdingLadders({
-        rows: overview.tickers.map((t) => ({
+        /*
+          Nothing until the shared reading has landed. The alternative to
+          waiting is not an empty picture, it is one anchored on what
+          this browser could see on its own, which is the per-browser
+          anchor the shared reading exists to replace -- and these rows
+          feed the alerts, so drawing it would raise one.
+        */
+        rows: (anchorsReady ? overview.tickers : []).map((t) => ({
           ticker: t.ticker,
           spot: quotes[t.ticker]?.price ?? null,
           closes: quotes[t.ticker]?.sparkline ?? null,
           value: t.currentValue,
           roiPct: t.roiPct ?? null,
         })),
-        overrides: bookEoyOverrides,
+        anchors: companyAnchors,
         ladders: labLadders,
-        houseOverrides: houseForecast.eoyPrices,
         houseLadders: houseForecast.ladders,
       }),
-    [overview.tickers, quotes, bookEoyOverrides, labLadders, houseForecast]
+    [
+      overview.tickers,
+      quotes,
+      companyAnchors,
+      anchorsReady,
+      labLadders,
+      houseForecast,
+    ]
   );
 
   /*
@@ -1045,19 +1051,18 @@ export function Dashboard() {
   const portfolioLadders = useMemo(
     () =>
       holdingLadders({
-        rows: (snapshot?.holdings ?? []).map((h) => ({
+        rows: (anchorsReady ? (snapshot?.holdings ?? []) : []).map((h) => ({
           ticker: h.ticker,
           spot: h.quote?.price ?? null,
           closes: h.quote?.sparkline ?? null,
           value: h.currentValue,
           roiPct: h.roiPct,
         })),
-        overrides: eoyOverrides,
+        anchors: companyAnchors,
         ladders: labLadders,
-        houseOverrides: houseForecast.eoyPrices,
         houseLadders: houseForecast.ladders,
       }),
-    [snapshot?.holdings, eoyOverrides, labLadders, houseForecast]
+    [snapshot?.holdings, companyAnchors, anchorsReady, labLadders, houseForecast]
   );
 
   /** The same ladders as a picture, which is also what Home reads. */

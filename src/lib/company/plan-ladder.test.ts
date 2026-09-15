@@ -590,7 +590,7 @@ describe("the floor is a price the share has traded at, or it says it is not", (
     const months = buildPlanLadder({
       ticker: "TEST",
       anchor: 100,
-      anchorKind: "target",
+      anchorKind: "estimate",
       anchorSaid: "x",
       spot: 95,
       high: 120,
