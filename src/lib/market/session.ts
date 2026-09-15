@@ -93,15 +93,22 @@ export function quotePollMs(at: Date = new Date()): number {
   const weekend = weekday === 0 || weekday === 6;
 
   if (!weekend && minutes >= OPEN_MIN && minutes < CLOSE_MIN) {
-    // The open and the close are where a book moves fastest.
-    const nearOpen = minutes < OPEN_MIN + 30;
-    const nearClose = minutes >= CLOSE_MIN - 30;
-    return nearOpen || nearClose ? 20_000 : 30_000;
+    /*
+      The whole regular session polls at the edge's own cache life, so
+      every poll can land a print the last one did not have. It was 30s
+      (20s at the bell and the close) while the hero went grey past 15s,
+      which put the "updating" badge on screen for half of every cycle;
+      and each poll was a Yahoo call per name, which is what made a
+      faster cadence unaffordable. A poll is one batched call for the
+      whole book now (`fetchQuotesYahoo`), so fifteen seconds costs less
+      than thirty used to.
+    */
+    return 15_000;
   }
 
   if (!weekend && minutes >= CLOSE_MIN && minutes < POST_END_MIN) {
     // After-hours prints thin out as the evening goes on.
-    return minutes < CLOSE_MIN + 60 ? 45_000 : 120_000;
+    return minutes < CLOSE_MIN + 60 ? 30_000 : 120_000;
   }
 
   // Everything else is the run up to the next open: late evening, the
@@ -142,8 +149,21 @@ export function quoteViewMaxAgeMs(at: Date = new Date()): number {
 }
 
 /**
- * True when a quote fetch this recent is still inside the current background
- * cadence. Use this to decide whether a *timer* has work to do.
+ * True when a quote fetch this recent means a *timer* has nothing to do.
+ *
+ * Judged against HALF the cadence, not the whole of it, and the half is
+ * the fix for the app polling at twice its own cadence. The timer fires
+ * exactly `quotePollMs` after it was armed, and the stamp it is judged
+ * against is written when the previous answer LANDED, a few hundred
+ * milliseconds after that timer's own tick: so at the next tick the stamp
+ * was always a fraction of a second younger than the cadence, read as
+ * fresh, and the tick was skipped. Every other poll went out. Measured
+ * against a 30s cadence, the book refetched every 60s.
+ *
+ * What this gate is for is a fetch some *other* path just made -- a reader
+ * arriving, a portfolio switch, a pull -- and a fetch inside the last half
+ * cycle is plainly that. A stamp older than half the cadence is the timer's
+ * own last answer, and the timer polls.
  */
 export function isQuotePollFresh(
   updatedAt: number | null | undefined,
@@ -151,7 +171,25 @@ export function isQuotePollFresh(
 ): boolean {
   if (updatedAt == null || !Number.isFinite(updatedAt)) return false;
   const age = Date.now() - updatedAt;
-  return age >= 0 && age < quotePollMs(at);
+  return age >= 0 && age < quotePollMs(at) / 2;
+}
+
+/**
+ * How old the book's last successful fetch may be before the numbers on
+ * screen are STUCK rather than merely between polls, in ms.
+ *
+ * This is the number the grey "updating" badge on the hero is judged by,
+ * and it is deliberately not `quoteViewMaxAgeMs`. That bar is for deciding
+ * whether to *ask again* when a reader arrives, and it is tight on purpose;
+ * used as the bar for greying the figure it put the badge on screen for
+ * the back half of every poll cycle while nothing whatever was wrong. A
+ * price is stuck when the poll that should have replaced it has had two
+ * whole cycles to do so and has not: a fetch that failed, a tab the
+ * browser throttled, a provider answering with nothing but its cache. The
+ * fixed slack covers the fetch itself and a throttled timer landing late.
+ */
+export function quoteStuckAfterMs(at: Date = new Date()): number {
+  return 2 * quotePollMs(at) + 15_000;
 }
 
 /**

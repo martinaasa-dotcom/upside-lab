@@ -501,7 +501,20 @@ async function quoteOneSymbol(
     yahooCall(() => yf.quote(symbol)),
     dailyBarsForSymbol(yf, symbol, period1),
   ]);
-  const fx = await fxTask;
+  return quoteFromPayload(symbol, quoteRaw, cachedBars, await fxTask);
+}
+
+/**
+ * A quote payload already in hand, made into this app's `Quote`. Split
+ * out of `quoteOneSymbol` so the batched path below can build a quote for
+ * every name in one answer without asking for each again.
+ */
+function quoteFromPayload(
+  symbol: string,
+  quoteRaw: unknown,
+  cachedBars: DailyBar[] | null,
+  fx: FxRates,
+): Quote | null {
   const parsed = yahooQuotePayloadSchema.safeParse(quoteRaw);
   if (!parsed.success) return null;
   const quote = parsed.data;
@@ -649,6 +662,117 @@ type QuoteHit = { requested: string; symbol: string; quote: Quote };
  */
 const quoteInFlight = new Map<string, Promise<QuoteHit | null>>();
 
+/**
+ * Most symbols in one batched quote call. Yahoo's endpoint takes a list;
+ * a real book is well under this and a classroom's whole roster is one
+ * or two calls.
+ */
+const QUOTE_BATCH_SIZE = 50;
+
+/**
+ * The one symbol a name is most likely to quote under: the listing this
+ * instance has already resolved it to today, otherwise its first
+ * candidate, which for a US name is the name itself.
+ */
+function likelySymbol(requested: string): string | null {
+  const memo = symbolMemo.get(requested);
+  if (memo?.symbol && Date.now() - memo.at < SYMBOL_MEMO_MS) return memo.symbol;
+  return yahooQuoteCandidates(requested)[0] ?? null;
+}
+
+/**
+ * ONE PROVIDER CALL FOR THE WHOLE BOOK, NOT ONE PER NAME.
+ *
+ * Every poll used to cost a `quote()` per ticker, forty-eight at a time,
+ * which is what made a fifteen second cadence unaffordable and what a
+ * reader with thirty names felt as the slow half of every refresh. The
+ * provider takes a list, so the wave asks for every name's likely symbol
+ * in one call (two past fifty names) and only the names that came back
+ * empty walk the exchange suffixes one by one exactly as before. On a
+ * book of US names that is one quote call and, once a minute, one chart
+ * call per name; a name Yahoo lists under a suffix costs what it always
+ * did, minus the bare-symbol call the batch has already made for it.
+ *
+ * Any answer that is not a list -- the circuit open, a timeout, the
+ * library refusing the batch -- sends that whole batch to the per-name
+ * walk, so nothing here can lose a quote the old path would have found.
+ * Names the batch reached and found nothing for are handed back too, so
+ * the walk can skip the candidate it already tried.
+ */
+async function quoteBatch(
+  yf: YahooFinanceInstance,
+  requested: string[],
+  fxTask: Promise<FxRates>,
+  period1: Date,
+): Promise<{ hits: Map<string, QuoteHit>; triedBare: Set<string> }> {
+  const hits = new Map<string, QuoteHit>();
+  const triedBare = new Set<string>();
+  if (isMarketCircuitOpen("yahoo")) return { hits, triedBare };
+
+  const bySymbol = new Map<string, string[]>();
+  for (const name of requested) {
+    const symbol = likelySymbol(name);
+    if (!symbol) continue;
+    const list = bySymbol.get(symbol) ?? [];
+    list.push(name);
+    bySymbol.set(symbol, list);
+  }
+  const symbols = [...bySymbol.keys()];
+
+  for (let i = 0; i < symbols.length; i += QUOTE_BATCH_SIZE) {
+    const chunk = symbols.slice(i, i + QUOTE_BATCH_SIZE);
+    let rows: unknown;
+    try {
+      /*
+        The library validates a batch as one and throws for all fifty if
+        a single fund or coin carries a field its schema does not expect,
+        which would send every name to the walk on every poll for as long
+        as that one holding is held. Every field read here is parsed by
+        this app's own schema and sanitized after, so the library's own
+        pass is switched off for the batch, as the per-name walk's stays
+        on: a name that fails there falls to the next candidate.
+      */
+      rows = await yahooCall(() =>
+        yf.quote(chunk, undefined, { validateResult: false })
+      );
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(rows)) continue;
+
+    const payloads = new Map<string, unknown>();
+    rows.forEach((row, index) => {
+      const sym =
+        row && typeof row === "object" && typeof (row as { symbol?: unknown }).symbol === "string"
+          ? (row as { symbol: string }).symbol.toUpperCase()
+          : chunk[index];
+      if (sym) payloads.set(sym, row);
+    });
+
+    const fx = await fxTask;
+    await mapWithConcurrency(chunk, MAX_IN_FLIGHT, async (symbol) => {
+      const names = bySymbol.get(symbol) ?? [];
+      for (const name of names) triedBare.add(name);
+      const raw = payloads.get(symbol);
+      if (!raw) return;
+      let quote: Quote | null = null;
+      try {
+        const bars = await dailyBarsForSymbol(yf, symbol, period1);
+        quote = quoteFromPayload(symbol, raw, bars, fx);
+      } catch {
+        return;
+      }
+      if (!quote || !(quote.price > 0)) return;
+      for (const name of names) {
+        hits.set(name, { requested: name, symbol, quote });
+        symbolMemo.set(name, { at: Date.now(), symbol });
+      }
+    });
+  }
+  pruneSymbolMemo();
+  return { hits, triedBare };
+}
+
 export async function fetchQuotesYahoo(
   tickers: string[],
 ): Promise<YahooQuotesAttempt> {
@@ -671,9 +795,14 @@ export async function fetchQuotesYahoo(
     const fxTask = currentFxRates(yf);
     const period1 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
 
+    const batched = await quoteBatch(yf, unique, fxTask, period1);
+    const walkers = unique.filter((name) => !batched.hits.has(name));
+
     const resolveOne = async (requested: string): Promise<QuoteHit | null> => {
       if (isMarketCircuitOpen("yahoo")) return null;
+      const skip = batched.triedBare.has(requested) ? likelySymbol(requested) : null;
       for (const symbol of yahooQuoteCandidates(requested)) {
+        if (symbol === skip) continue;
         try {
           const quote = await quoteOneSymbol(yf, symbol, fxTask, period1);
           // A stub with price 0 is not a hit. Keep walking suffixes
@@ -688,8 +817,8 @@ export async function fetchQuotesYahoo(
       return null;
     };
 
-    const results = await mapWithConcurrency(
-      unique,
+    const walked = await mapWithConcurrency(
+      walkers,
       MAX_IN_FLIGHT,
       (requested) => {
         const pending = quoteInFlight.get(requested);
@@ -701,6 +830,7 @@ export async function fetchQuotesYahoo(
         return started;
       },
     );
+    const results = [...batched.hits.values(), ...walked];
 
     const map: Record<string, Quote> = {};
     for (const row of results) {

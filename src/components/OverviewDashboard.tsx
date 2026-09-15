@@ -60,7 +60,7 @@ import {
 } from "@/lib/insight-look";
 import { alertDestination, type UpsideAlert } from "@/lib/alerts";
 import { sessionLabel, sessionKind } from "@/lib/market-session";
-import { isQuoteFreshForView } from "@/lib/market/session";
+import { quotesAgeLabel, quotesStuck } from "@/lib/market/quote-health";
 import { sheetCashBalance } from "@/lib/cash-balance";
 import type { OverviewModel, SheetScore, TickerScore } from "@/lib/overview";
 import { recordWeekMark } from "@/lib/week-marks";
@@ -144,12 +144,16 @@ type Props = {
   onOpenCompound?: () => void;
   marketState?: string | null;
   /**
-   * When the prices behind `model.totals` were last confirmed live. A
-   * cached-quotes first paint can be many hours old (see `quote-cache.ts`);
-   * the hero must not present that figure with the same weight as a fresh
-   * one, since the swing between the two can be the whole unrealized gain.
+   * When the prices behind `model.totals` last landed live. A cached-quotes
+   * first paint can be many hours old (see `quote-cache.ts`); the hero must
+   * not present that figure with the same weight as a fresh one, since the
+   * swing between the two can be the whole unrealized gain. Judged by
+   * `quotesStuck`, never by the view bar: between two ordinary polls the
+   * figure is as current as the app can make it and is drawn at full weight.
    */
-  quotesUpdatedAt?: number | null;
+  quotesFetchedAt?: number | null;
+  /** The last fetch failed, answered with nothing live, or the browser is offline. */
+  quotesFailing?: boolean;
   guest?: boolean;
   /** Show Fund + Communities on home (signed-in My book). */
   showCommunities?: boolean;
@@ -369,16 +373,6 @@ function signedMovePct(pct: number): string {
   return n;
 }
 
-/** How to say the hero total is not live yet, in the reader's own words. */
-function staleAgeLabel(updatedAt: number | null): string {
-  if (updatedAt == null || !Number.isFinite(updatedAt)) return "updating";
-  const sec = Math.max(0, Math.round((Date.now() - updatedAt) / 1000));
-  if (sec < 60) return "updating";
-  const min = Math.round(sec / 60);
-  if (min < 60) return `as of ${min}m ago`;
-  const hr = Math.round(min / 60);
-  return `as of ${hr}h ago`;
-}
 
 /**
  * One visual language for "a ticker moved the number" — used for the
@@ -1018,7 +1012,8 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   onOpenResearch,
   onOpenLab,
   marketState = null,
-  quotesUpdatedAt = null,
+  quotesFetchedAt = null,
+  quotesFailing = false,
   onAddHolding,
   onImportScreenshot,
   onImportCsv,
@@ -1061,23 +1056,34 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   /*
    * The hero total can be painted from a `quote-cache.ts` snapshot that is
    * hours (up to a week) old on a cold browser, corrected once the live
-   * fetch lands. That correction is usually fast, but while it is in
-   * flight the figure must not read as current: a swing from a stale
-   * cached gain to today's real one is the whole unrealized gain, not
-   * normal drift. Re-checked on an interval (not just at mount) so the
-   * flag clears itself the moment the live fetch actually lands, and so a
-   * paint that is fresh at mount but goes stale from waiting doesn't get
-   * stuck looking authoritative.
+   * fetch lands. While that correction is in flight the figure must not
+   * read as current: a swing from a stale cached gain to today's real one
+   * is the whole unrealized gain, not normal drift. `quotesStuck` is the
+   * rule (`quote-health.ts`): grey when the app could not get a current
+   * price, never merely because the poll is between two ticks. Re-checked
+   * on an interval so the flag clears the moment the live fetch lands and
+   * so a figure that goes stale from waiting does not keep its weight.
    */
-  const [pricesStale, setPricesStale] = useState(
-    () => !isQuoteFreshForView(quotesUpdatedAt)
+  const online = () =>
+    typeof navigator === "undefined" ? true : navigator.onLine !== false;
+  const [pricesStuck, setPricesStuck] = useState(() =>
+    quotesStuck({ fetchedAt: quotesFetchedAt, failing: quotesFailing, online: online() })
   );
   useEffect(() => {
-    const check = () => setPricesStale(!isQuoteFreshForView(quotesUpdatedAt));
+    const check = () =>
+      setPricesStuck(
+        quotesStuck({ fetchedAt: quotesFetchedAt, failing: quotesFailing, online: online() })
+      );
     check();
     const id = window.setInterval(check, 5_000);
-    return () => window.clearInterval(id);
-  }, [quotesUpdatedAt]);
+    window.addEventListener("online", check);
+    window.addEventListener("offline", check);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("online", check);
+      window.removeEventListener("offline", check);
+    };
+  }, [quotesFetchedAt, quotesFailing]);
 
   const tickerKey = tickers.map((t) => t.ticker).join(",");
   const heldTickers = useMemo(
@@ -1531,14 +1537,14 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             <p
               className={cn(
                 "min-w-0 break-words font-mono text-2xl font-bold leading-tight tracking-tight tabular-nums",
-                pricesStale ? "text-muted-foreground" : "text-primary"
+                pricesStuck ? "text-muted-foreground" : "text-primary"
               )}
             >
               {currency(totals.totalValue, 0)}
             </p>
-            {pricesStale ? (
+            {pricesStuck ? (
               <Badge variant="outline" className="text-muted-foreground">
-                {staleAgeLabel(quotesUpdatedAt)}
+                {quotesAgeLabel(quotesFetchedAt, online())}
               </Badge>
             ) : (
               <DeltaBadge value={totals.todayDollar}>
@@ -1548,13 +1554,12 @@ export const OverviewDashboard = memo(function OverviewDashboard({
                   : ""}
               </DeltaBadge>
             )}
-            <span className="text-sm text-muted-foreground">
-              {pricesStale
-                ? "updating"
-                : morning.moveLabel === "Friday"
-                  ? "on Friday"
-                  : "today"}
-            </span>
+            {/* The badge already says why the figure is grey; a second word beside it was "as of 3h ago updating". */}
+            {pricesStuck ? null : (
+              <span className="text-sm text-muted-foreground">
+                {morning.moveLabel === "Friday" ? "on Friday" : "today"}
+              </span>
+            )}
           </div>
           {/*
             * What an ordinary day is for this reader, in their own money.
