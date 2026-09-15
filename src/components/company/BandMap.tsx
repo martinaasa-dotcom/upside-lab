@@ -468,25 +468,8 @@ function Row({
     <div
       data-band-row=""
       className={cn(
-        /*
-          THE SAME MARK "YOUR PRICE LADDER" USES FOR THE ROW A PRICE IS
-          ACTUALLY IN, SPENT HERE ON THE ZONES WORTH NOTICING.
-
-          `PlanLadderTable` marks its current row with a left accent
-          edge rather than the zone wash alone, because a tint by itself
-          reads as decoration and a reader has to go looking for the row
-          that matters. The zones here carry the same problem for the
-          same reason: three of the six are where a plan says something
-          decisive (`band.actionable`, the same list the alerts and the
-          holdings map read), and without an edge of their own they sit
-          in the table looking exactly like the three that are the
-          ordinary case. The edge is there whether the zone has anybody
-          in it, because an actionable zone with nobody home is still
-          worth a reader knowing where it is on the ladder.
-        */
-        "flex flex-col justify-center gap-2 border-b border-l-2 border-border/30 px-4 py-3 last:border-b-0",
+        "flex flex-col justify-center gap-2 border-b border-border/30 px-4 py-3 last:border-b-0",
         "sm:flex-row sm:items-center sm:gap-4 sm:px-5 sm:py-0 lg:gap-6",
-        band.actionable ? "border-l-primary/60" : "border-l-transparent",
         filled ? zone.row : "bg-transparent"
       )}
       style={{ minHeight: wide ? ROW_H : PHONE_ROW_H }}

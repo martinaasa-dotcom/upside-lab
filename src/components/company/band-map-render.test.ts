@@ -2,18 +2,20 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import { BandMap } from "@/components/company/BandMap";
-import { buildPlanLadder, isActionableBand } from "@/lib/company/plan-ladder";
+import { buildPlanLadder } from "@/lib/company/plan-ladder";
 
 /*
   RENDER THE REAL PICTURE AND READ WHAT COMES OUT.
 
-  Two things this file exists to catch, both invisible to reading the
-  markup: that the actionable-zone accent (the same left edge
-  `PlanLadderTable` marks its current row with) actually lands on the
-  DOM node for a zone `isActionableBand` calls decisive and nowhere
-  else, and that the "Band" -> "Zone" rename reaches every sentence a
-  reader meets on this panel rather than the few call sites a
-  string-search happened to catch.
+  What this file exists to catch: that the "Band" -> "Zone" rename
+  reaches every sentence a reader meets on this panel rather than the
+  few call sites a string-search happened to catch.
+
+  It used to also pin a left-edge accent on `ACTIONABLE_BANDS` rows.
+  That accent was removed (2026-09-15): asked to widen it to every band
+  but "hold", the honest answer was that it would then mean nothing
+  more than "not the middle band", which the zone banner grouping
+  (Above/Around/Below fair value) already says. No accent, on any row.
 */
 
 function ladderFor(ticker: string, spot: number) {
@@ -33,14 +35,6 @@ describe("BandMap render", () => {
   const holdAt100 = ladderFor("AAA", 100);
   const farBelowAt40 = ladderFor("BBB", 40);
   if (!holdAt100 || !farBelowAt40) throw new Error("test ladders did not build");
-
-  // Sanity on the fixture: one lands in the ordinary, non-actionable
-  // middle and the other reaches a decisive end. If this stops being
-  // true the fixture needs adjusting, not the assertions below.
-  it("fixture sanity: one ladder is actionable and one is not", () => {
-    expect(isActionableBand(holdAt100.atId)).toBe(false);
-    expect(isActionableBand(farBelowAt40.atId)).toBe(true);
-  });
 
   const html = renderToStaticMarkup(
     createElement(BandMap, {
@@ -68,15 +62,13 @@ describe("BandMap render", () => {
     expect(visible).not.toMatch(/\bband\b/);
   });
 
-  it("marks the actionable zone's row with the accent, and the ordinary one without it", () => {
+  it("draws no left-edge accent on any zone row", () => {
     const rows = html.split('data-band-row=""').slice(1);
-    const actionableRow = rows.find((r) => r.includes("A long way below"));
-    const ordinaryRow = rows.find((r) => r.includes("Close to fair value"));
-    expect(actionableRow).toBeDefined();
-    expect(ordinaryRow).toBeDefined();
-    expect(actionableRow).toMatch(/border-l-primary\/60/);
-    expect(ordinaryRow).not.toMatch(/border-l-primary\/60/);
-    expect(ordinaryRow).toMatch(/border-l-transparent/);
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row).not.toMatch(/border-l-primary\/60/);
+      expect(row).not.toMatch(/border-l-transparent/);
+    }
   });
 
   it("stays band-free on the circle's pooled voice too, not just the reader's own", () => {
