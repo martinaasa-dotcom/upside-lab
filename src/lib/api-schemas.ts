@@ -184,6 +184,7 @@ export const labPutSchema = z.looseObject({
     by `sanitizeEoyOverrides` on the way into the table.
   */
   eoyOverrides: z.record(z.string().max(12), z.unknown()).optional(),
+  eoySources: z.record(z.string().max(12), z.unknown()).optional(),
   updatedAt: z.string().max(40).optional(),
 });
 

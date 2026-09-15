@@ -96,11 +96,22 @@ describe("provenance", () => {
     expect(p.headline).toMatch(/not reasoning/i);
   });
 
-  it("names the house account's own plan honestly, distinct from the model and the plain shape", () => {
+  /*
+   * THE HOUSE'S OWN PLAN, AND WHICH OF TWO VERY DIFFERENT THINGS IT IS.
+   *
+   * This card used to tell every reader of the site default that the
+   * house account had typed these prices "directly rather than reasoned
+   * about or computed". A forecast run on that account writes a whole
+   * path for every holding into the very same store, so for most tickers
+   * that was exactly backwards: a model's reasoning, dressed as a
+   * person's decision, on the one card built to say which it was.
+   */
+  it("names a house price the account actually typed, distinct from the model and the plain shape", () => {
     const p = forecastPathProvenance({
       ticker: "NBIS",
       spot: 217.39,
       houseTargeted: true,
+      houseOrigin: "yours",
     });
     expect(p.maker).toBe("arithmetic");
     expect(p.headline).toMatch(/not a model/i);
@@ -108,6 +119,72 @@ describe("provenance", () => {
     // Never claim the reader chose it, and always say they can override it.
     expect(p.headline).not.toMatch(/you\s+(typed|wrote|chose)/i);
     expect(p.yours).toMatch(/you can type your own price/i);
+  });
+
+  it("says a model wrote the house price when one did", () => {
+    const p = forecastPathProvenance({
+      ticker: "NBIS",
+      spot: 217.39,
+      houseTargeted: true,
+      houseOrigin: "model",
+    });
+    expect(p.maker).toBe("model");
+    expect(p.headline).toMatch(/language model/i);
+    // It may say nobody typed them; it may not say the account did.
+    expect(p.headline).toMatch(/nobody typed these numbers/i);
+    expect(p.headline).not.toMatch(/account has typed|typed into that account/i);
+    expect(p.headline).not.toMatch(/you\s+(typed|wrote|chose)/i);
+    expect(p.yours).toMatch(/you can type your own price/i);
+  });
+
+  it("refuses to guess about a house price saved before this app kept the answer", () => {
+    const p = forecastPathProvenance({
+      ticker: "NBIS",
+      spot: 217.39,
+      houseTargeted: true,
+    });
+    // Neither claim is made, and the promise a non-model card carries
+    // ("no model touched this") is not made either, since it cannot be.
+    expect(p.maker).toBe("model");
+    expect(p.headline).toMatch(/no longer knows/i);
+    expect(p.headline).not.toMatch(/you\s+(typed|wrote|chose)/i);
+  });
+
+  /*
+   * And the same fault read from the other end: a reader who typed all
+   * five years by hand was told a language model wrote their path.
+   */
+  it("credits a path the reader typed to the reader, never to a model", () => {
+    const p = forecastPathProvenance({
+      ticker: "NBIS",
+      spot: 217.39,
+      ownOrigins: ["yours", "yours", "yours"],
+    });
+    expect(p.maker).toBe("arithmetic");
+    expect(p.headline).toMatch(/you typed/i);
+    expect(p.headline).toMatch(/no model wrote them/i);
+  });
+
+  it("keeps the model's account of a path it wrote, and names the years changed", () => {
+    const p = forecastPathProvenance({
+      ticker: "NBIS",
+      spot: 217.39,
+      ownOrigins: ["model", "yours", "model"],
+    });
+    expect(p.maker).toBe("model");
+    expect((p.steps ?? []).join(" ")).toMatch(/typed over one year/i);
+  });
+
+  it("does not claim a reader typed a path a run wrote for them", () => {
+    const p = forecastPathProvenance({
+      ticker: "NBIS",
+      spot: 217.39,
+      ownOrigins: ["model", "model", "model"],
+    });
+    expect(p.maker).toBe("model");
+    expect(`${p.headline} ${(p.steps ?? []).join(" ")}`).not.toMatch(
+      /you have typed/i
+    );
   });
 
   it("never shows the house branch and the plain fallback at once", () => {

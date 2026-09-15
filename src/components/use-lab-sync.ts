@@ -28,6 +28,7 @@ export function useLabSync() {
         watchlist: loadWatchlist(),
         ladders: loadLocalLadders(),
         eoyOverrides: {},
+        eoySources: {},
       };
       const remote = await fetchLabBundle(ctrl.signal);
       if (ctrl.signal.aborted) return;
@@ -70,6 +71,9 @@ export function useLabSync() {
               here on every save), so the account's own answer always wins.
             */
             eoyOverrides: remote.bundle.eoyOverrides ?? {},
+            // Who wrote each of those, which travels with them for the
+            // same reason and by the same rule.
+            eoySources: remote.bundle.eoySources ?? {},
             updatedAt: remote.bundle.updatedAt,
           };
           setLabBundle(merged);

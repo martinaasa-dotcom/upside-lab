@@ -3935,6 +3935,13 @@ run("Forecast first-run always leaves a shaped path, never a skip", () => {
           2029: false,
           2030: false,
         },
+        targetOrigins: {
+          2026: null,
+          2027: null,
+          2028: null,
+          2029: null,
+          2030: null,
+        },
         gainPct: 0,
         hasTargets: false,
       },

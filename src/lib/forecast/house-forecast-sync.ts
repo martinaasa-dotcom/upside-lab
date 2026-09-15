@@ -20,7 +20,10 @@
  */
 import { isSuperadminEmail } from "@/lib/auth/superadmin";
 import type { LadderOverrides } from "@/lib/company/plan-ladder";
-import type { PortfolioEoyOverrides } from "@/lib/forecast-overrides";
+import type {
+  PortfolioEoyOverrides,
+  PortfolioEoySources,
+} from "@/lib/forecast-overrides";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
 import type { Json } from "@/lib/supabase/database.types";
@@ -29,6 +32,16 @@ export async function mirrorHouseForecast(input: {
   email: string | null | undefined;
   /** `undefined` means this save did not touch this field at all. */
   eoyOverrides?: PortfolioEoyOverrides;
+  /**
+   * Which of those the house account typed and which its own forecast
+   * run wrote. Published beside the prices because this table is the
+   * site's default for everybody else, and a figure a model wrote,
+   * presented to a stranger as one this app's account chose, is the
+   * exact claim `20260915180000_a_figure_says_who_wrote_it.sql` exists
+   * to end. A missing entry is described as saved earlier, never as
+   * either.
+   */
+  eoySources?: PortfolioEoySources;
   ladders?: LadderOverrides;
 }): Promise<void> {
   if (!isSuperadminEmail(input.email)) return;
@@ -38,14 +51,44 @@ export async function mirrorHouseForecast(input: {
   try {
     const supabase = getSupabaseServer();
     if (!supabase) return;
-    const { data: existing } = await supabase
+    /*
+      The same deploy-ordering guard the published route carries: a
+      select naming a column whose migration has not landed is refused
+      whole, and here that would silently stop the house account's own
+      plan being mirrored at all. See that route for the argument.
+    */
+    let sourcesColumn = true;
+    let existingRead = await supabase
       .from(PORTFELL_TABLES.houseForecast)
-      .select("ticker, eoy_prices, ladder");
+      .select("ticker, eoy_prices, eoy_sources, ladder");
+    const missingSources =
+      (existingRead.error?.code === "PGRST204" ||
+        existingRead.error?.code === "42703") &&
+      /eoy_sources/i.test(existingRead.error?.message ?? "");
+    if (missingSources) {
+      sourcesColumn = false;
+      existingRead = await supabase
+        .from(PORTFELL_TABLES.houseForecast)
+        .select("ticker, eoy_prices, ladder");
+    }
+    const existing = existingRead.data;
 
-    type Row = { ticker: string; eoy_prices: unknown; ladder: unknown };
-    const prior = new Map<string, { eoy_prices: unknown; ladder: unknown }>();
+    type Row = {
+      ticker: string;
+      eoy_prices: unknown;
+      eoy_sources: unknown;
+      ladder: unknown;
+    };
+    const prior = new Map<
+      string,
+      { eoy_prices: unknown; eoy_sources: unknown; ladder: unknown }
+    >();
     for (const row of (existing ?? []) as unknown as Row[]) {
-      prior.set(row.ticker, { eoy_prices: row.eoy_prices, ladder: row.ladder });
+      prior.set(row.ticker, {
+        eoy_prices: row.eoy_prices,
+        eoy_sources: row.eoy_sources,
+        ladder: row.ladder,
+      });
     }
 
     const tickers = new Set(prior.keys());
@@ -60,6 +103,7 @@ export async function mirrorHouseForecast(input: {
     const upserts: Array<{
       ticker: string;
       eoy_prices: Json;
+      eoy_sources?: Json;
       ladder: Json;
       updated_at: string;
     }> = [];
@@ -71,6 +115,16 @@ export async function mirrorHouseForecast(input: {
         input.eoyOverrides !== undefined
           ? (input.eoyOverrides[ticker] ?? {})
           : (old?.eoy_prices ?? {});
+      /*
+        The sources move with the prices they describe, never on their
+        own: a save that replaced the figures and kept the old words
+        beside them would say a model wrote a price the account has since
+        typed over, which is the same false sentence in a new place.
+      */
+      const eoySources =
+        input.eoyOverrides !== undefined
+          ? (input.eoySources?.[ticker] ?? {})
+          : (old?.eoy_sources ?? {});
       const ladder =
         input.ladders !== undefined
           ? (input.ladders[ticker] ?? null)
@@ -87,6 +141,9 @@ export async function mirrorHouseForecast(input: {
       upserts.push({
         ticker,
         eoy_prices: eoyPrices as Json,
+        // Left out entirely where the column is not there yet, so the
+        // write lands rather than being refused for one word.
+        ...(sourcesColumn ? { eoy_sources: eoySources as Json } : {}),
         ladder: ladder as Json,
         updated_at: now,
       });

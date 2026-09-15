@@ -425,11 +425,11 @@ export function PlanLadderPanel({
           // app, and a subtitle promising one would be describing a panel
           // that is not on the page.
           ladder.anchorKind === "estimate"
-            ? "the blended estimate below"
-            : ladder.anchorKind === "target"
-              ? "the end of year price above"
-              : ladder.anchorKind === "your-own"
-                ? "the anchor you typed"
+            ? "what this company looks worth, the same figure everybody else reading it gets"
+            : ladder.anchorKind === "your-own"
+              ? "the anchor you typed"
+              : ladder.anchorKind === "house"
+                ? "the anchor this app's own account set, which you have not changed"
                 : "the range it has traded in over the last year"
         } and how far ${cashtag(ticker)} ordinarily travels, and every one of them is yours to change.`}
         icon={<ListOrdered className="h-4 w-4" />}

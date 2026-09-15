@@ -48,6 +48,7 @@ describe("emptyLabBundle", () => {
       watchlist: [],
       ladders: {},
       eoyOverrides: {},
+      eoySources: {},
     });
   });
 });

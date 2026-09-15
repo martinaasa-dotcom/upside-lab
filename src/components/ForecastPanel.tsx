@@ -62,7 +62,7 @@ import {
 import { beliefLines } from "@/lib/believe";
 import { sharesLabel } from "@/lib/share-count";
 import { readJsonOrThrow } from "@/lib/http";
-import type { PortfolioEoyOverrides } from "@/lib/forecast-overrides";
+import type { EoyOrigin, PortfolioEoyOverrides } from "@/lib/forecast-overrides";
 import { isForecastFullyCovered } from "@/lib/forecast";
 import { playbookBullets, type PlaybookBullet } from "@/lib/forecast-playbook";
 import { isSafePositiveMoney } from "@/lib/input-guard";
@@ -230,6 +230,7 @@ function EoyPriceInput({
   value,
   targeted,
   houseTargeted = false,
+  origin = null,
   fill = false,
   onCommit,
 }: {
@@ -242,6 +243,13 @@ function EoyPriceInput({
    * that already carries a real, disclosed figure.
    */
   houseTargeted?: boolean;
+  /**
+   * Who wrote the figure in the field. `targeted` only says it is in
+   * this reader's own store, and a forecast run fills that store for
+   * every holding without anybody choosing anything, so this is what
+   * decides whether the tip may call it theirs.
+   */
+  origin?: EoyOrigin | null;
   /** Fills its row and takes a real touch height. The table variant cannot:
    * holdings rows are a fixed `h-10`, which is why `.inline-edit` is left out
    * of the coarse-pointer rule in `globals.css`. A phone rail has the room,
@@ -264,9 +272,17 @@ function EoyPriceInput({
       value={draft}
       title={
         targeted
-          ? "Edit the end of year target"
+          ? origin === "yours"
+            ? "The price you typed. Edit it whenever you like."
+            : origin === "model"
+              ? "Margus worked this one out. Type your own over it and yours wins."
+              : "A price saved here earlier. Type your own over it and yours wins."
           : houseTargeted
-            ? "This app's own account set this price, which you have not changed. Type your own to use it instead."
+            ? origin === "model"
+              ? "Margus worked this one out for this app's own account, and you have not changed it. Type your own to use it instead."
+              : origin === "yours"
+                ? "This app's own account typed this price, and you have not changed it. Type your own to use it instead."
+                : "A price saved on this app's own account, which you have not changed. Type your own to use it instead."
             : "Waiting for Margus to work this one out, or type a price yourself"
       }
       onChange={(e) => {
@@ -537,6 +553,7 @@ function ForecastCard({
                         value={row.eoyPrices[y]}
                         targeted={row.targetedYears[y]}
                         houseTargeted={row.houseTargetedYears[y]}
+                        origin={row.targetOrigins[y]}
                         onCommit={(n) => onSetEoyPrice(row.ticker, y, n)}
                       />
                     </span>
@@ -967,6 +984,23 @@ export const ForecastPanel = memo(function ForecastPanel({
       const originalFallback = isPlaceholder || !r.hasTargets;
       const anyReaderTargeted = yearCols.some((y) => r.targetedYears[y]);
       const anyHouseTargeted = yearCols.some((y) => r.houseTargetedYears[y]);
+      /*
+        Who wrote each figure, which is what lets the card below say "you
+        typed this" only when the reader did, and say which of a model's
+        years they have since changed. A run fills every holding's whole
+        path, so `targetedYears` alone answers a different question.
+      */
+      const ownOrigins: Array<EoyOrigin | null> = [];
+      let houseOrigin: EoyOrigin | null = null;
+      // A walk rather than a filtered copy of `yearCols`: a second,
+      // narrower list of years is the thing `forecast-years.test.ts`
+      // exists to refuse, and this needs no list of its own.
+      for (const y of yearCols) {
+        if (r.targetedYears[y]) ownOrigins.push(r.targetOrigins[y]);
+        if (r.houseTargetedYears[y] && houseOrigin == null) {
+          houseOrigin = r.targetOrigins[y];
+        }
+      }
       const houseTargeted =
         originalFallback && !anyReaderTargeted && anyHouseTargeted;
       const isFallback = originalFallback && !houseTargeted;
@@ -985,6 +1019,8 @@ export const ForecastPanel = memo(function ForecastPanel({
           sector: describeCompany(r.ticker, sectorWordsByTicker[r.ticker.toUpperCase()]) || null,
           fallback: isFallback,
           houseTargeted,
+          houseOrigin,
+          ownOrigins,
           at: plan?.generatedAt,
           model: plan?.writtenBy,
           adjust: adjustByTicker.get(r.ticker.toUpperCase()),
