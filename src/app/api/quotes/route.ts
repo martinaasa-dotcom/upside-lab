@@ -27,12 +27,22 @@ export const runtime = "nodejs";
 function cacheSeconds(): number {
   switch (marketSession()) {
     case "open":
+      return 10;
     case "extended":
       return 15;
     case "closed":
       return 60;
   }
 }
+
+/**
+ * How long the edge may hand out a copy PAST its life while it fetches a
+ * new one. The default is twice the life, which on quotes meant a poll
+ * could be answered with a print up to forty-five seconds old and told
+ * nothing about it. A few seconds keeps the edge from dogpiling the
+ * origin when a copy expires under a classroom, and no more.
+ */
+const STALE_WHILE_REVALIDATE_SEC = 5;
 
 function tooManyUnknown(retryAfterSec: number | undefined) {
   return NextResponse.json(
@@ -137,7 +147,9 @@ async function handleGET(req: NextRequest) {
       missing: [...missing, ...deferred, ...notSymbols],
       updatedAt: new Date(updatedAt).toISOString(),
     },
-    { headers: publicCdnHeaders(cacheSeconds()) }
+    {
+      headers: publicCdnHeaders(cacheSeconds(), STALE_WHILE_REVALIDATE_SEC),
+    }
   );
 }
 

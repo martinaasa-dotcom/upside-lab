@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  isQuotePollFresh,
   lastCompletedUsSessionKey,
+  quoteIdlePollMs,
   quotePollMs,
+  quoteStuckAfterMs,
   quoteViewMaxAgeMs,
   tradingDaysBetween,
 } from "./session";
@@ -66,18 +69,18 @@ describe("tradingDaysBetween", () => {
 describe("quotePollMs", () => {
   const at = (iso: string) => new Date(iso);
 
-  it("is tightest at the bell and at the close", () => {
-    expect(quotePollMs(at("2026-08-24T13:45:00Z"))).toBe(20_000); // 09:45
-    expect(quotePollMs(at("2026-08-24T19:45:00Z"))).toBe(20_000); // 15:45
+  it("polls the whole regular session at the edge's own cache life", () => {
+    expect(quotePollMs(at("2026-08-24T13:45:00Z"))).toBe(15_000); // 09:45
+    expect(quotePollMs(at("2026-08-24T19:45:00Z"))).toBe(15_000); // 15:45
+    expect(quotePollMs(at("2026-08-24T15:00:00Z"))).toBe(15_000); // 11:00
+  });
+
+  it("tightens on the run into the bell", () => {
     expect(quotePollMs(at("2026-08-24T13:15:00Z"))).toBe(20_000); // 09:15 pre
   });
 
-  it("eases through the middle of the regular session", () => {
-    expect(quotePollMs(at("2026-08-24T15:00:00Z"))).toBe(30_000); // 11:00
-  });
-
   it("thins out as after-hours goes on", () => {
-    expect(quotePollMs(at("2026-08-24T20:30:00Z"))).toBe(45_000); // 16:30
+    expect(quotePollMs(at("2026-08-24T20:30:00Z"))).toBe(30_000); // 16:30
     expect(quotePollMs(at("2026-08-24T22:00:00Z"))).toBe(120_000); // 18:00
   });
 
@@ -122,5 +125,36 @@ describe("quoteViewMaxAgeMs", () => {
   it("is tightest while the market is open", () => {
     expect(quoteViewMaxAgeMs(new Date("2026-08-24T15:00:00Z"))).toBe(15_000);
     expect(quoteViewMaxAgeMs(new Date("2026-08-25T09:00:00Z"))).toBe(20_000);
+  });
+});
+
+describe("isQuotePollFresh", () => {
+  /*
+    The timer is judged against half its own cadence. Judged against the
+    whole of it, the stamp written when the last answer landed was always
+    a fraction of a second younger than the cadence at the next tick, so
+    every other poll was skipped and the book refetched at twice the
+    cadence it was set to.
+  */
+  it("counts the timer's own last answer as due, not fresh", () => {
+    const open = new Date("2026-08-24T15:00:00Z"); // 11:00 New York
+    const cadence = quotePollMs(open);
+    expect(isQuotePollFresh(Date.now() - (cadence - 400), open)).toBe(false);
+    expect(isQuotePollFresh(Date.now() - cadence / 2 + 1_000, open)).toBe(true);
+    expect(isQuotePollFresh(null, open)).toBe(false);
+  });
+});
+
+describe("quoteStuckAfterMs", () => {
+  it("is two poll cycles plus slack, so it moves with the session", () => {
+    const open = new Date("2026-08-24T15:00:00Z");
+    const night = new Date("2026-08-25T06:00:00Z");
+    expect(quoteStuckAfterMs(open)).toBe(2 * quoteIdlePollMs(open) + 15_000);
+    // The idle cadence is a floor of a minute over the live one, never under it.
+    expect(quoteIdlePollMs(open)).toBe(60_000);
+    expect(quoteIdlePollMs(night)).toBe(quotePollMs(night));
+    expect(quoteStuckAfterMs(night)).toBeGreaterThan(quoteStuckAfterMs(open));
+    // Never tighter than the view bar: a price fresh enough to show is not stuck.
+    expect(quoteStuckAfterMs(open)).toBeGreaterThan(quoteViewMaxAgeMs(open));
   });
 });

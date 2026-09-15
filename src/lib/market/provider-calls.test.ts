@@ -30,7 +30,20 @@ let newestBarDaysAgo = 0;
 
 vi.mock("yahoo-finance2", () => ({
   default: class {
-    async quote(symbol: string) {
+    async quote(symbol: string | string[]) {
+      // The real provider takes a list and answers a list; a single name
+      // answers one object. Both shapes are what the code under test sees.
+      if (Array.isArray(symbol)) {
+        tickerQuoteCalls++;
+        return symbol.map((s) => ({
+          symbol: s,
+          regularMarketPrice: livePrice,
+          regularMarketPreviousClose: 99,
+          regularMarketOpen: 99.5,
+          marketState: "REGULAR",
+          currency: "USD",
+        }));
+      }
       if (symbol.endsWith("=X")) {
         fxQuoteCalls++;
         return { symbol, regularMarketPrice: 1.08 };
@@ -140,12 +153,14 @@ afterEach(() => {
 });
 
 describe("provider calls per origin hit", () => {
-  // Cold is unchanged on purpose: the saving is the repeat, which is what
-  // a polling reader actually does.
+  // Cold is the ten currency calls, ONE batched quote call for the whole
+  // list, and a chart per name. The repeat, which is what a polling reader
+  // actually does, is the one batched call and nothing else: it was a call
+  // per name, which is what made a fast cadence unaffordable.
   const expected = [
     { n: 1, cold: 12, warm: 1 },
-    { n: 5, cold: 20, warm: 5 },
-    { n: 15, cold: 40, warm: 15 },
+    { n: 5, cold: 16, warm: 1 },
+    { n: 15, cold: 26, warm: 1 },
   ];
 
   for (const row of expected) {
@@ -161,7 +176,7 @@ describe("provider calls per origin hit", () => {
       expect(total()).toBe(row.warm);
       expect(fxQuoteCalls).toBe(0);
       expect(chartCalls).toBe(0);
-      expect(tickerQuoteCalls).toBe(row.n);
+      expect(tickerQuoteCalls).toBe(1);
     });
   }
 });

@@ -143,6 +143,8 @@ import {
   UserPlus,
 } from "lucide-react";
 import {
+  QUOTE_IDLE_AFTER_MS,
+  quoteIdlePollMs,
   quotePollMs,
   quotesUrl,
   isQuotePollFresh,
@@ -198,7 +200,7 @@ import { useLabSync } from "@/components/use-lab-sync";
 import { useLoadingMessage } from "@/lib/use-loading-message";
 import { loadCachedQuotes, mergeQuotes, saveCachedQuotes, quotesUnchanged } from "@/lib/quote-cache";
 import { publishQuotes } from "@/lib/quote-pool";
-import { quotesAreDelayed, quotesStampMs } from "@/lib/market/quote-freshness";
+import { rememberQuotesUrl, takeQuotesPrefetch } from "@/lib/quotes-prefetch";
 import { OFFLINE_CACHE_READY } from "@/lib/offline/snapshots";
 import { postJsonOrQueue } from "@/lib/offline/queued-fetch";
 import { markSheetImported } from "@/lib/sheet-import-stamp";
@@ -445,8 +447,22 @@ export function Dashboard() {
   const dockAttentionCue = useDockAttentionCue();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [quotesUpdatedAt, setQuotesUpdatedAt] = useState<number | null>(null);
-  const [quotesDelayed, setQuotesDelayed] = useState(false);
+  /*
+    When the last fetch that carried a live print LANDED. This is what the
+    status strip's "Prices · 12s ago" and the hero's grey badge read, and
+    it is deliberately not the oldest print in the payload (which is what
+    `quotesStampMs` computes): one delisted or foreign name served from
+    the server's cache used to grey the whole portfolio for as long as
+    the reader held it. Per-name staleness is the cell's own `stale` flag
+    and `quoteAsOfTitle`; this is the book's.
+  */
+  const [quotesFetchedAt, setQuotesFetchedAt] = useState<number | null>(null);
+  /*
+    The last attempt to fetch failed, or came back with nothing live, or
+    the browser is offline. With `quotesFetchedAt` this is the whole input
+    to `quotesStuck`, which decides whether the figure is drawn grey.
+  */
+  const [quotesFailing, setQuotesFailing] = useState(false);
   const [missingTickers, setMissingTickers] = useState<string[]>([]);
   const [eurUsd, setEurUsd] = useState<number | null>(null);
   const [eurUsdDetail, setEurUsdDetail] = useState<{
@@ -607,7 +623,7 @@ export function Dashboard() {
     }
     const cachedQuotes = loadCachedQuotes();
     setQuotes(cachedQuotes.quotes);
-    setQuotesUpdatedAt(cachedQuotes.savedAt);
+    setQuotesFetchedAt(cachedQuotes.savedAt);
     quotesPolledAtRef.current = cachedQuotes.savedAt ?? 0;
     const eur = cachedQuotes.quotes["EURUSD=X"]?.price;
     if (eur && eur > 0) setEurUsd(eur);
@@ -651,7 +667,7 @@ export function Dashboard() {
         Object.keys(cachedQuotes.quotes).length > 0
       ) {
         setQuotes(cachedQuotes.quotes);
-        setQuotesUpdatedAt(cachedQuotes.savedAt);
+        setQuotesFetchedAt(cachedQuotes.savedAt);
         quotesPolledAtRef.current = cachedQuotes.savedAt ?? 0;
       }
     };
@@ -1554,10 +1570,12 @@ export function Dashboard() {
       if (tickers.length === 0) {
         setQuotes({});
         setOptions({});
+        rememberQuotesUrl(null);
         await refreshFx();
         return;
       }
       if (typeof navigator !== "undefined" && !navigator.onLine) {
+        setQuotesFailing(true);
         return;
       }
       window.clearTimeout(quotesRetryTimerRef.current);
@@ -1569,13 +1587,31 @@ export function Dashboard() {
       try {
         let nextQuotes = existingQuotes;
         if (!nextQuotes || Object.keys(nextQuotes).length === 0) {
-          const quotesRes = await fetch(quotesUrl(tickers), { signal: ctrl.signal });
+          const url = quotesUrl(tickers);
+          /*
+            Remembered for the NEXT open, where the head script puts this
+            same address on the wire before the bundle has arrived, and
+            taken here if that script already asked this time. The abort
+            controller cannot reach a request the page started before we
+            existed, which is fine: it is one answer, already in flight,
+            and a later refresh simply supersedes it.
+          */
+          rememberQuotesUrl(url);
+          const quotesRes =
+            (await takeQuotesPrefetch(url)?.catch(() => null)) ??
+            (await fetch(url, { signal: ctrl.signal }));
           if (!quotesRes.ok) {
-            setQuotesDelayed(true);
             throw new Error(`Quotes request failed (${quotesRes.status})`);
           }
           const quotesJson = await quotesRes.json();
           const incoming = (quotesJson.quotes ?? {}) as Record<string, Quote>;
+          /*
+            A 200 that carries nothing live is a failure wearing a success
+            code: the provider's circuit was open and the route answered
+            from its own cache. The figure is not advanced and the grey
+            rule sees the failure, exactly as it would a refused request.
+          */
+          const anyLive = Object.values(incoming).some((q) => q && !q.stale);
           /*
             Into the shared per-ticker cache as well as this room's state,
             so every other room gets these for free. The poll already
@@ -1600,9 +1636,13 @@ export function Dashboard() {
           saveCachedQuotes(merged);
           quotesPolledAtRef.current = Date.now();
           quotesRetryAttemptRef.current = 0;
-          setQuotesUpdatedAt(quotesStampMs(quotesJson));
+          if (anyLive || Object.keys(incoming).length === 0) {
+            setQuotesFetchedAt(Date.now());
+            setQuotesFailing(false);
+          } else {
+            setQuotesFailing(true);
+          }
           if (!unchanged) {
-            setQuotesDelayed(quotesAreDelayed(quotesJson));
             setMissingTickers((prev) =>
               prev.length === missing.length &&
               prev.every((t, i) => t === missing[i])
@@ -1671,7 +1711,7 @@ export function Dashboard() {
       } catch (err) {
         if (isAbortError(err) || quotesAbortRef.current !== ctrl) return;
         console.error(err);
-        setQuotesDelayed(true);
+        setQuotesFailing(true);
         /*
           A stale cached price shown at first paint is meant to be
           corrected within a second by the fetch this call just made. If
@@ -1783,10 +1823,15 @@ export function Dashboard() {
     const onPageShow = (e: PageTransitionEvent) => {
       if (e.persisted) resume();
     };
+    // Losing the network is the one failure the app can know about before
+    // a fetch has had the chance to fail, so the figure greys at once.
+    const onOffline = () => setQuotesFailing(true);
     window.addEventListener("online", resume);
+    window.addEventListener("offline", onOffline);
     window.addEventListener("pageshow", onPageShow);
     return () => {
       window.removeEventListener("online", resume);
+      window.removeEventListener("offline", onOffline);
       window.removeEventListener("pageshow", onPageShow);
     };
   }, [loadPortfolios, refreshMarkets, allTickers, holdings]);
@@ -2084,13 +2129,38 @@ export function Dashboard() {
       });
     };
 
+    /*
+      A tab nobody has touched for a while eases off. Fifteen seconds is
+      the right cadence for somebody watching the open, and four requests
+      a minute for a tab left on a second screen all day is what spends
+      the compute allowance this project has already been paused for
+      once. The first touch after an idle stretch is treated as an
+      arrival and refetches at once, so a reader coming back never meets
+      the slower number. Listeners are passive and note a time; nothing
+      here renders.
+    */
+    let lastTouch = Date.now();
+    const cadence = () =>
+      Date.now() - lastTouch >= QUOTE_IDLE_AFTER_MS
+        ? quoteIdlePollMs()
+        : quotePollMs();
+    const onTouch = () => {
+      const wasIdle = Date.now() - lastTouch >= QUOTE_IDLE_AFTER_MS;
+      lastTouch = Date.now();
+      if (wasIdle) tick("view");
+    };
+    const TOUCH_EVENTS = ["pointerdown", "keydown", "wheel", "touchstart", "scroll"] as const;
+    for (const name of TOUCH_EVENTS) {
+      window.addEventListener(name, onTouch, { passive: true, capture: true });
+    }
+
     // Re-armed each cycle so the cadence changes when the session does,
     // instead of being fixed at whatever it was when the tab opened.
     const schedule = () => {
       timer = window.setTimeout(() => {
         tick();
         schedule();
-      }, quotePollMs());
+      }, cadence());
     };
     schedule();
 
@@ -2098,11 +2168,26 @@ export function Dashboard() {
       if (!document.hidden && isWorkspaceRoomActive("book")) tick("view");
     };
     document.addEventListener("visibilitychange", onVisibility);
+    /*
+      Coming back to the book from another room is the reader arriving
+      too. The timer keeps running while Circle is on screen and skips
+      every tick, and nothing else re-asked on the way back, so a walk
+      away and back overnight could show a price up to a whole cycle old
+      until the next tick happened to land.
+    */
+    const onShow = () => {
+      if (!document.hidden && isWorkspaceRoomActive("book")) tick("view");
+    };
+    window.addEventListener(WORKSPACE_SHOW_EVENT, onShow);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener(WORKSPACE_SHOW_EVENT, onShow);
+      for (const name of TOUCH_EVENTS) {
+        window.removeEventListener(name, onTouch, { capture: true });
+      }
     };
     // ticker identity via allTickersKey fingerprint
     // eslint-disable-next-line react-hooks/exhaustive-deps -- allTickers covered by key
@@ -2729,14 +2814,21 @@ export function Dashboard() {
     [profile?.avatar_url, profile?.display_name, user?.email]
   );
 
+  /*
+    The strip's "Price as of" wording is about the FETCH having failed,
+    not about one name being served from the server's cache: keyed on
+    `quotesDelayed` it read "Price as of 9m ago" overnight for a book
+    with one delisted holding while every other price was current. A
+    single name's age is that cell's own title.
+  */
   const headerStatus = useMemo(
     () => ({
-      quotesUpdatedAt,
-      quotesDelayed,
+      quotesUpdatedAt: quotesFetchedAt,
+      quotesDelayed: quotesFailing,
       quotedCount: Math.max(0, allTickers.length - missingTickers.length),
       totalCount: allTickers.length,
     }),
-    [quotesUpdatedAt, quotesDelayed, allTickers.length, missingTickers.length]
+    [quotesFetchedAt, quotesFailing, allTickers.length, missingTickers.length]
   );
 
   /** Paper-class accounts cannot open a real book, so they get no add cell. */
@@ -3070,7 +3162,8 @@ export function Dashboard() {
               coveredCallRows={bookCoveredCallRows}
               activeAlerts={activeAlerts}
               marketState={marketState}
-              quotesUpdatedAt={quotesUpdatedAt}
+              quotesFetchedAt={quotesFetchedAt}
+              quotesFailing={quotesFailing}
               showCommunities={source === "supabase"}
               hideOptions={hideOptionsUI}
               onAddHolding={onOverviewAddHolding}

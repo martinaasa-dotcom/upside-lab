@@ -13,6 +13,7 @@ import {
 } from "@/lib/site-metadata";
 import { OG_IMAGE_PATH } from "@/lib/seo-routes";
 import { SESSION_HINT_SCRIPT } from "@/lib/session-hint";
+import { QUOTES_PREFETCH_SCRIPT } from "@/lib/quotes-prefetch";
 import { siteUrl } from "@/lib/site-url";
 import { cn } from "@/lib/utils";
 import "./globals.css";
@@ -185,6 +186,13 @@ export default function RootLayout({
           so this one runs too.
         */}
         <script dangerouslySetInnerHTML={{ __html: SESSION_HINT_SCRIPT }} />
+        {/*
+          The first prices are asked for here too, while the bundle is
+          still downloading: the address the book last polled is in
+          storage, and `Dashboard` takes the parked answer in place of
+          dialling out. See `src/lib/quotes-prefetch.ts`.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: QUOTES_PREFETCH_SCRIPT }} />
       </head>
       <body className="antialiased">
         <AmbientDither />
