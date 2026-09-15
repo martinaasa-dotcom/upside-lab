@@ -30,14 +30,35 @@ export type CompanyPage = {
   model: ModelRun | null;
 };
 
+/*
+  A little past the route's own worst case (`LLM_BUDGET_MS` plus the rest
+  of the build), so a legitimately slow-but-working run still finishes
+  first. Every await inside `buildCompanyPage` is already bounded on the
+  server, but a reader's own room has no business trusting that from the
+  other end of a network connection: a request that never gets a response
+  at all (a dropped connection, a proxy that swallows the close) would
+  otherwise leave the skeleton on screen forever with nothing to retry.
+*/
+const FETCH_TIMEOUT_MS = 100_000;
+
 export async function fetchCompanyPage(
   ticker: string,
   signal?: AbortSignal
 ): Promise<CompanyPage> {
-  const res = await fetch(`/api/company/${encodeURIComponent(ticker)}`, {
-    cache: "no-store",
-    signal,
-  });
+  const timeout = AbortSignal.timeout(FETCH_TIMEOUT_MS);
+  const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
+  let res: Response;
+  try {
+    res = await fetch(`/api/company/${encodeURIComponent(ticker)}`, {
+      cache: "no-store",
+      signal: combined,
+    });
+  } catch (err) {
+    if (timeout.aborted && !signal?.aborted) {
+      throw new Error("That took too long to load. Try again in a moment.");
+    }
+    throw err;
+  }
   const data = (await res.json()) as CompanyPage & { error?: string };
   if (!res.ok) {
     throw new Error(
