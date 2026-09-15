@@ -1023,6 +1023,9 @@ export function Dashboard() {
         rows: (anchorsReady ? overview.tickers : []).map((t) => ({
           ticker: t.ticker,
           spot: quotes[t.ticker]?.price ?? null,
+          // What money `spot` is in, for `scaleAnchorToQuote`: the shared
+          // reading is the listing's own and this one is the reader's.
+          nativePrice: quotes[t.ticker]?.nativePrice ?? null,
           closes: quotes[t.ticker]?.sparkline ?? null,
           value: t.currentValue,
           roiPct: t.roiPct ?? null,
@@ -1054,6 +1057,7 @@ export function Dashboard() {
         rows: (anchorsReady ? (snapshot?.holdings ?? []) : []).map((h) => ({
           ticker: h.ticker,
           spot: h.quote?.price ?? null,
+          nativePrice: h.quote?.nativePrice ?? null,
           closes: h.quote?.sparkline ?? null,
           value: h.currentValue,
           roiPct: h.roiPct,

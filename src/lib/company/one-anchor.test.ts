@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { holdingLadders } from "@/lib/company/holding-ladders";
+import {
+  holdingLadders,
+  scaleAnchorToQuote,
+} from "@/lib/company/holding-ladders";
 import type { CompanyAnchors } from "@/lib/company/company-anchor-types";
 
 /**
@@ -72,6 +75,7 @@ describe("one anchor per company", () => {
         said: "$120.00, the blended estimate.",
         high: 150,
         low: 100,
+        currency: "USD",
       },
     };
     const bandFor = (closes: number[]) =>
@@ -97,5 +101,94 @@ describe("one anchor per company", () => {
     })[0];
     expect(row.ladder?.anchor).toBeCloseTo(125, 5);
     expect(row.ladder?.anchorKind).toBe("history");
+  });
+});
+
+/**
+ * A SHARED READING IS IN THE LISTING'S MONEY AND A SPOT IS IN THE
+ * READER'S, AND COMPARING THEM RAW IS THE FX RATE WRONG ON A BAND.
+ *
+ * `CompanyFacts` carries the feed's own figures, so a euro listing is
+ * priced in euros, where `Quote.price` in this app is already dollars.
+ * The rate is the quote's own (`price / nativePrice`), so the anchor
+ * cannot drift from the spot by a rate that moved between two reads.
+ */
+describe("the shared reading is put in the money the price is in", () => {
+  it("leaves a dollar listing exactly alone", () => {
+    expect(scaleAnchorToQuote({ spot: 100, nativePrice: 100 })).toBe(1);
+  });
+
+  it("uses the quote's own rate, never a looked-up one", () => {
+    // 90 euros quoted as 100 dollars is this app's own 1.111 rate.
+    expect(scaleAnchorToQuote({ spot: 100, nativePrice: 90 })).toBeCloseTo(
+      100 / 90,
+      12
+    );
+  });
+
+  it("assumes one money when the quote cannot say, as every ladder did before", () => {
+    expect(scaleAnchorToQuote({ spot: 100, nativePrice: null })).toBe(1);
+    expect(scaleAnchorToQuote({ spot: 100, nativePrice: 0 })).toBe(1);
+  });
+
+  it("puts a euro-listed holding in the same band as its dollar twin", () => {
+    // One company, two listings, one reader whose money is dollars. The
+    // quote says 125 dollars and 100 in the listing's own, which is this
+    // app's own rate of 1.25 and the only one either half may use.
+    const ladderFor = (anchor: {
+      price: number;
+      high: number;
+      low: number;
+      currency: string;
+    }, nativePrice: number) =>
+      holdingLadders({
+        anchors: { T: { ...anchor, kind: "estimate", said: "x" } },
+        rows: [{ ticker: "T", spot: 125, nativePrice, value: 1 }],
+      })[0].ladder;
+
+    const usd = ladderFor(
+      { price: 100, high: 120, low: 80, currency: "USD" },
+      125
+    );
+    const eur = ladderFor(
+      { price: 80, high: 96, low: 64, currency: "EUR" },
+      100
+    );
+
+    expect(usd?.anchor).toBe(100);
+    expect(eur?.anchor).toBeCloseTo(100, 9);
+    expect(eur?.atId).toBe(usd?.atId);
+    expect(eur?.step).toBeCloseTo(usd!.step, 12);
+  });
+
+  it("the raw reading would have put that holding in the wrong band", () => {
+    // The guard earns its place: unconverted, 80 euros against a 125
+    // dollar price is a company priced a third above what it looks
+    // worth, when it is sitting a quarter above instead.
+    const raw = holdingLadders({
+      anchors: {
+        T: {
+          price: 80,
+          kind: "estimate",
+          said: "x",
+          high: 96,
+          low: 64,
+          currency: "EUR",
+        },
+      },
+      rows: [{ ticker: "T", spot: 125, nativePrice: 100, value: 1 }],
+    })[0].ladder;
+    expect(raw?.anchor).toBeCloseTo(100, 9);
+    expect(raw?.anchor).not.toBeCloseTo(80, 6);
+  });
+
+  it("never converts the browser's own closes, which are already in that money", () => {
+    const closes = Array.from({ length: 90 }, (_, i) => 100 + i / 10);
+    const row = holdingLadders({
+      // No shared reading for this name: the fallback must not move.
+      anchors: {},
+      rows: [{ ticker: "T", spot: 108, nativePrice: 90, closes, value: 1 }],
+    })[0];
+    expect(row.ladder?.anchor).toBeCloseTo((100 + 108.9) / 2, 6);
   });
 });

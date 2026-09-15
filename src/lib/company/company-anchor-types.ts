@@ -24,6 +24,22 @@ export type CompanyAnchor = {
    */
   high: number | null;
   low: number | null;
+  /**
+   * THE MONEY EVERY FIGURE ABOVE IS IN, WHICH IS THE LISTING'S AND NOT
+   * THE READER'S.
+   *
+   * `CompanyFacts` carries the feed's own raw figures, so a company
+   * quoted in euros is priced in euros here, where a `Quote.price` in
+   * this app is already converted to dollars. Handing one to a ladder
+   * measured in the other is the fault `PositionFitCard` records in the
+   * other direction, and it is not a rounding error: it is the FX rate
+   * wrong, on a band a reader is meant to act on. `scaleAnchorToQuote`
+   * is what puts the two in one money, and this is the code it is
+   * checked against. Pence are already folded into pounds
+   * (`normalizeListedPrice`), so a code here is a real currency and the
+   * amounts beside it are in whole units of it.
+   */
+  currency: string;
 };
 
 /** The window `high` and `low` cover, in words, for the sentences. */

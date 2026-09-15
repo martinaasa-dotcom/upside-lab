@@ -42,6 +42,7 @@ import { fairValueRead } from "@/lib/company/fair-value";
 import { FORECAST_YEARS } from "@/lib/forecast";
 import { fetchCompanyFacts } from "@/lib/market/fundamentals";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { normalizeListedPrice } from "@/lib/listing-currency";
 
 
 /**
@@ -98,6 +99,68 @@ async function pathsFor(
   return out;
 }
 
+
+/**
+ * HOW MANY COMPANIES THIS ASKS THE FEED ABOUT AT ONCE.
+ *
+ * A warm company costs nothing (`fetchCompanyFacts` holds it for an
+ * hour), so this only ever binds on a cold one, and the cold case is the
+ * one that matters: a circle of seventeen names on a free-tier provider,
+ * fired off as seventeen simultaneous requests, is exactly the herd the
+ * rest of this app's market code is built to avoid. Six at a time
+ * finishes an ordinary book in a couple of rounds and never looks like
+ * an attack.
+ */
+const FEED_CONCURRENCY = 6;
+
+/**
+ * Concurrent askers for the same company share one walk.
+ *
+ * `unstable_cache` dedupes a repeat, not a race: two readers opening the
+ * same circle in the same second both miss and both fetch. This is the
+ * same single-flight `fetchQuotesWithFallback` keeps, with the same
+ * accepted scope, one warm instance, and it holds only unsettled
+ * promises so nothing here is a second cache with its own staleness.
+ */
+const inFlightFacts = new Map<
+  string,
+  Promise<Awaited<ReturnType<typeof fetchCompanyFacts>>>
+>();
+
+function factsOnce(ticker: string) {
+  const held = inFlightFacts.get(ticker);
+  if (held) return held;
+  const run = fetchCompanyFacts(ticker)
+    .catch(() => null)
+    .finally(() => {
+      inFlightFacts.delete(ticker);
+    });
+  inFlightFacts.set(ticker, run);
+  return run;
+}
+
+/** `Promise.all` with a ceiling, keeping the input's order. */
+async function mapWithLimit<In, Out>(
+  items: In[],
+  limit: number,
+  run: (item: In) => Promise<Out>
+): Promise<Out[]> {
+  const out = new Array<Out>(items.length);
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      for (;;) {
+        const i = next++;
+        if (i >= items.length) return;
+        out[i] = await run(items[i]);
+      }
+    }
+  );
+  await Promise.all(workers);
+  return out;
+}
+
 /**
  * The anchor for each of these companies, or nothing for one the feed
  * could not answer about.
@@ -118,8 +181,8 @@ export async function loadCompanyAnchors(
   ].slice(0, MAX_ANCHOR_TICKERS);
   if (tickers.length === 0) return {};
 
-  const facts = await Promise.all(
-    tickers.map((t) => fetchCompanyFacts(t).catch(() => null))
+  const facts = await mapWithLimit(tickers, FEED_CONCURRENCY, (t) =>
+    factsOnce(t)
   );
 
   const spots = new Map<string, number | null>();
@@ -149,14 +212,29 @@ export async function loadCompanyAnchors(
     // `anchorForCompany` answers with one of these two and nothing else;
     // the wider `LadderAnchorKind` covers edits made in the browser.
     if (anchor.kind !== "estimate" && anchor.kind !== "history") return;
+    /*
+      PENCE ARE NOT POUNDS, AND THE FEED HANDS BACK BOTH.
+
+      Yahoo quotes an LSE listing in GBp, so its price is a hundred
+      times the pounds every other part of this app means by that
+      listing's own money, and a ladder built on it would sit a hundred
+      times above the price it is drawn against. `normalizeListedPrice`
+      is the same fold the quote path applies, so both halves of the
+      comparison downstream are in whole units of one real currency.
+      Every figure is folded by the same factor, so the ratios the
+      ladder is actually made of are untouched.
+    */
+    const folded = normalizeListedPrice(anchor.price, f.currency);
+    const scale = anchor.price > 0 ? folded.amount / anchor.price : 1;
     const high = f.fiftyTwoWeekHigh;
     const low = f.fiftyTwoWeekLow;
     out[ticker] = {
-      price: anchor.price,
+      price: folded.amount,
       kind: anchor.kind,
       said: anchor.said,
-      high: typeof high === "number" && high > 0 ? high : null,
-      low: typeof low === "number" && low > 0 ? low : null,
+      high: typeof high === "number" && high > 0 ? high * scale : null,
+      low: typeof low === "number" && low > 0 ? low * scale : null,
+      currency: folded.code,
     };
   });
   return out;

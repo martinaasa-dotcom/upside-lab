@@ -685,6 +685,8 @@ export function CommunityView({ communityId }: Props) {
           return {
             ticker: t.ticker,
             spot,
+            // What money `spot` is in, for `scaleAnchorToQuote`.
+            nativePrice: quotes[t.ticker]?.nativePrice ?? null,
             /*
               THE SAME CLOSES THE REST OF THE APP PASSES, WHICH IS THE
               WHOLE POINT OF THERE BEING ONE BUILDER.

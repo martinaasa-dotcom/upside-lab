@@ -38,6 +38,31 @@ import {
  */
 export const HOLDING_WINDOW_SAID = "the last few months";
 
+/**
+ * The shared reading is in the listing's own money and a `Quote.price`
+ * in this app is already in dollars, so one of them has to move before
+ * they can be compared.
+ *
+ * The rate is the quote's OWN, `price / nativePrice`, rather than a
+ * lookup of today's FX: it is by construction the exact rate this app
+ * already used to convert that listing, so the anchor and the spot
+ * cannot drift apart by a rate that moved between two reads. A dollar
+ * listing has `nativePrice === price`, so this is 1 and nothing moves.
+ * A quote with no native price is one of ours from before the field
+ * existed, and assuming the two are already in one money is what every
+ * ladder here did before this function, so that is what it falls back
+ * to.
+ */
+export function scaleAnchorToQuote(input: {
+  spot: number;
+  nativePrice?: number | null;
+}): number {
+  const native = input.nativePrice;
+  if (typeof native !== "number" || !(native > 0)) return 1;
+  if (!(input.spot > 0)) return 1;
+  return input.spot / native;
+}
+
 export type HoldingLadderRow = {
   ticker: string;
   ladder: PlanLadder | null;
@@ -51,6 +76,12 @@ export function holdingLadders(input: {
     ticker: string;
     /** Today's price, or null where this browser has no quote yet. */
     spot: number | null | undefined;
+    /**
+     * The same price in the listing's own money, when the quote carries
+     * one. What it is for is `scaleAnchorToQuote`: it is the only thing
+     * that says what money `spot` is in.
+     */
+    nativePrice?: number | null;
     /** The closes this browser holds, for how far the name travels. */
     closes?: number[] | null;
     /** What the holding is worth today, in the reader's own money. */
@@ -97,15 +128,6 @@ export function holdingLadders(input: {
     const ownHigh = closes.length > 1 ? Math.max(...closes) : null;
     const ownLow = closes.length > 1 ? Math.min(...closes) : null;
     const shared = input.anchors?.[ticker] ?? null;
-    const anchor = anchorForHolding({
-      estimate: shared,
-      rangeMid: ownHigh !== null && ownLow !== null ? (ownHigh + ownLow) / 2 : null,
-      windowSaid: HOLDING_WINDOW_SAID,
-    });
-    if (!anchor) {
-      out.push({ ticker, ladder: null, value: row.value });
-      continue;
-    }
     /*
       THE WINDOW COMES WITH THE ANCHOR, OR TWO ROOMS AGREE ABOUT WHAT A
       COMPANY IS WORTH AND DISAGREE ABOUT HOW WIDE ITS BANDS ARE.
@@ -116,10 +138,35 @@ export function holdingLadders(input: {
       what is left for a name the feed could not answer about, which is
       the same pair that has always drawn those ladders.
     */
-    const sharedWindow = shared?.high != null && shared.low != null;
-    const high = sharedWindow ? shared.high : ownHigh;
-    const low = sharedWindow ? shared.low : ownLow;
+    const rate = shared
+      ? scaleAnchorToQuote({ spot, nativePrice: row.nativePrice })
+      : 1;
+    /*
+      THE WINDOW COMES WITH THE ANCHOR, OR TWO ROOMS AGREE ABOUT WHAT A
+      COMPANY IS WORTH AND DISAGREE ABOUT HOW WIDE ITS BANDS ARE.
+
+      The high and the low set the step and the floor, so the shared
+      reading ships its own year alongside its price and both are used
+      together, converted by the same rate as the price beside them. The
+      browser's own closes, about three months of them, are what is left
+      for a name the feed could not answer about, and they came off the
+      same quote as the spot, so they are already in its money and must
+      not be converted again.
+    */
+    const sharedWindow =
+      shared != null && shared.high != null && shared.low != null;
+    const high = sharedWindow ? shared.high! * rate : ownHigh;
+    const low = sharedWindow ? shared.low! * rate : ownLow;
     const windowSaid = sharedWindow ? ANCHOR_WINDOW_SAID : HOLDING_WINDOW_SAID;
+    const anchor = anchorForHolding({
+      estimate: shared ? { ...shared, price: shared.price * rate } : null,
+      rangeMid: ownHigh !== null && ownLow !== null ? (ownHigh + ownLow) / 2 : null,
+      windowSaid: HOLDING_WINDOW_SAID,
+    });
+    if (!anchor) {
+      out.push({ ticker, ladder: null, value: row.value });
+      continue;
+    }
     out.push({
       ticker,
       value: row.value,

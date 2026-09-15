@@ -22,7 +22,7 @@
  * time on it, not dropped: without that, a ticker with no valuation
  * would be re-asked on every render for the life of the tab.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   MAX_ANCHOR_TICKERS,
   type CompanyAnchor,
@@ -154,7 +154,18 @@ export function useCompanyAnchors(tickers: string[]): {
   const key = [...new Set(tickers.map((t) => t.toUpperCase()))]
     .sort()
     .join(",");
-  const [, bump] = useState(0);
+  /*
+    A VERSION, NOT THE ANSWER ITSELF, BECAUSE THE ANSWER IS WHAT EVERY
+    LADDER IN THE ROOM IS MEMOISED ON.
+
+    `anchorsFor` builds a fresh record every time it is called, so
+    returning it raw would hand every caller a new object identity on
+    every render -- and these rooms re-render on every quote poll, with
+    `useMemo` on the ladders precisely so a poll does not rebuild forty
+    of them. So the record is built once per change and held, and the
+    change is what the pool announces.
+  */
+  const [version, bump] = useState(0);
 
   useEffect(() => {
     const listener = () => bump((n) => n + 1);
@@ -170,13 +181,18 @@ export function useCompanyAnchors(tickers: string[]): {
     void ensureCompanyAnchors(names);
   }, [key]);
 
-  const names = key.split(",").filter(Boolean);
-  return {
-    anchors: anchorsFor(names),
-    // Nothing to wait for is ready: a book with no holdings in it is not
-    // a book whose anchors have failed to arrive.
-    ready: names.length === 0 || anchorsSettled(names),
-  };
+  return useMemo(() => {
+    const names = key.split(",").filter(Boolean);
+    return {
+      anchors: anchorsFor(names),
+      // Nothing to wait for is ready: a book with no holdings in it is
+      // not a book whose anchors have failed to arrive.
+      ready: names.length === 0 || anchorsSettled(names),
+    };
+    // `version` is the pool telling this hook its own answer moved; the
+    // pool is a module, so nothing else can say so.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, version]);
 }
 
 /** Testing seam: forget everything this browser has been told. */
