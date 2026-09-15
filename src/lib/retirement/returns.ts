@@ -195,13 +195,51 @@ export function realReturnAt(
  * (`COMPOUND_INFLATION_ANNUAL_PCT`) rather than asking for a second
  * inflation number nobody typed in.
  *
- * THIS IS AN OFFER, NEVER A DEFAULT. A portfolio concentrated in one hot
- * theme can blend to a nominal rate well above the world index, and opening
- * a forty year retirement plan on that compounds a very optimistic guess
- * for a lifetime, which is exactly the caution Compound's own "Your rate"
- * preset already carries. The world index stays what this page opens on;
- * this is a button beside it, not a replacement for it.
+ * A PORTFOLIO'S OWN BLEND IS A FIVE YEAR VIEW, AND A RETIREMENT PLAN IS A
+ * FORTY YEAR ONE, SO IT IS CAPPED.
+ *
+ * `blendedExpectedAnnualReturn` reads the forecast growth assumptions,
+ * which are deliberately about a specific stretch of years: the rate on an
+ * AI infrastructure name is an argument about a build cycle that the
+ * ladder itself only claims to describe over the forecast window. Nothing
+ * about it survives being compounded for a lifetime, and this module
+ * compounds everything it is given for a lifetime.
+ *
+ * Measured when the per-name rates landed: an all-NBIS portfolio blended
+ * to **41.5% nominal, which reached this page as 37.4% REAL**, against the
+ * 5.1% the audited world-index figure above uses. Over forty years those
+ * differ by a factor in the hundreds of thousands, so the page would have
+ * told that reader they could stop working immediately. An AI-heavy mix
+ * landed at 33% real and an ordinary mixed portfolio at 12.8%.
+ *
+ * The comment that used to sit here said this was "an offer, never a
+ * default", which stopped being true when `RetirementSheet` began applying
+ * it as the opening equity assumption for anybody arriving with a
+ * portfolio. That is a reasonable thing for it to do and it is why the cap
+ * is not optional: an offer a reader chooses is theirs, and a default
+ * nobody chose has to be defensible on its own.
+ *
+ * `PORTFOLIO_RATE_CEILING_PCT` is real, not nominal. Ten per cent real is
+ * already about double the 5.1% above and half again the best sustained
+ * real return any major market has managed over a century, so it is a
+ * ceiling on what this page will assume rather than a figure anybody is
+ * predicting.
+ *
+ * **It binds on more than the extreme cases, and that is intended rather
+ * than a side effect.** Measured across portfolio shapes, real, after the
+ * cap: all NBIS 37.4 to 10, an AI-heavy mix 33.0 to 10, and an ordinary
+ * growth-tilted book of one chip name, one large software name and half in
+ * an index fund 12.8 to 10. Left alone: big tech plus an index fund at
+ * 8.5, an index fund alone at 6.8, and an index fund beside a laggard at
+ * 6.0, which is under the index because the per-name table is allowed to
+ * go down. So anything meaningfully tilted toward growth is clipped, and
+ * the reader can raise it themselves if they disagree.
+ *
+ * It is a ceiling rather than a taper because a reader can see and edit
+ * the number either way, and a silently faded rate is one they cannot
+ * check.
  */
+export const PORTFOLIO_RATE_CEILING_PCT = 10;
 export function portfolioRealReturnPct(
   holdings: Array<{ ticker: string; value: number }>,
   cashBalance: number
@@ -217,7 +255,8 @@ export function portfolioRealReturnPct(
   });
   const inflation = finiteNumber(COMPOUND_INFLATION_ANNUAL_PCT, 0) / 100;
   const real = (1 + nominal) / (1 + inflation) - 1;
-  return Number.isFinite(real) ? Math.round(real * 1000) / 10 : REAL_RETURN_ASSUMPTIONS.equityPct;
+  if (!Number.isFinite(real)) return REAL_RETURN_ASSUMPTIONS.equityPct;
+  return Math.min(PORTFOLIO_RATE_CEILING_PCT, Math.round(real * 1000) / 10);
 }
 
 /** Nothing in shares at any age, which is the one case that means cash. */

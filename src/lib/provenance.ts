@@ -4,7 +4,6 @@ import { hazardReductionAt, IMPROVEMENT_REFERENCE_AGE } from "@/lib/retirement/l
 import type { ModelRun } from "@/lib/ai/model-label";
 import type { ForecastPathAdjustment } from "@/lib/forecast-plan";
 import {
-  forecastThemeForTicker,
   growthAnchorFor,
   impliedAnnualReturnForTheme,
 } from "@/lib/forecast-conviction";
@@ -263,16 +262,35 @@ function adjustmentSteps(adjust?: ForecastPathAdjustment): string[] {
  * cent a year with nothing on screen putting that next to the ten the
  * market's own baseline uses. State the figure and what it is next to,
  * which is the rule the whole product runs on.
+ *
+ * **It reads the name's own rate, not its sector's**, and that correction
+ * is the whole reason this comment is longer than the function. When the
+ * per-name table landed, the shape being drawn became
+ * `shapedPathForTicker` while this line still printed
+ * `impliedAnnualReturnForTheme`, so the figure and the sentence explaining
+ * it came from two different tables. Measured: `INTC` drew a path
+ * compounding at 6% a year under a mark that said 29%, and `NBIS` drew
+ * 41.5% under a mark that said 37%. A number whose own explanation
+ * contradicts it is the exact fault the provenance panel exists to
+ * prevent, so anything printed here must be read from `growthAnchorFor`,
+ * which is the one thing the drawn path is built from.
  */
 function shapeRateLine(ticker: string): string {
-  const theme = forecastThemeForTicker(ticker);
-  const rate = impliedAnnualReturnForTheme(theme);
+  const anchor = growthAnchorFor(ticker);
   const market = impliedAnnualReturnForTheme("index");
-  const said = `${Math.round(rate * 100)}% a year`;
+  const said = `${Math.round(anchor.cagr * 100)}% a year`;
   const baseline = `${Math.round(market * 100)}%`;
-  return rate > market + 0.005
-    ? `That shape works out at about ${said}, against the ${baseline} this app uses for the market as a whole.`
-    : `That shape works out at about ${said}, which is what this app uses for the market as a whole.`;
+  const whose =
+    anchor.basis === "ticker"
+      ? " That rate was looked at for this company on its own."
+      : " That rate is the one used for its kind of business, since no rate has been looked at for this company on its own.";
+  if (anchor.cagr > market + 0.005) {
+    return `That shape works out at about ${said}, against the ${baseline} this app uses for the market as a whole.${whose}`;
+  }
+  if (anchor.cagr < market - 0.005) {
+    return `That shape works out at about ${said}, below the ${baseline} this app uses for the market as a whole.${whose}`;
+  }
+  return `That shape works out at about ${said}, which is what this app uses for the market as a whole.${whose}`;
 }
 
 export function forecastPathProvenance(input: {
@@ -414,7 +432,7 @@ export function forecastRoomProvenance(input: {
       maker: "arithmetic",
       title: "Where this came from",
       headline:
-        "No model has run for this portfolio yet. Each path is a plain shape for that kind of business, and the chart is those shapes added up.",
+        "No model has run for this portfolio yet. Each path is a plain shape grown at the rate this app assumes for that holding, and the chart is those shapes added up.",
       inputs: [
         { what: "Your share counts" },
         { what: "Today's prices" },
@@ -443,11 +461,21 @@ export function forecastRoomProvenance(input: {
   const steps = [
     "Each holding goes to the model on its own, and comes back with one price per year.",
   ];
+  /*
+    The reasons have to be the real ones. This sentence named only the two
+    that existed when it was written, a skipped year and a straight line,
+    and then the growth assumptions added a third that is now the
+    commonest by far: a destination under what this app assumes the name
+    compounds at is raised to meet it. Leaving the old wording told a
+    reader the count was about tidying gaps when it is mostly about this
+    app choosing where a path ends, which is the one change they would
+    most want to know about.
+  */
   if (input.adjustedCount && input.adjustedCount > 0) {
     steps.push(
       input.adjustedCount === 1
-        ? "One of those paths was changed by this app afterwards, because the model skipped a year or drew a straight line. Open that name's own information mark to see which."
-        : `${input.adjustedCount} of those paths were changed by this app afterwards, because the model skipped a year or drew a straight line. Open a name's own information mark to see which.`
+        ? "One of those paths was changed by this app afterwards: raised to what this app assumes that holding grows at, or filled in where the model skipped a year or drew a straight line. Open that name's own information mark to see which."
+        : `${input.adjustedCount} of those paths were changed by this app afterwards: raised to what this app assumes each holding grows at, or filled in where the model skipped a year or drew a straight line. Open a name's own information mark to see which.`
     );
   }
   if (input.reusedCount && input.reusedCount > 0) {

@@ -1,6 +1,6 @@
 import type { Holding, Quote } from "@/lib/types";
 import type { PortfolioEoyOverrides } from "@/lib/forecast-overrides";
-import { forecastThemeForTicker, shapedFallbackPath } from "@/lib/forecast-conviction";
+import { shapedPathForTicker } from "@/lib/forecast-conviction";
 import { cagr, finiteNumber, roundMoney, safeDiv, sumMoney } from "@/lib/money";
 
 /** How many end-of-year columns sit after Current. */
@@ -210,7 +210,18 @@ export type TickerForecastSummary = {
 
 /**
  * Resolves the exact forecast path for a single ticker matching the Forecast table.
- * Honors manual/Margus overrides, otherwise falls back to the exact same theme shape.
+ * Honors manual/Margus overrides, otherwise falls back to the same shape the
+ * Growth room falls back to, which is the name's own and not its sector's.
+ *
+ * **`shapedPathForTicker`, never `shapedFallbackPath`**, and the difference
+ * is two rooms disagreeing about one company. This is what `StockRoom` and
+ * `holdingLadders` read, so a sector-only shape here against a per-name
+ * rate in `ensureCompleteEoyTargets` put two answers in the product for
+ * the same ticker. Measured off a $100 spot when the per-name table
+ * landed: `INTC` ended at **357** here and at **134** in the Growth room,
+ * and `NBIS` at 483 against 567. The ladder those prices anchor drives the
+ * price plan and the alerts, so the disagreement reached a reader as two
+ * different bands for one holding.
  */
 export function resolveTickerForecastPath(
   ticker: string,
@@ -218,8 +229,7 @@ export function resolveTickerForecastPath(
   overrides?: PortfolioEoyOverrides
 ): TickerForecastSummary {
   const normTicker = ticker.toUpperCase();
-  const theme = forecastThemeForTicker(normTicker);
-  const fallback = shapedFallbackPath(spot > 0 ? spot : 1, theme);
+  const fallback = shapedPathForTicker(spot > 0 ? spot : 1, normTicker);
 
   const eoyPrices = {} as Record<ForecastYear, number>;
   const eoyGains = {} as Record<ForecastYear, number>;

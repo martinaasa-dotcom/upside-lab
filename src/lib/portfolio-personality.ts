@@ -6,7 +6,11 @@
  * glance ("who's the shark, who's the owl").
  */
 
-import { forecastThemeForTicker, impliedAnnualReturnForTheme, type ForecastTheme } from "@/lib/forecast-conviction";
+import {
+  forecastThemeForTicker,
+  impliedAnnualReturnForTicker,
+  type ForecastTheme,
+} from "@/lib/forecast-conviction";
 
 /** Rough 0-100 risk/volatility read per theme — illustrative, not a
  * real risk model. Crypto and concentrated growth names score hot;
@@ -868,7 +872,15 @@ export function buildPortfolioPersonality(
       const theme = forecastThemeForTicker(h.ticker);
       const weight = h.value / total;
       weightedRisk += weight * (THEME_RISK_SCORE[theme] ?? 50);
-      weightedReturn += weight * impliedAnnualReturnForTheme(theme) * 100;
+      /*
+        The name's own rate where one is on file, its sector's otherwise.
+        Reading the sector here while `blendedExpectedAnnualReturn` reads
+        the name put two different "expected return" figures in the product
+        for one portfolio, which is the drift this app keeps finding
+        whenever a second caller re-derives an answer that already has a
+        function.
+      */
+      weightedReturn += weight * impliedAnnualReturnForTicker(h.ticker) * 100;
       weightedDrawdown += weight * (THEME_MAX_DRAWDOWN_PCT[theme] ?? 40);
       themeWeights.set(theme, (themeWeights.get(theme) ?? 0) + weight);
       if (h.value > topValue) {
