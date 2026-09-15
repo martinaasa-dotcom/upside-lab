@@ -299,6 +299,14 @@ export function forecastPathProvenance(input: {
   sector?: string | null;
   edited?: boolean;
   fallback?: boolean;
+  /**
+   * True where this path is the house account's own saved plan rather
+   * than a model's reasoning or the plain generic shape: neither `input.
+   * fallback` nor the model-written branch below is true of it, so it
+   * needs its own honest account. Never set alongside `fallback`, and
+   * never on a row the reader typed over themselves.
+   */
+  houseTargeted?: boolean;
   at?: string | null;
   /** Which model answered the run this path came out of. */
   model?: ModelRun | null;
@@ -312,6 +320,35 @@ export function forecastPathProvenance(input: {
   const tag = cashtag(input.ticker);
   const spot = input.spot > 0 ? currency(input.spot) : NO_VALUE;
   const last = input.lastYear ? String(input.lastYear) : "the last year";
+
+  if (input.houseTargeted && !input.fallback) {
+    return {
+      maker: "arithmetic",
+      title: "Where this came from",
+      headline: `These are the end of year prices this app's own account has set for ${tag}, which you have not changed. This is not a model's reasoning and not a generic shape for this company's kind of business either.`,
+      inputs: [
+        { what: "Today's price", detail: spot },
+        {
+          what: "The house account's own saved plan",
+          detail: `one price per year out to ${last}, typed by the account directly rather than reasoned about or computed`,
+        },
+      ],
+      sources: [
+        YAHOO_PRICES,
+        { name: "This app", what: "the house account's own saved forecast" },
+      ],
+      steps: [
+        `The percent on the card is the ${last} price against today's price: (${last} price minus today's price) divided by today's price. Nothing rounds or smooths it after that.`,
+      ],
+      blindSpots: [
+        "Nobody here has reasoned about this company's accounts or its news for this path. It is one person's own figure, not analysis.",
+        NOT_THE_FUTURE,
+        NOT_A_TARGET,
+      ],
+      at: input.at,
+      yours: "You can type your own price over any year, and yours wins.",
+    };
+  }
 
   if (input.fallback) {
     return {

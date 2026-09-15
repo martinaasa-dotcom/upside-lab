@@ -83,6 +83,13 @@ export function anchorForHolding(input: {
   rangeMid?: number | null;
   /** The window those closes cover, in words. */
   windowSaid?: string;
+  /**
+   * The house account's own end-of-year target for this ticker, when it
+   * has one. Read only where the reader has not set their own: the site's
+   * default is meant to be a starting point, never something that can
+   * outrank a figure the reader actually typed.
+   */
+  houseTarget?: number | null;
 }): LadderAnchor {
   /*
     A TARGET NOBODY CHOSE IS NOT AN ANCHOR.
@@ -109,6 +116,23 @@ export function anchorForHolding(input: {
       price: input.target,
       kind: "target",
       said: `${currency(input.target, 2)}, the end of year price you wrote down for this holding. Change it and the whole ladder moves with it.`,
+    };
+  }
+  /*
+    THE HOUSE ACCOUNT'S OWN TARGET, READ ONLY BECAUSE NOBODY ELSE'S OWN
+    ANSWERED FIRST.
+
+    This is the one place a figure that is not the reader's own and not
+    plain arithmetic is allowed to anchor a ladder, and it is disclosed
+    as exactly that: `kind: "house"` so every surface that reads it says
+    whose figure it is, never claims the reader chose it, and always
+    offers the same "write your own over it" the plain default does.
+  */
+  if (ok(input.houseTarget)) {
+    return {
+      price: input.houseTarget,
+      kind: "house",
+      said: `${currency(input.houseTarget, 2)}, the end of year price this app's own account has set for this holding, which you have not changed. Write your own over it and this ladder is yours.`,
     };
   }
   const over = input.windowSaid ?? "the last few months";

@@ -78,6 +78,8 @@ import { isAbortError, retryOnNetwork } from "@/lib/abort";
 import { buildForecast, type ForecastYear } from "@/lib/forecast";
 import { holdingLadders } from "@/lib/company/holding-ladders";
 import { buildBandMap } from "@/lib/company/band-map";
+import { pushEoyOverrides } from "@/lib/eoy-override-store";
+import { useHouseForecastDefaults } from "@/lib/use-house-forecast-defaults";
 import {
   loadEoyOverrides,
   mergeBookEoyOverrides,
@@ -490,6 +492,7 @@ export function Dashboard() {
   /** Home "Open covered calls" should land on the options table, not holdings. */
   const sheetFocusRef = useRef<"covered-calls" | null>(null);
   const { labBundle, labReady, patchLab } = useLabSync();
+  const houseForecast = useHouseForecastDefaults();
   const [costBasisOpen, setCostBasisOpen] = useState(false);
   const [costBasisRows, setCostBasisRows] = useState<CostBasisRow[]>([]);
   const convictionMap = labBundle.conviction;
@@ -991,12 +994,17 @@ export function Dashboard() {
   */
   const bookEoyOverrides = useMemo(
     () =>
-      mergeBookEoyOverrides(
-        realPortfolios.map((p) =>
+      mergeBookEoyOverrides([
+        // The account's own copy first, so it fills in a target set on
+        // another device that this browser's localStorage never saw; each
+        // portfolio's own local copy is layered on top and wins where it
+        // has one, same as it always has.
+        labBundle.eoyOverrides ?? {},
+        ...realPortfolios.map((p) =>
           p.id === activePortfolio?.id ? eoyOverrides : loadEoyOverrides(p.id)
-        )
-      ),
-    [realPortfolios, activePortfolio, eoyOverrides]
+        ),
+      ]),
+    [realPortfolios, activePortfolio, eoyOverrides, labBundle.eoyOverrides]
   );
 
   /*
@@ -1021,8 +1029,10 @@ export function Dashboard() {
         })),
         overrides: bookEoyOverrides,
         ladders: labLadders,
+        houseOverrides: houseForecast.eoyPrices,
+        houseLadders: houseForecast.ladders,
       }),
-    [overview.tickers, quotes, bookEoyOverrides, labLadders]
+    [overview.tickers, quotes, bookEoyOverrides, labLadders, houseForecast]
   );
 
   /*
@@ -1044,8 +1054,10 @@ export function Dashboard() {
         })),
         overrides: eoyOverrides,
         ladders: labLadders,
+        houseOverrides: houseForecast.eoyPrices,
+        houseLadders: houseForecast.ladders,
       }),
-    [snapshot?.holdings, eoyOverrides, labLadders]
+    [snapshot?.holdings, eoyOverrides, labLadders, houseForecast]
   );
 
   /** The same ladders as a picture, which is also what Home reads. */
@@ -1183,9 +1195,10 @@ export function Dashboard() {
       portfolioHoldings,
       quotes,
       activePortfolio.cash_balance,
-      eoyOverrides
+      eoyOverrides,
+      houseForecast.eoyPrices
     );
-  }, [activePortfolio, portfolioHoldings, quotes, eoyOverrides]);
+  }, [activePortfolio, portfolioHoldings, quotes, eoyOverrides, houseForecast]);
 
   const margusSheetTickersKey = useMemo(() => {
     if (!margusSnapshot) return "";
@@ -1226,6 +1239,21 @@ export function Dashboard() {
     return out;
   }, [margusSheetTickersKey, convictionMap]);
 
+  // Pushed to the account after a local save, merged across every
+  // portfolio the reader owns exactly as `bookEoyOverrides` merges them,
+  // so the account always holds the same figure the book-wide surfaces
+  // are already reading rather than just the one portfolio open right now.
+  function pushBookEoyOverrides(nextForActive: PortfolioEoyOverrides) {
+    if (!activePortfolio) return;
+    void pushEoyOverrides(
+      mergeBookEoyOverrides(
+        realPortfolios.map((p) =>
+          p.id === activePortfolio.id ? nextForActive : loadEoyOverrides(p.id)
+        )
+      )
+    );
+  }
+
   function commitEoyPrice(
     ticker: string,
     year: ForecastYear,
@@ -1235,6 +1263,7 @@ export function Dashboard() {
     setEoyOverrides((prev) => {
       const next = setEoyOverride(prev, ticker, year, price);
       saveEoyOverrides(activePortfolio.id, next);
+      pushBookEoyOverrides(next);
       return next;
     });
   }
@@ -1246,6 +1275,7 @@ export function Dashboard() {
     setEoyOverrides((prev) => {
       const next = mergeEoyTargetPaths(prev, paths);
       saveEoyOverrides(activePortfolio.id, next);
+      pushBookEoyOverrides(next);
       return next;
     });
   }
