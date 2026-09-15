@@ -39,13 +39,15 @@ export type CompanyPage = {
   at all (a dropped connection, a proxy that swallows the close) would
   otherwise leave the skeleton on screen forever with nothing to retry.
 */
-const FETCH_TIMEOUT_MS = 100_000;
+export const FETCH_TIMEOUT_MS = 100_000;
 
 export async function fetchCompanyPage(
   ticker: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  /** Exposed only so a test can use a real, short timeout instead of waiting. */
+  timeoutMs: number = FETCH_TIMEOUT_MS
 ): Promise<CompanyPage> {
-  const timeout = AbortSignal.timeout(FETCH_TIMEOUT_MS);
+  const timeout = AbortSignal.timeout(timeoutMs);
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
   let res: Response;
   try {
