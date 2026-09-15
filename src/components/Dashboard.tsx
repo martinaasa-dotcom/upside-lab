@@ -200,7 +200,6 @@ import { useLabSync } from "@/components/use-lab-sync";
 import { useLoadingMessage } from "@/lib/use-loading-message";
 import { loadCachedQuotes, mergeQuotes, saveCachedQuotes, quotesUnchanged } from "@/lib/quote-cache";
 import { publishQuotes } from "@/lib/quote-pool";
-import { quotesAreDelayed } from "@/lib/market/quote-freshness";
 import { rememberQuotesUrl, takeQuotesPrefetch } from "@/lib/quotes-prefetch";
 import { OFFLINE_CACHE_READY } from "@/lib/offline/snapshots";
 import { postJsonOrQueue } from "@/lib/offline/queued-fetch";
@@ -458,7 +457,6 @@ export function Dashboard() {
     and `quoteAsOfTitle`; this is the book's.
   */
   const [quotesFetchedAt, setQuotesFetchedAt] = useState<number | null>(null);
-  const [quotesDelayed, setQuotesDelayed] = useState(false);
   /*
     The last attempt to fetch failed, or came back with nothing live, or
     the browser is offline. With `quotesFetchedAt` this is the whole input
@@ -1603,7 +1601,6 @@ export function Dashboard() {
             (await takeQuotesPrefetch(url)?.catch(() => null)) ??
             (await fetch(url, { signal: ctrl.signal }));
           if (!quotesRes.ok) {
-            setQuotesDelayed(true);
             throw new Error(`Quotes request failed (${quotesRes.status})`);
           }
           const quotesJson = await quotesRes.json();
@@ -1646,7 +1643,6 @@ export function Dashboard() {
             setQuotesFailing(true);
           }
           if (!unchanged) {
-            setQuotesDelayed(quotesAreDelayed(quotesJson));
             setMissingTickers((prev) =>
               prev.length === missing.length &&
               prev.every((t, i) => t === missing[i])
@@ -1715,7 +1711,6 @@ export function Dashboard() {
       } catch (err) {
         if (isAbortError(err) || quotesAbortRef.current !== ctrl) return;
         console.error(err);
-        setQuotesDelayed(true);
         setQuotesFailing(true);
         /*
           A stale cached price shown at first paint is meant to be
@@ -2819,14 +2814,21 @@ export function Dashboard() {
     [profile?.avatar_url, profile?.display_name, user?.email]
   );
 
+  /*
+    The strip's "Price as of" wording is about the FETCH having failed,
+    not about one name being served from the server's cache: keyed on
+    `quotesDelayed` it read "Price as of 9m ago" overnight for a book
+    with one delisted holding while every other price was current. A
+    single name's age is that cell's own title.
+  */
   const headerStatus = useMemo(
     () => ({
       quotesUpdatedAt: quotesFetchedAt,
-      quotesDelayed,
+      quotesDelayed: quotesFailing,
       quotedCount: Math.max(0, allTickers.length - missingTickers.length),
       totalCount: allTickers.length,
     }),
-    [quotesFetchedAt, quotesDelayed, allTickers.length, missingTickers.length]
+    [quotesFetchedAt, quotesFailing, allTickers.length, missingTickers.length]
   );
 
   /** Paper-class accounts cannot open a real book, so they get no add cell. */
