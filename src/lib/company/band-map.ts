@@ -337,10 +337,28 @@ export function actionableFirst(points: BandMapPoint[]): BandMapPoint[] {
  *
  * Size still decides WHICH name goes, because the blocks are ordered
  * biggest first and folding takes from the end, so the smallest are the
- * ones that fold. The one name that jumps the queue is **a holding at
- * an end of its own ladder**, kept however small it is: that is the row
- * the reader opened this picture to find, and it is exactly the row an
- * ordering by size alone throws away first.
+ * ones that fold.
+ *
+ * A GENUINELY CROWDED ACTIONABLE BAND STILL FOLDS ITS OWN SMALLEST
+ * HOLDING, AND THAT IS A GAP RATHER THAN A DESIGN CHOICE (found
+ * 2026-09-15, while widening `ACTIONABLE_BANDS`). This function's own
+ * `actionable` sort term only ever breaks a tie between two items of
+ * DIFFERENT actionable status, and every call site hands it one band's
+ * `items` at a time, whose members share one `bandId` and therefore one
+ * `actionable` value by construction (`isActionableBand(bandId)`). So
+ * within any one band -- including a decisive one -- folding has always
+ * been pure share order, and a small holding that reached that band can
+ * still fold away exactly as a small ordinary one would. Confirmed by
+ * calling this function directly with nine actionable holdings and one
+ * tiny actionable one: the tiny one folds. That was a narrow miss while
+ * `ACTIONABLE_BANDS` was three rare extreme bands, since a book rarely
+ * has many holdings sitting at an extreme at once; it is a much more
+ * reachable gap now that the milder bands are actionable too, since an
+ * ordinary green day can put several holdings in the same "a little
+ * above" row together. Left as a known gap rather than redesigned here:
+ * fixing it for real is a cross-row allocation question this file's own
+ * standing rule says to answer by rendering the component and measuring
+ * it, not by reasoning about the arithmetic.
  */
 export function foldToFit(
   items: BandMapPoint[],
@@ -356,6 +374,11 @@ export function foldToFit(
   if (items.length === 0) return { shown: [], folded: [] };
   if (items.length <= names) return { shown: items, folded: [] };
   const keep = Math.max(names, 1);
+  // The `actionable` term only matters for a caller passing mixed
+  // items; today's one caller (`BandMap.tsx`) always passes one band's
+  // own `items`, which share one `bandId` and so one `actionable` value,
+  // so this never breaks a tie in the shipped UI. See the doc comment
+  // above for the gap that leaves.
   const ranked = [...items].sort(
     (a, b) =>
       Number(b.actionable) - Number(a.actionable) || b.share - a.share
