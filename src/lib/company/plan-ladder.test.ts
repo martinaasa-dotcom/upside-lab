@@ -173,8 +173,14 @@ describe("every number on it is the reader's to change", () => {
     // The bands are multiples of whatever the anchor is, and the width is
     // this company's own swing measured against that same anchor, so a
     // typed anchor moves both at once.
-    expect(bandById(ladder, "hold")!.to).toBeCloseTo(500 * (1 + ladder.step), 4);
-    expect(bandById(ladder, "hold")!.from).toBeCloseTo(500 * (1 - ladder.step), 4);
+    expect(bandById(ladder, "hold")!.to).toBeCloseTo(
+      500 * (1 + ladder.holdHalf * ladder.step),
+      4
+    );
+    expect(bandById(ladder, "hold")!.from).toBeCloseTo(
+      500 * (1 - ladder.holdHalf * ladder.step),
+      4
+    );
   });
 
   it("ignores an edit that is not a price", () => {

@@ -98,6 +98,15 @@ export type PlanLadder = {
   /** Why the step is that wide, naming the figure it was read off. */
   stepSaid: string;
   /**
+   * How many steps either side of the anchor "close to fair value"
+   * covers, per this ticker's own swing (`holdHalfStepsFor`). 1 at the
+   * ordinary swing, which is what every ladder used before 2026-09-15;
+   * wider for a name that moves more than that, narrower for one that
+   * moves less. `stepSaid` already says so in words when it moves the
+   * zone materially; this is the number behind that sentence.
+   */
+  holdHalf: number;
+  /**
    * True where the price is far enough under the anchor that the upper
    * bands were tightened. Said out loud, because a ladder three per cent
    * wide next to one ten per cent wide reads as a fault otherwise.
@@ -131,10 +140,14 @@ export type PlanLadder = {
  * Read off the reference ladders this was built from, where the step is a
  * tenth of the anchor: the top band is open above, "hold" runs a step
  * either side of the anchor so the price is at the estimate within that,
- * and each band out from there is one step wide. The bottom two edges are
- * deliberately not steps. The floor of the ladder is a different kind of
- * level and `exitRatio` sets it; below that the band is open, because
- * there is no lowest price worth naming.
+ * and each band out from there is one step wide. That "a step either
+ * side" is now `holdHalf` (see `holdHalfStepsFor`), a fixed 1 in the
+ * references and per-ticker everywhere else, so the middle band and the
+ * two either side of it move with it; at the ordinary swing it is still
+ * exactly 1 and this paragraph's arithmetic is unchanged. The bottom two
+ * edges are deliberately not steps. The floor of the ladder is a
+ * different kind of level and `exitRatio` sets it; below that the band
+ * is open, because there is no lowest price worth naming.
  *
  * A band's floor is the top of the band under it, so the edges are written
  * once and read in pairs. Two bands that disagree about the price between
@@ -161,24 +174,55 @@ export type PlanLadder = {
   So the bands describe the price instead. "A long way above" is a fact
   about a number, checkable against the figures printed beside it, and
   it leaves the decision where it always belonged. Nothing about the
-  arithmetic changed: the edges, the steps and the ids are what they
-  were, so a saved level, a dismissal and an alert all still land. Do
-  not put a verb back in here.
+  arithmetic changed here: the ids stayed exactly what they were, so a
+  saved level, a dismissal and an alert all still land. (The width of
+  the middle bands did later move, per `holdHalfStepsFor` below, but the
+  ids and the sentence rule are what this paragraph is about and both
+  are untouched.) Do not put a verb back in here.
 */
-const EDGES: { id: LadderBandId; label: string; steps: number | null }[] = [
-  { id: "trim-most", label: "A long way above", steps: null },
-  { id: "trim-some", label: "A little above", steps: 2 },
-  { id: "hold", label: "Close to fair value", steps: 1 },
-  { id: "starter", label: "A little below", steps: -1 },
-  { id: "full-aggressive", label: "A long way below", steps: -2 },
+const EDGES: { id: LadderBandId; label: string }[] = [
+  { id: "trim-most", label: "A long way above" },
+  { id: "trim-some", label: "A little above" },
+  { id: "hold", label: "Close to fair value" },
+  { id: "starter", label: "A little below" },
+  { id: "full-aggressive", label: "A long way below" },
   /*
     Not "Under its year's low", which is word for word what the range
     beside it says: the foot of the ladder is the one band whose level
     is a price rather than a distance from fair value, so the label
     takes the longer view and the range names the level.
   */
-  { id: "exit", label: "Below its whole year", steps: null },
+  { id: "exit", label: "Below its whole year" },
 ];
+
+/**
+ * HOW MANY STEPS EACH BAND'S TOP EDGE SITS FROM THE ANCHOR (2026-09-15).
+ *
+ * Was a flat table on `EDGES` itself (2, 1, -1, -2), so "hold" always
+ * ran exactly one step either side of the anchor whatever the company.
+ * It is `holdHalf` now, which `buildPlanLadder` reads off that ticker's
+ * own swing (`holdHalfStepsFor`), and every other edge here is written
+ * relative to it rather than as its own constant, so the fair-value
+ * zone and the two milder bands either side of it move together: a
+ * volatile name's "close to fair value" zone widens and a defensive
+ * one's narrows, and the ordinary case (`holdHalf === 1`) reproduces
+ * the old 2, 1, -1, -2 exactly. `trim-most` and `exit` are still open
+ * and the floor, handled where they always were.
+ */
+function stepsFromAnchor(id: LadderBandId, holdHalf: number): number | null {
+  switch (id) {
+    case "trim-some":
+      return holdHalf + 1;
+    case "hold":
+      return holdHalf;
+    case "starter":
+      return -holdHalf;
+    case "full-aggressive":
+      return -(holdHalf + 1);
+    default:
+      return null;
+  }
+}
 
 /** A tenth of the anchor per band, which is the reference ladder's own width. */
 export const BASE_STEP = 0.1;
@@ -214,6 +258,45 @@ export const MAX_STEP = 0.14;
  * the whole ladder twice over.
  */
 export const SWING_WEIGHT = 0.4;
+
+/**
+ * HOW MANY STEPS EITHER SIDE OF THE ANCHOR COUNT AS "CLOSE TO FAIR
+ * VALUE," PER NAME (2026-09-15).
+ *
+ * Fixed at exactly one step for every company until now, so the
+ * fair-value zone was the same fraction of the ladder for a utility and
+ * for something that halves twice a year. `stepFor` already makes the
+ * STEP itself wider in dollar terms for a name that swings hard, but the
+ * zone stayed one step wide either way, which is why "a little
+ * above"/"a little below" fired on an ordinary week for a volatile name
+ * and almost never for a defensive one: the same distance from the
+ * anchor meant something different to each of them, and the ladder
+ * treated it as the same event.
+ *
+ * `holdHalfStepsFor` reads the same swing ratio `stepFor` already
+ * computes and widens or narrows the zone with it, landing on exactly 1
+ * at the ordinary swing, which is what keeps the four reference ladders
+ * (`plan-ladder.test.ts`) reproducing within their existing tolerance:
+ * none of them sit at exactly the ordinary swing, so this does move
+ * every one of them a little, and all four still land inside 5%.
+ *
+ * `HOLD_WIDTH_WEIGHT` is the same shape as `SWING_WEIGHT` and a
+ * comparable size, for the same reason: a zone that grew as fast as the
+ * swing itself would put an enormous fair-value band on the most
+ * volatile names and nearly close the milder bands for everyone else,
+ * which is a different design and would stop matching the references.
+ * `MIN_HOLD_HALF_STEPS`/`MAX_HOLD_HALF_STEPS` bound it the same way
+ * `MIN_STEP`/`MAX_STEP` bound the step, so the zone widens or narrows,
+ * it never disappears or swallows the ladder.
+ */
+export const HOLD_WIDTH_WEIGHT = 0.5;
+export const MIN_HOLD_HALF_STEPS = 0.6;
+export const MAX_HOLD_HALF_STEPS = 2;
+
+export function holdHalfStepsFor(swingRatio: number): number {
+  const raw = 1 + (swingRatio - 1) * HOLD_WIDTH_WEIGHT;
+  return clamp(raw, MIN_HOLD_HALF_STEPS, MAX_HOLD_HALF_STEPS);
+}
 
 /**
  * A SHARE TRADING A LONG WAY UNDER THE ANCHOR GETS A TIGHTER LADDER.
@@ -295,17 +378,26 @@ export function ladderFloor(input: {
   anchor: number;
   step: number;
   low?: number | null;
+  /**
+   * How many steps wide the fair-value zone is, either side of the
+   * anchor. Defaults to the fixed width every ladder used before
+   * 2026-09-15, so a caller that has not been taught about it keeps the
+   * old boundary.
+   */
+  holdHalf?: number;
 }): { price: number; fromYear: boolean } {
   const { anchor, step } = input;
+  const holdHalf = input.holdHalf ?? 1;
   const byRatio = anchor * exitRatio(step);
   const low = input.low;
   if (!ok(low)) return { price: byRatio, fromYear: false };
   /*
     The bottom of the accumulation band, which is where the floor has to
     sit clear of: closer than half a step and the ladder ends on two
-    levels a reader cannot tell apart.
+    levels a reader cannot tell apart. One step below full-aggressive's
+    own top edge, which is `holdHalf + 1` steps above the anchor.
   */
-  const accumulationFloor = anchor * (1 - 3 * step);
+  const accumulationFloor = anchor * (1 - (holdHalf + 2) * step);
   if (low > accumulationFloor - anchor * step * 0.5) {
     return { price: byRatio, fromYear: false };
   }
@@ -343,18 +435,21 @@ export function stepFor(input: {
    * quietly wrong sentence this app does not print.
    */
   windowSaid?: string;
-}): { step: number; said: string } {
+}): { step: number; said: string; swingRatio: number } {
   const { high, low, anchor } = input;
   const over = input.windowSaid ?? "the last year";
   if (!ok(high) || !ok(low) || !ok(anchor) || high <= low) {
     return {
       step: BASE_STEP,
       said: `Bands of ${percent(BASE_STEP, 0)} of the anchor, which is the ordinary width. The feed carried no high and low for this one, so nothing measured how far it actually travels.`,
+      // No swing on file reads as an ordinary one, which is what leaves
+      // the fair-value zone at its own default width below.
+      swingRatio: 1,
     };
   }
   const swing = (high - low) / anchor;
-  const raw =
-    BASE_STEP * (1 + (swing / ORDINARY_SWING - 1) * SWING_WEIGHT);
+  const swingRatio = swing / ORDINARY_SWING;
+  const raw = BASE_STEP * (1 + (swingRatio - 1) * SWING_WEIGHT);
   const step = clamp(raw, MIN_STEP, MAX_STEP);
   const capped =
     raw > MAX_STEP
@@ -365,6 +460,7 @@ export function stepFor(input: {
   return {
     step,
     said: `Bands of ${percent(step, 0)} of the anchor, starting from the ${percent(BASE_STEP, 0)} an ordinary company gets. Over ${over} this one ran from ${currency(low, 2)} to ${currency(high, 2)}, which is ${percent(swing, 0)} of the anchor against ${percent(ORDINARY_SWING, 0)} for an ordinary large company, and two fifths of that difference reaches the bands.${capped}`,
+    swingRatio,
   };
 }
 
@@ -384,10 +480,13 @@ export function isFarBelow(input: {
   anchor: number;
   spot?: number | null;
   ordinaryStep: number;
+  /** See `ladderFloor`; defaults to the fixed pre-2026-09-15 width. */
+  holdHalf?: number;
 }): boolean {
   const { anchor, spot, ordinaryStep } = input;
+  const holdHalf = input.holdHalf ?? 1;
   if (!ok(spot) || !ok(anchor)) return false;
-  return spot < anchor * (1 - 3 * ordinaryStep);
+  return spot < anchor * (1 - (holdHalf + 2) * ordinaryStep);
 }
 
 /** One reader's edits to a ladder, as multiples of the anchor. */
@@ -439,20 +538,35 @@ export function buildPlanLadder(input: {
     a company whose neighbour on the next page has ten.
   */
   const over = input.windowSaid ?? "the last year";
+  /*
+    How wide the fair-value zone is for this ticker, read off the same
+    swing `stepFor` already measured (never the tightened, far-below
+    step, which answers a different question about where the price is
+    right now rather than how choppy this name ordinarily is).
+  */
+  const holdHalf = holdHalfStepsFor(ordinary.swingRatio);
   const farBelow = isFarBelow({
     anchor,
     spot: input.spot,
     ordinaryStep: ordinary.step,
+    holdHalf,
   });
   const step = farBelow
     ? Math.max(ordinary.step * FAR_BELOW_STEP_FACTOR, MIN_STEP_FAR_BELOW)
     : ordinary.step;
-  const said = farBelow
-    ? `${ordinary.said} Tightened to ${percent(step, 2)} because the price is a long way under the anchor: down there every price is the same decision, so the fine detail belongs at the top, where the levels you would actually meet are.`
-    : ordinary.said;
+  const holdNote =
+    holdHalf > 1.03
+      ? ` This one also swings enough that "close to fair value" is widened to ${percent(holdHalf * step, 0)} either side of the anchor instead of the ordinary ${percent(BASE_STEP, 0)}.`
+      : holdHalf < 0.97
+        ? ` This one moves little enough that "close to fair value" is narrowed to ${percent(holdHalf * step, 0)} either side of the anchor instead of the ordinary ${percent(BASE_STEP, 0)}.`
+        : "";
+  const said =
+    (farBelow
+      ? `${ordinary.said} Tightened to ${percent(step, 2)} because the price is a long way under the anchor: down there every price is the same decision, so the fine detail belongs at the top, where the levels you would actually meet are.`
+      : ordinary.said) + holdNote;
 
   const edits = input.override?.edges ?? {};
-  const floor = ladderFloor({ anchor, step, low: input.low });
+  const floor = ladderFloor({ anchor, step, low: input.low, holdHalf });
   const exitAt = floor.price / anchor;
 
   /*
@@ -473,7 +587,7 @@ export function buildPlanLadder(input: {
         ? null
         : e.id === "exit"
           ? exitAt
-          : 1 + (e.steps ?? 0) * step;
+          : 1 + (stepsFromAnchor(e.id, holdHalf) ?? 0) * step;
     const edit = edits[e.id];
     const edited = ok(edit) && computed !== null;
     return {
@@ -523,6 +637,7 @@ export function buildPlanLadder(input: {
       : input.anchorSaid,
     step,
     stepSaid: said,
+    holdHalf,
     farBelow,
     floorFromYear: floor.fromYear,
     /*
@@ -569,17 +684,35 @@ export function positionInBand(band: LadderBand, price: number): number {
 }
 
 /**
- * The bands where the ladder says something decisive, and the only ones
- * anything is allowed to raise its voice about.
+ * The bands where the ladder says something worth a second look, and the
+ * only ones anything is allowed to raise its voice about.
  *
- * The middle of a ladder is where a price ordinarily sits: an alert that
- * fires while nothing has happened is one a reader learns to swipe past,
- * which is the lesson the borrowed-money card already records. One list,
- * used by the alert builder and by the map on the holdings page, so a
- * name called out in one place cannot be quiet in the other.
+ * WIDENED ON 2026-09-15 TO EVERYTHING EXCEPT "CLOSE TO FAIR VALUE." It
+ * was the three extreme bands alone ("trim-most", "full-aggressive",
+ * "exit"), because the middle of a ladder is where a price ordinarily
+ * sits, and an alert firing on an ordinary week is one a reader learns
+ * to swipe past, which is the lesson the borrowed-money card already
+ * records. That argument held only because "hold" was a fixed one step
+ * either side of the anchor for every company: on a volatile name, "a
+ * little above/below" was itself an ordinary week, so lumping it in
+ * would have been exactly the noise the narrow list was written to
+ * avoid.
+ *
+ * `holdHalf` (`holdHalfStepsFor`, above `buildPlanLadder`) is what
+ * changed that: the fair-value zone now widens for a name that swings
+ * hard and narrows for one that barely moves, so a price outside it is
+ * a genuinely unusual one for THAT company rather than a fixed distance
+ * everybody shares. With the zone doing that work, "a little
+ * above"/"a little below" mean the same thing "trim-most" and
+ * "full-aggressive" always did: this price is not where this company
+ * ordinarily trades. One list, used by the alert builder and by the map
+ * on the holdings page, so a name called out in one place cannot be
+ * quiet in the other.
  */
 export const ACTIONABLE_BANDS: readonly LadderBandId[] = [
   "trim-most",
+  "trim-some",
+  "starter",
   "full-aggressive",
   "exit",
 ];

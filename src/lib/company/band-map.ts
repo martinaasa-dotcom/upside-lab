@@ -93,7 +93,11 @@ export type BandMapSummary = {
   /** Share priced under it, and over it. */
   below: number;
   above: number;
-  /** Names that reached an end of their own plan, by which end. */
+  /**
+   * Names priced away from what they look worth, by which direction.
+   * Was only the two extreme ends before 2026-09-15; see
+   * `ACTIONABLE_BANDS` in `plan-ladder.ts`.
+   */
   trimNames: string[];
   addNames: string[];
   /**
@@ -442,18 +446,25 @@ export function readySaid(
     still did would be the app supplying the verb the table refuses to.
   */
   /*
-    A LIST OF NAMES TAKES A PLURAL. It read "SHOP, MU, SOFI at the
-    bottom of its own ladder", which is three companies sharing one ladder
-    and is not what the picture above it shows.
+    "AT THE TOP/BOTTOM OF ITS OWN LADDER" STOPPED BEING TRUE ON
+    2026-09-15, WHEN `ACTIONABLE_BANDS` WIDENED PAST THE THREE EXTREME
+    BANDS. "A little above" and "a little below" are off center, not at
+    an end, so calling them "the top" or "the bottom" would be a false
+    sentence about a price this app itself computed. "Priced above/below
+    what it looks worth" is true of all five bands the widened list
+    covers.
   */
-  const ownPlan = (names: string[]) =>
-    names.length === 1 ? "its own ladder" : "their own ladders";
+  const plural = (names: string[]) => names.length > 1;
   const parts: string[] = [];
   if (trimNames.length > 0) {
-    parts.push(`${trimNames.join(", ")} at the top of ${ownPlan(trimNames)}`);
+    parts.push(
+      `${trimNames.join(", ")} priced above what ${plural(trimNames) ? "they look" : "it looks"} worth`
+    );
   }
   if (addNames.length > 0) {
-    parts.push(`${addNames.join(", ")} at the bottom of ${ownPlan(addNames)}`);
+    parts.push(
+      `${addNames.join(", ")} priced below what ${plural(addNames) ? "they look" : "it looks"} worth`
+    );
   }
   /*
     Whose level it is, said once at the end rather than hung on each

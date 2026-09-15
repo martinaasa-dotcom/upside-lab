@@ -690,11 +690,11 @@ function sharePhrase(v: number): string {
  * The three readings worth having before the picture itself.
  *
  * Each one is a figure already on the page, said out loud: how much of
- * the money is priced near what its companies look worth, which names
- * have reached an end of a plan the reader set, and what the biggest
- * holding is doing. None of them is a score and none of them tells
- * anybody to do anything: the second names the level as the reader's
- * own, which is what it is.
+ * the money is priced near what its companies look worth, how much is
+ * priced away from it, and what the biggest holding is doing. None of
+ * them is a score and none of them tells anybody to do anything: the
+ * second names whose levels those are, since some are the reader's own
+ * and some are this app's arithmetic they have not touched.
  */
 function Summary({ map, voice }: { map: Map; voice: Voice }) {
   const s = map.summary;
@@ -708,24 +708,34 @@ function Summary({ map, voice }: { map: Map; voice: Voice }) {
       />
       <Tile
         /*
-          "At a plan's end" described where these names sit and made a
-          reader work out why that mattered, rather than saying outright
-          what the count is: `reachedTotal`, which is `isActionableBand`
-          applied to every holding, the same test `BandAlerts` and the
-          alert builder already use to decide what is worth a card.
+          RENAMED FROM "REACHED A LEVEL" ON 2026-09-15, ALONGSIDE
+          WIDENING WHAT COUNTS.
 
-          "Actionable" was tried here first and is the wrong word for
-          this app to use about itself. `BandAlerts`, drawing the exact
-          same set of names, deliberately calls it "reached an end of
-          their plan" and ends on "a level being reached is a fact about
-          a price, not a reason to do anything" -- because "actionable"
-          reads as this app telling a reader there is an action waiting,
-          which is the one thing a ladder is not allowed to say. This
-          tile answers the same question as that card and has to use the
-          same words to ask it, so it borrows the card's own phrase
-          rather than inventing a second one.
+          `reachedTotal` is `isActionableBand` applied to every holding,
+          the same test the alert builder uses to decide what is worth a
+          card, so a name counted here is a name that can also raise its
+          voice on Home. It used to mean only the three extreme bands
+          ("trim-most", "full-aggressive", "exit"), because a mild band
+          fires on an ordinary week and this app does not raise its
+          voice about an ordinary week. That held only while "close to
+          fair value" was a fixed width for every company; `holdHalf`
+          (`holdHalfStepsFor`, `plan-ladder.ts`) now widens that zone for
+          a name that swings hard and narrows it for one that barely
+          moves, so a price outside it is genuinely unusual FOR THAT
+          COMPANY rather than a distance every company shares. With the
+          zone doing that work, the milder bands mean the same thing the
+          extremes always did and are counted alongside them
+          (`ACTIONABLE_BANDS`).
+
+          "Actionable" was tried here first, twice, and is still the
+          wrong word for this app to use about itself: it reads as the
+          app telling a reader there is an action waiting, which is the
+          one thing a ladder may not say, whatever it counts. "Away from
+          fair value" states where the price is and pairs directly with
+          the tile beside it, which already says "Around fair value" --
+          the two headline the same picture from its two sides.
         */
-        label="Reached a level"
+        label="Away from fair value"
         value={ready === 0 ? "None" : `${ready} of ${map.points.length}`}
         sub={
           ready === 0 && map.points.length === 1 && !voice.pooled

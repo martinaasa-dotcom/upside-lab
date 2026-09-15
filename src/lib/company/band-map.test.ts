@@ -440,13 +440,13 @@ describe("the picture never claims a level was the reader's when it was not", ()
       holding("QUIET", 1, 40),
     ]);
     const said = readySaid(map.summary);
-    expect(said).toContain("their own ladders");
-    expect(said).not.toContain("B at the bottom of its own ladder");
+    expect(said).toContain("they look worth");
+    expect(said).not.toContain("it looks worth");
   });
 
   it("keeps the singular for one name", () => {
     const map = buildBandMap([holding("A", 0.3, 40), holding("QUIET", 1, 60)]);
-    expect(readySaid(map.summary)).toContain("its own ladder");
+    expect(readySaid(map.summary)).toContain("it looks worth");
   });
 
   it("says nothing about levels when no name has reached one", () => {
