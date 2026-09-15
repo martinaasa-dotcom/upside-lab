@@ -554,11 +554,27 @@ export function buildPlanLadder(input: {
   const step = farBelow
     ? Math.max(ordinary.step * FAR_BELOW_STEP_FACTOR, MIN_STEP_FAR_BELOW)
     : ordinary.step;
+  /*
+    THE DIRECTION SAID HERE HAS TO MATCH THE NUMBER SAID HERE, NOT THE
+    MULTIPLIER THAT PRODUCED IT.
+
+    The first version branched on `holdHalf` alone (above/below 1) and
+    printed `holdHalf * step`. That is two different quantities: a high
+    swing sets `holdHalf` above 1, but a price far under the anchor also
+    tightens `step` (`FAR_BELOW_STEP_FACTOR`), and the second can win.
+    Checked against a real case (swing at the cap, price far below): the
+    sentence read "widened to 9% ... instead of the ordinary 10%", which
+    is a narrower zone captioned as a wider one, a false sentence with a
+    real number in it. Comparing the actual width against `BASE_STEP`,
+    the number a reader can see printed right next to it, is the only
+    version that cannot contradict itself.
+  */
+  const holdWidthPct = holdHalf * step;
   const holdNote =
-    holdHalf > 1.03
-      ? ` This one also swings enough that "close to fair value" is widened to ${percent(holdHalf * step, 0)} either side of the anchor instead of the ordinary ${percent(BASE_STEP, 0)}.`
-      : holdHalf < 0.97
-        ? ` This one moves little enough that "close to fair value" is narrowed to ${percent(holdHalf * step, 0)} either side of the anchor instead of the ordinary ${percent(BASE_STEP, 0)}.`
+    holdWidthPct > BASE_STEP * 1.03
+      ? ` This one also swings enough that "close to fair value" is widened to ${percent(holdWidthPct, 0)} either side of the anchor instead of the ordinary ${percent(BASE_STEP, 0)}.`
+      : holdWidthPct < BASE_STEP * 0.97
+        ? ` This one moves little enough that "close to fair value" is narrowed to ${percent(holdWidthPct, 0)} either side of the anchor instead of the ordinary ${percent(BASE_STEP, 0)}.`
         : "";
   const said =
     (farBelow

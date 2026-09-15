@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACTIONABLE_BANDS,
   BASE_STEP,
   MIN_STEP_FAR_BELOW,
+  MAX_HOLD_HALF_STEPS,
+  MIN_HOLD_HALF_STEPS,
   ladderFloor,
   isFarBelow,
   MAX_STEP,
@@ -10,6 +13,8 @@ import {
   bandById,
   buildPlanLadder,
   exitRatio,
+  holdHalfStepsFor,
+  isActionableBand,
   ladderMomentDetail,
   ladderMomentRow,
   ladderMomentTitle,
@@ -398,6 +403,107 @@ describe("the four reference ladders come back out", () => {
     expect(isFarBelow({ anchor: 100, spot: 71, ordinaryStep: 0.1 })).toBe(false);
     // No price is not a reason to redraw the ladder.
     expect(isFarBelow({ anchor: 100, spot: null, ordinaryStep: 0.1 })).toBe(false);
+  });
+
+  describe("holdHalfStepsFor: everybody's own hold band, not one fixed width", () => {
+    it("lands on exactly 1 at the ordinary swing, which is every ladder before 2026-09-15", () => {
+      expect(holdHalfStepsFor(1)).toBeCloseTo(1, 10);
+    });
+
+    it("widens for a name that swings harder and narrows for one that barely moves", () => {
+      expect(holdHalfStepsFor(2)).toBeGreaterThan(1);
+      expect(holdHalfStepsFor(0.5)).toBeLessThan(1);
+    });
+
+    it("never disappears or swallows the ladder", () => {
+      expect(holdHalfStepsFor(100)).toBe(MAX_HOLD_HALF_STEPS);
+      expect(holdHalfStepsFor(0)).toBe(MIN_HOLD_HALF_STEPS);
+    });
+  });
+
+  describe("the fair-value zone widens the middle bands with it, never just the one number", () => {
+    it("moves the milder bands' edges the same direction as the zone, keeping every gap equal", () => {
+      const wide = buildPlanLadder({
+        ticker: "WIDE",
+        anchor: 100,
+        anchorKind: "estimate",
+        anchorSaid: "x",
+        spot: 100,
+        high: 200,
+        low: 40,
+      })!;
+      expect(wide.holdHalf).toBeGreaterThan(1);
+      // Every edge is still exactly one step from the one over it: a
+      // wider fair-value zone must not open a gap or an overlap.
+      for (let i = 0; i < wide.bands.length - 1; i += 1) {
+        expect(wide.bands[i]!.from).toBe(wide.bands[i + 1]!.to);
+      }
+      const holdSpan = bandById(wide, "hold")!.to! - bandById(wide, "hold")!.from!;
+      const trimSomeSpan =
+        bandById(wide, "trim-some")!.to! - bandById(wide, "trim-some")!.from!;
+      // The fair-value zone is wider than a single milder band's own
+      // step either side, which is what "widened" has to mean here.
+      expect(holdSpan).toBeGreaterThan(2 * trimSomeSpan);
+    });
+
+    /*
+      THE DIRECTION SAID IN THE SENTENCE HAS TO MATCH THE NUMBER IN IT.
+      A first version branched on `holdHalf` alone and printed
+      `holdHalf * step`, which are two different quantities once the
+      far-below regime also tightens `step`: a name at the swing cap,
+      priced a long way under its anchor, read "widened to 9% ...
+      instead of the ordinary 10%" -- a narrower zone captioned as a
+      wider one. Caught by printing the real sentence for a real case
+      and reading it, not by reasoning about the arithmetic.
+    */
+    it("never calls a narrower zone widened, even when the swing cap and the far-below tightening both fire", () => {
+      const ladder = buildPlanLadder({
+        ticker: "TEST",
+        anchor: 100,
+        anchorKind: "estimate",
+        anchorSaid: "x",
+        spot: 20,
+        high: 200,
+        low: 40,
+      })!;
+      expect(ladder.farBelow).toBe(true);
+      expect(ladder.holdHalf).toBe(MAX_HOLD_HALF_STEPS);
+      const holdWidthPct = ladder.holdHalf * ladder.step;
+      expect(holdWidthPct).toBeLessThan(BASE_STEP);
+      expect(ladder.stepSaid).toMatch(/narrowed to/);
+      expect(ladder.stepSaid).not.toMatch(/widened to/);
+    });
+
+    it("says nothing extra about the zone at the ordinary swing", () => {
+      const ladder = buildPlanLadder({
+        ticker: "TEST",
+        anchor: 100,
+        anchorKind: "estimate",
+        anchorSaid: "x",
+        spot: 100,
+        high: 125,
+        low: 75,
+      })!;
+      expect(ladder.holdHalf).toBeCloseTo(1, 6);
+      expect(ladder.stepSaid).not.toMatch(/close to fair value/);
+    });
+  });
+
+  describe("ACTIONABLE_BANDS: everything except hold, since 2026-09-15", () => {
+    it("excludes only hold and the retired full band", () => {
+      const bandIds: LadderBandId[] = [
+        "trim-most",
+        "trim-some",
+        "hold",
+        "starter",
+        "full-aggressive",
+        "exit",
+      ];
+      expect(bandIds.filter((id) => !isActionableBand(id))).toEqual(["hold"]);
+      expect(isActionableBand("full")).toBe(false);
+      expect(ACTIONABLE_BANDS).not.toContain("hold");
+      expect(ACTIONABLE_BANDS).not.toContain("full");
+    });
   });
 
   it("never tightens below the floor set for that regime", () => {
