@@ -64,6 +64,12 @@ export type ForecastRow = {
   eoyValues: Record<ForecastYear, number>;
   /** True when that year has a Margus/manual override (not placeholder spot) */
   targetedYears: Record<ForecastYear, boolean>;
+  /**
+   * True when that year's price came from the house account's own saved
+   * plan rather than this reader's own. Never true in the same year as
+   * `targetedYears`, since a reader's own always answers first.
+   */
+  houseTargetedYears: Record<ForecastYear, boolean>;
   /** (final EOY stock price − current SP) / current SP */
   gainPct: number | null;
   /** True when every forecast year has an override */
@@ -84,36 +90,62 @@ function normalizeTickerKey(ticker: string) {
 }
 
 /**
- * Resolve EOY SP from Margus/manual overrides only.
- * Never use hardcoded house baselines — missing years stay at spot until the model fills them.
+ * Resolve EOY SP from Margus/manual overrides first, the house account's
+ * own saved plan second, and spot last.
+ *
+ * The "never hardcoded" half of the old comment still holds and is not
+ * what this reads: `houseOverrides` is one real account's own figures,
+ * written through the same Growth-room field every reader uses, synced
+ * from `portfell_house_forecast` and disclosed as exactly that wherever
+ * it is drawn — never a table typed into this file. A reader's own
+ * override, hand-typed or Margus-filled, always wins over it; a house
+ * figure only fills a year nobody here has ever answered.
  */
 function priceForYear(
   ticker: string,
   year: ForecastYear,
   spot: number,
-  overrides?: PortfolioEoyOverrides
-): { price: number; targeted: boolean } {
+  overrides?: PortfolioEoyOverrides,
+  houseOverrides?: PortfolioEoyOverrides
+): { price: number; targeted: boolean; houseTargeted: boolean } {
   const key = normalizeTickerKey(ticker);
   const override = overrides?.[key]?.[year];
   if (typeof override === "number" && override > 0) {
-    return { price: override, targeted: true };
+    return { price: override, targeted: true, houseTargeted: false };
   }
-  return { price: spot, targeted: false };
+  const houseOverride = houseOverrides?.[key]?.[year];
+  if (typeof houseOverride === "number" && houseOverride > 0) {
+    return { price: houseOverride, targeted: false, houseTargeted: true };
+  }
+  return { price: spot, targeted: false, houseTargeted: false };
 }
 
-/** True when every holding has a positive override for every forecast year. */
+/**
+ * True when every holding has a real price for every forecast year,
+ * whether that year is the reader's own or the house account's.
+ *
+ * A house-supplied year counts as covered so the panel does not spend a
+ * model call auto-filling a year that already has a real, disclosed
+ * figure on it: the reader can still press "Ask Margus" for their own
+ * reasoning whenever they want it, but nothing here does that for them
+ * behind their back just because the number on screen is not theirs.
+ */
 export function isForecastFullyCovered(
   tickers: string[],
-  overrides?: PortfolioEoyOverrides
+  overrides?: PortfolioEoyOverrides,
+  houseOverrides?: PortfolioEoyOverrides
 ): boolean {
   if (!tickers.length) return true;
   for (const ticker of tickers) {
     const key = normalizeTickerKey(ticker);
     const row = overrides?.[key];
-    if (!row) return false;
+    const houseRow = houseOverrides?.[key];
     for (const year of FORECAST_YEARS) {
-      const p = row[year];
-      if (!(typeof p === "number" && p > 0)) return false;
+      const p = row?.[year];
+      const hp = houseRow?.[year];
+      const covered =
+        (typeof p === "number" && p > 0) || (typeof hp === "number" && hp > 0);
+      if (!covered) return false;
     }
   }
   return true;
@@ -123,7 +155,9 @@ export function buildForecast(
   holdings: Holding[],
   quotes: Record<string, Quote>,
   cashBalance: number,
-  overrides?: PortfolioEoyOverrides
+  overrides?: PortfolioEoyOverrides,
+  /** The house account's own saved plan, read only where this reader has none of their own. */
+  houseOverrides?: PortfolioEoyOverrides
 ): ForecastModel {
   const rows: ForecastRow[] = holdings
     .slice()
@@ -137,18 +171,21 @@ export function buildForecast(
       const eoyPrices = {} as Record<ForecastYear, number>;
       const eoyValues = {} as Record<ForecastYear, number>;
       const targetedYears = {} as Record<ForecastYear, boolean>;
+      const houseTargetedYears = {} as Record<ForecastYear, boolean>;
       let targetedCount = 0;
       for (const year of FORECAST_YEARS) {
-        const { price, targeted } = priceForYear(
+        const { price, targeted, houseTargeted } = priceForYear(
           h.ticker,
           year,
           spot,
-          overrides
+          overrides,
+          houseOverrides
         );
         if (targeted) targetedCount += 1;
         eoyPrices[year] = price;
         eoyValues[year] = roundMoney(finiteNumber(h.shares) * price);
         targetedYears[year] = targeted;
+        houseTargetedYears[year] = houseTargeted;
       }
       const currentValue = roundMoney(finiteNumber(h.shares) * finiteNumber(spot));
       const lastYear = FORECAST_YEARS[FORECAST_YEARS.length - 1];
@@ -162,6 +199,7 @@ export function buildForecast(
         eoyPrices,
         eoyValues,
         targetedYears,
+        houseTargetedYears,
         gainPct,
         hasTargets: targetedCount === FORECAST_YEARS.length,
       };
@@ -197,6 +235,12 @@ export type TickerForecastSummary = {
   eoyPrices: Record<ForecastYear, number>;
   eoyGains: Record<ForecastYear, number>;
   targetedYears: Record<ForecastYear, boolean>;
+  /**
+   * True where a year's price came from the house account's own saved
+   * plan rather than this reader's own. Never true in the same year as
+   * `targetedYears`.
+   */
+  houseTargetedYears: Record<ForecastYear, boolean>;
   /** Price at the end of the third forecast year. */
   threeYearPrice: number;
   threeYearGainPct: number;
@@ -206,6 +250,8 @@ export type TickerForecastSummary = {
   fiveYearGainPct: number;
   fiveYearCagrPct: number;
   hasOverrides: boolean;
+  /** True where any year came from the house account's own saved plan. */
+  hasHouseOverrides: boolean;
 };
 
 /**
@@ -226,7 +272,9 @@ export type TickerForecastSummary = {
 export function resolveTickerForecastPath(
   ticker: string,
   spot: number,
-  overrides?: PortfolioEoyOverrides
+  overrides?: PortfolioEoyOverrides,
+  /** The house account's own saved plan, read only where this reader has none of their own. */
+  houseOverrides?: PortfolioEoyOverrides
 ): TickerForecastSummary {
   const normTicker = ticker.toUpperCase();
   const fallback = shapedPathForTicker(spot > 0 ? spot : 1, normTicker);
@@ -234,18 +282,28 @@ export function resolveTickerForecastPath(
   const eoyPrices = {} as Record<ForecastYear, number>;
   const eoyGains = {} as Record<ForecastYear, number>;
   const targetedYears = {} as Record<ForecastYear, boolean>;
+  const houseTargetedYears = {} as Record<ForecastYear, boolean>;
   let hasOverrides = false;
+  let hasHouseOverrides = false;
 
   for (const year of FORECAST_YEARS) {
     const override = overrides?.[normTicker]?.[year];
+    const houseOverride = houseOverrides?.[normTicker]?.[year];
     let price: number;
     if (typeof override === "number" && override > 0) {
       price = override;
       targetedYears[year] = true;
+      houseTargetedYears[year] = false;
       hasOverrides = true;
+    } else if (typeof houseOverride === "number" && houseOverride > 0) {
+      price = houseOverride;
+      targetedYears[year] = false;
+      houseTargetedYears[year] = true;
+      hasHouseOverrides = true;
     } else {
       price = fallback[year] ?? (spot > 0 ? spot : 1);
       targetedYears[year] = false;
+      houseTargetedYears[year] = false;
     }
     eoyPrices[year] = price;
     eoyGains[year] = spot > 0 ? safeDiv(price - spot, spot) : 0;
@@ -268,12 +326,14 @@ export function resolveTickerForecastPath(
     eoyPrices,
     eoyGains,
     targetedYears,
+    houseTargetedYears,
     threeYearPrice,
     threeYearGainPct,
     threeYearCagrPct,
     fiveYearPrice,
     fiveYearGainPct,
     fiveYearCagrPct,
+    hasHouseOverrides,
     hasOverrides,
   };
 }

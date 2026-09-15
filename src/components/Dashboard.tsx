@@ -1195,9 +1195,10 @@ export function Dashboard() {
       portfolioHoldings,
       quotes,
       activePortfolio.cash_balance,
-      eoyOverrides
+      eoyOverrides,
+      houseForecast.eoyPrices
     );
-  }, [activePortfolio, portfolioHoldings, quotes, eoyOverrides]);
+  }, [activePortfolio, portfolioHoldings, quotes, eoyOverrides, houseForecast]);
 
   const margusSheetTickersKey = useMemo(() => {
     if (!margusSnapshot) return "";

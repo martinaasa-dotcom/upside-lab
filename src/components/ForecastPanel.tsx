@@ -229,11 +229,19 @@ function formatGeneratedAt(iso: string) {
 function EoyPriceInput({
   value,
   targeted,
+  houseTargeted = false,
   fill = false,
   onCommit,
 }: {
   value: number;
   targeted: boolean;
+  /**
+   * True where this price came from the house account's own saved plan
+   * rather than the reader's. The title says so honestly rather than the
+   * plain untouched cell's "waiting for Margus", which is false of a cell
+   * that already carries a real, disclosed figure.
+   */
+  houseTargeted?: boolean;
   /** Fills its row and takes a real touch height. The table variant cannot:
    * holdings rows are a fixed `h-10`, which is why `.inline-edit` is left out
    * of the coarse-pointer rule in `globals.css`. A phone rail has the room,
@@ -254,7 +262,13 @@ function EoyPriceInput({
       type="text"
       inputMode="decimal"
       value={draft}
-      title={targeted ? "Edit the end of year target" : "Waiting for Margus to work this one out, or type a price yourself"}
+      title={
+        targeted
+          ? "Edit the end of year target"
+          : houseTargeted
+            ? "This app's own account set this price, which you have not changed. Type your own to use it instead."
+            : "Waiting for Margus to work this one out, or type a price yourself"
+      }
       onChange={(e) => {
         setDraft(e.target.value.replace(/,/g, ".").replace(/[^\d.-]/g, ""));
       }}
@@ -522,6 +536,7 @@ function ForecastCard({
                         fill
                         value={row.eoyPrices[y]}
                         targeted={row.targetedYears[y]}
+                        houseTargeted={row.houseTargetedYears[y]}
                         onCommit={(n) => onSetEoyPrice(row.ticker, y, n)}
                       />
                     </span>
@@ -588,7 +603,19 @@ export const ForecastPanel = memo(function ForecastPanel({
     () => (planHydrated ? cachedTickersFor(rowTickers) : []),
     [planHydrated, rowTickers]
   );
-  const fullyCovered = isForecastFullyCovered(rowTickers, overrides);
+  /*
+    A house-supplied year counts as covered here too, so a portfolio that
+    is showing the house account's own saved plan does not also spend a
+    model call auto-filling years that already have a real, disclosed
+    price on them. `model.rows` already carries both sources merged
+    (`buildForecast`), so this reads them off the model rather than the
+    raw override maps a second time.
+  */
+  const fullyCovered =
+    isForecastFullyCovered(rowTickers, overrides) ||
+    model.rows.every((r) =>
+      yearCols.every((y) => r.targetedYears[y] || r.houseTargetedYears[y])
+    );
   const autoKeyRef = useRef<string>("");
   const reappliedRef = useRef<string>("");
   const calibrateKeyRef = useRef<string>("");
@@ -926,6 +953,23 @@ export const ForecastPanel = memo(function ForecastPanel({
   const provenanceByTicker = useMemo(() => {
     const map = new Map<string, ReturnType<typeof forecastPathProvenance>>();
     for (const r of model.rows) {
+      /*
+        A row this original check would call "fallback" but that is
+        actually showing the house account's own saved price (no reader
+        target on it at all) is neither the plain shape nor a model's own
+        reasoning, so it gets its own honest branch
+        (`forecastPathProvenance`'s `houseTargeted`) instead of the false
+        claim that "no model has written a path" over a figure this app's
+        own account actually typed. Every other row's fallback value is
+        untouched, house-covered or not, since that is existing behaviour
+        this change has no reason to move.
+      */
+      const originalFallback = isPlaceholder || !r.hasTargets;
+      const anyReaderTargeted = yearCols.some((y) => r.targetedYears[y]);
+      const anyHouseTargeted = yearCols.some((y) => r.houseTargetedYears[y]);
+      const houseTargeted =
+        originalFallback && !anyReaderTargeted && anyHouseTargeted;
+      const isFallback = originalFallback && !houseTargeted;
       map.set(
         r.ticker.toUpperCase(),
         forecastPathProvenance({
@@ -939,7 +983,8 @@ export const ForecastPanel = memo(function ForecastPanel({
             ordinary companies until the sector arrived.
           */
           sector: describeCompany(r.ticker, sectorWordsByTicker[r.ticker.toUpperCase()]) || null,
-          fallback: isPlaceholder || !r.hasTargets,
+          fallback: isFallback,
+          houseTargeted,
           at: plan?.generatedAt,
           model: plan?.writtenBy,
           adjust: adjustByTicker.get(r.ticker.toUpperCase()),

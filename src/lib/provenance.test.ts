@@ -24,6 +24,14 @@ const EVERY: Array<[string, Provenance]> = [
     "forecast path fallback",
     forecastPathProvenance({ ticker: "NBIS", spot: 211.11, fallback: true }),
   ],
+  [
+    "forecast path, house account's own plan",
+    forecastPathProvenance({
+      ticker: "NBIS",
+      spot: 211.11,
+      houseTargeted: true,
+    }),
+  ],
   ["forecast room", forecastRoomProvenance({})],
   ["forecast total", forecastTotalProvenance({})],
   ["pulse", pulseProvenance({ ticker: "CRWV" })],
@@ -86,6 +94,33 @@ describe("provenance", () => {
     });
     expect(p.maker).toBe("arithmetic");
     expect(p.headline).toMatch(/not reasoning/i);
+  });
+
+  it("names the house account's own plan honestly, distinct from the model and the plain shape", () => {
+    const p = forecastPathProvenance({
+      ticker: "NBIS",
+      spot: 217.39,
+      houseTargeted: true,
+    });
+    expect(p.maker).toBe("arithmetic");
+    expect(p.headline).toMatch(/not a model/i);
+    expect(p.headline).toMatch(/this app's own account/i);
+    // Never claim the reader chose it, and always say they can override it.
+    expect(p.headline).not.toMatch(/you\s+(typed|wrote|chose)/i);
+    expect(p.yours).toMatch(/you can type your own price/i);
+  });
+
+  it("never shows the house branch and the plain fallback at once", () => {
+    // fallback takes priority when both are somehow set, since "nobody
+    // has answered at all" and "the house account answered" cannot both
+    // be true of the same path.
+    const p = forecastPathProvenance({
+      ticker: "NBIS",
+      spot: 217.39,
+      fallback: true,
+      houseTargeted: true,
+    });
+    expect(p.headline).toMatch(/no model has written a path/i);
   });
 
   it("says how fast the fallback shape compounds, against the market", () => {

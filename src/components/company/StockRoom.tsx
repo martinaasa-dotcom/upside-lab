@@ -36,6 +36,7 @@ import { fairValueRead } from "@/lib/company/fair-value";
 import { fourQuestions } from "@/lib/company/four-questions";
 import { anchorForCompany, anchorForHolding } from "@/lib/company/ladder-anchor";
 import { HOLDING_WINDOW_SAID } from "@/lib/company/holding-ladders";
+import { useHouseForecastDefaults } from "@/lib/use-house-forecast-defaults";
 import {
   loadEoyOverrides,
   type EoyTickerOverrides,
@@ -469,6 +470,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
   */
   const live = useLivePrice(ticker, facts?.price ?? null, () => void load());
   const { ladders, setLadders } = usePlanLadders();
+  const houseForecast = useHouseForecastDefaults();
 
   /*
     This reader's own end-of-year overrides for the company on screen,
@@ -507,7 +509,12 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
       const firstYear = FORECAST_YEARS[0];
       const path =
         firstYear != null
-          ? resolveTickerForecastPath(ticker, live.price, ownEoyOverrides)
+          ? resolveTickerForecastPath(
+              ticker,
+              live.price,
+              ownEoyOverrides,
+              houseForecast.eoyPrices
+            )
           : null;
       const closes = (book.mineCloses ?? []).filter(
         (n) => Number.isFinite(n) && n > 0
@@ -522,6 +529,9 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
               rangeMid:
                 high !== null && low !== null ? (high + low) / 2 : null,
               windowSaid: HOLDING_WINDOW_SAID,
+              houseTarget: path?.houseTargetedYears[firstYear]
+                ? path.eoyPrices[firstYear]
+                : null,
             })
           : null;
       if (holdingAnchor) {
@@ -535,6 +545,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
           low,
           windowSaid: HOLDING_WINDOW_SAID,
           override: ladders[ticker] ?? null,
+          houseOverride: houseForecast.ladders[ticker] ?? null,
         });
       }
     }
@@ -559,6 +570,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
     book.mine.length,
     book.mineCloses,
     ownEoyOverrides,
+    houseForecast,
   ]);
 
   const questions = useMemo(() => {

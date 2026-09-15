@@ -171,6 +171,13 @@ const forecastStub = {
         2029: false,
         2030: false,
       },
+      houseTargetedYears: {
+        2026: false,
+        2027: false,
+        2028: false,
+        2029: false,
+        2030: false,
+      },
       gainPct: 0,
       hasTargets: false,
     },

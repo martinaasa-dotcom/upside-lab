@@ -81,16 +81,24 @@ export function holdingLadders(input: {
     );
     const high = closes.length > 1 ? Math.max(...closes) : null;
     const low = closes.length > 1 ? Math.min(...closes) : null;
-    const path = resolveTickerForecastPath(ticker, spot, input.overrides);
+    const path = resolveTickerForecastPath(
+      ticker,
+      spot,
+      input.overrides,
+      input.houseOverrides
+    );
     const anchor = anchorForHolding({
       target: path.eoyPrices[firstYear] ?? null,
       targetIsYours: Boolean(path.targetedYears[firstYear]),
       rangeMid: high !== null && low !== null ? (high + low) / 2 : null,
       windowSaid: HOLDING_WINDOW_SAID,
-      // `anchorForHolding` already checks the reader's own target first,
-      // so this is read regardless and only ever reached when theirs is
-      // absent.
-      houseTarget: input.houseOverrides?.[ticker]?.[firstYear] ?? null,
+      // `path.eoyPrices[firstYear]` is already the house figure when the
+      // reader has none of their own (resolveTickerForecastPath resolved
+      // it), so this is the same number named honestly rather than a
+      // second lookup.
+      houseTarget: path.houseTargetedYears[firstYear]
+        ? path.eoyPrices[firstYear]
+        : null,
     });
     if (!anchor) {
       out.push({ ticker, ladder: null, value: row.value });
