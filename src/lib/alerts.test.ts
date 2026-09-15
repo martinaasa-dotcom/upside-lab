@@ -244,12 +244,15 @@ describe("a ladder alert reads like this holding's own situation, not a mail mer
   });
 
   /*
-    The three bands `ACTIONABLE_BANDS` names, and only those: `full` was
-    retired from `EDGES` on 2026-09-11 (two of the three adding bands
-    said the same thing), so no ladder draws it and no alert can be
-    built from it. Its id survives in `LadderBandId` for saved levels
-    alone. Labels here are the ladder's own, which describe where the
-    price sits rather than telling anybody what to do about it.
+    Three of the five bands `ACTIONABLE_BANDS` names (2026-09-15 widened
+    it to all but "hold"; the milder "trim-some"/"starter" go through
+    the same builder and land on `ladderMomentTitle`'s default case,
+    covered separately). `full` was retired from `EDGES` on 2026-09-11
+    (two of the three adding bands said the same thing), so no ladder
+    draws it and no alert can be built from it. Its id survives in
+    `LadderBandId` for saved levels alone. Labels here are the ladder's
+    own, which describe where the price sits rather than telling anybody
+    what to do about it.
   */
   it("gives every actionable band its own headline and sentence shape", () => {
     const base = { ticker: "X", spot: 10, edited: false, edge: 9 };

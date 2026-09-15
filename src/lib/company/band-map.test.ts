@@ -182,11 +182,14 @@ describe("a name folds away because the bar ran out of room", () => {
     expect([...shares].sort((a, b) => b - a)).toEqual(shares);
   });
 
-  it("KEEPS A TINY NAME THAT HAS REACHED AN END OF ITS OWN PLAN", () => {
+  it("draws a tiny name alone in a decisive band, and still folds a crowded ordinary one", () => {
     /*
-      The whole reason to open this picture is to find the name that
-      reached a level, and folding by size alone throws exactly that one
-      away first when it is small.
+      Renamed from "KEEPS A TINY NAME THAT HAS REACHED AN END OF ITS OWN
+      PLAN": that title claimed more than this scenario tests. FALLEN's
+      own band has exactly one member here, so it is drawn because the
+      band fits inside two slots, not because of any priority over other
+      holdings in it. See the next test for what actually happens when a
+      decisive band is crowded.
     */
     const rows = [
       ...Array.from({ length: 9 }, (_, i) => holding(`BIG${i}`, 1, 100)),
@@ -199,12 +202,42 @@ describe("a name folds away because the bar ran out of room", () => {
 
     const quiet = map.bands.find((b) => b.id === "hold")!;
     const itsBand = map.bands.find((b) => b.id === fallen.bandId)!;
-    // Its own band draws it even squeezed down to two slots.
+    expect(itsBand.items).toHaveLength(1);
     expect(
       foldToFit(itsBand.items, 2).shown.map((p) => p.ticker)
     ).toContain("FALLEN");
     // And the crowded band it is not in still folds by size.
     expect(foldToFit(quiet.items, 3).folded.length).toBeGreaterThan(0);
+  });
+
+  /*
+    A KNOWN GAP, NOT A GUARANTEE: A CROWDED DECISIVE BAND STILL FOLDS ITS
+    OWN SMALLEST HOLDING (found 2026-09-15, widening `ACTIONABLE_BANDS`).
+
+    `foldToFit`'s `actionable` sort term only breaks a tie between items
+    of DIFFERENT actionable status, and its one caller always hands it a
+    single band's own items, which share one `bandId` and so one
+    `actionable` value. So within a band, decisive or not, folding has
+    always been pure share order. This test pins that as the documented
+    current behaviour rather than leaving it to be rediscovered: flip
+    the expectation once `foldToFit` (or its caller) actually protects a
+    small holding in a crowded decisive band, which needs a measured
+    design rather than a guess, per this file's standing rule for this
+    component.
+  */
+  it("still folds its own smallest holding when a decisive band is itself crowded", () => {
+    const rows = [
+      ...Array.from({ length: 9 }, (_, i) => holding(`BIG${i}`, 0.3, 100)),
+      holding("TINY", 0.3, 1),
+    ];
+    const map = buildBandMap(rows);
+    const tiny = map.points.find((p) => p.ticker === "TINY")!;
+    expect(tiny.actionable).toBe(true);
+    const crowded = map.bands.find((b) => b.id === tiny.bandId)!;
+    expect(crowded.items.length).toBeGreaterThan(4);
+    expect(
+      foldToFit(crowded.items, 4).shown.map((p) => p.ticker)
+    ).not.toContain("TINY");
   });
 
   it("counts every name in its band's own share, drawn or folded", () => {
@@ -440,13 +473,13 @@ describe("the picture never claims a level was the reader's when it was not", ()
       holding("QUIET", 1, 40),
     ]);
     const said = readySaid(map.summary);
-    expect(said).toContain("their own ladders");
-    expect(said).not.toContain("B at the bottom of its own ladder");
+    expect(said).toContain("they look worth");
+    expect(said).not.toContain("it looks worth");
   });
 
   it("keeps the singular for one name", () => {
     const map = buildBandMap([holding("A", 0.3, 40), holding("QUIET", 1, 60)]);
-    expect(readySaid(map.summary)).toContain("its own ladder");
+    expect(readySaid(map.summary)).toContain("it looks worth");
   });
 
   it("says nothing about levels when no name has reached one", () => {

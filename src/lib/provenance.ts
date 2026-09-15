@@ -1351,7 +1351,7 @@ export function bandMapProvenance(input: {
       "Which row a name is in is which zone its price is in. Every zone is a multiple of that company's own fair value, which is what lets a $2 company and a $2,000 one be compared at all.",
       `A zone's bar is how much of ${whose} is priced in that zone, measured against the fullest zone rather than against a hundred per cent, and each block in the bar is one ${input.pooled ? "company" : "holding"} sized by what it is worth.`,
       `Every row is the same height whatever ${input.pooled ? "anybody holds" : "you own"}, including the rows with nothing in them, so the shape of the ladder cannot change with the ${input.pooled ? "circle" : "portfolio"}.`,
-      "A name folds away only when its zone has run out of room to draw it, never because it is small on its own, and what folds is the smallest of that zone. They fold into a block saying how many went and what they come to together, and a name that has reached an end of its own ladder is kept however small it is.",
+      "A name folds away only when its zone has run out of room to draw it, never because it is small on its own, and what folds is the smallest of that zone first. They fold into a block saying how many went and what they come to together.",
       `A bar is never drawn shorter than the names inside it need to be readable, so a zone holding very little of ${whose} can look longer than its share alone would make it. The figure beside the bar is the exact share, and it is the one to read.`,
     ],
     blindSpots: [
