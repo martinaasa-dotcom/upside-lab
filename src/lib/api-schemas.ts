@@ -179,6 +179,11 @@ export const labPutSchema = z.looseObject({
     band ids, which a schema would have to restate and then drift from.
   */
   ladders: z.record(z.string().max(12), z.unknown()).optional(),
+  /*
+    End-of-year price targets, same shape as `ladders`: loose here, cleaned
+    by `sanitizeEoyOverrides` on the way into the table.
+  */
+  eoyOverrides: z.record(z.string().max(12), z.unknown()).optional(),
   updatedAt: z.string().max(40).optional(),
 });
 

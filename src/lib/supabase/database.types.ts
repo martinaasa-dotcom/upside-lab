@@ -568,6 +568,27 @@ export type Database = {
           },
         ]
       }
+      portfell_house_forecast: {
+        Row: {
+          eoy_prices: Json
+          ladder: Json | null
+          ticker: string
+          updated_at: string
+        }
+        Insert: {
+          eoy_prices?: Json
+          ladder?: Json | null
+          ticker: string
+          updated_at?: string
+        }
+        Update: {
+          eoy_prices?: Json
+          ladder?: Json | null
+          ticker?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       portfell_household_groups: {
         Row: {
           email: string
@@ -586,6 +607,7 @@ export type Database = {
       portfell_lab_state: {
         Row: {
           conviction: Json
+          eoy_overrides: Json
           id: string
           ladders: Json
           owner_id: string | null
@@ -594,6 +616,7 @@ export type Database = {
         }
         Insert: {
           conviction?: Json
+          eoy_overrides?: Json
           id?: string
           ladders?: Json
           owner_id?: string | null
@@ -602,6 +625,7 @@ export type Database = {
         }
         Update: {
           conviction?: Json
+          eoy_overrides?: Json
           id?: string
           ladders?: Json
           owner_id?: string | null

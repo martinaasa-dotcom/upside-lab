@@ -27,6 +27,7 @@ export function useLabSync() {
         conviction: loadConvictionMap(),
         watchlist: loadWatchlist(),
         ladders: loadLocalLadders(),
+        eoyOverrides: {},
       };
       const remote = await fetchLabBundle(ctrl.signal);
       if (ctrl.signal.aborted) return;
@@ -63,6 +64,12 @@ export function useLabSync() {
               Object.keys(remote.bundle.ladders ?? {}).length === 0
                 ? local.ladders
                 : remote.bundle.ladders,
+            /*
+              No per-device local copy of this one (Dashboard keeps its own
+              per-portfolio localStorage and pushes the merged book-wide map
+              here on every save), so the account's own answer always wins.
+            */
+            eoyOverrides: remote.bundle.eoyOverrides ?? {},
             updatedAt: remote.bundle.updatedAt,
           };
           setLabBundle(merged);

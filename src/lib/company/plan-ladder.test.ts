@@ -188,6 +188,52 @@ describe("every number on it is the reader's to change", () => {
   });
 });
 
+describe("a house default fills in a level only where the reader has none of their own", () => {
+  it("uses the house edge when the reader has not set one", () => {
+    const ladder = buildPlanLadder({
+      ...REFERENCE,
+      houseOverride: { edges: { "trim-some": 1.35 } },
+    })!;
+    expect(bandById(ladder, "trim-some")!.to).toBeCloseTo(380.59 * 1.35, 4);
+    // A house-filled edge is not the reader's own: it reads exactly like
+    // the plain computed default, both in the flag and in the wording it
+    // feeds (`ladderRead`, `readySaid`), because the reader never typed it.
+    expect(ladder.edited).toBe(false);
+    expect(bandById(ladder, "trim-some")!.edited).toBe(false);
+  });
+
+  it("lets the reader's own edge outrank the house one", () => {
+    const ladder = buildPlanLadder({
+      ...REFERENCE,
+      override: { edges: { "trim-some": 1.5 } },
+      houseOverride: { edges: { "trim-some": 1.35 } },
+    })!;
+    expect(bandById(ladder, "trim-some")!.to).toBeCloseTo(380.59 * 1.5, 4);
+    expect(ladder.edited).toBe(true);
+  });
+
+  it("uses the house anchor, disclosed as the house's own and never the reader's", () => {
+    const ladder = buildPlanLadder({
+      ...REFERENCE,
+      houseOverride: { anchor: 500 },
+    })!;
+    expect(ladder.anchor).toBe(500);
+    expect(ladder.anchorKind).toBe("house");
+    expect(ladder.anchorSaid).toContain("this app's own account");
+    expect(ladder.edited).toBe(false);
+  });
+
+  it("lets the reader's own typed anchor outrank the house one", () => {
+    const ladder = buildPlanLadder({
+      ...REFERENCE,
+      override: { anchor: 620 },
+      houseOverride: { anchor: 500 },
+    })!;
+    expect(ladder.anchor).toBe(620);
+    expect(ladder.anchorKind).toBe("your-own");
+  });
+});
+
 describe("nothing it says is this app telling anybody what to do", () => {
   const ladder = buildPlanLadder(REFERENCE)!;
 

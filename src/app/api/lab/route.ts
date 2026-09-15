@@ -2,10 +2,12 @@ import { dbError } from "@/lib/db-error";
 import { NextRequest, NextResponse } from "next/server";
 import {
   emptyLabBundle,
+  sanitizeEoyOverrides,
   sanitizeLadders,
   sanitizeWatchlist,
   type LabBundle,
 } from "@/lib/lab-bundle";
+import { mirrorHouseForecast } from "@/lib/forecast/house-forecast-sync";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
@@ -28,18 +30,20 @@ const LAB_BASE_COLS = ["id", "owner_id", "conviction", "updated_at"];
  * instance and reset when the instance recycles, so a column starts being
  * used again on its own once its migration lands, with no deploy needed.
  *
- * `watchlist` came with `20260819140000_lab_watchlist.sql` and `ladders`
- * with `20260906140000_a_price_plan_belongs_to_the_reader.sql`. They are
- * tracked separately on purpose: one environment can have the first and
- * not the second, and a single flag would take the applied column out
- * along with the missing one.
+ * `watchlist` came with `20260819140000_lab_watchlist.sql`, `ladders`
+ * with `20260906140000_a_price_plan_belongs_to_the_reader.sql`, and
+ * `eoyOverrides` with `20260915120000_a_house_default_for_everyone_else.sql`.
+ * They are tracked separately on purpose: one environment can have the
+ * first two and not the third, and a single flag would take an applied
+ * column out along with the missing one.
  */
-const OPTIONAL_COLUMNS = ["watchlist", "ladders"] as const;
+const OPTIONAL_COLUMNS = ["watchlist", "ladders", "eoy_overrides"] as const;
 type OptionalColumn = (typeof OPTIONAL_COLUMNS)[number];
 
 const columnReady: Record<OptionalColumn, boolean> = {
   watchlist: true,
   ladders: true,
+  eoy_overrides: true,
 };
 
 function labCols(): string {
@@ -69,6 +73,7 @@ function rowToBundle(row: Record<string, unknown> | null): LabBundle {
     conviction: (row.conviction as LabBundle["conviction"]) ?? {},
     watchlist: sanitizeWatchlist(row.watchlist),
     ladders: sanitizeLadders(row.ladders),
+    eoyOverrides: sanitizeEoyOverrides(row.eoy_overrides),
     updatedAt: typeof row.updated_at === "string" ? row.updated_at : undefined,
   };
 }
@@ -144,6 +149,7 @@ async function handlePUT(req: NextRequest) {
       conviction?: LabBundle["conviction"];
       watchlist?: string[];
       ladders?: LabBundle["ladders"];
+      eoy_overrides?: LabBundle["eoyOverrides"];
     } = { updated_at: now };
     if (body.conviction !== undefined) {
       patch.conviction = body.conviction as LabBundle["conviction"];
@@ -153,6 +159,9 @@ async function handlePUT(req: NextRequest) {
     }
     if (body.ladders !== undefined && columnReady.ladders) {
       patch.ladders = sanitizeLadders(body.ladders);
+    }
+    if (body.eoyOverrides !== undefined && columnReady.eoy_overrides) {
+      patch.eoy_overrides = sanitizeEoyOverrides(body.eoyOverrides);
     }
 
     if (existing) {
@@ -175,6 +184,9 @@ async function handlePUT(req: NextRequest) {
         ...(columnReady.ladders
           ? { ladders: sanitizeLadders(body.ladders) }
           : {}),
+        ...(columnReady.eoy_overrides
+          ? { eoy_overrides: sanitizeEoyOverrides(body.eoyOverrides) }
+          : {}),
         updated_at: now,
       })
       .select(labCols())
@@ -192,6 +204,20 @@ async function handlePUT(req: NextRequest) {
   if (error) {
     return NextResponse.json({ error: dbError(error, "/api/lab") }, { status: 500 });
   }
+
+  // Best-effort and after the reader's own save has already gone through:
+  // the site default catching up must never slow down or fail their write.
+  void mirrorHouseForecast({
+    email: auth.user.email,
+    eoyOverrides:
+      body.eoyOverrides !== undefined && columnReady.eoy_overrides
+        ? sanitizeEoyOverrides(body.eoyOverrides)
+        : undefined,
+    ladders:
+      body.ladders !== undefined && columnReady.ladders
+        ? sanitizeLadders(body.ladders)
+        : undefined,
+  });
 
   return NextResponse.json({
     ok: true,

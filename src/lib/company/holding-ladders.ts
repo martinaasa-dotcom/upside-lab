@@ -15,6 +15,7 @@ import type { PortfolioEoyOverrides } from "@/lib/forecast-overrides";
 import { anchorForHolding } from "@/lib/company/ladder-anchor";
 import {
   buildPlanLadder,
+  type LadderOverride,
   type LadderOverrides,
   type PlanLadder,
 } from "@/lib/company/plan-ladder";
@@ -47,6 +48,14 @@ export function holdingLadders(input: {
   }>;
   overrides?: PortfolioEoyOverrides;
   ladders?: LadderOverrides;
+  /**
+   * The house account's own targets and ladder edits, read for a ticker
+   * only when this reader has none of their own — never for the house
+   * account's own tickers, since `overrides`/`ladders` already answer
+   * first there and a figure never falls back to itself.
+   */
+  houseOverrides?: PortfolioEoyOverrides;
+  houseLadders?: Record<string, LadderOverride>;
 }): HoldingLadderRow[] {
   const firstYear = FORECAST_YEARS[0];
   const out: HoldingLadderRow[] = [];
@@ -78,6 +87,10 @@ export function holdingLadders(input: {
       targetIsYours: Boolean(path.targetedYears[firstYear]),
       rangeMid: high !== null && low !== null ? (high + low) / 2 : null,
       windowSaid: HOLDING_WINDOW_SAID,
+      // `anchorForHolding` already checks the reader's own target first,
+      // so this is read regardless and only ever reached when theirs is
+      // absent.
+      houseTarget: input.houseOverrides?.[ticker]?.[firstYear] ?? null,
     });
     if (!anchor) {
       out.push({ ticker, ladder: null, value: row.value });
@@ -97,6 +110,7 @@ export function holdingLadders(input: {
         low,
         windowSaid: HOLDING_WINDOW_SAID,
         override: input.ladders?.[ticker] ?? null,
+        houseOverride: input.houseLadders?.[ticker] ?? null,
       }),
     });
   }

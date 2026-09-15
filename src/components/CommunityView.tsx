@@ -57,6 +57,7 @@ import { overlapRows } from "@/lib/circle-overlap";
 import { sheetCashBalance } from "@/lib/cash-balance";
 import { buildOverview } from "@/lib/overview";
 import { holdingLadders } from "@/lib/company/holding-ladders";
+import { useHouseForecastDefaults } from "@/lib/use-house-forecast-defaults";
 import {
   loadCommunityCache,
   loadCommunityDuelCache,
@@ -167,6 +168,7 @@ export function CommunityView({ communityId }: Props) {
   // whole page, so the cache that existed to make this instant was making it
   // slower. State now starts at the server-safe value and the cache is applied
   // in a layout effect below, before the browser paints.
+  const houseForecast = useHouseForecastDefaults();
   const initialCacheRef = useRef<CommunityCache>({ meta: null, book: null });
   const [community, setCommunity] = useState<CommunityMeta | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -646,13 +648,22 @@ export function CommunityView({ communityId }: Props) {
     `roiPct` is `null` on every row for the same reason, and deliberately
     rather than incidentally: a pooled gain needs a cost basis the circle
     does not have, so the picture says where prices sit and refuses the
-    other question outright. No per-reader overrides are passed either.
-    This is the circle's own shape, not any one member's edited plan, and
-    `pooled` on the panel is what keeps every sentence on it saying so.
+    other question outright. No per-MEMBER overrides are passed: this is
+    the circle's own shape, not any one member's edited plan, and `pooled`
+    on the panel is what keeps every sentence on it saying so.
+
+    The one exception is the house account's own default
+    (`houseOverrides`/`houseLadders`), which is not any member's personal
+    plan either -- it is the site's own starting point, the same one every
+    other portfolio falls back to, so leaving it out here would make
+    Circle the one surface still drawing the plain trading-range default
+    after everywhere else moved on.
   */
   const circleLadderRows = useMemo(
     () =>
       holdingLadders({
+        houseOverrides: houseForecast.eoyPrices,
+        houseLadders: houseForecast.ladders,
         rows: overview.tickers.map((t) => {
           const spot = quotes[t.ticker]?.price ?? null;
           return {
@@ -689,7 +700,7 @@ export function CommunityView({ communityId }: Props) {
           };
         }),
       }),
-    [overview.tickers, quotes]
+    [overview.tickers, quotes, houseForecast]
   );
 
   // One combined per-person stat, computed once and reused by the power

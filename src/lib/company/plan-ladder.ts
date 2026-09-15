@@ -84,7 +84,24 @@ export type LadderAnchorKind =
   | "estimate"
   | "target"
   | "history"
-  | "your-own";
+  | "your-own"
+  /**
+   * THE HOUSE ACCOUNT'S OWN TARGET OR EDGE, REPUBLISHED AS THE SITE'S
+   * DEFAULT.
+   *
+   * Not "your-own" — the reader did not type this, and `edited` stays
+   * false for it exactly as it does for the plain arithmetic default, so
+   * `readySaid`/`ladderMomentDetail`/`ladderRead` still say "the level
+   * your ladder worked out" rather than falsely claiming the reader set
+   * it. What changes is which number the arithmetic starts from: the
+   * house account's own saved plan (`portfell_house_forecast`) rather
+   * than the trading-range midpoint or the generic theme shape, for
+   * anybody who has not written their own figure over it. The distinction
+   * from the plain default lives in the sentence (`anchorSaid`), which is
+   * where a reader who wants to know why a level differs from what they
+   * expected can check it.
+   */
+  | "house";
 
 export type PlanLadder = {
   ticker: string;
@@ -419,8 +436,21 @@ export function buildPlanLadder(input: {
   /** The window the high and the low cover, in words. */
   windowSaid?: string;
   override?: LadderOverride | null;
+  /**
+   * The house account's own edge/anchor edits for this ticker, read only
+   * where the reader has none of their own. Never counts toward `edited`:
+   * that flag stays "did THIS reader change anything", so a level filled
+   * in from the house account reads exactly like a plain computed one and
+   * is disclosed instead through `anchorSaid` upstream in `anchorForHolding`.
+   */
+  houseOverride?: LadderOverride | null;
 }): PlanLadder | null {
-  const typed = ok(input.override?.anchor) ? input.override.anchor : null;
+  const typed = ok(input.override?.anchor)
+    ? input.override.anchor
+    : ok(input.houseOverride?.anchor)
+      ? input.houseOverride.anchor
+      : null;
+  const readerTypedAnchor = ok(input.override?.anchor);
   const anchor = typed ?? (ok(input.anchor) ? input.anchor : null);
   if (!ok(anchor)) return null;
 
@@ -451,7 +481,8 @@ export function buildPlanLadder(input: {
     ? `${ordinary.said} Tightened to ${percent(step, 2)} because the price is a long way under the anchor: down there every price is the same decision, so the fine detail belongs at the top, where the levels you would actually meet are.`
     : ordinary.said;
 
-  const edits = input.override?.edges ?? {};
+  const readerEdits = input.override?.edges ?? {};
+  const houseEdits = input.houseOverride?.edges ?? {};
   const floor = ladderFloor({ anchor, step, low: input.low });
   const exitAt = floor.price / anchor;
 
@@ -474,12 +505,18 @@ export function buildPlanLadder(input: {
         : e.id === "exit"
           ? exitAt
           : 1 + (e.steps ?? 0) * step;
-    const edit = edits[e.id];
-    const edited = ok(edit) && computed !== null;
+    const readerEdit = readerEdits[e.id];
+    const houseEdit = houseEdits[e.id];
+    const edited = ok(readerEdit) && computed !== null;
+    const value = ok(readerEdit)
+      ? readerEdit
+      : ok(houseEdit)
+        ? houseEdit
+        : computed;
     return {
       id: e.id,
       label: e.label,
-      ratio: edited ? (edit as number) : computed,
+      ratio: value,
       edited,
     };
   });
@@ -517,10 +554,12 @@ export function buildPlanLadder(input: {
   return {
     ticker: input.ticker.toUpperCase(),
     anchor,
-    anchorKind: typed ? "your-own" : input.anchorKind,
-    anchorSaid: typed
+    anchorKind: readerTypedAnchor ? "your-own" : typed ? "house" : input.anchorKind,
+    anchorSaid: readerTypedAnchor
       ? `${currency(anchor, 2)}, which is the figure you typed. Every zone is a multiple of it, so changing it moves the whole ladder at once.`
-      : input.anchorSaid,
+      : typed
+        ? `${currency(anchor, 2)}, the figure this app's own account has set for this ladder, which you have not changed. Every zone is a multiple of it, and you can write your own over it.`
+        : input.anchorSaid,
     step,
     stepSaid: said,
     farBelow,
@@ -538,7 +577,7 @@ export function buildPlanLadder(input: {
     bands,
     spot,
     atId: spot === null ? null : bandAt(bands, spot),
-    edited: typed !== null || bands.some((b) => b.edited),
+    edited: readerTypedAnchor || bands.some((b) => b.edited),
   };
 }
 
