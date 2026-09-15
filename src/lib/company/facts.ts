@@ -165,10 +165,26 @@ export type CompanyFacts = {
  * Rounded before hashing so a feed restating a figure to another decimal
  * place does not throw away a perfectly good brief.
  */
+/**
+ * Bumped when the stored briefs are wrong rather than merely old.
+ *
+ * A facts key that no longer matches makes every saved page unusable, so
+ * the next reader of a company gets a fresh run instead of the row behind
+ * it. That is the only lever this store has, and it is the right one
+ * here: every path written while the research room re-timed unconditionally
+ * carries the theme's curve rather than the model's, and those rows would
+ * otherwise be served for another five days under the provenance mark as
+ * a considered answer. The public pages go back to figures with no
+ * argument until the cron walks them, which is the cold state that room
+ * already has and is better than a confident wrong picture.
+ */
+const FACTS_KEY_VERSION = "v2";
+
 export function companyFactsKey(facts: CompanyFacts): string {
   const round = (n: number | null, digits = 2): string =>
     typeof n === "number" && Number.isFinite(n) ? n.toFixed(digits) : "n";
   return [
+    FACTS_KEY_VERSION,
     facts.ticker,
     round(facts.revenue, 0),
     round(facts.netIncome, 0),

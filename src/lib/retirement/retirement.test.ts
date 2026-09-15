@@ -34,6 +34,7 @@ import {
   defaultGlide,
   DEFAULT_RETURN_ASSUMPTIONS,
   portfolioRealReturnPct,
+  PORTFOLIO_RATE_CEILING_PCT,
   REAL_RETURN_ASSUMPTIONS,
 } from "@/lib/retirement/returns";
 import {
@@ -315,8 +316,20 @@ describe("the mix and what it earns", () => {
 
   describe("the reader's own holdings, offered as a growth rate", () => {
     it("is exactly Compound's own blend, turned real by the Fisher relation", () => {
+      /*
+        The original point stands and is why this test exists: the two
+        screens must not hold two sets of assumptions about one portfolio.
+
+        It is asserted below the ceiling now. `portfolioRealReturnPct`
+        caps what a lifetime plan may assume (`PORTFOLIO_RATE_CEILING_PCT`,
+        see that file for the measurement), so the identity holds up to
+        that point and the cap takes over past it. The holdings here were
+        NVDA and KO, which blend hot enough to be clipped once the per-name
+        growth table landed; an index fund beside the same defensive name
+        keeps the comparison honest.
+      */
       const holdings = [
-        { ticker: "NVDA", value: 6000 },
+        { ticker: "SPY", value: 6000 },
         { ticker: "KO", value: 4000 },
       ];
       const cashBalance = 1000;
@@ -327,7 +340,27 @@ describe("the mix and what it earns", () => {
       const expectedReal =
         (1 + nominal) / (1 + COMPOUND_INFLATION_ANNUAL_PCT / 100) - 1;
       const got = portfolioRealReturnPct(holdings, cashBalance);
+      expect(got).toBeLessThan(PORTFOLIO_RATE_CEILING_PCT);
       expect(got).toBeCloseTo(Math.round(expectedReal * 1000) / 10, 5);
+    });
+
+    it("stops agreeing with Compound once the lifetime ceiling binds", () => {
+      /*
+        The deliberate divergence, pinned so nobody restores the identity
+        by deleting the cap. Compound's rate is an optimistic five year
+        scenario a reader reads once; this one opens a forty year plan.
+      */
+      const holdings = [{ ticker: "NVDA", value: 10_000 }];
+      const nominal = blendedExpectedAnnualReturn(holdings, {
+        balance: 0,
+        annualReturnPct: COMPOUND_CASH_YIELD_ANNUAL_PCT,
+      });
+      const uncapped =
+        ((1 + nominal) / (1 + COMPOUND_INFLATION_ANNUAL_PCT / 100) - 1) * 100;
+      expect(uncapped).toBeGreaterThan(PORTFOLIO_RATE_CEILING_PCT);
+      expect(portfolioRealReturnPct(holdings, 0)).toBe(
+        PORTFOLIO_RATE_CEILING_PCT
+      );
     });
 
     it("comes back lower than the nominal blend it was built from", () => {

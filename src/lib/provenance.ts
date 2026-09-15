@@ -4,7 +4,7 @@ import { hazardReductionAt, IMPROVEMENT_REFERENCE_AGE } from "@/lib/retirement/l
 import type { ModelRun } from "@/lib/ai/model-label";
 import type { ForecastPathAdjustment } from "@/lib/forecast-plan";
 import {
-  forecastThemeForTicker,
+  growthAnchorFor,
   impliedAnnualReturnForTheme,
 } from "@/lib/forecast-conviction";
 
@@ -171,12 +171,48 @@ const MODEL_ITSELF: ProvenanceSource = {
   what: "everything else, out of its training. Nothing was looked up for it.",
 };
 
-/** The one line about the market baseline, so its number is stated once. */
-const BASELINE_INPUT: ProvenanceInput = {
-  what: "The whole-market baseline",
-  detail:
-    "about 10% a year, which is what a broad index fund is assumed to return. The model reasons up or down from there, and nothing in this app moves its answer afterwards. A path that ends flat, or below today's price, is shown as it was written.",
+/**
+ * This app is a source too, now that it sets where a path ends. Naming it
+ * beside the model is the whole point: a reader who wants to know which of
+ * the two chose a number can see that both are on the list.
+ */
+const THIS_APP_GROWTH: ProvenanceSource = {
+  name: "This app",
+  what: "the growth rate each holding is assumed to compound at, and the reason written against it",
 };
+
+/**
+ * What this app assumes a holding grows at, stated once and by name.
+ *
+ * This replaced a line saying the market baseline was the only assumption
+ * in play and that "nothing in this app moves its answer afterwards".
+ * That stopped being true on 2026-09-14, when the growth assumptions in
+ * `forecast-growth.ts` began setting where a path ends. A sentence in the
+ * provenance panel describing a version of the app that no longer exists
+ * is worse than no sentence, because the person reading it is the one
+ * checking.
+ */
+function growthAssumptionInput(ticker: string): ProvenanceInput {
+  const anchor = growthAnchorFor(ticker);
+  const rate = `${Math.round(anchor.cagr * 100)}% a year`;
+  const market = `${Math.round(impliedAnnualReturnForTheme("index") * 100)}%`;
+  const whose =
+    anchor.basis === "ticker"
+      ? "looked at for this company on its own"
+      : "used for its kind of business";
+  return {
+    what: "What this app assumes it grows at",
+    detail: `about ${rate}, ${whose}, against the ${market} used for the market as a whole. The reason on file is: ${anchor.because}`,
+  };
+}
+
+/**
+ * What those assumptions rest on, in one sentence a reader can disagree
+ * with. Every figure on the card is downstream of it, so it is the first
+ * thing to argue with and the first thing this panel should say.
+ */
+const GROWTH_THESIS =
+  "This app's growth assumptions are built on the spending behind AI continuing: the datacenters being committed to now, the chips and the electricity they have to buy, and the software that runs on them. The figures follow the trend that spending is on today rather than assuming it fades. If it slows, these are too high, and the names furthest up the list are the ones that would fall furthest.";
 
 /* ---------------------------------------------------------------------- *
  * Forecast
@@ -199,7 +235,12 @@ function adjustmentSteps(adjust?: ForecastPathAdjustment): string[] {
   }
   if (adjust.reshaped) {
     out.push(
-      "It answered with an even ramp, the same rise every year, which no share price does. This app spread the same move across the years in the rhythm typical of that kind of business, with quiet years and fast ones. Where the path ends is still the model's own number."
+      "It answered with an even ramp, the same rise every year, which no share price does. This app spread the same move across the years in the rhythm typical of that kind of business, with quiet years and fast ones."
+    );
+  }
+  if (adjust.anchored) {
+    out.push(
+      "Its last year came in under what this app assumes this holding grows at, so the whole path was raised to meet that figure. The model's own rhythm was kept, so the quiet years and any drop it reasoned about are still where it put them. Had its answer been at or above the assumption, it would have been left exactly as written."
     );
   }
   return out;
@@ -221,16 +262,35 @@ function adjustmentSteps(adjust?: ForecastPathAdjustment): string[] {
  * cent a year with nothing on screen putting that next to the ten the
  * market's own baseline uses. State the figure and what it is next to,
  * which is the rule the whole product runs on.
+ *
+ * **It reads the name's own rate, not its sector's**, and that correction
+ * is the whole reason this comment is longer than the function. When the
+ * per-name table landed, the shape being drawn became
+ * `shapedPathForTicker` while this line still printed
+ * `impliedAnnualReturnForTheme`, so the figure and the sentence explaining
+ * it came from two different tables. Measured: `INTC` drew a path
+ * compounding at 6% a year under a mark that said 29%, and `NBIS` drew
+ * 41.5% under a mark that said 37%. A number whose own explanation
+ * contradicts it is the exact fault the provenance panel exists to
+ * prevent, so anything printed here must be read from `growthAnchorFor`,
+ * which is the one thing the drawn path is built from.
  */
 function shapeRateLine(ticker: string): string {
-  const theme = forecastThemeForTicker(ticker);
-  const rate = impliedAnnualReturnForTheme(theme);
+  const anchor = growthAnchorFor(ticker);
   const market = impliedAnnualReturnForTheme("index");
-  const said = `${Math.round(rate * 100)}% a year`;
+  const said = `${Math.round(anchor.cagr * 100)}% a year`;
   const baseline = `${Math.round(market * 100)}%`;
-  return rate > market + 0.005
-    ? `That shape works out at about ${said}, against the ${baseline} this app uses for the market as a whole.`
-    : `That shape works out at about ${said}, which is what this app uses for the market as a whole.`;
+  const whose =
+    anchor.basis === "ticker"
+      ? " That rate was looked at for this company on its own."
+      : " That rate is the one used for its kind of business, since no rate has been looked at for this company on its own.";
+  if (anchor.cagr > market + 0.005) {
+    return `That shape works out at about ${said}, against the ${baseline} this app uses for the market as a whole.${whose}`;
+  }
+  if (anchor.cagr < market - 0.005) {
+    return `That shape works out at about ${said}, below the ${baseline} this app uses for the market as a whole.${whose}`;
+  }
+  return `That shape works out at about ${said}, which is what this app uses for the market as a whole.${whose}`;
 }
 
 export function forecastPathProvenance(input: {
@@ -339,16 +399,17 @@ export function forecastPathProvenance(input: {
         what: "Today's date",
         detail: "so the first year is the rest of this year, not a whole one",
       },
-      BASELINE_INPUT,
+      growthAssumptionInput(input.ticker),
       TRAINING_INPUT,
     ],
     sources: [
       YAHOO_PRICES,
       YOUR_HOLDINGS,
       MODEL_ITSELF,
+      THIS_APP_GROWTH,
     ],
     steps,
-    blindSpots: [NOT_THE_FUTURE, NO_NEWS, TRAINING_IS_STALE, NOT_A_TARGET],
+    blindSpots: [GROWTH_THESIS, NOT_THE_FUTURE, NO_NEWS, TRAINING_IS_STALE, NOT_A_TARGET],
     at: input.at,
     yours: input.edited
       ? "You have typed over at least one year here, and your number wins."
@@ -371,7 +432,7 @@ export function forecastRoomProvenance(input: {
       maker: "arithmetic",
       title: "Where this came from",
       headline:
-        "No model has run for this portfolio yet. Each path is a plain shape for that kind of business, and the chart is those shapes added up.",
+        "No model has run for this portfolio yet. Each path is a plain shape grown at the rate this app assumes for that holding, and the chart is those shapes added up.",
       inputs: [
         { what: "Your share counts" },
         { what: "Today's prices" },
@@ -400,11 +461,21 @@ export function forecastRoomProvenance(input: {
   const steps = [
     "Each holding goes to the model on its own, and comes back with one price per year.",
   ];
+  /*
+    The reasons have to be the real ones. This sentence named only the two
+    that existed when it was written, a skipped year and a straight line,
+    and then the growth assumptions added a third that is now the
+    commonest by far: a destination under what this app assumes the name
+    compounds at is raised to meet it. Leaving the old wording told a
+    reader the count was about tidying gaps when it is mostly about this
+    app choosing where a path ends, which is the one change they would
+    most want to know about.
+  */
   if (input.adjustedCount && input.adjustedCount > 0) {
     steps.push(
       input.adjustedCount === 1
-        ? "One of those paths was changed by this app afterwards, because the model skipped a year or drew a straight line. Open that name's own information mark to see which."
-        : `${input.adjustedCount} of those paths were changed by this app afterwards, because the model skipped a year or drew a straight line. Open a name's own information mark to see which.`
+        ? "One of those paths was changed by this app afterwards: raised to what this app assumes that holding grows at, or filled in where the model skipped a year or drew a straight line. Open that name's own information mark to see which."
+        : `${input.adjustedCount} of those paths were changed by this app afterwards: raised to what this app assumes each holding grows at, or filled in where the model skipped a year or drew a straight line. Open a name's own information mark to see which.`
     );
   }
   if (input.reusedCount && input.reusedCount > 0) {
@@ -433,12 +504,16 @@ export function forecastRoomProvenance(input: {
         what: "Your cash, your total, and which holdings are the same kind of business",
       },
       { what: "Today's date, so the first year is the rest of this one" },
-      BASELINE_INPUT,
+      {
+        what: "What this app assumes each holding grows at",
+        detail:
+          "a rate written into this app, per kind of business and per company where one has been looked at on its own. Open a single holding's mark to see the figure and the reason for that name.",
+      },
       TRAINING_INPUT,
     ],
-    sources: [YAHOO_PRICES, YOUR_HOLDINGS, MODEL_ITSELF],
+    sources: [YAHOO_PRICES, YOUR_HOLDINGS, MODEL_ITSELF, THIS_APP_GROWTH],
     steps,
-    blindSpots: [NOT_THE_FUTURE, NO_NEWS, TRAINING_IS_STALE, NOT_A_TARGET],
+    blindSpots: [GROWTH_THESIS, NOT_THE_FUTURE, NO_NEWS, TRAINING_IS_STALE, NOT_A_TARGET],
     at: input.at,
     yours: "Open any card's information mark for that name. Type over a year and yours wins.",
   };

@@ -12,9 +12,11 @@ import { FORECAST_YEARS } from "@/lib/forecast";
 import {
   FORECAST_CONVICTION_PROMPT,
   fillMissingForecastYears,
+  anchorPathToGrowth,
+  isNearLinearPath,
   forecastThemeForTicker,
   reshapeToThemeRhythm,
-  shapedFallbackPath,
+  shapedPathForTicker,
 } from "@/lib/forecast-conviction";
 import { currency } from "@/lib/format";
 import { todayKeyInTz } from "@/lib/timezone";
@@ -495,12 +497,21 @@ export type ForecastPathAdjustment = {
    * that kind of business. Where it ends is still the model's own number.
    */
   reshaped: boolean;
+  /**
+   * Its destination sat below this app's own growth assumption for the
+   * name, so the path was raised to meet it, keeping the model's rhythm.
+   * Never set when the model's own number was already at or above it.
+   */
+  anchored: boolean;
 };
 
 export function forecastPathWasAdjusted(
   adjust: ForecastPathAdjustment | undefined
 ): boolean {
-  return Boolean(adjust && (adjust.missing || adjust.filled || adjust.reshaped));
+  return Boolean(
+    adjust &&
+      (adjust.missing || adjust.filled || adjust.reshaped || adjust.anchored)
+  );
 }
 
 export function ensureCompleteEoyTargets(
@@ -525,7 +536,7 @@ export function ensureCompleteEoyTargets(
     const existing = byTicker.get(key);
     const spot = row.currentPrice > 0 ? row.currentPrice : 1;
     const theme = forecastThemeForTicker(row.ticker);
-    const shaped = shapedFallbackPath(spot, theme);
+    const shaped = shapedPathForTicker(spot, row.ticker);
     let prices = fillMissingForecastYears(existing?.prices, shaped);
 
     /*
@@ -535,10 +546,19 @@ export function ensureCompleteEoyTargets(
       answered with a steady decline got a straight line detected and an
       upward theme path substituted for it.
     */
-    const reshape = isNearLinear(prices, spot) && theme !== "index";
+    const reshape = isNearLinearPath(prices, spot) && theme !== "index";
     if (reshape) {
       prices = reshapeToThemeRhythm(prices, shaped, spot);
     }
+
+    /*
+      Last, because it is the only step that decides where the path ends
+      and it must see the finished shape to keep it. It lifts a
+      destination under this app's own growth assumption for the name and
+      leaves anything at or above it alone.
+    */
+    const lifted = anchorPathToGrowth(prices, spot, row.ticker);
+    prices = lifted.prices;
 
     onAdjust?.(row.ticker.toUpperCase(), {
       missing: !existing?.prices,
@@ -547,6 +567,7 @@ export function ensureCompleteEoyTargets(
         return !(typeof given === "number" && given > 0);
       }),
       reshaped: reshape,
+      anchored: lifted.anchored,
     });
 
     out.push({
@@ -690,35 +711,6 @@ export function buildCachedForecastPlan(input: {
     stance: DEFAULT_FORECAST_STANCE,
     fallback: false,
   });
-}
-
-/** Detect boring equal-step / near-constant YoY ramps the model sometimes emits. */
-function isNearLinear(
-  prices: Record<ForecastYear, number>,
-  spot: number
-): boolean {
-  const seq = [spot, ...FORECAST_YEARS.map((y) => prices[y])];
-  const yoy: number[] = [];
-  for (let i = 1; i < seq.length; i++) {
-    const prev = seq[i - 1]!;
-    const cur = seq[i]!;
-    if (!(prev > 0) || !(cur > 0)) return false;
-    yoy.push(cur / prev - 1);
-  }
-  if (yoy.length < 3) return false;
-  const mean = yoy.reduce((s, x) => s + x, 0) / yoy.length;
-  const variance =
-    yoy.reduce((s, x) => s + (x - mean) ** 2, 0) / yoy.length;
-  // Nearly identical YoY each year → linear idiot path
-  if (variance < 0.0008 && Math.abs(mean) < 0.35) return true;
-  // Nearly equal dollar steps
-  const steps: number[] = [];
-  for (let i = 1; i < seq.length; i++) steps.push(seq[i]! - seq[i - 1]!);
-  const stepMean = steps.reduce((s, x) => s + x, 0) / steps.length;
-  const stepVar =
-    steps.reduce((s, x) => s + (x - stepMean) ** 2, 0) / steps.length;
-  const scale = Math.max(Math.abs(stepMean), spot * 0.02);
-  return stepVar < (scale * 0.15) ** 2;
 }
 
 export function buildForecastPlanPrompt(input: {

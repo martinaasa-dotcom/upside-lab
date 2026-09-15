@@ -44,10 +44,12 @@ import type { CompanyPage } from "@/lib/company/client";
 import { fetchCompanyFacts } from "@/lib/market/fundamentals";
 import { fetchTickerPulseContext } from "@/lib/market/ticker-context";
 import {
+  anchorPathToGrowth,
   fillMissingForecastYears,
   forecastThemeForTicker,
+  isNearLinearPath,
   reshapeToThemeRhythm,
-  shapedFallbackPath,
+  shapedPathForTicker,
 } from "@/lib/forecast-conviction";
 import { persistServerTickerCache } from "@/lib/forecast-ticker-cache-store";
 import { generateObject } from "ai";
@@ -205,13 +207,36 @@ export async function buildCompanyPage(
       a typical rhythm while landing on the model's own final price. There
       is no floor, no lift and no minimum multiple: a path that ends below
       today reaches the reader as it was written.
+
+      The re-timing is gated on `isNearLinearPath`, and the comment above
+      claimed that for months while the code did no such thing. Re-timing
+      ran on EVERY path this room built, so a model that had reasoned a
+      rhythm for itself had it thrown away and the theme's substituted:
+      only the final year survived, and each earlier year was moved to
+      wherever the theme's own curve put it. Measured on NBIS, a path
+      whose reason still said it "slips in 2027 when expected earnings
+      turn negative" was drawn as a smooth rise through every year, the
+      five prices reproducing the ai_infra curve to the cent under a
+      sentence describing a path nobody could see. It moved magnitude as
+      well as shape, since a theme whose first year is a small share of
+      its total move drags an aggressive first year down to meet it. A
+      theme shape is a guess about what a kind of business does; a path
+      the model gave timing to is a guess about this company, and the
+      second wins.
     */
     const spot = facts.price ?? 0;
     let path = resolved.path;
     if (spot > 0 && Object.keys(path).length > 0) {
-      const shaped = shapedFallbackPath(spot, forecastThemeForTicker(ticker));
+      const theme = forecastThemeForTicker(ticker);
+      const shaped = shapedPathForTicker(spot, ticker);
       const filled = fillMissingForecastYears(path, shaped);
-      path = reshapeToThemeRhythm(filled, shaped, spot);
+      const timed =
+        isNearLinearPath(filled, spot) && theme !== "index"
+          ? reshapeToThemeRhythm(filled, shaped, spot)
+          : filled;
+      // Same order as the Growth room: shape first, destination last, so
+      // the two rooms cannot tell a reader two different stories.
+      path = anchorPathToGrowth(timed, spot, ticker).prices;
     }
 
     const brief: CompanyBrief = humanizeMargusTree({ ...resolved, path });

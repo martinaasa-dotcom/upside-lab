@@ -16,6 +16,7 @@ import {
 import { correlationMatrix, pearson } from "../src/lib/correlation";
 import { isForecastFullyCovered, FORECAST_YEARS } from "../src/lib/forecast";
 import { ensureCompleteEoyTargets } from "../src/lib/forecast-plan";
+import { growthAnchorFor } from "../src/lib/forecast-growth";
 import type { ForecastModel } from "../src/lib/forecast";
 import { roundMoney, safeDiv } from "../src/lib/money";
 import { enrichHoldings } from "../src/lib/calculations";
@@ -216,17 +217,25 @@ assert(
   "hot AI infra path is not lowered"
 );
 /*
-  A path landing well under the shape for its kind of business is kept.
+  A path landing under this app's growth assumption is lifted to meet it.
 
-  This block used to assert the opposite: that ~3.6x by 2030 against a
-  ~4.8x theme band was "lifted to the theme band". That lift is gone
-  (2026-08-28), along with the outright replacement of a falling path and
-  the current-year rewrite, because between them they meant a forecast
-  could never point down. Measured before the removal: a model answering
-  92, 78, 84, 70, 61 off a $100 spot reached the reader as
-  139, 203, 182, 275, 357.
+  This assertion has been written three ways and the history is why it is
+  worth keeping. It first required a lift to the theme band. On 2026-08-28
+  the lift was removed, along with the outright replacement of a falling
+  path and the current-year rewrite, because between them a forecast could
+  never point down: a model answering 92, 78, 84, 70, 61 off a $100 spot
+  reached the reader as 139, 203, 182, 275, 357. So it was inverted to
+  require the modest path be kept.
+
+  On 2026-09-14 a lift came back, deliberately and at Martin's direction,
+  now reading a per-name rate out of `forecast-growth.ts` rather than a
+  bare theme constant, keeping the model's own rhythm, and disclosed on
+  every card that draws one. `forecast-growth.ts` carries the full
+  argument. So this asserts the lift again, plus the two properties that
+  make the new one defensible where the old one was not.
 */
-const modestKept = ensureCompleteEoyTargets(forecastStub, [
+const SPOT = 100;
+const modestLifted = ensureCompleteEoyTargets(forecastStub, [
   {
     ticker: "NBIS",
     prices: {
@@ -236,19 +245,48 @@ const modestKept = ensureCompleteEoyTargets(forecastStub, [
       2029: 267,
       2030: 364,
     },
-    rationale: "gpu cloud compounding with a quiet year in 2028",
+    rationale: "gpu cloud compounding with a quiet year",
+  },
+]);
+const wantTerminal = SPOT * growthAnchorFor("NBIS").terminalMultiple;
+assert(
+  Math.abs((modestLifted[0]?.prices?.[2030] ?? 0) - wantTerminal) < 1,
+  "a path under the growth assumption is lifted to meet it"
+);
+assert(
+  /gpu cloud/i.test(modestLifted[0]?.rationale ?? ""),
+  "lifting a path keeps the model's rationale"
+);
+// It lifts, it never caps: a bolder answer than the assumption stands.
+const bolderKept = ensureCompleteEoyTargets(forecastStub, [
+  {
+    ticker: "NBIS",
+    prices: { 2026: 180, 2027: 420, 2028: 380, 2029: 900, 2030: 1800 },
+    rationale: "already past what this app assumes",
   },
 ]);
 assert(
-  modestKept[0]?.prices?.[2030] === 364,
-  "a modest path under the theme band is kept, not lifted"
+  bolderKept[0]?.prices?.[2030] === 1800,
+  "a path above the growth assumption is left exactly as written"
 );
+// And the lift keeps the model's own quiet year rather than pasting one.
 assert(
-  /gpu cloud/i.test(modestKept[0]?.rationale ?? ""),
-  "keeping a path keeps the model's rationale"
+  (modestLifted[0]?.prices?.[2028] ?? 0) > (modestLifted[0]?.prices?.[2027] ?? 0),
+  "lifting a path keeps the model's own rhythm"
 );
 
-// A forecast may end below where it started, and may sit flat this year.
+/*
+  A falling path is lifted like any other, and the thing to check is that
+  it is not drawn as its own mirror image.
+
+  This is the trap the 2026-08-28 removal was reacting to and it is a real
+  one: rescaling a negative total move onto a positive one turns every dip
+  into a peak, so the reader would be shown the exact opposite of what the
+  model reasoned. `anchorPathToGrowth` refuses to reuse a shape pointing
+  the other way and borrows the theme's rhythm instead, which is a generic
+  shape rather than an inverted one. A generic shape under a disclosed
+  assumption is honest; a mirror image is not.
+*/
 const falling = ensureCompleteEoyTargets(forecastStub, [
   {
     ticker: "NBIS",
@@ -256,24 +294,26 @@ const falling = ensureCompleteEoyTargets(forecastStub, [
     rationale: "losing share to cheaper capacity",
   },
 ]);
-assert(
-  FORECAST_YEARS.every((y) => (falling[0]?.prices?.[y] ?? 0) < 100),
-  "a path ending below today's price reaches the reader intact"
+const fallingDrawn = FORECAST_YEARS.map((y) => falling[0]?.prices?.[y] ?? 0);
+const givenFalling = [92, 78, 84, 70, 61];
+const mirrored = givenFalling.map((p, i) =>
+  i === 0 ? 0 : -Math.sign(p - givenFalling[i - 1]!)
 );
-assert(falling[0]?.prices?.[2030] === 61, "the falling destination is untouched");
-
-const flatNow = ensureCompleteEoyTargets(forecastStub, [
-  {
-    ticker: "NBIS",
-    prices: { 2026: 100.4, 2027: 230, 2028: 310, 2029: 391, 2030: 483 },
-    rationale: "quiet rest of year, then the build lands",
-  },
-]);
-assert(
-  Math.abs((flatNow[0]?.prices?.[2026] ?? 0) - 100.4) < 1,
-  "a flat current year is left flat rather than rewritten upward"
+const drawnDirs = fallingDrawn.map((p, i) =>
+  i === 0 ? 0 : Math.sign(p - fallingDrawn[i - 1]!)
 );
-assert(flatNow[0]?.prices?.[2030] === 483, "later years are left alone");
+assert(
+  JSON.stringify(drawnDirs) !== JSON.stringify(mirrored),
+  "a falling path is never drawn as its own mirror image"
+);
+assert(
+  fallingDrawn.every((p) => p > 0),
+  "a lifted falling path is still a real set of prices"
+);
+assert(
+  /losing share/i.test(falling[0]?.rationale ?? ""),
+  "lifting a falling path keeps the model's rationale"
+);
 const cryptoFill = ensureCompleteEoyTargets(
   {
     ...forecastStub,
@@ -289,9 +329,19 @@ const cryptoFill = ensureCompleteEoyTargets(
   [],
 );
 const cPrices = cryptoFill[0]!.prices;
+/*
+  The crypto fallback still has a winter, and it moved a year later on
+  2026-09-14 along with every other theme's quiet year: the app's timing
+  view is that the spending behind the build runs hard for roughly another
+  two years before anything gives, so the first three years of the window
+  climb and the fourth gives some back. Positional rather than calendar,
+  so this is "the fourth year of whatever window is drawn".
+*/
+const cYears = FORECAST_YEARS.map((y) => cPrices[y]!);
+assert(cYears[3]! < cYears[2]!, "crypto fallback has a winter year");
 assert(
-  cPrices[2028]! < cPrices[2027]!,
-  "crypto fallback has a winter year"
+  cYears[1]! > cYears[0]! && cYears[2]! > cYears[1]!,
+  "the winter comes after the build runs, not during it"
 );
 assert(!isForecastFullyCovered(["NBIS"], {}), "coverage empty");
 assert(

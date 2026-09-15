@@ -1,108 +1,130 @@
 /**
- * Margus forecast conviction — generic, sector-based fallback shapes.
+ * Margus forecast conviction: the SHAPE of a path, and the prompt behind it.
  *
- * Two jobs, both theme-level (never a per-ticker price table):
- * 1. Fill a gap when the model skipped a year, or replace a boringly linear ramp.
- * 2. Lift a path that has collapsed toward a flat line for a name whose own
- *    business clearly does not warrant one. We never lower a path the model
- *    reasoned for itself.
+ * This file used to hold two things that have been separated, because they
+ * are two different kinds of claim and conflating them is what made the
+ * old table impossible to reason about.
  *
- * These shapes are a safety net for gaps, not a view. The prompt below
- * carries no house market call, because it reaches every user of the app,
- * including people who hold nothing but broad index funds.
+ * - **How fast a holding is assumed to compound** is a claim about return.
+ *   It lives in `forecast-growth.ts`, per sector and per name, with a
+ *   sentence and a date against every entry.
+ * - **What five years look like on the way there** is a claim about timing:
+ *   fast stretches, quiet years, and real drops in the middle. That is
+ *   `THEME_RHYTHM` below, and it carries no magnitude at all.
+ *
+ * The multiples the rest of the app reads are derived from the two, so a
+ * rate can be argued with in one place and a rhythm in another, and neither
+ * can be changed by accident while editing the other.
  */
 
-import { isCoinSymbol } from "@/lib/coins";
-import type { ForecastYear } from "@/lib/forecast";
 import { FORECAST_YEARS } from "@/lib/forecast";
+import type { ForecastYear } from "@/lib/forecast";
+import {
+  growthAnchorFor,
+  growthYears,
+  sectorTerminalMultiple,
+  type ForecastTheme,
+} from "@/lib/forecast-growth";
 
-export type ForecastTheme =
-  | "ai_infra"
-  | "ai_power"
-  | "crypto"
-  | "space"
-  | "semi"
-  | "fintech"
-  | "software"
-  | "healthcare"
-  | "drones"
-  | "index"
-  | "other";
+export {
+  forecastThemeForTicker,
+  growthAnchorFor,
+  type ForecastTheme,
+} from "@/lib/forecast-growth";
 
 /**
- * Illustrative path as multiples of today's spot for EOY 2026…2030, per
- * sector theme. Intentionally non-linear (a straight CAGR line is detected
- * and rejected elsewhere). This is a safety-net shape for gaps the model
- * left empty, not a target and not a promise.
+ * What fraction of a path's total move is done by each year.
  *
- * Shapes are ordered by how jumpy each kind of business historically is,
- * with a quiet year in the middle rather than a clean ramp. They are a
- * risk-premium ladder above the index baseline, not a claim that any of
- * these groups will actually beat the market.
+ * Pure timing. The last entry is always 1, so the rhythm cannot change
+ * where a path ends however it is edited, which is the property that keeps
+ * this file out of the magnitude argument entirely.
  *
- * The ladder is anchored so `index` compounds at ~10%/yr, matching the
- * MARKET_ANNUAL_RETURN_PCT the CAPM alpha read uses in
- * portfolio-personality. It used to sit at 5.7%, which meant the model
- * quietly assumed an index fund returned about half the market it tracks
- * and dragged every other theme down with it. Everything above index is a
- * risk premium on that baseline, ordered by THEME_RISK_SCORE.
+ * Every rhythm except `index` dips in the middle, and that is the whole
+ * point of having one: a share price does not rise by the same amount five
+ * years running, and a path that does is the single clearest sign nobody
+ * reasoned about it. `crypto` dips hardest because that is what those
+ * assets actually do. `index` is smooth because a fund holding hundreds of
+ * companies has no drama to manufacture, and it is the one theme the
+ * re-timing never touches.
  *
- * These also seed the Compound tab's default expected return via
- * impliedAnnualReturnForTheme, so a portfolio full of jumpy names defaults
- * to a hotter planning rate than an index-heavy one. That is intentional,
- * but it is an optimistic scenario rate, not a safe planning assumption.
+ * When this table was split out of the old typed multiples it reproduced
+ * every one of them to within 0.18%, so the refactor moved no drawn path
+ * by itself. The quiet year was then moved deliberately, which is the one
+ * change to timing since, and it is described under the table.
  */
-const THEME_BASE_MULTS: Record<ForecastTheme, number[]> = {
-  ai_infra: [1.54, 2.3, 3.1, 3.91, 4.83], // ~37%/yr
-  crypto: [1.6, 2.38, 1.48, 2.74, 4.01], // ~32%/yr
-  semi: [1.39, 2.03, 1.82, 2.75, 3.57], // ~29%/yr
-  ai_power: [1.37, 1.92, 1.81, 2.61, 3.3], // ~27%/yr
-  space: [1.27, 1.74, 1.57, 2.33, 3.05], // ~25%/yr
-  fintech: [1.26, 1.68, 1.56, 2.17, 2.7], // ~22%/yr
-  drones: [1.24, 1.65, 1.53, 2.14, 2.7], // ~22%/yr
-  software: [1.21, 1.54, 1.46, 1.94, 2.39], // ~19%/yr
-  /*
-    The market baseline, and deliberately not a point above it.
-
-    This was [1.14, 1.32, 1.48, 1.66, 1.84], about 13% a year, which put
-    every company this app could not place three points ahead of the index
-    below. That is a lift, and a lift is the one thing the rules over this
-    file forbid: the persona had its "structurally bullish" compass and its
-    per-theme floors removed for exactly this reason, and nothing may
-    reintroduce a minimum a path has to clear. It reached further than a
-    forecast, too, since `impliedAnnualReturnForTheme` feeds the Growth
-    room's "Your mix" rate, so an ordinary portfolio's starting assumption
-    was quietly optimistic before the reader touched anything.
-
-    A case can be made for the premium -- one company is riskier and
-    undiversified -- but it is an investing opinion, and this bucket is by
-    definition the names this app knows least about. The honest assumption
-    about a company we cannot even classify is the market, which is also
-    what `DEFAULT_COMPOUND_INPUTS.ratePercent` already opens on. Same
-    shape as `index` on purpose: not a coincidence to be tidied away.
-  */
-  other: [1.1, 1.23, 1.35, 1.48, 1.61], // ~10%/yr, the market baseline
-  healthcare: [1.12, 1.27, 1.43, 1.59, 1.76], // ~12%/yr
-  index: [1.1, 1.23, 1.35, 1.48, 1.61], // ~10%/yr, the market baseline
+const THEME_RHYTHM: Record<ForecastTheme, number[]> = {
+  ai_infra: [0.274, 0.545, 0.795, 0.697, 1],
+  crypto: [0.339, 0.625, 0.831, 0.489, 1],
+  semi: [0.259, 0.556, 0.8, 0.715, 1],
+  ai_power: [0.264, 0.546, 0.796, 0.746, 1],
+  space: [0.214, 0.497, 0.774, 0.681, 1],
+  fintech: [0.233, 0.522, 0.785, 0.711, 1],
+  drones: [0.217, 0.504, 0.777, 0.701, 1],
+  software: [0.218, 0.495, 0.773, 0.713, 1],
+  healthcare: [0.201, 0.436, 0.746, 0.705, 1],
+  other: [0.2, 0.469, 0.761, 0.692, 1],
+  index: [0.2, 0.435, 0.63, 0.823, 1],
 };
 
-/** Implied annualized return from the generic fallback shape's final year,
- * over the ~5y FORECAST_YEARS span — a rough, sector-differentiated stand-in
- * for "expected return", not a forecast. Used only as a default so the
- * Compound tab's starting rate reflects what a person actually holds
- * instead of one fixed number for every user. */
+/**
+ * Where the quiet year sits, and why it moved.
+ *
+ * It used to be the third entry. It is the fourth as of 2026-09-14,
+ * because the timing view this app holds is that the spending behind the
+ * build runs hard for roughly another two years before anything slows:
+ * capacity is contracted well ahead of delivery, so the orders covering
+ * the near years are largely already placed, and the point at which that
+ * stops being true is further out than the next one. So the first three
+ * entries climb and the fourth gives some back.
+ *
+ * **This is positional, not calendar.** `FORECAST_YEARS` rolls every
+ * January, so the quiet year is "the fourth year of whatever window is
+ * being drawn" rather than a fixed date, and it walks forward with the
+ * window. That is the existing behaviour of this table rather than
+ * something introduced here, and it is the right default for a shape: a
+ * rhythm is about how a build cycle runs, not about a year somebody
+ * named. If a fixed calendar year is ever wanted, it needs a real date in
+ * `forecast-growth.ts` and not an index here.
+ */
+
+export function rhythmFor(theme: ForecastTheme): number[] {
+  return THEME_RHYTHM[theme] ?? THEME_RHYTHM.other;
+}
+
+/**
+ * Turn a terminal multiple into one multiple per year, on a theme's rhythm.
+ *
+ * Log space, because a price compounds rather than adds: a weight of 0.5
+ * means half the total move in log terms, which is the square root of the
+ * multiple, not half of it.
+ */
+function multsFor(theme: ForecastTheme, terminalMultiple: number): number[] {
+  const rhythm = rhythmFor(theme);
+  if (!(terminalMultiple > 0)) return rhythm.map(() => 1);
+  const total = Math.log(terminalMultiple);
+  return rhythm.map((w) => Math.exp(w * total));
+}
+
+/** Implied annualized return for a kind of business, straight off the
+ * growth model's sector ladder. Used as a default so the Compound tab's
+ * starting rate reflects what a person actually holds instead of one fixed
+ * number for every user. */
 export function impliedAnnualReturnForTheme(theme: ForecastTheme): number {
-  const mults = THEME_BASE_MULTS[theme];
-  const finalMult = mults[mults.length - 1]!;
-  const out = Math.pow(finalMult, 1 / FORECAST_YEARS.length) - 1;
+  const out = Math.pow(sectorTerminalMultiple(theme), 1 / growthYears()) - 1;
   return Number.isFinite(out) ? out : 0;
 }
 
-/** Value-weighted blend of impliedAnnualReturnForTheme across whatever a
- * portfolio actually holds (equity only — pass cash separately via
- * `cashWeight`/`cashAnnualReturn` since idle cash has no "theme"). Genuinely
- * different per portfolio: an index-heavy portfolio lands modest, a
- * portfolio full of jumpy names lands hot. */
+/** The same question for one named holding, which is finer: a name with a
+ * view of its own on file answers with that rather than with its sector. */
+export function impliedAnnualReturnForTicker(ticker: string): number {
+  const out = growthAnchorFor(ticker).cagr;
+  return Number.isFinite(out) ? out : 0;
+}
+
+/** Value-weighted blend across whatever a portfolio actually holds (equity
+ * only: pass cash separately via `cash`, since idle cash has no theme).
+ * Genuinely different per portfolio, and now per holding, so two portfolios
+ * of the same sector mix can still differ. */
 export function blendedExpectedAnnualReturn(
   holdings: Array<{ ticker: string; value: number }>,
   cash: { balance: number; annualReturnPct: number } = {
@@ -126,84 +148,16 @@ export function blendedExpectedAnnualReturn(
   let sum = (cashBal / total) * cashRate;
   for (const h of holdings) {
     if (!Number.isFinite(h.value) || h.value <= 0) continue;
-    const theme = forecastThemeForTicker(h.ticker);
-    const add = (h.value / total) * impliedAnnualReturnForTheme(theme);
+    const add = (h.value / total) * impliedAnnualReturnForTicker(h.ticker);
     if (Number.isFinite(add)) sum += add;
   }
   return Number.isFinite(sum) ? sum : impliedAnnualReturnForTheme("other");
 }
 
-/**
- * Sector classification, not a view on any of these names. Purely "what
- * kind of company is this", the same job TICKER_SECTORS does for the
- * forecast prompt; no price target or bias attaches to membership here.
- *
- * The lists were originally just the family's own holdings, which meant a
- * portfolio holding MSFT, AMD and ADI reported itself as 51% "other". Anything
- * unclassified falls into a bucket that gets the plainest assumptions, so
- * a thin list quietly mislabels most real portfolios.
- */
-const THEME_TICKERS: [ForecastTheme, string[]][] = [
-  // GPU clouds, AI datacenter build and the hardware inside it.
-  ["ai_infra", ["NBIS", "CRWV", "SMCI", "VRT", "ANET", "DELL", "IREN", "APLD", "CIFR"]],
-  // Generation and grid feeding those datacenters.
-  ["ai_power", ["VST", "PWR", "CEG", "NRG", "TLN", "GEV", "ETN", "OKLO", "SMR", "BWXT"]],
-  ["crypto", ["BMNR", "MSTR", "COIN", "MARA", "RIOT", "CLSK", "HUT", "BITF", "GLXY"]],
-  ["space", ["RKLB", "ASTS", "LUNR", "RDW", "PL", "SPCE", "NASA", "UFO"]],
-  [
-    "semi",
-    ["NVDA", "AVGO", "TSM", "ASML", "AMD", "INTC", "MU", "QCOM", "TXN", "ADI",
-     "LRCX", "AMAT", "KLAC", "ARM", "MRVL", "NXPI", "ON", "MCHP", "SWKS", "TER",
-     "SMH", "SOXX", "XSD", "PSI", "DRAM", "QTUM"],
-  ],
-  ["fintech", ["SOFI", "HOOD", "AFRM", "UPST", "PYPL", "SQ", "XYZ", "NU", "TOST", "MELI", "V", "MA"]],
-  [
-    "software",
-    ["PLTR", "NOW", "GOOGL", "GOOG", "CRM", "DDOG", "SNOW", "MSFT", "ORCL",
-     "ADBE", "TEAM", "WDAY", "ZS", "CRWD", "PANW", "NET", "MDB", "HUBS",
-     "SHOP", "TTD", "APP", "U", "RBLX", "META", "AMZN", "IBM", "SAP",
-     "AAPL", "NFLX", "QQQ", "QQQM", "XLK"],
-  ],
-  [
-    "healthcare",
-    ["UNH", "LLY", "ISRG", "HIMS", "NVO", "PFE", "MRK", "ABBV", "JNJ", "TMO",
-     "DHR", "VRTX", "REGN", "AMGN", "MRNA"],
-  ],
-  ["drones", ["AVAV", "KTOS", "RCAT", "ONDS", "UMAC", "LMT", "RTX", "NOC", "GD", "LHX"]],
-  [
-    "index",
-    ["SPY", "VOO", "IVV", "VTI", "VT", "CSPX", "VWCE", "VUSA", "EX13",
-     "SCHD", "DIA", "EEM", "VXUS"],
-  ],
-];
-
-const THEME_BY_TICKER: Map<string, ForecastTheme> = new Map(
-  THEME_TICKERS.flatMap(([theme, tickers]) =>
-    tickers.map((t) => [t, theme] as [string, ForecastTheme])
-  )
-);
-
-export function forecastThemeForTicker(ticker: string): ForecastTheme {
-  const base = ticker.split(".")[0]!.toUpperCase();
-
-  const known = THEME_BY_TICKER.get(base);
-  if (known) return known;
-  if (isCoinSymbol(ticker)) return "crypto";
-
-  // FX pairs and anything else with an `=` are index-like for our purposes.
-  if (ticker.includes("=")) return "index";
-
-  // Name-shaped guesses for tickers not on the list above.
-  if (/BTC|ETH|CRYPTO|MINE/.test(base)) return "crypto";
-  if (/SEMI|SOXX|SMH|DRAM|QTUM/.test(base)) return "semi";
-  if (/NASA|SPACE|UFO/.test(base)) return "space";
-  if (/QQQ|XLK/.test(base)) return "software";
-  if (/CLOUD|GPU|AI/.test(base)) return "ai_infra";
-  if (/HEALTH|PHARMA|BIO/.test(base)) return "healthcare";
-  if (/DRONE|UAV|DEFENSE/.test(base)) return "drones";
-  if (/SAAS|SOFT/.test(base)) return "software";
-  if (/SOLAR|ENERGY|POWER|ELEC/.test(base)) return "ai_power";
-  return "other";
+/** Sector-level multiples, kept for callers that have a kind of business
+ * and no particular name. Derived, never typed. */
+export function themeBaseMults(theme: ForecastTheme): number[] {
+  return multsFor(theme, sectorTerminalMultiple(theme));
 }
 
 function roundPx(n: number) {
@@ -219,7 +173,29 @@ export function shapedFallbackPath(
   spot: number,
   theme: ForecastTheme
 ): Record<ForecastYear, number> {
-  const mults = THEME_BASE_MULTS[theme];
+  return pathFromMults(spot, themeBaseMults(theme));
+}
+
+/**
+ * The same shape for a named holding, which is what every caller that has
+ * a ticker should use: it picks up the per-name rate where one is on file
+ * and falls back to the sector where it is not.
+ */
+export function shapedPathForTicker(
+  spot: number,
+  ticker: string
+): Record<ForecastYear, number> {
+  const anchor = growthAnchorFor(ticker);
+  return pathFromMults(
+    spot,
+    multsFor(anchor.sector, anchor.terminalMultiple)
+  );
+}
+
+function pathFromMults(
+  spot: number,
+  mults: number[]
+): Record<ForecastYear, number> {
   const out = {} as Record<ForecastYear, number>;
   for (let i = 0; i < FORECAST_YEARS.length; i++) {
     const year = FORECAST_YEARS[i]!;
@@ -302,6 +278,122 @@ export function reshapeToThemeRhythm(
 }
 
 
+/**
+ * Does this path only ever step by the same amount?
+ *
+ * The one test both surfaces use, and it lives here beside the reshaper
+ * because the pair is meaningless apart: re-timing is allowed only on a
+ * path that has no timing of its own. It was a private function in
+ * forecast-plan.ts, which is how the research room came to reshape every
+ * path it was ever given, including the ones the model had already given
+ * a rhythm to.
+ */
+export function isNearLinearPath(
+  prices: Record<ForecastYear, number>,
+  spot: number
+): boolean {
+  const seq = [spot, ...FORECAST_YEARS.map((y) => prices[y])];
+  const yoy: number[] = [];
+  for (let i = 1; i < seq.length; i++) {
+    const prev = seq[i - 1]!;
+    const cur = seq[i]!;
+    if (!(prev > 0) || !(cur > 0)) return false;
+    yoy.push(cur / prev - 1);
+  }
+  if (yoy.length < 3) return false;
+  const mean = yoy.reduce((s, x) => s + x, 0) / yoy.length;
+  const variance = yoy.reduce((s, x) => s + (x - mean) ** 2, 0) / yoy.length;
+  // Nearly identical YoY each year, which is a straight CAGR line.
+  if (variance < 0.0008 && Math.abs(mean) < 0.35) return true;
+  // Nearly equal dollar steps.
+  const steps: number[] = [];
+  for (let i = 1; i < seq.length; i++) steps.push(seq[i]! - seq[i - 1]!);
+  const stepMean = steps.reduce((s, x) => s + x, 0) / steps.length;
+  const stepVar =
+    steps.reduce((s, x) => s + (x - stepMean) ** 2, 0) / steps.length;
+  const scale = Math.max(Math.abs(stepMean), spot * 0.02);
+  return stepVar < (scale * 0.15) ** 2;
+}
+
+/**
+ * Raise a path to this app's own growth assumption for that holding.
+ *
+ * ## What it does
+ *
+ * `growthAnchorFor` says what this app assumes the name compounds at. If
+ * the model's own last year already sits at or above that, the model's
+ * number stands: this never caps a path, only lifts one. Otherwise the
+ * path is rescaled in log space to land on the assumption, **keeping the
+ * model's own rhythm** rather than substituting a theme's, so the quiet
+ * years and the drops the model reasoned about survive the lift.
+ *
+ * ## The shape it refuses to borrow
+ *
+ * Two cases have no usable rhythm of their own and fall back to the
+ * theme's. A path that goes nowhere has no shape to stretch. And a path
+ * that points the *other way* from the anchor must not be reused, because
+ * rescaling a negative total move onto a positive one turns every dip into
+ * a peak: the shape would be inverted, and the reader would be shown a
+ * mirror image of the model's reasoning, which is worse than showing them
+ * a generic one. That case is exactly the old `liftPathToThemeMagnitude`
+ * bug and it is handled rather than reintroduced.
+ *
+ * ## Why this exists at all
+ *
+ * It is the same mechanism removed on 2026-08-28, rebuilt on purpose on
+ * 2026-09-14. What is different is the part that made the old one
+ * indefensible. The old one lifted to a bare per-theme constant, so every
+ * company in a group got an identical multiple; this one reads a rate that
+ * is per name where a name has been looked at, with a sentence and a date
+ * behind it in `forecast-growth.ts`. And the old one was silent: the
+ * provenance panel described the path as the model's reasoning while the
+ * number was the app's. This one is reported through
+ * `ForecastPathAdjustment.anchored` and said out loud on the card.
+ */
+export function anchorPathToGrowth(
+  prices: Record<ForecastYear, number>,
+  spot: number,
+  ticker: string
+): { prices: Record<ForecastYear, number>; anchored: boolean } {
+  const last = FORECAST_YEARS[FORECAST_YEARS.length - 1]!;
+  const modelTerm = prices[last];
+  if (!(spot > 0) || !(modelTerm > 0)) return { prices, anchored: false };
+
+  const anchor = growthAnchorFor(ticker);
+  const target = spot * anchor.terminalMultiple;
+  if (!(target > 0)) return { prices, anchored: false };
+
+  // Already there or past it. The model's own number wins, uncapped.
+  if (modelTerm >= target * 0.999) return { prices, anchored: false };
+
+  const totalTarget = Math.log(target / spot);
+  const totalModel = Math.log(modelTerm / spot);
+  const usableOwnShape =
+    Number.isFinite(totalModel) &&
+    Math.abs(totalModel) > 1e-9 &&
+    Math.sign(totalModel) === Math.sign(totalTarget);
+
+  const out = { ...prices };
+  if (usableOwnShape) {
+    for (const y of FORECAST_YEARS) {
+      const p = prices[y];
+      if (!(p > 0)) continue;
+      const w = Math.log(p / spot) / totalModel;
+      if (!Number.isFinite(w)) continue;
+      out[y] = roundPx(Math.max(0.01, spot * Math.exp(w * totalTarget)));
+    }
+  } else {
+    const rhythm = rhythmFor(anchor.sector);
+    for (let i = 0; i < FORECAST_YEARS.length; i++) {
+      const y = FORECAST_YEARS[i]!;
+      const w = rhythm[i] ?? 1;
+      out[y] = roundPx(Math.max(0.01, spot * Math.exp(w * totalTarget)));
+    }
+  }
+  out[last] = roundPx(target);
+  return { prices: enforcePathRules(out, spot), anchored: true };
+}
+
 /** Light sanity net — only guarantees every year is a positive number. */
 export function enforcePathRules(
   prices: Record<ForecastYear, number>,
@@ -358,6 +450,25 @@ Move up or down from the baseline on that specific company's economics,
 balance sheet and competitive position. Never assign a number because of
 the theme label attached to a ticker.
 
+### The build this window sits inside
+
+Read the next five years as a period in which the spending behind AI
+continues rather than stalls: datacenter capacity is being committed years
+before it is built, the chips and the electricity to run it are the
+binding constraints rather than the demand, and the software layer on top
+is still early in being adopted. Companies genuinely supplying that build,
+or genuinely using it to sell more of what they already sell, should show
+it in their numbers. That is a reading of what the spending is doing now,
+not a promise, so ground it in the specific company every time: what it
+sells into the build, who is paying, and what it already earns.
+
+It does not mean a straight climb, and saying so is the useful part. A
+stretch of real weakness inside the window is entirely consistent with
+this, and is what the shape rules below are for: a year when a lot of
+people sell at once, a digestion year after a heavy build, a company whose
+capacity arrives before its customers do. Put that in where the company's
+own position argues for it rather than as decoration.
+
 Two honesty checks: the path is not smooth (quiet years, drops that come
 when a lot of people sell at once, and stretches where the price falls
 while the business is fine all happen, and most holdings should show at
@@ -371,7 +482,7 @@ predetermined destination.
 - The first forecast year is this calendar year. That cell is December 31, not today's price. There are still months left. Do not paste spot into it as a default unless that company's remaining-year setup is genuinely quiet.
 - Long build-cycle names: a quiet year can mean a slower-up year, not necessarily a collapse.
 - Trim/add lines may list multiple names or groups of similar stocks, not one ticker only. They are modeled mix observations, never orders.
-- Be honest: most holdings deserve a modest, unglamorous path. Not every holding is a multi-bagger candidate, and saying so is the useful part.
+- Be honest, in both directions. A company genuinely supplying or using the build should show it, and a company that only sits near the story should not get its numbers. The difference between those two is the most useful thing you can tell the reader, so make the rationale say which one this is and from what.
 
 ### Forbidden
 - Near-linear ramps (same $ or YoY step for 3+ years).

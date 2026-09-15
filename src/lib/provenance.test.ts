@@ -191,22 +191,38 @@ describe("provenance", () => {
     const p = forecastPathProvenance({
       ticker: "NBIS",
       spot: 211.11,
-      adjust: { missing: false, filled: true, reshaped: true },
+      adjust: { missing: false, filled: true, reshaped: true, anchored: false },
     });
     const steps = (p.steps ?? []).join(" ");
     expect(steps).toMatch(/skipped at least one year/i);
     expect(steps).toMatch(/even ramp/i);
   });
 
-  it("does not claim the reshaping moved where the path ends", () => {
+  /*
+   * The step that matters most, because it is the one where this app, and
+   * not the model, chose the number on the card. It was silent for a day
+   * in 2026 and that is exactly the failure this panel exists to prevent.
+   */
+  it("says out loud when the app raised the path to its own assumption", () => {
     const p = forecastPathProvenance({
       ticker: "NBIS",
       spot: 211.11,
-      adjust: { missing: false, filled: false, reshaped: true },
+      adjust: { missing: false, filled: false, reshaped: false, anchored: true },
     });
     const steps = (p.steps ?? []).join(" ");
-    expect(steps).toMatch(/still the model's own number/i);
-    expect(steps).not.toMatch(/scaled up/i);
+    expect(steps).toMatch(/what this app assumes this holding grows at/i);
+    expect(steps).toMatch(/raised to meet/i);
+    // And that it is a lift rather than a cap, which is the honest half.
+    expect(steps).toMatch(/at or above the assumption, it would have been left/i);
+  });
+
+  it("names the rate, whose it is and the reason behind it", () => {
+    const said = forecastPathProvenance({ ticker: "NBIS", spot: 211.11 })
+      .inputs.map((i) => `${i.what} ${i.detail ?? ""}`)
+      .join(" ");
+    expect(said).toMatch(/what this app assumes it grows at/i);
+    expect(said).toMatch(/% a year/);
+    expect(said).toMatch(/the reason on file is/i);
   });
 
   it("says out loud when a path was reused from a different run", () => {
@@ -224,10 +240,10 @@ describe("provenance", () => {
     const p = forecastPathProvenance({
       ticker: "NBIS",
       spot: 211.11,
-      adjust: { missing: false, filled: false, reshaped: false },
+      adjust: { missing: false, filled: false, reshaped: false, anchored: false },
     });
     const steps = (p.steps ?? []).join(" ");
-    expect(steps).not.toMatch(/scaled up|even ramp|skipped/i);
+    expect(steps).not.toMatch(/scaled up|even ramp|skipped|raised to meet/i);
   });
 
   it("names the publishers behind the headlines a Pulse card read", () => {
@@ -267,13 +283,23 @@ describe("provenance", () => {
   });
 
   /*
-   * The inverse of the assertion that used to sit here. While the floor
-   * existed this file made the panel disclose it; now that it is gone, the
-   * job is to stop any copy quietly promising a floor that is not there.
-   * A reader told the app has a safety net under every forecast, when it
-   * does not, is worse off than one told nothing.
+   * This assertion has now been written three ways, and the history is the
+   * reason to keep it rather than any one wording.
+   *
+   * While a floor existed, this file made the panel disclose it. When the
+   * floor was removed on 2026-08-28 it was inverted: the job became
+   * stopping any copy from promising a safety net that was no longer
+   * there. The growth assumptions put a lift back on 2026-09-14, so it is
+   * inverted again, and the danger is the *old* copy surviving: a panel
+   * still telling a reader that nothing in this app moves the model's
+   * answer, while the number on the card is this app's, is the single
+   * most misleading sentence this product could print. It reads as
+   * candour and it is the opposite.
+   *
+   * What the panel owes a reader is constant through all three: say what
+   * sets the number, whoever that is.
    */
-  it("promises no floor under a modeled path, because there is none", () => {
+  it("never claims the model's answer reaches the reader untouched", () => {
     for (const p of [
       forecastPathProvenance({ ticker: "NBIS", spot: 211.11 }),
       forecastRoomProvenance({}),
@@ -282,16 +308,33 @@ describe("provenance", () => {
         p.headline,
         ...p.inputs.map((i) => `${i.what} ${i.detail ?? ""}`),
         ...(p.steps ?? []),
+        ...(p.blindSpots ?? []),
       ].join(" ");
-      expect(said).not.toMatch(/will not show a path that finishes below/i);
+      expect(said).not.toMatch(/nothing in this app moves its answer/i);
+      expect(said).not.toMatch(/is shown as it was written/i);
       expect(said).not.toMatch(/floor is ours/i);
-      expect(said).not.toMatch(/scaled up to meet it/i);
     }
-    const detail = forecastPathProvenance({ ticker: "NBIS", spot: 211.11 })
-      .inputs.map((i) => i.detail ?? "")
+  });
+
+  it("names what the growth assumptions rest on, so it can be argued with", () => {
+    for (const p of [
+      forecastPathProvenance({ ticker: "NBIS", spot: 211.11 }),
+      forecastRoomProvenance({}),
+    ]) {
+      const blind = (p.blindSpots ?? []).join(" ");
+      expect(blind).toMatch(/spending behind AI continuing/i);
+      // The half that makes it a disclosure rather than a pitch.
+      expect(blind).toMatch(/if it slows, these are too high/i);
+    }
+  });
+
+  it("lists this app as a source, beside the model", () => {
+    const names = (forecastPathProvenance({ ticker: "NBIS", spot: 211.11 })
+      .sources ?? [])
+      .map((s) => s.name)
       .join(" ");
-    expect(detail).toMatch(/nothing in this app moves its answer afterwards/i);
-    expect(detail).toMatch(/below today's price, is shown as it was written/i);
+    expect(names).toMatch(/this app/i);
+    expect(names).toMatch(/the model itself/i);
   });
 
   it("tells a Pulse reader that picking the names is not the model's doing", () => {
