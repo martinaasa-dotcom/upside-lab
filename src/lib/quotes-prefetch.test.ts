@@ -9,11 +9,12 @@ import {
 import { readFileSync } from "node:fs";
 
 /** A window stub with just what the script and the taker read. */
-function stubWindow(stored: string | null) {
+function stubWindow(stored: string | null, pathname = "/") {
   const store = new Map<string, string>();
   if (stored) store.set(QUOTES_PREFETCH_KEY, stored);
   const fetches: string[] = [];
   const w: Record<string, unknown> = {
+    location: { pathname },
     localStorage: {
       getItem: (k: string) => store.get(k) ?? null,
       setItem: (k: string, v: string) => void store.set(k, v),
@@ -76,8 +77,25 @@ describe("the quotes head start", () => {
     const { w, fetches, fetch } = stubWindow(null);
     runScript(w, fetch);
     expect(fetches).toEqual([]);
-    const broken = { localStorage: { getItem: () => { throw new Error("private"); } } };
+    const broken = {
+      location: { pathname: "/" },
+      localStorage: { getItem: () => { throw new Error("private"); } },
+    };
     expect(() => runScript(broken, fetch)).not.toThrow();
+  });
+
+  it("stays quiet on pages that never mount a book", () => {
+    const url = "/api/quotes?tickers=AAPL";
+    for (const path of ["/research/NVDA", "/privacy", "/terms", "/auth/email", "/unsubscribe", "/admin"]) {
+      const { w, fetches, fetch } = stubWindow(url, path);
+      runScript(w, fetch);
+      expect(fetches, path).toEqual([]);
+    }
+    for (const path of ["/", "/pulse", "/portfolio/retirement", "/growth", "/communities", "/stock/NVDA"]) {
+      const { w, fetches, fetch } = stubWindow(url, path);
+      runScript(w, fetch);
+      expect(fetches, path).toEqual([url]);
+    }
   });
 
   it("is taken once, for exactly the address the book asks for, while young", () => {

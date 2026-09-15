@@ -36,12 +36,28 @@ export const QUOTES_PREFETCH_GLOBAL = "__upsideQuotes";
 type Parked = { url: string; at: number; res: Promise<Response> };
 
 /**
+ * Pages that never mount the book, so a head start there is a request
+ * spent on nobody: the public research pages, the legal pages, the
+ * sign-in handshake and the one-click unsubscribe. Prefix-matched.
+ */
+export const QUOTES_PREFETCH_SKIP_PREFIXES = [
+  "/research/",
+  "/privacy",
+  "/terms",
+  "/auth/",
+  "/unsubscribe",
+  "/admin",
+] as const;
+
+/**
  * Deliberately tiny and synchronous. Only a same-origin `/api/quotes?`
  * address is ever fetched, whatever storage holds, so a poisoned key
  * cannot make this page call out anywhere else.
  */
 export const QUOTES_PREFETCH_SCRIPT =
-  `try{var u=window.localStorage.getItem("${QUOTES_PREFETCH_KEY}");` +
+  `try{var s=${JSON.stringify(QUOTES_PREFETCH_SKIP_PREFIXES)},` +
+  `l=window.location.pathname,i;for(i=0;i<s.length;i++){if(l.indexOf(s[i])===0)throw 0}` +
+  `var u=window.localStorage.getItem("${QUOTES_PREFETCH_KEY}");` +
   `if(u&&u.indexOf("/api/quotes?")===0&&typeof fetch==="function"){` +
   `var p=fetch(u);p.catch(function(){});` +
   `window.${QUOTES_PREFETCH_GLOBAL}={url:u,at:Date.now(),res:p}}}catch(e){}`;

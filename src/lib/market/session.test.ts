@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isQuotePollFresh,
   lastCompletedUsSessionKey,
+  quoteIdlePollMs,
   quotePollMs,
   quoteStuckAfterMs,
   quoteViewMaxAgeMs,
@@ -148,7 +149,10 @@ describe("quoteStuckAfterMs", () => {
   it("is two poll cycles plus slack, so it moves with the session", () => {
     const open = new Date("2026-08-24T15:00:00Z");
     const night = new Date("2026-08-25T06:00:00Z");
-    expect(quoteStuckAfterMs(open)).toBe(2 * quotePollMs(open) + 15_000);
+    expect(quoteStuckAfterMs(open)).toBe(2 * quoteIdlePollMs(open) + 15_000);
+    // The idle cadence is a floor of a minute over the live one, never under it.
+    expect(quoteIdlePollMs(open)).toBe(60_000);
+    expect(quoteIdlePollMs(night)).toBe(quotePollMs(night));
     expect(quoteStuckAfterMs(night)).toBeGreaterThan(quoteStuckAfterMs(open));
     // Never tighter than the view bar: a price fresh enough to show is not stuck.
     expect(quoteStuckAfterMs(open)).toBeGreaterThan(quoteViewMaxAgeMs(open));

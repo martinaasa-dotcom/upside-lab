@@ -143,6 +143,8 @@ import {
   UserPlus,
 } from "lucide-react";
 import {
+  QUOTE_IDLE_AFTER_MS,
+  quoteIdlePollMs,
   quotePollMs,
   quotesUrl,
   isQuotePollFresh,
@@ -1570,6 +1572,7 @@ export function Dashboard() {
       if (tickers.length === 0) {
         setQuotes({});
         setOptions({});
+        rememberQuotesUrl(null);
         await refreshFx();
         return;
       }
@@ -2131,13 +2134,38 @@ export function Dashboard() {
       });
     };
 
+    /*
+      A tab nobody has touched for a while eases off. Fifteen seconds is
+      the right cadence for somebody watching the open, and four requests
+      a minute for a tab left on a second screen all day is what spends
+      the compute allowance this project has already been paused for
+      once. The first touch after an idle stretch is treated as an
+      arrival and refetches at once, so a reader coming back never meets
+      the slower number. Listeners are passive and note a time; nothing
+      here renders.
+    */
+    let lastTouch = Date.now();
+    const cadence = () =>
+      Date.now() - lastTouch >= QUOTE_IDLE_AFTER_MS
+        ? quoteIdlePollMs()
+        : quotePollMs();
+    const onTouch = () => {
+      const wasIdle = Date.now() - lastTouch >= QUOTE_IDLE_AFTER_MS;
+      lastTouch = Date.now();
+      if (wasIdle) tick("view");
+    };
+    const TOUCH_EVENTS = ["pointerdown", "keydown", "wheel", "touchstart", "scroll"] as const;
+    for (const name of TOUCH_EVENTS) {
+      window.addEventListener(name, onTouch, { passive: true, capture: true });
+    }
+
     // Re-armed each cycle so the cadence changes when the session does,
     // instead of being fixed at whatever it was when the tab opened.
     const schedule = () => {
       timer = window.setTimeout(() => {
         tick();
         schedule();
-      }, quotePollMs());
+      }, cadence());
     };
     schedule();
 
@@ -2162,6 +2190,9 @@ export function Dashboard() {
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener(WORKSPACE_SHOW_EVENT, onShow);
+      for (const name of TOUCH_EVENTS) {
+        window.removeEventListener(name, onTouch, { capture: true });
+      }
     };
     // ticker identity via allTickersKey fingerprint
     // eslint-disable-next-line react-hooks/exhaustive-deps -- allTickers covered by key

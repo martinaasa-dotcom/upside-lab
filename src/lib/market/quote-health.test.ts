@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { quotesAgeLabel, quotesStuck } from "@/lib/market/quote-health";
-import { quotePollMs, quoteStuckAfterMs } from "@/lib/market/session";
+import { quoteIdlePollMs, quotePollMs, quoteStuckAfterMs } from "@/lib/market/session";
 
 /** A Monday inside the regular session, 11:00 New York. */
 const OPEN = Date.parse("2026-08-24T15:00:00Z");
@@ -8,9 +8,10 @@ const OPEN = Date.parse("2026-08-24T15:00:00Z");
 const NIGHT = Date.parse("2026-08-25T06:00:00Z");
 
 describe("quotesStuck", () => {
-  it("is not stuck between two ordinary polls", () => {
+  it("is not stuck between two ordinary polls, live or idle", () => {
     const cadence = quotePollMs(new Date(OPEN));
-    for (const age of [0, 1_000, cadence - 1, cadence, cadence * 1.5]) {
+    const idle = quoteIdlePollMs(new Date(OPEN));
+    for (const age of [0, 1_000, cadence - 1, cadence, cadence * 1.5, idle, idle * 1.5]) {
       expect(
         quotesStuck({ fetchedAt: OPEN - age, failing: false, online: true, now: OPEN })
       ).toBe(false);

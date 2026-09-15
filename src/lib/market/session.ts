@@ -189,7 +189,29 @@ export function isQuotePollFresh(
  * fixed slack covers the fetch itself and a throttled timer landing late.
  */
 export function quoteStuckAfterMs(at: Date = new Date()): number {
-  return 2 * quotePollMs(at) + 15_000;
+  return 2 * quoteIdlePollMs(at) + 15_000;
+}
+
+/**
+ * How long a reader may go without touching the page before the poll
+ * eases off. Five minutes: long enough that somebody reading a room is
+ * never counted as away, short enough that a tab left open on a second
+ * screen all day does not poll four times a minute for nobody.
+ */
+export const QUOTE_IDLE_AFTER_MS = 5 * 60_000;
+
+/**
+ * The cadence once nobody has touched the page for `QUOTE_IDLE_AFTER_MS`.
+ * Never faster than once a minute, never slower than the session's own
+ * cadence (overnight is already ten minutes). The first touch after an
+ * idle stretch refetches at once, so a reader coming back to the tab
+ * never meets the slower number: `Dashboard` treats that touch as an
+ * arrival. This is also why `quoteStuckAfterMs` is measured against the
+ * idle cadence rather than the live one, since a healthy idle tab must
+ * not grey its own figure between two idle polls.
+ */
+export function quoteIdlePollMs(at: Date = new Date()): number {
+  return Math.max(quotePollMs(at), 60_000);
 }
 
 /**
