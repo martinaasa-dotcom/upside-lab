@@ -96,6 +96,7 @@ const stack = pushUndoSnapshot([], {
   cashBalance: 1,
   holdings: [],
   eoyOverrides: {},
+  eoySources: {},
 });
 const popped = popUndoSnapshot(stack);
 assert(popped.snap?.label === "test", "undo pop");
@@ -177,6 +178,13 @@ const forecastStub = {
         2028: false,
         2029: false,
         2030: false,
+      },
+      targetOrigins: {
+        2026: null,
+        2027: null,
+        2028: null,
+        2029: null,
+        2030: null,
       },
       gainPct: 0,
       hasTargets: false,
@@ -369,6 +377,7 @@ const snap = captureSheetSnapshot({
   },
   holdings: [],
   eoyOverrides: {},
+  eoySources: {},
 });
 assert(snap.portfolioId === "p", "capture");
 

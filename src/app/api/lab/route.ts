@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   emptyLabBundle,
   sanitizeEoyOverrides,
+  sanitizeEoySources,
   sanitizeLadders,
   sanitizeWatchlist,
   type LabBundle,
@@ -31,19 +32,26 @@ const LAB_BASE_COLS = ["id", "owner_id", "conviction", "updated_at"];
  * used again on its own once its migration lands, with no deploy needed.
  *
  * `watchlist` came with `20260819140000_lab_watchlist.sql`, `ladders`
- * with `20260906140000_a_price_plan_belongs_to_the_reader.sql`, and
- * `eoyOverrides` with `20260915120000_a_house_default_for_everyone_else.sql`.
+ * with `20260906140000_a_price_plan_belongs_to_the_reader.sql`,
+ * `eoyOverrides` with `20260915120000_a_house_default_for_everyone_else.sql`
+ * and `eoy_sources` with `20260915180000_a_figure_says_who_wrote_it.sql`.
  * They are tracked separately on purpose: one environment can have the
  * first two and not the third, and a single flag would take an applied
  * column out along with the missing one.
  */
-const OPTIONAL_COLUMNS = ["watchlist", "ladders", "eoy_overrides"] as const;
+const OPTIONAL_COLUMNS = [
+  "watchlist",
+  "ladders",
+  "eoy_overrides",
+  "eoy_sources",
+] as const;
 type OptionalColumn = (typeof OPTIONAL_COLUMNS)[number];
 
 const columnReady: Record<OptionalColumn, boolean> = {
   watchlist: true,
   ladders: true,
   eoy_overrides: true,
+  eoy_sources: true,
 };
 
 function labCols(): string {
@@ -74,6 +82,7 @@ function rowToBundle(row: Record<string, unknown> | null): LabBundle {
     watchlist: sanitizeWatchlist(row.watchlist),
     ladders: sanitizeLadders(row.ladders),
     eoyOverrides: sanitizeEoyOverrides(row.eoy_overrides),
+    eoySources: sanitizeEoySources(row.eoy_sources),
     updatedAt: typeof row.updated_at === "string" ? row.updated_at : undefined,
   };
 }
@@ -150,6 +159,7 @@ async function handlePUT(req: NextRequest) {
       watchlist?: string[];
       ladders?: LabBundle["ladders"];
       eoy_overrides?: LabBundle["eoyOverrides"];
+      eoy_sources?: LabBundle["eoySources"];
     } = { updated_at: now };
     if (body.conviction !== undefined) {
       patch.conviction = body.conviction as LabBundle["conviction"];
@@ -162,6 +172,9 @@ async function handlePUT(req: NextRequest) {
     }
     if (body.eoyOverrides !== undefined && columnReady.eoy_overrides) {
       patch.eoy_overrides = sanitizeEoyOverrides(body.eoyOverrides);
+    }
+    if (body.eoySources !== undefined && columnReady.eoy_sources) {
+      patch.eoy_sources = sanitizeEoySources(body.eoySources);
     }
 
     if (existing) {
@@ -186,6 +199,9 @@ async function handlePUT(req: NextRequest) {
           : {}),
         ...(columnReady.eoy_overrides
           ? { eoy_overrides: sanitizeEoyOverrides(body.eoyOverrides) }
+          : {}),
+        ...(columnReady.eoy_sources
+          ? { eoy_sources: sanitizeEoySources(body.eoySources) }
           : {}),
         updated_at: now,
       })
@@ -216,6 +232,16 @@ async function handlePUT(req: NextRequest) {
     ladders:
       body.ladders !== undefined && columnReady.ladders
         ? sanitizeLadders(body.ladders)
+        : undefined,
+    /*
+      Sent whether or not the column took it: the mirror needs to know
+      which published figures the house account typed and which its own
+      forecast run wrote, and that is a fact about this request rather
+      than about what the account's row managed to store.
+    */
+    eoySources:
+      body.eoySources !== undefined
+        ? sanitizeEoySources(body.eoySources)
         : undefined,
   });
 

@@ -30,7 +30,12 @@ import {
   updateCash,
   upsertHolding,
 } from "@/lib/demo-store";
-import { saveEoyOverrides, type PortfolioEoyOverrides } from "@/lib/forecast-overrides";
+import {
+  saveEoyOverrides,
+  saveEoySources,
+  type PortfolioEoyOverrides,
+  type PortfolioEoySources,
+} from "@/lib/forecast-overrides";
 import { isRecord, readFiniteNumber } from "@/lib/unknown";
 import { isSafePositiveMoney, isSafeShares, sanitizeSheetName } from "@/lib/input-guard";
 import { roundMoney } from "@/lib/money";
@@ -74,6 +79,9 @@ export type DashboardBookWritesArgs = {
   goToTab: Dispatch<SetStateAction<string>>;
   eoyOverrides: PortfolioEoyOverrides;
   setEoyOverrides: Dispatch<SetStateAction<PortfolioEoyOverrides>>;
+  /** Who wrote each of those, so an undo puts the words back too. */
+  eoySources: PortfolioEoySources;
+  setEoySources: Dispatch<SetStateAction<PortfolioEoySources>>;
   undoStack: BookUndoSnapshot[];
   setUndoStack: Dispatch<SetStateAction<BookUndoSnapshot[]>>;
   setModalOpen: Dispatch<SetStateAction<boolean>>;
@@ -132,6 +140,8 @@ export function useDashboardBookWrites(args: DashboardBookWritesArgs) {
     goToTab,
     eoyOverrides,
     setEoyOverrides,
+    eoySources,
+    setEoySources,
     undoStack,
     setUndoStack,
     setModalOpen,
@@ -577,6 +587,7 @@ export function useDashboardBookWrites(args: DashboardBookWritesArgs) {
             portfolio: sheet,
             holdings,
             eoyOverrides,
+            eoySources,
           })
         )
       );
@@ -998,7 +1009,14 @@ export function useDashboardBookWrites(args: DashboardBookWritesArgs) {
     },
     // refreshMarkets / loadPortfolios are stable enough via closure for advisor tools
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activePortfolio, margusPortfolio, holdings, source, eoyOverrides]
+    [
+      activePortfolio,
+      margusPortfolio,
+      holdings,
+      source,
+      eoyOverrides,
+      eoySources,
+    ]
   );
 
   /**
@@ -1081,6 +1099,10 @@ export function useDashboardBookWrites(args: DashboardBookWritesArgs) {
     ]);
     setEoyOverrides(snap.eoyOverrides);
     saveEoyOverrides(snap.portfolioId, snap.eoyOverrides);
+    // The words go back with the figures, or a restored price wears
+    // whoever wrote the one that replaced it.
+    setEoySources(snap.eoySources ?? {});
+    saveEoySources(snap.portfolioId, snap.eoySources ?? {});
     if (source === "demo") {
       const store = loadDemoStore();
       let next = updateCash(store, snap.portfolioId, snap.cashBalance);

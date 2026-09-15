@@ -1,7 +1,10 @@
 /** Undo stack for Margus / bulk sheet mutations (client-only). */
 
 import type { Holding, Portfolio } from "@/lib/types";
-import type { PortfolioEoyOverrides } from "@/lib/forecast-overrides";
+import type {
+  PortfolioEoyOverrides,
+  PortfolioEoySources,
+} from "@/lib/forecast-overrides";
 
 export type BookUndoSnapshot = {
   id: string;
@@ -11,6 +14,8 @@ export type BookUndoSnapshot = {
   cashBalance: number;
   holdings: Holding[];
   eoyOverrides: PortfolioEoyOverrides;
+  /** Who wrote each of those, taken and put back with them. */
+  eoySources: PortfolioEoySources;
 };
 
 const MAX = 12;
@@ -40,6 +45,13 @@ export function captureSheetSnapshot(opts: {
   portfolio: Portfolio;
   holdings: Holding[];
   eoyOverrides: PortfolioEoyOverrides;
+  /**
+   * Taken with the figures rather than left behind: putting prices back
+   * without the words beside them would leave a restored figure wearing
+   * whoever wrote the one that replaced it, which is the same false
+   * sentence this pair of maps exists to end.
+   */
+  eoySources: PortfolioEoySources;
 }): Omit<BookUndoSnapshot, "id" | "at"> {
   const sheetHoldings = opts.holdings
     .filter((h) => h.portfolio_id === opts.portfolio.id)
@@ -50,5 +62,6 @@ export function captureSheetSnapshot(opts: {
     cashBalance: opts.portfolio.cash_balance,
     holdings: sheetHoldings,
     eoyOverrides: structuredClone(opts.eoyOverrides),
+    eoySources: structuredClone(opts.eoySources),
   };
 }

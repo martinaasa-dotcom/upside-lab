@@ -12,7 +12,11 @@
 import { useEffect, useState } from "react";
 import type { HouseForecastDefaults } from "@/app/api/forecast/house-defaults/route";
 
-const EMPTY: HouseForecastDefaults = { eoyPrices: {}, ladders: {} };
+const EMPTY: HouseForecastDefaults = {
+  eoyPrices: {},
+  eoySources: {},
+  ladders: {},
+};
 
 export function useHouseForecastDefaults(): HouseForecastDefaults {
   const [defaults, setDefaults] = useState<HouseForecastDefaults>(EMPTY);

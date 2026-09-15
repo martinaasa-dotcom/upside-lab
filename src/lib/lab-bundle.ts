@@ -1,7 +1,12 @@
 import type { ConvictionMap } from "@/lib/conviction";
 import type { ForecastYear } from "@/lib/forecast";
 import type { LadderOverride, LadderOverrides } from "@/lib/company/plan-ladder";
-import type { EoyTickerOverrides, PortfolioEoyOverrides } from "@/lib/forecast-overrides";
+import type {
+  EoyTickerOverrides,
+  PortfolioEoyOverrides,
+  PortfolioEoySources,
+} from "@/lib/forecast-overrides";
+import { sanitizeEoySources } from "@/lib/forecast-overrides";
 
 /**
  * Per-owner Lab state. Conviction is the Pulse stamp trail per ticker; the
@@ -22,11 +27,24 @@ export type LabBundle = {
    * book-wide surface before this ever reached the server.
    */
   eoyOverrides: PortfolioEoyOverrides;
+  /**
+   * Which of those figures the reader typed and which a forecast run
+   * wrote for them, keyed the same way. A year missing from here is one
+   * saved before this app kept the answer, and every sentence about it
+   * says so rather than guessing.
+   */
+  eoySources: PortfolioEoySources;
   updatedAt?: string;
 };
 
 export function emptyLabBundle(): LabBundle {
-  return { conviction: {}, watchlist: [], ladders: {}, eoyOverrides: {} };
+  return {
+    conviction: {},
+    watchlist: [],
+    ladders: {},
+    eoyOverrides: {},
+    eoySources: {},
+  };
 }
 
 /** Same shape the browser's watchlist helper enforces. */
@@ -141,3 +159,6 @@ export function sanitizeLadders(raw: unknown): LadderOverrides {
   }
   return out;
 }
+
+/** Re-exported so a caller sanitizing a bundle has one import. */
+export { sanitizeEoySources };

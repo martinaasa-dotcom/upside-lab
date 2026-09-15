@@ -83,6 +83,12 @@ import { useHouseForecastDefaults } from "@/lib/use-house-forecast-defaults";
 import { useCompanyAnchors } from "@/lib/company-anchor-pool";
 import {
   loadEoyOverrides,
+  loadEoySources,
+  mergeBookEoySources,
+  mergeEoySourcePaths,
+  saveEoySources,
+  setEoySource,
+  type PortfolioEoySources,
   mergeBookEoyOverrides,
   mergeEoyTargetPaths,
   saveEoyOverrides,
@@ -570,6 +576,13 @@ export function Dashboard() {
   const [forecastVisibleByPortfolio, setForecastVisibleByPortfolio] =
     useState<VisibilityMap>({});
   const [eoyOverrides, setEoyOverrides] = useState<PortfolioEoyOverrides>({});
+  /*
+    Who wrote each of those figures. A forecast run writes a whole path
+    for every holding into the same store a hand edit lands in, so
+    without this the app cannot tell a price the reader chose from one it
+    invented on their behalf, and it said the wrong one out loud.
+  */
+  const [eoySources, setEoySources] = useState<PortfolioEoySources>({});
   const [experienceTier, setExperienceTier] = useState<ExperienceTier | null>(
     null
   );
@@ -811,9 +824,11 @@ export function Dashboard() {
   useEffect(() => {
     if (!activePortfolio) {
       setEoyOverrides({});
+      setEoySources({});
       return;
     }
     setEoyOverrides(loadEoyOverrides(activePortfolio.id));
+    setEoySources(loadEoySources(activePortfolio.id));
   }, [activePortfolio]);
 
   useEffect(() => {
@@ -1198,16 +1213,44 @@ export function Dashboard() {
     return map;
   }, [overview.sheets, holdings, quotes]);
 
+  /*
+    THE ACCOUNT'S OWN COPY UNDER THIS DEVICE'S, WHICH IS WHAT MAKES A
+    TARGET SURVIVE A NEW PHONE.
+
+    `eoyOverrides` is this browser's localStorage for the open portfolio,
+    and the account holds the whole book's (`20260915120000`, written on
+    every save). Reading only the local one makes the account copy
+    write-only: a reader who typed a target on their laptop opens their
+    phone and finds nothing, which is the one thing that migration
+    exists to prevent. The account's answers go underneath, so a figure
+    this device knows about always wins, and the merge is per ticker for
+    the reason `mergeBookEoyOverrides` gives.
+  */
+  const forecastEoy = useMemo(
+    () => ({
+      prices: { ...labBundle.eoyOverrides, ...eoyOverrides },
+      sources: { ...labBundle.eoySources, ...eoySources },
+    }),
+    [labBundle.eoyOverrides, labBundle.eoySources, eoyOverrides, eoySources]
+  );
+
   const forecast = useMemo(() => {
     if (!activePortfolio) return null;
     return buildForecast(
       portfolioHoldings,
       quotes,
       activePortfolio.cash_balance,
-      eoyOverrides,
-      houseForecast.eoyPrices
+      forecastEoy.prices,
+      houseForecast.eoyPrices,
+      { own: forecastEoy.sources, house: houseForecast.eoySources }
     );
-  }, [activePortfolio, portfolioHoldings, quotes, eoyOverrides, houseForecast]);
+  }, [
+    activePortfolio,
+    portfolioHoldings,
+    quotes,
+    forecastEoy,
+    houseForecast,
+  ]);
 
   const margusSheetTickersKey = useMemo(() => {
     if (!margusSnapshot) return "";
@@ -1252,27 +1295,47 @@ export function Dashboard() {
   // portfolio the reader owns exactly as `bookEoyOverrides` merges them,
   // so the account always holds the same figure the book-wide surfaces
   // are already reading rather than just the one portfolio open right now.
-  function pushBookEoyOverrides(nextForActive: PortfolioEoyOverrides) {
+  function pushBookEoyOverrides(
+    nextForActive: PortfolioEoyOverrides,
+    sources: PortfolioEoySources
+  ) {
     if (!activePortfolio) return;
     void pushEoyOverrides(
       mergeBookEoyOverrides(
         realPortfolios.map((p) =>
           p.id === activePortfolio.id ? nextForActive : loadEoyOverrides(p.id)
         )
-      )
+      ),
+      sources
     );
   }
 
+  /*
+    THE TWO WRITERS, AND THE WHOLE POINT IS THAT THEY ARE TWO.
+
+    A reader typing into the Growth room's field and a forecast run
+    filling every holding's path both end up in the same map of numbers.
+    Each records which it was beside the figure, so nothing downstream
+    has to guess and nothing tells a reader they wrote a price a model
+    invented for them.
+  */
   function commitEoyPrice(
     ticker: string,
     year: ForecastYear,
     price: number
   ) {
     if (!activePortfolio) return;
+    // Marked before the updater rather than inside it: an updater must be
+    // safe to run twice, and this one writes to storage and to a second
+    // piece of state. The mark does not depend on the previous prices, so
+    // it has no business being in there.
+    const sources = markEoySource((s) =>
+      setEoySource(s, ticker, year, "yours")
+    );
     setEoyOverrides((prev) => {
       const next = setEoyOverride(prev, ticker, year, price);
       saveEoyOverrides(activePortfolio.id, next);
-      pushBookEoyOverrides(next);
+      pushBookEoyOverrides(next, sources);
       return next;
     });
   }
@@ -1281,12 +1344,39 @@ export function Dashboard() {
     paths: { ticker: string; prices: Partial<Record<ForecastYear, number>> }[]
   ) {
     if (!activePortfolio) return;
+    const sources = markEoySource((s) =>
+      mergeEoySourcePaths(s, paths, "model")
+    );
     setEoyOverrides((prev) => {
       const next = mergeEoyTargetPaths(prev, paths);
       saveEoyOverrides(activePortfolio.id, next);
-      pushBookEoyOverrides(next);
+      pushBookEoyOverrides(next, sources);
       return next;
     });
+  }
+
+  /**
+   * Applies a change to this portfolio's source map, saves it, and hands
+   * back the book-wide merge for the account push.
+   *
+   * It runs inside the value writer's own updater so the two maps are
+   * saved in one go: a browser that stored the price and then died
+   * before storing where it came from would read that figure as "saved
+   * earlier" forever, which is the honest word for it but not the one it
+   * had earned.
+   */
+  function markEoySource(
+    change: (prev: PortfolioEoySources) => PortfolioEoySources
+  ): PortfolioEoySources {
+    if (!activePortfolio) return {};
+    const next = change(loadEoySources(activePortfolio.id));
+    saveEoySources(activePortfolio.id, next);
+    setEoySources(next);
+    return mergeBookEoySources(
+      realPortfolios.map((p) =>
+        p.id === activePortfolio.id ? next : loadEoySources(p.id)
+      )
+    );
   }
 
   const marketState = useMemo(() => {
@@ -2154,6 +2244,8 @@ export function Dashboard() {
     goToTab,
     eoyOverrides,
     setEoyOverrides,
+    eoySources,
+    setEoySources,
     undoStack,
     setUndoStack,
     setModalOpen,
@@ -3169,7 +3261,14 @@ export function Dashboard() {
                   portfolioId={activePortfolio.id}
                   portfolioName={activePortfolio.name}
                   cashBalance={activePortfolio.cash_balance}
-                  overrides={eoyOverrides}
+                  /*
+                    The same merged map the forecast itself is built from
+                    (this device's own over the account's), so "is every
+                    year already answered" cannot be true of the picture
+                    and false of the check that decides whether to spend
+                    a model run on it.
+                  */
+                  overrides={forecastEoy.prices}
                   onSetEoyPrice={onSetEoyPrice}
                   onApplyMargusPaths={onApplyMargusPaths}
                   labReady={labReady}

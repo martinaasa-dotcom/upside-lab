@@ -2,6 +2,7 @@ import { NO_VALUE, cashtag, currency } from "@/lib/format";
 import { formatDateTime } from "@/lib/timezone";
 import { hazardReductionAt, IMPROVEMENT_REFERENCE_AGE } from "@/lib/retirement/longevity";
 import type { ModelRun } from "@/lib/ai/model-label";
+import type { EoyOrigin } from "@/lib/forecast-overrides";
 import type { ForecastPathAdjustment } from "@/lib/forecast-plan";
 import {
   growthAnchorFor,
@@ -307,6 +308,27 @@ export function forecastPathProvenance(input: {
    * never on a row the reader typed over themselves.
    */
   houseTargeted?: boolean;
+  /**
+   * WHO WROTE THE HOUSE'S FIGURE, WHICH IS NOT THE SAME QUESTION AS
+   * WHOSE ACCOUNT IT CAME OUT OF.
+   *
+   * The branch below used to state, to every reader of the site default,
+   * that the house account had typed these prices "directly rather than
+   * reasoned about or computed". A forecast run on that account writes a
+   * whole path for every holding and lands in the very same store, so
+   * for most tickers that sentence was exactly backwards: it was a model
+   * reasoning, dressed as a person's decision, on a card built to tell
+   * the reader which it was. `saved` is a figure from before this app
+   * recorded the answer, and it is described as neither.
+   */
+  houseOrigin?: EoyOrigin | null;
+  /**
+   * The same question for this reader's own figures, one per year shown.
+   * A path every year of which the reader typed is not "a language model
+   * wrote this", which is what the model branch below said to somebody
+   * who had typed all five by hand.
+   */
+  ownOrigins?: Array<EoyOrigin | null>;
   at?: string | null;
   /** Which model answered the run this path came out of. */
   model?: ModelRun | null;
@@ -322,16 +344,37 @@ export function forecastPathProvenance(input: {
   const last = input.lastYear ? String(input.lastYear) : "the last year";
 
   if (input.houseTargeted && !input.fallback) {
+    const houseWrote = input.houseOrigin ?? "saved";
+    const houseDetail =
+      houseWrote === "yours"
+        ? `one price per year out to ${last}, typed into that account's own Growth room rather than reasoned about or computed`
+        : houseWrote === "model"
+          ? `one price per year out to ${last}, written by a language model asked to reason about this company on that account's behalf, and saved there`
+          : `one price per year out to ${last}, saved on that account before this app recorded whether a figure was typed or worked out by a model`;
+    const houseHeadline =
+      houseWrote === "yours"
+        ? `These are the end of year prices this app's own account has typed for ${tag}, which you have not changed. This is not a model's reasoning and not a generic shape for this company's kind of business either.`
+        : houseWrote === "model"
+          ? `These are the end of year prices a language model wrote for ${tag} when this app's own account asked it to, saved there and used here because you have not set your own. Nobody typed these numbers, and they were not written for your portfolio.`
+          : `These are the end of year prices saved on this app's own account for ${tag}, which you have not changed. This app no longer knows whether that account typed them or asked a model to work them out, so it will not tell you which.`;
     return {
-      maker: "arithmetic",
+      /*
+        ARITHMETIC IS A PROMISE, SO IT IS ONLY MADE WHERE IT IS KNOWN.
+
+        `provenance.test.ts` holds every non-model card to denying a model
+        out loud, because "no model touched this" is the answer a skeptic
+        most needs to be able to rule out. A figure saved before this app
+        recorded who wrote it cannot make that promise, so it is filed
+        with the model's rather than dressed as arithmetic: over-claiming
+        a model costs a reader nothing, and under-claiming one is the
+        whole fault this pair of maps exists to end.
+      */
+      maker: houseWrote === "yours" ? "arithmetic" : "model",
       title: "Where this came from",
-      headline: `These are the end of year prices this app's own account has set for ${tag}, which you have not changed. This is not a model's reasoning and not a generic shape for this company's kind of business either.`,
+      headline: houseHeadline,
       inputs: [
         { what: "Today's price", detail: spot },
-        {
-          what: "The house account's own saved plan",
-          detail: `one price per year out to ${last}, typed by the account directly rather than reasoned about or computed`,
-        },
+        { what: "The house account's own saved plan", detail: houseDetail },
       ],
       sources: [
         YAHOO_PRICES,
@@ -341,7 +384,11 @@ export function forecastPathProvenance(input: {
         `The percent on the card is the ${last} price against today's price: (${last} price minus today's price) divided by today's price. Nothing rounds or smooths it after that.`,
       ],
       blindSpots: [
-        "Nobody here has reasoned about this company's accounts or its news for this path. It is one person's own figure, not analysis.",
+        houseWrote === "yours"
+          ? "Nobody here has reasoned about this company's accounts or its news for this path. It is one person's own figure, not analysis."
+          : houseWrote === "model"
+            ? "That run reasoned about the company in general, not about your portfolio, your position size or what you paid. No analyst was asked and no research was bought."
+            : "Nobody here can now say whether a person or a model wrote this path, so treat it as neither somebody's considered figure nor a piece of analysis.",
         NOT_THE_FUTURE,
         NOT_A_TARGET,
       ],
@@ -393,6 +440,52 @@ export function forecastPathProvenance(input: {
     };
   }
 
+  /*
+    A PATH THE READER TYPED IS NOT "A LANGUAGE MODEL WROTE THIS".
+
+    Everything below this point describes a model run, and until now
+    every row with a figure in the reader's own store that was not the
+    house account's landed here -- including one where they had typed all
+    five years by hand, which this app then credited to a model. The
+    origins say which years were whose, so a path that is entirely theirs
+    gets its own account, a mixed one keeps the model's and says which
+    years they changed, and a path with nothing recorded is described as
+    saved earlier rather than as either.
+  */
+  const origins = input.ownOrigins ?? [];
+  const known = origins.filter((o): o is EoyOrigin => o != null);
+  const typedYears = known.filter((o) => o === "yours").length;
+  const edited = input.edited ?? typedYears > 0;
+  if (known.length > 0 && typedYears === known.length) {
+    return {
+      maker: "arithmetic",
+      title: "Where this came from",
+      headline: `You typed these end of year prices for ${tag} yourself. No model wrote them, and nothing in this app changed them afterwards.`,
+      inputs: [
+        { what: "Today's price", detail: spot },
+        {
+          what: "The prices you typed",
+          detail: `${typedYears === 1 ? "one year" : `${typedYears} years`} out to ${last}, used exactly as you typed them`,
+        },
+      ],
+      sources: [
+        YAHOO_PRICES,
+        { name: "You", what: "every end of year price on this path" },
+      ],
+      steps: [
+        "Your price is used for the year you put it on, to the cent.",
+        `The percent on the card is the ${last} price against today's price: (${last} price minus today's price) divided by today's price. Nothing rounds or smooths it after that.`,
+      ],
+      blindSpots: [
+        "This app has not checked your figures against anything. Nobody here has reasoned about this company's accounts or its news for this path.",
+        NOT_THE_FUTURE,
+        NOT_A_TARGET,
+      ],
+      at: input.at,
+      yours: "Every year here is yours to change, and yours always wins.",
+    };
+  }
+
   const steps = [
     `The model answered with one price per year out to ${last}.`,
     ...adjustmentSteps(input.adjust),
@@ -403,9 +496,9 @@ export function forecastPathProvenance(input: {
       `This path was not written for your portfolio. It was worked out for ${tag} in an earlier run, ${provenanceWhen(input.reusedAt) ?? "before now"}, and reused here rather than asking again. That run reasoned about the company, so your position size and your own reason did not reach it.`
     );
   }
-  if (input.edited) {
+  if (edited) {
     steps.push(
-      "You have typed over at least one year here. Your number is used exactly as you typed it."
+      `You have typed over ${typedYears === 1 ? "one year" : `${typedYears} years`} here. Your number is used exactly as you typed it.`
     );
   }
 

@@ -1,5 +1,18 @@
 import type { Holding, Quote } from "@/lib/types";
-import type { PortfolioEoyOverrides } from "@/lib/forecast-overrides";
+import type {
+  EoyOrigin,
+  PortfolioEoyOverrides,
+  PortfolioEoySources,
+} from "@/lib/forecast-overrides";
+
+/**
+ * Who wrote each figure, in the same two halves the prices arrive in:
+ * this reader's own store and the house account's published one.
+ */
+export type EoySourceInput = {
+  own?: PortfolioEoySources;
+  house?: PortfolioEoySources;
+};
 import { shapedPathForTicker } from "@/lib/forecast-conviction";
 import { cagr, finiteNumber, roundMoney, safeDiv, sumMoney } from "@/lib/money";
 
@@ -70,6 +83,19 @@ export type ForecastRow = {
    * `targetedYears`, since a reader's own always answers first.
    */
   houseTargetedYears: Record<ForecastYear, boolean>;
+  /**
+   * WHO WROTE THE FIGURE THAT WON, WHICH IS NOT THE SAME QUESTION AS
+   * WHICH STORE IT CAME OUT OF.
+   *
+   * `targetedYears` says the figure is in this reader's own store, and a
+   * forecast run puts a whole path in there for every holding without
+   * anybody choosing a thing. So "yours" is a reader who typed it,
+   * "model" is a run that wrote it, "saved" is a figure from before this
+   * app recorded the answer, and null is a year no store answered.
+   * Read it beside `targetedYears`/`houseTargetedYears`, which say whose
+   * store it was.
+   */
+  targetOrigins: Record<ForecastYear, EoyOrigin | null>;
   /** (final EOY stock price − current SP) / current SP */
   gainPct: number | null;
   /** True when every forecast year has an override */
@@ -106,18 +132,37 @@ function priceForYear(
   year: ForecastYear,
   spot: number,
   overrides?: PortfolioEoyOverrides,
-  houseOverrides?: PortfolioEoyOverrides
-): { price: number; targeted: boolean; houseTargeted: boolean } {
+  houseOverrides?: PortfolioEoyOverrides,
+  sources?: EoySourceInput
+): {
+  price: number;
+  targeted: boolean;
+  houseTargeted: boolean;
+  origin: EoyOrigin | null;
+} {
   const key = normalizeTickerKey(ticker);
   const override = overrides?.[key]?.[year];
   if (typeof override === "number" && override > 0) {
-    return { price: override, targeted: true, houseTargeted: false };
+    return {
+      price: override,
+      targeted: true,
+      houseTargeted: false,
+      // A figure with no recorded source was saved before this app kept
+      // one. "saved" rather than a guess: claiming either way is the
+      // fault this whole pair of maps exists to end.
+      origin: sources?.own?.[key]?.[year] ?? "saved",
+    };
   }
   const houseOverride = houseOverrides?.[key]?.[year];
   if (typeof houseOverride === "number" && houseOverride > 0) {
-    return { price: houseOverride, targeted: false, houseTargeted: true };
+    return {
+      price: houseOverride,
+      targeted: false,
+      houseTargeted: true,
+      origin: sources?.house?.[key]?.[year] ?? "saved",
+    };
   }
-  return { price: spot, targeted: false, houseTargeted: false };
+  return { price: spot, targeted: false, houseTargeted: false, origin: null };
 }
 
 /**
@@ -157,7 +202,9 @@ export function buildForecast(
   cashBalance: number,
   overrides?: PortfolioEoyOverrides,
   /** The house account's own saved plan, read only where this reader has none of their own. */
-  houseOverrides?: PortfolioEoyOverrides
+  houseOverrides?: PortfolioEoyOverrides,
+  /** Who wrote each of those figures, for `targetOrigins`. */
+  sources?: EoySourceInput
 ): ForecastModel {
   const rows: ForecastRow[] = holdings
     .slice()
@@ -172,20 +219,23 @@ export function buildForecast(
       const eoyValues = {} as Record<ForecastYear, number>;
       const targetedYears = {} as Record<ForecastYear, boolean>;
       const houseTargetedYears = {} as Record<ForecastYear, boolean>;
+      const targetOrigins = {} as Record<ForecastYear, EoyOrigin | null>;
       let targetedCount = 0;
       for (const year of FORECAST_YEARS) {
-        const { price, targeted, houseTargeted } = priceForYear(
+        const { price, targeted, houseTargeted, origin } = priceForYear(
           h.ticker,
           year,
           spot,
           overrides,
-          houseOverrides
+          houseOverrides,
+          sources
         );
         if (targeted) targetedCount += 1;
         eoyPrices[year] = price;
         eoyValues[year] = roundMoney(finiteNumber(h.shares) * price);
         targetedYears[year] = targeted;
         houseTargetedYears[year] = houseTargeted;
+        targetOrigins[year] = origin;
       }
       const currentValue = roundMoney(finiteNumber(h.shares) * finiteNumber(spot));
       const lastYear = FORECAST_YEARS[FORECAST_YEARS.length - 1];
@@ -200,6 +250,7 @@ export function buildForecast(
         eoyValues,
         targetedYears,
         houseTargetedYears,
+        targetOrigins,
         gainPct,
         hasTargets: targetedCount === FORECAST_YEARS.length,
       };
@@ -241,6 +292,8 @@ export type TickerForecastSummary = {
    * `targetedYears`.
    */
   houseTargetedYears: Record<ForecastYear, boolean>;
+  /** Who wrote the figure that won. See `ForecastRow.targetOrigins`. */
+  targetOrigins: Record<ForecastYear, EoyOrigin | null>;
   /** Price at the end of the third forecast year. */
   threeYearPrice: number;
   threeYearGainPct: number;
@@ -274,7 +327,9 @@ export function resolveTickerForecastPath(
   spot: number,
   overrides?: PortfolioEoyOverrides,
   /** The house account's own saved plan, read only where this reader has none of their own. */
-  houseOverrides?: PortfolioEoyOverrides
+  houseOverrides?: PortfolioEoyOverrides,
+  /** Who wrote each of those figures, for `targetOrigins`. */
+  sources?: EoySourceInput
 ): TickerForecastSummary {
   const normTicker = ticker.toUpperCase();
   const fallback = shapedPathForTicker(spot > 0 ? spot : 1, normTicker);
@@ -283,6 +338,7 @@ export function resolveTickerForecastPath(
   const eoyGains = {} as Record<ForecastYear, number>;
   const targetedYears = {} as Record<ForecastYear, boolean>;
   const houseTargetedYears = {} as Record<ForecastYear, boolean>;
+  const targetOrigins = {} as Record<ForecastYear, EoyOrigin | null>;
   let hasOverrides = false;
   let hasHouseOverrides = false;
 
@@ -294,16 +350,19 @@ export function resolveTickerForecastPath(
       price = override;
       targetedYears[year] = true;
       houseTargetedYears[year] = false;
+      targetOrigins[year] = sources?.own?.[normTicker]?.[year] ?? "saved";
       hasOverrides = true;
     } else if (typeof houseOverride === "number" && houseOverride > 0) {
       price = houseOverride;
       targetedYears[year] = false;
       houseTargetedYears[year] = true;
+      targetOrigins[year] = sources?.house?.[normTicker]?.[year] ?? "saved";
       hasHouseOverrides = true;
     } else {
       price = fallback[year] ?? (spot > 0 ? spot : 1);
       targetedYears[year] = false;
       houseTargetedYears[year] = false;
+      targetOrigins[year] = null;
     }
     eoyPrices[year] = price;
     eoyGains[year] = spot > 0 ? safeDiv(price - spot, spot) : 0;
@@ -327,6 +386,7 @@ export function resolveTickerForecastPath(
     eoyGains,
     targetedYears,
     houseTargetedYears,
+    targetOrigins,
     threeYearPrice,
     threeYearGainPct,
     threeYearCagrPct,
