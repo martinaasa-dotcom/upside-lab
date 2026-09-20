@@ -28,9 +28,11 @@ const DEFAULT_CHAT_HOLD_MS = 60_000;
  * instance rather than per request, so a slot stuck this way stayed stuck
  * for the rest of that instance's life -- every later background job on
  * it read "held" forever and fell back, silently, which is exactly the
- * failure `sunday_letter_all_fallback` exists to catch and could not
- * explain. No legitimate hold should run anywhere near this long, so a
- * slot older than this is treated as abandoned and taken back.
+ * pattern `sunday_letter_fallback_rate` records the reason for ("another
+ * background job held the model slot", repeated across every letter in
+ * the run) without this backstop ever explaining itself. No legitimate
+ * hold should run anywhere near this long, so a slot older than this is
+ * treated as abandoned and taken back.
  *
  * This is a backstop for a crash, not a budget any caller should ever
  * plan around: it must stay comfortably above the slowest real hold this
