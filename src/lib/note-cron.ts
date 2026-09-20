@@ -776,29 +776,49 @@ export async function dispatchWeeklyLetters(
    * reads; anything smaller stays a warning event.
    */
   /*
-   * A Sunday nobody's letter was written by the model.
+   * A Sunday where the model wrote few or none of the letters.
    *
-   * `fallbackWeeklyTake` exists so the letter always ships, and it does its
-   * job quietly, which is exactly the problem: a missing API key, a slot
-   * held by another background job or an answer the checks refuse all end
-   * with a letter in the inbox and nothing anywhere saying the writer
-   * never ran. One alarm, on the run rather than per recipient, carrying
-   * the reasons but nothing about who was reading.
+   * `fallbackWeeklyTake` exists so the letter always ships, and the fallback
+   * prose is good enough that a week of it is not itself an incident -- the
+   * free-tier chain contending with Pulse for the shared background slot,
+   * or a provider throttling mid-run, is ordinary life for a job that can
+   * ask for a dozen letters in fifty seconds. Alarming a human about that
+   * every single week trained the one person reading these mails to stop
+   * opening them, which is worse than the fallback it was warning about.
+   *
+   * So this is a warning event, not an error: it reaches Vercel's log
+   * stream (searchable, if anyone goes looking for why a given Sunday
+   * leaned on the fallback) but not /admin or the daily digest, and the
+   * reason counts travel with it so the dominant one is legible without
+   * re-deriving it from portfell_error_log's context column, which nothing
+   * renders.
+   *
+   * One reason is not ordinary contention: "no model provider is
+   * configured" means the whole chain is empty, which is a standing
+   * misconfiguration rather than a busy morning, would silently degrade
+   * every other model-touching feature too, and does not fix itself by
+   * waiting. That one alone still goes through logError.
    */
   if (fallbackTakes > 0) {
     const reasons = Object.fromEntries(fallbackReasons);
-    if (modelTakes === 0 && fallbackTakes >= 1) {
+    const reasonSummary = [...fallbackReasons.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([reason, count]) => `${reason} (${count})`)
+      .join("; ");
+    const chainEmpty =
+      fallbackReasons.get("no model provider is configured") === fallbackTakes;
+    if (chainEmpty) {
       await logError({
         source: "server",
-        message: `Sunday letter: the model wrote none of ${fallbackTakes} letters in this run, so every reader got the fallback prose.`,
+        message: `Sunday letter: no model provider is configured, so all ${fallbackTakes} letters in this run got the fallback prose.`,
         path: "/api/cron/sunday-note",
-        event: "sunday_letter_all_fallback",
+        event: "sunday_letter_no_provider",
         context: { fallbackTakes, modelTakes, reasons },
       });
     } else {
       logEvent(
         "sunday_letter_fallback_rate",
-        { fallbackTakes, modelTakes, reasons },
+        { fallbackTakes, modelTakes, reasonSummary, reasons },
         "warn"
       );
     }
