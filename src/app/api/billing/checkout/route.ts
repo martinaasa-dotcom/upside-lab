@@ -116,21 +116,31 @@ async function handlePOST(req: Request) {
 
     const origin = new URL(req.url).origin;
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      automatic_tax: { enabled: true },
-      // Every Customer we create starts with no address. Without this,
-      // automatic_tax rejects the session up front instead of using the
-      // address the buyer is about to enter in Checkout.
-      customer_update: { address: "auto", name: "auto" },
-      tax_id_collection: { enabled: true },
-      billing_address_collection: "required",
-      success_url: `${origin}/account?upgraded=1`,
-      cancel_url: `${origin}/account`,
-      allow_promotion_codes: true,
-    });
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "subscription",
+        customer: customerId,
+        line_items: [{ price: priceId, quantity: 1 }],
+        automatic_tax: { enabled: true },
+        // Every Customer we create starts with no address. Without this,
+        // automatic_tax rejects the session up front instead of using the
+        // address the buyer is about to enter in Checkout.
+        customer_update: { address: "auto", name: "auto" },
+        tax_id_collection: { enabled: true },
+        billing_address_collection: "required",
+        success_url: `${origin}/account?upgraded=1`,
+        cancel_url: `${origin}/account`,
+        allow_promotion_codes: true,
+      },
+      // Keyed on the customer id so a retry burst (a transient error, a
+      // frustrated double-press of Upgrade) reuses the same Checkout
+      // Session instead of each attempt minting its own -- which is how a
+      // single customer ends up with two live subscriptions and two
+      // monthly charges. The active-subscription check above closes the
+      // gap once a subscription exists; this closes it before one does,
+      // while retries are still racing each other.
+      { idempotencyKey: `checkout:${customerId}` }
+    );
 
     if (!session.url) {
       return NextResponse.json({ error: "Stripe didn't return a checkout URL" }, { status: 502 });
