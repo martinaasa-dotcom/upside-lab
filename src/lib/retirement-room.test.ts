@@ -173,6 +173,9 @@ describe("both pots are named at every level", () => {
           plan,
           provenance,
           showWorking,
+          curve: [],
+          earliestAge: null,
+          onRetirementAge: () => {},
         })
       )
     );

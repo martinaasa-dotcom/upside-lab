@@ -121,8 +121,9 @@ import { buildMilestones } from "@/lib/retirement/milestones";
 import {
   buildPlan,
   defaultInputs,
-  earliestRetirement,
   planningAgeFor,
+  potCurve,
+  retargetRetirementAge,
   type RetirementInputs,
 } from "@/lib/retirement/plan";
 import {
@@ -453,10 +454,18 @@ export function RetirementSheet({
     and this catches up a frame later.
   */
   const settled = useDeferredValue(inputs);
-  const earliest = useMemo(
-    () => earliestRetirement(settled, longevity.suggestedPlanningAge),
+  /*
+    The chart's two lines and the earliest age come from one loop, so the
+    crossing drawn and the age named cannot disagree.
+  */
+  const curve = useMemo(
+    () => potCurve(settled, longevity.suggestedPlanningAge),
     [settled, longevity.suggestedPlanningAge]
   );
+  const earliest = useMemo(() => {
+    const hit = curve.find((p) => p.need > 0 && p.have >= p.need);
+    return hit ? { age: hit.age, pot: hit.have, required: hit.need } : null;
+  }, [curve]);
 
   const rows = useMemo(
     () =>
@@ -521,6 +530,11 @@ export function RetirementSheet({
         plan={plan}
         provenance={provenance}
         showWorking={isOpen("working")}
+        curve={curve}
+        earliestAge={earliest ? earliest.age : null}
+        onRetirementAge={(age) =>
+          setInputs((prev) => retargetRetirementAge(prev, age))
+        }
       />
 
       <QuickStart

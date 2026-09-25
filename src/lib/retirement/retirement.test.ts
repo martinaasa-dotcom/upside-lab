@@ -1667,3 +1667,31 @@ describe("a plan survives the round trip through a browser", () => {
     }
   });
 });
+
+describe("the pot chart and the earliest age are one loop", () => {
+  it("names the first age the curve crosses, and draws the plan's own pot", async () => {
+    const { potCurve, earliestRetirement, buildPlan, defaultInputs } = await import(
+      "@/lib/retirement/plan"
+    );
+    const inputs = {
+      ...defaultInputs("GB"),
+      currentAge: 35,
+      retirementAge: 62,
+      currentPot: 80_000,
+      annualContribution: 12_000,
+    };
+    const curve = potCurve(inputs, 95);
+    const crossing = curve.find((p) => p.need > 0 && p.have >= p.need) ?? null;
+    const earliest = earliestRetirement(inputs, 95);
+    expect(earliest?.age ?? null).toBe(crossing?.age ?? null);
+    // The chart's pot at the reader's own age is the pot the plan projects.
+    const plan = buildPlan(inputs, 95);
+    const at = curve.find((p) => p.age === 62)!;
+    expect(Math.abs(at.have - plan.projectedPot)).toBeLessThan(
+      Math.max(1, plan.projectedPot * 0.001)
+    );
+    expect(at.need).toBeCloseTo(plan.required.target, 0);
+    // It reaches past the reader's own age.
+    expect(curve[curve.length - 1]!.age).toBeGreaterThanOrEqual(67);
+  });
+});
