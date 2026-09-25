@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HOUSEHOLD_COINS } from "@/lib/coins";
 import { cashtag } from "@/lib/format";
@@ -33,7 +34,10 @@ export function WatchSuggestionChips({
           variant="outline"
           disabled={disabled}
           onClick={() => onPick(symbol)}
+          aria-label={`Watch ${cashtag(symbol)}`}
         >
+          {/* A plus, so a row of suggestions does not read as the list. */}
+          <Plus data-icon="inline-start" aria-hidden />
           {cashtag(symbol)}
         </Button>
       ))}

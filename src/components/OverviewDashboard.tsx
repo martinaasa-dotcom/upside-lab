@@ -605,10 +605,18 @@ function MorningStack({
          * talking, so it is one card now: the day's sentence leads, and the
          * notes are a short list under it with an inline link each.
          */
+        /*
+         * On a quiet day the sentence is the hero's own line again ("up
+         * $225 today ... today is one of those"), one card lower. It goes,
+         * and the card keeps only what the hero does not say.
+         */
+        morning.quiet && !noticeList ? null : (
         <Reading className="flex flex-col gap-4">
-          <p className="text-base font-medium leading-relaxed text-foreground">
-            {morning.sentence}
-          </p>
+          {morning.quiet ? null : (
+            <p className="text-base font-medium leading-relaxed text-foreground">
+              {morning.sentence}
+            </p>
+          )}
           {!morning.quiet && morning.drivers.length > 0 && (
             <div
               className={cn(
@@ -636,6 +644,7 @@ function MorningStack({
           )}
           {noticeList}
         </Reading>
+        )
       )}
     </div>
   );
@@ -1418,7 +1427,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
               <DeltaBadge value={totals.todayDollar}>
                 {signedCurrency(totals.todayDollar, 0)}
                 {totals.todayPct != null
-                  ? ` · ${percent(totals.todayPct)}`
+                  ? ` · ${signedPercent(totals.todayPct)}`
                   : ""}
               </DeltaBadge>
             )}

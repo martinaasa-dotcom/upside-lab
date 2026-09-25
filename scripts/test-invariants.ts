@@ -2212,7 +2212,13 @@ run("chart ticks stay HTML text-xs, never SVG text", () => {
   assert.doesNotMatch(nav, /min-h-\[4\.75rem\]/);
   assert.match(nav, /h-64 w-full/);
   assert.match(nav, /min-h-9/);
-  assert.match(nav, /plotMax = scale.max \+ span \* 0\.18/);
+  /*
+   * Some headroom above the top tick, so the line never kisses it, and
+   * not so much that the plot opens on a band of empty glass: `niceScale`
+   * already rounds the top up. Asserted as a range, not one number.
+   */
+  const headroom = Number(nav.match(/plotMax = scale.max \+ span \* ([0-9.]+)/)?.[1]);
+  assert.ok(headroom >= 0.04 && headroom <= 0.12, `plot headroom ${headroom}`);
   /*
    * The caption says the stretch is an estimate, and the assumed part of
    * the line is drawn dashed rather than in the same solid gold as the days
