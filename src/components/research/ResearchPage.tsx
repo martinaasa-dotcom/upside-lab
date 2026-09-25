@@ -414,8 +414,8 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
               before you buy it.
             </li>
             <li>
-              A price ladder you set yourself, and a note when the price
-              reaches one of your own levels.
+              Fair value zones you can set yourself, and a note when the
+              price reaches one of your own levels.
             </li>
             <li>
               One email a week saying how the week went and which of your

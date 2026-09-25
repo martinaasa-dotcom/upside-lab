@@ -45,8 +45,8 @@ describe("BandMap render", () => {
     })
   );
 
-  it("titles the panel Price Zones", () => {
-    expect(html).toContain("Price Zones");
+  it("titles the panel Fair value zones", () => {
+    expect(html).toContain("Fair value zones");
   });
 
   it("never says the retired word to a reader", () => {
@@ -87,7 +87,7 @@ describe("BandMap render", () => {
     const visible = pooledHtml
       .replace(/data-band-row=""/g, "")
       .replace(/data-band-chip=""/g, "");
-    expect(visible).toContain("Price Zones");
+    expect(visible).toContain("Fair value zones");
     expect(visible).not.toMatch(/\bBand\b/);
     expect(visible).not.toMatch(/\bband\b/);
   });

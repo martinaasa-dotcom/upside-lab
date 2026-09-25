@@ -54,14 +54,14 @@ export function anchorForCompany(
   const mid = rangeMidpoint(facts);
   if (ok(mid)) {
     const why = isFundLike(facts)
-      ? "A fund's price is the sum of what it holds, so there is no estimate of its own to hang a ladder on."
+      ? "A fund's price is the sum of what it holds, so there is no estimate of its own to hang fair value zones on."
       : isCryptoLike(facts)
-        ? "There are no accounts behind this one, so there is nothing to value it against and no estimate to hang a ladder on."
-        : "No valuation method could be run on this one, so there is no estimate to hang a ladder on.";
+        ? "There are no accounts behind this one, so there is nothing to value it against and no estimate to hang fair value zones on."
+        : "No valuation method could be run on this one, so there is no estimate to hang fair value zones on.";
     return {
       price: mid,
       kind: "history",
-      said: `${currency(mid, 2)}, the middle of the range it has traded in over the last year. ${why} This is a ladder about the price and says nothing about what it is worth.`,
+      said: `${currency(mid, 2)}, the middle of the range it has traded in over the last year. ${why} These zones are about the price and say nothing about what it is worth.`,
     };
   }
   return null;
@@ -125,7 +125,7 @@ export function anchorForHolding(input: {
     return {
       price: input.rangeMid,
       kind: "history",
-      said: `${currency(input.rangeMid, 2)}, the middle of the range this one has actually traded in over ${over}. No valuation method could be run on this company, so there is no estimate to hang a ladder on. This is a ladder about the price and says nothing about what it is worth.`,
+      said: `${currency(input.rangeMid, 2)}, the middle of the range this one has actually traded in over ${over}. No valuation method could be run on this company, so there is no estimate to hang fair value zones on. These zones are about the price and say nothing about what it is worth.`,
     };
   }
   return null;

@@ -1339,7 +1339,7 @@ export function planLadderProvenance(input: {
         detail: input.stepSaid ?? "read off the year's high and low for this share",
       },
       {
-        what: "The bottom of the ladder",
+        what: "The lowest fair value zone",
         detail:
           input.floorSaid ??
           "the lowest this share has actually traded in a year, where the feed carried one",
@@ -1359,23 +1359,23 @@ export function planLadderProvenance(input: {
     ],
     steps: [
       "The anchor is taken from the valuation panel below, unmodified. Nothing here re-estimates it and nothing nudges it towards today's price.",
-      "Each zone is a tenth of the anchor wide, which is the width the ladders this was built from use. Two fifths of how far this share's own year ran, against an ordinary company's, is added on top, so a name that barely moves gets slightly finer zones and one that swings hard slightly coarser.",
+      "Each zone is a tenth of the anchor wide, which is the width the reference zones this was built from use. Two fifths of how far this share's own year ran, against an ordinary company's, is added on top, so a name that barely moves gets slightly finer zones and one that swings hard slightly coarser.",
       ...(input.farBelow
         ? [
             "The zones are tighter than that here, because the price is a long way under the anchor. Down there every price is the same decision, so the fine detail belongs at the top, where the levels you would actually meet are, and the stretch below is one zone rather than five.",
           ]
         : []),
-      "The bottom of the ladder is the lowest this share has actually traded in a year, where the feed carried one and it sits clear of the zone above it. It is a price rather than a fraction of the estimate, so it is a level you can check.",
+      "The bottom of the lowest zone is the lowest this share has actually traded in a year, where the feed carried one and it sits clear of the zone above it. It is a price rather than a fraction of the estimate, so it is a level you can check.",
       "Today's price is then read against those levels. That is the whole calculation: no model, no scoring, no view about this company.",
     ],
     blindSpots: [
       NOT_YOUR_BROKER,
-      "Whether any of this is a sensible ladder for you. The zones are a shape, not a judgement about your money, your timescale or what else you own.",
+      "Whether any of these are sensible zones for you. The zones are a shape, not a judgement about your money, your timescale or what else you own.",
       "Anything that happens between two prices: a level can be passed and come back before you ever look.",
       "The anchor's own assumptions. Every method behind it rests on one, and they are listed in the panel below.",
     ],
     at: input.at,
-    yours: "Change any level and the ladder redraws around it. The levels are yours; this app only does the multiplication.",
+    yours: "Change any level and the zones redraw around it. The levels are yours; this app only does the multiplication.",
   };
 }
 
@@ -1402,10 +1402,10 @@ export function bandMapProvenance(input: {
   return {
     maker: "arithmetic",
     title: "How this picture was drawn",
-    headline: `No model wrote this and nothing here is a score. It is ${n === 1 ? one : `${n} ${many}`} filed by two figures that are already on other screens: each name's own price ladder, and how much of ${whose} it is.`,
+    headline: `No model wrote this and nothing here is a score. It is ${n === 1 ? one : `${n} ${many}`} filed by two figures that are already on other screens: each name's own fair value zones, and how much of ${whose} it is.`,
     inputs: [
       {
-        what: "Each name's own price ladder",
+        what: "Each name's own fair value zones",
         /*
           NEVER "end of year price" ON ITS OWN -- `anchorForHolding`
           answers with one of two different kinds and this line used to
@@ -1421,8 +1421,8 @@ export function bandMapProvenance(input: {
           outright rather than offering a reader a choice of two.
         */
         detail: input.pooled
-          ? "the same generic ladder a name gets when nobody has set a level on it, anchored on the range it has actually traded in"
-          : "the same ladder its own page draws, anchored on an end of year price where one has been set and on the range it has actually traded in otherwise",
+          ? "the same generic zones a name gets when nobody has set a level on it, anchored on the range it has actually traded in"
+          : "the same zones its own page draws, anchored on an end of year price where one has been set and on the range it has actually traded in otherwise",
       },
       { what: "Today's price for each one" },
       {
@@ -1440,10 +1440,10 @@ export function bandMapProvenance(input: {
       },
     ],
     steps: [
-      "Each name's ladder is built first, exactly as its own page builds it. Nothing about the ladder changes because it is on this picture.",
+      "Each name's fair value zones are built first, exactly as its own page builds them. Nothing about them changes because they are on this picture.",
       "Which row a name is in is which zone its price is in. Every zone is a multiple of that company's own fair value, which is what lets a $2 company and a $2,000 one be compared at all.",
       `A zone's bar is how much of ${whose} is priced in that zone, measured against the fullest zone rather than against a hundred per cent, and each block in the bar is one ${input.pooled ? "company" : "holding"} sized by what it is worth.`,
-      `Every row is the same height whatever ${input.pooled ? "anybody holds" : "you own"}, including the rows with nothing in them, so the shape of the ladder cannot change with the ${input.pooled ? "circle" : "portfolio"}.`,
+      `Every row is the same height whatever ${input.pooled ? "anybody holds" : "you own"}, including the rows with nothing in them, so the shape of the zones cannot change with the ${input.pooled ? "circle" : "portfolio"}.`,
       "A name folds away only when its zone has run out of room to draw it, never because it is small on its own, and what folds is the smallest of that zone first. They fold into a block saying how many went and what they come to together.",
       `A bar is never drawn shorter than the names inside it need to be readable, so a zone holding very little of ${whose} can look longer than its share alone would make it. The figure beside the bar is the exact share, and it is the one to read.`,
     ],
@@ -1456,14 +1456,14 @@ export function bandMapProvenance(input: {
           ]
         : []),
       input.pooled
-        ? "Whether the ladder behind any of it is a sensible one for anybody in particular. Every level here is this app's own generic estimate, and none of it is a level somebody in this circle chose."
-        : "Whether the ladder behind any of it is a sensible one for you. The picture inherits every assumption of each name's own anchor.",
+        ? "Whether the zones behind any of it are sensible for anybody in particular. Every level here is this app's own generic estimate, and none of it is a level somebody in this circle chose."
+        : "Whether the zones behind any of it are sensible for you. The picture inherits every assumption of each name's own anchor.",
       NOT_A_TARGET,
     ],
     at: input.at,
     yours: input.pooled
-      ? "Open a name to see its own page, and set your own levels there if you hold it. Nothing drawn here is anybody's edited ladder."
-      : "Open a name to see the ladder behind its position, and change any level you disagree with.",
+      ? "Open a name to see its own page, and set your own levels there if you hold it. Nothing drawn here is anybody's edited fair value zones."
+      : "Open a name to see the fair value zones behind its position, and change any level you disagree with.",
   };
 }
 

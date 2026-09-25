@@ -894,7 +894,7 @@ export function InfoTip({
     <Popover>
       <PopoverTrigger
         type="button"
-        data-slot="info-tip"
+        data-slot={asWord ? "info-word" : "info-tip"}
         aria-label={label ?? "What does this mean?"}
         className={
           asWord

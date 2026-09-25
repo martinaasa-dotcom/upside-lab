@@ -3437,7 +3437,7 @@ export function Dashboard() {
           </WidgetErrorBoundary>
         ) : (
           <>
-            <WidgetErrorBoundary name="Price Zones">
+            <WidgetErrorBoundary name="Fair value zones">
               <BandMap rows={portfolioLadders} />
             </WidgetErrorBoundary>
 

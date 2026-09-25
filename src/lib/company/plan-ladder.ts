@@ -696,9 +696,9 @@ export function buildPlanLadder(input: {
     anchor,
     anchorKind: readerTypedAnchor ? "your-own" : typed ? "house" : input.anchorKind,
     anchorSaid: readerTypedAnchor
-      ? `${currency(anchor, 2)}, which is the figure you typed. Every zone is a multiple of it, so changing it moves the whole ladder at once.`
+      ? `${currency(anchor, 2)}, which is the figure you typed. Every zone is a multiple of it, so changing it moves every zone at once.`
       : typed
-        ? `${currency(anchor, 2)}, the figure this app's own account has set for this ladder, which you have not changed. Every zone is a multiple of it, and you can write your own over it.`
+        ? `${currency(anchor, 2)}, the figure this app's own account has set for these zones, which you have not changed. Every zone is a multiple of it, and you can write your own over it.`
         : input.anchorSaid,
     step,
     stepSaid: said,
@@ -804,11 +804,11 @@ export function bandById(
 export function ladderRead(ladder: PlanLadder): string {
   const spot = ladder.spot;
   if (spot === null) {
-    return `There is no price for ${cashtag(ladder.ticker)} right now, so nothing can be placed on this ladder. The levels below are still what your ladder says.`;
+    return `There is no price for ${cashtag(ladder.ticker)} right now, so nothing can be placed in these zones. The levels below are still what your fair value zones say.`;
   }
   const band = ladder.bands.find((b) => b.id === ladder.atId);
   if (!band) {
-    return `${currency(spot, 2)} today. Your ladder does not cover that price.`;
+    return `${currency(spot, 2)} today. Your fair value zones do not cover that price.`;
   }
   const next = nearestEdge(ladder, spot);
   /*
@@ -817,11 +817,11 @@ export function ladderRead(ladder: PlanLadder): string {
     chose a number they have never seen is the same mistake the strike
     alert made with a stock target the app had worked out for itself.
   */
-  const whose = ladder.edited ? "The nearest level you set" : "The nearest level on it";
+  const whose = ladder.edited ? "The nearest level you set" : "The nearest level in them";
   const distance = next
     ? ` ${whose} is ${currency(next.price, 2)}, which is ${percent(Math.abs(next.price - spot) / spot, 1)} ${next.price > spot ? "above" : "below"} today.`
     : "";
-  return `${currency(spot, 2)} today, which your ladder files under "${band.label}".${distance}`;
+  return `${currency(spot, 2)} today, which your fair value zones file under "${band.label}".${distance}`;
 }
 
 /** The closest edge to a price, in either direction. */
@@ -955,7 +955,7 @@ function roiClause(roiPct: number | null | undefined): string {
  * anchors the sentence.
  */
 function levelSaid(edge: number | null, edited: boolean, code: string): string {
-  const said = edited ? "level you set" : "level your ladder worked out";
+  const said = edited ? "level you set" : "level this app worked out";
   return edge != null && edge > 0 ? `the ${currency(edge, 2, code)} ${said}` : `the ${said}`;
 }
 
@@ -976,14 +976,25 @@ function gapPct(spot: number, edge: number | null): string | null {
 export function ladderMomentTitle(m: LadderMoment): string {
   const tag = cashtag(m.ticker);
   switch (m.bandId) {
+    /*
+     * Where the price is, never what to do: "climbed past your trim level"
+     * and "fell well past a full position" were the old imperative band
+     * names leaking back through the one sentence a reader meets first,
+     * on Home, after the bands themselves were renamed to describe a
+     * price. Each title now says the band's own words.
+     */
     case "trim-most":
-      return `${tag} climbed past your trim level`;
+      return `${tag} climbed a long way above fair value`;
+    case "trim-some":
+      return `${tag} is a little above fair value`;
+    case "starter":
+      return `${tag} is a little below fair value`;
     case "full-aggressive":
-      return `${tag} fell well past a full position`;
+      return `${tag} fell a long way below fair value`;
     case "exit":
-      return `${tag} fell under the floor of its ladder`;
+      return `${tag} fell under its lowest fair value zone`;
     default:
-      return `${tag} reached a level on its ladder`;
+      return `${tag} moved into a new fair value zone`;
   }
 }
 
@@ -999,15 +1010,15 @@ export function ladderMomentDetail(m: LadderMoment, code: string = "USD"): strin
   switch (m.bandId) {
     case "trim-most": {
       const gap = pct ? ` That is ${pct} above ${level}${changed}.` : "";
-      return `At ${spot} it has climbed into the zone your ladder calls "${m.bandLabel}".${gap}${roi}${share}`;
+      return `At ${spot} it has climbed into the zone your fair value zones call "${m.bandLabel}".${gap}${roi}${share}`;
     }
     case "full-aggressive": {
       const gap = pct ? ` That is ${pct} below ${level}${changed}.` : "";
-      return `At ${spot} it has fallen into the zone your ladder calls "${m.bandLabel}".${gap}${roi}${share}`;
+      return `At ${spot} it has fallen into the zone your fair value zones call "${m.bandLabel}".${gap}${roi}${share}`;
     }
     case "exit": {
       const gap = pct ? ` That is ${pct} under ${level}${changed}.` : "";
-      return `At ${spot} it has fallen under the floor of its ladder.${gap} Below that level the estimates this ladder was built from stop describing the company you bought.${roi}${share}`;
+      return `At ${spot} it has fallen under its lowest fair value zone.${gap} Below that level the estimates these zones were built from stop describing the company you bought.${roi}${share}`;
     }
     default:
       return `At ${spot} it is in the "${m.bandLabel}" zone of ${level}${changed}.${share}`;
