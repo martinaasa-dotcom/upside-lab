@@ -17,7 +17,20 @@ import {
 import type { CoveredCallRow } from "@/lib/types";
 import { listingCurrenciesAreMixed } from "@/lib/listing-currency";
 import { format, parseISO } from "date-fns";
-import { memo, useEffect, useRef, useState } from "react";
+import { Plus } from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CoveredCallModal, type CallModalSeed } from "@/components/CoveredCallModal";
+import { TrackedCalls } from "@/components/covered-calls/TrackedCalls";
+import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
+import {
+  buildCallViews,
+  deltaText,
+  type CallRules,
+  type ContractReading,
+  type TrackedCall,
+  type TrackedCallDraft,
+} from "@/lib/options/tracked-calls";
+import type { TrackedCallsStore } from "@/lib/options/use-tracked-calls";
 
 type Props = {
   rows: CoveredCallRow[];
@@ -29,6 +42,14 @@ type Props = {
    * to the scan, which picks the listed date nearest the target tenor. */
   onPatchExpiry: (holdingId: string, expiry: string | null) => void;
   onAddHolding?: () => void;
+  /** Calls the reader has sold or plans to sell, and where they are kept. */
+  trackedCalls?: TrackedCallsStore;
+  /** The open portfolio: the store holds every portfolio's calls. */
+  portfolioId?: string;
+  /** What the market says about each of them, by call id. */
+  readings?: Record<string, ContractReading>;
+  rules?: CallRules;
+  onRulesChange?: (next: CallRules) => void;
 };
 
 function InlineTargetCall({
@@ -228,6 +249,7 @@ const HEADERS = [
   "Distance",
   "Near target?",
   "Strike",
+  "Delta",
   "Expires",
   "Contracts",
   "2-week %",
@@ -243,6 +265,7 @@ const HEADERS = [
 const GLOSSARY_HEADERS: Partial<Record<(typeof HEADERS)[number], string>> = {
   Strike: "strike",
   Premium: "premium",
+  Delta: "delta",
 };
 
 const HEADER_HINTS: Partial<Record<(typeof HEADERS)[number], string>> = {
@@ -304,12 +327,92 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
   onPatchStockTarget,
   onPatchExpiry,
   onAddHolding,
+  trackedCalls,
+  portfolioId,
+  readings,
+  rules,
+  onRulesChange,
 }: Props) {
   const mixedListings = listingCurrenciesAreMixed(
     rows.map((r) => ({ ticker: r.holding.ticker }))
   );
   const tickerCell = mixedListings ? cellTicker : cellBase;
-  const template = tableCols(11, mixedListings);
+  const tracking = Boolean(trackedCalls && rules && onRulesChange);
+  const template = tableCols(HEADERS.length, mixedListings, tracking);
+
+  const [seed, setSeed] = useState<CallModalSeed | null>(null);
+  const callViews = useMemo(
+    () =>
+      trackedCalls && rules
+        ? buildCallViews(
+            trackedCalls.calls.filter((c) => c.portfolio_id === portfolioId),
+            readings ?? {},
+            rules
+          )
+        : [],
+    [trackedCalls, portfolioId, readings, rules]
+  );
+  const modalHoldings = useMemo(
+    () =>
+      rows.map((r) => ({
+        ticker: r.holding.ticker,
+        contracts: Math.floor(r.holding.shares / SHARES_PER_CONTRACT),
+      })),
+    [rows]
+  );
+  const saveCall = useCallback(
+    async (draft: TrackedCallDraft, id?: string) => {
+      if (!trackedCalls) return "Tracking is not available here.";
+      return id ? trackedCalls.update(id, draft) : trackedCalls.add(draft);
+    },
+    [trackedCalls]
+  );
+  const fromCall = (call: TrackedCall, patch?: Partial<TrackedCallDraft>): CallModalSeed => ({
+    id: call.id,
+    ticker: call.ticker,
+    status: call.status,
+    strike: call.strike,
+    expiry: call.expiry,
+    contracts: call.contracts,
+    premium: call.premium,
+    opened_on: call.opened_on,
+    ...patch,
+  });
+  /** Prefill from a suggested row: the listed strike, its expiry and today's mid. */
+  const fromSuggestion = (r: CoveredCallRow, status: "sold" | "planned"): CallModalSeed => ({
+    ticker: r.holding.ticker,
+    status,
+    strike: r.option?.listedStrike ?? r.nextStrike ?? undefined,
+    expiry: r.expiration ?? undefined,
+    contracts: Math.max(1, Math.round(r.contracts)),
+    premium: r.option?.mid != null ? Math.round(r.option.mid * 100) / 100 : null,
+  });
+  const trackSection =
+    tracking && trackedCalls ? (
+      <TrackedCalls
+        views={callViews}
+        rules={rules!}
+        showCurrency={mixedListings}
+        onRulesChange={onRulesChange!}
+        onAdd={() => setSeed({})}
+        onEdit={(call) => setSeed(fromCall(call))}
+        onRemove={async (call) => {
+          await trackedCalls.remove(call.id);
+        }}
+        onMarkSold={(call) =>
+          setSeed(fromCall(call, { status: "sold", opened_on: null }))
+        }
+      />
+    ) : null;
+  const modal = tracking ? (
+    <CoveredCallModal
+      open={seed != null}
+      holdings={modalHoldings}
+      seed={seed}
+      onClose={() => setSeed(null)}
+      onSave={saveCall}
+    />
+  ) : null;
 
   /*
    * Nothing here can apply until one holding reaches a hundred shares of
@@ -348,6 +451,8 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
             : " There is nothing to write yet."}{" "}
           This fills in on its own when one of your holdings gets there.
         </p>
+        {callViews.length > 0 ? trackSection : null}
+        {modal}
       </Panel>
     );
   }
@@ -359,7 +464,19 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
       className="scroll-mt-28 overflow-hidden"
     >
       <div className="border-b border-border surface-gutter py-6">
-        <PanelHeader title="Covered calls" />
+        <PanelHeader
+          title="Covered calls"
+          subtitle="The calls you have sold or plan to sell, read against your own rules, and below them a suggested call for each holding."
+        />
+      </div>
+
+      {trackSection ? (
+        <div className="border-b border-border surface-gutter py-6">{trackSection}</div>
+      ) : null}
+      {modal}
+
+      <div className="surface-gutter pt-6">
+        <h3 className="text-base font-semibold text-foreground">Suggested calls</h3>
       </div>
 
       {/* Mobile cards */}
@@ -446,6 +563,14 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                   </p>
                 </div>
                 <div>
+                  <p className="text-muted-foreground">
+                    <TermTip term="delta">Delta</TermTip>
+                  </p>
+                  <p className="tabular-nums font-medium text-foreground">
+                    {r.option?.delta != null ? deltaText(r.option.delta) : NO_VALUE}
+                  </p>
+                </div>
+                <div>
                   <p className="text-muted-foreground">2-week %</p>
                   <p className="tabular-nums font-medium text-primary/60">
                     {r.yield2w != null ? percent(r.yield2w) : NO_VALUE}
@@ -464,6 +589,26 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                   ? `, expires ${format(parseISO(r.expiration), "MMM d")}`
                   : ""}
               </p>
+              {tracking && r.contracts >= 1 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSeed(fromSuggestion(r, "sold"))}
+                  >
+                    I sold this
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSeed(fromSuggestion(r, "planned"))}
+                  >
+                    Plan it
+                  </Button>
+                </div>
+              ) : null}
             </Card>
           ))
         )}
@@ -530,6 +675,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                 )}
               </div>
             ))}
+            {tracking ? <div className={cellBase} aria-hidden /> : null}
           </FluidRow>
 
           {rows.length === 0 && (
@@ -605,6 +751,9 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
               >
                 {r.nextStrike != null ? currency(r.nextStrike) : NO_VALUE}
               </div>
+              <div className={cn(cellBase, "tabular-nums text-foreground")}>
+                {r.option?.delta != null ? deltaText(r.option.delta) : NO_VALUE}
+              </div>
               <div className={cn(cellBase, "text-muted-foreground")}>
                 <InlineExpiry
                   value={r.expiration}
@@ -622,6 +771,22 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
               <div className={cn(cellBase, "tabular-nums text-foreground")}>
                 {r.premium != null ? currency(r.premium) : NO_VALUE}
               </div>
+              {tracking ? (
+                <div className={cellBase}>
+                  {r.contracts >= 1 ? (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-7"
+                      aria-label={`Track a call on ${cashtag(r.holding.ticker)}`}
+                      onClick={() => setSeed(fromSuggestion(r, "sold"))}
+                    >
+                      <Plus />
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
             </FluidRow>
           ))}
 
@@ -636,16 +801,21 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
               <div className={cellBase} />
               <div className={cellBase} />
               <div className={cellBase} />
+              <div className={cellBase} />
               <div className={cn(cellBase, "tabular-nums text-primary/60")}>
                 {percent(yield2wAvg)}
               </div>
               <div className={cn(cellBase, "tabular-nums text-foreground")}>
                 {currency(premiumTotal)}
               </div>
+              {tracking ? <div className={cellBase} /> : null}
             </FluidRow>
           )}
         </FluidTable>
       </div>
+      <p className="border-t border-border surface-gutter py-4 text-sm text-muted-foreground">
+        {ADVICE_DISCLAIMER_SHORT}
+      </p>
     </Panel>
   );
 });

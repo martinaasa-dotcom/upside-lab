@@ -1575,6 +1575,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
           onOpenPulse={onOpenPulse}
           onOpenResearch={onOpenResearch}
           onOpenAlerts={onOpenAlerts}
+          onOpenSheet={onOpenSheet}
         />
       </div>
 

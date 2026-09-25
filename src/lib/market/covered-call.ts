@@ -9,14 +9,20 @@ import { dateKeyInTz, daysUntilInTz } from "@/lib/timezone";
 import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
 import { marketSession } from "@/lib/market/session";
 import { yahooCall } from "@/lib/market/yahoo";
+import {
+  callDelta,
+  impliedVol,
+  isPlausibleVol,
+  yearsToExpiry,
+} from "@/lib/options/black-scholes";
 
-type YahooFinanceInstance = InstanceType<
+export type YahooFinanceInstance = InstanceType<
   typeof import("yahoo-finance2").default
 >;
 
 let yahoo: YahooFinanceInstance | null = null;
 
-async function getYahoo(): Promise<YahooFinanceInstance> {
+export async function getYahoo(): Promise<YahooFinanceInstance> {
   if (yahoo) return yahoo;
   const { default: YahooFinance } = await import("yahoo-finance2");
   yahoo = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
@@ -88,7 +94,7 @@ export function resetOptionChainMemoForTests() {
   chainInFlight.clear();
 }
 
-async function optionChain(
+export async function optionChain(
   yf: YahooFinanceInstance,
   ticker: string,
   date?: Date
@@ -127,7 +133,7 @@ function toDateKey(d: Date | string): string {
  * Robust option mid: prefer bid/ask average, but fall back to last when the
  * spread is absurd (common on far-OTM names like VST).
  */
-function optionMid(
+export function optionMid(
   bid?: number | null,
   ask?: number | null,
   last?: number | null
@@ -255,6 +261,8 @@ export async function scanCoveredCall(params: {
       ask: number;
       mid: number;
       strikeDist: number;
+      /** Volatility of the listed contract, for the delta. */
+      vol: number | null;
     };
 
     let best: Quoted | null = null;
@@ -283,6 +291,15 @@ export async function scanCoveredCall(params: {
       const m = optionMid(bid, ask, last);
       if (m <= 0 || !strike) continue;
 
+      const years = yearsToExpiry(key);
+      const solved =
+        years != null && years > 0 ? impliedVol(m, spot, strike, years) : null;
+      const vol = isPlausibleVol(solved)
+        ? solved
+        : isPlausibleVol(nearest.impliedVolatility)
+          ? nearest.impliedVolatility
+          : null;
+
       const candidate: Quoted = {
         expiration: key,
         daysToExpiry: days,
@@ -291,6 +308,7 @@ export async function scanCoveredCall(params: {
         ask,
         mid: m,
         strikeDist: nearestDist,
+        vol,
       };
 
       // Prefer closest strike; break ties with expiry closer to target tenor
@@ -344,6 +362,8 @@ export async function scanCoveredCall(params: {
       daysToExpiry: best.daysToExpiry,
       stockTarget,
       targetDistance,
+      delta: plannedDelta(spot, nextStrike, best.expiration, best.vol),
+      listedStrike: best.strike,
     };
   } catch (err) {
     console.error(`Options scan failed for ${ticker}`, err);
@@ -358,6 +378,24 @@ export async function scanCoveredCall(params: {
       wantExpiry
     );
   }
+}
+
+/**
+ * Delta at the planned strike, using the listed contract's volatility.
+ * Strikes a few dollars apart on one expiry trade at close to the same
+ * volatility, so this is the delta of the call the table is describing
+ * rather than of whichever listed one happened to be nearest.
+ */
+function plannedDelta(
+  spot: number,
+  strike: number,
+  expiry: string,
+  vol: number | null
+): number | null {
+  if (vol == null) return null;
+  const years = yearsToExpiry(expiry);
+  if (years == null || years <= 0) return null;
+  return callDelta(spot, strike, years, vol);
 }
 
 /**
@@ -420,5 +458,8 @@ function syntheticCandidate(
     daysToExpiry: days,
     stockTarget,
     targetDistance: (stockTarget - spot) / Math.max(spot, 1),
+    // An estimated premium has no volatility behind it to take a delta from.
+    delta: null,
+    listedStrike: null,
   };
 }

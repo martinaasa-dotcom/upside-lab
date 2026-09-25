@@ -41,12 +41,15 @@ export function HomeAlertList({
   onOpenPulse,
   onOpenResearch,
   onOpenAlerts,
+  onOpenSheet,
   className,
 }: {
   alerts: UpsideAlert[];
   onOpenPulse?: (ticker: string) => void;
   onOpenResearch?: (ticker: string) => void;
   onOpenAlerts?: () => void;
+  /** A tracked covered call opens its own portfolio's panel. */
+  onOpenSheet?: (portfolioId: string, focus?: "covered-calls") => void;
   className?: string;
 }) {
   const { shown, more, total } = homeAlertRows(alerts);
@@ -68,13 +71,17 @@ export function HomeAlertList({
               ? () => onOpenResearch(ticker)
               : where === "pulse" && ticker && onOpenPulse
                 ? () => onOpenPulse(ticker)
-                : onOpenAlerts;
+                : where === "calls" && alert.portfolioId && onOpenSheet
+                  ? () => onOpenSheet(alert.portfolioId as string, "covered-calls")
+                  : onOpenAlerts;
           const goes =
             where === "research"
               ? "opens Research"
               : where === "pulse"
                 ? "opens Pulse"
-                : "opens Worth a look";
+                : where === "calls" && alert.portfolioId && onOpenSheet
+                  ? "opens covered calls"
+                  : "opens Worth a look";
           const cells = (
             <>
               <span

@@ -93,6 +93,14 @@ export type OptionCandidate = {
   stockTarget: number;
   /** (stockTarget - spot) / spot */
   targetDistance: number;
+  /**
+   * Delta of a call at the planned strike and this expiry, worked out from
+   * the volatility the chain is quoting. Null when no option price was
+   * available and the premium is an estimate.
+   */
+  delta?: number | null;
+  /** The listed strike nearest the planned one, the contract a reader can actually sell. */
+  listedStrike?: number | null;
 };
 
 export type EnrichedHolding = Holding & {

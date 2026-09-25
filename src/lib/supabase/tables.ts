@@ -6,6 +6,7 @@
 export const PORTFELL_TABLES = {
   portfolios: "portfell_portfolios",
   holdings: "portfell_holdings",
+  coveredCalls: "portfell_covered_calls",
   snapshots: "portfell_book_snapshots",
   cashEvents: "portfell_cash_events",
   labState: "portfell_lab_state",
@@ -41,6 +42,9 @@ export const PORTFOLIO_COLUMNS =
   "id, name, slug, sort_order, cash_balance, owner_id, classroom_community_id";
 export const HOLDING_COLUMNS =
   "id, portfolio_id, ticker, shares, buy_price, eoy_target, target_call_pct, stock_target_override, sort_order, updated_at";
+
+export const COVERED_CALL_COLUMNS =
+  "id, portfolio_id, ticker, status, strike, expiry, contracts, premium, opened_on, created_at, updated_at";
 
 export const MARGUS_FUND_COLUMNS =
   "id, cash, starting_capital, inception_date, updated_at, watchlist, cash_purpose";

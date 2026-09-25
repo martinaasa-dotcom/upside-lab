@@ -131,6 +131,56 @@ export type Database = {
           },
         ]
       }
+      portfell_covered_calls: {
+        Row: {
+          contracts: number
+          created_at: string
+          expiry: string
+          id: string
+          opened_on: string | null
+          portfolio_id: string
+          premium: number | null
+          status: string
+          strike: number
+          ticker: string
+          updated_at: string
+        }
+        Insert: {
+          contracts: number
+          created_at?: string
+          expiry: string
+          id?: string
+          opened_on?: string | null
+          portfolio_id: string
+          premium?: number | null
+          status: string
+          strike: number
+          ticker: string
+          updated_at?: string
+        }
+        Update: {
+          contracts?: number
+          created_at?: string
+          expiry?: string
+          id?: string
+          opened_on?: string | null
+          portfolio_id?: string
+          premium?: number | null
+          status?: string
+          strike?: number
+          ticker?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfell_covered_calls_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfell_portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portfell_communities: {
         Row: {
           auto_approve_joins: boolean

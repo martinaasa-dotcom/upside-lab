@@ -49,6 +49,7 @@ function makeExport(): UserDataExport {
     portfolios: [{ id: "p1", name: "Book", cash_balance: 0 }],
     holdings: [{ ticker: "NBIS", shares: 1 }],
     cash_events: [{ delta: 100, balance_after: 100 }],
+    covered_calls: [],
     snapshots: [],
     lab_state: null,
     communities: [],

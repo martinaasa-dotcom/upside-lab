@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   alertDestination,
   alertSinceLine,
+  buildCallAlerts,
   buildLadderAlerts,
   buildDecisionAlerts,
   buildEarningsAlerts,
@@ -10,6 +11,13 @@ import {
   concentrationCostLine,
   spokenDate,
 } from "@/lib/alerts";
+import {
+  DEFAULT_CALL_RULES,
+  buildCallViews,
+  type ContractReading,
+  type TrackedCall,
+} from "@/lib/options/tracked-calls";
+import { daysToExpiry } from "@/lib/options/black-scholes";
 
 describe("a target the app worked out is not a target you set", () => {
   const row = {
@@ -319,5 +327,76 @@ describe("a card's button goes where the fact can be acted on", () => {
   it("sends the borrowed-money card to the figure it is about", () => {
     expect(alertDestination({ kind: "margin" })).toBe("cash");
     expect(alertDestination({ kind: "concentration" })).toBe("overview");
+  });
+});
+
+describe("a covered call the reader has sold", () => {
+  const call = (over: Partial<TrackedCall> = {}): TrackedCall => ({
+    id: "c1",
+    portfolio_id: "p1",
+    ticker: "NVDA",
+    status: "sold",
+    strike: 200,
+    expiry: "2099-10-16",
+    contracts: 1,
+    premium: 4,
+    opened_on: null,
+    ...over,
+  });
+  const reading = (over: Partial<ContractReading> = {}): ContractReading => ({
+    id: "c1",
+    ticker: "NVDA",
+    strike: 200,
+    expiry: "2099-10-16",
+    spot: 190,
+    mid: 3,
+    bid: null,
+    ask: null,
+    vol: 0.4,
+    volSource: "market",
+    delta: 0.3,
+    quoted: true,
+    roll: null,
+    rollSearched: false,
+    ...over,
+  });
+  const alertsFor = (c: TrackedCall, r: ContractReading) =>
+    buildCallAlerts(buildCallViews([c], { [c.id]: r }, DEFAULT_CALL_RULES));
+
+  it("says so when delta reaches the reader's roll level, and opens that portfolio's calls", () => {
+    const [a] = alertsFor(call(), reading({ delta: 0.74, mid: 12, spot: 210 }));
+    expect(a.id).toBe("call-roll-c1");
+    expect(a.title).toContain("roll level");
+    expect(a.portfolioId).toBe("p1");
+    expect(alertDestination(a)).toBe("calls");
+  });
+
+  it("says so when enough of the premium is kept to buy it back", () => {
+    const [a] = alertsFor(call(), reading({ delta: 0.12, mid: 1.2 }));
+    expect(a.id).toBe("call-close-c1");
+    expect(a.title).toContain("buy-back");
+  });
+
+  it("is quiet for a call on track, a planned call, and pennies on the last day", () => {
+    expect(alertsFor(call(), reading())).toEqual([]);
+    expect(
+      alertsFor(call({ status: "planned", premium: 1 }), reading({ delta: 0.8, mid: 5 }))
+    ).toEqual([]);
+    // An expiry one or two days out whatever the hour this runs at.
+    const lastDay = [0, 1, 2, 3]
+      .map((n) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10))
+      .find((key) => {
+        const d = daysToExpiry(key);
+        return d != null && d >= 1 && d <= 2;
+      })!;
+    expect(
+      alertsFor(call({ expiry: lastDay }), reading({ expiry: lastDay, delta: 0.02, mid: 0.03 }))
+    ).toEqual([]);
+  });
+
+  it("keeps a roll and a buy-back on different ids, so dismissing one does not silence the other", () => {
+    const roll = alertsFor(call(), reading({ delta: 0.8, mid: 14 }))[0];
+    const close = alertsFor(call(), reading({ delta: 0.1, mid: 1 }))[0];
+    expect(roll.id).not.toBe(close.id);
   });
 });

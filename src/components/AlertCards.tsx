@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Landmark,
   PieChart,
+  Repeat,
   Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ export const KIND_GLYPH: Record<AlertKind, typeof Landmark> = {
   margin: Landmark,
   concentration: PieChart,
   ladder: Target,
+  call: Repeat,
 };
 
 /**
@@ -75,6 +77,7 @@ export function alertOpenLabel(alert: UpsideAlert): string {
     return `Open Research on ${cashtag(alert.ticker as string)}`;
   if (where === "pulse") return `Open ${alert.ticker}`;
   if (where === "cash") return "Edit cash";
+  if (where === "calls") return "Open covered calls";
   return "Open Overview";
 }
 

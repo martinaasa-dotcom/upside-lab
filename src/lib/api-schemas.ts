@@ -569,6 +569,14 @@ export const pulsePostSchema = z.looseObject({
 
 export const optionsScanPostSchema = z.looseObject({
   positions: z.array(z.unknown()).max(50).optional(),
+  /** Calls the reader has sold or plans to, read contract by contract. */
+  contracts: z.array(z.unknown()).max(60).optional(),
+});
+
+/** A covered call's fields; `validateCallDraft` settles every range. */
+export const coveredCallBodySchema = z.looseObject({
+  id: z.string().max(64).optional(),
+  portfolio_id: z.string().max(128).optional(),
 });
 
 export const trendsPostSchema = z.looseObject({

@@ -1,6 +1,8 @@
 import { isCoinSymbol } from "@/lib/coins";
 import { shouldHideOptions } from "@/lib/experience-tier";
 import { scanCoveredCall } from "@/lib/market/covered-call";
+import { readContract, type ContractAsk } from "@/lib/market/option-contract";
+import { isDateKey } from "@/lib/options/tracked-calls";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
 import { getSupabaseDataClient } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
@@ -97,9 +99,62 @@ async function handlePOST(req: NextRequest) {
       })
     : [];
 
-  if (positions.length === 0) {
-    return NextResponse.json({ options: {} });
+  /*
+    The calls a reader has sold or plans to sell, each read off the chain
+    as the exact contract it is. Same gate, same rate limit and same
+    chain memo as the suggestions above, so a poll that carries both costs
+    one request and the chains the two share are fetched once.
+  */
+  const contracts: ContractAsk[] = Array.isArray(body.contracts)
+    ? body.contracts.flatMap((row) => {
+        if (!isRecord(row)) return [];
+        const id = readString(row.id);
+        const ticker = readString(row.ticker);
+        const strike = readFiniteNumber(row.strike);
+        const spot = readFiniteNumber(row.spot);
+        const expiry = readString(row.expiry);
+        if (
+          !id ||
+          id.length > 64 ||
+          !ticker ||
+          !isQuotableTicker(ticker) ||
+          isCoinSymbol(ticker) ||
+          strike == null ||
+          strike <= 0 ||
+          spot == null ||
+          spot <= 0 ||
+          !isDateKey(expiry)
+        ) {
+          return [];
+        }
+        const closes = Array.isArray(row.closes)
+          ? row.closes
+              .filter(
+                (n): n is number => typeof n === "number" && Number.isFinite(n) && n > 0
+              )
+              .slice(-MAX_PRICE_HISTORY)
+          : undefined;
+        return [
+          {
+            id,
+            ticker: ticker.toUpperCase(),
+            strike,
+            expiry,
+            spot,
+            status: row.status === "planned" ? ("planned" as const) : ("sold" as const),
+            closes,
+          },
+        ];
+      })
+    : [];
+
+  if (positions.length === 0 && contracts.length === 0) {
+    return NextResponse.json({ options: {}, contracts: {} });
   }
+
+  const readings = Promise.all(
+    contracts.map(async (c) => [c.id, await readContract(c)] as const)
+  );
 
   const entries = await Promise.all(
     positions.map(async (p) => {
@@ -116,7 +171,10 @@ async function handlePOST(req: NextRequest) {
     })
   );
 
-  return NextResponse.json({ options: Object.fromEntries(entries) });
+  return NextResponse.json({
+    options: Object.fromEntries(entries),
+    contracts: Object.fromEntries(await readings),
+  });
 }
 
 export const POST = observeRoute(handlePOST, '/api/options/scan');
