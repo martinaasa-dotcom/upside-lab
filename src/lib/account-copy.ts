@@ -151,8 +151,8 @@ export function tierChangeLine(tier: ExperienceTier): string {
     return "Everything above, and Lab as well. Its Risk tab, which models a bad week, stays hidden.";
   }
   const rooms = tierOpensCoveredCalls(tier)
-    ? "Every room, every tab inside Lab, and covered calls open on a portfolio that has them."
-    : "Every room, and every tab inside Lab, Risk included. Covered calls start folded away, one tap from open.";
+    ? "All of Lab, and covered calls open on a portfolio that has them."
+    : "All of Lab. Covered calls start folded away, one tap from open.";
   return `${rooms} ${tierChatLine(tier)}`;
 }
 
