@@ -1622,7 +1622,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         <BelowFold reserve={560} className={PANEL_STACK}>
         <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
-            title="Same money, four paths"
+            title={`Same money, ${compare.length === 3 ? "three" : "four"} paths`}
             actions={
               tipping != null ? (
                 <Pill tone="good" title="From here on, growth adds more each year than you do">
