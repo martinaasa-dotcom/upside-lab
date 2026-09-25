@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_CALL_RULES,
+  cardLine,
   oddsText,
   plannedCallHealth,
   rollSaid,
@@ -156,5 +157,38 @@ describe("what may be stored", () => {
     expect(validateCallDraft({ ticker: "NVDA", status: "planned", strike: 200, expiry: "2026-02-30", contracts: 1 }).ok).toBe(false);
     expect(validateCallDraft({ ticker: "NVDA", status: "planned", strike: 200, expiry: "2026-10-16", contracts: 1.5 }).ok).toBe(false);
     expect(validateCallDraft({ ticker: "NVDA", status: "planned", strike: 200, expiry: "2026-10-16", contracts: 1 }).ok).toBe(true);
+  });
+});
+
+describe("the card's one sentence", () => {
+  const view = (r: ContractReading, days: number, c = call()) => ({
+    call: c,
+    reading: r,
+    health: c.status === "sold" ? soldCallHealth(c, r, rules, days) : plannedCallHealth(c, r, days),
+    daysLeft: days,
+  });
+
+  it("names the buy-back rule and its cost, and does not repeat the figures", () => {
+    const line = cardLine(view(reading({ delta: 0.07, mid: 1.08 }), 14, call({ premium: 32.84, contracts: 5 })), rules);
+    expect(line).toBe("Past your 50% buy-back level. Buying it back costs $540.");
+  });
+
+  it("names the roll level", () => {
+    expect(cardLine(view(reading({ delta: 0.8, mid: 12 }), 20), rules)).toMatch(/^Past your 0\.70 roll level\./);
+  });
+
+  it("is one sentence on an ordinary call", () => {
+    expect(cardLine(view(reading({ delta: 0.2 }), 20), rules)).toMatch(/^Odds of the shares being taken: /);
+  });
+
+  it("says what a planned call pays", () => {
+    const c = call({ status: "planned", premium: 5 });
+    expect(cardLine(view(reading({ mid: 3 }), 20, c), rules)).toBe("Pays $3.00 a share now. You want $5.00.");
+  });
+
+  it("never carries a dash", () => {
+    for (const d of [0.05, 0.3, 0.6, 0.9]) {
+      expect(cardLine(view(reading({ delta: d }), 5), rules)).not.toMatch(/[–—]/);
+    }
   });
 });

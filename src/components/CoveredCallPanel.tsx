@@ -15,9 +15,9 @@ import {
   parseDecimal,
 } from "@/lib/number-input";
 import type { CoveredCallRow } from "@/lib/types";
+import { parseExpiryText } from "@/lib/options/expiry-text";
 import { listingCurrenciesAreMixed } from "@/lib/listing-currency";
-import { format, parseISO } from "date-fns";
-import { Plus } from "lucide-react";
+import { Check, ClipboardPaste, Copy, Plus } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CoveredCallModal, type CallModalSeed } from "@/components/CoveredCallModal";
 import { TrackedCalls } from "@/components/covered-calls/TrackedCalls";
@@ -34,13 +34,15 @@ import type { TrackedCallsStore } from "@/lib/options/use-tracked-calls";
 
 type Props = {
   rows: CoveredCallRow[];
-  yield2wAvg: number;
+  yield3wAvg: number;
   premiumTotal: number;
   onPatchTargetCall: (holdingId: string, targetCallPct: number) => void;
   onPatchStockTarget: (holdingId: string, stockTarget: number) => void;
   /** Pick the expiry to price against. Passing null hands the choice back
    * to the scan, which picks the listed date nearest the target tenor. */
   onPatchExpiry: (holdingId: string, expiry: string | null) => void;
+  /** A strike typed in: the target stays and the Call % moves to meet it. */
+  onPatchStrike?: (holdingId: string, strike: number, target: number | null) => void;
   onAddHolding?: () => void;
   /** Calls the reader has sold or plans to sell, and where they are kept. */
   trackedCalls?: TrackedCallsStore;
@@ -80,11 +82,13 @@ function InlineTargetCall({
         onWheel={blockWheelChange}
         onBlur={() => {
           focused.current = false;
+          // Call % can carry decimals now (a typed strike sets it exactly),
+          // so an untouched field is judged by its text, or leaving it
+          // would round 21.97% to 22% and move the strike.
+          if (draft === display) return;
           const n = parseDecimal(draft);
           if (Number.isFinite(n) && n >= 0 && n <= 100) {
-            const pct = Math.round(n) / 100;
-            if (pct !== value) onCommit(pct);
-            else setDraft(display);
+            onCommit(Math.round(n) / 100);
           } else setDraft(display);
         }}
         onKeyDown={(e) => {
@@ -168,6 +172,66 @@ function InlineStockTarget({
 }
 
 /**
+ * The strike, typed straight in.
+ *
+ * It used to be a read-only figure worked out from the target and the
+ * Call %, so the one number a reader actually picks off their broker's
+ * chain could only be reached by working backwards. Typing it keeps the
+ * target and moves the Call % to land on it, and the row's premium and
+ * delta reprice on the spot.
+ */
+function InlineStrike({
+  value,
+  onCommit,
+}: {
+  value: number | null;
+  onCommit: (strike: number) => void;
+}) {
+  const display = value != null && value > 0 ? formatDecimal(value, 2) : "";
+  const [draft, setDraft] = useState(display);
+  const focused = useRef(false);
+
+  useEffect(() => {
+    if (!focused.current) setDraft(display);
+  }, [display]);
+
+  return (
+    <div className="inline-flex items-center justify-center gap-0.5">
+      <span className="text-sm text-muted-foreground">$</span>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        aria-label="Strike"
+        placeholder={NO_VALUE}
+        onChange={(e) =>
+          setDraft(e.target.value.replace(/,/g, ".").replace(/[^\d.]/g, ""))
+        }
+        onFocus={() => {
+          focused.current = true;
+        }}
+        onWheel={blockWheelChange}
+        onBlur={() => {
+          focused.current = false;
+          if (draft === display) return;
+          const n = parseDecimal(draft);
+          if (isSafePositiveMoney(n)) onCommit(Math.round(n * 100) / 100);
+          else setDraft(display);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Escape") {
+            setDraft(display);
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        className="inline-edit no-spinner w-[4.5rem] rounded-t py-0.5 text-center font-semibold tabular-nums text-primary/80 outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50"
+      />
+    </div>
+  );
+}
+
+/**
  * The expiry the premium is quoted for.
  *
  * A native date input rather than a bespoke picker: it is a date, every
@@ -179,9 +243,14 @@ function InlineStockTarget({
 function InlineExpiry({
   value,
   onCommit,
+  copied,
+  onCopy,
 }: {
   value: string | null;
   onCommit: (expiry: string | null) => void;
+  /** The date last copied from any row, offered to every other row. */
+  copied: string | null;
+  onCopy: (expiry: string) => void;
 }) {
   const display = value ?? "";
   const [draft, setDraft] = useState(display);
@@ -201,37 +270,98 @@ function InlineExpiry({
     // Only forward a real future date; the model rejects anything else
     // anyway, and silently reverting is clearer than showing a premium
     // that belongs to a different day.
-    const when = new Date(`${cleaned}T00:00:00Z`);
-    if (Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) {
+    if (!isFutureKey(cleaned)) {
       setDraft(display);
       return;
     }
+    setDraft(cleaned);
     onCommit(cleaned);
   };
 
+  const canPaste = copied != null && copied !== value && isFutureKey(copied);
+
   return (
-    <input
-      type="date"
-      value={draft}
-      aria-label="Expiry"
-      onChange={(e) => setDraft(e.target.value)}
-      onFocus={() => {
-        focused.current = true;
-      }}
-      onBlur={(e) => {
-        focused.current = false;
-        commit(e.target.value);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-        if (e.key === "Escape") {
-          setDraft(display);
-          (e.target as HTMLInputElement).blur();
-        }
-      }}
-      className="inline-edit w-[7.5rem] rounded-t bg-transparent py-0.5 text-center tabular-nums text-muted-foreground outline-none hover:bg-hover focus:bg-muted focus:text-foreground focus:ring-1 focus:ring-ring/50"
-    />
+    <div className="inline-flex items-center gap-0.5">
+      <input
+        type="date"
+        value={draft}
+        aria-label="Expiry"
+        onChange={(e) => setDraft(e.target.value)}
+        onFocus={() => {
+          focused.current = true;
+        }}
+        onBlur={(e) => {
+          focused.current = false;
+          commit(e.target.value);
+        }}
+        /*
+          A date field swallows ordinary copy and paste, so both are
+          handled here: copying puts the date on the clipboard as text and
+          offers it to the other rows, and pasting reads any of the shapes
+          `parseExpiryText` knows, a broker's "NOV 20 '26" included.
+        */
+        onCopy={(e) => {
+          if (!value) return;
+          e.preventDefault();
+          e.clipboardData.setData("text/plain", value);
+          onCopy(value);
+        }}
+        onPaste={(e) => {
+          const parsed = parseExpiryText(e.clipboardData.getData("text"));
+          if (!parsed) return;
+          e.preventDefault();
+          commit(parsed);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Escape") {
+            setDraft(display);
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        className="inline-edit w-[7.5rem] rounded-t bg-transparent py-0.5 text-center tabular-nums text-muted-foreground outline-none hover:bg-hover focus:bg-muted focus:text-foreground focus:ring-1 focus:ring-ring/50"
+      />
+      {canPaste ? (
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="size-6 text-muted-foreground"
+          aria-label={`Use ${copied} here`}
+          onClick={() => commit(copied!)}
+        >
+          <ClipboardPaste className="size-3.5" />
+        </Button>
+      ) : value ? (
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className={cn(
+            "size-6",
+            copied === value ? "text-primary" : "text-muted-foreground"
+          )}
+          aria-label={copied === value ? "Date copied" : "Copy this date"}
+          onClick={() => {
+            onCopy(value);
+            void navigator.clipboard?.writeText(value).catch(() => {});
+          }}
+        >
+          {copied === value ? (
+            <Check className="size-3.5" />
+          ) : (
+            <Copy className="size-3.5" />
+          )}
+        </Button>
+      ) : null}
+    </div>
   );
+}
+
+function isFutureKey(key: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return false;
+  const when = new Date(`${key}T00:00:00Z`);
+  return !Number.isNaN(when.getTime()) && when.getTime() > Date.now();
 }
 
 /*
@@ -252,7 +382,7 @@ const HEADERS = [
   "Delta",
   "Expires",
   "Contracts",
-  "2-week %",
+  "3-week %",
   "Premium",
 ] as const;
 
@@ -279,7 +409,8 @@ const HEADER_HINTS: Partial<Record<(typeof HEADERS)[number], string>> = {
   "Near target?":
     "How close the share price is to the price you said you would be happy to sell at",
   Contracts: "One contract covers 100 shares",
-  "2-week %": "What you collect, as a percentage of the shares this ties up, over roughly two weeks",
+  "3-week %":
+    "What you collect as a percentage of the shares this ties up, scaled to three weeks so calls to different dates can be compared",
 };
 
 /**
@@ -313,6 +444,16 @@ function writeProximity(distance: number | null): {
   return { label: "Far away", className: "text-muted-foreground" };
 }
 
+/**
+ * A premium or delta priced from a nearby contract's volatility (an edit
+ * the scan has not answered yet, or a strike the chain does not list) is
+ * drawn quieter than one read off the chain, and the note under the table
+ * says why.
+ */
+function figureTone(r: CoveredCallRow): string {
+  return r.option?.estimated ? "text-muted-foreground" : "text-foreground";
+}
+
 /** Anchor Home uses to land on this table from "Open covered calls". */
 export const COVERED_CALLS_ANCHOR = "covered-calls";
 
@@ -321,11 +462,12 @@ const SHARES_PER_CONTRACT = 100;
 
 export const CoveredCallPanel = memo(function CoveredCallPanel({
   rows,
-  yield2wAvg,
+  yield3wAvg,
   premiumTotal,
   onPatchTargetCall,
   onPatchStockTarget,
   onPatchExpiry,
+  onPatchStrike,
   onAddHolding,
   trackedCalls,
   portfolioId,
@@ -341,6 +483,10 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
   const template = tableCols(HEADERS.length, mixedListings, tracking);
 
   const [seed, setSeed] = useState<CallModalSeed | null>(null);
+  /** An expiry copied from one row, offered to paste into the others. */
+  const [copiedExpiry, setCopiedExpiry] = useState<string | null>(null);
+  const commitStrike = (r: CoveredCallRow, strike: number) =>
+    onPatchStrike?.(r.holding.id, strike, r.stockTarget);
   const callViews = useMemo(
     () =>
       trackedCalls && rules
@@ -357,6 +503,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
       rows.map((r) => ({
         ticker: r.holding.ticker,
         contracts: Math.floor(r.holding.shares / SHARES_PER_CONTRACT),
+        spot: r.spot,
       })),
     [rows]
   );
@@ -423,6 +570,18 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
    * is closest, which is the only useful thing on the whole panel for
    * somebody in that position.
    */
+  const pasteAll =
+    copiedExpiry && rows.some((r) => r.contracts >= 1 && r.expiration !== copiedExpiry)
+      ? () => {
+          for (const r of rows) {
+            if (r.contracts >= 1 && r.expiration !== copiedExpiry) {
+              onPatchExpiry(r.holding.id, copiedExpiry);
+            }
+          }
+        }
+      : null;
+  const anyEstimated = rows.some((r) => r.option?.estimated);
+
   const writable = rows.filter(
     (r) => r.holding.shares >= SHARES_PER_CONTRACT
   );
@@ -557,38 +716,48 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Strike</p>
-                  <p className="tabular-nums font-semibold text-primary/60">
-                    {r.nextStrike != null ? currency(r.nextStrike) : NO_VALUE}
-                  </p>
+                  <p className="mb-1 text-muted-foreground">Strike</p>
+                  {onPatchStrike ? (
+                    <InlineStrike
+                      value={r.nextStrike}
+                      onCommit={(strike) => commitStrike(r, strike)}
+                    />
+                  ) : (
+                    <p className="tabular-nums font-semibold text-primary/60">
+                      {r.nextStrike != null ? currency(r.nextStrike) : NO_VALUE}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-muted-foreground">
                     <TermTip term="delta">Delta</TermTip>
                   </p>
-                  <p className="tabular-nums font-medium text-foreground">
+                  <p className={cn("tabular-nums font-medium", figureTone(r))}>
                     {r.option?.delta != null ? deltaText(r.option.delta) : NO_VALUE}
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">2-week %</p>
+                  <p className="text-muted-foreground">3-week %</p>
                   <p className="tabular-nums font-medium text-primary/60">
-                    {r.yield2w != null ? percent(r.yield2w) : NO_VALUE}
+                    {r.yield3w != null ? percent(r.yield3w) : NO_VALUE}
                   </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Premium</p>
-                  <p className="tabular-nums text-foreground">
+                  <p className={cn("tabular-nums", figureTone(r))}>
                     {r.premium != null ? currency(r.premium) : NO_VALUE}
                   </p>
                 </div>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {plural(Math.round(r.contracts), "contract")}
-                {r.expiration
-                  ? `, expires ${format(parseISO(r.expiration), "MMM d")}`
-                  : ""}
-              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+                <span>{plural(Math.round(r.contracts), "contract")}, expires</span>
+                <InlineExpiry
+                  value={r.expiration}
+                  onCommit={(expiry) => onPatchExpiry(r.holding.id, expiry)}
+                  copied={copiedExpiry}
+                  onCopy={setCopiedExpiry}
+                />
+              </div>
               {tracking && r.contracts >= 1 ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
@@ -617,12 +786,24 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
             <div className="flex justify-between">
               <span className="font-semibold text-foreground">All together</span>
               <span className="tabular-nums text-primary/60">
-                {percent(yield2wAvg)} over 2 weeks
+                {percent(yield3wAvg)} per 3 weeks
               </span>
             </div>
             <p className="mt-1 tabular-nums text-muted-foreground">
               {currency(premiumTotal)} in premium
             </p>
+            {pasteAll ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-3"
+                onClick={pasteAll}
+              >
+                <ClipboardPaste />
+                Use {copiedExpiry} for every call
+              </Button>
+            ) : null}
           </Card>
         )}
       </div>
@@ -743,21 +924,27 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
               >
                 {writeProximity(r.targetDistance).label}
               </div>
-              <div
-                className={cn(
-                  cellBase,
-                  "tabular-nums font-semibold text-primary/60"
+              <div className={cellBase}>
+                {onPatchStrike ? (
+                  <InlineStrike
+                    value={r.nextStrike}
+                    onCommit={(strike) => commitStrike(r, strike)}
+                  />
+                ) : (
+                  <span className="tabular-nums font-semibold text-primary/60">
+                    {r.nextStrike != null ? currency(r.nextStrike) : NO_VALUE}
+                  </span>
                 )}
-              >
-                {r.nextStrike != null ? currency(r.nextStrike) : NO_VALUE}
               </div>
-              <div className={cn(cellBase, "tabular-nums text-foreground")}>
+              <div className={cn(cellBase, "tabular-nums", figureTone(r))}>
                 {r.option?.delta != null ? deltaText(r.option.delta) : NO_VALUE}
               </div>
               <div className={cn(cellBase, "text-muted-foreground")}>
                 <InlineExpiry
                   value={r.expiration}
                   onCommit={(expiry) => onPatchExpiry(r.holding.id, expiry)}
+                  copied={copiedExpiry}
+                  onCopy={setCopiedExpiry}
                 />
               </div>
               <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
@@ -766,9 +953,9 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
               <div
                 className={cn(cellBase, "tabular-nums font-medium text-primary/60")}
               >
-                {r.yield2w != null ? percent(r.yield2w) : NO_VALUE}
+                {r.yield3w != null ? percent(r.yield3w) : NO_VALUE}
               </div>
-              <div className={cn(cellBase, "tabular-nums text-foreground")}>
+              <div className={cn(cellBase, "tabular-nums", figureTone(r))}>
                 {r.premium != null ? currency(r.premium) : NO_VALUE}
               </div>
               {tracking ? (
@@ -800,10 +987,23 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
               <div className={cellBase} />
               <div className={cellBase} />
               <div className={cellBase} />
-              <div className={cellBase} />
+              <div className={cellBase}>
+                {pasteAll ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 font-normal text-muted-foreground"
+                    onClick={pasteAll}
+                  >
+                    <ClipboardPaste className="size-3.5" />
+                    Use for all
+                  </Button>
+                ) : null}
+              </div>
               <div className={cellBase} />
               <div className={cn(cellBase, "tabular-nums text-primary/60")}>
-                {percent(yield2wAvg)}
+                {percent(yield3wAvg)}
               </div>
               <div className={cn(cellBase, "tabular-nums text-foreground")}>
                 {currency(premiumTotal)}
@@ -814,6 +1014,9 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
         </FluidTable>
       </div>
       <p className="border-t border-border surface-gutter py-4 text-sm text-muted-foreground">
+        {anyEstimated
+          ? "Figures in grey are worked out from the volatility of nearby contracts, because that exact strike or date is not being quoted yet. "
+          : ""}
         {ADVICE_DISCLAIMER_SHORT}
       </p>
     </Panel>

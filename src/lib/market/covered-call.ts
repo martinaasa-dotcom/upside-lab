@@ -9,8 +9,10 @@ import { dateKeyInTz, daysUntilInTz } from "@/lib/timezone";
 import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
 import { marketSession } from "@/lib/market/session";
 import { yahooCall } from "@/lib/market/yahoo";
+import { threeWeekYield } from "@/lib/options/reprice";
 import {
   callDelta,
+  callPrice,
   impliedVol,
   isPlausibleVol,
   yearsToExpiry,
@@ -340,23 +342,43 @@ export async function scanCoveredCall(params: {
     // (illiquid chains) and fall back to estimate.
     const strikeErrorPct = best.strikeDist / Math.max(nextStrike, 1);
     let midPx = best.mid;
-    let yield2w = midPx / spot;
+    let estimated = false;
+    const years = yearsToExpiry(best.expiration);
 
     if (strikeErrorPct > 0.08) {
-      yield2w = estimateYield(otmPct, best.daysToExpiry);
-      midPx = spot * yield2w;
+      midPx = spot * estimateYield(otmPct, best.daysToExpiry);
+      estimated = true;
+    } else if (
+      Math.abs(best.strike - nextStrike) > 0.005 &&
+      best.vol != null &&
+      years != null &&
+      years > 0
+    ) {
+      /*
+        The planned strike is not listed on this date (a $305 strike on a
+        chain that lists $300 and $310). The delta was already worked out
+        at the planned strike, and the premium beside it has to answer for
+        the same contract, so it is priced there from the neighbour's
+        volatility rather than quoted off the neighbour.
+      */
+      const priced = callPrice(spot, nextStrike, years, best.vol);
+      if (priced != null && priced > 0) {
+        midPx = priced;
+        estimated = true;
+      }
     }
+    const yield3w = threeWeekYield(midPx, spot, best.daysToExpiry);
 
     return {
       ticker: ticker.toUpperCase(),
       expiration: best.expiration,
-      // Keep UI Next Strike (planned); mid/yield are for nearest listed strike
+      // The planned strike; mid and yield answer for it, quoted or priced.
       strike: nextStrike,
       bid: best.bid,
       ask: best.ask,
       mid: midPx,
       otmPct,
-      yield2w,
+      yield3w,
       premium: midPx * 100 * contractCount,
       contracts: contractCount,
       daysToExpiry: best.daysToExpiry,
@@ -364,6 +386,8 @@ export async function scanCoveredCall(params: {
       targetDistance,
       delta: plannedDelta(spot, nextStrike, best.expiration, best.vol),
       listedStrike: best.strike,
+      vol: best.vol,
+      estimated,
     };
   } catch (err) {
     console.error(`Options scan failed for ${ticker}`, err);
@@ -441,8 +465,8 @@ function syntheticCandidate(
     const diff = (5 - day + 7) % 7;
     exp.setDate(exp.getDate() + diff);
   }
-  const yield2w = estimateYield(otmPct || (strike - spot) / spot, days);
-  const midPx = spot * yield2w;
+  const midPx = spot * estimateYield(otmPct || (strike - spot) / spot, days);
+  const yield3w = threeWeekYield(midPx, spot, days);
 
   return {
     ticker: ticker.toUpperCase(),
@@ -452,7 +476,7 @@ function syntheticCandidate(
     ask: midPx * 1.05,
     mid: midPx,
     otmPct: otmPct || (strike - spot) / Math.max(spot, 1),
-    yield2w,
+    yield3w,
     premium: midPx * 100 * contracts,
     contracts,
     daysToExpiry: days,
@@ -461,5 +485,7 @@ function syntheticCandidate(
     // An estimated premium has no volatility behind it to take a delta from.
     delta: null,
     listedStrike: null,
+    vol: null,
+    estimated: true,
   };
 }

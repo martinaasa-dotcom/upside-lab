@@ -1,6 +1,7 @@
 import { sheetCashBalance } from "@/lib/cash-balance";
 import { isCoinSymbol } from "@/lib/coins";
 import { nextStrikeFromTarget, resolveStockTarget } from "@/lib/market/resistance";
+import { repriceCandidate } from "@/lib/options/reprice";
 import { finiteNumber, mean, roundMoney, safeDiv, sumMoney } from "@/lib/money";
 import type {
   CoveredCallRow,
@@ -52,7 +53,9 @@ export function contractsFromShares(shares: number): number {
 export function buildCoveredCallRows(
   holdings: Holding[],
   quotes: Record<string, Quote>,
-  optionsByTicker: Record<string, OptionCandidate | null>
+  optionsByTicker: Record<string, OptionCandidate | null>,
+  /** The expiry the reader picked per holding, before the scan has priced it. */
+  expiryByHolding: Record<string, string | null> = {}
 ): CoveredCallRow[] {
   return holdings
     .filter((holding) => !isCoinSymbol(holding.ticker))
@@ -60,7 +63,7 @@ export function buildCoveredCallRows(
     const quote = quotes[holding.ticker];
     const spot = finiteNumber(quote?.price ?? holding.buy_price);
     const totalValue = roundMoney(holding.shares * spot);
-    const option = optionsByTicker[holding.ticker] ?? null;
+    const scanned = optionsByTicker[holding.ticker] ?? null;
     const contracts = contractsFromShares(holding.shares);
 
     const history = quote?.sparkline?.length
@@ -80,6 +83,20 @@ export function buildCoveredCallRows(
         ? nextStrikeFromTarget(stockTarget, holding.target_call_pct)
         : null;
 
+    // An edited strike or expiry is priced at once from the last scan's
+    // volatility, and the scan that follows replaces it with the market's.
+    const wantExpiry =
+      expiryByHolding[holding.id] ?? scanned?.expiration ?? null;
+    const option =
+      scanned && nextStrike && wantExpiry && contracts > 0
+        ? repriceCandidate(scanned, {
+            spot,
+            strike: nextStrike,
+            expiry: wantExpiry,
+            contracts,
+          })
+        : scanned;
+
     // Distance = spot → stock target (not the same as Call %)
     const targetDistance =
       spot > 0 && stockTarget > 0 ? safeDiv(stockTarget - spot, spot) : null;
@@ -93,13 +110,13 @@ export function buildCoveredCallRows(
       holding,
       spot,
       totalValue,
-      yield2w: option?.yield2w ?? null,
+      yield3w: option?.yield3w ?? null,
       premium,
       targetCall: holding.target_call_pct,
       stockTarget: stockTarget || null,
       targetDistance,
       nextStrike,
-      expiration: option?.expiration ?? null,
+      expiration: option?.expiration ?? wantExpiry,
       contracts,
       option,
     };
@@ -110,7 +127,8 @@ export function buildSnapshot(
   portfolio: Portfolio,
   holdings: Holding[],
   quotes: Record<string, Quote>,
-  optionsByTicker: Record<string, OptionCandidate | null>
+  optionsByTicker: Record<string, OptionCandidate | null>,
+  expiryByHolding: Record<string, string | null> = {}
 ): PortfolioSnapshot {
   // Default sort: largest % of total first
   const cash = sheetCashBalance(portfolio);
@@ -125,7 +143,8 @@ export function buildSnapshot(
   const coveredCallRows = buildCoveredCallRows(
     holdingsInViewOrder,
     quotes,
-    optionsByTicker
+    optionsByTicker,
+    expiryByHolding
   );
 
   const buyValue = sumMoney(enriched.map((h) => h.buyValue));
@@ -137,9 +156,9 @@ export function buildSnapshot(
   const roiDollar = sumMoney(enriched.map((h) => h.roiDollar));
   const roiPct = safeDiv(roiDollar, buyValue);
   const premiumTotal = sumMoney(coveredCallRows.map((r) => r.premium ?? 0));
-  const yield2wAvg = mean(
+  const yield3wAvg = mean(
     coveredCallRows
-      .map((r) => r.yield2w)
+      .map((r) => r.yield3w)
       .filter((v): v is number => v !== null && Number.isFinite(v))
   );
 
@@ -152,7 +171,7 @@ export function buildSnapshot(
       currentValue,
       roiDollar,
       roiPct,
-      yield2wAvg,
+      yield3wAvg,
       premiumTotal,
       unrealizedProfits: roiDollar,
     },

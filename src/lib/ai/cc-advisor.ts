@@ -59,7 +59,7 @@ export type CcChatContext = {
     distance: number | null;
     nextStrike: number | null;
     contracts: number;
-    yield2w: number | null;
+    yield3w: number | null;
     premium: number | null;
     expiration: string | null;
   }>;
@@ -68,7 +68,7 @@ export type CcChatContext = {
     value: number;
     roiPct: number;
     roiDollar: number;
-    yield2wAvg: number;
+    yield3wAvg: number;
     premiumTotal: number;
   };
   /** Unused. Older clients still send this; the prompt ignores it. */
@@ -825,7 +825,7 @@ export function buildCcSystemPrompt(ctx: CcChatContext): string {
               r.nextStrike != null && r.spot > 0
                 ? (r.nextStrike - r.spot) / r.spot
                 : null;
-            return `${r.ticker}: price=${r.spot}, call%=${(r.callPct * 100).toFixed(0)}%, stockTarget=${r.stockTarget ?? NO_VALUE}, distanceToTarget=${r.distance != null ? (r.distance * 100).toFixed(1) + "%" : NO_VALUE}, nextStrike=${r.nextStrike ?? NO_VALUE}, strikeAboveTodayPct=${strikeAboveToday != null ? (strikeAboveToday * 100).toFixed(1) + "%" : NO_VALUE}, contracts=${r.contracts}, ccYield=${r.yield2w != null ? (r.yield2w * 100).toFixed(2) + "%" : NO_VALUE}, premium=${r.premium ?? NO_VALUE}, exp=${r.expiration ?? NO_VALUE}`;
+            return `${r.ticker}: price=${r.spot}, call%=${(r.callPct * 100).toFixed(0)}%, stockTarget=${r.stockTarget ?? NO_VALUE}, distanceToTarget=${r.distance != null ? (r.distance * 100).toFixed(1) + "%" : NO_VALUE}, nextStrike=${r.nextStrike ?? NO_VALUE}, strikeAboveTodayPct=${strikeAboveToday != null ? (strikeAboveToday * 100).toFixed(1) + "%" : NO_VALUE}, contracts=${r.contracts}, ccYield=${r.yield3w != null ? (r.yield3w * 100).toFixed(2) + "%" : NO_VALUE}, premium=${r.premium ?? NO_VALUE}, exp=${r.expiration ?? NO_VALUE}`;
           })
           .join("\n");
 
@@ -934,7 +934,7 @@ How the write plan is built:
 
   const totalsLine = hideOptions
     ? `Portfolio totals: cost=${ctx.totals.cost.toFixed(0)}, value=${ctx.totals.value.toFixed(0)}, gain%=${(ctx.totals.roiPct * 100).toFixed(1)}%, gain$=${ctx.totals.roiDollar.toFixed(0)}`
-    : `Portfolio totals: cost=${ctx.totals.cost.toFixed(0)}, value=${ctx.totals.value.toFixed(0)}, gain%=${(ctx.totals.roiPct * 100).toFixed(1)}%, gain$=${ctx.totals.roiDollar.toFixed(0)}, ccYieldAvg=${(ctx.totals.yield2wAvg * 100).toFixed(2)}%, premiumTotal=${ctx.totals.premiumTotal.toFixed(2)}`;
+    : `Portfolio totals: cost=${ctx.totals.cost.toFixed(0)}, value=${ctx.totals.value.toFixed(0)}, gain%=${(ctx.totals.roiPct * 100).toFixed(1)}%, gain$=${ctx.totals.roiDollar.toFixed(0)}, ccYieldAvg=${(ctx.totals.yield3wAvg * 100).toFixed(2)}%, premiumTotal=${ctx.totals.premiumTotal.toFixed(2)}`;
 
   const ccRowsSection = hideOptions
     ? ""

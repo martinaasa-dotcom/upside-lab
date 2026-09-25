@@ -13,6 +13,7 @@ import {
   deltaText,
   oddsText,
   rollSaid,
+  cardLine,
   type CallHealth,
   type CallView,
   type CallRules,
@@ -22,6 +23,7 @@ import {
 import { format, parseISO } from "date-fns";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type React from "react";
 
 /*
   The calls a reader has sold or plans to sell, one card each, most
@@ -86,6 +88,11 @@ export function attentionLine(views: CallView[]): string | null {
   return `${head}: ${parts.join("; ")}${more}.`;
 }
 
+/**
+ * Delta as a thin bar under its own figure, with the reader's roll level
+ * marked on it. The watch level is a faint tick; the roll level is the
+ * one line in colour, because it is the one that is theirs.
+ */
 function DeltaMeter({ delta, rollDelta }: { delta: number | null; rollDelta: number }) {
   const pct = barFillPct(delta != null ? delta * 100 : 0);
   const fill =
@@ -95,56 +102,47 @@ function DeltaMeter({ delta, rollDelta }: { delta: number | null; rollDelta: num
         ? "bg-loss"
         : delta >= WATCH_DELTA
           ? "bg-caution"
-          : "bg-foreground/45";
+          : "bg-foreground/50";
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          <TermTip term="delta">Delta</TermTip>{" "}
-          <span className="font-mono text-base font-semibold tabular-nums text-foreground">
-            {delta != null ? deltaText(delta) : NO_VALUE}
-          </span>
-        </p>
-        <p className="text-sm tabular-nums text-muted-foreground">
-          roll at {deltaText(rollDelta)}
-        </p>
-      </div>
-      <div
-        className="relative mt-2 h-2 overflow-hidden rounded-full bg-muted"
-        role="meter"
-        aria-label="Delta"
-        aria-valuemin={0}
-        aria-valuemax={1}
-        aria-valuenow={delta ?? undefined}
-        aria-valuetext={
-          delta != null
-            ? `${deltaText(delta)}, odds of the shares being taken ${oddsText(delta)}`
-            : "No reading"
-        }
-      >
-        <div className={cn("h-full rounded-full transition-[width]", fill)} style={{ width: `${pct}%` }} />
-        <span
-          aria-hidden
-          className="absolute inset-y-0 w-px bg-foreground/50"
-          style={{ left: `${WATCH_DELTA * 100}%` }}
-        />
-        <span
-          aria-hidden
-          className="absolute inset-y-0 w-0.5 bg-loss"
-          style={{ left: `${rollDelta * 100}%` }}
-        />
-      </div>
+    <div
+      className="relative h-1.5 overflow-hidden rounded-full bg-muted"
+      role="meter"
+      aria-label="Delta"
+      aria-valuemin={0}
+      aria-valuemax={1}
+      aria-valuenow={delta ?? undefined}
+      aria-valuetext={
+        delta != null
+          ? `${deltaText(delta)}, odds of the shares being taken ${oddsText(delta)}, roll at ${deltaText(rollDelta)}`
+          : "No reading"
+      }
+    >
+      <div className={cn("h-full rounded-full transition-[width]", fill)} style={{ width: `${pct}%` }} />
+      <span
+        aria-hidden
+        className="absolute inset-y-0 w-px bg-foreground/30"
+        style={{ left: `${WATCH_DELTA * 100}%` }}
+      />
+      <span
+        aria-hidden
+        className="absolute inset-y-0 w-0.5 bg-loss/80"
+        style={{ left: `${rollDelta * 100}%` }}
+      />
     </div>
   );
 }
 
-function Figure({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Figure({
+  label,
+  children,
+}: {
+  label: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="min-w-0">
       <MicroLabel>{label}</MicroLabel>
-      <p className={cn("mt-1 font-mono text-sm tabular-nums break-words", tone ?? "text-foreground")}>
-        {value}
-      </p>
+      <p className="mt-1 font-mono text-sm tabular-nums text-foreground">{children}</p>
     </div>
   );
 }
@@ -161,6 +159,15 @@ function expirySaid(expiry: string, daysLeft: number | null): string {
   return `${when}, ${daysLeft} day${daysLeft === 1 ? "" : "s"}`;
 }
 
+/*
+  One call, in four lines: which contract and what state it is in, the
+  delta against the reader's roll level, the three figures, and the one
+  sentence the figures cannot say. It was eleven: the same kept share was
+  printed as a figure, as a sentence and again as a buy-back paragraph,
+  with a line under all of it about where delta came from. That last one
+  lives behind the mark beside Delta now, where somebody who wants it will
+  look, and everything else is said once.
+*/
 function CallCard({
   view,
   rules,
@@ -180,133 +187,136 @@ function CallCard({
   const [confirming, setConfirming] = useState(false);
   const sold = call.status === "sold";
   const perShare = (n: number | null) => (n != null ? currency(n) : NO_VALUE);
+  const delta = reading?.delta ?? null;
   const showRoll =
     sold && reading?.roll && (health.kind === "roll" || health.kind === "assignment" || health.kind === "watch");
+  const source = reading?.volSource
+    ? `${SOURCE_SAID[reading.volSource]} ${METHOD}`
+    : METHOD;
 
   return (
-    <Card tone="raised" className={cn("border-l-2", TONE_RULE[health.tone])}>
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
+    <Card tone="raised" className={cn("flex flex-col gap-3 border-l-2", TONE_RULE[health.tone])}>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
           <p className="text-base font-semibold text-foreground">
             <TickerSymbol ticker={call.ticker} showCurrency={showCurrency} />{" "}
             <span className="font-mono tabular-nums">{currency(call.strike)}</span>{" "}
             <span className="font-normal text-muted-foreground">call</span>
           </p>
-          <p className="mt-1 text-sm tabular-nums text-muted-foreground">
-            {sold ? "Sold" : "Planned"}, {call.contracts} contract
-            {call.contracts === 1 ? "" : "s"}, expires {expirySaid(call.expiry, daysLeft)}
+          <p className="mt-0.5 text-sm tabular-nums text-muted-foreground">
+            {sold ? "Sold" : "Planned"}, {call.contracts}{" "}
+            {call.contracts === 1 ? "contract" : "contracts"}, {expirySaid(call.expiry, daysLeft)}
           </p>
         </div>
         <Pill tone={TONE_PILL[health.tone]}>{health.label}</Pill>
+        <div className="-mr-2 -mt-1 flex items-center">
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8 text-muted-foreground"
+            onClick={onEdit}
+            aria-label="Edit this call"
+          >
+            <Pencil />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className={cn("size-8", confirming ? "text-loss" : "text-muted-foreground")}
+            onClick={() => {
+              if (!confirming) {
+                setConfirming(true);
+                return;
+              }
+              setConfirming(false);
+              void onRemove();
+            }}
+            onBlur={() => setConfirming(false)}
+            aria-label={confirming ? "Press again to remove this call" : "Remove this call"}
+          >
+            <Trash2 />
+          </Button>
+        </div>
       </div>
 
-      <div className="mt-4">
-        <DeltaMeter delta={reading?.delta ?? null} rollDelta={rules.rollDelta} />
-      </div>
-
-      <div className="mt-4 grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 xs:grid-cols-4">
+        <Figure
+          label={
+            <span className="inline-flex items-center gap-1">
+              <TermTip term="delta">Delta</TermTip>
+              <InfoTip text={source} label="How delta is worked out" />
+            </span>
+          }
+        >
+          {delta != null ? deltaText(delta) : NO_VALUE}
+        </Figure>
         {sold ? (
           <>
-            <Figure label="Received" value={perShare(call.premium)} />
-            <Figure label="Now" value={perShare(reading?.mid ?? null)} />
-            {health.kept != null && health.kept < 0 && health.gainPerShare != null ? (
-              <Figure
-                label="Behind"
-                value={currency(health.gainPerShare)}
-                tone="text-loss"
-              />
+            <Figure label="Received">{perShare(call.premium)}</Figure>
+            <Figure label="Now">{perShare(reading?.mid ?? null)}</Figure>
+            {health.kept != null && health.kept < 0 ? (
+              <Figure label="Behind">
+                <span className="text-loss">
+                  {health.gainTotal != null ? currency(Math.abs(health.gainTotal), 0) : NO_VALUE}
+                </span>
+              </Figure>
             ) : (
-              <Figure
-                label="Kept"
-                value={health.kept != null ? percent(health.kept, 0) : NO_VALUE}
-                tone={health.kept != null ? "text-gain" : "text-muted-foreground"}
-              />
+              <Figure label="Kept">
+                <span className={health.kept != null ? "text-gain" : "text-muted-foreground"}>
+                  {health.kept != null ? percent(health.kept, 0) : NO_VALUE}
+                </span>
+                {health.gainTotal != null && health.gainTotal > 0 ? (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    {currency(health.gainTotal, 0)}
+                  </span>
+                ) : null}
+              </Figure>
             )}
           </>
         ) : (
           <>
-            <Figure label="You want" value={call.premium != null ? currency(call.premium) : "Any"} />
-            <Figure label="Pays now" value={perShare(reading?.mid ?? null)} />
-            <Figure label="Share now" value={reading ? currency(reading.spot) : NO_VALUE} />
+            <Figure label="Pays now">{perShare(reading?.mid ?? null)}</Figure>
+            <Figure label="You want">
+              {call.premium != null ? currency(call.premium) : "Any"}
+            </Figure>
+            <Figure label="Share">{reading ? currency(reading.spot) : NO_VALUE}</Figure>
           </>
         )}
       </div>
 
-      <p className="mt-4 text-sm text-muted-foreground">{health.read}</p>
-      {health.move ? <p className="mt-2 text-sm text-foreground">{health.move}</p> : null}
-      {sold && health.gainTotal != null && health.closeCost != null && health.kind !== "expired" ? (
-        <p className="mt-2 text-sm tabular-nums text-muted-foreground">
-          Buying it back today costs {currency(health.closeCost)}, which would
-          lock in a {health.gainTotal >= 0 ? "gain" : "loss"} of{" "}
-          <span className={health.gainTotal >= 0 ? "text-gain" : "text-loss"}>
-            {currency(Math.abs(health.gainTotal))}
-          </span>
-          .
+      <DeltaMeter delta={delta} rollDelta={rules.rollDelta} />
+
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+          {reading ? cardLine(view, rules) : "Reading the market for this contract."}
         </p>
-      ) : null}
+        {!sold ? (
+          <Button type="button" size="sm" variant="outline" onClick={onMarkSold}>
+            Mark as sold
+          </Button>
+        ) : null}
+      </div>
 
       {showRoll && reading?.roll ? (
-        <div className="card-sheen glass-well mt-4 rounded-lg px-3 py-3">
-          <MicroLabel>
-            {reading.roll.kind === "up-and-out" ? "A roll up and out" : "A roll out"}
-          </MicroLabel>
-          <p className="mt-2 text-sm text-foreground">{rollSaid(reading.roll, call.contracts)}</p>
+        <div className="card-sheen glass-well rounded-lg px-3 py-2.5">
+          <p className="text-sm text-foreground">
+            <span className="font-medium">
+              {reading.roll.kind === "up-and-out" ? "Roll up and out: " : "Roll out: "}
+            </span>
+            {rollSaid(reading.roll, call.contracts)}
+          </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            At the middle of today&apos;s quotes. A real order fills somewhere between the bid and the ask.
+            At the middle of today&apos;s quotes; a real order fills between the bid and the ask.
           </p>
         </div>
       ) : sold && reading?.rollSearched && !reading.roll && health.kind === "roll" ? (
-        <p className="mt-3 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           The chain has nothing later at this strike or above with a quote today.
         </p>
       ) : null}
-
-      <div className="mt-4 flex flex-col gap-2">
-        <p className="text-sm text-muted-foreground">
-          {reading?.volSource ? (
-            <>
-              {SOURCE_SAID[reading.volSource]}{" "}
-              <InfoTip text={METHOD} label="How delta is worked out" />
-            </>
-          ) : reading ? null : (
-            "Reading the market for this contract."
-          )}
-        </p>
-        <div className="flex flex-wrap items-center justify-end gap-1">
-          {!sold ? (
-            <Button type="button" size="sm" variant="outline" onClick={onMarkSold}>
-              Mark as sold
-            </Button>
-          ) : null}
-          <Button type="button" size="sm" variant="ghost" onClick={onEdit} aria-label="Edit this call">
-            <Pencil />
-            Edit
-          </Button>
-          {confirming ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              onClick={() => {
-                setConfirming(false);
-                void onRemove();
-              }}
-            >
-              Remove it
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => setConfirming(true)}
-              aria-label="Remove this call"
-            >
-              <Trash2 />
-            </Button>
-          )}
-        </div>
-      </div>
     </Card>
   );
 }

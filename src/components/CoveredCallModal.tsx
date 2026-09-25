@@ -6,9 +6,12 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Segmented } from "@/components/ui/Panel";
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
 import { blockWheelChange, parseDecimal } from "@/lib/number-input";
-import { cashtag } from "@/lib/format";
+import { cashtag, currency } from "@/lib/format";
+import { parseExpiryText } from "@/lib/options/expiry-text";
 import {
+  deltaText,
   validateCallDraft,
+  type ContractReading,
   type TrackedCallDraft,
   type TrackedCallStatus,
 } from "@/lib/options/tracked-calls";
@@ -24,7 +27,7 @@ export type CallModalSeed = Partial<TrackedCallDraft> & {
 type Props = {
   open: boolean;
   /** Holdings a call can be written on, with how many contracts each covers. */
-  holdings: { ticker: string; contracts: number }[];
+  holdings: { ticker: string; contracts: number; spot?: number | null }[];
   seed: CallModalSeed | null;
   onClose: () => void;
   onSave: (draft: TrackedCallDraft, id?: string) => Promise<string | null>;
@@ -65,6 +68,59 @@ export function CoveredCallModal({ open, holdings, seed, onClose, onSave }: Prop
   const [openedOn, setOpenedOn] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<ContractReading | null>(null);
+
+  /*
+    What the market is quoting for exactly the contract being typed.
+
+    A call tracked as the wrong contract reads perfectly sensibly: a $305
+    strike two weeks out really is worth a dollar with a delta of 0.07, so
+    nothing on the card looked broken while it described a call the reader
+    never sold. Showing the price beside the fields while they are being
+    filled in puts that mismatch next to the broker's own figure, before
+    it is saved rather than after.
+  */
+  const previewSpot = holdings.find((h) => h.ticker === ticker)?.spot ?? null;
+  const previewStrike = parseDecimal(strike);
+  useEffect(() => {
+    setPreview(null);
+    if (!open || !ticker || !(previewStrike > 0) || !previewSpot) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return;
+    const ctrl = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch("/api/options/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            positions: [],
+            contracts: [
+              {
+                id: "preview",
+                ticker,
+                strike: previewStrike,
+                expiry,
+                status: "planned",
+                spot: previewSpot,
+              },
+            ],
+          }),
+          signal: ctrl.signal,
+        });
+        if (!res.ok) return;
+        const json = (await res.json().catch(() => ({}))) as {
+          contracts?: Record<string, ContractReading>;
+        };
+        setPreview(json.contracts?.preview ?? null);
+      } catch {
+        /* the preview is a courtesy; the form works without it */
+      }
+    }, 450);
+    return () => {
+      ctrl.abort();
+      window.clearTimeout(timer);
+    };
+  }, [open, ticker, previewStrike, expiry, previewSpot]);
 
   useEffect(() => {
     if (!open) return;
@@ -215,6 +271,13 @@ export function CoveredCallModal({ open, holdings, seed, onClose, onSave }: Prop
                 setExpiry(e.target.value);
                 setError(null);
               }}
+              onPaste={(e) => {
+                const parsed = parseExpiryText(e.clipboardData.getData("text"));
+                if (!parsed) return;
+                e.preventDefault();
+                setExpiry(parsed);
+                setError(null);
+              }}
               className="min-w-0 tabular-nums"
               required
             />
@@ -266,6 +329,18 @@ export function CoveredCallModal({ open, holdings, seed, onClose, onSave }: Prop
           ) : null}
         </div>
 
+        {preview && preview.mid != null ? (
+          <p className="mt-3 text-sm tabular-nums text-muted-foreground">
+            {preview.quoted ? "The market quotes this contract at " : "No quote for this exact contract today, so it is estimated at about "}
+            <span className="text-foreground">{currency(preview.mid)}</span> a share
+            {preview.delta != null ? (
+              <>
+                , delta <span className="text-foreground">{deltaText(preview.delta)}</span>
+              </>
+            ) : null}
+            . Check it against your broker.
+          </p>
+        ) : null}
         {tooMany ? (
           <p className="mt-3 text-sm text-caution">
             {cover === 0

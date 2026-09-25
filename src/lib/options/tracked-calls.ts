@@ -563,3 +563,48 @@ export function validateCallDraft(
     },
   };
 }
+
+/**
+ * The card's one sentence.
+ *
+ * `read` and `move` are written to stand alone (the Home alert and a
+ * screen reader get them whole), so each restates the figures. On the
+ * card those figures are already printed a line above, and saying them a
+ * second and third time is what made a simple card four paragraphs long.
+ * This is the part the figures cannot say: which of the reader's rules is
+ * met, and what that costs.
+ */
+export function cardLine(view: CallView, rules: CallRules): string {
+  const { call, reading, health, daysLeft } = view;
+  const delta = reading?.delta ?? null;
+  const odds = delta != null ? `Odds of the shares being taken: ${oddsText(delta)}.` : "";
+  switch (health.kind) {
+    case "expired":
+    case "unknown":
+      return health.read;
+    case "roll":
+      return `Past your ${deltaText(rules.rollDelta)} roll level. ${odds}`;
+    case "assignment":
+      return `Above the strike with ${daysSaid(daysLeft ?? 0)}. The shares are likely to be taken at ${money(call.strike)} unless it is rolled.`;
+    case "close":
+      return health.urgent
+        ? `Past your ${Math.round(rules.takeProfit * 100)}% buy-back level. Buying it back costs ${wholeMoney(health.closeCost ?? 0)}.`
+        : "Likely to expire worth nothing, so letting it run out costs nothing.";
+    case "watch":
+      return `At or above the strike. ${odds}`;
+    case "ok":
+      return odds;
+    case "ready":
+    case "waiting": {
+      const mid = reading?.mid;
+      if (mid == null) return health.read;
+      const want =
+        call.premium != null && call.premium > 0
+          ? mid >= call.premium
+            ? `, at or above the ${money(call.premium)} you wanted`
+            : `. You want ${money(call.premium)}`
+          : "";
+      return `Pays ${money(mid)} a share now${want}.`;
+    }
+  }
+}

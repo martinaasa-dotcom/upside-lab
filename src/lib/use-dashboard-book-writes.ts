@@ -453,17 +453,15 @@ export function useDashboardBookWrites(args: DashboardBookWritesArgs) {
     holdingPatchSeqRef.current.set(id, patchSeq);
     const previous = bookRef.current.holdings.find((h) => h.id === id);
 
-    // Clear stale option when strike-driving fields change
-    if (
-      fields.target_call_pct !== undefined ||
-      fields.stock_target_override !== undefined
-    ) {
-      const ticker = previous?.ticker;
-      if (ticker) {
-        setOptions((prev) => ({ ...prev, [ticker]: null }));
-      }
-    }
-
+    /*
+      A strike-driving edit used to blank this ticker's scanned call so a
+      premium for the old strike would not sit beside the new one. It left
+      the row at n/a until the rescan landed, which read as the edit having
+      broken it. The candidate is kept now and `buildCoveredCallRows`
+      reprices it at the new strike from its own volatility at once
+      (`repriceCandidate`), so the old premium is never shown against the
+      new strike and nothing blanks.
+    */
     // Optimistic: apply immediately so every keystroke commit feels instant,
     // regardless of Supabase round-trip time. Background request rolls the
     // field back (via the same setHoldings the UI already reads from) and

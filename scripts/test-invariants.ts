@@ -4622,7 +4622,7 @@ run("earnings dates use the call when it already happened", () => {
       value: 0,
       roiPct: 0,
       roiDollar: 0,
-      yield2wAvg: 0,
+      yield3wAvg: 0,
       premiumTotal: 0,
     },
     earnings: [
@@ -6110,7 +6110,7 @@ run("zero-balance books and junk inputs never emit NaN or Infinity", () => {
   );
   assert.equal(snap.totals.currentValue, 0);
   assert.equal(snap.totals.roiPct, 0);
-  assert.equal(snap.totals.yield2wAvg, 0);
+  assert.equal(snap.totals.yield3wAvg, 0);
 
   const overview = buildOverview(
     [{ id: "p1", name: "Empty", slug: "e", sort_order: 0, cash_balance: Number.NaN }],
