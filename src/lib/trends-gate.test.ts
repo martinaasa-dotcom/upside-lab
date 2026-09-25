@@ -67,3 +67,15 @@ describe("the forecast says what an account adds, rather than waiting forever", 
     expect(FORECAST).toMatch(/With an account, Margus works out a path/);
   });
 });
+
+describe("Pulse on the sample does not offer a reading it cannot get", () => {
+  const PULSE = readFileSync("src/components/PulsePage.tsx", "utf8");
+  it("decides from a settled session and asks nothing without one", () => {
+    expect(PULSE).toMatch(/needsAccount\s*=\s*authReady\s*&&\s*!user/);
+    expect(PULSE).toMatch(/if \(targets\.length === 0 \|\| needsAccountRef\.current\) return;/);
+  });
+  it("hides every control that could only fail", () => {
+    expect(PULSE).toMatch(/hidden=\{needsAccount\}/);
+    expect(PULSE).not.toMatch(/onRefresh=\{\(\) => void runPulse/);
+  });
+});

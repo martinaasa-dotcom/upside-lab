@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { track } from "@vercel/analytics";
 import { MarketVsYou } from "@/components/MarketVsYou";
+import { useAuth } from "@/components/AuthProvider";
 import { cashtag, cn, currency, percent, plural, signedCurrency, signedPercent, signedTone } from "@/lib/format";
 import {
   EmptyState,
@@ -128,8 +129,7 @@ import {
   TrendingDown,
   TrendingUp,
   X,
-  XCircle,
-} from "lucide-react";
+  XCircle, Newspaper } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, memo } from "react";
 
 type Props = {
@@ -923,6 +923,20 @@ export const PulsePage = memo(function PulsePage({
   onOpenTicker,
   onStamp,
 }: Props) {
+  /*
+    Reading the news is a model call and `/api/thesis/pulse` needs an
+    account, which is right. On the sample that meant a notice saying
+    nobody had read the news over a "Read them now" button that could only
+    fail, and a refresh on every card doing the same. With a settled and
+    absent session nothing is asked for and the notice says what an
+    account adds, which is the rule `TrendsPanel` and `ForecastPanel`
+    already follow. Read through a ref inside `runPulse` so its callback
+    identity does not change when the session settles.
+  */
+  const { user, ready: authReady } = useAuth();
+  const needsAccount = authReady && !user;
+  const needsAccountRef = useRef(needsAccount);
+  needsAccountRef.current = needsAccount;
   const [searchInput, setSearchInput] = useState("");
   const [pinnedTicker, setPinnedTicker] = useState<string | null>(null);
   const [lookupQuotes, setLookupQuotes] = useState<Record<string, Quote>>({});
@@ -1433,7 +1447,7 @@ export const PulsePage = memo(function PulsePage({
    */
   const runPulse = useCallback(
     async (targets: PulseCandidate[], opts?: { force?: boolean; signal?: AbortSignal }) => {
-      if (targets.length === 0) return;
+      if (targets.length === 0 || needsAccountRef.current) return;
       const force = opts?.force ?? false;
       const notInFlight = targets.filter(
         (c) => !inFlightRef.current.has(c.ticker.toUpperCase())
@@ -1832,10 +1846,13 @@ export const PulsePage = memo(function PulsePage({
         */}
       {!anyChecking && unread.length > 0 && candidates.length > 0 ? (
         <Alert>
-          <AlertTriangle />
+          {/* A missing reading is news not yet read, not an error. */}
+          <Newspaper />
           <AlertDescription className="flex flex-col items-start gap-3">
             <span>
-              {unread.length === ranked.length
+              {needsAccount
+                ? "On the sample the prices are live and the news is not read. With an account, every company you own gets a reading each day."
+                : unread.length === ranked.length
                 ? "Nobody has read the news on these yet. The prices above are live."
                 : unread.length === 1
                   ? "One company here has no reading yet. The prices above are live."
@@ -1845,6 +1862,7 @@ export const PulsePage = memo(function PulsePage({
               type="button"
               variant="outline"
               size="sm"
+              hidden={needsAccount}
               onClick={() => void runPulse(unread, { force: true })}
               className="touch-target lg:min-h-0"
             >
@@ -1891,7 +1909,7 @@ export const PulsePage = memo(function PulsePage({
               loading={pinnedLoading}
               checkedAt={checkedAtByTicker[pinnedCandidate.ticker.toUpperCase()]}
               writtenBy={writtenBy}
-              onRefresh={() => void runPulse([pinnedCandidate], { force: true })}
+              onRefresh={needsAccount ? undefined : () => void runPulse([pinnedCandidate], { force: true })}
               onOpenTicker={
                 onOpenTicker
                   ? () => onOpenTicker(pinnedCandidate.ticker)
@@ -1944,7 +1962,7 @@ export const PulsePage = memo(function PulsePage({
                     loading={checkingTickers.has(c.ticker.toUpperCase())}
                     checkedAt={checkedAtByTicker[c.ticker.toUpperCase()]}
                     writtenBy={writtenBy}
-                    onRefresh={() => void runPulse([c], { force: true })}
+                    onRefresh={needsAccount ? undefined : () => void runPulse([c], { force: true })}
                     onOpenTicker={
                       onOpenTicker ? () => onOpenTicker(c.ticker) : undefined
                     }
@@ -1988,7 +2006,7 @@ export const PulsePage = memo(function PulsePage({
                     loading={checkingTickers.has(c.ticker.toUpperCase())}
                     checkedAt={checkedAtByTicker[c.ticker.toUpperCase()]}
                     writtenBy={writtenBy}
-                    onRefresh={() => void runPulse([c], { force: true })}
+                    onRefresh={needsAccount ? undefined : () => void runPulse([c], { force: true })}
                     onOpenTicker={
                       onOpenTicker ? () => onOpenTicker(c.ticker) : undefined
                     }
