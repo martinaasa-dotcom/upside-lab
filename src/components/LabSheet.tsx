@@ -687,6 +687,56 @@ export const LabSheet = memo(function LabSheet({
             />
           ) : (
             <>
+              {/*
+                The picture of where the money sits leads the room: it is
+                the one thing on this tab a reader takes in at a glance,
+                and the scores under it are readings of that picture.
+              */}
+              {mix.length > 0 && (
+                <Panel tone="plain">
+                  {/*
+                    `PanelHeader`, not a hand-rolled title and subtitle.
+
+                    The note that used to stand here had worked out for
+                    itself that a title and its subtitle are one child of
+                    the panel rather than two, and then implemented that
+                    by hand -- which is what `PanelHeader` is, so Lab's
+                    panels titled at `h3` (16px) where the other 66 call
+                    sites in the app title at 18, and hugged at `mt-1.5`
+                    where the component hugs at `mt-2`. Two answers to one
+                    question, decided by whether a panel happened to reach
+                    for the component.
+                  */}
+                  <PanelHeader
+                    title="What you're actually betting on"
+                    subtitle="Your holdings grouped by kind of business, which usually tells you more than the list of tickers does."
+                  />
+                  <AllocationBar
+                    size="lg"
+                    slices={mix.map((m) => ({
+                      key: m.key,
+                      pct: m.pct,
+                      color: m.color,
+                      title: `${m.label}: ${percent(m.pct)}`,
+                    }))}
+                  />
+                  {/*
+                    The legend carries the money as well as the share,
+                    which is what the separate bar card below used to be
+                    for. With one grouping there is nothing left for a
+                    second panel to say, and two panels answering one
+                    question is how this room came to contradict itself.
+                  */}
+                  <SwatchLegend
+                    items={mix.map((m) => ({
+                      key: m.key,
+                      label: m.label,
+                      color: m.color,
+                      value: `${percent(m.pct)} · ${currency(m.value, 0)}`,
+                    }))}
+                  />
+                </Panel>
+              )}
               <Panel tone="plain">
                 {/*
                   The scope is its own line, and only when it is one
@@ -821,50 +871,6 @@ export const LabSheet = memo(function LabSheet({
                 </Scoreboard>
               </Panel>
 
-              {mix.length > 0 && (
-                <Panel tone="plain">
-                  {/*
-                    `PanelHeader`, not a hand-rolled title and subtitle.
-
-                    The note that used to stand here had worked out for
-                    itself that a title and its subtitle are one child of
-                    the panel rather than two, and then implemented that
-                    by hand -- which is what `PanelHeader` is, so Lab's
-                    panels titled at `h3` (16px) where the other 66 call
-                    sites in the app title at 18, and hugged at `mt-1.5`
-                    where the component hugs at `mt-2`. Two answers to one
-                    question, decided by whether a panel happened to reach
-                    for the component.
-                  */}
-                  <PanelHeader
-                    title="What you're actually betting on"
-                    subtitle="Your holdings grouped by kind of business, which usually tells you more than the list of tickers does."
-                  />
-                  <AllocationBar
-                    slices={mix.map((m) => ({
-                      key: m.key,
-                      pct: m.pct,
-                      color: m.color,
-                      title: `${m.label}: ${percent(m.pct)}`,
-                    }))}
-                  />
-                  {/*
-                    The legend carries the money as well as the share,
-                    which is what the separate bar card below used to be
-                    for. With one grouping there is nothing left for a
-                    second panel to say, and two panels answering one
-                    question is how this room came to contradict itself.
-                  */}
-                  <SwatchLegend
-                    items={mix.map((m) => ({
-                      key: m.key,
-                      label: m.label,
-                      color: m.color,
-                      value: `${percent(m.pct)} · ${currency(m.value, 0)}`,
-                    }))}
-                  />
-                </Panel>
-              )}
 
               {/*
                 `items-start`: the two cards hold different counts (a few

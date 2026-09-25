@@ -44,7 +44,35 @@ export type AllocationBarSlice = {
   title: string;
 };
 
-export function AllocationBar({ slices }: { slices: AllocationBarSlice[] }) {
+export function AllocationBar({
+  slices,
+  size = "sm",
+}: {
+  slices: AllocationBarSlice[];
+  /**
+   * "lg" is the room's centrepiece: a tall bar of separate blocks with a
+   * gap between them, grown in from the left once on arrival. "sm" is the
+   * thin inline meter every other surface uses.
+   */
+  size?: "sm" | "lg";
+}) {
+  if (size === "lg") {
+    return (
+      <div className="overview-bar flex h-11 gap-[3px] sm:h-14" role="img" aria-label={slices.map((s) => s.title).join(", ")}>
+        {slices.map((s) => (
+          <div
+            key={s.key}
+            className="min-w-[6px] rounded-md transition-[filter] duration-200 first:rounded-l-xl last:rounded-r-xl hover:brightness-125"
+            style={{
+              width: `${barFillPct(s.pct * 100, 1.5)}%`,
+              backgroundColor: s.color,
+            }}
+            title={s.title}
+          />
+        ))}
+      </div>
+    );
+  }
   return (
     <div className="flex h-3 overflow-hidden rounded-full bg-muted">
       {slices.map((s, i) => (
