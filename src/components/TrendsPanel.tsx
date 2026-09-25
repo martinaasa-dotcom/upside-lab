@@ -376,6 +376,8 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
             <>
               <form
                 className="w-full sm:w-56"
+                /* Adding a name to read is the same request that needs an account. */
+                hidden={needsAccount}
                 onSubmit={(e) => {
                   e.preventDefault();
                   addToWatchlist();

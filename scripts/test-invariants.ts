@@ -2701,8 +2701,10 @@ run("Lab chrome is a toolbar, Seasonality does not paint bronze", () => {
   assert.doesNotMatch(season, /border-brand\/30 bg-brand\/10/);
   assert.doesNotMatch(season, /shadow-\[0_0_12px/);
   assert.doesNotMatch(season, /<h2 className="text-base font-bold text-white">Seasonality<\/h2>/);
-  assert.match(season, /border-gain\/30 bg-gain\/\[0\.08\]/);
-  assert.match(season, /border-loss\/30 bg-loss\/\[0\.08\]/);
+  // Status is a rail on a glass card, never a tinted wash.
+  assert.match(season, /border-l-2 border-l-gain/);
+  assert.match(season, /border-l-2 border-l-loss/);
+  assert.doesNotMatch(season, /bg-(?:gain|loss)\/\[0\.08\]/);
   assert.match(season, /text-lg font-semibold tabular-nums/);
 });
 

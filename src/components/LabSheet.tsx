@@ -389,12 +389,12 @@ export const LabSheet = memo(function LabSheet({
 
   const scopeApplies = tab === "alloc" || tab === "risk";
   /*
-   * Research and the Playbook never read a portfolio at all, so a greyed
+   * Research, Seasonality and the Playbook never read a portfolio, so a greyed
    * "Looking at: Everything" there is a control that cannot mean anything.
-   * Trends and Seasonality keep it disabled, because they do read what you
-   * own, just always all of it, and the disabled picker says so.
+   * Trends keeps it disabled, because it does read what you own, just
+   * always all of it, and the disabled picker says so.
    */
-  const scopeShown = tab !== "lookup" && tab !== "playbook";
+  const scopeShown = tab !== "lookup" && tab !== "playbook" && tab !== "seasonality";
 
   const sheetHoldings = useMemo(
     () =>
