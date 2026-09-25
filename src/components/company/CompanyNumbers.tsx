@@ -200,6 +200,11 @@ export function CompanyNumbers({
           ))}
         </Scoreboard>
       )}
+      {/*
+        One to a row on a phone, measured rather than assumed: at two across
+        a 150px cell broke "$303.0 billion" and its own label over two lines
+        and folded the benchmark chip into a three-line block.
+      */}
       {rest.length > 0 && (
         <Scoreboard cols={3} mobileCols={1}>
           {rest.map((r) => (

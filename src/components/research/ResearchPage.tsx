@@ -42,7 +42,7 @@ import {
   researchNeighbours,
 } from "@/lib/research/universe";
 import { formatDateTime } from "@/lib/timezone";
-import { Building2, HelpCircle } from "lucide-react";
+import { Building2, ChevronDown, HelpCircle } from "lucide-react";
 import Link from "next/link";
 
 /**
@@ -353,19 +353,34 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
         <Panel>
           <PanelHeader
             title={`Questions people ask about ${ticker}`}
-            subtitle="Each of these is answered by one of the panels above. This is the same answer in one paragraph."
+            subtitle="Each is answered by a panel above. Open one for the same answer in a paragraph."
             icon={<HelpCircle className="h-4 w-4" />}
           />
-          <div className="flex flex-col gap-6">
+          {/*
+            Each question folds, so the foot of the page is a list of
+            questions rather than seven paragraphs in a row. The answers are
+            still in the document, which is what a search engine reads, and
+            the structured data carries them word for word either way.
+          */}
+          <div className="flex flex-col">
             {asked.map((q) => (
-              <div key={q.id} className="flex flex-col gap-2">
-                <h3 className="font-heading text-base font-semibold tracking-[-0.02em] text-foreground">
-                  {q.question}
-                </h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">
+              <details
+                key={q.id}
+                className="group border-t border-border first:border-t-0"
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-4 [&::-webkit-details-marker]:hidden">
+                  <h3 className="font-heading text-base font-semibold tracking-[-0.02em] text-foreground">
+                    {q.question}
+                  </h3>
+                  <ChevronDown
+                    className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180 motion-reduce:duration-0"
+                    aria-hidden
+                  />
+                </summary>
+                <p className="pb-5 text-sm leading-relaxed text-muted-foreground">
                   {q.answer}
                 </p>
-              </div>
+              </details>
             ))}
           </div>
         </Panel>
