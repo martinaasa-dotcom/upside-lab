@@ -763,7 +763,13 @@ export const LabSheet = memo(function LabSheet({
                       </TermTip>
                     }
                     value={`${(concentration.topWeightPct * 100).toFixed(1)}%`}
-                    sub={concentration.topWeightTicker ?? undefined}
+                    sub={
+                      concentration.topWeightTicker
+                        ? Math.abs(scopedCash) >= 1
+                          ? `${concentration.topWeightTicker}, of what is invested`
+                          : concentration.topWeightTicker
+                        : undefined
+                    }
                     /* --warning, not --loss. A concentrated position is a
                      * caution, not a loss: nothing here has lost money, and
                      * spending the P&L colour on a non-P&L number weakens
@@ -862,7 +868,21 @@ export const LabSheet = memo(function LabSheet({
                 went: a reader asking what kind of business their money is
                 in should meet one answer, not two panels of it.
               */}
-              <AllocCard title="By holding" slices={byTicker} />
+              <AllocCard
+                title="By holding"
+                slices={byTicker}
+                /*
+                  Shares here are of what is invested, and the holdings
+                  table's "% of total" counts cash too, so one company read
+                  28.1% here and 27.4% there. Both are right; saying which
+                  total this is makes them agree.
+                */
+                subtitle={
+                  Math.abs(scopedCash) >= 1
+                    ? `Shares of the ${currency(byTicker.reduce((a, s) => a + s.value, 0), 0)} invested, not counting cash.`
+                    : undefined
+                }
+              />
             </>
           )}
         </div>
@@ -1033,9 +1053,11 @@ export const LabSheet = memo(function LabSheet({
 function AllocCard({
   title,
   slices,
+  subtitle,
 }: {
   title: string;
   slices: { label: string; pct: number; value: number }[];
+  subtitle?: string;
 }) {
   return (
     /*
@@ -1044,7 +1066,7 @@ function AllocCard({
       grid it sits in is `md:items-start`, so the cell hugs the card too.
     */
     <Panel tone="plain" className="md:h-auto">
-      <PanelHeader title={title} />
+      <PanelHeader title={title} subtitle={subtitle} />
       <div className="flex flex-col gap-2">
         {slices.map((s) => (
           <div key={s.label}>

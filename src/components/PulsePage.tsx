@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { track } from "@vercel/analytics";
-import { cashtag, cn, currency, percent, plural, signedCurrency, signedTone } from "@/lib/format";
+import { cashtag, cn, currency, percent, plural, signedCurrency, signedPercent, signedTone } from "@/lib/format";
 import {
   EmptyState,
   Metric,
@@ -601,14 +601,14 @@ function PulseCard({
             label={
               <TermTip
                 term="gain"
-                example={{ ticker: c.ticker, amount: percent(c.roiPct) }}
+                example={{ ticker: c.ticker, amount: signedPercent(c.roiPct) }}
               >
                 All time
               </TermTip>
             }
             valueClassName={signedTone(c.roiPct, "text-foreground")}
           >
-            {percent(c.roiPct)}
+            {signedPercent(c.roiPct)}
           </Metric>
           {/*
             * "Portfolio" alone did not say what the figure was a share
@@ -616,7 +616,11 @@ function PulseCard({
             * phone the column is 124px and the label tier is 12px mono at
             * 1.2px tracking, so a label has about fourteen characters
             * before it wraps to two lines and drops its figure below the
-            * three beside it.
+            * three beside it. "Of holdings" rather than "Of your total",
+            * because the figure is a share of what is invested, not
+            * counting cash, and the holdings table's "% of total" does
+            * count it: the same company read 28.1% here and 27.5% there
+            * under two labels that both claimed the whole.
             */}
           <Metric
             label={
@@ -624,7 +628,7 @@ function PulseCard({
                 term="share-of-portfolio"
                 example={{ ticker: c.ticker, amount: percent(c.bookPct) }}
               >
-                Of your total
+                Of holdings
               </TermTip>
             }
             /*

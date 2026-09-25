@@ -45,3 +45,25 @@ describe("the one Lab tab that needs an account says so", () => {
     expect(SRC).toMatch(/Everything else here answers on the sample/);
   });
 });
+
+/*
+  The Forecast panel had the same fault a room over: `/api/forecast/plan`
+  needs an account, so the sample read "Margus is still writing the
+  reasoning" forever over an "Ask Margus" button that could only fail.
+*/
+describe("the forecast says what an account adds, rather than waiting forever", () => {
+  const FORECAST = readFileSync("src/components/ForecastPanel.tsx", "utf8");
+
+  it("decides from a settled session", () => {
+    expect(FORECAST).toMatch(/needsAccount\s*=\s*authReady\s*&&\s*!user/);
+  });
+
+  it("keeps the placeholder shape but asks nothing", () => {
+    expect(FORECAST).toMatch(/seedFallbackIfNeeded\(\);\s*\n\s*if \(needsAccount\) return;/);
+  });
+
+  it("offers no button that can only fail, and says why", () => {
+    expect(FORECAST).toMatch(/needsAccount \? undefined : \(/);
+    expect(FORECAST).toMatch(/With an account, Margus works out a path/);
+  });
+});

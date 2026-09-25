@@ -1,5 +1,6 @@
 "use client";
 
+import { LiveFigure } from "@/components/ui/LiveFigure";
 import { TermTip } from "@/components/ui/TermTip";
 import { BelowFold } from "@/components/BelowFold";
 import { HomeWorld } from "@/components/HomeWorld";
@@ -1405,7 +1406,9 @@ export const OverviewDashboard = memo(function OverviewDashboard({
                 pricesStuck ? "text-muted-foreground" : "text-primary"
               )}
             >
-              {currency(totals.totalValue, 0)}
+              <LiveFigure value={pricesStuck ? null : totals.totalValue}>
+                {currency(totals.totalValue, 0)}
+              </LiveFigure>
             </p>
             {pricesStuck ? (
               <Badge variant="outline" className="text-muted-foreground">

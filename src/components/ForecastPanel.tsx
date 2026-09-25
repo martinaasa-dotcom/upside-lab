@@ -17,6 +17,7 @@ import {
   SPLIT_ROW,
 } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/AuthProvider";
 import { WhyThis } from "@/components/ui/WhyThis";
 import {
   forecastPathProvenance,
@@ -604,6 +605,18 @@ export const ForecastPanel = memo(function ForecastPanel({
 
   const [plan, setPlan] = useState<ForecastPlan | null>(null);
   const [busy, setBusy] = useState(false);
+  /*
+   * The forecast route needs an account, and it should: it spends a model
+   * call. On the sample that meant a panel reading "Margus is still
+   * writing the reasoning" forever, over an "Ask Margus" button that could
+   * only fail, which is the fault `TrendsPanel` already records. With a
+   * settled and absent session the panel keeps the placeholder shape, asks
+   * nothing, and says what an account adds. `authReady` matters in both
+   * directions, or the gate closes for the first frames of every signed-in
+   * visit.
+   */
+  const { user, ready: authReady } = useAuth();
+  const needsAccount = authReady && !user;
   const [error, setError] = useState<string | null>(null);
   const [appliedFlash, setAppliedFlash] = useState(false);
   const [planHydrated, setPlanHydrated] = useState(false);
@@ -866,6 +879,7 @@ export const ForecastPanel = memo(function ForecastPanel({
 
     seedFallbackIfNeeded();
 
+    if (needsAccount) return;
     if (retryCountRef.current >= MAX_AUTO_TRIES) return;
     const wait = retryAfterRef.current - Date.now();
     if (wait > 0) {
@@ -887,7 +901,7 @@ export const ForecastPanel = memo(function ForecastPanel({
       setRetryTick((n) => n + 1);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- gated auto refresh
-  }, [labReady, planHydrated, portfolioId, holdingsKey, plan, fullyCovered, model.rows.length, busy, cachedTickers.join("|"), retryTick]);
+  }, [labReady, planHydrated, portfolioId, holdingsKey, plan, fullyCovered, model.rows.length, busy, cachedTickers.join("|"), retryTick, needsAccount]);
 
   // If a sold ticker is still named in the playbook, say so. The model
   // does not auto-rerun for that; use "Work it out again" when you want
@@ -1041,6 +1055,9 @@ export const ForecastPanel = memo(function ForecastPanel({
 
   const statusHint = useMemo(() => {
     if (!labReady || !planHydrated || model.rows.length === 0 || busy) return null;
+    if (needsAccount && !plan) {
+      return "On the sample these are a placeholder shape for each kind of business. With an account, Margus works out a path for each company and says why.";
+    }
     const decision = shouldAutoRefreshForecast({
       plan,
       tickers: model.rows.map((r) => r.ticker),
@@ -1058,7 +1075,7 @@ export const ForecastPanel = memo(function ForecastPanel({
       return "The starting prices are already on your portfolio. Margus is still writing the reasoning …";
     }
     return null;
-  }, [labReady, planHydrated, model.rows, plan, fullyCovered, busy, cachedTickers, retryTick]);
+  }, [labReady, planHydrated, model.rows, plan, fullyCovered, busy, cachedTickers, retryTick, needsAccount]);
 
   /*
    * An empty portfolio used to stack four empty panels, and this was two
@@ -1089,6 +1106,7 @@ export const ForecastPanel = memo(function ForecastPanel({
           }
           subtitle={`A yearly price for each holding, to ${yearCols[yearCols.length - 1] ?? ""}. The chart is the whole portfolio. Each card says why that company's price is expected to go where it does.`}
           actions={
+            needsAccount ? undefined : (
             <Button
               type="button"
               disabled={busy || model.rows.length === 0}
@@ -1102,6 +1120,7 @@ export const ForecastPanel = memo(function ForecastPanel({
               )}
               {busy ? "Thinking …" : plan ? "Work it out again" : "Ask Margus"}
             </Button>
+            )
           }
         />
         {statusHint && (
