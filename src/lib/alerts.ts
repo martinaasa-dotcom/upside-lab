@@ -70,6 +70,30 @@ export type UpsideAlert = {
    * on "You have borrowed $9,000" rather than on a dictionary sentence.
    */
   explain?: GlossaryExample;
+  /**
+   * The alert said as one row of a list rather than as a card.
+   *
+   * Home used to draw three alerts as three equal cards, each a title and
+   * a paragraph, and they read as one grey wall: a results date, a price
+   * plan and a large holding looked identical, and a reader had to read
+   * every sentence to learn which was which. A row answers the three
+   * questions in the order a glance asks them: what kind of thing this is
+   * (`tag`), the one figure that matters (`figure`, with `note` naming
+   * what it is measured against), and a short phrase (`what`). The full
+   * sentences stay on the alert and in the "Worth a look" room.
+   */
+  digest?: AlertDigest;
+};
+
+export type AlertDigest = {
+  /** Two words naming the kind of thing, printed as a label. */
+  tag: string;
+  /** A short phrase, no full stop. */
+  what: string;
+  /** The one figure, already formatted, or null where there is none. */
+  figure?: string | null;
+  /** What the figure is set against, short enough for one small line. */
+  note?: string | null;
 };
 
 /**
@@ -109,6 +133,17 @@ function readDateKey(key: string): Date | null {
 }
 
 /** "Thursday 4 September", or the raw key when it is not a date at all. */
+/** "Wed 30 Sep", for a row with no room for the whole weekday. */
+export function shortDate(key: string): string {
+  const d = readDateKey(key);
+  if (!d) return key;
+  return formatDateTime(d, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
 export function spokenDate(key: string): string {
   const d = readDateKey(key);
   if (!d) return key;
@@ -191,9 +226,29 @@ export function buildLadderAlerts(
         "Nothing has been bought or sold, and this app is not telling you to do either. It is repeating a level you can read and change on the company's own Research page.",
       ticker: r.ticker,
       tone: r.bandId === "exit" ? "warning" : "neutral",
+      digest: {
+        tag: "Fair value zones",
+        what:
+          r.bandId === "exit"
+            ? "Under its lowest fair value zone"
+            : `${r.bandLabel} fair value`,
+        figure: currency(r.spot, 2),
+        note: ladderDigestNote(r.spot, r.edge),
+      },
     });
   }
   return out;
+}
+
+/**
+ * "0.4% under $237.99", the row's small line under the price. Kept to
+ * one line on a phone, so it names the level and not whose it is: the
+ * alert's own sentence, one press away, says whether the reader set it.
+ */
+function ladderDigestNote(spot: number, edge: number | null): string | null {
+  if (edge == null || !(edge > 0)) return null;
+  const gap = Math.abs(spot - edge) / edge;
+  return `${percent(gap, 1)} ${spot >= edge ? "over" : "under"} ${currency(edge, 2)}`;
 }
 
 export function buildStrikeAlerts(
@@ -232,6 +287,12 @@ export function buildStrikeAlerts(
               detail: `The price is now ${currency(r.spot, 2)}, above the ${currency(r.stockTarget, 2)} you wrote down for it.`,
               learn,
               ticker: r.ticker,
+              digest: {
+                tag: "Target",
+                what: "Passed the price you were aiming for",
+                figure: currency(r.spot, 2),
+                note: `Your target, ${currency(r.stockTarget, 2)}`,
+              },
             }
           : {
               id: `strike-target-${cashtag(r.ticker)}`,
@@ -240,6 +301,12 @@ export function buildStrikeAlerts(
               detail: `The price is now ${currency(r.spot, 2)}, above ${currency(r.stockTarget, 2)}. Nobody set that number: the app works it out from how high this share has been lately.`,
               learn,
               ticker: r.ticker,
+              digest: {
+                tag: "Target",
+                what: "Passed the level the app pencilled in",
+                figure: currency(r.spot, 2),
+                note: `The app's level, ${currency(r.stockTarget, 2)}`,
+              },
             }
       );
     }
@@ -266,6 +333,12 @@ export function buildStrikeAlerts(
         detail: `The price is ${currency(r.spot, 2)}, ${percent(over, 1)} above ${currency(r.nextStrike, 2)}. That is the level you planned, not a call you have already sold.`,
         learn: `If you had sold that agreement, your shares could be bought from you at ${currency(r.nextStrike, 2)} each, which is below what they are worth now.`,
         ticker: r.ticker,
+        digest: {
+          tag: "Strike",
+          what: "Past the level you planned",
+          figure: currency(r.spot, 2),
+          note: `${percent(over, 1)} over ${currency(r.nextStrike, 2)}`,
+        },
         term: "strike",
         explain: {
           ticker: cashtag(r.ticker),
@@ -284,6 +357,12 @@ export function buildStrikeAlerts(
         detail: `The price is within about 2% of ${currency(r.nextStrike, 2)}. That is the level you planned, not a call you have already sold.`,
         learn: `If you had sold that agreement and the price stays above ${currency(r.nextStrike, 2)}, your shares could be bought from you at ${currency(r.nextStrike, 2)} each.`,
         ticker: r.ticker,
+        digest: {
+          tag: "Strike",
+          what: "Closing in on the level you planned",
+          figure: currency(r.spot, 2),
+          note: `About 2% from ${currency(r.nextStrike, 2)}`,
+        },
         term: "strike",
         explain: {
           ticker: cashtag(r.ticker),
@@ -332,6 +411,12 @@ export function buildEarningsAlerts(
         // word is "$AAPL reports ...", and "reports" is the trade shorthand
         // this card exists to stop saying. The definition stands on its own.
         explain: { ticker: cashtag(e.ticker) },
+        digest: {
+          tag: "Results",
+          what: "Shares its quarterly results",
+          figure: when.charAt(0).toUpperCase() + when.slice(1),
+          note: shortDate(e.date),
+        },
       };
     });
 }
@@ -443,6 +528,12 @@ export function buildDecisionAlerts(input: {
       cushion: copy.cushion,
       term: "borrowed",
       explain: { amount: currency(margin.borrowed, 0) },
+      digest: {
+        tag: "Borrowed",
+        what: copy.title,
+        figure: currency(margin.borrowed, 0),
+        note: null,
+      },
     });
   }
   const conc = concentration(input);
@@ -474,6 +565,15 @@ export function buildDecisionAlerts(input: {
             ? percent(conc.shareOfPortfolio, 0)
             : undefined,
       },
+      digest: {
+        tag: "Size",
+        what: "Of your stocks, in one company",
+        figure: percent(conc.shareOfStocks, 0),
+        note:
+          conc.shareOfPortfolio != null && !conc.borrowed
+            ? `${percent(conc.shareOfPortfolio, 0)} of everything, cash counted`
+            : null,
+      },
     });
   }
   return out;
@@ -498,4 +598,70 @@ export function alertDestination(
   if (alert.ticker) return alert.kind === "ladder" ? "research" : "pulse";
   if (alert.kind === "margin") return "cash";
   return "overview";
+}
+
+/** How many rows Home's list draws before pointing at the room. */
+export const HOME_ALERTS_SHOWN = 6;
+
+const TONE_RANK: Record<MarginToneName, number> = {
+  loss: 0,
+  warning: 1,
+  neutral: 2,
+};
+
+/** First sentence of a detail, for an alert that arrived with no digest. */
+function firstSentence(text: string): string {
+  const m = /^(.*?[.!?])(\s|$)/.exec(text);
+  return (m ? m[1] : text).replace(/[.!?]$/, "");
+}
+
+/** The kind's own two words, for the fallback row. */
+const KIND_TAG: Record<AlertKind, string> = {
+  results: "Results",
+  strike: "Strike",
+  margin: "Borrowed",
+  concentration: "Size",
+  ladder: "Fair value zones",
+};
+
+/**
+ * What Home's list draws: the alerts worth a row, louder ones first and
+ * otherwise in the order they arrived, each with its row words.
+ *
+ * Borrowed money is left out, as it always was on Home (see
+ * `HomeAlertList`). A digest is filled in from the title when a builder
+ * did not write one, so an alert added later without one still gets a
+ * row that says something rather than an empty one.
+ */
+export function homeAlertRows(
+  alerts: UpsideAlert[],
+  limit: number = HOME_ALERTS_SHOWN
+): {
+  shown: Array<{ alert: UpsideAlert; row: AlertDigest }>;
+  more: number;
+  total: number;
+} {
+  const eligible = alerts
+    .map((alert, i) => ({ alert, i }))
+    .filter(({ alert }) => alert.kind !== "margin")
+    .sort(
+      (a, b) =>
+        TONE_RANK[a.alert.tone ?? "neutral"] -
+          TONE_RANK[b.alert.tone ?? "neutral"] || a.i - b.i
+    )
+    .map(({ alert }) => alert);
+  const shown = eligible.slice(0, Math.max(0, limit)).map((alert) => ({
+    alert,
+    row: alert.digest ?? {
+      tag: KIND_TAG[alert.kind],
+      what: firstSentence(alert.cushion ?? alert.title),
+      figure: null,
+      note: null,
+    },
+  }));
+  return {
+    shown,
+    more: eligible.length - shown.length,
+    total: eligible.length,
+  };
 }

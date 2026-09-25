@@ -460,7 +460,7 @@ export function readySaid(
 ): string {
   const { trimNames, addNames, reachedEdited, reachedTotal } = summary;
   if (reachedTotal === 0) {
-    return "every name is somewhere in the middle of its own ladder";
+    return "every name is somewhere in the middle of its own fair value zones";
   }
   /*
     The names, and which end of the ladder they reached, described
@@ -495,7 +495,7 @@ export function readySaid(
     the names, which are what the reader came to read.
   */
   const whose = pooled
-    ? "Levels this app worked out. Nothing here is anybody's own edited ladder."
+    ? "Levels this app worked out. Nothing here is anybody's own edited fair value zones."
     : reachedEdited === reachedTotal
       ? "Levels you set."
       : reachedEdited === 0

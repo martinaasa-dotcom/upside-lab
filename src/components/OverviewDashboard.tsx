@@ -4,6 +4,7 @@ import { TermTip } from "@/components/ui/TermTip";
 import { BelowFold } from "@/components/BelowFold";
 import { HomeWorld } from "@/components/HomeWorld";
 import { CashAlertCard } from "@/components/mobile/CashAlertCard";
+import { HomeAlertList } from "@/components/HomeAlertList";
 import { WatchlistStrip } from "@/components/WatchlistStrip";
 import {
   BookNavChart,
@@ -26,13 +27,9 @@ import {
   PanelHeader,
   Pill,
   Reading,
-  SCORE_CELL,
-  Scoreboard,
   Segmented,
   PANEL_PAD,
 } from "@/components/ui/Panel";
-import { KIND_GLYPH, TONE_GLYPH, TONE_RING } from "@/components/AlertCards";
-import type { MarginToneName } from "@/lib/margin-health";
 import { NO_VALUE, barFillPct, cashtag, cn, currency, percent, plural, signedCurrency, signedPercent, signedTone } from "@/lib/format";
 import {
   portfolioDayLine,
@@ -58,7 +55,7 @@ import {
   lockInsightLook,
   rememberShownInsights,
 } from "@/lib/insight-look";
-import { alertDestination, type UpsideAlert } from "@/lib/alerts";
+import type { UpsideAlert } from "@/lib/alerts";
 import { sessionLabel, sessionKind } from "@/lib/market-session";
 import { quotesAgeLabel, quotesStuck } from "@/lib/market/quote-health";
 import { sheetCashBalance } from "@/lib/cash-balance";
@@ -78,7 +75,6 @@ import {
   AlertTriangle,
   ArrowRight,
   Calculator,
-  Landmark,
   Camera,
   FileUp,
   Plus,
@@ -453,29 +449,6 @@ function DriverTile({
 }
 
 /**
- * The row under the hero, spent on what needs doing rather than on
- * restating the portfolio.
- *
- * It used to hold two tiles, All time and Cash, then All time and This
- * year: figures the hero card already sets the reader up to read and
- * which never ask anything of them. The same list that fills the "Worth
- * a look" room and lights the news dot on the dock was reaching Home
- * only through a toast and, on a phone, the borrowed-money card. So a
- * results day this week, one company grown into most of the portfolio
- * and a call strike within reach now stand where those tiles were, each
- * with the one line that says why and a way into Pulse on that name.
- *
- * Borrowed money is deliberately not in it: the hero says so in its own
- * cash line, the phone has `CashAlertCard` with the margin arithmetic,
- * and the same fact three times on one screen is what taught readers to
- * swipe past the red one. Three at most, because a row is a glance and
- * the room further along holds the rest. The cushion line is preferred
- * over the detail because it was written to fit under a title; the
- * detail's first sentence stands in when there is none.
- */
-const HOME_ALERTS_SHOWN = 3;
-
-/**
  * One standing figure in the hero strip.
  *
  * On a phone it is a row: the label in a fixed column on the left and the
@@ -493,116 +466,6 @@ const FACT_ROW =
   "grid min-w-0 grid-cols-[5.5rem_1fr] items-baseline gap-x-3 sm:block";
 const FACT_VALUE =
   "min-w-0 font-mono text-sm font-semibold tabular-nums sm:mt-1 sm:text-base";
-
-function firstSentence(text: string): string {
-  const m = /^(.*?[.!?])(\s|$)/.exec(text);
-  return m ? m[1] : text;
-}
-
-function HomeAlertRow({
-  alerts,
-  onOpenPulse,
-  onOpenResearch,
-  onOpenAlerts,
-  className,
-}: {
-  alerts: UpsideAlert[];
-  onOpenPulse?: (ticker: string) => void;
-  onOpenResearch?: (ticker: string) => void;
-  onOpenAlerts?: () => void;
-  className?: string;
-}) {
-  const shown = alerts
-    .filter((a) => a.kind !== "margin")
-    .slice(0, HOME_ALERTS_SHOWN);
-  if (shown.length === 0) return null;
-  const more = alerts.filter((a) => a.kind !== "margin").length - shown.length;
-  return (
-    <div className={cn("flex flex-col gap-3", className)}>
-      <Scoreboard cols={3} mobileCols={1}>
-        {shown.map((alert) => {
-          const tone: MarginToneName = alert.tone ?? "neutral";
-          const Glyph =
-            tone === "neutral"
-              ? (KIND_GLYPH[alert.kind] ?? Landmark)
-              : AlertTriangle;
-          const line = alert.cushion ?? firstSentence(alert.detail);
-          /*
-            A price ladder is read and changed on the company's own Research
-            page, so that is where its card goes. Everything else naming a
-            company goes to Pulse, which explains a move.
-          */
-          const where = alertDestination(alert);
-          const open =
-            where === "research"
-              ? () => onOpenResearch?.(alert.ticker as string)
-              : where === "pulse"
-                ? () => onOpenPulse?.(alert.ticker as string)
-                : onOpenAlerts;
-          return (
-            <article
-              key={alert.id}
-              className={cn(SCORE_CELL, "ring-1", TONE_RING[tone])}
-            >
-              <div className="flex items-start gap-3">
-                <span
-                  className={cn(
-                    "flex size-8 shrink-0 items-center justify-center rounded-lg",
-                    TONE_GLYPH[tone]
-                  )}
-                >
-                  <Glyph className="size-4" aria-hidden />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold leading-snug text-foreground">
-                    {alert.title}
-                  </p>
-                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                    {line}
-                  </p>
-                </div>
-              </div>
-              {open ? (
-                /* The gap above this button is the wrapper's padding, never
-                 * the button's own: a `size="sm"` button is a fixed `h-7`, so
-                 * a `pt-3` on it shrinks the content box and drops the label
-                 * 6px below the centre of the hover fill it sits in. */
-                <div className="mt-auto pt-3">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="-ml-2 text-muted-foreground hover:text-foreground"
-                    onClick={open}
-                  >
-                    {where === "research"
-                      ? `Open Research on ${cashtag(alert.ticker as string)}`
-                      : where === "pulse"
-                        ? `Open Pulse on ${cashtag(alert.ticker as string)}`
-                        : "Open Worth a look"}
-                    <ArrowRight data-icon="inline-end" />
-                  </Button>
-                </div>
-              ) : null}
-            </article>
-          );
-        })}
-      </Scoreboard>
-      {more > 0 && onOpenAlerts ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="self-start text-muted-foreground hover:text-foreground"
-          onClick={onOpenAlerts}
-        >
-          {more === 1 ? "One more worth a look" : `${more} more worth a look`}
-          <ArrowRight data-icon="inline-end" />
-        </Button>
-      ) : null}
-    </div>
-  );
-}
 
 function MorningStack({
   morning,
@@ -1520,7 +1383,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         * was a row of the first screen spent restating the portfolio at
         * the hero's own weight. The standing figures are a strip at the
         * foot of the hero card now, and the row is the reader's own
-        * alerts (see `HomeAlertRow`).
+        * alerts (see `HomeAlertList`).
         */}
       <div className="overview-fade flex flex-col gap-4">
         <div className={cn("card-sheen glass flex min-w-0 flex-col rounded-xl ring-1 ring-foreground/20", PANEL_PAD)}>
@@ -1584,7 +1447,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             * at the hero's own weight. In a strip they are still the
             * first thing after the day's move, still tabular, and they
             * cost the page one line. The row they left is spent on what
-            * needs doing (`HomeAlertRow`).
+            * needs doing (`HomeAlertList`).
             *
             * This year reads the same `yearPct` / `yearDollar` the chart
             * panel captions, off the one painted path, so the two cannot
@@ -1707,7 +1570,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
             </div>
           </dl>
         </div>
-        <HomeAlertRow
+        <HomeAlertList
           alerts={activeAlerts}
           onOpenPulse={onOpenPulse}
           onOpenResearch={onOpenResearch}

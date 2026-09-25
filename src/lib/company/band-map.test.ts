@@ -485,7 +485,7 @@ describe("the picture never claims a level was the reader's when it was not", ()
   it("says nothing about levels when no name has reached one", () => {
     const map = buildBandMap([holding("QUIET", 1, 100)]);
     expect(readySaid(map.summary)).toBe(
-      "every name is somewhere in the middle of its own ladder"
+      "every name is somewhere in the middle of its own fair value zones"
     );
   });
 
