@@ -1,5 +1,6 @@
 "use client";
 
+import { LiveFigure } from "@/components/ui/LiveFigure";
 import { TermTip } from "@/components/ui/TermTip";
 import { BelowFold } from "@/components/BelowFold";
 import { HomeWorld } from "@/components/HomeWorld";
@@ -604,10 +605,18 @@ function MorningStack({
          * talking, so it is one card now: the day's sentence leads, and the
          * notes are a short list under it with an inline link each.
          */
+        /*
+         * On a quiet day the sentence is the hero's own line again ("up
+         * $225 today ... today is one of those"), one card lower. It goes,
+         * and the card keeps only what the hero does not say.
+         */
+        morning.quiet && !noticeList ? null : (
         <Reading className="flex flex-col gap-4">
-          <p className="text-base font-medium leading-relaxed text-foreground">
-            {morning.sentence}
-          </p>
+          {morning.quiet ? null : (
+            <p className="text-base font-medium leading-relaxed text-foreground">
+              {morning.sentence}
+            </p>
+          )}
           {!morning.quiet && morning.drivers.length > 0 && (
             <div
               className={cn(
@@ -635,6 +644,7 @@ function MorningStack({
           )}
           {noticeList}
         </Reading>
+        )
       )}
     </div>
   );
@@ -1388,9 +1398,11 @@ export const OverviewDashboard = memo(function OverviewDashboard({
       <div className="overview-fade flex flex-col gap-4">
         <div className={cn("card-sheen glass flex min-w-0 flex-col rounded-xl ring-1 ring-foreground/20", PANEL_PAD)}>
           <MicroLabel>Everything you own</MicroLabel>
-          <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-2">
+          <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-2">
             {/*
-              * `text-2xl` is the top of the ladder and the hero stays on
+              * `figure-hero` (globals.css) is the one sanctioned step above
+              * the ladder, and this is what it is for. Before it,
+              * `text-2xl` was the top of the ladder and the hero stays on
               * it. What gives this figure its weight is that it is alone on
               * a full-width card in the accent colour with the day's move
               * beside it, rather than one of four identical tiles; the size
@@ -1399,11 +1411,13 @@ export const OverviewDashboard = memo(function OverviewDashboard({
               */}
             <p
               className={cn(
-                "min-w-0 break-words font-mono text-2xl font-bold leading-tight tracking-tight tabular-nums",
+                "figure-hero min-w-0 break-words",
                 pricesStuck ? "text-muted-foreground" : "text-primary"
               )}
             >
-              {currency(totals.totalValue, 0)}
+              <LiveFigure value={pricesStuck ? null : totals.totalValue}>
+                {currency(totals.totalValue, 0)}
+              </LiveFigure>
             </p>
             {pricesStuck ? (
               <Badge variant="outline" className="text-muted-foreground">
@@ -1413,7 +1427,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
               <DeltaBadge value={totals.todayDollar}>
                 {signedCurrency(totals.todayDollar, 0)}
                 {totals.todayPct != null
-                  ? ` · ${percent(totals.todayPct)}`
+                  ? ` · ${signedPercent(totals.todayPct)}`
                   : ""}
               </DeltaBadge>
             )}

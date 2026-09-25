@@ -87,10 +87,15 @@ function marketName(ticker: string): string {
   return MARKET_NAMES[ticker] ?? cashtag(ticker);
 }
 
+/*
+ * Status is a rail, never a wash: the tinted fill this card had is the one
+ * thing the design system rules out for a card, and on the near-black
+ * field a rose wash reads as an alarm about somebody's money.
+ */
 function stanceStyles(stance: ActionStance): string {
-  if (stance === "deploy") return "border-gain/30 bg-gain/[0.08]";
-  if (stance === "raise_cash") return "border-loss/30 bg-loss/[0.08]";
-  return "border-border bg-card";
+  if (stance === "deploy") return "card-sheen glass border-border border-l-2 border-l-gain";
+  if (stance === "raise_cash") return "card-sheen glass border-border border-l-2 border-l-loss";
+  return "card-sheen glass border-border";
 }
 
 function stanceLabel(stance: ActionStance): string {
@@ -140,14 +145,36 @@ function CycleMonthlyChart({
             )}
             title={`${MONTH_NAMES[row.month - 1]}: ${fmtPct(v)} on average over ${row.samples} earlier ${MONTH_NAMES[row.month - 1]}s`}
           >
-            <div className="flex h-28 w-full items-end justify-center">
-              <div
-                className={cn(
-                  "w-full max-w-[2.25rem] rounded-t transition group-hover:opacity-90",
-                  retBarColor(v)
-                )}
-                style={{ height: `${h}%` }}
-              />
+            {/*
+              Up from a zero line for a rise, down from it for a fall. Every
+              bar used to grow upward by its size, so a -1.7% December stood
+              as tall as a +2.2% November and read as the same kind of month
+              with a different colour.
+            */}
+            <div className="flex w-full flex-col items-center">
+              <div className="flex h-16 w-full items-end justify-center">
+                {v > 0 ? (
+                  <div
+                    className={cn(
+                      "w-full max-w-[2.25rem] rounded-t transition group-hover:opacity-90",
+                      retBarColor(v)
+                    )}
+                    style={{ height: `${h}%` }}
+                  />
+                ) : null}
+              </div>
+              <div className="h-px w-full bg-foreground/20" aria-hidden />
+              <div className="flex h-16 w-full items-start justify-center">
+                {v < 0 ? (
+                  <div
+                    className={cn(
+                      "w-full max-w-[2.25rem] rounded-b transition group-hover:opacity-90",
+                      retBarColor(v)
+                    )}
+                    style={{ height: `${h}%` }}
+                  />
+                ) : null}
+              </div>
             </div>
             <span
               className={cn(

@@ -388,6 +388,13 @@ export const LabSheet = memo(function LabSheet({
       : (portfolios.find((p) => p.id === scopeId)?.name ?? "Portfolio");
 
   const scopeApplies = tab === "alloc" || tab === "risk";
+  /*
+   * Research, Seasonality and the Playbook never read a portfolio, so a greyed
+   * "Looking at: Everything" there is a control that cannot mean anything.
+   * Trends keeps it disabled, because it does read what you own, just
+   * always all of it, and the disabled picker says so.
+   */
+  const scopeShown = tab !== "lookup" && tab !== "playbook" && tab !== "seasonality";
 
   const sheetHoldings = useMemo(
     () =>
@@ -596,7 +603,10 @@ export const LabSheet = memo(function LabSheet({
             * beside it. A Radix trigger is a `<button>`, so the rule does not
             * reach it and it stays `text-sm`.
             */}
-          <div className="flex min-w-0 shrink-0 items-center gap-2">
+          <div
+            className="flex min-w-0 shrink-0 items-center gap-2"
+            hidden={!scopeShown}
+          >
             <span
               className="shrink-0 text-sm font-medium text-muted-foreground"
               id="lab-scope-label"
@@ -677,6 +687,56 @@ export const LabSheet = memo(function LabSheet({
             />
           ) : (
             <>
+              {/*
+                The picture of where the money sits leads the room: it is
+                the one thing on this tab a reader takes in at a glance,
+                and the scores under it are readings of that picture.
+              */}
+              {mix.length > 0 && (
+                <Panel tone="plain">
+                  {/*
+                    `PanelHeader`, not a hand-rolled title and subtitle.
+
+                    The note that used to stand here had worked out for
+                    itself that a title and its subtitle are one child of
+                    the panel rather than two, and then implemented that
+                    by hand -- which is what `PanelHeader` is, so Lab's
+                    panels titled at `h3` (16px) where the other 66 call
+                    sites in the app title at 18, and hugged at `mt-1.5`
+                    where the component hugs at `mt-2`. Two answers to one
+                    question, decided by whether a panel happened to reach
+                    for the component.
+                  */}
+                  <PanelHeader
+                    title="What you're actually betting on"
+                    subtitle="Your holdings grouped by kind of business, which usually tells you more than the list of tickers does."
+                  />
+                  <AllocationBar
+                    size="lg"
+                    slices={mix.map((m) => ({
+                      key: m.key,
+                      pct: m.pct,
+                      color: m.color,
+                      title: `${m.label}: ${percent(m.pct)}`,
+                    }))}
+                  />
+                  {/*
+                    The legend carries the money as well as the share,
+                    which is what the separate bar card below used to be
+                    for. With one grouping there is nothing left for a
+                    second panel to say, and two panels answering one
+                    question is how this room came to contradict itself.
+                  */}
+                  <SwatchLegend
+                    items={mix.map((m) => ({
+                      key: m.key,
+                      label: m.label,
+                      color: m.color,
+                      value: `${percent(m.pct)} · ${currency(m.value, 0)}`,
+                    }))}
+                  />
+                </Panel>
+              )}
               <Panel tone="plain">
                 {/*
                   The scope is its own line, and only when it is one
@@ -763,7 +823,13 @@ export const LabSheet = memo(function LabSheet({
                       </TermTip>
                     }
                     value={`${(concentration.topWeightPct * 100).toFixed(1)}%`}
-                    sub={concentration.topWeightTicker ?? undefined}
+                    sub={
+                      concentration.topWeightTicker
+                        ? Math.abs(scopedCash) >= 1
+                          ? `${concentration.topWeightTicker}, of what is invested`
+                          : concentration.topWeightTicker
+                        : undefined
+                    }
                     /* --warning, not --loss. A concentrated position is a
                      * caution, not a loss: nothing here has lost money, and
                      * spending the P&L colour on a non-P&L number weakens
@@ -805,50 +871,6 @@ export const LabSheet = memo(function LabSheet({
                 </Scoreboard>
               </Panel>
 
-              {mix.length > 0 && (
-                <Panel tone="plain">
-                  {/*
-                    `PanelHeader`, not a hand-rolled title and subtitle.
-
-                    The note that used to stand here had worked out for
-                    itself that a title and its subtitle are one child of
-                    the panel rather than two, and then implemented that
-                    by hand -- which is what `PanelHeader` is, so Lab's
-                    panels titled at `h3` (16px) where the other 66 call
-                    sites in the app title at 18, and hugged at `mt-1.5`
-                    where the component hugs at `mt-2`. Two answers to one
-                    question, decided by whether a panel happened to reach
-                    for the component.
-                  */}
-                  <PanelHeader
-                    title="What you're actually betting on"
-                    subtitle="Your holdings grouped by kind of business, which usually tells you more than the list of tickers does."
-                  />
-                  <AllocationBar
-                    slices={mix.map((m) => ({
-                      key: m.key,
-                      pct: m.pct,
-                      color: m.color,
-                      title: `${m.label}: ${percent(m.pct)}`,
-                    }))}
-                  />
-                  {/*
-                    The legend carries the money as well as the share,
-                    which is what the separate bar card below used to be
-                    for. With one grouping there is nothing left for a
-                    second panel to say, and two panels answering one
-                    question is how this room came to contradict itself.
-                  */}
-                  <SwatchLegend
-                    items={mix.map((m) => ({
-                      key: m.key,
-                      label: m.label,
-                      color: m.color,
-                      value: `${percent(m.pct)} · ${currency(m.value, 0)}`,
-                    }))}
-                  />
-                </Panel>
-              )}
 
               {/*
                 `items-start`: the two cards hold different counts (a few
@@ -862,7 +884,21 @@ export const LabSheet = memo(function LabSheet({
                 went: a reader asking what kind of business their money is
                 in should meet one answer, not two panels of it.
               */}
-              <AllocCard title="By holding" slices={byTicker} />
+              <AllocCard
+                title="By holding"
+                slices={byTicker}
+                /*
+                  Shares here are of what is invested, and the holdings
+                  table's "% of total" counts cash too, so one company read
+                  28.1% here and 27.4% there. Both are right; saying which
+                  total this is makes them agree.
+                */
+                subtitle={
+                  Math.abs(scopedCash) >= 1
+                    ? `Shares of the ${currency(byTicker.reduce((a, s) => a + s.value, 0), 0)} invested, not counting cash.`
+                    : undefined
+                }
+              />
             </>
           )}
         </div>
@@ -1033,9 +1069,11 @@ export const LabSheet = memo(function LabSheet({
 function AllocCard({
   title,
   slices,
+  subtitle,
 }: {
   title: string;
   slices: { label: string; pct: number; value: number }[];
+  subtitle?: string;
 }) {
   return (
     /*
@@ -1044,7 +1082,7 @@ function AllocCard({
       grid it sits in is `md:items-start`, so the cell hugs the card too.
     */
     <Panel tone="plain" className="md:h-auto">
-      <PanelHeader title={title} />
+      <PanelHeader title={title} subtitle={subtitle} />
       <div className="flex flex-col gap-2">
         {slices.map((s) => (
           <div key={s.label}>

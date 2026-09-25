@@ -370,7 +370,7 @@ const chatCcRowSchema = z.object({
   distance: nullableNum.optional(),
   nextStrike: nullableNum.optional(),
   contracts: num,
-  yield2w: nullableNum.optional(),
+  yield3w: nullableNum.optional(),
   premium: nullableNum.optional(),
   expiration: z.string().max(40).nullable().optional(),
 });
@@ -380,7 +380,8 @@ const chatTotalsSchema = z.object({
   value: num,
   roiPct: num,
   roiDollar: num,
-  yield2wAvg: num,
+  // A tab from before the rename sends yield2wAvg; the figure is only context.
+  yield3wAvg: num.optional().default(0),
   premiumTotal: num,
 });
 

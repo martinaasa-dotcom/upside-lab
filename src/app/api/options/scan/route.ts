@@ -42,7 +42,15 @@ async function handlePOST(req: NextRequest) {
     }
   }
 
-  const limit = await takeDurableRateLimit(`options-scan:${auth.user.id}`, 30, 5 * 60_000);
+  /*
+    Sixty in five minutes. The fifteen-second poll alone spends twenty of
+    them while the panel is open, and every edit to a strike, a target, a
+    Call % or an expiry now rescans at once, as does the contract preview
+    in the track dialog. Chains are memoised for a minute server-side
+    (`optionChain`), so a burst of edits on one ticker costs the provider
+    one call rather than one per request.
+  */
+  const limit = await takeDurableRateLimit(`options-scan:${auth.user.id}`, 60, 5 * 60_000);
   if (!limit.ok) {
     return rateLimitJson(
       limit,

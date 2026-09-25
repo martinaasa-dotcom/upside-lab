@@ -6,6 +6,7 @@ import {
   nextStrikeFromTarget,
   roundToStrike,
 } from "@/lib/market/resistance";
+import { defaultExpiryFrom } from "@/lib/market/covered-call";
 import {
   fetchNextEarningsDate,
   resolveYahooListedSymbol,
@@ -191,57 +192,33 @@ function pickExpiry(
     };
   }
 
-  const preferred = expirations.filter(
-    (e) =>
-      e.days >= STRATEGY.minDaysPreferred &&
-      e.days <= STRATEGY.maxDaysPreferred
-  );
-
-  // Earnings inside preferred window → prefer expire before earnings, else after with note
-  if (daysToEarnings != null && daysToEarnings > 0) {
-    if (daysToEarnings <= 5) {
-      const after = expirations.find((e) => e.days > daysToEarnings + 3);
-      return {
-        pick: after ?? preferred[0] ?? expirations[0],
-        reason: `Earnings in ${daysToEarnings}d, prefer post-earnings expiry (or wait).`,
-        writeNow: daysToEarnings > 2,
-      };
-    }
-
-    const before = [...preferred, ...expirations]
-      .filter((e) => e.days < daysToEarnings - 1 && e.days >= 10)
-      .sort(
-        (a, b) =>
-          Math.abs(a.days - STRATEGY.targetDays) -
-          Math.abs(b.days - STRATEGY.targetDays)
-      )[0];
-
-    if (before) {
-      return {
-        pick: before,
-        reason: `Expire before earnings (${daysToEarnings}d out) to avoid IV crush / gap risk.`,
-        writeNow: true,
-      };
-    }
-
-    const after = expirations.find((e) => e.days > daysToEarnings + 2);
+  /*
+    The first listed expiry at least three weeks out, never a nearer one.
+    Results inside that window used to pull the pick forward to a date
+    before them, which could be ten days out; the rule now holds the floor
+    and says out loud when the contract runs past a results date, because
+    the reader can see that and decide, where a shorter contract than
+    their own rule is a decision taken for them.
+  */
+  const pick = defaultExpiryFrom(expirations);
+  if (!pick) {
     return {
-      pick: after ?? preferred[0] ?? expirations[0],
-      reason: `No clean pre-earnings 2 to 3 week expiry, use longer dated past earnings (${daysToEarnings}d).`,
-      writeNow: true,
+      pick: null,
+      reason: "No listed expiries in the window.",
+      writeNow: false,
     };
   }
-
-  const ideal =
-    preferred.sort(
-      (a, b) =>
-        Math.abs(a.days - STRATEGY.targetDays) -
-        Math.abs(b.days - STRATEGY.targetDays)
-    )[0] ?? expirations[0];
-
+  const floor = STRATEGY.minDaysToExpiry;
+  if (daysToEarnings != null && daysToEarnings > 0 && daysToEarnings < pick.days) {
+    return {
+      pick,
+      reason: `First listed expiry at least ${floor} days out. Results are due in ${daysToEarnings} days, before it expires.`,
+      writeNow: daysToEarnings > 2,
+    };
+  }
   return {
-    pick: ideal,
-    reason: `Prefer ${STRATEGY.minDaysPreferred} to ${STRATEGY.maxDaysPreferred} day tenor (about 2 to 3 weeks).`,
+    pick,
+    reason: `First listed expiry at least ${floor} days out (about 3 weeks, rounded up).`,
     writeNow: true,
   };
 }

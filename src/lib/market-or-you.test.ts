@@ -3,6 +3,8 @@ import {
   marketOrYou,
   marketOrYouLine,
   standoutLine,
+  swarmChipWidth,
+  swarmLayout,
 } from "@/lib/market-or-you";
 
 const percent = (n: number) => `${(Math.abs(n) * 100).toFixed(1)}%`;
@@ -149,5 +151,53 @@ describe("what it refuses to say", () => {
       expect(text).not.toMatch(/should|buy|sell|will |expect|likely/i);
       expect(text).not.toMatch(/[—–]/);
     }
+  });
+});
+
+
+describe("the market-against-you picture", () => {
+  const holdings = [
+    { ticker: "NKE", label: "$NKE", todayPct: -0.0067 },
+    { ticker: "KO", label: "$KO", todayPct: -0.0037 },
+    { ticker: "AMZN", label: "$AMZN", todayPct: 0.0025 },
+    { ticker: "NVDA", label: "$NVDA", todayPct: 0.0029 },
+    { ticker: "DIS", label: "$DIS", todayPct: 0.0055 },
+    { ticker: "VOO", label: "$VOO", todayPct: 0.0068 },
+    { ticker: "AAPL", label: "$AAPL", todayPct: 0.0154 },
+    { ticker: "MSFT", label: "$MSFT", todayPct: 0.04 },
+  ];
+  const split = marketOrYou({ marketPct: 0.005, yoursPct: 0.008, holdings })!;
+
+  for (const trackPx of [270, 390, 1060]) {
+    it(`never draws two chips over each other at ${trackPx}px`, () => {
+      const { marks } = swarmLayout(split, holdings, { trackPx });
+      const byLane = new Map<number, { left: number; right: number }[]>();
+      for (const m of marks) {
+        const w = swarmChipWidth(m.label, m.standout, "+4.0%");
+        const box = { left: m.x * trackPx - w / 2, right: m.x * trackPx + w / 2 };
+        const lane = byLane.get(m.lane) ?? [];
+        for (const other of lane) {
+          expect(box.left >= other.right || box.right <= other.left).toBe(true);
+        }
+        lane.push(box);
+        byLane.set(m.lane, lane);
+        // And never half off the card.
+        expect(box.left).toBeGreaterThanOrEqual(-0.5);
+        expect(box.right).toBeLessThanOrEqual(trackPx + 0.5);
+      }
+    });
+  }
+
+  it("puts no move at the middle and the scale is symmetric", () => {
+    const { xOf } = swarmLayout(split, holdings, { trackPx: 1000 });
+    expect(xOf(0)).toBeCloseTo(0.5);
+    expect(xOf(0.01) - 0.5).toBeCloseTo(0.5 - xOf(-0.01));
+  });
+
+  it("marks exactly the companies the sentence names", () => {
+    const { marks } = swarmLayout(split, holdings, { trackPx: 1000 });
+    expect(marks.filter((m) => m.standout).map((m) => m.ticker)).toEqual(
+      split.standouts.map((s) => s.ticker)
+    );
   });
 });

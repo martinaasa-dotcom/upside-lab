@@ -12,24 +12,24 @@ import { regionById, UK_STANDARDS_SOURCE } from "@/lib/retirement/regions";
 import { RETURNS_SOURCE } from "@/lib/retirement/returns";
 import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
 import { retirementProvenance } from "@/lib/provenance";
-import type { RetirementDetail } from "@/lib/retirement/detail";
+import type { AdjustTopic } from "@/lib/retirement/adjust";
 import type { RetirementTemplateId } from "@/lib/retirement/templates";
 
 /*
   RENDER THE ROOM AND READ WHAT A NEW ARRIVAL ACTUALLY MEETS.
 
-  The complaint that produced the detail levels was not that any one panel
+  The complaint that produced the topic chips was not that any one panel
   was wrong. Every panel here is right, and all of them together were
   unusable: a reader came to find out when they could stop working and met
   seven panels of fields first. The rule that came out of it is one a unit
   test on the arithmetic can never see, so it is checked here by rendering
-  the real component: at the default level this room ASKS for the six
+  the real component: with nothing ticked this room ASKS for the six
   figures nothing can guess and nothing else, and still ANSWERS everything
   it can answer.
 
   `BelowFold` starts closed, so the panels inside one are deliberately
   absent from this markup. That is the deferral working rather than a
-  detail level hiding something, which is why nothing below is asserted
+  topic being hidden, which is why nothing below is asserted
   against the spending layers, the one panel here still behind a fold.
   The grid is not: it carries the results table's anchor id, so it must
   render eagerly and is asserted present rather than absent.
@@ -44,12 +44,17 @@ function text(markup: string): string {
   return markup.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
 }
 
+/*
+  A line only the editor itself carries, never its chip: the chips are named
+  after the same topics ("Children", "Car"), so a heading would be found on
+  the chip and prove nothing about whether the editor opened.
+*/
 const INPUT_PANEL_HEADINGS = [
-  "Your home",
-  "Children",
-  "A car",
-  "Income that is not the pot",
-  "What the money earns",
+  "The published baskets assume a home owned outright",
+  "Each child drops off the plan",
+  "A lease or finance payment",
+  "Guaranteed income the pot does not have to fund",
+  "Real returns, after inflation",
 ];
 
 describe("the retirement room, as somebody new meets it", () => {
@@ -76,7 +81,7 @@ describe("the retirement room, as somebody new meets it", () => {
 
   it("asks for nothing that has a published default", () => {
     for (const heading of INPUT_PANEL_HEADINGS) {
-      expect(body, `${heading} must wait for a deeper level`).not.toContain(
+      expect(body, `${heading} must wait until its chip is ticked`).not.toContain(
         heading
       );
     }
@@ -113,11 +118,15 @@ describe("the retirement room, as somebody new meets it", () => {
     expect(body).toContain("One in twenty reach");
   });
 
-  it("says out loud where the rest of it went", () => {
-    expect(body).toContain("How much of it you want to see");
-    expect(body).toContain("Everything");
-    /* The level control says what it adds, so nothing has to be pressed to find out. */
-    expect(body).toContain("Nothing else to fill in");
+  it("says out loud where the rest of it went, and what it currently is", () => {
+    expect(body).toContain("What else the plan counts");
+    expect(body).toContain("Tick anything to change it");
+    for (const label of ["Home", "Children", "Car", "Pensions and income", "Returns and mix"]) {
+      expect(body).toContain(label);
+    }
+    /* The levels are gone for good: one change never opens everything. */
+    expect(body).not.toContain("How much of it you want to see");
+    expect(body).not.toContain("Everything");
   });
 });
 
@@ -155,7 +164,7 @@ describe("both pots are named at every level", () => {
     basis: plan.required.basis,
   });
 
-  function numberPanel(detail: RetirementDetail): string {
+  function numberPanel(showWorking: boolean): string {
     return text(
       renderToStaticMarkup(
         createElement(NumberPanel, {
@@ -163,14 +172,17 @@ describe("both pots are named at every level", () => {
           patch: () => {},
           plan,
           provenance,
-          detail,
+          showWorking,
+          curve: [],
+          earliestAge: null,
+          onRetirementAge: () => {},
         })
       )
     );
   }
 
   it("prints both figures even at the simplest level", () => {
-    const body = numberPanel("simple");
+    const body = numberPanel(false);
     const money = (n: number) =>
       new Intl.NumberFormat("en-GB", {
         style: "currency",
@@ -184,12 +196,10 @@ describe("both pots are named at every level", () => {
   });
 
   it("only shows the working once it has been asked for", () => {
-    expect(numberPanel("simple")).not.toContain("Runs out on the last day");
-    expect(numberPanel("more")).toContain("Runs out on the last day");
-    expect(numberPanel("more")).not.toContain("How the withdrawal rate was built");
-    expect(numberPanel("everything")).toContain(
-      "How the withdrawal rate was built"
-    );
+    expect(numberPanel(false)).not.toContain("Runs out on the last day");
+    expect(numberPanel(false)).not.toContain("How the withdrawal rate was built");
+    expect(numberPanel(true)).toContain("Runs out on the last day");
+    expect(numberPanel(true)).toContain("How the withdrawal rate was built");
   });
 });
 
@@ -236,7 +246,6 @@ describe("the survival curve", () => {
 describe("the card a reader pressed", () => {
   function quickStart(
     templateId: RetirementTemplateId | null,
-    detail: RetirementDetail = "simple",
     inputs = defaultInputs("GB")
   ): string {
     return renderToStaticMarkup(
@@ -245,8 +254,10 @@ describe("the card a reader pressed", () => {
         patch: () => {},
         replace: () => {},
         portfolioValue: null,
-        detail,
-        onDetailChange: () => {},
+        open: [],
+        onToggle: () => {},
+        planningAge: 99,
+        swrPct: 3.5,
         templateId,
         onTemplate: () => {},
         result: { target: 697_067, earliestAge: 68 },
@@ -294,27 +305,30 @@ describe("the card a reader pressed", () => {
 
   it("says whose figures are on the page once one is pressed", () => {
     expect(text(quickStart("family-years"))).toContain(
-      "worked from the Family years plan"
+      "Every figure below starts from this life"
     );
-    expect(text(quickStart(null))).not.toContain("worked from the");
+    expect(text(quickStart(null))).not.toContain("starts from this life");
   });
 });
 
 /*
-  Folding away the CONTROL for a cost is the point of the simple level.
-  Folding away the FACT that the cost exists is not: the reader would be
-  arguing with a figure whose inputs are nowhere on the page.
+  Folding away the CONTROL for a cost is the point of the chips. Folding
+  away the FACT that the cost exists is not: the reader would be arguing
+  with a figure whose inputs are nowhere on the page. So every chip says
+  what the plan assumes for it, ticked or not.
 */
 describe("nothing in the plan is invisible", () => {
-  function quick(detail: RetirementDetail, inputs = defaultInputs("GB")): string {
+  function quick(open: AdjustTopic[] = [], inputs = defaultInputs("GB")): string {
     return renderToStaticMarkup(
       createElement(QuickStart, {
         inputs,
         patch: () => {},
         replace: () => {},
         portfolioValue: null,
-        detail,
-        onDetailChange: () => {},
+        open,
+        onToggle: () => {},
+        planningAge: 99,
+        swrPct: 3.5,
         templateId: null,
         onTemplate: () => {},
         result: { target: 697_067, earliestAge: 68 },
@@ -322,20 +336,31 @@ describe("nothing in the plan is invisible", () => {
     );
   }
 
-  it("says what else is in the plan when the panels that say it are absent", () => {
+  it("names every cost on its chip without opening anything", () => {
     const family = templateInputs(templateById("family-years")!, "GB");
-    const body = text(quick("simple", family));
-    expect(body).toContain("This plan also counts");
-    expect(body).toContain("mortgage");
-    expect(body).toContain("2 children");
-    expect(body).toContain("car payment");
-    expect(body).toContain("Change any of it");
+    const body = text(quick([], family));
+    expect(body).toContain("Mortgage");
+    expect(body).toContain("2, ");
+    expect(body).toContain("a month each");
+    expect(body).toMatch(/Car [^ ]+ a month/);
+    expect(body).toContain("Planned to age 99");
   });
 
-  it("stops saying it once the panels that say it are on the page", () => {
-    const family = templateInputs(templateById("family-years")!, "GB");
-    /* At `more` the plan inputs render in full, so this would be twice. */
-    expect(text(quick("more", family))).not.toContain("This plan also counts");
+  it("opens exactly the editors that were ticked, and no others", () => {
+    const body = text(
+      renderToStaticMarkup(
+        createElement(RetirementSheet, { portfolioValue: 42_000 })
+      )
+    );
+    expect(body).not.toContain("Each child drops off the plan");
+  });
+
+  it("marks a ticked chip as pressed", () => {
+    const markup = quick(["home"]);
+    const chip = markup.split("<button").find((c) => c.includes(">Home<"));
+    expect(chip).toContain('aria-pressed="true"');
+    const car = markup.split("<button").find((c) => c.includes(">Car<"));
+    expect(car).toContain('aria-pressed="false"');
   });
 
   it("gives a reader's own spending figure a field rather than a signpost", () => {
@@ -344,17 +369,12 @@ describe("nothing in the plan is invisible", () => {
       spendingMode: "custom" as const,
       customAnnualSpend: 27_000,
     };
-    const body = text(quick("simple", mine));
-    /*
-      It used to say "further down", which at this level named nothing: the
-      figure was in the headline, uneditable, with the three baskets beside
-      it apparently switched off for no visible reason.
-    */
+    const body = text(quick([], mine));
     expect(body).not.toContain("further down");
     expect(body).toContain("Your own figure, a month");
   });
 
   it("leaves the baskets alone when one of them is chosen", () => {
-    expect(text(quick("simple"))).not.toContain("Your own figure, a month");
+    expect(text(quick())).not.toContain("Your own figure, a month");
   });
 });

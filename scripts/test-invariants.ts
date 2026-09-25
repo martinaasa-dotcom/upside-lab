@@ -2212,7 +2212,13 @@ run("chart ticks stay HTML text-xs, never SVG text", () => {
   assert.doesNotMatch(nav, /min-h-\[4\.75rem\]/);
   assert.match(nav, /h-64 w-full/);
   assert.match(nav, /min-h-9/);
-  assert.match(nav, /plotMax = scale.max \+ span \* 0\.18/);
+  /*
+   * Some headroom above the top tick, so the line never kisses it, and
+   * not so much that the plot opens on a band of empty glass: `niceScale`
+   * already rounds the top up. Asserted as a range, not one number.
+   */
+  const headroom = Number(nav.match(/plotMax = scale.max \+ span \* ([0-9.]+)/)?.[1]);
+  assert.ok(headroom >= 0.04 && headroom <= 0.12, `plot headroom ${headroom}`);
   /*
    * The caption says the stretch is an estimate, and the assumed part of
    * the line is drawn dashed rather than in the same solid gold as the days
@@ -2695,8 +2701,10 @@ run("Lab chrome is a toolbar, Seasonality does not paint bronze", () => {
   assert.doesNotMatch(season, /border-brand\/30 bg-brand\/10/);
   assert.doesNotMatch(season, /shadow-\[0_0_12px/);
   assert.doesNotMatch(season, /<h2 className="text-base font-bold text-white">Seasonality<\/h2>/);
-  assert.match(season, /border-gain\/30 bg-gain\/\[0\.08\]/);
-  assert.match(season, /border-loss\/30 bg-loss\/\[0\.08\]/);
+  // Status is a rail on a glass card, never a tinted wash.
+  assert.match(season, /border-l-2 border-l-gain/);
+  assert.match(season, /border-l-2 border-l-loss/);
+  assert.doesNotMatch(season, /bg-(?:gain|loss)\/\[0\.08\]/);
   assert.match(season, /text-lg font-semibold tabular-nums/);
 });
 
@@ -4622,7 +4630,7 @@ run("earnings dates use the call when it already happened", () => {
       value: 0,
       roiPct: 0,
       roiDollar: 0,
-      yield2wAvg: 0,
+      yield3wAvg: 0,
       premiumTotal: 0,
     },
     earnings: [
@@ -4878,8 +4886,8 @@ run("Pulse can price a bare EU ETF like VUAA", () => {
    * at any size; the old `rounded-xl` / `rounded-lg` pair was arithmetic
    * (12 - 4 = 8) and this needs none.
    *
-   * The accent is spent on news rather than on where you are: the only
-   * saturated pixel left on the bar is the alert dot.
+   * The accent is not spent on where you are, and since 2026-09-25 not on
+   * a dot over Home either: the bar carries no saturated pixel at all.
    */
   assert.match(dock, /rounded-full/);
   // The marker is `DockMarker`, shared with the laptop bar; its fill is
@@ -6110,7 +6118,7 @@ run("zero-balance books and junk inputs never emit NaN or Infinity", () => {
   );
   assert.equal(snap.totals.currentValue, 0);
   assert.equal(snap.totals.roiPct, 0);
-  assert.equal(snap.totals.yield2wAvg, 0);
+  assert.equal(snap.totals.yield3wAvg, 0);
 
   const overview = buildOverview(
     [{ id: "p1", name: "Empty", slug: "e", sort_order: 0, cash_balance: Number.NaN }],

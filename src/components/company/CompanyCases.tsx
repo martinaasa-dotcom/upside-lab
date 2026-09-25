@@ -115,7 +115,7 @@ export function CompanyCases({
             <WhyThis provenance={provenance} />
           </span>
         }
-        subtitle="A language model read the figures above and the articles below, and was asked what the arguments each way are. Every point names the figure or the article it rests on."
+        subtitle="A language model read the figures and the articles here and set out the argument each way. Every point names what it rests on."
         icon={<GitCompare className="h-4 w-4" />}
       />
 

@@ -85,7 +85,7 @@ export type OptionCandidate = {
   ask: number;
   mid: number;
   otmPct: number;
-  yield2w: number;
+  yield3w: number;
   premium: number;
   contracts: number;
   daysToExpiry: number;
@@ -101,6 +101,10 @@ export type OptionCandidate = {
   delta?: number | null;
   /** The listed strike nearest the planned one, the contract a reader can actually sell. */
   listedStrike?: number | null;
+  /** The volatility the delta was worked out from, so an edit can be priced before the next scan. */
+  vol?: number | null;
+  /** True when this was priced from the last scan's volatility rather than read off the chain. */
+  estimated?: boolean;
 };
 
 export type EnrichedHolding = Holding & {
@@ -117,7 +121,7 @@ export type CoveredCallRow = {
   holding: Holding;
   spot: number;
   totalValue: number;
-  yield2w: number | null;
+  yield3w: number | null;
   premium: number | null;
   targetCall: number;
   stockTarget: number | null;
@@ -137,7 +141,7 @@ export type PortfolioSnapshot = {
     currentValue: number;
     roiDollar: number;
     roiPct: number;
-    yield2wAvg: number;
+    yield3wAvg: number;
     premiumTotal: number;
     unrealizedProfits: number;
   };

@@ -280,7 +280,7 @@ function snapshotPanelCopy(snap: PortfolioSnapshot): string[] {
     currency(t.buyValue, 0),
     currency(t.currentValue, 0),
     signedCurrency(t.roiDollar, 0),
-    percent(t.yield2wAvg),
+    percent(t.yield3wAvg),
     currency(t.premiumTotal),
     ...snap.holdings.flatMap((h) => [
       percent(h.pctOfTotal),
@@ -294,7 +294,7 @@ function snapshotPanelCopy(snap: PortfolioSnapshot): string[] {
       currency(r.totalValue),
       r.targetDistance != null ? percent(r.targetDistance) : NO_VALUE,
       r.nextStrike != null ? currency(r.nextStrike) : NO_VALUE,
-      r.yield2w != null ? percent(r.yield2w) : NO_VALUE,
+      r.yield3w != null ? percent(r.yield3w) : NO_VALUE,
       r.premium != null ? currency(r.premium) : NO_VALUE,
     ]),
   ];

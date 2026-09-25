@@ -160,7 +160,7 @@ async function handlePOST(req: Request) {
         value: 0,
         roiPct: 0,
         roiDollar: 0,
-        yield2wAvg: 0,
+        yield3wAvg: 0,
         premiumTotal: 0,
       },
     }) as CcChatContext;

@@ -93,7 +93,7 @@ export function margusChatContext(input: {
         value: 0,
         roiPct: 0,
         roiDollar: 0,
-        yield2wAvg: 0,
+        yield3wAvg: 0,
         premiumTotal: 0,
       },
     };
@@ -133,7 +133,7 @@ export function margusChatContext(input: {
           distance: r.targetDistance,
           nextStrike: r.nextStrike,
           contracts: r.contracts,
-          yield2w: r.yield2w,
+          yield3w: r.yield3w,
           premium: r.premium,
           expiration: r.expiration,
         })),
@@ -143,7 +143,7 @@ export function margusChatContext(input: {
       value: snapshot.totals.currentValue,
       roiPct: snapshot.totals.roiPct,
       roiDollar: snapshot.totals.roiDollar,
-      yield2wAvg: snapshot.totals.yield2wAvg,
+      yield3wAvg: snapshot.totals.yield3wAvg,
       premiumTotal: snapshot.totals.premiumTotal,
     },
   };

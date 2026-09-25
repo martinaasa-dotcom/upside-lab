@@ -160,16 +160,6 @@ type Props = {
   sheets?: Portfolio[];
   /** Today's direction per portfolio id — the dot in that portfolio's cell. */
   sheetTodayTone?: Record<string, SheetTone>;
-  /**
-   * Alerts waiting on Home, as the one saturated pixel on this bar.
-   *
-   * The phone has drawn this dot since the dock was built and the laptop
-   * drew nothing, which was an accident rather than a decision: the two
-   * docks are one design, and the rule that survives every other pass here
-   * is that the accent is spent on news and nothing else. A reader on a
-   * laptop had no way to know something was waiting.
-   */
-  alertCount?: number;
   /** Opens the New portfolio dialog. Omit to hide the add cell. */
   onAddSheet?: () => void;
   /** Right-click or long-press on a sheet cell. */
@@ -192,7 +182,6 @@ export function BookModeDock({
   guest = false,
   sheets = [],
   sheetTodayTone,
-  alertCount = 0,
   onAddSheet,
   onSheetMenu,
   onSheetRename,
@@ -333,15 +322,6 @@ export function BookModeDock({
                 strokeWidth={active ? 2.5 : 1.75}
                 aria-hidden
               />
-              {/*
-                The one saturated pixel left on the bar, and the phone draws
-                it in the same place for the same reason: the accent is not
-                spent on which room you are in, which is the least
-                surprising fact on the screen. It is spent on news.
-              */}
-              {id === OVERVIEW_TAB_ID && alertCount > 0 && !active ? (
-                <span className="absolute -top-0.5 -right-1 h-1.5 w-1.5 rounded-full bg-primary" />
-              ) : null}
             </span>
             <span className="min-w-0 truncate">{label}</span>
           </>

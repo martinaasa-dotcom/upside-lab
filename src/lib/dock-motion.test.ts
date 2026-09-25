@@ -810,12 +810,13 @@ describe("both docks spend the accent on news", () => {
   const WIDE = readFileSync("src/components/BookModeDock.tsx", "utf8");
   const PHONE = readFileSync("src/components/mobile/MobileTabBar.tsx", "utf8");
 
-  it("draws the dot on Home in both bars, not just the phone", () => {
-    // The laptop dock drew nothing for months, which was an accident: the
-    // two docks are one design and the accent is spent on news.
+  it("puts no dot on Home in either bar", () => {
+    // A yellow dot on Home read as an unread notification on a button that
+    // is not a notification, and the list it pointed at is the first thing
+    // Home shows anyway. The two bars carry no accent at all now.
     for (const src of [WIDE, PHONE]) {
-      expect(src).toMatch(/alertCount > 0 && !on|alertCount > 0 && !active/);
-      expect(src).toContain("rounded-full bg-primary");
+      expect(src).not.toMatch(/alertCount/);
+      expect(src).not.toContain("rounded-full bg-primary");
     }
   });
 

@@ -97,12 +97,53 @@ export function FluidRow({
   );
 }
 
+/*
+ * One alignment rule for every table in the app: words start on the left,
+ * figures end on the right, and a header sits where its column's content
+ * sits.
+ *
+ * Every cell used to be centred, which reads tidily on a row and badly
+ * down a column: `$4,291` and `$16,934` centred in one track put their
+ * thousands in different places, so comparing two holdings meant reading
+ * both numbers rather than glancing at the column. Right-aligned tabular
+ * figures put every digit under the digit of the same size, which is the
+ * whole reason a table is a better shape than a list of sentences.
+ */
+
+/** A figure. Right-aligned so the digits line up down the column. */
 export const cellBase =
-  "flex h-full min-w-0 w-full items-center justify-center whitespace-nowrap px-1.5 py-1.5 text-center font-mono tabular-nums";
+  "flex h-full min-w-0 w-full items-center justify-end whitespace-nowrap px-1.5 py-1.5 text-right font-mono tabular-nums";
+
+/** Words inside a figure table: a description, a status. Left, in the sentence face. */
+export const cellText =
+  "flex h-full min-w-0 w-full items-center justify-start whitespace-nowrap px-1.5 py-1.5 text-left";
+
+/** A glyph, a sparkline or a row action: centred in its track. */
+export const cellCenter =
+  "flex h-full min-w-0 w-full items-center justify-center whitespace-nowrap px-1.5 py-1.5";
 
 /** Left-aligned ticker + chip. Pair with `tableCols(n, true)` so leftover does not sit after the chip. */
 export const cellTicker =
   "flex h-full w-max max-w-full items-center justify-start whitespace-nowrap px-1.5 py-1.5 text-left";
+
+/**
+ * The header voice, the same label tier the phone tables and `MicroLabel`
+ * use: a header names a column when you go looking and gets out of the
+ * way when you read down it. Put it on the header row, with the cell
+ * class of the column under it deciding the alignment.
+ */
+export const headRow =
+  "group/head border-border font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground";
+
+/**
+ * An explanation mark beside a header, shown when the header row is
+ * pointed at or focused on a device that can hover, and always on one
+ * that cannot. Nine marks standing in one row were louder than the
+ * labels they explain; the explanation is still one press away on every
+ * device, because a touch screen never hides it.
+ */
+export const headTip =
+  "transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/head:opacity-100 [@media(hover:hover)]:group-focus-within/head:opacity-100";
 
 /**
  * The `<table>` twin of `FluidTable`, and `table-auto` for the same reason
@@ -117,8 +158,15 @@ export const cellTicker =
  * any room left over, and the wrapper scrolls sideways when there is none.
  */
 export const htmlTable = "w-full table-auto border-collapse text-sm tabular-nums";
+/** A figure, right-aligned like `cellBase`. */
 export const htmlCell =
-  "h-10 whitespace-nowrap px-1.5 py-1.5 text-center align-middle font-mono tabular-nums first:pl-3 last:pr-3";
+  "h-10 whitespace-nowrap px-1.5 py-1.5 text-right align-middle font-mono tabular-nums first:pl-3 last:pr-3";
+/** Words in an html table, left and in the sentence face, like `cellText`. */
+export const htmlCellText =
+  "h-10 whitespace-nowrap px-1.5 py-1.5 text-left align-middle first:pl-3 last:pr-3";
+/** The header row of an html table, the same voice as `headRow`. */
+export const htmlHeadRow =
+  "border-b border-border font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground";
 /** Shrink-wrap the ticker column when a listing chip is showing.
  * `w-[1%]` plus `min-w-max` is the auto-layout way of saying "as narrow as
  * the cashtag and no narrower". */

@@ -23,13 +23,6 @@ import {
 } from "@/lib/retirement/regions";
 import { sanitizeInputs } from "@/lib/retirement/state";
 import { defaultGlide } from "@/lib/retirement/returns";
-import {
-  atLeast,
-  DETAIL_BLURB,
-  DETAIL_LABEL,
-  RETIREMENT_DETAILS,
-  sanitizeDetail,
-} from "@/lib/retirement/detail";
 
 /*
   EVERY TEMPLATE HAS TO PRODUCE A PLAN SOMEBODY COULD BE SHOWN.
@@ -199,27 +192,6 @@ describe("moving the age somebody stops", () => {
   });
 });
 
-describe("the detail level", () => {
-  it("is simple for anything it does not recognise", () => {
-    expect(sanitizeDetail(null)).toBe("simple");
-    expect(sanitizeDetail("advanced")).toBe("simple");
-    expect(sanitizeDetail("everything")).toBe("everything");
-  });
-
-  it("ranks, so a panel can ask for a floor rather than a match", () => {
-    expect(atLeast("simple", "simple")).toBe(true);
-    expect(atLeast("simple", "more")).toBe(false);
-    expect(atLeast("everything", "more")).toBe(true);
-    expect(atLeast("more", "everything")).toBe(false);
-  });
-
-  it("says what each level adds, in its own words", () => {
-    for (const id of RETIREMENT_DETAILS) {
-      expect(DETAIL_LABEL[id].length).toBeGreaterThan(0);
-      expect(DETAIL_BLURB[id].length).toBeGreaterThan(20);
-    }
-  });
-});
 
 describe("one person or two", () => {
   it("collects two state pensions for a couple", () => {

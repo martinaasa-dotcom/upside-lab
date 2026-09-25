@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/format";
 import { phoneMenuRows } from "@/lib/phone-menu";
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { Bell, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 
 type Props = {
@@ -198,7 +198,7 @@ export function MobileTopBar({
               href="/account"
               aria-label="Account"
               title="Account"
-              className="relative inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-card after:absolute after:-inset-1.5 after:content-['']"
+              className="relative inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-card after:absolute after:-inset-1.5 after:content-['']"
             >
               {avatar.url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -211,7 +211,12 @@ export function MobileTopBar({
                 />
               ) : (
                 <span className="text-sm font-semibold text-muted-foreground">
-                  {avatar.initial ?? "?"}
+                  {/* No name yet (the sample, a first visit) is a person, not a question mark. */}
+                  {avatar.initial && avatar.initial !== "?" ? (
+                    avatar.initial
+                  ) : (
+                    <UserRound className="size-4" aria-hidden />
+                  )}
                 </span>
               )}
             </Link>

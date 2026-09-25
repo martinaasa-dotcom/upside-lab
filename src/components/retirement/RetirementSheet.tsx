@@ -106,7 +106,13 @@ import { FlexiblePanel } from "@/components/retirement/FlexiblePanel";
 import { GridPanel } from "@/components/retirement/GridPanel";
 import { LongevityPanel } from "@/components/retirement/LongevityPanel";
 import { NumberPanel } from "@/components/retirement/NumberPanel";
-import { PlanInputs } from "@/components/retirement/PlanInputs";
+import {
+  CarTopic,
+  ChildrenTopic,
+  HomeTopic,
+  IncomeTopic,
+  SavingsTopic,
+} from "@/components/retirement/PlanInputs";
 import { StandingPanel } from "@/components/retirement/StandingPanel";
 import { PANEL_STACK } from "@/components/ui/Panel";
 import { retirementProvenance } from "@/lib/provenance";
@@ -115,8 +121,9 @@ import { buildMilestones } from "@/lib/retirement/milestones";
 import {
   buildPlan,
   defaultInputs,
-  earliestRetirement,
   planningAgeFor,
+  potCurve,
+  retargetRetirementAge,
   type RetirementInputs,
 } from "@/lib/retirement/plan";
 import {
@@ -130,11 +137,11 @@ import {
 } from "@/lib/retirement/returns";
 import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
 import {
-  atLeast,
-  loadRetirementDetail,
-  saveRetirementDetail,
-  type RetirementDetail,
-} from "@/lib/retirement/detail";
+  loadOpenTopics,
+  saveOpenTopics,
+  toggleTopic,
+  type AdjustTopic,
+} from "@/lib/retirement/adjust";
 import {
   loadRetirementInputs,
   saveRetirementInputs,
@@ -182,7 +189,7 @@ export function RetirementSheet({
   const [inputs, setInputs] = useState<RetirementInputs>(() => defaultInputs());
   const [mode, setMode] = useState<TableMode>("invested");
   const [restored, setRestored] = useState(false);
-  const [detail, setDetail] = useState<RetirementDetail>("simple");
+  const [open, setOpen] = useState<AdjustTopic[]>([]);
   /*
     Which life is lit up, for this visit only. It is not stored with the
     plan and must not be: a template is a starting point somebody pressed
@@ -257,7 +264,7 @@ export function RetirementSheet({
         setTemplateId(opener.id);
       }
     }
-    setDetail(loadRetirementDetail());
+    setOpen(loadOpenTopics());
     setRestored(true);
   }, []);
 
@@ -300,9 +307,12 @@ export function RetirementSheet({
     saveRetirementInputs(inputs);
   }, [inputs, restored]);
 
-  const changeDetail = useCallback((next: RetirementDetail) => {
-    setDetail(next);
-    saveRetirementDetail(next);
+  const toggle = useCallback((topic: AdjustTopic) => {
+    setOpen((prev) => {
+      const next = toggleTopic(prev, topic);
+      saveOpenTopics(next);
+      return next;
+    });
   }, []);
 
   /*
@@ -444,10 +454,18 @@ export function RetirementSheet({
     and this catches up a frame later.
   */
   const settled = useDeferredValue(inputs);
-  const earliest = useMemo(
-    () => earliestRetirement(settled, longevity.suggestedPlanningAge),
+  /*
+    The chart's two lines and the earliest age come from one loop, so the
+    crossing drawn and the age named cannot disagree.
+  */
+  const curve = useMemo(
+    () => potCurve(settled, longevity.suggestedPlanningAge),
     [settled, longevity.suggestedPlanningAge]
   );
+  const earliest = useMemo(() => {
+    const hit = curve.find((p) => p.need > 0 && p.have >= p.need);
+    return hit ? { age: hit.age, pot: hit.have, required: hit.need } : null;
+  }, [curve]);
 
   const rows = useMemo(
     () =>
@@ -492,8 +510,8 @@ export function RetirementSheet({
     ]
   );
 
-  const deep = atLeast(detail, "more");
-  const everything = atLeast(detail, "everything");
+  const isOpen = (topic: AdjustTopic) => open.includes(topic);
+  const close = (topic: AdjustTopic) => () => toggle(topic);
 
   return (
     <div className={PANEL_STACK}>
@@ -511,7 +529,12 @@ export function RetirementSheet({
         patch={patch}
         plan={plan}
         provenance={provenance}
-        detail={detail}
+        showWorking={isOpen("working")}
+        curve={curve}
+        earliestAge={earliest ? earliest.age : null}
+        onRetirementAge={(age) =>
+          setInputs((prev) => retargetRetirementAge(prev, age))
+        }
       />
 
       <QuickStart
@@ -522,8 +545,10 @@ export function RetirementSheet({
         sheets={sheets}
         potSource={potSource}
         onPotSourceChange={changePotSource}
-        detail={detail}
-        onDetailChange={changeDetail}
+        open={open}
+        onToggle={toggle}
+        planningAge={planningAge}
+        swrPct={plan.required.swr.ratePct}
         templateId={templateId}
         onTemplate={applyTemplate}
         portfolioRatePct={portfolioRatePct}
@@ -551,29 +576,47 @@ export function RetirementSheet({
         somebody who opened "More" to correct the exact figures or a mix
         that shifts more than twice over a life.
       */}
-      {deep ? <PlanInputs inputs={inputs} patch={patch} /> : null}
+      {/*
+        WHAT WAS TICKED, AND NOTHING ELSE, DIRECTLY UNDER THE CARD THAT
+        TICKED IT, in the chips' own order. Every one of these can change
+        the plan, so none may sit after the results table: a reader who
+        corrects their rent sees the table it feeds straight below.
+      */}
+      {isOpen("home") ? <HomeTopic inputs={inputs} patch={patch} onClose={close("home")} /> : null}
+      {isOpen("children") ? (
+        <ChildrenTopic inputs={inputs} patch={patch} onClose={close("children")} />
+      ) : null}
+      {isOpen("car") ? <CarTopic inputs={inputs} patch={patch} onClose={close("car")} /> : null}
+      {isOpen("income") ? (
+        <IncomeTopic inputs={inputs} patch={patch} onClose={close("income")} />
+      ) : null}
+      {isOpen("savings") ? (
+        <SavingsTopic inputs={inputs} patch={patch} onClose={close("savings")} />
+      ) : null}
+      {isOpen("returns") ? (
+        <ReturnsPanel inputs={inputs} patch={patch} onClose={close("returns")} />
+      ) : null}
+      {isOpen("bridge") ? (
+        <BridgePanel inputs={inputs} plan={plan} onClose={close("bridge")} />
+      ) : null}
+      {isOpen("working") ? (
+        <AssumptionsPanel inputs={inputs} onClose={close("working")} />
+      ) : null}
 
-      {deep ? <ReturnsPanel inputs={inputs} patch={patch} /> : null}
-
+      {/*
+        The survival curve is a result and a place to adjust at once. It
+        sits straight after the editors either way, so when "How long it
+        lasts" is ticked its dials open directly under the other editors,
+        and when it is not it is simply the first of the results.
+      */}
       <LongevityPanel
         inputs={inputs}
         patch={patch}
         result={longevity}
         planningAge={planningAge}
-        showControls={deep}
+        showControls={isOpen("lifespan")}
+        onClose={isOpen("lifespan") ? close("lifespan") : undefined}
       />
-
-      {deep ? (
-        <BelowFold reserve={420}>
-          <BridgePanel inputs={inputs} plan={plan} />
-        </BelowFold>
-      ) : null}
-
-      {everything ? (
-        <BelowFold reserve={560}>
-          <AssumptionsPanel inputs={inputs} />
-        </BelowFold>
-      ) : null}
 
       {/*
         THE RESULTS, LAST, AND NONE OF THEM WRAPPED IN `BelowFold` BUT

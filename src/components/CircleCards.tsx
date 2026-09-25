@@ -5,6 +5,7 @@ import {
   FluidTable,
   cellBase,
   cellTicker,
+  headRow,
   tableCols,
 } from "@/components/FluidTable";
 import { TickerSymbol } from "@/components/TickerSymbol";
@@ -373,7 +374,7 @@ export function ReadOnlyHoldings({
       currency: quotes[h.ticker]?.currency,
     }))
   );
-  const tickerCell = mixedListings ? cellTicker : cellBase;
+  const tickerCell = cellTicker;
 
   // Biggest holding first by default. Matches the default sort in a
   // portfolio, and is far more useful at a glance than creation order.
@@ -382,8 +383,8 @@ export function ReadOnlyHoldings({
       (quotes[b.ticker]?.price ?? 0) * b.shares -
       (quotes[a.ticker]?.price ?? 0) * a.shares
   );
-
-  const headerCell = "text-sm font-medium text-muted-foreground";
+  // The header row carries the voice (`headRow`); a cell only decides its alignment.
+  const headerCell = "";
 
   return (
     <div className="flex flex-col gap-3">
@@ -408,7 +409,7 @@ export function ReadOnlyHoldings({
       ) : (
         <div className="overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
           <FluidTable template={tableCols(6, mixedListings)}>
-            <FluidRow>
+            <FluidRow className={cn(headRow, "hover:bg-transparent")}>
               <div className={cn(tickerCell, headerCell)}>Company</div>
               <div className={cn(cellBase, headerCell)}>Today</div>
               <div className={cn(cellBase, headerCell)}>Share of it</div>

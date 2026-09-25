@@ -150,7 +150,13 @@ export function quickResultLine(input: {
     return `${head}. What this plan saves does not reach that, so the earliest age is further out than the tables below go.`;
   }
   if (Math.round(earliestAge) <= Math.round(retirementAge)) {
-    return `${head}, and on this saving the pot gets there by ${Math.round(earliestAge)}.`;
+    /*
+      "The pot gets there by 56" read as the pot reaching THIS figure at 56,
+      while the ladder, correctly, has the pot reaching this figure years
+      earlier. 56 is the earliest age the plan works, which is a different
+      question (stopping sooner raises the figure too), so it says that.
+    */
+    return `${head}. On this saving you could stop as early as ${Math.round(earliestAge)}.`;
   }
-  return `${head}, and on this saving the pot gets there at ${Math.round(earliestAge)}.`;
+  return `${head}. On this saving the earliest you could stop is ${Math.round(earliestAge)}.`;
 }

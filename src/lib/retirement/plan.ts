@@ -902,17 +902,52 @@ export function earliestRetirement(
   inputs: RetirementInputs,
   suggestedPlanningAge: number
 ): { age: number; pot: number; required: number } | null {
-  const currentAge = clampAge(inputs.currentAge, 30);
-  const lastAge = Math.min(MAX_AGE - 1, Math.max(currentAge + 1, 80));
-  const growthPct = finiteNumber(inputs.contributionGrowthPct, 0) / 100;
+  for (const point of potCurve(inputs, suggestedPlanningAge)) {
+    if (point.need > 0 && point.have >= point.need) {
+      return { age: point.age, pot: point.have, required: point.need };
+    }
+  }
+  return null;
+}
 
+export type PotCurvePoint = {
+  age: number;
+  /** What the pot would be on the day of stopping at this age. */
+  have: number;
+  /** What stopping at exactly this age would need, on this plan's basis. */
+  need: number;
+};
+
+/**
+ * BOTH SIDES OF "WHEN CAN I STOP", AT EVERY AGE, FROM ONE LOOP.
+ *
+ * `earliestRetirement` is the first age on this curve where `have` reaches
+ * `need`, and it reads this function rather than keeping a loop of its own,
+ * so the chart that draws the two lines and the sentence that names the
+ * crossing cannot disagree. `need` is `buildPlan` with only the retirement
+ * age changed, which is why it falls as the age rises (fewer years to
+ * fund, a higher safe rate, a shorter wait for the pension); `have` climbs
+ * with a year of saving and growth. Ends at 80, or five years past the
+ * reader's own age of stopping when that is later.
+ */
+export function potCurve(
+  inputs: RetirementInputs,
+  suggestedPlanningAge: number
+): PotCurvePoint[] {
+  const currentAge = clampAge(inputs.currentAge, 30);
+  const lastAge = Math.min(
+    MAX_AGE - 1,
+    Math.max(currentAge + 1, 80, Math.round(finiteNumber(inputs.retirementAge, 0)) + 5)
+  );
+  const growthPct = finiteNumber(inputs.contributionGrowthPct, 0) / 100;
+  const out: PotCurvePoint[] = [];
   let pot = clampMoney(inputs.currentPot) + clampMoney(inputs.otherSavings);
   for (let age = currentAge; age <= lastAge; age++) {
-    const required = buildPlan(
+    const need = buildPlan(
       { ...inputs, retirementAge: age },
       suggestedPlanningAge
     ).required.target;
-    if (required > 0 && pot >= required) return { age, pot, required };
+    out.push({ age, have: pot, need });
 
     const r = realReturnAt(age, inputs.glide, inputs.returns);
     const yearsFromNow = age - currentAge;
@@ -925,5 +960,5 @@ export function earliestRetirement(
     }
     pot = Math.max(0, Math.min(MAX_SAFE_MONEY, pot * (1 + r) + contribution));
   }
-  return null;
+  return out;
 }

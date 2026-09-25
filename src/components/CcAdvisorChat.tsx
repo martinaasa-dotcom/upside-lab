@@ -1,7 +1,7 @@
 "use client";
 
 import { track } from "@vercel/analytics";
-import { htmlCell, htmlTable } from "@/components/FluidTable";
+import { htmlCellText, htmlTable } from "@/components/FluidTable";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -458,12 +458,12 @@ function ChatMarkdown({ children }: { children: string }) {
             <tr className="border-t border-border first:border-t-0">{c}</tr>
           ),
           th: ({ children: c }) => (
-            <th className={`${htmlCell} whitespace-nowrap font-medium`}>
+            <th className={`${htmlCellText} whitespace-nowrap font-medium`}>
               {c}
             </th>
           ),
           td: ({ children: c }) => (
-            <td className={`${htmlCell} break-words tabular-nums text-foreground`}>
+            <td className={`${htmlCellText} break-words tabular-nums text-foreground`}>
               {c}
             </td>
           ),
@@ -534,8 +534,8 @@ const RULES = [
   },
   {
     title: "Contract duration",
-    rule: `${STRATEGY.minDaysPreferred} to ${STRATEGY.maxDaysPreferred} days (about 2 to 3 weeks)`,
-    detail: `Up to about ${STRATEGY.maxDaysExtended} days when results are due and a longer contract is the only way past them.`,
+    rule: `The first listed expiry at least ${STRATEGY.minDaysToExpiry} days out, never nearer`,
+    detail: "Rounded up to the next listed date, so it can be a few days past three weeks. When results are due before it expires, the plan says so.",
   },
   {
     title: "Call %",

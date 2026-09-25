@@ -139,3 +139,20 @@ describe("none of the four tells anybody what to do", () => {
     });
   }
 });
+
+describe("the public page names the year's low as the year's low", () => {
+  it("does not call a stranger's level 'your' floor", () => {
+    const facts = makeOrdinaryFacts();
+    const read = fairValueRead(facts);
+    const q = fourQuestions({
+      facts,
+      read,
+      exitLevel: facts.fiftyTwoWeekLow,
+      exitFromYear: true,
+      exitIsPersonal: false,
+    }).find((a) => a.id === "change-my-mind")!;
+    expect(q.figureLabel).toBe("Lowest in a year");
+    expect(q.figure).not.toBe("n/a");
+    expect(q.answer).not.toMatch(/your own/i);
+  });
+});

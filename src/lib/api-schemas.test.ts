@@ -180,7 +180,7 @@ describe("chat context: the snapshot the system prompt is built from", () => {
       distance: null,
       nextStrike: null,
       contracts: 5,
-      yield2w: null,
+      yield3w: null,
       premium: null,
       expiration: null,
     })) };

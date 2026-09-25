@@ -239,20 +239,29 @@ function changeMyMindAnswer(input: {
   exitLevel?: number | null;
   /** That level is a price the share has traded at, not a ratio. */
   exitFromYear?: boolean;
+  /**
+   * False for a reader with no fair value zones of their own (the public
+   * page). The level is then the year's low and nothing else, and it is
+   * named as that rather than as "your" floor.
+   */
+  exitIsPersonal?: boolean;
   againstPoint?: string | null;
 }): FourQuestionAnswer {
   const { facts, exitLevel, againstPoint } = input;
+  const personal = input.exitIsPersonal !== false;
   const base = {
     id: "change-my-mind" as const,
     question: QUESTIONS["change-my-mind"],
-    figureLabel: "Your fair value floor",
+    figureLabel: personal ? "Your fair value floor" : "Lowest in a year",
     maker: againstPoint ? ("model" as const) : ("arithmetic" as const),
   };
   const parts: string[] = [];
   if (pos(exitLevel) && pos(facts.price)) {
     const fall = (facts.price - exitLevel) / facts.price;
     parts.push(
-      input.exitFromYear
+      !personal
+        ? `${currency(exitLevel, 2)} is the lowest this share has traded in a year, ${percent(fall, 0)} under today. Below it, the price is under everything the market has paid this year, the clearest sign the case above has broken.`
+        : input.exitFromYear
         ? `${currency(exitLevel, 2)} is the lowest this share has traded in a year, ${percent(fall, 0)} under today, and the floor of your own fair value zones. Below it, the price is under everything the market has paid this year, the clearest sign the case above has broken.`
         : `${currency(exitLevel, 2)} is where the estimates below stop describing this company, ${percent(fall, 0)} under today. That is the floor of your own fair value zones, and it is yours to move.`
     );
@@ -299,6 +308,8 @@ export function fourQuestions(input: {
   exitLevel?: number | null;
   /** Whether that level is the year's low rather than worked-out. */
   exitFromYear?: boolean;
+  /** False where the reader has no zones of their own; see `changeMyMindAnswer`. */
+  exitIsPersonal?: boolean;
   /** The first point of the model's case against, when the page has one. */
   againstPoint?: string | null;
 }): FourQuestionAnswer[] {

@@ -33,7 +33,13 @@ export const QUOTES_PREFETCH_KEY = "upside-quotes-url-v1";
 /** Where the head script parks the in-flight request. */
 export const QUOTES_PREFETCH_GLOBAL = "__upsideQuotes";
 
-type Parked = { url: string; at: number; res: Promise<Response> };
+type Parked = {
+  url: string;
+  at: number;
+  res: Promise<Response>;
+  /** The parsed answer, once it has landed. Set by the head script. */
+  data?: unknown;
+};
 
 /**
  * Pages that never mount the book, so a head start there is a request
@@ -59,8 +65,10 @@ export const QUOTES_PREFETCH_SCRIPT =
   `l=window.location.pathname,i;for(i=0;i<s.length;i++){if(l.indexOf(s[i])===0)throw 0}` +
   `var u=window.localStorage.getItem("${QUOTES_PREFETCH_KEY}");` +
   `if(u&&u.indexOf("/api/quotes?")===0&&typeof fetch==="function"){` +
-  `var p=fetch(u);p.catch(function(){});` +
-  `window.${QUOTES_PREFETCH_GLOBAL}={url:u,at:Date.now(),res:p}}}catch(e){}`;
+  `var p=fetch(u),o={url:u,at:Date.now(),res:p};p.catch(function(){});` +
+  `window.${QUOTES_PREFETCH_GLOBAL}=o;` +
+  `p.then(function(r){return r.ok?r.clone().json():null})` +
+  `.then(function(d){if(d&&typeof d==="object")o.data=d}).catch(function(){})}}catch(e){}`;
 
 /** Remember the address the book polls, for the next first paint. */
 export function rememberQuotesUrl(url: string | null): void {
@@ -93,4 +101,35 @@ export function takeQuotesPrefetch(
   }
   if (!parked.res || typeof parked.res.then !== "function") return null;
   return parked.res;
+}
+
+/**
+ * The early answer itself, if it has already landed, WITHOUT taking it.
+ *
+ * `takeQuotesPrefetch` only helps the first refresh, which runs after the
+ * book has mounted and painted. Measured on a reload with prices saved
+ * three hours earlier: the head's request had its answer back at about
+ * 240ms, and the hero still painted grey at 1,130ms and went live at
+ * 1,390ms, because the answer sat unread until React got round to asking
+ * again. On a phone that gap is two seconds of an old figure drawn as
+ * stale. The head script now parses the response too, and the book's
+ * first layout effect reads it here, so the first frame a reader sees
+ * carries the live prices. The response itself is left parked, so the
+ * refresh that follows still takes it rather than asking a third time.
+ *
+ * Same guards as the take: only a young answer, and only the quotes map,
+ * which is a price per symbol and true whatever the book now holds.
+ */
+export function peekQuotesPrefetchData(
+  now: number = Date.now()
+): { quotes: Record<string, unknown>; at: number } | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as Record<string, unknown>;
+  const parked = w[QUOTES_PREFETCH_GLOBAL] as Parked | undefined;
+  if (!parked || typeof parked.at !== "number") return null;
+  if (now - parked.at > quoteViewMaxAgeMs(new Date(now))) return null;
+  const data = parked.data as { quotes?: unknown } | undefined;
+  const quotes = data?.quotes;
+  if (!quotes || typeof quotes !== "object" || Array.isArray(quotes)) return null;
+  return { quotes: quotes as Record<string, unknown>, at: parked.at };
 }

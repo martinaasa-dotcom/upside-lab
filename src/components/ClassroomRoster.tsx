@@ -1,9 +1,9 @@
 "use client";
 
-import { htmlCell, htmlTable } from "@/components/FluidTable";
+import { htmlCell, htmlHeadRow, htmlTable } from "@/components/FluidTable";
 
 /**
- * A name and a sentence are not figures. `htmlCell` is centred `font-mono`,
+ * A name and a sentence are not figures. `htmlCell` is right-aligned `font-mono`,
  * which is exactly right for a price and reads as a serial number when it
  * holds "No reasons written yet" or somebody's name.
  */
@@ -73,7 +73,7 @@ export function ClassroomRoster({
       <div className="border-b border-border surface-gutter py-6">
         <PanelHeader
           title="Roster"
-          subtitle="Everyone started with the same cash. This is ranked by how far each student is up or down since then, and it shows who has written down a reason for what they own and who is holding just one company."
+          subtitle="Everyone started with the same cash. Ranked by how far each student is up or down since then, and who is holding just one company."
         />
       </div>
       <div className="flex flex-col gap-3 surface-gutter py-6 md:hidden">
@@ -170,12 +170,12 @@ export function ClassroomRoster({
       <div className="hidden overflow-x-auto md:block">
         <table className={cn(htmlTable, "min-w-[30rem]")}>
           <thead>
-            <tr className="border-b border-border text-muted-foreground">
-              <th className={cn(htmlCellName, "font-medium")}>Student</th>
-              <th className={cn(htmlCell, "font-medium")}>Now</th>
-              <th className={cn(htmlCell, "font-medium")}>Since start</th>
-              <th className={cn(htmlCell, "font-medium")}>Today</th>
-              <th className={cn(htmlCell, "font-medium")}>Biggest</th>
+            <tr className={htmlHeadRow}>
+              <th className={htmlCellName}>Student</th>
+              <th className={htmlCell}>Now</th>
+              <th className={htmlCell}>Since start</th>
+              <th className={htmlCell}>Today</th>
+              <th className={htmlCellName}>Biggest</th>
             </tr>
           </thead>
           <tbody>
@@ -256,7 +256,7 @@ export function ClassroomRoster({
                         ? signedPercent(m.todayPct)
                         : NO_VALUE}
                     </td>
-                    <td className={cn(htmlCell, "text-muted-foreground")}>
+                    <td className={cn(htmlCellName, "text-muted-foreground")}>
                       {biggest?.ticker
                         ? `${cashtag(biggest.ticker)}${
                             biggest.weight != null

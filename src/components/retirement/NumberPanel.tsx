@@ -35,8 +35,8 @@ import { Button } from "@/components/ui/button";
 import { barFillPct, cn, currency } from "@/lib/format";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
-import { atLeast, type RetirementDetail } from "@/lib/retirement/detail";
-import type { PlanResult, RetirementInputs } from "@/lib/retirement/plan";
+import type { PlanResult, PotCurvePoint, RetirementInputs } from "@/lib/retirement/plan";
+import { PotChart } from "@/components/retirement/PotChart";
 import type { Provenance } from "@/lib/provenance";
 import { RETIREMENT_RESULTS_ID } from "@/lib/retirement/dom-ids";
 import { ArrowDown, Target } from "lucide-react";
@@ -89,13 +89,21 @@ export function NumberPanel({
   patch,
   plan,
   provenance,
-  detail,
+  showWorking,
+  curve,
+  earliestAge,
+  onRetirementAge,
 }: {
   inputs: RetirementInputs;
   patch: (next: Partial<RetirementInputs>) => void;
   plan: PlanResult;
   provenance: Provenance;
-  detail: RetirementDetail;
+  /** The "How it is worked out" chip is ticked: show the arithmetic here. */
+  showWorking: boolean;
+  /** Have against need at every age, from `potCurve`. */
+  curve: PotCurvePoint[];
+  earliestAge: number | null;
+  onRetirementAge: (age: number) => void;
 }) {
   const code = plan.currency;
   const { swr } = plan.required;
@@ -110,8 +118,7 @@ export function NumberPanel({
     its own headline.
   */
   const onCash = plan.required.basis === "spendDown";
-  const showWorking = atLeast(detail, "more");
-  const showRateBuild = atLeast(detail, "everything");
+  const showRateBuild = showWorking;
 
   return (
     <Panel>
@@ -164,7 +171,7 @@ export function NumberPanel({
           shrink what is around it rather than to grow this, and the
           invariant refuses anything larger.
         */}
-        <p className="font-mono text-2xl tabular-nums leading-tight text-foreground">
+        <p className="figure-hero text-foreground">
           {currency(plan.required.target, 0, code)}
         </p>
         <p className="text-sm leading-relaxed text-muted-foreground">
@@ -185,6 +192,16 @@ export function NumberPanel({
           .
         </p>
       </div>
+
+      {curve.length > 1 ? (
+        <PotChart
+          curve={curve}
+          retirementAge={Math.round(inputs.retirementAge)}
+          earliestAge={earliestAge}
+          onRetirementAge={onRetirementAge}
+          code={code}
+        />
+      ) : null}
 
       {!showWorking ? (
         <p className="text-sm leading-relaxed text-muted-foreground">

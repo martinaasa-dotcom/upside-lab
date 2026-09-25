@@ -5,12 +5,14 @@ import {
   roundToStrike,
 } from "@/lib/market/resistance";
 import type { OptionCandidate } from "@/lib/types";
-import { dateKeyInTz, daysUntilInTz } from "@/lib/timezone";
+import { dateKeyInTz, daysUntilInTz, todayKeyInTz } from "@/lib/timezone";
 import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
 import { marketSession } from "@/lib/market/session";
 import { yahooCall } from "@/lib/market/yahoo";
+import { threeWeekYield } from "@/lib/options/reprice";
 import {
   callDelta,
+  callPrice,
   impliedVol,
   isPlausibleVol,
   yearsToExpiry,
@@ -238,20 +240,8 @@ export async function scanCoveredCall(params: {
     // normally shop in, and don't let a nearer listing win on tie-break.
     const picked = wantExpiry ? dated.find((e) => e.key === wantExpiry) : null;
 
-    const nearby = picked
-      ? [picked]
-      : dated
-          .filter(
-            (e) =>
-              e.days >= STRATEGY.minDaysPreferred - 3 &&
-              e.days <= STRATEGY.maxDaysPreferred + 7
-          )
-          .sort(
-            (a, b) =>
-              Math.abs(a.days - STRATEGY.targetDays) -
-              Math.abs(b.days - STRATEGY.targetDays)
-          )
-          .slice(0, 3);
+    const fallback = defaultExpiryFrom(dated);
+    const nearby = picked ? [picked] : fallback ? [fallback] : [];
 
     type Quoted = {
       expiration: string;
@@ -340,23 +330,43 @@ export async function scanCoveredCall(params: {
     // (illiquid chains) and fall back to estimate.
     const strikeErrorPct = best.strikeDist / Math.max(nextStrike, 1);
     let midPx = best.mid;
-    let yield2w = midPx / spot;
+    let estimated = false;
+    const years = yearsToExpiry(best.expiration);
 
     if (strikeErrorPct > 0.08) {
-      yield2w = estimateYield(otmPct, best.daysToExpiry);
-      midPx = spot * yield2w;
+      midPx = spot * estimateYield(otmPct, best.daysToExpiry);
+      estimated = true;
+    } else if (
+      Math.abs(best.strike - nextStrike) > 0.005 &&
+      best.vol != null &&
+      years != null &&
+      years > 0
+    ) {
+      /*
+        The planned strike is not listed on this date (a $305 strike on a
+        chain that lists $300 and $310). The delta was already worked out
+        at the planned strike, and the premium beside it has to answer for
+        the same contract, so it is priced there from the neighbour's
+        volatility rather than quoted off the neighbour.
+      */
+      const priced = callPrice(spot, nextStrike, years, best.vol);
+      if (priced != null && priced > 0) {
+        midPx = priced;
+        estimated = true;
+      }
     }
+    const yield3w = threeWeekYield(midPx, spot, best.daysToExpiry);
 
     return {
       ticker: ticker.toUpperCase(),
       expiration: best.expiration,
-      // Keep UI Next Strike (planned); mid/yield are for nearest listed strike
+      // The planned strike; mid and yield answer for it, quoted or priced.
       strike: nextStrike,
       bid: best.bid,
       ask: best.ask,
       mid: midPx,
       otmPct,
-      yield2w,
+      yield3w,
       premium: midPx * 100 * contractCount,
       contracts: contractCount,
       daysToExpiry: best.daysToExpiry,
@@ -364,6 +374,8 @@ export async function scanCoveredCall(params: {
       targetDistance,
       delta: plannedDelta(spot, nextStrike, best.expiration, best.vol),
       listedStrike: best.strike,
+      vol: best.vol,
+      estimated,
     };
   } catch (err) {
     console.error(`Options scan failed for ${ticker}`, err);
@@ -413,6 +425,24 @@ function normalizeExpiry(raw: string | null | undefined): string | null {
   return daysUntilInTz(when) > 0 ? key : null;
 }
 
+/**
+ * The expiry the table prices when the reader has not picked one: the
+ * first listed date at least `STRATEGY.minDaysToExpiry` days out, rounded
+ * up to the next listing and never down to a nearer one. Only when a
+ * chain lists nothing that far out does it take the furthest it has,
+ * which is still the closest a listed contract gets to the rule.
+ */
+export function defaultExpiryFrom<T extends { days: number }>(
+  listed: readonly T[]
+): T | null {
+  const sorted = [...listed].filter((e) => e.days > 0).sort((a, b) => a.days - b.days);
+  return (
+    sorted.find((e) => e.days >= STRATEGY.minDaysToExpiry) ??
+    sorted[sorted.length - 1] ??
+    null
+  );
+}
+
 function syntheticCandidate(
   ticker: string,
   spot: number,
@@ -434,15 +464,18 @@ function syntheticCandidate(
     exp = new Date(`${wantExpiry}T00:00:00Z`);
     days = daysUntilInTz(exp);
   } else {
-    days = STRATEGY.targetDays;
-    exp = new Date();
-    exp.setDate(exp.getDate() + days);
-    const day = exp.getDay();
-    const diff = (5 - day + 7) % 7;
-    exp.setDate(exp.getDate() + diff);
+    // Three weeks out, then forward to the Friday listings expire on, so
+    // the estimate is never for fewer days than the rule allows. Counted
+    // on the calendar of the app's own timezone and held at midday UTC:
+    // a Date built from the server's clock late in the UTC day is already
+    // tomorrow there, which turned a Friday expiry into a Saturday one.
+    exp = new Date(`${todayKeyInTz()}T12:00:00Z`);
+    exp.setUTCDate(exp.getUTCDate() + STRATEGY.minDaysToExpiry);
+    exp.setUTCDate(exp.getUTCDate() + ((5 - exp.getUTCDay() + 7) % 7));
+    days = daysUntilInTz(exp);
   }
-  const yield2w = estimateYield(otmPct || (strike - spot) / spot, days);
-  const midPx = spot * yield2w;
+  const midPx = spot * estimateYield(otmPct || (strike - spot) / spot, days);
+  const yield3w = threeWeekYield(midPx, spot, days);
 
   return {
     ticker: ticker.toUpperCase(),
@@ -452,7 +485,7 @@ function syntheticCandidate(
     ask: midPx * 1.05,
     mid: midPx,
     otmPct: otmPct || (strike - spot) / Math.max(spot, 1),
-    yield2w,
+    yield3w,
     premium: midPx * 100 * contracts,
     contracts,
     daysToExpiry: days,
@@ -461,5 +494,7 @@ function syntheticCandidate(
     // An estimated premium has no volatility behind it to take a delta from.
     delta: null,
     listedStrike: null,
+    vol: null,
+    estimated: true,
   };
 }

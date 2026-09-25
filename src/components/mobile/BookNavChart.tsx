@@ -441,7 +441,9 @@ export function MobileBookNavChart({
     const span = scale.max - scale.min || 1;
     // Empty plot above the peak so the line never kisses the top tick
     // or the day chip in the reserved lane above the SVG.
-    const plotMax = scale.max + span * 0.18;
+    // `niceScale` already rounds the top up, so this only needs a sliver:
+    // at 0.18 the two together left a band of empty glass above the line.
+    const plotMax = scale.max + span * 0.08;
     const axisSpan = plotMax - scale.min;
     const innerW = width - padL - padR;
     const innerH = height - padT - padB;

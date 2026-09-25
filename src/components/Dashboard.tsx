@@ -207,7 +207,7 @@ import { useLabSync } from "@/components/use-lab-sync";
 import { useLoadingMessage } from "@/lib/use-loading-message";
 import { loadCachedQuotes, mergeQuotes, saveCachedQuotes, quotesUnchanged } from "@/lib/quote-cache";
 import { publishQuotes } from "@/lib/quote-pool";
-import { rememberQuotesUrl, takeQuotesPrefetch } from "@/lib/quotes-prefetch";
+import { peekQuotesPrefetchData, rememberQuotesUrl, takeQuotesPrefetch } from "@/lib/quotes-prefetch";
 import { OFFLINE_CACHE_READY } from "@/lib/offline/snapshots";
 import { postJsonOrQueue } from "@/lib/offline/queued-fetch";
 import { markSheetImported } from "@/lib/sheet-import-stamp";
@@ -224,6 +224,7 @@ import {
 } from "@/lib/options/tracked-calls";
 import { buildCallAlerts } from "@/lib/alerts";
 import { useCallRules, useTrackedCalls } from "@/lib/options/use-tracked-calls";
+import { strikeEditPatch } from "@/lib/options/reprice";
 
 /**
  * These are per-tab panels: only one is on screen at a time (Overview is
@@ -661,6 +662,23 @@ export function Dashboard() {
       }
     }
     const cachedQuotes = loadCachedQuotes();
+    /*
+      The head script's answer, when it has already landed, goes on the
+      first frame rather than after the first refresh: that is the grey
+      second a reader saw on every morning open. See
+      `peekQuotesPrefetchData`.
+    */
+    const early = peekQuotesPrefetchData();
+    const earlyQuotes = early ? (early.quotes as Record<string, Quote>) : null;
+    const earlyLive =
+      !!earlyQuotes && Object.values(earlyQuotes).some((q) => q && !q.stale);
+    if (earlyQuotes && earlyLive) {
+      const merged = mergeQuotes(cachedQuotes.quotes, earlyQuotes);
+      publishQuotes(earlyQuotes);
+      saveCachedQuotes(merged);
+      cachedQuotes.quotes = merged;
+      cachedQuotes.savedAt = early!.at;
+    }
     setQuotes(cachedQuotes.quotes);
     setQuotesFetchedAt(cachedQuotes.savedAt);
     quotesPolledAtRef.current = cachedQuotes.savedAt ?? 0;
@@ -974,8 +992,14 @@ export function Dashboard() {
 
   const snapshot = useMemo(() => {
     if (!activePortfolio) return null;
-    return buildSnapshot(activePortfolio, portfolioHoldings, quotes, options);
-  }, [activePortfolio, portfolioHoldings, quotes, options]);
+    return buildSnapshot(
+      activePortfolio,
+      portfolioHoldings,
+      quotes,
+      options,
+      ccExpiry
+    );
+  }, [activePortfolio, portfolioHoldings, quotes, options, ccExpiry]);
 
   /** Margus always talks to one portfolio: the open tab, or the last one opened. */
   const margusPortfolio = useMemo(
@@ -993,12 +1017,13 @@ export function Dashboard() {
   const margusSnapshot = useMemo(() => {
     if (!margusPortfolio) return null;
     if (margusPortfolio.id === activePortfolio?.id) return snapshot;
-    return buildSnapshot(margusPortfolio, margusHoldings, quotes, options);
+    return buildSnapshot(margusPortfolio, margusHoldings, quotes, options, ccExpiry);
   }, [
     margusPortfolio,
     margusHoldings,
     quotes,
     options,
+    ccExpiry,
     activePortfolio?.id,
     snapshot,
   ]);
@@ -1030,9 +1055,9 @@ export function Dashboard() {
     () =>
       realPortfolios.flatMap((p) => {
         const rows = holdings.filter((h) => h.portfolio_id === p.id);
-        return buildSnapshot(p, rows, quotes, options).coveredCallRows;
+        return buildSnapshot(p, rows, quotes, options, ccExpiry).coveredCallRows;
       }),
-    [realPortfolios, holdings, quotes, options]
+    [realPortfolios, holdings, quotes, options, ccExpiry]
   );
 
   /*
@@ -2289,7 +2314,7 @@ export function Dashboard() {
   const ccSignature = portfolioHoldings
     .map(
       (h) =>
-        `${h.id}:${h.ticker}:${h.shares}:${h.target_call_pct}:${h.stock_target_override ?? ""}`
+        `${h.id}:${h.ticker}:${h.shares}:${h.target_call_pct}:${h.stock_target_override ?? ""}:${ccExpiry[h.id] ?? ""}`
     )
     .join("|");
 
@@ -3013,13 +3038,23 @@ export function Dashboard() {
       handlePatch({ id, stock_target_override: stockTarget })
   );
   /**
+   * A strike typed into the covered-call table. The strike is target plus
+   * Call %, so the target stays and the Call % moves to land on it
+   * (`strikeEditPatch`), and the row reprices at once from the last scan.
+   */
+  const onPatchStrike = useStableCallback(
+    (id: string, strike: number, target: number | null) => {
+      const patch = strikeEditPatch(strike, target);
+      if (!patch) return;
+      handlePatch({ id, ...patch });
+    }
+  );
+  /**
    * Pick the expiry the covered-call premium is quoted for.
    *
-   * Re-scans immediately rather than waiting for the next poll: the whole
-   * point of editing the date is to see what that tenor pays, and a
-   * premium that lags the expiry beside it would be worse than not
-   * letting it be edited at all. `quotesOnly: false` so the options leg
-   * actually runs.
+   * The row is priced for the new date at once from the last scan's
+   * volatility, and the date is part of `ccSignature`, so the options scan
+   * reruns straight away and replaces that with the market's own quote.
    */
   const onPatchExpiry = useStableCallback(
     (id: string, expiry: string | null) => {
@@ -3031,7 +3066,6 @@ export function Dashboard() {
         ccExpiryRef.current = next;
         return next;
       });
-      void refreshFx();
     }
   );
   const onShowForecast = useStableCallback(() => toggleForecastVisible());
@@ -3125,7 +3159,6 @@ export function Dashboard() {
       activeId={onBook ? activeId : null}
       onAdd={() => setCreatingSheet(true)}
       sheetTodayTone={sheetTodayTone}
-      alertCount={activeAlerts.length}
       hiddenModeIds={hiddenMetaTabIds}
       /*
        * Account-level, never route-level. This used to be `!onBook`, which
@@ -3478,11 +3511,12 @@ export function Dashboard() {
               <WidgetErrorBoundary name="Covered calls">
               <CoveredCallPanel
                 rows={snapshot!.coveredCallRows}
-                yield2wAvg={snapshot!.totals.yield2wAvg}
+                yield3wAvg={snapshot!.totals.yield3wAvg}
                 premiumTotal={snapshot!.totals.premiumTotal}
                 onPatchTargetCall={onPatchTargetCall}
                 onPatchStockTarget={onPatchStockTarget}
                 onPatchExpiry={onPatchExpiry}
+                onPatchStrike={onPatchStrike}
                 onAddHolding={canClassBuy ? onAddHolding : undefined}
                 trackedCalls={trackedCalls}
                 portfolioId={activePortfolio?.id}
@@ -3539,7 +3573,6 @@ export function Dashboard() {
       <MobileTabBar
         key="phone-dock"
         active={mobileTab}
-        alertCount={activeAlerts.length}
         hiddenModeIds={hiddenMetaTabIds}
         attentionCue={dockAttentionCue}
       />

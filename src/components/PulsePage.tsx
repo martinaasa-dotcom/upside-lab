@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { track } from "@vercel/analytics";
-import { cashtag, cn, currency, percent, plural, signedCurrency, signedTone } from "@/lib/format";
+import { MarketVsYou } from "@/components/MarketVsYou";
+import { useAuth } from "@/components/AuthProvider";
+import { cashtag, cn, currency, percent, plural, signedCurrency, signedPercent, signedTone } from "@/lib/format";
 import {
   EmptyState,
   Metric,
@@ -127,8 +129,7 @@ import {
   TrendingDown,
   TrendingUp,
   X,
-  XCircle,
-} from "lucide-react";
+  XCircle, Newspaper } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, memo } from "react";
 
 type Props = {
@@ -601,14 +602,14 @@ function PulseCard({
             label={
               <TermTip
                 term="gain"
-                example={{ ticker: c.ticker, amount: percent(c.roiPct) }}
+                example={{ ticker: c.ticker, amount: signedPercent(c.roiPct) }}
               >
                 All time
               </TermTip>
             }
             valueClassName={signedTone(c.roiPct, "text-foreground")}
           >
-            {percent(c.roiPct)}
+            {signedPercent(c.roiPct)}
           </Metric>
           {/*
             * "Portfolio" alone did not say what the figure was a share
@@ -616,7 +617,11 @@ function PulseCard({
             * phone the column is 124px and the label tier is 12px mono at
             * 1.2px tracking, so a label has about fourteen characters
             * before it wraps to two lines and drops its figure below the
-            * three beside it.
+            * three beside it. "Of holdings" rather than "Of your total",
+            * because the figure is a share of what is invested, not
+            * counting cash, and the holdings table's "% of total" does
+            * count it: the same company read 28.1% here and 27.5% there
+            * under two labels that both claimed the whole.
             */}
           <Metric
             label={
@@ -624,7 +629,7 @@ function PulseCard({
                 term="share-of-portfolio"
                 example={{ ticker: c.ticker, amount: percent(c.bookPct) }}
               >
-                Of your total
+                Of holdings
               </TermTip>
             }
             /*
@@ -918,6 +923,20 @@ export const PulsePage = memo(function PulsePage({
   onOpenTicker,
   onStamp,
 }: Props) {
+  /*
+    Reading the news is a model call and `/api/thesis/pulse` needs an
+    account, which is right. On the sample that meant a notice saying
+    nobody had read the news over a "Read them now" button that could only
+    fail, and a refresh on every card doing the same. With a settled and
+    absent session nothing is asked for and the notice says what an
+    account adds, which is the rule `TrendsPanel` and `ForecastPanel`
+    already follow. Read through a ref inside `runPulse` so its callback
+    identity does not change when the session settles.
+  */
+  const { user, ready: authReady } = useAuth();
+  const needsAccount = authReady && !user;
+  const needsAccountRef = useRef(needsAccount);
+  needsAccountRef.current = needsAccount;
   const [searchInput, setSearchInput] = useState("");
   const [pinnedTicker, setPinnedTicker] = useState<string | null>(null);
   const [lookupQuotes, setLookupQuotes] = useState<Record<string, Quote>>({});
@@ -1270,12 +1289,18 @@ export const PulsePage = memo(function PulsePage({
       marketOrYou({
         marketPct: indexQuote ? (indexQuote.changePercent ?? null) : null,
         yoursPct: model.totals.todayPct,
+        /*
+          The day's move, never the after-hours one: the index figure it is
+          set against is the regular session's, and comparing a company's
+          evening drift with the market's whole day named the wrong
+          companies as having done something on their own.
+        */
         holdings: candidates
           .filter((c) => c.inBook)
           .map((c) => ({
             ticker: c.ticker,
             label: cashtag(c.ticker),
-            todayPct: c.effectivePct,
+            todayPct: c.regularPct ?? c.effectivePct,
           })),
       }),
     [indexQuote, model.totals.todayPct, candidates]
@@ -1295,11 +1320,24 @@ export const PulsePage = memo(function PulsePage({
       candidates
         .filter((c) => c.inBook)
         .map((c) => ({
-          todayPct: c.effectivePct,
+          // The day's move, like the picture and the market line above it.
+          todayPct: c.regularPct ?? c.effectivePct,
           typical: typicalByTicker[c.ticker.toUpperCase()] ?? null,
         }))
     );
   }, [summary, candidates, typicalByTicker]);
+
+  const swarmHoldings = useMemo(
+    () =>
+      candidates
+        .filter((c) => c.inBook)
+        .map((c) => ({
+          ticker: c.ticker,
+          label: cashtag(c.ticker),
+          todayPct: c.regularPct ?? c.effectivePct,
+        })),
+    [candidates]
+  );
 
   const marketLine = marketOrYouLine(marketSplit, MARKET_INDEX_NAME, (n) =>
     percent(n)
@@ -1409,7 +1447,7 @@ export const PulsePage = memo(function PulsePage({
    */
   const runPulse = useCallback(
     async (targets: PulseCandidate[], opts?: { force?: boolean; signal?: AbortSignal }) => {
-      if (targets.length === 0) return;
+      if (targets.length === 0 || needsAccountRef.current) return;
       const force = opts?.force ?? false;
       const notInFlight = targets.filter(
         (c) => !inFlightRef.current.has(c.ticker.toUpperCase())
@@ -1680,8 +1718,9 @@ export const PulsePage = memo(function PulsePage({
            */
           subtitle={
             <>
-              Your thesis is the reason you own something. Each day this page
-              checks whether the price and the news still fit it.
+              Each day this page reads the price and the news for every
+              company you own, and says whether a move was the company or the
+              whole market. The badge is the thesis: the reason to own it.
               {lastCheckedAt ? (
                 <span className="text-muted-foreground">
                   {" "}
@@ -1743,6 +1782,15 @@ export const PulsePage = memo(function PulsePage({
 
         {dayStory || marketLine || standouts || mood ? (
           <div className={cn("flex flex-col gap-3 glass-well rounded-lg", NESTED_PAD)}>
+            {marketSplit && swarmHoldings.length > 0 ? (
+              <div className="mb-3">
+                <MarketVsYou
+                  split={marketSplit}
+                  holdings={swarmHoldings}
+                  marketName={MARKET_INDEX_NAME}
+                />
+              </div>
+            ) : null}
             {dayStory ? (
               <p className="text-base font-medium leading-relaxed text-foreground">
                 {humanizeMargusText(dayStory)}
@@ -1798,10 +1846,13 @@ export const PulsePage = memo(function PulsePage({
         */}
       {!anyChecking && unread.length > 0 && candidates.length > 0 ? (
         <Alert>
-          <AlertTriangle />
+          {/* A missing reading is news not yet read, not an error. */}
+          <Newspaper />
           <AlertDescription className="flex flex-col items-start gap-3">
             <span>
-              {unread.length === ranked.length
+              {needsAccount
+                ? "On the sample the prices are live and the news is not read. With an account, every company you own gets a reading each day."
+                : unread.length === ranked.length
                 ? "Nobody has read the news on these yet. The prices above are live."
                 : unread.length === 1
                   ? "One company here has no reading yet. The prices above are live."
@@ -1811,6 +1862,7 @@ export const PulsePage = memo(function PulsePage({
               type="button"
               variant="outline"
               size="sm"
+              hidden={needsAccount}
               onClick={() => void runPulse(unread, { force: true })}
               className="touch-target lg:min-h-0"
             >
@@ -1857,7 +1909,7 @@ export const PulsePage = memo(function PulsePage({
               loading={pinnedLoading}
               checkedAt={checkedAtByTicker[pinnedCandidate.ticker.toUpperCase()]}
               writtenBy={writtenBy}
-              onRefresh={() => void runPulse([pinnedCandidate], { force: true })}
+              onRefresh={needsAccount ? undefined : () => void runPulse([pinnedCandidate], { force: true })}
               onOpenTicker={
                 onOpenTicker
                   ? () => onOpenTicker(pinnedCandidate.ticker)
@@ -1910,7 +1962,7 @@ export const PulsePage = memo(function PulsePage({
                     loading={checkingTickers.has(c.ticker.toUpperCase())}
                     checkedAt={checkedAtByTicker[c.ticker.toUpperCase()]}
                     writtenBy={writtenBy}
-                    onRefresh={() => void runPulse([c], { force: true })}
+                    onRefresh={needsAccount ? undefined : () => void runPulse([c], { force: true })}
                     onOpenTicker={
                       onOpenTicker ? () => onOpenTicker(c.ticker) : undefined
                     }
@@ -1954,7 +2006,7 @@ export const PulsePage = memo(function PulsePage({
                     loading={checkingTickers.has(c.ticker.toUpperCase())}
                     checkedAt={checkedAtByTicker[c.ticker.toUpperCase()]}
                     writtenBy={writtenBy}
-                    onRefresh={() => void runPulse([c], { force: true })}
+                    onRefresh={needsAccount ? undefined : () => void runPulse([c], { force: true })}
                     onOpenTicker={
                       onOpenTicker ? () => onOpenTicker(c.ticker) : undefined
                     }

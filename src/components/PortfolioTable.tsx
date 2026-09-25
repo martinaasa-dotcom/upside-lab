@@ -1,6 +1,7 @@
 "use client";
 
-import { NO_VALUE, cashtag, cn, currency, percent, signedTone } from "@/lib/format";
+import { LiveFigure } from "@/components/ui/LiveFigure";
+import { NO_VALUE, cashtag, cn, currency, percent, signedPercent, signedTone } from "@/lib/format";
 import {
   usdToDisplay,
   formatEurUsdHint,
@@ -45,7 +46,16 @@ import {
 } from "@/lib/use-screenshot-picker";
 import { shareDigits } from "@/lib/share-count";
 import { Sparkline } from "./Sparkline";
-import { FluidRow, FluidTable, cellBase, cellTicker, tableCols } from "@/components/FluidTable";
+import {
+  FluidRow,
+  FluidTable,
+  cellBase,
+  cellCenter,
+  cellTicker,
+  headRow,
+  headTip,
+  tableCols,
+} from "@/components/FluidTable";
 
 export type HoldingPatch = {
   id: string;
@@ -187,8 +197,8 @@ function InlineNumber({
         }
       }}
       className={cn(
-        "inline-edit no-spinner rounded-t px-1 py-0.5 text-center tabular-nums text-foreground outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50",
-        className ?? "mx-auto w-full max-w-[4.5rem]"
+        "inline-edit no-spinner rounded-t px-1 py-0.5 text-right tabular-nums text-foreground outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50",
+        className ?? "ml-auto w-full max-w-[4.5rem]"
       )}
     />
   );
@@ -312,9 +322,21 @@ export const PortfolioTable = memo(function PortfolioTable({
     onPick: (files) => onImportScreenshot?.(files),
     disabled: !onImportScreenshot,
   });
-  const tickerCell = mixedListings ? cellTicker : cellBase;
+  // The name column always reads from the left; figures end on the right.
+  const tickerCell = cellTicker;
   const money = (usd: number, digits = 2) =>
     currency(usdToDisplay(usd, displayCurrency, eurUsd), digits, displayCurrency);
+  /*
+   * A gain carries its own sign. The colour already said which way it went,
+   * but a loss printed "-$1,085" beside a gain printed "$964", so the two
+   * directions were written two different ways in one column, and a reader
+   * who cannot tell the green from the rose had only one of them marked.
+   */
+  const signedMoney = (usd: number, digits = 2) => {
+    const text = money(Math.abs(usd), digits);
+    const shown = Math.round(usd * 10 ** digits);
+    return shown > 0 ? `+${text}` : shown < 0 ? `-${text}` : text;
+  };
 
   function rowMoney(h: EnrichedHolding) {
     const code = listingCurrency(h.ticker, h.quote?.currency);
@@ -512,7 +534,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                 </span>
                 {" · "}
                 <span className={signedTone(totals.roiPct)}>
-                  {percent(totals.roiPct)}
+                  {signedPercent(totals.roiPct)}
                 </span>{" "}
                 since you bought
               </span>
@@ -520,7 +542,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                 <span className="block whitespace-nowrap sm:inline">
                   <span className="hidden sm:inline">{" · "}</span>
                   <span className={signedTone(today.pct)}>
-                    {percent(today.pct, 2)}
+                    {signedPercent(today.pct, 2)}
                   </span>{" "}
                   today
                 </span>
@@ -735,7 +757,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                           : "text-muted-foreground"
                       )}
                     >
-                      {today.pct != null ? percent(today.pct, 2) : NO_VALUE}
+                      {today.pct != null ? signedPercent(today.pct, 2) : NO_VALUE}
                     </span>
                     <span
                       className={cn(
@@ -745,7 +767,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                           : "text-muted-foreground"
                       )}
                     >
-                      {today.pct != null ? money(today.dollar, 0) : NO_VALUE}
+                      {today.pct != null ? signedMoney(today.dollar, 0) : NO_VALUE}
                     </span>
                   </button>
 
@@ -787,15 +809,15 @@ export const PortfolioTable = memo(function PortfolioTable({
                               align="end"
                               example={{
                                 ticker: cashtag(h.ticker),
-                                amount: money(h.roiDollar, 0),
-                                second: percent(h.roiPct),
+                                amount: signedMoney(h.roiDollar, 0),
+                                second: signedPercent(h.roiPct),
                               }}
                             >
                               Gain
                             </TermTip>
                           </dt>
                           <dd className={signedTone(h.roiPct)}>
-                            {percent(h.roiPct)}
+                            {signedPercent(h.roiPct)}
                           </dd>
                         </div>
                         <div className="flex items-baseline justify-between gap-2">
@@ -818,7 +840,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                         <div className="flex items-baseline justify-between gap-2">
                           <dt className={TERM_LABEL}>Gain $</dt>
                           <dd className={signedTone(h.roiDollar)}>
-                            {money(h.roiDollar, 0)}
+                            {signedMoney(h.roiDollar, 0)}
                           </dd>
                         </div>
                         <div className="flex items-baseline justify-between gap-2">
@@ -827,7 +849,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                             className="text-foreground"
                             title={quoteAsOfTitle(h.quote)}
                           >
-                            {currency(listed.nativeSpot, listed.digits, listed.code)}
+                            <LiveFigure value={listed.nativeSpot}>{currency(listed.nativeSpot, listed.digits, listed.code)}</LiveFigure>
                           </dd>
                         </div>
                         <div className="flex items-baseline justify-between gap-2">
@@ -953,7 +975,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   today.pct != null ? signedTone(today.pct) : "text-muted-foreground"
                 )}
               >
-                {today.pct != null ? percent(today.pct, 2) : NO_VALUE}
+                {today.pct != null ? signedPercent(today.pct, 2) : NO_VALUE}
               </span>
               <span
                 className={cn(
@@ -961,7 +983,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   today.pct != null ? signedTone(today.dollar) : "text-muted-foreground"
                 )}
               >
-                {today.pct != null ? money(today.dollar, 0) : NO_VALUE}
+                {today.pct != null ? signedMoney(today.dollar, 0) : NO_VALUE}
               </span>
             </div>
           </div>
@@ -977,8 +999,20 @@ export const PortfolioTable = memo(function PortfolioTable({
           </div>
         ) : (
           <FluidTable template={template}>
-            <FluidRow className="border-border text-sm font-medium text-muted-foreground">
-              {COLUMNS.map((col, i) => (
+            <FluidRow className={cn(headRow, "hover:bg-transparent")}>
+              {COLUMNS.map((col, i) => {
+                // A right-aligned header keeps its mark on the left, so the
+                // label ends exactly where the figures under it end whether
+                // the mark is showing or not.
+                const markFirst = i > 0 && Boolean(col.key);
+                const tip = col.term ? (
+                  <span className={headTip}>
+                    <TermTip bare term={col.term} align="center">
+                      <Info className="size-3" aria-hidden />
+                    </TermTip>
+                  </span>
+                ) : null;
+                return (
                 <div
                   key={col.label}
                   /*
@@ -995,7 +1029,10 @@ export const PortfolioTable = memo(function PortfolioTable({
                     price and it is the right one: a title broken over
                     two lines is the same fault as a price broken over two.
                   */
-                  className={cn(i === 0 ? tickerCell : cellBase, "gap-1")}
+                  className={cn(
+                    i === 0 ? tickerCell : col.key ? cellBase : cellCenter,
+                    "gap-1"
+                  )}
                 >
                   {/*
                     Two jobs, two targets. The header still sorts, because
@@ -1004,13 +1041,14 @@ export const PortfolioTable = memo(function PortfolioTable({
                     opens, so the explanation is not a hover tooltip a
                     touch screen can never reach.
                   */}
+                  {markFirst ? tip : null}
                   {col.key ? (
                     <button
                       type="button"
                       onClick={() => toggleSort(col.key!)}
                       className={cn(
-                        "inline-flex items-center gap-1 transition hover:text-foreground",
-                        sortKey === col.key && "text-primary/70"
+                        "inline-flex items-center gap-1 uppercase transition hover:text-foreground",
+                        sortKey === col.key && "text-foreground"
                       )}
                       title={`Sort by ${col.label}`}
                     >
@@ -1026,13 +1064,10 @@ export const PortfolioTable = memo(function PortfolioTable({
                   ) : (
                     col.label
                   )}
-                  {col.term ? (
-                    <TermTip bare term={col.term} align="center">
-                      <Info className="size-3.5" aria-hidden />
-                    </TermTip>
-                  ) : null}
+                  {markFirst ? null : tip}
                 </div>
-              ))}
+                );
+              })}
             </FluidRow>
 
             {sortedHoldings.map((h) => {
@@ -1074,7 +1109,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   className={cn(cellBase, "tabular-nums font-semibold text-foreground")}
                   title={quoteAsOfTitle(h.quote)}
                 >
-                  {currency(listed.nativeSpot, listed.digits, listed.code)}
+                  <LiveFigure value={listed.nativeSpot}>{currency(listed.nativeSpot, listed.digits, listed.code)}</LiveFigure>
                 </div>
                 <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
                   {money(h.buyValue, 0)}
@@ -1089,7 +1124,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                     signedTone(h.roiPct)
                   )}
                 >
-                  {percent(h.roiPct)}
+                  {signedPercent(h.roiPct)}
                 </div>
                 <div
                   className={cn(
@@ -1098,9 +1133,9 @@ export const PortfolioTable = memo(function PortfolioTable({
                     signedTone(h.roiDollar)
                   )}
                 >
-                  {money(h.roiDollar, 0)}
+                  {signedMoney(h.roiDollar, 0)}
                 </div>
-                <div className={cellBase}>
+                <div className={cn(cellCenter, "pl-4")}>
                   <Sparkline
                     points={h.quote?.sparkline ?? []}
                     width={56}
@@ -1117,7 +1152,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   )}
                 >
                   {rowToday(h).pct != null
-                    ? percent(rowToday(h).pct!, 2)
+                    ? signedPercent(rowToday(h).pct!, 2)
                     : NO_VALUE}
                 </div>
                 <div
@@ -1130,7 +1165,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   )}
                 >
                   {rowToday(h).pct != null
-                    ? money(rowToday(h).dollar, 0)
+                    ? signedMoney(rowToday(h).dollar, 0)
                     : NO_VALUE}
                 </div>
                 {canSell ? (
@@ -1150,7 +1185,7 @@ export const PortfolioTable = memo(function PortfolioTable({
             })}
 
             <FluidRow footer className="border-t border-border font-semibold">
-              <div className={cn(tickerCell, "text-foreground")}>PORTFOLIO</div>
+              <div className={cn(tickerCell, "text-foreground")}>Portfolio</div>
               <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
                 100%
               </div>
@@ -1170,7 +1205,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   signedTone(totals.roiPct)
                 )}
               >
-                {percent(totals.roiPct)}
+                {signedPercent(totals.roiPct)}
               </div>
               <div
                 className={cn(
@@ -1179,7 +1214,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   signedTone(totals.roiDollar)
                 )}
               >
-                {money(totals.roiDollar, 0)}
+                {signedMoney(totals.roiDollar, 0)}
               </div>
               <div className={cellBase} />
               <div
@@ -1189,7 +1224,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   today.pct != null ? signedTone(today.pct) : "text-muted-foreground"
                 )}
               >
-                {today.pct != null ? percent(today.pct, 2) : NO_VALUE}
+                {today.pct != null ? signedPercent(today.pct, 2) : NO_VALUE}
               </div>
               <div
                 className={cn(
@@ -1198,7 +1233,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   today.pct != null ? signedTone(today.dollar) : "text-muted-foreground"
                 )}
               >
-                {today.pct != null ? money(today.dollar, 0) : NO_VALUE}
+                {today.pct != null ? signedMoney(today.dollar, 0) : NO_VALUE}
               </div>
               {canSell ? <div /> : null}
             </FluidRow>
