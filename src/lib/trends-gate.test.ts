@@ -42,7 +42,7 @@ describe("the one Lab tab that needs an account says so", () => {
   it("says what is missing in the product's own words", () => {
     expect(SRC).toMatch(/This part needs an account/);
     // And it does not leave the reader thinking the rest of Lab is shut.
-    expect(SRC).toMatch(/Everything else here answers on the sample/);
+    expect(SRC).toMatch(/Everything else in Lab answers on the sample/);
   });
 });
 

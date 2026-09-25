@@ -2850,7 +2850,7 @@ run("weakening trend names the 40-week average and the slope", () => {
   assert.ok(trend!.detail.length >= 2);
   const blob = trend!.detail.join(" ");
   assert.match(blob, /40-week/);
-  assert.match(blob, /↓/);
+  assert.match(blob, /down 1\.2%/);
   assert.match(blob, /8 weeks/);
   assert.match(blob, /45\.20|\$45/);
   for (const s of story.signals) {
@@ -3462,14 +3462,15 @@ run("the recent Pulse and briefing bugs stay gone", () => {
     join(process.cwd(), "src/components/ScenarioSimulator.tsx"),
     "utf8"
   );
-  assert.match(sim, /FluidTable/);
-  assert.match(sim, /tableCols\(5,/);
+  // One ranked list of bars, worst first, rather than a table and a card
+  // list restating the same eight holdings.
+  assert.match(sim, /data-damage-row/);
   assert.doesNotMatch(sim, /htmlTable/);
   assert.doesNotMatch(sim, /min-w-\[40rem\]/);
   assert.doesNotMatch(sim, /Price now/);
   assert.doesNotMatch(sim, /Value now/);
-  assert.match(sim, /<Stat/);
-  assert.match(sim, /label="Portfolio after this"/);
+  assert.doesNotMatch(sim, /title="Every holding"/);
+  assert.match(sim, /Portfolio after this/);
   /*
     A holding used to open a drawer of its own. It is gone, and a press on
     one goes to the company's own room, where this panel says what the

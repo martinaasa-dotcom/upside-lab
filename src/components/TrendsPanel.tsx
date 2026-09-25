@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -43,6 +42,7 @@ import {
 } from "@/lib/watchlist";
 import {
   AlertTriangle,
+  ChevronDown,
   Info,
   Minus,
   Plus,
@@ -149,7 +149,7 @@ function SignalCell({
 
 /** One holding's whole trend story: verdict on top, then the slow 40-week
  * read full-width and the four faster signals in a 2×2. */
-function TickerStoryCard({
+export function TickerStoryCard({
   row,
   isHolding,
 }: {
@@ -157,13 +157,21 @@ function TickerStoryCard({
   isHolding: boolean;
 }) {
   const story = useMemo(() => buildTrendStory(row), [row]);
+  /*
+    Open where something is changing, folded where it is not. Eight cards
+    of five readings each was about 3,600px on a phone, and the reader had
+    to read all forty readings to find the two that mattered; folded, the
+    quiet ones are one line each and the list is the order of attention.
+  */
+  const [open, setOpen] = useState(story.attention);
+  const bodyId = `trend-${row.ticker.replace(/[^A-Za-z0-9]/g, "")}`;
   const trend = story.signals.find((s) => s.key === "trend");
   const rest = story.signals.filter((s) => s.key !== "trend");
   const proxyName = indexProxyName(row.ticker);
 
   return (
-    <Card className="gap-0 border border-border shadow-lg shadow-black/40">
-      <CardHeader className="border-b">
+    <Card className="gap-0 overflow-hidden border border-border pb-0 shadow-lg shadow-black/40">
+      <CardHeader className="border-b pb-4">
         <CardTitle className="flex flex-wrap items-center gap-2">
           {cashtag(row.ticker)}
           {!isHolding ? <Badge variant="secondary">watching</Badge> : null}
@@ -176,15 +184,36 @@ function TickerStoryCard({
           {proxyName ? (
             <Badge variant="outline">this is the {proxyName}</Badge>
           ) : null}
-        </CardTitle>
-        <CardDescription>{story.sentence}</CardDescription>
-        <CardAction>
-          <Badge variant="outline" className={TONE_BADGE[story.tone]}>
+          {/*
+            The verdict sits beside the name rather than in a column of its
+            own: on a phone that column took a third of the card and folded
+            the sentence under it into a narrow strip of five lines.
+          */}
+          <Badge variant="outline" className={cn("ml-auto", TONE_BADGE[story.tone])}>
             <ToneIcon tone={story.tone} data-icon="inline-start" />
             {story.headline}
           </Badge>
-        </CardAction>
+        </CardTitle>
+        <CardDescription>{story.sentence}</CardDescription>
       </CardHeader>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={bodyId}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex w-full items-center justify-between gap-2 px-(--card-spacing) py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          open && "border-b"
+        )}
+      >
+        {open ? "Hide the readings" : "Show the five readings"}
+        <ChevronDown
+          className={cn("size-4 transition-transform duration-200 motion-reduce:duration-0", open && "rotate-180")}
+          aria-hidden
+        />
+      </button>
+      {open ? (
+      <div id={bodyId} role="region" aria-label={`${row.ticker} readings`}>
       <CardContent className="px-0">
         {trend ? <SignalCell signal={trend} /> : null}
         <div className="grid sm:grid-cols-2">
@@ -214,7 +243,53 @@ function TickerStoryCard({
           .
         </CardFooter>
       ) : null}
+      </div>
+      ) : null}
     </Card>
+  );
+}
+
+/**
+ * An illustration of what the tab reads, not a company: a long rise, the
+ * slow average under it, and the stretch where the price has fallen back
+ * through that average. Labelled as made up on its own face.
+ */
+function TrendIllustration() {
+  const pts = [
+    38, 40, 39, 43, 46, 45, 49, 53, 52, 57, 61, 60, 65, 70, 68, 73, 77, 76, 80, 83,
+    81, 84, 82, 79, 80, 76, 72, 74, 69, 66,
+  ];
+  const W = 300;
+  const H = 96;
+  const x = (i: number) => (i / (pts.length - 1)) * W;
+  const y = (v: number) => H - 6 - ((v - 34) / 54) * (H - 12);
+  const line = pts.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const avg = pts.map((_, i) => {
+    const from = Math.max(0, i - 7);
+    const slice = pts.slice(from, i + 1);
+    return slice.reduce((a, b) => a + b, 0) / slice.length;
+  });
+  const avgLine = avg.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const turn = 23;
+  return (
+    <figure className="flex flex-col gap-2">
+      <div className="relative">
+        <svg viewBox={`0 0 ${W} ${H}`} className="h-28 w-full" preserveAspectRatio="none" aria-hidden>
+          <rect x={x(turn)} y={0} width={W - x(turn)} height={H} className="fill-foreground/[0.04]" />
+          <path d={avgLine} fill="none" className="stroke-foreground/35" strokeWidth={1.5} strokeDasharray="4 4" vectorEffect="non-scaling-stroke" />
+          <path d={line} fill="none" className="stroke-primary" strokeWidth={2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        </svg>
+        {/* Anchored to the right edge, over the shaded stretch it names, so it never runs off the card. */}
+        <span className="absolute right-0 top-0 whitespace-nowrap rounded-full bg-background/80 px-2 py-0.5 text-xs text-foreground ring-1 ring-border">
+          The rise starts to slow
+        </span>
+      </div>
+      <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-4 rounded-full bg-primary" />Weekly close</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-4 border-t border-dashed border-foreground/35" />The slow average</span>
+        <span>An illustration, not a real company</span>
+      </figcaption>
+    </figure>
   );
 }
 
@@ -367,6 +442,31 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
     .sort((a, b) => (b.rs13 ?? 0) - (a.rs13 ?? 0));
   const proxyNote = indexProxyNote((rows ?? []).map((r) => r.ticker));
 
+  /*
+    The sample reader gets one panel, not two. It used to be an empty
+    header card with a second dashed card under it saying why it was
+    empty, which is two boxes for one sentence. What it shows instead is
+    what the tab reads, drawn as an illustration and labelled as one, so
+    the room still teaches its idea to somebody who has not signed in.
+  */
+  if (needsAccount) {
+    return (
+      <div className={PANEL_STACK}>
+        <Panel>
+          <PanelHeader
+            title="Is the trend changing?"
+            subtitle="For every company you own, four years of weekly closing prices, read for the moment a long rise starts to slow or a long fall starts to turn."
+          />
+          <TrendIllustration />
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            This part needs an account, because it reads each of your own
+            companies. Everything else in Lab answers on the sample.
+          </p>
+        </Panel>
+      </div>
+    );
+  }
+
   return (
     <div className={PANEL_STACK}>
       <Panel className="gap-3">
@@ -472,13 +572,6 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-
-      {needsAccount ? (
-        <EmptyState
-          title="This part needs an account"
-          detail="Reading four years of closes and working out whether a trend has turned is done for a signed-in reader, so it is the one thing in Lab the sample cannot show you. Everything else here answers on the sample."
-        />
-      ) : null}
 
       {!needsAccount && rows == null && !error && (
         <EmptyState title="Reading four years of weekly closing prices …" />

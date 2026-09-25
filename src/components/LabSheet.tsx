@@ -936,17 +936,7 @@ export const LabSheet = memo(function LabSheet({
         <Panel tone="plain" className="flex flex-col gap-4">
           <PanelHeader
             title="Do these move together?"
-            subtitle={
-              <>
-                How closely each pair has tracked each other over the last 90
-                days, up to 8 companies. Near{" "}
-                <span className="tabular-nums">+1</span> means they rise and
-                fall as one, so holding both spreads your money without
-                spreading your risk. Near{" "}
-                <span className="tabular-nums">0</span> means they drift
-                independently, which is what real diversification looks like.
-              </>
-            }
+            subtitle="How closely each pair tracked each other over the last 90 days. Near +1 they rise and fall as one, so owning both spreads your money without spreading your risk. Near 0 they go their own way."
           />
           {corrHeat.tickers.length < 2 ? (
             <p className="text-sm text-muted-foreground">
@@ -997,7 +987,7 @@ export const LabSheet = memo(function LabSheet({
                               c == null
                                 ? undefined
                                 : {
-                                    background: `color-mix(in oklch, var(--${c >= 0 ? "gain" : "loss"}) ${Math.round((0.18 + Math.abs(c) * 0.72) * 100)}%, transparent)`,
+                                    background: `color-mix(in oklch, var(--${c >= 0 ? "zone-warm" : "zone-cool"}) ${Math.round((0.08 + Math.abs(c) * 0.5) * 100)}%, transparent)`,
                                   }
                             }
                           >
@@ -1011,50 +1001,59 @@ export const LabSheet = memo(function LabSheet({
 
                 <div className="flex min-w-0 flex-col">
                   <p className="flex h-8 items-end pb-0.5 text-sm text-muted-foreground">
-                    Tightest pairs
+                    Strongest links
                   </p>
-                  <ul className="flex min-h-0 flex-1 flex-col gap-1">
-                    {corrPairs.map((c) => (
-                      <li
-                        key={`${c.a}-${c.b}`}
-                        className="flex flex-1 items-center justify-between gap-3 rounded-md border border-border px-2.5 text-sm"
-                      >
-                        <span className="truncate text-muted-foreground">
-                          {cashtag(c.a)} ↔ {cashtag(c.b)}
-                        </span>
-                        <span
-                          className={cn(
-                            "shrink-0 tabular-nums font-medium",
-                            c.corr >= 0.7
-                              ? "text-loss"
-                              : c.corr <= -0.3
-                                ? "text-gain"
-                                : "text-muted-foreground"
-                          )}
-                        >
-                          {Number.isFinite(c.corr) ? c.corr.toFixed(2) : NO_VALUE}
-                        </span>
-                      </li>
-                    ))}
+                  {/*
+                    A pair is a line from -1 to +1 with its mark on it,
+                    and a word for where the mark sits. Warm for together
+                    and cool for opposite, never the gain and loss pair:
+                    moving together is not a loss and moving apart is not
+                    a gain, and those two colours mean exactly that
+                    everywhere else in this app.
+                  */}
+                  <ul className="flex min-h-0 flex-1 flex-col gap-3">
+                    {corrPairs.map((c) => {
+                      const v = Number.isFinite(c.corr) ? Math.max(-1, Math.min(1, c.corr)) : 0;
+                      return (
+                        <li key={`${c.a}-${c.b}`} className="flex flex-col gap-1.5 text-sm">
+                          <span className="flex items-baseline justify-between gap-3">
+                            <span className="min-w-0 truncate font-medium text-foreground">
+                              {cashtag(c.a)} <span className="font-normal text-muted-foreground">and</span> {cashtag(c.b)}
+                            </span>
+                            <span className="shrink-0 font-mono tabular-nums text-foreground">
+                              {Number.isFinite(c.corr) ? (c.corr > 0 ? "+" : "") + c.corr.toFixed(2) : NO_VALUE}
+                            </span>
+                          </span>
+                          <span className="flex items-center gap-3">
+                            <span className="relative h-2 min-w-0 flex-1 rounded-full bg-foreground/[0.06]" aria-hidden>
+                              <span className="absolute inset-y-[-3px] left-1/2 w-px bg-foreground/25" />
+                              <span
+                                className="absolute inset-y-0 rounded-full"
+                                style={{
+                                  left: v >= 0 ? "50%" : `${50 - barFillPct(Math.abs(v) * 50, 0, 50)}%`,
+                                  width: `${barFillPct(Math.abs(v) * 50, 0, 50)}%`,
+                                  background: `var(--${v >= 0 ? "zone-warm" : "zone-cool"})`,
+                                  opacity: 0.35 + Math.abs(v) * 0.65,
+                                }}
+                              />
+                            </span>
+                            <span className="w-[9.5rem] shrink-0 text-xs text-muted-foreground">{pairWord(v)}</span>
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
-                  <span
-                    aria-hidden
-                    className="h-2.5 w-2.5 rounded-sm bg-gain"
-                  />
+                  <span aria-hidden className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--zone-warm)" }} />
                   Move together
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span
-                    aria-hidden
-                    className="h-2.5 w-2.5 rounded-sm bg-loss"
-                  />
+                  <span aria-hidden className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--zone-cool)" }} />
                   Move opposite
                 </span>
-                <span>The stronger the colour, the closer the link</span>
               </div>
             </div>
           )}
@@ -1065,6 +1064,16 @@ export const LabSheet = memo(function LabSheet({
     </div>
   );
 });
+
+/** Where a correlation sits, as a phrase. A description of the figure, never advice. */
+function pairWord(v: number): string {
+  if (v >= 0.7) return "Move almost as one";
+  if (v >= 0.4) return "Often move together";
+  if (v >= 0.15) return "Loosely linked";
+  if (v > -0.15) return "Go their own way";
+  if (v > -0.4) return "Lean opposite";
+  return "Often move opposite";
+}
 
 function AllocCard({
   title,
