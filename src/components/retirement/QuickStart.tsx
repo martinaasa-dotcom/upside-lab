@@ -78,20 +78,16 @@ import {
   type RetirementInputs,
 } from "@/lib/retirement/plan";
 import { REAL_RETURN_ASSUMPTIONS } from "@/lib/retirement/returns";
-import {
-  DETAIL_BLURB,
-  DETAIL_LABEL,
-  RETIREMENT_DETAILS,
-  type RetirementDetail,
-} from "@/lib/retirement/detail";
+import { AdjustChips } from "@/components/retirement/AdjustChips";
+import type { AdjustTopic } from "@/lib/retirement/adjust";
 import {
   RETIREMENT_TEMPLATES,
   templateById,
   templateFacts,
   type RetirementTemplateId,
 } from "@/lib/retirement/templates";
-import { planExtrasSentence, quickResultLine } from "@/lib/retirement/summary";
-import { Rocket, SlidersHorizontal, TrendingUp } from "lucide-react";
+import { quickResultLine } from "@/lib/retirement/summary";
+import { Rocket, TrendingUp } from "lucide-react";
 import { useId } from "react";
 
 type Patch = (next: Partial<RetirementInputs>) => void;
@@ -106,8 +102,10 @@ export function QuickStart({
   sheets = EMPTY_SHEETS,
   potSource = POT_SOURCE_BOOK,
   onPotSourceChange = () => {},
-  detail,
-  onDetailChange,
+  open,
+  onToggle,
+  planningAge,
+  swrPct,
   templateId,
   onTemplate,
   portfolioRatePct = null,
@@ -123,8 +121,11 @@ export function QuickStart({
   /** Which real portfolio, or `custom`, the pot field currently tracks. */
   potSource?: string;
   onPotSourceChange?: (source: string) => void;
-  detail: RetirementDetail;
-  onDetailChange: (next: RetirementDetail) => void;
+  /** Which editors are open under the card. */
+  open: readonly AdjustTopic[];
+  onToggle: (topic: AdjustTopic) => void;
+  planningAge: number;
+  swrPct: number;
   templateId: RetirementTemplateId | null;
   /**
    * A press names a whole new life. It is handed the id rather than a
@@ -157,17 +158,13 @@ export function QuickStart({
     `simple` those panels are not on the page and the reader would
     otherwise be arguing with a figure whose inputs they cannot see.
   */
-  const extras =
-    detail === "simple"
-      ? planExtrasSentence(inputs, (n) => currency(n, 0, region.currency))
-      : null;
 
   /*
     The world index wins a tie, the same way Compound's own rate preset
     breaks one: a portfolio whose blend happens to land on the world figure
     should not light "Your blend" and print a caveat over a number that is
     simply the market average. `custom` covers both a figure typed in here
-    and the exact bond/cash/fee editing `ReturnsPanel` offers at "More",
+    and the exact bond/cash/fee editing `ReturnsPanel` offers under its own chip,
     which is the only way the equity figure moves without matching either
     preset.
   */
@@ -184,51 +181,8 @@ export function QuickStart({
       <PanelHeader
         icon={<Rocket className="h-4 w-4" />}
         title="Start here"
-        subtitle="Pick the life closest to yours, then fix the few figures that are actually yours."
+        subtitle="Pick the life closest to yours, fix the figures only you know, and tick anything else you want to change."
       />
-
-      {/*
-        THE FIRST DECISION ON THE PAGE, BEFORE ANYTHING ELSE CAN BE PRESSED.
-        It used to sit at the foot of this card, under eight templates and
-        six fields, which put it in the one spot where pressing it felt like
-        it was reacting to everything above rather than setting the stage
-        for it. Levelling up used to also duplicate fields already answered
-        here (the country, the ages, the pot) into a second, near-identical
-        card below with nothing on screen saying the two were the same
-        question — a reader who corrected one had no way to know the other
-        still held the old figure. `PlanInputs` no longer asks anything this
-        card already asks, so a level change now only ever adds panels this
-        card has not touched.
-      */}
-      <div className="flex flex-col gap-3">
-        <MicroLabel>
-          <span className="inline-flex items-center gap-1.5">
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            How much of it you want to see
-          </span>
-        </MicroLabel>
-        {/*
-          Full width with a column per level rather than a compact toggle
-          beside the label. Compact cells are `flex-1` from a zero basis,
-          so they divide whatever the row has left equally and the longest
-          label is the one that loses: measured at every width from 360 to
-          1280, "Everything" was clipped by 3px while "Simple" sat in space
-          it did not need.
-        */}
-        <Segmented<RetirementDetail>
-          options={RETIREMENT_DETAILS.map((id) => ({
-            id,
-            label: DETAIL_LABEL[id],
-          }))}
-          value={detail}
-          columns={3}
-          ariaLabel="How much of it you want to see"
-          onChange={onDetailChange}
-        />
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {DETAIL_BLURB[detail]}
-        </p>
-      </div>
 
       <div className="flex flex-col gap-3">
         <MicroLabel>Pick a starting point</MicroLabel>
@@ -259,7 +213,7 @@ export function QuickStart({
                 onClick={() => onTemplate(template.id)}
                 className={cn(
                   CARD,
-                  "veil-hover flex min-w-0 flex-col gap-1.5 border-2 p-4 text-left transition-colors",
+                  "veil-hover flex min-w-0 flex-col gap-1 border-2 px-3.5 py-3 text-left transition-colors",
                   /*
                     A real `border`, not a ring and not an outline. `ring-*`
                     is a box-shadow utility and `.glass-well` sets
@@ -289,14 +243,17 @@ export function QuickStart({
                     : "border-transparent hover:border-border"
                 )}
               >
-                <span className="text-base font-semibold text-foreground">
+                <span className="text-sm font-semibold text-foreground">
                   {template.label}
                 </span>
-                <span className="font-mono text-xs tabular-nums text-muted-foreground/80">
+                {/*
+                  The facts only. Each card used to carry its own paragraph
+                  as well, eight of them side by side, which made the one
+                  choice on this card read as an essay; the paragraph for
+                  the life that is chosen is printed once, under the grid.
+                */}
+                <span className="truncate font-mono text-xs tabular-nums text-muted-foreground/80">
                   {templateFacts(template).join(" · ")}
-                </span>
-                <span className="text-sm leading-relaxed text-muted-foreground">
-                  {template.blurb}
                 </span>
               </button>
             );
@@ -313,89 +270,12 @@ export function QuickStart({
         <p className="text-xs leading-relaxed text-muted-foreground">
           {chosen ? (
             <>
-              Every figure on this page is worked from the{" "}
-              <span className="text-foreground">{chosen.label}</span> plan
-              until you change it. Correct what is yours below.
+              <span className="text-foreground">{chosen.label}</span>:{" "}
+              {chosen.blurb} Every figure below starts from this life until
+              you change it.
             </>
           ) : (
             "A template is a starting point, not a guess about you. Every figure it fills in is visible and changeable."
-          )}
-        </p>
-      </div>
-
-      {/*
-        WHAT THE MONEY EARNS, AS A QUICK TOGGLE, EVEN AT THE SIMPLEST LEVEL.
-        This used to be buried in a panel at the foot of the page, behind
-        the deepest detail level, so almost nobody who was not already
-        looking for it ever saw what the whole plan assumed shares earn.
-        It is one of the two biggest levers here (the retirement age is the
-        other), so it gets the same weight as the templates: a toggle
-        rather than a field, defaulting to the reader's own blend the
-        moment one is available (`RetirementSheet`'s one-shot pre-fill).
-        Typing an exact figure, splitting bonds and cash out on their own,
-        or a mix that shifts more than twice over a life is still one
-        press away at "More".
-      */}
-      <div className="flex flex-col gap-3">
-        <MicroLabel>
-          <span className="inline-flex items-center gap-1.5">
-            <TrendingUp className="h-3.5 w-3.5" />
-            What your money earns
-          </span>
-        </MicroLabel>
-        {portfolioRatePct != null ? (
-          <Segmented<"world" | "blend">
-            options={[
-              {
-                id: "world",
-                label: `World index, ${REAL_RETURN_ASSUMPTIONS.equityPct}%`,
-              },
-              {
-                id: "blend",
-                label: `Your blend, ${portfolioRatePct.toFixed(1)}%`,
-              },
-            ]}
-            value={ratePreset === "custom" ? null : ratePreset}
-            columns={2}
-            ariaLabel="What your money earns"
-            onChange={(id) =>
-              patch({
-                returns: {
-                  ...inputs.returns,
-                  equityPct:
-                    id === "blend" ? portfolioRatePct : REAL_RETURN_ASSUMPTIONS.equityPct,
-                },
-              })
-            }
-          />
-        ) : null}
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {ratePreset === "blend" ? (
-            <>
-              What your own holdings have usually returned, real: about{" "}
-              <span className="font-mono tabular-nums text-foreground">
-                {inputs.returns.equityPct.toFixed(1)}%
-              </span>{" "}
-              a year. Treat it as optimistic rather than a safe planning
-              assumption.
-            </>
-          ) : ratePreset === "world" ? (
-            <>
-              The world stock index&apos;s long run real return,{" "}
-              <span className="font-mono tabular-nums text-foreground">
-                {REAL_RETURN_ASSUMPTIONS.equityPct}%
-              </span>{" "}
-              a year. What the plan assumes shares earn, after inflation.
-            </>
-          ) : (
-            <>
-              Your own figure,{" "}
-              <span className="font-mono tabular-nums text-foreground">
-                {inputs.returns.equityPct.toFixed(1)}%
-              </span>{" "}
-              a year. Bonds, cash, fees, and how the mix shifts as you age
-              are at &quot;More&quot;, above.
-            </>
           )}
         </p>
       </div>
@@ -550,19 +430,91 @@ export function QuickStart({
         )}
       </div>
 
-      {extras ? (
+      {/*
+        WHAT THE MONEY EARNS, AS A QUICK TOGGLE, EVEN AT THE SIMPLEST LEVEL.
+        This used to be buried in a panel at the foot of the page, behind
+        the deepest detail level, so almost nobody who was not already
+        looking for it ever saw what the whole plan assumed shares earn.
+        It is one of the two biggest levers here (the retirement age is the
+        other), so it gets the same weight as the templates: a toggle
+        rather than a field, defaulting to the reader's own blend the
+        moment one is available (`RetirementSheet`'s one-shot pre-fill).
+        Typing an exact figure, splitting bonds and cash out on their own,
+        or a mix that shifts more than twice over a life is still one
+        press away on the "Returns and mix" chip.
+      */}
+      <div className="flex flex-col gap-3">
+        <MicroLabel>
+          <span className="inline-flex items-center gap-1.5">
+            <TrendingUp className="h-3.5 w-3.5" />
+            What your money earns
+          </span>
+        </MicroLabel>
+        {portfolioRatePct != null ? (
+          <Segmented<"world" | "blend">
+            options={[
+              {
+                id: "world",
+                label: `World index, ${REAL_RETURN_ASSUMPTIONS.equityPct}%`,
+              },
+              {
+                id: "blend",
+                label: `Your blend, ${portfolioRatePct.toFixed(1)}%`,
+              },
+            ]}
+            value={ratePreset === "custom" ? null : ratePreset}
+            columns={2}
+            ariaLabel="What your money earns"
+            onChange={(id) =>
+              patch({
+                returns: {
+                  ...inputs.returns,
+                  equityPct:
+                    id === "blend" ? portfolioRatePct : REAL_RETURN_ASSUMPTIONS.equityPct,
+                },
+              })
+            }
+          />
+        ) : null}
         <p className="text-sm leading-relaxed text-muted-foreground">
-          {extras}{" "}
-          <button
-            type="button"
-            className="underline underline-offset-2 hover:text-foreground"
-            onClick={() => onDetailChange("more")}
-          >
-            Change any of it
-          </button>
-          .
+          {ratePreset === "blend" ? (
+            <>
+              What your own holdings have usually returned, real: about{" "}
+              <span className="font-mono tabular-nums text-foreground">
+                {inputs.returns.equityPct.toFixed(1)}%
+              </span>{" "}
+              a year. Treat it as optimistic rather than a safe planning
+              assumption.
+            </>
+          ) : ratePreset === "world" ? (
+            <>
+              The world stock index&apos;s long run real return,{" "}
+              <span className="font-mono tabular-nums text-foreground">
+                {REAL_RETURN_ASSUMPTIONS.equityPct}%
+              </span>{" "}
+              a year. What the plan assumes shares earn, after inflation.
+            </>
+          ) : (
+            <>
+              Your own figure,{" "}
+              <span className="font-mono tabular-nums text-foreground">
+                {inputs.returns.equityPct.toFixed(1)}%
+              </span>{" "}
+              a year. Bonds, cash, fees, and how the mix shifts as you age
+              are under &quot;Returns and mix&quot;, at the foot of this card.
+            </>
+          )}
         </p>
-      ) : null}
+      </div>
+
+      <AdjustChips
+        inputs={inputs}
+        open={open}
+        onToggle={onToggle}
+        money={(n) => currency(n, 0, region.currency)}
+        planningAge={planningAge}
+        swrPct={swrPct}
+      />
     </Panel>
   );
 }

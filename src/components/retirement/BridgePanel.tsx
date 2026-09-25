@@ -28,14 +28,17 @@ import {
 } from "@/lib/retirement/swr";
 import type { PlanResult, RetirementInputs } from "@/lib/retirement/plan";
 import { Route } from "lucide-react";
+import { TopicClose } from "@/components/retirement/AdjustChips";
 import { useMemo, useState } from "react";
 
 export function BridgePanel({
   inputs,
   plan,
+  onClose,
 }: {
   inputs: RetirementInputs;
   plan: PlanResult;
+  onClose?: () => void;
 }) {
   const code = currencyCodeFor(plan.currency);
   /*
@@ -79,8 +82,10 @@ export function BridgePanel({
   const implied = impliedFirstYearRate(draw, pot);
 
   return (
-    <Panel>
+    <Panel className="relative">
+      {onClose ? <TopicClose topic="bridge" onClose={onClose} /> : null}
       <PanelHeader
+        className={onClose ? "pr-10" : undefined}
         icon={<Route className="h-4 w-4" />}
         title="A pot meant to run out"
         subtitle="For a stretch with an end date: the years before a pension starts, a career break, anything with a fixed length."

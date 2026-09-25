@@ -35,7 +35,6 @@ import { Button } from "@/components/ui/button";
 import { barFillPct, cn, currency } from "@/lib/format";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
-import { atLeast, type RetirementDetail } from "@/lib/retirement/detail";
 import type { PlanResult, RetirementInputs } from "@/lib/retirement/plan";
 import type { Provenance } from "@/lib/provenance";
 import { RETIREMENT_RESULTS_ID } from "@/lib/retirement/dom-ids";
@@ -89,13 +88,14 @@ export function NumberPanel({
   patch,
   plan,
   provenance,
-  detail,
+  showWorking,
 }: {
   inputs: RetirementInputs;
   patch: (next: Partial<RetirementInputs>) => void;
   plan: PlanResult;
   provenance: Provenance;
-  detail: RetirementDetail;
+  /** The "How it is worked out" chip is ticked: show the arithmetic here. */
+  showWorking: boolean;
 }) {
   const code = plan.currency;
   const { swr } = plan.required;
@@ -110,8 +110,7 @@ export function NumberPanel({
     its own headline.
   */
   const onCash = plan.required.basis === "spendDown";
-  const showWorking = atLeast(detail, "more");
-  const showRateBuild = atLeast(detail, "everything");
+  const showRateBuild = showWorking;
 
   return (
     <Panel>

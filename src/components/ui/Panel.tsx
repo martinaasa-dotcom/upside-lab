@@ -1265,7 +1265,14 @@ export function Segmented<T extends string>({
             value={o.id}
             title={o.title}
             className={cn(
-              "min-w-0 flex-1 px-1.5",
+              /*
+                Each cell sized from its own label, then sharing whatever
+                the row has left. `flex-1` started every cell from zero and
+                split the row equally, so the longest label was the one
+                that ran out of room: "Comfortable" sat flush against the
+                well's edge with its padding eaten.
+              */
+              "min-w-0 flex-auto px-2",
               SEGMENTED_ITEM,
               "touch-target md:min-h-0 md:min-w-0"
             )}

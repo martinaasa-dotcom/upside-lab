@@ -62,13 +62,16 @@ import {
 import { FX_REFERENCE_MONTH, regionById, UK_COST_ANCHORS } from "@/lib/retirement/regions";
 import type { RetirementInputs } from "@/lib/retirement/plan";
 import { SlidersVertical } from "lucide-react";
+import { TopicClose } from "@/components/retirement/AdjustChips";
 
 export function ReturnsPanel({
   inputs,
   patch,
+  onClose,
 }: {
   inputs: RetirementInputs;
   patch: (next: Partial<RetirementInputs>) => void;
+  onClose?: () => void;
 }) {
   const sorted = [...inputs.glide].sort((a, b) => a.fromAge - b.fromAge);
 
@@ -78,8 +81,10 @@ export function ReturnsPanel({
     });
 
   return (
-    <Panel>
+    <Panel className="relative">
+      {onClose ? <TopicClose topic="returns" onClose={onClose} /> : null}
       <PanelHeader
+        className={onClose ? "pr-10" : undefined}
         icon={<SlidersVertical className="h-4 w-4" />}
         title="What the money earns"
         subtitle="Real returns, after inflation, and how much of it is in shares by age. That is why there is no separate inflation field."
@@ -274,11 +279,19 @@ export function ReturnsPanel({
  * panel that is documentation rather than a lever, so it stays at the
  * `everything` level, further down the page than `ReturnsPanel`.
  */
-export function AssumptionsPanel({ inputs }: { inputs: RetirementInputs }) {
+export function AssumptionsPanel({
+  inputs,
+  onClose,
+}: {
+  inputs: RetirementInputs;
+  onClose?: () => void;
+}) {
   const region = regionById(inputs.regionId);
   return (
-    <Panel>
+    <Panel className="relative">
+      {onClose ? <TopicClose topic="working" onClose={onClose} /> : null}
       <PanelHeader
+        className={onClose ? "pr-10" : undefined}
         icon={<SlidersVertical className="h-4 w-4" />}
         title="Where the reference figures came from"
         subtitle="Approximate, a year or two old, and every one is a field you can overwrite above."

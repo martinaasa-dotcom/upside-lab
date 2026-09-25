@@ -33,6 +33,7 @@ import {
 } from "@/lib/retirement/longevity";
 import type { RetirementInputs } from "@/lib/retirement/plan";
 import { HeartPulse } from "lucide-react";
+import { TopicClose } from "@/components/retirement/AdjustChips";
 import { useMemo } from "react";
 
 const W = 720;
@@ -240,6 +241,7 @@ export function LongevityPanel({
   result,
   planningAge,
   showControls,
+  onClose,
 }: {
   inputs: RetirementInputs;
   patch: (next: Partial<RetirementInputs>) => void;
@@ -247,18 +249,22 @@ export function LongevityPanel({
   planningAge: number;
   /*
     The curve and the four ages are the lesson and cost the reader nothing
-    to read, so they are on the page at every detail level. The three
+    to read, so they are on the page whatever is ticked. The three
     controls under them, including which published life expectancy the
     curve is fitted to, are the only part anybody has to have an opinion
     about, and a reader who has not asked for dials does not need to be
     handed a mortality improvement rate to set.
   */
   showControls: boolean;
+  /** Unticks "How long it lasts". Present only while the dials are open. */
+  onClose?: () => void;
 }) {
   const usingSuggestion = inputs.planningAge == null;
   return (
-    <Panel>
+    <Panel className="relative">
+      {onClose ? <TopicClose topic="lifespan" onClose={onClose} /> : null}
       <PanelHeader
+        className={onClose ? "pr-10" : undefined}
         icon={<HeartPulse className="h-4 w-4" />}
         title="How long the money has to last"
         subtitle="Not your life expectancy. Half of people outlive it, so this plans further out."
