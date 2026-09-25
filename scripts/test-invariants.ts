@@ -2769,7 +2769,7 @@ run("movers are compact tiles, not a stretched table or sparkline", () => {
   assert.doesNotMatch(row, /Sparkline/);
   assert.doesNotMatch(src, /MOVER_GRID/);
   assert.doesNotMatch(row, /8\.5rem/);
-  assert.match(row, /percent\(pct/);
+  assert.match(row, /[pP]ercent\(pct/);
   // `tileMoney` is `signedCurrency` with one case in front of it: a move
   // that rounds away says "Under $1" rather than "$0", which on a tile
   // reads as a figure that failed to load.
