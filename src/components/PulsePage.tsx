@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { track } from "@vercel/analytics";
+import { MarketVsYou } from "@/components/MarketVsYou";
 import { cashtag, cn, currency, percent, plural, signedCurrency, signedPercent, signedTone } from "@/lib/format";
 import {
   EmptyState,
@@ -1274,12 +1275,18 @@ export const PulsePage = memo(function PulsePage({
       marketOrYou({
         marketPct: indexQuote ? (indexQuote.changePercent ?? null) : null,
         yoursPct: model.totals.todayPct,
+        /*
+          The day's move, never the after-hours one: the index figure it is
+          set against is the regular session's, and comparing a company's
+          evening drift with the market's whole day named the wrong
+          companies as having done something on their own.
+        */
         holdings: candidates
           .filter((c) => c.inBook)
           .map((c) => ({
             ticker: c.ticker,
             label: cashtag(c.ticker),
-            todayPct: c.effectivePct,
+            todayPct: c.regularPct ?? c.effectivePct,
           })),
       }),
     [indexQuote, model.totals.todayPct, candidates]
@@ -1299,11 +1306,24 @@ export const PulsePage = memo(function PulsePage({
       candidates
         .filter((c) => c.inBook)
         .map((c) => ({
-          todayPct: c.effectivePct,
+          // The day's move, like the picture and the market line above it.
+          todayPct: c.regularPct ?? c.effectivePct,
           typical: typicalByTicker[c.ticker.toUpperCase()] ?? null,
         }))
     );
   }, [summary, candidates, typicalByTicker]);
+
+  const swarmHoldings = useMemo(
+    () =>
+      candidates
+        .filter((c) => c.inBook)
+        .map((c) => ({
+          ticker: c.ticker,
+          label: cashtag(c.ticker),
+          todayPct: c.regularPct ?? c.effectivePct,
+        })),
+    [candidates]
+  );
 
   const marketLine = marketOrYouLine(marketSplit, MARKET_INDEX_NAME, (n) =>
     percent(n)
@@ -1748,6 +1768,15 @@ export const PulsePage = memo(function PulsePage({
 
         {dayStory || marketLine || standouts || mood ? (
           <div className={cn("flex flex-col gap-3 glass-well rounded-lg", NESTED_PAD)}>
+            {marketSplit && swarmHoldings.length > 0 ? (
+              <div className="mb-3">
+                <MarketVsYou
+                  split={marketSplit}
+                  holdings={swarmHoldings}
+                  marketName={MARKET_INDEX_NAME}
+                />
+              </div>
+            ) : null}
             {dayStory ? (
               <p className="text-base font-medium leading-relaxed text-foreground">
                 {humanizeMargusText(dayStory)}

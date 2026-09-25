@@ -144,3 +144,90 @@ export function standoutLine(
       : "";
   return `${list} did something the market did not.${tail}`;
 }
+
+/**
+ * Where each mark sits on the "market against you" picture, and on which
+ * lane, so no two chips are drawn over each other.
+ *
+ * Positions are fractions of the track (0 is the left edge, 0.5 is no
+ * move, 1 the right edge), on a scale symmetric about zero and wide
+ * enough for the biggest move, the market's and the reader's own, with a
+ * floor so an ordinary quiet day is not stretched until a tenth of a
+ * point looks like a crash. Lanes are handed out greedily, left to right,
+ * in PIXELS: a chip takes the first lane whose last chip ends at least a
+ * gap before it starts. A fraction of the track cannot do this, because a
+ * chip is the same width on a phone and a laptop while the track is not:
+ * the first version spaced them by a tenth of the track and printed
+ * "$DI$MSFT" on a 390px phone. Pure, so the picture is tested rather than
+ * eyeballed.
+ */
+export type SwarmMark = {
+  ticker: string;
+  label: string;
+  pct: number;
+  /** 0..1 along the track. */
+  x: number;
+  lane: number;
+  standout: boolean;
+};
+
+/** A chip's drawn width, from its text: 12px mono is about 7.2px a glyph. */
+export function swarmChipWidth(label: string, standout: boolean, pctText = "+0.0%"): number {
+  const glyphs = label.length + (standout ? pctText.length + 1 : 0);
+  return Math.ceil(glyphs * 7.3 + 22);
+}
+
+export function swarmLayout(
+  split: MarketOrYou,
+  holdings: { ticker: string; label: string; todayPct: number | null }[],
+  opts: { trackPx?: number; gapPx?: number; floorPct?: number; pctText?: (n: number) => string } = {}
+): { marks: SwarmMark[]; lanes: number; scalePct: number; xOf: (pct: number) => number } {
+  const trackPx = Math.max(120, opts.trackPx ?? 800);
+  const gapPx = opts.gapPx ?? 6;
+  const floorPct = opts.floorPct ?? 0.02;
+  const pctText = opts.pctText ?? ((n: number) => `${n >= 0 ? "+" : "-"}${(Math.abs(n) * 100).toFixed(1)}%`);
+  const known = holdings.filter(
+    (h): h is { ticker: string; label: string; todayPct: number } =>
+      h.todayPct != null && Number.isFinite(h.todayPct)
+  );
+  const biggest = Math.max(
+    floorPct,
+    Math.abs(split.marketPct),
+    Math.abs(split.yoursPct),
+    ...known.map((h) => Math.abs(h.todayPct))
+  );
+  // Air past the biggest move so its chip is not on the rim.
+  const scalePct = biggest * 1.15;
+  const standoutSet = new Set(split.standouts.map((s) => s.ticker));
+  /*
+    A chip is centred on its move, so the track's usable span is inset by
+    half the widest chip either side; otherwise the biggest move draws
+    half a chip past the edge of the card.
+  */
+  const widest = Math.max(
+    40,
+    ...known.map((h) => swarmChipWidth(h.label, standoutSet.has(h.ticker), pctText(h.todayPct)))
+  );
+  const edge = Math.min(0.3, widest / 2 / trackPx);
+  const xOf = (pct: number) => {
+    const raw = 0.5 + (pct / scalePct) * 0.5;
+    return Math.min(1 - edge, Math.max(edge, raw));
+  };
+  const sorted = [...known].sort((a, b) => a.todayPct - b.todayPct);
+  const laneEnds: number[] = [];
+  const marks: SwarmMark[] = sorted.map((h) => {
+    const standout = standoutSet.has(h.ticker);
+    const x = xOf(h.todayPct);
+    const w = swarmChipWidth(h.label, standout, pctText(h.todayPct));
+    const left = x * trackPx - w / 2;
+    let lane = laneEnds.findIndex((end) => left - end >= gapPx);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(left + w);
+    } else {
+      laneEnds[lane] = left + w;
+    }
+    return { ticker: h.ticker, label: h.label, pct: h.todayPct, x, lane, standout };
+  });
+  return { marks, lanes: Math.max(1, laneEnds.length), scalePct, xOf };
+}

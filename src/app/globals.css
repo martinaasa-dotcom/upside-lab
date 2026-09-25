@@ -1573,6 +1573,36 @@ button:disabled,
     animation: none;
   }
 }
+/*
+ * Pulse's "market against you" picture (`MarketVsYou`). On arrival each
+ * chip travels out from the middle of the track to its own move, which is
+ * the picture explaining itself once. `left` with no `to` frame animates
+ * to the chip's own inline position.
+ */
+@keyframes swarm-in {
+  from {
+    left: 50%;
+    opacity: 0;
+  }
+}
+.swarm-chip {
+  animation: swarm-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes swarm-line-in {
+  from {
+    opacity: 0;
+    transform: scaleY(0.2);
+  }
+}
+.swarm-line {
+  animation: swarm-line-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .swarm-chip,
+  .swarm-line {
+    animation: none;
+  }
+}
 
 .overview-pulse {
   animation: overview-pulse-soft 2.8s ease-in-out infinite;
