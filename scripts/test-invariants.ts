@@ -4878,8 +4878,8 @@ run("Pulse can price a bare EU ETF like VUAA", () => {
    * at any size; the old `rounded-xl` / `rounded-lg` pair was arithmetic
    * (12 - 4 = 8) and this needs none.
    *
-   * The accent is spent on news rather than on where you are: the only
-   * saturated pixel left on the bar is the alert dot.
+   * The accent is not spent on where you are, and since 2026-09-25 not on
+   * a dot over Home either: the bar carries no saturated pixel at all.
    */
   assert.match(dock, /rounded-full/);
   // The marker is `DockMarker`, shared with the laptop bar; its fill is

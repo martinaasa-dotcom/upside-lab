@@ -1,7 +1,7 @@
 "use client";
 
 import { track } from "@vercel/analytics";
-import { htmlCell, htmlTable } from "@/components/FluidTable";
+import { htmlCellText, htmlTable } from "@/components/FluidTable";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -458,12 +458,12 @@ function ChatMarkdown({ children }: { children: string }) {
             <tr className="border-t border-border first:border-t-0">{c}</tr>
           ),
           th: ({ children: c }) => (
-            <th className={`${htmlCell} whitespace-nowrap font-medium`}>
+            <th className={`${htmlCellText} whitespace-nowrap font-medium`}>
               {c}
             </th>
           ),
           td: ({ children: c }) => (
-            <td className={`${htmlCell} break-words tabular-nums text-foreground`}>
+            <td className={`${htmlCellText} break-words tabular-nums text-foreground`}>
               {c}
             </td>
           ),

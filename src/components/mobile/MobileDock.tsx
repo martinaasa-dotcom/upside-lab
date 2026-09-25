@@ -15,11 +15,9 @@ import { useHiddenMetaTabIds } from "@/lib/use-hidden-meta-tabs";
  */
 export function MobileDock({
   active,
-  alertCount,
   hiddenModeIds,
 }: {
   active: MobileTabId | null;
-  alertCount?: number;
   /** Omit it. Defaults to this viewer's tier, which every page must agree on. */
   hiddenModeIds?: string[];
 }) {
@@ -27,7 +25,6 @@ export function MobileDock({
   return (
     <MobileTabBar
       active={active}
-      alertCount={alertCount}
       hiddenModeIds={hiddenModeIds ?? tierHidden}
     />
   );

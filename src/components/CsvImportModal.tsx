@@ -161,7 +161,7 @@ export function CsvImportModal({
   const mixedListings = listingCurrenciesAreMixed(
     rows.map((r) => ({ ticker: r.ticker }))
   );
-  const tickerTd = mixedListings ? htmlCellTicker : htmlCell;
+  const tickerTd = htmlCellTicker;
 
   return (
     <ViewportOverlay
@@ -307,13 +307,13 @@ export function CsvImportModal({
                   sideways instead of pushing the modal past the viewport. */}
               <div className="max-h-48 overflow-x-auto overflow-y-auto card-sheen glass-well rounded-lg">
                 <table className={htmlTable}>
-                  <thead className="glass-well sticky top-0 text-sm text-muted-foreground">
+                  <thead className="glass-well sticky top-0 font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
                     <tr>
-                      <th className={cn(tickerTd, "py-1.5 font-medium")}>Ticker</th>
-                      <th className={cn(htmlCell, "py-1.5 font-medium")}>Shares</th>
-                      <th className={cn(htmlCell, "py-1.5 font-medium")}>Buy price</th>
+                      <th className={cn(tickerTd, "py-1.5")}>Ticker</th>
+                      <th className={cn(htmlCell, "py-1.5")}>Shares</th>
+                      <th className={cn(htmlCell, "py-1.5")}>Buy price</th>
                       {!hideCallPct && (
-                        <th className={cn(htmlCell, "py-1.5 font-medium")}>Call %</th>
+                        <th className={cn(htmlCell, "py-1.5")}>Call %</th>
                       )}
                     </tr>
                   </thead>

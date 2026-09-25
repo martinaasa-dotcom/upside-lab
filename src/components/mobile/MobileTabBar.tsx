@@ -174,13 +174,11 @@ type Said = { label: string; left: number };
 
 export function MobileTabBar({
   active,
-  alertCount = 0,
   className,
   hiddenModeIds = [],
   attentionCue,
 }: {
   active: MobileTabId | null;
-  alertCount?: number;
   className?: string;
   hiddenModeIds?: string[];
   /**
@@ -309,14 +307,6 @@ export function MobileTabBar({
                   strokeWidth={on ? 2.5 : 1.75}
                   aria-hidden
                 />
-                {/*
-                  The one saturated pixel left on the bar. The accent is not
-                  spent on which room you are in, because that is the least
-                  surprising fact on the screen; it is spent on news.
-                */}
-                {id === "home" && alertCount > 0 && !on && (
-                  <span className="absolute -top-0.5 -right-1 h-1.5 w-1.5 rounded-full bg-primary" />
-                )}
               </span>
             </Link>
           );

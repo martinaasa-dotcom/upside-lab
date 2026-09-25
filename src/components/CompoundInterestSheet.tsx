@@ -44,7 +44,7 @@ import {
   type DisplayCurrency,
   type EurUsdQuote,
 } from "@/lib/display-currency";
-import { htmlCell, htmlTable } from "@/components/FluidTable";
+import { htmlCell, htmlCellText, htmlHeadRow, htmlTable } from "@/components/FluidTable";
 import { FormattedNumberInput } from "@/components/FormattedNumberInput";
 import {
   ArrowUpRight,
@@ -1760,63 +1760,38 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
               <ChevronRight className="size-4 shrink-0 transition-transform group-open:rotate-90" />
               Show every year as a table
             </summary>
-            <div className="mt-3 flex flex-col gap-3 border-t border-border pt-3 md:hidden">
-              {result.yearly.map((row, i) => {
-                const isLast = i === result.yearly.length - 1;
-                const principalShown = row.balance - row.accruedInterest;
-                return (
-                  <div
-                    key={row.index}
-                    className={cn(
-                      "rounded-lg border border-border bg-card px-3 py-3",
-                      isLast && "ring-1 ring-ring/30"
-                    )}
-                  >
-                    <p className="text-sm font-medium text-foreground">
-                      {row.label}
-                    </p>
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Your money in</p>
-                        <p className="tabular-nums text-muted-foreground">
-                          {show(principalShown)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Growth that year</p>
-                        <p className="tabular-nums text-gain">
-                          {show(row.interest)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Growth by then</p>
-                        <p className="tabular-nums text-gain">
-                          {show(row.accruedInterest)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Pot at year end</p>
-                        <p className="tabular-nums font-semibold text-gain">
-                          {show(row.balance)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-3 hidden min-w-0 max-w-full overflow-x-auto border-t border-border pt-3 md:block">
-              <table className={cn(htmlTable, "min-w-[32rem]")}>
+            {/*
+              One table at every width. A phone used to get a card per year,
+              four labelled figures each, so thirty years was thirty cards
+              and a reader could not compare year five with year twenty
+              without scrolling between them, which is the one thing this
+              table is for. The phone drops the running total of growth,
+              which is the pot less the money in and so is on the row
+              already, and keeps the other three as columns.
+
+              No coloured column washes: green in this app means money
+              made, and the growth figures already carry it. The pot is the
+              answer, so it is the one column set in the foreground.
+            */}
+            <div className="mt-3 min-w-0 max-w-full overflow-x-auto border-t border-border pt-3">
+              <table className={htmlTable}>
                 <thead>
-                  <tr className="border-b border-border text-sm text-muted-foreground">
-                    <th className={cn(htmlCell, "font-medium")}>Year</th>
-                    <th className={cn(htmlCell, "font-medium")}>Your money in</th>
-                    <th className={cn(htmlCell, "font-medium")}>Growth that year</th>
-                    <th className={cn(htmlCell, "bg-gain/15 font-medium text-gain")}>
+                  <tr className={htmlHeadRow}>
+                    <th className={htmlCellText}>Year</th>
+                    <th className={htmlCell}>
+                      <span className="hidden sm:inline">Your money in</span>
+                      <span className="sm:hidden">Money in</span>
+                    </th>
+                    <th className={htmlCell}>
+                      <span className="hidden sm:inline">Growth that year</span>
+                      <span className="sm:hidden">Growth</span>
+                    </th>
+                    <th className={cn(htmlCell, "hidden md:table-cell")}>
                       Growth by then
                     </th>
-                    <th className={cn(htmlCell, "bg-gain/10 font-medium text-gain")}>
-                      Pot at year end
+                    <th className={htmlCell}>
+                      <span className="hidden sm:inline">Pot at year end</span>
+                      <span className="sm:hidden">Pot</span>
                     </th>
                   </tr>
                 </thead>
@@ -1828,21 +1803,23 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
                       <tr
                         key={row.index}
                         className={cn(
-                          "border-b border-border transition hover:bg-hover/30",
-                          isLast && "bg-accent/20 font-semibold text-foreground"
+                          "border-b border-border/50 transition hover:bg-hover last:border-0",
+                          isLast && "font-semibold"
                         )}
                       >
-                        <td className={cn(htmlCell, "text-muted-foreground")}>{row.label}</td>
-                        <td className={cn(htmlCell, "tabular-nums text-muted-foreground")}>
+                        <td className={cn(htmlCellText, "text-muted-foreground")}>
+                          {row.label}
+                        </td>
+                        <td className={cn(htmlCell, "text-muted-foreground")}>
                           {show(principalShown)}
                         </td>
-                        <td className={cn(htmlCell, "tabular-nums text-gain")}>
+                        <td className={cn(htmlCell, "text-gain")}>
                           {show(row.interest)}
                         </td>
-                        <td className={cn(htmlCell, "bg-gain/10 tabular-nums text-gain")}>
+                        <td className={cn(htmlCell, "hidden text-gain md:table-cell")}>
                           {show(row.accruedInterest)}
                         </td>
-                        <td className={cn(htmlCell, "bg-gain/5 tabular-nums font-semibold text-gain")}>
+                        <td className={cn(htmlCell, "font-semibold text-foreground")}>
                           {show(row.balance)}
                         </td>
                       </tr>

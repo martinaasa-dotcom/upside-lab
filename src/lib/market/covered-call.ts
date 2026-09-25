@@ -5,7 +5,7 @@ import {
   roundToStrike,
 } from "@/lib/market/resistance";
 import type { OptionCandidate } from "@/lib/types";
-import { dateKeyInTz, daysUntilInTz } from "@/lib/timezone";
+import { dateKeyInTz, daysUntilInTz, todayKeyInTz } from "@/lib/timezone";
 import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
 import { marketSession } from "@/lib/market/session";
 import { yahooCall } from "@/lib/market/yahoo";
@@ -465,12 +465,13 @@ function syntheticCandidate(
     days = daysUntilInTz(exp);
   } else {
     // Three weeks out, then forward to the Friday listings expire on, so
-    // the estimate is never for fewer days than the rule allows.
-    exp = new Date();
-    exp.setDate(exp.getDate() + STRATEGY.minDaysToExpiry);
-    const day = exp.getDay();
-    const diff = (5 - day + 7) % 7;
-    exp.setDate(exp.getDate() + diff);
+    // the estimate is never for fewer days than the rule allows. Counted
+    // on the calendar of the app's own timezone and held at midday UTC:
+    // a Date built from the server's clock late in the UTC day is already
+    // tomorrow there, which turned a Friday expiry into a Saturday one.
+    exp = new Date(`${todayKeyInTz()}T12:00:00Z`);
+    exp.setUTCDate(exp.getUTCDate() + STRATEGY.minDaysToExpiry);
+    exp.setUTCDate(exp.getUTCDate() + ((5 - exp.getUTCDay() + 7) % 7));
     days = daysUntilInTz(exp);
   }
   const midPx = spot * estimateYield(otmPct || (strike - spot) / spot, days);

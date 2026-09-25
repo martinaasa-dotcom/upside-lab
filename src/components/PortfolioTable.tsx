@@ -45,7 +45,16 @@ import {
 } from "@/lib/use-screenshot-picker";
 import { shareDigits } from "@/lib/share-count";
 import { Sparkline } from "./Sparkline";
-import { FluidRow, FluidTable, cellBase, cellTicker, tableCols } from "@/components/FluidTable";
+import {
+  FluidRow,
+  FluidTable,
+  cellBase,
+  cellCenter,
+  cellTicker,
+  headRow,
+  headTip,
+  tableCols,
+} from "@/components/FluidTable";
 
 export type HoldingPatch = {
   id: string;
@@ -187,8 +196,8 @@ function InlineNumber({
         }
       }}
       className={cn(
-        "inline-edit no-spinner rounded-t px-1 py-0.5 text-center tabular-nums text-foreground outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50",
-        className ?? "mx-auto w-full max-w-[4.5rem]"
+        "inline-edit no-spinner rounded-t px-1 py-0.5 text-right tabular-nums text-foreground outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50",
+        className ?? "ml-auto w-full max-w-[4.5rem]"
       )}
     />
   );
@@ -312,7 +321,8 @@ export const PortfolioTable = memo(function PortfolioTable({
     onPick: (files) => onImportScreenshot?.(files),
     disabled: !onImportScreenshot,
   });
-  const tickerCell = mixedListings ? cellTicker : cellBase;
+  // The name column always reads from the left; figures end on the right.
+  const tickerCell = cellTicker;
   const money = (usd: number, digits = 2) =>
     currency(usdToDisplay(usd, displayCurrency, eurUsd), digits, displayCurrency);
 
@@ -977,8 +987,20 @@ export const PortfolioTable = memo(function PortfolioTable({
           </div>
         ) : (
           <FluidTable template={template}>
-            <FluidRow className="border-border text-sm font-medium text-muted-foreground">
-              {COLUMNS.map((col, i) => (
+            <FluidRow className={cn(headRow, "hover:bg-transparent")}>
+              {COLUMNS.map((col, i) => {
+                // A right-aligned header keeps its mark on the left, so the
+                // label ends exactly where the figures under it end whether
+                // the mark is showing or not.
+                const markFirst = i > 0 && Boolean(col.key);
+                const tip = col.term ? (
+                  <span className={headTip}>
+                    <TermTip bare term={col.term} align="center">
+                      <Info className="size-3" aria-hidden />
+                    </TermTip>
+                  </span>
+                ) : null;
+                return (
                 <div
                   key={col.label}
                   /*
@@ -995,7 +1017,10 @@ export const PortfolioTable = memo(function PortfolioTable({
                     price and it is the right one: a title broken over
                     two lines is the same fault as a price broken over two.
                   */
-                  className={cn(i === 0 ? tickerCell : cellBase, "gap-1")}
+                  className={cn(
+                    i === 0 ? tickerCell : col.key ? cellBase : cellCenter,
+                    "gap-1"
+                  )}
                 >
                   {/*
                     Two jobs, two targets. The header still sorts, because
@@ -1004,13 +1029,14 @@ export const PortfolioTable = memo(function PortfolioTable({
                     opens, so the explanation is not a hover tooltip a
                     touch screen can never reach.
                   */}
+                  {markFirst ? tip : null}
                   {col.key ? (
                     <button
                       type="button"
                       onClick={() => toggleSort(col.key!)}
                       className={cn(
-                        "inline-flex items-center gap-1 transition hover:text-foreground",
-                        sortKey === col.key && "text-primary/70"
+                        "inline-flex items-center gap-1 uppercase transition hover:text-foreground",
+                        sortKey === col.key && "text-foreground"
                       )}
                       title={`Sort by ${col.label}`}
                     >
@@ -1026,13 +1052,10 @@ export const PortfolioTable = memo(function PortfolioTable({
                   ) : (
                     col.label
                   )}
-                  {col.term ? (
-                    <TermTip bare term={col.term} align="center">
-                      <Info className="size-3.5" aria-hidden />
-                    </TermTip>
-                  ) : null}
+                  {markFirst ? null : tip}
                 </div>
-              ))}
+                );
+              })}
             </FluidRow>
 
             {sortedHoldings.map((h) => {
@@ -1100,7 +1123,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                 >
                   {money(h.roiDollar, 0)}
                 </div>
-                <div className={cellBase}>
+                <div className={cn(cellCenter, "pl-4")}>
                   <Sparkline
                     points={h.quote?.sparkline ?? []}
                     width={56}
@@ -1150,7 +1173,7 @@ export const PortfolioTable = memo(function PortfolioTable({
             })}
 
             <FluidRow footer className="border-t border-border font-semibold">
-              <div className={cn(tickerCell, "text-foreground")}>PORTFOLIO</div>
+              <div className={cn(tickerCell, "text-foreground")}>Portfolio</div>
               <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
                 100%
               </div>

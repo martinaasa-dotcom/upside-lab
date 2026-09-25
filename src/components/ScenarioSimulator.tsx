@@ -7,7 +7,15 @@ import {
   shockProfileIsGuessed,
   type ShockId,
 } from "@/lib/book-shock";
-import { FluidRow, FluidTable, cellBase, cellTicker, tableCols } from "@/components/FluidTable";
+import {
+  FluidRow,
+  FluidTable,
+  cellBase,
+  cellText,
+  cellTicker,
+  headRow,
+  tableCols,
+} from "@/components/FluidTable";
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { listingCurrenciesAreMixed } from "@/lib/listing-currency";
 import { NO_VALUE, cashtag, cn, currency, percent, signedCurrency, signedPercent, signedTone } from "@/lib/format";
@@ -102,7 +110,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
   const mixedListings = listingCurrenciesAreMixed(
     holdings.map((h) => ({ ticker: h.ticker }))
   );
-  const tickerCell = mixedListings ? cellTicker : cellBase;
+  const tickerCell = cellTicker;
   const template = tableCols(5, mixedListings);
 
   const handleSort = (field: SortField) => {
@@ -438,13 +446,13 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
             </p>
           ) : (
             <FluidTable template={template}>
-              <FluidRow className="text-sm font-medium text-muted-foreground">
+              <FluidRow className={cn(headRow, "hover:bg-transparent")}>
                 <button
                   type="button"
                   onClick={() => handleSort("ticker")}
                   className={cn(
                     tickerCell,
-                    "hover:text-foreground",
+                    "uppercase hover:text-foreground",
                     sortField === "ticker" && "text-foreground"
                   )}
                 >
@@ -455,13 +463,13 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
                     )}
                   </span>
                 </button>
-                <div className={cellBase}>Kind of business</div>
+                <div className={cellText}>Kind of business</div>
                 <button
                   type="button"
                   onClick={() => handleSort("move")}
                   className={cn(
                     cellBase,
-                    "hover:text-foreground",
+                    "uppercase hover:text-foreground",
                     sortField === "move" && "text-foreground"
                   )}
                 >
@@ -478,7 +486,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
                   onClick={() => handleSort("delta")}
                   className={cn(
                     cellBase,
-                    "hover:text-foreground",
+                    "uppercase hover:text-foreground",
                     sortField === "delta" && "text-foreground"
                   )}
                 >
@@ -503,7 +511,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
                       showCurrency={mixedListings}
                     />
                   </div>
-                  <div className={cn(cellBase, "min-w-0")}>
+                  <div className={cn(cellText, "min-w-0")}>
                     <span className="min-w-0 truncate text-muted-foreground">
                       {r.label}
                     </span>

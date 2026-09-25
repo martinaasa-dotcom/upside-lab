@@ -258,7 +258,7 @@ describe("the page has a door on both breakpoints", () => {
     expect(source).toContain("items={viewMenuItems}");
   });
 
-  it("spends no dock cell on it, since the news dot already points there", () => {
-    expect(source).toContain("alertCount={activeAlerts.length}");
+  it("spends no dock cell on it, and no dot either: Home opens on the list", () => {
+    expect(source).not.toMatch(/<(PortfolioTabs|MobileTabBar)[^>]*alertCount/);
   });
 });

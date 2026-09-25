@@ -2,7 +2,16 @@
 
 import { TermTip } from "@/components/ui/TermTip";
 
-import { FluidRow, FluidTable, cellBase, cellTicker, tableCols } from "@/components/FluidTable";
+import {
+  FluidRow,
+  FluidTable,
+  cellBase,
+  cellCenter,
+  cellText,
+  cellTicker,
+  headRow,
+  tableCols,
+} from "@/components/FluidTable";
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, InfoTip, Panel, PanelHeader } from "@/components/ui/Panel";
@@ -70,7 +79,7 @@ function InlineTargetCall({
   }, [display]);
 
   return (
-    <div className="inline-flex items-center justify-center gap-0.5">
+    <div className="inline-flex items-center justify-end gap-0.5">
       <input
         type="text"
         inputMode="numeric"
@@ -98,7 +107,7 @@ function InlineTargetCall({
             (e.target as HTMLInputElement).blur();
           }
         }}
-        className="inline-edit no-spinner w-8 rounded-t py-0.5 text-center tabular-nums text-foreground outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50"
+        className="inline-edit no-spinner w-8 rounded-t py-0.5 text-right tabular-nums text-foreground outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50"
       />
       <span className="text-sm text-muted-foreground">%</span>
     </div>
@@ -134,7 +143,7 @@ function InlineStockTarget({
   }, [display]);
 
   return (
-    <div className="inline-flex items-center justify-center gap-0.5">
+    <div className="inline-flex items-center justify-end gap-0.5">
       <span className="text-sm text-muted-foreground">$</span>
       <input
         type="text"
@@ -163,7 +172,7 @@ function InlineStockTarget({
           }
         }}
         className={cn(
-          "inline-edit no-spinner w-[4.5rem] rounded-t py-0.5 text-center tabular-nums outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50",
+          "inline-edit no-spinner w-[4.5rem] rounded-t py-0.5 text-right tabular-nums outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50",
           suggested ? "text-muted-foreground" : "text-foreground"
         )}
       />
@@ -196,7 +205,7 @@ function InlineStrike({
   }, [display]);
 
   return (
-    <div className="inline-flex items-center justify-center gap-0.5">
+    <div className="inline-flex items-center justify-end gap-0.5">
       <span className="text-sm text-muted-foreground">$</span>
       <input
         type="text"
@@ -225,7 +234,7 @@ function InlineStrike({
             (e.target as HTMLInputElement).blur();
           }
         }}
-        className="inline-edit no-spinner w-[4.5rem] rounded-t py-0.5 text-center font-semibold tabular-nums text-primary/80 outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50"
+        className="inline-edit no-spinner w-[4.5rem] rounded-t py-0.5 text-right font-semibold tabular-nums text-primary/80 outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50"
       />
     </div>
   );
@@ -281,7 +290,7 @@ function InlineExpiry({
   const canPaste = copied != null && copied !== value && isFutureKey(copied);
 
   return (
-    <div className="inline-flex items-center gap-0.5">
+    <div className="inline-flex flex-row-reverse items-center gap-0.5">
       <input
         type="date"
         value={draft}
@@ -319,7 +328,7 @@ function InlineExpiry({
             (e.target as HTMLInputElement).blur();
           }
         }}
-        className="inline-edit w-[7.5rem] rounded-t bg-transparent py-0.5 text-center tabular-nums text-muted-foreground outline-none hover:bg-hover focus:bg-muted focus:text-foreground focus:ring-1 focus:ring-ring/50"
+        className="inline-edit w-[7.5rem] rounded-t bg-transparent py-0.5 text-right tabular-nums text-muted-foreground outline-none hover:bg-hover focus:bg-muted focus:text-foreground focus:ring-1 focus:ring-ring/50"
       />
       {canPaste ? (
         <Button
@@ -451,7 +460,9 @@ function writeProximity(distance: number | null): {
  * says why.
  */
 function figureTone(r: CoveredCallRow): string {
-  return r.option?.estimated ? "text-muted-foreground" : "text-foreground";
+  return r.option == null || r.option.estimated
+    ? "text-muted-foreground"
+    : "text-foreground";
 }
 
 /** Anchor Home uses to land on this table from "Open covered calls". */
@@ -478,7 +489,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
   const mixedListings = listingCurrenciesAreMixed(
     rows.map((r) => ({ ticker: r.holding.ticker }))
   );
-  const tickerCell = mixedListings ? cellTicker : cellBase;
+  const tickerCell = cellTicker;
   const tracking = Boolean(trackedCalls && rules && onRulesChange);
   const template = tableCols(HEADERS.length, mixedListings, tracking);
 
@@ -811,7 +822,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
       {/* Desktop table */}
       <div className="hidden md:block">
         <FluidTable template={template}>
-          <FluidRow className="border-border text-sm font-medium text-muted-foreground">
+          <FluidRow className={cn(headRow, "hover:bg-transparent")}>
             {HEADERS.map((label, i) => (
               <div
                 key={label}
@@ -825,7 +836,13 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                   widest cell and `FluidTable` scrolls sideways past that,
                   so the label is kept short instead ("Near target?").
                 */
-                className={i === 0 ? tickerCell : cellBase}
+                className={
+                  i === 0
+                    ? tickerCell
+                    : label === "Near target?"
+                      ? cellText
+                      : cellBase
+                }
               >
                 {/*
                   The explanation was a `title` attribute on all nine of
@@ -856,7 +873,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                 )}
               </div>
             ))}
-            {tracking ? <div className={cellBase} aria-hidden /> : null}
+            {tracking ? <div className={cellCenter} aria-hidden /> : null}
           </FluidRow>
 
           {rows.length === 0 && (
@@ -876,7 +893,19 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
           )}
 
           {rows.map((r) => (
-            <FluidRow key={r.holding.id} className="hover:bg-muted/50">
+            <FluidRow
+              key={r.holding.id}
+              className={cn(
+                "hover:bg-muted/50",
+                /*
+                  A holding under a hundred shares cannot carry a call yet.
+                  Its row stays, because the target and the strike are
+                  worth setting before it gets there, but it steps back so
+                  the rows that can be written read first.
+                */
+                r.contracts < 1 && "opacity-55 hover:opacity-100 focus-within:opacity-100"
+              )}
+            >
               <div
                 className={cn(
                   tickerCell,
@@ -917,8 +946,8 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
               </div>
               <div
                 className={cn(
-                  cellBase,
-                  "whitespace-nowrap font-medium",
+                  cellText,
+                  "font-medium",
                   writeProximity(r.targetDistance).className
                 )}
               >
@@ -959,7 +988,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                 {r.premium != null ? currency(r.premium) : NO_VALUE}
               </div>
               {tracking ? (
-                <div className={cellBase}>
+                <div className={cellCenter}>
                   {r.contracts >= 1 ? (
                     <Button
                       type="button"
