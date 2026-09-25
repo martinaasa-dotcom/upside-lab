@@ -26,7 +26,7 @@
  * direction a number about somebody's money must never be wrong in.
  */
 
-import { CARD, MicroLabel, Panel, PANEL_STACK, PanelHeader, Pill, Score, Scoreboard } from "@/components/ui/Panel";
+import { CARD, InfoTip, Panel, PANEL_STACK, PanelHeader, Score, Scoreboard } from "@/components/ui/Panel";
 import { barFillPct, cn, currency, percent } from "@/lib/format";
 import { PALETTE } from "@/lib/palette";
 import type { Milestone } from "@/lib/retirement/milestones";
@@ -227,6 +227,14 @@ function PathChart({
   );
 }
 
+/**
+ * One rung as a row, not a card. The rungs were five tall cards, each a
+ * bar, a percentage, an age and a paragraph, which made the ladder the
+ * longest panel on the page for five facts that are each a figure and a
+ * date. The bars became one shared track above the list (`LadderTrack`),
+ * where the reader can see all the rungs against their pot at once, and
+ * what crossing a rung means sits behind the mark beside its name.
+ */
 function Rung({
   milestone,
   code,
@@ -236,54 +244,86 @@ function Rung({
   code: string;
   currentAge: number;
 }) {
+  const when = milestone.reached
+    ? "Reached"
+    : milestone.ageReached != null
+      ? `at ${milestone.ageReached}, in ${Math.max(0, milestone.ageReached - currentAge)}y`
+      : "not on this path";
   return (
-    <div
-      className={cn(
-        CARD,
-        "flex min-w-0 flex-col gap-2 p-4",
-        milestone.reached && "ring-1 ring-gain/40"
-      )}
-    >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="inline-flex min-w-0 items-center gap-2 font-semibold text-foreground">
-          {milestone.reached ? (
-            <Check className="h-4 w-4 shrink-0 text-gain" aria-hidden />
-          ) : null}
-          <span className="min-w-0">{milestone.label}</span>
-        </span>
-        <span className="shrink-0 font-mono tabular-nums text-foreground">
-          {currency(milestone.target, 0, code)}
-        </span>
-      </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden>
-        <div
-          className="h-full rounded-full"
-          style={{
-            width: `${barFillPct(milestone.progress * 100, 1)}%`,
-            background: milestone.reached ? PALETTE.gain : PALETTE.brand,
-          }}
-        />
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-mono text-xs tabular-nums text-muted-foreground">
-          {percent(milestone.progress, 0)} of the way
-        </span>
-        {milestone.reached ? (
-          <Pill tone="good">Reached</Pill>
-        ) : milestone.ageReached != null ? (
-          <span className="text-xs text-muted-foreground">
-            at {milestone.ageReached}, in{" "}
-            {Math.max(0, milestone.ageReached - currentAge)} years
-          </span>
-        ) : (
-          <span className="text-xs text-muted-foreground">
-            not on this path yet
-          </span>
+    <li className="flex min-w-0 items-center gap-3 py-3">
+      <span
+        className={cn(
+          "grid size-5 shrink-0 place-items-center rounded-full border",
+          milestone.reached
+            ? "border-gain bg-gain/15 text-gain"
+            : "border-foreground/25 text-transparent"
         )}
+        aria-hidden
+      >
+        <Check className="size-3" />
+      </span>
+      {/*
+        On a phone the age goes under the name: three columns in 330px
+        truncated "The comfortable standard" to "The comf...".
+      */}
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="inline-flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground">
+          <span className="min-w-0">{milestone.label}</span>
+          <InfoTip text={milestone.blurb} label={`What ${milestone.label} means`} />
+        </span>
+        <span className="text-xs text-muted-foreground sm:hidden">{when}</span>
+      </span>
+      <span className="shrink-0 font-mono text-sm tabular-nums text-foreground">
+        {currency(milestone.target, 0, code)}
+      </span>
+      <span className="hidden w-32 shrink-0 text-right text-xs text-muted-foreground sm:block">
+        {when}
+      </span>
+    </li>
+  );
+}
+
+/**
+ * Every rung on one track, with the reader's pot as the fill. Positions
+ * are shares of the biggest rung, so the picture is the whole ladder and
+ * where the reader stands on it, at once.
+ */
+function LadderTrack({
+  milestones,
+  pot,
+  code,
+}: {
+  milestones: Milestone[];
+  pot: number;
+  code: string;
+}) {
+  const top = Math.max(1, pot, ...milestones.map((m) => m.target));
+  const at = (v: number) => Math.min(100, Math.max(0, (v / top) * 100));
+  return (
+    <div className="flex flex-col gap-2" aria-hidden>
+      <div className="relative h-3 rounded-full bg-muted">
+        <div
+          className="overview-bar absolute inset-y-0 left-0 rounded-full bg-primary"
+          style={{ width: `${barFillPct(at(pot), 1)}%` }}
+        />
+        {milestones.map((m) => (
+          <span
+            key={m.id}
+            className={cn(
+              "absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background",
+              m.reached ? "bg-gain" : "bg-foreground/60"
+            )}
+            style={{ left: `${at(m.target)}%` }}
+            title={`${m.label}: ${currency(m.target, 0, code)}`}
+          />
+        ))}
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        {milestone.blurb}
-      </p>
+      <div className="flex justify-between font-mono text-xs tabular-nums text-muted-foreground">
+        <span>
+          You <span className="text-primary">{currency(pot, 0, code)}</span>
+        </span>
+        <span>{currency(top, 0, code)}</span>
+      </div>
     </div>
   );
 }
@@ -369,19 +409,12 @@ export function StandingPanel({
           title="The ladder"
           subtitle="The thresholds on the way to your number, and when you cross each one."
         />
-        <div className="grid gap-4 sm:grid-cols-2">
+        <LadderTrack milestones={milestones} pot={have} code={code} />
+        <ul className="divide-y divide-border">
           {milestones.map((m) => (
             <Rung key={m.id} milestone={m} code={code} currentAge={currentAge} />
           ))}
-        </div>
-        <div className={cn(CARD, "p-4")}>
-          <MicroLabel>Why the earliest age moves the target too</MicroLabel>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Stopping earlier means more years spending, fewer years saving,
-            and a longer stretch to fund, so the target itself climbs. The age
-            above is the first year the pot wins against that higher target.
-          </p>
-        </div>
+        </ul>
       </Panel>
     </div>
   );
