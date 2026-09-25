@@ -680,8 +680,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
                   ? `${thisMonthSamples} ${thisMonthSamples === 1 ? "year" : "years"}`
                   : "the matching years"}
                 , the earlier {model.currentCycleLabel.toLowerCase()} years only.
-                That describes what happened, not what will. Nothing here
-                looks at what you own.
+                That describes what happened, not what will.
               </p>
             ) : (
               <p className="text-sm leading-relaxed text-muted-foreground">

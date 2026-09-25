@@ -94,8 +94,8 @@ export function CompanyLookupPanel({
   return (
     <Panel>
       <PanelHeader
-        title="Research"
-        subtitle="Any company, in plain words: what it does, what the accounts say, what it might be worth, and both sides of the argument. You do not have to own it."
+        title="Find a company"
+        subtitle="Type a name or a ticker, or press one below."
         icon={<Search className="h-4 w-4" />}
       />
       <CompanySearch placeholder="Apple, NVDA, an index fund, anything" />
