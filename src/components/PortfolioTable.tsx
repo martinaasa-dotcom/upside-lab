@@ -16,7 +16,7 @@ import {
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { quoteAsOfTitle } from "@/lib/market/quote-freshness";
 import { Button } from "@/components/ui/button";
-import { Card, Panel, Segmented } from "@/components/ui/Panel";
+import { Panel, Segmented } from "@/components/ui/Panel";
 import { TermTip } from "@/components/ui/TermTip";
 import {
   blockWheelChange,
@@ -397,19 +397,8 @@ export const PortfolioTable = memo(function PortfolioTable({
   const rowToday = (h: (typeof holdings)[number]) =>
     todayDollarFor(h.currentValue, h.quote?.changePercent);
 
-  /*
-   * The phone's three orders, over the same `sortKey` the laptop table
-   * drives, so one reading of the list serves both. A column the phone has
-   * no button for (the reader sorted by cost on a laptop, then picked the
-   * phone up) leaves the control showing nothing rather than lighting a
-   * cell that is not what the list is doing.
-   */
-  const PHONE_SORTS = ["pct", "roiPct", "today"] as const;
-  type PhoneSort = (typeof PHONE_SORTS)[number];
-  const phoneSort: PhoneSort | null =
-    sortKey && (PHONE_SORTS as readonly string[]).includes(sortKey)
-      ? (sortKey as PhoneSort)
-      : null;
+  // Which phone row is opened out. One at a time, so the list stays a list.
+  const [openId, setOpenId] = useState<string | null>(null);
 
   /**
    * Holdings nothing could price.
@@ -627,329 +616,365 @@ export const PortfolioTable = memo(function PortfolioTable({
       )}
 
       {/*
-        Phone cards.
+        Phone table.
 
-        This used to be eight figures of equal weight in a two by four
-        grid, 352px tall, with the two editable ones dashed like
-        separators. Nothing led, so a beginner could not tell which number
-        mattered, and the only visible control on the card was the bin.
+        This was a card per holding, about 350px each, so a portfolio of
+        twelve names was eleven screens of cards and no way to see the whole
+        of it at once, which is the one thing a holdings page is for. It is
+        a table now, like the laptop's, cut to the three columns a phone
+        reader checks every morning: the name, how it did today, and what it
+        has made since they bought it. One line per holding, so a dozen fit
+        on one screen.
 
-        Now it leads with what the holding is worth and what that made,
-        then today and how much of the portfolio it is, and last and
-        smallest the three you come back to change. The header row is the
-        way into Research, where the rest of this company lives, and
-        removing the holding is the last and quietest thing on the card.
+        Everything else (value, shares, what was paid, the edit fields,
+        Research and Remove) is one press away: pressing a row opens it in
+        place. Those are the numbers somebody comes back to change rather
+        than to read, and the edit fields have to live somewhere on a phone,
+        because this is the only place a phone can change them.
+
+        The columns share one grid through `subgrid`, so every figure lines
+        up down its column whatever its width, and the name column is the
+        only one allowed to give way.
       */}
-      <div className="flex flex-col gap-3 p-6 lg:hidden">
+      <div className="lg:hidden">
         {holdings.length === 0 ? (
-          <div className="glass-well rounded-xl border border-dashed border-border px-4 py-8 text-center">
-            <p className="text-sm text-muted-foreground">No holdings in this portfolio yet.</p>
-            {emptyCta}
+          <div className="surface-gutter py-6">
+            <div className="glass-well rounded-xl border border-dashed border-border px-4 py-8 text-center">
+              <p className="text-sm text-muted-foreground">No holdings in this portfolio yet.</p>
+              {emptyCta}
+            </div>
           </div>
         ) : (
-          <>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] text-sm tabular-nums">
             {/*
-              Sorting existed only on the laptop table, and the cards
-              iterated the raw list, so a phone reader could not put their
-              biggest holding first. Three orders is all a phone needs.
+              The headers sort, as the laptop's do. The name column orders
+              by size, biggest first, because that is the order a reader
+              means by "my holdings", and an alphabetical list of tickers is
+              a lookup nobody on a phone needs.
             */}
-            {holdings.length > 2 && (
-              <Segmented
-                ariaLabel="Order the holdings by"
-                value={phoneSort}
-                onChange={(id) => {
-                  setSortKey(id);
-                  // Every phone order is a figure, so biggest first.
-                  setSortDir(-1);
-                }}
-                options={[
-                  { id: "pct", label: "Biggest" },
-                  { id: "roiPct", label: "Best gain" },
-                  { id: "today", label: "Today" },
-                ]}
-              />
-            )}
+            <div className="col-span-full grid grid-cols-subgrid items-center gap-x-5 border-b border-border surface-gutter py-2">
+              {(
+                [
+                  { key: "pct", label: "Holding", align: "start" },
+                  { key: "today", label: "Today", align: "end" },
+                  { key: "roiDollar", label: "P&L", align: "end" },
+                ] as const
+              ).map((col) => (
+                <button
+                  key={col.key}
+                  type="button"
+                  onClick={() => toggleSort(col.key)}
+                  className={cn(
+                    TERM_LABEL,
+                    "touch-target inline-flex items-center gap-1 transition hover:text-foreground",
+                    // `touch-target` floors the button at 44px, so a short label
+                    // like "P&L" has to be pushed to the box's own right edge
+                    // or it sits left of the figures it heads.
+                    col.align === "end"
+                      ? "justify-self-end justify-end"
+                      : "justify-self-start justify-start",
+                    sortKey === col.key && "text-foreground"
+                  )}
+                  aria-label={`Sort by ${col.label}`}
+                >
+                  {col.label}
+                  {sortKey === col.key ? (
+                    sortDir === 1 ? (
+                      <ArrowUp className="size-3" aria-hidden />
+                    ) : (
+                      <ArrowDown className="size-3" aria-hidden />
+                    )
+                  ) : null}
+                </button>
+              ))}
+            </div>
+
             {sortedHoldings.map((h) => {
-            const listed = rowMoney(h);
-            const today = rowToday(h);
-            return (
-            <Card key={h.id} className="px-4 py-4">
-              <button
-                type="button"
-                onClick={() => onOpenTicker?.(h.ticker)}
-                disabled={!onOpenTicker}
-                className="-mx-2 -mt-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2 text-left outline-none transition hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring/50 disabled:hover:bg-transparent"
-                aria-label={
-                  onOpenTicker ? `Open ${h.ticker}` : undefined
-                }
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block text-base font-semibold text-foreground">
-                    <TickerSymbol
-                      ticker={h.ticker}
-                      currency={listed.code}
-                      showCurrency={mixedListings}
-                    />
-                  </span>
-                  <span className="mt-0.5 block text-sm text-muted-foreground">
-                    {currency(listed.nativeSpot, listed.digits, listed.code)}
-                    {" a share"}
-                  </span>
-                </span>
-                {/*
-                  The line beside the ticker rather than a bare squiggle at
-                  the foot of the card, with a caption saying what stretch
-                  of time it covers.
-                */}
-                <span className="flex shrink-0 flex-col items-end gap-0.5">
-                  <Sparkline
-                    points={h.quote?.sparkline ?? []}
-                    width={72}
-                    height={22}
-                  />
-                  <span className={TERM_LABEL}>Last 90 days</span>
-                </span>
-                {onOpenTicker ? (
-                  <ChevronRight
-                    className="size-4 shrink-0 text-muted-foreground"
-                    aria-hidden
-                  />
-                ) : null}
-              </button>
-
-              <div className="mt-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-                <div className="min-w-0">
-                  <TermTip
-                    className={TERM_LABEL}
-                    term="value"
-                    example={{
-                      ticker: cashtag(h.ticker),
-                      amount: money(h.currentValue, 0),
-                    }}
-                  >
-                    Value
-                  </TermTip>
-                  <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-foreground">
-                    {money(h.currentValue, 0)}
-                  </p>
-                </div>
-                <div className="min-w-0 text-right">
-                  <TermTip
-                    className={TERM_LABEL}
-                    term="gain"
-                    align="end"
-                    example={{
-                      ticker: cashtag(h.ticker),
-                      amount: money(h.roiDollar, 0),
-                      second: percent(h.roiPct),
-                    }}
-                  >
-                    Gain
-                  </TermTip>
-                  <p
-                    className={cn(
-                      "mt-1 font-mono text-xl font-semibold tabular-nums",
-                      signedTone(h.roiPct)
-                    )}
-                  >
-                    {percent(h.roiPct)}
-                  </p>
-                  <p
-                    className={cn(
-                      "text-sm tabular-nums",
-                      signedTone(h.roiDollar)
-                    )}
-                  >
-                    {money(h.roiDollar, 0)}
-                  </p>
-                </div>
-              </div>
-
-              {/*
-                Two fixed columns, never a wrapping row. As `flex-wrap`
-                the share cell dropped under the today cell on whichever
-                cards had a wider figure, so half the cards on one screen
-                read as two columns and the other half as a stack, with
-                the share figure right-aligned under a left-aligned label.
-                The label is "Of your total", the same words Pulse uses
-                for the same figure, because "Share of portfolio" is two
-                lines in a half-width column on a 390px phone.
-              */}
-              <div className="mt-3 grid grid-cols-2 items-end gap-x-6 border-t border-border/60 pt-3">
-                <div className="min-w-0">
-                  <TermTip
-                    className={TERM_LABEL}
-                    term="today"
-                    example={{
-                      ticker: cashtag(h.ticker),
-                      amount:
-                        today.pct != null ? money(today.dollar, 0) : undefined,
-                    }}
-                  >
-                    Today
-                  </TermTip>
-                  <p
-                    className={cn(
-                      "mt-1 text-sm font-medium tabular-nums",
-                      today.pct != null
-                        ? signedTone(today.pct)
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    {today.pct != null
-                      ? `${percent(today.pct, 2)} · ${money(today.dollar, 0)}`
-                      : NO_VALUE}
-                  </p>
-                </div>
-                <div className="min-w-0 text-right">
-                  <TermTip
-                    className={TERM_LABEL}
-                    term="share-of-portfolio"
-                    align="end"
-                    example={{
-                      ticker: cashtag(h.ticker),
-                      second: percent(h.pctOfTotal),
-                    }}
-                  >
-                    Of your total
-                  </TermTip>
-                  <p className="mt-1 text-sm font-medium tabular-nums text-muted-foreground">
-                    {percent(h.pctOfTotal)}
-                  </p>
-                </div>
-              </div>
-
-              {/*
-                What you own and what you paid: the numbers you come back
-                to change rather than the ones you read every morning, so
-                they sit last and small. They stay on the card because this
-                is the only place on a phone they can be edited.
-              */}
-              <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t border-border/60 pt-3 text-sm text-muted-foreground">
-                <label className="inline-flex items-baseline gap-1.5">
-                  <TermTip
-                    className={TERM_LABEL}
-                    term="share"
-                    example={{ ticker: cashtag(h.ticker), count: h.shares }}
-                  >
-                    Shares
-                  </TermTip>
-                  <InlineNumber
-                    value={h.shares}
-                    digits={4}
-                    displayDigits="auto"
-                    onCommit={(shares) => onPatch({ id: h.id, shares })}
-                    className="w-16 text-right"
-                  />
-                </label>
-                <label className="inline-flex items-baseline gap-1.5">
-                  <TermTip
-                    className={TERM_LABEL}
-                    term="paid-each"
-                    example={{
-                      ticker: cashtag(h.ticker),
-                      amount: currency(
-                        listed.nativeBuy,
-                        listed.digits,
-                        listed.code
-                      ),
-                    }}
-                  >
-                    Paid each
-                  </TermTip>
-                  <InlineNumber
-                    value={listed.nativeBuy}
-                    digits={listed.digits}
-                    onCommit={(buy_price) => commitBuy(h, buy_price)}
-                    className="w-20 text-right"
-                  />
-                </label>
-                <span className="inline-flex items-baseline gap-1.5">
-                  <TermTip
-                    className={TERM_LABEL}
-                    term="cost"
-                    align="end"
-                    example={{
-                      ticker: cashtag(h.ticker),
-                      amount: money(h.buyValue, 0),
-                    }}
-                  >
-                    Cost
-                  </TermTip>
-                  <span className="tabular-nums">{money(h.buyValue, 0)}</span>
-                </span>
-              </div>
-
-              {/*
-                Removing the holding, last and quiet, the way it was at the
-                foot of the drawer this card used to open. It is not a bin
-                in the corner of the card: the card's own header is the
-                useful press now, and a destructive glyph beside it would
-                be the loudest thing on a row of ordinary numbers.
-
-                The label is one word, because everything else it used to
-                say is already on the card. It read "Remove $AAPL from this
-                portfolio", and $AAPL is the card's own heading two inches
-                above while "this portfolio" is the page the reader is
-                standing on, so the only word carrying any information was
-                the first. Naming both made the line long enough to wrap,
-                which at 390px turned the most destructive control on the
-                screen into a centred two-line block with a rule above it,
-                repeated once per holding: measured on the sample, the
-                tallest single element in a holding card and the last thing
-                in it. It is a short left-aligned row now, so the eye going
-                down a column of cards meets the numbers rather than a
-                ladder of delete buttons. `aria-label` keeps the whole
-                sentence, because a screen reader moving button to button
-                genuinely has no card heading in earshot, which is the one
-                reader for whom the ticker was never redundant.
-              */}
-              {canSell ? (
-                <div className="mt-3 border-t border-border/60 pt-3">
+              const listed = rowMoney(h);
+              const today = rowToday(h);
+              const open = openId === h.id;
+              const detailId = `holding-${h.id}-detail`;
+              return (
+                <div
+                  key={h.id}
+                  className={cn(
+                    "col-span-full grid grid-cols-subgrid border-b border-border/60",
+                    open && "bg-hover"
+                  )}
+                >
                   <button
                     type="button"
-                    onClick={() => onDelete(h.id)}
-                    aria-label={`Remove ${cashtag(h.ticker)} from this portfolio`}
-                    className="touch-target -ml-3 inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground outline-none transition hover:bg-loss/10 hover:text-loss focus-visible:text-loss focus-visible:ring-1 focus-visible:ring-loss/40"
+                    onClick={() => setOpenId(open ? null : h.id)}
+                    aria-expanded={open}
+                    aria-controls={detailId}
+                    className="col-span-full grid h-12 grid-cols-subgrid items-center gap-x-5 surface-gutter text-left outline-none transition hover:bg-hover focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/50"
                   >
-                    <Trash2 className="size-4" aria-hidden />
-                    Remove
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <ChevronRight
+                        className={cn(
+                          "size-3.5 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none",
+                          open && "rotate-90"
+                        )}
+                        aria-hidden
+                      />
+                      <span className="min-w-0 truncate font-semibold text-foreground">
+                        <TickerSymbol
+                          ticker={h.ticker}
+                          currency={listed.code}
+                          showCurrency={mixedListings}
+                        />
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        "justify-self-end font-medium",
+                        today.pct != null
+                          ? signedTone(today.pct)
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {today.pct != null ? percent(today.pct, 2) : NO_VALUE}
+                    </span>
+                    <span
+                      className={cn(
+                        "justify-self-end font-medium",
+                        signedTone(h.roiDollar)
+                      )}
+                    >
+                      {money(h.roiDollar, 0)}
+                    </span>
                   </button>
-                </div>
-              ) : null}
-            </Card>
-            );
-          })}
-          </>
-        )}
 
-        {holdings.length > 0 && (
-          <div className="card-sheen glass-well rounded-lg px-4 py-4 text-sm">
-            <div className="flex justify-between font-semibold">
-              <span className="text-foreground">Portfolio</span>
-              <span className={cn("tabular-nums", signedTone(totals.roiPct))}>
-                {percent(totals.roiPct)}
+                  {open ? (
+                    <div
+                      id={detailId}
+                      role="region"
+                      aria-label={`${cashtag(h.ticker)} details`}
+                      className="col-span-full surface-gutter pb-4"
+                    >
+                      {/*
+                        Spread rows in two columns, label left and figure
+                        right, rather than label over figure: eight pairs
+                        stacked that way is the card this replaced.
+                      */}
+                      <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 pt-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <dt>
+                            <TermTip
+                              className={TERM_LABEL}
+                              term="value"
+                              example={{
+                                ticker: cashtag(h.ticker),
+                                amount: money(h.currentValue, 0),
+                              }}
+                            >
+                              Value
+                            </TermTip>
+                          </dt>
+                          <dd className="text-foreground">
+                            {money(h.currentValue, 0)}
+                          </dd>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <dt>
+                            <TermTip
+                              className={TERM_LABEL}
+                              term="gain"
+                              align="end"
+                              example={{
+                                ticker: cashtag(h.ticker),
+                                amount: money(h.roiDollar, 0),
+                                second: percent(h.roiPct),
+                              }}
+                            >
+                              Gain
+                            </TermTip>
+                          </dt>
+                          <dd className={signedTone(h.roiPct)}>
+                            {percent(h.roiPct)}
+                          </dd>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <dt>
+                            <TermTip
+                              className={TERM_LABEL}
+                              term="share-of-portfolio"
+                              example={{
+                                ticker: cashtag(h.ticker),
+                                second: percent(h.pctOfTotal),
+                              }}
+                            >
+                              Of total
+                            </TermTip>
+                          </dt>
+                          <dd className="text-muted-foreground">
+                            {percent(h.pctOfTotal)}
+                          </dd>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <dt>
+                            <TermTip
+                              className={TERM_LABEL}
+                              term="today"
+                              align="end"
+                              example={{
+                                ticker: cashtag(h.ticker),
+                                amount:
+                                  today.pct != null
+                                    ? money(today.dollar, 0)
+                                    : undefined,
+                              }}
+                            >
+                              Today
+                            </TermTip>
+                          </dt>
+                          <dd
+                            className={
+                              today.pct != null
+                                ? signedTone(today.dollar)
+                                : "text-muted-foreground"
+                            }
+                          >
+                            {today.pct != null ? money(today.dollar, 0) : NO_VALUE}
+                          </dd>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <dt className={TERM_LABEL}>Price</dt>
+                          <dd
+                            className="text-foreground"
+                            title={quoteAsOfTitle(h.quote)}
+                          >
+                            {currency(listed.nativeSpot, listed.digits, listed.code)}
+                          </dd>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <dt>
+                            <TermTip
+                              className={TERM_LABEL}
+                              term="cost"
+                              align="end"
+                              example={{
+                                ticker: cashtag(h.ticker),
+                                amount: money(h.buyValue, 0),
+                              }}
+                            >
+                              Cost
+                            </TermTip>
+                          </dt>
+                          <dd className="text-muted-foreground">
+                            {money(h.buyValue, 0)}
+                          </dd>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <dt>
+                            <TermTip
+                              className={TERM_LABEL}
+                              term="share"
+                              example={{ ticker: cashtag(h.ticker), count: h.shares }}
+                            >
+                              Shares
+                            </TermTip>
+                          </dt>
+                          <dd>
+                            <InlineNumber
+                              value={h.shares}
+                              digits={4}
+                              displayDigits="auto"
+                              onCommit={(shares) => onPatch({ id: h.id, shares })}
+                              className="w-16 text-right"
+                            />
+                          </dd>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <dt>
+                            <TermTip
+                              className={TERM_LABEL}
+                              term="paid-each"
+                              align="end"
+                              example={{
+                                ticker: cashtag(h.ticker),
+                                amount: currency(
+                                  listed.nativeBuy,
+                                  listed.digits,
+                                  listed.code
+                                ),
+                              }}
+                            >
+                              Paid
+                            </TermTip>
+                          </dt>
+                          <dd>
+                            <InlineNumber
+                              value={listed.nativeBuy}
+                              digits={listed.digits}
+                              onCommit={(buy_price) => commitBuy(h, buy_price)}
+                              className="w-20 text-right"
+                            />
+                          </dd>
+                        </div>
+                      </dl>
+
+                      {/*
+                        Research is the way into the rest of this company,
+                        and removing the holding is the last and quietest
+                        thing here, as it was at the foot of the card.
+                        `aria-label` keeps the whole sentence, because a
+                        screen reader moving button to button has no row
+                        heading in earshot.
+                      */}
+                      {onOpenTicker || canSell ? (
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          {canSell ? (
+                            <button
+                              type="button"
+                              onClick={() => onDelete(h.id)}
+                              aria-label={`Remove ${cashtag(h.ticker)} from this portfolio`}
+                              className="touch-target -ml-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground outline-none transition hover:bg-loss/10 hover:text-loss focus-visible:text-loss focus-visible:ring-1 focus-visible:ring-loss/40"
+                            >
+                              <Trash2 className="size-4" aria-hidden />
+                              Remove
+                            </button>
+                          ) : (
+                            <span />
+                          )}
+                          {onOpenTicker ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onOpenTicker(h.ticker)}
+                              aria-label={`Open ${cashtag(h.ticker)} in Research`}
+                            >
+                              Research
+                              <ChevronRight data-icon="inline-end" />
+                            </Button>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+
+            <div className="col-span-full grid h-12 grid-cols-subgrid items-center gap-x-5 surface-gutter font-semibold">
+              <span className="min-w-0 truncate text-foreground">
+                Portfolio
+                <span className="ml-2 font-normal text-muted-foreground">
+                  {money(totals.currentValue, 0)}
+                </span>
               </span>
-            </div>
-            <div className="mt-1 flex justify-between text-muted-foreground">
-              <span>Cost {money(totals.buyValue, 0)}</span>
-              <span>Value {money(totals.currentValue, 0)}</span>
-            </div>
-            <div className="mt-1 flex justify-between text-sm">
-              <span className={cn("tabular-nums", signedTone(totals.roiDollar))}>
+              <span
+                className={cn(
+                  "justify-self-end",
+                  today.pct != null ? signedTone(today.pct) : "text-muted-foreground"
+                )}
+              >
+                {today.pct != null ? percent(today.pct, 2) : NO_VALUE}
+              </span>
+              <span className={cn("justify-self-end", signedTone(totals.roiDollar))}>
                 {money(totals.roiDollar, 0)}
               </span>
-              {today.pct !== null && (
-                <span className="tabular-nums">
-                  <span className={signedTone(today.pct)}>
-                    {percent(today.pct, 2)}
-                  </span>
-                  <span className="text-muted-foreground"> </span>
-                  <span className={signedTone(today.dollar)}>
-                    {money(today.dollar, 0)}
-                  </span>
-                </span>
-              )}
             </div>
           </div>
         )}
