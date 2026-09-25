@@ -94,11 +94,16 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
     read: fair,
     nextEarnings: page.nextEarnings,
     /*
-      No exit level and no ladder. A price ladder belongs to the reader who
-      set it, and a stranger has not set one. The answer says so rather
-      than inventing a level nobody chose.
+      No ladder: fair value zones belong to the reader who set them, and a
+      stranger has not set any. What is left is the one level down there
+      anybody can check, the lowest the share has traded in a year, named
+      as exactly that. It was `null`, which printed "Your fair value
+      floor: n/a" as the headline figure of the question a stranger most
+      wants answered.
     */
-    exitLevel: null,
+    exitLevel: facts.fiftyTwoWeekLow,
+    exitFromYear: true,
+    exitIsPersonal: false,
     againstPoint: page.brief?.caseAgainst?.[0]?.point ?? null,
   });
 
