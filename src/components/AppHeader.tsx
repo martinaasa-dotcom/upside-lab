@@ -71,9 +71,9 @@ function DefaultAccountEnd() {
   const url = profile?.avatar_url;
   return (
     <Link href="/account" title="Account" aria-label="Account">
-      <Avatar className="size-8 rounded-md">
+      <Avatar className="size-8 rounded-full">
         {url ? <AvatarImage src={url} alt="" /> : null}
-        <AvatarFallback className="rounded-md text-xs font-medium">
+        <AvatarFallback className="rounded-full text-xs font-medium">
           {initial}
         </AvatarFallback>
       </Avatar>

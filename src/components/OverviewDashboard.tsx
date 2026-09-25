@@ -1388,9 +1388,11 @@ export const OverviewDashboard = memo(function OverviewDashboard({
       <div className="overview-fade flex flex-col gap-4">
         <div className={cn("card-sheen glass flex min-w-0 flex-col rounded-xl ring-1 ring-foreground/20", PANEL_PAD)}>
           <MicroLabel>Everything you own</MicroLabel>
-          <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-2">
+          <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-2">
             {/*
-              * `text-2xl` is the top of the ladder and the hero stays on
+              * `figure-hero` (globals.css) is the one sanctioned step above
+              * the ladder, and this is what it is for. Before it,
+              * `text-2xl` was the top of the ladder and the hero stays on
               * it. What gives this figure its weight is that it is alone on
               * a full-width card in the accent colour with the day's move
               * beside it, rather than one of four identical tiles; the size
@@ -1399,7 +1401,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
               */}
             <p
               className={cn(
-                "min-w-0 break-words font-mono text-2xl font-bold leading-tight tracking-tight tabular-nums",
+                "figure-hero min-w-0 break-words",
                 pricesStuck ? "text-muted-foreground" : "text-primary"
               )}
             >

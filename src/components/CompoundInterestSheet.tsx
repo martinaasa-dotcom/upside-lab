@@ -925,8 +925,13 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
    */
   useEffect(() => {
     if (!hydrated || appliedDefaultRateRef.current) return;
-    appliedDefaultRateRef.current = true;
+    /*
+     * Not spent on an empty reading: the portfolio's value lands after
+     * the page does, and marking this done on a zero meant a first visit
+     * never started on the portfolio at all.
+     */
     if (!(bookValue > 0)) return;
+    appliedDefaultRateRef.current = true;
     const stored = loadStored();
     if (stored.principal !== 5000) return;
     setDraft((prev) => ({ ...prev, principal: Math.round(bookValue) }));
@@ -1004,12 +1009,27 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
     if (storyIdx !== safeStoryIdx) setStoryIdx(safeStoryIdx);
   }, [storyIdx, safeStoryIdx]);
 
+  /*
+   * A source that is a portfolio follows that portfolio. It used to be
+   * copied once, at whatever the value was the moment it was picked, and
+   * the value is still arriving then: measured on the sample, the picker
+   * read "This portfolio ($28,501)" over a field holding $17,574, which
+   * is the portfolio with half its prices missing.
+   */
   useEffect(() => {
-    if (principalSource === "custom" || principalSource === "book") return;
-    if (!sheets.some((s) => s.id === principalSource)) {
+    if (principalSource === "custom") return;
+    const live =
+      principalSource === "book"
+        ? bookValue
+        : sheets.find((s) => s.id === principalSource)?.value;
+    if (live == null) {
       setPrincipalSource("custom");
+      return;
     }
-  }, [principalSource, sheets]);
+    if (!(live > 0)) return;
+    const next = Math.round(live * 100) / 100;
+    setDraft((prev) => (prev.principal === next ? prev : { ...prev, principal: next }));
+  }, [principalSource, sheets, bookValue]);
   const storyRow =
     result.yearly.find((y) => y.index === storyYear) ??
     result.yearly[result.yearly.length - 1];
@@ -1488,7 +1508,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             * more here and the first thing a person sees is a wall. */}
           <div>
             <MicroLabel>Ends up at</MicroLabel>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-gain">
+            <p className="figure-hero mt-3 text-gain">
               {show(result.futureValue)}
             </p>
           </div>

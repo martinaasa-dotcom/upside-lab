@@ -1144,6 +1144,28 @@ p:not([class*="leading-"]):not([class*="font-mono"]):not([class*="tabular-nums"]
 
 @layer components {
   /*
+   * The hero figure: the one number a room exists to show, and nothing
+   * else. The type ladder stops at `text-2xl` on purpose, because forty
+   * figures on one screen at a display size is a wall. One figure a room
+   * is the exception every finance app worth copying makes, and it is a
+   * class rather than a `text-4xl` so the ladder invariant still refuses
+   * the general case and this stays a single, named decision. Fluid, so a
+   * seven-figure portfolio still fits a 360px phone on one line.
+   *
+   * In the heading face rather than Geist Mono, and that is the one place
+   * the "every figure is mono" rule stops: a monospace comma is a full
+   * character cell wide, which at 48px reads as "$28 ,501". Tabular
+   * figures keep the digits from jittering when the price ticks.
+   */
+  .figure-hero {
+    font-family: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+    font-size: clamp(2.25rem, 1.6rem + 2.4vw, 3.25rem);
+    line-height: 1;
+    letter-spacing: -0.035em;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  /*
    * The panel rhythm, as one class per role rather than a pair of Tailwind
    * utilities.
    *

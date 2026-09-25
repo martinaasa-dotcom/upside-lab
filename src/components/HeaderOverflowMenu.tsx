@@ -11,7 +11,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, type LucideIcon } from "lucide-react";
+import { MoreHorizontal, UserRound, type LucideIcon } from "lucide-react";
 import { Fragment } from "react";
 
 export type HeaderMenuItem = {
@@ -71,11 +71,15 @@ export function HeaderOverflowMenu({
                 <img
                   src={avatar.url}
                   alt=""
-                  className="h-6 w-6 rounded-md object-cover"
+                  className="h-6 w-6 rounded-full object-cover"
                 />
               ) : (
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent text-xs font-semibold text-foreground">
-                  {avatar.initial ?? "?"}
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-xs font-semibold text-foreground">
+                  {avatar.initial && avatar.initial !== "?" ? (
+                    avatar.initial
+                  ) : (
+                    <UserRound className="size-3.5" aria-hidden />
+                  )}
                 </span>
               )
             ) : (

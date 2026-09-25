@@ -28,7 +28,6 @@ import {
   Eye,
   MessagesSquare,
   ShieldCheck,
-  MinusCircle,
   TrendingDown,
   Users,
 } from "lucide-react";
@@ -43,7 +42,6 @@ import {
   SIGNIN_PRICE,
   SIGNIN_PRICE_NOTE,
   SIGNIN_TRUST,
-  THIS_DOES_INSTEAD,
 } from "@/lib/product";
 import {
   SAMPLE_HOLDINGS,
@@ -139,7 +137,7 @@ function Section({
      * breathing.
      */
     <section className={cn("px-6 py-10 sm:py-12", className)}>
-      <div className="mx-auto w-full min-w-0 max-w-5xl">{children}</div>
+      <div className="mx-auto w-full min-w-0 max-w-6xl">{children}</div>
     </section>
   );
 }
@@ -158,26 +156,33 @@ function Section({
  * other lines.
  */
 function SectionHead({
+  index,
   eyebrow,
   title,
   detail,
   className,
 }: {
+  /** Two digits, so the page reads as a numbered argument rather than a stack of banners. */
+  index: string;
   eyebrow: string;
   title: string;
   detail?: string;
   className?: string;
 }) {
   return (
-    <div className={cn("flex max-w-3xl flex-col gap-4", className)}>
-      <MicroLabel className="text-primary">{eyebrow}</MicroLabel>
+    <div className={cn("flex max-w-3xl flex-col gap-5", className)}>
+      <p className="flex items-center gap-3 font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground">
+        <span className="text-primary">{index}</span>
+        <span className="h-px w-8 bg-border" aria-hidden />
+        {eyebrow}
+      </p>
       <h2>
-        <span className="block text-balance font-heading text-xl font-semibold leading-[1.2] tracking-[-0.03em] text-foreground sm:text-3xl">
+        <span className="block text-balance font-heading text-[2rem] font-semibold leading-[1.04] tracking-[-0.036em] text-foreground sm:text-5xl">
           {title}
         </span>
       </h2>
       {detail ? (
-        <p className="max-w-xl text-balance text-lg leading-snug text-muted-foreground">
+        <p className="max-w-xl text-balance text-lg leading-snug text-muted-foreground sm:text-xl">
           {detail}
         </p>
       ) : null}
@@ -598,9 +603,10 @@ function Showcase() {
   return (
     <Section>
       <SectionHead
-        eyebrow="The whole point"
+        index="02"
+        eyebrow="What it does"
         title="A fall and real news look exactly the same in a list of red numbers."
-        detail="One is worth your evening. The other is not. Both cards below are live."
+        detail="One is worth your evening. The other is not. Both cards below are live, so press them."
       />
       <div className="mt-8 grid items-start gap-4 md:grid-cols-2">
         <PulseStill />
@@ -611,86 +617,191 @@ function Showcase() {
 }
 
 /*
-  The limits, stated where somebody weighing one tool against another is
-  actually looking rather than in a section of their own three screens down.
+  WHO IT IS FOR, SAID IN THE READER'S OWN WORDS RATHER THAN A PERSONA.
 
-  Every one is checkable from the app itself. The delay used to be welded
-  onto the end of a sentence about not buying or selling, which buried the
-  one limit a new reader meets on day one: why the total here is not the
-  total their broker shows.
+  The page used to explain what the product does for four screens before it
+  said who it was for, and the answer decides whether anything else on the
+  page is worth reading. Three sentences a reader recognises themselves in,
+  and one saying plainly who should look elsewhere, which is the part that
+  makes the other three believable.
 */
-const WILL_NOT = [
-  "Connect to your broker. You add what you own once.",
-  "Know the day you bought. Gains run from your average price.",
-  "Match your broker to the cent. Free prices run minutes behind.",
+const FOR_YOU = [
+  {
+    lead: "You own a few companies,",
+    rest: "maybe a fund, and you picked them for a reason.",
+  },
+  {
+    lead: "You check the total",
+    rest: "more often than you would admit, and it makes you feel something.",
+  },
+  {
+    lead: "You would rather understand it",
+    rest: "than trade it. Nobody has ever explained it in plain words.",
+  },
 ] as const;
 
-/**
- * The question the page exists to answer, asked in the reader's own words.
- *
- * It used to come first and take 1,274px of prose on a phone before the
- * reader had seen the product do anything: a heading, a 40-word detail, a
- * three-line checklist about the broker and two closing sentences. The hero
- * already answers "what is it for" in one sentence and the showcase above
- * has now shown it, so this is confirmation and can be short.
- *
- * The generous line about the reader's own broker stays, because a
- * comparison that opens by running down something they chose is one they
- * stop reading, and because it is true: a broker really is better at being
- * a broker than this will ever be.
- */
-function NotYourBroker() {
+function WhoItsFor() {
   return (
     <Section>
       <SectionHead
-        eyebrow="Why another one of these"
-        title={BROKER_ANSWER}
-        detail="Yours holds the money and adds it up to the cent. Why the number moved is left to you."
+        index="01"
+        eyebrow="Who it is for"
+        title="For people who own shares. Not people who trade them."
       />
-      {/*
-        * One panel, two halves. Stacked on a phone, two separately padded
-        * boxes cost a section pad and a gap for nothing: they are two
-        * halves of one answer, so a hairline says it and the page is
-        * shorter by about a fifth of a screen.
-        */}
-      <div className={cn(BOX, NESTED_PAD, "mt-8 grid gap-6 md:grid-cols-2")}>
-        <div className="flex flex-col gap-4">
-          <MicroLabel className="text-primary">
-            What this does instead
-          </MicroLabel>
-          <ul className="flex flex-col gap-3">
-            {THIS_DOES_INSTEAD.map((line) => (
-              <li
-                key={line}
-                className="flex items-start gap-2.5 text-base leading-snug text-muted-foreground"
-              >
-                <CheckCircle2
-                  className="mt-0.5 size-4 shrink-0 text-primary"
-                  aria-hidden
-                />
-                <span>{line}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <div className="card-sheen glass mt-8 flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border md:flex-row md:divide-x md:divide-y-0">
+        {FOR_YOU.map((line, i) => (
+          <div key={line.lead} className="flex flex-1 flex-col gap-6 p-6 sm:p-7">
+            <span className="font-mono text-sm tabular-nums text-muted-foreground">
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <p className="text-balance text-xl leading-snug tracking-[-0.01em] text-muted-foreground">
+              <span className="text-foreground">{line.lead}</span> {line.rest}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground">
+        Not for day trading, tips or being told what to buy. There is no buy
+        button and there never will be.
+      </p>
+    </Section>
+  );
+}
 
-        <div className="flex flex-col gap-4 border-t border-border pt-6 md:border-t-0 md:border-l md:pl-6 md:pt-0">
-          <MicroLabel>What it will not do</MicroLabel>
-          <ul className="flex flex-col gap-3">
-            {WILL_NOT.map((line) => (
-              <li
-                key={line}
-                className="flex items-start gap-2.5 text-base leading-snug text-muted-foreground"
-              >
-                <MinusCircle
-                  className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                  aria-hidden
-                />
-                <span>{line}</span>
-              </li>
+/*
+  HOW IT COMPARES, WITH THE ROWS IT LOSES LEFT IN.
+
+  A comparison table that this app wins on every row is an advert, and a
+  reader can tell. Two rows here go the other way on purpose: it does not
+  connect to your account, and free prices run a few minutes behind. Both
+  are true, both are what somebody weighing this against their broker
+  actually wants to know, and leaving them in is what makes the rows it does
+  win worth believing.
+
+  The two other columns are kinds of product, never named ones, and every
+  claim about them is hedged to what is true of most of them ("rarely",
+  "often"), because a claim about a named competitor is one somebody else
+  gets to argue with.
+*/
+const COMPARE_COLUMNS = ["Your broker's app", "A portfolio tracker", "Upside Lab"] as const;
+
+const COMPARE_ROWS: readonly {
+  what: string;
+  cells: readonly [string, string, string];
+  /** True where this app is plainly the better answer. */
+  ours: boolean;
+}[] = [
+  {
+    what: "Why each company moved today",
+    cells: ["Rarely", "Rarely", "Every company, every day"],
+    ours: true,
+  },
+  {
+    what: "The market, or the company's own news",
+    cells: ["Not said", "Not said", "One line each"],
+    ours: true,
+  },
+  {
+    what: "Plain English",
+    cells: ["Rarely", "Sometimes", "Every word explained on tap"],
+    ours: true,
+  },
+  {
+    what: "A letter about your own week",
+    cells: ["No", "Sometimes", "Every Sunday"],
+    ours: true,
+  },
+  {
+    what: "What your portfolio is worth",
+    cells: ["To the cent", "Yes", "Prices a few minutes behind"],
+    ours: false,
+  },
+  {
+    what: "Connects to your account",
+    cells: ["It is your account", "Often", "No. You add holdings once"],
+    ours: false,
+  },
+  {
+    what: "What it costs",
+    cells: ["Free with the account", "Often a subscription", "Free, every feature"],
+    ours: true,
+  },
+];
+
+function Compare() {
+  return (
+    <Section>
+      <SectionHead
+        index="03"
+        eyebrow="How it compares"
+        title={BROKER_ANSWER}
+        detail="Your broker holds the money and adds it up to the cent. Why the number moved is left to you."
+      />
+      <div className="card-sheen glass mt-8 overflow-hidden rounded-2xl border border-border">
+        {/* Laptop: a real table, with this app's column lit. */}
+        <table className="hidden w-full table-fixed border-collapse text-left md:table">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="w-[28%] px-5 py-4" aria-label="What it does" />
+              {COMPARE_COLUMNS.map((col, i) => (
+                <th
+                  key={col}
+                  scope="col"
+                  className={cn(
+                    "px-5 py-4 font-mono text-xs font-medium uppercase tracking-[0.12em]",
+                    i === 2 ? "bg-foreground/[0.04] text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  {col}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {COMPARE_ROWS.map((row) => (
+              <tr key={row.what} className="border-b border-border/60 last:border-0">
+                <th scope="row" className="px-5 py-4 text-base font-medium text-foreground">
+                  {row.what}
+                </th>
+                {row.cells.map((cell, i) => (
+                  <td
+                    key={i}
+                    className={cn(
+                      "px-5 py-4 text-base",
+                      i === 2
+                        ? cn(
+                            "bg-foreground/[0.04]",
+                            row.ours ? "font-medium text-foreground" : "text-muted-foreground"
+                          )
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {cell}
+                  </td>
+                ))}
+              </tr>
             ))}
-          </ul>
-        </div>
+          </tbody>
+        </table>
+
+        {/*
+          Phone: one row per question, this app's answer first and loudest,
+          the two others under it. Four columns do not fit a phone, and a
+          table that scrolls sideways hides the column that matters.
+        */}
+        <ul className="divide-y divide-border md:hidden">
+          {COMPARE_ROWS.map((row) => (
+            <li key={row.what} className="flex flex-col gap-2 px-5 py-4">
+              <p className="text-base font-medium text-foreground">{row.what}</p>
+              <p className={cn("text-base", row.ours ? "text-primary" : "text-muted-foreground")}>
+                {row.cells[2]}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Broker: {row.cells[0]}. Tracker: {row.cells[1]}.
+              </p>
+            </li>
+          ))}
+        </ul>
       </div>
     </Section>
   );
@@ -798,6 +909,7 @@ function CircleSection() {
   return (
     <Section>
       <SectionHead
+        index="04"
         eyebrow="Circle"
         title="A bad week is easier with someone you know."
         detail="It helps more from someone looking at the same week."
@@ -816,12 +928,7 @@ function CircleSection() {
         <div className={cn(BOX, NESTED_PAD, "flex flex-col gap-5")}>
           {CIRCLE_POINTS.map((c) => (
             <div key={c.title} className="flex items-start gap-3.5">
-              <span
-                className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15"
-                aria-hidden
-              >
-                <c.icon className="size-4" />
-              </span>
+              <c.icon className="mt-1 size-5 shrink-0 text-primary" aria-hidden />
               <div className="min-w-0 flex flex-col gap-1">
                 <h3 className="text-base text-foreground">{c.title}</h3>
                 <p className="text-base leading-snug text-muted-foreground">
@@ -854,63 +961,50 @@ function CircleSection() {
  * what `NotYourBroker` above it is, and the consent sentence moved to the
  * footer where a legal line belongs. The hero's sign-in is the only one.
  */
-function Closing() {
+function Closing({ busy, err, onSignIn }: Pick<HeroProps, "busy" | "err" | "onSignIn">) {
   return (
     <Section>
       <SectionHead
+        index="05"
         eyebrow="What it costs"
         title={SIGNIN_PRICE}
         detail={SIGNIN_PRICE_NOTE}
       />
       {/*
-        * One panel, two halves, split by a hairline on a wide screen and
-        * stacked on a phone. The same shape the limits panel uses, for the
-        * same reason: these are two halves of one answer to "is it safe to
-        * put my real holdings in", not two cards.
-        */}
-      <div className={cn(BOX, NESTED_PAD, "mt-8 grid gap-6 md:grid-cols-2")}>
-        <div className="flex flex-col gap-4">
-          <MicroLabel className="text-primary">
-            What happens to your holdings
-          </MicroLabel>
-          <ul className="flex flex-col gap-3">
-            {SIGNIN_TRUST.map((line) => (
-              <li
-                key={line}
-                className="flex items-start gap-2.5 text-base leading-snug text-muted-foreground"
-              >
-                <CheckCircle2
-                  className="mt-0.5 size-4 shrink-0 text-primary"
-                  aria-hidden
-                />
-                <span>{line}</span>
-              </li>
-            ))}
-          </ul>
+        The last thing on the page is the thing to do. It used to be two
+        lists and no button, so a reader convinced by the end of the page
+        had to scroll back up three screens to find a way in.
+      */}
+      <div className={cn(BOX, NESTED_PAD, "mt-8 grid items-start gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]")}>
+        <div className="flex flex-col gap-5">
+          <p className="text-balance font-heading text-2xl font-semibold leading-tight tracking-[-0.03em] text-foreground">
+            Start with what you already own.
+          </p>
+          <SignInMethods
+            googleBusy={busy}
+            onGoogle={onSignIn}
+            error={err}
+            align="start"
+          />
         </div>
-
-        <div className="flex flex-col gap-4 border-t border-border pt-6 md:border-l md:border-t-0 md:pl-6 md:pt-0">
-          <MicroLabel>Also inside</MicroLabel>
-          <ul className="flex flex-col gap-3">
-            {ALSO_INSIDE.map((line) => (
-              <li
-                key={line}
-                className="flex items-start gap-2.5 text-base leading-snug text-muted-foreground"
-              >
-                {/*
-                  * A dot rather than a glyph. Every icon on this page means
-                  * something (a tick is a promise, a minus is a limit), and
-                  * these three are a list of rooms rather than either, so
-                  * inventing a meaning for them is worse than marking them.
-                  */}
-                <span
-                  className="mt-[0.55rem] size-1.5 shrink-0 rounded-full bg-primary/60"
-                  aria-hidden
-                />
-                <span>{line}</span>
-              </li>
-            ))}
-          </ul>
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-3">
+            <MicroLabel>What happens to your holdings</MicroLabel>
+            <ul className="flex flex-col gap-2.5">
+              {SIGNIN_TRUST.map((line) => (
+                <li key={line} className="flex items-start gap-2.5 text-base leading-snug text-muted-foreground">
+                  <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="flex flex-col gap-3">
+            <MicroLabel>Also inside</MicroLabel>
+            <p className="text-base leading-relaxed text-muted-foreground">
+              {ALSO_INSIDE.join(". ")}.
+            </p>
+          </div>
         </div>
       </div>
     </Section>
@@ -941,7 +1035,7 @@ const ALSO_INSIDE = [
 function Footer({ minAge }: { minAge: number }) {
   return (
     <footer className="px-6 pb-[max(6rem,env(safe-area-inset-bottom))] pt-4">
-      <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-8 border-t border-border pt-8">
+      <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-8 border-t border-border pt-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between sm:gap-10">
           <div className="flex min-w-0 flex-col gap-3">
             <UpsideLogo variant="icon" className="text-base" />
@@ -1032,6 +1126,141 @@ const FOOTER_LINK =
  * where the card clears the fold whole and nothing after it has started,
  * `ScrollCue` says it in words.
  */
+/*
+  THE HERO IS A THING TO DO, NOT A THING TO READ.
+
+  The product turns on one distinction nobody can be told: a screen of red
+  numbers looks the same whether the whole market fell or something happened
+  at a company you own. So the first screen hands a visitor eight red tiles
+  and asks which one had news. Finding it takes a few seconds and is the
+  whole pitch, arrived at by the reader rather than asserted at them.
+
+  It is the same made-up day as every other card on this page (Pulse, the
+  Margus conversation), so the page tells one story: the biggest faller is
+  not the one with news, which is the lesson in miniature.
+*/
+const NEWS_VERDICT = `${NEWS_COMPANY} told investors to expect less next year than they had been counting on. It fell on its own news. Everything else fell with the market.`;
+
+function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
+  const [open, setOpen] = useState<string[]>([]);
+  const found = open.includes(SAMPLE_NEWS_TICKER);
+  return (
+    <Panel className="@container h-auto gap-4 p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <span className="flex min-w-0 flex-col gap-1">
+          <span className="flex items-center gap-2">
+            <span className="signin-live-dot" aria-hidden />
+            <MicroLabel>A made-up portfolio, today</MicroLabel>
+          </span>
+          <span className="font-mono text-2xl tabular-nums text-foreground">
+            {TOTAL_MONEY}
+          </span>
+        </span>
+        <span className="flex shrink-0 flex-col items-end gap-1 pt-0.5">
+          <span className="font-mono text-base tabular-nums text-loss">
+            {DAY_MONEY}
+          </span>
+          <span className="font-mono text-xs tabular-nums text-loss">
+            {DAY_PCT}
+          </span>
+        </span>
+      </div>
+
+      <p className="text-lg font-medium leading-snug text-foreground" aria-live="polite">
+        {found
+          ? "Found it. That one is worth your evening."
+          : "One of these companies had real news today. Tap to find it."}
+      </p>
+
+      <ul className="grid grid-cols-2 gap-2 @md:grid-cols-4">
+        {SAMPLE_HOLDINGS.map((h) => {
+          const turned = open.includes(h.ticker);
+          const news = h.ticker === SAMPLE_NEWS_TICKER;
+          const move = sampleDayFraction(h);
+          return (
+            <li key={h.ticker}>
+              <button
+                type="button"
+                aria-pressed={turned}
+                onClick={() =>
+                  setOpen((prev) =>
+                    prev.includes(h.ticker)
+                      ? prev.filter((t) => t !== h.ticker)
+                      : [...prev, h.ticker]
+                  )
+                }
+                className={cn(
+                  "card-sheen glass-well flex h-[5.5rem] w-full flex-col justify-between rounded-xl border px-3 py-2.5 text-left transition-[transform,border-color] duration-200 active:scale-[0.97] motion-reduce:transition-none",
+                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  turned
+                    ? news
+                      ? "border-warning/70"
+                      : "border-border"
+                    : "border-transparent hover:border-loss/40"
+                )}
+              >
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="font-heading text-sm font-semibold text-foreground">
+                    {cashtag(h.ticker)}
+                  </span>
+                  <span
+                    className={cn(
+                      "font-mono text-xs tabular-nums",
+                      move < 0 ? "text-loss" : "text-gain"
+                    )}
+                  >
+                    {signedPercent(move, 1)}
+                  </span>
+                </span>
+                {turned ? (
+                  <span
+                    key="turned"
+                    className={cn(
+                      "animate-in fade-in-0 zoom-in-95 text-sm font-medium leading-tight duration-200 motion-reduce:animate-none",
+                      news ? "text-warning" : "text-muted-foreground"
+                    )}
+                  >
+                    {news ? "Its own news" : "Just the market"}
+                  </span>
+                ) : (
+                  <span className="truncate text-xs text-muted-foreground">
+                    {h.company}
+                  </span>
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      {found ? (
+        <p className="animate-in fade-in-0 text-sm leading-relaxed text-muted-foreground duration-300 motion-reduce:animate-none">
+          {NEWS_VERDICT} Upside Lab does this for every company you own, every
+          morning.
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-3">
+        <p className="min-w-[13rem] flex-1 text-xs leading-relaxed text-muted-foreground">
+          A made-up day. In the sample the holdings are made up and the prices
+          are real.
+        </p>
+        {onLookAround ? (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onLookAround}
+            className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-sm font-medium"
+          >
+            Look around
+            <ArrowRight className="size-3.5" aria-hidden />
+          </Button>
+        ) : null}
+      </div>
+    </Panel>
+  );
+}
+
 function HeroHybrid({
   busy,
   err,
@@ -1040,93 +1269,64 @@ function HeroHybrid({
   notice,
 }: HeroProps) {
   return (
-    /*
-     * At least one screen tall, less 9rem, so the next section's eyebrow
-     * and the top of its heading are always in view: what a reader sees at
-     * rest is a section beginning, not a page ending. On a shorter window
-     * the hero is taller than this and the sample card is cut instead,
-     * which says the same thing more loudly.
-     *
-     * `svh` rather than `dvh`, so a phone that later retracts its address
-     * bar does not find the hero taller than the window it was sized
-     * against. `relative`, because the cue is laid out against the top of
-     * this section.
-     */
-    <section className="relative min-h-[calc(100svh-9rem)] px-6 pb-10 pt-[max(2.5rem,env(safe-area-inset-top))] sm:pb-14 landing-hero">
-      <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col items-center text-center">
-        <UpsideLogo variant="icon" className="text-lg" />
+    <section className="relative min-h-[calc(100svh-9rem)] px-6 pb-10 pt-[max(1.5rem,env(safe-area-inset-top))] sm:pb-14 landing-hero">
+      <div className="mx-auto w-full min-w-0 max-w-6xl">
+        <div className="flex items-center justify-between gap-4">
+          <UpsideLogo variant="icon" className="text-lg" />
+          {onLookAround ? (
+            <button
+              type="button"
+              onClick={onLookAround}
+              className="touch-target inline-flex items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Look around first
+              <ArrowRight className="size-3.5" aria-hidden />
+            </button>
+          ) : null}
+        </div>
         {notice}
-        {/*
-          * 30px on a phone, so the hook is clearly the loudest thing on the
-          * page. It was 26px against section headings of 24px, which is a
-          * hierarchy nobody can see.
-          */}
-        <h1 className="mt-10">
-          <span className="block text-balance font-heading text-[1.875rem] font-semibold leading-[1.1] tracking-[-0.04em] text-foreground sm:text-[2.75rem] sm:leading-[1.14] sm:tracking-[-0.035em]">
-            Everyone shows you the number.
-            <span className="mt-1.5 block text-muted-foreground">
-              Nobody tells you what happened.
-            </span>
-          </span>
-        </h1>
-        {/*
-          * One sentence. The old lede was three, 37 words at 18px and six
-          * lines on a phone, which is 180px of type before anything else,
-          * and it was taller than the space the product needed.
-          */}
-        {/*
-          * Stepped up rather than cut down. At 18px in a 24-word sentence
-          * this was the same size as the body copy five screens below it,
-          * so the one line that says what the product is read as ordinary
-          * prose. It is the second-loudest thing on the page now, and
-          * `leading-snug` keeps the bigger type from ballooning the block.
-          */}
-        <p className="mt-6 max-w-lg text-balance text-xl leading-snug text-muted-foreground sm:text-2xl">
-          On a red day, which of your companies had news, and which just fell
-          with everything else.
-        </p>
-        <div className="mt-8 flex flex-col items-center gap-3">
-          {/*
-            * Nothing under the buttons, and that is the whole rule here.
-            *
-            * There were three blocks: a text link, a 16-word reassurance,
-            * and a two-line consent sentence, all of it small type stacked
-            * under the one thing a reader came to press. That is what made
-            * the top of the page read as fine print rather than as an
-            * invitation.
-            *
-            * The link moved onto the sample card it opens. The reassurance
-            * went entirely: how long it takes, that there is nothing to
-            * connect and that it is free are each said better further down,
-            * on the limits list and in the price block, and none of them is
-            * something a reader needs before pressing a free sign-in. And
-            * the consent sentence was already on this page twice, so the
-            * hero's copy went and the one under the closing button stays,
-            * which is where a reader who has read the page presses. Terms
-            * and Privacy are still linked from the footer on every screen.
-            */}
-          <SignInMethods googleBusy={busy} onGoogle={onSignIn} error={err} />
+
+        <div className="mt-10 grid items-center gap-10 sm:mt-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-16">
+          <div className="flex min-w-0 flex-col items-start text-left">
+            <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground">
+              <TrendingDown className="size-3.5 text-loss" aria-hidden />
+              Your portfolio, on a red day
+            </p>
+            <h1 className="mt-5">
+              <span className="block text-balance font-heading text-[2.75rem] font-semibold leading-[1] tracking-[-0.042em] text-foreground sm:text-[4rem] xl:text-[4.75rem]">
+                Everything is red.
+                <span className="block text-muted-foreground">
+                  Was it you, or the market?
+                </span>
+              </span>
+            </h1>
+            <p className="mt-6 max-w-xl text-pretty text-lg leading-snug text-muted-foreground sm:text-xl">
+              Upside Lab reads every company you own, every day, and tells you
+              in plain English which falls were news and which were just the
+              market.
+            </p>
+            <div className="mt-8 w-full max-w-sm">
+              <SignInMethods
+                googleBusy={busy}
+                onGoogle={onSignIn}
+                error={err}
+                align="start"
+              />
+            </div>
+            <p className="mt-4 text-sm text-muted-foreground">
+              Free, every feature. Nothing to connect.
+            </p>
+          </div>
+
+          <div
+            data-scroll-cue-still
+            className="landing-still w-full min-w-0"
+          >
+            <RedDayBoard onLookAround={onLookAround} />
+          </div>
         </div>
       </div>
 
-      {/*
-        * On a phone and on most laptops the card runs past the bottom of
-        * the window, and that cut is the strongest continuation cue there
-        * is. Marked, because `ScrollCue` measures this card against the
-        * fold: a card the fold cuts needs no words under it.
-        */}
-      <div
-        data-scroll-cue-still
-        className="landing-still mx-auto mt-12 w-full min-w-0 max-w-3xl sm:mt-14"
-      >
-        <SampleBriefing onLookAround={onLookAround} />
-      </div>
-
-      {/*
-        * In the page rather than over it: it draws in the band just above
-        * the first fold and scrolls away with the hero. See ScrollCue.tsx
-        * for what pinning it to the window cost.
-        */}
       <ScrollCue />
     </section>
   );
@@ -1138,10 +1338,11 @@ export function SignedOutLanding(props: HeroProps) {
   return (
     <main id="main" className="relative z-10 flex flex-1 flex-col">
       <HeroHybrid {...props} />
+      <WhoItsFor />
       <Showcase />
-      <NotYourBroker />
+      <Compare />
       <CircleSection />
-      <Closing />
+      <Closing busy={props.busy} err={props.err} onSignIn={props.onSignIn} />
       <Footer minAge={props.minAge} />
     </main>
   );

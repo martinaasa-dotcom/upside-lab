@@ -1680,8 +1680,9 @@ export const PulsePage = memo(function PulsePage({
            */
           subtitle={
             <>
-              Your thesis is the reason you own something. Each day this page
-              checks whether the price and the news still fit it.
+              Each day this page reads the price and the news for every
+              company you own, and says whether a move was the company or the
+              whole market. The badge is the thesis: the reason to own it.
               {lastCheckedAt ? (
                 <span className="text-muted-foreground">
                   {" "}
