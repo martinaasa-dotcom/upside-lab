@@ -621,12 +621,14 @@ export const PortfolioTable = memo(function PortfolioTable({
         This was a card per holding, about 350px each, so a portfolio of
         twelve names was eleven screens of cards and no way to see the whole
         of it at once, which is the one thing a holdings page is for. It is
-        a table now, like the laptop's, cut to the three columns a phone
-        reader checks every morning: the name, how it did today, and what it
-        has made since they bought it. One line per holding, so a dozen fit
-        on one screen.
+        a table now, like the laptop's, cut to what a phone reader checks
+        every morning: the name and how it did today, as a percentage and in
+        money. One line per holding, so a dozen fit on one screen. The
+        all-time figures are one press away rather than beside today's,
+        because two gains in one row read as the same number twice.
 
-        Everything else (value, shares, what was paid, the edit fields,
+        Everything else (value, the all-time gain, shares, what was paid,
+        the edit fields,
         Research and Remove) is one press away: pressing a row opens it in
         place. Those are the numbers somebody comes back to change rather
         than to read, and the edit fields have to live somewhere on a phone,
@@ -656,8 +658,8 @@ export const PortfolioTable = memo(function PortfolioTable({
               {(
                 [
                   { key: "pct", label: "Holding", align: "start" },
-                  { key: "today", label: "Today", align: "end" },
-                  { key: "roiDollar", label: "P&L", align: "end" },
+                  { key: "today", label: "Today %", align: "end" },
+                  { key: "todayDollar", label: "Today $", align: "end" },
                 ] as const
               ).map((col) => (
                 <button
@@ -738,10 +740,12 @@ export const PortfolioTable = memo(function PortfolioTable({
                     <span
                       className={cn(
                         "justify-self-end font-medium",
-                        signedTone(h.roiDollar)
+                        today.pct != null
+                          ? signedTone(today.dollar)
+                          : "text-muted-foreground"
                       )}
                     >
-                      {money(h.roiDollar, 0)}
+                      {today.pct != null ? money(today.dollar, 0) : NO_VALUE}
                     </span>
                   </button>
 
@@ -812,30 +816,9 @@ export const PortfolioTable = memo(function PortfolioTable({
                           </dd>
                         </div>
                         <div className="flex items-baseline justify-between gap-2">
-                          <dt>
-                            <TermTip
-                              className={TERM_LABEL}
-                              term="today"
-                              align="end"
-                              example={{
-                                ticker: cashtag(h.ticker),
-                                amount:
-                                  today.pct != null
-                                    ? money(today.dollar, 0)
-                                    : undefined,
-                              }}
-                            >
-                              Today
-                            </TermTip>
-                          </dt>
-                          <dd
-                            className={
-                              today.pct != null
-                                ? signedTone(today.dollar)
-                                : "text-muted-foreground"
-                            }
-                          >
-                            {today.pct != null ? money(today.dollar, 0) : NO_VALUE}
+                          <dt className={TERM_LABEL}>Gain $</dt>
+                          <dd className={signedTone(h.roiDollar)}>
+                            {money(h.roiDollar, 0)}
                           </dd>
                         </div>
                         <div className="flex items-baseline justify-between gap-2">
@@ -972,8 +955,13 @@ export const PortfolioTable = memo(function PortfolioTable({
               >
                 {today.pct != null ? percent(today.pct, 2) : NO_VALUE}
               </span>
-              <span className={cn("justify-self-end", signedTone(totals.roiDollar))}>
-                {money(totals.roiDollar, 0)}
+              <span
+                className={cn(
+                  "justify-self-end",
+                  today.pct != null ? signedTone(today.dollar) : "text-muted-foreground"
+                )}
+              >
+                {today.pct != null ? money(today.dollar, 0) : NO_VALUE}
               </span>
             </div>
           </div>
