@@ -67,8 +67,9 @@ describe("a section nobody can see is built when they come to it", () => {
   });
 
   it("Circle's big Overview sections are the ones deferred", () => {
-    // 264 of a circle's 308 elements, both starting below an 800px fold.
-    expect(CIRCLE).toMatch(/<BelowFold[^>]*>\s*<CommunityTodayBoard/);
+    // The day's board is the room's lead now, carrying the circle's totals,
+    // so it paints first; the sections under it are the ones deferred.
+    expect(CIRCLE).not.toMatch(/<BelowFold[^>]*>\s*<CommunityTodayBoard/);
     /*
      * Three, and the third earned it the same way the first two did: the
      * pooled band map is six rows and three tiles starting past 1,300px,
@@ -82,7 +83,7 @@ describe("a section nobody can see is built when they come to it", () => {
     expect(
       CIRCLE.match(/<BelowFold/g)?.length,
       "the Overview's own big sections, and not the League ones a tab already hides"
-    ).toBe(3);
+    ).toBe(2);
   });
 
   it("is spent only where the content is more than a screen down", () => {

@@ -12,8 +12,6 @@ import {
   Panel,
   PANEL_STACK,
   PanelHeader,
-  Score,
-  Scoreboard,
   Segmented,
   SwatchLegend,
 } from "@/components/ui/Panel";
@@ -40,9 +38,7 @@ import type { HoldingLadderRow } from "@/lib/company/holding-ladders";
 import {
   cashtag,
   cn,
-  currency,
   NO_VALUE,
-  signedCurrency,
   signedPercent,
   signedTone,
 } from "@/lib/format";
@@ -139,6 +135,7 @@ function themePctLabel(p: number): string {
 function ThemeBar({ slices }: { slices: MixSlice[] }) {
   return (
     <AllocationBar
+      size="lg"
       slices={slices.map((m) => ({
         key: m.key,
         pct: m.pct,
@@ -284,44 +281,7 @@ export function CircleHome({
         safe to open a shared room on, and the per-person amounts are a tap
         away on the board and the cards.
       */}
-      {!empty && (
-        <WidgetErrorBoundary name="Circle totals">
-          <Scoreboard cols={3}>
-            <Score
-              label="Today"
-              value={
-                overview.totals.todayPct != null
-                  ? signedPercent(overview.totals.todayPct)
-                  : NO_VALUE
-              }
-              sub={signedCurrency(overview.totals.todayDollar, 0)}
-              tone={
-                (overview.totals.todayPct ?? 0) > 0
-                  ? "up"
-                  : (overview.totals.todayPct ?? 0) < 0
-                    ? "down"
-                    : undefined
-              }
-            />
-            <Score
-              label="Total value"
-              /* Whole dollars, like every other headline total in the app. */
-              value={currency(overview.totals.totalValue, 0)}
-              sub={
-                membersWithBooks.length === 1
-                  ? "1 portfolio in the circle"
-                  : `${membersWithBooks.length} portfolios in the circle`
-              }
-            />
-            <Score
-              label="Cash"
-              value={currency(overview.totals.cash, 0)}
-              sub="Everyone's, added up"
-              tone={overview.totals.cash < 0 ? "down" : undefined}
-            />
-          </Scoreboard>
-        </WidgetErrorBoundary>
-      )}
+
 
       {(shownView === "overview" || shownView === "play") && (
         /*
@@ -435,6 +395,8 @@ export function CircleHome({
           )}
 
           {shownView === "overview" && !empty && (
+            /* After the day's board, which is what a reader opens the room to see. */
+            <div className="order-2">
             <WidgetErrorBoundary name="Daily Duel" resetKey={communityId}>
               <DailyDuelCard
                 compact
@@ -446,6 +408,7 @@ export function CircleHome({
                 }))}
               />
             </WidgetErrorBoundary>
+            </div>
           )}
 
           {shownView === "play" && hasLeague && (
@@ -611,12 +574,18 @@ export function CircleHome({
             * top of the column.
             */}
           {shownView === "overview" && !empty && (
-            <BelowFold className="order-1" reserve={465}>
-              <CommunityTodayBoard
-                members={membersWithBooks}
-                onOpen={onOpenMember}
-              />
-            </BelowFold>
+            <WidgetErrorBoundary name="Circle totals">
+            <CommunityTodayBoard
+              members={membersWithBooks}
+              onOpen={onOpenMember}
+              totals={{
+                todayPct: overview.totals.todayPct,
+                todayDollar: overview.totals.todayDollar,
+                totalValue: overview.totals.totalValue,
+                cash: overview.totals.cash,
+              }}
+            />
+            </WidgetErrorBoundary>
           )}
           {shownView === "overview" && sharedNames.length > 0 && (
             <BelowFold className="order-4" reserve={640}>
@@ -649,7 +618,7 @@ export function CircleHome({
               <PanelHeader
                 icon={<PieChart className="h-4 w-4" />}
                 title="What the circle owns"
-                subtitle="Everyone's holdings added together and grouped by kind of business. This shows how the circle is put together, and is not a recommendation."
+                subtitle="Everyone's holdings added together and grouped by kind of business, with yours under it."
               />
               {/*
                 The two bars are one reading, so they are one child of the

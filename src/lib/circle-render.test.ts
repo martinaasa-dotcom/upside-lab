@@ -222,7 +222,10 @@ describe("the circle renders", () => {
       const html = renderToStaticMarkup(room(view));
       const text = textOf(html);
       console.log(`\n--- ${view} (${text.length} chars) ---\n${text.slice(0, 900)}`);
-      expect(text.length).toBeGreaterThan(50);
+      // The heading and the tabs at the least; the members list itself
+      // arrives from its own fetch, which this fixture leaves empty.
+      expect(text).toContain("The Aasa circle");
+      expect(text.length).toBeGreaterThan(30);
       expect(text).not.toMatch(/undefined|NaN|\[object Object\]/);
     });
   }
