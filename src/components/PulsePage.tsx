@@ -323,8 +323,24 @@ function PulseCard({
    */
   showPortfolioNames?: boolean;
 }) {
-  const pct = c.effectivePct;
+  /*
+    After the close the headline move is the day's, and the after-hours
+    drift sits beside it. Leading with the after-hours figure alone put
+    "+0.1% After-hours" on a card whose Today cell said +$8.91, two
+    readings of one company that looked like a contradiction. Before the
+    open the pre-market move stays the headline, because the regular
+    session figure then is yesterday's.
+  */
+  const afterClose = c.moveSource === "post" && c.regularPct != null;
+  const pct = afterClose ? c.regularPct : c.effectivePct;
+  const extPct = afterClose ? c.extendedPct : null;
   const hasPct = pct != null && Number.isFinite(pct);
+  const flat = hasPct && Math.abs(pct!) < 0.0005;
+  /* The Today cell is the same day as the headline, in money. */
+  const dayDollar =
+    afterClose && hasPct && pct! > -1
+      ? c.currentValue - c.currentValue / (1 + pct!)
+      : c.todayDollar;
   const up = (pct ?? 0) >= 0;
   const range = candidateRange(c);
   const label = describeCompany(c.ticker, sector);
@@ -389,7 +405,8 @@ function PulseCard({
   */
   const peerRead = sectorPeerRead({
     sectorWords: sector,
-    ownPct: c.effectivePct,
+    /* Against the sector fund's day, so the company's day too. */
+    ownPct: pct,
     sectorPct,
   });
   const hasBody = Boolean(shown) || Boolean(peerRead);
@@ -526,19 +543,24 @@ function PulseCard({
               <span
                 className={cn(
                   "inline-flex items-center gap-1",
-                  up ? "text-gain" : "text-loss"
+                  flat ? "text-muted-foreground" : up ? "text-gain" : "text-loss"
                 )}
               >
-                {up ? (
+                {flat ? null : up ? (
                   <TrendingUp className="size-3.5" />
                 ) : (
                   <TrendingDown className="size-3.5" />
                 )}
-                {formatMovePct(pct)}
+                {flat ? "0.0%" : formatMovePct(pct)}
               </span>
               <span className="font-normal text-muted-foreground">
-                {c.moveLabel}
+                {afterClose ? "Today" : c.moveLabel}
               </span>
+              {extPct != null && Math.abs(extPct) >= 0.0005 ? (
+                <span className="font-normal text-muted-foreground">
+                  {formatMovePct(extPct)} after hours
+                </span>
+              ) : null}
             </>
           ) : (
             <span className="font-normal text-muted-foreground">
@@ -588,15 +610,15 @@ function PulseCard({
                 term="today"
                 example={{
                   ticker: c.ticker,
-                  amount: signedCurrency(c.todayDollar),
+                  amount: signedCurrency(dayDollar),
                 }}
               >
                 Today
               </TermTip>
             }
-            valueClassName={signedTone(c.todayDollar, "text-foreground")}
+            valueClassName={signedTone(dayDollar, "text-foreground")}
           >
-            {signedCurrency(c.todayDollar)}
+            {signedCurrency(dayDollar)}
           </Metric>
           <Metric
             label={
@@ -730,7 +752,8 @@ function PulseCard({
         </div>
       ) : null}
 
-      {needsMargusRun ? (
+      {/* Only where a reading can arrive; on the sample the notice above says why none will. */}
+      {needsMargusRun && onRefresh ? (
         <p className="text-sm text-muted-foreground">
           No reading for this one yet.
         </p>
@@ -1222,8 +1245,10 @@ export const PulsePage = memo(function PulsePage({
     const out = new Set<string>();
     for (const c of ranked) {
       const typical = typicalByTicker[c.ticker.toUpperCase()];
-      if (!typical || c.effectivePct == null) continue;
-      if (daySize(c.effectivePct, typical) !== "ordinary") {
+      /* The day's own move after the close, never the after-hours drift alone. */
+      const dayMove = c.moveSource === "post" && c.regularPct != null ? c.regularPct : c.effectivePct;
+      if (!typical || dayMove == null) continue;
+      if (daySize(dayMove, typical) !== "ordinary") {
         out.add(c.ticker.toUpperCase());
       }
     }
