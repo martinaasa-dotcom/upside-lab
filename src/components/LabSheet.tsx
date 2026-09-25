@@ -388,6 +388,13 @@ export const LabSheet = memo(function LabSheet({
       : (portfolios.find((p) => p.id === scopeId)?.name ?? "Portfolio");
 
   const scopeApplies = tab === "alloc" || tab === "risk";
+  /*
+   * Research and the Playbook never read a portfolio at all, so a greyed
+   * "Looking at: Everything" there is a control that cannot mean anything.
+   * Trends and Seasonality keep it disabled, because they do read what you
+   * own, just always all of it, and the disabled picker says so.
+   */
+  const scopeShown = tab !== "lookup" && tab !== "playbook";
 
   const sheetHoldings = useMemo(
     () =>
@@ -596,7 +603,10 @@ export const LabSheet = memo(function LabSheet({
             * beside it. A Radix trigger is a `<button>`, so the rule does not
             * reach it and it stays `text-sm`.
             */}
-          <div className="flex min-w-0 shrink-0 items-center gap-2">
+          <div
+            className="flex min-w-0 shrink-0 items-center gap-2"
+            hidden={!scopeShown}
+          >
             <span
               className="shrink-0 text-sm font-medium text-muted-foreground"
               id="lab-scope-label"
