@@ -10,6 +10,7 @@ import { getSupabaseDataClient } from "@/lib/supabase/server";
 import { COVERED_CALL_COLUMNS, PORTFELL_TABLES } from "@/lib/supabase/tables";
 import { isRecord, readString } from "@/lib/unknown";
 import { observeRoute } from "@/lib/observe-route";
+import { listOwnedPortfolioIds } from "@/lib/auth/ownership";
 import { coveredCallBodySchema } from "@/lib/api-schemas";
 import { parseJsonBody } from "@/lib/parse-json-body";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -84,16 +85,29 @@ async function handleGET(req: NextRequest) {
   const supabase = await getSupabaseDataClient();
   if (!supabase) return notConfigured();
 
+  /*
+    With a portfolio named, that portfolio's calls. With none, every call on
+    every portfolio the caller co-owns, which is what Home's alerts read: a
+    call past its roll level matters whichever portfolio happens to be open.
+    The ids come from the caller's own ownership rows, never the request.
+  */
   const portfolioId = req.nextUrl.searchParams.get("portfolio_id");
-  const ctx = await loadPortfolioWriteContext(supabase, auth.user.id, portfolioId);
-  if (!ctx.ok) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
+  let ids: string[];
+  if (portfolioId) {
+    const ctx = await loadPortfolioWriteContext(supabase, auth.user.id, portfolioId);
+    if (!ctx.ok) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
+    ids = [ctx.context.portfolioId];
+  } else {
+    ids = await listOwnedPortfolioIds(auth.user.id);
+    if (ids.length === 0) return NextResponse.json({ calls: [] });
+  }
 
   const { data, error } = await supabase
     .from(PORTFELL_TABLES.coveredCalls)
     .select(COVERED_CALL_COLUMNS)
-    .eq("portfolio_id", ctx.context.portfolioId)
+    .in("portfolio_id", ids)
     .order("expiry", { ascending: true })
-    .limit(MAX_TRACKED_CALLS);
+    .limit(MAX_TRACKED_CALLS * ids.length);
   if (error) {
     return NextResponse.json(
       { error: dbError(error, "GET /api/covered-calls: read calls") },

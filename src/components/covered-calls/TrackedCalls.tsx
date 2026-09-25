@@ -6,19 +6,16 @@ import { Card, InfoTip, MicroLabel, Pill, type PillTone } from "@/components/ui/
 import { TermTip } from "@/components/ui/TermTip";
 import { NO_VALUE, barFillPct, cashtag, cn, currency, percent } from "@/lib/format";
 import { blockWheelChange, parseDecimal } from "@/lib/number-input";
-import { daysToExpiry } from "@/lib/options/black-scholes";
 import {
   ROLL_DELTA_RANGE,
   TAKE_PROFIT_RANGE,
   WATCH_DELTA,
   deltaText,
   oddsText,
-  plannedCallHealth,
   rollSaid,
-  soldCallHealth,
   type CallHealth,
+  type CallView,
   type CallRules,
-  type ContractReading,
   type TrackedCall,
   type VolSource,
 } from "@/lib/options/tracked-calls";
@@ -38,18 +35,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
   sentence under it says what the reader's rule means doing, and where the
   chain has one, a roll that pays for itself with its figures.
 */
-
-const URGENCY: Record<CallHealth["kind"], number> = {
-  roll: 0,
-  assignment: 1,
-  close: 2,
-  ready: 3,
-  expired: 4,
-  watch: 5,
-  waiting: 6,
-  ok: 7,
-  unknown: 8,
-};
 
 const TONE_PILL: Record<CallHealth["tone"], PillTone> = {
   loss: "bad",
@@ -77,45 +62,6 @@ const SOURCE_SAID: Record<VolSource, string> = {
 const METHOD =
   "Worked out with the Black-Scholes formula from the share price, the strike, the time left to the 16:00 New York close on expiry and the volatility named below. It leaves out dividends and early exercise, which move a delta a few weeks out by a couple of hundredths at most.";
 
-/** A reading only counts for the contract it was taken on. */
-function readingFor(call: TrackedCall, readings: Record<string, ContractReading>) {
-  const r = readings[call.id];
-  if (!r) return null;
-  return r.strike === call.strike && r.expiry === call.expiry && r.ticker === call.ticker
-    ? r
-    : null;
-}
-
-export type CallView = {
-  call: TrackedCall;
-  reading: ContractReading | null;
-  health: CallHealth;
-  daysLeft: number | null;
-};
-
-export function buildCallViews(
-  calls: TrackedCall[],
-  readings: Record<string, ContractReading>,
-  rules: CallRules,
-  now: Date = new Date()
-): CallView[] {
-  return calls
-    .map((call) => {
-      const reading = readingFor(call, readings);
-      const daysLeft = daysToExpiry(call.expiry, now);
-      const health =
-        call.status === "sold"
-          ? soldCallHealth(call, reading, rules, daysLeft)
-          : plannedCallHealth(call, reading, daysLeft);
-      return { call, reading, health, daysLeft };
-    })
-    .sort(
-      (a, b) =>
-        URGENCY[a.health.kind] - URGENCY[b.health.kind] ||
-        a.call.expiry.localeCompare(b.call.expiry)
-    );
-}
-
 /** One line at the top naming what needs a look, or null when nothing does. */
 export function attentionLine(views: CallView[]): string | null {
   const urgent = views.filter((v) => v.health.urgent);
@@ -128,7 +74,7 @@ export function attentionLine(views: CallView[]): string | null {
       case "assignment":
         return `${name} could take your shares this week`;
       case "close":
-        return `${name} is past your close level`;
+        return `${name} is past your buy-back level`;
       case "ready":
         return `${name} has reached your price`;
       default:

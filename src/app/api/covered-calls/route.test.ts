@@ -24,17 +24,26 @@ vi.mock("@/lib/portfolio-write-context", () => ({
       : { ok: false, status: 403, error: "You can only edit portfolios you own" },
 }));
 
+vi.mock("@/lib/auth/ownership", () => ({
+  listOwnedPortfolioIds: async () => [...db.owned],
+}));
+
 vi.mock("@/lib/observe-route", () => ({
   observeRoute: (h: (req: NextRequest) => Promise<Response>) => h,
 }));
 
 function query() {
   const filters: Record<string, unknown> = {};
+  let within: { key: string; values: unknown[] } | null = null;
   let op = "select";
   let payload: unknown = null;
   let head = false;
   const match = () =>
-    db.rows.filter((r) => Object.entries(filters).every(([k, v]) => r[k] === v));
+    db.rows.filter(
+      (r) =>
+        Object.entries(filters).every(([k, v]) => r[k] === v) &&
+        (!within || within.values.includes(r[within.key]))
+    );
   const q = {
     select: (_c?: string, opts?: { head?: boolean }) => {
       if (opts?.head) head = true;
@@ -56,6 +65,10 @@ function query() {
     },
     eq: (k: string, v: unknown) => {
       filters[k] = v;
+      return q;
+    },
+    in: (k: string, values: unknown[]) => {
+      within = { key: k, values };
       return q;
     },
     order: () => q,
@@ -124,6 +137,14 @@ describe("/api/covered-calls", () => {
     expect(body.calls.map((c) => c.id)).toEqual(["mine"]);
     const no = await GET(req("GET", "/api/covered-calls?portfolio_id=p-other"));
     expect(no.status).toBe(403);
+  });
+
+  it("lists every portfolio the caller owns, and nobody else's, when none is named", async () => {
+    db.rows.push({ id: "mine-2", portfolio_id: "p-mine-2", ...call });
+    db.owned.add("p-mine-2");
+    const res = await GET(req("GET", "/api/covered-calls"));
+    const body = (await res.json()) as { calls: { id: string }[] };
+    expect(body.calls.map((c) => c.id).sort()).toEqual(["mine", "mine-2"]);
   });
 
   it("adds a call to the caller's portfolio and refuses anybody else's", async () => {

@@ -12,6 +12,7 @@ import {
   ladderMomentTitle,
 } from "@/lib/company/plan-ladder";
 import { safeDiv } from "@/lib/money";
+import { dayText, deltaText, rollSaid, type CallView } from "@/lib/options/tracked-calls";
 import { formatDateTime } from "@/lib/timezone";
 
 /**
@@ -38,7 +39,8 @@ export type AlertKind =
   | "strike"
   | "margin"
   | "concentration"
-  | "ladder";
+  | "ladder"
+  | "call";
 
 export type UpsideAlert = {
   id: string;
@@ -70,6 +72,8 @@ export type UpsideAlert = {
    * on "You have borrowed $9,000" rather than on a dictionary sentence.
    */
   explain?: GlossaryExample;
+  /** A tracked covered call's portfolio, so its card opens that panel. */
+  portfolioId?: string;
 };
 
 /**
@@ -296,6 +300,78 @@ export function buildStrikeAlerts(
 }
 
 /**
+ * A covered call the reader has sold, when it meets one of their own rules.
+ *
+ * Three moments and no others, because these are the ones that cost money
+ * to miss: delta at or past the level the reader rolls at, the share above
+ * the strike in the last few days before expiry, and enough of the premium
+ * kept that the reader's rule says buy it back. A call on track, a planned
+ * one, and a near-worthless one in its last day or two stay on the panel,
+ * since a card for something with nothing to decide is a card a reader
+ * learns to swipe past.
+ *
+ * The id carries the kind of moment, for the reason the borrowed-money
+ * alert's carries its tier: dismissals are per id, and waving off a "close"
+ * card a fortnight ago must not silence the same call reaching its roll
+ * level today.
+ */
+export function buildCallAlerts(views: readonly CallView[]): UpsideAlert[] {
+  const out: UpsideAlert[] = [];
+  for (const { call, reading, health } of views) {
+    if (call.status !== "sold" || !health.urgent) continue;
+    if (health.kind !== "roll" && health.kind !== "assignment" && health.kind !== "close") {
+      continue;
+    }
+    const name = `${cashtag(call.ticker)} ${currency(call.strike, 2)} call`;
+    const delta = reading?.delta ?? null;
+    const detail = [health.read, health.move].filter(Boolean).join(" ");
+    const base = {
+      id: `call-${health.kind}-${call.id}`,
+      kind: "call" as const,
+      detail,
+      ticker: call.ticker,
+      portfolioId: call.portfolio_id,
+    };
+    if (health.kind === "roll" || health.kind === "assignment") {
+      out.push({
+        ...base,
+        title:
+          health.kind === "roll"
+            ? `${name} is past your roll level`
+            : `${name} could take your shares this week`,
+        tone: health.kind === "roll" ? "loss" : "warning",
+        cushion:
+          delta != null
+            ? `Delta ${deltaText(delta)}, expires ${dayText(call.expiry)}.`
+            : null,
+        learn: reading?.roll
+          ? rollSaid(reading.roll, call.contracts)
+          : health.closeCost != null
+            ? `Buying it back today costs ${currency(health.closeCost)}.`
+            : null,
+        term: "roll",
+      });
+    } else {
+      out.push({
+        ...base,
+        title: `${name} is past your buy-back level`,
+        tone: "neutral",
+        cushion:
+          health.kept != null
+            ? `${percent(health.kept, 0)} of the premium kept.`
+            : null,
+        learn:
+          health.closeCost != null && health.gainTotal != null
+            ? `Buying it back today costs ${currency(health.closeCost)} and locks in ${currency(health.gainTotal)}.`
+            : null,
+        term: "buy-to-close",
+      });
+    }
+  }
+  return out;
+}
+
+/**
  * The options half of this used to be unconditional, so somebody who told
  * onboarding they've never traded an option still got told about writing
  * calls into a print. `hideOptions` is the same flag that strips the CC
@@ -490,11 +566,14 @@ export function buildDecisionAlerts(input: {
  * tells them. Sending them to Pulse instead offered an explanation of a
  * move nothing on the card had claimed.
  */
-export type AlertDestination = "research" | "pulse" | "cash" | "overview";
+export type AlertDestination = "research" | "pulse" | "cash" | "calls" | "overview";
 
 export function alertDestination(
   alert: Pick<UpsideAlert, "kind" | "ticker">
 ): AlertDestination {
+  // A tracked call is read and changed on the covered-call panel of the
+  // portfolio it was sold in, not on the company's page.
+  if (alert.kind === "call") return "calls";
   if (alert.ticker) return alert.kind === "ladder" ? "research" : "pulse";
   if (alert.kind === "margin") return "cash";
   return "overview";

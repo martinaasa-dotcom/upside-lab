@@ -504,12 +504,15 @@ function HomeAlertRow({
   onOpenPulse,
   onOpenResearch,
   onOpenAlerts,
+  onOpenSheet,
   className,
 }: {
   alerts: UpsideAlert[];
   onOpenPulse?: (ticker: string) => void;
   onOpenResearch?: (ticker: string) => void;
   onOpenAlerts?: () => void;
+  /** A tracked covered call opens its own portfolio's panel. */
+  onOpenSheet?: (portfolioId: string, focus?: "covered-calls") => void;
   className?: string;
 }) {
   const shown = alerts
@@ -538,7 +541,9 @@ function HomeAlertRow({
               ? () => onOpenResearch?.(alert.ticker as string)
               : where === "pulse"
                 ? () => onOpenPulse?.(alert.ticker as string)
-                : onOpenAlerts;
+                : where === "calls" && alert.portfolioId
+                  ? () => onOpenSheet?.(alert.portfolioId as string, "covered-calls")
+                  : onOpenAlerts;
           return (
             <article
               key={alert.id}
@@ -579,7 +584,9 @@ function HomeAlertRow({
                       ? `Open Research on ${cashtag(alert.ticker as string)}`
                       : where === "pulse"
                         ? `Open Pulse on ${cashtag(alert.ticker as string)}`
-                        : "Open Worth a look"}
+                        : where === "calls" && alert.portfolioId
+                          ? "Open covered calls"
+                          : "Open Worth a look"}
                     <ArrowRight data-icon="inline-end" />
                   </Button>
                 </div>
@@ -1707,6 +1714,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
           onOpenPulse={onOpenPulse}
           onOpenResearch={onOpenResearch}
           onOpenAlerts={onOpenAlerts}
+          onOpenSheet={onOpenSheet}
         />
       </div>
 

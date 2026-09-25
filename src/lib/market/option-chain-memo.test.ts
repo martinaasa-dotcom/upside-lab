@@ -167,8 +167,24 @@ describe("the room only scans when a covered-call surface is on screen", () => {
     // quotesOnly and hideOptionsUI are booleans already in hand; the panel
     // check is last because it is the one that reads a ref.
     expect(dashboard).toContain(
-      "if (opts?.quotesOnly || hideOptionsUI || !ccVisibleRef.current)"
+      "!opts?.quotesOnly && !hideOptionsUI && ccVisibleRef.current"
     );
+  });
+
+  it("reads only the calls a reader has sold when the panel is off screen, and not on every poll", () => {
+    /*
+      Home's alerts need those readings while nobody is looking at the
+      panel. What must not come back is the whole suggestion scan riding
+      on the quote poll: off screen it is contracts only, sold ones only,
+      and at most once per CONTRACT_WATCH_MS.
+    */
+    const offScreen = dashboard.slice(
+      dashboard.indexOf("if (!fullScan)"),
+      dashboard.indexOf("if (!fullScan)") + 2200
+    );
+    expect(offScreen).toContain('c.status === "sold"');
+    expect(offScreen).toContain("< CONTRACT_WATCH_MS");
+    expect(offScreen).toContain("positions: []");
   });
 
   it("reads the panel's state from a ref, not from the callback's deps", () => {

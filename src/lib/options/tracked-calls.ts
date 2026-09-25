@@ -1,3 +1,5 @@
+import { daysToExpiry } from "@/lib/options/black-scholes";
+
 /**
  * Covered calls the reader has actually sold, or means to, and what the
  * market says about each one today.
@@ -338,7 +340,7 @@ export function soldCallHealth(
       read: `${keptSaid} Delta is down to ${dText}.`,
       move: worthless
         ? `It is likely to expire with nothing to pay, so letting it run out costs nothing. Buying it back costs ${wholeMoney(closeCost!)} and only frees the shares a day or two early.`
-        : `That is past the ${Math.round(rules.takeProfit * 100)}% you set for closing. Buying it back costs ${wholeMoney(closeCost!)} and frees the shares to write another call${days != null && days > 0 ? `, instead of waiting ${days === 1 ? "a day" : `${days} days`} for the rest` : ""}.`,
+        : `That is past the ${Math.round(rules.takeProfit * 100)}% you set for buying it back. Buying it back costs ${wholeMoney(closeCost!)} and frees the shares to write another call${days != null && days > 0 ? `, instead of waiting ${days === 1 ? "a day" : `${days} days`} for the rest` : ""}.`,
       urgent: !worthless,
     };
   }
@@ -440,6 +442,61 @@ export function plannedCallHealth(
 
 function capitalise(s: string): string {
   return s ? s[0]!.toUpperCase() + s.slice(1) : s;
+}
+
+/* ------------------------------------------------------------------ */
+/* Every call read against the rules, most pressing first.             */
+/* ------------------------------------------------------------------ */
+
+export const URGENCY: Record<CallHealth["kind"], number> = {
+  roll: 0,
+  assignment: 1,
+  close: 2,
+  ready: 3,
+  expired: 4,
+  watch: 5,
+  waiting: 6,
+  ok: 7,
+  unknown: 8,
+};
+
+/** A reading only counts for the contract it was taken on. */
+export function readingFor(call: TrackedCall, readings: Record<string, ContractReading>) {
+  const r = readings[call.id];
+  if (!r) return null;
+  return r.strike === call.strike && r.expiry === call.expiry && r.ticker === call.ticker
+    ? r
+    : null;
+}
+
+export type CallView = {
+  call: TrackedCall;
+  reading: ContractReading | null;
+  health: CallHealth;
+  daysLeft: number | null;
+};
+
+export function buildCallViews(
+  calls: TrackedCall[],
+  readings: Record<string, ContractReading>,
+  rules: CallRules,
+  now: Date = new Date()
+): CallView[] {
+  return calls
+    .map((call) => {
+      const reading = readingFor(call, readings);
+      const daysLeft = daysToExpiry(call.expiry, now);
+      const health =
+        call.status === "sold"
+          ? soldCallHealth(call, reading, rules, daysLeft)
+          : plannedCallHealth(call, reading, daysLeft);
+      return { call, reading, health, daysLeft };
+    })
+    .sort(
+      (a, b) =>
+        URGENCY[a.health.kind] - URGENCY[b.health.kind] ||
+        a.call.expiry.localeCompare(b.call.expiry)
+    );
 }
 
 /* ------------------------------------------------------------------ */

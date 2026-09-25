@@ -65,15 +65,26 @@ async function errorOf(res: Response, fallback: string): Promise<string> {
 }
 
 export type TrackedCallsStore = {
+  /** Every call on every portfolio the store was given, for the alerts. */
   calls: TrackedCall[];
   ready: boolean;
+  /** Adds to the open portfolio. */
   add: (draft: TrackedCallDraft) => Promise<string | null>;
   update: (id: string, draft: TrackedCallDraft) => Promise<string | null>;
   remove: (id: string) => Promise<string | null>;
 };
 
+/**
+ * Every tracked call on every portfolio the reader owns, and writes to the
+ * one that is open.
+ *
+ * All of them rather than the open one's, because Home's alerts read this
+ * too: a call past its roll level is worth saying whichever portfolio the
+ * reader happens to be looking at. The panel filters to the open portfolio.
+ */
 export function useTrackedCalls(
-  portfolioId: string | null,
+  portfolioIds: readonly string[],
+  activeId: string | null,
   remote: boolean,
   enabled: boolean
 ): TrackedCallsStore {
@@ -81,23 +92,23 @@ export function useTrackedCalls(
   const [ready, setReady] = useState(false);
   const callsRef = useRef(calls);
   callsRef.current = calls;
+  const idsKey = [...portfolioIds].sort().join(",");
 
   useEffect(() => {
-    setCalls([]);
     setReady(false);
-    if (!portfolioId || !enabled) return;
+    if (!enabled || !idsKey) {
+      setCalls([]);
+      return;
+    }
     if (!remote) {
-      setCalls(readLocal(portfolioId));
+      setCalls(idsKey.split(",").flatMap((id) => readLocal(id)));
       setReady(true);
       return;
     }
     const ctrl = new AbortController();
     void (async () => {
       try {
-        const res = await fetch(
-          `/api/covered-calls?portfolio_id=${encodeURIComponent(portfolioId)}`,
-          { signal: ctrl.signal }
-        );
+        const res = await fetch("/api/covered-calls", { signal: ctrl.signal });
         if (!res.ok) return;
         const body = (await res.json()) as { calls?: TrackedCall[] };
         if (!ctrl.signal.aborted) setCalls(Array.isArray(body.calls) ? body.calls : []);
@@ -108,32 +119,36 @@ export function useTrackedCalls(
       }
     })();
     return () => ctrl.abort();
-  }, [portfolioId, remote, enabled]);
+  }, [idsKey, remote, enabled]);
 
-  const commitLocal = useCallback(
-    (next: TrackedCall[]) => {
-      if (!portfolioId) return;
-      setCalls(next);
-      writeLocal(portfolioId, next);
-    },
-    [portfolioId]
-  );
+  /** Local mode: store the portfolio each touched call belongs to. */
+  const commitLocal = useCallback((next: TrackedCall[], touched: string) => {
+    setCalls(next);
+    writeLocal(
+      touched,
+      next.filter((c) => c.portfolio_id === touched)
+    );
+  }, []);
 
   const add = useCallback(
     async (draft: TrackedCallDraft): Promise<string | null> => {
-      if (!portfolioId) return "Open a portfolio first.";
-      if (callsRef.current.length >= MAX_TRACKED_CALLS) {
+      if (!activeId) return "Open a portfolio first.";
+      const here = callsRef.current.filter((c) => c.portfolio_id === activeId);
+      if (here.length >= MAX_TRACKED_CALLS) {
         return `A portfolio can track up to ${MAX_TRACKED_CALLS} calls. Remove an old one first.`;
       }
       if (!remote) {
-        commitLocal([...callsRef.current, { ...draft, id: localId(), portfolio_id: portfolioId }]);
+        commitLocal(
+          [...callsRef.current, { ...draft, id: localId(), portfolio_id: activeId }],
+          activeId
+        );
         return null;
       }
       try {
         const res = await fetch("/api/covered-calls", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...draft, portfolio_id: portfolioId }),
+          body: JSON.stringify({ ...draft, portfolio_id: activeId }),
         });
         if (!res.ok) return errorOf(res, "Couldn't save that call. Try again.");
         const body = (await res.json()) as { call?: TrackedCall };
@@ -143,16 +158,17 @@ export function useTrackedCalls(
         return "Couldn't save that call. Check your connection.";
       }
     },
-    [portfolioId, remote, commitLocal]
+    [activeId, remote, commitLocal]
   );
 
   const update = useCallback(
     async (id: string, draft: TrackedCallDraft): Promise<string | null> => {
-      if (!portfolioId) return "Open a portfolio first.";
       const before = callsRef.current;
+      const target = before.find((c) => c.id === id);
+      if (!target) return "That call is no longer here.";
       const next = before.map((c) => (c.id === id ? { ...c, ...draft } : c));
       if (!remote) {
-        commitLocal(next);
+        commitLocal(next, target.portfolio_id);
         return null;
       }
       setCalls(next);
@@ -172,16 +188,17 @@ export function useTrackedCalls(
         return "Couldn't save that change. Check your connection.";
       }
     },
-    [portfolioId, remote, commitLocal]
+    [remote, commitLocal]
   );
 
   const remove = useCallback(
     async (id: string): Promise<string | null> => {
-      if (!portfolioId) return null;
       const before = callsRef.current;
+      const target = before.find((c) => c.id === id);
+      if (!target) return null;
       const next = before.filter((c) => c.id !== id);
       if (!remote) {
-        commitLocal(next);
+        commitLocal(next, target.portfolio_id);
         return null;
       }
       setCalls(next);
@@ -199,7 +216,7 @@ export function useTrackedCalls(
         return "Couldn't remove that call. Check your connection.";
       }
     },
-    [portfolioId, remote, commitLocal]
+    [remote, commitLocal]
   );
 
   return { calls, ready, add, update, remove };

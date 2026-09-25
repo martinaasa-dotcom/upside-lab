@@ -20,9 +20,10 @@ import { format, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CoveredCallModal, type CallModalSeed } from "@/components/CoveredCallModal";
-import { TrackedCalls, buildCallViews } from "@/components/covered-calls/TrackedCalls";
+import { TrackedCalls } from "@/components/covered-calls/TrackedCalls";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import {
+  buildCallViews,
   deltaText,
   type CallRules,
   type ContractReading,
@@ -43,6 +44,8 @@ type Props = {
   onAddHolding?: () => void;
   /** Calls the reader has sold or plans to sell, and where they are kept. */
   trackedCalls?: TrackedCallsStore;
+  /** The open portfolio: the store holds every portfolio's calls. */
+  portfolioId?: string;
   /** What the market says about each of them, by call id. */
   readings?: Record<string, ContractReading>;
   rules?: CallRules;
@@ -325,6 +328,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
   onPatchExpiry,
   onAddHolding,
   trackedCalls,
+  portfolioId,
   readings,
   rules,
   onRulesChange,
@@ -340,9 +344,13 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
   const callViews = useMemo(
     () =>
       trackedCalls && rules
-        ? buildCallViews(trackedCalls.calls, readings ?? {}, rules)
+        ? buildCallViews(
+            trackedCalls.calls.filter((c) => c.portfolio_id === portfolioId),
+            readings ?? {},
+            rules
+          )
         : [],
-    [trackedCalls, readings, rules]
+    [trackedCalls, portfolioId, readings, rules]
   );
   const modalHoldings = useMemo(
     () =>
