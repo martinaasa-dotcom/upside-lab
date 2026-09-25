@@ -31,6 +31,8 @@ export type UserDataExport = {
   portfolios: unknown[];
   holdings: unknown[];
   cash_events: unknown[];
+  /** Covered calls entered as sold or planned on the portfolios above. */
+  covered_calls: unknown[];
   snapshots: Array<{
     id: string;
     kind: string;
@@ -125,6 +127,7 @@ export function toExportCsv(payload: UserDataExport): string {
     csvSection("portfolios", asRows(payload.portfolios)),
     csvSection("holdings", asRows(payload.holdings)),
     csvSection("cash_events", asRows(payload.cash_events)),
+    csvSection("covered_calls", asRows(payload.covered_calls ?? [])),
     csvSection("snapshots", snapshots),
     csvSection(
       "lab_state",
@@ -243,6 +246,7 @@ export async function collectUserExport(
   let portfolios: unknown[] = [];
   let holdings: unknown[] = [];
   let cashEvents: unknown[] = [];
+  let coveredCalls: unknown[] = [];
   if (portfolioIds.length > 0) {
     /*
       A page at a time. An export is a legal answer to "give me my data", so
@@ -251,7 +255,7 @@ export async function collectUserExport(
       there first: they accumulate for the life of a portfolio and nothing
       prunes them.
     */
-    const [pRows, hRows, cRows] = await Promise.all([
+    const [pRows, hRows, cRows, ccRows] = await Promise.all([
       readAll<unknown>(() =>
         supabase
           .from(PORTFELL_TABLES.portfolios)
@@ -274,10 +278,18 @@ export async function collectUserExport(
           .order("created_at", { ascending: true })
           .order("id")
       ),
+      readAll<unknown>(() =>
+        supabase
+          .from(PORTFELL_TABLES.coveredCalls)
+          .select("*")
+          .in("portfolio_id", portfolioIds)
+          .order("id")
+      ),
     ]);
     portfolios = pRows;
     holdings = hRows;
     cashEvents = cRows;
+    coveredCalls = ccRows;
   }
 
   const communityIds = [
@@ -365,6 +377,7 @@ export async function collectUserExport(
     portfolios,
     holdings,
     cash_events: cashEvents,
+    covered_calls: coveredCalls,
     snapshots,
     lab_state: labRes.data ?? null,
     communities,

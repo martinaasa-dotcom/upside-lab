@@ -239,6 +239,29 @@ const ENTRIES: GlossaryEntry[] = [
       "The payment you receive for making that agreement. It is yours whether or not the shares are ever taken.",
   },
   {
+    id: "delta",
+    term: "Delta",
+    meaning:
+      "How much a call's price moves when the share moves a dollar, from 0 to 1. For whoever sold the call it also reads as rough odds the shares are taken at the strike: 0.30 is about one in three.",
+    example: ({ ticker, amount }) =>
+      ticker && amount ? `Your ${ticker} call reads ${amount} today.` : null,
+  },
+  {
+    id: "roll",
+    term: "Rolling up and out",
+    also: ["roll", "rolling"],
+    meaning:
+      "Buying back a call you sold and selling one with a later expiry and a higher strike, usually in one order. It gives the shares more room before they can be taken, and brings in money when the new call pays more than the buyback costs.",
+  },
+  {
+    id: "buy-to-close",
+    term: "Buying it back",
+    also: ["buy to close", "close"],
+    meaning:
+      "Paying today's price for a call you sold, which ends the agreement early. Once most of the premium is kept, what is left pays little for the same chance of losing the shares, so buying back frees them to write another call.",
+    alsoCalled: "buy to close",
+  },
+  {
     id: "total-return",
     term: "Total return",
     also: ["since it started", "return since the start"],

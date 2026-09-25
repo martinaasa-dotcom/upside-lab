@@ -10,6 +10,7 @@ import { NextRequest } from "next/server";
 
 const scan = vi.hoisted(() => ({
   calls: [] as { ticker: string; history: number[] }[],
+  contracts: [] as { id: string; ticker: string; status: string }[],
 }));
 
 vi.mock("@/lib/supabase/server-auth", () => ({
@@ -36,6 +37,13 @@ vi.mock("@/lib/market/covered-call", () => ({
   },
 }));
 
+vi.mock("@/lib/market/option-contract", () => ({
+  readContract: async (ask: { id: string; ticker: string; status: string }) => {
+    scan.contracts.push({ id: ask.id, ticker: ask.ticker, status: ask.status });
+    return { id: ask.id, delta: 0.4 };
+  },
+}));
+
 vi.mock("@/lib/observe-route", () => ({
   observeRoute: (h: (req: NextRequest) => Promise<Response>) => h,
 }));
@@ -54,6 +62,7 @@ function post(body: unknown): Promise<Response> {
 
 beforeEach(() => {
   scan.calls = [];
+  scan.contracts = [];
 });
 
 describe("POST /api/options/scan", () => {
@@ -97,5 +106,26 @@ describe("POST /api/options/scan", () => {
     const res = await post({ positions });
     expect(res.status).toBe(400);
     expect(scan.calls).toEqual([]);
+  });
+
+  it("reads each tracked call as the exact contract it is", async () => {
+    const res = await post({
+      contracts: [
+        { id: "a", ticker: "nvda", strike: 200, expiry: "2026-10-16", spot: 190, status: "sold" },
+        { id: "b", ticker: "NVDA", strike: 210, expiry: "2026-10-16", spot: 190, status: "planned" },
+        // Each of these is a provider call that can never answer.
+        { id: "c", ticker: "HELLO WORLD", strike: 10, expiry: "2026-10-16", spot: 5 },
+        { id: "d", ticker: "NVDA", strike: -1, expiry: "2026-10-16", spot: 190 },
+        { id: "e", ticker: "NVDA", strike: 200, expiry: "next friday", spot: 190 },
+        { id: "f", ticker: "BTC-USD", strike: 200, expiry: "2026-10-16", spot: 190 },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect(scan.contracts).toEqual([
+      { id: "a", ticker: "NVDA", status: "sold" },
+      { id: "b", ticker: "NVDA", status: "planned" },
+    ]);
+    const body = (await res.json()) as { contracts: Record<string, { delta: number }> };
+    expect(Object.keys(body.contracts)).toEqual(["a", "b"]);
   });
 });

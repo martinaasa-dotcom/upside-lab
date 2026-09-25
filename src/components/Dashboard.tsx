@@ -217,6 +217,8 @@ import {
   shouldOfferInvite,
 } from "@/lib/invite-nudge";
 import { addPulseStamp } from "@/lib/conviction";
+import type { ContractReading, TrackedCall } from "@/lib/options/tracked-calls";
+import { useCallRules, useTrackedCalls } from "@/lib/options/use-tracked-calls";
 
 /**
  * These are per-tab panels: only one is on screen at a time (Overview is
@@ -438,6 +440,15 @@ export function Dashboard() {
   const [ccExpiry, setCcExpiry] = useState<Record<string, string | null>>({});
   const ccExpiryRef = useRef(ccExpiry);
   ccExpiryRef.current = ccExpiry;
+  /*
+    What the option market says about each call the reader has sold or
+    plans to sell, keyed by the call's id. Filled by the same scan request
+    as the suggestions, so tracking calls adds nothing to the poll.
+  */
+  const [contractReadings, setContractReadings] = useState<
+    Record<string, ContractReading>
+  >({});
+  const trackedCallsRef = useRef<TrackedCall[]>([]);
   /*
     Whether a covered-call surface is actually on screen. A ref, read inside
     the refresh below, so opening or folding the panel does not tear the
@@ -824,6 +835,13 @@ export function Dashboard() {
         ? isPanelVisible(ccVisibleByPortfolio, activePortfolio, experienceTier !== "novice")
         : true;
   ccVisibleRef.current = ccVisible;
+  const trackedCalls = useTrackedCalls(
+    activePortfolio?.id ?? null,
+    source === "supabase",
+    !hideOptionsUI
+  );
+  trackedCallsRef.current = trackedCalls.calls;
+  const [callRules, setCallRules] = useCallRules();
   // Forecast defaults to visible for every experience tier — unlike Lab/
   // Pulse/Seasonality, it's plain price-scenario modeling, not something
   // that needs "growing into."
@@ -1794,18 +1812,39 @@ export function Dashboard() {
           };
         });
 
+        const contracts = trackedCallsRef.current.flatMap((c) => {
+          const q = nextQuotes![c.ticker];
+          const spot = q?.price;
+          if (!spot || !(spot > 0)) return [];
+          return [
+            {
+              id: c.id,
+              ticker: c.ticker,
+              strike: c.strike,
+              expiry: c.expiry,
+              status: c.status,
+              spot,
+              closes: q?.dailyCloses?.map((d) => d.close),
+            },
+          ];
+        });
+
         const optRes = await fetch("/api/options/scan", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ positions }),
+          body: JSON.stringify({ positions, contracts }),
           signal: ctrl.signal,
         });
         if (!optRes.ok) return;
         const optJson = (await optRes.json().catch(() => ({}))) as {
           options?: Record<string, OptionCandidate | null>;
+          contracts?: Record<string, ContractReading>;
         };
         if (optJson.options && typeof optJson.options === "object") {
           setOptions(optJson.options);
+        }
+        if (optJson.contracts && typeof optJson.contracts === "object") {
+          setContractReadings(optJson.contracts);
         }
       } catch (err) {
         if (isAbortError(err) || quotesAbortRef.current !== ctrl) return;
@@ -1886,6 +1925,27 @@ export function Dashboard() {
     is left to do its own work. The chains are cached, so an open and a
     close and an open again costs one walk rather than three.
   */
+  /*
+    A call added, edited or removed is read at once rather than on the next
+    poll: somebody who just typed a strike wants its delta now. Quotes the
+    room already holds are reused, so this is the scan alone.
+  */
+  const trackedKey = trackedCalls.calls
+    .map((c) => `${c.id}:${c.ticker}:${c.strike}:${c.expiry}:${c.status}`)
+    .join("|");
+  const trackedKeyRef = useRef(trackedKey);
+  useEffect(() => {
+    if (trackedKeyRef.current === trackedKey) return;
+    trackedKeyRef.current = trackedKey;
+    if (!ccVisible || hideOptionsUI || !activePortfolio) return;
+    const rows = holdings.filter((h) => h.portfolio_id === activePortfolio.id);
+    if (rows.length === 0) return;
+    const cached =
+      Object.keys(quotesRef.current).length > 0 ? quotesRef.current : undefined;
+    void refreshMarkets(allTickers, rows, cached, { silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackedKey]);
+
   const ccWasVisibleRef = useRef(false);
   useEffect(() => {
     const opened = ccVisible && !ccWasVisibleRef.current;
@@ -3339,6 +3399,10 @@ export function Dashboard() {
                 onPatchStockTarget={onPatchStockTarget}
                 onPatchExpiry={onPatchExpiry}
                 onAddHolding={canClassBuy ? onAddHolding : undefined}
+                trackedCalls={trackedCalls}
+                readings={contractReadings}
+                rules={callRules}
+                onRulesChange={setCallRules}
               />
               </WidgetErrorBoundary>
               </BelowFold>
