@@ -2,12 +2,11 @@
  * A made-up portfolio having a bad day, so the first screen of the
  * walkthrough can be tapped rather than read.
  *
- * Named for the tour rather than for samples in general, because
- * `sample-portfolio.ts` is a different thing built in the same pass: that
- * one is the landing page's figures and the demo a stranger can open, and
- * it derives every total from one list of holdings. This one is a fixed
- * bad day with a company that had news in it, which is a story rather than
- * a portfolio, and the two must not drift into each other.
+ * It is the landing page's made-up day, read from `sample-portfolio.ts`
+ * rather than kept here. The two used to be separate days on purpose, and
+ * the cost was a reader who did both being given two different answers to
+ * the same question, so now there is one day and this file only adds the
+ * walkthrough's own words about each company.
  *
  * The whole product turns on one distinction, and it is a distinction
  * nobody can be told: a screen of red numbers looks identical whether the
@@ -38,6 +37,14 @@
  * that the other seven really did move with the market.
  */
 
+import {
+  SAMPLE_HOLDINGS as PORTFOLIO_HOLDINGS,
+  SAMPLE_MARKET_TICKER,
+  SAMPLE_NEWS_TICKER,
+  sampleDayFraction,
+  sampleHoldingBy,
+} from "@/lib/sample-portfolio";
+
 /** Pulse's own three badges. The wording is the reader-facing one. */
 export type SampleBadge = "Thesis intact" | "Thesis watch";
 
@@ -60,115 +67,45 @@ export type SampleHolding = {
 };
 
 /**
- * What the whole market did on this made-up day.
- *
- * It is the number the seven quiet rows are read against: each of them
- * lands within `MARKET_SPREAD` of it, which is what "fell with the market"
- * means and what the test holds them to.
+ * The walkthrough's verdict on each company, keyed by ticker. The holdings
+ * themselves (shares, prices, the day) come from `sample-portfolio.ts`, the
+ * same list the landing page and the demo portfolio read, so the two
+ * screens play one day and give one answer.
  */
-export const SAMPLE_MARKET_PCT = -0.012;
+const VERDICTS: Record<string, string> = {
+  VOO: "This one is the market, near enough. When it falls, almost everything fell.",
+  NVDA: "The loudest of the quiet ones. It moves further than the market in both directions, which is how it has always behaved.",
+  AAPL: "Down almost exactly what the whole market was down. Nothing came out of Apple today.",
+  KO: "Barely moved. Companies selling things people buy every week usually fall less on a bad day.",
+  MSFT: "A little worse than the market and no reason for it. Big software companies tend to move together on a day like this.",
+  AMZN: "In line with the market. Nothing was announced and nothing was reported.",
+  NKE: "This is the one. On this made-up day Nike told everyone it expects to sell less this year than it said in the spring, so it fell about eight times as far as the market and on its own news rather than everyone else's.",
+  DIS: "Down less than the market. Nothing came out of Disney today, and a quiet fall is what a quiet day looks like.",
+};
 
-/** How far a company may sit from the market and still just be the market. */
+export const SAMPLE_HOLDINGS: SampleHolding[] = PORTFOLIO_HOLDINGS.map((row) => {
+  const news = row.ticker === SAMPLE_NEWS_TICKER;
+  return {
+    ticker: row.ticker,
+    company: row.company,
+    does: row.does,
+    shares: row.shares,
+    price: row.price,
+    dayPct: sampleDayFraction(row),
+    news,
+    badge: news ? "Thesis watch" : "Thesis intact",
+    verdict: VERDICTS[row.ticker] ?? "Moved with the market. Nothing came out of it today.",
+  };
+});
+
+/** The whole market's move on the made-up day: the fund that is the market. */
+export const SAMPLE_MARKET_PCT = sampleDayFraction(sampleHoldingBy(SAMPLE_MARKET_TICKER));
+
+/**
+ * How far a company may sit from the market's own move and still read as
+ * the market. About a point either way.
+ */
 export const MARKET_SPREAD = 0.011;
-
-export const SAMPLE_HOLDINGS: SampleHolding[] = [
-  {
-    ticker: "AAPL",
-    company: "Apple",
-    does: "makes iPhones and Macs",
-    shares: 40,
-    price: 232.4,
-    dayPct: -0.012,
-    news: false,
-    badge: "Thesis intact",
-    verdict:
-      "Down almost exactly what the whole market was down. Nothing came out of Apple today.",
-  },
-  {
-    ticker: "MSFT",
-    company: "Microsoft",
-    does: "makes software for work",
-    shares: 15,
-    price: 418.6,
-    dayPct: -0.015,
-    news: false,
-    badge: "Thesis intact",
-    verdict:
-      "A little worse than the market and no reason for it. Big software companies tend to move together on a day like this.",
-  },
-  {
-    ticker: "NVDA",
-    company: "Nvidia",
-    does: "makes computer chips",
-    shares: 30,
-    price: 121.3,
-    dayPct: -0.021,
-    news: false,
-    badge: "Thesis intact",
-    verdict:
-      "The loudest of the quiet ones. It moves further than the market in both directions, which is how it has always behaved.",
-  },
-  {
-    ticker: "AMZN",
-    company: "Amazon",
-    does: "runs the online shop",
-    shares: 20,
-    price: 178.9,
-    dayPct: -0.014,
-    news: false,
-    badge: "Thesis intact",
-    verdict:
-      "In line with the market. Nothing was announced and nothing was reported.",
-  },
-  {
-    ticker: "KO",
-    company: "Coca-Cola",
-    does: "sells drinks",
-    shares: 60,
-    price: 71.2,
-    dayPct: -0.004,
-    news: false,
-    badge: "Thesis intact",
-    verdict:
-      "Barely moved. Companies selling things people buy every week usually fall less on a bad day.",
-  },
-  {
-    ticker: "JNJ",
-    company: "Johnson and Johnson",
-    does: "makes medicines",
-    shares: 25,
-    price: 162.5,
-    dayPct: -0.006,
-    news: false,
-    badge: "Thesis intact",
-    verdict:
-      "Down less than the market, for the same reason as Coca-Cola. Steady businesses are where money goes on a nervous day.",
-  },
-  {
-    ticker: "VOO",
-    company: "Vanguard S&P 500",
-    does: "holds 500 big American companies",
-    shares: 12,
-    price: 512.8,
-    dayPct: -0.011,
-    news: false,
-    badge: "Thesis intact",
-    verdict:
-      "This one is the market, near enough. When it falls, almost everything fell.",
-  },
-  {
-    ticker: "NKE",
-    company: "Nike",
-    does: "sells trainers and sportswear",
-    shares: 45,
-    price: 74.1,
-    dayPct: -0.094,
-    news: true,
-    badge: "Thesis watch",
-    verdict:
-      "This is the one. On this made-up day Nike told everyone it expects to sell less this year than it said in the spring, so it fell about eight times as far as the market and on its own news rather than everyone else's.",
-  },
-];
 
 /** What this row is worth right now. */
 export function sampleValue(h: SampleHolding): number {

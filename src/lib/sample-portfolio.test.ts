@@ -5,8 +5,8 @@ import {
   SAMPLE_CASH,
   SAMPLE_HOLDINGS,
   SAMPLE_NEWS_TICKER,
-  SAMPLE_RISER_TICKER,
   sampleAllTimeDollars,
+  sampleBiggestMarketMover,
   sampleDayDollars,
   sampleDayFractionTotal,
   sampleDayTotal,
@@ -84,14 +84,13 @@ describe("the sample portfolio adds up", () => {
     }
   });
 
-  it("is a red day with exactly one company up", () => {
+  it("is a red day with one company out on its own", () => {
     // The point of the sample: a fall that is the market, plus one company
-    // that had news. A day where everything falls together teaches nothing.
-    expect(sampleFallingCount()).toBe(7);
+    // that had news. The walkthrough plays the same day, so its rules hold.
+    expect(sampleFallingCount()).toBe(8);
     expect(sampleDayFractionTotal()).toBeLessThan(0);
-    expect(sampleDayDollars(
-      SAMPLE_HOLDINGS.find((r) => r.ticker === SAMPLE_RISER_TICKER)!
-    )).toBeGreaterThan(0);
+    const biggest = sampleBiggestMarketMover();
+    expect(biggest.ticker).not.toBe(SAMPLE_NEWS_TICKER);
   });
 
   it("has some holdings up on what was paid and some down", () => {

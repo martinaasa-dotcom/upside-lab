@@ -1052,31 +1052,31 @@ export function growthRateProvenance(input: {
         ? `This is the rate you typed: ${rate}. Everything on this page is that number compounded, and nothing on this page knows whether it is realistic.`
         : source === "baseline"
           ? `Nobody measured your portfolio's future. This page opens on ${rate}, which is roughly what the whole US market has averaged over a long stretch, before inflation is taken off. It is a starting point, not a reading of what you hold.`
-          : `Nobody measured your portfolio's future. ${rate} is what a mix like yours has usually done: a table of typical rates per kind of business, written into this app, weighted by how much of each kind you hold.`,
+          : `Nobody measured your portfolio's future. ${rate} is this app's growth outlook for what you hold: the rate it assumes for each of your companies, written down per name or per kind of business with a reason and a date, blended by how much of your money is in each. It is where this page opens once you hold something, and it is a view of the next few years rather than a record.`,
     inputs: [
       { what: "The rate in the box, whichever preset or number you chose" },
       {
         what: "A long run average for the whole US market",
-        detail: "about 10% a year, before inflation, and where this page starts",
+        detail: "about 10% a year, before inflation, and where this page starts when you hold nothing",
       },
       {
         what: "What you hold, and how much of each",
         detail:
-          "only for the preset that offers what this mix has usually done. That one comes from a table written into this app. It gives a broad index fund about 10% a year and puts jumpier kinds of business above that.",
+          "for the Yours preset. Each company gets the rate this app assumes for it, the same one its forecast is drawn from, which puts a broad index fund near 10% a year, some names above it and some below.",
       },
       { what: "Your cash, at whatever rate you set for it" },
     ],
     sources: [
       YOUR_HOLDINGS,
-      { name: "This app", what: "the table of typical rates" },
+      { name: "This app", what: "the growth rate it assumes for each company" },
     ],
     steps: [
       "The rate in the box is compounded month by month over the years you set, together with anything you pay in or take out.",
       "Nothing is added to that rate afterwards. There is no allowance for option premiums or anything else this app cannot show you.",
-      "The preset for what this mix has usually done is worked out separately: each holding is grouped by kind of business, given that group's typical rate, and those are blended by how much of your money is in each.",
+      "The Yours preset is worked out separately: each holding is given the growth rate this app assumes for it, and those are blended by how much of your money is in each, with cash at its own rate.",
     ],
     blindSpots: [
-      "Whether any of it happens. A single rate held for decades is not how markets behave, and the table is optimistic rather than safe.",
+      "Whether any of it happens. A single rate held for decades is not how markets behave, and these rates are an outlook for the next few years, and optimistic rather than safe over a lifetime.",
       "Tax, fees, inflation and dividends. None of them are in these numbers.",
       NOT_A_TARGET,
     ],

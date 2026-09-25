@@ -131,7 +131,8 @@ import {
   UK_STANDARDS_SOURCE,
 } from "@/lib/retirement/regions";
 import {
-  portfolioRealReturnPct,
+  holdingsReturnView,
+  PORTFOLIO_RATE_CEILING_PCT,
   REAL_RETURN_ASSUMPTIONS,
   RETURNS_SOURCE,
 } from "@/lib/retirement/returns";
@@ -366,42 +367,40 @@ export function RetirementSheet({
   );
 
   /*
-    The same blended growth rate Compound's "Your rate" preset uses, turned
-    real. See `portfolioRealReturnPct` for why it is a preset offered beside
-    the world index rather than what the page opens on.
+    The same growth outlook Growth's "Yours" shows for these holdings,
+    before and after inflation. Offered in the picker and never applied on
+    its own: see `holdingsReturnView` for why the plan opens on the world
+    index and why this figure is no longer capped.
   */
-  const portfolioRatePct = useMemo(() => {
+  const holdingsView = useMemo(() => {
     if (tickerValues.length === 0 && bookCash === 0) return null;
-    return portfolioRealReturnPct(tickerValues, bookCash);
+    return holdingsReturnView(tickerValues, bookCash);
   }, [tickerValues, bookCash]);
 
   /*
-    WHAT THE MONEY EARNS DEFAULTS TO THE READER'S OWN BLEND, ONCE ONE IS
-    AVAILABLE.
+    THE PLAN OPENS ON THE READER'S OWN HOLDINGS, ONCE THERE ARE ANY
+    (Martin's call, 2026-09-25, matching Growth's "Yours").
 
-    Every template opens on the audited world index, on purpose (see
-    `templates.ts`: two lives should differ in their circumstances, not in
-    which market assumption they happen to carry). But most readers arrive
-    with a portfolio already, and "what would my own holdings have earned"
-    is a better first guess than a global average for somebody deciding
-    whether to trust the number at all. So this runs once, the same shape
-    as the pot pre-fill above: only while the plan is still sitting on the
-    untouched world-index default, and only once a blended rate has
-    actually arrived, which can be a tick after the stored plan resolves.
-    A reader who has typed their own figure, or pressed "World index" on
-    purpose, is never overwritten.
+    Runs once, the same shape as the pot pre-fill above: only while the
+    plan still sits on the untouched world-index default, and only once the
+    outlook has actually arrived, which can be a tick after the stored plan
+    resolves. A reader who typed a figure or pressed a preset keeps it. The
+    figure is uncapped because it is the same one Growth prints; the line
+    under the picker says what it is and, past what any market has held for
+    a lifetime, says that too.
   */
   const appliedDefaultRateRef = useRef(false);
   useEffect(() => {
     if (!restored || appliedDefaultRateRef.current) return;
-    if (portfolioRatePct == null) return;
+    if (holdingsView == null) return;
     appliedDefaultRateRef.current = true;
     setInputs((prev) =>
-      Math.abs(prev.returns.equityPct - REAL_RETURN_ASSUMPTIONS.equityPct) < 0.05
-        ? { ...prev, returns: { ...prev.returns, equityPct: portfolioRatePct } }
+      Math.abs(prev.returns.equityPct - REAL_RETURN_ASSUMPTIONS.equityPct) < 0.05 ||
+      Math.abs(prev.returns.equityPct - PORTFOLIO_RATE_CEILING_PCT) < 0.05
+        ? { ...prev, returns: { ...prev.returns, equityPct: holdingsView.realPct } }
         : prev
     );
-  }, [restored, portfolioRatePct]);
+  }, [restored, holdingsView]);
 
   const patch = useCallback(
     (next: Partial<RetirementInputs>) =>
@@ -551,7 +550,7 @@ export function RetirementSheet({
         swrPct={plan.required.swr.ratePct}
         templateId={templateId}
         onTemplate={applyTemplate}
-        portfolioRatePct={portfolioRatePct}
+        holdingsView={holdingsView}
         result={{
           target: plan.required.target,
           earliestAge: earliest ? earliest.age : null,

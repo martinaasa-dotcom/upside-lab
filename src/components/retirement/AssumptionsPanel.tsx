@@ -15,11 +15,11 @@
  * answered again for a specific age. They are one panel now.
  *
  * A SEPARATE, QUICKER VERSION OF THE FIRST QUESTION LIVES IN `QuickStart`,
- * VISIBLE EVEN AT THE SIMPLEST LEVEL. Almost every reader either wants the
- * world index or wants what their own holdings have usually done, and that
- * choice is answered with two presets right under the templates, before this
- * panel is ever opened, defaulting to the reader's own blend once one is
- * available (see `RetirementSheet`'s rate pre-fill). This panel is for
+ * VISIBLE EVEN AT THE SIMPLEST LEVEL. Four fixed rates (cautious, the world,
+ * the United States alone) and the reader's own holdings' outlook, plus a
+ * field for a figure of their own, answered right under the templates
+ * before this panel is ever opened, opening on the holdings once there are
+ * any. This panel is for
  * whoever wants the exact figure, bonds and fees typed in on their own terms,
  * or a mix that shifts more than twice over a life, so its own preset row for
  * the same two choices is gone: printing it twice is scaffolding, and the

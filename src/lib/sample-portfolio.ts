@@ -69,7 +69,7 @@ export const SAMPLE_HOLDINGS: readonly SampleHolding[] = [
     does: "a fund holding 500 big American companies",
     shares: 11,
     buyPrice: 390.1,
-    previousClose: 526.75,
+    previousClose: 518.22,
     price: 512,
   },
   {
@@ -78,7 +78,7 @@ export const SAMPLE_HOLDINGS: readonly SampleHolding[] = [
     does: "which makes computer chips",
     shares: 22,
     buyPrice: 96.3,
-    previousClose: 156.45,
+    previousClose: 151.17,
     price: 148,
   },
   {
@@ -87,7 +87,7 @@ export const SAMPLE_HOLDINGS: readonly SampleHolding[] = [
     does: "which makes iPhones",
     shares: 14,
     buyPrice: 168.4,
-    previousClose: 242.1,
+    previousClose: 235.06,
     price: 232,
   },
   {
@@ -96,7 +96,7 @@ export const SAMPLE_HOLDINGS: readonly SampleHolding[] = [
     does: "which sells fizzy drinks",
     shares: 40,
     buyPrice: 58.2,
-    previousClose: 67.31,
+    previousClose: 66.77,
     price: 66.5,
   },
   {
@@ -105,7 +105,7 @@ export const SAMPLE_HOLDINGS: readonly SampleHolding[] = [
     does: "which makes Windows and Office",
     shares: 5,
     buyPrice: 305.2,
-    previousClose: 421.4,
+    previousClose: 408.12,
     price: 402,
   },
   {
@@ -114,7 +114,7 @@ export const SAMPLE_HOLDINGS: readonly SampleHolding[] = [
     does: "the online shop",
     shares: 9,
     buyPrice: 142.7,
-    previousClose: 213.36,
+    previousClose: 217.04,
     price: 214,
   },
   {
@@ -123,7 +123,7 @@ export const SAMPLE_HOLDINGS: readonly SampleHolding[] = [
     does: "which makes trainers",
     shares: 18,
     buyPrice: 96,
-    previousClose: 76.81,
+    previousClose: 81.9,
     price: 74.2,
   },
   {
@@ -132,7 +132,7 @@ export const SAMPLE_HOLDINGS: readonly SampleHolding[] = [
     does: "the films and theme parks",
     shares: 12.5,
     buyPrice: 104,
-    previousClose: 99.69,
+    previousClose: 98.08,
     price: 97.3,
   },
 ] as const;
@@ -152,11 +152,32 @@ export const SAMPLE_CASH = 640;
  */
 export const SAMPLE_PORTFOLIO_NAME = "Sample portfolio";
 
-/** The company that had news of its own on the made-up day. */
-export const SAMPLE_NEWS_TICKER = "MSFT";
+/**
+ * The company that had news of its own on the made-up day.
+ *
+ * ONE DAY, TOLD BY THE LANDING PAGE AND THE WALKTHROUGH ALIKE. They used to
+ * play "which company had the news?" on two different made-up days, so a
+ * reader who did both got two different answers. The walkthrough's rules won
+ * (Martin's call, 2026-09-25): eight falls, seven of them within a point of
+ * the fund that is the market, and one company about eight times further out
+ * on its own news. `tour-sample-day.ts` now reads this list rather than
+ * keeping its own.
+ */
+export const SAMPLE_NEWS_TICKER = "NKE";
 
-/** The one company that finished the made-up day up. */
-export const SAMPLE_RISER_TICKER = "AMZN";
+/** The fund that stands in for the whole market on the made-up day. */
+export const SAMPLE_MARKET_TICKER = "VOO";
+
+/**
+ * The biggest faller in dollars that did NOT have news. The landing's first
+ * card names it, and it must never be the news company, or the sentence
+ * "there was no news about it today" is false.
+ */
+export function sampleBiggestMarketMover(): SampleHolding {
+  return [...SAMPLE_HOLDINGS]
+    .filter((row) => row.ticker !== SAMPLE_NEWS_TICKER)
+    .sort((a, b) => Math.abs(sampleDayDollars(b)) - Math.abs(sampleDayDollars(a)))[0]!;
+}
 
 /** One holding by its symbol. Throws rather than returning undefined, so a
  *  typo in a call site fails at once instead of printing "n/a" at a reader. */

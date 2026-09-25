@@ -1695,3 +1695,24 @@ describe("the pot chart and the earliest age are one loop", () => {
     expect(curve[curve.length - 1]!.age).toBeGreaterThanOrEqual(67);
   });
 });
+
+describe("the holdings figure in the retirement picker", () => {
+  it("is the same figure Growth shows, turned real, and never capped", async () => {
+    const { holdingsReturnView, PORTFOLIO_RATE_CEILING_PCT } = await import("./returns");
+    const { blendedExpectedAnnualReturn } = await import("@/lib/forecast-conviction");
+    const { COMPOUND_CASH_YIELD_ANNUAL_PCT } = await import("@/lib/compound-play");
+    const holdings = [{ ticker: "NBIS", value: 100_000 }];
+    const view = holdingsReturnView(holdings, 0);
+    const growth =
+      Math.round(
+        blendedExpectedAnnualReturn(holdings, {
+          balance: 0,
+          annualReturnPct: COMPOUND_CASH_YIELD_ANNUAL_PCT,
+        }) * 1000
+      ) / 10;
+    expect(view?.nominalPct).toBe(growth);
+    // The old picker printed the ceiling here and called it the holdings.
+    expect(view!.realPct).toBeGreaterThan(PORTFOLIO_RATE_CEILING_PCT);
+    expect(view!.realPct).toBeLessThan(view!.nominalPct);
+  });
+});

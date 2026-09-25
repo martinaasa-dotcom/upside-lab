@@ -200,14 +200,14 @@ function DurationYearsInput({
 /*
  * Every one of these is an assumption, and the page compounds whichever one
  * is chosen for up to fifty years, so each says what it is rather than
- * standing there as a bare number. The broad market comes first and is where
- * the page opens: the rate a mix of holdings has usually managed is offered
- * beside it, clearly labelled, rather than being the number a reader finds
- * already in the box.
+ * standing there as a bare number. The reader's own mix comes first and is
+ * where the page opens once there are holdings to blend (Martin's call,
+ * 2026-09-25): a calculator about your money starts on your money, and the
+ * caption under the box says plainly what that rate is and is not.
  */
 const RATE_PRESETS = [
+  { id: "book", label: "Yours", title: "This app's outlook for what you hold" },
   { id: "spy", label: "10%", title: "The whole US market's long run average" },
-  { id: "book", label: "Your mix", title: "What this mix has usually done" },
   { id: "15", label: "15%", title: "A very good stretch for the whole market" },
   { id: "25", label: "25%", title: "What only a handful of years look like" },
 ] as const;
@@ -218,7 +218,7 @@ function rateCaveat(preset: string | null, mixPct: number): string {
     return `${BROAD_MARKET_ANNUAL_PCT}% a year is the historical average for the whole US market, before inflation is taken off. Nobody gets it every year.`;
   }
   if (preset === "book") {
-    return `What this mix has usually done: about ${mixPct}% a year, from a table of typical rates per kind of business written into this app. Holding a rate like that for decades is a big assumption.`;
+    return `This app's growth outlook for what you hold: about ${mixPct}% a year, before inflation, from the rate this app assumes for each of your companies. It is a view of the next few years rather than a record, and holding a rate like that for decades is a big assumption.`;
   }
   if (preset === "15") {
     return "15% a year is a very good stretch for the whole market, half as much again as its long run average.";
@@ -885,12 +885,12 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
   const later = useTimeout();
 
   /*
-   * What a mix like this one has usually managed, blended from a table of
-   * typical rates per kind of business. It is offered as a preset and named
-   * on screen. It is deliberately NOT what the page opens on: for a portfolio
-   * heavy in one theme this lands near 30% a year, and opening on that
-   * compounds a very optimistic guess for thirty years with the caveat hidden
-   * behind a click.
+   * This app's growth outlook for what the reader holds, blended from the
+   * per-name rates in `forecast-growth.ts`. Since 2026-09-25 it is what the
+   * page opens on once there are holdings (Martin's call, reversing the
+   * rule that kept it a preset). For a portfolio heavy in one theme it lands
+   * near 30% a year, which is why the caveat is printed under the box rather
+   * than hidden behind a click.
    */
   const portfolioExpectedRatePct = useMemo(() => {
     if (tickerValues.length === 0 && bookCash === 0) {
@@ -903,6 +903,8 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
     const pct = Math.round(blended * 1000) / 10;
     return pct > 0 ? pct : BROAD_MARKET_ANNUAL_PCT;
   }, [tickerValues, bookCash]);
+
+  const hasMix = tickerValues.length > 0;
 
   useLayoutEffect(() => {
     const stored = loadStored();
@@ -937,6 +939,25 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
     setDraft((prev) => ({ ...prev, principal: Math.round(bookValue) }));
     setPrincipalSource("book");
   }, [hydrated, bookValue]);
+
+  /*
+   * THE RATE STARTS ON THE READER'S OWN MIX, once there is one. Only while
+   * the saved rate is still the untouched default, so a figure somebody
+   * typed or a preset they pressed is never overwritten, and only once
+   * holdings have actually arrived, which can be a tick after the page.
+   */
+  const appliedMixRateRef = useRef(false);
+  useEffect(() => {
+    if (!hydrated || appliedMixRateRef.current || !hasMix) return;
+    appliedMixRateRef.current = true;
+    const stored = loadStored();
+    if (
+      stored.ratePercent !== DEFAULT_COMPOUND_INPUTS.ratePercent ||
+      stored.ratePeriod !== DEFAULT_COMPOUND_INPUTS.ratePeriod
+    )
+      return;
+    setDraft((prev) => ({ ...prev, ratePercent: portfolioExpectedRatePct, ratePeriod: "annual" }));
+  }, [hydrated, hasMix, portfolioExpectedRatePct]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -1162,15 +1183,15 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
   const annualRateInput =
     draft.ratePeriod === "annual" ? draft.ratePercent : draft.ratePercent * 12;
   /*
-   * The broad market reading wins a tie. A portfolio whose blended rate lands
-   * on 10% would otherwise light "Your mix" and print the mix caveat over a
-   * number that is simply the market average.
+   * The reader's own mix wins a tie now that it is the default, but only
+   * when there is a mix: with nothing held, "Yours" falls back to the
+   * market figure and lighting it would claim a portfolio that is not there.
    */
   const ratePreset =
-    annualRateInput === BROAD_MARKET_ANNUAL_PCT
-      ? "spy"
-      : isRateMatchedToPortfolio
-        ? "book"
+    hasMix && isRateMatchedToPortfolio
+      ? "book"
+      : annualRateInput === BROAD_MARKET_ANNUAL_PCT
+        ? "spy"
         : annualRateInput === 15
           ? "15"
           : annualRateInput === 25
