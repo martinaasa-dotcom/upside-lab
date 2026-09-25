@@ -3,6 +3,7 @@ import {
   QUOTES_PREFETCH_GLOBAL,
   QUOTES_PREFETCH_KEY,
   QUOTES_PREFETCH_SCRIPT,
+  peekQuotesPrefetchData,
   rememberQuotesUrl,
   takeQuotesPrefetch,
 } from "@/lib/quotes-prefetch";
@@ -127,5 +128,50 @@ describe("the quotes head start", () => {
     expect(store.get(QUOTES_PREFETCH_KEY)).toBe("/api/quotes?tickers=AAPL");
     rememberQuotesUrl(null);
     expect(store.has(QUOTES_PREFETCH_KEY)).toBe(false);
+  });
+});
+
+
+describe("the early answer reaches the first frame", () => {
+  const original = globalThis.window;
+  afterEach(() => {
+    (globalThis as { window?: unknown }).window = original;
+  });
+
+  it("parses the answer in the head and leaves the response to be taken", async () => {
+    const url = "/api/quotes?tickers=AAPL";
+    const store = new Map<string, string>([[QUOTES_PREFETCH_KEY, url]]);
+    const w: Record<string, unknown> = {
+      location: { pathname: "/" },
+      localStorage: { getItem: (k: string) => store.get(k) ?? null },
+    };
+    const body = JSON.stringify({ quotes: { AAPL: { price: 200, stale: false } } });
+    const fetch = () => Promise.resolve(new Response(body));
+    runScript(w, fetch);
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    (globalThis as { window?: unknown }).window = w;
+    const peek = peekQuotesPrefetchData();
+    expect(peek?.quotes).toEqual({ AAPL: { price: 200, stale: false } });
+    // Peeking does not spend it: the refresh can still take the response,
+    // and its body is still readable because the head read a clone.
+    const res = await takeQuotesPrefetch(url);
+    expect(res).not.toBeNull();
+    expect(await res!.json()).toEqual(JSON.parse(body));
+  });
+
+  it("offers nothing before the answer lands, or once it is old", () => {
+    const w: Record<string, unknown> = {
+      [QUOTES_PREFETCH_GLOBAL]: { url: "/api/quotes?tickers=A", at: Date.now(), res: new Promise(() => {}) },
+    };
+    (globalThis as { window?: unknown }).window = w;
+    expect(peekQuotesPrefetchData()).toBeNull();
+    w[QUOTES_PREFETCH_GLOBAL] = {
+      url: "/api/quotes?tickers=A",
+      at: Date.now() - 60 * 60_000,
+      res: Promise.resolve(new Response("{}")),
+      data: { quotes: { A: { price: 1 } } },
+    };
+    expect(peekQuotesPrefetchData()).toBeNull();
   });
 });

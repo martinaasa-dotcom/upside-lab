@@ -207,7 +207,7 @@ import { useLabSync } from "@/components/use-lab-sync";
 import { useLoadingMessage } from "@/lib/use-loading-message";
 import { loadCachedQuotes, mergeQuotes, saveCachedQuotes, quotesUnchanged } from "@/lib/quote-cache";
 import { publishQuotes } from "@/lib/quote-pool";
-import { rememberQuotesUrl, takeQuotesPrefetch } from "@/lib/quotes-prefetch";
+import { peekQuotesPrefetchData, rememberQuotesUrl, takeQuotesPrefetch } from "@/lib/quotes-prefetch";
 import { OFFLINE_CACHE_READY } from "@/lib/offline/snapshots";
 import { postJsonOrQueue } from "@/lib/offline/queued-fetch";
 import { markSheetImported } from "@/lib/sheet-import-stamp";
@@ -662,6 +662,23 @@ export function Dashboard() {
       }
     }
     const cachedQuotes = loadCachedQuotes();
+    /*
+      The head script's answer, when it has already landed, goes on the
+      first frame rather than after the first refresh: that is the grey
+      second a reader saw on every morning open. See
+      `peekQuotesPrefetchData`.
+    */
+    const early = peekQuotesPrefetchData();
+    const earlyQuotes = early ? (early.quotes as Record<string, Quote>) : null;
+    const earlyLive =
+      !!earlyQuotes && Object.values(earlyQuotes).some((q) => q && !q.stale);
+    if (earlyQuotes && earlyLive) {
+      const merged = mergeQuotes(cachedQuotes.quotes, earlyQuotes);
+      publishQuotes(earlyQuotes);
+      saveCachedQuotes(merged);
+      cachedQuotes.quotes = merged;
+      cachedQuotes.savedAt = early!.at;
+    }
     setQuotes(cachedQuotes.quotes);
     setQuotesFetchedAt(cachedQuotes.savedAt);
     quotesPolledAtRef.current = cachedQuotes.savedAt ?? 0;
