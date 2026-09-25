@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/format";
 import {
   isEditableField,
@@ -88,7 +89,19 @@ export function ViewportOverlay({
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [onClose]);
 
-  return (
+  /*
+    Rendered into `document.body`, never inside the room that opened it.
+    A room is its own stacking context (and a glass panel with a
+    backdrop filter is a containing block for anything fixed inside it),
+    so a dialog's own z-index only counted within its room: measured on a
+    phone, the sample notice (z-40, outside every room) sat on top of the
+    Cash dialog (z-50, inside one) and covered its field. The covered-call
+    dialog had been portalled on its own for the second half of this;
+    every hand-rolled dialog is now. Dialogs only ever open from a press,
+    so there is no server render of an open one to disagree with.
+  */
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div
       ref={ref}
       role="dialog"
@@ -105,6 +118,7 @@ export function ViewportOverlay({
       onFocusCapture={scrollFocusedField}
     >
       {children}
-    </div>
+    </div>,
+    document.body
   );
 }

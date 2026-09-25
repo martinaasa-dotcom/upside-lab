@@ -294,7 +294,7 @@ export function CircleHome({
                   ? signedPercent(overview.totals.todayPct)
                   : NO_VALUE
               }
-              sub={signedCurrency(overview.totals.todayDollar)}
+              sub={signedCurrency(overview.totals.todayDollar, 0)}
               tone={
                 (overview.totals.todayPct ?? 0) > 0
                   ? "up"
@@ -305,7 +305,8 @@ export function CircleHome({
             />
             <Score
               label="Total value"
-              value={currency(overview.totals.totalValue)}
+              /* Whole dollars, like every other headline total in the app. */
+              value={currency(overview.totals.totalValue, 0)}
               sub={
                 membersWithBooks.length === 1
                   ? "1 portfolio in the circle"
@@ -314,7 +315,7 @@ export function CircleHome({
             />
             <Score
               label="Cash"
-              value={currency(overview.totals.cash)}
+              value={currency(overview.totals.cash, 0)}
               sub="Everyone's, added up"
               tone={overview.totals.cash < 0 ? "down" : undefined}
             />
@@ -462,7 +463,12 @@ export function CircleHome({
                     onClick={() => onOpenBestiary()}
                   >
                     <HelpCircle data-icon="inline-start" />
-                    <span className="hidden sm:inline">Field guide</span>
+                    {/*
+                      The word at every width: on a phone the actions drop to
+                      a line of their own, and a bare glyph there read as a
+                      stray question mark.
+                    */}
+                    Field guide
                   </Button>
                 }
               />
