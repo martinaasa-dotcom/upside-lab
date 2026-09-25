@@ -109,7 +109,7 @@ export function PositionFitCard({
             />
           </span>
         }
-        subtitle="Nobody can tell you whether this company is a good one. This is the part that is not an opinion: what the numbers become if you put money in. Nothing is bought."
+        subtitle="Nobody can say whether a company is a good one. What is not an opinion is what your money becomes if you put it in. Nothing is bought."
         icon={<Calculator className="h-4 w-4" />}
       />
 

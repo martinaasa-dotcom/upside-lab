@@ -73,7 +73,7 @@ export function ClassroomRoster({
       <div className="border-b border-border surface-gutter py-6">
         <PanelHeader
           title="Roster"
-          subtitle="Everyone started with the same cash. This is ranked by how far each student is up or down since then, and it shows who has written down a reason for what they own and who is holding just one company."
+          subtitle="Everyone started with the same cash. Ranked by how far each student is up or down since then, and who is holding just one company."
         />
       </div>
       <div className="flex flex-col gap-3 surface-gutter py-6 md:hidden">

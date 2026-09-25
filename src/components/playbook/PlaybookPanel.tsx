@@ -182,7 +182,7 @@ export function PlaybookPanel() {
       <WidgetErrorBoundary name="Market temperature">
         <Section
           title="Fear and greed"
-          subtitle="The oldest idea in investing is that prices and mood move together and the mood is the easier of the two to read. Somebody publishes a number for it every day, so the idea that belongs to today is the one this reading picks out."
+          subtitle="Prices and mood move together, and the mood is the easier of the two to read. Somebody publishes it every day, so today's reading picks the idea that fits."
           icon={<Gauge aria-hidden className="size-4" />}
         >
           <TemperatureLadder score={score} asOf={metrics.asOf} />
@@ -211,7 +211,7 @@ export function PlaybookPanel() {
             {(read) => (
               <Section
                 title="Where the returns actually come from"
-                subtitle="The most quoted statistic in investing, worked out here from the index itself rather than repeated from somewhere, with the half that is usually left off."
+                subtitle="The most quoted number in investing, worked out from the index itself, with the half that usually gets left off."
                 icon={<Sparkles aria-hidden className="size-4" />}
               >
                 <BestDays read={read} />
@@ -225,7 +225,7 @@ export function PlaybookPanel() {
         <WidgetErrorBoundary name="Ideas">
           <Section
             title="Ideas worth keeping"
-            subtitle="The ideas that keep turning up in the writing of people who did this well for a long time, each in plain words with the sentence it is usually remembered by."
+            subtitle="Ideas that keep turning up in the writing of people who did this well, each with the line it is remembered by."
             icon={<Compass aria-hidden className="size-4" />}
           >
             <IdeaDeck />

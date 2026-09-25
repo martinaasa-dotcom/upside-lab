@@ -180,7 +180,7 @@ export function CompanyNumbers({
             />
           </span>
         }
-        subtitle="The three that matter most first, then the rest for reference. Press any label for what the figure is and what ordinary looks like."
+        subtitle="The three that matter most first. Press any label for what it means and what ordinary looks like."
         icon={<BarChart3 className="h-4 w-4" />}
       />
       {/*
