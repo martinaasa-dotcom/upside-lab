@@ -919,8 +919,7 @@ When you look a plan over, the things worth saying are:
 - Distance and the gap up to the strike are two different numbers. Do not use one for the other.
 
 How the write plan is built:
-- Expiry: ${STRATEGY.minDaysPreferred} to ${STRATEGY.maxDaysPreferred} days out, about 2 to 3 weeks. Up to about ${STRATEGY.maxDaysExtended} days when the results date forces a longer one.
-- An expiry that ends before the results date is preferred. When there is none, the expiry runs past results and the Call % is wider.
+- Expiry: the first listed expiry at least ${STRATEGY.minDaysToExpiry} days out, never a nearer one, even when results are due sooner. Say so when the expiry runs past a results date.
 - Call % always follows how much that one stock has actually moved. There is no single number for the whole portfolio.
   · Calmer, steadier companies: about ${(STRATEGY.callPctSafeMin * 100).toFixed(0)} to ${(STRATEGY.callPctSafeMax * 100).toFixed(0)}%.
   · Ordinary growing companies: around ${(STRATEGY.callPctSafeMax * 100).toFixed(0)} to ${(STRATEGY.callPctMid * 100).toFixed(0)}%.

@@ -240,20 +240,8 @@ export async function scanCoveredCall(params: {
     // normally shop in, and don't let a nearer listing win on tie-break.
     const picked = wantExpiry ? dated.find((e) => e.key === wantExpiry) : null;
 
-    const nearby = picked
-      ? [picked]
-      : dated
-          .filter(
-            (e) =>
-              e.days >= STRATEGY.minDaysPreferred - 3 &&
-              e.days <= STRATEGY.maxDaysPreferred + 7
-          )
-          .sort(
-            (a, b) =>
-              Math.abs(a.days - STRATEGY.targetDays) -
-              Math.abs(b.days - STRATEGY.targetDays)
-          )
-          .slice(0, 3);
+    const fallback = defaultExpiryFrom(dated);
+    const nearby = picked ? [picked] : fallback ? [fallback] : [];
 
     type Quoted = {
       expiration: string;
@@ -437,6 +425,24 @@ function normalizeExpiry(raw: string | null | undefined): string | null {
   return daysUntilInTz(when) > 0 ? key : null;
 }
 
+/**
+ * The expiry the table prices when the reader has not picked one: the
+ * first listed date at least `STRATEGY.minDaysToExpiry` days out, rounded
+ * up to the next listing and never down to a nearer one. Only when a
+ * chain lists nothing that far out does it take the furthest it has,
+ * which is still the closest a listed contract gets to the rule.
+ */
+export function defaultExpiryFrom<T extends { days: number }>(
+  listed: readonly T[]
+): T | null {
+  const sorted = [...listed].filter((e) => e.days > 0).sort((a, b) => a.days - b.days);
+  return (
+    sorted.find((e) => e.days >= STRATEGY.minDaysToExpiry) ??
+    sorted[sorted.length - 1] ??
+    null
+  );
+}
+
 function syntheticCandidate(
   ticker: string,
   spot: number,
@@ -458,12 +464,14 @@ function syntheticCandidate(
     exp = new Date(`${wantExpiry}T00:00:00Z`);
     days = daysUntilInTz(exp);
   } else {
-    days = STRATEGY.targetDays;
+    // Three weeks out, then forward to the Friday listings expire on, so
+    // the estimate is never for fewer days than the rule allows.
     exp = new Date();
-    exp.setDate(exp.getDate() + days);
+    exp.setDate(exp.getDate() + STRATEGY.minDaysToExpiry);
     const day = exp.getDay();
     const diff = (5 - day + 7) % 7;
     exp.setDate(exp.getDate() + diff);
+    days = daysUntilInTz(exp);
   }
   const midPx = spot * estimateYield(otmPct || (strike - spot) / spot, days);
   const yield3w = threeWeekYield(midPx, spot, days);

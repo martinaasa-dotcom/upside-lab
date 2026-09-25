@@ -190,15 +190,22 @@ export const STRATEGY = {
   callPctMax: 0.28,
   /** Soft starting Call % only when vol is unknown */
   defaultCallPct: 0.14,
-  /** Ideal center of preferred tenor */
-  targetDays: 17,
-  /** Preferred covered-call window (~2–3 weeks) */
-  minDaysPreferred: 14,
-  maxDaysPreferred: 21,
-  /** Absolute max when earnings forces a longer dated */
-  maxDaysExtended: 45,
-  /** Legacy scan window around targetDays */
-  dayWindow: 4,
+  /**
+   * The default expiry is the first listed date at least this many days
+   * out, never nearer (`defaultExpiryFrom`). A call a few days short of
+   * three weeks pays for fewer days than the 3-week column prices it
+   * against and gives the shares less room, so the rule rounds up to the
+   * next listed date rather than to the nearest one.
+   */
+  minDaysToExpiry: 21,
+  /** Kept equal to the floor: the tenor the estimate and the yield scale on. */
+  targetDays: 21,
+  /**
+   * How far ahead the write plan lists expiries. Wide enough that a chain
+   * listing only monthly dates still has one past the three-week floor,
+   * so the rule never has to fall back to a nearer date.
+   */
+  maxDaysExtended: 60,
   targetYield: 0.05,
   minYield: 0.03,
   /*

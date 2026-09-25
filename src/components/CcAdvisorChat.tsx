@@ -534,8 +534,8 @@ const RULES = [
   },
   {
     title: "Contract duration",
-    rule: `${STRATEGY.minDaysPreferred} to ${STRATEGY.maxDaysPreferred} days (about 2 to 3 weeks)`,
-    detail: `Up to about ${STRATEGY.maxDaysExtended} days when results are due and a longer contract is the only way past them.`,
+    rule: `The first listed expiry at least ${STRATEGY.minDaysToExpiry} days out, never nearer`,
+    detail: "Rounded up to the next listed date, so it can be a few days past three weeks. When results are due before it expires, the plan says so.",
   },
   {
     title: "Call %",
