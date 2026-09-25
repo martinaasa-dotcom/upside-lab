@@ -492,11 +492,7 @@ function ForecastCard({
         <p className="mt-4 text-sm leading-relaxed text-foreground">
           <InsightText text={why} />
         </p>
-      ) : row.hasTargets ? (
-        <p className="mt-4 text-sm text-muted-foreground">
-          No reason written for this one yet.
-        </p>
-      ) : (
+      ) : row.hasTargets ? null : (
         <p className="mt-4 text-sm text-muted-foreground">
           Margus is still writing why this path looks like this.
         </p>
@@ -1221,6 +1217,12 @@ export const ForecastPanel = memo(function ForecastPanel({
       </div>
       </div>
 
+      {/*
+        On the sample there is no run to read, and the status line above
+        already says an account is what writes one; an empty section headed
+        with Margus's name under it read as something that failed to load.
+      */}
+      {!needsAccount && (
       <div className="border-t border-border surface-gutter py-6">
         <PanelHeader
           title="What Margus makes of it"
@@ -1405,6 +1407,7 @@ export const ForecastPanel = memo(function ForecastPanel({
           </div>
         )}
       </div>
+      )}
     </Panel>
   );
 });
