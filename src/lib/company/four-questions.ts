@@ -245,7 +245,7 @@ function changeMyMindAnswer(input: {
   const base = {
     id: "change-my-mind" as const,
     question: QUESTIONS["change-my-mind"],
-    figureLabel: "Your ladder's floor",
+    figureLabel: "Your fair value floor",
     maker: againstPoint ? ("model" as const) : ("arithmetic" as const),
   };
   const parts: string[] = [];
@@ -253,8 +253,8 @@ function changeMyMindAnswer(input: {
     const fall = (facts.price - exitLevel) / facts.price;
     parts.push(
       input.exitFromYear
-        ? `${currency(exitLevel, 2)} is the lowest this share has traded in a year, ${percent(fall, 0)} under today, and the floor of your own ladder. Below it, the price is under everything the market has paid this year, the clearest sign the case above has broken.`
-        : `${currency(exitLevel, 2)} is where the estimates below stop describing this company, ${percent(fall, 0)} under today. That is the floor your own ladder calls, and it is yours to move.`
+        ? `${currency(exitLevel, 2)} is the lowest this share has traded in a year, ${percent(fall, 0)} under today, and the floor of your own fair value zones. Below it, the price is under everything the market has paid this year, the clearest sign the case above has broken.`
+        : `${currency(exitLevel, 2)} is where the estimates below stop describing this company, ${percent(fall, 0)} under today. That is the floor of your own fair value zones, and it is yours to move.`
     );
   }
   if (input.nextEarnings) {

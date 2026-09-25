@@ -18,8 +18,8 @@ import { cashtag, cn } from "@/lib/format";
  * It was three equal cards, each a title and a paragraph under an icon,
  * with "7 more worth a look" underneath. Read on a real account they were
  * three grey slabs a reader had to read top to bottom to learn that one
- * was a results date, one a price plan and one about options, and a
- * ladder card's paragraph ("in the zone of the level your ladder worked
+ * was a results date, one a fair value zone and one about options, and
+ * a zone card's paragraph ("in the zone of the level your ladder worked
  * out, which you have not changed") was the whole card. A glance asks
  * three things in order: which company, what kind of thing, and the one
  * figure. So each alert is one row that answers exactly those, from the

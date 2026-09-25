@@ -46,16 +46,15 @@ describe("Home draws alerts as rows, each saying what kind of thing it is", () =
     expect(a!.digest!.note).toMatch(/30/);
   });
 
-  it("names whose level a price plan row is measured against", () => {
-    expect(ladder("starter", "A little below").digest!.note).toBe(
-      "0.4% under the app's level, $237.99"
-    );
-    expect(ladder("starter", "A little below", true).digest!.note).toContain(
-      "your level"
-    );
-    expect(ladder("starter", "A little below").digest!.what).toBe(
-      "A little below fair value"
-    );
+  it("keeps a fair value zone row's note to the gap and the level, short enough for one line", () => {
+    for (const edited of [false, true]) {
+      const note = ladder("starter", "A little below", edited).digest!.note!;
+      expect(note).toBe("0.4% under $237.99");
+      expect(note.length).toBeLessThanOrEqual(24);
+    }
+    const row = ladder("starter", "A little below").digest!;
+    expect(row.tag).toBe("Fair value zones");
+    expect(row.what).toBe("A little below fair value");
   });
 
   it("titles a ladder moment by where the price is, never by an old instruction", () => {

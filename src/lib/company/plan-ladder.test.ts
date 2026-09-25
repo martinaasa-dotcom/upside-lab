@@ -251,7 +251,7 @@ describe("nothing it says is this app telling anybody what to do", () => {
   it("names the band and the distance, and claims nothing else", () => {
     const read = ladderRead(ladder);
     expect(read).toMatch(/\$390\.00 today/);
-    expect(read).toMatch(/your ladder/i);
+    expect(read).toMatch(/your fair value zones/i);
     expect(read).not.toMatch(
       /\b(you should|we (think|like|recommend)|advise|cheap|expensive|undervalued|overvalued|bargain)\b/i
     );

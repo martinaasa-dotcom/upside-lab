@@ -575,7 +575,7 @@ export function CircleHome({
           */}
           {shownView === "overview" && circleLadderRows.length > 0 && (
             <BelowFold className="order-5" reserve={1100}>
-              <WidgetErrorBoundary name="Price Zones">
+              <WidgetErrorBoundary name="Fair value zones">
                 <BandMap rows={circleLadderRows} pooled />
               </WidgetErrorBoundary>
             </BelowFold>

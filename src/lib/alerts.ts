@@ -227,13 +227,13 @@ export function buildLadderAlerts(
       ticker: r.ticker,
       tone: r.bandId === "exit" ? "warning" : "neutral",
       digest: {
-        tag: "Price plan",
+        tag: "Fair value zones",
         what:
           r.bandId === "exit"
-            ? "Under the floor of its ladder"
+            ? "Under its lowest fair value zone"
             : `${r.bandLabel} fair value`,
         figure: currency(r.spot, 2),
-        note: ladderDigestNote(r.spot, r.edge, r.edited),
+        note: ladderDigestNote(r.spot, r.edge),
       },
     });
   }
@@ -241,20 +241,14 @@ export function buildLadderAlerts(
 }
 
 /**
- * "0.4% under the $237.99 level", the row's small line under the price.
- * Says whose level it is, because a default this app worked out is not
- * the reader's and the long sentence already draws that line.
+ * "0.4% under $237.99", the row's small line under the price. Kept to
+ * one line on a phone, so it names the level and not whose it is: the
+ * alert's own sentence, one press away, says whether the reader set it.
  */
-function ladderDigestNote(
-  spot: number,
-  edge: number | null,
-  edited: boolean
-): string | null {
+function ladderDigestNote(spot: number, edge: number | null): string | null {
   if (edge == null || !(edge > 0)) return null;
   const gap = Math.abs(spot - edge) / edge;
-  const side = spot >= edge ? "over" : "under";
-  const whose = edited ? "your level" : "the app's level";
-  return `${percent(gap, 1)} ${side} ${whose}, ${currency(edge, 2)}`;
+  return `${percent(gap, 1)} ${spot >= edge ? "over" : "under"} ${currency(edge, 2)}`;
 }
 
 export function buildStrikeAlerts(
@@ -627,7 +621,7 @@ const KIND_TAG: Record<AlertKind, string> = {
   strike: "Strike",
   margin: "Borrowed",
   concentration: "Size",
-  ladder: "Price plan",
+  ladder: "Fair value zones",
 };
 
 /**

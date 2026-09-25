@@ -348,7 +348,7 @@ export function PlanLadderFoot({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-xs leading-relaxed text-muted-foreground">
-        Anchored on {currency(ladder.anchor, 2, code)}, with bands{" "}
+        Anchored on {currency(ladder.anchor, 2, code)}, with zones{" "}
         {percent(ladder.step, ladder.farBelow ? 1 : 0)} of it wide
         {/*
           Said on the panel and not only behind the mark. A ladder three
@@ -405,7 +405,7 @@ export function PlanLadderPanel({
       <PanelHeader
         title={
           <span className="inline-flex items-center gap-2">
-            Your price ladder
+            Your fair value zones
             <WhyThis
               provenance={planLadderProvenance({
                 ticker,

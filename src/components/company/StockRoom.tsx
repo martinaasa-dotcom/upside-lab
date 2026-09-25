@@ -738,7 +738,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                 down, where its methods and their assumptions are.
               */}
               {ladder && (
-                <WidgetErrorBoundary name="Your price ladder">
+                <WidgetErrorBoundary name="Your fair value zones">
                   <PlanLadderPanel
                     ticker={ticker}
                     ladder={ladder}

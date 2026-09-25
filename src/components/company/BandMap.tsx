@@ -722,7 +722,7 @@ function Summary({ map, voice }: { map: Map; voice: Voice }) {
         value={ready === 0 ? "None" : `${ready} of ${map.points.length}`}
         sub={
           ready === 0 && map.points.length === 1 && !voice.pooled
-            ? "your one holding is somewhere in the middle of its own ladder"
+            ? "your one holding is somewhere in the middle of its own fair value zones"
             : readySaid(s, voice.pooled)
         }
         accent={ready > 0}
@@ -738,7 +738,7 @@ function Summary({ map, voice }: { map: Map; voice: Voice }) {
         value={s.biggest ? sharePct(s.biggest.share) : NO_VALUE}
         sub={
           s.biggest
-            ? `${s.biggest.ticker}, which its own ladder puts at "${s.biggest.bandLabel.toLowerCase()}".`
+            ? `${s.biggest.ticker}, which its own fair value zones put at "${s.biggest.bandLabel.toLowerCase()}".`
             : "nothing with a plan yet"
         }
       />
@@ -750,7 +750,7 @@ export function BandMap({
   rows,
   code = "USD",
   at,
-  title = "Price Zones",
+  title = "Fair value zones",
   pooled = false,
 }: {
   rows: Array<{
@@ -794,8 +794,8 @@ export function BandMap({
         }
         subtitle={
           pooled
-            ? "Everyone's holdings pooled into one company each, on its own price ladder. The bar is how much of the circle's money is in that zone. What anybody paid stays theirs, so this says where a price sits and never who is up or down."
-            : "Every name on its own price ladder. The bar is how much of your money is in that zone, and each block is one holding."
+            ? "Everyone's holdings pooled into one company each, in its own fair value zones. The bar is how much of the circle's money is in that zone. What anybody paid stays theirs, so this says where a price sits and never who is up or down."
+            : "Every name in its own fair value zones. The bar is how much of your money is in that zone, and each block is one holding."
         }
         icon={<MapIcon className="h-4 w-4" />}
       />
@@ -863,8 +863,8 @@ export function BandMap({
 
       {map.missing.length > 0 && (
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Not on this: {map.missing.map((t) => cashtag(t)).join(", ")}. A ladder
-          needs a price and something to anchor on, and one of those is
+          Not on this: {map.missing.map((t) => cashtag(t)).join(", ")}. Fair value zones
+          need a price and something to anchor on, and one of those is
           missing for {map.missing.length === 1 ? "that one" : "those"}.{" "}
           {/*
             THE SHORTFALL IS ANSWERED WHERE THE READER MEETS IT.
