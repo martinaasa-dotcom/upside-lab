@@ -1610,25 +1610,30 @@ export const OverviewDashboard = memo(function OverviewDashboard({
                   One affordance, and the measurement is why.
 
                   A glossary word was put on this label beside the note,
-                  on the argument that the two answer different questions:
-                  what does the term mean, and what does this app not know.
-                  Rendered and clicked, they cannot both be here.
-                  `InfoTip` carries an invisible `-inset-3.5` halo so the
-                  circle is a real target on a phone, and that halo reaches
-                  14px to its left, straight over the end of the word
-                  beside it. Playwright could not click the word at all:
-                  the note's hit area intercepted every attempt. On a
-                  finger it would be worse and silent, a reader tapping
-                  "All time" and getting the wrong panel.
+                  and the two could not share it: `InfoTip`'s circle
+                  carries an invisible `-inset-3.5` halo that reached
+                  straight over the word beside it, so a reader tapping
+                  "All time" got the wrong panel. The note stays, because
+                  it is the one thing only this app can say (there is no
+                  date in this figure), and the glossary word keeps its
+                  home on Growth's "Total return" cell.
 
-                  So the note stays, because it is the rarer thing and the
-                  one only this app can say -- there is no date in this
-                  figure -- and the word keeps its home on Growth's own
-                  "Total return" cell, which has no note beside it.
+                  It is the word itself rather than a circle after it.
+                  The label column is `5.5rem` so the three figures line
+                  up, and "ALL TIME" plus a circle does not fit in it: on
+                  a phone the circle dropped onto a line of its own and
+                  pushed the row's figure away from its label. A dotted
+                  word is also exactly how "Cash" two rows down says it
+                  opens something, so the strip has one way of saying
+                  "tap for more" instead of two.
                 */}
                 <MicroLabel>
-                  All time
-                  <InfoTip text="Your value today against what you paid for these shares on average. There is no date in it: Upside Lab does not keep the day you bought, so nothing here can draw a line starting from that day." />
+                  <InfoTip
+                    label="What does All time mean?"
+                    text="Your value today against what you paid for these shares on average. There is no date in it: Upside Lab does not keep the day you bought, so nothing here can draw a line starting from that day."
+                  >
+                    All time
+                  </InfoTip>
                 </MicroLabel>
               </dt>
               <dd
@@ -1640,7 +1645,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
                 {signedCurrency(totals.roiDollar, 0)}
                 <span className="font-medium text-muted-foreground">
                   {" "}
-                  · {percent(totals.roiPct)}
+                  · {signedPercent(totals.roiPct)}
                 </span>
               </dd>
             </div>
