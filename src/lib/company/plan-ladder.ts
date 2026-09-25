@@ -976,10 +976,21 @@ function gapPct(spot: number, edge: number | null): string | null {
 export function ladderMomentTitle(m: LadderMoment): string {
   const tag = cashtag(m.ticker);
   switch (m.bandId) {
+    /*
+     * Where the price is, never what to do: "climbed past your trim level"
+     * and "fell well past a full position" were the old imperative band
+     * names leaking back through the one sentence a reader meets first,
+     * on Home, after the bands themselves were renamed to describe a
+     * price. Each title now says the band's own words.
+     */
     case "trim-most":
-      return `${tag} climbed past your trim level`;
+      return `${tag} climbed a long way above fair value`;
+    case "trim-some":
+      return `${tag} is a little above fair value`;
+    case "starter":
+      return `${tag} is a little below fair value`;
     case "full-aggressive":
-      return `${tag} fell well past a full position`;
+      return `${tag} fell a long way below fair value`;
     case "exit":
       return `${tag} fell under the floor of its ladder`;
     default:
