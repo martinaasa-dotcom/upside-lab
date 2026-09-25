@@ -240,14 +240,42 @@ export function realReturnAt(
  * check.
  */
 export const PORTFOLIO_RATE_CEILING_PCT = 10;
-export function portfolioRealReturnPct(
+
+/**
+ * THE READER'S OWN HOLDINGS, AS THE SAME FIGURE GROWTH PRINTS, BEFORE AND
+ * AFTER INFLATION, AND NEVER CAPPED.
+ *
+ * The retirement picker used to offer "Your blend" at the capped figure
+ * above, so a portfolio Growth describes as 33.9% a year appeared here as
+ * 10.0% with a caption calling it what the holdings "have usually
+ * returned". Both halves were false: the figure was the ceiling rather
+ * than the holdings, and it was never a record of anything, it is this
+ * app's growth outlook for those companies. A reader comparing the two
+ * rooms could see they disagreed and had no way to find out why.
+ *
+ * So the picker now shows the real figure, uncapped, named for what it is,
+ * and states the before-inflation number beside it so it can be matched to
+ * Growth by eye. It is also what the plan opens on once there are holdings,
+ * the same as Growth (Martin's call, 2026-09-25): the cap was a rail on a
+ * default nobody chose, and the answer he chose instead is to show the
+ * reader's own figure and say out loud, in the caption, when it is beyond
+ * anything a whole market has held for a lifetime.
+ */
+export type HoldingsReturnView = {
+  /** Exactly what Growth's "Your mix" shows, before inflation. */
+  nominalPct: number;
+  /** The same, after `COMPOUND_INFLATION_ANNUAL_PCT`, to one decimal. */
+  realPct: number;
+};
+
+export function holdingsReturnView(
   holdings: Array<{ ticker: string; value: number }>,
   cashBalance: number
-): number {
+): HoldingsReturnView | null {
   /*
     The cash yield is Compound's own assumption, not a second one typed in
-    here, so the blend this reads is exactly the one "Your rate" on that tab
-    would show for the same holdings.
+    here, so the blend this reads is exactly the one "Your mix" on that tab
+    shows for the same holdings.
   */
   const nominal = blendedExpectedAnnualReturn(holdings, {
     balance: cashBalance,
@@ -255,9 +283,34 @@ export function portfolioRealReturnPct(
   });
   const inflation = finiteNumber(COMPOUND_INFLATION_ANNUAL_PCT, 0) / 100;
   const real = (1 + nominal) / (1 + inflation) - 1;
-  if (!Number.isFinite(real)) return REAL_RETURN_ASSUMPTIONS.equityPct;
-  return Math.min(PORTFOLIO_RATE_CEILING_PCT, Math.round(real * 1000) / 10);
+  if (!Number.isFinite(real) || !Number.isFinite(nominal)) return null;
+  return {
+    nominalPct: Math.round(nominal * 1000) / 10,
+    realPct: Math.round(real * 1000) / 10,
+  };
 }
+
+export function portfolioRealReturnPct(
+  holdings: Array<{ ticker: string; value: number }>,
+  cashBalance: number
+): number {
+  const view = holdingsReturnView(holdings, cashBalance);
+  if (!view) return REAL_RETURN_ASSUMPTIONS.equityPct;
+  return Math.min(PORTFOLIO_RATE_CEILING_PCT, view.realPct);
+}
+
+/**
+ * THE FIXED RATES THE PICKER OFFERS BESIDE THE READER'S OWN.
+ *
+ * Every one is real, after inflation, because the whole module is. The
+ * cautious figure is a round number a little over half the world's, for a
+ * reader who would rather be pleasantly surprised; the United States is the
+ * same yearbook's own series for that one market, offered because it is the
+ * figure most people have heard and labelled as the luckiest market in the
+ * record rather than as an ordinary one.
+ */
+export const CAUTIOUS_REAL_EQUITY_PCT = 3;
+export const US_REAL_EQUITY_PCT = 6.4;
 
 /** Nothing in shares at any age, which is the one case that means cash. */
 export function glideIsCashOnly(glide: GlideSegment[]): boolean {

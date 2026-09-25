@@ -127,21 +127,24 @@ describe("growth prose", () => {
 });
 
 describe("the rate the page opens on", () => {
-  it("is the broad market average, not what this mix has usually done", () => {
+  it("opens on the reader's own mix once there is one, and never over a rate they chose", () => {
     /*
-     * A theme-heavy portfolio blends to about 30% a year. Opening on that
-     * compounds the most flattering number this page can produce for up to
-     * fifty years for a reader who changes nothing.
+     * Martin's call, 2026-09-25: a calculator about your money starts on
+     * your money. With nothing held the box stays on the market average,
+     * and a saved rate that is not the untouched default is left alone.
      */
     expect(BROAD_MARKET_ANNUAL_PCT).toBe(10);
     expect(DEFAULT_COMPOUND_INPUTS.ratePercent).toBe(BROAD_MARKET_ANNUAL_PCT);
-    // Nothing may write the blended rate into the box behind the reader.
-    expect(sheet).not.toMatch(/ratePercent: portfolioExpectedRatePct/);
+    expect(sheet).toMatch(/if \(!hydrated \|\| appliedMixRateRef\.current \|\| !hasMix\) return;/);
+    expect(sheet).toMatch(/stored\.ratePercent !== DEFAULT_COMPOUND_INPUTS\.ratePercent/);
     expect(sheet).toMatch(/applyRatePreset/);
   });
 
   it("names every preset and prints the caveat beside the field", () => {
-    expect(sheet).toMatch(/What this mix has usually done/);
+    // An outlook, never a record: the old copy called it what the mix has
+    // "usually done", which it never was.
+    expect(sheet).not.toMatch(/usually done/);
+    expect(sheet).toMatch(/growth outlook for what you hold/);
     expect(sheet).toMatch(/function rateCaveat/);
     expect(sheet).toMatch(/\{rateCaveat\(ratePreset, portfolioExpectedRatePct\)\}/);
   });

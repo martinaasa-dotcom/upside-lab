@@ -47,6 +47,7 @@ import {
   SAMPLE_HOLDINGS,
   SAMPLE_NEWS_TICKER,
   sampleAllTimeFraction,
+  sampleBiggestMarketMover,
   sampleCompany,
   sampleDayDollars,
   sampleDayFraction,
@@ -231,7 +232,15 @@ const HELD = SMALL_WORDS[SAMPLE_HOLDINGS.length]?.toLowerCase() ??
 const OTHERS =
   SMALL_WORDS[SAMPLE_HOLDINGS.length - 1]?.toLowerCase() ??
   String(SAMPLE_HOLDINGS.length - 1);
-const BIGGEST = sampleMovers(1)[0]!;
+/*
+  "Eight of your eight" reads as a template. When every company fell, which
+  is the made-up day's shape, the sentence says all of them.
+*/
+const FALLING_LINE =
+  sampleFallingCount() === SAMPLE_HOLDINGS.length
+    ? `All ${HELD} of your companies are down`
+    : `${FALLING} of your ${HELD} companies are down`;
+const BIGGEST = sampleBiggestMarketMover();
 const BIGGEST_PCT = signedPercent(sampleDayFraction(BIGGEST));
 
 /** One mover row, drawn the way the real holdings table draws one. */
@@ -475,8 +484,8 @@ function PulseStill() {
 
       <p className="sr-only">
         A sample Pulse card. On a market day it reads Thesis intact and says
-        there was no news about the company. Switch it to a news day and the
-        same size of fall reads Thesis watch, because {NEWS_COMPANY} told
+        there was no news about the company. Switch it to a news day and a
+        fall of its own reads Thesis watch, because {NEWS_COMPANY} told
         investors to expect less next year.
       </p>
     </Panel>
@@ -500,7 +509,7 @@ const FOLLOW_UPS = [
   },
   {
     q: "Has this happened before?",
-    a: "Eleven days since you started where the whole portfolio fell more than two in a hundred. Today is the third biggest of them. What these companies actually do did not change on any of the eleven.",
+    a: "Eleven days since you started where the whole portfolio fell more than one in a hundred. Today is the third biggest of them. What these companies actually do did not change on any of the eleven.",
   },
   {
     q: "How much of my portfolio is that?",
@@ -558,7 +567,7 @@ function MargusStill() {
         * and its own demonstration could not keep the two apart.
         */}
       <Bubble>
-        {FALLING} of your {HELD} companies are down. Only one of them had news
+        {FALLING_LINE}. Only one of them had news
         today, so most of this is the whole market having a bad day rather
         than something at your companies. You are down{" "}
         {DAY_MONEY.replace("-", "")}, about {DAY_PCT.replace("-", "")} of what
@@ -590,8 +599,7 @@ function MargusStill() {
 
       <p className="sr-only">
         A sample conversation. Asked whether a red day is worth worrying
-        about, it answers that {FALLING.toLowerCase()} of {HELD} companies are down
-        and that
+        about, it answers that {FALLING_LINE.toLowerCase()} and that
         only {NEWS_COMPANY} had news of its own. The buttons ask the
         follow-up questions.
       </p>
@@ -1136,8 +1144,8 @@ const FOOTER_LINK =
   whole pitch, arrived at by the reader rather than asserted at them.
 
   It is the same made-up day as every other card on this page (Pulse, the
-  Margus conversation), so the page tells one story: the biggest faller is
-  not the one with news, which is the lesson in miniature.
+  Margus conversation) and as the walkthrough's first screen, so a reader
+  who does both gets one answer rather than two.
 */
 const NEWS_VERDICT = `${NEWS_COMPANY} told investors to expect less next year than they had been counting on. It fell on its own news. Everything else fell with the market.`;
 

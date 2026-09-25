@@ -51,6 +51,7 @@ import { cn, currency } from "@/lib/format";
 import {
   CountField,
   Field,
+  PercentField,
   FIELD_GRID,
   MonthlyMoneyField,
   currencyCodeFor,
@@ -77,7 +78,13 @@ import {
   retargetStandard,
   type RetirementInputs,
 } from "@/lib/retirement/plan";
-import { REAL_RETURN_ASSUMPTIONS } from "@/lib/retirement/returns";
+import {
+  CAUTIOUS_REAL_EQUITY_PCT,
+  PORTFOLIO_RATE_CEILING_PCT,
+  REAL_RETURN_ASSUMPTIONS,
+  US_REAL_EQUITY_PCT,
+  type HoldingsReturnView,
+} from "@/lib/retirement/returns";
 import { AdjustChips } from "@/components/retirement/AdjustChips";
 import type { AdjustTopic } from "@/lib/retirement/adjust";
 import {
@@ -88,11 +95,76 @@ import {
 } from "@/lib/retirement/templates";
 import { quickResultLine } from "@/lib/retirement/summary";
 import { Rocket, TrendingUp } from "lucide-react";
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 
 type Patch = (next: Partial<RetirementInputs>) => void;
 
 const EMPTY_SHEETS: PortfolioPotOption[] = [];
+
+type RatePreset = "cautious" | "world" | "us" | "holdings" | "custom";
+
+/**
+ * The line under the picker. Printed, never behind a mark, because the
+ * rate is compounded for decades and the reader who never goes looking is
+ * the one who most needs to know what it is.
+ */
+function rateCaveat(
+  preset: RatePreset,
+  equity: number,
+  view: HoldingsReturnView | null,
+): ReactNode {
+  const pct = (n: number) => (
+    <span className="font-mono tabular-nums text-foreground">
+      {n.toFixed(1)}%
+    </span>
+  );
+  if (preset === "world") {
+    return (
+      <>
+        The world stock index&apos;s real return since 1900, {pct(equity)} a
+        year, counting the markets that went to zero. What a plain global
+        tracker has earned after inflation.
+      </>
+    );
+  }
+  if (preset === "us") {
+    return (
+      <>
+        The United States alone since 1900, {pct(equity)} a year after
+        inflation. The best record of any big market, which is exactly why it is
+        not a safe thing to plan on.
+      </>
+    );
+  }
+  if (preset === "cautious") {
+    return (
+      <>
+        {pct(equity)} a year after inflation, a little over half the
+        world&apos;s long run figure. For a plan that works even if the next
+        forty years are poor ones.
+      </>
+    );
+  }
+  if (preset === "holdings" && view) {
+    return (
+      <>
+        This app&apos;s growth outlook for the companies you hold,{" "}
+        {pct(view.nominalPct)} a year before inflation (the figure Growth shows)
+        and {pct(view.realPct)} after. It is a view of the next few years, not
+        what they have returned.
+        {view.realPct > PORTFOLIO_RATE_CEILING_PCT
+          ? " That is above what any whole market has held for a century."
+          : null}
+      </>
+    );
+  }
+  return (
+    <>
+      Your own figure, {pct(equity)} a year after inflation. Bonds, cash, fees,
+      and how the mix shifts as you age are under &quot;Returns and mix&quot;.
+    </>
+  );
+}
 
 export function QuickStart({
   inputs,
@@ -108,7 +180,7 @@ export function QuickStart({
   swrPct,
   templateId,
   onTemplate,
-  portfolioRatePct = null,
+  holdingsView = null,
   result,
 }: {
   inputs: RetirementInputs;
@@ -135,12 +207,11 @@ export function QuickStart({
    */
   onTemplate: (id: RetirementTemplateId) => void;
   /**
-   * The same blended growth rate Compound's "Your rate" preset shows for
-   * these holdings, turned real. Null when there is nothing to blend, in
-   * which case the world index is the only figure on offer and the toggle
-   * below does not draw at all.
+   * The growth outlook Growth's "Yours" shows for these holdings, before
+   * and after inflation. Null when there is nothing to blend, in which case
+   * the picker offers the fixed rates alone.
    */
-  portfolioRatePct?: number | null;
+  holdingsView?: HoldingsReturnView | null;
   /** What this plan currently needs, so a press changes something here. */
   result: { target: number; earliestAge: number | null };
 }) {
@@ -160,21 +231,53 @@ export function QuickStart({
   */
 
   /*
-    The world index wins a tie, the same way Compound's own rate preset
-    breaks one: a portfolio whose blend happens to land on the world figure
-    should not light "Your blend" and print a caveat over a number that is
-    simply the market average. `custom` covers both a figure typed in here
-    and the exact bond/cash/fee editing `ReturnsPanel` offers under its own chip,
-    which is the only way the equity figure moves without matching either
-    preset.
+    Which preset the current figure is, if any. The reader's own holdings
+    win a tie, since that is the default and the preset they are likeliest
+    to be on. `custom` covers a figure typed in the field below and the
+    finer editing under "Returns and mix".
   */
-  const ratePreset: "world" | "blend" | "custom" =
-    Math.abs(inputs.returns.equityPct - REAL_RETURN_ASSUMPTIONS.equityPct) < 0.05
-      ? "world"
-      : portfolioRatePct != null &&
-          Math.abs(inputs.returns.equityPct - portfolioRatePct) < 0.05
-        ? "blend"
-        : "custom";
+  const equity = inputs.returns.equityPct;
+  const near = (v: number) => Math.abs(equity - v) < 0.05;
+  const ratePreset: RatePreset =
+    holdingsView != null && near(holdingsView.realPct)
+      ? "holdings"
+      : near(REAL_RETURN_ASSUMPTIONS.equityPct)
+        ? "world"
+        : near(US_REAL_EQUITY_PCT)
+          ? "us"
+          : near(CAUTIOUS_REAL_EQUITY_PCT)
+            ? "cautious"
+            : "custom";
+  const rateOptions: {
+    id: Exclude<RatePreset, "custom">;
+    label: string;
+    value: number;
+  }[] = [
+    ...(holdingsView != null
+      ? [
+          {
+            id: "holdings" as const,
+            label: `Yours, ${holdingsView.realPct.toFixed(1)}%`,
+            value: holdingsView.realPct,
+          },
+        ]
+      : []),
+    {
+      id: "cautious",
+      label: `Cautious, ${CAUTIOUS_REAL_EQUITY_PCT}%`,
+      value: CAUTIOUS_REAL_EQUITY_PCT,
+    },
+    {
+      id: "world",
+      label: `World, ${REAL_RETURN_ASSUMPTIONS.equityPct}%`,
+      value: REAL_RETURN_ASSUMPTIONS.equityPct,
+    },
+    {
+      id: "us",
+      label: `US only, ${US_REAL_EQUITY_PCT}%`,
+      value: US_REAL_EQUITY_PCT,
+    },
+  ];
 
   return (
     <Panel>
@@ -202,7 +305,7 @@ export function QuickStart({
             rather than `p-3` and a bigger label, because a press this
             important should not be the smallest text on the card.
           */}
-          <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           {RETIREMENT_TEMPLATES.map((template) => {
             const on = template.id === templateId;
             return (
@@ -240,7 +343,7 @@ export function QuickStart({
                   */
                   on
                     ? "border-primary"
-                    : "border-transparent hover:border-border"
+                    : "border-transparent hover:border-border",
                 )}
               >
                 <span className="text-sm font-semibold text-foreground">
@@ -271,8 +374,8 @@ export function QuickStart({
           {chosen ? (
             <>
               <span className="text-foreground">{chosen.label}</span>:{" "}
-              {chosen.blurb} Every figure below starts from this life until
-              you change it.
+              {chosen.blurb} Every figure below starts from this life until you
+              change it.
             </>
           ) : (
             "A template is a starting point, not a guess about you. Every figure it fills in is visible and changeable."
@@ -395,14 +498,22 @@ export function QuickStart({
           {standardNow ? (
             <>
               <span className="font-mono tabular-nums text-foreground">
-                {currency(Math.round(amounts[standardNow] / 12), 0, region.currency)}
+                {currency(
+                  Math.round(amounts[standardNow] / 12),
+                  0,
+                  region.currency,
+                )}
               </span>{" "}
               a month, after tax. Housing is counted separately.
             </>
           ) : (
             <>
               <span className="font-mono tabular-nums text-foreground">
-                {currency(Math.round(inputs.customAnnualSpend / 12), 0, region.currency)}
+                {currency(
+                  Math.round(inputs.customAnnualSpend / 12),
+                  0,
+                  region.currency,
+                )}
               </span>{" "}
               a month, your own figure, after tax. Housing is counted
               separately.
@@ -450,60 +561,36 @@ export function QuickStart({
             What your money earns
           </span>
         </MicroLabel>
-        {portfolioRatePct != null ? (
-          <Segmented<"world" | "blend">
-            options={[
-              {
-                id: "world",
-                label: `World index, ${REAL_RETURN_ASSUMPTIONS.equityPct}%`,
-              },
-              {
-                id: "blend",
-                label: `Your blend, ${portfolioRatePct.toFixed(1)}%`,
-              },
-            ]}
-            value={ratePreset === "custom" ? null : ratePreset}
-            columns={2}
-            ariaLabel="What your money earns"
-            onChange={(id) =>
+        <Segmented<Exclude<RatePreset, "custom">>
+          options={rateOptions}
+          value={ratePreset === "custom" ? null : ratePreset}
+          columns={2}
+          look="buttons"
+          className="sm:max-w-xl"
+          ariaLabel="What your money earns"
+          onChange={(id) => {
+            const pick = rateOptions.find((o) => o.id === id);
+            if (pick)
+              patch({ returns: { ...inputs.returns, equityPct: pick.value } });
+          }}
+        />
+        <div className="sm:max-w-[18rem]">
+          <PercentField
+            label="Shares earn, after inflation"
+            value={equity}
+            digits={1}
+            onChange={(n) =>
               patch({
                 returns: {
                   ...inputs.returns,
-                  equityPct:
-                    id === "blend" ? portfolioRatePct : REAL_RETURN_ASSUMPTIONS.equityPct,
+                  equityPct: Math.min(40, Math.max(-5, n)),
                 },
               })
             }
           />
-        ) : null}
+        </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          {ratePreset === "blend" ? (
-            <>
-              What your own holdings have usually returned, real: about{" "}
-              <span className="font-mono tabular-nums text-foreground">
-                {inputs.returns.equityPct.toFixed(1)}%
-              </span>{" "}
-              a year. Treat it as optimistic rather than a safe planning
-              assumption.
-            </>
-          ) : ratePreset === "world" ? (
-            <>
-              The world stock index&apos;s long run real return,{" "}
-              <span className="font-mono tabular-nums text-foreground">
-                {REAL_RETURN_ASSUMPTIONS.equityPct}%
-              </span>{" "}
-              a year. What the plan assumes shares earn, after inflation.
-            </>
-          ) : (
-            <>
-              Your own figure,{" "}
-              <span className="font-mono tabular-nums text-foreground">
-                {inputs.returns.equityPct.toFixed(1)}%
-              </span>{" "}
-              a year. Bonds, cash, fees, and how the mix shifts as you age
-              are under &quot;Returns and mix&quot;, at the foot of this card.
-            </>
-          )}
+          {rateCaveat(ratePreset, equity, holdingsView)}
         </p>
       </div>
 
