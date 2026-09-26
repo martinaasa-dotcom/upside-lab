@@ -82,6 +82,7 @@ import {
 import {
 } from "@/lib/forecast-conviction";
 import { buildCommunityFunFacts } from "@/lib/community-fun-facts";
+import { insightWhen } from "@/lib/market-session";
 import { loadCachedQuotes, mergeQuotes, saveCachedQuotes, quotesUnchanged } from "@/lib/quote-cache";
 import { mixGapLine, mixSlices } from "@/lib/mix-slices";
 import { useTickerSectors } from "@/lib/use-ticker-sectors";
@@ -1135,7 +1136,8 @@ export function CommunityView({ communityId }: Props) {
         membersWithBooks,
         funFactsShuffle === 0 ? todayKeyInTz() : `shuffle-${funFactsShuffle}`,
         6,
-        achievements.map((a) => a.id)
+        achievements.map((a) => a.id),
+        insightWhen() === "friday"
       ),
     [membersWithBooks, funFactsShuffle, achievements]
   );

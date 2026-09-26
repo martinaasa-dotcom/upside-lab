@@ -321,11 +321,30 @@ const MAKERS: FactMaker[] = [
  * `awarded` is the set of award ids already printed above these, so a fact
  * never restates one of them.
  */
+/**
+ * The same fact, said about Friday's close. At the weekend every day figure
+ * here is Friday's, and the circle said "today" over all of them on a
+ * Saturday. A handful of fixed rewrites rather than a second copy of every
+ * sentence, because the facts are written in a small set of shapes.
+ */
+export function onFriday(fact: string): string {
+  return fact
+    .replace(/\bis having the (best|hardest) day\b/g, "had the $1 day")
+    .replace(/Best day in the circle so far/g, "Best day in the circle")
+    .replace(/\b(is|are) (up|down)\b/g, (_, verb: string, way: string) =>
+      `${verb === "is" ? "was" : "were"} ${way}`
+    )
+    .replace(/\bare (\S+) apart today\b/g, "were $1 apart on Friday")
+    .replace(/\btoday\b/g, "on Friday");
+}
+
 export function buildCommunityFunFacts(
   members: CommunityMemberStat[],
   dayKey: string,
   limit = 6,
-  awarded: Iterable<string> = []
+  awarded: Iterable<string> = [],
+  /** True at the weekend, when every day figure is Friday's close. */
+  weekend = false
 ): string[] {
   if (members.length === 0) return [];
   const seed = hashSeed(`upside-community-fun|${dayKey}|${members.length}`);
@@ -361,7 +380,7 @@ export function buildCommunityFunFacts(
     if (only && named.has(only)) continue;
     seen.add(key);
     if (only) named.add(only);
-    out.push(candidate);
+    out.push(weekend ? onFriday(candidate) : candidate);
   }
   return out;
 }
