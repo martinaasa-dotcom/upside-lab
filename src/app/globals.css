@@ -2058,6 +2058,51 @@ html[data-session="in"] [data-signed-out-view] {
  * meaning the whole line and the dash left gaps in it; a clip reveal
  * does not depend on the dash at all.
  */
+/*
+ * The rim nearest the pointer catches the light (`RimLight.tsx`).
+ *
+ * A pseudo-element the size of the card, masked down to its one-pixel
+ * rim, carrying a soft warm arc centred on the pointer. The card body is
+ * never lit: glass here keeps all of its light on the rim. `.glass`
+ * already makes the card the containing block (its backdrop filter does),
+ * so this positions without touching the card's own layout, and it is
+ * gated on that filter being supported for the same reason.
+ */
+@media (hover: hover) and (pointer: fine) {
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .card-sheen.glass:not(.glass-dock)::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      pointer-events: none;
+      background: radial-gradient(
+        220px circle at var(--rim-x, 50%) var(--rim-y, -300px),
+        color-mix(in oklch, var(--primary), white 25%),
+        color-mix(in oklch, var(--primary), transparent 55%) 40%,
+        transparent 75%
+      );
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask:
+        linear-gradient(#000 0 0) content-box exclude,
+        linear-gradient(#000 0 0);
+      opacity: 0;
+      transition: opacity 0.35s ease;
+    }
+    .card-sheen.glass[data-rim]::before {
+      opacity: 1;
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-sheen.glass::before {
+    display: none;
+  }
+}
 @keyframes line-reveal {
   from {
     clip-path: inset(0 100% 0 0);

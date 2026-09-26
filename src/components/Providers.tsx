@@ -6,6 +6,7 @@ import { FeedbackHost } from "@/components/FeedbackHost";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { OfflineRuntime } from "@/components/OfflineRuntime";
 import { PullToRefresh } from "@/components/PullToRefresh";
+import { RimLight } from "@/components/RimLight";
 import { WorkspaceShell } from "@/components/WorkspaceShell";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -53,6 +54,7 @@ export function Providers({ children }: { children: ReactNode }) {
           it.
         */}
         <PullToRefresh />
+        <RimLight />
         <FeedbackHost>
           <WorkspaceShell>{children}</WorkspaceShell>
         </FeedbackHost>

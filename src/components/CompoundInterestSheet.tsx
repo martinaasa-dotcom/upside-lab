@@ -528,6 +528,7 @@ function ComparePathsChart({
             strokeWidth={p.thick ? 2.5 : 2}
             vectorEffect="non-scaling-stroke"
             strokeDasharray={p.dashed ? "6 4" : undefined}
+            className="line-reveal"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
