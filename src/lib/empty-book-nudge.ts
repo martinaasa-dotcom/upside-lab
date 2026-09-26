@@ -82,9 +82,9 @@ export function emptyBookNudgeText(
   */
   return [
     greeting,
-    "You signed up about a week ago, and there is still nothing in your portfolio.",
-    `${PRODUCT_NAME} watches the companies you already own. Paste what you hold. On the days a price falls it reads what happened at that company and tells you whether anything really changed, which most of the time it has not. Margus will talk the week through with you, and a circle lets you go through it with people you know.`,
-    "Getting started is one step: add what you already own. Upload a CSV file, drop in a screenshot of your broker page, or type them in. That is the whole thing.",
+    "You signed up about a week ago and have not added anything yet.",
+    `${PRODUCT_NAME} explains the companies you own in plain English. On a day a price falls, it tells you whether something happened at that company or the whole market simply had a bad day, which is what it is most of the time.`,
+    "It starts with one step: add what you own. Type the companies in, upload a CSV file, or drop in a screenshot of your broker's page.",
     PRODUCT_ORIGIN,
     "This is a one-time note. The Sunday letter starts once there is something in your portfolio. You can turn it off in Account: https://upsidelab.app/account",
   ].join("\n\n");
