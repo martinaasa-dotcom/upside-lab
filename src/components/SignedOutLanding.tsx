@@ -20,6 +20,7 @@ import {
   cn,
   currency,
   signedCurrency,
+  barFillPct,
   signedPercent,
 } from "@/lib/format";
 import {
@@ -767,7 +768,7 @@ function Compare() {
           </thead>
           <tbody>
             {COMPARE_ROWS.map((row) => (
-              <tr key={row.what} className="border-b border-border/60 last:border-0">
+              <tr key={row.what} className="border-b border-border/60 transition-colors last:border-0 hover:bg-foreground/[0.035]">
                 <th scope="row" className="px-5 py-4 text-base font-medium text-foreground">
                   {row.what}
                 </th>
@@ -830,6 +831,8 @@ const CIRCLE_BOARD = [
   { name: "Priya", pct: -0.029 },
 ] as const;
 
+const CIRCLE_BOARD_MAX = Math.max(...CIRCLE_BOARD.map((row) => Math.abs(row.pct)));
+
 function CircleStill() {
   return (
     <Panel className="h-auto gap-4 p-4">
@@ -847,8 +850,26 @@ function CircleStill() {
             >
               {row.name.slice(0, 1)}
             </span>
-            <span className="flex-1 truncate text-left text-sm text-foreground">
+            <span className="w-12 shrink-0 truncate text-left text-sm text-foreground">
               {row.name}
+            </span>
+            {/*
+              The same picture the real Today board draws: a zero line in
+              the middle and each day growing out of it, so four red
+              figures read at a glance as four people having one day.
+            */}
+            <span className="relative block h-1.5 flex-1 rounded-full bg-foreground/[0.06]" aria-hidden>
+              <span className="absolute inset-y-[-3px] left-1/2 w-px bg-foreground/20" />
+              <span
+                className={cn(
+                  "overview-bar absolute inset-y-0 rounded-full",
+                  row.pct < 0 ? "right-1/2 bg-loss/75" : "left-1/2 bg-gain/75"
+                )}
+                style={{
+                  width: `${barFillPct((Math.abs(row.pct) / CIRCLE_BOARD_MAX) * 50, 1, 50)}%`,
+                  transformOrigin: row.pct < 0 ? "right center" : "left center",
+                }}
+              />
             </span>
             <span
               className={cn(
