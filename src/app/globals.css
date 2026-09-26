@@ -1598,6 +1598,16 @@ button:disabled,
 .swarm-chip {
   animation: swarm-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+/* Pointing at one holding on the picture brings it forward and quiets
+   the rest, so its place against the market line reads on its own. */
+@media (hover: hover) and (pointer: fine) {
+  .swarm-chip {
+    transition-property: left, background-color, border-color, opacity;
+  }
+  :has(> .swarm-chip:hover) > .swarm-chip:not(:hover) {
+    opacity: 0.35;
+  }
+}
 @keyframes swarm-line-in {
   from {
     opacity: 0;
