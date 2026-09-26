@@ -19,7 +19,6 @@ import {
 } from "@/lib/product";
 import {
   LOOK_AROUND_EVENT,
-  SAMPLE_PORTFOLIO_NAME,
   isLookingAround,
   startLookingAround,
   stopLookingAround,
@@ -598,8 +597,7 @@ function LookAroundStrip({
         */}
       <div className="flex flex-col gap-2.5 rounded-xl glass-overlay ring-1 ring-foreground/20 p-3.5 sm:flex-row sm:items-center sm:gap-4 sm:p-4">
         <p className="min-w-0 flex-1 text-sm leading-relaxed text-foreground">
-          {SAMPLE_PORTFOLIO_NAME}: the holdings are made up and the prices
-          are real.
+          A sample: the holdings are made up and the prices are real.
         </p>
         <div className="flex shrink-0 flex-wrap gap-2">
           <Button type="button" size="sm" disabled={busy} onClick={onSignIn}>

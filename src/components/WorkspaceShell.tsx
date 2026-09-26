@@ -211,12 +211,60 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     const prev = prevRoomRef.current;
     if (prev === room) return;
-    if (prev) scrollRef.current.set(prev, window.scrollY);
     prevRoomRef.current = room;
     if (!room) return;
-    window.scrollTo(0, scrollRef.current.get(room) ?? 0);
     window.dispatchEvent(new Event(WORKSPACE_SHOW_EVENT));
   }, [room]);
+
+  /*
+    EVERY PAGE OPENS AT ITS TOP, AND ONLY BACK PUTS A READER WHERE THEY WERE.
+
+    The book is one keep-alive room for `/`, `/pulse`, `/lab`, `/growth`
+    and every portfolio, so walking between them never unmounted anything
+    and the window simply kept its offset: tapping Growth from halfway down
+    Home opened Growth halfway down, and a room left and re-entered came
+    back at wherever it was last left. A dock tap is a request for a page,
+    and a page starts at its top. Going Back is the one move that means
+    "where I was", so the offset is remembered per path and restored only
+    on a `popstate`.
+  */
+  const popRef = useRef(false);
+  const prevPathRef = useRef<string | null>(null);
+  useEffect(() => {
+    const onPop = () => {
+      popRef.current = true;
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  useLayoutEffect(() => {
+    const prev = prevPathRef.current;
+    if (prev === shownPath) return;
+    if (prev) scrollRef.current.set(prev, window.scrollY);
+    prevPathRef.current = shownPath;
+    const back = popRef.current;
+    popRef.current = false;
+    const target = back ? (scrollRef.current.get(shownPath) ?? 0) : 0;
+    window.scrollTo(0, target);
+    if (!back || target === 0) return;
+    /*
+      The router answers a Back with its own scroll a frame or two after
+      this effect, and a page whose lower sections are still arriving is
+      too short to hold the offset yet, so the restore is re-applied for a
+      short while and stands down the moment the reader scrolls.
+    */
+    let frames = 0;
+    let raf = 0;
+    let last = target;
+    const hold = () => {
+      if (Math.abs(window.scrollY - last) > 2 && window.scrollY !== 0) return;
+      if (window.scrollY !== target) window.scrollTo(0, target);
+      last = window.scrollY;
+      if (++frames < 30) raf = requestAnimationFrame(hold);
+    };
+    raf = requestAnimationFrame(hold);
+    return () => cancelAnimationFrame(raf);
+  }, [shownPath]);
 
   useEffect(() => {
     const warm = () => {
