@@ -182,7 +182,7 @@ export function PlaybookPanel() {
       <WidgetErrorBoundary name="Market temperature">
         <Section
           title="Fear and greed"
-          subtitle="Prices and mood move together, and the mood is the easier of the two to read. Somebody publishes it every day, so today's reading picks the idea that fits."
+          subtitle="Today's mood picks the idea that fits."
           icon={<Gauge aria-hidden className="size-4" />}
         >
           <TemperatureLadder score={score} asOf={metrics.asOf} />
@@ -193,7 +193,7 @@ export function PlaybookPanel() {
         <WidgetErrorBoundary name="Recovery gap">
           <Section
             title="What a fall costs to undo"
-            subtitle="A fall and the rise that undoes it are never the same size, and the gap between them widens fast."
+            subtitle="The rise that undoes a fall is always bigger than the fall. Drag it."
             icon={<Scale aria-hidden className="size-4" />}
           >
             <RecoveryGap />
@@ -211,7 +211,7 @@ export function PlaybookPanel() {
             {(read) => (
               <Section
                 title="Where the returns actually come from"
-                subtitle="The most quoted number in investing, worked out from the index itself, with the half that usually gets left off."
+                subtitle="Missing the best days, and the half nobody prints."
                 icon={<Sparkles aria-hidden className="size-4" />}
               >
                 <BestDays read={read} />
@@ -225,7 +225,7 @@ export function PlaybookPanel() {
         <WidgetErrorBoundary name="Ideas">
           <Section
             title="Ideas worth keeping"
-            subtitle="Ideas that keep turning up in the writing of people who did this well, each with the line it is remembered by."
+            subtitle="From people who did this well, each with its famous line."
             icon={<Compass aria-hidden className="size-4" />}
           >
             <IdeaDeck />

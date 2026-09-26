@@ -71,13 +71,6 @@ export function RecoveryGap() {
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        Money that falls has less of itself left to do the rising, so the two
-        numbers are never the same and the gap between them widens fast. Drag
-        the handle and watch the second bar leave the first behind. This is the
-        whole reason avoiding a disaster counts for more than catching every
-        rise, and it is arithmetic rather than anybody&rsquo;s opinion.
-      </p>
 
       <Card tone="default" className="flex flex-col gap-6">
         <div className="flex flex-col gap-3">
@@ -127,10 +120,7 @@ export function RecoveryGap() {
           })}
         </Scoreboard>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Past {MAX_FALL}% the figure runs away entirely: a holding down 99%
-          needs to go up ninety nine times over to break even, which is why the
-          slider stops where it does. Nothing about this says a fall will not
-          recover. It says what recovering would have to look like.
+          Past {MAX_FALL}% it runs away: down 99% needs a rise of 9,900%.
         </p>
       </div>
     </div>

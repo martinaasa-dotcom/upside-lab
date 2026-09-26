@@ -72,13 +72,37 @@ function Track({ score }: { score: number | null }) {
     <div>
       <div className="relative h-9 overflow-hidden rounded-lg ring-1 ring-border">
         <div className="absolute inset-0 flex">
-          {TEMPERATURE_BANDS.map((band, i) => (
-            <div
-              key={band.id}
-              className={cn("h-full", ZONE_WASH[i])}
-              style={{ width: `${widths[i]}%` }}
-            />
-          ))}
+          {/*
+            Each zone names itself. A track of five unlabelled greys needed
+            the paragraph under it to be read at all, and the band a reader
+            is in today is the one word lit.
+          */}
+          {TEMPERATURE_BANDS.map((band, i) => {
+            const here =
+              score != null && score >= band.range[0] && score <= band.range[1];
+            return (
+              <div
+                key={band.id}
+                className={cn(
+                  "flex h-full items-center justify-center overflow-hidden px-1",
+                  ZONE_WASH[i]
+                )}
+                style={{ width: `${widths[i]}%` }}
+              >
+                <span
+                  className={cn(
+                    "truncate text-xs",
+                    // A phone has room for one word per zone at most, so
+                    // only today's zone names itself there.
+                    !here && "hidden sm:inline",
+                    here ? "font-semibold text-foreground" : "text-muted-foreground"
+                  )}
+                >
+                  {band.label}
+                </span>
+              </div>
+            );
+          })}
         </div>
         {/* The same cut points the zones above are drawn from. */}
         <div aria-hidden className="absolute inset-0">
@@ -92,7 +116,7 @@ function Track({ score }: { score: number | null }) {
         </div>
         {pos != null ? (
           <span
-            className="absolute top-1/2 h-6 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-background"
+            className="absolute bottom-0 h-1 w-8 -translate-x-1/2 rounded-full bg-primary"
             style={{ left: `${pos}%` }}
             aria-hidden
           />
@@ -262,8 +286,8 @@ export function TemperatureLadder({
         <Track score={score} />
         <p className="text-sm leading-relaxed text-muted-foreground">
           {score == null
-            ? "The reading has not landed yet. The five bands below are the same either way: the score only says which one the market is standing in today."
-            : `The market is at ${Math.round(score)} out of 100 today, which is the band marked below. Neither end of this scale is the good one. The frightening end is where things are cheap and the comfortable end is where they are dear, which is why each band carries the idea that belongs to it and the way that idea goes wrong.`}
+            ? "The reading has not landed yet. The five bands below are the same either way."
+            : `${Math.round(score)} out of 100 today. Neither end is the good one: fear is where things are cheap, greed where they are dear.`}
         </p>
         {/*
           WHOSE NUMBER IT IS, AND WHEN IT WAS READ.

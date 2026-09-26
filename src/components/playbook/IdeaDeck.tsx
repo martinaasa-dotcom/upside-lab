@@ -101,10 +101,8 @@ export function IdeaDeck() {
         it dropped its own hero panel under Lab's heading.
       */}
       <p className="text-sm leading-relaxed text-muted-foreground">
-        {IDEAS.length} of them, grouped by what they are about. Each has an
-        opposite that is also true, and the whole skill is knowing which one
-        the week in front of you is asking for, so every card carries the way
-        its own idea goes wrong. Open one to read it.
+        Every idea has an opposite that is also true, so each card carries
+        the way it goes wrong.
       </p>
       {IDEA_THEMES.map((theme) => {
         const shown = IDEAS.filter((i) => i.theme === theme.id);

@@ -538,24 +538,24 @@ export const LabSheet = memo(function LabSheet({
              * nowhere else: the chart below draws the kinds of business and
              * never totals them.
              */
-            `Where your money actually sits, grouped by company and by kind of business. Your ${holdingCount} holdings fall into ${sectorCount} ${sectorCount === 1 ? "kind" : "kinds"} of business.`
-          : `Where your money actually sits, grouped by company and by kind of business. You hold ${holdingCount} ${holdingCount === 1 ? "company" : "companies"}, so almost all of this rides on ${topName ?? "them"}.`,
+            `Where your money sits: ${holdingCount} holdings across ${sectorCount} ${sectorCount === 1 ? "kind" : "kinds"} of business.`
+          : `Where your money sits. You hold ${holdingCount} ${holdingCount === 1 ? "company" : "companies"}, so almost all of this rides on ${topName ?? "them"}.`,
     risk:
       topName && holdingCount > 0
-        ? `What a rough day would do to what you hold, and which of your companies move together. ${topName} is ${topWeight}% of your stocks, so a bad day for it is a bad day for the whole portfolio.`
-        : "What a rough day would do to what you hold, and which of your companies tend to move together.",
+        ? `What a rough day would do, and which companies move together. ${topName} is ${topWeight}% of your stocks.`
+        : "What a rough day would do, and which companies move together.",
     trends:
       holdingCount === 0
-        ? "Whether each company is still moving the way it was, read from four years of weekly closing prices."
-        : `Whether each company is still moving the way it was, read from four years of weekly closing prices. ${risingCount} of your ${holdingCount} ${holdingCount === 1 ? "holding is" : "holdings are"} higher now than three months ago.`,
+        ? "Whether each company is still moving the way it was."
+        : `Whether each company is still moving the way it was. ${risingCount} of ${holdingCount} ${holdingCount === 1 ? "is" : "are"} up on three months ago.`,
     seasonality:
-      "Which months the market has been kind in before, and which it has not. This one never looks at what you own, and your own holdings are in the list so you can look one up.",
+      "Which months the market has usually been kind in, and which it has not.",
     playbook:
-      "How to think about all of this, which is the half nobody hands you: what the market's mood says about which idea applies today, what a fall actually costs to undo, and the ideas that keep turning up in the writing of people who did this well. It never looks at what you own.",
+      "Reading the market's mood, what a fall costs, and the ideas worth keeping.",
     lookup:
       holdingCount === 0
-        ? "Any company, explained in plain words: what it does, what its finances look like, what it might be worth and both sides of the argument. Nothing here is advice and nothing you look at is bought."
-        : `Any company, explained in plain words, whether you own it or not. The same treatment your ${holdingCount === 1 ? "own holding gets" : `${holdingCount} holdings get`}, applied to something you are only thinking about.`,
+        ? "Any company in plain words: what it does, its numbers, what it might be worth."
+        : "Any company in plain words, whether you own it or not.",
   };
 
   return (
