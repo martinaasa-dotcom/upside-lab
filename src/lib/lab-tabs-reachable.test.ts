@@ -43,7 +43,7 @@ describe("every Lab tab can be reached on a phone", () => {
     expect(tabButtons).toHaveLength(1);
   });
 
-  it("wraps the phone row instead of scrolling tabs out of sight", () => {
+  it("lays the phone row out in full instead of scrolling tabs out of sight", () => {
     /*
      * Wrapping is what makes every tab visible without a reader having to
      * discover a sideways scroll. The fade stays for the wider row, which
@@ -54,7 +54,9 @@ describe("every Lab tab can be reached on a phone", () => {
       lab.indexOf("<LabTabRow"),
       lab.indexOf("</div>", lab.indexOf("<LabTabRow"))
     );
-    expect(phoneRow).toMatch(/className="flex-wrap sm:hidden"/);
+    // An even grid of three: every tab on screen, and the two rows line up.
+    expect(phoneRow).toMatch(/className="grid grid-cols-3 sm:hidden/);
+    expect(phoneRow).not.toMatch(/overflow-x-auto/);
   });
 
   it("keeps the overflow fade and the measurement inside the component", () => {
