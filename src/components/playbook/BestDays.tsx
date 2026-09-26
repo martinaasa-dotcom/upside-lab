@@ -259,7 +259,7 @@ function Row({
       <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-secondary">
         <div
           className={cn(
-            "h-full rounded-full",
+            "overview-bar h-full rounded-full",
             tone === "brand" ? "bg-primary" : "bg-foreground/25"
           )}
           style={{ width: `${barFillPct(width, 1)}%` }}

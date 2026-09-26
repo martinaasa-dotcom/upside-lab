@@ -321,7 +321,7 @@ export function QuickStart({
                 onClick={() => onTemplate(template.id)}
                 className={cn(
                   CARD,
-                  "veil-hover flex w-36 min-w-0 shrink-0 snap-start flex-col gap-1 border-2 px-3.5 py-3 text-left transition-colors sm:w-auto",
+                  "veil-hover lift flex w-36 min-w-0 shrink-0 snap-start flex-col gap-1 border-2 px-3.5 py-3 text-left transition-colors sm:w-auto",
                   /*
                     A real `border`, not a ring and not an outline. `ring-*`
                     is a box-shadow utility and `.glass-well` sets

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { cn } from "@/lib/utils";
 
 /**
  * A price line that draws itself in, over a soft wash of its own colour,
@@ -41,32 +42,36 @@ export function DrawnSpark({
     tone === "gain" ? "var(--gain)" : tone === "loss" ? "var(--loss)" : "var(--muted-foreground)";
   const [ex, ey] = xy[xy.length - 1]!;
   return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      preserveAspectRatio="none"
-      className={className}
-      role="img"
-      aria-label={label}
-    >
-      <defs>
-        <linearGradient id={`spark-${id}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity={0.22} />
-          <stop offset="100%" stopColor={color} stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      <path d={area} fill={`url(#spark-${id})`} className="spark-wash" />
-      <polyline
-        points={line}
-        fill="none"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        vectorEffect="non-scaling-stroke"
-        pathLength={1}
-        className="line-draw"
-      />
-      <circle cx={ex} cy={ey} r={2.2} fill={color} className="live-dot" style={{ animationDelay: "1s" }} />
-    </svg>
+    // The dot is HTML over the line rather than a circle inside it: the
+    // drawing stretches to its box, which would squash a circle into an
+    // ellipse and clip it at the right edge.
+    <span className={cn("relative block", className)} role="img" aria-label={label}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="block size-full" aria-hidden>
+        <defs>
+          <linearGradient id={`spark-${id}`} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.22} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <path d={area} fill={`url(#spark-${id})`} className="spark-wash" />
+        <polyline
+          points={line}
+          fill="none"
+          stroke={color}
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+          className="line-reveal"
+        />
+      </svg>
+      <span
+        aria-hidden
+        className="absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{ left: `${(ex / W) * 100}%`, top: `${(ey / H) * 100}%` }}
+      >
+        <span className="live-dot block size-full rounded-full" style={{ background: color, animationDelay: "1s" }} />
+      </span>
+    </span>
   );
 }

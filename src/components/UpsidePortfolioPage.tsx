@@ -746,7 +746,7 @@ export function FundPosition({
       <DrawnSpark
         points={spark}
         tone={pnlPct == null ? "neutral" : pnlPct >= 0 ? "gain" : "loss"}
-        className="-mx-1 h-10 w-[calc(100%+0.5rem)]"
+        className="h-10 w-full"
         label={`${tag}, recent price`}
       />
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">

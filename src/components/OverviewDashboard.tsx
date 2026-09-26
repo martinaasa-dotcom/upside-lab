@@ -298,7 +298,7 @@ function EmptyBook({
               type="button"
               onClick={r.onClick}
               className={cn(
-                "veil-hover card-sheen glass-well flex min-w-0 flex-col gap-2 rounded-lg p-4 text-left ring-1 ring-foreground/12 transition hover:scale-[1.01] hover:ring-primary/25"
+                "veil-hover card-sheen glass-well flex min-w-0 flex-col gap-2 rounded-lg p-4 text-left ring-1 ring-foreground/12 lift hover:ring-primary/25"
               )}
             >
               <span
@@ -674,7 +674,7 @@ function MoverTile({
       onClick={onOpen}
       title={sheets || undefined}
       className={cn(
-        "veil-hover card-sheen glass group relative flex h-full w-full min-w-0 flex-col justify-center gap-1.5 overflow-hidden rounded-lg p-3 text-left ring-1 transition hover:scale-[1.01] sm:p-6",
+        "veil-hover card-sheen glass group relative flex h-full w-full min-w-0 flex-col justify-center gap-1.5 overflow-hidden rounded-lg p-3 text-left ring-1 lift sm:p-6",
         isUp ? "ring-gain/20 hover:ring-gain/40" : "ring-loss/20 hover:ring-loss/40"
       )}
     >
@@ -769,7 +769,7 @@ function PortfolioLane({
       type="button"
       onClick={onOpen}
       className={cn(
-        "card-sheen glass-well group flex w-full flex-col gap-4 rounded-lg text-left ring-1 ring-foreground/20 transition hover:scale-[1.01] hover:bg-hover hover:ring-primary/25",
+        "card-sheen glass-well group flex w-full flex-col gap-4 rounded-lg text-left ring-1 ring-foreground/20 lift hover:bg-hover hover:ring-primary/25",
         NESTED_PAD
       )}
     >

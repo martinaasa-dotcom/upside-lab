@@ -1114,7 +1114,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   */}
                   <span className="h-1 w-8 overflow-hidden rounded-full bg-foreground/[0.08]" aria-hidden>
                     <span
-                      className="block h-full rounded-full bg-primary/70"
+                      className="overview-bar block h-full rounded-full bg-primary/70"
                       style={{ width: `${barFillPct((h.pctOfTotal / maxShare) * 100)}%` }}
                     />
                   </span>

@@ -72,7 +72,7 @@ function Method({
         aria-hidden
       >
         <div
-          className="h-full rounded-full"
+          className="overview-bar h-full rounded-full"
           style={{ width: `${barFillPct(widthPct, 2)}%`, background: color }}
         />
       </div>

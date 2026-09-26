@@ -477,7 +477,7 @@ export function CircleHome({
                     onClick={() => {
                       onOpenMember(a.winnerId);
                     }}
-                    className="veil-hover card-sheen glass-well flex w-full flex-col gap-1.5 rounded-lg p-3 text-left ring-1 ring-foreground/20 transition hover:scale-[1.01] hover:ring-primary/25"
+                    className="veil-hover card-sheen glass-well flex w-full flex-col gap-1.5 rounded-lg p-3 text-left ring-1 ring-foreground/20 lift hover:ring-primary/25"
                   >
                     <div className="flex items-center gap-2">
                       <span
