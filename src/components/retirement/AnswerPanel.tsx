@@ -12,7 +12,7 @@
  * this much put away, I would like to stop at 66.
  *
  * So the question IS a sentence, and every figure in it is a word you can
- * tap to change. The sentence is already true on the first paint (it opens
+ * tap to change. The sentence is already true when it first appears (it opens
  * on a plausible life, and on the reader's own savings where they have
  * any), so the reader starts by reading, not by typing, and corrects only
  * what is wrong. That is the "less busy work" half.
@@ -86,6 +86,14 @@ import {
 } from "@/lib/retirement/returns";
 import { buildVerdict } from "@/lib/retirement/verdict";
 import { Minus, Plus, Sunrise } from "lucide-react";
+import { useNarrow } from "@/lib/use-narrow";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useId, useState, type ReactNode } from "react";
 
 type Patch = (next: Partial<RetirementInputs>) => void;
@@ -106,6 +114,7 @@ function Blank({
   title,
   children,
   wide = false,
+  tail,
 }: {
   value: ReactNode;
   /** What a screen reader hears: "Change your age, now 40". */
@@ -113,18 +122,47 @@ function Blank({
   title: string;
   children: ReactNode;
   wide?: boolean;
+  /**
+   * The punctuation that follows the word. It is kept on the same line as
+   * the pill, so a full stop can never wrap onto a line of its own, and it
+   * is pulled in against the pill's own padding.
+   */
+  tail?: string;
 }) {
-  return (
+  const narrow = useNarrow();
+  const trigger = (
+    <button
+      type="button"
+      aria-label={label}
+      className="inline rounded-md bg-foreground/[0.07] px-1.5 py-0.5 font-semibold text-foreground underline decoration-primary decoration-dashed decoration-2 underline-offset-[6px] transition-colors hover:bg-foreground/[0.12] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [box-decoration-break:clone]"
+    >
+      {value}
+    </button>
+  );
+  /*
+    On a phone a popover anchored to a word near the foot of the sentence
+    has a sliver of screen to open into, so it is a bottom sheet there,
+    the same switch `WhyThis` makes at the same width: a thumb reaches the
+    bottom of the screen, and the whole control is on screen at once.
+  */
+  const control = narrow ? (
+    <Sheet>
+      <SheetTrigger asChild>{trigger}</SheetTrigger>
+      <SheetContent
+        side="bottom"
+        className="max-h-[80svh] gap-0 rounded-t-2xl p-0"
+      >
+        <SheetHeader className="px-5 pb-1 pt-5">
+          <SheetTitle className="text-base">{title}</SheetTitle>
+        </SheetHeader>
+        <div className="scroll-host flex min-h-0 flex-1 flex-col gap-3 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2 text-sm">
+          {children}
+        </div>
+      </SheetContent>
+    </Sheet>
+  ) : (
     <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={label}
-          className="inline rounded-md bg-foreground/[0.07] px-1.5 py-0.5 font-semibold text-foreground underline decoration-primary decoration-dashed decoration-2 underline-offset-[6px] transition-colors hover:bg-foreground/[0.12] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [box-decoration-break:clone]"
-        >
-          {value}
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent
         align="start"
         className={cn("gap-3 p-4", wide ? "w-80" : "w-72")}
@@ -133,6 +171,13 @@ function Blank({
         {children}
       </PopoverContent>
     </Popover>
+  );
+  if (!tail) return control;
+  return (
+    <span className="whitespace-nowrap">
+      {control}
+      <span className="-ml-0.5">{tail}</span>
+    </span>
   );
 }
 
@@ -250,6 +295,31 @@ function rateCaveat(
   return `Your own figure, ${pct} a year after inflation.`;
 }
 
+/**
+ * What the first card is before the plan is in place: the heading and a
+ * quiet shape of the sentence and the answer, never a figure. The server
+ * renders this, so the first painted frame says nothing it would have to
+ * take back a moment later.
+ */
+function AnswerPlaceholder() {
+  return (
+    <Panel aria-busy="true">
+      <PanelHeader
+        icon={<Sunrise className="h-4 w-4" />}
+        title="When could you stop working?"
+        subtitle="Your life in one sentence. Tap any underlined word to change it."
+      />
+      <div className="flex flex-col gap-3" aria-hidden>
+        <div className="h-5 w-11/12 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />
+        <div className="h-5 w-10/12 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />
+        <div className="h-5 w-8/12 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />
+      </div>
+      <div className="h-40 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" aria-hidden />
+      <p className="sr-only">Working out your plan.</p>
+    </Panel>
+  );
+}
+
 export function AnswerPanel({
   inputs,
   patch,
@@ -266,6 +336,8 @@ export function AnswerPanel({
   potSource = POT_SOURCE_BOOK,
   onPotSourceChange = () => {},
   holdingsView = null,
+  ready = true,
+  worldCheck = null,
 }: {
   inputs: RetirementInputs;
   patch: Patch;
@@ -282,12 +354,29 @@ export function AnswerPanel({
   potSource?: string;
   onPotSourceChange?: (source: string) => void;
   holdingsView?: HoldingsReturnView | null;
+  /**
+   * False until the saved plan (or the opening example life) has been put
+   * in place. Before that the inputs are the bare defaults, and a verdict
+   * drawn on them is a confident sentence about nobody: on the server it
+   * read "Yes. The pensions already pay for the life you picked" over a
+   * plan of zeroes, for as long as it took the page to hydrate.
+   */
+  ready?: boolean;
+  /**
+   * The same plan at the world's long-run return, when the reader's own
+   * rate is meaningfully different from it. The verdict above is only as
+   * good as the growth figure it was worked at, and a reader who never
+   * opens the rate cannot see how much the answer leans on it.
+   */
+  worldCheck?: { pct: number; earliestAge: number | null } | null;
 }) {
   const region = regionById(inputs.regionId);
   const code = currencyCodeFor(region.currency);
   const money = (n: number) => currency(n, 0, code);
   const regionId = useId();
   const [customRate, setCustomRate] = useState(false);
+
+  if (!ready) return <AnswerPlaceholder />;
 
   const age = Math.round(inputs.retirementAge);
   const stop = curve.find((p) => p.age === age);
@@ -322,22 +411,22 @@ export function AnswerPanel({
             ? "cautious"
             : "custom";
   const rateWords: Record<RatePreset, string> = {
-    holdings: "what you hold",
-    world: "the world's shares",
-    us: "American shares",
-    cautious: "a cautious guess",
+    holdings: "like the shares I own",
+    world: "like the world's shares",
+    us: "like American shares",
+    cautious: "a cautious figure",
     custom: "my own figure",
   };
   const rateOptions: { id: Exclude<RatePreset, "custom">; label: string; note: string; value: number }[] = [
     ...(holdingsView != null
-      ? [{ id: "holdings" as const, label: "What you hold", note: `${holdingsView.realPct.toFixed(1)}%`, value: holdingsView.realPct }]
+      ? [{ id: "holdings" as const, label: "The shares I own", note: `${holdingsView.realPct.toFixed(1)}%`, value: holdingsView.realPct }]
       : []),
-    { id: "cautious", label: "A cautious guess", note: `${CAUTIOUS_REAL_EQUITY_PCT}%`, value: CAUTIOUS_REAL_EQUITY_PCT },
+    { id: "cautious", label: "A cautious figure", note: `${CAUTIOUS_REAL_EQUITY_PCT}%`, value: CAUTIOUS_REAL_EQUITY_PCT },
     { id: "world", label: "The world's shares", note: `${REAL_RETURN_ASSUMPTIONS.equityPct}%`, value: REAL_RETURN_ASSUMPTIONS.equityPct },
     { id: "us", label: "American shares", note: `${US_REAL_EQUITY_PCT}%`, value: US_REAL_EQUITY_PCT },
   ];
   const oneIn = Math.round(1 / Math.max(0.01, inputs.planningSurvival));
-  const ready = verdict.status === "ready" || verdict.status === "covered";
+  const yes = verdict.status === "ready" || verdict.status === "covered";
   const onCash = plan.required.basis === "spendDown";
 
   return (
@@ -369,7 +458,7 @@ export function AnswerPanel({
           />
         </Blank>{" "}
         and would like to stop working at{" "}
-        <Blank value={age} label={`Change the age you stop, now ${age}`} title="The age you stop working">
+        <Blank value={age} label={`Change the age you stop, now ${age}`} title="The age you stop working" tail=".">
           <Stepper
             value={inputs.retirementAge}
             min={Math.max(16, Math.round(inputs.currentAge))}
@@ -379,8 +468,8 @@ export function AnswerPanel({
           <p className="text-xs leading-relaxed text-muted-foreground">
             The biggest lever there is. You can also drag the chart below.
           </p>
-        </Blank>
-        . I have{" "}
+        </Blank>{" "}
+        I have{" "}
         <Blank value={money(inputs.currentPot)} label={`Change what you have saved, now ${money(inputs.currentPot)}`} title="What you have put away for this" wide>
           <PotField
             label="Saved and invested now"
@@ -446,7 +535,7 @@ export function AnswerPanel({
         </Blank>{" "}
         in{" "}
         {/^(United|Netherlands)/.test(region.name) ? "the " : ""}
-        <Blank value={region.name} label={`Change the country, now ${region.name}`} title="Where you will live">
+        <Blank value={region.name} label={`Change the country, now ${region.name}`} title="Where you will live" tail=",">
           <NativeSelect
             id={regionId}
             aria-label="Country"
@@ -463,9 +552,9 @@ export function AnswerPanel({
           <p className="text-xs leading-relaxed text-muted-foreground">
             Sets the prices and the state pension.
           </p>
-        </Blank>
-        , and it has to last until{" "}
-        <Blank value={planningAge} label={`Change how long it lasts, now to age ${planningAge}`} title="How long the money has to last">
+        </Blank>{" "}
+        and it has to last until{" "}
+        <Blank value={planningAge} label={`Change how long it lasts, now to age ${planningAge}`} title="How long the money has to last" tail=".">
           <Stepper
             value={planningAge}
             min={Math.max(age + 1, 60)}
@@ -483,10 +572,11 @@ export function AnswerPanel({
               Use {suggestedPlanningAge}
             </Button>
           ) : null}
-        </Blank>
-        . My money grows like{" "}
+        </Blank>{" "}
+        My money grows by{" "}
         <Blank
-          value={`${rateWords[ratePreset]}, ${equity.toFixed(1)}%`}
+          value={`${equity.toFixed(1)}% a year, ${rateWords[ratePreset]}`}
+          tail="."
           label={`Change what your money earns, now ${equity.toFixed(1)}% a year after inflation`}
           title="What your money earns, after inflation"
           wide
@@ -519,15 +609,14 @@ export function AnswerPanel({
           <p className="text-xs leading-relaxed text-muted-foreground">
             {rateCaveat(ratePreset, equity, holdingsView)}
           </p>
-        </Blank>{" "}
-        a year.
+        </Blank>
       </p>
 
       {/* THE ANSWER. */}
       <div
         className={cn(
           "card-sheen glass-well flex flex-col gap-5 rounded-xl border-l-4 px-4 py-5 sm:px-6 sm:py-6",
-          ready ? "border-l-primary" : "border-l-foreground/25"
+          yes ? "border-l-primary" : "border-l-foreground/25"
         )}
         aria-live="polite"
       >
@@ -535,6 +624,7 @@ export function AnswerPanel({
         <p className="text-base leading-relaxed text-muted-foreground">
           {verdict.detail}
         </p>
+
 
         {verdict.status !== "covered" ? (
           <div className="flex flex-col gap-2">
@@ -613,11 +703,17 @@ export function AnswerPanel({
             ) : null}
           </p>
         ) : null}
+        {worldCheck ? (
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {worldCheck.earliestAge == null
+              ? `At the world's long-run ${worldCheck.pct.toFixed(1)}% a year instead, this saving would not get there before 80.`
+              : `At the world's long-run ${worldCheck.pct.toFixed(1)}% a year instead, the earliest you could stop would be ${Math.round(worldCheck.earliestAge)}.`}
+          </p>
+        ) : null}
       </div>
 
       {curve.length > 1 ? (
         <div className="flex flex-col gap-2">
-          <MicroLabel>Drag to try another age</MicroLabel>
           <PotChart
             curve={curve}
             retirementAge={age}

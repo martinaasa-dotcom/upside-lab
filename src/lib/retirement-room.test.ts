@@ -5,8 +5,9 @@ import { QuickStart } from "@/components/retirement/QuickStart";
 import { RetirementSheet } from "@/components/retirement/RetirementSheet";
 import { LongevityPanel } from "@/components/retirement/LongevityPanel";
 import { NumberPanel } from "@/components/retirement/NumberPanel";
+import { AnswerPanel } from "@/components/retirement/AnswerPanel";
 import { assessLongevity } from "@/lib/retirement/longevity";
-import { buildPlan, defaultInputs, planningAgeFor } from "@/lib/retirement/plan";
+import { buildPlan, defaultInputs, planningAgeFor, potCurve } from "@/lib/retirement/plan";
 import { templateById, templateInputs } from "@/lib/retirement/templates";
 import { regionById, UK_STANDARDS_SOURCE } from "@/lib/retirement/regions";
 import { RETURNS_SOURCE } from "@/lib/retirement/returns";
@@ -61,19 +62,17 @@ describe("the retirement room, as somebody new meets it", () => {
   const markup = roomMarkup();
   const body = text(markup);
 
-  it("asks as a sentence and answers in the same card", () => {
+  it("draws no verdict before the plan is in place", () => {
     /*
-      The form is gone: the figures only the reader knows are words in one
-      sentence, each tappable, and the verdict sits straight under it.
+      The server renders this room before the saved plan or the opening
+      example life exists, so what it has is the bare defaults. A verdict
+      drawn on those read "Yes. The pensions already pay for the life you
+      picked" over a plan of zeroes. The first frame is a placeholder.
     */
     expect(body).toContain("When could you stop working?");
-    expect(body).toContain("I am");
-    expect(body).toContain("would like to stop working at");
-    expect(body).toContain("a month");
-    expect(body).toContain("My money grows like");
-    expect(body.indexOf("My money grows like")).toBeLessThan(
-      body.indexOf("Drag to try another age")
-    );
+    expect(body).toContain("Working out your plan");
+    expect(body).not.toContain("You could stop at");
+    expect(body).not.toContain("Not yet at");
     expect(body).not.toContain("The figures only you know");
   });
 
@@ -107,10 +106,6 @@ describe("the retirement room, as somebody new meets it", () => {
     expect(body).toContain("Show the working");
     expect(body).not.toContain("What stopping at each age costs");
     expect(body).not.toContain("One in ten reach");
-  });
-
-  it("names how long it lasts in the sentence itself", () => {
-    expect(body).toContain("it has to last until");
   });
 
   it("says out loud where the rest of it went, and what it currently is", () => {
@@ -168,9 +163,6 @@ describe("both pots are named at every level", () => {
           plan,
           provenance,
           showWorking,
-          curve: [],
-          earliestAge: null,
-          onRetirementAge: () => {},
         })
       )
     );
@@ -387,3 +379,101 @@ describe("the verdict", () => {
     }
   });
 });
+
+describe("the answer card, once the plan is in place", () => {
+  const inputs = templateInputs(templateById("getting-going")!, "GB");
+  const region = regionById(inputs.regionId);
+  const longevity = assessLongevity({
+    currentAge: inputs.currentAge,
+    e65Male: region.e65Male,
+    e65Female: region.e65Female,
+    sex: inputs.sex,
+    improvementPct: inputs.improvementPct,
+  });
+  const plan = buildPlan(inputs, longevity.suggestedPlanningAge);
+  const curve = potCurve(inputs, longevity.suggestedPlanningAge);
+  const hit = curve.find((p) => p.need > 0 && p.have >= p.need);
+  const provenance = retirementProvenance({
+    regionName: region.name,
+    standardsSource: UK_STANDARDS_SOURCE,
+    returnsSource: RETURNS_SOURCE,
+    swrSource: SWR_SOURCE,
+    haircutSource: GLOBAL_HAIRCUT_SOURCE,
+    statePensionSource: region.statePensionSource,
+    e65: region.e65Female,
+    planningAge: planningAgeFor(inputs, longevity.suggestedPlanningAge),
+    improvementPct: inputs.improvementPct,
+    currentAge: inputs.currentAge,
+    swrPct: plan.required.swr.ratePct,
+    realReturnPct: plan.realReturnPct,
+    basis: plan.required.basis,
+  });
+
+  function card(worldCheck: { pct: number; earliestAge: number | null } | null = null) {
+    return text(
+      renderToStaticMarkup(
+        createElement(AnswerPanel, {
+          inputs,
+          patch: () => {},
+          replace: () => {},
+          plan,
+          provenance,
+          curve,
+          earliestAge: hit ? hit.age : null,
+          onRetirementAge: () => {},
+          planningAge: planningAgeFor(inputs, longevity.suggestedPlanningAge),
+          suggestedPlanningAge: longevity.suggestedPlanningAge,
+          portfolioValue: null,
+          worldCheck,
+        })
+      )
+    );
+  }
+
+  it("asks as one sentence and answers under it", () => {
+    const body = card();
+    for (const words of [
+      "I am",
+      "would like to stop working at",
+      "a month",
+      "it has to last until",
+      "My money grows by",
+    ]) {
+      expect(body).toContain(words);
+    }
+    expect(body).toMatch(/You could stop at|Not yet at/);
+    expect(body.indexOf("My money grows by")).toBeLessThan(
+      body.indexOf("Drag to try another age")
+    );
+  });
+
+  it("keeps punctuation on the line of the word before it", () => {
+    const markup = renderToStaticMarkup(
+      createElement(AnswerPanel, {
+        inputs,
+        patch: () => {},
+        replace: () => {},
+        plan,
+        provenance,
+        curve,
+        earliestAge: null,
+        onRetirementAge: () => {},
+        planningAge: 100,
+        suggestedPlanningAge: 100,
+        portfolioValue: null,
+      })
+    );
+    expect(markup.match(/whitespace-nowrap/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
+  });
+
+  it("says what the answer would be at the world's long-run return", () => {
+    expect(card({ pct: 5.1, earliestAge: 71 })).toContain(
+      "long-run 5.1% a year instead, the earliest you could stop would be 71."
+    );
+    expect(card({ pct: 5.1, earliestAge: null })).toContain(
+      "would not get there before 80"
+    );
+    expect(card(null)).not.toContain("long-run 5.1% a year instead");
+  });
+});
+

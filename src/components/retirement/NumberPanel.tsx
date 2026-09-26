@@ -35,7 +35,7 @@ import { Button } from "@/components/ui/button";
 import { barFillPct, cn, currency } from "@/lib/format";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
-import type { PlanResult, PotCurvePoint, RetirementInputs } from "@/lib/retirement/plan";
+import type { PlanResult, RetirementInputs } from "@/lib/retirement/plan";
 import type { Provenance } from "@/lib/provenance";
 import { Target } from "lucide-react";
 
@@ -95,10 +95,6 @@ export function NumberPanel({
   provenance: Provenance;
   /** The "How it is worked out" chip is ticked: show the arithmetic here. */
   showWorking: boolean;
-  /** Unused since the chart moved to `AnswerPanel`; kept so callers need not change. */
-  curve?: PotCurvePoint[];
-  earliestAge?: number | null;
-  onRetirementAge?: (age: number) => void;
 }) {
   const code = plan.currency;
   const { swr } = plan.required;

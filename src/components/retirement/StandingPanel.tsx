@@ -27,7 +27,6 @@
  */
 
 import { CARD, InfoTip, MicroLabel, Panel, PANEL_STACK, PanelHeader } from "@/components/ui/Panel";
-import { StatStrip } from "@/components/ui/StatStrip";
 import { barFillPct, cn, currency, percent } from "@/lib/format";
 import { PALETTE } from "@/lib/palette";
 import type { Milestone } from "@/lib/retirement/milestones";
@@ -346,7 +345,6 @@ export function StandingPanel({
   const target = plan.required.target;
   const currentAge = Math.round(inputs.currentAge);
   const have = inputs.currentPot + inputs.otherSavings;
-  const shortBy = plan.gap;
 
   return (
     <div className={PANEL_STACK}>
@@ -354,38 +352,32 @@ export function StandingPanel({
         <PanelHeader
           icon={<TrendingUp className="h-4 w-4" />}
           title="Where you stand"
-          subtitle="What you hold, grown to the day you stop."
+          subtitle="The pot from today to the end of the plan, and the milestones on the way."
         />
 
-        <StatStrip
-          items={[
-            {
-              label: "You have",
-              value: currency(have, 0, code),
-              sub: `${percent(target > 0 ? Math.min(1, have / target) : 0, 0)} of the target`,
-            },
-            {
-              label: `At ${Math.round(inputs.retirementAge)}`,
-              value: currency(plan.projectedPot, 0, code),
-              sub: `${currency(plan.projectedFromTodayOnly, 0, code)} from what you hold now`,
-            },
-            /*
-              Only when short. Ahead, the headline chart above already
-              prints how far over the plan is; short, this carries the one
-              thing that chart does not, the monthly amount that closes it.
-            */
-            ...(shortBy > 0
-              ? [
-                  {
-                    label: "Short by",
-                    value: currency(shortBy, 0, code),
-                    sub: `Or ${currency(plan.monthlyToClose, 0, code)} more a month`,
-                    tone: "text-loss",
-                  },
-                ]
-              : []),
-          ]}
-        />
+        {/*
+          One sentence, not a strip of three figures. The figure at the day
+          you stop, the shortfall and the monthly amount that closes it are
+          the verdict at the top of the room now, word for word, so this
+          panel carries only what that card does not: where the pot stands
+          today, and what it grows to on its own with nothing more added.
+        */}
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Today you hold{" "}
+          <span className="font-mono tabular-nums text-foreground">
+            {currency(have, 0, code)}
+          </span>
+          {target > 0 ? (
+            <>
+              , {percent(Math.min(1, have / target), 0)} of your number
+            </>
+          ) : null}
+          . Left alone with nothing more added, that grows to{" "}
+          <span className="font-mono tabular-nums text-foreground">
+            {currency(plan.projectedFromTodayOnly, 0, code)}
+          </span>{" "}
+          by {Math.round(inputs.retirementAge)}.
+        </p>
 
         <PathChart plan={plan} target={target} code={code} />
 

@@ -38,15 +38,13 @@ function at(phrase: string): number {
 }
 
 describe("the retirement room's panel order", () => {
-  it("answers in the same card that asks, and before anything else", () => {
+  it("puts the answer card before anything else", () => {
     /*
       The question is a sentence now and the answer sits directly under
       it, so "answer first" means the verdict is in the first card and
       nothing is between the two.
     */
     expect(at("When could you stop working?")).toBeLessThan(at("Fine-tune the plan"));
-    expect(at("I am")).toBeLessThan(at("Drag to try another age"));
-    expect(at("Drag to try another age")).toBeLessThan(at("Fine-tune the plan"));
   });
 
   it("keeps the spending layers ahead of the folded working", () => {

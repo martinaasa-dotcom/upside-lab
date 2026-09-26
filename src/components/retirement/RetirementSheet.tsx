@@ -8,67 +8,25 @@
  * `src/lib/retirement/`, which is pure and tested, so a panel cannot quietly
  * disagree with the panel above it.
  *
- * ORDERED ANSWER FIRST. A reader who arrives at a wall of forty inputs and
- * has to fill them in before seeing anything closes the tab. So the number
- * is at the top, computed from their country's published figures on the
- * first paint, and everything below it is the argument and the controls.
- * They can change one input and watch the top move, which is also the only
- * way anybody learns what an assumption is worth.
+ * ONE ANSWER, ONE PLACE TO FINE-TUNE, ONE LESSON, AND THE WORKING FOLDED.
  *
- * AND THEN THE INPUTS THEMSELVES WERE THE WALL ANYWAY. Answering first is
- * not enough when the second thing on the page is seven panels of fields:
- * the room still READ as work, and what a reader does with a page that
- * reads as work is close it. So the default is `simple` (`detail.ts`),
- * which keeps every panel that ANSWERS something and withholds every panel
- * that ASKS something, and `QuickStart` fills the whole plan from one press
- * on a life plus the six figures nothing can guess. Nothing is unreachable:
- * the control that brings the rest back is on that same first card, and the
- * level is remembered. See `detail.ts` for why that is not the withholding
- * this repository argues against.
+ * `AnswerPanel` is the question as one sentence with every figure a word
+ * the reader can tap, and under it the verdict: yes or not yet, a bar of
+ * saved against needed, the one or two presses that turn a not yet into a
+ * yes, the same plan at the world's long-run return when the reader's own
+ * rate is far from it, and the draggable chart. `QuickStart` is the chips
+ * for everything else the plan counts plus the example lives behind one
+ * button. The ticked editors open under it. Then the spending layers,
+ * which are the one lesson worth meeting unasked, and then the working
+ * (survival odds, every age side by side, the milestones) behind a single
+ * press, which opens on its own when "How long it lasts" is ticked.
  *
- * THE ORDER IS ANSWER, QUESTION, THEN LESSONS, AND #250's ARGUMENT FOR IT
- * IS FOLDED IN HERE. Two sessions reached this room at once with the same
- * complaint and different halves of the answer, which this repository
- * already warns is the dangerous shape: two sound changes that merge
- * cleanly and disagree. #250's reasoning was that the grid ("what stopping
- * at each age costs") is the one table that turns a single answer into a
- * lesson about the shape of the problem, and that it and the number are the
- * only two panels honest on defaults nobody has touched, because neither
- * compares the target against what the reader actually holds. `Standing`
- * cannot: on a pot of zero it says "you have nothing, short by £697,067",
- * which is not a lesson but an alarming statement about somebody who has
- * not been asked anything yet. And the zero pot never reaches `Standing`,
- * both because the card that asks comes before it and because the room
- * opens on a template rather than on zeroes at all.
- *
- * AND EVERY PANEL THAT ASKS SITS ABOVE THE RESULTS TABLE, NEVER BELOW IT,
- * WHICH IS A DIFFERENT RULE FROM THE ONE ABOVE AND HAD BEEN QUIETLY BROKEN.
- * "Answer, question, then lessons" said nothing about where a panel that
- * both asks and teaches belongs, so `LongevityPanel` (a chart plus, at a
- * deeper level, three dials), `BridgePanel` and the old `AssumptionsPanel`
- * had all drifted to the foot of the page, under the grid, under the
- * ladder, under the spending layers. A reader who opened "Everything" to
- * correct their own mix or their own bridge years was editing a figure the
- * table above it had already been drawn from, with no way to see the table
- * react without scrolling back up. Nothing that can `patch()` the plan may
- * sit after `GridPanel` now: `PlanInputs`, `ReturnsPanel`, `LongevityPanel`
- * and `BridgePanel` all moved above it, in that order, so the table, the
- * ladder and the spending layers are the last three things on the page
- * whatever the detail level. `StandingPanel` and `FlexiblePanel` read the
- * plan and answer; neither writes to it, so both stay put. `AssumptionsPanel`
- * is documentation rather than a lever now (its levers moved into
- * `ReturnsPanel`; see that file), so it stays folded near the foot of this
- * group, at "Everything" only.
- *
- * THE HONEST COST OF THAT IS A TABLE THAT CAN SIT SEVERAL SCREENS DOWN AT
- * THE DEEPEST LEVEL, since opening "More" or "Everything" now pushes every
- * result down rather than only some of them. `NumberPanel`'s own header
- * carries a "See the results table" button for exactly that reason: it is
- * the one panel that never moves, so the way back to the numbers is always
- * on screen. The table's own `id` (`RETIREMENT_RESULTS_ID`, in
- * `dom-ids.ts`) is why `GridPanel` can no longer be wrapped in `BelowFold`
- * — an anchor landing on an unmounted placeholder is a button that looks
- * like it works and does not, which `BelowFold`'s own doc already forbids.
+ * Nothing that writes to the plan sits after the results table: inside the
+ * fold the survival curve, whose dials can patch the plan, comes before the
+ * grid. Before the saved plan is in place the answer card is a placeholder
+ * rather than a verdict drawn on bare defaults, because the server renders
+ * this room and a first frame reading "Yes, you could stop" over a plan of
+ * zeroes is a sentence the page would have to take back.
  *
  * THE POT IS PRE-FILLED FROM WHAT THEY ACTUALLY HOLD, and that is the one
  * thing this module can do that a spreadsheet cannot. Offered rather than
@@ -470,6 +428,26 @@ export function RetirementSheet({
     return hit ? { age: hit.age, pot: hit.have, required: hit.need } : null;
   }, [curve]);
 
+  /*
+    The same plan at the world's long-run return, only when the reader's
+    own rate is at least half a point away from it. It is the one check on
+    the verdict a reader cannot do for themselves: the answer is worked at
+    whatever growth figure the plan carries, and "what you hold" can be an
+    outlook far above anything a whole market has held for a lifetime. A
+    second whole curve is fifty more plans, so it runs on the deferred
+    inputs like the first one.
+  */
+  const worldCheck = useMemo(() => {
+    const world = REAL_RETURN_ASSUMPTIONS.equityPct;
+    if (Math.abs(settled.returns.equityPct - world) < 0.5) return null;
+    const alt = potCurve(
+      { ...settled, returns: { ...settled.returns, equityPct: world } },
+      longevity.suggestedPlanningAge
+    );
+    const hit = alt.find((p) => p.need > 0 && p.have >= p.need);
+    return { pct: world, earliestAge: hit ? hit.age : null };
+  }, [settled, longevity.suggestedPlanningAge]);
+
   const rows = useMemo(
     () =>
       buildTable({
@@ -563,6 +541,8 @@ export function RetirementSheet({
         potSource={potSource}
         onPotSourceChange={changePotSource}
         holdingsView={holdingsView}
+        ready={restored}
+        worldCheck={worldCheck}
       />
 
       <QuickStart
