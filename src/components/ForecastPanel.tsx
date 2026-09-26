@@ -1166,7 +1166,20 @@ export const ForecastPanel = memo(function ForecastPanel({
         )}
       </header>
 
-      <div className="grid grid-cols-1 divide-y divide-border px-4 pb-2 sm:grid-cols-2 sm:gap-4 sm:divide-y-0 sm:p-4 xl:grid-cols-3">
+      {/*
+        Three across on a wide screen left a hole beside the last cards
+        whenever the count did not divide by three: eight holdings drew two
+        cards and an empty third of a row. Four across is used where it
+        divides and three wasn't going to.
+      */}
+      <div
+        className={cn(
+          "grid grid-cols-1 divide-y divide-border px-4 pb-2 sm:grid-cols-2 sm:gap-4 sm:divide-y-0 sm:p-4",
+          model.rows.length % 3 !== 0 && model.rows.length % 4 === 0
+            ? "xl:grid-cols-4"
+            : "xl:grid-cols-3"
+        )}
+      >
         {model.rows.map((r) => (
           <ForecastCard
             key={r.ticker}

@@ -38,7 +38,9 @@ export function StatStrip({
   return (
     <dl
       className={cn(
-        "grid grid-cols-2 gap-x-6 gap-y-5 border-y border-border py-5",
+        /* The last thing in a panel keeps its top rule only: a bottom rule
+         * right above the panel's own edge read as a stray double line. */
+        "grid grid-cols-2 gap-x-6 gap-y-5 border-y border-border py-5 last:border-b-0 last:pb-0",
         items.length >= 4 ? "sm:grid-cols-4" : items.length === 3 ? "sm:grid-cols-3" : null,
         className
       )}

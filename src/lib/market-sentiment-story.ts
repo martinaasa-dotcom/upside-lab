@@ -127,7 +127,7 @@ export function sentimentHistoryLine(metrics: SentimentMetrics): string | null {
   }
   const more = metrics.typicalMoreDays;
   if (more != null && more >= MIN_HISTORY_DAYS) {
-    return `Past runs like this lasted about ${marketDaysPhrase(more)} more before the price came back to its usual level.`;
+    return `Past runs like this lasted ${marketDaysPhrase(more)} more before the price came back to its usual level.`;
   }
   return null;
 }

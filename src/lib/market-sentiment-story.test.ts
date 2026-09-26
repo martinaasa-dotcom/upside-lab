@@ -169,6 +169,14 @@ describe("sentimentHistoryLine", () => {
     expect(line).not.toContain("typically ran");
     expect(line).not.toContain("180");
   });
+
+  it("says about once", () => {
+    // marketDaysPhrase carries its own "about"; the sentence printed
+    // "lasted about about 4 months" when it added a second one.
+    const line = sentimentHistoryLine({ ...CLIMB, typicalMoreDays: 84, alreadyLong: false });
+    expect(line).toContain("lasted about 4 months more");
+    expect(line).not.toMatch(/about about/);
+  });
 });
 
 describe("rsiTrackScale", () => {
