@@ -2,6 +2,7 @@ import { isCoinSymbol } from "@/lib/coins";
 import { resolveYahooEarnings } from "@/lib/market/earnings-dates";
 import { resolveYahooListedSymbol, yahooCall } from "@/lib/market/yahoo";
 import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
+import { companyNameWords, headlineIsAbout } from "@/lib/company/sources";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { sectorForTicker, type PulseHeadline } from "@/lib/thesis-pulse";
 import { unstable_cache } from "next/cache";
@@ -43,10 +44,28 @@ async function fetchTickerNewsUncached(
     if (isMarketCircuitOpen("yahoo")) return [];
     const yf = await getYahoo();
     const symbol = await listedSymbol();
+    /*
+      Asked for three times as many as are kept, and only the ones whose
+      headline names the company survive. The feed's stories for a symbol
+      are loosely "related": measured on Nvidia they included a weight-loss
+      drug, a meme coin and a burger chain, and its own related-ticker tags
+      put Nvidia on nearly every one, so the title is the only honest test.
+      A headline that is not about the company must not reach Pulse or a
+      company page as though it were news about it.
+    */
     const result = await yahooCall(() =>
-      yf.search(symbol, { newsCount: count }),
+      yf.search(symbol, { newsCount: count * 3 }),
     );
-    const items = result.news ?? [];
+    const listing = (result.quotes ?? []).find(
+      (q) => "symbol" in q && q.symbol === symbol,
+    ) as { shortname?: string; longname?: string } | undefined;
+    const words = companyNameWords(
+      ticker,
+      [listing?.longname, listing?.shortname].filter(Boolean).join(" "),
+    );
+    const items = (result.news ?? []).filter((n) =>
+      headlineIsAbout(String(n.title ?? ""), words),
+    );
     return items.slice(0, count).map((n) => ({
       title: String(n.title ?? "").trim(),
       publisher: String(n.publisher ?? "News").trim(),
@@ -147,7 +166,7 @@ async function fetchTickerPulseContextUncached(
 
 const fetchTickerPulseContextCached = unstable_cache(
   async (ticker: string) => fetchTickerPulseContextUncached(ticker),
-  ["pulse-ticker-context-v2"],
+  ["pulse-ticker-context-v3"],
   { revalidate: 60 * 60 },
 );
 

@@ -178,7 +178,12 @@ export type CompanyFacts = {
  * argument until the cron walks them, which is the cold state that room
  * already has and is better than a confident wrong picture.
  */
-const FACTS_KEY_VERSION = "v2";
+/*
+ * v3: the headlines a brief is written from are filtered to ones that name
+ * the company, which moves each headline's index, and a brief cites
+ * headlines by index; an older brief would point at the wrong article.
+ */
+const FACTS_KEY_VERSION = "v3";
 
 export function companyFactsKey(facts: CompanyFacts): string {
   const round = (n: number | null, digits = 2): string =>

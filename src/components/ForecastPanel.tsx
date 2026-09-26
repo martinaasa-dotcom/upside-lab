@@ -31,7 +31,6 @@ import { formatDateTime } from "@/lib/timezone";
 import { isAbortError } from "@/lib/abort";
 import {
   NO_VALUE,
-  cashtag,
   cn,
   currency,
   signedPercent,
@@ -60,8 +59,7 @@ import {
   forecastPlanDiffs,
   type ForecastPlan,
 } from "@/lib/forecast-plan";
-import { beliefLines } from "@/lib/believe";
-import { sharesLabel } from "@/lib/share-count";
+import { belief } from "@/lib/believe";
 import { readJsonOrThrow } from "@/lib/http";
 import type { EoyOrigin, PortfolioEoyOverrides } from "@/lib/forecast-overrides";
 import { isForecastFullyCovered } from "@/lib/forecast";
@@ -329,11 +327,14 @@ function SheetPath({
   years,
   totals,
   placeholder = false,
+  why,
 }: {
   now: number;
   years: readonly ForecastYear[];
   totals: Record<ForecastYear, number>;
   placeholder?: boolean;
+  /** The whole portfolio's provenance mark, beside the chart it explains. */
+  why?: ReactNode;
 }) {
   const points: SheetPathPoint[] = [
     { label: "Now", value: now },
@@ -342,12 +343,15 @@ function SheetPath({
 
   return (
     <div className="mt-4 border-t border-border pt-4">
+      <div className="mb-2 flex items-center gap-2">
+        <MicroLabel>Whole portfolio</MicroLabel>
+        {why}
+      </div>
       <SheetPathChart points={points} placeholder={placeholder} />
       {placeholder ? (
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          A placeholder shape until Margus works this out. It is the usual
-          rhythm for each kind of business rather than anything reasoned
-          about your companies, which is why it is drawn as a dashed line.
+          Dashed: the usual shape for each kind of business, not yet
+          reasoned about your companies.
         </p>
       ) : null}
     </div>
@@ -431,15 +435,18 @@ function ForecastCard({
    * label above it says, so the answer is to restate it against things
    * this company has actually done.
    */
-  const believe = beliefLines(
-    {
-      subject: cashtag(row.ticker),
-      spot: row.currentPrice,
-      target: row.eoyPrices[lastYear],
-      months: (lastYear - new Date().getFullYear() + 1) * 12,
-    },
-    (n) => currency(n)
-  );
+  /*
+    What the target asks for, as a rate a year. The card already prints
+    both prices and the whole change, so the sentence that restated them
+    is gone and only the one figure it added stays.
+  */
+  const perYear = belief({
+    subject: row.ticker,
+    spot: row.currentPrice,
+    target: row.eoyPrices[lastYear],
+    months: (lastYear - new Date().getFullYear() + 1) * 12,
+  })?.annualPct;
+
 
   return (
     <div className={SCORE_CELL}>
@@ -448,10 +455,13 @@ function ForecastCard({
           <p className="text-base font-semibold text-foreground">
             <TickerSymbol ticker={row.ticker} showCurrency={mixedListings} />
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {sharesLabel(row.shares)}
-            {!row.hasTargets && ", and Margus is still working this one out"}
-          </p>
+          {/* The share count is in the holdings table above; a card that is
+              still waiting says so and nothing else. */}
+          {!row.hasTargets ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Margus is still working this one out
+            </p>
+          ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-0.5">
           <div className="flex items-center gap-1.5">
@@ -469,7 +479,6 @@ function ForecastCard({
             </p>
             <WhyThis provenance={provenance} />
           </div>
-          <MicroLabel>by {lastYear}</MicroLabel>
         </div>
       </div>
 
@@ -485,6 +494,11 @@ function ForecastCard({
           <p className="mt-1 break-words font-mono text-base font-semibold tabular-nums text-foreground">
             {currency(row.eoyPrices[lastYear])}
           </p>
+          {perYear != null && Number.isFinite(perYear) ? (
+            <p className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground">
+              {`${signedPercent(perYear, 0)} a year`}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -497,12 +511,6 @@ function ForecastCard({
           Margus is still writing why this path looks like this.
         </p>
       )}
-
-      {believe.length > 0 ? (
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          {believe.join(" ")}
-        </p>
-      ) : null}
 
       <button
         type="button"
@@ -1052,7 +1060,7 @@ export const ForecastPanel = memo(function ForecastPanel({
   const statusHint = useMemo(() => {
     if (!labReady || !planHydrated || model.rows.length === 0 || busy) return null;
     if (needsAccount && !plan) {
-      return "On the sample these are a placeholder shape for each kind of business. With an account, Margus works out a path for each company and says why.";
+      return "With an account, Margus works out each company and says why.";
     }
     const decision = shouldAutoRefreshForecast({
       plan,
@@ -1100,7 +1108,7 @@ export const ForecastPanel = memo(function ForecastPanel({
               />
             </span>
           }
-          subtitle={`A yearly price for each holding, to ${yearCols[yearCols.length - 1] ?? ""}. The chart is the whole portfolio. Each card says why that company's price is expected to go where it does.`}
+          subtitle={`A price for each holding, every year to ${yearCols[yearCols.length - 1] ?? ""}, and why.`}
           actions={
             needsAccount ? undefined : (
             <Button
@@ -1136,6 +1144,15 @@ export const ForecastPanel = memo(function ForecastPanel({
             years={yearCols}
             totals={model.eoyTotals}
             placeholder={isPlaceholder}
+            why={
+              <WhyThis
+                provenance={forecastTotalProvenance({
+                  at: plan?.generatedAt,
+                  fallback: isPlaceholder,
+                  model: plan?.writtenBy,
+                })}
+              />
+            }
           />
         )}
       </header>
@@ -1156,67 +1173,10 @@ export const ForecastPanel = memo(function ForecastPanel({
       </div>
 
       {/*
-        The inset is the panel's own gutter, not a hand-typed 16px.
-
-        This panel is `padded={false}`, so each row owns its edges, and
-        every other row in it sits on `.surface-gutter` (16px on a phone,
-        24 from `sm`). A flat `mx-4` held this well at 16 at every width,
-        so from `sm` up it stood 8px proud of the header above it and the
-        footer below it.
+        No whole-portfolio year table under the cards: it printed the same
+        five totals the chart above draws, with the chart's own readout
+        giving any single year on a drag.
       */}
-      <div className="surface-gutter pb-4">
-      <div className={cn("card-sheen glass-well rounded-lg", NESTED_PAD)}>
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-muted-foreground">
-            Whole portfolio
-          </p>
-          <WhyThis
-            provenance={forecastTotalProvenance({
-              at: plan?.generatedAt,
-              fallback: isPlaceholder,
-              model: plan?.writtenBy,
-            })}
-          />
-        </div>
-        <p className="mt-1.5 font-sans text-lg font-semibold leading-none tabular-nums text-foreground">
-          {currency(model.currentTotal)}
-        </p>
-        <YearRail>
-          {yearCols.map((y) => {
-            const gain =
-              model.currentTotal > 0
-                ? (model.eoyTotals[y] - model.currentTotal) /
-                  model.currentTotal
-                : null;
-            return (
-              <YearRailRow
-                key={y}
-                label={yearLabel(y)}
-                current={isCurrentYear(y)}
-                value={
-                  <span className="text-sm tabular-nums text-foreground">
-                    {currency(model.eoyTotals[y], 0)}
-                  </span>
-                }
-                note={
-                  <span
-                    className={cn(
-                      "text-sm tabular-nums",
-                      isPlaceholder
-                        ? "text-muted-foreground"
-                        : signedTone(gain)
-                    )}
-                  >
-                    {gain != null ? signedPercent(gain) : NO_VALUE}
-                  </span>
-                }
-              />
-            );
-          })}
-        </YearRail>
-      </div>
-      </div>
-
       {/*
         On the sample there is no run to read, and the status line above
         already says an account is what writes one; an empty section headed

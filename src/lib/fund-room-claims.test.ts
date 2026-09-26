@@ -92,9 +92,9 @@ describe("what the room calls the line it is measured against", () => {
     expect(roomCode).not.toMatch(/Margus vs SPY/);
     expect(roomCode).not.toMatch(/label: "SPY"/);
     expect(roomCode).not.toMatch(/SPY \{percent/);
-    expect(room).toMatch(/const BENCHMARK_SHORT = "The S&P 500 tracker"/);
+    expect(room).toMatch(/const BENCHMARK_SHORT = "The Nasdaq 100 tracker"/);
     // And it says what that fund is, including what the line leaves out.
-    expect(roomText).toMatch(/without the dividends those companies pay/);
+    expect(roomText).toMatch(/the line this fund sets out to beat/);
   });
 });
 

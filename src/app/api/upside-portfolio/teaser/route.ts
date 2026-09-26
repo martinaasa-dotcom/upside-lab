@@ -12,6 +12,9 @@ import { dbError } from "@/lib/db-error";
 import { NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { observeRoute } from "@/lib/observe-route";
+import { latestFundTrade, tradeIsFresh, type FundTrade } from "@/lib/fund-latest-trade";
+import { fetchDailyCloseHistory } from "@/lib/market/daily-history";
+import type { FundAction } from "@/lib/margus-fund";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +27,26 @@ type FundTeaser = {
   dayNumber: number;
   openCount: number;
   startingCapital: number;
+  /** The latest company trade, when it is recent, for Home's card. */
+  trade: (FundTrade & { path: { date: string; close: number }[] }) | null;
 };
+
+/**
+ * The traded company's last few months of closes, so Home can draw where
+ * the trade happened. Cached far longer than the teaser: it only changes
+ * when a trading day closes.
+ */
+const getTradePath = unstable_cache(
+  async (ticker: string): Promise<{ date: string; close: number }[]> => {
+    const history = await fetchDailyCloseHistory([ticker]);
+    const s = history[ticker.toUpperCase()];
+    if (!s) return [];
+    const from = Math.max(0, s.closes.length - 90);
+    return s.closes.slice(from).map((close, i) => ({ date: s.dates[from + i]!, close }));
+  },
+  ["upside-fund-trade-path-v1"],
+  { revalidate: 60 * 60 }
+);
 
 /**
  * Same live mark for every signed-in viewer. Auth still runs per request;
@@ -58,6 +80,18 @@ const getCachedFundTeaser = unstable_cache(
         .limit(1)
         .maybeSingle(),
     ]);
+    const { data: recentActions } = await supabase
+      .from(PORTFELL_TABLES.margusFundReports)
+      .select("report_date, actions")
+      .order("report_date", { ascending: false })
+      .limit(10);
+    const found = latestFundTrade(
+      (recentActions ?? []) as { report_date: string; actions: FundAction[] | null }[]
+    );
+    const trade =
+      found && tradeIsFresh(found.date)
+        ? { ...found, path: await getTradePath(found.ticker).catch(() => []) }
+        : null;
 
     if (fundErr) throw new Error(fundErr.message);
     if (holdingsErr) throw new Error(holdingsErr.message);
@@ -102,9 +136,10 @@ const getCachedFundTeaser = unstable_cache(
       openCount: openHoldings.length,
       startingCapital:
         (fund as { starting_capital?: number } | null)?.starting_capital ?? 0,
+      trade,
     };
   },
-  ["upside-fund-teaser-v1"],
+  ["upside-fund-teaser-v2"],
   { revalidate: 15 }
 );
 

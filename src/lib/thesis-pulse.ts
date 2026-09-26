@@ -416,7 +416,12 @@ export function rangeSentence(
   if (price < range.low) {
     return `Price ${currency(price)}, below its low of ${currency(range.low)} over the last ${window}. The high was ${currency(range.high)}.`;
   }
-  return `Price ${currency(price)}, between its low of ${currency(range.low)} and its high of ${currency(range.high)} over the last ${window}.`;
+  /*
+    Inside the range the bar under this sentence prints both ends, so the
+    sentence names only the price and the window. Outside it the sentence
+    names the end that was crossed, because that is the fact.
+  */
+  return `Price ${currency(price)}, inside its range over the last ${window}.`;
 }
 
 /**

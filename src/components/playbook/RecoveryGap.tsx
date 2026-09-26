@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, MicroLabel, Score, Scoreboard } from "@/components/ui/Panel";
+import { Card, MicroLabel } from "@/components/ui/Panel";
 import { Slider } from "@/components/ui/slider";
 import { barFillPct, cn, percent } from "@/lib/format";
 import { riseToRecover } from "@/lib/market-temperature";
@@ -71,13 +71,6 @@ export function RecoveryGap() {
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        Money that falls has less of itself left to do the rising, so the two
-        numbers are never the same and the gap between them widens fast. Drag
-        the handle and watch the second bar leave the first behind. This is the
-        whole reason avoiding a disaster counts for more than catching every
-        rise, and it is arithmetic rather than anybody&rsquo;s opinion.
-      </p>
 
       <Card tone="default" className="flex flex-col gap-6">
         <div className="flex flex-col gap-3">
@@ -110,27 +103,36 @@ export function RecoveryGap() {
         </p>
       </Card>
 
+      {/*
+        The short table was five bordered cards repeating what the slider
+        above already draws. The same five falls are presets for it now:
+        one press sets the slider, and each still reads as a figure.
+      */}
       <div className="flex flex-col gap-3">
-        <MicroLabel>The same thing as a short table</MicroLabel>
-        <Scoreboard cols={5} mobileCols={1}>
+        <div className="flex flex-wrap gap-2">
           {ANCHORS.map((f) => {
             const r = (riseToRecover(f / 100) ?? 0) * 100;
             return (
-              <Score
+              <button
                 key={f}
-                label={`Falls ${f}%`}
-                value={`+${Math.round(r)}%`}
-                sub="to get level"
-                valueClassName={cn(r >= 100 && "text-warning")}
-              />
+                type="button"
+                onClick={() => setFall(f)}
+                aria-pressed={fall === f}
+                className={cn(
+                  "rounded-full border border-border px-3 py-1.5 font-mono text-xs tabular-nums transition hover:bg-hover",
+                  fall === f ? "bg-foreground/10 text-foreground" : "text-muted-foreground"
+                )}
+              >
+                -{f}% needs{" "}
+                <span className={cn(r >= 100 ? "text-warning" : "text-foreground")}>
+                  +{Math.round(r)}%
+                </span>
+              </button>
             );
           })}
-        </Scoreboard>
+        </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Past {MAX_FALL}% the figure runs away entirely: a holding down 99%
-          needs to go up ninety nine times over to break even, which is why the
-          slider stops where it does. Nothing about this says a fall will not
-          recover. It says what recovering would have to look like.
+          Past {MAX_FALL}% it runs away: down 99% needs a rise of 9,900%.
         </p>
       </div>
     </div>

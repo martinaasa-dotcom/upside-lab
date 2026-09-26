@@ -64,7 +64,7 @@ describe("the forecast says what an account adds, rather than waiting forever", 
 
   it("offers no button that can only fail, and says why", () => {
     expect(FORECAST).toMatch(/needsAccount \? undefined : \(/);
-    expect(FORECAST).toMatch(/With an account, Margus works out a path/);
+    expect(FORECAST).toMatch(/With an account, Margus works out each company/);
   });
 });
 

@@ -82,7 +82,7 @@ async function buildBase(ticker: string) {
   if (!facts) return null;
 
   const readings = companyReadings(facts);
-  const articles = companyArticles(context?.news);
+  const articles = companyArticles(context?.news, 6, { ticker, name: facts.name });
   const sources = companySources({
     ticker,
     listedSymbol: facts.listedSymbol,

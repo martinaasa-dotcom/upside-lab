@@ -76,7 +76,7 @@ export const SENTIMENT_COPY: Record<SentimentRegime, string> = {
   trend:
     "The S&P 500 is above its usual price, the 14-day RSI is in the middle of its range, and Fear & Greed is above 50.",
   mixed:
-    "The gauges do not line up with one historical pattern right now. Readings are mixed.",
+    "The gauges do not line up with any one pattern from the past.",
   unavailable:
     "Not enough market numbers yet to place a reading.",
 };

@@ -15,6 +15,7 @@ import {
   publishCommunityList,
 } from "@/lib/community-cache";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
+import { fetchFundTeaser } from "@/lib/fund-teaser-client";
 import { ArrowRight, Bot, Users } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -97,23 +98,12 @@ export function HomeWorld({
   const [communitiesError, setCommunitiesError] = useState(false);
 
   useEffect(() => {
-    const ctrl = new AbortController();
-    void (async () => {
-      try {
-        const res = await fetch("/api/upside-portfolio/teaser", {
-          signal: ctrl.signal,
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as FundTeaser;
-        if (!ctrl.signal.aborted && Number.isFinite(data.totalValue)) {
-          setFund(data);
-        }
-      } catch {
-        /* keep cache / empty card */
-      }
-    })();
+    let live = true;
+    void fetchFundTeaser().then((data) => {
+      if (live && data) setFund(data);
+    });
     return () => {
-      ctrl.abort();
+      live = false;
     };
   }, [setFund]);
 
@@ -193,7 +183,7 @@ export function HomeWorld({
                 </p>
                 <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
                   {fund.headline ??
-                    "Paper money, and one decision a day."}
+                    "Paper money, traded by written rules."}
                 </p>
               </>
             ) : (

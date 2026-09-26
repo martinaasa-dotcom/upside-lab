@@ -83,12 +83,7 @@ export function BestDays({ read }: { read: BestDaysRead }) {
   return (
     <div className="flex flex-col gap-6">
       <p className="text-sm leading-relaxed text-muted-foreground">
-        The rises that pay for everything do not arrive evenly. They arrive in a
-        handful of days, and being somewhere else on those days costs far more
-        than it sounds like it should. Here is the S&amp;P 500 over{" "}
-        {read.years} years, {windowLabel}, worked out from its {read.days}{" "}
-        trading days. The money is in dollars because that is what the index is
-        quoted in.
+        The S&amp;P 500, {windowLabel}, from its {read.days} trading days.
       </p>
 
       {/*

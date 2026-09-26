@@ -427,10 +427,23 @@ describe("the ten-year read travels on its own", () => {
 */
 describe("the accordions name what they open", () => {
   const read = (f: string) => readFileSync(join(process.cwd(), f), "utf8");
-  const files = [
-    "src/components/playbook/TemperatureLadder.tsx",
-    "src/components/playbook/IdeaDeck.tsx",
-  ];
+  const files = ["src/components/playbook/IdeaDeck.tsx"];
+
+  /*
+    The mood track is not an accordion any more: its five zones are tabs
+    that each show one band below, so the bands are drawn once, on the
+    scale, rather than again as five cards. A tab says which panel it
+    controls and the panel says which tab labels it.
+  */
+  it("makes the mood track a set of tabs over one band", () => {
+    const src = read("src/components/playbook/TemperatureLadder.tsx");
+    expect(src).toMatch(/role="tablist"/);
+    expect(src).toMatch(/role="tab"/);
+    expect(src).toMatch(/aria-selected=\{on\}/);
+    expect(src).toMatch(/aria-controls="band-panel"/);
+    expect(src).toMatch(/role="tabpanel"/);
+    expect(src).toMatch(/aria-labelledby=\{`band-\$\{band\.id\}`\}/);
+  });
 
   it.each(files)("associates the button and its body in %s", (file) => {
     const src = read(file);

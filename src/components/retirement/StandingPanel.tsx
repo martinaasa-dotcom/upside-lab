@@ -26,7 +26,8 @@
  * direction a number about somebody's money must never be wrong in.
  */
 
-import { CARD, InfoTip, Panel, PANEL_STACK, PanelHeader, Score, Scoreboard } from "@/components/ui/Panel";
+import { CARD, InfoTip, Panel, PANEL_STACK, PanelHeader } from "@/components/ui/Panel";
+import { StatStrip } from "@/components/ui/StatStrip";
 import { barFillPct, cn, currency, percent } from "@/lib/format";
 import { PALETTE } from "@/lib/palette";
 import type { Milestone } from "@/lib/retirement/milestones";
@@ -332,12 +333,10 @@ export function StandingPanel({
   inputs,
   plan,
   milestones,
-  earliest,
 }: {
   inputs: RetirementInputs;
   plan: PlanResult;
   milestones: Milestone[];
-  earliest: { age: number; pot: number; required: number } | null;
 }) {
   const code = plan.currency;
   const target = plan.required.target;
@@ -351,54 +350,32 @@ export function StandingPanel({
         <PanelHeader
           icon={<TrendingUp className="h-4 w-4" />}
           title="Where you stand"
-          subtitle="What you hold today, projected forward against what the plan needs."
+          subtitle="What you hold, grown to the day you stop."
         />
 
-        <Scoreboard cols={4} mobileCols={2}>
-          <Score
-            label="You have"
-            value={
-              <span className="font-mono tabular-nums">{currency(have, 0, code)}</span>
-            }
-            sub={`${percent(target > 0 ? Math.min(1, have / target) : 0, 0)} of the target, today`}
-          />
-          <Score
-            label={`Projected at ${Math.round(inputs.retirementAge)}`}
-            value={
-              <span className="font-mono tabular-nums">
-                {currency(plan.projectedPot, 0, code)}
-              </span>
-            }
-            sub={`${currency(plan.projectedFromTodayOnly, 0, code)} of that is what you already hold, just growing`}
-          />
-          <Score
-            label={shortBy > 0 ? "Short by" : "Over by"}
-            value={
-              <span className="font-mono tabular-nums">
-                {currency(Math.abs(shortBy), 0, code)}
-              </span>
-            }
-            tone={shortBy > 0 ? "down" : "up"}
-            sub={
-              shortBy > 0
-                ? `Closed by adding ${currency(plan.monthlyToClose, 0, code)} a month`
-                : "On these numbers you are already ahead of the plan"
-            }
-          />
-          <Score
-            label="Earliest you could stop"
-            value={
-              <span className="font-mono tabular-nums">
-                {earliest ? earliest.age : "n/a"}
-              </span>
-            }
-            sub={
-              earliest
-                ? `With ${currency(earliest.pot, 0, code)} against a target of ${currency(earliest.required, 0, code)} for stopping that year`
-                : "Not reachable on what you are saving now"
-            }
-          />
-        </Scoreboard>
+        <StatStrip
+          items={[
+            {
+              label: "You have",
+              value: currency(have, 0, code),
+              sub: `${percent(target > 0 ? Math.min(1, have / target) : 0, 0)} of the target`,
+            },
+            {
+              label: `At ${Math.round(inputs.retirementAge)}`,
+              value: currency(plan.projectedPot, 0, code),
+              sub: `${currency(plan.projectedFromTodayOnly, 0, code)} from what you hold now`,
+            },
+            {
+              label: shortBy > 0 ? "Short by" : "Over by",
+              value: currency(Math.abs(shortBy), 0, code),
+              sub:
+                shortBy > 0
+                  ? `Or ${currency(plan.monthlyToClose, 0, code)} more a month`
+                  : "Ahead of the plan",
+              tone: shortBy > 0 ? "text-loss" : "text-gain",
+            },
+          ]}
+        />
 
         <PathChart plan={plan} target={target} code={code} />
       </Panel>

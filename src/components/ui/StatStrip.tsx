@@ -1,0 +1,60 @@
+import type { ReactNode } from "react";
+import { MicroLabel } from "@/components/ui/Panel";
+import { cn } from "@/lib/format";
+
+/**
+ * A row of figures separated by hairlines, never a row of bordered cards.
+ *
+ * Three rooms printed their summary figures as four bordered `Score`
+ * cards under a hero figure and a chart, so a page answering one question
+ * read as a wall of boxes: every figure got the same frame, the same
+ * padding and the same weight as the chart beside it. A strip gives each
+ * figure a label, the number and at most one short qualifier, with the
+ * space doing the separating. Use `Scoreboard` where each cell carries a
+ * sentence; use this where it carries a figure.
+ */
+export type StripItem = {
+  label: ReactNode;
+  value: ReactNode;
+  /** One short qualifier under the figure: a year, a share. */
+  sub?: ReactNode;
+  /** A text colour class for the figure. Neutral when omitted. */
+  tone?: string;
+};
+
+export function StatStrip({
+  items,
+  className,
+}: {
+  items: StripItem[];
+  className?: string;
+}) {
+  return (
+    <dl
+      className={cn(
+        "grid grid-cols-2 gap-x-6 gap-y-5 border-y border-border py-5",
+        items.length >= 4 ? "sm:grid-cols-4" : items.length === 3 ? "sm:grid-cols-3" : null,
+        className
+      )}
+    >
+      {items.map((item, i) => (
+        <div key={i} className="flex min-w-0 flex-col gap-1.5">
+          <dt>
+            <MicroLabel>{item.label}</MicroLabel>
+          </dt>
+          <dd
+            className={cn(
+              "font-mono text-xl font-semibold tabular-nums",
+              item.tone ?? "text-foreground"
+            )}
+          >
+            {item.value}
+          </dd>
+          {item.sub != null ? (
+            <dd className="text-xs text-muted-foreground">{item.sub}</dd>
+          ) : null}
+        </div>
+      ))}
+    </dl>
+  );
+}

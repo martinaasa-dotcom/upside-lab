@@ -1193,6 +1193,16 @@ p:not([class*="leading-"]):not([class*="font-mono"]):not([class*="tabular-nums"]
   .panel-rhythm {
     gap: 1.5rem;
   }
+  /*
+   * A heading belongs to what it introduces, so it sits closer to it than
+   * two sections sit to each other. At the full section gap a title with
+   * no subtitle floated 32px above its own content, further than the
+   * panel's 28px pad above the title, and read as a label for nothing.
+   * A panel whose caller set its own gap keeps exactly that gap.
+   */
+  .panel-rhythm:not([class*="gap-"]) > [data-panel-header] + * {
+    margin-top: -0.5rem;
+  }
   .panel-pad {
     padding: 1.25rem 1rem;
   }

@@ -55,17 +55,60 @@ export type CompanySource = {
  * text: an unlinked headline in a section that promises you can go and
  * check is the app quoting something and withholding the receipt.
  */
+/** Words in a company's name that say nothing about which company it is. */
+const NAME_NOISE = new Set([
+  "the", "and", "company", "companies", "corporation", "corp", "inc",
+  "incorporated", "ltd", "limited", "plc", "group", "holding", "holdings",
+  "co", "sa", "nv", "ag", "se", "class", "common", "stock", "shares",
+  "international", "global", "trust", "fund", "etf", "usd",
+]);
+
+/**
+ * Words that name the company in a headline: the ticker, and every word
+ * of its name that is not a corporate suffix ("NVIDIA" from "NVIDIA
+ * Corporation", "Walt" and "Disney" from "The Walt Disney Company", so a
+ * story that only says "Disney" still counts).
+ */
+export function companyNameWords(ticker: string, name?: string | null): string[] {
+  const out = new Set<string>([ticker.trim().toUpperCase()]);
+  for (const raw of (name ?? "").split(/[\s,()]+/)) {
+    const w = raw.replace(/\.(com|inc)$/i, "").replace(/[.,]+$/, "");
+    if (w.length < 3 || NAME_NOISE.has(w.toLowerCase())) continue;
+    out.add(w);
+  }
+  return [...out];
+}
+
+/**
+ * Whether a headline is about this company at all.
+ *
+ * The feed hands back a company's "related" stories, and measured on the
+ * Nvidia page those included a weight-loss drug and a meme coin: a page
+ * listing them as the articles it was written from states something false,
+ * and a model handed them writes about the wrong companies. A headline
+ * counts when it names the ticker or the company, as a whole word.
+ */
+export function headlineIsAbout(title: string, words: string[]): boolean {
+  return words.some((w) => {
+    const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(^|[^A-Za-z0-9])\\$?${escaped}([^A-Za-z0-9]|$)`, "i").test(title);
+  });
+}
+
 export function companyArticles(
   news: PulseHeadline[] | undefined,
-  limit = 6
+  limit = 6,
+  about?: { ticker: string; name?: string | null }
 ): CompanyArticle[] {
   if (!Array.isArray(news)) return [];
+  const words = about ? companyNameWords(about.ticker, about.name) : null;
   const seen = new Set<string>();
   const out: CompanyArticle[] = [];
   for (const item of news) {
     const href = safeHttpUrl((item?.link ?? "").trim());
     const title = (item?.title ?? "").trim();
     if (!href || !title) continue;
+    if (words && !headlineIsAbout(title, words)) continue;
     const dedupe = title.toLowerCase();
     if (seen.has(dedupe)) continue;
     seen.add(dedupe);

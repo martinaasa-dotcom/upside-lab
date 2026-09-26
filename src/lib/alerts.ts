@@ -98,6 +98,12 @@ export type AlertDigest = {
   figure?: string | null;
   /** What the figure is set against, short enough for one small line. */
   note?: string | null;
+  /**
+   * Where the price sits against fair value, as a signed fraction (-0.6 is
+   * 60% below). Only a fair value zone carries it, and it is what Home
+   * draws as a gauge, so every zone row reads on one shared scale.
+   */
+  fairGap?: number | null;
 };
 
 /**
@@ -196,6 +202,8 @@ export function buildLadderAlerts(
     bandLabel: string;
     /** The edge the price crossed to get here, when the band has one. */
     edge: number | null;
+    /** Fair value itself, which the row's figure is measured against. */
+    anchor?: number | null;
     /** True where the reader typed at least one edge of this ladder. */
     edited: boolean;
     /** Share of the portfolio, when it is worth saying. */
@@ -232,12 +240,19 @@ export function buildLadderAlerts(
       tone: r.bandId === "exit" ? "warning" : "neutral",
       digest: {
         tag: "Fair value zones",
-        what:
-          r.bandId === "exit"
-            ? "Under its lowest fair value zone"
-            : `${r.bandLabel} fair value`,
+        /*
+          The zone's own words and nothing after them. Home prints "Fair
+          value" once over the gauges, and "... fair value" on every row
+          under it was the same two words five times down one column.
+        */
+        what: r.bandId === "exit" ? "Under its lowest zone" : r.bandLabel,
         figure: currency(r.spot, 2),
-        note: ladderDigestNote(r.spot, r.edge),
+        note:
+          r.anchor != null && r.anchor > 0
+            ? fairValueNote(r.spot, r.anchor)
+            : ladderDigestNote(r.spot, r.edge),
+        fairGap:
+          r.anchor != null && r.anchor > 0 ? r.spot / r.anchor - 1 : null,
       },
     });
   }
@@ -249,6 +264,17 @@ export function buildLadderAlerts(
  * one line on a phone, so it names the level and not whose it is: the
  * alert's own sentence, one press away, says whether the reader set it.
  */
+/**
+ * "61% below $2,752 fair value": the row's small line, measured against
+ * fair value itself so it can never disagree with the band's own words.
+ */
+export function fairValueNote(spot: number, anchor: number): string {
+  const gap = spot / anchor - 1;
+  const size = Math.abs(gap);
+  const said = size < 0.005 ? "<1%" : percent(size, 0);
+  return `${said} ${gap >= 0 ? "above" : "below"} ${currency(anchor, anchor >= 100 ? 0 : 2)}`;
+}
+
 function ladderDigestNote(spot: number, edge: number | null): string | null {
   if (edge == null || !(edge > 0)) return null;
   const gap = Math.abs(spot - edge) / edge;
@@ -743,5 +769,74 @@ export function homeAlertRows(
     shown,
     more: eligible.length - shown.length,
     total: eligible.length,
+  };
+}
+
+export type HomeAlertEntry = { alert: UpsideAlert; row: AlertDigest };
+
+/**
+ * Home's list, one row per company.
+ *
+ * The rows used to be one per alert, so a company with a results date and
+ * a fair value zone took two rows with the same cashtag, and five zone
+ * rows in a column each printed the same "Fair value zones" label beside
+ * the same icon. A glance asks which company first, so the company is the
+ * row and everything about it hangs off it: the zone leads when there is
+ * one, because it carries the figure and the gauge, and anything else
+ * about that company rides along as a small chip.
+ *
+ * Order: anything louder than neutral first, then the zones furthest from
+ * fair value in either direction (the name a reader most wants to see
+ * first, which is the order the holdings map already uses), then the rest
+ * in the order they arrived.
+ */
+export function homeAlertGroups(
+  alerts: UpsideAlert[],
+  limit: number = HOME_ALERTS_SHOWN
+): {
+  groups: Array<{ key: string; lead: HomeAlertEntry; extras: HomeAlertEntry[] }>;
+  more: number;
+  total: number;
+} {
+  const { shown: all, total } = homeAlertRows(alerts, Number.MAX_SAFE_INTEGER);
+  const byKey = new Map<string, HomeAlertEntry[]>();
+  for (const entry of all) {
+    const key = entry.alert.ticker
+      ? `t:${entry.alert.ticker.toUpperCase()}`
+      : `a:${entry.alert.id}`;
+    const list = byKey.get(key);
+    if (list) list.push(entry);
+    else byKey.set(key, [entry]);
+  }
+  const groups = [...byKey.entries()].map(([key, entries], order) => {
+    const lead =
+      entries.find((e) => e.row.fairGap != null) ??
+      entries.find((e) => e.alert.kind === "ladder") ??
+      entries[0]!;
+    const loudest = Math.min(
+      ...entries.map((e) => TONE_RANK[e.alert.tone ?? "neutral"])
+    );
+    return {
+      key,
+      lead,
+      extras: entries.filter((e) => e !== lead),
+      loudest,
+      gap: lead.row.fairGap != null ? Math.abs(lead.row.fairGap) : null,
+      order,
+    };
+  });
+  groups.sort(
+    (a, b) =>
+      a.loudest - b.loudest ||
+      (a.gap == null ? 1 : 0) - (b.gap == null ? 1 : 0) ||
+      (b.gap ?? 0) - (a.gap ?? 0) ||
+      a.order - b.order
+  );
+  const kept = groups.slice(0, Math.max(0, limit));
+  const counted = kept.reduce((n, g) => n + 1 + g.extras.length, 0);
+  return {
+    groups: kept.map(({ key, lead, extras }) => ({ key, lead, extras })),
+    more: total - counted,
+    total,
   };
 }

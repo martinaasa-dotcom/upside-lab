@@ -95,9 +95,12 @@ import {
   sheetReturnPathSince,
 } from "@/lib/sheet-mark";
 import {
+  ArrowDownToLine,
   ChevronRight,
   Minus,
   Plus,
+  Scissors,
+  TrendingUp,
 } from "lucide-react";
 import {
   NativeSelect,
@@ -118,12 +121,12 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
  * dividends those companies pay. The short form is for a table cell where
  * the long one will not fit; nothing prints the bare three letters alone.
  */
-const BENCHMARK_TICKER = "SPY";
-const BENCHMARK_SHORT = "The S&P 500 tracker";
-/** Mid-sentence form. `toLowerCase()` on the short one turned S&P into s&p. */
-const BENCHMARK_MID = "the S&P 500 tracker";
+const BENCHMARK_TICKER = "QQQ";
+const BENCHMARK_SHORT = "The Nasdaq 100 tracker";
+/** Mid-sentence form. */
+const BENCHMARK_MID = "the Nasdaq 100 tracker";
 const BENCHMARK_NOTE =
-  "SPY is one fund that holds the five hundred largest American companies, in the same proportions as the published list. The line is its own share price, without the dividends those companies pay, so it is a little under what somebody holding it would really have made.";
+  "QQQ is one fund that holds the hundred largest companies on the Nasdaq exchange. It is the line this fund sets out to beat, and where its waiting money sits.";
 
 const BENCHMARK_STORAGE_KEY = "portfell-upside-portfolio-benchmark";
 const FEED_CHUNK = 7;
@@ -217,6 +220,7 @@ async function fetchRecordedPath(
       assumed: false,
       portfolioIds: [portfolioId],
       includeSpy: true,
+      benchmark: BENCHMARK_TICKER,
     }),
   });
   if (!res.ok) return { sheet: [], spy: [] };
@@ -857,6 +861,27 @@ function sliceLabel(pct: number): string {
  * `landing-claims.test.ts` is the pattern for the sentences here: each one
  * is checked against the code that makes it true, in `fund-room-claims.test.ts`.
  */
+const FUND_RULE_STEPS = [
+  {
+    Icon: ArrowDownToLine,
+    title: "Buy a leader's dip",
+    line: "A company beating the Nasdaq 100 pulls back and turns up.",
+    tone: "bg-[color-mix(in_oklch,var(--zone-cool)_18%,transparent)] text-[var(--zone-cool)]",
+  },
+  {
+    Icon: TrendingUp,
+    title: "Sell into strength",
+    line: "Half when it runs hot, the rest on the next push.",
+    tone: "bg-[color-mix(in_oklch,var(--zone-warm)_18%,transparent)] text-[var(--zone-warm)]",
+  },
+  {
+    Icon: Scissors,
+    title: "Cut what fails",
+    line: "A broken stop, a lost trend, or three flat months.",
+    tone: "bg-muted text-muted-foreground",
+  },
+] as const;
+
 export function WhatThisIs({
   decisions,
   startedOn,
@@ -874,26 +899,44 @@ export function WhatThisIs({
           </span>
         }
       />
-      <div className="flex flex-col gap-3 text-base leading-relaxed text-muted-foreground">
-        <p>
-          Margus is a computer program that writes language, not a person. On
-          each day the market is open it makes one decision about this
-          portfolio, written down here with its reason. Nothing is edited
-          afterwards.
-        </p>
-        <p>
-          The money is <Explain term="paper-money">pretend</Explain>. No shares
-          are really bought and nobody&apos;s savings are in it. The point is
-          to watch a reason written down before the answer is known.
-        </p>
-        <p>
-          {decisions > 0
-            ? `${decisions} ${decisions === 1 ? "decision has" : "decisions have"} been written down so far`
-            : "No decision has been written down yet"}
-          {startedOn ? `, starting ${fmtDate(startedOn)}` : ""}. {ADVICE_DISCLAIMER_SHORT}{" "}
-          It is a diary, not a list to copy.
-        </p>
-      </div>
+      <p className="text-base leading-relaxed text-foreground/85">
+        A pretend $100,000 that sets out to beat the Nasdaq 100. Written rules
+        trade it on each day the market is open, and every trade is written
+        down with the numbers behind it. Nothing is edited afterwards.
+      </p>
+      {/*
+        The rules as three pictures rather than three paragraphs. Each is
+        one of the three kinds of trade the feed below will show, so a
+        reader meets the vocabulary before the first entry uses it.
+      */}
+      <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {FUND_RULE_STEPS.map(({ Icon, title, line, tone }) => (
+          <li key={title} className="card-sheen glass-well flex gap-3 rounded-lg p-4">
+            <span
+              className={cn(
+                "flex size-9 shrink-0 items-center justify-center rounded-lg",
+                tone
+              )}
+              aria-hidden
+            >
+              <Icon className="size-4" />
+            </span>
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-sm font-semibold text-foreground">{title}</span>
+              <span className="text-sm text-muted-foreground">{line}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        The money is <Explain term="paper-money">pretend</Explain> and
+        nobody&apos;s savings are in it.{" "}
+        {decisions > 0
+          ? `${decisions} ${decisions === 1 ? "day has" : "days have"} been written down so far`
+          : "No day has been written down yet"}
+        {startedOn ? `, starting ${fmtDate(startedOn)}` : ""}. {ADVICE_DISCLAIMER_SHORT}{" "}
+        It is a diary, not a list to copy.
+      </p>
     </Panel>
   );
 }

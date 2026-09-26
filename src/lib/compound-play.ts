@@ -229,7 +229,7 @@ const NARRATIVE_ANGLES: NarrativeAngle[] = [
   ({ result, tip, fmt, rng }) => {
     if (!(result.totalContributions > 0)) return null;
     const tipSuffix = tip
-      ? ` Growth passes what you pay in during year ${tip}.`
+      ? ` From year ${tip}, growth adds more each year than you pay in.`
       : "";
     return beat("Money you pay in", rng, [
       `You would pay in ${fmt(result.totalContributions)} along the way. Your deposits are the fuel, and growth is the curve that bends upward.${tipSuffix}`,
@@ -344,14 +344,20 @@ export function buildNarrative(
   const beats: NarrativeBeat[] = [];
   const angleOrder = shuffleInPlace(rng, NARRATIVE_ANGLES.map((_, i) => i));
   for (const idx of angleOrder) {
-    if (beats.length >= 5) break;
+    if (beats.length >= NARRATIVE_BEATS) break;
     const candidate = NARRATIVE_ANGLES[idx]!({ result, tip, fmt, rng });
     if (candidate) beats.push(candidate);
   }
   if (beats.length === 0) beats.push(fallbackPath());
 
-  return beats.slice(0, 5);
+  return beats.slice(0, NARRATIVE_BEATS);
 }
+
+/*
+ * Three, not five. Five beats of two sentences each was the longest block
+ * of prose in the room, under a chart that already draws most of it.
+ */
+const NARRATIVE_BEATS = 3;
 
 /** The fallback for a caller with no currency of its own. */
 function usdText(n: number): string {

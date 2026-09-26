@@ -1030,7 +1030,7 @@ run("fund report headlines number with digits, not spelled-out days", () => {
   );
 });
 
-run("Upside Fund X posts put P&L, ending value, and S&P on the same stretch", () => {
+run("Upside Fund X posts put P&L, ending value, and the benchmark on the same stretch", () => {
   const daily = composeDailyFundPost({
     serial: 3,
     daily: { dollar: 180.54, pct: 0.00361, spyPct: 0.004488 },
@@ -1050,9 +1050,9 @@ run("Upside Fund X posts put P&L, ending value, and S&P on the same stretch", ()
     ],
   });
   assert.match(daily, /^Day 3: held\n\n/);
-  assert.match(daily, /🔴 Day \+\$181 \(\+0\.36%\) · \$SPY \+0\.45%/);
-  assert.match(daily, /🟢 Wk \+\$1,240 \(\+2\.53%\) · \$SPY \+1\.10%/);
-  assert.match(daily, /🔴 Tot \+\$194 \(\+0\.39%\) · \$SPY \+0\.85%/);
+  assert.match(daily, /🔴 Day \+\$181 \(\+0\.36%\) · \$QQQ \+0\.45%/);
+  assert.match(daily, /🟢 Wk \+\$1,240 \(\+2\.53%\) · \$QQQ \+1\.10%/);
+  assert.match(daily, /🔴 Tot \+\$194 \(\+0\.39%\) · \$QQQ \+0\.85%/);
   assert.match(daily, /\n\n💼 \$50,194\n/);
   assert.match(daily, /\$NVDA \+3\.0% 🟢/);
   assert.match(daily, /\$AMD -2\.0% 🔴/);
@@ -1075,7 +1075,7 @@ run("Upside Fund X posts put P&L, ending value, and S&P on the same stretch", ()
   });
   assert.match(firstDay, /^Day 1: bought nvda/);
   assert.match(firstDay, /🟢 Day \$0 \(0\.00%\)/);
-  assert.doesNotMatch(firstDay, /\$SPY/);
+  assert.doesNotMatch(firstDay, /\$QQQ/);
   assert.ok(firstDay.length <= 280);
 
   const traded = composeDailyFundPost({
@@ -1103,7 +1103,7 @@ run("Upside Fund X posts put P&L, ending value, and S&P on the same stretch", ()
     actions: [],
   });
   assert.match(weekly, /^Week 1: held/);
-  assert.match(weekly, /🔴 Wk \+\$194 \(\+0\.39%\) · \$SPY \+0\.70%/);
+  assert.match(weekly, /🔴 Wk \+\$194 \(\+0\.39%\) · \$QQQ \+0\.70%/);
   assert.ok(weekly.length <= 280);
 });
 
@@ -2704,11 +2704,11 @@ run("Lab chrome is a toolbar, Seasonality does not paint bronze", () => {
   assert.doesNotMatch(season, /border-brand\/30 bg-brand\/10/);
   assert.doesNotMatch(season, /shadow-\[0_0_12px/);
   assert.doesNotMatch(season, /<h2 className="text-base font-bold text-white">Seasonality<\/h2>/);
-  // Status is a rail on a glass card, never a tinted wash.
-  assert.match(season, /border-l-2 border-l-gain/);
-  assert.match(season, /border-l-2 border-l-loss/);
+  // No tinted wash. The status callout that carried a rail is gone: it
+  // repeated the month's average, share of years up and count that the
+  // month panel's own strip prints, so the room says them once.
   assert.doesNotMatch(season, /bg-(?:gain|loss)\/\[0\.08\]/);
-  assert.match(season, /text-lg font-semibold tabular-nums/);
+  assert.match(season, /<StatStrip/);
 });
 
 run("explainers portal and sit on a lifted popover", () => {

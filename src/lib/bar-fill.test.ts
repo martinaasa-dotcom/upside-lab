@@ -63,7 +63,7 @@ import { barFillPct } from "@/lib/format";
  */
 const ALLOWED = new Map<string, string>([
   [
-    "src/components/playbook/TemperatureLadder.tsx:79",
+    "src/components/playbook/TemperatureLadder.tsx:105",
     "bandWidths() is the gaps between fixed cut points on the ladder's own 0-100 axis (playbook.ts), so the widths sum to exactly 100 by construction and no reader's data enters the arithmetic.",
   ],
   [
@@ -83,11 +83,11 @@ const ALLOWED = new Map<string, string>([
     "fill.fromPct and fill.toPct are each clamped to [0, 100] individually in market-sentiment-viz.ts before the width is their difference.",
   ],
   [
-    "src/components/SeasonalityPage.tsx:310",
+    "src/components/SeasonalityPage.tsx:282",
     "barW = (Math.abs(returnPct) / maxAbs) * 50, and maxAbs is Math.max(...) over the exact same returnPct values being drawn, so no bar can outrun it.",
   ],
   [
-    "src/components/SeasonalityPage.tsx:311",
+    "src/components/SeasonalityPage.tsx:283",
     "Same barW as the row above, mirrored to the other side of the zero line.",
   ],
   [

@@ -182,7 +182,7 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
       <PanelHeader
         icon={<SlidersHorizontal className="h-4 w-4" />}
         title="What a bad year actually costs you"
-        subtitle="Your spending in layers. The bottom is paid whatever the market does; the rest is what you would actually cut."
+        subtitle="The bottom layers are paid whatever the market does. The top ones are what a bad year cuts."
       />
 
       {hasTwo ? (
@@ -390,12 +390,7 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
         </div>
       </div>
 
-      <div className={cn(CARD, "p-4")}>
-        <MicroLabel>What this is worth</MicroLabel>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {read}
-        </p>
-      </div>
+      <p className="text-sm leading-relaxed text-muted-foreground">{read}</p>
     </Panel>
   );
 }

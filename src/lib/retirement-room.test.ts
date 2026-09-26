@@ -115,7 +115,7 @@ describe("the retirement room, as somebody new meets it", () => {
     expect(body).toContain("Your number");
     /* The ladder and the curve cost the reader nothing to read. */
     expect(body).toContain("How long the money has to last");
-    expect(body).toContain("One in twenty reach");
+    expect(body).toContain("One in ten reach");
   });
 
   it("says out loud where the rest of it went, and what it currently is", () => {

@@ -1,8 +1,7 @@
 import { MARGUS_PERSONA } from "@/lib/ai/margus-persona";
-import type { FundWatchItem } from "@/lib/fund-watchlist";
 import { z } from "zod";
 
-export const MARGUS_FUND_START_CAPITAL = 50_000;
+export const MARGUS_FUND_START_CAPITAL = 100_000;
 
 export type FundHoldingStatus = "open" | "closed";
 
@@ -39,6 +38,12 @@ export type FundAction = {
   type: "hold" | "trim" | "add" | "exit" | "buy";
   ticker: string;
   reasoning: string;
+  /**
+   * Which of the Fund's rules made the trade (`fund-strategy.ts`), so a
+   * later day can tell a sale into strength from a stop. Absent on the
+   * first version's trades and on holds.
+   */
+  rule?: string;
   shares?: number;
   price?: number;
   dollarAmount?: number;
@@ -53,98 +58,32 @@ export type PricedHolding = FundHolding & {
   daysHeld: number;
 };
 
-const fundDecisionSchema = z.object({
-  marketNote: z
-    .string()
-    .describe(
-      "One short sentence on how today's prices hit this portfolio. Not a generic wrap. Never say tape."
-    ),
-  holdingDecisions: z
-    .array(
-      z.object({
-        ticker: z.string(),
-        action: z.enum(["hold", "trim", "add", "exit"]),
-        fraction: z
-          .number()
-          .min(0)
-          .max(1)
-          .nullable()
-          .describe(
-            "For trim/add only: fraction of CURRENT shares to sell (trim), or to buy more of relative to what you already hold (add). Null for hold/exit."
-          ),
-        reasoning: z
-          .string()
-          .describe(
-            "1-2 sentences, specific to why you own this ticker, the timeline, and today's price -- never a generic filler line, even for hold."
-          ),
-      })
-    )
-    .describe(
-      "Exactly one entry per currently open holding listed below, same tickers, every one reviewed even if the action is hold."
-    ),
-  newPositions: z
-    .array(
-      z.object({
-        ticker: z.string(),
-        companyName: z.string(),
-        thesis: z
-          .string()
-          .describe(
-            "2-4 short bullets, semicolon-separated. Each bullet is one fact, under 14 words. Not a paragraph."
-          ),
-        targetTimeframe: z
-          .string()
-          .describe("e.g. '3-6 months', '12-18 months'"),
-        exitPlan: z
-          .string()
-          .describe(
-            "1-3 concrete sell conditions, semicolon-separated. No 'Sell if' preamble. Each under 14 words."
-          ),
-        allocationDollars: z
-          .number()
-          .positive()
-          .describe("Dollar amount of the cash you have to put into this."),
-      })
-    )
-    .max(2)
-    .describe(
-      "0-2 companies you do not already hold and would start holding today. Leave empty most days: only ones that genuinely clear a high bar, never one added just to have news to report."
-    ),
+/**
+ * What the model is asked for now: words about trades that already
+ * happened. The trades themselves come from `fund-strategy.ts`, which is
+ * arithmetic on prices a reader can check, and nothing the model writes
+ * can add, remove or resize one. A run with no model available writes
+ * `fallbackNarrative` instead and trades exactly the same.
+ */
+const fundNarrativeSchema = z.object({
   headline: z
     .string()
     .describe(
-      "One short, punchy sentence for today's report title. Never start with Day, Day N, or a spelled-out day. The page already numbers days."
+      "One short, specific sentence for today's report title, naming what the rules did. Never start with Day or a spelled-out day."
+    ),
+  marketNote: z
+    .string()
+    .describe(
+      "One short sentence on what the Nasdaq 100 did today and what that meant for this fund. Never say tape."
     ),
   closingNote: z
     .string()
-    .describe(
-      "One short sentence: what you are watching next."
-    ),
-  watchlist: z
-    .array(
-      z.object({
-        ticker: z.string(),
-        waitFor: z
-          .string()
-          .describe(
-            "One concrete sentence: the price you are waiting for. Not a why-you-own-it paragraph."
-          ),
-      })
-    )
-    .max(4)
-    .describe(
-      "1-4 companies you do NOT already hold. Empty only if there is genuinely nobody you are waiting on."
-    ),
-  cashPurpose: z
-    .string()
-    .describe(
-      "One sentence on what the cash you have not used is waiting for. If almost all of it is invested, say you keep a small cushion."
-    ),
+    .describe("One short sentence: what the rules are waiting for next."),
 });
 
-export type FundDecision = z.infer<typeof fundDecisionSchema>;
+export type FundNarrative = z.infer<typeof fundNarrativeSchema>;
 
-export { fundDecisionSchema };
+export { fundNarrativeSchema };
 
 export type { FundWatchItem } from "@/lib/fund-watchlist";
 export { sanitizeFundWatchlist } from "@/lib/fund-watchlist";
@@ -153,28 +92,65 @@ function money(n: number): string {
   return `$${Math.round(n).toLocaleString("en-US")}`;
 }
 
-/**
- * System + user prompt for the daily decision call. Reuses MARGUS_PERSONA
- * verbatim for voice/philosophy consistency with the rest of the app, with
- * fund-specific rules layered on top (paper money, how big one holding may
- * get, the "review every holding" requirement).
- */
-export function buildFundSystemPrompt(): string {
+export function buildFundNarrativeSystemPrompt(): string {
   return `${MARGUS_PERSONA}
 
-## This specific job: managing your own paper portfolio
-You run a single, fully simulated (paper money) portfolio that started at ${money(
+## This specific job: writing up Upside Fund's day
+Upside Fund is a paper portfolio that started at ${money(
     MARGUS_FUND_START_CAPITAL
-  )} and is shown publicly as a daily, followable feed. Think of it like a public "AI managed portfolio" account. People may glance at this for ideas, so:
-- Every holding needs a genuine, specific reason grounded in the business (what is growing, its staying power, whether each sale makes money, how big the market can get). Never because the price is moving, never "it's up a lot," never because it's trending.
-- Every new holding needs a concrete timeframe and a concrete condition for selling (a price or return level, the reason no longer holding, or a hard time limit) decided when you buy, not improvised later.
-- Review EVERY currently open holding, every day, even when the action is "hold." When it's hold, say specifically why the original reason and timeline still stand, not a generic "staying the course" line.
-- Size discipline: don't let any single new holding exceed roughly 25% of total portfolio value, and don't put every dollar of cash in even on a great idea. Leave room to be wrong and to buy more later.
-- Most days should have zero or one action. A portfolio that trades every single day isn't disciplined, it's noisy. Only act when something genuinely changed (the reason moved or broke, the timeline ran out, the price hit your own stated level) or a new idea truly clears the bar.
-- Keep every field SHORT. This report gets read daily; nobody wants a wall of text. 1-3 sentences per field, always.
-- thesis and exitPlan are bullet lists, not paragraphs. Semicolon-separated. Each bullet is one fact, under 14 words.
-- Always fill watchlist with 1-4 companies you do not already hold, each with a concrete thing you are waiting for, usually a price. Not "keeping an eye on tech."
-- Always fill cashPurpose in one sentence: what the cash you have not used is waiting for. Cash with no stated reason is a gap in the report.`;
+  )}. Its trades are made by written rules, not by you: it buys companies that are leading the Nasdaq 100 when they pull back to a short-term low and turn up, sells half into overbought strength and the rest on the next push, and cuts anything that breaks its stop, loses its long-term trend or goes nowhere for three months. Money waiting for the next setup sits in the Nasdaq 100 itself.
+
+You are writing the day's report about trades that have ALREADY been made. Do not suggest other trades, do not second-guess the rules, and do not invent a reason: every trade below comes with the figures that triggered it, and those figures are the reason. Keep every field to one short sentence. Plain English, no market slang.`;
+}
+
+export function buildFundNarrativeUserPrompt(input: {
+  today: string;
+  benchMovePct: number | null;
+  riskOn: boolean;
+  trades: { side: string; ticker: string; why: string }[];
+  holdingCount: number;
+}): string {
+  const trades = input.trades.length
+    ? input.trades.map((t) => `- ${t.side.toUpperCase()} ${t.ticker}: ${t.why}`).join("\n")
+    : "No trades today.";
+  const move = input.benchMovePct;
+  return `Today: ${input.today}
+Nasdaq 100 today: ${move == null ? "n/a" : `${move >= 0 ? "+" : ""}${(move * 100).toFixed(2)}%`}
+Nasdaq 100 long-term trend: ${input.riskOn ? "up (above its 200-day average)" : "down (under its 200-day average), so the fund holds fewer companies"}
+Companies held after today: ${input.holdingCount}
+
+## What the rules did today
+${trades}
+
+Write the headline, the market note and the closing note.`;
+}
+
+/** The words a run writes when no model answered. Plain and specific. */
+export function fallbackNarrative(input: {
+  benchMovePct: number | null;
+  trades: { side: string; ticker: string }[];
+  holdingCount: number;
+}): FundNarrative {
+  const bought = input.trades.filter((t) => t.side === "buy").map((t) => t.ticker);
+  const sold = input.trades.filter((t) => t.side === "sell").map((t) => t.ticker);
+  const parts = [
+    bought.length ? `Bought ${bought.join(", ")}` : null,
+    sold.length ? `sold ${sold.join(", ")}` : null,
+  ].filter(Boolean) as string[];
+  const joined = parts.join(" and ");
+  const headline = parts.length
+    ? `${joined.charAt(0).toUpperCase()}${joined.slice(1)}.`
+    : `No setups today, ${input.holdingCount} ${input.holdingCount === 1 ? "company" : "companies"} on plan.`;
+  const move = input.benchMovePct;
+  return {
+    headline,
+    marketNote:
+      move == null
+        ? "The Nasdaq 100's move today was not available."
+        : `The Nasdaq 100 ${move >= 0 ? "rose" : "fell"} ${Math.abs(move * 100).toFixed(1)}% today.`,
+    closingNote:
+      "Waiting for the next leader to pull back to a short-term low and turn up.",
+  };
 }
 
 const weeklyRecapSchema = z.object({
@@ -238,7 +214,7 @@ export function buildWeeklyRecapUserPrompt(input: {
   return `Week ending: ${weekEnding}
 
 Portfolio value: ${money(portfolioValueStart)} -> ${money(portfolioValueEnd)} (${weekReturnPct >= 0 ? "+" : ""}${(weekReturnPct * 100).toFixed(1)}%)
-${spyWeekReturnPct != null ? `SPY this week: ${spyWeekReturnPct >= 0 ? "+" : ""}${(spyWeekReturnPct * 100).toFixed(1)}%` : "SPY comparison not available yet"}
+${spyWeekReturnPct != null ? `The Nasdaq 100 (QQQ) this week: ${spyWeekReturnPct >= 0 ? "+" : ""}${(spyWeekReturnPct * 100).toFixed(1)}%` : "Nasdaq 100 comparison not available yet"}
 
 ## This week's actions
 ${actionsBlock}
@@ -247,86 +223,4 @@ ${actionsBlock}
 ${holdingsBlock}
 
 Write this week's recap.`;
-}
-
-export function buildFundUserPrompt(input: {
-  today: string;
-  cash: number;
-  holdings: PricedHolding[];
-  totalValue: number;
-  spyMovePct: number | null;
-  fearGreed: { score: number; rating: string } | null;
-  recentHeadlines: string[];
-  currentWatchlist?: FundWatchItem[];
-  currentCashPurpose?: string | null;
-}): string {
-  const {
-    today,
-    cash,
-    holdings,
-    totalValue,
-    spyMovePct,
-    fearGreed,
-    recentHeadlines,
-    currentWatchlist,
-    currentCashPurpose,
-  } = input;
-
-  const holdingsBlock =
-    holdings.length === 0
-      ? "No holdings, 100% cash right now."
-      : holdings
-          .map((h) => {
-            return [
-              `### ${h.ticker}`,
-              `- Entry: ${h.entry_date} (${h.daysHeld}d ago) at $${h.cost_basis.toFixed(2)}, now $${h.price.toFixed(2)} (${h.unrealizedPnlPct >= 0 ? "+" : ""}${(h.unrealizedPnlPct * 100).toFixed(1)}%, ${money(h.unrealizedPnl)})`,
-              `- Size: ${money(h.marketValue)} (${((h.marketValue / totalValue) * 100).toFixed(1)}% of the portfolio)`,
-              `- Thesis: ${h.thesis}`,
-              `- Target timeframe: ${h.target_timeframe ?? "not set"}`,
-              `- Exit plan: ${h.exit_plan ?? "not set"}`,
-            ].join("\n");
-          })
-          .join("\n\n");
-
-  const contextLines = [
-    `Today: ${today}`,
-    spyMovePct != null
-      ? `S&P 500 today: ${spyMovePct >= 0 ? "+" : ""}${(spyMovePct * 100).toFixed(2)}%`
-      : null,
-    fearGreed
-      ? `Fear & Greed: ${fearGreed.score} (${fearGreed.rating})`
-      : null,
-  ].filter(Boolean);
-
-  const recapBlock = recentHeadlines.length
-    ? `Recent days, for continuity (don't repeat, don't contradict without explaining why):\n${recentHeadlines.map((h) => `- ${h}`).join("\n")}`
-    : "No prior reports yet.";
-
-  const watchBlock =
-    currentWatchlist && currentWatchlist.length > 0
-      ? `Public watchlist yesterday (keep a name if nothing changed, swap it if your view did):\n${currentWatchlist
-          .map((w) => `- ${w.ticker}: ${w.waitFor}`)
-          .join("\n")}`
-      : "No public watchlist yet. Name 1-4 names you do not hold.";
-
-  const cashBlock = currentCashPurpose
-    ? `What you last said cash was for: ${currentCashPurpose}`
-    : "You have not said what your unused cash is for yet. Fill cashPurpose.";
-
-  return `${contextLines.join("\n")}
-
-Cash available: ${money(cash)}
-Total portfolio value: ${money(totalValue)}
-${cashBlock}
-
-## Current holdings
-${holdingsBlock}
-
-## Watchlist
-${watchBlock}
-
-## Recent history
-${recapBlock}
-
-Decide today's actions. Review every open holding above. Only start a new holding if something genuinely clears your bar today; most days that is none. Fill watchlist and cashPurpose even on a no-trade day.`;
 }

@@ -212,13 +212,12 @@ export function NumberPanel({
             </>
           ) : (
             <>
-              Built to survive a bad run of markets. A plan that assumes
-              returns arrive on schedule only needs{" "}
+              Built to survive a bad run of markets. If returns arrived on
+              schedule,{" "}
               <span className="font-mono tabular-nums text-foreground">
                 {currency(plan.required.spendDown, 0, code)}
-              </span>
-              . The gap is the price of not knowing what order returns will
-              come in.
+              </span>{" "}
+              would do.
             </>
           )}
         </p>

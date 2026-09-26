@@ -5,6 +5,7 @@ import {
   buildEarningsAlerts,
   buildLadderAlerts,
   buildStrikeAlerts,
+  homeAlertGroups,
   homeAlertRows,
   type UpsideAlert,
 } from "@/lib/alerts";
@@ -54,7 +55,7 @@ describe("Home draws alerts as rows, each saying what kind of thing it is", () =
     }
     const row = ladder("starter", "A little below").digest!;
     expect(row.tag).toBe("Fair value zones");
-    expect(row.what).toBe("A little below fair value");
+    expect(row.what).toBe("A little below");
   });
 
   it("titles a ladder moment by where the price is, never by an old instruction", () => {
@@ -94,5 +95,53 @@ describe("Home draws alerts as rows, each saying what kind of thing it is", () =
     };
     const { shown } = homeAlertRows([bare]);
     expect(shown[0]!.row).toMatchObject({ tag: "Results", what: "$X does something" });
+  });
+});
+
+describe("Home's list is one row per company, measured against fair value", () => {
+  const zone = (ticker: string, spot: number, anchor: number, bandId: string, bandLabel: string) =>
+    buildLadderAlerts([{ ticker, spot, anchor, bandId, bandLabel, edge: spot * 1.07, edited: false }])[0]!;
+
+  it("measures a zone against fair value itself, so it cannot contradict its own words", () => {
+    // Measured on a real account: "A little above fair value" printed
+    // beside "6.9% under $310.30", because the note read the band's own
+    // upper edge rather than fair value.
+    const row = zone("BE", 289, 270.1, "trim-some", "A little above").digest!;
+    expect(row.note).toBe("7% above $270");
+    expect(row.fairGap).toBeCloseTo(289 / 270.1 - 1, 6);
+    const below = zone("MU", 1085.02, 2752.08, "full-aggressive", "A long way below").digest!;
+    expect(below.note).toMatch(/below \$2,752$/);
+  });
+
+  it("puts a company's results date on its zone row rather than a second row", () => {
+    const alerts = [
+      ...buildEarningsAlerts([{ ticker: "MU", date: "2026-09-30", days: 4 }]),
+      zone("MU", 1085.02, 2752.08, "full-aggressive", "A long way below"),
+      zone("NVDA", 225, 369.22, "full-aggressive", "A long way below"),
+    ];
+    const { groups, total } = homeAlertGroups(alerts);
+    expect(total).toBe(3);
+    expect(groups.map((g) => g.lead.alert.ticker)).toEqual(["MU", "NVDA"]);
+    expect(groups[0]!.lead.alert.kind).toBe("ladder");
+    expect(groups[0]!.extras.map((e) => e.alert.kind)).toEqual(["results"]);
+  });
+
+  it("leads with the name furthest from fair value, in either direction", () => {
+    const { groups } = homeAlertGroups([
+      zone("BE", 289, 270.1, "trim-some", "A little above"),
+      zone("CRWV", 87.51, 129.67, "full-aggressive", "A long way below"),
+      zone("MU", 1085.02, 2752.08, "full-aggressive", "A long way below"),
+    ]);
+    expect(groups.map((g) => g.lead.alert.ticker)).toEqual(["MU", "CRWV", "BE"]);
+  });
+
+  it("counts what the grouped rows leave out", () => {
+    const many = Array.from({ length: 9 }, (_, i) =>
+      zone(`T${i}`, 90 - i, 100, "starter", "A little below")
+    );
+    const { groups, more, total } = homeAlertGroups(many);
+    expect(groups).toHaveLength(HOME_ALERTS_SHOWN);
+    expect(total).toBe(9);
+    expect(more).toBe(9 - HOME_ALERTS_SHOWN);
   });
 });
