@@ -43,17 +43,19 @@ function IdeaCard({ idea }: { idea: Idea }) {
   const headId = `idea-${idea.id}`;
   const bodyId = `idea-${idea.id}-body`;
   return (
-    <Card
-      tone="default"
-      className={cn("flex flex-col p-0 sm:p-0", open && "ring-1 ring-primary/20")}
-    >
+    /*
+      A row in a ruled list, not a card of its own. Eighteen bordered cards
+      stacked down a page read as eighteen things; one list per subject with
+      a hairline between ideas reads as the six subjects it is.
+    */
+    <div className="flex flex-col">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={bodyId}
         id={headId}
-        className="flex w-full items-start gap-3 rounded-lg p-4 text-left transition hover:bg-hover sm:p-6"
+        className="flex w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-hover sm:px-6"
       >
         <span className="min-w-0 flex-1 text-base font-medium leading-snug text-foreground">
           {idea.title}
@@ -71,7 +73,7 @@ function IdeaCard({ idea }: { idea: Idea }) {
           id={bodyId}
           role="region"
           aria-labelledby={headId}
-          className="flex flex-col gap-5 border-t border-border p-4 sm:p-6"
+          className="flex flex-col gap-5 px-4 pb-6 sm:px-6"
         >
           <PlaybookQuote quote={idea.quote} />
           <NoteRows
@@ -84,7 +86,7 @@ function IdeaCard({ idea }: { idea: Idea }) {
           <PlaybookTerms terms={idea.terms} />
         </div>
       ) : null}
-    </Card>
+    </div>
   );
 }
 
@@ -110,9 +112,11 @@ export function IdeaDeck() {
         return (
           <div key={theme.id} className="flex flex-col gap-3">
             <MicroLabel>{theme.label}</MicroLabel>
-            {shown.map((idea) => (
-              <IdeaCard key={idea.id} idea={idea} />
-            ))}
+            <Card tone="default" className="divide-y divide-border p-0 sm:p-0">
+              {shown.map((idea) => (
+                <IdeaCard key={idea.id} idea={idea} />
+              ))}
+            </Card>
           </div>
         );
       })}

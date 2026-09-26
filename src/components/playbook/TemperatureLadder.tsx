@@ -2,7 +2,7 @@
 
 import { PlaybookQuote } from "@/components/playbook/PlaybookQuote";
 import { PlaybookTerms } from "@/components/playbook/PlaybookTerms";
-import { Card, MicroLabel, NESTED_PAD, NoteRows, Pill } from "@/components/ui/Panel";
+import { Card, NESTED_PAD, NoteRows, Pill } from "@/components/ui/Panel";
 import { cn } from "@/lib/format";
 import {
   bandCuts,
@@ -14,8 +14,7 @@ import {
   type TemperatureBandId,
 } from "@/lib/playbook";
 import { formatRelativeTime } from "@/lib/timezone";
-import { ChevronDown } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 /*
   THE THERMOMETER REFUSES TO SAY WHICH END IS GOOD, AND THAT IS THE POINT.
@@ -60,7 +59,15 @@ const ZONE_WASH = [
 */
 const MARK_INSET_PCT = 1.2;
 
-function Track({ score }: { score: number | null }) {
+function Track({
+  score,
+  selected,
+  onSelect,
+}: {
+  score: number | null;
+  selected: TemperatureBandId | null;
+  onSelect: (id: TemperatureBandId) => void;
+}) {
   const widths = bandWidths();
   const cuts = bandCuts();
   const pos =
@@ -70,22 +77,30 @@ function Track({ score }: { score: number | null }) {
         ladderPosition(score) * (100 - MARK_INSET_PCT * 2);
   return (
     <div>
-      <div className="relative h-9 overflow-hidden rounded-lg ring-1 ring-border">
-        <div className="absolute inset-0 flex">
-          {/*
-            Each zone names itself. A track of five unlabelled greys needed
-            the paragraph under it to be read at all, and the band a reader
-            is in today is the one word lit.
-          */}
+      <div className="relative h-10 overflow-hidden rounded-lg ring-1 ring-border">
+        {/*
+          THE TRACK IS THE CONTROL. Each zone names itself and opens its own
+          band below, so the five bands are drawn once, on the scale they
+          belong to, rather than again as a list of five cards under it.
+        */}
+        <div role="tablist" aria-label="The five bands" className="absolute inset-0 flex">
           {TEMPERATURE_BANDS.map((band, i) => {
             const here =
               score != null && score >= band.range[0] && score <= band.range[1];
+            const on = selected === band.id;
             return (
-              <div
+              <button
                 key={band.id}
+                type="button"
+                role="tab"
+                id={`band-${band.id}`}
+                aria-selected={on}
+                aria-controls="band-panel"
+                onClick={() => onSelect(band.id)}
                 className={cn(
-                  "flex h-full items-center justify-center overflow-hidden px-1",
-                  ZONE_WASH[i]
+                  "flex h-full items-center justify-center overflow-hidden px-1 outline-none transition hover:bg-hover focus-visible:bg-hover",
+                  ZONE_WASH[i],
+                  on && "bg-foreground/[0.14]"
                 )}
                 style={{ width: `${widths[i]}%` }}
               >
@@ -93,19 +108,19 @@ function Track({ score }: { score: number | null }) {
                   className={cn(
                     "truncate text-xs",
                     // A phone has room for one word per zone at most, so
-                    // only today's zone names itself there.
-                    !here && "hidden sm:inline",
-                    here ? "font-semibold text-foreground" : "text-muted-foreground"
+                    // only the zone being read names itself there.
+                    !on && "hidden sm:inline",
+                    on || here ? "font-semibold text-foreground" : "text-muted-foreground"
                   )}
                 >
                   {band.label}
                 </span>
-              </div>
+              </button>
             );
           })}
         </div>
         {/* The same cut points the zones above are drawn from. */}
-        <div aria-hidden className="absolute inset-0">
+        <div aria-hidden className="pointer-events-none absolute inset-0">
           {cuts.map((cut) => (
             <span
               key={cut}
@@ -116,20 +131,12 @@ function Track({ score }: { score: number | null }) {
         </div>
         {pos != null ? (
           <span
-            className="absolute bottom-0 h-1 w-8 -translate-x-1/2 rounded-full bg-primary"
+            className="pointer-events-none absolute bottom-0 h-1 w-8 -translate-x-1/2 rounded-full bg-primary"
             style={{ left: `${pos}%` }}
             aria-hidden
           />
         ) : null}
       </div>
-      {/*
-        Two words an end, measured rather than chosen: the fuller wording
-        this started with ("0, every gauge at its low") wrapped to two
-        lines at 390px and the two captions ran into each other across the
-        middle of the track, so the axis read as one run-on sentence. The
-        band names are on the rows below and the sentence under the track
-        does the explaining, so the ends only have to name the direction.
-      */}
       <div className="mt-1.5 flex justify-between font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground">
         <span>0, all fear</span>
         <span className="text-right">100, all greed</span>
@@ -138,110 +145,40 @@ function Track({ score }: { score: number | null }) {
   );
 }
 
-function BandRow({
-  band,
-  here,
-  open,
-  onToggle,
-}: {
-  band: TemperatureBand;
-  here: boolean;
-  open: boolean;
-  onToggle: () => void;
-}) {
-  /*
-    A body opened by a button has to say which button, or a reader on a
-    screen reader lands in a block of prose with nothing telling them what
-    it belongs to. `aria-expanded` alone says the control opens something
-    and not what.
-
-    The body is mounted only while it is open rather than animated from
-    zero height, which is the one place this room departs from the
-    accordion `AlertCards` established. That one carries a handful of
-    cards; this room has five bands and eighteen ideas, and the expanded
-    bodies measure about fifteen thousand pixels at phone width, so keeping
-    them all in the document to animate them would roughly triple what the
-    room renders on its first paint. Per-panel render weight is the lever
-    this repo has already measured, so the weight wins and the motion goes.
-  */
-  const headId = `band-${band.id}`;
-  const bodyId = `band-${band.id}-body`;
+/** The band being read: its name, the lesson, and the words behind it. */
+function BandBody({ band, here }: { band: TemperatureBand; here: boolean }) {
   return (
     <Card
       tone="default"
-      className={cn(
-        "p-0 sm:p-0",
-        here && "border-l-2 border-l-primary ring-1 ring-primary/50"
-      )}
+      id="band-panel"
+      role="tabpanel"
+      aria-labelledby={`band-${band.id}`}
+      className={cn("flex flex-col gap-6", NESTED_PAD, here && "border-l-2 border-l-primary")}
     >
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        aria-controls={bodyId}
-        id={headId}
-        className="flex w-full items-start gap-3 rounded-lg p-4 text-left transition hover:bg-hover sm:p-6"
-      >
-        <span className="min-w-0 flex-1">
-          {/*
-            The pill sits on its own line above the label rather than
-            inline beside it. Inline, it competed with the label and range
-            for the row's width, and on a phone the longest band ("Extreme
-            greed", "76 to 100") pushed the range onto a line of its own
-            with nothing explaining the gap above it. A leading badge is
-            width-independent: it never affects how the label wraps.
-          */}
-          {here ? (
-            <Pill tone="brand" className="mb-1.5">
-              Today
-            </Pill>
-          ) : null}
-          <span className="flex flex-wrap items-center gap-2">
-            <span
-              className={cn(
-                "font-medium",
-                here ? "text-primary" : "text-foreground"
-              )}
-            >
-              {band.label}
-            </span>
-            <span className="font-mono text-xs tabular-nums text-muted-foreground">
-              {band.range[0]} to {band.range[1]}
-            </span>
+      <div>
+        <span className="flex flex-wrap items-center gap-2">
+          <span className={cn("font-medium", here ? "text-primary" : "text-foreground")}>
+            {band.label}
           </span>
-          <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">
-            {band.says}
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {band.range[0]} to {band.range[1]}
           </span>
+          {here ? <Pill tone="brand">Today</Pill> : null}
         </span>
-        <ChevronDown
-          aria-hidden
-          className={cn(
-            "mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:duration-0",
-            open && "rotate-180"
-          )}
-        />
-      </button>
-      {open ? (
-        <div
-          id={bodyId}
-          role="region"
-          aria-labelledby={headId}
-          className={cn("flex flex-col gap-6 border-t border-border", NESTED_PAD)}
-        >
-          <div className="flex flex-col gap-5 border-b border-border/60 pb-6">
-            <PlaybookQuote quote={band.quote} />
-            {band.second ? <PlaybookQuote quote={band.second} /> : null}
-          </div>
-          <NoteRows
-            rows={[
-              { label: "The idea", body: band.idea },
-              { label: "Goes wrong", body: band.goesWrong },
-              { label: "Check it", body: band.check },
-            ]}
-          />
-          <PlaybookTerms terms={band.terms} />
-        </div>
-      ) : null}
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{band.says}</p>
+      </div>
+      <div className="flex flex-col gap-5 border-b border-border/60 pb-6">
+        <PlaybookQuote quote={band.quote} />
+        {band.second ? <PlaybookQuote quote={band.second} /> : null}
+      </div>
+      <NoteRows
+        rows={[
+          { label: "The idea", body: band.idea },
+          { label: "Goes wrong", body: band.goesWrong },
+          { label: "Check it", body: band.check },
+        ]}
+      />
+      <PlaybookTerms terms={band.terms} />
     </Card>
   );
 }
@@ -265,28 +202,24 @@ export function TemperatureLadder({
     confident wrong sentence the stamp exists to prevent.
   */
   const stamp = asOf ? formatRelativeTime(asOf) : "";
-  const [open, setOpen] = useState<TemperatureBandId | null>(null);
-  const [touched, setTouched] = useState(false);
+  const [picked, setPicked] = useState<TemperatureBandId | null>(null);
 
   /*
-    The live band opens itself, and stops doing so the moment the reader
-    opens one of their own. Without the second half, a snapshot landing a
-    beat after the first paint reaches in and swaps the open row out from
-    under somebody already reading a different one, which is the page
-    arguing with them about what they are looking at.
+    Today's band is shown until the reader picks another, and a snapshot
+    landing late never swaps the band out from under somebody who already
+    chose one, because their choice is kept apart from the default.
   */
-  useEffect(() => {
-    if (touched || !current) return;
-    setOpen(current.id);
-  }, [current, touched]);
+  const shown =
+    TEMPERATURE_BANDS.find((b) => b.id === (picked ?? current?.id)) ??
+    TEMPERATURE_BANDS[2]!;
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
-        <Track score={score} />
+        <Track score={score} selected={shown.id} onSelect={setPicked} />
         <p className="text-sm leading-relaxed text-muted-foreground">
           {score == null
-            ? "The reading has not landed yet. The five bands below are the same either way."
+            ? "The reading has not landed yet. Press a band to read it."
             : `${Math.round(score)} out of 100 today. Neither end is the good one: fear is where things are cheap, greed where they are dear.`}
         </p>
         {/*
@@ -307,21 +240,7 @@ export function TemperatureLadder({
             : `The score is CNN's Fear and Greed index for US stocks, which anybody can look up.${stamp ? ` Read ${stamp}.` : ""}`}
         </p>
       </div>
-      <div className="flex flex-col gap-3">
-        <MicroLabel>The five bands</MicroLabel>
-        {TEMPERATURE_BANDS.map((band) => (
-          <BandRow
-            key={band.id}
-            band={band}
-            here={current?.id === band.id}
-            open={open === band.id}
-            onToggle={() => {
-              setTouched(true);
-              setOpen((prev) => (prev === band.id ? null : band.id));
-            }}
-          />
-        ))}
-      </div>
+      <BandBody band={shown} here={current?.id === shown.id} />
     </div>
   );
 }

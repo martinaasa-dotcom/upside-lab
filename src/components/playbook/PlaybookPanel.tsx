@@ -182,7 +182,7 @@ export function PlaybookPanel() {
       <WidgetErrorBoundary name="Market temperature">
         <Section
           title="Fear and greed"
-          subtitle="Today's mood picks the idea that fits."
+          subtitle="Today's mood picks the idea. Press any band on the scale to read another."
           icon={<Gauge aria-hidden className="size-4" />}
         >
           <TemperatureLadder score={score} asOf={metrics.asOf} />
