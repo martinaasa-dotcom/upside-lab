@@ -76,6 +76,7 @@ import {
   IncomeTopic,
   SavingsTopic,
 } from "@/components/retirement/PlanInputs";
+import { SavingsRatePanel } from "@/components/retirement/SavingsRatePanel";
 import { StandingPanel } from "@/components/retirement/StandingPanel";
 import { PANEL_STACK } from "@/components/ui/Panel";
 import { cn } from "@/lib/format";
@@ -565,6 +566,14 @@ export function RetirementSheet({
         ready={restored}
         scenarios={scenarios}
       />
+
+      {/*
+        WHY THE ANSWER IS WHERE IT IS. The one lesson that explains every
+        move of the age above: what is kept of pay, pension included,
+        decides the wait, and spending less counts twice. Asks for take-home
+        pay before it says anything, so it is one field until then.
+      */}
+      {restored ? <SavingsRatePanel inputs={inputs} plan={plan} patch={patch} /> : null}
 
       <QuickStart
         inputs={inputs}
