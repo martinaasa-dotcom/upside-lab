@@ -1,8 +1,7 @@
 "use client";
 
-import { Card, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
+import { MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/format";
 import { formatDateTime } from "@/lib/timezone";
 import type { CompanyArticle, CompanySource } from "@/lib/company/sources";
 import { ExternalLink, Library } from "lucide-react";
@@ -59,7 +58,7 @@ export function CompanySources({
     <Panel>
       <PanelHeader
         title="Sources"
-        subtitle="Nothing on this page should be taken on trust. These are the articles it was written from, and the places to go and read the company's own filings."
+        subtitle="Nothing here should be taken on trust. This is where it all came from."
         icon={<Library className="h-4 w-4" />}
       />
 
@@ -102,9 +101,8 @@ export function CompanySources({
             ))}
           </ul>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            This app has not checked any of these and does not vouch for any
-            of them. The publisher and the date are there so you can decide
-            what each one is worth.
+            Not checked or vouched for by this app. The publisher and the date
+            are there to judge each one by.
           </p>
         </div>
       ) : (
@@ -119,40 +117,35 @@ export function CompanySources({
         <div className="flex flex-col gap-3">
           <MicroLabel>Primary sources</MicroLabel>
           {/*
-            An odd number of sources left the last card alone in a row with
-            a hole beside it, which reads as a card that failed to load.
-            There are between three and six of these depending on what the
-            company is and what the feed carried, so an odd count is the
-            ordinary case rather than the edge one. The last one takes the
-            whole row when it would otherwise be orphaned.
+            One ruled list, like the articles above it, rather than a grid
+            of bordered cards: five boxes of a sentence each read as five
+            things to weigh, where they are one list of places to go.
           */}
-          <div
-            className={cn(
-              "grid gap-3 sm:grid-cols-2",
-              sources.length % 2 === 1 && "[&>*:last-child]:sm:col-span-2"
-            )}
-          >
+          <ul className="flex flex-col divide-y divide-border border-y border-border">
             {sources.map((s) => (
-              <Card key={s.id} tone="default" className="flex flex-col gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <a
-                    href={s.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-semibold text-foreground underline decoration-border underline-offset-4 hover:text-primary"
-                  >
-                    {s.label}
-                  </a>
-                  <Badge variant="outline" className="text-muted-foreground">
-                    {KIND_LABEL[s.kind]}
-                  </Badge>
-                </div>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  {s.detail}
-                </p>
-              </Card>
+              <li key={s.id}>
+                <a
+                  href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex flex-col gap-1 py-3 transition hover:bg-hover sm:px-2"
+                >
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground group-hover:text-primary">
+                      {s.label}
+                    </span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                    <Badge variant="outline" className="text-muted-foreground">
+                      {KIND_LABEL[s.kind]}
+                    </Badge>
+                  </span>
+                  <span className="text-sm leading-relaxed text-muted-foreground">
+                    {s.detail}
+                  </span>
+                </a>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
     </Panel>

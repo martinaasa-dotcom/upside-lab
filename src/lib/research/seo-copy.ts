@@ -309,7 +309,7 @@ export function researchLede(facts: CompanyFacts): string {
     case "coin":
       return `${name} files no accounts, earns nothing and owns nothing, so there is nothing to value it against except what somebody else will pay. The price and the range below are real. Everything a company page does is missing on purpose.`;
     default:
-      return `What ${name} does, what the accounts say, what the price is assuming, and both sides of the argument. Every figure is the real one, named properly, with a plain sentence under it and a link back to where it came from.`;
+      return `What ${name} does, what the accounts say, what the price is assuming, and both sides of the argument, with a link back to where every figure came from.`;
   }
 }
 

@@ -218,11 +218,12 @@ describe("the research room, measured", () => {
     expect(cases).toMatch(/grid items-start gap-4 md:grid-cols-2/);
   });
 
-  it("never leaves a source card alone in a row with a hole beside it", () => {
+  it("never leaves a source alone in a row with a hole beside it", () => {
     // Three to six sources depending on the company, so an odd count is
-    // the ordinary case rather than the edge one.
-    expect(sources).toMatch(/sources\.length % 2 === 1/);
-    expect(sources).toMatch(/last-child\]:sm:col-span-2/);
+    // the ordinary case. A single ruled list has no second column for a
+    // hole to appear in, which is why the grid of cards was replaced.
+    expect(sources).toMatch(/<ul className="flex flex-col divide-y divide-border/);
+    expect(sources).not.toMatch(/sm:grid-cols-2/);
   });
 
   it("prints one kind of date in the article list", () => {

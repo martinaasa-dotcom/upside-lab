@@ -830,7 +830,7 @@ export function AccountPage() {
                 <PinnedHeader
                   icon={<Gauge className="h-4 w-4" />}
                   title="How much to show"
-                  subtitle="Every room is open whichever you pick. This decides what starts folded and how much Margus explains, and you can change it whenever you like."
+                  subtitle="Every room is open whichever you pick. This decides what starts folded and how much Margus explains."
                 />
                 {/*
                   Three full-width slabs carrying ten words each spent 500px
@@ -839,36 +839,40 @@ export function AccountPage() {
                   gates themselves, so somebody moving a room between tiers
                   cannot leave this page describing the old arrangement.
                 */}
-                <div className="grid gap-2 sm:grid-cols-3">
-                  {EXPERIENCE_TIERS.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => void handleTierChange(t.id)}
-                      className={cn(
-                        CARD,
-                        "flex w-full flex-col gap-1 px-3.5 py-3 text-left text-sm text-foreground transition hover:bg-hover",
-                        tier === t.id && "outline-2 -outline-offset-2 outline-primary"
-                      )}
-                    >
-                      <span className="flex items-start justify-between gap-2">
-                        <span
-                          className={cn(
-                            "font-medium",
-                            tier === t.id && "text-primary"
-                          )}
-                        >
-                          {t.label}
-                        </span>
+                {/*
+                  Three answers as three short buttons, and the sentence for
+                  the one chosen printed once under them. Each button used to
+                  carry its own two-line description, so the question was
+                  about 360px of prose on a phone before the reader had
+                  picked anything; one sentence that changes as they press
+                  says the same and reads as an answer.
+                */}
+                <div className="flex flex-col gap-2">
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {EXPERIENCE_TIERS.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        aria-pressed={tier === t.id}
+                        onClick={() => void handleTierChange(t.id)}
+                        className={cn(
+                          CARD,
+                          "flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm font-medium text-foreground transition hover:bg-hover",
+                          tier === t.id && "text-primary outline-2 -outline-offset-2 outline-primary"
+                        )}
+                      >
+                        {t.label}
                         {tier === t.id && (
                           <Check className="h-4 w-4 shrink-0 text-primary" />
                         )}
-                      </span>
-                      <span className="text-sm leading-relaxed text-muted-foreground">
-                        {tierChangeLine(t.id)}
-                      </span>
-                    </button>
-                  ))}
+                      </button>
+                    ))}
+                  </div>
+                  {tier ? (
+                    <p className="text-sm text-muted-foreground">
+                      {tierChangeLine(tier)}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="flex flex-col gap-3 border-t border-border pt-5">
@@ -887,58 +891,38 @@ export function AccountPage() {
                       <Explain term="covered-call">covered calls</Explain> or
                       other options?
                     </p>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
-                      An option is a side deal about a share, made with
-                      somebody else. Most people never use one, and the app
-                      is complete without them. This is a separate question
-                      from the one above.
+                    <p className="text-sm text-muted-foreground">
+                      A side deal about a share. Most people never use one.
                     </p>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleKnowsOptionsChange(true)}
-                      className={cn(
-                        CARD,
-                        "px-3.5 py-3 text-left text-sm text-foreground transition hover:bg-hover",
-                        knowsOptions === true && "outline-2 -outline-offset-2 outline-primary"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "font-medium",
-                          knowsOptions === true && "text-primary"
-                        )}
-                      >
-                        Yes, show them
-                      </span>
-                      <span className="mt-0.5 block text-sm leading-relaxed text-muted-foreground">
-                        Covered calls, the price to watch for and Call % stay
-                        where they are.
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleKnowsOptionsChange(false)}
-                      className={cn(
-                        CARD,
-                        "px-3.5 py-3 text-left text-sm text-foreground transition hover:bg-hover",
-                        knowsOptions === false && "outline-2 -outline-offset-2 outline-primary"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "font-medium",
-                          knowsOptions === false && "text-primary"
-                        )}
-                      >
-                        No, hide that whole topic
-                      </span>
-                      <span className="mt-0.5 block text-sm leading-relaxed text-muted-foreground">
-                        None of it appears anywhere, and Margus stops
-                        bringing it up.
-                      </span>
-                    </button>
+                  <div className="flex flex-col gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      {([true, false] as const).map((yes) => (
+                        <button
+                          key={String(yes)}
+                          type="button"
+                          aria-pressed={knowsOptions === yes}
+                          onClick={() => void handleKnowsOptionsChange(yes)}
+                          className={cn(
+                            CARD,
+                            "flex items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm font-medium text-foreground transition hover:bg-hover",
+                            knowsOptions === yes && "text-primary outline-2 -outline-offset-2 outline-primary"
+                          )}
+                        >
+                          {yes ? "Yes" : "No"}
+                          {knowsOptions === yes && (
+                            <Check className="h-4 w-4 shrink-0 text-primary" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    {knowsOptions != null ? (
+                      <p className="text-sm text-muted-foreground">
+                        {knowsOptions
+                          ? "Covered calls, the price to watch for and Call % stay where they are."
+                          : "None of it appears anywhere, and Margus stops bringing it up."}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </Panel>
@@ -1094,16 +1078,8 @@ export function AccountPage() {
                 <PinnedHeader
                   icon={<Compass className="h-4 w-4" />}
                   title="Help and feedback"
-                  subtitle={`What ${PRODUCT_NAME} is, where everything lives, and the one thing it will never do: tell you to buy or sell.`}
+                  subtitle={`The walkthrough shows where everything lives, and the one thing ${PRODUCT_NAME} will never do: tell you to buy or sell.`}
                 />
-                <p className="text-sm leading-relaxed text-foreground">
-                  {PRODUCT_NAME} gives you your whole portfolio in ordinary
-                  sentences, and on the days it falls it tells you whether
-                  anything actually changed at the companies you own. Most of
-                  the time nothing has, and the fall was the whole market
-                  having a bad week. Your broker holds the money and adds it
-                  up. This is the part that says what happened.
-                </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"

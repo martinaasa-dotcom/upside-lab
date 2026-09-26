@@ -241,7 +241,7 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
               >
                 {gone ? null : (
                   <>
-                    <span className="min-w-0 truncate font-semibold text-black">
+                    <span className={cn("min-w-0 truncate font-semibold", inkOn(slice.tier.id))}>
                       {slice.tier.label}
                       {slice.fill < 0.995 ? (
                         <span className="ml-1.5 font-normal opacity-70">
@@ -249,7 +249,7 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
                         </span>
                       ) : null}
                     </span>
-                    <span className="shrink-0 font-mono tabular-nums text-black">
+                    <span className={cn("shrink-0 font-mono tabular-nums", inkOn(slice.tier.id))}>
                       {currency(slice.funded, 0, code)}
                     </span>
                   </>
@@ -393,4 +393,11 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
       <p className="text-sm leading-relaxed text-muted-foreground">{read}</p>
     </Panel>
   );
+}
+
+/** Dark type on the two solid layers, light type on the two pale ones. */
+function inkOn(id: string): string {
+  return id === "essentials" || id === "regular"
+    ? "text-primary-foreground"
+    : "text-foreground";
 }

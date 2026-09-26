@@ -139,8 +139,9 @@ describe("the Fund room renders and says what it means", () => {
       )
     );
     // `cost_basis` is the price of one share, not the money put in.
-    expect(text).toContain("Paid each");
-    expect(text).toContain("Price now");
+    // Both per-share figures say they are per share, in words.
+    expect(text).toContain("paid $168.40 each");
+    expect(text).toContain("$214.50 a share");
     expect(text).toContain("Worth now");
     // "Portfolio" means everything you own, so a single holding must not use it.
     expect(text).not.toMatch(/\bPortfolio\b/);

@@ -37,7 +37,6 @@
  */
 
 import { finiteNumber } from "@/lib/money";
-import { PALETTE } from "@/lib/palette";
 
 export type TierId = "essentials" | "regular" | "discretionary" | "luxuries";
 
@@ -60,34 +59,40 @@ export type SpendingTier = {
  * car and eating out are most of the rest, whether that car is a monthly
  * payment on the page or an occasional cash purchase nobody dials in.
  */
+/*
+ * One warm ramp, solid at the bottom and lighter each layer up, so the
+ * picture says which spending goes first without a legend. It was four
+ * unrelated hues (green, blue, gold, teal) at full strength, the loudest
+ * block in the app, and the green one said "gain" about groceries.
+ */
 export const DEFAULT_TIERS: readonly SpendingTier[] = [
   {
     id: "essentials",
     label: "Essentials",
     blurb: "Housing, food, heating, insurance, getting about. Never skipped.",
     sharePct: 58,
-    color: PALETTE.gain,
+    color: "color-mix(in oklch, var(--primary) 92%, var(--card))",
   },
   {
     id: "regular",
     label: "Regular lifestyle",
     blurb: "The ordinary week. Eating out, hobbies, presents, the phone bill.",
     sharePct: 21,
-    color: PALETTE.steel,
+    color: "color-mix(in oklch, var(--primary) 66%, var(--card))",
   },
   {
     id: "discretionary",
     label: "Discretionary",
     blurb: "The yearly holiday, replacing the car sooner, the bigger treats.",
     sharePct: 13,
-    color: PALETTE.brand,
+    color: "color-mix(in oklch, var(--primary) 40%, var(--card))",
   },
   {
     id: "luxuries",
     label: "Luxuries",
     blurb: "The second trip, the better seats, the thing you did not need.",
     sharePct: 8,
-    color: PALETTE.teal,
+    color: "color-mix(in oklch, var(--primary) 22%, var(--card))",
   },
 ];
 

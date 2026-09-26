@@ -24,7 +24,7 @@ import { fourQuestions } from "@/lib/company/four-questions";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { FORECAST_YEARS } from "@/lib/forecast";
 import { NO_VALUE, cashtag } from "@/lib/format";
-import { PRODUCT_NAME } from "@/lib/product";
+import { PRODUCT_NAME, SUNDAY_EMAIL_LINE } from "@/lib/product";
 import {
   plainCompanyName,
   researchLede,
@@ -228,8 +228,7 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
               {shortDescription(facts.about)}
             </p>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Their own words, unedited, so some of it will be jargon.
-              Nothing rewrote it into plainer English this time.
+              Their own words, unedited.
             </p>
           </Reading>
         ) : null}
@@ -424,22 +423,13 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
       <Panel>
         <PanelHeader
           title={`Put ${ticker} next to what you already own`}
-          subtitle={`This page is one company. ${PRODUCT_NAME} is the same reading of your whole portfolio: on the day it falls, whether the market had a bad week or something actually happened at a company you own.`}
+          subtitle={`${PRODUCT_NAME} reads your whole portfolio the way this page reads one company.`}
         />
         <div className="flex flex-col gap-4">
-          <ul className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
-            <li>
-              What buying {ticker} would do to your mix, in your own money,
-              before you buy it.
-            </li>
-            <li>
-              Fair value zones you can set yourself, and a note when the
-              price reaches one of your own levels.
-            </li>
-            <li>
-              One email a week saying how the week went and which of your
-              holdings moved.
-            </li>
+          <ul className="flex flex-col divide-y divide-border border-y border-border text-sm text-muted-foreground">
+            <li className="py-2.5">What buying {ticker} would do to your mix</li>
+            <li className="py-2.5">Fair value zones you set, and a note when one is reached</li>
+            <li className="py-2.5">{SUNDAY_EMAIL_LINE}</li>
           </ul>
           <div className="flex flex-wrap items-center gap-3">
             <Button asChild>

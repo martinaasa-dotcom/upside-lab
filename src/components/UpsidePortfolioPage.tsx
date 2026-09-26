@@ -11,12 +11,11 @@ import {
   MicroLabel,
   Panel,
   PanelHeader,
+  InfoTip,
   Pill,
-  Reading,
-  Score,
-  Scoreboard,
   SwatchLegend,
 } from "@/components/ui/Panel";
+import { StatStrip } from "@/components/ui/StatStrip";
 import { AllocationBar } from "@/components/ui/AllocationBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -636,9 +635,14 @@ export function FundMetric({
   );
 }
 
-/** Thesis / Sell-if pair. Same nested Reading tile used everywhere else a
- * card explains itself in a sentence (Worth noticing, What's missing) —
- * one label style, so this doesn't drift into its own smaller heading. */
+/**
+ * Thesis / Sell-if pair, as a label and a line rather than a box.
+ *
+ * It was a nested `Reading` tile inside the position card, so every company
+ * was a card holding two more cards: on a phone that stacked three borders
+ * around two short sentences and made each company about 500px tall. The
+ * card's own hairline does the separating now.
+ */
 function FundNote({
   label,
   items,
@@ -647,19 +651,20 @@ function FundNote({
   items: string[];
 }) {
   return (
-    <Reading nested label={label}>
+    <div className="flex min-w-0 flex-col gap-1">
+      <p className="text-sm font-medium text-foreground">{label}</p>
       {items.length > 0 ? (
-        <ul className="flex flex-col gap-1.5">
+        <ul className="flex flex-col gap-1">
           {items.map((item) => (
-            <li key={item} className="text-sm leading-relaxed text-foreground">
+            <li key={item} className="text-sm text-muted-foreground">
               {item}
             </li>
           ))}
         </ul>
       ) : (
-        <span className="text-muted-foreground">Not written yet.</span>
+        <p className="text-sm text-muted-foreground">Not written yet.</p>
       )}
-    </Reading>
+    </div>
   );
 }
 
@@ -707,15 +712,18 @@ export function FundPosition({
   const holdFor = holding.target_timeframe?.trim();
   const tag = cashtag(holding.ticker);
   return (
-    <div className={cn(BOX, "flex flex-col gap-6 sm:gap-8", PANEL_PAD)}>
+    <div className={cn(BOX, "flex flex-col gap-4", PANEL_PAD)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Badge variant="secondary" className="chip-hang h-6 font-heading text-sm font-semibold">
             {tag}
           </Badge>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {shares} shares, bought {fmtDate(holding.entry_date)}
-            {holdFor ? `, meant to be held for ${holdFor}` : ""}
+            {shares} shares,{" "}
+            <Explain term="paid-each" ticker={tag} amount={currency(holding.cost_basis)}>
+              paid {currency(holding.cost_basis)}
+            </Explain>{" "}
+            each
           </p>
         </div>
         <Pill
@@ -727,20 +735,7 @@ export function FundPosition({
           {pnlPct == null ? NO_VALUE : signedPercent(pnlPct)}
         </Pill>
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <FundMetric
-          label={
-            <Explain
-              term="paid-each"
-              ticker={tag}
-              amount={currency(holding.cost_basis)}
-            >
-              Paid each
-            </Explain>
-          }
-          value={currency(holding.cost_basis)}
-        />
-        <FundMetric label="Price now" value={priced ? currency(price) : NO_VALUE} />
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <FundMetric
           label={
             <Explain
@@ -752,21 +747,24 @@ export function FundPosition({
             </Explain>
           }
           value={worthNow != null ? currency(worthNow, 0) : NO_VALUE}
+          hint={priced ? `${currency(price)} a share` : undefined}
         />
-        <FundMetric
-          label={
-            <Explain
-              term="gain"
-              ticker={tag}
-              amount={pnlDollar != null ? signedCurrency(pnlDollar, 0) : undefined}
-              second={pnlPct != null ? signedPercent(pnlPct) : undefined}
-            >
-              Up or down
-            </Explain>
-          }
-          value={pnlDollar != null ? signedCurrency(pnlDollar, 0) : NO_VALUE}
-          valueClassName={signedTone(pnlDollar)}
-        />
+        <div className="text-right">
+          <FundMetric
+            label={
+              <Explain
+                term="gain"
+                ticker={tag}
+                amount={pnlDollar != null ? signedCurrency(pnlDollar, 0) : undefined}
+                second={pnlPct != null ? signedPercent(pnlPct) : undefined}
+              >
+                Up or down
+              </Explain>
+            }
+            value={pnlDollar != null ? signedCurrency(pnlDollar, 0) : NO_VALUE}
+            valueClassName={signedTone(pnlDollar)}
+          />
+        </div>
       </div>
       {!priced && (
         <p className="text-sm leading-relaxed text-muted-foreground">
@@ -787,7 +785,7 @@ export function FundPosition({
           says {NO_VALUE} rather than guessing.
         </p>
       )}
-      <div className="grid items-start gap-4 sm:grid-cols-2">
+      <div className="grid items-start gap-4 border-t border-border pt-4 sm:grid-cols-2 lg:grid-cols-1">
         <FundNote
           label={
             <Explain term="thesis" ticker={tag}>
@@ -805,6 +803,10 @@ export function FundPosition({
           items={exit}
         />
       </div>
+      <p className="text-xs text-muted-foreground">
+        Bought {fmtDate(holding.entry_date)}
+        {holdFor ? `, meant to be held for ${holdFor}` : ""}.
+      </p>
     </div>
   );
 }
@@ -905,13 +907,15 @@ export function WhatThisIs({
         down with the numbers behind it. Nothing is edited afterwards.
       </p>
       {/*
-        The rules as three pictures rather than three paragraphs. Each is
+        One ruled list, not three boxed tiles: three boxes of one sentence
+        each read as three cards to open, and on a phone they stacked into
+        280px of borders. The rules as three pictures rather than three paragraphs. Each is
         one of the three kinds of trade the feed below will show, so a
         reader meets the vocabulary before the first entry uses it.
       */}
-      <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <ol className="flex flex-col divide-y divide-border border-y border-border sm:grid sm:grid-cols-3 sm:gap-6 sm:divide-y-0 sm:py-4">
         {FUND_RULE_STEPS.map(({ Icon, title, line, tone }) => (
-          <li key={title} className="card-sheen glass-well flex gap-3 rounded-lg p-4">
+          <li key={title} className="flex gap-3 py-3 sm:py-0">
             <span
               className={cn(
                 "flex size-9 shrink-0 items-center justify-center rounded-lg",
@@ -1663,11 +1667,18 @@ export function UpsidePortfolioPage() {
             <Panel>
               <PanelHeader
                 title={
-                  <span className="inline-flex flex-wrap items-center gap-2">
+                  /*
+                    Inline, not a wrapping flex row: as a flex row the title
+                    was one item and the mark another, so a title that
+                    wrapped left the mark alone on a line of its own.
+                  */
+                  <span>
                     {benchmark
                       ? `${benchmark.portfolioName}, Margus and ${BENCHMARK_MID}`
                       : `Margus against ${BENCHMARK_MID}`}
-                    <WhyThis provenance={upsideFundProvenance()} />
+                    <span className="ml-2 inline-flex align-middle">
+                      <WhyThis provenance={upsideFundProvenance()} />
+                    </span>
                   </span>
                 }
                 subtitle={BENCHMARK_NOTE}
@@ -1691,92 +1702,86 @@ export function UpsidePortfolioPage() {
                   ) : null
                 }
               />
-              <Scoreboard>
-                <Score
-                  label={
-                    <Explain term="value" amount={currency(totalValue, 0)}>
-                      Worth today
-                    </Explain>
-                  }
-                  value={currency(totalValue, 0)}
-                />
-                {/*
-                  * Today's move needs a yesterday, and before the first
-                  * report there is not one. `liveFundTodayMove` answers zero
-                  * dollars in that case, which the cell printed as "$0": a
-                  * flat day, stated, on a fund that has not had a day yet.
-                  */}
-                <Score
-                  label={
-                    <Explain term="today" amount={signedCurrency(todayDollar, 0)}>
-                      Today
-                    </Explain>
-                  }
-                  value={hasYesterday ? signedCurrency(todayDollar, 0) : NO_VALUE}
-                  sub={
-                    hasYesterday
+              {/*
+                * Four figures as one hairline strip rather than four boxes:
+                * a boxed figure reads as a card to open, and these are one
+                * reading. Today's move needs a yesterday, and before the
+                * first report there is not one, so it says n/a rather than
+                * printing "$0" for a fund that has not had a day yet.
+                */}
+              <StatStrip
+                items={[
+                  {
+                    label: (
+                      <Explain term="value" amount={currency(totalValue, 0)}>
+                        Worth today
+                      </Explain>
+                    ),
+                    value: currency(totalValue, 0),
+                  },
+                  {
+                    label: (
+                      <Explain term="today" amount={signedCurrency(todayDollar, 0)}>
+                        Today
+                      </Explain>
+                    ),
+                    value: hasYesterday ? signedCurrency(todayDollar, 0) : NO_VALUE,
+                    sub: hasYesterday
                       ? todayPct != null
                         ? signedPercent(todayPct)
                         : undefined
-                      : "There is no closing figure yet to measure today against."
-                  }
-                  valueClassName={
-                    hasYesterday ? signedTone(todayDollar, "text-foreground") : undefined
-                  }
-                  subClassName={
-                    hasYesterday
+                      : "No close yet to measure against",
+                    tone: hasYesterday ? signedTone(todayDollar, "text-foreground") : undefined,
+                    subTone: hasYesterday
                       ? signedTone(todayDollar, "text-muted-foreground")
-                      : undefined
-                  }
-                />
-                <Score
-                  label={
-                    <Explain
-                      term="total-return"
-                      amount={
-                        totalReturnDollar != null
-                          ? signedCurrency(totalReturnDollar, 0)
-                          : undefined
-                      }
-                      second={
-                        fund?.starting_capital
-                          ? currency(fund.starting_capital, 0)
-                          : undefined
-                      }
-                    >
-                      Since it started
-                    </Explain>
-                  }
-                  value={totalReturnPct != null ? signedPercent(totalReturnPct) : NO_VALUE}
-                  sub={
-                    totalReturnDollar != null
-                      ? signedCurrency(totalReturnDollar, 0)
-                      : "No starting figure recorded, so there is nothing to measure against."
-                  }
-                  valueClassName={signedTone(totalReturnDollar, "text-foreground")}
-                  subClassName={
-                    totalReturnDollar != null
-                      ? signedTone(totalReturnDollar, "text-muted-foreground")
-                      : undefined
-                  }
-                />
-                <Score
-                  label={
-                    <Explain
-                      term="cash"
-                      amount={knownCash != null ? currency(knownCash, 0) : undefined}
-                    >
-                      Cash not invested
-                    </Explain>
-                  }
-                  value={knownCash != null ? currency(knownCash, 0) : NO_VALUE}
-                  sub={
-                    fund?.starting_capital
-                      ? `It started with ${currency(fund.starting_capital, 0)}`
-                      : undefined
-                  }
-                />
-              </Scoreboard>
+                      : undefined,
+                  },
+                  {
+                    label: (
+                      <Explain
+                        term="total-return"
+                        amount={
+                          totalReturnDollar != null
+                            ? signedCurrency(totalReturnDollar, 0)
+                            : undefined
+                        }
+                        second={
+                          fund?.starting_capital
+                            ? currency(fund.starting_capital, 0)
+                            : undefined
+                        }
+                      >
+                        Since start
+                      </Explain>
+                    ),
+                    value: totalReturnPct != null ? signedPercent(totalReturnPct) : NO_VALUE,
+                    sub:
+                      totalReturnDollar != null
+                        ? signedCurrency(totalReturnDollar, 0)
+                        : "No starting figure recorded",
+                    tone: signedTone(totalReturnDollar, "text-foreground"),
+                    subTone:
+                      totalReturnDollar != null
+                        ? signedTone(totalReturnDollar, "text-muted-foreground")
+                        : undefined,
+                  },
+                  {
+                    label: (
+                      <Explain
+                        term="cash"
+                        amount={knownCash != null ? currency(knownCash, 0) : undefined}
+                      >
+                        Cash
+                      </Explain>
+                    ),
+                    value: knownCash != null ? currency(knownCash, 0) : NO_VALUE,
+                    sub:
+                      knownCash != null && totalValue > 0
+                        ? `${percent(knownCash / totalValue, 0)} of the Fund`
+                        : undefined,
+                  },
+                ]}
+              />
 
               {coverage.unpriced.length > 0 && (
                 <p className="text-sm leading-relaxed text-muted-foreground">
@@ -1892,74 +1897,76 @@ export function UpsidePortfolioPage() {
                     * sentence under the figure, and two 123px columns turned
                     * "Concentrated" into "Concentrat" over "ed".
                     */}
-                  <Scoreboard className="mt-4" cols={4} mobileCols={1}>
-                    <Score
-                      label={
-                        <Explain
-                          term="spread-out"
-                          count={fundConcentration.effectivePositions}
-                        >
-                          How spread out
-                        </Explain>
-                      }
-                      value={fundPersonality.diversificationBand.label}
-                      sub={`Behaves like ${fundConcentration.effectivePositions.toFixed(1)} holdings of equal size`}
-                    />
-                    <Score
-                      label={
-                        <Explain
-                          term="share-of-portfolio"
-                          ticker={
-                            biggestHolding ? cashtag(biggestHolding.ticker) : undefined
-                          }
-                          second={
-                            biggestHolding ? sliceLabel(biggestHolding.pct) : undefined
-                          }
-                        >
-                          Biggest single company
-                        </Explain>
-                      }
-                      value={biggestHolding ? sliceLabel(biggestHolding.pct) : NO_VALUE}
-                      sub={
-                        biggestHolding
-                          ? `${cashtag(biggestHolding.ticker)}, ${currency(biggestHolding.value, 0)} of ${currency(totalValue, 0)}`
-                          : undefined
-                      }
-                    />
-                    <Score
-                      label="How bumpy"
-                      /*
-                       * `maxDrawdownPct` is a blended assumption this app keeps
-                       * for each kind of business, not something measured on
-                       * these four companies. It used to print as "Could fall
-                       * 48% in a bad stretch", which reads as a finding. The
-                       * word "assumes" is the whole difference.
-                       */
-                      explain="This is not a measurement of these companies. It is the fall this app assumes for a mix of these kinds of business in a bad stretch, from one figure kept per kind. Nobody knows what the real one would be."
-                      value={fundPersonality.riskBand.label}
-                      sub={`Assumes about a ${fundPersonality.maxDrawdownPct}% fall in a bad stretch`}
-                    />
-                    <Score
-                      label="Share left in cash"
-                      value={
-                        totalValue > 0 ? percent(cash / totalValue, 0) : NO_VALUE
-                      }
-                      sub={
-                        totalValue > 0
-                          ? `${currency(cash, 0)} of ${currency(totalValue, 0)}`
-                          : undefined
-                      }
-                    />
-                  </Scoreboard>
+                  <StatStrip
+                    className="mt-4"
+                    items={[
+                      {
+                        label: (
+                          <Explain
+                            term="spread-out"
+                            count={fundConcentration.effectivePositions}
+                          >
+                            How spread out
+                          </Explain>
+                        ),
+                        value: fundPersonality.diversificationBand.label,
+                        word: true,
+                        sub: `Like ${fundConcentration.effectivePositions.toFixed(1)} equal holdings`,
+                      },
+                      {
+                        label: (
+                          <Explain
+                            term="share-of-portfolio"
+                            ticker={
+                              biggestHolding ? cashtag(biggestHolding.ticker) : undefined
+                            }
+                            second={
+                              biggestHolding ? sliceLabel(biggestHolding.pct) : undefined
+                            }
+                          >
+                            Biggest company
+                          </Explain>
+                        ),
+                        value: biggestHolding ? sliceLabel(biggestHolding.pct) : NO_VALUE,
+                        sub: biggestHolding
+                          ? `${cashtag(biggestHolding.ticker)}, ${currency(biggestHolding.value, 0)}`
+                          : undefined,
+                      },
+                      {
+                        /*
+                         * `maxDrawdownPct` is a blended assumption this app
+                         * keeps for each kind of business, not something
+                         * measured on these companies. It used to print as
+                         * "Could fall 48% in a bad stretch", which reads as a
+                         * finding. The word "assumes" is the whole difference.
+                         */
+                        label: (
+                          <span className="inline-flex items-center gap-1.5">
+                            How bumpy
+                            <InfoTip text="This is not a measurement of these companies. It is the fall this app assumes for a mix of these kinds of business in a bad stretch, from one figure kept per kind. Nobody knows what the real one would be." />
+                          </span>
+                        ),
+                        value: fundPersonality.riskBand.label,
+                        word: true,
+                        sub: `Assumes a ${fundPersonality.maxDrawdownPct}% fall in a bad stretch`,
+                      },
+                    ]}
+                  />
                   {fund?.cash_purpose?.trim() ? (
-                    <div className="mt-4 border-t border-border pt-4">
+                    <div className="pt-4">
                       <MicroLabel>Cash is sitting for</MicroLabel>
-                      <p className="mt-1.5 text-base leading-relaxed text-muted-foreground">
+                      <p className="mt-1.5 text-sm text-muted-foreground">
                         {fund.cash_purpose.trim()}
                       </p>
                     </div>
                   ) : null}
-                  <div className="mt-4 border-t border-border pt-4">
+                  {/* One hairline between two notes, never a second one under the strip's own. */}
+                  <div
+                    className={cn(
+                      "pt-4",
+                      fund?.cash_purpose?.trim() && "mt-4 border-t border-border"
+                    )}
+                  >
                     <MicroLabel>Watching</MicroLabel>
                     {fundWatchlist.length > 0 ? (
                       <ItemGroup className="mt-2 gap-0 has-data-[size=sm]:gap-0">
@@ -2001,7 +2008,11 @@ export function UpsidePortfolioPage() {
                   }
                   why
                 />
-                <div className="flex flex-col gap-3">
+                {/*
+                  Two up on a laptop, and an odd last card takes the whole
+                  row rather than sitting beside a hole.
+                */}
+                <div className="grid items-start gap-3 lg:grid-cols-2 lg:[&>*:last-child:nth-child(odd)]:col-span-2">
                   {openHoldings.map((h) => (
                     <FundPosition
                       key={h.id}

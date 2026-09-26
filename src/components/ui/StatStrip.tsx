@@ -20,6 +20,12 @@ export type StripItem = {
   sub?: ReactNode;
   /** A text colour class for the figure. Neutral when omitted. */
   tone?: string;
+  /** A word rather than a number ("Concentrated"): set in the sentence
+   * face, since a monospace word is half as wide again and crowds its
+   * neighbour on a phone. */
+  word?: boolean;
+  /** A text colour class for the qualifier. Muted when omitted. */
+  subTone?: string;
 };
 
 export function StatStrip({
@@ -39,19 +45,23 @@ export function StatStrip({
     >
       {items.map((item, i) => (
         <div key={i} className="flex min-w-0 flex-col gap-1.5">
-          <dt>
+          <dt className="[&_button]:text-left">
             <MicroLabel>{item.label}</MicroLabel>
           </dt>
           <dd
             className={cn(
-              "font-mono text-xl font-semibold tabular-nums",
+              item.word
+                ? "font-heading text-lg font-semibold"
+                : "font-mono text-xl font-semibold tabular-nums",
               item.tone ?? "text-foreground"
             )}
           >
             {item.value}
           </dd>
           {item.sub != null ? (
-            <dd className="text-xs text-muted-foreground">{item.sub}</dd>
+            <dd className={cn("text-xs", item.subTone ?? "text-muted-foreground")}>
+              {item.sub}
+            </dd>
           ) : null}
         </div>
       ))}

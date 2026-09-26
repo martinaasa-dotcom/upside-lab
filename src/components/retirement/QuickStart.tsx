@@ -304,7 +304,13 @@ export function QuickStart({
             rather than `p-3` and a bigger label, because a press this
             important should not be the smallest text on the card.
           */}
-        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        {/*
+          A row that scrolls on a phone, a grid from `sm`. Eight cards two
+          across were four rows and about 350px ahead of the first field;
+          one row shows two and a half cards, which is what says there are
+          more, and the life already chosen is the second, so it is in view.
+        */}
+        <div className="-mx-4 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pb-1 scrollbar-none sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4">
           {RETIREMENT_TEMPLATES.map((template) => {
             const on = template.id === templateId;
             return (
@@ -315,7 +321,7 @@ export function QuickStart({
                 onClick={() => onTemplate(template.id)}
                 className={cn(
                   CARD,
-                  "veil-hover flex min-w-0 flex-col gap-1 border-2 px-3.5 py-3 text-left transition-colors",
+                  "veil-hover flex w-36 min-w-0 shrink-0 snap-start flex-col gap-1 border-2 px-3.5 py-3 text-left transition-colors sm:w-auto",
                   /*
                     A real `border`, not a ring and not an outline. `ring-*`
                     is a box-shadow utility and `.glass-well` sets

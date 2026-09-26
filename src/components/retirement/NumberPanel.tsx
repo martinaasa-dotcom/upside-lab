@@ -144,21 +144,6 @@ export function NumberPanel({
           </span>
         }
         subtitle={`To stop at ${Math.round(inputs.retirementAge)} and last to ${plan.planningAge}, in today's money.`}
-        actions={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              document
-                .getElementById(RETIREMENT_RESULTS_ID)
-                ?.scrollIntoView({ behavior: "smooth", block: "start" })
-            }
-          >
-            See the results table
-            <ArrowDown className="h-3.5 w-3.5" aria-hidden />
-          </Button>
-        }
       />
 
       <div className={cn(CARD, "flex flex-col gap-2 p-5")}>
@@ -346,6 +331,23 @@ export function NumberPanel({
       </div>
       )}
 
+      {/*
+        The way to the table, at the foot of the answer rather than in its
+        header: on a phone the header put a full-width button between the
+        title and the number, the one thing this panel is for.
+      */}
+      <button
+        type="button"
+        onClick={() =>
+          document
+            .getElementById(RETIREMENT_RESULTS_ID)
+            ?.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
+        className="inline-flex items-center gap-1 self-start text-sm text-muted-foreground hover:text-foreground"
+      >
+        See the results table
+        <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+      </button>
       <p className="text-xs text-muted-foreground">{ADVICE_DISCLAIMER_SHORT}</p>
     </Panel>
   );
