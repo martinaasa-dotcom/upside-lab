@@ -48,6 +48,15 @@ export function buildVerdict(input: {
   /** The flat monthly top-up that closes the gap, from `buildPlan`. */
   monthlyToClose: number;
   money: (n: number) => string;
+  /** The last age the money has to last to. */
+  planningAge?: number;
+  /**
+   * Where the average path runs dry, or null when it lasts. Only read for a
+   * plan that is short, where it decides which of two true sentences to
+   * say: the money actually runs out, or it lasts on an average run and
+   * not through a bad one.
+   */
+  emptyAt?: number | null;
 }): Verdict {
   const { money } = input;
   const age = Math.round(input.retirementAge);
@@ -59,8 +68,7 @@ export function buildVerdict(input: {
     return {
       status: "covered",
       headline: `Yes. You could stop at ${age}.`,
-      detail:
-        "The pensions in this plan already pay for the life you picked, so the pot does not have to fund any of it.",
+      detail: "Your pensions already pay for the life you picked.",
       progress: 1,
       fixes: [],
       sooner: null,
@@ -68,6 +76,10 @@ export function buildVerdict(input: {
   }
 
   const progress = Math.min(1, have / need);
+  const lastsTo =
+    input.planningAge != null
+      ? `The money lasts until ${Math.round(input.planningAge)}`
+      : "The money lasts";
   const pct = Math.floor(progress * 100);
 
   if (have >= need) {
@@ -77,13 +89,13 @@ export function buildVerdict(input: {
       headline: `Yes. You could stop at ${age}.`,
       detail:
         extra >= need * 0.02
-          ? `You would have ${money(have)}, which is ${money(extra)} more than the ${money(need)} it needs.`
-          : `You would have ${money(have)}, just about the ${money(need)} it needs.`,
+          ? `${lastsTo}, even through a bad run of markets, with ${money(extra)} to spare.`
+          : `${lastsTo}, even through a bad run of markets, with just about nothing to spare.`,
       progress,
       fixes: [],
       sooner:
         earliest != null && earliest < age
-          ? `On this saving the earliest you could stop is ${earliest}.`
+          ? `You could even stop at ${earliest}.`
           : null,
     };
   }
@@ -110,7 +122,12 @@ export function buildVerdict(input: {
   return {
     status: earliest == null ? "never" : "short",
     headline: `Not yet at ${age}.`,
-    detail: `You would have ${money(have)} of the ${money(need)} it needs, ${pct}% of the way there.`,
+    detail:
+      input.emptyAt != null
+        ? `The money would run out at ${Math.round(input.emptyAt)}${
+            input.planningAge != null ? ` and has to last until ${Math.round(input.planningAge)}` : ""
+          }. You are ${pct}% of the way there.`
+        : `Enough if markets do their average, not through a bad run. You are ${pct}% of the way there.`,
     progress,
     fixes,
     sooner: null,

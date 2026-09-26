@@ -10,11 +10,12 @@
  *
  * ONE ANSWER, ONE PLACE TO FINE-TUNE, ONE LESSON, AND THE WORKING FOLDED.
  *
- * `AnswerPanel` is the question as one sentence with every figure a word
- * the reader can tap, and under it the verdict: yes or not yet, a bar of
- * saved against needed, the one or two presses that turn a not yet into a
- * yes, the same plan at the world's long-run return when the reader's own
- * rate is far from it, and the draggable chart. `QuickStart` is the chips
+ * `AnswerPanel` is the question as four short cards with every figure a
+ * word the reader can tap, and under it the verdict: yes or not yet, the
+ * reader's money across their whole life as a picture they can drag, what
+ * they will have against what it takes, a month of retirement, the presses
+ * that turn a not yet into a yes, and the same plan at a few other growth
+ * rates. `QuickStart` is the chips
  * for everything else the plan counts plus the example lives behind one
  * button. The ticked editors open under it. Then the spending layers,
  * which are the one lesson worth meeting unasked, and then the working
@@ -63,7 +64,10 @@ import { BridgePanel } from "@/components/retirement/BridgePanel";
 import { FlexiblePanel } from "@/components/retirement/FlexiblePanel";
 import { GridPanel } from "@/components/retirement/GridPanel";
 import { LongevityPanel } from "@/components/retirement/LongevityPanel";
-import { AnswerPanel } from "@/components/retirement/AnswerPanel";
+import {
+  AnswerPanel,
+  type GrowthScenario,
+} from "@/components/retirement/AnswerPanel";
 import { NumberPanel } from "@/components/retirement/NumberPanel";
 import {
   CarTopic,
@@ -92,10 +96,12 @@ import {
   UK_STANDARDS_SOURCE,
 } from "@/lib/retirement/regions";
 import {
+  CAUTIOUS_REAL_EQUITY_PCT,
   holdingsReturnView,
   PORTFOLIO_RATE_CEILING_PCT,
   REAL_RETURN_ASSUMPTIONS,
   RETURNS_SOURCE,
+  US_REAL_EQUITY_PCT,
 } from "@/lib/retirement/returns";
 import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
 import {
@@ -429,24 +435,40 @@ export function RetirementSheet({
   }, [curve]);
 
   /*
-    The same plan at the world's long-run return, only when the reader's
-    own rate is at least half a point away from it. It is the one check on
-    the verdict a reader cannot do for themselves: the answer is worked at
-    whatever growth figure the plan carries, and "what you hold" can be an
-    outlook far above anything a whole market has held for a lifetime. A
-    second whole curve is fifty more plans, so it runs on the deferred
-    inputs like the first one.
+    The same plan at a few other growth rates, each with the age it could
+    stop at. The verdict is worked at whatever growth figure the plan
+    carries, and "what you hold" can be an outlook far above anything a
+    whole market has held for a lifetime, so the card shows how much the
+    answer leans on it as a row of presses rather than a sentence. Each is
+    a whole curve, so they run on the deferred inputs like the first one.
   */
-  const worldCheck = useMemo(() => {
-    const world = REAL_RETURN_ASSUMPTIONS.equityPct;
-    if (Math.abs(settled.returns.equityPct - world) < 0.5) return null;
-    const alt = potCurve(
-      { ...settled, returns: { ...settled.returns, equityPct: world } },
-      longevity.suggestedPlanningAge
-    );
-    const hit = alt.find((p) => p.need > 0 && p.have >= p.need);
-    return { pct: world, earliestAge: hit ? hit.age : null };
-  }, [settled, longevity.suggestedPlanningAge]);
+  const scenarios = useMemo<GrowthScenario[]>(() => {
+    const list: Omit<GrowthScenario, "earliestAge">[] = [
+      { id: "slow", label: "Slow", note: "A poor forty years", pct: CAUTIOUS_REAL_EQUITY_PCT },
+      { id: "typical", label: "Typical", note: "World shares since 1900", pct: REAL_RETURN_ASSUMPTIONS.equityPct },
+      { id: "strong", label: "Strong", note: "American shares since 1900", pct: US_REAL_EQUITY_PCT },
+    ];
+    const own = settled.returns.equityPct;
+    if (list.every((s) => Math.abs(s.pct - own) >= 0.05)) {
+      list.push({
+        id: "yours",
+        label: "Yours",
+        note:
+          holdingsView != null && Math.abs(holdingsView.realPct - own) < 0.05
+            ? "Outlook for what you own"
+            : "Your own figure",
+        pct: own,
+      });
+    }
+    return list.map((s) => {
+      const alt = potCurve(
+        { ...settled, returns: { ...settled.returns, equityPct: s.pct } },
+        longevity.suggestedPlanningAge
+      );
+      const hit = alt.find((p) => p.need > 0 && p.have >= p.need);
+      return { ...s, earliestAge: hit ? hit.age : null };
+    });
+  }, [settled, longevity.suggestedPlanningAge, holdingsView]);
 
   const rows = useMemo(
     () =>
@@ -529,7 +551,6 @@ export function RetirementSheet({
         replace={setInputs}
         plan={plan}
         provenance={provenance}
-        curve={curve}
         earliestAge={earliest ? earliest.age : null}
         onRetirementAge={(age) =>
           setInputs((prev) => retargetRetirementAge(prev, age))
@@ -542,7 +563,7 @@ export function RetirementSheet({
         onPotSourceChange={changePotSource}
         holdingsView={holdingsView}
         ready={restored}
-        worldCheck={worldCheck}
+        scenarios={scenarios}
       />
 
       <QuickStart

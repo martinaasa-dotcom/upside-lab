@@ -5,7 +5,10 @@ import { QuickStart } from "@/components/retirement/QuickStart";
 import { RetirementSheet } from "@/components/retirement/RetirementSheet";
 import { LongevityPanel } from "@/components/retirement/LongevityPanel";
 import { NumberPanel } from "@/components/retirement/NumberPanel";
-import { AnswerPanel } from "@/components/retirement/AnswerPanel";
+import {
+  AnswerPanel,
+  type GrowthScenario,
+} from "@/components/retirement/AnswerPanel";
 import { assessLongevity } from "@/lib/retirement/longevity";
 import { buildPlan, defaultInputs, planningAgeFor, potCurve } from "@/lib/retirement/plan";
 import { templateById, templateInputs } from "@/lib/retirement/templates";
@@ -391,8 +394,7 @@ describe("the answer card, once the plan is in place", () => {
     improvementPct: inputs.improvementPct,
   });
   const plan = buildPlan(inputs, longevity.suggestedPlanningAge);
-  const curve = potCurve(inputs, longevity.suggestedPlanningAge);
-  const hit = curve.find((p) => p.need > 0 && p.have >= p.need);
+  const hit = potCurve(inputs, longevity.suggestedPlanningAge).find((p) => p.need > 0 && p.have >= p.need);
   const provenance = retirementProvenance({
     regionName: region.name,
     standardsSource: UK_STANDARDS_SOURCE,
@@ -409,7 +411,7 @@ describe("the answer card, once the plan is in place", () => {
     basis: plan.required.basis,
   });
 
-  function card(worldCheck: { pct: number; earliestAge: number | null } | null = null) {
+  function card(scenarios: GrowthScenario[] = []) {
     return text(
       renderToStaticMarkup(
         createElement(AnswerPanel, {
@@ -418,33 +420,49 @@ describe("the answer card, once the plan is in place", () => {
           replace: () => {},
           plan,
           provenance,
-          curve,
           earliestAge: hit ? hit.age : null,
           onRetirementAge: () => {},
           planningAge: planningAgeFor(inputs, longevity.suggestedPlanningAge),
           suggestedPlanningAge: longevity.suggestedPlanningAge,
           portfolioValue: null,
-          worldCheck,
+          scenarios,
         })
       )
-    );
+    ).replace(/&#x27;/g, "'");
   }
 
-  it("asks as one sentence and answers under it", () => {
+  it("tells the story in four short parts and answers under them", () => {
     const body = card();
+    for (const words of ["You", "Your money", "Your home life", "Your retirement"]) {
+      expect(body).toContain(words);
+    }
     for (const words of [
-      "I am",
-      "would like to stop working at",
+      "I'd like to stop working at",
       "a month",
-      "it has to last until",
-      "My money grows by",
+      "It has to last until",
+      "It grows about",
+      "at home",
     ]) {
       expect(body).toContain(words);
     }
     expect(body).toMatch(/You could stop at|Not yet at/);
-    expect(body.indexOf("My money grows by")).toBeLessThan(
-      body.indexOf("Drag to try another age")
+    expect(body.indexOf("It has to last until")).toBeLessThan(
+      body.indexOf("Drag the dot to try another age")
     );
+  });
+
+  it("always says something about a home, a car and children", () => {
+    const body = card();
+    expect(body).toMatch(/rent for|on a mortgage|own my home outright/);
+    expect(body).toMatch(/a car at|no car to pay for/);
+    expect(body).toMatch(/no children|one child|\d children/);
+  });
+
+  it("labels both sides of the comparison with their ages", () => {
+    const body = card();
+    expect(body).toContain(`You'll have at ${inputs.retirementAge}`);
+    expect(body).toContain(`Needed to last until ${plan.planningAge}`);
+    expect(body).not.toContain("Your number");
   });
 
   it("keeps punctuation on the line of the word before it", () => {
@@ -455,7 +473,6 @@ describe("the answer card, once the plan is in place", () => {
         replace: () => {},
         plan,
         provenance,
-        curve,
         earliestAge: null,
         onRetirementAge: () => {},
         planningAge: 100,
@@ -466,14 +483,15 @@ describe("the answer card, once the plan is in place", () => {
     expect(markup.match(/whitespace-nowrap/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
   });
 
-  it("says what the answer would be at the world's long-run return", () => {
-    expect(card({ pct: 5.1, earliestAge: 71 })).toContain(
-      "long-run 5.1% a year instead, the earliest you could stop would be 71."
-    );
-    expect(card({ pct: 5.1, earliestAge: null })).toContain(
-      "would not get there before 80"
-    );
-    expect(card(null)).not.toContain("long-run 5.1% a year instead");
+  it("shows other growth rates as presses rather than a sentence", () => {
+    const body = card([
+      { id: "slow", label: "Slow", note: "A poor forty years", pct: 3, earliestAge: 71 },
+      { id: "typical", label: "Typical", note: "World shares since 1900", pct: 5.1, earliestAge: 66 },
+      { id: "strong", label: "Strong", note: "American shares since 1900", pct: 6.4, earliestAge: null },
+    ]);
+    expect(body).toContain("Stop at 71");
+    expect(body).toContain("Not before 80");
+    expect(body).not.toMatch(/long-run/);
+    expect(card([])).not.toContain("If your money grows slower");
   });
 });
-
