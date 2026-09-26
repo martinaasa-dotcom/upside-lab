@@ -5817,8 +5817,11 @@ run("fun facts and circle facts do not say NAV or dry powder", () => {
   assert.doesNotMatch(compareUi, /compareTakeaway/);
   assert.doesNotMatch(compound, /buildCompareTakeaway/);
   assert.doesNotMatch(compound, /The gap:/);
-  assert.match(compareUi, /<Scoreboard cols=\{2\}/);
+  // The four paths are read off the chart's own legend, each carrying its
+  // end figure in its own line colour; there is no second panel of cards.
+  assert.doesNotMatch(compareUi, /The same money, invested differently/);
   assert.match(compareUi, /s\.color/);
+  assert.match(compareUi, /money\(p\.end, currency, eurUsd, 0\)/);
   const play = readFileSync(
     join(process.cwd(), "src/lib/compound-play.ts"),
     "utf8"

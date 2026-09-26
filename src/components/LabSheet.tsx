@@ -1,5 +1,6 @@
 "use client";
 
+import { StatStrip } from "@/components/ui/StatStrip";
 import { forecastThemeForTicker } from "@/lib/forecast-growth";
 import { useTickerSectors } from "@/lib/use-ticker-sectors";
 
@@ -19,8 +20,6 @@ import {
   PANEL_STACK,
   Panel,
   PanelHeader,
-  Score,
-  Scoreboard,
   SwatchLegend,
 } from "@/components/ui/Panel";
 import { AllocationBar } from "@/components/ui/AllocationBar";
@@ -241,7 +240,10 @@ const INTENT_TO_TAB: Record<LabDeepLink, LabTab> = {
 function initialLabTab(): LabTab {
   if (typeof window === "undefined") return "alloc";
   const params = new URLSearchParams(window.location.search);
-  const param = params.get("labtab");
+  const raw = params.get("labtab");
+  /* The tab is labelled Research and its id is older, so both spellings
+     of the address land on it; "research" is the one a person would type. */
+  const param = raw === "research" ? "lookup" : raw;
   if (TABS.some((t) => t.id === param)) return param as LabTab;
 
   const sheetParam = params.get("sheet")?.trim().toLowerCase();
@@ -804,82 +806,68 @@ export const LabSheet = memo(function LabSheet({
                   </div>
                 </div>
 
-                <Scoreboard cols={concentration.positionCount > 3 ? 3 : 2}>
-                  <Score
-                    label={
-                      <TermTip
-                        term="spread-out"
-                        example={{ count: Math.round(concentration.effectivePositions) }}
-                      >
-                        Behaves like
-                      </TermTip>
-                    }
-                    value={`${concentration.effectivePositions.toFixed(1)} holdings`}
-                    sub={
-                      concentration.positionCount === 1
-                        ? "Your only holding."
-                        : `You hold ${concentration.positionCount}. Uneven weights make it act like fewer.`
-                    }
-                  />
-                  <Score
-                    label={
-                      <TermTip term="share-of-portfolio">
-                        Largest holding
-                      </TermTip>
-                    }
-                    value={`${(concentration.topWeightPct * 100).toFixed(1)}%`}
-                    /* A quarter in one company is a caution. A quarter in
-                     * a fund holding hundreds of them is not, so it says
-                     * what the fund is and keeps the ordinary colour. */
-                    sub={
-                      concentration.topWeightTicker
+                {/*
+                  Three figures in one strip rather than three bordered
+                  cards, which on a phone stacked into a column of boxes
+                  taller than the picture above them. Each keeps its
+                  figure and one short qualifier; the long form is behind
+                  the label.
+                */}
+                <StatStrip
+                  items={[
+                    {
+                      label: (
+                        <TermTip
+                          term="spread-out"
+                          example={{ count: Math.round(concentration.effectivePositions) }}
+                        >
+                          Behaves like
+                        </TermTip>
+                      ),
+                      value: `${concentration.effectivePositions.toFixed(1)} holdings`,
+                      sub:
+                        concentration.positionCount === 1
+                          ? "Your only holding"
+                          : `You hold ${concentration.positionCount}`,
+                    },
+                    {
+                      label: <TermTip term="share-of-portfolio">Largest holding</TermTip>,
+                      value: `${(concentration.topWeightPct * 100).toFixed(1)}%`,
+                      /* A quarter in one company is a caution; a quarter
+                       * in a fund of hundreds is not, so a fund keeps the
+                       * ordinary colour and says what it is. --warning,
+                       * never --loss: nothing here has lost money. */
+                      sub: concentration.topWeightTicker
                         ? topIsFund
-                          ? `${concentration.topWeightTicker}, a fund spread across many companies`
-                          : Math.abs(scopedCash) >= 1
-                            ? `${concentration.topWeightTicker}, of what is invested`
-                            : concentration.topWeightTicker
-                        : undefined
-                    }
-                    /* --warning, not --loss. A concentrated position is a
-                     * caution, not a loss: nothing here has lost money, and
-                     * spending the P&L colour on a non-P&L number weakens
-                     * both. DESIGN_TOKENS.md assigns orange to exactly this. */
-                    valueClassName={
-                      concentration.topWeightPct >= 0.25 &&
-                      !topIsFund
-                        ? "text-warning"
-                        : undefined
-                    }
-                  />
-                  {/* "Top 5" is tautologically 100% for a book of five or
-                   * fewer, which reads as broken. Fall back to top 3, and
-                   * drop the cell entirely when even that says nothing. */}
-                  {concentration.positionCount > 3 && (
-                    <Score
-                      label={
-                        concentration.positionCount > 5
-                          ? "Top 5 combined"
-                          : "Top 3 combined"
-                      }
-                      value={`${((concentration.positionCount > 5 ? concentration.topFivePct : concentration.topThreePct) * 100).toFixed(1)}%`}
-                      sub={
-                        (concentration.positionCount > 5
-                          ? concentration.topFivePct
-                          : concentration.topThreePct) >= 0.8
-                          ? "The rest of your portfolio barely changes the total."
-                          : "The rest of your portfolio carries real weight."
-                      }
-                      /* --warning, not --loss — see the note above. */
-                      valueClassName={
-                        (concentration.positionCount > 5
-                          ? concentration.topFivePct
-                          : concentration.topThreePct) >= 0.8
+                          ? `${concentration.topWeightTicker}, a fund`
+                          : concentration.topWeightTicker
+                        : undefined,
+                      tone:
+                        concentration.topWeightPct >= 0.25 && !topIsFund
                           ? "text-warning"
-                          : undefined
-                      }
-                    />
-                  )}
-                </Scoreboard>
+                          : undefined,
+                    },
+                    /* "Top 5" is 100% for a book of five or fewer, which
+                     * reads as broken, so it falls back to top 3 and is
+                     * dropped entirely when even that says nothing. */
+                    ...(concentration.positionCount > 3
+                      ? [
+                          {
+                            label:
+                              concentration.positionCount > 5
+                                ? "Top 5 combined"
+                                : "Top 3 combined",
+                            value: `${((concentration.positionCount > 5 ? concentration.topFivePct : concentration.topThreePct) * 100).toFixed(1)}%`,
+                            sub:
+                              (concentration.positionCount > 5 ? concentration.topFivePct : concentration.topThreePct) >= 0.8
+                                ? "The rest barely counts"
+                                : "The rest carries weight",
+                            tone: (concentration.positionCount > 5 ? concentration.topFivePct : concentration.topThreePct) >= 0.8 ? "text-warning" : undefined,
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
               </Panel>
 
 

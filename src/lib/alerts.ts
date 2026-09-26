@@ -304,6 +304,9 @@ export function buildStrikeAlerts(
   for (const r of rows) {
     if (r.stockTarget != null && r.spot > 0 && r.spot >= r.stockTarget) {
       const over = safeDiv(r.spot - r.stockTarget, r.stockTarget);
+      /* A price a few cents over its level prints as the same figure, and
+         "$225.00, above $225.00" reads as a mistake. Said as "at" then. */
+      const same = currency(r.spot, 2) === currency(r.stockTarget, 2);
       const learn =
         over > 0
           ? `Every share is ${currency(r.spot - r.stockTarget, 2)} above that level, which is ${percent(over, 1)} past it.`
@@ -314,28 +317,30 @@ export function buildStrikeAlerts(
               id: `strike-target-${cashtag(r.ticker)}`,
               kind: "strike",
               title: `${cashtag(r.ticker)} passed the price you were aiming for`,
-              detail: `The price is now ${currency(r.spot, 2)}, above the ${currency(r.stockTarget, 2)} you wrote down for it.`,
+              detail: same
+                ? `The price is now at the ${currency(r.stockTarget, 2)} you wrote down for it.`
+                : `The price is now ${currency(r.spot, 2)}, above the ${currency(r.stockTarget, 2)} you wrote down for it.`,
               learn,
               ticker: r.ticker,
               digest: {
                 tag: "Target",
-                what: "Passed the price you were aiming for",
+                what: same ? "At the price you were aiming for" : "Passed the price you were aiming for",
                 figure: currency(r.spot, 2),
-                note: `Your target, ${currency(r.stockTarget, 2)}`,
+                note: same ? "Your target" : `Your target, ${currency(r.stockTarget, 2)}`,
               },
             }
           : {
               id: `strike-target-${cashtag(r.ticker)}`,
               kind: "strike",
               title: `${cashtag(r.ticker)} reached the level the app had pencilled in`,
-              detail: `The price is now ${currency(r.spot, 2)}, above ${currency(r.stockTarget, 2)}. Nobody set that number: the app works it out from how high this share has been lately.`,
+              detail: `${same ? `The price is now at ${currency(r.stockTarget, 2)}.` : `The price is now ${currency(r.spot, 2)}, above ${currency(r.stockTarget, 2)}.`} Nobody set that number: the app works it out from how high this share has been lately.`,
               learn,
               ticker: r.ticker,
               digest: {
                 tag: "Target",
-                what: "Passed the level the app pencilled in",
+                what: same ? "At the level the app pencilled in" : "Passed the level the app pencilled in",
                 figure: currency(r.spot, 2),
-                note: `The app's level, ${currency(r.stockTarget, 2)}`,
+                note: same ? "The app's level" : `The app's level, ${currency(r.stockTarget, 2)}`,
               },
             }
       );
