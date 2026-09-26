@@ -4,6 +4,7 @@ import {
   fairValueRead,
   gapSentence,
   modelTwelveMonthPrice,
+  requiredReturn,
   type FairValueMethod,
 } from "@/lib/company/fair-value";
 import { makeOrdinaryFacts } from "@/lib/company/facts-fixture";
@@ -109,10 +110,14 @@ describe("the blend is the weighted average and nothing else", () => {
         epsGrowthNextYear: null,
         epsGrowthThisYear: null,
         revenueGrowth: null,
+        revenueGrowthNextYear: null,
       })
     );
-    expect(read.estimate.price).toBeCloseTo(100, 6);
-    expect(read.gap).toBeCloseTo(-0.75, 6);
+    // The target, brought back to today at the company's own required
+    // return, and nothing moved towards the price of 400.
+    const rate = requiredReturn(facts({ price: 400 })).rate;
+    expect(read.estimate.price).toBeCloseTo(100 / (1 + rate), 2);
+    expect(read.gap).toBeCloseTo(100 / (1 + rate) / 400 - 1, 3);
   });
 
   it("never prices a fast-growing company off the market's average multiple", () => {
@@ -163,7 +168,9 @@ describe("the blend is the weighted average and nothing else", () => {
   });
 
   it("lets an estimate land below today's price", () => {
-    const read = fairValueRead(facts({ price: 1_000, analystTargetMean: 200 }));
+    const read = fairValueRead(
+      facts({ price: 1_000, marketCap: 10_000_000_000, analystTargetMean: 200 })
+    );
     expect(read.estimate.price).toBeLessThan(1_000);
   });
 });
@@ -201,11 +208,20 @@ describe("no method is run on a figure that is not there", () => {
     expect(weightOf(many)).toBeGreaterThan(weightOf(one));
   });
 
-  it("names the model as a model wherever its number is used", () => {
+  it("names the model as a model wherever its number is shown", () => {
     const read = fairValueRead(facts(), { modelYearOne: 150 });
-    const fromModel = read.estimate.used.find((m) => m.id === "model");
+    const fromModel = read.estimate.dropped.find((m) => m.id === "model");
     expect(fromModel?.maker).toBe("model");
     expect(fromModel?.assumes.toLowerCase()).toContain("model");
+  });
+
+  it("shows the model's path and does not count it, because it is grown from today's price", () => {
+    const read = fairValueRead(facts(), { modelYearOne: 10_000 });
+    expect(read.estimate.used.some((m) => m.id === "model")).toBe(false);
+    const shown = read.estimate.dropped.find((m) => m.id === "model");
+    expect(shown?.dropped).toContain("today's price");
+    const without = fairValueRead(facts());
+    expect(read.estimate.price).toBe(without.estimate.price);
   });
 });
 

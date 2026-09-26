@@ -212,7 +212,7 @@ function qualityAnswer(f: CompanyFacts, read: FairValueRead): FourQuestionAnswer
   const gap = read.gap;
   const priceHalf =
     read.estimate.price !== null && ok(gap)
-      ? ` Separately, the ${read.estimate.used.length} ${read.estimate.used.length === 1 ? "method" : "methods"} below land at ${currency(read.estimate.price, 2)} twelve months out, ${percent(Math.abs(gap), 1)} ${gap > 0 ? "above" : "below"} today.`
+      ? ` Separately, the ${read.estimate.used.length} ${read.estimate.used.length === 1 ? "method" : "methods"} below put its worth today at ${currency(read.estimate.price, 2)}, ${percent(Math.abs(gap), 1)} ${gap > 0 ? "above" : "below"} today.`
       : " The price half could not be worked out for this one.";
   return {
     ...base,
