@@ -97,7 +97,11 @@ function ReadingCell({
         three that lead keep it in full, because those are the ones
         somebody actually stops on.
       */
-      explain={lead ? undefined : reading.compare}
+      explain={
+        lead
+          ? undefined
+          : [reading.plain, reading.compare].filter(Boolean).join(" ")
+      }
       /*
         A FIXED HEIGHT, AND IT IS THE FIX FOR A REAL MISALIGNMENT.
 
@@ -122,17 +126,24 @@ function ReadingCell({
         </span>
       }
       subClassName="mt-0 text-muted-foreground"
+      /*
+        A reference cell is the figure alone. Its sentence mostly said the
+        figure again in words ("customers paid them $303 billion"), so it
+        moved onto the label with what ordinary looks like, and six cards
+        of prose became six figures a reader can scan. A missing figure
+        still says so on the card, because a blank reads as a fault.
+      */
       sub={
-        <>
-          {reading.plain ? (
-            <span className="block text-foreground">{reading.plain}</span>
-          ) : (
+        lead ? (
+          <>
             <span className="block text-foreground">
-              The feed did not carry this one. It has not been estimated.
+              {reading.plain ?? "The feed did not carry this one. It has not been estimated."}
             </span>
-          )}
-          {lead && <span className="mt-2 block">{reading.compare}</span>}
-        </>
+            <span className="mt-2 block">{reading.compare}</span>
+          </>
+        ) : !reading.plain ? (
+          <span className="block">Not in the feed.</span>
+        ) : undefined
       }
     />
   );

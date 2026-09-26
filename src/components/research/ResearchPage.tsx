@@ -1,6 +1,5 @@
 import { Badge } from "@/components/ui/badge";
 import {
-  MicroLabel,
   Panel,
   PanelHeader,
   Reading,
@@ -458,15 +457,13 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
               Already signed in? Open {ticker} with your holdings
             </Link>
           </div>
-          <MicroLabel>{ADVICE_DISCLAIMER_SHORT}</MicroLabel>
         </div>
       </Panel>
 
       <p className="text-sm leading-relaxed text-muted-foreground">
         Every number above came from a public feed and can be checked at the
         links in Sources. {name} did not write this page and has nothing to
-        do with it. {PRODUCT_NAME} is not an adviser and none of this is a
-        recommendation. What you do about it is yours.
+        do with it. {ADVICE_DISCLAIMER_SHORT}
       </p>
     </ResearchChrome>
   );

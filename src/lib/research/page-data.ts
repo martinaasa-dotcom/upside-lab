@@ -79,7 +79,7 @@ export async function loadResearchPage(
       or for the length of one window every reader is served an object the
       new code does not expect.
     */
-    ["research-page-v1", ticker],
+    ["research-page-v2", ticker],
     {
       revalidate: RESEARCH_REVALIDATE_SECONDS,
       tags: [researchPageTag(ticker), RESEARCH_ALL_TAG],
