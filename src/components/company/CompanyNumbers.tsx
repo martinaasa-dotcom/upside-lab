@@ -70,7 +70,9 @@ function ReadingCell({
   const missing = reading.value === NO_VALUE;
   return (
     <Score
-      className={cn(lead && "border-t-2 border-t-primary/50")}
+      /* The reference cells are rows of a ruled list on a phone: six
+       * bordered cards of one figure each stacked into a column of boxes. */
+      className={cn(lead ? "border-t-2 border-t-primary/50" : "ruled-on-phone")}
       /*
         The hierarchy is made by shrinking the reference cells rather than
         by growing the three that lead, because the type ladder stops at
@@ -217,7 +219,11 @@ export function CompanyNumbers({
         and folded the benchmark chip into a three-line block.
       */}
       {rest.length > 0 && (
-        <Scoreboard cols={3} mobileCols={1}>
+        <Scoreboard
+          cols={3}
+          mobileCols={1}
+          className="max-sm:gap-y-0 max-sm:divide-y max-sm:divide-border max-sm:border-y max-sm:border-border"
+        >
           {rest.map((r) => (
             <ReadingCell key={r.id} reading={r} />
           ))}

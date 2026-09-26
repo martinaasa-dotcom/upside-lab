@@ -106,7 +106,10 @@ function PathChart({
       targetTop,
       nearTop,
       overlapsStopCaption,
-      midAge: Math.round((firstAge + lastAge) / 2),
+      /* The middle tick is the age you stop, drawn on its own line. A
+       * midpoint tick printed 68 beside a line at 67. Left out when it
+       * would crowd an end label. */
+      stopAge: retire > 0.12 && retire < 0.88 ? retireAge : null,
       fx,
     };
   }, [plan, target]);
@@ -203,20 +206,21 @@ function PathChart({
             you stop
           </span>
         </div>
-        {[shape.firstAge, shape.midAge, shape.lastAge].map((age, i) => (
-          <span
-            key={age}
-            className="chart-label-halo absolute bottom-0 text-xs tabular-nums text-muted-foreground"
-            style={{
-              left: i === 0 ? 0 : undefined,
-              right: i === 2 ? 0 : undefined,
-              transform: i === 1 ? "translateX(-50%)" : undefined,
-              ...(i === 1 ? { left: "50%" } : {}),
-            }}
-          >
-            {age}
-          </span>
-        ))}
+        {[shape.firstAge, shape.stopAge, shape.lastAge].map((age, i) =>
+          age == null ? null : (
+            <span
+              key={i}
+              className="chart-label-halo absolute bottom-0 text-xs tabular-nums text-muted-foreground"
+              style={{
+                left: i === 0 ? 0 : i === 1 ? `${shape.retire * 100}%` : undefined,
+                right: i === 2 ? 0 : undefined,
+                transform: i === 1 ? "translateX(-50%)" : undefined,
+              }}
+            >
+              {age}
+            </span>
+          )
+        )}
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
         Your pot, in today&apos;s money.{" "}
