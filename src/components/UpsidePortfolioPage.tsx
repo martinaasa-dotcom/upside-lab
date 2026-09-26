@@ -128,12 +128,12 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
  * dividends those companies pay. The short form is for a table cell where
  * the long one will not fit; nothing prints the bare three letters alone.
  */
-const BENCHMARK_TICKER = "QQQ";
-const BENCHMARK_SHORT = "The Nasdaq 100 tracker";
+const BENCHMARK_TICKER = "SPY";
+const BENCHMARK_SHORT = "The S&P 500 tracker";
 /** Mid-sentence form. */
-const BENCHMARK_MID = "the Nasdaq 100 tracker";
+const BENCHMARK_MID = "the S&P 500 tracker";
 const BENCHMARK_NOTE =
-  "QQQ is one fund that holds the hundred largest companies on the Nasdaq exchange. It is the line this fund sets out to beat, and where its waiting money sits.";
+  "SPY is one fund that holds the five hundred largest US companies. It is the line this fund sets out to beat, and where its waiting money sits.";
 
 const BENCHMARK_STORAGE_KEY = "portfell-upside-portfolio-benchmark";
 const FEED_CHUNK = 7;
@@ -953,7 +953,7 @@ const FUND_RULE_STEPS = [
   {
     Icon: ArrowDownToLine,
     title: "Buy a leader's dip",
-    line: "A company beating the Nasdaq 100 pulls back and turns up.",
+    line: "A company beating the S&P 500 pulls back and turns up.",
     tone: "bg-[color-mix(in_oklch,var(--zone-cool)_18%,transparent)] text-[var(--zone-cool)]",
   },
   {
@@ -988,7 +988,7 @@ export function WhatThisIs({
         }
       />
       <p className="text-base leading-relaxed text-foreground/85">
-        A pretend $100,000 that sets out to beat the Nasdaq 100. Written rules
+        A pretend $100,000 that sets out to beat the S&P 500. Written rules
         trade it on each day the market is open, and every trade is written
         down with the numbers behind it. Nothing is edited afterwards.
       </p>
@@ -1073,7 +1073,7 @@ function RaceTrack({
         style={trackAnchor(t.bench)}
         aria-hidden
       >
-        Nasdaq 100{" "}
+        S&P 500{" "}
         <span className="text-foreground">{signedPercent(benchPct)}</span>
       </div>
       <div className="absolute inset-x-0 top-[2.625rem] h-px bg-foreground/15" aria-hidden />

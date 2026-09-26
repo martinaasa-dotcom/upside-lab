@@ -113,18 +113,18 @@ describe("Upside Fund sells into strength and cuts what does not work", () => {
 });
 
 describe("Upside Fund uses the money it has", () => {
-  it("parks free cash in the Nasdaq 100 while it trends up", () => {
+  it("parks free cash in the S&P 500 while it trends up", () => {
     const orders = planTrades({ cash: 50_000, parkedShares: 0, positions: [], reads: {}, bench: benchUp });
     expect(orders).toHaveLength(1);
     expect(orders[0]).toMatchObject({ side: "buy", ticker: FUND_BENCHMARK, rule: "park" });
   });
 
-  it("takes parked money back to cash when the Nasdaq 100 loses its long trend", () => {
+  it("takes parked money back to cash when the S&P 500 loses its long trend", () => {
     const orders = planTrades({ cash: 0, parkedShares: 100, positions: [], reads: {}, bench: benchDown });
     expect(orders[0]).toMatchObject({ side: "sell", ticker: FUND_BENCHMARK, rule: "unpark", shares: 100 });
   });
 
-  it("holds less in companies when the Nasdaq 100 is in a downtrend", () => {
+  it("holds less in companies when the S&P 500 is in a downtrend", () => {
     const reads = Object.fromEntries(
       Array.from({ length: 10 }, (_, i) => [`T${i}`, read({ ticker: `T${i}` })])
     );

@@ -983,18 +983,18 @@ export function upsideFundProvenance(model?: ModelRun | null): Provenance {
     inputs: [
       { what: "The fund's own pretend holdings and pretend cash" },
       { what: "About a year and a half of daily closing prices for each company it may own" },
-      { what: "The Nasdaq 100's own closing prices, the line it sets out to beat" },
+      { what: "The S&P 500's own closing prices, the line it sets out to beat" },
     ],
     sources: [YAHOO_PRICES, MODEL_ITSELF],
     steps: [
-      "Once a trading day, the rules read each company's trend, its strength against the Nasdaq 100 and its RSI, the same arithmetic every day.",
-      "They buy leaders that have pulled back and turned up, sell into strength, and cut anything that breaks its stop, loses its trend or goes nowhere for three months. Money waiting for a setup sits in the Nasdaq 100.",
+      "Once a trading day, the rules read each company's trend, its strength against the S&P 500 and its RSI, the same arithmetic every day.",
+      "They buy leaders that have pulled back and turned up, sell into strength, and cut anything that breaks its stop, loses its trend or goes nowhere for three months. Money waiting for a setup sits in the S&P 500.",
       "The model is handed the trades and writes the headline. It cannot add, remove or resize one.",
       "Every trade is written down whether it works or not, and the record is never edited afterwards.",
       REWRITTEN_STEP,
     ],
     blindSpots: [
-      "Rules that beat the Nasdaq 100 on past prices are rules that beat it on past prices. Nothing here knows the future.",
+      "Rules that beat the S&P 500 on past prices are rules that beat it on past prices. Nothing here knows the future.",
       "Trades are priced at the day's close, with a small cost, which a real order may not get.",
       NO_NEWS,
       NOT_A_TARGET,

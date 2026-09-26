@@ -7,9 +7,9 @@ const a = (over: Partial<FundAction>): FundAction => ({
 });
 
 describe("Home names the Fund's latest real trade", () => {
-  it("skips holds and the parked Nasdaq 100 money", () => {
+  it("skips holds and the parked S&P 500 money", () => {
     const t = latestFundTrade([
-      { report_date: "2026-09-25", actions: [a({ type: "buy", ticker: "QQQ", rule: "park" }), a({ type: "hold" })] },
+      { report_date: "2026-09-25", actions: [a({ type: "buy", ticker: "SPY", rule: "park" }), a({ type: "hold" })] },
       { report_date: "2026-09-24", actions: [a({ type: "trim", ticker: "MU", rule: "take-half", price: 120 })] },
     ]);
     expect(t).toMatchObject({ date: "2026-09-24", ticker: "MU", side: "sell", verb: "Sold half of", price: 120 });

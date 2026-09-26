@@ -74,7 +74,7 @@ const fundNarrativeSchema = z.object({
   marketNote: z
     .string()
     .describe(
-      "One short sentence on what the Nasdaq 100 did today and what that meant for this fund. Never say tape."
+      "One short sentence on what the S&P 500 did today and what that meant for this fund. Never say tape."
     ),
   closingNote: z
     .string()
@@ -98,7 +98,7 @@ export function buildFundNarrativeSystemPrompt(): string {
 ## This specific job: writing up Upside Fund's day
 Upside Fund is a paper portfolio that started at ${money(
     MARGUS_FUND_START_CAPITAL
-  )}. Its trades are made by written rules, not by you: it buys companies that are leading the Nasdaq 100 when they pull back to a short-term low and turn up, sells half into overbought strength and the rest on the next push, and cuts anything that breaks its stop, loses its long-term trend or goes nowhere for three months. Money waiting for the next setup sits in the Nasdaq 100 itself.
+  )}. Its trades are made by written rules, not by you: it buys companies that are leading the S&P 500 when they pull back to a short-term low and turn up, sells half into overbought strength and the rest on the next push, and cuts anything that breaks its stop, loses its long-term trend or goes nowhere for three months. Money waiting for the next setup sits in the S&P 500 itself.
 
 You are writing the day's report about trades that have ALREADY been made. Do not suggest other trades, do not second-guess the rules, and do not invent a reason: every trade below comes with the figures that triggered it, and those figures are the reason. Keep every field to one short sentence. Plain English, no market slang.`;
 }
@@ -115,8 +115,8 @@ export function buildFundNarrativeUserPrompt(input: {
     : "No trades today.";
   const move = input.benchMovePct;
   return `Today: ${input.today}
-Nasdaq 100 today: ${move == null ? "n/a" : `${move >= 0 ? "+" : ""}${(move * 100).toFixed(2)}%`}
-Nasdaq 100 long-term trend: ${input.riskOn ? "up (above its 200-day average)" : "down (under its 200-day average), so the fund holds fewer companies"}
+S&P 500 today: ${move == null ? "n/a" : `${move >= 0 ? "+" : ""}${(move * 100).toFixed(2)}%`}
+S&P 500 long-term trend: ${input.riskOn ? "up (above its 200-day average)" : "down (under its 200-day average), so the fund holds fewer companies"}
 Companies held after today: ${input.holdingCount}
 
 ## What the rules did today
@@ -146,8 +146,8 @@ export function fallbackNarrative(input: {
     headline,
     marketNote:
       move == null
-        ? "The Nasdaq 100's move today was not available."
-        : `The Nasdaq 100 ${move >= 0 ? "rose" : "fell"} ${Math.abs(move * 100).toFixed(1)}% today.`,
+        ? "The S&P 500's move today was not available."
+        : `The S&P 500 ${move >= 0 ? "rose" : "fell"} ${Math.abs(move * 100).toFixed(1)}% today.`,
     closingNote:
       "Waiting for the next leader to pull back to a short-term low and turn up.",
   };
@@ -214,7 +214,7 @@ export function buildWeeklyRecapUserPrompt(input: {
   return `Week ending: ${weekEnding}
 
 Portfolio value: ${money(portfolioValueStart)} -> ${money(portfolioValueEnd)} (${weekReturnPct >= 0 ? "+" : ""}${(weekReturnPct * 100).toFixed(1)}%)
-${spyWeekReturnPct != null ? `The Nasdaq 100 (QQQ) this week: ${spyWeekReturnPct >= 0 ? "+" : ""}${(spyWeekReturnPct * 100).toFixed(1)}%` : "Nasdaq 100 comparison not available yet"}
+${spyWeekReturnPct != null ? `The S&P 500 (SPY) this week: ${spyWeekReturnPct >= 0 ? "+" : ""}${(spyWeekReturnPct * 100).toFixed(1)}%` : "S&P 500 comparison not available yet"}
 
 ## This week's actions
 ${actionsBlock}

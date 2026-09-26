@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { raceRead, raceTrack, TRACK_PAD } from "@/lib/fund-race";
 
-const NAME = "the Nasdaq 100 tracker";
+const NAME = "the S&P 500 tracker";
 
 describe("raceRead", () => {
   it("states the gap in points, in the direction it runs", () => {
     expect(raceRead(0.05, 0.02, NAME)?.line).toBe(
-      "3.0 points ahead of the Nasdaq 100 tracker since the start."
+      "3.0 points ahead of the S&P 500 tracker since the start."
     );
     expect(raceRead(-0.08, 0.023, NAME)?.line).toBe(
-      "10.3 points behind the Nasdaq 100 tracker since the start."
+      "10.3 points behind the S&P 500 tracker since the start."
     );
   });
 

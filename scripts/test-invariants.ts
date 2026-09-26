@@ -1050,9 +1050,9 @@ run("Upside Fund X posts put P&L, ending value, and the benchmark on the same st
     ],
   });
   assert.match(daily, /^Day 3: held\n\n/);
-  assert.match(daily, /🔴 Day \+\$181 \(\+0\.36%\) · \$QQQ \+0\.45%/);
-  assert.match(daily, /🟢 Wk \+\$1,240 \(\+2\.53%\) · \$QQQ \+1\.10%/);
-  assert.match(daily, /🔴 Tot \+\$194 \(\+0\.39%\) · \$QQQ \+0\.85%/);
+  assert.match(daily, /🔴 Day \+\$181 \(\+0\.36%\) · \$SPY \+0\.45%/);
+  assert.match(daily, /🟢 Wk \+\$1,240 \(\+2\.53%\) · \$SPY \+1\.10%/);
+  assert.match(daily, /🔴 Tot \+\$194 \(\+0\.39%\) · \$SPY \+0\.85%/);
   assert.match(daily, /\n\n💼 \$50,194\n/);
   assert.match(daily, /\$NVDA \+3\.0% 🟢/);
   assert.match(daily, /\$AMD -2\.0% 🔴/);
@@ -1075,7 +1075,7 @@ run("Upside Fund X posts put P&L, ending value, and the benchmark on the same st
   });
   assert.match(firstDay, /^Day 1: bought nvda/);
   assert.match(firstDay, /🟢 Day \$0 \(0\.00%\)/);
-  assert.doesNotMatch(firstDay, /\$QQQ/);
+  assert.doesNotMatch(firstDay, /\$SPY/);
   assert.ok(firstDay.length <= 280);
 
   const traded = composeDailyFundPost({
@@ -1103,7 +1103,7 @@ run("Upside Fund X posts put P&L, ending value, and the benchmark on the same st
     actions: [],
   });
   assert.match(weekly, /^Week 1: held/);
-  assert.match(weekly, /🔴 Wk \+\$194 \(\+0\.39%\) · \$QQQ \+0\.70%/);
+  assert.match(weekly, /🔴 Wk \+\$194 \(\+0\.39%\) · \$SPY \+0\.70%/);
   assert.ok(weekly.length <= 280);
 });
 
