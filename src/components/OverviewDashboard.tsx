@@ -36,7 +36,6 @@ import {
   portfolioDayLine,
   typicalMoveForPortfolio,
 } from "@/lib/typical-move";
-import { LearnedPanel } from "@/components/LearnedPanel";
 import { RecallCardPanel } from "@/components/RecallCardPanel";
 import { parseHoldingsPaste, type CsvHoldingRow } from "@/lib/csv-import";
 import {
@@ -511,7 +510,7 @@ function MorningStack({
               * kept for money at risk.
               */}
             <span
-              className="mt-0.5 flex size-4 shrink-0 text-muted-foreground [&>svg]:size-4"
+              className="flex h-5 w-4 shrink-0 items-center text-muted-foreground [&>svg]:size-4"
               aria-hidden
             >
               {notice.kind === "gap" ? (
@@ -523,7 +522,7 @@ function MorningStack({
               )}
             </span>
             <div className="flex min-w-0 flex-col gap-1">
-              <div className="flex items-center gap-2">
+              <div className="flex min-h-5 items-center gap-2">
                 <MicroLabel>{notice.label}</MicroLabel>
                 {notice.source === "pulse" && notice.ticker ? (
                   <WhyThis
@@ -556,12 +555,12 @@ function MorningStack({
   return (
     <div className={cn("flex flex-col gap-6", className)}>
       {sunday ? (
-        <Reading label="Sunday">
+        <Reading label="Sunday" stack>
           {morning.sentence}
           {(sunday.best || sunday.worst) && (
             <div
               className={cn(
-                "mt-4 grid grid-cols-1 gap-3",
+                "grid grid-cols-1 gap-3",
                 sunday.best && sunday.worst && "sm:grid-cols-2"
               )}
             >
@@ -611,7 +610,7 @@ function MorningStack({
          * and the card keeps only what the hero does not say.
          */
         morning.quiet && !noticeList ? null : (
-        <Reading className="flex flex-col gap-4">
+        <Reading stack>
           {morning.quiet ? null : (
             <p className="text-base font-medium leading-relaxed text-foreground">
               {morning.sentence}
@@ -1395,7 +1394,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         * foot of the hero card now, and the row is the reader's own
         * alerts (see `HomeAlertList`).
         */}
-      <div className="overview-fade flex flex-col gap-4">
+      <div className={cn("overview-fade", PANEL_STACK)}>
         <div className={cn("card-sheen glass flex min-w-0 flex-col rounded-xl ring-1 ring-foreground/20", PANEL_PAD)}>
           <MicroLabel>Everything you own</MicroLabel>
           <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-2">
@@ -1602,14 +1601,6 @@ export const OverviewDashboard = memo(function OverviewDashboard({
       {marketReading}
 
       {recallInput ? <RecallCardPanel input={recallInput} /> : null}
-      {/*
-        Directly under the question card, because it is the same subject:
-        that card asks one thing and stops, and until now nothing said that
-        any of it had happened. It draws nothing at all for a reader who has
-        not opened a word or answered a question, so a first day sees no
-        empty shelf.
-      */}
-      <LearnedPanel />
 
       <Panel className="overview-fade">
         <PanelHeader

@@ -337,6 +337,7 @@ export function PanelHeader({
 
   return (
     <div
+      data-panel-header=""
       className={cn(
         SPLIT_ROW,
         !subtitle && "sm:items-center",
@@ -572,6 +573,7 @@ export function Reading({
   tone = "neutral",
   icon,
   note,
+  stack = false,
 }: {
   label?: ReactNode;
   children: ReactNode;
@@ -591,6 +593,14 @@ export function Reading({
    * full sentence belongs in the body.
    */
   note?: ReactNode;
+  /**
+   * The body is a stack of blocks (a sentence, a row of tiles, a list)
+   * rather than one run of prose, so it is spaced as one. A gap class on
+   * `className` cannot do this: that lands on the shell, and the children
+   * sit inside a body of their own, which is how Home's briefing drew its
+   * tiles flush against the sentence above them and the notes under them.
+   */
+  stack?: boolean;
 }) {
   const hasLabel = label != null && label !== "";
   const hasNote = note != null && note !== "";
@@ -645,6 +655,7 @@ export function Reading({
       <div
         className={cn(
           (hasLabel || hasNote) && "mt-2.5",
+          stack && "flex flex-col gap-5",
           "text-sm leading-relaxed text-foreground"
         )}
       >

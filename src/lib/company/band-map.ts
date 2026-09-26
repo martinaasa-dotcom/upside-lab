@@ -60,6 +60,13 @@ export type BandMapPoint = {
   roiPct: number | null;
   /** The nearest level of that name's own ladder, for the label. */
   edge: number | null;
+  /**
+   * Fair value itself, the anchor every band is a multiple of. A row that
+   * says "a little above fair value" has to measure against this and not
+   * against `edge`, which is the band's own upper level: printed beside
+   * that phrase, "6.9% under $310" read as a contradiction.
+   */
+  anchor: number | null;
   actionable: boolean;
   /** The reader typed at least one level of this name's ladder. */
   edited: boolean;
@@ -234,6 +241,7 @@ export function buildBandMap(
       // The level the price is nearest inside this band, which is what
       // a reader wants the moment they have found their name.
       edge: band?.to ?? band?.from ?? null,
+      anchor: ladder.anchor > 0 ? ladder.anchor : null,
       actionable: isActionableBand(bandId),
       edited: ladder.edited,
       y: (fromFoot + (within ?? 0.5)) / lanes,

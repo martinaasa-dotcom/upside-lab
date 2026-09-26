@@ -1185,6 +1185,7 @@ export function Dashboard() {
           bandId: p.bandId,
           bandLabel: p.bandLabel,
           edge: p.edge,
+          anchor: p.anchor,
           edited: p.edited,
           share: p.share,
           roiPct: p.roiPct,
