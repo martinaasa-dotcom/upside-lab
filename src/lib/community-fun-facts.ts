@@ -327,15 +327,15 @@ const MAKERS: FactMaker[] = [
  * Saturday. A handful of fixed rewrites rather than a second copy of every
  * sentence, because the facts are written in a small set of shapes.
  */
-export function onFriday(fact: string): string {
+export function onFriday(fact: string, session = "Friday"): string {
   return fact
     .replace(/\bis having the (best|hardest) day\b/g, "had the $1 day")
     .replace(/Best day in the circle so far/g, "Best day in the circle")
     .replace(/\b(is|are) (up|down)\b/g, (_, verb: string, way: string) =>
       `${verb === "is" ? "was" : "were"} ${way}`
     )
-    .replace(/\bare (\S+) apart today\b/g, "were $1 apart on Friday")
-    .replace(/\btoday\b/g, "on Friday");
+    .replace(/\bare (\S+) apart today\b/g, `were $1 apart on ${session}`)
+    .replace(/\btoday\b/g, `on ${session}`);
 }
 
 export function buildCommunityFunFacts(
@@ -343,8 +343,8 @@ export function buildCommunityFunFacts(
   dayKey: string,
   limit = 6,
   awarded: Iterable<string> = [],
-  /** True at the weekend, when every day figure is Friday's close. */
-  weekend = false
+  /** The last session's weekday on a day off ("Friday"), else null. */
+  pastSession: string | null = null
 ): string[] {
   if (members.length === 0) return [];
   const seed = hashSeed(`upside-community-fun|${dayKey}|${members.length}`);
@@ -380,7 +380,7 @@ export function buildCommunityFunFacts(
     if (only && named.has(only)) continue;
     seen.add(key);
     if (only) named.add(only);
-    out.push(weekend ? onFriday(candidate) : candidate);
+    out.push(pastSession ? onFriday(candidate, pastSession) : candidate);
   }
   return out;
 }

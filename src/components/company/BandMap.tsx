@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { InfoTip, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
 import { WhyThis } from "@/components/ui/WhyThis";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { NO_VALUE, cashtag, cn, currency, percent } from "@/lib/format";
 import { bandMapProvenance } from "@/lib/provenance";
@@ -392,22 +393,50 @@ function Rest({
 }) {
   const share = folded.reduce((s, p) => s + p.share, 0);
   const allTiny = folded.every((p) => p.share < TINY_SHARE);
+  /*
+   * A button that lists what is folded, rather than a hover title.
+   *
+   * The title was the only way to see which companies the "+N" stood for,
+   * and a phone has no hover, so on the device most readers use a holding
+   * that had reached a level could sit in this block with nothing on
+   * screen naming it. That was the gap AGENTS.md recorded against
+   * `foldToFit`. Folding is still decided by room; what changed is that
+   * nothing folded is ever more than one press away.
+   */
   return (
-    <span
-      className="flex items-center justify-center whitespace-nowrap rounded-md border border-dashed border-border/50 px-2 font-mono text-xs tabular-nums text-muted-foreground"
-      style={{ flexGrow: Math.max(grow, 0.0001), flexBasis: 0, minWidth: REST_MIN_PX }}
-      title={`${folded.map((p) => cashtag(p.ticker)).join(", ")}: ${percent(share, 1)} of ${voice.whose} together`}
-    >
-      <span aria-hidden>
-        +{folded.length}
-        {allTiny ? " small" : " more"}
-      </span>
-      <span className="sr-only">
-        and {folded.length} not drawn here:{" "}
-        {folded.map((p) => cashtag(p.ticker)).join(", ")},{" "}
-        {percent(share, 1)} of {voice.whose} together
-      </span>
-    </span>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center justify-center whitespace-nowrap rounded-md border border-dashed border-border/50 px-2 font-mono text-xs tabular-nums text-muted-foreground transition hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          style={{ flexGrow: Math.max(grow, 0.0001), flexBasis: 0, minWidth: REST_MIN_PX }}
+          aria-label={`${folded.length} more not drawn here, ${percent(share, 1)} of ${voice.whose} together. Show them.`}
+        >
+          +{folded.length}
+          {allTiny ? " small" : " more"}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 p-3">
+        <p className="text-xs text-muted-foreground">
+          {percent(share, 1)} of {voice.whose} together
+        </p>
+        <ul className="mt-2 flex flex-col divide-y divide-border">
+          {folded.map((p) => (
+            <li key={p.ticker}>
+              <Link
+                href={companyHref(p.ticker)}
+                className="flex items-center justify-between gap-3 py-2 text-sm hover:text-primary"
+              >
+                <span className="font-semibold">{cashtag(p.ticker)}</span>
+                <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                  {sharePct(p.share)}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }
 

@@ -5,7 +5,7 @@ import { TICKER_SECTORS } from "@/lib/forecast-plan";
 import type { OverviewModel, TickerScore } from "@/lib/overview";
 import type { ModelRun } from "@/lib/ai/model-label";
 import type { Quote } from "@/lib/types";
-import { insightWhen } from "@/lib/market-session";
+import { insightWhen, lastSessionName } from "@/lib/market-session";
 
 /** Fraction — 0.05 = 5% */
 export const PULSE_DOWN_THRESHOLD = 0.05;
@@ -206,7 +206,7 @@ export function effectiveMove(quote: Quote | null | undefined): {
   const friday = insightWhen() === "friday" && !isCoinSymbol(quote.ticker);
   return {
     pct: regular,
-    label: friday ? "Friday" : "Today",
+    label: friday ? lastSessionName() : "Today",
     source: "regular",
     extendedPct: extended,
   };

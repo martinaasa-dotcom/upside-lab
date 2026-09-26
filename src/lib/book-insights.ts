@@ -4,6 +4,7 @@
  * Pulse, Forecast, and Home.
  */
 
+import { lastSessionName } from "@/lib/market-session";
 import { themeBreakdown } from "@/lib/allocation";
 import { cashtag } from "@/lib/format";
 import {
@@ -87,8 +88,8 @@ function whenCopy(when: InsightWhen): { verb: string; tail: string; closer: stri
   if (when === "friday") {
     return {
       verb: "were",
-      tail: "on Friday",
-      closer: "Friday's close treated them that way.",
+      tail: `on ${lastSessionName()}`,
+      closer: `${lastSessionName()}'s close treated them that way.`,
     };
   }
   if (when === "this week") {

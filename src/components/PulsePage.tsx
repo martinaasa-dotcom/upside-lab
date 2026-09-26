@@ -54,7 +54,7 @@ import { sanitizeTickerQuery } from "@/lib/input-guard";
 import { useTickerSearch } from "@/lib/use-ticker-search";
 import { normalizeYahooTicker, tickerStem } from "@/lib/ticker";
 import type { Quote } from "@/lib/types";
-import { insightWhen } from "@/lib/market-session";
+import { insightWhen, isPastSessionLabel, lastSessionName } from "@/lib/market-session";
 import {
   buildPulseCandidate,
   buildPulseCandidates,
@@ -618,7 +618,7 @@ function PulseCard({
                 }}
               >
                 {/* The same day word the move above carries. */}
-                {c.moveLabel === "Friday" ? "Friday" : "Today"}
+                {isPastSessionLabel(c.moveLabel) ? c.moveLabel : "Today"}
               </TermTip>
             }
             valueClassName={signedTone(dayDollar, "text-foreground")}
@@ -729,7 +729,7 @@ function PulseCard({
           */}
           {peerRead ? (
             <p className="text-sm leading-relaxed text-muted-foreground">
-              {sectorPeerLine(peerRead, c.moveLabel === "Friday" ? "on Friday" : "today")}
+              {sectorPeerLine(peerRead, isPastSessionLabel(c.moveLabel) ? `on ${c.moveLabel}` : "today")}
             </p>
           ) : null}
           {situation.length > 0 ? (
@@ -1429,7 +1429,8 @@ export const PulsePage = memo(function PulsePage({
     room said "today" over all of them, on a Saturday. Home already names
     Friday; this is the same rule (`insightWhen`) read here.
   */
-  const dayWhen = insightWhen() === "friday" ? "on Friday" : "today";
+  const lastSession = lastSessionName();
+  const dayWhen = insightWhen() === "friday" ? `on ${lastSession}` : "today";
   const dayStory = useMemo(() => {
     const written = summary.trim();
     if (written) return written;
@@ -1821,7 +1822,7 @@ export const PulsePage = memo(function PulsePage({
           icon={<Activity className="h-4 w-4" />}
           title={
             <span className="inline-flex items-center gap-2">
-              {dayWhen === "on Friday" ? "Friday\u2019s moves" : "Today\u2019s moves"}
+              {dayWhen !== "today" ? `${lastSession}\u2019s moves` : "Today\u2019s moves"}
               <WhyThis
                 provenance={pulseRoomProvenance({
                   model: writtenBy,
