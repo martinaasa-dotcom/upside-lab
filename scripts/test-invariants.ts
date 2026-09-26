@@ -5870,7 +5870,10 @@ run("Fund page says why Margus owns it and what would make Margus sell", () => {
   // not hand-rolled divs — this used to pin <Card>/<Item>, which the
   // component moved off deliberately.
   assert.match(card, /cn\(BOX,/);
-  assert.match(card, /<Reading /);
+  // The two reasons are a label and a line under the card's own hairline,
+  // not nested tiles: a card holding two more cards made every company
+  // about 500px tall on a phone (2026-09-26).
+  assert.doesNotMatch(card, /<Reading /);
   assert.match(card, /items-start/);
   assert.doesNotMatch(card, /items-stretch/);
   assert.doesNotMatch(card, /md:grid-cols-\[minmax/);
