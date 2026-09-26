@@ -1,6 +1,7 @@
 "use client";
 
 import { TickerSymbol } from "@/components/TickerSymbol";
+import { mixProps } from "@/components/ui/AllocationBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -1019,9 +1020,9 @@ export function SwatchLegend({
   className?: string;
 }) {
   return (
-    <ul className={cn("flex flex-wrap items-center gap-4", className)}>
+    <ul data-mix-legend className={cn("flex flex-wrap items-center gap-4", className)}>
       {items.map((item) => (
-        <li key={item.key}>
+        <li key={item.key} {...mixProps(item.key)}>
           <Badge variant="outline" className="gap-2 font-normal">
             <span
               className="h-2 w-2 shrink-0 rounded-full"

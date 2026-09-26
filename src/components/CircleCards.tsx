@@ -267,7 +267,7 @@ export function PowerAnimalCard({
               </div>
               <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
                 <div
-                  className={cn("h-full rounded-full", tone.milestone)}
+                  className={cn("overview-bar h-full rounded-full", tone.milestone)}
                   style={{ width: `${barFillPct(Math.round(milestone.progress * 100))}%` }}
                 />
               </div>

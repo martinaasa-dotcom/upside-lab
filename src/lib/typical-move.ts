@@ -18,6 +18,7 @@
  * already happened, and every sentence it hands a screen says so.
  */
 
+import { lastSessionName } from "@/lib/market-session";
 /** Days of history below which the answer is not worth stating. */
 const MIN_DAYS = 12;
 
@@ -229,14 +230,17 @@ export function portfolioDayLine(
   const way = todayDollar >= 0 ? "up" : "down";
   /* "up $240 on Friday" / "up $240 today" — the clause that follows the
    * amount, and the pronoun that later refers back to that same day. */
-  const tail = when === "friday" ? "on Friday" : "today";
-  const thatDay = when === "friday" ? "Friday" : "today";
+  const session = when === "friday" ? lastSessionName() : null;
+  const tail = session ? `on ${session}` : "today";
+  const thatDay = session ?? "today";
+  // A past session is said in the past tense: "was up $218 on Friday".
+  const is = session ? "was" : "is";
   if (size === "ordinary") {
-    return `Your portfolio is ${way} ${moved} ${tail}. It moves about ${ordinaryDollar} on an ordinary day, so ${thatDay} is one of those.`;
+    return `Your portfolio ${is} ${way} ${moved} ${tail}. It moves about ${ordinaryDollar} on an ordinary day, so ${thatDay} is one of those.`;
   }
   if (size === "bigger") {
-    return `Your portfolio is ${way} ${moved} ${tail}, more than the ${ordinaryDollar} of an ordinary day.`;
+    return `Your portfolio ${is} ${way} ${moved} ${tail}, more than the ${ordinaryDollar} of an ordinary day.`;
   }
   const times = Math.round(Math.abs(todayPct) / typical.typicalPct);
-  return `Your portfolio is ${way} ${moved} ${tail}, about ${times} ordinary days at once.`;
+  return `Your portfolio ${is} ${way} ${moved} ${tail}, about ${times} ordinary days at once.`;
 }

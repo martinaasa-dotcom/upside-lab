@@ -1,5 +1,6 @@
 "use client";
 
+import { CountUp } from "@/components/ui/CountUp";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { forecastThemeForTicker } from "@/lib/forecast-growth";
 import { useTickerSectors } from "@/lib/use-ticker-sectors";
@@ -772,7 +773,7 @@ export const LabSheet = memo(function LabSheet({
                   actions={
                     <div className="text-right">
                       <p className="font-mono text-xl font-bold tabular-nums text-foreground">
-                        {personality.diversificationScore}
+                        <CountUp value={personality.diversificationScore} format={(n) => String(Math.round(n))} />
                         <span className="text-sm font-medium text-muted-foreground">
                           /100
                         </span>
@@ -803,6 +804,7 @@ export const LabSheet = memo(function LabSheet({
                   <Progress
                     value={barFillPct(personality.diversificationScore, 2)}
                     className="h-3 bg-secondary"
+                    aria-label="How spread out, out of 100"
                   />
                   <div className="mt-2 flex justify-between gap-4 text-xs text-muted-foreground">
                     <span>0 is everything in one holding</span>
@@ -1111,6 +1113,7 @@ function AllocCard({
             <Progress
               value={barFillPct(s.pct * 100)}
               className="h-2 bg-secondary"
+              aria-label={`${s.label}, share of the total`}
             />
           </div>
         ))}

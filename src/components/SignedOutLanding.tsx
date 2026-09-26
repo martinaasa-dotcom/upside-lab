@@ -20,6 +20,7 @@ import {
   cn,
   currency,
   signedCurrency,
+  barFillPct,
   signedPercent,
 } from "@/lib/format";
 import {
@@ -767,7 +768,7 @@ function Compare() {
           </thead>
           <tbody>
             {COMPARE_ROWS.map((row) => (
-              <tr key={row.what} className="border-b border-border/60 last:border-0">
+              <tr key={row.what} className="border-b border-border/60 transition-colors last:border-0 hover:bg-foreground/[0.035]">
                 <th scope="row" className="px-5 py-4 text-base font-medium text-foreground">
                   {row.what}
                 </th>
@@ -830,6 +831,8 @@ const CIRCLE_BOARD = [
   { name: "Priya", pct: -0.029 },
 ] as const;
 
+const CIRCLE_BOARD_MAX = Math.max(...CIRCLE_BOARD.map((row) => Math.abs(row.pct)));
+
 function CircleStill() {
   return (
     <Panel className="h-auto gap-4 p-4">
@@ -847,8 +850,26 @@ function CircleStill() {
             >
               {row.name.slice(0, 1)}
             </span>
-            <span className="flex-1 truncate text-left text-sm text-foreground">
+            <span className="w-12 shrink-0 truncate text-left text-sm text-foreground">
               {row.name}
+            </span>
+            {/*
+              The same picture the real Today board draws: a zero line in
+              the middle and each day growing out of it, so four red
+              figures read at a glance as four people having one day.
+            */}
+            <span className="relative block h-1.5 flex-1 rounded-full bg-foreground/[0.06]" aria-hidden>
+              <span className="absolute inset-y-[-3px] left-1/2 w-px bg-foreground/20" />
+              <span
+                className={cn(
+                  "overview-bar absolute inset-y-0 rounded-full",
+                  row.pct < 0 ? "right-1/2 bg-loss/75" : "left-1/2 bg-gain/75"
+                )}
+                style={{
+                  width: `${barFillPct((Math.abs(row.pct) / CIRCLE_BOARD_MAX) * 50, 1, 50)}%`,
+                  transformOrigin: row.pct < 0 ? "right center" : "left center",
+                }}
+              />
             </span>
             <span
               className={cn(
@@ -1180,7 +1201,7 @@ function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
       </p>
 
       <ul className="grid grid-cols-2 gap-2 @md:grid-cols-4">
-        {SAMPLE_HOLDINGS.map((h) => {
+        {SAMPLE_HOLDINGS.map((h, i) => {
           const turned = open.includes(h.ticker);
           const news = h.ticker === SAMPLE_NEWS_TICKER;
           const move = sampleDayFraction(h);
@@ -1196,8 +1217,17 @@ function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
                       : [...prev, h.ticker]
                   )
                 }
+                /*
+                  Three moments, all transform and opacity (globals.css):
+                  an untouched board ripples once as a wave to say the tiles
+                  can be pressed, a pressed tile flips its face over, and the
+                  one with real news gets a sweep of light when found.
+                */
+                style={{ ["--tile-i" as string]: i }}
                 className={cn(
-                  "card-sheen glass-well flex h-[5.5rem] w-full flex-col justify-between rounded-xl border px-3 py-2.5 text-left transition-[transform,border-color] duration-200 active:scale-[0.97] motion-reduce:transition-none",
+                  "card-sheen glass-well relative flex h-[5.5rem] w-full flex-col justify-between overflow-hidden rounded-xl border px-3 py-2.5 text-left transition-[transform,border-color] duration-200 active:scale-[0.97] motion-reduce:transition-none",
+                  open.length === 0 && "tile-hint",
+                  turned && news && "tile-found",
                   "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                   turned
                     ? news
@@ -1223,7 +1253,7 @@ function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
                   <span
                     key="turned"
                     className={cn(
-                      "animate-in fade-in-0 zoom-in-95 text-sm font-medium leading-tight duration-200 motion-reduce:animate-none",
+                      "tile-flip text-sm font-medium leading-tight",
                       news ? "text-warning" : "text-muted-foreground"
                     )}
                   >

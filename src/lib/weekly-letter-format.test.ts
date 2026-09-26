@@ -123,7 +123,18 @@ describe("suggestions are grouped by kind", () => {
     r.suggestions = items;
     const html = weeklyLetterHtml(r);
     expect(html.match(/Below recent range/g)).toHaveLength(1);
-    expect(html.match(/Above recent range or a large share/g)).toHaveLength(1);
+    expect(html.match(/Above recent range/g)).toHaveLength(1);
+  });
+
+  it("names a trim for the fact the cards under it carry", () => {
+    const size: WeeklySuggestion = {
+      kind: "trim", ticker: "NVDA", source: "size", status: null, line: "size NVDA",
+    };
+    expect(groupSuggestions([size])[0].title).toBe("A large share of what you own");
+    expect(groupSuggestions([items[1]])[0].title).toBe("Above recent range");
+    expect(groupSuggestions([items[1], { ...size, ticker: "MU" }])[0].title).toBe(
+      "Above its range, or a large share"
+    );
   });
 
   it("names each heading once in the plain text too", () => {
@@ -178,7 +189,9 @@ describe("the letterhead", () => {
   it("sets the date beside the lockup rather than under it", () => {
     const html = weeklyLetterHtml(letter());
     const lockup = html.indexOf("email-lockup.png");
-    const date = html.indexOf("Sunday 23 August");
+    // The weekday is dropped in the masthead: it is always Sunday, and
+    // "SUNDAY 23 AUGUST" wrapped to two lines on a phone.
+    const date = html.indexOf("23 August");
     expect(lockup).toBeGreaterThan(-1);
     expect(date).toBeGreaterThan(lockup);
     // Same hairline that separates every section below it.

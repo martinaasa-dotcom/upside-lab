@@ -87,7 +87,7 @@ export function AdjustChips({
                   reason the template cards give: `glass-well` sets
                   `box-shadow` itself and a ring loses to it.
                 */
-                "card-sheen glass-well veil-hover group flex min-w-0 items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors max-sm:items-start",
+                "card-sheen glass-well veil-hover lift group flex min-w-0 items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors max-sm:items-start",
                 on ? "border-primary/70" : "border-transparent hover:border-border"
               )}
             >

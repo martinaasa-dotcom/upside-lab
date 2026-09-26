@@ -57,6 +57,11 @@ export function moodLine(fearGreed: unknown): string {
  */
 const MOVE_LABELS = new Set([
   "Today",
+  // The weekday of the last session, on a day the market is shut.
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
   "Friday",
   "Pre-market",
   "After-hours",

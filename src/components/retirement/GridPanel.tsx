@@ -91,7 +91,13 @@ export function GridPanel({
         ariaLabel="How the savings are held"
       />
 
-      <div className={cn(CARD, "overflow-x-auto")}>
+      {/* Focusable so a keyboard can scroll it sideways on a phone. */}
+      <div
+        className={cn(CARD, "overflow-x-auto")}
+        tabIndex={0}
+        role="region"
+        aria-label="Stopping at each age, as a table"
+      >
         <table className="w-full table-auto border-collapse text-sm">
           <thead>
             <tr className={htmlHeadRow}>

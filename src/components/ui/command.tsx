@@ -54,10 +54,6 @@ function CommandDialog({
 }) {
   return (
     <Dialog {...props}>
-      <DialogHeader className="sr-only">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
-      </DialogHeader>
       <DialogContent
         className={cn(
           "top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0",
@@ -65,6 +61,13 @@ function CommandDialog({
         )}
         showCloseButton={showCloseButton}
       >
+        {/* Inside the content, where Radix ties the title to the dialog it
+            names. Outside, it rendered into the page while the palette was
+            closed, as stray text in no landmark. */}
+        <DialogHeader className="sr-only">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
         {children}
       </DialogContent>
     </Dialog>

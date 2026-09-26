@@ -21,6 +21,8 @@ type MoneyProps = {
   onChange: (n: number) => void;
   className?: string;
   id?: string;
+  /** For a field with no visible <label> of its own. */
+  "aria-label"?: string;
 };
 
 type PercentProps = {
@@ -31,6 +33,8 @@ type PercentProps = {
   onChange: (n: number) => void;
   className?: string;
   id?: string;
+  /** For a field with no visible <label> of its own. */
+  "aria-label"?: string;
 };
 
 export type FormattedNumberInputProps = MoneyProps | PercentProps;
@@ -125,6 +129,7 @@ export function FormattedNumberInput(props: FormattedNumberInputProps) {
     <Input
       ref={inputRef}
       id={id}
+      aria-label={props["aria-label"]}
       type="text"
       inputMode="decimal"
       value={text}

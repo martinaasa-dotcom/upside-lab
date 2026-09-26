@@ -1,4 +1,50 @@
+"use client";
+
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { barFillPct } from "@/lib/format";
+
+/*
+ * Pointing at a slice lights that group everywhere it is drawn nearby:
+ * the slice, the same group in a second bar beside it (the circle draws
+ * the room's and yours), and its chip in the legend, while the rest
+ * steps back. The group is the nearest ancestor holding a legend, a few
+ * levels up at most, so a bar never reaches into a panel it is not part
+ * of. Mouse and pen only: a finger has no hover and would latch the dim
+ * on the last thing tapped. The styling is `[data-mix-hot]` in
+ * globals.css; nothing here changes a width or a figure.
+ */
+function mixGroup(el: Element): Element | null {
+  let node = el.parentElement;
+  for (let i = 0; i < 4 && node; i++) {
+    if (node.querySelector("[data-mix-legend]")) return node;
+    node = node.parentElement;
+  }
+  return el.closest("[data-mix-bar]");
+}
+
+export function pointMix(el: Element, key: string | null) {
+  const group = mixGroup(el);
+  if (!group) return;
+  if (key == null) group.removeAttribute("data-mix-hot");
+  else group.setAttribute("data-mix-hot", "");
+  group.querySelectorAll<HTMLElement>("[data-mix]").forEach((node) => {
+    if (key != null && node.dataset.mix === key) node.setAttribute("data-mix-on", "");
+    else node.removeAttribute("data-mix-on");
+  });
+}
+
+/** Props that make an element a pointable member of a mix group. */
+export function mixProps(key: string) {
+  return {
+    "data-mix": key,
+    onPointerEnter: (e: ReactPointerEvent<HTMLElement>) => {
+      if (e.pointerType !== "touch") pointMix(e.currentTarget, key);
+    },
+    onPointerLeave: (e: ReactPointerEvent<HTMLElement>) => {
+      if (e.pointerType !== "touch") pointMix(e.currentTarget, null);
+    },
+  };
+}
 
 /**
  * One proportional bar, `Segmented`'s well made presentational.
@@ -58,10 +104,11 @@ export function AllocationBar({
 }) {
   if (size === "lg") {
     return (
-      <div className="overview-bar flex h-11 gap-[3px] sm:h-14" role="img" aria-label={slices.map((s) => s.title).join(", ")}>
+      <div data-mix-bar className="overview-bar flex h-11 gap-[3px] sm:h-14" role="img" aria-label={slices.map((s) => s.title).join(", ")}>
         {slices.map((s) => (
           <div
             key={s.key}
+            {...mixProps(s.key)}
             className="min-w-[6px] rounded-md transition-[filter] duration-200 first:rounded-l-xl last:rounded-r-xl hover:brightness-125"
             style={{
               width: `${barFillPct(s.pct * 100, 1.5)}%`,
@@ -74,10 +121,11 @@ export function AllocationBar({
     );
   }
   return (
-    <div className="flex h-3 overflow-hidden rounded-full bg-muted">
+    <div data-mix-bar className="flex h-3 overflow-hidden rounded-full bg-muted">
       {slices.map((s, i) => (
         <div
           key={s.key}
+          {...mixProps(s.key)}
           style={{
             width: `${barFillPct(s.pct * 100, 1.5)}%`,
             backgroundColor: s.color,

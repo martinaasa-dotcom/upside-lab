@@ -94,6 +94,9 @@ function Track({
                 type="button"
                 role="tab"
                 id={`band-${band.id}`}
+                // The visible word is hidden on a phone for every zone but
+                // the one being read, so the name lives on the button.
+                aria-label={band.label}
                 aria-selected={on}
                 aria-controls="band-panel"
                 onClick={() => onSelect(band.id)}

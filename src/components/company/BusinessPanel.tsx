@@ -158,13 +158,13 @@ function MoneyBar({
       <div className="relative h-7 w-full overflow-hidden">
         <span
           aria-hidden
-          className="absolute inset-y-0 left-0 rounded-md bg-foreground/[0.09]"
+          className="overview-bar absolute inset-y-0 left-0 rounded-md bg-foreground/[0.09]"
           style={{ width: `${revenueWidth}%` }}
         />
         <span
           aria-hidden
           className={cn(
-            "absolute inset-y-0 left-0 rounded-md",
+            "overview-bar absolute inset-y-0 left-0 rounded-md",
             negative ? "bg-loss/70" : "bg-gain/70"
           )}
           style={{ width: `${profitWidth}%` }}
@@ -318,7 +318,7 @@ function QualityLadder({ facts }: { facts: CompanyFacts }) {
               <span
                 aria-hidden
                 className={cn(
-                  "absolute inset-y-0 left-0 rounded-full",
+                  "overview-bar absolute inset-y-0 left-0 rounded-full",
                   (r.value as number) < 0 ? "bg-loss/70" : "bg-gain/50"
                 )}
                 style={{ width: `${barFillPct((r.value as number) * 100)}%` }}

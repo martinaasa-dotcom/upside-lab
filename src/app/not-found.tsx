@@ -41,19 +41,24 @@ export default function NotFound() {
         <h1 className="font-heading text-2xl font-semibold text-foreground">
           This page isn&apos;t here
         </h1>
+        {/*
+          * Written for both people who land here: a reader with an account,
+          * and a stranger who followed a public research link. The old copy
+          * spoke only to the first ("your holdings are exactly where you
+          * left them") and offered Circle, which a stranger cannot open.
+          */}
         <p className="text-sm leading-relaxed text-muted-foreground">
-          The link may be old, or it may have a typo in it. Nothing is wrong
-          with your account, and your holdings are exactly where you left
-          them.
+          The link may be old, or it may have a typo in it. If you have an
+          account, everything in it is exactly where you left it.
         </p>
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Button asChild>
-          <Link href="/">Go to my portfolio</Link>
+          <Link href="/">Open Upside Lab</Link>
         </Button>
         <Button asChild variant="outline">
-          <Link href="/communities">Open Circle</Link>
+          <Link href="/research">Look up a company</Link>
         </Button>
       </div>
 

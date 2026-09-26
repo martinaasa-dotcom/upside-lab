@@ -1,5 +1,6 @@
 "use client";
 
+import { CountUp } from "@/components/ui/CountUp";
 import { TermTip } from "@/components/ui/TermTip";
 import { BelowFold } from "@/components/BelowFold";
 import {
@@ -527,6 +528,7 @@ function ComparePathsChart({
             strokeWidth={p.thick ? 2.5 : 2}
             vectorEffect="non-scaling-stroke"
             strokeDasharray={p.dashed ? "6 4" : undefined}
+            className="line-reveal"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -1479,6 +1481,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             <legend className="sr-only">Paying in</legend>
             <FormattedNumberInput
               id="compound-deposit-input"
+              aria-label="Amount paid in"
               kind="money"
               currency={currency}
               value={usdToDisplay(draft.depositAmount, currency, eurUsd)}
@@ -1522,6 +1525,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             </legend>
             <FormattedNumberInput
               id="compound-withdrawal-input"
+              aria-label="Amount taken out each month"
               kind="money"
               currency={currency}
               value={usdToDisplay(draft.withdrawalAmount, currency, eurUsd)}
@@ -1581,7 +1585,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           <div>
             <MicroLabel>Ends up at</MicroLabel>
             <p className="figure-hero mt-3 text-gain">
-              {show(result.futureValue)}
+              <CountUp value={result.futureValue} format={show} />
             </p>
           </div>
           {/*
@@ -1611,9 +1615,15 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
               },
               {
                 label: "Doubles every",
+                /* Years as the figure and months under it: "4 years and 8
+                 * months" wrapped in a quarter of the strip even at 1280. */
                 value: Number.isFinite(result.doubleYears)
-                  ? spanText(result.doubleYears, result.doubleMonths)
+                  ? `${result.doubleYears} ${result.doubleYears === 1 ? "year" : "years"}`
                   : NO_VALUE,
+                sub:
+                  Number.isFinite(result.doubleYears) && result.doubleMonths > 0
+                    ? `and ${result.doubleMonths} ${result.doubleMonths === 1 ? "month" : "months"}`
+                    : undefined,
                 word: true,
               },
             ]}

@@ -1,5 +1,6 @@
 "use client";
 
+import { CountUp } from "@/components/ui/CountUp";
 import { LiveFigure } from "@/components/ui/LiveFigure";
 import { TermTip } from "@/components/ui/TermTip";
 import { BelowFold } from "@/components/BelowFold";
@@ -57,7 +58,7 @@ import {
   rememberShownInsights,
 } from "@/lib/insight-look";
 import type { UpsideAlert } from "@/lib/alerts";
-import { sessionLabel, sessionKind } from "@/lib/market-session";
+import { isPastSessionLabel, sessionLabel, sessionKind } from "@/lib/market-session";
 import { quotesAgeLabel, quotesStuck } from "@/lib/market/quote-health";
 import { sheetCashBalance } from "@/lib/cash-balance";
 import type { OverviewModel, SheetScore, TickerScore } from "@/lib/overview";
@@ -297,7 +298,7 @@ function EmptyBook({
               type="button"
               onClick={r.onClick}
               className={cn(
-                "veil-hover card-sheen glass-well flex min-w-0 flex-col gap-2 rounded-lg p-4 text-left ring-1 ring-foreground/12 transition hover:scale-[1.01] hover:ring-primary/25"
+                "veil-hover card-sheen glass-well flex min-w-0 flex-col gap-2 rounded-lg p-4 text-left ring-1 ring-foreground/12 lift hover:ring-primary/25"
               )}
             >
               <span
@@ -485,14 +486,16 @@ function MorningStack({
    * "These are Friday's numbers", while every driver tile under it still
    * said "of today's move" about a market that has been shut for a day.
    */
-  const moveWord = morning.moveLabel === "Friday" ? "Friday's move" : "today's move";
+  const moveWord = isPastSessionLabel(morning.moveLabel) ? `${morning.moveLabel}'s move` : "today's move";
   /*
    * "Biggest rise this week" only when the week's own marks supplied the
    * figure. On a new device there are no marks, the recap falls back to the
    * live day, and that day is Friday: one Friday's move labelled as the
    * week's result is a figure this app states as fact and never measured.
    */
-  const weekWord = sunday?.fromWeek ? "this week" : "on Friday";
+  const weekWord = sunday?.fromWeek
+    ? "this week"
+    : `on ${isPastSessionLabel(morning.moveLabel) ? morning.moveLabel : "Friday"}`;
   const noticeList =
     morning.notices.length === 0 ? null : (
       <ul className="flex flex-col gap-4">
@@ -671,7 +674,7 @@ function MoverTile({
       onClick={onOpen}
       title={sheets || undefined}
       className={cn(
-        "veil-hover card-sheen glass group relative flex h-full w-full min-w-0 flex-col justify-center gap-1.5 overflow-hidden rounded-lg p-3 text-left ring-1 transition hover:scale-[1.01] sm:p-6",
+        "veil-hover card-sheen glass group relative flex h-full w-full min-w-0 flex-col justify-center gap-1.5 overflow-hidden rounded-lg p-3 text-left ring-1 lift sm:p-6",
         isUp ? "ring-gain/20 hover:ring-gain/40" : "ring-loss/20 hover:ring-loss/40"
       )}
     >
@@ -766,7 +769,7 @@ function PortfolioLane({
       type="button"
       onClick={onOpen}
       className={cn(
-        "card-sheen glass-well group flex w-full flex-col gap-4 rounded-lg text-left ring-1 ring-foreground/20 transition hover:scale-[1.01] hover:bg-hover hover:ring-primary/25",
+        "card-sheen glass-well group flex w-full flex-col gap-4 rounded-lg text-left ring-1 ring-foreground/20 lift hover:bg-hover hover:ring-primary/25",
         NESTED_PAD
       )}
     >
@@ -1114,7 +1117,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
   const moversTitle =
     movers.length > 0 && movers.length >= tickers.length
       ? moverHorizon === "today"
-        ? `Every holding ${morning.moveLabel === "Friday" ? "on Friday" : "today"}`
+        ? `Every holding ${isPastSessionLabel(morning.moveLabel) ? `on ${morning.moveLabel}` : "today"}`
         : "Every holding, all time"
       : "Movers";
 
@@ -1162,7 +1165,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
     totals.equityValue,
     typical,
     (n) => currency(n, 0),
-    morning.moveLabel === "Friday" ? "friday" : "today"
+    isPastSessionLabel(morning.moveLabel) ? "friday" : "today"
   );
 
   /*
@@ -1181,7 +1184,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         : `${percent(cashShare, 0)} of everything`;
 
   /** Friday's prices are captioned as Friday's, on a Saturday. */
-  const priceWord = morning.moveLabel === "Friday" ? "Friday's" : "today's";
+  const priceWord = isPastSessionLabel(morning.moveLabel) ? `${morning.moveLabel}'s` : "today's";
 
   const marketHoldings = useMemo(
     () =>
@@ -1285,7 +1288,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
       <MarketSentimentWidget
         yoursPct={totals.todayPct}
         holdings={marketHoldings}
-        when={morning.moveLabel === "Friday" ? "on Friday" : "today"}
+        when={isPastSessionLabel(morning.moveLabel) ? `on ${morning.moveLabel}` : "today"}
         onOpenPlaybook={
           onOpenLab ? () => onOpenLab("playbook") : undefined
         }
@@ -1418,7 +1421,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
               )}
             >
               <LiveFigure value={pricesStuck ? null : totals.totalValue}>
-                {currency(totals.totalValue, 0)}
+                <CountUp value={totals.totalValue} format={(n) => currency(n, 0)} />
               </LiveFigure>
             </p>
             {pricesStuck ? (
@@ -1436,7 +1439,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
                   on a phone, it wrapped onto a line of its own under the
                   figure and read as a caption for the whole total.
                 */}
-                {morning.moveLabel === "Friday" ? " on Friday" : " today"}
+                {isPastSessionLabel(morning.moveLabel) ? ` on ${morning.moveLabel}` : " today"}
               </DeltaBadge>
             )}
           </div>

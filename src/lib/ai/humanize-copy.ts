@@ -576,10 +576,21 @@ export function humanizeMargusText(text: string): string {
   // Grouping runs last, and on the model's own prose: the facts it is
   // given are formatted, but nothing stops it from typing $129709 back.
   return groupMoneyInText(
-    scrubAiPhrases(
-      stripAiDashes(scrubTradeOrders(scrubVagueEndings(scrubMarketJargon(text))))
+    closePercentSpace(
+      scrubAiPhrases(
+        stripAiDashes(scrubTradeOrders(scrubVagueEndings(scrubMarketJargon(text))))
+      )
     )
   );
+}
+
+/**
+ * "6.5 %" is how some models write a percentage, with a space (often a
+ * narrow no-break one) before the sign. Every figure this app prints
+ * itself is "6.5%", and a letter mixing the two reads as two writers.
+ */
+export function closePercentSpace(text: string): string {
+  return text.replace(/(\d)[ \u00a0\u202f]+%/g, "$1%");
 }
 
 /**

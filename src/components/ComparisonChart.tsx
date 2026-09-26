@@ -147,7 +147,9 @@ export const ComparisonChart = memo(function ComparisonChart({
                 strokeDasharray={t === 0 ? "4 4" : undefined}
               />
             ))}
-            {usable.map((s) => (
+            {usable.map((s, i) => (
+              /* Each line draws itself in on arrival, one after the other,
+                 so the race reads as a race (`line-draw`, globals.css). */
               <polyline
                 key={s.label}
                 fill="none"
@@ -156,8 +158,28 @@ export const ComparisonChart = memo(function ComparisonChart({
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 points={toXY(s.points)}
+                pathLength={1}
+                className="line-draw"
+                style={{ animationDelay: `${i * 160}ms` }}
               />
             ))}
+            {active == null &&
+              usable.map((s, i) => {
+                const last = s.points.length - 1;
+                if (last < 0) return null;
+                // Where each line is now, breathing, once it has arrived.
+                return (
+                  <circle
+                    key={`${s.label}-now`}
+                    cx={xAt(last)}
+                    cy={yAt(s.points[last] ?? 0)}
+                    r={3}
+                    fill={s.color}
+                    className="live-dot"
+                    style={{ animationDelay: `${1100 + i * 160}ms` }}
+                  />
+                );
+              })}
             {active != null && (
               <line
                 x1={xAt(active)}

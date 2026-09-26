@@ -4,6 +4,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { MobileDock } from "@/components/mobile/MobileDock";
 import { SignInGate } from "@/components/SignInGate";
 import { Badge } from "@/components/ui/badge";
+import { LiveFigure } from "@/components/ui/LiveFigure";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   EmptyState,
@@ -627,9 +628,12 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                   icon={<Building2 className="h-4 w-4" />}
                   actions={
                     <div className="flex flex-col items-end gap-1">
-                      <span className="font-mono text-2xl font-bold tabular-nums text-foreground">
+                      <LiveFigure
+                        value={live.price ?? facts.price}
+                        className="font-mono text-2xl font-bold tabular-nums text-foreground"
+                      >
                         {currency(live.price ?? facts.price, 2, code)}
-                      </span>
+                      </LiveFigure>
                       {facts.changePercent !== null && (
                         <span
                           className={cn(

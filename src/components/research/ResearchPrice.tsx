@@ -1,6 +1,7 @@
 "use client";
 
 import { quotePollMs, quotesUrl } from "@/lib/market/session";
+import { LiveFigure } from "@/components/ui/LiveFigure";
 import { cn, currency, signedPercent, signedTone } from "@/lib/format";
 import { formatDateTime } from "@/lib/timezone";
 import { useEffect, useState } from "react";
@@ -93,9 +94,9 @@ export function ResearchPrice({
 
   return (
     <div className="flex flex-col items-start gap-1 sm:items-end">
-      <span className="font-mono text-2xl font-bold tabular-nums text-foreground">
+      <LiveFigure value={shown} className="font-mono text-2xl font-bold tabular-nums text-foreground">
         {currency(shown, 2, code)}
-      </span>
+      </LiveFigure>
       {changePercent !== null && !live && (
         <span
           className={cn(

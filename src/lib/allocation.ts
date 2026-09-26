@@ -3,6 +3,7 @@ import {
   type ForecastTheme,
 } from "@/lib/forecast-conviction";
 import { finiteNumber, safeDiv, sumMoney } from "@/lib/money";
+import { cashtag } from "@/lib/format";
 import { THEME_LABEL } from "@/lib/portfolio-personality";
 
 export type AllocationSlice = {
@@ -178,7 +179,7 @@ export function allocationByTicker(
   const rest = sumMoney(sorted.slice(topN).map((h) => h.currentValue));
   const slices = top.map((h) => ({
     key: h.ticker,
-    label: h.ticker,
+    label: cashtag(h.ticker),
     value: h.currentValue,
     pct: safeDiv(h.currentValue, sum),
   }));

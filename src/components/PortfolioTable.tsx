@@ -1,5 +1,6 @@
 "use client";
 
+import { CountUp } from "@/components/ui/CountUp";
 import { LiveFigure } from "@/components/ui/LiveFigure";
 import { barFillPct } from "@/lib/format";
 import { NO_VALUE, cashtag, cn, currency, percent, signedPercent, signedTone } from "@/lib/format";
@@ -116,12 +117,15 @@ function InlineNumber({
   displayDigits,
   onCommit,
   className,
+  label,
 }: {
   value: number;
   digits?: number;
   displayDigits?: number | "auto";
   onCommit: (n: number) => void | boolean | Promise<void | boolean>;
   className?: string;
+  /** What the field is, for a screen reader: the column header is not its label. */
+  label: string;
 }) {
   const shownDigits =
     displayDigits === "auto"
@@ -174,6 +178,7 @@ function InlineNumber({
   return (
     <input
       type="text"
+      aria-label={label}
       inputMode={allowDecimal ? "decimal" : "numeric"}
       value={draft}
       onChange={(e) => {
@@ -539,7 +544,7 @@ export const PortfolioTable = memo(function PortfolioTable({
               */}
               <p className="figure-hero text-foreground">
                 <LiveFigure value={totals.currentValue}>
-                  {money(totals.currentValue, 0)}
+                  <CountUp value={totals.currentValue} format={(n) => money(n, 0)} />
                 </LiveFigure>
               </p>
               <p className="text-sm tabular-nums text-muted-foreground">
@@ -899,6 +904,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                               displayDigits="auto"
                               onCommit={(shares) => onPatch({ id: h.id, shares })}
                               className="w-16 text-right"
+                              label={`${cashtag(h.ticker)} shares`}
                             />
                           </dd>
                         </div>
@@ -926,6 +932,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                               digits={listed.digits}
                               onCommit={(buy_price) => commitBuy(h, buy_price)}
                               className="w-20 text-right"
+                              label={`${cashtag(h.ticker)} paid each`}
                             />
                           </dd>
                         </div>
@@ -1107,7 +1114,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                   */}
                   <span className="h-1 w-8 overflow-hidden rounded-full bg-foreground/[0.08]" aria-hidden>
                     <span
-                      className="block h-full rounded-full bg-primary/70"
+                      className="overview-bar block h-full rounded-full bg-primary/70"
                       style={{ width: `${barFillPct((h.pctOfTotal / maxShare) * 100)}%` }}
                     />
                   </span>
@@ -1119,6 +1126,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                     digits={4}
                     displayDigits="auto"
                     onCommit={(shares) => onPatch({ id: h.id, shares })}
+                    label={`${cashtag(h.ticker)} shares`}
                   />
                 </div>
                 <div className={cellBase}>
@@ -1126,6 +1134,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                     value={listed.nativeBuy}
                     digits={listed.digits}
                     onCommit={(buy_price) => commitBuy(h, buy_price)}
+                    label={`${cashtag(h.ticker)} paid each`}
                   />
                 </div>
                 <div

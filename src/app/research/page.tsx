@@ -3,6 +3,7 @@ import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { PRODUCT_NAME } from "@/lib/product";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { cashtag } from "@/lib/format";
+import { companyName } from "@/lib/company-names";
 import {
   RESEARCH_GROUPS,
   RESEARCH_TICKERS,
@@ -60,12 +61,10 @@ export default function ResearchIndex() {
           Research
         </h1>
         <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-          {RESEARCH_TICKERS.length} companies and funds, each one written the
-          same way: what it does, what the accounts say, what the price is
-          assuming, and both sides of the argument. Every figure is the real
-          one, named properly, with a plain sentence under it and a link back
-          to where it came from. Nothing here is a rating, a score or a
-          recommendation.
+          {RESEARCH_TICKERS.length} companies and funds, each read the same
+          way: what it does, what the accounts say and what the price is
+          assuming, with a link back to where every figure came from. None of
+          it is a rating or a recommendation.
         </p>
       </div>
 
@@ -77,9 +76,25 @@ export default function ResearchIndex() {
               <li key={ticker}>
                 <Link
                   href={researchHref(ticker)}
-                  className="inline-flex rounded-md border border-border px-3 py-1.5 font-mono text-sm tabular-nums text-muted-foreground transition hover:bg-hover hover:text-foreground"
+                  className="inline-flex items-baseline gap-2 rounded-md border border-border px-3 py-1.5 text-sm text-foreground transition hover:bg-hover"
                 >
-                  {cashtag(ticker)}
+                  {/* The name a person searches for, with the ticker beside
+                      it: "$LRCX" alone means nothing to somebody who came
+                      looking for Lam Research. A fund keeps its ticker. */}
+                  {companyName(ticker) ? (
+                    <>
+                      <span>{companyName(ticker)}</span>
+                      {companyName(ticker)!.toUpperCase() !== ticker ? (
+                        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                          {ticker}
+                        </span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <span className="font-mono tabular-nums text-muted-foreground">
+                      {cashtag(ticker)}
+                    </span>
+                  )}
                 </Link>
               </li>
             ))}

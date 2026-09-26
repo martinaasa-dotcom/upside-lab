@@ -30,8 +30,8 @@ export default function Error({
           This screen did not load
         </h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Your holdings are safe and nothing you own has changed. Press Try
-          again, and reload the page if it keeps happening.
+          Nothing you have saved has changed. Press Try again, and reload the
+          page if it keeps happening.
         </p>
         {error.digest && (
           <p className="text-sm text-muted-foreground">

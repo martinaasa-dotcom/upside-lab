@@ -123,7 +123,7 @@ export function wrapEmailLetter(input: {
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%">
               <tr>
                 <td style="vertical-align:middle">${lockup}</td>
-                <td style="vertical-align:middle;text-align:right;font-family:${EMAIL.sans};font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:${EMAIL.muted}">${escapeEmail(input.dateLine ?? "")}</td>
+                <td style="vertical-align:middle;text-align:right;white-space:nowrap;font-family:${EMAIL.sans};font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${EMAIL.muted}">${escapeEmail(input.dateLine ?? "")}</td>
               </tr>
             </table>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:18px 0 0 0">
@@ -221,14 +221,21 @@ export function communityInviteCopy(input: {
   const subject = input.classroom
     ? "You have been invited to a class on Upside Lab"
     : "You have been invited to a circle on Upside Lab";
+  /*
+    What the reader is being asked into, in words, before the button. The
+    old line ended "Today's prices only", which meant something to whoever
+    wrote it and nothing to somebody who has never seen the app, and the
+    class version offered a "paper portfolio", which is the trade's word
+    for pretend money.
+  */
   const lead = input.classroom
-    ? `You've been invited into ${name}. Sign in and you get a paper portfolio to work from.`
-    : `You've been invited into ${name}. Sign in and pick which portfolios to share. Today's prices only.`;
-  const text = [
-    lead,
-    input.url,
-    "If you didn't expect this, ignore it.",
-  ].join("\n\n");
+    ? `You have been invited to join ${name} on Upside Lab. Sign in and you get a practice portfolio with pretend money, set up for the class.`
+    : `You have been invited to join ${name} on Upside Lab. A circle is a few people who can see what each other owns and how each day went. What you paid stays yours.`;
+  const next = input.classroom
+    ? "Nothing of your own is shared with the class."
+    : "Sign in, then choose which of your portfolios to show, if any.";
+  const ignore = "If you did not expect this, ignore it. Nothing happens unless you sign in.";
+  const text = [lead, next, input.url, ignore].join("\n\n");
   const html = wrapEmailLetter({
     title: subject,
     preview: lead,
@@ -237,8 +244,9 @@ export function communityInviteCopy(input: {
 <div style="height:18px;font-size:0;line-height:0">&nbsp;</div>
 <p style="margin:0;font-family:${EMAIL.sans};font-size:26px;line-height:1.25;font-weight:400;letter-spacing:-0.02em;color:${EMAIL.cream}">Join ${escapeEmail(name)}</p>
 <p style="margin:22px 0 0 0;font-family:${EMAIL.sans};font-size:17px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(lead)}</p>
+<p style="margin:14px 0 0 0;font-family:${EMAIL.sans};font-size:17px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(next)}</p>
 ${emailButton(input.url, "Open the invite")}
-<p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">If you didn't expect this, ignore it.</p>`,
+<p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">${escapeEmail(ignore)}</p>`,
   });
   return { subject, text, html };
 }
@@ -300,7 +308,7 @@ export function addressConnectedCopy(input: {
   const subject = "A second address now opens your Upside Lab account";
   const lead = `${input.address} was confirmed a moment ago, so it signs in to this account as well. Both addresses land in the same place, with the same portfolios and the same circles.`;
   const undo =
-    "If that was not you, open My account, take the address off under your sign-in addresses, and it stops working straight away.";
+    "If that was not you, open My account and remove the address under your sign-in addresses. It stops working straight away.";
   const text = [lead, input.accountUrl, undo].join("\n\n");
   const html = wrapEmailLetter({
     title: subject,
@@ -310,7 +318,7 @@ export function addressConnectedCopy(input: {
 <div style="height:18px;font-size:0;line-height:0">&nbsp;</div>
 <p style="margin:0;font-family:${EMAIL.sans};font-size:26px;line-height:1.25;font-weight:400;letter-spacing:-0.02em;color:${EMAIL.cream}">A second address was connected</p>
 <p style="margin:22px 0 0 0;font-family:${EMAIL.sans};font-size:17px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(lead)}</p>
-${emailButton(input.accountUrl, "Open my account")}
+${emailButton(input.accountUrl, "Open My account")}
 <p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">${escapeEmail(undo)}</p>`,
   });
   return { subject, text, html };
@@ -363,7 +371,7 @@ export function signInLinkCopy(input: { url: string }): {
 } {
   const subject = "Sign in to Upside Lab";
   const lead =
-    "Here is your sign-in link for Upside Lab. Open it, then press Sign in on the page. That is the step that actually opens the account.";
+    "Open the link below, then press Sign in on the page it opens. That press is what signs you in.";
   const ignore =
     "If you did not ask for this, ignore it. Nobody is signed in unless that button is pressed.";
   const text = [lead, input.url, "The link lasts one hour and works once.", ignore].join(
@@ -414,7 +422,7 @@ export function emptyBookNudgeHtml(input: {
 <div style="height:18px;font-size:0;line-height:0">&nbsp;</div>
 <p style="margin:0;font-family:${EMAIL.sans};font-size:26px;line-height:1.25;font-weight:400;letter-spacing:-0.02em;color:${EMAIL.cream}">${escapeEmail(preview)}</p>
 ${prose}
-${emailButton(EMAIL.origin, "Open Upside Lab")}
+${emailButton(EMAIL.origin, "Add what you own")}
 <p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">This is a one-time note. The Sunday letter starts once there is something in your portfolio. Turn it off in <a href="${EMAIL.origin}/account" style="color:${EMAIL.gold};text-decoration:underline">Account</a>.</p>`,
   });
 }

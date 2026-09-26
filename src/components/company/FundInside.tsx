@@ -103,7 +103,7 @@ export function FundInside({
                 >
                   <span
                     aria-hidden
-                    className="absolute inset-y-0 left-0 bg-foreground/[0.06]"
+                    className="overview-bar absolute inset-y-0 left-0 bg-foreground/[0.06]"
                     style={{ width: `${barFillPct((h.weight / peak) * 100)}%` }}
                   />
                   <span className="relative w-20 shrink-0 font-mono text-sm tabular-nums text-foreground">
@@ -150,7 +150,7 @@ export function FundInside({
                 <span className="relative h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-foreground/10">
                   <span
                     aria-hidden
-                    className="absolute inset-y-0 left-0 rounded-full bg-foreground/40"
+                    className="overview-bar absolute inset-y-0 left-0 rounded-full bg-foreground/40"
                     style={{ width: `${barFillPct(s.weight * 100)}%` }}
                   />
                 </span>

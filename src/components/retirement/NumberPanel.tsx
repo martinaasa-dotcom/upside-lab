@@ -27,6 +27,7 @@
  * hiding that it had picked.
  */
 
+import { CountUp } from "@/components/ui/CountUp";
 import { CARD, MicroLabel, Panel, PanelHeader, Pill } from "@/components/ui/Panel";
 import { Switch } from "@/components/ui/switch";
 import { WhyThis } from "@/components/ui/WhyThis";
@@ -69,7 +70,7 @@ function Method({
         aria-hidden
       >
         <div
-          className="h-full rounded-full"
+          className="overview-bar h-full rounded-full"
           style={{ width: `${barFillPct(widthPct, 2)}%`, background: color }}
         />
       </div>
@@ -140,7 +141,7 @@ export function NumberPanel({
           invariant refuses anything larger.
         */}
         <p className="font-mono text-2xl tabular-nums text-foreground">
-          {currency(plan.required.target, 0, code)}
+          <CountUp value={plan.required.target} format={(n) => currency(n, 0, code)} />
         </p>
         <p className="text-sm leading-relaxed text-muted-foreground">
           The pot to have on the day you stop. Year one takes{" "}

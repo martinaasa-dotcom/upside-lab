@@ -248,7 +248,7 @@ export function PotChart({
             <path
               d={path("have")}
               fill="none"
-              className="stroke-primary"
+              className="line-reveal stroke-primary"
               strokeWidth={2.25}
               strokeLinejoin="round"
             />

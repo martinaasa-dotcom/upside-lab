@@ -234,6 +234,7 @@ export function SheetPathChart({
               */
               vectorEffect={placeholder ? "non-scaling-stroke" : undefined}
               strokeDasharray={placeholder ? "5 4" : undefined}
+              className={placeholder ? undefined : "line-reveal"}
               points={line}
             />
             {usable.map((p, i) => (

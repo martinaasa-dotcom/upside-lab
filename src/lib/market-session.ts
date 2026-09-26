@@ -88,19 +88,84 @@ export function isUsAfterCashClose(
   session: SessionKind,
   now = new Date()
 ): boolean {
-  if (isUsWeekend(now)) return true;
+  if (isUsMarketDayOff(now)) return true;
   if (session === "open" || session === "pre") return false;
   if (session === "ah") return true;
   return nyClock(now).hour >= 16;
 }
 
-/** How leftover daily % should be named in a sentence a person reads. */
+/**
+ * Days the New York Stock Exchange is shut all day, beyond the weekend.
+ *
+ * Published by the exchange a year or more ahead. Without these, a Monday
+ * holiday described Friday's close as "today", and the weekend after Good
+ * Friday or Christmas described Thursday's close as Friday's. Extend this
+ * list each year; a missing day only brings those two faults back for it.
+ */
+const NYSE_HOLIDAYS: ReadonlySet<string> = new Set([
+  // 2026
+  "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25",
+  "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
+  // 2027
+  "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26", "2027-05-31",
+  "2027-06-18", "2027-07-05", "2027-09-06", "2027-11-25", "2027-12-24",
+]);
+
+/** The New York calendar date, as YYYY-MM-DD. */
+function nyDateKey(at: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(at);
+}
+
+/** No regular session at all on this New York day: a weekend or a holiday. */
+export function isUsMarketDayOff(now = new Date()): boolean {
+  return isUsWeekend(now) || NYSE_HOLIDAYS.has(nyDateKey(now));
+}
+
+/**
+ * The weekday of the last session before a day off, as a person says it:
+ * "Friday" after an ordinary weekend, "Thursday" after Good Friday.
+ */
+export function lastSessionName(now = new Date()): string {
+  let at = new Date(now.getTime());
+  for (let i = 0; i < 10; i++) {
+    at = new Date(at.getTime() - 24 * 60 * 60 * 1000);
+    if (!isUsMarketDayOff(at)) {
+      return new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        weekday: "long",
+      }).format(at);
+    }
+  }
+  return "Friday";
+}
+
+const SESSION_DAY_NAMES = new Set([
+  "Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
+]);
+
+/** A move label naming a past session ("Friday"), rather than "Today" or an extended session. */
+export function isPastSessionLabel(label: string | null | undefined): boolean {
+  return SESSION_DAY_NAMES.has(String(label ?? ""));
+}
+
+/**
+ * How leftover daily % should be named in a sentence a person reads.
+ *
+ * "friday" means the last session rather than literally Friday; the name
+ * to print is `lastSessionName()`. Kept as one word so the many callers
+ * that branch on it did not all have to change.
+ */
 export function insightWhen(
   session: SessionKind = "unknown",
   now = new Date()
 ): "today" | "friday" {
   void session;
-  return isUsWeekend(now) ? "friday" : "today";
+  return isUsMarketDayOff(now) ? "friday" : "today";
 }
 
 export function sessionKind(state: string | null | undefined): SessionKind {

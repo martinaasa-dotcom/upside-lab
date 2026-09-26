@@ -14,7 +14,8 @@ import {
 import {
   insightWhen,
   isUsAfterCashClose,
-  isUsWeekend,
+  isUsMarketDayOff,
+  lastSessionName,
   type SessionKind,
 } from "@/lib/market-session";
 import { hashSeed, mulberry32, pick } from "@/lib/seeded-rng";
@@ -93,7 +94,8 @@ export type MorningRead = {
   drivers: MorningDriver[];
   afterClose: boolean;
   sunday: SundayRecap | null;
-  moveLabel: "Today" | "Friday";
+  /** "Today", or the weekday of the last session on a day off ("Friday"). */
+  moveLabel: string;
 };
 
 export type HomePulseNote = {
@@ -167,7 +169,7 @@ function sharePct(pct: number): string {
 }
 
 function tail(when: "today" | "friday"): string {
-  return when === "friday" ? "on Friday" : "today";
+  return when === "friday" ? `on ${lastSessionName()}` : "today";
 }
 
 function say(seed: string, lines: string[]): string {
@@ -193,7 +195,7 @@ function daySentence(
   if (weekend) {
     return {
       quiet: true,
-      sentence: "US markets are closed. These are Friday's numbers.",
+      sentence: `US markets are closed. These are ${lastSessionName()}'s numbers.`,
     };
   }
   const pct = model.totals.todayPct;
@@ -583,7 +585,7 @@ function dollarCandidate(
     ticker: top.ticker,
     text: say(seedFor(lookIndex, id), [
       `${cashtag(top.ticker)} accounts for ${money} of what your portfolio did ${whenTail}, which is most of it.`,
-      `Almost all of ${whenTail === "today" ? "today's" : "Friday's"} change in value came from ${cashtag(top.ticker)}, at ${money}. Everything else was small beside it.`,
+      `Almost all of ${whenTail === "today" ? "today's" : `${lastSessionName()}'s`} change in value came from ${cashtag(top.ticker)}, at ${money}. Everything else was small beside it.`,
     ]),
   };
 }
@@ -877,7 +879,7 @@ export function buildMorningRead(
   session: SessionKind = "unknown",
   extras: MorningReadExtras = {}
 ): MorningRead {
-  const weekend = isUsWeekend();
+  const weekend = isUsMarketDayOff();
   const when = insightWhen(session);
   const { quiet, sentence } = daySentence(model, weekend);
   const awayLines = visitDiff?.lines.slice(0, 3) ?? [];
@@ -901,7 +903,7 @@ export function buildMorningRead(
     drivers: sunday ? [] : driversFor(model),
     afterClose: !sunday && afterClose,
     sunday,
-    moveLabel: when === "friday" ? "Friday" : "Today",
+    moveLabel: when === "friday" ? lastSessionName() : "Today",
   };
 }
 

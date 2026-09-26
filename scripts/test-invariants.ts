@@ -3425,7 +3425,8 @@ run("inbox letters share one letterhead", () => {
   });
   assert.match(nudge, /Your portfolio is still empty/);
   assert.match(nudge, /Hi Martin\./);
-  assert.match(nudge, /Open Upside Lab/);
+  // The button says what the one step is.
+  assert.match(nudge, /Add what you own/);
   assert.doesNotMatch(nudge, /\u2014/);
   const send = readFileSync("src/lib/send-note.ts", "utf8");
   assert.match(send, /fallbackNoteHtml/);
@@ -3636,9 +3637,14 @@ run("Worth noticing names the two groups in plain English", () => {
     overview,
     /<p className="text-base font-medium leading-relaxed text-foreground">\s*\{morning\.sentence\}/
   );
+  // The page title's own JSX line, not the first string that happens to
+  // mention the label (the day words in the body read it too), up to the
+  // panels under it.
+  const headerStart = overview.search(/\n\s+\{morning\.moveLabel\}\n/);
+  assert.ok(headerStart > 0, "the page title prints the day label");
   const header = overview.slice(
-    overview.indexOf("{morning.moveLabel}"),
-    overview.indexOf("<Scoreboard className=\"overview-fade\">")
+    headerStart,
+    overview.indexOf('className={cn("overview-fade", PANEL_STACK)}', headerStart)
   );
   assert.doesNotMatch(header, /morning\.sentence/);
 });
@@ -7366,7 +7372,7 @@ run("empty books skip holdings emails and get one week-later nudge", () => {
   const text = emptyBookNudgeText("Martin Aasa");
   assert.equal(emptyBookNudgeSubject(), "Your portfolio is still empty");
   assert.match(text, /Hi Martin\./);
-  assert.match(text, /add what you already own/i);
+  assert.match(text, /add what you own/i);
   assert.match(text, /upsidelab\.app/);
   assert.match(text, /one-time note/);
   assert.doesNotMatch(text, /\u2014/);

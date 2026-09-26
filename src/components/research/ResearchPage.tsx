@@ -25,6 +25,7 @@ import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { FORECAST_YEARS } from "@/lib/forecast";
 import { NO_VALUE, cashtag } from "@/lib/format";
 import { PRODUCT_NAME, SUNDAY_EMAIL_LINE } from "@/lib/product";
+import { companyName } from "@/lib/company-names";
 import {
   plainCompanyName,
   researchLede,
@@ -399,9 +400,19 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
               <Link
                 key={t}
                 href={researchHref(t)}
-                className="rounded-md border border-border px-3 py-1.5 font-mono text-sm tabular-nums text-muted-foreground transition hover:bg-hover hover:text-foreground"
+                className="inline-flex items-baseline gap-2 rounded-md border border-border px-3 py-1.5 text-sm text-foreground transition hover:bg-hover"
               >
-                {cashtag(t)}
+                {/* The same chip as the index: the name, then the ticker. */}
+                {companyName(t) ? (
+                  <>
+                    <span>{companyName(t)}</span>
+                    {companyName(t)!.toUpperCase() !== t ? (
+                      <span className="font-mono text-xs tabular-nums text-muted-foreground">{t}</span>
+                    ) : null}
+                  </>
+                ) : (
+                  <span className="font-mono tabular-nums text-muted-foreground">{cashtag(t)}</span>
+                )}
               </Link>
             ))}
             <Link
