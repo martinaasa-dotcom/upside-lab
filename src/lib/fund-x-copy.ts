@@ -73,7 +73,7 @@ function stretchLine(
   if (!stretch) return null;
   const move = moneyPct(stretch.dollar ?? null, stretch.pct ?? null);
   if (!move) return null;
-  const spy = finite(stretch.spyPct) ? ` · $SPY ${pct2(stretch.spyPct)}` : "";
+  const spy = finite(stretch.spyPct) ? ` · $QQQ ${pct2(stretch.spyPct)}` : "";
   return `${vsSpyMark(stretch.pct ?? null, stretch.spyPct ?? null)} ${label} ${move}${spy}`;
 }
 

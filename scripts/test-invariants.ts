@@ -1030,7 +1030,7 @@ run("fund report headlines number with digits, not spelled-out days", () => {
   );
 });
 
-run("Upside Fund X posts put P&L, ending value, and S&P on the same stretch", () => {
+run("Upside Fund X posts put P&L, ending value, and the benchmark on the same stretch", () => {
   const daily = composeDailyFundPost({
     serial: 3,
     daily: { dollar: 180.54, pct: 0.00361, spyPct: 0.004488 },
@@ -1050,9 +1050,9 @@ run("Upside Fund X posts put P&L, ending value, and S&P on the same stretch", ()
     ],
   });
   assert.match(daily, /^Day 3: held\n\n/);
-  assert.match(daily, /🔴 Day \+\$181 \(\+0\.36%\) · \$SPY \+0\.45%/);
-  assert.match(daily, /🟢 Wk \+\$1,240 \(\+2\.53%\) · \$SPY \+1\.10%/);
-  assert.match(daily, /🔴 Tot \+\$194 \(\+0\.39%\) · \$SPY \+0\.85%/);
+  assert.match(daily, /🔴 Day \+\$181 \(\+0\.36%\) · \$QQQ \+0\.45%/);
+  assert.match(daily, /🟢 Wk \+\$1,240 \(\+2\.53%\) · \$QQQ \+1\.10%/);
+  assert.match(daily, /🔴 Tot \+\$194 \(\+0\.39%\) · \$QQQ \+0\.85%/);
   assert.match(daily, /\n\n💼 \$50,194\n/);
   assert.match(daily, /\$NVDA \+3\.0% 🟢/);
   assert.match(daily, /\$AMD -2\.0% 🔴/);
@@ -1075,7 +1075,7 @@ run("Upside Fund X posts put P&L, ending value, and S&P on the same stretch", ()
   });
   assert.match(firstDay, /^Day 1: bought nvda/);
   assert.match(firstDay, /🟢 Day \$0 \(0\.00%\)/);
-  assert.doesNotMatch(firstDay, /\$SPY/);
+  assert.doesNotMatch(firstDay, /\$QQQ/);
   assert.ok(firstDay.length <= 280);
 
   const traded = composeDailyFundPost({
@@ -1103,7 +1103,7 @@ run("Upside Fund X posts put P&L, ending value, and S&P on the same stretch", ()
     actions: [],
   });
   assert.match(weekly, /^Week 1: held/);
-  assert.match(weekly, /🔴 Wk \+\$194 \(\+0\.39%\) · \$SPY \+0\.70%/);
+  assert.match(weekly, /🔴 Wk \+\$194 \(\+0\.39%\) · \$QQQ \+0\.70%/);
   assert.ok(weekly.length <= 280);
 });
 

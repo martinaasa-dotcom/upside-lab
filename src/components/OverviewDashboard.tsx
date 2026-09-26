@@ -4,6 +4,7 @@ import { LiveFigure } from "@/components/ui/LiveFigure";
 import { TermTip } from "@/components/ui/TermTip";
 import { BelowFold } from "@/components/BelowFold";
 import { HomeWorld } from "@/components/HomeWorld";
+import { FundTradeCard } from "@/components/FundTradeCard";
 import { CashAlertCard } from "@/components/mobile/CashAlertCard";
 import { HomeAlertList } from "@/components/HomeAlertList";
 import { WatchlistStrip } from "@/components/WatchlistStrip";
@@ -1597,6 +1598,10 @@ export const OverviewDashboard = memo(function OverviewDashboard({
         morning={morning}
         onOpenPulse={onOpenPulse}
       />
+
+      <WidgetErrorBoundary name="Upside Fund trade">
+        <FundTradeCard />
+      </WidgetErrorBoundary>
 
       {marketReading}
 

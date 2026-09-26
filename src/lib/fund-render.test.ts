@@ -181,10 +181,12 @@ describe("the Fund room renders and says what it means", () => {
         createElement(WhatThisIs as never, { decisions: 42, startedOn: "2026-03-01" } as never)
       )
     );
-    expect(text).toMatch(/not a person/);
+    // The trades are rules now, so the room says so before anything else.
+    expect(text).toMatch(/Written rules trade it/);
     expect(text).toMatch(/pretend/);
     expect(text).toMatch(/Nothing is edited/);
-    expect(text).toMatch(/42 decisions have been written down/);
+    expect(text).toMatch(/42 days have been written down/);
+    expect(text).toMatch(/Buy a leader's dip/);
   });
 
   it("draws a day's report and a week's recap without swallowing their words", () => {

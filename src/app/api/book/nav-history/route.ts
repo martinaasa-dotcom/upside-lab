@@ -191,10 +191,11 @@ async function handlePOST(req: Request) {
   if (!assumed) {
     let spyPoints: NavPoint[] | undefined;
     if (body.includeSpy) {
-      const spyCloses = await fetchYtdDailyCloses(["SPY"]);
+      const bench = body.benchmark ?? "SPY";
+      const spyCloses = await fetchYtdDailyCloses([bench]);
       const spyPath = reconstructAssumedNav(
         0,
-        [{ ticker: "SPY", shares: 1 }],
+        [{ ticker: bench, shares: 1 }],
         spyCloses
       );
       if (spyPath.length >= 2) spyPoints = spyPath;
@@ -256,10 +257,11 @@ async function handlePOST(req: Request) {
 
   let spyPoints: NavPoint[] | undefined;
   if (body.includeSpy) {
-    const spyCloses = await fetchYtdDailyCloses(["SPY"]);
+    const bench = body.benchmark ?? "SPY";
+    const spyCloses = await fetchYtdDailyCloses([bench]);
     const spyPath = reconstructAssumedNav(
       0,
-      [{ ticker: "SPY", shares: 1 }],
+      [{ ticker: bench, shares: 1 }],
       spyCloses
     );
     if (spyPath.length >= 2) spyPoints = spyPath;

@@ -598,6 +598,8 @@ export const navHistoryPostSchema = z.looseObject({
     .max(50)
     .optional(),
   includeSpy: z.boolean().optional(),
+  /** Which fund the comparison line follows. Upside Fund is measured against QQQ. */
+  benchmark: z.enum(["SPY", "QQQ"]).optional(),
   portfolioIds: z.array(z.string().max(128)).max(50).optional(),
 });
 

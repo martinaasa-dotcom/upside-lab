@@ -7,14 +7,11 @@ import {
   MARGUS_FUND_HOLDING_COLUMNS,
   PORTFELL_TABLES,
 } from "@/lib/supabase/tables";
-import { fetchQuotesWithFallback } from "@/lib/market/quotes";
 import {
   lastCompletedUsSessionKey,
-  pinQuotesToSessionClose,
   tradingDaysBetween,
   usWeekMondayKey,
 } from "@/lib/market/session";
-import { fetchFearGreedIndex } from "@/lib/market/fear-greed-fetch";
 import { logEvent } from "@/lib/telemetry";
 import {
   STRUCTURED_PROVIDER_OPTIONS,
@@ -23,18 +20,33 @@ import {
 } from "@/lib/ai/model";
 import { humanizeMargusText, humanizeMargusTree } from "@/lib/ai/humanize-copy";
 import {
-  buildFundSystemPrompt,
-  buildFundUserPrompt,
+  buildFundNarrativeSystemPrompt,
+  buildFundNarrativeUserPrompt,
   buildWeeklyRecapSystemPrompt,
   buildWeeklyRecapUserPrompt,
-  fundDecisionSchema,
+  fallbackNarrative,
+  fundNarrativeSchema,
   weeklyRecapSchema,
   type FundAction,
   type FundHolding,
   type PricedHolding,
 } from "@/lib/margus-fund";
-import { sanitizeFundWatchlist } from "@/lib/fund-watchlist";
-import { stripReportSerialPrefix } from "@/lib/fund-copy";
+import {
+  FUND_BENCHMARK,
+  FUND_RULES,
+  FUND_UNIVERSE,
+  marketIsUp,
+  planTrades,
+} from "@/lib/fund-strategy";
+import {
+  closesThrough,
+  exitPlanFor,
+  holdLine,
+  positionsFromHoldings,
+  readsFor,
+  watchlistFrom,
+} from "@/lib/fund-run";
+import { fetchDailyCloseHistory } from "@/lib/market/daily-history";
 import {
   composeDailyFundPost,
   composeWeeklyFundPost,
@@ -56,64 +68,6 @@ function daysBetween(fromIso: string, toIso: string): number {
   const from = new Date(`${fromIso}T00:00:00Z`).getTime();
   const to = new Date(`${toIso}T00:00:00Z`).getTime();
   return Math.max(0, Math.round((to - from) / 86_400_000));
-}
-
-const fundIntentSchema = fundDecisionSchema.pick({
-  watchlist: true,
-  cashPurpose: true,
-});
-
-/** When today's report already exists, still fill watchlist/cash purpose
- * once so the public page isn't blank until tomorrow's trade run. */
-async function maybeFillFundIntent(
-  supabase: SupabaseClient,
-  fundRow: {
-    cash: number;
-    watchlist?: unknown;
-    cash_purpose?: string | null;
-  },
-  holdings: FundHolding[]
-): Promise<boolean> {
-  const watchlistEmpty =
-    !Array.isArray(fundRow.watchlist) || fundRow.watchlist.length === 0;
-  const purposeEmpty = !String(fundRow.cash_purpose ?? "").trim();
-  if (!watchlistEmpty && !purposeEmpty) return false;
-
-  const chain = buildAdvisorProviderChain({ reasoning: true });
-  if (chain.length === 0) return false;
-
-  const held = holdings.map((h) => h.ticker);
-    const { object: raw } = await withAdvisorFallback(
-    chain,
-    (model, _id, signal) =>
-      generateObject({
-        model,
-        schema: fundIntentSchema,
-        providerOptions: STRUCTURED_PROVIDER_OPTIONS,
-        abortSignal: signal,
-        system: buildFundSystemPrompt(),
-        prompt: `Today's trades already happened. Do not open, add, trim, or exit anything. Fill watchlist (1-4 names you do not hold, each with a concrete wait) and cashPurpose (one sentence on why undeployed cash is sitting).
-
-Cash: $${Math.round(Number(fundRow.cash)).toLocaleString("en-US")}
-Open holdings: ${held.join(", ") || "none"}`,
-      }),
-    { deadlineAt: Date.now() + 60_000 }
-  );
-  const intent = humanizeMargusTree(raw);
-  const watchlist = sanitizeFundWatchlist(intent.watchlist, held).map((w) => ({
-    ticker: w.ticker,
-    waitFor: humanizeMargusText(w.waitFor),
-  }));
-  const cashPurpose = humanizeMargusText(intent.cashPurpose ?? "").trim();
-  await supabase
-    .from(PORTFELL_TABLES.margusFund)
-    .update({
-      watchlist,
-      cash_purpose: cashPurpose || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", "main");
-  return true;
 }
 
 function isFridayKey(key: string): boolean {
@@ -378,41 +332,7 @@ async function handleGET(req: Request) {
       .eq("report_date", today)
       .maybeSingle();
     if (existingReport) {
-      try {
-        const { data: fundRow } = await supabase
-          .from(PORTFELL_TABLES.margusFund)
-          .select(MARGUS_FUND_COLUMNS)
-          .eq("id", "main")
-          .maybeSingle();
-        const { data: holdingRows } = await supabase
-          .from(PORTFELL_TABLES.margusFundHoldings)
-          .select(MARGUS_FUND_HOLDING_COLUMNS)
-          .eq("status", "open");
-        const filled = fundRow
-          ? await maybeFillFundIntent(
-              supabase,
-              fundRow,
-              (holdingRows ?? []) as FundHolding[]
-            )
-          : false;
-        return NextResponse.json({
-          ok: true,
-          skipped: "already ran today",
-          filledIntent: filled,
-        });
-      } catch (err) {
-        await logError({
-          source: "server",
-          message: `Upside Portfolio intent fill failed: ${err instanceof Error ? err.message : String(err)}`,
-          stack: err instanceof Error ? err.stack : undefined,
-          path: "/api/cron/margus-fund",
-        });
-        return NextResponse.json({
-          ok: true,
-          skipped: "already ran today",
-          filledIntent: false,
-        });
-      }
+      return NextResponse.json({ ok: true, skipped: "already ran today" });
     }
 
     /*
@@ -507,9 +427,6 @@ async function handleGET(req: Request) {
       portfolio_value: number;
       spy_price: number | null;
     }[];
-    const recentHeadlines = reportHistory
-      .slice(0, 5)
-      .map((r) => `${r.report_date}: ${stripReportSerialPrefix(r.headline)}`);
     const previousValue = reportHistory[0]?.portfolio_value ?? null;
     const previousSpy = reportHistory[0]?.spy_price ?? null;
     const { data: firstReportRow } = await supabase
@@ -522,268 +439,265 @@ async function handleGET(req: Request) {
       (firstReportRow as { spy_price?: number | null } | null)?.spy_price ??
       null;
 
-    const heldTickers = holdings.map((h) => h.ticker);
-    const { quotes: liveQuotes } = await fetchQuotesWithFallback([
-      ...heldTickers,
-      "SPY",
-    ]);
-    const quotes = pinQuotesToSessionClose(liveQuotes, today);
-    const fearGreed = await fetchFearGreedIndex().catch(() => null);
+    /*
+      The trades are the rules', not the model's.
 
-    let cash = Number(fundRow.cash);
-    const pricedHoldings: PricedHolding[] = holdings.map((h) => {
-      const q = quotes[h.ticker];
-      const price = q?.price ?? h.cost_basis;
-      const marketValue = price * h.shares;
-      const costValue = h.cost_basis * h.shares;
-      return {
-        ...h,
-        price,
-        marketValue,
-        unrealizedPnl: marketValue - costValue,
-        unrealizedPnlPct: costValue > 0 ? (marketValue - costValue) / costValue : 0,
-        daysHeld: daysBetween(h.entry_date, today),
-      };
-    });
-    const totalValueBefore =
-      cash + pricedHoldings.reduce((s, h) => s + h.marketValue, 0);
-
-    const spyQuote = quotes.SPY;
-    const spyMovePct = spyQuote ? spyQuote.changePercent : null;
+      This used to hand the model today's prices and a prompt telling it
+      most days should have no trades, and let it decide. It made almost
+      none. Now the rules in `fund-strategy.ts` read about a year and a half
+      of each company's closes and decide, the same arithmetic every day,
+      and the model is only asked to write about what they did.
+    */
+    const universe = [
+      ...new Set([
+        FUND_BENCHMARK,
+        ...FUND_UNIVERSE,
+        ...holdings.map((h) => h.ticker.toUpperCase()),
+      ]),
+    ];
+    const history = await fetchDailyCloseHistory(universe);
+    const benchSeries = history[FUND_BENCHMARK];
+    if (!benchSeries || Object.keys(history).length < universe.length / 2) {
+      // Too little of the market answered to trade on. Throwing hands the
+      // day back to the backlog, so a later run retries it.
+      throw new Error(
+        `Upside Fund: price history answered for ${Object.keys(history).length} of ${universe.length} names`
+      );
+    }
+    const { reads, bench } = readsFor(history, today);
+    const benchThrough = closesThrough(benchSeries, today).closes;
+    const benchPrice = benchThrough.at(-1) ?? null;
+    const benchPrev = benchThrough.at(-2) ?? null;
+    const spyMovePct =
+      benchPrice != null && benchPrev ? benchPrice / benchPrev - 1 : null;
+    // The benchmark, which is QQQ since the Fund started again. The report
+    // column is still called `spy_price`; see the reset migration.
+    const spyQuote = benchPrice != null ? { price: benchPrice } : null;
     const spyChangePct =
-      spyQuote?.price && previousSpy && previousSpy > 0
-        ? (spyQuote.price - previousSpy) / previousSpy
+      benchPrice != null && previousSpy && previousSpy > 0
+        ? (benchPrice - previousSpy) / previousSpy
         : null;
 
-    const chain = buildAdvisorProviderChain({ reasoning: true });
-    if (chain.length === 0) {
-      throw new Error("No LLM provider configured for Upside Portfolio");
-    }
-
-    const { object: rawDecision } = await withAdvisorFallback(
-      chain,
-      (model, _id, signal) =>
-        generateObject({
-          model,
-          schema: fundDecisionSchema,
-          providerOptions: STRUCTURED_PROVIDER_OPTIONS,
-          abortSignal: signal,
-          system: buildFundSystemPrompt(),
-          prompt: buildFundUserPrompt({
-            today,
-            cash,
-            holdings: pricedHoldings,
-            totalValue: totalValueBefore,
-            spyMovePct,
-            fearGreed,
-            recentHeadlines,
-            currentWatchlist: sanitizeFundWatchlist(
-              Array.isArray(fundRow.watchlist) ? fundRow.watchlist : [],
-              holdings.map((h) => h.ticker)
-            ),
-            currentCashPurpose:
-              typeof fundRow.cash_purpose === "string"
-                ? fundRow.cash_purpose
-                : null,
-          }),
-        }),
-      { deadlineAt: Date.now() + 240_000 }
-    );
-    const decision = humanizeMargusTree(rawDecision);
-
-    const actions: FundAction[] = [];
-    // Running share count per still-open holding, updated as each decision
-    // is applied — pricedHoldings itself stays a frozen "start of day"
-    // snapshot, so the final portfolio value has to come from this map,
-    // not from re-summing the (now stale) pricedHoldings.marketValue.
-    const currentShares = new Map<string, number>(
-      pricedHoldings.map((h) => [h.id, h.shares])
-    );
-
-    for (const dec of decision.holdingDecisions) {
-      const holding = pricedHoldings.find(
-        (h) => h.ticker.toUpperCase() === dec.ticker.toUpperCase()
+    const { data: tradeRows } = await supabase
+      .from(PORTFELL_TABLES.margusFundReports)
+      .select("report_date, actions")
+      .order("report_date", { ascending: false })
+      .limit(300);
+    const pastTrades = (tradeRows ?? []) as {
+      report_date: string;
+      actions: FundAction[];
+    }[];
+    const trimmedSince = (ticker: string, entryDate: string) =>
+      pastTrades.some(
+        (r) =>
+          r.report_date >= entryDate &&
+          (r.actions ?? []).some(
+            (a) => a.ticker === ticker && a.rule === "take-half"
+          )
       );
-      if (!holding) continue; // hallucinated ticker not in book -- skip defensively
 
-      if (dec.action === "hold") {
-        actions.push({ type: "hold", ticker: holding.ticker, reasoning: dec.reasoning });
+    let cash = Number(fundRow.cash);
+    const { positions, parkedShares } = positionsFromHoldings({
+      holdings,
+      history,
+      day: today,
+      trimmedSince,
+    });
+    const priceOf = (ticker: string, fallback: number) =>
+      ticker === FUND_BENCHMARK
+        ? (benchPrice ?? fallback)
+        : (reads[ticker]?.price ?? fallback);
+
+    const orders = planTrades({
+      cash,
+      parkedShares,
+      positions,
+      reads,
+      bench,
+    });
+
+    // Apply every order to the stored book, in the order the rules gave.
+    const rowFor = new Map(
+      holdings.map((h) => [h.ticker.toUpperCase(), { ...h, shares: Number(h.shares) }])
+    );
+    const cost = FUND_RULES.costPerTrade;
+    const actions: FundAction[] = [];
+    const now = () => new Date().toISOString();
+    for (const o of orders) {
+      const row = rowFor.get(o.ticker);
+      if (o.side === "sell") {
+        if (!row) continue;
+        const sell = Math.min(o.shares, row.shares);
+        const proceeds = sell * o.price * (1 - cost);
+        cash += proceeds;
+        const left = row.shares - sell;
+        if (left <= 1e-6) {
+          await supabase
+            .from(PORTFELL_TABLES.margusFundHoldings)
+            .update({
+              status: "closed",
+              closed_at: today,
+              exit_reasoning: o.why,
+              realized_pnl: proceeds - sell * Number(row.cost_basis),
+              updated_at: now(),
+            })
+            .eq("id", row.id);
+          rowFor.delete(o.ticker);
+        } else {
+          await supabase
+            .from(PORTFELL_TABLES.margusFundHoldings)
+            .update({ shares: left, updated_at: now() })
+            .eq("id", row.id);
+          rowFor.set(o.ticker, { ...row, shares: left });
+        }
+        actions.push({
+          type: left <= 1e-6 ? "exit" : "trim",
+          ticker: o.ticker,
+          reasoning: o.why,
+          rule: o.rule,
+          shares: sell,
+          price: o.price,
+          dollarAmount: proceeds,
+        });
         continue;
       }
-
-      if (dec.action === "exit") {
-        const proceeds = holding.shares * holding.price;
-        cash += proceeds;
-        const realizedPnl = proceeds - holding.shares * holding.cost_basis;
+      const spend = Math.min(o.shares * o.price / (1 - cost), cash);
+      if (spend <= 1) continue;
+      const shares = (spend * (1 - cost)) / o.price;
+      cash -= spend;
+      if (row) {
+        const total = row.shares + shares;
+        const basis = (Number(row.cost_basis) * row.shares + shares * o.price) / total;
         await supabase
           .from(PORTFELL_TABLES.margusFundHoldings)
-          .update({
-            status: "closed",
-            closed_at: today,
-            exit_reasoning: dec.reasoning,
-            realized_pnl: realizedPnl,
-            updated_at: new Date().toISOString(),
+          .update({ shares: total, cost_basis: basis, updated_at: now() })
+          .eq("id", row.id);
+        rowFor.set(o.ticker, { ...row, shares: total, cost_basis: basis });
+      } else {
+        const read = reads[o.ticker];
+        const parkedRow = o.ticker === FUND_BENCHMARK;
+        const { data: inserted, error: insertErr } = await supabase
+          .from(PORTFELL_TABLES.margusFundHoldings)
+          .insert({
+            ticker: o.ticker,
+            shares,
+            cost_basis: o.price,
+            entry_date: today,
+            thesis: o.why,
+            target_timeframe: parkedRow ? null : "1 to 12 months",
+            exit_plan: parkedRow || !read ? null : exitPlanFor(read),
+            status: "open",
           })
-          .eq("id", holding.id);
-        currentShares.delete(holding.id);
-        actions.push({
-          type: "exit",
-          ticker: holding.ticker,
-          reasoning: dec.reasoning,
-          shares: holding.shares,
-          price: holding.price,
-          dollarAmount: proceeds,
-        });
-        continue;
-      }
-
-      const fraction = Math.min(1, Math.max(0, dec.fraction ?? 0));
-      if (fraction <= 0) {
-        actions.push({ type: "hold", ticker: holding.ticker, reasoning: dec.reasoning });
-        continue;
-      }
-
-      if (dec.action === "trim") {
-        const sellShares = Math.min(holding.shares, holding.shares * fraction);
-        const proceeds = sellShares * holding.price;
-        const newShares = holding.shares - sellShares;
-        cash += proceeds;
-        currentShares.set(holding.id, newShares);
-        await supabase
-          .from(PORTFELL_TABLES.margusFundHoldings)
-          .update({ shares: newShares, updated_at: new Date().toISOString() })
-          .eq("id", holding.id);
-        actions.push({
-          type: "trim",
-          ticker: holding.ticker,
-          reasoning: dec.reasoning,
-          shares: sellShares,
-          price: holding.price,
-          dollarAmount: proceeds,
-        });
-      } else if (dec.action === "add") {
-        const desiredDollars = holding.marketValue * fraction;
-        const affordable = Math.min(desiredDollars, Math.max(0, cash - 100));
-        if (affordable < 50) {
-          actions.push({
-            type: "hold",
-            ticker: holding.ticker,
-            reasoning: `${dec.reasoning} (wanted to add, but not enough free cash today)`,
+          .select(MARGUS_FUND_HOLDING_COLUMNS)
+          .single();
+        if (insertErr || !inserted) {
+          await logError({
+            source: "server",
+            message: `Upside Fund: failed to open ${o.ticker}: ${insertErr?.message ?? "no row"}`,
+            path: "/api/cron/margus-fund",
           });
+          cash += spend;
           continue;
         }
-        const buyShares = affordable / holding.price;
-        const newShares = holding.shares + buyShares;
-        const newCostBasis =
-          (holding.cost_basis * holding.shares + affordable) / newShares;
-        cash -= affordable;
-        currentShares.set(holding.id, newShares);
-        await supabase
-          .from(PORTFELL_TABLES.margusFundHoldings)
-          .update({
-            shares: newShares,
-            cost_basis: newCostBasis,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", holding.id);
-        actions.push({
-          type: "add",
-          ticker: holding.ticker,
-          reasoning: dec.reasoning,
-          shares: buyShares,
-          price: holding.price,
-          dollarAmount: affordable,
-        });
+        const ins = inserted as unknown as FundHolding;
+        rowFor.set(o.ticker, { ...ins, shares: Number(ins.shares) });
       }
-    }
-
-    let newPositionsValue = 0;
-    for (const idea of decision.newPositions) {
-      const ticker = idea.ticker.trim().toUpperCase();
-      if (!ticker) continue;
-      // Not already priced above (it's a new name) -- fetch it specifically.
-      const { quotes: ideaQuotes, missing: ideaMissing } =
-        await fetchQuotesWithFallback([ticker]);
-      const q = pinQuotesToSessionClose(ideaQuotes, today)[ticker];
-      if (!q || ideaMissing.includes(ticker)) {
-        actions.push({
-          type: "hold",
-          ticker,
-          reasoning: `Wanted to open ${ticker} (${idea.thesis}) but couldn't get a reliable live price today -- skipping rather than trade on a bad quote.`,
-        });
-        continue;
-      }
-      const affordable = Math.min(idea.allocationDollars, Math.max(0, cash - 100));
-      if (affordable < 100) {
-        actions.push({
-          type: "hold",
-          ticker,
-          reasoning: `Wanted to open ${ticker} but not enough free cash today after other actions.`,
-        });
-        continue;
-      }
-      const shares = affordable / q.price;
-      const { error: insertErr } = await supabase
-        .from(PORTFELL_TABLES.margusFundHoldings)
-        .insert({
-          ticker,
-          shares,
-          cost_basis: q.price,
-          entry_date: today,
-          thesis: idea.thesis,
-          target_timeframe: idea.targetTimeframe,
-          exit_plan: idea.exitPlan,
-          status: "open",
-        });
-      if (insertErr) {
-        await logError({
-          source: "server",
-          message: `Upside Portfolio: failed to insert new holding ${ticker}: ${insertErr.message}`,
-          path: "/api/cron/margus-fund",
-        });
-        continue;
-      }
-      cash -= affordable;
-      newPositionsValue += affordable;
       actions.push({
-        type: "buy",
-        ticker,
-        reasoning: idea.thesis,
+        type: row ? "add" : "buy",
+        ticker: o.ticker,
+        reasoning: o.why,
+        rule: o.rule,
         shares,
-        price: q.price,
-        dollarAmount: affordable,
+        price: o.price,
+        dollarAmount: spend,
       });
     }
 
-    const finalHoldingsValue = pricedHoldings.reduce((sum, h) => {
-      const shares = currentShares.get(h.id);
-      if (shares === undefined) return sum; // exited today
-      return sum + shares * h.price;
-    }, 0);
-    const totalValueAfter = cash + finalHoldingsValue + newPositionsValue;
+    // Everything the rules left alone gets one checkable line.
+    const traded = new Set(orders.map((o) => o.ticker));
+    for (const pos of positions) {
+      if (traded.has(pos.ticker) || !rowFor.has(pos.ticker)) continue;
+      const read = reads[pos.ticker];
+      actions.push({
+        type: "hold",
+        ticker: pos.ticker,
+        reasoning: read ? holdLine(pos, read) : "No price today, so nothing was traded.",
+      });
+    }
 
-    const stillHeld = [
-      ...pricedHoldings
-        .filter((h) => currentShares.has(h.id))
-        .map((h) => h.ticker),
-      ...actions.filter((a) => a.type === "buy").map((a) => a.ticker),
-    ];
-    const watchlist = sanitizeFundWatchlist(
-      decision.watchlist,
-      stillHeld
-    ).map((w) => ({
-      ticker: w.ticker,
-      waitFor: humanizeMargusText(w.waitFor),
-    }));
-    const cashPurpose = humanizeMargusText(decision.cashPurpose ?? "").trim();
+    const openRows = [...rowFor.values()];
+    const totalValueAfter =
+      cash +
+      openRows.reduce(
+        (s, r) => s + r.shares * priceOf(r.ticker.toUpperCase(), Number(r.cost_basis)),
+        0
+      );
+    const pricedHoldings: PricedHolding[] = openRows
+      .filter((r) => r.ticker.toUpperCase() !== FUND_BENCHMARK)
+      .map((r) => {
+        const price = priceOf(r.ticker.toUpperCase(), Number(r.cost_basis));
+        const marketValue = price * r.shares;
+        const costValue = Number(r.cost_basis) * r.shares;
+        return {
+          ...r,
+          price,
+          marketValue,
+          unrealizedPnl: marketValue - costValue,
+          unrealizedPnlPct: costValue > 0 ? marketValue / costValue - 1 : 0,
+          daysHeld: daysBetween(r.entry_date, today),
+        };
+      });
+
+    const companyTrades = actions
+      .filter((a) => a.type !== "hold" && a.ticker !== FUND_BENCHMARK)
+      .map((a) => ({
+        side: a.type === "buy" || a.type === "add" ? "buy" : "sell",
+        ticker: a.ticker,
+        why: a.reasoning,
+      }));
+    const narrativeInput = {
+      today,
+      benchMovePct: spyMovePct,
+      riskOn: marketIsUp(bench),
+      trades: companyTrades,
+      holdingCount: pricedHoldings.length,
+    };
+    let decision = fallbackNarrative(narrativeInput);
+    const chain = buildAdvisorProviderChain({ reasoning: true });
+    if (chain.length > 0) {
+      try {
+        const { object } = await withAdvisorFallback(
+          chain,
+          (model, _id, signal) =>
+            generateObject({
+              model,
+              schema: fundNarrativeSchema,
+              providerOptions: STRUCTURED_PROVIDER_OPTIONS,
+              abortSignal: signal,
+              system: buildFundNarrativeSystemPrompt(),
+              prompt: buildFundNarrativeUserPrompt(narrativeInput),
+            }),
+          { deadlineAt: Date.now() + 90_000 }
+        );
+        decision = humanizeMargusTree(object);
+      } catch {
+        // The trades stand; only the words fall back.
+      }
+    }
+
+    const stillHeld = new Set(openRows.map((r) => r.ticker.toUpperCase()));
+    const watchlist = watchlistFrom(reads, stillHeld);
+    const cashPurpose = marketIsUp(bench)
+      ? "Money waiting for the next setup sits in the Nasdaq 100 rather than in cash."
+      : "The Nasdaq 100 is under its 200-day average, so money not in companies waits in cash.";
 
     await supabase
       .from(PORTFELL_TABLES.margusFund)
       .update({
         cash,
         watchlist,
-        cash_purpose: cashPurpose || null,
-        updated_at: new Date().toISOString(),
+        cash_purpose: cashPurpose,
+        updated_at: now(),
       })
       .eq("id", "main");
 
@@ -840,10 +754,15 @@ async function handleGET(req: Request) {
       spyQuote?.price && inceptionSpy && inceptionSpy > 0
         ? (spyQuote.price - inceptionSpy) / inceptionSpy
         : null;
-    const movers = pricedHoldings.map((h) => ({
-      ticker: h.ticker,
-      changePct: liveQuotes[h.ticker]?.changePercent ?? null,
-    }));
+    const movers = pricedHoldings.map((h) => {
+      const c = history[h.ticker.toUpperCase()]
+        ? closesThrough(history[h.ticker.toUpperCase()]!, today).closes
+        : [];
+      return {
+        ticker: h.ticker,
+        changePct: c.length >= 2 ? c.at(-1)! / c.at(-2)! - 1 : null,
+      };
+    });
     const xCard = {
       daily: {
         dollar: dayChangeDollar,
@@ -914,7 +833,7 @@ async function handleGET(req: Request) {
       supabase,
       today,
       Number(fundRow.starting_capital),
-      pricedHoldings.filter((h) => currentShares.has(h.id)),
+      pricedHoldings,
       xCard
     );
 

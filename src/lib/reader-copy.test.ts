@@ -292,10 +292,7 @@ describe("copy reads as a person wrote it", () => {
     "names" to the model without ever writing a banned desk word, and a
     shared list makes each rule's honesty check fail on the other's entries.
   */
-  const NAMES_IN_PROMPTS = new Set([
-    "src/lib/margus-fund.ts",
-    "src/app/api/cron/margus-fund/route.ts",
-  ]);
+  const NAMES_IN_PROMPTS = new Set<string>([]);
 
   it("calls them companies, stocks or holdings, never names", () => {
     const bad = files
