@@ -4,23 +4,18 @@ import { NO_VALUE, barFillPct, cashtag, cn } from "@/lib/format";
 import { plainError } from "@/lib/plain-error";
 import {
   MONTH_NAMES,
-  MONTH_SHORT,
-  type ActionSignal,
-  type ActionStance,
   type CycleDayRow,
   type CycleMonthlyRow,
   type SeasonalityModel,
 } from "@/lib/market/seasonality";
 import {
-  NESTED_PAD,
   PANEL_STACK,
   Panel,
   PanelHeader,
   SPLIT_ACTIONS,
   SPLIT_COPY,
   SPLIT_ROW,
-  Score,
-  Scoreboard,
+  MicroLabel,
 } from "@/components/ui/Panel";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +27,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { isAbortError } from "@/lib/abort";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
 import { loadSeasonalityPaint, saveSeasonalityPaint } from "@/lib/paint-cache";
+import { StatStrip } from "@/components/ui/StatStrip";
 
 const DEFAULT_TICKERS = ["SPY", "^GSPC", "QQQ", "IWM", "DIA"];
 
@@ -64,12 +60,6 @@ function retWash(v: number): string {
   return "bg-accent/60";
 }
 
-function retTone(v: number): "up" | "down" | undefined {
-  if (v > 0.05) return "up";
-  if (v < -0.05) return "down";
-  return undefined;
-}
-
 /**
  * The list mixes two spellings of the same index and three funds nobody can
  * be expected to recognise by their letters, so each one says what it is and
@@ -92,18 +82,6 @@ function marketName(ticker: string): string {
  * thing the design system rules out for a card, and on the near-black
  * field a rose wash reads as an alarm about somebody's money.
  */
-function stanceStyles(stance: ActionStance): string {
-  if (stance === "deploy") return "card-sheen glass border-border border-l-2 border-l-gain";
-  if (stance === "raise_cash") return "card-sheen glass border-border border-l-2 border-l-loss";
-  return "card-sheen glass border-border";
-}
-
-function stanceLabel(stance: ActionStance): string {
-  if (stance === "deploy") return "A historically strong month";
-  if (stance === "raise_cash") return "A historically soft month";
-  return "Mixed, with no clear pattern";
-}
-
 function CycleMonthlyChart({
   rows,
   selectedMonth,
@@ -252,12 +230,6 @@ function CycleMonthlyTiles({
   );
 }
 
-function historyMedian(returns: number[]): number {
-  const s = [...returns].sort((a, b) => a - b);
-  const mid = Math.floor(s.length / 2);
-  return s.length % 2 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2;
-}
-
 function CycleHistoryBars({
   history,
   highlightYear,
@@ -346,46 +318,48 @@ function SelectedHistory({
 }) {
   const best = [...history].sort((a, b) => b.returnPct - a.returnPct)[0];
   const worst = [...history].sort((a, b) => a.returnPct - b.returnPct)[0];
-  const median =
-    history.length > 0 ? historyMedian(history.map((h) => h.returnPct)) : 0;
   const wins = history.filter((h) => h.returnPct > 0).length;
 
+  /*
+    One strip, not a heading, a sentence and four cards. The average, the
+    share of years up and the count were printed three times on this page
+    (in a callout card, here, and again in the cards), so they are said
+    once, here, beside the best and the worst year.
+  */
   return (
-    <div className="flex flex-col mt-4 gap-4">
-      <div>
-        <p className="text-sm font-medium text-muted-foreground">{heading}</p>
-        <p className={cn("mt-1 text-lg font-semibold tabular-nums", retText(avgPct))}>
-          {fmtPct(avgPct, digits)} average
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {Math.round(winRate)}% of years were up · {samples}{" "}
-          {samples === 1 ? "year" : "years"}
-        </p>
-      </div>
-
-      {history.length > 0 && best && worst ? (
-        <Scoreboard cols={4}>
-          <Score
-            label="Best"
-            value={fmtPct(best.returnPct)}
-            sub={String(best.year)}
-            tone={retTone(best.returnPct)}
-          />
-          <Score
-            label="Worst"
-            value={fmtPct(worst.returnPct)}
-            sub={String(worst.year)}
-            tone={retTone(worst.returnPct)}
-          />
-          <Score
-            label="Median"
-            value={fmtPct(median)}
-            tone={retTone(median)}
-          />
-          <Score label="Up years" value={`${wins} of ${history.length}`} />
-        </Scoreboard>
-      ) : null}
-
+    <div className="mt-6 flex flex-col gap-4">
+      <MicroLabel>{heading}</MicroLabel>
+      <StatStrip
+        items={[
+          {
+            label: "Average",
+            value: fmtPct(avgPct, digits),
+            sub: `${samples} ${samples === 1 ? "year" : "years"}`,
+            tone: retText(avgPct),
+          },
+          {
+            label: "Years up",
+            value: `${wins} of ${history.length}`,
+            sub: `${Math.round(winRate)}%`,
+          },
+          ...(best && worst
+            ? [
+                {
+                  label: "Best",
+                  value: fmtPct(best.returnPct),
+                  sub: String(best.year),
+                  tone: retText(best.returnPct),
+                },
+                {
+                  label: "Worst",
+                  value: fmtPct(worst.returnPct),
+                  sub: String(worst.year),
+                  tone: retText(worst.returnPct),
+                },
+              ]
+            : []),
+        ]}
+      />
       <CycleHistoryBars history={history} highlightYear={highlightYear} />
     </div>
   );
@@ -487,47 +461,6 @@ function DayOfMonthChart({
         The average move on that calendar day in {monthLabel}. Pick a day to
         see the years behind it.
       </p>
-    </div>
-  );
-}
-
-function ActionCards({ signals }: { signals: ActionSignal[] }) {
-  if (signals.length === 0) return null;
-  const s = signals[0]!;
-  return (
-    <div
-      className={cn(
-        SPLIT_ROW,
-        NESTED_PAD,
-        "rounded-xl border",
-        stanceStyles(s.stance)
-      )}
-    >
-      <div className={SPLIT_COPY}>
-        <p className="text-sm font-medium text-muted-foreground">
-          {stanceLabel(s.stance)}, going by the years behind it
-        </p>
-        <p className="mt-1.5 text-base font-semibold text-foreground">{s.headline}</p>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{s.detail}</p>
-      </div>
-      {typeof s.figurePct === "number" ? (
-        <div className={cn(SPLIT_ACTIONS, "sm:justify-end")}>
-          <div className="sm:text-right">
-          <p
-            className={cn(
-              "text-lg font-semibold tabular-nums",
-              retText(s.figurePct)
-            )}
-          >
-            {fmtPct(s.figurePct, 2)}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {s.winRate}% of years up · {s.samples}{" "}
-            {s.samples === 1 ? "year" : "years"}
-          </p>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -673,14 +606,12 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
                 * leads, and the sentence after it refuses to forecast.
                 */
               <p className="text-sm leading-relaxed text-muted-foreground">
-                {model.asOfYear} · {model.currentCycleLabel} year ·{" "}
-                {cashtag(model.ticker)} since {model.from.slice(0, 4)}. This
-                month is an average of{" "}
+                {cashtag(model.ticker)} since {model.from.slice(0, 4)}, earlier{" "}
+                {model.currentCycleLabel.toLowerCase()} years only
                 {thisMonthSamples != null
-                  ? `${thisMonthSamples} ${thisMonthSamples === 1 ? "year" : "years"}`
-                  : "the matching years"}
-                , the earlier {model.currentCycleLabel.toLowerCase()} years only.
-                That describes what happened, not what will.
+                  ? ` (${thisMonthSamples} ${thisMonthSamples === 1 ? "year" : "years"} for this month)`
+                  : ""}
+                . What happened, not what will.
               </p>
             ) : (
               <p className="text-sm leading-relaxed text-muted-foreground">
@@ -732,8 +663,6 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
 
       {model && (
         <>
-          <ActionCards signals={model.signals} />
-
           <Panel>
             <PanelHeader title="What this month has done before" />
             <div>
@@ -769,7 +698,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
           <Panel>
             <PanelHeader
               title="Daily rhythm within the month"
-              subtitle="One calendar day, averaged across the matching years. How many years that is sits under the chart."
+              subtitle="One calendar day, averaged across the same years."
             />
             <div>
               <div className="mb-4 flex items-center justify-between gap-2">
@@ -806,28 +735,6 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
                   <span className="hidden sm:inline">Next</span>
                   <ChevronRight data-icon="inline-end" />
                 </Button>
-              </div>
-              <div className="mb-4 grid grid-cols-4 gap-1.5 sm:grid-cols-6 md:grid-cols-12">
-                {MONTH_SHORT.map((label, idx) => {
-                  const m = idx + 1;
-                  return (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => goToMonth(m)}
-                      className={cn(
-                        "touch-target rounded-lg px-1 text-center text-sm font-medium transition md:min-h-0 md:py-1.5",
-                        viewMonth === m
-                          ? "bg-primary text-primary-foreground"
-                          : m === marketToday.month
-                            ? "text-foreground ring-1 ring-ring/40 hover:bg-hover"
-                            : "text-muted-foreground hover:bg-hover hover:text-foreground"
-                      )}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
               </div>
               <DayOfMonthChart
                 rows={dayRows}

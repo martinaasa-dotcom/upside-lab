@@ -55,7 +55,7 @@ import {
   Target,
   Zap,
 } from "lucide-react";
-import { Fragment, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, memo, type ReactNode } from "react";
+import { Fragment, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, memo } from "react";
 import { useTimeout } from "@/lib/use-timeout";
 import {
   MicroLabel,
@@ -83,6 +83,7 @@ import {
 } from "@/components/ui/native-select";
 import { ChartXRail, ChartYAxis } from "@/components/ui/ChartAxis";
 import { Button } from "@/components/ui/button";
+import { StatStrip } from "@/components/ui/StatStrip";
 
 type CurrencyCode = DisplayCurrency;
 
@@ -1561,32 +1562,31 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             between them, and the year growth takes over lives on the
             four-paths chart's own chip rather than in a card of its own.
           */}
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-border py-5 sm:grid-cols-4">
-            <StripStat
-              label={<TermTip term="compounding">Growth</TermTip>}
-              value={show(result.totalInterest)}
-              sub={
-                result.futureValue > 0
-                  ? `${percent(safeDiv(result.totalInterest, result.futureValue), 0)} of it`
-                  : undefined
-              }
-              tone="text-gain"
-            />
-            <StripStat label="You put in" value={show(result.totalDeposited)} />
-            <StripStat
-              label={<TermTip term="total-return">Total return</TermTip>}
-              value={`${(result.allTimeRoR * 100).toFixed(1)}%`}
-              tone="text-gain"
-            />
-            <StripStat
-              label="Doubles every"
-              value={
-                Number.isFinite(result.doubleYears)
+          <StatStrip
+            items={[
+              {
+                label: <TermTip term="compounding">Growth</TermTip>,
+                value: show(result.totalInterest),
+                sub:
+                  result.futureValue > 0
+                    ? `${percent(safeDiv(result.totalInterest, result.futureValue), 0)} of it`
+                    : undefined,
+                tone: "text-gain",
+              },
+              { label: "You put in", value: show(result.totalDeposited) },
+              {
+                label: <TermTip term="total-return">Total return</TermTip>,
+                value: `${(result.allTimeRoR * 100).toFixed(1)}%`,
+                tone: "text-gain",
+              },
+              {
+                label: "Doubles every",
+                value: Number.isFinite(result.doubleYears)
                   ? spanText(result.doubleYears, result.doubleMonths)
-                  : NO_VALUE
-              }
-            />
-          </dl>
+                  : NO_VALUE,
+              },
+            ]}
+          />
 
           <div>
             <MicroLabel>Where it comes from, year by year</MicroLabel>
@@ -1921,25 +1921,3 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
   );
 });
 
-/** One figure in the result strip: a label, the figure, an optional qualifier. */
-function StripStat({
-  label,
-  value,
-  sub,
-  tone = "text-foreground",
-}: {
-  label: ReactNode;
-  value: ReactNode;
-  sub?: string;
-  tone?: string;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <dt>
-        <MicroLabel>{label}</MicroLabel>
-      </dt>
-      <dd className={cn("font-mono text-xl font-semibold tabular-nums", tone)}>{value}</dd>
-      {sub ? <dd className="text-xs text-muted-foreground">{sub}</dd> : null}
-    </div>
-  );
-}
