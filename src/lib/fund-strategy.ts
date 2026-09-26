@@ -14,14 +14,14 @@
  * triggered it, and a reader can check each one against a chart.
  *
  * The strategy in one paragraph. Own companies that are leading the market
- * (in a long uptrend and ahead of the Nasdaq 100 over six months), and buy
+ * (in a long uptrend and ahead of the S&P 500 over six months), and buy
  * them when they have pulled back to a short-term low and just turned up.
  * Sell into strength when they are overbought, half first and the rest on
  * the second push. Cut anything that breaks its stop, loses its long-term
  * trend, or has gone nowhere for three months. Nothing is held past twelve
- * months. Money waiting for the next setup sits in the Nasdaq 100 itself
+ * months. Money waiting for the next setup sits in the S&P 500 itself
  * rather than in cash, so a quiet month tracks the benchmark rather than
- * falling behind it, and when the Nasdaq 100 itself is in a downtrend the
+ * falling behind it, and when the S&P 500 itself is in a downtrend the
  * Fund holds fewer, stronger names and keeps the rest in cash.
  *
  * Nothing here is advice, and nothing here knows the future: a rule that
@@ -31,7 +31,7 @@
 import { rsi, sma } from "@/lib/market/indicators";
 
 /** The benchmark, and where uninvested money waits. */
-export const FUND_BENCHMARK = "QQQ";
+export const FUND_BENCHMARK = "SPY";
 
 /**
  * Companies the Fund may own: the largest, most traded listings across
@@ -97,17 +97,24 @@ export const FUND_RULES = {
   /** The long trend counts as broken this far under the 200-day average. */
   trendBreakBelow: 0.97,
   /**
-   * A leader must be at least this far ahead of the Nasdaq 100 over the
-   * strength window. This is the rule that decided whether the Fund beat
-   * the benchmark at all: with no bar it matched QQQ over seven years and
-   * lost to it over 2024-2026, and every bar from 5% up beat it on both
-   * the years it was tuned on and the years it never saw. 20% is the
+   * A leader must be at least this far ahead of the S&P 500 over the
+   * strength window. It was tuned against the Nasdaq 100, where it was the
+   * rule that decided whether the Fund beat the benchmark at all: with no
+   * bar it lost to it over 2024-2026, and every bar from 5% up beat it on
+   * both the years it was tuned on and the years it never saw. 20% is the
    * middle of that plateau, not its best-looking edge.
+   *
+   * Re-run unchanged against the S&P 500 on 2026-09-26 (adjusted daily
+   * closes, this universe, trades at the close with the cost below), it
+   * returned 22.1% a year against the index's 15.6% over 2019-2023 and
+   * 26.5% against 21.1% over 2024-2026, so it was kept rather than retuned
+   * to whichever bar looked best on this benchmark. The universe is today's
+   * list, which flatters any backtest over companies that survived.
    */
   minStrength: 0.2,
   /** Sell the rest on a second overbought push, or keep riding the trail. */
   sellRestOnSecondPush: true,
-  /** In a Nasdaq downtrend at most this much of the fund is in companies. */
+  /** In a market downtrend at most this much of the fund is in companies. */
   riskOffExposure: 0.4,
   /** A trade costs this much each way, so the backtest is not free. */
   costPerTrade: 0.0005,
@@ -184,7 +191,7 @@ export function readTicker(
   };
 }
 
-/** Is the Nasdaq 100 itself in a long uptrend? */
+/** Is the S&P 500 itself in a long uptrend? */
 export function marketIsUp(bench: TickerRead | null): boolean {
   return bench == null ? true : bench.price > bench.sma200;
 }
@@ -256,7 +263,7 @@ export function entrySignal(
   if (!(read.strength > FUND_RULES.minStrength)) return null;
   if (!(read.rsiLow <= FUND_RULES.oversoldRsi)) return null;
   if (!(read.rsi > read.rsiPrev)) return null;
-  return `Above its 200-day average (${usd(read.sma200)}) and ${pct(read.strength)} ahead of the Nasdaq 100 over six months, it pulled back to an RSI of ${read.rsiLow.toFixed(0)} and turned up.`;
+  return `Above its 200-day average (${usd(read.sma200)}) and ${pct(read.strength)} ahead of the S&P 500 over six months, it pulled back to an RSI of ${read.rsiLow.toFixed(0)} and turned up.`;
 }
 
 /** Rank for choosing between qualifying names: leadership first, depth of dip second. */
@@ -395,7 +402,7 @@ export function planTrades(input: {
       if (sellParked > 0) {
         orders.push({
           side: "sell", ticker: FUND_BENCHMARK, shares: sellParked, price: benchPrice, rule: "unpark",
-          why: `Taking waiting money out of the Nasdaq 100 to pay for ${read.ticker}.`,
+          why: `Taking waiting money out of the S&P 500 to pay for ${read.ticker}.`,
         });
         parked -= sellParked;
         freeCash += sellParked * benchPrice * (1 - R.costPerTrade);
@@ -420,12 +427,12 @@ export function planTrades(input: {
       const shares = (freeCash * (1 - R.costPerTrade)) / benchPrice;
       orders.push({
         side: "buy", ticker: FUND_BENCHMARK, shares, price: benchPrice, rule: "park",
-        why: "Money waiting for the next setup goes into the Nasdaq 100 rather than sitting in cash.",
+        why: "Money waiting for the next setup goes into the S&P 500 rather than sitting in cash.",
       });
     } else if (!riskOn && parked > 0) {
       orders.push({
         side: "sell", ticker: FUND_BENCHMARK, shares: parked, price: benchPrice, rule: "unpark",
-        why: `The Nasdaq 100 closed under its 200-day average (${usd(input.bench!.sma200)}), so waiting money moves back to cash.`,
+        why: `The S&P 500 closed under its 200-day average (${usd(input.bench!.sma200)}), so waiting money moves back to cash.`,
       });
     }
   }

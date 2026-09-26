@@ -119,7 +119,7 @@ export function exitPlanFor(read: TickerRead): string {
 
 /**
  * The names closest to qualifying: leaders already in a long uptrend and
- * far enough ahead of the Nasdaq 100, waiting only for the pullback. What
+ * far enough ahead of the S&P 500, waiting only for the pullback. What
  * each is waiting for is a number, so a reader can watch for it too.
  */
 export function watchlistFrom(

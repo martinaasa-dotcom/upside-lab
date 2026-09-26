@@ -20,6 +20,9 @@ import {
 import { StatStrip } from "@/components/ui/StatStrip";
 import { DrawnSpark } from "@/components/ui/DrawnSpark";
 import { CountUp } from "@/components/ui/CountUp";
+import { LiveFigure } from "@/components/ui/LiveFigure";
+import { raceRead, raceTrack } from "@/lib/fund-race";
+import { isUsMarketDayOff, lastSessionName } from "@/lib/market-session";
 import { AllocationBar } from "@/components/ui/AllocationBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,6 +39,7 @@ import { isAbortError, isNetworkError } from "@/lib/abort";
 import { useNetworkResume } from "@/lib/use-network-resume";
 import {
   NO_VALUE,
+  barFillPct,
   cashtag,
   cn,
   currency,
@@ -124,12 +128,12 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
  * dividends those companies pay. The short form is for a table cell where
  * the long one will not fit; nothing prints the bare three letters alone.
  */
-const BENCHMARK_TICKER = "QQQ";
-const BENCHMARK_SHORT = "The Nasdaq 100 tracker";
+const BENCHMARK_TICKER = "SPY";
+const BENCHMARK_SHORT = "The S&P 500 tracker";
 /** Mid-sentence form. */
-const BENCHMARK_MID = "the Nasdaq 100 tracker";
+const BENCHMARK_MID = "the S&P 500 tracker";
 const BENCHMARK_NOTE =
-  "QQQ is one fund that holds the hundred largest companies on the Nasdaq exchange. It is the line this fund sets out to beat, and where its waiting money sits.";
+  "SPY is one fund that holds the five hundred largest US companies. It is the line this fund sets out to beat, and where its waiting money sits.";
 
 const BENCHMARK_STORAGE_KEY = "portfell-upside-portfolio-benchmark";
 const FEED_CHUNK = 7;
@@ -606,7 +610,7 @@ export function FundMetric({
   explain,
 }: {
   label: React.ReactNode;
-  value: string;
+  value: React.ReactNode;
   hint?: string;
   valueClassName?: string;
   /*
@@ -700,11 +704,14 @@ export function FundPosition({
   holding,
   price,
   spark,
+  share,
 }: {
   holding: HoldingRow;
   price: number | null;
   /** The quote's drawing of recent prices, when one came back. */
   spark?: number[] | null;
+  /** This company's share of the whole Fund, cash included. */
+  share?: number | null;
 }) {
   const priced = price != null && Number.isFinite(price) && price > 0;
   const pnlPct =
@@ -719,7 +726,7 @@ export function FundPosition({
   const holdFor = holding.target_timeframe?.trim();
   const tag = cashtag(holding.ticker);
   return (
-    <div className={cn(BOX, "flex flex-col gap-4", PANEL_PAD)}>
+    <div className={cn(BOX, "lift flex flex-col gap-4", PANEL_PAD)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Badge variant="secondary" className="chip-hang h-6 font-heading text-sm font-semibold">
@@ -742,6 +749,24 @@ export function FundPosition({
           {pnlPct == null ? NO_VALUE : signedPercent(pnlPct)}
         </Pill>
       </div>
+      {share != null && share > 0 ? (
+        /*
+          How much of the Fund this one company is, as a bar: the same
+          reading Home and the holdings table give a reader about their own
+          money, so the Fund is read in the same units.
+        */
+        <div className="flex items-center gap-3">
+          <span className="relative h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-foreground/10" aria-hidden>
+            <span
+              className="overview-bar absolute inset-y-0 left-0 rounded-full bg-primary/70"
+              style={{ width: `${barFillPct(share * 100, 1)}%` }}
+            />
+          </span>
+          <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+            {percent(share, 0)} of the Fund
+          </span>
+        </div>
+      ) : null}
       {/* The company's recent price, drawn in: the card's one moving part. */}
       <DrawnSpark
         points={spark}
@@ -760,7 +785,13 @@ export function FundPosition({
               Worth now
             </Explain>
           }
-          value={worthNow != null ? currency(worthNow, 0) : NO_VALUE}
+          value={
+            worthNow != null ? (
+              <LiveFigure value={worthNow}>{currency(worthNow, 0)}</LiveFigure>
+            ) : (
+              NO_VALUE
+            )
+          }
           hint={priced ? `${currency(price)} a share` : undefined}
         />
         <div className="text-right">
@@ -922,7 +953,7 @@ const FUND_RULE_STEPS = [
   {
     Icon: ArrowDownToLine,
     title: "Buy a leader's dip",
-    line: "A company beating the Nasdaq 100 pulls back and turns up.",
+    line: "A company beating the S&P 500 pulls back and turns up.",
     tone: "bg-[color-mix(in_oklch,var(--zone-cool)_18%,transparent)] text-[var(--zone-cool)]",
   },
   {
@@ -956,21 +987,8 @@ export function WhatThisIs({
           </span>
         }
       />
-      {/* The experiment is running, and says so: a live dot and the day
-          count, which rolls up on arrival like every figure in the app. */}
-      <div className="flex items-center gap-3">
-        <span className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-          <span aria-hidden className="live-ping relative size-2 rounded-full bg-primary" />
-          Trades every market day
-        </span>
-        {decisions > 0 ? (
-          <span className="font-mono text-xs tabular-nums text-muted-foreground">
-            Day <CountUp value={decisions} format={(n) => String(Math.round(n))} />
-          </span>
-        ) : null}
-      </div>
       <p className="text-base leading-relaxed text-foreground/85">
-        A pretend $100,000 that sets out to beat the Nasdaq 100. Written rules
+        A pretend $100,000 that sets out to beat the S&P 500. Written rules
         trade it on each day the market is open, and every trade is written
         down with the numbers behind it. Nothing is edited afterwards.
       </p>
@@ -1009,6 +1027,172 @@ export function WhatThisIs({
         {startedOn ? `, starting ${fmtDate(startedOn)}` : ""}. {ADVICE_DISCLAIMER_SHORT}{" "}
         It is a diary, not a list to copy.
       </p>
+    </Panel>
+  );
+}
+
+/**
+ * Where a label goes on the race track: centred over its mark, except near
+ * either end, where it is pinned to that end so it is never cut off. The
+ * mark itself always stays at its true position.
+ */
+function trackAnchor(x: number): React.CSSProperties {
+  if (x < 0.2) return { left: `${x * 100}%`, transform: "translateX(-12px)" };
+  if (x > 0.8) return { right: `${(1 - x) * 100}%`, transform: "translateX(12px)" };
+  return { left: `${x * 100}%`, transform: "translateX(-50%)" };
+}
+
+/**
+ * The race the Fund is running, drawn as a race: one track measured from
+ * the day it started, the index above the line and Margus below it, and
+ * the gap between them filled in. Both marks are the colours the chart
+ * further down uses for the same two runners, so the picture and the chart
+ * read as one story.
+ */
+function RaceTrack({
+  fundPct,
+  benchPct,
+  lead,
+}: {
+  fundPct: number;
+  benchPct: number;
+  lead: "ahead" | "behind" | "level";
+}) {
+  const t = raceTrack(fundPct, benchPct);
+  const lo = Math.min(t.fund, t.bench);
+  const hi = Math.max(t.fund, t.bench);
+  return (
+    <div
+      className="relative h-[5.75rem]"
+      role="img"
+      aria-label={`Margus ${signedPercent(fundPct)} since the start, ${BENCHMARK_MID} ${signedPercent(benchPct)}.`}
+    >
+      {/* The index, above the line. */}
+      <div
+        className="absolute top-0 whitespace-nowrap font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground"
+        style={trackAnchor(t.bench)}
+        aria-hidden
+      >
+        S&P 500{" "}
+        <span className="text-foreground">{signedPercent(benchPct)}</span>
+      </div>
+      <div className="absolute inset-x-0 top-[2.625rem] h-px bg-foreground/15" aria-hidden />
+      {/* Where both started. */}
+      <div
+        className="absolute top-[1.75rem] h-[2.25rem] w-px border-l border-dashed border-foreground/25"
+        style={{ left: `${t.zero * 100}%` }}
+        aria-hidden
+      />
+      {/* The gap between the two runners. */}
+      {hi - lo > 0.004 ? (
+        <div
+          className={cn(
+            "bar-reveal absolute top-[2.375rem] h-2 rounded-full",
+            lead === "ahead" ? "bg-primary/45" : "bg-foreground/20"
+          )}
+          style={{ left: `${lo * 100}%`, width: `${barFillPct((hi - lo) * 100)}%` }}
+          aria-hidden
+        />
+      ) : null}
+      <span
+        className="live-dot absolute top-[2.625rem] size-3 -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{ left: `${t.bench * 100}%`, background: SERIES_COLOR.spy }}
+        aria-hidden
+      />
+      <span
+        className="absolute top-[2.625rem] size-4 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 ring-primary/25"
+        style={{ left: `${t.fund * 100}%`, background: SERIES_COLOR.margus }}
+        aria-hidden
+      >
+        <span className="live-ping absolute inset-0 rounded-full" />
+      </span>
+      {/* Margus, below the line. */}
+      <div
+        className="absolute bottom-0 whitespace-nowrap font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground"
+        style={trackAnchor(t.fund)}
+        aria-hidden
+      >
+        Margus <span className="text-primary">{signedPercent(fundPct)}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The Fund's first card, and the one figure the room exists to show.
+ *
+ * Every other room opens on its own number at the hero size (Home's total,
+ * Growth's end figure, retirement's yes or not yet), and the Fund had
+ * buried its own in a strip of four. It gets the same treatment now: the
+ * figure rolls up and flashes when a price moves it, today's move sits
+ * beside it, and under it is the race the Fund is actually running.
+ */
+export function FundHero({
+  totalValue,
+  todayDollar,
+  todayPct,
+  hasYesterday,
+  fundPct,
+  benchPct,
+  decisions,
+  stale,
+}: {
+  totalValue: number;
+  todayDollar: number | null;
+  todayPct: number | null;
+  hasYesterday: boolean;
+  fundPct: number | null;
+  benchPct: number | null;
+  decisions: number;
+  stale: boolean;
+}) {
+  const race = raceRead(fundPct, benchPct, BENCHMARK_MID);
+  const when = isUsMarketDayOff() ? `on ${lastSessionName()}` : "today";
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <MicroLabel>Everything Margus runs</MicroLabel>
+          <span className="flex items-center gap-3">
+            <span className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+              <span aria-hidden className="live-ping relative size-2 rounded-full bg-primary" />
+              Trades every market day
+            </span>
+            {decisions > 0 ? (
+              <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                Day <CountUp value={decisions} format={(n) => String(Math.round(n))} />
+              </span>
+            ) : null}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+          <p
+            className={cn(
+              "figure-hero min-w-0 break-words",
+              stale ? "text-muted-foreground" : "text-primary"
+            )}
+          >
+            <LiveFigure value={stale ? null : totalValue}>
+              <CountUp value={totalValue} format={(n) => currency(n, 0)} />
+            </LiveFigure>
+          </p>
+          {hasYesterday && todayDollar != null ? (
+            <Pill
+              tone={todayDollar > 0 ? "good" : todayDollar < 0 ? "bad" : "neutral"}
+              className="font-mono"
+            >
+              {signedCurrency(todayDollar, 0)}
+              {todayPct != null ? ` · ${signedPercent(todayPct)}` : ""} {when}
+            </Pill>
+          ) : null}
+        </div>
+      </div>
+      {race && fundPct != null && benchPct != null ? (
+        <div className="flex flex-col gap-3">
+          <RaceTrack fundPct={fundPct} benchPct={benchPct} lead={race.lead} />
+          <p className="text-sm leading-relaxed text-foreground">{race.line}</p>
+        </div>
+      ) : null}
     </Panel>
   );
 }
@@ -1730,6 +1914,17 @@ export function UpsidePortfolioPage() {
           <LoadError message={error} onRetry={() => void load("manual")} />
         ) : (
           <>
+            <FundHero
+              totalValue={totalValue}
+              todayDollar={todayDollar}
+              todayPct={todayPct}
+              hasYesterday={hasYesterday}
+              fundPct={totalReturnPct ?? null}
+              benchPct={spyReturnPct ?? null}
+              decisions={decisionCount}
+              stale={error != null}
+            />
+
             <WhatThisIs decisions={decisionCount} startedOn={fund?.inception_date} />
 
             <Panel>
@@ -1771,39 +1966,13 @@ export function UpsidePortfolioPage() {
                 }
               />
               {/*
-                * Four figures as one hairline strip rather than four boxes:
-                * a boxed figure reads as a card to open, and these are one
-                * reading. Today's move needs a yesterday, and before the
-                * first report there is not one, so it says n/a rather than
-                * printing "$0" for a fund that has not had a day yet.
+                * The two standing figures as one hairline strip. What the
+                * Fund is worth and today's move are the hero's, above, so
+                * this carries only what the hero does not print: the
+                * return in money and the cash left unspent.
                 */}
               <StatStrip
                 items={[
-                  {
-                    label: (
-                      <Explain term="value" amount={currency(totalValue, 0)}>
-                        Worth today
-                      </Explain>
-                    ),
-                    value: <CountUp value={totalValue} format={(n) => currency(n, 0)} />,
-                  },
-                  {
-                    label: (
-                      <Explain term="today" amount={signedCurrency(todayDollar, 0)}>
-                        Today
-                      </Explain>
-                    ),
-                    value: hasYesterday ? signedCurrency(todayDollar, 0) : NO_VALUE,
-                    sub: hasYesterday
-                      ? todayPct != null
-                        ? signedPercent(todayPct)
-                        : undefined
-                      : "No close yet to measure against",
-                    tone: hasYesterday ? signedTone(todayDollar, "text-foreground") : undefined,
-                    subTone: hasYesterday
-                      ? signedTone(todayDollar, "text-muted-foreground")
-                      : undefined,
-                  },
                   {
                     label: (
                       <Explain
@@ -1944,6 +2113,7 @@ export function UpsidePortfolioPage() {
                 />
                 <div>
                   <AllocationBar
+                    size="lg"
                     slices={bettingSlices.map((t) => ({
                       key: t.key,
                       pct: t.pct,
@@ -2087,6 +2257,11 @@ export function UpsidePortfolioPage() {
                       holding={h}
                       price={quotes[h.ticker]?.price ?? null}
                       spark={quotes[h.ticker]?.sparkline}
+                      share={
+                        totalValue > 0
+                          ? (h.shares * (quotes[h.ticker]?.price ?? h.cost_basis)) / totalValue
+                          : null
+                      }
                     />
                   ))}
                 </div>

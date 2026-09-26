@@ -470,7 +470,7 @@ async function handleGET(req: Request) {
     const benchPrev = benchThrough.at(-2) ?? null;
     const spyMovePct =
       benchPrice != null && benchPrev ? benchPrice / benchPrev - 1 : null;
-    // The benchmark, which is QQQ since the Fund started again. The report
+    // The benchmark, which is SPY, the S&P 500 tracker. The report
     // column is still called `spy_price`; see the reset migration.
     const spyQuote = benchPrice != null ? { price: benchPrice } : null;
     const spyChangePct =
@@ -688,8 +688,8 @@ async function handleGET(req: Request) {
     const stillHeld = new Set(openRows.map((r) => r.ticker.toUpperCase()));
     const watchlist = watchlistFrom(reads, stillHeld);
     const cashPurpose = marketIsUp(bench)
-      ? "Money waiting for the next setup sits in the Nasdaq 100 rather than in cash."
-      : "The Nasdaq 100 is under its 200-day average, so money not in companies waits in cash.";
+      ? "Money waiting for the next setup sits in the S&P 500 rather than in cash."
+      : "The S&P 500 is under its 200-day average, so money not in companies waits in cash.";
 
     await supabase
       .from(PORTFELL_TABLES.margusFund)
