@@ -828,11 +828,13 @@ export const LabSheet = memo(function LabSheet({
                           Behaves like
                         </TermTip>
                       ),
-                      value: `${concentration.effectivePositions.toFixed(1)} holdings`,
+                      /* The unit goes in the qualifier: "5.8 holdings" in
+                       * the figure face wrapped to two lines on a phone. */
+                      value: concentration.effectivePositions.toFixed(1),
                       sub:
                         concentration.positionCount === 1
                           ? "Your only holding"
-                          : `You hold ${concentration.positionCount}`,
+                          : `holdings, of the ${concentration.positionCount} you own`,
                     },
                     {
                       label: <TermTip term="share-of-portfolio">Largest holding</TermTip>,

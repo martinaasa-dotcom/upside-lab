@@ -54,6 +54,7 @@ import { sanitizeTickerQuery } from "@/lib/input-guard";
 import { useTickerSearch } from "@/lib/use-ticker-search";
 import { normalizeYahooTicker, tickerStem } from "@/lib/ticker";
 import type { Quote } from "@/lib/types";
+import { insightWhen } from "@/lib/market-session";
 import {
   buildPulseCandidate,
   buildPulseCandidates,
@@ -727,7 +728,7 @@ function PulseCard({
           */}
           {peerRead ? (
             <p className="text-sm leading-relaxed text-muted-foreground">
-              {sectorPeerLine(peerRead)}
+              {sectorPeerLine(peerRead, c.moveLabel === "Friday" ? "on Friday" : "today")}
             </p>
           ) : null}
           {situation.length > 0 ? (
@@ -952,7 +953,9 @@ function closesFor(quote: Quote | null | undefined): number[] {
  * printed rather than one being subtracted from the total.
  */
 export function unusualDayLine(
-  rows: { todayPct: number | null; typical: TypicalMove | null }[]
+  rows: { todayPct: number | null; typical: TypicalMove | null }[],
+  /** "today", or "on Friday" at the weekend, when the moves are Friday's. */
+  when = "today"
 ): string {
   let bigger = 0;
   let ordinary = 0;
@@ -964,12 +967,12 @@ export function unusualDayLine(
   const measured = bigger + ordinary;
   if (measured === 0) return "";
   if (bigger === 0) {
-    return `All ${plural(measured, "holding")} stayed inside the range they usually move in today.`;
+    return `All ${plural(measured, "holding")} stayed inside the range they usually move in ${when}.`;
   }
   if (ordinary === 0) {
-    return `${plural(bigger, "holding")} moved more than usual today.`;
+    return `${plural(bigger, "holding")} moved more than usual ${when}.`;
   }
-  return `${bigger} of your ${plural(measured, "holding")} moved more than usual today, and the other ${ordinary} stayed in their normal range.`;
+  return `${bigger} of your ${plural(measured, "holding")} moved more than usual ${when}, and the other ${ordinary} stayed in their normal range.`;
 }
 
 /**
@@ -983,7 +986,7 @@ export function unusualDayLine(
 export function marketMoodLine(score: number | null | undefined): string {
   if (score == null || !Number.isFinite(score)) return "";
   const rounded = Math.round(score);
-  return `Other people are feeling ${ratingForScore(rounded)} about the market today, ${rounded} out of 100.`;
+  return `Other people are feeling ${ratingForScore(rounded)} about the market right now, ${rounded} out of 100.`;
 }
 
 /**
@@ -1420,6 +1423,12 @@ export const PulsePage = memo(function PulsePage({
    * a different question, in numbers, and it is the honest thing to say
    * when nobody has read the news.
    */
+  /*
+    At the weekend every figure in this room is Friday's close, and the
+    room said "today" over all of them, on a Saturday. Home already names
+    Friday; this is the same rule (`insightWhen`) read here.
+  */
+  const dayWhen = insightWhen() === "friday" ? "on Friday" : "today";
   const dayStory = useMemo(() => {
     const written = summary.trim();
     if (written) return written;
@@ -1430,9 +1439,10 @@ export const PulsePage = memo(function PulsePage({
           // The day's move, like the picture and the market line above it.
           todayPct: c.regularPct ?? c.effectivePct,
           typical: typicalByTicker[c.ticker.toUpperCase()] ?? null,
-        }))
+        })),
+      dayWhen
     );
-  }, [summary, candidates, typicalByTicker]);
+  }, [summary, candidates, typicalByTicker, dayWhen]);
 
   const swarmHoldings = useMemo(
     () =>
@@ -1446,8 +1456,11 @@ export const PulsePage = memo(function PulsePage({
     [candidates]
   );
 
-  const marketLine = marketOrYouLine(marketSplit, MARKET_INDEX_NAME, (n) =>
-    percent(n)
+  const marketLine = marketOrYouLine(
+    marketSplit,
+    MARKET_INDEX_NAME,
+    (n) => percent(n),
+    dayWhen
   );
   const standouts = standoutLine(marketSplit, (n) => percent(n));
   const mood = marketMoodLine(fearGreed?.score ?? null);
@@ -1807,7 +1820,7 @@ export const PulsePage = memo(function PulsePage({
           icon={<Activity className="h-4 w-4" />}
           title={
             <span className="inline-flex items-center gap-2">
-              Today&apos;s moves
+              {dayWhen === "on Friday" ? "Friday\u2019s moves" : "Today\u2019s moves"}
               <WhyThis
                 provenance={pulseRoomProvenance({
                   model: writtenBy,

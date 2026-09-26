@@ -130,11 +130,15 @@ export function sectorPeerRead(input: {
  * same breath rather than in a footnote, so the claim and the way to check
  * it arrive together.
  */
-export function sectorPeerLine(read: SectorPeerRead): string {
+export function sectorPeerLine(
+  read: SectorPeerRead,
+  /** "today", or "on Friday" when the moves are Friday's close. */
+  when = "today"
+): string {
   const sector = read.sectorWords.toLowerCase();
   const sectorMoved = signedPercent(read.sectorPct);
   const ownMoved = signedPercent(read.ownPct);
-  const opening = `Its group moved ${sectorMoved} today (${sector}, the ${read.fund} fund). This one moved ${ownMoved}`;
+  const opening = `Its group moved ${sectorMoved} ${when} (${sector}, the ${read.fund} fund). This one moved ${ownMoved}`;
 
   // Close enough that the difference is not the story.
   if (Math.abs(read.gap) < TOGETHER_PCT) return `${opening}.`;

@@ -1936,3 +1936,23 @@ html[data-session="in"] [data-signed-out-view] {
     animation: none;
   }
 }
+
+/*
+ * A card on a laptop, a row of a ruled list on a phone.
+ *
+ * Eight glass cells stacked one per holding were most of a phone's page in
+ * borders, where the list they are reads fine with a hairline between each
+ * (the parent carries `divide-y`). Unlayered on purpose: the cell's look is
+ * a component class plus a `ring-*` utility, and an unlayered rule is the
+ * one thing that beats both without a specificity fight.
+ */
+@media (max-width: 639px) {
+  .ruled-on-phone {
+    background: none;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-radius: 0;
+    padding: 1rem 0;
+  }
+}

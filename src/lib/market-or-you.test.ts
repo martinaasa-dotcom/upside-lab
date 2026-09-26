@@ -201,3 +201,12 @@ describe("the market-against-you picture", () => {
     );
   });
 });
+
+describe("the sentence names the session it read", () => {
+  it("says Friday rather than today when the figures are Friday's close", () => {
+    const split = { marketPct: 0.005, yoursPct: 0.006, read: "with" as const, standouts: [] };
+    const line = marketOrYouLine(split, "The S&P 500", (n) => `${(n * 100).toFixed(1)}%`, "on Friday");
+    expect(line).toContain("was up 0.5% on Friday, and your portfolio was up");
+    expect(line).not.toContain("today");
+  });
+});

@@ -449,7 +449,7 @@ function ForecastCard({
 
 
   return (
-    <div className={SCORE_CELL}>
+    <div className={cn(SCORE_CELL, "ruled-on-phone")}>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-base font-semibold text-foreground">
@@ -1065,9 +1065,8 @@ export const ForecastPanel = memo(function ForecastPanel({
 
   const statusHint = useMemo(() => {
     if (!labReady || !planHydrated || model.rows.length === 0 || busy) return null;
-    if (needsAccount && !plan) {
-      return "With an account, Margus works out each company and says why.";
-    }
+    // Said in the subtitle instead, so the panel opens on one sentence.
+    if (needsAccount && !plan) return null;
     const decision = shouldAutoRefreshForecast({
       plan,
       tickers: model.rows.map((r) => r.ticker),
@@ -1114,7 +1113,11 @@ export const ForecastPanel = memo(function ForecastPanel({
               />
             </span>
           }
-          subtitle={`A price for each holding, every year to ${yearCols[yearCols.length - 1] ?? ""}, and why.`}
+          subtitle={
+            needsAccount && !plan
+              ? `A price for each holding, every year to ${yearCols[yearCols.length - 1] ?? ""}. With an account, Margus works out each company and says why.`
+              : `A price for each holding, every year to ${yearCols[yearCols.length - 1] ?? ""}, and why.`
+          }
           actions={
             needsAccount ? undefined : (
             <Button
@@ -1163,7 +1166,7 @@ export const ForecastPanel = memo(function ForecastPanel({
         )}
       </header>
 
-      <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 divide-y divide-border px-4 pb-2 sm:grid-cols-2 sm:gap-4 sm:divide-y-0 sm:p-4 xl:grid-cols-3">
         {model.rows.map((r) => (
           <ForecastCard
             key={r.ticker}

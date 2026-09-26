@@ -1511,10 +1511,12 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
               />
             </label>
           </fieldset>
-          <fieldset
-            disabled={!takeOut}
-            className={cn(!takeOut && "opacity-40")}
-          >
+          {/*
+            Only drawn when money is coming out. A greyed-out field for a
+            choice the reader did not make was one more thing to read past.
+          */}
+          {takeOut ? (
+          <fieldset>
             <legend className="mb-5 block text-sm text-muted-foreground">
               Taking out each month
             </legend>
@@ -1531,6 +1533,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
               className={FIELD_CLASS}
             />
           </fieldset>
+          ) : null}
         </section>
         </div>
         </Panel>
@@ -1561,7 +1564,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
                 type="button"
                 variant="outline"
                 onClick={() => void copyPostcard()}
-                className="w-full sm:w-auto"
+                className="hidden sm:inline-flex"
               >
                 {copied ? (
                   <Copy className="text-gain" data-icon="inline-start" />
@@ -1611,6 +1614,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
                 value: Number.isFinite(result.doubleYears)
                   ? spanText(result.doubleYears, result.doubleMonths)
                   : NO_VALUE,
+                word: true,
               },
             ]}
           />
@@ -1626,6 +1630,24 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             </div>
           </div>
 
+          {/*
+            On a phone the share button sat full width between the title and
+            the answer, so the first thing under "Where this gets you" was a
+            button. It is the last thing in the panel there instead.
+          */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void copyPostcard()}
+            className="self-start sm:hidden"
+          >
+            {copied ? (
+              <Copy className="text-gain" data-icon="inline-start" />
+            ) : (
+              <Share2 data-icon="inline-start" />
+            )}
+            {copied ? "Copied" : "Copy summary"}
+          </Button>
         </Panel>
 
         {/* Dual Path Chart */}
