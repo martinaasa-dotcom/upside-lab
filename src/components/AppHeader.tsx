@@ -205,14 +205,19 @@ export function AppHeader({
                     className="hidden h-3.5 w-px shrink-0 bg-border sm:block"
                     aria-hidden
                   />
-                  <span
-                    className={cn(
-                      "min-w-0 truncate font-medium leading-none",
-                      "text-muted-foreground",
-                    )}
-                  >
-                    {title}
-                  </span>
+                  {/* The room's name is the page's heading, as it is on the
+                      phone bar: the <h1> carries the landmark and the span
+                      keeps the small type. */}
+                  <h1 className="min-w-0">
+                    <span
+                      className={cn(
+                        "block min-w-0 truncate text-sm font-medium leading-none",
+                        "text-muted-foreground",
+                      )}
+                    >
+                      {title}
+                    </span>
+                  </h1>
                 </>
               )}
             </div>

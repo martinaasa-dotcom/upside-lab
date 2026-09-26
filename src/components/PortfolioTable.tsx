@@ -116,12 +116,15 @@ function InlineNumber({
   displayDigits,
   onCommit,
   className,
+  label,
 }: {
   value: number;
   digits?: number;
   displayDigits?: number | "auto";
   onCommit: (n: number) => void | boolean | Promise<void | boolean>;
   className?: string;
+  /** What the field is, for a screen reader: the column header is not its label. */
+  label: string;
 }) {
   const shownDigits =
     displayDigits === "auto"
@@ -174,6 +177,7 @@ function InlineNumber({
   return (
     <input
       type="text"
+      aria-label={label}
       inputMode={allowDecimal ? "decimal" : "numeric"}
       value={draft}
       onChange={(e) => {
@@ -899,6 +903,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                               displayDigits="auto"
                               onCommit={(shares) => onPatch({ id: h.id, shares })}
                               className="w-16 text-right"
+                              label={`${cashtag(h.ticker)} shares`}
                             />
                           </dd>
                         </div>
@@ -926,6 +931,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                               digits={listed.digits}
                               onCommit={(buy_price) => commitBuy(h, buy_price)}
                               className="w-20 text-right"
+                              label={`${cashtag(h.ticker)} paid each`}
                             />
                           </dd>
                         </div>
@@ -1119,6 +1125,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                     digits={4}
                     displayDigits="auto"
                     onCommit={(shares) => onPatch({ id: h.id, shares })}
+                    label={`${cashtag(h.ticker)} shares`}
                   />
                 </div>
                 <div className={cellBase}>
@@ -1126,6 +1133,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                     value={listed.nativeBuy}
                     digits={listed.digits}
                     onCommit={(buy_price) => commitBuy(h, buy_price)}
+                    label={`${cashtag(h.ticker)} paid each`}
                   />
                 </div>
                 <div

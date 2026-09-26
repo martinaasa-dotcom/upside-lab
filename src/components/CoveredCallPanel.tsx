@@ -107,6 +107,7 @@ function InlineTargetCall({
             (e.target as HTMLInputElement).blur();
           }
         }}
+        aria-label="Call %"
         className="inline-edit no-spinner w-8 rounded-t py-0.5 text-right tabular-nums text-foreground outline-none hover:bg-hover focus:bg-muted focus:ring-1 focus:ring-ring/50"
       />
       <span className="text-sm text-muted-foreground">%</span>
@@ -147,6 +148,7 @@ function InlineStockTarget({
       <span className="text-sm text-muted-foreground">$</span>
       <input
         type="text"
+        aria-label="Stock target"
         inputMode="decimal"
         value={draft}
         placeholder={NO_VALUE}
