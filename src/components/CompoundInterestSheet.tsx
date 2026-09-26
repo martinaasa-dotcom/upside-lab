@@ -1,5 +1,6 @@
 "use client";
 
+import { CountUp } from "@/components/ui/CountUp";
 import { TermTip } from "@/components/ui/TermTip";
 import { BelowFold } from "@/components/BelowFold";
 import {
@@ -1583,7 +1584,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           <div>
             <MicroLabel>Ends up at</MicroLabel>
             <p className="figure-hero mt-3 text-gain">
-              {show(result.futureValue)}
+              <CountUp value={result.futureValue} format={show} />
             </p>
           </div>
           {/*

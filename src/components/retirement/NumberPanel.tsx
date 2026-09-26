@@ -27,6 +27,7 @@
  * hiding that it had picked.
  */
 
+import { CountUp } from "@/components/ui/CountUp";
 import { CARD, MicroLabel, Panel, PanelHeader, Pill } from "@/components/ui/Panel";
 import { Switch } from "@/components/ui/switch";
 import { WhyThis } from "@/components/ui/WhyThis";
@@ -157,7 +158,7 @@ export function NumberPanel({
           invariant refuses anything larger.
         */}
         <p className="figure-hero text-foreground">
-          {currency(plan.required.target, 0, code)}
+          <CountUp value={plan.required.target} format={(n) => currency(n, 0, code)} />
         </p>
         <p className="text-sm leading-relaxed text-muted-foreground">
           The pot to have on the day you stop. Year one takes{" "}

@@ -1,5 +1,6 @@
 "use client";
 
+import { CountUp } from "@/components/ui/CountUp";
 import { LiveFigure } from "@/components/ui/LiveFigure";
 import { TermTip } from "@/components/ui/TermTip";
 import { BelowFold } from "@/components/BelowFold";
@@ -1420,7 +1421,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
               )}
             >
               <LiveFigure value={pricesStuck ? null : totals.totalValue}>
-                {currency(totals.totalValue, 0)}
+                <CountUp value={totals.totalValue} format={(n) => currency(n, 0)} />
               </LiveFigure>
             </p>
             {pricesStuck ? (

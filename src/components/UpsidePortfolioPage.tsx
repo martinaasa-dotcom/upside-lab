@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+
 import { AppHeader } from "@/components/AppHeader";
 import { MobileDock } from "@/components/mobile/MobileDock";
 import { ComparisonChart, type ComparisonSeries } from "@/components/ComparisonChart";
@@ -16,6 +18,8 @@ import {
   SwatchLegend,
 } from "@/components/ui/Panel";
 import { StatStrip } from "@/components/ui/StatStrip";
+import { DrawnSpark } from "@/components/ui/DrawnSpark";
+import { CountUp } from "@/components/ui/CountUp";
 import { AllocationBar } from "@/components/ui/AllocationBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -695,9 +699,12 @@ function FundNote({
 export function FundPosition({
   holding,
   price,
+  spark,
 }: {
   holding: HoldingRow;
   price: number | null;
+  /** The quote's drawing of recent prices, when one came back. */
+  spark?: number[] | null;
 }) {
   const priced = price != null && Number.isFinite(price) && price > 0;
   const pnlPct =
@@ -735,6 +742,13 @@ export function FundPosition({
           {pnlPct == null ? NO_VALUE : signedPercent(pnlPct)}
         </Pill>
       </div>
+      {/* The company's recent price, drawn in: the card's one moving part. */}
+      <DrawnSpark
+        points={spark}
+        tone={pnlPct == null ? "neutral" : pnlPct >= 0 ? "gain" : "loss"}
+        className="-mx-1 h-10 w-[calc(100%+0.5rem)]"
+        label={`${tag}, recent price`}
+      />
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <FundMetric
           label={
@@ -807,6 +821,47 @@ export function FundPosition({
         Bought {fmtDate(holding.entry_date)}
         {holdFor ? `, meant to be held for ${holdFor}` : ""}.
       </p>
+    </div>
+  );
+}
+
+/**
+ * The Fund's record as a timeline: one rail down the left, a dot per entry
+ * and the newest dot live, so the days read as a sequence rather than as a
+ * stack of cards. Each entry is wrapped here rather than given a CSS dot,
+ * because the collapsed entries clip their own overflow and a dot hung
+ * outside one would be cut off. The "View more" button is not an entry and
+ * sits under the rail.
+ */
+function Timeline({ children }: { children: React.ReactNode }) {
+  const items = React.Children.toArray(children);
+  const entries = items.filter(
+    (c) => !(React.isValidElement(c) && c.type === ViewMoreButton)
+  );
+  const rest = items.filter(
+    (c) => React.isValidElement(c) && c.type === ViewMoreButton
+  );
+  return (
+    <div className="flex flex-col gap-3">
+      <ol className="relative flex flex-col gap-3 pl-6">
+        <span
+          aria-hidden
+          className="absolute bottom-4 left-[7px] top-4 w-px bg-gradient-to-b from-primary/70 via-border to-transparent"
+        />
+        {entries.map((child, i) => (
+          <li key={i} className="relative">
+            <span
+              aria-hidden
+              className={cn(
+                "absolute -left-6 top-4 size-[15px] rounded-full border-[3px] border-background",
+                i === 0 ? "live-ping bg-primary" : "bg-muted-foreground/40"
+              )}
+            />
+            {child}
+          </li>
+        ))}
+      </ol>
+      {rest}
     </div>
   );
 }
@@ -901,6 +956,19 @@ export function WhatThisIs({
           </span>
         }
       />
+      {/* The experiment is running, and says so: a live dot and the day
+          count, which rolls up on arrival like every figure in the app. */}
+      <div className="flex items-center gap-3">
+        <span className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+          <span aria-hidden className="live-ping relative size-2 rounded-full bg-primary" />
+          Trades every market day
+        </span>
+        {decisions > 0 ? (
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            Day <CountUp value={decisions} format={(n) => String(Math.round(n))} />
+          </span>
+        ) : null}
+      </div>
       <p className="text-base leading-relaxed text-foreground/85">
         A pretend $100,000 that sets out to beat the Nasdaq 100. Written rules
         trade it on each day the market is open, and every trade is written
@@ -1717,7 +1785,7 @@ export function UpsidePortfolioPage() {
                         Worth today
                       </Explain>
                     ),
-                    value: currency(totalValue, 0),
+                    value: <CountUp value={totalValue} format={(n) => currency(n, 0)} />,
                   },
                   {
                     label: (
@@ -2018,6 +2086,7 @@ export function UpsidePortfolioPage() {
                       key={h.id}
                       holding={h}
                       price={quotes[h.ticker]?.price ?? null}
+                      spark={quotes[h.ticker]?.sparkline}
                     />
                   ))}
                 </div>
@@ -2028,7 +2097,7 @@ export function UpsidePortfolioPage() {
             {weeklyRecaps.length > 0 && (
               <section className="flex flex-col gap-4">
                 <SectionHeading title="How each week went" why />
-                <div className="flex flex-col gap-3">
+                <Timeline>
                   {weeklyRecaps.slice(0, weeklyVisible).map((r, i) => {
                     const title = numberedReportHeadline(
                       r.headline,
@@ -2075,7 +2144,7 @@ export function UpsidePortfolioPage() {
                     remaining={weeklyRecaps.length - weeklyVisible}
                     onClick={() => setWeeklyVisible((n) => n + FEED_CHUNK)}
                   />
-                </div>
+                </Timeline>
               </section>
             )}
 
@@ -2091,7 +2160,7 @@ export function UpsidePortfolioPage() {
                 /* Latest report in full. Older ones stay collapsed, and
                  * View more only reveals the next seven so the page does
                  * not grow a wall of history. */
-                <div className="flex flex-col gap-3">
+                <Timeline>
                   {reports.slice(0, dailyVisible).map((r, i) => {
                     const title = numberedReportHeadline(
                       r.headline,
@@ -2138,7 +2207,7 @@ export function UpsidePortfolioPage() {
                     remaining={reports.length - dailyVisible}
                     onClick={() => setDailyVisible((n) => n + FEED_CHUNK)}
                   />
-                </div>
+                </Timeline>
               )}
             </section>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { CountUp } from "@/components/ui/CountUp";
 import { LiveFigure } from "@/components/ui/LiveFigure";
 import { barFillPct } from "@/lib/format";
 import { NO_VALUE, cashtag, cn, currency, percent, signedPercent, signedTone } from "@/lib/format";
@@ -543,7 +544,7 @@ export const PortfolioTable = memo(function PortfolioTable({
               */}
               <p className="figure-hero text-foreground">
                 <LiveFigure value={totals.currentValue}>
-                  {money(totals.currentValue, 0)}
+                  <CountUp value={totals.currentValue} format={(n) => money(n, 0)} />
                 </LiveFigure>
               </p>
               <p className="text-sm tabular-nums text-muted-foreground">
