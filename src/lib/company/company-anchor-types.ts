@@ -13,6 +13,12 @@ export type CompanyAnchor = {
   /** What it is, in a sentence the reader can argue with. */
   said: string;
   /**
+   * How far apart the voices behind it landed, as a fraction of it, so a
+   * ladder can widen "close to fair value" where the estimate is least
+   * certain. Optional because readings cached before it existed lack it.
+   */
+  spread?: number | null;
+  /**
    * The year this share has actually had, from the same feed.
    *
    * The anchor is only half of a ladder: the step and the floor are read

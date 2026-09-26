@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   businessPath,
+  CURRENT_MARKET_FORWARD_MULTIPLE,
   fairValueRead,
   requiredReturn,
 } from "@/lib/company/fair-value";
 import { makeFacts, makeOrdinaryFacts } from "@/lib/company/facts-fixture";
-import { MARKET_EARNINGS_MULTIPLE } from "@/lib/company/scale";
 
 /**
  * TEN YEARS OF THE BUSINESS, HELD TO THE CASES THAT BROKE THE RULE BEFORE IT.
@@ -88,32 +88,40 @@ describe("the cases that broke the old rule", () => {
 });
 
 describe("growth is worth what the arithmetic says, in both directions", () => {
-  it("lands a company growing at the market's pace on the market's own multiple", () => {
+  it("lands a company growing like the market on what the market paid for one", () => {
     /*
-      The anchor that keeps every constant honest: none of them may move an
-      ordinary company away from what the market pays for one.
+      The anchor that keeps every constant honest: a company with the
+      market's own expected growth and a margin already where a business
+      like it settles is worth exactly the market's multiple of next
+      year's profit, in the middle case, whatever any other constant says.
     */
+    const revenue = 50e9;
+    const eps = (revenue * 1.1395 * (-0.027 + 0.265 * 0.5)) / 1e9;
     const ordinary = makeOrdinaryFacts({
-      revenue: 10e9,
-      revenueGrowthNextYear: 0.07,
+      revenue,
+      revenueGrowthNextYear: 0.1395,
+      revenueGrowth: 0.1395,
       grossMargin: 0.5,
-      profitMargin: 0.21,
-      netIncome: 2.1e9,
-      epsTrailing: 2.1e9 / (1e9 * 0.214),
-      epsNextYear: 10,
-      sharesOutstanding: 1e9 * 0.214,
-      marketCap: 200e9,
-      price: 200e9 / (1e9 * 0.214),
+      profitMargin: 0.1,
+      epsNextYear: eps,
+      epsTrailing: eps / 1.1,
+      netIncome: (eps / 1.1) * 1e9,
+      trailingPe: 20,
+      forwardPe: (20 * eps) / 1.1 / eps,
+      sharesOutstanding: 1e9,
+      marketCap: 1e9 * (20 * eps) / 1.1,
+      price: (20 * eps) / 1.1,
       returnOnEquity: 0.2,
       fiftyTwoWeekHigh: 1000,
       fiftyTwoWeekLow: 800,
       totalDebt: 0,
       totalCash: 0,
       history: [],
+      quarters: [],
+      surprises: [],
     });
     const path = businessPath(ordinary)!;
-    expect(path.value / 10).toBeGreaterThan(MARKET_EARNINGS_MULTIPLE * 0.9);
-    expect(path.value / 10).toBeLessThan(MARKET_EARNINGS_MULTIPLE * 1.1);
+    expect(path.cases.base / eps).toBeCloseTo(CURRENT_MARKET_FORWARD_MULTIPLE, 1);
   });
 
   it("pays more for the same profit when it is growing faster", () => {
@@ -131,9 +139,17 @@ describe("growth is worth what the arithmetic says, in both directions", () => {
   });
 
   it("does not move with today's price", () => {
+    // Held inside one size band, with the multiples moving as the feed's do.
     const at = (price: number) =>
-      businessPath(makeOrdinaryFacts({ price, marketCap: price * 10_000_000 }))!.value;
-    expect(at(50)).toBeCloseTo(at(500), 6);
+      businessPath(
+        makeOrdinaryFacts({
+          price,
+          marketCap: price * 10_000_000,
+          trailingPe: price / 4,
+          forwardPe: price / 5,
+        })
+      )!.value;
+    expect(at(110)).toBeCloseTo(at(160), 6);
   });
 
   it("pulls an extraordinary margin back harder than an ordinary one", () => {

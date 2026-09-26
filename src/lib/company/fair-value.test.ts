@@ -91,12 +91,12 @@ describe("the blend is the weighted average and nothing else", () => {
     expect(blend.price).toBeCloseTo(125, 6);
   });
 
-  it("is never pulled towards today's price", () => {
+  it("is pulled towards today's price only by the market's own method, at the weight it states", () => {
     /*
-      A fair value that always lands near the market is a fair value that
-      says nothing. Only the analysts' average can run here, it says a
-      quarter of today's price, and the blend has to say the same rather
-      than splitting the difference with the market.
+      Reversed on 2026-09-26: the market's price is a method now, weighted
+      by how efficiently the company is priced. What must stay true is
+      that the pull is exactly that method at exactly its stated weight,
+      and nothing hidden on top of it.
     */
     const read = fairValueRead(
       facts({
@@ -113,11 +113,18 @@ describe("the blend is the weighted average and nothing else", () => {
         revenueGrowthNextYear: null,
       })
     );
-    // The target, brought back to today at the company's own required
-    // return, and nothing moved towards the price of 400.
     const rate = requiredReturn(facts({ price: 400 })).rate;
-    expect(read.estimate.price).toBeCloseTo(100 / (1 + rate), 2);
-    expect(read.gap).toBeCloseTo(100 / (1 + rate) / 400 - 1, 3);
+    const consensus = read.estimate.used.find((m) => m.id === "consensus")!;
+    const market = read.estimate.used.find((m) => m.id === "market")!;
+    expect(consensus.price).toBeCloseTo(100 / (1 + rate), 2);
+    expect(market.price).toBe(400);
+    expect(market.weight).toBeLessThanOrEqual(0.45);
+    const expected =
+      (consensus.price * consensus.weight + market.price * market.weight) /
+      (consensus.weight + market.weight);
+    expect(read.estimate.price).toBeCloseTo(expected, 1);
+    // Still far from the price: the analysts' view is not swallowed.
+    expect(read.estimate.price!).toBeLessThan(300);
   });
 
   it("never prices a fast-growing company off the market's average multiple", () => {
@@ -169,7 +176,13 @@ describe("the blend is the weighted average and nothing else", () => {
 
   it("lets an estimate land below today's price", () => {
     const read = fairValueRead(
-      facts({ price: 1_000, marketCap: 10_000_000_000, analystTargetMean: 200 })
+      facts({
+        price: 1_000,
+        marketCap: 10_000_000_000,
+        trailingPe: 250,
+        forwardPe: 200,
+        analystTargetMean: 200,
+      })
     );
     expect(read.estimate.price).toBeLessThan(1_000);
   });

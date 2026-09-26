@@ -232,6 +232,7 @@ export async function loadCompanyAnchors(
       price: folded.amount,
       kind: anchor.kind,
       said: anchor.said,
+      spread: anchor.spread ?? null,
       high: typeof high === "number" && high > 0 ? high * scale : null,
       low: typeof low === "number" && low > 0 ? low * scale : null,
       currency: folded.code,

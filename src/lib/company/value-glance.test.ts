@@ -43,7 +43,12 @@ describe("the read at the top never tells anybody what to do", () => {
   it("says where the price sits, which is a fact rather than a verdict", () => {
     // The market value moves with the price, as it does in the feed.
     const at = (price: number) =>
-      makeOrdinaryFacts({ price, marketCap: price * 10_000_000 });
+      makeOrdinaryFacts({
+        price,
+        marketCap: price * 10_000_000,
+        trailingPe: price / 4,
+        forwardPe: price / 5,
+      });
     expect(valueGlance(fairValueRead(at(5_000))).position).toBe("above");
     expect(valueGlance(fairValueRead(at(1))).position).toBe("below");
     expect(valueGlance(fairValueRead(makeFacts())).position).toBe("unknown");

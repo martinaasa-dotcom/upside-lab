@@ -482,6 +482,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
       low: facts.fiftyTwoWeekLow,
       override: ladders[ticker] ?? null,
       houseOverride: houseForecast.ladders[ticker] ?? null,
+      estimateSpread: anchor.spread ?? null,
     });
   }, [facts, fair, ticker, live.price, ladders, houseForecast]);
 

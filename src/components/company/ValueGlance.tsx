@@ -635,7 +635,10 @@ export function ValueGlance({
           spot={read.spot}
           blend={read.estimate.price}
           gap={read.gap}
-          estimates={read.estimate.used.map((m) => m.price)}
+          // The market's own price is already the gold mark; a tick under it says nothing.
+          estimates={read.estimate.used
+            .filter((m) => m.id !== "market")
+            .map((m) => m.price)}
           code={code}
         />
       ) : null}
