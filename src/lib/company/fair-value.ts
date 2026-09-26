@@ -200,11 +200,11 @@ function consensusMethod(f: CompanyFacts): FairValueMethod | null {
   const code = f.currency ?? "USD";
   const spread =
     ok(f.analystTargetHigh) && ok(f.analystTargetLow)
-      ? ` Their own answers run from ${currency(f.analystTargetLow, 2, code)} to ${currency(f.analystTargetHigh, 2, code)}, which is the part an average hides.`
+      ? ` Their targets run from ${currency(f.analystTargetLow, 2, code)} to ${currency(f.analystTargetHigh, 2, code)}.`
       : "";
   const disagreement =
     agreement < 1
-      ? ` They disagree enough that this counts for less here than a settled view would: the gap between the highest and lowest is ${percent(width ?? 0, 0)} of the share price.`
+      ? ` That spread is ${percent(width ?? 0, 0)} of the price, so this counts for less than a settled view would.`
       : "";
   return {
     id: "consensus",
@@ -212,7 +212,7 @@ function consensusMethod(f: CompanyFacts): FairValueMethod | null {
     source: "the analysts' average",
     maker: "market",
     price: round2(target),
-    assumes: `That the ${n > 0 ? `${n} analyst${n === 1 ? "" : "s"} covering this company` : "analysts covering this company"} have it about right. They are paid to be right and are often wrong together.${spread}${disagreement}`,
+    assumes: `That the ${n > 0 ? `${n} analyst${n === 1 ? "" : "s"} covering this company` : "analysts covering this company"} have it about right.${spread}${disagreement}`,
     working: `The plain average of the twelve-month price targets published by the ${n > 0 ? n : ""} analyst${n === 1 ? "" : "s"} who cover it.`.replace("  ", " "),
     weight,
   };
@@ -320,7 +320,7 @@ function growthMethod(
     source: "the growth multiple",
     maker: "arithmetic",
     price: round2(eps * multiple),
-    assumes: `That a company growing earnings at ${Math.round(pct)}% a year, against ${Math.round(marketPct)}% for the market as a whole, deserves about ${Math.round(multiple)} times a year's earnings. It anchors on the market's own multiple of ${MARKET_EARNINGS_MULTIPLE} and adds half a turn for each point of growth above the market, capped at ${GROWTH_RULE_CEILING}. It is a rule of thumb rather than a law, and it takes one year's expected growth as though it continued.`,
+    assumes: `That earnings growing ${Math.round(pct)}% a year, against ${Math.round(marketPct)}% for the market, earn about ${Math.round(multiple)} times a year's earnings: the market's ${MARKET_EARNINGS_MULTIPLE} plus half a turn per point of extra growth, capped at ${GROWTH_RULE_CEILING}. A rule of thumb, not a law.`,
     /*
       The premium is written out only when there is one. A company growing
       at the market's own pace lands on the market's own multiple, and
@@ -440,7 +440,7 @@ function modelMethod(
     maker: "model",
     price: round2(price),
     assumes:
-      "That a general-purpose language model, reasoning about this company from what it already knows, is worth listening to. It cannot check itself, nothing here corrects it, and it is the one number on this page nobody can verify.",
+      "That a language model reasoning from what it already knows is worth hearing. Nothing here can check it.",
     working: when,
     weight: 0.18,
   };

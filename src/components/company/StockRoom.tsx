@@ -696,9 +696,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                       {shortDescription(facts.about)}
                     </p>
                     <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                      Their own words, unedited, so some of it will be
-                      jargon. Nothing rewrote it into plainer English this
-                      time.
+                      Their own words, unedited.
                     </p>
                   </Reading>
                 ) : null}
