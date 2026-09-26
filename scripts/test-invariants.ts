@@ -2211,7 +2211,10 @@ run("chart ticks stay HTML text-xs, never SVG text", () => {
   assert.match(nav, /preserveAspectRatio="none"/);
   assert.doesNotMatch(nav, /min-h-\[4\.75rem\]/);
   assert.match(nav, /h-64 w-full/);
-  assert.match(nav, /min-h-9/);
+  // The drag readout floats over the plot's headroom; a reserved lane sat
+  // empty whenever nobody dragged, which put 36px of nothing under the title.
+  assert.match(nav, /pointer-events-none absolute inset-x-0/);
+  assert.doesNotMatch(nav, /min-h-9/);
   /*
    * Some headroom above the top tick, so the line never kisses it, and
    * not so much that the plot opens on a band of empty glass: `niceScale`

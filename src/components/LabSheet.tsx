@@ -1,5 +1,6 @@
 "use client";
 
+import { forecastThemeForTicker } from "@/lib/forecast-growth";
 import { useTickerSectors } from "@/lib/use-ticker-sectors";
 
 import { TermTip } from "@/components/ui/TermTip";
@@ -467,6 +468,9 @@ export const LabSheet = memo(function LabSheet({
     () => concentrationRead(sheetHoldings),
     [sheetHoldings]
   );
+  const topIsFund =
+    concentration.topWeightTicker != null &&
+    forecastThemeForTicker(concentration.topWeightTicker) === "index";
   const personality = useMemo(
     () =>
       buildPortfolioPersonality(
@@ -823,11 +827,16 @@ export const LabSheet = memo(function LabSheet({
                       </TermTip>
                     }
                     value={`${(concentration.topWeightPct * 100).toFixed(1)}%`}
+                    /* A quarter in one company is a caution. A quarter in
+                     * a fund holding hundreds of them is not, so it says
+                     * what the fund is and keeps the ordinary colour. */
                     sub={
                       concentration.topWeightTicker
-                        ? Math.abs(scopedCash) >= 1
-                          ? `${concentration.topWeightTicker}, of what is invested`
-                          : concentration.topWeightTicker
+                        ? topIsFund
+                          ? `${concentration.topWeightTicker}, a fund spread across many companies`
+                          : Math.abs(scopedCash) >= 1
+                            ? `${concentration.topWeightTicker}, of what is invested`
+                            : concentration.topWeightTicker
                         : undefined
                     }
                     /* --warning, not --loss. A concentrated position is a
@@ -835,7 +844,8 @@ export const LabSheet = memo(function LabSheet({
                      * spending the P&L colour on a non-P&L number weakens
                      * both. DESIGN_TOKENS.md assigns orange to exactly this. */
                     valueClassName={
-                      concentration.topWeightPct >= 0.25
+                      concentration.topWeightPct >= 0.25 &&
+                      !topIsFund
                         ? "text-warning"
                         : undefined
                     }
