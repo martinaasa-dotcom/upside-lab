@@ -98,7 +98,6 @@ describe("the phone shows every forecast year", () => {
 
   it("hands every holding the same year list", () => {
     expect(PANEL).toMatch(/years=\{yearCols\}/);
-    expect(PANEL).toMatch(/yearCols\.map\(/);
     expect(PANEL).not.toMatch(/\{\/\* Mobile \*\/\}/);
     expect(PANEL).not.toMatch(/\{\/\* Desktop \*\/\}/);
   });

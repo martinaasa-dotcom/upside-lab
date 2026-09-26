@@ -489,7 +489,8 @@ export const LabSheet = memo(function LabSheet({
     [scopedTickers]
   );
   const corrPairs = useMemo(
-    () => correlationMatrix(corrSeries).slice(0, 10),
+    // Five, not ten: the grid beside it already shows every pair.
+    () => correlationMatrix(corrSeries).slice(0, 5),
     [corrSeries]
   );
   const corrHeat = useMemo(() => correlationGrid(corrSeries), [corrSeries]);
@@ -946,7 +947,7 @@ export const LabSheet = memo(function LabSheet({
         <Panel tone="plain" className="flex flex-col gap-4">
           <PanelHeader
             title="Do these move together?"
-            subtitle="How closely each pair tracked each other over the last 90 days. Near +1 they rise and fall as one, so owning both spreads your money without spreading your risk. Near 0 they go their own way."
+            subtitle="Over the last 90 days. Near +1 two companies rise and fall as one, so owning both does not spread your risk."
           />
           {corrHeat.tickers.length < 2 ? (
             <p className="text-sm text-muted-foreground">
