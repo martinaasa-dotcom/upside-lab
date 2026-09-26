@@ -1160,7 +1160,7 @@ function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
             <span className="signin-live-dot" aria-hidden />
             <MicroLabel>A made-up portfolio, today</MicroLabel>
           </span>
-          <span className="font-mono text-2xl tabular-nums text-foreground">
+          <span className="font-heading text-2xl font-semibold tracking-tight tabular-nums text-foreground">
             {TOTAL_MONEY}
           </span>
         </span>
@@ -1174,7 +1174,7 @@ function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
         </span>
       </div>
 
-      <p className="text-lg font-medium leading-snug text-foreground" aria-live="polite">
+      <p className="text-lg font-medium leading-snug text-pretty text-foreground" aria-live="polite">
         {found
           ? "Found it. That one is worth your evening."
           : "One of these companies had real news today. Tap to find it."}

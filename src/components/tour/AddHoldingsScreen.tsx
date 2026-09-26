@@ -375,7 +375,7 @@ export function AddHoldingsScreen({
 
   return (
     <div className="flex flex-col gap-4">
-      <TourAsk>Pick whichever of these is least work for you.</TourAsk>
+      <TourAsk>Four ways in. Pick the least work.</TourAsk>
 
       <Segmented
         value={road}
@@ -481,11 +481,11 @@ export function AddHoldingsScreen({
                 </ul>
               )}
             </div>
-            <FieldDescription>
-              {holdingIsCoin
-                ? "Which coin, and how many of it you hold."
-                : "The ticker or the company name. A coin is fine too."}
-            </FieldDescription>
+            {holdingIsCoin && (
+              <FieldDescription>
+                Which coin, and how many of it you hold.
+              </FieldDescription>
+            )}
           </Field>
           <div className="flex gap-6">
             <Field className="min-w-0 flex-1">
