@@ -3637,9 +3637,14 @@ run("Worth noticing names the two groups in plain English", () => {
     overview,
     /<p className="text-base font-medium leading-relaxed text-foreground">\s*\{morning\.sentence\}/
   );
+  // The page title's own JSX line, not the first string that happens to
+  // mention the label (the day words in the body read it too), up to the
+  // panels under it.
+  const headerStart = overview.search(/\n\s+\{morning\.moveLabel\}\n/);
+  assert.ok(headerStart > 0, "the page title prints the day label");
   const header = overview.slice(
-    overview.indexOf("{morning.moveLabel}"),
-    overview.indexOf("<Scoreboard className=\"overview-fade\">")
+    headerStart,
+    overview.indexOf('className={cn("overview-fade", PANEL_STACK)}', headerStart)
   );
   assert.doesNotMatch(header, /morning\.sentence/);
 });
