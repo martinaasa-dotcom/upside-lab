@@ -47,7 +47,6 @@ import {
 import { htmlCell, htmlCellText, htmlHeadRow, htmlTable } from "@/components/FluidTable";
 import { FormattedNumberInput } from "@/components/FormattedNumberInput";
 import {
-  ArrowUpRight,
   Calculator,
   CheckCircle2,
   ChevronRight,
@@ -56,7 +55,7 @@ import {
   Target,
   Zap,
 } from "lucide-react";
-import { Fragment, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, memo } from "react";
+import { Fragment, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, memo, type ReactNode } from "react";
 import { useTimeout } from "@/lib/use-timeout";
 import {
   MicroLabel,
@@ -218,7 +217,7 @@ function rateCaveat(preset: string | null, mixPct: number): string {
     return `${BROAD_MARKET_ANNUAL_PCT}% a year is the historical average for the whole US market, before inflation is taken off. Nobody gets it every year.`;
   }
   if (preset === "book") {
-    return `This app's growth outlook for what you hold: about ${mixPct}% a year, before inflation, from the rate this app assumes for each of your companies. It is a view of the next few years rather than a record, and holding a rate like that for decades is a big assumption.`;
+    return `This app's growth outlook for what you hold: about ${mixPct}% a year before inflation. A view of the next few years, not a record, and a big assumption over decades.`;
   }
   if (preset === "15") {
     return "15% a year is a very good stretch for the whole market, half as much again as its long run average.";
@@ -872,8 +871,8 @@ function GrowthPathChart({
       ) : null}
       <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
         {crossIdx > 0
-          ? `The two lines cross in ${startYear + crossIdx}. From then on, more of the pot is growth than money you have put in altogether.`
-          : "Growth does not catch everything you have put in over this many years. Set a longer stretch and watch the green line close on the blue one."}
+          ? `From ${startYear + crossIdx}, more of the pot is growth than money you put in.`
+          : "Growth does not catch what you put in over this many years. A longer stretch closes the gap."}
       </p>
     </div>
   );
@@ -1554,46 +1553,43 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
               {show(result.futureValue)}
             </p>
           </div>
-          <Scoreboard cols={2}>
-            {/*
-              * The share of the final number rides on the growth cell rather
-              * than in a sentence under the row.
-              *
-              * There used to be a paragraph here reading "You would put in X
-              * and end with Y, so growth would do Z of the work, which is N%
-              * of the final number." Every figure in it but the last was
-              * already on screen: Y is the hero figure directly above, and X
-              * and Z are the two cells it sat under. So a reader met the same
-              * three numbers twice within about eighty pixels, and the one
-              * fact that was genuinely new arrived at the end of the second
-              * telling. `sub` is where a cell's own qualifier goes, so the
-              * share sits on the figure it is a share of and the restatement
-              * is gone.
-              */}
-            <Score
-              label="Of that, growth"
+          {/*
+            Four figures in one strip, never five cards. The hero panel was
+            a big number, then two bordered cards, the chart, then three
+            more, and the page read as a wall of boxes around one answer.
+            Each figure here is one line under its label with a hairline
+            between them, and the year growth takes over lives on the
+            four-paths chart's own chip rather than in a card of its own.
+          */}
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-border py-5 sm:grid-cols-4">
+            <StripStat
+              label={<TermTip term="compounding">Growth</TermTip>}
               value={show(result.totalInterest)}
               sub={
                 result.futureValue > 0
-                  ? `${percent(safeDiv(result.totalInterest, result.futureValue), 0)} of the final number`
+                  ? `${percent(safeDiv(result.totalInterest, result.futureValue), 0)} of it`
                   : undefined
               }
-              explain="What growth at this rate would add on top of everything you put in. A projection, not money you have."
-              valueClassName="text-gain"
+              tone="text-gain"
             />
-            <Score
-              label="You put in"
-              value={show(result.totalDeposited)}
-              /* Neutral: the accent means a live or chosen thing, and this is neither. */
-              valueClassName="text-foreground"
+            <StripStat label="You put in" value={show(result.totalDeposited)} />
+            <StripStat
+              label={<TermTip term="total-return">Total return</TermTip>}
+              value={`${(result.allTimeRoR * 100).toFixed(1)}%`}
+              tone="text-gain"
             />
-          </Scoreboard>
+            <StripStat
+              label="Doubles every"
+              value={
+                Number.isFinite(result.doubleYears)
+                  ? spanText(result.doubleYears, result.doubleMonths)
+                  : NO_VALUE
+              }
+            />
+          </dl>
 
           <div>
-            <MicroLabel>Where that money would come from</MicroLabel>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Drag across the years to read any single one of them.
-            </p>
+            <MicroLabel>Where it comes from, year by year</MicroLabel>
             <div className="mt-4">
               <GrowthPathChart
                 result={result}
@@ -1603,52 +1599,6 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             </div>
           </div>
 
-          <Scoreboard cols={2}>
-            <Score
-              label={<TermTip term="total-return">Total return</TermTip>}
-              value={
-                <span className="inline-flex items-center gap-1">
-                  {(result.allTimeRoR * 100).toFixed(1)}%
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </span>
-              }
-              explain="How much bigger the pot would be than everything you put into it."
-              valueClassName="text-gain"
-            />
-            <Score
-              label="Doubles in"
-              value={
-                Number.isFinite(result.doubleYears)
-                  ? spanText(result.doubleYears, result.doubleMonths)
-                  : NO_VALUE
-              }
-              valueClassName="whitespace-normal leading-snug"
-            />
-          </Scoreboard>
-          <Scoreboard cols={1}>
-            <Score
-              label={
-                /*
-                  The one cell on this page that is compounding rather than
-                  a consequence of it: the year growth starts adding more
-                  than the reader pays in. If a beginner is going to look
-                  the word up anywhere, it is here, beside the figure that
-                  only makes sense once they have.
-                */
-                <TermTip term="compounding">When growth takes over</TermTip>
-              }
-              value={
-                tipping != null ? `Year ${tipping}` : "Not on this plan"
-              }
-              sub={
-                tipping != null
-                  ? "From this year, growth adds more than you pay in."
-                  : "You still pay in more than growth adds."
-              }
-              explain="The year growth starts adding more than you pay in yourself. After this, time matters more than saving harder."
-              valueClassName="whitespace-normal leading-snug"
-            />
-          </Scoreboard>
         </Panel>
 
         {/* Dual Path Chart */}
@@ -1970,3 +1920,26 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
     </div>
   );
 });
+
+/** One figure in the result strip: a label, the figure, an optional qualifier. */
+function StripStat({
+  label,
+  value,
+  sub,
+  tone = "text-foreground",
+}: {
+  label: ReactNode;
+  value: ReactNode;
+  sub?: string;
+  tone?: string;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <dt>
+        <MicroLabel>{label}</MicroLabel>
+      </dt>
+      <dd className={cn("font-mono text-xl font-semibold tabular-nums", tone)}>{value}</dd>
+      {sub ? <dd className="text-xs text-muted-foreground">{sub}</dd> : null}
+    </div>
+  );
+}
