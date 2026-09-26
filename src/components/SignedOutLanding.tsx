@@ -1180,7 +1180,7 @@ function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
       </p>
 
       <ul className="grid grid-cols-2 gap-2 @md:grid-cols-4">
-        {SAMPLE_HOLDINGS.map((h) => {
+        {SAMPLE_HOLDINGS.map((h, i) => {
           const turned = open.includes(h.ticker);
           const news = h.ticker === SAMPLE_NEWS_TICKER;
           const move = sampleDayFraction(h);
@@ -1196,8 +1196,17 @@ function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
                       : [...prev, h.ticker]
                   )
                 }
+                /*
+                  Three moments, all transform and opacity (globals.css):
+                  an untouched board ripples once as a wave to say the tiles
+                  can be pressed, a pressed tile flips its face over, and the
+                  one with real news gets a sweep of light when found.
+                */
+                style={{ ["--tile-i" as string]: i }}
                 className={cn(
-                  "card-sheen glass-well flex h-[5.5rem] w-full flex-col justify-between rounded-xl border px-3 py-2.5 text-left transition-[transform,border-color] duration-200 active:scale-[0.97] motion-reduce:transition-none",
+                  "card-sheen glass-well relative flex h-[5.5rem] w-full flex-col justify-between overflow-hidden rounded-xl border px-3 py-2.5 text-left transition-[transform,border-color] duration-200 active:scale-[0.97] motion-reduce:transition-none",
+                  open.length === 0 && "tile-hint",
+                  turned && news && "tile-found",
                   "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                   turned
                     ? news
@@ -1223,7 +1232,7 @@ function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
                   <span
                     key="turned"
                     className={cn(
-                      "animate-in fade-in-0 zoom-in-95 text-sm font-medium leading-tight duration-200 motion-reduce:animate-none",
+                      "tile-flip text-sm font-medium leading-tight",
                       news ? "text-warning" : "text-muted-foreground"
                     )}
                   >
