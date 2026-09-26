@@ -84,6 +84,11 @@
   --cat-9: oklch(0.78 0.09 230);
   --cat-10: oklch(0.62 0.11 260);
   --cat-neutral: oklch(0.62 0 0);
+  /* The retirement room's spending layers. See DESIGN_TOKENS.md. */
+  --layer-essentials: oklch(0.8 0.13 175);
+  --layer-regular: oklch(0.74 0.14 250);
+  --layer-discretionary: oklch(0.84 0.14 85);
+  --layer-luxuries: oklch(0.74 0.16 335);
   /* The band map's two zone washes. Warm for a price above what a
      company looks worth, cool for one below it, both at a few per cent
      so they read as a ground rather than a fill. Deliberately NOT the

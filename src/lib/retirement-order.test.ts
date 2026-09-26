@@ -38,43 +38,31 @@ function at(phrase: string): number {
 }
 
 describe("the retirement room's panel order", () => {
-  it("answers, then asks", () => {
-    expect(at("Your number")).toBeLessThan(at("Start here"));
-  });
-
-  it("never puts a panel that can change the plan after the results table", () => {
+  it("puts the answer card before anything else", () => {
     /*
-      `LongevityPanel` used to sit after the grid, the ladder and the
-      spending layers on the argument that it is a lesson a reader plays
-      with. It is also, at a deeper level, three dials that `patch()` the
-      plan, which is what moved it here: nothing that writes to the plan
-      may sit after `GridPanel` any more, whatever the detail level, so a
-      reader who corrects a dial always sees the table it feeds directly
-      below rather than having to scroll back up past it.
+      The question is a sentence now and the answer sits directly under
+      it, so "answer first" means the verdict is in the first card and
+      nothing is between the two.
     */
-    expect(at("Start here")).toBeLessThan(at("How long the money has to last"));
-    expect(at("How long the money has to last")).toBeLessThan(
-      at("What stopping at each age costs")
-    );
+    expect(at("When could you stop working?")).toBeLessThan(at("Fine-tune the plan"));
   });
 
-  it("never sets a pot against a target before asking what the pot is", () => {
-    /*
-      #250 found this from the other side: on a pot of zero, "Where you
-      stand" reads as "you have nothing, short by the whole target", which
-      is an alarming statement about somebody who has not been asked
-      anything yet. It is answered twice here: the card that asks comes
-      first, and the room opens on a template rather than on zeroes.
-    */
-    expect(at("Start here")).toBeLessThan(at("Where you stand"));
-  });
-
-  it("keeps the results together, with the illustrative slider last", () => {
-    expect(at("What stopping at each age costs")).toBeLessThan(
-      at("Where you stand")
-    );
-    expect(at("Where you stand")).toBeLessThan(
+  it("keeps the spending layers ahead of the folded working", () => {
+    expect(at("Fine-tune the plan")).toBeLessThan(
       at("What a bad year actually costs you")
     );
+    expect(at("What a bad year actually costs you")).toBeLessThan(
+      at("Show the working")
+    );
+  });
+
+  it("holds the working back until it is asked for", () => {
+    /*
+      The survival curve, the grid and the milestones are one press away.
+      That the fold also opens on its own for "How long it lasts" is the
+      sibling assertion in `retirement-room.test.ts`.
+    */
+    expect(body).not.toContain("What stopping at each age costs");
+    expect(body).not.toContain("Where you stand");
   });
 });

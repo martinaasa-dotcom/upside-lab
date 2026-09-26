@@ -36,11 +36,9 @@ import { Button } from "@/components/ui/button";
 import { barFillPct, cn, currency } from "@/lib/format";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { GLOBAL_HAIRCUT_SOURCE, SWR_SOURCE } from "@/lib/retirement/swr";
-import type { PlanResult, PotCurvePoint, RetirementInputs } from "@/lib/retirement/plan";
-import { PotChart } from "@/components/retirement/PotChart";
+import type { PlanResult, RetirementInputs } from "@/lib/retirement/plan";
 import type { Provenance } from "@/lib/provenance";
-import { RETIREMENT_RESULTS_ID } from "@/lib/retirement/dom-ids";
-import { ArrowDown, Target } from "lucide-react";
+import { Target } from "lucide-react";
 
 function Method({
   name,
@@ -91,9 +89,6 @@ export function NumberPanel({
   plan,
   provenance,
   showWorking,
-  curve,
-  earliestAge,
-  onRetirementAge,
 }: {
   inputs: RetirementInputs;
   patch: (next: Partial<RetirementInputs>) => void;
@@ -101,10 +96,6 @@ export function NumberPanel({
   provenance: Provenance;
   /** The "How it is worked out" chip is ticked: show the arithmetic here. */
   showWorking: boolean;
-  /** Have against need at every age, from `potCurve`. */
-  curve: PotCurvePoint[];
-  earliestAge: number | null;
-  onRetirementAge: (age: number) => void;
 }) {
   const code = plan.currency;
   const { swr } = plan.required;
@@ -124,23 +115,15 @@ export function NumberPanel({
   return (
     <Panel>
       {/*
-        EVERY INPUT PANEL NOW SITS ABOVE THE RESULTS TABLE, ON PURPOSE, WHICH
-        MEANS OPENING A DEEPER LEVEL PUSHES IT FURTHER DOWN THE PAGE. The
-        panels that ask ("Your home", "What the money earns", the survival
-        curve's own dials, "A pot meant to run out") used to be split either
-        side of the table: some above it, some below, so a level change
-        sometimes moved the table and sometimes did not, and a control this
-        app was still asking about sat under the numbers it feeds. Every one
-        of them moved above the table instead. The honest cost is a table
-        that can sit several screens down at the deepest level, so this
-        button is the answer: always visible, because it lives on the one
-        panel that never moves.
+        The working behind the answer at the top of the room. It is only
+        drawn once "How it is worked out" is ticked; the verdict, the bar
+        and the chart live in `AnswerPanel`.
       */}
       <PanelHeader
         icon={<Target className="h-4 w-4" />}
         title={
           <span className="inline-flex items-center gap-2">
-            What you need
+            How your number is worked out
             <WhyThis provenance={provenance} />
           </span>
         }
@@ -157,7 +140,7 @@ export function NumberPanel({
           shrink what is around it rather than to grow this, and the
           invariant refuses anything larger.
         */}
-        <p className="figure-hero text-foreground">
+        <p className="font-mono text-2xl tabular-nums text-foreground">
           <CountUp value={plan.required.target} format={(n) => currency(n, 0, code)} />
         </p>
         <p className="text-sm leading-relaxed text-muted-foreground">
@@ -179,15 +162,6 @@ export function NumberPanel({
         </p>
       </div>
 
-      {curve.length > 1 ? (
-        <PotChart
-          curve={curve}
-          retirementAge={Math.round(inputs.retirementAge)}
-          earliestAge={earliestAge}
-          onRetirementAge={onRetirementAge}
-          code={code}
-        />
-      ) : null}
 
       {!showWorking ? (
         <p className="text-sm leading-relaxed text-muted-foreground">
@@ -332,23 +306,6 @@ export function NumberPanel({
       </div>
       )}
 
-      {/*
-        The way to the table, at the foot of the answer rather than in its
-        header: on a phone the header put a full-width button between the
-        title and the number, the one thing this panel is for.
-      */}
-      <button
-        type="button"
-        onClick={() =>
-          document
-            .getElementById(RETIREMENT_RESULTS_ID)
-            ?.scrollIntoView({ behavior: "smooth", block: "start" })
-        }
-        className="inline-flex items-center gap-1 self-start text-sm text-muted-foreground hover:text-foreground"
-      >
-        See the results table
-        <ArrowDown className="h-3.5 w-3.5" aria-hidden />
-      </button>
       <p className="text-xs text-muted-foreground">{ADVICE_DISCLAIMER_SHORT}</p>
     </Panel>
   );

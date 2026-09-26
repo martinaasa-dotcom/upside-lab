@@ -5,8 +5,9 @@ import { QuickStart } from "@/components/retirement/QuickStart";
 import { RetirementSheet } from "@/components/retirement/RetirementSheet";
 import { LongevityPanel } from "@/components/retirement/LongevityPanel";
 import { NumberPanel } from "@/components/retirement/NumberPanel";
+import { AnswerPanel } from "@/components/retirement/AnswerPanel";
 import { assessLongevity } from "@/lib/retirement/longevity";
-import { buildPlan, defaultInputs, planningAgeFor } from "@/lib/retirement/plan";
+import { buildPlan, defaultInputs, planningAgeFor, potCurve } from "@/lib/retirement/plan";
 import { templateById, templateInputs } from "@/lib/retirement/templates";
 import { regionById, UK_STANDARDS_SOURCE } from "@/lib/retirement/regions";
 import { RETURNS_SOURCE } from "@/lib/retirement/returns";
@@ -61,22 +62,23 @@ describe("the retirement room, as somebody new meets it", () => {
   const markup = roomMarkup();
   const body = text(markup);
 
-  it("answers before it asks, which is this room's own oldest rule", () => {
+  it("draws no verdict before the plan is in place", () => {
     /*
-      Measured at 390 on the first draft: eight template cards and six
-      fields put the headline figure 2,103px down, three screens on the
-      device most readers arrive on. The panel that answers comes first.
+      The server renders this room before the saved plan or the opening
+      example life exists, so what it has is the bare defaults. A verdict
+      drawn on those read "Yes. The pensions already pay for the life you
+      picked" over a plan of zeroes. The first frame is a placeholder.
     */
-    expect(body.indexOf("Your number")).toBeGreaterThan(-1);
-    expect(body.indexOf("Your number")).toBeLessThan(body.indexOf("Start here"));
+    expect(body).toContain("When could you stop working?");
+    expect(body).toContain("Working out your plan");
+    expect(body).not.toContain("You could stop at");
+    expect(body).not.toContain("Not yet at");
+    expect(body).not.toContain("The figures only you know");
   });
 
-  it("opens on the templates and the essentials", () => {
-    expect(body).toContain("Start here");
-    expect(body).toContain("Pick a starting point");
-    expect(body).toContain("Just starting out");
-    expect(body).toContain("Stop early");
-    expect(body).toContain("The figures only you know");
+  it("keeps the example lives one press away rather than a row of cards", () => {
+    expect(body).toContain("example life");
+    expect(body).not.toContain("Just starting out");
   });
 
   it("asks for nothing that has a published default", () => {
@@ -100,22 +102,10 @@ describe("the retirement room, as somebody new meets it", () => {
     expect(body).not.toContain("What a bad year actually costs you");
   });
 
-  it("renders the results table eagerly, since it is a skip button's target", () => {
-    /*
-      `GridPanel` carries the id `NumberPanel`'s "See the results table"
-      button scrolls to. `BelowFold`'s own doc says an anchor target must
-      never be wrapped in one: a button that lands on an unmounted
-      placeholder is a button that looks like it works and does not.
-    */
-    expect(body).toContain("What stopping at each age costs");
-  });
-
-  it("still answers, which is the whole point of withholding the inputs", () => {
-    expect(body).toContain("What you need");
-    expect(body).toContain("Your number");
-    /* The ladder and the curve cost the reader nothing to read. */
-    expect(body).toContain("How long the money has to last");
-    expect(body).toContain("One in ten reach");
+  it("folds the working behind one press", () => {
+    expect(body).toContain("Show the working");
+    expect(body).not.toContain("What stopping at each age costs");
+    expect(body).not.toContain("One in ten reach");
   });
 
   it("says out loud where the rest of it went, and what it currently is", () => {
@@ -173,9 +163,6 @@ describe("both pots are named at every level", () => {
           plan,
           provenance,
           showWorking,
-          curve: [],
-          earliestAge: null,
-          onRetirementAge: () => {},
         })
       )
     );
@@ -251,16 +238,13 @@ describe("the card a reader pressed", () => {
     return renderToStaticMarkup(
       createElement(QuickStart, {
         inputs,
-        patch: () => {},
-        replace: () => {},
-        portfolioValue: null,
+        defaultShowLives: true,
         open: [],
         onToggle: () => {},
         planningAge: 99,
         swrPct: 3.5,
         templateId,
         onTemplate: () => {},
-        result: { target: 697_067, earliestAge: 68 },
       })
     );
   }
@@ -269,7 +253,7 @@ describe("the card a reader pressed", () => {
     const markup = quickStart("family-years");
     const card = markup
       .split("<button")
-      .find((chunk) => chunk.includes("Family years"));
+      .find((chunk) => chunk.includes("Family years") && chunk.includes("aria-pressed"));
     expect(card).toBeTruthy();
     /*
       `ring-*` is a box-shadow utility, and `.glass-well` sets `box-shadow`
@@ -292,7 +276,7 @@ describe("the card a reader pressed", () => {
     const markup = quickStart(null);
     const card = markup
       .split("<button")
-      .find((chunk) => chunk.includes("Family years"));
+      .find((chunk) => chunk.includes("Family years") && chunk.includes("aria-pressed"));
     expect(card).toBeTruthy();
     /*
       `veil-hover` matches `StandardPicker` (`PlanInputs.tsx`), the sibling
@@ -305,7 +289,7 @@ describe("the card a reader pressed", () => {
 
   it("says whose figures are on the page once one is pressed", () => {
     expect(text(quickStart("family-years"))).toContain(
-      "Every figure below starts from this life"
+      "Every figure starts from this life"
     );
     expect(text(quickStart(null))).not.toContain("starts from this life");
   });
@@ -322,16 +306,12 @@ describe("nothing in the plan is invisible", () => {
     return renderToStaticMarkup(
       createElement(QuickStart, {
         inputs,
-        patch: () => {},
-        replace: () => {},
-        portfolioValue: null,
         open,
         onToggle: () => {},
         planningAge: 99,
         swrPct: 3.5,
         templateId: null,
         onTemplate: () => {},
-        result: { target: 697_067, earliestAge: 68 },
       })
     );
   }
@@ -362,19 +342,138 @@ describe("nothing in the plan is invisible", () => {
     const car = markup.split("<button").find((c) => c.includes(">Car<"));
     expect(car).toContain('aria-pressed="false"');
   });
+});
 
-  it("gives a reader's own spending figure a field rather than a signpost", () => {
-    const mine = {
-      ...defaultInputs("GB"),
-      spendingMode: "custom" as const,
-      customAnnualSpend: 27_000,
-    };
-    const body = text(quick([], mine));
-    expect(body).not.toContain("further down");
-    expect(body).toContain("Your own figure, a month");
-  });
-
-  it("leaves the baskets alone when one of them is chosen", () => {
-    expect(text(quick())).not.toContain("Your own figure, a month");
+describe("the verdict", () => {
+  it("says yes or not yet, and offers presses rather than instructions", async () => {
+    const { buildVerdict } = await import("@/lib/retirement/verdict");
+    const money = (n: number) => `$${Math.round(n)}`;
+    const short = buildVerdict({
+      retirementAge: 60,
+      have: 300_000,
+      need: 600_000,
+      earliestAge: 66,
+      monthlyToClose: 842,
+      money,
+    });
+    expect(short.headline).toBe("Not yet at 60.");
+    expect(short.detail).toContain("50% of the way");
+    expect(short.fixes.map((f) => f.text)).toEqual([
+      "Stopping at 66 is enough.",
+      "Adding $850 a month is enough.",
+    ]);
+    const ready = buildVerdict({
+      retirementAge: 65,
+      have: 700_000,
+      need: 600_000,
+      earliestAge: 62,
+      monthlyToClose: 0,
+      money,
+    });
+    expect(ready.headline).toBe("Yes. You could stop at 65.");
+    expect(ready.fixes).toEqual([]);
+    expect(ready.sooner).toContain("62");
+    for (const v of [short, ready]) {
+      const all = [v.headline, v.detail, v.sooner ?? "", ...v.fixes.map((f) => f.text)].join(" ");
+      expect(all).not.toMatch(/\byou should\b|\bmust\b|\bbuy\b|\bsell\b|[\u2013\u2014]/i);
+    }
   });
 });
+
+describe("the answer card, once the plan is in place", () => {
+  const inputs = templateInputs(templateById("getting-going")!, "GB");
+  const region = regionById(inputs.regionId);
+  const longevity = assessLongevity({
+    currentAge: inputs.currentAge,
+    e65Male: region.e65Male,
+    e65Female: region.e65Female,
+    sex: inputs.sex,
+    improvementPct: inputs.improvementPct,
+  });
+  const plan = buildPlan(inputs, longevity.suggestedPlanningAge);
+  const curve = potCurve(inputs, longevity.suggestedPlanningAge);
+  const hit = curve.find((p) => p.need > 0 && p.have >= p.need);
+  const provenance = retirementProvenance({
+    regionName: region.name,
+    standardsSource: UK_STANDARDS_SOURCE,
+    returnsSource: RETURNS_SOURCE,
+    swrSource: SWR_SOURCE,
+    haircutSource: GLOBAL_HAIRCUT_SOURCE,
+    statePensionSource: region.statePensionSource,
+    e65: region.e65Female,
+    planningAge: planningAgeFor(inputs, longevity.suggestedPlanningAge),
+    improvementPct: inputs.improvementPct,
+    currentAge: inputs.currentAge,
+    swrPct: plan.required.swr.ratePct,
+    realReturnPct: plan.realReturnPct,
+    basis: plan.required.basis,
+  });
+
+  function card(worldCheck: { pct: number; earliestAge: number | null } | null = null) {
+    return text(
+      renderToStaticMarkup(
+        createElement(AnswerPanel, {
+          inputs,
+          patch: () => {},
+          replace: () => {},
+          plan,
+          provenance,
+          curve,
+          earliestAge: hit ? hit.age : null,
+          onRetirementAge: () => {},
+          planningAge: planningAgeFor(inputs, longevity.suggestedPlanningAge),
+          suggestedPlanningAge: longevity.suggestedPlanningAge,
+          portfolioValue: null,
+          worldCheck,
+        })
+      )
+    );
+  }
+
+  it("asks as one sentence and answers under it", () => {
+    const body = card();
+    for (const words of [
+      "I am",
+      "would like to stop working at",
+      "a month",
+      "it has to last until",
+      "My money grows by",
+    ]) {
+      expect(body).toContain(words);
+    }
+    expect(body).toMatch(/You could stop at|Not yet at/);
+    expect(body.indexOf("My money grows by")).toBeLessThan(
+      body.indexOf("Drag to try another age")
+    );
+  });
+
+  it("keeps punctuation on the line of the word before it", () => {
+    const markup = renderToStaticMarkup(
+      createElement(AnswerPanel, {
+        inputs,
+        patch: () => {},
+        replace: () => {},
+        plan,
+        provenance,
+        curve,
+        earliestAge: null,
+        onRetirementAge: () => {},
+        planningAge: 100,
+        suggestedPlanningAge: 100,
+        portfolioValue: null,
+      })
+    );
+    expect(markup.match(/whitespace-nowrap/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
+  });
+
+  it("says what the answer would be at the world's long-run return", () => {
+    expect(card({ pct: 5.1, earliestAge: 71 })).toContain(
+      "long-run 5.1% a year instead, the earliest you could stop would be 71."
+    );
+    expect(card({ pct: 5.1, earliestAge: null })).toContain(
+      "would not get there before 80"
+    );
+    expect(card(null)).not.toContain("long-run 5.1% a year instead");
+  });
+});
+

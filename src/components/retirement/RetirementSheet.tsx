@@ -8,67 +8,25 @@
  * `src/lib/retirement/`, which is pure and tested, so a panel cannot quietly
  * disagree with the panel above it.
  *
- * ORDERED ANSWER FIRST. A reader who arrives at a wall of forty inputs and
- * has to fill them in before seeing anything closes the tab. So the number
- * is at the top, computed from their country's published figures on the
- * first paint, and everything below it is the argument and the controls.
- * They can change one input and watch the top move, which is also the only
- * way anybody learns what an assumption is worth.
+ * ONE ANSWER, ONE PLACE TO FINE-TUNE, ONE LESSON, AND THE WORKING FOLDED.
  *
- * AND THEN THE INPUTS THEMSELVES WERE THE WALL ANYWAY. Answering first is
- * not enough when the second thing on the page is seven panels of fields:
- * the room still READ as work, and what a reader does with a page that
- * reads as work is close it. So the default is `simple` (`detail.ts`),
- * which keeps every panel that ANSWERS something and withholds every panel
- * that ASKS something, and `QuickStart` fills the whole plan from one press
- * on a life plus the six figures nothing can guess. Nothing is unreachable:
- * the control that brings the rest back is on that same first card, and the
- * level is remembered. See `detail.ts` for why that is not the withholding
- * this repository argues against.
+ * `AnswerPanel` is the question as one sentence with every figure a word
+ * the reader can tap, and under it the verdict: yes or not yet, a bar of
+ * saved against needed, the one or two presses that turn a not yet into a
+ * yes, the same plan at the world's long-run return when the reader's own
+ * rate is far from it, and the draggable chart. `QuickStart` is the chips
+ * for everything else the plan counts plus the example lives behind one
+ * button. The ticked editors open under it. Then the spending layers,
+ * which are the one lesson worth meeting unasked, and then the working
+ * (survival odds, every age side by side, the milestones) behind a single
+ * press, which opens on its own when "How long it lasts" is ticked.
  *
- * THE ORDER IS ANSWER, QUESTION, THEN LESSONS, AND #250's ARGUMENT FOR IT
- * IS FOLDED IN HERE. Two sessions reached this room at once with the same
- * complaint and different halves of the answer, which this repository
- * already warns is the dangerous shape: two sound changes that merge
- * cleanly and disagree. #250's reasoning was that the grid ("what stopping
- * at each age costs") is the one table that turns a single answer into a
- * lesson about the shape of the problem, and that it and the number are the
- * only two panels honest on defaults nobody has touched, because neither
- * compares the target against what the reader actually holds. `Standing`
- * cannot: on a pot of zero it says "you have nothing, short by £697,067",
- * which is not a lesson but an alarming statement about somebody who has
- * not been asked anything yet. And the zero pot never reaches `Standing`,
- * both because the card that asks comes before it and because the room
- * opens on a template rather than on zeroes at all.
- *
- * AND EVERY PANEL THAT ASKS SITS ABOVE THE RESULTS TABLE, NEVER BELOW IT,
- * WHICH IS A DIFFERENT RULE FROM THE ONE ABOVE AND HAD BEEN QUIETLY BROKEN.
- * "Answer, question, then lessons" said nothing about where a panel that
- * both asks and teaches belongs, so `LongevityPanel` (a chart plus, at a
- * deeper level, three dials), `BridgePanel` and the old `AssumptionsPanel`
- * had all drifted to the foot of the page, under the grid, under the
- * ladder, under the spending layers. A reader who opened "Everything" to
- * correct their own mix or their own bridge years was editing a figure the
- * table above it had already been drawn from, with no way to see the table
- * react without scrolling back up. Nothing that can `patch()` the plan may
- * sit after `GridPanel` now: `PlanInputs`, `ReturnsPanel`, `LongevityPanel`
- * and `BridgePanel` all moved above it, in that order, so the table, the
- * ladder and the spending layers are the last three things on the page
- * whatever the detail level. `StandingPanel` and `FlexiblePanel` read the
- * plan and answer; neither writes to it, so both stay put. `AssumptionsPanel`
- * is documentation rather than a lever now (its levers moved into
- * `ReturnsPanel`; see that file), so it stays folded near the foot of this
- * group, at "Everything" only.
- *
- * THE HONEST COST OF THAT IS A TABLE THAT CAN SIT SEVERAL SCREENS DOWN AT
- * THE DEEPEST LEVEL, since opening "More" or "Everything" now pushes every
- * result down rather than only some of them. `NumberPanel`'s own header
- * carries a "See the results table" button for exactly that reason: it is
- * the one panel that never moves, so the way back to the numbers is always
- * on screen. The table's own `id` (`RETIREMENT_RESULTS_ID`, in
- * `dom-ids.ts`) is why `GridPanel` can no longer be wrapped in `BelowFold`
- * — an anchor landing on an unmounted placeholder is a button that looks
- * like it works and does not, which `BelowFold`'s own doc already forbids.
+ * Nothing that writes to the plan sits after the results table: inside the
+ * fold the survival curve, whose dials can patch the plan, comes before the
+ * grid. Before the saved plan is in place the answer card is a placeholder
+ * rather than a verdict drawn on bare defaults, because the server renders
+ * this room and a first frame reading "Yes, you could stop" over a plan of
+ * zeroes is a sentence the page would have to take back.
  *
  * THE POT IS PRE-FILLED FROM WHAT THEY ACTUALLY HOLD, and that is the one
  * thing this module can do that a spreadsheet cannot. Offered rather than
@@ -105,6 +63,7 @@ import { BridgePanel } from "@/components/retirement/BridgePanel";
 import { FlexiblePanel } from "@/components/retirement/FlexiblePanel";
 import { GridPanel } from "@/components/retirement/GridPanel";
 import { LongevityPanel } from "@/components/retirement/LongevityPanel";
+import { AnswerPanel } from "@/components/retirement/AnswerPanel";
 import { NumberPanel } from "@/components/retirement/NumberPanel";
 import {
   CarTopic,
@@ -115,6 +74,8 @@ import {
 } from "@/components/retirement/PlanInputs";
 import { StandingPanel } from "@/components/retirement/StandingPanel";
 import { PANEL_STACK } from "@/components/ui/Panel";
+import { cn } from "@/lib/format";
+import { ChevronDown } from "lucide-react";
 import { retirementProvenance } from "@/lib/provenance";
 import { assessLongevity, e65For } from "@/lib/retirement/longevity";
 import { buildMilestones } from "@/lib/retirement/milestones";
@@ -191,6 +152,7 @@ export function RetirementSheet({
   const [mode, setMode] = useState<TableMode>("invested");
   const [restored, setRestored] = useState(false);
   const [open, setOpen] = useState<AdjustTopic[]>([]);
+  const [showWorking, setShowWorking] = useState(false);
   /*
     Which life is lit up, for this visit only. It is not stored with the
     plan and must not be: a template is a starting point somebody pressed
@@ -466,6 +428,26 @@ export function RetirementSheet({
     return hit ? { age: hit.age, pot: hit.have, required: hit.need } : null;
   }, [curve]);
 
+  /*
+    The same plan at the world's long-run return, only when the reader's
+    own rate is at least half a point away from it. It is the one check on
+    the verdict a reader cannot do for themselves: the answer is worked at
+    whatever growth figure the plan carries, and "what you hold" can be an
+    outlook far above anything a whole market has held for a lifetime. A
+    second whole curve is fifty more plans, so it runs on the deferred
+    inputs like the first one.
+  */
+  const worldCheck = useMemo(() => {
+    const world = REAL_RETURN_ASSUMPTIONS.equityPct;
+    if (Math.abs(settled.returns.equityPct - world) < 0.5) return null;
+    const alt = potCurve(
+      { ...settled, returns: { ...settled.returns, equityPct: world } },
+      longevity.suggestedPlanningAge
+    );
+    const hit = alt.find((p) => p.need > 0 && p.have >= p.need);
+    return { pct: world, earliestAge: hit ? hit.age : null };
+  }, [settled, longevity.suggestedPlanningAge]);
+
   const rows = useMemo(
     () =>
       buildTable({
@@ -512,75 +494,67 @@ export function RetirementSheet({
   const isOpen = (topic: AdjustTopic) => open.includes(topic);
   const close = (topic: AdjustTopic) => () => toggle(topic);
 
+  /*
+    The working (survival odds, every age side by side, the milestones)
+    stays one press away rather than on the page by default. It opens on
+    its own when a reader ticks a topic whose editor lives inside it.
+  */
+  const workingOpen = showWorking || isOpen("lifespan");
+
   return (
     <div className={PANEL_STACK}>
       {/*
-        THE ANSWER IS STILL FIRST, which is this room's own oldest rule and
-        the one the first draft of the quick-start card broke: measured at
-        390, eight template cards and six fields put the headline figure
-        2,103px down, which is three screens on the device most readers
-        arrive on. The card that asks comes second, and carries its own
-        one-line result so a press still changes something on the screen
-        the press happened on.
+        THE ROOM IS ONE ANSWER, ONE PLACE TO FINE-TUNE, ONE LESSON, AND THE
+        WORKING BEHIND A SINGLE PRESS.
+
+        The feedback was that even after the chips the room was too busy to
+        understand, and the count agreed: seven panels, five charts and two
+        tables stood between a reader and the end of the page, and the one
+        thing they came for (can I stop when I want to) was a figure they
+        had to compare against another figure themselves. `AnswerPanel`
+        says it as a sentence and a yes or not yet, with the fixes as
+        presses. Under it, the chips; then the spending layers, which are
+        the one lesson worth meeting unasked because they are what makes a
+        bad year stop being frightening; then the working, folded.
+
+        That fold is not the withholding this repository argues against:
+        every figure the answer rests on is in the answer, and the fold is
+        a press away on the same page, never a room somebody has to find.
+        Nothing that writes to the plan sits after the results table inside
+        it, the rule the order test holds.
       */}
-      <NumberPanel
+      <AnswerPanel
         inputs={inputs}
         patch={patch}
+        replace={setInputs}
         plan={plan}
         provenance={provenance}
-        showWorking={isOpen("working")}
         curve={curve}
         earliestAge={earliest ? earliest.age : null}
         onRetirementAge={(age) =>
           setInputs((prev) => retargetRetirementAge(prev, age))
         }
-      />
-
-      <QuickStart
-        inputs={inputs}
-        patch={patch}
-        replace={setInputs}
+        planningAge={planningAge}
+        suggestedPlanningAge={longevity.suggestedPlanningAge}
         portfolioValue={portfolioValue}
         sheets={sheets}
         potSource={potSource}
         onPotSourceChange={changePotSource}
+        holdingsView={holdingsView}
+        ready={restored}
+        worldCheck={worldCheck}
+      />
+
+      <QuickStart
+        inputs={inputs}
         open={open}
         onToggle={toggle}
         planningAge={planningAge}
         swrPct={plan.required.swr.ratePct}
         templateId={templateId}
         onTemplate={applyTemplate}
-        holdingsView={holdingsView}
-        result={{
-          target: plan.required.target,
-          earliestAge: earliest ? earliest.age : null,
-        }}
       />
 
-      {/*
-        EVERY PANEL BELOW THIS POINT AND ABOVE THE RESULTS TABLE CAN CHANGE
-        THE PLAN. `PlanInputs`, the return assumptions, the survival curve's
-        own dials and the bridge pot used to be split either side of
-        `GridPanel`, so correcting one of them sometimes moved the table
-        and sometimes moved nothing you could see without scrolling back
-        down past it. None of them may sit after the table now, whatever
-        the detail level, so a reader who opens a deeper level always
-        finds the thing they are about to change directly above the
-        numbers it feeds, never buried under them.
-
-        `ReturnsPanel` sits right after `PlanInputs` for the reason it used
-        to sit right before the grid when the grid still had a fold of its
-        own: `QuickStart`'s own toggle above already answers the common
-        case for every reader, simple or not, so this is only reached by
-        somebody who opened "More" to correct the exact figures or a mix
-        that shifts more than twice over a life.
-      */}
-      {/*
-        WHAT WAS TICKED, AND NOTHING ELSE, DIRECTLY UNDER THE CARD THAT
-        TICKED IT, in the chips' own order. Every one of these can change
-        the plan, so none may sit after the results table: a reader who
-        corrects their rent sees the table it feeds straight below.
-      */}
       {isOpen("home") ? <HomeTopic inputs={inputs} patch={patch} onClose={close("home")} /> : null}
       {isOpen("children") ? (
         <ChildrenTopic inputs={inputs} patch={patch} onClose={close("children")} />
@@ -599,56 +573,66 @@ export function RetirementSheet({
         <BridgePanel inputs={inputs} plan={plan} onClose={close("bridge")} />
       ) : null}
       {isOpen("working") ? (
-        <AssumptionsPanel inputs={inputs} onClose={close("working")} />
+        <>
+          <NumberPanel
+            inputs={inputs}
+            patch={patch}
+            plan={plan}
+            provenance={provenance}
+            showWorking
+          />
+          <AssumptionsPanel inputs={inputs} onClose={close("working")} />
+        </>
       ) : null}
-
-      {/*
-        The survival curve is a result and a place to adjust at once. It
-        sits straight after the editors either way, so when "How long it
-        lasts" is ticked its dials open directly under the other editors,
-        and when it is not it is simply the first of the results.
-      */}
-      <LongevityPanel
-        inputs={inputs}
-        patch={patch}
-        result={longevity}
-        planningAge={planningAge}
-        showControls={isOpen("lifespan")}
-        onClose={isOpen("lifespan") ? close("lifespan") : undefined}
-      />
-
-      {/*
-        THE RESULTS, LAST, AND NONE OF THEM WRAPPED IN `BelowFold` BUT
-        `FlexiblePanel`. The grid carries `RETIREMENT_RESULTS_ID`, which
-        `NumberPanel`'s skip button scrolls to, and `BelowFold`'s own doc
-        says an anchor target must never be wrapped in one: a button that
-        lands on an unmounted placeholder looks like it works and does not.
-        `StandingPanel` sits right under it for the same reason it always
-        has (#250: it must never be shown a zero pot before the card that
-        asks has had a turn, which is guaranteed here since both trail
-        every panel that writes to the plan). `FlexiblePanel` is the one
-        exception still worth folding: it is a local, illustrative slider
-        over the plan already built above, never a plan input itself, and
-        it is reliably the furthest thing down the page, so the reserve
-        still buys something.
-      */}
-      <GridPanel
-        inputs={inputs}
-        plan={plan}
-        rows={rows}
-        mode={mode}
-        onModeChange={setMode}
-      />
-
-      <StandingPanel
-        inputs={inputs}
-        plan={plan}
-        milestones={milestones}
-      />
 
       <BelowFold reserve={480}>
         <FlexiblePanel plan={plan} />
       </BelowFold>
+
+      <button
+        type="button"
+        aria-expanded={workingOpen}
+        onClick={() => setShowWorking((v) => !v)}
+        className="card-sheen glass flex items-center justify-between gap-3 rounded-xl px-4 py-4 text-left ring-1 ring-foreground/15 transition-colors hover:ring-foreground/30 sm:px-6"
+      >
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-heading text-base font-semibold text-foreground">
+            {workingOpen ? "Hide the working" : "Show the working"}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            How long people live, what stopping at every age costs, and the
+            milestones on the way.
+          </span>
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-5 w-5 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none",
+            workingOpen && "rotate-180"
+          )}
+          aria-hidden
+        />
+      </button>
+
+      {workingOpen ? (
+        <>
+          <LongevityPanel
+            inputs={inputs}
+            patch={patch}
+            result={longevity}
+            planningAge={planningAge}
+            showControls={isOpen("lifespan")}
+            onClose={isOpen("lifespan") ? close("lifespan") : undefined}
+          />
+          <GridPanel
+            inputs={inputs}
+            plan={plan}
+            rows={rows}
+            mode={mode}
+            onModeChange={setMode}
+          />
+          <StandingPanel inputs={inputs} plan={plan} milestones={milestones} />
+        </>
+      ) : null}
     </div>
   );
 }
