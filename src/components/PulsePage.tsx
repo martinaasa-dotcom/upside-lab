@@ -20,7 +20,6 @@ import {
   EmptyState,
   Metric,
   MicroLabel,
-  NESTED_PAD,
   NoteRows,
   PANEL_STACK,
   Panel,
@@ -589,7 +588,7 @@ function PulseCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
       {c.inBook ? (
-        <div className="glass-well nested-pad grid grid-cols-2 gap-x-4 gap-y-5 rounded-lg sm:grid-cols-4 sm:gap-6">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-5 border-y border-border py-5 sm:grid-cols-4 sm:gap-6">
           {/* "worth", not "you hold": the hint truncates, and at 124px on
               a phone "you hold $4,566.38" loses its last two digits. */}
           <Metric label="Price" hint={`worth ${currency(c.currentValue)}`}>
@@ -693,7 +692,7 @@ function PulseCard({
         * not tell the model's reasoning from their own note.
         */}
       {hasBody ? (
-        <div className={cn("flex flex-col gap-4 glass-well rounded-lg", NESTED_PAD)}>
+        <div className="flex flex-col gap-4">
           {suggestion ? (
             <p className="text-base font-medium leading-relaxed text-foreground">
               {suggestion}
@@ -1805,7 +1804,14 @@ export const PulsePage = memo(function PulsePage({
         />
 
         {dayStory || marketLine || standouts || mood ? (
-          <div className={cn("flex flex-col gap-3 glass-well rounded-lg", NESTED_PAD)}>
+          /*
+            One picture and one short read, straight on the panel rather
+            than in a well inside it. The standouts sentence is left out
+            when the picture is drawn, because the picture already prints
+            each standout's figure on its own chip; the market line and
+            the mood are one paragraph, not two stacked ones.
+          */
+          <div className="flex flex-col gap-3">
             {marketSplit && swarmHoldings.length > 0 ? (
               <div className="mb-3">
                 <MarketVsYou
@@ -1820,19 +1826,15 @@ export const PulsePage = memo(function PulsePage({
                 {humanizeMargusText(dayStory)}
               </p>
             ) : null}
-            {marketLine ? (
+            {marketLine || mood || (standouts && !(marketSplit && swarmHoldings.length > 0)) ? (
               <p className="text-sm leading-relaxed text-muted-foreground">
-                {marketLine}
-              </p>
-            ) : null}
-            {standouts ? (
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {standouts}
-              </p>
-            ) : null}
-            {mood ? (
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {mood}
+                {[
+                  marketLine,
+                  marketSplit && swarmHoldings.length > 0 ? null : standouts,
+                  mood,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
               </p>
             ) : null}
           </div>
