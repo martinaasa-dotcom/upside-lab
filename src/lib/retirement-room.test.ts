@@ -61,22 +61,25 @@ describe("the retirement room, as somebody new meets it", () => {
   const markup = roomMarkup();
   const body = text(markup);
 
-  it("answers before it asks, which is this room's own oldest rule", () => {
+  it("asks as a sentence and answers in the same card", () => {
     /*
-      Measured at 390 on the first draft: eight template cards and six
-      fields put the headline figure 2,103px down, three screens on the
-      device most readers arrive on. The panel that answers comes first.
+      The form is gone: the figures only the reader knows are words in one
+      sentence, each tappable, and the verdict sits straight under it.
     */
-    expect(body.indexOf("Your number")).toBeGreaterThan(-1);
-    expect(body.indexOf("Your number")).toBeLessThan(body.indexOf("Start here"));
+    expect(body).toContain("When could you stop working?");
+    expect(body).toContain("I am");
+    expect(body).toContain("would like to stop working at");
+    expect(body).toContain("a month");
+    expect(body).toContain("My money grows like");
+    expect(body.indexOf("My money grows like")).toBeLessThan(
+      body.indexOf("Drag to try another age")
+    );
+    expect(body).not.toContain("The figures only you know");
   });
 
-  it("opens on the templates and the essentials", () => {
-    expect(body).toContain("Start here");
-    expect(body).toContain("Pick a starting point");
-    expect(body).toContain("Just starting out");
-    expect(body).toContain("Stop early");
-    expect(body).toContain("The figures only you know");
+  it("keeps the example lives one press away rather than a row of cards", () => {
+    expect(body).toContain("example life");
+    expect(body).not.toContain("Just starting out");
   });
 
   it("asks for nothing that has a published default", () => {
@@ -100,22 +103,14 @@ describe("the retirement room, as somebody new meets it", () => {
     expect(body).not.toContain("What a bad year actually costs you");
   });
 
-  it("renders the results table eagerly, since it is a skip button's target", () => {
-    /*
-      `GridPanel` carries the id `NumberPanel`'s "See the results table"
-      button scrolls to. `BelowFold`'s own doc says an anchor target must
-      never be wrapped in one: a button that lands on an unmounted
-      placeholder is a button that looks like it works and does not.
-    */
-    expect(body).toContain("What stopping at each age costs");
+  it("folds the working behind one press", () => {
+    expect(body).toContain("Show the working");
+    expect(body).not.toContain("What stopping at each age costs");
+    expect(body).not.toContain("One in ten reach");
   });
 
-  it("still answers, which is the whole point of withholding the inputs", () => {
-    expect(body).toContain("What you need");
-    expect(body).toContain("Your number");
-    /* The ladder and the curve cost the reader nothing to read. */
-    expect(body).toContain("How long the money has to last");
-    expect(body).toContain("One in ten reach");
+  it("names how long it lasts in the sentence itself", () => {
+    expect(body).toContain("it has to last until");
   });
 
   it("says out loud where the rest of it went, and what it currently is", () => {
@@ -251,16 +246,13 @@ describe("the card a reader pressed", () => {
     return renderToStaticMarkup(
       createElement(QuickStart, {
         inputs,
-        patch: () => {},
-        replace: () => {},
-        portfolioValue: null,
+        defaultShowLives: true,
         open: [],
         onToggle: () => {},
         planningAge: 99,
         swrPct: 3.5,
         templateId,
         onTemplate: () => {},
-        result: { target: 697_067, earliestAge: 68 },
       })
     );
   }
@@ -269,7 +261,7 @@ describe("the card a reader pressed", () => {
     const markup = quickStart("family-years");
     const card = markup
       .split("<button")
-      .find((chunk) => chunk.includes("Family years"));
+      .find((chunk) => chunk.includes("Family years") && chunk.includes("aria-pressed"));
     expect(card).toBeTruthy();
     /*
       `ring-*` is a box-shadow utility, and `.glass-well` sets `box-shadow`
@@ -292,7 +284,7 @@ describe("the card a reader pressed", () => {
     const markup = quickStart(null);
     const card = markup
       .split("<button")
-      .find((chunk) => chunk.includes("Family years"));
+      .find((chunk) => chunk.includes("Family years") && chunk.includes("aria-pressed"));
     expect(card).toBeTruthy();
     /*
       `veil-hover` matches `StandardPicker` (`PlanInputs.tsx`), the sibling
@@ -305,7 +297,7 @@ describe("the card a reader pressed", () => {
 
   it("says whose figures are on the page once one is pressed", () => {
     expect(text(quickStart("family-years"))).toContain(
-      "Every figure below starts from this life"
+      "Every figure starts from this life"
     );
     expect(text(quickStart(null))).not.toContain("starts from this life");
   });
@@ -322,16 +314,12 @@ describe("nothing in the plan is invisible", () => {
     return renderToStaticMarkup(
       createElement(QuickStart, {
         inputs,
-        patch: () => {},
-        replace: () => {},
-        portfolioValue: null,
         open,
         onToggle: () => {},
         planningAge: 99,
         swrPct: 3.5,
         templateId: null,
         onTemplate: () => {},
-        result: { target: 697_067, earliestAge: 68 },
       })
     );
   }
@@ -362,19 +350,40 @@ describe("nothing in the plan is invisible", () => {
     const car = markup.split("<button").find((c) => c.includes(">Car<"));
     expect(car).toContain('aria-pressed="false"');
   });
+});
 
-  it("gives a reader's own spending figure a field rather than a signpost", () => {
-    const mine = {
-      ...defaultInputs("GB"),
-      spendingMode: "custom" as const,
-      customAnnualSpend: 27_000,
-    };
-    const body = text(quick([], mine));
-    expect(body).not.toContain("further down");
-    expect(body).toContain("Your own figure, a month");
-  });
-
-  it("leaves the baskets alone when one of them is chosen", () => {
-    expect(text(quick())).not.toContain("Your own figure, a month");
+describe("the verdict", () => {
+  it("says yes or not yet, and offers presses rather than instructions", async () => {
+    const { buildVerdict } = await import("@/lib/retirement/verdict");
+    const money = (n: number) => `$${Math.round(n)}`;
+    const short = buildVerdict({
+      retirementAge: 60,
+      have: 300_000,
+      need: 600_000,
+      earliestAge: 66,
+      monthlyToClose: 842,
+      money,
+    });
+    expect(short.headline).toBe("Not yet at 60.");
+    expect(short.detail).toContain("50% of the way");
+    expect(short.fixes.map((f) => f.text)).toEqual([
+      "Stopping at 66 is enough.",
+      "Adding $850 a month is enough.",
+    ]);
+    const ready = buildVerdict({
+      retirementAge: 65,
+      have: 700_000,
+      need: 600_000,
+      earliestAge: 62,
+      monthlyToClose: 0,
+      money,
+    });
+    expect(ready.headline).toBe("Yes. You could stop at 65.");
+    expect(ready.fixes).toEqual([]);
+    expect(ready.sooner).toContain("62");
+    for (const v of [short, ready]) {
+      const all = [v.headline, v.detail, v.sooner ?? "", ...v.fixes.map((f) => f.text)].join(" ");
+      expect(all).not.toMatch(/\byou should\b|\bmust\b|\bbuy\b|\bsell\b|[\u2013\u2014]/i);
+    }
   });
 });
