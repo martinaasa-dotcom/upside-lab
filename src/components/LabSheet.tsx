@@ -586,12 +586,16 @@ export const LabSheet = memo(function LabSheet({
               * Wrapping costs one row of height and shows all six. Kept off
               * the wider row, which has the space to lay them out in one line
               * and where the scroller and its fade are the right answer.
+              *
+              * As an even grid rather than a wrapped row: a wrap broke three
+              * and three at different widths, so the two rows never lined up
+              * and read as a row that had overflowed.
               */}
             <LabTabRow
               tabs={visibleTabs}
               active={tab}
               onSelect={selectTab}
-              className="flex-wrap sm:hidden"
+              className="grid grid-cols-3 sm:hidden [&>button]:px-1"
             />
             <div className="relative hidden min-w-0 flex-1 sm:block">
               <LabTabRow
