@@ -60,10 +60,15 @@ export type SpendingTier = {
  * payment on the page or an occasional cash purchase nobody dials in.
  */
 /*
- * One warm ramp, solid at the bottom and lighter each layer up, so the
- * picture says which spending goes first without a legend. It was four
- * unrelated hues (green, blue, gold, teal) at full strength, the loudest
- * block in the app, and the green one said "gain" about groceries.
+ * FOUR BRIGHT HUES, ONE PER LAYER, BACK ON PURPOSE (2026-09-26, Martin's
+ * call). A single warm ramp read as correct and dull: four shades of khaki
+ * that a reader had to read the labels of to tell apart, on the one panel
+ * in the retirement room built to be played with. Each layer is its own
+ * colour again, from `--layer-*` (DESIGN_TOKENS.md), so the slider visibly
+ * takes the pink and the gold off the top while the teal stays put. The
+ * one fault the ramp was fixing is kept fixed: none of the four is
+ * `--gain` or `--loss`, so groceries are not drawn in the colour of a
+ * profit and luxuries are not drawn in the colour of a loss.
  */
 export const DEFAULT_TIERS: readonly SpendingTier[] = [
   {
@@ -71,28 +76,28 @@ export const DEFAULT_TIERS: readonly SpendingTier[] = [
     label: "Essentials",
     blurb: "Housing, food, heating, insurance, getting about. Never skipped.",
     sharePct: 58,
-    color: "color-mix(in oklch, var(--primary) 92%, var(--card))",
+    color: "var(--layer-essentials)",
   },
   {
     id: "regular",
     label: "Regular lifestyle",
     blurb: "The ordinary week. Eating out, hobbies, presents, the phone bill.",
     sharePct: 21,
-    color: "color-mix(in oklch, var(--primary) 66%, var(--card))",
+    color: "var(--layer-regular)",
   },
   {
     id: "discretionary",
     label: "Discretionary",
     blurb: "The yearly holiday, replacing the car sooner, the bigger treats.",
     sharePct: 13,
-    color: "color-mix(in oklch, var(--primary) 40%, var(--card))",
+    color: "var(--layer-discretionary)",
   },
   {
     id: "luxuries",
     label: "Luxuries",
     blurb: "The second trip, the better seats, the thing you did not need.",
     sharePct: 8,
-    color: "color-mix(in oklch, var(--primary) 22%, var(--card))",
+    color: "var(--layer-luxuries)",
   },
 ];
 

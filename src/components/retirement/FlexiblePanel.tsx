@@ -241,7 +241,7 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
               >
                 {gone ? null : (
                   <>
-                    <span className={cn("min-w-0 truncate font-semibold", inkOn(slice.tier.id))}>
+                    <span className={cn("min-w-0 truncate font-semibold", inkOn())}>
                       {slice.tier.label}
                       {slice.fill < 0.995 ? (
                         <span className="ml-1.5 font-normal opacity-70">
@@ -249,7 +249,7 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
                         </span>
                       ) : null}
                     </span>
-                    <span className={cn("shrink-0 font-mono tabular-nums", inkOn(slice.tier.id))}>
+                    <span className={cn("shrink-0 font-mono tabular-nums", inkOn())}>
                       {currency(slice.funded, 0, code)}
                     </span>
                   </>
@@ -396,8 +396,10 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
 }
 
 /** Dark type on the two solid layers, light type on the two pale ones. */
-function inkOn(id: string): string {
-  return id === "essentials" || id === "regular"
-    ? "text-primary-foreground"
-    : "text-foreground";
+/*
+  Every layer is a light, saturated hue now, so every layer takes the dark
+  ink. Kept as a function so a darker layer colour has one place to say so.
+*/
+function inkOn(): string {
+  return "text-primary-foreground";
 }

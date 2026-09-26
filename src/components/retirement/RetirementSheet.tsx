@@ -105,6 +105,7 @@ import { BridgePanel } from "@/components/retirement/BridgePanel";
 import { FlexiblePanel } from "@/components/retirement/FlexiblePanel";
 import { GridPanel } from "@/components/retirement/GridPanel";
 import { LongevityPanel } from "@/components/retirement/LongevityPanel";
+import { AnswerPanel } from "@/components/retirement/AnswerPanel";
 import { NumberPanel } from "@/components/retirement/NumberPanel";
 import {
   CarTopic,
@@ -115,6 +116,8 @@ import {
 } from "@/components/retirement/PlanInputs";
 import { StandingPanel } from "@/components/retirement/StandingPanel";
 import { PANEL_STACK } from "@/components/ui/Panel";
+import { cn } from "@/lib/format";
+import { ChevronDown } from "lucide-react";
 import { retirementProvenance } from "@/lib/provenance";
 import { assessLongevity, e65For } from "@/lib/retirement/longevity";
 import { buildMilestones } from "@/lib/retirement/milestones";
@@ -191,6 +194,7 @@ export function RetirementSheet({
   const [mode, setMode] = useState<TableMode>("invested");
   const [restored, setRestored] = useState(false);
   const [open, setOpen] = useState<AdjustTopic[]>([]);
+  const [showWorking, setShowWorking] = useState(false);
   /*
     Which life is lit up, for this visit only. It is not stored with the
     plan and must not be: a template is a starting point somebody pressed
@@ -512,75 +516,65 @@ export function RetirementSheet({
   const isOpen = (topic: AdjustTopic) => open.includes(topic);
   const close = (topic: AdjustTopic) => () => toggle(topic);
 
+  /*
+    The working (survival odds, every age side by side, the milestones)
+    stays one press away rather than on the page by default. It opens on
+    its own when a reader ticks a topic whose editor lives inside it.
+  */
+  const workingOpen = showWorking || isOpen("lifespan");
+
   return (
     <div className={PANEL_STACK}>
       {/*
-        THE ANSWER IS STILL FIRST, which is this room's own oldest rule and
-        the one the first draft of the quick-start card broke: measured at
-        390, eight template cards and six fields put the headline figure
-        2,103px down, which is three screens on the device most readers
-        arrive on. The card that asks comes second, and carries its own
-        one-line result so a press still changes something on the screen
-        the press happened on.
+        THE ROOM IS ONE ANSWER, ONE PLACE TO FINE-TUNE, ONE LESSON, AND THE
+        WORKING BEHIND A SINGLE PRESS.
+
+        The feedback was that even after the chips the room was too busy to
+        understand, and the count agreed: seven panels, five charts and two
+        tables stood between a reader and the end of the page, and the one
+        thing they came for (can I stop when I want to) was a figure they
+        had to compare against another figure themselves. `AnswerPanel`
+        says it as a sentence and a yes or not yet, with the fixes as
+        presses. Under it, the chips; then the spending layers, which are
+        the one lesson worth meeting unasked because they are what makes a
+        bad year stop being frightening; then the working, folded.
+
+        That fold is not the withholding this repository argues against:
+        every figure the answer rests on is in the answer, and the fold is
+        a press away on the same page, never a room somebody has to find.
+        Nothing that writes to the plan sits after the results table inside
+        it, the rule the order test holds.
       */}
-      <NumberPanel
+      <AnswerPanel
         inputs={inputs}
         patch={patch}
+        replace={setInputs}
         plan={plan}
         provenance={provenance}
-        showWorking={isOpen("working")}
         curve={curve}
         earliestAge={earliest ? earliest.age : null}
         onRetirementAge={(age) =>
           setInputs((prev) => retargetRetirementAge(prev, age))
         }
-      />
-
-      <QuickStart
-        inputs={inputs}
-        patch={patch}
-        replace={setInputs}
+        planningAge={planningAge}
+        suggestedPlanningAge={longevity.suggestedPlanningAge}
         portfolioValue={portfolioValue}
         sheets={sheets}
         potSource={potSource}
         onPotSourceChange={changePotSource}
+        holdingsView={holdingsView}
+      />
+
+      <QuickStart
+        inputs={inputs}
         open={open}
         onToggle={toggle}
         planningAge={planningAge}
         swrPct={plan.required.swr.ratePct}
         templateId={templateId}
         onTemplate={applyTemplate}
-        holdingsView={holdingsView}
-        result={{
-          target: plan.required.target,
-          earliestAge: earliest ? earliest.age : null,
-        }}
       />
 
-      {/*
-        EVERY PANEL BELOW THIS POINT AND ABOVE THE RESULTS TABLE CAN CHANGE
-        THE PLAN. `PlanInputs`, the return assumptions, the survival curve's
-        own dials and the bridge pot used to be split either side of
-        `GridPanel`, so correcting one of them sometimes moved the table
-        and sometimes moved nothing you could see without scrolling back
-        down past it. None of them may sit after the table now, whatever
-        the detail level, so a reader who opens a deeper level always
-        finds the thing they are about to change directly above the
-        numbers it feeds, never buried under them.
-
-        `ReturnsPanel` sits right after `PlanInputs` for the reason it used
-        to sit right before the grid when the grid still had a fold of its
-        own: `QuickStart`'s own toggle above already answers the common
-        case for every reader, simple or not, so this is only reached by
-        somebody who opened "More" to correct the exact figures or a mix
-        that shifts more than twice over a life.
-      */}
-      {/*
-        WHAT WAS TICKED, AND NOTHING ELSE, DIRECTLY UNDER THE CARD THAT
-        TICKED IT, in the chips' own order. Every one of these can change
-        the plan, so none may sit after the results table: a reader who
-        corrects their rent sees the table it feeds straight below.
-      */}
       {isOpen("home") ? <HomeTopic inputs={inputs} patch={patch} onClose={close("home")} /> : null}
       {isOpen("children") ? (
         <ChildrenTopic inputs={inputs} patch={patch} onClose={close("children")} />
@@ -599,56 +593,66 @@ export function RetirementSheet({
         <BridgePanel inputs={inputs} plan={plan} onClose={close("bridge")} />
       ) : null}
       {isOpen("working") ? (
-        <AssumptionsPanel inputs={inputs} onClose={close("working")} />
+        <>
+          <NumberPanel
+            inputs={inputs}
+            patch={patch}
+            plan={plan}
+            provenance={provenance}
+            showWorking
+          />
+          <AssumptionsPanel inputs={inputs} onClose={close("working")} />
+        </>
       ) : null}
-
-      {/*
-        The survival curve is a result and a place to adjust at once. It
-        sits straight after the editors either way, so when "How long it
-        lasts" is ticked its dials open directly under the other editors,
-        and when it is not it is simply the first of the results.
-      */}
-      <LongevityPanel
-        inputs={inputs}
-        patch={patch}
-        result={longevity}
-        planningAge={planningAge}
-        showControls={isOpen("lifespan")}
-        onClose={isOpen("lifespan") ? close("lifespan") : undefined}
-      />
-
-      {/*
-        THE RESULTS, LAST, AND NONE OF THEM WRAPPED IN `BelowFold` BUT
-        `FlexiblePanel`. The grid carries `RETIREMENT_RESULTS_ID`, which
-        `NumberPanel`'s skip button scrolls to, and `BelowFold`'s own doc
-        says an anchor target must never be wrapped in one: a button that
-        lands on an unmounted placeholder looks like it works and does not.
-        `StandingPanel` sits right under it for the same reason it always
-        has (#250: it must never be shown a zero pot before the card that
-        asks has had a turn, which is guaranteed here since both trail
-        every panel that writes to the plan). `FlexiblePanel` is the one
-        exception still worth folding: it is a local, illustrative slider
-        over the plan already built above, never a plan input itself, and
-        it is reliably the furthest thing down the page, so the reserve
-        still buys something.
-      */}
-      <GridPanel
-        inputs={inputs}
-        plan={plan}
-        rows={rows}
-        mode={mode}
-        onModeChange={setMode}
-      />
-
-      <StandingPanel
-        inputs={inputs}
-        plan={plan}
-        milestones={milestones}
-      />
 
       <BelowFold reserve={480}>
         <FlexiblePanel plan={plan} />
       </BelowFold>
+
+      <button
+        type="button"
+        aria-expanded={workingOpen}
+        onClick={() => setShowWorking((v) => !v)}
+        className="card-sheen glass flex items-center justify-between gap-3 rounded-xl px-4 py-4 text-left ring-1 ring-foreground/15 transition-colors hover:ring-foreground/30 sm:px-6"
+      >
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-heading text-base font-semibold text-foreground">
+            {workingOpen ? "Hide the working" : "Show the working"}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            How long people live, what stopping at every age costs, and the
+            milestones on the way.
+          </span>
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-5 w-5 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none",
+            workingOpen && "rotate-180"
+          )}
+          aria-hidden
+        />
+      </button>
+
+      {workingOpen ? (
+        <>
+          <LongevityPanel
+            inputs={inputs}
+            patch={patch}
+            result={longevity}
+            planningAge={planningAge}
+            showControls={isOpen("lifespan")}
+            onClose={isOpen("lifespan") ? close("lifespan") : undefined}
+          />
+          <GridPanel
+            inputs={inputs}
+            plan={plan}
+            rows={rows}
+            mode={mode}
+            onModeChange={setMode}
+          />
+          <StandingPanel inputs={inputs} plan={plan} milestones={milestones} />
+        </>
+      ) : null}
     </div>
   );
 }
