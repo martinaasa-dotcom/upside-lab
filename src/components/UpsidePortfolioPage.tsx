@@ -876,18 +876,15 @@ export function WhatThisIs({
       />
       <div className="flex flex-col gap-3 text-base leading-relaxed text-muted-foreground">
         <p>
-          Margus is a computer program that writes language, not a person. Once
-          on each day the market is open it is shown this portfolio, asked for
-          one decision, and whatever it answers is written down here with its
-          reason, whether it turns out well or badly. Nothing is edited
+          Margus is a computer program that writes language, not a person. On
+          each day the market is open it makes one decision about this
+          portfolio, written down here with its reason. Nothing is edited
           afterwards.
         </p>
         <p>
           The money is <Explain term="paper-money">pretend</Explain>. No shares
-          are ever really bought, nobody&apos;s savings are in it, and every
-          figure on this page is what would have happened. It is one experiment
-          run in the open so you can watch a reason being written down before
-          the answer is known, which is the part that is worth learning.
+          are really bought and nobody&apos;s savings are in it. The point is
+          to watch a reason written down before the answer is known.
         </p>
         <p>
           {decisions > 0
