@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  believableRange,
   businessPath,
   businessStandsDown,
   fairValueRead,
+  marketTrust,
   marketWeight,
+  pricedInGrowth,
+  pricedInSaid,
 } from "@/lib/company/fair-value";
 import { makeFacts, makeOrdinaryFacts } from "@/lib/company/facts-fixture";
 import { buildPlanLadder } from "@/lib/company/plan-ladder";
@@ -19,6 +23,7 @@ import { buildPlanLadder } from "@/lib/company/plan-ladder";
  * figure, so the method can be retuned but not taken back to any of these.
  */
 const REAL = {
+  "MU": makeFacts({"ticker":"MU","currency":"USD","industry":"Semiconductors","price":1082.28,"marketCap":1222319669248,"fiftyTwoWeekHigh":1255,"fiftyTwoWeekLow":159.97,"revenue":90273996800,"revenueGrowth":3.457,"grossMargin":0.72569,"profitMargin":0.55906,"operatingMargin":0.80370003,"returnOnEquity":0.66638,"netIncome":50468999168,"totalCash":26022000640,"totalDebt":6376000000,"dividendYield":0.0005,"trailingPe":24.447256,"forwardPe":6.7858047,"epsTrailing":44.27,"epsThisYear":73.60099,"epsNextYear":159.49178,"epsGrowthThisYear":7.8783,"epsGrowthNextYear":1.1669999,"revenueGrowthNextYear":0.9103,"sharesOutstanding":1129393151,"analystCount":46,"analystTargetMean":1515.5435,"analystTargetHigh":2200,"analystTargetLow":361,"sector":"Technology","history":[],"quarters":[],"surprises":[{"label":"3Q2025","actual":3.03,"estimate":2.86023,"surprise":0.05935536652646806,"reportedAt":"2025-09-23T20:01:00.000Z"},{"label":"4Q2025","actual":4.78,"estimate":3.96409,"surprise":0.20582529660022858,"reportedAt":"2025-12-17T21:03:26.000Z"},{"label":"1Q2026","actual":12.2,"estimate":9.15866,"surprise":0.33207259577274406,"reportedAt":"2026-03-18T20:01:00.000Z"},{"label":"2Q2026","actual":25.11,"estimate":20.68603,"surprise":0.21386268897415314,"reportedAt":"2026-06-24T20:01:00.000Z"}]}),
   "TSLA": makeFacts({"ticker":"TSLA","currency":"USD","industry":"Auto Manufacturers","price":372.11,"marketCap":1469666033664,"fiftyTwoWeekHigh":498.83,"fiftyTwoWeekLow":297.38,"revenue":103619002368,"revenueGrowth":0.255,"grossMargin":0.18852,"profitMargin":0.03671,"operatingMargin":0.014099999,"returnOnEquity":0.046669997,"netIncome":3806000128,"totalCash":43524001792,"totalDebt":16080000000,"dividendYield":null,"trailingPe":344.54626,"forwardPe":171.25119,"epsTrailing":1.08,"epsThisYear":1.76531,"epsNextYear":2.17289,"epsGrowthThisYear":0.0634,"epsGrowthNextYear":0.2309,"revenueGrowthNextYear":0.1366,"sharesOutstanding":3949547394,"analystCount":38,"analystTargetMean":396.62158,"analystTargetHigh":600,"analystTargetLow":125,"sector":"Consumer Cyclical","history":[{"year":2022,"revenue":81462000000,"netIncome":12556000000},{"year":2023,"revenue":96773000000,"netIncome":14997000000},{"year":2024,"revenue":97690000000,"netIncome":7091000000},{"year":2025,"revenue":94827000000,"netIncome":3794000000}],"quarters":[{"label":"3Q2025","revenue":28095000000,"earnings":null,"margin":null},{"label":"4Q2025","revenue":24901000000,"earnings":null,"margin":null},{"label":"1Q2026","revenue":22387000000,"earnings":null,"margin":null},{"label":"2Q2026","revenue":28236000000,"earnings":null,"margin":null}],"surprises":[{"label":"3Q2025","actual":0.5,"estimate":0.55885,"surprise":-0.10530553815871874,"reportedAt":"2025-10-22T20:06:36.000Z"},{"label":"4Q2025","actual":0.5,"estimate":0.45061,"surprise":0.10960697720867266,"reportedAt":"2026-01-28T21:11:04.000Z"},{"label":"1Q2026","actual":0.41,"estimate":0.34999,"surprise":0.17146204177262192,"reportedAt":"2026-04-22T20:10:44.000Z"},{"label":"2Q2026","actual":0.33,"estimate":0.54236,"surprise":-0.39154804926617,"reportedAt":"2026-07-22T20:35:52.000Z"}]}),
   "V": makeFacts({"ticker":"V","currency":"USD","industry":"Credit Services","price":367.38,"marketCap":689702764544,"fiftyTwoWeekHigh":385.57,"fiftyTwoWeekLow":293.89,"revenue":44487999488,"revenueGrowth":0.144,"grossMargin":0.97725,"profitMargin":0.50782,"operatingMargin":0.66130996,"returnOnEquity":0.6119,"netIncome":22397999104,"totalCash":13792000000,"totalDebt":23857999872,"dividendYield":0.0073,"trailingPe":31.239796,"forwardPe":24.484982,"epsTrailing":11.76,"epsThisYear":13.22816,"epsNextYear":15.0043,"epsGrowthThisYear":0.1533,"epsGrowthNextYear":0.13430001,"revenueGrowthNextYear":0.11,"sharesOutstanding":1704112694,"analystCount":37,"analystTargetMean":419.36163,"analystTargetHigh":466,"analystTargetLow":330,"sector":"Financial Services","history":[{"year":2022,"revenue":29310000000,"netIncome":14957000000},{"year":2023,"revenue":32653000000,"netIncome":17273000000},{"year":2024,"revenue":35926000000,"netIncome":19743000000},{"year":2025,"revenue":40000000000,"netIncome":20058000000}],"quarters":[{"label":"3Q2025","revenue":10724000000,"earnings":null,"margin":null},{"label":"4Q2025","revenue":10901000000,"earnings":null,"margin":null},{"label":"1Q2026","revenue":11230000000,"earnings":null,"margin":null},{"label":"2Q2026","revenue":11633000000,"earnings":null,"margin":null}],"surprises":[{"label":"3Q2025","actual":2.98,"estimate":2.97176,"surprise":0.0027727676528386553,"reportedAt":"2025-10-28T20:06:03.000Z"},{"label":"4Q2025","actual":3.17,"estimate":3.14227,"surprise":0.008824830456962652,"reportedAt":"2026-01-29T21:05:49.000Z"},{"label":"1Q2026","actual":3.31,"estimate":3.09955,"surprise":0.06789695278346865,"reportedAt":"2026-04-28T20:05:56.000Z"},{"label":"2Q2026","actual":3.32,"estimate":3.23073,"surprise":0.027631526001863346,"reportedAt":"2026-07-28T20:05:26.000Z"}]}),
   "JPM": makeFacts({"ticker":"JPM","currency":"USD","industry":"Banks - Diversified","price":343.06,"marketCap":911917383680,"fiftyTwoWeekHigh":366.5,"fiftyTwoWeekLow":279.1,"revenue":186328006656,"revenueGrowth":0.304,"grossMargin":0,"profitMargin":0.34921002,"operatingMargin":0.50394,"returnOnEquity":0.17789,"netIncome":63634001920,"totalCash":1526419030016,"totalDebt":1343306989568,"dividendYield":0.019199999,"trailingPe":14.704672,"forwardPe":13.695267,"epsTrailing":23.33,"epsThisYear":24.19431,"epsNextYear":25.04953,"epsGrowthThisYear":0.22629999,"epsGrowthNextYear":0.0353,"revenueGrowthNextYear":0.0278,"sharesOutstanding":2658186195,"analystCount":21,"analystTargetMean":374.2381,"analystTargetHigh":436,"analystTargetLow":305,"sector":"Financial Services","history":[],"quarters":[],"surprises":[{"label":"3Q2025","actual":5.07,"estimate":4.87467,"surprise":0.04007040476586112,"reportedAt":"2025-10-14T10:30:57.000Z"},{"label":"4Q2025","actual":4.63,"estimate":4.81831,"surprise":-0.03908216781402617,"reportedAt":"2026-01-13T11:41:09.000Z"},{"label":"1Q2026","actual":5.94,"estimate":5.51098,"surprise":0.07784822300207955,"reportedAt":"2026-04-14T10:32:42.000Z"},{"label":"2Q2026","actual":6.14,"estimate":5.79998,"surprise":0.058624340083931324,"reportedAt":"2026-07-14T10:30:38.000Z"}]}),
@@ -52,6 +57,40 @@ describe("the market's price is a voice, weighted by how well it is argued", () 
     const read = fairValueRead(REAL.TSLA);
     // The glance compares the price with the estimates, not with itself.
     expect(read.estimate.used.some((m) => m.id === "market")).toBe(true);
+  });
+});
+
+describe("the market gets the benefit of the doubt only for a future the company could deliver", () => {
+  it("counts a price that doubts a reported profit for less, and says so", () => {
+    // Micron under 7 times next year's profit: the price needs that profit
+    // to shrink every year for a decade, worse than its own bad case.
+    const assumed = pricedInGrowth(REAL.MU)!;
+    const range = believableRange(REAL.MU);
+    expect(assumed).toBeLessThan(0);
+    expect(assumed).toBeLessThan(range.low);
+    expect(marketTrust(assumed, range)).toBeLessThan(0.5);
+    expect(pricedInSaid(assumed, range)).toContain("doubting");
+    // And the blend can then say something bold about it.
+    expect(gapOf(REAL.MU)).toBeGreaterThan(0.25);
+  });
+
+  it("counts a price that has run past the company's own good case for less", () => {
+    const range = { low: 0, high: 0.2, own: true };
+    expect(marketTrust(0.35, range)).toBeLessThan(0.5);
+    expect(pricedInSaid(0.35, range)).toContain("run ahead");
+  });
+
+  it("keeps its full weight for a future inside what the company could do", () => {
+    const range = { low: -0.02, high: 0.25, own: true };
+    expect(marketTrust(0.12, range)).toBe(1);
+    expect(pricedInSaid(0.12, range)).toContain("full weight");
+  });
+
+  it("finds exactly the growth that makes the business worth today's price", () => {
+    // Doubling the price must ask for more growth, never less.
+    const at = (price: number) =>
+      pricedInGrowth(makeOrdinaryFacts({ price, trailingPe: price / 4, forwardPe: price / 5 }))!;
+    expect(at(200)).toBeGreaterThan(at(100));
   });
 });
 

@@ -434,12 +434,15 @@ function project(p: Projection): {
   growthYearTen: number;
   marginYearTen: number;
   exit: number;
+  /** Yearly profit growth from year one to year ten, or null from a loss. */
+  profitGrowth: number | null;
 } | null {
   let value = 0;
   let revenue = p.revenue;
   let growth = p.growth;
   let margin = p.margin;
   let earnings = 0;
+  let first = 0;
   for (let t = 1; t <= BUSINESS_YEARS; t++) {
     if (t > 1) {
       growth = MATURE_GROWTH + (p.growth - MATURE_GROWTH) * Math.pow(p.persistence, t - 1);
@@ -447,6 +450,7 @@ function project(p: Projection): {
     }
     margin = p.settled + (p.margin - p.settled) * Math.pow(p.reversion, t - 1);
     earnings = revenue * margin;
+    if (t === 1) first = earnings;
     // What growth does not need is the owners', as dividends or buybacks.
     const payout = earnings > 0 ? Math.min(Math.max(1 - growth / p.roe, 0), 0.9) : 0;
     value += (payout * earnings) / Math.pow(1 + p.rate, t);
@@ -456,7 +460,9 @@ function project(p: Projection): {
     MATURE_GROWTH + (p.growth - MATURE_GROWTH) * Math.pow(p.persistence, BUSINESS_YEARS);
   const exit = exitMultiple(after, p.quality, p.peak);
   value += (earnings * exit) / Math.pow(1 + p.rate, BUSINESS_YEARS);
-  return { value, growthYearTen: growth, marginYearTen: margin, exit };
+  const profitGrowth =
+    first > 0 ? Math.pow(earnings / first, 1 / (BUSINESS_YEARS - 1)) - 1 : null;
+  return { value, growthYearTen: growth, marginYearTen: margin, exit, profitGrowth };
 }
 
 /**
@@ -563,6 +569,8 @@ export type BusinessPath = {
   industry: string | null;
   /** The three cases, per share, and the weights they carry. */
   cases: { bear: number; base: number; bull: number };
+  /** Yearly profit growth over the ten years in each case, or null from a loss. */
+  profitGrowth: { bear: number | null; base: number | null; bull: number | null };
 };
 
 /** Why the business method will not run on this company, in a sentence, or null. */
@@ -703,7 +711,15 @@ export function businessPath(f: CompanyFacts): BusinessPath | null {
     (f.epsGrowthThisYear ?? 0) >= 1.5 &&
     margin > settled * 1.3 &&
     !history.some((m) => m <= 0);
-  if (peak) settled *= 0.8;
+  /*
+    ONE SIGNAL, ONE PENALTY. A possible peak used to cut the value four
+    ways at once (a lower settled margin, a faster fall to it, growth that
+    faded sooner, and a lower exit multiple), which is the double counting
+    this file removed from the growth rule, in a new place: Micron's
+    present, profits that are real and reported, was priced as though all
+    four would happen together. A peak now means the margin falls back
+    faster and the exit multiple is a cyclical one, and nothing else.
+  */
   const netDebt = ((f.totalDebt ?? 0) - (f.totalCash ?? 0)) * units;
   // Heavily borrowed against its sales: interest takes a slice of every year.
   if (netDebt / runRate > 2) settled *= 0.7;
@@ -711,7 +727,7 @@ export function businessPath(f: CompanyFacts): BusinessPath | null {
   const reversion =
     margin > settled
       ? peak
-        ? 0.65
+        ? 0.75
         : durable
           ? 0.93
           : 0.87 - 0.3 * Math.min(Math.max((margin - 0.3) / 0.4, 0), 1)
@@ -728,7 +744,6 @@ export function businessPath(f: CompanyFacts): BusinessPath | null {
     persistence += 0.04;
   }
   if (durable) persistence += 0.03;
-  if (peak) persistence -= 0.15;
 
   const { rate, why } = requiredReturn(f);
   const roe = Math.min(Math.max(f.returnOnEquity ?? 0.15, 0.08), 0.4);
@@ -802,6 +817,11 @@ export function businessPath(f: CompanyFacts): BusinessPath | null {
     recentGrowth: recent,
     surpriseLean: lean,
     industry: industry?.said ?? null,
+    profitGrowth: {
+      bear: cases.bear?.profitGrowth ?? null,
+      base: cases.base.profitGrowth,
+      bull: cases.bull?.profitGrowth ?? null,
+    },
     cases: {
       bear: perShare(worth(cases.bear)),
       base: perShare(worth(cases.base)),
@@ -854,36 +874,154 @@ function businessMethod(f: CompanyFacts): FairValueMethod | null {
 }
 
 /**
- * How much this company's own price should count, by how efficiently it
- * is priced. Size first, because the biggest companies are the most
- * traded and the most argued over; coverage second, because forty
- * analysts arguing in public is part of what makes a price informed.
- * Never more than 0.45, so the market is the loudest voice on a giant and
- * still never the whole answer.
+ * WHAT TODAY'S PRICE ASSUMES: THE PROFIT GROWTH IT NEEDS FOR TEN YEARS.
+ *
+ * Expectations investing turned around (Rappaport and Mauboussin): rather
+ * than argue about what a company is worth, work out what the price in
+ * front of you already believes, and ask whether that is believable. Here
+ * it is the yearly growth in profit, from next year's for ten years, that
+ * makes the business worth today's price under the same rules the
+ * business method uses, then an ordinary multiple at the end. It is the
+ * sentence a reader most needs and almost never gets: "at $1,082 the
+ * market is assuming Micron's profit shrinks 13% a year for a decade".
+ *
+ * Null for a company not yet profitable, whose price is a bet on when it
+ * becomes so rather than on how fast a profit grows.
  */
-export function marketWeight(f: CompanyFacts): number {
+export function pricedInGrowth(f: CompanyFacts): number | null {
+  if (!ok(f.price)) return null;
+  const { epsNextYear } = alignedPerShare(f);
+  if (!ok(epsNextYear)) return null;
+  const { rate } = requiredReturn(f);
+  const roe = Math.min(Math.max(f.returnOnEquity ?? 0.15, 0.08), 0.4);
+  const scale = MARKET_SCALE * (industryRatio(f)?.ratio ?? 1);
+  const worth = (g: number) => {
+    let value = 0;
+    let e = epsNextYear;
+    for (let t = 1; t <= BUSINESS_YEARS; t++) {
+      if (t > 1) e *= 1 + g;
+      value += (Math.min(Math.max(1 - g / roe, 0), 0.9) * e) / Math.pow(1 + rate, t);
+    }
+    value += (e * MARKET_EARNINGS_MULTIPLE) / Math.pow(1 + rate, BUSINESS_YEARS);
+    return value * scale;
+  };
+  let lo = -0.6;
+  let hi = 1.5;
+  if (worth(lo) > f.price || worth(hi) < f.price) return null;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (worth(mid) < f.price) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/*
+  THE BOUNDS OF BELIEVABLE ARE THE COMPANY'S OWN GOOD AND BAD CASES.
+
+  A price needing 32% a year profit growth is a runaway for a company
+  already earning a full margin and an ordinary plan for one earning 2%
+  that is on its way to 16%, so the test is never a single number for
+  everybody. It is the business method's own bad and good decades
+  (`BusinessPath.profitGrowth`): a price whose assumption sits between
+  them is pricing a future this company could deliver, and the market
+  keeps the benefit of the doubt. Past the good case it has run ahead of
+  the business; under the bad case it is doubting a profit the company
+  has already reported. Where there is no business path to read (a loss
+  maker, a property trust), the long record stands in: about 25% a year
+  for a decade is the top twentieth of large companies, and a profitable
+  company's profit shrinking every year for a decade is a bet against a
+  fact.
+*/
+const RECORD_HIGH = 0.25;
+const RECORD_LOW = -0.03;
+
+export type BelievableRange = { low: number; high: number; own: boolean };
+
+export function believableRange(f: CompanyFacts): BelievableRange {
+  const path = businessPath(f);
+  const bear = path?.profitGrowth.bear ?? null;
+  const bull = path?.profitGrowth.bull ?? null;
+  if (bear !== null && bull !== null && bull > bear) {
+    return { low: bear, high: bull, own: true };
+  }
+  return { low: RECORD_LOW, high: RECORD_HIGH, own: false };
+}
+
+/**
+ * How much the market's price deserves the benefit of the doubt, from 1
+ * (fully) down to a quarter, read off what the price assumes against
+ * what this company could believably do.
+ */
+export function marketTrust(assumed: number | null, range: BelievableRange): number {
+  if (assumed === null) return 1;
+  if (assumed > range.high) return Math.max(0.25, 1 - (assumed - range.high) * 6);
+  if (assumed < range.low) return Math.max(0.25, 1 - (range.low - assumed) * 8);
+  return 1;
+}
+
+/**
+ * How much this company's own price should count, by how efficiently it
+ * is priced and by whether what it assumes is believable. Size first,
+ * because the biggest companies are the most traded and the most argued
+ * over; coverage second, because forty analysts arguing in public is part
+ * of what makes a price informed; `marketTrust` last. Never more than
+ * 0.45, so the market is the loudest voice on a giant and still never the
+ * whole answer.
+ */
+export function marketWeight(
+  f: CompanyFacts,
+  assumed?: number | null,
+  range?: BelievableRange
+): number {
   if (!ok(f.marketCap)) return 0;
   const bySize = 0.12 + 0.11 * Math.log10(Math.max(f.marketCap / 1e9, 1));
   const n = f.analystCount ?? 0;
   const byCoverage = n >= 20 ? 0.03 : n < 3 ? -0.04 : 0;
-  return Math.round(Math.min(Math.max(bySize + byCoverage, 0.08), 0.45) * 100) / 100;
+  const efficient = Math.min(Math.max(bySize + byCoverage, 0.08), 0.45);
+  const trust = marketTrust(
+    assumed === undefined ? pricedInGrowth(f) : assumed,
+    range ?? believableRange(f)
+  );
+  return Math.round(efficient * trust * 100) / 100;
+}
+
+/** What the price assumes, in words, against what this company could do, or null. */
+export function pricedInSaid(assumed: number | null, range: BelievableRange): string | null {
+  if (assumed === null) return null;
+  const pct = (n: number) => percent(Math.abs(n), 0);
+  const moves = (n: number) => `${n >= 0 ? "grows" : "shrinks"} about ${pct(n)} a year`;
+  const lead = `At this price the market is assuming its profit ${moves(assumed)} for ten years, starting from next year's.`;
+  const span = range.own
+    ? `this company's own bad and good decades have it ${range.low >= 0 ? "growing" : "moving"} between ${range.low < 0 ? "-" : ""}${pct(range.low)} and ${range.high < 0 ? "-" : ""}${pct(range.high)} a year`
+    : `the long record runs from about ${pct(RECORD_LOW)} shrinking to ${pct(RECORD_HIGH)} growing for companies that are not falling apart or among the very best`;
+  if (assumed > range.high) {
+    return `${lead} That is past what ${span.replace(/^this company's own/, "its own")}, so the price has run ahead of the business and counts for less here.`;
+  }
+  if (assumed < range.low) {
+    return `${lead} That is below even the bad case, and ${span}, so the price is doubting a profit the company has already shown it can make and counts for less here.`;
+  }
+  return `${lead} That is inside what it could believably do (${span}), so the price keeps its full weight.`;
 }
 
 /** What the market is paying, as a line in the blend. */
 function marketMethod(f: CompanyFacts): FairValueMethod | null {
   if (!ok(f.price)) return null;
-  const weight = marketWeight(f);
+  const assumed = pricedInGrowth(f);
+  const range = believableRange(f);
+  const weight = marketWeight(f, assumed, range);
   if (weight <= 0) return null;
   const code = f.currency ?? "USD";
   const n = f.analystCount ?? 0;
+  const said = pricedInSaid(assumed, range);
   return {
     id: "market",
     name: "What the market is paying",
     source: "the market's own price",
     maker: "market",
     price: round2(f.price),
-    assumes: `That the people trading it every day have seen things these figures cannot, such as what it might become, how long its lead lasts, or a risk nobody has written down yet. It counts for more the bigger and more widely followed the company is${n > 0 ? `, and ${n} analyst${n === 1 ? "" : "s"} follow this one` : ""}.`,
-    working: `Today's price of ${currency(f.price, 2, code)}, weighted ${percent(weight, 0)} before the blend is normalised: more for a large, heavily covered company where the price is well argued, less for a small one where it is most likely to be wrong.`,
+    assumes: `That the people trading it every day have seen things these figures cannot, such as what it might become, how long its lead lasts, or a risk nobody has written down yet.${said ? ` ${said}` : ""}`,
+    working: `Today's price of ${currency(f.price, 2, code)}, weighted ${percent(weight, 0)} before the blend is normalised: more for a large, heavily covered company${n > 0 ? ` (${n} analyst${n === 1 ? "" : "s"} follow this one)` : ""}, less for a small one, and less again where what the price assumes is outside what companies have actually done.`,
     weight,
   };
 }
@@ -1116,23 +1254,29 @@ export function fairValueRead(
   const consensus = consensusMethod(f);
   let business = businessMethod(f);
   /*
-    THE BUSINESS COUNTS FOR LESS WHEN IT ARGUES WITH EVERYBODY.
+    THE BUSINESS COUNTS FOR LESS WHEN IT ARGUES WITH THE PEOPLE WHO STUDY
+    THE COMPANY FOR A LIVING.
 
     The same reasoning the analysts' weight already follows: a projection
-    landing more than 1.6 times away from the market and the analysts as
-    they are from each other is more likely to be missing something about
-    this company than to have found something they all missed, so it
-    counts for half. Past three times it is dropped outright by the blend.
+    landing more than 1.75 times away from the analysts' own view is more
+    likely to be missing something about this company than to have found
+    something they all missed, so it counts for half. Past three times
+    from the blend's middle it is dropped outright.
   */
-  const others = [market, consensus].filter((m): m is FairValueMethod => m !== null);
-  if (business && others.length > 0) {
-    const mid = Math.sqrt(others.reduce((a, m) => a * m.price, 1) ** (2 / others.length));
-    const apart = Math.max(business.price / mid, mid / business.price);
-    if (apart > 1.6) {
+  /*
+    Measured against the analysts where there are any, because the
+    market's own price already answers for itself through `marketTrust`,
+    and a projection should not be marked down for disagreeing with a
+    price that is itself doubting a reported profit.
+  */
+  const against = consensus ?? market;
+  if (business && against) {
+    const apart = Math.max(business.price / against.price, against.price / business.price);
+    if (apart > 1.75) {
       business = {
         ...business,
         weight: Math.round(business.weight * 50) / 100,
-        assumes: `${business.assumes} It lands ${apart.toFixed(1)} times away from the market and the analysts, so it counts for half.`,
+        assumes: `${business.assumes} It lands ${apart.toFixed(1)} times away from ${against.id === "consensus" ? "the analysts" : "the market"}, so it counts for half.`,
       };
     }
   }
