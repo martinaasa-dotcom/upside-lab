@@ -22,7 +22,7 @@
  * is a toggle on a table rather than a paragraph.
  */
 
-import { CARD, InfoTip, MicroLabel, Panel, PanelHeader, Segmented } from "@/components/ui/Panel";
+import { CARD, InfoTip, Panel, PanelHeader, Segmented } from "@/components/ui/Panel";
 import { cn, currency } from "@/lib/format";
 import {
   STANDARD_LABEL,
@@ -224,20 +224,16 @@ export function GridPanel({
         </table>
       </div>
 
-      <div className={cn(CARD, "p-4")}>
-        <MicroLabel>
-          {mode === "cash" ? "What the cash column means" : "Reading the rows"}
-        </MicroLabel>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {mode === "cash"
-            ? "Cash just keeping pace with inflation, no fees. In the last column, the smaller line under the pot, what to save each month, is the most useful number here if you have not started."
-            : "The rate falls as you move up the table. A longer retirement needs a bigger pot, and gives you fewer years to build it in."}
-        </p>
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          {UK_STANDARDS_SOURCE} Moved onto {region.name}&apos;s prices using
-          published comparative price levels.
-        </p>
-      </div>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        {mode === "cash"
+          ? "Cash that only keeps pace with inflation, no fees. "
+          : "Stopping sooner needs a bigger pot and leaves fewer years to build it. "}
+        <InfoTip
+          text={`${UK_STANDARDS_SOURCE} Moved onto ${region.name}'s prices using published comparative price levels.`}
+        >
+          Where the costs come from
+        </InfoTip>
+      </p>
     </Panel>
   );
 }

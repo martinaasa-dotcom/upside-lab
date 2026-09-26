@@ -19,7 +19,7 @@
  * saving.
  */
 
-import { CARD, MicroLabel, Panel, PanelHeader, Score, Scoreboard } from "@/components/ui/Panel";
+import { CARD, InfoTip, Panel, PanelHeader } from "@/components/ui/Panel";
 import { ChartYAxis } from "@/components/ui/ChartAxis";
 import { Button } from "@/components/ui/button";
 import { SliderField, CountField, ChoiceField } from "@/components/retirement/fields";
@@ -83,10 +83,16 @@ function SurvivalChart({
   result,
   planningAge,
   currentAge,
+  average,
+  method,
 }: {
   result: LongevityResult;
   planningAge: number;
   currentAge: number;
+  /** The figure in the news, printed in the legend beside the marks. */
+  average: number;
+  /** How the curve is fitted, one press away rather than a card of its own. */
+  method: string;
 }) {
   const shape = useMemo(() => {
     const points = result.curve.filter((p) => p.age >= currentAge);
@@ -206,6 +212,13 @@ function SurvivalChart({
         ))}
       </div>
       <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+        <li className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          <span aria-hidden className="h-2 w-2 shrink-0 rounded-full border border-muted-foreground" />
+          <span className="min-w-0">
+            Average{" "}
+            <span className="font-mono tabular-nums text-foreground">{Math.round(average)}</span>
+          </span>
+        </li>
         {shape.marks.map((m) => (
           <li
             key={m.key}
@@ -226,10 +239,10 @@ function SurvivalChart({
         ))}
       </ul>
       <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-        Your chance of still being here at each age.{" "}
         {shape.beyondPlan > 0.02
-          ? `The shaded part is unfunded, and you have about a ${Math.round(shape.beyondPlan * 100)}% chance of living into it.`
-          : "Your plan runs so far out that almost nothing is left unshaded."}
+          ? `Shaded: past the plan, with about a ${Math.round(shape.beyondPlan * 100)}% chance of living into it. `
+          : "The plan runs past almost every life. "}
+        <InfoTip text={method}>How this is worked out</InfoTip>
       </p>
     </div>
   );
@@ -274,30 +287,10 @@ export function LongevityPanel({
         result={result}
         planningAge={planningAge}
         currentAge={Math.round(inputs.currentAge)}
+        average={inputs.currentAge + result.lifeExpectancy}
+        method={`Fitted to a shape that has matched adult death rates in every population measured since 1825, solved from one published figure for your country: a 65 year old there has ${result.e65Used.toFixed(1)} years left on average. The plan runs to the age one in twenty reach (${Math.round(result.p5)}) unless you set your own.`}
       />
 
-      <Scoreboard cols={4} mobileCols={2}>
-        <Score
-          label="Average"
-          value={<span className="font-mono tabular-nums">{Math.round(inputs.currentAge + result.lifeExpectancy)}</span>}
-          sub="The number in the news. Half of people beat it."
-        />
-        <Score
-          label="Half reach"
-          value={<span className="font-mono tabular-nums">{Math.round(result.p50)}</span>}
-          sub="A coin flip. Not a plan."
-        />
-        <Score
-          label="One in ten reach"
-          value={<span className="font-mono tabular-nums">{Math.round(result.p10)}</span>}
-          sub="Already a real chance, not a freak case."
-        />
-        <Score
-          label="One in twenty reach"
-          value={<span className="font-mono tabular-nums">{Math.round(result.p5)}</span>}
-          sub="Where this plan runs to unless you move it."
-        />
-      </Scoreboard>
 
       {showControls ? (
       <div className="grid gap-4 sm:grid-cols-2">
@@ -351,35 +344,21 @@ export function LongevityPanel({
       </div>
       ) : null}
 
-      <div className={cn(CARD, "p-4")}>
-        <MicroLabel>How this is worked out</MicroLabel>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Fitted to a shape that has matched adult death rates in every
-          population measured since 1825, solved from one published figure
-          for your country: a 65 year old there has{" "}
+      {showControls &&
+      result.yearsOfImprovementToReference > 0 &&
+      result.hazardCutAtReference > 0.005 ? (
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          The improvement compounds for longer the younger you are:{" "}
           <span className="font-mono tabular-nums text-foreground">
-            {result.e65Used.toFixed(1)}
+            {Math.round(result.yearsOfImprovementToReference)}
           </span>{" "}
-          years left on average.
+          years to {IMPROVEMENT_REFERENCE_AGE} cuts the death rate there by about{" "}
+          <span className="font-mono tabular-nums text-foreground">
+            {Math.round(result.hazardCutAtReference * 100)}%
+          </span>
+          .
         </p>
-        {showControls &&
-        result.yearsOfImprovementToReference > 0 &&
-        result.hazardCutAtReference > 0.005 ? (
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            The improvement rate compounds for longer the younger you are. You
-            have{" "}
-            <span className="font-mono tabular-nums text-foreground">
-              {Math.round(result.yearsOfImprovementToReference)}
-            </span>{" "}
-            years to {IMPROVEMENT_REFERENCE_AGE}, cutting the death rate this
-            model uses there by about{" "}
-            <span className="font-mono tabular-nums text-foreground">
-              {Math.round(result.hazardCutAtReference * 100)}%
-            </span>{" "}
-            against today&apos;s published rate.
-          </p>
-        ) : null}
-      </div>
+      ) : null}
     </Panel>
   );
 }

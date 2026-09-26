@@ -332,12 +332,10 @@ export function StandingPanel({
   inputs,
   plan,
   milestones,
-  earliest,
 }: {
   inputs: RetirementInputs;
   plan: PlanResult;
   milestones: Milestone[];
-  earliest: { age: number; pot: number; required: number } | null;
 }) {
   const code = plan.currency;
   const target = plan.required.target;
@@ -351,10 +349,10 @@ export function StandingPanel({
         <PanelHeader
           icon={<TrendingUp className="h-4 w-4" />}
           title="Where you stand"
-          subtitle="What you hold today, projected forward against what the plan needs."
+          subtitle="What you hold, grown to the day you stop."
         />
 
-        <Scoreboard cols={4} mobileCols={2}>
+        <Scoreboard cols={3} mobileCols={1}>
           <Score
             label="You have"
             value={
@@ -369,7 +367,7 @@ export function StandingPanel({
                 {currency(plan.projectedPot, 0, code)}
               </span>
             }
-            sub={`${currency(plan.projectedFromTodayOnly, 0, code)} of that is what you already hold, just growing`}
+            sub={`${currency(plan.projectedFromTodayOnly, 0, code)} from what you hold now`}
           />
           <Score
             label={shortBy > 0 ? "Short by" : "Over by"}
@@ -381,21 +379,8 @@ export function StandingPanel({
             tone={shortBy > 0 ? "down" : "up"}
             sub={
               shortBy > 0
-                ? `Closed by adding ${currency(plan.monthlyToClose, 0, code)} a month`
-                : "On these numbers you are already ahead of the plan"
-            }
-          />
-          <Score
-            label="Earliest you could stop"
-            value={
-              <span className="font-mono tabular-nums">
-                {earliest ? earliest.age : "n/a"}
-              </span>
-            }
-            sub={
-              earliest
-                ? `With ${currency(earliest.pot, 0, code)} against a target of ${currency(earliest.required, 0, code)} for stopping that year`
-                : "Not reachable on what you are saving now"
+                ? `Or ${currency(plan.monthlyToClose, 0, code)} more a month`
+                : "Ahead of the plan"
             }
           />
         </Scoreboard>

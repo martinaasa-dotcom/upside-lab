@@ -644,7 +644,6 @@ export function RetirementSheet({
         inputs={inputs}
         plan={plan}
         milestones={milestones}
-        earliest={earliest}
       />
 
       <BelowFold reserve={480}>
