@@ -1171,6 +1171,19 @@ p:not([class*="leading-"]):not([class*="font-mono"]):not([class*="tabular-nums"]
     font-variant-numeric: tabular-nums;
   }
   /*
+   * The retirement answer's one sentence. A step under `.figure-hero`: it is
+   * a sentence rather than a figure, and at the hero size, over a card of
+   * body text, it read as shouting. Still the loudest line in the room.
+   */
+  .verdict-hero {
+    font-family: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+    font-size: clamp(1.625rem, 1.3rem + 1.3vw, 2.25rem);
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+    font-weight: 600;
+    text-wrap: balance;
+  }
+  /*
    * The panel rhythm, as one class per role rather than a pair of Tailwind
    * utilities.
    *
