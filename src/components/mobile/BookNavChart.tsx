@@ -153,6 +153,8 @@ export function useBookNavHistory(input: {
   anchor: YtdAnchor | null;
   firstRealDate: string | null;
   loading: boolean;
+  /** The last request failed, so an empty series is not the truth. */
+  failed: boolean;
   discardAssumed: () => void;
   restoreAssumed: () => void;
   applyAnchor: (next: YtdAnchor) => void;
@@ -168,6 +170,7 @@ export function useBookNavHistory(input: {
   const [serverAssumed, setServerAssumed] = useState(false);
   const [firstRealDate, setFirstRealDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [anchor, setAnchor] = useState<YtdAnchor | null>(null);
 
   function applyCached(nextPosKey: string, nextAssumed: boolean, cash: number) {
@@ -212,7 +215,16 @@ export function useBookNavHistory(input: {
       body: JSON.stringify(body),
       signal: ctrl.signal,
     })
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        /*
+          A refused or failed request is not an empty year. It used to
+          land here as `null`, paint an empty series and print "History
+          builds up night by night", a confident false sentence about a
+          reader's portfolio caused by a rate limit.
+        */
+        if (!r.ok) throw new Error(`nav-history ${r.status}`);
+        return r.json();
+      })
       .then(
         (
           data: {
@@ -234,6 +246,7 @@ export function useBookNavHistory(input: {
           setServerAssumed(nextAssumed);
           setFirstRealDate(nextFirst);
           setLoading(false);
+          setFailed(false);
           if (next.length >= 1) {
             rememberNav({
               v: 1,
@@ -253,6 +266,7 @@ export function useBookNavHistory(input: {
         setHistKey(paintKey);
         setServerAssumed(false);
         setLoading(false);
+        setFailed(true);
       });
     return () => {
       ctrl.abort();
@@ -280,6 +294,7 @@ export function useBookNavHistory(input: {
     anchor,
     firstRealDate,
     loading: !histReady || loading,
+    failed,
     discardAssumed: () => {
       saveAssumedPref(false);
       setAssumed(false);
@@ -801,6 +816,7 @@ export function BookNavChart({
   anchor,
   liveNav,
   loading,
+  failed = false,
   firstRealDate,
   onDiscardAssumed,
   onRestoreAssumed,
@@ -814,6 +830,7 @@ export function BookNavChart({
   anchor?: YtdAnchor | null;
   liveNav?: number;
   loading?: boolean;
+  failed?: boolean;
   firstRealDate?: string | null;
   onDiscardAssumed?: () => void;
   onRestoreAssumed?: () => void;
@@ -893,6 +910,10 @@ export function BookNavChart({
       {loading && !hasChart ? (
         <p className="py-12 text-center text-sm text-muted-foreground">
           Working out this year’s path …
+        </p>
+      ) : failed && !hasChart ? (
+        <p className="py-12 text-center text-sm text-muted-foreground">
+          This year’s path did not load. It tries again when you come back.
         </p>
       ) : (
         <MobileBookNavChart

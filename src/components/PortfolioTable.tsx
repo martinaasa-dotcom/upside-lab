@@ -219,8 +219,11 @@ type SortKey =
   | "todayDollar";
 
 /**
- * Twelve numeric columns in one row. Left to right: what you hold, what it
- * cost and what it is worth, what that made you, what happened today.
+ * Eleven columns in one row. Left to right: what you hold, what it is
+ * worth, what that made you, what happened today. There is no Cost column:
+ * it is the value less the gain, both printed beside it, and a twelfth
+ * column of figures a reader can already work out was what made the table
+ * read as a spreadsheet. The phone card still carries it.
  * Vertical column rules are not used; Covered calls is the same table
  * language, row hairlines only.
  */
@@ -237,7 +240,6 @@ const COLUMNS: { label: string; key?: SortKey; term?: string }[] = [
   { label: "Shares", key: "shares", term: "share" },
   { label: "Paid each", key: "buy", term: "paid-each" },
   { label: "Price", key: "price" },
-  { label: "Cost", key: "cost", term: "cost" },
   { label: "Value", key: "value", term: "value" },
   /*
    * One glyph per idea, on the first column that carries it.
@@ -445,7 +447,7 @@ export const PortfolioTable = memo(function PortfolioTable({
   const canSell = !tradeLock || tradeLock.canSell;
   // The action track only exists when a delete button can actually render,
   // so a read-only table keeps its 12 even columns.
-  const template = tableCols(12, mixedListings, canSell);
+  const template = tableCols(11, mixedListings, canSell);
   const canCash = !tradeLock || tradeLock.canCash;
 
   const emptyCta = canAdd ? (
@@ -1132,9 +1134,6 @@ export const PortfolioTable = memo(function PortfolioTable({
                 >
                   <LiveFigure value={listed.nativeSpot}>{currency(listed.nativeSpot, listed.digits, listed.code)}</LiveFigure>
                 </div>
-                <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
-                  {money(h.buyValue, 0)}
-                </div>
                 <div className={cn(cellBase, "tabular-nums text-foreground")}>
                   {money(h.currentValue, 0)}
                 </div>
@@ -1213,9 +1212,6 @@ export const PortfolioTable = memo(function PortfolioTable({
               <div className={cellBase} />
               <div className={cellBase} />
               <div className={cellBase} />
-              <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
-                {money(totals.buyValue, 0)}
-              </div>
               <div className={cn(cellBase, "tabular-nums text-foreground")}>
                 {money(totals.currentValue, 0)}
               </div>

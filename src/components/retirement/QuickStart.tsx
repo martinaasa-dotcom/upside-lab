@@ -148,12 +148,11 @@ function rateCaveat(
   if (preset === "holdings" && view) {
     return (
       <>
-        This app&apos;s growth outlook for the companies you hold,{" "}
-        {pct(view.nominalPct)} a year before inflation (the figure Growth shows)
-        and {pct(view.realPct)} after. It is a view of the next few years, not
-        what they have returned.
+        This app&apos;s outlook for what you hold: {pct(view.nominalPct)} a
+        year, {pct(view.realPct)} after inflation. A view of the next few years,
+        not a record.
         {view.realPct > PORTFOLIO_RATE_CEILING_PCT
-          ? " That is above what any whole market has held for a century."
+          ? " No whole market has held that for a century."
           : null}
       </>
     );

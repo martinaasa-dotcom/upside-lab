@@ -26,13 +26,13 @@
  * direction a number about somebody's money must never be wrong in.
  */
 
-import { CARD, InfoTip, Panel, PANEL_STACK, PanelHeader } from "@/components/ui/Panel";
+import { CARD, InfoTip, MicroLabel, Panel, PANEL_STACK, PanelHeader } from "@/components/ui/Panel";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { barFillPct, cn, currency, percent } from "@/lib/format";
 import { PALETTE } from "@/lib/palette";
 import type { Milestone } from "@/lib/retirement/milestones";
 import type { PlanResult, RetirementInputs } from "@/lib/retirement/plan";
-import { Check, Flag, TrendingUp } from "lucide-react";
+import { Check, TrendingUp } from "lucide-react";
 import { useMemo } from "react";
 
 const W = 720;
@@ -365,28 +365,35 @@ export function StandingPanel({
               value: currency(plan.projectedPot, 0, code),
               sub: `${currency(plan.projectedFromTodayOnly, 0, code)} from what you hold now`,
             },
-            {
-              label: shortBy > 0 ? "Short by" : "Over by",
-              value: currency(Math.abs(shortBy), 0, code),
-              sub:
-                shortBy > 0
-                  ? `Or ${currency(plan.monthlyToClose, 0, code)} more a month`
-                  : "Ahead of the plan",
-              tone: shortBy > 0 ? "text-loss" : "text-gain",
-            },
+            /*
+              Only when short. Ahead, the headline chart above already
+              prints how far over the plan is; short, this carries the one
+              thing that chart does not, the monthly amount that closes it.
+            */
+            ...(shortBy > 0
+              ? [
+                  {
+                    label: "Short by",
+                    value: currency(shortBy, 0, code),
+                    sub: `Or ${currency(plan.monthlyToClose, 0, code)} more a month`,
+                    tone: "text-loss",
+                  },
+                ]
+              : []),
           ]}
         />
 
         <PathChart plan={plan} target={target} code={code} />
-      </Panel>
 
-      <Panel>
-        <PanelHeader
-          icon={<Flag className="h-4 w-4" />}
-          title="The ladder"
-          subtitle="The thresholds on the way to your number, and when you cross each one."
-        />
-        <LadderTrack milestones={milestones} pot={have} code={code} />
+        {/*
+          The ladder was a panel of its own asking the same question as
+          this one, where you stand, one step finer. It is this panel's
+          second half now: the thresholds on the way, and when each falls.
+        */}
+        <div className="flex flex-col gap-3">
+          <MicroLabel>On the way to your number</MicroLabel>
+          <LadderTrack milestones={milestones} pot={have} code={code} />
+        </div>
         <ul className="divide-y divide-border">
           {milestones.map((m) => (
             <Rung key={m.id} milestone={m} code={code} currentAge={currentAge} />

@@ -101,7 +101,7 @@ function historyAnswer(f: CompanyFacts): FourQuestionAnswer {
   return {
     ...base,
     figure: percent(at, 0),
-    answer: `${currency(f.price, 2)} sits ${percent(at, 0)} of the way up its ${currency(f.fiftyTwoWeekLow, 2)} to ${currency(f.fiftyTwoWeekHigh, 2)} year. That is price alone, nothing about the business behind it.${priced}`,
+    answer: `${currency(f.price, 2)} sits ${percent(at, 0)} of the way up its ${currency(f.fiftyTwoWeekLow, 2)} to ${currency(f.fiftyTwoWeekHigh, 2)} year, which is price alone.${priced}`,
     against: `${currency(f.fiftyTwoWeekLow, 2)} to ${currency(f.fiftyTwoWeekHigh, 2)} over the year`,
     thin: false,
   };
@@ -217,7 +217,7 @@ function qualityAnswer(f: CompanyFacts, read: FairValueRead): FourQuestionAnswer
   return {
     ...base,
     figure: margin !== null ? currency(Math.max(margin, 0) * 100, 2) : percent(roe ?? 0, 0),
-    answer: `${quality}${priceHalf} That is two measurements, not one: a business can be the better one and the worse buy at once, and the two figures above are what you'd be trading off.`,
+    answer: `${quality}${priceHalf} That is two measurements, not one: a business can be the better one and the worse buy at once.`,
     against: margin !== null ? "every $100 of sales" : "the owners' own money",
     thin: false,
   };

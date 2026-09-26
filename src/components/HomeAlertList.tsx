@@ -219,6 +219,16 @@ function GroupCells({
           >
             {row.what}
           </span>
+          {/*
+            On a phone the note sits under the phrase rather than under the
+            figure: in the right column it was a second long line that
+            squeezed the phrase beside it onto three.
+          */}
+          {row.note ? (
+            <span className="font-mono text-xs tabular-nums text-muted-foreground sm:hidden">
+              {row.note}
+            </span>
+          ) : null}
           {extras.length > 0 ? (
             <span className="flex flex-wrap gap-1.5">
               {extras.map((e) => (
@@ -236,7 +246,7 @@ function GroupCells({
           </span>
         ) : null}
         {row.note ? (
-          <span className="font-mono text-xs tabular-nums text-muted-foreground sm:whitespace-nowrap">
+          <span className="hidden font-mono text-xs tabular-nums text-muted-foreground sm:block sm:whitespace-nowrap">
             {row.note}
           </span>
         ) : null}

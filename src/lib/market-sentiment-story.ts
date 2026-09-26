@@ -123,11 +123,11 @@ export function sentimentHistoryLine(metrics: SentimentMetrics): string | null {
   const streak = metrics.streakDays;
   if (streak == null || streak < MIN_HISTORY_DAYS) return null;
   if (metrics.alreadyLong) {
-    return "This run is already longer than every completed stretch in this sample.";
+    return "This run is already longer than every completed stretch on record.";
   }
   const more = metrics.typicalMoreDays;
   if (more != null && more >= MIN_HISTORY_DAYS) {
-    return `In this sample, stretches like this typically ran ${marketDaysPhrase(more)} more before the price came back to its usual level.`;
+    return `Past runs like this lasted about ${marketDaysPhrase(more)} more before the price came back to its usual level.`;
   }
   return null;
 }

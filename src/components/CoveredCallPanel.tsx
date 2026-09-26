@@ -15,7 +15,7 @@ import {
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, InfoTip, Panel, PanelHeader } from "@/components/ui/Panel";
-import { NO_VALUE, cashtag, cn, currency, percent, plural, signedTone } from "@/lib/format";
+import { NO_VALUE, barFillPct, cashtag, cn, currency, percent, plural, signedTone } from "@/lib/format";
 import { shareCount } from "@/lib/share-count";
 import { isSafePositiveMoney } from "@/lib/input-guard";
 import {
@@ -613,14 +613,35 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
   if (writable.length === 0) {
     return (
       <Panel id={COVERED_CALLS_ANCHOR} className="scroll-mt-28 overflow-hidden">
-        <PanelHeader title="Covered calls" />
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          Writing one covered call needs a hundred shares of a single company.
-          {biggest
-            ? ` Your biggest holding is ${shareCount(biggest.holding.shares)} of ${cashtag(biggest.holding.ticker)}, so there is nothing to write yet.`
-            : " There is nothing to write yet."}{" "}
-          This fills in on its own when one of your holdings gets there.
-        </p>
+        <PanelHeader
+          title="Covered calls"
+          subtitle="One call needs a hundred shares of a single company. This opens once a holding gets there."
+        />
+        {/*
+          How close the nearest holding is, drawn rather than said: a bar to
+          a hundred shares reads at a glance where the sentence it replaced
+          took three lines to say the same.
+        */}
+        {biggest ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="font-semibold text-foreground">
+                {cashtag(biggest.holding.ticker)}
+              </span>
+              <span className="font-mono tabular-nums text-muted-foreground">
+                {`${shareCount(biggest.holding.shares)} of ${SHARES_PER_CONTRACT}`}
+              </span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+              <div
+                className="h-full rounded-full bg-foreground/60"
+                style={{
+                  width: `${barFillPct((biggest.holding.shares / SHARES_PER_CONTRACT) * 100)}%`,
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
         {callViews.length > 0 ? trackSection : null}
         {modal}
       </Panel>
