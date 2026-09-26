@@ -2114,6 +2114,14 @@ html[data-session="in"] [data-signed-out-view] {
 .line-reveal {
   animation: line-reveal 1.1s cubic-bezier(0.65, 0, 0.35, 1) backwards;
 }
+/* Pointing at one group of a mix picture (`pointMix`, AllocationBar.tsx):
+   that group stays, everything else steps back. Opacity only. */
+[data-mix] {
+  transition: opacity 0.2s ease;
+}
+[data-mix-hot] [data-mix]:not([data-mix-on]) {
+  opacity: 0.32;
+}
 /* The same reveal for a bar made of HTML blocks with names printed in
    them, where a scale would squash the type while it grows. */
 .bar-reveal {
