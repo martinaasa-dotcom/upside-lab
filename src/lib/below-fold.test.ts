@@ -110,7 +110,7 @@ describe("a section nobody can see is built when they come to it", () => {
      * measured to save nothing. The hero panel must stay outside it.
      */
     const section = GROWTH.slice(GROWTH.indexOf("Results & Projections"));
-    const hero = section.indexOf("<Panel className={SHEET_PANEL}>");
+    const hero = section.indexOf("<Panel className={cn(SHEET_PANEL, \"max-lg:order-1\")}>");
     const defer = section.indexOf("<BelowFold");
     expect(hero, "the hero panel is still rendered up front").toBeGreaterThan(-1);
     expect(defer, "and the deferral starts after it").toBeGreaterThan(hero);

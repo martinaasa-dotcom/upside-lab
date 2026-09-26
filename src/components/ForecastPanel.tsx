@@ -482,24 +482,21 @@ function ForecastCard({
         </div>
       </div>
 
-      <div className="mt-4 flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <MicroLabel>Now</MicroLabel>
-          <p className="mt-1 break-words font-mono text-base font-semibold tabular-nums text-foreground">
-            {currency(row.currentPrice)}
-          </p>
-        </div>
-        <div className="min-w-0 text-right">
-          <MicroLabel>{yearLabel(lastYear)}</MicroLabel>
-          <p className="mt-1 break-words font-mono text-base font-semibold tabular-nums text-foreground">
+      {/*
+        Today and the target on one line, the way a reader says it: from
+        this price to that one by that year. It was two labelled figures a
+        card apart, which made every card about twice as tall as its
+        content, and eight of them stacked are most of a phone's page.
+      */}
+      <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 font-mono text-sm tabular-nums">
+        <span className="text-muted-foreground">
+          <span className="text-foreground">{currency(row.currentPrice)}</span>
+          {" → "}
+          <span className="font-semibold text-foreground">
             {currency(row.eoyPrices[lastYear])}
-          </p>
-          {perYear != null && Number.isFinite(perYear) ? (
-            <p className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground">
-              {`${signedPercent(perYear, 0)} a year`}
-            </p>
-          ) : null}
-        </div>
+          </span>
+          {` by ${lastYear}`}
+        </span>
       </div>
 
       {why ? (
@@ -512,19 +509,28 @@ function ForecastCard({
         </p>
       )}
 
+      <div className="mt-3 flex items-center justify-between gap-3">
+      {perYear != null && Number.isFinite(perYear) ? (
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+          {`${signedPercent(perYear, 0)} a year`}
+        </span>
+      ) : (
+        <span />
+      )}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={railId}
-        className="mt-4 flex w-full items-center justify-center gap-1 text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/50"
+        className="flex items-center gap-1 text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/50"
       >
-        {open ? "Show less" : "Show every year"}
+        {open ? "Show less" : "Every year"}
         <ChevronDown
           aria-hidden
           className={cn("size-4 transition-transform", open && "rotate-180")}
         />
       </button>
+      </div>
 
       {open && (
         <div id={railId}>

@@ -122,6 +122,7 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   CircleDashed,
   RefreshCw,
   Search,
@@ -300,7 +301,10 @@ function PulseCard({
   sector,
   sectorPct,
   showPortfolioNames = false,
+  bare = false,
 }: {
+  /** Drawn inside a quiet row that already carries the list item and id. */
+  bare?: boolean;
   candidate: PulseCandidate;
   check?: PulseCheck;
   headlines: PulseHeadline[];
@@ -457,6 +461,7 @@ function PulseCard({
     </>
   );
 
+  const Outer = bare ? "div" : "li";
   return (
     /*
       `defer-paint`: Pulse is a single block of 498 elements 5,812px tall,
@@ -466,9 +471,8 @@ function PulseCard({
       card carries no sticky child, which is the one thing that rule
       forbids -- see the note in globals.css.
     */
-    <li
-      id={`pulse-card-${c.ticker}`}
-      className="defer-paint scroll-mt-28"
+    <Outer
+      {...(bare ? {} : { id: `pulse-card-${c.ticker}`, className: "defer-paint scroll-mt-28" })}
     >
       <Card
         className={pulseCardChrome({
@@ -801,6 +805,85 @@ function PulseCard({
       )}
       </CardContent>
       </Card>
+    </Outer>
+  );
+}
+
+/**
+ * A holding on a quiet day, as one row rather than a whole card.
+ *
+ * Eight full cards for eight companies that did what the market did was
+ * most of this room's height, and every one of them said the same thing:
+ * nothing happened here. A row carries what a glance needs (the company,
+ * today's move, where the price sits in its recent range, the badge) and
+ * opens into the full card for anybody who wants the rest.
+ */
+function QuietRow(props: Parameters<typeof PulseCard>[0]) {
+  const { candidate: c, check, sector } = props;
+  const [open, setOpen] = useState(false);
+  const afterClose = c.moveSource === "post" && c.regularPct != null;
+  const pct = afterClose ? c.regularPct : c.effectivePct;
+  const hasPct = pct != null && Number.isFinite(pct);
+  const flat = hasPct && Math.abs(pct!) < 0.0005;
+  const range = candidateRange(c);
+  const at = range ? rangeStanding(c.price, range) : null;
+  const shown =
+    check && !isEmptyPulseCheck(check) ? reconcilePulseCheck(check) : null;
+  const status = shown?.thesisStatus ?? null;
+  const label = describeCompany(c.ticker, sector);
+  const bodyId = `pulse-quiet-${c.ticker}`;
+  return (
+    <li id={`pulse-card-${c.ticker}`} className="scroll-mt-28">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={bodyId}
+        onClick={() => setOpen((v) => !v)}
+        className="grid w-full grid-cols-[minmax(0,1fr)_auto_1rem] items-center gap-x-4 gap-y-1 px-4 py-3.5 text-left transition hover:bg-hover sm:grid-cols-[minmax(0,1fr)_6rem_auto_4.5rem_1rem] sm:px-6"
+      >
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className="shrink-0 font-semibold text-foreground">{cashtag(c.ticker)}</span>
+          {label ? (
+            <span className="min-w-0 truncate text-sm text-muted-foreground">{label}</span>
+          ) : null}
+        </span>
+        <span aria-hidden className="relative hidden h-1.5 rounded-full bg-muted sm:block">
+          {at != null ? (
+            <span
+              className="absolute top-1/2 size-2 -translate-y-1/2 rounded-full bg-foreground"
+              style={{ left: `calc(${(at * 100).toFixed(1)}% - 0.25rem)` }}
+            />
+          ) : null}
+        </span>
+        <span className="hidden sm:block">
+          {status ? (
+            <Pill tone={status === "broken" ? "bad" : status === "watch" ? "warn" : "good"}>
+              <StatusIcon status={status} />
+              {statusLabel(status)}
+            </Pill>
+          ) : null}
+        </span>
+        <span
+          className={cn(
+            "text-right font-mono text-sm tabular-nums",
+            hasPct && !flat ? signedTone(pct!) : "text-muted-foreground"
+          )}
+        >
+          {!hasPct ? "n/a" : flat ? "0.0%" : formatMovePct(pct)}
+        </span>
+        <ChevronDown
+          aria-hidden
+          className={cn(
+            "size-4 text-muted-foreground transition-transform motion-reduce:duration-0",
+            open && "rotate-180"
+          )}
+        />
+      </button>
+      {open ? (
+        <div id={bodyId} className="px-2 pb-3 sm:px-4">
+          <PulseCard {...props} bare />
+        </div>
+      ) : null}
     </li>
   );
 }
@@ -2019,9 +2102,9 @@ export const PulsePage = memo(function PulsePage({
                      */
                     `Your ${plural(rest.length, "holding")}`}
               </h3>
-              <ul className="flex flex-col gap-6">
+              <ul className="card-sheen glass flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border">
                 {rest.map((c) => (
-                  <PulseCard
+                  <QuietRow
                     showPortfolioNames={showPortfolioNames}
                     key={c.ticker}
                     candidate={c}

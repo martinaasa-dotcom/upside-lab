@@ -150,7 +150,8 @@ export const SAMPLE_CASH = 640;
  * risk of a demo that looks exactly like the app is somebody thinking
  * these numbers are theirs.
  */
-export const SAMPLE_PORTFOLIO_NAME = "Sample portfolio";
+/* One word: "Sample portfolio" did not fit its dock cell and read "Sample po...". */
+export const SAMPLE_PORTFOLIO_NAME = "Sample";
 
 /**
  * The company that had news of its own on the made-up day.

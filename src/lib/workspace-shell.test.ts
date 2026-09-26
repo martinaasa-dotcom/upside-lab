@@ -44,16 +44,27 @@ function layoutEffects(): { body: string; deps: string }[] {
 }
 
 describe("WorkspaceShell room effects", () => {
-  it("never restores scroll or announces a show on a pathname alone", () => {
+  it("never announces a show on a pathname alone", () => {
     for (const { body, deps } of layoutEffects()) {
-      const touchesShow =
-        body.includes("WORKSPACE_SHOW_EVENT") || body.includes("scrollTo");
-      if (!touchesShow) continue;
-      expect(
-        deps,
-        "scroll restore / show event must not run on every pathname"
-      ).not.toMatch(/pathname/);
+      if (!body.includes("WORKSPACE_SHOW_EVENT")) continue;
+      expect(deps, "the show event must not run on every pathname").not.toMatch(
+        /pathname|shownPath/
+      );
     }
+  });
+
+  /*
+    Tapping Growth from halfway down Home opened Growth halfway down,
+    because the book is one room and nothing moved the window. A page
+    reached by a tap opens at its top; only Back restores an offset.
+  */
+  it("opens every page at its top and restores only on Back", () => {
+    const scroll = layoutEffects().find((e) => e.body.includes("scrollTo"));
+    expect(scroll, "the shell still places the window").toBeTruthy();
+    expect(scroll?.deps).toMatch(/shownPath/);
+    expect(scroll?.body).toMatch(/popRef\.current/);
+    expect(scroll?.body).toMatch(/back \? .* : 0/);
+    expect(SHELL).toMatch(/addEventListener\("popstate"/);
   });
 
   it("guards the show effect on the room actually changing", () => {

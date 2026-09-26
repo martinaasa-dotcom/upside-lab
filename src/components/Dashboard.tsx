@@ -225,6 +225,7 @@ import {
 import { buildCallAlerts } from "@/lib/alerts";
 import { useCallRules, useTrackedCalls } from "@/lib/options/use-tracked-calls";
 import { strikeEditPatch } from "@/lib/options/reprice";
+import { plural } from "@/lib/format";
 
 /**
  * These are per-tab panels: only one is on screen at a time (Overview is
@@ -3392,12 +3393,25 @@ export function Dashboard() {
               onOpenHome={() => goToTab(OVERVIEW_TAB_ID)}
             />
           ) : (
-            <AlertStack
-              alerts={activeAlerts}
-              firstSeen={alertSeen}
-              onOpen={onOpenAlert}
-              onDismiss={onDismissAlert}
-            />
+            /*
+              A room that opened straight onto its first card had no name
+              on a phone, where there is no header row saying where the
+              reader is. It is headed like Home: the name, then the count.
+            */
+            <div className="flex flex-col gap-6">
+              <header>
+                <h1>Worth a look</h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {plural(activeAlerts.length, "thing")} about what you own.
+                </p>
+              </header>
+              <AlertStack
+                alerts={activeAlerts}
+                firstSeen={alertSeen}
+                onOpen={onOpenAlert}
+                onDismiss={onDismissAlert}
+              />
+            </div>
           )}
           </WidgetErrorBoundary>
         ) : isPulse ? (

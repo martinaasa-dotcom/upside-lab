@@ -53,7 +53,6 @@ import {
   Copy,
   Share2,
   Target,
-  Zap,
 } from "lucide-react";
 import { Fragment, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, memo } from "react";
 import { useTimeout } from "@/lib/use-timeout";
@@ -63,9 +62,8 @@ import {
   PANEL_STACK_GAP,
   Panel,
   PanelHeader,
+  InfoTip,
   Pill,
-  Score,
-  Scoreboard,
   Segmented,
 } from "@/components/ui/Panel";
 import { Input } from "@/components/ui/input";
@@ -400,6 +398,9 @@ function ComparePathsChart({
     series: s.result.yearly.map((y) => y.balance),
     dashed: s.id === "mattress",
     thick: s.id === "upside",
+    tagline: s.tagline,
+    end: s.result.futureValue,
+    growth: s.result.totalInterest,
   }));
   const lastIdx = Math.max(1, ...paths.map((p) => p.series.length - 1));
   const max = Math.max(1, ...paths.flatMap((p) => p.series));
@@ -588,19 +589,38 @@ function ComparePathsChart({
           );
         })}
       </ChartXRail>
-      <ul className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 text-sm sm:grid-cols-4">
+      {/*
+        The legend is the comparison. It used to name the four lines here
+        and then a second panel repeated them as four tall cards with the
+        end figure in each; the figures are on the legend now, the
+        assumption behind each line is one press away on its name, and the
+        second panel is gone.
+      */}
+      <ul className="mt-5 flex flex-col divide-y divide-border border-y border-border text-sm">
         {paths.map((p) => (
-          <li key={p.id} className="inline-flex min-w-0 items-center gap-1.5">
-            <span
-              className="inline-block w-3.5"
-              style={{
-                borderTop: p.dashed
-                  ? `1.5px dashed ${p.color}`
-                  : `2px solid ${p.color}`,
-              }}
-              aria-hidden
-            />
-            <span style={{ color: p.color }}>{p.label}</span>
+          <li key={p.id} className="flex min-w-0 items-center justify-between gap-3 py-2.5">
+            <span className="inline-flex min-w-0 items-center gap-2">
+              <span
+                className="inline-block w-3.5 shrink-0"
+                style={{
+                  borderTop: p.dashed
+                    ? `1.5px dashed ${p.color}`
+                    : `2px solid ${p.color}`,
+                }}
+                aria-hidden
+              />
+              <InfoTip text={p.tagline}>
+                <span className="text-foreground">{p.label}</span>
+              </InfoTip>
+            </span>
+            <span className="flex shrink-0 flex-col items-end">
+              <span className="font-mono font-semibold tabular-nums" style={{ color: p.color }}>
+                {money(p.end, currency, eurUsd, 0)}
+              </span>
+              <span className={cn("font-mono text-xs tabular-nums", p.growth < 0 ? "text-loss" : "text-muted-foreground")}>
+                {`${money(p.growth, currency, eurUsd, 0)} growth`}
+              </span>
+            </span>
           </li>
         ))}
       </ul>
@@ -1276,7 +1296,14 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           and filled in, not consulted while reading something else --
           so it scrolls with the page like every other panel in the app
           (this was the only sticky sidebar in the codebase). */}
-      <div className="min-h-0 min-w-0 w-full max-w-full">
+      {/*
+        ON A PHONE THE ANSWER COMES FIRST. The columns stack there, and the
+        form is about 1,200px tall, so a reader met a screen and a half of
+        fields before any result. Below `lg` the results section becomes
+        `contents` and its first panel is ordered ahead of the form, the
+        rest after it; the laptop's two columns are unchanged.
+      */}
+      <div className="min-h-0 min-w-0 w-full max-w-full max-lg:order-2">
         <Panel className={SHEET_PANEL}>
         <PanelHeader
           icon={<Calculator className="h-4 w-4" />}
@@ -1523,9 +1550,9 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         goes on the panels inside rather than the section, since a
         contained ancestor would trap anything sticky within it.
       */}
-      <section className={cn(PANEL_STACK, "min-w-0 w-full max-w-full")}>
+      <section className={cn(PANEL_STACK, "min-w-0 w-full max-w-full max-lg:contents")}>
         {/* Hero KPI Summary */}
-        <Panel className={SHEET_PANEL}>
+        <Panel className={cn(SHEET_PANEL, "max-lg:order-1")}>
           <PanelHeader
             hero
             title={`Where ${durationLabel} of this gets you`}
@@ -1612,7 +1639,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           style, layout and paint; this skips building them at all until
           the reader comes near.
         */}
-        <BelowFold reserve={560} className={PANEL_STACK}>
+        <BelowFold reserve={560} className={cn(PANEL_STACK, "max-lg:order-3")}>
         <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
             title={`Same money, ${compare.length === 3 ? "three" : "four"} paths`}
@@ -1842,56 +1869,6 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
               </table>
             </div>
           </details>
-        </Panel>
-
-        <Panel className={cn(SHEET_PANEL, "defer-paint")}>
-          <PanelHeader
-            icon={<Zap className="h-4 w-4" />}
-            title="The same money, invested differently"
-          />
-          <Scoreboard cols={2} className="max-sm:grid-cols-1">
-            {compare.map((s) => {
-              const dashed = s.id === "mattress";
-              return (
-                <Score
-                  key={s.id}
-                  className="min-w-0"
-                  label={
-                    <span className="inline-flex items-center gap-1.5">
-                      <span
-                        className="inline-block w-3.5 shrink-0"
-                        style={{
-                          borderTop: dashed
-                            ? `1.5px dashed ${s.color}`
-                            : `2px solid ${s.color}`,
-                        }}
-                        aria-hidden
-                      />
-                      {s.label}
-                    </span>
-                  }
-                  value={
-                    <span style={{ color: s.color }}>
-                      {show(s.result.futureValue)}
-                    </span>
-                  }
-                  sub={
-                    <>
-                      <span
-                        className={cn(
-                          "tabular-nums",
-                          s.result.totalInterest < 0 && "text-loss"
-                        )}
-                      >
-                        {show(s.result.totalInterest)} growth
-                      </span>
-                      <span className="mt-1 block">{s.tagline}</span>
-                    </>
-                  }
-                />
-              );
-            })}
-          </Scoreboard>
         </Panel>
 
         <Panel className={cn(SHEET_PANEL, "defer-paint")}>

@@ -866,6 +866,7 @@ function OverviewYearChart({
         anchor={nav.anchor}
         liveNav={liveNav}
         loading={nav.loading}
+        failed={nav.failed}
         firstRealDate={nav.firstRealDate}
         onDiscardAssumed={nav.discardAssumed}
         onRestoreAssumed={nav.restoreAssumed}
@@ -1526,6 +1527,8 @@ export const OverviewDashboard = memo(function OverviewDashboard({
                 </span>
               </dd>
             </div>
+            {/* A year with no figure is left out rather than printed as n/a. */}
+            {yearDollar != null ? (
             <div className={FACT_ROW}>
               <dt>
                 <MicroLabel>This year</MicroLabel>
@@ -1536,7 +1539,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
                   yearDollar != null ? tone(yearDollar) : "text-muted-foreground"
                 )}
               >
-                {yearDollar != null ? signedCurrency(yearDollar, 0) : NO_VALUE}
+                {signedCurrency(yearDollar, 0)}
                 {yearPct != null ? (
                   <span className="font-medium text-muted-foreground">
                     {" "}
@@ -1545,6 +1548,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
                 ) : null}
               </dd>
             </div>
+            ) : null}
             <div className={FACT_ROW}>
               <dt>
                 {/*

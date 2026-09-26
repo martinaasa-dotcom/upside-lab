@@ -623,7 +623,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
           </div>
           <div className={SPLIT_ACTIONS}>
             <label className="flex min-w-0 flex-1 items-center gap-2 text-sm text-muted-foreground sm:flex-none">
-              <span className="shrink-0">Look at</span>
+              <span className="sr-only shrink-0 sm:not-sr-only">Look at</span>
               <NativeSelect
                 value={ticker}
                 onChange={(e) => setTicker(e.target.value)}
