@@ -91,11 +91,11 @@ const ALLOWED = new Map<string, string>([
     "Same barW as the row above, mirrored to the other side of the zero line.",
   ],
   [
-    "src/components/company/ValueGlance.tsx:251",
+    "src/components/company/ValueGlance.tsx:254",
     "at(low) and at(high) are computed from a from/span that is built from Math.min/Math.max over {low, high, spot, blend} plus padding, so both ends fall inside the drawn scale by construction.",
   ],
   [
-    "src/components/company/ValueGlance.tsx:440",
+    "src/components/company/ValueGlance.tsx:443",
     "width is Math.min(Math.abs(gap) / 0.6, 1) * 50, already capped at 50 before Math.max(width, 1.5) only raises a floor.",
   ],
 ]);

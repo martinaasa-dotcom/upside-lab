@@ -25,6 +25,8 @@ export type LadderAnchor = {
   price: number;
   kind: LadderAnchorKind;
   said: string;
+  /** How far apart the estimates behind it landed, as a fraction of it. */
+  spread?: number | null;
 } | null;
 
 function ok(v: number | null | undefined): v is number {
@@ -47,6 +49,7 @@ export function anchorForCompany(
     const n = read?.estimate.used.length ?? 0;
     return {
       price: estimate,
+      spread: read?.estimate.spread ?? null,
       kind: "estimate",
       said: `${currency(estimate, 2)}, the blended estimate from the valuation panel below, which is ${n === 1 ? "one method" : `${n} methods`} averaged and nothing else. Nothing here re-estimates it and nothing nudges it towards today's price.`,
     };
@@ -106,7 +109,12 @@ export function anchorForHolding(input: {
    * What this company is worth, the same reading for every reader
    * (`loadCompanyAnchors`). Absent where the feed could not answer.
    */
-  estimate?: { price: number; kind: LadderAnchorKind; said: string } | null;
+  estimate?: {
+    price: number;
+    kind: LadderAnchorKind;
+    said: string;
+    spread?: number | null;
+  } | null;
   /** The middle of the range this browser has closes for, when it has any. */
   rangeMid?: number | null;
   /** The window those closes cover, in words. */
@@ -118,6 +126,7 @@ export function anchorForHolding(input: {
       price: estimate.price,
       kind: estimate.kind,
       said: estimate.said,
+      spread: estimate.spread ?? null,
     };
   }
   const over = input.windowSaid ?? "the last few months";

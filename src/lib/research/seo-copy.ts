@@ -145,7 +145,7 @@ export function researchDescription(
   if (estimate !== null) {
     const count = read?.estimate.used.length ?? 0;
     parts.push(
-      `${count} method${count === 1 ? "" : "s"} put it at ${currency(estimate, 2, code)} in twelve months`
+      `${count} method${count === 1 ? "" : "s"} put its worth today at ${currency(estimate, 2, code)}`
     );
   } else if (typeof facts.analystTargetMean === "number") {
     parts.push(
@@ -192,7 +192,7 @@ export function researchQuestions(input: {
     out.push({
       id: "worth",
       question: `What is ${name} worth?`,
-      answer: `Nobody can tell you that, and anybody who says they can is guessing. What can be said is what each method produces. ${read.estimate.used.length} of them run on the figures this page carries (${methods}), and together they put ${tag} at ${currency(estimate, 2, code)} in twelve months. ${glance.read} Each method is listed further down with the one assumption it rests on, so you can throw out the ones you disagree with.`,
+      answer: `Nobody can tell you that, and anybody who says they can is guessing. What can be said is what each method produces. ${read.estimate.used.length} of them run on the figures this page carries (${methods}), and together they put what ${tag} is worth today at ${currency(estimate, 2, code)}. ${glance.read} Each method is listed further down with the one assumption it rests on, so you can throw out the ones you disagree with.`,
     });
   }
 

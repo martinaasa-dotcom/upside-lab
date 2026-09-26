@@ -203,9 +203,12 @@ function Ladder({
             /*
               Not "Estimate". The word was doing nothing the figure and the
               horizon underneath it were not already doing, and it read as
-              a hedge stamped over the number.
+              a hedge stamped over the number. It was "In 12 months" until
+              the estimate became what the company is worth today
+              (2026-09-26), since a price in a year set against a price
+              today made every company anybody expects to rise look cheap.
             */
-            name="In 12 months"
+            name="Fair value"
             figure={currency(blend, 2, code)}
             /*
               The gap rides on the mark it describes rather than sitting in
@@ -609,7 +612,7 @@ export function ValueGlance({
             )}
           </span>
         }
-        subtitle={`Where ${tag} trades today, what each method below puts it at in twelve months, and the assumption every one of them rests on.`}
+        subtitle={`Where ${tag} trades today, what each method below says it is worth today, and the assumption every one of them rests on.`}
         icon={<Gauge className="h-4 w-4" />}
       />
 
@@ -632,7 +635,10 @@ export function ValueGlance({
           spot={read.spot}
           blend={read.estimate.price}
           gap={read.gap}
-          estimates={read.estimate.used.map((m) => m.price)}
+          // The market's own price is already the gold mark; a tick under it says nothing.
+          estimates={read.estimate.used
+            .filter((m) => m.id !== "market")
+            .map((m) => m.price)}
           code={code}
         />
       ) : null}

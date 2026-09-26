@@ -553,6 +553,12 @@ export function buildPlanLadder(input: {
    * is disclosed instead through `anchorSaid` upstream in `anchorForHolding`.
    */
   houseOverride?: LadderOverride | null;
+  /**
+   * How far apart the voices behind the anchor landed, as a fraction of
+   * it (`FairValueBlend.spread`). Absent for an anchor that is not an
+   * estimate, and ignored for one the reader typed, which is theirs.
+   */
+  estimateSpread?: number | null;
 }): PlanLadder | null {
   const typed = ok(input.override?.anchor)
     ? input.override.anchor
@@ -584,7 +590,29 @@ export function buildPlanLadder(input: {
     step, which answers a different question about where the price is
     right now rather than how choppy this name ordinarily is).
   */
-  const holdHalf = holdHalfStepsFor(ordinary.swingRatio);
+  /*
+    AND HOW SURE THE FAIR VALUE ITSELF IS (2026-09-26).
+
+    The swing says how far this price ordinarily wanders; it says nothing
+    about how well the anchor is known. Where the market, the analysts and
+    the business itself land far apart, a price between them is not a
+    price away from fair value, it is a price inside the argument about
+    what fair value is. So "close to fair value" is at least wide enough
+    to hold half of that disagreement, a quarter of it either side, never
+    more than `MAX_HOLD_HALF_STEPS`, and the sentence behind the mark says
+    so. Half and not all of it, because the gap between the market and
+    the fundamentals is also the one thing this zone exists to show: a
+    zone as wide as the whole argument would call every price fair. A reader's own typed anchor is
+    theirs and carries no such doubt.
+  */
+  const swingHalf = holdHalfStepsFor(ordinary.swingRatio);
+  const spread =
+    typed === null && typeof input.estimateSpread === "number" && input.estimateSpread > 0
+      ? input.estimateSpread
+      : 0;
+  const doubtHalf = Math.min(spread / 4 / ordinary.step, MAX_HOLD_HALF_STEPS);
+  const holdHalf = Math.max(swingHalf, doubtHalf);
+  const widenedByDoubt = doubtHalf > swingHalf;
   const farBelow = isFarBelow({
     anchor,
     spot: input.spot,
@@ -610,8 +638,9 @@ export function buildPlanLadder(input: {
     version that cannot contradict itself.
   */
   const holdWidthPct = holdHalf * step;
-  const holdNote =
-    holdWidthPct > BASE_STEP * 1.03
+  const holdNote = widenedByDoubt
+    ? ` The estimates behind the anchor land ${percent(spread, 0)} apart, so "close to fair value" is widened to ${percent(holdWidthPct, 0)} either side of it, enough to hold half of that disagreement.`
+    : holdWidthPct > BASE_STEP * 1.03
       ? ` This one also swings enough that "close to fair value" is widened to ${percent(holdWidthPct, 0)} either side of the anchor instead of the ordinary ${percent(BASE_STEP, 0)}.`
       : holdWidthPct < BASE_STEP * 0.97
         ? ` This one moves little enough that "close to fair value" is narrowed to ${percent(holdWidthPct, 0)} either side of the anchor instead of the ordinary ${percent(BASE_STEP, 0)}.`

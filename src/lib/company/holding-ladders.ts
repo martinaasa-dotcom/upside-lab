@@ -182,6 +182,7 @@ export function holdingLadders(input: {
         windowSaid,
         override: input.ladders?.[ticker] ?? null,
         houseOverride: input.houseLadders?.[ticker] ?? null,
+        estimateSpread: anchor.spread ?? null,
       }),
     });
   }

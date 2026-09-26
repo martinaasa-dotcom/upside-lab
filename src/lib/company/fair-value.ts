@@ -25,9 +25,12 @@
  * almost no profit produces an earnings multiple in the thousands). Those
  * are dropped, said out loud, and counted.
  *
- * **The model is one voice among several and never the loudest.** Its
- * weight is fixed and modest, and it is labelled as a model wherever it
- * appears, because it is the only input here that cannot be checked.
+ * **The market is one voice among several and never the whole answer.**
+ * Its weight follows how efficiently the company is priced and is capped
+ * at 0.45, so the blend is what the market, the analysts and the business
+ * itself say together, each at a weight printed beside it. The model's
+ * own price path is shown and not counted, because it is grown from
+ * today's price and cannot say whether today's price is right.
  *
  * **A thin answer says it is thin.** One method surviving is a guess with
  * a decimal point on it, and the reader is told exactly that rather than
@@ -40,6 +43,7 @@
 import { currency, percent } from "@/lib/format";
 import { MARKET_EARNINGS_MULTIPLE } from "@/lib/company/scale";
 import { isCryptoLike, isFundLike, type CompanyFacts } from "@/lib/company/facts";
+import { normalizeListedPrice } from "@/lib/listing-currency";
 
 /** Where a method's number came from, which decides how it is labelled. */
 export type FairValueMaker = "market" | "arithmetic" | "model";
@@ -87,8 +91,13 @@ export type FairValueBlend = {
 
 export type FairValueRead = {
   /**
-   * One estimate, twelve months out, and there is deliberately no second
-   * one for "today".
+   * One estimate of what the company is worth TODAY (2026-09-26; it was
+   * a twelve month figure, and set against today's price that made every
+   * company anybody expects to rise read as below its fair value). The
+   * analysts' twelve month target is brought back to today at the
+   * company's own required return, and the business method prices ten
+   * years back to today by construction. There is deliberately no second
+   * headline figure.
    *
    * Every method that survives here is a forward method: an analyst's
    * twelve-month target is forward by definition, a multiple of next
@@ -106,39 +115,6 @@ export type FairValueRead = {
   gap: number | null;
 };
 
-/**
- * Below this much annual growth the growth-multiple rule stands down.
- *
- * Set above the market's own long-run earnings growth on purpose: the
- * rule only says anything about a company growing faster than the market,
- * and applied to one that is not it produces a multiple far below what
- * such companies actually trade at.
- */
-const GROWTH_RULE_FLOOR_PCT = 12;
-
-/**
- * The most this rule of thumb may ever pay for a year's earnings.
- *
- * It was 40, which is where the rule stops describing anything: a company
- * holding 40 times next year's earnings for long is rare enough that no
- * heuristic should assume it, and on Nvidia growing 66% the cap was the
- * only thing setting the number, putting it $291 above the analysts'
- * average. Thirty is already the top of the range large companies actually
- * sustain, and past that the rule is guessing rather than estimating.
- */
-const GROWTH_RULE_CEILING = 30;
-
-/**
- * How much extra multiple a point of growth above the market earns.
- *
- * Half a turn. At that rate a company growing twice as fast as the market
- * lands about six turns above it, which is roughly where such companies
- * actually trade, and the cap binds before it can run away. A whole turn
- * per point would put anything growing 40% straight into the cap and make
- * the rule a step function.
- */
-const GROWTH_PREMIUM_PER_POINT = 0.5;
-
 function ok(n: number | null | undefined): n is number {
   return typeof n === "number" && Number.isFinite(n) && n > 0;
 }
@@ -151,10 +127,24 @@ function round2(n: number): number {
  * The methods. Each returns null rather than guessing at a missing input.
  * ---------------------------------------------------------------------- */
 
-/** What the analysts covering it think it is worth in a year's time. */
+/**
+ * What the analysts covering it think it is worth, brought back to today.
+ *
+ * A published target is where they expect the price to be in twelve
+ * months, which is a different number from what the share is worth now:
+ * a company correctly priced today is expected to be higher in a year by
+ * exactly the return its owners require. Set beside today's price
+ * undiscounted, every company anybody expects to rise read as sitting
+ * below its fair value, which is the fault that put nearly every holding
+ * on a real book in the lower bands at once. So the target is discounted
+ * one year at this company's own required return (`requiredReturn`), the
+ * same rate the business method uses, and the working says so.
+ */
 function consensusMethod(f: CompanyFacts): FairValueMethod | null {
-  const target = f.analystTargetMean;
-  if (!ok(target)) return null;
+  const published = f.analystTargetMean;
+  if (!ok(published)) return null;
+  const { rate } = requiredReturn(f);
+  const target = published / (1 + rate);
   const n = f.analystCount ?? 0;
   /*
     Coverage is the whole quality of this input. One analyst is one
@@ -168,7 +158,9 @@ function consensusMethod(f: CompanyFacts): FairValueMethod | null {
     company; the growth multiple is one line of arithmetic on a heuristic.
     Where they disagree the blend should lean on the first, and it did not:
     at the old weights the heuristic carried 36% of the answer and pulled
-    Nvidia's estimate $106 above what any analyst had published.
+    Nvidia's estimate $106 above what any analyst had published. The
+    heuristic is gone (see `businessMethod`), and the projection that
+    replaced it is weighted below a real consensus for the same reason.
   */
   const coverage = n >= 10 ? 0.4 : n >= 3 ? 0.3 : n >= 1 ? 0.16 : 0.1;
   /*
@@ -213,7 +205,7 @@ function consensusMethod(f: CompanyFacts): FairValueMethod | null {
     maker: "market",
     price: round2(target),
     assumes: `That the ${n > 0 ? `${n} analyst${n === 1 ? "" : "s"} covering this company` : "analysts covering this company"} have it about right.${spread}${disagreement}`,
-    working: `The plain average of the twelve-month price targets published by the ${n > 0 ? n : ""} analyst${n === 1 ? "" : "s"} who cover it.`.replace("  ", " "),
+    working: `The plain average of the twelve-month price targets published by the ${n > 0 ? n : ""} analyst${n === 1 ? "" : "s"} who cover it, ${currency(published, 2, code)}, brought back to today at ${percent(rate, 1)} a year, the return an owner of this company would want for waiting that year.`.replace("  ", " "),
     weight,
   };
 }
@@ -246,94 +238,791 @@ function consensusMethod(f: CompanyFacts): FairValueMethod | null {
   the same as a method applying.
 */
 
+/*
+  WHAT A COMPANY IS WORTH TODAY, READ FROM EVERYTHING THIS APP CAN SEE
+  (2026-09-26).
+
+  Three voices, weighted by how much each one knows about this company:
+
+  1. WHAT THE MARKET IS PAYING. The price is not the enemy of a fair value,
+     it is the best-informed estimate there is for a company thousands of
+     professionals trade every day. It carries what no spreadsheet can:
+     Tesla's optionality, Apple's staying power, a regulator's mood. So it
+     is a method, labelled, and weighted by how efficiently this company is
+     priced: heavily for a trillion-dollar name forty analysts follow,
+     lightly for a small company nobody covers, where the price is most
+     likely to be wrong and fundamentals have the most to say.
+
+  2. WHAT THE ANALYSTS EXPECT, brought back to today.
+
+  3. THE BUSINESS ITSELF (`businessPath`): ten years of revenue and margin,
+     in three cases, priced today and calibrated to what the market pays
+     today for an ordinary company. It is the voice that notices a
+     company the market has mispriced, and it steps aside, greyed with the
+     reason, when it lands more than three times away from the other two,
+     because then the numbers have stopped describing this company (a
+     company valued on what it might become rather than on what it earns).
+
+  The rule this reverses: until today this file said nothing was ever
+  nudged towards today's price. Martin reversed it on 2026-09-26 with the
+  argument that the market would not pay $372 for Tesla if it were worth
+  $187, and that a fair value stuck in the numbers misses the big picture.
+  What keeps it honest is the same thing that keeps every other method
+  honest: its weight and its reason are on the page.
+*/
+
+/*
+  THE BASE RATES, AND WHERE THEY COME FROM.
+
+  Every figure below is read off Aswath Damodaran's public data set of
+  January 2026 (pages.stern.nyu.edu/~adamodar, "Margins by Sector (US)"
+  and "PE Ratios by Sector (US)", 5,994 US companies). None of them is a
+  view of any company; each is what the whole market does, dated, and
+  checkable by anybody. Revisit them once a year when the set is
+  republished.
+*/
+
 /**
- * The multiple a company's growth earns it, anchored on the market's own
- * multiple rather than on the growth rate alone.
- *
- * THE FAULT THIS REPLACES, BECAUSE IT LOOKED PERFECTLY REASONABLE.
- *
- * The old rule was the textbook one: a company compounding earnings at
- * 20% a year is allowed roughly a 20 times multiple. Read literally off a
- * single year's expected growth it produces answers nobody would defend
- * in either direction. Meta, whose next financial year is a heavy
- * investment year and whose expected earnings growth is therefore 12%,
- * came out at 12 times earnings and a fair value of $414 against a share
- * price of $617. The market itself pays 18 times for it. A rule saying a
- * company with 30% net margins, $90 billion of cash and a 30% return on
- * equity is worth twelve times earnings is not conservative, it is a rule
- * that has been handed the wrong input: **one year's expected growth is
- * not a company's sustainable growth rate**, and it is wrong low for a
- * business mid-investment and wrong high for one mid-rebound.
- *
- * What it does now is anchor: a company growing at the same pace as the
- * whole market earns the same multiple as the whole market, and growth
- * above that earns half a turn of multiple per point of extra growth.
- * Both ends of that are the feed's own published figures rather than
- * numbers typed into this app, and the assumption is printed for the
- * reader to argue with.
- *
- * It is deliberately not a bullish adjustment. It is symmetric, it still
- * stands down entirely on a company growing slower than the market
- * (see `GROWTH_RULE_FLOOR_PCT`), and the cap still binds the top.
+ * What the whole US market paid for a dollar of next year's profit in
+ * January 2026: aggregate market value over trailing profit of profitable
+ * companies (26.56), carried a year forward at the market's own expected
+ * growth (13.95%). The business method is scaled so a company with the
+ * market's own growth and steady margins is worth exactly this.
  */
-function growthMethod(
-  f: CompanyFacts,
-  eps: number | null
-): FairValueMethod | null {
-  if (!ok(eps)) return null;
-  const growth =
-    f.epsGrowthNextYear ?? f.epsGrowthThisYear ?? f.revenueGrowth;
-  if (typeof growth !== "number" || !Number.isFinite(growth) || growth <= 0) {
+export const CURRENT_MARKET_FORWARD_MULTIPLE = 26.56 / 1.1395;
+
+/** The market's expected annual earnings growth over five years, January 2026. */
+const MARKET_EXPECTED_GROWTH = 0.1395;
+
+/**
+ * Across 92 US industries (banks and insurers left out, where gross margin
+ * means nothing), the net margin a typical business keeps rises with its
+ * gross margin: a firm-weighted fit of net margin on gross margin gives
+ * about -2.7% plus 26.5% of the gross margin. A business keeping 75% of a
+ * sale as gross profit ordinarily keeps about 17% of it at the end.
+ */
+const TYPICAL_NET_FROM_GROSS = { intercept: -0.027, slope: 0.265 };
+/** The best industries in that set keep about this much, and nobody keeps more for long. */
+const TYPICAL_NET_CEILING = 0.3;
+
+/**
+ * The kinds of company whose profit the whole market prices at a
+ * structurally different multiple, as a share of the market's own 26.56
+ * (aggregate value over trailing profit, January 2026). A bank's profit is
+ * made on borrowed money and is valued at about half the market's
+ * multiple everywhere in the record; pricing it like an ordinary company
+ * doubles it. Only these, because only these are both large groups and
+ * far from the market; everything else is priced by its own growth and
+ * margin rather than by a label.
+ */
+const INDUSTRY_MULTIPLE_RATIO: { match: RegExp; ratio: number; said: string }[] = [
+  { match: /^Banks/i, ratio: 14.17 / 26.56, said: "banks" },
+  { match: /^Insurance - Life/i, ratio: 11.82 / 26.56, said: "life insurers" },
+  { match: /^Insurance - Property/i, ratio: 11.78 / 26.56, said: "property insurers" },
+];
+
+function industryRatio(f: CompanyFacts): { ratio: number; said: string } | null {
+  const industry = f.industry ?? "";
+  const hit = INDUSTRY_MULTIPLE_RATIO.find((x) => x.match.test(industry));
+  return hit ? { ratio: hit.ratio, said: hit.said } : null;
+}
+
+/** How many years of the business are projected before the exit multiple. */
+const BUSINESS_YEARS = 10;
+
+/**
+ * The revenue growth a mature business settles at, nominal. About what the
+ * economy grows at plus inflation.
+ */
+const MATURE_GROWTH = 0.07;
+
+/** The required return on an ordinary large company, before any risk. */
+const BASE_RETURN = 0.09;
+
+/**
+ * How much of a year's growth above the mature pace survives into the
+ * next, by how much the company sells. Base rates, not a view: very few
+ * companies selling hundreds of billions a year grow fast for long, and a
+ * company selling a billion often does.
+ */
+function growthPersistence(revenue: number, growth: number): number {
+  const base =
+    revenue >= 3e11
+      ? 0.55
+      : revenue >= 1e11
+        ? 0.6
+        : revenue >= 2e10
+          ? 0.66
+          : revenue >= 5e9
+            ? 0.74
+            : revenue >= 1e9
+              ? 0.8
+              : 0.85;
+  // Hypergrowth at scale is the rarest thing in the record and fades hardest.
+  return growth > 0.4 && revenue >= 2e10 ? base * 0.85 : base;
+}
+
+/** The return an owner would want, and each reason it is above the base. */
+export function requiredReturn(f: CompanyFacts): {
+  rate: number;
+  why: string[];
+} {
+  let rate = BASE_RETURN;
+  const why: string[] = [];
+  const cap = f.marketCap;
+  if (ok(cap) && cap < 1e10) {
+    rate += 0.015;
+    why.push("small");
+  } else if (ok(cap) && cap < 5e10) {
+    rate += 0.0075;
+    why.push("mid-sized");
+  }
+  const losing =
+    (typeof f.epsNextYear === "number" && f.epsNextYear < 0) ||
+    (typeof f.profitMargin === "number" && f.profitMargin < 0);
+  if (losing) {
+    rate += 0.02;
+    why.push("not yet profitable");
+  }
+  if (ok(cap)) {
+    const netDebt = ((f.totalDebt ?? 0) - (f.totalCash ?? 0)) / cap;
+    if (netDebt > 0.5) {
+      rate += 0.015;
+      why.push("heavily borrowed");
+    } else if (netDebt > 0.2) {
+      rate += 0.0075;
+      why.push("borrowed");
+    }
+  }
+  if (ok(f.fiftyTwoWeekHigh) && ok(f.fiftyTwoWeekLow)) {
+    const swing = f.fiftyTwoWeekHigh / f.fiftyTwoWeekLow;
+    if (swing > 3) {
+      rate += 0.01;
+      why.push("very jumpy");
+    } else if (swing > 2) {
+      rate += 0.005;
+      why.push("jumpy");
+    }
+  }
+  return { rate, why };
+}
+
+/** The exit multiple for a company still growing at `growth` in year ten. */
+function exitMultiple(growth: number, quality: boolean, peak: boolean): number {
+  let pe = MARKET_EARNINGS_MULTIPLE + 50 * (growth - MATURE_GROWTH);
+  if (quality) pe += 2;
+  if (peak) pe -= 3;
+  return Math.min(Math.max(pe, 8), 32);
+}
+
+type Projection = {
+  revenue: number;
+  growth: number;
+  persistence: number;
+  margin: number;
+  settled: number;
+  reversion: number;
+  rate: number;
+  roe: number;
+  quality: boolean;
+  peak: boolean;
+};
+
+/** Ten years of one case, in total money, discounted to today. */
+function project(p: Projection): {
+  value: number;
+  growthYearTen: number;
+  marginYearTen: number;
+  exit: number;
+  /** Yearly profit growth from year one to year ten, or null from a loss. */
+  profitGrowth: number | null;
+} | null {
+  let value = 0;
+  let revenue = p.revenue;
+  let growth = p.growth;
+  let margin = p.margin;
+  let earnings = 0;
+  let first = 0;
+  for (let t = 1; t <= BUSINESS_YEARS; t++) {
+    if (t > 1) {
+      growth = MATURE_GROWTH + (p.growth - MATURE_GROWTH) * Math.pow(p.persistence, t - 1);
+      revenue *= 1 + growth;
+    }
+    margin = p.settled + (p.margin - p.settled) * Math.pow(p.reversion, t - 1);
+    earnings = revenue * margin;
+    if (t === 1) first = earnings;
+    // What growth does not need is the owners', as dividends or buybacks.
+    const payout = earnings > 0 ? Math.min(Math.max(1 - growth / p.roe, 0), 0.9) : 0;
+    value += (payout * earnings) / Math.pow(1 + p.rate, t);
+  }
+  if (earnings <= 0) return null;
+  const after =
+    MATURE_GROWTH + (p.growth - MATURE_GROWTH) * Math.pow(p.persistence, BUSINESS_YEARS);
+  const exit = exitMultiple(after, p.quality, p.peak);
+  value += (earnings * exit) / Math.pow(1 + p.rate, BUSINESS_YEARS);
+  const profitGrowth =
+    first > 0 ? Math.pow(earnings / first, 1 / (BUSINESS_YEARS - 1)) - 1 : null;
+  return { value, growthYearTen: growth, marginYearTen: margin, exit, profitGrowth };
+}
+
+/**
+ * What one dollar of next year's profit is worth under these rules for a
+ * company growing like the market with steady margins, which is what the
+ * market pays for exactly that. Every other company is scaled by the same
+ * factor, so no constant above can move every company up or down together.
+ */
+const MARKET_SCALE = (() => {
+  const reference = project({
+    revenue: 1,
+    growth: MARKET_EXPECTED_GROWTH,
+    persistence: 0.66,
+    margin: 1,
+    settled: 1,
+    reversion: 1,
+    rate: BASE_RETURN,
+    roe: 0.2,
+    quality: false,
+    peak: false,
+  });
+  return CURRENT_MARKET_FORWARD_MULTIPLE / (reference?.value ?? 1);
+})();
+
+/**
+ * THE FEED'S FIGURES ARE NOT ALWAYS IN ONE MONEY, EVEN FOR ONE COMPANY.
+ *
+ * Measured on 26 September 2026: AstraZeneca's London listing is priced in
+ * pence with its profit per share in pounds; Novo Nordisk's American
+ * listing is priced in dollars with its trailing profit per share in
+ * dollars and next year's estimate in Danish kroner; TSMC's accounts are
+ * in Taiwan dollars. Each figure the feed also prices as a ratio says which
+ * money it is in: the price over the price-to-earnings multiple is the
+ * profit per share in the price's own money. So per-share figures are put
+ * into the price's money first, then the accounts into per-share money
+ * off the one profit both sides carry. Nothing is looked up.
+ */
+function alignedPerShare(f: CompanyFacts): {
+  epsTrailing: number | null;
+  epsNextYear: number | null;
+} {
+  const off = (r: number) => Number.isFinite(r) && r > 0 && (r > 3 || r < 1 / 3);
+  let epsTrailing = f.epsTrailing;
+  let epsNextYear = f.epsNextYear;
+  if (ok(f.price) && ok(f.trailingPe) && ok(epsTrailing)) {
+    const k = f.price / f.trailingPe / epsTrailing;
+    if (off(k)) {
+      epsTrailing *= k;
+      if (typeof epsNextYear === "number") epsNextYear *= k;
+    }
+  }
+  if (ok(f.price) && ok(f.forwardPe) && ok(epsNextYear)) {
+    // Next year's estimate against the feed's own forward profit, in price money.
+    const k = f.price / f.forwardPe / epsNextYear;
+    if (Number.isFinite(k) && k > 0 && (k > 3.5 || k < 1 / 3.5)) epsNextYear *= k;
+  }
+  return { epsTrailing, epsNextYear };
+}
+
+/** The last three quarters' revenue growth, as a yearly rate, or null. */
+function recentGrowth(f: CompanyFacts): number | null {
+  const q = (f.quarters ?? []).map((x) => x.revenue).filter(ok);
+  if (q.length < 4) return null;
+  const first = q[q.length - 4]!;
+  const last = q[q.length - 1]!;
+  const rate = Math.pow(last / first, 4 / 3) - 1;
+  return Number.isFinite(rate) && rate > -0.5 && rate < 2 ? rate : null;
+}
+
+/** How far the company has beaten or missed what analysts expected, when it is consistent. */
+function surpriseLean(f: CompanyFacts): number {
+  const s = (f.surprises ?? [])
+    .map((x) => x.surprise)
+    .filter((x): x is number => typeof x === "number" && Number.isFinite(x));
+  if (s.length < 3) return 0;
+  const allBeat = s.every((x) => x > 0);
+  const allMiss = s.every((x) => x < 0);
+  if (!allBeat && !allMiss) return 0;
+  const avg = s.reduce((a, b) => a + b, 0) / s.length;
+  // Half of the habit, and never more than a tenth either way.
+  return Math.max(-0.1, Math.min(0.1, avg / 2));
+}
+
+export type BusinessPath = {
+  /** Value per share today, in the listing's money. */
+  value: number;
+  growthNextYear: number;
+  growthYearTen: number;
+  marginNextYear: number;
+  marginSettled: number;
+  marginYearTen: number;
+  exitMultiple: number;
+  rate: number;
+  rateWhy: string[];
+  /** Earnings just multiplied at a margin well above what the business keeps. */
+  peak: boolean;
+  /** A business whose margin has held steady through every year on file. */
+  durable: boolean;
+  /** The newest quarters, when they moved next year's growth. */
+  recentGrowth: number | null;
+  /** How much its record of beating or missing leaned next year's profit. */
+  surpriseLean: number;
+  /** A kind of company the market prices at its own multiple, when this is one. */
+  industry: string | null;
+  /** The three cases, per share, and the weights they carry. */
+  cases: { bear: number; base: number; bull: number };
+  /** Yearly profit growth over the ten years in each case, or null from a loss. */
+  profitGrowth: { bear: number | null; base: number | null; bull: number | null };
+};
+
+/** Why the business method will not run on this company, in a sentence, or null. */
+export function businessStandsDown(f: CompanyFacts): string | null {
+  if (f.sector === "Real Estate") {
+    return "A property trust's accounting profit is cut by depreciation on buildings that usually gain value, so a value built on that profit understates it. The analysts and the market carry this one.";
+  }
+  if (ok(f.netIncome) && ok(f.revenue) && f.netIncome > f.revenue) {
+    return "It reported more profit than it sold, so the profit is coming from something it holds rather than from the business, and a value built on it would describe the holding.";
+  }
+  return null;
+}
+
+/**
+ * Ten years of the business, priced today, or null where the feed has not
+ * carried enough to say anything honest.
+ */
+export function businessPath(f: CompanyFacts): BusinessPath | null {
+  if (businessStandsDown(f)) return null;
+  const price = f.price;
+  const cap = f.marketCap;
+  /*
+    The feed's own share count, unless the market value says there are
+    more of them: a company with two share classes (Alphabet) is counted
+    as one class by the feed and valued as both, which would halve its
+    earnings per share. The count is preferred otherwise so that nothing
+    here moves with today's price.
+  */
+  const implied = ok(cap) && ok(price) ? cap / price : null;
+  const counted = ok(f.sharesOutstanding) ? f.sharesOutstanding : null;
+  const shares =
+    counted && implied ? (implied > counted * 1.3 ? implied : counted) : (counted ?? implied);
+  if (!ok(shares) || !ok(f.revenue)) return null;
+
+  const { epsTrailing, epsNextYear } = alignedPerShare(f);
+
+  // Accounts into per-share money, off the one profit both sides carry.
+  let units = 1 / normalizeListedPrice(1, f.currency).amount;
+  if (
+    typeof epsTrailing === "number" &&
+    typeof f.netIncome === "number" &&
+    f.netIncome !== 0 &&
+    Math.sign(epsTrailing) === Math.sign(f.netIncome)
+  ) {
+    const ratio = (epsTrailing * shares) / (f.netIncome * units);
+    if (Number.isFinite(ratio) && ratio > 0 && (ratio > 3 || ratio < 1 / 3)) units *= ratio;
+  }
+
+  const analysts =
+    typeof f.revenueGrowthNextYear === "number" && Number.isFinite(f.revenueGrowthNextYear)
+      ? f.revenueGrowthNextYear
+      : typeof f.revenueGrowth === "number" && Number.isFinite(f.revenueGrowth)
+        ? f.revenueGrowth
+        : null;
+  if (analysts === null) return null;
+  /*
+    THE NEWEST QUARTERS MOVE THE NUMBER BEFORE THE ANALYSTS DO. A quarter
+    lands and the published estimates catch up over weeks; three quarters
+    of actual sales, annualised, carry a quarter of the weight next to them
+    so a company accelerating or stalling shows here the day it reports.
+  */
+  const recent = recentGrowth(f);
+  const blendedGrowth = recent === null ? analysts : analysts * 0.75 + recent * 0.25;
+  const g1 = Math.min(Math.max(blendedGrowth, -0.3), 1.2);
+
+  const lastQuarter = f.quarters?.[f.quarters.length - 1]?.revenue ?? null;
+  const runRate =
+    (ok(lastQuarter) ? Math.max(f.revenue, lastQuarter * 4) : f.revenue) * units;
+
+  const lean = surpriseLean(f);
+  let revenue = runRate * (1 + g1);
+  let earnings: number;
+  let margin: number;
+  const gross = ok(f.grossMargin) && f.grossMargin < 0.95 ? f.grossMargin : null;
+  if (typeof epsNextYear === "number" && Number.isFinite(epsNextYear)) {
+    // A company that beats every quarter has analysts who are too low, and the other way round.
+    earnings = epsNextYear * shares * (epsNextYear > 0 ? 1 + lean : 1 - lean);
+    margin = earnings / revenue;
+    // A net margin cannot exceed what is left after making the thing.
+    const ceiling = gross !== null ? gross * 0.9 : 0.6;
+    if (margin > ceiling) {
+      margin = ceiling;
+      revenue = earnings / margin;
+    }
+  } else if (typeof f.profitMargin === "number" && Number.isFinite(f.profitMargin)) {
+    margin = f.profitMargin;
+    earnings = revenue * margin;
+  } else {
     return null;
   }
-  const source =
-    f.epsGrowthNextYear != null || f.epsGrowthThisYear != null
-      ? "the earnings growth analysts expect"
-      : "its sales growth";
-  const pct = growth * 100;
-  /*
-    The market's own expected growth, from the feed's index figures, so
-    the comparison is against what the market is actually doing rather
-    than against a constant typed in here. The fallback is the long-run
-    average when the feed carried no index trend this session.
-  */
-  const marketPct =
-    (f.marketLongTermGrowth ?? f.marketEpsGrowthNextYear ?? 0.12) * 100;
+  // So far from a profit that ten years of anything is a guess.
+  if (margin < -1.5) return null;
 
   /*
-    Below the market's own pace this rule has nothing to say and says
-    nothing. Floored at 8 it valued Coca-Cola, growing at about 7%, at
-    eight times earnings, which is $26 against a share price of $88: a
-    steady company growing with the economy is ordinarily priced near the
-    market's multiple for reasons this rule knows nothing about, dividends
-    and predictability among them.
-  */
-  if (pct < Math.max(marketPct, GROWTH_RULE_FLOOR_PCT)) return null;
+    WHERE THE MARGIN SETTLES: WHAT A TYPICAL BUSINESS LIKE THIS KEEPS, AND
+    HOW MUCH THIS ONE HAS PROVED IT KEEPS MORE.
 
-  const multiple = Math.min(
-    MARKET_EARNINGS_MULTIPLE + (pct - marketPct) * GROWTH_PREMIUM_PER_POINT,
-    GROWTH_RULE_CEILING
+    The typical figure is the industry fit above, read off the gross
+    margin. A company's own history outranks it in proportion to how
+    steady that history is: a margin that has held within a narrow band
+    for years (a card network, a dominant franchise) is a moat, and pulling
+    it down to the average is the mistake that understates exactly the
+    companies simple metrics understate. A history that jumped around, or
+    that includes losses, says nothing about where it settles.
+  */
+  const typical =
+    gross !== null
+      ? Math.min(
+          Math.max(TYPICAL_NET_FROM_GROSS.intercept + TYPICAL_NET_FROM_GROSS.slope * gross, 0.02),
+          TYPICAL_NET_CEILING
+        )
+      : null;
+  const history = (f.history ?? [])
+    .filter((h) => ok(h.revenue) && typeof h.netIncome === "number")
+    .map((h) => (h.netIncome as number) / (h.revenue as number));
+  const alwaysProfitable = history.length >= 3 && history.every((m) => m > 0);
+  const histAvg = alwaysProfitable
+    ? history.reduce((a, b) => a + b, 0) / history.length
+    : null;
+  const spread =
+    histAvg !== null
+      ? Math.sqrt(history.reduce((a, m) => a + (m - histAvg) ** 2, 0) / history.length) / histAvg
+      : null;
+  const durable = spread !== null && spread < 0.2 && margin > 0;
+  const trustInHistory =
+    histAvg === null || spread === null ? 0 : durable ? 0.85 : Math.max(0, 0.6 - spread);
+  let settled: number;
+  if (typical === null) {
+    // A bank or an insurer: gross margin means nothing, so its own record or today's margin.
+    settled = histAvg ?? Math.max(margin, 0.05);
+  } else if (histAvg !== null) {
+    settled = trustInHistory * Math.min(histAvg, 0.5) + (1 - trustInHistory) * typical;
+  } else {
+    settled = typical;
+  }
+
+  const peak =
+    (f.epsGrowthThisYear ?? 0) >= 1.5 &&
+    margin > settled * 1.3 &&
+    !history.some((m) => m <= 0);
+  /*
+    ONE SIGNAL, ONE PENALTY. A possible peak used to cut the value four
+    ways at once (a lower settled margin, a faster fall to it, growth that
+    faded sooner, and a lower exit multiple), which is the double counting
+    this file removed from the growth rule, in a new place: Micron's
+    present, profits that are real and reported, was priced as though all
+    four would happen together. A peak now means the margin falls back
+    faster and the exit multiple is a cyclical one, and nothing else.
+  */
+  const netDebt = ((f.totalDebt ?? 0) - (f.totalCash ?? 0)) * units;
+  // Heavily borrowed against its sales: interest takes a slice of every year.
+  if (netDebt / runRate > 2) settled *= 0.7;
+
+  const reversion =
+    margin > settled
+      ? peak
+        ? 0.75
+        : durable
+          ? 0.93
+          : 0.87 - 0.3 * Math.min(Math.max((margin - 0.3) / 0.4, 0), 1)
+      : g1 >= 0.2 && (f.grossMargin ?? 0) >= 0.3
+        ? 0.78
+        : 0.88;
+
+  // Size in the company's own reporting money, since the buckets are.
+  let persistence = growthPersistence(revenue / units, g1);
+  if (
+    (f.grossMargin ?? 0) >= 0.6 &&
+    ((f.returnOnEquity ?? 0) >= 0.2 || (f.profitMargin ?? 0) < 0)
+  ) {
+    persistence += 0.04;
+  }
+  if (durable) persistence += 0.03;
+
+  const { rate, why } = requiredReturn(f);
+  const roe = Math.min(Math.max(f.returnOnEquity ?? 0.15, 0.08), 0.4);
+  const quality =
+    (f.returnOnEquity ?? 0) >= 0.25 && ((f.grossMargin ?? 0) >= 0.5 || durable);
+  const cyclical = f.sector === "Energy" || f.sector === "Basic Materials";
+
+  const base: Projection = {
+    revenue,
+    growth: g1,
+    persistence: Math.min(persistence, 0.92),
+    margin,
+    settled,
+    reversion,
+    rate,
+    roe,
+    quality,
+    peak: peak || cyclical,
+  };
+  /*
+    THREE CASES, BECAUSE THE UPSIDE OF A YOUNG COMPANY IS NOT SYMMETRIC.
+
+    A mature company's good and bad decades roughly cancel. A young one's
+    do not: if it works it is worth many times what it is if it stalls,
+    and pricing only the middle path is what leaves every small company
+    with a steep curve looking overpriced. The bull case keeps its growth
+    longer and its margin higher, the bear case the opposite, weighted a
+    quarter each, and the spread widens with how far the company is from
+    settled: growth above the mature pace, or a margin far from where it
+    settles. The expected value, not the middle, is the method's answer.
+  */
+  const distance = Math.min(
+    1,
+    Math.max(0, g1 - MATURE_GROWTH) / 0.4 + Math.abs(margin - settled) / 0.3
   );
+  const reach = 0.03 + 0.05 * distance;
+  const cases = {
+    bear: project({
+      ...base,
+      persistence: Math.max(base.persistence - reach * 1.2, 0.3),
+      settled: settled * (1 - reach * 2),
+    }),
+    base: project(base),
+    bull: project({
+      ...base,
+      persistence: Math.min(base.persistence + reach * 1.2, 0.95),
+      settled: Math.min(settled * (1 + reach * 2), 0.5),
+    }),
+  };
+  if (!cases.base) return null;
+  // A case that ends in losses is worth nothing, not a negative number.
+  const worth = (c: ReturnType<typeof project>) => Math.max(c?.value ?? 0, 0);
+  const expected =
+    0.25 * worth(cases.bear) + 0.5 * worth(cases.base) + 0.25 * worth(cases.bull);
+  const industry = industryRatio(f);
+  const perShare = (v: number) => (v * MARKET_SCALE * (industry?.ratio ?? 1)) / shares;
+  const value = perShare(expected);
+  if (!ok(value)) return null;
   return {
-    id: "growth",
-    name: "Priced for the growth it is showing",
-    source: "the growth multiple",
+    value,
+    growthNextYear: g1,
+    growthYearTen: cases.base.growthYearTen,
+    marginNextYear: margin,
+    marginSettled: settled,
+    marginYearTen: cases.base.marginYearTen,
+    exitMultiple: cases.base.exit,
+    rate,
+    rateWhy: why,
+    peak,
+    durable,
+    recentGrowth: recent,
+    surpriseLean: lean,
+    industry: industry?.said ?? null,
+    profitGrowth: {
+      bear: cases.bear?.profitGrowth ?? null,
+      base: cases.base.profitGrowth,
+      bull: cases.bull?.profitGrowth ?? null,
+    },
+    cases: {
+      bear: perShare(worth(cases.bear)),
+      base: perShare(worth(cases.base)),
+      bull: perShare(worth(cases.bull)),
+    },
+  };
+}
+
+/** The business method, as a line in the blend. */
+function businessMethod(f: CompanyFacts): FairValueMethod | null {
+  const path = businessPath(f);
+  if (!path) return null;
+  const pct = (n: number) => percent(n, 0);
+  const code = f.currency ?? "USD";
+  const risk =
+    path.rateWhy.length > 0
+      ? `${pct(path.rate)} a year, higher than the ordinary ${pct(BASE_RETURN)} because it is ${path.rateWhy.join(", ")}`
+      : `${pct(path.rate)} a year, the ordinary rate for a large company`;
+  const marginMove =
+    path.marginNextYear < path.marginSettled
+      ? `climbing from ${pct(path.marginNextYear)} towards ${pct(path.marginSettled)}`
+      : path.marginNextYear > path.marginSettled + 0.01
+        ? `easing from ${pct(path.marginNextYear)} towards ${pct(path.marginSettled)}${path.durable ? " only slowly, because it has held steady every year on file" : ", because profit that high draws competitors"}`
+        : `staying near ${pct(path.marginSettled)}`;
+  const news: string[] = [];
+  if (path.recentGrowth !== null) {
+    news.push(`its last three quarters of sales, growing at ${pct(path.recentGrowth)} a year, carry a quarter of next year's growth`);
+  }
+  if (path.surpriseLean !== 0) {
+    news.push(
+      `it has ${path.surpriseLean > 0 ? "beaten" : "missed"} the analysts' estimate every recent quarter, so next year's profit is leaned ${pct(Math.abs(path.surpriseLean))} ${path.surpriseLean > 0 ? "up" : "down"}`
+    );
+  }
+  const losing = path.marginNextYear < 0;
+  return {
+    id: "business",
+    name: "Ten years of the business",
+    source: "ten years of the business",
     maker: "arithmetic",
-    price: round2(eps * multiple),
-    assumes: `That earnings growing ${Math.round(pct)}% a year, against ${Math.round(marketPct)}% for the market, earn about ${Math.round(multiple)} times a year's earnings: the market's ${MARKET_EARNINGS_MULTIPLE} plus half a turn per point of extra growth, capped at ${GROWTH_RULE_CEILING}. A rule of thumb, not a law.`,
-    /*
-      The premium is written out only when there is one. A company growing
-      at the market's own pace lands on the market's own multiple, and
-      "plus half of the 0 points by which its growth beats the market's"
-      is a sentence that reads as a bug in the arithmetic rather than as
-      the arithmetic working correctly.
-    */
-    working: `Expected earnings of ${currency(eps, 2, f.currency ?? "USD")} a share multiplied by ${Math.round(multiple)}${
-      Math.round(pct - marketPct) < 1
-        ? `, the market's own multiple, because its growth of ${Math.round(pct)}% a year is the same pace as the market's. Growth taken from ${source}.`
-        : `, which is ${MARKET_EARNINGS_MULTIPLE} plus half of the ${Math.round(pct - marketPct)} points by which its growth beats the market's, taken from ${source}.`
-    }`,
-    weight: 0.18,
+    price: round2(path.value),
+    assumes: `That sales growth of ${pct(path.growthNextYear)} next year fades towards ${pct(MATURE_GROWTH)} as the company gets bigger, and that its profit margin moves towards ${pct(path.marginSettled)}, ${path.durable ? "mostly its own steady record" : "what a typical business with its gross margin keeps"}.${
+      path.peak
+        ? " Its profit just multiplied at a margin well above that, so this treats it as possibly the top of a cycle."
+        : ""
+    } Priced as a bad, a middle and a good decade, because a young company's good case is worth far more than its bad case costs.`,
+    working: `Sales growth of ${pct(path.growthNextYear)} next year, fading to ${pct(path.growthYearTen)} by year ten; profit margin ${marginMove}, reaching ${pct(path.marginYearTen)} by year ten.${news.length > 0 ? ` Newest information: ${news.join("; ")}.` : ""} What it pays out along the way plus year ten's profit at ${Math.round(path.exitMultiple)} times, brought back to today at ${risk}. The three cases come to ${currency(path.cases.bear, 2, code)}, ${currency(path.cases.base, 2, code)} and ${currency(path.cases.bull, 2, code)}, weighted a quarter, a half and a quarter. Scaled so a company growing like the market with steady margins is worth what the market paid for one in January 2026, about ${Math.round(CURRENT_MARKET_FORWARD_MULTIPLE)} times next year's profit (Damodaran's data set)${path.industry ? `, and like ${path.industry}, whose profit the market has always priced at about half that` : ""}.`,
+    // Less weight on a company still losing money: every year of it is further from a fact.
+    weight: losing ? 0.2 : 0.3,
+  };
+}
+
+/**
+ * WHAT TODAY'S PRICE ASSUMES: THE PROFIT GROWTH IT NEEDS FOR TEN YEARS.
+ *
+ * Expectations investing turned around (Rappaport and Mauboussin): rather
+ * than argue about what a company is worth, work out what the price in
+ * front of you already believes, and ask whether that is believable. Here
+ * it is the yearly growth in profit, from next year's for ten years, that
+ * makes the business worth today's price under the same rules the
+ * business method uses, then an ordinary multiple at the end. It is the
+ * sentence a reader most needs and almost never gets: "at $1,082 the
+ * market is assuming Micron's profit shrinks 13% a year for a decade".
+ *
+ * Null for a company not yet profitable, whose price is a bet on when it
+ * becomes so rather than on how fast a profit grows.
+ */
+export function pricedInGrowth(f: CompanyFacts): number | null {
+  if (!ok(f.price)) return null;
+  const { epsNextYear } = alignedPerShare(f);
+  if (!ok(epsNextYear)) return null;
+  const { rate } = requiredReturn(f);
+  const roe = Math.min(Math.max(f.returnOnEquity ?? 0.15, 0.08), 0.4);
+  const scale = MARKET_SCALE * (industryRatio(f)?.ratio ?? 1);
+  const worth = (g: number) => {
+    let value = 0;
+    let e = epsNextYear;
+    for (let t = 1; t <= BUSINESS_YEARS; t++) {
+      if (t > 1) e *= 1 + g;
+      value += (Math.min(Math.max(1 - g / roe, 0), 0.9) * e) / Math.pow(1 + rate, t);
+    }
+    value += (e * MARKET_EARNINGS_MULTIPLE) / Math.pow(1 + rate, BUSINESS_YEARS);
+    return value * scale;
+  };
+  let lo = -0.6;
+  let hi = 1.5;
+  if (worth(lo) > f.price || worth(hi) < f.price) return null;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (worth(mid) < f.price) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/*
+  THE BOUNDS OF BELIEVABLE ARE THE COMPANY'S OWN GOOD AND BAD CASES.
+
+  A price needing 32% a year profit growth is a runaway for a company
+  already earning a full margin and an ordinary plan for one earning 2%
+  that is on its way to 16%, so the test is never a single number for
+  everybody. It is the business method's own bad and good decades
+  (`BusinessPath.profitGrowth`): a price whose assumption sits between
+  them is pricing a future this company could deliver, and the market
+  keeps the benefit of the doubt. Past the good case it has run ahead of
+  the business; under the bad case it is doubting a profit the company
+  has already reported. Where there is no business path to read (a loss
+  maker, a property trust), the long record stands in: about 25% a year
+  for a decade is the top twentieth of large companies, and a profitable
+  company's profit shrinking every year for a decade is a bet against a
+  fact.
+*/
+const RECORD_HIGH = 0.25;
+const RECORD_LOW = -0.03;
+
+export type BelievableRange = { low: number; high: number; own: boolean };
+
+export function believableRange(f: CompanyFacts): BelievableRange {
+  const path = businessPath(f);
+  const bear = path?.profitGrowth.bear ?? null;
+  const bull = path?.profitGrowth.bull ?? null;
+  if (bear !== null && bull !== null && bull > bear) {
+    return { low: bear, high: bull, own: true };
+  }
+  return { low: RECORD_LOW, high: RECORD_HIGH, own: false };
+}
+
+/**
+ * How much the market's price deserves the benefit of the doubt, from 1
+ * (fully) down to a quarter, read off what the price assumes against
+ * what this company could believably do.
+ */
+export function marketTrust(assumed: number | null, range: BelievableRange): number {
+  if (assumed === null) return 1;
+  if (assumed > range.high) return Math.max(0.25, 1 - (assumed - range.high) * 6);
+  if (assumed < range.low) return Math.max(0.25, 1 - (range.low - assumed) * 8);
+  return 1;
+}
+
+/**
+ * How much this company's own price should count, by how efficiently it
+ * is priced and by whether what it assumes is believable. Size first,
+ * because the biggest companies are the most traded and the most argued
+ * over; coverage second, because forty analysts arguing in public is part
+ * of what makes a price informed; `marketTrust` last. Never more than
+ * 0.45, so the market is the loudest voice on a giant and still never the
+ * whole answer.
+ */
+export function marketWeight(
+  f: CompanyFacts,
+  assumed?: number | null,
+  range?: BelievableRange
+): number {
+  if (!ok(f.marketCap)) return 0;
+  const bySize = 0.12 + 0.11 * Math.log10(Math.max(f.marketCap / 1e9, 1));
+  const n = f.analystCount ?? 0;
+  const byCoverage = n >= 20 ? 0.03 : n < 3 ? -0.04 : 0;
+  const efficient = Math.min(Math.max(bySize + byCoverage, 0.08), 0.45);
+  const trust = marketTrust(
+    assumed === undefined ? pricedInGrowth(f) : assumed,
+    range ?? believableRange(f)
+  );
+  return Math.round(efficient * trust * 100) / 100;
+}
+
+/** What the price assumes, in words, against what this company could do, or null. */
+export function pricedInSaid(assumed: number | null, range: BelievableRange): string | null {
+  if (assumed === null) return null;
+  const pct = (n: number) => percent(Math.abs(n), 0);
+  const moves = (n: number) => `${n >= 0 ? "grows" : "shrinks"} about ${pct(n)} a year`;
+  const lead = `At this price the market is assuming its profit ${moves(assumed)} for ten years, starting from next year's.`;
+  const span = range.own
+    ? `this company's own bad and good decades have it ${range.low >= 0 ? "growing" : "moving"} between ${range.low < 0 ? "-" : ""}${pct(range.low)} and ${range.high < 0 ? "-" : ""}${pct(range.high)} a year`
+    : `the long record runs from about ${pct(RECORD_LOW)} shrinking to ${pct(RECORD_HIGH)} growing for companies that are not falling apart or among the very best`;
+  if (assumed > range.high) {
+    return `${lead} That is past what ${span.replace(/^this company's own/, "its own")}, so the price has run ahead of the business and counts for less here.`;
+  }
+  if (assumed < range.low) {
+    return `${lead} That is below even the bad case, and ${span}, so the price is doubting a profit the company has already shown it can make and counts for less here.`;
+  }
+  return `${lead} That is inside what it could believably do (${span}), so the price keeps its full weight.`;
+}
+
+/** What the market is paying, as a line in the blend. */
+function marketMethod(f: CompanyFacts): FairValueMethod | null {
+  if (!ok(f.price)) return null;
+  const assumed = pricedInGrowth(f);
+  const range = believableRange(f);
+  const weight = marketWeight(f, assumed, range);
+  if (weight <= 0) return null;
+  const code = f.currency ?? "USD";
+  const n = f.analystCount ?? 0;
+  const said = pricedInSaid(assumed, range);
+  return {
+    id: "market",
+    name: "What the market is paying",
+    source: "the market's own price",
+    maker: "market",
+    price: round2(f.price),
+    assumes: `That the people trading it every day have seen things these figures cannot, such as what it might become, how long its lead lasts, or a risk nobody has written down yet.${said ? ` ${said}` : ""}`,
+    working: `Today's price of ${currency(f.price, 2, code)}, weighted ${percent(weight, 0)} before the blend is normalised: more for a large, heavily covered company${n > 0 ? ` (${n} analyst${n === 1 ? "" : "s"} follow this one)` : ""}, less for a small one, and less again where what the price assumes is outside what companies have actually done.`,
+    weight,
   };
 }
 
@@ -548,39 +1237,79 @@ export function fairValueRead(
     return { estimate: none, spot, gap: null };
   }
 
-  /*
-    Next year's expected earnings, because that is what every method here
-    is measured against and what the market is actually pricing. Reading a
-    fast-growing company off last year's profit is the fault that produced
-    every unrealistic figure this file used to print.
-  */
-  const forwardEps = ok(f.epsNextYear)
-    ? f.epsNextYear
-    : ok(f.epsForward)
-      ? f.epsForward
-      : ok(f.forwardPe) && ok(f.price)
-        ? f.price / f.forwardPe
-        : null;
-
   const thisYear = (input.now ?? new Date()).getFullYear();
   const modelTwelveMonth = modelTwelveMonthPrice(
     input.modelYearOne,
     input.modelYearTwo,
     input.now
   );
-
-  const estimate = blendFairValue(
-    [
-      consensusMethod(f),
-      growthMethod(f, forwardEps),
-      modelMethod(
-        modelTwelveMonth?.price,
-        modelTwelveMonth?.exact
-          ? `Twelve months from today on the five-year path the model wrote for this company, read between its end of ${thisYear} price of ${currency(input.modelYearOne ?? 0, 2)} and its end of ${thisYear + 1} price of ${currency(input.modelYearTwo ?? 0, 2)}. It is the same path the Growth room uses.`
-          : `The end of ${thisYear} price on the five-year path the model wrote for this company, which is the same path the Growth room uses. It is nearer than twelve months, because the rest of the path is not available here.`
-      ),
-    ].filter((m): m is FairValueMethod => m !== null)
+  const model = modelMethod(
+    modelTwelveMonth?.price,
+    modelTwelveMonth?.exact
+      ? `Twelve months from today on the five-year path the model wrote for this company, read between its end of ${thisYear} price of ${currency(input.modelYearOne ?? 0, 2)} and its end of ${thisYear + 1} price of ${currency(input.modelYearTwo ?? 0, 2)}. It is the same path the Growth room uses.`
+      : `The end of ${thisYear} price on the five-year path the model wrote for this company, which is the same path the Growth room uses. It is nearer than twelve months, because the rest of the path is not available here.`
   );
+
+  const market = marketMethod(f);
+  const consensus = consensusMethod(f);
+  let business = businessMethod(f);
+  /*
+    THE BUSINESS COUNTS FOR LESS WHEN IT ARGUES WITH THE PEOPLE WHO STUDY
+    THE COMPANY FOR A LIVING.
+
+    The same reasoning the analysts' weight already follows: a projection
+    landing more than 1.75 times away from the analysts' own view is more
+    likely to be missing something about this company than to have found
+    something they all missed, so it counts for half. Past three times
+    from the blend's middle it is dropped outright.
+  */
+  /*
+    Measured against the analysts where there are any, because the
+    market's own price already answers for itself through `marketTrust`,
+    and a projection should not be marked down for disagreeing with a
+    price that is itself doubting a reported profit.
+  */
+  const against = consensus ?? market;
+  if (business && against) {
+    const apart = Math.max(business.price / against.price, against.price / business.price);
+    if (apart > 1.75) {
+      business = {
+        ...business,
+        weight: Math.round(business.weight * 50) / 100,
+        assumes: `${business.assumes} It lands ${apart.toFixed(1)} times away from ${against.id === "consensus" ? "the analysts" : "the market"}, so it counts for half.`,
+      };
+    }
+  }
+  const blended = blendFairValue(
+    [market, consensus, business].filter((m): m is FairValueMethod => m !== null)
+  );
+  /*
+    THE MODEL'S PATH IS SHOWN AND NOT COUNTED (2026-09-26).
+
+    It was a third of the blend's voice, and it cannot answer this
+    question: the path is grown from TODAY'S price at this app's own growth
+    rate (`anchorPathToGrowth`), so its twelve month point is today's price
+    times a return, and a figure built out of today's price can never say
+    whether today's price is right. Counted, it pulled every estimate
+    towards the price plus this app's growth view for that name, which is
+    both a nudge towards the price and a house view reaching every reader
+    through a number labelled as fair value. It stays in the list, greyed,
+    with the reason, because a method that silently disappears is the
+    mistake this file refuses to make.
+  */
+  const estimate: FairValueBlend = model
+    ? {
+        ...blended,
+        dropped: [
+          ...blended.dropped,
+          {
+            ...model,
+            dropped:
+              "Shown and not counted. The model's path is grown from today's price, so it is a forecast of where the price goes rather than an estimate of what the company is worth, and it cannot say whether today's price is right.",
+          },
+        ],
+      }
+    : blended;
 
   return {
     estimate,
@@ -646,7 +1375,14 @@ export type ValueGlance = {
  * `value-glance.test.ts` fails on an instruction word in any output.
  */
 export function valueGlance(read: FairValueRead): ValueGlance {
-  const prices = read.estimate.used.map((m) => m.price);
+  /*
+    The market's own price is a method in the blend and never an estimate
+    to compare the price with: set beside itself it would put every
+    company "inside the range" whatever the other methods said.
+  */
+  const prices = read.estimate.used
+    .filter((m) => m.id !== "market")
+    .map((m) => m.price);
   const spot = read.spot;
   if (prices.length === 0 || !ok(spot)) {
     return {
@@ -667,7 +1403,7 @@ export function valueGlance(read: FairValueRead): ValueGlance {
     it, which is the whole design of this room.
   */
   const from = (v: number) => {
-    const m = read.estimate.used.find((x) => x.price === v);
+    const m = read.estimate.used.find((x) => x.price === v && x.id !== "market");
     return m ? `, from ${m.source}` : "";
   };
 

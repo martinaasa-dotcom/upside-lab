@@ -41,8 +41,16 @@ describe("the read at the top never tells anybody what to do", () => {
   }
 
   it("says where the price sits, which is a fact rather than a verdict", () => {
-    expect(valueGlance(fairValueRead(makeOrdinaryFacts({ price: 5_000 }))).position).toBe("above");
-    expect(valueGlance(fairValueRead(makeOrdinaryFacts({ price: 1 }))).position).toBe("below");
+    // The market value moves with the price, as it does in the feed.
+    const at = (price: number) =>
+      makeOrdinaryFacts({
+        price,
+        marketCap: price * 10_000_000,
+        trailingPe: price / 4,
+        forwardPe: price / 5,
+      });
+    expect(valueGlance(fairValueRead(at(5_000))).position).toBe("above");
+    expect(valueGlance(fairValueRead(at(1))).position).toBe("below");
     expect(valueGlance(fairValueRead(makeFacts())).position).toBe("unknown");
   });
 
@@ -223,9 +231,10 @@ describe("the valuation picture", () => {
     expect(src).not.toMatch(/items-baseline justify-between[^>]*>\s*<span>\{currency\(low/);
   });
 
-  it("puts the twelve month estimate back on the line as a mark", () => {
+  it("puts the fair value back on the line as a mark, named for what it is today", () => {
     expect(src).toMatch(/blend !== null && blendLabel !== null/);
-    expect(src).toMatch(/name="In 12 months"/);
+    expect(src).toMatch(/name="Fair value"/);
+    expect(src).not.toMatch(/name="In 12 months"/);
   });
 
   it("does not stamp the word estimate over that mark", () => {
