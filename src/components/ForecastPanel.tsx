@@ -31,7 +31,6 @@ import { formatDateTime } from "@/lib/timezone";
 import { isAbortError } from "@/lib/abort";
 import {
   NO_VALUE,
-  cashtag,
   cn,
   currency,
   signedPercent,
@@ -60,7 +59,7 @@ import {
   forecastPlanDiffs,
   type ForecastPlan,
 } from "@/lib/forecast-plan";
-import { beliefLines } from "@/lib/believe";
+import { belief } from "@/lib/believe";
 import { sharesLabel } from "@/lib/share-count";
 import { readJsonOrThrow } from "@/lib/http";
 import type { EoyOrigin, PortfolioEoyOverrides } from "@/lib/forecast-overrides";
@@ -345,9 +344,8 @@ function SheetPath({
       <SheetPathChart points={points} placeholder={placeholder} />
       {placeholder ? (
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          A placeholder shape until Margus works this out. It is the usual
-          rhythm for each kind of business rather than anything reasoned
-          about your companies, which is why it is drawn as a dashed line.
+          Dashed: the usual shape for each kind of business, not yet
+          reasoned about your companies.
         </p>
       ) : null}
     </div>
@@ -431,15 +429,18 @@ function ForecastCard({
    * label above it says, so the answer is to restate it against things
    * this company has actually done.
    */
-  const believe = beliefLines(
-    {
-      subject: cashtag(row.ticker),
-      spot: row.currentPrice,
-      target: row.eoyPrices[lastYear],
-      months: (lastYear - new Date().getFullYear() + 1) * 12,
-    },
-    (n) => currency(n)
-  );
+  /*
+    What the target asks for, as a rate a year. The card already prints
+    both prices and the whole change, so the sentence that restated them
+    is gone and only the one figure it added stays.
+  */
+  const perYear = belief({
+    subject: row.ticker,
+    spot: row.currentPrice,
+    target: row.eoyPrices[lastYear],
+    months: (lastYear - new Date().getFullYear() + 1) * 12,
+  })?.annualPct;
+
 
   return (
     <div className={SCORE_CELL}>
@@ -485,6 +486,11 @@ function ForecastCard({
           <p className="mt-1 break-words font-mono text-base font-semibold tabular-nums text-foreground">
             {currency(row.eoyPrices[lastYear])}
           </p>
+          {perYear != null && Number.isFinite(perYear) ? (
+            <p className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground">
+              {`${signedPercent(perYear, 0)} a year`}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -497,12 +503,6 @@ function ForecastCard({
           Margus is still writing why this path looks like this.
         </p>
       )}
-
-      {believe.length > 0 ? (
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          {believe.join(" ")}
-        </p>
-      ) : null}
 
       <button
         type="button"
@@ -1052,7 +1052,7 @@ export const ForecastPanel = memo(function ForecastPanel({
   const statusHint = useMemo(() => {
     if (!labReady || !planHydrated || model.rows.length === 0 || busy) return null;
     if (needsAccount && !plan) {
-      return "On the sample these are a placeholder shape for each kind of business. With an account, Margus works out a path for each company and says why.";
+      return "On the sample these are placeholder shapes. With an account, Margus works out each company and says why.";
     }
     const decision = shouldAutoRefreshForecast({
       plan,
@@ -1100,7 +1100,7 @@ export const ForecastPanel = memo(function ForecastPanel({
               />
             </span>
           }
-          subtitle={`A yearly price for each holding, to ${yearCols[yearCols.length - 1] ?? ""}. The chart is the whole portfolio. Each card says why that company's price is expected to go where it does.`}
+          subtitle={`A price for each holding, every year to ${yearCols[yearCols.length - 1] ?? ""}, and why.`}
           actions={
             needsAccount ? undefined : (
             <Button

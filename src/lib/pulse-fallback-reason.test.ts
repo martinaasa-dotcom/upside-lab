@@ -319,11 +319,10 @@ describe("recentRange", () => {
     expect(rangeStanding(150, null)).toBeNull();
   });
 
-  it("states both figures in the sentence, so the bar can be checked", () => {
+  it("states the price and the window, and leaves both ends to the bar under it", () => {
     const line = rangeSentence(150, { low: 100, high: 200, days: 60 });
-    expect(line).toContain("$100.00");
-    expect(line).toContain("$200.00");
     expect(line).toContain("$150.00");
+    expect(line).not.toContain("$100.00");
     expect(line).toContain("two months");
     expect(rangeSentence(150, null)).toBe("");
   });

@@ -134,7 +134,7 @@ export function sectorPeerLine(read: SectorPeerRead): string {
   const sector = read.sectorWords.toLowerCase();
   const sectorMoved = signedPercent(read.sectorPct);
   const ownMoved = signedPercent(read.ownPct);
-  const opening = `The rest of ${sector} moved ${sectorMoved} today, measured on the ${read.fund} fund. This one moved ${ownMoved}`;
+  const opening = `Its group moved ${sectorMoved} today (${sector}, the ${read.fund} fund). This one moved ${ownMoved}`;
 
   // Close enough that the difference is not the story.
   if (Math.abs(read.gap) < TOGETHER_PCT) return `${opening}.`;
@@ -154,5 +154,5 @@ export function sectorPeerLine(read: SectorPeerRead): string {
     against the sector's 1.4%. Both are what the reader means.
   */
   const side = read.gap > 0 ? "above" : "below";
-  return `${opening}, which is ${percent(Math.abs(read.gap))} ${side} that.`;
+  return `${opening}, ${percent(Math.abs(read.gap))} ${side} that.`;
 }

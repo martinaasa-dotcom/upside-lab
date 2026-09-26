@@ -614,7 +614,7 @@ function Showcase() {
         index="02"
         eyebrow="What it does"
         title="A fall and real news look exactly the same in a list of red numbers."
-        detail="One is worth your evening. The other is not. Both cards below are live, so press them."
+        detail="One is worth your evening. Both cards below are live, so press them."
       />
       <div className="mt-8 grid items-start gap-4 md:grid-cols-2">
         <PulseStill />
@@ -640,11 +640,11 @@ const FOR_YOU = [
   },
   {
     lead: "You check the total",
-    rest: "more often than you would admit, and it makes you feel something.",
+    rest: "more often than you would admit.",
   },
   {
     lead: "You would rather understand it",
-    rest: "than trade it. Nobody has ever explained it in plain words.",
+    rest: "than trade it, in plain words.",
   },
 ] as const;
 
@@ -920,7 +920,6 @@ function CircleSection() {
         index="04"
         eyebrow="Circle"
         title="A bad week is easier with someone you know."
-        detail="It helps more from someone looking at the same week."
       />
       {/*
         * One panel with three rows, not three panels.
