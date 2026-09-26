@@ -305,10 +305,16 @@ export function MarketSentimentWidget({
           * sentence that explains the reading rendered `sr-only`. The
           * sentence is the part a person can use.
           */}
+        {/*
+          On a phone, under the answer, this paragraph restated the pill
+          above it and the run the chart behind "See the scales" draws, in
+          five lines of the one screen a phone has. It stays where there is
+          room, and is the lead whenever there is no answer to show.
+        */}
         <p
           className={cn(
             "text-sm leading-relaxed",
-            answer ? "text-muted-foreground" : "text-foreground"
+            answer ? "hidden text-muted-foreground sm:block" : "text-foreground"
           )}
           aria-live="polite"
         >
