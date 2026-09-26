@@ -308,7 +308,7 @@ export function addressConnectedCopy(input: {
   const subject = "A second address now opens your Upside Lab account";
   const lead = `${input.address} was confirmed a moment ago, so it signs in to this account as well. Both addresses land in the same place, with the same portfolios and the same circles.`;
   const undo =
-    "If that was not you, open Account and remove the address under your sign-in addresses. It stops working straight away.";
+    "If that was not you, open My account and remove the address under your sign-in addresses. It stops working straight away.";
   const text = [lead, input.accountUrl, undo].join("\n\n");
   const html = wrapEmailLetter({
     title: subject,
@@ -318,7 +318,7 @@ export function addressConnectedCopy(input: {
 <div style="height:18px;font-size:0;line-height:0">&nbsp;</div>
 <p style="margin:0;font-family:${EMAIL.sans};font-size:26px;line-height:1.25;font-weight:400;letter-spacing:-0.02em;color:${EMAIL.cream}">A second address was connected</p>
 <p style="margin:22px 0 0 0;font-family:${EMAIL.sans};font-size:17px;line-height:1.55;color:${EMAIL.cream}">${escapeEmail(lead)}</p>
-${emailButton(input.accountUrl, "Open Account")}
+${emailButton(input.accountUrl, "Open My account")}
 <p style="margin:28px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">${escapeEmail(undo)}</p>`,
   });
   return { subject, text, html };
