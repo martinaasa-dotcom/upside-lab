@@ -586,7 +586,7 @@ function Row({
       >
         {filled ? (
           <div
-            className="flex h-11 items-stretch gap-[3px] overflow-hidden rounded-lg sm:h-9"
+            className="bar-reveal flex h-11 items-stretch gap-[3px] overflow-hidden rounded-lg sm:h-9"
             style={{
               /*
                 The bar is how much of the portfolio is in this band,

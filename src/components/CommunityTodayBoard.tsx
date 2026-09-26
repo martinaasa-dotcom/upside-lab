@@ -150,10 +150,14 @@ export function CommunityTodayBoard({
                       {pct != null && pct !== 0 ? (
                         <span
                           className={cn(
-                            "absolute inset-y-0 rounded-full",
+                            "overview-bar absolute inset-y-0 rounded-full",
                             pct > 0 ? "left-1/2 bg-gain/75" : "right-1/2 bg-loss/75"
                           )}
-                          style={{ width: `${barFillPct((Math.abs(pct) / maxAbs) * 50, 1, 50)}%` }}
+                          style={{
+                            width: `${barFillPct((Math.abs(pct) / maxAbs) * 50, 1, 50)}%`,
+                            // Grows out of the zero line, whichever way it went.
+                            transformOrigin: pct > 0 ? "left center" : "right center",
+                          }}
                         />
                       ) : null}
                     </span>
