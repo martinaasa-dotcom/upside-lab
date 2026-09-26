@@ -125,6 +125,14 @@ export function PotChart({
   }, [first, last, span]);
 
   const dragging = useRef(false);
+  /*
+    The readout only speaks while the handle is being moved. At rest the
+    handle sits on the reader's own age of stopping, and the verdict card
+    directly above has already said what they would have and need there,
+    in bigger type; printing it a second time over the chart was the same
+    three figures twice in one card.
+  */
+  const [active, setActive] = useState(false);
   const ageFromEvent = (e: PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const frac = (e.clientX - rect.left) / Math.max(1, rect.width);
@@ -132,6 +140,7 @@ export function PotChart({
   };
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
     dragging.current = true;
+    setActive(true);
     e.currentTarget.setPointerCapture(e.pointerId);
     const next = ageFromEvent(e);
     if (next !== age) onRetirementAge(next);
@@ -143,6 +152,7 @@ export function PotChart({
   };
   const onUp = () => {
     dragging.current = false;
+    setActive(false);
   };
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     const step = e.key === "ArrowRight" || e.key === "ArrowUp" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 0;
@@ -161,23 +171,39 @@ export function PotChart({
     <div className="flex flex-col gap-3">
       {/* The readout rides above the handle. */}
       <div className="relative h-14" aria-live="polite">
-        <div
-          className="absolute top-0 flex -translate-x-1/2 flex-col items-center whitespace-nowrap text-center transition-[left] duration-150 ease-out motion-reduce:transition-none"
-          style={{ left: readoutLeft }}
+        <span
+          className={cn(
+            "absolute left-0 top-0 font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground transition-opacity duration-150 motion-reduce:transition-none",
+            active ? "opacity-0" : "opacity-100"
+          )}
+          aria-hidden
         >
-          <span className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
-            Stop at <span className="text-foreground">{age}</span>
-          </span>
-          <span className="font-mono text-sm tabular-nums text-foreground">
-            <span className="text-primary">{currency(at?.have ?? 0, 0, code)}</span>
-            <span className="text-muted-foreground"> of </span>
-            {currency(at?.need ?? 0, 0, code)}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {gap >= 0
-              ? `${currency(gap, 0, code)} more than it needs`
-              : `${currency(-gap, 0, code)} short`}
-          </span>
+          Drag to try another age
+        </span>
+        <div
+          className={cn(
+            "absolute inset-x-0 top-0 h-full transition-opacity duration-150 motion-reduce:transition-none",
+            active ? "opacity-100" : "opacity-0"
+          )}
+        >
+          <div
+            className="absolute top-0 flex -translate-x-1/2 flex-col items-center whitespace-nowrap text-center transition-[left] duration-150 ease-out motion-reduce:transition-none"
+            style={{ left: readoutLeft }}
+          >
+            <span className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+              Stop at <span className="text-foreground">{age}</span>
+            </span>
+            <span className="font-mono text-sm tabular-nums text-foreground">
+              <span className="text-primary">{currency(at?.have ?? 0, 0, code)}</span>
+              <span className="text-muted-foreground"> of </span>
+              {currency(at?.need ?? 0, 0, code)}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {gap >= 0
+                ? `${currency(gap, 0, code)} more than it needs`
+                : `${currency(-gap, 0, code)} short`}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -195,6 +221,10 @@ export function PotChart({
         onPointerUp={onUp}
         onPointerCancel={onUp}
         onKeyDown={onKey}
+        onFocus={(e) => {
+          if (e.currentTarget.matches(":focus-visible")) setActive(true);
+        }}
+        onBlur={() => setActive(false)}
         className="relative cursor-ew-resize touch-none select-none rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
         style={{ height: H }}
       >

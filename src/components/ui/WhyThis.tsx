@@ -1,6 +1,5 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { ExternalLink, Info } from "lucide-react";
 import { MicroLabel } from "@/components/ui/Panel";
 import {
@@ -8,6 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useNarrow } from "@/lib/use-narrow";
 import {
   Sheet,
   SheetContent,
@@ -67,8 +67,9 @@ function Dot({ muted }: { muted?: boolean }) {
 }
 
 /**
- * Below `md`, which is the width at which a floating panel stops being the
- * right container for this.
+ * WHY A SHEET BELOW `md` (`useNarrow`, shared in `src/lib/use-narrow.ts`),
+ * which is the width at which a floating panel stops being the right
+ * container for this.
  *
  * The full answer runs to about four screens on a phone, because the honest
  * answer to "where did this come from" is long and shortening it is the one
@@ -80,22 +81,6 @@ function Dot({ muted }: { muted?: boolean }) {
  * actually needs. Above `md` there is room for the popover, and a popover
  * beside the number it explains is better than a panel that covers it.
  */
-const NARROW = "(max-width: 47.999rem)";
-
-function useNarrow(): boolean {
-  return useSyncExternalStore(
-    (onChange) => {
-      const mq = window.matchMedia(NARROW);
-      mq.addEventListener("change", onChange);
-      return () => mq.removeEventListener("change", onChange);
-    },
-    () => window.matchMedia(NARROW).matches,
-    // The server has no width. It renders the popover, and the sheet takes
-    // over on hydration, which is before anybody can have pressed the mark.
-    () => false
-  );
-}
-
 function WhyThisMark({ className }: { className?: string }) {
   return (
     <>

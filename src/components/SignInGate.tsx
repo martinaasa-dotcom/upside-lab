@@ -595,11 +595,18 @@ function LookAroundStrip({
         * portfolio. "Sign in to use what you own" was a third sentence
         * saying what the button beside it already says.
         */}
-      <div className="flex flex-col gap-2.5 rounded-xl glass-overlay ring-1 ring-foreground/20 p-3.5 sm:flex-row sm:items-center sm:gap-4 sm:p-4">
+      {/*
+        One row at every width. Stacked on a phone it stood about 120px
+        tall and covered the answer card on the retirement room and the
+        top of whatever else a reader was looking at; one row is about
+        half that, and the short "Leave" says the same as the long one
+        beside a sentence that already names the sample.
+      */}
+      <div className="flex flex-row items-center gap-3 rounded-xl glass-overlay ring-1 ring-foreground/20 px-3.5 py-2.5 sm:gap-4 sm:p-4">
         <p className="min-w-0 flex-1 text-sm leading-relaxed text-foreground">
           A sample: the holdings are made up and the prices are real.
         </p>
-        <div className="flex shrink-0 flex-wrap gap-2">
+        <div className="flex shrink-0 gap-2">
           <Button type="button" size="sm" disabled={busy} onClick={onSignIn}>
             Sign in
           </Button>
@@ -608,8 +615,10 @@ function LookAroundStrip({
             size="sm"
             variant="outline"
             onClick={onLeave}
+            aria-label="Leave the sample"
           >
-            Leave the sample
+            <span className="sm:hidden">Leave</span>
+            <span className="hidden sm:inline">Leave the sample</span>
           </Button>
         </div>
       </div>
