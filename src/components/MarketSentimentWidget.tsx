@@ -17,7 +17,6 @@ import { cn, percent } from "@/lib/format";
 import {
   marketOrYou,
   marketOrYouLine,
-  standoutLine,
   type MarketOrYouInput,
 } from "@/lib/market-or-you";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -262,7 +261,6 @@ export function MarketSentimentWidget({
   // The tracks are always drawn from `md` up, so the hint is too; on a
   // phone it waits for the reader to open the scales.
   const showDragHint = !dragHintDone;
-  const standouts = standoutLine(split, (n) => percent(n));
 
   return (
     <div ref={rootRef}>
@@ -289,16 +287,14 @@ export function MarketSentimentWidget({
           actions={<Pill tone={card.reading.pill}>{card.reading.label}</Pill>}
         />
         {answer ? (
-          <div className="flex flex-col gap-2" aria-live="polite">
-            <p className="text-base font-medium leading-relaxed text-foreground">
-              {answer}
-            </p>
-            {standouts ? (
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {standouts}
-              </p>
-            ) : null}
-          </div>
+          /*
+            The companies that moved on their own are named once on Home,
+            by the close note above this card, and drawn on Pulse; this
+            card keeps to the market.
+          */
+          <p className="text-base font-medium leading-relaxed text-foreground" aria-live="polite">
+            {answer}
+          </p>
         ) : null}
         {/*
           * The gauges' own sentence, in plain words.
@@ -442,8 +438,7 @@ function PlaybookDoor({
               : "The ideas behind readings like this"}
           </span>
           <span className="mt-0.5 block text-sm leading-relaxed text-muted-foreground">
-            What this has meant before, the way that idea goes wrong, and what
-            to look at to check it yourself.
+            What it has meant before, and how it goes wrong.
           </span>
         </span>
         <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
