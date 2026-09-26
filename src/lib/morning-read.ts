@@ -397,7 +397,7 @@ function loneCandidate(
     ticker: fact.ticker,
     text: say(seedFor(lookIndex, id), [
       `${t} is ${up ? "up" : "down"} ${move} ${whenTail}. ${sentenceCase(vs)}.`,
-      `Quick note: ${t} is ${up ? "up" : "down"} ${move} ${whenTail} on its own. ${sentenceCase(vs)}.`,
+      `${t} is ${up ? "up" : "down"} ${move} ${whenTail} on its own. ${sentenceCase(vs)}.`,
       `${t} just moved ${up ? "up" : "down"} ${move}. Nothing else in the portfolio is doing that.`,
     ]),
   };

@@ -1285,6 +1285,7 @@ export const OverviewDashboard = memo(function OverviewDashboard({
       <MarketSentimentWidget
         yoursPct={totals.todayPct}
         holdings={marketHoldings}
+        when={morning.moveLabel === "Friday" ? "on Friday" : "today"}
         onOpenPlaybook={
           onOpenLab ? () => onOpenLab("playbook") : undefined
         }

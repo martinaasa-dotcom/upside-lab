@@ -1249,8 +1249,8 @@ function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-3">
         <p className="min-w-[13rem] flex-1 text-xs leading-relaxed text-muted-foreground">
-          A made-up day. In the sample the holdings are made up and the prices
-          are real.
+          In the full sample the holdings are made up and the prices are
+          real.
         </p>
         {onLookAround ? (
           <Button

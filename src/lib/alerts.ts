@@ -338,9 +338,9 @@ export function buildStrikeAlerts(
               ticker: r.ticker,
               digest: {
                 tag: "Target",
-                what: same ? "At the level the app pencilled in" : "Passed the level the app pencilled in",
+                what: same ? "At the app's own level" : "Past the app's own level",
                 figure: currency(r.spot, 2),
-                note: same ? "The app's level" : `The app's level, ${currency(r.stockTarget, 2)}`,
+                note: same ? "Nobody set it" : `Level ${currency(r.stockTarget, 2)}, nobody set it`,
               },
             }
       );

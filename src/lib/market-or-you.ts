@@ -99,21 +99,24 @@ export function marketOrYou(input: MarketOrYouInput): MarketOrYou | null {
 export function marketOrYouLine(
   split: MarketOrYou | null,
   marketName: string,
-  percent: (n: number) => string
+  percent: (n: number) => string,
+  /** "today" by default; "on Friday" when the figures are Friday's close. */
+  when = "today"
 ): string | null {
   if (!split) return null;
   const { marketPct, yoursPct, read } = split;
   const way = (n: number) => (n >= 0 ? "up" : "down");
-  const both = `${marketName} is ${way(marketPct)} ${percent(Math.abs(marketPct))} today, and your portfolio is ${way(yoursPct)} ${percent(Math.abs(yoursPct))}.`;
+  const is = when === "today" ? "is" : "was";
+  const both = `${marketName} ${is} ${way(marketPct)} ${percent(Math.abs(marketPct))} ${when}, and your portfolio ${is} ${way(yoursPct)} ${percent(Math.abs(yoursPct))}.`;
 
   if (read === "quiet") {
-    return `${marketName} and your portfolio both barely moved today.`;
+    return `${marketName} and your portfolio both barely moved ${when}.`;
   }
   if (read === "with") {
     return `${both} You moved with the market, which is what most days look like.`;
   }
   if (read === "against") {
-    return `${both} You went the other way to the market today, which is unusual.`;
+    return `${both} You went the other way to the market ${when}, which is unusual.`;
   }
   if (read === "more") {
     return `${both} Your own companies moved further than the market did.`;

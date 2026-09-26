@@ -89,8 +89,12 @@ export function MarketSentimentWidget({
   yoursPct = null,
   holdings,
   onOpenPlaybook,
+  when = "today",
 }: {
   className?: string;
+  /** "today", or "on Friday" when the prices are Friday's close, so the
+   * sentence does not call a closed market's last session today. */
+  when?: string;
   /** The reader's own move today, as a fraction. */
   yoursPct?: number | null;
   /** What they hold, so the card can name what plainly went its own way. */
@@ -257,7 +261,7 @@ export function MarketSentimentWidget({
       }),
     [indexPct, yoursPct, holdings]
   );
-  const answer = marketOrYouLine(split, INDEX_NAME, (n) => percent(n));
+  const answer = marketOrYouLine(split, INDEX_NAME, (n) => percent(n), when);
   // The tracks are always drawn from `md` up, so the hint is too; on a
   // phone it waits for the reader to open the scales.
   const showDragHint = !dragHintDone;
