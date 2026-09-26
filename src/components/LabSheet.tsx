@@ -1,5 +1,6 @@
 "use client";
 
+import { CountUp } from "@/components/ui/CountUp";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { forecastThemeForTicker } from "@/lib/forecast-growth";
 import { useTickerSectors } from "@/lib/use-ticker-sectors";
@@ -772,7 +773,7 @@ export const LabSheet = memo(function LabSheet({
                   actions={
                     <div className="text-right">
                       <p className="font-mono text-xl font-bold tabular-nums text-foreground">
-                        {personality.diversificationScore}
+                        <CountUp value={personality.diversificationScore} format={(n) => String(Math.round(n))} />
                         <span className="text-sm font-medium text-muted-foreground">
                           /100
                         </span>
