@@ -803,6 +803,7 @@ export const LabSheet = memo(function LabSheet({
                   <Progress
                     value={barFillPct(personality.diversificationScore, 2)}
                     className="h-3 bg-secondary"
+                    aria-label="How spread out, out of 100"
                   />
                   <div className="mt-2 flex justify-between gap-4 text-xs text-muted-foreground">
                     <span>0 is everything in one holding</span>
@@ -1111,6 +1112,7 @@ function AllocCard({
             <Progress
               value={barFillPct(s.pct * 100)}
               className="h-2 bg-secondary"
+              aria-label={`${s.label}, share of the total`}
             />
           </div>
         ))}

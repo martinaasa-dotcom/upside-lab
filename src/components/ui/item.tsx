@@ -7,8 +7,12 @@ import { Separator } from "@/components/ui/separator"
 
 function ItemGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
+    /*
+      No role="list": its children are `Item`s and `ItemSeparator`s, neither
+      of which is a listitem, so the role announced a list with nothing in
+      it (axe: aria-required-children, critical). These are visual groups.
+    */
     <div
-      role="list"
       data-slot="item-group"
       className={cn(
         "group/item-group flex w-full flex-col gap-4 has-data-[size=sm]:gap-2.5 has-data-[size=xs]:gap-2",

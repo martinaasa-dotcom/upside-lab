@@ -63,7 +63,7 @@ import { barFillPct } from "@/lib/format";
  */
 const ALLOWED = new Map<string, string>([
   [
-    "src/components/playbook/TemperatureLadder.tsx:105",
+    "src/components/playbook/TemperatureLadder.tsx:108",
     "bandWidths() is the gaps between fixed cut points on the ladder's own 0-100 axis (playbook.ts), so the widths sum to exactly 100 by construction and no reader's data enters the arithmetic.",
   ],
   [

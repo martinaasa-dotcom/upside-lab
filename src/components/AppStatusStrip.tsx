@@ -56,7 +56,9 @@ export function AppStatusStrip({
       : Math.max(0, Math.floor((now - updatedAt) / 1000));
 
   return (
-    <div className="border-b border-border">
+    // A named region, so a screen reader can find the price age and the
+    // market figures from the landmarks list; it sits outside <header>.
+    <section aria-label="Prices and markets" className="border-b border-border">
       <div
         className={cn(
           PAGE_COLUMN_CLASS,
@@ -93,6 +95,6 @@ export function AppStatusStrip({
           <MacroStrip />
         </WidgetErrorBoundary>
       </div>
-    </div>
+    </section>
   );
 }

@@ -641,6 +641,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
               variant="outline"
               onClick={() => void load(ticker, true)}
               disabled={loading}
+              aria-label="Refresh"
             >
               <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
               <span className="hidden sm:inline">Refresh</span>
@@ -706,6 +707,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
                   type="button"
                   variant="outline"
                   onClick={() => shiftViewMonth(-1)}
+                  aria-label="Previous month"
                 >
                   <ChevronLeft data-icon="inline-start" />
                   <span className="hidden sm:inline">Prev</span>
@@ -731,6 +733,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
                   type="button"
                   variant="outline"
                   onClick={() => shiftViewMonth(1)}
+                  aria-label="Next month"
                 >
                   <span className="hidden sm:inline">Next</span>
                   <ChevronRight data-icon="inline-end" />

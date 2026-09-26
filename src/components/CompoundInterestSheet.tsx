@@ -1479,6 +1479,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             <legend className="sr-only">Paying in</legend>
             <FormattedNumberInput
               id="compound-deposit-input"
+              aria-label="Amount paid in"
               kind="money"
               currency={currency}
               value={usdToDisplay(draft.depositAmount, currency, eurUsd)}
@@ -1522,6 +1523,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             </legend>
             <FormattedNumberInput
               id="compound-withdrawal-input"
+              aria-label="Amount taken out each month"
               kind="money"
               currency={currency}
               value={usdToDisplay(draft.withdrawalAmount, currency, eurUsd)}
