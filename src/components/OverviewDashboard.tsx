@@ -499,7 +499,7 @@ function MorningStack({
         {morning.notices.map((notice) => (
           <li
             key={notice.id}
-            className="flex gap-3 border-t border-border pt-4"
+            className="flex gap-3 border-border [&:not(:first-child)]:border-t [&:not(:first-child)]:pt-4"
           >
             {/*
               * The glyph names what the note is. `Sparkles` used to
@@ -718,7 +718,7 @@ function MoverTile({
           ) : (
             <TrendingDown className="hidden size-4 shrink-0 sm:block" />
           )}
-          {pct != null ? percent(pct, lifetime ? 1 : 2) : NO_VALUE}
+          {pct != null ? signedPercent(pct, lifetime ? 1 : 2) : NO_VALUE}
         </span>
       </span>
       <span className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 font-mono text-sm tabular-nums">
@@ -1429,13 +1429,13 @@ export const OverviewDashboard = memo(function OverviewDashboard({
                 {totals.todayPct != null
                   ? ` · ${signedPercent(totals.todayPct)}`
                   : ""}
+                {/*
+                  The day's word inside the badge it belongs to. Beside it,
+                  on a phone, it wrapped onto a line of its own under the
+                  figure and read as a caption for the whole total.
+                */}
+                {morning.moveLabel === "Friday" ? " on Friday" : " today"}
               </DeltaBadge>
-            )}
-            {/* The badge already says why the figure is grey; a second word beside it was "as of 3h ago updating". */}
-            {pricesStuck ? null : (
-              <span className="text-sm text-muted-foreground">
-                {morning.moveLabel === "Friday" ? "on Friday" : "today"}
-              </span>
             )}
           </div>
           {/*

@@ -23,7 +23,7 @@
  * existence. A page written for a search engine is still read by a person,
  * and the person is the one this product is for.
  */
-import { NO_VALUE, currency, percent, signedPercent } from "@/lib/format";
+import { NO_VALUE, currency, percent } from "@/lib/format";
 import type { CompanyFacts } from "@/lib/company/facts";
 import { isCryptoLike, isFundLike } from "@/lib/company/facts";
 import type { FairValueRead } from "@/lib/company/fair-value";
@@ -258,17 +258,22 @@ export function researchQuestions(input: {
   if (typeof facts.revenueGrowth === "number" || typeof facts.profitMargin === "number") {
     const bits: string[] = [];
     if (typeof facts.revenueGrowth === "number") {
-      bits.push(`revenue grew ${signedPercent(facts.revenueGrowth, 0)} over the last year`);
+      const g = facts.revenueGrowth;
+      bits.push(
+        g >= 0
+          ? `revenue grew ${percent(g, 0)} over the last year`
+          : `revenue fell ${percent(-g, 0)} over the last year`
+      );
     }
     if (typeof facts.profitMargin === "number") {
       bits.push(
-        `out of every $100 customers pay them, ${Math.round(facts.profitMargin * 100)} is profit`
+        `out of every $100 customers pay them, $${Math.round(facts.profitMargin * 100)} is profit`
       );
     }
     out.push({
       id: "business",
       question: `Is ${name} actually making money?`,
-      answer: `${bits.join(", and ")}. The four years and the last four quarters are both on this page, with the margin worked out for each, so you can read down the column and see whether a business getting bigger is getting better at it.`,
+      answer: `${capitalize(bits.join(", and "))}. The four years and the last four quarters are both on this page, with the margin worked out for each, so you can read down the column and see whether a business getting bigger is getting better at it.`,
     });
   }
 
@@ -314,4 +319,9 @@ export function asOfLine(fetchedAt: string | null | undefined): string {
   const at = new Date(fetchedAt);
   if (Number.isNaN(at.getTime())) return NO_VALUE;
   return at.toISOString().slice(0, 10);
+}
+
+/** The first letter of a sentence built from lower-case parts. */
+function capitalize(text: string): string {
+  return text.length === 0 ? text : text[0]!.toUpperCase() + text.slice(1);
 }

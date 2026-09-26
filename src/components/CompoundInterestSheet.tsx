@@ -459,10 +459,20 @@ function ComparePathsChart({
           format={compact}
           className="w-10 sm:w-16"
         />
+        {/*
+          The drawing stretches to its box. With the default aspect fit a
+          640 by 360 drawing in a 350px tall box on a phone was scaled to
+          about 146px and centred, while the dollar labels beside it were
+          spread over the full 350, so every label pointed at the wrong
+          value. Strokes keep their width and the hover dots are HTML, so
+          nothing distorts.
+        */}
+        <div className="relative min-w-0 flex-1">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${w} ${h}`}
-          className="h-[350px] w-full min-w-0 flex-1 touch-pan-y"
+          preserveAspectRatio="none"
+          className="h-[350px] w-full min-w-0 touch-pan-y"
           role="img"
           aria-label={`Same money four ways: ${labels}`}
           onMouseMove={(e) => updateHoverFromClientX(e.clientX)}
@@ -488,6 +498,7 @@ function ComparePathsChart({
               y2={y}
               stroke={PALETTE.well}
               strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
             />
           );
         })}
@@ -500,6 +511,7 @@ function ComparePathsChart({
             y2={padT + plotH}
             stroke={PALETTE.gain}
             strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
             strokeDasharray="3 3"
             opacity="0.6"
           />
@@ -512,6 +524,7 @@ function ComparePathsChart({
             fill="none"
             stroke={p.color}
             strokeWidth={p.thick ? 2.5 : 2}
+            vectorEffect="non-scaling-stroke"
             strokeDasharray={p.dashed ? "6 4" : undefined}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -527,23 +540,31 @@ function ComparePathsChart({
               y2={padT + plotH}
               stroke={PALETTE.muted}
               strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
               strokeDasharray="2 3"
               opacity="0.7"
             />
-            {paths.map((p) => (
-              <circle
-                key={p.id}
-                cx={xAt(hoverIdx)}
-                cy={yAt(p.series[hoverIdx] ?? 0)}
-                r={p.thick ? 4 : 3.25}
-                fill={p.color}
-                stroke={PALETTE.card}
-                strokeWidth="1.5"
-              />
-            ))}
           </g>
         )}
       </svg>
+      {hoverIdx != null
+        ? paths.map((p) => (
+            <span
+              key={p.id}
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full ring-[1.5px] ring-card",
+                p.thick ? "size-2" : "size-1.5"
+              )}
+              style={{
+                left: `${(xAt(hoverIdx) / w) * 100}%`,
+                top: `${(yAt(p.series[hoverIdx] ?? 0) / h) * 100}%`,
+                background: p.color,
+              }}
+            />
+          ))
+        : null}
+      </div>
       </div>
       <ChartXRail railClassName="w-10 sm:w-16">
         {yearTicks.map((i) => {
@@ -1563,7 +1584,8 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
             <Score
               label="You put in"
               value={show(result.totalDeposited)}
-              valueClassName="text-primary"
+              /* Neutral: the accent means a live or chosen thing, and this is neither. */
+              valueClassName="text-foreground"
             />
           </Scoreboard>
 

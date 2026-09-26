@@ -43,8 +43,14 @@ import { recordWordLookedUp } from "@/lib/words-looked-up";
 const TRIGGER_CLASS =
   "relative inline-flex size-4 shrink-0 items-center justify-center align-text-bottom text-muted-foreground outline-none transition hover:text-foreground focus-visible:text-foreground";
 
+/*
+  `[text-transform:inherit]` for the reason `TermTip` carries it: the word is
+  a button, the preflight sets `text-transform: none` on buttons, and a label
+  in the mono caps voice lost its caps wherever it had a definition behind
+  it, so one row of a card read "Paid each" beside "PRICE NOW".
+*/
 const WORD_CLASS =
-  "cursor-help decoration-dotted underline underline-offset-4 decoration-muted-foreground/60 outline-none transition hover:decoration-foreground focus-visible:decoration-foreground";
+  "cursor-help decoration-dotted underline underline-offset-4 decoration-muted-foreground/60 [text-transform:inherit] outline-none transition hover:decoration-foreground focus-visible:decoration-foreground";
 
 export function Explain({
   term,

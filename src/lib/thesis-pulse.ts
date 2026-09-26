@@ -403,7 +403,20 @@ export function rangeSentence(
   range: PulseRange | null | undefined
 ): string {
   if (!range || !Number.isFinite(price) || price <= 0) return "";
-  return `Price ${currency(price)}, between its low of ${currency(range.low)} and its high of ${currency(range.high)} over the last ${rangeWindowWords(range.days)}.`;
+  const window = rangeWindowWords(range.days);
+  /*
+    The range is measured on the closes behind today, so today's price can
+    sit outside it, and on a day a company runs that is exactly when a
+    reader opens this card. "Between its low and its high" printed over a
+    price above the high is a false sentence with real numbers in it.
+  */
+  if (price > range.high) {
+    return `Price ${currency(price)}, above its high of ${currency(range.high)} over the last ${window}. The low was ${currency(range.low)}.`;
+  }
+  if (price < range.low) {
+    return `Price ${currency(price)}, below its low of ${currency(range.low)} over the last ${window}. The high was ${currency(range.high)}.`;
+  }
+  return `Price ${currency(price)}, between its low of ${currency(range.low)} and its high of ${currency(range.high)} over the last ${window}.`;
 }
 
 /**

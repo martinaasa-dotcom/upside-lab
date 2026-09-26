@@ -327,6 +327,16 @@ describe("recentRange", () => {
     expect(line).toContain("two months");
     expect(rangeSentence(150, null)).toBe("");
   });
+
+  it("never says between when today's price is outside the window", () => {
+    // Measured on the sample: $341.46 read "between its low of $315.34
+    // and its high of $339.75".
+    const r = { low: 100, high: 200, days: 21 };
+    expect(rangeSentence(210, r)).toMatch(/above its high of \$200\.00/);
+    expect(rangeSentence(210, r)).not.toMatch(/between/);
+    expect(rangeSentence(90, r)).toMatch(/below its low of \$100\.00/);
+    expect(rangeSentence(90, r)).not.toMatch(/between/);
+  });
 });
 
 describe("pulseActionMatchesRange", () => {

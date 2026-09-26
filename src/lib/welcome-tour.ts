@@ -115,13 +115,13 @@ export function screenCopy(
       return {
         title: `A bad day, in ${PRODUCT_NAME}`,
         lede:
-          "Everything below is made up: a portfolio nobody owns, on a day that never happened. Seven of these eight companies fell because the whole market fell. One fell because of something that happened at the company. In a list of red numbers those look exactly the same, which is the problem this app exists for.",
+          "All made up: a portfolio nobody owns, on a day that never happened. Seven of these companies fell with the market and one fell on its own news. In a list of red numbers the two look the same.",
       };
     case "rules":
       return {
         title: "What this does and does not do",
         lede:
-          "Four things people believe about this app. One of them is true. Better to find out which now than after you have typed everything in.",
+          "Four things people believe about this app. One of them is true.",
       };
     case "rooms":
       return {
@@ -133,13 +133,13 @@ export function screenCopy(
       return {
         title: "Two questions about you",
         lede:
-          "These only change how much is shown at once. Nothing is locked away, both are changeable in Account whenever you like, and you can watch the app change underneath as you answer.",
+          "They only change how much is open at once. Nothing is locked away, and both can be changed in Account.",
       };
     case "holdings":
       return {
         title: "Add what you own",
         lede:
-          "The ticker or the coin, how many you hold, and roughly what you paid. One company is enough to make Home worth opening, and there are four ways in so you can use whichever is least work.",
+          "The ticker, how many you hold, and roughly what you paid. One company is enough to make Home worth opening.",
       };
     case "watchlist":
       return {
@@ -153,7 +153,7 @@ export function screenCopy(
           ? `That is the whole app. It is set to "${tierLabel}"`
           : "That is the whole app",
         lede:
-          "Home is where you land, the bar along the bottom is everything else, and Account holds every switch this walkthrough set. The day the market falls and you want to know what it means, this is the app to open.",
+          "Every switch you just set is in Account. The day the market falls and you want to know what it means, this is the app to open.",
       };
   }
 }

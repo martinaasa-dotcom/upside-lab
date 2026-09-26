@@ -48,7 +48,7 @@ import { useRouter } from "next/navigation";
 import { isAbortError } from "@/lib/abort";
 import { useHydratedCache } from "@/lib/use-hydrated-cache";
 import { useNetworkResume } from "@/lib/use-network-resume";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { onWorkspaceRefresh } from "@/lib/workspace-rooms";
 
 type DiscoverRow = CommunityDiscoverRow;
@@ -93,6 +93,19 @@ export function CommunitiesList() {
   const [startPeriod, setStartPeriod] = useState(initialClass.period);
   const [visibility, setVisibility] = useState<"public" | "private">("private");
   const [startOpen, setStartOpen] = useState(false);
+  const startFormRef = useRef<HTMLFormElement>(null);
+  /*
+    The button that opens the form sits at the top of the page, beside the
+    circles it adds to, and the form opens at the foot. Taking the reader
+    there is the second half of the press.
+  */
+  useEffect(() => {
+    if (startOpen && communities.length > 0) {
+      startFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    // Only the press should move the page, not a list refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startOpen]);
   const [warm, setWarm] = useState(0);
   const [error, setError] = useState<string | null>(null);
   // Only blocks on a spinner when there's truly nothing cached to show —
@@ -344,8 +357,19 @@ export function CommunitiesList() {
           <Panel>
             <PanelHeader
               title="Your circles"
-              subtitle="Tap one to open it."
               icon={<Users className="h-4 w-4" />}
+              actions={
+                !startOpen && communities.length > 0 ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setStartOpen(true)}
+                  >
+                    <Plus data-icon="inline-start" />
+                    Start a circle or a class
+                  </Button>
+                ) : undefined
+              }
             />
             {communities.length === 0 && loading ? (
               <div className="flex flex-col gap-2" aria-hidden>
@@ -444,7 +468,7 @@ export function CommunitiesList() {
           <Panel>
             <PanelHeader
               title="Public circles"
-              subtitle="You pick which portfolios they can see. Most circles let you straight in; some ask their admin first, and the button says which."
+              subtitle="Most let you straight in. Some ask their admin first, and the button says which."
               icon={<Compass className="h-4 w-4" />}
             />
             {discover.length === 0 ? (
@@ -459,28 +483,31 @@ export function CommunitiesList() {
                     key={c.id}
                     className="flex items-center justify-between gap-3 px-4 py-3.5"
                   >
+                    {/*
+                      The count and a pending request sit on the line under
+                      the name. Beside it, "Waiting for approval" took the
+                      row on a phone and left the circle's own name as one
+                      letter.
+                    */}
                     <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="flex min-w-0 items-center gap-2">
                         <Globe className="h-3.5 w-3.5 shrink-0 text-primary" />
                         <span className="min-w-0 truncate text-base font-medium text-foreground">
                           {c.name}
                         </span>
-                        <span className="shrink-0 text-sm text-muted-foreground">
-                          {c.memberCount}{" "}
-                          {c.memberCount === 1 ? "member" : "members"}
-                        </span>
+                      </span>
+                      <span className="pl-5.5 text-sm text-muted-foreground">
+                        {c.memberCount}{" "}
+                        {c.memberCount === 1 ? "member" : "members"}
+                        {c.requestStatus === "pending" && ", waiting for approval"}
                       </span>
                       {c.houseNote?.trim() ? (
-                        <span className="pl-4 text-sm leading-relaxed text-muted-foreground">
+                        <span className="pl-5.5 text-sm leading-relaxed text-muted-foreground">
                           {c.houseNote.trim()}
                         </span>
                       ) : null}
                     </span>
-                    {c.requestStatus === "pending" ? (
-                      <span className="shrink-0 text-sm font-medium text-caution">
-                        Waiting for approval
-                      </span>
-                    ) : (
+                    {c.requestStatus === "pending" ? null : (
                       <Button
                         type="button"
                         variant="outline"
@@ -508,18 +535,8 @@ export function CommunitiesList() {
             for a reader who is in nothing yet, which is the one person the
             page is really for.
           */}
-          {!startOpen && communities.length > 0 ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="self-start"
-              onClick={() => setStartOpen(true)}
-            >
-              <Plus data-icon="inline-start" />
-              Start a circle or a class
-            </Button>
-          ) : (
-          <form onSubmit={(e) => void createCommunity(e)}>
+          {!startOpen && communities.length > 0 ? null : (
+          <form ref={startFormRef} className="scroll-mt-24" onSubmit={(e) => void createCommunity(e)}>
             <Panel>
               <PanelHeader
                 title="Start a circle"

@@ -420,19 +420,23 @@ export function WelcomeTour({
             hand-rolled one is a 20px tap target on the phone where it
             matters most, and this is the only way out of the walkthrough.
           */}
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => void leave(true)}
-            disabled={saving}
-            className="ms-auto font-normal text-muted-foreground"
-          >
-            Skip the tour
-          </Button>
+          {/* On the last screen Finish and Skip both close it, so one button. */}
+          {!last && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => void leave(true)}
+              disabled={saving}
+              className="ms-auto font-normal text-muted-foreground"
+            >
+              Skip the tour
+            </Button>
+          )}
 
           {last ? (
             <Button
               type="button"
+              className="ms-auto"
               disabled={saving}
               onClick={() => void leave(false)}
             >

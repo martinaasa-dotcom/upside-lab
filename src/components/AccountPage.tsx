@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { CARD, PANEL_STACK, PANEL_STACK_GAP, Panel } from "@/components/ui/Panel";
+import { CARD, MicroLabel, PANEL_STACK, PANEL_STACK_GAP, Panel } from "@/components/ui/Panel";
 import { Explain } from "@/components/ui/Explain";
 import {
   PinnedHeader,
@@ -590,12 +590,34 @@ export function AccountPage() {
         <AppHeader title="Account" />
 
         <main id="main" className={PAGE_MAIN_CLASS}>
-          <div>
-            <h1 className="text-2xl font-semibold">My account</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Who you are, how much of the app you see, and where your data
-              goes.
-            </p>
+          {/*
+            The page opens on whose account this is, the way a phone's own
+            settings do: the picture, the name and the address, before any
+            control. The legal pages call this room My account, so that is
+            the label over the name.
+          */}
+          <div className="flex items-center gap-4">
+            <Avatar className="size-14 shrink-0 ring-1 ring-border sm:size-16">
+              {avatarUrl && !avatarBroken ? (
+                <AvatarImage src={avatarUrl} alt="" onError={() => setAvatarBroken(true)} />
+              ) : null}
+              <AvatarFallback className="text-lg">
+                {(displayName || user?.email || "?").slice(0, 1).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <MicroLabel>My account</MicroLabel>
+              <h1 className="truncate text-2xl font-semibold">
+                {displayName.trim() || "Your account"}
+              </h1>
+              <p className="truncate text-sm text-muted-foreground">
+                {user?.email
+                  ? signedInWithGoogle
+                    ? `${user.email}, signed in with Google`
+                    : user.email
+                  : "Demo. Nothing you change here is saved."}
+              </p>
+            </div>
           </div>
 
           <WidgetErrorBoundary name="Account">
@@ -631,14 +653,8 @@ export function AccountPage() {
               <Panel>
                 <PinnedHeader
                   icon={<UserRound className="h-4 w-4" />}
-                  title="You"
-                  subtitle={
-                    user?.email
-                      ? signedInWithGoogle
-                        ? `${user.email}. Signed in with Google.`
-                        : user.email
-                      : "Demo. Nothing you change here is saved."
-                  }
+                  title="Your profile"
+                  subtitle="Your name, picture and one line, as the people in your circles see them."
                 />
 
                 <form
@@ -809,51 +825,12 @@ export function AccountPage() {
               {/* Every mailbox that reaches this one account. */}
               <SignInAddresses />
 
-              {/*
-                An invite is redeemed here rather than at an address.
-
-                This used to be a whole panel whose content was that
-                inviting somebody happens somewhere else, with the raw path
-                "/account/join" printed as the link text, which a beginner
-                reads as an address rather than as something to press.
-              */}
-              <Panel>
-                <PinnedHeader
-                  icon={<Mail className="h-4 w-4" />}
-                  title="Have an invite code?"
-                  subtitle="Paste it here and you are added to that portfolio. To invite somebody yourself, open a portfolio and press Invite next to Add holding."
-                />
-                <form
-                  onSubmit={(e) => void joinWithCode(e)}
-                  className="flex max-w-md flex-col gap-2 sm:flex-row"
-                >
-                  <Input
-                    value={inviteCode}
-                    onChange={(e) => {
-                      setInviteCode(e.target.value);
-                      setJoinErr(null);
-                    }}
-                    placeholder="Paste invite code"
-                    className="sm:flex-1"
-                  />
-                  <Button
-                    type="submit"
-                    variant="outline"
-                    disabled={joining}
-                    className="shrink-0"
-                  >
-                    {joining ? "Joining …" : "Join"}
-                  </Button>
-                </form>
-                {joinErr && <p className="text-sm text-loss">{joinErr}</p>}
-              </Panel>
-
               {/* Experience level */}
               <Panel>
                 <PinnedHeader
                   icon={<Gauge className="h-4 w-4" />}
                   title="How much to show"
-                  subtitle="Nothing is locked away and nothing is lost, and you can change this whenever you like."
+                  subtitle="Every room is open whichever you pick. This decides what starts folded and how much Margus explains, and you can change it whenever you like."
                 />
                 {/*
                   Three full-width slabs carrying ten words each spent 500px
@@ -871,7 +848,7 @@ export function AccountPage() {
                       className={cn(
                         CARD,
                         "flex w-full flex-col gap-1 px-3.5 py-3 text-left text-sm text-foreground transition hover:bg-hover",
-                        tier === t.id && "ring-1 ring-primary/40"
+                        tier === t.id && "outline-2 -outline-offset-2 outline-primary"
                       )}
                     >
                       <span className="flex items-start justify-between gap-2">
@@ -924,7 +901,7 @@ export function AccountPage() {
                       className={cn(
                         CARD,
                         "px-3.5 py-3 text-left text-sm text-foreground transition hover:bg-hover",
-                        knowsOptions === true && "ring-1 ring-primary/40"
+                        knowsOptions === true && "outline-2 -outline-offset-2 outline-primary"
                       )}
                     >
                       <span
@@ -946,7 +923,7 @@ export function AccountPage() {
                       className={cn(
                         CARD,
                         "px-3.5 py-3 text-left text-sm text-foreground transition hover:bg-hover",
-                        knowsOptions === false && "ring-1 ring-primary/40"
+                        knowsOptions === false && "outline-2 -outline-offset-2 outline-primary"
                       )}
                     >
                       <span
@@ -1178,6 +1155,45 @@ export function AccountPage() {
                   </a>
                   .
                 </p>
+              </Panel>
+
+              {/*
+                An invite is redeemed here rather than at an address.
+
+                This used to be a whole panel whose content was that
+                inviting somebody happens somewhere else, with the raw path
+                "/account/join" printed as the link text, which a beginner
+                reads as an address rather than as something to press.
+              */}
+              <Panel>
+                <PinnedHeader
+                  icon={<Mail className="h-4 w-4" />}
+                  title="Have an invite code?"
+                  subtitle="Paste it here and you are added to that portfolio. To invite somebody yourself, open a portfolio and press Invite next to Add holding."
+                />
+                <form
+                  onSubmit={(e) => void joinWithCode(e)}
+                  className="flex flex-col gap-2 sm:flex-row lg:flex-col"
+                >
+                  <Input
+                    value={inviteCode}
+                    onChange={(e) => {
+                      setInviteCode(e.target.value);
+                      setJoinErr(null);
+                    }}
+                    placeholder="Paste invite code"
+                    className="sm:flex-1"
+                  />
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    disabled={joining}
+                    className="shrink-0"
+                  >
+                    {joining ? "Joining …" : "Join"}
+                  </Button>
+                </form>
+                {joinErr && <p className="text-sm text-loss">{joinErr}</p>}
               </Panel>
 
               {/*

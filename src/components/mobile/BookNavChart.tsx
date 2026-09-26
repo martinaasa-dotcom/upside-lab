@@ -417,7 +417,7 @@ export function MobileBookNavChart({
   const height = 224;
   const padL = 8;
   const padR = 12;
-  const padT = 16;
+  const padT = 8;
   const padB = 14;
   const usable = useMemo(() => usableNavPoints(points), [points]);
 
@@ -591,8 +591,14 @@ export function MobileBookNavChart({
 
   return (
     <div className={className}>
-      <div>
-        <div className="flex min-h-9 items-end justify-center px-10 pb-1">
+      {/*
+        The day readout floats over the plot's own headroom rather than
+        reserving a lane above it. The lane sat empty whenever nobody was
+        dragging, which is almost always, and put 36px of nothing between
+        the panel's title and its chart.
+      */}
+      <div className="relative">
+        <div className="pointer-events-none absolute inset-x-0 -top-2 z-10 flex justify-center px-10">
           {hoverPoint ? (
             <p className="pointer-events-none max-w-full truncate rounded-lg border border-border bg-muted/95 px-2.5 py-1 text-sm tabular-nums shadow-sm">
               <span className="text-muted-foreground">{formatDay(hoverPoint.date)}</span>

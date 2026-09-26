@@ -53,7 +53,12 @@ export function CashAlertCard({
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const margin = marginAlertIn(alerts);
-  const featured = margin ?? alerts[0];
+  /*
+    Borrowed money only. This card used to fall back to the first alert of
+    any kind, which printed the same results date a second time under the
+    "Worth a look" list Home already opens with.
+  */
+  const featured = margin;
   if (!featured && cash >= 0) return null;
 
   const borrowed = Boolean(margin) || cash < 0;

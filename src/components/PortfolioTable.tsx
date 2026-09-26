@@ -1,6 +1,7 @@
 "use client";
 
 import { LiveFigure } from "@/components/ui/LiveFigure";
+import { barFillPct } from "@/lib/format";
 import { NO_VALUE, cashtag, cn, currency, percent, signedPercent, signedTone } from "@/lib/format";
 import {
   usdToDisplay,
@@ -392,6 +393,7 @@ export const PortfolioTable = memo(function PortfolioTable({
     });
     return rows;
   }, [holdings, sortKey, sortDir]);
+  const maxShare = Math.max(1e-9, ...sortedHoldings.map((x) => x.pctOfTotal));
 
   /**
    * Today's move, per row and for the sheet, via the same shared helper the
@@ -527,27 +529,35 @@ export const PortfolioTable = memo(function PortfolioTable({
             always at a phrase.
           */}
           {holdings.length > 0 && (
-            <p className="text-sm tabular-nums text-muted-foreground">
-              <span className="whitespace-nowrap">
-                <span className="font-medium text-foreground">
+            <div className="mt-1 flex flex-col gap-1">
+              {/*
+                The portfolio's worth is this room's one hero figure, the
+                same treatment Home's total gets, so the page answers "what
+                is it worth" before it lists anything.
+              */}
+              <p className="figure-hero text-foreground">
+                <LiveFigure value={totals.currentValue}>
                   {money(totals.currentValue, 0)}
-                </span>
-                {" · "}
-                <span className={signedTone(totals.roiPct)}>
-                  {signedPercent(totals.roiPct)}
-                </span>{" "}
-                since you bought
-              </span>
-              {today.pct !== null ? (
-                <span className="block whitespace-nowrap sm:inline">
-                  <span className="hidden sm:inline">{" · "}</span>
-                  <span className={signedTone(today.pct)}>
-                    {signedPercent(today.pct, 2)}
+                </LiveFigure>
+              </p>
+              <p className="text-sm tabular-nums text-muted-foreground">
+                <span className="whitespace-nowrap">
+                  <span className={signedTone(totals.roiPct)}>
+                    {signedPercent(totals.roiPct)}
                   </span>{" "}
-                  today
+                  since you bought
                 </span>
-              ) : null}
-            </p>
+                {today.pct !== null ? (
+                  <span className="whitespace-nowrap">
+                    {", "}
+                    <span className={signedTone(today.pct)}>
+                      {signedPercent(today.pct, 2)}
+                    </span>{" "}
+                    today
+                  </span>
+                ) : null}
+              </p>
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
@@ -1087,7 +1097,18 @@ export const PortfolioTable = memo(function PortfolioTable({
                     showCurrency={mixedListings}
                   />
                 </div>
-                <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
+                <div className={cn(cellBase, "gap-2 tabular-nums text-muted-foreground")}>
+                  {/*
+                    A small bar beside the share, on the biggest holding's
+                    scale, so the column reads as sizes at a glance rather
+                    than as eight numbers to compare.
+                  */}
+                  <span className="h-1 w-8 overflow-hidden rounded-full bg-foreground/[0.08]" aria-hidden>
+                    <span
+                      className="block h-full rounded-full bg-primary/70"
+                      style={{ width: `${barFillPct((h.pctOfTotal / maxShare) * 100)}%` }}
+                    />
+                  </span>
                   {percent(h.pctOfTotal)}
                 </div>
                 <div className={cellBase}>

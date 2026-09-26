@@ -1,7 +1,7 @@
 "use client";
 
 import { Panel, PanelHeader, Score, Scoreboard } from "@/components/ui/Panel";
-import { NO_VALUE, cn, currency, percent } from "@/lib/format";
+import { NO_VALUE, cn, currency, signedPercent } from "@/lib/format";
 import type { CurrencyCode } from "@/lib/format-live-input";
 import { shareCount } from "@/lib/share-count";
 import { isCoinSymbol } from "@/lib/coins";
@@ -82,7 +82,12 @@ export function YourHolding({
         />
         <Score
           label="Against what you paid"
-          value={gain != null ? percent(gain) : NO_VALUE}
+          value={gain != null ? signedPercent(gain) : NO_VALUE}
+          sub={
+            value != null && gain != null
+              ? `${value - cost < 0 ? "-" : "+"}${currency(Math.abs(value - cost), 0, code)}`
+              : undefined
+          }
           valueClassName={
             gain == null
               ? undefined

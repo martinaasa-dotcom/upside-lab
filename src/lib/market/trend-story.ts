@@ -149,7 +149,7 @@ function applyDivergence(
     headline: "Mixed signals",
     tone: "neutral",
     sentence:
-      "TICKER's long-term trend and its recent momentum are pointing in different directions right now. No clean story yet, worth watching rather than acting on.",
+      "TICKER's long-term trend and its recent momentum are pointing in different directions right now. No clean story yet.",
   };
 }
 
@@ -208,9 +208,9 @@ function applySurge(
 
 function rsiZone(rsi: number | null): { label: string; tone: Tone } {
   if (rsi == null) return { label: NO_VALUE, tone: "neutral" };
-  if (rsi >= 70) return { label: "RSI above 70", tone: "warn" };
-  if (rsi <= 30) return { label: "RSI below 30", tone: "gain" };
-  return { label: "Neutral", tone: "neutral" };
+  if (rsi >= 70) return { label: "stretched high", tone: "warn" };
+  if (rsi <= 30) return { label: "washed out", tone: "gain" };
+  return { label: "ordinary", tone: "neutral" };
 }
 
 function rsText(v: number | null): string {
@@ -223,12 +223,6 @@ function signedPct(v: number | null, digits = 1): string {
   return `${v >= 0 ? "+" : ""}${(v * 100).toFixed(digits)}%`;
 }
 
-function arrow(v: number): "↑" | "↓" | "→" {
-  if (v > 0) return "↑";
-  if (v < 0) return "↓";
-  return "→";
-}
-
 function trendDetail(row: TrendRowLike): string[] {
   const price = row.lastClose;
   const ma = row.longMa;
@@ -238,13 +232,13 @@ function trendDetail(row: TrendRowLike): string[] {
     return ["Needs about 40 weekly closes for a 40-week average."];
   }
   const chips = [
-    `${arrow(vs)} ${(Math.abs(vs) * 100).toFixed(1)}% vs 40-week (${currency(price)} vs ${currency(ma)})`,
+    `${(Math.abs(vs) * 100).toFixed(1)}% ${vs >= 0 ? "above" : "below"} its 40-week average (${currency(price)} against ${currency(ma)})`,
   ];
   if (slope == null) {
-    chips.push("40-week slope needs more history.");
+    chips.push("The average needs more history to show a direction.");
   } else {
     chips.push(
-      `40-week ${arrow(slope)} ${(Math.abs(slope) * 100).toFixed(1)}% / 8 weeks`
+      `The average is ${slope >= 0 ? "up" : "down"} ${(Math.abs(slope) * 100).toFixed(1)}% in 8 weeks`
     );
   }
   return chips;
@@ -286,7 +280,7 @@ export function buildTrendStory(row: TrendRowLike): TrendStory {
       detail:
         row.chg2w == null && row.chg4w == null
           ? ["Not enough weekly closes yet."]
-          : [`2w ${signedPct(row.chg2w)}`, `4w ${signedPct(row.chg4w)}`],
+          : [`4 weeks ${signedPct(row.chg4w)}`],
       help: "The plain price change over the last two weekly closes, with the four-week change beside it. This is usually where real news shows up in the price first.",
     },
     {
@@ -302,30 +296,30 @@ export function buildTrendStory(row: TrendRowLike): TrendStory {
             : "neutral",
       detail:
         hist != null && histPrev != null
-          ? [`${hist.toFixed(2)} now`, `${histPrev.toFixed(2)} 4w ago`]
+          ? [`${hist.toFixed(2)} now, ${histPrev.toFixed(2)} four weeks ago`]
           : ["Not enough weekly history."],
       help: "Whether the weekly momentum reading (12/26/9-week averages) is larger now than it was 4 weeks ago. Speeding up or losing pace, separate from which way price is going.",
     },
     {
       key: "rsi",
-      label: "RSI",
-      value: row.rsi == null ? NO_VALUE : `${row.rsi.toFixed(0)} · ${zone.label}`,
+      label: "How hard it has run",
+      value: row.rsi == null ? NO_VALUE : `${row.rsi.toFixed(0)}, ${zone.label}`,
       tone: zone.tone,
       detail:
         row.rsi == null
           ? ["Not enough weekly history."]
-          : ["70 overbought · 30 oversold"],
-      help: "14-week RSI, the same formula a charting app shows, computed on weekly closes instead of daily.",
+          : ["70 and over reads as stretched, 30 and under as washed out"],
+      help: "A score from 0 to 100 for how one-sided the last 14 weeks of rises and falls have been. You will see it called RSI, and 70 and 30 called overbought and oversold. It is the same formula a charting app shows, worked out on weekly closes instead of daily.",
     },
     {
       key: "rs",
-      label: "vs S&P (13w)",
+      label: "Against the S&P 500",
       value: rsText(row.rs13),
       tone: row.rs13 == null ? "neutral" : row.rs13 >= 0 ? "gain" : "loss",
       detail:
         row.rs13 == null && row.rs26 == null
           ? ["Needs history for this name and the S&P."]
-          : [`13w ${rsText(row.rs13)}`, `26w ${rsText(row.rs26)}`],
+          : [`Over 13 weeks ${rsText(row.rs13)}`, `26 weeks ${rsText(row.rs26)}`],
       help: "This name's return minus the S&P 500 over 13 weeks, and 26 weeks. Positive means it beat the index, not just rose with everything else.",
     },
   ];

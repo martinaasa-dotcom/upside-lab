@@ -9,6 +9,7 @@ import {
   sampleTotals,
   type SampleHolding,
 } from "@/lib/tour-sample-day";
+import { sampleTotalValue } from "@/lib/sample-portfolio";
 import { Activity } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -107,8 +108,8 @@ export function RedDayScreen() {
           <span className="text-xs text-muted-foreground">
             A made-up portfolio, today
           </span>
-          <span className="font-mono text-xl tabular-nums text-foreground">
-            {currency(totals.value, 0)}
+          <span className="font-heading text-xl font-semibold tracking-tight tabular-nums text-foreground">
+            {currency(sampleTotalValue(), 0)}
           </span>
         </span>
         <span className="flex flex-col items-end">
@@ -122,8 +123,7 @@ export function RedDayScreen() {
       </div>
 
       <TourAsk>
-        One of these companies had real news today. Which one? Tap a row to
-        turn it over.
+        Which one had real news? Tap a row to turn it over.
       </TourAsk>
 
       <ul className="flex flex-col gap-2">

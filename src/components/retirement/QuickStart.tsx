@@ -355,8 +355,17 @@ export function QuickStart({
                   choice on this card read as an essay; the paragraph for
                   the life that is chosen is printed once, under the grid.
                 */}
-                <span className="truncate font-mono text-xs tabular-nums text-muted-foreground/80">
-                  {templateFacts(template).join(" · ")}
+                {/*
+                  Each fact whole and on its own, wrapping as a unit: joined
+                  with dots, a phone broke the line before a dot and started
+                  the second line on it.
+                */}
+                <span className="flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-xs leading-snug tabular-nums text-muted-foreground/80">
+                  {templateFacts(template).map((f) => (
+                    <span key={f} className="whitespace-nowrap">
+                      {f}
+                    </span>
+                  ))}
                 </span>
               </button>
             );

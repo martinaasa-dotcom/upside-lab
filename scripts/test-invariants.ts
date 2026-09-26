@@ -2211,7 +2211,10 @@ run("chart ticks stay HTML text-xs, never SVG text", () => {
   assert.match(nav, /preserveAspectRatio="none"/);
   assert.doesNotMatch(nav, /min-h-\[4\.75rem\]/);
   assert.match(nav, /h-64 w-full/);
-  assert.match(nav, /min-h-9/);
+  // The drag readout floats over the plot's headroom; a reserved lane sat
+  // empty whenever nobody dragged, which put 36px of nothing under the title.
+  assert.match(nav, /pointer-events-none absolute inset-x-0/);
+  assert.doesNotMatch(nav, /min-h-9/);
   /*
    * Some headroom above the top tick, so the line never kisses it, and
    * not so much that the plot opens on a band of empty glass: `niceScale`
@@ -2769,7 +2772,7 @@ run("movers are compact tiles, not a stretched table or sparkline", () => {
   assert.doesNotMatch(row, /Sparkline/);
   assert.doesNotMatch(src, /MOVER_GRID/);
   assert.doesNotMatch(row, /8\.5rem/);
-  assert.match(row, /percent\(pct/);
+  assert.match(row, /[pP]ercent\(pct/);
   // `tileMoney` is `signedCurrency` with one case in front of it: a move
   // that rounds away says "Under $1" rather than "$0", which on a tile
   // reads as a figure that failed to load.
@@ -2850,7 +2853,7 @@ run("weakening trend names the 40-week average and the slope", () => {
   assert.ok(trend!.detail.length >= 2);
   const blob = trend!.detail.join(" ");
   assert.match(blob, /40-week/);
-  assert.match(blob, /↓/);
+  assert.match(blob, /down 1\.2%/);
   assert.match(blob, /8 weeks/);
   assert.match(blob, /45\.20|\$45/);
   for (const s of story.signals) {
@@ -3462,14 +3465,15 @@ run("the recent Pulse and briefing bugs stay gone", () => {
     join(process.cwd(), "src/components/ScenarioSimulator.tsx"),
     "utf8"
   );
-  assert.match(sim, /FluidTable/);
-  assert.match(sim, /tableCols\(5,/);
+  // One ranked list of bars, worst first, rather than a table and a card
+  // list restating the same eight holdings.
+  assert.match(sim, /data-damage-row/);
   assert.doesNotMatch(sim, /htmlTable/);
   assert.doesNotMatch(sim, /min-w-\[40rem\]/);
   assert.doesNotMatch(sim, /Price now/);
   assert.doesNotMatch(sim, /Value now/);
-  assert.match(sim, /<Stat/);
-  assert.match(sim, /label="Portfolio after this"/);
+  assert.doesNotMatch(sim, /title="Every holding"/);
+  assert.match(sim, /Portfolio after this/);
   /*
     A holding used to open a drawer of its own. It is gone, and a press on
     one goes to the company's own room, where this panel says what the
