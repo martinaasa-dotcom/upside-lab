@@ -123,7 +123,7 @@ export function wrapEmailLetter(input: {
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%">
               <tr>
                 <td style="vertical-align:middle">${lockup}</td>
-                <td style="vertical-align:middle;text-align:right;font-family:${EMAIL.sans};font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:${EMAIL.muted}">${escapeEmail(input.dateLine ?? "")}</td>
+                <td style="vertical-align:middle;text-align:right;white-space:nowrap;font-family:${EMAIL.sans};font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${EMAIL.muted}">${escapeEmail(input.dateLine ?? "")}</td>
               </tr>
             </table>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:18px 0 0 0">

@@ -250,7 +250,7 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
   const opening: string[] = [];
   if (r.quiet) {
     opening.push(
-      `Your portfolio finished ${signedMoney(r.weekDollar)} this week, which is close enough to flat that it barely counts as news.${per100}`
+      `Your portfolio finished ${r.weekDollar < 0 ? "down" : "up"} ${bareMoney(r.weekDollar)} this week, which is close enough to flat that it barely counts as news.${per100}`
     );
   } else {
     opening.push(
@@ -448,7 +448,7 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
         against.push(
           only
             ? `${winnerTag} ${verb} ${bare(biggest)}.`
-            : `${winnerTag} moved the most among them, ${dirWord(winner.pct)} ${bare(biggest)}, an average of ${bare(avg)} across the ${count(otherCount)} ${companies}.`
+            : `Of the ${other}${count(otherCount)} ${companies}, ${winnerTag} ${verb} the most, ${bare(biggest)}, and they ${verb} ${bare(avg)} on average.`
         );
       } else if (oneWay) {
         against.push(
@@ -656,10 +656,13 @@ function closingThought(r: WeeklyLetter): string | null {
           : bothWays
             ? "the rest of what you own went both ways"
             : "no other company you own came close to it in money";
-    // Not the ticker again: the paragraph above has just named it, and a
-    // letter that says one company twice reads as a letter with one idea.
+    // Not the ticker again: the first paragraph named it, and a letter that
+    // says one company twice reads as a letter with one idea. "That single
+    // company" was the old wording, and by this paragraph two other
+    // companies and a watchlist had been named since, so it pointed at
+    // nobody in particular. "One company's week" needs no antecedent.
     bits.push(
-      `This week came down to that single company rather than a move across the market, since ${restDid}.`
+      `So this was one company's week rather than the market's, since ${restDid}.`
     );
   } else {
     bits.push(
@@ -686,7 +689,7 @@ function closingThought(r: WeeklyLetter): string | null {
     if (broad) {
       bits.push(
         fell
-          ? `A fall this size across almost everything you own is what an ordinary bad week in the market looks like, and they come round regularly. On its own it says nothing about any of these companies.`
+          ? `A fall this size across almost everything you own is what an ordinary bad week in the market looks like, and those come round regularly.`
           : `A rise this size across almost everything you own is the market having a good week, and breadth like that works the same way when it has a bad one.`
       );
     } else {
@@ -721,7 +724,7 @@ function closingThought(r: WeeklyLetter): string | null {
     nearFlat
       ? `Pulse is there for the week one of them does something.`
       : concentrated
-        ? `Pulse will tell you whether that was news about the business or the market carrying it, one company at a time.`
+        ? `Pulse can check whether that was news about the business or the market carrying it, one company at a time.`
         : broad
           ? `If you want it company by company rather than as one number, Pulse checks each of them against the reason you own it.`
           : `Pulse has the same check for each company, one at a time, whenever you want to see which of these was news about the business and which was the market.`

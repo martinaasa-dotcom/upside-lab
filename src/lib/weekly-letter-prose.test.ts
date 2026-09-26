@@ -201,7 +201,7 @@ describe("the letter ends on what the week amounted to", () => {
 
   it("reads a week one company caused as that company", () => {
     const last = fallbackWeeklyTake(letterOf(NARROW)).split(/\n{2,}/).at(-1) as string;
-    expect(last).toMatch(/came down to that single company/);
+    expect(last).toMatch(/one company's week rather than the market's/);
   });
 
   it("puts a big week in proportion using the reader's own holdings", () => {

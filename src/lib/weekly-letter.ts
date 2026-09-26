@@ -418,30 +418,45 @@ export function buildWatchRows(input: WeeklyLetterInput): WeeklyWatchRow[] {
       price,
       pct,
       dipped: pct <= WATCH_DIP_PCT,
-      line: `${cashtag(ticker)} is ${signedPct(pct)} on the week, at ${priceMoney(price)}.`,
+      line: `${cashtag(ticker)} ${pct >= 0 ? "rose" : "fell"} ${signedPct(Math.abs(pct)).replace(/^\+/, "")} this week, to ${priceMoney(price)}.`,
     });
   }
   out.sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
   return out.slice(0, 5).sort((a, b) => b.pct - a.pct);
 }
 
+/**
+ * The day a report lands, as a person says it: "tomorrow", "on Wednesday",
+ * and a date only past the coming week. "In 3 days" made the reader count
+ * from a Sunday they may be reading on Monday.
+ */
+function reportDay(e: EarningsEvent): string {
+  if (e.days === 0) return "today";
+  if (e.days === 1) return "tomorrow";
+  const d = new Date(`${e.date.slice(0, 10)}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return `in ${e.days} days`;
+  const opts: Intl.DateTimeFormatOptions =
+    e.days <= 6
+      ? { weekday: "long", timeZone: "UTC" }
+      : { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" };
+  return `on ${new Intl.DateTimeFormat("en-GB", opts).format(d)}`;
+}
+
 function weekAheadFor(
   earnings: EarningsEvent[],
-  interesting: Set<string>
+  interesting: Set<string>,
+  held: Set<string>
 ): string[] {
   return earnings
     .filter((e) => e.days >= 0 && e.days <= 8 && interesting.has(e.ticker.toUpperCase()))
     .sort((a, b) => a.days - b.days)
     .slice(0, 4)
     .map((e) => {
-      const when =
-        e.days === 0
-          ? "today"
-          : e.days === 1
-            ? "tomorrow"
-            : `in ${e.days} days`;
-      const hedge = e.dateIsEstimate ? " (date not confirmed yet)" : "";
-      return `${cashtag(e.ticker)} reports ${when}${hedge}.`;
+      // A company on the watchlist is said to be one, or the line reads as
+      // though the reader owned it.
+      const watched = held.has(e.ticker.toUpperCase()) ? "" : ", from your watchlist,";
+      const hedge = e.dateIsEstimate ? ", though the date is not confirmed yet" : "";
+      return `${cashtag(e.ticker)}${watched} reports its results ${reportDay(e)}${hedge}.`;
     });
 }
 
@@ -451,14 +466,29 @@ function openingLine(input: {
   movers: WeeklyMover[];
   quiet: boolean;
 }): string {
-  if (input.quiet) return "A quiet week. Nothing much moved either way.";
-  const best = input.movers.find((m) => m.pct > 0);
-  const worst = [...input.movers].reverse().find((m) => m.pct < 0);
+  if (input.quiet) return "Nothing much moved either way.";
+  /*
+   * "Did most of the work" is a claim about money, so it is picked by
+   * dollars in the week's own direction and only said when that company
+   * really carried half of it. The top percentage was the old pick, which
+   * handed the credit to a small holding up 20% that moved $10.
+   */
+  const way = Math.sign(input.weekDollar);
+  const byDollar = [...input.movers].sort(
+    (a, b) => Math.abs(b.dollar) - Math.abs(a.dollar)
+  );
+  const lead = byDollar.find((m) => way !== 0 && Math.sign(m.dollar) === way);
+  const against = byDollar.find((m) => way !== 0 && Math.sign(m.dollar) === -way);
   const bits: string[] = [];
-  if (best) bits.push(`${cashtag(best.ticker)} did most of the work`);
-  if (worst && worst.ticker !== best?.ticker) {
-    bits.push(`${cashtag(worst.ticker)} went the other way`);
+  if (lead) {
+    const most = Math.abs(lead.dollar) >= Math.abs(input.weekDollar) * 0.5;
+    bits.push(
+      `${cashtag(lead.ticker)} ${
+        most ? (way < 0 ? "did most of the damage" : "did most of the work") : "moved the most money"
+      }`
+    );
   }
+  if (against) bits.push(`${cashtag(against.ticker)} went the other way`);
   if (bits.length === 0) return "A quiet week.";
   return `${bits.join(", and ")}.`;
 }
@@ -638,7 +668,11 @@ export function buildWeeklyLetter(input: WeeklyLetterInput): WeeklyLetter {
       .map((p) => ({ ticker: p.ticker, weight: p.weight })),
     suggestions: buildSuggestions(positions, input.conviction, input.quotes),
     watchRows: buildWatchRows(input),
-    weekAhead: weekAheadFor(earnings, interesting),
+    weekAhead: weekAheadFor(
+      earnings,
+      interesting,
+      new Set(positions.map((p) => p.ticker))
+    ),
     margus: null,
   };
 }
@@ -670,7 +704,7 @@ export function weeklyPreview(r: WeeklyLetter): string {
 
 const ACTION_WORD: Record<SuggestionKind, string> = {
   add: actionLabel("add"),
-  trim: "Above recent range or a large share",
+  trim: "Above its range, or a large share",
   sell: actionLabel("sell"),
 };
 
@@ -695,11 +729,24 @@ export type WeeklySuggestionGroup = {
 export function groupSuggestions(
   items: WeeklySuggestion[]
 ): WeeklySuggestionGroup[] {
-  return SUGGESTION_ORDER.map((kind) => ({
-    kind,
-    title: ACTION_WORD[kind],
-    items: items.filter((s) => s.kind === kind),
-  })).filter((group) => group.items.length > 0);
+  return SUGGESTION_ORDER.map((kind) => {
+    const inKind = items.filter((s) => s.kind === kind);
+    /*
+     * A trim is one of two different facts: Pulse saw the price above its
+     * range, or the holding is simply a large share. The heading names the
+     * one the cards under it actually carry, since "Above recent range or
+     * a large share" over a single size fact read as a form label.
+     */
+    const title =
+      kind !== "trim"
+        ? ACTION_WORD[kind]
+        : inKind.every((s) => s.source === "size")
+          ? "A large share of what you own"
+          : inKind.every((s) => s.source !== "size")
+            ? actionLabel("trim")
+            : ACTION_WORD.trim;
+    return { kind, title, items: inKind };
+  }).filter((group) => group.items.length > 0);
 }
 
 export function weeklyLetterText(r: WeeklyLetter): string {
@@ -760,6 +807,15 @@ export function weeklyLetterText(r: WeeklyLetter): string {
  * had the rows drifting apart down the page.
  */
 const ROW_PAD = 10;
+/*
+ * The name and figure columns are the same fixed width in What moved and on
+ * the watchlist, so the two tables' bars start and end on one line. Left to
+ * size themselves, each table took its own longest ticker and the zero
+ * lines sat 9px apart, which reads as two tables that do not belong
+ * together.
+ */
+const NAME_COL = 84;
+const FIGURE_COL = 70;
 /** The same idea inside a card, where the type is larger. */
 const CARD_ROW_PAD = 13;
 
@@ -852,19 +908,19 @@ function moversTable(movers: WeeklyMover[]): string {
       const border =
         i === movers.length - 1 ? "none" : `1px solid ${EMAIL.line}`;
       return `<tr>
-  <td style="padding:${ROW_PAD}px 10px ${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle">
+  <td width="${NAME_COL}" style="width:${NAME_COL}px;padding:${ROW_PAD}px 10px ${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;white-space:nowrap">
     <p style="margin:0;font-family:${EMAIL.sans};font-size:15px;line-height:1.25;font-weight:600;color:${EMAIL.cream}">${escapeEmail(cashtag(m.ticker))}</p>
     <p style="margin:2px 0 0 0;font-family:${EMAIL.mono};font-size:13px;line-height:1.25;color:${EMAIL.muted}">${escapeEmail(priceMoney(m.price))}</p>
   </td>
-  <td width="100%" style="padding:${ROW_PAD}px 14px;border-bottom:${border};vertical-align:middle">${moveBar(m.pct, maxAbs)}</td>
-  <td style="padding:${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;text-align:right;white-space:nowrap">
+  <td style="padding:${ROW_PAD}px 14px;border-bottom:${border};vertical-align:middle">${moveBar(m.pct, maxAbs)}</td>
+  <td width="${FIGURE_COL}" style="width:${FIGURE_COL}px;padding:${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;text-align:right;white-space:nowrap">
     <p style="margin:0;font-family:${EMAIL.mono};font-size:15px;line-height:1.25;font-weight:600;color:${c}">${escapeEmail(signedPct(m.pct))}</p>
     <p style="margin:2px 0 0 0;font-family:${EMAIL.mono};font-size:13px;line-height:1.25;color:${c}">${escapeEmail(signedMoney(m.dollar))}</p>
   </td>
 </tr>`;
     })
     .join("");
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%">${rows}</table>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;table-layout:fixed">${rows}</table>`;
 }
 
 const SUGGESTION_TONE: Record<SuggestionKind, string> = {
@@ -919,18 +975,18 @@ function watchList(items: WeeklyWatchRow[]): string {
       const border = i === items.length - 1 ? "none" : `1px solid ${EMAIL.line}`;
       const tone = toneColor(w.pct);
       return `<tr>
-  <td style="padding:${ROW_PAD}px 10px ${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;white-space:nowrap">
+  <td width="${NAME_COL}" style="width:${NAME_COL}px;padding:${ROW_PAD}px 10px ${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;white-space:nowrap">
     <p style="margin:0;font-family:${EMAIL.sans};font-size:15px;line-height:1.25;font-weight:600;color:${EMAIL.cream}">${escapeEmail(cashtag(w.ticker))}</p>
     <p style="margin:2px 0 0 0;font-family:${EMAIL.mono};font-size:13px;line-height:1.25;color:${EMAIL.muted}">${escapeEmail(priceMoney(w.price))}</p>
   </td>
-  <td width="100%" style="padding:${ROW_PAD}px 14px;border-bottom:${border};vertical-align:middle">${moveBar(w.pct, maxAbs)}</td>
-  <td style="padding:${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;text-align:right;white-space:nowrap">
+  <td style="padding:${ROW_PAD}px 14px;border-bottom:${border};vertical-align:middle">${moveBar(w.pct, maxAbs)}</td>
+  <td width="${FIGURE_COL}" style="width:${FIGURE_COL}px;padding:${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;text-align:right;white-space:nowrap">
     <p style="margin:0;font-family:${EMAIL.mono};font-size:15px;line-height:1.25;font-weight:600;color:${tone}">${escapeEmail(signedPct(w.pct))}</p>
   </td>
 </tr>`;
     })
     .join("");
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%">${rows}</table>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;table-layout:fixed">${rows}</table>`;
 }
 
 function aheadList(lines: string[]): string {
@@ -958,14 +1014,21 @@ function margusHtml(text: string): string {
   return paras;
 }
 
-/** The week's figure, its percent, and what it is a percent of. */
+/**
+ * The week's figure, its percent, and what it is a percent of.
+ *
+ * The figure is in the sentence face with even-width digits rather than in
+ * mono: a monospace comma is a full cell wide, and at display size
+ * "-$3,630" read as "-$3 ,630". The app's own hero figure made the same
+ * move for the same reason (`.figure-hero`).
+ */
 function heroFigure(r: WeeklyLetter, companies: string): string {
   const weekColor = toneColor(r.weekDollar);
   return `${kicker("Your week")}${gap(14)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%">
   <tr>
     <td style="vertical-align:bottom">
-      <p style="margin:0;font-family:${EMAIL.mono};font-size:38px;line-height:1.05;font-weight:700;letter-spacing:-0.02em;color:${weekColor}">${escapeEmail(signedMoney(r.weekDollar))}</p>
+      <p style="margin:0;font-family:${EMAIL.sans};font-size:40px;line-height:1.05;font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:${weekColor}">${escapeEmail(signedMoney(r.weekDollar))}</p>
     </td>${
       r.weekPct != null
         ? `
@@ -1025,7 +1088,9 @@ export function weeklyLetterHtml(
   return wrapEmailLetter({
     title: "Your week",
     preview: weeklyPreview(r),
-    dateLine: r.dateLine,
+    // The letter always arrives on a Sunday, so the masthead drops the
+    // weekday: "SUNDAY 27 SEPTEMBER" wrapped to two lines on a phone.
+    dateLine: r.dateLine.replace(/^[A-Za-z]+,?\s+/, ""),
     hideOpener: true,
     // The lockup and the date share one line, with a hairline under them,
     // so the top of the letter is a masthead rather than two small things
