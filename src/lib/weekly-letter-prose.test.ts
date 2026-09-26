@@ -261,13 +261,14 @@ describe("a small portfolio gets English, not counts", () => {
     const take = fallbackWeeklyTake(letterOf(TWO));
     expect(take).not.toMatch(/largest of the other one/);
     expect(take).not.toMatch(/\bThe other one\b/);
-    expect(take).toMatch(/\$SOFI rose 2\.6%\./);
+    // Its everyday name, now that the fallback knows one (company-names.ts).
+    expect(take).toMatch(/SoFi rose 2\.6%\./);
   });
 
   it("does not call a single watched name everything on the watchlist", () => {
     const take = fallbackWeeklyTake(letterOf(TWO, [["ONDS", 3.9, -0.082]]));
     expect(take).not.toMatch(/Everything on your watchlist/);
-    expect(take).toMatch(/The one name on your watchlist, \$ONDS, finished 8\.2% lower\./);
+    expect(take).toMatch(/The one company on your watchlist, \$ONDS, finished 8\.2% lower\./);
     expect(take).toMatch(/You do not own it\./);
   });
 
@@ -412,5 +413,18 @@ describe("the model gets more than one go", () => {
     const spy = stubModel(["too short."]);
     await writeWeeklyTake(letterOf(BOOK, WATCH), { budgetMs: 1 });
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("the letter's own vocabulary", () => {
+  it("puts stocks and names back to companies, and leaves the stock market alone", async () => {
+    const { letterVocabulary } = await import("@/lib/weekly-margus");
+    expect(letterVocabulary("Those two stocks offset part of it.")).toBe(
+      "Those two companies offset part of it."
+    );
+    expect(letterVocabulary("The other names stayed flat.")).toBe(
+      "The other companies stayed flat."
+    );
+    expect(letterVocabulary("The stock market fell.")).toBe("The stock market fell.");
   });
 });

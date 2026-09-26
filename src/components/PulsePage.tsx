@@ -617,7 +617,8 @@ function PulseCard({
                   amount: signedCurrency(dayDollar),
                 }}
               >
-                Today
+                {/* The same day word the move above carries. */}
+                {c.moveLabel === "Friday" ? "Friday" : "Today"}
               </TermTip>
             }
             valueClassName={signedTone(dayDollar, "text-foreground")}

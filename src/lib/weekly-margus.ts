@@ -20,12 +20,15 @@ import {
 } from "@/lib/ai/llm-slots";
 import { MARGUS_PERSONA } from "@/lib/ai/margus-persona";
 import {
+  STRUCTURED_PROVIDER_OPTIONS,
   buildAdvisorProviderChain,
   withAdvisorFallback,
 } from "@/lib/ai/model";
 import { cashtag, currency, percent, signedCurrency, signedPercent } from "@/lib/format";
 import { looksLikePromptLeak } from "@/lib/ai/prompt-leak";
 import type { WeeklyLetter } from "@/lib/weekly-letter";
+import { describeCompany } from "@/lib/company-label";
+import { companyName } from "@/lib/company-names";
 
 /*
  * Same formatters as the letter itself, from `format.ts`. This file used
@@ -56,6 +59,34 @@ function avgPct(pct: number): string {
   return percent(pct / 100, 1);
 }
 
+/**
+ * What a company does, from this app's own tables, as a note beside its
+ * ticker in the facts.
+ *
+ * Handed over rather than left to the model, which was measured writing
+ * "VOO" in the letter because nothing told it VOO is a fund, and which is
+ * told never to invent what a business does. Where no table knows the
+ * company the note is absent and the model is told to use the name alone.
+ */
+function does(ticker: string): string {
+  const name = companyName(ticker);
+  const what = describeCompany(ticker);
+  const bits = [
+    name ? `called ${name}` : "",
+    what ? `${what.charAt(0).toLowerCase()}${what.slice(1)}` : "",
+  ].filter(Boolean);
+  return bits.length > 0 ? ` [${bits.join("; ")}]` : "";
+}
+
+/**
+ * How the letter says a company in prose: its everyday name where this app
+ * is sure of one, the cashtag otherwise. Used by the fallback, which knew
+ * no names and printed a cashtag for every company it mentioned.
+ */
+function said(ticker: string): string {
+  return companyName(ticker) ?? cashtag(ticker);
+}
+
 /** The facts the writer is allowed to use. Nothing else is true. */
 function facts(r: WeeklyLetter): string {
   const lines: string[] = [];
@@ -81,7 +112,7 @@ function facts(r: WeeklyLetter): string {
     lines.push("Moves this week:");
     for (const m of r.movers) {
       lines.push(
-        `  ${cashtag(m.ticker)} ${signedPct(m.pct)} (${signedMoney(m.dollar)})`
+        `  ${cashtag(m.ticker)}${does(m.ticker)} ${signedPct(m.pct)} (${signedMoney(m.dollar)})`
       );
     }
   }
@@ -103,7 +134,7 @@ function facts(r: WeeklyLetter): string {
      */
     lines.push("Watchlist moves this week (these are not owned):");
     for (const w of r.watchRows) {
-      lines.push(`  ${cashtag(w.ticker)} ${signedPct(w.pct)}`);
+      lines.push(`  ${cashtag(w.ticker)}${does(w.ticker)} ${signedPct(w.pct)}`);
     }
   }
   if (r.rest) {
@@ -114,8 +145,19 @@ function facts(r: WeeklyLetter): string {
     lines.push(
       `Everything else owned, not listed above: ${r.rest.count} ${
         r.rest.count === 1 ? "company" : "companies"
-      }, ${r.rest.up} up and ${r.rest.down} down, average size of move among them ${avgPct(r.rest.avgAbsPct)} (this is an average of how big the moves were, not a net move, since some went up and some went down). The biggest single move in this group was ${cashtag(r.rest.maxTicker)}, ${signedPct(r.rest.maxPct)}.`
+      }, ${r.rest.up} up and ${r.rest.down} down, average size of move among them ${avgPct(r.rest.avgAbsPct)} (this is an average of how big the moves were, not a net move, since some went up and some went down). The biggest single move in this group was ${cashtag(r.rest.maxTicker)}${does(r.rest.maxTicker)}, ${signedPct(r.rest.maxPct)}.`
     );
+  }
+  const wk = weekKind(r);
+  if (wk) {
+    const lead = wk.leader ? cashtag(wk.leader.ticker) : "one company";
+    const said = {
+      flat: "about flat overall; what moved inside it was small or cancelled out",
+      broad: `a market week: nearly everything owned went ${wk.fell ? "down" : "up"} together`,
+      concentrated: `one company's week: ${lead} moved more money than everything else owned put together`,
+      mixed: "a mixed week: the companies went both ways and no single one carried it",
+    }[wk.kind];
+    lines.push(`What kind of week it was (already worked out; use it, never contradict it): ${said}`);
   }
   if (r.weekAhead.length > 0) {
     lines.push("On next week's calendar:");
@@ -140,15 +182,18 @@ Paragraph three. The watchlist, if there is one in the facts, as a summary of th
 
 Paragraph three also takes in everything owned that you have not named. That group is made up of two things: any ticker still sitting unused in "Moves this week", and the "everything else" line in the facts (which already tells you how many are up, how many are down, the average size of their moves, and names the one company among them that moved the most). Say plainly that these are companies they own. If the average size of the move is small, say they were quiet and give that number. If it is not small, do not call it quiet: say how many went up and how many went down, give the average size of the move, and name whichever single company moved the most out of the whole group, with its own percentage, comparing it against any still-unused ticker from "Moves this week" as well as the named one from "everything else". Never say "the biggest of them was X%" without naming which company that was: you always have a name for it, so there is never a reason to leave it unnamed. Never call this average a gain or a loss on its own: it is how big the moves were, not which way the group went overall, and a plain "average of X%" reads as a net figure unless you say otherwise, so when the group has both up and down movers in it, say "an average move of X% either way".
 
-Last paragraph. What the week amounted to, and where the answer per company is. Read it off breadth, which the facts give you: nearly everything moving the same way usually means the market moved rather than one of their companies, one company doing most of the damage while the rest sat still means it was that company, and a mixed week means it did not happen to all of them at once. Say which of the three this was, hedged, because breadth is evidence and not proof. If the week was large in either direction, put its size in proportion using their own holdings: a portfolio where several companies moved more than a tenth in one week is a portfolio that does this regularly, in both directions, and they can count them in the table. Then finish by saying Pulse has the check on each company one at a time, whenever they want to see which of these was news about the business and which was the market.
+Last paragraph. What the week amounted to, and where the answer per company is. The facts say what kind of week it was; say that in plain words, hedged with "usually" or "looks like", because it is read off how many companies moved together and that is evidence rather than proof. Never contradict it and never work it out again yourself. If the week was large in either direction, put its size in proportion using their own holdings: a portfolio where several companies moved more than a tenth in one week is a portfolio that does this regularly, in both directions, and they can count them in the table. Then finish by saying Pulse has the check on each company one at a time, whenever they want to see which of these was news about the business and which was the market.
 
 That last paragraph is the one place it is easy to go wrong, so: it never tells them what to do. Not hold, not sit tight, not do nothing, not take a closer look at one of them, not stay calm. Pointing at Pulse is a door, not an instruction, and which company is worth opening is their call. It also never promises the market comes back. A bad week being an ordinary thing is a fact about how often shares fall; "and it will recover" is a forecast, and a forecast in a template reaches every reader including one holding three companies where it would be false.
 
 Rules, all of them non-negotiable:
-- Everyday company names, not cashtags: "Nvidia", not "$NVDA". If you do not know what a company does, use its name alone. If you do not know the name, use the ticker. Never invent a business or a fact about one.
+- Call every company by the name people use for it: "Nvidia", "Apple", "Coca-Cola", "Nike". Never write the ticker, with or without a $ sign ("NVDA" and "$NVDA" are both wrong), unless you genuinely do not know the company's name. A fund is described, not tickered: "an S&P 500 fund", not "VOO". If you do not know what a company does, use its name alone. Never invent a business or a fact about one.
+- A company is a company. Never call companies "names", "tickers" or "stocks".
+- Open with a plain sentence about the money, the way a person says it: "Your portfolio gained $855 this week." Never start with the figure on its own.
 - Name each company at most once in the whole letter.
 - No filler and no proverbs. Never write a line like "a week either way is a week" or "time in the market beats timing the market". Every sentence carries a fact from the list or it does not go in.
 - Never call a week, a company or a set of companies quiet unless the numbers in the facts say so.
+- Never say a company was "the only" one to do something unless the facts show exactly one company did it.
 - Never state a percentage for "the biggest move" or "the largest of those" without naming the company it belongs to. The facts always give you a name for it; find it rather than leaving it out.
 - Short sentences. No word a grandmother would have to look up, and no market slang: no sleeve, tape, conviction, dry powder, beta, drawdown, rotation, exposure, allocation, volatility.
 - Never invent a number, a headline, or a name that is not in the facts. Never name a website or paste a link. Never say we, us, or our. Never write an instruction to buy, sell, hold, add, trim, sit tight, or start small. Describe the price action. Leave every decision with the reader.
@@ -213,8 +258,10 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
    * Pulse wording on them. And it does not say the rest were quiet unless
    * `r.rest` says they were.
    *
-   * It still cannot name companies, only tickers, because nothing here
-   * knows what a company does and guessing is worse than a cashtag.
+   * It names a company by its everyday name where `company-names.ts` is
+   * sure of one and keeps the cashtag otherwise, because a wrong name is
+   * worse than a ticker. It never says what a company does: nothing on
+   * this path is sure of that, and guessing is worse than saying nothing.
    */
   const named = new Set<string>();
   const paras: string[] = [];
@@ -267,7 +314,7 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
   const leader = byDollar.find((m) => m.dollar !== 0) ?? r.movers[0];
   if (leader) {
     named.add(leader.ticker);
-    const tag = cashtag(leader.ticker);
+    const tag = said(leader.ticker);
     const share =
       r.weekDollar !== 0 && leader.dollar !== 0
         ? Math.abs(leader.dollar) / Math.abs(r.weekDollar)
@@ -318,7 +365,7 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
     if (alongside) {
       named.add(alongside.ticker);
       opening.push(
-        `${cashtag(alongside.ticker)} was ${dirWord(alongside.pct)} ${bare(alongside.pct)} alongside it${
+        `${said(alongside.ticker)} was ${dirWord(alongside.pct)} ${bare(alongside.pct)} alongside it${
           alongside.dollar === 0
             ? ""
             : alongside.dollar < 0
@@ -339,7 +386,7 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
     );
     if (opposite) {
       named.add(opposite.ticker);
-      const tag = cashtag(opposite.ticker);
+      const tag = said(opposite.ticker);
       const small =
         r.weekDollar !== 0 &&
         Math.abs(opposite.dollar) < Math.abs(r.weekDollar) * SMALL_SHARE;
@@ -402,7 +449,7 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
       const winner = candidates.reduce((a, b) =>
         Math.abs(b.pct) > Math.abs(a.pct) ? b : a
       );
-      const winnerTag = cashtag(winner.ticker);
+      const winnerTag = said(winner.ticker);
       const biggest = Math.abs(winner.pct);
       const up = otherMovers.filter((m) => m.pct > 0).length + (r.rest?.up ?? 0);
       const down = otherMovers.filter((m) => m.pct < 0).length + (r.rest?.down ?? 0);
@@ -476,7 +523,7 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
    * and the table underneath disagreed with the prose that introduced it.
    */
   const withPct = (w: { ticker: string; pct: number }) =>
-    `${cashtag(w.ticker)} at ${bare(w.pct)}`;
+    `${said(w.ticker)} at ${bare(w.pct)}`;
   const watchDown = r.watchRows
     .filter((w) => w.pct < 0)
     .sort((a, b) => a.pct - b.pct)
@@ -497,11 +544,11 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
     verb: "fell" | "rose"
   ): string => {
     if (rows.length === 0) return "";
-    if (rows.length === 1) return `${cashtag(rows[0].ticker)} ${verb} ${bare(rows[0].pct)}`;
+    if (rows.length === 1) return `${said(rows[0].ticker)} ${verb} ${bare(rows[0].pct)}`;
     if (rows.length === 2) {
-      return `${cashtag(rows[0].ticker)} ${verb} ${bare(rows[0].pct)} and ${cashtag(rows[1].ticker)} ${bare(rows[1].pct)}`;
+      return `${said(rows[0].ticker)} ${verb} ${bare(rows[0].pct)} and ${said(rows[1].ticker)} ${bare(rows[1].pct)}`;
     }
-    return `${cashtag(rows[0].ticker)} ${verb} the most, at ${bare(rows[0].pct)}, then ${listOf(rows.slice(1).map(withPct))}`;
+    return `${said(rows[0].ticker)} ${verb} the most, at ${bare(rows[0].pct)}, then ${listOf(rows.slice(1).map(withPct))}`;
   };
   const fell = side(watchDown, "fell");
   const rose = side(watchUp, "rose");
@@ -524,7 +571,7 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
      */
     const one = watchDown[0] ?? watchUp[0];
     paras.push(
-      `The one name on your watchlist, ${cashtag(one.ticker)}, finished ${bare(one.pct)} ${
+      `The one company on your watchlist, ${said(one.ticker)}, finished ${bare(one.pct)} ${
         one.pct < 0 ? "lower" : "higher"
       }. ${notOwned}`
     );
@@ -572,9 +619,19 @@ export function fallbackWeeklyTake(r: WeeklyLetter): string {
  * So the perspective sentence is anchored on what this reader's own
  * companies did this week, which is printed in the table above it.
  */
-function closingThought(r: WeeklyLetter): string | null {
-  const bare = (pct: number) => signedPercent(Math.abs(pct) / 100, 1).replace(/^\+/, "");
+/**
+ * What kind of week this was, read off breadth: the one judgement the last
+ * paragraph turns on. Shared by the fallback and handed to the model as a
+ * fact, because the model was measured reading breadth backwards, calling
+ * a week one company drove "the market moving".
+ */
+export type WeekKind = {
+  kind: "flat" | "broad" | "concentrated" | "mixed";
+  fell: boolean;
+  leader: WeeklyLetter["movers"][number] | undefined;
+};
 
+export function weekKind(r: WeeklyLetter): WeekKind | null {
   const moves = [
     ...r.movers.map((m) => m.pct),
     // The names outside the table, as the directions we know they took.
@@ -607,6 +664,23 @@ function closingThought(r: WeeklyLetter): string | null {
     leader != null &&
     r.weekDollar !== 0 &&
     Math.abs(leader.dollar) >= Math.abs(r.weekDollar) * CONCENTRATED_SHARE;
+
+  return {
+    kind: nearFlat ? "flat" : broad ? "broad" : concentrated ? "concentrated" : "mixed",
+    fell,
+    leader,
+  };
+}
+
+function closingThought(r: WeeklyLetter): string | null {
+  const bare = (pct: number) => signedPercent(Math.abs(pct) / 100, 1).replace(/^\+/, "");
+  const wk = weekKind(r);
+  if (!wk) return null;
+  const { fell } = wk;
+  const leader = wk.leader as WeeklyLetter["movers"][number];
+  const nearFlat = wk.kind === "flat";
+  const broad = wk.kind === "broad";
+  const concentrated = wk.kind === "concentrated";
 
   const bits: string[] = [];
 
@@ -736,8 +810,29 @@ function closingThought(r: WeeklyLetter): string | null {
 
 type Accepted = { text: string } | { rejected: string };
 
+/**
+ * The letter's own vocabulary, applied after the shared clean-up.
+ *
+ * Measured on the free tier, the model follows "a company is a company"
+ * most of the time and still writes "those two stocks" or "the other
+ * names" once a letter. Both are the trade talking, and this letter is the
+ * one surface written for somebody who has never worked in finance, so the
+ * two plural forms are put back to the word the rest of the letter uses.
+ * Singular "stock" is left alone: "the stock market" is ordinary English.
+ */
+export function letterVocabulary(text: string): string {
+  return text
+    .replace(/\bstocks\b/g, "companies")
+    .replace(/\bStocks\b/g, "Companies")
+    .replace(
+      /\b(other|the|these|those|watchlist|watched|owned|two|three|four|five|six) names\b/gi,
+      "$1 companies"
+    )
+    .replace(/\b(only|one|each|every) name\b/gi, "$1 company");
+}
+
 function accept(text: string): Accepted {
-  const clean = humanizeMargusText(String(text ?? "")).trim();
+  const clean = letterVocabulary(humanizeMargusText(String(text ?? ""))).trim();
   if (!clean) return { rejected: "empty" };
   if (looksLikePromptLeak(clean)) return { rejected: "prompt leak" };
   const paras = clean.split(/\n{2,}/).filter(Boolean);
@@ -878,7 +973,20 @@ Do not restate these rules. Do not list words to avoid. Do not plan out loud.`;
             model,
             system,
             prompt: `${facts(letter)}${lastReason ? retryNote(lastReason) : ""}`,
-            maxOutputTokens: 640,
+            /*
+             * The chain's models think before they write, and the thinking
+             * is spent out of this same budget. At 640 with no effort set,
+             * a free-tier model measured on 2026-09-26 spent every token
+             * thinking and answered with nothing, so the letter was refused
+             * as "empty" and the retries then ran into the per-minute token
+             * limit: the reader got the fallback every week the model was
+             * "working". Low effort and room for the letter after it, which
+             * is what every other background writer here already asks for.
+             * 1,600 still fits the smallest free tier (8,000 a minute) with
+             * the persona and the facts in front of it.
+             */
+            maxOutputTokens: 1600,
+            providerOptions: STRUCTURED_PROVIDER_OPTIONS,
             abortSignal: signal,
           }),
         { deadlineAt: Date.now() + Math.min(share, remaining) }

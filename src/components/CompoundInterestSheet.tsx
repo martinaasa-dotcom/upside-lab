@@ -1611,9 +1611,15 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
               },
               {
                 label: "Doubles every",
+                /* Years as the figure and months under it: "4 years and 8
+                 * months" wrapped in a quarter of the strip even at 1280. */
                 value: Number.isFinite(result.doubleYears)
-                  ? spanText(result.doubleYears, result.doubleMonths)
+                  ? `${result.doubleYears} ${result.doubleYears === 1 ? "year" : "years"}`
                   : NO_VALUE,
+                sub:
+                  Number.isFinite(result.doubleYears) && result.doubleMonths > 0
+                    ? `and ${result.doubleMonths} ${result.doubleMonths === 1 ? "month" : "months"}`
+                    : undefined,
                 word: true,
               },
             ]}

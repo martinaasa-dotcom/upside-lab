@@ -14,6 +14,7 @@
 
 import { cashtag, currency, signedCurrency, signedPercent } from "@/lib/format";
 import { groupMoneyInText } from "@/lib/money-text";
+import { companyName } from "@/lib/company-names";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import {
   actionLabel,
@@ -483,12 +484,12 @@ function openingLine(input: {
   if (lead) {
     const most = Math.abs(lead.dollar) >= Math.abs(input.weekDollar) * 0.5;
     bits.push(
-      `${cashtag(lead.ticker)} ${
+      `${companyName(lead.ticker) ?? cashtag(lead.ticker)} ${
         most ? (way < 0 ? "did most of the damage" : "did most of the work") : "moved the most money"
       }`
     );
   }
-  if (against) bits.push(`${cashtag(against.ticker)} went the other way`);
+  if (against) bits.push(`${companyName(against.ticker) ?? cashtag(against.ticker)} went the other way`);
   if (bits.length === 0) return "A quiet week.";
   return `${bits.join(", and ")}.`;
 }
