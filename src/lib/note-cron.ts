@@ -26,7 +26,7 @@ import {
   type WeeklyLetterInput,
 } from "@/lib/weekly-letter";
 import { sanitizeWatchlist } from "@/lib/lab-bundle";
-import { writeWeeklyTake } from "@/lib/weekly-margus";
+import { writeMarketProse, writeWeeklyProse } from "@/lib/weekly-prose";
 import { noteEmailConfigured, sendNoteEmail } from "@/lib/send-note";
 import { getSupabaseServer, supabaseUsesServiceRole } from "@/lib/supabase/server";
 import { PORTFELL_TABLES } from "@/lib/supabase/tables";
@@ -43,14 +43,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  */
 const RUN_BUDGET_MS = 50_000;
 
-/** Per-recipient model budget, capped again by whatever the run has left. */
-const LETTER_BUDGET_MS = 20_000;
-
 /**
- * Below this there is no point starting another letter -- the model call
- * alone would not land, and a half-written run is worse than a resumed one.
+ * Below this there is no point starting another letter -- the send alone
+ * might not land, and a half-written run is worse than a resumed one. The
+ * letter is written from the numbers with no model call, so this only has
+ * to cover the claim and the send.
  */
-const MIN_LETTER_MS = 8_000;
+const MIN_LETTER_MS = 5_000;
+
+/** The S&P 500 fund whose week the letter sets the reader's against. */
+const MARKET_TICKER = "SPY";
 
 type BookRow = {
   id: string;
@@ -445,15 +447,6 @@ export async function dispatchWeeklyLetters(
   let skipped = optedIn - pending.length;
   let sent = 0;
   let untrusted = 0;
-  /*
-   * Which of the two writers produced each letter. The fallback is meant
-   * to be the rare case, and until this counted them nothing distinguished
-   * a Sunday the model wrote from one where every reader got the plainest
-   * prose the product has.
-   */
-  let modelTakes = 0;
-  let fallbackTakes = 0;
-  const fallbackReasons = new Map<string, number>();
 
   // ---- One batched read per table, not one per recipient. ----------------
   //
@@ -597,8 +590,12 @@ export async function dispatchWeeklyLetters(
     allTickers.length > 0
       ? (await fetchQuotesWithFallback(allTickers)).quotes
       : {};
+  // The index rides on the same walk as everybody's holdings, so "you or
+  // the market" costs one more chart request per run, not one per reader.
   const allWeekReturns =
-    allTickers.length > 0 ? await fetchWeekReturns(allTickers) : undefined;
+    allTickers.length > 0
+      ? await fetchWeekReturns([...allTickers, MARKET_TICKER])
+      : undefined;
   const allEarnings =
     allTickers.length > 0
       ? (await fetchMarketEvents(allTickers)).earnings
@@ -680,6 +677,7 @@ export async function dispatchWeeklyLetters(
       watchlist: item.watchlist,
       watchQuotes: pick(allQuotes, item.watchlist) ?? {},
       watchWeekReturns: pick(allWeekReturns, item.watchlist),
+      marketWeek: allWeekReturns?.[MARKET_TICKER],
     };
 
     /*
@@ -717,17 +715,11 @@ export async function dispatchWeeklyLetters(
     }
 
     const letter = buildWeeklyLetter(input);
-    letter.margus = await writeWeeklyTake(letter, {
-      budgetMs: Math.min(LETTER_BUDGET_MS, left),
-      onOutcome: ({ source, reason }) => {
-        if (source === "model") {
-          modelTakes += 1;
-          return;
-        }
-        fallbackTakes += 1;
-        fallbackReasons.set(reason, (fallbackReasons.get(reason) ?? 0) + 1);
-      },
-    });
+    // Written from the numbers alone. No model touches this letter: one
+    // named companies the reader never owned and invented one that does not
+    // exist, and a template cannot.
+    letter.prose = writeWeeklyProse(letter);
+    letter.marketProse = writeMarketProse(letter);
     /*
       A link that stops the letter by itself, signed for the profile whose
       letter this is. The mailbox can belong to more than one profile; the
@@ -775,55 +767,6 @@ export async function dispatchWeeklyLetters(
    * and the daily error digest rather than only in a log stream nobody
    * reads; anything smaller stays a warning event.
    */
-  /*
-   * A Sunday where the model wrote few or none of the letters.
-   *
-   * `fallbackWeeklyTake` exists so the letter always ships, and the fallback
-   * prose is good enough that a week of it is not itself an incident -- the
-   * free-tier chain contending with Pulse for the shared background slot,
-   * or a provider throttling mid-run, is ordinary life for a job that can
-   * ask for a dozen letters in fifty seconds. Alarming a human about that
-   * every single week trained the one person reading these mails to stop
-   * opening them, which is worse than the fallback it was warning about.
-   *
-   * So this is a warning event, not an error: it reaches Vercel's log
-   * stream (searchable, if anyone goes looking for why a given Sunday
-   * leaned on the fallback) but not /admin or the daily digest, and the
-   * reason counts travel with it so the dominant one is legible without
-   * re-deriving it from portfell_error_log's context column, which nothing
-   * renders.
-   *
-   * One reason is not ordinary contention: "no model provider is
-   * configured" means the whole chain is empty, which is a standing
-   * misconfiguration rather than a busy morning, would silently degrade
-   * every other model-touching feature too, and does not fix itself by
-   * waiting. That one alone still goes through logError.
-   */
-  if (fallbackTakes > 0) {
-    const reasons = Object.fromEntries(fallbackReasons);
-    const reasonSummary = [...fallbackReasons.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([reason, count]) => `${reason} (${count})`)
-      .join("; ");
-    const chainEmpty =
-      fallbackReasons.get("no model provider is configured") === fallbackTakes;
-    if (chainEmpty) {
-      await logError({
-        source: "server",
-        message: `Sunday letter: no model provider is configured, so all ${fallbackTakes} letters in this run got the fallback prose.`,
-        path: "/api/cron/sunday-note",
-        event: "sunday_letter_no_provider",
-        context: { fallbackTakes, modelTakes, reasons },
-      });
-    } else {
-      logEvent(
-        "sunday_letter_fallback_rate",
-        { fallbackTakes, modelTakes, reasonSummary, reasons },
-        "warn"
-      );
-    }
-  }
-
   if (untrusted > 0) {
     const attempted = pending.length;
     if (untrusted >= 2 && untrusted / Math.max(1, attempted) >= 0.25) {

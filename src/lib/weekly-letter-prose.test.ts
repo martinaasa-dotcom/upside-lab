@@ -1,430 +1,281 @@
 /**
- * How the Sunday letter reads, as opposed to what it adds up to.
+ * How the Sunday letter reads, and the one thing it may never get wrong:
+ * which companies are the reader's.
  *
- * Four complaints from a real letter are pinned here, all of them in the
- * prose the fallback writer produces when the model cannot be reached:
- *
- *  - it closed a paragraph on a proverb ("a week either way is a week"),
- *    which carried no fact and read as filler;
- *  - it printed a "standout fact" about whichever suggestion came first,
- *    which in practice was the biggest holding, every week;
- *  - it named one watchlist faller and stopped, while the table directly
- *    underneath showed two more;
- *  - it ended "the rest of your companies were quiet" whatever the numbers
- *    said, with a holding up 10% sitting in that same table.
+ * A model wrote these paragraphs until 2026-09-27 and, on a real letter,
+ * named Amazon to somebody who has never owned it, turned Micron into a
+ * company called "Murrow" that does not exist, and described Rocket Lab as
+ * a company "which rockets and spacecraft". The prose is templates filled
+ * from the reader's own holdings now, and these tests hold that from both
+ * ends: the words on real-shaped letters, and a sweep over thousands of
+ * random portfolios asserting every company named is one the reader owns
+ * or watches.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildWeeklyLetter, type WeeklyLetterInput } from "@/lib/weekly-letter";
-import { fallbackWeeklyTake, writeWeeklyTake } from "@/lib/weekly-margus";
-import * as model from "@/lib/ai/model";
-import { buildAdvisorProviderChain } from "@/lib/ai/model";
+import {
+  letterTickers,
+  marketParagraph,
+  proseNamesAreHeld,
+  writeMarketProse,
+  writeWeeklyProse,
+} from "@/lib/weekly-prose";
+import { companyName, knownCompanyNames } from "@/lib/company-names";
 
-/**
- * Every key that can put a leg in the advisor chain. A test that means
- * "no model provider" has to clear all of them, and one that stubs a
- * single provider has to blank the rest, or the machine's own environment
- * decides what the chain looks like.
- */
-const PROVIDER_KEYS = [
-  "OPENROUTER_API_KEY",
-  "GROQ_API_KEY",
-  "NVIDIA_API_KEY",
-  "CEREBRAS_API_KEY",
-  "OPENAI_API_KEY",
-] as const;
-
-const NOW = new Date("2026-09-06T05:00:00Z");
+const NOW = new Date("2026-09-27T05:00:00Z");
 
 type Row = [ticker: string, shares: number, price: number, start: number];
+type Watch = [ticker: string, price: number, pct: number];
 
-function letterOf(rows: Row[], watch: [string, number, number][] = []) {
-  const input: WeeklyLetterInput = {
+function inputOf(rows: Row[], watch: Watch[] = [], marketPct?: number): WeeklyLetterInput {
+  return {
     name: "Martin",
     cash: 0,
     holdings: rows.map(([ticker, shares]) => ({ ticker, shares, buy_price: 1 })),
-    quotes: Object.fromEntries(
-      rows.map(([t, , price]) => [t, { price }])
-    ) as never,
+    quotes: Object.fromEntries(rows.map(([t, , price]) => [t, { price }])) as never,
     weekReturns: Object.fromEntries(
       rows.map(([t, , price, start]) => [t, { start, end: price, pct: price / start - 1 }])
     ),
     watchlist: watch.map((w) => w[0]),
-    watchQuotes: Object.fromEntries(
-      watch.map(([t, price]) => [t, { price }])
-    ) as never,
+    watchQuotes: Object.fromEntries(watch.map(([t, price]) => [t, { price }])) as never,
     watchWeekReturns: Object.fromEntries(
       watch.map(([t, price, pct]) => [t, { start: price / (1 + pct), end: price, pct }])
     ),
+    marketWeek:
+      marketPct == null ? undefined : { start: 100, end: 100 * (1 + marketPct), pct: marketPct },
     conviction: {},
     now: NOW,
   };
-  return buildWeeklyLetter(input);
 }
 
-/** One big winner, one big second, one small faller, two quiet ones. */
-const BOOK: Row[] = [
-  ["BE", 4000, 41, 34.1667],
-  ["NBIS", 3000, 92, 83.94],
-  ["CRWV", 2000, 126, 122.93],
-  ["RKLB", 3500, 47, 47.86],
-  ["NVDA", 700, 178, 176.06],
-  ["SOFI", 5000, 17, 17.154],
+function letterOf(rows: Row[], watch: Watch[] = [], marketPct?: number) {
+  const letter = buildWeeklyLetter(inputOf(rows, watch, marketPct));
+  letter.prose = writeWeeklyProse(letter);
+  letter.marketProse = writeMarketProse(letter);
+  return letter;
+}
+
+/** The shape of the letter that went wrong: a big Rocket Lab week. */
+const REAL: Row[] = [
+  ["RKLB", 1500, 83.6, 73.0],
+  ["NBIS", 800, 106.2, 100.0],
+  ["CRWV", 500, 130, 126],
+  ["MU", 300, 160, 158],
+  ["NVDA", 900, 180, 176],
+  ["VST", 200, 190, 192],
+  ["BMNR", 3000, 45, 44],
+  ["MSFT", 100, 510, 505],
+  ["TSLA", 60, 420, 427],
+];
+const REAL_WATCH: Watch[] = [
+  ["META", 760, 0.129],
+  ["MRVL", 80, 0.072],
 ];
 
-const WATCH: [string, number, number][] = [
-  ["ONDS", 3.9, -0.082],
-  ["IONQ", 44, -0.051],
-  ["QBTS", 19, -0.034],
-  ["ASTS", 61, 0.044],
-];
+describe("the letter the reader complained about", () => {
+  const letter = letterOf(REAL, REAL_WATCH, 0.012);
+  const all = `${letter.prose}\n\n${letter.marketProse}`;
 
-describe("the prose carries facts, not filler", () => {
-  const take = fallbackWeeklyTake(letterOf(BOOK, WATCH));
-
-  it("never closes a paragraph on a proverb", () => {
-    expect(take).not.toMatch(/a week either way is a week/i);
-    expect(take).not.toMatch(/not a change in why you own/i);
-    expect(take).not.toMatch(/time in the market/i);
+  it("never names a company the reader does not own or watch", () => {
+    expect(all).not.toMatch(/Amazon|Murrow|Apple|Google/);
+    expect(proseNamesAreHeld(all, letterTickers(letter))).toEqual({ ok: true });
   });
 
-  it("prints no standout fact about the biggest holding", () => {
-    expect(take).not.toMatch(/standout fact/i);
+  it("calls Micron Micron and Marvell Marvell", () => {
+    expect(companyName("MU")).toBe("Micron");
+    expect(companyName("MRVL")).toBe("Marvell");
+    expect(all).toContain("Marvell");
   });
 
-  it("uses no em or en dash", () => {
-    expect(take).not.toMatch(/[–—]/);
+  it("never describes what a company does", () => {
+    expect(all).not.toMatch(/\bwhich (makes|builds|sells|runs|rents|rockets)\b/);
+    expect(all).not.toMatch(/spacecraft|computer chips|social networks/);
   });
 
-  it("finishes every sentence", () => {
-    expect(take.trim()).toMatch(/[.!?]$/);
+  it("never refers to its own layout", () => {
+    expect(all).not.toMatch(/listed in the moves|watchlist shows|not listed|in the table/i);
+  });
+
+  it("opens on the money and says it per $100", () => {
+    expect(letter.prose).toMatch(/^Your portfolio gained \$[\d,]+ this week, about \$[\d.]+ for every \$100 you had invested\./);
+  });
+
+  it("names the company that did the most, by its everyday name", () => {
+    expect(letter.prose).toMatch(/Rocket Lab, up 14\.5%/);
+  });
+
+  it("does not point at Pulse or end on a claim it cannot back", () => {
+    expect(all).not.toMatch(/Pulse/);
+    expect(all).not.toMatch(/typical market week/);
   });
 });
 
-describe("the watchlist is summarised in both directions", () => {
-  const take = fallbackWeeklyTake(letterOf(BOOK, WATCH));
+describe("the watchlist reads as English", () => {
+  const book: Row[] = [["NVDA", 100, 180, 176]];
 
-  it("names every faller it has, with its percentage, not just the first", () => {
-    for (const [ticker, pct] of [["ONDS", "8.2%"], ["IONQ", "5.1%"], ["QBTS", "3.4%"]]) {
-      expect(take).toContain(`$${ticker}`);
-      expect(take).toContain(pct);
-    }
+  it("says both directions when there are both", () => {
+    const l = letterOf(book, [["META", 760, 0.129], ["INTC", 30, -0.041], ["MU", 150, 0.02]]);
+    expect(l.prose).toContain("On your watchlist, the biggest rise was Meta at 12.9% and the biggest fall Intel at 4.1%.");
   });
 
-  it("names the ones that rose too", () => {
-    expect(take).toContain("$ASTS");
-    expect(take).toContain("4.4%");
+  it("reads a pair as a pair", () => {
+    const l = letterOf(book, [["META", 760, 0.129], ["INTC", 30, -0.041]]);
+    expect(l.prose).toContain("On your watchlist, Meta rose 12.9% and Intel fell 4.1%.");
   });
 
-  it("says out loud that these are not owned", () => {
-    // The rule, not the sentence: a watched name has to be marked as not
-    // being the reader's money, wherever that clause ends up sitting.
-    expect(take).toMatch(/not (own|money you have in)|money you have in/);
+  it("does not call one company everything", () => {
+    const l = letterOf(book, [["META", 760, 0.129]]);
+    expect(l.prose).toContain("Meta, the one company on your watchlist, rose 12.9%.");
   });
 
-  it("does not describe a single watched name as the whole story", () => {
-    expect(take).not.toMatch(/\$ONDS, which is on your watchlist/);
+  it("says everything rose only when everything did", () => {
+    const l = letterOf(book, [["META", 760, 0.129], ["MRVL", 80, 0.072]]);
+    expect(l.prose).toContain("Everything on your watchlist rose, Meta the most at 12.9%, then Marvell at 7.2%.");
   });
 });
 
-describe("nothing is called quiet unless it was", () => {
-  it("names a holding that ran 9.6% rather than sweeping it into the closing", () => {
-    const take = fallbackWeeklyTake(letterOf(BOOK, WATCH));
-    expect(take).toContain("$NBIS");
-    expect(take).toContain("9.6%");
+describe("the rest of what is owned is a count and one named example", () => {
+  it("says how many rose and fell and names the biggest of them", () => {
+    const l = letterOf(REAL, [], 0.012);
+    expect(l.prose).toMatch(/Of your other \w+ companies, \w+ rose and \w+ fell\. The largest of those moves was [^,]+, (up|down) \d+\.\d%\./);
+    expect(l.prose).not.toMatch(/either way/);
   });
 
-  it("gives the largest remaining move instead of calling the rest quiet, and names it", () => {
-    const take = fallbackWeeklyTake(letterOf(BOOK, WATCH));
-    expect(take).toMatch(/\$CRWV moved the most of them, up 2\.5%/);
-    // The old phrasing stated a percentage for "the largest of those" with
-    // no company attached to it, which is exactly what this fix removes.
-    expect(take).not.toMatch(/largest of those moves/);
-  });
-
-  it("gives the group's average move, not just its split, and says it is not a net figure", () => {
-    const take = fallbackWeeklyTake(letterOf(BOOK, WATCH));
-    // "An average of 1.5%" alone reads as a net move; the group has both
-    // up and down movers in it, so it has to say "either way".
-    expect(take).toMatch(/average move of 1\.5% either way/);
-  });
-
-  it("still says barely moved when everything left really is small", () => {
+  it("says barely moved only when nothing left moved", () => {
     const calm: Row[] = [
-      ["BE", 4000, 41, 34.1667],
-      ["NVDA", 700, 178, 176.06],
-      ["SOFI", 5000, 17, 17.154],
+      ["NVDA", 1000, 190, 170],
+      ["MSFT", 10, 500, 499],
+      ["AAPL", 10, 230, 229],
+      ["KO", 10, 70, 70.3],
     ];
-    expect(fallbackWeeklyTake(letterOf(calm))).toMatch(/barely moved/);
-  });
-});
-
-describe("the leftover holdings are not mistaken for the watchlist", () => {
-  const take = fallbackWeeklyTake(letterOf(BOOK, WATCH));
-  const paras = take.split(/\n{2,}/);
-
-  it("says out loud that they are companies you own", () => {
-    const holdings = paras.find((p) => /companies you own/.test(p));
-    expect(holdings).toBeTruthy();
+    expect(letterOf(calm).prose).toMatch(/barely moved; none went more than/);
   });
 
-  it("keeps them above the watchlist, not stranded under it", () => {
-    const owned = paras.findIndex((p) => /companies you own/.test(p));
-    const watch = paras.findIndex((p) => /watchlist/.test(p));
-    expect(owned).toBeGreaterThanOrEqual(0);
-    expect(watch).toBeGreaterThan(owned);
-  });
-});
-
-describe("the letter ends on what the week amounted to", () => {
-  /** A broad fall: five of six holdings down, none of them dominant. */
-  const BROAD: Row[] = [
-    ["CRWV", 2000, 118, 126],
-    ["NBIS", 3000, 86, 92],
-    ["BE", 4000, 38.5, 41],
-    ["RKLB", 3500, 44.5, 47],
-    ["NVDA", 700, 168, 178],
-    ["SOFI", 5000, 17.4, 17],
-  ];
-  /** One company did the damage while the rest went both ways. */
-  const NARROW: Row[] = [
-    ["CRWV", 2000, 88, 126],
-    ["NBIS", 3000, 93, 92],
-    ["BE", 4000, 41.5, 41],
-    ["RKLB", 3500, 46.5, 47],
-    ["NVDA", 700, 179, 178],
-  ];
-
-  it("reads a week where everything fell together as the market", () => {
-    const last = fallbackWeeklyTake(letterOf(BROAD)).split(/\n{2,}/).at(-1) as string;
-    expect(last).toMatch(/usually means the market moved/);
-  });
-
-  it("reads a week one company caused as that company", () => {
-    const last = fallbackWeeklyTake(letterOf(NARROW)).split(/\n{2,}/).at(-1) as string;
-    expect(last).toMatch(/one company's week rather than the market's/);
-  });
-
-  it("puts a big week in proportion using the reader's own holdings", () => {
-    const last = fallbackWeeklyTake(letterOf(NARROW)).split(/\n{2,}/).at(-1) as string;
-    // The size is put in proportion, and the perspective is anchored on
-    // this reader's own week rather than on a claim about what markets do
-    // next. Asserted as the rule: the wording differs per shape of week.
-    expect(last).toMatch(/a lot of money|big number in dollars/);
-    expect(last).toMatch(/can rise that far too|can fall that far too/);
-  });
-
-  it("points at Pulse rather than answering per company itself", () => {
-    const last = fallbackWeeklyTake(letterOf(BROAD)).split(/\n{2,}/).at(-1) as string;
-    expect(last).toMatch(/Pulse/);
-  });
-
-  /*
-   * The two rules the closing paragraph exists under, and the reason it is
-   * a computed sentence rather than a nice line somebody typed. Upside Lab
-   * is not an adviser, so the letter never says what to do about a week;
-   * and it carries no house view, so it never promises the market comes
-   * back. Both are checked on every shape of week the closer can produce.
-   */
-  const everyWeek = [BOOK, BROAD, NARROW].map((rows) =>
-    fallbackWeeklyTake(letterOf(rows, WATCH))
-  );
-
-  it("never tells the reader what to do", () => {
-    for (const take of everyWeek) {
-      expect(take).not.toMatch(
-        /\b(hold on to|sit tight|sit still|do nothing|stay calm|don't panic|do not panic|take a closer look|you should|consider (buying|selling|adding|trimming))\b/i
-      );
-    }
-  });
-
-  it("never promises the market comes back", () => {
-    for (const take of everyWeek) {
-      expect(take).not.toMatch(
-        /\b(will recover|bounce back|comes back|keeps going up|long run|over time (it|the market|markets)|in the end)\b/i
-      );
-    }
-  });
-});
-
-/*
- * Every one of these was found by rendering the letter for a small
- * portfolio rather than by reading the code. A sentence built from counts
- * reads correctly at four holdings and falls apart at one.
- */
-describe("a small portfolio gets English, not counts", () => {
-  const TWO: Row[] = [
-    ["NVDA", 700, 190, 176.06],
-    ["SOFI", 5000, 17.6, 17.154],
-  ];
-
-  it("names the one leftover holding rather than calling it 'the other one'", () => {
-    const take = fallbackWeeklyTake(letterOf(TWO));
-    expect(take).not.toMatch(/largest of the other one/);
-    expect(take).not.toMatch(/\bThe other one\b/);
-    // Its everyday name, now that the fallback knows one (company-names.ts).
-    expect(take).toMatch(/SoFi rose 2\.6%\./);
-  });
-
-  it("does not call a single watched name everything on the watchlist", () => {
-    const take = fallbackWeeklyTake(letterOf(TWO, [["ONDS", 3.9, -0.082]]));
-    expect(take).not.toMatch(/Everything on your watchlist/);
-    expect(take).toMatch(/The one company on your watchlist, \$ONDS, finished 8\.2% lower\./);
-    expect(take).toMatch(/You do not own it\./);
-  });
-
-  it("does not say one other holding went both ways", () => {
-    const last = fallbackWeeklyTake(letterOf(TWO)).split(/\n{2,}/).at(-1) as string;
-    expect(last).not.toMatch(/the rest of what you own went both ways/);
-  });
-
-  it("introduces every watchlist percentage the same way", () => {
-    const take = fallbackWeeklyTake(letterOf(BOOK, WATCH));
-    // "fell the most, 8.2%, then $IONQ at 5.1%" reads as two writers a
-    // comma apart.
-    expect(take).toMatch(/fell the most, at 8\.2%/);
-  });
-
-  it("reads two watched names as a pair rather than a ranking", () => {
-    const take = fallbackWeeklyTake(
-      letterOf(BOOK, [["ONDS", 3.9, -0.082], ["IONQ", 44, -0.051]])
-    );
-    expect(take).toMatch(/\$ONDS fell 8\.2% and \$IONQ 5\.1%/);
-    expect(take).not.toMatch(/fell the most/);
-  });
-});
-
-describe("the rest summary is the whole portfolio, not the table", () => {
   it("counts the holdings What moved does not list", () => {
-    const many: Row[] = [
-      ...BOOK,
-      ["AMD", 400, 172, 168.3],
-      ["SOFI2", 100, 20, 19.9],
-    ];
-    const letter = letterOf(many);
+    const letter = buildWeeklyLetter(inputOf(REAL));
     expect(letter.movers).toHaveLength(5);
-    expect(letter.rest?.count).toBe(3);
-    expect(letter.rest?.up ?? 0).toBeGreaterThan(0);
-  });
-
-  it("is null when the table already shows everything", () => {
-    expect(letterOf(BOOK.slice(0, 3)).rest).toBeNull();
+    expect(letter.rest?.count).toBe(4);
   });
 });
 
-describe("a letter the model did not write says so", () => {
-  it("reports the fallback and why, rather than falling back in silence", async () => {
-    const seen: { source: string; reason: string }[] = [];
-    const saved = PROVIDER_KEYS.map((k) => [k, process.env[k]] as const);
-    for (const k of PROVIDER_KEYS) delete process.env[k];
-    /*
-      Clearing three of the keys was enough until the chain grew a fourth
-      leg, and then this test stopped testing what it says. On a machine
-      with a real NVIDIA key set it built a live chain and made an actual
-      network call, which is slow, spends somebody's quota, and only failed
-      as a timeout with nothing saying why. CI has no keys, so it passed
-      there and nowhere else. Assert the premise instead of assuming it:
-      the next provider added fails here immediately, with a reason.
-    */
-    expect(
-      buildAdvisorProviderChain(),
-      "a provider key survived: this test would call it for real"
-    ).toHaveLength(0);
-    try {
-      const take = await writeWeeklyTake(letterOf(BOOK, WATCH), {
-        onOutcome: (o) => seen.push(o),
+describe("you or the market", () => {
+  it("splits the gap to the index exactly across the companies", () => {
+    const letter = buildWeeklyLetter(inputOf(REAL, [], 0.012));
+    const m = letter.market!;
+    const sum = m.drivers.reduce((s, d) => s + d.gapPts, 0);
+    expect(sum).toBeCloseTo((letter.weekPct as number) - m.pct, 9);
+    expect(m.pct).toBeCloseTo(1.2, 9);
+  });
+
+  it("says how far ahead, what following the index would have made, and who made the difference", () => {
+    const l = letterOf(REAL, [], 0.012);
+    expect(l.marketProse).toMatch(/^The S&P 500, the index of America's five hundred largest companies, rose 1\.2% this week\. Your portfolio rose \d+\.\d%, \d+\.\d points ahead of it\./);
+    expect(l.marketProse).toMatch(/Had your money simply followed the index, the week would have made you \$[\d,]+, rather than the \$[\d,]+ it actually made\./);
+    expect(l.marketProse).toMatch(/Most of the difference came from Rocket Lab, up 14\.5%/);
+  });
+
+  it("calls a week that tracked the index the market's", () => {
+    const tracked: Row[] = [
+      ["NVDA", 100, 101.2, 100],
+      ["MSFT", 100, 101.1, 100],
+      ["AAPL", 100, 101.3, 100],
+    ];
+    const l = letterOf(tracked, [], 0.012);
+    expect(l.marketProse).toMatch(/close enough to call it the market's week rather than your companies'/);
+  });
+
+  it("says so when the portfolio went the other way from the market", () => {
+    const l = letterOf([["NVDA", 100, 105, 100], ["MSFT", 100, 101, 100]], [], -0.02);
+    expect(l.marketProse).toMatch(/fell 2\.0% this week, while your portfolio rose 3\.0%\. So this was your companies' doing, not the market's\./);
+    expect(l.marketProse).toMatch(/would have cost you \$400, rather than the \$600 it actually made/);
+  });
+
+  it("is absent, not guessed, when the index could not be read", () => {
+    const l = letterOf(REAL);
+    expect(l.market).toBeNull();
+    expect(l.marketProse).toBeNull();
+    expect(marketParagraph(l)).toBeNull();
+  });
+});
+
+describe("the guard", () => {
+  const held = new Set(["NVDA", "MU"]);
+
+  it("refuses a company name the reader does not hold", () => {
+    expect(proseNamesAreHeld("Amazon fell 2%.", held)).toEqual({ ok: false, stray: "Amazon" });
+  });
+
+  it("refuses a cashtag the reader does not hold", () => {
+    expect(proseNamesAreHeld("$AMZN fell 2%.", held)).toEqual({ ok: false, stray: "$AMZN" });
+  });
+
+  it("allows what the reader holds, by either spelling", () => {
+    expect(proseNamesAreHeld("Nvidia rose, Micron fell and $NVDA moved.", held)).toEqual({ ok: true });
+  });
+
+  it("does not mistake a dollar figure for a cashtag", () => {
+    expect(proseNamesAreHeld("It made $16,077 and $6.38 per $100.", held)).toEqual({ ok: true });
+  });
+});
+
+/* ------------------------------------------------------------------ sweep */
+
+/** A small deterministic random source, so a failure reproduces. */
+function rng(seed: number) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 2 ** 32;
+  };
+}
+
+const POOL = [
+  ...new Set([
+    ...knownCompanyNames().flatMap((n) => n.tickers.filter((t) => !t.includes("."))),
+    "ONDS", "QBTS", "BMNR", "VOO", "ZZZZ", "ABCD",
+  ]),
+];
+
+const NAME_RES = knownCompanyNames().map((n) => ({
+  ...n,
+  re: new RegExp(`\\b${n.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`),
+}));
+
+describe("every letter names only the reader's own companies", () => {
+  it("holds across thousands of random portfolios", () => {
+    const rand = rng(20260927);
+    const pick = (n: number) => {
+      const out = new Set<string>();
+      while (out.size < n) out.add(POOL[Math.floor(rand() * POOL.length)]);
+      return [...out];
+    };
+    for (let i = 0; i < 3000; i++) {
+      const n = 1 + Math.floor(rand() * 14);
+      const tickers = pick(n + Math.floor(rand() * 5));
+      const own = tickers.slice(0, n);
+      const watch = tickers.slice(n);
+      const rows: Row[] = own.map((t) => {
+        const start = 5 + rand() * 500;
+        const move = (rand() - 0.5) * (rand() < 0.2 ? 0.6 : 0.12);
+        return [t, 1 + Math.floor(rand() * 2000), start * (1 + move), start];
       });
-      expect(take).toBeTruthy();
-      expect(seen).toHaveLength(1);
-      expect(seen[0].source).toBe("fallback");
-      expect(seen[0].reason).toMatch(/no model provider/);
-    } finally {
-      for (const [k, v] of saved) if (v != null) process.env[k] = v;
+      const w: Watch[] = watch.map((t) => [t, 10 + rand() * 300, (rand() - 0.5) * 0.3]);
+      const market = rand() < 0.1 ? undefined : (rand() - 0.5) * 0.08;
+      const letter = letterOf(rows, w, market);
+      const text = `${letter.prose ?? ""}\n\n${letter.marketProse ?? ""}`;
+      const allowed = new Set([...own, ...watch]);
+
+      expect(proseNamesAreHeld(text, allowed), text).toEqual({ ok: true });
+      for (const { name, tickers: ts, re } of NAME_RES) {
+        if (re.test(text)) {
+          expect(ts.some((t) => allowed.has(t)), `${name} in: ${text}`).toBe(true);
+        }
+      }
+      expect(text, text).not.toMatch(/NaN|undefined|null|Infinity|[–—]/);
+      expect(text, text).not.toMatch(/\bwe\b|\bour\b|\bus\b|\byou should\b|\bhold\b|\bsell\b|\bbuy\b/i);
+      expect(letter.prose!.trim(), text).toMatch(/[.!?]$/);
+      // Every percent it prints is a real one to one decimal place.
+      for (const p of text.match(/\d+\.\d%/g) ?? []) expect(p).toMatch(/^\d+\.\d%$/);
     }
-  });
-});
-
-
-/*
- * The fallback is meant to be the rare case, and one shot at the model was
- * what made it common: an answer three sentences long, or with an
- * unfinished last one, was refused and that was the end of it with most of
- * the budget unspent.
- */
-describe("the model gets more than one go", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-    vi.unstubAllEnvs();
-  });
-
-  /** Answers, in order, from a stubbed provider. */
-  function stubModel(answers: string[]) {
-    // Blank every other leg, so the chain is exactly one provider whatever
-    // the machine running this has configured. An empty string reads as
-    // absent to `hasKey`.
-    for (const k of PROVIDER_KEYS) vi.stubEnv(k, "");
-    vi.stubEnv("OPENROUTER_API_KEY", "test-key");
-    let n = 0;
-    return vi.spyOn(model, "withAdvisorFallback").mockImplementation(async () => {
-      const text = answers[Math.min(n, answers.length - 1)];
-      n += 1;
-      if (text === "throw") throw new Error("provider exploded");
-      return { text } as never;
-    });
-  }
-
-  const GOOD = [
-    "Your portfolio gained a little this week, which is about a dollar for every hundred you had in it.",
-    "Nothing you own moved far enough to be worth naming on its own.",
-    "Your watchlist was quieter still, with nothing on it moving much either way.",
-    "Pulse has the same check for each company whenever you want it.",
-  ].join("\n\n");
-
-  it("asks again when the first answer is refused, and ships the second", async () => {
-    const spy = stubModel(["too short.", GOOD]);
-    const seen: { source: string; reason: string }[] = [];
-    const take = await writeWeeklyTake(letterOf(BOOK, WATCH), {
-      onOutcome: (o) => seen.push(o),
-    });
-    expect(spy).toHaveBeenCalledTimes(2);
-    expect(take).toBe(GOOD);
-    expect(seen[0]).toEqual({ source: "model", reason: "ok on attempt 2" });
-  });
-
-  it("asks again when the call throws", async () => {
-    const spy = stubModel(["throw", GOOD]);
-    const take = await writeWeeklyTake(letterOf(BOOK, WATCH), {});
-    expect(spy).toHaveBeenCalledTimes(2);
-    expect(take).toBe(GOOD);
-  });
-
-  it("falls back only after every attempt is spent, and says which", async () => {
-    const spy = stubModel(["too short."]);
-    const seen: { source: string; reason: string }[] = [];
-    const take = await writeWeeklyTake(letterOf(BOOK, WATCH), {
-      onOutcome: (o) => seen.push(o),
-    });
-    expect(spy).toHaveBeenCalledTimes(3);
-    expect(seen[0].source).toBe("fallback");
-    expect(seen[0].reason).toMatch(/answer refused/);
-    expect(take).toContain("Your portfolio");
-  });
-
-  it("does not start an attempt it has no time for", async () => {
-    const spy = stubModel(["too short."]);
-    await writeWeeklyTake(letterOf(BOOK, WATCH), { budgetMs: 1 });
-    expect(spy).not.toHaveBeenCalled();
-  });
-});
-
-describe("the letter's own vocabulary", () => {
-  it("puts stocks and names back to companies, and leaves the stock market alone", async () => {
-    const { letterVocabulary } = await import("@/lib/weekly-margus");
-    expect(letterVocabulary("Those two stocks offset part of it.")).toBe(
-      "Those two companies offset part of it."
-    );
-    expect(letterVocabulary("The other names stayed flat.")).toBe(
-      "The other companies stayed flat."
-    );
-    expect(letterVocabulary("The stock market fell.")).toBe("The stock market fell.");
-  });
+  }, 60_000);
 });

@@ -88,7 +88,7 @@ import {
 import { humanizeMargusTree, humanizeMargusText, pulseSuggestion } from "../src/lib/ai/humanize-copy";
 import { communityInviteCopy, emptyBookNudgeHtml } from "../src/lib/email-letter";
 import { looksLikePromptLeak } from "../src/lib/ai/prompt-leak";
-import { fallbackWeeklyTake } from "../src/lib/weekly-margus";
+import { writeWeeklyProse } from "../src/lib/weekly-prose";
 import { noteTestAudience } from "../src/lib/note-cron";
 import { SUPERADMIN_NOTE_EMAIL } from "../src/lib/auth/superadmin";
 import {
@@ -1556,33 +1556,18 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
   assert.equal(letter.weekAhead.length, 1);
   assert.match(letter.weekAhead[0], /\$NBIS/);
 
-  // The fallback voice ships a real letter when the model is unreachable.
-  const take = fallbackWeeklyTake(letter);
-  // Four or five short paragraphs, the same shape the model is asked for,
-  // so a reader cannot tell which one wrote their letter.
+  // The letter is written from the numbers, with no model on the path.
+  const take = writeWeeklyProse(letter);
   const paras = take.split(/\n{2,}/);
   assert.ok(
-    paras.length >= 3 && paras.length <= 6,
-    `fallback should be 3-6 paragraphs, got ${paras.length}`
+    paras.length >= 2 && paras.length <= 3,
+    `prose should be 2-3 paragraphs, got ${paras.length}`
   );
-  // The figure is defused in the very next sentence, in dollars per $100.
+  // The figure is defused in the same sentence, in dollars per $100.
   assert.match(paras[0], /\$100 you had invested/);
-  /*
-    And it ends on the companies the letter has not already named, without
-    telling the reader to do anything.
-
-    Asserted as the rule rather than as one exact sentence, twice over now.
-    The first version pinned the literal "quiet relative to last week"; the
-    second pinned the word "quiet" itself, which was worse, because it held
-    in place the one sentence a reader actually complained about: the letter
-    closed "the rest of your companies were quiet" every week whatever the
-    numbers said, with a holding up 10% in the table directly above it. The
-    rule is that the closer accounts for what is left in figures. Whether
-    that reads as quiet is the arithmetic's business.
-  */
-  const closer = paras[paras.length - 1]!;
-  assert.match(closer, /\bcompan(y|ies)\b/i, "the fallback closes on the rest");
-  assert.match(closer, /\d+(\.\d+)?%/, "and says how far they actually moved");
+  // It accounts for every company it owns in figures, and names only those.
+  assert.match(take, /\d+(\.\d+)?%/);
+  assert.doesNotMatch(take, /Amazon|Microsoft|Apple/);
   assert.match(take, /[.!?]$/);
   assert.doesNotMatch(take, /\bwe\b|\bour\b|\bus\b/i);
   // Banned market slang never reaches a reader (AGENTS.md).
@@ -1591,7 +1576,7 @@ run("the Sunday letter is the only scheduled email, and it earns its sections", 
     /\bsleeve\b|\btape\b|\bdry powder\b|\bdrawdown\b|\brotation\b|\brisk-on\b/i
   );
 
-  letter.margus = take;
+  letter.prose = take;
   const html = weeklyLetterHtml(letter);
   // Every section the letter promises is actually rendered.
   assert.match(html, /Your week/);
@@ -5992,7 +5977,7 @@ run("prompts do not teach the model trader words as working vocab", () => {
     "utf8"
   );
   const notes = readFileSync(
-    join(process.cwd(), "src/lib/weekly-margus.ts"),
+    join(process.cwd(), "src/lib/weekly-prose.ts"),
     "utf8"
   );
   const fund = readFileSync(
@@ -6006,8 +5991,9 @@ run("prompts do not teach the model trader words as working vocab", () => {
   assert.doesNotMatch(pulse, /Owner thesis:/);
   assert.doesNotMatch(pulse, /Tape read/);
   assert.doesNotMatch(notes, /Owner thesis:/);
-  assert.match(notes, /looksLikePromptLeak/);
-  assert.match(notes, /fallbackWeeklyTake/);
+  // The Sunday letter has no model on its path at all.
+  assert.doesNotMatch(notes, /generateText|withAdvisorFallback|MARGUS_PERSONA/);
+  assert.match(notes, /proseNamesAreHeld/);
   assert.doesNotMatch(fund, /Original thesis:/);
   assert.doesNotMatch(fund, /fundamentals-based thesis/);
   const chat = readFileSync(

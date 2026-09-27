@@ -124,14 +124,15 @@ vi.mock("@/lib/market/yahoo", () => ({
     return Promise.resolve({ earnings: [] });
   },
 }));
-vi.mock("@/lib/weekly-margus", () => ({
-  writeWeeklyTake: async () => {
-    // Stand in for the model call, which is what actually consumes the
-    // function's 60s budget in production. Time is moved on the clock rather
-    // than actually slept, so the test costs milliseconds.
+vi.mock("@/lib/weekly-prose", () => ({
+  writeWeeklyProse: () => {
+    // Stand in for the time one letter costs (the claim, the render and the
+    // send). Time is moved on the clock rather than actually slept, so the
+    // test costs milliseconds.
     clockOffset += letterMs;
     return "A take.";
   },
+  writeMarketProse: () => null,
 }));
 
 const { dispatchWeeklyLetters } = await import("@/lib/note-cron");
@@ -163,10 +164,11 @@ describe("the Sunday letter's cost per recipient", () => {
   it("quotes each ticker once for the whole run, not once per reader", async () => {
     RECIPIENTS = 25;
     await dispatchWeeklyLetters();
-    // 25 readers holding NVDA and MSFT: three upstream calls in total.
+    // 25 readers holding NVDA and MSFT: three upstream calls in total, the
+    // S&P 500's week riding on the same walk rather than costing one each.
     expect(marketCalls).toEqual([
       "quotes:NVDA,MSFT",
-      "week:NVDA,MSFT",
+      "week:NVDA,MSFT,SPY",
       "events:NVDA,MSFT",
     ]);
   });

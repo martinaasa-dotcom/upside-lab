@@ -114,8 +114,9 @@ vi.mock("@/lib/market/yahoo", () => ({
     ),
   fetchMarketEvents: () => Promise.resolve({ earnings: [] }),
 }));
-vi.mock("@/lib/weekly-margus", () => ({
-  writeWeeklyTake: async () => "A take.",
+vi.mock("@/lib/weekly-prose", () => ({
+  writeWeeklyProse: () => "A take.",
+  writeMarketProse: () => null,
 }));
 
 const { dispatchWeeklyLetters } = await import("@/lib/note-cron");
