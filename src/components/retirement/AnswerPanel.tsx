@@ -116,7 +116,17 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { useId, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { focusWithoutScroll, pinScroll } from "@/lib/pinned-scroll";
 
 type Patch = (next: Partial<RetirementInputs>) => void;
 
@@ -141,6 +151,14 @@ export type GrowthScenario = {
  * that it changes, which is how an editable figure is marked everywhere
  * else in this app. Tapping opens the one control that word needs.
  */
+/*
+  The answer as it stands, read by every open picker. A change made in a
+  sheet used to be invisible until the sheet was closed, because the sheet
+  covers the page: somebody pressing plus on their age could not see what
+  it did. The headline is short and is exactly the one on the page.
+*/
+const LiveAnswer = createContext<string | null>(null);
+
 function Blank({
   value,
   label,
@@ -159,8 +177,37 @@ function Blank({
   tail?: string;
 }) {
   const narrow = useNarrow();
+  const answer = useContext(LiveAnswer);
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  /*
+    Where the page was when the picker opened. A change in here must never
+    move the page: `pinned-scroll.ts` has the three ways it used to, and
+    this is where each is answered.
+  */
+  const restoreRef = useRef<(() => void) | null>(null);
+  const setOpenPinned = (next: boolean) => {
+    /* Only the sheet locks the page; a popover leaves the reader free to scroll. */
+    if (next && narrow && typeof window !== "undefined") restoreRef.current = pinScroll(window);
+    if (!next) restoreRef.current?.();
+    setOpen(next);
+  };
+  /* Focus the sheet itself rather than its first field, so no keyboard rises on its own. */
+  const onOpenAutoFocus = (e: Event) => {
+    e.preventDefault();
+    focusWithoutScroll(contentRef.current);
+  };
+  /* Hand focus back to the word without the scroll a plain focus() makes. */
+  const onCloseAutoFocus = (e: Event) => {
+    e.preventDefault();
+    focusWithoutScroll(triggerRef.current);
+    restoreRef.current?.();
+    restoreRef.current = null;
+  };
   const trigger = (
     <button
+      ref={triggerRef}
       type="button"
       aria-label={label}
       className="inline rounded-sm px-0.5 font-medium text-foreground underline decoration-primary/60 decoration-dashed decoration-[1.5px] underline-offset-[5px] transition-colors hover:bg-foreground/[0.06] hover:decoration-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [box-decoration-break:clone]"
@@ -169,28 +216,61 @@ function Blank({
     </button>
   );
   /*
+    Every picker ends on the same two things: the answer as it now stands,
+    and a Done button. Without them the only way out of a sheet was the
+    small cross in its corner or a tap on the dimmed page, and after
+    pressing plus a few times nothing said the change had taken or what to
+    do next.
+  */
+  const footer = (
+    <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3">
+      <p className="min-w-0 text-sm text-muted-foreground" aria-live="polite">
+        {answer ? <span className="font-medium text-foreground">{answer}</span> : null}
+      </p>
+      <Button type="button" className="shrink-0 px-5" onClick={() => setOpenPinned(false)}>
+        Done
+      </Button>
+    </div>
+  );
+  /*
     On a phone a popover anchored to a word near the foot of a card has a
     sliver of screen to open into, so it is a bottom sheet there, the same
     switch `WhyThis` makes at the same width.
   */
   const control = narrow ? (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpenPinned}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
-      <SheetContent side="bottom" className="max-h-[80svh] gap-0 rounded-t-2xl p-0">
+      <SheetContent
+        ref={contentRef}
+        tabIndex={-1}
+        side="bottom"
+        onOpenAutoFocus={onOpenAutoFocus}
+        onCloseAutoFocus={onCloseAutoFocus}
+        className="max-h-[80svh] gap-0 rounded-t-2xl p-0 outline-none"
+      >
         <SheetHeader className="px-5 pb-1 pt-5">
           <SheetTitle className="text-base">{title}</SheetTitle>
         </SheetHeader>
-        <div className="scroll-host flex min-h-0 flex-1 flex-col gap-3 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2 text-sm">
+        <div className="scroll-host flex min-h-0 flex-1 flex-col gap-3 px-5 pt-2 text-sm">
           {children}
         </div>
+        <div className="px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">{footer}</div>
       </SheetContent>
     </Sheet>
   ) : (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpenPinned}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent align="start" className={cn("gap-3 p-4", wide ? "w-80" : "w-72")}>
+      <PopoverContent
+        ref={contentRef}
+        tabIndex={-1}
+        align="start"
+        onOpenAutoFocus={onOpenAutoFocus}
+        onCloseAutoFocus={onCloseAutoFocus}
+        className={cn("gap-3 p-4 outline-none", wide ? "w-80" : "w-72")}
+      >
         <p className="text-sm font-semibold text-foreground">{title}</p>
         {children}
+        {footer}
       </PopoverContent>
     </Popover>
   );
@@ -207,7 +287,57 @@ function Blank({
  * A count, with two big buttons either side. Typing two digits on a phone
  * keypad is the fiddliest thing this room ever asked of anybody, and an age
  * almost always moves by a year or two.
+ *
+ * HOLD TO KEEP COUNTING. Going from 32 to 55 was twenty-three separate
+ * taps, which is the moment a stepper stops being easier than typing. A
+ * press steps once at once, and held past `HOLD_DELAY_MS` it repeats,
+ * speeding up the longer it is held, the way a clock's buttons do.
  */
+const HOLD_DELAY_MS = 380;
+const HOLD_FIRST_MS = 140;
+const HOLD_FASTEST_MS = 70;
+
+function useHoldRepeat(step: (delta: number) => boolean) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const byPointer = useRef(false);
+  const stepRef = useRef(step);
+  stepRef.current = step;
+  const stop = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  useEffect(() => stop, []);
+  return (delta: number) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
+      byPointer.current = true;
+      stepRef.current(delta);
+      let wait = HOLD_FIRST_MS;
+      const tick = () => {
+        /* At the end of the range the button disables and may never hear the release. */
+        if (!stepRef.current(delta)) return stop();
+        wait = Math.max(HOLD_FASTEST_MS, wait * 0.85);
+        timer.current = setTimeout(tick, wait);
+      };
+      stop();
+      timer.current = setTimeout(tick, HOLD_DELAY_MS);
+    },
+    onPointerUp: stop,
+    onPointerLeave: stop,
+    onPointerCancel: stop,
+    /* A long press must not open the text callout or a context menu. */
+    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+    /* The pointer already stepped; a keyboard press arrives here alone. */
+    onClick: () => {
+      if (byPointer.current) {
+        byPointer.current = false;
+        return;
+      }
+      stepRef.current(delta);
+    },
+  });
+}
+
 function Stepper({
   value,
   onChange,
@@ -226,21 +356,35 @@ function Stepper({
   more?: string;
 }) {
   const v = Math.round(value);
-  const set = (n: number) => onChange(Math.min(max, Math.max(min, n)));
+  /*
+    The latest value, moved on the spot rather than on the next render, so
+    a held button counts from where it has got to and not from where the
+    last render left it.
+  */
+  const latest = useRef(v);
+  latest.current = v;
+  const clamp = (n: number) => Math.min(max, Math.max(min, n));
+  const hold = useHoldRepeat((delta) => {
+    const next = clamp(latest.current + delta);
+    if (next === latest.current) return false;
+    latest.current = next;
+    onChange(next);
+    return true;
+  });
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex select-none items-center justify-between gap-3">
       <Button
         type="button"
         variant="outline"
         size="icon"
-        className="size-11 rounded-full"
-        onClick={() => set(v - 1)}
+        className="size-12 rounded-full [-webkit-touch-callout:none]"
         disabled={v <= min}
         aria-label={less}
+        {...hold(-1)}
       >
-        <Minus className="size-4" />
+        <Minus className="size-5" />
       </Button>
-      <div className="flex flex-col items-center">
+      <div className="flex flex-col items-center" aria-live="polite">
         <span className="font-mono text-2xl tabular-nums text-foreground">{v}</span>
         <span className="text-xs text-muted-foreground">{unit}</span>
       </div>
@@ -248,12 +392,12 @@ function Stepper({
         type="button"
         variant="outline"
         size="icon"
-        className="size-11 rounded-full"
-        onClick={() => set(v + 1)}
+        className="size-12 rounded-full [-webkit-touch-callout:none]"
         disabled={v >= max}
         aria-label={more}
+        {...hold(1)}
       >
-        <Plus className="size-4" />
+        <Plus className="size-5" />
       </Button>
     </div>
   );
@@ -468,6 +612,7 @@ export function AnswerPanel({
   const barMax = Math.max(have, need, 1);
 
   return (
+    <LiveAnswer.Provider value={verdict.headline}>
     <Panel>
       <PanelHeader
         icon={<Sunrise className="h-4 w-4" />}
@@ -947,5 +1092,6 @@ export function AnswerPanel({
         All in today&apos;s money. {ADVICE_DISCLAIMER_SHORT}
       </p>
     </Panel>
+    </LiveAnswer.Provider>
   );
 }
