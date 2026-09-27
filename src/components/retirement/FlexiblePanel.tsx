@@ -45,7 +45,7 @@ import {
   type PlanResult,
 } from "@/lib/retirement/plan";
 import { Button } from "@/components/ui/button";
-import { SlidersHorizontal } from "lucide-react";
+import { Layers } from "lucide-react";
 import { useMemo, useState } from "react";
 
 /*
@@ -180,7 +180,7 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
   return (
     <Panel>
       <PanelHeader
-        icon={<SlidersHorizontal className="h-4 w-4" />}
+        icon={<Layers className="h-4 w-4" />}
         title="What a bad year actually costs you"
         subtitle="The bottom layers are paid whatever the market does. The top ones are what a bad year cuts."
       />

@@ -71,16 +71,7 @@ export function QuickStart({
       <PanelHeader
         icon={<SlidersHorizontal className="h-4 w-4" />}
         title="Fine-tune the plan"
-        subtitle="What else it counts, and what it assumes for each. Tap one to change it."
-      />
-
-      <AdjustChips
-        inputs={inputs}
-        open={open}
-        onToggle={onToggle}
-        money={(n) => currency(n, 0, region.currency)}
-        planningAge={planningAge}
-        swrPct={swrPct}
+        subtitle="What else the plan counts, and what it assumes for each. Tick anything to change it."
       />
 
       <div className="flex flex-col gap-3">
@@ -152,6 +143,14 @@ export function QuickStart({
           </>
         ) : null}
       </div>
+      <AdjustChips
+        inputs={inputs}
+        open={open}
+        onToggle={onToggle}
+        money={(n) => currency(n, 0, region.currency)}
+        planningAge={planningAge}
+        swrPct={swrPct}
+      />
     </Panel>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { MicroLabel } from "@/components/ui/Panel";
 import { cn } from "@/lib/format";
 import {
   ADJUST_LABEL,
@@ -61,12 +60,6 @@ export function AdjustChips({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <MicroLabel>What else the plan counts</MicroLabel>
-        <p className="text-xs text-muted-foreground">
-          Tick anything to change it.
-        </p>
-      </div>
       {/*
         Nine chips: three rows of three on a laptop, and on a phone the
         ninth takes the whole last row rather than leaving a hole beside it.
