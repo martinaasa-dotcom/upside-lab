@@ -25,20 +25,26 @@ const NAMES: Readonly<Record<string, string>> = {
   AMD: "AMD",
   AMGN: "Amgen",
   AMZN: "Amazon",
+  ANET: "Arista Networks",
+  APP: "AppLovin",
   ARM: "Arm",
   ASML: "ASML",
+  ASTS: "AST SpaceMobile",
   AVGO: "Broadcom",
   AXP: "American Express",
   BA: "Boeing",
   BAC: "Bank of America",
+  BE: "Bloom Energy",
   "BRK-B": "Berkshire Hathaway",
   CAT: "Caterpillar",
+  CEG: "Constellation Energy",
   CMCSA: "Comcast",
   CMG: "Chipotle",
   COIN: "Coinbase",
   COP: "ConocoPhillips",
   COST: "Costco",
   CRM: "Salesforce",
+  CRWV: "CoreWeave",
   CVX: "Chevron",
   DE: "John Deere",
   DIS: "Disney",
@@ -53,6 +59,7 @@ const NAMES: Readonly<Record<string, string>> = {
   HON: "Honeywell",
   HOOD: "Robinhood",
   INTC: "Intel",
+  IONQ: "IonQ",
   ISRG: "Intuitive Surgical",
   JNJ: "Johnson & Johnson",
   JPM: "JPMorgan",
@@ -67,15 +74,19 @@ const NAMES: Readonly<Record<string, string>> = {
   META: "Meta",
   MRK: "Merck",
   MRNA: "Moderna",
+  MRVL: "Marvell",
   MS: "Morgan Stanley",
   MSFT: "Microsoft",
   MU: "Micron",
+  NBIS: "Nebius",
   NEE: "NextEra Energy",
+  NET: "Cloudflare",
   NFLX: "Netflix",
   NKE: "Nike",
   NOW: "ServiceNow",
   NVDA: "Nvidia",
   NVO: "Novo Nordisk",
+  OKLO: "Oklo",
   ORCL: "Oracle",
   OXY: "Occidental",
   PEP: "PepsiCo",
@@ -85,6 +96,7 @@ const NAMES: Readonly<Record<string, string>> = {
   PYPL: "PayPal",
   QCOM: "Qualcomm",
   RBLX: "Roblox",
+  RDDT: "Reddit",
   RIVN: "Rivian",
   RKLB: "Rocket Lab",
   RTX: "RTX",
@@ -105,6 +117,7 @@ const NAMES: Readonly<Record<string, string>> = {
   UNH: "UnitedHealth",
   UPS: "UPS",
   V: "Visa",
+  VST: "Vistra",
   VZ: "Verizon",
   WBD: "Warner Bros. Discovery",
   WFC: "Wells Fargo",
@@ -116,4 +129,20 @@ const NAMES: Readonly<Record<string, string>> = {
 export function companyName(ticker: string): string | null {
   const key = ticker.trim().toUpperCase().replace(/^\$/, "").replace(".", "-");
   return NAMES[key] ?? null;
+}
+
+/**
+ * Every everyday name this table knows, with the tickers that carry it.
+ *
+ * The Sunday letter checks its finished text against this so that a
+ * company it names is provably one the reader owns or watches: a name
+ * found in the text whose tickers are none of the reader's is a letter
+ * that is not sent as written.
+ */
+export function knownCompanyNames(): { name: string; tickers: string[] }[] {
+  const byName = new Map<string, string[]>();
+  for (const [ticker, name] of Object.entries(NAMES)) {
+    byName.set(name, [...(byName.get(name) ?? []), ticker.replace("-", ".")].concat(ticker));
+  }
+  return [...byName.entries()].map(([name, tickers]) => ({ name, tickers: [...new Set(tickers)] }));
 }

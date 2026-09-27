@@ -160,7 +160,7 @@ describe("nothing a reader sees carries an em dash", () => {
 
   it("keeps them out of every rendered string", () => {
     const r = letter();
-    r.margus = "A take about the week.";
+    r.prose = "A take about the week.";
     expect(weeklySubject(r)).not.toMatch(DASHES);
     expect(weeklyPreview(r)).not.toMatch(DASHES);
     expect(weeklyLetterText(r)).not.toMatch(DASHES);

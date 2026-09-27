@@ -265,7 +265,6 @@ describe("copy reads as a person wrote it", () => {
     // Prompts: the model is told which words it may not use.
     "src/lib/ai/margus-persona.ts",
     "src/lib/ai/cc-advisor.ts",
-    "src/lib/weekly-margus.ts",
     // forecast-plan.ts is deliberately not here any more: its prompt used
     // to restate five of the persona's banned words in miniature and now
     // points at the persona instead, so it names none of them itself.

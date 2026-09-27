@@ -9,7 +9,8 @@
  * reader already saw in the app (stored per ticker in their conviction
  * notes) plus two plain arithmetic checks — a position that has grown into
  * an outsized share of the book, and a watchlist name that fell this week.
- * Margus writes the prose on top of these facts; he never sources them.
+ * The prose on top is written from these same facts by `weekly-prose.ts`,
+ * with no model anywhere on the path.
  */
 
 import { cashtag, currency, signedCurrency, signedPercent } from "@/lib/format";
@@ -55,6 +56,11 @@ export type WeeklyLetterInput = {
   /** Quotes and week moves for those watched names. */
   watchQuotes?: Record<string, Quote>;
   watchWeekReturns?: Record<string, WeekReturn>;
+  /**
+   * The S&P 500's week (SPY), for "you or the market". Absent when the
+   * provider could not answer, and then that section is simply not drawn.
+   */
+  marketWeek?: WeekReturn;
   now?: Date;
 };
 
@@ -125,6 +131,21 @@ export type WeeklyRest = {
   avgAbsPct: number;
 };
 
+/**
+ * The portfolio's week set against the S&P 500's.
+ *
+ * `drivers` is an exact split of the gap: the portfolio's week is the
+ * Friday-weighted sum of its companies' weeks, so the gap to the index is
+ * the sum of each company's week beyond the index times its Friday weight.
+ */
+export type WeeklyMarket = {
+  /** The index's week, as a percent. */
+  pct: number;
+  /** What the same starting money would have made following the index. */
+  followedDollar: number;
+  drivers: { ticker: string; pct: number; gapPts: number }[];
+};
+
 export type WeeklyLetter = {
   dateLine: string;
   shortDate: string;
@@ -143,7 +164,13 @@ export type WeeklyLetter = {
   suggestions: WeeklySuggestion[];
   watchRows: WeeklyWatchRow[];
   weekAhead: string[];
-  margus: string | null;
+  /** Every company the reader owns, so a guard can check the prose names only these. */
+  heldTickers: string[];
+  market: WeeklyMarket | null;
+  /** The paragraphs at the top, written from the numbers by `weekly-prose.ts`. */
+  prose: string | null;
+  /** The paragraph under the you-or-the-market picture. */
+  marketProse: string | null;
 };
 
 const BOOK_URL = `${EMAIL.origin}/`;
@@ -227,6 +254,8 @@ type Position = {
   shares: number;
   price: number;
   value: number;
+  /** Friday's value, or today's where the week is unknown (moved nothing). */
+  startValue: number;
   weight: number;
   weekPct: number | null;
   weekDollar: number;
@@ -263,6 +292,8 @@ function positionsFor(input: WeeklyLetterInput): {
       shares,
       price,
       value,
+      startValue:
+        wr && Number.isFinite(wr.start) && wr.start > 0 ? shares * wr.start : value,
       weight: 0,
       weekPct,
       weekDollar,
@@ -274,10 +305,7 @@ function positionsFor(input: WeeklyLetterInput): {
   for (const r of rows) r.weight = holdingsValue > 0 ? r.value / holdingsValue : 0;
 
   const weekDollar = rows.reduce((s, r) => s + r.weekDollar, 0);
-  const startValue = rows.reduce((s, r) => {
-    const wr = input.weekReturns?.[r.ticker];
-    return s + (wr && wr.start > 0 ? r.shares * wr.start : r.value);
-  }, 0);
+  const startValue = rows.reduce((s, r) => s + r.startValue, 0);
   const weekPct =
     startValue > 0 && weekDollar !== 0 ? (weekDollar / startValue) * 100 : null;
 
@@ -674,7 +702,32 @@ export function buildWeeklyLetter(input: WeeklyLetterInput): WeeklyLetter {
       interesting,
       new Set(positions.map((p) => p.ticker))
     ),
-    margus: null,
+    heldTickers: positions.map((p) => p.ticker),
+    market: marketFor(positions, weekPct, input.marketWeek),
+    prose: null,
+    marketProse: null,
+  };
+}
+
+/**
+ * The index's week beside the portfolio's, and the exact split of the gap.
+ */
+function marketFor(
+  positions: Position[],
+  weekPct: number | null,
+  marketWeek: WeekReturn | undefined
+): WeeklyMarket | null {
+  const m = weekPctOf(marketWeek);
+  if (m == null || weekPct == null || !Number.isFinite(m)) return null;
+  const start = positions.reduce((s, p) => s + p.startValue, 0);
+  if (!(start > 0)) return null;
+  return {
+    pct: m,
+    followedDollar: start * (m / 100),
+    drivers: positions.map((p) => {
+      const pct = p.weekPct ?? 0;
+      return { ticker: p.ticker, pct, gapPts: (p.startValue / start) * (pct - m) };
+    }),
   };
 }
 
@@ -767,7 +820,7 @@ export function weeklyLetterText(r: WeeklyLetter): string {
       r.weekPct != null ? `  ${signedPct(r.weekPct)}` : ""
     }`
   );
-  if (r.margus) lines.push("", r.margus);
+  if (r.prose) lines.push("", r.prose);
 
   if (r.movers.length > 0) {
     lines.push("", "What moved");
@@ -790,6 +843,15 @@ export function weeklyLetterText(r: WeeklyLetter): string {
   if (r.weekAhead.length > 0) {
     lines.push("", "Next week");
     for (const w of r.weekAhead) lines.push(`  ${w}`);
+  }
+  if (r.market && r.weekPct != null) {
+    lines.push(
+      "",
+      "You or the market",
+      `  Your portfolio  ${signedPct(r.weekPct)}`,
+      `  S&P 500  ${signedPct(r.market.pct)}`
+    );
+    if (r.marketProse) lines.push("", r.marketProse);
   }
   lines.push("", ADVICE_DISCLAIMER_SHORT);
   lines.push("", "One email a week, on Sunday. Turn it off in Account.");
@@ -817,6 +879,11 @@ const ROW_PAD = 10;
  */
 const NAME_COL = 84;
 const FIGURE_COL = 70;
+/**
+ * The same width as the ticker column above it, so the zero line of the
+ * market picture sits directly under the zero line of What moved.
+ */
+const MARKET_LABEL_COL = NAME_COL;
 /** The same idea inside a card, where the type is larger. */
 const CARD_ROW_PAD = 13;
 
@@ -880,10 +947,10 @@ const BAR_H = 8;
  * the magnitude goes. Tables and background colours only: a `div` with a
  * width is not something every mail client will draw.
  */
-function moveBar(pct: number, maxAbs: number): string {
+function moveBar(pct: number, maxAbs: number, tone?: string): string {
   const share = maxAbs > 0 ? Math.abs(pct) / maxAbs : 0;
   const width = Math.max(BAR_MIN_PCT, Math.round(BAR_MAX_PCT * share));
-  const color = toneColor(pct);
+  const color = tone ?? toneColor(pct);
   const fill = `<table role="presentation" width="${width}%" cellpadding="0" cellspacing="0" style="width:${width}%;border-collapse:collapse"><tr><td height="${BAR_H}" bgcolor="${color}" style="height:${BAR_H}px;min-width:6px;background:${color};border-radius:${BAR_H / 2}px;font-size:0;line-height:0">&nbsp;</td></tr></table>`;
   const empty = `<table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="1" height="${BAR_H}" style="height:${BAR_H}px;font-size:0;line-height:0">&nbsp;</td></tr></table>`;
   /*
@@ -1002,7 +1069,7 @@ function aheadList(lines: string[]): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%">${rows}</table>`;
 }
 
-function margusHtml(text: string): string {
+function proseHtml(text: string): string {
   const paras = text
     .split(/\n{2,}/)
     .map((p) => p.trim())
@@ -1023,6 +1090,38 @@ function margusHtml(text: string): string {
  * "-$3,630" read as "-$3 ,630". The app's own hero figure made the same
  * move for the same reason (`.figure-hero`).
  */
+/**
+ * Two bars on one scale, the portfolio's week over the index's, growing
+ * from the same centre line as What moved so a reader already knows how to
+ * read them. The index is drawn in the muted tone, never gain or loss, so
+ * the only colour in the picture is the reader's own week.
+ */
+function marketHtml(youPct: number, marketPct: number, prose: string | null): string {
+  const maxAbs = Math.max(Math.abs(youPct), Math.abs(marketPct), 0.1);
+  const row = (label: string, pct: number, tone: string, last: boolean) => {
+    const border = last ? "none" : `1px solid ${EMAIL.line}`;
+    return `<tr>
+  <td width="${MARKET_LABEL_COL}" style="width:${MARKET_LABEL_COL}px;padding:${ROW_PAD}px 10px ${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;white-space:nowrap">
+    <p style="margin:0;font-family:${EMAIL.sans};font-size:15px;line-height:1.25;font-weight:600;color:${EMAIL.cream}">${escapeEmail(label)}</p>
+  </td>
+  <td style="padding:${ROW_PAD}px 14px;border-bottom:${border};vertical-align:middle">${moveBar(pct, maxAbs, tone)}</td>
+  <td width="${FIGURE_COL}" style="width:${FIGURE_COL}px;padding:${ROW_PAD}px 0;border-bottom:${border};vertical-align:middle;text-align:right;white-space:nowrap">
+    <p style="margin:0;font-family:${EMAIL.mono};font-size:15px;line-height:1.25;font-weight:600;color:${tone}">${escapeEmail(signedPct(pct))}</p>
+  </td>
+</tr>`;
+  };
+  const table = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;table-layout:fixed">${row(
+    "You",
+    youPct,
+    toneColor(youPct),
+    false
+  )}${row("S&P 500", marketPct, EMAIL.muted, true)}</table>`;
+  const words = prose
+    ? `<p style="margin:18px 0 0 0;font-family:${EMAIL.sans};font-size:16px;line-height:1.6;color:${EMAIL.cream}">${escapeEmail(prose)}</p>`
+    : "";
+  return `${table}${words}`;
+}
+
 function heroFigure(r: WeeklyLetter, companies: string): string {
   const weekColor = toneColor(r.weekDollar);
   return `${kicker("Your week")}${gap(14)}
@@ -1063,10 +1162,10 @@ export function weeklyLetterHtml(
    */
   const opening = emailCard(
     `${heroFigure(r, companies)}${
-      r.margus
+      r.prose
         ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:22px 0 0 0">
   <tr><td style="height:1px;background:${EMAIL.cardLine};font-size:0;line-height:0">&nbsp;</td></tr>
-  <tr><td style="padding:20px 0 0 0">${margusHtml(r.margus)}</td></tr>
+  <tr><td style="padding:20px 0 0 0">${proseHtml(r.prose)}</td></tr>
 </table>`
         : ""
     }`
@@ -1085,6 +1184,10 @@ export function weeklyLetterHtml(
       : "";
   const aheadBlock =
     r.weekAhead.length > 0 ? block("Next week", aheadList(r.weekAhead)) : "";
+  const marketBlock =
+    r.market && r.weekPct != null
+      ? block("You or the market", marketHtml(r.weekPct, r.market.pct, r.marketProse))
+      : "";
 
   return wrapEmailLetter({
     title: "Your week",
@@ -1103,9 +1206,10 @@ ${moversBlock}
 ${suggestionBlock}
 ${watchBlock}
 ${aheadBlock}
+${marketBlock}
 ${emailButton(BOOK_URL, "Open your portfolio")}`,
-    // The disclaimer sits in the footer rather than inside Margus's card,
-    // so it is there whether or not the model wrote anything that week.
+    // The disclaimer sits in the footer rather than inside the opening card,
+    // so it is there however short the prose came out.
     footer: `<p style="margin:34px 0 0 0;font-family:${EMAIL.sans};font-size:12px;line-height:1.5;color:${EMAIL.muted}">${escapeEmail(ADVICE_DISCLAIMER_SHORT)}</p>${emailAccountFooter(unsubscribeUrl)}`,
   });
 }

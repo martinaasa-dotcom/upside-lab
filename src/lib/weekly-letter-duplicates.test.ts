@@ -147,8 +147,9 @@ vi.mock("@/lib/market/yahoo", () => ({
     Promise.resolve({ NVDA: { start: 96, end: 100, pct: 0.0417 } }),
   fetchMarketEvents: () => Promise.resolve({ earnings: [] }),
 }));
-vi.mock("@/lib/weekly-margus", () => ({
-  writeWeeklyTake: async () => "A take.",
+vi.mock("@/lib/weekly-prose", () => ({
+  writeWeeklyProse: () => "A take.",
+  writeMarketProse: () => null,
 }));
 
 const { dispatchWeeklyLetters, letterWeekKey, noteTestAudience } = await import(
