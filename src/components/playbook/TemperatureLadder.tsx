@@ -225,8 +225,8 @@ export function TemperatureLadder({
         <Track score={score} selected={shown.id} onSelect={setPicked} />
         <p className="text-sm leading-relaxed text-muted-foreground">
           {score == null
-            ? "The reading has not landed yet. Press a band to read it."
-            : `${Math.round(score)} out of 100 today. Neither end is the good one: fear is where things are cheap, greed where they are dear.`}
+            ? "The reading has not landed yet."
+            : `${Math.round(score)} out of 100 today. Neither end is the good one: fear means low prices, greed high ones.`}
         </p>
         {/*
           WHOSE NUMBER IT IS, AND WHEN IT WAS READ.
@@ -242,8 +242,8 @@ export function TemperatureLadder({
         */}
         <p className="text-xs leading-relaxed text-muted-foreground">
           {score == null
-            ? "The score is CNN's Fear and Greed index for US stocks, which anybody can look up."
-            : `The score is CNN's Fear and Greed index for US stocks, which anybody can look up.${stamp ? ` Read ${stamp}.` : ""}`}
+            ? "CNN's public Fear and Greed index for US stocks."
+            : `CNN's public Fear and Greed index for US stocks.${stamp ? ` Read ${stamp}.` : ""}`}
         </p>
       </div>
       <BandBody band={shown} here={current?.id === shown.id} />

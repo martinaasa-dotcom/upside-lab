@@ -116,7 +116,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
     return (
       <EmptyState
         title="Nothing to test yet"
-        detail="Add a holding and this shows what a rough day would do to your portfolio."
+        detail="Add a holding to see what a bad day would cost."
       />
     );
   }
@@ -141,7 +141,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
               />
             </span>
           }
-          subtitle="Pick a kind of day. Everything below reprices at once."
+          subtitle="Pick a kind of day."
         />
 
         {/*
@@ -258,11 +258,11 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
                 <Pill tone="good">Comfortable</Pill>
               )}
               <p className="text-sm leading-relaxed text-muted-foreground">
-                You would be holding{" "}
-                {analysis.margin.shockedLeverage.toFixed(2)} times what is really
-                yours, because part of it is borrowed. If your broker wants{" "}
-                {percent(SCENARIO_MAINTENANCE_RATE, 0)} of the stocks covered by
-                your own money, the room before a forced sale is{" "}
+                You would hold{" "}
+                {analysis.margin.shockedLeverage.toFixed(2)} times what is yours,
+                as part is borrowed. If your broker wants{" "}
+                {percent(SCENARIO_MAINTENANCE_RATE, 0)} covered by your own money,{" "}
+                the room before a forced sale is{" "}
                 <span
                   className={cn(
                     "font-semibold tabular-nums",
@@ -273,15 +273,15 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
                 >
                   {currency(analysis.margin.shockedEquityCushion, 0)}
                 </span>
-                . Brokers use 25% to 30% and can raise it without warning, so the
-                Cash card on Home plans against a stricter half.
+                . Brokers use 25% to 30% and can raise it, so the Cash card on
+                Home plans against a stricter half.
               </p>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
               {analysis.cash > 0
                 ? `Cash ${currency(analysis.cash, 0)} is untouched, ${analysis.margin.shockedCashPct.toFixed(1)}% of the portfolio after this.`
-                : "There is no cash set aside as a cushion."}
+                : "No cash set aside as a cushion."}
             </p>
           )}
         </div>
@@ -302,7 +302,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
       <Panel>
         <PanelHeader
           title="Where the damage lands"
-          subtitle="Each holding, worst first. The bar is what this day would cost it."
+          subtitle="Each holding, worst first."
         />
         {sortedRows.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nothing held here yet.</p>
@@ -348,7 +348,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
                     />
                   </div>
                   <p className="text-xs tabular-nums text-muted-foreground">
-                    {signedPercent(r.movePct)} on the share price, {currency(r.shockVal, 0)} after
+                    Price {signedPercent(r.movePct)}, {currency(r.shockVal, 0)} after
                   </p>
                 </li>
               );

@@ -94,18 +94,12 @@ export function IdeaDeck() {
   return (
     <div className="flex flex-col gap-8">
       {/*
-        This does not restate the panel's subtitle above it. That one says
-        what the list is; this says the one thing about it that is not
-        obvious, which is why every card carries its own objection. Both
-        opened with "the ideas that keep turning up ... and the way it goes
-        wrong", so a reader met the same promise twice before reaching a
-        card, which is the fault this room already fixed one level up when
-        it dropped its own hero panel under Lab's heading.
+        No opening paragraph. The panel's subtitle already says the one thing
+        about this list that is not obvious, that every card carries its own
+        objection, and a paragraph saying it again was the same promise twice
+        before the first card. This room already fixed that fault one level up
+        when it dropped its hero panel under Lab's heading.
       */}
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        Every idea has an opposite that is also true, so each card carries
-        the way it goes wrong.
-      </p>
       {IDEA_THEMES.map((theme) => {
         const shown = IDEAS.filter((i) => i.theme === theme.id);
         if (shown.length === 0) return null;

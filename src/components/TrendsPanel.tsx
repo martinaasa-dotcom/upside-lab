@@ -233,8 +233,8 @@ export function TickerStoryCard({
           {row.divergence.priceFrom.toFixed(0)} to{" "}
           {row.divergence.priceTo.toFixed(0)}) while the reading of how hard it
           was moving went the other way ({row.divergence.rsiFrom.toFixed(0)} to{" "}
-          {row.divergence.rsiTo.toFixed(0)}). That often comes before a turn,
-          and it does not always. Seen{" "}
+          {row.divergence.rsiTo.toFixed(0)}). That often, not always, comes
+          before a turn. Seen{" "}
           {row.divergence.weeksAgo === 0
             ? "this week"
             : row.divergence.weeksAgo === 1
@@ -287,7 +287,7 @@ function TrendIllustration() {
       <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-4 rounded-full bg-primary" />Weekly close</span>
         <span className="inline-flex items-center gap-1.5"><span className="w-4 border-t border-dashed border-foreground/35" />The slow average</span>
-        <span>An illustration, not a real company</span>
+        <span>Example, not a real company</span>
       </figcaption>
     </figure>
   );
@@ -455,12 +455,12 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
         <Panel>
           <PanelHeader
             title="Is the trend changing?"
-            subtitle="For every company you own, four years of weekly closing prices, read for the moment a long rise starts to slow or a long fall starts to turn."
+            subtitle="Spots when a long rise slows or a long fall turns."
           />
           <TrendIllustration />
           <p className="text-sm leading-relaxed text-muted-foreground">
-            This part needs an account, because it reads each of your own
-            companies. Everything else in Lab answers on the sample.
+            This part needs an account.
+            Everything else in Lab answers on the sample.
           </p>
         </Panel>
       </div>
@@ -580,7 +580,7 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
       {!needsAccount && rows != null && rows.length === 0 && !error && (
         <EmptyState
           title="Nothing to read yet"
-          detail="Add a holding, or watch a ticker above, and its trend appears here."
+          detail="Add a holding, or watch a ticker above."
         />
       )}
 
@@ -591,8 +591,8 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
               <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
               <span>
                 {attentionCount === 0
-                  ? "None of these has changed direction or started to slow right now. They are sorted by how far each one is ahead of the S&P 500."
-                  : `${attentionCount} of the companies below ${attentionCount === 1 ? "has" : "have"} something actually changing. Those come first.`}
+                  ? "Nothing here has turned or slowed. Sorted by how far each is ahead of the S&P 500."
+                  : `${attentionCount} ${attentionCount === 1 ? "is" : "are"} changing. Those come first.`}
               </span>
             </span>
           </Reading>
@@ -611,7 +611,7 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
             <Panel>
               <PanelHeader
                 title="Who's leading, who's fading"
-                subtitle="The last 13 weeks, about three months. The same period for every holding."
+                subtitle="The last 13 weeks, about three months, for every holding."
               />
               {/*
                 * The window is named in the heading now, not only in a
@@ -623,10 +623,9 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
                 * really is theirs.
                 */}
               <p className="text-sm leading-relaxed text-muted-foreground">
-                Ranked by how each holding did against the S&amp;P 500 over those
-                13 weeks. This is money moving from one group to another, not
-                just prices going up with everything else. It is not measured
-                from the day you bought; that figure is All time on Home.
+                Ranked against the S&amp;P 500,
+                not measured from the day you bought. That figure is All time on
+                Home.
                 {proxyNote ? ` ${proxyNote}` : ""}
               </p>
               <div className="flex flex-col gap-1.5">
@@ -679,9 +678,8 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
           )}
 
           <p className="text-sm text-muted-foreground">
-            These readings are worked out from prices that have already
-            happened. A reading can sit unchanged for months, or fade away
-            without anything coming of it at all.
+            Read from past prices. A reading can sit for months, or fade with
+            nothing coming of it.
           </p>
         </>
       )}

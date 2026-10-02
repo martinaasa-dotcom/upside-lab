@@ -49,7 +49,7 @@ function Bars({ fall, rise }: { fall: number; rise: number }) {
       </div>
       <div>
         <div className="flex items-baseline justify-between gap-4">
-          <MicroLabel>The rise needed to get level</MicroLabel>
+          <MicroLabel>The rise needed</MicroLabel>
           <span className="font-mono text-sm font-medium tabular-nums text-gain">
             {percent(rise / 100, 0)}
           </span>
@@ -93,13 +93,11 @@ export function RecoveryGap() {
         <Bars fall={fall} rise={rise} />
 
         <p className="text-sm leading-relaxed text-foreground">
-          A fall of {percent(fall / 100, 0)} needs a rise of{" "}
+          Down {percent(fall / 100, 0)} needs a rise of{" "}
           <span className="font-mono font-medium tabular-nums">
             {percent(rise / 100, 0)}
           </span>{" "}
-          to get back to where it started. Every dollar of the {percent(fall / 100, 0)}{" "}
-          that went has to be earned back by what is left, and there is less of
-          it than there was.
+          to get back, because what is left is smaller.
         </p>
       </Card>
 
@@ -132,7 +130,7 @@ export function RecoveryGap() {
           })}
         </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Past {MAX_FALL}% it runs away: down 99% needs a rise of 9,900%.
+          Past {MAX_FALL}% it runs away: down 99% needs +9,900%.
         </p>
       </div>
     </div>

@@ -471,8 +471,7 @@ function DayOfMonthChart({
         })}
       </div>
       <p className="hidden text-sm text-muted-foreground md:block">
-        The average move on that calendar day in {monthLabel}. Pick a day to
-        see the years behind it.
+        {`Pick a day in ${monthLabel} to see its years.`}
       </p>
     </div>
   );
@@ -628,9 +627,8 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
               </p>
             ) : (
               <p className="text-sm leading-relaxed text-muted-foreground">
-                Which months and days have historically been kind to the
-                market, and which have not. Patterns from the past, nothing
-                about your own holdings and no claim about what happens next.
+                Past patterns by month and day. No claim about what happens
+                next.
               </p>
             )}
           </div>
@@ -712,7 +710,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
           <Panel>
             <PanelHeader
               title="Daily rhythm within the month"
-              subtitle="One calendar day, averaged across the same years."
+              subtitle="Each day, averaged over the same years."
             />
             <div>
               <div className="mb-4 flex items-center justify-between gap-2">
