@@ -359,7 +359,7 @@ export function FeatureTiles() {
       <Tile
         className="md:col-span-2"
         title="What it looks worth"
-        line="Every price set against a range of estimates of what the company is worth, with the working for each one."
+        line="Every price set against estimates of what the company is worth, each with its working."
       >
         <FairValueLoop />
       </Tile>
@@ -374,13 +374,13 @@ export function FeatureTiles() {
       </Tile>
       <Tile
         title="When could you stop working?"
-        line="Your savings across your whole life, and the earliest age they could carry you."
+        line="Your savings across your life, and the earliest age they could carry you."
       >
         <LifeLoop />
       </Tile>
       <Tile
         title="Every word explained"
-        line="Plain words first. Tap anything you do not know and it explains itself."
+        line="Plain words first. Tap any word you do not know."
       >
         <WordsLoop />
       </Tile>

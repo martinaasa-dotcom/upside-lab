@@ -760,9 +760,8 @@ function HeroHybrid({
               </span>
             </h1>
             <p className="mt-5 max-w-xl text-pretty text-lg leading-snug text-muted-foreground sm:mt-7 sm:text-xl">
-              Upside Lab reads every company you own, every day, and tells
-              you in plain English what moved it: the whole market, or news
-              of its own.
+              Every day, Upside Lab tells you in plain English what moved
+              each company you own: the whole market, or its own news.
             </p>
             <div className="mt-7 w-full max-w-sm sm:mt-9">
               <SignInMethods
@@ -783,8 +782,8 @@ function HeroHybrid({
               footer={
                 <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-4">
                   <p className="min-w-[13rem] flex-1 text-xs leading-relaxed text-muted-foreground">
-                    Press a company to read about it. In the full sample the
-                    holdings are made up and the prices are real.
+                    Press a company to read about it.{" "}
+                    The holdings are made up and the prices are real.
                   </p>
                   {onLookAround ? (
                     <Button
