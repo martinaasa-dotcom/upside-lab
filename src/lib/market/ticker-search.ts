@@ -3,6 +3,7 @@ import {
   isCoinSymbol,
   matchCoinQuery,
 } from "@/lib/coins";
+import { stockholmSuggestions } from "@/lib/market/stockholm";
 import { normalizeYahooTicker, tickerStem } from "@/lib/ticker";
 
 export type TickerSuggestion = {
@@ -130,6 +131,10 @@ export function localTickerSuggestions(
     ) {
       push(symbol);
     }
+  }
+
+  for (const row of stockholmSuggestions(query, exclude)) {
+    push(row.symbol, row.name);
   }
 
   for (const t of catalog) {

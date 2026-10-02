@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { pruneOldSnapshots, saveBookSnapshot } from "@/lib/book-snapshot";
 
 /*
@@ -24,6 +24,17 @@ type Row = { id: string; created_at: string; owner_id: string | null };
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-09-02T00:00:00.000Z");
+
+// The prune reads the real clock, so the fixture's rows have to be dated
+// against the same moment it reads, or a month later every one of them has
+// aged out of the window and the "nothing to delete" case deletes them.
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+});
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 function makeRows(owner: string, kind: string, count: number, from = 0): Row[] {
   return Array.from({ length: count }, (_, i) => ({

@@ -156,7 +156,7 @@ import {
   priceRange,
   sessionReaction,
 } from "../src/lib/earnings-brief";
-import { insightWhen, isUsAfterCashClose, sessionMark } from "../src/lib/market-session";
+import { insightWhen, isUsAfterCashClose, lastSessionName, sessionMark } from "../src/lib/market-session";
 import {
   lastCompletedUsSessionKey,
   pinQuotesToSessionClose,
@@ -3587,7 +3587,12 @@ run("Worth noticing names the two groups in plain English", () => {
   assert.doesNotMatch(line, /If you didn't mean to take that bet/);
 
   const friday = buildBookInsights(holdings, "friday").rotation ?? "";
-  assert.match(friday, /on Friday/);
+  // The "friday" wording names the last finished session, read off the
+  // clock: Friday at a weekend, Thursday on a Friday afternoon.
+  assert.ok(
+    friday.includes(`on ${lastSessionName()}`),
+    `expected "on ${lastSessionName()}" in: ${friday}`
+  );
   assert.doesNotMatch(friday, /today/);
   const week = buildBookInsights(holdings, "this week").rotation ?? "";
   assert.match(week, /this week/);

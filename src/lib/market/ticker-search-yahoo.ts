@@ -9,6 +9,7 @@ import {
   normalizeYahooTicker,
   tickerStem,
 } from "@/lib/ticker";
+import { stockholmSuggestions } from "@/lib/market/stockholm";
 import { isMarketCircuitOpen } from "@/lib/market/circuit-breaker";
 import { yahooCall } from "@/lib/market/yahoo";
 
@@ -86,14 +87,17 @@ export async function searchYahooTickers(
 ): Promise<TickerSuggestion[]> {
   const q = query.trim();
   if (q.length < 1 || q.length > TICKER_QUERY_MAX) return [];
-  if (isMarketCircuitOpen("yahoo")) return [];
+  // Stockholm listings Yahoo's search misses ("Investor", "H&M",
+  // "VOLV B"). They answer even while Yahoo is unreachable.
+  const stockholm = stockholmSuggestions(q);
+  if (isMarketCircuitOpen("yahoo")) return rankTickerSuggestions(q, stockholm).slice(0, 8);
   try {
     const yf = await getYahoo();
     const tickerQuery = looksLikeTickerQuery(q);
     const normalized = tickerQuery ? normalizeYahooTicker(q) : "";
     const stem = tickerStem(normalized || q.toUpperCase());
-    const seen = new Set<string>();
-    const out: TickerSuggestion[] = [];
+    const seen = new Set<string>(stockholm.map((row) => row.symbol));
+    const out: TickerSuggestion[] = [...stockholm];
 
     const firstQueries = [q];
     if (normalized && normalized !== q.toUpperCase()) {
@@ -103,15 +107,15 @@ export async function searchYahooTickers(
       firstQueries.map((queryText) => searchOnce(yf, queryText))
     );
     for (const hits of firstHits) {
-      collectSearchHits(hits, seen, out, 8);
+      collectSearchHits(hits, seen, out, 8 + stockholm.length);
     }
 
     const hasStem = out.some((row) => tickerStem(row.symbol) === stem);
     if (tickerQuery && !hasStem && normalized && !normalized.includes(".")) {
-      collectSearchHits(await searchOnce(yf, `${normalized}.DE`), seen, out, 8);
+      collectSearchHits(await searchOnce(yf, `${normalized}.DE`), seen, out, 8 + stockholm.length);
     }
     if (tickerQuery && !hasStem && normalized?.includes(".")) {
-      collectSearchHits(await searchOnce(yf, normalized), seen, out, 8);
+      collectSearchHits(await searchOnce(yf, normalized), seen, out, 8 + stockholm.length);
     }
     if (
       tickerQuery &&
@@ -125,6 +129,6 @@ export async function searchYahooTickers(
     return rankTickerSuggestions(q, out).slice(0, 8);
   } catch (err) {
     console.error("[ticker-search] Yahoo search failed", err);
-    return [];
+    return rankTickerSuggestions(q, stockholm).slice(0, 8);
   }
 }
