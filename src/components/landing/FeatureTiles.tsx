@@ -344,7 +344,18 @@ function WordsLoop() {
 */
 export function FeatureTiles() {
   return (
-    <div className="-mx-6 mt-8 flex snap-x snap-mandatory scroll-px-6 gap-3 overflow-x-auto px-6 py-1 scrollbar-none md:mx-0 md:grid md:snap-none md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 md:py-0">
+    /*
+      A labelled region that takes focus, because on a phone it is a
+      scroller with nothing focusable inside it, and a scroller a keyboard
+      cannot reach is one a keyboard cannot scroll (axe's
+      scrollable-region-focusable, caught by the landing smoke test).
+    */
+    <div
+      role="region"
+      aria-label="What it does"
+      tabIndex={0}
+      className="-mx-6 mt-8 flex snap-x snap-mandatory scroll-px-6 gap-3 overflow-x-auto rounded-2xl px-6 py-1 scrollbar-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring md:mx-0 md:grid md:snap-none md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 md:py-0"
+    >
       <Tile
         className="md:col-span-2"
         title="What it looks worth"

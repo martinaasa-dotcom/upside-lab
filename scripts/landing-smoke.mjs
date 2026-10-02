@@ -155,9 +155,27 @@ async function smoke(page, viewport) {
     headline with real words in it, the sample card the hero is built
     around, and the ask. Any of those missing is the failure this job
     exists to catch, and none of them moves when the copy does.
+
+    THE SAME MISTAKE A SECOND TIME, AND THE STRUCTURAL ANSWER. The word
+    count that replaced the exact sentence was a copy rule too: "at least
+    six words" passed every headline the page had for a year and failed
+    the first short one, "Every move, explained." (2026-10-02), at three.
+    It only ever told the hero from an error screen by accident, since
+    "This screen did not load" and "This page isn't here" are four and
+    five words. What actually separates them is where the h1 lives, so
+    that is the question now: the page's one h1 is inside the landing
+    hero, which no error boundary and no empty shell renders, and it has
+    more than one word in it.
   */
-  const heading = await page.getByRole("heading", { level: 1 }).innerText();
-  if (heading.trim().split(/\s+/).length < 6) {
+  const heroHeading = page.locator(".landing-hero h1").first();
+  if ((await heroHeading.count()) === 0) {
+    const found = await page.getByRole("heading", { level: 1 }).innerText();
+    throw new Error(
+      `${viewport.name}: the h1 is not the landing hero's ${JSON.stringify(found)}`
+    );
+  }
+  const heading = await heroHeading.innerText();
+  if (heading.trim().split(/\s+/).length < 2) {
     throw new Error(
       `${viewport.name}: h1 is too thin to be the hero ${JSON.stringify(heading)}`
     );
