@@ -139,7 +139,7 @@ function ReadingCell({
         lead ? (
           <>
             <span className="block text-foreground">
-              {reading.plain ?? "The feed did not carry this one. It has not been estimated."}
+              {reading.plain ?? "Not in the feed, and not estimated."}
             </span>
             <span className="mt-2 block">{reading.compare}</span>
           </>
@@ -193,7 +193,7 @@ export function CompanyNumbers({
             />
           </span>
         }
-        subtitle="The three that matter most first. Press any label for what it means and what ordinary looks like."
+        subtitle="The three that matter most first. Tap a label for what it means."
         icon={<BarChart3 className="h-4 w-4" />}
       />
       {/*

@@ -152,7 +152,7 @@ export function companySources(input: {
         id: "edgar",
         label: "The company's own filings",
         detail:
-          "What they are legally required to tell the regulator, including the risks they list themselves. Dry, long, and the only thing on this page nobody is allowed to spin.",
+          "What they are legally required to tell the regulator, risks included. Dry, long, and nobody is allowed to spin it.",
         href: edgar,
         kind: "primary",
       });
@@ -165,7 +165,7 @@ export function companySources(input: {
       id: "website",
       label: "The company's own site",
       detail:
-        "Their side of the story, written by them. Useful for working out what they actually sell, and not a neutral source about anything else.",
+        "Their side of the story. Useful for what they sell, not neutral on anything else.",
       href: site,
       kind: "primary",
     });
@@ -179,7 +179,7 @@ export function companySources(input: {
       id: "yahoo",
       label: "The figures, at the source",
       detail:
-        "The same feed every number on this page was read from. Open it and the figures should match; if one does not, ours is the one that is wrong.",
+        "The feed every number here was read from. If a figure does not match, ours is wrong.",
       href: yahoo,
       kind: "market",
     });
@@ -193,7 +193,7 @@ export function companySources(input: {
       id: "analysts",
       label: "What the analysts published",
       detail:
-        "The individual forecasts behind the average used above, including how far apart they are, which an average always hides.",
+        "The individual forecasts behind the average above, and how far apart they are.",
       href: analysis,
       kind: "market",
     });
@@ -207,7 +207,7 @@ export function companySources(input: {
       id: "coverage",
       label: "Everything else being written",
       detail:
-        "Wider coverage than the handful of headlines above, including the people who disagree with it. Nobody here has vetted any of it.",
+        "Wider coverage than the headlines above, dissent included. Nobody here has vetted it.",
       href: search,
       kind: "coverage",
     });

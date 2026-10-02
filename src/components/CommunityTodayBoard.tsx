@@ -72,7 +72,7 @@ export function CommunityTodayBoard({
       <PanelHeader
         icon={<Trophy className="h-4 w-4" />}
         title="Today"
-        subtitle="How each portfolio moved today, biggest move first"
+        subtitle="Each portfolio, best day first"
       />
       {/*
         The circle's figure beside the people on a laptop, above them on a

@@ -182,7 +182,7 @@ export function SignInAddresses() {
       <PanelHeader
         icon={<KeyRound className="h-4 w-4" />}
         title="Ways to sign in"
-        subtitle="Every address here opens this account, with the same portfolios and the same circles. Nothing new is made."
+        subtitle="Every address here opens this one account, with Google or an emailed link."
       />
 
       <div className="flex flex-col gap-2">
@@ -340,9 +340,8 @@ export function SignInAddresses() {
         is a small thing that costs a lot of trust.
       */}
       <p className="text-sm text-muted-foreground">
-        Any address here opens this account, whether you sign in with Google
-        or with a link we email you. Removing one closes that way in and
-        changes nothing else about your {PRODUCT_NAME} account.
+        Removing an address closes that way in and changes nothing else about
+        your {PRODUCT_NAME} account.
       </p>
     </Panel>
   );

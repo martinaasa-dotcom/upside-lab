@@ -90,8 +90,8 @@ export function ClassroomHome({
           <div className={cn("flex flex-wrap items-center gap-2 rounded-xl glass ring-1 ring-foreground/20", PANEL_PAD)}>
             <p className="min-w-0 flex-1 text-sm text-foreground">
               {isAdmin
-                ? "You are watching the class. Get a paper portfolio if you want to trade alongside them."
-                : "You do not have a paper portfolio in this class yet. Tap Get paper portfolio to start with the same cash as everyone else."}
+                ? "You are watching. Get a paper portfolio to trade alongside them."
+                : "No paper portfolio yet. Get one to start with the same cash as everyone."}
             </p>
             <Button
               type="button"
@@ -104,8 +104,8 @@ export function ClassroomHome({
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Open your paper portfolio to buy companies with the paper
-            money. The Sunday letter is your weekly summary.
+            Trade from your paper portfolio. The Sunday letter sums up
+            your week.
           </p>
         )}
       </section>
@@ -189,8 +189,7 @@ export function ClassroomHome({
           {membersWithBooks.length === 0 && isAdmin && (
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm text-muted-foreground">
-                Send the invite. Each student gets the same starting
-                cash and an empty portfolio.
+                Each student gets the same starting cash.
               </p>
               <Button
                 type="button"

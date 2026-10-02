@@ -336,7 +336,7 @@ export function CommunitiesList() {
               Circle
             </h1>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              People you invite, and public circles you can ask to join. You pick which portfolios they see. They see prices from today, not what you paid.
+              Invite people or join a public circle. You choose which portfolios they see, and what you paid stays yours.
             </p>
           </div>
           {/*
@@ -366,7 +366,7 @@ export function CommunitiesList() {
                     onClick={() => setStartOpen(true)}
                   >
                     <Plus data-icon="inline-start" />
-                    Start a circle or a class
+                    Start a circle
                   </Button>
                 ) : undefined
               }
@@ -386,8 +386,7 @@ export function CommunitiesList() {
                       You are not in a circle yet.
                     </p>
                     <p className="text-sm leading-relaxed text-muted-foreground">
-                      Start one below for friends or family, or request to join
-                      a public circle further down.
+                      Start one below, or ask to join a public one.
                     </p>
                   </li>
                 )}
@@ -468,13 +467,13 @@ export function CommunitiesList() {
           <Panel>
             <PanelHeader
               title="Public circles"
-              subtitle="Most let you straight in. Some ask their admin first, and the button says which."
+              subtitle="Most let you straight in. The button says if one asks first."
               icon={<Compass className="h-4 w-4" />}
             />
             {discover.length === 0 ? (
               <p className="card-sheen glass-well rounded-lg px-4 py-6 text-sm leading-relaxed text-muted-foreground">
-                There are no public circles right now. If you start one, set
-                it to Public so that people can ask to join it.
+                There are no public circles right now. Start one and set it to
+                Public.
               </p>
             ) : (
               <ul className="card-sheen glass-well divide-y divide-border overflow-hidden rounded-lg">
@@ -542,8 +541,8 @@ export function CommunitiesList() {
                 title="Start a circle"
                 subtitle={
                   kind === "classroom"
-                    ? "High school or university. Students join with a link, everyone starts with the same paper cash and an empty portfolio, and the prices are real. No real money changes hands."
-                    : "A private circle for people you invite, or a public one people can ask to join."
+                    ? "Students join with a link and start with the same paper cash. Real prices, no real money."
+                    : "Private for people you invite, or public for anyone to ask."
                 }
                 actions={
                   <Segmented
@@ -580,8 +579,7 @@ export function CommunitiesList() {
                         How the class runs
                       </p>
                       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                        Pick the closest match. You can change the cash, the
-                        note, and the trading rules after you start.
+                        Pick the closest. You can change all of it later.
                       </p>
                       <div className="divide-y divide-border">
                         {CLASS_TEMPLATES.map((t) => {
@@ -706,8 +704,7 @@ export function CommunitiesList() {
               What should {joinPick.name} see?
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Every portfolio is shared to start with. Turn one off to keep it
-              private. You can change this later.
+              All are shared to start. Turn one off to keep it private.
             </p>
             <ul className="flex flex-col mt-4 gap-2">
               {joinPick.sheets.map((s) => {

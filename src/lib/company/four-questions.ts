@@ -87,7 +87,7 @@ function historyAnswer(f: CompanyFacts): FourQuestionAnswer {
       ...base,
       figure: NO_VALUE,
       answer:
-        "The feed did not carry a high and low for the last year, so there is nothing to measure today's price against.",
+        "The feed did not carry last year's high and low, so there is nothing to measure against.",
       against: null,
       thin: true,
     };
@@ -120,7 +120,7 @@ function assumingAnswer(f: CompanyFacts): FourQuestionAnswer {
       figure: NO_VALUE,
       figureLabel: "What it costs a year",
       answer:
-        "A fund's price is the sum of what it holds, so it is not assuming anything of its own. What it charges you each year is the one number in your control.",
+        "A fund's price is the sum of what it holds, so it assumes nothing of its own. Its yearly charge is the one number you control.",
       against: null,
       thin: false,
     };
@@ -130,7 +130,7 @@ function assumingAnswer(f: CompanyFacts): FourQuestionAnswer {
       ...base,
       figure: NO_VALUE,
       answer:
-        "There are no earnings behind this one, so there is no growth rate for the price to be assuming. It is assuming somebody else will pay more, which nothing here can measure.",
+        "There are no earnings behind this one, so the price assumes only that somebody else will pay more. Nothing here can measure that.",
       against: null,
       thin: false,
     };
@@ -142,7 +142,7 @@ function assumingAnswer(f: CompanyFacts): FourQuestionAnswer {
         ...base,
         figure: percent(0, 0),
         figureLabel: "Growth the price needs",
-        answer: `At ${num(f.forwardPe, 1)} times next year's earnings, the price is already at or under the ${MARKET_EARNINGS_MULTIPLE} times an ordinary profitable company goes for. It is not asking for growth above the market.`,
+        answer: `At ${num(f.forwardPe, 1)} times next year's earnings, it is at or under the ${MARKET_EARNINGS_MULTIPLE} times an ordinary profitable company goes for. No growth above the market is assumed.`,
         against: `${MARKET_EARNINGS_MULTIPLE} times earnings, the ordinary multiple`,
         thin: false,
       };
@@ -151,7 +151,7 @@ function assumingAnswer(f: CompanyFacts): FourQuestionAnswer {
       ...base,
       figure: NO_VALUE,
       answer:
-        "The feed carried no earnings estimate for this one, so there is no multiple to work backwards from and no earnings to say what the price is assuming.",
+        "The feed carried no earnings estimate, so there is nothing to work backwards from.",
       against: null,
       thin: true,
     };
@@ -167,12 +167,12 @@ function assumingAnswer(f: CompanyFacts): FourQuestionAnswer {
   const marketLine = !ok(implied.marketRate)
     ? ""
     : close
-      ? " That is about what the market as a whole is expected to do, no more."
+      ? " About what the market as a whole is expected to do."
       : ` The market as a whole is expected to grow about ${percent(implied.marketRate, 0)} a year.`;
   return {
     ...base,
     figure: `${percent(implied.rate, 0)} a year`,
-    answer: `To bring the price back to ${MARKET_EARNINGS_MULTIPLE} times earnings, this one would have to grow about ${percent(implied.rate, 0)} a year for ${implied.years} years, from ${implied.basis}'s estimate: no discount rate and no model in it, just that bet.${marketLine}`,
+    answer: `To get back to ${MARKET_EARNINGS_MULTIPLE} times earnings, it would have to grow about ${percent(implied.rate, 0)} a year for ${implied.years} years from ${implied.basis}'s estimate, with no discount rate and no model in it.${marketLine}`,
     against: `${MARKET_EARNINGS_MULTIPLE} times earnings in ${implied.years} years`,
     thin: false,
   };
@@ -200,7 +200,7 @@ function qualityAnswer(f: CompanyFacts, read: FairValueRead): FourQuestionAnswer
       ...base,
       figure: NO_VALUE,
       answer:
-        "The feed carried neither a profit margin nor a return on equity for this one, so quality can't be answered here. The price half is in the panel below.",
+        "The feed carried neither a profit margin nor a return on equity, so quality can't be answered here.",
       against: null,
       thin: true,
     };
@@ -260,15 +260,15 @@ function changeMyMindAnswer(input: {
     const fall = (facts.price - exitLevel) / facts.price;
     parts.push(
       !personal
-        ? `${currency(exitLevel, 2)} is the lowest this share has traded in a year, ${percent(fall, 0)} under today. Below it, the price is under everything the market has paid this year, the clearest sign the case above has broken.`
+        ? `${currency(exitLevel, 2)}, the year's lowest, is ${percent(fall, 0)} under today. A fall below it is the clearest sign the case above has broken.`
         : input.exitFromYear
-        ? `${currency(exitLevel, 2)} is the lowest this share has traded in a year, ${percent(fall, 0)} under today, and the floor of your own fair value zones. Below it, the price is under everything the market has paid this year, the clearest sign the case above has broken.`
-        : `${currency(exitLevel, 2)} is where the estimates below stop describing this company, ${percent(fall, 0)} under today. That is the floor of your own fair value zones, and it is yours to move.`
+        ? `${currency(exitLevel, 2)}, the year's lowest and the floor of your own fair value zones, is ${percent(fall, 0)} under today. A fall below it is the clearest sign the case above has broken.`
+        : `${currency(exitLevel, 2)}, the floor of your own fair value zones, is ${percent(fall, 0)} under today. Below it the estimates stop describing this company. It is yours to move.`
     );
   }
   if (input.nextEarnings) {
     parts.push(
-      "The next set of results is the next chance to check this against what the company actually did, not what anybody expects."
+      "The next set of results checks this against what the company actually did."
     );
   }
   if (againstPoint) {
@@ -279,7 +279,7 @@ function changeMyMindAnswer(input: {
       ...base,
       figure: NO_VALUE,
       answer:
-        "There is no price level and no results date to hang this on for this one, so nothing here can say what would prove you wrong.",
+        "There is no price level and no results date to hang this on, so nothing here can say what would prove you wrong.",
       against: null,
       thin: true,
     };

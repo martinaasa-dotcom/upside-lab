@@ -93,8 +93,7 @@ export function ClassroomPlanEditor({
     <div className="mt-8 border-t border-border pt-6">
       <p className="text-sm font-medium text-muted-foreground">What students can do</p>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        Change this whenever the lesson changes. Buy week, closed, sell
-        and move money, or leave it open.
+        Change it whenever the lesson does.
       </p>
       {trade ? (
         <p className="mt-2 text-sm text-foreground">
@@ -128,7 +127,7 @@ export function ClassroomPlanEditor({
       <p className="mt-8 text-sm font-medium text-muted-foreground">Schedule</p>
       {scheduled.length === 0 ? (
         <p className="mt-1 text-sm text-muted-foreground">
-          Nothing scheduled. Use the buttons above for now, or add a dated period below.
+          Nothing scheduled. Use the buttons above, or add a period below.
         </p>
       ) : (
         <ItemGroup>

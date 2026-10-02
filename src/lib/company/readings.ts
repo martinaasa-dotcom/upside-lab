@@ -167,7 +167,7 @@ function growthReading(f: CompanyFacts): CompanyReading {
     plain,
     has(next)
       ? `Analysts expect ${percent(next)} next year.`
-      : "The economy grows a few percent a year. Falling sales is the one figure here worth stopping on.",
+      : "The economy grows a few percent a year. Falling sales stand out.",
     tone,
     "sales-growth",
     has(next)
@@ -217,8 +217,8 @@ function earningsGrowthReading(f: CompanyFacts): CompanyReading {
        * page looked like it disagreed with itself: on Apple, 15.4% here and
        * 12% there.
        */
-      ? `This is what the price is a bet on, and the S&P 500 is expected to manage ${percent(market)} next year.`
-      : "This is what the price is a bet on, so it is the figure to watch on results day.",
+      ? `The price is a bet on this. The S&P 500 is expected to manage ${percent(market)} next year.`
+      : "The price is a bet on this figure.",
     tone,
     undefined,
     has(market)
@@ -400,8 +400,8 @@ function dividendReading(f: CompanyFacts): CompanyReading {
   const plain = pays
     ? `For every $100 you hold, about ${currency(y * 100, 2)} a year comes back to you in cash.`
     : fund
-      ? "Nothing comes back as cash. Either the companies inside it pay nothing out, or the fund keeps and reinvests what they do."
-      : "They pay nothing out. Everything earned stays in the business, which is the ordinary choice for a company still growing fast.";
+      ? "Nothing comes back as cash. Its companies pay nothing out, or the fund reinvests it."
+      : "They pay nothing out. Everything earned stays in the business, as is usual for a fast grower.";
   return reading(
     "dividend",
     "Dividend yield",
