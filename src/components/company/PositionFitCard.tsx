@@ -140,7 +140,7 @@ export function PositionFitCard({
           <p className="text-sm leading-relaxed text-muted-foreground">
             At today&apos;s price that is about {shares} shares of {tag}
             {listingCode && listingCode !== code
-              ? `, roughly, since it is quoted in ${listingCode}`
+              ? `, a rough count since it is quoted in ${listingCode}`
               : ""}
             .
           </p>

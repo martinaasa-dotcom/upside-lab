@@ -999,7 +999,7 @@ export function pricedInSaid(assumed: number | null, range: BelievableRange): st
     return `${lead} That is past what ${span.replace(/^this company's own/, "its own")}, so the price has run ahead of the business and counts for less here.`;
   }
   if (assumed < range.low) {
-    return `${lead} That is below even the bad case, and ${span}, so the price is doubting a profit the company has already shown it can make and counts for less here.`;
+    return `${lead} That is below even the bad case (${span}), so the price is doubting a profit the company has already shown and counts for less here.`;
   }
   return `${lead} That is inside what it could believably do (${span}), so the price keeps its full weight.`;
 }
@@ -1020,7 +1020,7 @@ function marketMethod(f: CompanyFacts): FairValueMethod | null {
     source: "the market's own price",
     maker: "market",
     price: round2(f.price),
-    assumes: `That the people trading it every day have seen things these figures cannot, such as what it might become, how long its lead lasts, or a risk nobody has written down yet.${said ? ` ${said}` : ""}`,
+    assumes: `That the people trading it daily see what these figures cannot: what it might become, how long its lead lasts, or a risk nobody has written down.${said ? ` ${said}` : ""}`,
     working: `Today's price of ${currency(f.price, 2, code)}, weighted ${percent(weight, 0)} before the blend is normalised: more for a large, heavily covered company${n > 0 ? ` (${n} analyst${n === 1 ? "" : "s"} follow this one)` : ""}, less for a small one, and less again where what the price assumes is outside what companies have actually done.`,
     weight,
   };
@@ -1412,7 +1412,7 @@ export function valueGlance(read: FairValueRead): ValueGlance {
       position: "above",
       low,
       high,
-      read: `Today's price is above every estimate below. The highest is ${currency(high, 2)}${from(high)}.`,
+      read: `Today's price is above every estimate listed. The highest is ${currency(high, 2)}${from(high)}.`,
       nextQuestion:
         "So the price bets on this company beating the figures below. What has to go right is the question.",
     };
@@ -1422,7 +1422,7 @@ export function valueGlance(read: FairValueRead): ValueGlance {
       position: "below",
       low,
       high,
-      read: `Today's price is below every estimate below. The lowest is ${currency(low, 2)}${from(low)}.`,
+      read: `Today's price is below every estimate listed. The lowest is ${currency(low, 2)}${from(low)}.`,
       nextQuestion:
         "Either the market knows something these figures do not, or it has not caught up. The case against, further down, is where to look.",
     };
