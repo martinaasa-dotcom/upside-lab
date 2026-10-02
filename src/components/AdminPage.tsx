@@ -372,7 +372,7 @@ export function AdminPage() {
                     Nothing logged, all clear.
                   </p>
                 ) : (
-                  <ul className="max-h-[28rem] divide-y divide-border overflow-y-auto rounded-xl glass ring-1 ring-foreground/20">
+                  <ul className="max-h-[28rem] divide-y divide-border overflow-y-auto rounded-xl card-sheen glass ring-1 ring-foreground/20">
                     {errorLog.map((e) => {
                       const open = expandedError === e.id;
                       return (
@@ -461,7 +461,7 @@ export function AdminPage() {
                     />
                   </div>
                 )}
-                <ul className="divide-y divide-border overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
+                <ul className="divide-y divide-border overflow-hidden rounded-xl card-sheen glass ring-1 ring-foreground/20">
                   {filteredUsers.length === 0 ? (
                     <li className="px-4 py-6 text-center text-sm text-muted-foreground">
                       {users.length === 0
@@ -556,14 +556,14 @@ export function AdminPage() {
                 </div>
                 <div className="flex flex-col gap-3">
                   {communities.length === 0 ? (
-                    <p className={cn("rounded-xl glass ring-1 ring-foreground/20 text-center text-sm text-muted-foreground", PANEL_PAD)}>
+                    <p className={cn("rounded-xl card-sheen glass ring-1 ring-foreground/20 text-center text-sm text-muted-foreground", PANEL_PAD)}>
                       No circles yet.
                     </p>
                   ) : (
                     communities.map((c) => (
                       <article
                         key={c.id}
-                        className={cn("flex flex-col gap-3 rounded-xl glass ring-1 ring-foreground/20", PANEL_PAD)}
+                        className={cn("flex flex-col gap-3 rounded-xl card-sheen glass ring-1 ring-foreground/20", PANEL_PAD)}
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <div>
@@ -583,7 +583,7 @@ export function AdminPage() {
                             Open
                           </Link>
                         </div>
-                        <ul className="divide-y divide-border/80 overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
+                        <ul className="divide-y divide-border/80 overflow-hidden rounded-xl card-sheen glass ring-1 ring-foreground/20">
                           {(c.members ?? []).map((m) => (
                             <li
                               key={`${c.id}-${m.user_id}`}

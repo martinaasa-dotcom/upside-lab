@@ -2297,7 +2297,7 @@ export function UpsidePortfolioPage() {
                     return i === 0 ? (
                       <article
                         key={r.id}
-                        className={cn("flex flex-col gap-2 rounded-xl glass ring-1 ring-foreground/20", PANEL_PAD)}
+                        className={cn("flex flex-col gap-2 rounded-xl card-sheen glass ring-1 ring-foreground/20", PANEL_PAD)}
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <RecapMeta r={r} />
@@ -2310,7 +2310,7 @@ export function UpsidePortfolioPage() {
                     ) : (
                       <details
                         key={r.id}
-                        className="group overflow-hidden rounded-xl glass ring-1 ring-foreground/20"
+                        className="group overflow-hidden rounded-xl card-sheen glass ring-1 ring-foreground/20"
                       >
                         <summary className="flex list-none flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
                           <ChevronRight
@@ -2341,7 +2341,7 @@ export function UpsidePortfolioPage() {
             <section className="flex flex-col gap-4">
               <SectionHeading title="Every decision, in order" why />
               {reports.length === 0 ? (
-                <p className={cn("rounded-xl glass ring-1 ring-foreground/20 text-center text-sm leading-relaxed text-muted-foreground", PANEL_PAD)}>
+                <p className={cn("rounded-xl card-sheen glass ring-1 ring-foreground/20 text-center text-sm leading-relaxed text-muted-foreground", PANEL_PAD)}>
                   Nothing written down yet. The first decision comes after
                   today&apos;s close, with its reason.
                 </p>
@@ -2359,7 +2359,7 @@ export function UpsidePortfolioPage() {
                     return i === 0 ? (
                       <article
                         key={r.id}
-                        className={cn("flex flex-col gap-2 rounded-xl glass ring-1 ring-foreground/20", PANEL_PAD)}
+                        className={cn("flex flex-col gap-2 rounded-xl card-sheen glass ring-1 ring-foreground/20", PANEL_PAD)}
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <ReportMeta r={r} />
@@ -2372,7 +2372,7 @@ export function UpsidePortfolioPage() {
                     ) : (
                       <details
                         key={r.id}
-                        className="group overflow-hidden rounded-xl glass ring-1 ring-foreground/20"
+                        className="group overflow-hidden rounded-xl card-sheen glass ring-1 ring-foreground/20"
                       >
                         <summary className="flex list-none flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
                           <ChevronRight
@@ -2409,7 +2409,7 @@ export function UpsidePortfolioPage() {
                       : `The ${closedHoldings.length} companies Margus has sold`
                   }
                 />
-                <ul className="divide-y divide-border overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
+                <ul className="divide-y divide-border overflow-hidden rounded-xl card-sheen glass ring-1 ring-foreground/20">
                   {closedHoldings.map((h, i) => {
                     const made = h.realized_pnl;
                     return (

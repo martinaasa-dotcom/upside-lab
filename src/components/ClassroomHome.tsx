@@ -87,7 +87,7 @@ export function ClassroomHome({
           <p className="text-sm leading-relaxed text-foreground">{houseNote}</p>
         ) : null}
         {!myClassSheet ? (
-          <div className={cn("flex flex-wrap items-center gap-2 rounded-xl glass ring-1 ring-foreground/20", PANEL_PAD)}>
+          <div className={cn("flex flex-wrap items-center gap-2 rounded-xl card-sheen glass ring-1 ring-foreground/20", PANEL_PAD)}>
             <p className="min-w-0 flex-1 text-sm text-foreground">
               {isAdmin
                 ? "You are watching. Get a paper portfolio to trade alongside them."

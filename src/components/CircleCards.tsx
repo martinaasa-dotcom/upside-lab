@@ -411,7 +411,7 @@ export function ReadOnlyHoldings({
           No holdings in this portfolio.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
+        <div className="overflow-hidden rounded-xl card-sheen glass ring-1 ring-foreground/20">
           <FluidTable template={tableCols(6, mixedListings)}>
             <FluidRow className={cn(headRow, "hover:bg-transparent")}>
               <div className={cn(tickerCell, headerCell)}>Company</div>

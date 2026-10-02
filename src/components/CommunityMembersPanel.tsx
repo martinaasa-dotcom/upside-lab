@@ -157,7 +157,7 @@ export function CommunityMembersPanel({
                         )}
                       </p>
                     </div>
-                    <ul className="divide-y divide-border overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
+                    <ul className="divide-y divide-border overflow-hidden rounded-xl card-sheen glass ring-1 ring-foreground/20">
                       {members.map((m) => {
                         const sheetIds = new Set(
                           ownership

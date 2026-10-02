@@ -69,7 +69,7 @@ export function ClassroomRoster({
   });
 
   return (
-    <section className="overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
+    <section className="overflow-hidden rounded-xl card-sheen glass ring-1 ring-foreground/20">
       <div className="border-b border-border surface-gutter py-6">
         <PanelHeader
           title="Roster"
