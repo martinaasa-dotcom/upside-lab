@@ -661,8 +661,11 @@ export const PortfolioTable = memo(function PortfolioTable({
         twelve names was eleven screens of cards and no way to see the whole
         of it at once, which is the one thing a holdings page is for. It is
         a table now, like the laptop's, cut to what a phone reader checks
-        every morning: the name and how it did today, as a percentage and in
-        money. One line per holding, so a dozen fit on one screen. The
+        every morning: the name, the share price, and how it did today, as a
+        percentage and in money. One line per holding, so a dozen fit on one
+        screen. The price is there because a move means little without the
+        figure it moved from, and a reader checking a quote should not have
+        to open a row to read it. The
         all-time figures are one press away rather than beside today's,
         because two gains in one row read as the same number twice.
 
@@ -686,17 +689,18 @@ export const PortfolioTable = memo(function PortfolioTable({
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] text-sm tabular-nums">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] text-sm tabular-nums">
             {/*
               The headers sort, as the laptop's do. The name column orders
               by size, biggest first, because that is the order a reader
               means by "my holdings", and an alphabetical list of tickers is
               a lookup nobody on a phone needs.
             */}
-            <div className="col-span-full grid grid-cols-subgrid items-center gap-x-5 border-b border-border surface-gutter py-2">
+            <div className="col-span-full grid grid-cols-subgrid items-center gap-x-3 border-b border-border surface-gutter py-2">
               {(
                 [
                   { key: "pct", label: "Holding", align: "start" },
+                  { key: "price", label: "Price", align: "end" },
                   { key: "today", label: "Today %", align: "end" },
                   { key: "todayDollar", label: "Today $", align: "end" },
                 ] as const
@@ -748,7 +752,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                     onClick={() => setOpenId(open ? null : h.id)}
                     aria-expanded={open}
                     aria-controls={detailId}
-                    className="col-span-full grid h-12 grid-cols-subgrid items-center gap-x-5 surface-gutter text-left outline-none transition hover:bg-hover focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/50"
+                    className="col-span-full grid h-12 grid-cols-subgrid items-center gap-x-3 surface-gutter text-left outline-none transition hover:bg-hover focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/50"
                   >
                     <span className="flex min-w-0 items-center gap-1.5">
                       <ChevronRight
@@ -765,6 +769,14 @@ export const PortfolioTable = memo(function PortfolioTable({
                           showCurrency={mixedListings}
                         />
                       </span>
+                    </span>
+                    <span
+                      className="justify-self-end text-foreground"
+                      title={quoteAsOfTitle(h.quote)}
+                    >
+                      <LiveFigure value={listed.nativeSpot}>
+                        {currency(listed.nativeSpot, listed.digits, listed.code)}
+                      </LiveFigure>
                     </span>
                     <span
                       className={cn(
@@ -981,12 +993,15 @@ export const PortfolioTable = memo(function PortfolioTable({
               );
             })}
 
-            <div className="col-span-full grid h-12 grid-cols-subgrid items-center gap-x-5 surface-gutter font-semibold">
-              <span className="min-w-0 truncate text-foreground">
-                Portfolio
-                <span className="ml-2 font-normal text-muted-foreground">
-                  {money(totals.currentValue, 0)}
-                </span>
+            <div className="col-span-full grid h-12 grid-cols-subgrid items-center gap-x-3 surface-gutter font-semibold">
+              {/*
+                The portfolio's value sits in the price column: a whole
+                portfolio has no share price, and its worth is the figure
+                that stands in for one.
+              */}
+              <span className="min-w-0 truncate text-foreground">Portfolio</span>
+              <span className="justify-self-end font-normal text-muted-foreground">
+                {money(totals.currentValue, 0)}
               </span>
               <span
                 className={cn(
