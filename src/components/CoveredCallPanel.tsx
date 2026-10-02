@@ -369,9 +369,12 @@ const HEADERS = [
  * Columns centred under their header rather than right-aligned. A date
  * control is not a figure anybody reads down for its digits, and a one-digit
  * contract count right-aligned under a nine-letter header sits off at the
- * end of it, so both read as balanced only in the middle.
+ * end of it, so both read as balanced only in the middle. The three week
+ * rate is always one short percentage, so it lines up down the column
+ * centred as well as right-aligned and stops leaving a gap under the
+ * left half of its header.
  */
-const CENTRED_HEADERS = new Set<string>(["Expires", "Calls"]);
+const CENTRED_HEADERS = new Set<string>(["Expires", "Calls", "3-week %"]);
 
 /**
  * Headers the glossary already answers, so this table does not keep a
@@ -992,7 +995,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                 {Math.round(r.contracts)}
               </div>
               <div
-                className={cn(cellBase, "tabular-nums font-medium text-primary/60")}
+                className={cn(cellCenter, "font-mono tabular-nums font-medium text-primary/60")}
               >
                 {r.yield3w != null ? percent(r.yield3w) : NO_VALUE}
               </div>
@@ -1043,7 +1046,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                 ) : null}
               </div>
               <div className={cellBase} />
-              <div className={cn(cellBase, "tabular-nums text-primary/60")}>
+              <div className={cn(cellCenter, "font-mono tabular-nums text-primary/60")}>
                 {percent(yield3wAvg)}
               </div>
               <div className={cn(cellBase, "tabular-nums text-foreground")}>
