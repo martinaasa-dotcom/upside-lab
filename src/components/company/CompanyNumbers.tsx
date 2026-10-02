@@ -62,17 +62,24 @@ function Versus({ versus }: { versus: NonNullable<CompanyReading["versus"]> }) {
 function ReadingCell({
   reading,
   lead = false,
+  index = 0,
 }: {
   reading: CompanyReading;
   /** One of the three read first. Heavier figure, accent rule on the card. */
   lead?: boolean;
+  /** Place in the grid, so the readings arrive in order (motion.css). */
+  index?: number;
 }) {
   const missing = reading.value === NO_VALUE;
   return (
     <Score
       /* The reference cells are rows of a ruled list on a phone: six
        * bordered cards of one figure each stacked into a column of boxes. */
-      className={cn(lead ? "border-t-2 border-t-primary/50" : "ruled-on-phone")}
+      className={cn(
+        "wave-in",
+        lead ? "border-t-2 border-t-primary/50" : "ruled-on-phone"
+      )}
+      style={{ ["--i" as string]: index * 2 }}
       /*
         The hierarchy is made by shrinking the reference cells rather than
         by growing the three that lead, because the type ladder stops at
@@ -208,8 +215,8 @@ export function CompanyNumbers({
       */}
       {lead.length > 0 && (
         <Scoreboard cols={3} mobileCols={1}>
-          {lead.map((r) => (
-            <ReadingCell key={r.id} reading={r} lead />
+          {lead.map((r, i) => (
+            <ReadingCell key={r.id} reading={r} lead index={i} />
           ))}
         </Scoreboard>
       )}
@@ -224,8 +231,8 @@ export function CompanyNumbers({
           mobileCols={1}
           className="max-sm:gap-y-0 max-sm:divide-y max-sm:divide-border max-sm:border-y max-sm:border-border"
         >
-          {rest.map((r) => (
-            <ReadingCell key={r.id} reading={r} />
+          {rest.map((r, i) => (
+            <ReadingCell key={r.id} reading={r} index={lead.length + i} />
           ))}
         </Scoreboard>
       )}

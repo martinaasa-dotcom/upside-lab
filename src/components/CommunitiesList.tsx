@@ -390,13 +390,17 @@ export function CommunitiesList() {
                     </p>
                   </li>
                 )}
-                {communities.map((c) => {
+                {communities.map((c, i) => {
                   // `warm` is only in the dependency list to re-read the
                   // cache after the copies land; see `load` above.
                   void warm;
                   const people = peopleLabel(c.id);
                   return (
-                  <li key={c.id}>
+                  <li
+                    key={c.id}
+                    className="wave-in"
+                    style={{ ["--i" as string]: i * 2 }}
+                  >
                     <Link
                       href={`/communities/${c.id}`}
                       onPointerEnter={() => void prefetchCommunity(c.id)}
@@ -477,10 +481,11 @@ export function CommunitiesList() {
               </p>
             ) : (
               <ul className="card-sheen glass-well divide-y divide-border overflow-hidden rounded-lg">
-                {discover.map((c) => (
+                {discover.map((c, i) => (
                   <li
                     key={c.id}
-                    className="flex items-center justify-between gap-3 px-4 py-3.5"
+                    className="wave-in flex items-center justify-between gap-3 px-4 py-3.5"
+                    style={{ ["--i" as string]: i * 2 }}
                   >
                     {/*
                       The count and a pending request sit on the line under

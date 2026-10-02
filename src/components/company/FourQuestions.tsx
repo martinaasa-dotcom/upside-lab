@@ -57,8 +57,9 @@ export function FourQuestions({
           <Card
             key={a.id}
             tone="default"
+            style={{ ["--i" as string]: i * 3 }}
             className={cn(
-              "flex flex-col gap-2.5 p-5",
+              "wave-in flex flex-col gap-2.5 p-5",
               // The accent rule is a reading, not decoration: it is on the
               // answers that have a figure behind them and off the ones
               // that do not.

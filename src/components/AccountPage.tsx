@@ -147,13 +147,14 @@ function VisitCard() {
         pill says which day it is and which end is today.
       */}
       <div className="flex gap-2">
-        {week.map((day) => (
+        {week.map((day, i) => (
           <div key={day.key} className="flex flex-1 flex-col items-center gap-1.5">
             <span
               className={cn(
-                "h-2 w-full rounded-full",
+                "grow-out h-2 w-full rounded-full",
                 day.visited ? "bg-primary" : "bg-accent"
               )}
+              style={{ ["--i" as string]: i * 2 }}
             />
             <span
               className={cn(
@@ -855,13 +856,13 @@ export function AccountPage() {
                         onClick={() => void handleTierChange(t.id)}
                         className={cn(
                           CARD,
-                          "flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm font-medium text-foreground transition hover:bg-hover",
+                          "flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm font-medium text-foreground transition hover:bg-hover active:scale-[0.98] motion-reduce:active:scale-100",
                           tier === t.id && "text-primary outline-2 -outline-offset-2 outline-primary"
                         )}
                       >
                         {t.label}
                         {tier === t.id && (
-                          <Check className="h-4 w-4 shrink-0 text-primary" />
+                          <Check className="answer-pop h-4 w-4 shrink-0 text-primary" />
                         )}
                       </button>
                     ))}
@@ -903,13 +904,13 @@ export function AccountPage() {
                           onClick={() => void handleKnowsOptionsChange(yes)}
                           className={cn(
                             CARD,
-                            "flex items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm font-medium text-foreground transition hover:bg-hover",
+                            "flex items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm font-medium text-foreground transition hover:bg-hover active:scale-[0.98] motion-reduce:active:scale-100",
                             knowsOptions === yes && "text-primary outline-2 -outline-offset-2 outline-primary"
                           )}
                         >
                           {yes ? "Yes" : "No"}
                           {knowsOptions === yes && (
-                            <Check className="h-4 w-4 shrink-0 text-primary" />
+                            <Check className="answer-pop h-4 w-4 shrink-0 text-primary" />
                           )}
                         </button>
                       ))}

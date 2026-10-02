@@ -69,7 +69,11 @@ function PointList({ points }: { points: BriefPoint[] }) {
   return (
     <ul className="flex flex-col gap-4">
       {points.map((p, i) => (
-        <li key={`${i}:${p.point.slice(0, 24)}`} className="flex flex-col gap-1">
+        <li
+          key={`${i}:${p.point.slice(0, 24)}`}
+          className="wave-in flex flex-col gap-1"
+          style={{ ["--i" as string]: i * 3 }}
+        >
           <p className="text-sm leading-relaxed text-foreground">{p.point}</p>
           <p className="text-sm leading-relaxed">
             <Cite cite={p.cite} />

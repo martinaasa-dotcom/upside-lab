@@ -66,8 +66,12 @@ export function CompanySources({
         <div className="flex flex-col gap-3">
           <MicroLabel>Articles this page was written from</MicroLabel>
           <ul className="flex flex-col gap-2">
-            {articles.map((a) => (
-              <li key={a.href}>
+            {articles.map((a, i) => (
+              <li
+                key={a.href}
+                className="wave-in"
+                style={{ ["--i" as string]: i * 2 }}
+              >
                 <a
                   href={a.href}
                   target="_blank"
@@ -120,8 +124,12 @@ export function CompanySources({
             things to weigh, where they are one list of places to go.
           */}
           <ul className="flex flex-col divide-y divide-border border-y border-border">
-            {sources.map((s) => (
-              <li key={s.id}>
+            {sources.map((s, i) => (
+              <li
+                key={s.id}
+                className="wave-in"
+                style={{ ["--i" as string]: i * 2 }}
+              >
                 <a
                   href={s.href}
                   target="_blank"

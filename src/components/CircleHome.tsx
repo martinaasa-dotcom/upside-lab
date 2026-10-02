@@ -82,14 +82,21 @@ function SharedNameRow({
   people,
   todayPct,
   avatarByName,
+  index = 0,
 }: {
   ticker: string;
   people: string[];
   todayPct: number | null;
   avatarByName: Map<string, string>;
+  /** Place in the list, so the rows arrive in order (motion.css). */
+  index?: number;
 }) {
   return (
-    <Item size="sm" className="px-0">
+    <Item
+      size="sm"
+      className="wave-in px-0"
+      style={{ ["--i" as string]: index }}
+    >
       <>
         <ItemMedia className="w-20">
           <AvatarGroup>
@@ -435,9 +442,10 @@ export function CircleHome({
                 }
               />
               <div className="flex flex-col gap-2">
-                {membersWithBooks.map((m) => (
+                {membersWithBooks.map((m, i) => (
                   <PowerAnimalCard
                     key={m.id}
+                    index={i}
                     name={m.name}
                     isYou={m.isYou}
                     isPending={m.isPending}
@@ -469,14 +477,15 @@ export function CircleHome({
                 subtitle="One award each, for what they lead on."
               />
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {achievements.map((a) => (
+                {achievements.map((a, i) => (
                   <button
                     key={a.id}
                     type="button"
                     onClick={() => {
                       onOpenMember(a.winnerId);
                     }}
-                    className="veil-hover card-sheen glass-well flex w-full flex-col gap-1.5 rounded-lg p-3 text-left ring-1 ring-foreground/20 lift hover:ring-primary/25"
+                    style={{ ["--i" as string]: i * 2 }}
+                    className="wave-in veil-hover card-sheen glass-well flex w-full flex-col gap-1.5 rounded-lg p-3 text-left ring-1 ring-foreground/20 lift hover:ring-primary/25"
                   >
                     <div className="flex items-center gap-2">
                       <span
@@ -604,6 +613,7 @@ export function CircleHome({
                         people={row.people}
                         todayPct={row.todayPct}
                         avatarByName={avatarByName}
+                        index={i}
                       />
                     </Fragment>
                   ))}
@@ -707,7 +717,10 @@ export function CircleHome({
                         * and the first line share a half-leading and
                         * land on the same baseline by construction
                         * rather than by a hand-tuned offset. */}
-                      <Item className="items-start px-0">
+                      <Item
+                        className="wave-in items-start px-0"
+                        style={{ ["--i" as string]: i * 2 }}
+                      >
                         <ItemMedia
                           className="w-4 justify-start self-start text-sm leading-relaxed tabular-nums text-muted-foreground"
                           aria-hidden

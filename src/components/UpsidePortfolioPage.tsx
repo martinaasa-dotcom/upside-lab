@@ -705,6 +705,7 @@ export function FundPosition({
   price,
   spark,
   share,
+  index = 0,
 }: {
   holding: HoldingRow;
   price: number | null;
@@ -712,6 +713,8 @@ export function FundPosition({
   spark?: number[] | null;
   /** This company's share of the whole Fund, cash included. */
   share?: number | null;
+  /** Place among the open positions, so they arrive in order (motion.css). */
+  index?: number;
 }) {
   const priced = price != null && Number.isFinite(price) && price > 0;
   const pnlPct =
@@ -726,7 +729,10 @@ export function FundPosition({
   const holdFor = holding.target_timeframe?.trim();
   const tag = cashtag(holding.ticker);
   return (
-    <div className={cn(BOX, "lift flex flex-col gap-4", PANEL_PAD)}>
+    <div
+      className={cn(BOX, "wave-in lift flex flex-col gap-4", PANEL_PAD)}
+      style={{ ["--i" as string]: index * 3 }}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Badge variant="secondary" className="chip-hang h-6 font-heading text-sm font-semibold">
@@ -880,7 +886,11 @@ function Timeline({ children }: { children: React.ReactNode }) {
           className="absolute bottom-4 left-[7px] top-4 w-px bg-gradient-to-b from-primary/70 via-border to-transparent"
         />
         {entries.map((child, i) => (
-          <li key={i} className="relative">
+          <li
+            key={i}
+            className="wave-in relative"
+            style={{ ["--i" as string]: i * 3 }}
+          >
             <span
               aria-hidden
               className={cn(
@@ -1000,8 +1010,12 @@ export function WhatThisIs({
         reader meets the vocabulary before the first entry uses it.
       */}
       <ol className="flex flex-col divide-y divide-border border-y border-border sm:grid sm:grid-cols-3 sm:gap-6 sm:divide-y-0 sm:py-4">
-        {FUND_RULE_STEPS.map(({ Icon, title, line, tone }) => (
-          <li key={title} className="flex gap-3 py-3 sm:py-0">
+        {FUND_RULE_STEPS.map(({ Icon, title, line, tone }, i) => (
+          <li
+            key={title}
+            className="wave-in flex gap-3 py-3 sm:py-0"
+            style={{ ["--i" as string]: i * 3 }}
+          >
             <span
               className={cn(
                 "flex size-9 shrink-0 items-center justify-center rounded-lg",
@@ -2251,9 +2265,10 @@ export function UpsidePortfolioPage() {
                   row rather than sitting beside a hole.
                 */}
                 <div className="grid items-start gap-3 lg:grid-cols-2 lg:[&>*:last-child:nth-child(odd)]:col-span-2">
-                  {openHoldings.map((h) => (
+                  {openHoldings.map((h, i) => (
                     <FundPosition
                       key={h.id}
+                      index={i}
                       holding={h}
                       price={quotes[h.ticker]?.price ?? null}
                       spark={quotes[h.ticker]?.sparkline}
@@ -2395,10 +2410,14 @@ export function UpsidePortfolioPage() {
                   }
                 />
                 <ul className="divide-y divide-border overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
-                  {closedHoldings.map((h) => {
+                  {closedHoldings.map((h, i) => {
                     const made = h.realized_pnl;
                     return (
-                      <li key={h.id} className="px-4 py-3 text-sm">
+                      <li
+                        key={h.id}
+                        className="wave-in px-4 py-3 text-sm"
+                        style={{ ["--i" as string]: i * 2 }}
+                      >
                         <div className="flex items-baseline justify-between gap-3">
                           <span className="font-medium text-foreground">
                             {cashtag(h.ticker)}

@@ -102,7 +102,12 @@ export function CommunityTodayBoard({
             return (
               <Fragment key={m.id}>
                 {i > 0 ? <ItemSeparator className="my-0" /> : null}
-                <Item asChild size="sm" className="px-0 hover:bg-hover">
+                <Item
+                  asChild
+                  size="sm"
+                  className="wave-in px-0 hover:bg-hover"
+                  style={{ ["--i" as string]: i * 2 }}
+                >
                   <button
                     type="button"
                     onClick={() => {
@@ -150,13 +155,15 @@ export function CommunityTodayBoard({
                       {pct != null && pct !== 0 ? (
                         <span
                           className={cn(
-                            "overview-bar absolute inset-y-0 rounded-full",
+                            "grow-out absolute inset-y-0 rounded-full",
                             pct > 0 ? "left-1/2 bg-gain/75" : "right-1/2 bg-loss/75"
                           )}
                           style={{
                             width: `${barFillPct((Math.abs(pct) / maxAbs) * 50, 1, 50)}%`,
-                            // Grows out of the zero line, whichever way it went.
-                            transformOrigin: pct > 0 ? "left center" : "right center",
+                            // Grows out of the zero line, whichever way it
+                            // went, down the board in rank order.
+                            ["--from" as string]: pct > 0 ? "left" : "right",
+                            ["--i" as string]: i + 2,
                           }}
                         />
                       ) : null}

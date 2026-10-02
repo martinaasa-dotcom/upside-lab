@@ -78,6 +78,7 @@ export function PowerAnimalCard({
   personality,
   milestone,
   onOpen,
+  index = 0,
 }: {
   name: string;
   isYou: boolean;
@@ -89,15 +90,18 @@ export function PowerAnimalCard({
   personality: PortfolioPersonality | null;
   milestone: { next: number | null; progress: number };
   onOpen: () => void;
+  /** Place in the list, so the cards arrive in order (motion.css). */
+  index?: number;
 }) {
   const [open, setOpen] = useState(false);
   const tone = animalCardTone(personality?.archetype.id);
   return (
     <div
       className={cn(
-        "card-sheen glass relative overflow-hidden rounded-xl ring-1 ring-foreground/20 transition",
+        "wave-in card-sheen glass relative overflow-hidden rounded-xl ring-1 ring-foreground/20 transition",
         open && "ring-primary/25"
       )}
+      style={{ ["--i" as string]: index * 2 }}
     >
       <span
         className={cn("absolute inset-y-0 left-0 w-1.5", tone.bar)}

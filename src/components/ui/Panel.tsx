@@ -1104,6 +1104,8 @@ type ScoreProps = {
   subClassName?: string;
   bulletsClassName?: string;
   className?: string;
+  /** For an arrival's place in its grid (`--i`, motion.css). */
+  style?: CSSProperties;
 };
 
 function scoreTone(tone?: "up" | "down") {
@@ -1124,6 +1126,7 @@ export function Score({
   subClassName,
   bulletsClassName,
   className,
+  style,
 }: ScoreProps) {
   const reading = Boolean(bullets && bullets.length > 0);
   /*
@@ -1146,7 +1149,7 @@ export function Score({
     subClassName ?? "text-muted-foreground"
   );
   return (
-    <div className={cn(SCORE_CELL, className)}>
+    <div className={cn(SCORE_CELL, className)} style={style}>
       {/*
         * Inline, for the same reason `MicroLabel` is — see the note there.
         * A flex row parked the info dot on the far right of the cell as

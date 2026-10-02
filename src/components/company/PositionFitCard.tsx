@@ -149,6 +149,8 @@ export function PositionFitCard({
 
       <Scoreboard cols={2} mobileCols={1}>
         <Score
+          className="wave-in"
+          style={{ ["--i" as string]: 0 }}
           label={`${tag} would be`}
           value={percent(fit.weight, 1)}
           sub={
@@ -158,6 +160,8 @@ export function PositionFitCard({
           }
         />
         <Score
+          className="wave-in"
+          style={{ ["--i" as string]: 2 }}
           label={`If it fell ${percent(SHOCK_FALL, 0)}`}
           value={`-${currency(fit.shockDollar, 0, code)}`}
           valueClassName="text-loss"
@@ -172,18 +176,24 @@ export function PositionFitCard({
             not a sentence anybody wrote.
           */
           <Score
+            className="wave-in"
+            style={{ ["--i" as string]: 4 }}
             label="Companies like it would be"
             value={percent(fit.sectorAfter ?? 0, 0)}
             sub={`of your stocks, up from ${percent(fit.sectorBefore ?? 0, 0)}, counting its whole group (${lowerFirst(fit.sector ?? "")}). A group tends to move together.`}
           />
         ) : (
           <Score
+            className="wave-in"
+            style={{ ["--i" as string]: 6 }}
             label="Your biggest three"
             value={percent(fit.topThreeAfter, 0)}
             sub={`of your stocks, against ${percent(fit.topThreeBefore, 0)} today. Lower means no one company decides your year.`}
           />
         )}
         <Score
+          className="wave-in"
+          style={{ ["--i" as string]: 8 }}
           label="Your portfolio would be"
           value={currency(fit.portfolioAfter, 0, code)}
           sub={`up from ${currency(fit.portfolioBefore, 0, code)}, counting the amount above as new money.`}

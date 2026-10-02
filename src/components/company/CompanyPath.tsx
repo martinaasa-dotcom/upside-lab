@@ -96,13 +96,14 @@ export function CompanyPath({
               {currency(spot, 2, code)}
             </span>
           </li>
-          {years.map((year) => {
+          {years.map((year, i) => {
             const price = path[year] as number;
             const move = (price - spot) / spot;
             return (
               <li
                 key={year}
-                className="flex h-10 items-center justify-between px-3"
+                className="wave-in flex h-10 items-center justify-between px-3"
+                style={{ ["--i" as string]: (i + 1) * 2 }}
               >
                 <span className="font-mono text-sm tabular-nums text-muted-foreground">
                   End of {year}
