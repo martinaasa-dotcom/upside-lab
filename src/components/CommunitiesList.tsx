@@ -590,6 +590,7 @@ export function CommunitiesList() {
                             <button
                               key={t.id}
                               type="button"
+                              aria-pressed={on}
                               onClick={() => {
                                 const next = classTemplateById(t.id);
                                 setTemplateId(next.id);
@@ -597,23 +598,40 @@ export function CommunitiesList() {
                                 setAssignment(next.assignment);
                                 setStartPeriod(next.period);
                               }}
+                              /*
+                                The chosen template used to differ from the
+                                others by nothing at all: both branches of
+                                the title's colour were the same class. It
+                                carries a radio mark now, filled when chosen.
+                              */
                               className={cn(
-                                "flex w-full flex-col gap-1 py-4 text-left transition first:pt-1 last:pb-1",
+                                "flex w-full items-start gap-3 py-4 text-left transition-colors first:pt-1 last:pb-1",
                                 on
                                   ? "text-foreground"
                                   : "text-muted-foreground hover:text-foreground"
                               )}
                             >
                               <span
+                                aria-hidden
                                 className={cn(
-                                  "text-sm font-semibold",
-                                  on ? "text-foreground" : "text-foreground"
+                                  "mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border transition-colors",
+                                  on ? "border-primary" : "border-foreground/40"
                                 )}
                               >
-                                {t.title}
+                                <span
+                                  className={cn(
+                                    "size-2 rounded-full bg-primary transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none",
+                                    on ? "scale-100" : "scale-0"
+                                  )}
+                                />
                               </span>
-                              <span className="text-sm leading-relaxed text-muted-foreground">
-                                {t.blurb}
+                              <span className="flex min-w-0 flex-col gap-1">
+                                <span className="text-sm font-semibold text-foreground">
+                                  {t.title}
+                                </span>
+                                <span className="text-sm leading-relaxed text-muted-foreground">
+                                  {t.blurb}
+                                </span>
                               </span>
                             </button>
                           );

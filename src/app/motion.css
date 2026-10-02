@@ -1,0 +1,204 @@
+/*
+ * THE APP'S SHARED MOTION LANGUAGE.
+ *
+ * The dock had a vocabulary of its own (a marker that travels, a press
+ * that gives, a glyph that pops on arrival) and the rest of the product
+ * spoke in fills that appeared and vanished. This file is that vocabulary
+ * lent to everything else, so a choice, a press and a chart all answer the
+ * hand the same way the dock does.
+ *
+ * Every rule here obeys the three the rest of this app's motion obeys:
+ * transform, opacity, clip or the independent `scale` property only, so
+ * the compositor can carry it while a room is rendering; nothing moves a
+ * figure somebody is reading; and none of it survives
+ * `prefers-reduced-motion`.
+ *
+ * Unlayered on purpose. Several of these hand a fill from a utility class
+ * over to another element, and an unlayered rule is the one thing that
+ * beats a utility without a specificity fight.
+ */
+
+/* ---------------------------------------------------------------------
+ * ONE MARKER FOR EVERY CHOICE (`SlideThumb.tsx`).
+ *
+ * A track of choices carries one thumb that glides to the chosen cell.
+ * Until it has measured, the chosen cell paints its own fill, so the first
+ * frame is right with or without scripts; `data-thumb` is the handover.
+ *
+ * The label's colour arrives a beat after the thumb sets off, because a
+ * dark label on a cell the gold has not reached yet is unreadable for the
+ * length of the flight. Leaving is immediate for the same reason the other
+ * way round.
+ * ------------------------------------------------------------------- */
+.seg-track {
+  position: relative;
+  isolation: isolate;
+}
+.seg-track > .seg-cell {
+  position: relative;
+  z-index: 1;
+  transition:
+    color 0.16s ease,
+    background-color 0.15s ease,
+    scale 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.seg-track > .slide-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: scale 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.seg-track[data-thumb] > .slide-thumb {
+  opacity: 1;
+}
+.seg-track[data-thumb] > .seg-cell[data-on] {
+  background: transparent;
+  box-shadow: none;
+  transition:
+    color 0.2s ease 0.09s,
+    background-color 0s,
+    scale 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/*
+ * A press gives. The cell under the finger comes down to 0.96 in 90ms and
+ * returns over 280ms, the dock's own asymmetry: a press that gives at
+ * once and comes back at its leisure feels physical. Pressing the chosen
+ * one squeezes the thumb with it, so the gold is felt to be under the
+ * finger. `scale` is its own property, so it composes with the thumb's
+ * travel transform rather than replacing it.
+ */
+.seg-track > .seg-cell:active:not(:disabled) {
+  scale: 0.96;
+  transition-duration: 0.09s;
+}
+.seg-track:has(> .seg-cell[data-on]:active:not(:disabled)) > .slide-thumb {
+  scale: 0.96;
+  transition-duration: 0.09s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seg-track > .seg-cell,
+  .seg-track > .slide-thumb {
+    transition: none;
+  }
+  .seg-track > .seg-cell:active:not(:disabled),
+  .seg-track:has(> .seg-cell[data-on]:active:not(:disabled)) > .slide-thumb {
+    scale: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * THE GOLD BUTTON CATCHES THE LIGHT.
+ *
+ * Pointing at a primary button sends one band of light across it, left to
+ * right, the way a gold edge catches a lamp as you tilt it. It is a
+ * background position on a small element, so it costs a few paints of one
+ * button and nothing else. It sweeps on the way in only: leaving snaps the
+ * band back out of sight rather than playing it backwards, which read as
+ * the button flinching.
+ *
+ * Disabled has no band: a button that is not ready does not shine.
+ * ------------------------------------------------------------------- */
+.btn-sheen {
+  background-image: linear-gradient(
+    105deg,
+    transparent 38%,
+    oklch(1 0 0 / 38%) 50%,
+    transparent 62%
+  );
+  background-size: 250% 100%;
+  background-position: 130% 0;
+  background-repeat: no-repeat;
+  transition:
+    background-position 0s linear,
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease,
+    scale 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    translate 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.btn-sheen:disabled,
+.btn-sheen[aria-disabled="true"] {
+  background-image: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn-sheen:hover {
+    background-position: -30% 0;
+    transition:
+      background-position 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 0.2s ease,
+      color 0.2s ease,
+      box-shadow 0.2s ease,
+      border-color 0.2s ease,
+      opacity 0.2s ease,
+      scale 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+      translate 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+.btn-sheen:active:not([aria-haspopup]) {
+  transition-duration: 0.8s, 0.2s, 0.2s, 0.2s, 0.2s, 0.2s, 0.075s, 0.075s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-sheen,
+  .btn-sheen:hover {
+    background-image: none;
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * THE RED DAY, DRAWN (`RedDayStrip.tsx`).
+ *
+ * Nothing here plays on arrival: the landing does not animate itself in
+ * (landing-paint.test.ts). Everything is the answer to a press or a
+ * pointer. A dot fills as its tile turns over, the one being pointed at
+ * grows, its caption rises into place, and finding the company with news
+ * draws a line back from it to the market it left behind.
+ * ------------------------------------------------------------------- */
+.strip-dot {
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    scale 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.strip-dot-lit {
+  scale: 1.45;
+}
+@keyframes strip-caption-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.strip-caption {
+  animation: strip-caption-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@keyframes strip-reach-in {
+  from {
+    clip-path: inset(0 0 0 100%);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+.strip-reach {
+  animation: strip-reach-in 0.7s cubic-bezier(0.65, 0, 0.35, 1) 0.1s backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .strip-dot {
+    transition: none;
+  }
+  .strip-dot-lit {
+    scale: none;
+  }
+  .strip-caption,
+  .strip-reach {
+    animation: none;
+  }
+}

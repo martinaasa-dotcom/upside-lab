@@ -28,6 +28,7 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "@/components/ui/item";
+import { SlideThumb } from "@/components/ui/SlideThumb";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Popover,
@@ -1267,16 +1268,19 @@ export function Segmented<T extends string>({
         disabled={disabled}
         aria-label={ariaLabel}
         className={cn(
-          "card-sheen glass-well max-w-full min-w-0 p-[3px]",
+          "seg-track card-sheen glass-well max-w-full min-w-0 p-[3px]",
           className
         )}
       >
+        <SlideThumb on={value} />
         {options.map((o) => (
           <ToggleGroupItem
             key={o.id}
             value={o.id}
             title={o.title}
+            data-on={value === o.id ? "" : undefined}
             className={cn(
+              "seg-cell",
               /*
                 Each cell sized from its own label, then sharing whatever
                 the row has left. `flex-1` started every cell from zero and
@@ -1302,7 +1306,7 @@ export function Segmented<T extends string>({
       role="tablist"
       aria-label={ariaLabel}
       className={cn(
-        "grid w-full min-w-0 max-w-full",
+        "seg-track grid w-full min-w-0 max-w-full",
         /*
          * The same tray as the compact toggle above: a well with the cells
          * floating in it, never a `gap-px bg-border` hairline grid. That
@@ -1321,6 +1325,10 @@ export function Segmented<T extends string>({
       )}
       style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
     >
+      <SlideThumb
+        on={value}
+        className={buttons ? "rounded-lg" : undefined}
+      />
       {options.map((o) => {
         const on = value === o.id;
         return (
@@ -1329,11 +1337,12 @@ export function Segmented<T extends string>({
             type="button"
             role="tab"
             aria-selected={on}
+            data-on={on ? "" : undefined}
             disabled={disabled}
             title={o.title}
             onClick={() => onChange(o.id)}
             className={cn(
-              "flex min-w-0 items-center justify-center px-2 text-sm font-medium transition-all disabled:opacity-40",
+              "seg-cell flex min-w-0 items-center justify-center px-2 text-sm font-medium disabled:opacity-40",
               buttons
                 ? "touch-target min-h-9 rounded-lg border"
                 : "touch-target rounded-md border border-transparent py-2.5 md:min-h-0 md:min-w-0",

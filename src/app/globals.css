@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 @import "./scroll-host.css";
 @import "./dock.css";
+@import "./motion.css";
 
 @custom-variant dark (&:is(.dark *));
 

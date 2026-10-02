@@ -1,5 +1,6 @@
 "use client";
 
+import { RedDayStrip } from "@/components/landing/RedDayStrip";
 import { ScrollCue } from "@/components/ScrollCue";
 import { UpsideLogo } from "@/components/UpsideLogo";
 import {
@@ -1171,7 +1172,10 @@ const NEWS_VERDICT = `${NEWS_COMPANY} told investors to expect less next year th
 
 function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
   const [open, setOpen] = useState<string[]>([]);
+  /* The tile being pointed at, which the line under the board lights up. */
+  const [pointing, setPointing] = useState<string | null>(null);
   const found = open.includes(SAMPLE_NEWS_TICKER);
+  const focus = pointing ?? open.at(-1) ?? null;
   return (
     <Panel className="@container h-auto gap-4 p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
@@ -1216,6 +1220,18 @@ function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
                       ? prev.filter((t) => t !== h.ticker)
                       : [...prev, h.ticker]
                   )
+                }
+                onPointerEnter={(e) => {
+                  if (e.pointerType === "mouse") setPointing(h.ticker);
+                }}
+                onPointerLeave={() =>
+                  setPointing((was) => (was === h.ticker ? null : was))
+                }
+                onFocus={(e) => {
+                  if (e.currentTarget.matches(":focus-visible")) setPointing(h.ticker);
+                }}
+                onBlur={() =>
+                  setPointing((was) => (was === h.ticker ? null : was))
                 }
                 /*
                   Three moments, all transform and opacity (globals.css):
@@ -1269,6 +1285,8 @@ function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
           );
         })}
       </ul>
+
+      <RedDayStrip open={open} focus={focus} />
 
       {found ? (
         <p className="animate-in fade-in-0 text-sm leading-relaxed text-muted-foreground duration-300 motion-reduce:animate-none">

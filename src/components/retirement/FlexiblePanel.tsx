@@ -29,6 +29,7 @@ import {
   PanelHeader,
   Segmented,
 } from "@/components/ui/Panel";
+import { SlideThumb } from "@/components/ui/SlideThumb";
 import { Slider } from "@/components/ui/slider";
 import { cn, currency } from "@/lib/format";
 import {
@@ -374,19 +375,39 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
           aria-label="The market this year"
           className="py-2"
         />
-        <div className="flex flex-wrap gap-2">
-          {MARKET_YEARS.map((m) => (
-            <Button
-              key={m.id}
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-pressed={returnPct === m.returnPct}
-              onClick={() => setReturnPct(m.returnPct)}
-            >
-              {m.label}
-            </Button>
-          ))}
+        {/*
+          The preset years carry the app's travelling thumb. They used to be
+          outline buttons whose `aria-pressed` changed nothing on screen, so
+          a sighted reader could not tell which year the slider was on.
+          Dragging the slider off every preset leaves none chosen, and the
+          thumb steps out of sight until one is again.
+        */}
+        <div className="seg-track flex flex-wrap gap-2">
+          <SlideThumb
+            on={returnPct}
+            className="rounded-[min(var(--radius-md),12px)]"
+          />
+          {MARKET_YEARS.map((m) => {
+            const on = returnPct === m.returnPct;
+            return (
+              <Button
+                key={m.id}
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-pressed={on}
+                data-on={on ? "" : undefined}
+                onClick={() => setReturnPct(m.returnPct)}
+                className={cn(
+                  "seg-cell",
+                  on &&
+                    "border-transparent bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground dark:bg-primary"
+                )}
+              >
+                {m.label}
+              </Button>
+            );
+          })}
         </div>
       </div>
 

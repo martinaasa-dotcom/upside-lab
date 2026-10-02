@@ -1,5 +1,6 @@
 "use client";
 
+import { SlideThumb } from "@/components/ui/SlideThumb";
 import { CountUp } from "@/components/ui/CountUp";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { forecastThemeForTicker } from "@/lib/forecast-growth";
@@ -192,7 +193,7 @@ function LabTabRow({
         there is no gradient anywhere in the material.
       */
       className={cn(
-        "scrollbar-none flex min-h-[2rem] gap-1 overflow-x-auto",
+        "seg-track scrollbar-none flex min-h-[2rem] gap-1 overflow-x-auto",
         overflow.left && overflow.right
           ? "[mask-image:linear-gradient(to_right,transparent,black_1.5rem,black_calc(100%-1.5rem),transparent)]"
           : overflow.left
@@ -203,6 +204,8 @@ function LabTabRow({
         className
       )}
     >
+      {/* The same travelling thumb every other choice in the app has. */}
+      <SlideThumb on={active} />
       {tabs.map((t) => (
         <button
           key={t.id}
@@ -212,9 +215,10 @@ function LabTabRow({
           type="button"
           role="tab"
           aria-selected={active === t.id}
+          data-on={active === t.id ? "" : undefined}
           onClick={() => onSelect(t.id)}
           className={cn(
-            "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition touch-target",
+            "seg-cell shrink-0 rounded-md px-3 py-1.5 text-sm font-medium touch-target",
             active === t.id
               ? "bg-primary text-primary-foreground"
               : "text-muted-foreground hover:text-primary"
