@@ -114,7 +114,7 @@ export function topicSummary(
       const years = Math.round(inputs.statePensionAge) - Math.round(inputs.retirementAge);
       return inputs.includeStatePension && years > 0
         ? `${years} ${years === 1 ? "year" : "years"} before your pension`
-        : "For a stretch with an end date";
+        : "For a fixed stretch";
     }
     case "working":
       return `Drawing ${extra.swrPct.toFixed(1)}% a year`;

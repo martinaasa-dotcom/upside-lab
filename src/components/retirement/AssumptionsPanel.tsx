@@ -87,7 +87,7 @@ export function ReturnsPanel({
         className={onClose ? "pr-10" : undefined}
         icon={<SlidersVertical className="h-4 w-4" />}
         title="What the money earns"
-        subtitle="Real returns, after inflation, and how much of it is in shares by age. That is why there is no separate inflation field."
+        subtitle="After inflation, so there is no inflation field to set."
       />
 
       <div className={FIELD_GRID}>
@@ -95,7 +95,7 @@ export function ReturnsPanel({
           label="Global shares, a year"
           value={inputs.returns.equityPct}
           onChange={(equityPct) => patch({ returns: { ...inputs.returns, equityPct } })}
-          note="The world index, not just America's. The quick toggle above sets this too."
+          note="The world index, not just America's. The growth rates under the answer set this too."
         />
         <PercentField
           label="Government bonds, a year"
@@ -294,7 +294,7 @@ export function AssumptionsPanel({
         className={onClose ? "pr-10" : undefined}
         icon={<SlidersVertical className="h-4 w-4" />}
         title="Where the reference figures came from"
-        subtitle="Approximate, a year or two old, and every one is a field you can overwrite above."
+        subtitle="Approximate, a year or two old, and every one editable."
       />
       <div className={cn(CARD, "flex flex-col gap-3 p-4 text-sm")}>
         <div>
@@ -343,8 +343,8 @@ export function AssumptionsPanel({
           <MicroLabel>How long the money lasts</MicroLabel>
           <p className="mt-1 leading-relaxed text-muted-foreground">
             A survival curve fitted to the published life expectancy at 65
-            for {region.name}. Both the rate and the planning age are
-            controls further up.
+            for {region.name}. Both are yours to change under How long it
+            lasts.
           </p>
         </div>
       </div>

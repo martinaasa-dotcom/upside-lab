@@ -123,7 +123,7 @@ export function NumberPanel({
         icon={<Target className="h-4 w-4" />}
         title={
           <span className="inline-flex items-center gap-2">
-            How your number is worked out
+            How it is worked out
             <WhyThis provenance={provenance} />
           </span>
         }
@@ -131,7 +131,7 @@ export function NumberPanel({
       />
 
       <div className={cn(CARD, "flex flex-col gap-2 p-5")}>
-        <MicroLabel>Your number</MicroLabel>
+        <MicroLabel>What you need</MicroLabel>
         {/*
           `text-2xl` is the top of this app's type ladder and the headline
           figure sits on it like every other figure in the product. The
@@ -222,10 +222,9 @@ export function NumberPanel({
             <span className="font-mono tabular-nums text-foreground">
               {currency(sequenceCost, 0, code)}
             </span>{" "}
-            is not a margin somebody added. Two retirements with the same
-            average return end up in different places if one starts into a
-            fall, because what is sold at the bottom never gets a recovery.
-            The spending layers below close most of that gap for free.
+            is not padding. A retirement that starts into a fall sells at
+            the bottom and misses the recovery. Spending in layers closes
+            most of that gap for free.
           </p>
         </div>
       ) : null}

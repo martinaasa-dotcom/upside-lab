@@ -477,7 +477,7 @@ function AnswerPlaceholder() {
       <PanelHeader
         icon={<Sunrise className="h-4 w-4" />}
         title="When could you stop working?"
-        subtitle="Your plan in four short parts. Tap anything underlined to change it."
+        subtitle="Tap anything underlined to change it."
       />
       <div className="grid gap-3 sm:grid-cols-2" aria-hidden>
         {[0, 1, 2, 3].map((i) => (
@@ -622,7 +622,7 @@ export function AnswerPanel({
             <WhyThis provenance={provenance} />
           </span>
         }
-        subtitle="Your plan in four short parts. Tap anything underlined to change it."
+        subtitle="Tap anything underlined to change it."
       />
 
       {/* THE STORY, IN FOUR CARDS. */}
@@ -673,7 +673,7 @@ export function AnswerPanel({
               onChange={(a) => replace(retargetRetirementAge(inputs, a))}
             />
             <p className="text-xs leading-relaxed text-muted-foreground">
-              You can also drag the dot on the picture below.
+              Or drag the dot on the picture.
             </p>
           </Blank>
         </StoryCard>
@@ -692,7 +692,7 @@ export function AnswerPanel({
               onPotSourceChange={onPotSourceChange}
             />
           </Blank>{" "}
-          and put in{" "}
+          and add{" "}
           <Blank value={money(inputs.annualContribution / 12)} label={`Change what you add a month, now ${money(inputs.annualContribution / 12)}`} title="What you add each month">
             <MonthlyMoneyField
               label="A month"
@@ -723,14 +723,14 @@ export function AnswerPanel({
               </Button>
             )}
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Or pick one of the growth rates under the answer. After inflation, so every figure is in today&apos;s money.
+              After inflation, so it is all in today&apos;s money. Or press a growth rate under the answer.
             </p>
           </Blank>
         </StoryCard>
 
         <StoryCard icon={<Home className="size-3.5" />} label="Your home life">
           I{" "}
-          <Blank value={homeWords} label="Change your home" title="Your home" tail="." wide>
+          <Blank value={homeWords} label="Change your home" title="Your home" tail="," wide>
             <Choices<Housing>
               options={[
                 { id: "renting", label: "I rent" },
@@ -758,7 +758,7 @@ export function AnswerPanel({
                 value={inputs.rentAnnual}
                 currency={code}
                 onChange={(rentAnnual) => patch({ rentAnnual })}
-                note="Rent never ends, so it is counted for your whole retirement."
+                note="Counted for your whole retirement."
               />
             ) : inputs.housing === "mortgage" ? (
               <>
@@ -778,8 +778,8 @@ export function AnswerPanel({
               </>
             ) : null}
           </Blank>{" "}
-          I have{" "}
-          <Blank value={carWords} label="Change your car" title="A car" tail="." wide>
+          with{" "}
+          <Blank value={carWords} label="Change your car" title="A car" wide>
             <Choices<"none" | "car">
               options={[
                 { id: "car", label: "I pay for a car" },
@@ -823,7 +823,7 @@ export function AnswerPanel({
               </>
             ) : null}
           </Blank>{" "}
-          And{" "}
+          and{" "}
           <Blank value={kidWords} label="Change your children" title="Children at home" wide>
             <Stepper
               value={kids}
@@ -884,7 +884,7 @@ export function AnswerPanel({
               value={standardNow ? standards[standardNow] : inputs.customAnnualSpend}
               currency={code}
               onChange={(customAnnualSpend) => patch({ spendingMode: "custom", customAnnualSpend })}
-              note="Food, bills, holidays, going out. Your home, car and children are counted on their own."
+              note="Food, bills, holidays, going out. Home, car and children are counted apart."
             />
           </Blank>
           , about <span className="tabular-nums text-foreground">{money(monthlyLife)}</span> a month for everyday
@@ -893,8 +893,8 @@ export function AnswerPanel({
             <Stepper value={planningAge} min={Math.max(age + 1, 60)} max={115} onChange={(a) => patch({ planningAge: a })} />
             <p className="text-xs leading-relaxed text-muted-foreground">
               {inputs.planningAge == null
-                ? `About one in ${oneIn} people your age live to ${planningAge}. Planning for the average would leave half of them short.`
-                : `You set this yourself. This app would plan to ${suggestedPlanningAge}, the age about one in ${oneIn} people your age reach.`}
+                ? `About one in ${oneIn} people your age live to ${planningAge}. Planning to the average leaves half short.`
+                : `Your own figure. This app would use ${suggestedPlanningAge}, which one in ${oneIn} people your age reach.`}
             </p>
             {inputs.planningAge != null ? (
               <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => patch({ planningAge: null })}>
@@ -985,8 +985,7 @@ export function AnswerPanel({
                 </div>
               ) : verdict.status === "never" ? (
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  On this saving the money does not catch up before 80. Putting in more each month, or a simpler
-                  life, is what moves it.
+                  On this saving it does not catch up before 80. More each month, or a simpler life, moves it.
                 </p>
               ) : null}
               {verdict.sooner && earliestAge != null ? (
@@ -1031,7 +1030,7 @@ export function AnswerPanel({
                 {month.pensionFrom == null
                   ? "No pension in this plan, so your savings pay all of it."
                   : month.pensionFrom <= month.age
-                    ? `Pensions pay ${money(month.pension)} of it. Your savings pay the rest.`
+                    ? `Pensions pay ${money(month.pension)} of it, your savings the rest.`
                     : `Your savings pay all of it until ${month.pensionFrom}. From then, pensions pay ${money(month.pensionMonthly)} a month.`}
               </p>
             </div>
@@ -1042,7 +1041,7 @@ export function AnswerPanel({
       {/* HOW MUCH THE ANSWER LEANS ON GROWTH. */}
       {scenarios.length > 1 ? (
         <div className="flex flex-col gap-3">
-          <MicroLabel>If your money grows slower, or faster</MicroLabel>
+          <MicroLabel>At other growth rates</MicroLabel>
           <div
             className={cn("grid gap-2", scenarios.length > 3 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}
             role="radiogroup"
@@ -1078,8 +1077,8 @@ export function AnswerPanel({
           </div>
           {equity > PORTFOLIO_RATE_CEILING_PCT && holdingsView != null ? (
             <p className="text-xs leading-relaxed text-muted-foreground">
-              &ldquo;Yours&rdquo; is this app&apos;s view of the next few years for what you own, not a record. No whole market
-              has grown that fast for a lifetime.
+              &ldquo;Yours&rdquo; is this app&apos;s few-year outlook, not a record. No whole market has grown that fast
+              for a lifetime.
             </p>
           ) : null}
         </div>
@@ -1088,7 +1087,7 @@ export function AnswerPanel({
       <p className="text-xs leading-relaxed text-muted-foreground">
         {onCash
           ? `Held as cash and spent to nothing by ${plan.planningAge}. `
-          : `The picture grows at the same rate every year. The answer allows for a bad run of markets, which is why it asks for more than the picture spends. `}
+          : `The picture assumes an average return. `}
         All in today&apos;s money. {ADVICE_DISCLAIMER_SHORT}
       </p>
     </Panel>

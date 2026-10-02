@@ -282,7 +282,7 @@ export function LongevityPanel({
         className={onClose ? "pr-10" : undefined}
         icon={<HeartPulse className="h-4 w-4" />}
         title="How long the money has to last"
-        subtitle="Not your life expectancy. Half of people outlive it, so this plans further out."
+        subtitle="Planned past the average, since half of people outlive it."
       />
 
       <SurvivalChart
@@ -315,7 +315,7 @@ export function LongevityPanel({
           step={0.1}
           onChange={(improvementPct) => patch({ improvementPct })}
           format={(n) => `${n.toFixed(1)}% a year`}
-          note={`How fast death rates keep falling. Zero assumes medicine stops today. ${DEFAULT_IMPROVEMENT_PCT}% is the cautious end of the last century's record.`}
+          note={`How fast death rates keep falling. Zero means medicine stops today; ${DEFAULT_IMPROVEMENT_PCT}% is the cautious end of the record.`}
         />
         <div className="flex min-w-0 flex-col gap-2">
           <CountField

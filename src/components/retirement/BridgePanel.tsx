@@ -88,7 +88,7 @@ export function BridgePanel({
         className={onClose ? "pr-10" : undefined}
         icon={<Route className="h-4 w-4" />}
         title="A pot meant to run out"
-        subtitle="For a stretch with an end date: the years before a pension starts, a career break, anything with a fixed length."
+        subtitle="The years before a pension, a career break, any fixed stretch."
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -109,7 +109,7 @@ export function BridgePanel({
           note={
             bridgeYears > 0
               ? `Opened on the ${bridgeYears} years between stopping at ${Math.round(inputs.retirementAge)} and your pension at ${Math.round(inputs.statePensionAge)}.`
-              : "Your pension starts the year you stop, so there is no gap unless you retire earlier."
+              : "No gap: your pension starts the year you stop."
           }
         />
         <PercentField
@@ -117,7 +117,7 @@ export function BridgePanel({
           value={ratePct}
           digits={2}
           onChange={setRatePct}
-          note="After inflation. Money needed inside a decade is usually held cautiously, so this opens low."
+          note="After inflation. Opens low, as money needed soon is held cautiously."
         />
         <ChoiceField<DrawTiming>
           label="Taken at the"
@@ -127,7 +127,7 @@ export function BridgePanel({
             { id: "end", label: "End of the year" },
           ]}
           onChange={setTiming}
-          note="Taking it at the start costs more, because that money never earns anything."
+          note="The start costs more: that money never earns."
         />
       </div>
 
@@ -140,11 +140,11 @@ export function BridgePanel({
           }}
           className="self-start text-left text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
         >
-          Your plan above now says{" "}
+          Your plan now says{" "}
           {bridgeYears > 0
             ? `${bridgeYears} years at ${currency(defaultDraw / 12, 0, plan.currency)} a month`
             : `${currency(defaultDraw / 12, 0, plan.currency)} a month`}
-          . Press to use that instead.
+          . Use that instead.
         </button>
       ) : null}
 
@@ -159,16 +159,15 @@ export function BridgePanel({
         <Score
           label="Which is a first year rate of"
           value={<span className="font-mono tabular-nums">{implied.toFixed(2)}%</span>}
-          sub={`Against ${plan.required.swr.ratePct.toFixed(2)}% for the lifetime plan above.`}
+          sub={`Against ${plan.required.swr.ratePct.toFixed(2)}% for the lifetime plan.`}
         />
       </Scoreboard>
 
       <div className={cn(CARD, "p-4")}>
         <MicroLabel>Why that rate is not reckless</MicroLabel>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          A safe withdrawal rate is for a pot that must survive forever. This
-          one has a known end date and is meant to reach it empty, so the two
-          figures are not comparable.
+          A safe withdrawal rate is for a pot that must last forever. This
+          one is meant to end empty, so the two are not comparable.
         </p>
       </div>
     </Panel>
