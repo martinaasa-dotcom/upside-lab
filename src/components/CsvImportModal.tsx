@@ -207,10 +207,9 @@ export function CsvImportModal({
             and every example was one of the family's own holdings.
           */}
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Paste one holding per line: the ticker, how many you own, and
-            what you paid for one share. Or choose a CSV file from your
-            broker, with the columns Ticker, Shares, Buy Price. What you
-            paid is in that listing&apos;s own money.
+            One holding per line: ticker, shares, and what you paid for one
+            share, in that listing&apos;s own money. Or choose a CSV with
+            Ticker, Shares, Buy Price.
           </p>
 
           <Textarea
@@ -285,7 +284,7 @@ export function CsvImportModal({
               <p className="text-sm text-muted-foreground">
                 {replace
                   ? `Every holding in ${portfolioName || "this portfolio"} is removed and replaced with the rows below.`
-                  : "The rows below are added. A ticker you already hold is updated, and everything else is left as it is."}
+                  : "The rows below are added. A ticker you already hold is updated."}
               </p>
             </div>
           )}
