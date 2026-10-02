@@ -1110,7 +1110,7 @@ export const PortfolioTable = memo(function PortfolioTable({
               })}
             </FluidRow>
 
-            {sortedHoldings.map((h) => {
+            {sortedHoldings.map((h, row) => {
               const listed = rowMoney(h);
               return (
               <FluidRow key={h.id} className="group hover:bg-muted/50">
@@ -1190,6 +1190,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                     points={h.quote?.sparkline ?? []}
                     width={56}
                     height={18}
+                    delayMs={Math.min(row, 12) * 45}
                   />
                 </div>
                 <div

@@ -1,5 +1,6 @@
 "use client";
 
+import { Sweep } from "@/components/ui/Sweep";
 import { PlaybookQuote } from "@/components/playbook/PlaybookQuote";
 import { PlaybookTerms } from "@/components/playbook/PlaybookTerms";
 import { Card, NESTED_PAD, NoteRows, Pill } from "@/components/ui/Panel";
@@ -133,11 +134,13 @@ function Track({
           ))}
         </div>
         {pos != null ? (
-          <span
-            className="pointer-events-none absolute bottom-0 h-1 w-8 -translate-x-1/2 rounded-full bg-primary"
-            style={{ left: `${pos}%` }}
-            aria-hidden
-          />
+          <Sweep at={pos / 100}>
+            <span
+              className="pointer-events-none absolute bottom-0 h-1 w-8 -translate-x-1/2 rounded-full bg-primary"
+              style={{ left: `${pos}%` }}
+              aria-hidden
+            />
+          </Sweep>
         ) : null}
       </div>
       <div className="mt-1.5 flex justify-between font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground">

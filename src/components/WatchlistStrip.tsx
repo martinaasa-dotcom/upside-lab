@@ -1,5 +1,6 @@
 "use client";
 
+import { Sweep } from "@/components/ui/Sweep";
 import { HouseholdCoinChips, WatchSuggestionChips } from "@/components/CoinChips";
 import {
   cashtag,
@@ -118,13 +119,15 @@ function RangeMeter({
           aria-valuenow={price}
           aria-label="Where today's price sits between its recent low and its recent high"
         >
-          <span
-            className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-background"
-            style={{
-              left: `${pos * 100}%`,
-              backgroundColor: rangeDotColor(pos),
-            }}
-          />
+          <Sweep at={pos}>
+            <span
+              className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-background"
+              style={{
+                left: `${pos * 100}%`,
+                backgroundColor: rangeDotColor(pos),
+              }}
+            />
+          </Sweep>
         </div>
       </div>
     </div>

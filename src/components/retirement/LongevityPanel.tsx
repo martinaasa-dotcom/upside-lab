@@ -177,6 +177,7 @@ function SurvivalChart({
               className="text-border"
             />
           ))}
+          <g className="line-reveal">
           {shape.area ? (
             <path d={shape.area} fill={PALETTE.loss} opacity={0.25} />
           ) : null}
@@ -187,6 +188,7 @@ function SurvivalChart({
             strokeWidth={2.5}
             vectorEffect="non-scaling-stroke"
           />
+          </g>
           {shape.marks.map((m) => (
             <line
               key={m.key}

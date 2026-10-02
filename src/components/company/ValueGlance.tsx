@@ -250,7 +250,7 @@ function Ladder({
         {hasBand && (
           <span
             aria-hidden
-            className="absolute inset-y-0 rounded-full bg-foreground/[0.14]"
+            className="bar-reveal absolute inset-y-0 rounded-full bg-foreground/[0.14]"
             style={{ left: `${at(low)}%`, width: `${at(high) - at(low)}%` }}
           />
         )}
@@ -437,10 +437,13 @@ function GapBar({ gap }: { gap: number }) {
       <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-foreground/25" />
       <span
         className={cn(
-          "absolute inset-y-0 rounded-full",
+          "grow-out absolute inset-y-0 rounded-full",
           gap >= 0 ? "left-1/2 bg-gain/70" : "right-1/2 bg-loss/70"
         )}
-        style={{ width: `${Math.max(width, 1.5)}%` }}
+        style={{
+          width: `${Math.max(width, 1.5)}%`,
+          ["--from" as string]: gap >= 0 ? "left" : "right",
+        }}
       />
     </span>
   );

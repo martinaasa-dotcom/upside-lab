@@ -1,5 +1,6 @@
 "use client";
 
+import { Sweep } from "@/components/ui/Sweep";
 import { useEffect, useState } from "react";
 import { Card, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
 import { WhyThis } from "@/components/ui/WhyThis";
@@ -168,11 +169,13 @@ function BandRow({
             aria-hidden
             className="absolute inset-x-0 top-6 h-px bg-foreground/20"
           />
-          <span
-            aria-hidden
-            className="absolute top-4 h-3.5 w-0.5 -translate-x-1/2 rounded-full bg-primary"
-            style={{ left: `${at * 100}%` }}
-          />
+          <Sweep at={at}>
+            <span
+              aria-hidden
+              className="absolute top-4 h-3.5 w-0.5 -translate-x-1/2 rounded-full bg-primary"
+              style={{ left: `${at * 100}%` }}
+            />
+          </Sweep>
           {/*
             The pill anchors to whichever end it is near rather than to
             its own centre, so it can never be drawn half outside the

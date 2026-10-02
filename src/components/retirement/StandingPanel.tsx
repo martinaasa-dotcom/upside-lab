@@ -168,6 +168,7 @@ function PathChart({
               stroke={PALETTE.gain}
               strokeWidth={2.5}
               vectorEffect="non-scaling-stroke"
+              className="line-reveal"
             />
           </svg>
           {/*

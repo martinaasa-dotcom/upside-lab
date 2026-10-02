@@ -651,6 +651,16 @@ export function MobileBookNavChart({
             format={compactAxis}
             className="w-9 pr-1.5"
           />
+          {/*
+            The plot and its two dots. The SVG stretches its viewBox to the
+            box it is given (`preserveAspectRatio="none"`), which is right
+            for a line and wrong for a circle: on a phone the old hover dot
+            was drawn about half as wide as it was tall. Both dots are HTML
+            over the plot now, placed in per cent of it, so they are round
+            at every width, and every stroke is non-scaling so the line is
+            the same weight across and down.
+          */}
+          <div className="relative min-w-0 flex-1">
           <svg
             ref={svgRef}
             viewBox={`0 0 ${width} ${height}`}
@@ -691,28 +701,33 @@ export function MobileBookNavChart({
                 y2={yAt(t)}
                 stroke="currentColor"
                 strokeOpacity={0.08}
+                vectorEffect="non-scaling-stroke"
               />
             ))}
-            <polygon points={area} fill={`url(#${gid})`} />
+            {/* The year draws itself in, left to right, on arrival. */}
+            <g className="line-reveal">
+            <polygon points={area} fill={`url(#${gid})`} className="spark-wash" />
             {estimated ? (
               <>
                 <polyline
                   fill="none"
                   stroke={PALETTE.brand}
-                  strokeOpacity={0.5}
-                  strokeWidth={1.5}
+                  strokeOpacity={0.55}
+                  strokeWidth={1.75}
                   strokeDasharray="4 4"
                   strokeLinejoin="round"
                   strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
                   points={estimated}
                 />
                 {recordedLine ? (
                   <polyline
                     fill="none"
                     stroke={PALETTE.brand}
-                    strokeWidth={1.5}
+                    strokeWidth={2}
                     strokeLinejoin="round"
                     strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
                     points={recordedLine}
                   />
                 ) : null}
@@ -721,33 +736,48 @@ export function MobileBookNavChart({
               <polyline
                 fill="none"
                 stroke={PALETTE.brand}
-                strokeWidth={1.5}
+                strokeWidth={2}
                 strokeLinejoin="round"
                 strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
                 points={line}
               />
             )}
+            </g>
             {hover != null && hoverPoint && (
-              <g pointerEvents="none">
-                <line
-                  x1={xAt(hover)}
-                  x2={xAt(hover)}
-                  y1={padT}
-                  y2={padT + innerH}
-                  stroke={PALETTE.cream}
-                  strokeOpacity={0.45}
-                />
-                <circle
-                  cx={xAt(hover)}
-                  cy={yAt(hoverPoint.nav)}
-                  r={4.5}
-                  fill={PALETTE.cream}
-                  stroke={PALETTE.card}
-                  strokeWidth={1.5}
-                />
-              </g>
+              <line
+                pointerEvents="none"
+                x1={xAt(hover)}
+                x2={xAt(hover)}
+                y1={padT}
+                y2={padT + innerH}
+                stroke={PALETTE.cream}
+                strokeOpacity={0.45}
+                strokeDasharray="2 3"
+                vectorEffect="non-scaling-stroke"
+              />
             )}
           </svg>
+          {hover != null && hoverPoint ? (
+            <span
+              aria-hidden
+              className="chart-scrub-dot pointer-events-none absolute"
+              style={{
+                left: `${(xAt(hover) / width) * 100}%`,
+                top: `${(yAt(hoverPoint.nav) / height) * 100}%`,
+              }}
+            />
+          ) : (
+            <span
+              aria-hidden
+              className="chart-now-dot pointer-events-none absolute"
+              style={{
+                left: `${(xAt(lastIdx) / width) * 100}%`,
+                top: `${(yAt(usable[lastIdx]!.nav) / height) * 100}%`,
+              }}
+            />
+          )}
+          </div>
         </div>
       </div>
       {/* Same 36px gutter as the value axis, so the months line up. */}

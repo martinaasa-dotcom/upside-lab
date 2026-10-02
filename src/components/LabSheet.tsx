@@ -991,13 +991,16 @@ export const LabSheet = memo(function LabSheet({
                                 : `${row} ↔ ${corrHeat.tickers[j]}: ${c.toFixed(2)}`
                             }
                             className={cn(
-                              "flex h-10 min-w-10 w-full items-center justify-center rounded-md tabular-nums text-sm font-medium text-foreground",
+                              "wave-in flex h-10 min-w-10 w-full items-center justify-center rounded-md tabular-nums text-sm font-medium text-foreground",
                               c == null && "bg-muted"
                             )}
+                            /* A diagonal wave: the cells arrive corner to
+                               corner, one step per row and column. */
                             style={
                               c == null
-                                ? undefined
+                                ? { ["--i" as string]: Math.min(i + j, 20) * 2 }
                                 : {
+                                    ["--i" as string]: Math.min(i + j, 20) * 2,
                                     background: `color-mix(in oklch, var(--${c >= 0 ? "zone-warm" : "zone-cool"}) ${Math.round((0.08 + Math.abs(c) * 0.5) * 100)}%, transparent)`,
                                   }
                             }
@@ -1023,7 +1026,7 @@ export const LabSheet = memo(function LabSheet({
                     everywhere else in this app.
                   */}
                   <ul className="flex min-h-0 flex-1 flex-col gap-3">
-                    {corrPairs.map((c) => {
+                    {corrPairs.map((c, k) => {
                       const v = Number.isFinite(c.corr) ? Math.max(-1, Math.min(1, c.corr)) : 0;
                       return (
                         <li key={`${c.a}-${c.b}`} className="flex flex-col gap-1.5 text-sm">
@@ -1039,12 +1042,14 @@ export const LabSheet = memo(function LabSheet({
                             <span className="relative h-2 min-w-0 flex-1 rounded-full bg-foreground/[0.06]" aria-hidden>
                               <span className="absolute inset-y-[-3px] left-1/2 w-px bg-foreground/25" />
                               <span
-                                className="absolute inset-y-0 rounded-full"
+                                className="grow-out absolute inset-y-0 rounded-full"
                                 style={{
                                   left: v >= 0 ? "50%" : `${50 - barFillPct(Math.abs(v) * 50, 0, 50)}%`,
                                   width: `${barFillPct(Math.abs(v) * 50, 0, 50)}%`,
                                   background: `var(--${v >= 0 ? "zone-warm" : "zone-cool"})`,
                                   opacity: 0.35 + Math.abs(v) * 0.65,
+                                  ["--from" as string]: v >= 0 ? "left" : "right",
+                                  ["--i" as string]: Math.min(k, 10) * 2,
                                 }}
                               />
                             </span>

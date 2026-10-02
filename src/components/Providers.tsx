@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrivalWatcher } from "@/components/ArrivalWatcher";
 import { AuthProvider } from "@/components/AuthProvider";
 import { AnalyticsConsentBanner } from "@/components/AnalyticsConsentBanner";
 import { FeedbackHost } from "@/components/FeedbackHost";
@@ -55,6 +56,7 @@ export function Providers({ children }: { children: ReactNode }) {
         */}
         <PullToRefresh />
         <RimLight />
+        <ArrivalWatcher />
         <FeedbackHost>
           <WorkspaceShell>{children}</WorkspaceShell>
         </FeedbackHost>

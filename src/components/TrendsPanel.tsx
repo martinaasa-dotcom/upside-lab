@@ -630,7 +630,7 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
                 {proxyNote ? ` ${proxyNote}` : ""}
               </p>
               <div className="flex flex-col gap-1.5">
-                {leaders.map((r) => {
+                {leaders.map((r, k) => {
                   const v = r.rs13 ?? 0;
                   /*
                     Each side of this track is half the container (it
@@ -649,10 +649,14 @@ export function TrendsPanel({ tickers }: { tickers: string[] }) {
                       <div className="relative h-2 min-w-0 flex-1 rounded-full bg-muted">
                         <div
                           className={cn(
-                            "absolute top-0 h-full rounded-full",
+                            "grow-out absolute top-0 h-full rounded-full",
                             v >= 0 ? "bg-gain/70 left-1/2" : "bg-loss/70 right-1/2"
                           )}
-                          style={{ width: `${width}%` }}
+                          style={{
+                            width: `${width}%`,
+                            ["--from" as string]: v >= 0 ? "left" : "right",
+                            ["--i" as string]: Math.min(k, 12) * 2,
+                          }}
                         />
                         <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
                       </div>

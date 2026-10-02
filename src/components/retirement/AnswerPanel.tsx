@@ -945,7 +945,7 @@ export function AnswerPanel({
                 </div>
                 <div className="h-3 overflow-hidden rounded-full bg-foreground/[0.07]">
                   <div
-                    className="h-full rounded-full bg-primary motion-safe:transition-[width] motion-safe:duration-500 motion-safe:ease-out"
+                    className="overview-bar h-full rounded-full bg-primary motion-safe:transition-[width] motion-safe:duration-500 motion-safe:ease-out"
                     style={{ width: `${barFillPct((have / barMax) * 100, 2)}%` }}
                   />
                 </div>
@@ -957,7 +957,7 @@ export function AnswerPanel({
                 </div>
                 <div className="h-3 overflow-hidden rounded-full bg-foreground/[0.07]">
                   <div
-                    className="h-full rounded-full bg-foreground/40 motion-safe:transition-[width] motion-safe:duration-500 motion-safe:ease-out"
+                    className="overview-bar h-full rounded-full bg-foreground/40 motion-safe:transition-[width] motion-safe:duration-500 motion-safe:ease-out"
                     style={{ width: `${barFillPct((need / barMax) * 100, 2)}%` }}
                   />
                 </div>

@@ -259,7 +259,9 @@ function Row({
       <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-secondary">
         <div
           className={cn(
-            "overview-bar h-full rounded-full",
+            /* Grows on arrival, then eases to each new length when the
+               number of days missed changes, where it used to jump. */
+            "overview-bar h-full rounded-full transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
             tone === "brand" ? "bg-primary" : "bg-foreground/25"
           )}
           style={{ width: `${barFillPct(width, 1)}%` }}

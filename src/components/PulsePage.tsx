@@ -1,5 +1,6 @@
 "use client";
 
+import { Sweep } from "@/components/ui/Sweep";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -225,11 +226,13 @@ function RangeBar({ price, range }: { price: number; range: PulseRange }) {
     <div className="flex flex-col gap-2">
       <div className="relative h-2.5">
         <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-muted" />
-        <span
-          className="absolute top-1/2 size-2.5 -translate-y-1/2 rounded-full bg-foreground"
-          style={{ left: `calc(${(at * 100).toFixed(1)}% - 0.3125rem)` }}
-          aria-hidden
-        />
+        <Sweep at={at}>
+          <span
+            className="absolute top-1/2 size-2.5 -translate-y-1/2 rounded-full bg-foreground"
+            style={{ left: `calc(${(at * 100).toFixed(1)}% - 0.3125rem)` }}
+            aria-hidden
+          />
+        </Sweep>
       </div>
       <div className="flex items-baseline justify-between font-mono text-xs tabular-nums text-muted-foreground">
         <span>{currency(range.low)}</span>
