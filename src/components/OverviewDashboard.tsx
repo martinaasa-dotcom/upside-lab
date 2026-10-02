@@ -280,7 +280,7 @@ function EmptyBook({
     ? homeworkCash != null && homeworkCash > 0
       ? `This is paper class. Everyone started with the same cash. Buy companies with that paper money. Do not paste a real portfolio in here. You have ${currency(homeworkCash, 0)} sitting ready.`
       : "This is paper class. Everyone started with the same cash. Buy companies with that paper money. Do not paste a real portfolio in here."
-    : "Add what you own and Upside Lab tells you, in plain words, what it did each day and whether anything actually changed at those companies. Nobody else sees this unless you invite them.";
+    : "Add what you own. Each day Upside Lab says, in plain words, what moved and whether it was news. Nobody sees it unless you invite them.";
 
   return (
     <Panel className="overview-fade">

@@ -52,7 +52,7 @@ export const RULES: Rule[] = [
     claim: "It connects to your broker and pulls your holdings in.",
     truth: false,
     answer:
-      "It does not, and nothing here ever asks for a password. You type what you own, or paste a screenshot of your broker screen and let it read the numbers off.",
+      "It does not, and nothing here asks for a password. Type what you own, or paste a screenshot from your broker.",
   },
   {
     claim: "It tells you what to buy and what to sell.",
@@ -64,13 +64,13 @@ export const RULES: Rule[] = [
       "It says whether today's fall was your company or the whole market.",
     truth: true,
     answer:
-      "It does, on every company you own, every day. That one question is what the rest of this is built around.",
+      "It does, on every company you own, every day. The rest of the app is built around that.",
   },
   {
     claim: "Other people can see your portfolio unless you stop them.",
     truth: false,
     answer:
-      "They cannot. A portfolio is private until you invite somebody into it, and signing in never puts you in a circle. Export it all, or delete it all, from Account whenever you like.",
+      "They cannot. A portfolio is private until you invite somebody, and signing in never puts you in a circle. Export or delete it all from Account.",
   },
 ];
 

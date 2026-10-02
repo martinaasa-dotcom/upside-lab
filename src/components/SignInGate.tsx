@@ -96,24 +96,24 @@ function gateReason(pathname: string): string {
   if (path.startsWith("/upside-portfolio")) {
     return (
       "The Upside Fund is one portfolio this app runs and writes up, the " +
-      "same for everybody who opens it, and it opens once you are signed in."
+      "same for everybody. It opens once you are signed in."
     );
   }
   if (path.startsWith("/communities")) {
     return (
-      "A circle is other people, so there is nothing to show somebody who " +
-      "has not signed in yet."
+      "A circle is other people, so there is nothing to show before you " +
+      "sign in."
     );
   }
   if (path.startsWith("/account")) {
     return (
       "Your account settings are about you, so there is nothing to show " +
-      "somebody who has not signed in yet."
+      "before you sign in."
     );
   }
   return (
-    "A circle is other people and your account settings are about you, so " +
-    "there is nothing to show somebody who has not signed in yet."
+    "Circles and account settings are about people, so there is nothing " +
+    "to show before you sign in."
   );
 }
 
@@ -333,7 +333,7 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
     : {
         title: "Sign in to Upside Lab.",
         detail:
-          "Add what you own and it tells you, in plain words, what happened at those companies each day.",
+          "Add what you own. Each day it says, in plain words, what happened at those companies.",
       };
 
   /*

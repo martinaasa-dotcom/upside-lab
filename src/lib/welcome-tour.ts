@@ -115,7 +115,7 @@ export function screenCopy(
       return {
         title: `A bad day, in ${PRODUCT_NAME}`,
         lede:
-          "All made up: a portfolio nobody owns, on a day that never happened. Seven of these companies fell with the market and one fell on its own news. In a list of red numbers the two look the same.",
+          "All made up, on a day that never happened. Seven fell with the market and one on its own news. In red, they look the same.",
       };
     case "rules":
       return {
@@ -127,25 +127,25 @@ export function screenCopy(
       return {
         title: "Where everything is",
         lede:
-          "The bar along the bottom of the screen is how you move around, and your own portfolio sits in it too.",
+          "The bar at the bottom is how you move around. Your portfolio sits in it too.",
       };
     case "you":
       return {
         title: "Two questions about you",
         lede:
-          "They only change how much is open at once. Nothing is locked away, and both can be changed in Account.",
+          "They only decide what starts open. Nothing is locked, and both change in Account.",
       };
     case "holdings":
       return {
         title: "Add what you own",
         lede:
-          "The ticker, how many you hold, and roughly what you paid. One company is enough to make Home worth opening.",
+          "Ticker, how many, and roughly what you paid. One company is enough to start.",
       };
     case "watchlist":
       return {
         title: "Anything you are watching?",
         lede:
-          "Companies you do not own but are curious about. Pulse keeps an eye on them too, and the Sunday email can bring them up. Press Next if you have none in mind.",
+          "Companies you are curious about. Pulse and the Sunday email keep an eye on them. None in mind? Press Next.",
       };
     case "week":
       return {
@@ -153,7 +153,7 @@ export function screenCopy(
           ? `That is the whole app. It is set to "${tierLabel}"`
           : "That is the whole app",
         lede:
-          "Every switch you just set is in Account. The day the market falls and you want to know what it means, this is the app to open.",
+          "Every switch you set is in Account. Next time the market falls, this is where to look.",
       };
   }
 }

@@ -232,11 +232,10 @@ export function portfolioDayLine(
    * amount, and the pronoun that later refers back to that same day. */
   const session = when === "friday" ? lastSessionName() : null;
   const tail = session ? `on ${session}` : "today";
-  const thatDay = session ?? "today";
   // A past session is said in the past tense: "was up $218 on Friday".
   const is = session ? "was" : "is";
   if (size === "ordinary") {
-    return `Your portfolio ${is} ${way} ${moved} ${tail}. It moves about ${ordinaryDollar} on an ordinary day, so ${thatDay} is one of those.`;
+    return `Your portfolio ${is} ${way} ${moved} ${tail}, an ordinary move. Most days it moves about ${ordinaryDollar}.`;
   }
   if (size === "bigger") {
     return `Your portfolio ${is} ${way} ${moved} ${tail}, more than the ${ordinaryDollar} of an ordinary day.`;

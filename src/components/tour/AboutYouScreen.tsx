@@ -79,7 +79,7 @@ export const Q2_OPTIONS: { id: Q2Answer; label: string; detail: string }[] = [
     id: "never",
     label: "No, not familiar with them",
     detail:
-      "Everything about options stays out of your way. You can switch it on later in Account.",
+      "Options stay out of your way. Switch them on in Account any time.",
   },
   {
     id: "know",

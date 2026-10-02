@@ -158,13 +158,11 @@ export function RedDayScreen() {
                 : `The one with news is ${cashtag(totals.newsTicker)}.`}
             </span>
             <span className="text-sm text-muted-foreground">
-              Seven of these eight fell because the whole market fell, and
-              nothing happened at any of them. One fell because of something
-              at the company, and it is{" "}
-              {Math.round(totals.newsShareOfDay * 100)}% of the whole day&apos;s{" "}
-              {currency(Math.abs(totals.dayDollar), 0)} on its own. Telling
-              those two apart, every day, for everything you own, is what
-              Pulse is.
+              Seven fell with the market and nothing happened at them. One
+              fell on its own news, and it alone is{" "}
+              {Math.round(totals.newsShareOfDay * 100)}% of the day&apos;s{" "}
+              {currency(Math.abs(totals.dayDollar), 0)}. Pulse tells those
+              apart every day, for everything you own.
             </span>
           </span>
         </div>

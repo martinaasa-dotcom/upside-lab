@@ -790,8 +790,8 @@ export function WatchlistStrip({
         title="Watching"
         subtitle={
           names.length === 0
-            ? "Companies you do not own, kept in view. Press one below to start, or type any name."
-            : "Today's price for each one, and how it has moved over the last few weeks."
+            ? "Companies you do not own, kept in view. Press one or type a name."
+            : "Today's price, and the last few weeks."
         }
         actions={
           <Popover

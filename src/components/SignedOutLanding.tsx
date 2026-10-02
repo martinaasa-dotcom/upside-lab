@@ -428,7 +428,7 @@ function PulseStill() {
         */}
       <div className="flex items-start justify-between gap-3">
         <MicroLabel className="min-w-0">
-          Pulse, the daily read on each company
+          Pulse, a daily read on each company
         </MicroLabel>
         <Pill tone="neutral">Sample</Pill>
       </div>
@@ -479,8 +479,8 @@ function PulseStill() {
           </div>
           <p className="text-sm leading-relaxed text-muted-foreground">
             {market
-              ? `There was no news about the company today, and the price is still inside the range it has traded in for months. Every similar business fell about as much.`
-              : `This one is different. ${NEWS_COMPANY} told investors to expect less next year than they had been counting on. That is worth reading about rather than ignoring.`}
+              ? `No news about the company today. The price is inside its usual range, and similar businesses fell as far.`
+              : `Different. ${NEWS_COMPANY} told investors to expect less next year than they had counted on. Worth a read tonight.`}
           </p>
         </div>
       </div>
@@ -508,15 +508,15 @@ function PulseStill() {
 const FOLLOW_UPS = [
   {
     q: "Which one had news?",
-    a: `${NEWS_COMPANY}. It told investors to expect less next year than they had been counting on. It is ${NEWS_SHARE} of what you hold, and it is the one company here worth reading about tonight.`,
+    a: `${NEWS_COMPANY}. It told investors to expect less next year than they had counted on. It is ${NEWS_SHARE} of what you hold.`,
   },
   {
     q: "Has this happened before?",
-    a: "Eleven days since you started where the whole portfolio fell more than one in a hundred. Today is the third biggest of them. What these companies actually do did not change on any of the eleven.",
+    a: "Eleven times since you started, the whole portfolio fell more than one in a hundred in a day. Today is the third biggest. The companies themselves did not change on any of them.",
   },
   {
     q: "How much of my portfolio is that?",
-    a: `${NEWS_COMPANY} is ${NEWS_SHARE} of what you hold, so its fall today accounts for ${NEWS_MONEY} of the ${DAY_MONEY}. The rest came from the other ${OTHERS}.`,
+    a: `${NEWS_COMPANY} is ${NEWS_SHARE} of what you hold, so ${NEWS_MONEY} of today's ${DAY_MONEY}. The other ${OTHERS} made up the rest.`,
   },
 ] as const;
 
@@ -588,11 +588,9 @@ function MargusStill() {
         * and its own demonstration could not keep the two apart.
         */}
       <Bubble>
-        {FALLING_LINE}. Only one of them had news
-        today, so most of this is the whole market having a bad day rather
-        than something at your companies. You are down{" "}
-        {DAY_MONEY.replace("-", "")}, about {DAY_PCT.replace("-", "")} of what
-        you hold.
+        {FALLING_LINE}, but only one had news. Most of this is the market
+        having a bad day. You are down {DAY_MONEY.replace("-", "")}, about{" "}
+        {DAY_PCT.replace("-", "")}.
       </Bubble>
 
       {answer ? (
@@ -652,8 +650,8 @@ function Showcase() {
       <SectionHead
         index="02"
         eyebrow="What it does"
-        title="A fall and real news look exactly the same in a list of red numbers."
-        detail="One is worth your evening. Both cards below are live, so press them."
+        title="A fall and real news look the same in red."
+        detail="Only one is worth your evening. Both cards are live."
       />
       <div className="mt-8 grid items-start gap-4 md:grid-cols-2">
         <PulseStill />
@@ -708,8 +706,7 @@ function WhoItsFor() {
         ))}
       </div>
       <p className="mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground">
-        Not for day trading, tips or being told what to buy. There is no buy
-        button and there never will be.
+        No tips, no day trading, no buy button. There never will be one.
       </p>
     </Section>
   );
@@ -782,7 +779,7 @@ function Compare() {
         index="03"
         eyebrow="How it compares"
         title={BROKER_ANSWER}
-        detail="Your broker holds the money and adds it up to the cent. Why the number moved is left to you."
+        detail="Your broker counts the money to the cent. Why it moved is left to you."
       />
       <div className="card-sheen glass mt-8 overflow-hidden rounded-2xl border border-border">
         {/* Laptop: a real table, with this app's column lit. */}
@@ -949,19 +946,19 @@ const CIRCLE_POINTS = [
     icon: Users,
     title: "Share a portfolio with one person",
     detail:
-      "Invite a partner or a parent. You both own it and see all of it, what each of you paid included.",
+      "Invite a partner or a parent. You both see all of it, what each of you paid included.",
   },
   {
     icon: MessagesSquare,
     title: "Or show a circle, without what you paid",
     detail:
-      "Everybody sees what you hold and how it has gone. What you paid for it, and so whether you are up or down, stays yours.",
+      "Everybody sees what you hold. What you paid for it, and so your gain, stays yours.",
   },
   {
     icon: ShieldCheck,
     title: "Nobody is added for you",
     detail:
-      "Invite-only. Signing in never puts you in one, and nothing is shared until you share it.",
+      "Invite only. Signing in never puts you in one.",
   },
 ] as const;
 
@@ -1238,7 +1235,7 @@ function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
       <p className="text-lg font-medium leading-snug text-pretty text-foreground" aria-live="polite">
         {found
           ? "Found it. That one is worth your evening."
-          : "One of these companies had real news today. Tap to find it."}
+          : "One of these had real news today. Tap to find it."}
       </p>
 
       <ul className="grid grid-cols-2 gap-2 @md:grid-cols-4">
@@ -1330,15 +1327,14 @@ function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
 
       {found ? (
         <p className="animate-in fade-in-0 text-sm leading-relaxed text-muted-foreground duration-300 motion-reduce:animate-none">
-          {NEWS_VERDICT} Upside Lab does this for every company you own, every
-          morning.
+          {NEWS_VERDICT} Upside Lab does this for everything you own, every
+          day.
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-3">
         <p className="min-w-[13rem] flex-1 text-xs leading-relaxed text-muted-foreground">
-          In the full sample the holdings are made up and the prices are
-          real.
+          Made up holdings, real prices.
         </p>
         {onLookAround ? (
           <Button
@@ -1396,9 +1392,8 @@ function HeroHybrid({
               </span>
             </h1>
             <p className="mt-6 max-w-xl text-pretty text-lg leading-snug text-muted-foreground sm:text-xl">
-              Upside Lab reads every company you own, every day, and tells you
-              in plain English which falls were news and which were just the
-              market.
+              Every day, Upside Lab tells you which of your falls were news
+              and which were just the market.
             </p>
             <div className="mt-8 w-full max-w-sm">
               <SignInMethods

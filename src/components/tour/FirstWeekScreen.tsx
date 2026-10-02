@@ -35,11 +35,11 @@ type Step = { done: boolean; text: string };
 const STEPS: Step[] = [
   {
     done: true,
-    text: "You have been round the app once, which is the part most people never do.",
+    text: "A first look round the app.",
   },
   {
     done: false,
-    text: "One evening after the market shuts, open Pulse and see what it says happened.",
+    text: "Open Pulse one evening after the market shuts.",
   },
   {
     done: false,
@@ -47,7 +47,7 @@ const STEPS: Step[] = [
   },
   {
     done: false,
-    text: "Add the next company from the same Add holding button on Home.",
+    text: "Add your next company from Home.",
   },
 ];
 

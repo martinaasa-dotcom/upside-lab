@@ -27,16 +27,16 @@ import { useState } from "react";
 */
 
 const WHAT_IT_IS: Record<string, string> = {
-  home: "Where you land. Today in a few sentences, then every portfolio you own.",
+  home: "Where you land. Today, then every portfolio you own.",
   holdings:
-    "One portfolio in full. Add a company, change a share count, fix what you paid.",
+    "One portfolio in full, to add to and edit.",
   pulse:
-    "Reads the day on every company you own and says what actually happened.",
-  lab: "Closer looks at the same portfolio: what you are concentrated in, and how each company usually behaves.",
+    "What actually happened at each company you own today.",
+  lab: "A closer look: where you are concentrated, and how each company behaves.",
   compound:
-    "Arithmetic on what you have, if you keep adding. Not a prediction, and it says so.",
+    "What your money grows to if you keep adding. Arithmetic, not a prediction.",
   circle:
-    "The people you choose to share a portfolio with. Invite only, and nothing is shared until you share it.",
+    "The people you choose to share with. Invite only.",
 };
 
 export function RoomsScreen() {
