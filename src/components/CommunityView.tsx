@@ -364,7 +364,7 @@ export function CommunityView({ communityId }: Props) {
       if (!isBackgroundRefresh) {
         setError(
           isNetworkError(e)
-            ? "You appear to be offline. This circle will load as soon as the connection is back."
+            ? "You seem to be offline. This circle loads once you are back."
             : e instanceof Error
               ? e.message
               : "Couldn't load this circle."
@@ -1856,9 +1856,8 @@ export function CommunityView({ communityId }: Props) {
                   &apos;s portfolio
                 </h2>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  You can look, not change anything. Every portfolio they own
-                  is pooled here, so a company held in two of them shows as one
-                  line.
+                  Look only. Their portfolios are pooled, so a company held
+                  twice is one line.
                 </p>
               </div>
 
@@ -1880,8 +1879,8 @@ export function CommunityView({ communityId }: Props) {
       <ConfirmModal
         open={Boolean(retireTarget)}
         title="Turn off this link?"
-        body="New people will not be able to join with it. People already in stay."
-        confirmLabel="Turn off this link"
+        body="Nobody new can join with it. People already in stay."
+        confirmLabel="Turn off link"
         destructive
         onClose={() => setRetireTarget(null)}
         onConfirm={async () => {
@@ -1893,7 +1892,7 @@ export function CommunityView({ communityId }: Props) {
       <ConfirmModal
         open={Boolean(removeTarget)}
         title="Remove member?"
-        body={`Remove ${removeTarget?.name ?? "this member"} from this ${roomWord}? They will stop seeing everyone else's portfolios, and you can invite them again later.`}
+        body={`${removeTarget?.name ?? "They"} will stop seeing everyone's portfolios in this ${roomWord}. You can invite them again later.`}
         confirmLabel="Remove"
         destructive
         onClose={() => setRemoveTarget(null)}
@@ -1906,7 +1905,7 @@ export function CommunityView({ communityId }: Props) {
       <ConfirmModal
         open={leaveOpen}
         title={`Leave ${thisRoomWord}?`}
-        body={`You will stop seeing everyone else's portfolios in ${namedRoom(community?.kind, community?.name)}, and they will stop seeing yours. Your own portfolios and holdings stay exactly as they are. You can come back later with an invite, or by asking again if it is public.`}
+        body={`You and everyone in ${namedRoom(community?.kind, community?.name)} stop seeing each other's portfolios. Yours stay exactly as they are. You can come back with an invite, or by asking if it is public.`}
         confirmLabel="Leave"
         destructive
         onClose={() => setLeaveOpen(false)}
@@ -1916,7 +1915,7 @@ export function CommunityView({ communityId }: Props) {
       <ConfirmModal
         open={deleteConfirmOpen}
         title={`Delete ${thisRoomWord}?`}
-        body={`This removes "${namedRoom(community?.kind, community?.name)}" for everyone. Members stop seeing each other's portfolios and the invite link stops working. Nobody's own portfolio or holdings are touched, and it cannot be undone.`}
+        body={`"${namedRoom(community?.kind, community?.name)}" and its invite link go for everyone. Nobody's own portfolios are touched. This cannot be undone.`}
         confirmLabel={`Delete this ${roomWord}`}
         destructive
         onClose={() => setDeleteConfirmOpen(false)}
@@ -1986,8 +1985,8 @@ export function CommunityView({ communityId }: Props) {
             </label>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
               {isClassroom
-                ? "Change this whenever the lesson changes. Students see it at the top."
-                : "One paragraph for the room. Public circles show this on Discover too."}
+                ? "Students see this at the top."
+                : "One paragraph for the room, also on Discover if public."}
             </p>
             <Textarea
               value={settingsNote}
@@ -2032,9 +2031,8 @@ export function CommunityView({ communityId }: Props) {
                   />
                 </div>
                 <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                  Changing this adds the difference to, or takes it from, every
-                  paper portfolio already handed out. Classes are always
-                  invite-only.
+                  A change applies to every paper portfolio already handed
+                  out. Classes are always invite-only.
                 </p>
                 <div className="mt-2 flex justify-end">
                   <Button
@@ -2056,8 +2054,8 @@ export function CommunityView({ communityId }: Props) {
               </label>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 {community?.visibility === "public"
-                  ? "Public: anyone signed in can find this circle and join it."
-                  : "Private: invite-only. No one can find or join without a link."}
+                  ? "Public: anyone signed in can find and join it."
+                  : "Private: only people with a link can join."}
               </p>
               <Segmented
                 className="mt-2"
@@ -2086,8 +2084,8 @@ export function CommunityView({ communityId }: Props) {
                   </label>
                   <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                     {community?.auto_approve_joins !== false
-                      ? "Anyone who asks joins straight away. You are told who arrived, and you can still remove somebody."
-                      : "Everyone who asks waits for you. You see them at the top of the circle and decide there."}
+                      ? "Anyone who asks joins straight away. You see who arrived."
+                      : "Everyone who asks waits for you, at the top of the circle."}
                   </p>
                   <Segmented
                     className="mt-2"
@@ -2114,8 +2112,8 @@ export function CommunityView({ communityId }: Props) {
                   Danger zone
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-loss">
-                  Deleting {thisRoomWord} removes it for every member. Their own
-                  portfolios and holdings are never affected.
+                  Deleting {thisRoomWord} removes it for everyone. Nobody&apos;s
+                  own portfolios are affected.
                 </p>
                 <button
                   type="button"
@@ -2152,9 +2150,8 @@ export function CommunityView({ communityId }: Props) {
                   The power animal field guide
                 </h2>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Every portfolio gets scored on how spread out it is, how jumpy
-                  the companies are, and how big the largest holding is. Then it
-                  gets the animal that fits. A fun lens, not a grade.
+                  Scored on spread, jumpiness and the size of the biggest
+                  holding, then matched to an animal. A fun lens, not a grade.
                 </p>
               </div>
               <Button

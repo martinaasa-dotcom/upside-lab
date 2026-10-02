@@ -417,9 +417,8 @@ export function CommunityMembersPanel({
                         <Badge variant="secondary">{joinRequests.length}</Badge>
                       </h2>
                       <p className="text-sm text-muted-foreground">
-                        Nothing happens until you decide. If you would
-                        rather people came straight in, turn that on in
-                        Settings.
+                        Nobody joins until you decide. Settings can let them
+                        straight in.
                       </p>
                       <ItemGroup>
                         {joinRequests.map((r) => (
@@ -470,8 +469,8 @@ export function CommunityMembersPanel({
                       </h2>
                       <p className="text-sm leading-relaxed text-muted-foreground">
                         {isClassroom
-                          ? "Anyone with this link joins the class and starts with the same paper cash and an empty portfolio. It works for 30 days."
-                          : "Anyone with this link can join. They will see how each portfolio moved, what is in it and what it is worth today, never what anybody paid. It works for 30 days."}
+                          ? "Anyone with this link joins with the same paper cash. Works for 30 days."
+                          : "Anyone with this link can join and see each portfolio, never what anybody paid. Works for 30 days."}
                       </p>
                       <Button
                         type="button"
@@ -509,8 +508,8 @@ export function CommunityMembersPanel({
                               className="mt-1.5"
                             />
                             <span className="mt-1 block text-sm text-muted-foreground">
-                              We will mail the link for you, and it will only
-                              work for these people. Separate them with a comma.
+                              We mail it, and it works only for them. Separate
+                              with commas.
                             </span>
                           </label>
                           <label className="block">
@@ -538,8 +537,8 @@ export function CommunityMembersPanel({
                               aria-label="Link never stops working"
                             />
                             <span className="leading-relaxed">
-                              Never stops working. Anyone who ever sees this
-                              link can join, so only use it somewhere private.
+                              Never expires. Anyone who sees it can join, so
+                              keep it private.
                             </span>
                           </label>
                         </div>
@@ -622,9 +621,8 @@ export function CommunityMembersPanel({
                                   ) : null}
                                   {live ? (
                                     <ItemDescription>
-                                      The link was shown once, when it was
-                                      made. To share it again, make a new
-                                      link; this one stops working.
+                                      Shown once when made. A new link
+                                      replaces this one.
                                     </ItemDescription>
                                   ) : null}
                                 </ItemContent>

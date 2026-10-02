@@ -312,7 +312,7 @@ export function CircleHome({
             <Panel className="overview-fade order-1">
               <PanelHeader
                 title="Two steps and this circle is live"
-                subtitle="Everyone here will see how each portfolio moved, which companies are in it, how many shares of each, and what the whole thing is worth today. What anybody paid stays theirs."
+                subtitle="Everyone here sees each portfolio's companies, shares, value and daily moves. What anybody paid stays theirs."
               />
 
               <div className="flex flex-col gap-2">
@@ -328,8 +328,8 @@ export function CircleHome({
                     2. Send the link
                   </p>
                   <p className="text-sm leading-relaxed text-muted-foreground">
-                    Anyone with the link can join. You can turn it off later,
-                    and more settings live on the Members tab.
+                    Anyone with the link can join. Turn it off any time on the
+                    Members tab.
                   </p>
                   {inviteUrl ? (
                     <div className="card-sheen glass-well flex flex-wrap items-center gap-3 rounded-lg p-3">
@@ -360,8 +360,8 @@ export function CircleHome({
                 </div>
               ) : (
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  Nobody else has shared a portfolio here yet. Yours will show
-                  up as soon as you pick one above.
+                  Nobody has shared a portfolio yet. Yours appears once you
+                  pick one above.
                 </p>
               )}
             </Panel>
@@ -379,7 +379,6 @@ export function CircleHome({
               <PanelHeader
                 icon={<History className="h-4 w-4" />}
                 title="Since you last looked"
-                subtitle="What people bought and sold while you were away"
               />
               <ul className="flex flex-col gap-1.5">
                 {changes.map((line) => (
@@ -416,7 +415,7 @@ export function CircleHome({
               <PanelHeader
                 icon={<Sparkles className="h-4 w-4" />}
                 title="Power animals"
-                subtitle="How each portfolio is put together. Tap a row to open it up."
+                subtitle="How each portfolio is built."
                 actions={
                   <Button
                     type="button"
@@ -467,7 +466,7 @@ export function CircleHome({
               <PanelHeader
                 icon={<Award className="size-4" />}
                 title="Who stands out"
-                subtitle="One each, for whatever they are furthest ahead on"
+                subtitle="One award each, for what they lead on."
               />
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {achievements.map((a) => (
@@ -594,7 +593,7 @@ export function CircleHome({
                   icon={<Layers className="h-4 w-4" />}
                   iconTone="emerald"
                   title="Holdings you share"
-                  subtitle="The companies more than one of you owns"
+                  subtitle="Owned by more than one of you"
                 />
                 <ItemGroup className="gap-0 has-data-[size=sm]:gap-0">
                   {sharedNames.map((row, i) => (
@@ -618,7 +617,7 @@ export function CircleHome({
               <PanelHeader
                 icon={<PieChart className="h-4 w-4" />}
                 title="What the circle owns"
-                subtitle="Everyone's holdings added together and grouped by kind of business, with yours under it."
+                subtitle="Everyone's holdings by kind of business, with yours below."
               />
               {/*
                 The two bars are one reading, so they are one child of the
@@ -661,7 +660,7 @@ export function CircleHome({
                 title="Circle facts"
                 subtitle={
                   funFactsShuffle > 0
-                    ? "These are shuffled. Reload the page for today's own set."
+                    ? "Shuffled. Reload for today's set."
                     : "A new set every day"
                 }
                 actions={
