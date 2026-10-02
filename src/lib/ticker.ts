@@ -1,4 +1,5 @@
 import { coinFromSymbol, isCoinSymbol, matchCoinQuery } from "@/lib/coins";
+import { stockholmFromClassTicker } from "@/lib/market/stockholm";
 
 /**
  * Normalize human/exchange tickers to Yahoo Finance symbols.
@@ -30,6 +31,7 @@ const PREFIX_TO_SUFFIX: Record<string, string> = {
   MIL: ".MI",
   MCE: ".MC",
   STO: ".ST",
+  XSTO: ".ST",
   CPH: ".CO",
   HEL: ".HE",
   OSL: ".OL",
@@ -210,6 +212,11 @@ export function yahooQuoteCandidates(raw: string): string[] {
 }
 
 export function normalizeYahooTicker(raw: string): string {
+  // Avanza and Nordnet print a Stockholm share class with a space
+  // (VOLV B). Read it before the space is stripped, or it becomes VOLVB,
+  // which is no listing anywhere.
+  const stockholm = stockholmFromClassTicker(raw.replace(/^[€$£]+/, ""));
+  if (stockholm) return stockholm;
   let t = raw.trim().toUpperCase().replace(/\s+/g, "");
   if (!t) return t;
   // Broker UI often prefixes €RHM / $GOOGL. Strip every leading mark so
