@@ -26,7 +26,7 @@ import {
 import type { CoveredCallRow } from "@/lib/types";
 import { parseExpiryText } from "@/lib/options/expiry-text";
 import { listingCurrenciesAreMixed } from "@/lib/listing-currency";
-import { Check, ClipboardPaste, Copy, Plus } from "lucide-react";
+import { ClipboardPaste, Plus } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CoveredCallModal, type CallModalSeed } from "@/components/CoveredCallModal";
 import { TrackedCalls } from "@/components/covered-calls/TrackedCalls";
@@ -250,18 +250,22 @@ function InlineStrike({
  * handling for free. Clearing the field hands the choice back to the
  * scan, which is why the empty value commits null rather than being
  * rejected like the numeric editors do.
+ *
+ * Setting a date here offers it to every other row, through the footer's
+ * "Use for all", which is what the copy and paste glyphs beside each field
+ * used to do. They cost 26px of the widest track on every row, so the
+ * expiry column sat apart from the delta before it while the columns on
+ * the left of the table had about 5px each to spare.
  */
 function InlineExpiry({
   value,
   onCommit,
-  copied,
-  onCopy,
+  onOffer,
 }: {
   value: string | null;
   onCommit: (expiry: string | null) => void;
-  /** The date last copied from any row, offered to every other row. */
-  copied: string | null;
-  onCopy: (expiry: string) => void;
+  /** Offers a date set or copied here to every other row. */
+  onOffer: (expiry: string) => void;
 }) {
   const display = value ?? "";
   const [draft, setDraft] = useState(display);
@@ -287,13 +291,11 @@ function InlineExpiry({
     }
     setDraft(cleaned);
     onCommit(cleaned);
+    onOffer(cleaned);
   };
 
-  const canPaste = copied != null && copied !== value && isFutureKey(copied);
-
   return (
-    <div className="inline-flex flex-row-reverse items-center gap-0.5">
-      <input
+    <input
         type="date"
         value={draft}
         aria-label="Expiry"
@@ -315,7 +317,7 @@ function InlineExpiry({
           if (!value) return;
           e.preventDefault();
           e.clipboardData.setData("text/plain", value);
-          onCopy(value);
+          onOffer(value);
         }}
         onPaste={(e) => {
           const parsed = parseExpiryText(e.clipboardData.getData("text"));
@@ -332,40 +334,6 @@ function InlineExpiry({
         }}
         className="inline-edit w-[7.5rem] rounded-t bg-transparent py-0.5 text-right tabular-nums text-muted-foreground outline-none hover:bg-hover focus:bg-muted focus:text-foreground focus:ring-1 focus:ring-ring/50"
       />
-      {canPaste ? (
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="size-6 text-muted-foreground"
-          aria-label={`Use ${copied} here`}
-          onClick={() => commit(copied!)}
-        >
-          <ClipboardPaste className="size-3.5" />
-        </Button>
-      ) : value ? (
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className={cn(
-            "size-6",
-            copied === value ? "text-primary" : "text-muted-foreground"
-          )}
-          aria-label={copied === value ? "Date copied" : "Copy this date"}
-          onClick={() => {
-            onCopy(value);
-            void navigator.clipboard?.writeText(value).catch(() => {});
-          }}
-        >
-          {copied === value ? (
-            <Check className="size-3.5" />
-          ) : (
-            <Copy className="size-3.5" />
-          )}
-        </Button>
-      ) : null}
-    </div>
   );
 }
 
@@ -392,7 +360,7 @@ const HEADERS = [
   "Strike",
   "Delta",
   "Expires",
-  "Contracts",
+  "Calls",
   "3-week %",
   "Premium",
 ] as const;
@@ -403,7 +371,7 @@ const HEADERS = [
  * contract count right-aligned under a nine-letter header sits off at the
  * end of it, so both read as balanced only in the middle.
  */
-const CENTRED_HEADERS = new Set<string>(["Expires", "Contracts"]);
+const CENTRED_HEADERS = new Set<string>(["Expires", "Calls"]);
 
 /**
  * Headers the glossary already answers, so this table does not keep a
@@ -427,7 +395,14 @@ const HEADER_HINTS: Partial<Record<(typeof HEADERS)[number], string>> = {
   // months, which is a different number in a table that shows both.
   "Near target?":
     "How close the share price is to the price you said you would be happy to sell at",
-  Contracts: "One contract covers 100 shares",
+  /*
+    "Calls" rather than "Contracts": the column holds one or two digits and
+    a header sets its track's width, so the nine-letter word left 56px of
+    empty track around a "5" at 1440 while every column to its left had
+    about 5px to spare. The tip keeps the broker's word.
+  */
+  Calls:
+    "How many calls these shares can carry. One call, which your broker calls a contract, covers 100 shares",
   "3-week %":
     "What you collect as a percentage of the shares this ties up, scaled to three weeks so calls to different dates can be compared",
 };
@@ -802,8 +777,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                 <InlineExpiry
                   value={r.expiration}
                   onCommit={(expiry) => onPatchExpiry(r.holding.id, expiry)}
-                  copied={copiedExpiry}
-                  onCopy={setCopiedExpiry}
+                  onOffer={setCopiedExpiry}
                 />
               </div>
               {tracking && r.contracts >= 1 ? (
@@ -1011,8 +985,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                 <InlineExpiry
                   value={r.expiration}
                   onCommit={(expiry) => onPatchExpiry(r.holding.id, expiry)}
-                  copied={copiedExpiry}
-                  onCopy={setCopiedExpiry}
+                  onOffer={setCopiedExpiry}
                 />
               </div>
               <div className={cn(cellCenter, "font-mono tabular-nums text-muted-foreground")}>
