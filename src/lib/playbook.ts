@@ -115,8 +115,8 @@ export const TEMPERATURE_BANDS: readonly TemperatureBand[] = [
     id: "extreme-fear",
     label: "Extreme fear",
     range: [0, 25],
-    says: "People are selling because prices are falling, rather than because of anything they have worked out about the companies.",
-    idea: "A price falls furthest when the people selling have stopped asking what a business is worth and started asking how much more they could lose. That is also, by definition, the moment shares change hands for the least. The two are the same moment, which is why the sentence below is worth remembering and almost impossible to act on: it asks you to do the thing that feels worst exactly when it feels worst.",
+    says: "People are selling because prices are falling, not because of the companies.",
+    idea: "Prices fall furthest when sellers stop asking what a business is worth, which is also when shares change hands for the least, and when acting feels worst.",
     quote: {
       text: "Be fearful when others are greedy, and greedy when others are fearful.",
       author: "Warren Buffett",
@@ -129,41 +129,41 @@ export const TEMPERATURE_BANDS: readonly TemperatureBand[] = [
         "Templeton said versions of this for decades. It is his, and the exact wording varies by source.",
     },
     goesWrong:
-      "Cheap is not the same as finished falling, and nothing in this reading says the low point is today. A price can be low because the people selling know something you have not read yet. Somebody acting on this sentence in September 2008 was right about the idea and six months early, which in money is indistinguishable from being wrong.",
+      "Low is not done falling. Acting on this in September 2008 was right and six months early, which in money looks the same as wrong.",
     check:
-      "The score below, the number of days the index has spent under its usual price, and whether the fall is in everything you own or in one company. Pulse answers that last one for each of your holdings.",
+      "Whether the fall is in everything you own or in one company. Pulse answers that for each holding.",
     terms: ["market"],
   },
   {
     id: "fear",
     label: "Fear",
     range: [26, 45],
-    says: "Prices are falling and the mood is poor, without the panic of the band below.",
-    idea: "Most falls are ordinary. The market has spent roughly one day in four below where it was three months earlier, for as long as anybody has kept records, and almost none of those stretches turned out to be the beginning of anything. The cost of treating every one of them as the exception is paid in the sales you make at the bottom of it.",
+    says: "Prices are falling and the mood is poor, without panic.",
+    idea: "Most falls are ordinary: about one day in four, the market sits below its level three months earlier. Treating each as the exception means selling at the bottom.",
     quote: {
       text: "The stock market is a device for transferring money from the impatient to the patient.",
       author: "Warren Buffett",
     },
     goesWrong:
-      "Patience is not the same as not looking. A price falling because the business behind it is getting worse is a different thing from a price falling because everything is, and the only way to tell them apart is to go and read about the company. Sitting still on purpose and sitting still because you would rather not know are the same action and not the same decision.",
+      "Patience is not the same as not looking. A business getting worse falls too, and only reading about the company tells the two apart.",
     check:
-      "Whether your own fall is bigger or smaller than the market's. If your holdings fell about as much as the index did, what happened was the market, not your companies.",
+      "Whether your holdings fell more than the market. If about the same, it was the market, not your companies.",
     terms: ["market", "recent-range"],
   },
   {
     id: "neutral",
     label: "Neutral",
     range: [46, 55],
-    says: "Nothing in the readings is pulling in either direction.",
-    idea: "This is what most days look like, and quiet stretches are where most people do themselves the most damage. Not through one bad decision, but through a long run of small adjustments made because doing nothing feels like wasting an opportunity. The decisions that matter are made in the loud weeks. What the quiet ones are good for is deciding, in advance and in writing, what you would do when the loud ones arrive.",
+    says: "Nothing in the readings pulls either way.",
+    idea: "Most days look like this, and quiet stretches invite small, needless changes. They are the time to write down what you would do when it gets loud.",
     quote: {
       text: "The big money is not in the buying and the selling, but in the waiting.",
       author: "Charlie Munger",
     },
     goesWrong:
-      "Doing nothing is not automatically the right answer either, and a calm market is not proof that a portfolio is sound. Somebody holding one company at eighty per cent of everything they own is carrying the same risk on a quiet day as on a loud one. Quiet is when that is cheap to notice, because nothing is happening to make it feel urgent.",
+      "A calm market is not proof a portfolio is sound. One company at 80% of everything carries the same risk on a quiet day. It is just easier to notice then.",
     check:
-      "Lab's own Risk tab, which puts a number on what a rough day would do to what you hold, and the mix, which shows how much of it rides on one name.",
+      "Lab's Risk tab, for what a rough day would do, and the mix, for how much rides on one name.",
     terms: ["spread-out", "share-of-portfolio"],
   },
   {
@@ -171,7 +171,7 @@ export const TEMPERATURE_BANDS: readonly TemperatureBand[] = [
     label: "Greed",
     range: [56, 75],
     says: "Prices are rising and the mood is good.",
-    idea: "A rising market makes almost everybody look skilled, and while the tide is coming in there is no way to separate the two from the outside, including from the inside. This is the state in which people conclude they have a knack for it, and the conclusion tends to arrive a few months before the evidence stops supporting it.",
+    idea: "A rising market makes almost everybody look skilled. People tend to decide they have a knack a few months before the evidence stops backing it.",
     quote: {
       text: "I made all my money by selling too early.",
       author: "Bernard Baruch",
@@ -179,17 +179,17 @@ export const TEMPERATURE_BANDS: readonly TemperatureBand[] = [
         "Repeated in many forms. The exchange-floor version, nobody ever went broke taking a profit, has no single author and is older than any of the people it gets attributed to.",
     },
     goesWrong:
-      "This is the principle most often used to do real damage. Selling a good company because it has gone up is the commonest way an excellent result gets turned into an average one, and the arithmetic is brutal: nearly all of what a long-held portfolio ends up being worth comes from a handful of holdings that kept going far past the point where trimming them felt sensible. A price rising is not by itself a fact about a business.",
+      "Selling a good company just because it rose is the commonest way to turn a great result average. Most long-run growth comes from a few holdings that kept going.",
     check:
-      "Whether the price has run ahead of what the company earns, or alongside it. The Research room prints both figures for any company, with its own multiple next to the market's.",
+      "Whether the price has run ahead of what the company earns. Research prints both, beside the market's multiple.",
     terms: ["price-to-earnings"],
   },
   {
     id: "extreme-greed",
     label: "Extreme greed",
     range: [76, 100],
-    says: "Prices have run a long way and the readings are near the top of their range.",
-    idea: "The tell at the top is never that things look cheap. It is that the argument changes: the old ways of measuring are said to no longer apply, because a new kind of business, a new technology or a new era has made them obsolete. That argument has been made, in almost the same words, before every expensive market anybody has records of, and it has occasionally been right, which is what keeps it alive.",
+    says: "Prices have run a long way and the readings are near the top.",
+    idea: "The tell at the top is the claim that old measures no longer apply because something new changed everything. It is made before nearly every peak, and is occasionally right.",
     quote: {
       text: "The four most dangerous words in investing are: this time it's different.",
       author: "John Templeton",
@@ -199,9 +199,9 @@ export const TEMPERATURE_BANDS: readonly TemperatureBand[] = [
       author: "John Kenneth Galbraith",
     },
     goesWrong:
-      "Expensive markets can stay expensive for years, and leaving one early costs real money. Somebody who stepped out in 1996 because prices looked mad was correct about the prices and missed the four largest years of the run that followed. Nobody can tell you where in one of these you are standing, and anybody who says they can is guessing with a straight face.",
+      "High prices can stay high for years: leaving in 1996 because prices looked mad missed the four biggest years of the run. Nobody can tell where in one you stand.",
     check:
-      "What the price is assuming, which the Research room works out backwards for any company: the growth it would have to deliver for today's price to be ordinary rather than a bet.",
+      "What the price is assuming: Research works out the growth today's price needs to be ordinary.",
     terms: ["price-to-earnings"],
   },
 ] as const;
@@ -293,7 +293,7 @@ export const IDEAS: readonly Idea[] = [
   {
     id: "voting-weighing",
     theme: "time",
-    title: "In the short run the price is a popularity contest. In the long run it is arithmetic.",
+    title: "Short run, a popularity contest. Long run, arithmetic.",
     quote: {
       text: "In the short run, the market is a voting machine, but in the long run it is a weighing machine.",
       author: "Benjamin Graham",
@@ -301,65 +301,65 @@ export const IDEAS: readonly Idea[] = [
         "Graham used it for decades and Buffett repeats it. Graham credited the idea to his own teaching rather than to a single line in a single book.",
     },
     meaning:
-      "Over a day or a month, a share price is the sum of what everybody currently feels about it, which can be almost anything. Over five or ten years it is pulled towards what the business actually earns, because that is the only thing that eventually has to be paid for. Neither half is more true than the other. They are just answering different questions.",
+      "Day to day, a price is whatever everybody feels about it. Over five or ten years it is pulled towards what the business actually earns.",
     inPractice:
-      "It means a bad week tells you close to nothing and a bad five years tells you a great deal, and that the amount of attention worth paying to a price move should scale with how long the move has lasted.",
+      "A bad week tells you almost nothing. A bad five years tells you a great deal.",
     goesWrong:
-      "Waiting long enough does not make a poor business into a good one. Plenty of companies were weighed carefully over ten years and found to be worth less than they started. The long run is where the truth arrives, and the truth is sometimes that you were wrong.",
+      "Waiting does not turn a poor business into a good one. Sometimes the long run's verdict is that you were wrong.",
     terms: ["market"],
   },
   {
     id: "know-what-you-own",
     theme: "knowing",
-    title: "If you cannot say what a company does in a sentence, you are not holding a company, you are holding a ticker.",
+    title: "A company you cannot explain is just a ticker.",
     quote: {
       text: "Know what you own, and know why you own it.",
       author: "Peter Lynch",
     },
     meaning:
-      "Owning a share means owning a piece of a real business that sells something to somebody for money. The test is whether you could explain, without looking anything up, what that something is and who buys it. If you cannot, then every price move is noise to you, because you have no way of telling which ones mean anything.",
+      "A share is a piece of a real business. If you cannot say what it sells and who buys it, every price move is noise to you.",
     inPractice:
-      "It is the difference between a fall of 20% that sends you looking for what changed and a fall of 20% that just frightens you. Only one of those leads anywhere.",
+      "It is the difference between a 20% fall that sends you looking for what changed and one that just frightens you.",
     goesWrong:
-      "Understanding a business is not the same as being right about it, and familiarity is the easiest thing in the world to mistake for insight. Plenty of people could explain exactly what their company did, in detail, all the way down.",
+      "Understanding a business is not being right about it, and familiarity is easy to mistake for insight. Plenty of people could explain their company all the way down.",
     terms: ["share"],
   },
   {
     id: "preparing-for-corrections",
     theme: "time",
-    title: "Getting out of the way of a fall costs more, on average, than the falls do.",
+    title: "Dodging falls costs more than falls.",
     quote: {
       text: "Far more money has been lost by investors preparing for corrections, or trying to anticipate corrections, than has been lost in corrections themselves.",
       author: "Peter Lynch",
     },
     meaning:
-      "A fall of about a tenth or more is the thing you will see called a correction, and preparing for one means being out of the market, or partly out, for some stretch of time. Falls are sharp and occasional, while the rises that pay for everything are spread thinly across years, so time spent waiting on the side is expensive in a way that does not feel expensive, because nothing visibly goes wrong while you wait.",
+      "A fall of about a tenth or more is what you will see called a correction. Falls are sharp and rare while the rises are spread thin over years, so waiting on the side costs money without feeling like it.",
     inPractice:
-      "The arithmetic of it is on this page, under where the returns actually come from. It is what the last ten years of the index came to with a small number of its best days taken out.",
+      "The figures are on this page, under where returns come from: ten years of the index with its best days taken out.",
     goesWrong:
-      "This is not an argument that falls do not matter or that every price is worth paying. It is an argument about a particular habit, which is stepping out because a fall feels due. Somebody genuinely holding more than they can afford to see halved is not guessing at the market, they are fixing a real problem.",
+      "This is about stepping out because a fall feels due, not a claim that falls do not matter. Holding more than you can afford to see halved is a real problem to fix.",
     terms: ["market", "recent-range"],
   },
   {
     id: "what-you-dont-pay-for",
     theme: "cost",
-    title: "A fee is the one number in investing that is certain.",
+    title: "A fee is the one certain number.",
     quote: {
       text: "In investing, you get what you don't pay for.",
       author: "John C. Bogle",
     },
     meaning:
-      "Every other figure on this page is an estimate. What something costs to hold is not: it comes off every year whether the year was good or bad, and it compounds against you in exactly the way returns compound for you. One per cent a year sounds like nothing and is roughly a quarter of a lifetime's growth.",
+      "Every other figure here is an estimate. A fee comes off every year, good or bad, and compounds against you. One per cent a year is roughly a quarter of a lifetime's growth.",
     inPractice:
-      "For a fund it is the one number its holder actually controls, which is why the Research room prints the cost first on any fund, before what is inside it.",
+      "For a fund it is the one number its holder controls, so Research prints it first.",
     goesWrong:
-      "Cheapest is not the same as best, and a low fee on something you did not want to own is not a saving. The point is that the cost is certain and the benefit is not, so the cost deserves more scrutiny than it usually gets, not that it is the only thing that matters.",
+      "The lowest fee is not the best holding, and a low fee on something you did not want is no saving. The cost is certain and the benefit is not, so it earns a close look.",
     terms: ["index-fund", "total-return"],
   },
   {
     id: "free-lunch",
     theme: "risk",
-    title: "Spreading out is the one thing that improves your odds without costing you anything.",
+    title: "Spreading out lowers the swings for free.",
     quote: {
       text: "Diversification is the only free lunch in investing.",
       author: "Harry Markowitz",
@@ -367,63 +367,63 @@ export const IDEAS: readonly Idea[] = [
         "Markowitz is the economist whose work put numbers under this. The exact sentence is repeated more often than it is sourced.",
     },
     meaning:
-      "Holding several things that do not all move together lowers how much the total swings about, without lowering what you expect to end up with. That combination is rare enough that economists call it the only one of its kind. It works because the things that go wrong for one company mostly are not the things that go wrong for another.",
+      "Holding things that do not all move together lowers the swings without lowering what you expect to end up with. What goes wrong for one company is mostly not what goes wrong for another.",
     inPractice:
-      "The catch is the phrase do not all move together. Ten companies that all sell to the same customers in the same industry are one bet held ten times over, which is exactly what Lab's Risk tab is drawing when it shows which of your companies move together.",
+      "The catch is do not all move together. Ten companies selling to the same customers are one bet held ten times, which Lab's Risk tab shows.",
     goesWrong:
-      "Spread far enough and you have bought the market, which is a perfectly reasonable thing to do and is not the same as picking well. Concentration is also how essentially every large fortune was made. Both of those are true, and which one applies depends on something no formula knows, which is how much you can afford to be wrong.",
+      "Spread far enough and you own the market, which is reasonable and is not picking well. Most large fortunes came from concentration. Which applies depends on how much you can afford to be wrong.",
     terms: ["spread-out", "index-fund"],
   },
   {
     id: "risk-is-not-swings",
     theme: "risk",
-    title: "Risk is not how much a price jumps about. It is the chance of not getting your money back.",
+    title: "Risk is permanent loss, not swings.",
     quote: {
       text: "Risk comes from not knowing what you're doing.",
       author: "Warren Buffett",
     },
     meaning:
-      "The industry usually measures risk as how far a price travels in a typical day, which you will see called volatility, because that is the part that is easy to measure. It is not the thing that hurts people. What hurts is a permanent loss: a business that stops earning, a price you paid that was never going to be justified, or a sale you were forced into at the worst moment. A share that swings wildly and recovers has cost a patient holder nothing.",
+      "Risk is usually measured as how far a price travels in a day, which you will see called volatility. What hurts is a permanent loss: a business that stops earning, or a sale forced at the worst moment.",
     inPractice:
-      "It means the question to ask of a holding is not how much it moves, but what would have to be true for it to be worth nothing, and how likely that is.",
+      "The useful question is what would have to be true for a holding to be worth nothing, and how likely that is.",
     goesWrong:
-      "Swings are not harmless either, and calling them noise is a comfortable thing to say when the number is going up. A price that halves is a real problem for anybody who might have to sell in the meantime, and borrowed money turns a swing into exactly the forced sale described above.",
+      "Swings are not harmless. A halving hurts anybody who might have to sell meanwhile, and borrowed money turns a swing into a forced sale.",
     terms: ["recent-range"],
   },
   {
     id: "never-lose-money",
     theme: "risk",
-    title: "Avoiding the disaster matters more than catching the rise.",
+    title: "Avoiding disaster beats catching the rise.",
     quote: {
       text: "Rule number one: never lose money. Rule number two: never forget rule number one.",
       author: "Warren Buffett",
     },
     meaning:
-      "This is not a claim that losses can be avoided, which would be silly coming from somebody who has had plenty. It is about the shape of the arithmetic. A fall and the rise needed to undo it are not the same size, and the gap between them grows fast: half your money back needs a double to get level. That asymmetry is why a portfolio that never has a catastrophic year can beat one that has several brilliant ones.",
+      "Losses cannot be avoided. The point is the arithmetic: a fall and the rise that undoes it are not the same size, so a portfolio with no disastrous year can beat one with several brilliant ones.",
     inPractice:
       "The slider on this page, under what a fall costs to undo, draws the gap: a quarter off needs a third back, and half off needs a double.",
     goesWrong:
-      "Read literally it argues for never taking any risk at all, which guarantees a different loss: money that sits still while prices for everything else go up. Avoiding every fall and avoiding ruin are different projects, and only the second one is worth organising your life around.",
+      "Read literally it argues for no risk at all, which guarantees a different loss: money standing still while prices rise. Avoiding every fall and avoiding ruin are different projects.",
   },
   {
     id: "temperament",
     theme: "temperament",
-    title: "This is not a test of how clever you are.",
+    title: "Not a test of cleverness.",
     quote: {
       text: "Investing is not a game where the guy with the 160 IQ beats the guy with the 130 IQ.",
       author: "Warren Buffett",
     },
     meaning:
-      "The hard part is not the analysis. It is staying with a decision you made calmly while the screen is telling you, hourly, that you were wrong. Almost everybody knows they should not sell in a panic. The knowing is not the difficulty. Most of what separates results is what people do in about five weeks out of every ten years.",
+      "The hard part is not the analysis. It is staying with a calm decision while the screen says hourly that you were wrong, mostly in about five weeks out of every ten years.",
     inPractice:
-      "It is why deciding in advance what would change your mind is worth more than any amount of extra research after the fact: the decision made calmly is the one worth keeping, and it has to exist before the week it is tested.",
+      "Deciding in advance what would change your mind is worth more than any research after the fact.",
     goesWrong:
-      "Calm is not the same as correct, and a steady temperament applied to a bad idea just means holding it longer. Somebody perfectly unbothered by a price falling to nothing has not displayed discipline.",
+      "Calm is not the same as correct. A steady temperament applied to a bad idea just means holding it longer.",
   },
   {
     id: "sitting",
     theme: "temperament",
-    title: "Most of the work is not doing anything.",
+    title: "Most of the work is doing nothing.",
     quote: {
       text: "It never was my thinking that made the big money for me. It always was my sitting.",
       author: "Jesse Livermore",
@@ -431,48 +431,48 @@ export const IDEAS: readonly Idea[] = [
         "From Reminiscences of a Stock Operator, 1923, which is a novel written about Livermore rather than by him. Everybody treats the line as his.",
     },
     meaning:
-      "Activity feels like effort, and in almost every other part of life effort is rewarded. Here it mostly is not. Each round of buying and selling costs something, resets the clock on the thing that was compounding, and replaces a decision you made with time to think with one you made in a moment.",
+      "Activity feels like effort, and here effort is rarely rewarded. Each trade costs something and resets the clock on whatever was compounding.",
     inPractice:
-      "It is worth knowing that the person on the other side of a great many small adjustments is a broker who is paid whether you were right or not.",
+      "The broker on the other side of many small adjustments is paid whether you were right or not.",
     goesWrong:
-      "Sitting still is a strategy only when it was chosen. Sitting still because you have not looked, or because selling would mean admitting something, is not patience. The two are impossible to tell apart from the outside and quite easy to tell apart from the inside, if you are honest.",
+      "Sitting still is a strategy only when it was chosen. Sitting still to avoid looking, or to avoid admitting something, is not patience.",
   },
   {
     id: "compounding",
     theme: "time",
-    title: "The whole thing runs on not being interrupted.",
+    title: "Compounding runs on not being interrupted.",
     quote: {
       text: "The first rule of compounding: never interrupt it unnecessarily.",
       author: "Charlie Munger",
     },
     meaning:
-      "Money that grows on money it already grew is doing almost nothing for years and then a great deal, and the large part only exists because the small part was left alone. Most of what a long investment ends up being worth is created in its final stretch, which means anything that resets the clock is far more expensive than it looks at the time.",
+      "Money growing on its own growth does little for years and then a great deal. Most of the value arrives at the end, so resetting the clock costs more than it looks.",
     inPractice:
-      "The Growth room draws exactly this: the same yearly rate over ten years against thirty, which is not three times as much money.",
+      "The Growth room draws it: the same yearly rate over thirty years makes far more than three times what ten does.",
     goesWrong:
-      "Compounding is not a reason to never sell anything, and a holding that has stopped growing is not compounding, it is just sitting there. The rule protects the process, not any particular position.",
+      "This is not a reason never to sell, and a holding that stopped growing is not compounding. The rule protects the process, not any one holding.",
     terms: ["compounding"],
   },
   {
     id: "price-and-value",
     theme: "knowing",
-    title: "What something costs and what it is worth are two different numbers.",
+    title: "Price and worth are two different numbers.",
     quote: {
       text: "Price is what you pay. Value is what you get.",
       author: "Warren Buffett",
     },
     meaning:
-      "The price is on the screen and is a fact. What the business is worth is an estimate, and everybody's is different, which is the entire reason a market exists: the buyer and the seller disagree about it. Somebody who has never separated the two in their head has no way to think about a price at all, because they have nothing to compare it to.",
+      "The price is a fact on the screen. What the business is worth is an estimate, and buyer and seller disagree about it, which is why a market exists.",
     inPractice:
-      "It is the whole design of the Research room's valuation panel: several estimates, each showing its working and its one assumption, set against today's price, with no verdict at the end because the conclusion is yours.",
+      "Research's valuation panel works this way: several estimates, each with its working, set against today's price, and no verdict.",
     goesWrong:
-      "Your estimate of what something is worth is also just an opinion, and being convinced is not evidence. The market is wrong often and is right more often than any individual is, and knowing which situation you are in is the hardest judgement in this entire subject.",
+      "Your estimate of worth is an opinion too, and being convinced is not evidence. The market is wrong often, and right more often than any one person.",
     terms: ["price-to-earnings", "market-value"],
   },
   {
     id: "decision-outcome",
     theme: "knowing",
-    title: "A good decision and a good result are not the same thing.",
+    title: "A good decision is not a good result.",
     quote: {
       text: "The quality of a decision cannot be determined by the outcome.",
       author: "Howard Marks",
@@ -480,16 +480,16 @@ export const IDEAS: readonly Idea[] = [
         "A theme he returns to throughout The Most Important Thing, 2011, and his Oaktree memos.",
     },
     meaning:
-      "Anything with luck in it can pay out well for a poor decision and badly for a sound one. Over a few years, results tell you much less about how well you are deciding than they appear to. Judging yourself purely on the number at the bottom of the screen teaches you the wrong lesson about half the time, and teaches it with total confidence.",
+      "Luck can reward a poor decision and punish a sound one. Over a few years, results say less about how well you decide than they seem to.",
     inPractice:
-      "The useful question after a holding does well is not whether you were right but whether you would make the same decision again knowing only what you knew then.",
+      "After a win, the useful question is whether you would decide the same again knowing only what you knew then.",
     goesWrong:
-      "Taken too far this becomes a way of never being wrong about anything: every loss reclassified as bad luck and every gain as judgement. Results are weak evidence, not no evidence, and a long enough run of them is the only evidence there is.",
+      "Taken too far, every loss becomes bad luck and every gain judgement. Results are weak evidence, not no evidence.",
   },
   {
     id: "inflation",
     theme: "cost",
-    title: "Money left alone does not stay still. It shrinks quietly.",
+    title: "Cash left alone shrinks quietly.",
     quote: {
       text: "Most of these currency-based investments are thought of as safe. In truth they are among the most dangerous of assets.",
       author: "Warren Buffett",
@@ -497,17 +497,17 @@ export const IDEAS: readonly Idea[] = [
         "Berkshire Hathaway shareholder letter, 2011, about money held as cash, deposits and bonds.",
     },
     meaning:
-      "Prices rise a little every year, so the same amount of money buys less of everything as time passes. Cash does not fall in a way anybody notices, which is exactly what makes it feel safe: the number on the statement never goes down. What goes down is what that number can buy, and over twenty or thirty years that quiet shrinking is larger than most of the falls people organise their lives around avoiding.",
+      "Prices rise a little every year, so the same money buys less. The number on the statement never falls, which is what makes cash feel safe.",
     inPractice:
-      "It means the choice is never between taking a risk and taking none. It is between a risk you can see day to day and one you cannot see at all.",
+      "The choice is never risk against no risk. It is a risk you can see against one you cannot.",
     goesWrong:
-      "This is not an argument for holding nothing in cash. Money you might genuinely need inside a few years has no business being anywhere it could halve, and somebody forced to sell at the bottom because the rent was in the market has lost far more than inflation was ever going to take.",
+      "Money you may need within a few years has no business anywhere it could halve. Selling at the bottom because the rent was invested costs more than inflation would.",
     terms: ["cash", "total-return"],
   },
   {
     id: "turnover",
     theme: "cost",
-    title: "The more often people trade, the worse they tend to do.",
+    title: "Frequent traders tend to do worse.",
     quote: {
       text: "Trading is hazardous to your wealth.",
       author: "Brad Barber and Terrance Odean",
@@ -515,32 +515,32 @@ export const IDEAS: readonly Idea[] = [
         "The title of their 2000 study in the Journal of Finance, which read the accounts of 66,465 households. The fifth who traded most averaged about 11.4% a year against the market's 17.9%.",
     },
     meaning:
-      "That study is one of the most robust findings anybody has produced about ordinary investors, and the gap is not explained by those people picking worse companies. It is the cost of the activity itself: every round trip has a spread and a fee, and each one replaces a decision made with time to think with one made in a moment.",
+      "It is one of the firmest findings about ordinary investors. The gap was not worse picks but the cost of trading itself: a spread and a fee on every round trip.",
     inPractice:
-      "It is the strongest argument there is for making fewer decisions and making them slowly, and it has nothing to do with being clever.",
+      "It argues for fewer decisions made slowly, and it has nothing to do with being clever.",
     goesWrong:
-      "Rarely is not never, and a rule about averages says nothing about any particular sale. Somebody holding a company whose situation has genuinely changed is not trading too much by selling it, and treating every sale as a lapse in discipline is its own way of losing money.",
+      "A rule about averages says nothing about one sale. Selling a company whose situation really changed is not trading too much.",
   },
   {
     id: "position-size",
     theme: "risk",
-    title: "How much you put in decides what being wrong costs you.",
+    title: "Size decides what being wrong costs.",
     quote: {
       text: "It's not whether you're right or wrong that's important, but how much money you make when you're right and how much you lose when you're wrong.",
       author: "George Soros",
     },
     meaning:
-      "Picking well is hard and mostly outside anybody's control. How much of everything you own goes into one decision is entirely inside it, and it is the part that decides whether being wrong is a bad quarter or a changed life. Two people can hold exactly the same companies and have completely different outcomes because one of them put a twentieth into the risky one and the other put half.",
+      "Picking well is hard to control. How much goes into one decision is entirely yours, and it decides whether being wrong is a bad quarter or a changed life.",
     inPractice:
-      "It is the one question this app will actually answer about a purchase, because it is arithmetic rather than judgement: what a given amount would become as a share of everything you own, and what a quarter off it would cost.",
+      "It is the one purchase question this app answers, because it is arithmetic: what an amount becomes as a share of everything, and what a quarter off it costs.",
     goesWrong:
-      "Sizing everything small guarantees that being right about something barely matters, which is its own kind of failure. Almost every large result in investing came from somebody holding enough of something for it to count.",
+      "Sizing everything small means being right barely matters. Almost every large result came from holding enough of something for it to count.",
     terms: ["share-of-portfolio"],
   },
   {
     id: "crowd-is-not-evidence",
     theme: "crowd",
-    title: "The crowd agreeing with you is not evidence, and neither is the crowd disagreeing.",
+    title: "The crowd's view is not evidence.",
     quote: {
       text: "You are neither right nor wrong because the crowd disagrees with you. You are right because your data and your reasoning are right.",
       author: "Benjamin Graham",
@@ -548,33 +548,33 @@ export const IDEAS: readonly Idea[] = [
         "The Intelligent Investor, in the chapter on margin of safety. Buffett quotes it often enough that it is frequently mistaken for his.",
     },
     meaning:
-      "Every purchase has somebody on the other side of it who looked at roughly the same facts and reached the opposite conclusion. That should be uncomfortable, and the discomfort is the useful part: it is the reminder that agreement and disagreement are both just headcounts, and a headcount is not a reason.",
+      "Every purchase has somebody on the other side who read the same facts and decided the opposite. Agreement and disagreement are both headcounts, and a headcount is not a reason.",
     inPractice:
-      "The practical form is to be able to say what the person selling to you believes, in a sentence they would recognise. If you cannot, you do not yet know what you are betting on.",
+      "If you cannot say what the person selling to you believes, you do not yet know what you are betting on.",
     goesWrong:
-      "This is regularly used to dismiss every objection as mere popular opinion, which turns a warning about the crowd into a licence to ignore everybody. The crowd is often right, and knowing when it is not is the hardest judgement in the subject rather than a matter of temperament.",
+      "This gets used to dismiss every objection as popular opinion. The crowd is often right, and telling when it is not is the hardest judgement here.",
     terms: ["market"],
   },
   {
     id: "crowd",
     theme: "crowd",
-    title: "By the time everybody agrees, the agreement is in the price.",
+    title: "What everybody agrees on is in the price.",
     quote: {
       text: "You can't buy what is popular and do well.",
       author: "Warren Buffett",
     },
     meaning:
-      "A price already contains everything the people trading it collectively believe. So a widely held view about a company, however correct, is not an advantage: you are paying for it. The only thing that pays is being right about something not yet reflected in the price, which by construction means holding a view most people do not.",
+      "A price already holds what everybody trading it believes, so a widely held view, however correct, is paid for. Only being right about something not yet in the price pays.",
     inPractice:
-      "It is why the number of analysts who published a target matters less than how far apart their targets are. Forty people agreeing is a consensus. Forty people scattered is an argument, and an argument is where the disagreement lives.",
+      "So how far apart analysts' targets sit matters more than how many there are. Forty agreeing is a consensus. Forty scattered is an argument.",
     goesWrong:
-      "Being different is not the same as being right, and most people who hold an unpopular view hold it because it is wrong. Deliberately doing the opposite of the crowd is not a strategy, it is the same herd behaviour with the sign flipped.",
+      "Different is not right, and most unpopular views are unpopular because they are wrong. Doing the opposite of the crowd is the same herd with the sign flipped.",
     terms: ["market", "price-to-earnings"],
   },
   {
     id: "what-you-know-for-sure",
     theme: "knowing",
-    title: "The dangerous thing is not what you do not know.",
+    title: "Certainty, not ignorance, is the danger.",
     quote: {
       text: "It ain't what you don't know that gets you into trouble. It's what you know for sure that just ain't so.",
       author: "Often attributed to Mark Twain",
@@ -582,11 +582,11 @@ export const IDEAS: readonly Idea[] = [
         "There is no record of Twain writing or saying it. The earliest versions belong to the humorist Josh Billings. It is printed here under the name everybody knows it by, with the trail said out loud.",
     },
     meaning:
-      "Gaps in what you know make you careful. Things you are certain of do not, and they are not audited, because certainty is exactly the state in which a person stops checking. The expensive mistakes in investing are nearly always made confidently.",
+      "Gaps in what you know make you careful. Certainty does not, because it is when people stop checking. The costly mistakes are nearly always made confidently.",
     inPractice:
-      "It is the argument for writing down what would prove you wrong before you need it, and for reading the case against a company as carefully as the case for it.",
+      "It argues for writing down what would prove you wrong, and reading the case against a company as carefully as the case for.",
     goesWrong:
-      "Doubting everything is not the answer either. Somebody who never reaches a conclusion never makes a decision, and never making a decision is itself a decision with a cost.",
+      "Doubting everything is no answer either. Never reaching a conclusion is itself a decision, and it has a cost.",
   },
 ] as const;
 

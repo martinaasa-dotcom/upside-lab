@@ -83,7 +83,7 @@ export function BestDays({ read }: { read: BestDaysRead }) {
   return (
     <div className="flex flex-col gap-6">
       <p className="text-sm leading-relaxed text-muted-foreground">
-        The S&amp;P 500, {windowLabel}, from its {read.days} trading days.
+        {`${currency(STARTING, 0)} in the S&P 500, ${windowLabel}, over ${read.days} trading days.`}
       </p>
 
       {/*
@@ -103,16 +103,12 @@ export function BestDays({ read }: { read: BestDaysRead }) {
       */}
       <Card tone="default" className="flex flex-col gap-2">
         <Row
-          label="Left alone, the whole time"
+          label="Left alone"
           amount={amountFor(read.full)}
           rate={fullRate}
           width={(read.full / scale) * 100}
           tone="muted"
         />
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          The whole {read.years}-year window, nothing taken out. This figure
-          does not change below.
-        </p>
       </Card>
 
       {/*
@@ -132,9 +128,7 @@ export function BestDays({ read }: { read: BestDaysRead }) {
             reads as a broken control rather than as a choice. The cells are
             the numbers; the row above says what they count.
           */}
-          <MicroLabel className="mb-1.5">
-            Days taken out of the window above
-          </MicroLabel>
+          <MicroLabel className="mb-1.5">Best days taken out</MicroLabel>
           <Segmented
             options={options}
             value={String(days)}
@@ -162,27 +156,17 @@ export function BestDays({ read }: { read: BestDaysRead }) {
           tone="brand"
         />
         <p className="text-sm leading-relaxed text-foreground">
-          {currency(STARTING, 0)} left alone became{" "}
-          <span className="font-mono font-medium tabular-nums">
-            {amountFor(read.full)}
-          </span>
-          . The same money, out of the market for {days} days out of{" "}
-          {read.days}, became{" "}
-          <span className="font-mono font-medium tabular-nums">
-            {amountFor(missed.multiple)}
-          </span>
-          . That is {percent(days / read.days, 2)} of the days
           {shareOfGain != null ? (
             <>
-              {" "}
-              carrying{" "}
+              {`Those ${days} days, ${percent(days / read.days, 2)} of the window, carried`}{" "}
               <span className="font-mono font-medium tabular-nums">
                 {percent(shareOfGain, 0)}
               </span>{" "}
-              of everything the window made
+              of the whole gain.
             </>
-          ) : null}
-          .
+          ) : (
+            `Those ${days} days are ${percent(days / read.days, 2)} of the window.`
+          )}
         </p>
       </Card>
 
@@ -197,35 +181,25 @@ export function BestDays({ read }: { read: BestDaysRead }) {
             tone="muted"
           />
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Dodging the worst {days} days would have turned the same{" "}
-            {currency(STARTING, 0)} into{" "}
-            <span className="font-mono font-medium tabular-nums">
-              {amountFor(dodged.multiple)}
-            </span>
-            , so the first figure on its own does not prove that staying put
-            always wins.{" "}
+            {dodged.multiple > read.full
+              ? `Dodging the worst ${days} days beats leaving it alone, so the first figure does not prove staying put wins.`
+              : `Dodging the worst ${days} days would have made ${amountFor(dodged.multiple)}.`}{" "}
             {clustered == null ? null : clustered >= 3 ? (
               <>
-                What makes it hard to have one without the other is where the
-                days sit. Over this window,{" "}
                 <span className="font-mono font-medium tabular-nums">
                   {clustered} of the 10 best days
                 </span>{" "}
-                landed within two weeks of one of the 10 worst. They are the
-                same frightening fortnight seen from both sides, and nobody
-                gets to be out for only one half of it.
+                fell within two weeks of one of the 10 worst. Nobody is out for
+                only one half.
               </>
             ) : (
               <>
-                The usual answer to that is that the best days and the worst
-                ones sit in the same few weeks, so nobody dodges one without
-                dodging the other. Over this particular window that is weak:{" "}
+                Only{" "}
                 <span className="font-mono font-medium tabular-nums">
                   {clustered} of the 10 best days
                 </span>{" "}
-                landed within two weeks of one of the 10 worst. It is printed
-                either way, because a figure that only appears when it agrees
-                with the point is not a measurement.
+                fell within two weeks of one of the 10 worst, so the usual
+                answer, that they come together, is weak in this window.
               </>
             )}
           </p>
