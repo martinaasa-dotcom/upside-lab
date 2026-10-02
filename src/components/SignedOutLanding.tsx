@@ -1,40 +1,23 @@
 "use client";
 
-import { RedDayStrip } from "@/components/landing/RedDayStrip";
 import { ScrollCue } from "@/components/ScrollCue";
 import { UpsideLogo } from "@/components/UpsideLogo";
+import { FeatureTiles } from "@/components/landing/FeatureTiles";
+import { PulseFilm } from "@/components/landing/PulseFilm";
 import {
   BOX,
   CARD,
-  InsightText,
   MicroLabel,
   NESTED_PAD,
   Panel,
   Pill,
-  Reading,
-  Segmented,
 } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/button";
 import { SignInMethods } from "@/components/SignInMethods";
-import {
-  cashtag,
-  cn,
-  currency,
-  signedCurrency,
-  barFillPct,
-  signedPercent,
-} from "@/lib/format";
-import {
-  ArrowRight,
-  CheckCircle2,
-  Eye,
-  MessagesSquare,
-  ShieldCheck,
-  TrendingDown,
-  Users,
-} from "lucide-react";
+import { barFillPct, cn, signedPercent } from "@/lib/format";
+import { ArrowRight, MessagesSquare, ShieldCheck, Users } from "lucide-react";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
-import { hapticTick } from "@/lib/haptic";
+import { FILM_DAYS } from "@/lib/landing-film";
 import {
   BROKER_ANSWER,
   FUND_X_HANDLE,
@@ -46,25 +29,8 @@ import {
   SIGNIN_PRICE_NOTE,
   SIGNIN_TRUST,
 } from "@/lib/product";
-import {
-  SAMPLE_HOLDINGS,
-  SAMPLE_NEWS_TICKER,
-  sampleAllTimeFraction,
-  sampleBiggestMarketMover,
-  sampleCompany,
-  sampleDayDollars,
-  sampleDayFraction,
-  sampleDayFractionTotal,
-  sampleDayTotal,
-  sampleFallingCount,
-  sampleHoldingBy,
-  sampleMovers,
-  sampleShareOfPortfolio,
-  sampleTotalValue,
-  type SampleHolding,
-} from "@/lib/sample-portfolio";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 /**
  * The page a stranger lands on.
@@ -79,23 +45,23 @@ import { useEffect, useState, type ReactNode } from "react";
  * scroll back up to act on it.
  *
  * Five sections and a footer, and that is a ceiling rather than a starting
- * point. It was eight sections of 1,028 words measuring 7,800px at 390,
- * which is 9.2 screens, and three of those sections were rows of bordered
- * boxes standing after the product had already been shown. Measured the
- * same way it is now 5,736px, 6.8 screens and 752 words a sighted reader
- * passes. The evidence comes second, directly after the hero, because a
- * reader who has just watched one red number turn into two different
- * answers reads the comparison as confirmation rather than as a claim.
+ * point. It was eight sections of 1,028 words measuring 7,800px at 390;
+ * a pass took it to 5,736px. The redesign that took the red day off it
+ * (2026-10-02) added five moving feature tiles, which stacked on a phone
+ * cost 1,800px on their own, so on a phone they are a row you swipe and
+ * the page measures about 6,200px at 390, 7.3 screens. Measure before
+ * adding anything, and take it out of a section rather than out of the air
+ * between them.
  *
- * What is left is not padding and should not be cut by eye: the hero is
- * 1,475px because the sample card has to hang off the fold, the showcase
- * is 1,236px because it is two working cards, and the rest is one screen
- * each. Anything further has to come out of a section, so measure before
- * deciding which.
+ * WHAT IT SELLS. Understanding your money, on every day: the hero says
+ * "Every move, explained." beside a made-up week played as a picture, and
+ * nothing on the first screen is a loss. It used to open "Everything is
+ * red", which taught the right idea by selling the wrong thing.
  *
- * Every number on it is derived from `sample-portfolio.ts`. None of them
- * are typed in beside the sentence they belong to, which is how the old
- * ones drifted into contradicting each other.
+ * Every number on it is derived from `landing-film.ts`, which is built on
+ * `sample-portfolio.ts`. None of them are typed in beside the sentence they
+ * belong to, which is how the old ones drifted into contradicting each
+ * other.
  *
  * Design rules it follows, all from DESIGN_TOKENS.md rather than invented
  * here: the true-black field with its two ambient lobes is the page's only
@@ -197,466 +163,40 @@ function SectionHead({
 /* -------------------------------------------------------- sample figures */
 
 /**
- * Every figure below is computed from the eight holdings in
- * `sample-portfolio.ts`. There is deliberately no dollar amount and no
- * percentage typed into this file: `sample-portfolio.test.ts` fails on one.
- */
-const DAY_MONEY = signedCurrency(sampleDayTotal(), 0);
-const DAY_PCT = signedPercent(sampleDayFractionTotal());
-const TOTAL_MONEY = currency(sampleTotalValue(), 0);
-const ALL_TIME_PCT = signedPercent(sampleAllTimeFraction());
-const NEWS_SHARE = signedPercent(sampleShareOfPortfolio(SAMPLE_NEWS_TICKER))
-  .replace("+", "");
-const NEWS_MONEY = signedCurrency(
-  sampleDayDollars(sampleHoldingBy(SAMPLE_NEWS_TICKER)),
-  0
-);
-const NEWS_COMPANY = sampleCompany(SAMPLE_NEWS_TICKER);
-/*
-  Spelled out, because it opens a sentence and sits next to another
-  quantity written as a word ("Seven of your eight companies"). A numeral
-  and a word for the same kind of thing in one sentence reads as a
-  template rather than as somebody talking.
-*/
-const SMALL_WORDS = [
-  "No",
-  "One",
-  "Two",
-  "Three",
-  "Four",
-  "Five",
-  "Six",
-  "Seven",
-  "Eight",
-] as const;
-const FALLING = SMALL_WORDS[sampleFallingCount()] ?? String(sampleFallingCount());
-const HELD = SMALL_WORDS[SAMPLE_HOLDINGS.length]?.toLowerCase() ??
-  String(SAMPLE_HOLDINGS.length);
-const OTHERS =
-  SMALL_WORDS[SAMPLE_HOLDINGS.length - 1]?.toLowerCase() ??
-  String(SAMPLE_HOLDINGS.length - 1);
-/*
-  "Eight of your eight" reads as a template. When every company fell, which
-  is the made-up day's shape, the sentence says all of them.
-*/
-const FALLING_LINE =
-  sampleFallingCount() === SAMPLE_HOLDINGS.length
-    ? `All ${HELD} of your companies are down`
-    : `${FALLING} of your ${HELD} companies are down`;
-const BIGGEST = sampleBiggestMarketMover();
-const BIGGEST_PCT = signedPercent(sampleDayFraction(BIGGEST));
-
-/** One mover row, drawn the way the real holdings table draws one. */
-function MoverRow({ row }: { row: SampleHolding }) {
-  const move = sampleDayDollars(row);
-  return (
-    <div className="flex h-10 items-center gap-3 px-3">
-      <span className="min-w-0 flex-1 truncate text-left font-heading text-sm font-semibold text-foreground">
-        {cashtag(row.ticker)}
-      </span>
-      <span
-        className={cn(
-          "w-16 text-right font-mono text-sm font-medium tabular-nums",
-          move > 0 ? "text-gain" : "text-loss"
-        )}
-      >
-        {signedPercent(sampleDayFraction(row))}
-      </span>
-      <span className="w-16 text-right font-mono text-sm tabular-nums text-muted-foreground">
-        {signedCurrency(move, 0)}
-      </span>
-    </div>
-  );
-}
-
-/**
- * The one sample card, drawn once and used on both the landing page and
- * the compact sign-in screen.
+ * The compact sign-in's sample: the same made-up week the landing plays,
+ * at the size of a column.
  *
- * There used to be two of these in two files, showing two different days
- * with two different sets of numbers, and neither set added up. Two samples
- * drift the moment one of them is edited, so there is one.
- *
- * It shows a bad day on purpose. The headline above it is about the evening
- * your portfolio falls and you want to know whether that means anything,
- * and a card full of gains underneath it demonstrates nothing. Anybody can
- * hand you a good day.
+ * It used to be a card about one red day, "Nvidia, down 2.1%", above a
+ * paragraph explaining that the fall was nothing. True, and the wrong first
+ * impression: the screen a failed sign-in lands on opened on a loss. The
+ * name stays so the gate that draws it does not have to change.
  */
-export function SampleBriefing({
-  onLookAround,
-}: {
-  onLookAround?: () => void;
-} = {}) {
-  return (
-    /*
-      A container query, not a breakpoint.
-
-      This card is 768px wide in the landing hero and 336px wide in the
-      right-hand column of the compact sign-in, at the same viewport. Sized
-      on `sm:` it went two-column in both, and in the narrow one the movers
-      were squeezed to about ninety pixels and painted out through the side
-      of the card. What decides the layout is how much room the card has,
-      which is what `@container` asks.
-    */
-    <Panel className="@container h-auto gap-5 p-5">
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="signin-live-dot" aria-hidden />
-          {/*
-            * The company's ordinary name and what it did, not "PULSE ON
-            * $RKLB, DOWN 4.1%". A feature nobody has been introduced to
-            * and a cashtag, in mono caps, were the first words on the one
-            * card meant to earn a stranger's trust, and on a phone they
-            * wrapped into the Sample pill beside them.
-            */}
-          <MicroLabel className="min-w-0 truncate">
-            {sampleCompany(BIGGEST.ticker)}, down{" "}
-            {BIGGEST_PCT.replace("-", "")}
-          </MicroLabel>
-        </span>
-        <Pill tone="neutral">Sample</Pill>
-      </div>
-
-      {/*
-        * Pulse first, dollars second.
-        *
-        * The fold on a phone cuts this card at the movers, so the first
-        * screen a stranger sees is the sentence rather than a portfolio
-        * total and three percents, which is the first screen of every
-        * broker app. The numbers are the part that continues below.
-        */}
-      <Reading nested label="What actually happened" className="text-left">
-        <div className="mb-2 flex flex-wrap items-center gap-1.5">
-          <Pill>Inside recent range</Pill>
-          <Pill tone="good">
-            <CheckCircle2 data-icon="inline-start" />
-            Thesis intact
-          </Pill>
-        </div>
-        <InsightText
-          text={`There was no news about ${sampleCompany(BIGGEST.ticker)} today. Every other company doing the same thing fell about as much, so this is the market having a bad day rather than anything to do with what you own.`}
-        />
-      </Reading>
-
-      <div className="grid items-start gap-5 @md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
-        <div className="text-left">
-          <MicroLabel>Portfolio</MicroLabel>
-          <p className="mt-1 font-sans text-3xl font-bold tabular-nums text-foreground">
-            {TOTAL_MONEY}
-          </p>
-          {/*
-            * Plain coloured figures, not two chips with two different
-            * fills. The real Overview draws the day figure as coloured
-            * text, and DESIGN_TOKENS is explicit that status is a border
-            * accent or a Badge, never a tinted fill.
-            */}
-          <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm font-semibold tabular-nums">
-            <span className="text-loss">{DAY_MONEY} today</span>
-            <span className="text-gain">{ALL_TIME_PCT} all time</span>
-          </p>
-        </div>
-
-        <div className={cn(CARD, "divide-y divide-border overflow-hidden")}>
-          {sampleMovers(3).map((row) => (
-            <MoverRow key={row.ticker} row={row} />
-          ))}
-        </div>
-      </div>
-
-      {/*
-        * Both halves of the truth, in one line, on every screen this card
-        * appears on. It cannot name the button beside it, because the
-        * compact sign-in draws this card with no look-around button on the
-        * page at all.
-        */}
-      {/*
-        * The invitation sits on the thing it opens, and on the card's own
-        * footnote row rather than in its header.
-        *
-        * It was a text link under the sign-in buttons, a third row of small
-        * type in a stack that already had two. In the header it cost the
-        * company's own name, which truncated at 360 and 390. Down here the
-        * row already ran the full width, so the action is free and still
-        * reads as an action rather than as more fine print.
-        */}
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p className="min-w-0 flex-1 text-left text-xs leading-relaxed text-muted-foreground">
-          The holdings on this card are made up. The prices are real, from the
-          same place a signed-in reader gets them.
-        </p>
-        {onLookAround ? (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onLookAround}
-            className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-sm font-medium"
-          >
-            Look around
-            <ArrowRight className="size-3.5" aria-hidden />
-          </Button>
-        ) : null}
-      </div>
-    </Panel>
-  );
+export function SampleBriefing() {
+  return <PulseFilm compact />;
 }
 
 /* --------------------------------------------------------------- section */
 
 /**
- * The same red day, read two ways, and the reader is the one who switches
- * between them.
+ * What else it explains, as pictures.
  *
- * Every sample on this page used to be a still, including the two chips at
- * the bottom of the conversation, which were drawn exactly like the real
- * app's suggestion buttons. A curious visitor pressed one, nothing
- * happened, and on a marketing page that reads as broken. One tap here
- * teaches what three sections of prose were trying to say.
+ * This section used to be two working cards about a red day, a Pulse card
+ * you switched between "a market day" and "a news day" and a conversation
+ * that opened "Everything is red today. Should I be worried?" The hero
+ * plays that idea now, without the red, so what is left to show is the
+ * rest of the app, and each part of it is a picture that moves rather
+ * than a heading over a paragraph.
  */
-type PulseView = "market" | "news";
-
-function PulseStill() {
-  const [view, setView] = useState<PulseView>("market");
-  const market = view === "market";
-  const row = market ? BIGGEST : sampleHoldingBy(SAMPLE_NEWS_TICKER);
-
-  return (
-    <Panel className="h-auto gap-4 p-4">
-      {/*
-        * `items-start` and a bounded label, so a two-line title on a phone
-        * keeps the pill on the first line beside it rather than pushing it
-        * onto a row of its own under the words.
-        */}
-      <div className="flex items-start justify-between gap-3">
-        <MicroLabel className="min-w-0">
-          Pulse, a daily read on each company
-        </MicroLabel>
-        <Pill tone="neutral">Sample</Pill>
-      </div>
-
-      <Segmented
-        ariaLabel="Which kind of day"
-        value={view}
-        onChange={setView}
-        options={[
-          { id: "market", label: "A market day" },
-          { id: "news", label: "A news day" },
-        ]}
-      />
-
-      <div className={cn(CARD, "flex flex-col gap-3 p-3")}>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-heading text-sm font-semibold text-foreground">
-            {cashtag(row.ticker)}
-          </span>
-          <span className="inline-flex items-center gap-1 font-medium tabular-nums text-loss">
-            <TrendingDown className="size-3.5" />
-            {signedPercent(sampleDayFraction(row))}
-          </span>
-        </div>
-        {/*
-          * 200ms, keyed on the state, so the badge and the sentence arrive
-          * together rather than one swapping under the other. Nothing here
-          * is observed and nothing is staggered: it is a plain fade on a
-          * plain state change.
-          */}
-        <div
-          key={view}
-          className="flex flex-col gap-3 animate-in fade-in-0 duration-200 motion-reduce:animate-none"
-        >
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Pill>Inside recent range</Pill>
-            {market ? (
-              <Pill tone="good">
-                <CheckCircle2 data-icon="inline-start" />
-                Thesis intact
-              </Pill>
-            ) : (
-              <Pill tone="warn">
-                <Eye data-icon="inline-start" />
-                Thesis watch
-              </Pill>
-            )}
-          </div>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            {market
-              ? `No news about the company today. The price is inside its usual range, and similar businesses fell as far.`
-              : `Different. ${NEWS_COMPANY} told investors to expect less next year than they had counted on. Worth a read tonight.`}
-          </p>
-        </div>
-      </div>
-
-      <p className="sr-only">
-        A sample Pulse card. On a market day it reads Thesis intact and says
-        there was no news about the company. Switch it to a news day and a
-        fall of its own reads Thesis watch, because {NEWS_COMPANY} told
-        investors to expect less next year.
-      </p>
-    </Panel>
-  );
-}
-
-/**
- * The follow-ups, which the reader asks rather than reads.
- *
- * All three used to be printed out as more bubbles, or drawn as buttons
- * that did nothing at all: the two chips at the bottom of this card were
- * styled exactly like the real app's suggestion buttons, so a curious
- * visitor pressed one, nothing happened, and on a marketing page that
- * reads as broken. Making them work is both the honest thing and the
- * shorter one, since the card now starts at one exchange.
- */
-const FOLLOW_UPS = [
-  {
-    q: "Which one had news?",
-    a: `${NEWS_COMPANY}. It told investors to expect less next year than they had counted on. It is ${NEWS_SHARE} of what you hold.`,
-  },
-  {
-    q: "Has this happened before?",
-    a: "Eleven times since you started, the whole portfolio fell more than one in a hundred in a day. Today is the third biggest. The companies themselves did not change on any of them.",
-  },
-  {
-    q: "How much of my portfolio is that?",
-    a: `${NEWS_COMPANY} is ${NEWS_SHARE} of what you hold, so ${NEWS_MONEY} of today's ${DAY_MONEY}. The other ${OTHERS} made up the rest.`,
-  },
-] as const;
-
-function Bubble({ mine, children }: { mine?: boolean; children: ReactNode }) {
-  if (mine) {
-    return (
-      <div className="flex justify-end">
-        <p className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3.5 py-2.5 text-sm leading-relaxed text-primary-foreground">
-          {children}
-        </p>
-      </div>
-    );
-  }
-  return (
-    <div className="flex justify-start">
-      <div
-        className={cn(
-          CARD,
-          "max-w-[92%] rounded-2xl rounded-bl-sm px-3.5 py-2.5"
-        )}
-      >
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {children}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/** How long the sample "types" before answering, so a press reads as a question asked. */
-const TYPING_MS = 750;
-
-function MargusStill() {
-  const [asked, setAsked] = useState<string | null>(null);
-  const [typing, setTyping] = useState(false);
-  const answer = FOLLOW_UPS.find((f) => f.q === asked);
-  const left = FOLLOW_UPS.filter((f) => f.q !== asked);
-
-  useEffect(() => {
-    if (!typing) return;
-    const done = window.setTimeout(() => setTyping(false), TYPING_MS);
-    return () => window.clearTimeout(done);
-  }, [typing, asked]);
-
-  const ask = (q: string) => {
-    setAsked(q);
-    const calm =
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    setTyping(!calm);
-  };
-
-  return (
-    <Panel className="h-auto gap-4 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex items-center gap-2">
-          <span className="signin-live-dot" aria-hidden />
-          <MicroLabel>Margus</MicroLabel>
-        </span>
-        <Pill tone="neutral">Sample</Pill>
-      </div>
-
-      <Bubble mine>Everything is red today. Should I be worried?</Bubble>
-
-      {/*
-        * The first answer used to say there was no news about any of them,
-        * and the very next answer named the company that had put news out.
-        * The section is headed "a fall and real news look exactly the same"
-        * and its own demonstration could not keep the two apart.
-        */}
-      <Bubble>
-        {FALLING_LINE}, but only one had news. Most of this is the market
-        having a bad day. You are down {DAY_MONEY.replace("-", "")}, about{" "}
-        {DAY_PCT.replace("-", "")}.
-      </Bubble>
-
-      {answer ? (
-        <>
-          <div
-            key={`q:${answer.q}`}
-            className="animate-in fade-in-0 slide-in-from-right-3 duration-300 motion-reduce:animate-none"
-          >
-            <Bubble mine>{answer.q}</Bubble>
-          </div>
-          {typing ? (
-            <div className="flex justify-start" aria-hidden>
-              <span className={cn(CARD, "typing-dots flex items-center gap-1 rounded-2xl rounded-bl-sm px-3.5 py-3")}>
-                <span />
-                <span />
-                <span />
-              </span>
-            </div>
-          ) : (
-            <div
-              key={`a:${answer.q}`}
-              className="animate-in fade-in-0 slide-in-from-left-3 duration-300 motion-reduce:animate-none"
-            >
-              <Bubble>{answer.a}</Bubble>
-            </div>
-          )}
-        </>
-      ) : null}
-
-      <div className="flex flex-wrap gap-2">
-        {left.map((f) => (
-          <Button
-            key={f.q}
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => ask(f.q)}
-          >
-            {f.q}
-          </Button>
-        ))}
-      </div>
-
-      <p className="sr-only">
-        A sample conversation. Asked whether a red day is worth worrying
-        about, it answers that {FALLING_LINE.toLowerCase()} and that
-        only {NEWS_COMPANY} had news of its own. The buttons ask the
-        follow-up questions.
-      </p>
-    </Panel>
-  );
-}
-
-function Showcase() {
+function WhatItDoes() {
   return (
     <Section>
       <SectionHead
-        index="02"
+        index="01"
         eyebrow="What it does"
-        title="A fall and real news look the same in red."
-        detail="Only one is worth your evening. Both cards are live."
+        title="Everything you own, in plain English."
+        detail="Why it moved is where it starts. Here is the rest."
       />
-      <div className="mt-8 grid items-start gap-4 md:grid-cols-2">
-        <PulseStill />
-        <MargusStill />
-      </div>
+      <FeatureTiles />
     </Section>
   );
 }
@@ -689,7 +229,7 @@ function WhoItsFor() {
   return (
     <Section>
       <SectionHead
-        index="01"
+        index="02"
         eyebrow="Who it is for"
         title="For people who own shares. Not people who trade them."
       />
@@ -854,11 +394,15 @@ function Compare() {
   public marketing page, and a sample is not a place to spend somebody
   else's privacy. Anything generic makes the same point.
 */
+/*
+  "You" is the made-up Monday the hero opens on, so the board is about the
+  same day a reader has just watched. The three friends are invented.
+*/
 const CIRCLE_BOARD = [
-  { name: "You", pct: sampleDayFractionTotal() },
-  { name: "Anna", pct: -0.036 },
-  { name: "Mark", pct: -0.044 },
-  { name: "Priya", pct: -0.029 },
+  { name: "You", pct: FILM_DAYS[0]!.pct },
+  { name: "Anna", pct: 0.012 },
+  { name: "Mark", pct: 0.027 },
+  { name: "Priya", pct: 0.008 },
 ] as const;
 
 const CIRCLE_BOARD_MAX = Math.max(...CIRCLE_BOARD.map((row) => Math.abs(row.pct)));
@@ -914,7 +458,7 @@ function CircleStill() {
       </div>
 
       <p className="text-sm leading-relaxed text-muted-foreground">
-        Everybody had the same day.
+        Everybody&apos;s day, side by side.
       </p>
     </Panel>
   );
@@ -960,9 +504,10 @@ const CIRCLE_POINTS = [
 /**
  * Circle, given a section of its own rather than a card in a row of extras.
  *
- * The hardest part of a market falling is not knowing what happened, which
- * the rest of this page is about. It is sitting on your own at eleven at
- * night with the number in front of you.
+ * It used to be sold on the bad week ("easier with someone you know"),
+ * which is true and is the same red-day pitch the rest of the page has
+ * moved away from. What a circle is, on an ordinary day, is the people you
+ * already talk to about this, with everybody's day on one board.
  */
 function CircleSection() {
   return (
@@ -970,7 +515,7 @@ function CircleSection() {
       <SectionHead
         index="04"
         eyebrow="Circle"
-        title="A bad week is easier with someone you know."
+        title="Better with people you know."
       />
       {/*
         * One panel with three rows, not three panels.
@@ -1057,29 +602,11 @@ function Closing({ busy, err, onSignIn }: Pick<HeroProps, "busy" | "err" | "onSi
               ))}
             </ul>
           </div>
-          <div className="flex flex-col gap-3">
-            <MicroLabel>Also inside</MicroLabel>
-            <p className="text-base leading-relaxed text-muted-foreground">
-              {ALSO_INSIDE.join(". ")}.
-            </p>
-          </div>
         </div>
       </div>
     </Section>
   );
 }
-
-/*
-  The rest of the app, as three things rather than one sentence listing
-  three things. It was the tail of the closing ask; it is the second half
-  of the last panel now, which is the only place left that a reader who has
-  read the page and not yet pressed anything is still looking.
-*/
-const ALSO_INSIDE = [
-  "The Sunday letter, in plain English",
-  "A what-if for every holding",
-  "Where you are concentrated",
-] as const;
 
 /**
  * Who is behind this, where the data sits, and the legal line.
@@ -1171,182 +698,27 @@ const FOOTER_LINK =
 
 /* ------------------------------------------------------------------ hero */
 
-/**
- * The problem is named before the product is, because that sentence is the
- * sharpest thing on the page, and then the interface arrives directly under
- * it as the answer rather than three screens later.
- *
- * The card is deliberately allowed to run past the bottom of the window,
- * because a page whose content is visibly cut off by the fold is one nobody
- * mistakes for finished, and on every phone and most laptops that is what
- * happens. On a taller window there is no cut, so the height floor below
- * keeps the next section in view instead. Between those two, on a window
- * where the card clears the fold whole and nothing after it has started,
- * `ScrollCue` says it in words.
- */
 /*
-  THE HERO IS A THING TO DO, NOT A THING TO READ.
+  THE HERO SAYS WHAT THE APP IS FOR, AND THE PICTURE BESIDE IT DOES IT.
 
-  The product turns on one distinction nobody can be told: a screen of red
-  numbers looks the same whether the whole market fell or something happened
-  at a company you own. So the first screen hands a visitor eight red tiles
-  and asks which one had news. Finding it takes a few seconds and is the
-  whole pitch, arrived at by the reader rather than asserted at them.
+  It used to open "Everything is red. Was it you, or the market?" over
+  eight red tiles, with a card underneath asking the reader to find the
+  one company that had news. The lesson was right and the sale was wrong:
+  the first word on the page was "red", every figure on the first screen
+  was a loss, and a product about understanding your money introduced
+  itself as a product about losing it (Martin's call, 2026-10-02).
 
-  It is the same made-up day as every other card on this page (Pulse, the
-  Margus conversation) and as the walkthrough's first screen, so a reader
-  who does both gets one answer rather than two.
+  What it says now is the promise itself, and the film beside it keeps it
+  three times over in a few seconds: a day one company made on its own
+  news, a day nothing happened, and a day the market fell and a company of
+  yours rose anyway. The question at the heart of the app, the market or
+  the company, is the same. It is simply asked on more than the bad days.
+
+  The film is allowed to run past the bottom of the window, because a
+  picture visibly cut by the fold is the strongest sign there is that the
+  page continues. On a window tall enough to show it whole, `ScrollCue`
+  says it in words.
 */
-const NEWS_VERDICT = `${NEWS_COMPANY} told investors to expect less next year than they had been counting on. It fell on its own news. Everything else fell with the market.`;
-
-function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
-  const [open, setOpen] = useState<string[]>([]);
-  /* The tile being pointed at, which the line under the board lights up. */
-  const [pointing, setPointing] = useState<string | null>(null);
-  const found = open.includes(SAMPLE_NEWS_TICKER);
-  const focus = pointing ?? open.at(-1) ?? null;
-  return (
-    <Panel className="@container h-auto gap-4 p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <span className="flex min-w-0 flex-col gap-1">
-          <span className="flex items-center gap-2">
-            <span className="signin-live-dot" aria-hidden />
-            <MicroLabel>A made-up portfolio, today</MicroLabel>
-          </span>
-          <span className="font-heading text-2xl font-semibold tracking-tight tabular-nums text-foreground">
-            {TOTAL_MONEY}
-          </span>
-        </span>
-        <span className="flex shrink-0 flex-col items-end gap-1 pt-0.5">
-          <span className="font-mono text-base tabular-nums text-loss">
-            {DAY_MONEY}
-          </span>
-          <span className="font-mono text-xs tabular-nums text-loss">
-            {DAY_PCT}
-          </span>
-        </span>
-      </div>
-
-      <p className="text-lg font-medium leading-snug text-pretty text-foreground" aria-live="polite">
-        {found
-          ? "Found it. That one is worth your evening."
-          : "One of these had real news today. Tap to find it."}
-      </p>
-
-      <ul className="grid grid-cols-2 gap-2 @md:grid-cols-4">
-        {SAMPLE_HOLDINGS.map((h, i) => {
-          const turned = open.includes(h.ticker);
-          const news = h.ticker === SAMPLE_NEWS_TICKER;
-          const move = sampleDayFraction(h);
-          return (
-            <li key={h.ticker}>
-              <button
-                type="button"
-                aria-pressed={turned}
-                onClick={() => {
-                  /* A phone that can, taps back: once for a tile, twice
-                     for the one with news. */
-                  if (!turned) hapticTick(news ? [10, 60, 14] : 8);
-                  setOpen((prev) =>
-                    prev.includes(h.ticker)
-                      ? prev.filter((t) => t !== h.ticker)
-                      : [...prev, h.ticker]
-                  );
-                }}
-                onPointerEnter={(e) => {
-                  if (e.pointerType === "mouse") setPointing(h.ticker);
-                }}
-                onPointerLeave={() =>
-                  setPointing((was) => (was === h.ticker ? null : was))
-                }
-                onFocus={(e) => {
-                  if (e.currentTarget.matches(":focus-visible")) setPointing(h.ticker);
-                }}
-                onBlur={() =>
-                  setPointing((was) => (was === h.ticker ? null : was))
-                }
-                /*
-                  Three moments, all transform and opacity (globals.css):
-                  an untouched board ripples once as a wave to say the tiles
-                  can be pressed, a pressed tile flips its face over, and the
-                  one with real news gets a sweep of light when found.
-                */
-                style={{ ["--tile-i" as string]: i }}
-                className={cn(
-                  "card-sheen glass-well relative flex h-[5.5rem] w-full flex-col justify-between overflow-hidden rounded-xl border px-3 py-2.5 text-left transition-[transform,border-color] duration-200 active:scale-[0.97] motion-reduce:transition-none",
-                  open.length === 0 && "tile-hint",
-                  turned && news && "tile-found",
-                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                  turned
-                    ? news
-                      ? "border-warning/70"
-                      : "border-border"
-                    : "border-transparent hover:border-loss/40"
-                )}
-              >
-                <span className="flex items-baseline justify-between gap-2">
-                  <span className="font-heading text-sm font-semibold text-foreground">
-                    {cashtag(h.ticker)}
-                  </span>
-                  <span
-                    className={cn(
-                      "font-mono text-xs tabular-nums",
-                      move < 0 ? "text-loss" : "text-gain"
-                    )}
-                  >
-                    {signedPercent(move, 1)}
-                  </span>
-                </span>
-                {turned ? (
-                  <span
-                    key="turned"
-                    className={cn(
-                      "tile-flip text-sm font-medium leading-tight",
-                      news ? "text-warning" : "text-muted-foreground"
-                    )}
-                  >
-                    {news ? "Its own news" : "Just the market"}
-                  </span>
-                ) : (
-                  <span className="truncate text-xs text-muted-foreground">
-                    {h.company}
-                  </span>
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-
-      <RedDayStrip open={open} focus={focus} />
-
-      {found ? (
-        <p className="animate-in fade-in-0 text-sm leading-relaxed text-muted-foreground duration-300 motion-reduce:animate-none">
-          {NEWS_VERDICT} Upside Lab does this for everything you own, every
-          day.
-        </p>
-      ) : null}
-
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-3">
-        <p className="min-w-[13rem] flex-1 text-xs leading-relaxed text-muted-foreground">
-          Made up holdings, real prices.
-        </p>
-        {onLookAround ? (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onLookAround}
-            className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-sm font-medium"
-          >
-            Look around
-            <ArrowRight className="size-3.5" aria-hidden />
-          </Button>
-        ) : null}
-      </div>
-    </Panel>
-  );
-}
-
 function HeroHybrid({
   busy,
   err,
@@ -1372,25 +744,27 @@ function HeroHybrid({
         </div>
         {notice}
 
-        <div className="mt-10 grid items-center gap-10 sm:mt-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-16">
+        <div className="mt-8 grid items-center gap-10 sm:mt-14 sm:gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14 xl:gap-20">
           <div className="flex min-w-0 flex-col items-start text-left">
-            <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              <TrendingDown className="size-3.5 text-loss" aria-hidden />
-              Your portfolio, on a red day
+            <p className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground">
+              <span className="relative flex size-2" aria-hidden>
+                <span className="live-ping absolute inset-0 rounded-full bg-primary" />
+                <span className="relative size-2 rounded-full bg-primary" />
+              </span>
+              Your portfolio, read every day
             </p>
-            <h1 className="mt-5">
-              <span className="block text-balance font-heading text-[2.75rem] font-semibold leading-[1] tracking-[-0.042em] text-foreground sm:text-[4rem] xl:text-[4.75rem]">
-                Everything is <span className="text-loss">red.</span>
-                <span className="block text-muted-foreground">
-                  Was it you, or the market?
-                </span>
+            <h1 className="mt-4 sm:mt-5">
+              <span className="block text-balance font-heading text-[3rem] font-semibold leading-[0.95] tracking-[-0.045em] text-foreground sm:text-[4.5rem] xl:text-[5.25rem]">
+                Every move,
+                <span className="block text-primary">explained.</span>
               </span>
             </h1>
-            <p className="mt-6 max-w-xl text-pretty text-lg leading-snug text-muted-foreground sm:text-xl">
-              Every day, Upside Lab tells you which of your falls were news
-              and which were just the market.
+            <p className="mt-5 max-w-xl text-pretty text-lg leading-snug text-muted-foreground sm:mt-7 sm:text-xl">
+              Upside Lab reads every company you own, every day, and tells
+              you in plain English what moved it: the whole market, or news
+              of its own.
             </p>
-            <div className="mt-8 w-full max-w-sm">
+            <div className="mt-7 w-full max-w-sm sm:mt-9">
               <SignInMethods
                 googleBusy={busy}
                 onGoogle={onSignIn}
@@ -1403,11 +777,29 @@ function HeroHybrid({
             </p>
           </div>
 
-          <div
-            data-scroll-cue-still
-            className="landing-still w-full min-w-0"
-          >
-            <RedDayBoard onLookAround={onLookAround} />
+          <div data-scroll-cue-still className="landing-still w-full min-w-0">
+            <PulseFilm
+              figureClassName="text-[2rem] leading-none sm:text-[2.5rem]"
+              footer={
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-4">
+                  <p className="min-w-[13rem] flex-1 text-xs leading-relaxed text-muted-foreground">
+                    Press a company to read about it. In the full sample the
+                    holdings are made up and the prices are real.
+                  </p>
+                  {onLookAround ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={onLookAround}
+                      className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-sm font-medium"
+                    >
+                      Look around
+                      <ArrowRight className="size-3.5" aria-hidden />
+                    </Button>
+                  ) : null}
+                </div>
+              }
+            />
           </div>
         </div>
       </div>
@@ -1423,8 +815,8 @@ export function SignedOutLanding(props: HeroProps) {
   return (
     <main id="main" className="relative z-10 flex flex-1 flex-col">
       <HeroHybrid {...props} />
+      <WhatItDoes />
       <WhoItsFor />
-      <Showcase />
       <Compare />
       <CircleSection />
       <Closing busy={props.busy} err={props.err} onSignIn={props.onSignIn} />

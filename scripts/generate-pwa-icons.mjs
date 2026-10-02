@@ -115,12 +115,67 @@ function packIco(entries) {
   here. Its ambient field follows the app: the warm lobe top-left, the cool
   counter-lobe bottom-right.
 
-  Set in whatever grotesque the build host happens to have rather than in
-  Archivo. The card is rasterised outside the browser, so a webfont is not on
-  offer and the stack falls back honestly instead of pretending.
+  WHAT IT SAYS (2026-10-02). It used to read "Your whole portfolio, in plain
+  words. And when it falls, what actually changed." over the lockup, which
+  sold the product on the falls, the way the landing page did until the same
+  day. It carries the landing's own headline now, "Every move, explained.",
+  with the last word in the brand gold exactly as the hero sets it, and the
+  idea the landing's film plays drawn beside it as a still: chips in a knot
+  around the market's line, and one gold chip off on its own news.
+
+  THE CHIPS CARRY NO NAMES AND NO FIGURES, on purpose. On the landing the
+  film is labelled as a made-up week; a card pasted into a chat has no such
+  label around it, so a picture reading "$NVDA +6.2%, its own news" would be
+  read as a claim about a real company on a real day. The shape alone is the
+  lesson, and the two labels on it say which is which.
+
+  Set in Archivo and Geist when the machine running this has them (they are
+  the site's own faces), and in whatever grotesque it does have when it does
+  not. The card is rasterised outside the browser, so a webfont is not on
+  offer; install the two families locally before running this if the card
+  is meant to match the site.
 */
 const SANS =
-  "Archivo, Geist, ui-sans-serif, system-ui, -apple-system, Helvetica, Arial, sans-serif";
+  "Archivo SemiBold, Archivo, Geist, ui-sans-serif, system-ui, -apple-system, Helvetica, Arial, sans-serif";
+const BODY = "Geist, ui-sans-serif, system-ui, -apple-system, Helvetica, Arial, sans-serif";
+const MONO = "Geist Mono, ui-monospace, Menlo, Consolas, monospace";
+const GOLD = "#d4bc79";
+
+/* The headline's last word is the gold one, the way the landing sets it. */
+const [OG_LEAD, OG_GOLD] = (() => {
+  const line = PRODUCT_HEADLINE[0];
+  const cut = line.lastIndexOf(" ");
+  return cut > 0 ? [line.slice(0, cut), line.slice(cut + 1)] : [line, ""];
+})();
+
+/*
+  The still: a card on the right holding the film's picture. Positions are
+  laid out here by hand because this is a drawing rather than data, and
+  nothing on it is a figure.
+*/
+const CARD = { x: 744, y: 136, w: 372, h: 356 };
+const TRACK_Y = CARD.y + 282;
+const MARKET_X = CARD.x + 128;
+const chip = (cx, cy, standout = false) => {
+  const w = standout ? 104 : 98;
+  const h = 32;
+  const x = cx - w / 2;
+  const y = cy - h / 2;
+  const halo = standout
+    ? `<rect x="${x - 7}" y="${y - 7}" width="${w + 14}" height="${h + 14}" rx="${(h + 14) / 2}" fill="none" stroke="${GOLD}" stroke-opacity="0.38"/>
+    <rect x="${x - 15}" y="${y - 15}" width="${w + 30}" height="${h + 30}" rx="${(h + 30) / 2}" fill="none" stroke="${GOLD}" stroke-opacity="0.14"/>`
+    : "";
+  return `${halo}
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${h / 2}" fill="#141414" stroke="${standout ? GOLD : "#ffffff"}" stroke-opacity="${standout ? 0.95 : 0.22}" stroke-width="${standout ? 1.6 : 1}"/>
+    <circle cx="${x + 17}" cy="${cy}" r="5" fill="${standout ? GOLD : "#7a7a7a"}"/>
+    <rect x="${x + 30}" y="${cy - 3}" width="${w - 48}" height="6" rx="3" fill="${standout ? GOLD : "#ffffff"}" fill-opacity="${standout ? 0.55 : 0.16}"/>`;
+};
+const grid = [0, 1, 2, 3, 4, 5]
+  .map((i) => {
+    const x = CARD.x + 34 + i * 61;
+    return `<line x1="${x}" y1="${CARD.y + 70}" x2="${x}" y2="${TRACK_Y}" stroke="#ffffff" stroke-opacity="${x === MARKET_X ? 0 : 0.05}"/>`;
+  })
+  .join("");
 
 const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
   <defs>
@@ -132,23 +187,40 @@ const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" wi
       <stop offset="0%" stop-color="#60aaf3" stop-opacity="0.18"/>
       <stop offset="72%" stop-color="#60aaf3" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="og-rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff6dd" stop-opacity="0.38"/>
+      <stop offset="45%" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#cfe2ff" stop-opacity="0.18"/>
+    </linearGradient>
   </defs>
   <rect width="1200" height="630" fill="#000000"/>
   <rect width="1200" height="630" fill="url(#og-warm)"/>
   <rect width="1200" height="630" fill="url(#og-cool)"/>
-  <g transform="translate(98 176)">${upsideMarkSvg({ height: 96 })}</g>
-  <text x="242" y="248" font-family="${SANS}" font-size="38" letter-spacing="2.5" fill="#fafafa">
-    <tspan font-weight="700">UPSIDE</tspan><tspan font-weight="400" dx="14">LAB</tspan>
+
+  <g transform="translate(98 66)">${upsideMarkSvg({ height: 52 })}</g>
+  <text x="172" y="103" font-family="${SANS}" font-size="28" letter-spacing="2" fill="#fafafa">
+    <tspan font-weight="700">UPSIDE</tspan><tspan font-weight="400" dx="10">LAB</tspan>
   </text>
-  <text x="98" y="392" font-family="${SANS}" font-size="50" font-weight="600" letter-spacing="-1.3" fill="#fafafa">
-    ${PRODUCT_HEADLINE[0]}
-  </text>
-  <text x="98" y="450" font-family="${SANS}" font-size="50" font-weight="600" letter-spacing="-1.3" fill="#fafafa">
-    ${PRODUCT_HEADLINE[1]}
-  </text>
-  <text x="98" y="512" font-family="${SANS}" font-size="28" fill="#a1a1a1">
-    ${OG_CARD_LINE}
-  </text>
+
+  <text x="94" y="300" font-family="${SANS}" font-size="104" font-weight="600" letter-spacing="-4.6" fill="#fafafa">${OG_LEAD}</text>
+  <text x="94" y="404" font-family="${SANS}" font-size="104" font-weight="600" letter-spacing="-4.6" fill="${GOLD}">${OG_GOLD}</text>
+  <text x="98" y="468" font-family="${BODY}" font-size="31" fill="#a6a6a6">${PRODUCT_HEADLINE[1]}</text>
+  <text x="98" y="566" font-family="${BODY}" font-size="19" fill="#6e6e6e">${OG_CARD_LINE}</text>
+
+  <rect x="${CARD.x}" y="${CARD.y}" width="${CARD.w}" height="${CARD.h}" rx="26" fill="#0a0a0a" fill-opacity="0.82"/>
+  <rect x="${CARD.x + 0.5}" y="${CARD.y + 0.5}" width="${CARD.w - 1}" height="${CARD.h - 1}" rx="25.5" fill="none" stroke="url(#og-rim)"/>
+  ${grid}
+  <text x="${MARKET_X}" y="${CARD.y + 58}" text-anchor="middle" font-family="${MONO}" font-size="15" letter-spacing="2.2" fill="#a6a6a6">THE MARKET</text>
+  <line x1="${MARKET_X}" y1="${CARD.y + 70}" x2="${MARKET_X}" y2="${TRACK_Y}" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.4"/>
+  ${chip(MARKET_X + 18, TRACK_Y - 26)}
+  ${chip(MARKET_X - 10, TRACK_Y - 66)}
+  ${chip(MARKET_X + 22, TRACK_Y - 106)}
+  ${chip(MARKET_X - 6, TRACK_Y - 146)}
+  <text x="${CARD.x + CARD.w - 92}" y="${TRACK_Y - 70}" text-anchor="middle" font-family="${MONO}" font-size="15" letter-spacing="2.2" fill="${GOLD}">ITS OWN NEWS</text>
+  ${chip(CARD.x + CARD.w - 92, TRACK_Y - 26, true)}
+  <line x1="${CARD.x + 30}" y1="${TRACK_Y}" x2="${CARD.x + CARD.w - 30}" y2="${TRACK_Y}" stroke="#ffffff" stroke-opacity="0.28" stroke-width="1.2"/>
+  <rect x="${MARKET_X + 52}" y="${TRACK_Y - 7}" width="14" height="14" rx="2.5" fill="${GOLD}" stroke="#000000" stroke-width="4" paint-order="stroke" transform="rotate(45 ${MARKET_X + 59} ${TRACK_Y})"/>
+  <text x="${MARKET_X + 59}" y="${TRACK_Y + 36}" text-anchor="middle" font-family="${MONO}" font-size="15" letter-spacing="2.2" fill="${GOLD}">YOU</text>
 </svg>`;
 
 if (PRODUCT_HEADLINE.length !== 2) {

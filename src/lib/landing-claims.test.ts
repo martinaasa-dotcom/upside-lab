@@ -77,7 +77,7 @@ describe("what the page promises about who sees what", () => {
     const sample = read("src/lib/sample-portfolio.ts");
     const store = sample.slice(sample.indexOf("export function sampleDemoStore"));
     expect(store).not.toMatch(/\bprice\b(?!Price)/);
-    expect(landing).toMatch(/holdings on this card are made up/i);
+    expect(landing).toMatch(/holdings are made up/i);
     expect(landing).toMatch(/prices are real/i);
     expect(read("src/components/SignInGate.tsx")).toMatch(
       /holdings are made up and the prices\s*\n?\s*are real/i

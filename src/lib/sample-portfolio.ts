@@ -5,16 +5,14 @@ import type { Holding, Portfolio } from "@/lib/types";
 /**
  * One made-up portfolio, doing two jobs.
  *
- * The first job is the landing page. Every figure on the sample cards used
- * to be typed in beside the words it belonged to, and none of them agreed:
+ * The first job is the landing page's film (`landing-film.ts`), which
+ * plays a made-up week on five of these companies with these share counts,
+ * opening at `previousClose`. Every figure on the old sample cards used to
+ * be typed in beside the words it belonged to, and none of them agreed:
  * three of the eight holdings implied positions worth $143,000 inside an
- * $87,770 portfolio, the biggest-mover list left out a company that had
- * moved more than one it listed, and the three movers it did list summed to
- * exactly the day's whole move, which says the other five companies moved
- * nothing at all. A reader with a calculator finds that in a minute, on the
- * one card whose entire purpose is to be believed. So there is one list of
- * holdings here and the page derives the total, the day, the movers and
- * every share-of-the-portfolio sentence from it.
+ * $87,770 portfolio. A reader with a calculator finds that in a minute, on
+ * the one card whose entire purpose is to be believed. So there is one list
+ * of holdings here and every figure the page prints is derived from it.
  *
  * The second job is looking around. A stranger used to be asked to hand
  * over a Google account before seeing a single real screen. Now the same
@@ -26,9 +24,9 @@ import type { Holding, Portfolio } from "@/lib/types";
  * does, and the page says so in as many words. This app never puts a
  * modelled figure where a price goes, and a demo is not an exception.
  *
- * `previousClose` and `price` below are the frozen day the landing cards
- * draw, which is a made-up day and is labelled Sample wherever it appears.
- * They are never used to price anything inside the app.
+ * `previousClose` and `price` below are a frozen made-up day, labelled as
+ * made up wherever it appears. They are never used to price anything
+ * inside the app.
  *
  * Nobody real is in here. Four actual people's holdings used to sit in
  * `demo-store.ts` in a public repository, which is why that file has no
@@ -45,19 +43,15 @@ export type SampleHolding = {
   does: string;
   shares: number;
   buyPrice: number;
-  /** Yesterday's closing price on the made-up day the landing cards show. */
+  /** The price the landing's made-up week opens at. */
   previousClose: number;
-  /** Today's price on that same made-up day. */
+  /** A made-up close, which the checks on this sample add up against. */
   price: number;
 };
 
 /**
- * Eight companies almost anybody can name, on a day the whole market fell
- * and exactly one of them had news of its own. That is the day worth
- * showing, because it is the day the product is for: seven of these are
- * down because everything is down, and Microsoft is down because Microsoft
- * told investors something. Telling those two apart is the whole pitch, and
- * a sample full of gains demonstrates none of it.
+ * Eight companies almost anybody can name, a fund among them, because a
+ * sample of companies nobody has heard of teaches nothing.
  *
  * Some are up on what was paid for them and some are down, because a
  * portfolio where everything worked is not one anybody recognises.
@@ -153,33 +147,6 @@ export const SAMPLE_CASH = 640;
 /* One word: "Sample portfolio" did not fit its dock cell and read "Sample po...". */
 export const SAMPLE_PORTFOLIO_NAME = "Sample";
 
-/**
- * The company that had news of its own on the made-up day.
- *
- * ONE DAY, TOLD BY THE LANDING PAGE AND THE WALKTHROUGH ALIKE. They used to
- * play "which company had the news?" on two different made-up days, so a
- * reader who did both got two different answers. The walkthrough's rules won
- * (Martin's call, 2026-09-25): eight falls, seven of them within a point of
- * the fund that is the market, and one company about eight times further out
- * on its own news. `tour-sample-day.ts` now reads this list rather than
- * keeping its own.
- */
-export const SAMPLE_NEWS_TICKER = "NKE";
-
-/** The fund that stands in for the whole market on the made-up day. */
-export const SAMPLE_MARKET_TICKER = "VOO";
-
-/**
- * The biggest faller in dollars that did NOT have news. The landing's first
- * card names it, and it must never be the news company, or the sentence
- * "there was no news about it today" is false.
- */
-export function sampleBiggestMarketMover(): SampleHolding {
-  return [...SAMPLE_HOLDINGS]
-    .filter((row) => row.ticker !== SAMPLE_NEWS_TICKER)
-    .sort((a, b) => Math.abs(sampleDayDollars(b)) - Math.abs(sampleDayDollars(a)))[0]!;
-}
-
 /** One holding by its symbol. Throws rather than returning undefined, so a
  *  typo in a call site fails at once instead of printing "n/a" at a reader. */
 export function sampleHoldingBy(ticker: string): SampleHolding {
@@ -188,24 +155,12 @@ export function sampleHoldingBy(ticker: string): SampleHolding {
   return row;
 }
 
-export function sampleCompany(ticker: string): string {
-  return sampleHoldingBy(ticker).company;
-}
-
 /** What a holding is worth on the made-up day. */
 export function sampleValue(row: SampleHolding): number {
   return row.shares * row.price;
 }
 
-/** What that holding moved today, in money. */
-export function sampleDayDollars(row: SampleHolding): number {
-  return row.shares * (row.price - row.previousClose);
-}
 
-/** What that holding moved today, as a fraction. */
-export function sampleDayFraction(row: SampleHolding): number {
-  return row.price / row.previousClose - 1;
-}
 
 /** Everything the companies are worth, cash left out. */
 export function sampleStocksValue(): number {
@@ -225,21 +180,7 @@ export function sampleCostValue(): number {
   );
 }
 
-/** The whole portfolio's move today, in money. Negative on this day. */
-export function sampleDayTotal(): number {
-  return SAMPLE_HOLDINGS.reduce((sum, row) => sum + sampleDayDollars(row), 0);
-}
 
-/**
- * The whole portfolio's move today as a fraction, measured against what
- * the companies were worth at last night's close. Cash is left out of both
- * halves: cash did not move, and dividing a stock move by a total that
- * includes it quietly understates the day.
- */
-export function sampleDayFractionTotal(): number {
-  const before = sampleStocksValue() - sampleDayTotal();
-  return sampleDayTotal() / before;
-}
 
 /** Gain since it was bought, in money. */
 export function sampleAllTimeDollars(): number {
@@ -251,34 +192,8 @@ export function sampleAllTimeFraction(): number {
   return sampleAllTimeDollars() / sampleCostValue();
 }
 
-/**
- * How much of the portfolio one company is, as a fraction of everything
- * including cash. This is the figure sentences like "Microsoft is 9% of
- * what you hold" are built from, and it has to come from here rather than
- * from somebody's arithmetic in a string.
- */
-export function sampleShareOfPortfolio(ticker: string): number {
-  return sampleValue(sampleHoldingBy(ticker)) / sampleTotalValue();
-}
 
-/**
- * The companies that moved the portfolio most today, biggest first.
- *
- * By the size of the move in money, not by percent: the point of the list
- * is which companies made the day what it was, and a 5% move on a small
- * holding did less than a 2% move on a large one. Ranking by percent is
- * what left a company that lost more than any of them off the old list.
- */
-export function sampleMovers(count = 3): SampleHolding[] {
-  return [...SAMPLE_HOLDINGS]
-    .sort((a, b) => Math.abs(sampleDayDollars(b)) - Math.abs(sampleDayDollars(a)))
-    .slice(0, count);
-}
 
-/** How many of the eight finished the made-up day down. */
-export function sampleFallingCount(): number {
-  return SAMPLE_HOLDINGS.filter((row) => sampleDayDollars(row) < 0).length;
-}
 
 /* ------------------------------------------------- looking around */
 

@@ -6,7 +6,7 @@
 // Relative on purpose: next.config.ts imports this file, and the config
 // transpiler follows relative imports only -- an `@/` alias here makes
 // `next start` fail to load the config at boot.
-import { MARK_ASSET_VERSION } from "./brand/mark-version";
+import { OG_CARD_VERSION } from "./brand/og-version";
 
 /** URLs that may be indexed and used as share cards. */
 export const PUBLIC_INDEX_PATHS = [
@@ -76,6 +76,8 @@ export const BOOK_ROOM_PATHS = [
   "/margus",
 ] as const;
 
-export const OG_IMAGE_PATH = `/og.png?v=${MARK_ASSET_VERSION}`;
+/* Versioned by the card's own bytes, so a new card is a new URL to every
+   unfurler that cached the old one. See `src/lib/brand/og-version.ts`. */
+export const OG_IMAGE_PATH = `/og.png?v=${OG_CARD_VERSION}`;
 export const OG_IMAGE_WIDTH = 1200;
 export const OG_IMAGE_HEIGHT = 630;

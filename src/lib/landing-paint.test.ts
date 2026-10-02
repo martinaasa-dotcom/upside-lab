@@ -54,14 +54,15 @@ describe("the landing hero lamps stay with the window", () => {
     expect(CSS).not.toContain(".sample-still");
     expect(LANDING).not.toMatch(/ring-0/);
     /*
-      Same glass shell as Pulse: the rim stays, only the private glow goes.
-      Matched rather than compared, because the sample card also carries
-      `@container` now: it is drawn at 768px in the hero and at 336px in
-      the sign-in column at the same viewport, so what decides its layout
-      has to be the room it has rather than the width of the window.
+      Same glass shell as every card in the app: the rim stays, only a
+      private glow would go. The sample is the film now, drawn in its own
+      file and used by the hero, the sign-in column and the walkthrough,
+      so the shell is asserted where it lives.
     */
-    expect(LANDING).toMatch(/className="(?:@container )?h-auto gap-5 p-5"/);
-    expect(LANDING).toContain("items-start");
+    const FILM = readFileSync("src/components/landing/PulseFilm.tsx", "utf8");
+    expect(FILM).toMatch(/"film card-sheen glass [^"]*ring-1/);
+    expect(FILM).not.toMatch(/ambient-glow/);
+    expect(LANDING).toContain("<PulseFilm");
   });
 });
 

@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { ViewportOverlay } from "@/components/ui/ViewportOverlay";
+import { PulseFilm } from "@/components/landing/PulseFilm";
 import { AddHoldingsScreen } from "@/components/tour/AddHoldingsScreen";
 import {
   AboutYouScreen,
@@ -11,9 +12,7 @@ import {
   type Q2Answer,
 } from "@/components/tour/AboutYouScreen";
 import { FirstWeekScreen } from "@/components/tour/FirstWeekScreen";
-import { GroundRulesScreen, RULES } from "@/components/tour/GroundRulesScreen";
-import { RedDayScreen } from "@/components/tour/RedDayScreen";
-import { RoomsScreen } from "@/components/tour/RoomsScreen";
+import { PromisesScreen } from "@/components/tour/PromisesScreen";
 import { WatchScreen } from "@/components/tour/WatchScreen";
 import {
   EXPERIENCE_TIERS,
@@ -34,38 +33,35 @@ import {
   type Stage,
 } from "@/lib/welcome-tour";
 import { loadWatchlist, saveWatchlist } from "@/lib/watchlist";
+import { ChevronLeft } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 /*
   The walkthrough somebody gets on their way in.
 
-  ## Every screen wants a tap before it wants a read
+  ## One picture, one title, one line
 
-  The version this replaces explained the app in eleven screens of prose,
-  and it was honest, careful prose that people scrolled past. The trouble
-  with explaining a product on the way in is that nobody has any reason to
-  care yet: they have not seen the thing the explanation is about. So every
-  screen here is something to do, and the explaining happens underneath the
-  doing, in one line at a time.
+  The version before this one was seven screens that each wanted a tap,
+  which was right, and a paragraph or three on every one of them, which was
+  not: Martin's word for it was walls of text. What a person is willing to
+  read on the way into an app is close to nothing, so every screen is now
+  a picture or a control that carries the screen, a title, and one line
+  saying what to do with it.
 
-    Screen one is the whole product as a question. Eight red rows, one of
-    which had news, and which one? Answering that by hand is what makes
-    Pulse mean something afterwards, and nothing said in a sentence ever
-    did.
+    Welcome plays the same made-up week the landing page plays: five
+    companies, the market as a line through them, and a caption for
+    whatever stood out. It replaced a red day to solve, which taught the
+    idea by opening on a loss.
 
-    The ground rules are sorted rather than listed, because the two that
-    matter are the two people arrive believing the opposite of.
+    Three promises, at a glance, in place of a four-step true-or-not quiz.
 
-    The bar along the bottom is a working miniature you press, not six
-    cards about rooms.
+    The two questions, three taps each.
 
-    The two questions about the reader sit beside a small Home that loses
-    the Lab glyph and the covered calls row as they answer, so the promise
-    is shown rather than made.
+    Then their holdings (only when they have none), something to watch,
+    and a short finish with the Sunday email switch.
 
-    Then their own holdings, with a live price said back to them; one
-    company to watch, with a live price said back to them; and a short list
-    of what to do this week with the first line already ticked.
+  The bar along the bottom is no longer taught here. It teaches itself:
+  every room says its own name the moment it is pressed.
 
   ## What the shell guarantees, and must keep guaranteeing
 
@@ -76,7 +72,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
     pinned below, so no screen can push the way forward off a short phone.
 
     Skip means one thing: leaving the walkthrough. Never a step, never a
-    field. The forward button is always Next, then Finish.
+    field. The forward button is always Next, then Finish, and it is the
+    only forward button on any screen.
 
     Nothing is required. Every screen can be passed with Next, and leaving
     keeps whatever was answered before it was left.
@@ -153,19 +150,6 @@ export function WelcomeTour({
   */
   const [listOpen, setListOpen] = useState(false);
 
-  /*
-    The ground rules' own place in their sequence, lifted out of the screen.
-
-    It has to live here because the footer is the only way forward: the
-    screen used to own this and draw a second forward button inside its
-    card, so the pinned "Next" under the thumb jumped the whole stage and
-    threw away every claim after the first. `onNext` steps this before it
-    steps the stage, and Back steps it in reverse, so a claim is never
-    skipped by pressing the obvious button.
-  */
-  const [ruleAt, setRuleAt] = useState(0);
-  const [rulePicked, setRulePicked] = useState<boolean | null>(null);
-
   const [watching, setWatching] = useState<string[]>([]);
   useEffect(() => {
     setWatching(loadWatchlist());
@@ -177,7 +161,7 @@ export function WelcomeTour({
   */
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
-  }, [index, ruleAt]);
+  }, [index]);
 
   function go(delta: number) {
     setIndex((i) => Math.min(Math.max(i + delta, 0), stages.length - 1));
@@ -245,11 +229,6 @@ export function WelcomeTour({
   }
 
   function onBack() {
-    if (stage === "rules" && ruleAt > 0) {
-      setRulePicked(null);
-      setRuleAt((i) => i - 1);
-      return;
-    }
     go(-1);
   }
 
@@ -262,11 +241,6 @@ export function WelcomeTour({
   const nextLabel = saving ? "Saving …" : "Next";
 
   function onNext() {
-    if (stage === "rules" && ruleAt < RULES.length - 1) {
-      setRulePicked(null);
-      setRuleAt((i) => i + 1);
-      return;
-    }
     if (stage === "watchlist") saveWatchlist(watching);
     /*
       Settled here rather than on the last screen's own render, so the
@@ -279,7 +253,7 @@ export function WelcomeTour({
 
   return (
     <ViewportOverlay
-      className="z-[200] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      className="z-[200] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-4"
       ariaLabelledBy={HEADING_ID}
       /*
         Escape leaves, and leaving is the same as finishing: whatever was
@@ -299,151 +273,152 @@ export function WelcomeTour({
       }}
     >
       {/*
-        The one overlay in the app that was not on the shared pad.
-
-        Every modal moved to `.modal-pad` (16px sides on a phone, 24 from
-        `sm`, with the vertical one step looser) and the walkthrough kept
-        `p-4 sm:p-6`, which is the same sides and a tighter vertical: one
-        surface answering the same question its own way. `.modal-bleed`
-        below already assumes exactly those sides, so the two classes are
-        a pair and this is the half that was missing.
+        On the shared pad (`.modal-pad`, 16px sides on a phone and 24 from
+        `sm`), which `.modal-bleed` below assumes. `max-w-lg` on every
+        width: one column of short screens reads better narrow, and the
+        film on the first screen is drawn for a column. One fixed height
+        rather than a cap, so stepping from a long screen to a short one
+        does not make the frame jump under the reader's thumb.
       */}
-      <div className="glass-overlay modal-pad flex max-h-[min(100%,44rem)] w-full max-w-md flex-col overflow-hidden rounded-xl ring-1 ring-foreground/20 sm:max-w-2xl">
-        {/* Progress. Segments rather than labels: seven labels do not fit a phone. */}
-        <div className="mb-5 shrink-0">
-          <div className="flex gap-1" aria-hidden>
-            {stages.map((s, i) => (
-              <span
-                key={s}
-                className={cn(
-                  "h-1 min-w-0 flex-1 rounded-full transition-colors",
-                  i <= index ? "bg-primary" : "bg-muted"
-                )}
-              />
-            ))}
-          </div>
-          <p className="mt-2 text-sm tabular-nums text-muted-foreground">
-            Step {index + 1} of {stages.length} · {STAGE_LABEL[stage]}
-          </p>
-        </div>
-
+      <div className="glass-overlay modal-pad flex h-[min(100%,44rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl ring-1 ring-foreground/20">
         {/*
-          The one scroller, with the progress pinned above it and the footer
-          pinned below. A screen can be long, and the way forward is still on
-          screen at every width, which on a short phone is the whole
-          difference between a walkthrough and a trap.
+          Progress, and the way out, on one line. Segments rather than
+          labels: six labels do not fit a phone. The step's own name sits
+          under them for a screen reader and a curious eye.
         */}
-        <div
-          ref={scrollRef}
-          className="scroll-host modal-bleed flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
-        >
-          <div className="flex flex-col gap-2">
-            <h2
-              id={HEADING_ID}
-              className="text-lg font-semibold text-foreground"
-            >
-              {copy.title}
-            </h2>
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              {copy.lede}
+        <div className="mb-4 flex shrink-0 items-center gap-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <div className="flex gap-1.5" aria-hidden>
+              {stages.map((s, i) => (
+                <span
+                  key={s}
+                  className="relative h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-foreground/15"
+                >
+                  <span
+                    className={cn(
+                      "absolute inset-0 origin-left rounded-full bg-primary transition-transform duration-500 ease-out motion-reduce:transition-none",
+                      i <= index ? "scale-x-100" : "scale-x-0"
+                    )}
+                  />
+                </span>
+              ))}
+            </div>
+            <p className="font-mono text-xs uppercase tracking-[0.12em] text-muted-foreground tabular-nums">
+              {index + 1} of {stages.length} · {STAGE_LABEL[stage]}
             </p>
           </div>
-
-          {stage === "day" && <RedDayScreen />}
-
-          {stage === "rules" && (
-            <GroundRulesScreen
-              at={ruleAt}
-              picked={rulePicked}
-              onPick={setRulePicked}
-            />
-          )}
-
-          {stage === "rooms" && <RoomsScreen />}
-
-          {stage === "you" && (
-            <AboutYouScreen q1={q1} q2={q2} onQ1={setQ1} onQ2={setQ2} />
-          )}
-
-          {stage === "holdings" && (
-            <AddHoldingsScreen
-              added={added}
-              onAdded={setAdded}
-              listOpen={listOpen}
-              onListOpen={setListOpen}
-            />
-          )}
-
-          {stage === "watchlist" && (
-            <WatchScreen watching={watching} onWatching={setWatching} />
-          )}
-
-          {stage === "week" && (
-            <FirstWeekScreen
-              noteSunday={noteSunday}
-              onNoteSunday={setNoteSunday}
-            />
-          )}
-        </div>
-
-        {/*
-          One footer, the same on every screen.
-
-          Back on the left where it is ignorable, the way forward on the right
-          where the thumb is, and the way out in between as the quietest thing
-          on the row. Nothing here moves between steps except the words.
-
-          The way out is on every screen rather than only the first. It used
-          to be the left-hand button, which Back replaced from step two
-          onwards, so from the second screen on the only exits were Escape
-          and finishing, and a phone has no Escape. A walkthrough with no
-          door after the first room is a wall.
-
-          `flex-wrap` with `ms-auto` on the link so a 320px phone drops it to
-          its own line rather than squeezing the two buttons.
-        */}
-        <div className="mt-5 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-border pt-4">
-          {index > 0 || (stage === "rules" && ruleAt > 0) ? (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onBack}
-              disabled={saving}
-            >
-              Back
-            </Button>
-          ) : null}
-
           {/*
             A `Button`, not a bare `<button>` with link styling. The touch
             target rule in globals.css keys off `data-slot="button"`, so a
             hand-rolled one is a 20px tap target on the phone where it
             matters most, and this is the only way out of the walkthrough.
+            On every screen but the last, where Finish does the same thing.
           */}
-          {/* On the last screen Finish and Skip both close it, so one button. */}
-          {!last && (
+          {!last ? (
             <Button
               type="button"
               variant="ghost"
+              size="sm"
               onClick={() => void leave(true)}
               disabled={saving}
-              className="ms-auto font-normal text-muted-foreground"
+              className="shrink-0 font-normal text-muted-foreground"
             >
-              Skip the tour
+              Skip
             </Button>
-          )}
+          ) : null}
+        </div>
+
+        {/*
+          The one scroller, with the progress pinned above it and the footer
+          pinned below. Keyed on the step so each screen arrives with a short
+          rise, and the scroll position starts at the top.
+        */}
+        <div
+          ref={scrollRef}
+          className="scroll-host modal-bleed flex min-h-0 flex-1 flex-col overflow-y-auto"
+        >
+          <div key={stage} className="tour-step flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              {/*
+                One step up the scale from a modal's own title, on a child,
+                which is the sanctioned way to ask the heading scale for a
+                size it does not have (heading-scale.test.ts).
+              */}
+              <h2 id={HEADING_ID} className="text-foreground">
+                <span className="block text-balance text-2xl tracking-[-0.03em]">
+                  {copy.title}
+                </span>
+              </h2>
+              <p className="text-base leading-snug text-muted-foreground">
+                {copy.lede}
+              </p>
+            </div>
+
+            {stage === "welcome" && <PulseFilm compact />}
+
+            {stage === "promises" && <PromisesScreen />}
+
+            {stage === "you" && (
+              <AboutYouScreen q1={q1} q2={q2} onQ1={setQ1} onQ2={setQ2} />
+            )}
+
+            {stage === "holdings" && (
+              <AddHoldingsScreen
+                added={added}
+                onAdded={setAdded}
+                listOpen={listOpen}
+                onListOpen={setListOpen}
+              />
+            )}
+
+            {stage === "watchlist" && (
+              <WatchScreen watching={watching} onWatching={setWatching} />
+            )}
+
+            {stage === "week" && (
+              <FirstWeekScreen
+                noteSunday={noteSunday}
+                onNoteSunday={setNoteSunday}
+              />
+            )}
+          </div>
+        </div>
+
+        {/*
+          One footer, the same on every screen: Back small on the left where
+          it is ignorable, and the way forward large on the right where the
+          thumb is. Nothing here moves between steps except the word.
+        */}
+        <div className="mt-4 flex shrink-0 items-center gap-3 border-t border-border pt-3">
+          {index > 0 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onBack}
+              disabled={saving}
+              className="gap-1 px-3 text-muted-foreground"
+            >
+              <ChevronLeft data-icon="inline-start" />
+              Back
+            </Button>
+          ) : null}
 
           {last ? (
             <Button
               type="button"
-              className="ms-auto"
+              className="ms-auto h-11 min-w-36 rounded-full px-6 text-base"
               disabled={saving}
               onClick={() => void leave(false)}
             >
               {saving ? "Saving …" : "Finish"}
             </Button>
           ) : (
-            <Button type="button" onClick={onNext} disabled={saving}>
+            <Button
+              type="button"
+              className="ms-auto h-11 min-w-36 rounded-full px-6 text-base"
+              onClick={onNext}
+              disabled={saving}
+            >
               {nextLabel}
             </Button>
           )}

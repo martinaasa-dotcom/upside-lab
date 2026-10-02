@@ -53,7 +53,7 @@ describe("the landing page is drawn, not revealed", () => {
       expect(
         block,
         "a SectionHead that arrives without the row it is the heading of"
-      ).toMatch(/<(div|PulseStill|MargusStill)/);
+      ).toMatch(/<(div|FeatureTiles)/);
     }
   });
 
