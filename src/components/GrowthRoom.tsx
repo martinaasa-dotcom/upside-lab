@@ -120,7 +120,7 @@ export function GrowthRoom(props: Props) {
         <PanelHeader
           icon={<Sprout className="h-4 w-4" />}
           title="Growth"
-          subtitle="What money becomes if you leave it alone, and whether that is enough to stop working on."
+          subtitle="What your money becomes, and when it is enough."
         />
         <Segmented
           options={TABS}
